@@ -1,0 +1,104 @@
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      channel:
+        description: Release channel
+        type: choice
+        required: true
+        default: stable
+        options:
+          - stable
+          - beta
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+          registry-url: https://registry.npmjs.org
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Type check
+        run: pnpm type-check
+
+      - name: Test
+        run: pnpm test
+
+      - name: Build
+        run: pnpm build
+
+      - name: Release Please (stable)
+        id: release
+        if: github.event.inputs.channel != 'beta'
+        uses: googleapis/release-please-action@v4
+        with:
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
+
+      - name: Release Please (beta)
+        id: release_beta
+        if: github.event.inputs.channel == 'beta'
+        uses: googleapis/release-please-action@v4
+        with:
+          config-file: release-please-config.beta.json
+          manifest-file: .release-please-manifest-beta.json
+
+      - name: Resolve release outputs
+        id: release_outputs
+        run: |
+          if [ "${{ github.event.inputs.channel }}" = "beta" ]; then
+            echo "releases_created=${{ steps.release_beta.outputs.releases_created }}" >> "$GITHUB_OUTPUT"
+            echo "paths_released=${{ steps.release_beta.outputs.paths_released }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "releases_created=${{ steps.release.outputs.releases_created }}" >> "$GITHUB_OUTPUT"
+            echo "paths_released=${{ steps.release.outputs.paths_released }}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Publish packages
+        if: steps.release_outputs.outputs.releases_created == 'true'
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+          PATHS_RELEASED: ${{ steps.release_outputs.outputs.paths_released }}
+          PUBLISH_TAG: ${{ github.event.inputs.channel == 'beta' && 'beta' || 'latest' }}
+        run: |
+          node -e "
+          const { execSync } = require('node:child_process');
+          const paths = JSON.parse(process.env.PATHS_RELEASED || '[]');
+          if (!paths.length) {
+            console.log('No released packages to publish.');
+            process.exit(0);
+          }
+          for (const p of paths) {
+            const selector = p.startsWith('.') ? p : './' + p;
+            console.log('Publishing ' + selector + '...');
+            const cmd = 'pnpm --filter ' + selector + ' publish --access public --no-git-checks --tag ' + process.env.PUBLISH_TAG;
+            execSync(cmd, { stdio: 'inherit' });
+          }
+          "

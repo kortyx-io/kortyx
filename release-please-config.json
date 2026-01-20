@@ -1,0 +1,48 @@
+{
+  "$schema": "https://raw.githubusercontent.com/googleapis/release-please/main/schemas/config.json",
+  "release-type": "node",
+  "include-component-in-tag": true,
+  "separate-pull-requests": false,
+  "packages": {
+    "packages/agent": {
+      "package-name": "@kortyx/agent",
+      "component": "agent"
+    },
+    "packages/cli": {
+      "package-name": "@kortyx/cli",
+      "component": "cli"
+    },
+    "packages/core": {
+      "package-name": "@kortyx/core",
+      "component": "core"
+    },
+    "packages/hooks": {
+      "package-name": "@kortyx/hooks",
+      "component": "hooks"
+    },
+    "packages/kortyx": {
+      "package-name": "kortyx",
+      "component": "kortyx"
+    },
+    "packages/memory": {
+      "package-name": "@kortyx/memory",
+      "component": "memory"
+    },
+    "packages/providers": {
+      "package-name": "@kortyx/providers",
+      "component": "providers"
+    },
+    "packages/runtime": {
+      "package-name": "@kortyx/runtime",
+      "component": "runtime"
+    },
+    "packages/stream": {
+      "package-name": "@kortyx/stream",
+      "component": "stream"
+    },
+    "packages/utils": {
+      "package-name": "@kortyx/utils",
+      "component": "utils"
+    }
+  }
+}
