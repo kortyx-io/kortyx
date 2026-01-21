@@ -1,12 +1,12 @@
 {
-  "packages/agent": "0.1.0",
-  "packages/cli": "0.0.1",
-  "packages/core": "0.1.0",
-  "packages/hooks": "0.1.0",
-  "packages/kortyx": "0.1.0",
-  "packages/memory": "0.1.0",
-  "packages/providers": "0.1.0",
-  "packages/runtime": "0.1.0",
-  "packages/stream": "0.1.2",
-  "packages/utils": "0.1.0"
+  "packages/agent": "0.2.0",
+  "packages/cli": "0.1.0",
+  "packages/core": "0.2.0",
+  "packages/hooks": "0.2.0",
+  "packages/kortyx": "0.2.0",
+  "packages/memory": "0.2.0",
+  "packages/providers": "0.2.0",
+  "packages/runtime": "0.2.0",
+  "packages/stream": "0.2.0",
+  "packages/utils": "0.2.0"
 }
