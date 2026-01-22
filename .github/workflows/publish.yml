@@ -43,7 +43,6 @@ jobs:
         run: pnpm build
 
       - name: Release Please (stable)
-        id: release
         if: github.event.inputs.channel != 'beta'
         uses: googleapis/release-please-action@v4
         with:
@@ -51,46 +50,99 @@ jobs:
           manifest-file: .release-please-manifest.json
 
       - name: Release Please (beta)
-        id: release_beta
         if: github.event.inputs.channel == 'beta'
         uses: googleapis/release-please-action@v4
         with:
           config-file: release-please-config.beta.json
           manifest-file: .release-please-manifest-beta.json
 
-      - name: Resolve release outputs
-        id: release_outputs
-        run: |
-          if [ "${{ github.event.inputs.channel }}" = "beta" ]; then
-            echo "releases_created=${{ steps.release_beta.outputs.releases_created }}" >> "$GITHUB_OUTPUT"
-            echo "paths_released=${{ steps.release_beta.outputs.paths_released }}" >> "$GITHUB_OUTPUT"
-          else
-            echo "releases_created=${{ steps.release.outputs.releases_created }}" >> "$GITHUB_OUTPUT"
-            echo "paths_released=${{ steps.release.outputs.paths_released }}" >> "$GITHUB_OUTPUT"
-          fi
-
       - name: Publish packages
-        if: steps.release_outputs.outputs.releases_created == 'true'
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
-          PATHS_RELEASED: ${{ steps.release_outputs.outputs.paths_released }}
           PUBLISH_TAG: ${{ github.event.inputs.channel == 'beta' && 'beta' || 'latest' }}
         run: |
           node -e "
           const { execSync } = require('node:child_process');
-          const raw = process.env.PATHS_RELEASED || '';
-          const paths = raw
-            ? raw.split(',').map((p) => p.trim()).filter(Boolean)
-            : [];
-          if (!paths.length) {
-            console.log('No released packages to publish.');
-            process.exit(0);
+          const { readdirSync, readFileSync } = require('node:fs');
+          const { join } = require('node:path');
+
+          const root = process.cwd();
+          const packagesDir = join(root, 'packages');
+          const entries = readdirSync(packagesDir, { withFileTypes: true })
+            .filter((d) => d.isDirectory())
+            .map((d) => d.name);
+
+          const pkgs = [];
+          for (const dirName of entries) {
+            const relDir = join('packages', dirName);
+            const pkgPath = join(root, relDir, 'package.json');
+            const pkg = JSON.parse(readFileSync(pkgPath, 'utf8'));
+            if (pkg.private) continue;
+            const deps = {
+              ...(pkg.dependencies || {}),
+              ...(pkg.peerDependencies || {}),
+              ...(pkg.optionalDependencies || {})
+            };
+            pkgs.push({
+              dir: relDir,
+              name: pkg.name,
+              version: pkg.version,
+              deps
+            });
           }
-          for (const p of paths) {
-            const selector = p.startsWith('.') ? p : './' + p;
-            console.log('Publishing ' + selector + '...');
-            const cmd = 'pnpm --filter ' + selector + ' publish --access public --no-git-checks --tag ' + process.env.PUBLISH_TAG;
+
+          const nameToPkg = new Map(pkgs.map((p) => [p.name, p]));
+          const graph = new Map();
+          const indeg = new Map();
+          for (const p of pkgs) {
+            graph.set(p.name, []);
+            indeg.set(p.name, 0);
+          }
+          for (const p of pkgs) {
+            const internalDeps = Object.keys(p.deps || {}).filter((n) => nameToPkg.has(n));
+            for (const depName of internalDeps) {
+              graph.get(depName).push(p.name);
+              indeg.set(p.name, indeg.get(p.name) + 1);
+            }
+          }
+
+          const queue = [];
+          for (const [name, deg] of indeg.entries()) {
+            if (deg === 0) queue.push(name);
+          }
+          const order = [];
+          while (queue.length) {
+            const name = queue.shift();
+            order.push(name);
+            for (const next of graph.get(name)) {
+              indeg.set(next, indeg.get(next) - 1);
+              if (indeg.get(next) === 0) queue.push(next);
+            }
+          }
+          if (order.length !== pkgs.length) {
+            console.log('Warning: dependency cycle detected; falling back to directory order.');
+            order.length = 0;
+            for (const p of pkgs) order.push(p.name);
+          }
+
+          const tag = process.env.PUBLISH_TAG || 'latest';
+          for (const name of order) {
+            const p = nameToPkg.get(name);
+            const full = p.name + '@' + p.version;
+            let exists = true;
+            try {
+              execSync('npm view ' + full + ' version', { stdio: 'ignore' });
+            } catch {
+              exists = false;
+            }
+            if (exists) {
+              console.log('Skipping ' + full + ' (already on npm)');
+              continue;
+            }
+            const selector = './' + p.dir;
+            console.log('Publishing ' + selector + ' as ' + full + '...');
+            const cmd = 'pnpm --filter ' + selector + ' publish --access public --no-git-checks --tag ' + tag;
             execSync(cmd, { stdio: 'inherit' });
           }
           "
