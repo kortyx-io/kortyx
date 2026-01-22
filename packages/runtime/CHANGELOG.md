@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.2](https://github.com/kortyx-io/kortyx/compare/runtime-v0.2.1...runtime-v0.2.2) (2026-01-22)
+
+
+### Bug Fixes
+
+* add repo info ([e1faa47](https://github.com/kortyx-io/kortyx/commit/e1faa4704c35e9ca7f9bbfd85ab8672f94d389bd))
+
 ## [0.2.1](https://github.com/kortyx-io/kortyx/compare/runtime-v0.2.0...runtime-v0.2.1) (2026-01-22)
 
 
