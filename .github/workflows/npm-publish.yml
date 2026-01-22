@@ -146,7 +146,8 @@ jobs:
             execSync('mkdir -p ' + packDir);
 
             console.log('Packing ' + selector + '...');
-            execSync('pnpm --filter ' + selector + ' pack --pack-destination ' + packDir, { stdio: 'inherit' });
+            const packCmd = 'pnpm --dir ' + selector + ' pack --pack-destination ' + packDir;
+            execSync(packCmd, { stdio: 'inherit' });
 
             const tarballName = p.name.startsWith('@')
               ? p.name.slice(1).replace('/', '-') + '-' + p.version + '.tgz'
