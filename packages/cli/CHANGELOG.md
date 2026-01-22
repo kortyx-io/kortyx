@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.1](https://github.com/kortyx-io/kortyx/compare/cli-v0.1.0...cli-v0.1.1) (2026-01-22)
+
+
+### Bug Fixes
+
+* test release ([42228be](https://github.com/kortyx-io/kortyx/commit/42228be5fad0993d06f8fd941bd4a1640a7712d9))
+
 ## [0.1.0](https://github.com/kortyx-io/kortyx/compare/cli-v0.0.1...cli-v0.1.0) (2026-01-21)
 
 
