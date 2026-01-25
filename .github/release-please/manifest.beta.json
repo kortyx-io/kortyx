@@ -9,5 +9,5 @@
   "packages/runtime": "0.1.0",
   "packages/stream": "0.1.2",
   "packages/utils": "0.1.0",
-  "examples/kortyx-nextjs-chat": "0.0.0"
+  "examples/kortyx-nextjs-chat": "0.1.0"
 }
