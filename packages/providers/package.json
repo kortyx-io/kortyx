@@ -1,6 +1,6 @@
 {
   "name": "@kortyx/providers",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "private": false,
   "description": "Provider integrations (LLMs and related services) for Kortyx.",
   "keywords": [
