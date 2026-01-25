@@ -23,12 +23,12 @@
       "outputs": []
     },
     "type-check": {
-      "dependsOn": ["^type-check"],
+      "dependsOn": ["^build", "^type-check"],
       "outputs": [],
       "cache": false
     },
     "test": {
-      "dependsOn": ["^test"],
+      "dependsOn": ["^build", "^test"],
       "outputs": [],
       "cache": false
     },
