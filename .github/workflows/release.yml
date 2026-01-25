@@ -53,13 +53,13 @@ jobs:
         if: github.event.inputs.channel != 'beta'
         uses: googleapis/release-please-action@v4
         with:
-          config-file: release-please-config.json
-          manifest-file: .release-please-manifest.json
+          config-file: .github/release-please/config.json
+          manifest-file: .github/release-please/manifest.json
 
       - name: Release Please (beta)
         id: release_beta
         if: github.event.inputs.channel == 'beta'
         uses: googleapis/release-please-action@v4
         with:
-          config-file: release-please-config.beta.json
-          manifest-file: .release-please-manifest-beta.json
+          config-file: .github/release-please/config.beta.json
+          manifest-file: .github/release-please/manifest.beta.json
