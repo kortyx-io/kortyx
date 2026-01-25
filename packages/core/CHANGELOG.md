@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.3](https://github.com/kortyx-io/kortyx/compare/core-v0.2.2...core-v0.2.3) (2026-01-25)
+
+
+### Bug Fixes
+
+* package scripts and dist ([0ed75d3](https://github.com/kortyx-io/kortyx/commit/0ed75d362230a5eddc83b269d14cb787fbf84fb8))
+
 ## [0.2.2](https://github.com/kortyx-io/kortyx/compare/core-v0.2.1...core-v0.2.2) (2026-01-22)
 
 

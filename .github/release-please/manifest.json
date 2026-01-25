@@ -1,13 +1,13 @@
 {
-  "packages/agent": "0.2.2",
-  "packages/cli": "0.1.2",
-  "packages/core": "0.2.2",
-  "packages/hooks": "0.2.2",
-  "packages/kortyx": "0.2.2",
-  "packages/memory": "0.2.2",
-  "packages/providers": "0.2.2",
-  "packages/runtime": "0.2.2",
-  "packages/stream": "0.2.2",
-  "packages/utils": "0.2.2",
-  "examples/kortyx-nextjs-chat": "0.1.0"
+  "packages/agent": "0.3.0",
+  "packages/cli": "0.1.3",
+  "packages/core": "0.2.3",
+  "packages/hooks": "0.2.3",
+  "packages/kortyx": "0.2.3",
+  "packages/memory": "0.2.3",
+  "packages/providers": "0.2.3",
+  "packages/runtime": "0.3.0",
+  "packages/stream": "0.2.3",
+  "packages/utils": "0.2.3",
+  "examples/kortyx-nextjs-chat": "0.2.0"
 }

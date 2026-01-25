@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.3.0](https://github.com/kortyx-io/kortyx/compare/runtime-v0.2.2...runtime-v0.3.0) (2026-01-25)
+
+
+### Features
+
+* add new example project ([dae4ad0](https://github.com/kortyx-io/kortyx/commit/dae4ad00f2e987ecb71f863bfc776ea7e19e2430))
+
+
+### Bug Fixes
+
+* package scripts and dist ([0ed75d3](https://github.com/kortyx-io/kortyx/commit/0ed75d362230a5eddc83b269d14cb787fbf84fb8))
+
 ## [0.2.2](https://github.com/kortyx-io/kortyx/compare/runtime-v0.2.1...runtime-v0.2.2) (2026-01-22)
 
 
