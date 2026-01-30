@@ -90,9 +90,7 @@ export function ChatWindow() {
             </div>
             <div className="flex items-center gap-3">
               <div className="hidden text-xs italic text-slate-500 sm:block">
-                KORTYX API:{" "}
-                {process.env.NEXT_PUBLIC_KORTYX_API_URL ??
-                  process.env.NEXT_PUBLIC_API_URL}
+                KORTYX: server actions
               </div>
               <Button
                 variant="outline"
