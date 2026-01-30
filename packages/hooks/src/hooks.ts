@@ -4,7 +4,6 @@ import type {
   ModelConfig,
 } from "@kortyx/core";
 import type { MemoryAdapter } from "@kortyx/memory";
-import type { KortyxModel } from "@kortyx/providers";
 import { getHookContext } from "./context";
 
 type StateSetter<T> = (next: T | ((prev: T) => T)) => void;
@@ -52,7 +51,23 @@ const resolveModel = (
   };
 };
 
-export function useAiProvider(modelId?: string): KortyxModel {
+export type AiCallArgs = {
+  prompt: string;
+  system?: string | undefined;
+  temperature?: number | undefined;
+  emit?: boolean | undefined;
+  stream?: boolean | undefined;
+};
+
+export type AiCallResult = {
+  text: string;
+};
+
+export type AiModel = {
+  call: (args: AiCallArgs) => Promise<AiCallResult>;
+};
+
+export function useAiProvider(modelId?: string): AiModel {
   const ctx = getHookContext();
   const getProvider = ctx.getProvider;
   if (!getProvider) {
@@ -66,9 +81,28 @@ export function useAiProvider(modelId?: string): KortyxModel {
     ctx.node.config?.model,
   );
 
-  return getProvider(provider, name, {
-    ...(temperature !== undefined ? { temperature } : {}),
-  });
+  return {
+    call: async ({ prompt, system, temperature: overrideTemperature }) => {
+      if (!ctx.node.speak) {
+        throw new Error("useAiProvider requires ctx.speak in NodeContext.");
+      }
+      const text = await ctx.node.speak({
+        ...(typeof system === "string" && system.length > 0 ? { system } : {}),
+        user: prompt,
+        model: {
+          provider,
+          name,
+          ...(overrideTemperature !== undefined
+            ? { temperature: overrideTemperature }
+            : temperature !== undefined
+              ? { temperature }
+              : {}),
+        },
+        stream: { minChars: 12, flushMs: 50, segmentChars: 48 },
+      });
+      return { text };
+    },
+  };
 }
 
 export function useAiMemory(): MemoryAdapter {
