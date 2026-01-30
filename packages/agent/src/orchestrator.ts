@@ -16,7 +16,7 @@ import { transformGraphStreamForUI } from "./stream/transform-graph-stream-for-u
 
 export type SelectWorkflowFn = (
   workflowId: string,
-) => Promise<WorkflowDefinition<any, any>>;
+) => Promise<WorkflowDefinition>;
 
 export type SaveMemoryFn = (
   sessionId: string,
