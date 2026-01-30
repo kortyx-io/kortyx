@@ -1,14 +1,6 @@
-// Minimal workflow DSL entrypoint.
-// Lifted from apps/chat-api/src/lib/langgraph/framework/core/defineWorkflow.ts
+import { WorkflowDefinitionSchema } from "./schema";
+import type { WorkflowDefinition } from "./types";
 
-import type { Edge, NodeMap, ValidatedWorkflowDefinition } from "./types";
-
-export function defineWorkflow<
-  const N extends NodeMap,
-  const E extends readonly Edge<
-    (keyof N & string) | "__start__",
-    (keyof N & string) | "__end__"
-  >[],
->(workflow: ValidatedWorkflowDefinition<N, E>) {
-  return workflow as ValidatedWorkflowDefinition<N, E>;
+export function defineWorkflow<T extends WorkflowDefinition>(workflow: T): T {
+  return WorkflowDefinitionSchema.parse(workflow) as T;
 }

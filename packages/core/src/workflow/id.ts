@@ -4,12 +4,8 @@
 import { z } from "zod";
 
 export const WorkflowIdSchema = z
-  .union([
-    z.literal("frontdesk"),
-    z.literal("job-search"),
-    z.literal("general-chat"),
-    z.literal("example-workflow"),
-  ])
-  .describe("Available workflow identifiers - strict validation");
+  .string()
+  .min(1)
+  .describe("Workflow identifier");
 
 export type WorkflowId = z.infer<typeof WorkflowIdSchema>;
