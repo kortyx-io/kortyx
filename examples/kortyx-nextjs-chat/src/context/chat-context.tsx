@@ -1,9 +1,39 @@
 "use client";
 
-import type { StreamChunk } from "kortyx";
+import { readStream, type StreamChunk } from "kortyx";
 import type React from "react";
 import { createContext, useEffect, useRef, useState } from "react";
-import { runChat } from "@/lib/kortyx/actions";
+
+async function* runChatStream(args: {
+  sessionId: string;
+  messages: Array<{
+    role: "user" | "assistant" | "system";
+    content: string;
+    metadata?: Record<string, unknown>;
+  }>;
+}): AsyncGenerator<StreamChunk, void, void> {
+  const resp = await fetch("/api/chat", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(args),
+  });
+
+  if (!resp.ok) {
+    const text = await resp.text().catch(() => "");
+    yield {
+      type: "error",
+      message:
+        text.trim() ||
+        `Chat request failed (${resp.status} ${resp.statusText || "Error"}).`,
+    };
+    yield { type: "done" };
+    return;
+  }
+
+  for await (const chunk of readStream(resp.body)) {
+    yield chunk;
+  }
+}
 
 export type StructuredData = {
   type: "structured-data";
@@ -135,7 +165,14 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
         type: "status",
         message: `runChat (send) sessionId=${sid}`,
       } as StreamChunk;
-      setStreamDebug((d) => [...d, preDebug]);
+      let seq = 0;
+      const preDebugWithMeta = {
+        ...(preDebug as unknown as Record<string, unknown>),
+        _ts: Date.now(),
+        _dt: 0,
+        _seq: seq++,
+      } as unknown as StreamChunk;
+      setStreamDebug((d) => [...d, preDebugWithMeta]);
 
       // Finalized pieces in arrival order
       const accPieces: ContentPiece[] = [];
@@ -143,7 +180,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
       const liveBuffers: Record<string, string> = {};
       const liveOrder: string[] = [];
       const livePieceIds: Record<string, string> = {};
-      const accDebug: StreamChunk[] = [preDebug];
+      const accDebug: StreamChunk[] = [preDebugWithMeta];
       let lastTs = 0;
 
       const ensureLiveNode = (node?: string) => {
@@ -173,24 +210,33 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
         }),
       ];
 
-      const chunks = await runChat({ sessionId: sid, messages: messagesToSend })
-        .then((r) => r.chunks)
-        .catch((err) => {
+      type DebugChunk = StreamChunk & {
+        _ts: number;
+        _dt: number;
+        _seq: number;
+      };
+      const stream = (async function* (): AsyncGenerator<
+        StreamChunk,
+        void,
+        void
+      > {
+        try {
+          yield* runChatStream({ sessionId: sid, messages: messagesToSend });
+        } catch (err) {
           const message =
             err instanceof Error ? err.message : "Failed to run chat.";
-          return [
-            { type: "error", message } as StreamChunk,
-            { type: "done" } as StreamChunk,
-          ];
-        });
+          yield { type: "error", message };
+          yield { type: "done" };
+        }
+      })();
 
-      type DebugChunk = StreamChunk & { _ts: number; _dt: number };
-      for (const chunk of chunks) {
+      for await (const chunk of stream) {
         const ts = Date.now();
         const withMeta: DebugChunk = {
           ...chunk,
           _ts: ts,
           _dt: lastTs ? ts - lastTs : 0,
+          _seq: seq++,
         };
         lastTs = ts;
         accDebug.push(withMeta);
@@ -428,13 +474,20 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
         type: "status",
         message: `runChat (resume) sessionId=${sid}`,
       } as StreamChunk;
-      setStreamDebug((d) => [...d, preDebug]);
+      let seq = 0;
+      const preDebugWithMeta = {
+        ...(preDebug as unknown as Record<string, unknown>),
+        _ts: Date.now(),
+        _dt: 0,
+        _seq: seq++,
+      } as unknown as StreamChunk;
+      setStreamDebug((d) => [...d, preDebugWithMeta]);
       // Reuse the same stream-reading logic
       const accPieces: ContentPiece[] = [];
       const liveBuffers: Record<string, string> = {};
       const liveOrder: string[] = [];
       const livePieceIds: Record<string, string> = {};
-      const accDebug: StreamChunk[] = [preDebug];
+      const accDebug: StreamChunk[] = [preDebugWithMeta];
       let lastTs = 0;
       const ensureLiveNode = (node?: string) => {
         const key = node ?? "__unknown__";
@@ -462,24 +515,33 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
         }),
       ];
 
-      const chunks = await runChat({ sessionId: sid, messages: messagesToSend })
-        .then((r) => r.chunks)
-        .catch((err) => {
+      type DebugChunk = StreamChunk & {
+        _ts: number;
+        _dt: number;
+        _seq: number;
+      };
+      const stream = (async function* (): AsyncGenerator<
+        StreamChunk,
+        void,
+        void
+      > {
+        try {
+          yield* runChatStream({ sessionId: sid, messages: messagesToSend });
+        } catch (err) {
           const message =
             err instanceof Error ? err.message : "Failed to run chat.";
-          return [
-            { type: "error", message } as StreamChunk,
-            { type: "done" } as StreamChunk,
-          ];
-        });
+          yield { type: "error", message };
+          yield { type: "done" };
+        }
+      })();
 
-      type DebugChunk = StreamChunk & { _ts: number; _dt: number };
-      for (const chunk of chunks) {
+      for await (const chunk of stream) {
         const ts = Date.now();
         const withMeta: DebugChunk = {
           ...(chunk as StreamChunk),
           _ts: ts,
           _dt: lastTs ? ts - lastTs : 0,
+          _seq: seq++,
         };
         lastTs = ts;
         accDebug.push(withMeta);
