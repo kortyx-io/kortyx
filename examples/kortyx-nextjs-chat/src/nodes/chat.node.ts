@@ -16,7 +16,7 @@ export const chatNode = async ({
   const system =
     typeof params?.system === "string"
       ? params.system
-      : "You are a helpful assistant in a demo Next.js app. Keep responses concise and practical.";
+      : "You are a helpful assistant in a demo Next.js app. Keep responses long intentionally.";
 
   const model = useAiProvider(modelId);
   const res = await model.call({
