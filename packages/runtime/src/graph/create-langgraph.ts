@@ -199,23 +199,11 @@ export async function createLangGraph(
             new HumanMessage(args.user ?? ""),
           ];
 
-          const minChars = args.stream?.minChars ?? 24;
-          const flushMs = args.stream?.flushMs ?? 100;
-          const segmentChars = args.stream?.segmentChars ?? 60;
           let final = "";
-          let buffer = "";
-          let timer: ReturnType<typeof setTimeout> | null = null;
           const t0 = Date.now();
           let seenFirst = false;
 
           const isSilent = false;
-          const flush = () => {
-            if (!buffer) return;
-            if (!isSilent)
-              ctx.emit("text-delta", { node: nodeId, delta: buffer });
-            buffer = "";
-            timer = null;
-          };
 
           if (!isSilent) ctx.emit("text-start", { node: nodeId });
 
@@ -232,19 +220,9 @@ export async function createLangGraph(
               });
             }
             final += part;
-
-            for (let i = 0; i < part.length; i += segmentChars) {
-              const seg = part.slice(i, i + segmentChars);
-              buffer += seg;
-              if (buffer.length >= minChars) {
-                flush();
-              } else if (!timer) {
-                timer = setTimeout(flush, flushMs);
-              }
-            }
+            if (!isSilent)
+              ctx.emit("text-delta", { node: nodeId, delta: part });
           }
-          if (timer) clearTimeout(timer);
-          flush();
 
           if (!isSilent) ctx.emit("text-end", { node: nodeId });
           const t1 = Date.now();
