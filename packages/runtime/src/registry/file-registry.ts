@@ -1,5 +1,6 @@
-import type { Edge, NodeMap, WorkflowDefinition } from "@kortyx/core";
-import { readdir } from "fs/promises";
+import type { WorkflowDefinition } from "@kortyx/core";
+import { loadWorkflow } from "@kortyx/core";
+import { readdir, readFile } from "fs/promises";
 import { join } from "path";
 import type { WorkflowRegistry } from "./interface";
 
@@ -10,17 +11,28 @@ export interface FileWorkflowRegistryOptions {
   extensions?: string[];
 }
 
-type AnyWorkflow = WorkflowDefinition<NodeMap, readonly Edge<string, string>[]>;
+type AnyWorkflow = WorkflowDefinition;
 
 const DEFAULT_EXTENSIONS = [
   ".workflow.ts",
   ".workflow.mts",
   ".workflow.js",
   ".workflow.mjs",
+  ".workflow.json",
+  ".workflow.yml",
+  ".workflow.yaml",
 ];
 
 function isWorkflowFile(name: string, extensions: string[]) {
   return extensions.some((ext) => name.endsWith(ext));
+}
+
+function isDeclarativeWorkflowFile(name: string) {
+  return (
+    name.endsWith(".workflow.json") ||
+    name.endsWith(".workflow.yml") ||
+    name.endsWith(".workflow.yaml")
+  );
 }
 
 export function createFileWorkflowRegistry(
@@ -47,23 +59,28 @@ export function createFileWorkflowRegistry(
     for (const file of workflowFiles) {
       try {
         const modulePath = join(workflowsDir, file);
+
+        // Declarative JSON/YAML workflows
+        if (isDeclarativeWorkflowFile(file)) {
+          const raw = await readFile(modulePath, "utf8");
+          const workflow = loadWorkflow(raw) as unknown as AnyWorkflow;
+          workflows[workflow.id] = workflow;
+          continue;
+        }
+
+        // TS/JS module workflows
         const module = await import(modulePath);
         const workflowExport = Object.values(module).find(
-          (
-            exp,
-          ): exp is WorkflowDefinition<
-            NodeMap,
-            readonly Edge<string, string>[]
-          > => {
+          (exp): exp is AnyWorkflow => {
             const obj = exp as {
-              name?: unknown;
+              id?: unknown;
               nodes?: unknown;
               edges?: unknown;
             };
             return (
               exp !== null &&
               typeof exp === "object" &&
-              typeof obj.name === "string" &&
+              typeof obj.id === "string" &&
               typeof obj.nodes === "object" &&
               obj.nodes !== null &&
               Array.isArray(obj.edges)
@@ -71,9 +88,7 @@ export function createFileWorkflowRegistry(
           },
         );
 
-        if (workflowExport) {
-          workflows[workflowExport.name] = workflowExport;
-        }
+        if (workflowExport) workflows[workflowExport.id] = workflowExport;
       } catch (error) {
         console.warn(`Failed to load workflow from ${file}:`, error);
       }

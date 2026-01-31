@@ -55,6 +55,7 @@ next-env.d.ts
 **/*.tsbuildinfo
 
 # Cursor configuration with sensitive data
+.cursor/general.mdc
 .cursor/mcp.json
 
 # npm pack artifacts

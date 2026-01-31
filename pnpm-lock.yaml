@@ -128,7 +128,7 @@ importers:
         specifier: ^1.4.0
         version: 1.4.0
       typescript:
-        specifier: ^5
+        specifier: ^5.9.3
         version: 5.9.3
 
   examples/kortyx-nextjs-chat:
@@ -136,9 +136,6 @@ importers:
       '@google/generative-ai':
         specifier: ^0.24.1
         version: 0.24.1
-      '@kortyx/stream':
-        specifier: workspace:*
-        version: link:../../packages/stream
       '@radix-ui/react-avatar':
         specifier: ^1.1.10
         version: 1.1.11(@types/react-dom@19.2.3(@types/react@19.2.7))(@types/react@19.2.7)(react-dom@19.2.1(react@19.2.1))(react@19.2.1)
@@ -172,6 +169,9 @@ importers:
       framer-motion:
         specifier: ^12.23.19
         version: 12.29.0(react-dom@19.2.1(react@19.2.1))(react@19.2.1)
+      kortyx:
+        specifier: workspace:*
+        version: link:../../packages/kortyx
       lucide-react:
         specifier: ^0.544.0
         version: 0.544.0(react@19.2.1)

@@ -1,5 +1,5 @@
 {
-  "name": "kortyx",
+  "name": "kortyx-monorepo",
   "version": "0.1.0",
   "private": true,
   "description": "Kortyx monorepo (AI agent orchestration framework).",

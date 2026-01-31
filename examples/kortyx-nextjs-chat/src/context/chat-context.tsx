@@ -1,9 +1,39 @@
 "use client";
 
-import { readStream, type StreamChunk } from "@kortyx/stream";
+import { readStream, type StreamChunk } from "kortyx";
 import type React from "react";
-import { createContext, useRef, useState } from "react";
-import { apiConfig, buildApiUrl } from "@/lib/config/api";
+import { createContext, useEffect, useRef, useState } from "react";
+
+async function* runChatStream(args: {
+  sessionId: string;
+  messages: Array<{
+    role: "user" | "assistant" | "system";
+    content: string;
+    metadata?: Record<string, unknown>;
+  }>;
+}): AsyncGenerator<StreamChunk, void, void> {
+  const resp = await fetch("/api/chat", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(args),
+  });
+
+  if (!resp.ok) {
+    const text = await resp.text().catch(() => "");
+    yield {
+      type: "error",
+      message:
+        text.trim() ||
+        `Chat request failed (${resp.status} ${resp.statusText || "Error"}).`,
+    };
+    yield { type: "done" };
+    return;
+  }
+
+  for await (const chunk of readStream(resp.body)) {
+    yield chunk;
+  }
+}
 
 export type StructuredData = {
   type: "structured-data";
@@ -78,6 +108,15 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
   };
 
+  useEffect(() => {
+    try {
+      if (typeof localStorage !== "undefined") {
+        const sid = localStorage.getItem("chat.sessionId");
+        if (sid) setSessionId(sid);
+      }
+    } catch {}
+  }, []);
+
   const send = async (text: string) => {
     const content = text.trim();
     if (!content || isStreaming) return;
@@ -108,32 +147,32 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     sawDeltaRef.current = false;
 
     try {
-      const messagesToSend = includeHistory
-        ? [...messages, { role: "user", content }]
-        : [{ role: "user", content }];
-      const payload = { messages: messagesToSend };
-      const url = buildApiUrl(
-        apiConfig.endpoints.chat,
-        sessionId ? { stream: "true", sessionId } : { stream: "true" },
-      );
+      const sid = sessionId ?? createId();
+      if (!sessionId) {
+        setSessionId(sid);
+        try {
+          if (typeof localStorage !== "undefined")
+            localStorage.setItem("chat.sessionId", sid);
+        } catch {}
+      }
+
+      const history = includeHistory
+        ? messages.map((m) => ({ role: m.role, content: m.content }))
+        : [];
+      const messagesToSend = [...history, { role: "user" as const, content }];
+
       const preDebug: StreamChunk = {
         type: "status",
-        message: `POST ${url} (send)`,
+        message: `runChat (send) sessionId=${sid}`,
       } as StreamChunk;
-      setStreamDebug((d) => [...d, preDebug]);
-      const resp = await fetch(url, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-
-      if (!resp.ok) {
-        setStreamDebug((d) => [
-          ...d,
-          { type: "error", message: `HTTP ${resp.status}` } as StreamChunk,
-        ]);
-        return;
-      }
+      let seq = 0;
+      const preDebugWithMeta = {
+        ...(preDebug as unknown as Record<string, unknown>),
+        _ts: Date.now(),
+        _dt: 0,
+        _seq: seq++,
+      } as unknown as StreamChunk;
+      setStreamDebug((d) => [...d, preDebugWithMeta]);
 
       // Finalized pieces in arrival order
       const accPieces: ContentPiece[] = [];
@@ -141,7 +180,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
       const liveBuffers: Record<string, string> = {};
       const liveOrder: string[] = [];
       const livePieceIds: Record<string, string> = {};
-      const accDebug: StreamChunk[] = [preDebug];
+      const accDebug: StreamChunk[] = [preDebugWithMeta];
       let lastTs = 0;
 
       const ensureLiveNode = (node?: string) => {
@@ -171,21 +210,33 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
         }),
       ];
 
-      const body = resp.body;
-      if (!body) {
-        setStreamDebug((d) => [
-          ...d,
-          { type: "error", message: `No response body` } as StreamChunk,
-        ]);
-        return;
-      }
-      type DebugChunk = StreamChunk & { _ts: number; _dt: number };
-      for await (const chunk of readStream(body)) {
+      type DebugChunk = StreamChunk & {
+        _ts: number;
+        _dt: number;
+        _seq: number;
+      };
+      const stream = (async function* (): AsyncGenerator<
+        StreamChunk,
+        void,
+        void
+      > {
+        try {
+          yield* runChatStream({ sessionId: sid, messages: messagesToSend });
+        } catch (err) {
+          const message =
+            err instanceof Error ? err.message : "Failed to run chat.";
+          yield { type: "error", message };
+          yield { type: "done" };
+        }
+      })();
+
+      for await (const chunk of stream) {
         const ts = Date.now();
         const withMeta: DebugChunk = {
           ...chunk,
           _ts: ts,
           _dt: lastTs ? ts - lastTs : 0,
+          _seq: seq++,
         };
         lastTs = ts;
         accDebug.push(withMeta);
@@ -401,14 +452,18 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
         content: label,
         metadata: resumePayload,
       };
-      const messagesToSend = includeHistory
-        ? [...messages, outgoing]
-        : [outgoing];
-      const payload = { messages: messagesToSend };
-      const url = buildApiUrl(
-        apiConfig.endpoints.chat,
-        sessionId ? { stream: "true", sessionId } : { stream: "true" },
-      );
+      const sid = sessionId ?? createId();
+      if (!sessionId) {
+        setSessionId(sid);
+        try {
+          if (typeof localStorage !== "undefined")
+            localStorage.setItem("chat.sessionId", sid);
+        } catch {}
+      }
+      const history = includeHistory
+        ? messages.map((m) => ({ role: m.role, content: m.content }))
+        : [];
+      const messagesToSend = [...history, outgoing];
       // Auto-open debug panel when sending resume
       try {
         if (typeof window !== "undefined") {
@@ -417,27 +472,22 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
       } catch {}
       const preDebug: StreamChunk = {
         type: "status",
-        message: `POST ${url} (resume)`,
+        message: `runChat (resume) sessionId=${sid}`,
       } as StreamChunk;
-      setStreamDebug((d) => [...d, preDebug]);
-      const resp = await fetch(url, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-      if (!resp.ok) {
-        setStreamDebug((d) => [
-          ...d,
-          { type: "error", message: `HTTP ${resp.status}` } as StreamChunk,
-        ]);
-        return;
-      }
+      let seq = 0;
+      const preDebugWithMeta = {
+        ...(preDebug as unknown as Record<string, unknown>),
+        _ts: Date.now(),
+        _dt: 0,
+        _seq: seq++,
+      } as unknown as StreamChunk;
+      setStreamDebug((d) => [...d, preDebugWithMeta]);
       // Reuse the same stream-reading logic
       const accPieces: ContentPiece[] = [];
       const liveBuffers: Record<string, string> = {};
       const liveOrder: string[] = [];
       const livePieceIds: Record<string, string> = {};
-      const accDebug: StreamChunk[] = [preDebug];
+      const accDebug: StreamChunk[] = [preDebugWithMeta];
       let lastTs = 0;
       const ensureLiveNode = (node?: string) => {
         const key = node ?? "__unknown__";
@@ -464,21 +514,34 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
           return { id, type: "text" as const, content };
         }),
       ];
-      const body = resp.body;
-      if (!body) {
-        setStreamDebug((d) => [
-          ...d,
-          { type: "error", message: `No response body` } as StreamChunk,
-        ]);
-        return;
-      }
-      type DebugChunk = StreamChunk & { _ts: number; _dt: number };
-      for await (const chunk of readStream(body)) {
+
+      type DebugChunk = StreamChunk & {
+        _ts: number;
+        _dt: number;
+        _seq: number;
+      };
+      const stream = (async function* (): AsyncGenerator<
+        StreamChunk,
+        void,
+        void
+      > {
+        try {
+          yield* runChatStream({ sessionId: sid, messages: messagesToSend });
+        } catch (err) {
+          const message =
+            err instanceof Error ? err.message : "Failed to run chat.";
+          yield { type: "error", message };
+          yield { type: "done" };
+        }
+      })();
+
+      for await (const chunk of stream) {
         const ts = Date.now();
         const withMeta: DebugChunk = {
           ...(chunk as StreamChunk),
           _ts: ts,
           _dt: lastTs ? ts - lastTs : 0,
+          _seq: seq++,
         };
         lastTs = ts;
         accDebug.push(withMeta);

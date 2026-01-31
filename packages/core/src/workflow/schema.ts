@@ -1,14 +1,38 @@
 // Workflow schema definitions for Kortyx.
-// Derived from apps/chat-api/src/types/workflow.ts.
+// This matches the simplified unified workflow schema used by TS/YAML/JSON.
 
 import { z } from "zod";
-import { NodeConfigSchema } from "../node";
+
+export const RetrySchema = z
+  .object({
+    maxAttempts: z.number().int().min(0).optional(),
+    delayMs: z.number().int().min(0).optional(),
+  })
+  .strict();
+
+export const NodeOnErrorSchema = z
+  .object({
+    mode: z
+      .enum(["emit-and-stop", "silent", "emit-and-continue", "rethrow"])
+      .optional(),
+  })
+  .strict();
+
+export const WorkflowNodeBehaviorSchema = z
+  .object({
+    retry: RetrySchema.optional(),
+    onError: NodeOnErrorSchema.optional(),
+  })
+  .strict();
+
+export type WorkflowNodeBehavior = z.infer<typeof WorkflowNodeBehaviorSchema>;
 
 export const WorkflowNodeDefSchema = z
   .object({
-    id: z.string(),
-    type: z.enum(["ai", "tool", "logic", "custom"]),
-    config: NodeConfigSchema,
+    run: z.union([z.string(), z.function()]),
+    params: z.record(z.unknown()).optional(),
+    metadata: z.record(z.unknown()).optional(),
+    behavior: WorkflowNodeBehaviorSchema.optional(),
   })
   .strict();
 
@@ -16,10 +40,7 @@ export type WorkflowNodeDef = z.infer<typeof WorkflowNodeDefSchema>;
 
 export const EdgeConditionSchema = z
   .object({
-    when: z.string().optional(),
-    description: z.string().optional(),
-    probability: z.number().min(0).max(1).optional(),
-    metadata: z.record(z.unknown()).optional(),
+    when: z.string(),
   })
   .strict();
 
@@ -34,12 +55,12 @@ export type WorkflowEdge = z.infer<typeof WorkflowEdgeSchema>;
 
 export const WorkflowDefinitionSchema = z
   .object({
-    name: z.string(),
-    version: z.string().optional(),
+    id: z.string(),
+    version: z.string(),
     description: z.string().optional(),
-    nodes: z.array(WorkflowNodeDefSchema),
+    nodes: z.record(WorkflowNodeDefSchema),
     edges: z.array(WorkflowEdgeSchema),
-    transitions: z.array(z.record(z.string(), z.string())).optional(),
+    metadata: z.record(z.unknown()).optional(),
   })
   .strict();
 

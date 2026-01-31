@@ -1,0 +1,14 @@
+id: general-chat
+version: "1.0.0"
+description: Single-node LLM chat workflow.
+nodes:
+  chat:
+    run: chatNode
+    params:
+      model: google:gemini-2.5-flash
+      temperature: 0.3
+      system: |
+        You are a helpful assistant in a demo Next.js app. Keep responses concise and practical.
+edges:
+  - ["__start__", "chat"]
+  - ["chat", "__end__"]

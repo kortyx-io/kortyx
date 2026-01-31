@@ -4,13 +4,12 @@
 export type { CreateAgentArgs, ProcessChatArgs } from "@kortyx/agent";
 export { createAgent, processChat } from "@kortyx/agent";
 export type {
-  Edge,
   GraphState,
   MemoryEnvelope,
   NodeConfig,
   NodeContext,
+  NodeFn,
   NodeHandler,
-  NodeMap,
   NodeResult,
   WorkflowDefinition,
   WorkflowId,
@@ -30,5 +29,13 @@ export {
 } from "@kortyx/memory";
 export * from "@kortyx/providers";
 export type { KortyxConfig, WorkflowRegistry } from "@kortyx/runtime";
-export { createFileWorkflowRegistry, loadKortyxConfig } from "@kortyx/runtime";
-export { createStreamResponse } from "@kortyx/stream";
+export {
+  clearRegisteredNodes,
+  createFileWorkflowRegistry,
+  getRegisteredNode,
+  listRegisteredNodes,
+  loadKortyxConfig,
+  registerNode,
+} from "@kortyx/runtime";
+export type { StreamChunk } from "@kortyx/stream";
+export { createStreamResponse, readStream } from "@kortyx/stream";

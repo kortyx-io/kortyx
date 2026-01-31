@@ -1,6 +1,6 @@
-import type { Edge, NodeMap, WorkflowDefinition } from "@kortyx/core";
+import type { WorkflowDefinition } from "@kortyx/core";
 
-type AnyWorkflow = WorkflowDefinition<NodeMap, readonly Edge<string, string>[]>;
+type AnyWorkflow = WorkflowDefinition;
 
 export interface WorkflowRegistry {
   list: () => Promise<AnyWorkflow[]>;

@@ -1,10 +1,7 @@
 import type {
-  BaseNode,
-  Edge,
   GraphState,
   NodeConfig,
   NodeContext,
-  NodeMap,
   NodeResult,
   WorkflowDefinition,
 } from "@kortyx/core";
@@ -19,6 +16,7 @@ import {
 } from "@langchain/core/messages";
 import { Annotation, interrupt, StateGraph } from "@langchain/langgraph";
 import { getCheckpointer } from "../checkpointer";
+import { resolveNode } from "../node-registry";
 
 export interface GraphRuntimeConfig {
   emit?: (event: string, payload: unknown) => void;
@@ -32,13 +30,10 @@ export interface GraphRuntimeConfig {
   [key: string]: unknown;
 }
 
-export async function createLangGraph<
-  const N extends NodeMap,
-  const E extends readonly Edge<
-    (keyof N & string) | "__start__",
-    (keyof N & string) | "__end__"
-  >[],
->(workflow: WorkflowDefinition<N, E>, config: GraphRuntimeConfig) {
+export async function createLangGraph(
+  workflow: WorkflowDefinition,
+  config: GraphRuntimeConfig,
+) {
   const StateAnnotation = Annotation.Root({
     input: Annotation<string>,
     output: Annotation<string>,
@@ -74,7 +69,7 @@ export async function createLangGraph<
     ) => void;
     compile: () => any;
   };
-  const workflowName = workflow.name;
+  const workflowName = workflow.id;
 
   // Ensure an emit function exists so ctx.emit can always call without optional chaining
   type WithEmit = GraphRuntimeConfig & {
@@ -85,13 +80,43 @@ export async function createLangGraph<
     runtimeConfig.emit = () => {};
   }
 
-  // Register inline nodes (TS workflows)
-  const nodesMap = workflow.nodes as N;
+  const isRecord = (value: unknown): value is Record<string, unknown> =>
+    Boolean(value) && typeof value === "object" && !Array.isArray(value);
 
-  for (const [nodeId, node] of Object.entries(
-    nodesMap as Record<string, BaseNode>,
-  )) {
-    const nodeConfig: NodeConfig = node.config ?? ({} as NodeConfig);
+  const buildNodeConfig = (
+    params: Record<string, unknown> | undefined,
+    nodeBehavior: Record<string, unknown> | undefined,
+  ): NodeConfig => {
+    const model = isRecord(params?.model) ? (params!.model as any) : undefined;
+    const tool = isRecord(params?.tool) ? (params!.tool as any) : undefined;
+    const behaviorFromParams = isRecord(params?.behavior)
+      ? (params!.behavior as any)
+      : undefined;
+    const behavior = {
+      ...(behaviorFromParams ?? {}),
+      ...(nodeBehavior ?? {}),
+    } as any;
+    const options = params ?? undefined;
+    return {
+      ...(model ? { model } : {}),
+      ...(tool ? { tool } : {}),
+      ...(Object.keys(behavior).length > 0 ? { behavior } : {}),
+      ...(options ? { options } : {}),
+    } as NodeConfig;
+  };
+
+  for (const [nodeId, nodeDef] of Object.entries(workflow.nodes ?? {})) {
+    const resolvedRun =
+      typeof nodeDef.run === "string" ? resolveNode(nodeDef.run) : nodeDef.run;
+    const nodeParams = (nodeDef.params ?? undefined) as
+      | Record<string, unknown>
+      | undefined;
+    const nodeConfig: NodeConfig = buildNodeConfig(
+      nodeParams,
+      (nodeDef.behavior ?? undefined) as unknown as
+        | Record<string, unknown>
+        | undefined,
+    );
     const behavior = nodeConfig.behavior ?? {};
 
     builder.addNode(nodeId, async (state: GraphState) => {
@@ -174,23 +199,11 @@ export async function createLangGraph<
             new HumanMessage(args.user ?? ""),
           ];
 
-          const minChars = args.stream?.minChars ?? 24;
-          const flushMs = args.stream?.flushMs ?? 100;
-          const segmentChars = args.stream?.segmentChars ?? 60;
           let final = "";
-          let buffer = "";
-          let timer: ReturnType<typeof setTimeout> | null = null;
           const t0 = Date.now();
           let seenFirst = false;
 
           const isSilent = false;
-          const flush = () => {
-            if (!buffer) return;
-            if (!isSilent)
-              ctx.emit("text-delta", { node: nodeId, delta: buffer });
-            buffer = "";
-            timer = null;
-          };
 
           if (!isSilent) ctx.emit("text-start", { node: nodeId });
 
@@ -207,19 +220,9 @@ export async function createLangGraph<
               });
             }
             final += part;
-
-            for (let i = 0; i < part.length; i += segmentChars) {
-              const seg = part.slice(i, i + segmentChars);
-              buffer += seg;
-              if (buffer.length >= minChars) {
-                flush();
-              } else if (!timer) {
-                timer = setTimeout(flush, flushMs);
-              }
-            }
+            if (!isSilent)
+              ctx.emit("text-delta", { node: nodeId, delta: part });
           }
-          if (timer) clearTimeout(timer);
-          flush();
 
           if (!isSilent) ctx.emit("text-end", { node: nodeId });
           const t1 = Date.now();
@@ -254,8 +257,8 @@ export async function createLangGraph<
               ? { memoryAdapter: runtimeConfig.memoryAdapter }
               : {}),
           };
-          const hookRun = await runWithHookContext(hookContext, () =>
-            node.run(state, ctx),
+          const hookRun = await runWithHookContext(hookContext, async () =>
+            resolvedRun({ input: state.input, params: nodeParams }),
           );
           nodeResult = hookRun.result as NodeResult;
           hookMemoryUpdates = hookRun.memoryUpdates;
@@ -363,7 +366,7 @@ export async function createLangGraph<
   const condGroups: Record<string, Array<{ when: string; to: string }>> = {};
   const plainEdges: Array<[string, string]> = [];
 
-  for (const edge of workflow.edges as E) {
+  for (const edge of workflow.edges as unknown as EdgeTriple[]) {
     const [from, to, condition] = edge as unknown as EdgeTriple;
     if (condition && typeof condition.when === "string" && condition.when) {
       if (!condGroups[from]) condGroups[from] = [];
@@ -409,7 +412,7 @@ export async function createLangGraph<
   type RuntimeGraph = typeof graph & GraphExtensions;
 
   const runtimeGraph = graph as RuntimeGraph;
-  runtimeGraph.name = workflow.name;
+  runtimeGraph.name = workflow.id;
   runtimeGraph.config = config;
 
   runtimeGraph.resume = async (state: GraphState, input: unknown) => {
