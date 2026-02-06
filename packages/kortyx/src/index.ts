@@ -19,7 +19,9 @@ export {
   useAiInterrupt,
   useAiMemory,
   useAiProvider,
+  useEmit,
   useNodeState,
+  useStructuredData,
   useWorkflowState,
 } from "@kortyx/hooks";
 export {
@@ -32,6 +34,10 @@ export type { KortyxConfig, WorkflowRegistry } from "@kortyx/runtime";
 export {
   clearRegisteredNodes,
   createFileWorkflowRegistry,
+  createFrameworkAdapterFromEnv,
+  createInMemoryFrameworkAdapter,
+  createInMemoryWorkflowRegistry,
+  createRedisFrameworkAdapter,
   getRegisteredNode,
   listRegisteredNodes,
   loadKortyxConfig,

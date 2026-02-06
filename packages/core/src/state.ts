@@ -38,7 +38,7 @@ export type ConversationHistoryEntry = {
 };
 
 export type GraphState = {
-  input: string;
+  input: unknown;
   lastNode: string;
   currentWorkflow: WorkflowId;
   // Config is intentionally loose in core; apps can refine it.
@@ -111,7 +111,7 @@ export const MemoryEnvelopeSchema = z
 
 export const GraphStateSchema = z
   .object({
-    input: z.string(),
+    input: z.unknown(),
     lastNode: z.string().optional().default("__start__"),
     currentWorkflow: WorkflowIdSchema,
     // Config is intentionally loose in core; apps can refine it.

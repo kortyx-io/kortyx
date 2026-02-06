@@ -64,6 +64,10 @@ export function createFileWorkflowRegistry(
         if (isDeclarativeWorkflowFile(file)) {
           const raw = await readFile(modulePath, "utf8");
           const workflow = loadWorkflow(raw) as unknown as AnyWorkflow;
+          (workflow as any).metadata = {
+            ...(((workflow as any).metadata ?? {}) as Record<string, unknown>),
+            __filePath: modulePath,
+          };
           workflows[workflow.id] = workflow;
           continue;
         }
@@ -88,7 +92,16 @@ export function createFileWorkflowRegistry(
           },
         );
 
-        if (workflowExport) workflows[workflowExport.id] = workflowExport;
+        if (workflowExport) {
+          (workflowExport as any).metadata = {
+            ...(((workflowExport as any).metadata ?? {}) as Record<
+              string,
+              unknown
+            >),
+            __filePath: modulePath,
+          };
+          workflows[workflowExport.id] = workflowExport;
+        }
       } catch (error) {
         console.warn(`Failed to load workflow from ${file}:`, error);
       }

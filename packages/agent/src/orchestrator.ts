@@ -1,14 +1,12 @@
 import { PassThrough } from "node:stream";
 import type { GraphState, WorkflowDefinition, WorkflowId } from "@kortyx/core";
 import {
-  type PendingRequestRecord,
-  savePendingRequest,
-  updatePendingRequest,
-} from "@kortyx/memory";
-import {
   createLangGraph,
+  type FrameworkAdapter,
   makeRequestId,
   makeResumeToken,
+  type PendingRequestRecord,
+  type PendingRequestStore,
 } from "@kortyx/runtime";
 import type { StreamChunk } from "@kortyx/stream";
 import { Command } from "@langchain/langgraph";
@@ -33,11 +31,12 @@ export interface CompiledGraphLike {
 
 export interface OrchestrateArgs {
   sessionId?: string;
+  runId: string;
   graph: CompiledGraphLike; // minimal graph surface used here
   state: GraphState; // initial state
   config: Record<string, unknown>; // runtime config
-  saveMemory?: SaveMemoryFn;
   selectWorkflow: SelectWorkflowFn;
+  frameworkAdapter?: FrameworkAdapter;
 }
 
 /**
@@ -48,17 +47,19 @@ export interface OrchestrateArgs {
  */
 export async function orchestrateGraphStream({
   sessionId,
+  runId,
   graph,
   state,
   config,
-  saveMemory,
   selectWorkflow,
+  frameworkAdapter,
 }: OrchestrateArgs): Promise<NodeJS.ReadableStream> {
   const out = new PassThrough({ objectMode: true });
 
   let currentGraph = graph;
   let currentState: GraphState = state;
   let finished = false;
+  const namespacesUsed = new Set<string>();
 
   // Announce session id to clients so they can persist it
   try {
@@ -103,6 +104,10 @@ export async function orchestrateGraphStream({
   let activeIsResume = false;
   // Avoid emitting duplicate interrupt chunks (e.g., both from forwardEmit and placeholder)
   let wroteHumanInput = false;
+
+  const pendingStore: PendingRequestStore | undefined =
+    frameworkAdapter?.pendingRequests;
+  const pendingTtlMs = frameworkAdapter?.ttlMs ?? 15 * 60 * 1000;
 
   const forwardEmit = (event: string, payload: unknown) => {
     if (event === "error") {
@@ -211,6 +216,7 @@ export async function orchestrateGraphStream({
         token,
         requestId,
         sessionId: sessionId,
+        runId,
         workflow: local.workflow || (currentState.currentWorkflow as string),
         node: local.node || "",
         // Provide an immediate snapshot so resume can work even if user clicks fast
@@ -238,9 +244,14 @@ export async function orchestrateGraphStream({
           value: (o as any).value,
         })),
         createdAt: Date.now(),
-        ttlMs: 15 * 60 * 1000,
+        ttlMs: pendingTtlMs,
       };
-      savePendingRequest(record);
+      if (pendingStore) {
+        pendingStore.save(record).catch((e) => {
+          // eslint-disable-next-line no-console
+          console.error("[orchestrator] failed to save pending request", e);
+        });
+      }
       out.write({
         type: "interrupt",
         requestId: record.requestId,
@@ -274,9 +285,11 @@ export async function orchestrateGraphStream({
         ((currentGraph.config as any)?.session?.id as string | undefined) ||
         sessionId ||
         "anonymous-session";
+      const checkpointNs = String(currentState.currentWorkflow || "default");
+      namespacesUsed.add(checkpointNs);
       out.write({
         type: "status",
-        message: `🧵 thread_id=${threadId} workflow=${currentState.currentWorkflow}`,
+        message: `🧵 thread_id=${threadId} run_id=${runId} workflow=${currentState.currentWorkflow}`,
       });
 
       // Stream runtime events (LLM deltas, node starts/ends, etc.)
@@ -300,9 +313,9 @@ export async function orchestrateGraphStream({
       const runtimeStream = currentGraph.streamEvents(invokeState, {
         version: "v2",
         configurable: {
-          thread_id: threadId,
+          thread_id: runId,
           // Use a stable namespace so checkpoints survive across recompiles of same workflow
-          checkpoint_ns: String(currentState.currentWorkflow || "default"),
+          checkpoint_ns: checkpointNs,
         },
       });
 
@@ -310,7 +323,7 @@ export async function orchestrateGraphStream({
       try {
         out.write({
           type: "status",
-          message: `▶️ streamEvents invoke: resume=${Boolean((currentGraph.config as any)?.resume)} thread_id=${threadId} ns=${String(currentState.currentWorkflow || "default")}`,
+          message: `▶️ streamEvents invoke: resume=${Boolean((currentGraph.config as any)?.resume)} thread_id=${threadId} run_id=${runId} ns=${String(currentState.currentWorkflow || "default")}`,
         } as any);
       } catch {}
 
@@ -350,6 +363,7 @@ export async function orchestrateGraphStream({
             token,
             requestId,
             sessionId: sessionId,
+            runId,
             workflow: currentState.currentWorkflow as string,
             node: node || "",
             state: {
@@ -379,9 +393,11 @@ export async function orchestrateGraphStream({
               value: (o as any).value,
             })),
             createdAt: Date.now(),
-            ttlMs: 15 * 60 * 1000,
+            ttlMs: pendingTtlMs,
           };
-          savePendingRequest(record);
+          if (pendingStore) {
+            await pendingStore.save(record);
+          }
           out.write({
             type: "interrupt",
             requestId,
@@ -419,11 +435,6 @@ export async function orchestrateGraphStream({
           }
         } else {
           out.write(chunk);
-        }
-
-        // Persist memory snapshots opportunistically
-        if (saveMemory && sessionId && chunk.type !== "status") {
-          await saveMemory(sessionId, { ...currentState });
         }
 
         // Transition surfaced by transformer
@@ -466,11 +477,14 @@ export async function orchestrateGraphStream({
             ...(transitionPayload ?? {}),
           };
 
-          const newInput: string =
-            typeof (transitionPayload as { rawInput?: unknown })?.rawInput ===
-            "string"
-              ? ((transitionPayload as { rawInput?: unknown })
-                  .rawInput as string)
+          const rawInputFromPayload = (
+            transitionPayload as {
+              rawInput?: unknown;
+            }
+          )?.rawInput;
+          const newInput =
+            typeof rawInputFromPayload === "string"
+              ? rawInputFromPayload
               : currentState.input;
 
           currentState = {
@@ -480,10 +494,6 @@ export async function orchestrateGraphStream({
             data: mergedData,
             ui: {}, // reset UI layer on new graph
           };
-
-          if (saveMemory && sessionId) {
-            await saveMemory(sessionId, currentState);
-          }
 
           currentGraph = nextGraph;
           continue; // run the next graph
@@ -504,9 +514,37 @@ export async function orchestrateGraphStream({
         // If we paused for an interrupt, persist a pending request and emit an interrupt chunk
         // Attach final state to pending record if we have one
         if (workflowFinalState && pendingRecordToken) {
-          updatePendingRequest(pendingRecordToken, {
-            state: workflowFinalState,
-          });
+          if (pendingStore) {
+            await pendingStore.update(pendingRecordToken, {
+              state: workflowFinalState,
+            });
+          }
+        }
+
+        const shouldKeepFrameworkState =
+          Boolean(pendingRecordToken) ||
+          Boolean((workflowFinalState as any)?.awaitingHumanInput);
+        if (!shouldKeepFrameworkState) {
+          // Best-effort cleanup: completed runs don't need to retain checkpoints.
+          try {
+            if (frameworkAdapter?.cleanupRun) {
+              await frameworkAdapter.cleanupRun(
+                runId,
+                Array.from(namespacesUsed),
+              );
+            } else {
+              const cp = (currentGraph.config as any)
+                ?.checkpointer as unknown as {
+                deleteThread?: (id: string) => any;
+              };
+              if (cp?.deleteThread) {
+                await cp.deleteThread(runId);
+              }
+            }
+          } catch (e) {
+            // eslint-disable-next-line no-console
+            console.error("[orchestrator] framework cleanup failed", e);
+          }
         }
 
         finished = true;

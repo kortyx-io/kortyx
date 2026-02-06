@@ -22,7 +22,6 @@ export type HookRuntimeContext = {
 
 type HookInternalContext = HookRuntimeContext & {
   nodeStateIndex: number;
-  nodeStateByNode: Record<string, NodeStateStore>;
   currentNodeState: NodeStateStore;
   workflowState: Record<string, unknown>;
   dirty: boolean;
@@ -47,15 +46,6 @@ const normalizeNodeState = (value: unknown): NodeStateStore => {
   return { byIndex: [], byKey: {} };
 };
 
-const cloneNodeStateMap = (value: unknown): Record<string, NodeStateStore> => {
-  if (!isRecord(value)) return {};
-  const result: Record<string, NodeStateStore> = {};
-  for (const [key, entry] of Object.entries(value)) {
-    result[key] = normalizeNodeState(entry);
-  }
-  return result;
-};
-
 const cloneWorkflowState = (value: unknown): Record<string, unknown> =>
   isRecord(value) ? { ...value } : {};
 
@@ -74,18 +64,20 @@ const createInternalContext = (
   ctx: HookRuntimeContext,
 ): HookInternalContext => {
   const hookMemory = getHookMemory(ctx.state);
-  const nodeStateByNode = cloneNodeStateMap(hookMemory.nodeState);
   const nodeId = ctx.node.graph.node;
-  const currentNodeState = nodeStateByNode[nodeId]
-    ? normalizeNodeState(nodeStateByNode[nodeId])
-    : { byIndex: [], byKey: {} };
-
-  nodeStateByNode[nodeId] = currentNodeState;
+  const storedNodeId =
+    typeof (hookMemory.nodeState as any)?.nodeId === "string"
+      ? String((hookMemory.nodeState as any)?.nodeId)
+      : "";
+  const storedState = (hookMemory.nodeState as any)?.state;
+  const currentNodeState =
+    storedNodeId && storedNodeId === nodeId
+      ? normalizeNodeState(storedState)
+      : { byIndex: [], byKey: {} };
 
   return {
     ...ctx,
     nodeStateIndex: 0,
-    nodeStateByNode,
     currentNodeState,
     workflowState: cloneWorkflowState(hookMemory.workflowState),
     dirty: false,
@@ -96,7 +88,10 @@ const buildMemoryUpdates = (ctx: HookInternalContext) => {
   if (!ctx.dirty) return null;
   return {
     __kortyx: {
-      nodeState: ctx.nodeStateByNode,
+      nodeState: {
+        nodeId: ctx.node.graph.node,
+        state: ctx.currentNodeState,
+      },
       workflowState: ctx.workflowState,
     },
   } as Record<string, unknown>;
@@ -107,8 +102,16 @@ export async function runWithHookContext<T>(
   fn: () => Promise<T>,
 ): Promise<{ result: T; memoryUpdates: Record<string, unknown> | null }> {
   const internal = createInternalContext(ctx);
-  const result = await storage.run(internal, fn);
-  return { result, memoryUpdates: buildMemoryUpdates(internal) };
+  try {
+    const result = await storage.run(internal, fn);
+    return { result, memoryUpdates: buildMemoryUpdates(internal) };
+  } catch (err) {
+    const memoryUpdates = buildMemoryUpdates(internal);
+    if (memoryUpdates && err && typeof err === "object") {
+      (err as any).__kortyxMemoryUpdates = memoryUpdates;
+    }
+    throw err;
+  }
 }
 
 export function getHookContext(): HookInternalContext {

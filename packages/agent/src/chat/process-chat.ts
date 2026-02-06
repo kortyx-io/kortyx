@@ -1,12 +1,19 @@
-import type { GraphState, MemoryEnvelope } from "@kortyx/core";
+import type { MemoryEnvelope } from "@kortyx/core";
 import type { MemoryAdapter } from "@kortyx/memory";
 import type { GetProviderFn } from "@kortyx/providers";
-import type { WorkflowRegistry } from "@kortyx/runtime";
-import { buildInitialGraphState, createLangGraph } from "@kortyx/runtime";
+import type { FrameworkAdapter, WorkflowRegistry } from "@kortyx/runtime";
+import {
+  buildInitialGraphState,
+  createLangGraph,
+  makeRequestId,
+} from "@kortyx/runtime";
 import { createStreamResponse, type StreamChunk } from "@kortyx/stream";
 import type { ApplyResumeSelection } from "../interrupt/resume-handler";
-import { tryPrepareResumeStream } from "../interrupt/resume-handler";
-import type { SaveMemoryFn, SelectWorkflowFn } from "../orchestrator";
+import {
+  parseResumeMeta,
+  tryPrepareResumeStream,
+} from "../interrupt/resume-handler";
+import type { SelectWorkflowFn } from "../orchestrator";
 import { orchestrateGraphStream } from "../orchestrator";
 import type { ChatMessage } from "../types/chat-message";
 import { extractLatestUserMessage } from "../utils/extract-latest-message";
@@ -26,9 +33,10 @@ export interface ProcessChatArgs<
   loadRuntimeConfig: (options?: Options) => Config | Promise<Config>;
   selectWorkflow?: SelectWorkflowFn;
   workflowRegistry?: WorkflowRegistry;
+  frameworkAdapter?: FrameworkAdapter;
   getProvider: GetProviderFn;
   initializeProviders?: InitializeProvidersFn<Config>;
-  memoryAdapter: MemoryAdapter;
+  memoryAdapter?: MemoryAdapter;
   applyResumeSelection?: ApplyResumeSelection;
 }
 
@@ -43,6 +51,7 @@ export async function processChat<
   loadRuntimeConfig,
   selectWorkflow,
   workflowRegistry,
+  frameworkAdapter,
   getProvider,
   initializeProviders,
   memoryAdapter,
@@ -57,6 +66,9 @@ export async function processChat<
     ...config,
     getProvider,
     ...(memoryAdapter ? { memoryAdapter } : {}),
+    ...(frameworkAdapter
+      ? { checkpointer: frameworkAdapter.checkpointer }
+      : {}),
   } as Record<string, unknown>;
 
   const workflowSelector: SelectWorkflowFn | null =
@@ -76,15 +88,26 @@ export async function processChat<
   const last = messages[messages.length - 1];
   const input = extractLatestUserMessage(messages);
 
-  // Load conversation memory (Redis memory)
+  // Business memory is opt-in via useAiMemory(); agent does not auto-persist state
   const previousMessages = messages.slice(0, -1);
-  const storedState = await memoryAdapter.load(resolvedSessionId);
   const memory: MemoryEnvelope = {
-    ...(storedState?.memory ?? {}),
-    ...(previousMessages.length > 0 && {
-      conversationMessages: previousMessages,
-    }),
-  };
+    ...(previousMessages.length > 0
+      ? { conversationMessages: previousMessages }
+      : {}),
+  } as MemoryEnvelope;
+
+  // Allow callers to override the entry workflow for this request.
+  // This is intentionally option-based (so adapters like Next.js can pass it),
+  // and it is ignored for resume requests (resume must follow the pending workflow).
+  const isResumeRequest = Boolean(parseResumeMeta(last));
+  const requestedWorkflowId =
+    (options as any)?.workflowId ?? (options as any)?.workflow;
+  if (!isResumeRequest && typeof requestedWorkflowId === "string") {
+    // Treat empty string as "use default workflow" and clear stored selection.
+    if (requestedWorkflowId.trim() === "")
+      delete (memory as any).currentWorkflow;
+    else memory.currentWorkflow = requestedWorkflowId as any;
+  }
 
   // Base state (LLM input, messages, memory)
   const baseState = await buildInitialGraphState({
@@ -94,24 +117,19 @@ export async function processChat<
     ...(defaultWorkflowId ? { defaultWorkflowId } : {}),
   });
 
-  const saveMemory: SaveMemoryFn = async (
-    activeSessionId: string,
-    state: GraphState,
-  ) => {
-    await memoryAdapter.save(activeSessionId, state);
-  };
-
   // If this is a resume request, continue from pending snapshot and skip workflow determination
   const resumeStream = await tryPrepareResumeStream({
     lastMessage: last,
     sessionId: resolvedSessionId,
     config: runtimeConfig,
-    saveMemory,
     selectWorkflow: workflowSelector,
+    ...(frameworkAdapter ? { frameworkAdapter } : {}),
     ...(defaultWorkflowId ? { defaultWorkflowId } : {}),
     ...(applyResumeSelection ? { applyResumeSelection } : {}),
   });
   if (resumeStream) return createStreamResponse(resumeStream);
+
+  const runId = makeRequestId("run");
 
   // Determine which workflow to run (defaults to frontdesk)
   const currentWorkflow = baseState.currentWorkflow;
@@ -121,11 +139,12 @@ export async function processChat<
 
   const orchestratedStream = await orchestrateGraphStream({
     sessionId: resolvedSessionId,
+    runId,
     graph,
     state: { ...baseState, currentWorkflow },
     config: runtimeConfig,
-    saveMemory,
     selectWorkflow: workflowSelector,
+    ...(frameworkAdapter ? { frameworkAdapter } : {}),
   });
 
   return createStreamResponse(orchestratedStream as AsyncIterable<StreamChunk>);

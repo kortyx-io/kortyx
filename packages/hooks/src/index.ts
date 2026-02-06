@@ -12,6 +12,8 @@ export {
   useAiInterrupt,
   useAiMemory,
   useAiProvider,
+  useEmit,
   useNodeState,
+  useStructuredData,
   useWorkflowState,
 } from "./hooks";

@@ -15,13 +15,15 @@ import {
   SystemMessage,
 } from "@langchain/core/messages";
 import { Annotation, interrupt, StateGraph } from "@langchain/langgraph";
+import type { BaseCheckpointSaver } from "@langchain/langgraph-checkpoint";
 import { getCheckpointer } from "../checkpointer";
-import { resolveNode } from "../node-registry";
+import { resolveNodeHandler } from "../node-loader";
 
 export interface GraphRuntimeConfig {
   emit?: (event: string, payload: unknown) => void;
   onCheckpoint?: (args: { nodeId: string; state: GraphState }) => void;
   memoryAdapter?: MemoryAdapter;
+  checkpointer?: BaseCheckpointSaver;
   /**
    * Provider factory used by ctx.speak to obtain a streaming model.
    * Use @kortyx/providers or implement your own GetProviderFn.
@@ -35,7 +37,7 @@ export async function createLangGraph(
   config: GraphRuntimeConfig,
 ) {
   const StateAnnotation = Annotation.Root({
-    input: Annotation<string>,
+    input: Annotation<unknown>,
     output: Annotation<string>,
     lastNode: Annotation<string>,
     lastCondition: Annotation<string>,
@@ -83,6 +85,12 @@ export async function createLangGraph(
   const isRecord = (value: unknown): value is Record<string, unknown> =>
     Boolean(value) && typeof value === "object" && !Array.isArray(value);
 
+  const toRecordInput = (value: unknown): Record<string, unknown> => {
+    if (isRecord(value)) return value;
+    if (value === undefined) return {};
+    return { rawInput: value };
+  };
+
   const buildNodeConfig = (
     params: Record<string, unknown> | undefined,
     nodeBehavior: Record<string, unknown> | undefined,
@@ -106,8 +114,10 @@ export async function createLangGraph(
   };
 
   for (const [nodeId, nodeDef] of Object.entries(workflow.nodes ?? {})) {
-    const resolvedRun =
-      typeof nodeDef.run === "string" ? resolveNode(nodeDef.run) : nodeDef.run;
+    const resolvedRun = await resolveNodeHandler({
+      run: nodeDef.run,
+      workflow,
+    });
     const nodeParams = (nodeDef.params ?? undefined) as
       | Record<string, unknown>
       | undefined;
@@ -243,13 +253,24 @@ export async function createLangGraph(
       let attempt = 0;
       let nodeResult: NodeResult | undefined;
       let hookMemoryUpdates: Record<string, unknown> | null = null;
+      let retryHookMemory: Record<string, unknown> | null = null;
 
       while (attempt < maxAttempts) {
         try {
           attempt++;
+          const attemptState =
+            retryHookMemory && typeof retryHookMemory === "object"
+              ? ({
+                  ...state,
+                  memory: deepMergeWithArrayOverwrite(
+                    (state.memory ?? {}) as Record<string, unknown>,
+                    retryHookMemory,
+                  ),
+                } as GraphState)
+              : state;
           const hookContext = {
             node: ctx,
-            state,
+            state: attemptState,
             ...(runtimeConfig.getProvider
               ? { getProvider: runtimeConfig.getProvider }
               : {}),
@@ -258,12 +279,25 @@ export async function createLangGraph(
               : {}),
           };
           const hookRun = await runWithHookContext(hookContext, async () =>
-            resolvedRun({ input: state.input, params: nodeParams }),
+            resolvedRun({
+              input: state.input,
+              params: (nodeParams ?? {}) as Record<string, unknown>,
+            }),
           );
           nodeResult = hookRun.result as NodeResult;
           hookMemoryUpdates = hookRun.memoryUpdates;
           break;
         } catch (err) {
+          const patch = (err as any)?.__kortyxMemoryUpdates as
+            | Record<string, unknown>
+            | null
+            | undefined;
+          if (patch && typeof patch === "object") {
+            retryHookMemory = deepMergeWithArrayOverwrite(
+              (retryHookMemory ?? {}) as Record<string, unknown>,
+              patch,
+            );
+          }
           const hasMore = attempt < maxAttempts;
           const delayMs = behavior.retry?.delayMs ?? 0;
           if (hasMore && delayMs > 0) {
@@ -306,6 +340,12 @@ export async function createLangGraph(
       if (typeof res.intent === "string") updates.lastIntent = res.intent;
 
       if (res.data && typeof res.data === "object") {
+        // Treat node `data` as the flowing payload between nodes.
+        // Accumulate by merging into the previous input (if any).
+        updates.input = deepMergeWithArrayOverwrite(
+          toRecordInput(state.input),
+          res.data as Record<string, unknown>,
+        );
         updates.data = deepMergeWithArrayOverwrite(
           (state.data ?? {}) as Record<string, unknown>,
           res.data as Record<string, unknown>,
@@ -400,7 +440,7 @@ export async function createLangGraph(
   }
 
   const sessionId = (config as any)?.session?.id ?? "__default__";
-  const checkpointer = getCheckpointer(sessionId);
+  const checkpointer = config.checkpointer ?? getCheckpointer(sessionId);
   const graph = (builder as any).compile({ checkpointer });
 
   interface GraphExtensions {

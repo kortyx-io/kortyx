@@ -2,6 +2,7 @@ import type {
   InterruptInput,
   InterruptResult,
   ModelConfig,
+  NodeContext,
 } from "@kortyx/core";
 import type { MemoryAdapter } from "@kortyx/memory";
 import { getHookContext } from "./context";
@@ -66,6 +67,25 @@ export type AiCallResult = {
 export type AiModel = {
   call: (args: AiCallArgs) => Promise<AiCallResult>;
 };
+
+export function useEmit(): NodeContext["emit"] {
+  const ctx = getHookContext();
+  return ctx.node.emit;
+}
+
+export function useStructuredData(args: {
+  data: unknown;
+  dataType?: string | undefined;
+}): void {
+  const ctx = getHookContext();
+  ctx.node.emit("structured_data", {
+    node: ctx.node.graph.node,
+    ...(typeof args.dataType === "string" && args.dataType.length > 0
+      ? { dataType: args.dataType }
+      : {}),
+    data: args.data,
+  });
+}
 
 export function useAiProvider(modelId?: string): AiModel {
   const ctx = getHookContext();

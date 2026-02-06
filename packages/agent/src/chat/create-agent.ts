@@ -1,6 +1,14 @@
 import { resolve } from "node:path";
-import type { KortyxConfig, WorkflowRegistry } from "@kortyx/runtime";
-import { createFileWorkflowRegistry, loadKortyxConfig } from "@kortyx/runtime";
+import type {
+  FrameworkAdapter,
+  KortyxConfig,
+  WorkflowRegistry,
+} from "@kortyx/runtime";
+import {
+  createFileWorkflowRegistry,
+  createFrameworkAdapterFromEnv,
+  loadKortyxConfig,
+} from "@kortyx/runtime";
 import type { SelectWorkflowFn } from "../orchestrator";
 import type { ChatMessage } from "../types/chat-message";
 import type { ProcessChatArgs } from "./process-chat";
@@ -32,8 +40,15 @@ export function createAgent<
     fallbackWorkflowId,
     config,
     configPath,
+    defaultWorkflowId,
+    frameworkAdapter,
     ...baseArgs
   } = args;
+
+  const resolvedDefaultWorkflowId =
+    defaultWorkflowId ?? config?.fallbackWorkflowId ?? fallbackWorkflowId;
+  const resolvedFrameworkAdapter: FrameworkAdapter =
+    frameworkAdapter ?? createFrameworkAdapterFromEnv();
 
   const resolvedCwd = process.cwd();
   const registryPromise: Promise<WorkflowRegistry | undefined> = (async () => {
@@ -73,9 +88,13 @@ export function createAgent<
       if (selectWorkflow) {
         return processChat({
           ...(baseArgs as ProcessChatArgs<Config, Options>),
+          ...(resolvedDefaultWorkflowId
+            ? { defaultWorkflowId: resolvedDefaultWorkflowId }
+            : {}),
           messages,
           options,
           selectWorkflow,
+          frameworkAdapter: resolvedFrameworkAdapter,
         });
       }
 
@@ -88,9 +107,13 @@ export function createAgent<
 
       return processChat({
         ...(baseArgs as ProcessChatArgs<Config, Options>),
+        ...(resolvedDefaultWorkflowId
+          ? { defaultWorkflowId: resolvedDefaultWorkflowId }
+          : {}),
         messages,
         options,
         workflowRegistry: registry,
+        frameworkAdapter: resolvedFrameworkAdapter,
       });
     },
   };

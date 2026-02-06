@@ -1,12 +1,21 @@
 import type { NodeResult } from "../node";
 import type { WorkflowEdge, WorkflowNodeBehavior } from "./schema";
 
-export type NodeFn = (args: {
-  input: unknown;
-  params?: Record<string, unknown> | undefined;
-}) => Promise<NodeResult> | NodeResult;
+export type NodeFn<Input = unknown, Params = any> = {
+  // Bivariant callback so apps can narrow `input`/`params` per node while still
+  // being assignable to the workflow `run` type (similar to React handler typing).
+  bivarianceHack: (args: {
+    input: Input;
+    params: Params;
+  }) => Promise<NodeResult> | NodeResult;
+}["bivarianceHack"];
 
-export type NodeRunRef = string | NodeFn;
+export type AnyNodeFn = (args: {
+  input: any;
+  params: any;
+}) => NodeResult | Promise<NodeResult>;
+
+export type NodeRunRef = string | AnyNodeFn;
 
 export type WorkflowNodeDef = {
   run: NodeRunRef;

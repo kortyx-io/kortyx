@@ -1,12 +1,12 @@
 import type { GraphState } from "@kortyx/core";
-import {
-  deletePendingRequest,
-  getPendingRequest,
-  type PendingRequestRecord,
-} from "@kortyx/memory";
+import type {
+  FrameworkAdapter,
+  PendingRequestRecord,
+  PendingRequestStore,
+} from "@kortyx/runtime";
 import { createLangGraph } from "@kortyx/runtime";
 import type { StreamChunk } from "@kortyx/stream";
-import type { SaveMemoryFn, SelectWorkflowFn } from "../orchestrator";
+import type { SelectWorkflowFn } from "../orchestrator";
 import { orchestrateGraphStream } from "../orchestrator";
 import type { ChatMessage } from "../types/chat-message";
 
@@ -49,25 +49,29 @@ interface TryResumeArgs {
   lastMessage: ChatMessage | undefined;
   sessionId: string;
   config: Record<string, unknown>;
-  saveMemory?: SaveMemoryFn;
   selectWorkflow: SelectWorkflowFn;
   defaultWorkflowId?: string;
   applyResumeSelection?: ApplyResumeSelection;
+  frameworkAdapter?: FrameworkAdapter;
 }
 
 export async function tryPrepareResumeStream({
   lastMessage,
   sessionId,
   config,
-  saveMemory,
   selectWorkflow,
   defaultWorkflowId,
   applyResumeSelection,
+  frameworkAdapter,
 }: TryResumeArgs): Promise<AsyncIterable<StreamChunk> | null> {
   const meta = parseResumeMeta(lastMessage);
   if (!meta) return null;
 
-  const pending = getPendingRequest(meta.token);
+  const store: PendingRequestStore | undefined =
+    frameworkAdapter?.pendingRequests;
+  if (!store) return null;
+
+  const pending = await store.get(meta.token);
   if (!pending || pending.requestId !== meta.requestId) {
     // Invalid/expired; ignore and continue normal flow
     // eslint-disable-next-line no-console
@@ -78,7 +82,7 @@ export async function tryPrepareResumeStream({
   }
 
   if (meta.cancel) {
-    deletePendingRequest(pending.token);
+    await store.delete(pending.token);
     return null;
   }
 
@@ -118,18 +122,22 @@ export async function tryPrepareResumeStream({
   } as any;
 
   const wf = await selectWorkflow(resumedState.currentWorkflow as string);
-  const resumeValue = meta.selected?.length
-    ? String(meta.selected[0])
-    : undefined;
+  const resumeValue =
+    meta.selected?.length && pending.schema.kind === "multi-choice"
+      ? meta.selected.map((x) => String(x))
+      : meta.selected?.length
+        ? String(meta.selected[0])
+        : undefined;
   const resumedGraph = await createLangGraph(wf, {
     ...(config as any),
     resume: true,
     ...(resumeValue !== undefined ? { resumeValue } : {}),
   });
-  deletePendingRequest(pending.token);
+  await store.delete(pending.token);
 
   const args: any = {
     sessionId,
+    runId: pending.runId,
     graph: resumedGraph,
     state: resumedState,
     config: {
@@ -138,8 +146,8 @@ export async function tryPrepareResumeStream({
       ...(resumeValue !== undefined ? { resumeValue } : {}),
     },
     selectWorkflow,
+    frameworkAdapter,
   };
-  if (saveMemory) args.saveMemory = saveMemory;
 
   const stream = await orchestrateGraphStream(args);
   return stream as AsyncIterable<StreamChunk>;
