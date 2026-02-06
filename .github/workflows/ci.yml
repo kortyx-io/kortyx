@@ -18,8 +18,7 @@ jobs:
           submodules: false
 
       - uses: pnpm/action-setup@v4
-        with:
-          version: 10
+        # Use the pnpm version pinned in root package.json#packageManager
 
       - uses: actions/setup-node@v4
         with:
