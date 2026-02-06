@@ -2,12 +2,7 @@ import { useStructuredData } from "kortyx";
 
 export type InterruptMode = "choice" | "multi" | "text";
 
-export const step1RouteInterruptNode = async ({
-  input,
-}: {
-  input: string;
-  params: {};
-}) => {
+export const step1RouteInterruptNode = async ({ input }: { input: string }) => {
   const raw = String(input ?? "");
   const q = raw.trim().toLowerCase();
 

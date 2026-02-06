@@ -10,7 +10,6 @@ export const step3InterruptFinalNode = async ({
     text?: string;
     selected?: string[];
   };
-  params: {};
 }) => {
   const mode = String(input.mode ?? "");
   const choice = typeof input.choice === "string" ? input.choice : "";

@@ -10,7 +10,6 @@ export const step2TodoCheckNode = async ({
   input,
 }: {
   input: { rawInput: string; query: string };
-  params: {};
 }) => {
   const [todos] = useWorkflowState<string[]>("todos", []);
   const [checked, setChecked] = useWorkflowState<TodoCheck[]>("checked", []);

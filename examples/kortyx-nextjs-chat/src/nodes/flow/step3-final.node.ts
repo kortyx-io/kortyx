@@ -5,12 +5,7 @@ type Step2Data = Awaited<ReturnType<typeof step2EnrichNode>>["data"];
 
 type Step3Input = { rawInput: string } & Step2Data;
 
-export const step3FinalNode = async ({
-  input,
-}: {
-  input: Step3Input;
-  params: {};
-}) => {
+export const step3FinalNode = async ({ input }: { input: Step3Input }) => {
   const [todos] = useWorkflowState<string[]>("todos", []);
   const [checked] = useWorkflowState<
     Array<{ item: string; ok: boolean; reason: string }>

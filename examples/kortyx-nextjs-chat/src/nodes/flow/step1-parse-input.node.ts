@@ -1,11 +1,6 @@
 import { useStructuredData, useWorkflowState } from "kortyx";
 
-export const step1ParseInputNode = async ({
-  input,
-}: {
-  input: string;
-  params: {};
-}) => {
+export const step1ParseInputNode = async ({ input }: { input: string }) => {
   const text = input.trim();
   const query = text.length > 0 ? text : "hello";
   const todos = query

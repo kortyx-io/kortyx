@@ -5,4 +5,3 @@ export default {
     cache: true,
   },
 };
-
