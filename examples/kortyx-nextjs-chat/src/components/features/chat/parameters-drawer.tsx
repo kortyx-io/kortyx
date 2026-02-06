@@ -8,6 +8,7 @@ import {
   DrawerOverlay,
   DrawerTitle,
 } from "@/components/ui/drawer";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 
@@ -16,6 +17,8 @@ type ParametersDrawerProps = {
   onOpenChange: (open: boolean) => void;
   includeHistory: boolean;
   onIncludeHistoryChange: (value: boolean) => void;
+  workflowId: string;
+  onWorkflowIdChange: (value: string) => void;
 };
 
 export function ParametersDrawer({
@@ -23,6 +26,8 @@ export function ParametersDrawer({
   onOpenChange,
   includeHistory,
   onIncludeHistoryChange,
+  workflowId,
+  onWorkflowIdChange,
 }: ParametersDrawerProps) {
   return (
     <Drawer open={open} onOpenChange={onOpenChange}>
@@ -33,6 +38,24 @@ export function ParametersDrawer({
           <DrawerClose onClick={() => onOpenChange(false)} />
         </DrawerHeader>
         <div className="p-6 space-y-6">
+          <div className="p-4 space-y-2 border rounded-lg bg-slate-50 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700">
+            <div className="space-y-1">
+              <Label htmlFor="workflow-id" className="text-sm font-medium">
+                Workflow override
+              </Label>
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                If set, runs that workflow id (e.g. <code>three-steps</code>).
+                Leave empty to use the default workflow.
+              </p>
+            </div>
+            <Input
+              id="workflow-id"
+              value={workflowId}
+              placeholder="general-chat"
+              onChange={(e) => onWorkflowIdChange(e.target.value)}
+            />
+          </div>
+
           <div className="flex items-center justify-between p-4 space-x-4 border rounded-lg bg-slate-50 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700">
             <div className="flex-1 space-y-1">
               <Label

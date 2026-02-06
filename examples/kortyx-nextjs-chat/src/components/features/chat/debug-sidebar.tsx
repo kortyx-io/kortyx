@@ -148,7 +148,7 @@ export function DebugSidebar({
           {chunks.length === 0 ? (
             <div className="text-sm text-slate-500">No debug data.</div>
           ) : (
-            chunks.map((c) => {
+            chunks.map((c, idx) => {
               const ts = (c as Record<string, unknown>)._ts as
                 | number
                 | undefined;
@@ -167,7 +167,7 @@ export function DebugSidebar({
                 : "";
               return (
                 <div
-                  key={chunkKey(c)}
+                  key={`${chunkKey(c)}:${idx}`}
                   className="border border-slate-200 dark:border-slate-700 rounded-lg overflow-hidden bg-slate-900"
                 >
                   <div className="flex items-center justify-between px-3 py-1 text-[11px] text-slate-300 bg-slate-800/80 border-b border-slate-700">

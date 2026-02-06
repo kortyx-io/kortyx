@@ -11,6 +11,10 @@
     "lint": "biome check .",
     "type-check": "tsc --noEmit",
     "type-check:watch": "tsc --noEmit --watch",
+    "redis:up": "docker rm -f kortyx-redis >/dev/null 2>&1 || true && docker run -d --name kortyx-redis -p ${KORTYX_REDIS_PORT:-6379}:6379 redis:7-alpine",
+    "redis:down": "docker rm -f kortyx-redis",
+    "redis:logs": "docker logs -f kortyx-redis",
+    "redis:cli": "redis-cli -h 127.0.0.1 -p ${KORTYX_REDIS_PORT:-6379}",
     "test": "echo 'Running frontend tests...' && echo 'All tests passed!'"
   },
   "dependencies": {

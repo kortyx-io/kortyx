@@ -3,17 +3,18 @@ import { fileURLToPath } from "node:url";
 import {
   createAgent,
   createInMemoryAdapter,
+  createInMemoryWorkflowRegistry,
   getProvider,
   initializeProviders,
-  registerNode,
 } from "kortyx";
-import { chatNode } from "@/nodes/chat.node";
+import { generalChatWorkflow } from "@/workflows/general-chat.workflow";
+import { interruptDemoWorkflow } from "@/workflows/interrupt-demo.workflow";
+import { threeStepsWorkflow } from "@/workflows/three-steps.workflow";
 import rawKortyxConfig from "../../kortyx.config.mjs";
-
-registerNode("chatNode", chatNode);
 
 type RuntimeOptions = {
   sessionId: string;
+  workflowId?: string;
 };
 
 const projectRoot = resolve(
@@ -24,11 +25,16 @@ const projectRoot = resolve(
 
 const kortyxConfig = {
   ...rawKortyxConfig,
-  workflowsDir: resolve(
-    projectRoot,
-    rawKortyxConfig.workflowsDir ?? "./src/workflows",
-  ),
+  workflowsDir: resolve(projectRoot, "./src/workflows"),
+  fallbackWorkflowId: "general-chat",
 };
+
+const workflowRegistry = createInMemoryWorkflowRegistry(
+  [generalChatWorkflow, threeStepsWorkflow, interruptDemoWorkflow],
+  {
+    fallbackId: kortyxConfig.fallbackWorkflowId ?? "general-chat",
+  },
+);
 
 export function loadRuntimeConfig(options?: RuntimeOptions) {
   const sessionId = options?.sessionId ?? "anonymous-session";
@@ -53,6 +59,7 @@ const memoryAdapter = createInMemoryAdapter({
 
 export const agent = createAgent({
   config: kortyxConfig,
+  workflowRegistry,
   loadRuntimeConfig,
   getProvider,
   initializeProviders,

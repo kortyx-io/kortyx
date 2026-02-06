@@ -1,36 +1,21 @@
 "use client";
 
-import { readStream, type StreamChunk } from "kortyx";
+import type { StreamChunk } from "kortyx";
 import type React from "react";
 import { createContext, useEffect, useRef, useState } from "react";
+import { runChat } from "@/app/actions/chat";
 
 async function* runChatStream(args: {
   sessionId: string;
+  workflowId?: string;
   messages: Array<{
     role: "user" | "assistant" | "system";
     content: string;
     metadata?: Record<string, unknown>;
   }>;
 }): AsyncGenerator<StreamChunk, void, void> {
-  const resp = await fetch("/api/chat", {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify(args),
-  });
-
-  if (!resp.ok) {
-    const text = await resp.text().catch(() => "");
-    yield {
-      type: "error",
-      message:
-        text.trim() ||
-        `Chat request failed (${resp.status} ${resp.statusText || "Error"}).`,
-    };
-    yield { type: "done" };
-    return;
-  }
-
-  for await (const chunk of readStream(resp.body)) {
+  const chunks = await runChat(args);
+  for (const chunk of chunks) {
     yield chunk;
   }
 }
@@ -73,6 +58,8 @@ export type ChatContextValue = {
   streamContentPieces: ContentPiece[];
   streamDebug: StreamChunk[];
   lastAssistantId: string | null;
+  workflowId: string;
+  setWorkflowId: React.Dispatch<React.SetStateAction<string>>;
   send: (text: string) => Promise<void> | void;
   respondToHumanInput: (args: {
     resumeToken: string;
@@ -81,6 +68,7 @@ export type ChatContextValue = {
     text?: string;
   }) => Promise<void> | void;
   setMessages: React.Dispatch<React.SetStateAction<ChatMsg[]>>;
+  clearChat: () => void;
   includeHistory: boolean;
   setIncludeHistory: React.Dispatch<React.SetStateAction<boolean>>;
 };
@@ -96,8 +84,12 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
   const [streamDebug, setStreamDebug] = useState<StreamChunk[]>([]);
   const [lastAssistantId, setLastAssistantId] = useState<string | null>(null);
   const [includeHistory, setIncludeHistory] = useState(true);
+  const [workflowId, setWorkflowId] = useState("");
   const sawDeltaRef = useRef(false);
   const [sessionId, setSessionId] = useState<string | null>(null);
+
+  const STORAGE_MESSAGES_KEY = "chat.messages.v1";
+  const STORAGE_INCLUDE_HISTORY_KEY = "chat.includeHistory.v1";
 
   const createId = () => {
     try {
@@ -113,9 +105,85 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
       if (typeof localStorage !== "undefined") {
         const sid = localStorage.getItem("chat.sessionId");
         if (sid) setSessionId(sid);
+        const wid = localStorage.getItem("chat.workflowId");
+        if (wid !== null) setWorkflowId(wid);
+        const ih = localStorage.getItem(STORAGE_INCLUDE_HISTORY_KEY);
+        if (ih === "0") setIncludeHistory(false);
+        if (ih === "1") setIncludeHistory(true);
+
+        const rawMsgs = localStorage.getItem(STORAGE_MESSAGES_KEY);
+        if (rawMsgs) {
+          const parsed = JSON.parse(rawMsgs) as unknown;
+          if (Array.isArray(parsed)) {
+            const restored: ChatMsg[] = parsed
+              .map((m: any) => {
+                if (!m || typeof m !== "object") return null;
+                const role =
+                  m.role === "user" || m.role === "assistant" ? m.role : null;
+                const id = typeof m.id === "string" ? m.id : null;
+                const content = typeof m.content === "string" ? m.content : "";
+                const contentPieces = Array.isArray(m.contentPieces)
+                  ? (m.contentPieces as any[]).filter(Boolean)
+                  : undefined;
+                if (!role || !id) return null;
+                return {
+                  id,
+                  role,
+                  content,
+                  ...(contentPieces ? { contentPieces } : {}),
+                } as ChatMsg;
+              })
+              .filter(Boolean) as ChatMsg[];
+            if (restored.length > 0) setMessages(restored);
+          }
+        }
       }
     } catch {}
   }, []);
+
+  useEffect(() => {
+    try {
+      if (typeof localStorage !== "undefined") {
+        localStorage.setItem("chat.workflowId", workflowId);
+      }
+    } catch {}
+  }, [workflowId]);
+
+  useEffect(() => {
+    try {
+      if (typeof localStorage !== "undefined") {
+        localStorage.setItem(
+          STORAGE_INCLUDE_HISTORY_KEY,
+          includeHistory ? "1" : "0",
+        );
+      }
+    } catch {}
+  }, [includeHistory]);
+
+  useEffect(() => {
+    try {
+      if (typeof localStorage === "undefined") return;
+      const trimmed = messages.slice(-60).map((m) => ({
+        id: m.id,
+        role: m.role,
+        content: m.content,
+        ...(m.contentPieces ? { contentPieces: m.contentPieces } : {}),
+      }));
+      localStorage.setItem(STORAGE_MESSAGES_KEY, JSON.stringify(trimmed));
+    } catch {}
+  }, [messages]);
+
+  const clearChat = () => {
+    setMessages([]);
+    setStreamContentPieces([]);
+    setStreamDebug([]);
+    setLastAssistantId(null);
+    try {
+      if (typeof localStorage !== "undefined") {
+        localStorage.removeItem(STORAGE_MESSAGES_KEY);
+      }
+    } catch {}
+  };
 
   const send = async (text: string) => {
     const content = text.trim();
@@ -221,7 +289,11 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
         void
       > {
         try {
-          yield* runChatStream({ sessionId: sid, messages: messagesToSend });
+          yield* runChatStream({
+            sessionId: sid,
+            workflowId,
+            messages: messagesToSend,
+          });
         } catch (err) {
           const message =
             err instanceof Error ? err.message : "Failed to run chat.";
@@ -526,7 +598,11 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
         void
       > {
         try {
-          yield* runChatStream({ sessionId: sid, messages: messagesToSend });
+          yield* runChatStream({
+            sessionId: sid,
+            workflowId,
+            messages: messagesToSend,
+          });
         } catch (err) {
           const message =
             err instanceof Error ? err.message : "Failed to run chat.";
@@ -714,9 +790,12 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     streamContentPieces,
     streamDebug,
     lastAssistantId,
+    workflowId,
+    setWorkflowId,
     send,
     respondToHumanInput,
     setMessages,
+    clearChat,
     includeHistory,
     setIncludeHistory,
   };

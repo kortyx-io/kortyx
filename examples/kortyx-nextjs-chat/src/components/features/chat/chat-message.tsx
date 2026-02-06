@@ -94,38 +94,88 @@ function StructuredDataBox({ data }: { data: StructuredData }) {
 
 function HumanInputBox({ piece }: { piece: HumanInputPiece }) {
   const { respondToHumanInput, isStreaming } = useChat();
+  const [selected, setSelected] = useState<string[]>([]);
 
   // For text interrupts, don't render anything - user types response normally
   if (piece.kind === "text") {
     return null;
   }
 
+  const isMulti = piece.kind === "multi-choice" || piece.multiple;
+
   return (
     <div className="my-3 overflow-hidden">
       {piece.question}
 
       <div className="flex flex-col max-w-sm gap-2 py-3">
-        {piece.options.map((opt) => (
+        {piece.options.map((opt) =>
+          isMulti ? (
+            <label
+              key={opt.id}
+              className="flex items-start gap-3 px-3 py-2 border rounded-md border-slate-200 dark:border-slate-700 bg-white/50 dark:bg-slate-900/50"
+            >
+              <input
+                type="checkbox"
+                className="mt-1"
+                disabled={isStreaming}
+                checked={selected.includes(opt.id)}
+                onChange={(e) => {
+                  const next = e.target.checked;
+                  setSelected((prev) =>
+                    next ? [...prev, opt.id] : prev.filter((x) => x !== opt.id),
+                  );
+                }}
+              />
+              <div className="text-sm leading-snug">
+                <div className="font-medium">{opt.label}</div>
+                {opt.description && (
+                  <div className="text-xs text-slate-500 dark:text-slate-400">
+                    {opt.description}
+                  </div>
+                )}
+              </div>
+            </label>
+          ) : (
+            <Button
+              key={opt.id}
+              size="sm"
+              variant="outline"
+              disabled={isStreaming}
+              className="justify-start h-auto px-4 py-2 text-left whitespace-normal"
+              onClick={() =>
+                (async () => {
+                  await respondToHumanInput({
+                    resumeToken: piece.resumeToken,
+                    requestId: piece.requestId,
+                    selected: [opt.id],
+                    text: opt.label,
+                  });
+                })()
+              }
+            >
+              {opt.label}
+            </Button>
+          ),
+        )}
+
+        {isMulti && (
           <Button
-            key={opt.id}
             size="sm"
-            variant="outline"
-            disabled={isStreaming}
-            className="justify-start h-auto px-4 py-2 text-left whitespace-normal"
+            disabled={isStreaming || selected.length === 0}
             onClick={() =>
               (async () => {
                 await respondToHumanInput({
                   resumeToken: piece.resumeToken,
                   requestId: piece.requestId,
-                  selected: [opt.id],
-                  text: opt.label,
+                  selected,
+                  text: selected.join(", "),
                 });
               })()
             }
           >
-            {opt.label}
+            Submit ({selected.length})
           </Button>
-        ))}
+        )}
       </div>
     </div>
   );

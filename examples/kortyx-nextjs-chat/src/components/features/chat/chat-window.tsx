@@ -16,9 +16,11 @@ export function ChatWindow() {
     streamDebug,
     lastAssistantId,
     send,
-    setMessages,
+    clearChat,
     includeHistory,
     setIncludeHistory,
+    workflowId,
+    setWorkflowId,
   } = useChat();
   const [input, setInput] = useState("");
   const [debugOpen, setDebugOpen] = useState(false);
@@ -117,7 +119,7 @@ export function ChatWindow() {
                 variant="outline"
                 size="sm"
                 onClick={() => {
-                  setMessages([]);
+                  clearChat();
                 }}
                 title="Clear chat"
               >
@@ -187,6 +189,8 @@ export function ChatWindow() {
         onOpenChange={setParametersOpen}
         includeHistory={includeHistory}
         onIncludeHistoryChange={setIncludeHistory}
+        workflowId={workflowId}
+        onWorkflowIdChange={setWorkflowId}
       />
     </SidebarProvider>
   );
