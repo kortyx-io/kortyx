@@ -47,7 +47,6 @@ jobs:
           const { execSync } = require('node:child_process');
           const { readdirSync, readFileSync } = require('node:fs');
           const { join } = require('node:path');
-          const { tmpdir } = require('node:os');
 
           const root = process.cwd();
           const packagesDir = join(root, 'packages');
@@ -123,20 +122,8 @@ jobs:
               continue;
             }
             const selector = './' + p.dir;
-            const packDir = join(tmpdir(), 'npm-pack-' + Date.now());
-            execSync('mkdir -p ' + packDir);
-
-            console.log('Packing ' + selector + '...');
-            const packCmd = 'pnpm --dir ' + selector + ' pack --pack-destination ' + packDir;
-            execSync(packCmd, { stdio: 'inherit' });
-
-            const tarballName = p.name.startsWith('@')
-              ? p.name.slice(1).replace('/', '-') + '-' + p.version + '.tgz'
-              : p.name + '-' + p.version + '.tgz';
-            const tarballPath = join(packDir, tarballName);
-
-            console.log('Publishing ' + tarballPath + ' as ' + full + '...');
-            const cmd = 'npm publish ' + tarballPath + ' --provenance --access public --tag ' + tag;
-            execSync(cmd, { stdio: 'inherit' });
+            console.log('Publishing ' + full + ' from ' + selector + '...');
+            const cmd = 'npm publish --provenance --access public --tag ' + tag;
+            execSync(cmd, { stdio: 'inherit', cwd: join(root, p.dir) });
           }
           "
