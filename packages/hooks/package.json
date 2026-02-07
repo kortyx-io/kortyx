@@ -1,6 +1,6 @@
 {
   "name": "@kortyx/hooks",
-  "version": "0.2.3",
+  "version": "0.3.0",
   "private": false,
   "description": "Lifecycle hooks and extension points for Kortyx.",
   "keywords": [

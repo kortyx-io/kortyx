@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.4.0](https://github.com/kortyx-io/Kortyx/compare/runtime-v0.3.0...runtime-v0.4.0) (2026-02-07)
+
+
+### Features
+
+* **runtime:** add node registry and declarative workflow support ([8a4a66c](https://github.com/kortyx-io/Kortyx/commit/8a4a66c4bba6eed688e35380e000e053fb4af52c))
+* **runtime:** framework persistence adapter ([8383ad2](https://github.com/kortyx-io/Kortyx/commit/8383ad2d73754ccf4daf33e414e15c3ce44df8cb))
+
 ## [0.3.0](https://github.com/kortyx-io/kortyx/compare/runtime-v0.2.2...runtime-v0.3.0) (2026-01-25)
 
 

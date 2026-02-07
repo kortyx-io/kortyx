@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.3.0](https://github.com/kortyx-io/Kortyx/compare/kortyx-v0.2.3...kortyx-v0.3.0) (2026-02-07)
+
+
+### Features
+
+* **kortyx:** add browser-safe exports for client bundles ([5d9b50c](https://github.com/kortyx-io/Kortyx/commit/5d9b50c9520114822b868d08c2c001bbf85f7bcf))
+* **kortyx:** export node registry and stream utilities ([9206ffd](https://github.com/kortyx-io/Kortyx/commit/9206ffd98e68ded8fe7b024548149dc31a154259))
+* **runtime:** framework persistence adapter ([8383ad2](https://github.com/kortyx-io/Kortyx/commit/8383ad2d73754ccf4daf33e414e15c3ce44df8cb))
+
 ## [0.2.3](https://github.com/kortyx-io/kortyx/compare/kortyx-v0.2.2...kortyx-v0.2.3) (2026-01-25)
 
 

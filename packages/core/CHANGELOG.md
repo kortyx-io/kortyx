@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.0](https://github.com/kortyx-io/Kortyx/compare/core-v0.2.3...core-v0.3.0) (2026-02-07)
+
+
+### Features
+
+* **runtime:** framework persistence adapter ([8383ad2](https://github.com/kortyx-io/Kortyx/commit/8383ad2d73754ccf4daf33e414e15c3ce44df8cb))
+
 ## [0.2.3](https://github.com/kortyx-io/kortyx/compare/core-v0.2.2...core-v0.2.3) (2026-01-25)
 
 
