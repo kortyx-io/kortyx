@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.4.0](https://github.com/kortyx-io/Kortyx/compare/agent-v0.3.0...agent-v0.4.0) (2026-02-07)
+
+
+### Features
+
+* **runtime:** framework persistence adapter ([8383ad2](https://github.com/kortyx-io/Kortyx/commit/8383ad2d73754ccf4daf33e414e15c3ce44df8cb))
+
+
+### Bug Fixes
+
+* **agent:** remove explicit any in chat flow ([fcd701c](https://github.com/kortyx-io/Kortyx/commit/fcd701cfb6cb5f037900bbf0b396230603d16877))
+
 ## [0.3.0](https://github.com/kortyx-io/kortyx/compare/agent-v0.2.2...agent-v0.3.0) (2026-01-25)
 
 
