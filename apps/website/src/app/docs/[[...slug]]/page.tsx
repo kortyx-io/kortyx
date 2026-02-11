@@ -3,6 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { DocsArticleNavigation } from "@/components/docs/docs-article-navigation";
 import { DocsBreadcrumbs } from "@/components/docs/docs-breadcrumbs";
 import { DocsMarkdownContent } from "@/components/docs/docs-markdown-content";
+import { DocsMobileSidebar } from "@/components/docs/docs-mobile-sidebar";
 import { DocsPageActions } from "@/components/docs/docs-page-actions";
 import { DocsRightRail } from "@/components/docs/docs-right-rail";
 import { DocsSectionGrid } from "@/components/docs/docs-section-grid";
@@ -213,7 +214,16 @@ export default async function DocsPage({
 
         <main className="min-w-0 py-8">
           <div className="mb-8 flex max-w-3xl flex-wrap items-center justify-between gap-3 border-b border-border pb-4">
-            <DocsBreadcrumbs items={breadcrumbs} />
+            <div className="flex items-center gap-3">
+              <DocsMobileSidebar
+                sidebar={sidebar}
+                currentSectionSlug={currentSectionSlug}
+                currentDocSlug={currentDoc?.slug ?? null}
+                versionTargets={versionTargets}
+                selectedVersion={resolved.requestedVersion}
+              />
+              <DocsBreadcrumbs items={breadcrumbs} />
+            </div>
             {isDocRoute && markdownHref ? (
               <DocsPageActions
                 canonicalPath={resolved.canonicalPath}
