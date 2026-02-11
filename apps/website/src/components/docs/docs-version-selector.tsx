@@ -37,7 +37,7 @@ export function DocsVersionSelector(props: DocsVersionSelectorProps) {
       <DropdownMenuTrigger asChild>
         <Button
           variant="ghost"
-          className="h-auto w-full cursor-pointer justify-between rounded-md px-2! py-2 focus-visible:ring-0"
+          className="h-auto w-full cursor-pointer justify-between rounded-md px-2 py-2"
         >
           <span className="flex items-center gap-2">
             <span className="rounded-md border border-primary/40 bg-primary/10 p-2 text-primary">
