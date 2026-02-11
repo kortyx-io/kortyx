@@ -202,7 +202,7 @@ export default async function DocsPage({
 
   return (
     <div className="min-h-screen bg-background text-foreground">
-      <div className="mx-auto grid w-full max-w-[1400px] grid-cols-1 gap-x-8 px-4 py-8 md:grid-cols-[280px_minmax(0,1fr)] xl:grid-cols-[280px_minmax(0,1fr)_220px]">
+      <div className="mx-auto grid w-full max-w-[1400px] grid-cols-1 gap-x-8 px-4 md:grid-cols-[280px_minmax(0,1fr)] xl:grid-cols-[280px_minmax(0,1fr)_220px]">
         <DocsSidebar
           sidebar={sidebar}
           currentSectionSlug={currentSectionSlug}
@@ -211,7 +211,7 @@ export default async function DocsPage({
           selectedVersion={resolved.requestedVersion}
         />
 
-        <main className="min-w-0">
+        <main className="min-w-0 py-8">
           <div className="mb-8 flex max-w-3xl flex-wrap items-center justify-between gap-3 border-b border-border pb-4">
             <DocsBreadcrumbs items={breadcrumbs} />
             {isDocRoute && markdownHref ? (

@@ -27,14 +27,14 @@ export function DocsSidebar(props: DocsSidebarProps) {
   } = props;
 
   return (
-    <aside className="md:sticky md:top-4 md:h-[calc(100vh-2rem)] md:overflow-hidden">
-      <div className="flex h-full flex-col">
+    <aside className="md:sticky md:top-14 md:h-[calc(100vh-3.5rem)] py-8">
+      <div className="flex h-full flex-col overflow-hidden">
         <DocsVersionSelector
           options={versionTargets}
           selectedVersion={selectedVersion}
         />
 
-        <nav className="min-h-0 flex-1 space-y-4 overflow-y-auto mt-6 px-2">
+        <nav className="mt-6 min-h-0 flex-1 space-y-4 overflow-y-auto px-2">
           {sidebar.map((section) => (
             <div key={section.slug}>
               <h3 className="mb-1">
