@@ -67,8 +67,8 @@ export function DocsCodeBlock(props: DocsCodeBlockProps) {
   };
 
   return (
-    <div className="my-4 overflow-x-auto rounded-2xl border border-border bg-muted dark:border-zinc-700 dark:bg-zinc-900">
-      <div className="flex items-center justify-between gap-4 border-b border-border px-4 py-3 dark:border-zinc-700">
+    <div className="my-4 overflow-x-auto rounded-md border border-border bg-muted dark:border-zinc-800 dark:bg-zinc-950">
+      <div className="flex items-center justify-between gap-4 border-b border-border px-4 py-3 dark:border-zinc-800">
         {entries.length > 1 ? (
           <Tabs value={activeTab} onValueChange={setActiveTab}>
             <TabsList className="h-8 border bg-accent dark:border-zinc-600 dark:bg-zinc-800/60">
