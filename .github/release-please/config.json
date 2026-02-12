@@ -44,6 +44,10 @@
       "package-name": "@kortyx/utils",
       "component": "utils"
     },
+    "apps/website": {
+      "package-name": "kortyx-website",
+      "component": "website"
+    },
     "examples/kortyx-nextjs-chat": {
       "package-name": "@kortyx/example-nextjs-chat",
       "component": "example-nextjs-chat"
