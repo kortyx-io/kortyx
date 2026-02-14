@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.3.1](https://github.com/kortyx-io/kortyx/compare/website-v0.3.0...website-v0.3.1) (2026-02-14)
+
+
+### Bug Fixes
+
+* **website:** replace default app metadata ([41fe794](https://github.com/kortyx-io/kortyx/commit/41fe79433d4afb9f2c3f291eeb4811d24b842c1f))
+* **website:** replace default app metadata ([3dd5c78](https://github.com/kortyx-io/kortyx/commit/3dd5c782500bf35ec2e2e64a86460664383026f0))
+
 ## [0.3.0](https://github.com/kortyx-io/kortyx/compare/website-v0.2.0...website-v0.3.0) (2026-02-14)
 
 
