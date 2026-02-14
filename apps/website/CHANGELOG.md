@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.3.2](https://github.com/kortyx-io/kortyx/compare/website-v0.3.1...website-v0.3.2) (2026-02-14)
+
+
+### Bug Fixes
+
+* remove old favicon ([caab2fd](https://github.com/kortyx-io/kortyx/commit/caab2fd7ac0638d60374e805d93607cd5602028f))
+* **website:** add public favicon for docker build context ([34b1242](https://github.com/kortyx-io/kortyx/commit/34b12423d07f6535df1703807052a2248f0144bc))
+
 ## [0.3.1](https://github.com/kortyx-io/kortyx/compare/website-v0.3.0...website-v0.3.1) (2026-02-14)
 
 
