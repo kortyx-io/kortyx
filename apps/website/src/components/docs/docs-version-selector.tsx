@@ -58,7 +58,7 @@ export function DocsVersionSelector(props: DocsVersionSelectorProps) {
 
       <DropdownMenuContent
         align="start"
-        className="w-(--radix-dropdown-menu-trigger-width) min-w-0 p-0"
+        className="docs-sidebar-scroll w-(--radix-dropdown-menu-trigger-width) min-w-0 p-0"
       >
         {options.map((option) => {
           const active = option.version === selectedVersion;

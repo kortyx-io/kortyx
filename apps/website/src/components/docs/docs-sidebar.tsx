@@ -33,7 +33,7 @@ export function DocsSidebarContent(props: DocsSidebarProps) {
         selectedVersion={selectedVersion}
       />
 
-      <nav className="mt-6 min-h-0 flex-1 space-y-4 overflow-y-auto px-2">
+      <nav className="docs-sidebar-scroll mt-6 min-h-0 flex-1 space-y-4 overflow-y-auto px-2">
         {sidebar.map((section) => (
           <div key={section.slug}>
             <h3 className="mb-1">
