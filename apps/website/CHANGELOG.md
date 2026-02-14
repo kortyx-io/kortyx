@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.3.0](https://github.com/kortyx-io/kortyx/compare/website-v0.2.0...website-v0.3.0) (2026-02-14)
+
+
+### Features
+
+* add docker for website and publish to ghcr ([e5c95a7](https://github.com/kortyx-io/kortyx/commit/e5c95a73b2b35b84554d11e84c7dc90f4682970b))
+* add docker for website and publish to ghcr ([bbb6c01](https://github.com/kortyx-io/kortyx/commit/bbb6c013006b2f166d84cc7db368dbaced4cde7c))
+
+
+### Bug Fixes
+
+* **website:** docs scrollbar theme polish ([173ce87](https://github.com/kortyx-io/kortyx/commit/173ce87da848849d3755d0cbeac753a3a5e24779))
+* **website:** theme-aware docs sidebar scrollbar ([1fc3e17](https://github.com/kortyx-io/kortyx/commit/1fc3e1755dd40488f3095b98257ebabb5a99f6ae))
+
 ## [0.2.0](https://github.com/kortyx-io/kortyx/compare/website-v0.1.0...website-v0.2.0) (2026-02-12)
 
 
