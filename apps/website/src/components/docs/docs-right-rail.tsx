@@ -14,7 +14,7 @@ export function DocsRightRail(props: DocsRightRailProps) {
 
   return (
     <aside className="hidden xl:block xl:sticky xl:top-14 xl:h-[calc(100vh-3.5rem)]">
-      <div className="h-full overflow-y-auto py-8 pl-4">
+      <div className="flex h-full flex-col py-8 pl-4">
         {description ? (
           <p className="mb-6 text-sm leading-5 text-muted-foreground">
             {description}
@@ -23,7 +23,9 @@ export function DocsRightRail(props: DocsRightRailProps) {
         <h2 className="mb-2 text-sm font-semibold text-foreground">
           On this page
         </h2>
-        <DocsOnThisPage items={toc} />
+        <div className="docs-sidebar-scroll min-h-0 flex-1 overflow-y-auto pr-2">
+          <DocsOnThisPage items={toc} />
+        </div>
 
         {editOnGithubHref ? (
           <div className="mt-4 border-t border-border pt-4">
