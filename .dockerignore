@@ -1,0 +1,15 @@
+.git
+.github
+.husky
+.turbo
+.vscode
+.pnpm-store
+.DS_Store
+**/.DS_Store
+**/node_modules
+**/.next
+**/dist
+**/*.tsbuildinfo
+apps/studio
+**/.env
+**/.env.*
