@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.3.5](https://github.com/kortyx-io/kortyx/compare/website-v0.3.4...website-v0.3.5) (2026-02-15)
+
+
+### Bug Fixes
+
+* remove kortyx.config support and update docs ([ecb3f8d](https://github.com/kortyx-io/kortyx/commit/ecb3f8d53a017cc84bf8db3e125a6f711f5d4013))
+* remove kortyx.config support and update docs ([aa4a70a](https://github.com/kortyx-io/kortyx/commit/aa4a70a034dfec7bca829793f1729c51be018ae2))
+* **website:** theme horizontal scrollbar in docs code blocks ([48a7493](https://github.com/kortyx-io/kortyx/commit/48a7493c126668bdf97dd8e45a061e2eb7c12164))
+
 ## [0.3.4](https://github.com/kortyx-io/kortyx/compare/website-v0.3.3...website-v0.3.4) (2026-02-15)
 
 
