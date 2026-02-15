@@ -31,10 +31,10 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Promote dev tag to production tags
+      - name: Promote staging tag to production tags
         run: |
           version="${{ inputs.version }}"
-          source_image="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:dev-v${version}"
+          source_image="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:staging-v${version}"
 
           docker buildx imagetools inspect "${source_image}"
 

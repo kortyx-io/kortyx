@@ -14,8 +14,8 @@ env:
   IMAGE_NAME: kortyx-io/website
 
 jobs:
-  publish-dev:
-    name: Publish Dev Image
+  publish-staging:
+    name: Publish Staging Image
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -42,7 +42,7 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build and push dev image
+      - name: Build and push staging image
         uses: docker/build-push-action@v6
         with:
           context: .
@@ -50,7 +50,7 @@ jobs:
           push: true
           platforms: linux/amd64
           tags: |
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:dev-latest
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:dev-v${{ steps.version.outputs.version }}
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:staging-latest
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:staging-v${{ steps.version.outputs.version }}
           cache-from: type=gha,scope=website-image
           cache-to: type=gha,mode=max,scope=website-image
