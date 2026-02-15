@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.3.3](https://github.com/kortyx-io/kortyx/compare/website-v0.3.2...website-v0.3.3) (2026-02-15)
+
+
+### Bug Fixes
+
+* **website:** scope right rail scrollbar to toc ([e7d8ffd](https://github.com/kortyx-io/kortyx/commit/e7d8ffd3579cf3653ac238e5703d1f43e518b4b4))
+* **website:** scope right rail scrollbar to toc ([d5a146f](https://github.com/kortyx-io/kortyx/commit/d5a146f36cb089fc3c9351b0e28a95e2d572dea1))
+
 ## [0.3.2](https://github.com/kortyx-io/kortyx/compare/website-v0.3.1...website-v0.3.2) (2026-02-14)
 
 
