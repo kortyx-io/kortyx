@@ -14,6 +14,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://kortyx.io"),
   title: "Kortyx",
   description: "Kortyx documentation and developer guides",
 };
