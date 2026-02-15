@@ -54,3 +54,36 @@ jobs:
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:staging-v${{ steps.version.outputs.version }}
           cache-from: type=gha,scope=website-image
           cache-to: type=gha,mode=max,scope=website-image
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Checkout Railway image update helper
+        uses: actions/checkout@v4
+        with:
+          repository: brody192/image-update-and-redeploy
+          path: .tmp/image-update-and-redeploy
+
+      - name: Install and build Railway image update helper
+        working-directory: .tmp/image-update-and-redeploy
+        run: |
+          npm ci
+          npm run build
+
+      - name: Update Railway staging service image and redeploy
+        env:
+          RAILWAY_API_TOKEN: ${{ secrets.RAILWAY_API_TOKEN }}
+          RAILWAY_SERVICE_ID: ${{ secrets.RAILWAY_WEBSITE_SERVICE_ID }}
+          RAILWAY_ENVIRONMENT_ID: ${{ secrets.RAILWAY_STAGING_ENVIRONMENT_ID }}
+        run: |
+          if [ -z "${RAILWAY_API_TOKEN}" ] || [ -z "${RAILWAY_SERVICE_ID}" ] || [ -z "${RAILWAY_ENVIRONMENT_ID}" ]; then
+            echo "Missing required Railway secrets: RAILWAY_API_TOKEN, RAILWAY_WEBSITE_SERVICE_ID, RAILWAY_STAGING_ENVIRONMENT_ID"
+            exit 1
+          fi
+
+          node .tmp/image-update-and-redeploy/dist/main.js \
+            --serviceId="${RAILWAY_SERVICE_ID}" \
+            --environmentId="${RAILWAY_ENVIRONMENT_ID}" \
+            --image="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:staging-v${{ steps.version.outputs.version }}"
