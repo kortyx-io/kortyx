@@ -69,7 +69,7 @@ export function DocsMarkdownContent(props: DocsMarkdownContentProps) {
             return (
               <Link
                 href={rewritten}
-                className="font-medium text-primary underline underline-offset-2"
+                className="font-medium text-primary underline underline-offset-2 dark:text-blue-300 dark:hover:text-blue-200"
               >
                 {props.children}
               </Link>
@@ -80,7 +80,7 @@ export function DocsMarkdownContent(props: DocsMarkdownContentProps) {
             <a
               {...props}
               href={rewritten}
-              className="font-medium text-primary underline underline-offset-2"
+              className="font-medium text-primary underline underline-offset-2 dark:text-blue-300 dark:hover:text-blue-200"
             />
           );
         },

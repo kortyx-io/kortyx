@@ -146,9 +146,11 @@ export function DocsPageActions(props: DocsPageActionsProps) {
         <DropdownMenuTrigger asChild>
           <Button
             variant="ghost"
+            aria-label="More page actions"
+            title="More page actions"
             className="rounded-none border-0 border-l border-border px-3 text-foreground hover:bg-accent"
           >
-            <ChevronDownIcon className="h-4 w-4" />
+            <ChevronDownIcon className="h-4 w-4" aria-hidden="true" />
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-[320px] p-2">

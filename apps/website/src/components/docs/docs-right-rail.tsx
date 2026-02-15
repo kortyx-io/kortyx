@@ -23,7 +23,7 @@ export function DocsRightRail(props: DocsRightRailProps) {
         <h2 className="mb-2 text-sm font-semibold text-foreground">
           On this page
         </h2>
-        <div className="docs-sidebar-scroll min-h-0 flex-1 overflow-y-auto pr-2">
+        <div className="docs-sidebar-scroll min-h-10 max-h-[min(50vh,calc(100vh-18rem))] overflow-y-auto pr-2">
           <DocsOnThisPage items={toc} />
         </div>
 
@@ -33,7 +33,7 @@ export function DocsRightRail(props: DocsRightRailProps) {
               href={editOnGithubHref}
               target="_blank"
               rel="noreferrer"
-              className="inline-flex cursor-pointer items-center gap-2 text-sm text-muted-foreground hover:text-primary"
+              className="inline-flex cursor-pointer items-center gap-2 text-sm text-muted-foreground hover:text-primary dark:hover:text-blue-200"
             >
               Edit this page on GitHub
               <ExternalLinkIcon className="h-4 w-4" aria-hidden="true" />

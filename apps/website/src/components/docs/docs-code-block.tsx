@@ -20,6 +20,26 @@ type DocsCodeBlockProps = {
   entries: DocsCodeBlockEntry[];
 };
 
+const accessibleOneDark = {
+  ...oneDark,
+  comment: {
+    ...oneDark.comment,
+    color: "hsl(220, 14%, 72%)",
+  },
+  prolog: {
+    ...oneDark.prolog,
+    color: "hsl(220, 14%, 72%)",
+  },
+  doctype: {
+    ...oneDark.doctype,
+    color: "hsl(220, 14%, 72%)",
+  },
+  cdata: {
+    ...oneDark.cdata,
+    color: "hsl(220, 14%, 72%)",
+  },
+};
+
 function tabLabel(language: string): string {
   const lower = language.toLowerCase();
   if (lower === "ts" || lower === "tsx") return "TS";
@@ -112,7 +132,7 @@ export function DocsCodeBlock(props: DocsCodeBlockProps) {
       </div>
 
       <SyntaxHighlighter
-        style={isDark ? oneDark : oneLight}
+        style={isDark ? accessibleOneDark : oneLight}
         language={activeEntry.language}
         PreTag="div"
         customStyle={{

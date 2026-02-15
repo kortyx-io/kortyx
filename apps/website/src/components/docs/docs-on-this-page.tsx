@@ -60,8 +60,8 @@ export function DocsOnThisPage(props: DocsOnThisPageProps) {
               "block text-sm transition-colors",
               item.level === 3 ? "pl-4" : "",
               activeId === item.id
-                ? "font-medium text-primary"
-                : "text-muted-foreground hover:text-primary pr-1",
+                ? "font-medium text-primary dark:text-blue-300"
+                : "text-muted-foreground hover:text-primary pr-1 dark:hover:text-blue-200",
             )}
           >
             {item.text}
