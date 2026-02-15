@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.3.1](https://github.com/kortyx-io/kortyx/compare/kortyx-v0.3.0...kortyx-v0.3.1) (2026-02-15)
+
+
+### Bug Fixes
+
+* remove kortyx.config support and update docs ([ecb3f8d](https://github.com/kortyx-io/kortyx/commit/ecb3f8d53a017cc84bf8db3e125a6f711f5d4013))
+* remove kortyx.config support and update docs ([aa4a70a](https://github.com/kortyx-io/kortyx/commit/aa4a70a034dfec7bca829793f1729c51be018ae2))
+
 ## [0.3.0](https://github.com/kortyx-io/Kortyx/compare/kortyx-v0.2.3...kortyx-v0.3.0) (2026-02-07)
 
 
