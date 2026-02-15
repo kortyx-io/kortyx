@@ -23,7 +23,7 @@ export function DocsRightRail(props: DocsRightRailProps) {
         <h2 className="mb-2 text-sm font-semibold text-foreground">
           On this page
         </h2>
-        <div className="docs-sidebar-scroll min-h-0 flex-1 overflow-y-auto pr-2">
+        <div className="docs-sidebar-scroll min-h-10 max-h-[min(50vh,calc(100vh-18rem))] overflow-y-auto pr-2">
           <DocsOnThisPage items={toc} />
         </div>
 
