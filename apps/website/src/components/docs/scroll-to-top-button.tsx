@@ -43,7 +43,7 @@ export function ScrollToTopButton(props: ScrollToTopButtonProps) {
         type="button"
         aria-label="Scroll to top"
         onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
-        className="inline-flex cursor-pointer items-center gap-2 text-sm text-muted-foreground transition-colors hover:text-primary"
+        className="inline-flex cursor-pointer items-center gap-2 text-sm text-muted-foreground transition-colors hover:text-primary dark:hover:text-blue-200"
       >
         Scroll to top
         <span className="flex shrink-0">
@@ -89,7 +89,7 @@ export function ScrollToTopButton(props: ScrollToTopButtonProps) {
         type="button"
         aria-label="Scroll to top"
         onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
-        className="inline-flex cursor-pointer items-center gap-2 text-sm text-muted-foreground hover:text-primary"
+        className="inline-flex cursor-pointer items-center gap-2 text-sm text-muted-foreground hover:text-primary dark:hover:text-blue-200"
       >
         Scroll to top
       </button>

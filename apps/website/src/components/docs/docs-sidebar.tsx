@@ -43,7 +43,7 @@ export function DocsSidebarContent(props: DocsSidebarProps) {
                   "text-sm font-semibold",
                   section.slug === currentSectionSlug
                     ? "text-foreground"
-                    : "text-primary hover:text-primary/80",
+                    : "text-primary hover:text-primary/80 dark:text-blue-300 dark:hover:text-blue-200",
                 )}
               >
                 {section.label}
