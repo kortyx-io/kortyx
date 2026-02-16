@@ -1,16 +1,49 @@
-import type {
-  AIMessageChunk,
-  BaseMessage,
-  HumanMessage,
-  SystemMessage,
-} from "@langchain/core/messages";
-
 /**
  * Options for model instantiation
  */
 export interface ModelOptions {
   temperature?: number;
   streaming?: boolean;
+}
+
+export interface ProviderModelRef<
+  ProviderId extends string = string,
+  ModelId extends string = string,
+> {
+  providerId: ProviderId;
+  modelId: ModelId;
+  options?: ModelOptions | undefined;
+}
+
+export interface ProviderSelector<
+  ProviderId extends string = string,
+  ModelId extends string = string,
+> {
+  (
+    modelId: ModelId,
+    options?: ModelOptions,
+  ): ProviderModelRef<ProviderId, ModelId>;
+  id: ProviderId;
+  models: readonly ModelId[];
+}
+
+export type KortyxPromptRole = "system" | "user" | "assistant";
+
+export interface KortyxPromptMessage {
+  role: KortyxPromptRole;
+  content: string;
+}
+
+export interface KortyxStreamChunk {
+  text?: string | undefined;
+  content?: unknown;
+  raw?: unknown;
+}
+
+export interface KortyxInvokeResult {
+  role?: "assistant" | undefined;
+  content: string;
+  raw?: unknown;
 }
 
 /**
@@ -22,15 +55,15 @@ export interface KortyxModel {
    * Stream responses from the model
    */
   stream: (
-    messages: Array<HumanMessage | SystemMessage>,
-  ) => AsyncIterable<AIMessageChunk> | Promise<AsyncIterable<AIMessageChunk>>;
+    messages: KortyxPromptMessage[],
+  ) =>
+    | AsyncIterable<KortyxStreamChunk | string>
+    | Promise<AsyncIterable<KortyxStreamChunk | string>>;
 
   /**
    * Invoke the model synchronously (non-streaming)
    */
-  invoke: (
-    messages: Array<HumanMessage | SystemMessage>,
-  ) => Promise<BaseMessage>;
+  invoke: (messages: KortyxPromptMessage[]) => Promise<KortyxInvokeResult>;
 
   /**
    * Model temperature (can be modified at runtime)

@@ -39,12 +39,7 @@
     "test": "pnpm -s type-check",
     "type-check": "tsc --noEmit"
   },
-  "dependencies": {
-    "@langchain/core": "^1.0.1"
-  },
-  "peerDependencies": {
-    "@langchain/core": "^1.0.0"
-  },
+  "dependencies": {},
   "devDependencies": {
     "typescript": "5.7.2",
     "turbo": "^2.5.4"

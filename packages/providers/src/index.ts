@@ -19,9 +19,15 @@ export {
 // Types
 export type {
   GetProviderFn,
+  KortyxInvokeResult,
   KortyxModel,
+  KortyxPromptMessage,
+  KortyxPromptRole,
+  KortyxStreamChunk,
   ModelFactory,
   ModelOptions,
   ProviderConfig,
+  ProviderModelRef,
   ProviderRegistry,
+  ProviderSelector,
 } from "./types";
