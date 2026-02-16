@@ -310,7 +310,10 @@ importers:
         version: 1.1.15(@opentelemetry/api@1.9.0)
       '@langchain/langgraph':
         specifier: ^1.0.1
-        version: 1.1.0(@langchain/core@1.1.15(@opentelemetry/api@1.9.0))(react-dom@19.2.1(react@19.2.1))(react@19.2.1)(zod@4.1.13)
+        version: 1.1.0(@langchain/core@1.1.15(@opentelemetry/api@1.9.0))(react-dom@19.2.1(react@19.2.1))(react@19.2.1)(zod@3.25.76)
+      zod:
+        specifier: ^3.23.8
+        version: 3.25.76
     devDependencies:
       turbo:
         specifier: ^2.5.4
@@ -404,10 +407,6 @@ importers:
         version: 5.7.2
 
   packages/providers:
-    dependencies:
-      '@langchain/core':
-        specifier: ^1.0.1
-        version: 1.1.15(@opentelemetry/api@1.9.0)
     devDependencies:
       turbo:
         specifier: ^2.5.4
@@ -486,12 +485,6 @@ importers:
       '@kortyx/providers':
         specifier: workspace:*
         version: link:../../packages/providers
-      '@langchain/core':
-        specifier: ^1.0.6
-        version: 1.1.15(@opentelemetry/api@1.9.0)
-      '@langchain/google-genai':
-        specifier: ^1.0.0
-        version: 1.0.3(@langchain/core@1.1.15(@opentelemetry/api@1.9.0))
     devDependencies:
       turbo:
         specifier: ^2.5.4
@@ -1261,10 +1254,6 @@ packages:
   '@floating-ui/utils@0.2.10':
     resolution: {integrity: sha512-aGTxbpbg8/b5JfU1HXSrbH3wXZuLPJcNEcZQFMxLs3oSzgtVu6nFPkbbGGUvBcUjKV2YyB9Wxxabo+HEH9tcRQ==}
 
-  '@google/generative-ai@0.24.1':
-    resolution: {integrity: sha512-MqO+MLfM6kjxcKoy0p1wRzG3b4ZZXtPI+z2IE26UogS2Cm/XHO+7gGRBh6gcJsOiIVoH93UwKvW4HdgiOZCy9Q==}
-    engines: {node: '>=18.0.0'}
-
   '@img/colour@1.0.0':
     resolution: {integrity: sha512-A5P/LfWGFSl6nsckYtjw9da+19jB8hkJ6ACTGcDfEJ0aE+l2n2El7dsVM7UVHZQ9s2lmYMWlrS21YLy2IR1LUw==}
     engines: {node: '>=18'}
@@ -1424,12 +1413,6 @@ packages:
   '@langchain/core@1.1.15':
     resolution: {integrity: sha512-b8RN5DkWAmDAlMu/UpTZEluYwCLpm63PPWniRKlE8ie3KkkE7IuMQ38pf4kV1iaiI+d99BEQa2vafQHfCujsRA==}
     engines: {node: '>=20'}
-
-  '@langchain/google-genai@1.0.3':
-    resolution: {integrity: sha512-ZN3f6SPFZI3FMjJ1C0y5A/lWlZ/x+A9RoIKg1PNYdX6bEu7/BR7oz0dYYI2+YGl3TRp1u75e3SzzL0MxmfWfDA==}
-    engines: {node: '>=20'}
-    peerDependencies:
-      '@langchain/core': 1.0.6
 
   '@langchain/langgraph-checkpoint@1.0.0':
     resolution: {integrity: sha512-xrclBGvNCXDmi0Nz28t3vjpxSH6UYx6w5XAXSiiB1WEdc2xD2iY/a913I3x3a31XpInUW/GGfXXfePfaghV54A==}
@@ -5382,8 +5365,6 @@ snapshots:
 
   '@floating-ui/utils@0.2.10': {}
 
-  '@google/generative-ai@0.24.1': {}
-
   '@img/colour@1.0.0':
     optional: true
 
@@ -5523,12 +5504,6 @@ snapshots:
       - '@opentelemetry/sdk-trace-base'
       - openai
 
-  '@langchain/google-genai@1.0.3(@langchain/core@1.1.15(@opentelemetry/api@1.9.0))':
-    dependencies:
-      '@google/generative-ai': 0.24.1
-      '@langchain/core': 1.1.15(@opentelemetry/api@1.9.0)
-      uuid: 11.1.0
-
   '@langchain/langgraph-checkpoint@1.0.0(@langchain/core@1.1.15(@opentelemetry/api@1.9.0))':
     dependencies:
       '@langchain/core': 1.1.15(@opentelemetry/api@1.9.0)
@@ -5543,6 +5518,17 @@ snapshots:
       '@langchain/core': 1.1.15(@opentelemetry/api@1.9.0)
       react: 19.2.1
       react-dom: 19.2.1(react@19.2.1)
+
+  '@langchain/langgraph@1.1.0(@langchain/core@1.1.15(@opentelemetry/api@1.9.0))(react-dom@19.2.1(react@19.2.1))(react@19.2.1)(zod@3.25.76)':
+    dependencies:
+      '@langchain/core': 1.1.15(@opentelemetry/api@1.9.0)
+      '@langchain/langgraph-checkpoint': 1.0.0(@langchain/core@1.1.15(@opentelemetry/api@1.9.0))
+      '@langchain/langgraph-sdk': 1.5.4(@langchain/core@1.1.15(@opentelemetry/api@1.9.0))(react-dom@19.2.1(react@19.2.1))(react@19.2.1)
+      uuid: 10.0.0
+      zod: 3.25.76
+    transitivePeerDependencies:
+      - react
+      - react-dom
 
   '@langchain/langgraph@1.1.0(@langchain/core@1.1.15(@opentelemetry/api@1.9.0))(react-dom@19.2.1(react@19.2.1))(react@19.2.1)(zod@4.1.13)':
     dependencies:

@@ -1,71 +1,28 @@
 import type {
   InterruptInput,
   InterruptResult,
-  ModelConfig,
   NodeContext,
 } from "@kortyx/core";
 import type { MemoryAdapter } from "@kortyx/memory";
+import type { ProviderModelRef } from "@kortyx/providers";
 import { getHookContext } from "./context";
+import type { RunReasonEngineResult } from "./reason-engine";
+import { runReasonEngine } from "./reason-engine";
 
 type StateSetter<T> = (next: T | ((prev: T) => T)) => void;
 
-type ResolvedModel = {
-  provider: string;
-  name: string;
-  temperature: number | undefined;
-};
-
-const DEFAULT_PROVIDER = "google";
-const DEFAULT_MODEL = "gemini-2.5-flash";
-
-const resolveModel = (
-  modelId: string | undefined,
-  config?: ModelConfig,
-): ResolvedModel => {
-  const defaultProvider = config?.provider ?? DEFAULT_PROVIDER;
-  const defaultModel = config?.name ?? DEFAULT_MODEL;
-
-  if (!modelId) {
-    return {
-      provider: defaultProvider,
-      name: defaultModel,
-      temperature: config?.temperature,
-    };
-  }
-
-  const separatorIndex = modelId.indexOf(":");
-  if (separatorIndex === -1) {
-    return {
-      provider: defaultProvider,
-      name: modelId,
-      temperature: config?.temperature,
-    };
-  }
-
-  const provider = modelId.slice(0, separatorIndex) || defaultProvider;
-  const name = modelId.slice(separatorIndex + 1) || defaultModel;
-
-  return {
-    provider,
-    name,
-    temperature: config?.temperature,
-  };
-};
-
-export type AiCallArgs = {
-  prompt: string;
+export type UseReasonArgs = {
+  model: ProviderModelRef;
+  input: string;
   system?: string | undefined;
   temperature?: number | undefined;
   emit?: boolean | undefined;
   stream?: boolean | undefined;
 };
 
-export type AiCallResult = {
+export type UseReasonResult = {
   text: string;
-};
-
-export type AiModel = {
-  call: (args: AiCallArgs) => Promise<AiCallResult>;
+  raw?: unknown;
 };
 
 export function useEmit(): NodeContext["emit"] {
@@ -87,42 +44,31 @@ export function useStructuredData(args: {
   });
 }
 
-export function useAiProvider(modelId?: string): AiModel {
+async function reasonEngine(
+  args: UseReasonArgs,
+): Promise<RunReasonEngineResult> {
   const ctx = getHookContext();
   const getProvider = ctx.getProvider;
   if (!getProvider) {
-    throw new Error(
-      "useAiProvider requires a provider factory in runtime config.",
-    );
+    throw new Error("useReason requires a provider factory in runtime config.");
   }
 
-  const { provider, name, temperature } = resolveModel(
-    modelId,
-    ctx.node.config?.model,
-  );
+  return runReasonEngine({
+    getProvider,
+    model: args.model,
+    input: args.input,
+    system: args.system,
+    temperature: args.temperature,
+    defaultTemperature: ctx.node.config?.model?.temperature,
+    stream: args.stream,
+    emit: args.emit,
+    nodeId: ctx.node.graph.node,
+    emitEvent: ctx.node.emit,
+  });
+}
 
-  return {
-    call: async ({ prompt, system, temperature: overrideTemperature }) => {
-      if (!ctx.node.speak) {
-        throw new Error("useAiProvider requires ctx.speak in NodeContext.");
-      }
-      const text = await ctx.node.speak({
-        ...(typeof system === "string" && system.length > 0 ? { system } : {}),
-        user: prompt,
-        model: {
-          provider,
-          name,
-          ...(overrideTemperature !== undefined
-            ? { temperature: overrideTemperature }
-            : temperature !== undefined
-              ? { temperature }
-              : {}),
-        },
-        stream: { minChars: 12, flushMs: 50, segmentChars: 48 },
-      });
-      return { text };
-    },
-  };
+export function useReason(args: UseReasonArgs): Promise<UseReasonResult> {
+  return reasonEngine(args);
 }
 
 export function useAiMemory(): MemoryAdapter {

@@ -1,10 +1,8 @@
 // release-test: 2026-01-22
 export type {
   Agent,
-  AgentAiConfig,
   AgentMemoryConfig,
   AgentProcessOptions,
-  AgentProviderId,
   AgentSessionConfig,
   CreateAgentArgs,
 } from "./chat/create-agent";

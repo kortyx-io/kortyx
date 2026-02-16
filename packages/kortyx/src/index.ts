@@ -3,10 +3,8 @@
 
 export type {
   Agent,
-  AgentAiConfig,
   AgentMemoryConfig,
   AgentProcessOptions,
-  AgentProviderId,
   AgentSessionConfig,
   CreateAgentArgs,
   ProcessChatArgs,
@@ -24,12 +22,13 @@ export type {
   WorkflowId,
 } from "@kortyx/core";
 export { defineWorkflow, loadWorkflow, validateWorkflow } from "@kortyx/core";
+export type { UseReasonArgs, UseReasonResult } from "@kortyx/hooks";
 export {
   useAiInterrupt,
   useAiMemory,
-  useAiProvider,
   useEmit,
   useNodeState,
+  useReason,
   useStructuredData,
   useWorkflowState,
 } from "@kortyx/hooks";

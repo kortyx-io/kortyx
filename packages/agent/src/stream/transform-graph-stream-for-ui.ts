@@ -6,6 +6,7 @@ interface TransformOptions {
   debug?: boolean;
   visibleNodes?: string[];
   forwardModelStream?: boolean; // if true, forward on_chat_model_stream as text-delta
+  emitStatus?: boolean;
 }
 
 /**
@@ -19,7 +20,11 @@ export async function* transformGraphStreamForUI(
   stream: AsyncIterable<StreamEvent>,
   options: TransformOptions = {},
 ): AsyncGenerator<StreamChunk> {
-  const { debug = false, forwardModelStream = false } = options;
+  const {
+    debug = false,
+    forwardModelStream = false,
+    emitStatus = debug,
+  } = options;
   let currentNode: string | null = null;
   const streamedTextByNode = new Map<string, boolean>();
   const startedNodes = new Set<string>();
@@ -61,7 +66,9 @@ export async function* transformGraphStreamForUI(
           if (startedNodes.has(name)) break; // de-dupe
           startedNodes.add(name);
           if (debug) console.log(`[debug:start] node=${name}`);
-          yield { type: "status", message: `Processing node: ${name}` };
+          if (emitStatus) {
+            yield { type: "status", message: `Processing node: ${name}` };
+          }
         }
         break;
 
@@ -113,7 +120,7 @@ export async function* transformGraphStreamForUI(
               ...(options.length > 0 ? { options } : {}),
             },
           } as any;
-        } else {
+        } else if (emitStatus) {
           yield { type: "status", message: `⏸️ Interrupted at: ${where}` };
         }
         break;
@@ -162,7 +169,12 @@ export async function* transformGraphStreamForUI(
         // Emit a simple completion status for UI progress feedback (de-dupe + skip internal nodes)
         if (nodeName !== "__start__" && nodeName !== "__end__") {
           if (!endedNodes.has(nodeName)) {
-            yield { type: "status", message: `✅ Completed node: ${nodeName}` };
+            if (emitStatus) {
+              yield {
+                type: "status",
+                message: `✅ Completed node: ${nodeName}`,
+              };
+            }
             endedNodes.add(nodeName);
           }
         }
@@ -213,11 +225,11 @@ export async function* transformGraphStreamForUI(
                 ...(options.length > 0 ? { options } : {}),
               },
             } as any;
-          } else {
+          } else if (emitStatus) {
             yield { type: "status", message: "⏸️ Interrupt received" };
           }
         }
-        if (sawInterrupt && debug)
+        if (sawInterrupt && debug && emitStatus)
           yield { type: "status", message: "🔚 Graph ended after interrupt" };
         yield { type: "done", data: out };
         break;
@@ -232,10 +244,12 @@ export async function* transformGraphStreamForUI(
               `[debug:interrupt_like]`,
               JSON.stringify({ type, name, data }, null, 2),
             );
-          yield {
-            type: "status",
-            message: `⏸️ Interrupt event: ${type} ${name ?? ""}`.trim(),
-          };
+          if (emitStatus) {
+            yield {
+              type: "status",
+              message: `⏸️ Interrupt event: ${type} ${name ?? ""}`.trim(),
+            };
+          }
         } else if (debug) {
           console.warn(`[debug:unknown_event]`, type);
         }

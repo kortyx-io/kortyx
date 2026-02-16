@@ -5,15 +5,10 @@ import type {
   NodeResult,
   WorkflowDefinition,
 } from "@kortyx/core";
-import { runWithHookContext } from "@kortyx/hooks";
+import { runReasonEngine, runWithHookContext } from "@kortyx/hooks";
 import type { MemoryAdapter } from "@kortyx/memory";
 import type { GetProviderFn } from "@kortyx/providers";
-import { contentToText, deepMergeWithArrayOverwrite } from "@kortyx/utils";
-import {
-  type AIMessageChunk,
-  HumanMessage,
-  SystemMessage,
-} from "@langchain/core/messages";
+import { deepMergeWithArrayOverwrite } from "@kortyx/utils";
 import { Annotation, interrupt, StateGraph } from "@langchain/langgraph";
 import type { BaseCheckpointSaver } from "@langchain/langgraph-checkpoint";
 import { getCheckpointer } from "../checkpointer";
@@ -199,49 +194,21 @@ export async function createLangGraph(
             );
           }
 
-          const model = getProvider(providerId, modelName, {
+          const result = await runReasonEngine({
+            getProvider,
+            model: {
+              providerId,
+              modelId: modelName,
+            },
+            input: args.user ?? "",
+            system: args.system,
             temperature,
-            streaming: true,
+            stream: true,
+            emit: true,
+            nodeId,
+            emitEvent: ctx.emit,
           });
-
-          const messages = [
-            ...(args.system ? [new SystemMessage(args.system)] : []),
-            new HumanMessage(args.user ?? ""),
-          ];
-
-          let final = "";
-          const t0 = Date.now();
-          let seenFirst = false;
-
-          const isSilent = false;
-
-          if (!isSilent) ctx.emit("text-start", { node: nodeId });
-
-          const stream = await model.stream(messages);
-          for await (const chunk of stream as AsyncIterable<AIMessageChunk>) {
-            const part = contentToText(chunk.content as unknown);
-            if (!part) continue;
-            if (!seenFirst) {
-              seenFirst = true;
-              const ttft = Date.now() - t0;
-              ctx.emit("status", {
-                node: nodeId,
-                message: `⏱️ TTFT ${ttft}ms`,
-              });
-            }
-            final += part;
-            if (!isSilent)
-              ctx.emit("text-delta", { node: nodeId, delta: part });
-          }
-
-          if (!isSilent) ctx.emit("text-end", { node: nodeId });
-          const t1 = Date.now();
-          if (seenFirst)
-            ctx.emit("status", {
-              node: nodeId,
-              message: `✅ Stream done in ${t1 - t0}ms`,
-            });
-          return final;
+          return result.text;
         },
       } satisfies NodeContext;
 

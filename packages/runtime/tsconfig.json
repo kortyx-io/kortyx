@@ -1,9 +1,10 @@
 {
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
-    "module": "ESNext",
+    "module": "Node16",
     "outDir": "./dist",
     "rootDir": "./src",
+    "moduleResolution": "node16",
     "declaration": true,
     "declarationMap": true,
     "incremental": true,
