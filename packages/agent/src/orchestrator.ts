@@ -40,10 +40,8 @@ export interface OrchestrateArgs {
 }
 
 /**
- * Orchestrates LangGraph execution with mid-stream transitions.
- * Works with both:
- *  - transition chunks emitted via transformGraphStreamForUI
- *  - transition events emitted via ctx.emit("transition", ...)
+ * Orchestrates LangGraph execution with mid-stream transitions emitted via
+ * ctx.emit("transition", ...).
  */
 export async function orchestrateGraphStream({
   sessionId,
@@ -77,13 +75,11 @@ export async function orchestrateGraphStream({
   };
 
   // Bridge internal graph emits to our stream AND capture transitions
-  // Track which nodes streamed text so we can suppress duplicate full messages
-  const streamedNodes = new Set<string>();
   let lastStatusMsg = "";
   let lastStatusAt = 0;
 
-  // No chunking needed for final ui.message; we forward a single "message" event now.
-  // Capture interrupt payloads to emit a final interrupt chunk after graph ends.
+  // Capture interrupt payloads emitted by runtime hooks and forward them as
+  // resumable interrupt chunks.
   interface HumanInputPayload {
     node?: string;
     workflow?: string;
@@ -103,7 +99,7 @@ export async function orchestrateGraphStream({
   let pendingRecordToken: string | null = null;
   // Track if current invocation is a resume, so we can de-dupe interrupt events
   let activeIsResume = false;
-  // Avoid emitting duplicate interrupt chunks (e.g., both from forwardEmit and placeholder)
+  // Avoid emitting duplicate interrupt chunks in the same run.
   let wroteHumanInput = false;
 
   const pendingStore: PendingRequestStore | undefined =
@@ -112,7 +108,6 @@ export async function orchestrateGraphStream({
 
   const persistAndEmitInterrupt = async (
     payload: HumanInputPayload,
-    options?: { awaitPersist?: boolean },
   ): Promise<void> => {
     if (activeIsResume || wroteHumanInput) return;
 
@@ -157,14 +152,10 @@ export async function orchestrateGraphStream({
     };
 
     if (pendingStore) {
-      if (options?.awaitPersist) {
-        await pendingStore.save(record);
-      } else {
-        pendingStore.save(record).catch((error) => {
-          // eslint-disable-next-line no-console
-          console.error("[orchestrator] failed to save pending request", error);
-        });
-      }
+      pendingStore.save(record).catch((error) => {
+        // eslint-disable-next-line no-console
+        console.error("[orchestrator] failed to save pending request", error);
+      });
     }
 
     out.write({
@@ -212,7 +203,6 @@ export async function orchestrateGraphStream({
       const node = (payload as { node?: string })?.node;
       if (!node) return;
       out.write({ type: "text-start", node });
-      streamedNodes.add(node);
       return;
     }
     if (event === "text-delta") {
@@ -220,7 +210,6 @@ export async function orchestrateGraphStream({
       const delta = String((payload as { delta?: unknown })?.delta ?? "");
       if (!node || !delta) return;
       out.write({ type: "text-delta", delta, node });
-      streamedNodes.add(node);
       return;
     }
     if (event === "text-end") {
@@ -253,7 +242,7 @@ export async function orchestrateGraphStream({
         payload:
           (payload as { payload?: Record<string, unknown> })?.payload ?? {},
       });
-      // 2) capture for orchestration even if the uiStream never emits it
+      // 2) capture for orchestration
       pending.to = (payload as { transitionTo?: string })?.transitionTo ?? null;
       pending.payload =
         (payload as { payload?: Record<string, unknown> })?.payload ?? {};
@@ -333,42 +322,9 @@ export async function orchestrateGraphStream({
         emitStatus: debugEnabled,
       });
 
-      // Also allow transition detection via uiStream (if transformer emits it)
-      let loopTransitionTo: string | null = null;
-      let loopTransitionPayload: Record<string, unknown> = {};
-
       for await (const chunk of uiStream as AsyncIterable<StreamChunk>) {
         if (finished) break;
-        const node = (chunk as { node?: string }).node;
-        // Convert placeholder interrupt chunk (from transformer) into a real chunk with tokens + persist snapshot
-        if (
-          (chunk as any).type === "interrupt" &&
-          (!(chunk as any).resumeToken || !(chunk as any).requestId)
-        ) {
-          if (wroteHumanInput) {
-            // Already emitted an interrupt for this pause; skip placeholder
-            continue;
-          }
-          const hi = chunk as any;
-          await persistAndEmitInterrupt(
-            {
-              node: node || "",
-              workflow: currentState.currentWorkflow as string,
-              input: hi.input,
-            },
-            { awaitPersist: true },
-          );
-          continue;
-        }
-        if (chunk.type === "text-delta" && node) streamedNodes.add(node);
         out.write(chunk);
-
-        // Transition surfaced by transformer
-        if (chunk.type === "transition") {
-          loopTransitionTo = String(chunk.transitionTo || "");
-          loopTransitionPayload = chunk.payload ?? {};
-          break; // stop current workflow, move to next
-        }
 
         if (chunk.type === "done") {
           workflowFinalState = (chunk.data as GraphState) ?? null;
@@ -378,11 +334,8 @@ export async function orchestrateGraphStream({
 
       if (finished) return;
 
-      // Prefer transition detected from the uiStream; otherwise use pending from emit()
-      const transitionTo = loopTransitionTo || pending.to;
-      const transitionPayload = Object.keys(loopTransitionPayload).length
-        ? loopTransitionPayload
-        : pending.payload;
+      const transitionTo = pending.to;
+      const transitionPayload = pending.payload;
 
       // Reset pending so we don't carry it accidentally
       pending.to = null;

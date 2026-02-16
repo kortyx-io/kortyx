@@ -25,7 +25,7 @@ export const chatNode = async ({
     model,
     system:
       system ||
-      "You are a helpful assistant in a demo Next.js app. Keep responses long and verbose.",
+      "You are a helpful assistant in a demo Next.js app. Keep responses concise and practical.",
     input: String(input ?? ""),
     temperature,
     emit: true,
