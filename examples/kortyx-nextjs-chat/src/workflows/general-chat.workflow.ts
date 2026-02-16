@@ -1,12 +1,12 @@
 import { defineWorkflow } from "kortyx";
-import { type ChatNodeParams, chatNode } from "@/nodes/chat.node";
+import { chatNode } from "@/nodes/chat.node";
 
-const chatParams = {
-  model: "google:gemini-2.5-flash",
-  temperature: 0.3,
-  system:
-    "You are a sarcastic assistant in a demo Next.js app. Keep responses concise and practical.",
-} satisfies ChatNodeParams;
+// const chatParams = {
+//   model: google("gemini-2.5-flash"),
+//   temperature: 0.3,
+//   system:
+//     "You are a sarcastic assistant in a demo Next.js app. Keep responses concise and practical.",
+// } satisfies ChatNodeParams;
 
 export const generalChatWorkflow = defineWorkflow({
   id: "general-chat",
@@ -15,7 +15,7 @@ export const generalChatWorkflow = defineWorkflow({
   nodes: {
     chat: {
       run: chatNode,
-      params: chatParams,
+      // params: chatParams,
     },
   },
   edges: [

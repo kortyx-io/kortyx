@@ -1,7 +1,9 @@
-import { useAiProvider } from "kortyx";
+import type { ProviderModelRef } from "kortyx";
+import { useReason } from "kortyx";
+import { google } from "@/lib/providers";
 
 export type ChatNodeParams = {
-  model?: string;
+  model?: ProviderModelRef;
   temperature?: number;
   system?: string;
 };
@@ -14,18 +16,17 @@ export const chatNode = async ({
   params: ChatNodeParams;
 }) => {
   const {
-    model = "google:gemini-2.5-flash",
+    model = google("gemini-2.5-flash"),
     temperature = 0.3,
     system = "",
   } = params;
 
-  const llm = useAiProvider(model);
-
-  const res = await llm.call({
+  const res = await useReason({
+    model,
     system:
       system ||
-      "You are a helpful assistant in a demo Next.js app. Keep responses concise and practical.",
-    prompt: String(input ?? ""),
+      "You are a helpful assistant in a demo Next.js app. Keep responses long and verbose.",
+    input: String(input ?? ""),
     temperature,
     emit: true,
     stream: true,

@@ -1,9 +1,8 @@
 "use client";
 
-import type { StreamChunk } from "kortyx";
+import { readStream, type StreamChunk } from "kortyx";
 import type React from "react";
 import { createContext, useEffect, useRef, useState } from "react";
-import { runChat } from "@/app/actions/chat";
 
 async function* runChatStream(args: {
   sessionId: string;
@@ -14,8 +13,42 @@ async function* runChatStream(args: {
     metadata?: Record<string, unknown>;
   }>;
 }): AsyncGenerator<StreamChunk, void, void> {
-  const chunks = await runChat(args);
-  for (const chunk of chunks) {
+  let response: Response;
+  try {
+    response = await fetch("/api/chat", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+      },
+      body: JSON.stringify(args),
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    yield { type: "error", message };
+    yield { type: "done" };
+    return;
+  }
+
+  if (!response.ok) {
+    let message = `Request failed (${response.status})`;
+    try {
+      const payload = (await response.json()) as unknown;
+      if (
+        payload &&
+        typeof payload === "object" &&
+        "error" in payload &&
+        typeof (payload as { error?: unknown }).error === "string"
+      ) {
+        message = (payload as { error: string }).error;
+      }
+    } catch {}
+
+    yield { type: "error", message };
+    yield { type: "done" };
+    return;
+  }
+
+  for await (const chunk of readStream(response.body)) {
     yield chunk;
   }
 }

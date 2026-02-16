@@ -36,5 +36,5 @@ pnpm dev
 
 ## Configuration
 
-- `GOOGLE_API_KEY` (or `GEMINI_API_KEY`): used by `createAgent` with `@kortyx/google`.
+- `GOOGLE_API_KEY` (or `GEMINI_API_KEY`): used by `createGoogleGenerativeAI(...)` in `src/lib/providers.ts`.
 - Workflows in this example are TypeScript (`defineWorkflow(...)`) under `src/workflows`.

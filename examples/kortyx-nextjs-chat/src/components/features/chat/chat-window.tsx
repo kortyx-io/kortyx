@@ -92,7 +92,7 @@ export function ChatWindow() {
             </div>
             <div className="flex items-center gap-3">
               <div className="hidden text-xs italic text-slate-500 sm:block">
-                KORTYX: server actions
+                KORTYX: streaming route
               </div>
               <Button
                 variant="outline"
