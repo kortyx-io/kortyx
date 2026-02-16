@@ -60,6 +60,8 @@ export {
 export * from "@kortyx/providers";
 ```
 
+Install provider implementation packages separately (for example `@kortyx/google`).
+
 ## Runtime + registries + framework adapters
 
 ```ts

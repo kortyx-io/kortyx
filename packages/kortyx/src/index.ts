@@ -1,7 +1,16 @@
 // release-test: 2026-01-22
 // Public DX surface for the Kortyx framework.
 
-export type { CreateAgentArgs, ProcessChatArgs } from "@kortyx/agent";
+export type {
+  Agent,
+  AgentAiConfig,
+  AgentMemoryConfig,
+  AgentProcessOptions,
+  AgentProviderId,
+  AgentSessionConfig,
+  CreateAgentArgs,
+  ProcessChatArgs,
+} from "@kortyx/agent";
 export { createAgent, processChat } from "@kortyx/agent";
 export type {
   GraphState,

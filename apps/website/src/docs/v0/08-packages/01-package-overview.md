@@ -23,7 +23,8 @@ This page maps the current OSS packages in this monorepo.
 | `@kortyx/core` | workflow + node + state contracts | workflow authors, framework users |
 | `@kortyx/runtime` | graph execution + registries + framework adapters | advanced runtime integration |
 | `@kortyx/hooks` | node hooks (`useAiProvider`, state hooks, interrupts) | node authors |
-| `@kortyx/providers` | model/provider registry + Google provider | runtime/provider wiring |
+| `@kortyx/providers` | provider contracts + registry | runtime/provider wiring |
+| `@kortyx/google` | Google Gemini provider implementation | apps using Google models |
 | `@kortyx/memory` | business memory adapter contract + in-memory adapter | app persistence integration |
 | `@kortyx/stream` | stream chunk types + SSE server/client helpers | web APIs + clients |
 | `@kortyx/utils` | shared helpers (`deepMergeWithArrayOverwrite`, `withRetries`, `contentToText`) | framework internals |
@@ -31,7 +32,6 @@ This page maps the current OSS packages in this monorepo.
 
 ## Notes about current implementation
 
-- Providers: Google is wired; OpenAI/Anthropic are typed but not factory-enabled yet.
+- Providers: install provider packages per need (for example `@kortyx/google`).
 - Memory adapters: in-memory is implemented; Redis/Postgres constructors exist but throw `not implemented yet`.
 - Stream structured-data schema currently has a built-in `jobs` discriminated type; apps may still emit custom structured payloads.
-

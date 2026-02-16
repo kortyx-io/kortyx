@@ -1,32 +1,31 @@
 ---
 id: v0-setup-google-provider
 title: "Setup (Google)"
-description: "Initialize and use the built-in Google provider currently supported by Kortyx."
+description: "Install and use the Google provider package with strict createAgent config."
 keywords: [kortyx, google, gemini, provider-setup, getProvider]
 sidebar_label: "Setup (Google)"
 ---
 # Setup (Google)
 
-Current OSS provider implementation supports Google models out of the box.
+Google provider support lives in a dedicated package.
 
-## 1. Initialize providers
+## 1. Install provider package
 
-```ts
-import { initializeProviders } from "kortyx";
-
-initializeProviders({
-  googleApiKey: process.env.GOOGLE_API_KEY,
-});
+```bash
+npm install @kortyx/google
 ```
 
-## 2. Resolve a model
+## 2. Use declarative `createAgent`
 
 ```ts
-import { getProvider } from "kortyx";
+import { createAgent } from "kortyx";
 
-const model = getProvider("google", "gemini-2.5-flash", {
-  temperature: 0.3,
-  streaming: true,
+const agent = createAgent({
+  workflows: [generalChatWorkflow],
+  ai: {
+    provider: "google",
+    apiKey: process.env.GOOGLE_API_KEY,
+  },
 });
 ```
 
@@ -45,8 +44,3 @@ const res = await llm.call({ prompt: "Hello" });
 - `gemini-2.0-flash`
 - `gemini-1.5-pro`
 - `gemini-1.5-flash`
-
-## Important current limitation
-
-`initializeProviders` accepts OpenAI/Anthropic keys in the type, but only Google is currently wired in factory code.
-

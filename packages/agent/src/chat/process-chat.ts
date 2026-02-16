@@ -18,32 +18,28 @@ import { orchestrateGraphStream } from "../orchestrator";
 import type { ChatMessage } from "../types/chat-message";
 import { extractLatestUserMessage } from "../utils/extract-latest-message";
 
-type InitializeProvidersFn<Config> = (
-  aiConfig: Config extends { ai: infer A } ? A : unknown,
-) => void;
+export interface RuntimeConfig {
+  session?: { id?: string };
+  [key: string]: unknown;
+}
 
-export interface ProcessChatArgs<
-  Config extends Record<string, unknown>,
-  Options,
-> {
+export interface ProcessChatArgs<Options> {
   messages: ChatMessage[];
   options?: Options | undefined;
   sessionId?: string;
   defaultWorkflowId?: string;
-  loadRuntimeConfig: (options?: Options) => Config | Promise<Config>;
+  loadRuntimeConfig: (
+    options?: Options,
+  ) => RuntimeConfig | Promise<RuntimeConfig>;
   selectWorkflow?: SelectWorkflowFn;
   workflowRegistry?: WorkflowRegistry;
   frameworkAdapter?: FrameworkAdapter;
   getProvider: GetProviderFn;
-  initializeProviders?: InitializeProvidersFn<Config>;
   memoryAdapter?: MemoryAdapter;
   applyResumeSelection?: ApplyResumeSelection;
 }
 
-export async function processChat<
-  Config extends Record<string, unknown>,
-  Options = unknown,
->({
+export async function processChat<Options = unknown>({
   messages,
   options,
   sessionId,
@@ -53,21 +49,10 @@ export async function processChat<
   workflowRegistry,
   frameworkAdapter,
   getProvider,
-  initializeProviders,
   memoryAdapter,
   applyResumeSelection,
-}: ProcessChatArgs<Config, Options>): Promise<Response> {
-  // Load runtime configuration (API keys, environment, etc.)
+}: ProcessChatArgs<Options>): Promise<Response> {
   const config = await loadRuntimeConfig(options);
-  if (initializeProviders) {
-    type AiConfig = Parameters<NonNullable<typeof initializeProviders>>[0];
-    const ai = config.ai;
-    initializeProviders(
-      (ai && typeof ai === "object" && !Array.isArray(ai)
-        ? ai
-        : {}) as AiConfig,
-    );
-  }
   const runtimeConfig: Parameters<typeof createLangGraph>[1] = {
     ...config,
     getProvider,
@@ -86,7 +71,6 @@ export async function processChat<
     );
   }
 
-  // Extract session + input
   const fallbackSessionId = (options as { sessionId?: string } | undefined)
     ?.sessionId;
   const resolvedSessionId =
@@ -94,7 +78,6 @@ export async function processChat<
   const last = messages[messages.length - 1];
   const input = extractLatestUserMessage(messages);
 
-  // Business memory is opt-in via useAiMemory(); agent does not auto-persist state
   const previousMessages = messages.slice(0, -1);
   const memory: MemoryEnvelope = {
     ...(previousMessages.length > 0
@@ -102,9 +85,6 @@ export async function processChat<
       : {}),
   } as MemoryEnvelope;
 
-  // Allow callers to override the entry workflow for this request.
-  // This is intentionally option-based (so adapters like Next.js can pass it),
-  // and it is ignored for resume requests (resume must follow the pending workflow).
   const isResumeRequest = Boolean(parseResumeMeta(last));
   const requestedWorkflowId = (() => {
     if (!options) return undefined;
@@ -117,12 +97,10 @@ export async function processChat<
     return undefined;
   })();
   if (!isResumeRequest && requestedWorkflowId) {
-    // Treat empty string as "use default workflow" and clear stored selection.
     if (requestedWorkflowId.trim() === "") delete memory.currentWorkflow;
     else memory.currentWorkflow = requestedWorkflowId;
   }
 
-  // Base state (LLM input, messages, memory)
   const baseState = await buildInitialGraphState({
     input,
     config: runtimeConfig,
@@ -130,7 +108,6 @@ export async function processChat<
     ...(defaultWorkflowId ? { defaultWorkflowId } : {}),
   });
 
-  // If this is a resume request, continue from pending snapshot and skip workflow determination
   const resumeStream = await tryPrepareResumeStream({
     lastMessage: last,
     sessionId: resolvedSessionId,
@@ -143,8 +120,6 @@ export async function processChat<
   if (resumeStream) return createStreamResponse(resumeStream);
 
   const runId = makeRequestId("run");
-
-  // Determine which workflow to run (defaults to frontdesk)
   const currentWorkflow = baseState.currentWorkflow;
   const selectedWorkflow = await workflowSelector(currentWorkflow as string);
 

@@ -1,107 +1,90 @@
-import { createGoogleProvider } from "./providers/google";
 import type {
   GetProviderFn,
   KortyxModel,
   ModelOptions,
   ProviderConfig,
-  ProviderFactoryConfig,
+  ProviderRegistry,
 } from "./types";
 
-/**
- * Provider registry that holds initialized providers
- */
-let providers: Record<string, ProviderConfig> = {};
+const createGetProvider =
+  (providers: Record<string, ProviderConfig>): GetProviderFn =>
+  (
+    providerId: string,
+    modelId: string,
+    options?: ModelOptions,
+  ): KortyxModel => {
+    const provider = providers[providerId];
+    if (!provider) {
+      throw new Error(
+        `Provider '${providerId}' is not registered. Install and register a provider package first.`,
+      );
+    }
 
-/**
- * Initialize providers with API keys.
- * Call this once at application startup.
- *
- * @param config - API keys for various providers
- */
-export function initializeProviders(config: ProviderFactoryConfig): void {
-  providers = {};
+    const modelFactory = provider.models[modelId];
+    if (!modelFactory) {
+      const availableModels = Object.keys(provider.models).join(", ");
+      throw new Error(
+        `Unknown model: ${modelId} for provider ${providerId}. Available models: ${availableModels}`,
+      );
+    }
 
-  // Initialize Google provider if API key is available
-  if (config.googleApiKey) {
-    providers.google = createGoogleProvider(config.googleApiKey);
+    const model = modelFactory();
+    if (options?.temperature !== undefined)
+      model.temperature = options.temperature;
+    if (options?.streaming !== undefined) model.streaming = options.streaming;
+    return model;
+  };
+
+export function createProviderRegistry(
+  initialProviders?: ProviderConfig[],
+): ProviderRegistry {
+  const providers: Record<string, ProviderConfig> = {};
+  for (const provider of initialProviders ?? []) {
+    providers[provider.id] = provider;
   }
 
-  // TODO: Add OpenAI provider when needed
-  // if (config.openaiApiKey) {
-  //   providers.openai = createOpenAIProvider(config.openaiApiKey);
-  // }
-
-  // TODO: Add Anthropic provider when needed
-  // if (config.anthropicApiKey) {
-  //   providers.anthropic = createAnthropicProvider(config.anthropicApiKey);
-  // }
+  return {
+    register(config: ProviderConfig) {
+      providers[config.id] = config;
+    },
+    reset() {
+      for (const key of Object.keys(providers)) delete providers[key];
+    },
+    hasProvider(providerId: string) {
+      return providerId in providers;
+    },
+    getInitializedProviders() {
+      return Object.keys(providers);
+    },
+    getAvailableModels(providerId: string) {
+      const provider = providers[providerId];
+      return provider ? Object.keys(provider.models) : [];
+    },
+    getProvider: createGetProvider(providers),
+  };
 }
 
-/**
- * Get a model instance from a provider.
- * This is the main function used by the runtime.
- *
- * @param providerId - The provider ID (e.g., "google", "openai")
- * @param modelId - The model ID (e.g., "gemini-2.5-flash", "gpt-4")
- * @param options - Optional model configuration
- * @returns A KortyxModel instance
- * @throws Error if provider or model is not found
- */
-export const getProvider: GetProviderFn = (
-  providerId: string,
-  modelId: string,
-  options?: ModelOptions,
-): KortyxModel => {
-  const provider = providers[providerId];
-  if (!provider) {
-    throw new Error(
-      `Provider '${providerId}' not initialized. Check API key configuration.`,
-    );
-  }
+const defaultRegistry = createProviderRegistry();
 
-  const modelFactory = provider.models[modelId];
-  if (!modelFactory) {
-    const availableModels = Object.keys(provider.models).join(", ");
-    throw new Error(
-      `Unknown model: ${modelId} for provider ${providerId}. Available models: ${availableModels}`,
-    );
-  }
+export function registerProvider(config: ProviderConfig): void {
+  defaultRegistry.register(config);
+}
 
-  const model = modelFactory();
+export function resetProviders(): void {
+  defaultRegistry.reset();
+}
 
-  // Apply runtime options
-  if (options?.temperature !== undefined) {
-    model.temperature = options.temperature;
-  }
-
-  if (options?.streaming !== undefined) {
-    model.streaming = options.streaming;
-  }
-
-  return model;
-};
-
-/**
- * Check if a provider is initialized
- */
 export function hasProvider(providerId: string): boolean {
-  return providerId in providers;
+  return defaultRegistry.hasProvider(providerId);
 }
 
-/**
- * Get list of initialized provider IDs
- */
 export function getInitializedProviders(): string[] {
-  return Object.keys(providers);
+  return defaultRegistry.getInitializedProviders();
 }
 
-/**
- * Get list of available models for a provider
- */
 export function getAvailableModels(providerId: string): string[] {
-  const provider = providers[providerId];
-  if (!provider) {
-    return [];
-  }
-  return Object.keys(provider.models);
+  return defaultRegistry.getAvailableModels(providerId);
 }
+
+export const getProvider: GetProviderFn = (...args) =>
+  defaultRegistry.getProvider(...args);

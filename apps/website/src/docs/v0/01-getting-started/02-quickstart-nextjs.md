@@ -62,37 +62,23 @@ export const chatNode = async ({ input, params }: { input: unknown; params: { mo
 
 ```ts
 // src/lib/kortyx-client.ts
-import {
-  createAgent,
-  createInMemoryWorkflowRegistry,
-  getProvider,
-  initializeProviders,
-} from "kortyx";
+import { createAgent } from "kortyx";
 import { generalChatWorkflow } from "@/workflows/general-chat.workflow";
 
-export function loadRuntimeConfig(options?: { sessionId?: string }) {
-  return {
-    session: { id: options?.sessionId ?? "anonymous-session" },
-    ai: {
-      googleApiKey:
-        process.env.GOOGLE_API_KEY ??
-        process.env.GEMINI_API_KEY ??
-        process.env.GOOGLE_GENERATIVE_AI_API_KEY ??
-        process.env.KORTYX_GOOGLE_API_KEY ??
-        process.env.KORTYX_GEMINI_API_KEY,
-    },
-  };
-}
-
-const workflowRegistry = createInMemoryWorkflowRegistry([generalChatWorkflow], {
-  fallbackId: "general-chat",
-});
-
 export const agent = createAgent({
-  workflowRegistry,
-  loadRuntimeConfig,
-  getProvider,
-  initializeProviders,
+  workflows: [generalChatWorkflow],
+  ai: {
+    provider: "google",
+    apiKey:
+      process.env.GOOGLE_API_KEY ??
+      process.env.GEMINI_API_KEY ??
+      process.env.GOOGLE_GENERATIVE_AI_API_KEY ??
+      process.env.KORTYX_GOOGLE_API_KEY ??
+      process.env.KORTYX_GEMINI_API_KEY,
+  },
+  session: {
+    id: "anonymous-session",
+  },
   fallbackWorkflowId: "general-chat",
 });
 ```

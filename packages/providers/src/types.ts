@@ -4,7 +4,6 @@ import type {
   HumanMessage,
   SystemMessage,
 } from "@langchain/core/messages";
-import { z } from "zod";
 
 /**
  * Options for model instantiation
@@ -52,23 +51,9 @@ export type ModelFactory = () => KortyxModel;
 /**
  * Configuration for a single provider (e.g., Google, OpenAI)
  */
-export const ProviderConfigSchema = z.object({
-  id: z.string(),
-  models: z.record(z.function().returns(z.any())),
-});
-
-export type ProviderConfig = {
+export interface ProviderConfig {
   id: string;
   models: Record<string, ModelFactory>;
-};
-
-/**
- * Configuration passed to createProviderFactory
- */
-export interface ProviderFactoryConfig {
-  googleApiKey?: string | undefined;
-  openaiApiKey?: string | undefined;
-  anthropicApiKey?: string | undefined;
 }
 
 /**
@@ -80,3 +65,15 @@ export type GetProviderFn = (
   modelId: string,
   options?: ModelOptions,
 ) => KortyxModel;
+
+/**
+ * Mutable registry used to register provider implementations and resolve models.
+ */
+export interface ProviderRegistry {
+  register: (config: ProviderConfig) => void;
+  reset: () => void;
+  hasProvider: (providerId: string) => boolean;
+  getInitializedProviders: () => string[];
+  getAvailableModels: (providerId: string) => string[];
+  getProvider: GetProviderFn;
+}

@@ -157,9 +157,9 @@ importers:
 
   examples/kortyx-nextjs-chat:
     dependencies:
-      '@google/generative-ai':
-        specifier: ^0.24.1
-        version: 0.24.1
+      '@kortyx/google':
+        specifier: workspace:*
+        version: link:../../providers/google
       '@radix-ui/react-avatar':
         specifier: ^1.1.10
         version: 1.1.11(@types/react-dom@19.2.3(@types/react@19.2.7))(@types/react@19.2.7)(react-dom@19.2.1(react@19.2.1))(react@19.2.1)
@@ -408,12 +408,6 @@ importers:
       '@langchain/core':
         specifier: ^1.0.1
         version: 1.1.15(@opentelemetry/api@1.9.0)
-      '@langchain/google-genai':
-        specifier: ^1.0.0
-        version: 1.0.3(@langchain/core@1.1.15(@opentelemetry/api@1.9.0))
-      zod:
-        specifier: ^3.23.8
-        version: 3.25.76
     devDependencies:
       turbo:
         specifier: ^2.5.4
@@ -479,6 +473,25 @@ importers:
         version: 5.7.2
 
   packages/utils:
+    devDependencies:
+      turbo:
+        specifier: ^2.5.4
+        version: 2.6.1
+      typescript:
+        specifier: 5.7.2
+        version: 5.7.2
+
+  providers/google:
+    dependencies:
+      '@kortyx/providers':
+        specifier: workspace:*
+        version: link:../../packages/providers
+      '@langchain/core':
+        specifier: ^1.0.6
+        version: 1.1.15(@opentelemetry/api@1.9.0)
+      '@langchain/google-genai':
+        specifier: ^1.0.0
+        version: 1.0.3(@langchain/core@1.1.15(@opentelemetry/api@1.9.0))
     devDependencies:
       turbo:
         specifier: ^2.5.4

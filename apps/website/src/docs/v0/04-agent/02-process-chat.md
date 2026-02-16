@@ -21,7 +21,6 @@ await processChat({
   selectWorkflow, // or workflowRegistry
   frameworkAdapter,
   getProvider,
-  initializeProviders,
   memoryAdapter,
   applyResumeSelection,
 });
@@ -30,13 +29,12 @@ await processChat({
 ## What it does
 
 1. loads runtime config (`loadRuntimeConfig`)
-2. optionally initializes providers (`initializeProviders`)
-3. resolves a workflow (`selectWorkflow` / `workflowRegistry`)
-4. builds initial state (`buildInitialGraphState`)
-5. handles resume flow if last message carries resume metadata
-6. compiles graph (`createLangGraph`)
-7. orchestrates stream (`orchestrateGraphStream`)
-8. returns `createStreamResponse(...)`
+2. resolves a workflow (`selectWorkflow` / `workflowRegistry`)
+3. builds initial state (`buildInitialGraphState`)
+4. handles resume flow if last message carries resume metadata
+5. compiles graph (`createLangGraph`)
+6. orchestrates stream (`orchestrateGraphStream`)
+7. returns `createStreamResponse(...)`
 
 ## Workflow override per request
 
@@ -45,4 +43,3 @@ When not resuming, `options.workflowId` (or `options.workflow`) can override ent
 ## Resume customization
 
 `applyResumeSelection` lets you map selected interrupt options into state patches before resuming.
-

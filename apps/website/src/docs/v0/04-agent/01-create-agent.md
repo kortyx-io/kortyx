@@ -1,8 +1,8 @@
 ---
 id: v0-create-agent
 title: "createAgent"
-description: "Set up createAgent with workflow sources, runtime config, and provider wiring."
-keywords: [kortyx, createAgent, workflow-registry, config, runtime]
+description: "Set up createAgent with strict declarative config and provider package loading."
+keywords: [kortyx, createAgent, workflow-registry, config, runtime, strict]
 sidebar_label: "createAgent"
 ---
 # createAgent
@@ -12,26 +12,18 @@ sidebar_label: "createAgent"
 ## Minimal usage
 
 ```ts
-import {
-  createAgent,
-  createInMemoryWorkflowRegistry,
-  getProvider,
-  initializeProviders,
-} from "kortyx";
+import { createAgent } from "kortyx";
 import { generalChatWorkflow } from "@/workflows/general-chat.workflow";
 
-const registry = createInMemoryWorkflowRegistry([generalChatWorkflow], {
-  fallbackId: "general-chat",
-});
-
 export const agent = createAgent({
-  workflowRegistry: registry,
-  loadRuntimeConfig: (options?: { sessionId?: string }) => ({
-    session: { id: options?.sessionId ?? "anonymous-session" },
-    ai: { googleApiKey: process.env.GOOGLE_API_KEY },
-  }),
-  getProvider,
-  initializeProviders,
+  workflows: [generalChatWorkflow],
+  ai: {
+    provider: "google",
+    apiKey: process.env.GOOGLE_API_KEY,
+  },
+  session: {
+    id: "anonymous-session",
+  },
   fallbackWorkflowId: "general-chat",
 });
 ```
@@ -40,20 +32,23 @@ export const agent = createAgent({
 
 `createAgent` can resolve workflows from:
 
-1. `selectWorkflow` function
-2. `workflowRegistry`
+1. `workflowRegistry`
+2. `workflows`
 3. `workflowsDir`
 4. fallback default: `./src/workflows`
+
+Only one of `workflowRegistry`, `workflows`, or `workflowsDir` is allowed in the same config.
 
 ## Config knobs
 
 Useful fields in `CreateAgentArgs`:
 
+- `ai` (required)
+- `session`
+- `memory`
 - `defaultWorkflowId`
 - `fallbackWorkflowId`
 - `frameworkAdapter`
-- `memoryAdapter`
-- `selectWorkflow` or `workflowRegistry`
 
 Result object:
 

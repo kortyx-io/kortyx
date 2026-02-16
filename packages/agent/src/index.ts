@@ -1,5 +1,13 @@
 // release-test: 2026-01-22
-export type { CreateAgentArgs } from "./chat/create-agent";
+export type {
+  Agent,
+  AgentAiConfig,
+  AgentMemoryConfig,
+  AgentProcessOptions,
+  AgentProviderId,
+  AgentSessionConfig,
+  CreateAgentArgs,
+} from "./chat/create-agent";
 export { createAgent } from "./chat/create-agent";
 export type { ProcessChatArgs } from "./chat/process-chat";
 export { processChat } from "./chat/process-chat";

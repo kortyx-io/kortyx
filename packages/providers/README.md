@@ -1,6 +1,8 @@
 # @kortyx/providers
 
-Provider integrations (LLMs and related services) for Kortyx.
+Provider-agnostic registry and contracts for Kortyx model providers.
+
+Install concrete provider implementations separately (for example `@kortyx/google`).
 
 ## Install
 
@@ -17,4 +19,3 @@ This repo is under active development. For the latest package list and links, se
 ## License
 
 Apache-2.0
-

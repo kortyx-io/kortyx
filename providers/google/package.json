@@ -1,20 +1,18 @@
 {
-  "name": "@kortyx/providers",
-  "version": "0.2.3",
+  "name": "@kortyx/google",
+  "version": "0.1.0",
   "private": false,
-  "description": "Provider contracts and registry for Kortyx.",
+  "description": "Google Gemini provider integration for Kortyx.",
   "keywords": [
     "ai",
     "agent",
-    "agents",
-    "orchestration",
-    "framework",
     "providers",
-    "llm",
+    "google",
+    "gemini",
     "kortyx"
   ],
   "license": "Apache-2.0",
-  "homepage": "https://github.com/kortyx-io/kortyx/tree/main/packages/providers#readme",
+  "homepage": "https://github.com/kortyx-io/kortyx/tree/main/providers/google#readme",
   "bugs": {
     "url": "https://github.com/kortyx-io/kortyx/issues"
   },
@@ -40,19 +38,18 @@
     "type-check": "tsc --noEmit"
   },
   "dependencies": {
-    "@langchain/core": "^1.0.1"
-  },
-  "peerDependencies": {
-    "@langchain/core": "^1.0.0"
+    "@kortyx/providers": "workspace:*",
+    "@langchain/core": "^1.0.6",
+    "@langchain/google-genai": "^1.0.0"
   },
   "devDependencies": {
-    "typescript": "5.7.2",
-    "turbo": "^2.5.4"
+    "turbo": "^2.5.4",
+    "typescript": "5.7.2"
   },
   "sideEffects": false,
   "repository": {
     "type": "git",
     "url": "https://github.com/kortyx-io/kortyx",
-    "directory": "packages/providers"
+    "directory": "providers/google"
   }
 }

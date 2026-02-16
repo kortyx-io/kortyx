@@ -1,9 +1,6 @@
+import type { KortyxModel, ProviderConfig } from "@kortyx/providers";
 import { ChatGoogleGenerativeAI } from "@langchain/google-genai";
-import type { KortyxModel, ProviderConfig } from "../types";
 
-/**
- * Available Google Gemini models
- */
 export const GOOGLE_MODELS = [
   "gemini-2.5-flash",
   "gemini-2.0-flash",
@@ -13,12 +10,6 @@ export const GOOGLE_MODELS = [
 
 export type GoogleModelId = (typeof GOOGLE_MODELS)[number];
 
-/**
- * Creates a Google provider configuration with all available Gemini models.
- *
- * @param apiKey - Google AI API key
- * @returns Provider configuration for Google
- */
 export function createGoogleProvider(apiKey: string): ProviderConfig {
   const createModel = (modelId: string): KortyxModel => {
     const model = new ChatGoogleGenerativeAI({
@@ -27,7 +18,6 @@ export function createGoogleProvider(apiKey: string): ProviderConfig {
       streaming: true,
     });
 
-    // Return normalized KortyxModel interface
     return {
       stream: (messages) => model.stream(messages),
       invoke: (messages) => model.invoke(messages),

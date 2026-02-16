@@ -1,7 +1,7 @@
 ---
 id: v0-provider-api
 title: "Provider API"
-description: "Reference provider contracts, key helper functions, and runtime error behavior."
+description: "Reference provider contracts, registry helpers, and runtime error behavior."
 keywords: [kortyx, provider-api, kortyxmodel, modeloptions, factory]
 sidebar_label: "Provider API"
 ---
@@ -31,21 +31,23 @@ type GetProviderFn = (
 ) => KortyxModel;
 ```
 
-## Factory helpers
+## Registry helpers
 
-- `initializeProviders(config)`
+- `createProviderRegistry()`
+- `registerProvider(config)`
+- `resetProviders()`
 - `getProvider(providerId, modelId, options?)`
 - `hasProvider(providerId)`
 - `getInitializedProviders()`
 - `getAvailableModels(providerId)`
-- `createGoogleProvider(apiKey)`
+
+Concrete providers are delivered in dedicated packages (for example `@kortyx/google`).
 
 ## Error behavior
 
 `getProvider` throws when:
 
-- provider is not initialized
+- provider is not registered
 - model id is unknown for the selected provider
 
 This fail-fast behavior is useful during app startup and misconfiguration.
-

@@ -16,7 +16,8 @@
   "workspaces": [
     "apps/*",
     "examples/*",
-    "packages/*"
+    "packages/*",
+    "providers/*"
   ],
   "scripts": {
     "build": "turbo build",
@@ -27,7 +28,7 @@
     "type-check": "turbo type-check",
     "type-check:watch": "turbo type-check --watch",
     "start": "turbo start",
-    "clean": "rm -rf .turbo && rm -rf apps/**/.next apps/**/dist packages/**/dist && find . -name '*.tsbuildinfo' -delete",
+    "clean": "rm -rf .turbo && rm -rf apps/**/.next apps/**/dist packages/**/dist providers/**/dist && find . -name '*.tsbuildinfo' -delete",
     "format": "biome check --write .",
     "format:check": "biome check .",
     "prepare": "command -v husky >/dev/null 2>&1 && husky || echo 'Husky not available, skipping'"
