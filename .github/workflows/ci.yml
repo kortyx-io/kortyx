@@ -22,15 +22,14 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          # repo requires Node >=22 (see package.json engines)
-          node-version: 22
+          node-version-file: .nvmrc
           cache: pnpm
 
       - name: Install
         run: pnpm install --frozen-lockfile
 
       - name: Build
-        run: pnpm -r --filter "@kortyx/*" --filter "!@kortyx/example-nextjs-chat" --filter kortyx --if-present run build
+        run: pnpm build
 
       - name: Typecheck
         run: pnpm -r --if-present run type-check
