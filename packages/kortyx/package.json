@@ -40,8 +40,8 @@
   ],
   "scripts": {
     "build": "tsup",
-    "predev": "pnpm -s build",
-    "dev": "tsup --watch",
+    "predev": "tsc -p tsconfig.build.json",
+    "dev": "tsc --watch",
     "lint": "biome check src",
     "test": "pnpm -s type-check",
     "type-check": "tsc --noEmit"
