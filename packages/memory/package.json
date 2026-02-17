@@ -1,6 +1,6 @@
 {
   "name": "@kortyx/memory",
-  "version": "0.2.3",
+  "version": "0.2.4",
   "private": false,
   "description": "Memory/state interfaces and implementations for Kortyx.",
   "keywords": [

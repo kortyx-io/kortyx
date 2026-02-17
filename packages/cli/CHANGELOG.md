@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.4](https://github.com/kortyx-io/kortyx/compare/cli-v0.1.3...cli-v0.1.4) (2026-02-17)
+
+
+### Bug Fixes
+
+* **meta:** normalize project links in package manifests ([54202eb](https://github.com/kortyx-io/kortyx/commit/54202ebe7fe04505763d7636d20b6c607e7df82d))
+
 ## [0.1.3](https://github.com/kortyx-io/kortyx/compare/cli-v0.1.2...cli-v0.1.3) (2026-01-25)
 
 

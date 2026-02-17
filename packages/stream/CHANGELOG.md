@@ -1,5 +1,14 @@
 # @chatbot-core/types
 
+## [0.3.1](https://github.com/kortyx-io/kortyx/compare/stream-v0.3.0...stream-v0.3.1) (2026-02-17)
+
+
+### Bug Fixes
+
+* **build:** align package tsconfig with shared lib baseline ([48d2b57](https://github.com/kortyx-io/kortyx/commit/48d2b5765fefbb5fcbbe548e749e7b5f51b450b9))
+* **build:** wire tsup for publishable packages ([e7b1b5c](https://github.com/kortyx-io/kortyx/commit/e7b1b5c28af55becffc137233dd92d8953d7cb8e))
+* **dev:** restore tsc watch flow for local workspace ([4305823](https://github.com/kortyx-io/kortyx/commit/430582372cad466bf28af554042aa11bdb8bf027))
+
 ## [0.3.0](https://github.com/kortyx-io/kortyx/compare/stream-v0.2.3...stream-v0.3.0) (2026-02-17)
 
 
