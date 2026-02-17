@@ -40,7 +40,8 @@
     "predev": "tsc -p tsconfig.build.json",
     "dev": "tsc --watch",
     "lint": "biome check src",
-    "test": "pnpm -s type-check",
+    "test": "vitest run && pnpm -s type-check",
+    "test:watch": "vitest",
     "type-check": "tsc --noEmit"
   },
   "dependencies": {
@@ -52,7 +53,8 @@
   "devDependencies": {
     "turbo": "^2.5.4",
     "typescript": "5.7.2",
-    "tsup": "^8.5.1"
+    "tsup": "^8.5.1",
+    "vitest": "^3.2.4"
   },
   "sideEffects": false,
   "repository": {
