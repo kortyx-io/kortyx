@@ -3,6 +3,7 @@
 
 // client
 export * from "./client/read-stream";
+export * from "./client/stream-from-route";
 
 // server
 export * from "./server/create-stream-response";

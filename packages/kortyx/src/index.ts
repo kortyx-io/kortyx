@@ -6,10 +6,19 @@ export type {
   AgentMemoryConfig,
   AgentProcessOptions,
   AgentSessionConfig,
+  ChatRequestBody,
   CreateAgentArgs,
   ProcessChatArgs,
+  StreamChatFromRouteArgs,
 } from "@kortyx/agent";
-export { createAgent, processChat } from "@kortyx/agent";
+export {
+  createAgent,
+  createChatRouteHandler,
+  parseChatRequestBody,
+  processChat,
+  processChatRequestBody,
+  streamChatFromRoute,
+} from "@kortyx/agent";
 export type {
   GraphState,
   MemoryEnvelope,

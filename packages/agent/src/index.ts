@@ -1,4 +1,13 @@
 // release-test: 2026-01-22
+
+export type { ChatRequestBody } from "./adapters/http";
+export {
+  createChatRouteHandler,
+  parseChatRequestBody,
+  processChatRequestBody,
+} from "./adapters/http";
+export type { StreamChatFromRouteArgs } from "./adapters/http-client";
+export { streamChatFromRoute } from "./adapters/http-client";
 export type {
   Agent,
   AgentMemoryConfig,
