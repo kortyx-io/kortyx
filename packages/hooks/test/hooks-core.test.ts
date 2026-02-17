@@ -89,7 +89,7 @@ describe("hooks core APIs", () => {
       runWithHookContext({ node, state }, async () => {
         useStructuredData({
           dataSchema: payloadSchema,
-          data: { step: 123 },
+          data: { step: 123 as any },
         });
         return null;
       }),
