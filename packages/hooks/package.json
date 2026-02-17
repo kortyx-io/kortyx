@@ -61,5 +61,8 @@
     "type": "git",
     "url": "https://github.com/kortyx-io/kortyx.git",
     "directory": "packages/hooks"
+  },
+  "publishConfig": {
+    "access": "public"
   }
 }
