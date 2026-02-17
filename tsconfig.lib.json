@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "display": "Library Build Config",
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    // Override base for actual builds
+    "target": "ES2022",
+    "lib": ["ES2022"],
+    "module": "Node16",
+    "moduleResolution": "node16",
+
+    // Build outputs
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "noEmit": false,
+    "composite": true,
+
+    // Build optimizations
+    "removeComments": false, // keep JSDoc in .d.ts
+    "stripInternal": true, // hide @internal APIs
+    "importHelpers": false, // don't require tslib unless needed
+
+    // Keep strict checks (don't relax for builds)
+    "strict": true,
+    "exactOptionalPropertyTypes": true,
+    "noImplicitReturns": true,
+    "noUncheckedIndexedAccess": true
+  },
+  "exclude": [
+    "node_modules",
+    "dist",
+    "**/*.test.ts",
+    "**/*.spec.ts",
+    "**/__tests__/**",
+    "**/__mocks__/**"
+  ]
+}

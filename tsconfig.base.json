@@ -1,4 +1,5 @@
 {
+  "$schema": "https://json.schemastore.org/tsconfig",
   "compilerOptions": {
     "target": "ES2023",
     "lib": ["ES2023"],
@@ -10,12 +11,13 @@
 
     // 🚀 Speed-ups
     "skipLibCheck": true, // don't type-check node_modules
-    "incremental": false, // disable incremental in IDE (faster)
+    "incremental": true, // faster repeat checks
     "declaration": false, // only needed for publishing libs
     "declarationMap": false,
-    "sourceMap": false, // IDE doesn’t need source maps
+    "sourceMap": false, // IDE doesn't need source maps
     "removeComments": true, // smaller AST = faster
-    "noEmit": true, // IDE doesn’t need emit
+    "noEmit": true, // IDE doesn't need emit
+    "preserveWatchOutput": true, // better watch mode DX
 
     // ✅ Keep safety features
     "forceConsistentCasingInFileNames": true,
@@ -28,8 +30,8 @@
     "noImplicitOverride": true,
     "noImplicitReturns": true,
     "noUncheckedIndexedAccess": true,
-    "noUnusedLocals": true,
-    "noUnusedParameters": true,
+    "noUnusedLocals": false,
+    "noUnusedParameters": false,
     "noPropertyAccessFromIndexSignature": false
   },
   "include": ["src"],

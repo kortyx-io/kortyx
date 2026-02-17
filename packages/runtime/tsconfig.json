@@ -1,15 +1,8 @@
 {
-  "extends": "../../tsconfig.base.json",
+  "extends": "../../tsconfig.lib.json",
   "compilerOptions": {
-    "module": "Node16",
     "outDir": "./dist",
-    "rootDir": "./src",
-    "moduleResolution": "node16",
-    "declaration": true,
-    "declarationMap": true,
-    "incremental": true,
-    "noEmit": false,
-    "composite": true
+    "rootDir": "./src"
   },
   "references": [
     {
@@ -25,6 +18,5 @@
       "path": "../stream"
     }
   ],
-  "include": ["src/**/*"],
-  "exclude": ["node_modules", "dist"]
+  "include": ["src/**/*"]
 }

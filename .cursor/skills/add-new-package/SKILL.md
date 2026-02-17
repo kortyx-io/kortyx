@@ -30,8 +30,8 @@ If any are missing, ask before proceeding.
 1. Create package skeleton:
 - `src/`
 - `package.json`
-- `tsconfig.json`
-- `tsconfig.build.json`
+- `tsconfig.json` (extend `../../tsconfig.lib.json`)
+- `tsconfig.build.json` (extend `./tsconfig.json` with relaxed strictness)
 - `README.md`
 - `CHANGELOG.md`
 
