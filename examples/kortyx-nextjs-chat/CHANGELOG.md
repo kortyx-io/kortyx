@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.4.0](https://github.com/kortyx-io/kortyx/compare/example-nextjs-chat-v0.3.1...example-nextjs-chat-v0.4.0) (2026-02-17)
+
+
+### Features
+
+* **example-nextjs-chat:** migrate demo to api route and useReason ([ecd3be3](https://github.com/kortyx-io/kortyx/commit/ecd3be3f2ccb0f19e76234693130d21f5720bb2b))
+* **kortyx:** add browser-safe chat streaming adapters ([c7eb98e](https://github.com/kortyx-io/kortyx/commit/c7eb98e06781a708c79f143ba725efb69d35709e))
+* make createAgent strict/declarative and split providers ([1d252f2](https://github.com/kortyx-io/kortyx/commit/1d252f2dcd51622f821715c0fffb13733aeb3cae))
+
+
+### Bug Fixes
+
+* **agent:** remove eager provider registration guard ([8da4059](https://github.com/kortyx-io/kortyx/commit/8da40592d55bb31800a4d85edcd49795ddf09a29))
+* **agent:** simplify stream transformer and interrupt orchestration ([d0b5847](https://github.com/kortyx-io/kortyx/commit/d0b58475e139e070fd9ca1a68b71395642ac32d5))
+* **example-nextjs-chat:** guard optional sessionId in stream chunks ([664fd60](https://github.com/kortyx-io/kortyx/commit/664fd600556089c4f77c4a92a37f7e69050784ce))
+
 ## [0.3.1](https://github.com/kortyx-io/kortyx/compare/example-nextjs-chat-v0.3.0...example-nextjs-chat-v0.3.1) (2026-02-15)
 
 

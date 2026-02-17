@@ -1,5 +1,12 @@
 # @chatbot-core/types
 
+## [0.3.0](https://github.com/kortyx-io/kortyx/compare/stream-v0.2.3...stream-v0.3.0) (2026-02-17)
+
+
+### Features
+
+* **kortyx:** add browser-safe chat streaming adapters ([c7eb98e](https://github.com/kortyx-io/kortyx/commit/c7eb98e06781a708c79f143ba725efb69d35709e))
+
 ## [0.2.3](https://github.com/kortyx-io/kortyx/compare/stream-v0.2.2...stream-v0.2.3) (2026-01-25)
 
 

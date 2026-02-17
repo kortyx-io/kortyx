@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.0](https://github.com/kortyx-io/kortyx/compare/website-v0.3.5...website-v0.4.0) (2026-02-17)
+
+
+### Features
+
+* make createAgent strict/declarative and split providers ([1d252f2](https://github.com/kortyx-io/kortyx/commit/1d252f2dcd51622f821715c0fffb13733aeb3cae))
+
 ## [0.3.5](https://github.com/kortyx-io/kortyx/compare/website-v0.3.4...website-v0.3.5) (2026-02-15)
 
 

@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.5.0](https://github.com/kortyx-io/kortyx/compare/runtime-v0.4.1...runtime-v0.5.0) (2026-02-17)
+
+
+### Features
+
+* **agent:** strict createAgent and unify useReason streaming ([6725f97](https://github.com/kortyx-io/kortyx/commit/6725f976fc32083fb7d2590f1353d16a99afb46f))
+
+
+### Bug Fixes
+
+* **hooks:** move reason engine to internal subpath export ([b82f2f2](https://github.com/kortyx-io/kortyx/commit/b82f2f2a93067f91dd010334486eb0f3a3a547b8))
+
 ## [0.4.1](https://github.com/kortyx-io/kortyx/compare/runtime-v0.4.0...runtime-v0.4.1) (2026-02-15)
 
 
