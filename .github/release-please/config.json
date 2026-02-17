@@ -32,6 +32,10 @@
       "package-name": "@kortyx/providers",
       "component": "providers"
     },
+    "providers/google": {
+      "package-name": "@kortyx/google",
+      "component": "google"
+    },
     "packages/runtime": {
       "package-name": "@kortyx/runtime",
       "component": "runtime"

@@ -6,6 +6,7 @@
   "packages/kortyx": "0.3.1",
   "packages/memory": "0.2.3",
   "packages/providers": "0.2.3",
+  "providers/google": "0.1.0",
   "packages/runtime": "0.4.1",
   "packages/stream": "0.2.3",
   "packages/utils": "0.2.3",
