@@ -44,28 +44,36 @@ jobs:
           const { join } = require('node:path');
 
           const root = process.cwd();
-          const packagesDir = join(root, 'packages');
-          const entries = readdirSync(packagesDir, { withFileTypes: true })
-            .filter((d) => d.isDirectory())
-            .map((d) => d.name);
-
           const pkgs = [];
-          for (const dirName of entries) {
-            const relDir = join('packages', dirName);
-            const pkgPath = join(root, relDir, 'package.json');
-            const pkg = JSON.parse(readFileSync(pkgPath, 'utf8'));
-            if (pkg.private) continue;
-            const deps = {
-              ...(pkg.dependencies || {}),
-              ...(pkg.peerDependencies || {}),
-              ...(pkg.optionalDependencies || {})
-            };
-            pkgs.push({
-              dir: relDir,
-              name: pkg.name,
-              version: pkg.version,
-              deps
-            });
+          const roots = ['packages', 'providers'];
+          for (const rootDir of roots) {
+            const baseDir = join(root, rootDir);
+            const entries = readdirSync(baseDir, { withFileTypes: true })
+              .filter((d) => d.isDirectory())
+              .map((d) => d.name);
+
+            for (const dirName of entries) {
+              const relDir = join(rootDir, dirName);
+              const pkgPath = join(root, relDir, 'package.json');
+              let pkg;
+              try {
+                pkg = JSON.parse(readFileSync(pkgPath, 'utf8'));
+              } catch {
+                continue;
+              }
+              if (pkg.private) continue;
+              const deps = {
+                ...(pkg.dependencies || {}),
+                ...(pkg.peerDependencies || {}),
+                ...(pkg.optionalDependencies || {})
+              };
+              pkgs.push({
+                dir: relDir,
+                name: pkg.name,
+                version: pkg.version,
+                deps
+              });
+            }
           }
 
           const nameToPkg = new Map(pkgs.map((p) => [p.name, p]));
