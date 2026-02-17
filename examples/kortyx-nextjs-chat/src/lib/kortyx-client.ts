@@ -1,5 +1,4 @@
 import { createAgent } from "kortyx";
-import "@/lib/providers";
 import { generalChatWorkflow } from "@/workflows/general-chat.workflow";
 import { interruptDemoWorkflow } from "@/workflows/interrupt-demo.workflow";
 import { threeStepsWorkflow } from "@/workflows/three-steps.workflow";

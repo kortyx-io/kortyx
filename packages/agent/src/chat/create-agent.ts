@@ -3,7 +3,6 @@ import type { WorkflowDefinition } from "@kortyx/core";
 import { createInMemoryAdapter, type MemoryAdapter } from "@kortyx/memory";
 import {
   type GetProviderFn,
-  getInitializedProviders,
   getProvider as getRegisteredProvider,
 } from "@kortyx/providers";
 import type { FrameworkAdapter, WorkflowRegistry } from "@kortyx/runtime";
@@ -163,12 +162,6 @@ export function createAgent(args: CreateAgentArgs): Agent {
   const defaultSessionId = session?.id ?? "anonymous-session";
   const memoryAdapter = resolveMemoryAdapter(memory);
   const resolvedGetProvider = getProvider ?? getRegisteredProvider;
-
-  if (!getProvider && getInitializedProviders().length === 0) {
-    throw new Error(
-      "No providers registered. Initialize one first (for example: createGoogleGenerativeAI({ apiKey })).",
-    );
-  }
 
   const resolvedCwd = process.cwd();
 

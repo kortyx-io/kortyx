@@ -3,7 +3,6 @@ import { agent } from "@/lib/kortyx-client";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-
 const handleChat = createChatRouteHandler({ agent });
 
 export async function POST(request: Request): Promise<Response> {
