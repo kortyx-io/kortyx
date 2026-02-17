@@ -49,5 +49,8 @@
     "type": "git",
     "url": "https://github.com/kortyx-io/kortyx.git",
     "directory": "packages/utils"
+  },
+  "publishConfig": {
+    "access": "public"
   }
 }
