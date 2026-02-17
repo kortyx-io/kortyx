@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.3.0](https://github.com/kortyx-io/kortyx/compare/providers-v0.2.3...providers-v0.3.0) (2026-02-17)
+
+
+### Features
+
+* make createAgent strict/declarative and split providers ([1d252f2](https://github.com/kortyx-io/kortyx/commit/1d252f2dcd51622f821715c0fffb13733aeb3cae))
+* **providers:** add v1 provider standard and google package foundation ([f847a94](https://github.com/kortyx-io/kortyx/commit/f847a941bdaf64b3a86a34e87a05f09c56756256))
+
 ## [0.2.3](https://github.com/kortyx-io/kortyx/compare/providers-v0.2.2...providers-v0.2.3) (2026-01-25)
 
 

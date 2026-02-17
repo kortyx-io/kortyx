@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.4.0](https://github.com/kortyx-io/kortyx/compare/kortyx-v0.3.1...kortyx-v0.4.0) (2026-02-17)
+
+
+### Features
+
+* **agent:** strict createAgent and unify useReason streaming ([6725f97](https://github.com/kortyx-io/kortyx/commit/6725f976fc32083fb7d2590f1353d16a99afb46f))
+* **kortyx:** add browser-safe chat streaming adapters ([c7eb98e](https://github.com/kortyx-io/kortyx/commit/c7eb98e06781a708c79f143ba725efb69d35709e))
+* make createAgent strict/declarative and split providers ([1d252f2](https://github.com/kortyx-io/kortyx/commit/1d252f2dcd51622f821715c0fffb13733aeb3cae))
+
 ## [0.3.1](https://github.com/kortyx-io/kortyx/compare/kortyx-v0.3.0...kortyx-v0.3.1) (2026-02-15)
 
 

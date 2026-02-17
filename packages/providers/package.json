@@ -1,6 +1,6 @@
 {
   "name": "@kortyx/providers",
-  "version": "0.2.3",
+  "version": "0.3.0",
   "private": false,
   "description": "Provider contracts and registry for Kortyx.",
   "keywords": [
