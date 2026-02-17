@@ -38,6 +38,10 @@ export type NodeConfig = {
 export type InterruptTextInput = {
   kind: "text";
   question?: string;
+  id?: string;
+  schemaId?: string;
+  schemaVersion?: string;
+  meta?: Record<string, unknown>;
 };
 
 export type InterruptChoiceInput = {
@@ -50,6 +54,10 @@ export type InterruptChoiceInput = {
     value?: unknown;
   }>;
   multiple?: boolean;
+  id?: string;
+  schemaId?: string;
+  schemaVersion?: string;
+  meta?: Record<string, unknown>;
 };
 
 export type InterruptInput = InterruptTextInput | InterruptChoiceInput;
@@ -157,6 +165,10 @@ export const NodeContextSchema = z
           z.object({
             kind: z.literal("text"),
             question: z.string().optional(),
+            id: z.string().optional(),
+            schemaId: z.string().optional(),
+            schemaVersion: z.string().optional(),
+            meta: z.record(z.unknown()).optional(),
           }),
           z.object({
             kind: z.enum(["choice", "multi-choice"]),
@@ -170,6 +182,10 @@ export const NodeContextSchema = z
               }),
             ),
             multiple: z.boolean().optional(),
+            id: z.string().optional(),
+            schemaId: z.string().optional(),
+            schemaVersion: z.string().optional(),
+            meta: z.record(z.unknown()).optional(),
           }),
         ]),
       )

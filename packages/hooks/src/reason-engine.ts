@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import type {
   GetProviderFn,
   KortyxPromptMessage,
@@ -16,6 +17,9 @@ export interface RunReasonEngineArgs {
   emit?: boolean | undefined;
   nodeId?: string | undefined;
   emitEvent?: ((event: string, payload: unknown) => void) | undefined;
+  id?: string | undefined;
+  opId?: string | undefined;
+  segmentId?: string | undefined;
 }
 
 export interface RunReasonEngineResult {
@@ -28,6 +32,14 @@ const chunkToText = (chunk: KortyxStreamChunk | string): string => {
   if (typeof chunk.text === "string") return chunk.text;
   if (typeof chunk.content === "string") return chunk.content;
   return "";
+};
+
+const createRuntimeId = (): string => {
+  try {
+    return randomUUID();
+  } catch {
+    return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  }
 };
 
 const emitNodeEvent = (
@@ -66,12 +78,31 @@ export async function runReasonEngine(
   }
   messages.push({ role: "user", content: String(args.input ?? "") });
 
+  const opId =
+    typeof args.opId === "string" && args.opId.length > 0
+      ? args.opId
+      : createRuntimeId();
+  const segmentId =
+    typeof args.segmentId === "string" && args.segmentId.length > 0
+      ? args.segmentId
+      : createRuntimeId();
+
+  const commonMeta: Record<string, unknown> = {
+    ...(typeof args.id === "string" && args.id.length > 0
+      ? { id: args.id }
+      : {}),
+    opId,
+    segmentId,
+  };
+
   if (stream) {
     let final = "";
     let raw: unknown;
 
     if (emit) {
-      emitNodeEvent(args.emitEvent, args.nodeId, "text-start", {});
+      emitNodeEvent(args.emitEvent, args.nodeId, "text-start", {
+        ...commonMeta,
+      });
     }
 
     const response = await model.stream(messages);
@@ -84,13 +115,16 @@ export async function runReasonEngine(
       }
       if (emit) {
         emitNodeEvent(args.emitEvent, args.nodeId, "text-delta", {
+          ...commonMeta,
           delta: text,
         });
       }
     }
 
     if (emit) {
-      emitNodeEvent(args.emitEvent, args.nodeId, "text-end", {});
+      emitNodeEvent(args.emitEvent, args.nodeId, "text-end", {
+        ...commonMeta,
+      });
     }
 
     return {
@@ -102,13 +136,18 @@ export async function runReasonEngine(
   const response = await model.invoke(messages);
 
   if (emit) {
-    emitNodeEvent(args.emitEvent, args.nodeId, "text-start", {});
+    emitNodeEvent(args.emitEvent, args.nodeId, "text-start", {
+      ...commonMeta,
+    });
     if (response.content) {
       emitNodeEvent(args.emitEvent, args.nodeId, "text-delta", {
+        ...commonMeta,
         delta: response.content,
       });
     }
-    emitNodeEvent(args.emitEvent, args.nodeId, "text-end", {});
+    emitNodeEvent(args.emitEvent, args.nodeId, "text-end", {
+      ...commonMeta,
+    });
   }
 
   return {

@@ -31,11 +31,16 @@ export type {
   WorkflowId,
 } from "@kortyx/core";
 export { defineWorkflow, loadWorkflow, validateWorkflow } from "@kortyx/core";
-export type { UseReasonArgs, UseReasonResult } from "@kortyx/hooks";
+export type {
+  UseInterruptArgs,
+  UseReasonArgs,
+  UseReasonResult,
+  UseStructuredDataArgs,
+} from "@kortyx/hooks";
 export {
-  useAiInterrupt,
   useAiMemory,
   useEmit,
+  useInterrupt,
   useNodeState,
   useReason,
   useStructuredData,

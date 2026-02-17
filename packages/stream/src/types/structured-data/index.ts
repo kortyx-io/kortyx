@@ -1,26 +1,29 @@
 import { z } from "zod";
 import { JobsStructuredData } from "./jobs";
-// import { ProfileStructuredData } from "./profile"; // future use
 
-/**
- * Define all known structured data chunk schemas.
- * Each one discriminates on `dataType` so we can infer its shape.
- */
-export const StructuredDataChunkSchema = z.discriminatedUnion("dataType", [
-  z.object({
-    type: z.literal("structured-data"),
-    dataType: z.literal("jobs"),
-    node: z.string().optional(),
-    data: JobsStructuredData,
-  }),
+const StructuredDataBase = z.object({
+  type: z.literal("structured-data"),
+  dataType: z.string().optional(),
+  mode: z.enum(["final", "patch", "snapshot"]).optional(),
+  schemaId: z.string().optional(),
+  schemaVersion: z.string().optional(),
+  id: z.string().optional(),
+  opId: z.string().optional(),
+  node: z.string().optional(),
+});
 
-  // Future additions:
-  // z.object({
-  //   type: z.literal("structured-data"),
-  //   dataType: z.literal("profile"),
-  //   node: z.string().optional(),
-  //   data: ProfileStructuredData,
-  // }),
+const JobsStructuredDataChunkSchema = StructuredDataBase.extend({
+  dataType: z.literal("jobs"),
+  data: JobsStructuredData,
+});
+
+const GenericStructuredDataChunkSchema = StructuredDataBase.extend({
+  data: z.unknown(),
+});
+
+export const StructuredDataChunkSchema = z.union([
+  JobsStructuredDataChunkSchema,
+  GenericStructuredDataChunkSchema,
 ]);
 
 export type StructuredDataChunk = z.infer<typeof StructuredDataChunkSchema>;

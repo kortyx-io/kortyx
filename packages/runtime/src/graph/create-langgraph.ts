@@ -151,6 +151,23 @@ export async function createLangGraph(
             ...(interruptConfig.kind !== "text"
               ? { options: interruptConfig.options }
               : {}),
+            ...(typeof interruptConfig.id === "string" &&
+            interruptConfig.id.length > 0
+              ? { id: interruptConfig.id }
+              : {}),
+            ...(typeof interruptConfig.schemaId === "string" &&
+            interruptConfig.schemaId.length > 0
+              ? { schemaId: interruptConfig.schemaId }
+              : {}),
+            ...(typeof interruptConfig.schemaVersion === "string" &&
+            interruptConfig.schemaVersion.length > 0
+              ? { schemaVersion: interruptConfig.schemaVersion }
+              : {}),
+            ...(interruptConfig.meta &&
+            typeof interruptConfig.meta === "object" &&
+            !Array.isArray(interruptConfig.meta)
+              ? { meta: interruptConfig.meta }
+              : {}),
           };
           runtimeConfig.emit("interrupt", {
             node: nodeId,

@@ -87,6 +87,10 @@ export async function orchestrateGraphStream({
       kind?: string;
       multiple?: boolean;
       question?: string;
+      id?: string;
+      schemaId?: string;
+      schemaVersion?: string;
+      meta?: Record<string, unknown>;
       options?: Array<{
         id: string;
         label: string;
@@ -132,11 +136,37 @@ export async function orchestrateGraphStream({
             kind: kind as any,
             multiple: Boolean(input.multiple),
             ...(input.question ? { question: input.question } : {}),
+            ...(typeof input.id === "string" && input.id.length > 0
+              ? { id: input.id }
+              : {}),
+            ...(typeof input.schemaId === "string" && input.schemaId.length > 0
+              ? { schemaId: input.schemaId }
+              : {}),
+            ...(typeof input.schemaVersion === "string" &&
+            input.schemaVersion.length > 0
+              ? { schemaVersion: input.schemaVersion }
+              : {}),
+            ...(input.meta && typeof input.meta === "object"
+              ? { meta: input.meta }
+              : {}),
           }
         : {
             kind: kind as any,
             multiple: Boolean(input.multiple),
             question: String(input.question || "Please choose an option."),
+            ...(typeof input.id === "string" && input.id.length > 0
+              ? { id: input.id }
+              : {}),
+            ...(typeof input.schemaId === "string" && input.schemaId.length > 0
+              ? { schemaId: input.schemaId }
+              : {}),
+            ...(typeof input.schemaVersion === "string" &&
+            input.schemaVersion.length > 0
+              ? { schemaVersion: input.schemaVersion }
+              : {}),
+            ...(input.meta && typeof input.meta === "object"
+              ? { meta: input.meta }
+              : {}),
           },
       options: optionsList.map((option: any) => ({
         id: String(option.id),
@@ -164,10 +194,35 @@ export async function orchestrateGraphStream({
       resumeToken: record.token,
       workflow: record.workflow,
       node: record.node,
+      ...(typeof record.schema.id === "string" && record.schema.id.length > 0
+        ? { id: record.schema.id }
+        : {}),
+      ...(typeof record.schema.schemaId === "string" &&
+      record.schema.schemaId.length > 0
+        ? { schemaId: record.schema.schemaId }
+        : {}),
+      ...(typeof record.schema.schemaVersion === "string" &&
+      record.schema.schemaVersion.length > 0
+        ? { schemaVersion: record.schema.schemaVersion }
+        : {}),
       input: {
         kind: record.schema.kind,
         multiple: record.schema.multiple,
         question: record.schema.question,
+        ...(typeof record.schema.id === "string" && record.schema.id.length > 0
+          ? { id: record.schema.id }
+          : {}),
+        ...(typeof record.schema.schemaId === "string" &&
+        record.schema.schemaId.length > 0
+          ? { schemaId: record.schema.schemaId }
+          : {}),
+        ...(typeof record.schema.schemaVersion === "string" &&
+        record.schema.schemaVersion.length > 0
+          ? { schemaVersion: record.schema.schemaVersion }
+          : {}),
+        ...(record.schema.meta && typeof record.schema.meta === "object"
+          ? { meta: record.schema.meta }
+          : {}),
         options: record.options.map((option) => ({
           id: option.id,
           label: option.label,
@@ -202,20 +257,57 @@ export async function orchestrateGraphStream({
     if (event === "text-start") {
       const node = (payload as { node?: string })?.node;
       if (!node) return;
-      out.write({ type: "text-start", node });
+      out.write({
+        type: "text-start",
+        node,
+        ...(typeof (payload as { id?: string }).id === "string"
+          ? { id: (payload as { id?: string }).id }
+          : {}),
+        ...(typeof (payload as { opId?: string }).opId === "string"
+          ? { opId: (payload as { opId?: string }).opId }
+          : {}),
+        ...(typeof (payload as { segmentId?: string }).segmentId === "string"
+          ? { segmentId: (payload as { segmentId?: string }).segmentId }
+          : {}),
+      });
       return;
     }
     if (event === "text-delta") {
       const node = (payload as { node?: string })?.node;
       const delta = String((payload as { delta?: unknown })?.delta ?? "");
       if (!node || !delta) return;
-      out.write({ type: "text-delta", delta, node });
+      out.write({
+        type: "text-delta",
+        delta,
+        node,
+        ...(typeof (payload as { id?: string }).id === "string"
+          ? { id: (payload as { id?: string }).id }
+          : {}),
+        ...(typeof (payload as { opId?: string }).opId === "string"
+          ? { opId: (payload as { opId?: string }).opId }
+          : {}),
+        ...(typeof (payload as { segmentId?: string }).segmentId === "string"
+          ? { segmentId: (payload as { segmentId?: string }).segmentId }
+          : {}),
+      });
       return;
     }
     if (event === "text-end") {
       const node = (payload as { node?: string })?.node;
       if (!node) return;
-      out.write({ type: "text-end", node });
+      out.write({
+        type: "text-end",
+        node,
+        ...(typeof (payload as { id?: string }).id === "string"
+          ? { id: (payload as { id?: string }).id }
+          : {}),
+        ...(typeof (payload as { opId?: string }).opId === "string"
+          ? { opId: (payload as { opId?: string }).opId }
+          : {}),
+        ...(typeof (payload as { segmentId?: string }).segmentId === "string"
+          ? { segmentId: (payload as { segmentId?: string }).segmentId }
+          : {}),
+      });
       return;
     }
     if (event === "message") {
@@ -229,6 +321,11 @@ export async function orchestrateGraphStream({
         type: "structured-data",
         node: (payload as { node?: string })?.node,
         dataType: (payload as { dataType?: string })?.dataType,
+        mode: (payload as { mode?: string })?.mode,
+        schemaId: (payload as { schemaId?: string })?.schemaId,
+        schemaVersion: (payload as { schemaVersion?: string })?.schemaVersion,
+        id: (payload as { id?: string })?.id,
+        opId: (payload as { opId?: string })?.opId,
         data: (payload as { data?: unknown })?.data,
       });
       return;

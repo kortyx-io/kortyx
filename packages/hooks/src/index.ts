@@ -7,11 +7,16 @@
 
 export type { HookRuntimeContext } from "./context";
 export { runWithHookContext } from "./context";
-export type { UseReasonArgs, UseReasonResult } from "./hooks";
+export type {
+  UseInterruptArgs,
+  UseReasonArgs,
+  UseReasonResult,
+  UseStructuredDataArgs,
+} from "./hooks";
 export {
-  useAiInterrupt,
   useAiMemory,
   useEmit,
+  useInterrupt,
   useNodeState,
   useReason,
   useStructuredData,

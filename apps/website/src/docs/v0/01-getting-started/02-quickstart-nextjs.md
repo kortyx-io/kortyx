@@ -118,7 +118,7 @@ GOOGLE_API_KEY=your_key_here pnpm dev
 
 - Type-safe workflow definition
 - Streaming chunks (`text-start`, `text-delta`, `text-end`, `message`, `done`)
-- Built-in interrupt/resume path when your nodes use `useAiInterrupt`
+- Built-in interrupt/resume path when your nodes use `useInterrupt`
 
 Next:
 

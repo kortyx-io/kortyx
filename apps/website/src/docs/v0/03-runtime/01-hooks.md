@@ -1,8 +1,8 @@
 ---
 id: v0-runtime-hooks
 title: "Hooks"
-description: "Use Kortyx hooks for AI calls, interrupts, memory access, structured data, and runtime state."
-keywords: [kortyx, hooks, useAiProvider, useWorkflowState, useNodeState]
+description: "Use Kortyx hooks for reasoning, interrupts, memory access, structured data, and runtime state."
+keywords: [kortyx, hooks, useReason, useInterrupt, useWorkflowState, useNodeState]
 sidebar_label: "Hooks"
 ---
 # Hooks
@@ -33,18 +33,20 @@ Current behavior:
 - internally calls `ctx.speak(...)`
 - returns `{ text: string }`
 
-## `useAiInterrupt(input)`
+## `useInterrupt({ request, ...schemas })`
 
 ```ts
-import { useAiInterrupt } from "kortyx";
+import { useInterrupt } from "kortyx";
 
-const selected = await useAiInterrupt({
-  kind: "choice",
-  question: "Pick one",
-  options: [
-    { id: "a", label: "Alpha" },
-    { id: "b", label: "Beta" },
-  ],
+const selected = await useInterrupt({
+  request: {
+    kind: "choice",
+    question: "Pick one",
+    options: [
+      { id: "a", label: "Alpha" },
+      { id: "b", label: "Beta" },
+    ],
+  },
 });
 ```
 
@@ -101,4 +103,3 @@ useStructuredData({
 ```
 
 `useStructuredData` emits `structured_data` from the current node context.
-

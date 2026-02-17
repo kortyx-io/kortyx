@@ -1,9 +1,11 @@
-import { useAiInterrupt, useStructuredData } from "kortyx";
+import { useInterrupt, useStructuredData } from "kortyx";
 
 export const step2AskTextNode = async () => {
-  const picked = await useAiInterrupt({
-    kind: "text",
-    question: "Type a short answer:",
+  const picked = await useInterrupt({
+    request: {
+      kind: "text",
+      question: "Type a short answer:",
+    },
   });
 
   const text = String(picked ?? "").trim();

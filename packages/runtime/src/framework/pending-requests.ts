@@ -21,7 +21,15 @@ export interface PendingRequestRecord {
   workflow: string;
   node: string;
   state?: GraphState;
-  schema: { kind: HumanInputKind; multiple: boolean; question?: string };
+  schema: {
+    kind: HumanInputKind;
+    multiple: boolean;
+    question?: string;
+    id?: string;
+    schemaId?: string;
+    schemaVersion?: string;
+    meta?: Record<string, unknown>;
+  };
   options: HumanInputOption[];
   createdAt: number;
   ttlMs: number;

@@ -235,8 +235,37 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     const liveOrder: string[] = [];
     const livePieceIds: Record<string, string> = {};
 
-    const ensureLiveNode = (node?: string) => {
-      const key = node ?? "__unknown__";
+    const resolveTextStreamKey = (
+      chunk: StreamChunk,
+      fallbackNode?: string,
+    ): string => {
+      if ("segmentId" in chunk && typeof chunk.segmentId === "string") {
+        const seg = chunk.segmentId.trim();
+        if (seg.length > 0) {
+          const op =
+            "opId" in chunk && typeof chunk.opId === "string"
+              ? chunk.opId.trim()
+              : "";
+          return op.length > 0 ? `${op}:${seg}` : seg;
+        }
+      }
+
+      if ("opId" in chunk && typeof chunk.opId === "string") {
+        const op = chunk.opId.trim();
+        if (op.length > 0) {
+          const node =
+            ("node" in chunk && typeof chunk.node === "string"
+              ? chunk.node
+              : fallbackNode) ?? "__unknown__";
+          return `${op}:${node}`;
+        }
+      }
+
+      return fallbackNode ?? "__unknown__";
+    };
+
+    const ensureLiveStream = (streamKey: string) => {
+      const key = streamKey || "__unknown__";
       if (!(key in liveBuffers)) {
         liveBuffers[key] = "";
         liveOrder.push(key);
@@ -336,21 +365,21 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
       options?: { openDebugOnInterrupt?: boolean | undefined },
     ): boolean => {
       if (chunk.type === "text-start") {
-        ensureLiveNode(chunk.node);
+        ensureLiveStream(resolveTextStreamKey(chunk, chunk.node));
         setStreamContentPieces(preview());
         return true;
       }
 
       if (chunk.type === "text-delta") {
         sawDeltaRef.current = true;
-        const key = ensureLiveNode(chunk.node);
+        const key = ensureLiveStream(resolveTextStreamKey(chunk, chunk.node));
         liveBuffers[key] = (liveBuffers[key] || "") + chunk.delta;
         setStreamContentPieces(preview());
         return true;
       }
 
       if (chunk.type === "text-end") {
-        const key = ensureLiveNode(chunk.node);
+        const key = ensureLiveStream(resolveTextStreamKey(chunk, chunk.node));
         const buf = liveBuffers[key];
         if (buf) {
           accPieces.push({

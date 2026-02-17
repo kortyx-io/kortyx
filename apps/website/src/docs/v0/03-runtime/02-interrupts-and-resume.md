@@ -12,15 +12,17 @@ Interrupts let a node pause execution and wait for user input.
 ## Node side
 
 ```ts
-import { useAiInterrupt } from "kortyx";
+import { useInterrupt } from "kortyx";
 
-const picked = await useAiInterrupt({
-  kind: "multi-choice",
-  question: "Pick one or more:",
-  options: [
-    { id: "product", label: "Product" },
-    { id: "design", label: "Design" },
-  ],
+const picked = await useInterrupt({
+  request: {
+    kind: "multi-choice",
+    question: "Pick one or more:",
+    options: [
+      { id: "product", label: "Product" },
+      { id: "design", label: "Design" },
+    ],
+  },
 });
 ```
 
@@ -80,4 +82,3 @@ Resume only works if the framework adapter persists pending requests + checkpoin
 - redis adapter: recommended for production resume
 
 See [Framework Adapters](./04-framework-adapters.md).
-

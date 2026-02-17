@@ -34,9 +34,9 @@ Plus types like `GraphState`, `NodeResult`, `WorkflowDefinition`, `WorkflowId`.
 
 ```ts
 export {
-  useAiInterrupt,
+  useInterrupt,
   useAiMemory,
-  useAiProvider,
+  useReason,
   useEmit,
   useNodeState,
   useStructuredData,

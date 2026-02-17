@@ -1,15 +1,17 @@
-import { useAiInterrupt, useStructuredData } from "kortyx";
+import { useInterrupt, useStructuredData } from "kortyx";
 
 export const step2AskMultiNode = async () => {
-  const picked = await useAiInterrupt({
-    kind: "multi-choice",
-    question: "Pick one or more:",
-    options: [
-      { id: "product", label: "Product" },
-      { id: "engineering", label: "Engineering" },
-      { id: "design", label: "Design" },
-      { id: "marketing", label: "Marketing" },
-    ],
+  const picked = await useInterrupt({
+    request: {
+      kind: "multi-choice",
+      question: "Pick one or more:",
+      options: [
+        { id: "product", label: "Product" },
+        { id: "engineering", label: "Engineering" },
+        { id: "design", label: "Design" },
+        { id: "marketing", label: "Marketing" },
+      ],
+    },
   });
 
   const selected = Array.isArray(picked)
