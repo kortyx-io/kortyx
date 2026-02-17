@@ -479,7 +479,9 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
       debug.push(chunk);
 
       if (chunk.type === "session") {
-        persistSessionId(chunk.sessionId);
+        if (typeof chunk.sessionId === "string") {
+          persistSessionId(chunk.sessionId);
+        }
         continue;
       }
 
