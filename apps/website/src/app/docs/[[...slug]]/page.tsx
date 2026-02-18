@@ -141,6 +141,9 @@ export default async function DocsPage({
       ? buildDocHref(resolved.requestedVersion, currentDoc.slugSegments)
       : null;
   const markdownHref = isDocRoute ? `${resolved.canonicalPath}.md` : null;
+  const hasDistinctDocBreadcrumb =
+    Boolean(isDocRoute && currentDoc && currentDocHref) &&
+    currentDocHref !== currentSection?.href;
 
   const breadcrumbs = [
     { label: "Docs", href: buildDocHref(resolved.requestedVersion, []) },
@@ -152,7 +155,7 @@ export default async function DocsPage({
           },
         ]
       : []),
-    ...(isDocRoute && currentDoc && currentDocHref
+    ...(hasDistinctDocBreadcrumb && currentDoc && currentDocHref
       ? [
           {
             label: currentDoc.frontmatter.sidebarLabel,
