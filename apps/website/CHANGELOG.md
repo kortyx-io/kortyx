@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.6.0](https://github.com/kortyx-io/kortyx/compare/website-v0.5.0...website-v0.6.0) (2026-02-18)
+
+
+### Features
+
+* **docs:** restructure website docs IA and tabbed command variants ([1f7530f](https://github.com/kortyx-io/kortyx/commit/1f7530f6ab048be41c8781926153eda403ebceed))
+* **website:** add collapsible docs sidebar section groups ([249935a](https://github.com/kortyx-io/kortyx/commit/249935aafa57a19419045a52de51ab9a434bbbc8))
+
+
+### Bug Fixes
+
+* **docs:** simplify Google env examples and neutralize resume notes ([ac10261](https://github.com/kortyx-io/kortyx/commit/ac1026121196c20af44a21105726787d25aa2488))
+* **docs:** update provider setup examples to explicit node-level models ([03e0c54](https://github.com/kortyx-io/kortyx/commit/03e0c54398f59c55f83f0ba483157604b092bb94))
+* **website:** dedupe breadcrumbs for section overview docs ([803e748](https://github.com/kortyx-io/kortyx/commit/803e7480cb6057ca1d475258743f321d5963dc44))
+* **website:** preserve docs sidebar scroll position across navigation ([08411fa](https://github.com/kortyx-io/kortyx/commit/08411fa222382476e17a41f1d83186fb29e348df))
+* **website:** refine docs section cards and table scroll styling ([2dd701a](https://github.com/kortyx-io/kortyx/commit/2dd701ac3b9b2883d3800ede4c92571d42301bc0))
+
 ## [0.5.0](https://github.com/kortyx-io/kortyx/compare/website-v0.4.1...website-v0.5.0) (2026-02-17)
 
 
