@@ -1,4 +1,7 @@
+"use client";
+
 import Link from "next/link";
+import { useEffect, useMemo, useRef } from "react";
 import type { SidebarSection } from "@/lib/docs";
 import { cn } from "@/lib/utils/cn";
 import { DocsVersionSelector } from "./docs-version-selector";
@@ -25,6 +28,28 @@ export function DocsSidebarContent(props: DocsSidebarProps) {
     versionTargets,
     selectedVersion,
   } = props;
+  const navRef = useRef<HTMLElement | null>(null);
+  const scrollStorageKey = useMemo(
+    () => `docs-sidebar-scroll:${selectedVersion}`,
+    [selectedVersion],
+  );
+
+  const persistSidebarScroll = () => {
+    const navElement = navRef.current;
+    if (!navElement) return;
+    sessionStorage.setItem(scrollStorageKey, String(navElement.scrollTop));
+  };
+
+  useEffect(() => {
+    const navElement = navRef.current;
+    if (!navElement) return;
+
+    const storedValue = sessionStorage.getItem(scrollStorageKey);
+    const parsed = Number(storedValue);
+    if (Number.isFinite(parsed)) {
+      navElement.scrollTop = parsed;
+    }
+  }, [scrollStorageKey]);
 
   return (
     <div className="flex h-full flex-col overflow-hidden">
@@ -33,12 +58,17 @@ export function DocsSidebarContent(props: DocsSidebarProps) {
         selectedVersion={selectedVersion}
       />
 
-      <nav className="docs-sidebar-scroll mt-6 min-h-0 flex-1 space-y-4 overflow-y-auto px-2">
+      <nav
+        ref={navRef}
+        onScroll={persistSidebarScroll}
+        className="docs-sidebar-scroll mt-6 min-h-0 flex-1 space-y-4 overflow-y-auto px-2"
+      >
         {sidebar.map((section) => (
           <div key={section.slug}>
             <h3 className="mb-1">
               <Link
                 href={section.href}
+                onClick={persistSidebarScroll}
                 className={cn(
                   "text-sm font-semibold",
                   section.slug === currentSectionSlug
@@ -56,6 +86,7 @@ export function DocsSidebarContent(props: DocsSidebarProps) {
                   <li key={item.href}>
                     <Link
                       href={item.href}
+                      onClick={persistSidebarScroll}
                       className={cn(
                         "block rounded px-2 py-1 text-sm",
                         isActive
