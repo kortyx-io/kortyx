@@ -1,14 +1,14 @@
-# @kortyx/example-nextjs-chat (API Route)
+# @kortyx/example-nextjs-chat-server-action
 
-Next.js chat app example (API route method) for iterating on Kortyx packages locally.
+Next.js chat app example (server action method) for iterating on Kortyx packages locally.
 
 ## Run
 
 ```bash
-cd examples/kortyx-nextjs-chat
+cd examples/kortyx-nextjs-chat-server-action
 pnpm install
 GOOGLE_API_KEY=... # or GEMINI_API_KEY
-KORTYX_NEXTJS_CHAT_PORT=3010 pnpm dev
+KORTYX_NEXTJS_CHAT_SERVER_ACTION_PORT=3011 pnpm dev
 ```
 
 ## Test interrupt resume across server restart (Redis)
@@ -21,7 +21,7 @@ This example can run with **Redis-backed framework persistence** so interrupts c
 pnpm redis:up
 ```
 
-2) Create `examples/kortyx-nextjs-chat/.env.local` from `examples/kortyx-nextjs-chat/.env.example` and set:
+2) Create `examples/kortyx-nextjs-chat-server-action/.env.local` from `examples/kortyx-nextjs-chat-server-action/.env.example` and set:
 
 - `GOOGLE_API_KEY=...`
 - `KORTYX_REDIS_URL=redis://127.0.0.1:6379`

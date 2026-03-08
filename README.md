@@ -30,7 +30,8 @@ Each package has its own README under its folder and is published to npm.
 
 ## Examples
 
-- `examples/kortyx-nextjs-chat`: Next.js chat app example
+- `examples/kortyx-nextjs-chat`: Next.js chat app example (API route method)
+- `examples/kortyx-nextjs-chat-server-action`: Next.js chat app example (server action method)
 
 ## Contributing
 
