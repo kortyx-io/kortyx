@@ -121,8 +121,8 @@ export const chatNode = async ({
     system: system || "You are a concise assistant.",
     input: String(input ?? ""),
     temperature,
-    emit: true, // include engine chunks
-    stream: true, // stream model output
+    emit: true, // publish text events
+    stream: true, // token-by-token output
   });
 
   return {
@@ -149,8 +149,8 @@ export const chatNode = async ({ input, params }) => {
     system: system || "You are a concise assistant.",
     input: String(input ?? ""),
     temperature,
-    emit: true, // include engine chunks
-    stream: true, // stream model output
+    emit: true, // publish text events
+    stream: true, // token-by-token output
   });
 
   return {
