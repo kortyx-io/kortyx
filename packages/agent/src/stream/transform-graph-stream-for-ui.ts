@@ -7,7 +7,7 @@ interface TransformOptions {
 }
 
 /**
- * Transforms LangGraph's astream_events into standardized UI chunks.
+ * Transforms runtime stream events into standardized UI chunks.
  * Runtime emits (`message`, `structured_data`, `interrupt`, `transition`) are
  * forwarded directly by the orchestrator, so this transformer only handles
  * graph lifecycle + completion signals.

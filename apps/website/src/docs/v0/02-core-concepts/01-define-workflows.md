@@ -103,7 +103,7 @@ From `WorkflowNodeBehavior` and runtime code:
 - `behavior.retry.delayMs`
 - `behavior.checkpoint`
 
-Note: `onError.mode` exists in schema types but is not currently applied by `createLangGraph`.
+Note: `onError.mode` exists in schema types but is not currently applied by the execution graph compiler.
 
 ## Validation
 

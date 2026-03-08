@@ -42,7 +42,7 @@ Use workflow override `reason-interrupt-structured` to test `useReason` with:
 - `interrupt.requestSchema` / `interrupt.responseSchema`
 - structured output streaming (`useStructuredData`)
 
-LangGraph resumes by replaying the node function from the top. `useReason` continues from checkpoint, but code before it can re-run. This demo keeps the node minimal (`useReason` first) to avoid replay noise; if you need pre-`useReason` events, guard them with `useNodeState`.
+Resume replays the node function from the top. `useReason` continues from checkpoint, but code before it can re-run. This demo keeps the node minimal (`useReason` first) to avoid replay noise; if you need pre-`useReason` events, guard them with `useNodeState`.
 
 ## Configuration
 

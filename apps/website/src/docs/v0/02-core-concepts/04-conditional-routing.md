@@ -28,7 +28,7 @@ return {
 };
 ```
 
-`createLangGraph` matches in this order:
+Execution routing matches in this order:
 
 1. `state.lastCondition`
 2. `state.lastIntent`
@@ -64,4 +64,3 @@ return {
 ```
 
 The orchestrator emits a `transition` chunk and loads the target workflow with `selectWorkflow`.
-

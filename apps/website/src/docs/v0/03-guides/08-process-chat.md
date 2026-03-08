@@ -32,7 +32,7 @@ await processChat({
 2. resolves a workflow (`selectWorkflow` / `workflowRegistry`)
 3. builds initial state (`buildInitialGraphState`)
 4. handles resume flow if last message carries resume metadata
-5. compiles graph (`createLangGraph`)
+5. compiles the execution graph (`createExecutionGraph`)
 6. orchestrates stream (`orchestrateGraphStream`)
 7. returns `createStreamResponse(...)`
 
