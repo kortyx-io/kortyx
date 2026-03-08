@@ -80,8 +80,8 @@ const result = await useReason({
   model: params.model,
   input: String(input ?? ""),
   temperature: params.temperature ?? 0.3,
-  emit: true,
-  stream: true,
+  emit: true, // include engine chunks
+  stream: true, // stream model output
 });
 ```
 
@@ -92,8 +92,8 @@ const result = await useReason({
   model: params.model,
   input: String(input ?? ""),
   temperature: params.temperature ?? 0.3,
-  emit: true,
-  stream: true,
+  emit: true, // include engine chunks
+  stream: true, // stream model output
 });
 ```
 
