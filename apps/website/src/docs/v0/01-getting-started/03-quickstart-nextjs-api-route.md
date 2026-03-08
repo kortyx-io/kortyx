@@ -1,13 +1,13 @@
 ---
-id: v0-quickstart-nextjs-server-action
-title: "Quickstart (Next.js Server Action)"
-description: "Build a working Next.js chat flow using server actions, Kortyx workflows, node-level model wiring, and streaming."
-keywords: [kortyx, nextjs, quickstart, server-actions, streaming]
-sidebar_label: "Quickstart (Next.js Server Action)"
+id: v0-quickstart-nextjs-api-route
+title: "Quickstart (Next.js API Route)"
+description: "Build a working Next.js chat flow using API routes, Kortyx workflows, node-level model wiring, and streaming."
+keywords: [kortyx, nextjs, quickstart, api-route, streaming]
+sidebar_label: "Quickstart (Next.js API Route)"
 ---
-# Quickstart (Next.js Server Action)
+# Quickstart (Next.js API Route)
 
-This quickstart matches the current OSS implementation and mirrors `examples/kortyx-nextjs-chat-server-action`.
+This quickstart matches the current OSS implementation and mirrors `examples/kortyx-nextjs-chat-api-route`.
 
 ## 1. Create a workflow
 
@@ -190,25 +190,58 @@ export const agent = createAgent({
 });
 ```
 
-## 5. Call `processChat`
+## 5. Add an API route
 
 ```ts
-// src/app/actions/chat.ts
-"use server";
-
-import { readStream, type StreamChunk } from "kortyx";
+// src/app/api/chat/route.ts
+import { createChatRouteHandler } from "kortyx";
 import { agent } from "@/lib/kortyx-client";
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
+const handleChat = createChatRouteHandler({ agent });
+
+export async function POST(request: Request): Promise<Response> {
+  return handleChat(request);
+}
+```
+
+```js
+// src/app/api/chat/route.js
+import { createChatRouteHandler } from "kortyx";
+import { agent } from "@/lib/kortyx-client";
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
+const handleChat = createChatRouteHandler({ agent });
+
+export async function POST(request) {
+  return handleChat(request);
+}
+```
+
+## 6. Call `/api/chat` from client code
+
+```ts
+// src/lib/chat-client.ts
+import { streamChatFromRoute, type StreamChunk } from "kortyx";
 
 export async function runChat(args: {
   sessionId: string;
+  workflowId?: string;
   messages: Array<{ role: "user" | "assistant" | "system"; content: string }>;
 }): Promise<StreamChunk[]> {
-  const response = await agent.processChat(args.messages, {
+  const stream = streamChatFromRoute({
+    endpoint: "/api/chat",
     sessionId: args.sessionId,
+    ...(args.workflowId ? { workflowId: args.workflowId } : {}),
+    messages: args.messages,
   });
 
   const chunks: StreamChunk[] = [];
-  for await (const chunk of readStream(response.body)) {
+  for await (const chunk of stream) {
     chunks.push(chunk);
   }
   return chunks;
@@ -216,26 +249,26 @@ export async function runChat(args: {
 ```
 
 ```js
-// src/app/actions/chat.js
-"use server";
-
-import { readStream } from "kortyx";
-import { agent } from "@/lib/kortyx-client";
+// src/lib/chat-client.js
+import { streamChatFromRoute } from "kortyx";
 
 export async function runChat(args) {
-  const response = await agent.processChat(args.messages, {
+  const stream = streamChatFromRoute({
+    endpoint: "/api/chat",
     sessionId: args.sessionId,
+    ...(args.workflowId ? { workflowId: args.workflowId } : {}),
+    messages: args.messages,
   });
 
   const chunks = [];
-  for await (const chunk of readStream(response.body)) {
+  for await (const chunk of stream) {
     chunks.push(chunk);
   }
   return chunks;
 }
 ```
 
-## 6. Run
+## 7. Run
 
 ```bash tabs="run-dev" tab="pnpm"
 GOOGLE_API_KEY=your_key_here pnpm dev
@@ -258,6 +291,7 @@ GOOGLE_API_KEY=your_key_here bun run dev
 - Type-safe workflow definition
 - Explicit provider bootstrap at app level
 - Node-level model control via `useReason(...)`
+- API-route transport with `streamChatFromRoute(...)`
 - Streaming chunks (`text-start`, `text-delta`, `text-end`, `message`, `done`)
 - Built-in interrupt/resume path when your nodes use `useInterrupt`
 

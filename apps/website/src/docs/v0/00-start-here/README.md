@@ -12,7 +12,8 @@ Kortyx is an opinionated framework for teams building production AI features tha
 ## Choose your path
 
 - New project setup: [Installation](../01-getting-started/01-installation.md)
-- First end-to-end flow: [Quickstart (Next.js)](../01-getting-started/02-quickstart-nextjs.md)
+- First end-to-end flow (server action): [Quickstart (Next.js Server Action)](../01-getting-started/02-quickstart-nextjs.md)
+- First end-to-end flow (API route): [Quickstart (Next.js API Route)](../01-getting-started/03-quickstart-nextjs-api-route.md)
 - Build mental model first: [Core Concepts](../02-core-concepts/01-define-workflows.md)
 - Implement task-oriented features: [Guides](../03-guides/02-interrupts-and-resume.md)
 - Harden for production: [Production](../04-production/01-persistence.md)
