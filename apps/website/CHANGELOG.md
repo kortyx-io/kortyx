@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.7.0](https://github.com/kortyx-io/kortyx/compare/website-v0.6.0...website-v0.7.0) (2026-03-08)
+
+
+### Features
+
+* **runtime:** rename graph compiler API and remove LangGraph wording ([43ecfec](https://github.com/kortyx-io/kortyx/commit/43ecfec6f1235fad01344a52c68aeeb1a6636a52))
+* **stream:** add consumeStream and improve nextjs chat DX ([6a544cc](https://github.com/kortyx-io/kortyx/commit/6a544cc827aace25b2953a290809eccda37f37f8))
+
+
+### Bug Fixes
+
+* **docs:** annotate emit and stream flags in examples ([1ce6017](https://github.com/kortyx-io/kortyx/commit/1ce60176cc2da9ba4f5f76b77e786f052573fb03))
+* **docs:** clarify emit and stream inline comments ([3044531](https://github.com/kortyx-io/kortyx/commit/304453188e4b7ff9d621e06f3249ed1113802537))
+* **docs:** move node resolution to reference ([5204cc0](https://github.com/kortyx-io/kortyx/commit/5204cc00d95ddf60c559f05a457c058ad1e4fdc5))
+* **docs:** simplify Google provider initialization examples ([3724475](https://github.com/kortyx-io/kortyx/commit/3724475b6b13d48717594f9466a624fc57cc357b))
+* **docs:** split nextjs quickstarts by transport ([59eed1f](https://github.com/kortyx-io/kortyx/commit/59eed1fec9da973aa22d8a15b83b5c949ab3e239))
+* **examples:** rename api-route example directory ([41f46c3](https://github.com/kortyx-io/kortyx/commit/41f46c3331da4a1d29aba21bf842a52b73801017))
+
 ## [0.6.0](https://github.com/kortyx-io/kortyx/compare/website-v0.5.0...website-v0.6.0) (2026-02-18)
 
 

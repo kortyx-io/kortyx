@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.7.0](https://github.com/kortyx-io/kortyx/compare/runtime-v0.6.1...runtime-v0.7.0) (2026-03-08)
+
+
+### Features
+
+* **runtime:** rename graph compiler API and remove LangGraph wording ([43ecfec](https://github.com/kortyx-io/kortyx/commit/43ecfec6f1235fad01344a52c68aeeb1a6636a52))
+
 ## [0.6.1](https://github.com/kortyx-io/kortyx/compare/runtime-v0.6.0...runtime-v0.6.1) (2026-02-17)
 
 

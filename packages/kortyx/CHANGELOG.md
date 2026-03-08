@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.0](https://github.com/kortyx-io/kortyx/compare/kortyx-v0.5.1...kortyx-v0.6.0) (2026-03-08)
+
+
+### Features
+
+* **stream:** add consumeStream and improve nextjs chat DX ([6a544cc](https://github.com/kortyx-io/kortyx/commit/6a544cc827aace25b2953a290809eccda37f37f8))
+
 ## [0.5.1](https://github.com/kortyx-io/kortyx/compare/kortyx-v0.5.0...kortyx-v0.5.1) (2026-02-17)
 
 

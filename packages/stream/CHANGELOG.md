@@ -1,5 +1,12 @@
 # @chatbot-core/types
 
+## [0.5.0](https://github.com/kortyx-io/kortyx/compare/stream-v0.4.1...stream-v0.5.0) (2026-03-08)
+
+
+### Features
+
+* **stream:** add consumeStream and improve nextjs chat DX ([6a544cc](https://github.com/kortyx-io/kortyx/commit/6a544cc827aace25b2953a290809eccda37f37f8))
+
 ## [0.4.1](https://github.com/kortyx-io/kortyx/compare/stream-v0.4.0...stream-v0.4.1) (2026-02-17)
 
 

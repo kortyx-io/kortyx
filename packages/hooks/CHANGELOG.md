@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.0](https://github.com/kortyx-io/kortyx/compare/hooks-v0.5.1...hooks-v0.6.0) (2026-03-08)
+
+
+### Features
+
+* **runtime:** rename graph compiler API and remove LangGraph wording ([43ecfec](https://github.com/kortyx-io/kortyx/commit/43ecfec6f1235fad01344a52c68aeeb1a6636a52))
+
 ## [0.5.1](https://github.com/kortyx-io/kortyx/compare/hooks-v0.5.0...hooks-v0.5.1) (2026-02-17)
 
 
