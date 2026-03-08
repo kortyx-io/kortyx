@@ -4,7 +4,7 @@ import type {
   PendingRequestRecord,
   PendingRequestStore,
 } from "@kortyx/runtime";
-import { createLangGraph } from "@kortyx/runtime";
+import { createExecutionGraph } from "@kortyx/runtime";
 import type { StreamChunk } from "@kortyx/stream";
 import type { SelectWorkflowFn } from "../orchestrator";
 import { type OrchestrateArgs, orchestrateGraphStream } from "../orchestrator";
@@ -155,7 +155,7 @@ export async function tryPrepareResumeStream({
       : meta.selected?.length
         ? String(meta.selected[0])
         : undefined;
-  const resumedGraph = await createLangGraph(wf, {
+  const resumedGraph = await createExecutionGraph(wf, {
     ...config,
     resume: true,
     ...(resumeValue !== undefined ? { resumeValue } : {}),

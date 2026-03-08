@@ -1,11 +1,13 @@
 ---
 id: v0-node-resolution
 title: "Node Resolution"
-description: "Understand how Kortyx resolves run handlers from function refs, module paths, and registry keys."
-keywords: [kortyx, node-resolution, registerNode, dynamic-import]
+description: "Reference: how Kortyx resolves node run handlers from function refs, module paths, and registry keys."
+keywords: [kortyx, node-resolution, reference, registerNode, dynamic-import]
 sidebar_label: "Node Resolution"
 ---
 # Node Resolution
+
+> **Good to know:** If you use TypeScript workflows with direct function refs (`run: chatNode`), you can usually skip this page.
 
 `run` in each node can be resolved in three ways.
 
@@ -54,4 +56,3 @@ Helper APIs:
 - `getRegisteredNode`
 - `listRegisteredNodes`
 - `clearRegisteredNodes`
-

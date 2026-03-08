@@ -1,6 +1,6 @@
 "use client";
 
-import { type StreamChunk, streamChatFromRoute } from "kortyx";
+import { consumeStream, type StreamChunk, streamChatFromRoute } from "kortyx";
 import type React from "react";
 import { createContext, useEffect, useRef, useState } from "react";
 
@@ -504,21 +504,22 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
       messages: args.messagesToSend,
     });
 
-    for await (const chunk of stream) {
-      debug.push(chunk);
+    await consumeStream(stream, {
+      onChunk: (chunk) => {
+        debug.push(chunk);
 
-      if (chunk.type === "session") {
-        if (typeof chunk.sessionId === "string") {
-          persistSessionId(chunk.sessionId);
+        if (chunk.type === "session") {
+          if (typeof chunk.sessionId === "string") {
+            persistSessionId(chunk.sessionId);
+          }
+          return;
         }
-        continue;
-      }
 
-      const shouldContinue = pieces.processChunk(chunk, {
-        openDebugOnInterrupt: args.openDebugOnInterrupt,
-      });
-      if (!shouldContinue) break;
-    }
+        return pieces.processChunk(chunk, {
+          openDebugOnInterrupt: args.openDebugOnInterrupt,
+        });
+      },
+    });
 
     pieces.flushLive();
 

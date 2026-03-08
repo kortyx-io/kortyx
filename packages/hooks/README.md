@@ -15,9 +15,9 @@ npm install @kortyx/hooks
 - `useStructuredData(...)` for UI-friendly structured stream events.
 - `useNodeState(...)` / `useWorkflowState(...)` for stateful node logic.
 
-## LangGraph Resume Behavior
+## Runtime Resume Behavior
 
-Kortyx uses LangGraph as the execution engine. On resume, the node function is replayed from the top.
+On resume, the node function is replayed from the top.
 
 - `useReason` resumes from its internal checkpoint.
 - Code before `useReason` will re-run unless guarded.

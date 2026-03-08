@@ -1,7 +1,7 @@
 import { PassThrough } from "node:stream";
 import type { GraphState, WorkflowDefinition, WorkflowId } from "@kortyx/core";
 import {
-  createLangGraph,
+  createExecutionGraph,
   type FrameworkAdapter,
   makeRequestId,
   makeResumeToken,
@@ -40,7 +40,7 @@ export interface OrchestrateArgs {
 }
 
 /**
- * Orchestrates LangGraph execution with mid-stream transitions emitted via
+ * Orchestrates runtime execution with mid-stream transitions emitted via
  * ctx.emit("transition", ...).
  */
 export async function orchestrateGraphStream({
@@ -455,7 +455,7 @@ export async function orchestrateGraphStream({
         // 🔁 Handoff to the next workflow
         try {
           const nextWorkflow = await selectWorkflow(transitionTo);
-          const nextGraph = await createLangGraph(nextWorkflow, {
+          const nextGraph = await createExecutionGraph(nextWorkflow, {
             ...(config as Record<string, unknown>),
             emit: forwardEmit, // keep forwarding emits
           });

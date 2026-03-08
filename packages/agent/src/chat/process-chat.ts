@@ -4,7 +4,7 @@ import type { GetProviderFn } from "@kortyx/providers";
 import type { FrameworkAdapter, WorkflowRegistry } from "@kortyx/runtime";
 import {
   buildInitialGraphState,
-  createLangGraph,
+  createExecutionGraph,
   makeRequestId,
 } from "@kortyx/runtime";
 import { createStreamResponse, type StreamChunk } from "@kortyx/stream";
@@ -53,7 +53,7 @@ export async function processChat<Options = unknown>({
   applyResumeSelection,
 }: ProcessChatArgs<Options>): Promise<Response> {
   const config = await loadRuntimeConfig(options);
-  const runtimeConfig: Parameters<typeof createLangGraph>[1] = {
+  const runtimeConfig: Parameters<typeof createExecutionGraph>[1] = {
     ...config,
     getProvider,
     ...(memoryAdapter ? { memoryAdapter } : {}),
@@ -123,7 +123,7 @@ export async function processChat<Options = unknown>({
   const currentWorkflow = baseState.currentWorkflow;
   const selectedWorkflow = await workflowSelector(currentWorkflow as string);
 
-  const graph = await createLangGraph(selectedWorkflow, runtimeConfig);
+  const graph = await createExecutionGraph(selectedWorkflow, runtimeConfig);
 
   const orchestratedStream = await orchestrateGraphStream({
     sessionId: resolvedSessionId,

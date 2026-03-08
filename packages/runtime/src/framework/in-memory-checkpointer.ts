@@ -53,7 +53,7 @@ export type InMemoryCheckpointSaver = BaseCheckpointSaver & {
  * - Keeps only the latest checkpoint per (thread_id, checkpoint_ns)
  * - Keeps only a bounded number of pending writes for that checkpoint
  *
- * This is a safer dev default than LangGraph's MemorySaver, which can grow without bound.
+ * This is a safer dev default than the upstream in-memory saver, which can grow without bound.
  */
 export function createInMemoryCheckpointSaver(
   options?: InMemoryCheckpointSaverOptions,

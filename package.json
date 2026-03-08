@@ -21,7 +21,7 @@
   ],
   "scripts": {
     "build": "turbo build",
-    "dev": "dotenv -e .env -- turbo run dev --concurrency=20 --continue=dependencies-successful --filter=!kortyx-studio",
+    "dev": "dotenv -e .env -- turbo run dev --concurrency=20 --continue=dependencies-successful --filter=!kortyx-studio --filter=!@kortyx/example-nextjs-chat-server-action",
     "dev:all": "dotenv -e .env -- turbo run dev --parallel --concurrency=20 --continue=dependencies-successful",
     "lint": "biome check .",
     "test": "turbo run test",

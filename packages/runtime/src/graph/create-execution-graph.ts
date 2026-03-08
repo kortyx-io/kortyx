@@ -15,7 +15,7 @@ import type { BaseCheckpointSaver } from "@langchain/langgraph-checkpoint";
 import { getCheckpointer } from "../checkpointer";
 import { resolveNodeHandler } from "../node-loader";
 
-export interface GraphRuntimeConfig {
+export interface ExecutionRuntimeConfig {
   emit?: (event: string, payload: unknown) => void;
   onCheckpoint?: (args: { nodeId: string; state: GraphState }) => void;
   memoryAdapter?: MemoryAdapter;
@@ -28,9 +28,9 @@ export interface GraphRuntimeConfig {
   [key: string]: unknown;
 }
 
-export async function createLangGraph(
+export async function createExecutionGraph(
   workflow: WorkflowDefinition,
-  config: GraphRuntimeConfig,
+  config: ExecutionRuntimeConfig,
 ) {
   const StateAnnotation = Annotation.Root({
     input: Annotation<unknown>,
@@ -70,7 +70,7 @@ export async function createLangGraph(
   const workflowName = workflow.id;
 
   // Ensure an emit function exists so ctx.emit can always call without optional chaining
-  type WithEmit = GraphRuntimeConfig & {
+  type WithEmit = ExecutionRuntimeConfig & {
     emit: (event: string, payload: unknown) => void;
   };
   const runtimeConfig = config as WithEmit;
@@ -437,7 +437,7 @@ export async function createLangGraph(
 
   interface GraphExtensions {
     name: string;
-    config: GraphRuntimeConfig;
+    config: ExecutionRuntimeConfig;
     resume(state: GraphState, input: unknown): Promise<GraphState>;
     timeTravelTo(state: GraphState, checkpointId: string): Promise<GraphState>;
   }

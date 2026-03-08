@@ -24,7 +24,7 @@ export const docsConfig: DocsConfig = {
       packages: "reference",
       "workflows/define-workflows": "core-concepts/define-workflows",
       "workflows/formats-ts-yaml-json": "core-concepts/formats-ts-yaml-json",
-      "workflows/node-resolution": "core-concepts/node-resolution",
+      "workflows/node-resolution": "reference/node-resolution",
       "workflows/conditional-routing": "core-concepts/conditional-routing",
       "runtime/hooks": "core-concepts/hooks",
       "runtime/interrupts-and-resume": "guides/interrupts-and-resume",
@@ -40,6 +40,9 @@ export const docsConfig: DocsConfig = {
       "packages/package-overview": "reference/package-overview",
       "packages/api-surface": "reference/api-surface",
       "getting-started/documentation-structure-and-dx": "getting-started",
+      "getting-started/quickstart-nextjs-api-route":
+        "getting-started/quickstart-nextjs",
+      "core-concepts/node-resolution": "reference/node-resolution",
       "start-here/start-here": "start-here",
       "troubleshooting/troubleshooting": "troubleshooting",
       "migration/migration-and-versions": "migration",

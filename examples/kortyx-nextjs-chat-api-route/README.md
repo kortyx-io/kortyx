@@ -1,11 +1,11 @@
-# @kortyx/example-nextjs-chat
+# @kortyx/example-nextjs-chat-api-route
 
-Next.js chat app example for iterating on Kortyx packages locally.
+Next.js chat app example (API route method) for iterating on Kortyx packages locally.
 
 ## Run
 
 ```bash
-cd examples/kortyx-nextjs-chat
+cd examples/kortyx-nextjs-chat-api-route
 pnpm install
 GOOGLE_API_KEY=... # or GEMINI_API_KEY
 KORTYX_NEXTJS_CHAT_PORT=3010 pnpm dev
@@ -21,7 +21,7 @@ This example can run with **Redis-backed framework persistence** so interrupts c
 pnpm redis:up
 ```
 
-2) Create `examples/kortyx-nextjs-chat/.env.local` from `examples/kortyx-nextjs-chat/.env.example` and set:
+2) Create `examples/kortyx-nextjs-chat-api-route/.env.local` from `examples/kortyx-nextjs-chat-api-route/.env.example` and set:
 
 - `GOOGLE_API_KEY=...`
 - `KORTYX_REDIS_URL=redis://127.0.0.1:6379`
@@ -42,7 +42,7 @@ Use workflow override `reason-interrupt-structured` to test `useReason` with:
 - `interrupt.requestSchema` / `interrupt.responseSchema`
 - structured output streaming (`useStructuredData`)
 
-LangGraph resumes by replaying the node function from the top. `useReason` continues from checkpoint, but code before it can re-run. This demo keeps the node minimal (`useReason` first) to avoid replay noise; if you need pre-`useReason` events, guard them with `useNodeState`.
+Resume replays the node function from the top. `useReason` continues from checkpoint, but code before it can re-run. This demo keeps the node minimal (`useReason` first) to avoid replay noise; if you need pre-`useReason` events, guard them with `useNodeState`.
 
 ## Configuration
 

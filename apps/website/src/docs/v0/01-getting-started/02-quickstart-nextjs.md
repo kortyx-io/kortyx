@@ -1,13 +1,15 @@
 ---
-id: v0-quickstart-nextjs
-title: "Quickstart (Next.js)"
-description: "Build a working Next.js chat flow using Kortyx workflows, node-level model wiring, and streaming."
-keywords: [kortyx, nextjs, quickstart, server-actions, streaming]
-sidebar_label: "Quickstart (Next.js)"
+id: v0-quickstart-nextjs-api-route
+title: "Quickstart (Next.js API Route)"
+description: "Build a working Next.js chat flow using API routes, Kortyx workflows, node-level model wiring, and streaming."
+keywords: [kortyx, nextjs, quickstart, api-route, streaming]
+sidebar_label: "Quickstart (Next.js API Route)"
 ---
-# Quickstart (Next.js Server Action)
+# Quickstart (Next.js API Route)
 
-This quickstart matches the current OSS implementation and mirrors `examples/kortyx-nextjs-chat`.
+This quickstart matches the current OSS implementation and mirrors `examples/kortyx-nextjs-chat-api-route`.
+
+> **Good to know:** Use this path when you need live token/chunk updates in the UI.
 
 ## 1. Create a workflow
 
@@ -67,65 +69,26 @@ export const generalChatWorkflow = defineWorkflow({
 
 ```ts
 // src/lib/providers.ts
-import {
-  createGoogleGenerativeAI,
-  type GoogleGenerativeAIProvider,
-  MODELS,
-  PROVIDER_ID,
-} from "@kortyx/google";
+import { createGoogleGenerativeAI } from "@kortyx/google";
 
 const googleApiKey = process.env.GOOGLE_API_KEY;
+if (!googleApiKey) {
+  throw new Error("Google provider requires an API key. Set GOOGLE_API_KEY.");
+}
 
-let googleProvider: GoogleGenerativeAIProvider | undefined;
-
-export const ensureGoogleProvider = (): GoogleGenerativeAIProvider => {
-  if (!googleProvider) {
-    if (!googleApiKey) {
-      throw new Error(
-        "Google provider requires an API key. Set GOOGLE_API_KEY.",
-      );
-    }
-    googleProvider = createGoogleGenerativeAI({ apiKey: googleApiKey });
-  }
-  return googleProvider;
-};
-
-export const google: GoogleGenerativeAIProvider = ((modelId, options) =>
-  ensureGoogleProvider()(modelId, options)) as GoogleGenerativeAIProvider;
-
-google.id = PROVIDER_ID;
-google.models = MODELS;
+export const google = createGoogleGenerativeAI({ apiKey: googleApiKey });
 ```
 
 ```js
 // src/lib/providers.js
-import {
-  createGoogleGenerativeAI,
-  MODELS,
-  PROVIDER_ID,
-} from "@kortyx/google";
+import { createGoogleGenerativeAI } from "@kortyx/google";
 
 const googleApiKey = process.env.GOOGLE_API_KEY;
+if (!googleApiKey) {
+  throw new Error("Google provider requires an API key. Set GOOGLE_API_KEY.");
+}
 
-let googleProvider;
-
-export const ensureGoogleProvider = () => {
-  if (!googleProvider) {
-    if (!googleApiKey) {
-      throw new Error(
-        "Google provider requires an API key. Set GOOGLE_API_KEY.",
-      );
-    }
-    googleProvider = createGoogleGenerativeAI({ apiKey: googleApiKey });
-  }
-  return googleProvider;
-};
-
-export const google = (modelId, options) =>
-  ensureGoogleProvider()(modelId, options);
-
-google.id = PROVIDER_ID;
-google.models = MODELS;
+export const google = createGoogleGenerativeAI({ apiKey: googleApiKey });
 ```
 
 ## 3. Create a node
@@ -160,8 +123,8 @@ export const chatNode = async ({
     system: system || "You are a concise assistant.",
     input: String(input ?? ""),
     temperature,
-    emit: true,
-    stream: true,
+    emit: true, // publish text events
+    stream: true, // token-by-token output
   });
 
   return {
@@ -188,8 +151,8 @@ export const chatNode = async ({ input, params }) => {
     system: system || "You are a concise assistant.",
     input: String(input ?? ""),
     temperature,
-    emit: true,
-    stream: true,
+    emit: true, // publish text events
+    stream: true, // token-by-token output
   });
 
   return {
@@ -229,52 +192,103 @@ export const agent = createAgent({
 });
 ```
 
-## 5. Call `processChat`
+## 5. Add an API route
 
 ```ts
-// src/app/actions/chat.ts
-"use server";
-
-import { readStream, type StreamChunk } from "kortyx";
+// src/app/api/chat/route.ts
+import { createChatRouteHandler } from "kortyx";
 import { agent } from "@/lib/kortyx-client";
 
-export async function runChat(args: {
-  sessionId: string;
-  messages: Array<{ role: "user" | "assistant" | "system"; content: string }>;
-}): Promise<StreamChunk[]> {
-  const response = await agent.processChat(args.messages, {
-    sessionId: args.sessionId,
-  });
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
-  const chunks: StreamChunk[] = [];
-  for await (const chunk of readStream(response.body)) {
-    chunks.push(chunk);
-  }
-  return chunks;
+const handleChat = createChatRouteHandler({ agent });
+
+export async function POST(request: Request): Promise<Response> {
+  return handleChat(request);
 }
 ```
 
 ```js
-// src/app/actions/chat.js
-"use server";
-
-import { readStream } from "kortyx";
+// src/app/api/chat/route.js
+import { createChatRouteHandler } from "kortyx";
 import { agent } from "@/lib/kortyx-client";
 
-export async function runChat(args) {
-  const response = await agent.processChat(args.messages, {
-    sessionId: args.sessionId,
-  });
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
-  const chunks = [];
-  for await (const chunk of readStream(response.body)) {
-    chunks.push(chunk);
-  }
-  return chunks;
+const handleChat = createChatRouteHandler({ agent });
+
+export async function POST(request) {
+  return handleChat(request);
 }
 ```
 
-## 6. Run
+## 6. Call `/api/chat` from client code
+
+> **Good to know:** For live UI updates, consume chunks directly with `for await...of` instead of collecting all chunks into an array first.
+
+```ts
+// src/lib/chat-client.ts
+import {
+  consumeStream,
+  streamChatFromRoute,
+  type StreamChatFromRouteArgs,
+} from "kortyx";
+
+export function runChatStream(
+  args: Omit<StreamChatFromRouteArgs, "endpoint">,
+) {
+  return streamChatFromRoute({
+    endpoint: "/api/chat",
+    ...args,
+  });
+}
+
+export async function consumeChat(
+  args: Omit<StreamChatFromRouteArgs, "endpoint">,
+) {
+  const stream = runChatStream(args);
+
+  await consumeStream(stream, {
+    onChunk: (chunk) => {
+      // Update UI incrementally here.
+      console.log(chunk.type);
+    },
+    onError: (err) => {
+      console.error(err);
+    },
+  });
+}
+```
+
+```js
+// src/lib/chat-client.js
+import { consumeStream, streamChatFromRoute } from "kortyx";
+
+export function runChatStream(args) {
+  return streamChatFromRoute({
+    endpoint: "/api/chat",
+    ...args,
+  });
+}
+
+export async function consumeChat(args) {
+  const stream = runChatStream(args);
+
+  await consumeStream(stream, {
+    onChunk: (chunk) => {
+      // Update UI incrementally here.
+      console.log(chunk.type);
+    },
+    onError: (err) => {
+      console.error(err);
+    },
+  });
+}
+```
+
+## 7. Run
 
 ```bash tabs="run-dev" tab="pnpm"
 GOOGLE_API_KEY=your_key_here pnpm dev
@@ -297,6 +311,8 @@ GOOGLE_API_KEY=your_key_here bun run dev
 - Type-safe workflow definition
 - Explicit provider bootstrap at app level
 - Node-level model control via `useReason(...)`
+- API-route transport with `streamChatFromRoute(...)`
+- Callback-based stream consumption with `consumeStream(...)`
 - Streaming chunks (`text-start`, `text-delta`, `text-end`, `message`, `done`)
 - Built-in interrupt/resume path when your nodes use `useInterrupt`
 

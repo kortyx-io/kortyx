@@ -2,6 +2,7 @@
 // packages/stream/src/index.ts
 
 // client
+export * from "./client/consume-stream";
 export * from "./client/read-stream";
 export * from "./client/stream-from-route";
 

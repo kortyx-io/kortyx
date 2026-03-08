@@ -15,6 +15,8 @@ Kortyx currently supports all three authoring formats.
 | YAML | declarative workflow files | human-readable, comments |
 | JSON | generated/exported configs | machine-friendly |
 
+> **Good to know:** Exact handler resolution rules for `run` strings are documented in [Node Resolution](../05-reference/05-node-resolution.md).
+
 ## TypeScript
 
 ```ts
@@ -72,4 +74,3 @@ edges:
 - `@kortyx/runtime/createFileWorkflowRegistry` scans these file extensions:
   - `.workflow.ts`, `.workflow.mts`, `.workflow.js`, `.workflow.mjs`
   - `.workflow.json`, `.workflow.yml`, `.workflow.yaml`
-

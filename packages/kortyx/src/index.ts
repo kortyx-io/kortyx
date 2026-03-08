@@ -64,5 +64,9 @@ export {
   listRegisteredNodes,
   registerNode,
 } from "@kortyx/runtime";
-export type { StreamChunk } from "@kortyx/stream";
-export { createStreamResponse, readStream } from "@kortyx/stream";
+export type { ConsumeStreamHandlers, StreamChunk } from "@kortyx/stream";
+export {
+  consumeStream,
+  createStreamResponse,
+  readStream,
+} from "@kortyx/stream";
