@@ -1,4 +1,4 @@
-# @kortyx/example-nextjs-chat (API Route)
+# @kortyx/example-nextjs-chat-api-route
 
 Next.js chat app example (API route method) for iterating on Kortyx packages locally.
 
