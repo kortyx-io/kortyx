@@ -4,7 +4,7 @@ Examples are meant to be a practical, runnable way to learn Kortyx and to iterat
 
 ## @kortyx/example-nextjs-chat-api-route (API Route)
 
-- Path: `examples/kortyx-nextjs-chat`
+- Path: `examples/kortyx-nextjs-chat-api-route`
 
 - Run:
 

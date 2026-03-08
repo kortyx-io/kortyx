@@ -7,7 +7,7 @@ sidebar_label: "Quickstart (Next.js)"
 ---
 # Quickstart (Next.js Server Action)
 
-This quickstart matches the current OSS implementation and mirrors `examples/kortyx-nextjs-chat`.
+This quickstart matches the current OSS implementation and mirrors `examples/kortyx-nextjs-chat-api-route`.
 
 ## 1. Create a workflow
 

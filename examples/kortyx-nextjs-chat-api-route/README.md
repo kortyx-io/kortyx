@@ -5,7 +5,7 @@ Next.js chat app example (API route method) for iterating on Kortyx packages loc
 ## Run
 
 ```bash
-cd examples/kortyx-nextjs-chat
+cd examples/kortyx-nextjs-chat-api-route
 pnpm install
 GOOGLE_API_KEY=... # or GEMINI_API_KEY
 KORTYX_NEXTJS_CHAT_PORT=3010 pnpm dev
@@ -21,7 +21,7 @@ This example can run with **Redis-backed framework persistence** so interrupts c
 pnpm redis:up
 ```
 
-2) Create `examples/kortyx-nextjs-chat/.env.local` from `examples/kortyx-nextjs-chat/.env.example` and set:
+2) Create `examples/kortyx-nextjs-chat-api-route/.env.local` from `examples/kortyx-nextjs-chat-api-route/.env.example` and set:
 
 - `GOOGLE_API_KEY=...`
 - `KORTYX_REDIS_URL=redis://127.0.0.1:6379`
