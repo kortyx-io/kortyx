@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.7.0](https://github.com/kortyx-io/kortyx/compare/kortyx-v0.6.0...kortyx-v0.7.0) (2026-03-09)
+
+
+### ⚠ BREAKING CHANGES
+
+* **hooks:** remove useEmit from public API
+* **agent:** simplify createAgent workflow defaults
+
+### Features
+
+* **agent:** simplify createAgent workflow defaults ([d3afbc7](https://github.com/kortyx-io/kortyx/commit/d3afbc77de61ca71c938c78349f383cd346aad99))
+* **hooks:** remove useEmit from public API ([c66e3b0](https://github.com/kortyx-io/kortyx/commit/c66e3b012eb822a14067ee0e6f40528fcc7b4711))
+
+
+### Bug Fixes
+
+* **release:** rollback accidental 1.0 release commit ([16fa5db](https://github.com/kortyx-io/kortyx/commit/16fa5db300c63d4c985a7475ea8375d9b365b925))
+
 ## [0.6.0](https://github.com/kortyx-io/kortyx/compare/kortyx-v0.5.1...kortyx-v0.6.0) (2026-03-08)
 
 
