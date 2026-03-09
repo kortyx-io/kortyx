@@ -15,10 +15,6 @@ import { z } from "zod";
 import type { ChatMessage } from "../types/chat-message";
 import { processChat as runProcessChat } from "./process-chat";
 
-export interface AgentSessionConfig {
-  id?: string | undefined;
-}
-
 export interface AgentMemoryConfig {
   enabled?: boolean | undefined;
   namespace?: string | undefined;
@@ -36,10 +32,8 @@ export interface CreateAgentArgs {
   workflows?: WorkflowDefinition[];
   workflowsDir?: string;
   workflowRegistry?: WorkflowRegistry;
-  fallbackWorkflowId?: string;
   defaultWorkflowId?: string;
   frameworkAdapter?: FrameworkAdapter;
-  session?: AgentSessionConfig;
   memory?: AgentMemoryConfig;
 }
 
@@ -64,15 +58,8 @@ const createAgentArgsBaseSchema = z
     workflows: z.array(z.unknown()).optional(),
     workflowsDir: z.string().optional(),
     workflowRegistry: z.unknown().optional(),
-    fallbackWorkflowId: z.string().optional(),
     defaultWorkflowId: z.string().optional(),
     frameworkAdapter: z.unknown().optional(),
-    session: z
-      .object({
-        id: z.string().optional(),
-      })
-      .strict()
-      .optional(),
     memory: z
       .object({
         enabled: z.boolean().optional(),
@@ -149,17 +136,14 @@ export function createAgent(args: CreateAgentArgs): Agent {
     workflows,
     workflowsDir,
     workflowRegistry,
-    fallbackWorkflowId,
     defaultWorkflowId,
     frameworkAdapter,
-    session,
     memory,
   } = parsedArgs;
 
-  const resolvedDefaultWorkflowId = defaultWorkflowId ?? fallbackWorkflowId;
+  const resolvedDefaultWorkflowId = defaultWorkflowId;
   const resolvedFrameworkAdapter: FrameworkAdapter =
     frameworkAdapter ?? createFrameworkAdapterFromEnv();
-  const defaultSessionId = session?.id ?? "anonymous-session";
   const memoryAdapter = resolveMemoryAdapter(memory);
   const resolvedGetProvider = getProvider ?? getRegisteredProvider;
 
@@ -169,20 +153,20 @@ export function createAgent(args: CreateAgentArgs): Agent {
     if (workflowRegistry) return workflowRegistry;
     if (workflows) {
       return createInMemoryWorkflowRegistry(workflows, {
-        fallbackId: fallbackWorkflowId ?? "general-chat",
+        fallbackId: resolvedDefaultWorkflowId ?? "general-chat",
       });
     }
     if (workflowsDir) {
       return createFileWorkflowRegistry({
         workflowsDir,
-        fallbackId: fallbackWorkflowId ?? "general-chat",
+        fallbackId: resolvedDefaultWorkflowId ?? "general-chat",
       });
     }
 
     const resolvedWorkflowsDir = resolve(resolvedCwd, "src", "workflows");
     return createFileWorkflowRegistry({
       workflowsDir: resolvedWorkflowsDir,
-      fallbackId: fallbackWorkflowId ?? "general-chat",
+      fallbackId: resolvedDefaultWorkflowId ?? "general-chat",
     });
   })();
 
@@ -210,11 +194,14 @@ export function createAgent(args: CreateAgentArgs): Agent {
         frameworkAdapter: resolvedFrameworkAdapter,
         getProvider: resolvedGetProvider,
         ...(memoryAdapter ? { memoryAdapter } : {}),
-        loadRuntimeConfig: (runtimeOptions?: AgentProcessOptions) => ({
-          session: {
-            id: runtimeOptions?.sessionId ?? defaultSessionId,
-          },
-        }),
+        loadRuntimeConfig: (runtimeOptions?: AgentProcessOptions) =>
+          runtimeOptions?.sessionId
+            ? {
+                session: {
+                  id: runtimeOptions.sessionId,
+                },
+              }
+            : {},
       });
     },
   };

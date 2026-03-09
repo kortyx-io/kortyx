@@ -12,7 +12,6 @@ export type {
   Agent,
   AgentMemoryConfig,
   AgentProcessOptions,
-  AgentSessionConfig,
   CreateAgentArgs,
 } from "./chat/create-agent";
 export { createAgent } from "./chat/create-agent";

@@ -17,10 +17,7 @@ import { generalChatWorkflow } from "@/workflows/general-chat.workflow";
 
 export const agent = createAgent({
   workflows: [generalChatWorkflow],
-  session: {
-    id: "anonymous-session",
-  },
-  fallbackWorkflowId: "general-chat",
+  defaultWorkflowId: "general-chat",
 });
 ```
 
@@ -30,14 +27,11 @@ import { generalChatWorkflow } from "@/workflows/general-chat.workflow";
 
 export const agent = createAgent({
   workflows: [generalChatWorkflow],
-  session: {
-    id: "anonymous-session",
-  },
-  fallbackWorkflowId: "general-chat",
+  defaultWorkflowId: "general-chat",
 });
 ```
 
-> **Good to know:** `createAgent` no longer accepts `ai: {...}`. Initialize providers in app bootstrap and pass model refs inside node params.
+Pass `sessionId` per request in `agent.processChat(...)`.
 
 ## Workflow source resolution
 
@@ -55,10 +49,8 @@ Only one of `workflowRegistry`, `workflows`, or `workflowsDir` is allowed in the
 Useful fields in `CreateAgentArgs`:
 
 - `workflows` / `workflowRegistry` / `workflowsDir`
-- `session`
 - `memory`
 - `defaultWorkflowId`
-- `fallbackWorkflowId`
 - `frameworkAdapter`
 - `getProvider` (advanced: custom provider registry lookup)
 

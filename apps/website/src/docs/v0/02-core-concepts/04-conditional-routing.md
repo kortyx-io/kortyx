@@ -37,6 +37,8 @@ If no condition matches for that conditional group, runtime falls back to an int
 
 ## Example loop
 
+Define the condition branches on the workflow edges.
+
 ```ts
 edges: [
   ["todo", "todo", { when: "more" }],
@@ -44,6 +46,8 @@ edges: [
   ["final", "__end__"],
 ]
 ```
+
+Return the matching condition from the node.
 
 ```ts
 return {

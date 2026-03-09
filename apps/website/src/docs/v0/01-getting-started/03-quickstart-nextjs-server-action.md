@@ -171,10 +171,7 @@ import { generalChatWorkflow } from "@/workflows/general-chat.workflow";
 
 export const agent = createAgent({
   workflows: [generalChatWorkflow],
-  session: {
-    id: "anonymous-session",
-  },
-  fallbackWorkflowId: "general-chat",
+  defaultWorkflowId: "general-chat",
 });
 ```
 
@@ -185,10 +182,7 @@ import { generalChatWorkflow } from "@/workflows/general-chat.workflow";
 
 export const agent = createAgent({
   workflows: [generalChatWorkflow],
-  session: {
-    id: "anonymous-session",
-  },
-  fallbackWorkflowId: "general-chat",
+  defaultWorkflowId: "general-chat",
 });
 ```
 

@@ -11,12 +11,9 @@ export const agent = createAgent({
     interruptDemoWorkflow,
     reasonInterruptStructuredWorkflow,
   ],
-  session: {
-    id: "anonymous-session",
-  },
   memory: {
     namespace: "kortyx-nextjs-chat-server-action",
     ttlMs: 1000 * 60 * 60,
   },
-  fallbackWorkflowId: "general-chat",
+  defaultWorkflowId: "general-chat",
 });

@@ -5,7 +5,6 @@ export type {
   Agent,
   AgentMemoryConfig,
   AgentProcessOptions,
-  AgentSessionConfig,
   ChatRequestBody,
   CreateAgentArgs,
   ProcessChatArgs,
