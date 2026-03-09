@@ -15,7 +15,6 @@ export type {
 } from "./hooks";
 export {
   useAiMemory,
-  useEmit,
   useInterrupt,
   useNodeState,
   useReason,

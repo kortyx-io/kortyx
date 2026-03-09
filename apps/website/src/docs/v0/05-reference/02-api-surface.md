@@ -37,7 +37,6 @@ export {
   useInterrupt,
   useAiMemory,
   useReason,
-  useEmit,
   useNodeState,
   useStructuredData,
   useWorkflowState,

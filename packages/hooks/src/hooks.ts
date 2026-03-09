@@ -1,8 +1,4 @@
-import type {
-  InterruptInput,
-  InterruptResult,
-  NodeContext,
-} from "@kortyx/core";
+import type { InterruptInput, InterruptResult } from "@kortyx/core";
 import type { MemoryAdapter } from "@kortyx/memory";
 import { getHookContext } from "./context";
 import { awaitInterruptInternal } from "./interrupt";
@@ -28,11 +24,6 @@ export type {
 } from "./types";
 
 type StateSetter<T> = (next: T | ((prev: T) => T)) => void;
-
-export function useEmit(): NodeContext["emit"] {
-  const ctx = getHookContext();
-  return ctx.node.emit;
-}
 
 export function useStructuredData<TData = unknown>(
   args: UseStructuredDataArgs<TData>,

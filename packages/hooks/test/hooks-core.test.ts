@@ -2,12 +2,7 @@ import type { MemoryAdapter } from "@kortyx/memory";
 import { describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 import { runWithHookContext } from "../src/context";
-import {
-  useAiMemory,
-  useEmit,
-  useInterrupt,
-  useStructuredData,
-} from "../src/hooks";
+import { useAiMemory, useInterrupt, useStructuredData } from "../src/hooks";
 import { createNode, createState } from "./helpers";
 
 const ChoiceRequestSchema = z.object({
@@ -26,23 +21,6 @@ const ChoiceRequestSchema = z.object({
 const ChoiceResponseSchema = z.string().min(1);
 
 describe("hooks core APIs", () => {
-  it("useEmit proxies node emit", async () => {
-    const { node, emitted } = createNode();
-    const state = createState();
-
-    await runWithHookContext({ node, state }, async () => {
-      const emit = useEmit();
-      emit("status", { message: "ok" });
-      return null;
-    });
-
-    expect(emitted).toHaveLength(1);
-    expect(emitted[0]).toEqual({
-      event: "status",
-      payload: { message: "ok" },
-    });
-  });
-
   it("useStructuredData validates and emits structured_data", async () => {
     const { node, emitted } = createNode();
     const state = createState();

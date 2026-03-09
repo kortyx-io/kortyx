@@ -38,7 +38,6 @@ export type {
 } from "@kortyx/hooks";
 export {
   useAiMemory,
-  useEmit,
   useInterrupt,
   useNodeState,
   useReason,
