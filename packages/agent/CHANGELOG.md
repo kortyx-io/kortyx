@@ -1,16 +1,5 @@
 # Changelog
 
-## [1.0.0](https://github.com/kortyx-io/kortyx/compare/agent-v0.7.0...agent-v1.0.0) (2026-03-09)
-
-
-### ⚠ BREAKING CHANGES
-
-* **agent:** simplify createAgent workflow defaults
-
-### Features
-
-* **agent:** simplify createAgent workflow defaults ([d3afbc7](https://github.com/kortyx-io/kortyx/commit/d3afbc77de61ca71c938c78349f383cd346aad99))
-
 ## [0.7.0](https://github.com/kortyx-io/kortyx/compare/agent-v0.6.1...agent-v0.7.0) (2026-03-08)
 
 
