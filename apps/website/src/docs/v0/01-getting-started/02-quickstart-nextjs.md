@@ -218,6 +218,8 @@ export async function POST(request) {
 }
 ```
 
+> **Good to know:** Request body supports optional `stream` (default `true`). Send `{ stream: false }` to receive buffered JSON `{ chunks, text, structured }` instead of SSE. If you only want raw chunks, use `collectStream(...)` in a custom route.
+
 ## 6. Call `/api/chat` from client code
 
 > **Good to know:** For live UI updates, consume chunks directly with `for await...of` instead of collecting all chunks into an array first.
@@ -312,5 +314,5 @@ GOOGLE_API_KEY=your_key_here bun run dev
 
 Next:
 
-- [Hooks](../02-core-concepts/06-hooks.md)
+- [Hooks](../02-core-concepts/07-hooks.md)
 - [Interrupts and Resume](../03-guides/02-interrupts-and-resume.md)

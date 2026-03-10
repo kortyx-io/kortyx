@@ -19,7 +19,7 @@ This page maps the current OSS packages in this monorepo.
 | Package | Purpose | Typical consumers |
 | --- | --- | --- |
 | `kortyx` | batteries-included facade | application code |
-| `@kortyx/agent` | chat orchestration (`createAgent`, `processChat`) | app backend adapters |
+| `@kortyx/agent` | chat orchestration (`createAgent` + `agent.streamChat`) | app backend adapters |
 | `@kortyx/core` | workflow + node + state contracts | workflow authors, framework users |
 | `@kortyx/runtime` | graph execution + registries + framework adapters | advanced runtime integration |
 | `@kortyx/hooks` | node hooks (`useAiProvider`, state hooks, interrupts) | node authors |

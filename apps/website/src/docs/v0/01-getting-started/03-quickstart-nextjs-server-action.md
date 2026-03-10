@@ -186,30 +186,24 @@ export const agent = createAgent({
 });
 ```
 
-## 5. Call `processChat`
+## 5. Call `streamChat` (buffered in server action)
 
 ```ts
 // src/app/actions/chat.ts
 "use server";
 
-import { consumeStream, readStream, type StreamChunk } from "kortyx";
+import { collectStream, type StreamChunk } from "kortyx";
 import { agent } from "@/lib/kortyx-client";
 
 export async function runChat(args: {
   sessionId: string;
   messages: Array<{ role: "user" | "assistant" | "system"; content: string }>;
 }): Promise<StreamChunk[]> {
-  const response = await agent.processChat(args.messages, {
+  const stream = await agent.streamChat(args.messages, {
     sessionId: args.sessionId,
   });
 
-  const chunks: StreamChunk[] = [];
-  await consumeStream(readStream(response.body), {
-    onChunk: (chunk) => {
-      chunks.push(chunk);
-    },
-  });
-  return chunks;
+  return collectStream(stream);
 }
 ```
 
@@ -217,23 +211,30 @@ export async function runChat(args: {
 // src/app/actions/chat.js
 "use server";
 
-import { consumeStream, readStream } from "kortyx";
+import { collectStream } from "kortyx";
 import { agent } from "@/lib/kortyx-client";
 
 export async function runChat(args) {
-  const response = await agent.processChat(args.messages, {
+  const stream = await agent.streamChat(args.messages, {
     sessionId: args.sessionId,
   });
 
-  const chunks = [];
-  await consumeStream(readStream(response.body), {
-    onChunk: (chunk) => {
-      chunks.push(chunk);
-    },
-  });
-  return chunks;
+  return collectStream(stream);
 }
 ```
+
+```ts
+// Optional alternative:
+// import { collectBufferedStream } from "kortyx";
+// return collectBufferedStream(stream); // { chunks, text, structured }
+```
+```js
+// Optional alternative:
+// import { collectBufferedStream } from "kortyx";
+// return collectBufferedStream(stream); // { chunks, text, structured }
+```
+
+> **Good to know:** Use `collectStream(...)` when you want to process raw chunk events yourself. Use `collectBufferedStream(...)` when you want merged text + structured summaries.
 
 ## 6. Run
 
@@ -264,5 +265,5 @@ GOOGLE_API_KEY=your_key_here bun run dev
 
 Next:
 
-- [Hooks](../02-core-concepts/06-hooks.md)
+- [Hooks](../02-core-concepts/07-hooks.md)
 - [Interrupts and Resume](../03-guides/02-interrupts-and-resume.md)

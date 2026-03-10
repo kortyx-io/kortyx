@@ -7,15 +7,13 @@ export type {
   AgentProcessOptions,
   ChatRequestBody,
   CreateAgentArgs,
-  ProcessChatArgs,
   StreamChatFromRouteArgs,
 } from "@kortyx/agent";
 export {
   createAgent,
   createChatRouteHandler,
+  handleChatRequestBody,
   parseChatRequestBody,
-  processChat,
-  processChatRequestBody,
   streamChatFromRoute,
 } from "@kortyx/agent";
 export type {
@@ -62,9 +60,17 @@ export {
   listRegisteredNodes,
   registerNode,
 } from "@kortyx/runtime";
-export type { ConsumeStreamHandlers, StreamChunk } from "@kortyx/stream";
+export type {
+  BufferedStreamResult,
+  ConsumeStreamHandlers,
+  StreamChunk,
+} from "@kortyx/stream";
 export {
+  collectBufferedStream,
+  collectStream,
   consumeStream,
   createStreamResponse,
   readStream,
+  summarizeStreamChunks,
+  toSSE,
 } from "@kortyx/stream";

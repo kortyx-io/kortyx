@@ -1,10 +1,12 @@
+import { collectBufferedStream, toSSE } from "@kortyx/stream";
 import { z } from "zod";
 import type { Agent } from "../chat/create-agent";
 import type { ChatMessage } from "../types/chat-message";
 
 export type ChatRequestBody = {
-  sessionId: string;
+  sessionId?: string | undefined;
   workflowId?: string | undefined;
+  stream?: boolean | undefined;
   messages: ChatMessage[];
 };
 
@@ -20,16 +22,12 @@ const chatMessageSchema = z
 
 const chatRequestBodySchema = z
   .object({
-    sessionId: z
-      .string()
-      .transform((value) => value.trim())
-      .refine((value) => value.length > 0, {
-        message: "`sessionId` is required.",
-      }),
+    sessionId: z.string().optional(),
     workflowId: z.string().optional(),
+    stream: z.boolean().optional(),
     messages: z.array(chatMessageSchema),
   })
-  .strict();
+  .passthrough();
 
 const toErrorMessage = (error: unknown): string =>
   error instanceof Error ? error.message : String(error);
@@ -40,24 +38,39 @@ export function parseChatRequestBody(value: unknown): ChatRequestBody {
     throw new Error(parsed.error.issues[0]?.message ?? "Invalid chat request.");
   }
 
+  const sessionId = parsed.data.sessionId?.trim();
   const workflowId = parsed.data.workflowId?.trim();
 
   return {
-    sessionId: parsed.data.sessionId,
+    ...(sessionId ? { sessionId } : {}),
     ...(workflowId ? { workflowId } : {}),
+    ...(typeof parsed.data.stream === "boolean"
+      ? { stream: parsed.data.stream }
+      : {}),
     messages: parsed.data.messages as ChatMessage[],
   };
 }
 
-export async function processChatRequestBody(args: {
+export async function handleChatRequestBody(args: {
   agent: Agent;
   body: ChatRequestBody;
 }): Promise<Response> {
   const { agent, body } = args;
-  return agent.processChat(body.messages, {
+  const stream = await agent.streamChat(body.messages, {
     sessionId: body.sessionId,
-    ...(body.workflowId ? { workflowId: body.workflowId } : {}),
+    workflowId: body.workflowId,
   });
+
+  if (body.stream === false) {
+    const buffered = await collectBufferedStream(stream);
+    return new Response(JSON.stringify(buffered), {
+      headers: {
+        "content-type": "application/json",
+      },
+    });
+  }
+
+  return toSSE(stream);
 }
 
 export function createChatRouteHandler(args: {
@@ -69,7 +82,7 @@ export function createChatRouteHandler(args: {
   return async function POST(request: Request): Promise<Response> {
     try {
       const body = parseChatRequestBody(await request.json());
-      return await processChatRequestBody({ agent, body });
+      return await handleChatRequestBody({ agent, body });
     } catch (error) {
       return new Response(
         JSON.stringify({

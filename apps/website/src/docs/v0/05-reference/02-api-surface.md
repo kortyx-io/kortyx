@@ -14,13 +14,27 @@ sidebar_label: "API Surface"
 ## Agent
 
 ```ts
-export { createAgent, processChat } from "@kortyx/agent";
-export type { CreateAgentArgs, ProcessChatArgs } from "@kortyx/agent";
+export { createAgent } from "@kortyx/agent";
+export type { CreateAgentArgs } from "@kortyx/agent";
 ```
+```js
+export { createAgent } from "@kortyx/agent";
+```
+
+Created agent methods:
+
+- `agent.streamChat(messages, options?)` → `AsyncIterable<StreamChunk>`
 
 ## Core workflow/state contracts
 
 ```ts
+export {
+  defineWorkflow,
+  loadWorkflow,
+  validateWorkflow,
+} from "@kortyx/core";
+```
+```js
 export {
   defineWorkflow,
   loadWorkflow,
@@ -42,6 +56,16 @@ export {
   useWorkflowState,
 } from "@kortyx/hooks";
 ```
+```js
+export {
+  useInterrupt,
+  useAiMemory,
+  useReason,
+  useNodeState,
+  useStructuredData,
+  useWorkflowState,
+} from "@kortyx/hooks";
+```
 
 ## Memory
 
@@ -52,10 +76,20 @@ export {
   createRedisAdapter,
 } from "@kortyx/memory";
 ```
+```js
+export {
+  createInMemoryAdapter,
+  createPostgresAdapter,
+  createRedisAdapter,
+} from "@kortyx/memory";
+```
 
 ## Providers
 
 ```ts
+export * from "@kortyx/providers";
+```
+```js
 export * from "@kortyx/providers";
 ```
 
@@ -76,13 +110,48 @@ export {
   registerNode,
 } from "@kortyx/runtime";
 ```
+```js
+export {
+  clearRegisteredNodes,
+  createFileWorkflowRegistry,
+  createFrameworkAdapterFromEnv,
+  createInMemoryFrameworkAdapter,
+  createInMemoryWorkflowRegistry,
+  createRedisFrameworkAdapter,
+  getRegisteredNode,
+  listRegisteredNodes,
+  registerNode,
+} from "@kortyx/runtime";
+```
 
 ## Stream helpers
 
 ```ts
-export { createStreamResponse, readStream } from "@kortyx/stream";
-export type { StreamChunk } from "@kortyx/stream";
+export {
+  collectBufferedStream,
+  collectStream,
+  consumeStream,
+  createStreamResponse,
+  readStream,
+  summarizeStreamChunks,
+  toSSE,
+} from "@kortyx/stream";
+export type { BufferedStreamResult, StreamChunk } from "@kortyx/stream";
 ```
+```js
+export {
+  collectBufferedStream,
+  collectStream,
+  consumeStream,
+  createStreamResponse,
+  readStream,
+  summarizeStreamChunks,
+  toSSE,
+} from "@kortyx/stream";
+```
+
+- `collectStream(...)`: raw chunk array
+- `collectBufferedStream(...)`: `{ chunks, text, structured }`
 
 ## Browser entry
 

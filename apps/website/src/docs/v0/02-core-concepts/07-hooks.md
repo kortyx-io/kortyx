@@ -209,7 +209,7 @@ const [todos, setTodos] = useWorkflowState("todos", []);
 
 Across messages/sessions:
 
-- Hook state is not a long-term session store. A new `processChat` request starts a new run with fresh hook state.
+- Hook state is not a long-term session store. A new chat request starts a new run with fresh hook state.
 - For cross-request persistence, use your own storage via `useAiMemory()` or app-level data stores.
 
 Durability and practical limits:

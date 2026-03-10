@@ -3,7 +3,7 @@ import type { ChatMessage } from "../types/chat-message";
 
 export interface StreamChatFromRouteArgs {
   endpoint: string;
-  sessionId: string;
+  sessionId?: string | undefined;
   workflowId?: string | undefined;
   messages: ChatMessage[];
   fetchImpl?: typeof fetch;
@@ -19,7 +19,7 @@ export async function* streamChatFromRoute(
     ...(args.headers ? { headers: args.headers } : {}),
     body: {
       sessionId: args.sessionId,
-      ...(args.workflowId ? { workflowId: args.workflowId } : {}),
+      workflowId: args.workflowId,
       messages: args.messages,
     },
   });

@@ -31,7 +31,7 @@ export const agent = createAgent({
 });
 ```
 
-Pass `sessionId` per request in `agent.processChat(...)`.
+Pass `sessionId` per request when you want analytics/tracing correlation across requests.
 
 ## Workflow source resolution
 
@@ -57,5 +57,7 @@ Useful fields in `CreateAgentArgs`:
 Result object:
 
 ```ts
-const response = await agent.processChat(messages, options);
+const stream = await agent.streamChat(messages, options);
 ```
+
+- `agent.streamChat(...)`: returns `AsyncIterable<StreamChunk>` (best for custom route handling)
