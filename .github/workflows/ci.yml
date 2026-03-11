@@ -11,16 +11,23 @@ jobs:
     timeout-minutes: 15
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           # NOTE: Do not checkout submodules here. This repo includes a private Studio submodule
           # that isn't available in OSS CI contexts.
           submodules: false
 
-      - uses: pnpm/action-setup@v4
-        # Use the pnpm version pinned in root package.json#packageManager
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
 
-      - uses: actions/setup-node@v4
+      - name: Enable Corepack
+        run: |
+          corepack enable
+          pnpm --version
+
+      - name: Setup pnpm cache
+        uses: actions/setup-node@v6
         with:
           node-version-file: .nvmrc
           cache: pnpm

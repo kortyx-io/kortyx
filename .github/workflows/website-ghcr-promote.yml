@@ -39,12 +39,12 @@ jobs:
           docker buildx imagetools inspect "${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest"
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: 20
 
       - name: Checkout Railway image update helper
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           repository: brody192/image-update-and-redeploy
           path: .tmp/image-update-and-redeploy
