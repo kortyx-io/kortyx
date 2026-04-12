@@ -34,6 +34,19 @@ pnpm dev
 
 4) In the UI, set workflow override to `interrupt-demo`, trigger an interrupt (e.g. send `/multi` or any message for choice), then **stop and restart** the dev server and resume the interrupt from the UI.
 
+## Test sequential interrupts across resume
+
+Use workflow override `interrupt-sequential-demo` to verify the multi-interrupt resume path.
+
+1) Start the app.
+2) In the UI, set workflow override to `interrupt-sequential-demo`.
+3) Send any message to start the workflow.
+4) Answer the first text interrupt.
+5) Confirm the app immediately shows a second choice interrupt.
+6) Pick an option and confirm the final message includes both the label and action.
+
+Before the fix in `@kortyx/agent`, step 4 would hang because the resumed run reached a second `useInterrupt()` but never emitted a new interrupt chunk.
+
 ## Reason + interrupt demo notes
 
 Use workflow override `reason-interrupt-structured` to test `useReason` with:

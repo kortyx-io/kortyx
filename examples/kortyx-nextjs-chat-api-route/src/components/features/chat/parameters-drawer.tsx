@@ -45,6 +45,7 @@ export function ParametersDrawer({
               </Label>
               <p className="text-xs text-slate-500 dark:text-slate-400">
                 If set, runs that workflow id (e.g.{" "}
+                <code>interrupt-sequential-demo</code> or{" "}
                 <code>reason-interrupt-structured</code>). Leave empty to use
                 the default workflow.
               </p>

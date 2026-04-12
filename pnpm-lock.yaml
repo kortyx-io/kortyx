@@ -281,6 +281,9 @@ importers:
       typescript:
         specifier: ^5
         version: 5.9.3
+      vitest:
+        specifier: ^3.2.4
+        version: 3.2.4(@types/debug@4.1.12)(@types/node@20.19.17)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.46.0)(yaml@2.8.1)
       webpack:
         specifier: ^5.89.0
         version: 5.104.1(webpack-cli@5.1.4)
@@ -448,6 +451,9 @@ importers:
         specifier: ^3.23.8
         version: 3.25.76
     devDependencies:
+      '@kortyx/hooks':
+        specifier: workspace:*
+        version: link:../hooks
       tsup:
         specifier: ^8.5.1
         version: 8.5.1(jiti@2.6.1)(postcss@8.5.6)(typescript@5.7.2)(yaml@2.8.1)
@@ -457,6 +463,9 @@ importers:
       typescript:
         specifier: 5.7.2
         version: 5.7.2
+      vitest:
+        specifier: ^3.2.4
+        version: 3.2.4(@types/debug@4.1.12)(@types/node@20.19.17)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.46.0)(yaml@2.8.1)
 
   packages/cli: {}
 
