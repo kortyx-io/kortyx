@@ -101,8 +101,6 @@ export async function orchestrateGraphStream({
   }
   // Track latest interrupt token for updating stored snapshot at end
   let pendingRecordToken: string | null = null;
-  // Track if current invocation is a resume, so we can de-dupe interrupt events
-  let activeIsResume = false;
   // Avoid emitting duplicate interrupt chunks in the same run.
   let wroteHumanInput = false;
 
@@ -113,7 +111,7 @@ export async function orchestrateGraphStream({
   const persistAndEmitInterrupt = async (
     payload: HumanInputPayload,
   ): Promise<void> => {
-    if (activeIsResume || wroteHumanInput) return;
+    if (wroteHumanInput) return;
 
     const token = makeResumeToken();
     const requestId = makeRequestId("human");
@@ -393,7 +391,6 @@ export async function orchestrateGraphStream({
 
       // Stream runtime events (LLM deltas, node starts/ends, etc.)
       const isResume = Boolean((currentGraph.config as any)?.resume);
-      activeIsResume = isResume;
       // For static breakpoints, resume with null input; if a resumeUpdate was provided,
       // use Command({ update }) to merge selection into state at resume time.
       const resumeUpdate = (currentGraph.config as any)?.resumeUpdate as

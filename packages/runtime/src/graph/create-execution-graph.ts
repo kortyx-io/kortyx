@@ -1,5 +1,7 @@
 import type {
   GraphState,
+  InterruptInput,
+  InterruptResult,
   NodeConfig,
   NodeContext,
   NodeResult,
@@ -13,6 +15,29 @@ import { Annotation, interrupt, StateGraph } from "@langchain/langgraph";
 import type { BaseCheckpointSaver } from "@langchain/langgraph-checkpoint";
 import { getCheckpointer } from "../checkpointer";
 import { resolveNodeHandler } from "../node-loader";
+
+interface CompiledGraphBase {
+  invoke(state: unknown): Promise<unknown>;
+  streamEvents(
+    state: GraphState,
+    options?: { version?: string; configurable?: Record<string, unknown> },
+  ): AsyncIterable<unknown> | AsyncGenerator<unknown>;
+}
+
+interface GraphExtensions {
+  name: string;
+  config: ExecutionRuntimeConfig;
+  resume(state: GraphState, input: unknown): Promise<GraphState>;
+  timeTravelTo(state: GraphState, checkpointId: string): Promise<GraphState>;
+}
+
+interface InterruptResultWithId {
+  id: string;
+}
+
+interface HookPatchError {
+  __kortyxHookStatePatch?: Record<string, unknown> | null;
+}
 
 export interface ExecutionRuntimeConfig {
   emit?: (event: string, payload: unknown) => void;
@@ -63,7 +88,7 @@ export async function createExecutionGraph(
       fn: (s: GraphState) => string,
       mapping: Record<string, string>,
     ) => void;
-    compile: () => any;
+    compile: (args: { checkpointer: BaseCheckpointSaver }) => CompiledGraphBase;
   };
   const workflowName = workflow.id;
 
@@ -89,15 +114,19 @@ export async function createExecutionGraph(
     params: Record<string, unknown> | undefined,
     nodeBehavior: Record<string, unknown> | undefined,
   ): NodeConfig => {
-    const model = isRecord(params?.model) ? (params!.model as any) : undefined;
-    const tool = isRecord(params?.tool) ? (params!.tool as any) : undefined;
-    const behaviorFromParams = isRecord(params?.behavior)
-      ? (params!.behavior as any)
+    const model = isRecord(params?.model)
+      ? (params.model as NodeConfig["model"])
       : undefined;
-    const behavior = {
+    const tool = isRecord(params?.tool)
+      ? (params.tool as NodeConfig["tool"])
+      : undefined;
+    const behaviorFromParams = isRecord(params?.behavior)
+      ? (params.behavior as NodeConfig["behavior"])
+      : undefined;
+    const behavior: NonNullable<NodeConfig["behavior"]> = {
       ...(behaviorFromParams ?? {}),
       ...(nodeBehavior ?? {}),
-    } as any;
+    };
     const options = params ?? undefined;
     return {
       ...(model ? { model } : {}),
@@ -136,19 +165,13 @@ export async function createExecutionGraph(
             message,
           });
         },
-        awaitInterrupt: (interruptConfig: any) => {
+        awaitInterrupt: (interruptConfig: InterruptInput): InterruptResult => {
           const { kind, question } = interruptConfig;
           const isMulti =
             kind === "multi-choice" ||
             (interruptConfig.kind !== "text" &&
               interruptConfig.multiple === true);
-          const payload: any = {
-            kind,
-            multiple: isMulti,
-            question,
-            ...(interruptConfig.kind !== "text"
-              ? { options: interruptConfig.options }
-              : {}),
+          const sharedInterruptFields = {
             ...(typeof interruptConfig.id === "string" &&
             interruptConfig.id.length > 0
               ? { id: interruptConfig.id }
@@ -167,30 +190,58 @@ export async function createExecutionGraph(
               ? { meta: interruptConfig.meta }
               : {}),
           };
-          runtimeConfig.emit("interrupt", {
-            node: nodeId,
-            workflow: workflowName,
-            input: payload,
-          });
-          const resumed = interrupt(payload) as unknown;
+          const payload: InterruptInput =
+            interruptConfig.kind === "text"
+              ? {
+                  kind: "text",
+                  ...(question ? { question } : {}),
+                  ...sharedInterruptFields,
+                }
+              : {
+                  kind: interruptConfig.kind,
+                  multiple: isMulti,
+                  question: interruptConfig.question,
+                  options: interruptConfig.options,
+                  ...sharedInterruptFields,
+                };
+          let resumed: unknown;
+          try {
+            resumed = interrupt(payload) as unknown;
+          } catch (error) {
+            runtimeConfig.emit("interrupt", {
+              node: nodeId,
+              workflow: workflowName,
+              input: payload,
+            });
+            throw error;
+          }
           if (isMulti) {
             if (Array.isArray(resumed)) {
-              return (resumed as any[])
+              return (resumed as unknown[])
                 .map((v) =>
                   typeof v === "string"
                     ? v
-                    : v && typeof (v as any).id === "string"
-                      ? (v as any).id
+                    : v &&
+                        typeof v === "object" &&
+                        "id" in v &&
+                        typeof (v as InterruptResultWithId).id === "string"
+                      ? (v as InterruptResultWithId).id
                       : "",
                 )
-                .filter(Boolean) as string[];
+                .filter(Boolean);
             }
             if (typeof resumed === "string") return [resumed];
             return [];
           }
           if (typeof resumed === "string") return resumed;
-          if (resumed && typeof (resumed as any).id === "string")
-            return String((resumed as any).id);
+          if (
+            resumed &&
+            typeof resumed === "object" &&
+            "id" in resumed &&
+            typeof (resumed as InterruptResultWithId).id === "string"
+          ) {
+            return String((resumed as InterruptResultWithId).id);
+          }
           return "";
         },
         speak: async (
@@ -268,7 +319,7 @@ export async function createExecutionGraph(
           hookRuntimeUpdates = hookRun.runtimeUpdates;
           break;
         } catch (err) {
-          const patch = (err as any)?.__kortyxHookStatePatch as
+          const patch = (err as HookPatchError)?.__kortyxHookStatePatch as
             | Record<string, unknown>
             | null
             | undefined;
@@ -385,7 +436,7 @@ export async function createExecutionGraph(
         });
       }
 
-      return updates as any;
+      return updates;
     });
   }
 
@@ -426,16 +477,16 @@ export async function createExecutionGraph(
     );
   }
 
-  const sessionId = (config as any)?.session?.id ?? "__default__";
+  const sessionId =
+    typeof config.session === "object" &&
+    config.session &&
+    "id" in config.session &&
+    typeof config.session.id === "string"
+      ? config.session.id
+      : "__default__";
   const checkpointer = config.checkpointer ?? getCheckpointer(sessionId);
-  const graph = (builder as any).compile({ checkpointer });
+  const graph = edgeApi.compile({ checkpointer });
 
-  interface GraphExtensions {
-    name: string;
-    config: ExecutionRuntimeConfig;
-    resume(state: GraphState, input: unknown): Promise<GraphState>;
-    timeTravelTo(state: GraphState, checkpointId: string): Promise<GraphState>;
-  }
   type RuntimeGraph = typeof graph & GraphExtensions;
 
   const runtimeGraph = graph as RuntimeGraph;
@@ -444,7 +495,7 @@ export async function createExecutionGraph(
 
   runtimeGraph.resume = async (state: GraphState, input: unknown) => {
     const resumed = { ...state, input, awaitingHumanInput: false };
-    return graph.invoke(resumed as any) as unknown as GraphState;
+    return (await graph.invoke(resumed)) as GraphState;
   };
 
   runtimeGraph.timeTravelTo = async (

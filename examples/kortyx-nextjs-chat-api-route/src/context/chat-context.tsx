@@ -3,6 +3,7 @@
 import { consumeStream, type StreamChunk, streamChatFromRoute } from "kortyx";
 import type React from "react";
 import { createContext, useEffect, useRef, useState } from "react";
+import { findActiveTextInterrupt } from "@/lib/find-active-text-interrupt";
 
 export type StructuredData = {
   type: "structured-data";
@@ -505,7 +506,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     });
 
     await consumeStream(stream, {
-      onChunk: (chunk) => {
+      onChunk: (chunk: StreamChunk) => {
         debug.push(chunk);
 
         if (chunk.type === "session") {
@@ -538,9 +539,10 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     if (!content || isStreaming) return;
 
     // Check if there's an active text interrupt - if so, respond to it instead
-    const activeTextInterrupt = streamContentPieces.find(
-      (p): p is HumanInputPiece => p.type === "interrupt" && p.kind === "text",
-    );
+    const activeTextInterrupt = findActiveTextInterrupt({
+      messages,
+      streamContentPieces,
+    });
 
     if (activeTextInterrupt) {
       // Respond to the text interrupt
