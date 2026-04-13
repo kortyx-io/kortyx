@@ -1,5 +1,13 @@
 # @chatbot-core/types
 
+## [0.5.2](https://github.com/kortyx-io/kortyx/compare/stream-v0.5.1...stream-v0.5.2) (2026-04-12)
+
+
+### Bug Fixes
+
+* **agent:** support sequential interrupts across resume ([f56b092](https://github.com/kortyx-io/kortyx/commit/f56b092e2738c084695ba9d1eed3fbfb3d400dc8))
+* **agent:** support sequential interrupts across resume ([b22d84e](https://github.com/kortyx-io/kortyx/commit/b22d84e3a805f2bc350b49ad7d9b68c1124439de))
+
 ## [0.5.1](https://github.com/kortyx-io/kortyx/compare/stream-v0.5.0...stream-v0.5.1) (2026-03-11)
 
 
