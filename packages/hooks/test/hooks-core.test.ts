@@ -30,9 +30,8 @@ describe("hooks core APIs", () => {
     await runWithHookContext({ node, state }, async () => {
       useStructuredData({
         id: "reason-1",
-        opId: "op-1",
+        streamId: "stream-1",
         dataType: "demo.lifecycle",
-        mode: "snapshot",
         schemaId: "demo-schema",
         schemaVersion: "1",
         dataSchema: payloadSchema,
@@ -46,9 +45,9 @@ describe("hooks core APIs", () => {
     expect(emitted[0].payload).toMatchObject({
       node: "reason",
       id: "reason-1",
-      opId: "op-1",
+      streamId: "stream-1",
       dataType: "demo.lifecycle",
-      mode: "snapshot",
+      kind: "final",
       schemaId: "demo-schema",
       schemaVersion: "1",
       data: { step: "start" },
@@ -66,7 +65,7 @@ describe("hooks core APIs", () => {
       runWithHookContext({ node, state }, async () => {
         useStructuredData({
           dataSchema: payloadSchema,
-          data: { step: 123 as any },
+          data: { step: 123 as unknown as string },
         });
         return null;
       }),

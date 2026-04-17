@@ -1,22 +1,11 @@
 import type { StreamChunk } from "../types/stream-chunk";
+import type { StructuredDataChunk } from "../types/structured-data";
 import { collectStream } from "./collect-stream";
-
-export type StructuredStreamChunk = {
-  type: "structured-data";
-  data: unknown;
-  dataType?: string;
-  mode?: "final" | "patch" | "snapshot";
-  schemaId?: string;
-  schemaVersion?: string;
-  id?: string;
-  opId?: string;
-  node?: string;
-};
 
 export interface BufferedStreamResult {
   chunks: StreamChunk[];
   text: string;
-  structured: StructuredStreamChunk[];
+  structured: StructuredDataChunk[];
 }
 
 /**
@@ -29,7 +18,7 @@ export function summarizeStreamChunks(
   let sawTextDelta = false;
   let text = "";
   const messageFallback: string[] = [];
-  const structured: StructuredStreamChunk[] = [];
+  const structured: StructuredDataChunk[] = [];
 
   for (const chunk of chunks) {
     if (chunk.type === "text-delta") {
@@ -44,7 +33,7 @@ export function summarizeStreamChunks(
     }
 
     if (chunk.type === "structured-data") {
-      structured.push(chunk as StructuredStreamChunk);
+      structured.push(chunk as StructuredDataChunk);
     }
   }
 

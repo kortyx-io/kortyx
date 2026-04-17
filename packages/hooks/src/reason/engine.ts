@@ -11,6 +11,7 @@ export type ReasonEngineInput = {
   temperature?: number | undefined;
   emit?: boolean | undefined;
   stream?: boolean | undefined;
+  onTextChunk?: ((text: string) => void) | undefined;
 };
 
 export const createRuntimeId = (): string => {
@@ -41,6 +42,7 @@ export async function reasonEngine(
     defaultTemperature: ctx.node.config?.model?.temperature,
     stream: args.stream,
     emit: args.emit,
+    onTextChunk: args.onTextChunk,
     nodeId: ctx.node.graph.node,
     emitEvent: ctx.node.emit,
     id: meta.id,

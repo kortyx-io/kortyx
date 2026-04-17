@@ -15,27 +15,62 @@ export type SchemaLike<T> = {
       };
 };
 
-export type StructuredDataMode = "final" | "patch" | "snapshot";
+export type StructuredDataKind = "set" | "append" | "text-delta" | "final";
 
-export type UseStructuredDataArgs<TData = unknown> = {
-  data: TData;
+type UseStructuredDataBaseArgs = {
   dataType?: string | undefined;
-  dataSchema?: SchemaLike<TData> | undefined;
-  mode?: StructuredDataMode | undefined;
   schemaId?: string | undefined;
   schemaVersion?: string | undefined;
   id?: string | undefined;
-  opId?: string | undefined;
+  streamId?: string | undefined;
 };
 
-export type UseReasonStructuredStreamMode = "off" | "patch" | "snapshot";
+export type UseStructuredDataFinalArgs<TData = unknown> =
+  UseStructuredDataBaseArgs & {
+    kind?: "final" | undefined;
+    data: TData;
+    dataSchema?: SchemaLike<TData> | undefined;
+  };
+
+export type UseStructuredDataSetArgs<TValue = unknown> =
+  UseStructuredDataBaseArgs & {
+    kind: "set";
+    path: string;
+    value: TValue;
+    valueSchema?: SchemaLike<TValue> | undefined;
+  };
+
+export type UseStructuredDataAppendArgs<TItem = unknown> =
+  UseStructuredDataBaseArgs & {
+    kind: "append";
+    path: string;
+    items: TItem[];
+    itemSchema?: SchemaLike<TItem> | undefined;
+  };
+
+export type UseStructuredDataTextDeltaArgs = UseStructuredDataBaseArgs & {
+  kind: "text-delta";
+  path: string;
+  delta: string;
+};
+
+export type UseStructuredDataArgs<
+  TData = unknown,
+  TValue = unknown,
+  TItem = unknown,
+> =
+  | UseStructuredDataFinalArgs<TData>
+  | UseStructuredDataSetArgs<TValue>
+  | UseStructuredDataAppendArgs<TItem>
+  | UseStructuredDataTextDeltaArgs;
 
 export type UseReasonStructuredConfig = {
-  stream?: UseReasonStructuredStreamMode | undefined;
+  stream?: boolean | undefined;
   optimistic?: boolean | undefined;
   dataType?: string | undefined;
   schemaId?: string | undefined;
   schemaVersion?: string | undefined;
+  fields?: Record<string, "append" | "text-delta" | "set"> | undefined;
 };
 
 export type UseReasonInterruptConfig<

@@ -3,7 +3,7 @@ import type { StreamChunk } from "../types/stream-chunk";
 export interface ConsumeStreamHandlers {
   onChunk?: (
     chunk: StreamChunk,
-  ) => void | boolean | Promise<boolean | undefined>;
+  ) => undefined | boolean | Promise<boolean | undefined>;
   onDone?: () => void | Promise<void>;
   onError?: (error: Error, chunk?: StreamChunk) => void | Promise<void>;
 }

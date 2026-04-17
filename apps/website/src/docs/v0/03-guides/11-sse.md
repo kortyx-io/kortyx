@@ -7,7 +7,7 @@ sidebar_label: "SSE (API Routes)"
 ---
 # SSE for API Routes
 
-Use this page when you expose a chat endpoint and want live token/chunk streaming to the UI.
+Use this page when you expose a chat endpoint and want live chunk streaming in the browser.
 
 ## Recommended server pattern (`toSSE`)
 
@@ -40,49 +40,24 @@ export async function POST(request) {
 }
 ```
 
-> **Good to know:** `toSSE(...)` is the route-level helper you usually want. It sets correct SSE headers and writes chunks in SSE format.
+> **Good to know:** `toSSE(...)` is the route-level helper you usually want. It sets the SSE headers and writes the stream in SSE format.
 
-## Client consumption
+## Recommended client pattern
 
-For the full list of chunk events and meanings, see [Stream Protocol](../05-reference/03-stream-protocol.md).
+Treat text and structured data as separate channels:
 
-```ts
-import { consumeStream, streamChatFromRoute } from "kortyx";
-
-const stream = streamChatFromRoute({
-  endpoint: "/api/chat",
-  messages,
-});
-
-await consumeStream(stream, {
-  onChunk: (chunk) => {
-    if (chunk.type === "text-delta") {
-      // append text incrementally
-    }
-  },
-});
-```
-```js
-import { consumeStream, streamChatFromRoute } from "kortyx";
-
-const stream = streamChatFromRoute({
-  endpoint: "/api/chat",
-  messages,
-});
-
-await consumeStream(stream, {
-  onChunk: (chunk) => {
-    if (chunk.type === "text-delta") {
-      // append text incrementally
-    }
-  },
-});
-```
-
-If you need manual `fetch`, parse SSE with `readStream(...)`:
+- append `text-delta` to assistant text
+- reduce `structured-data` by `streamId`
 
 ```ts
-import { readStream } from "kortyx";
+import {
+  applyStructuredChunk,
+  readStream,
+  type StructuredStreamState,
+} from "kortyx";
+
+let text = "";
+const structured: Record<string, StructuredStreamState<Record<string, unknown>>> = {};
 
 const response = await fetch("/api/chat", {
   method: "POST",
@@ -91,11 +66,27 @@ const response = await fetch("/api/chat", {
 });
 
 for await (const chunk of readStream(response.body)) {
-  if (chunk.type === "done") break;
+  if (chunk.type === "text-delta") {
+    text += chunk.delta;
+  }
+
+  if (chunk.type === "structured-data") {
+    structured[chunk.streamId] = applyStructuredChunk(
+      structured[chunk.streamId],
+      chunk,
+    );
+  }
+
+  if (chunk.type === "done") {
+    break;
+  }
 }
 ```
 ```js
-import { readStream } from "kortyx";
+import { applyStructuredChunk, readStream } from "kortyx";
+
+let text = "";
+const structured = {};
 
 const response = await fetch("/api/chat", {
   method: "POST",
@@ -104,19 +95,136 @@ const response = await fetch("/api/chat", {
 });
 
 for await (const chunk of readStream(response.body)) {
-  if (chunk.type === "done") break;
+  if (chunk.type === "text-delta") {
+    text += chunk.delta;
+  }
+
+  if (chunk.type === "structured-data") {
+    structured[chunk.streamId] = applyStructuredChunk(
+      structured[chunk.streamId],
+      chunk,
+    );
+  }
+
+  if (chunk.type === "done") {
+    break;
+  }
 }
+```
+
+This is the simplest mental model for structured UI:
+
+- `streamId` identifies one object being built
+- `kind` tells the reducer what to do
+- the reducer gives you current state plus `status: "streaming" | "done"`
+
+## Example: render a streamed email draft
+
+If a node uses `useReason({ structured: { fields: { body: "text-delta", bullets: "append" } } })`, the client can render the draft while the model is still writing:
+
+```ts
+const email = structured["some-stream-id"];
+
+if (email?.dataType === "email.compose") {
+  const draft = email.data as {
+    subject?: string;
+    body?: string;
+    bullets?: string[];
+  };
+
+  renderSubject(draft.subject ?? "");
+  renderBody(draft.body ?? "");
+  renderBullets(draft.bullets ?? []);
+  setLoading(email.status === "streaming");
+}
+```
+```js
+const email = structured["some-stream-id"];
+
+if (email?.dataType === "email.compose") {
+  const draft = email.data;
+
+  renderSubject(draft.subject ?? "");
+  renderBody(draft.body ?? "");
+  renderBullets(draft.bullets ?? []);
+  setLoading(email.status === "streaming");
+}
+```
+
+## `kind` semantics
+
+Structured chunks use one of four kinds:
+
+- `set`: replace a value at a path
+- `append`: append items to an array at a path
+- `text-delta`: append text to a string at a path
+- `final`: replace the whole object and mark the stream complete
+
+You usually do not need to implement these rules yourself. `applyStructuredChunk(...)` already does it.
+
+> **Good to know:** `streamId` is the update identity for structured streams. If a node emits multiple related `useStructuredData(...)` calls, keep the same `streamId` so the client updates one object instead of creating many.
+
+## `consumeStream(...)`
+
+If you prefer the callback helper:
+
+```ts
+import {
+  applyStructuredChunk,
+  consumeStream,
+  streamChatFromRoute,
+} from "kortyx";
+
+const structured = {};
+
+const stream = streamChatFromRoute({
+  endpoint: "/api/chat",
+  messages,
+});
+
+await consumeStream(stream, {
+  onChunk: (chunk) => {
+    if (chunk.type === "structured-data") {
+      structured[chunk.streamId] = applyStructuredChunk(
+        structured[chunk.streamId],
+        chunk,
+      );
+    }
+  },
+});
+```
+```js
+import {
+  applyStructuredChunk,
+  consumeStream,
+  streamChatFromRoute,
+} from "kortyx";
+
+const structured = {};
+
+const stream = streamChatFromRoute({
+  endpoint: "/api/chat",
+  messages,
+});
+
+await consumeStream(stream, {
+  onChunk: (chunk) => {
+    if (chunk.type === "structured-data") {
+      structured[chunk.streamId] = applyStructuredChunk(
+        structured[chunk.streamId],
+        chunk,
+      );
+    }
+  },
+});
 ```
 
 ## Infrastructure notes
 
-- `toSSE(...)` / `createStreamResponse(...)` set:
-  - `content-type: text/event-stream`
-  - `cache-control: no-cache`
-  - `connection: keep-alive`
-  - `x-accel-buffering: no`
-- Keep this route on a runtime that supports streaming responses.
-- If you run behind a proxy/CDN, make sure response buffering is disabled.
+- `toSSE(...)` and `createStreamResponse(...)` set `content-type: text/event-stream`
+- they also set `cache-control: no-cache`, `connection: keep-alive`, and `x-accel-buffering: no`
+- keep this route on a runtime that supports streaming responses
+- if you run behind a proxy or CDN, make sure response buffering is disabled
 
 > **Good to know:** If your client needs a single buffered result instead of live chunks, expose a non-stream mode and return `collectBufferedStream(...)` from your route.
 

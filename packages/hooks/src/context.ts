@@ -12,6 +12,15 @@ type HookRuntimeState = {
   workflowState?: Record<string, unknown>;
 };
 
+type StoredNodeStateEnvelope = {
+  nodeId?: unknown;
+  state?: unknown;
+};
+
+type HookStatePatchedError = {
+  __kortyxHookStatePatch?: Record<string, unknown>;
+};
+
 export type HookRuntimeContext = {
   node: NodeContext;
   state: GraphState;
@@ -64,11 +73,14 @@ const createInternalContext = (
 ): HookInternalContext => {
   const hookRuntimeState = getHookRuntimeState(ctx.state);
   const nodeId = ctx.node.graph.node;
+  const storedNodeState = isRecord(hookRuntimeState.nodeState)
+    ? (hookRuntimeState.nodeState as StoredNodeStateEnvelope)
+    : undefined;
   const storedNodeId =
-    typeof (hookRuntimeState.nodeState as any)?.nodeId === "string"
-      ? String((hookRuntimeState.nodeState as any)?.nodeId)
+    typeof storedNodeState?.nodeId === "string"
+      ? String(storedNodeState.nodeId)
       : "";
-  const storedState = (hookRuntimeState.nodeState as any)?.state;
+  const storedState = storedNodeState?.state;
   const currentNodeState =
     storedNodeId && storedNodeId === nodeId
       ? normalizeNodeState(storedState)
@@ -116,7 +128,7 @@ export async function runWithHookContext<T>(
         ...runtimeUpdates,
       } as unknown as GraphState["runtime"];
       if (err && typeof err === "object") {
-        (err as any).__kortyxHookStatePatch = runtimeUpdates;
+        (err as HookStatePatchedError).__kortyxHookStatePatch = runtimeUpdates;
       }
     }
     throw err;

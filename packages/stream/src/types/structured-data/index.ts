@@ -1,29 +1,44 @@
 import { z } from "zod";
-import { JobsStructuredData } from "./jobs";
 
 const StructuredDataBase = z.object({
   type: z.literal("structured-data"),
-  dataType: z.string().optional(),
-  mode: z.enum(["final", "patch", "snapshot"]).optional(),
+  streamId: z.string(),
+  dataType: z.string(),
+  kind: z.enum(["set", "append", "text-delta", "final"]),
   schemaId: z.string().optional(),
   schemaVersion: z.string().optional(),
   id: z.string().optional(),
-  opId: z.string().optional(),
   node: z.string().optional(),
 });
 
-const JobsStructuredDataChunkSchema = StructuredDataBase.extend({
-  dataType: z.literal("jobs"),
-  data: JobsStructuredData,
+const StructuredSetChunkSchema = StructuredDataBase.extend({
+  kind: z.literal("set"),
+  path: z.string().min(1),
+  value: z.unknown(),
 });
 
-const GenericStructuredDataChunkSchema = StructuredDataBase.extend({
+const StructuredAppendChunkSchema = StructuredDataBase.extend({
+  kind: z.literal("append"),
+  path: z.string().min(1),
+  items: z.array(z.unknown()),
+});
+
+const StructuredTextDeltaChunkSchema = StructuredDataBase.extend({
+  kind: z.literal("text-delta"),
+  path: z.string().min(1),
+  delta: z.string(),
+});
+
+const StructuredFinalChunkSchema = StructuredDataBase.extend({
+  kind: z.literal("final"),
   data: z.unknown(),
 });
 
 export const StructuredDataChunkSchema = z.union([
-  JobsStructuredDataChunkSchema,
-  GenericStructuredDataChunkSchema,
+  StructuredSetChunkSchema,
+  StructuredAppendChunkSchema,
+  StructuredTextDeltaChunkSchema,
+  StructuredFinalChunkSchema,
 ]);
 
 export type StructuredDataChunk = z.infer<typeof StructuredDataChunkSchema>;

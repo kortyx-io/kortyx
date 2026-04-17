@@ -7,9 +7,15 @@ export type {
   ConsumeStreamHandlers,
   StreamChunk,
   StreamFromRouteArgs,
+  StructuredDataChunk,
+  StructuredStreamAccumulator,
+  StructuredStreamState,
 } from "@kortyx/stream/browser";
 export {
+  applyStructuredChunk,
   consumeStream,
+  createStructuredStreamAccumulator,
   readStream,
+  reduceStructuredChunks,
   streamFromRoute,
 } from "@kortyx/stream/browser";
