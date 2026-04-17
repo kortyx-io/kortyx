@@ -1,5 +1,14 @@
 # @chatbot-core/types
 
+## [0.6.0](https://github.com/kortyx-io/kortyx/compare/stream-v0.5.2...stream-v0.6.0) (2026-04-17)
+
+
+### Features
+
+* **hooks:** support incremental structured data streaming ([05e9678](https://github.com/kortyx-io/kortyx/commit/05e96789a9a132549c9245b1feb76d20916da42a))
+* **hooks:** support incremental structured data streaming ([05e9678](https://github.com/kortyx-io/kortyx/commit/05e96789a9a132549c9245b1feb76d20916da42a))
+* **hooks:** support incremental structured data streaming ([4023fda](https://github.com/kortyx-io/kortyx/commit/4023fda42bfecc81782e474e6d442b379a3fa3d4))
+
 ## [0.5.2](https://github.com/kortyx-io/kortyx/compare/stream-v0.5.1...stream-v0.5.2) (2026-04-12)
 
 
