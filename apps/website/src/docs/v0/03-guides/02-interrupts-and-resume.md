@@ -82,7 +82,11 @@ Accepted `selected` shapes:
 const [startEmitted, setStartEmitted] = useNodeState(false);
 
 if (!startEmitted) {
-  useStructuredData({ dataType: "lifecycle", mode: "snapshot", data: { step: "start" } });
+  useStructuredData({
+    streamId: "lifecycle",
+    dataType: "lifecycle",
+    data: { step: "start" },
+  });
   setStartEmitted(true);
 }
 

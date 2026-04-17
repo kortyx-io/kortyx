@@ -57,13 +57,19 @@ export type {
   BufferedStreamResult,
   ConsumeStreamHandlers,
   StreamChunk,
+  StructuredDataChunk,
+  StructuredStreamAccumulator,
+  StructuredStreamState,
 } from "@kortyx/stream";
 export {
+  applyStructuredChunk,
   collectBufferedStream,
   collectStream,
   consumeStream,
   createStreamResponse,
+  createStructuredStreamAccumulator,
   readStream,
+  reduceStructuredChunks,
   summarizeStreamChunks,
   toSSE,
 } from "@kortyx/stream";

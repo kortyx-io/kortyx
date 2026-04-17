@@ -1,16 +1,17 @@
 "use client";
 
-import { consumeStream, type StreamChunk, streamChatFromRoute } from "kortyx";
+import {
+  consumeStream,
+  createStructuredStreamAccumulator,
+  type StreamChunk,
+  type StructuredStreamState,
+  streamChatFromRoute,
+} from "kortyx/browser";
 import type React from "react";
 import { createContext, useEffect, useRef, useState } from "react";
 import { findActiveTextInterrupt } from "@/lib/find-active-text-interrupt";
 
-export type StructuredData = {
-  type: "structured-data";
-  node?: string;
-  dataType?: string;
-  data: Record<string, unknown>;
-};
+export type StructuredData = StructuredStreamState<Record<string, unknown>>;
 
 export type HumanInputPiece = {
   id: string;
@@ -35,6 +36,30 @@ export type ChatMsg = {
   content: string;
   contentPieces?: ContentPiece[];
   debug?: StreamChunk[];
+};
+
+const toStoredChatMessage = (value: unknown): ChatMsg | null => {
+  if (!value || typeof value !== "object") return null;
+
+  const message = value as Record<string, unknown>;
+  const role =
+    message.role === "user" || message.role === "assistant"
+      ? message.role
+      : null;
+  const id = typeof message.id === "string" ? message.id : null;
+  const content = typeof message.content === "string" ? message.content : "";
+  const contentPieces = Array.isArray(message.contentPieces)
+    ? (message.contentPieces.filter(Boolean) as ContentPiece[])
+    : undefined;
+
+  if (!role || !id) return null;
+
+  return {
+    id,
+    role,
+    content,
+    ...(contentPieces ? { contentPieces } : {}),
+  };
 };
 
 export type ChatContextValue = {
@@ -100,25 +125,9 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
         if (rawMsgs) {
           const parsed = JSON.parse(rawMsgs) as unknown;
           if (Array.isArray(parsed)) {
-            const restored: ChatMsg[] = parsed
-              .map((m: any) => {
-                if (!m || typeof m !== "object") return null;
-                const role =
-                  m.role === "user" || m.role === "assistant" ? m.role : null;
-                const id = typeof m.id === "string" ? m.id : null;
-                const content = typeof m.content === "string" ? m.content : "";
-                const contentPieces = Array.isArray(m.contentPieces)
-                  ? (m.contentPieces as any[]).filter(Boolean)
-                  : undefined;
-                if (!role || !id) return null;
-                return {
-                  id,
-                  role,
-                  content,
-                  ...(contentPieces ? { contentPieces } : {}),
-                } as ChatMsg;
-              })
-              .filter(Boolean) as ChatMsg[];
+            const restored = parsed
+              .map((item) => toStoredChatMessage(item))
+              .filter((message): message is ChatMsg => message !== null);
             if (restored.length > 0) setMessages(restored);
           }
         }
@@ -235,6 +244,9 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     const liveBuffers: Record<string, string> = {};
     const liveOrder: string[] = [];
     const livePieceIds: Record<string, string> = {};
+    const structuredStreams =
+      createStructuredStreamAccumulator<Record<string, unknown>>();
+    const structuredPieceIds: Record<string, string> = {};
 
     const resolveTextStreamKey = (
       chunk: StreamChunk,
@@ -398,17 +410,26 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
       }
 
       if (chunk.type === "structured-data") {
-        const structuredChunk: StructuredData = {
-          type: "structured-data",
-          ...(chunk.node !== undefined && { node: chunk.node }),
-          ...(chunk.dataType !== undefined ? { dataType: chunk.dataType } : {}),
-          data: chunk.data as unknown as Record<string, unknown>,
-        };
-        accPieces.push({
-          id: createId(),
+        const nextState = structuredStreams.apply(chunk) as StructuredData;
+        const streamId = nextState.streamId;
+
+        const existingPieceId = structuredPieceIds[streamId];
+        const pieceId = existingPieceId ?? createId();
+        if (!existingPieceId) structuredPieceIds[streamId] = pieceId;
+
+        const nextPiece: ContentPiece = {
+          id: pieceId,
           type: "structured",
-          data: structuredChunk,
-        });
+          data: nextState,
+        };
+        const existingIndex = accPieces.findIndex(
+          (piece) => piece.id === pieceId,
+        );
+        if (existingIndex >= 0) {
+          accPieces[existingIndex] = nextPiece;
+        } else {
+          accPieces.push(nextPiece);
+        }
         setStreamContentPieces(preview());
         return true;
       }

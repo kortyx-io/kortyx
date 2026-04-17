@@ -1,11 +1,7 @@
 import type { InterruptInput, InterruptResult } from "@kortyx/core";
 import { getHookContext } from "../context";
 import { awaitInterruptInternal } from "../interrupt";
-import {
-  emitStructuredData,
-  resolveStructuredMode,
-  shouldEmitStructured,
-} from "../structured";
+import { emitStructuredData, shouldEmitStructured } from "../structured";
 import type { SchemaLike, UseReasonArgs, UseReasonResult } from "../types";
 import { parseWithSchema } from "../validation";
 import {
@@ -23,7 +19,16 @@ import {
   defaultContinuationInput,
   defaultInterruptFirstPassInput,
   withOutputGuardrails,
+  withStructuredStreamHints,
 } from "./prompting";
+import {
+  extractCompletedArrayItems,
+  extractCompletedFieldValue,
+  extractStreamingStringValue,
+  resolveAppendFieldPaths,
+  resolveSetFieldPaths,
+  resolveTextDeltaFieldPaths,
+} from "./structured-stream";
 
 const emitReasonStructuredOutput = <TOutput>(args: {
   id?: string;
@@ -36,7 +41,7 @@ const emitReasonStructuredOutput = <TOutput>(args: {
   emitStructuredData<TOutput>({
     dataType: args.structured?.dataType ?? "reason-output",
     data: args.output,
-    mode: resolveStructuredMode(args.structured),
+    kind: "final",
     ...(args.structured?.schemaId
       ? { schemaId: args.structured.schemaId }
       : {}),
@@ -44,7 +49,7 @@ const emitReasonStructuredOutput = <TOutput>(args: {
       ? { schemaVersion: args.structured.schemaVersion }
       : {}),
     ...(args.id ? { id: args.id } : {}),
-    opId: args.opId,
+    streamId: args.opId,
   });
 };
 
@@ -70,6 +75,18 @@ export async function useReason<
   const reasonMeta =
     typeof id === "string" ? ({ id, opId } as const) : ({ opId } as const);
   const suppressTextStream = Boolean(args.outputSchema || args.interrupt);
+  const setFieldPaths = resolveSetFieldPaths(args.structured);
+  const appendFieldPaths = resolveAppendFieldPaths(args.structured);
+  const textDeltaFieldPaths = resolveTextDeltaFieldPaths(args.structured);
+  const useStructuredIncrementalStreaming = Boolean(
+    args.outputSchema &&
+      !args.interrupt &&
+      (setFieldPaths.length > 0 ||
+        appendFieldPaths.length > 0 ||
+        textDeltaFieldPaths.length > 0) &&
+      args.stream !== false &&
+      shouldEmitStructured(args.structured),
+  );
 
   let firstText = "";
   let firstRaw: unknown;
@@ -79,6 +96,9 @@ export async function useReason<
   let finalText = "";
   let finalRaw: unknown;
   let finalOutput: TOutput | undefined;
+  const emittedSetValues = new Map<string, string>();
+  const emittedAppendCounts = new Map<string, number>();
+  const emittedTextValues = new Map<string, string>();
 
   if (existingCheckpoint) {
     firstText = existingCheckpoint.firstText;
@@ -92,7 +112,108 @@ export async function useReason<
       {
         ...args,
         emit: suppressTextStream ? false : args.emit,
-        stream: suppressTextStream ? false : args.stream,
+        stream: useStructuredIncrementalStreaming
+          ? true
+          : suppressTextStream
+            ? false
+            : args.stream,
+        ...(useStructuredIncrementalStreaming
+          ? {
+              onTextChunk: (delta: string) => {
+                firstText += delta;
+                finalText = firstText;
+
+                for (const path of setFieldPaths) {
+                  const current = extractCompletedFieldValue({
+                    text: firstText,
+                    path,
+                  });
+                  if (!current.found || !current.complete) continue;
+
+                  const nextSerialized = JSON.stringify(current.value);
+                  if (emittedSetValues.get(path) === nextSerialized) continue;
+
+                  emittedSetValues.set(path, nextSerialized);
+                  emitStructuredData({
+                    kind: "set",
+                    path,
+                    value: current.value,
+                    dataType: args.structured?.dataType ?? "reason-output",
+                    ...(args.structured?.schemaId
+                      ? { schemaId: args.structured.schemaId }
+                      : {}),
+                    ...(args.structured?.schemaVersion
+                      ? { schemaVersion: args.structured.schemaVersion }
+                      : {}),
+                    ...(id ? { id } : {}),
+                    streamId: opId,
+                  });
+                }
+
+                for (const path of appendFieldPaths) {
+                  const items = extractCompletedArrayItems({
+                    text: firstText,
+                    path,
+                  });
+                  const emittedAppendCount = emittedAppendCounts.get(path) ?? 0;
+                  if (items.length <= emittedAppendCount) continue;
+
+                  const nextItems = items.slice(emittedAppendCount);
+                  emittedAppendCounts.set(path, items.length);
+                  emitStructuredData({
+                    kind: "append",
+                    path,
+                    items: nextItems,
+                    dataType: args.structured?.dataType ?? "reason-output",
+                    ...(args.structured?.schemaId
+                      ? { schemaId: args.structured.schemaId }
+                      : {}),
+                    ...(args.structured?.schemaVersion
+                      ? { schemaVersion: args.structured.schemaVersion }
+                      : {}),
+                    ...(id ? { id } : {}),
+                    streamId: opId,
+                  });
+                }
+
+                for (const path of textDeltaFieldPaths) {
+                  const current = extractStreamingStringValue({
+                    text: firstText,
+                    path,
+                  });
+                  const emittedTextValue = emittedTextValues.get(path) ?? "";
+                  if (
+                    !current.found ||
+                    current.value.length <= emittedTextValue.length ||
+                    !current.value.startsWith(emittedTextValue)
+                  ) {
+                    continue;
+                  }
+
+                  const nextDelta = current.value.slice(
+                    emittedTextValue.length,
+                  );
+                  emittedTextValues.set(path, current.value);
+                  if (nextDelta.length === 0) continue;
+
+                  emitStructuredData({
+                    kind: "text-delta",
+                    path,
+                    delta: nextDelta,
+                    dataType: args.structured?.dataType ?? "reason-output",
+                    ...(args.structured?.schemaId
+                      ? { schemaId: args.structured.schemaId }
+                      : {}),
+                    ...(args.structured?.schemaVersion
+                      ? { schemaVersion: args.structured.schemaVersion }
+                      : {}),
+                    ...(id ? { id } : {}),
+                    streamId: opId,
+                  });
+                }
+              },
+            }
+          : {}),
       },
       reasonMeta,
       args.interrupt
@@ -105,7 +226,13 @@ export async function useReason<
           })
         : args.outputSchema
           ? withOutputGuardrails(
-              args.input,
+              withStructuredStreamHints(args.input, {
+                ...(setFieldPaths.length > 0 ? { setFieldPaths } : {}),
+                ...(appendFieldPaths.length > 0 ? { appendFieldPaths } : {}),
+                ...(textDeltaFieldPaths.length > 0
+                  ? { textDeltaFieldPaths }
+                  : {}),
+              }),
               args.outputSchema as SchemaLike<unknown>,
             )
           : undefined,
@@ -126,15 +253,6 @@ export async function useReason<
       firstInterruptRequest = firstPass.request;
       firstOutput = firstPass.output;
       finalOutput = firstPass.output;
-
-      if (firstOutput !== undefined) {
-        emitReasonStructuredOutput<TOutput>({
-          ...(id ? { id } : {}),
-          opId,
-          output: firstOutput,
-          structured: args.structured,
-        });
-      }
     } else {
       firstText = first.text;
       finalText = first.text;
@@ -144,13 +262,6 @@ export async function useReason<
           resolveOutputCandidate(first.text),
           "useReason output",
         );
-
-        emitReasonStructuredOutput<TOutput>({
-          ...(id ? { id } : {}),
-          opId,
-          output: firstOutput,
-          structured: args.structured,
-        });
       }
       finalOutput = firstOutput;
     }
@@ -242,14 +353,16 @@ export async function useReason<
         resolveOutputCandidate(finalText),
         "useReason output",
       );
-
-      emitReasonStructuredOutput<TOutput>({
-        ...(id ? { id } : {}),
-        opId,
-        output: finalOutput,
-        structured: args.structured,
-      });
     }
+  }
+
+  if (finalOutput !== undefined) {
+    emitReasonStructuredOutput<TOutput>({
+      ...(id ? { id } : {}),
+      opId,
+      output: finalOutput,
+      structured: args.structured,
+    });
   }
 
   return {

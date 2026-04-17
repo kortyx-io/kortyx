@@ -17,6 +17,7 @@ export interface RunReasonEngineArgs {
   emit?: boolean | undefined;
   nodeId?: string | undefined;
   emitEvent?: ((event: string, payload: unknown) => void) | undefined;
+  onTextChunk?: ((text: string) => void) | undefined;
   id?: string | undefined;
   opId?: string | undefined;
   segmentId?: string | undefined;
@@ -110,6 +111,7 @@ export async function runReasonEngine(
       const text = chunkToText(chunk);
       if (!text) continue;
       final += text;
+      args.onTextChunk?.(text);
       if (typeof chunk === "object" && chunk && "raw" in chunk) {
         raw = (chunk as KortyxStreamChunk).raw;
       }

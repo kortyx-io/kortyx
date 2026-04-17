@@ -1,6 +1,6 @@
 "use client";
 
-import type { StreamChunk } from "kortyx";
+import type { StreamChunk } from "kortyx/browser";
 import { CopyIcon, XIcon } from "lucide-react";
 import { useEffect, useState } from "react";
 import { codeToHtml } from "shiki";

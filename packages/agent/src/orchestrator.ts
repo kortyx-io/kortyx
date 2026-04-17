@@ -57,6 +57,7 @@ export async function orchestrateGraphStream({
   let currentGraph = graph;
   let currentState: GraphState = state;
   let finished = false;
+  let structuredSeq = 0;
   const debugEnabled = Boolean((config as any)?.features?.tracing);
   const namespacesUsed = new Set<string>();
 
@@ -77,6 +78,7 @@ export async function orchestrateGraphStream({
   // Bridge internal graph emits to our stream AND capture transitions
   let lastStatusMsg = "";
   let lastStatusAt = 0;
+  const nextStructuredStreamId = () => `${runId}:structured:${structuredSeq++}`;
 
   // Capture interrupt payloads emitted by runtime hooks and forward them as
   // resumable interrupt chunks.
@@ -326,16 +328,66 @@ export async function orchestrateGraphStream({
       return;
     }
     if (event === "structured_data") {
+      const payloadObj = payload as {
+        streamId?: string;
+        dataType?: string;
+        kind?: string;
+        schemaId?: string;
+        schemaVersion?: string;
+        id?: string;
+        node?: string;
+        path?: string;
+        value?: unknown;
+        items?: unknown[];
+        delta?: string;
+        data?: unknown;
+      };
+      const kind =
+        payloadObj.kind === "set" ||
+        payloadObj.kind === "append" ||
+        payloadObj.kind === "text-delta" ||
+        payloadObj.kind === "final"
+          ? payloadObj.kind
+          : "final";
+
       out.write({
         type: "structured-data",
-        node: (payload as { node?: string })?.node,
-        dataType: (payload as { dataType?: string })?.dataType,
-        mode: (payload as { mode?: string })?.mode,
-        schemaId: (payload as { schemaId?: string })?.schemaId,
-        schemaVersion: (payload as { schemaVersion?: string })?.schemaVersion,
-        id: (payload as { id?: string })?.id,
-        opId: (payload as { opId?: string })?.opId,
-        data: (payload as { data?: unknown })?.data,
+        node: payloadObj.node,
+        streamId:
+          typeof payloadObj.streamId === "string" && payloadObj.streamId
+            ? payloadObj.streamId
+            : nextStructuredStreamId(),
+        dataType:
+          typeof payloadObj.dataType === "string" && payloadObj.dataType
+            ? payloadObj.dataType
+            : "generic",
+        kind,
+        ...(typeof payloadObj.schemaId === "string"
+          ? { schemaId: payloadObj.schemaId }
+          : {}),
+        ...(typeof payloadObj.schemaVersion === "string"
+          ? { schemaVersion: payloadObj.schemaVersion }
+          : {}),
+        ...(typeof payloadObj.id === "string" ? { id: payloadObj.id } : {}),
+        ...(kind === "set"
+          ? {
+              path: String(payloadObj.path ?? ""),
+              value: payloadObj.value,
+            }
+          : {}),
+        ...(kind === "append"
+          ? {
+              path: String(payloadObj.path ?? ""),
+              items: Array.isArray(payloadObj.items) ? payloadObj.items : [],
+            }
+          : {}),
+        ...(kind === "text-delta"
+          ? {
+              path: String(payloadObj.path ?? ""),
+              delta: String(payloadObj.delta ?? ""),
+            }
+          : {}),
+        ...(kind === "final" ? { data: payloadObj.data } : {}),
       });
       return;
     }

@@ -1,20 +1,20 @@
 ---
 id: v0-runtime-hooks
 title: "Hooks"
-description: "Practical guide to when each hook is useful and what problem it solves in real node logic."
+description: "Practical guide to when each hook is useful and how structured streaming works in real node logic."
 keywords: [kortyx, hooks, useReason, useInterrupt, useWorkflowState, useNodeState, useStructuredData]
 sidebar_label: "Hooks"
 ---
 # Hooks
 
-Hooks are the public node-level runtime API (import from `kortyx`).
+Hooks are the public node-level runtime API. Import them from `kortyx`.
 
 Use them for four things:
 
 - run model reasoning
 - pause for human input
 - keep short-lived runtime state
-- emit structured UI payloads
+- stream UI-ready structured data
 
 ## Quick Selection
 
@@ -22,7 +22,21 @@ Use them for four things:
 - Need manual human-in-the-loop input: `useInterrupt(...)`
 - Need state local to one node execution flow: `useNodeState(...)`
 - Need state shared across nodes in the same run: `useWorkflowState(...)`
-- Need UI-ready structured events in stream: `useStructuredData(...)`
+- Need structured UI updates in the stream: `useStructuredData(...)`
+
+## Structured Streaming Mental Model
+
+Think about structured streaming as a second channel beside normal assistant text:
+
+- `text-*` chunks are text you render as text
+- `structured-data` chunks are object updates you render as UI state
+- `streamId` identifies one logical structured stream
+- `kind` tells the client how to apply the update
+
+In practice:
+
+- use `useReason({ structured })` when the model owns the object
+- use `useStructuredData(...)` when your node logic owns the updates
 
 ## `useReason(...)`
 
@@ -34,103 +48,139 @@ Typical use:
 - optional interrupt flow (`interrupt`)
 - structured stream payloads (`structured`)
 
+### Example: stream an email draft as JSON
+
+This is the most useful structured-streaming shape:
+
+- one field grows as text
+- one field grows as an array
+- the full validated object arrives at the end
+
 ```ts
 import { useReason } from "kortyx";
 import { z } from "zod";
 import { google } from "@/lib/providers";
 
-const PlanSchema = z.object({
-  summary: z.string(),
-  checklist: z.array(z.string()),
-  userChoice: z.string(),
+const EmailDraftSchema = z.object({
+  subject: z.string(),
+  body: z.string(),
+  bullets: z.array(z.string()),
 });
-
-const ChoiceRequestSchema = z.object({
-  kind: z.enum(["choice", "multi-choice"]),
-  question: z.string(),
-  options: z.array(z.object({ id: z.string(), label: z.string() })).min(2),
-});
-
-const ChoiceResponseSchema = z.union([
-  z.string(),
-  z.array(z.string()).min(1),
-]);
 
 const result = await useReason({
-  id: "launch-plan",
+  id: "compose-email",
   model: google("gemini-2.5-flash"),
-  input: "Plan a one-week launch.",
-  outputSchema: PlanSchema,
-  structured: { // optional
-    dataType: "reason.plan",
-    stream: "patch",
-    schemaId: "reason-plan",
+  input: "Write a short beta launch email for customers.",
+  outputSchema: EmailDraftSchema,
+  structured: {
+    dataType: "email.compose",
+    schemaId: "email-compose",
     schemaVersion: "1",
-  },
-  interrupt: { // optional
-    requestSchema: ChoiceRequestSchema,
-    responseSchema: ChoiceResponseSchema,
-    schemaId: "reason-choice",
-    schemaVersion: "1",
+    stream: true,
+    fields: {
+      subject: "set",
+      body: "text-delta",
+      bullets: "append",
+    },
   },
 });
 ```
-
 ```js
 import { useReason } from "kortyx";
 import { z } from "zod";
 import { google } from "@/lib/providers";
 
-const PlanSchema = z.object({
-  summary: z.string(),
-  checklist: z.array(z.string()),
-  userChoice: z.string(),
+const EmailDraftSchema = z.object({
+  subject: z.string(),
+  body: z.string(),
+  bullets: z.array(z.string()),
 });
-
-const ChoiceRequestSchema = z.object({
-  kind: z.enum(["choice", "multi-choice"]),
-  question: z.string(),
-  options: z.array(z.object({ id: z.string(), label: z.string() })).min(2),
-});
-
-const ChoiceResponseSchema = z.union([
-  z.string(),
-  z.array(z.string()).min(1),
-]);
 
 const result = await useReason({
-  id: "launch-plan",
+  id: "compose-email",
   model: google("gemini-2.5-flash"),
-  input: "Plan a one-week launch.",
-  outputSchema: PlanSchema,
-  structured: { // optional
-    dataType: "reason.plan",
-    stream: "patch",
-    schemaId: "reason-plan",
+  input: "Write a short beta launch email for customers.",
+  outputSchema: EmailDraftSchema,
+  structured: {
+    dataType: "email.compose",
+    schemaId: "email-compose",
     schemaVersion: "1",
-  },
-  interrupt: { // optional
-    requestSchema: ChoiceRequestSchema,
-    responseSchema: ChoiceResponseSchema,
-    schemaId: "reason-choice",
-    schemaVersion: "1",
+    stream: true,
+    fields: {
+      subject: "set",
+      body: "text-delta",
+      bullets: "append",
+    },
   },
 });
 ```
 
-Behavior:
+What happens:
 
-- First pass is a single model call that produces draft output and interrupt request.
-- Runtime emits `interrupt` and pauses.
-- Resume continues from the `useReason` checkpoint and runs the continuation pass.
+- the model still generates one JSON object
+- Kortyx watches the streamed JSON
+- when `subject` becomes complete, Kortyx emits `structured-data` with `kind: "set"`
+- when `body` grows, Kortyx emits `structured-data` with `kind: "text-delta"`
+- when `bullets` gains finished items, Kortyx emits `structured-data` with `kind: "append"`
+- when the whole object validates, Kortyx emits one `structured-data` chunk with `kind: "final"`
 
-Optional blocks and guarantees:
+That means a client can start rendering the email body and bullets before the final object arrives.
 
-- `structured` is optional.
-- `interrupt` is optional.
-- If `interrupt` is provided, `useReason` always runs interrupt mode. It is not model-optional.
-- The model still needs to return schema-valid JSON for that mode; if it does not, `useReason` throws a validation error.
-- If `structured` is provided, runtime emits structured stream payloads when valid structured output is available (typically with `outputSchema`).
+Fields that are not declared in `structured.fields` are available when the final object arrives.
+
+### Default behavior
+
+If you provide `structured` but do not provide `fields`, `useReason(...)` emits one final structured object when parsing and validation succeed.
+
+That is the default and simplest path:
+
+```ts
+const result = await useReason({
+  model: google("gemini-2.5-flash"),
+  input: "Write a short beta launch email for customers.",
+  outputSchema: EmailDraftSchema,
+  structured: {
+    dataType: "email.compose",
+  },
+});
+```
+```js
+const result = await useReason({
+  model: google("gemini-2.5-flash"),
+  input: "Write a short beta launch email for customers.",
+  outputSchema: EmailDraftSchema,
+  structured: {
+    dataType: "email.compose",
+  },
+});
+```
+
+### Current incremental streaming limits
+
+Today, `useReason({ structured })` incremental field streaming supports:
+
+- top-level `set` fields
+- top-level string fields as `text-delta`
+- top-level array fields as `append`
+- non-interrupt flows only
+
+> **Good to know:** If you combine `useReason` with `interrupt`, you still get structured output when a valid object exists, but incremental field streaming is not combined with interrupt mode today.
+
+> **Good to know:** `useReason` suppresses normal assistant text chunk streaming when `outputSchema` or `interrupt` is present, because the runtime is parsing and validating structured output. Expect `structured-data` and `interrupt` events in those cases, not `text-delta`.
+
+### When to use `useReason({ structured })`
+
+Use it when:
+
+- the model result itself is the UI object you want to render
+- you want the final object validated against `outputSchema`
+- a string field or array field should become visible before the full object is done
+
+Use `useStructuredData(...)` instead when:
+
+- the updates come from app logic rather than the model
+- you need precise control over when fields are emitted
+- you want to emit `set`, `append`, `text-delta`, or `final` directly
 
 ## `useInterrupt({ request, ...schemas })`
 
@@ -150,7 +200,6 @@ const selected = await useInterrupt({
   },
 });
 ```
-
 ```js
 import { useInterrupt } from "kortyx";
 
@@ -178,7 +227,6 @@ Node-local state:
 ```ts
 const [idx, setIdx] = useNodeState(0);
 ```
-
 ```js
 const [idx, setIdx] = useNodeState(0);
 ```
@@ -186,9 +234,8 @@ const [idx, setIdx] = useNodeState(0);
 Workflow-shared state:
 
 ```ts
-const [todos, setTodos] = useWorkflowState<string[]>("todos", []);
+const [todos, setTodos] = useWorkflowState("todos", []);
 ```
-
 ```js
 const [todos, setTodos] = useWorkflowState("todos", []);
 ```
@@ -197,50 +244,137 @@ const [todos, setTodos] = useWorkflowState("todos", []);
 
 `useNodeState`:
 
-- Persists for repeated executions of the same node inside one run (retries, direct self-loops, interrupt resume replay).
-- Is node-local only; do not treat it as cross-node shared state.
+- persists for repeated executions of the same node inside one run
+- is node-local only
 
 `useWorkflowState`:
 
-- Persists across nodes and workflow transitions within the same run.
-- Restores on interrupt resume for that run.
+- persists across nodes and workflow transitions within the same run
+- restores on interrupt resume for that run
 
-Across messages/sessions:
+Across messages and sessions:
 
-- Hook state is not a long-term session store. A new chat request starts a new run with fresh hook state.
-- For cross-request persistence, call your own DBs or service clients from node code.
+- hook state is not a long-term session store
+- a new chat request starts a new run with fresh hook state
+- for cross-request persistence, call your own DBs or service clients from node code
 
 Durability and practical limits:
 
-- Hook state is tied to runtime checkpoint persistence.
-- In-memory framework adapter is process-local and not restart-safe.
-- Redis framework adapter can restore across restarts until TTL expiry (`KORTYX_FRAMEWORK_TTL_MS` / adapter `ttlMs`).
-- Keep hook state small and JSON-serializable; large objects increase checkpoint size and resume cost.
-
-Practical guideline:
-
-- use hook state for runtime flow control
-- use your own DB or service layer for data that must survive across requests/users
+- hook state is tied to runtime checkpoint persistence
+- in-memory framework adapter is process-local and not restart-safe
+- Redis framework adapter can restore across restarts until TTL expiry
+- keep hook state small and JSON-serializable
 
 ## `useStructuredData(...)`
 
+Use this when your node wants to emit UI updates directly.
+
+The API is intentionally simple:
+
+- `kind: "set"` sets one field at a path
+- `kind: "append"` appends items to an array field
+- `kind: "text-delta"` appends text to a string field
+- `kind: "final"` publishes the completed object
+
+If you omit `kind`, `useStructuredData(...)` defaults to `final`.
+
+### Example: drive an email composer UI yourself
+
 ```ts
+import { useStructuredData } from "kortyx";
+
+const streamId = "email-compose";
+
 useStructuredData({
-  dataType: "hooks",
-  mode: "patch",
-  data: { step: "parse" },
+  streamId,
+  dataType: "email.compose",
+  kind: "set",
+  path: "subject",
+  value: "Beta access is open",
+});
+
+useStructuredData({
+  streamId,
+  dataType: "email.compose",
+  kind: "text-delta",
+  path: "body",
+  delta: "Hi team,\n\n",
+});
+
+useStructuredData({
+  streamId,
+  dataType: "email.compose",
+  kind: "append",
+  path: "bullets",
+  items: ["Faster setup", "Live streaming UI"],
+});
+
+useStructuredData({
+  streamId,
+  dataType: "email.compose",
+  data: {
+    subject: "Beta access is open",
+    body: "Hi team,\n\nBeta access is open.\n",
+    bullets: ["Faster setup", "Live streaming UI"],
+  },
 });
 ```
-
 ```js
+import { useStructuredData } from "kortyx";
+
+const streamId = "email-compose";
+
 useStructuredData({
-  dataType: "hooks",
-  mode: "patch",
-  data: { step: "parse" },
+  streamId,
+  dataType: "email.compose",
+  kind: "set",
+  path: "subject",
+  value: "Beta access is open",
+});
+
+useStructuredData({
+  streamId,
+  dataType: "email.compose",
+  kind: "text-delta",
+  path: "body",
+  delta: "Hi team,\n\n",
+});
+
+useStructuredData({
+  streamId,
+  dataType: "email.compose",
+  kind: "append",
+  path: "bullets",
+  items: ["Faster setup", "Live streaming UI"],
+});
+
+useStructuredData({
+  streamId,
+  dataType: "email.compose",
+  data: {
+    subject: "Beta access is open",
+    body: "Hi team,\n\nBeta access is open.\n",
+    bullets: ["Faster setup", "Live streaming UI"],
+  },
 });
 ```
 
-`useStructuredData` emits `structured_data` from the current node context for UI consumption.
+Use this pattern for:
+
+- email or document composers
+- tables that gain rows over time
+- growing arrays such as job cards or search results
+- progress panels and dashboard state
+
+### `streamId` and `id`
+
+- `streamId` is the client-facing identity for one structured stream
+- keep it stable across related updates so the client knows which object is being updated
+- `id` is optional app metadata you may also want on the chunk
+
+If you do not pass `streamId`, Kortyx generates one. That is fine for one-off `final` payloads, but for multi-step updates you usually want to pass a stable `streamId` yourself.
+
+> **Good to know:** `path` uses dot notation such as `table.rows` or `draft.body`. `append` should target an array field, and `text-delta` should target a string field.
 
 > **Good to know:** On resume, node code starts again from the top. `useReason` continues from its internal checkpoint, but code before `useReason` can run again. Keep `useReason` as the first meaningful operation and guard pre-`useReason` side effects with `useNodeState`.
 
@@ -248,22 +382,31 @@ useStructuredData({
 const [started, setStarted] = useNodeState(false);
 
 if (!started) {
-  useStructuredData({ dataType: "lifecycle", mode: "snapshot", data: { step: "start" } });
+  useStructuredData({
+    streamId: "lifecycle",
+    dataType: "lifecycle",
+    data: { step: "start" },
+  });
   setStarted(true);
 }
 
 const result = await useReason({ ... });
 setStarted(false);
 ```
-
 ```js
 const [started, setStarted] = useNodeState(false);
 
 if (!started) {
-  useStructuredData({ dataType: "lifecycle", mode: "snapshot", data: { step: "start" } });
+  useStructuredData({
+    streamId: "lifecycle",
+    dataType: "lifecycle",
+    data: { step: "start" },
+  });
   setStarted(true);
 }
 
 const result = await useReason({ ... });
 setStarted(false);
 ```
+
+For chunk shapes and recommended client reducers, see [Stream Protocol](../05-reference/03-stream-protocol.md).

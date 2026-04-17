@@ -71,7 +71,7 @@ describe("useReason interrupt flow", () => {
           outputSchema: PlanSchema,
           structured: {
             dataType: "reason.plan",
-            stream: "patch",
+            stream: true,
             schemaId: "reason-plan",
             schemaVersion: "1",
           },
@@ -95,7 +95,7 @@ describe("useReason interrupt flow", () => {
     const structuredEvents = emitted.filter(
       (x) => x.event === "structured_data",
     );
-    expect(structuredEvents).toHaveLength(2);
+    expect(structuredEvents).toHaveLength(1);
 
     const textEvents = emitted.filter((x) => x.event.startsWith("text-"));
     expect(textEvents).toHaveLength(0);
@@ -160,7 +160,7 @@ describe("useReason interrupt flow", () => {
           outputSchema: PlanSchema,
           structured: {
             dataType: "reason.plan",
-            stream: "patch",
+            stream: true,
           },
           interrupt: {
             requestSchema: ChoiceRequestSchema,

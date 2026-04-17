@@ -12,14 +12,17 @@ import type {
 
 export type {
   SchemaLike,
-  StructuredDataMode,
+  StructuredDataKind,
   UseInterruptArgs,
   UseReasonArgs,
   UseReasonInterruptConfig,
   UseReasonResult,
   UseReasonStructuredConfig,
-  UseReasonStructuredStreamMode,
+  UseStructuredDataAppendArgs,
   UseStructuredDataArgs,
+  UseStructuredDataFinalArgs,
+  UseStructuredDataSetArgs,
+  UseStructuredDataTextDeltaArgs,
 } from "./types";
 
 type StateSetter<T> = (next: T | ((prev: T) => T)) => void;
@@ -71,11 +74,12 @@ export function useNodeState<T>(initialValue: T): [T, StateSetter<T>] {
 
 export function useWorkflowState<T>(
   key: string,
-  initialValue?: T,
+  ...rest: [] | [T]
 ): [T, StateSetter<T>] {
   const ctx = getHookContext();
   const workflowState = ctx.workflowState;
-  const hasInitial = arguments.length > 1;
+  const hasInitial = rest.length > 0;
+  const initialValue = rest[0];
 
   if (!Object.hasOwn(workflowState, key) && hasInitial) {
     workflowState[key] = initialValue as T;

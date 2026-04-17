@@ -109,3 +109,47 @@ export const withOutputGuardrails = (
   ].join("\n\n");
   return withSchemaHint(base, "Expected output JSON schema", schema);
 };
+
+export const withStructuredStreamHints = (
+  input: string,
+  args: {
+    setFieldPaths?: string[];
+    appendFieldPaths?: string[];
+    textDeltaFieldPaths?: string[];
+  },
+): string => {
+  const rules: string[] = [];
+
+  for (const path of args.setFieldPaths ?? []) {
+    rules.push(
+      `- For the top-level field \`${path}\`, write one stable final value and do not rewrite it after it is complete.`,
+    );
+  }
+
+  for (const path of args.appendFieldPaths ?? []) {
+    rules.push(
+      `- For the top-level array field \`${path}\`, write items in final order and finish each item before starting the next.`,
+    );
+    rules.push(
+      `- Once an item in \`${path}\` is complete, do not rewrite or reorder earlier items.`,
+    );
+  }
+
+  for (const path of args.textDeltaFieldPaths ?? []) {
+    rules.push(
+      `- For the top-level string field \`${path}\`, write the value progressively by appending text to the end.`,
+    );
+    rules.push(
+      `- Do not rewrite or replace the earlier prefix of \`${path}\` once emitted.`,
+    );
+  }
+
+  if (rules.length === 0) return input;
+
+  return [
+    input,
+    "Streaming rules:",
+    ...rules,
+    "- Keep the overall response as valid JSON.",
+  ].join("\n\n");
+};
