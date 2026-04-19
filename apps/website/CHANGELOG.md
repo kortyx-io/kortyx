@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.11.0](https://github.com/kortyx-io/kortyx/compare/website-v0.10.0...website-v0.11.0) (2026-04-19)
+
+
+### Features
+
+* **website:** improve docs metadata and version labeling ([b6861df](https://github.com/kortyx-io/kortyx/commit/b6861df2043e53afc25bb0b34630f402d02b0327))
+* **website:** improve docs metadata and version labeling ([b6861df](https://github.com/kortyx-io/kortyx/commit/b6861df2043e53afc25bb0b34630f402d02b0327))
+* **website:** improve docs metadata and version labeling ([9b2872f](https://github.com/kortyx-io/kortyx/commit/9b2872f3224b542b5d402b474f4ff626995fb224))
+
+
+### Bug Fixes
+
+* **website:** simplify latest docs version label ([3164b51](https://github.com/kortyx-io/kortyx/commit/3164b5123c86a0274c6378adbdff9ffbc82e0480))
+
 ## [0.10.0](https://github.com/kortyx-io/kortyx/compare/website-v0.9.0...website-v0.10.0) (2026-04-17)
 
 
