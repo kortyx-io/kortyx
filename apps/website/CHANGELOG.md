@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.11.1](https://github.com/kortyx-io/kortyx/compare/website-v0.11.0...website-v0.11.1) (2026-04-19)
+
+
+### Bug Fixes
+
+* **website:** fetch full docs history for last updated dates ([fb3e632](https://github.com/kortyx-io/kortyx/commit/fb3e632d02efe637ad18198e5d19be1a3cd0a168))
+* **website:** fetch full docs history for last updated dates ([fb3e632](https://github.com/kortyx-io/kortyx/commit/fb3e632d02efe637ad18198e5d19be1a3cd0a168))
+* **website:** fetch full docs history for last updated dates ([c0df351](https://github.com/kortyx-io/kortyx/commit/c0df3517224f3c30046ae6eacfae6f3d95e3a6e5))
+
 ## [0.11.0](https://github.com/kortyx-io/kortyx/compare/website-v0.10.0...website-v0.11.0) (2026-04-19)
 
 
