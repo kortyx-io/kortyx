@@ -29,9 +29,27 @@ const walkMarkdownFiles = (dirPath) => {
   return files;
 };
 
+const isShallowRepository = () => {
+  try {
+    const output = execFileSync(
+      "git",
+      ["rev-parse", "--is-shallow-repository"],
+      {
+        cwd: repoRoot,
+        encoding: "utf8",
+        stdio: ["ignore", "pipe", "ignore"],
+      },
+    ).trim();
+    return output === "true";
+  } catch {
+    return false;
+  }
+};
+
 const canReadGitHistory = () => {
   try {
     if (!existsSync(path.join(repoRoot, ".git"))) return false;
+    if (isShallowRepository()) return false;
     execFileSync("git", ["rev-parse", "--show-toplevel"], {
       cwd: repoRoot,
       stdio: "ignore",
@@ -74,12 +92,15 @@ if (!canReadGitHistory()) {
     process.exit(0);
   }
 
+  const reason = existsSync(path.join(repoRoot, ".git"))
+    ? "Git history unavailable or shallow"
+    : "Git history unavailable";
   writeManifest({
     generatedAt: new Date().toISOString(),
     docs: {},
   });
   writeLog(
-    `[docs-last-updated] Git history unavailable. Wrote empty manifest to ${outputFile}`,
+    `[docs-last-updated] ${reason}. Wrote empty manifest to ${outputFile}`,
   );
   process.exit(0);
 }
