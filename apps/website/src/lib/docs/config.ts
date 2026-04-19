@@ -60,8 +60,10 @@ export const getLatestDocsVersionDisplay = cache(
       (await readLatestKortyxNpmVersion()) ?? readKortyxPackageVersion();
 
     return {
-      label: version ? `Latest v${version} (beta)` : "Latest (beta)",
-      subtitle: docsConfig.latestVersion,
+      label: "Latest version",
+      subtitle: version
+        ? `v${version} (beta)`
+        : `${docsConfig.latestVersion} (beta)`,
     };
   },
 );

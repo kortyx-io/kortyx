@@ -31,7 +31,7 @@ export function DocsVersionSelector(props: DocsVersionSelectorProps) {
   const selected = options.find((option) => option.version === selectedVersion);
   const title =
     selected?.label ??
-    (selected?.isLatest ? "Latest Version" : `Version ${selectedVersion}`);
+    (selected?.isLatest ? "Latest version" : `Version ${selectedVersion}`);
   const subtitle = selected?.subtitle ?? selected?.version ?? selectedVersion;
 
   return (
