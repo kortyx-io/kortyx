@@ -31,12 +31,81 @@ type DocsMarkdownContentProps = {
   version: string;
   currentRelativeFile: string;
   versionDocs: Parameters<typeof rewriteMarkdownHref>[0]["versionDocs"];
+  lastUpdatedAt?: string | null;
+  lastUpdatedReferenceAt?: string | null;
+};
+
+const formatRelativeDate = (
+  updatedAt: string,
+  referenceAt: string,
+): string | null => {
+  const updatedTime = new Date(updatedAt).getTime();
+  const referenceTime = new Date(referenceAt).getTime();
+  if (!Number.isFinite(updatedTime) || !Number.isFinite(referenceTime)) {
+    return null;
+  }
+
+  const diffMs = Math.max(referenceTime - updatedTime, 0);
+  const minuteMs = 60_000;
+  const hourMs = 60 * minuteMs;
+  const dayMs = 24 * hourMs;
+  const monthMs = 30 * dayMs;
+  const yearMs = 365 * dayMs;
+  const rtf = new Intl.RelativeTimeFormat("en-US", { numeric: "always" });
+
+  if (diffMs < hourMs) {
+    const minutes = Math.max(1, Math.round(diffMs / minuteMs));
+    return rtf.format(-minutes, "minute");
+  }
+
+  if (diffMs < dayMs) {
+    const hours = Math.max(1, Math.round(diffMs / hourMs));
+    return rtf.format(-hours, "hour");
+  }
+
+  if (diffMs < monthMs) {
+    const days = Math.max(1, Math.round(diffMs / dayMs));
+    return rtf.format(-days, "day");
+  }
+
+  if (diffMs < yearMs) {
+    const months = Math.max(1, Math.round(diffMs / monthMs));
+    return rtf.format(-months, "month");
+  }
+
+  const years = Math.max(1, Math.round(diffMs / yearMs));
+  return rtf.format(-years, "year");
 };
 
 export function DocsMarkdownContent(props: DocsMarkdownContentProps) {
-  const { content, version, currentRelativeFile, versionDocs } = props;
+  const {
+    content,
+    version,
+    currentRelativeFile,
+    versionDocs,
+    lastUpdatedAt,
+    lastUpdatedReferenceAt,
+  } = props;
   const headingSlugger = new GithubSlugger();
   const codeTabGroups = parseCodeTabGroups(content);
+  const formattedLastUpdated = lastUpdatedAt
+    ? new Intl.DateTimeFormat("en-US", {
+        month: "long",
+        day: "numeric",
+        year: "numeric",
+      }).format(new Date(lastUpdatedAt))
+    : null;
+  const relativeLastUpdated =
+    lastUpdatedAt && lastUpdatedReferenceAt
+      ? formatRelativeDate(lastUpdatedAt, lastUpdatedReferenceAt)
+      : null;
+  const lastUpdatedLabel =
+    formattedLastUpdated && relativeLastUpdated
+      ? `Updated ${relativeLastUpdated} • ${formattedLastUpdated}`
+      : formattedLastUpdated
+        ? `Updated ${formattedLastUpdated}`
+        : null;
+  let h1Count = 0;
 
   const toEntry = (args: {
     language: string;
@@ -87,12 +156,25 @@ export function DocsMarkdownContent(props: DocsMarkdownContentProps) {
             />
           );
         },
-        h1: (props: ComponentPropsWithoutRef<"h1">) => (
-          <h1
-            {...props}
-            className="mt-10 text-4xl font-bold tracking-tight first:mt-0"
-          />
-        ),
+        h1: (props: ComponentPropsWithoutRef<"h1">) => {
+          h1Count += 1;
+          const shouldShowLastUpdated =
+            h1Count === 1 && lastUpdatedLabel !== null;
+
+          return (
+            <>
+              <h1
+                {...props}
+                className="mt-10 text-4xl font-bold tracking-tight first:mt-0"
+              />
+              {shouldShowLastUpdated ? (
+                <p className="mt-3 text-sm text-muted-foreground">
+                  {lastUpdatedLabel}
+                </p>
+              ) : null}
+            </>
+          );
+        },
         h2: (props: ComponentPropsWithoutRef<"h2">) => {
           const text = extractText(props.children);
           const id = headingSlugger.slug(text || "section");

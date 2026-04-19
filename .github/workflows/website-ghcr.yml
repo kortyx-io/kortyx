@@ -21,6 +21,14 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 20
+
+      - name: Generate docs last updated manifest
+        run: node apps/website/scripts/generate-docs-last-updated.mjs
+
       - name: Derive version from tag
         id: version
         run: |
@@ -54,11 +62,6 @@ jobs:
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:staging-v${{ steps.version.outputs.version }}
           cache-from: type=gha,scope=website-image
           cache-to: type=gha,mode=max,scope=website-image
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v6
-        with:
-          node-version: 20
 
       - name: Checkout Railway image update helper
         uses: actions/checkout@v6

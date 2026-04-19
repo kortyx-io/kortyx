@@ -9,6 +9,7 @@ out/
 .next/
 .turbo/
 .vercel/
+apps/website/generated/
 
 # Caches
 .cache/

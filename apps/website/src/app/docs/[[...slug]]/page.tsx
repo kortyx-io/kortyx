@@ -17,6 +17,8 @@ import {
   getVersionSidebar,
   resolveDocsRoute,
 } from "@/lib/docs";
+import { getLatestDocsVersionDisplay } from "@/lib/docs/config";
+import { getDocLastUpdatedMeta } from "@/lib/docs/last-updated";
 import { extractToc } from "@/lib/utils/extract-toc";
 
 type DocsRouteParams = {
@@ -113,6 +115,7 @@ export default async function DocsPage({
 
   const versions = await getDocsVersions();
   const latestVersion = await getLatestDocsVersion();
+  const latestVersionDisplay = await getLatestDocsVersionDisplay();
   const sidebar = await getVersionSidebar(resolved.requestedVersion);
   const isDocRoute = resolved.routeKind === "doc";
   const currentDoc = resolved.routeKind === "doc" ? resolved.doc : null;
@@ -188,6 +191,12 @@ export default async function DocsPage({
           version,
           href: sameSection ? sameSection.href : buildDocHref(version, []),
           isLatest: version === latestVersion,
+          label:
+            version === latestVersion
+              ? latestVersionDisplay.label
+              : `Version ${version}`,
+          subtitle:
+            version === latestVersion ? latestVersionDisplay.subtitle : version,
         };
       }
 
@@ -198,11 +207,23 @@ export default async function DocsPage({
           ? buildDocHref(version, currentDoc.slugSegments)
           : buildDocHref(version, []),
         isLatest: version === latestVersion,
+        label:
+          version === latestVersion
+            ? latestVersionDisplay.label
+            : `Version ${version}`,
+        subtitle:
+          version === latestVersion ? latestVersionDisplay.subtitle : version,
       };
     }),
   );
 
   const toc = isDocRoute && currentDoc ? extractToc(currentDoc.content) : [];
+  const lastUpdatedMeta =
+    isDocRoute && currentDoc
+      ? await getDocLastUpdatedMeta(
+          `${currentDoc.version}/${currentDoc.relativeFile}`,
+        )
+      : null;
 
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -243,6 +264,8 @@ export default async function DocsPage({
                   version={resolved.requestedVersion}
                   currentRelativeFile={currentDoc.relativeFile}
                   versionDocs={resolved.versionDocs}
+                  lastUpdatedAt={lastUpdatedMeta?.updatedAt ?? null}
+                  lastUpdatedReferenceAt={lastUpdatedMeta?.generatedAt ?? null}
                 />
               </article>
 
