@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev --turbopack --port ${WEBSITE_PORT:-3000}",
-    "build": "next build",
+    "build": "node ./scripts/generate-docs-last-updated.mjs && next build",
     "start": "next start",
     "lint": "biome check ."
   },

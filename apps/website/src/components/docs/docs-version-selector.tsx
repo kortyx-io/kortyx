@@ -17,6 +17,8 @@ type VersionOption = {
   version: string;
   href: string;
   isLatest: boolean;
+  label: string;
+  subtitle: string;
 };
 
 type DocsVersionSelectorProps = {
@@ -27,10 +29,10 @@ type DocsVersionSelectorProps = {
 export function DocsVersionSelector(props: DocsVersionSelectorProps) {
   const { options, selectedVersion } = props;
   const selected = options.find((option) => option.version === selectedVersion);
-  const title = selected?.isLatest
-    ? "Latest Version"
-    : `Version ${selectedVersion}`;
-  const subtitle = selected?.version ?? selectedVersion;
+  const title =
+    selected?.label ??
+    (selected?.isLatest ? "Latest Version" : `Version ${selectedVersion}`);
+  const subtitle = selected?.subtitle ?? selected?.version ?? selectedVersion;
 
   return (
     <DropdownMenu>
@@ -84,10 +86,10 @@ export function DocsVersionSelector(props: DocsVersionSelectorProps) {
                   </span>
                   <span className="text-left">
                     <span className="block text-base font-medium text-foreground">
-                      {option.isLatest ? "Latest" : `Version ${option.version}`}
+                      {option.label}
                     </span>
                     <span className="block text-sm text-muted-foreground">
-                      {option.version}
+                      {option.subtitle}
                     </span>
                   </span>
                 </span>

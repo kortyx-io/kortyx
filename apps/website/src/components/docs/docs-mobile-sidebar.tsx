@@ -15,6 +15,8 @@ type VersionTarget = {
   version: string;
   href: string;
   isLatest: boolean;
+  label: string;
+  subtitle: string;
 };
 
 type DocsMobileSidebarProps = {

@@ -1,4 +1,6 @@
+import { readFileSync } from "node:fs";
 import path from "node:path";
+import { cache } from "react";
 
 export type DocsConfig = {
   versions: string[];
@@ -6,6 +8,63 @@ export type DocsConfig = {
   docsRoot: string;
   legacyRedirects: Record<string, Record<string, string>>;
 };
+
+export type DocsVersionDisplay = {
+  label: string;
+  subtitle: string;
+};
+
+const readKortyxPackageVersion = (): string | null => {
+  try {
+    const packageJsonPath = path.join(
+      process.cwd(),
+      "..",
+      "..",
+      "packages",
+      "kortyx",
+      "package.json",
+    );
+    const packageJson = JSON.parse(readFileSync(packageJsonPath, "utf8")) as {
+      version?: unknown;
+    };
+
+    return typeof packageJson.version === "string" &&
+      packageJson.version.length > 0
+      ? packageJson.version
+      : null;
+  } catch {
+    return null;
+  }
+};
+
+const readLatestKortyxNpmVersion = async (): Promise<string | null> => {
+  try {
+    const response = await fetch("https://registry.npmjs.org/kortyx/latest", {
+      headers: { accept: "application/json" },
+      next: { revalidate: 3600 },
+    });
+    if (!response.ok) return null;
+
+    const payload = (await response.json()) as { version?: unknown };
+    return typeof payload.version === "string" && payload.version.length > 0
+      ? payload.version
+      : null;
+  } catch {
+    return null;
+  }
+};
+
+export const getLatestDocsVersionDisplay = cache(
+  async (): Promise<DocsVersionDisplay> => {
+    const version =
+      (await readLatestKortyxNpmVersion()) ?? readKortyxPackageVersion();
+
+    return {
+      label: version ? `Latest v${version} (beta)` : "Latest (beta)",
+      subtitle: docsConfig.latestVersion,
+    };
+  },
+);
 
 export const docsConfig: DocsConfig = {
   // Keep this list explicit so version ordering/cutovers are intentional.

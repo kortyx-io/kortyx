@@ -164,9 +164,13 @@ Today, `useReason({ structured })` incremental field streaming supports:
 - top-level array fields as `append`
 - non-interrupt flows only
 
-> **Good to know:** If you combine `useReason` with `interrupt`, you still get structured output when a valid object exists, but incremental field streaming is not combined with interrupt mode today.
+That means:
 
-> **Good to know:** `useReason` suppresses normal assistant text chunk streaming when `outputSchema` or `interrupt` is present, because the runtime is parsing and validating structured output. Expect `structured-data` and `interrupt` events in those cases, not `text-delta`.
+- dotted paths such as `draft.body` or `table.rows` are not used by `useReason(... structured.fields ...)` incremental extraction today
+- if you combine `useReason` with `interrupt`, you still get structured output when a valid object exists, but incremental field streaming is not combined with interrupt mode today
+- when `outputSchema` or `interrupt` is present, `useReason` suppresses normal assistant text chunk streaming because the runtime is parsing and validating structured output
+
+In practice, expect `structured-data` and `interrupt` events in those cases, not `text-delta`.
 
 ### When to use `useReason({ structured })`
 
@@ -374,9 +378,9 @@ Use this pattern for:
 
 If you do not pass `streamId`, Kortyx generates one. That is fine for one-off `final` payloads, but for multi-step updates you usually want to pass a stable `streamId` yourself.
 
-> **Good to know:** `path` uses dot notation such as `table.rows` or `draft.body`. `append` should target an array field, and `text-delta` should target a string field.
+In `useStructuredData(...)`, `path` uses dot notation such as `table.rows` or `draft.body`. `append` should target an array field, and `text-delta` should target a string field. This nested-path behavior applies to manual structured updates, not to `useReason(... structured.fields ...)` incremental extraction.
 
-> **Good to know:** On resume, node code starts again from the top. `useReason` continues from its internal checkpoint, but code before `useReason` can run again. Keep `useReason` as the first meaningful operation and guard pre-`useReason` side effects with `useNodeState`.
+On resume, node code starts again from the top. `useReason` continues from its internal checkpoint, but code before `useReason` can run again. Keep `useReason` as the first meaningful operation and guard pre-`useReason` side effects with `useNodeState`.
 
 ```ts
 const [started, setStarted] = useNodeState(false);

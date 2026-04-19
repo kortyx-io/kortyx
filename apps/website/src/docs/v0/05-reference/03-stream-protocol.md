@@ -26,7 +26,7 @@ The stream protocol is defined in `@kortyx/stream` as `StreamChunk`.
 ## Typical client loop
 
 ```ts
-import { readStream, type StreamChunk } from "kortyx";
+import { readStream, type StreamChunk } from "kortyx/browser";
 
 const chunks: StreamChunk[] = [];
 
@@ -47,7 +47,7 @@ for await (const chunk of readStream(response.body)) {
 }
 ```
 ```js
-import { readStream } from "kortyx";
+import { readStream } from "kortyx/browser";
 
 const chunks = [];
 
@@ -146,7 +146,7 @@ import {
   applyStructuredChunk,
   type StructuredDataChunk,
   type StructuredStreamState,
-} from "kortyx";
+} from "kortyx/browser";
 
 const byStreamId: Record<string, StructuredStreamState<Record<string, unknown>>> = {};
 
@@ -158,7 +158,7 @@ function onStructuredChunk(chunk: StructuredDataChunk) {
 }
 ```
 ```js
-import { applyStructuredChunk } from "kortyx";
+import { applyStructuredChunk } from "kortyx/browser";
 
 const byStreamId = {};
 
@@ -194,6 +194,16 @@ If you set `structured.fields`, Kortyx can turn selected parts of the streamed J
 Example:
 
 ```ts
+import { useReason } from "kortyx";
+import { z } from "zod";
+import { google } from "@/lib/providers";
+
+const EmailDraftSchema = z.object({
+  subject: z.string(),
+  body: z.string(),
+  bullets: z.array(z.string()),
+});
+
 const result = await useReason({
   model: google("gemini-2.5-flash"),
   input: "Write an email draft as JSON.",
@@ -210,6 +220,16 @@ const result = await useReason({
 });
 ```
 ```js
+import { useReason } from "kortyx";
+import { z } from "zod";
+import { google } from "@/lib/providers";
+
+const EmailDraftSchema = z.object({
+  subject: z.string(),
+  body: z.string(),
+  bullets: z.array(z.string()),
+});
+
 const result = await useReason({
   model: google("gemini-2.5-flash"),
   input: "Write an email draft as JSON.",
@@ -240,7 +260,9 @@ Current limits:
 - top-level array fields as `append`
 - non-interrupt flows only
 
-> **Good to know:** If a field should appear once and stay stable, it is often simpler to emit it from node logic with `useStructuredData({ kind: "set", ... })` instead of waiting for broader model-side incremental support.
+The raw structured-data protocol supports dotted `path` values, and the client reducer applies them correctly. The top-level-only limit here is specific to `useReason(... structured.fields ...)`, because the runtime is extracting partial fields from streamed model JSON.
+
+If a field should appear once and stay stable, it is often simpler to emit it from node logic with `useStructuredData({ kind: "set", ... })` instead of waiting for broader model-side incremental support.
 
 ## Consuming text and structured data together
 
@@ -251,7 +273,7 @@ import {
   applyStructuredChunk,
   readStream,
   type StructuredStreamState,
-} from "kortyx";
+} from "kortyx/browser";
 
 let text = "";
 const structured: Record<string, StructuredStreamState<Record<string, unknown>>> = {};
@@ -270,7 +292,7 @@ for await (const chunk of readStream(response.body)) {
 }
 ```
 ```js
-import { applyStructuredChunk, readStream } from "kortyx";
+import { applyStructuredChunk, readStream } from "kortyx/browser";
 
 let text = "";
 const structured = {};
