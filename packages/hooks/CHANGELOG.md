@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.9.1](https://github.com/kortyx-io/kortyx/compare/hooks-v0.9.0...hooks-v0.9.1) (2026-04-22)
+
+
+### Bug Fixes
+
+* **stream:** enforce structured chunk contract semantics ([bdbc518](https://github.com/kortyx-io/kortyx/commit/bdbc518366baacddb1a2ebb890b19e6564e2bee4))
+* **stream:** enforce structured chunk contract semantics ([249d6e4](https://github.com/kortyx-io/kortyx/commit/249d6e47e1960debb0f396a4e7251bf9df38d7d2))
+
 ## [0.9.0](https://github.com/kortyx-io/kortyx/compare/hooks-v0.8.0...hooks-v0.9.0) (2026-04-17)
 
 
