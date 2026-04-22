@@ -1,3 +1,4 @@
+import { assertStructuredPath } from "../structured-path";
 import type { UseReasonStructuredConfig } from "../types";
 
 const escapeRegex = (value: string): string =>
@@ -19,9 +20,10 @@ export const resolveAppendFieldPaths = (
     .map(([path]) => path);
 
   for (const path of appendPaths) {
-    if (!path || path.includes(".")) {
+    assertStructuredPath(path, "useReason structured append");
+    if (path.includes(".")) {
       throw new Error(
-        "useReason structured append streaming currently supports top-level array fields only.",
+        "useReason structured append streaming requires non-empty top-level array field keys.",
       );
     }
   }
@@ -40,9 +42,10 @@ export const resolveSetFieldPaths = (
     .map(([path]) => path);
 
   for (const path of setPaths) {
-    if (!path || path.includes(".")) {
+    assertStructuredPath(path, "useReason structured set");
+    if (path.includes(".")) {
       throw new Error(
-        "useReason structured set streaming currently supports top-level fields only.",
+        "useReason structured set streaming requires non-empty top-level field keys.",
       );
     }
   }
@@ -61,9 +64,10 @@ export const resolveTextDeltaFieldPaths = (
     .map(([path]) => path);
 
   for (const path of textPaths) {
-    if (!path || path.includes(".")) {
+    assertStructuredPath(path, "useReason structured text-delta");
+    if (path.includes(".")) {
       throw new Error(
-        "useReason structured text-delta streaming currently supports top-level string fields only.",
+        "useReason structured text-delta streaming requires non-empty top-level string field keys.",
       );
     }
   }

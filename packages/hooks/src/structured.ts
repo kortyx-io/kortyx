@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { getHookContext } from "./context";
+import { assertStructuredPath } from "./structured-path";
 import type { UseReasonStructuredConfig, UseStructuredDataArgs } from "./types";
 import { parseWithSchema } from "./validation";
 
@@ -40,6 +41,7 @@ export const emitStructuredData = <TData = unknown>(
   };
 
   if (args.kind === "set") {
+    assertStructuredPath(args.path, "useStructuredData");
     const value = parseWithSchema(
       args.valueSchema,
       args.value,
@@ -55,6 +57,7 @@ export const emitStructuredData = <TData = unknown>(
   }
 
   if (args.kind === "append") {
+    assertStructuredPath(args.path, "useStructuredData");
     const items = args.items.map((item) =>
       parseWithSchema(args.itemSchema, item, "useStructuredData append item"),
     );
@@ -68,6 +71,7 @@ export const emitStructuredData = <TData = unknown>(
   }
 
   if (args.kind === "text-delta") {
+    assertStructuredPath(args.path, "useStructuredData");
     ctx.node.emit("structured_data", {
       ...base,
       kind: "text-delta",

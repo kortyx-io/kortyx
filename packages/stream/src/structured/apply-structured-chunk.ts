@@ -14,64 +14,100 @@ export type StructuredStreamState<TData = unknown> = {
 const isPlainObject = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
 
-const cloneContainer = (value: unknown): unknown => {
-  if (Array.isArray(value)) return [...value];
-  if (isPlainObject(value)) return { ...value };
-  return {};
-};
-
 const isArrayIndex = (value: string): boolean => /^\d+$/.test(value);
 
-const setByParts = (
-  input: unknown,
-  parts: string[],
-  value: unknown,
-): unknown => {
-  if (parts.length === 0) return value;
-
-  const [part, ...rest] = parts;
-  if (part === undefined) return value;
-
-  if (Array.isArray(input) || isArrayIndex(part)) {
-    const nextArray = Array.isArray(input) ? [...input] : [];
-    const index = Number(part);
-    if (!Number.isInteger(index)) return nextArray;
-    nextArray[index] = setByParts(nextArray[index], rest, value);
-    return nextArray;
-  }
-
-  const nextObject = isPlainObject(input) ? { ...input } : {};
-  nextObject[part] = setByParts(nextObject[part], rest, value);
-  return nextObject;
+const describeValue = (value: unknown): string => {
+  if (value === null) return "null";
+  if (Array.isArray(value)) return "array";
+  return typeof value;
 };
 
-const getByPath = (input: unknown, path: string): unknown => {
-  const parts = path.split(".").filter(Boolean);
-  let current: unknown = input;
-
-  for (const part of parts) {
-    if (Array.isArray(current)) {
-      const index = Number(part);
-      current = Number.isInteger(index) ? current[index] : undefined;
-      continue;
-    }
-
-    if (isPlainObject(current)) {
-      current = current[part];
-      continue;
-    }
-
-    return undefined;
+const parsePath = (path: string): string[] => {
+  if (path.length === 0) {
+    throw new Error(
+      "Structured chunk path must be a non-empty dot-separated string.",
+    );
   }
 
-  return current;
+  const parts = path.split(".");
+  if (parts.some((part) => part.length === 0)) {
+    throw new Error(
+      `Structured chunk path "${path}" must not contain empty segments.`,
+    );
+  }
+
+  return parts;
 };
 
-const setByPath = (input: unknown, path: string, value: unknown): unknown => {
-  const parts = path.split(".").filter(Boolean);
-  return parts.length === 0
-    ? value
-    : setByParts(cloneContainer(input), parts, value);
+const cloneContainerForPart = (args: {
+  current: unknown;
+  part: string;
+  path: string;
+  traversed: string[];
+}): Record<string, unknown> | unknown[] => {
+  const expected = isArrayIndex(args.part) ? "array" : "object";
+  const location =
+    args.traversed.length === 0 ? "<root>" : args.traversed.join(".");
+
+  if (args.current === undefined) {
+    return expected === "array" ? [] : {};
+  }
+
+  if (expected === "array") {
+    if (Array.isArray(args.current)) return [...args.current];
+    throw new Error(
+      `Structured path conflict at ${location} for "${args.path}": expected array container, received ${describeValue(args.current)}.`,
+    );
+  }
+
+  if (isPlainObject(args.current)) return { ...args.current };
+
+  throw new Error(
+    `Structured path conflict at ${location} for "${args.path}": expected object container, received ${describeValue(args.current)}.`,
+  );
+};
+
+const updateByParts = (args: {
+  input: unknown;
+  parts: string[];
+  path: string;
+  updateLeaf: (current: unknown) => unknown;
+  traversed?: string[];
+}): unknown => {
+  const traversed = args.traversed ?? [];
+  const [part, ...rest] = args.parts;
+  if (part === undefined) {
+    return args.updateLeaf(args.input);
+  }
+
+  const container = cloneContainerForPart({
+    current: args.input,
+    part,
+    path: args.path,
+    traversed,
+  });
+
+  const currentChild = Array.isArray(container)
+    ? container[Number(part)]
+    : container[part];
+  const nextChild =
+    rest.length === 0
+      ? args.updateLeaf(currentChild)
+      : updateByParts({
+          input: currentChild,
+          parts: rest,
+          path: args.path,
+          updateLeaf: args.updateLeaf,
+          traversed: [...traversed, part],
+        });
+
+  if (Array.isArray(container)) {
+    container[Number(part)] = nextChild;
+  } else {
+    container[part] = nextChild;
+  }
+
+  return container;
 };
 
 export function applyStructuredChunk<TData = unknown>(
@@ -107,34 +143,58 @@ export function applyStructuredChunk<TData = unknown>(
     };
   }
 
-  const previousData =
-    current?.data !== undefined
-      ? current.data
-      : ({} as TData | Record<string, unknown>);
+  const path = chunk.path;
+  const pathParts = parsePath(path);
+  const previousData = current?.data;
 
   if (chunk.kind === "set") {
     return {
       ...nextBase,
-      data: setByPath(previousData, chunk.path, chunk.value) as TData,
+      data: updateByParts({
+        input: previousData,
+        parts: pathParts,
+        path,
+        updateLeaf: () => chunk.value,
+      }) as TData,
     };
   }
 
   if (chunk.kind === "append") {
-    const existing = getByPath(previousData, chunk.path);
-    const nextItems = Array.isArray(existing)
-      ? [...existing, ...chunk.items]
-      : [...chunk.items];
     return {
       ...nextBase,
-      data: setByPath(previousData, chunk.path, nextItems) as TData,
+      data: updateByParts({
+        input: previousData,
+        parts: pathParts,
+        path,
+        updateLeaf: (existing) => {
+          if (existing === undefined) return [...chunk.items];
+          if (!Array.isArray(existing)) {
+            throw new Error(
+              `Structured append requires path "${path}" to target an array, received ${describeValue(existing)}.`,
+            );
+          }
+          return [...existing, ...chunk.items];
+        },
+      }) as TData,
     };
   }
 
-  const existing = getByPath(previousData, chunk.path);
-  const text = typeof existing === "string" ? existing : "";
   return {
     ...nextBase,
-    data: setByPath(previousData, chunk.path, text + chunk.delta) as TData,
+    data: updateByParts({
+      input: previousData,
+      parts: pathParts,
+      path,
+      updateLeaf: (existing) => {
+        if (existing === undefined) return chunk.delta;
+        if (typeof existing !== "string") {
+          throw new Error(
+            `Structured text-delta requires path "${path}" to target a string, received ${describeValue(existing)}.`,
+          );
+        }
+        return existing + chunk.delta;
+      },
+    }) as TData,
   };
 }
 

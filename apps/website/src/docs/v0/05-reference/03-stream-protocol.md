@@ -137,6 +137,40 @@ Field meanings:
 
 That is the full public mental model. Most clients should key by `streamId` and apply chunks in arrival order.
 
+### Path contract
+
+- `path` means a dot-separated location inside the object being built, such as `draft.body`
+- dotted paths are valid in raw `structured-data` chunks and in manual `useStructuredData(...)` calls
+- `useReason({ structured: { fields } })` is a stricter producer: `fields` keys must be non-empty top-level field names only
+- one `streamId` represents one logical object; if multiple fields in that object stream incrementally, they all use the same `streamId`
+- use separate `streamId` values only when you are building separate objects
+
+### Reducer guarantees
+
+`applyStructuredChunk(...)` is the canonical reducer for this protocol.
+
+- `set` writes the value at `path`
+- `append` appends to an existing array at `path`, or creates that array when the path is unset
+- `text-delta` appends to an existing string at `path`, or creates that string when the path is unset
+- `final` replaces any previously accumulated partial object completely and becomes the source of truth
+- no chunk is allowed after `final` for the same `streamId`
+
+Runtime enforcement:
+
+- invalid empty or malformed paths are rejected
+- impossible container-shape conflicts are rejected
+- `append` on a non-array target is rejected
+- `text-delta` on a non-string target is rejected
+- a chunk for a different `streamId` cannot be reduced into existing state for another stream
+
+Producer expectations:
+
+- emit chunks for a given `streamId` in order
+- use top-level-only field keys in `useReason(... structured.fields ...)`
+- do not rely on partial chunks being validated against the final output schema
+
+> **Good to know:** `useReason(...)` validates the final object with `outputSchema`, but incremental structured chunks are enforced only at the path and operation level. Manual `useStructuredData(...)` calls can add optional schema checks for `data`, `value`, or appended items.
+
 ### Recommended client reducer
 
 Use the built-in helper instead of writing your own reducer:
@@ -255,9 +289,9 @@ In that mode:
 
 Current limits:
 
-- top-level `set` fields
-- top-level string fields as `text-delta`
-- top-level array fields as `append`
+- top-level `set` field keys only
+- top-level string field keys as `text-delta`
+- top-level array field keys as `append`
 - non-interrupt flows only
 
 The raw structured-data protocol supports dotted `path` values, and the client reducer applies them correctly. The top-level-only limit here is specific to `useReason(... structured.fields ...)`, because the runtime is extracting partial fields from streamed model JSON.

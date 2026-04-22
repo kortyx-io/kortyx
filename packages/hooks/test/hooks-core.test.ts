@@ -54,6 +54,49 @@ describe("hooks core APIs", () => {
     });
   });
 
+  it("useStructuredData allows dotted paths for manual updates", async () => {
+    const { node, emitted } = createNode();
+    const state = createState();
+
+    await runWithHookContext({ node, state }, async () => {
+      useStructuredData({
+        streamId: "stream-1",
+        dataType: "demo.draft",
+        kind: "text-delta",
+        path: "draft.body",
+        delta: "Hello",
+      });
+      return null;
+    });
+
+    expect(emitted).toHaveLength(1);
+    expect(emitted[0]?.payload).toMatchObject({
+      streamId: "stream-1",
+      dataType: "demo.draft",
+      kind: "text-delta",
+      path: "draft.body",
+      delta: "Hello",
+    });
+  });
+
+  it("useStructuredData throws on invalid path syntax", async () => {
+    const { node } = createNode();
+    const state = createState();
+
+    await expect(
+      runWithHookContext({ node, state }, async () => {
+        useStructuredData({
+          kind: "set",
+          path: "draft..body",
+          value: "Hello",
+        });
+        return null;
+      }),
+    ).rejects.toThrow(
+      'useStructuredData path "draft..body" must not contain empty segments.',
+    );
+  });
+
   it("useStructuredData throws on schema validation failure", async () => {
     const { node } = createNode();
     const state = createState();
