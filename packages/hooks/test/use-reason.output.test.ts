@@ -438,6 +438,9 @@ describe("useReason output flow", () => {
       (x) => x.event === "structured_data",
     );
     expect(structuredEvents).toHaveLength(5);
+    expect(
+      new Set(structuredEvents.map((event) => event.payload.streamId)),
+    ).toEqual(new Set([result.opId]));
     expect(structuredEvents[0]?.payload).toMatchObject({
       kind: "append",
       path: "highlights",
@@ -465,6 +468,68 @@ describe("useReason output flow", () => {
         ctas: ["C", "D"],
       },
     });
+  });
+
+  it("rejects dotted paths in useReason structured.fields", async () => {
+    const { getProvider } = createProvider({
+      streamResponses: ['{"draft":{"body":"Hello"}}'],
+    });
+    const { node } = createNode();
+    const state = createState();
+
+    await expect(
+      runWithHookContext({ node, state, getProvider }, async () =>
+        useReason({
+          model: { providerId: "mock", modelId: "mock-model" },
+          input: "Create an email",
+          stream: true,
+          emit: true,
+          outputSchema: z.object({
+            draft: z.object({
+              body: z.string(),
+            }),
+          }),
+          structured: {
+            dataType: "reason.email",
+            stream: true,
+            fields: {
+              "draft.body": "text-delta",
+            },
+          },
+        }),
+      ),
+    ).rejects.toThrow(
+      "useReason structured text-delta streaming requires non-empty top-level string field keys.",
+    );
+  });
+
+  it("rejects empty keys in useReason structured.fields", async () => {
+    const { getProvider } = createProvider({
+      streamResponses: ['{"body":"Hello"}'],
+    });
+    const { node } = createNode();
+    const state = createState();
+
+    await expect(
+      runWithHookContext({ node, state, getProvider }, async () =>
+        useReason({
+          model: { providerId: "mock", modelId: "mock-model" },
+          input: "Create an email",
+          stream: true,
+          emit: true,
+          outputSchema: EmailSchema,
+          structured: {
+            dataType: "reason.email",
+            stream: true,
+            fields: {
+              "": "text-delta",
+            },
+          },
+        }),
+      ),
+    ).rejects.toThrow(
+      "useReason structured text-delta path must be a non-empty dot-separated string.",
+    );
   });
 
   it("throws when parsed output does not satisfy outputSchema", async () => {

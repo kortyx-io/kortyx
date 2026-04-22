@@ -119,6 +119,7 @@ What happens:
 
 - the model still generates one JSON object
 - Kortyx watches the streamed JSON
+- all incremental updates from that one `useReason(...)` call share one `streamId`
 - when `subject` becomes complete, Kortyx emits `structured-data` with `kind: "set"`
 - when `body` grows, Kortyx emits `structured-data` with `kind: "text-delta"`
 - when `bullets` gains finished items, Kortyx emits `structured-data` with `kind: "append"`
@@ -167,10 +168,13 @@ Today, `useReason({ structured })` incremental field streaming supports:
 That means:
 
 - dotted paths such as `draft.body` or `table.rows` are not used by `useReason(... structured.fields ...)` incremental extraction today
+- empty field keys are rejected
 - if you combine `useReason` with `interrupt`, you still get structured output when a valid object exists, but incremental field streaming is not combined with interrupt mode today
 - when `outputSchema` or `interrupt` is present, `useReason` suppresses normal assistant text chunk streaming because the runtime is parsing and validating structured output
 
 In practice, expect `structured-data` and `interrupt` events in those cases, not `text-delta`.
+
+> **Good to know:** `useReason(...)` validates the final object against `outputSchema`, but incremental chunks are enforced only at the path and operation level. If you need per-update schema checks before the final object, emit manual `useStructuredData(...)` chunks with `valueSchema`, `itemSchema`, or `dataSchema`.
 
 ### When to use `useReason({ structured })`
 
@@ -301,7 +305,7 @@ useStructuredData({
   streamId,
   dataType: "email.compose",
   kind: "text-delta",
-  path: "body",
+  path: "draft.body",
   delta: "Hi team,\n\n",
 });
 
@@ -309,7 +313,7 @@ useStructuredData({
   streamId,
   dataType: "email.compose",
   kind: "append",
-  path: "bullets",
+  path: "draft.bullets",
   items: ["Faster setup", "Live streaming UI"],
 });
 
@@ -318,8 +322,10 @@ useStructuredData({
   dataType: "email.compose",
   data: {
     subject: "Beta access is open",
-    body: "Hi team,\n\nBeta access is open.\n",
-    bullets: ["Faster setup", "Live streaming UI"],
+    draft: {
+      body: "Hi team,\n\nBeta access is open.\n",
+      bullets: ["Faster setup", "Live streaming UI"],
+    },
   },
 });
 ```
@@ -340,7 +346,7 @@ useStructuredData({
   streamId,
   dataType: "email.compose",
   kind: "text-delta",
-  path: "body",
+  path: "draft.body",
   delta: "Hi team,\n\n",
 });
 
@@ -348,7 +354,7 @@ useStructuredData({
   streamId,
   dataType: "email.compose",
   kind: "append",
-  path: "bullets",
+  path: "draft.bullets",
   items: ["Faster setup", "Live streaming UI"],
 });
 
@@ -357,8 +363,10 @@ useStructuredData({
   dataType: "email.compose",
   data: {
     subject: "Beta access is open",
-    body: "Hi team,\n\nBeta access is open.\n",
-    bullets: ["Faster setup", "Live streaming UI"],
+    draft: {
+      body: "Hi team,\n\nBeta access is open.\n",
+      bullets: ["Faster setup", "Live streaming UI"],
+    },
   },
 });
 ```
@@ -379,6 +387,8 @@ Use this pattern for:
 If you do not pass `streamId`, Kortyx generates one. That is fine for one-off `final` payloads, but for multi-step updates you usually want to pass a stable `streamId` yourself.
 
 In `useStructuredData(...)`, `path` uses dot notation such as `table.rows` or `draft.body`. `append` should target an array field, and `text-delta` should target a string field. This nested-path behavior applies to manual structured updates, not to `useReason(... structured.fields ...)` incremental extraction.
+
+Manual structured updates can build nested objects incrementally, but once a path holds a string, number, boolean, or other non-container value, later chunks cannot treat that same location as an object or array.
 
 On resume, node code starts again from the top. `useReason` continues from its internal checkpoint, but code before `useReason` can run again. Keep `useReason` as the first meaningful operation and guard pre-`useReason` side effects with `useNodeState`.
 

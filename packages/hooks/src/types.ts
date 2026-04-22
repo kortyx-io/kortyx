@@ -16,6 +16,13 @@ export type SchemaLike<T> = {
 };
 
 export type StructuredDataKind = "set" | "append" | "text-delta" | "final";
+export type StructuredPath = string;
+export type UseReasonStructuredFieldMode = "append" | "text-delta" | "set";
+export type UseReasonStructuredFieldKey = string;
+export type UseReasonStructuredFields = Record<
+  UseReasonStructuredFieldKey,
+  UseReasonStructuredFieldMode
+>;
 
 type UseStructuredDataBaseArgs = {
   dataType?: string | undefined;
@@ -35,7 +42,7 @@ export type UseStructuredDataFinalArgs<TData = unknown> =
 export type UseStructuredDataSetArgs<TValue = unknown> =
   UseStructuredDataBaseArgs & {
     kind: "set";
-    path: string;
+    path: StructuredPath;
     value: TValue;
     valueSchema?: SchemaLike<TValue> | undefined;
   };
@@ -43,14 +50,14 @@ export type UseStructuredDataSetArgs<TValue = unknown> =
 export type UseStructuredDataAppendArgs<TItem = unknown> =
   UseStructuredDataBaseArgs & {
     kind: "append";
-    path: string;
+    path: StructuredPath;
     items: TItem[];
     itemSchema?: SchemaLike<TItem> | undefined;
   };
 
 export type UseStructuredDataTextDeltaArgs = UseStructuredDataBaseArgs & {
   kind: "text-delta";
-  path: string;
+  path: StructuredPath;
   delta: string;
 };
 
@@ -70,7 +77,12 @@ export type UseReasonStructuredConfig = {
   dataType?: string | undefined;
   schemaId?: string | undefined;
   schemaVersion?: string | undefined;
-  fields?: Record<string, "append" | "text-delta" | "set"> | undefined;
+  /**
+   * Incremental extraction keys for useReason. These are top-level JSON field
+   * names only; dotted paths are reserved for raw structured chunks and
+   * useStructuredData(...).
+   */
+  fields?: UseReasonStructuredFields | undefined;
 };
 
 export type UseReasonInterruptConfig<

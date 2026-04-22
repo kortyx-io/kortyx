@@ -162,6 +162,16 @@ Structured chunks use one of four kinds:
 
 You usually do not need to implement these rules yourself. `applyStructuredChunk(...)` already does it.
 
+### Path behavior
+
+- `path` is a dot-separated location inside the object being built
+- raw structured chunks and manual `useStructuredData(...)` calls can use dotted paths such as `draft.body`
+- `useReason({ structured: { fields } })` is narrower and currently accepts top-level field keys only
+- `applyStructuredChunk(...)` throws on malformed paths, impossible container-shape conflicts, `append` on non-arrays, `text-delta` on non-strings, and any chunk that arrives after `final`
+- `final` replaces the whole accumulated object and should be treated as the source of truth
+
+> **Good to know:** If a single object streams multiple fields over time, keep one `streamId` for that whole object. Use different `streamId` values only for independent objects.
+
 > **Good to know:** `streamId` is the update identity for structured streams. If a node emits multiple related `useStructuredData(...)` calls, keep the same `streamId` so the client updates one object instead of creating many.
 
 ## `consumeStream(...)`
