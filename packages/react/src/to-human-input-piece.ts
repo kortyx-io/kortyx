@@ -1,5 +1,5 @@
-import type { StreamChunk } from "kortyx/browser";
-import type { HumanInputPiece } from "@/lib/chat-types";
+import type { StreamChunk } from "@kortyx/stream/browser";
+import type { HumanInputPiece } from "./chat-types";
 
 interface HumanInputStreamChunk {
   type: "interrupt";

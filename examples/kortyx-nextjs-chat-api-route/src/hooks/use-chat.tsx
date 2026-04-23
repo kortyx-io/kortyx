@@ -1,11 +1,15 @@
 "use client";
 
 import {
+  type ChatMsg,
   type ChatStorage,
   type ChatTransport,
+  type ContentPiece,
   createBrowserChatStorage,
   createLiveChatPieces,
+  type HumanInputPiece,
   type OutgoingChatMessage,
+  toHumanInputPiece,
   type UseStructuredStreamsOptions,
   type UseStructuredStreamsResult,
   useStructuredStreams,
@@ -14,9 +18,7 @@ import type { StreamChunk } from "kortyx/browser";
 import { useEffect, useRef, useState } from "react";
 import { useChatStreamDebug } from "@/hooks/use-chat-stream-debug";
 import { buildAssistantMessage } from "@/lib/build-assistant-message";
-import type { ChatMsg, ContentPiece, HumanInputPiece } from "@/lib/chat-types";
 import { findActiveTextInterrupt } from "@/lib/find-active-text-interrupt";
-import { toHumanInputPiece } from "@/lib/to-human-input-piece";
 
 const defaultCreateId = () => {
   try {

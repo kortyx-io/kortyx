@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { toHumanInputPiece } from "./to-human-input-piece";
+import { toHumanInputPiece } from "../src/to-human-input-piece";
 
 describe("toHumanInputPiece", () => {
   it("defaults non-text interrupts to a choice prompt", () => {

@@ -1,6 +1,7 @@
-"use client";
-
-import type { StructuredStreamState } from "kortyx/browser";
+import type {
+  StreamChunk,
+  StructuredStreamState,
+} from "@kortyx/stream/browser";
 
 export type StructuredData = StructuredStreamState<Record<string, unknown>>;
 
@@ -26,5 +27,5 @@ export type ChatMsg = {
   role: "user" | "assistant";
   content: string;
   contentPieces?: ContentPiece[];
-  debug?: import("kortyx/browser").StreamChunk[];
+  debug?: StreamChunk[];
 };

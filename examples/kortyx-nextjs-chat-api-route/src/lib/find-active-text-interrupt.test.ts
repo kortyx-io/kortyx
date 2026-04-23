@@ -1,5 +1,5 @@
+import type { ChatMsg, ContentPiece, HumanInputPiece } from "@kortyx/react";
 import { describe, expect, it } from "vitest";
-import type { ChatMsg, ContentPiece, HumanInputPiece } from "./chat-types";
 import { findActiveTextInterrupt } from "./find-active-text-interrupt";
 
 const textInterrupt: HumanInputPiece = {

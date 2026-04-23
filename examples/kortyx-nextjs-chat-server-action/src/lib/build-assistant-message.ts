@@ -1,5 +1,5 @@
+import type { ChatMsg, ContentPiece } from "@kortyx/react";
 import type { StreamChunk } from "kortyx/browser";
-import type { ChatMsg, ContentPiece } from "@/lib/chat-types";
 
 export function buildAssistantMessage(args: {
   createId: () => string;

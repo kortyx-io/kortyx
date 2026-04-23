@@ -1,5 +1,10 @@
 "use client";
 
+import type {
+  ContentPiece,
+  HumanInputPiece,
+  StructuredData,
+} from "@kortyx/react";
 import {
   AlertCircleIcon,
   ChevronDownIcon,
@@ -14,11 +19,6 @@ import remarkGfm from "remark-gfm";
 import { codeToHtml } from "shiki";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import type {
-  ContentPiece,
-  HumanInputPiece,
-  StructuredData,
-} from "@/lib/chat-types";
 
 export type ChatMessageProps = {
   id: string;

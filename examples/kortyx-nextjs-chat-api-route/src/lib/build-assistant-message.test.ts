@@ -1,6 +1,6 @@
+import type { ContentPiece } from "@kortyx/react";
 import { describe, expect, it } from "vitest";
 import { buildAssistantMessage } from "./build-assistant-message";
-import type { ContentPiece } from "./chat-types";
 
 describe("buildAssistantMessage", () => {
   it("joins only text pieces into the message content", () => {

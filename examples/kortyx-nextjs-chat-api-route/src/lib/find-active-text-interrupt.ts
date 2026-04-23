@@ -1,4 +1,4 @@
-import type { ChatMsg, ContentPiece, HumanInputPiece } from "./chat-types";
+import type { ChatMsg, ContentPiece, HumanInputPiece } from "@kortyx/react";
 
 export function findActiveTextInterrupt(args: {
   messages: ChatMsg[];
