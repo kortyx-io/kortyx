@@ -78,7 +78,6 @@ type UseChatOptions = {
   transport: ChatTransport;
   storage?: ChatStorage;
   createId?: () => string;
-  openDebugPanel?: () => void;
 };
 ```
 
@@ -87,7 +86,6 @@ Notes:
 - `transport` is required
 - `storage` defaults to browser storage
 - `createId` is optional when you want custom message/piece ids
-- `openDebugPanel` is the app-owned UI seam for debug affordances
 
 ## Transport helpers
 

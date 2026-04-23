@@ -61,7 +61,6 @@ export function createLiveChatPieces<
   onChange: (pieces: LiveChatPiece<TStructuredData, TCustomPiece>[]) => void;
   structuredStreams: StructuredStreamsController<TStructuredData>;
   toHumanInputPiece: (chunk: StreamChunk) => TCustomPiece;
-  openDebugPanel?: () => void;
 }) {
   const keyedPieces: Array<{
     key: string;
@@ -148,7 +147,7 @@ export function createLiveChatPieces<
 
   const processChunk = (
     chunk: StreamChunk,
-    options?: { openDebugOnInterrupt?: boolean | undefined },
+    _options?: { openDebugOnInterrupt?: boolean | undefined },
   ): boolean => {
     if (chunk.type === "text-start") {
       ensureTextPiece(resolveTextStreamKey(chunk, chunk.node));
@@ -186,7 +185,6 @@ export function createLiveChatPieces<
 
     if (chunk.type === "interrupt") {
       pushPiece(args.toHumanInputPiece(chunk));
-      if (options?.openDebugOnInterrupt) args.openDebugPanel?.();
       return true;
     }
 

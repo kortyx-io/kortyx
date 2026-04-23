@@ -45,7 +45,6 @@ export type UseChatOptions = {
   transport: ChatTransport;
   storage?: ChatStorage<ChatMsg> | undefined;
   createId?: (() => string) | undefined;
-  openDebugPanel?: (() => void) | undefined;
 };
 
 const defaultStorage = createBrowserChatStorage<ChatMsg>();
@@ -91,7 +90,6 @@ export function useChat(options: UseChatOptions): UseChatValue {
   const transport = useInitialValue(options.transport);
   const storage = useInitialValue(options.storage ?? defaultStorage);
   const createId = useInitialValue(options.createId ?? defaultCreateId);
-  const openDebugPanel = useInitialValue(options.openDebugPanel ?? (() => {}));
 
   const [messages, setMessages] = useState<ChatMsg[]>([]);
   const [isStreaming, setIsStreaming] = useState(false);
@@ -181,11 +179,8 @@ export function useChat(options: UseChatOptions): UseChatValue {
     sid: string;
     messagesToSend: OutgoingChatMessage[];
     debugLabel: string;
-    openDebugOnStart?: boolean;
     openDebugOnInterrupt?: boolean;
   }) => {
-    if (args.openDebugOnStart) openDebugPanel();
-
     clearStructuredStreams();
     setStreamContentPieces([]);
 
@@ -201,7 +196,6 @@ export function useChat(options: UseChatOptions): UseChatValue {
           chunk,
           createId,
         }),
-      openDebugPanel,
     });
 
     await transport.stream({
@@ -286,7 +280,6 @@ export function useChat(options: UseChatOptions): UseChatValue {
         sid,
         messagesToSend,
         debugLabel: "runChat (resume)",
-        openDebugOnStart: true,
       });
     } finally {
       setIsStreaming(false);
