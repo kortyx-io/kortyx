@@ -1,14 +1,19 @@
 "use client";
 
+import { createRouteChatTransport } from "@kortyx/react";
 import { ChatWindow } from "@/components/features/chat/chat-window";
 import { useChat } from "@/hooks/use-chat";
-import { createBrowserChatStorage } from "@/lib/chat-storage";
-import { createApiRouteChatTransport } from "@/lib/chat-transport";
 
 export default function Home() {
   const chat = useChat({
-    transport: createApiRouteChatTransport(),
-    storage: createBrowserChatStorage(),
+    transport: createRouteChatTransport({
+      endpoint: "/api/chat",
+      getBody: ({ sessionId, workflowId, messages }) => ({
+        sessionId,
+        workflowId,
+        messages,
+      }),
+    }),
   });
 
   return (

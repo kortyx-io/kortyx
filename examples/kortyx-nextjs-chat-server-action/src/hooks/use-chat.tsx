@@ -1,6 +1,10 @@
 "use client";
 
 import {
+  type ChatStorage,
+  type ChatTransport,
+  createBrowserChatStorage,
+  type OutgoingChatMessage,
   type UseStructuredStreamsOptions,
   type UseStructuredStreamsResult,
   useStructuredStreams,
@@ -9,19 +13,10 @@ import type { StreamChunk } from "kortyx/browser";
 import { useEffect, useRef, useState } from "react";
 import { useChatStreamDebug } from "@/hooks/use-chat-stream-debug";
 import { buildAssistantMessage } from "@/lib/build-assistant-message";
-import { type ChatStorage, createBrowserChatStorage } from "@/lib/chat-storage";
-import {
-  type ChatTransport,
-  createServerActionChatTransport,
-  type OutgoingChatMessage,
-} from "@/lib/chat-transport";
 import type { ChatMsg, ContentPiece, HumanInputPiece } from "@/lib/chat-types";
 import { createChatPieceAccumulator } from "@/lib/create-chat-piece-accumulator";
 import { findActiveTextInterrupt } from "@/lib/find-active-text-interrupt";
 import { toHumanInputPiece } from "@/lib/to-human-input-piece";
-
-const defaultTransport = createServerActionChatTransport();
-const defaultStorage = createBrowserChatStorage();
 
 const defaultCreateId = () => {
   try {
@@ -66,9 +61,11 @@ type StructuredStreamsHook = (
 ) => UseStructuredStreamsResult<Record<string, unknown>>;
 type ChatStreamDebugHook = typeof useChatStreamDebug;
 
+const defaultStorage = createBrowserChatStorage<ChatMsg>();
+
 export type UseChatOptions = {
-  transport?: ChatTransport | undefined;
-  storage?: ChatStorage | undefined;
+  transport: ChatTransport;
+  storage?: ChatStorage<ChatMsg> | undefined;
   useStructuredStreamsImpl?: StructuredStreamsHook | undefined;
   useChatStreamDebugImpl?: ChatStreamDebugHook | undefined;
   mapInterruptChunk?:
@@ -98,25 +95,25 @@ function useInitialValue<T>(value: T): T {
   return ref.current;
 }
 
-export function useChat(options?: UseChatOptions | undefined): UseChatValue {
-  const transport = useInitialValue(options?.transport ?? defaultTransport);
-  const storage = useInitialValue(options?.storage ?? defaultStorage);
-  const createId = useInitialValue(options?.createId ?? defaultCreateId);
+export function useChat(options: UseChatOptions): UseChatValue {
+  const transport = useInitialValue(options.transport);
+  const storage = useInitialValue(options.storage ?? defaultStorage);
+  const createId = useInitialValue(options.createId ?? defaultCreateId);
   const openDebugPanel = useInitialValue(
-    options?.openDebugPanel ?? defaultOpenDebugPanel,
+    options.openDebugPanel ?? defaultOpenDebugPanel,
   );
   const mapInterruptChunk = useInitialValue(
-    options?.mapInterruptChunk ?? toHumanInputPiece,
+    options.mapInterruptChunk ?? toHumanInputPiece,
   );
   const buildAssistantMessageImpl = useInitialValue(
-    options?.buildAssistantMessageImpl ?? buildAssistantMessage,
+    options.buildAssistantMessageImpl ?? buildAssistantMessage,
   );
   const useStructuredStreamsImpl = useInitialValue(
-    options?.useStructuredStreamsImpl ??
+    options.useStructuredStreamsImpl ??
       (useStructuredStreams as StructuredStreamsHook),
   );
   const useChatStreamDebugImpl = useInitialValue(
-    options?.useChatStreamDebugImpl ?? useChatStreamDebug,
+    options.useChatStreamDebugImpl ?? useChatStreamDebug,
   );
 
   const [messages, setMessages] = useState<ChatMsg[]>([]);
