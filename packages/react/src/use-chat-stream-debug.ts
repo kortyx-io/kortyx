@@ -1,6 +1,6 @@
 "use client";
 
-import type { StreamChunk } from "kortyx/browser";
+import type { StreamChunk } from "@kortyx/stream/browser";
 import { useCallback, useState } from "react";
 
 type DebugChunk = StreamChunk & {

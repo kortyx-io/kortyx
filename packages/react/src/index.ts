@@ -4,4 +4,5 @@ export * from "./chat-transport";
 export * from "./chat-types";
 export * from "./create-live-chat-pieces";
 export * from "./to-human-input-piece";
+export * from "./use-chat-stream-debug";
 export * from "./use-structured-streams";

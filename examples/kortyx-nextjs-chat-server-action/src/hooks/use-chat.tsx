@@ -13,11 +13,11 @@ import {
   toHumanInputPiece,
   type UseStructuredStreamsOptions,
   type UseStructuredStreamsResult,
+  useChatStreamDebug,
   useStructuredStreams,
 } from "@kortyx/react";
 import type { StreamChunk } from "kortyx/browser";
 import { useEffect, useRef, useState } from "react";
-import { useChatStreamDebug } from "@/hooks/use-chat-stream-debug";
 import { findActiveTextInterrupt } from "@/lib/find-active-text-interrupt";
 
 const defaultCreateId = () => {
