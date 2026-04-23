@@ -5,6 +5,7 @@ import type React from "react";
 import { createContext, useEffect, useState } from "react";
 import { useChatStreamDebug } from "@/hooks/use-chat-stream-debug";
 import { useStructuredStreams } from "@/hooks/use-structured-streams";
+import { buildAssistantMessage } from "@/lib/build-assistant-message";
 import { type ChatStorage, createBrowserChatStorage } from "@/lib/chat-storage";
 import {
   createServerActionChatTransport,
@@ -149,30 +150,6 @@ export function ChatProvider({
     } catch {}
   };
 
-  const buildAssistantMessage = (args: {
-    pieces: ContentPiece[];
-    debug: StreamChunk[];
-  }): ChatMsg => {
-    const plainTextContent = args.pieces
-      .filter(
-        (piece): piece is Extract<ContentPiece, { type: "text" }> =>
-          piece.type === "text",
-      )
-      .map((piece) => piece.content)
-      .join("");
-
-    const base = {
-      id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
-      role: "assistant" as const,
-      content: plainTextContent,
-      debug: args.debug,
-    };
-
-    return args.pieces.length > 0
-      ? { ...base, contentPieces: args.pieces }
-      : base;
-  };
-
   const streamAssistantResponse = async (args: {
     sid: string;
     messagesToSend: OutgoingChatMessage[];
@@ -221,6 +198,7 @@ export function ChatProvider({
     });
 
     const assistant = buildAssistantMessage({
+      createId,
       pieces: pieces.getPieces(),
       debug: debug.getAll(),
     });
