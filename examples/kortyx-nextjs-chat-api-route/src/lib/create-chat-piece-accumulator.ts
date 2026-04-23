@@ -1,9 +1,11 @@
+import type { StructuredStreamItem } from "@kortyx/react";
 import type { StreamChunk } from "kortyx/browser";
-import type { StructuredStreamItem } from "@/hooks/use-structured-streams";
 import type { ContentPiece, HumanInputPiece } from "@/lib/chat-types";
 
 type StructuredStreamsController = {
-  applyStreamChunk: (chunk: StreamChunk) => StructuredStreamItem | undefined;
+  applyStreamChunk: (
+    chunk: StreamChunk,
+  ) => StructuredStreamItem<Record<string, unknown>> | undefined;
 };
 
 const isNonEmptyTextPiece = (piece: ContentPiece) =>

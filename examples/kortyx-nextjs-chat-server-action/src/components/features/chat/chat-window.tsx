@@ -2,13 +2,13 @@ import { BugIcon, SettingsIcon, TrashIcon } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { SidebarProvider } from "@/components/ui/sidebar";
-import { useChat } from "@/hooks/use-chat";
+import type { UseChatValue } from "@/hooks/use-chat";
 import { ChatInput } from "./chat-input";
 import { ChatMessage } from "./chat-message";
 import { DebugSidebar } from "./debug-sidebar";
 import { ParametersDrawer } from "./parameters-drawer";
 
-export function ChatWindow() {
+export function ChatWindow({ chat }: { chat: UseChatValue }) {
   const {
     messages,
     isStreaming,
@@ -16,12 +16,13 @@ export function ChatWindow() {
     streamDebug,
     lastAssistantId,
     send,
+    respondToHumanInput,
     clearChat,
     includeHistory,
     setIncludeHistory,
     workflowId,
     setWorkflowId,
-  } = useChat();
+  } = chat;
   const [input, setInput] = useState("");
   const [debugOpen, setDebugOpen] = useState(false);
   const [debugForId, setDebugForId] = useState<string | null>(null);
@@ -146,6 +147,8 @@ export function ChatWindow() {
                       id={m.id}
                       sender={m.role}
                       content={m.content}
+                      chatIsStreaming={isStreaming}
+                      onRespondToHumanInput={respondToHumanInput}
                       {...(m.contentPieces
                         ? { contentPieces: m.contentPieces }
                         : {})}
@@ -159,6 +162,8 @@ export function ChatWindow() {
                       id="__stream__"
                       sender="assistant"
                       content=""
+                      chatIsStreaming={isStreaming}
+                      onRespondToHumanInput={respondToHumanInput}
                       contentPieces={streamContentPieces}
                       isStreaming={true}
                       onDebug={() => {}}

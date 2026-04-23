@@ -14,7 +14,6 @@ import remarkGfm from "remark-gfm";
 import { codeToHtml } from "shiki";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { useChat } from "@/hooks/use-chat";
 import type {
   ContentPiece,
   HumanInputPiece,
@@ -27,6 +26,15 @@ export type ChatMessageProps = {
   content: string;
   contentPieces?: ContentPiece[];
   isStreaming?: boolean;
+  chatIsStreaming?: boolean | undefined;
+  onRespondToHumanInput?:
+    | ((args: {
+        resumeToken: string;
+        requestId: string;
+        selected: string[];
+        text?: string;
+      }) => Promise<void> | void)
+    | undefined;
   onDebug?: (id: string) => void;
 };
 
@@ -344,8 +352,22 @@ function StructuredDataBox({ data }: { data: StructuredData }) {
   );
 }
 
-function HumanInputBox({ piece }: { piece: HumanInputPiece }) {
-  const { respondToHumanInput, isStreaming } = useChat();
+function HumanInputBox({
+  piece,
+  chatIsStreaming,
+  onRespondToHumanInput,
+}: {
+  piece: HumanInputPiece;
+  chatIsStreaming?: boolean | undefined;
+  onRespondToHumanInput?:
+    | ((args: {
+        resumeToken: string;
+        requestId: string;
+        selected: string[];
+        text?: string;
+      }) => Promise<void> | void)
+    | undefined;
+}) {
   const [selected, setSelected] = useState<string[]>([]);
 
   // For text interrupts, don't render anything - user types response normally
@@ -369,7 +391,7 @@ function HumanInputBox({ piece }: { piece: HumanInputPiece }) {
               <input
                 type="checkbox"
                 className="mt-1"
-                disabled={isStreaming}
+                disabled={chatIsStreaming}
                 checked={selected.includes(opt.id)}
                 onChange={(e) => {
                   const next = e.target.checked;
@@ -392,11 +414,11 @@ function HumanInputBox({ piece }: { piece: HumanInputPiece }) {
               key={opt.id}
               size="sm"
               variant="outline"
-              disabled={isStreaming}
+              disabled={chatIsStreaming || !onRespondToHumanInput}
               className="justify-start h-auto px-4 py-2 text-left whitespace-normal"
               onClick={() =>
                 (async () => {
-                  await respondToHumanInput({
+                  await onRespondToHumanInput?.({
                     resumeToken: piece.resumeToken,
                     requestId: piece.requestId,
                     selected: [opt.id],
@@ -413,10 +435,12 @@ function HumanInputBox({ piece }: { piece: HumanInputPiece }) {
         {isMulti && (
           <Button
             size="sm"
-            disabled={isStreaming || selected.length === 0}
+            disabled={
+              chatIsStreaming || selected.length === 0 || !onRespondToHumanInput
+            }
             onClick={() =>
               (async () => {
-                await respondToHumanInput({
+                await onRespondToHumanInput?.({
                   resumeToken: piece.resumeToken,
                   requestId: piece.requestId,
                   selected,
@@ -439,6 +463,8 @@ export function ChatMessage({
   content,
   contentPieces,
   isStreaming,
+  chatIsStreaming,
+  onRespondToHumanInput,
   onDebug,
 }: ChatMessageProps) {
   const isUser = sender === "user";
@@ -546,7 +572,12 @@ export function ChatMessage({
                       <AlertDescription>{piece.content}</AlertDescription>
                     </Alert>
                   ) : piece.type === "interrupt" ? (
-                    <HumanInputBox key={piece.id} piece={piece} />
+                    <HumanInputBox
+                      key={piece.id}
+                      piece={piece}
+                      chatIsStreaming={chatIsStreaming}
+                      onRespondToHumanInput={onRespondToHumanInput}
+                    />
                   ) : (
                     <StructuredDataBox key={piece.id} data={piece.data} />
                   ),
