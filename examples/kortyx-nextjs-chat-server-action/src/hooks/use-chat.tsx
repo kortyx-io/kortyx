@@ -4,6 +4,7 @@ import {
   type ChatStorage,
   type ChatTransport,
   createBrowserChatStorage,
+  createLiveChatPieces,
   type OutgoingChatMessage,
   type UseStructuredStreamsOptions,
   type UseStructuredStreamsResult,
@@ -14,7 +15,6 @@ import { useEffect, useRef, useState } from "react";
 import { useChatStreamDebug } from "@/hooks/use-chat-stream-debug";
 import { buildAssistantMessage } from "@/lib/build-assistant-message";
 import type { ChatMsg, ContentPiece, HumanInputPiece } from "@/lib/chat-types";
-import { createChatPieceAccumulator } from "@/lib/create-chat-piece-accumulator";
 import { findActiveTextInterrupt } from "@/lib/find-active-text-interrupt";
 import { toHumanInputPiece } from "@/lib/to-human-input-piece";
 
@@ -213,7 +213,7 @@ export function useChat(options: UseChatOptions): UseChatValue {
     setStreamContentPieces([]);
 
     const debug = createRecorder(`${args.debugLabel} sessionId=${args.sid}`);
-    const pieces = createChatPieceAccumulator({
+    const pieces = createLiveChatPieces({
       createId,
       onChange: setStreamContentPieces,
       structuredStreams: {

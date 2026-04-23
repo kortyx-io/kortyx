@@ -1,10 +1,21 @@
 import {
   createStructuredStreamAccumulator,
   type StreamChunk,
-} from "kortyx/browser";
+  type StructuredStreamState,
+} from "@kortyx/stream/browser";
 import { describe, expect, it } from "vitest";
-import type { HumanInputPiece, StructuredData } from "./chat-types";
-import { createChatPieceAccumulator } from "./create-chat-piece-accumulator";
+import { createLiveChatPieces } from "../src/create-live-chat-pieces";
+
+type HumanInputPiece = {
+  id: string;
+  type: "interrupt";
+  resumeToken: string;
+  requestId: string;
+  kind: "text" | "choice" | "multi-choice";
+  question?: string;
+  multiple: boolean;
+  options: Array<{ id: string; label: string; description?: string }>;
+};
 
 const createIdFactory = () => {
   let counter = 0;
@@ -22,7 +33,7 @@ const createHumanInputPiece = (): HumanInputPiece => ({
   options: [],
 });
 
-describe("createChatPieceAccumulator", () => {
+describe("createLiveChatPieces", () => {
   it("keeps first-seen order when structured chunks arrive after text starts", () => {
     const createId = createIdFactory();
     const snapshots: string[][] = [];
@@ -30,7 +41,7 @@ describe("createChatPieceAccumulator", () => {
       createStructuredStreamAccumulator<Record<string, unknown>>();
     const structuredPieceIds = new Map<string, string>();
 
-    const accumulator = createChatPieceAccumulator({
+    const accumulator = createLiveChatPieces({
       createId,
       onChange: (pieces) => {
         snapshots.push(
@@ -41,7 +52,7 @@ describe("createChatPieceAccumulator", () => {
       },
       structuredStreams: {
         applyStreamChunk: (chunk) => {
-          const state = structured.applyStreamChunk(chunk) as StructuredData;
+          const state = structured.applyStreamChunk(chunk);
           if (!state) return undefined;
 
           const existingId = structuredPieceIds.get(state.streamId);
@@ -107,12 +118,12 @@ describe("createChatPieceAccumulator", () => {
     const structured =
       createStructuredStreamAccumulator<Record<string, unknown>>();
     const structuredPieceIds = new Map<string, string>();
-    const accumulator = createChatPieceAccumulator({
+    const accumulator = createLiveChatPieces({
       createId,
       onChange: () => {},
       structuredStreams: {
         applyStreamChunk: (chunk) => {
-          const state = structured.applyStreamChunk(chunk) as StructuredData;
+          const state = structured.applyStreamChunk(chunk);
           if (!state) return undefined;
 
           const existingId = structuredPieceIds.get(state.streamId);
@@ -162,7 +173,7 @@ describe("createChatPieceAccumulator", () => {
         data: {
           body: "Final",
         },
-      },
+      } satisfies Partial<StructuredStreamState<Record<string, unknown>>>,
     });
   });
 });

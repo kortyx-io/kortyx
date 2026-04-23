@@ -1,24 +1,72 @@
-import type { StructuredStreamItem } from "@kortyx/react";
-import type { StreamChunk } from "kortyx/browser";
-import type { ContentPiece, HumanInputPiece } from "@/lib/chat-types";
+import type {
+  StreamChunk,
+  StructuredStreamState,
+} from "@kortyx/stream/browser";
+import type { StructuredStreamItem } from "./use-structured-streams";
 
-type StructuredStreamsController = {
-  applyStreamChunk: (
-    chunk: StreamChunk,
-  ) => StructuredStreamItem<Record<string, unknown>> | undefined;
+export type LiveChatTextPiece = {
+  id: string;
+  type: "text";
+  content: string;
 };
 
-const isNonEmptyTextPiece = (piece: ContentPiece) =>
-  piece.type !== "text" || piece.content.length > 0;
+export type LiveChatStructuredPiece<TStructuredData = unknown> = {
+  id: string;
+  type: "structured";
+  data: StructuredStreamState<TStructuredData>;
+};
 
-export function createChatPieceAccumulator(args: {
+export type LiveChatErrorPiece = {
+  id: string;
+  type: "error";
+  content: string;
+};
+
+type LiveChatCustomPiece = {
+  id: string;
+  type: string;
+};
+
+export type LiveChatPiece<
+  TStructuredData = unknown,
+  TCustomPiece extends LiveChatCustomPiece = never,
+> =
+  | LiveChatTextPiece
+  | LiveChatStructuredPiece<TStructuredData>
+  | LiveChatErrorPiece
+  | TCustomPiece;
+
+type StructuredStreamsController<TStructuredData> = {
+  applyStreamChunk: (
+    chunk: StreamChunk,
+  ) => StructuredStreamItem<TStructuredData> | undefined;
+};
+
+const isNonEmptyTextPiece = <
+  TStructuredData,
+  TCustomPiece extends LiveChatCustomPiece,
+>(
+  piece: LiveChatPiece<TStructuredData, TCustomPiece>,
+) =>
+  piece.type !== "text" ||
+  ("content" in piece &&
+    typeof piece.content === "string" &&
+    piece.content.length > 0);
+
+export function createLiveChatPieces<
+  TStructuredData = unknown,
+  TCustomPiece extends LiveChatCustomPiece = never,
+>(args: {
   createId: () => string;
-  onChange: (pieces: ContentPiece[]) => void;
-  structuredStreams: StructuredStreamsController;
-  toHumanInputPiece: (chunk: StreamChunk) => HumanInputPiece;
+  onChange: (pieces: LiveChatPiece<TStructuredData, TCustomPiece>[]) => void;
+  structuredStreams: StructuredStreamsController<TStructuredData>;
+  toHumanInputPiece: (chunk: StreamChunk) => TCustomPiece;
   openDebugPanel?: () => void;
 }) {
-  const keyedPieces: Array<{ key: string; piece: ContentPiece }> = [];
+  const keyedPieces: Array<{
+    key: string;
+    piece: LiveChatPiece<TStructuredData, TCustomPiece>;
+  }> = [];
   let sawTextDelta = false;
 
   const emit = () => {
@@ -32,7 +80,10 @@ export function createChatPieceAccumulator(args: {
   const findPieceIndex = (key: string) =>
     keyedPieces.findIndex((entry) => entry.key === key);
 
-  const upsertPiece = (key: string, piece: ContentPiece) => {
+  const upsertPiece = (
+    key: string,
+    piece: LiveChatPiece<TStructuredData, TCustomPiece>,
+  ) => {
     const existingIndex = findPieceIndex(key);
     if (existingIndex >= 0) {
       keyedPieces[existingIndex] = { key, piece };
@@ -42,7 +93,7 @@ export function createChatPieceAccumulator(args: {
     emit();
   };
 
-  const pushPiece = (piece: ContentPiece) => {
+  const pushPiece = (piece: LiveChatPiece<TStructuredData, TCustomPiece>) => {
     keyedPieces.push({
       key: `${piece.type}:${piece.id}`,
       piece,
@@ -79,17 +130,14 @@ export function createChatPieceAccumulator(args: {
     return fallbackNode ?? "__unknown__";
   };
 
-  const ensureTextPiece = (key: string) => {
+  const ensureTextPiece = (key: string): LiveChatTextPiece => {
     const pieceKey = `text:${key || "__unknown__"}`;
     const existingIndex = findPieceIndex(pieceKey);
     if (existingIndex >= 0) {
-      return keyedPieces[existingIndex]?.piece as Extract<
-        ContentPiece,
-        { type: "text" }
-      >;
+      return keyedPieces[existingIndex]?.piece as LiveChatTextPiece;
     }
 
-    const nextPiece: Extract<ContentPiece, { type: "text" }> = {
+    const nextPiece: LiveChatTextPiece = {
       id: args.createId(),
       type: "text",
       content: "",
