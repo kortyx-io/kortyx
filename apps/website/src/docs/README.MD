@@ -58,7 +58,7 @@ When removing a docs page:
 
 ## Priority 2 — Reduce adoption friction
 
-1. Add one focused `@kortyx/react` page that explains `useChat`, `useStructuredStreams`, and when to drop to `kortyx/browser`.
+1. Expand the new `@kortyx/react` page with storage override, interrupt, and debug examples as usage settles.
 2. Expand **Troubleshooting** with top recurring setup/runtime errors and fixes.
 3. Add compatibility notes for Node/framework/runtime expectations where ambiguity exists.
 4. Add package-manager command parity checks on install/run pages.

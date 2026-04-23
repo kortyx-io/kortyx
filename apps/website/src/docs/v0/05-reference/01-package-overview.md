@@ -36,4 +36,5 @@ This page maps the current OSS packages in this monorepo.
 - Providers: install provider packages per need (for example `@kortyx/google`).
 - Business persistence: own it in your app; Kortyx only provides runtime/framework persistence.
 - React apps should start with `@kortyx/react` before reaching for raw browser stream reducers.
+- See [React Client](./06-react-client) for the recommended `useChat(...)` and `useStructuredStreams()` path.
 - Stream structured-data schema currently has a built-in `jobs` discriminated type; apps may still emit custom structured payloads.
