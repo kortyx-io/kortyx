@@ -14,12 +14,12 @@ import remarkGfm from "remark-gfm";
 import { codeToHtml } from "shiki";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
+import { useChat } from "@/hooks/use-chat";
 import type {
   ContentPiece,
   HumanInputPiece,
   StructuredData,
-} from "@/context/chat-context";
-import { useChat } from "@/hooks/use-chat";
+} from "@/lib/chat-types";
 
 export type ChatMessageProps = {
   id: string;

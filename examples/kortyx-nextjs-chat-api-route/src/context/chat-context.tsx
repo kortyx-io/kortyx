@@ -1,42 +1,19 @@
 "use client";
 
-import {
-  consumeStream,
-  createStructuredStreamAccumulator,
-  type StreamChunk,
-  type StructuredStreamState,
-  streamChatFromRoute,
-} from "kortyx/browser";
+import type { StreamChunk } from "kortyx/browser";
 import type React from "react";
-import { createContext, useEffect, useRef, useState } from "react";
+import { createContext, useEffect, useState } from "react";
+import { useChatStreamDebug } from "@/hooks/use-chat-stream-debug";
+import { useStructuredStreams } from "@/hooks/use-structured-streams";
+import {
+  createApiRouteChatTransport,
+  type OutgoingChatMessage,
+} from "@/lib/chat-transport";
+import type { ChatMsg, ContentPiece, HumanInputPiece } from "@/lib/chat-types";
+import { createChatPieceAccumulator } from "@/lib/create-chat-piece-accumulator";
 import { findActiveTextInterrupt } from "@/lib/find-active-text-interrupt";
 
-export type StructuredData = StructuredStreamState<Record<string, unknown>>;
-
-export type HumanInputPiece = {
-  id: string;
-  type: "interrupt";
-  resumeToken: string;
-  requestId: string;
-  kind: "text" | "choice" | "multi-choice";
-  question?: string;
-  multiple: boolean;
-  options: Array<{ id: string; label: string; description?: string }>;
-};
-
-export type ContentPiece =
-  | { id: string; type: "text"; content: string }
-  | { id: string; type: "structured"; data: StructuredData }
-  | { id: string; type: "error"; content: string }
-  | HumanInputPiece;
-
-export type ChatMsg = {
-  id: string;
-  role: "user" | "assistant";
-  content: string;
-  contentPieces?: ContentPiece[];
-  debug?: StreamChunk[];
-};
+const chatTransport = createApiRouteChatTransport();
 
 const toStoredChatMessage = (value: unknown): ChatMsg | null => {
   if (!value || typeof value !== "object") return null;
@@ -91,24 +68,28 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
   const [streamContentPieces, setStreamContentPieces] = useState<
     ContentPiece[]
   >([]);
-  const [streamDebug, setStreamDebug] = useState<StreamChunk[]>([]);
   const [lastAssistantId, setLastAssistantId] = useState<string | null>(null);
   const [includeHistory, setIncludeHistory] = useState(true);
   const [workflowId, setWorkflowId] = useState("");
-  const sawDeltaRef = useRef(false);
   const [sessionId, setSessionId] = useState<string | null>(null);
+  const { streamDebug, clearStreamDebug, createRecorder } =
+    useChatStreamDebug();
+  const { applyStreamChunk, clear: clearStructuredStreams } =
+    useStructuredStreams({
+      createId,
+    });
 
   const STORAGE_MESSAGES_KEY = "chat.messages.v1";
   const STORAGE_INCLUDE_HISTORY_KEY = "chat.includeHistory.v1";
 
-  const createId = () => {
+  function createId() {
     try {
       if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
         return crypto.randomUUID();
       }
     } catch {}
     return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
-  };
+  }
 
   useEffect(() => {
     try {
@@ -157,11 +138,13 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     try {
       if (typeof localStorage === "undefined") return;
-      const trimmed = messages.slice(-60).map((m) => ({
-        id: m.id,
-        role: m.role,
-        content: m.content,
-        ...(m.contentPieces ? { contentPieces: m.contentPieces } : {}),
+      const trimmed = messages.slice(-60).map((message) => ({
+        id: message.id,
+        role: message.role,
+        content: message.content,
+        ...(message.contentPieces
+          ? { contentPieces: message.contentPieces }
+          : {}),
       }));
       localStorage.setItem(STORAGE_MESSAGES_KEY, JSON.stringify(trimmed));
     } catch {}
@@ -170,7 +153,8 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
   const clearChat = () => {
     setMessages([]);
     setStreamContentPieces([]);
-    setStreamDebug([]);
+    clearStreamDebug();
+    clearStructuredStreams();
     setLastAssistantId(null);
     try {
       if (typeof localStorage !== "undefined") {
@@ -202,278 +186,58 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     } catch {}
   };
 
-  type DebugChunk = StreamChunk & {
-    _ts: number;
-    _dt: number;
-    _seq: number;
-  };
-
-  const createDebugRecorder = (initialMessage: string) => {
-    let seq = 0;
-    let lastTs = 0;
-    const accDebug: StreamChunk[] = [];
-
-    const push = (chunk: StreamChunk) => {
-      const ts = Date.now();
-      const withMeta: DebugChunk = {
-        ...(chunk as StreamChunk),
-        _ts: ts,
-        _dt: lastTs ? ts - lastTs : 0,
-        _seq: seq++,
+  const toHumanInputPiece = (chunk: StreamChunk): HumanInputPiece => {
+    interface HumanInputStreamChunk {
+      type: "interrupt";
+      requestId: string | undefined;
+      resumeToken: string | undefined;
+      input?: {
+        kind?: "text" | "choice" | "multi-choice";
+        question?: string;
+        multiple?: boolean;
+        options?: Array<{
+          id?: string | number;
+          label?: string;
+          description?: string;
+        }>;
       };
-      lastTs = ts;
-      accDebug.push(withMeta);
-      setStreamDebug((d) =>
-        d.length > 1000 ? [...d.slice(-1000), withMeta] : [...d, withMeta],
-      );
-    };
+    }
 
-    push({
-      type: "status",
-      message: initialMessage,
-    } as StreamChunk);
+    const hi = chunk as unknown as HumanInputStreamChunk;
+    const input = hi.input ?? {};
+    const kind = input.kind || (input.multiple ? "multi-choice" : "choice");
+    const isText = kind === "text";
 
-    return {
-      push,
-      getAll: () => accDebug,
-    };
-  };
-
-  const createPieceAccumulator = () => {
-    const accPieces: ContentPiece[] = [];
-    const liveBuffers: Record<string, string> = {};
-    const liveOrder: string[] = [];
-    const livePieceIds: Record<string, string> = {};
-    const structuredStreams =
-      createStructuredStreamAccumulator<Record<string, unknown>>();
-    const structuredPieceIds: Record<string, string> = {};
-
-    const resolveTextStreamKey = (
-      chunk: StreamChunk,
-      fallbackNode?: string,
-    ): string => {
-      if ("segmentId" in chunk && typeof chunk.segmentId === "string") {
-        const seg = chunk.segmentId.trim();
-        if (seg.length > 0) {
-          const op =
-            "opId" in chunk && typeof chunk.opId === "string"
-              ? chunk.opId.trim()
-              : "";
-          return op.length > 0 ? `${op}:${seg}` : seg;
-        }
-      }
-
-      if ("opId" in chunk && typeof chunk.opId === "string") {
-        const op = chunk.opId.trim();
-        if (op.length > 0) {
-          const node =
-            ("node" in chunk && typeof chunk.node === "string"
-              ? chunk.node
-              : fallbackNode) ?? "__unknown__";
-          return `${op}:${node}`;
-        }
-      }
-
-      return fallbackNode ?? "__unknown__";
-    };
-
-    const ensureLiveStream = (streamKey: string) => {
-      const key = streamKey || "__unknown__";
-      if (!(key in liveBuffers)) {
-        liveBuffers[key] = "";
-        liveOrder.push(key);
-        livePieceIds[key] = createId();
-      }
-      return key;
-    };
-
-    const getLivePiece = (key: string) => {
-      const existingId = livePieceIds[key];
-      const id = existingId ?? createId();
-      if (!existingId) livePieceIds[key] = id;
-      const content = liveBuffers[key] ?? "";
-      if (liveBuffers[key] === undefined) liveBuffers[key] = "";
-      return { id, content };
-    };
-
-    const preview = () =>
-      [
-        ...accPieces,
-        ...liveOrder.map((nodeKey) => {
-          const { id, content } = getLivePiece(nodeKey);
-          return { id, type: "text" as const, content };
-        }),
-      ] satisfies ContentPiece[];
-
-    const flushLive = () => {
-      for (const key of liveOrder) {
-        const buf = liveBuffers[key];
-        if (buf) {
-          accPieces.push({
-            id: getLivePiece(key).id,
-            type: "text",
-            content: buf,
-          });
-        }
-      }
-    };
-
-    const toHumanInputPiece = (chunk: StreamChunk): HumanInputPiece => {
-      interface HumanInputStreamChunk {
-        type: "interrupt";
-        requestId: string | undefined;
-        resumeToken: string | undefined;
-        input?: {
-          kind?: "text" | "choice" | "multi-choice";
-          question?: string;
-          multiple?: boolean;
-          options?: Array<{
-            id?: string | number;
-            label?: string;
-            description?: string;
-          }>;
-        };
-      }
-
-      const hi = chunk as unknown as HumanInputStreamChunk;
-      const input = hi.input ?? {};
-      const kind = input.kind || (input.multiple ? "multi-choice" : "choice");
-      const isText = kind === "text";
-
-      const question = isText
+    const question = isText
+      ? input.question
+      : typeof input.question === "string"
         ? input.question
-        : typeof input.question === "string"
-          ? input.question
-          : "Please choose";
+        : "Please choose";
 
-      const optionsSrc = Array.isArray(input.options) ? input.options : [];
-      const optionsArr: Array<{
-        id: string;
-        label: string;
-        description?: string;
-      }> = optionsSrc
-        .map((o) => ({
-          id: String(o.id ?? ""),
-          label: String(o.label ?? ""),
-          ...(typeof o.description === "string" && o.description
-            ? { description: o.description }
-            : {}),
-        }))
-        .filter((o) => o.id && o.label);
-
-      return {
-        id: createId(),
-        type: "interrupt",
-        resumeToken: String(hi.resumeToken ?? ""),
-        requestId: String(hi.requestId ?? ""),
-        kind,
-        ...(question !== undefined ? { question } : {}),
-        multiple: Boolean(input.multiple),
-        options: optionsArr,
-      };
-    };
-
-    const processChunk = (
-      chunk: StreamChunk,
-      options?: { openDebugOnInterrupt?: boolean | undefined },
-    ): boolean => {
-      if (chunk.type === "text-start") {
-        ensureLiveStream(resolveTextStreamKey(chunk, chunk.node));
-        setStreamContentPieces(preview());
-        return true;
-      }
-
-      if (chunk.type === "text-delta") {
-        sawDeltaRef.current = true;
-        const key = ensureLiveStream(resolveTextStreamKey(chunk, chunk.node));
-        liveBuffers[key] = (liveBuffers[key] || "") + chunk.delta;
-        setStreamContentPieces(preview());
-        return true;
-      }
-
-      if (chunk.type === "text-end") {
-        const key = ensureLiveStream(resolveTextStreamKey(chunk, chunk.node));
-        const buf = liveBuffers[key];
-        if (buf) {
-          accPieces.push({
-            id: getLivePiece(key).id,
-            type: "text",
-            content: buf,
-          });
-        }
-        delete liveBuffers[key];
-        delete livePieceIds[key];
-        const idx = liveOrder.indexOf(key);
-        if (idx >= 0) liveOrder.splice(idx, 1);
-        setStreamContentPieces(preview());
-        return true;
-      }
-
-      if (chunk.type === "structured-data") {
-        const nextState = structuredStreams.apply(chunk) as StructuredData;
-        const streamId = nextState.streamId;
-
-        const existingPieceId = structuredPieceIds[streamId];
-        const pieceId = existingPieceId ?? createId();
-        if (!existingPieceId) structuredPieceIds[streamId] = pieceId;
-
-        const nextPiece: ContentPiece = {
-          id: pieceId,
-          type: "structured",
-          data: nextState,
-        };
-        const existingIndex = accPieces.findIndex(
-          (piece) => piece.id === pieceId,
-        );
-        if (existingIndex >= 0) {
-          accPieces[existingIndex] = nextPiece;
-        } else {
-          accPieces.push(nextPiece);
-        }
-        setStreamContentPieces(preview());
-        return true;
-      }
-
-      if (chunk.type === "interrupt") {
-        accPieces.push(toHumanInputPiece(chunk));
-        setStreamContentPieces(preview());
-        if (options?.openDebugOnInterrupt) openDebugPanel();
-        return true;
-      }
-
-      if (chunk.type === "message") {
-        if (!sawDeltaRef.current) {
-          accPieces.push({
-            id: createId(),
-            type: "text",
-            content: chunk.content ?? "",
-          });
-          setStreamContentPieces(preview());
-        }
-        return true;
-      }
-
-      if (chunk.type === "error") {
-        accPieces.push({
-          id: createId(),
-          type: "error",
-          content: chunk.message ?? "An error occurred",
-        });
-        setStreamContentPieces(preview());
-        return true;
-      }
-
-      if (chunk.type === "done") {
-        return false;
-      }
-
-      return true;
-    };
+    const optionsSrc = Array.isArray(input.options) ? input.options : [];
+    const optionsArr: Array<{
+      id: string;
+      label: string;
+      description?: string;
+    }> = optionsSrc
+      .map((option) => ({
+        id: String(option.id ?? ""),
+        label: String(option.label ?? ""),
+        ...(typeof option.description === "string" && option.description
+          ? { description: option.description }
+          : {}),
+      }))
+      .filter((option) => option.id && option.label);
 
     return {
-      processChunk,
-      flushLive,
-      getPieces: () => accPieces,
+      id: createId(),
+      type: "interrupt",
+      resumeToken: String(hi.resumeToken ?? ""),
+      requestId: String(hi.requestId ?? ""),
+      kind,
+      ...(question !== undefined ? { question } : {}),
+      multiple: Boolean(input.multiple),
+      options: optionsArr,
     };
   };
 
@@ -503,30 +267,31 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
 
   const streamAssistantResponse = async (args: {
     sid: string;
-    messagesToSend: Array<{
-      role: "user" | "assistant" | "system";
-      content: string;
-      metadata?: Record<string, unknown>;
-    }>;
+    messagesToSend: OutgoingChatMessage[];
     debugLabel: string;
     openDebugOnStart?: boolean;
     openDebugOnInterrupt?: boolean;
   }) => {
     if (args.openDebugOnStart) openDebugPanel();
 
-    const debug = createDebugRecorder(
-      `${args.debugLabel} sessionId=${args.sid}`,
-    );
-    const pieces = createPieceAccumulator();
+    clearStructuredStreams();
+    setStreamContentPieces([]);
 
-    const stream = streamChatFromRoute({
-      endpoint: "/api/chat",
+    const debug = createRecorder(`${args.debugLabel} sessionId=${args.sid}`);
+    const pieces = createChatPieceAccumulator({
+      createId,
+      onChange: setStreamContentPieces,
+      structuredStreams: {
+        applyStreamChunk,
+      },
+      toHumanInputPiece,
+      openDebugPanel,
+    });
+
+    await chatTransport.stream({
       sessionId: args.sid,
       workflowId,
       messages: args.messagesToSend,
-    });
-
-    await consumeStream(stream, {
       onChunk: (chunk: StreamChunk) => {
         debug.push(chunk);
 
@@ -543,34 +308,31 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
       },
     });
 
-    pieces.flushLive();
-
     const assistant = buildAssistantMessage({
       pieces: pieces.getPieces(),
       debug: debug.getAll(),
     });
     setMessages((prev) => [...prev, assistant]);
     setLastAssistantId(assistant.id);
+    clearStructuredStreams();
     setStreamContentPieces([]);
-    setStreamDebug([]);
+    clearStreamDebug();
   };
 
   const send = async (text: string) => {
     const content = text.trim();
     if (!content || isStreaming) return;
 
-    // Check if there's an active text interrupt - if so, respond to it instead
     const activeTextInterrupt = findActiveTextInterrupt({
       messages,
       streamContentPieces,
     });
 
     if (activeTextInterrupt) {
-      // Respond to the text interrupt
       await respondToHumanInput({
         resumeToken: activeTextInterrupt.resumeToken,
         requestId: activeTextInterrupt.requestId,
-        selected: [content], // User's typed text as the selection
+        selected: [content],
         text: content,
       });
       return;
@@ -582,13 +344,16 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
 
     setIsStreaming(true);
     setStreamContentPieces([]);
-    setStreamDebug([]);
-    sawDeltaRef.current = false;
+    clearStreamDebug();
+    clearStructuredStreams();
 
     try {
       const sid = resolveSessionId();
       const history = includeHistory
-        ? messages.map((m) => ({ role: m.role, content: m.content }))
+        ? messages.map((message) => ({
+            role: message.role,
+            content: message.content,
+          }))
         : [];
       const messagesToSend = [...history, { role: "user" as const, content }];
       await streamAssistantResponse({
@@ -627,8 +392,8 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     setMessages((prev) => [...prev, userMsg]);
     setIsStreaming(true);
     setStreamContentPieces([]);
-    setStreamDebug([]);
-    sawDeltaRef.current = false;
+    clearStreamDebug();
+    clearStructuredStreams();
 
     try {
       const resumePayload: Record<string, unknown> = {
@@ -641,7 +406,10 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
       };
       const sid = resolveSessionId();
       const history = includeHistory
-        ? messages.map((m) => ({ role: m.role, content: m.content }))
+        ? messages.map((message) => ({
+            role: message.role,
+            content: message.content,
+          }))
         : [];
       const messagesToSend = [...history, outgoing];
 

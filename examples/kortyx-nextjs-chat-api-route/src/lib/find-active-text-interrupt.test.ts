@@ -1,9 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type {
-  ChatMsg,
-  ContentPiece,
-  HumanInputPiece,
-} from "../context/chat-context";
+import type { ChatMsg, ContentPiece, HumanInputPiece } from "./chat-types";
 import { findActiveTextInterrupt } from "./find-active-text-interrupt";
 
 const textInterrupt: HumanInputPiece = {
