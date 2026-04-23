@@ -19,6 +19,7 @@
   },
   "dependencies": {
     "@kortyx/google": "workspace:*",
+    "@kortyx/react": "workspace:*",
     "kortyx": "workspace:*",
     "@radix-ui/react-avatar": "^1.1.10",
     "@radix-ui/react-dialog": "^1.1.15",

@@ -1,0 +1,68 @@
+{
+  "name": "@kortyx/react",
+  "version": "0.1.0",
+  "private": false,
+  "description": "React hooks for Kortyx client streaming experiences.",
+  "keywords": [
+    "ai",
+    "agent",
+    "agents",
+    "orchestration",
+    "framework",
+    "react",
+    "kortyx"
+  ],
+  "license": "Apache-2.0",
+  "homepage": "https://kortyx.io/",
+  "bugs": {
+    "url": "https://github.com/kortyx-io/kortyx/issues"
+  },
+  "author": "Kortyx (https://github.com/kortyx-io)",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist/**",
+    "README.md",
+    "CHANGELOG.md"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "predev": "tsc -p tsconfig.build.json",
+    "dev": "tsc --watch",
+    "lint": "biome check src test",
+    "test": "vitest run && pnpm -s type-check",
+    "type-check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@kortyx/stream": "workspace:*"
+  },
+  "peerDependencies": {
+    "react": ">=19"
+  },
+  "devDependencies": {
+    "@testing-library/react": "^16.3.0",
+    "@types/react": "^19",
+    "jsdom": "^26.1.0",
+    "react": "19.2.1",
+    "react-dom": "19.2.1",
+    "turbo": "^2.5.4",
+    "tsup": "^8.5.1",
+    "typescript": "5.7.2",
+    "vitest": "^3.2.4"
+  },
+  "sideEffects": false,
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/kortyx-io/kortyx.git",
+    "directory": "packages/react"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

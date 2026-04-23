@@ -171,9 +171,50 @@ Producer expectations:
 
 > **Good to know:** `useReason(...)` validates the final object with `outputSchema`, but incremental structured chunks are enforced only at the path and operation level. Manual `useStructuredData(...)` calls can add optional schema checks for `data`, `value`, or appended items.
 
-### Recommended client reducer
+### Recommended React helper
 
-Use the built-in helper instead of writing your own reducer:
+For React clients, prefer `useStructuredStreams()` from `@kortyx/react`.
+
+```ts
+import { useStructuredStreams } from "@kortyx/react";
+import type { StreamChunk } from "kortyx/browser";
+
+export function StructuredView() {
+  const structured = useStructuredStreams<Record<string, unknown>>();
+
+  function onChunk(chunk: StreamChunk) {
+    structured.applyStreamChunk(chunk);
+  }
+
+  return null;
+}
+```
+```js
+import { useStructuredStreams } from "@kortyx/react";
+
+export function StructuredView() {
+  const structured = useStructuredStreams();
+
+  function onChunk(chunk) {
+    structured.applyStreamChunk(chunk);
+  }
+
+  return null;
+}
+```
+
+That gives you:
+
+- `items`: stable ordered structured pieces
+- `byStreamId`: map-style access for render logic
+- `get(streamId)`: direct lookup
+- `clear()`: reset live state between runs
+
+> **Good to know:** `useChat()` in `@kortyx/react` builds on top of this and also handles assistant text, interrupts, and message history. Use `useStructuredStreams()` directly only when you want custom UI without the full chat abstraction.
+
+### Advanced: low-level reducer
+
+If you are outside React or want the raw protocol reducer, use `applyStructuredChunk(...)` from `kortyx/browser`.
 
 ```ts
 import {
@@ -182,7 +223,10 @@ import {
   type StructuredStreamState,
 } from "kortyx/browser";
 
-const byStreamId: Record<string, StructuredStreamState<Record<string, unknown>>> = {};
+const byStreamId: Record<
+  string,
+  StructuredStreamState<Record<string, unknown>>
+> = {};
 
 function onStructuredChunk(chunk: StructuredDataChunk) {
   byStreamId[chunk.streamId] = applyStructuredChunk(

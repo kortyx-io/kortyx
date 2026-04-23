@@ -222,67 +222,63 @@ export async function POST(request) {
 
 ## 6. Call `/api/chat` from client code
 
-> **Good to know:** For live UI updates, consume chunks directly with `for await...of` instead of collecting all chunks into an array first.
+For React apps, the recommended client path is `@kortyx/react`.
 
 ```ts
-// src/lib/chat-client.ts
-import {
-  consumeStream,
-  streamChatFromRoute,
-  type StreamChatFromRouteArgs,
-} from "kortyx";
+// src/app/page.tsx
+"use client";
 
-export function runChatStream(
-  args: Omit<StreamChatFromRouteArgs, "endpoint">,
-) {
-  return streamChatFromRoute({
-    endpoint: "/api/chat",
-    ...args,
+import { createRouteChatTransport, useChat } from "@kortyx/react";
+import { ChatWindow } from "@/components/chat-window";
+
+export default function Home() {
+  const chat = useChat({
+    transport: createRouteChatTransport({
+      endpoint: "/api/chat",
+      getBody: ({ sessionId, workflowId, messages }) => ({
+        sessionId,
+        workflowId,
+        messages,
+      }),
+    }),
   });
-}
 
-export async function consumeChat(
-  args: Omit<StreamChatFromRouteArgs, "endpoint">,
-) {
-  const stream = runChatStream(args);
-
-  await consumeStream(stream, {
-    onChunk: (chunk) => {
-      // Update UI incrementally here.
-      console.log(chunk.type);
-    },
-    onError: (err) => {
-      console.error(err);
-    },
-  });
+  return <ChatWindow chat={chat} />;
 }
 ```
 
 ```js
-// src/lib/chat-client.js
-import { consumeStream, streamChatFromRoute } from "kortyx";
+// src/app/page.js
+"use client";
 
-export function runChatStream(args) {
-  return streamChatFromRoute({
-    endpoint: "/api/chat",
-    ...args,
+import { createRouteChatTransport, useChat } from "@kortyx/react";
+import { ChatWindow } from "@/components/chat-window";
+
+export default function Home() {
+  const chat = useChat({
+    transport: createRouteChatTransport({
+      endpoint: "/api/chat",
+      getBody: ({ sessionId, workflowId, messages }) => ({
+        sessionId,
+        workflowId,
+        messages,
+      }),
+    }),
   });
-}
 
-export async function consumeChat(args) {
-  const stream = runChatStream(args);
-
-  await consumeStream(stream, {
-    onChunk: (chunk) => {
-      // Update UI incrementally here.
-      console.log(chunk.type);
-    },
-    onError: (err) => {
-      console.error(err);
-    },
-  });
+  return <ChatWindow chat={chat} />;
 }
 ```
+
+`useChat(...)` gives you:
+
+- `messages` for finalized chat history
+- `streamContentPieces` for the current in-flight assistant response
+- `isStreaming`
+- interrupt resume handling
+- default browser storage
+
+> **Good to know:** This is the same pattern used by `examples/kortyx-nextjs-chat-api-route`. If you need lower-level chunk wiring, see [SSE (API Routes)](../03-guides/11-sse.md) or [React Client](../05-reference/06-react-client.md).
 
 ## 7. Run
 
@@ -307,8 +303,8 @@ GOOGLE_API_KEY=your_key_here bun run dev
 - Type-safe workflow definition
 - Explicit provider bootstrap at app level
 - Node-level model control via `useReason(...)`
-- API-route transport with `streamChatFromRoute(...)`
-- Callback-based stream consumption with `consumeStream(...)`
+- React-first client chat state with `useChat(...)`
+- API-route transport with `createRouteChatTransport(...)`
 - Streaming chunks (`text-start`, `text-delta`, `text-end`, `message`, `done`)
 - Built-in interrupt/resume path when your nodes use `useInterrupt`
 

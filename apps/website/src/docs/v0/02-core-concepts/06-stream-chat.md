@@ -38,6 +38,56 @@ const stream = await agent.streamChat(messages, {
 });
 ```
 
+## Recommended React client path
+
+If your server route returns SSE, the default React client path is now `@kortyx/react`.
+
+```ts
+import { createRouteChatTransport, useChat } from "@kortyx/react";
+
+export function ChatPage() {
+  const chat = useChat({
+    transport: createRouteChatTransport({
+      endpoint: "/api/chat",
+      getBody: ({ sessionId, workflowId, messages }) => ({
+        sessionId,
+        workflowId,
+        messages,
+      }),
+    }),
+  });
+
+  return <ChatWindow chat={chat} />;
+}
+```
+```js
+import { createRouteChatTransport, useChat } from "@kortyx/react";
+
+export function ChatPage() {
+  const chat = useChat({
+    transport: createRouteChatTransport({
+      endpoint: "/api/chat",
+      getBody: ({ sessionId, workflowId, messages }) => ({
+        sessionId,
+        workflowId,
+        messages,
+      }),
+    }),
+  });
+
+  return <ChatWindow chat={chat} />;
+}
+```
+
+Use `useChat()` when you want:
+
+- finalized `messages`
+- live `streamContentPieces`
+- interrupt resume handling
+- default browser storage
+
+> **Good to know:** `useChat()` is the recommended client abstraction for React apps. Drop down to `useStructuredStreams()` or `applyStructuredChunk(...)` only when you need custom stream wiring.
+
 ## Custom route mode (`stream` flag)
 
 ```ts

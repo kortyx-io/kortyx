@@ -3,6 +3,7 @@
   "packages/cli": "0.1.5",
   "packages/core": "0.5.0",
   "packages/hooks": "0.9.1",
+  "packages/react": "0.1.0",
   "packages/kortyx": "0.9.0",
   "packages/providers": "0.3.2",
   "providers/google": "0.2.2",

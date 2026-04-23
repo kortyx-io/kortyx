@@ -21,6 +21,10 @@
       "package-name": "@kortyx/hooks",
       "component": "hooks"
     },
+    "packages/react": {
+      "package-name": "@kortyx/react",
+      "component": "react"
+    },
     "packages/kortyx": {
       "package-name": "kortyx",
       "component": "kortyx"
