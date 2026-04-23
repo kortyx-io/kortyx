@@ -1,8 +1,7 @@
 "use client";
 
-import { createRouteChatTransport } from "@kortyx/react";
+import { createRouteChatTransport, useChat } from "@kortyx/react";
 import { ChatWindow } from "@/components/features/chat/chat-window";
-import { useChat } from "@/hooks/use-chat";
 
 export default function Home() {
   const chat = useChat({

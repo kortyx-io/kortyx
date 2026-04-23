@@ -1,24 +1,15 @@
 "use client";
 
-import {
-  buildAssistantMessage,
-  type ChatMsg,
-  type ChatStorage,
-  type ChatTransport,
-  type ContentPiece,
-  createBrowserChatStorage,
-  createLiveChatPieces,
-  type HumanInputPiece,
-  type OutgoingChatMessage,
-  toHumanInputPiece,
-  type UseStructuredStreamsOptions,
-  type UseStructuredStreamsResult,
-  useChatStreamDebug,
-  useStructuredStreams,
-} from "@kortyx/react";
-import type { StreamChunk } from "kortyx/browser";
+import type { StreamChunk } from "@kortyx/stream/browser";
 import { useEffect, useRef, useState } from "react";
-import { findActiveTextInterrupt } from "@/lib/find-active-text-interrupt";
+import { buildAssistantMessage } from "./build-assistant-message";
+import { type ChatStorage, createBrowserChatStorage } from "./chat-storage";
+import type { ChatTransport, OutgoingChatMessage } from "./chat-transport";
+import type { ChatMsg, ContentPiece, HumanInputPiece } from "./chat-types";
+import { createLiveChatPieces } from "./create-live-chat-pieces";
+import { toHumanInputPiece } from "./to-human-input-piece";
+import { useChatStreamDebug } from "./use-chat-stream-debug";
+import { useStructuredStreams } from "./use-structured-streams";
 
 const defaultCreateId = () => {
   try {
@@ -27,14 +18,6 @@ const defaultCreateId = () => {
     }
   } catch {}
   return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
-};
-
-const defaultOpenDebugPanel = () => {
-  try {
-    if (typeof window !== "undefined") {
-      window.dispatchEvent(new Event("chat:open-debug"));
-    }
-  } catch {}
 };
 
 export type UseChatValue = {
@@ -58,34 +41,14 @@ export type UseChatValue = {
   setIncludeHistory: React.Dispatch<React.SetStateAction<boolean>>;
 };
 
-type StructuredStreamsHook = (
-  options?: UseStructuredStreamsOptions<Record<string, unknown>> | undefined,
-) => UseStructuredStreamsResult<Record<string, unknown>>;
-type ChatStreamDebugHook = typeof useChatStreamDebug;
-
-const defaultStorage = createBrowserChatStorage<ChatMsg>();
-
 export type UseChatOptions = {
   transport: ChatTransport;
   storage?: ChatStorage<ChatMsg> | undefined;
-  useStructuredStreamsImpl?: StructuredStreamsHook | undefined;
-  useChatStreamDebugImpl?: ChatStreamDebugHook | undefined;
-  mapInterruptChunk?:
-    | ((args: {
-        chunk: StreamChunk;
-        createId: () => string;
-      }) => HumanInputPiece)
-    | undefined;
-  buildAssistantMessageImpl?:
-    | ((args: {
-        createId: () => string;
-        pieces: ContentPiece[];
-        debug: StreamChunk[];
-      }) => ChatMsg)
-    | undefined;
   createId?: (() => string) | undefined;
   openDebugPanel?: (() => void) | undefined;
 };
+
+const defaultStorage = createBrowserChatStorage<ChatMsg>();
 
 function useInitialValue<T>(value: T): T {
   const ref = useRef<T | undefined>(undefined);
@@ -97,26 +60,38 @@ function useInitialValue<T>(value: T): T {
   return ref.current;
 }
 
+function findActiveTextInterrupt(args: {
+  messages: ChatMsg[];
+  streamContentPieces: ContentPiece[];
+}): HumanInputPiece | undefined {
+  const liveInterrupt = args.streamContentPieces.find(
+    (piece): piece is HumanInputPiece =>
+      piece.type === "interrupt" && piece.kind === "text",
+  );
+  if (liveInterrupt) return liveInterrupt;
+
+  for (let i = args.messages.length - 1; i >= 0; i -= 1) {
+    const message = args.messages[i];
+    if (!message) continue;
+    if (message.role !== "assistant" || !message.contentPieces) continue;
+
+    const messageInterrupt = [...message.contentPieces]
+      .reverse()
+      .find(
+        (piece): piece is HumanInputPiece =>
+          piece.type === "interrupt" && piece.kind === "text",
+      );
+    if (messageInterrupt) return messageInterrupt;
+  }
+
+  return undefined;
+}
+
 export function useChat(options: UseChatOptions): UseChatValue {
   const transport = useInitialValue(options.transport);
   const storage = useInitialValue(options.storage ?? defaultStorage);
   const createId = useInitialValue(options.createId ?? defaultCreateId);
-  const openDebugPanel = useInitialValue(
-    options.openDebugPanel ?? defaultOpenDebugPanel,
-  );
-  const mapInterruptChunk = useInitialValue(
-    options.mapInterruptChunk ?? toHumanInputPiece,
-  );
-  const buildAssistantMessageImpl = useInitialValue(
-    options.buildAssistantMessageImpl ?? buildAssistantMessage,
-  );
-  const useStructuredStreamsImpl = useInitialValue(
-    options.useStructuredStreamsImpl ??
-      (useStructuredStreams as StructuredStreamsHook),
-  );
-  const useChatStreamDebugImpl = useInitialValue(
-    options.useChatStreamDebugImpl ?? useChatStreamDebug,
-  );
+  const openDebugPanel = useInitialValue(options.openDebugPanel ?? (() => {}));
 
   const [messages, setMessages] = useState<ChatMsg[]>([]);
   const [isStreaming, setIsStreaming] = useState(false);
@@ -129,9 +104,9 @@ export function useChat(options: UseChatOptions): UseChatValue {
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [didHydrateStorage, setDidHydrateStorage] = useState(false);
   const { streamDebug, clearStreamDebug, createRecorder } =
-    useChatStreamDebugImpl();
+    useChatStreamDebug();
   const { applyStreamChunk, clear: clearStructuredStreams } =
-    useStructuredStreamsImpl({
+    useStructuredStreams<Record<string, unknown>>({
       createId,
     });
 
@@ -222,7 +197,7 @@ export function useChat(options: UseChatOptions): UseChatValue {
         applyStreamChunk,
       },
       toHumanInputPiece: (chunk) =>
-        mapInterruptChunk({
+        toHumanInputPiece({
           chunk,
           createId,
         }),
@@ -249,7 +224,7 @@ export function useChat(options: UseChatOptions): UseChatValue {
       },
     });
 
-    const assistant = buildAssistantMessageImpl({
+    const assistant = buildAssistantMessage({
       createId,
       pieces: pieces.getPieces(),
       debug: debug.getAll(),

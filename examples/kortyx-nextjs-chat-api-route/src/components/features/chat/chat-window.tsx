@@ -1,8 +1,8 @@
+import type { UseChatValue } from "@kortyx/react";
 import { BugIcon, SettingsIcon, TrashIcon } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { SidebarProvider } from "@/components/ui/sidebar";
-import type { UseChatValue } from "@/hooks/use-chat";
 import { ChatInput } from "./chat-input";
 import { ChatMessage } from "./chat-message";
 import { DebugSidebar } from "./debug-sidebar";
