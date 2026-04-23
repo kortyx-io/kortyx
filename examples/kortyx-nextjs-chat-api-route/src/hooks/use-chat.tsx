@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  buildAssistantMessage,
   type ChatMsg,
   type ChatStorage,
   type ChatTransport,
@@ -17,7 +18,6 @@ import {
 import type { StreamChunk } from "kortyx/browser";
 import { useEffect, useRef, useState } from "react";
 import { useChatStreamDebug } from "@/hooks/use-chat-stream-debug";
-import { buildAssistantMessage } from "@/lib/build-assistant-message";
 import { findActiveTextInterrupt } from "@/lib/find-active-text-interrupt";
 
 const defaultCreateId = () => {

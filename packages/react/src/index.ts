@@ -1,3 +1,4 @@
+export * from "./build-assistant-message";
 export * from "./chat-storage";
 export * from "./chat-transport";
 export * from "./chat-types";
