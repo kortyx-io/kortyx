@@ -11,14 +11,16 @@ This page maps the current OSS packages in this monorepo.
 
 ## Recommended import strategy
 
-- Default: import from `kortyx` for app code
-- Use scoped packages only when you want lower-level control
+- Server/runtime app code: import from `kortyx`
+- Browser-safe low-level chunk helpers: import from `kortyx/browser`
+- React client state and chat helpers: import from `@kortyx/react`
 
 ## Package map
 
 | Package | Purpose | Typical consumers |
 | --- | --- | --- |
 | `kortyx` | batteries-included facade | application code |
+| `@kortyx/react` | React client helpers (`useChat`, `useStructuredStreams`, transport/storage adapters) | React apps consuming streamed chat/structured state |
 | `@kortyx/agent` | chat orchestration (`createAgent` + `agent.streamChat`) | app backend adapters |
 | `@kortyx/core` | workflow + node + state contracts | workflow authors, framework users |
 | `@kortyx/runtime` | graph execution + registries + framework adapters | advanced runtime integration |
@@ -33,4 +35,5 @@ This page maps the current OSS packages in this monorepo.
 
 - Providers: install provider packages per need (for example `@kortyx/google`).
 - Business persistence: own it in your app; Kortyx only provides runtime/framework persistence.
+- React apps should start with `@kortyx/react` before reaching for raw browser stream reducers.
 - Stream structured-data schema currently has a built-in `jobs` discriminated type; apps may still emit custom structured payloads.

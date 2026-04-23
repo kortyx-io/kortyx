@@ -42,81 +42,119 @@ export async function POST(request) {
 
 > **Good to know:** `toSSE(...)` is the route-level helper you usually want. It sets the SSE headers and writes the stream in SSE format.
 
-## Recommended client pattern
+## Recommended client pattern for React
 
-Treat text and structured data as separate channels:
-
-- append `text-delta` to assistant text
-- reduce `structured-data` by `streamId`
+If you are building a React client, start with `@kortyx/react`.
 
 ```ts
-import {
-  applyStructuredChunk,
-  readStream,
-  type StructuredStreamState,
-} from "kortyx";
+import { createRouteChatTransport, useChat } from "@kortyx/react";
 
-let text = "";
-const structured: Record<string, StructuredStreamState<Record<string, unknown>>> = {};
+export function ChatPage() {
+  const chat = useChat({
+    transport: createRouteChatTransport({
+      endpoint: "/api/chat",
+      getBody: ({ sessionId, workflowId, messages }) => ({
+        sessionId,
+        workflowId,
+        messages,
+      }),
+    }),
+  });
 
-const response = await fetch("/api/chat", {
-  method: "POST",
-  headers: { "content-type": "application/json" },
-  body: JSON.stringify({ messages }),
-});
-
-for await (const chunk of readStream(response.body)) {
-  if (chunk.type === "text-delta") {
-    text += chunk.delta;
-  }
-
-  if (chunk.type === "structured-data") {
-    structured[chunk.streamId] = applyStructuredChunk(
-      structured[chunk.streamId],
-      chunk,
-    );
-  }
-
-  if (chunk.type === "done") {
-    break;
-  }
+  return <ChatWindow chat={chat} />;
 }
 ```
 ```js
-import { applyStructuredChunk, readStream } from "kortyx";
+import { createRouteChatTransport, useChat } from "@kortyx/react";
 
-let text = "";
-const structured = {};
+export function ChatPage() {
+  const chat = useChat({
+    transport: createRouteChatTransport({
+      endpoint: "/api/chat",
+      getBody: ({ sessionId, workflowId, messages }) => ({
+        sessionId,
+        workflowId,
+        messages,
+      }),
+    }),
+  });
 
-const response = await fetch("/api/chat", {
-  method: "POST",
-  headers: { "content-type": "application/json" },
-  body: JSON.stringify({ messages }),
-});
-
-for await (const chunk of readStream(response.body)) {
-  if (chunk.type === "text-delta") {
-    text += chunk.delta;
-  }
-
-  if (chunk.type === "structured-data") {
-    structured[chunk.streamId] = applyStructuredChunk(
-      structured[chunk.streamId],
-      chunk,
-    );
-  }
-
-  if (chunk.type === "done") {
-    break;
-  }
+  return <ChatWindow chat={chat} />;
 }
 ```
 
-This is the simplest mental model for structured UI:
+Use `chat.messages` for finalized history and `chat.streamContentPieces` for the current in-flight assistant response.
 
-- `streamId` identifies one object being built
-- `kind` tells the reducer what to do
-- the reducer gives you current state plus `status: "streaming" | "done"`
+> **Good to know:** `useChat(...)` already separates assistant text, structured streams, interrupts, and storage. Most React apps should start here instead of manually reducing raw chunks.
+
+## Custom React UI with structured streams
+
+If you want your own UI but not the full chat abstraction, use `useStructuredStreams()` and only wire the parts you care about.
+
+```ts
+import { useStructuredStreams } from "@kortyx/react";
+import { readStream } from "kortyx/browser";
+
+export function StructuredPanel() {
+  const structured = useStructuredStreams<Record<string, unknown>>();
+  let text = "";
+
+  async function load() {
+    const response = await fetch("/api/chat", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ messages }),
+    });
+
+    for await (const chunk of readStream(response.body)) {
+      if (chunk.type === "text-delta") {
+        text += chunk.delta;
+      }
+
+      structured.applyStreamChunk(chunk);
+
+      if (chunk.type === "done") {
+        break;
+      }
+    }
+  }
+
+  return null;
+}
+```
+```js
+import { useStructuredStreams } from "@kortyx/react";
+import { readStream } from "kortyx/browser";
+
+export function StructuredPanel() {
+  const structured = useStructuredStreams();
+  let text = "";
+
+  async function load() {
+    const response = await fetch("/api/chat", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ messages }),
+    });
+
+    for await (const chunk of readStream(response.body)) {
+      if (chunk.type === "text-delta") {
+        text += chunk.delta;
+      }
+
+      structured.applyStreamChunk(chunk);
+
+      if (chunk.type === "done") {
+        break;
+      }
+    }
+  }
+
+  return null;
+}
+```
+
+This keeps the structured-stream reducer logic framework-owned while leaving text rendering and layout up to you.
 
 ## Example: render a streamed email draft
 
@@ -160,7 +198,7 @@ Structured chunks use one of four kinds:
 - `text-delta`: append text to a string at a path
 - `final`: replace the whole object and mark the stream complete
 
-You usually do not need to implement these rules yourself. `applyStructuredChunk(...)` already does it.
+You usually do not need to implement these rules yourself. `useStructuredStreams()` and `useChat()` already apply them for you.
 
 ### Path behavior
 
@@ -174,6 +212,76 @@ You usually do not need to implement these rules yourself. `applyStructuredChunk
 
 > **Good to know:** `streamId` is the update identity for structured streams. If a node emits multiple related `useStructuredData(...)` calls, keep the same `streamId` so the client updates one object instead of creating many.
 
+## Advanced: manual reducer path
+
+If you are not using React, or you want the raw reducer directly, use `applyStructuredChunk(...)` from `kortyx/browser`.
+
+```ts
+import {
+  applyStructuredChunk,
+  readStream,
+  type StructuredStreamState,
+} from "kortyx/browser";
+
+let text = "";
+const structured: Record<
+  string,
+  StructuredStreamState<Record<string, unknown>>
+> = {};
+
+const response = await fetch("/api/chat", {
+  method: "POST",
+  headers: { "content-type": "application/json" },
+  body: JSON.stringify({ messages }),
+});
+
+for await (const chunk of readStream(response.body)) {
+  if (chunk.type === "text-delta") {
+    text += chunk.delta;
+  }
+
+  if (chunk.type === "structured-data") {
+    structured[chunk.streamId] = applyStructuredChunk(
+      structured[chunk.streamId],
+      chunk,
+    );
+  }
+
+  if (chunk.type === "done") {
+    break;
+  }
+}
+```
+```js
+import { applyStructuredChunk, readStream } from "kortyx/browser";
+
+let text = "";
+const structured = {};
+
+const response = await fetch("/api/chat", {
+  method: "POST",
+  headers: { "content-type": "application/json" },
+  body: JSON.stringify({ messages }),
+});
+
+for await (const chunk of readStream(response.body)) {
+  if (chunk.type === "text-delta") {
+    text += chunk.delta;
+  }
+
+  if (chunk.type === "structured-data") {
+    structured[chunk.streamId] = applyStructuredChunk(
+      structured[chunk.streamId],
+      chunk,
+    );
+  }
+
+  if (chunk.type === "done") {
+    break;
+  }
+}
+```
+
 ## `consumeStream(...)`
 
 If you prefer the callback helper:
@@ -183,7 +291,7 @@ import {
   applyStructuredChunk,
   consumeStream,
   streamChatFromRoute,
-} from "kortyx";
+} from "kortyx/browser";
 
 const structured = {};
 
@@ -208,7 +316,7 @@ import {
   applyStructuredChunk,
   consumeStream,
   streamChatFromRoute,
-} from "kortyx";
+} from "kortyx/browser";
 
 const structured = {};
 

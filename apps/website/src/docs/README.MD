@@ -51,19 +51,21 @@ When removing a docs page:
 
 ## Priority 1 — Onboarding outcomes
 
-1. Expand stack-specific quickstarts beyond Next.js (Express and Fastify paths).
-2. Add explicit success states to all onboarding guides ("you should now see X").
-3. Keep a 10–15 minute onboarding spine linking install → quickstart → guides → production.
+1. Finish replacing manual client reducer docs with the new `@kortyx/react` path wherever React is the audience.
+2. Expand stack-specific quickstarts beyond Next.js (Express and Fastify paths).
+3. Add explicit success states to all onboarding guides ("you should now see X").
+4. Keep a 10–15 minute onboarding spine linking install → quickstart → guides → production.
 
 ## Priority 2 — Reduce adoption friction
 
-1. Expand **Troubleshooting** with top recurring setup/runtime errors and fixes.
-2. Add compatibility notes for Node/framework/runtime expectations where ambiguity exists.
-3. Add package-manager command parity checks on install/run pages.
+1. Add one focused `@kortyx/react` page that explains `useChat`, `useStructuredStreams`, and when to drop to `kortyx/browser`.
+2. Expand **Troubleshooting** with top recurring setup/runtime errors and fixes.
+3. Add compatibility notes for Node/framework/runtime expectations where ambiguity exists.
+4. Add package-manager command parity checks on install/run pages.
 
 ## Priority 3 — Support advanced users
 
-1. Expand **Reference** depth for runtime hooks, stream protocol, and provider contracts.
+1. Expand **Reference** depth for runtime hooks, stream protocol, provider contracts, and the `@kortyx/react` surface.
 2. Add production guides: retries, observability, failure handling, and security checklist.
 3. Expand migration guides for major-version upgrades and breaking changes.
 
