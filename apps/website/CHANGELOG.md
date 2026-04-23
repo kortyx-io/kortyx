@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.12.0](https://github.com/kortyx-io/kortyx/compare/website-v0.11.2...website-v0.12.0) (2026-04-23)
+
+
+### Features
+
+* **website:** add react client reference page ([ed3bf52](https://github.com/kortyx-io/kortyx/commit/ed3bf52c97dfa497b23a8164e3c368b04883aa6f))
+* **website:** recommend react client streaming helpers ([16eda7c](https://github.com/kortyx-io/kortyx/commit/16eda7c9311a949c5de58b0f8868416d6fc94fc8))
+
 ## [0.11.2](https://github.com/kortyx-io/kortyx/compare/website-v0.11.1...website-v0.11.2) (2026-04-22)
 
 
