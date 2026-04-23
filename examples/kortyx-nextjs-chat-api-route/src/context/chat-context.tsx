@@ -5,6 +5,7 @@ import type React from "react";
 import { createContext, useEffect, useState } from "react";
 import { useChatStreamDebug } from "@/hooks/use-chat-stream-debug";
 import { useStructuredStreams } from "@/hooks/use-structured-streams";
+import { type ChatStorage, createBrowserChatStorage } from "@/lib/chat-storage";
 import {
   createApiRouteChatTransport,
   type OutgoingChatMessage,
@@ -14,30 +15,7 @@ import { createChatPieceAccumulator } from "@/lib/create-chat-piece-accumulator"
 import { findActiveTextInterrupt } from "@/lib/find-active-text-interrupt";
 
 const chatTransport = createApiRouteChatTransport();
-
-const toStoredChatMessage = (value: unknown): ChatMsg | null => {
-  if (!value || typeof value !== "object") return null;
-
-  const message = value as Record<string, unknown>;
-  const role =
-    message.role === "user" || message.role === "assistant"
-      ? message.role
-      : null;
-  const id = typeof message.id === "string" ? message.id : null;
-  const content = typeof message.content === "string" ? message.content : "";
-  const contentPieces = Array.isArray(message.contentPieces)
-    ? (message.contentPieces.filter(Boolean) as ContentPiece[])
-    : undefined;
-
-  if (!role || !id) return null;
-
-  return {
-    id,
-    role,
-    content,
-    ...(contentPieces ? { contentPieces } : {}),
-  };
-};
+const defaultChatStorage = createBrowserChatStorage();
 
 export type ChatContextValue = {
   messages: ChatMsg[];
@@ -62,7 +40,13 @@ export type ChatContextValue = {
 
 export const ChatContext = createContext<ChatContextValue | null>(null);
 
-export function ChatProvider({ children }: { children: React.ReactNode }) {
+export function ChatProvider({
+  children,
+  storage = defaultChatStorage,
+}: {
+  children: React.ReactNode;
+  storage?: ChatStorage;
+}) {
   const [messages, setMessages] = useState<ChatMsg[]>([]);
   const [isStreaming, setIsStreaming] = useState(false);
   const [streamContentPieces, setStreamContentPieces] = useState<
@@ -72,15 +56,13 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
   const [includeHistory, setIncludeHistory] = useState(true);
   const [workflowId, setWorkflowId] = useState("");
   const [sessionId, setSessionId] = useState<string | null>(null);
+  const [didHydrateStorage, setDidHydrateStorage] = useState(false);
   const { streamDebug, clearStreamDebug, createRecorder } =
     useChatStreamDebug();
   const { applyStreamChunk, clear: clearStructuredStreams } =
     useStructuredStreams({
       createId,
     });
-
-  const STORAGE_MESSAGES_KEY = "chat.messages.v1";
-  const STORAGE_INCLUDE_HISTORY_KEY = "chat.includeHistory.v1";
 
   function createId() {
     try {
@@ -92,63 +74,52 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
   }
 
   useEffect(() => {
-    try {
-      if (typeof localStorage !== "undefined") {
-        const sid = localStorage.getItem("chat.sessionId");
-        if (sid) setSessionId(sid);
-        const wid = localStorage.getItem("chat.workflowId");
-        if (wid !== null) setWorkflowId(wid);
-        const ih = localStorage.getItem(STORAGE_INCLUDE_HISTORY_KEY);
-        if (ih === "0") setIncludeHistory(false);
-        if (ih === "1") setIncludeHistory(true);
+    let cancelled = false;
 
-        const rawMsgs = localStorage.getItem(STORAGE_MESSAGES_KEY);
-        if (rawMsgs) {
-          const parsed = JSON.parse(rawMsgs) as unknown;
-          if (Array.isArray(parsed)) {
-            const restored = parsed
-              .map((item) => toStoredChatMessage(item))
-              .filter((message): message is ChatMsg => message !== null);
-            if (restored.length > 0) setMessages(restored);
-          }
-        }
+    void Promise.resolve(storage.load()).then((storedState) => {
+      if (cancelled) return;
+
+      if (typeof storedState.sessionId === "string") {
+        setSessionId(storedState.sessionId);
       }
-    } catch {}
-  }, []);
+      if (typeof storedState.workflowId === "string") {
+        setWorkflowId(storedState.workflowId);
+      }
+      if (typeof storedState.includeHistory === "boolean") {
+        setIncludeHistory(storedState.includeHistory);
+      }
+      if (
+        Array.isArray(storedState.messages) &&
+        storedState.messages.length > 0
+      ) {
+        setMessages(storedState.messages);
+      }
+
+      setDidHydrateStorage(true);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [storage]);
 
   useEffect(() => {
-    try {
-      if (typeof localStorage !== "undefined") {
-        localStorage.setItem("chat.workflowId", workflowId);
-      }
-    } catch {}
-  }, [workflowId]);
+    if (!didHydrateStorage) return;
 
-  useEffect(() => {
-    try {
-      if (typeof localStorage !== "undefined") {
-        localStorage.setItem(
-          STORAGE_INCLUDE_HISTORY_KEY,
-          includeHistory ? "1" : "0",
-        );
-      }
-    } catch {}
-  }, [includeHistory]);
-
-  useEffect(() => {
-    try {
-      if (typeof localStorage === "undefined") return;
-      const trimmed = messages.slice(-60).map((message) => ({
-        id: message.id,
-        role: message.role,
-        content: message.content,
-        ...(message.contentPieces
-          ? { contentPieces: message.contentPieces }
-          : {}),
-      }));
-      localStorage.setItem(STORAGE_MESSAGES_KEY, JSON.stringify(trimmed));
-    } catch {}
-  }, [messages]);
+    void storage.save({
+      sessionId,
+      workflowId,
+      includeHistory,
+      messages,
+    });
+  }, [
+    didHydrateStorage,
+    includeHistory,
+    messages,
+    sessionId,
+    storage,
+    workflowId,
+  ]);
 
   const clearChat = () => {
     setMessages([]);
@@ -156,20 +127,11 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     clearStreamDebug();
     clearStructuredStreams();
     setLastAssistantId(null);
-    try {
-      if (typeof localStorage !== "undefined") {
-        localStorage.removeItem(STORAGE_MESSAGES_KEY);
-      }
-    } catch {}
+    void storage.clearMessages();
   };
 
   const persistSessionId = (sid: string) => {
     setSessionId(sid);
-    try {
-      if (typeof localStorage !== "undefined") {
-        localStorage.setItem("chat.sessionId", sid);
-      }
-    } catch {}
   };
 
   const resolveSessionId = () => {
