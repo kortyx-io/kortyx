@@ -10,9 +10,10 @@ import {
   createServerActionChatTransport,
   type OutgoingChatMessage,
 } from "@/lib/chat-transport";
-import type { ChatMsg, ContentPiece, HumanInputPiece } from "@/lib/chat-types";
+import type { ChatMsg, ContentPiece } from "@/lib/chat-types";
 import { createChatPieceAccumulator } from "@/lib/create-chat-piece-accumulator";
 import { findActiveTextInterrupt } from "@/lib/find-active-text-interrupt";
+import { toHumanInputPiece } from "@/lib/to-human-input-piece";
 
 const chatTransport = createServerActionChatTransport();
 const defaultChatStorage = createBrowserChatStorage();
@@ -148,61 +149,6 @@ export function ChatProvider({
     } catch {}
   };
 
-  const toHumanInputPiece = (chunk: StreamChunk): HumanInputPiece => {
-    interface HumanInputStreamChunk {
-      type: "interrupt";
-      requestId: string | undefined;
-      resumeToken: string | undefined;
-      input?: {
-        kind?: "text" | "choice" | "multi-choice";
-        question?: string;
-        multiple?: boolean;
-        options?: Array<{
-          id?: string | number;
-          label?: string;
-          description?: string;
-        }>;
-      };
-    }
-
-    const hi = chunk as unknown as HumanInputStreamChunk;
-    const input = hi.input ?? {};
-    const kind = input.kind || (input.multiple ? "multi-choice" : "choice");
-    const isText = kind === "text";
-
-    const question = isText
-      ? input.question
-      : typeof input.question === "string"
-        ? input.question
-        : "Please choose";
-
-    const optionsSrc = Array.isArray(input.options) ? input.options : [];
-    const optionsArr: Array<{
-      id: string;
-      label: string;
-      description?: string;
-    }> = optionsSrc
-      .map((option) => ({
-        id: String(option.id ?? ""),
-        label: String(option.label ?? ""),
-        ...(typeof option.description === "string" && option.description
-          ? { description: option.description }
-          : {}),
-      }))
-      .filter((option) => option.id && option.label);
-
-    return {
-      id: createId(),
-      type: "interrupt",
-      resumeToken: String(hi.resumeToken ?? ""),
-      requestId: String(hi.requestId ?? ""),
-      kind,
-      ...(question !== undefined ? { question } : {}),
-      multiple: Boolean(input.multiple),
-      options: optionsArr,
-    };
-  };
-
   const buildAssistantMessage = (args: {
     pieces: ContentPiece[];
     debug: StreamChunk[];
@@ -246,7 +192,11 @@ export function ChatProvider({
       structuredStreams: {
         applyStreamChunk,
       },
-      toHumanInputPiece,
+      toHumanInputPiece: (chunk) =>
+        toHumanInputPiece({
+          chunk,
+          createId,
+        }),
       openDebugPanel,
     });
 
