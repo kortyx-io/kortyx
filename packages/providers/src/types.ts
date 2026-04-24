@@ -6,11 +6,20 @@ export interface ModelOptions {
   streaming?: boolean;
 }
 
+export interface ProviderInstance<
+  ProviderId extends string = string,
+  ModelId extends string = string,
+> {
+  id: ProviderId;
+  models: readonly ModelId[];
+  getModel: (modelId: string, options?: ModelOptions) => KortyxModel;
+}
+
 export interface ProviderModelRef<
   ProviderId extends string = string,
   ModelId extends string = string,
 > {
-  providerId: ProviderId;
+  provider: ProviderInstance<ProviderId, ModelId>;
   modelId: ModelId;
   options?: ModelOptions | undefined;
 }
@@ -18,13 +27,11 @@ export interface ProviderModelRef<
 export interface ProviderSelector<
   ProviderId extends string = string,
   ModelId extends string = string,
-> {
+> extends ProviderInstance<ProviderId, ModelId> {
   (
     modelId: ModelId,
     options?: ModelOptions,
   ): ProviderModelRef<ProviderId, ModelId>;
-  id: ProviderId;
-  models: readonly ModelId[];
 }
 
 export type KortyxPromptRole = "system" | "user" | "assistant";
@@ -77,33 +84,15 @@ export interface KortyxModel {
 }
 
 /**
- * Factory function that creates a model instance
- */
-export type ModelFactory = () => KortyxModel;
-
-/**
- * Configuration for a single provider (e.g., Google, OpenAI)
- */
-export interface ProviderConfig {
-  id: string;
-  models: Record<string, ModelFactory>;
-}
-
-/**
  * The function signature that runtime uses to get a provider.
- * This matches the interface expected by @kortyx/runtime's GraphRuntimeConfig.
  */
-export type GetProviderFn = (
-  providerId: string,
-  modelId: string,
-  options?: ModelOptions,
-) => KortyxModel;
+export type GetProviderFn = (providerId: string) => ProviderInstance;
 
 /**
  * Mutable registry used to register provider implementations and resolve models.
  */
 export interface ProviderRegistry {
-  register: (config: ProviderConfig) => void;
+  register: (provider: ProviderInstance) => void;
   reset: () => void;
   hasProvider: (providerId: string) => boolean;
   getInitializedProviders: () => string[];

@@ -262,9 +262,8 @@ export async function createExecutionGraph(
           }
 
           const result = await runReasonEngine({
-            getProvider,
             model: {
-              providerId,
+              provider: getProvider(providerId),
               modelId: modelName,
             },
             input: args.user ?? "",
@@ -305,9 +304,6 @@ export async function createExecutionGraph(
           const hookContext = {
             node: ctx,
             state: attemptState,
-            ...(runtimeConfig.getProvider
-              ? { getProvider: runtimeConfig.getProvider }
-              : {}),
           };
           const hookRun = await runWithHookContext(hookContext, async () =>
             resolvedRun({

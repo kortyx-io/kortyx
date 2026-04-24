@@ -1,6 +1,5 @@
 import { AsyncLocalStorage } from "node:async_hooks";
 import type { GraphState, NodeContext } from "@kortyx/core";
-import type { GetProviderFn } from "@kortyx/providers";
 
 type NodeStateStore = {
   byIndex: unknown[];
@@ -24,7 +23,6 @@ type HookStatePatchedError = {
 export type HookRuntimeContext = {
   node: NodeContext;
   state: GraphState;
-  getProvider?: GetProviderFn;
 };
 
 type HookInternalContext = HookRuntimeContext & {

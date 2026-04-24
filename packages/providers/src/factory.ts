@@ -1,51 +1,30 @@
 import type {
   GetProviderFn,
-  KortyxModel,
-  ModelOptions,
-  ProviderConfig,
+  ProviderInstance,
   ProviderRegistry,
 } from "./types";
 
 const createGetProvider =
-  (providers: Record<string, ProviderConfig>): GetProviderFn =>
-  (
-    providerId: string,
-    modelId: string,
-    options?: ModelOptions,
-  ): KortyxModel => {
+  (providers: Record<string, ProviderInstance>): GetProviderFn =>
+  (providerId: string): ProviderInstance => {
     const provider = providers[providerId];
     if (!provider) {
-      throw new Error(
-        `Provider '${providerId}' is not registered. Install and register a provider package first.`,
-      );
+      throw new Error(`Provider '${providerId}' is not registered.`);
     }
-
-    const modelFactory = provider.models[modelId];
-    if (!modelFactory) {
-      const availableModels = Object.keys(provider.models).join(", ");
-      throw new Error(
-        `Unknown model: ${modelId} for provider ${providerId}. Available models: ${availableModels}`,
-      );
-    }
-
-    const model = modelFactory();
-    if (options?.temperature !== undefined)
-      model.temperature = options.temperature;
-    if (options?.streaming !== undefined) model.streaming = options.streaming;
-    return model;
+    return provider;
   };
 
 export function createProviderRegistry(
-  initialProviders?: ProviderConfig[],
+  initialProviders?: ProviderInstance[],
 ): ProviderRegistry {
-  const providers: Record<string, ProviderConfig> = {};
+  const providers: Record<string, ProviderInstance> = {};
   for (const provider of initialProviders ?? []) {
     providers[provider.id] = provider;
   }
 
   return {
-    register(config: ProviderConfig) {
-      providers[config.id] = config;
+    register(provider: ProviderInstance) {
+      providers[provider.id] = provider;
     },
     reset() {
       for (const key of Object.keys(providers)) delete providers[key];
@@ -58,7 +37,7 @@ export function createProviderRegistry(
     },
     getAvailableModels(providerId: string) {
       const provider = providers[providerId];
-      return provider ? Object.keys(provider.models) : [];
+      return provider ? [...provider.models] : [];
     },
     getProvider: createGetProvider(providers),
   };
@@ -66,8 +45,8 @@ export function createProviderRegistry(
 
 const defaultRegistry = createProviderRegistry();
 
-export function registerProvider(config: ProviderConfig): void {
-  defaultRegistry.register(config);
+export function registerProvider(provider: ProviderInstance): void {
+  defaultRegistry.register(provider);
 }
 
 export function resetProviders(): void {

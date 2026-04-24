@@ -50,7 +50,7 @@ describe("useReason interrupt flow", () => {
       userChoice: "opt-1",
     });
 
-    const { getProvider, invoke } = createProvider({
+    const { invoke, modelRef } = createProvider({
       invokeResponses: [first, second],
     });
     const { node, emitted, interrupts } = createNode({
@@ -59,11 +59,11 @@ describe("useReason interrupt flow", () => {
     const state = createState();
 
     const { result, runtimeUpdates } = await runWithHookContext(
-      { node, state, getProvider },
+      { node, state },
       async () =>
         useReason({
           id: "reason-id",
-          model: { providerId: "mock", modelId: "mock-model" },
+          model: modelRef,
           input: "Create a launch plan",
           system: "Return structured output",
           stream: true,
@@ -142,7 +142,7 @@ describe("useReason interrupt flow", () => {
       userChoice: "accepted",
     });
 
-    const { getProvider, invoke } = createProvider({
+    const { invoke, modelRef } = createProvider({
       invokeResponses: [second],
     });
     const { node, emitted, interrupts } = createNode({
@@ -151,11 +151,11 @@ describe("useReason interrupt flow", () => {
     const state = createState(runtime);
 
     const { result, runtimeUpdates } = await runWithHookContext(
-      { node, state, getProvider },
+      { node, state },
       async () =>
         useReason({
           id: "reason-id",
-          model: { providerId: "mock", modelId: "mock-model" },
+          model: modelRef,
           input: "Create a launch plan",
           outputSchema: PlanSchema,
           structured: {
@@ -201,7 +201,7 @@ describe("useReason interrupt flow", () => {
       draftText: "Draft text",
     });
 
-    const { getProvider, invoke } = createProvider({
+    const { invoke, modelRef } = createProvider({
       invokeResponses: [badFirst],
     });
     const { node, interrupts } = createNode({
@@ -210,10 +210,10 @@ describe("useReason interrupt flow", () => {
     const state = createState();
 
     await expect(
-      runWithHookContext({ node, state, getProvider }, async () =>
+      runWithHookContext({ node, state }, async () =>
         useReason({
           id: "reason-id",
-          model: { providerId: "mock", modelId: "mock-model" },
+          model: modelRef,
           input: "Create a launch plan",
           outputSchema: PlanSchema,
           interrupt: {

@@ -28,13 +28,8 @@ export async function reasonEngine(
   inputOverride?: string,
 ): Promise<RunReasonEngineResult> {
   const ctx = getHookContext();
-  const getProvider = ctx.getProvider;
-  if (!getProvider) {
-    throw new Error("useReason requires a provider factory in runtime config.");
-  }
 
   return runReasonEngine({
-    getProvider,
     model: args.model,
     input: inputOverride ?? args.input,
     system: args.system,

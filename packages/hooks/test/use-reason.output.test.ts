@@ -44,27 +44,25 @@ describe("useReason output flow", () => {
       checklist: ["item-1"],
       userChoice: "pending",
     });
-    const { getProvider, invoke } = createProvider({
+    const { invoke, modelRef } = createProvider({
       invokeResponses: [response],
     });
     const { node, emitted } = createNode();
     const state = createState();
 
-    const { result } = await runWithHookContext(
-      { node, state, getProvider },
-      async () =>
-        useReason({
-          id: "reason-id",
-          model: { providerId: "mock", modelId: "mock-model" },
-          input: "Create a plan",
-          stream: false,
-          emit: true,
-          outputSchema: PlanSchema,
-          structured: {
-            dataType: "reason.plan",
-            stream: true,
-          },
-        }),
+    const { result } = await runWithHookContext({ node, state }, async () =>
+      useReason({
+        id: "reason-id",
+        model: modelRef,
+        input: "Create a plan",
+        stream: false,
+        emit: true,
+        outputSchema: PlanSchema,
+        structured: {
+          dataType: "reason.plan",
+          stream: true,
+        },
+      }),
     );
 
     expect(invoke).toHaveBeenCalledTimes(1);
@@ -95,29 +93,27 @@ describe("useReason output flow", () => {
       "```",
     ].join("\n");
 
-    const { getProvider } = createProvider({
+    const { modelRef } = createProvider({
       invokeResponses: [response],
     });
     const { node } = createNode();
     const state = createState();
 
-    const { result } = await runWithHookContext(
-      { node, state, getProvider },
-      async () =>
-        useReason({
-          model: { providerId: "mock", modelId: "mock-model" },
-          input: "Create a plan",
-          stream: false,
-          emit: true,
-          outputSchema: PlanSchema,
-        }),
+    const { result } = await runWithHookContext({ node, state }, async () =>
+      useReason({
+        model: modelRef,
+        input: "Create a plan",
+        stream: false,
+        emit: true,
+        outputSchema: PlanSchema,
+      }),
     );
 
     expect(result.output?.summary).toBe("Summary");
   });
 
   it("streams append updates for one declared array field before final output", async () => {
-    const { getProvider, stream, invoke } = createProvider({
+    const { stream, invoke, modelRef } = createProvider({
       streamResponses: [
         '{"summary":"Jobs","jobs":[',
         '{"id":"job-1","title":"First role"}',
@@ -129,24 +125,22 @@ describe("useReason output flow", () => {
     const { node, emitted } = createNode();
     const state = createState();
 
-    const { result } = await runWithHookContext(
-      { node, state, getProvider },
-      async () =>
-        useReason({
-          id: "jobs-reason",
-          model: { providerId: "mock", modelId: "mock-model" },
-          input: "Create jobs",
+    const { result } = await runWithHookContext({ node, state }, async () =>
+      useReason({
+        id: "jobs-reason",
+        model: modelRef,
+        input: "Create jobs",
+        stream: true,
+        emit: true,
+        outputSchema: JobsSchema,
+        structured: {
+          dataType: "reason.jobs",
           stream: true,
-          emit: true,
-          outputSchema: JobsSchema,
-          structured: {
-            dataType: "reason.jobs",
-            stream: true,
-            fields: {
-              jobs: "append",
-            },
+          fields: {
+            jobs: "append",
           },
-        }),
+        },
+      }),
     );
 
     expect(stream).toHaveBeenCalledTimes(1);
@@ -189,7 +183,7 @@ describe("useReason output flow", () => {
   });
 
   it("streams text-delta updates for one declared string field before final output", async () => {
-    const { getProvider, stream, invoke } = createProvider({
+    const { stream, invoke, modelRef } = createProvider({
       streamResponses: [
         '{"subject":"Welcome","body":"Hello',
         " Mustafa",
@@ -199,24 +193,22 @@ describe("useReason output flow", () => {
     const { node, emitted } = createNode();
     const state = createState();
 
-    const { result } = await runWithHookContext(
-      { node, state, getProvider },
-      async () =>
-        useReason({
-          id: "email-reason",
-          model: { providerId: "mock", modelId: "mock-model" },
-          input: "Create an email",
+    const { result } = await runWithHookContext({ node, state }, async () =>
+      useReason({
+        id: "email-reason",
+        model: modelRef,
+        input: "Create an email",
+        stream: true,
+        emit: true,
+        outputSchema: EmailSchema,
+        structured: {
+          dataType: "reason.email",
           stream: true,
-          emit: true,
-          outputSchema: EmailSchema,
-          structured: {
-            dataType: "reason.email",
-            stream: true,
-            fields: {
-              body: "text-delta",
-            },
+          fields: {
+            body: "text-delta",
           },
-        }),
+        },
+      }),
     );
 
     expect(stream).toHaveBeenCalledTimes(1);
@@ -258,7 +250,7 @@ describe("useReason output flow", () => {
   });
 
   it("streams set updates for declared top-level fields before final output", async () => {
-    const { getProvider, stream, invoke } = createProvider({
+    const { stream, invoke, modelRef } = createProvider({
       streamResponses: [
         '{"subject":"Exclusive Beta Access"',
         ',"body":"Hello there"}',
@@ -267,25 +259,23 @@ describe("useReason output flow", () => {
     const { node, emitted } = createNode();
     const state = createState();
 
-    const { result } = await runWithHookContext(
-      { node, state, getProvider },
-      async () =>
-        useReason({
-          id: "email-reason",
-          model: { providerId: "mock", modelId: "mock-model" },
-          input: "Create an email",
+    const { result } = await runWithHookContext({ node, state }, async () =>
+      useReason({
+        id: "email-reason",
+        model: modelRef,
+        input: "Create an email",
+        stream: true,
+        emit: true,
+        outputSchema: EmailSchema,
+        structured: {
+          dataType: "reason.email",
           stream: true,
-          emit: true,
-          outputSchema: EmailSchema,
-          structured: {
-            dataType: "reason.email",
-            stream: true,
-            fields: {
-              subject: "set",
-              body: "text-delta",
-            },
+          fields: {
+            subject: "set",
+            body: "text-delta",
           },
-        }),
+        },
+      }),
     );
 
     expect(stream).toHaveBeenCalledTimes(1);
@@ -322,7 +312,7 @@ describe("useReason output flow", () => {
   });
 
   it("streams text-delta updates for multiple declared string fields", async () => {
-    const { getProvider, stream, invoke } = createProvider({
+    const { stream, invoke, modelRef } = createProvider({
       streamResponses: [
         '{"intro":"Hello',
         ' world","body":"Line one',
@@ -332,25 +322,23 @@ describe("useReason output flow", () => {
     const { node, emitted } = createNode();
     const state = createState();
 
-    const { result } = await runWithHookContext(
-      { node, state, getProvider },
-      async () =>
-        useReason({
-          id: "multi-text-reason",
-          model: { providerId: "mock", modelId: "mock-model" },
-          input: "Create an email",
+    const { result } = await runWithHookContext({ node, state }, async () =>
+      useReason({
+        id: "multi-text-reason",
+        model: modelRef,
+        input: "Create an email",
+        stream: true,
+        emit: true,
+        outputSchema: MultiTextSchema,
+        structured: {
+          dataType: "reason.multi-text",
           stream: true,
-          emit: true,
-          outputSchema: MultiTextSchema,
-          structured: {
-            dataType: "reason.multi-text",
-            stream: true,
-            fields: {
-              intro: "text-delta",
-              body: "text-delta",
-            },
+          fields: {
+            intro: "text-delta",
+            body: "text-delta",
           },
-        }),
+        },
+      }),
     );
 
     expect(stream).toHaveBeenCalledTimes(1);
@@ -394,7 +382,7 @@ describe("useReason output flow", () => {
   });
 
   it("streams append updates for multiple declared array fields", async () => {
-    const { getProvider, stream, invoke } = createProvider({
+    const { stream, invoke, modelRef } = createProvider({
       streamResponses: [
         '{"highlights":["A"',
         ',"B"',
@@ -406,25 +394,23 @@ describe("useReason output flow", () => {
     const { node, emitted } = createNode();
     const state = createState();
 
-    const { result } = await runWithHookContext(
-      { node, state, getProvider },
-      async () =>
-        useReason({
-          id: "multi-append-reason",
-          model: { providerId: "mock", modelId: "mock-model" },
-          input: "Create bullet lists",
+    const { result } = await runWithHookContext({ node, state }, async () =>
+      useReason({
+        id: "multi-append-reason",
+        model: modelRef,
+        input: "Create bullet lists",
+        stream: true,
+        emit: true,
+        outputSchema: MultiAppendSchema,
+        structured: {
+          dataType: "reason.multi-append",
           stream: true,
-          emit: true,
-          outputSchema: MultiAppendSchema,
-          structured: {
-            dataType: "reason.multi-append",
-            stream: true,
-            fields: {
-              highlights: "append",
-              ctas: "append",
-            },
+          fields: {
+            highlights: "append",
+            ctas: "append",
           },
-        }),
+        },
+      }),
     );
 
     expect(stream).toHaveBeenCalledTimes(1);
@@ -471,16 +457,16 @@ describe("useReason output flow", () => {
   });
 
   it("rejects dotted paths in useReason structured.fields", async () => {
-    const { getProvider } = createProvider({
+    const { modelRef } = createProvider({
       streamResponses: ['{"draft":{"body":"Hello"}}'],
     });
     const { node } = createNode();
     const state = createState();
 
     await expect(
-      runWithHookContext({ node, state, getProvider }, async () =>
+      runWithHookContext({ node, state }, async () =>
         useReason({
-          model: { providerId: "mock", modelId: "mock-model" },
+          model: modelRef,
           input: "Create an email",
           stream: true,
           emit: true,
@@ -504,16 +490,16 @@ describe("useReason output flow", () => {
   });
 
   it("rejects empty keys in useReason structured.fields", async () => {
-    const { getProvider } = createProvider({
+    const { modelRef } = createProvider({
       streamResponses: ['{"body":"Hello"}'],
     });
     const { node } = createNode();
     const state = createState();
 
     await expect(
-      runWithHookContext({ node, state, getProvider }, async () =>
+      runWithHookContext({ node, state }, async () =>
         useReason({
-          model: { providerId: "mock", modelId: "mock-model" },
+          model: modelRef,
           input: "Create an email",
           stream: true,
           emit: true,
@@ -540,16 +526,16 @@ describe("useReason output flow", () => {
       userChoice: "pending",
     });
 
-    const { getProvider, invoke } = createProvider({
+    const { invoke, modelRef } = createProvider({
       invokeResponses: [response],
     });
     const { node } = createNode();
     const state = createState();
 
     await expect(
-      runWithHookContext({ node, state, getProvider }, async () =>
+      runWithHookContext({ node, state }, async () =>
         useReason({
-          model: { providerId: "mock", modelId: "mock-model" },
+          model: modelRef,
           input: "Create a plan",
           stream: false,
           emit: true,
@@ -562,21 +548,19 @@ describe("useReason output flow", () => {
   });
 
   it("streams plain text when no outputSchema/interrupt is provided", async () => {
-    const { getProvider, stream, invoke } = createProvider({
+    const { stream, invoke, modelRef } = createProvider({
       streamResponses: ["hello ", "world"],
     });
     const { node, emitted } = createNode();
     const state = createState();
 
-    const { result } = await runWithHookContext(
-      { node, state, getProvider },
-      async () =>
-        useReason({
-          model: { providerId: "mock", modelId: "mock-model" },
-          input: "Say hello",
-          stream: true,
-          emit: true,
-        }),
+    const { result } = await runWithHookContext({ node, state }, async () =>
+      useReason({
+        model: modelRef,
+        input: "Say hello",
+        stream: true,
+        emit: true,
+      }),
     );
 
     expect(result.text).toBe("hello world");

@@ -1,13 +1,11 @@
 import { randomUUID } from "node:crypto";
 import type {
-  GetProviderFn,
   KortyxPromptMessage,
   KortyxStreamChunk,
   ProviderModelRef,
 } from "@kortyx/providers";
 
 export interface RunReasonEngineArgs {
-  getProvider: GetProviderFn;
   model: ProviderModelRef;
   input: string;
   system?: string | undefined;
@@ -68,7 +66,7 @@ export async function runReasonEngine(
     args.model.options?.temperature ??
     args.defaultTemperature;
 
-  const model = args.getProvider(args.model.providerId, args.model.modelId, {
+  const model = args.model.provider.getModel(args.model.modelId, {
     ...(temperature !== undefined ? { temperature } : {}),
     streaming: stream,
   });
