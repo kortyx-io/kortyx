@@ -96,7 +96,10 @@ export const docsConfig: DocsConfig = {
       "guides/process-chat": "core-concepts/stream-chat",
       "guides/stream-chat": "core-concepts/stream-chat",
       "agent/stream-protocol": "reference/stream-protocol",
-      "providers/setup-google-provider": "guides/setup-google-provider",
+      "providers/setup-google-provider":
+        "kortyx-providers/google-generative-ai-provider",
+      "guides/setup-google-provider":
+        "kortyx-providers/google-generative-ai-provider",
       "providers/provider-api": "reference/provider-api",
       "memory/adapters": "production/persistence",
       "guides/memory-adapters": "production/persistence",

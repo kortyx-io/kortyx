@@ -46,5 +46,5 @@ Resume replays the node function from the top. `useReason` continues from checkp
 
 ## Configuration
 
-- `GOOGLE_API_KEY` (or `GEMINI_API_KEY`): used by `createGoogleGenerativeAI(...)` in `src/lib/providers.ts`.
+- `GOOGLE_API_KEY` (or `GEMINI_API_KEY`, `GOOGLE_GENERATIVE_AI_API_KEY`, `KORTYX_GOOGLE_API_KEY`, `KORTYX_GEMINI_API_KEY`): used by the default `google` export from `@kortyx/google`.
 - Workflows in this example are TypeScript (`defineWorkflow(...)`) under `src/workflows`.

@@ -10,7 +10,11 @@ import type {
 } from "@kortyx/providers";
 import { registerProvider } from "@kortyx/providers";
 import { createGoogleClient } from "./client";
-import { requireApiKey, toProviderRequestError } from "./errors";
+import {
+  ProviderConfigurationError,
+  requireApiKey,
+  toProviderRequestError,
+} from "./errors";
 import { createGenerateContentRequest, extractText } from "./messages";
 import { MODELS, type ModelId, PROVIDER_ID } from "./models";
 import type { ProviderSettings } from "./types";
@@ -20,21 +24,50 @@ const createStreamChunk = (text: string, raw: unknown): KortyxStreamChunk => ({
   raw,
 });
 
-const createProviderConfig = (settings: ProviderSettings): ProviderConfig => {
-  const apiKey = requireApiKey(settings.apiKey);
-  const client = createGoogleClient({
-    apiKey,
-    baseUrl: settings.baseUrl,
-    fetch: settings.fetch,
-  });
+const loadGoogleApiKey = (apiKey: string | undefined): string => {
+  if (apiKey !== undefined) {
+    return requireApiKey(apiKey);
+  }
 
+  const envApiKey =
+    process.env.GOOGLE_API_KEY ??
+    process.env.GEMINI_API_KEY ??
+    process.env.GOOGLE_GENERATIVE_AI_API_KEY ??
+    process.env.KORTYX_GOOGLE_API_KEY ??
+    process.env.KORTYX_GEMINI_API_KEY;
+
+  if (!envApiKey || envApiKey.trim().length === 0) {
+    throw new ProviderConfigurationError(
+      "Google provider requires an API key. Pass apiKey to createGoogleGenerativeAI(...) or set GOOGLE_API_KEY, GEMINI_API_KEY, GOOGLE_GENERATIVE_AI_API_KEY, KORTYX_GOOGLE_API_KEY, or KORTYX_GEMINI_API_KEY.",
+    );
+  }
+
+  return envApiKey;
+};
+
+const createProviderConfig = (settings: ProviderSettings): ProviderConfig => {
   const createModel = (modelId: ModelId): KortyxModel => {
+    let client: ReturnType<typeof createGoogleClient> | undefined;
+
+    const getClient = () => {
+      if (!client) {
+        client = createGoogleClient({
+          apiKey: loadGoogleApiKey(settings.apiKey),
+          baseUrl: settings.baseUrl,
+          fetch: settings.fetch,
+        });
+      }
+
+      return client;
+    };
+
     let modelTemperature = 0.7;
     let streamResponses = true;
 
     return {
       async *stream(messages: KortyxPromptMessage[]) {
         try {
+          const client = getClient();
           const request = createGenerateContentRequest(
             messages,
             modelTemperature,
@@ -76,6 +109,7 @@ const createProviderConfig = (settings: ProviderSettings): ProviderConfig => {
         messages: KortyxPromptMessage[],
       ): Promise<KortyxInvokeResult> {
         try {
+          const client = getClient();
           const request = createGenerateContentRequest(
             messages,
             modelTemperature,
@@ -123,12 +157,21 @@ export type GoogleGenerativeAIProvider = ProviderSelector<
 >;
 
 export function createGoogleGenerativeAI(
-  settings: ProviderSettings,
+  settings: ProviderSettings = {},
 ): GoogleGenerativeAIProvider {
   const providerConfig = createProviderConfig(settings);
-  registerProvider(providerConfig);
+  let isRegistered = false;
+
+  const ensureRegistered = () => {
+    if (!isRegistered) {
+      registerProvider(providerConfig);
+      isRegistered = true;
+    }
+  };
 
   const provider = ((modelId: ModelId, options?: ModelOptions) => {
+    ensureRegistered();
+
     if (!MODELS.includes(modelId)) {
       throw new Error(
         `Unknown Google model: ${modelId}. Available models: ${MODELS.join(", ")}`,
@@ -146,3 +189,5 @@ export function createGoogleGenerativeAI(
   provider.models = MODELS;
   return provider;
 }
+
+export const google = createGoogleGenerativeAI();
