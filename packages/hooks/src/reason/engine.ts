@@ -56,6 +56,7 @@ export async function reasonEngine(
     onTextChunk: args.onTextChunk,
     nodeId: ctx.node.graph.node,
     emitEvent: ctx.node.emit,
+    reasonTrace: ctx.reasonTrace,
     id: meta.id,
     opId: meta.opId,
   });

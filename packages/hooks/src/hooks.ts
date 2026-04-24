@@ -57,7 +57,7 @@ export function useNodeState<T>(initialValue: T): [T, StateSetter<T>] {
   const index = ctx.nodeStateIndex++;
   if (index >= nodeState.byIndex.length) {
     nodeState.byIndex[index] = initialValue as T;
-    ctx.dirty = true;
+    ctx.stateDirty = true;
   }
 
   const getValue = () => nodeState.byIndex[index] as T;
@@ -66,7 +66,7 @@ export function useNodeState<T>(initialValue: T): [T, StateSetter<T>] {
     const resolved =
       typeof next === "function" ? (next as (p: T) => T)(prev) : next;
     nodeState.byIndex[index] = resolved;
-    ctx.dirty = true;
+    ctx.stateDirty = true;
   };
 
   return [getValue(), setValue];
@@ -83,7 +83,7 @@ export function useWorkflowState<T>(
 
   if (!Object.hasOwn(workflowState, key) && hasInitial) {
     workflowState[key] = initialValue as T;
-    ctx.dirty = true;
+    ctx.stateDirty = true;
   }
 
   const getValue = () => workflowState[key] as T;
@@ -92,7 +92,7 @@ export function useWorkflowState<T>(
     const resolved =
       typeof next === "function" ? (next as (p: T) => T)(prev) : next;
     workflowState[key] = resolved;
-    ctx.dirty = true;
+    ctx.stateDirty = true;
   };
 
   return [getValue(), setValue];

@@ -5,9 +5,14 @@ import type {
   KortyxUsage,
   KortyxWarning,
 } from "@kortyx/providers";
-import { getHookContext } from "../context";
+import {
+  accumulateTokenUsage,
+  getHookContext,
+  getReasonTraceAdapter,
+} from "../context";
 import { awaitInterruptInternal } from "../interrupt";
 import { emitStructuredData, shouldEmitStructured } from "../structured";
+import type { ReasonTraceSpan } from "../tracing";
 import type { SchemaLike, UseReasonArgs, UseReasonResult } from "../types";
 import { parseWithSchema } from "../validation";
 import {
@@ -149,6 +154,22 @@ export async function useReason<
 
   const reasonMeta =
     typeof id === "string" ? ({ id, opId } as const) : ({ opId } as const);
+  const traceSpan: ReasonTraceSpan | undefined =
+    getReasonTraceAdapter()?.startSpan({
+      name: "useReason",
+      attributes: {
+        ...(id ? { id } : {}),
+        opId,
+        nodeId: ctx.node.graph.node,
+        providerId: args.model.provider.id,
+        modelId: args.model.modelId,
+        stream: args.stream ?? args.model.options?.streaming ?? true,
+        emit: args.emit ?? true,
+        hasOutputSchema: Boolean(args.outputSchema),
+        hasInterrupt: Boolean(args.interrupt),
+        hasStructured: Boolean(args.structured),
+      },
+    });
   const suppressTextStream = Boolean(args.outputSchema || args.interrupt);
   const setFieldPaths = resolveSetFieldPaths(args.structured);
   const appendFieldPaths = resolveAppendFieldPaths(args.structured);
@@ -190,6 +211,9 @@ export async function useReason<
     finalFinishReason = existingCheckpoint.firstFinishReason;
     aggregatedProviderMetadata = existingCheckpoint.firstProviderMetadata;
     aggregatedWarnings = existingCheckpoint.firstWarnings;
+    traceSpan?.addEvent?.("useReason.resume", {
+      checkpointKey,
+    });
   } else {
     const first = await reasonEngine(
       {
@@ -322,6 +346,7 @@ export async function useReason<
     );
     firstRaw = first.raw;
     finalRaw = first.raw;
+    accumulateTokenUsage(first.usage);
     aggregatedUsage = mergeUsage(aggregatedUsage, first.usage);
     finalFinishReason = first.finishReason;
     aggregatedProviderMetadata = mergeProviderMetadata(
@@ -329,6 +354,10 @@ export async function useReason<
       first.providerMetadata,
     );
     aggregatedWarnings = mergeWarnings(aggregatedWarnings, first.warnings);
+    traceSpan?.addEvent?.("useReason.first-pass.complete", {
+      textLength: first.text.length,
+      hasInterrupt: Boolean(args.interrupt),
+    });
 
     if (args.interrupt) {
       const firstPass = parseInterruptFirstPassResult<TRequest, TOutput>({
@@ -396,7 +425,7 @@ export async function useReason<
           : {}),
         ...(firstOutput !== undefined ? { firstOutput } : {}),
       } satisfies ReasonInterruptCheckpoint;
-      ctx.dirty = true;
+      ctx.stateDirty = true;
     }
 
     const resumeStatePatch = resolveHookStatePatch({
@@ -418,10 +447,13 @@ export async function useReason<
         __kortyxResumeStatePatch: resumeStatePatch,
       },
     });
+    traceSpan?.addEvent?.("useReason.interrupt.resolved", {
+      checkpointKey,
+    });
 
     if (Object.hasOwn(ctx.currentNodeState.byKey, checkpointKey)) {
       delete ctx.currentNodeState.byKey[checkpointKey];
-      ctx.dirty = true;
+      ctx.stateDirty = true;
     }
 
     const continuationInput = defaultContinuationInput({
@@ -448,6 +480,7 @@ export async function useReason<
     );
     finalText = second.text;
     finalRaw = second.raw;
+    accumulateTokenUsage(second.usage);
     aggregatedUsage = mergeUsage(aggregatedUsage, second.usage);
     finalFinishReason = second.finishReason;
     aggregatedProviderMetadata = mergeProviderMetadata(
@@ -455,6 +488,9 @@ export async function useReason<
       second.providerMetadata,
     );
     aggregatedWarnings = mergeWarnings(aggregatedWarnings, second.warnings);
+    traceSpan?.addEvent?.("useReason.continuation.complete", {
+      textLength: second.text.length,
+    });
 
     if (args.outputSchema) {
       finalOutput = parseWithSchema(
@@ -474,7 +510,7 @@ export async function useReason<
     });
   }
 
-  return {
+  const result = {
     ...(id ? { id } : {}),
     opId,
     text: finalText,
@@ -492,4 +528,24 @@ export async function useReason<
     ...(finalOutput !== undefined ? { output: finalOutput } : {}),
     ...(interruptResponse !== undefined ? { interruptResponse } : {}),
   };
+
+  traceSpan?.end?.({
+    ...(aggregatedUsage !== undefined ? { usage: aggregatedUsage } : {}),
+    ...(finalFinishReason !== undefined
+      ? { finishReason: finalFinishReason }
+      : {}),
+    ...(aggregatedProviderMetadata !== undefined
+      ? { providerMetadata: aggregatedProviderMetadata }
+      : {}),
+    ...(aggregatedWarnings !== undefined
+      ? { warnings: aggregatedWarnings }
+      : {}),
+    attributes: {
+      textLength: finalText.length,
+      resumedFromCheckpoint: Boolean(existingCheckpoint),
+      interrupted: Boolean(interruptResponse !== undefined),
+    },
+  });
+
+  return result;
 }

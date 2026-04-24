@@ -20,3 +20,10 @@ export {
   useStructuredData,
   useWorkflowState,
 } from "./hooks";
+export type {
+  ReasonTraceAdapter,
+  ReasonTraceAttributes,
+  ReasonTraceSpan,
+  ReasonTraceSpanEndArgs,
+  ReasonTraceSpanStartArgs,
+} from "./tracing";

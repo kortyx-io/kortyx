@@ -1,5 +1,7 @@
 import { AsyncLocalStorage } from "node:async_hooks";
-import type { GraphState, NodeContext } from "@kortyx/core";
+import type { GraphState, NodeContext, TokenUsage } from "@kortyx/core";
+import type { KortyxUsage } from "@kortyx/providers";
+import type { ReasonTraceAdapter } from "./tracing";
 
 type NodeStateStore = {
   byIndex: unknown[];
@@ -23,6 +25,7 @@ type HookStatePatchedError = {
 export type HookRuntimeContext = {
   node: NodeContext;
   state: GraphState;
+  reasonTrace?: ReasonTraceAdapter | undefined;
 };
 
 type HookInternalContext = HookRuntimeContext & {
@@ -30,7 +33,9 @@ type HookInternalContext = HookRuntimeContext & {
   reasonCallIndex: number;
   currentNodeState: NodeStateStore;
   workflowState: Record<string, unknown>;
-  dirty: boolean;
+  tokenUsage?: TokenUsage | undefined;
+  stateDirty: boolean;
+  runtimeDirty: boolean;
 };
 
 const storage = new AsyncLocalStorage<HookInternalContext>();
@@ -54,6 +59,21 @@ const normalizeNodeState = (value: unknown): NodeStateStore => {
 
 const cloneWorkflowState = (value: unknown): Record<string, unknown> =>
   isRecord(value) ? { ...value } : {};
+
+const cloneTokenUsage = (value: unknown): TokenUsage | undefined => {
+  if (!isRecord(value)) return undefined;
+  const input = typeof value.input === "number" ? value.input : undefined;
+  const output = typeof value.output === "number" ? value.output : undefined;
+  const total = typeof value.total === "number" ? value.total : undefined;
+  if (input === undefined && output === undefined && total === undefined) {
+    return undefined;
+  }
+  return {
+    input: input ?? 0,
+    output: output ?? 0,
+    total: total ?? 0,
+  };
+};
 
 const getHookRuntimeState = (state: GraphState): HookRuntimeState => {
   const runtime = (state.runtime ?? {}) as Record<string, unknown>;
@@ -90,22 +110,74 @@ const createInternalContext = (
     reasonCallIndex: 0,
     currentNodeState,
     workflowState: cloneWorkflowState(hookRuntimeState.workflowState),
-    dirty: false,
+    tokenUsage: cloneTokenUsage(ctx.state.runtime?.tokenUsage),
+    stateDirty: false,
+    runtimeDirty: false,
   };
 };
 
 const buildRuntimeStateUpdates = (ctx: HookInternalContext) => {
-  if (!ctx.dirty) return null;
-  return {
-    __kortyx: {
+  const updates: Record<string, unknown> = {};
+
+  if (ctx.stateDirty) {
+    updates.__kortyx = {
       nodeState: {
         nodeId: ctx.node.graph.node,
         state: ctx.currentNodeState,
       },
       workflowState: ctx.workflowState,
-    },
-  } as Record<string, unknown>;
+    };
+  }
+
+  if (ctx.runtimeDirty && ctx.tokenUsage) {
+    updates.tokenUsage = ctx.tokenUsage;
+  }
+
+  return Object.keys(updates).length > 0 ? updates : null;
 };
+
+const toTokenUsageDelta = (
+  usage: KortyxUsage | undefined,
+): TokenUsage | undefined => {
+  if (!usage) return undefined;
+
+  const input = usage.input ?? 0;
+  const output = usage.output ?? 0;
+  const total = usage.total ?? input + output + (usage.reasoning ?? 0);
+
+  if (input === 0 && output === 0 && total === 0) {
+    return undefined;
+  }
+
+  return {
+    input,
+    output,
+    total,
+  };
+};
+
+export function accumulateTokenUsage(usage: KortyxUsage | undefined): void {
+  const delta = toTokenUsageDelta(usage);
+  if (!delta) return;
+
+  const ctx = getHookContext();
+  const current = ctx.tokenUsage ?? {
+    input: 0,
+    output: 0,
+    total: 0,
+  };
+
+  ctx.tokenUsage = {
+    input: current.input + delta.input,
+    output: current.output + delta.output,
+    total: current.total + delta.total,
+  };
+  ctx.runtimeDirty = true;
+}
+
+export function getReasonTraceAdapter(): ReasonTraceAdapter | undefined {
+  return getHookContext().reasonTrace;
+}
 
 export async function runWithHookContext<T>(
   ctx: HookRuntimeContext,

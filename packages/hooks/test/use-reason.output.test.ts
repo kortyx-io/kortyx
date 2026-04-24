@@ -1,7 +1,8 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 import { runWithHookContext } from "../src/context";
 import { useReason } from "../src/hooks";
+import type { ReasonTraceAdapter, ReasonTraceSpan } from "../src/tracing";
 import { createNode, createProvider, createState } from "./helpers";
 
 const PlanSchema = z.object({
@@ -97,6 +98,107 @@ describe("useReason output flow", () => {
         details: "Schema was ignored.",
       },
     ]);
+  });
+
+  it("accumulates provider usage into runtime token usage updates", async () => {
+    const { modelRef } = createProvider({
+      invokeResponses: [
+        {
+          content: "Summary",
+          usage: {
+            input: 9,
+            output: 5,
+            total: 14,
+          },
+        },
+      ],
+    });
+    const { node } = createNode();
+    const state = createState({
+      tokenUsage: {
+        input: 3,
+        output: 2,
+        total: 5,
+      },
+    });
+
+    const { runtimeUpdates } = await runWithHookContext(
+      { node, state },
+      async () =>
+        useReason({
+          model: modelRef,
+          input: "Create a summary",
+          stream: false,
+        }),
+    );
+
+    expect(runtimeUpdates).toMatchObject({
+      tokenUsage: {
+        input: 12,
+        output: 7,
+        total: 19,
+      },
+    });
+  });
+
+  it("emits trace spans for useReason and runReasonEngine", async () => {
+    const { modelRef } = createProvider({
+      invokeResponses: [
+        {
+          content: "Summary",
+          usage: {
+            input: 4,
+            output: 6,
+            total: 10,
+          },
+          finishReason: {
+            unified: "stop",
+            raw: "STOP",
+          },
+        },
+      ],
+    });
+    const { node } = createNode();
+    const state = createState();
+    const startSpan = vi.fn(
+      ({
+        name,
+      }: {
+        name: "useReason" | "runReasonEngine";
+      }): ReasonTraceSpan => ({
+        end: vi.fn(),
+        addEvent: vi.fn(),
+        fail: vi.fn(),
+        setAttributes: vi.fn(),
+      }),
+    );
+    const reasonTrace: ReasonTraceAdapter = {
+      startSpan,
+    };
+
+    await runWithHookContext({ node, state, reasonTrace }, async () =>
+      useReason({
+        model: modelRef,
+        input: "Create a summary",
+        stream: false,
+      }),
+    );
+
+    expect(startSpan).toHaveBeenCalledTimes(2);
+    expect(startSpan.mock.calls[0]?.[0]).toMatchObject({
+      name: "useReason",
+      attributes: expect.objectContaining({
+        providerId: "mock",
+        modelId: "mock-model",
+      }),
+    });
+    expect(startSpan.mock.calls[1]?.[0]).toMatchObject({
+      name: "runReasonEngine",
+      attributes: expect.objectContaining({
+        providerId: "mock",
+        modelId: "mock-model",
+      }),
+    });
   });
 
   it("parses JSON output and emits one structured patch", async () => {
