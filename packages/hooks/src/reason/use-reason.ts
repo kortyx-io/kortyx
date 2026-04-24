@@ -1,4 +1,10 @@
 import type { InterruptInput, InterruptResult } from "@kortyx/core";
+import type {
+  KortyxFinishReason,
+  KortyxProviderMetadata,
+  KortyxUsage,
+  KortyxWarning,
+} from "@kortyx/providers";
 import { getHookContext } from "../context";
 import { awaitInterruptInternal } from "../interrupt";
 import { emitStructuredData, shouldEmitStructured } from "../structured";
@@ -29,6 +35,75 @@ import {
   resolveSetFieldPaths,
   resolveTextDeltaFieldPaths,
 } from "./structured-stream";
+
+const mergeUsage = (
+  left: KortyxUsage | undefined,
+  right: KortyxUsage | undefined,
+): KortyxUsage | undefined => {
+  if (!left) return right;
+  if (!right) return left;
+
+  const sum = (
+    a: number | undefined,
+    b: number | undefined,
+  ): number | undefined =>
+    a === undefined && b === undefined ? undefined : (a ?? 0) + (b ?? 0);
+
+  const raw =
+    left.raw || right.raw
+      ? {
+          ...(left.raw ?? {}),
+          ...(right.raw ?? {}),
+        }
+      : undefined;
+  const input = sum(left.input, right.input);
+  const output = sum(left.output, right.output);
+  const total = sum(left.total, right.total);
+  const reasoning = sum(left.reasoning, right.reasoning);
+  const cacheRead = sum(left.cacheRead, right.cacheRead);
+  const cacheWrite = sum(left.cacheWrite, right.cacheWrite);
+  const merged: KortyxUsage = {};
+
+  if (input !== undefined) merged.input = input;
+  if (output !== undefined) merged.output = output;
+  if (total !== undefined) merged.total = total;
+  if (reasoning !== undefined) merged.reasoning = reasoning;
+  if (cacheRead !== undefined) merged.cacheRead = cacheRead;
+  if (cacheWrite !== undefined) merged.cacheWrite = cacheWrite;
+  if (raw) merged.raw = raw;
+
+  return merged;
+};
+
+const mergeWarnings = (
+  left: KortyxWarning[] | undefined,
+  right: KortyxWarning[] | undefined,
+): KortyxWarning[] | undefined => {
+  if (!left?.length) return right;
+  if (!right?.length) return left;
+
+  const seen = new Set<string>();
+  const merged: KortyxWarning[] = [];
+  for (const warning of [...left, ...right]) {
+    const key = JSON.stringify(warning);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    merged.push(warning);
+  }
+  return merged;
+};
+
+const mergeProviderMetadata = (
+  left: KortyxProviderMetadata | undefined,
+  right: KortyxProviderMetadata | undefined,
+): KortyxProviderMetadata | undefined => {
+  if (!left) return right;
+  if (!right) return left;
+  return {
+    ...left,
+    ...right,
+  };
+};
 
 const emitReasonStructuredOutput = <TOutput>(args: {
   id?: string;
@@ -96,6 +171,10 @@ export async function useReason<
   let finalText = "";
   let finalRaw: unknown;
   let finalOutput: TOutput | undefined;
+  let aggregatedUsage: KortyxUsage | undefined;
+  let finalFinishReason: KortyxFinishReason | undefined;
+  let aggregatedProviderMetadata: KortyxProviderMetadata | undefined;
+  let aggregatedWarnings: KortyxWarning[] | undefined;
   const emittedSetValues = new Map<string, string>();
   const emittedAppendCounts = new Map<string, number>();
   const emittedTextValues = new Map<string, string>();
@@ -107,6 +186,10 @@ export async function useReason<
     finalText = firstText;
     finalRaw = firstRaw;
     finalOutput = firstOutput;
+    aggregatedUsage = existingCheckpoint.firstUsage;
+    finalFinishReason = existingCheckpoint.firstFinishReason;
+    aggregatedProviderMetadata = existingCheckpoint.firstProviderMetadata;
+    aggregatedWarnings = existingCheckpoint.firstWarnings;
   } else {
     const first = await reasonEngine(
       {
@@ -239,6 +322,13 @@ export async function useReason<
     );
     firstRaw = first.raw;
     finalRaw = first.raw;
+    aggregatedUsage = mergeUsage(aggregatedUsage, first.usage);
+    finalFinishReason = first.finishReason;
+    aggregatedProviderMetadata = mergeProviderMetadata(
+      aggregatedProviderMetadata,
+      first.providerMetadata,
+    );
+    aggregatedWarnings = mergeWarnings(aggregatedWarnings, first.warnings);
 
     if (args.interrupt) {
       const firstPass = parseInterruptFirstPassResult<TRequest, TOutput>({
@@ -292,6 +382,18 @@ export async function useReason<
         request: interruptRequest,
         firstText,
         ...(firstRaw !== undefined ? { firstRaw } : {}),
+        ...(aggregatedUsage !== undefined
+          ? { firstUsage: aggregatedUsage }
+          : {}),
+        ...(finalFinishReason !== undefined
+          ? { firstFinishReason: finalFinishReason }
+          : {}),
+        ...(aggregatedProviderMetadata !== undefined
+          ? { firstProviderMetadata: aggregatedProviderMetadata }
+          : {}),
+        ...(aggregatedWarnings !== undefined
+          ? { firstWarnings: aggregatedWarnings }
+          : {}),
         ...(firstOutput !== undefined ? { firstOutput } : {}),
       } satisfies ReasonInterruptCheckpoint;
       ctx.dirty = true;
@@ -346,6 +448,13 @@ export async function useReason<
     );
     finalText = second.text;
     finalRaw = second.raw;
+    aggregatedUsage = mergeUsage(aggregatedUsage, second.usage);
+    finalFinishReason = second.finishReason;
+    aggregatedProviderMetadata = mergeProviderMetadata(
+      aggregatedProviderMetadata,
+      second.providerMetadata,
+    );
+    aggregatedWarnings = mergeWarnings(aggregatedWarnings, second.warnings);
 
     if (args.outputSchema) {
       finalOutput = parseWithSchema(
@@ -370,6 +479,16 @@ export async function useReason<
     opId,
     text: finalText,
     ...(finalRaw !== undefined ? { raw: finalRaw } : {}),
+    ...(aggregatedUsage !== undefined ? { usage: aggregatedUsage } : {}),
+    ...(finalFinishReason !== undefined
+      ? { finishReason: finalFinishReason }
+      : {}),
+    ...(aggregatedProviderMetadata !== undefined
+      ? { providerMetadata: aggregatedProviderMetadata }
+      : {}),
+    ...(aggregatedWarnings !== undefined
+      ? { warnings: aggregatedWarnings }
+      : {}),
     ...(finalOutput !== undefined ? { output: finalOutput } : {}),
     ...(interruptResponse !== undefined ? { interruptResponse } : {}),
   };

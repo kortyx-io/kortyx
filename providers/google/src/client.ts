@@ -4,6 +4,7 @@ import type {
   GoogleClientConfig,
   GoogleGenerateContentRequest,
   GoogleGenerateContentResponse,
+  GoogleRequestOptions,
 } from "./types";
 
 const DEFAULT_BASE_URL = "https://generativelanguage.googleapis.com/v1beta";
@@ -132,6 +133,7 @@ export const createGoogleClient = (
   const generateContent = async (
     modelId: string,
     body: GoogleGenerateContentRequest,
+    options?: GoogleRequestOptions,
   ): Promise<GoogleGenerateContentResponse> => {
     const response = await fetchImpl(
       `${baseUrl}/${getModelPath(modelId)}:generateContent`,
@@ -139,6 +141,7 @@ export const createGoogleClient = (
         method: "POST",
         headers,
         body: JSON.stringify(body),
+        ...(options?.signal ? { signal: options.signal } : {}),
       },
     );
 
@@ -149,6 +152,7 @@ export const createGoogleClient = (
   const streamGenerateContent = async function* (
     modelId: string,
     body: GoogleGenerateContentRequest,
+    options?: GoogleRequestOptions,
   ): AsyncGenerator<GoogleGenerateContentResponse> {
     const response = await fetchImpl(
       `${baseUrl}/${getModelPath(modelId)}:streamGenerateContent?alt=sse`,
@@ -156,6 +160,7 @@ export const createGoogleClient = (
         method: "POST",
         headers,
         body: JSON.stringify(body),
+        ...(options?.signal ? { signal: options.signal } : {}),
       },
     );
 

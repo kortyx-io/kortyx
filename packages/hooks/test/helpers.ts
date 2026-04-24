@@ -8,7 +8,7 @@ import type {
   GetProviderFn,
   KortyxInvokeResult,
   KortyxModel,
-  KortyxStreamChunk,
+  KortyxStreamPart,
   ProviderSelector,
 } from "@kortyx/providers";
 import { vi } from "vitest";
@@ -19,7 +19,7 @@ type InvokeResponse = string | KortyxInvokeResult;
 
 type CreateProviderArgs = {
   invokeResponses?: InvokeResponse[];
-  streamResponses?: Array<KortyxStreamChunk | string>;
+  streamResponses?: Array<KortyxStreamPart | string>;
 };
 
 type CreateNodeArgs = {
@@ -56,6 +56,14 @@ export const createProvider = (args: CreateProviderArgs = {}) => {
 
   const stream = vi.fn(async function* () {
     for (const chunk of streamQueue) {
+      if (typeof chunk === "string") {
+        yield {
+          type: "text-delta",
+          delta: chunk,
+        } satisfies KortyxStreamPart;
+        continue;
+      }
+
       yield chunk;
     }
   });
@@ -77,8 +85,6 @@ export const createProvider = (args: CreateProviderArgs = {}) => {
         return {
           invoke,
           stream,
-          temperature: options?.temperature ?? 0,
-          streaming: options?.streaming ?? true,
         } satisfies KortyxModel;
       }),
     },

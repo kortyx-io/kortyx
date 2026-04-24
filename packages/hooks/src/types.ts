@@ -1,5 +1,13 @@
 import type { InterruptInput, InterruptResult } from "@kortyx/core";
-import type { ProviderModelRef } from "@kortyx/providers";
+import type {
+  KortyxFinishReason,
+  KortyxProviderMetadata,
+  KortyxReasoningOptions,
+  KortyxResponseFormat,
+  KortyxUsage,
+  KortyxWarning,
+  ProviderModelRef,
+} from "@kortyx/providers";
 
 export type SchemaLike<T> = {
   safeParse: (value: unknown) =>
@@ -104,6 +112,12 @@ export type UseReasonArgs<
   input: string;
   system?: string | undefined;
   temperature?: number | undefined;
+  maxOutputTokens?: number | undefined;
+  stopSequences?: string[] | undefined;
+  abortSignal?: AbortSignal | undefined;
+  reasoning?: KortyxReasoningOptions | undefined;
+  responseFormat?: KortyxResponseFormat | undefined;
+  providerOptions?: Record<string, unknown> | undefined;
   emit?: boolean | undefined;
   stream?: boolean | undefined;
   id?: string | undefined;
@@ -117,6 +131,10 @@ export type UseReasonResult<TOutput = unknown, TResponse = InterruptResult> = {
   opId: string;
   text: string;
   raw?: unknown;
+  usage?: KortyxUsage;
+  finishReason?: KortyxFinishReason;
+  providerMetadata?: KortyxProviderMetadata;
+  warnings?: KortyxWarning[];
   output?: TOutput;
   interruptResponse?: TResponse;
 };

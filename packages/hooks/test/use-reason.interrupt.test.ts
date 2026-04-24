@@ -103,6 +103,109 @@ describe("useReason interrupt flow", () => {
     expect(runtimeUpdates).toBeTruthy();
   });
 
+  it("aggregates normalized usage across interrupt first-pass and continuation calls", async () => {
+    const { modelRef } = createProvider({
+      invokeResponses: [
+        {
+          content: JSON.stringify({
+            output: {
+              summary: "Draft summary",
+              recommendation: "Draft recommendation",
+              checklist: ["item-1"],
+              userChoice: "pending",
+            },
+            draftText: "Draft text",
+            interruptRequest: {
+              kind: "choice",
+              question: "Pick one",
+              options: [{ id: "opt-1", label: "Option 1" }],
+            },
+          }),
+          usage: {
+            input: 10,
+            output: 6,
+            total: 16,
+          },
+          warnings: [
+            {
+              type: "other",
+              message: "first-pass warning",
+            },
+          ],
+          providerMetadata: {
+            firstPassId: "call-1",
+          },
+        },
+        {
+          content: JSON.stringify({
+            summary: "Final summary",
+            recommendation: "Final recommendation",
+            checklist: ["item-1"],
+            userChoice: "opt-1",
+          }),
+          usage: {
+            input: 12,
+            output: 8,
+            total: 20,
+          },
+          finishReason: {
+            unified: "stop",
+            raw: "STOP",
+          },
+          warnings: [
+            {
+              type: "other",
+              message: "continuation warning",
+            },
+          ],
+          providerMetadata: {
+            continuationId: "call-2",
+          },
+        },
+      ],
+    });
+    const { node } = createNode({
+      interruptResponse: "opt-1",
+    });
+    const state = createState();
+
+    const { result } = await runWithHookContext({ node, state }, async () =>
+      useReason({
+        model: modelRef,
+        input: "Create a launch plan",
+        outputSchema: PlanSchema,
+        interrupt: {
+          requestSchema: ChoiceRequestSchema,
+          responseSchema: ChoiceResponseSchema,
+        },
+      }),
+    );
+
+    expect(result.usage).toEqual({
+      input: 22,
+      output: 14,
+      total: 36,
+    });
+    expect(result.finishReason).toEqual({
+      unified: "stop",
+      raw: "STOP",
+    });
+    expect(result.providerMetadata).toEqual({
+      firstPassId: "call-1",
+      continuationId: "call-2",
+    });
+    expect(result.warnings).toEqual([
+      {
+        type: "other",
+        message: "first-pass warning",
+      },
+      {
+        type: "other",
+        message: "continuation warning",
+      },
+    ]);
+  });
+
   it("resumes from checkpointed first pass and skips re-running first pass model call", async () => {
     const resumeCheckpoint = {
       status: "awaiting_interrupt",

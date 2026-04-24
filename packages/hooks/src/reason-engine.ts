@@ -1,7 +1,13 @@
 import { randomUUID } from "node:crypto";
 import type {
+  KortyxFinishReason,
   KortyxPromptMessage,
-  KortyxStreamChunk,
+  KortyxProviderMetadata,
+  KortyxReasoningOptions,
+  KortyxResponseFormat,
+  KortyxStreamPart,
+  KortyxUsage,
+  KortyxWarning,
   ProviderModelRef,
 } from "@kortyx/providers";
 
@@ -10,6 +16,12 @@ export interface RunReasonEngineArgs {
   input: string;
   system?: string | undefined;
   temperature?: number | undefined;
+  maxOutputTokens?: number | undefined;
+  stopSequences?: string[] | undefined;
+  abortSignal?: AbortSignal | undefined;
+  reasoning?: KortyxReasoningOptions | undefined;
+  responseFormat?: KortyxResponseFormat | undefined;
+  providerOptions?: Record<string, unknown> | undefined;
   defaultTemperature?: number | undefined;
   stream?: boolean | undefined;
   emit?: boolean | undefined;
@@ -24,14 +36,14 @@ export interface RunReasonEngineArgs {
 export interface RunReasonEngineResult {
   text: string;
   raw?: unknown;
+  usage?: KortyxUsage;
+  finishReason?: KortyxFinishReason;
+  providerMetadata?: KortyxProviderMetadata;
+  warnings?: KortyxWarning[];
 }
 
-const chunkToText = (chunk: KortyxStreamChunk | string): string => {
-  if (typeof chunk === "string") return chunk;
-  if (typeof chunk.text === "string") return chunk.text;
-  if (typeof chunk.content === "string") return chunk.content;
-  return "";
-};
+const toError = (value: unknown): Error =>
+  value instanceof Error ? value : new Error(String(value));
 
 const createRuntimeId = (): string => {
   try {
@@ -69,6 +81,22 @@ export async function runReasonEngine(
   const model = args.model.provider.getModel(args.model.modelId, {
     ...(temperature !== undefined ? { temperature } : {}),
     streaming: stream,
+    ...(args.maxOutputTokens !== undefined
+      ? { maxOutputTokens: args.maxOutputTokens }
+      : {}),
+    ...(args.stopSequences !== undefined
+      ? { stopSequences: args.stopSequences }
+      : {}),
+    ...(args.abortSignal !== undefined
+      ? { abortSignal: args.abortSignal }
+      : {}),
+    ...(args.reasoning !== undefined ? { reasoning: args.reasoning } : {}),
+    ...(args.responseFormat !== undefined
+      ? { responseFormat: args.responseFormat }
+      : {}),
+    ...(args.providerOptions !== undefined
+      ? { providerOptions: args.providerOptions }
+      : {}),
   });
 
   const messages: KortyxPromptMessage[] = [];
@@ -97,6 +125,10 @@ export async function runReasonEngine(
   if (stream) {
     let final = "";
     let raw: unknown;
+    let usage: KortyxUsage | undefined;
+    let finishReason: KortyxFinishReason | undefined;
+    let providerMetadata: KortyxProviderMetadata | undefined;
+    let warnings: KortyxWarning[] | undefined;
 
     if (emit) {
       emitNodeEvent(args.emitEvent, args.nodeId, "text-start", {
@@ -106,18 +138,62 @@ export async function runReasonEngine(
 
     const response = await model.stream(messages);
     for await (const chunk of response) {
-      const text = chunkToText(chunk);
-      if (!text) continue;
-      final += text;
-      args.onTextChunk?.(text);
-      if (typeof chunk === "object" && chunk && "raw" in chunk) {
-        raw = (chunk as KortyxStreamChunk).raw;
-      }
-      if (emit) {
-        emitNodeEvent(args.emitEvent, args.nodeId, "text-delta", {
-          ...commonMeta,
-          delta: text,
-        });
+      switch (chunk.type) {
+        case "text-delta": {
+          if (chunk.delta.length === 0) break;
+          final += chunk.delta;
+          args.onTextChunk?.(chunk.delta);
+          if (chunk.raw !== undefined) {
+            raw = chunk.raw;
+          }
+          if (chunk.providerMetadata !== undefined) {
+            providerMetadata = chunk.providerMetadata;
+          }
+          if (emit) {
+            emitNodeEvent(args.emitEvent, args.nodeId, "text-delta", {
+              ...commonMeta,
+              delta: chunk.delta,
+            });
+          }
+          break;
+        }
+        case "finish": {
+          if (chunk.raw !== undefined) {
+            raw = chunk.raw;
+          }
+          if (chunk.usage !== undefined) {
+            usage = chunk.usage;
+          }
+          if (chunk.finishReason !== undefined) {
+            finishReason = chunk.finishReason;
+          }
+          if (chunk.providerMetadata !== undefined) {
+            providerMetadata = chunk.providerMetadata;
+          }
+          if (chunk.warnings !== undefined) {
+            warnings = chunk.warnings;
+          }
+          break;
+        }
+        case "raw": {
+          raw = chunk.raw;
+          if (chunk.providerMetadata !== undefined) {
+            providerMetadata = chunk.providerMetadata;
+          }
+          break;
+        }
+        case "error": {
+          if (chunk.raw !== undefined) {
+            raw = chunk.raw;
+          }
+          if (chunk.providerMetadata !== undefined) {
+            providerMetadata = chunk.providerMetadata;
+          }
+          if (chunk.warnings !== undefined) {
+            warnings = chunk.warnings;
+          }
+          throw toError(chunk.error);
+        }
       }
     }
 
@@ -130,6 +206,10 @@ export async function runReasonEngine(
     return {
       text: final,
       ...(raw !== undefined ? { raw } : {}),
+      ...(usage !== undefined ? { usage } : {}),
+      ...(finishReason !== undefined ? { finishReason } : {}),
+      ...(providerMetadata !== undefined ? { providerMetadata } : {}),
+      ...(warnings !== undefined ? { warnings } : {}),
     };
   }
 
@@ -153,5 +233,13 @@ export async function runReasonEngine(
   return {
     text: response.content,
     ...(response.raw !== undefined ? { raw: response.raw } : {}),
+    ...(response.usage !== undefined ? { usage: response.usage } : {}),
+    ...(response.finishReason !== undefined
+      ? { finishReason: response.finishReason }
+      : {}),
+    ...(response.providerMetadata !== undefined
+      ? { providerMetadata: response.providerMetadata }
+      : {}),
+    ...(response.warnings !== undefined ? { warnings: response.warnings } : {}),
   };
 }

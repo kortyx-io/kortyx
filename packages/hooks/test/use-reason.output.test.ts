@@ -37,6 +37,68 @@ const MultiAppendSchema = z.object({
 });
 
 describe("useReason output flow", () => {
+  it("returns normalized provider metadata for direct invoke calls", async () => {
+    const { modelRef } = createProvider({
+      invokeResponses: [
+        {
+          content: "Summary",
+          usage: {
+            input: 11,
+            output: 7,
+            total: 18,
+          },
+          finishReason: {
+            unified: "stop",
+            raw: "STOP",
+          },
+          providerMetadata: {
+            providerId: "mock",
+            requestId: "req-123",
+          },
+          warnings: [
+            {
+              type: "compatibility",
+              feature: "responseFormat.schema",
+              details: "Schema was ignored.",
+            },
+          ],
+        },
+      ],
+    });
+    const { node } = createNode();
+    const state = createState();
+
+    const { result } = await runWithHookContext({ node, state }, async () =>
+      useReason({
+        model: modelRef,
+        input: "Create a summary",
+        stream: false,
+      }),
+    );
+
+    expect(result.text).toBe("Summary");
+    expect(result.usage).toEqual({
+      input: 11,
+      output: 7,
+      total: 18,
+    });
+    expect(result.finishReason).toEqual({
+      unified: "stop",
+      raw: "STOP",
+    });
+    expect(result.providerMetadata).toEqual({
+      providerId: "mock",
+      requestId: "req-123",
+    });
+    expect(result.warnings).toEqual([
+      {
+        type: "compatibility",
+        feature: "responseFormat.schema",
+        details: "Schema was ignored.",
+      },
+    ]);
+  });
+
   it("parses JSON output and emits one structured patch", async () => {
     const response = JSON.stringify({
       summary: "Summary",

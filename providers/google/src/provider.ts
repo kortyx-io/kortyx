@@ -1,8 +1,12 @@
 import type {
+  KortyxFinishReason,
   KortyxInvokeResult,
   KortyxModel,
   KortyxPromptMessage,
-  KortyxStreamChunk,
+  KortyxProviderMetadata,
+  KortyxStreamPart,
+  KortyxUsage,
+  KortyxWarning,
   ModelOptions,
   ProviderModelRef,
   ProviderSelector,
@@ -15,12 +19,7 @@ import {
 } from "./errors";
 import { createGenerateContentRequest, extractText } from "./messages";
 import { MODELS, type ModelId, PROVIDER_ID } from "./models";
-import type { ProviderSettings } from "./types";
-
-const createStreamChunk = (text: string, raw: unknown): KortyxStreamChunk => ({
-  text,
-  raw,
-});
+import type { GoogleGenerateContentResponse, ProviderSettings } from "./types";
 
 const loadGoogleApiKey = (apiKey: string | undefined): string => {
   if (apiKey !== undefined) {
@@ -43,9 +42,166 @@ const loadGoogleApiKey = (apiKey: string | undefined): string => {
   return envApiKey;
 };
 
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  Boolean(value) && typeof value === "object" && !Array.isArray(value);
+
+const toRecord = (value: unknown): Record<string, unknown> | undefined =>
+  isRecord(value) ? value : undefined;
+
+const mapGoogleFinishReason = (
+  finishReason: string | undefined,
+): KortyxFinishReason | undefined => {
+  if (finishReason === undefined) return undefined;
+
+  switch (finishReason) {
+    case "STOP":
+      return { unified: "stop", raw: finishReason };
+    case "MAX_TOKENS":
+      return { unified: "length", raw: finishReason };
+    case "IMAGE_SAFETY":
+    case "RECITATION":
+    case "SAFETY":
+    case "BLOCKLIST":
+    case "PROHIBITED_CONTENT":
+    case "SPII":
+      return { unified: "content-filter", raw: finishReason };
+    case "MALFORMED_FUNCTION_CALL":
+      return { unified: "error", raw: finishReason };
+    case "FINISH_REASON_UNSPECIFIED":
+    case "OTHER":
+    default:
+      return { unified: "other", raw: finishReason };
+  }
+};
+
+const extractUsage = (
+  response: GoogleGenerateContentResponse,
+): KortyxUsage | undefined => {
+  const usage = response.usageMetadata;
+  if (!usage) return undefined;
+
+  return {
+    ...(usage.promptTokenCount != null
+      ? { input: usage.promptTokenCount }
+      : {}),
+    ...(usage.candidatesTokenCount != null
+      ? { output: usage.candidatesTokenCount }
+      : {}),
+    ...(usage.totalTokenCount != null ? { total: usage.totalTokenCount } : {}),
+    ...(usage.thoughtsTokenCount != null
+      ? { reasoning: usage.thoughtsTokenCount }
+      : {}),
+    ...(usage.cachedContentTokenCount != null
+      ? { cacheRead: usage.cachedContentTokenCount }
+      : {}),
+    ...(isRecord(usage) ? { raw: usage } : {}),
+  };
+};
+
+const extractProviderMetadata = (
+  modelId: ModelId,
+  response: GoogleGenerateContentResponse,
+): KortyxProviderMetadata | undefined => {
+  const promptFeedback = toRecord(response.promptFeedback);
+  const usageMetadata = toRecord(response.usageMetadata);
+
+  const metadata: KortyxProviderMetadata = {
+    providerId: PROVIDER_ID,
+    modelId,
+    ...(response.responseId !== undefined
+      ? { responseId: response.responseId }
+      : {}),
+    ...(response.modelVersion !== undefined
+      ? { modelVersion: response.modelVersion }
+      : {}),
+    ...(promptFeedback !== undefined ? { promptFeedback } : {}),
+    ...(usageMetadata !== undefined ? { usageMetadata } : {}),
+  };
+
+  return Object.keys(metadata).length > 0 ? metadata : undefined;
+};
+
+const extractFinishReason = (
+  response: GoogleGenerateContentResponse,
+): KortyxFinishReason | undefined =>
+  mapGoogleFinishReason(response.candidates?.[0]?.finishReason);
+
+const collectWarnings = (
+  options: ModelOptions,
+): KortyxWarning[] | undefined => {
+  const warnings: KortyxWarning[] = [];
+
+  if (
+    options.responseFormat?.type === "json" &&
+    options.responseFormat.schema !== undefined
+  ) {
+    warnings.push({
+      type: "compatibility",
+      feature: "responseFormat.schema",
+      details:
+        "Google provider currently applies JSON mode via responseMimeType but does not yet translate generic JSON schema to Google responseSchema.",
+    });
+  }
+
+  if (
+    options.providerOptions &&
+    Object.keys(options.providerOptions).length > 0
+  ) {
+    warnings.push({
+      type: "unsupported",
+      feature: "providerOptions",
+      details:
+        "Google provider does not yet map providerOptions into request fields.",
+    });
+  }
+
+  if (
+    options.reasoning?.effort !== undefined &&
+    !["minimal", "low", "medium", "high"].includes(options.reasoning.effort)
+  ) {
+    warnings.push({
+      type: "compatibility",
+      feature: "reasoning.effort",
+      details:
+        "Google provider supports minimal, low, medium, or high reasoning effort and falls back to medium for other values.",
+    });
+  }
+
+  return warnings.length > 0 ? warnings : undefined;
+};
+
+const createTextDeltaPart = (
+  delta: string,
+  raw: unknown,
+): KortyxStreamPart => ({
+  type: "text-delta",
+  delta,
+  raw,
+});
+
+const createFinishPart = (
+  modelId: ModelId,
+  response: GoogleGenerateContentResponse,
+  warnings: KortyxWarning[] | undefined,
+): KortyxStreamPart => {
+  const finishReason = extractFinishReason(response);
+  const usage = extractUsage(response);
+  const providerMetadata = extractProviderMetadata(modelId, response);
+
+  return {
+    type: "finish",
+    raw: response,
+    ...(finishReason ? { finishReason } : {}),
+    ...(usage ? { usage } : {}),
+    ...(providerMetadata ? { providerMetadata } : {}),
+    ...(warnings ? { warnings } : {}),
+  };
+};
+
 const createGoogleModel = (
   modelId: ModelId,
   settings: ProviderSettings,
+  options: ModelOptions = {},
 ): KortyxModel => {
   let client: ReturnType<typeof createGoogleClient> | undefined;
 
@@ -60,80 +216,111 @@ const createGoogleModel = (
 
     return client;
   };
-
-  let modelTemperature = 0.7;
-  let streamResponses = true;
+  const resolvedOptions: ModelOptions = {
+    temperature: options.temperature ?? 0.7,
+    streaming: options.streaming ?? true,
+    ...(options.maxOutputTokens !== undefined
+      ? { maxOutputTokens: options.maxOutputTokens }
+      : {}),
+    ...(options.stopSequences !== undefined
+      ? { stopSequences: options.stopSequences }
+      : {}),
+    ...(options.abortSignal !== undefined
+      ? { abortSignal: options.abortSignal }
+      : {}),
+    ...(options.reasoning !== undefined
+      ? { reasoning: options.reasoning }
+      : {}),
+    ...(options.responseFormat !== undefined
+      ? { responseFormat: options.responseFormat }
+      : {}),
+    ...(options.providerOptions !== undefined
+      ? { providerOptions: options.providerOptions }
+      : {}),
+  };
+  const warnings = collectWarnings(resolvedOptions);
 
   return {
     async *stream(messages: KortyxPromptMessage[]) {
-      try {
-        const client = getClient();
-        const request = createGenerateContentRequest(
-          messages,
-          modelTemperature,
-        );
+      const client = getClient();
+      const request = createGenerateContentRequest(messages, resolvedOptions);
 
-        if (streamResponses) {
+      try {
+        if (resolvedOptions.streaming !== false) {
           let emitted = "";
+          let lastChunk: GoogleGenerateContentResponse | undefined;
           for await (const chunk of client.streamGenerateContent(
             modelId,
             request,
+            resolvedOptions.abortSignal
+              ? {
+                  signal: resolvedOptions.abortSignal,
+                }
+              : undefined,
           )) {
+            lastChunk = chunk;
             const text = extractText(chunk);
             if (!text) continue;
 
             if (text.startsWith(emitted)) {
               const delta = text.slice(emitted.length);
               emitted = text;
-              if (delta) yield createStreamChunk(delta, chunk);
+              if (delta) yield createTextDeltaPart(delta, chunk);
               continue;
             }
 
             if (emitted.endsWith(text)) continue;
 
             emitted += text;
-            yield createStreamChunk(text, chunk);
+            yield createTextDeltaPart(text, chunk);
+          }
+
+          if (lastChunk) {
+            yield createFinishPart(modelId, lastChunk, warnings);
           }
           return;
         }
 
-        const response = await client.generateContent(modelId, request);
+        const response = await client.generateContent(modelId, request, {
+          ...(resolvedOptions.abortSignal
+            ? { signal: resolvedOptions.abortSignal }
+            : {}),
+        });
         const text = extractText(response);
-        if (text) yield createStreamChunk(text, response);
+        if (text) yield createTextDeltaPart(text, response);
+        yield createFinishPart(modelId, response, warnings);
       } catch (error) {
-        throw toProviderRequestError("stream content", error);
+        yield {
+          type: "error",
+          error: toProviderRequestError("stream content", error),
+        } satisfies KortyxStreamPart;
       }
     },
 
     async invoke(messages: KortyxPromptMessage[]): Promise<KortyxInvokeResult> {
       try {
         const client = getClient();
-        const request = createGenerateContentRequest(
-          messages,
-          modelTemperature,
-        );
-        const result = await client.generateContent(modelId, request);
+        const request = createGenerateContentRequest(messages, resolvedOptions);
+        const result = await client.generateContent(modelId, request, {
+          ...(resolvedOptions.abortSignal
+            ? { signal: resolvedOptions.abortSignal }
+            : {}),
+        });
+        const usage = extractUsage(result);
+        const finishReason = extractFinishReason(result);
+        const providerMetadata = extractProviderMetadata(modelId, result);
         return {
           role: "assistant",
           content: extractText(result),
           raw: result,
+          ...(usage ? { usage } : {}),
+          ...(finishReason ? { finishReason } : {}),
+          ...(providerMetadata ? { providerMetadata } : {}),
+          ...(warnings ? { warnings } : {}),
         };
       } catch (error) {
         throw toProviderRequestError("invoke content", error);
       }
-    },
-
-    get temperature() {
-      return modelTemperature;
-    },
-    set temperature(value: number) {
-      modelTemperature = value;
-    },
-    get streaming() {
-      return streamResponses;
-    },
-    set streaming(value: boolean) {
-      streamResponses = value;
     },
   };
 };
@@ -154,14 +341,7 @@ export function createGoogleGenerativeAI(
       );
     }
 
-    const model = createGoogleModel(modelId as ModelId, settings);
-    if (options?.temperature !== undefined) {
-      model.temperature = options.temperature;
-    }
-    if (options?.streaming !== undefined) {
-      model.streaming = options.streaming;
-    }
-    return model;
+    return createGoogleModel(modelId as ModelId, settings, options);
   };
 
   const provider = Object.assign(

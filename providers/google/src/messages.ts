@@ -1,9 +1,29 @@
-import type { KortyxPromptMessage } from "@kortyx/providers";
+import type { KortyxPromptMessage, ModelOptions } from "@kortyx/providers";
 import type {
   GoogleContent,
   GoogleGenerateContentRequest,
   GoogleGenerateContentResponse,
 } from "./types";
+
+const normalizeThinkingLevel = (
+  effort: string | undefined,
+): NonNullable<
+  NonNullable<
+    GoogleGenerateContentRequest["generationConfig"]
+  >["thinkingConfig"]
+>["thinkingLevel"] => {
+  switch (effort) {
+    case "minimal":
+    case "low":
+    case "medium":
+    case "high":
+      return effort;
+    case undefined:
+      return undefined;
+    default:
+      return "medium";
+  }
+};
 
 export const toSystemInstruction = (
   messages: KortyxPromptMessage[],
@@ -41,13 +61,57 @@ export const toContents = (
 
 export const createGenerateContentRequest = (
   messages: KortyxPromptMessage[],
-  temperature: number,
+  options: ModelOptions,
 ): GoogleGenerateContentRequest => {
   const systemInstruction = toSystemInstruction(messages);
+  const normalizedThinkingLevel = normalizeThinkingLevel(
+    options.reasoning?.effort,
+  );
+  const temperature = options.temperature ?? 0.7;
+  const responseMimeType =
+    options.responseFormat?.type === "json"
+      ? "application/json"
+      : options.responseFormat?.type === "text"
+        ? "text/plain"
+        : undefined;
+  const thinkingConfig:
+    | NonNullable<
+        NonNullable<
+          GoogleGenerateContentRequest["generationConfig"]
+        >["thinkingConfig"]
+      >
+    | undefined =
+    options.reasoning?.maxTokens !== undefined ||
+    options.reasoning?.effort !== undefined ||
+    options.reasoning?.includeThoughts !== undefined
+      ? {
+          ...(options.reasoning?.maxTokens !== undefined
+            ? { thinkingBudget: options.reasoning.maxTokens }
+            : {}),
+          ...(normalizedThinkingLevel !== undefined
+            ? {
+                thinkingLevel: normalizedThinkingLevel,
+              }
+            : {}),
+          ...(options.reasoning?.includeThoughts !== undefined
+            ? { includeThoughts: options.reasoning.includeThoughts }
+            : {}),
+        }
+      : undefined;
 
   return {
     contents: toContents(messages),
-    generationConfig: { temperature },
+    generationConfig: {
+      temperature,
+      ...(options.maxOutputTokens !== undefined
+        ? { maxOutputTokens: options.maxOutputTokens }
+        : {}),
+      ...(options.stopSequences !== undefined
+        ? { stopSequences: options.stopSequences }
+        : {}),
+      ...(responseMimeType !== undefined ? { responseMimeType } : {}),
+      ...(thinkingConfig !== undefined ? { thinkingConfig } : {}),
+    },
     ...(systemInstruction
       ? {
           systemInstruction: {

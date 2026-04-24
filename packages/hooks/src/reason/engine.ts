@@ -1,5 +1,9 @@
 import { randomUUID } from "node:crypto";
-import type { ProviderModelRef } from "@kortyx/providers";
+import type {
+  KortyxReasoningOptions,
+  KortyxResponseFormat,
+  ProviderModelRef,
+} from "@kortyx/providers";
 import { getHookContext } from "../context";
 import type { RunReasonEngineResult } from "../reason-engine";
 import { runReasonEngine } from "../reason-engine";
@@ -9,6 +13,12 @@ export type ReasonEngineInput = {
   input: string;
   system?: string | undefined;
   temperature?: number | undefined;
+  maxOutputTokens?: number | undefined;
+  stopSequences?: string[] | undefined;
+  abortSignal?: AbortSignal | undefined;
+  reasoning?: KortyxReasoningOptions | undefined;
+  responseFormat?: KortyxResponseFormat | undefined;
+  providerOptions?: Record<string, unknown> | undefined;
   emit?: boolean | undefined;
   stream?: boolean | undefined;
   onTextChunk?: ((text: string) => void) | undefined;
@@ -34,6 +44,12 @@ export async function reasonEngine(
     input: inputOverride ?? args.input,
     system: args.system,
     temperature: args.temperature,
+    maxOutputTokens: args.maxOutputTokens,
+    stopSequences: args.stopSequences,
+    abortSignal: args.abortSignal,
+    reasoning: args.reasoning,
+    responseFormat: args.responseFormat,
+    providerOptions: args.providerOptions,
     defaultTemperature: ctx.node.config?.model?.temperature,
     stream: args.stream,
     emit: args.emit,
