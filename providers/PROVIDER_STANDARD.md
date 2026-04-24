@@ -8,13 +8,15 @@ This document defines the canonical structure and rules for provider packages un
 - Keep `@kortyx/providers` as contracts + registry only.
 - Avoid provider-specific architecture drift.
 - Avoid provider-name repetition in filenames and exported API names.
+- Make provider results operationally useful with normalized metadata.
 
-## Scope (v1)
+## Scope (Current v1)
 
 Provider packages in v1 support only:
 
 - text generation (`invoke`)
 - streaming text generation (`stream`)
+- normalized metadata for reasoning-oriented model calls
 
 Out of scope for v1:
 
@@ -89,13 +91,42 @@ Optional exports:
 
 All provider implementations MUST satisfy `@kortyx/providers` contracts:
 
-- `ProviderConfig`
+- `ProviderInstance`
+- `ProviderModelRef`
 - `KortyxModel`
 - `KortyxPromptMessage`
-- `KortyxStreamChunk`
+- `KortyxStreamPart`
 - `KortyxInvokeResult`
+- `ModelOptions`
 
-Provider packages must return `ProviderConfig` with a `models` map that creates `KortyxModel` instances.
+Provider packages must return a real provider instance. Model refs must carry the provider instance, not only a string provider id.
+
+Normalized call options currently include:
+
+- `temperature`
+- `streaming`
+- `maxOutputTokens`
+- `stopSequences`
+- `abortSignal`
+- `reasoning`
+- `responseFormat`
+- `providerOptions`
+
+Normalized invoke results currently include:
+
+- `content`
+- `raw`
+- `usage`
+- `finishReason`
+- `warnings`
+- `providerMetadata`
+
+Normalized internal stream parts currently include:
+
+- `text-delta`
+- `finish`
+- `error`
+- optional `raw`
 
 ## Dependency Rules
 
@@ -106,10 +137,13 @@ Provider packages must return `ProviderConfig` with a `models` map that creates 
 
 ## Runtime Behavior Rules
 
-- `stream(messages)` must yield text progressively (`string` or `KortyxStreamChunk`).
-- `invoke(messages)` must return `{ role: "assistant", content, raw? }`.
-- Respect `temperature` and `streaming` model flags.
+- `stream(messages)` must yield typed `KortyxStreamPart` values, not raw strings.
+- `stream(messages)` should emit one or more `text-delta` parts and a terminal `finish` part for successful calls.
+- `invoke(messages)` should return normalized metadata whenever the provider exposes it.
+- Respect normalized `ModelOptions` when the provider supports them.
+- If a generic option is not supported, surface a warning instead of silently dropping it.
 - Handle system prompts consistently and map them to provider-native request format.
+- Forward `abortSignal` to the underlying transport.
 
 ## Error Handling Rules
 
@@ -117,6 +151,18 @@ Provider packages must return `ProviderConfig` with a `models` map that creates 
 - Throw clear runtime errors for request failures.
 - Include provider context in error messages.
 - Do not leak secrets in error text.
+- Streaming providers may emit an internal `error` stream part, but callers must still observe a failed operation.
+
+## Conformance
+
+Every provider package should include `test/conformance.test.ts` and use the shared helper under `packages/providers/test/conformance.ts`.
+
+The minimum conformance surface is:
+
+- `invoke` normalizes `usage`, `finishReason`, `warnings`, and `providerMetadata`
+- `stream` emits typed parts plus a terminal `finish`
+- `abortSignal` is forwarded to transport
+- unsupported generic options are surfaced via warnings when applicable
 
 ## package.json Baseline
 
@@ -134,8 +180,9 @@ Before merging a provider package:
 1. `pnpm install`
 2. `pnpm -C providers/<slug> build`
 3. `pnpm -C providers/<slug> type-check`
-4. `pnpm turbo run type-check --filter=@kortyx/<slug> --filter=@kortyx/providers --filter=@kortyx/runtime --filter=@kortyx/agent --filter=kortyx`
-5. Runtime smoke import succeeds:
+4. `pnpm -C providers/<slug> test`
+5. `pnpm turbo run type-check --filter=@kortyx/<slug> --filter=@kortyx/providers --filter=@kortyx/runtime --filter=@kortyx/agent --filter=kortyx`
+6. Runtime smoke import succeeds:
    - `import("@kortyx/<slug>")`
 
 ## Automation Readiness Rules
