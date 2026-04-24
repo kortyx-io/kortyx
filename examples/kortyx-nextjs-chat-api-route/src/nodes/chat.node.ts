@@ -1,6 +1,6 @@
+import { google } from "@kortyx/google";
 import type { ProviderModelRef } from "kortyx";
 import { useReason } from "kortyx";
-import { google } from "@/lib/providers";
 
 export type ChatNodeParams = {
   model?: ProviderModelRef;

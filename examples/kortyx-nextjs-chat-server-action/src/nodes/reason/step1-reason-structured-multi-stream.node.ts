@@ -1,6 +1,6 @@
+import { google } from "@kortyx/google";
 import { useReason } from "kortyx";
 import { z } from "zod";
-import { google } from "@/lib/providers";
 
 const MultiStreamDraftSchema = z.object({
   subject: z.string().min(1),
