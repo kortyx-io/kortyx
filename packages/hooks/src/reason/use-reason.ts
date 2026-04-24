@@ -24,7 +24,7 @@ import {
 import { createRuntimeId, reasonEngine } from "./engine";
 import {
   parseInterruptFirstPassResult,
-  resolveOutputCandidate,
+  parseReasonOutputWithSchema,
 } from "./parsing";
 import {
   defaultContinuationInput,
@@ -115,8 +115,9 @@ const emitReasonStructuredOutput = <TOutput>(args: {
   opId: string;
   output: TOutput;
   structured: UseReasonArgs<TOutput>["structured"];
+  emit: boolean;
 }): void => {
-  if (!shouldEmitStructured(args.structured)) return;
+  if (!args.emit || !shouldEmitStructured(args.structured)) return;
 
   emitStructuredData<TOutput>({
     dataType: args.structured?.dataType ?? "reason-output",
@@ -133,6 +134,56 @@ const emitReasonStructuredOutput = <TOutput>(args: {
   });
 };
 
+const shouldEmitReasonStructured = <
+  TOutput,
+  TRequest extends InterruptInput,
+  TResponse,
+>(
+  args: UseReasonArgs<TOutput, TRequest, TResponse>,
+): boolean => (args.emit ?? true) && shouldEmitStructured(args.structured);
+
+const resolveEffectiveReasoningIncludeThoughts = <
+  TOutput,
+  TRequest extends InterruptInput,
+  TResponse,
+>(
+  args: UseReasonArgs<TOutput, TRequest, TResponse>,
+): boolean =>
+  args.reasoning?.includeThoughts ??
+  args.model.options?.reasoning?.includeThoughts ??
+  false;
+
+const resolveEffectiveResponseFormatType = <
+  TOutput,
+  TRequest extends InterruptInput,
+  TResponse,
+>(
+  args: UseReasonArgs<TOutput, TRequest, TResponse>,
+): "text" | "json" | undefined =>
+  args.responseFormat?.type ?? args.model.options?.responseFormat?.type;
+
+const assertReasoningThoughtsCompatibility = <
+  TOutput,
+  TRequest extends InterruptInput,
+  TResponse,
+>(
+  args: UseReasonArgs<TOutput, TRequest, TResponse>,
+): void => {
+  if (!resolveEffectiveReasoningIncludeThoughts(args)) return;
+
+  const usesStructuredOutput =
+    Boolean(args.outputSchema) ||
+    Boolean(args.interrupt) ||
+    Boolean(args.structured) ||
+    resolveEffectiveResponseFormatType(args) === "json";
+
+  if (!usesStructuredOutput) return;
+
+  throw new Error(
+    "useReason does not support reasoning.includeThoughts with structured output, interrupt mode, or JSON responseFormat. Disable includeThoughts for this call.",
+  );
+};
+
 export async function useReason<
   TOutput = unknown,
   TRequest extends InterruptInput = InterruptInput,
@@ -140,6 +191,7 @@ export async function useReason<
 >(
   args: UseReasonArgs<TOutput, TRequest, TResponse>,
 ): Promise<UseReasonResult<TOutput, TResponse>> {
+  assertReasoningThoughtsCompatibility(args);
   const ctx = getHookContext();
   const id =
     typeof args.id === "string" && args.id.length > 0 ? args.id : undefined;
@@ -181,7 +233,7 @@ export async function useReason<
         appendFieldPaths.length > 0 ||
         textDeltaFieldPaths.length > 0) &&
       args.stream !== false &&
-      shouldEmitStructured(args.structured),
+      shouldEmitReasonStructured(args),
   );
 
   let firstText = "";
@@ -363,6 +415,7 @@ export async function useReason<
       const firstPass = parseInterruptFirstPassResult<TRequest, TOutput>({
         text: first.text,
         requestSchema: args.interrupt.requestSchema,
+        ...(first.finishReason ? { finishReason: first.finishReason } : {}),
         ...(args.outputSchema
           ? { outputSchema: args.outputSchema as SchemaLike<TOutput> }
           : {}),
@@ -376,11 +429,12 @@ export async function useReason<
       firstText = first.text;
       finalText = first.text;
       if (args.outputSchema) {
-        firstOutput = parseWithSchema(
-          args.outputSchema,
-          resolveOutputCandidate(first.text),
-          "useReason output",
-        );
+        firstOutput = parseReasonOutputWithSchema({
+          text: first.text,
+          schema: args.outputSchema,
+          ...(first.finishReason ? { finishReason: first.finishReason } : {}),
+          label: "useReason output",
+        });
       }
       finalOutput = firstOutput;
     }
@@ -493,11 +547,12 @@ export async function useReason<
     });
 
     if (args.outputSchema) {
-      finalOutput = parseWithSchema(
-        args.outputSchema,
-        resolveOutputCandidate(finalText),
-        "useReason output",
-      );
+      finalOutput = parseReasonOutputWithSchema({
+        text: finalText,
+        schema: args.outputSchema,
+        ...(second.finishReason ? { finishReason: second.finishReason } : {}),
+        label: "useReason output",
+      });
     }
   }
 
@@ -507,6 +562,7 @@ export async function useReason<
       opId,
       output: finalOutput,
       structured: args.structured,
+      emit: args.emit ?? true,
     });
   }
 

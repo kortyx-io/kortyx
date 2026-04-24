@@ -115,6 +115,97 @@ const result = await useReason({
 });
 ```
 
+### What `useReason(...)` returns
+
+`useReason(...)` returns more than final text. You can also inspect normalized provider metadata:
+
+```ts
+const result = await useReason({
+  model: google("gemini-2.5-flash"),
+  input: "Write a short beta launch email for customers.",
+});
+
+result.text;
+result.output;
+result.raw;
+result.usage;
+result.finishReason;
+result.providerMetadata;
+result.warnings;
+result.interruptResponse;
+```
+```js
+const result = await useReason({
+  model: google("gemini-2.5-flash"),
+  input: "Write a short beta launch email for customers.",
+});
+
+result.text;
+result.output;
+result.raw;
+result.usage;
+result.finishReason;
+result.providerMetadata;
+result.warnings;
+result.interruptResponse;
+```
+
+What each field means:
+
+- `text`: final assistant text
+- `output`: parsed and validated object when `outputSchema` succeeds
+- `raw`: provider-native payload for debugging
+- `usage`: normalized token usage when the provider exposes it
+- `finishReason`: normalized stop reason
+- `providerMetadata`: provider-specific metadata that does not fit the shared top-level contract
+- `warnings`: compatibility or unsupported-feature warnings surfaced by the provider
+- `interruptResponse`: final human response when you use interrupt mode
+
+> **Good to know:** In interrupt flows, Kortyx aggregates `usage`, `warnings`, and `providerMetadata` across the first pass and continuation pass. Runtime token usage is also accumulated into `state.runtime.tokenUsage`.
+
+### Common model call options
+
+These are the main cross-provider options you can pass to `useReason(...)`:
+
+```ts
+const abortController = new AbortController();
+
+const result = await useReason({
+  model: google("gemini-2.5-flash"),
+  input: "Summarize this changelog.",
+  temperature: 0.2,
+  maxOutputTokens: 600,
+  stopSequences: ["</final>"],
+  abortSignal: abortController.signal,
+  reasoning: {
+    effort: "medium",
+    maxTokens: 256,
+  },
+  responseFormat: { type: "json" },
+  providerOptions: {},
+});
+```
+```js
+const abortController = new AbortController();
+
+const result = await useReason({
+  model: google("gemini-2.5-flash"),
+  input: "Summarize this changelog.",
+  temperature: 0.2,
+  maxOutputTokens: 600,
+  stopSequences: ["</final>"],
+  abortSignal: abortController.signal,
+  reasoning: {
+    effort: "medium",
+    maxTokens: 256,
+  },
+  responseFormat: { type: "json" },
+  providerOptions: {},
+});
+```
+
+If a provider cannot fully support one of these generic options yet, it should surface a warning instead of silently ignoring it.
+
 What happens:
 
 - the model still generates one JSON object

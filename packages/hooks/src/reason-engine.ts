@@ -79,26 +79,25 @@ export async function runReasonEngine(
     args.temperature ??
     args.model.options?.temperature ??
     args.defaultTemperature;
+  const maxOutputTokens =
+    args.maxOutputTokens ?? args.model.options?.maxOutputTokens;
+  const stopSequences = args.stopSequences ?? args.model.options?.stopSequences;
+  const abortSignal = args.abortSignal ?? args.model.options?.abortSignal;
+  const reasoning = args.reasoning ?? args.model.options?.reasoning;
+  const responseFormat =
+    args.responseFormat ?? args.model.options?.responseFormat;
+  const providerOptions =
+    args.providerOptions ?? args.model.options?.providerOptions;
 
   const model = args.model.provider.getModel(args.model.modelId, {
     ...(temperature !== undefined ? { temperature } : {}),
     streaming: stream,
-    ...(args.maxOutputTokens !== undefined
-      ? { maxOutputTokens: args.maxOutputTokens }
-      : {}),
-    ...(args.stopSequences !== undefined
-      ? { stopSequences: args.stopSequences }
-      : {}),
-    ...(args.abortSignal !== undefined
-      ? { abortSignal: args.abortSignal }
-      : {}),
-    ...(args.reasoning !== undefined ? { reasoning: args.reasoning } : {}),
-    ...(args.responseFormat !== undefined
-      ? { responseFormat: args.responseFormat }
-      : {}),
-    ...(args.providerOptions !== undefined
-      ? { providerOptions: args.providerOptions }
-      : {}),
+    ...(maxOutputTokens !== undefined ? { maxOutputTokens } : {}),
+    ...(stopSequences !== undefined ? { stopSequences } : {}),
+    ...(abortSignal !== undefined ? { abortSignal } : {}),
+    ...(reasoning !== undefined ? { reasoning } : {}),
+    ...(responseFormat !== undefined ? { responseFormat } : {}),
+    ...(providerOptions !== undefined ? { providerOptions } : {}),
   });
 
   const messages: KortyxPromptMessage[] = [];

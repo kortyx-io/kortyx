@@ -330,4 +330,124 @@ describe("useReason interrupt flow", () => {
     expect(invoke).toHaveBeenCalledTimes(1);
     expect(interrupts).toHaveLength(0);
   });
+
+  it("throws a truncation-specific error when interrupt first-pass structured output is cut off by output length", async () => {
+    const { invoke, modelRef } = createProvider({
+      invokeResponses: [
+        {
+          content: '{"output":{"summary":"Draft summary"',
+          finishReason: {
+            unified: "length",
+            raw: "MAX_TOKENS",
+          },
+        },
+      ],
+    });
+    const { node, interrupts } = createNode({
+      interruptResponse: "opt-1",
+    });
+    const state = createState();
+
+    await expect(
+      runWithHookContext({ node, state }, async () =>
+        useReason({
+          model: modelRef,
+          input: "Create a launch plan",
+          outputSchema: PlanSchema,
+          interrupt: {
+            requestSchema: ChoiceRequestSchema,
+            responseSchema: ChoiceResponseSchema,
+          },
+        }),
+      ),
+    ).rejects.toThrow(
+      "useReason output was truncated before producing valid structured output. The model stopped due to output length. Increase maxOutputTokens or simplify the requested output.",
+    );
+
+    expect(invoke).toHaveBeenCalledTimes(1);
+    expect(interrupts).toHaveLength(0);
+  });
+
+  it("throws a truncation-specific error when interrupt first-pass JSON is cut off without finishReason metadata", async () => {
+    const { invoke, modelRef } = createProvider({
+      invokeResponses: [
+        {
+          content:
+            '{"output":{"summary":"Draft summary","recommendation":"Draft recommendation"',
+        },
+      ],
+    });
+    const { node, interrupts } = createNode({
+      interruptResponse: "opt-1",
+    });
+    const state = createState();
+
+    await expect(
+      runWithHookContext({ node, state }, async () =>
+        useReason({
+          model: modelRef,
+          input: "Create a launch plan",
+          outputSchema: PlanSchema,
+          interrupt: {
+            requestSchema: ChoiceRequestSchema,
+            responseSchema: ChoiceResponseSchema,
+          },
+        }),
+      ),
+    ).rejects.toThrow(
+      "useReason output was truncated before producing valid structured output.",
+    );
+
+    expect(invoke).toHaveBeenCalledTimes(1);
+    expect(interrupts).toHaveLength(0);
+  });
+
+  it("fails fast when includeThoughts is enabled for interrupt flows", async () => {
+    const { invoke, provider } = createProvider({
+      invokeResponses: [
+        JSON.stringify({
+          output: {
+            summary: "Draft summary",
+            recommendation: "Draft recommendation",
+            checklist: ["item-1"],
+            userChoice: "pending",
+          },
+          draftText: "Draft text",
+          interruptRequest: {
+            kind: "choice",
+            question: "Pick one",
+            options: [{ id: "opt-1", label: "Option 1" }],
+          },
+        }),
+      ],
+    });
+    const modelRef = provider("mock-model", {
+      reasoning: {
+        includeThoughts: true,
+      },
+    });
+    const { node, interrupts } = createNode({
+      interruptResponse: "opt-1",
+    });
+    const state = createState();
+
+    await expect(
+      runWithHookContext({ node, state }, async () =>
+        useReason({
+          model: modelRef,
+          input: "Create a launch plan",
+          outputSchema: PlanSchema,
+          interrupt: {
+            requestSchema: ChoiceRequestSchema,
+            responseSchema: ChoiceResponseSchema,
+          },
+        }),
+      ),
+    ).rejects.toThrow(
+      "useReason does not support reasoning.includeThoughts with structured output, interrupt mode, or JSON responseFormat. Disable includeThoughts for this call.",
+    );
+
+    expect(invoke).not.toHaveBeenCalled();
+    expect(interrupts).toHaveLength(0);
+  });
 });

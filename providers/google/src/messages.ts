@@ -88,7 +88,8 @@ export const createGenerateContentRequest = (
           ...(options.reasoning?.maxTokens !== undefined
             ? { thinkingBudget: options.reasoning.maxTokens }
             : {}),
-          ...(normalizedThinkingLevel !== undefined
+          ...(options.reasoning?.maxTokens === undefined &&
+          normalizedThinkingLevel !== undefined
             ? {
                 thinkingLevel: normalizedThinkingLevel,
               }

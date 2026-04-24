@@ -167,8 +167,73 @@ const collectWarnings = (
     });
   }
 
+  if (
+    options.reasoning?.maxTokens !== undefined &&
+    options.reasoning?.effort !== undefined
+  ) {
+    warnings.push({
+      type: "compatibility",
+      feature: "reasoning",
+      details:
+        "Google provider supports either reasoning.maxTokens or reasoning.effort in the same request. Kortyx prioritizes maxTokens and omits effort.",
+    });
+  }
+
   return warnings.length > 0 ? warnings : undefined;
 };
+
+const mergeWarnings = (
+  left: KortyxWarning[] | undefined,
+  right: KortyxWarning[] | undefined,
+): KortyxWarning[] | undefined => {
+  if (!left?.length) return right;
+  if (!right?.length) return left;
+
+  const seen = new Set<string>();
+  const merged: KortyxWarning[] = [];
+  for (const warning of [...left, ...right]) {
+    const key = JSON.stringify(warning);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    merged.push(warning);
+  }
+
+  return merged;
+};
+
+const supportsThinkingLevelRetry = (options: ModelOptions): boolean =>
+  options.reasoning?.effort !== undefined &&
+  options.reasoning?.maxTokens === undefined;
+
+const isThinkingLevelUnsupportedError = (error: unknown): boolean => {
+  const message = error instanceof Error ? error.message : String(error);
+  return message.includes("Thinking level is not supported for this model.");
+};
+
+const createThinkingLevelFallbackOptions = (
+  options: ModelOptions,
+): ModelOptions => ({
+  ...options,
+  ...(options.reasoning
+    ? {
+        reasoning: {
+          ...(options.reasoning.maxTokens !== undefined
+            ? { maxTokens: options.reasoning.maxTokens }
+            : {}),
+          ...(options.reasoning.includeThoughts !== undefined
+            ? { includeThoughts: options.reasoning.includeThoughts }
+            : {}),
+        },
+      }
+    : {}),
+});
+
+const createThinkingLevelFallbackWarning = (): KortyxWarning => ({
+  type: "compatibility",
+  feature: "reasoning.effort",
+  details:
+    "Google rejected reasoning.effort for this model or request. Kortyx retried without it. Try other reasoning settings such as reasoning.maxTokens.",
+});
 
 const createTextDeltaPart = (
   delta: string,
@@ -290,6 +355,79 @@ const createGoogleModel = (
         if (text) yield createTextDeltaPart(text, response);
         yield createFinishPart(modelId, response, warnings);
       } catch (error) {
+        if (
+          supportsThinkingLevelRetry(resolvedOptions) &&
+          isThinkingLevelUnsupportedError(error)
+        ) {
+          const fallbackOptions =
+            createThinkingLevelFallbackOptions(resolvedOptions);
+          const fallbackRequest = createGenerateContentRequest(
+            messages,
+            fallbackOptions,
+          );
+          const fallbackWarnings = mergeWarnings(
+            collectWarnings(fallbackOptions),
+            [...(warnings ?? []), createThinkingLevelFallbackWarning()],
+          );
+
+          try {
+            if (fallbackOptions.streaming !== false) {
+              let emitted = "";
+              let lastChunk: GoogleGenerateContentResponse | undefined;
+              for await (const chunk of client.streamGenerateContent(
+                modelId,
+                fallbackRequest,
+                fallbackOptions.abortSignal
+                  ? {
+                      signal: fallbackOptions.abortSignal,
+                    }
+                  : undefined,
+              )) {
+                lastChunk = chunk;
+                const text = extractText(chunk);
+                if (!text) continue;
+
+                if (text.startsWith(emitted)) {
+                  const delta = text.slice(emitted.length);
+                  emitted = text;
+                  if (delta) yield createTextDeltaPart(delta, chunk);
+                  continue;
+                }
+
+                if (emitted.endsWith(text)) continue;
+
+                emitted += text;
+                yield createTextDeltaPart(text, chunk);
+              }
+
+              if (lastChunk) {
+                yield createFinishPart(modelId, lastChunk, fallbackWarnings);
+              }
+              return;
+            }
+
+            const response = await client.generateContent(
+              modelId,
+              fallbackRequest,
+              {
+                ...(fallbackOptions.abortSignal
+                  ? { signal: fallbackOptions.abortSignal }
+                  : {}),
+              },
+            );
+            const text = extractText(response);
+            if (text) yield createTextDeltaPart(text, response);
+            yield createFinishPart(modelId, response, fallbackWarnings);
+            return;
+          } catch (fallbackError) {
+            yield {
+              type: "error",
+              error: toProviderRequestError("stream content", fallbackError),
+            } satisfies KortyxStreamPart;
+            return;
+          }
+        }
+
         yield {
           type: "error",
           error: toProviderRequestError("stream content", error),
@@ -319,6 +457,49 @@ const createGoogleModel = (
           ...(warnings ? { warnings } : {}),
         };
       } catch (error) {
+        if (
+          supportsThinkingLevelRetry(resolvedOptions) &&
+          isThinkingLevelUnsupportedError(error)
+        ) {
+          try {
+            const client = getClient();
+            const fallbackOptions =
+              createThinkingLevelFallbackOptions(resolvedOptions);
+            const fallbackRequest = createGenerateContentRequest(
+              messages,
+              fallbackOptions,
+            );
+            const result = await client.generateContent(
+              modelId,
+              fallbackRequest,
+              {
+                ...(fallbackOptions.abortSignal
+                  ? { signal: fallbackOptions.abortSignal }
+                  : {}),
+              },
+            );
+            const usage = extractUsage(result);
+            const finishReason = extractFinishReason(result);
+            const providerMetadata = extractProviderMetadata(modelId, result);
+            const fallbackWarnings = mergeWarnings(
+              collectWarnings(fallbackOptions),
+              [...(warnings ?? []), createThinkingLevelFallbackWarning()],
+            );
+
+            return {
+              role: "assistant",
+              content: extractText(result),
+              raw: result,
+              ...(usage ? { usage } : {}),
+              ...(finishReason ? { finishReason } : {}),
+              ...(providerMetadata ? { providerMetadata } : {}),
+              ...(fallbackWarnings ? { warnings: fallbackWarnings } : {}),
+            };
+          } catch (fallbackError) {
+            throw toProviderRequestError("invoke content", fallbackError);
+          }
+        }
+
         throw toProviderRequestError("invoke content", error);
       }
     },

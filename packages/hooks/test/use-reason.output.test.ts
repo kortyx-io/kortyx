@@ -38,6 +38,177 @@ const MultiAppendSchema = z.object({
 });
 
 describe("useReason output flow", () => {
+  it("passes normalized call options through to provider model resolution", async () => {
+    const abortController = new AbortController();
+    const { provider, modelRef } = createProvider({
+      invokeResponses: [{ content: "Summary" }],
+    });
+    const { node } = createNode();
+    const state = createState();
+
+    await runWithHookContext({ node, state }, async () =>
+      useReason({
+        model: modelRef,
+        input: "Create a summary",
+        stream: false,
+        temperature: 0.25,
+        maxOutputTokens: 600,
+        stopSequences: ["</final>"],
+        abortSignal: abortController.signal,
+        reasoning: {
+          effort: "high",
+          maxTokens: 128,
+          includeThoughts: false,
+        },
+        responseFormat: {
+          type: "json",
+        },
+        providerOptions: {
+          requestTag: "reason-test",
+        },
+      }),
+    );
+
+    expect(provider.getModel).toHaveBeenCalledWith("mock-model", {
+      temperature: 0.25,
+      streaming: false,
+      maxOutputTokens: 600,
+      stopSequences: ["</final>"],
+      abortSignal: abortController.signal,
+      reasoning: {
+        effort: "high",
+        maxTokens: 128,
+        includeThoughts: false,
+      },
+      responseFormat: {
+        type: "json",
+      },
+      providerOptions: {
+        requestTag: "reason-test",
+      },
+    });
+  });
+
+  it("uses model ref defaults when call options are omitted", async () => {
+    const abortController = new AbortController();
+    const { provider } = createProvider({
+      invokeResponses: [{ content: "Summary" }],
+    });
+    const modelRef = provider("mock-model", {
+      temperature: 0.15,
+      streaming: false,
+      maxOutputTokens: 320,
+      stopSequences: ["END"],
+      abortSignal: abortController.signal,
+      reasoning: {
+        effort: "low",
+        maxTokens: 48,
+      },
+      responseFormat: {
+        type: "text",
+      },
+      providerOptions: {
+        requestTag: "model-default",
+      },
+    });
+    const { node } = createNode();
+    const state = createState();
+
+    await runWithHookContext({ node, state }, async () =>
+      useReason({
+        model: modelRef,
+        input: "Create a summary",
+      }),
+    );
+
+    expect(provider.getModel).toHaveBeenCalledWith("mock-model", {
+      temperature: 0.15,
+      streaming: false,
+      maxOutputTokens: 320,
+      stopSequences: ["END"],
+      abortSignal: abortController.signal,
+      reasoning: {
+        effort: "low",
+        maxTokens: 48,
+      },
+      responseFormat: {
+        type: "text",
+      },
+      providerOptions: {
+        requestTag: "model-default",
+      },
+    });
+  });
+
+  it("lets call options override model ref defaults", async () => {
+    const modelAbortController = new AbortController();
+    const callAbortController = new AbortController();
+    const { provider } = createProvider({
+      streamResponses: ["hello ", "world"],
+    });
+    const modelRef = provider("mock-model", {
+      temperature: 0.15,
+      streaming: false,
+      maxOutputTokens: 320,
+      stopSequences: ["END"],
+      abortSignal: modelAbortController.signal,
+      reasoning: {
+        effort: "low",
+        maxTokens: 48,
+      },
+      responseFormat: {
+        type: "text",
+      },
+      providerOptions: {
+        requestTag: "model-default",
+      },
+    });
+    const { node } = createNode();
+    const state = createState();
+
+    await runWithHookContext({ node, state }, async () =>
+      useReason({
+        model: modelRef,
+        input: "Create a summary",
+        stream: true,
+        temperature: 0.65,
+        maxOutputTokens: 900,
+        stopSequences: ["STOP"],
+        abortSignal: callAbortController.signal,
+        reasoning: {
+          effort: "medium",
+          maxTokens: 96,
+          includeThoughts: false,
+        },
+        responseFormat: {
+          type: "json",
+        },
+        providerOptions: {
+          requestTag: "call-override",
+        },
+      }),
+    );
+
+    expect(provider.getModel).toHaveBeenCalledWith("mock-model", {
+      temperature: 0.65,
+      streaming: true,
+      maxOutputTokens: 900,
+      stopSequences: ["STOP"],
+      abortSignal: callAbortController.signal,
+      reasoning: {
+        effort: "medium",
+        maxTokens: 96,
+        includeThoughts: false,
+      },
+      responseFormat: {
+        type: "json",
+      },
+      providerOptions: {
+        requestTag: "call-override",
+      },
+    });
+  });
+
   it("returns normalized provider metadata for direct invoke calls", async () => {
     const { modelRef } = createProvider({
       invokeResponses: [
@@ -96,6 +267,112 @@ describe("useReason output flow", () => {
         type: "compatibility",
         feature: "responseFormat.schema",
         details: "Schema was ignored.",
+      },
+    ]);
+  });
+
+  it("uses stream mode without emitting text events when emit is false", async () => {
+    const { stream, invoke, modelRef } = createProvider({
+      streamResponses: ["hello ", "world"],
+    });
+    const { node, emitted } = createNode();
+    const state = createState();
+
+    const { result } = await runWithHookContext({ node, state }, async () =>
+      useReason({
+        model: modelRef,
+        input: "Say hello",
+        stream: true,
+        emit: false,
+      }),
+    );
+
+    expect(result.text).toBe("hello world");
+    expect(stream).toHaveBeenCalledTimes(1);
+    expect(invoke).toHaveBeenCalledTimes(0);
+    expect(emitted).toHaveLength(0);
+  });
+
+  it("uses invoke mode without emitting text events when stream and emit are false", async () => {
+    const { stream, invoke, modelRef } = createProvider({
+      invokeResponses: [{ content: "Summary" }],
+    });
+    const { node, emitted } = createNode();
+    const state = createState();
+
+    const { result } = await runWithHookContext({ node, state }, async () =>
+      useReason({
+        model: modelRef,
+        input: "Create a summary",
+        stream: false,
+        emit: false,
+      }),
+    );
+
+    expect(result.text).toBe("Summary");
+    expect(stream).toHaveBeenCalledTimes(0);
+    expect(invoke).toHaveBeenCalledTimes(1);
+    expect(emitted).toHaveLength(0);
+  });
+
+  it("returns normalized finish metadata from streaming provider responses", async () => {
+    const { modelRef } = createProvider({
+      streamResponses: [
+        "hello ",
+        "world",
+        {
+          type: "finish",
+          usage: {
+            input: 12,
+            output: 8,
+            total: 20,
+          },
+          finishReason: {
+            unified: "stop",
+            raw: "STOP",
+          },
+          providerMetadata: {
+            requestId: "stream-123",
+          },
+          warnings: [
+            {
+              type: "unsupported",
+              feature: "providerOptions",
+              details: "Ignored by mock provider.",
+            },
+          ],
+        },
+      ],
+    });
+    const { node } = createNode();
+    const state = createState();
+
+    const { result } = await runWithHookContext({ node, state }, async () =>
+      useReason({
+        model: modelRef,
+        input: "Say hello",
+        stream: true,
+      }),
+    );
+
+    expect(result.text).toBe("hello world");
+    expect(result.usage).toEqual({
+      input: 12,
+      output: 8,
+      total: 20,
+    });
+    expect(result.finishReason).toEqual({
+      unified: "stop",
+      raw: "STOP",
+    });
+    expect(result.providerMetadata).toEqual({
+      requestId: "stream-123",
+    });
+    expect(result.warnings).toEqual([
+      {
+        type: "unsupported",
+        feature: "providerOptions",
+        details: "Ignored by mock provider.",
       },
     ]);
   });
@@ -243,6 +520,121 @@ describe("useReason output flow", () => {
     expect(structuredEvents).toHaveLength(1);
     const textEvents = emitted.filter((x) => x.event.startsWith("text-"));
     expect(textEvents).toHaveLength(0);
+  });
+
+  it("returns structured output without emitting structured patches when emit is false", async () => {
+    const response = JSON.stringify({
+      summary: "Summary",
+      recommendation: "Recommendation",
+      checklist: ["item-1"],
+      userChoice: "pending",
+    });
+    const { invoke, modelRef } = createProvider({
+      invokeResponses: [response],
+    });
+    const { node, emitted } = createNode();
+    const state = createState();
+
+    const { result } = await runWithHookContext({ node, state }, async () =>
+      useReason({
+        id: "reason-id",
+        model: modelRef,
+        input: "Create a plan",
+        stream: false,
+        emit: false,
+        outputSchema: PlanSchema,
+        structured: {
+          dataType: "reason.plan",
+          stream: true,
+        },
+      }),
+    );
+
+    expect(invoke).toHaveBeenCalledTimes(1);
+    expect(result.output).toEqual({
+      summary: "Summary",
+      recommendation: "Recommendation",
+      checklist: ["item-1"],
+      userChoice: "pending",
+    });
+    expect(emitted).toHaveLength(0);
+  });
+
+  it("does not emit incremental structured patches when emit is false", async () => {
+    const response = JSON.stringify({
+      subject: "Launch update",
+      body: "Longer launch body",
+    });
+    const { invoke, stream, modelRef } = createProvider({
+      invokeResponses: [response],
+    });
+    const { node, emitted } = createNode();
+    const state = createState();
+
+    const { result } = await runWithHookContext({ node, state }, async () =>
+      useReason({
+        model: modelRef,
+        input: "Create a launch email",
+        stream: true,
+        emit: false,
+        outputSchema: EmailSchema,
+        structured: {
+          dataType: "reason.email",
+          stream: true,
+          fields: {
+            body: "text-delta",
+          },
+        },
+      }),
+    );
+
+    expect(result.output).toEqual({
+      subject: "Launch update",
+      body: "Longer launch body",
+    });
+    expect(invoke).toHaveBeenCalledTimes(1);
+    expect(stream).toHaveBeenCalledTimes(0);
+    expect(emitted).toHaveLength(0);
+  });
+
+  it("fails fast when includeThoughts is used with structured JSON output", async () => {
+    const { invoke, modelRef } = createProvider({
+      invokeResponses: [
+        JSON.stringify({
+          summary: "Summary",
+          recommendation: "Recommendation",
+          checklist: ["item-1"],
+          userChoice: "pending",
+        }),
+      ],
+    });
+    const { node, emitted } = createNode();
+    const state = createState();
+
+    await expect(
+      runWithHookContext({ node, state }, async () =>
+        useReason({
+          model: modelRef,
+          input: "Create a plan",
+          outputSchema: PlanSchema,
+          structured: {
+            dataType: "reason.plan",
+            stream: true,
+          },
+          responseFormat: {
+            type: "json",
+          },
+          reasoning: {
+            includeThoughts: true,
+          },
+        }),
+      ),
+    ).rejects.toThrow(
+      "useReason does not support reasoning.includeThoughts with structured output, interrupt mode, or JSON responseFormat. Disable includeThoughts for this call.",
+    );
+
+    expect(invoke).not.toHaveBeenCalled();
+    expect(emitted).toHaveLength(0);
   });
 
   it("parses fenced JSON output when outputSchema is provided", async () => {
@@ -707,6 +1099,66 @@ describe("useReason output flow", () => {
         }),
       ),
     ).rejects.toThrow("useReason output validation failed");
+
+    expect(invoke).toHaveBeenCalledTimes(1);
+  });
+
+  it("throws a truncation-specific error when structured output is cut off by output length", async () => {
+    const { invoke, modelRef } = createProvider({
+      invokeResponses: [
+        {
+          content: '{"summary":"Summary"',
+          finishReason: {
+            unified: "length",
+            raw: "MAX_TOKENS",
+          },
+        },
+      ],
+    });
+    const { node } = createNode();
+    const state = createState();
+
+    await expect(
+      runWithHookContext({ node, state }, async () =>
+        useReason({
+          model: modelRef,
+          input: "Create a plan",
+          stream: false,
+          emit: true,
+          outputSchema: PlanSchema,
+        }),
+      ),
+    ).rejects.toThrow(
+      "useReason output was truncated before producing valid structured output. The model stopped due to output length. Increase maxOutputTokens or simplify the requested output.",
+    );
+
+    expect(invoke).toHaveBeenCalledTimes(1);
+  });
+
+  it("throws a truncation-specific error when structured JSON is cut off even without finishReason metadata", async () => {
+    const { invoke, modelRef } = createProvider({
+      invokeResponses: [
+        {
+          content: '{"summary":"Summary","recommendation":"Recommendation"',
+        },
+      ],
+    });
+    const { node } = createNode();
+    const state = createState();
+
+    await expect(
+      runWithHookContext({ node, state }, async () =>
+        useReason({
+          model: modelRef,
+          input: "Create a plan",
+          stream: false,
+          emit: true,
+          outputSchema: PlanSchema,
+        }),
+      ),
+    ).rejects.toThrow(
+      "useReason output was truncated before producing valid structured output.",
+    );
 
     expect(invoke).toHaveBeenCalledTimes(1);
   });
