@@ -103,19 +103,21 @@ export function describeProviderConformance(
     });
 
     if (args.abort) {
+      const abortCase = args.abort;
+
       it("forwards abortSignal into provider transport", async () => {
         const controller = new AbortController();
-        const model = await args.abort.createModel(controller.signal);
-        const mode = args.abort.mode ?? "invoke";
-        const messages = args.abort.messages ?? DEFAULT_MESSAGES;
+        const model = await abortCase.createModel(controller.signal);
+        const mode = abortCase.mode ?? "invoke";
+        const messages = abortCase.messages ?? DEFAULT_MESSAGES;
 
         const operation =
           mode === "stream"
             ? collectStreamParts(await model.stream(messages))
             : model.invoke(messages);
 
-        if (args.abort.afterStart) {
-          args.abort.afterStart(controller);
+        if (abortCase.afterStart) {
+          abortCase.afterStart(controller);
         } else {
           controller.abort();
         }
@@ -128,7 +130,7 @@ export function describeProviderConformance(
         }
 
         expect(captured).toBeDefined();
-        await args.abort.assert(captured);
+        await abortCase.assert(captured);
       });
     }
   });
