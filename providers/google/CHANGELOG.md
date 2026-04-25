@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.3.0](https://github.com/kortyx-io/kortyx/compare/google-v0.2.2...google-v0.3.0) (2026-04-25)
+
+
+### Features
+
+* **google, hooks:** reasoning fallback and structured reason parsing ([b12d404](https://github.com/kortyx-io/kortyx/commit/b12d404d42c184f5dd076d00ccf8af28bb463d45))
+* **google:** add default provider export and docs ([174e566](https://github.com/kortyx-io/kortyx/commit/174e566db6f6727c2591b1146beccacb218335b7))
+* **providers:** add provider conformance suite ([e1da303](https://github.com/kortyx-io/kortyx/commit/e1da303007e53e71b2008435ba7babf6a1e37930))
+* **providers:** normalize reason model call metadata ([1a59e64](https://github.com/kortyx-io/kortyx/commit/1a59e6438c555a7536128501114a1382e6f90be4))
+* **providers:** use provider instances in model refs ([e6183f0](https://github.com/kortyx-io/kortyx/commit/e6183f06b17c66e35cc336ef05019148ac631390))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/providers bumped to 0.4.0
+
 ## [0.2.2](https://github.com/kortyx-io/kortyx/compare/google-v0.2.1...google-v0.2.2) (2026-02-17)
 
 
