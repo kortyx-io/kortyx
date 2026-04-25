@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.11.0](https://github.com/kortyx-io/kortyx/compare/example-nextjs-chat-api-route-v0.10.0...example-nextjs-chat-api-route-v0.11.0) (2026-04-25)
+
+
+### Features
+
+* **google, hooks:** reasoning fallback and structured reason parsing ([b12d404](https://github.com/kortyx-io/kortyx/commit/b12d404d42c184f5dd076d00ccf8af28bb463d45))
+* **google:** add default provider export and docs ([174e566](https://github.com/kortyx-io/kortyx/commit/174e566db6f6727c2591b1146beccacb218335b7))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/google bumped to 0.3.0
+    * kortyx bumped to 0.9.1
+
 ## [0.10.0](https://github.com/kortyx-io/kortyx/compare/example-nextjs-chat-api-route-v0.9.0...example-nextjs-chat-api-route-v0.10.0) (2026-04-23)
 
 

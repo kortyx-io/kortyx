@@ -1,6 +1,6 @@
 {
   "name": "@kortyx/google",
-  "version": "0.2.2",
+  "version": "0.3.0",
   "private": false,
   "description": "Google Gemini provider integration for Kortyx.",
   "keywords": [

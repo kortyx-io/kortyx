@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.10.0](https://github.com/kortyx-io/kortyx/compare/hooks-v0.9.1...hooks-v0.10.0) (2026-04-25)
+
+
+### Features
+
+* **google, hooks:** reasoning fallback and structured reason parsing ([b12d404](https://github.com/kortyx-io/kortyx/commit/b12d404d42c184f5dd076d00ccf8af28bb463d45))
+* **hooks:** track reason usage and tracing spans ([7dd9bf1](https://github.com/kortyx-io/kortyx/commit/7dd9bf1a207c7ce127cb64a090cf9b123924d1c6))
+* **providers:** normalize reason model call metadata ([1a59e64](https://github.com/kortyx-io/kortyx/commit/1a59e6438c555a7536128501114a1382e6f90be4))
+* **providers:** use provider instances in model refs ([e6183f0](https://github.com/kortyx-io/kortyx/commit/e6183f06b17c66e35cc336ef05019148ac631390))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/providers bumped to 0.4.0
+
 ## [0.9.1](https://github.com/kortyx-io/kortyx/compare/hooks-v0.9.0...hooks-v0.9.1) (2026-04-22)
 
 

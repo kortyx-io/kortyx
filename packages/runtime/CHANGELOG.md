@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.9.0](https://github.com/kortyx-io/kortyx/compare/runtime-v0.8.1...runtime-v0.9.0) (2026-04-25)
+
+
+### Features
+
+* **hooks:** track reason usage and tracing spans ([7dd9bf1](https://github.com/kortyx-io/kortyx/commit/7dd9bf1a207c7ce127cb64a090cf9b123924d1c6))
+* **providers:** use provider instances in model refs ([e6183f0](https://github.com/kortyx-io/kortyx/commit/e6183f06b17c66e35cc336ef05019148ac631390))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/hooks bumped to 0.10.0
+    * @kortyx/providers bumped to 0.4.0
+
 ## [0.8.1](https://github.com/kortyx-io/kortyx/compare/runtime-v0.8.0...runtime-v0.8.1) (2026-04-12)
 
 

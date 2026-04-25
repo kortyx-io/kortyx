@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.13.0](https://github.com/kortyx-io/kortyx/compare/website-v0.12.0...website-v0.13.0) (2026-04-25)
+
+
+### Features
+
+* **google, hooks:** reasoning fallback and structured reason parsing ([b12d404](https://github.com/kortyx-io/kortyx/commit/b12d404d42c184f5dd076d00ccf8af28bb463d45))
+* **google:** add default provider export and docs ([174e566](https://github.com/kortyx-io/kortyx/commit/174e566db6f6727c2591b1146beccacb218335b7))
+
 ## [0.12.0](https://github.com/kortyx-io/kortyx/compare/website-v0.11.2...website-v0.12.0) (2026-04-23)
 
 
