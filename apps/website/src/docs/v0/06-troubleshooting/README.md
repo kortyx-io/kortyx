@@ -19,7 +19,7 @@ Use this section to quickly isolate setup and runtime issues.
 ## Related docs
 
 - [Installation](../01-getting-started/01-installation.md)
-- [Setup Google Provider](../03-guides/09-setup-google-provider.md)
+- [Google Generative AI Provider](../04-kortyx-providers/01-google-generative-ai-provider.md)
 - [Runtime Persistence Adapters](../04-production/02-framework-adapters.md)
 - [Stream Protocol](../05-reference/03-stream-protocol.md)
 

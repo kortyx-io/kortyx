@@ -43,7 +43,8 @@
   "devDependencies": {
     "typescript": "5.7.2",
     "turbo": "^2.5.4",
-    "tsup": "^8.5.1"
+    "tsup": "^8.5.1",
+    "vitest": "^3.2.4"
   },
   "sideEffects": false,
   "repository": {

@@ -8,7 +8,8 @@ import type {
   GetProviderFn,
   KortyxInvokeResult,
   KortyxModel,
-  KortyxStreamChunk,
+  KortyxStreamPart,
+  ProviderSelector,
 } from "@kortyx/providers";
 import { vi } from "vitest";
 
@@ -18,7 +19,7 @@ type InvokeResponse = string | KortyxInvokeResult;
 
 type CreateProviderArgs = {
   invokeResponses?: InvokeResponse[];
-  streamResponses?: Array<KortyxStreamChunk | string>;
+  streamResponses?: Array<KortyxStreamPart | string>;
 };
 
 type CreateNodeArgs = {
@@ -55,19 +56,49 @@ export const createProvider = (args: CreateProviderArgs = {}) => {
 
   const stream = vi.fn(async function* () {
     for (const chunk of streamQueue) {
+      if (typeof chunk === "string") {
+        yield {
+          type: "text-delta",
+          delta: chunk,
+        } satisfies KortyxStreamPart;
+        continue;
+      }
+
       yield chunk;
     }
   });
 
-  const model: KortyxModel = {
-    invoke,
-    stream,
-    temperature: 0,
-    streaming: true,
-  };
+  const provider = Object.assign(
+    ((modelId: "mock-model", options) => ({
+      provider,
+      modelId,
+      ...(options ? { options } : {}),
+    })) as unknown as ProviderSelector<"mock", "mock-model">,
+    {
+      id: "mock" as const,
+      models: ["mock-model"] as const,
+      getModel: vi.fn((modelId: "mock-model", options) => {
+        if (modelId !== "mock-model") {
+          throw new Error(`Unknown mock model: ${modelId}`);
+        }
 
-  const getProvider = vi.fn(() => model) as unknown as GetProviderFn;
-  return { getProvider, invoke, stream };
+        return {
+          invoke,
+          stream,
+        } satisfies KortyxModel;
+      }),
+    },
+  );
+
+  const modelRef = provider("mock-model");
+  const getProvider = vi.fn((providerId: string) => {
+    if (providerId !== provider.id) {
+      throw new Error(`Unknown mock provider: ${providerId}`);
+    }
+    return provider;
+  }) as unknown as GetProviderFn;
+
+  return { getProvider, invoke, modelRef, provider, stream };
 };
 
 export const createNode = (args: CreateNodeArgs = {}) => {

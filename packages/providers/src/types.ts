@@ -1,16 +1,100 @@
+export type KortyxReasoningEffort =
+  | "minimal"
+  | "low"
+  | "medium"
+  | "high"
+  | (string & {});
+
+export interface KortyxReasoningOptions {
+  effort?: KortyxReasoningEffort;
+  maxTokens?: number;
+  includeThoughts?: boolean;
+}
+
+export type KortyxResponseFormat =
+  | {
+      type: "text";
+    }
+  | {
+      type: "json";
+      schema?: unknown;
+      name?: string;
+    };
+
+export interface KortyxUsage {
+  input?: number;
+  output?: number;
+  total?: number;
+  reasoning?: number;
+  cacheRead?: number;
+  cacheWrite?: number;
+  raw?: Record<string, unknown>;
+}
+
+export type KortyxFinishReason = {
+  unified:
+    | "stop"
+    | "length"
+    | "content-filter"
+    | "tool-calls"
+    | "error"
+    | "other";
+  raw?: string;
+};
+
+export type KortyxWarning =
+  | {
+      type: "unsupported";
+      feature: string;
+      details?: string;
+    }
+  | {
+      type: "compatibility";
+      feature: string;
+      details?: string;
+    }
+  | {
+      type: "deprecated";
+      setting: string;
+      message: string;
+    }
+  | {
+      type: "other";
+      message: string;
+    };
+
+export type KortyxProviderMetadata = Record<string, unknown>;
+
 /**
- * Options for model instantiation
+ * Options for model instantiation.
+ * These are provider-normalized call options applied when a concrete model
+ * instance is resolved from a provider selector.
  */
 export interface ModelOptions {
   temperature?: number;
   streaming?: boolean;
+  maxOutputTokens?: number;
+  stopSequences?: string[];
+  abortSignal?: AbortSignal;
+  reasoning?: KortyxReasoningOptions;
+  responseFormat?: KortyxResponseFormat;
+  providerOptions?: Record<string, unknown>;
+}
+
+export interface ProviderInstance<
+  ProviderId extends string = string,
+  ModelId extends string = string,
+> {
+  id: ProviderId;
+  models: readonly ModelId[];
+  getModel: (modelId: string, options?: ModelOptions) => KortyxModel;
 }
 
 export interface ProviderModelRef<
   ProviderId extends string = string,
   ModelId extends string = string,
 > {
-  providerId: ProviderId;
+  provider: ProviderInstance<ProviderId, ModelId>;
   modelId: ModelId;
   options?: ModelOptions | undefined;
 }
@@ -18,13 +102,11 @@ export interface ProviderModelRef<
 export interface ProviderSelector<
   ProviderId extends string = string,
   ModelId extends string = string,
-> {
+> extends ProviderInstance<ProviderId, ModelId> {
   (
     modelId: ModelId,
     options?: ModelOptions,
   ): ProviderModelRef<ProviderId, ModelId>;
-  id: ProviderId;
-  models: readonly ModelId[];
 }
 
 export type KortyxPromptRole = "system" | "user" | "assistant";
@@ -34,16 +116,44 @@ export interface KortyxPromptMessage {
   content: string;
 }
 
-export interface KortyxStreamChunk {
-  text?: string | undefined;
-  content?: unknown;
-  raw?: unknown;
-}
+export type KortyxStreamPart =
+  | {
+      type: "text-delta";
+      delta: string;
+      raw?: unknown;
+      providerMetadata?: KortyxProviderMetadata;
+    }
+  | {
+      type: "finish";
+      finishReason?: KortyxFinishReason;
+      usage?: KortyxUsage;
+      warnings?: KortyxWarning[];
+      providerMetadata?: KortyxProviderMetadata;
+      raw?: unknown;
+    }
+  | {
+      type: "error";
+      error: unknown;
+      warnings?: KortyxWarning[];
+      providerMetadata?: KortyxProviderMetadata;
+      raw?: unknown;
+    }
+  | {
+      type: "raw";
+      raw: unknown;
+      providerMetadata?: KortyxProviderMetadata;
+    };
+
+export type KortyxStreamChunk = KortyxStreamPart;
 
 export interface KortyxInvokeResult {
   role?: "assistant" | undefined;
   content: string;
   raw?: unknown;
+  usage?: KortyxUsage;
+  finishReason?: KortyxFinishReason;
+  warnings?: KortyxWarning[];
+  providerMetadata?: KortyxProviderMetadata;
 }
 
 /**
@@ -57,53 +167,25 @@ export interface KortyxModel {
   stream: (
     messages: KortyxPromptMessage[],
   ) =>
-    | AsyncIterable<KortyxStreamChunk | string>
-    | Promise<AsyncIterable<KortyxStreamChunk | string>>;
+    | AsyncIterable<KortyxStreamPart>
+    | Promise<AsyncIterable<KortyxStreamPart>>;
 
   /**
    * Invoke the model synchronously (non-streaming)
    */
   invoke: (messages: KortyxPromptMessage[]) => Promise<KortyxInvokeResult>;
-
-  /**
-   * Model temperature (can be modified at runtime)
-   */
-  temperature: number;
-
-  /**
-   * Whether streaming is enabled
-   */
-  streaming: boolean;
-}
-
-/**
- * Factory function that creates a model instance
- */
-export type ModelFactory = () => KortyxModel;
-
-/**
- * Configuration for a single provider (e.g., Google, OpenAI)
- */
-export interface ProviderConfig {
-  id: string;
-  models: Record<string, ModelFactory>;
 }
 
 /**
  * The function signature that runtime uses to get a provider.
- * This matches the interface expected by @kortyx/runtime's GraphRuntimeConfig.
  */
-export type GetProviderFn = (
-  providerId: string,
-  modelId: string,
-  options?: ModelOptions,
-) => KortyxModel;
+export type GetProviderFn = (providerId: string) => ProviderInstance;
 
 /**
  * Mutable registry used to register provider implementations and resolve models.
  */
 export interface ProviderRegistry {
-  register: (config: ProviderConfig) => void;
+  register: (provider: ProviderInstance) => void;
   reset: () => void;
   hasProvider: (providerId: string) => boolean;
   getInitializedProviders: () => string[];

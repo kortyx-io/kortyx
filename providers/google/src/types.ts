@@ -25,10 +25,28 @@ export interface GoogleGenerateContentRequest {
   contents: GoogleContent[];
   generationConfig?: {
     temperature?: number | undefined;
+    maxOutputTokens?: number | undefined;
+    stopSequences?: string[] | undefined;
+    responseMimeType?: "application/json" | "text/plain" | undefined;
+    thinkingConfig?:
+      | {
+          thinkingBudget?: number | undefined;
+          thinkingLevel?: "minimal" | "low" | "medium" | "high" | undefined;
+          includeThoughts?: boolean | undefined;
+        }
+      | undefined;
   };
   systemInstruction?: {
     parts: Array<{ text: string }>;
   };
+}
+
+export interface GoogleUsageMetadata {
+  promptTokenCount?: number | null;
+  candidatesTokenCount?: number | null;
+  totalTokenCount?: number | null;
+  cachedContentTokenCount?: number | null;
+  thoughtsTokenCount?: number | null;
 }
 
 export interface GoogleGenerateContentResponse {
@@ -43,16 +61,24 @@ export interface GoogleGenerateContentResponse {
       }>
     | undefined;
   promptFeedback?: unknown;
-  usageMetadata?: unknown;
+  usageMetadata?: GoogleUsageMetadata | undefined;
+  modelVersion?: string | undefined;
+  responseId?: string | undefined;
+}
+
+export interface GoogleRequestOptions {
+  signal?: AbortSignal | undefined;
 }
 
 export interface GoogleClient {
   generateContent: (
     modelId: string,
     body: GoogleGenerateContentRequest,
+    options?: GoogleRequestOptions,
   ) => Promise<GoogleGenerateContentResponse>;
   streamGenerateContent: (
     modelId: string,
     body: GoogleGenerateContentRequest,
+    options?: GoogleRequestOptions,
   ) => AsyncIterable<GoogleGenerateContentResponse>;
 }

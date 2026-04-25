@@ -1,10 +1,20 @@
 import type { InterruptInput } from "@kortyx/core";
+import type {
+  KortyxFinishReason,
+  KortyxProviderMetadata,
+  KortyxUsage,
+  KortyxWarning,
+} from "@kortyx/providers";
 
 export type ReasonInterruptCheckpoint = {
   status: "awaiting_interrupt";
   request: InterruptInput;
   firstText: string;
   firstRaw?: unknown;
+  firstUsage?: KortyxUsage;
+  firstFinishReason?: KortyxFinishReason;
+  firstProviderMetadata?: KortyxProviderMetadata;
+  firstWarnings?: KortyxWarning[];
   firstOutput?: unknown;
 };
 
@@ -29,6 +39,21 @@ export const readReasonCheckpoint = (
     request: value.request as InterruptInput,
     firstText: value.firstText,
     ...(Object.hasOwn(value, "firstRaw") ? { firstRaw: value.firstRaw } : {}),
+    ...(Object.hasOwn(value, "firstUsage")
+      ? { firstUsage: value.firstUsage as KortyxUsage }
+      : {}),
+    ...(Object.hasOwn(value, "firstFinishReason")
+      ? { firstFinishReason: value.firstFinishReason as KortyxFinishReason }
+      : {}),
+    ...(Object.hasOwn(value, "firstProviderMetadata")
+      ? {
+          firstProviderMetadata:
+            value.firstProviderMetadata as KortyxProviderMetadata,
+        }
+      : {}),
+    ...(Object.hasOwn(value, "firstWarnings")
+      ? { firstWarnings: value.firstWarnings as KortyxWarning[] }
+      : {}),
     ...(Object.hasOwn(value, "firstOutput")
       ? { firstOutput: value.firstOutput }
       : {}),

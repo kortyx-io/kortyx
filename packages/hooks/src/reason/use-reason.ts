@@ -1,7 +1,18 @@
 import type { InterruptInput, InterruptResult } from "@kortyx/core";
-import { getHookContext } from "../context";
+import type {
+  KortyxFinishReason,
+  KortyxProviderMetadata,
+  KortyxUsage,
+  KortyxWarning,
+} from "@kortyx/providers";
+import {
+  accumulateTokenUsage,
+  getHookContext,
+  getReasonTraceAdapter,
+} from "../context";
 import { awaitInterruptInternal } from "../interrupt";
 import { emitStructuredData, shouldEmitStructured } from "../structured";
+import type { ReasonTraceSpan } from "../tracing";
 import type { SchemaLike, UseReasonArgs, UseReasonResult } from "../types";
 import { parseWithSchema } from "../validation";
 import {
@@ -13,7 +24,7 @@ import {
 import { createRuntimeId, reasonEngine } from "./engine";
 import {
   parseInterruptFirstPassResult,
-  resolveOutputCandidate,
+  parseReasonOutputWithSchema,
 } from "./parsing";
 import {
   defaultContinuationInput,
@@ -30,13 +41,83 @@ import {
   resolveTextDeltaFieldPaths,
 } from "./structured-stream";
 
+const mergeUsage = (
+  left: KortyxUsage | undefined,
+  right: KortyxUsage | undefined,
+): KortyxUsage | undefined => {
+  if (!left) return right;
+  if (!right) return left;
+
+  const sum = (
+    a: number | undefined,
+    b: number | undefined,
+  ): number | undefined =>
+    a === undefined && b === undefined ? undefined : (a ?? 0) + (b ?? 0);
+
+  const raw =
+    left.raw || right.raw
+      ? {
+          ...(left.raw ?? {}),
+          ...(right.raw ?? {}),
+        }
+      : undefined;
+  const input = sum(left.input, right.input);
+  const output = sum(left.output, right.output);
+  const total = sum(left.total, right.total);
+  const reasoning = sum(left.reasoning, right.reasoning);
+  const cacheRead = sum(left.cacheRead, right.cacheRead);
+  const cacheWrite = sum(left.cacheWrite, right.cacheWrite);
+  const merged: KortyxUsage = {};
+
+  if (input !== undefined) merged.input = input;
+  if (output !== undefined) merged.output = output;
+  if (total !== undefined) merged.total = total;
+  if (reasoning !== undefined) merged.reasoning = reasoning;
+  if (cacheRead !== undefined) merged.cacheRead = cacheRead;
+  if (cacheWrite !== undefined) merged.cacheWrite = cacheWrite;
+  if (raw) merged.raw = raw;
+
+  return merged;
+};
+
+const mergeWarnings = (
+  left: KortyxWarning[] | undefined,
+  right: KortyxWarning[] | undefined,
+): KortyxWarning[] | undefined => {
+  if (!left?.length) return right;
+  if (!right?.length) return left;
+
+  const seen = new Set<string>();
+  const merged: KortyxWarning[] = [];
+  for (const warning of [...left, ...right]) {
+    const key = JSON.stringify(warning);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    merged.push(warning);
+  }
+  return merged;
+};
+
+const mergeProviderMetadata = (
+  left: KortyxProviderMetadata | undefined,
+  right: KortyxProviderMetadata | undefined,
+): KortyxProviderMetadata | undefined => {
+  if (!left) return right;
+  if (!right) return left;
+  return {
+    ...left,
+    ...right,
+  };
+};
+
 const emitReasonStructuredOutput = <TOutput>(args: {
   id?: string;
   opId: string;
   output: TOutput;
   structured: UseReasonArgs<TOutput>["structured"];
+  emit: boolean;
 }): void => {
-  if (!shouldEmitStructured(args.structured)) return;
+  if (!args.emit || !shouldEmitStructured(args.structured)) return;
 
   emitStructuredData<TOutput>({
     dataType: args.structured?.dataType ?? "reason-output",
@@ -53,6 +134,56 @@ const emitReasonStructuredOutput = <TOutput>(args: {
   });
 };
 
+const shouldEmitReasonStructured = <
+  TOutput,
+  TRequest extends InterruptInput,
+  TResponse,
+>(
+  args: UseReasonArgs<TOutput, TRequest, TResponse>,
+): boolean => (args.emit ?? true) && shouldEmitStructured(args.structured);
+
+const resolveEffectiveReasoningIncludeThoughts = <
+  TOutput,
+  TRequest extends InterruptInput,
+  TResponse,
+>(
+  args: UseReasonArgs<TOutput, TRequest, TResponse>,
+): boolean =>
+  args.reasoning?.includeThoughts ??
+  args.model.options?.reasoning?.includeThoughts ??
+  false;
+
+const resolveEffectiveResponseFormatType = <
+  TOutput,
+  TRequest extends InterruptInput,
+  TResponse,
+>(
+  args: UseReasonArgs<TOutput, TRequest, TResponse>,
+): "text" | "json" | undefined =>
+  args.responseFormat?.type ?? args.model.options?.responseFormat?.type;
+
+const assertReasoningThoughtsCompatibility = <
+  TOutput,
+  TRequest extends InterruptInput,
+  TResponse,
+>(
+  args: UseReasonArgs<TOutput, TRequest, TResponse>,
+): void => {
+  if (!resolveEffectiveReasoningIncludeThoughts(args)) return;
+
+  const usesStructuredOutput =
+    Boolean(args.outputSchema) ||
+    Boolean(args.interrupt) ||
+    Boolean(args.structured) ||
+    resolveEffectiveResponseFormatType(args) === "json";
+
+  if (!usesStructuredOutput) return;
+
+  throw new Error(
+    "useReason does not support reasoning.includeThoughts with structured output, interrupt mode, or JSON responseFormat. Disable includeThoughts for this call.",
+  );
+};
+
 export async function useReason<
   TOutput = unknown,
   TRequest extends InterruptInput = InterruptInput,
@@ -60,6 +191,7 @@ export async function useReason<
 >(
   args: UseReasonArgs<TOutput, TRequest, TResponse>,
 ): Promise<UseReasonResult<TOutput, TResponse>> {
+  assertReasoningThoughtsCompatibility(args);
   const ctx = getHookContext();
   const id =
     typeof args.id === "string" && args.id.length > 0 ? args.id : undefined;
@@ -74,6 +206,22 @@ export async function useReason<
 
   const reasonMeta =
     typeof id === "string" ? ({ id, opId } as const) : ({ opId } as const);
+  const traceSpan: ReasonTraceSpan | undefined =
+    getReasonTraceAdapter()?.startSpan({
+      name: "useReason",
+      attributes: {
+        ...(id ? { id } : {}),
+        opId,
+        nodeId: ctx.node.graph.node,
+        providerId: args.model.provider.id,
+        modelId: args.model.modelId,
+        stream: args.stream ?? args.model.options?.streaming ?? true,
+        emit: args.emit ?? true,
+        hasOutputSchema: Boolean(args.outputSchema),
+        hasInterrupt: Boolean(args.interrupt),
+        hasStructured: Boolean(args.structured),
+      },
+    });
   const suppressTextStream = Boolean(args.outputSchema || args.interrupt);
   const setFieldPaths = resolveSetFieldPaths(args.structured);
   const appendFieldPaths = resolveAppendFieldPaths(args.structured);
@@ -85,7 +233,7 @@ export async function useReason<
         appendFieldPaths.length > 0 ||
         textDeltaFieldPaths.length > 0) &&
       args.stream !== false &&
-      shouldEmitStructured(args.structured),
+      shouldEmitReasonStructured(args),
   );
 
   let firstText = "";
@@ -96,6 +244,10 @@ export async function useReason<
   let finalText = "";
   let finalRaw: unknown;
   let finalOutput: TOutput | undefined;
+  let aggregatedUsage: KortyxUsage | undefined;
+  let finalFinishReason: KortyxFinishReason | undefined;
+  let aggregatedProviderMetadata: KortyxProviderMetadata | undefined;
+  let aggregatedWarnings: KortyxWarning[] | undefined;
   const emittedSetValues = new Map<string, string>();
   const emittedAppendCounts = new Map<string, number>();
   const emittedTextValues = new Map<string, string>();
@@ -107,6 +259,13 @@ export async function useReason<
     finalText = firstText;
     finalRaw = firstRaw;
     finalOutput = firstOutput;
+    aggregatedUsage = existingCheckpoint.firstUsage;
+    finalFinishReason = existingCheckpoint.firstFinishReason;
+    aggregatedProviderMetadata = existingCheckpoint.firstProviderMetadata;
+    aggregatedWarnings = existingCheckpoint.firstWarnings;
+    traceSpan?.addEvent?.("useReason.resume", {
+      checkpointKey,
+    });
   } else {
     const first = await reasonEngine(
       {
@@ -239,11 +398,24 @@ export async function useReason<
     );
     firstRaw = first.raw;
     finalRaw = first.raw;
+    accumulateTokenUsage(first.usage);
+    aggregatedUsage = mergeUsage(aggregatedUsage, first.usage);
+    finalFinishReason = first.finishReason;
+    aggregatedProviderMetadata = mergeProviderMetadata(
+      aggregatedProviderMetadata,
+      first.providerMetadata,
+    );
+    aggregatedWarnings = mergeWarnings(aggregatedWarnings, first.warnings);
+    traceSpan?.addEvent?.("useReason.first-pass.complete", {
+      textLength: first.text.length,
+      hasInterrupt: Boolean(args.interrupt),
+    });
 
     if (args.interrupt) {
       const firstPass = parseInterruptFirstPassResult<TRequest, TOutput>({
         text: first.text,
         requestSchema: args.interrupt.requestSchema,
+        ...(first.finishReason ? { finishReason: first.finishReason } : {}),
         ...(args.outputSchema
           ? { outputSchema: args.outputSchema as SchemaLike<TOutput> }
           : {}),
@@ -257,11 +429,12 @@ export async function useReason<
       firstText = first.text;
       finalText = first.text;
       if (args.outputSchema) {
-        firstOutput = parseWithSchema(
-          args.outputSchema,
-          resolveOutputCandidate(first.text),
-          "useReason output",
-        );
+        firstOutput = parseReasonOutputWithSchema({
+          text: first.text,
+          schema: args.outputSchema,
+          ...(first.finishReason ? { finishReason: first.finishReason } : {}),
+          label: "useReason output",
+        });
       }
       finalOutput = firstOutput;
     }
@@ -292,9 +465,21 @@ export async function useReason<
         request: interruptRequest,
         firstText,
         ...(firstRaw !== undefined ? { firstRaw } : {}),
+        ...(aggregatedUsage !== undefined
+          ? { firstUsage: aggregatedUsage }
+          : {}),
+        ...(finalFinishReason !== undefined
+          ? { firstFinishReason: finalFinishReason }
+          : {}),
+        ...(aggregatedProviderMetadata !== undefined
+          ? { firstProviderMetadata: aggregatedProviderMetadata }
+          : {}),
+        ...(aggregatedWarnings !== undefined
+          ? { firstWarnings: aggregatedWarnings }
+          : {}),
         ...(firstOutput !== undefined ? { firstOutput } : {}),
       } satisfies ReasonInterruptCheckpoint;
-      ctx.dirty = true;
+      ctx.stateDirty = true;
     }
 
     const resumeStatePatch = resolveHookStatePatch({
@@ -316,10 +501,13 @@ export async function useReason<
         __kortyxResumeStatePatch: resumeStatePatch,
       },
     });
+    traceSpan?.addEvent?.("useReason.interrupt.resolved", {
+      checkpointKey,
+    });
 
     if (Object.hasOwn(ctx.currentNodeState.byKey, checkpointKey)) {
       delete ctx.currentNodeState.byKey[checkpointKey];
-      ctx.dirty = true;
+      ctx.stateDirty = true;
     }
 
     const continuationInput = defaultContinuationInput({
@@ -346,13 +534,25 @@ export async function useReason<
     );
     finalText = second.text;
     finalRaw = second.raw;
+    accumulateTokenUsage(second.usage);
+    aggregatedUsage = mergeUsage(aggregatedUsage, second.usage);
+    finalFinishReason = second.finishReason;
+    aggregatedProviderMetadata = mergeProviderMetadata(
+      aggregatedProviderMetadata,
+      second.providerMetadata,
+    );
+    aggregatedWarnings = mergeWarnings(aggregatedWarnings, second.warnings);
+    traceSpan?.addEvent?.("useReason.continuation.complete", {
+      textLength: second.text.length,
+    });
 
     if (args.outputSchema) {
-      finalOutput = parseWithSchema(
-        args.outputSchema,
-        resolveOutputCandidate(finalText),
-        "useReason output",
-      );
+      finalOutput = parseReasonOutputWithSchema({
+        text: finalText,
+        schema: args.outputSchema,
+        ...(second.finishReason ? { finishReason: second.finishReason } : {}),
+        label: "useReason output",
+      });
     }
   }
 
@@ -362,15 +562,46 @@ export async function useReason<
       opId,
       output: finalOutput,
       structured: args.structured,
+      emit: args.emit ?? true,
     });
   }
 
-  return {
+  const result = {
     ...(id ? { id } : {}),
     opId,
     text: finalText,
     ...(finalRaw !== undefined ? { raw: finalRaw } : {}),
+    ...(aggregatedUsage !== undefined ? { usage: aggregatedUsage } : {}),
+    ...(finalFinishReason !== undefined
+      ? { finishReason: finalFinishReason }
+      : {}),
+    ...(aggregatedProviderMetadata !== undefined
+      ? { providerMetadata: aggregatedProviderMetadata }
+      : {}),
+    ...(aggregatedWarnings !== undefined
+      ? { warnings: aggregatedWarnings }
+      : {}),
     ...(finalOutput !== undefined ? { output: finalOutput } : {}),
     ...(interruptResponse !== undefined ? { interruptResponse } : {}),
   };
+
+  traceSpan?.end?.({
+    ...(aggregatedUsage !== undefined ? { usage: aggregatedUsage } : {}),
+    ...(finalFinishReason !== undefined
+      ? { finishReason: finalFinishReason }
+      : {}),
+    ...(aggregatedProviderMetadata !== undefined
+      ? { providerMetadata: aggregatedProviderMetadata }
+      : {}),
+    ...(aggregatedWarnings !== undefined
+      ? { warnings: aggregatedWarnings }
+      : {}),
+    attributes: {
+      textLength: finalText.length,
+      resumedFromCheckpoint: Boolean(existingCheckpoint),
+      interrupted: Boolean(interruptResponse !== undefined),
+    },
+  });
+
+  return result;
 }

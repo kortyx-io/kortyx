@@ -1,6 +1,6 @@
+import { google } from "@kortyx/google";
 import { useReason, useStructuredData } from "kortyx";
 import { z } from "zod";
-import { google } from "@/lib/providers";
 
 const ReasonPlanSchema = z.object({
   summary: z.string().min(1),

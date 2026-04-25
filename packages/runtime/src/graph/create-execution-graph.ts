@@ -7,6 +7,7 @@ import type {
   NodeResult,
   WorkflowDefinition,
 } from "@kortyx/core";
+import type { ReasonTraceAdapter } from "@kortyx/hooks";
 import { runWithHookContext } from "@kortyx/hooks";
 import { runReasonEngine } from "@kortyx/hooks/internal";
 import type { GetProviderFn } from "@kortyx/providers";
@@ -43,6 +44,7 @@ export interface ExecutionRuntimeConfig {
   emit?: (event: string, payload: unknown) => void;
   onCheckpoint?: (args: { nodeId: string; state: GraphState }) => void;
   checkpointer?: BaseCheckpointSaver;
+  reasonTrace?: ReasonTraceAdapter;
   /**
    * Provider factory used by ctx.speak to obtain a streaming model.
    * Use @kortyx/providers or implement your own GetProviderFn.
@@ -262,9 +264,8 @@ export async function createExecutionGraph(
           }
 
           const result = await runReasonEngine({
-            getProvider,
             model: {
-              providerId,
+              provider: getProvider(providerId),
               modelId: modelName,
             },
             input: args.user ?? "",
@@ -274,6 +275,7 @@ export async function createExecutionGraph(
             emit: true,
             nodeId,
             emitEvent: ctx.emit,
+            reasonTrace: runtimeConfig.reasonTrace,
           });
           return result.text;
         },
@@ -305,9 +307,7 @@ export async function createExecutionGraph(
           const hookContext = {
             node: ctx,
             state: attemptState,
-            ...(runtimeConfig.getProvider
-              ? { getProvider: runtimeConfig.getProvider }
-              : {}),
+            reasonTrace: runtimeConfig.reasonTrace,
           };
           const hookRun = await runWithHookContext(hookContext, async () =>
             resolvedRun({

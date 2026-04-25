@@ -1,6 +1,6 @@
+import { google } from "@kortyx/google";
 import { useReason } from "kortyx";
 import { z } from "zod";
-import { google } from "@/lib/providers";
 
 const MultiStreamDraftSchema = z.object({
   subject: z.string().min(1),
@@ -27,6 +27,16 @@ export const step1ReasonStructuredMultiStreamNode = async ({
     stream: true,
     emit: true,
     temperature: 0.2,
+    maxOutputTokens: 900,
+    stopSequences: ["</campaign-brief>"],
+    reasoning: {
+      effort: "low",
+      maxTokens: 256,
+      includeThoughts: false,
+    },
+    responseFormat: {
+      type: "json",
+    },
     system:
       "You are a product marketing assistant. Return JSON only for a launch campaign brief.",
     input: [
@@ -36,6 +46,7 @@ export const step1ReasonStructuredMultiStreamNode = async ({
       "The highlights array should contain short feature highlights.",
       "The ctas array should contain short action-oriented next steps.",
       "Do not write a memo or planning notes.",
+      "Do not include any wrapper tags such as </campaign-brief> in the response.",
       "",
       `User input: ${userInput}`,
     ].join("\n"),

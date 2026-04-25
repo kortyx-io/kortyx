@@ -65,31 +65,20 @@ export const generalChatWorkflow = defineWorkflow({
 });
 ```
 
-## 2. Initialize provider bootstrap
+## 2. Add provider entrypoint
 
 ```ts
 // src/lib/providers.ts
-import { createGoogleGenerativeAI } from "@kortyx/google";
-
-const googleApiKey = process.env.GOOGLE_API_KEY;
-if (!googleApiKey) {
-  throw new Error("Google provider requires an API key. Set GOOGLE_API_KEY.");
-}
-
-export const google = createGoogleGenerativeAI({ apiKey: googleApiKey });
+export { google } from "@kortyx/google";
 ```
 
 ```js
 // src/lib/providers.js
-import { createGoogleGenerativeAI } from "@kortyx/google";
-
-const googleApiKey = process.env.GOOGLE_API_KEY;
-if (!googleApiKey) {
-  throw new Error("Google provider requires an API key. Set GOOGLE_API_KEY.");
-}
-
-export const google = createGoogleGenerativeAI({ apiKey: googleApiKey });
+export { google } from "@kortyx/google";
 ```
+
+> **Good to know:** The default `google` export reads `GOOGLE_API_KEY`, `GEMINI_API_KEY`, `GOOGLE_GENERATIVE_AI_API_KEY`, `KORTYX_GOOGLE_API_KEY`, or `KORTYX_GEMINI_API_KEY` on first use. If you want explicit provider setup or custom transport settings, replace this with `createGoogleGenerativeAI(...)`.
+> **Good to know:** This `src/lib/providers.ts` file is a re-export only. In files where you call `google("...")` directly, import `google` from `@/lib/providers` or from `@kortyx/google`; do not expect `export { google } from "@kortyx/google"` to create a local variable in the same file.
 
 ## 3. Create a node
 
