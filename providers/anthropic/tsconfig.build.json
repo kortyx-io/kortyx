@@ -1,0 +1,14 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    // Disable project/incremental mode for tsup declaration builds
+    "composite": false,
+    "incremental": false,
+
+    // Relax strictness for build compatibility
+    "strict": false,
+    "exactOptionalPropertyTypes": false,
+    "noImplicitReturns": false,
+    "noUncheckedIndexedAccess": false
+  }
+}

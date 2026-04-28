@@ -1,0 +1,59 @@
+{
+  "name": "@kortyx/anthropic",
+  "version": "0.1.0",
+  "private": false,
+  "description": "Anthropic provider integration for Kortyx.",
+  "keywords": [
+    "ai",
+    "agent",
+    "providers",
+    "anthropic",
+    "claude",
+    "kortyx"
+  ],
+  "license": "Apache-2.0",
+  "homepage": "https://kortyx.io/",
+  "bugs": {
+    "url": "https://github.com/kortyx-io/kortyx/issues"
+  },
+  "author": "Kortyx (https://github.com/kortyx-io)",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist/**",
+    "README.md",
+    "CHANGELOG.md"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsc --watch",
+    "lint": "biome check src",
+    "test": "vitest run && pnpm -s type-check",
+    "test:watch": "vitest",
+    "type-check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@kortyx/providers": "workspace:*"
+  },
+  "devDependencies": {
+    "turbo": "^2.5.4",
+    "typescript": "5.7.2",
+    "tsup": "^8.5.1",
+    "vitest": "^3.2.4"
+  },
+  "sideEffects": false,
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/kortyx-io/kortyx.git",
+    "directory": "providers/anthropic"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

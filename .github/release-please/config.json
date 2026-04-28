@@ -50,6 +50,10 @@
       "package-name": "@kortyx/openai",
       "component": "openai"
     },
+    "providers/anthropic": {
+      "package-name": "@kortyx/anthropic",
+      "component": "anthropic"
+    },
     "providers/google": {
       "package-name": "@kortyx/google",
       "component": "google"
