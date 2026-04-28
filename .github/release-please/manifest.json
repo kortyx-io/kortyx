@@ -6,7 +6,7 @@
   "packages/react": "0.2.0",
   "packages/kortyx": "0.9.1",
   "packages/providers": "0.4.0",
-  "providers/deepseek": "0.1.0",
+  "providers/deepseek": "0.2.0",
   "providers/google": "0.3.0",
   "packages/runtime": "0.9.0",
   "packages/stream": "0.6.1",
