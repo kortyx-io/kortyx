@@ -42,6 +42,10 @@
       "package-name": "@kortyx/deepseek",
       "component": "deepseek"
     },
+    "providers/groq": {
+      "package-name": "@kortyx/groq",
+      "component": "groq"
+    },
     "providers/google": {
       "package-name": "@kortyx/google",
       "component": "google"
