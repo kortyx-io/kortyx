@@ -54,6 +54,10 @@
       "package-name": "@kortyx/anthropic",
       "component": "anthropic"
     },
+    "providers/mistral": {
+      "package-name": "@kortyx/mistral",
+      "component": "mistral"
+    },
     "providers/google": {
       "package-name": "@kortyx/google",
       "component": "google"

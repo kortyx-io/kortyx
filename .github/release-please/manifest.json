@@ -10,6 +10,7 @@
   "providers/groq": "0.2.0",
   "providers/openai": "0.1.0",
   "providers/anthropic": "0.1.0",
+  "providers/mistral": "0.1.0",
   "providers/google": "0.3.0",
   "packages/runtime": "0.9.0",
   "packages/stream": "0.6.1",
