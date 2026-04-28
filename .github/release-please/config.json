@@ -46,6 +46,10 @@
       "package-name": "@kortyx/groq",
       "component": "groq"
     },
+    "providers/openai": {
+      "package-name": "@kortyx/openai",
+      "component": "openai"
+    },
     "providers/google": {
       "package-name": "@kortyx/google",
       "component": "google"
