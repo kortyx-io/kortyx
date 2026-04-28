@@ -38,6 +38,10 @@
       "package-name": "@kortyx/providers",
       "component": "providers"
     },
+    "providers/deepseek": {
+      "package-name": "@kortyx/deepseek",
+      "component": "deepseek"
+    },
     "providers/google": {
       "package-name": "@kortyx/google",
       "component": "google"
