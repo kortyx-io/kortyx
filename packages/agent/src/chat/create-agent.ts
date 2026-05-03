@@ -61,7 +61,7 @@ const createAgentArgsSchema = createAgentArgsBaseSchema.superRefine(
       typeof value.getProvider !== "function"
     ) {
       ctx.addIssue({
-        code: z.ZodIssueCode.custom,
+        code: "custom",
         message: "Expected `args.getProvider` to be a function.",
         path: ["getProvider"],
       });
@@ -75,7 +75,7 @@ const createAgentArgsSchema = createAgentArgsBaseSchema.superRefine(
 
     if (workflowSources > 1) {
       ctx.addIssue({
-        code: z.ZodIssueCode.custom,
+        code: "custom",
         message:
           "Use only one workflow source: `workflows`, `workflowsDir`, or `workflowRegistry`.",
       });

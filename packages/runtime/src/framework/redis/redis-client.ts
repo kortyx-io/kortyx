@@ -32,7 +32,7 @@ const encodeCommand = (cmd: string, args: string[]) => {
 function readLine(buf: Buffer, start: number) {
   const idx = buf.indexOf("\r\n", start);
   if (idx === -1) return null;
-  return { line: buf.slice(start, idx).toString("utf8"), next: idx + 2 };
+  return { line: buf.subarray(start, idx).toString("utf8"), next: idx + 2 };
 }
 
 function parseReply(
@@ -59,7 +59,7 @@ function parseReply(
     if (len === -1) return { value: null, next: line.next };
     const end = line.next + len;
     if (end + 2 > buf.length) return null;
-    const data = buf.slice(line.next, end).toString("utf8");
+    const data = buf.subarray(line.next, end).toString("utf8");
     return { value: data, next: end + 2 };
   }
 
@@ -113,7 +113,7 @@ export function createRedisClient(options: RedisClientOptions): RedisClient {
       const parsed = parseReply(buffer, 0);
       if (!parsed) return;
       const waiter = inflight.shift()!;
-      buffer = buffer.slice(parsed.next);
+      buffer = buffer.subarray(parsed.next);
       waiter.resolve(parsed.value);
     }
   };

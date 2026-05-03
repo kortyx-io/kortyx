@@ -12,7 +12,7 @@ const SheetTrigger = Dialog.Trigger;
 const SheetPortal = Dialog.Portal;
 
 const SheetOverlay = React.forwardRef<
-  React.ElementRef<typeof Dialog.Overlay>,
+  React.ComponentRef<typeof Dialog.Overlay>,
   React.ComponentPropsWithoutRef<typeof Dialog.Overlay>
 >(({ className, ...props }, ref) => (
   <Dialog.Overlay
@@ -27,7 +27,7 @@ const SheetOverlay = React.forwardRef<
 SheetOverlay.displayName = Dialog.Overlay.displayName;
 
 const SheetContent = React.forwardRef<
-  React.ElementRef<typeof Dialog.Content>,
+  React.ComponentRef<typeof Dialog.Content>,
   React.ComponentPropsWithoutRef<typeof Dialog.Content> & {
     side?: "left" | "right";
   }
@@ -57,7 +57,7 @@ const SheetContent = React.forwardRef<
 SheetContent.displayName = Dialog.Content.displayName;
 
 const SheetTitle = React.forwardRef<
-  React.ElementRef<typeof Dialog.Title>,
+  React.ComponentRef<typeof Dialog.Title>,
   React.ComponentPropsWithoutRef<typeof Dialog.Title>
 >(({ className, ...props }, ref) => (
   <Dialog.Title
@@ -69,7 +69,7 @@ const SheetTitle = React.forwardRef<
 SheetTitle.displayName = Dialog.Title.displayName;
 
 const SheetDescription = React.forwardRef<
-  React.ElementRef<typeof Dialog.Description>,
+  React.ComponentRef<typeof Dialog.Description>,
   React.ComponentPropsWithoutRef<typeof Dialog.Description>
 >(({ className, ...props }, ref) => (
   <Dialog.Description

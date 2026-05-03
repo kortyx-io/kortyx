@@ -5,7 +5,9 @@ import { parseWithSchema } from "../validation";
 
 const tryJsonParse = (
   value: string,
-): { ok: true; value: unknown } | { ok: false; error?: string | undefined } => {
+):
+  | { ok: true; value: unknown; error?: never }
+  | { ok: false; error: string } => {
   try {
     return { ok: true, value: JSON.parse(value) };
   } catch (error) {
