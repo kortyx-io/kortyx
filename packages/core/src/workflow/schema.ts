@@ -29,9 +29,12 @@ export type WorkflowNodeBehavior = z.infer<typeof WorkflowNodeBehaviorSchema>;
 
 export const WorkflowNodeDefSchema = z
   .object({
-    run: z.union([z.string(), z.function()]),
-    params: z.record(z.unknown()).optional(),
-    metadata: z.record(z.unknown()).optional(),
+    run: z.union([
+      z.string(),
+      z.custom<(...args: unknown[]) => unknown>((v) => typeof v === "function"),
+    ]),
+    params: z.record(z.string(), z.unknown()).optional(),
+    metadata: z.record(z.string(), z.unknown()).optional(),
     behavior: WorkflowNodeBehaviorSchema.optional(),
   })
   .strict();
@@ -58,9 +61,9 @@ export const WorkflowDefinitionSchema = z
     id: z.string(),
     version: z.string(),
     description: z.string().optional(),
-    nodes: z.record(WorkflowNodeDefSchema),
+    nodes: z.record(z.string(), WorkflowNodeDefSchema),
     edges: z.array(WorkflowEdgeSchema),
-    metadata: z.record(z.unknown()).optional(),
+    metadata: z.record(z.string(), z.unknown()).optional(),
   })
   .strict();
 

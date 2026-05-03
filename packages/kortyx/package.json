@@ -52,9 +52,9 @@
     "@kortyx/utils": "workspace:*"
   },
   "devDependencies": {
-    "turbo": "^2.5.4",
-    "typescript": "5.7.2",
-    "tsup": "^8.5.1"
+    "turbo": "catalog:",
+    "typescript": "catalog:",
+    "tsup": "catalog:"
   },
   "sideEffects": false,
   "repository": {

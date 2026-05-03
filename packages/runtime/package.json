@@ -44,15 +44,15 @@
     "@kortyx/hooks": "workspace:*",
     "@kortyx/providers": "workspace:*",
     "@kortyx/utils": "workspace:*",
-    "@langchain/core": "^1.0.1",
-    "@langchain/langgraph": "^1.0.1",
+    "@langchain/core": "catalog:",
+    "@langchain/langgraph": "catalog:",
     "@langchain/langgraph-checkpoint": "^1.0.0",
-    "uuid": "^11.1.0"
+    "zod": "catalog:"
   },
   "devDependencies": {
-    "turbo": "^2.5.4",
-    "typescript": "5.7.2",
-    "tsup": "^8.5.1"
+    "turbo": "catalog:",
+    "typescript": "catalog:",
+    "tsup": "catalog:"
   },
   "sideEffects": false,
   "repository": {

@@ -119,7 +119,7 @@ export const ModelConfigSchema = z
 export const ToolConfigSchema = z
   .object({
     name: z.string().optional(),
-    args: z.record(z.unknown()).optional(),
+    args: z.record(z.string(), z.unknown()).optional(),
   })
   .strict() as z.ZodType<ToolConfig>;
 
@@ -143,7 +143,7 @@ export const NodeConfigSchema = z
     model: ModelConfigSchema.optional(),
     tool: ToolConfigSchema.optional(),
     behavior: NodeBehaviorSchema.optional(),
-    options: z.record(z.unknown()).optional(),
+    options: z.record(z.string(), z.unknown()).optional(),
   })
   .strict() as z.ZodType<NodeConfig>;
 
@@ -156,65 +156,14 @@ export const NodeContextSchema = z
       })
       .strict(),
     config: NodeConfigSchema,
-    emit: z.function().args(z.string(), z.unknown()).returns(z.void()),
-    error: z.function().args(z.string()).returns(z.void()),
-    awaitInterrupt: z
-      .function()
-      .args(
-        z.discriminatedUnion("kind", [
-          z.object({
-            kind: z.literal("text"),
-            question: z.string().optional(),
-            id: z.string().optional(),
-            schemaId: z.string().optional(),
-            schemaVersion: z.string().optional(),
-            meta: z.record(z.unknown()).optional(),
-          }),
-          z.object({
-            kind: z.enum(["choice", "multi-choice"]),
-            question: z.string(),
-            options: z.array(
-              z.object({
-                id: z.string(),
-                label: z.string(),
-                description: z.string().optional(),
-                value: z.unknown().optional(),
-              }),
-            ),
-            multiple: z.boolean().optional(),
-            id: z.string().optional(),
-            schemaId: z.string().optional(),
-            schemaVersion: z.string().optional(),
-            meta: z.record(z.unknown()).optional(),
-          }),
-        ]),
-      )
-      .returns(z.union([z.string(), z.array(z.string())])),
-    speak: z
-      .function()
-      .args(
-        z.object({
-          system: z.string().optional(),
-          user: z.string(),
-          model: z
-            .object({
-              provider: z.string(),
-              name: z.string(),
-              temperature: z.number().optional(),
-            })
-            .optional(),
-          stream: z
-            .object({
-              minChars: z.number().optional(),
-              flushMs: z.number().optional(),
-              segmentChars: z.number().optional(),
-            })
-            .optional(),
-        }),
-      )
-      .returns(z.promise(z.string())),
+    emit: z.custom<NodeContext["emit"]>((v) => typeof v === "function"),
+    error: z.custom<NodeContext["error"]>((v) => typeof v === "function"),
+    awaitInterrupt: z.custom<NodeContext["awaitInterrupt"]>(
+      (v) => typeof v === "function",
+    ),
+    speak: z.custom<NodeContext["speak"]>((v) => typeof v === "function"),
   })
-  .strict() as z.ZodType<NodeContext>;
+  .strict() as unknown as z.ZodType<NodeContext>;
 
 export const NodeResultSchema = z
   .object({
@@ -224,14 +173,14 @@ export const NodeResultSchema = z
         config: z.unknown().optional(),
         checkpoint: z.boolean().optional(),
         toolResults: z.unknown().optional(),
-        debug: z.record(z.unknown()).optional(),
+        debug: z.record(z.string(), z.unknown()).optional(),
       })
       .optional(),
-    data: z.record(z.unknown()).optional(),
+    data: z.record(z.string(), z.unknown()).optional(),
     ui: z
       .object({
         message: z.string().optional(),
-        structured: z.record(z.unknown()).optional(),
+        structured: z.record(z.string(), z.unknown()).optional(),
       })
       .optional(),
     next: z.string().optional(),

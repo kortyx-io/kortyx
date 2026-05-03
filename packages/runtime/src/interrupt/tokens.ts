@@ -1,9 +1,9 @@
-import { v7 as uuid } from "uuid";
+import { randomUUID } from "node:crypto";
 
 export function makeResumeToken(): string {
-  return uuid();
+  return randomUUID();
 }
 
 export function makeRequestId(prefix = "req"): string {
-  return `${prefix}-${uuid()}`;
+  return `${prefix}-${randomUUID()}`;
 }

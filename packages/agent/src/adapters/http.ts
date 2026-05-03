@@ -14,7 +14,7 @@ const chatMessageSchema = z
   .object({
     role: z.enum(["user", "assistant", "system"]),
     content: z.string(),
-    metadata: z.record(z.unknown()).optional(),
+    metadata: z.record(z.string(), z.unknown()).optional(),
     id: z.string().optional(),
     timestamp: z.number().finite().optional(),
   })

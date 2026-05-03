@@ -21,7 +21,7 @@
   ],
   "scripts": {
     "build": "turbo build",
-    "dev": "turbo run build --filter=kortyx --filter=@kortyx/google && dotenv -e .env -- turbo run dev --concurrency=20 --continue=dependencies-successful --filter=!kortyx-studio --filter=!@kortyx/example-nextjs-chat-server-action",
+    "dev": "turbo run build --filter=kortyx --filter=@kortyx/google && dotenv -e .env -- turbo run dev --concurrency=20 --continue=dependencies-successful --filter=!@kortyx/example-nextjs-chat-server-action",
     "dev:all": "dotenv -e .env -- turbo run dev --parallel --concurrency=20 --continue=dependencies-successful",
     "lint": "biome check .",
     "test": "turbo run test",
@@ -41,16 +41,26 @@
     "@biomejs/biome": "^2.3.4",
     "@commitlint/cli": "^19.8.1",
     "@commitlint/config-conventional": "^19.8.1",
-    "@types/node": "20",
+    "@types/node": "catalog:",
     "dotenv-cli": "^11.0.0",
     "husky": "^9.1.7",
     "lint-staged": "^16.1.5",
-    "turbo": "2.6.1",
-    "typescript": "5.9.3"
+    "turbo": "catalog:",
+    "typescript": "catalog:"
   },
   "lint-staged": {
     "*.{js,jsx,ts,tsx,json,css}": [
       "biome check --write"
     ]
+  },
+  "pnpm": {
+    "overrides": {
+      "ajv": "8.18.0",
+      "langsmith": "0.5.4",
+      "postcss": "8.5.8",
+      "rollup": "4.59.0",
+      "terser-webpack-plugin": "5.4.0",
+      "vite": "8.0.0"
+    }
   }
 }

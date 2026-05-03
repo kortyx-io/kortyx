@@ -4,7 +4,7 @@ import { StreamChunkSchema } from "./stream-chunk";
 export const StreamResultSchema = z.object({
   chunks: z.array(StreamChunkSchema),
   transitionTo: z.string().optional(),
-  payload: z.record(z.any()).optional(),
+  payload: z.record(z.string(), z.any()).optional(),
   error: z
     .object({
       message: z.string(),

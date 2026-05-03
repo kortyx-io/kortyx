@@ -64,7 +64,7 @@ export const StreamChunkSchema = z.union([
         id: z.string().optional(),
         schemaId: z.string().optional(),
         schemaVersion: z.string().optional(),
-        meta: z.record(z.unknown()).optional(),
+        meta: z.record(z.string(), z.unknown()).optional(),
         options: z.array(z.never()).optional(),
       }),
       // Choice/multi-choice: question + options required
@@ -75,7 +75,7 @@ export const StreamChunkSchema = z.union([
         id: z.string().optional(),
         schemaId: z.string().optional(),
         schemaVersion: z.string().optional(),
-        meta: z.record(z.unknown()).optional(),
+        meta: z.record(z.string(), z.unknown()).optional(),
         options: z.array(
           z.object({
             id: z.string(),
@@ -85,7 +85,7 @@ export const StreamChunkSchema = z.union([
         ),
       }),
     ]),
-    meta: z.record(z.unknown()).optional(),
+    meta: z.record(z.string(), z.unknown()).optional(),
   }),
   StructuredDataChunkSchema,
   z.object({
