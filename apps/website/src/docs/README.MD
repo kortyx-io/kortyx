@@ -55,6 +55,7 @@ When removing a docs page:
 2. Expand stack-specific quickstarts beyond Next.js (Express and Fastify paths).
 3. Add explicit success states to all onboarding guides ("you should now see X").
 4. Keep a 10–15 minute onboarding spine linking install → quickstart → guides → production.
+5. Keep provider docs complete as provider packages ship under `providers/`.
 
 ## Priority 2 — Reduce adoption friction
 
@@ -62,6 +63,7 @@ When removing a docs page:
 2. Expand **Troubleshooting** with top recurring setup/runtime errors and fixes.
 3. Add compatibility notes for Node/framework/runtime expectations where ambiguity exists.
 4. Add package-manager command parity checks on install/run pages.
+5. Keep the provider selection guide current as provider packages gain new model types or provider options.
 
 ## Priority 3 — Support advanced users
 
@@ -74,6 +76,24 @@ When removing a docs page:
 - Time-to-first-success ≤ 15 minutes.
 - New-user quickstart completion rate ≥ 80%.
 - Top recurring errors mapped to documented fixes ≥ 90%.
+
+## Provider Docs Coverage
+
+Current provider packages with dedicated website docs:
+
+- provider selection guide
+- `@kortyx/google`
+- `@kortyx/openai`
+- `@kortyx/anthropic`
+- `@kortyx/deepseek`
+- `@kortyx/groq`
+- `@kortyx/mistral`
+
+Remaining provider-doc improvements:
+
+1. Add provider troubleshooting entries for missing env vars, unsupported model options, and JSON/schema behavior.
+2. Link provider docs from installation and first workflow pages when provider setup is required.
+3. Add non-text model docs if provider packages later expose embeddings, image generation, transcription, file APIs, or provider-hosted tools.
 
 ## Authoring Standard: TS + JS Code Tabs
 

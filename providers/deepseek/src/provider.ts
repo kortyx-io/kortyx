@@ -146,6 +146,15 @@ const extractFinishReason = (
 ): KortyxFinishReason | undefined =>
   mapDeepSeekFinishReason(response.choices?.[0]?.finish_reason);
 
+const getProviderOptions = (
+  options: ModelOptions,
+): Record<string, unknown> | undefined => {
+  const providerOptions = options.providerOptions;
+  if (!providerOptions) return undefined;
+  const nested = providerOptions.deepseek;
+  return isRecord(nested) ? nested : undefined;
+};
+
 const collectWarnings = (
   options: ModelOptions,
 ): KortyxWarning[] | undefined => {
@@ -187,15 +196,30 @@ const collectWarnings = (
   }
 
   const providerOptions = options.providerOptions;
+  const allowedProviderOptions = new Set(["deepseek"]);
   if (
     providerOptions &&
-    Object.keys(providerOptions).some((key) => key !== "thinking")
+    Object.keys(providerOptions).some((key) => !allowedProviderOptions.has(key))
   ) {
     warnings.push({
       type: "unsupported",
       feature: "providerOptions",
       details:
-        "DeepSeek provider currently only maps providerOptions.thinking.",
+        "DeepSeek provider currently maps providerOptions.deepseek.thinking.",
+    });
+  }
+
+  const nestedProviderOptions = getProviderOptions(options);
+  if (
+    providerOptions?.deepseek !== undefined &&
+    nestedProviderOptions &&
+    Object.keys(nestedProviderOptions).some((key) => key !== "thinking")
+  ) {
+    warnings.push({
+      type: "unsupported",
+      feature: "providerOptions.deepseek",
+      details:
+        "DeepSeek provider currently maps providerOptions.deepseek.thinking.",
     });
   }
 

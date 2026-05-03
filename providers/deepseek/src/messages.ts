@@ -4,10 +4,22 @@ import type {
   DeepSeekChatMessage,
 } from "./types";
 
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  Boolean(value) && typeof value === "object" && !Array.isArray(value);
+
+const getProviderOptions = (
+  options: ModelOptions,
+): Record<string, unknown> | undefined => {
+  const providerOptions = options.providerOptions;
+  if (!providerOptions) return undefined;
+  const nested = providerOptions.deepseek;
+  return isRecord(nested) ? nested : undefined;
+};
+
 const normalizeThinkingType = (
   options: ModelOptions,
 ): "enabled" | "disabled" | undefined => {
-  const explicit = options.providerOptions?.thinking;
+  const explicit = getProviderOptions(options)?.thinking;
   if (
     explicit &&
     typeof explicit === "object" &&

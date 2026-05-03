@@ -1,4 +1,4 @@
-import { expect } from "vitest";
+import { expect, it } from "vitest";
 import { describeProviderConformance } from "../../../packages/providers/test/conformance";
 import { createDeepSeek } from "../src/provider";
 import type { DeepSeekChatCompletionRequest } from "../src/types";
@@ -245,4 +245,92 @@ describeProviderConformance({
       );
     },
   },
+});
+
+it("maps namespaced DeepSeek thinking provider options", async () => {
+  const provider = createDeepSeek({
+    apiKey: "test-key",
+    fetch: async (_input, init) => {
+      const requestBody = JSON.parse(
+        String(init?.body),
+      ) as DeepSeekChatCompletionRequest;
+
+      expect(requestBody).toMatchObject({
+        model: "deepseek-reasoner",
+        thinking: { type: "disabled" },
+        stream: false,
+      });
+
+      return createJsonResponse({
+        id: "resp-provider-options",
+        model: "deepseek-reasoner",
+        choices: [
+          {
+            message: {
+              role: "assistant",
+              content: "Done",
+            },
+            finish_reason: "stop",
+          },
+        ],
+      });
+    },
+  });
+
+  const model = provider.getModel("deepseek-reasoner", {
+    providerOptions: {
+      deepseek: {
+        thinking: { type: "disabled" },
+      },
+    },
+  });
+
+  const result = await model.invoke([{ role: "user", content: "Hello" }]);
+
+  expect(result.content).toBe("Done");
+  expect(result.warnings).toBeUndefined();
+});
+
+it("warns for legacy top-level DeepSeek thinking provider options", async () => {
+  const provider = createDeepSeek({
+    apiKey: "test-key",
+    fetch: async (_input, init) => {
+      const requestBody = JSON.parse(
+        String(init?.body),
+      ) as DeepSeekChatCompletionRequest;
+
+      expect(requestBody.thinking).toBeUndefined();
+
+      return createJsonResponse({
+        id: "resp-provider-options",
+        model: "deepseek-reasoner",
+        choices: [
+          {
+            message: {
+              role: "assistant",
+              content: "Done",
+            },
+            finish_reason: "stop",
+          },
+        ],
+      });
+    },
+  });
+
+  const model = provider.getModel("deepseek-reasoner", {
+    providerOptions: {
+      thinking: { type: "disabled" },
+    },
+  });
+
+  const result = await model.invoke([{ role: "user", content: "Hello" }]);
+
+  expect(result.warnings).toEqual([
+    {
+      type: "unsupported",
+      feature: "providerOptions",
+      details:
+        "DeepSeek provider currently maps providerOptions.deepseek.thinking.",
+    },
+  ]);
 });
