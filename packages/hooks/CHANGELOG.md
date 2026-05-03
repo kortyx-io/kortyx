@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.10.1](https://github.com/kortyx-io/kortyx/compare/hooks-v0.10.0...hooks-v0.10.1) (2026-05-03)
+
+
+### Bug Fixes
+
+* update vulnerable dependency versions ([274bc41](https://github.com/kortyx-io/kortyx/commit/274bc410fe04d53da9db941ef8d62407dadd4c54))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/core bumped to 0.5.1
+
 ## [0.10.0](https://github.com/kortyx-io/kortyx/compare/hooks-v0.9.1...hooks-v0.10.0) (2026-04-25)
 
 

@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.5.1](https://github.com/kortyx-io/kortyx/compare/core-v0.5.0...core-v0.5.1) (2026-05-03)
+
+
+### Bug Fixes
+
+* update vulnerable dependency versions ([274bc41](https://github.com/kortyx-io/kortyx/commit/274bc410fe04d53da9db941ef8d62407dadd4c54))
+
 ## [0.5.0](https://github.com/kortyx-io/kortyx/compare/core-v0.4.1...core-v0.5.0) (2026-03-11)
 
 

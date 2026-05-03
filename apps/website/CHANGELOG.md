@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.13.1](https://github.com/kortyx-io/kortyx/compare/website-v0.13.0...website-v0.13.1) (2026-05-03)
+
+
+### Bug Fixes
+
+* update vulnerable dependency versions ([274bc41](https://github.com/kortyx-io/kortyx/commit/274bc410fe04d53da9db941ef8d62407dadd4c54))
+
 ## [0.13.0](https://github.com/kortyx-io/kortyx/compare/website-v0.12.0...website-v0.13.0) (2026-04-25)
 
 

@@ -1,6 +1,6 @@
 {
   "name": "@kortyx/agent",
-  "version": "0.10.1",
+  "version": "0.10.2",
   "private": false,
   "description": "Agent composition utilities for Kortyx.",
   "keywords": [
