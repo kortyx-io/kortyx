@@ -49,16 +49,16 @@
     "@kortyx/runtime": "workspace:*",
     "@kortyx/stream": "workspace:*",
     "@kortyx/utils": "workspace:*",
-    "@langchain/core": "^1.0.1",
-    "@langchain/langgraph": "^1.0.1",
-    "zod": "^3.23.8"
+    "@langchain/core": "^1.1.24",
+    "@langchain/langgraph": "^1.1.4",
+    "zod": "^3.25.76"
   },
   "devDependencies": {
     "@kortyx/hooks": "workspace:*",
     "turbo": "^2.5.4",
     "typescript": "5.7.2",
     "tsup": "^8.5.1",
-    "vitest": "^3.2.4"
+    "vitest": "^4.1.5"
   },
   "sideEffects": false,
   "repository": {

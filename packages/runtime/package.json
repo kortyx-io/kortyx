@@ -44,10 +44,10 @@
     "@kortyx/hooks": "workspace:*",
     "@kortyx/providers": "workspace:*",
     "@kortyx/utils": "workspace:*",
-    "@langchain/core": "^1.0.1",
-    "@langchain/langgraph": "^1.0.1",
+    "@langchain/core": "^1.1.24",
+    "@langchain/langgraph": "^1.1.4",
     "@langchain/langgraph-checkpoint": "^1.0.0",
-    "uuid": "^11.1.0"
+    "zod": "^4.3.6"
   },
   "devDependencies": {
     "turbo": "^2.5.4",
