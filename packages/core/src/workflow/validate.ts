@@ -6,7 +6,6 @@
 // - Error codes / categories for Studio & CLI integrations
 // Keep this file as the central place for workflow validation and error shaping.
 
-import type { ZodIssue } from "zod";
 import { type WorkflowConfig, WorkflowDefinitionSchema } from "./schema";
 
 export interface WorkflowValidationError {
@@ -27,7 +26,7 @@ export function validateWorkflow(
   }
 
   const errors: WorkflowValidationError[] = result.error.issues.map(
-    (issue: ZodIssue) => ({
+    (issue) => ({
       path: issue.path.filter(
         (p): p is string | number => typeof p !== "symbol",
       ),

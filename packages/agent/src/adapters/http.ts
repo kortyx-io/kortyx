@@ -16,18 +16,16 @@ const chatMessageSchema = z
     content: z.string(),
     metadata: z.record(z.string(), z.unknown()).optional(),
     id: z.string().optional(),
-    timestamp: z.number().finite().optional(),
+    timestamp: z.number().refine(Number.isFinite).optional(),
   })
   .strict();
 
-const chatRequestBodySchema = z
-  .object({
-    sessionId: z.string().optional(),
-    workflowId: z.string().optional(),
-    stream: z.boolean().optional(),
-    messages: z.array(chatMessageSchema),
-  })
-  .passthrough();
+const chatRequestBodySchema = z.looseObject({
+  sessionId: z.string().optional(),
+  workflowId: z.string().optional(),
+  stream: z.boolean().optional(),
+  messages: z.array(chatMessageSchema),
+});
 
 const toErrorMessage = (error: unknown): string =>
   error instanceof Error ? error.message : String(error);
