@@ -1,5 +1,12 @@
 # @kortyx/react
 
+## [0.2.1](https://github.com/kortyx-io/kortyx/compare/react-v0.2.0...react-v0.2.1) (2026-05-03)
+
+
+### Bug Fixes
+
+* update vulnerable dependency versions ([274bc41](https://github.com/kortyx-io/kortyx/commit/274bc410fe04d53da9db941ef8d62407dadd4c54))
+
 ## [0.2.0](https://github.com/kortyx-io/kortyx/compare/react-v0.1.0...react-v0.2.0) (2026-04-23)
 
 
