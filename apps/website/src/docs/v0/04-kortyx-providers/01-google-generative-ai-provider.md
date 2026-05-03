@@ -287,6 +287,12 @@ Google-specific metadata currently includes fields such as:
 
 Use `providerMetadata` when you need debugging or observability details without coupling your app code to the raw provider payload shape.
 
+## Supported scope
+
+`@kortyx/google` currently supports text generation through `useReason(...)`, including streaming and non-streaming invocation.
+
+It does not currently expose provider-native embeddings, image generation, file APIs, Google-hosted tools, or multimodal output APIs. Check `result.warnings` when you rely on advanced generic options and want to verify how Google handled them.
+
 ## Available built-in Google model ids
 
 - `gemini-2.5-flash`
