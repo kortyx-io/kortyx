@@ -46,7 +46,8 @@
     "husky": "^9.1.7",
     "lint-staged": "^16.1.5",
     "turbo": "catalog:",
-    "typescript": "catalog:"
+    "typescript": "catalog:",
+    "vite": "catalog:"
   },
   "lint-staged": {
     "*.{js,jsx,ts,tsx,json,css}": [
@@ -56,11 +57,14 @@
   "pnpm": {
     "overrides": {
       "ajv": "8.18.0",
-      "langsmith": "0.5.4",
-      "postcss": "8.5.8",
+      "langsmith": "0.5.19",
+      "picomatch@^2.0.0": "2.3.2",
+      "postcss": "8.5.10",
       "rollup": "4.59.0",
       "terser-webpack-plugin": "5.4.0",
-      "vite": "8.0.0"
+      "uuid": "14.0.0",
+      "vite": "8.0.10",
+      "yaml": "2.8.3"
     }
   }
 }
