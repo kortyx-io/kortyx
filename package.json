@@ -55,6 +55,7 @@
   },
   "pnpm": {
     "overrides": {
+      "ajv": "8.18.0",
       "langsmith": "0.5.4",
       "postcss": "8.5.8",
       "rollup": "4.59.0",
