@@ -39,13 +39,13 @@
     "type-check": "tsc --noEmit"
   },
   "dependencies": {
-    "zod": "^3.23.8",
+    "zod": "catalog:",
     "js-yaml": "^4.1.0"
   },
   "devDependencies": {
-    "typescript": "5.7.2",
-    "turbo": "^2.5.4",
-    "tsup": "^8.5.1"
+    "typescript": "catalog:",
+    "turbo": "catalog:",
+    "tsup": "catalog:"
   },
   "sideEffects": false,
   "repository": {

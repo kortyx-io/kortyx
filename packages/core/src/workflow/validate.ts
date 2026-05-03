@@ -28,7 +28,9 @@ export function validateWorkflow(
 
   const errors: WorkflowValidationError[] = result.error.issues.map(
     (issue: ZodIssue) => ({
-      path: issue.path,
+      path: issue.path.filter(
+        (p): p is string | number => typeof p !== "symbol",
+      ),
       message: issue.message,
       code: issue.code,
     }),

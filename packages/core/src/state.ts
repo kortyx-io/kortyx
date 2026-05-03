@@ -82,7 +82,7 @@ export const GraphCheckpointSchema = z
     id: z.string(),
     nodeId: z.string(),
     timestamp: z.number().int(),
-    snapshot: z.record(z.unknown()),
+    snapshot: z.record(z.string(), z.unknown()),
     note: z.string().optional(),
   })
   .strict() as z.ZodType<GraphCheckpoint>;
@@ -99,9 +99,9 @@ export const TokenUsageSchema = z
 export const RuntimeEnvelopeSchema = z
   .object({
     requestedWorkflow: WorkflowIdSchema.optional(),
-    checkpoints: z.record(GraphCheckpointSchema).optional(),
+    checkpoints: z.record(z.string(), GraphCheckpointSchema).optional(),
     toolResults: z.unknown().optional(),
-    flags: z.record(z.any()).optional(),
+    flags: z.record(z.string(), z.any()).optional(),
     tokenUsage: TokenUsageSchema.optional(),
     lastSearch: z.unknown().optional(),
     lastRank: z.unknown().optional(),
@@ -123,12 +123,12 @@ export const GraphStateSchema = z
     transitionTo: WorkflowIdSchema.optional(),
     retryCount: z.number().int().optional(),
     awaitingHumanInput: z.boolean().optional().default(false),
-    humanInputPayload: z.record(z.unknown()).optional(),
-    data: z.record(z.unknown()).optional(),
+    humanInputPayload: z.record(z.string(), z.unknown()).optional(),
+    data: z.record(z.string(), z.unknown()).optional(),
     ui: z
       .object({
         message: z.string().optional(),
-        structured: z.record(z.unknown()).optional(),
+        structured: z.record(z.string(), z.unknown()).optional(),
       })
       .optional(),
     conversationHistory: z
@@ -151,7 +151,7 @@ export const GraphStateSchema = z
       })
       .optional(),
   })
-  .strict() as z.ZodType<GraphState, z.ZodTypeDef, GraphStateInput>;
+  .strict() as z.ZodType<GraphState, GraphStateInput>;
 
 export const parseGraphState = (data: unknown): GraphState =>
   GraphStateSchema.parse(data);
