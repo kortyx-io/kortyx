@@ -1,7 +1,7 @@
 import { resolve } from "node:path";
-import { defineConfig } from "vitest/config";
+import { defineKortyxVitestConfig } from "../../vitest.shared";
 
-export default defineConfig({
+export default defineKortyxVitestConfig({
   resolve: {
     alias: {
       "@kortyx/hooks/internal": resolve(__dirname, "../hooks/src/internal.ts"),
@@ -16,5 +16,13 @@ export default defineConfig({
   },
   test: {
     environment: "node",
+    coverage: {
+      thresholds: {
+        statements: 65,
+        branches: 45,
+        functions: 75,
+        lines: 68,
+      },
+    },
   },
 });

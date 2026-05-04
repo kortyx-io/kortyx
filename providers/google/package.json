@@ -35,6 +35,7 @@
     "dev": "tsc --watch",
     "lint": "biome check src",
     "test": "vitest run && pnpm -s type-check",
+    "coverage": "vitest run --coverage && pnpm -s type-check",
     "test:watch": "vitest",
     "type-check": "tsc --noEmit"
   },
@@ -45,7 +46,8 @@
     "turbo": "catalog:",
     "typescript": "catalog:",
     "tsup": "catalog:",
-    "vitest": "catalog:"
+    "vitest": "catalog:",
+    "@vitest/coverage-v8": "catalog:"
   },
   "sideEffects": false,
   "repository": {

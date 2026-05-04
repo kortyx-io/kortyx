@@ -25,6 +25,7 @@
     "dev:all": "dotenv -e .env -- turbo run dev --parallel --concurrency=20 --continue=dependencies-successful",
     "lint": "biome check .",
     "test": "turbo run test",
+    "coverage": "turbo run coverage",
     "type-check": "turbo type-check",
     "type-check:watch": "turbo type-check --watch",
     "start": "turbo start",
@@ -47,7 +48,9 @@
     "lint-staged": "^16.1.5",
     "turbo": "catalog:",
     "typescript": "catalog:",
-    "vite": "catalog:"
+    "vite": "catalog:",
+    "vitest": "catalog:",
+    "@vitest/coverage-v8": "catalog:"
   },
   "lint-staged": {
     "*.{js,jsx,ts,tsx,json,css}": [

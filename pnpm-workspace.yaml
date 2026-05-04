@@ -10,6 +10,7 @@ catalog:
   "@radix-ui/react-dialog": ^1.1.15
   "@tailwindcss/postcss": ^4
   "@types/node": ^20
+  "@vitest/coverage-v8": ^4.1.5
   "@types/react": ^19
   "@types/react-dom": ^19
   class-variance-authority: ^0.7.1

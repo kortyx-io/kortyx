@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   type ChatTransportContext,
   createChatTransport,
+  createRouteChatTransport,
 } from "../src/chat-transport";
 
 const baseContext: ChatTransportContext = {
@@ -51,6 +52,59 @@ describe("createChatTransport", () => {
       onChunk: async (chunk) => {
         seen.push(chunk.type);
         return chunk.type === "status" ? false : undefined;
+      },
+    });
+
+    expect(seen).toEqual(["status"]);
+  });
+
+  it("creates route transports with derived request bodies and optional request settings", async () => {
+    const fetchImpl = async (_endpoint: string, init?: RequestInit) => {
+      expect(init).toMatchObject({
+        method: "PUT",
+        headers: {
+          "content-type": "application/json",
+          authorization: "Bearer token",
+        },
+        body: JSON.stringify({
+          sessionId: "session-1",
+          workflowId: "workflow-1",
+          count: 1,
+        }),
+      });
+
+      return new Response(
+        new ReadableStream<Uint8Array>({
+          start(controller) {
+            controller.enqueue(
+              new TextEncoder().encode(
+                'data: {"type":"status","message":"ok"}\n\n' +
+                  "data: [DONE]\n\n",
+              ),
+            );
+            controller.close();
+          },
+        }),
+        { status: 200 },
+      );
+    };
+    const transport = createRouteChatTransport({
+      endpoint: "/api/chat",
+      method: "PUT",
+      headers: { authorization: "Bearer token" },
+      fetchImpl: fetchImpl as typeof fetch,
+      getBody: (context) => ({
+        sessionId: context.sessionId,
+        workflowId: context.workflowId,
+        count: context.messages.length,
+      }),
+    });
+    const seen: string[] = [];
+
+    await transport.stream({
+      ...baseContext,
+      onChunk: (chunk) => {
+        seen.push(chunk.type);
       },
     });
 

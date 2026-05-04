@@ -34,15 +34,18 @@
   "scripts": {
     "build": "tsup",
     "dev": "tsc --watch",
-    "lint": "biome check src",
-    "test": "pnpm -s type-check",
+    "lint": "biome check src test",
+    "test": "vitest run && pnpm -s type-check",
+    "coverage": "vitest run --coverage && pnpm -s type-check",
     "type-check": "tsc --noEmit"
   },
   "dependencies": {},
   "devDependencies": {
     "turbo": "catalog:",
     "typescript": "catalog:",
-    "tsup": "catalog:"
+    "tsup": "catalog:",
+    "vitest": "catalog:",
+    "@vitest/coverage-v8": "catalog:"
   },
   "sideEffects": false,
   "repository": {
