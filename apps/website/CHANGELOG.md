@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.14.0](https://github.com/kortyx-io/kortyx/compare/website-v0.13.1...website-v0.14.0) (2026-05-04)
+
+
+### Features
+
+* add docs search to navbar ([ac4d624](https://github.com/kortyx-io/kortyx/commit/ac4d6248d4eae4038f473cd68dd7c678a84d0582))
+
+
+### Bug Fixes
+
+* match the size ([f3efd1e](https://github.com/kortyx-io/kortyx/commit/f3efd1e11fe8ad70c7abd8193d319d87687594d5))
+
 ## [0.13.1](https://github.com/kortyx-io/kortyx/compare/website-v0.13.0...website-v0.13.1) (2026-05-03)
 
 
