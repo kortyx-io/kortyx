@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.12.0](https://github.com/kortyx-io/kortyx/compare/example-nextjs-chat-server-action-v0.11.1...example-nextjs-chat-server-action-v0.12.0) (2026-05-04)
+
+
+### Features
+
+* add optional useReason interrupts ([99414c0](https://github.com/kortyx-io/kortyx/commit/99414c0c32a43ccde5b871c706d2a1211e7feac1))
+* add optional useReason interrupts ([02d852d](https://github.com/kortyx-io/kortyx/commit/02d852d02cbe38ca3491db8e52ca7a9d8fc005f2))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * kortyx bumped to 0.9.3
+
 ## [0.11.1](https://github.com/kortyx-io/kortyx/compare/example-nextjs-chat-server-action-v0.11.0...example-nextjs-chat-server-action-v0.11.1) (2026-05-03)
 
 
