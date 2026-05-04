@@ -34,29 +34,59 @@ export const defaultInterruptFirstPassInput = (args: {
   input: string;
   requestSchema: SchemaLike<unknown>;
   outputSchema?: SchemaLike<unknown>;
+  mode?: "required" | "optional" | undefined;
 }): string => {
-  const base = args.outputSchema
-    ? [
-        args.input,
-        "Output rules:",
-        "- Return JSON only. No markdown fences.",
-        "- Return an object with keys: output, interruptRequest, draftText.",
-        "- output must match the expected output JSON schema.",
-        "- interruptRequest must match the expected interrupt request JSON schema.",
-        "- interruptRequest must be a non-null object.",
-        "- draftText should be a concise plain-language summary of output.",
-        "- If uncertain, still return a valid interruptRequest with safe default options.",
-      ].join("\n\n")
-    : [
-        args.input,
-        "Output rules:",
-        "- Return JSON only. No markdown fences.",
-        "- Return an object with keys: draftText, interruptRequest.",
-        "- draftText should be the current draft answer text.",
-        "- interruptRequest must match the expected interrupt request JSON schema.",
-        "- interruptRequest must be a non-null object.",
-        "- If uncertain, still return a valid interruptRequest with safe default options.",
-      ].join("\n\n");
+  const mode = args.mode ?? "required";
+  const base =
+    mode === "optional"
+      ? args.outputSchema
+        ? [
+            args.input,
+            "Output rules:",
+            "- Return JSON only. No markdown fences.",
+            "- Return an object with keys: decision, output, interruptRequest, draftText.",
+            '- decision must be either "continue" or "interrupt".',
+            '- Use decision "continue" when you can produce the final output without asking the user.',
+            '- Use decision "interrupt" only when user input is needed before finalizing.',
+            "- output must match the expected output JSON schema.",
+            '- When decision is "interrupt", interruptRequest must match the expected interrupt request JSON schema and must be a non-null object.',
+            '- When decision is "continue", interruptRequest must be null.',
+            "- draftText should be a concise plain-language summary of output.",
+          ].join("\n\n")
+        : [
+            args.input,
+            "Output rules:",
+            "- Return JSON only. No markdown fences.",
+            "- Return an object with keys: decision, draftText, interruptRequest.",
+            '- decision must be either "continue" or "interrupt".',
+            '- Use decision "continue" when you can produce the final answer without asking the user.',
+            '- Use decision "interrupt" only when user input is needed before finalizing.',
+            "- draftText should be the current answer text.",
+            '- When decision is "interrupt", interruptRequest must match the expected interrupt request JSON schema and must be a non-null object.',
+            '- When decision is "continue", interruptRequest must be null.',
+          ].join("\n\n")
+      : args.outputSchema
+        ? [
+            args.input,
+            "Output rules:",
+            "- Return JSON only. No markdown fences.",
+            "- Return an object with keys: output, interruptRequest, draftText.",
+            "- output must match the expected output JSON schema.",
+            "- interruptRequest must match the expected interrupt request JSON schema.",
+            "- interruptRequest must be a non-null object.",
+            "- draftText should be a concise plain-language summary of output.",
+            "- If uncertain, still return a valid interruptRequest with safe default options.",
+          ].join("\n\n")
+        : [
+            args.input,
+            "Output rules:",
+            "- Return JSON only. No markdown fences.",
+            "- Return an object with keys: draftText, interruptRequest.",
+            "- draftText should be the current draft answer text.",
+            "- interruptRequest must match the expected interrupt request JSON schema.",
+            "- interruptRequest must be a non-null object.",
+            "- If uncertain, still return a valid interruptRequest with safe default options.",
+          ].join("\n\n");
 
   const withInterruptSchema = withSchemaHint(
     base,
@@ -73,7 +103,9 @@ export const defaultInterruptFirstPassInput = (args: {
   return [
     withOutputSchema,
     "JSON template:",
-    '{ "output": { ... }, "interruptRequest": { ... }, "draftText": "..." }',
+    mode === "optional"
+      ? '{ "decision": "continue", "output": { ... }, "interruptRequest": null, "draftText": "..." }'
+      : '{ "output": { ... }, "interruptRequest": { ... }, "draftText": "..." }',
   ].join("\n\n");
 };
 

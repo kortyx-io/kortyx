@@ -136,6 +136,19 @@ const buildRuntimeStateUpdates = (ctx: HookInternalContext) => {
   return Object.keys(updates).length > 0 ? updates : null;
 };
 
+const cleanupCompletedReasonCheckpoints = (ctx: HookInternalContext): void => {
+  let changed = false;
+
+  for (const [key, value] of Object.entries(ctx.currentNodeState.byKey)) {
+    if (!key.startsWith("__useReason:")) continue;
+    if (!isRecord(value) || value.status !== "completed") continue;
+    delete ctx.currentNodeState.byKey[key];
+    changed = true;
+  }
+
+  if (changed) ctx.stateDirty = true;
+};
+
 const toTokenUsageDelta = (
   usage: KortyxUsage | undefined,
 ): TokenUsage | undefined => {
@@ -186,6 +199,7 @@ export async function runWithHookContext<T>(
   const internal = createInternalContext(ctx);
   try {
     const result = await storage.run(internal, fn);
+    cleanupCompletedReasonCheckpoints(internal);
     return { result, runtimeUpdates: buildRuntimeStateUpdates(internal) };
   } catch (err) {
     const runtimeUpdates = buildRuntimeStateUpdates(internal);

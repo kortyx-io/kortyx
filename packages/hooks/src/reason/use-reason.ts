@@ -18,6 +18,7 @@ import { parseWithSchema } from "../validation";
 import {
   type ReasonInterruptCheckpoint,
   readReasonCheckpoint,
+  readReasonCompletedCheckpoint,
   resolveHookStatePatch,
   resolveReasonCheckpointKey,
 } from "./checkpoint";
@@ -200,6 +201,14 @@ export async function useReason<
     ...(id ? { id } : {}),
     autoIndex: ctx.reasonCallIndex++,
   });
+  const existingCompleted = readReasonCompletedCheckpoint(
+    ctx.currentNodeState.byKey[checkpointKey],
+  );
+
+  if (existingCompleted) {
+    return existingCompleted.result as UseReasonResult<TOutput, TResponse>;
+  }
+
   const existingCheckpoint = readReasonCheckpoint(
     ctx.currentNodeState.byKey[checkpointKey],
   );
@@ -240,6 +249,7 @@ export async function useReason<
   let firstRaw: unknown;
   let firstOutput: TOutput | undefined;
   let firstInterruptRequest: TRequest | undefined;
+  let firstInterruptRequired = false;
 
   let finalText = "";
   let finalRaw: unknown;
@@ -379,6 +389,7 @@ export async function useReason<
         ? defaultInterruptFirstPassInput({
             input: args.input,
             requestSchema: args.interrupt.requestSchema,
+            mode: args.interrupt.mode ?? "required",
             ...(args.outputSchema
               ? { outputSchema: args.outputSchema as SchemaLike<unknown> }
               : {}),
@@ -419,9 +430,11 @@ export async function useReason<
         ...(args.outputSchema
           ? { outputSchema: args.outputSchema as SchemaLike<TOutput> }
           : {}),
+        mode: args.interrupt.mode ?? "required",
       });
       firstText = firstPass.draftText;
       finalText = firstPass.draftText;
+      firstInterruptRequired = firstPass.interruptRequired;
       firstInterruptRequest = firstPass.request;
       firstOutput = firstPass.output;
       finalOutput = firstPass.output;
@@ -442,7 +455,7 @@ export async function useReason<
 
   let interruptResponse: TResponse | undefined;
 
-  if (args.interrupt) {
+  if (args.interrupt && (existingCheckpoint || firstInterruptRequired)) {
     const requestSchema = args.interrupt.requestSchema;
 
     const interruptRequest = existingCheckpoint
@@ -584,6 +597,14 @@ export async function useReason<
     ...(finalOutput !== undefined ? { output: finalOutput } : {}),
     ...(interruptResponse !== undefined ? { interruptResponse } : {}),
   };
+
+  if (args.interrupt) {
+    ctx.currentNodeState.byKey[checkpointKey] = {
+      status: "completed",
+      result,
+    };
+    ctx.stateDirty = true;
+  }
 
   traceSpan?.end?.({
     ...(aggregatedUsage !== undefined ? { usage: aggregatedUsage } : {}),

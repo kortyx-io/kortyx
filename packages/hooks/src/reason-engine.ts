@@ -5,7 +5,6 @@ import type {
   KortyxProviderMetadata,
   KortyxReasoningOptions,
   KortyxResponseFormat,
-  KortyxStreamPart,
   KortyxUsage,
   KortyxWarning,
   ProviderModelRef,

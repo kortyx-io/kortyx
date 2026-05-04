@@ -120,11 +120,20 @@ export const parseInterruptFirstPassResult = <
   requestSchema: SchemaLike<TRequest>;
   outputSchema?: SchemaLike<TOutput>;
   finishReason?: KortyxFinishReason;
-}): {
-  draftText: string;
-  request: TRequest;
-  output?: TOutput;
-} => {
+  mode?: "required" | "optional" | undefined;
+}):
+  | {
+      draftText: string;
+      interruptRequired: boolean;
+      request: TRequest;
+      output?: TOutput;
+    }
+  | {
+      draftText: string;
+      interruptRequired: false;
+      request?: undefined;
+      output?: TOutput;
+    } => {
   const candidate = resolveOutputCandidate(args.text);
   if (!isRecord(candidate)) {
     if (
@@ -141,21 +150,52 @@ export const parseInterruptFirstPassResult = <
     );
   }
 
-  const requestCandidates: unknown[] = [
-    candidate.interruptRequest,
-    candidate.request,
-    candidate.interrupt,
-    candidate,
-  ];
-  const requestPayload = requestCandidates.find(
-    (value) => value !== null && value !== undefined,
-  );
+  const mode = args.mode ?? "required";
+  let interruptRequired = true;
+  if (mode === "optional") {
+    if (
+      candidate.decision !== "continue" &&
+      candidate.decision !== "interrupt"
+    ) {
+      throw new Error(
+        'useReason optional interrupt first pass must include decision "continue" or "interrupt".',
+      );
+    }
+    interruptRequired = candidate.decision === "interrupt";
 
-  const request = parseWithSchema(
-    args.requestSchema,
-    requestPayload,
-    "useReason interrupt.request",
-  );
+    if (!interruptRequired) {
+      const hasUnexpectedRequest = [
+        candidate.interruptRequest,
+        candidate.request,
+        candidate.interrupt,
+      ].some((value) => value !== null && value !== undefined);
+
+      if (hasUnexpectedRequest) {
+        throw new Error(
+          'useReason optional interrupt first pass with decision "continue" must not include an interrupt request.',
+        );
+      }
+    }
+  }
+
+  let request: TRequest | undefined;
+  if (interruptRequired) {
+    const requestCandidates: unknown[] = [
+      candidate.interruptRequest,
+      candidate.request,
+      candidate.interrupt,
+      mode === "required" ? candidate : undefined,
+    ];
+    const requestPayload = requestCandidates.find(
+      (value) => value !== null && value !== undefined,
+    );
+
+    request = parseWithSchema(
+      args.requestSchema,
+      requestPayload,
+      "useReason interrupt.request",
+    );
+  }
 
   let output: TOutput | undefined;
   if (args.outputSchema) {
@@ -202,9 +242,18 @@ export const parseInterruptFirstPassResult = <
     explicitDraft ??
     (output !== undefined ? tryStringify(output) : String(args.text ?? ""));
 
+  if (!interruptRequired) {
+    return {
+      draftText,
+      interruptRequired: false,
+      ...(output !== undefined ? { output } : {}),
+    };
+  }
+
   return {
     draftText,
-    request,
+    interruptRequired: true,
+    request: request as TRequest,
     ...(output !== undefined ? { output } : {}),
   };
 };
