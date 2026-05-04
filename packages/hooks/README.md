@@ -15,6 +15,10 @@ npm install @kortyx/hooks
 - `useStructuredData(...)` for UI-friendly structured stream events.
 - `useNodeState(...)` / `useWorkflowState(...)` for stateful node logic.
 
+`useReason({ interrupt })` defaults to required interrupt behavior. Use
+`interrupt.mode: "optional"` when the model should decide whether to continue
+with a single model call or pause for user input.
+
 ## Runtime Resume Behavior
 
 On resume, the node function is replayed from the top.

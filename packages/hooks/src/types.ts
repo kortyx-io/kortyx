@@ -97,6 +97,7 @@ export type UseReasonInterruptConfig<
   TRequest extends InterruptInput = InterruptInput,
   TResponse = InterruptResult,
 > = {
+  mode?: "required" | "optional" | undefined;
   requestSchema: SchemaLike<TRequest>;
   responseSchema?: SchemaLike<TResponse> | undefined;
   schemaId?: string | undefined;

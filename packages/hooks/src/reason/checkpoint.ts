@@ -5,6 +5,7 @@ import type {
   KortyxUsage,
   KortyxWarning,
 } from "@kortyx/providers";
+import type { UseReasonResult } from "../types";
 
 export type ReasonInterruptCheckpoint = {
   status: "awaiting_interrupt";
@@ -16,6 +17,11 @@ export type ReasonInterruptCheckpoint = {
   firstProviderMetadata?: KortyxProviderMetadata;
   firstWarnings?: KortyxWarning[];
   firstOutput?: unknown;
+};
+
+export type ReasonCompletedCheckpoint = {
+  status: "completed";
+  result: UseReasonResult<unknown, unknown>;
 };
 
 export const resolveReasonCheckpointKey = (args: {
@@ -57,6 +63,19 @@ export const readReasonCheckpoint = (
     ...(Object.hasOwn(value, "firstOutput")
       ? { firstOutput: value.firstOutput }
       : {}),
+  };
+};
+
+export const readReasonCompletedCheckpoint = (
+  raw: unknown,
+): ReasonCompletedCheckpoint | undefined => {
+  if (!raw || typeof raw !== "object") return undefined;
+  const value = raw as Record<string, unknown>;
+  if (value.status !== "completed") return undefined;
+  if (!value.result || typeof value.result !== "object") return undefined;
+  return {
+    status: "completed",
+    result: value.result as UseReasonResult<unknown, unknown>,
   };
 };
 

@@ -81,7 +81,7 @@ export const step1ReasonInterruptStructuredNode = async ({
 
   useStructuredData({
     id: reasonId,
-    streamId: result.opId,
+    streamId: `${result.opId}:lifecycle`,
     dataType: "reason-demo.lifecycle",
     data: {
       step: "done",

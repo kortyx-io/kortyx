@@ -26,7 +26,7 @@ const picked = await useInterrupt({
 });
 ```
 
-Or use `useReason({ interrupt: ... })` when you want model-generated interrupt requests constrained by schema.
+Or use `useReason({ interrupt: ... })` when you want model-generated interrupt requests constrained by schema. By default, `useReason` treats interrupt config as required: the model must produce an interrupt request, the runtime pauses, and the hook continues after resume. Set `interrupt.mode` to `"optional"` when the model should return either `decision: "continue"` for a single-call result or `decision: "interrupt"` with an interrupt request.
 
 ## Stream side
 
