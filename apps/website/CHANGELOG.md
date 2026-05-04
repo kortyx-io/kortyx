@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.15.0](https://github.com/kortyx-io/kortyx/compare/website-v0.14.0...website-v0.15.0) (2026-05-04)
+
+
+### Features
+
+* add optional useReason interrupts ([99414c0](https://github.com/kortyx-io/kortyx/commit/99414c0c32a43ccde5b871c706d2a1211e7feac1))
+* add optional useReason interrupts ([02d852d](https://github.com/kortyx-io/kortyx/commit/02d852d02cbe38ca3491db8e52ca7a9d8fc005f2))
+
 ## [0.14.0](https://github.com/kortyx-io/kortyx/compare/website-v0.13.1...website-v0.14.0) (2026-05-04)
 
 

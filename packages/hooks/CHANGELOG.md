@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.11.0](https://github.com/kortyx-io/kortyx/compare/hooks-v0.10.1...hooks-v0.11.0) (2026-05-04)
+
+
+### Features
+
+* add optional useReason interrupts ([99414c0](https://github.com/kortyx-io/kortyx/commit/99414c0c32a43ccde5b871c706d2a1211e7feac1))
+* add optional useReason interrupts ([02d852d](https://github.com/kortyx-io/kortyx/commit/02d852d02cbe38ca3491db8e52ca7a9d8fc005f2))
+
 ## [0.10.1](https://github.com/kortyx-io/kortyx/compare/hooks-v0.10.0...hooks-v0.10.1) (2026-05-03)
 
 

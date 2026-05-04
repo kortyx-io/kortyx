@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.9.2](https://github.com/kortyx-io/kortyx/compare/runtime-v0.9.1...runtime-v0.9.2) (2026-05-04)
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/hooks bumped to 0.11.0
+
 ## [0.9.1](https://github.com/kortyx-io/kortyx/compare/runtime-v0.9.0...runtime-v0.9.1) (2026-05-03)
 
 
