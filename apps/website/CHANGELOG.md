@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.15.1](https://github.com/kortyx-io/kortyx/compare/website-v0.15.0...website-v0.15.1) (2026-05-04)
+
+
+### Bug Fixes
+
+* **website:** clarify optional interrupt guidance ([4919806](https://github.com/kortyx-io/kortyx/commit/49198062af8488d2286a433584553aa409e1cf82))
+* **website:** clarify optional interrupt guidance ([6b39793](https://github.com/kortyx-io/kortyx/commit/6b397931272c6b730937e0de9b1ed346bc47e5f6))
+
 ## [0.15.0](https://github.com/kortyx-io/kortyx/compare/website-v0.14.0...website-v0.15.0) (2026-05-04)
 
 
