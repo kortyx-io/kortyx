@@ -28,6 +28,8 @@ const picked = await useInterrupt({
 
 Or use `useReason({ interrupt: ... })` when you want model-generated interrupt requests constrained by schema. By default, `useReason` treats interrupt config as required: the model must produce an interrupt request, the runtime pauses, and the hook continues after resume. Set `interrupt.mode` to `"optional"` when the model should return either `decision: "continue"` for a single-call result or `decision: "interrupt"` with an interrupt request.
 
+> **Good to know:** Use required interrupts for approvals and safety gates. Optional interrupts are best for flows where the model can answer immediately but may ask for user input when the request is ambiguous.
+
 ## Stream side
 
 During interrupt, runtime/orchestrator emits:
