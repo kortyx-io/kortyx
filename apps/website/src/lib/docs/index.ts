@@ -2,6 +2,7 @@ import { readdir, readFile } from "node:fs/promises";
 import path from "node:path";
 import matter from "gray-matter";
 import { cache } from "react";
+import { extractToc } from "../utils/extract-toc";
 import { docsConfig } from "./config";
 
 export type DocFrontmatter = {
@@ -21,6 +22,58 @@ export type DocRecord = {
   frontmatter: DocFrontmatter;
   content: string;
 };
+
+type DocsSearchSection = {
+  id: string;
+  text: string;
+  content: string;
+};
+
+export type DocsSearchEntry = {
+  href: string;
+  title: string;
+  description: string;
+  keywords: string[];
+  version: string;
+  section: string | null;
+  content: string;
+};
+
+function getDocsSearchSections(content: string): DocsSearchSection[] {
+  const headings = extractToc(content);
+  if (headings.length === 0) return [];
+
+  const sections: DocsSearchSection[] = [];
+  const lines = content.split("\n");
+  let headingIndex = 0;
+  let inCodeFence = false;
+  let current: DocsSearchSection | null = null;
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (trimmed.startsWith("```")) {
+      inCodeFence = !inCodeFence;
+      if (current) current.content += `${line}\n`;
+      continue;
+    }
+
+    if (!inCodeFence && /^(#{2,3})\s+/.test(trimmed)) {
+      if (current)
+        sections.push({ ...current, content: current.content.trim() });
+      const heading = headings[headingIndex];
+      headingIndex += 1;
+      current = heading
+        ? { id: heading.id, text: heading.text, content: "" }
+        : null;
+      continue;
+    }
+
+    if (current) current.content += `${line}\n`;
+  }
+
+  if (current) sections.push({ ...current, content: current.content.trim() });
+  return sections;
+}
 
 export type SectionMeta = {
   slug: string;
@@ -481,6 +534,48 @@ export function buildDocHref(version: string, slugSegments: string[]): string {
     return toDocsPath(slugSegments);
   }
   return toDocsPath([version, ...slugSegments]);
+}
+
+export async function getDocsSearchIndex(): Promise<DocsSearchEntry[]> {
+  const store = await getDocsStore();
+  const entries: DocsSearchEntry[] = [];
+
+  for (const version of store.versions) {
+    const versionDocs = store.byVersion.get(version);
+    if (!versionDocs) continue;
+
+    for (const doc of versionDocs.docs) {
+      const href = buildDocHref(doc.version, doc.slugSegments);
+      const sectionSlug = doc.slugSegments[0] ?? null;
+      const section =
+        versionDocs.sections.find((item) => item.slug === sectionSlug)?.label ??
+        null;
+
+      entries.push({
+        href,
+        title: doc.frontmatter.title,
+        description: doc.frontmatter.description,
+        keywords: doc.frontmatter.keywords,
+        version: doc.version,
+        section,
+        content: doc.content,
+      });
+
+      for (const searchSection of getDocsSearchSections(doc.content)) {
+        entries.push({
+          href: `${href}#${searchSection.id}`,
+          title: searchSection.text,
+          description: doc.frontmatter.title,
+          keywords: doc.frontmatter.keywords,
+          version: doc.version,
+          section: doc.frontmatter.title,
+          content: searchSection.content,
+        });
+      }
+    }
+  }
+
+  return entries;
 }
 
 export async function generateDocsStaticParams(): Promise<

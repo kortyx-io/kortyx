@@ -1,12 +1,17 @@
 import Link from "next/link";
+import { DocsSearch } from "@/components/docs/docs-search";
+import { getDocsSearchIndex } from "@/lib/docs";
 import { cn } from "@/lib/utils/cn";
+import { GithubLink } from "./github-link";
 import { ThemeToggle } from "./theme-toggle";
 
 type NavbarProps = {
   className?: string;
 };
 
-export function Navbar({ className }: NavbarProps) {
+export async function Navbar({ className }: NavbarProps) {
+  const searchIndex = await getDocsSearchIndex();
+
   return (
     <header
       className={cn(
@@ -14,7 +19,7 @@ export function Navbar({ className }: NavbarProps) {
         className,
       )}
     >
-      <div className="mx-auto flex h-14 w-full max-w-[1400px] items-center justify-between px-6">
+      <div className="mx-auto flex min-h-14 w-full max-w-[1400px] flex-wrap items-center gap-3 px-4 py-2 sm:flex-nowrap sm:px-6">
         <nav className="flex items-center gap-6">
           <Link
             href="/"
@@ -29,7 +34,14 @@ export function Navbar({ className }: NavbarProps) {
             Docs
           </Link>
         </nav>
-        <ThemeToggle />
+        <div className="order-3 flex w-full items-center gap-1 sm:order-0 sm:ml-auto sm:w-auto">
+          <DocsSearch
+            entries={searchIndex}
+            className="w-full sm:w-64 lg:w-48"
+          />
+          <GithubLink />
+          <ThemeToggle className="ml-auto sm:ml-0" />
+        </div>
       </div>
     </header>
   );
