@@ -1,0 +1,114 @@
+import { describe, expect, it, vi } from "vitest";
+import type { Agent } from "../src";
+import {
+  createChatRouteHandler,
+  handleChatRequestBody,
+  parseChatRequestBody,
+} from "../src/adapters/http";
+import { extractLatestUserMessage } from "../src/utils/extract-latest-message";
+
+async function* chunks() {
+  yield { type: "message", content: "hello" } as const;
+  yield { type: "done" } as const;
+}
+
+describe("parseChatRequestBody", () => {
+  it("trims optional ids and preserves valid messages", () => {
+    expect(
+      parseChatRequestBody({
+        sessionId: " session-1 ",
+        workflowId: " support ",
+        stream: false,
+        ignored: true,
+        messages: [
+          {
+            role: "user",
+            content: "hello",
+            metadata: { resume: { selected: ["a"] } },
+          },
+        ],
+      }),
+    ).toEqual({
+      sessionId: "session-1",
+      workflowId: "support",
+      stream: false,
+      messages: [
+        {
+          role: "user",
+          content: "hello",
+          metadata: { resume: { selected: ["a"] } },
+        },
+      ],
+    });
+  });
+
+  it("rejects invalid message shapes", () => {
+    expect(() =>
+      parseChatRequestBody({
+        messages: [{ role: "tool", content: "bad" }],
+      }),
+    ).toThrow();
+  });
+});
+
+describe("handleChatRequestBody", () => {
+  it("buffers the agent stream when stream=false", async () => {
+    const streamChat = vi.fn(async () => chunks());
+    const response = await handleChatRequestBody({
+      agent: { streamChat } satisfies Agent,
+      body: {
+        sessionId: "session-1",
+        workflowId: "workflow-1",
+        stream: false,
+        messages: [{ role: "user", content: "hello" }],
+      },
+    });
+
+    expect(response.headers.get("content-type")).toBe("application/json");
+    expect(streamChat).toHaveBeenCalledWith(
+      [{ role: "user", content: "hello" }],
+      { sessionId: "session-1", workflowId: "workflow-1" },
+    );
+    await expect(response.json()).resolves.toMatchObject({
+      text: "hello",
+      chunks: [{ type: "message", content: "hello" }, { type: "done" }],
+    });
+  });
+});
+
+describe("createChatRouteHandler", () => {
+  it("returns JSON errors with the configured status", async () => {
+    const handler = createChatRouteHandler({
+      agent: {
+        streamChat: vi.fn(async () => chunks()),
+      },
+      errorStatus: 422,
+    });
+
+    const response = await handler(
+      new Request("https://kortyx.test/api/chat", {
+        method: "POST",
+        body: JSON.stringify({ messages: [{ role: "bad", content: "x" }] }),
+      }),
+    );
+
+    expect(response.status).toBe(422);
+    await expect(response.json()).resolves.toMatchObject({
+      error: expect.any(String),
+    });
+  });
+});
+
+describe("extractLatestUserMessage", () => {
+  it("returns the last non-empty user message", () => {
+    expect(
+      extractLatestUserMessage([
+        { role: "user", content: " first " },
+        { role: "assistant", content: "reply" },
+        { role: "user", content: "   " },
+        { role: "user", content: " latest " },
+      ]),
+    ).toBe("latest");
+    expect(extractLatestUserMessage([])).toBe("");
+  });
+});
