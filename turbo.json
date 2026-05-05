@@ -15,6 +15,7 @@
       "outputs": [],
       "env": [
         "WEBSITE_PORT",
+        "STUDIO_PORT",
         "KORTYX_NEXTJS_CHAT_PORT",
         "KORTYX_CANVAS_PORT",
         "NEXT_PUBLIC_KORTYX_API_URL"
