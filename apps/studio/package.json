@@ -2,6 +2,7 @@
   "name": "kortyx-studio",
   "version": "0.1.0",
   "private": true,
+  "license": "Elastic-2.0",
   "scripts": {
     "dev": "next dev --turbopack --port ${STUDIO_PORT:-6300}",
     "build": "next build",

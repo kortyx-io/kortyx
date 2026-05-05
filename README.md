@@ -237,4 +237,10 @@ Contributions are welcome. Start with [CONTRIBUTING.md](./CONTRIBUTING.md), run 
 
 ## License
 
-Apache-2.0. See [LICENSE](./LICENSE).
+Kortyx uses a mixed licensing model:
+
+- Apache-2.0 for the open framework packages and provider packages
+- Elastic License 2.0 for `apps/studio`
+- Per-plugin terms for `plugins/*`, defined by each plugin's `LICENSE.md`
+
+See [LICENSE](./LICENSE) for the repository-wide license boundaries.
