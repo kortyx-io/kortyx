@@ -1,0 +1,30 @@
+{
+  "name": "@kortyx/sdk",
+  "version": "0.1.0",
+  "private": false,
+  "description": "SDK surface for Kortyx Studio and plugin integrations.",
+  "keywords": [
+    "ai",
+    "agent",
+    "agents",
+    "orchestration",
+    "framework",
+    "sdk",
+    "plugins",
+    "kortyx"
+  ],
+  "license": "Apache-2.0",
+  "homepage": "https://kortyx.io/",
+  "bugs": {
+    "url": "https://github.com/kortyx-io/kortyx/issues"
+  },
+  "author": "Kortyx (https://github.com/kortyx-io)",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/kortyx-io/kortyx.git",
+    "directory": "packages/sdk"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}
