@@ -18,16 +18,33 @@ export const metadata: Metadata = {
   description: "AI agent orchestration studio",
 };
 
+const themeScript = `
+  (function(){
+    try {
+      var s = localStorage.getItem('theme');
+      var d = window.matchMedia('(prefers-color-scheme: dark)').matches;
+      var dark = s === 'dark' || ((s === null || s === 'system') && d);
+      if (dark) document.documentElement.classList.add('dark');
+      else document.documentElement.classList.remove('dark');
+    } catch (_) {}
+  })();
+`;
+
 export default function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
+        <script
+          // biome-ignore lint/security/noDangerouslySetInnerHtml: Theme script must run before paint to prevent flash
+          dangerouslySetInnerHTML={{ __html: themeScript }}
+          suppressHydrationWarning
+        />
         <SidebarLayout>{children}</SidebarLayout>
       </body>
     </html>

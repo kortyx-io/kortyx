@@ -65,7 +65,7 @@ export function AppSidebar() {
         </SidebarGroup>
       </SidebarContent>
 
-      <SidebarFooter>
+      <SidebarFooter className="pb-4">
         <NavUser
           user={{
             name: "User",

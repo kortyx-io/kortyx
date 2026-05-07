@@ -9,6 +9,7 @@ import {
   Sparkles,
 } from "lucide-react";
 
+import { ThemeMenuSub } from "@/components/theme-toggle";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   DropdownMenu,
@@ -96,6 +97,10 @@ export function NavUser({
                 <Bell />
                 Notifications
               </DropdownMenuItem>
+            </DropdownMenuGroup>
+            <DropdownMenuSeparator />
+            <DropdownMenuGroup>
+              <ThemeMenuSub />
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
             <DropdownMenuItem>
