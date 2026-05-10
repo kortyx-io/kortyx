@@ -74,6 +74,18 @@ describe("handleChatRequestBody", () => {
       chunks: [{ type: "message", content: "hello" }, { type: "done" }],
     });
   });
+
+  it("returns an SSE response by default", async () => {
+    const streamChat = vi.fn(async () => chunks());
+    const response = await handleChatRequestBody({
+      agent: { streamChat } satisfies Agent,
+      body: {
+        messages: [{ role: "user", content: "hello" }],
+      },
+    });
+
+    expect(response.headers.get("content-type")).toContain("text/event-stream");
+  });
 });
 
 describe("createChatRouteHandler", () => {
@@ -97,6 +109,46 @@ describe("createChatRouteHandler", () => {
       error: expect.any(String),
     });
   });
+
+  it("returns successful chat responses and stringified non-error failures", async () => {
+    const handler = createChatRouteHandler({
+      agent: {
+        streamChat: vi.fn(async () => chunks()),
+      },
+    });
+
+    const response = await handler(
+      new Request("https://kortyx.test/api/chat", {
+        method: "POST",
+        body: JSON.stringify({
+          stream: false,
+          messages: [{ role: "user", content: "x" }],
+        }),
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({ text: "hello" });
+
+    const failing = createChatRouteHandler({
+      agent: {
+        streamChat: vi.fn(async () => {
+          throw "plain failure";
+        }),
+      },
+    });
+    const failed = await failing(
+      new Request("https://kortyx.test/api/chat", {
+        method: "POST",
+        body: JSON.stringify({
+          messages: [{ role: "user", content: "x" }],
+        }),
+      }),
+    );
+
+    expect(failed.status).toBe(400);
+    await expect(failed.json()).resolves.toEqual({ error: "plain failure" });
+  });
 });
 
 describe("extractLatestUserMessage", () => {
@@ -110,5 +162,11 @@ describe("extractLatestUserMessage", () => {
       ]),
     ).toBe("latest");
     expect(extractLatestUserMessage([])).toBe("");
+    expect(
+      extractLatestUserMessage([
+        { role: "assistant", content: "reply" },
+        { role: "system", content: "system" },
+      ]),
+    ).toBe("");
   });
 });

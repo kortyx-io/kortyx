@@ -257,7 +257,13 @@ export async function orchestrateGraphStream({
     }
     if (event === "status") {
       if (!debugEnabled) return;
-      const msg = String((payload as { message?: unknown })?.message ?? "");
+      const statusMessage = (
+        payload as { message?: unknown } | null | undefined
+      )?.message;
+      const msg =
+        statusMessage === null || statusMessage === undefined
+          ? ""
+          : String(statusMessage);
       const now = Date.now();
       if (msg && msg === lastStatusMsg && now - lastStatusAt < 250) return; // de-dupe rapid duplicates
       lastStatusMsg = msg;
@@ -512,7 +518,7 @@ export async function orchestrateGraphStream({
           // Merge data: prefer the final state's data if present, then add transition payload
           const mergedData = {
             ...(workflowFinalState?.data ?? currentState.data ?? {}),
-            ...(transitionPayload ?? {}),
+            ...transitionPayload,
           };
 
           const rawInputFromPayload = (
@@ -593,10 +599,8 @@ export async function orchestrateGraphStream({
       }
 
       // Natural end with no explicit "done" (defensive close)
-      if (!finished) {
-        out.write({ type: "done" });
-        out.end();
-      }
+      out.write({ type: "done" });
+      out.end();
       return;
     }
   })().catch((err) => {

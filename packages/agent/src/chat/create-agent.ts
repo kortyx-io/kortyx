@@ -86,8 +86,11 @@ const createAgentArgsSchema = createAgentArgsBaseSchema.superRefine(
 const parseSchema = <T>(schema: z.ZodType<T>, value: unknown): T => {
   const parsed = schema.safeParse(value);
   if (parsed.success) return parsed.data;
-  const firstIssue = parsed.error.issues[0];
-  throw new Error(firstIssue?.message ?? "Invalid configuration.");
+  const [firstIssue] = parsed.error.issues as unknown as [
+    { message: string },
+    ...Array<{ message: string }>,
+  ];
+  throw new Error(firstIssue.message);
 };
 
 const parseCreateAgentArgs = (value: unknown): CreateAgentArgs =>

@@ -33,7 +33,11 @@ const toErrorMessage = (error: unknown): string =>
 export function parseChatRequestBody(value: unknown): ChatRequestBody {
   const parsed = chatRequestBodySchema.safeParse(value);
   if (!parsed.success) {
-    throw new Error(parsed.error.issues[0]?.message ?? "Invalid chat request.");
+    const [firstIssue] = parsed.error.issues as unknown as [
+      { message: string },
+      ...Array<{ message: string }>,
+    ];
+    throw new Error(firstIssue.message);
   }
 
   const sessionId = parsed.data.sessionId?.trim();

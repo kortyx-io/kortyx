@@ -18,10 +18,10 @@ export default defineKortyxVitestConfig({
     environment: "node",
     coverage: {
       thresholds: {
-        statements: 65,
-        branches: 45,
-        functions: 75,
-        lines: 68,
+        statements: 100,
+        branches: 100,
+        functions: 100,
+        lines: 100,
       },
     },
   },

@@ -175,7 +175,7 @@ export async function tryPrepareResumeStream({
       ...(hasResumeUpdate ? { resumeUpdate } : {}),
     },
     selectWorkflow,
-    ...(frameworkAdapter ? { frameworkAdapter } : {}),
+    frameworkAdapter: frameworkAdapter as FrameworkAdapter,
   } satisfies OrchestrateArgs;
 
   const stream = await orchestrateGraphStream(args);
