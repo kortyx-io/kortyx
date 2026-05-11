@@ -187,6 +187,22 @@ describe("state hooks", () => {
     });
   });
 
+  it("ignores malformed persisted token usage counters", async () => {
+    const { node } = createNode();
+    const state = createState({
+      tokenUsage: {
+        input: "not-a-number",
+        output: null,
+        total: false,
+      },
+    });
+
+    const run = await runWithHookContext({ node, state }, async () => "ok");
+
+    expect(run.result).toBe("ok");
+    expect(run.runtimeUpdates).toBeNull();
+  });
+
   it("throws when hook context is read outside node execution", () => {
     expect(() => getHookContext()).toThrow(
       "Hooks can only be used while a node is executing.",

@@ -26,6 +26,38 @@ describe("structured stream parser", () => {
     expect(resolveAppendFieldPaths({})).toEqual([]);
   });
 
+  it("rejects nested structured streaming field paths before streaming starts", () => {
+    expect(() =>
+      resolveSetFieldPaths({
+        fields: {
+          "meta.title": "set",
+        },
+      }),
+    ).toThrow(
+      "useReason structured set streaming requires non-empty top-level field keys.",
+    );
+
+    expect(() =>
+      resolveTextDeltaFieldPaths({
+        fields: {
+          "body.markdown": "text-delta",
+        },
+      }),
+    ).toThrow(
+      "useReason structured text-delta streaming requires non-empty top-level string field keys.",
+    );
+
+    expect(() =>
+      resolveAppendFieldPaths({
+        fields: {
+          "jobs.items": "append",
+        },
+      }),
+    ).toThrow(
+      "useReason structured append streaming requires non-empty top-level array field keys.",
+    );
+  });
+
   it("extracts completed scalar, string, object, and array field values", () => {
     const text = JSON.stringify({
       title: 'Hello "Kortyx"',
@@ -98,6 +130,33 @@ describe("structured stream parser", () => {
     });
     expect(
       extractCompletedFieldValue({
+        text: '{"details":{bad:1}}',
+        path: "details",
+      }),
+    ).toEqual({
+      found: true,
+      complete: false,
+    });
+    expect(
+      extractCompletedFieldValue({
+        text: '{"count":,',
+        path: "count",
+      }),
+    ).toEqual({
+      found: true,
+      complete: false,
+    });
+    expect(
+      extractCompletedFieldValue({
+        text: '{"count":123',
+        path: "count",
+      }),
+    ).toEqual({
+      found: true,
+      complete: false,
+    });
+    expect(
+      extractCompletedFieldValue({
         text: '{"title":bad,',
         path: "title",
       }),
@@ -112,6 +171,29 @@ describe("structured stream parser", () => {
       }),
     ).toEqual({
       found: false,
+      complete: false,
+    });
+  });
+
+  it("extracts escaped completed string fields and rejects unknown escapes as incomplete", () => {
+    expect(
+      extractCompletedFieldValue({
+        text: String.raw`{"title":"quote: \" slash: \/ backslash: \\ line:\n tab:\t"}`,
+        path: "title",
+      }),
+    ).toEqual({
+      found: true,
+      complete: true,
+      value: 'quote: " slash: / backslash: \\ line:\n tab:\t',
+    });
+
+    expect(
+      extractCompletedFieldValue({
+        text: String.raw`{"title":"bad escape: \x"}`,
+        path: "title",
+      }),
+    ).toEqual({
+      found: true,
       complete: false,
     });
   });
@@ -132,6 +214,18 @@ describe("structured stream parser", () => {
       null,
     ]);
     expect(extractCompletedArrayItems({ text, path: "missing" })).toEqual([]);
+  });
+
+  it("keeps completed array strings intact when they contain escaped delimiters", () => {
+    const text = String.raw`{"jobs":["a,b","quote: \"ok\"",{"nested":["]"]},bad,`;
+
+    expect(extractCompletedArrayItems({ text, path: "jobs" })).toEqual([
+      "a,b",
+      'quote: "ok"',
+      {
+        nested: ["]"],
+      },
+    ]);
   });
 
   it("streams string values with escapes, partial escapes, and unicode escapes", () => {
@@ -168,6 +262,16 @@ describe("structured stream parser", () => {
     expect(
       extractStreamingStringValue({
         text: '{"body":"bad\\u26"}',
+        path: "body",
+      }),
+    ).toEqual({
+      found: true,
+      complete: false,
+      value: "bad",
+    });
+    expect(
+      extractStreamingStringValue({
+        text: String.raw`{"body":"bad\x"}`,
         path: "body",
       }),
     ).toEqual({

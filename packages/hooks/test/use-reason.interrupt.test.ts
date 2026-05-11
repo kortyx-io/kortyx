@@ -410,6 +410,49 @@ describe("useReason interrupt flow", () => {
     expect(interrupts).toHaveLength(0);
   });
 
+  it("does not call the node interrupt when a permissive request schema returns a falsey request", async () => {
+    const first = JSON.stringify({
+      decision: "interrupt",
+      output: {
+        summary: "Draft summary",
+        recommendation: "Draft recommendation",
+        checklist: ["item-1"],
+        userChoice: "pending",
+      },
+      interruptRequest: "",
+      draftText: "Draft summary",
+    });
+
+    const { invoke, modelRef } = createProvider({
+      invokeResponses: [first],
+    });
+    const { node, interrupts } = createNode();
+    const state = createState();
+    const permissiveBadRequestSchema = z.literal(
+      "",
+    ) as unknown as typeof ChoiceRequestSchema;
+
+    await expect(
+      runWithHookContext({ node, state }, async () =>
+        useReason({
+          model: modelRef,
+          input: "Create a launch plan",
+          outputSchema: PlanSchema,
+          interrupt: {
+            mode: "optional",
+            requestSchema: permissiveBadRequestSchema,
+            responseSchema: ChoiceResponseSchema,
+          },
+        }),
+      ),
+    ).rejects.toThrow(
+      "useReason interrupt request is missing; first pass did not produce a valid interrupt payload.",
+    );
+
+    expect(invoke).toHaveBeenCalledTimes(1);
+    expect(interrupts).toHaveLength(0);
+  });
+
   it("fails fast when optional continue output does not match the output schema", async () => {
     const first = JSON.stringify({
       decision: "continue",

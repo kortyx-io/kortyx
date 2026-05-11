@@ -214,6 +214,9 @@ describe("useReason output flow", () => {
       invokeResponses: [
         {
           content: "Summary",
+          raw: {
+            id: "raw-123",
+          },
           usage: {
             input: 11,
             output: 7,
@@ -249,6 +252,9 @@ describe("useReason output flow", () => {
     );
 
     expect(result.text).toBe("Summary");
+    expect(result.raw).toEqual({
+      id: "raw-123",
+    });
     expect(result.usage).toEqual({
       input: 11,
       output: 7,
@@ -466,18 +472,32 @@ describe("useReason output flow", () => {
             unified: "stop",
             raw: "STOP",
           },
+          providerMetadata: {
+            requestId: "trace-req-1",
+          },
+          warnings: [
+            {
+              type: "other",
+              message: "trace warning",
+            },
+          ],
         },
       ],
     });
     const { node } = createNode();
     const state = createState();
+    const spans: ReasonTraceSpan[] = [];
     const startSpan = vi.fn(
-      (_args: { name: "useReason" | "runReasonEngine" }): ReasonTraceSpan => ({
-        end: vi.fn(),
-        addEvent: vi.fn(),
-        fail: vi.fn(),
-        setAttributes: vi.fn(),
-      }),
+      (_args: { name: "useReason" | "runReasonEngine" }): ReasonTraceSpan => {
+        const span = {
+          end: vi.fn(),
+          addEvent: vi.fn(),
+          fail: vi.fn(),
+          setAttributes: vi.fn(),
+        };
+        spans.push(span);
+        return span;
+      },
     );
     const reasonTrace: ReasonTraceAdapter = {
       startSpan,
@@ -506,6 +526,28 @@ describe("useReason output flow", () => {
         modelId: "mock-model",
       }),
     });
+    expect(spans[0]?.end).toHaveBeenCalledWith(
+      expect.objectContaining({
+        usage: {
+          input: 4,
+          output: 6,
+          total: 10,
+        },
+        finishReason: {
+          unified: "stop",
+          raw: "STOP",
+        },
+        providerMetadata: {
+          requestId: "trace-req-1",
+        },
+        warnings: [
+          {
+            type: "other",
+            message: "trace warning",
+          },
+        ],
+      }),
+    );
   });
 
   it("parses JSON output and emits one structured patch", async () => {
