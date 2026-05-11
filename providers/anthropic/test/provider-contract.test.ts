@@ -15,6 +15,24 @@ const collectStreamParts = async (
   return parts;
 };
 
+const createSseResponse = (events: unknown[]): Response => {
+  const encoder = new TextEncoder();
+
+  return new Response(
+    new ReadableStream({
+      start(controller) {
+        for (const event of events) {
+          controller.enqueue(
+            encoder.encode(`data: ${JSON.stringify(event)}\n\n`),
+          );
+        }
+        controller.close();
+      },
+    }),
+    { headers: { "content-type": "text/event-stream" } },
+  );
+};
+
 describe("anthropic public provider contract", () => {
   it("validates model ids on getModel and selector calls", () => {
     const provider = createAnthropic({ apiKey: "test-key" });
@@ -63,5 +81,137 @@ describe("anthropic public provider contract", () => {
         finishReason: { unified: "tool-calls", raw: "tool_use" },
       },
     ]);
+  });
+
+  it("reports provider stream error events without emitting a finish", async () => {
+    const provider = createAnthropic({
+      apiKey: "test-key",
+      fetch: async () => createSseResponse([{ type: "error", error: {} }]),
+    });
+
+    const parts = await collectStreamParts(
+      provider
+        .getModel("claude-sonnet-4-5", { streaming: true })
+        .stream([{ role: "user", content: "Hello" }]),
+    );
+
+    expect(parts).toHaveLength(1);
+    expect(parts[0]).toMatchObject({
+      type: "error",
+      error: expect.objectContaining({ message: "Anthropic stream error." }),
+      raw: { type: "error", error: {} },
+    });
+  });
+
+  it("surfaces warning contracts for unsupported Anthropic options", async () => {
+    const provider = createAnthropic({
+      apiKey: "test-key",
+      fetch: async () =>
+        new Response(
+          JSON.stringify({
+            content: [{ type: "text", text: "ok" }],
+            stop_reason: "end_turn",
+          }),
+          { headers: { "content-type": "application/json" } },
+        ),
+    });
+    const model = provider.getModel("claude-sonnet-4-5", {
+      reasoning: { effort: "high" },
+      providerOptions: {
+        experimental: true,
+        anthropic: {
+          unsupported: true,
+        },
+      },
+    });
+
+    const result = await model.invoke([{ role: "user", content: "Hello" }]);
+
+    expect(result.warnings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ feature: "reasoning.effort" }),
+        expect.objectContaining({ feature: "providerOptions" }),
+        expect.objectContaining({ feature: "providerOptions.anthropic" }),
+      ]),
+    );
+  });
+
+  it("loads auth tokens from the environment and maps finish reason variants", async () => {
+    const previousApiKey = process.env.ANTHROPIC_API_KEY;
+    const previousKortyxApiKey = process.env.KORTYX_ANTHROPIC_API_KEY;
+    const previousAuthToken = process.env.ANTHROPIC_AUTH_TOKEN;
+    const previousKortyxAuthToken = process.env.KORTYX_ANTHROPIC_AUTH_TOKEN;
+    delete process.env.ANTHROPIC_API_KEY;
+    delete process.env.KORTYX_ANTHROPIC_API_KEY;
+    process.env.ANTHROPIC_AUTH_TOKEN = "env-anthropic-token";
+    delete process.env.KORTYX_ANTHROPIC_AUTH_TOKEN;
+
+    const stopReasons = ["model_context_window_exceeded", "refusal", "unknown"];
+    const provider = createAnthropic({
+      fetch: async (_input, init) => {
+        expect(init?.headers).toMatchObject({
+          authorization: "Bearer env-anthropic-token",
+        });
+        const stopReason = stopReasons.shift();
+        return new Response(
+          JSON.stringify({
+            content: [{ type: "text", text: "ok" }],
+            stop_reason: stopReason,
+          }),
+          { headers: { "content-type": "application/json" } },
+        );
+      },
+    });
+    const model = provider.getModel("claude-sonnet-4-5");
+
+    try {
+      await expect(
+        model.invoke([{ role: "user", content: "Hello" }]),
+      ).resolves.toMatchObject({
+        finishReason: {
+          unified: "length",
+          raw: "model_context_window_exceeded",
+        },
+      });
+      await expect(
+        model.invoke([{ role: "user", content: "Hello" }]),
+      ).resolves.toMatchObject({
+        finishReason: { unified: "content-filter", raw: "refusal" },
+      });
+      await expect(
+        model.invoke([{ role: "user", content: "Hello" }]),
+      ).resolves.toMatchObject({
+        finishReason: { unified: "other", raw: "unknown" },
+      });
+    } finally {
+      if (previousApiKey === undefined) {
+        delete process.env.ANTHROPIC_API_KEY;
+      } else {
+        process.env.ANTHROPIC_API_KEY = previousApiKey;
+      }
+      if (previousKortyxApiKey === undefined) {
+        delete process.env.KORTYX_ANTHROPIC_API_KEY;
+      } else {
+        process.env.KORTYX_ANTHROPIC_API_KEY = previousKortyxApiKey;
+      }
+      if (previousAuthToken === undefined) {
+        delete process.env.ANTHROPIC_AUTH_TOKEN;
+      } else {
+        process.env.ANTHROPIC_AUTH_TOKEN = previousAuthToken;
+      }
+      if (previousKortyxAuthToken === undefined) {
+        delete process.env.KORTYX_ANTHROPIC_AUTH_TOKEN;
+      } else {
+        process.env.KORTYX_ANTHROPIC_AUTH_TOKEN = previousKortyxAuthToken;
+      }
+    }
+  });
+
+  it("surfaces invalid Anthropic credential combinations during invoke", async () => {
+    await expect(
+      createAnthropic({ apiKey: "test-key", authToken: "test-token" })
+        .getModel("claude-sonnet-4-5")
+        .invoke([{ role: "user", content: "Hello" }]),
+    ).rejects.toThrow("Anthropic provider failed to invoke content");
   });
 });
