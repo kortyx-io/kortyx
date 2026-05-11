@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import { act, renderHook } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import type {
   ChatMsg,
   ChatStorage,
@@ -300,6 +300,198 @@ describe("useChat", () => {
             status: "done",
             data: {
               body: "Final",
+            },
+          },
+        },
+      ],
+    });
+  });
+
+  it("keeps text content separate from structured stream data", async () => {
+    const transport: ChatTransport = {
+      stream: async ({ onChunk }) => {
+        await onChunk({
+          type: "text-start",
+          node: "writer",
+          opId: "op-1",
+          segmentId: "text-1",
+        });
+        await onChunk({
+          type: "text-delta",
+          node: "writer",
+          opId: "op-1",
+          segmentId: "text-1",
+          delta: "Draft: ",
+        });
+        await onChunk({
+          type: "structured-data",
+          streamId: "facts",
+          dataType: "demo.facts",
+          kind: "set",
+          path: "score",
+          value: 42,
+        });
+        await onChunk({
+          type: "text-delta",
+          node: "writer",
+          opId: "op-1",
+          segmentId: "text-1",
+          delta: "ready",
+        });
+        await onChunk({
+          type: "done",
+        });
+      },
+    };
+    const memory = createMemoryStorage();
+
+    const { result } = renderHook(() =>
+      useChat({
+        transport,
+        storage: memory.storage,
+        createId: (() => {
+          let seq = 0;
+          return () => `id-${seq++}`;
+        })(),
+      }),
+    );
+
+    await flushEffects();
+
+    await act(async () => {
+      await result.current.send("hello");
+    });
+
+    const assistant = result.current.messages.at(-1);
+    expect(assistant).toMatchObject({
+      role: "assistant",
+      content: "Draft: ready",
+      contentPieces: [
+        {
+          type: "text",
+          content: "Draft: ready",
+        },
+        {
+          type: "structured",
+          data: {
+            streamId: "facts",
+            status: "streaming",
+            data: {
+              score: 42,
+            },
+          },
+        },
+      ],
+    });
+  });
+
+  it("ignores empty sends and concurrent sends while a stream is active", async () => {
+    let finishStream: (() => void) | undefined;
+    const transport: ChatTransport = {
+      stream: vi.fn(
+        () =>
+          new Promise<void>((resolve) => {
+            finishStream = resolve;
+          }),
+      ),
+    };
+    const memory = createMemoryStorage();
+
+    const { result } = renderHook(() =>
+      useChat({
+        transport,
+        storage: memory.storage,
+      }),
+    );
+
+    await flushEffects();
+
+    await act(async () => {
+      await result.current.send("   ");
+    });
+
+    expect(transport.stream).not.toHaveBeenCalled();
+    expect(result.current.messages).toEqual([]);
+
+    let firstSend: Promise<void> | undefined;
+    await act(async () => {
+      firstSend = result.current.send("first") as Promise<void>;
+      await Promise.resolve();
+    });
+
+    expect(result.current.isStreaming).toBe(true);
+
+    await act(async () => {
+      await result.current.send("second");
+    });
+
+    expect(transport.stream).toHaveBeenCalledTimes(1);
+    expect(result.current.messages).toHaveLength(1);
+    expect(result.current.messages[0]).toMatchObject({
+      role: "user",
+      content: "first",
+    });
+
+    await act(async () => {
+      finishStream?.();
+      await firstSend;
+    });
+  });
+
+  it("sends explicit resume metadata with workflow context", async () => {
+    const contexts: Parameters<ChatTransport["stream"]>[0][] = [];
+    const transport: ChatTransport = {
+      stream: async (context) => {
+        contexts.push(context);
+        await context.onChunk({
+          type: "done",
+        });
+      },
+    };
+    const memory = createMemoryStorage({
+      workflowId: "workflow-a",
+      messages: [
+        {
+          id: "assistant-1",
+          role: "assistant",
+          content: "Need input",
+        },
+      ],
+    });
+
+    const { result } = renderHook(() =>
+      useChat({
+        transport,
+        storage: memory.storage,
+      }),
+    );
+
+    await flushEffects();
+
+    await act(async () => {
+      await result.current.respondToHumanInput({
+        resumeToken: "resume-1",
+        requestId: "request-1",
+        selected: [],
+      });
+    });
+
+    expect(contexts).toHaveLength(1);
+    expect(contexts[0]).toMatchObject({
+      workflowId: "workflow-a",
+      messages: [
+        {
+          role: "assistant",
+          content: "Need input",
+        },
+        {
+          role: "user",
+          content: "(selection)",
+          metadata: {
+            resume: {
+              token: "resume-1",
+              requestId: "request-1",
+              selected: [],
             },
           },
         },
