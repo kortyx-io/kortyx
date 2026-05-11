@@ -41,8 +41,13 @@ describe("hooks core APIs", () => {
     });
 
     expect(emitted).toHaveLength(1);
-    expect(emitted[0].event).toBe("structured_data");
-    expect(emitted[0].payload).toMatchObject({
+    const [event] = emitted;
+    expect(event).toBeDefined();
+    if (!event) {
+      throw new Error("Expected structured_data event to be emitted.");
+    }
+    expect(event.event).toBe("structured_data");
+    expect(event.payload).toMatchObject({
       node: "reason",
       id: "reason-1",
       streamId: "stream-1",

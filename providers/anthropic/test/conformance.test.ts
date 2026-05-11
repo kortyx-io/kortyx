@@ -1,5 +1,6 @@
 import { expect } from "vitest";
 import { describeProviderConformance } from "../../../packages/providers/test/conformance";
+import { describeProviderFailureConformance } from "../../../packages/providers/test/failure-conformance";
 import { createAnthropic } from "../src/provider";
 import type { AnthropicMessagesRequest } from "../src/types";
 
@@ -288,4 +289,13 @@ describeProviderConformance({
       );
     },
   },
+});
+
+describeProviderFailureConformance({
+  providerName: "Anthropic",
+  createModel: (fetch) =>
+    createAnthropic({
+      apiKey: "test-key",
+      fetch,
+    }).getModel("claude-haiku-4-5"),
 });

@@ -9,6 +9,7 @@ import type {
   KortyxInvokeResult,
   KortyxModel,
   KortyxStreamPart,
+  ModelOptions,
   ProviderSelector,
 } from "@kortyx/providers";
 import { vi } from "vitest";
@@ -69,7 +70,7 @@ export const createProvider = (args: CreateProviderArgs = {}) => {
   });
 
   const provider = Object.assign(
-    ((modelId: "mock-model", options) => ({
+    ((modelId: "mock-model", options?: ModelOptions) => ({
       provider,
       modelId,
       ...(options ? { options } : {}),
@@ -77,7 +78,7 @@ export const createProvider = (args: CreateProviderArgs = {}) => {
     {
       id: "mock" as const,
       models: ["mock-model"] as const,
-      getModel: vi.fn((modelId: "mock-model", options) => {
+      getModel: vi.fn((modelId: "mock-model", _options?: ModelOptions) => {
         if (modelId !== "mock-model") {
           throw new Error(`Unknown mock model: ${modelId}`);
         }

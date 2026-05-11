@@ -1,5 +1,6 @@
 import { expect } from "vitest";
 import { describeProviderConformance } from "../../../packages/providers/test/conformance";
+import { describeProviderFailureConformance } from "../../../packages/providers/test/failure-conformance";
 import { createGoogleGenerativeAI } from "../src/provider";
 import type { GoogleGenerateContentRequest } from "../src/types";
 
@@ -235,4 +236,13 @@ describeProviderConformance({
       );
     },
   },
+});
+
+describeProviderFailureConformance({
+  providerName: "Google",
+  createModel: (fetch) =>
+    createGoogleGenerativeAI({
+      apiKey: "test-key",
+      fetch,
+    }).getModel("gemini-2.5-flash"),
 });

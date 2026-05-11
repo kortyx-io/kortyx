@@ -176,4 +176,124 @@ describe("createLiveChatPieces", () => {
       } satisfies Partial<StructuredStreamState<Record<string, unknown>>>,
     });
   });
+
+  it("does not duplicate message chunks after text deltas have started", () => {
+    const createId = createIdFactory();
+    const accumulator = createLiveChatPieces({
+      createId,
+      onChange: () => {},
+      structuredStreams: {
+        applyStreamChunk: () => undefined,
+      },
+      toHumanInputPiece: () => createHumanInputPiece(),
+    });
+
+    accumulator.processChunk({
+      type: "text-delta",
+      node: "writer",
+      delta: "Hello",
+    });
+    accumulator.processChunk({
+      type: "message",
+      content: "Hello duplicate",
+    });
+
+    expect(accumulator.getPieces()).toEqual([
+      {
+        id: "id-0",
+        type: "text",
+        content: "Hello",
+      },
+    ]);
+  });
+
+  it("keeps legacy message chunks when no text delta stream is active", () => {
+    const createId = createIdFactory();
+    const accumulator = createLiveChatPieces({
+      createId,
+      onChange: () => {},
+      structuredStreams: {
+        applyStreamChunk: () => undefined,
+      },
+      toHumanInputPiece: () => createHumanInputPiece(),
+    });
+
+    accumulator.processChunk({
+      type: "message",
+      content: "Legacy content",
+    });
+
+    expect(accumulator.getPieces()).toEqual([
+      {
+        id: "id-0",
+        type: "text",
+        content: "Legacy content",
+      },
+    ]);
+  });
+
+  it("converts interrupt and error chunks into visible live pieces", () => {
+    const createId = createIdFactory();
+    const accumulator = createLiveChatPieces({
+      createId,
+      onChange: () => {},
+      structuredStreams: {
+        applyStreamChunk: () => undefined,
+      },
+      toHumanInputPiece: () => createHumanInputPiece(),
+    });
+
+    accumulator.processChunk({
+      type: "interrupt",
+      requestId: "request-1",
+      resumeToken: "resume-1",
+      input: {
+        kind: "text",
+        multiple: false,
+      },
+    });
+    accumulator.processChunk({
+      type: "error",
+      message: "stream failed",
+    });
+
+    expect(accumulator.getPieces()).toEqual([
+      createHumanInputPiece(),
+      {
+        id: "id-0",
+        type: "error",
+        content: "stream failed",
+      },
+    ]);
+  });
+
+  it("uses a fallback error message and stops on done chunks", () => {
+    const createId = createIdFactory();
+    const accumulator = createLiveChatPieces({
+      createId,
+      onChange: () => {},
+      structuredStreams: {
+        applyStreamChunk: () => undefined,
+      },
+      toHumanInputPiece: () => createHumanInputPiece(),
+    });
+
+    expect(
+      accumulator.processChunk({
+        type: "error",
+      } as StreamChunk),
+    ).toBe(true);
+    expect(
+      accumulator.processChunk({
+        type: "done",
+      }),
+    ).toBe(false);
+    expect(accumulator.getPieces()).toEqual([
+      {
+        id: "id-0",
+        type: "error",
+        content: "An error occurred",
+      },
+    ]);
+  });
 });

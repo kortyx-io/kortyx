@@ -5,17 +5,37 @@ import { act, renderHook } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { useStructuredStreams } from "../src";
 
+type StructuredDataChunkInput = (
+  | Omit<
+      Extract<StructuredDataChunk, { kind: "set" }>,
+      "type" | "streamId" | "dataType"
+    >
+  | Omit<
+      Extract<StructuredDataChunk, { kind: "text-delta" }>,
+      "type" | "streamId" | "dataType"
+    >
+  | Omit<
+      Extract<StructuredDataChunk, { kind: "append" }>,
+      "type" | "streamId" | "dataType"
+    >
+  | Omit<
+      Extract<StructuredDataChunk, { kind: "final" }>,
+      "type" | "streamId" | "dataType"
+    >
+) & {
+  streamId?: string;
+  dataType?: string;
+};
+
 const structuredChunk = (
-  chunk: Omit<StructuredDataChunk, "type" | "streamId" | "dataType"> & {
-    streamId?: string;
-    dataType?: string;
-  },
-): StructuredDataChunk => ({
-  type: "structured-data",
-  streamId: chunk.streamId ?? "stream-1",
-  dataType: chunk.dataType ?? "demo.data",
-  ...chunk,
-});
+  chunk: StructuredDataChunkInput,
+): StructuredDataChunk =>
+  ({
+    type: "structured-data",
+    streamId: chunk.streamId ?? "stream-1",
+    dataType: chunk.dataType ?? "demo.data",
+    ...chunk,
+  }) as StructuredDataChunk;
 
 describe("useStructuredStreams", () => {
   it("tracks multiple streamIds with stable first-seen ordering", () => {

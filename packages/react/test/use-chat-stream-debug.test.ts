@@ -11,14 +11,18 @@ describe("useChatStreamDebug", () => {
 
     const { result } = renderHook(() => useChatStreamDebug());
 
-    let recorder: ReturnType<typeof result.current.createRecorder>;
+    let recorder: ReturnType<typeof result.current.createRecorder> | undefined;
     act(() => {
       recorder = result.current.createRecorder("starting");
     });
+    if (!recorder) {
+      throw new Error("Expected recorder to be created.");
+    }
+    const createdRecorder = recorder;
 
     vi.setSystemTime(new Date("2026-04-23T10:00:01.000Z"));
     act(() => {
-      recorder.push({
+      createdRecorder.push({
         type: "message",
         content: "hello",
       });
@@ -37,7 +41,7 @@ describe("useChatStreamDebug", () => {
       _seq: 1,
       _dt: 1000,
     });
-    expect(recorder.getAll()).toHaveLength(2);
+    expect(createdRecorder.getAll()).toHaveLength(2);
 
     vi.useRealTimers();
   });
@@ -45,7 +49,7 @@ describe("useChatStreamDebug", () => {
   it("clears current debug state without mutating recorder history", () => {
     const { result } = renderHook(() => useChatStreamDebug());
 
-    let recorder: ReturnType<typeof result.current.createRecorder>;
+    let recorder: ReturnType<typeof result.current.createRecorder> | undefined;
     act(() => {
       recorder = result.current.createRecorder("starting");
       recorder.push({
@@ -53,6 +57,9 @@ describe("useChatStreamDebug", () => {
         message: "next",
       });
     });
+    if (!recorder) {
+      throw new Error("Expected recorder to be created.");
+    }
 
     expect(result.current.streamDebug).toHaveLength(2);
 

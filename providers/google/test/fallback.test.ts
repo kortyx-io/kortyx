@@ -155,7 +155,7 @@ describe("google reasoning fallback", () => {
     });
 
     const parts = [];
-    for await (const part of model.stream([
+    for await (const part of await model.stream([
       { role: "user", content: "Hello" },
     ])) {
       parts.push(part);

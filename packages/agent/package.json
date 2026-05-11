@@ -42,7 +42,7 @@
     "test": "vitest run && pnpm -s type-check",
     "coverage": "vitest run --coverage && pnpm -s type-check",
     "test:watch": "vitest",
-    "type-check": "tsc --noEmit"
+    "type-check": "tsc --noEmit -p tsconfig.test.json"
   },
   "dependencies": {
     "@kortyx/core": "workspace:*",

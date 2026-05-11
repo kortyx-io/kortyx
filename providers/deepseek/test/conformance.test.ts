@@ -1,5 +1,6 @@
 import { expect, it } from "vitest";
 import { describeProviderConformance } from "../../../packages/providers/test/conformance";
+import { describeProviderFailureConformance } from "../../../packages/providers/test/failure-conformance";
 import { createDeepSeek } from "../src/provider";
 import type { DeepSeekChatCompletionRequest } from "../src/types";
 
@@ -245,6 +246,15 @@ describeProviderConformance({
       );
     },
   },
+});
+
+describeProviderFailureConformance({
+  providerName: "DeepSeek",
+  createModel: (fetch) =>
+    createDeepSeek({
+      apiKey: "test-key",
+      fetch,
+    }).getModel("deepseek-chat"),
 });
 
 it("maps namespaced DeepSeek thinking provider options", async () => {

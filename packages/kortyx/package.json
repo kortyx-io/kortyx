@@ -40,7 +40,7 @@
     "dev": "tsc --watch",
     "lint": "biome check src",
     "test": "pnpm -s type-check",
-    "type-check": "tsc --noEmit"
+    "type-check": "tsc --noEmit -p tsconfig.test.json"
   },
   "dependencies": {
     "@kortyx/agent": "workspace:*",

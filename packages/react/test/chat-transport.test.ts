@@ -105,6 +105,7 @@ describe("createChatTransport", () => {
       ...baseContext,
       onChunk: (chunk) => {
         seen.push(chunk.type);
+        return undefined;
       },
     });
 
