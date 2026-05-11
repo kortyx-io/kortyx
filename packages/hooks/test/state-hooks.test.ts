@@ -116,4 +116,105 @@ describe("state hooks", () => {
 
     expect(secondRun.result).toEqual(["item-1"]);
   });
+
+  it("keeps node-local state scoped to the current node while workflow state is shared", async () => {
+    const firstNode = createNode({ nodeId: "draft" });
+    const firstState = createState();
+
+    const firstRun = await runWithHookContext(
+      { node: firstNode.node, state: firstState },
+      async () => {
+        const [cursor, setCursor] = useNodeState(0);
+        const [todos, setTodos] = useWorkflowState<string[]>("todos", []);
+        setCursor(cursor + 41);
+        setTodos([...todos, "drafted"]);
+        return { cursor, todos };
+      },
+    );
+
+    expect(firstRun.result).toEqual({ cursor: 0, todos: [] });
+
+    const secondNode = createNode({ nodeId: "review" });
+    const secondState = createState(
+      (firstRun.runtimeUpdates ?? {}) as Record<string, unknown>,
+    );
+
+    const secondRun = await runWithHookContext(
+      { node: secondNode.node, state: secondState },
+      async () => {
+        const [cursor] = useNodeState(0);
+        const [todos] = useWorkflowState<string[]>("todos", []);
+        return { cursor, todos };
+      },
+    );
+
+    expect(secondRun.result).toEqual({
+      cursor: 0,
+      todos: ["drafted"],
+    });
+  });
+
+  it("isolates concurrent hook contexts across async boundaries", async () => {
+    let releaseFirst!: () => void;
+    let releaseSecond!: () => void;
+    const firstBarrier = new Promise<void>((resolve) => {
+      releaseFirst = resolve;
+    });
+    const secondBarrier = new Promise<void>((resolve) => {
+      releaseSecond = resolve;
+    });
+
+    const firstNode = createNode({ nodeId: "first-node" });
+    const secondNode = createNode({ nodeId: "second-node" });
+
+    const firstRun = runWithHookContext(
+      { node: firstNode.node, state: createState() },
+      async () => {
+        await firstBarrier;
+        const [count, setCount] = useNodeState(0);
+        const [owner, setOwner] = useWorkflowState("owner", "");
+        setCount(count + 1);
+        setOwner("first");
+        return { count, owner };
+      },
+    );
+
+    const secondRun = runWithHookContext(
+      { node: secondNode.node, state: createState() },
+      async () => {
+        await secondBarrier;
+        const [count, setCount] = useNodeState(10);
+        const [owner, setOwner] = useWorkflowState("owner", "");
+        setCount(count + 1);
+        setOwner("second");
+        return { count, owner };
+      },
+    );
+
+    releaseSecond();
+    releaseFirst();
+
+    const [first, second] = await Promise.all([firstRun, secondRun]);
+
+    expect(first.result).toEqual({ count: 0, owner: "" });
+    expect(second.result).toEqual({ count: 10, owner: "" });
+    expect(first.runtimeUpdates).toMatchObject({
+      __kortyx: {
+        nodeState: {
+          nodeId: "first-node",
+          state: { byIndex: [1] },
+        },
+        workflowState: { owner: "first" },
+      },
+    });
+    expect(second.runtimeUpdates).toMatchObject({
+      __kortyx: {
+        nodeState: {
+          nodeId: "second-node",
+          state: { byIndex: [11] },
+        },
+        workflowState: { owner: "second" },
+      },
+    });
+  });
 });

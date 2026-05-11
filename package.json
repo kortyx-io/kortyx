@@ -26,6 +26,7 @@
     "lint": "biome check .",
     "test": "turbo run test",
     "coverage": "turbo run coverage",
+    "test:coverage": "pnpm coverage",
     "type-check": "turbo type-check",
     "type-check:watch": "turbo type-check --watch",
     "start": "turbo start",

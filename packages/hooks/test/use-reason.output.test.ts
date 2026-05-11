@@ -637,6 +637,74 @@ describe("useReason output flow", () => {
     expect(emitted).toHaveLength(0);
   });
 
+  it("fails fast when includeThoughts is inherited from model defaults with JSON responseFormat", async () => {
+    const { invoke, provider } = createProvider({
+      invokeResponses: ["{}"],
+    });
+    const modelRef = provider("mock-model", {
+      reasoning: {
+        includeThoughts: true,
+      },
+      responseFormat: {
+        type: "json",
+      },
+    });
+    const { node, emitted } = createNode();
+    const state = createState();
+
+    await expect(
+      runWithHookContext({ node, state }, async () =>
+        useReason({
+          model: modelRef,
+          input: "Return JSON",
+          stream: false,
+        }),
+      ),
+    ).rejects.toThrow(
+      "useReason does not support reasoning.includeThoughts with structured output, interrupt mode, or JSON responseFormat. Disable includeThoughts for this call.",
+    );
+
+    expect(invoke).not.toHaveBeenCalled();
+    expect(provider.getModel).not.toHaveBeenCalled();
+    expect(emitted).toHaveLength(0);
+  });
+
+  it("allows includeThoughts for plain text calls", async () => {
+    const { invoke, provider } = createProvider({
+      invokeResponses: ["Plain answer"],
+    });
+    const modelRef = provider("mock-model", {
+      reasoning: {
+        includeThoughts: true,
+      },
+      responseFormat: {
+        type: "text",
+      },
+    });
+    const { node } = createNode();
+    const state = createState();
+
+    const { result } = await runWithHookContext({ node, state }, async () =>
+      useReason({
+        model: modelRef,
+        input: "Answer plainly",
+        stream: false,
+      }),
+    );
+
+    expect(result.text).toBe("Plain answer");
+    expect(invoke).toHaveBeenCalledTimes(1);
+    expect(provider.getModel).toHaveBeenCalledWith("mock-model", {
+      streaming: false,
+      reasoning: {
+        includeThoughts: true,
+      },
+      responseFormat: {
+        type: "text",
+      },
+    });
+  });
+
   it("parses fenced JSON output when outputSchema is provided", async () => {
     const response = [
       "```json",
@@ -862,6 +930,86 @@ describe("useReason output flow", () => {
         body: "Hello there",
       },
     });
+
+    const textEvents = emitted.filter((x) => x.event.startsWith("text-"));
+    expect(textEvents).toHaveLength(0);
+  });
+
+  it("propagates structured stream provider errors without emitting text or final structured events", async () => {
+    const providerError = new Error("provider stream failed");
+    const { stream, invoke, modelRef } = createProvider({
+      streamResponses: [
+        '{"subject":"Welcome","body":"Hello',
+        {
+          type: "error",
+          error: providerError,
+          providerMetadata: {
+            requestId: "stream-error-1",
+          },
+          warnings: [
+            {
+              type: "other",
+              message: "partial stream",
+            },
+          ],
+        },
+      ],
+    });
+    const { node, emitted } = createNode();
+    const state = createState();
+    const fail = vi.fn();
+    const reasonTrace: ReasonTraceAdapter = {
+      startSpan: vi.fn(() => ({
+        end: vi.fn(),
+        addEvent: vi.fn(),
+        fail,
+      })),
+    };
+
+    await expect(
+      runWithHookContext({ node, state, reasonTrace }, async () =>
+        useReason({
+          id: "email-reason",
+          model: modelRef,
+          input: "Create an email",
+          stream: true,
+          emit: true,
+          outputSchema: EmailSchema,
+          structured: {
+            dataType: "reason.email",
+            stream: true,
+            fields: {
+              body: "text-delta",
+            },
+          },
+        }),
+      ),
+    ).rejects.toThrow("provider stream failed");
+
+    expect(stream).toHaveBeenCalledTimes(1);
+    expect(invoke).toHaveBeenCalledTimes(0);
+    expect(fail).toHaveBeenCalledWith(
+      providerError,
+      expect.objectContaining({
+        attributes: expect.objectContaining({
+          providerId: "mock",
+          modelId: "mock-model",
+        }),
+      }),
+    );
+
+    const structuredEvents = emitted.filter(
+      (x) => x.event === "structured_data",
+    );
+    expect(structuredEvents).toHaveLength(1);
+    expect(structuredEvents[0]?.payload).toMatchObject({
+      kind: "text-delta",
+      path: "body",
+      delta: "Hello",
+    });
+    expect(
+      structuredEvents.some((event) => event.payload.kind === "final"),
+    ).toBe(false);
 
     const textEvents = emitted.filter((x) => x.event.startsWith("text-"));
     expect(textEvents).toHaveLength(0);
