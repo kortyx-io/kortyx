@@ -1,5 +1,6 @@
 import { expect } from "vitest";
 import { describeProviderConformance } from "../../../packages/providers/test/conformance";
+import { describeProviderFailureConformance } from "../../../packages/providers/test/failure-conformance";
 import { createGroq } from "../src/provider";
 import type { GroqChatCompletionRequest } from "../src/types";
 
@@ -250,4 +251,13 @@ describeProviderConformance({
       );
     },
   },
+});
+
+describeProviderFailureConformance({
+  providerName: "Groq",
+  createModel: (fetch) =>
+    createGroq({
+      apiKey: "test-key",
+      fetch,
+    }).getModel("llama-3.1-8b-instant"),
 });
