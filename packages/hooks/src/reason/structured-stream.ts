@@ -390,17 +390,7 @@ export const extractCompletedArrayItems = (args: {
     if (ch === "}" || ch === "]") {
       if (nesting > 0) {
         nesting -= 1;
-        if (nesting > 0) continue;
-      }
-
-      if (ch === "]") {
-        const raw = args.text.slice(itemStart, i).trim();
-        if (raw) {
-          try {
-            items.push(JSON.parse(raw));
-          } catch {}
-        }
-        break;
+        continue;
       }
     }
 

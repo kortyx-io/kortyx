@@ -418,6 +418,40 @@ describe("useReason output flow", () => {
     });
   });
 
+  it("does not mark token usage dirty for zero-usage provider metadata", async () => {
+    const { modelRef } = createProvider({
+      invokeResponses: [
+        {
+          content: "Summary",
+          usage: {
+            input: 0,
+            output: 0,
+            total: 0,
+          },
+        },
+      ],
+    });
+    const { node } = createNode();
+    const state = createState();
+
+    const { result, runtimeUpdates } = await runWithHookContext(
+      { node, state },
+      async () =>
+        useReason({
+          model: modelRef,
+          input: "Create a summary",
+          stream: false,
+        }),
+    );
+
+    expect(result.usage).toEqual({
+      input: 0,
+      output: 0,
+      total: 0,
+    });
+    expect(runtimeUpdates).toBeNull();
+  });
+
   it("emits trace spans for useReason and runReasonEngine", async () => {
     const { modelRef } = createProvider({
       invokeResponses: [

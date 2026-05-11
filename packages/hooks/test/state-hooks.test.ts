@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { runWithHookContext } from "../src/context";
+import { getHookContext, runWithHookContext } from "../src/context";
 import { useNodeState, useWorkflowState } from "../src/hooks";
 import { createNode, createState } from "./helpers";
 
@@ -115,6 +115,82 @@ describe("state hooks", () => {
     );
 
     expect(secondRun.result).toEqual(["item-1"]);
+  });
+
+  it("supports functional workflow state updates", async () => {
+    const { node } = createNode();
+    const state = createState();
+
+    const run = await runWithHookContext({ node, state }, async () => {
+      const [count, setCount] = useWorkflowState("count", 1);
+      setCount((prev) => prev + 2);
+      return count;
+    });
+
+    expect(run.result).toBe(1);
+    expect(run.runtimeUpdates).toMatchObject({
+      __kortyx: {
+        workflowState: {
+          count: 3,
+        },
+      },
+    });
+  });
+
+  it("restores legacy array node state for the same node", async () => {
+    const { node } = createNode({ nodeId: "legacy-node" });
+    const state = createState({
+      __kortyx: {
+        nodeState: {
+          nodeId: "legacy-node",
+          state: ["restored"],
+        },
+        workflowState: {},
+      },
+    });
+
+    const run = await runWithHookContext({ node, state }, async () => {
+      const [value] = useNodeState("initial");
+      return value;
+    });
+
+    expect(run.result).toBe("restored");
+    expect(run.runtimeUpdates).toBeNull();
+  });
+
+  it("ignores malformed stored node state and initializes fresh state", async () => {
+    const { node } = createNode({ nodeId: "fresh-node" });
+    const state = createState({
+      __kortyx: {
+        nodeState: {
+          nodeId: "fresh-node",
+          state: "not-a-node-state",
+        },
+        workflowState: "not-workflow-state",
+      },
+    });
+
+    const run = await runWithHookContext({ node, state }, async () => {
+      const [value] = useNodeState("initial");
+      return value;
+    });
+
+    expect(run.result).toBe("initial");
+    expect(run.runtimeUpdates).toMatchObject({
+      __kortyx: {
+        nodeState: {
+          nodeId: "fresh-node",
+          state: { byIndex: ["initial"], byKey: {} },
+        },
+        workflowState: {},
+      },
+    });
+  });
+
+  it("throws when hook context is read outside node execution", () => {
+    expect(() => getHookContext()).toThrow(
+      "Hooks can only be used while a node is executing.",
+    );
   });
 
   it("keeps node-local state scoped to the current node while workflow state is shared", async () => {
