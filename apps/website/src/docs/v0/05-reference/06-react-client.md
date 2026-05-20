@@ -30,11 +30,6 @@ export function ChatPage() {
   const chat = useChat({
     transport: createRouteChatTransport({
       endpoint: "/api/chat",
-      getBody: ({ sessionId, workflowId, messages }) => ({
-        sessionId,
-        workflowId,
-        messages,
-      }),
     }),
   });
 
@@ -48,11 +43,6 @@ export function ChatPage() {
   const chat = useChat({
     transport: createRouteChatTransport({
       endpoint: "/api/chat",
-      getBody: ({ sessionId, workflowId, messages }) => ({
-        sessionId,
-        workflowId,
-        messages,
-      }),
     }),
   });
 
@@ -82,6 +72,104 @@ This separation is intentional:
 - finalized assistant messages can keep their debug chunks after the stream ends
 
 When a stream finishes, `useChat(...)` builds the assistant message and appends it to `messages`.
+
+## Request context and message preparation
+
+Pass `context` when the client should send non-message request data, such as a selected tenant id, visible thread id, or UI state needed by the server.
+
+```ts
+const chat = useChat({
+  transport: createRouteChatTransport({
+    endpoint: "/api/chat",
+  }),
+  context: {
+    threadId,
+    tenantId,
+  },
+});
+```
+```js
+const chat = useChat({
+  transport: createRouteChatTransport({
+    endpoint: "/api/chat",
+  }),
+  context: {
+    threadId,
+    tenantId,
+  },
+});
+```
+
+By default, `useChat(...)` sends finalized history plus the outgoing user message. Use `prepareContextMessages` when your app owns a different history strategy, such as server-side history, summaries, or key facts.
+
+```ts
+const chat = useChat({
+  transport: createRouteChatTransport({
+    endpoint: "/api/chat",
+  }),
+  context: {
+    threadId,
+    tenantId,
+  },
+  prepareContextMessages: async ({ messages, context }) => {
+    const summary = await summarizeForThread(context.threadId, messages);
+    return [
+      {
+        role: "system",
+        content: summary,
+      },
+    ];
+  },
+});
+```
+```js
+const chat = useChat({
+  transport: createRouteChatTransport({
+    endpoint: "/api/chat",
+  }),
+  context: {
+    threadId,
+    tenantId,
+  },
+  prepareContextMessages: async ({ messages, context }) => {
+    const summary = await summarizeForThread(context.threadId, messages);
+    return [
+      {
+        role: "system",
+        content: summary,
+      },
+    ];
+  },
+});
+```
+
+`prepareContextMessages` returns the context/history messages only. `useChat(...)` appends the outgoing user or resume message automatically.
+
+> **Good to know:** Client `context` is request metadata, not trusted authorization state. Authenticate the route, rate-limit it, and derive sensitive values such as user id or permissions on the server.
+
+Inside nodes, read server-approved request context with `useRuntimeContext(...)`.
+
+```ts
+import { useRuntimeContext } from "kortyx";
+
+type AppContext = {
+  userId: string;
+  tenantId?: string;
+};
+
+export async function supportNode() {
+  const context = useRuntimeContext<AppContext>();
+  return `User: ${context.userId}`;
+}
+```
+```js
+import { useRuntimeContext } from "kortyx";
+
+export async function supportNode() {
+  const context = useRuntimeContext();
+  return `User: ${context.userId}`;
+}
+```
 
 ## Runtime controls
 
@@ -116,12 +204,25 @@ Custom transports should forward `context.signal` to their own request layer if 
 ## `useChat(...)` options
 
 ```ts
-import type { ChatStorage, ChatTransport } from "@kortyx/react";
+import type {
+  ChatMsg,
+  ChatStorage,
+  ChatTransport,
+  OutgoingChatMessage,
+} from "@kortyx/react";
 
 type UseChatOptions = {
-  transport: ChatTransport;
-  storage?: ChatStorage;
+  transport: ChatTransport<Record<string, unknown>>;
+  storage?: ChatStorage<ChatMsg>;
   createId?: () => string;
+  context?: Record<string, unknown>;
+  prepareContextMessages?: (args: {
+    messages: ChatMsg[];
+    sessionId: string;
+    workflowId: string;
+    reason: "send" | "resume";
+    context: Record<string, unknown>;
+  }) => OutgoingChatMessage[] | Promise<OutgoingChatMessage[]>;
 };
 ```
 
@@ -130,6 +231,8 @@ Notes:
 - `transport` is required
 - `storage` defaults to browser storage
 - `createId` is optional when you want custom message/piece ids
+- `context` defaults to `{}`
+- `prepareContextMessages` defaults to the finalized message history when `includeHistory` is true
 
 ## Transport helpers
 
@@ -140,10 +243,11 @@ import { createRouteChatTransport } from "@kortyx/react";
 
 const transport = createRouteChatTransport({
   endpoint: "/api/chat",
-  getBody: ({ sessionId, workflowId, messages }) => ({
+  createBody: ({ sessionId, workflowId, messages, context }) => ({
     sessionId,
     workflowId,
     messages,
+    context,
   }),
 });
 ```
@@ -152,15 +256,16 @@ import { createRouteChatTransport } from "@kortyx/react";
 
 const transport = createRouteChatTransport({
   endpoint: "/api/chat",
-  getBody: ({ sessionId, workflowId, messages }) => ({
+  createBody: ({ sessionId, workflowId, messages, context }) => ({
     sessionId,
     workflowId,
     messages,
+    context,
   }),
 });
 ```
 
-Use this when your backend returns SSE chunks from a route handler.
+Use this when your backend returns SSE chunks from a route handler. `createBody` is optional; without it the route body is `{ sessionId, workflowId, messages, context }`.
 
 ### Custom transport
 

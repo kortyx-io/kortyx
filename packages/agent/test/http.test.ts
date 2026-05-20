@@ -19,6 +19,7 @@ describe("parseChatRequestBody", () => {
         sessionId: " session-1 ",
         workflowId: " support ",
         stream: false,
+        context: { userId: "user-1" },
         ignored: true,
         messages: [
           {
@@ -32,6 +33,7 @@ describe("parseChatRequestBody", () => {
       sessionId: "session-1",
       workflowId: "support",
       stream: false,
+      context: { userId: "user-1" },
       messages: [
         {
           role: "user",
@@ -59,6 +61,7 @@ describe("handleChatRequestBody", () => {
       body: {
         sessionId: "session-1",
         workflowId: "workflow-1",
+        context: { userId: "user-1" },
         stream: false,
         messages: [{ role: "user", content: "hello" }],
       },
@@ -67,7 +70,11 @@ describe("handleChatRequestBody", () => {
     expect(response.headers.get("content-type")).toBe("application/json");
     expect(streamChat).toHaveBeenCalledWith(
       [{ role: "user", content: "hello" }],
-      { sessionId: "session-1", workflowId: "workflow-1" },
+      {
+        sessionId: "session-1",
+        workflowId: "workflow-1",
+        context: { userId: "user-1" },
+      },
     );
     await expect(response.json()).resolves.toMatchObject({
       text: "hello",

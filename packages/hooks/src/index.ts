@@ -17,6 +17,7 @@ export {
   useInterrupt,
   useNodeState,
   useReason,
+  useRuntimeContext,
   useStructuredData,
   useWorkflowState,
 } from "./hooks";

@@ -225,6 +225,85 @@ describe("useChat", () => {
     ]);
   });
 
+  it("lets apps prepare context messages while appending the outgoing message automatically", async () => {
+    const seenContexts: Parameters<
+      ChatTransport<{ userId: string }>["stream"]
+    >[0][] = [];
+    const transport: ChatTransport<{ userId: string }> = {
+      stream: async (context) => {
+        seenContexts.push(context);
+        await context.onChunk({
+          type: "done",
+        });
+      },
+    };
+    const memory = createMemoryStorage({
+      messages: [
+        {
+          id: "assistant-1",
+          role: "assistant",
+          content: "full prior assistant message",
+        },
+      ],
+    });
+    const prepareContextMessages = vi.fn(
+      async ({
+        messages,
+        context,
+      }: {
+        messages: ChatMsg[];
+        context: { userId: string };
+      }) => [
+        {
+          role: "system" as const,
+          content: `summary for ${context.userId}: ${messages.length} messages`,
+        },
+      ],
+    );
+
+    const { result } = renderHook(() =>
+      useChat({
+        transport,
+        storage: memory.storage,
+        context: { userId: "user-1" },
+        prepareContextMessages,
+      }),
+    );
+
+    await flushEffects();
+
+    await act(async () => {
+      await result.current.send("next");
+    });
+
+    expect(prepareContextMessages).toHaveBeenCalledWith(
+      expect.objectContaining({
+        reason: "send",
+        context: { userId: "user-1" },
+        messages: [
+          {
+            id: "assistant-1",
+            role: "assistant",
+            content: "full prior assistant message",
+          },
+        ],
+      }),
+    );
+    expect(seenContexts[0]).toMatchObject({
+      context: { userId: "user-1" },
+      messages: [
+        {
+          role: "system",
+          content: "summary for user-1: 1 messages",
+        },
+        {
+          role: "user",
+          content: "next",
+        },
+      ],
+    });
+  });
+
   it("persists session chunks into storage state", async () => {
     const transport: ChatTransport = {
       stream: async ({ onChunk }) => {

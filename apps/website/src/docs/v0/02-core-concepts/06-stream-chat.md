@@ -49,11 +49,6 @@ export function ChatPage() {
   const chat = useChat({
     transport: createRouteChatTransport({
       endpoint: "/api/chat",
-      getBody: ({ sessionId, workflowId, messages }) => ({
-        sessionId,
-        workflowId,
-        messages,
-      }),
     }),
   });
 
@@ -67,11 +62,6 @@ export function ChatPage() {
   const chat = useChat({
     transport: createRouteChatTransport({
       endpoint: "/api/chat",
-      getBody: ({ sessionId, workflowId, messages }) => ({
-        sessionId,
-        workflowId,
-        messages,
-      }),
     }),
   });
 
@@ -105,6 +95,7 @@ export async function POST(request: Request): Promise<Response> {
     // optional
     sessionId: body.sessionId,
     workflowId: body.workflowId,
+    context: body.context,
   });
 
   if (body.stream === false) {
@@ -131,6 +122,7 @@ export async function POST(request) {
     // optional
     sessionId: body.sessionId,
     workflowId: body.workflowId,
+    context: body.context,
   });
 
   if (body.stream === false) {

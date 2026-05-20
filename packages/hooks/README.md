@@ -13,6 +13,7 @@ npm install @kortyx/hooks
 - `useReason(...)` for model calls, optional schema-constrained interrupt flow, and structured output.
 - `useInterrupt(...)` for explicit human-in-the-loop pauses.
 - `useStructuredData(...)` for UI-friendly structured stream events.
+- `useRuntimeContext(...)` for request context made available to node execution.
 - `useNodeState(...)` / `useWorkflowState(...)` for stateful node logic.
 
 `useReason({ interrupt })` defaults to required interrupt behavior. Use

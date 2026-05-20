@@ -35,6 +35,12 @@ active stream state, errors, and the session id. Route transports forward
 `abort()` through an `AbortSignal`; custom transports should forward
 `context.signal` to their own request layer.
 
+`useChat({ context })` forwards request context to the transport. Route
+transports send `{ sessionId, workflowId, messages, context }` by default, and
+`createRouteChatTransport({ createBody })` can customize that body.
+`prepareContextMessages` lets apps replace the default history with summaries
+or server-owned history while `useChat` still appends the outgoing message.
+
 ## License
 
 Apache-2.0

@@ -7,6 +7,7 @@ export type ChatRequestBody = {
   sessionId?: string | undefined;
   workflowId?: string | undefined;
   stream?: boolean | undefined;
+  context?: Record<string, unknown> | undefined;
   messages: ChatMessage[];
 };
 
@@ -24,6 +25,7 @@ const chatRequestBodySchema = z.looseObject({
   sessionId: z.string().optional(),
   workflowId: z.string().optional(),
   stream: z.boolean().optional(),
+  context: z.record(z.string(), z.unknown()).optional(),
   messages: z.array(chatMessageSchema),
 });
 
@@ -49,6 +51,7 @@ export function parseChatRequestBody(value: unknown): ChatRequestBody {
     ...(typeof parsed.data.stream === "boolean"
       ? { stream: parsed.data.stream }
       : {}),
+    ...(parsed.data.context ? { context: parsed.data.context } : {}),
     messages: parsed.data.messages as ChatMessage[],
   };
 }
@@ -61,6 +64,7 @@ export async function handleChatRequestBody(args: {
   const stream = await agent.streamChat(body.messages, {
     sessionId: body.sessionId,
     workflowId: body.workflowId,
+    context: body.context,
   });
 
   if (body.stream === false) {

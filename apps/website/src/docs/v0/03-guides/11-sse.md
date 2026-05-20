@@ -20,6 +20,7 @@ export async function POST(request: Request): Promise<Response> {
   const stream = await agent.streamChat(body.messages, {
     sessionId: body.sessionId,
     workflowId: body.workflowId,
+    context: body.context,
   });
 
   return toSSE(stream);
@@ -34,13 +35,14 @@ export async function POST(request) {
   const stream = await agent.streamChat(body.messages, {
     sessionId: body.sessionId,
     workflowId: body.workflowId,
+    context: body.context,
   });
 
   return toSSE(stream);
 }
 ```
 
-> **Good to know:** `toSSE(...)` is the route-level helper you usually want. It sets the SSE headers and writes the stream in SSE format.
+> **Good to know:** `toSSE(...)` is the route-level helper you usually want. It sets the SSE headers and writes the stream in SSE format. Authenticate and rate-limit this route before calling `agent.streamChat(...)`; do not trust client-sent context for authorization.
 
 ## Recommended client pattern for React
 
@@ -53,11 +55,6 @@ export function ChatPage() {
   const chat = useChat({
     transport: createRouteChatTransport({
       endpoint: "/api/chat",
-      getBody: ({ sessionId, workflowId, messages }) => ({
-        sessionId,
-        workflowId,
-        messages,
-      }),
     }),
   });
 
@@ -71,11 +68,6 @@ export function ChatPage() {
   const chat = useChat({
     transport: createRouteChatTransport({
       endpoint: "/api/chat",
-      getBody: ({ sessionId, workflowId, messages }) => ({
-        sessionId,
-        workflowId,
-        messages,
-      }),
     }),
   });
 

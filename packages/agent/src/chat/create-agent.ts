@@ -18,6 +18,7 @@ import { streamChat as runStreamChat } from "./process-chat";
 export interface AgentProcessOptions {
   sessionId?: string | undefined;
   workflowId?: string | undefined;
+  context?: Record<string, unknown> | undefined;
 }
 
 export interface CreateAgentArgs {
@@ -40,6 +41,7 @@ const agentProcessOptionsSchema = z
   .object({
     sessionId: z.string().optional(),
     workflowId: z.string().optional(),
+    context: z.record(z.string(), z.unknown()).optional(),
   })
   .strict();
 
@@ -165,14 +167,16 @@ export function createAgent(args: CreateAgentArgs): Agent {
       workflowRegistry: registry,
       frameworkAdapter: resolvedFrameworkAdapter,
       getProvider: resolvedGetProvider,
-      loadRuntimeConfig: (runtimeOptions?: AgentProcessOptions) =>
-        runtimeOptions?.sessionId
+      loadRuntimeConfig: (runtimeOptions?: AgentProcessOptions) => ({
+        ...(runtimeOptions?.sessionId
           ? {
               session: {
                 id: runtimeOptions.sessionId,
               },
             }
-          : {},
+          : {}),
+        ...(runtimeOptions?.context ? { context: runtimeOptions.context } : {}),
+      }),
     });
   };
 

@@ -20,6 +20,20 @@ const defaultCreateId = () => {
   return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
 };
 
+type DefaultChatContext = Record<string, unknown>;
+
+export type PrepareContextMessagesArgs<TContext = DefaultChatContext> = {
+  messages: ChatMsg[];
+  sessionId: string;
+  workflowId: string;
+  reason: "send" | "resume";
+  context: TContext;
+};
+
+export type PrepareContextMessages<TContext = DefaultChatContext> = (
+  args: PrepareContextMessagesArgs<TContext>,
+) => OutgoingChatMessage[] | Promise<OutgoingChatMessage[]>;
+
 export type UseChatValue = {
   messages: ChatMsg[];
   isStreaming: boolean;
@@ -52,10 +66,12 @@ export type UseChatValue = {
   setIncludeHistory: React.Dispatch<React.SetStateAction<boolean>>;
 };
 
-export type UseChatOptions = {
-  transport: ChatTransport;
+export type UseChatOptions<TContext = DefaultChatContext> = {
+  transport: ChatTransport<TContext>;
   storage?: ChatStorage<ChatMsg> | undefined;
   createId?: (() => string) | undefined;
+  context?: TContext | undefined;
+  prepareContextMessages?: PrepareContextMessages<TContext> | undefined;
 };
 
 const defaultStorage = createBrowserChatStorage<ChatMsg>();
@@ -93,10 +109,14 @@ function findActiveTextInterrupt(args: {
   return undefined;
 }
 
-export function useChat(options: UseChatOptions): UseChatValue {
+export function useChat<TContext = DefaultChatContext>(
+  options: UseChatOptions<TContext>,
+): UseChatValue {
   const resolvedStorage = options.storage ?? defaultStorage;
   const transportRef = useLatestRef(options.transport);
   const storageRef = useLatestRef(resolvedStorage);
+  const requestContext =
+    options.context ?? ({} as unknown as NonNullable<TContext>);
   const createId = useRef(options.createId ?? defaultCreateId).current;
 
   const [messages, setMessages] = useState<ChatMsg[]>([]);
@@ -215,6 +235,31 @@ export function useChat(options: UseChatOptions): UseChatValue {
     return sid;
   };
 
+  const toOutgoingHistoryMessage = (message: ChatMsg): OutgoingChatMessage => ({
+    role: message.role,
+    content: message.content,
+  });
+
+  const prepareMessagesToSend = async (args: {
+    sid: string;
+    outgoingMessage: OutgoingChatMessage;
+    reason: "send" | "resume";
+  }): Promise<OutgoingChatMessage[]> => {
+    const prepared = options.prepareContextMessages
+      ? await options.prepareContextMessages({
+          messages,
+          sessionId: args.sid,
+          workflowId,
+          reason: args.reason,
+          context: requestContext,
+        })
+      : includeHistory
+        ? messages.map(toOutgoingHistoryMessage)
+        : [];
+
+    return [...prepared, args.outgoingMessage];
+  };
+
   const streamAssistantResponse = async (args: {
     sid: string;
     messagesToSend: OutgoingChatMessage[];
@@ -243,6 +288,7 @@ export function useChat(options: UseChatOptions): UseChatValue {
       sessionId: args.sid,
       workflowId,
       messages: args.messagesToSend,
+      context: requestContext,
       ...(args.signal ? { signal: args.signal } : {}),
       onChunk: (chunk: StreamChunk) => {
         debug.push(chunk);
@@ -325,13 +371,11 @@ export function useChat(options: UseChatOptions): UseChatValue {
         metadata: resumePayload,
       };
       const sid = resolveSessionId();
-      const history = includeHistory
-        ? messages.map((message) => ({
-            role: message.role,
-            content: message.content,
-          }))
-        : [];
-      const messagesToSend = [...history, outgoing];
+      const messagesToSend = await prepareMessagesToSend({
+        sid,
+        outgoingMessage: outgoing,
+        reason: "resume",
+      });
 
       await streamAssistantResponse({
         sid,
@@ -402,13 +446,11 @@ export function useChat(options: UseChatOptions): UseChatValue {
 
     try {
       const sid = resolveSessionId();
-      const history = includeHistory
-        ? messages.map((message) => ({
-            role: message.role,
-            content: message.content,
-          }))
-        : [];
-      const messagesToSend = [...history, { role: "user" as const, content }];
+      const messagesToSend = await prepareMessagesToSend({
+        sid,
+        outgoingMessage: { role: "user" as const, content },
+        reason: "send",
+      });
       await streamAssistantResponse({
         sid,
         messagesToSend,

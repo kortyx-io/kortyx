@@ -8,6 +8,7 @@ import {
 const baseContext: ChatTransportContext = {
   sessionId: "session-1",
   workflowId: "workflow-1",
+  context: {},
   messages: [
     {
       role: "user",
@@ -84,9 +85,10 @@ describe("createChatTransport", () => {
       method: "PUT",
       headers: { authorization: "Bearer token" },
       fetchImpl: fetchImpl as typeof fetch,
-      getBody: (context) => ({
+      createBody: (context) => ({
         sessionId: context.sessionId,
         workflowId: context.workflowId,
+        tenantId: context.context.tenantId,
         count: context.messages.length,
       }),
     });
@@ -110,10 +112,47 @@ describe("createChatTransport", () => {
       body: JSON.stringify({
         sessionId: "session-1",
         workflowId: "workflow-1",
+        tenantId: undefined,
         count: 1,
       }),
     });
     expect(seenInit?.signal).toBe(controller.signal);
     expect(seen).toEqual(["status"]);
+  });
+
+  it("creates route transports with the default chat request body", async () => {
+    let seenInit: RequestInit | undefined;
+    const fetchImpl = async (_endpoint: string, init?: RequestInit) => {
+      seenInit = init;
+
+      return new Response(
+        new ReadableStream<Uint8Array>({
+          start(controller) {
+            controller.enqueue(new TextEncoder().encode("data: [DONE]\n\n"));
+            controller.close();
+          },
+        }),
+        { status: 200 },
+      );
+    };
+    const transport = createRouteChatTransport({
+      endpoint: "/api/chat",
+      fetchImpl: fetchImpl as typeof fetch,
+    });
+
+    await transport.stream({
+      ...baseContext,
+      context: { userId: "user-1" },
+      onChunk: () => undefined,
+    });
+
+    expect(seenInit?.body).toBe(
+      JSON.stringify({
+        sessionId: "session-1",
+        workflowId: "workflow-1",
+        messages: baseContext.messages,
+        context: { userId: "user-1" },
+      }),
+    );
   });
 });
