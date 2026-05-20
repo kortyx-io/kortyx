@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.13.0](https://github.com/kortyx-io/kortyx/compare/example-nextjs-chat-api-route-v0.12.0...example-nextjs-chat-api-route-v0.13.0) (2026-05-20)
+
+
+### Features
+
+* **chat:** add request context plumbing ([7210a6f](https://github.com/kortyx-io/kortyx/commit/7210a6f9275728628e1862bd7b0f200112bd9b08))
+* **react:** tighten useChat lifecycle controls ([1672c72](https://github.com/kortyx-io/kortyx/commit/1672c72a524d16fae2f23dcbec1b91191747dc25))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/react bumped to 0.3.0
+    * kortyx bumped to 0.10.0
+
 ## [0.12.0](https://github.com/kortyx-io/kortyx/compare/example-nextjs-chat-api-route-v0.11.1...example-nextjs-chat-api-route-v0.12.0) (2026-05-04)
 
 

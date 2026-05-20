@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.5.2](https://github.com/kortyx-io/kortyx/compare/core-v0.5.1...core-v0.5.2) (2026-05-20)
+
+
+### Bug Fixes
+
+* expand test coverage and source cleanups ([f1d89ae](https://github.com/kortyx-io/kortyx/commit/f1d89ae61b3655d41450c66cf850e0e00972f54e))
+* expand test coverage and source cleanups ([4831a25](https://github.com/kortyx-io/kortyx/commit/4831a25e9517f56b99610bddd4b48a10eff72047))
+
 ## [0.5.1](https://github.com/kortyx-io/kortyx/compare/core-v0.5.0...core-v0.5.1) (2026-05-03)
 
 

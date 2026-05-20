@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.12.0](https://github.com/kortyx-io/kortyx/compare/hooks-v0.11.0...hooks-v0.12.0) (2026-05-20)
+
+
+### Features
+
+* **chat:** add request context plumbing ([7210a6f](https://github.com/kortyx-io/kortyx/commit/7210a6f9275728628e1862bd7b0f200112bd9b08))
+
+
+### Bug Fixes
+
+* **hooks:** handle nested array structured stream items ([3a6d0a4](https://github.com/kortyx-io/kortyx/commit/3a6d0a46b24d78d01c7023a8dc076a2cc71beb5d))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/core bumped to 0.5.2
+
 ## [0.11.0](https://github.com/kortyx-io/kortyx/compare/hooks-v0.10.1...hooks-v0.11.0) (2026-05-04)
 
 

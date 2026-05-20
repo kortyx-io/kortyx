@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.10.0](https://github.com/kortyx-io/kortyx/compare/kortyx-v0.9.3...kortyx-v0.10.0) (2026-05-20)
+
+
+### Features
+
+* **chat:** add request context plumbing ([7210a6f](https://github.com/kortyx-io/kortyx/commit/7210a6f9275728628e1862bd7b0f200112bd9b08))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/agent bumped to 0.11.0
+    * @kortyx/core bumped to 0.5.2
+    * @kortyx/hooks bumped to 0.12.0
+    * @kortyx/runtime bumped to 0.9.3
+    * @kortyx/stream bumped to 0.7.0
+    * @kortyx/utils bumped to 0.2.6
+
 ## [0.9.3](https://github.com/kortyx-io/kortyx/compare/kortyx-v0.9.2...kortyx-v0.9.3) (2026-05-04)
 
 

@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.13.0](https://github.com/kortyx-io/kortyx/compare/example-nextjs-chat-server-action-v0.12.0...example-nextjs-chat-server-action-v0.13.0) (2026-05-20)
+
+
+### Features
+
+* **react:** tighten useChat lifecycle controls ([1672c72](https://github.com/kortyx-io/kortyx/commit/1672c72a524d16fae2f23dcbec1b91191747dc25))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/react bumped to 0.3.0
+    * kortyx bumped to 0.10.0
+
 ## [0.12.0](https://github.com/kortyx-io/kortyx/compare/example-nextjs-chat-server-action-v0.11.1...example-nextjs-chat-server-action-v0.12.0) (2026-05-04)
 
 

@@ -1,5 +1,25 @@
 # @kortyx/react
 
+## [0.3.0](https://github.com/kortyx-io/kortyx/compare/react-v0.2.1...react-v0.3.0) (2026-05-20)
+
+
+### Features
+
+* **chat:** add request context plumbing ([7210a6f](https://github.com/kortyx-io/kortyx/commit/7210a6f9275728628e1862bd7b0f200112bd9b08))
+* **react:** tighten useChat lifecycle controls ([1672c72](https://github.com/kortyx-io/kortyx/commit/1672c72a524d16fae2f23dcbec1b91191747dc25))
+
+
+### Bug Fixes
+
+* **react:** bucket empty-node text deltas into a single stream ([fb01809](https://github.com/kortyx-io/kortyx/commit/fb01809752f138414cda13daa5ffe5e67016b0c6))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/stream bumped to 0.7.0
+
 ## [0.2.1](https://github.com/kortyx-io/kortyx/compare/react-v0.2.0...react-v0.2.1) (2026-05-03)
 
 

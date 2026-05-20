@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.16.0](https://github.com/kortyx-io/kortyx/compare/website-v0.15.1...website-v0.16.0) (2026-05-20)
+
+
+### Features
+
+* **chat:** add request context plumbing ([7210a6f](https://github.com/kortyx-io/kortyx/commit/7210a6f9275728628e1862bd7b0f200112bd9b08))
+* **react:** tighten useChat lifecycle controls ([1672c72](https://github.com/kortyx-io/kortyx/commit/1672c72a524d16fae2f23dcbec1b91191747dc25))
+
 ## [0.15.1](https://github.com/kortyx-io/kortyx/compare/website-v0.15.0...website-v0.15.1) (2026-05-04)
 
 
