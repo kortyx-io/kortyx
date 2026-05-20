@@ -1,5 +1,18 @@
 # @chatbot-core/types
 
+## [0.7.0](https://github.com/kortyx-io/kortyx/compare/stream-v0.6.1...stream-v0.7.0) (2026-05-20)
+
+
+### Features
+
+* **react:** tighten useChat lifecycle controls ([1672c72](https://github.com/kortyx-io/kortyx/commit/1672c72a524d16fae2f23dcbec1b91191747dc25))
+
+
+### Bug Fixes
+
+* expand test coverage and source cleanups ([f1d89ae](https://github.com/kortyx-io/kortyx/commit/f1d89ae61b3655d41450c66cf850e0e00972f54e))
+* expand test coverage and source cleanups ([4831a25](https://github.com/kortyx-io/kortyx/commit/4831a25e9517f56b99610bddd4b48a10eff72047))
+
 ## [0.6.1](https://github.com/kortyx-io/kortyx/compare/stream-v0.6.0...stream-v0.6.1) (2026-04-22)
 
 

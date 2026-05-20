@@ -1,6 +1,6 @@
 {
   "name": "kortyx",
-  "version": "0.9.3",
+  "version": "0.10.0",
   "private": false,
   "description": "The batteries-included Kortyx package that aggregates the core building blocks.",
   "keywords": [

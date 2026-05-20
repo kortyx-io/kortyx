@@ -1,5 +1,30 @@
 # Changelog
 
+## [0.11.0](https://github.com/kortyx-io/kortyx/compare/agent-v0.10.3...agent-v0.11.0) (2026-05-20)
+
+
+### Features
+
+* **chat:** add request context plumbing ([7210a6f](https://github.com/kortyx-io/kortyx/commit/7210a6f9275728628e1862bd7b0f200112bd9b08))
+
+
+### Bug Fixes
+
+* **agent:** strengthen coverage for orchestration paths ([01f1542](https://github.com/kortyx-io/kortyx/commit/01f1542416e8079b92e5b2390840e18b3a8e351c))
+* **agent:** strengthen coverage for orchestration paths ([7c52d00](https://github.com/kortyx-io/kortyx/commit/7c52d00d4538f832cededcd3bd7b86e88b12ddfa))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/core bumped to 0.5.2
+    * @kortyx/runtime bumped to 0.9.3
+    * @kortyx/stream bumped to 0.7.0
+    * @kortyx/utils bumped to 0.2.6
+  * devDependencies
+    * @kortyx/hooks bumped to 0.12.0
+
 ## [0.10.3](https://github.com/kortyx-io/kortyx/compare/agent-v0.10.2...agent-v0.10.3) (2026-05-04)
 
 
