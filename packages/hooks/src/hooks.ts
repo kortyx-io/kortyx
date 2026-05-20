@@ -50,6 +50,21 @@ export function useInterrupt<
   return awaitInterruptInternal(args);
 }
 
+export function useRuntimeContext<
+  TContext extends Record<string, unknown> = Record<string, unknown>,
+>(): TContext {
+  const ctx = getHookContext();
+  const config = ctx.state.config;
+  const context =
+    config && typeof config === "object" && "context" in config
+      ? (config as { context?: unknown }).context
+      : undefined;
+
+  return context && typeof context === "object" && !Array.isArray(context)
+    ? (context as TContext)
+    : ({} as TContext);
+}
+
 export function useNodeState<T>(initialValue: T): [T, StateSetter<T>] {
   const ctx = getHookContext();
   const nodeState = ctx.currentNodeState;

@@ -26,8 +26,8 @@ export type BrowserChatStorageKeys = {
 };
 
 export type BrowserChatStorageOptions<TMessage> = {
-  parseMessage: (value: unknown) => TMessage | null;
-  serializeMessage: (message: TMessage) => unknown;
+  parseMessage?: ((value: unknown) => TMessage | null) | undefined;
+  serializeMessage?: ((message: TMessage) => unknown) | undefined;
   maxMessages?: number | undefined;
   keys?: Partial<BrowserChatStorageKeys> | undefined;
 };

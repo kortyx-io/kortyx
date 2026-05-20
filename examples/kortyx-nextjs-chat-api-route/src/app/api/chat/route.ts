@@ -12,6 +12,7 @@ export async function POST(request: Request): Promise<Response> {
     const stream = await agent.streamChat(body.messages, {
       sessionId: body.sessionId,
       workflowId: body.workflowId,
+      context: body.context,
     });
 
     if (body.stream === false) {

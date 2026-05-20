@@ -7,6 +7,7 @@ export interface StreamFromRouteArgs<TBody = unknown> {
   method?: string | undefined;
   fetchImpl?: typeof fetch;
   headers?: Record<string, string> | undefined;
+  signal?: AbortSignal | undefined;
 }
 
 const toErrorMessage = (error: unknown): string =>
@@ -47,6 +48,7 @@ export async function* streamFromRoute<TBody = unknown>(
         ...(args.headers ?? {}),
       },
       body: JSON.stringify(args.body),
+      ...(args.signal ? { signal: args.signal } : {}),
     });
   } catch (error) {
     yield { type: "error", message: toErrorMessage(error) };

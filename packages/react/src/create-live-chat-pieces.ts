@@ -126,11 +126,13 @@ export function createLiveChatPieces<
       }
     }
 
-    return fallbackNode ?? "__unknown__";
+    return fallbackNode && fallbackNode.length > 0
+      ? fallbackNode
+      : "__unknown__";
   };
 
   const ensureTextPiece = (key: string): LiveChatTextPiece => {
-    const pieceKey = `text:${key || "__unknown__"}`;
+    const pieceKey = `text:${key}`;
     const existingIndex = findPieceIndex(pieceKey);
     if (existingIndex >= 0) {
       return keyedPieces[existingIndex]?.piece as LiveChatTextPiece;

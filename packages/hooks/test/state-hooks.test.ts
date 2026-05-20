@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { getHookContext, runWithHookContext } from "../src/context";
-import { useNodeState, useWorkflowState } from "../src/hooks";
+import {
+  useNodeState,
+  useRuntimeContext,
+  useWorkflowState,
+} from "../src/hooks";
 import { createNode, createState } from "./helpers";
 
 describe("state hooks", () => {
@@ -207,6 +211,44 @@ describe("state hooks", () => {
     expect(() => getHookContext()).toThrow(
       "Hooks can only be used while a node is executing.",
     );
+  });
+
+  it("reads request runtime context from config", async () => {
+    const { node } = createNode();
+    const state = createState();
+    state.config = {
+      context: {
+        userId: "user-1",
+        plan: "pro",
+      },
+    };
+
+    const run = await runWithHookContext({ node, state }, async () =>
+      useRuntimeContext<{ userId: string; plan: string }>(),
+    );
+
+    expect(run.result).toEqual({
+      userId: "user-1",
+      plan: "pro",
+    });
+    expect(run.runtimeUpdates).toBeNull();
+  });
+
+  it("returns an empty runtime context when config context is missing or malformed", async () => {
+    const { node } = createNode();
+    const missing = await runWithHookContext(
+      { node, state: createState() },
+      async () => useRuntimeContext(),
+    );
+    const malformedState = createState();
+    malformedState.config = { context: ["not", "an", "object"] };
+    const malformed = await runWithHookContext(
+      { node, state: malformedState },
+      async () => useRuntimeContext(),
+    );
+
+    expect(missing.result).toEqual({});
+    expect(malformed.result).toEqual({});
   });
 
   it("keeps node-local state scoped to the current node while workflow state is shared", async () => {

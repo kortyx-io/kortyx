@@ -78,6 +78,7 @@ describe("createAgent", () => {
     await agent.streamChat([{ role: "user", content: "hello" }], {
       sessionId: "session-1",
       workflowId: "workflow-1",
+      context: { userId: "user-1" },
     });
 
     expect(createInMemoryWorkflowRegistry).toHaveBeenCalledWith([workflow], {
@@ -87,7 +88,11 @@ describe("createAgent", () => {
       expect.objectContaining({
         defaultWorkflowId: "workflow-1",
         messages: [{ role: "user", content: "hello" }],
-        options: { sessionId: "session-1", workflowId: "workflow-1" },
+        options: {
+          sessionId: "session-1",
+          workflowId: "workflow-1",
+          context: { userId: "user-1" },
+        },
         frameworkAdapter,
         getProvider,
       }),
@@ -97,6 +102,15 @@ describe("createAgent", () => {
     if (!args) throw new Error("Expected streamChat to be called.");
     expect(args.loadRuntimeConfig({ sessionId: "session-1" })).toEqual({
       session: { id: "session-1" },
+    });
+    expect(
+      args.loadRuntimeConfig({
+        sessionId: "session-1",
+        context: { userId: "user-1" },
+      }),
+    ).toEqual({
+      session: { id: "session-1" },
+      context: { userId: "user-1" },
     });
     expect(args.loadRuntimeConfig()).toEqual({});
   });

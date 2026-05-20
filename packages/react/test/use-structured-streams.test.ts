@@ -167,6 +167,214 @@ describe("useStructuredStreams", () => {
     );
   });
 
+  it("seeds items from initialChunks on first render", () => {
+    let seq = 0;
+    const { result } = renderHook(() =>
+      useStructuredStreams<Record<string, unknown>>({
+        createId: () => `piece-${++seq}`,
+        initialChunks: [
+          structuredChunk({
+            streamId: "seed-1",
+            kind: "set",
+            path: "draft.body",
+            value: "Hello",
+          }),
+          structuredChunk({
+            streamId: "seed-2",
+            kind: "final",
+            data: { done: true },
+          }),
+        ],
+      }),
+    );
+
+    expect(result.current.items.map((item) => item.streamId)).toEqual([
+      "seed-1",
+      "seed-2",
+    ]);
+    expect(result.current.items[0]?.id).toBe("piece-1");
+    expect(result.current.items[1]?.id).toBe("piece-2");
+  });
+
+  it("falls back to a non-crypto id generator when crypto is unavailable", () => {
+    const originalCrypto = (globalThis as { crypto?: Crypto }).crypto;
+    Object.defineProperty(globalThis, "crypto", {
+      configurable: true,
+      value: undefined,
+    });
+
+    try {
+      const { result } = renderHook(() =>
+        useStructuredStreams<Record<string, unknown>>({
+          initialChunks: [
+            structuredChunk({
+              streamId: "seed-1",
+              kind: "set",
+              path: "body",
+              value: "Hello",
+            }),
+          ],
+        }),
+      );
+
+      expect(result.current.items).toHaveLength(1);
+      expect(typeof result.current.items[0]?.id).toBe("string");
+      expect(result.current.items[0]?.id.length).toBeGreaterThan(0);
+    } finally {
+      Object.defineProperty(globalThis, "crypto", {
+        configurable: true,
+        value: originalCrypto,
+      });
+    }
+  });
+
+  it("preserves siblings when updating a stream that is not the last item", () => {
+    let seq = 0;
+    const { result } = renderHook(() =>
+      useStructuredStreams<Record<string, unknown>>({
+        createId: () => `piece-${++seq}`,
+      }),
+    );
+
+    act(() => {
+      result.current.applyStreamChunk(
+        structuredChunk({
+          streamId: "stream-a",
+          kind: "set",
+          path: "body",
+          value: "first",
+        }),
+      );
+      result.current.applyStreamChunk(
+        structuredChunk({
+          streamId: "stream-b",
+          kind: "set",
+          path: "body",
+          value: "second",
+        }),
+      );
+    });
+
+    act(() => {
+      result.current.applyStreamChunk(
+        structuredChunk({
+          streamId: "stream-a",
+          kind: "set",
+          path: "body",
+          value: "updated",
+        }),
+      );
+    });
+
+    expect(result.current.items.map((item) => item.streamId)).toEqual([
+      "stream-a",
+      "stream-b",
+    ]);
+    expect(result.current.items[0]?.state.data).toMatchObject({
+      body: "updated",
+    });
+    expect(result.current.items[1]?.state.data).toMatchObject({
+      body: "second",
+    });
+  });
+
+  it("keeps three interleaved streams ordered and resolves each final state independently", () => {
+    let seq = 0;
+    const { result } = renderHook(() =>
+      useStructuredStreams<Record<string, unknown>>({
+        createId: () => `piece-${++seq}`,
+      }),
+    );
+
+    act(() => {
+      result.current.applyStreamChunk(
+        structuredChunk({
+          streamId: "alpha",
+          kind: "text-delta",
+          path: "body",
+          delta: "A1-",
+        }),
+      );
+      result.current.applyStreamChunk(
+        structuredChunk({
+          streamId: "beta",
+          kind: "set",
+          path: "score",
+          value: 1,
+        }),
+      );
+      result.current.applyStreamChunk(
+        structuredChunk({
+          streamId: "gamma",
+          kind: "set",
+          path: "label",
+          value: "first",
+        }),
+      );
+    });
+
+    act(() => {
+      result.current.applyStreamChunk(
+        structuredChunk({
+          streamId: "beta",
+          kind: "set",
+          path: "score",
+          value: 2,
+        }),
+      );
+      result.current.applyStreamChunk(
+        structuredChunk({
+          streamId: "alpha",
+          kind: "text-delta",
+          path: "body",
+          delta: "A2",
+        }),
+      );
+      result.current.applyStreamChunk(
+        structuredChunk({
+          streamId: "gamma",
+          kind: "final",
+          data: { label: "final-gamma" },
+        }),
+      );
+    });
+
+    act(() => {
+      result.current.applyStreamChunk(
+        structuredChunk({
+          streamId: "alpha",
+          kind: "final",
+          data: { body: "A1-A2-final" },
+        }),
+      );
+      result.current.applyStreamChunk(
+        structuredChunk({
+          streamId: "beta",
+          kind: "final",
+          data: { score: 99 },
+        }),
+      );
+    });
+
+    expect(result.current.items.map((item) => item.streamId)).toEqual([
+      "alpha",
+      "beta",
+      "gamma",
+    ]);
+    expect(result.current.items.map((item) => item.state.status)).toEqual([
+      "done",
+      "done",
+      "done",
+    ]);
+    expect(result.current.byStreamId.alpha?.data).toMatchObject({
+      body: "A1-A2-final",
+    });
+    expect(result.current.byStreamId.beta?.data).toMatchObject({ score: 99 });
+    expect(result.current.byStreamId.gamma?.data).toMatchObject({
+      label: "final-gamma",
+    });
+  });
+
   it("supports lookup and clear", () => {
     const { result } = renderHook(() => useStructuredStreams());
 

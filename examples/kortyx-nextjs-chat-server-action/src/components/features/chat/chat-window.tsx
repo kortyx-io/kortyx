@@ -17,7 +17,7 @@ export function ChatWindow({ chat }: { chat: UseChatValue }) {
     lastAssistantId,
     send,
     respondToHumanInput,
-    clearChat,
+    clearMessages,
     includeHistory,
     setIncludeHistory,
     workflowId,
@@ -120,7 +120,7 @@ export function ChatWindow({ chat }: { chat: UseChatValue }) {
                 variant="outline"
                 size="sm"
                 onClick={() => {
-                  clearChat();
+                  clearMessages();
                 }}
                 title="Clear chat"
               >
