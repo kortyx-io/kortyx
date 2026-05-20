@@ -46,6 +46,57 @@ describe("useChatStreamDebug", () => {
     vi.useRealTimers();
   });
 
+  it("caps streamDebug at the trailing 1000 chunks while preserving order and seq", () => {
+    const { result } = renderHook(() => useChatStreamDebug());
+
+    let recorder: ReturnType<typeof result.current.createRecorder> | undefined;
+    act(() => {
+      recorder = result.current.createRecorder("starting");
+    });
+    if (!recorder) throw new Error("Expected recorder to be created.");
+    const createdRecorder = recorder;
+
+    const total = 1500;
+    act(() => {
+      for (let i = 0; i < total; i += 1) {
+        createdRecorder.push({
+          type: "status",
+          message: `msg-${i}`,
+        });
+      }
+    });
+
+    const debug = result.current.streamDebug;
+
+    expect(debug.length).toBe(1001);
+    expect(debug.at(0)).toMatchObject({
+      type: "status",
+      message: `msg-${total - 1001}`,
+    });
+    expect(debug.at(-1)).toMatchObject({
+      type: "status",
+      message: `msg-${total - 1}`,
+    });
+
+    const seqs = debug.map(
+      (chunk) => (chunk as unknown as { _seq: number })._seq,
+    );
+    for (let i = 1; i < seqs.length; i += 1) {
+      const prev = seqs[i - 1];
+      const cur = seqs[i];
+      expect(typeof prev).toBe("number");
+      expect(typeof cur).toBe("number");
+      expect((cur as number) - (prev as number)).toBe(1);
+    }
+
+    expect(createdRecorder.getAll().length).toBe(total + 1);
+    const fullSeqs = createdRecorder
+      .getAll()
+      .map((chunk) => (chunk as unknown as { _seq: number })._seq);
+    expect(fullSeqs[0]).toBe(0);
+    expect(fullSeqs.at(-1)).toBe(total);
+  });
+
   it("clears current debug state without mutating recorder history", () => {
     const { result } = renderHook(() => useChatStreamDebug());
 

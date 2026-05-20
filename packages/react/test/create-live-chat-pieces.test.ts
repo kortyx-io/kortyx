@@ -267,6 +267,319 @@ describe("createLiveChatPieces", () => {
     ]);
   });
 
+  it("emits on text-end chunks without altering the visible pieces", () => {
+    const createId = createIdFactory();
+    const snapshots: number[] = [];
+    const accumulator = createLiveChatPieces({
+      createId,
+      onChange: (pieces) => snapshots.push(pieces.length),
+      structuredStreams: {
+        applyStreamChunk: () => undefined,
+      },
+      toHumanInputPiece: () => createHumanInputPiece(),
+    });
+
+    accumulator.processChunk({
+      type: "text-delta",
+      delta: "Hi",
+      node: "writer",
+    });
+
+    const beforeEnd = snapshots.length;
+
+    expect(
+      accumulator.processChunk({
+        type: "text-end",
+        node: "writer",
+      }),
+    ).toBe(true);
+
+    expect(snapshots.length).toBeGreaterThan(beforeEnd);
+    expect(accumulator.getPieces()).toEqual([
+      {
+        id: "id-0",
+        type: "text",
+        content: "Hi",
+      },
+    ]);
+  });
+
+  it("returns true for unknown chunk types without adding pieces", () => {
+    const createId = createIdFactory();
+    const accumulator = createLiveChatPieces({
+      createId,
+      onChange: () => {},
+      structuredStreams: {
+        applyStreamChunk: () => undefined,
+      },
+      toHumanInputPiece: () => createHumanInputPiece(),
+    });
+
+    expect(
+      accumulator.processChunk({
+        type: "status",
+        message: "thinking",
+      } as StreamChunk),
+    ).toBe(true);
+    expect(accumulator.getPieces()).toEqual([]);
+  });
+
+  it("groups text streams with opId only and isolates different nodes", () => {
+    const createId = createIdFactory();
+    const accumulator = createLiveChatPieces({
+      createId,
+      onChange: () => {},
+      structuredStreams: {
+        applyStreamChunk: () => undefined,
+      },
+      toHumanInputPiece: () => createHumanInputPiece(),
+    });
+
+    accumulator.processChunk({
+      type: "text-delta",
+      delta: "alpha-",
+      node: "writer",
+      opId: "op-1",
+    });
+    accumulator.processChunk({
+      type: "text-delta",
+      delta: "beta",
+      node: "writer",
+      opId: "op-1",
+    });
+    accumulator.processChunk({
+      type: "text-delta",
+      delta: "other",
+      node: "reviewer",
+      opId: "op-2",
+    });
+
+    const pieces = accumulator.getPieces();
+    expect(pieces).toHaveLength(2);
+    expect(pieces[0]).toMatchObject({ content: "alpha-beta" });
+    expect(pieces[1]).toMatchObject({ content: "other" });
+  });
+
+  it("falls back to fallbackNode when segmentId and opId are missing", () => {
+    const createId = createIdFactory();
+    const accumulator = createLiveChatPieces({
+      createId,
+      onChange: () => {},
+      structuredStreams: {
+        applyStreamChunk: () => undefined,
+      },
+      toHumanInputPiece: () => createHumanInputPiece(),
+    });
+
+    accumulator.processChunk({
+      type: "text-delta",
+      delta: "hi",
+    } as StreamChunk);
+
+    expect(accumulator.getPieces()).toEqual([
+      {
+        id: "id-0",
+        type: "text",
+        content: "hi",
+      },
+    ]);
+  });
+
+  it("treats blank segmentId/opId as the implicit unknown stream", () => {
+    const createId = createIdFactory();
+    const accumulator = createLiveChatPieces({
+      createId,
+      onChange: () => {},
+      structuredStreams: {
+        applyStreamChunk: () => undefined,
+      },
+      toHumanInputPiece: () => createHumanInputPiece(),
+    });
+
+    accumulator.processChunk({
+      type: "text-delta",
+      delta: "blank-seg-",
+      node: "writer",
+      opId: "",
+      segmentId: "",
+    } as StreamChunk);
+    accumulator.processChunk({
+      type: "text-delta",
+      delta: "trailing",
+      node: "writer",
+      opId: "",
+      segmentId: "",
+    } as StreamChunk);
+
+    const pieces = accumulator.getPieces();
+    expect(pieces).toHaveLength(1);
+    expect(pieces[0]).toMatchObject({
+      content: "blank-seg-trailing",
+    });
+  });
+
+  it("groups by opId fallback when node is missing", () => {
+    const createId = createIdFactory();
+    const accumulator = createLiveChatPieces({
+      createId,
+      onChange: () => {},
+      structuredStreams: {
+        applyStreamChunk: () => undefined,
+      },
+      toHumanInputPiece: () => createHumanInputPiece(),
+    });
+
+    accumulator.processChunk({
+      type: "text-delta",
+      delta: "left",
+      opId: "op-1",
+    } as StreamChunk);
+    accumulator.processChunk({
+      type: "text-delta",
+      delta: "-right",
+      opId: "op-1",
+    } as StreamChunk);
+
+    expect(accumulator.getPieces()).toEqual([
+      {
+        id: "id-0",
+        type: "text",
+        content: "left-right",
+      },
+    ]);
+  });
+
+  it("ignores structured chunks that the accumulator does not advance", () => {
+    const createId = createIdFactory();
+    const accumulator = createLiveChatPieces({
+      createId,
+      onChange: () => {},
+      structuredStreams: {
+        applyStreamChunk: () => undefined,
+      },
+      toHumanInputPiece: () => createHumanInputPiece(),
+    });
+
+    expect(
+      accumulator.processChunk({
+        type: "structured-data",
+        streamId: "noop",
+        dataType: "noop",
+        kind: "set",
+        path: "x",
+        value: 1,
+      }),
+    ).toBe(true);
+    expect(accumulator.getPieces()).toEqual([]);
+  });
+
+  it("uses an empty string when a legacy message chunk has no content", () => {
+    const createId = createIdFactory();
+    const accumulator = createLiveChatPieces({
+      createId,
+      onChange: () => {},
+      structuredStreams: {
+        applyStreamChunk: () => undefined,
+      },
+      toHumanInputPiece: () => createHumanInputPiece(),
+    });
+
+    accumulator.processChunk({
+      type: "message",
+    } as StreamChunk);
+
+    expect(accumulator.getPieces()).toEqual([]);
+  });
+
+  it("uses segmentId alone when opId is absent", () => {
+    const createId = createIdFactory();
+    const accumulator = createLiveChatPieces({
+      createId,
+      onChange: () => {},
+      structuredStreams: {
+        applyStreamChunk: () => undefined,
+      },
+      toHumanInputPiece: () => createHumanInputPiece(),
+    });
+
+    accumulator.processChunk({
+      type: "text-delta",
+      delta: "alpha",
+      node: "writer",
+      segmentId: "seg-x",
+    } as StreamChunk);
+    accumulator.processChunk({
+      type: "text-delta",
+      delta: "-beta",
+      node: "writer",
+      segmentId: "seg-x",
+    } as StreamChunk);
+
+    expect(accumulator.getPieces()).toEqual([
+      {
+        id: "id-0",
+        type: "text",
+        content: "alpha-beta",
+      },
+    ]);
+  });
+
+  it("treats an empty-string node as the implicit unknown stream", () => {
+    const createId = createIdFactory();
+    const accumulator = createLiveChatPieces({
+      createId,
+      onChange: () => {},
+      structuredStreams: {
+        applyStreamChunk: () => undefined,
+      },
+      toHumanInputPiece: () => createHumanInputPiece(),
+    });
+
+    accumulator.processChunk({
+      type: "text-delta",
+      delta: "a",
+      node: "",
+    } as StreamChunk);
+    accumulator.processChunk({
+      type: "text-delta",
+      delta: "b",
+      node: "",
+    } as StreamChunk);
+
+    expect(accumulator.getPieces()).toEqual([
+      {
+        id: "id-0",
+        type: "text",
+        content: "ab",
+      },
+    ]);
+  });
+
+  it("falls back to __unknown__ when no segmentId, opId, or node hints exist", () => {
+    const createId = createIdFactory();
+    const accumulator = createLiveChatPieces({
+      createId,
+      onChange: () => {},
+      structuredStreams: {
+        applyStreamChunk: () => undefined,
+      },
+      toHumanInputPiece: () => createHumanInputPiece(),
+    });
+
+    accumulator.processChunk({
+      type: "text-delta",
+      delta: "anon",
+    } as StreamChunk);
+
+    expect(accumulator.getPieces()).toEqual([
+      {
+        id: "id-0",
+        type: "text",
+        content: "anon",
+      },
+    ]);
+  });
+
   it("uses a fallback error message and stops on done chunks", () => {
     const createId = createIdFactory();
     const accumulator = createLiveChatPieces({

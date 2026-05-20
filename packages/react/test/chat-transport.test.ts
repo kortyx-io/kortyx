@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   type ChatTransportContext,
   createChatTransport,
@@ -16,6 +16,10 @@ const baseContext: ChatTransportContext = {
     },
   ],
 };
+
+afterEach(() => {
+  vi.restoreAllMocks();
+});
 
 describe("createChatTransport", () => {
   it("forwards streamed chunks to onChunk in order", async () => {
@@ -154,5 +158,70 @@ describe("createChatTransport", () => {
         context: { userId: "user-1" },
       }),
     );
+  });
+
+  it("awaits each onChunk before delivering the next chunk", async () => {
+    const events: string[] = [];
+    const transport = createChatTransport({
+      stream: async function* () {
+        yield { type: "status", message: "a" } as const;
+        yield { type: "status", message: "b" } as const;
+        yield { type: "status", message: "c" } as const;
+        yield { type: "done" } as const;
+      },
+    });
+
+    await transport.stream({
+      ...baseContext,
+      onChunk: async (chunk) => {
+        if (chunk.type === "status") {
+          events.push(`start:${chunk.message}`);
+          await new Promise<void>((resolve) => setTimeout(resolve, 5));
+          events.push(`end:${chunk.message}`);
+        } else {
+          events.push(chunk.type);
+        }
+        return undefined;
+      },
+    });
+
+    expect(events).toEqual([
+      "start:a",
+      "end:a",
+      "start:b",
+      "end:b",
+      "start:c",
+      "end:c",
+      "done",
+    ]);
+  });
+
+  it("falls back to the global fetch when no fetchImpl is supplied", async () => {
+    const fetchMock = vi.fn<typeof fetch>(
+      async () =>
+        new Response(
+          new ReadableStream<Uint8Array>({
+            start(controller) {
+              controller.enqueue(new TextEncoder().encode("data: [DONE]\n\n"));
+              controller.close();
+            },
+          }),
+          { status: 200 },
+        ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const transport = createRouteChatTransport({
+      endpoint: "/api/chat",
+    });
+
+    await transport.stream({
+      ...baseContext,
+      onChunk: () => undefined,
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const firstCall = fetchMock.mock.calls.at(0);
+    expect(firstCall?.[0]).toBe("/api/chat");
   });
 });

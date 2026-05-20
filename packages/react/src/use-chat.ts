@@ -92,9 +92,7 @@ function findActiveTextInterrupt(args: {
   );
   if (liveInterrupt) return liveInterrupt;
 
-  for (let i = args.messages.length - 1; i >= 0; i -= 1) {
-    const message = args.messages[i];
-    if (!message) continue;
+  for (const message of [...args.messages].reverse()) {
     if (message.role !== "assistant" || !message.contentPieces) continue;
 
     const messageInterrupt = [...message.contentPieces]
@@ -265,7 +263,7 @@ export function useChat<TContext = DefaultChatContext>(
     messagesToSend: OutgoingChatMessage[];
     debugLabel: string;
     openDebugOnInterrupt?: boolean;
-    signal?: AbortSignal | undefined;
+    signal: AbortSignal;
   }) => {
     clearStructuredStreams();
     setStreamContentPieces([]);
@@ -289,7 +287,7 @@ export function useChat<TContext = DefaultChatContext>(
       workflowId,
       messages: args.messagesToSend,
       context: requestContext,
-      ...(args.signal ? { signal: args.signal } : {}),
+      signal: args.signal,
       onChunk: (chunk: StreamChunk) => {
         debug.push(chunk);
 
@@ -310,7 +308,7 @@ export function useChat<TContext = DefaultChatContext>(
       },
     });
 
-    if (args.signal?.aborted) return;
+    if (args.signal.aborted) return;
 
     const assistant = buildAssistantMessage({
       createId,
