@@ -95,6 +95,10 @@ export function describeProviderConformance(
       expect(parts.every((part) => typeof part === "object")).toBe(true);
       expect(finishPart).toBeDefined();
 
+      if (!finishPart) {
+        throw new Error("Expected provider stream to emit a finish part.");
+      }
+
       await args.stream.assert({
         parts,
         text: getTextFromParts(parts),

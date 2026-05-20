@@ -1,3 +1,4 @@
+import type { StreamChunk } from "@kortyx/stream/browser";
 import { describe, expect, it } from "vitest";
 import { toHumanInputPiece } from "../src/to-human-input-piece";
 
@@ -13,7 +14,7 @@ describe("toHumanInputPiece", () => {
           multiple: false,
           options: [{ id: "a", label: "Option A" }],
         },
-      },
+      } as unknown as StreamChunk,
       createId: () => "piece-1",
     });
 

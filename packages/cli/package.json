@@ -25,7 +25,8 @@
   ],
   "scripts": {
     "lint": "biome check .",
-    "test": "echo 'No tests yet.'"
+    "test": "pnpm -s type-check && echo 'No tests yet.'",
+    "type-check": "tsc --noEmit -p tsconfig.test.json"
   },
   "repository": {
     "type": "git",

@@ -91,7 +91,8 @@ describe("createBrowserChatStorage", () => {
       ],
     });
 
-    expect(storage.load().messages).toEqual([
+    const loaded = storage.load() as Partial<PersistedChatState<StoredMessage>>;
+    expect(loaded.messages).toEqual([
       { id: "m2", role: "assistant", content: "two" },
       { id: "m3", role: "user", content: "three" },
     ]);

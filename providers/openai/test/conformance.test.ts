@@ -1,5 +1,6 @@
 import { expect } from "vitest";
 import { describeProviderConformance } from "../../../packages/providers/test/conformance";
+import { describeProviderFailureConformance } from "../../../packages/providers/test/failure-conformance";
 import { createOpenAI } from "../src/provider";
 import type { OpenAIChatCompletionRequest } from "../src/types";
 
@@ -265,4 +266,13 @@ describeProviderConformance({
       );
     },
   },
+});
+
+describeProviderFailureConformance({
+  providerName: "OpenAI",
+  createModel: (fetch) =>
+    createOpenAI({
+      apiKey: "test-key",
+      fetch,
+    }).getModel("gpt-4.1-mini"),
 });

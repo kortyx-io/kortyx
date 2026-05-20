@@ -1,5 +1,6 @@
 import { expect } from "vitest";
 import { describeProviderConformance } from "../../../packages/providers/test/conformance";
+import { describeProviderFailureConformance } from "../../../packages/providers/test/failure-conformance";
 import { createMistral } from "../src/provider";
 import type { MistralChatCompletionRequest } from "../src/types";
 
@@ -286,5 +287,17 @@ describeProviderConformance({
         "Mistral provider failed to invoke content",
       );
     },
+  },
+});
+
+describeProviderFailureConformance({
+  providerName: "Mistral",
+  createModel: (fetch) =>
+    createMistral({
+      apiKey: "test-key",
+      fetch,
+    }).getModel("mistral-small-latest"),
+  httpErrorBody: {
+    message: "rate limited",
   },
 });

@@ -320,7 +320,6 @@ describe("orchestrateGraphStream", () => {
     });
 
     const stream = await orchestrateGraphStream({
-      sessionId: undefined,
       runId: "run-2",
       graph,
       state: baseState,
@@ -680,12 +679,11 @@ describe("orchestrateGraphStream", () => {
       emit("interrupt", null);
       return [{ type: "done" }];
     });
-    graph.config = undefined;
+    delete graph.config;
 
     await expect(
       collect(
         await orchestrateGraphStream({
-          sessionId: undefined,
           runId: "run-13",
           graph,
           state: { ...baseState, currentWorkflow: "" },
@@ -864,6 +862,7 @@ describe("orchestrateGraphStream", () => {
     runtimeMocks.createExecutionGraph.mockResolvedValueOnce(
       graphWithEvents(() => [{ type: "done", data: baseState }]),
     );
+    const { data: _data, ...stateWithoutData } = baseState;
     await collect(
       await orchestrateGraphStream({
         sessionId: "session-1",
@@ -872,7 +871,7 @@ describe("orchestrateGraphStream", () => {
           emit("transition", { transitionTo: "next" });
           return [];
         }),
-        state: { ...baseState, data: undefined },
+        state: stateWithoutData,
         config: {},
         selectWorkflow: vi.fn(
           async () => ({ id: "next" }) as WorkflowDefinition,
