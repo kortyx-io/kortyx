@@ -205,6 +205,25 @@ describe("streamFromRoute", () => {
     ).resolves.toEqual([{ type: "message", content: "response" }]);
   });
 
+  it("forwards an AbortSignal to fetch when provided", async () => {
+    const controller = new AbortController();
+    const fetchImpl = vi.fn(async (_endpoint: string, init?: RequestInit) => {
+      expect(init?.signal).toBe(controller.signal);
+      return createStreamResponse(makeStream([{ type: "done" }]));
+    });
+
+    await collectStream(
+      streamFromRoute({
+        endpoint: "https://kortyx.test/chat",
+        body: { prompt: "hello" },
+        signal: controller.signal,
+        fetchImpl: fetchImpl as typeof fetch,
+      }),
+    );
+
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+  });
+
   it("yields error and done chunks for failed requests", async () => {
     await expect(
       collectStream(
