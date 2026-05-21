@@ -1,49 +1,54 @@
 # @kortyx/example-nextjs-chat-api-route
 
-Next.js chat app example (API route method) for iterating on Kortyx packages locally.
+[![CI](https://github.com/kortyx-io/kortyx/actions/workflows/ci.yml/badge.svg)](https://github.com/kortyx-io/kortyx/actions/workflows/ci.yml)
+[![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](https://github.com/kortyx-io/kortyx/blob/main/LICENSE)
+[![Next.js](https://img.shields.io/badge/Next.js-API%20Route-000000.svg)](https://nextjs.org/)
+
+Next.js chat app example using a Kortyx API route transport with live streaming.
+
+This is the recommended example when you want token/chunk updates in the browser while the agent runs.
 
 ## Run
 
 ```bash
-cd examples/kortyx-nextjs-chat-api-route
-pnpm install
-GOOGLE_API_KEY=... # or GEMINI_API_KEY
-KORTYX_NEXTJS_CHAT_PORT=3010 pnpm dev
+pnpm --filter @kortyx/example-nextjs-chat-api-route dev
 ```
+
+Set `GOOGLE_API_KEY` or `GEMINI_API_KEY` in the environment before starting the app.
 
 ## Test interrupt resume across server restart (Redis)
 
 This example can run with **Redis-backed framework persistence** so interrupts can be resumed after restarting the server.
 
-1) Start Redis (Docker):
+1. Start Redis (Docker):
 
 ```bash
-pnpm redis:up
+pnpm --filter @kortyx/example-nextjs-chat-api-route redis:up
 ```
 
-2) Create `examples/kortyx-nextjs-chat-api-route/.env.local` from `examples/kortyx-nextjs-chat-api-route/.env.example` and set:
+2. Create `examples/kortyx-nextjs-chat-api-route/.env.local` from `examples/kortyx-nextjs-chat-api-route/.env.example` and set:
 
 - `GOOGLE_API_KEY=...`
 - `KORTYX_REDIS_URL=redis://127.0.0.1:6379`
 
-3) Run the app:
+3. Run the app:
 
 ```bash
-pnpm dev
+pnpm --filter @kortyx/example-nextjs-chat-api-route dev
 ```
 
-4) In the UI, set workflow override to `interrupt-demo`, trigger an interrupt (e.g. send `/multi` or any message for choice), then **stop and restart** the dev server and resume the interrupt from the UI.
+4. In the UI, set workflow override to `interrupt-demo`, trigger an interrupt (e.g. send `/multi` or any message for choice), then **stop and restart** the dev server and resume the interrupt from the UI.
 
 ## Test sequential interrupts across resume
 
 Use workflow override `interrupt-sequential-demo` to verify the multi-interrupt resume path.
 
-1) Start the app.
-2) In the UI, set workflow override to `interrupt-sequential-demo`.
-3) Send any message to start the workflow.
-4) Answer the first text interrupt.
-5) Confirm the app immediately shows a second choice interrupt.
-6) Pick an option and confirm the final message includes both the label and action.
+1. Start the app.
+2. In the UI, set workflow override to `interrupt-sequential-demo`.
+3. Send any message to start the workflow.
+4. Answer the first text interrupt.
+5. Confirm the app immediately shows a second choice interrupt.
+6. Pick an option and confirm the final message includes both the label and action.
 
 Before the fix in `@kortyx/agent`, step 4 would hang because the resumed run reached a second `useInterrupt()` but never emitted a new interrupt chunk.
 
@@ -61,3 +66,14 @@ Resume replays the node function from the top. `useReason` continues from checkp
 
 - `GOOGLE_API_KEY` (or `GEMINI_API_KEY`, `GOOGLE_GENERATIVE_AI_API_KEY`, `KORTYX_GOOGLE_API_KEY`, `KORTYX_GEMINI_API_KEY`): used by the default `google` export from `@kortyx/google`.
 - Workflows in this example are TypeScript (`defineWorkflow(...)`) under `src/workflows`.
+
+## Stack
+
+- `kortyx` for workflow, agent, hooks, runtime, and stream APIs.
+- `@kortyx/google` for Gemini models.
+- `@kortyx/react` for browser chat state and route transport.
+- Redis for optional runtime persistence during restart/resume testing.
+
+## License
+
+Apache-2.0. See [LICENSE](https://github.com/kortyx-io/kortyx/blob/main/LICENSE).

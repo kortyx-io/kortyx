@@ -1,8 +1,17 @@
 # @kortyx/google
 
-Google Gemini provider implementation for Kortyx.
+[![npm version](https://img.shields.io/npm/v/@kortyx/google.svg)](https://www.npmjs.com/package/@kortyx/google)
+[![CI](https://github.com/kortyx-io/kortyx/actions/workflows/ci.yml/badge.svg)](https://github.com/kortyx-io/kortyx/actions/workflows/ci.yml)
+[![License](https://img.shields.io/npm/l/@kortyx/google.svg)](https://github.com/kortyx-io/kortyx/blob/main/LICENSE)
+[![TypeScript](https://img.shields.io/badge/TypeScript-ready-3178c6.svg)](https://www.typescriptlang.org/)
+
+Google Gemini provider integration for Kortyx.
 
 ## Install
+
+```bash
+pnpm add @kortyx/google
+```
 
 ```bash
 npm install @kortyx/google
@@ -12,8 +21,21 @@ npm install @kortyx/google
 
 ```ts
 import { google } from "@kortyx/google";
+import { useReason } from "kortyx";
 
-const model = google("gemini-2.5-flash");
+export const answerNode = async ({ input }: { input: unknown }) => {
+  const result = await useReason({
+    id: "answer",
+    model: google("gemini-2.5-flash"),
+    input: String(input ?? ""),
+    stream: true,
+    emit: true,
+  });
+
+  return {
+    data: { text: result.text },
+  };
+};
 ```
 
 The default `google` export reads one of these environment variables on first use:
@@ -47,6 +69,12 @@ export const google = createGoogleGenerativeAI({
 });
 ```
 
+## Documentation
+
+- [Documentation](https://kortyx.io/docs)
+- [Google provider guide](https://kortyx.io/docs/kortyx-providers/google-generative-ai-provider)
+- [Choose a provider](https://kortyx.io/docs/kortyx-providers/choose-a-provider)
+
 ## License
 
-Apache-2.0
+Apache-2.0. See [LICENSE](https://github.com/kortyx-io/kortyx/blob/main/LICENSE).
