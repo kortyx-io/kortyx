@@ -2,6 +2,17 @@
   "name": "kortyx-website",
   "version": "0.16.0",
   "private": true,
+  "description": "Documentation and product website for Kortyx.",
+  "keywords": [
+    "kortyx",
+    "docs",
+    "website",
+    "nextjs",
+    "ai",
+    "agent"
+  ],
+  "license": "Apache-2.0",
+  "author": "Kortyx (https://github.com/kortyx-io)",
   "scripts": {
     "dev": "next dev --turbopack --port ${WEBSITE_PORT:-3000}",
     "build": "node ./scripts/generate-docs-last-updated.mjs && next build",
@@ -42,6 +53,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/kortyx-io/kortyx.git"
+    "url": "https://github.com/kortyx-io/kortyx.git",
+    "directory": "apps/website"
   }
 }

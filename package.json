@@ -2,8 +2,20 @@
   "name": "kortyx-monorepo",
   "version": "0.1.0",
   "private": true,
-  "description": "Kortyx monorepo (AI agent orchestration framework).",
+  "description": "TypeScript framework for production AI agents with explicit workflows, provider-agnostic models, streaming, interrupts, and runtime persistence.",
+  "keywords": [
+    "ai",
+    "agent",
+    "agents",
+    "llm",
+    "orchestration",
+    "workflow",
+    "streaming",
+    "typescript",
+    "kortyx"
+  ],
   "license": "Apache-2.0",
+  "author": "Kortyx (https://github.com/kortyx-io)",
   "homepage": "https://github.com/kortyx-io/kortyx#readme",
   "bugs": {
     "url": "https://github.com/kortyx-io/kortyx/issues"

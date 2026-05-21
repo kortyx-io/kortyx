@@ -1,8 +1,19 @@
 # @kortyx/hooks
 
-Lifecycle hooks and extension points for Kortyx.
+[![npm version](https://img.shields.io/npm/v/@kortyx/hooks.svg)](https://www.npmjs.com/package/@kortyx/hooks)
+[![CI](https://github.com/kortyx-io/kortyx/actions/workflows/ci.yml/badge.svg)](https://github.com/kortyx-io/kortyx/actions/workflows/ci.yml)
+[![License](https://img.shields.io/npm/l/@kortyx/hooks.svg)](https://github.com/kortyx-io/kortyx/blob/main/LICENSE)
+[![TypeScript](https://img.shields.io/badge/TypeScript-ready-3178c6.svg)](https://www.typescriptlang.org/)
+
+Node-level hooks for model calls, human-in-the-loop interrupts, structured stream data, runtime context, and durable node/workflow state.
+
+Most application code should import these APIs from `kortyx`. Use `@kortyx/hooks` directly when you want the hook package without the full facade.
 
 ## Install
+
+```bash
+pnpm add @kortyx/hooks
+```
 
 ```bash
 npm install @kortyx/hooks
@@ -34,9 +45,11 @@ Workarounds:
 
 ## Documentation
 
-- Runtime hooks: `apps/website/src/docs/v0/03-runtime/01-hooks.md`
-- Interrupts/resume: `apps/website/src/docs/v0/03-runtime/02-interrupts-and-resume.md`
+- [Documentation](https://kortyx.io/docs)
+- [Hooks](https://kortyx.io/docs/core-concepts/hooks)
+- [Interrupts and resume](https://kortyx.io/docs/guides/interrupts-and-resume)
+- [Runtime persistence](https://kortyx.io/docs/production/persistence)
 
 ## License
 
-Apache-2.0
+Apache-2.0. See [LICENSE](https://github.com/kortyx-io/kortyx/blob/main/LICENSE).

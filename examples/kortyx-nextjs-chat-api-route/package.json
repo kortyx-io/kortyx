@@ -3,7 +3,17 @@
   "version": "0.13.0",
   "private": true,
   "description": "Kortyx example: Next.js chat app (API route method).",
+  "keywords": [
+    "kortyx",
+    "example",
+    "nextjs",
+    "api-route",
+    "streaming",
+    "ai",
+    "agent"
+  ],
   "license": "Apache-2.0",
+  "author": "Kortyx (https://github.com/kortyx-io)",
   "scripts": {
     "dev": "next dev --turbopack --port ${KORTYX_NEXTJS_CHAT_PORT:-3000}",
     "build": "next build --turbopack",
@@ -73,6 +83,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/kortyx-io/kortyx.git"
+    "url": "https://github.com/kortyx-io/kortyx.git",
+    "directory": "examples/kortyx-nextjs-chat-api-route"
   }
 }

@@ -3,7 +3,16 @@
   "version": "0.13.0",
   "private": true,
   "description": "Kortyx example: Next.js chat app (server action method).",
+  "keywords": [
+    "kortyx",
+    "example",
+    "nextjs",
+    "server-action",
+    "ai",
+    "agent"
+  ],
   "license": "Apache-2.0",
+  "author": "Kortyx (https://github.com/kortyx-io)",
   "scripts": {
     "dev": "next dev --turbopack --port ${KORTYX_NEXTJS_CHAT_SERVER_ACTION_PORT:-3011}",
     "build": "next build --turbopack",
@@ -71,6 +80,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/kortyx-io/kortyx.git"
+    "url": "https://github.com/kortyx-io/kortyx.git",
+    "directory": "examples/kortyx-nextjs-chat-server-action"
   }
 }
