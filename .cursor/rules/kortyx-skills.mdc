@@ -1,0 +1,15 @@
+---
+description: Use the portable Kortyx SKILL.md file when the task involves Kortyx hooks, app architecture, Next.js/API route setup, separate React + Node apps, or @kortyx/react chat clients.
+globs:
+alwaysApply: false
+---
+
+Before changing Kortyx usage patterns, inspect `skills/kortyx/SKILL.md`.
+
+It routes to focused reference files for:
+
+- hooks: `useReason`, `useInterrupt`, runtime state, structured streaming, and runtime context.
+- architecture: Next.js, separate React + Node apps, folder structure, backend boundaries, and persistence.
+- React clients: `@kortyx/react`, `useChat`, transports, active stream rendering, and interrupt responses.
+
+Load only the referenced `skills/kortyx/references/*.md` file that matches the task.
