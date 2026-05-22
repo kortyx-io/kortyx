@@ -12,6 +12,9 @@
       "path": "../providers"
     },
     {
+      "path": "../hooks"
+    },
+    {
       "path": "../utils"
     },
     {

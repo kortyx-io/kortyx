@@ -1,5 +1,11 @@
 import { AsyncLocalStorage } from "node:async_hooks";
-import type { GraphState, NodeContext, TokenUsage } from "@kortyx/core";
+import type {
+  GraphState,
+  InterruptInput,
+  InterruptResult,
+  NodeConfig,
+  TokenUsage,
+} from "@kortyx/core";
 import type { KortyxUsage } from "@kortyx/providers";
 import type { ReasonTraceAdapter } from "./tracing";
 
@@ -22,8 +28,18 @@ type HookStatePatchedError = {
   __kortyxHookStatePatch?: Record<string, unknown>;
 };
 
+export type HookNodeRuntimeContext = {
+  graph: {
+    name: string;
+    node: string;
+  };
+  config: NodeConfig;
+  emit: (event: string, payload: unknown) => void;
+  awaitInterrupt: (args: InterruptInput) => InterruptResult;
+};
+
 export type HookRuntimeContext = {
-  node: NodeContext;
+  node: HookNodeRuntimeContext;
   state: GraphState;
   reasonTrace?: ReasonTraceAdapter | undefined;
 };

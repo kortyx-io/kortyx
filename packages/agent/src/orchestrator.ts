@@ -40,8 +40,8 @@ export interface OrchestrateArgs {
 }
 
 /**
- * Orchestrates runtime execution with mid-stream transitions emitted via
- * ctx.emit("transition", ...).
+ * Orchestrates runtime execution with mid-stream transitions emitted by
+ * runtime events.
  */
 export async function orchestrateGraphStream({
   sessionId,
@@ -69,7 +69,7 @@ export async function orchestrateGraphStream({
     }
   } catch {}
 
-  // Pending transition captured from ctx.emit(...)
+  // Pending transition captured from runtime transition events.
   const pending: { to: string | null; payload: Record<string, unknown> } = {
     to: null,
     payload: {},

@@ -2,7 +2,6 @@
 // Derived from apps/chat-api/src/types/node.ts with minimal changes.
 
 import { z } from "zod";
-import type { GraphState } from "./state";
 import type { WorkflowId } from "./workflow/id";
 import { WorkflowIdSchema } from "./workflow/id";
 
@@ -70,19 +69,6 @@ export type NodeContext = {
     node: string;
   };
   config: NodeConfig;
-  emit: (event: string, payload: unknown) => void;
-  error: (message: string) => void;
-  awaitInterrupt: (args: InterruptInput) => InterruptResult;
-  speak: (args: {
-    system?: string;
-    user: string;
-    model?: ModelConfig;
-    stream?: {
-      minChars?: number;
-      flushMs?: number;
-      segmentChars?: number;
-    };
-  }) => Promise<string>;
 };
 
 export type NodeResult = {
@@ -156,12 +142,6 @@ export const NodeContextSchema = z
       })
       .strict(),
     config: NodeConfigSchema,
-    emit: z.custom<NodeContext["emit"]>((v) => typeof v === "function"),
-    error: z.custom<NodeContext["error"]>((v) => typeof v === "function"),
-    awaitInterrupt: z.custom<NodeContext["awaitInterrupt"]>(
-      (v) => typeof v === "function",
-    ),
-    speak: z.custom<NodeContext["speak"]>((v) => typeof v === "function"),
   })
   .strict() as unknown as z.ZodType<NodeContext>;
 
@@ -190,10 +170,13 @@ export const NodeResultSchema = z
   })
   .strict() as z.ZodType<NodeResult>;
 
-export type NodeHandler = (
-  state: GraphState,
-  ctx: NodeContext,
-) => Promise<NodeResult>;
+export type NodeHandler<
+  Input = unknown,
+  Params = Record<string, unknown>,
+> = (args: {
+  input: Input;
+  params: Params;
+}) => Promise<NodeResult> | NodeResult;
 
 export const parseNodeConfig = (data: unknown): NodeConfig =>
   NodeConfigSchema.parse(data);
