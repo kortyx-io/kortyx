@@ -142,6 +142,7 @@ That is the full public mental model. Most clients should key by `streamId` and 
 - `path` means a dot-separated location inside the object being built, such as `draft.body`
 - dotted paths are valid in raw `structured-data` chunks, manual `useStructuredData(...)` calls, and `useReason({ structured: { fields } })`
 - numeric path segments target array indexes, such as `sections.0.body`
+- `useReason({ structured: { fields } })` also accepts `*` as a single-segment pattern and emits concrete paths, such as `assessment_points.commercial_resilience.criteria_label`
 - one `streamId` represents one logical object; if multiple fields in that object stream incrementally, they all use the same `streamId`
 - use separate `streamId` values only when you are building separate objects
 
@@ -166,7 +167,7 @@ Runtime enforcement:
 Producer expectations:
 
 - emit chunks for a given `streamId` in order
-- use non-empty dot-separated paths in `useReason(... structured.fields ...)`
+- use non-empty dot-separated paths or single-segment `*` patterns in `useReason(... structured.fields ...)`
 - do not rely on partial chunks being validated against the final output schema
 
 > **Good to know:** `useReason(...)` validates the final object with `outputSchema`, but incremental structured chunks are enforced only at the path and operation level. Manual `useStructuredData(...)` calls can add optional schema checks for `data`, `value`, or appended items.
@@ -336,9 +337,10 @@ Current limits:
 - `set` field paths
 - string field paths as `text-delta`
 - array field paths as `append`
+- `*` wildcard patterns that match one object key or array index segment
 - non-interrupt flows only
 
-The raw structured-data protocol and `useReason(... structured.fields ...)` both support dotted `path` values. `useReason(...)` extracts those paths conservatively from streamed model JSON and still treats the final validated object as the source of truth.
+The raw structured-data protocol and `useReason(... structured.fields ...)` both support dotted `path` values. `useReason(...)` extracts those paths conservatively from streamed model JSON, resolves wildcard matches to concrete paths in emitted chunks, and still treats the final validated object as the source of truth.
 
 If a field should appear once and stay stable, it is often simpler to emit it from node logic with `useStructuredData({ kind: "set", ... })`.
 

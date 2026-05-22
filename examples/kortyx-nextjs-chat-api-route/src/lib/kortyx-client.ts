@@ -5,6 +5,7 @@ import { interruptSequentialDemoWorkflow } from "@/workflows/interrupt-sequentia
 import { reasonInterruptStructuredWorkflow } from "@/workflows/reason-interrupt-structured.workflow";
 import { reasonStructuredMultiStreamWorkflow } from "@/workflows/reason-structured-multi-stream.workflow";
 import { reasonStructuredStreamWorkflow } from "@/workflows/reason-structured-stream.workflow";
+import { reasonStructuredWildcardStreamWorkflow } from "@/workflows/reason-structured-wildcard-stream.workflow";
 import { threeStepsWorkflow } from "@/workflows/three-steps.workflow";
 
 export const agent = createAgent({
@@ -16,6 +17,7 @@ export const agent = createAgent({
     reasonInterruptStructuredWorkflow,
     reasonStructuredMultiStreamWorkflow,
     reasonStructuredStreamWorkflow,
+    reasonStructuredWildcardStreamWorkflow,
   ],
   defaultWorkflowId: "general-chat",
 });

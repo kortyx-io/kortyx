@@ -91,7 +91,8 @@ export type UseReasonStructuredConfig = {
   schemaVersion?: string | undefined;
   /**
    * Incremental extraction paths for useReason. Dotted paths target nested
-   * object fields, and numeric segments target array indexes.
+   * object fields, numeric segments target array indexes, and `*` matches one
+   * object key or array index segment.
    */
   fields?: UseReasonStructuredFields | undefined;
 };

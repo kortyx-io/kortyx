@@ -1,8 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
+  extractCompletedArrayItemGroups,
   extractCompletedArrayItems,
   extractCompletedFieldValue,
+  extractCompletedFieldValues,
   extractStreamingStringValue,
+  extractStreamingStringValues,
   resolveAppendFieldPaths,
   resolveSetFieldPaths,
   resolveTextDeltaFieldPaths,
@@ -38,6 +41,26 @@ describe("structured stream parser", () => {
     expect(resolveSetFieldPaths(config)).toEqual(["meta.title"]);
     expect(resolveTextDeltaFieldPaths(config)).toEqual(["body.markdown"]);
     expect(resolveAppendFieldPaths(config)).toEqual(["jobs.items"]);
+  });
+
+  it("resolves wildcard structured streaming field paths", () => {
+    const config = {
+      fields: {
+        "assessment_points.*.criteria_label": "set",
+        "assessment_points.*.questions.*.question_text": "text-delta",
+        "assessment_points.*.question_list": "append",
+      },
+    } as const;
+
+    expect(resolveSetFieldPaths(config)).toEqual([
+      "assessment_points.*.criteria_label",
+    ]);
+    expect(resolveTextDeltaFieldPaths(config)).toEqual([
+      "assessment_points.*.questions.*.question_text",
+    ]);
+    expect(resolveAppendFieldPaths(config)).toEqual([
+      "assessment_points.*.question_list",
+    ]);
   });
 
   it("extracts completed scalar, string, object, and array field values", () => {
@@ -87,6 +110,14 @@ describe("structured stream parser", () => {
       complete: true,
       value: true,
     });
+    expect(
+      extractCompletedFieldValues({ text, path: "details.nested.*.ok" }),
+    ).toEqual([
+      {
+        path: "details.nested.1.ok",
+        value: true,
+      },
+    ]);
   });
 
   it("reports incomplete or missing field values without inventing data", () => {
@@ -205,6 +236,24 @@ describe("structured stream parser", () => {
     expect(extractCompletedArrayItems({ text, path: "missing" })).toEqual([]);
   });
 
+  it("extracts completed wildcard array item groups", () => {
+    const text =
+      '{"sections":{"a":{"items":["A","B"]},"b":{"items":[{"id":"C"}]}}}';
+
+    expect(
+      extractCompletedArrayItemGroups({ text, path: "sections.*.items" }),
+    ).toEqual([
+      {
+        path: "sections.a.items",
+        items: ["A", "B"],
+      },
+      {
+        path: "sections.b.items",
+        items: [{ id: "C" }],
+      },
+    ]);
+  });
+
   it("keeps completed array strings intact when they contain escaped delimiters", () => {
     const text = String.raw`{"jobs":["a,b","quote: \"ok\"",{"nested":["]"]},bad,`;
 
@@ -278,5 +327,28 @@ describe("structured stream parser", () => {
       complete: false,
       value: "",
     });
+  });
+
+  it("streams wildcard string values with concrete paths", () => {
+    const text =
+      '{"assessment_points":{"commercial_resilience":{"questions":{"lost_deal_recovery":{"question_text":"Tell me about a deal"}}},"consultative_discovery":{"questions":{"discovery_framework":{"question_text":"Walk me through discovery"}}}}}';
+
+    expect(
+      extractStreamingStringValues({
+        text,
+        path: "assessment_points.*.questions.*.question_text",
+      }),
+    ).toEqual([
+      {
+        path: "assessment_points.commercial_resilience.questions.lost_deal_recovery.question_text",
+        complete: true,
+        value: "Tell me about a deal",
+      },
+      {
+        path: "assessment_points.consultative_discovery.questions.discovery_framework.question_text",
+        complete: true,
+        value: "Walk me through discovery",
+      },
+    ]);
   });
 });

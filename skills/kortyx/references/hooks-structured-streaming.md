@@ -90,20 +90,48 @@ Do not send a `final` chunk with a partial object unless replacing the stream st
 
 ## Field Modes
 
-Use incremental field modes only for top-level fields:
+Use incremental field modes for literal structured paths:
 
 - `set`: replace the field value.
 - `text-delta`: append string deltas.
 - `append`: append completed array items.
 - `final`: complete validated object.
 
-For `useStructuredData(...)`, `path` can target structured reducer paths. For `useReason({ structured.fields })`, fields are top-level JSON field names only.
+For `useStructuredData(...)`, `path` can target structured reducer paths. For `useReason({ structured.fields })`, fields can also be literal nested paths such as `draft.body`, `intro.question_text`, or `assessment_points.0.criteria_label`, plus single-segment `*` patterns such as `assessment_points.*.criteria_label`.
+
+`useReason({ outputSchema, structured.fields })` already streams configured fields as `structured-data` chunks. With `outputSchema` or `interrupt`, Kortyx suppresses raw assistant `text-delta` chunks because those deltas would be partial JSON, not user-facing prose.
+
+Do not ask for raw `text-delta` streaming just to get structured output for known fields. Use `structured.fields` instead:
+
+```ts
+structured: {
+  dataType: "guide.draft",
+  fields: {
+    "intro.question_text": "text-delta",
+    "draft.subject": "set",
+    "draft.bullets": "append",
+  },
+}
+```
+
+Use `*` for model-generated object keys:
+
+```ts
+structured: {
+  fields: {
+    "assessment_points.*.criteria_label": "set",
+  },
+}
+```
+
+Wildcard matches emit concrete paths such as `assessment_points.commercial_resilience.criteria_label`. `*` matches exactly one object key or array index segment; recursive `**` patterns are not supported.
 
 ## Choosing Between APIs
 
 - Model owns object generation: `useReason({ outputSchema, structured })`.
 - Node/app logic owns updates: `useStructuredData(...)`.
-- Need custom reducer paths: `useStructuredData(...)`.
+- Need literal nested reducer paths: `useReason({ structured.fields })` or `useStructuredData(...)`.
+- Need wildcard/dynamic-key streaming: use single-segment `*` patterns in `useReason({ structured.fields })`; prefer array schemas for long ordered lists.
 - Need final validated model object only: `useReason({ outputSchema, structured: { dataType } })`.
 - Need a model to edit only part of an existing object: ask the model for a patch object, validate it, merge it with the existing object in node code, then emit targeted `useStructuredData(...)` updates for the changed paths.
 

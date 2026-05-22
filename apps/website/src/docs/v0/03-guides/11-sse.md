@@ -197,6 +197,7 @@ You usually do not need to implement these rules yourself. `useStructuredStreams
 - `path` is a dot-separated location inside the object being built
 - raw structured chunks, manual `useStructuredData(...)` calls, and `useReason({ structured: { fields } })` can use dotted paths such as `draft.body`
 - numeric path segments target array indexes, such as `sections.0.body`
+- `useReason({ structured: { fields } })` can use `*` as a single-segment wildcard, such as `assessment_points.*.criteria_label`; emitted chunks always contain concrete paths
 - `applyStructuredChunk(...)` throws on malformed paths, impossible container-shape conflicts, `append` on non-arrays, `text-delta` on non-strings, and any chunk that arrives after `final`
 - `final` replaces the whole accumulated object and should be treated as the source of truth
 
