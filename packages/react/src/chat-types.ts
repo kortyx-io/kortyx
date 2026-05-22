@@ -14,6 +14,10 @@ export type HumanInputPiece = {
   question?: string;
   multiple: boolean;
   options: Array<{ id: string; label: string; description?: string }>;
+  schemaId?: string;
+  schemaVersion?: string;
+  interruptId?: string;
+  meta?: Record<string, unknown>;
 };
 
 export type ContentPiece =

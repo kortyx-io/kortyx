@@ -5,10 +5,18 @@ interface HumanInputStreamChunk {
   type: "interrupt";
   requestId: string | undefined;
   resumeToken: string | undefined;
+  id?: string;
+  schemaId?: string;
+  schemaVersion?: string;
+  meta?: Record<string, unknown>;
   input?: {
     kind?: "text" | "choice" | "multi-choice";
     question?: string;
     multiple?: boolean;
+    id?: string;
+    schemaId?: string;
+    schemaVersion?: string;
+    meta?: Record<string, unknown>;
     options?: Array<{
       id?: string | number;
       label?: string;
@@ -16,6 +24,25 @@ interface HumanInputStreamChunk {
     }>;
   };
 }
+
+export type ToHumanInputPiece = (args: {
+  chunk: StreamChunk;
+  createId: () => string;
+}) => HumanInputPiece;
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  value !== null && typeof value === "object" && !Array.isArray(value);
+
+const nonEmptyString = (value: unknown): string | undefined =>
+  typeof value === "string" && value.length > 0 ? value : undefined;
+
+const firstNonEmptyString = (...values: unknown[]): string | undefined => {
+  for (const value of values) {
+    const result = nonEmptyString(value);
+    if (result) return result;
+  }
+  return undefined;
+};
 
 export function toHumanInputPiece(args: {
   chunk: StreamChunk;
@@ -25,6 +52,18 @@ export function toHumanInputPiece(args: {
   const input = hi.input ?? {};
   const kind = input.kind || (input.multiple ? "multi-choice" : "choice");
   const isText = kind === "text";
+  const schemaId = firstNonEmptyString(hi.schemaId, input.schemaId);
+  const schemaVersion = firstNonEmptyString(
+    hi.schemaVersion,
+    input.schemaVersion,
+  );
+  const interruptId = firstNonEmptyString(hi.id, input.id);
+  const inputMeta = isRecord(input.meta) ? input.meta : undefined;
+  const chunkMeta = isRecord(hi.meta) ? hi.meta : undefined;
+  const meta =
+    inputMeta || chunkMeta
+      ? { ...(inputMeta ?? {}), ...(chunkMeta ?? {}) }
+      : undefined;
 
   const question = isText
     ? input.question
@@ -56,5 +95,9 @@ export function toHumanInputPiece(args: {
     ...(question !== undefined ? { question } : {}),
     multiple: Boolean(input.multiple),
     options: optionsArr,
+    ...(schemaId ? { schemaId } : {}),
+    ...(schemaVersion ? { schemaVersion } : {}),
+    ...(interruptId ? { interruptId } : {}),
+    ...(meta ? { meta } : {}),
   };
 }

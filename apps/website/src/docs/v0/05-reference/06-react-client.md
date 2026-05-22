@@ -197,6 +197,9 @@ For UI components rendering a `HumanInputPiece`, use `respondToInterrupt(...)` s
 
 `respondToInterrupt(piece, { selected })` handles choice and multi-choice interrupts. `respondToInterrupt(piece, { text })` handles text interrupts.
 
+When the server sets interrupt routing metadata, `HumanInputPiece` preserves `schemaId`, `schemaVersion`, `interruptId`, and public `meta`.
+Switch on `piece.schemaId` for custom controls such as job pickers, file uploaders, or address autocompletes.
+
 ## Abort support
 
 Route transports created with `createRouteChatTransport(...)` receive the `AbortSignal` from `useChat(...)` and pass it to `fetch`.
@@ -211,6 +214,7 @@ import type {
   ChatStorage,
   ChatTransport,
   OutgoingChatMessage,
+  ToHumanInputPiece,
 } from "@kortyx/react";
 
 type UseChatOptions = {
@@ -225,6 +229,7 @@ type UseChatOptions = {
     reason: "send" | "resume";
     context: Record<string, unknown>;
   }) => OutgoingChatMessage[] | Promise<OutgoingChatMessage[]>;
+  toHumanInputPiece?: ToHumanInputPiece;
 };
 ```
 
@@ -235,6 +240,8 @@ Notes:
 - `createId` is optional when you want custom message/piece ids
 - `context` defaults to `{}`
 - `prepareContextMessages` defaults to the finalized message history when `includeHistory` is true
+- `toHumanInputPiece` lets advanced clients customize interrupt projection before pieces enter
+  `streamContentPieces` and finalized assistant messages
 
 ## Transport helpers
 

@@ -175,4 +175,78 @@ describe("toHumanInputPiece", () => {
       options: [],
     });
   });
+
+  it("preserves interrupt routing metadata from the chunk and input", () => {
+    const piece = toHumanInputPiece({
+      chunk: {
+        type: "interrupt",
+        id: "chunk-interrupt",
+        requestId: "request-meta",
+        resumeToken: "resume-meta",
+        schemaId: "chunk-schema",
+        schemaVersion: "2",
+        meta: {
+          source: "chunk",
+          shared: "chunk-wins",
+        },
+        input: {
+          kind: "choice",
+          multiple: false,
+          question: "Pick one",
+          id: "input-interrupt",
+          schemaId: "input-schema",
+          schemaVersion: "1",
+          meta: {
+            picker: "jobs",
+            shared: "input",
+          },
+          options: [{ id: "job-1", label: "Job 1" }],
+        },
+      } as unknown as StreamChunk,
+      createId: () => "piece-meta",
+    });
+
+    expect(piece).toMatchObject({
+      id: "piece-meta",
+      schemaId: "chunk-schema",
+      schemaVersion: "2",
+      interruptId: "chunk-interrupt",
+      meta: {
+        picker: "jobs",
+        source: "chunk",
+        shared: "chunk-wins",
+      },
+    });
+  });
+
+  it("falls back to input routing metadata when chunk fields are absent", () => {
+    const piece = toHumanInputPiece({
+      chunk: {
+        type: "interrupt",
+        requestId: "request-input-meta",
+        resumeToken: "resume-input-meta",
+        input: {
+          kind: "text",
+          multiple: false,
+          question: "Describe it",
+          id: "input-interrupt",
+          schemaId: "input-schema",
+          schemaVersion: "1",
+          meta: {
+            picker: "agents",
+          },
+        },
+      } as unknown as StreamChunk,
+      createId: () => "piece-input-meta",
+    });
+
+    expect(piece).toMatchObject({
+      schemaId: "input-schema",
+      schemaVersion: "1",
+      interruptId: "input-interrupt",
+      meta: {
+        picker: "agents",
+      },
+    });
+  });
 });

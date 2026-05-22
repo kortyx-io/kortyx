@@ -14,6 +14,26 @@ function InterruptControls({
   chat: UseChatValue;
   piece: HumanInputPiece;
 }) {
+  if (piece.schemaId === "pick-job") {
+    return (
+      <JobPicker
+        onSubmit={(jobId) =>
+          chat.respondToInterrupt(piece, { selected: [jobId] })
+        }
+      />
+    );
+  }
+
+  if (piece.schemaId === "pick-agent") {
+    return (
+      <AgentPicker
+        onSubmit={(agentId) =>
+          chat.respondToInterrupt(piece, { selected: [agentId] })
+        }
+      />
+    );
+  }
+
   if (piece.kind === "text") {
     return <TextForm onSubmit={(text) => chat.respondToInterrupt(piece, { text })} />;
   }
@@ -29,6 +49,9 @@ function InterruptControls({
 ```
 
 `TextForm` and `ChoiceList` represent app UI components; keep the original interrupt `piece` when submitting so the resume token and request id are preserved.
+
+Use `piece.schemaId` for app-specific routing when the server set `interrupt.schemaId` on `useReason(...)` or `useInterrupt(...)`.
+`HumanInputPiece` also preserves `schemaVersion`, `interruptId`, and public `meta` so clients can select custom pickers without joining against debug chunks.
 
 ## Response Shapes
 
