@@ -305,6 +305,7 @@ That means:
 
 - dotted paths such as `draft.body` or `table.rows` can be used by `useReason(... structured.fields ...)`
 - numeric path segments can target array indexes, such as `sections.0.body`
+- `*` matches one object key or array index segment, such as `assessment_points.*.criteria_label`
 - empty field keys are rejected
 - if you combine `useReason` with `interrupt`, you still get structured output when a valid object exists, but incremental field streaming is not combined with interrupt mode today
 - when `outputSchema` or `interrupt` is present, `useReason` suppresses normal assistant text chunk streaming because the runtime is parsing and validating structured output
@@ -549,7 +550,7 @@ Use this pattern for:
 
 If you do not pass `streamId`, Kortyx generates one. That is fine for one-off `final` payloads, but for multi-step updates you usually want to pass a stable `streamId` yourself.
 
-In `useStructuredData(...)`, `path` uses dot notation such as `table.rows` or `draft.body`. `append` should target an array field, and `text-delta` should target a string field. This nested-path behavior applies to manual structured updates, not to `useReason(... structured.fields ...)` incremental extraction.
+In `useStructuredData(...)`, `path` uses dot notation such as `table.rows` or `draft.body`. `append` should target an array field, and `text-delta` should target a string field. `useReason(... structured.fields ...)` supports the same nested path notation plus single-segment `*` patterns for model-generated keys.
 
 Manual structured updates can build nested objects incrementally, but once a path holds a string, number, boolean, or other non-container value, later chunks cannot treat that same location as an object or array.
 

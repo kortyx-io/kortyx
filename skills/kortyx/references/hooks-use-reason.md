@@ -137,9 +137,11 @@ Use `structured` when the client should receive object updates, not only final t
 
 ```ts
 const DraftSchema = z.object({
-  subject: z.string().min(1),
-  body: z.string().min(1),
-  bullets: z.array(z.string().min(1)).default([]),
+  draft: z.object({
+    subject: z.string().min(1),
+    body: z.string().min(1),
+    bullets: z.array(z.string().min(1)).default([]),
+  }),
 });
 
 type Draft = z.infer<typeof DraftSchema>;
@@ -158,9 +160,9 @@ const result = await useReason<Draft>({
     schemaVersion: "1",
     stream: true,
     fields: {
-      subject: "set",
-      body: "text-delta",
-      bullets: "append",
+      "draft.subject": "set",
+      "draft.body": "text-delta",
+      "draft.bullets": "append",
     },
   },
 });
@@ -168,11 +170,13 @@ const result = await useReason<Draft>({
 
 Field modes:
 
-- `set`: emit a completed top-level field value.
-- `text-delta`: emit string deltas for a top-level string field.
-- `append`: emit completed items for a top-level array field.
+- `set`: emit a completed field-path value.
+- `text-delta`: emit string deltas for a string field path.
+- `append`: emit completed items for an array field path.
 
-Current incremental field extraction is for top-level fields. Use `useStructuredData(...)` when deterministic node logic owns the updates or when you need custom paths.
+`structured.fields` supports literal nested paths, numeric array segments, and single-segment `*` patterns such as `assessment_points.*.criteria_label`. Wildcard matches emit concrete paths such as `assessment_points.commercial_resilience.criteria_label`; recursive `**` patterns are not supported.
+
+With `outputSchema` or `interrupt`, Kortyx suppresses raw assistant `text-delta` chunks because the raw stream is partial JSON. This does not mean structured output is not streaming: configured fields stream as `structured-data` chunks such as `{ kind: "text-delta", path: "draft.body", delta }`, `{ kind: "append", path, items }`, and `{ kind: "set", path, value }`.
 
 If `structured` is provided without `fields`, Kortyx emits the final structured object when parsing and validation succeed.
 

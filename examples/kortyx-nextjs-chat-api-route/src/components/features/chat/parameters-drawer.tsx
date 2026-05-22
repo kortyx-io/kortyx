@@ -48,8 +48,9 @@ export function ParametersDrawer({
                 <code>interrupt-sequential-demo</code> or{" "}
                 <code>reason-interrupt-structured</code> or{" "}
                 <code>reason-structured-stream</code> or{" "}
-                <code>reason-structured-multi-stream</code>). Leave empty to use
-                the default workflow.
+                <code>reason-structured-multi-stream</code> or{" "}
+                <code>reason-structured-wildcard-stream</code>). Leave empty to
+                use the default workflow.
               </p>
             </div>
             <Input

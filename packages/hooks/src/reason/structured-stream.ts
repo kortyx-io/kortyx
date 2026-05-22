@@ -135,13 +135,21 @@ const skipWhitespace = (text: string, start: number): number => {
   return i;
 };
 
-const pathEquals = (left: string[], right: string[]): boolean =>
-  left.length === right.length &&
-  left.every((part, index) => part === right[index]);
+const pathSegmentMatches = (patternPart: string, actualPart: string): boolean =>
+  patternPart === "*" || patternPart === actualPart;
+
+const pathMatchesPattern = (
+  actualParts: string[],
+  patternParts: string[],
+): boolean =>
+  actualParts.length === patternParts.length &&
+  actualParts.every((part, index) =>
+    pathSegmentMatches(patternParts[index] ?? "", part),
+  );
 
 const isPathPrefix = (prefix: string[], full: string[]): boolean =>
   prefix.length <= full.length &&
-  prefix.every((part, index) => part === full[index]);
+  prefix.every((part, index) => pathSegmentMatches(full[index] ?? "", part));
 
 const parseStringToken = (
   text: string,
@@ -272,67 +280,80 @@ const locateValueStart = (args: {
   text: string;
   path: string;
 }): { found: boolean; start?: number } => {
+  const [first] = locateValueStarts(args);
+  return first
+    ? {
+        found: true,
+        start: first.start,
+      }
+    : {
+        found: false,
+      };
+};
+
+const locateValueStarts = (args: {
+  text: string;
+  path: string;
+}): Array<{ path: string; start: number }> => {
   const targetParts = parseStructuredPath(
     args.path,
     "useReason structured field",
   );
+  const matches: Array<{ path: string; start: number }> = [];
 
-  const visitValue = (
-    start: number,
-    currentParts: string[],
-  ): { found: boolean; start?: number } => {
+  const visitValue = (start: number, currentParts: string[]): void => {
     const valueStart = skipWhitespace(args.text, start);
-    if (pathEquals(currentParts, targetParts)) {
-      return { found: true, start: valueStart };
+    if (pathMatchesPattern(currentParts, targetParts)) {
+      matches.push({
+        path: currentParts.join("."),
+        start: valueStart,
+      });
+      return;
     }
 
     if (!isPathPrefix(currentParts, targetParts)) {
-      return { found: false };
+      return;
     }
 
     const first = args.text[valueStart];
-    if (first === "{") return visitObject(valueStart + 1, currentParts);
-    if (first === "[") return visitArray(valueStart + 1, currentParts);
-    return { found: false };
+    if (first === "{") visitObject(valueStart + 1, currentParts);
+    if (first === "[") visitArray(valueStart + 1, currentParts);
   };
 
-  const visitObject = (
-    start: number,
-    currentParts: string[],
-  ): { found: boolean; start?: number } => {
+  const visitObject = (start: number, currentParts: string[]): void => {
     let i = skipWhitespace(args.text, start);
 
     while (i < args.text.length) {
       const ch = args.text[i];
-      if (ch === "}") return { found: false };
+      if (ch === "}") return;
       if (ch === ",") {
         i = skipWhitespace(args.text, i + 1);
         continue;
       }
-      if (ch !== '"') return { found: false };
+      if (ch !== '"') return;
 
       const key = parseStringToken(args.text, i);
       if (!key.complete || key.end === undefined || key.value === undefined) {
-        return { found: false };
+        return;
       }
 
       i = skipWhitespace(args.text, key.end);
-      if (args.text[i] !== ":") return { found: false };
+      if (args.text[i] !== ":") return;
 
       const valueStart = skipWhitespace(args.text, i + 1);
       const childParts = [...currentParts, key.value];
-      if (pathEquals(childParts, targetParts)) {
-        return { found: true, start: valueStart };
-      }
-
-      if (isPathPrefix(childParts, targetParts)) {
-        const nested = visitValue(valueStart, childParts);
-        if (nested.found) return nested;
+      if (pathMatchesPattern(childParts, targetParts)) {
+        matches.push({
+          path: childParts.join("."),
+          start: valueStart,
+        });
+      } else if (isPathPrefix(childParts, targetParts)) {
+        visitValue(valueStart, childParts);
       }
 
       const skipped = skipCompleteValue(args.text, valueStart);
       if (!skipped.complete || skipped.end === undefined) {
-        return { found: false };
+        return;
       }
 
       i = skipWhitespace(args.text, skipped.end);
@@ -340,36 +361,31 @@ const locateValueStart = (args: {
         i = skipWhitespace(args.text, i + 1);
         continue;
       }
-      if (args.text[i] === "}") return { found: false };
-      return { found: false };
+      if (args.text[i] === "}") return;
+      return;
     }
-
-    return { found: false };
   };
 
-  const visitArray = (
-    start: number,
-    currentParts: string[],
-  ): { found: boolean; start?: number } => {
+  const visitArray = (start: number, currentParts: string[]): void => {
     let i = skipWhitespace(args.text, start);
     let index = 0;
 
     while (i < args.text.length) {
-      if (args.text[i] === "]") return { found: false };
+      if (args.text[i] === "]") return;
 
       const childParts = [...currentParts, String(index)];
-      if (pathEquals(childParts, targetParts)) {
-        return { found: true, start: i };
-      }
-
-      if (isPathPrefix(childParts, targetParts)) {
-        const nested = visitValue(i, childParts);
-        if (nested.found) return nested;
+      if (pathMatchesPattern(childParts, targetParts)) {
+        matches.push({
+          path: childParts.join("."),
+          start: i,
+        });
+      } else if (isPathPrefix(childParts, targetParts)) {
+        visitValue(i, childParts);
       }
 
       const skipped = skipCompleteValue(args.text, i);
       if (!skipped.complete || skipped.end === undefined) {
-        return { found: false };
+        return;
       }
 
       i = skipWhitespace(args.text, skipped.end);
@@ -378,14 +394,13 @@ const locateValueStart = (args: {
         i = skipWhitespace(args.text, i + 1);
         continue;
       }
-      if (args.text[i] === "]") return { found: false };
-      return { found: false };
+      if (args.text[i] === "]") return;
+      return;
     }
-
-    return { found: false };
   };
 
-  return visitValue(0, []);
+  visitValue(0, []);
+  return matches;
 };
 
 const extractCompletedValueAt = (args: {
@@ -540,6 +555,29 @@ export const extractCompletedFieldValue = (args: {
       };
 };
 
+export const extractCompletedFieldValues = (args: {
+  text: string;
+  path: string;
+}): Array<{ path: string; value: unknown }> => {
+  const located = locateValueStarts(args);
+  const values: Array<{ path: string; value: unknown }> = [];
+
+  for (const match of located) {
+    const parsed = extractCompletedValueAt({
+      text: args.text,
+      start: match.start,
+    });
+    if (!parsed.complete) continue;
+
+    values.push({
+      path: match.path,
+      value: parsed.value,
+    });
+  }
+
+  return values;
+};
+
 export const extractCompletedArrayItems = (args: {
   text: string;
   path: string;
@@ -619,6 +657,26 @@ export const extractCompletedArrayItems = (args: {
   }
 
   return items;
+};
+
+export const extractCompletedArrayItemGroups = (args: {
+  text: string;
+  path: string;
+}): Array<{ path: string; items: unknown[] }> => {
+  return locateValueStarts(args).flatMap((match) => {
+    const items = extractCompletedArrayItems({
+      text: args.text,
+      path: match.path,
+    });
+    return items.length > 0
+      ? [
+          {
+            path: match.path,
+            items,
+          },
+        ]
+      : [];
+  });
 };
 
 export const extractStreamingStringValue = (args: {
@@ -723,4 +781,25 @@ export const extractStreamingStringValue = (args: {
     complete: false,
     value,
   };
+};
+
+export const extractStreamingStringValues = (args: {
+  text: string;
+  path: string;
+}): Array<{ path: string; complete: boolean; value: string }> => {
+  return locateValueStarts(args).flatMap((match) => {
+    const current = extractStreamingStringValue({
+      text: args.text,
+      path: match.path,
+    });
+    return current.found
+      ? [
+          {
+            path: match.path,
+            complete: current.complete,
+            value: current.value,
+          },
+        ]
+      : [];
+  });
 };

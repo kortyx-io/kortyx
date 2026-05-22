@@ -53,6 +53,38 @@ const NestedGuideSchema = z.object({
   }),
 });
 
+const WildcardGuideSchema = z.object({
+  assessment_points: z.object({
+    commercial_resilience: z.object({
+      criteria_label: z.string(),
+      questions: z.object({
+        lost_deal_recovery: z.object({
+          question_text: z.string(),
+        }),
+      }),
+    }),
+    consultative_discovery: z.object({
+      criteria_label: z.string(),
+      questions: z.object({
+        discovery_framework: z.object({
+          question_text: z.string(),
+        }),
+      }),
+    }),
+  }),
+});
+
+const WildcardAppendSchema = z.object({
+  sections: z.object({
+    alpha: z.object({
+      items: z.array(z.string()),
+    }),
+    beta: z.object({
+      items: z.array(z.string()),
+    }),
+  }),
+});
+
 describe("useReason output flow", () => {
   it("passes normalized call options through to provider model resolution", async () => {
     const abortController = new AbortController();
@@ -1438,6 +1470,200 @@ describe("useReason output flow", () => {
             criteria_label: "Commercial resilience",
           },
           tags: [{ label: "quota" }],
+        },
+      },
+    });
+  });
+
+  it("streams wildcard structured field updates with concrete paths", async () => {
+    const { stream, invoke, modelRef } = createProvider({
+      streamResponses: [
+        '{"assessment_points":{"commercial_resilience":{"criteria_label":"Commercial',
+        ' resilience","questions":{"lost_deal_recovery":{"question_text":"Tell me',
+        ' about a deal"}}},"consultative_discovery":{"criteria_label":"Consultative discovery","questions":{"discovery_framework":{"question_text":"Walk me',
+        ' through discovery"}}}}}',
+      ],
+    });
+    const { node, emitted } = createNode();
+    const state = createState();
+
+    const { result } = await runWithHookContext({ node, state }, async () =>
+      useReason({
+        id: "wildcard-guide-reason",
+        model: modelRef,
+        input: "Create an assessment guide",
+        stream: true,
+        emit: true,
+        outputSchema: WildcardGuideSchema,
+        structured: {
+          dataType: "reason.guide",
+          stream: true,
+          fields: {
+            "assessment_points.*.criteria_label": "set",
+            "assessment_points.*.questions.*.question_text": "text-delta",
+          },
+        },
+      }),
+    );
+
+    expect(stream).toHaveBeenCalledTimes(1);
+    expect(invoke).toHaveBeenCalledTimes(0);
+    expect(result.output).toEqual({
+      assessment_points: {
+        commercial_resilience: {
+          criteria_label: "Commercial resilience",
+          questions: {
+            lost_deal_recovery: {
+              question_text: "Tell me about a deal",
+            },
+          },
+        },
+        consultative_discovery: {
+          criteria_label: "Consultative discovery",
+          questions: {
+            discovery_framework: {
+              question_text: "Walk me through discovery",
+            },
+          },
+        },
+      },
+    });
+
+    const structuredEvents = emitted.filter(
+      (x) => x.event === "structured_data",
+    );
+    expect(structuredEvents).toHaveLength(7);
+    expect(structuredEvents[0]?.payload).toMatchObject({
+      kind: "set",
+      path: "assessment_points.commercial_resilience.criteria_label",
+      value: "Commercial resilience",
+    });
+    expect(structuredEvents[1]?.payload).toMatchObject({
+      kind: "text-delta",
+      path: "assessment_points.commercial_resilience.questions.lost_deal_recovery.question_text",
+      delta: "Tell me",
+    });
+    expect(structuredEvents[2]?.payload).toMatchObject({
+      kind: "set",
+      path: "assessment_points.consultative_discovery.criteria_label",
+      value: "Consultative discovery",
+    });
+    expect(structuredEvents[3]?.payload).toMatchObject({
+      kind: "text-delta",
+      path: "assessment_points.commercial_resilience.questions.lost_deal_recovery.question_text",
+      delta: " about a deal",
+    });
+    expect(structuredEvents[4]?.payload).toMatchObject({
+      kind: "text-delta",
+      path: "assessment_points.consultative_discovery.questions.discovery_framework.question_text",
+      delta: "Walk me",
+    });
+    expect(structuredEvents[5]?.payload).toMatchObject({
+      kind: "text-delta",
+      path: "assessment_points.consultative_discovery.questions.discovery_framework.question_text",
+      delta: " through discovery",
+    });
+    expect(structuredEvents[6]?.payload).toMatchObject({
+      kind: "final",
+      data: {
+        assessment_points: {
+          commercial_resilience: {
+            criteria_label: "Commercial resilience",
+            questions: {
+              lost_deal_recovery: {
+                question_text: "Tell me about a deal",
+              },
+            },
+          },
+          consultative_discovery: {
+            criteria_label: "Consultative discovery",
+            questions: {
+              discovery_framework: {
+                question_text: "Walk me through discovery",
+              },
+            },
+          },
+        },
+      },
+    });
+  });
+
+  it("streams wildcard append updates with concrete paths", async () => {
+    const { stream, invoke, modelRef } = createProvider({
+      streamResponses: [
+        '{"sections":{"alpha":{"items":["A",',
+        '"B"]},"beta":{"items":["C",',
+        '"D"]}}}',
+      ],
+    });
+    const { node, emitted } = createNode();
+    const state = createState();
+
+    const { result } = await runWithHookContext({ node, state }, async () =>
+      useReason({
+        id: "wildcard-append-reason",
+        model: modelRef,
+        input: "Create sections",
+        stream: true,
+        emit: true,
+        outputSchema: WildcardAppendSchema,
+        structured: {
+          dataType: "reason.sections",
+          stream: true,
+          fields: {
+            "sections.*.items": "append",
+          },
+        },
+      }),
+    );
+
+    expect(stream).toHaveBeenCalledTimes(1);
+    expect(invoke).toHaveBeenCalledTimes(0);
+    expect(result.output).toEqual({
+      sections: {
+        alpha: {
+          items: ["A", "B"],
+        },
+        beta: {
+          items: ["C", "D"],
+        },
+      },
+    });
+
+    const structuredEvents = emitted.filter(
+      (x) => x.event === "structured_data",
+    );
+    expect(structuredEvents).toHaveLength(5);
+    expect(structuredEvents[0]?.payload).toMatchObject({
+      kind: "append",
+      path: "sections.alpha.items",
+      items: ["A"],
+    });
+    expect(structuredEvents[1]?.payload).toMatchObject({
+      kind: "append",
+      path: "sections.alpha.items",
+      items: ["B"],
+    });
+    expect(structuredEvents[2]?.payload).toMatchObject({
+      kind: "append",
+      path: "sections.beta.items",
+      items: ["C"],
+    });
+    expect(structuredEvents[3]?.payload).toMatchObject({
+      kind: "append",
+      path: "sections.beta.items",
+      items: ["D"],
+    });
+    expect(structuredEvents[4]?.payload).toMatchObject({
+      kind: "final",
+      data: {
+        sections: {
+          alpha: {
+            items: ["A", "B"],
+          },
+          beta: {
+            items: ["C", "D"],
+          },
         },
       },
     });
