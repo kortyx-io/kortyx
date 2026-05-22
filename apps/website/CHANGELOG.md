@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.16.1](https://github.com/kortyx-io/kortyx/compare/website-v0.16.0...website-v0.16.1) (2026-05-22)
+
+
+### Bug Fixes
+
+* **docs:** close Kortyx concept gaps ([#104](https://github.com/kortyx-io/kortyx/issues/104)) ([a98276f](https://github.com/kortyx-io/kortyx/commit/a98276f922a97d0bbfc5978e0531c04b6ba7a0fe))
+
 ## [0.16.0](https://github.com/kortyx-io/kortyx/compare/website-v0.15.1...website-v0.16.0) (2026-05-20)
 
 
