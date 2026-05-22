@@ -42,6 +42,11 @@ type ComposeStructuredData = {
   subject?: string;
   body?: string;
   bullets?: string[];
+  draft?: {
+    subject?: string;
+    body?: string;
+    bullets?: string[];
+  };
 };
 
 type MultiComposeStructuredData = {
@@ -96,7 +101,11 @@ function StructuredDataBox({ data }: { data: StructuredData }) {
   }, [isExpanded, rawJson]);
 
   if (isComposeStructuredData(data)) {
-    const draft = data.data;
+    const rawDraft = data.data;
+    const draft =
+      rawDraft.draft && typeof rawDraft.draft === "object"
+        ? rawDraft.draft
+        : rawDraft;
     const bullets = Array.isArray(draft.bullets)
       ? draft.bullets.filter(
           (item: unknown): item is string => typeof item === "string",

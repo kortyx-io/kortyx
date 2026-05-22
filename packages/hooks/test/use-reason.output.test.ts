@@ -37,6 +37,22 @@ const MultiAppendSchema = z.object({
   ctas: z.array(z.string()),
 });
 
+const NestedGuideSchema = z.object({
+  intro: z.object({
+    question_text: z.string(),
+  }),
+  assessment_points: z.object({
+    commercial_resilience: z.object({
+      criteria_label: z.string(),
+    }),
+    tags: z.array(
+      z.object({
+        label: z.string(),
+      }),
+    ),
+  }),
+});
+
 describe("useReason output flow", () => {
   it("passes normalized call options through to provider model resolution", async () => {
     const abortController = new AbortController();
@@ -594,6 +610,109 @@ describe("useReason output flow", () => {
     expect(textEvents).toHaveLength(0);
   });
 
+  it("emits final structured output when structured streaming is disabled", async () => {
+    const response = JSON.stringify({
+      summary: "Summary",
+      recommendation: "Recommendation",
+      checklist: ["item-1"],
+      userChoice: "pending",
+    });
+    const { invoke, modelRef } = createProvider({
+      invokeResponses: [response],
+    });
+    const { node, emitted } = createNode();
+    const state = createState();
+
+    const { result } = await runWithHookContext({ node, state }, async () =>
+      useReason({
+        id: "reason-id",
+        model: modelRef,
+        input: "Create a plan",
+        stream: false,
+        emit: true,
+        outputSchema: PlanSchema,
+        structured: {
+          dataType: "reason.plan",
+          stream: false,
+        },
+      }),
+    );
+
+    expect(invoke).toHaveBeenCalledTimes(1);
+    expect(result.output).toEqual({
+      summary: "Summary",
+      recommendation: "Recommendation",
+      checklist: ["item-1"],
+      userChoice: "pending",
+    });
+
+    const structuredEvents = emitted.filter(
+      (x) => x.event === "structured_data",
+    );
+    expect(structuredEvents).toHaveLength(1);
+    expect(structuredEvents[0]?.payload).toMatchObject({
+      kind: "final",
+      dataType: "reason.plan",
+      data: {
+        summary: "Summary",
+        recommendation: "Recommendation",
+        checklist: ["item-1"],
+        userChoice: "pending",
+      },
+      streamId: result.opId,
+    });
+  });
+
+  it("ignores incremental fields but emits final output when structured streaming is disabled", async () => {
+    const response = JSON.stringify({
+      subject: "Launch update",
+      body: "Longer launch body",
+    });
+    const { invoke, stream, modelRef } = createProvider({
+      invokeResponses: [response],
+    });
+    const { node, emitted } = createNode();
+    const state = createState();
+
+    const { result } = await runWithHookContext({ node, state }, async () =>
+      useReason({
+        model: modelRef,
+        input: "Create a launch email",
+        stream: true,
+        emit: true,
+        outputSchema: EmailSchema,
+        structured: {
+          dataType: "reason.email",
+          stream: false,
+          fields: {
+            body: "text-delta",
+          },
+        },
+      }),
+    );
+
+    expect(result.output).toEqual({
+      subject: "Launch update",
+      body: "Longer launch body",
+    });
+    expect(invoke).toHaveBeenCalledTimes(1);
+    expect(stream).toHaveBeenCalledTimes(0);
+
+    const structuredEvents = emitted.filter(
+      (x) => x.event === "structured_data",
+    );
+    expect(structuredEvents).toHaveLength(1);
+    expect(structuredEvents[0]?.payload).toMatchObject({
+      kind: "final",
+      dataType: "reason.email",
+      data: {
+        subject: "Launch update",
+        body: "Longer launch body",
+      },
+      streamId: result.opId,
+    });
+  });
+
   it("returns structured output without emitting structured patches when emit is false", async () => {
     const response = JSON.stringify({
       summary: "Summary",
@@ -945,7 +1064,7 @@ describe("useReason output flow", () => {
     expect(textEvents).toHaveLength(0);
   });
 
-  it("streams set updates for declared top-level fields before final output", async () => {
+  it("streams set updates for declared fields before final output", async () => {
     const { stream, invoke, modelRef } = createProvider({
       streamResponses: [
         '{"subject":"Exclusive Beta Access"',
@@ -1238,37 +1357,90 @@ describe("useReason output flow", () => {
     });
   });
 
-  it("rejects dotted paths in useReason structured.fields", async () => {
-    const { modelRef } = createProvider({
-      streamResponses: ['{"draft":{"body":"Hello"}}'],
+  it("streams nested structured field updates before final output", async () => {
+    const { stream, invoke, modelRef } = createProvider({
+      streamResponses: [
+        '{"intro":{"question_text":"To start',
+        ' now"},"assessment_points":{"commercial_resilience":{"criteria_label":"Commercial resilience"},"tags":[',
+        '{"label":"quota"}',
+        "]}}",
+      ],
     });
-    const { node } = createNode();
+    const { node, emitted } = createNode();
     const state = createState();
 
-    await expect(
-      runWithHookContext({ node, state }, async () =>
-        useReason({
-          model: modelRef,
-          input: "Create an email",
+    const { result } = await runWithHookContext({ node, state }, async () =>
+      useReason({
+        id: "nested-guide-reason",
+        model: modelRef,
+        input: "Create an assessment guide",
+        stream: true,
+        emit: true,
+        outputSchema: NestedGuideSchema,
+        structured: {
+          dataType: "reason.guide",
           stream: true,
-          emit: true,
-          outputSchema: z.object({
-            draft: z.object({
-              body: z.string(),
-            }),
-          }),
-          structured: {
-            dataType: "reason.email",
-            stream: true,
-            fields: {
-              "draft.body": "text-delta",
-            },
+          fields: {
+            "intro.question_text": "text-delta",
+            "assessment_points.commercial_resilience.criteria_label": "set",
+            "assessment_points.tags": "append",
           },
-        }),
-      ),
-    ).rejects.toThrow(
-      "useReason structured text-delta streaming requires non-empty top-level string field keys.",
+        },
+      }),
     );
+
+    expect(stream).toHaveBeenCalledTimes(1);
+    expect(invoke).toHaveBeenCalledTimes(0);
+    expect(result.output).toEqual({
+      intro: {
+        question_text: "To start now",
+      },
+      assessment_points: {
+        commercial_resilience: {
+          criteria_label: "Commercial resilience",
+        },
+        tags: [{ label: "quota" }],
+      },
+    });
+
+    const structuredEvents = emitted.filter(
+      (x) => x.event === "structured_data",
+    );
+    expect(structuredEvents).toHaveLength(5);
+    expect(structuredEvents[0]?.payload).toMatchObject({
+      kind: "text-delta",
+      path: "intro.question_text",
+      delta: "To start",
+    });
+    expect(structuredEvents[1]?.payload).toMatchObject({
+      kind: "set",
+      path: "assessment_points.commercial_resilience.criteria_label",
+      value: "Commercial resilience",
+    });
+    expect(structuredEvents[2]?.payload).toMatchObject({
+      kind: "text-delta",
+      path: "intro.question_text",
+      delta: " now",
+    });
+    expect(structuredEvents[3]?.payload).toMatchObject({
+      kind: "append",
+      path: "assessment_points.tags",
+      items: [{ label: "quota" }],
+    });
+    expect(structuredEvents[4]?.payload).toMatchObject({
+      kind: "final",
+      data: {
+        intro: {
+          question_text: "To start now",
+        },
+        assessment_points: {
+          commercial_resilience: {
+            criteria_label: "Commercial resilience",
+          },
+          tags: [{ label: "quota" }],
+        },
+      },
+    });
   });
 
   it("rejects empty keys in useReason structured.fields", async () => {

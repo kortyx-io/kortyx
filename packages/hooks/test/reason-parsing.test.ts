@@ -354,9 +354,9 @@ describe("reason prompting", () => {
     });
 
     expect(input).toContain("Streaming rules:");
-    expect(input).toContain("top-level field `title`");
-    expect(input).toContain("top-level array field `jobs`");
-    expect(input).toContain("top-level string field `body`");
+    expect(input).toContain("field path `title`");
+    expect(input).toContain("array field path `jobs`");
+    expect(input).toContain("string field path `body`");
     expect(input).toContain("- Keep the overall response as valid JSON.");
   });
 });

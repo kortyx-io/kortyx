@@ -80,15 +80,18 @@ export type UseStructuredDataArgs<
   | UseStructuredDataTextDeltaArgs;
 
 export type UseReasonStructuredConfig = {
+  /**
+   * Controls incremental field streaming. Set to false to emit only the final
+   * structured output chunk after output validation.
+   */
   stream?: boolean | undefined;
   optimistic?: boolean | undefined;
   dataType?: string | undefined;
   schemaId?: string | undefined;
   schemaVersion?: string | undefined;
   /**
-   * Incremental extraction keys for useReason. These are top-level JSON field
-   * names only; dotted paths are reserved for raw structured chunks and
-   * useStructuredData(...).
+   * Incremental extraction paths for useReason. Dotted paths target nested
+   * object fields, and numeric segments target array indexes.
    */
   fields?: UseReasonStructuredFields | undefined;
 };

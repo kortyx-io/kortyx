@@ -140,8 +140,8 @@ That is the full public mental model. Most clients should key by `streamId` and 
 ### Path contract
 
 - `path` means a dot-separated location inside the object being built, such as `draft.body`
-- dotted paths are valid in raw `structured-data` chunks and in manual `useStructuredData(...)` calls
-- `useReason({ structured: { fields } })` is a stricter producer: `fields` keys must be non-empty top-level field names only
+- dotted paths are valid in raw `structured-data` chunks, manual `useStructuredData(...)` calls, and `useReason({ structured: { fields } })`
+- numeric path segments target array indexes, such as `sections.0.body`
 - one `streamId` represents one logical object; if multiple fields in that object stream incrementally, they all use the same `streamId`
 - use separate `streamId` values only when you are building separate objects
 
@@ -166,7 +166,7 @@ Runtime enforcement:
 Producer expectations:
 
 - emit chunks for a given `streamId` in order
-- use top-level-only field keys in `useReason(... structured.fields ...)`
+- use non-empty dot-separated paths in `useReason(... structured.fields ...)`
 - do not rely on partial chunks being validated against the final output schema
 
 > **Good to know:** `useReason(...)` validates the final object with `outputSchema`, but incremental structured chunks are enforced only at the path and operation level. Manual `useStructuredData(...)` calls can add optional schema checks for `data`, `value`, or appended items.
@@ -333,14 +333,14 @@ In that mode:
 
 Current limits:
 
-- top-level `set` field keys only
-- top-level string field keys as `text-delta`
-- top-level array field keys as `append`
+- `set` field paths
+- string field paths as `text-delta`
+- array field paths as `append`
 - non-interrupt flows only
 
-The raw structured-data protocol supports dotted `path` values, and the client reducer applies them correctly. The top-level-only limit here is specific to `useReason(... structured.fields ...)`, because the runtime is extracting partial fields from streamed model JSON.
+The raw structured-data protocol and `useReason(... structured.fields ...)` both support dotted `path` values. `useReason(...)` extracts those paths conservatively from streamed model JSON and still treats the final validated object as the source of truth.
 
-If a field should appear once and stay stable, it is often simpler to emit it from node logic with `useStructuredData({ kind: "set", ... })` instead of waiting for broader model-side incremental support.
+If a field should appear once and stay stable, it is often simpler to emit it from node logic with `useStructuredData({ kind: "set", ... })`.
 
 ## Consuming text and structured data together
 

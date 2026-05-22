@@ -1,13 +1,5 @@
-import { assertStructuredPath } from "../structured-path";
+import { assertStructuredPath, parseStructuredPath } from "../structured-path";
 import type { UseReasonStructuredConfig } from "../types";
-
-const escapeRegex = (value: string): string =>
-  value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-
-const findTopLevelArrayStart = (text: string, path: string): number => {
-  const match = new RegExp(`"${escapeRegex(path)}"\\s*:\\s*\\[`).exec(text);
-  return match ? match.index + match[0].length : -1;
-};
 
 export const resolveAppendFieldPaths = (
   cfg: UseReasonStructuredConfig | undefined,
@@ -21,11 +13,6 @@ export const resolveAppendFieldPaths = (
 
   for (const path of appendPaths) {
     assertStructuredPath(path, "useReason structured append");
-    if (path.includes(".")) {
-      throw new Error(
-        "useReason structured append streaming requires non-empty top-level array field keys.",
-      );
-    }
   }
 
   return appendPaths;
@@ -43,11 +30,6 @@ export const resolveSetFieldPaths = (
 
   for (const path of setPaths) {
     assertStructuredPath(path, "useReason structured set");
-    if (path.includes(".")) {
-      throw new Error(
-        "useReason structured set streaming requires non-empty top-level field keys.",
-      );
-    }
   }
 
   return setPaths;
@@ -65,24 +47,9 @@ export const resolveTextDeltaFieldPaths = (
 
   for (const path of textPaths) {
     assertStructuredPath(path, "useReason structured text-delta");
-    if (path.includes(".")) {
-      throw new Error(
-        "useReason structured text-delta streaming requires non-empty top-level string field keys.",
-      );
-    }
   }
 
   return textPaths;
-};
-
-const findTopLevelFieldValueStart = (text: string, path: string): number => {
-  const match = new RegExp(`"${escapeRegex(path)}"\\s*:\\s*`).exec(text);
-  return match ? match.index + match[0].length : -1;
-};
-
-const findTopLevelStringStart = (text: string, path: string): number => {
-  const match = new RegExp(`"${escapeRegex(path)}"\\s*:\\s*"`).exec(text);
-  return match ? match.index + match[0].length : -1;
 };
 
 const extractCompletedStringValueAt = (args: {
@@ -162,6 +129,327 @@ const extractCompletedStringValueAt = (args: {
   };
 };
 
+const skipWhitespace = (text: string, start: number): number => {
+  let i = start;
+  while (i < text.length && /\s/.test(text[i] ?? "")) i += 1;
+  return i;
+};
+
+const pathEquals = (left: string[], right: string[]): boolean =>
+  left.length === right.length &&
+  left.every((part, index) => part === right[index]);
+
+const isPathPrefix = (prefix: string[], full: string[]): boolean =>
+  prefix.length <= full.length &&
+  prefix.every((part, index) => part === full[index]);
+
+const parseStringToken = (
+  text: string,
+  start: number,
+): { complete: boolean; end?: number; value?: string } => {
+  if (text[start] !== '"') return { complete: false };
+
+  const parsed = extractCompletedStringValueAt({ text, start: start + 1 });
+  if (!parsed.complete || parsed.value === undefined)
+    return { complete: false };
+
+  let inEscape = false;
+  for (let i = start + 1; i < text.length; i += 1) {
+    const ch = text[i];
+    if (ch === undefined) break;
+
+    if (inEscape) {
+      inEscape = false;
+      if (ch === "u") i += 4;
+      continue;
+    }
+
+    if (ch === "\\") {
+      inEscape = true;
+      continue;
+    }
+
+    if (ch === '"') {
+      return {
+        complete: true,
+        end: i + 1,
+        value: parsed.value,
+      };
+    }
+  }
+
+  return { complete: false };
+};
+
+const skipNestedValue = (
+  text: string,
+  start: number,
+): { complete: boolean; end?: number } => {
+  const opener = text[start];
+  const closer = opener === "{" ? "}" : "]";
+  let inString = false;
+  let isEscaped = false;
+  let nesting = 0;
+
+  for (let i = start; i < text.length; i += 1) {
+    const ch = text[i];
+    if (ch === undefined) break;
+
+    if (inString) {
+      if (isEscaped) {
+        isEscaped = false;
+        continue;
+      }
+      if (ch === "\\") {
+        isEscaped = true;
+        continue;
+      }
+      if (ch === '"') {
+        inString = false;
+      }
+      continue;
+    }
+
+    if (ch === '"') {
+      inString = true;
+      continue;
+    }
+
+    if (ch === opener) {
+      nesting += 1;
+      continue;
+    }
+
+    if (ch === closer) {
+      nesting -= 1;
+      if (nesting === 0) {
+        return { complete: true, end: i + 1 };
+      }
+    }
+  }
+
+  return { complete: false };
+};
+
+const skipCompleteValue = (
+  text: string,
+  start: number,
+): { complete: boolean; end?: number } => {
+  const i = skipWhitespace(text, start);
+  const first = text[i];
+  if (!first) return { complete: false };
+
+  if (first === '"') {
+    const parsed = parseStringToken(text, i);
+    return parsed.complete && parsed.end !== undefined
+      ? { complete: true, end: parsed.end }
+      : { complete: false };
+  }
+
+  if (first === "{" || first === "[") {
+    return skipNestedValue(text, i);
+  }
+
+  for (let j = i; j < text.length; j += 1) {
+    const ch = text[j];
+    if (ch !== "," && ch !== "}" && ch !== "]") continue;
+
+    const raw = text.slice(i, j).trim();
+    if (!raw) return { complete: false };
+
+    try {
+      JSON.parse(raw);
+      return { complete: true, end: j };
+    } catch {
+      return { complete: false };
+    }
+  }
+
+  return { complete: false };
+};
+
+const locateValueStart = (args: {
+  text: string;
+  path: string;
+}): { found: boolean; start?: number } => {
+  const targetParts = parseStructuredPath(
+    args.path,
+    "useReason structured field",
+  );
+
+  const visitValue = (
+    start: number,
+    currentParts: string[],
+  ): { found: boolean; start?: number } => {
+    const valueStart = skipWhitespace(args.text, start);
+    if (pathEquals(currentParts, targetParts)) {
+      return { found: true, start: valueStart };
+    }
+
+    if (!isPathPrefix(currentParts, targetParts)) {
+      return { found: false };
+    }
+
+    const first = args.text[valueStart];
+    if (first === "{") return visitObject(valueStart + 1, currentParts);
+    if (first === "[") return visitArray(valueStart + 1, currentParts);
+    return { found: false };
+  };
+
+  const visitObject = (
+    start: number,
+    currentParts: string[],
+  ): { found: boolean; start?: number } => {
+    let i = skipWhitespace(args.text, start);
+
+    while (i < args.text.length) {
+      const ch = args.text[i];
+      if (ch === "}") return { found: false };
+      if (ch === ",") {
+        i = skipWhitespace(args.text, i + 1);
+        continue;
+      }
+      if (ch !== '"') return { found: false };
+
+      const key = parseStringToken(args.text, i);
+      if (!key.complete || key.end === undefined || key.value === undefined) {
+        return { found: false };
+      }
+
+      i = skipWhitespace(args.text, key.end);
+      if (args.text[i] !== ":") return { found: false };
+
+      const valueStart = skipWhitespace(args.text, i + 1);
+      const childParts = [...currentParts, key.value];
+      if (pathEquals(childParts, targetParts)) {
+        return { found: true, start: valueStart };
+      }
+
+      if (isPathPrefix(childParts, targetParts)) {
+        const nested = visitValue(valueStart, childParts);
+        if (nested.found) return nested;
+      }
+
+      const skipped = skipCompleteValue(args.text, valueStart);
+      if (!skipped.complete || skipped.end === undefined) {
+        return { found: false };
+      }
+
+      i = skipWhitespace(args.text, skipped.end);
+      if (args.text[i] === ",") {
+        i = skipWhitespace(args.text, i + 1);
+        continue;
+      }
+      if (args.text[i] === "}") return { found: false };
+      return { found: false };
+    }
+
+    return { found: false };
+  };
+
+  const visitArray = (
+    start: number,
+    currentParts: string[],
+  ): { found: boolean; start?: number } => {
+    let i = skipWhitespace(args.text, start);
+    let index = 0;
+
+    while (i < args.text.length) {
+      if (args.text[i] === "]") return { found: false };
+
+      const childParts = [...currentParts, String(index)];
+      if (pathEquals(childParts, targetParts)) {
+        return { found: true, start: i };
+      }
+
+      if (isPathPrefix(childParts, targetParts)) {
+        const nested = visitValue(i, childParts);
+        if (nested.found) return nested;
+      }
+
+      const skipped = skipCompleteValue(args.text, i);
+      if (!skipped.complete || skipped.end === undefined) {
+        return { found: false };
+      }
+
+      i = skipWhitespace(args.text, skipped.end);
+      if (args.text[i] === ",") {
+        index += 1;
+        i = skipWhitespace(args.text, i + 1);
+        continue;
+      }
+      if (args.text[i] === "]") return { found: false };
+      return { found: false };
+    }
+
+    return { found: false };
+  };
+
+  return visitValue(0, []);
+};
+
+const extractCompletedValueAt = (args: {
+  text: string;
+  start: number;
+}): { complete: boolean; value?: unknown } => {
+  const start = skipWhitespace(args.text, args.start);
+  const first = args.text[start];
+  if (!first) return { complete: false };
+
+  if (first === '"') {
+    const parsed = extractCompletedStringValueAt({
+      text: args.text,
+      start: start + 1,
+    });
+    return parsed.complete
+      ? {
+          complete: true,
+          value: parsed.value,
+        }
+      : {
+          complete: false,
+        };
+  }
+
+  if (first === "{") {
+    return extractCompletedNestedValueAt({
+      text: args.text,
+      start,
+      opener: "{",
+      closer: "}",
+    });
+  }
+
+  if (first === "[") {
+    return extractCompletedNestedValueAt({
+      text: args.text,
+      start,
+      opener: "[",
+      closer: "]",
+    });
+  }
+
+  for (let i = start; i < args.text.length; i += 1) {
+    const ch = args.text[i];
+    if (ch === undefined) break;
+    if (ch !== "," && ch !== "}" && ch !== "]") continue;
+
+    const raw = args.text.slice(start, i).trim();
+    if (!raw) return { complete: false };
+
+    try {
+      return {
+        complete: true,
+        value: JSON.parse(raw),
+      };
+    } catch {
+      return { complete: false };
+    }
+  }
+
+  return { complete: false };
+};
+
 const extractCompletedNestedValueAt = (args: {
   text: string;
   start: number;
@@ -228,116 +516,40 @@ export const extractCompletedFieldValue = (args: {
   text: string;
   path: string;
 }): { found: boolean; complete: boolean; value?: unknown } => {
-  const start = findTopLevelFieldValueStart(args.text, args.path);
-  if (start < 0) {
+  const located = locateValueStart(args);
+  if (!located.found || located.start === undefined) {
     return {
-      found: false,
+      found: located.found,
       complete: false,
     };
   }
 
-  const first = args.text[start];
-  if (!first) {
-    return {
-      found: true,
-      complete: false,
-    };
-  }
-
-  if (first === '"') {
-    const parsed = extractCompletedStringValueAt({
-      text: args.text,
-      start: start + 1,
-    });
-    return parsed.complete
-      ? {
-          found: true,
-          complete: true,
-          value: parsed.value,
-        }
-      : {
-          found: true,
-          complete: false,
-        };
-  }
-
-  if (first === "{") {
-    const parsed = extractCompletedNestedValueAt({
-      text: args.text,
-      start,
-      opener: "{",
-      closer: "}",
-    });
-    return parsed.complete
-      ? {
-          found: true,
-          complete: true,
-          value: parsed.value,
-        }
-      : {
-          found: true,
-          complete: false,
-        };
-  }
-
-  if (first === "[") {
-    const parsed = extractCompletedNestedValueAt({
-      text: args.text,
-      start,
-      opener: "[",
-      closer: "]",
-    });
-    return parsed.complete
-      ? {
-          found: true,
-          complete: true,
-          value: parsed.value,
-        }
-      : {
-          found: true,
-          complete: false,
-        };
-  }
-
-  for (let i = start; i < args.text.length; i += 1) {
-    const ch = args.text[i];
-    if (ch === undefined) break;
-    if (ch !== "," && ch !== "}") continue;
-
-    const raw = args.text.slice(start, i).trim();
-    if (!raw) {
-      return {
-        found: true,
-        complete: false,
-      };
-    }
-
-    try {
-      return {
+  const parsed = extractCompletedValueAt({
+    text: args.text,
+    start: located.start,
+  });
+  return parsed.complete
+    ? {
         found: true,
         complete: true,
-        value: JSON.parse(raw),
-      };
-    } catch {
-      return {
+        value: parsed.value,
+      }
+    : {
         found: true,
         complete: false,
       };
-    }
-  }
-
-  return {
-    found: true,
-    complete: false,
-  };
 };
 
 export const extractCompletedArrayItems = (args: {
   text: string;
   path: string;
 }): unknown[] => {
-  const start = findTopLevelArrayStart(args.text, args.path);
-  if (start < 0) return [];
+  const located = locateValueStart(args);
+  if (!located.found || located.start === undefined) return [];
+
+  const arrayStart = skipWhitespace(args.text, located.start);
+  if (args.text[arrayStart] !== "[") return [];
+  const start = arrayStart + 1;
 
   const items: unknown[] = [];
   let inString = false;
@@ -413,10 +625,19 @@ export const extractStreamingStringValue = (args: {
   text: string;
   path: string;
 }): { found: boolean; complete: boolean; value: string } => {
-  const start = findTopLevelStringStart(args.text, args.path);
-  if (start < 0) {
+  const located = locateValueStart(args);
+  if (!located.found || located.start === undefined) {
     return {
-      found: false,
+      found: located.found,
+      complete: false,
+      value: "",
+    };
+  }
+
+  const stringStart = skipWhitespace(args.text, located.start);
+  if (args.text[stringStart] !== '"') {
+    return {
+      found: true,
       complete: false,
       value: "",
     };
@@ -424,7 +645,7 @@ export const extractStreamingStringValue = (args: {
 
   let value = "";
 
-  for (let i = start; i < args.text.length; i += 1) {
+  for (let i = stringStart + 1; i < args.text.length; i += 1) {
     const ch = args.text[i];
     if (ch === undefined) break;
 

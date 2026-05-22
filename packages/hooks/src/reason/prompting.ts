@@ -154,13 +154,13 @@ export const withStructuredStreamHints = (
 
   for (const path of args.setFieldPaths ?? []) {
     rules.push(
-      `- For the top-level field \`${path}\`, write one stable final value and do not rewrite it after it is complete.`,
+      `- For the field path \`${path}\`, write one stable final value and do not rewrite it after it is complete.`,
     );
   }
 
   for (const path of args.appendFieldPaths ?? []) {
     rules.push(
-      `- For the top-level array field \`${path}\`, write items in final order and finish each item before starting the next.`,
+      `- For the array field path \`${path}\`, write items in final order and finish each item before starting the next.`,
     );
     rules.push(
       `- Once an item in \`${path}\` is complete, do not rewrite or reorder earlier items.`,
@@ -169,7 +169,7 @@ export const withStructuredStreamHints = (
 
   for (const path of args.textDeltaFieldPaths ?? []) {
     rules.push(
-      `- For the top-level string field \`${path}\`, write the value progressively by appending text to the end.`,
+      `- For the string field path \`${path}\`, write the value progressively by appending text to the end.`,
     );
     rules.push(
       `- Do not rewrite or replace the earlier prefix of \`${path}\` once emitted.`,

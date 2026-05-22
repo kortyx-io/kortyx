@@ -296,14 +296,15 @@ const result = await useReason({
 
 Today, `useReason({ structured })` incremental field streaming supports:
 
-- top-level `set` fields
-- top-level string fields as `text-delta`
-- top-level array fields as `append`
+- `set` field paths
+- string field paths as `text-delta`
+- array field paths as `append`
 - non-interrupt flows only
 
 That means:
 
-- dotted paths such as `draft.body` or `table.rows` are not used by `useReason(... structured.fields ...)` incremental extraction today
+- dotted paths such as `draft.body` or `table.rows` can be used by `useReason(... structured.fields ...)`
+- numeric path segments can target array indexes, such as `sections.0.body`
 - empty field keys are rejected
 - if you combine `useReason` with `interrupt`, you still get structured output when a valid object exists, but incremental field streaming is not combined with interrupt mode today
 - when `outputSchema` or `interrupt` is present, `useReason` suppresses normal assistant text chunk streaming because the runtime is parsing and validating structured output

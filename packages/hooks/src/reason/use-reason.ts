@@ -11,7 +11,11 @@ import {
   getReasonTraceAdapter,
 } from "../context";
 import { awaitInterruptInternal } from "../interrupt";
-import { emitStructuredData, shouldEmitStructured } from "../structured";
+import {
+  emitStructuredData,
+  shouldEmitStructured,
+  shouldStreamStructured,
+} from "../structured";
 import type { ReasonTraceSpan } from "../tracing";
 import type { SchemaLike, UseReasonArgs, UseReasonResult } from "../types";
 import { parseWithSchema } from "../validation";
@@ -135,13 +139,13 @@ const emitReasonStructuredOutput = <TOutput>(args: {
   });
 };
 
-const shouldEmitReasonStructured = <
+const shouldStreamReasonStructured = <
   TOutput,
   TRequest extends InterruptInput,
   TResponse,
 >(
   args: UseReasonArgs<TOutput, TRequest, TResponse>,
-): boolean => (args.emit ?? true) && shouldEmitStructured(args.structured);
+): boolean => (args.emit ?? true) && shouldStreamStructured(args.structured);
 
 const resolveEffectiveReasoningIncludeThoughts = <
   TOutput,
@@ -242,7 +246,7 @@ export async function useReason<
         appendFieldPaths.length > 0 ||
         textDeltaFieldPaths.length > 0) &&
       args.stream !== false &&
-      shouldEmitReasonStructured(args),
+      shouldStreamReasonStructured(args),
   );
 
   let firstText = "";
