@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.16.2](https://github.com/kortyx-io/kortyx/compare/website-v0.16.1...website-v0.16.2) (2026-05-22)
+
+
+### Bug Fixes
+
+* **react:** preserve interrupt routing metadata ([59898e2](https://github.com/kortyx-io/kortyx/commit/59898e24e291641edcdef3d09e6be4d9e66b1bf0))
+* **react:** preserve interrupt routing metadata ([0d258a1](https://github.com/kortyx-io/kortyx/commit/0d258a17f0c49ebb1b3c9980bea7262e1badc4e3))
+
 ## [0.16.1](https://github.com/kortyx-io/kortyx/compare/website-v0.16.0...website-v0.16.1) (2026-05-22)
 
 

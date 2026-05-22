@@ -3,7 +3,7 @@
   "packages/cli": "0.1.5",
   "packages/core": "0.5.3",
   "packages/hooks": "0.12.1",
-  "packages/react": "0.3.0",
+  "packages/react": "0.3.1",
   "packages/kortyx": "0.10.1",
   "packages/providers": "0.4.0",
   "providers/deepseek": "0.2.0",
@@ -15,7 +15,7 @@
   "packages/runtime": "0.9.4",
   "packages/stream": "0.7.0",
   "packages/utils": "0.2.6",
-  "apps/website": "0.16.1",
-  "examples/kortyx-nextjs-chat-api-route": "0.13.1",
-  "examples/kortyx-nextjs-chat-server-action": "0.13.1"
+  "apps/website": "0.16.2",
+  "examples/kortyx-nextjs-chat-api-route": "0.13.2",
+  "examples/kortyx-nextjs-chat-server-action": "0.13.2"
 }
