@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.15.0](https://github.com/kortyx-io/kortyx/compare/example-nextjs-chat-api-route-v0.14.0...example-nextjs-chat-api-route-v0.15.0) (2026-05-22)
+
+
+### Features
+
+* **hooks:** support wildcard structured streaming ([cdc646c](https://github.com/kortyx-io/kortyx/commit/cdc646cf7e3a8f36fc62d0cb4123a427eb823f8f))
+* **hooks:** support wildcard structured streaming ([fa7fec7](https://github.com/kortyx-io/kortyx/commit/fa7fec7f5a86a5bad73f3889b9698b8eb62451df))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * kortyx bumped to 0.10.3
+
 ## [0.14.0](https://github.com/kortyx-io/kortyx/compare/example-nextjs-chat-api-route-v0.13.2...example-nextjs-chat-api-route-v0.14.0) (2026-05-22)
 
 
