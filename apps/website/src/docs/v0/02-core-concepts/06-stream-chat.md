@@ -187,6 +187,7 @@ return Response.json(buffered); // { chunks, text, structured }
 - `messages`: full chat history for the current turn (required).
 - `options.sessionId`: optional conversation id for analytics/tracing correlation.
 - `options.workflowId`: force this request to start in a specific workflow.
+- `options.context`: request metadata available to nodes through `useRuntimeContext(...)`.
 
 ## Returns
 
@@ -204,6 +205,10 @@ return Response.json(buffered); // { chunks, text, structured }
 ## Workflow override per request
 
 When not resuming, `options.workflowId` can override entry workflow for this request.
+
+## Request context
+
+Use `options.context` for request metadata that node code needs, such as selected thread id, locale, or server-approved auth context. See [Runtime Context](./08-runtime-context.md) for the full client-to-node flow and security boundary.
 
 ## Resume behavior
 

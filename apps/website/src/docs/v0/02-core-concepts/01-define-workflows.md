@@ -9,6 +9,8 @@ sidebar_label: "Define Workflows"
 
 The core contract lives in `@kortyx/core` and is exposed through `kortyx`.
 
+> **Good to know:** If you want the mental model for what a node receives and returns, start with [Nodes](./03-nodes.md) before using this page as the workflow shape reference.
+
 ## TypeScript workflow (recommended)
 
 ```ts
@@ -75,7 +77,7 @@ export const supportWorkflow = defineWorkflow({
 
 ## Node return shape
 
-Nodes return a subset of `NodeResult`:
+Nodes return a subset of `NodeResult`. See [Nodes](./03-nodes.md#node-return-values) for the full return contract and how returned `data` is passed to the next node.
 
 ```ts
 return {

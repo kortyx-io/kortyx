@@ -15,6 +15,7 @@ Interrupts let a node pause execution and wait for user input.
 import { useInterrupt } from "kortyx";
 
 const picked = await useInterrupt({
+  id: "pick-topics",
   request: {
     kind: "multi-choice",
     question: "Pick one or more:",
@@ -25,6 +26,23 @@ const picked = await useInterrupt({
   },
 });
 ```
+```js
+import { useInterrupt } from "kortyx";
+
+const picked = await useInterrupt({
+  id: "pick-topics",
+  request: {
+    kind: "multi-choice",
+    question: "Pick one or more:",
+    options: [
+      { id: "product", label: "Product" },
+      { id: "design", label: "Design" },
+    ],
+  },
+});
+```
+
+Use stable `id` values for interrupts in nodes that can replay or contain multiple interrupt calls.
 
 Or use `useReason({ interrupt: ... })` when you want model-generated interrupt requests constrained by schema. By default, `useReason` treats interrupt config as required: the model must produce an interrupt request, the runtime pauses, and the hook continues after resume. Set `interrupt.mode` to `"optional"` when the model should return either `decision: "continue"` for a single-call result or `decision: "interrupt"` with an interrupt request.
 
@@ -57,15 +75,15 @@ During interrupt, runtime/orchestrator emits:
 
 `@kortyx/agent` resume metadata shape (from `parseResumeMeta`):
 
-```ts
+```json
 {
-  role: "user",
-  content: "Product",
-  metadata: {
-    resume: {
-      token: "<resumeToken>",
-      requestId: "<requestId>",
-      selected: ["product"]
+  "role": "user",
+  "content": "Product",
+  "metadata": {
+    "resume": {
+      "token": "<resumeToken>",
+      "requestId": "<requestId>",
+      "selected": ["product"]
     }
   }
 }
@@ -92,9 +110,106 @@ if (!startEmitted) {
   setStartEmitted(true);
 }
 
-const result = await useReason({ ... });
+const result = await useReason({
+  id: "resume-safe-step",
+  model,
+  input,
+});
 setStartEmitted(false);
 ```
+```js
+const [startEmitted, setStartEmitted] = useNodeState(false);
+
+if (!startEmitted) {
+  useStructuredData({
+    streamId: "lifecycle",
+    dataType: "lifecycle",
+    data: { step: "start" },
+  });
+  setStartEmitted(true);
+}
+
+const result = await useReason({
+  id: "resume-safe-step",
+  model,
+  input,
+});
+setStartEmitted(false);
+```
+
+## Replay-Safe Side Effects
+
+Code before an interrupt or resumable reasoning call can run more than once. Make side effects safe to repeat.
+
+Replay-safe patterns:
+
+- Put external writes after the interrupt when possible.
+- Store "already did this" flags with `useNodeState(...)` or `useWorkflowState(...)`.
+- Use idempotency keys when calling app services.
+- Keep random ids and timestamps stable if they affect external writes.
+
+```ts
+import { useInterrupt, useNodeState } from "kortyx";
+import { sendApprovalEmail } from "@/services/email";
+
+export async function approvalNode() {
+  const [emailSent, setEmailSent] = useNodeState(false);
+
+  if (!emailSent) {
+    await sendApprovalEmail({ idempotencyKey: "approval-email" });
+    setEmailSent(true);
+  }
+
+  const decision = await useInterrupt({
+    id: "approval",
+    request: {
+      kind: "choice",
+      question: "Approve this draft?",
+      options: [
+        { id: "approve", label: "Approve" },
+        { id: "revise", label: "Revise" },
+      ],
+    },
+  });
+
+  return {
+    data: { decision },
+    condition: decision === "approve" ? "approved" : "revise",
+  };
+}
+```
+```js
+import { useInterrupt, useNodeState } from "kortyx";
+import { sendApprovalEmail } from "@/services/email";
+
+export async function approvalNode() {
+  const [emailSent, setEmailSent] = useNodeState(false);
+
+  if (!emailSent) {
+    await sendApprovalEmail({ idempotencyKey: "approval-email" });
+    setEmailSent(true);
+  }
+
+  const decision = await useInterrupt({
+    id: "approval",
+    request: {
+      kind: "choice",
+      question: "Approve this draft?",
+      options: [
+        { id: "approve", label: "Approve" },
+        { id: "revise", label: "Revise" },
+      ],
+    },
+  });
+
+  return {
+    data: { decision },
+    condition: decision === "approve" ? "approved" : "revise",
+  };
+}
+```
+
+Use the app database for product records, users, tickets, documents, conversation history, and anything that must outlive runtime execution state.
 
 ## Persistence requirements
 
