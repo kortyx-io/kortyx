@@ -171,6 +171,8 @@ export async function supportNode() {
 }
 ```
 
+See [Runtime Context](../02-core-concepts/08-runtime-context.md) for the full client-to-route-to-node flow.
+
 ## Runtime controls
 
 `useChat(...)` exposes controls for common chat lifecycle cases:

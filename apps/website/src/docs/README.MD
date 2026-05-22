@@ -59,17 +59,29 @@ When removing a docs page:
 
 ## Priority 2 — Reduce adoption friction
 
-1. Expand the new `@kortyx/react` page with storage override, interrupt, and debug examples as usage settles.
-2. Expand **Troubleshooting** with top recurring setup/runtime errors and fixes.
-3. Add compatibility notes for Node/framework/runtime expectations where ambiguity exists.
-4. Add package-manager command parity checks on install/run pages.
-5. Keep the provider selection guide current as provider packages gain new model types or provider options.
+1. Expand **Troubleshooting** with top recurring setup/runtime errors and fixes.
+2. Add compatibility notes for Node/framework/runtime expectations where ambiguity exists.
+3. Add package-manager command parity checks on install/run pages.
+4. Keep the provider selection guide current as provider packages gain new model types or provider options.
+5. Keep the new runtime context, project structure, React + Node backend, and streamed rendering pages aligned with `skills/kortyx`.
 
 ## Priority 3 — Support advanced users
 
 1. Expand **Reference** depth for runtime hooks, stream protocol, provider contracts, and the `@kortyx/react` surface.
 2. Add production guides: retries, observability, failure handling, and security checklist.
 3. Expand migration guides for major-version upgrades and breaking changes.
+
+## Skill Parity Coverage
+
+Recent docs now cover the main `skills/kortyx` application guidance:
+
+- node input/params/data flow: `v0/02-core-concepts/03-nodes.md`
+- runtime request context: `v0/02-core-concepts/08-runtime-context.md`
+- server/client folder boundaries: `v0/03-guides/01-project-structure.md`
+- React frontend + Node backend architecture: `v0/03-guides/03-react-node-backend.md`
+- streamed React rendering: `v0/03-guides/04-render-streamed-chat.md`
+- `useReason({ emit: true })` vs `ui.message`: `v0/02-core-concepts/07-hooks.md`
+- interrupt replay safety: `v0/03-guides/02-interrupts-and-resume.md`
 
 ## Suggested KPI targets
 

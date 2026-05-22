@@ -22,6 +22,7 @@ Use them for four things:
 - Need manual human-in-the-loop input: `useInterrupt(...)`
 - Need state local to one node execution flow: `useNodeState(...)`
 - Need state shared across nodes in the same run: `useWorkflowState(...)`
+- Need request metadata inside a node: `useRuntimeContext(...)`
 - Need structured UI updates in the stream: `useStructuredData(...)`
 
 ## Structured Streaming Mental Model
@@ -47,6 +48,50 @@ Typical use:
 - schema-constrained outputs
 - optional interrupt flow (`interrupt`)
 - structured stream payloads (`structured`)
+
+### Emission vs `ui.message`
+
+`emit` controls whether `useReason(...)` publishes model output into the stream while the model is running. `ui.message` is a node return value that emits a final message after the node finishes.
+
+Do not return `ui: { message: result.text }` from the same node when `useReason({ emit: true })` already streams the answer. That sends the same assistant text through two channels.
+
+Use one of these patterns:
+
+| Use case | Pattern |
+| --- | --- |
+| Live streamed answer | `useReason({ stream: true, emit: true })`, then return `data` only |
+| Final-only answer | `useReason({ stream: false, emit: false })`, then return `ui.message` |
+| Internal reasoning | `useReason({ emit: false })`, then return `data` unless the result should be shown |
+| Custom final note | Return `ui.message` only when it is intentionally different from streamed model text |
+
+```ts
+const result = await useReason({
+  id: "answer",
+  model: google("gemini-2.5-flash"),
+  input: String(input ?? ""),
+  stream: true,
+  emit: true,
+});
+
+return {
+  data: { answer: result.text },
+};
+```
+```js
+const result = await useReason({
+  id: "answer",
+  model: google("gemini-2.5-flash"),
+  input: String(input ?? ""),
+  stream: true,
+  emit: true,
+});
+
+return {
+  data: { answer: result.text },
+};
+```
+
+> **Good to know:** Return `data` for values later nodes need. Return `ui.message` only for assistant text the client should receive as a final message chunk.
 
 ### Example: stream an email draft as JSON
 
@@ -289,6 +334,7 @@ Use this when you want fully manual interrupt payloads without LLM-generated req
 import { useInterrupt } from "kortyx";
 
 const selected = await useInterrupt({
+  id: "pick-one",
   request: {
     kind: "choice",
     question: "Pick one",
@@ -303,6 +349,7 @@ const selected = await useInterrupt({
 import { useInterrupt } from "kortyx";
 
 const selected = await useInterrupt({
+  id: "pick-one",
   request: {
     kind: "choice",
     question: "Pick one",
@@ -318,6 +365,8 @@ Return:
 
 - `string` for `text` and `choice`
 - `string[]` for `multi-choice`
+
+Use stable `id` values for interrupts in nodes that can replay or contain multiple interrupt calls.
 
 ## `useNodeState` and `useWorkflowState`
 
@@ -363,6 +412,28 @@ Durability and practical limits:
 - in-memory framework adapter is process-local and not restart-safe
 - Redis framework adapter can restore across restarts until TTL expiry
 - keep hook state small and JSON-serializable
+
+## `useRuntimeContext(...)`
+
+Use this when node code needs request metadata passed from the route, such as selected thread id, locale, or server-approved auth context.
+
+```ts
+import { useRuntimeContext } from "kortyx";
+
+type AppContext = {
+  threadId?: string;
+  userId: string;
+};
+
+const context = useRuntimeContext<AppContext>();
+```
+```js
+import { useRuntimeContext } from "kortyx";
+
+const context = useRuntimeContext();
+```
+
+See [Runtime Context](./08-runtime-context.md) for the full client-to-route-to-node flow and security boundary.
 
 ## `useStructuredData(...)`
 
@@ -495,7 +566,11 @@ if (!started) {
   setStarted(true);
 }
 
-const result = await useReason({ ... });
+const result = await useReason({
+  id: "resume-safe-step",
+  model,
+  input,
+});
 setStarted(false);
 ```
 ```js
@@ -510,7 +585,11 @@ if (!started) {
   setStarted(true);
 }
 
-const result = await useReason({ ... });
+const result = await useReason({
+  id: "resume-safe-step",
+  model,
+  input,
+});
 setStarted(false);
 ```
 

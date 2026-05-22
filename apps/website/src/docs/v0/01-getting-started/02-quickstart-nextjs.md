@@ -78,7 +78,8 @@ export { google } from "@kortyx/google";
 ```
 
 > **Good to know:** The default `google` export reads `GOOGLE_API_KEY`, `GEMINI_API_KEY`, `GOOGLE_GENERATIVE_AI_API_KEY`, `KORTYX_GOOGLE_API_KEY`, or `KORTYX_GEMINI_API_KEY` on first use. If you want explicit provider setup or custom transport settings, replace this with `createGoogleGenerativeAI(...)`.
-> **Good to know:** This `src/lib/providers.ts` file is a re-export only. In files where you call `google("...")` directly, import `google` from `@/lib/providers` or from `@kortyx/google`; do not expect `export { google } from "@kortyx/google"` to create a local variable in the same file.
+
+This `src/lib/providers.ts` file is a re-export only. In files where you call `google("...")` directly, import `google` from `@/lib/providers` or from `@kortyx/google`; do not expect `export { google } from "@kortyx/google"` to create a local variable in the same file.
 
 ## 3. Create a node
 
@@ -108,6 +109,7 @@ export const chatNode = async ({
   } = params;
 
   const res = await useReason({
+    id: "chat",
     model,
     system: system || "You are a concise assistant.",
     input: String(input ?? ""),
@@ -118,7 +120,6 @@ export const chatNode = async ({
 
   return {
     data: { text: res.text },
-    ui: { message: res.text },
   };
 };
 ```
@@ -136,6 +137,7 @@ export const chatNode = async ({ input, params }) => {
   } = params ?? {};
 
   const res = await useReason({
+    id: "chat",
     model,
     system: system || "You are a concise assistant.",
     input: String(input ?? ""),
@@ -146,7 +148,6 @@ export const chatNode = async ({ input, params }) => {
 
   return {
     data: { text: res.text },
-    ui: { message: res.text },
   };
 };
 ```

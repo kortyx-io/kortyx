@@ -61,9 +61,7 @@ export const getLatestDocsVersionDisplay = cache(
 
     return {
       label: "Latest version",
-      subtitle: version
-        ? `v${version} (beta)`
-        : `${docsConfig.latestVersion} (beta)`,
+      subtitle: version ? `v${version}` : docsConfig.latestVersion,
     };
   },
 );
