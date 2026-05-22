@@ -7,7 +7,10 @@ import { type ChatStorage, createBrowserChatStorage } from "./chat-storage";
 import type { ChatTransport, OutgoingChatMessage } from "./chat-transport";
 import type { ChatMsg, ContentPiece, HumanInputPiece } from "./chat-types";
 import { createLiveChatPieces } from "./create-live-chat-pieces";
-import { toHumanInputPiece } from "./to-human-input-piece";
+import {
+  toHumanInputPiece as defaultToHumanInputPiece,
+  type ToHumanInputPiece,
+} from "./to-human-input-piece";
 import { useChatStreamDebug } from "./use-chat-stream-debug";
 import { useStructuredStreams } from "./use-structured-streams";
 
@@ -72,6 +75,7 @@ export type UseChatOptions<TContext = DefaultChatContext> = {
   createId?: (() => string) | undefined;
   context?: TContext | undefined;
   prepareContextMessages?: PrepareContextMessages<TContext> | undefined;
+  toHumanInputPiece?: ToHumanInputPiece | undefined;
 };
 
 const defaultStorage = createBrowserChatStorage<ChatMsg>();
@@ -113,6 +117,9 @@ export function useChat<TContext = DefaultChatContext>(
   const resolvedStorage = options.storage ?? defaultStorage;
   const transportRef = useLatestRef(options.transport);
   const storageRef = useLatestRef(resolvedStorage);
+  const toHumanInputPieceRef = useLatestRef(
+    options.toHumanInputPiece ?? defaultToHumanInputPiece,
+  );
   const requestContext =
     options.context ?? ({} as unknown as NonNullable<TContext>);
   const createId = useRef(options.createId ?? defaultCreateId).current;
@@ -276,7 +283,7 @@ export function useChat<TContext = DefaultChatContext>(
         applyStreamChunk,
       },
       toHumanInputPiece: (chunk) =>
-        toHumanInputPiece({
+        toHumanInputPieceRef.current({
           chunk,
           createId,
         }),

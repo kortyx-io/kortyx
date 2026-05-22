@@ -132,6 +132,9 @@ export function AssistantLiveMessage({ pieces, chat }) {
 
 For interrupt pieces, call `chat.respondToInterrupt(piece, response)` with the same piece you received. This preserves the `resumeToken` and `requestId`.
 
+If your workflow emits multiple interrupt types, route custom controls with `piece.schemaId`.
+The piece also preserves `schemaVersion`, `interruptId`, and public `meta` from the server interrupt request.
+
 ```tsx
 import type { HumanInputPiece, UseChatValue } from "@kortyx/react";
 

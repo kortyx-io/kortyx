@@ -780,6 +780,12 @@ describe("useChat", () => {
           type: "interrupt",
           requestId: "req-1",
           resumeToken: "tok-1",
+          id: "pick-job",
+          schemaId: "pick-job",
+          schemaVersion: "1",
+          meta: {
+            picker: "jobs",
+          },
           input: {
             kind: "text",
             multiple: false,
@@ -811,6 +817,64 @@ describe("useChat", () => {
       question: "Continue?",
       resumeToken: "tok-1",
       requestId: "req-1",
+      interruptId: "pick-job",
+      schemaId: "pick-job",
+      schemaVersion: "1",
+      meta: {
+        picker: "jobs",
+      },
+    });
+  });
+
+  it("supports a custom interrupt piece mapper in useChat", async () => {
+    const transport: ChatTransport = {
+      stream: async ({ onChunk }) => {
+        await onChunk({
+          type: "interrupt",
+          requestId: "req-custom",
+          resumeToken: "tok-custom",
+          input: {
+            kind: "text",
+            multiple: false,
+            question: "Continue?",
+          },
+        });
+        await onChunk({ type: "done" });
+      },
+    };
+    const memory = createMemoryStorage();
+
+    const { result } = renderHook(() =>
+      useChat({
+        transport,
+        storage: memory.storage,
+        toHumanInputPiece: ({ chunk, createId }) => ({
+          id: createId(),
+          type: "interrupt",
+          resumeToken:
+            chunk.type === "interrupt" ? chunk.resumeToken : "not-interrupt",
+          requestId: chunk.type === "interrupt" ? chunk.requestId : "",
+          kind: "text",
+          question: "Mapped question",
+          multiple: false,
+          options: [],
+          schemaId: "custom-schema",
+        }),
+        createId: () => "custom-piece",
+      }),
+    );
+
+    await flushEffects();
+
+    await act(async () => {
+      await result.current.send("hi");
+    });
+
+    expect(result.current.messages.at(-1)?.contentPieces?.[0]).toMatchObject({
+      id: "custom-piece",
+      type: "interrupt",
+      question: "Mapped question",
+      schemaId: "custom-schema",
     });
   });
 
