@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.14.0](https://github.com/kortyx-io/kortyx/compare/example-nextjs-chat-api-route-v0.13.2...example-nextjs-chat-api-route-v0.14.0) (2026-05-22)
+
+
+### Features
+
+* **hooks:** support nested structured streaming ([#109](https://github.com/kortyx-io/kortyx/issues/109)) ([4921043](https://github.com/kortyx-io/kortyx/commit/49210435f5b3365c962aa737093c004e5d17a2f4))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * kortyx bumped to 0.10.2
+
 ## [0.13.2](https://github.com/kortyx-io/kortyx/compare/example-nextjs-chat-api-route-v0.13.1...example-nextjs-chat-api-route-v0.13.2) (2026-05-22)
 
 

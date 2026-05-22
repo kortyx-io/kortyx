@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.17.0](https://github.com/kortyx-io/kortyx/compare/website-v0.16.2...website-v0.17.0) (2026-05-22)
+
+
+### Features
+
+* **hooks:** support nested structured streaming ([#109](https://github.com/kortyx-io/kortyx/issues/109)) ([4921043](https://github.com/kortyx-io/kortyx/commit/49210435f5b3365c962aa737093c004e5d17a2f4))
+
 ## [0.16.2](https://github.com/kortyx-io/kortyx/compare/website-v0.16.1...website-v0.16.2) (2026-05-22)
 
 
