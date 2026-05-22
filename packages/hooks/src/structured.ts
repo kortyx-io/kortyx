@@ -96,4 +96,8 @@ export const emitStructuredData = <TData = unknown>(
 
 export const shouldEmitStructured = (
   cfg: UseReasonStructuredConfig | undefined,
+): boolean => Boolean(cfg);
+
+export const shouldStreamStructured = (
+  cfg: UseReasonStructuredConfig | undefined,
 ): boolean => Boolean(cfg) && (cfg?.stream ?? true);

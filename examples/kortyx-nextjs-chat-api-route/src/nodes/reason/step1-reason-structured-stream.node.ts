@@ -3,9 +3,11 @@ import { useReason } from "kortyx";
 import { z } from "zod";
 
 const StructuredDraftSchema = z.object({
-  subject: z.string().min(1),
-  body: z.string().min(1),
-  bullets: z.array(z.string().min(1)).default([]),
+  draft: z.object({
+    subject: z.string().min(1),
+    body: z.string().min(1),
+    bullets: z.array(z.string().min(1)).default([]),
+  }),
 });
 
 type StructuredDraft = z.infer<typeof StructuredDraftSchema>;
@@ -27,12 +29,13 @@ export const step1ReasonStructuredStreamNode = async ({
     system: "You are a customer communications assistant. Return JSON only.",
     input: [
       "Write an actual customer-facing beta launch email as structured JSON.",
+      "Return the email under a nested draft object with subject, body, and bullets fields.",
       "Do not write a memo, plan, outline, or explanation about the email.",
-      "The body field must contain the real email copy that could be sent to customers.",
+      "The draft.body field must contain the real email copy that could be sent to customers.",
       "Respect the user's requested length and tone.",
-      "If the user asks for a long email, make the body detailed and substantial.",
-      "Keep the subject concise and sendable.",
-      "Make bullets customer-facing highlights or next steps.",
+      "If the user asks for a long email, make draft.body detailed and substantial.",
+      "Keep draft.subject concise and sendable.",
+      "Make draft.bullets customer-facing highlights or next steps.",
       "",
       `User input: ${userInput}`,
     ].join("\n"),
@@ -43,23 +46,26 @@ export const step1ReasonStructuredStreamNode = async ({
       stream: true,
       dataType: "reason-demo.compose",
       fields: {
-        subject: "set",
-        body: "text-delta",
-        bullets: "append",
+        "draft.subject": "set",
+        "draft.body": "text-delta",
+        "draft.bullets": "append",
       },
     },
   });
 
   const output: StructuredDraft = result.output ?? {
-    subject: "Draft",
-    body: result.text,
-    bullets: [],
+    draft: {
+      subject: "Draft",
+      body: result.text,
+      bullets: [],
+    },
   };
+  const draft = output.draft;
 
   return {
     data: output,
     ui: {
-      message: [`Subject: ${output.subject}`, "", output.body].join("\n"),
+      message: [`Subject: ${draft.subject}`, "", draft.body].join("\n"),
     },
   };
 };

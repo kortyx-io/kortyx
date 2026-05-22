@@ -26,36 +26,18 @@ describe("structured stream parser", () => {
     expect(resolveAppendFieldPaths({})).toEqual([]);
   });
 
-  it("rejects nested structured streaming field paths before streaming starts", () => {
-    expect(() =>
-      resolveSetFieldPaths({
-        fields: {
-          "meta.title": "set",
-        },
-      }),
-    ).toThrow(
-      "useReason structured set streaming requires non-empty top-level field keys.",
-    );
+  it("resolves nested structured streaming field paths", () => {
+    const config = {
+      fields: {
+        "meta.title": "set",
+        "body.markdown": "text-delta",
+        "jobs.items": "append",
+      },
+    } as const;
 
-    expect(() =>
-      resolveTextDeltaFieldPaths({
-        fields: {
-          "body.markdown": "text-delta",
-        },
-      }),
-    ).toThrow(
-      "useReason structured text-delta streaming requires non-empty top-level string field keys.",
-    );
-
-    expect(() =>
-      resolveAppendFieldPaths({
-        fields: {
-          "jobs.items": "append",
-        },
-      }),
-    ).toThrow(
-      "useReason structured append streaming requires non-empty top-level array field keys.",
-    );
+    expect(resolveSetFieldPaths(config)).toEqual(["meta.title"]);
+    expect(resolveTextDeltaFieldPaths(config)).toEqual(["body.markdown"]);
+    expect(resolveAppendFieldPaths(config)).toEqual(["jobs.items"]);
   });
 
   it("extracts completed scalar, string, object, and array field values", () => {
@@ -97,6 +79,13 @@ describe("structured stream parser", () => {
       found: true,
       complete: true,
       value: ["sdk", "stream"],
+    });
+    expect(
+      extractCompletedFieldValue({ text, path: "details.nested.1.ok" }),
+    ).toEqual({
+      found: true,
+      complete: true,
+      value: true,
     });
   });
 
@@ -200,9 +189,9 @@ describe("structured stream parser", () => {
 
   it("extracts completed array items while ignoring partial malformed tail items", () => {
     const text =
-      '{"jobs":[{"id":"1","meta":{"tags":["a,b","]"]}},["nested",2],true,null,';
+      '{"jobs":{"items":[{"id":"1","meta":{"tags":["a,b","]"]}},["nested",2],true,null,';
 
-    expect(extractCompletedArrayItems({ text, path: "jobs" })).toEqual([
+    expect(extractCompletedArrayItems({ text, path: "jobs.items" })).toEqual([
       {
         id: "1",
         meta: {
@@ -231,8 +220,8 @@ describe("structured stream parser", () => {
   it("streams string values with escapes, partial escapes, and unicode escapes", () => {
     expect(
       extractStreamingStringValue({
-        text: '{"body":"Hello\\nWorld"}',
-        path: "body",
+        text: '{"draft":{"body":"Hello\\nWorld"}}',
+        path: "draft.body",
       }),
     ).toEqual({
       found: true,
