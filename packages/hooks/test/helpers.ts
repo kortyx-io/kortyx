@@ -1,9 +1,4 @@
-import type {
-  GraphState,
-  InterruptInput,
-  InterruptResult,
-  NodeContext,
-} from "@kortyx/core";
+import type { GraphState, InterruptInput, InterruptResult } from "@kortyx/core";
 import type {
   GetProviderFn,
   KortyxInvokeResult,
@@ -13,6 +8,7 @@ import type {
   ProviderSelector,
 } from "@kortyx/providers";
 import { vi } from "vitest";
+import type { HookNodeRuntimeContext } from "../src/context";
 
 export type EmitRecord = { event: string; payload: unknown };
 
@@ -110,19 +106,17 @@ export const createNode = (args: CreateNodeArgs = {}) => {
       ? args.nodeId
       : "reason";
 
-  const node: NodeContext = {
+  const node: HookNodeRuntimeContext = {
     graph: { name: "test-workflow", node: nodeId },
     config: {},
     emit: (event, payload) => {
       emitted.push({ event, payload });
     },
-    error: () => {},
     awaitInterrupt: (input) => {
       interrupts.push(input);
       if (args.onInterrupt) return args.onInterrupt(input);
       return args.interruptResponse ?? "";
     },
-    speak: async () => "",
   };
 
   return { node, emitted, interrupts };

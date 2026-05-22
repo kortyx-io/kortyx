@@ -130,11 +130,6 @@ edges:
 
 describe("node schemas", () => {
   it("parses supported node config, context, result, and graph state shapes", () => {
-    const emit = () => {};
-    const error = () => {};
-    const awaitInterrupt = () => "accepted";
-    const speak = async () => "spoken";
-
     expect(
       parseNodeConfig({
         model: { provider: "openai", name: "gpt-5.4", temperature: 0.3 },
@@ -149,10 +144,6 @@ describe("node schemas", () => {
       parseNodeContext({
         graph: { name: "support", node: "start" },
         config: {},
-        emit,
-        error,
-        awaitInterrupt,
-        speak,
       }),
     ).toMatchObject({
       graph: { name: "support", node: "start" },
@@ -209,10 +200,7 @@ describe("node schemas", () => {
       parseNodeContext({
         graph: { name: "support", node: "start" },
         config: {},
-        emit: "not-a-function",
-        error: () => {},
-        awaitInterrupt: () => "ok",
-        speak: async () => "ok",
+        emit: () => {},
       }),
     ).toThrow();
   });

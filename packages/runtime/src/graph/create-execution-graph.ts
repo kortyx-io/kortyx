@@ -3,13 +3,11 @@ import type {
   InterruptInput,
   InterruptResult,
   NodeConfig,
-  NodeContext,
   NodeResult,
   WorkflowDefinition,
 } from "@kortyx/core";
 import type { ReasonTraceAdapter } from "@kortyx/hooks";
 import { runWithHookContext } from "@kortyx/hooks";
-import { runReasonEngine } from "@kortyx/hooks/internal";
 import type { GetProviderFn } from "@kortyx/providers";
 import { deepMergeWithArrayOverwrite } from "@kortyx/utils";
 import { Annotation, interrupt, StateGraph } from "@langchain/langgraph";
@@ -45,10 +43,6 @@ export interface ExecutionRuntimeConfig {
   onCheckpoint?: (args: { nodeId: string; state: GraphState }) => void;
   checkpointer?: BaseCheckpointSaver;
   reasonTrace?: ReasonTraceAdapter;
-  /**
-   * Provider factory used by ctx.speak to obtain a streaming model.
-   * Use @kortyx/providers or implement your own GetProviderFn.
-   */
   getProvider?: GetProviderFn;
   [key: string]: unknown;
 }
@@ -94,7 +88,7 @@ export async function createExecutionGraph(
   };
   const workflowName = workflow.id;
 
-  // Ensure an emit function exists so ctx.emit can always call without optional chaining
+  // Ensure an emit function exists so internal hook plumbing can emit events.
   type WithEmit = ExecutionRuntimeConfig & {
     emit: (event: string, payload: unknown) => void;
   };
@@ -155,18 +149,13 @@ export async function createExecutionGraph(
     const behavior = nodeConfig.behavior ?? {};
 
     builder.addNode(nodeId, async (state: GraphState) => {
-      const ctx = {
+      const emitRuntimeEvent = (event: string, payload: unknown) => {
+        runtimeConfig.emit(event, payload);
+      };
+      const hookNodeContext = {
         graph: { name: workflowName, node: nodeId },
         config: nodeConfig,
-        emit: (event: string, payload: unknown) => {
-          runtimeConfig.emit(event, payload);
-        },
-        error: (message: string) => {
-          runtimeConfig.emit("error", {
-            node: nodeId,
-            message,
-          });
-        },
+        emit: emitRuntimeEvent,
         awaitInterrupt: (interruptConfig: InterruptInput): InterruptResult => {
           const { kind, question } = interruptConfig;
           const isMulti =
@@ -210,7 +199,7 @@ export async function createExecutionGraph(
           try {
             resumed = interrupt(payload) as unknown;
           } catch (error) {
-            runtimeConfig.emit("interrupt", {
+            emitRuntimeEvent("interrupt", {
               node: nodeId,
               workflow: workflowName,
               input: payload,
@@ -246,40 +235,7 @@ export async function createExecutionGraph(
           }
           return "";
         },
-        speak: async (
-          args: Parameters<NodeContext["speak"]>[0],
-        ): Promise<string> => {
-          const providerId =
-            args.model?.provider ?? nodeConfig.model?.provider ?? "google";
-          const modelName =
-            args.model?.name ?? nodeConfig.model?.name ?? "gemini-2.5-flash";
-          const temperature =
-            args.model?.temperature ?? nodeConfig.model?.temperature ?? 0.3;
-
-          const getProvider = runtimeConfig.getProvider;
-          if (!getProvider) {
-            throw new Error(
-              "Runtime config is missing getProvider; wire a provider factory into @kortyx/runtime.",
-            );
-          }
-
-          const result = await runReasonEngine({
-            model: {
-              provider: getProvider(providerId),
-              modelId: modelName,
-            },
-            input: args.user ?? "",
-            system: args.system,
-            temperature,
-            stream: true,
-            emit: true,
-            nodeId,
-            emitEvent: ctx.emit,
-            reasonTrace: runtimeConfig.reasonTrace,
-          });
-          return result.text;
-        },
-      } satisfies NodeContext;
+      };
 
       if (behavior.checkpoint && config?.onCheckpoint) {
         config.onCheckpoint({ nodeId, state });
@@ -305,7 +261,7 @@ export async function createExecutionGraph(
                 } as GraphState)
               : state;
           const hookContext = {
-            node: ctx,
+            node: hookNodeContext,
             state: attemptState,
             reasonTrace: runtimeConfig.reasonTrace,
           };
@@ -361,11 +317,11 @@ export async function createExecutionGraph(
         typeof uiMessage === "string" && uiMessage.trim().length > 0;
 
       if (shouldRespond) {
-        ctx.emit("message", { node: nodeId, content: uiMessage });
+        emitRuntimeEvent("message", { node: nodeId, content: uiMessage });
       }
 
       if (res.transitionTo) {
-        ctx.emit("transition", {
+        emitRuntimeEvent("transition", {
           transitionTo: res.transitionTo,
           payload: res.data ?? {},
         });
@@ -429,7 +385,7 @@ export async function createExecutionGraph(
                 (payload as { topJobs?: unknown }).topJobs
               ? "summary"
               : "generic";
-        ctx.emit("structured_data", {
+        emitRuntimeEvent("structured_data", {
           node: nodeId,
           dataType: inferredType,
           data: payload,
