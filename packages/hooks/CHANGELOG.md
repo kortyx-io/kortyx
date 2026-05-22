@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.13.0](https://github.com/kortyx-io/kortyx/compare/hooks-v0.12.1...hooks-v0.13.0) (2026-05-22)
+
+
+### Features
+
+* **hooks:** support nested structured streaming ([#109](https://github.com/kortyx-io/kortyx/issues/109)) ([4921043](https://github.com/kortyx-io/kortyx/commit/49210435f5b3365c962aa737093c004e5d17a2f4))
+
 ## [0.12.1](https://github.com/kortyx-io/kortyx/compare/hooks-v0.12.0...hooks-v0.12.1) (2026-05-22)
 
 
