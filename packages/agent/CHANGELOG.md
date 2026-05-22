@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.11.1](https://github.com/kortyx-io/kortyx/compare/agent-v0.11.0...agent-v0.11.1) (2026-05-22)
+
+
+### Bug Fixes
+
+* **runtime:** enforce node error contract ([3af7fa9](https://github.com/kortyx-io/kortyx/commit/3af7fa9c363637bb804f4a3df7a9b68070eecce3))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/core bumped to 0.5.3
+    * @kortyx/runtime bumped to 0.9.4
+  * devDependencies
+    * @kortyx/hooks bumped to 0.12.1
+
 ## [0.11.0](https://github.com/kortyx-io/kortyx/compare/agent-v0.10.3...agent-v0.11.0) (2026-05-20)
 
 

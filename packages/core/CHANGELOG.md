@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.5.3](https://github.com/kortyx-io/kortyx/compare/core-v0.5.2...core-v0.5.3) (2026-05-22)
+
+
+### Bug Fixes
+
+* **runtime:** enforce node error contract ([3af7fa9](https://github.com/kortyx-io/kortyx/commit/3af7fa9c363637bb804f4a3df7a9b68070eecce3))
+
 ## [0.5.2](https://github.com/kortyx-io/kortyx/compare/core-v0.5.1...core-v0.5.2) (2026-05-20)
 
 
