@@ -127,6 +127,7 @@ function buildDocsJsonLd(args: {
   const websiteId = `${siteConfig.url}/#website`;
   const organizationId = `${siteConfig.url}/#organization`;
   const softwareId = `${siteConfig.url}/#software`;
+  const sourceCodeId = `${siteConfig.repositoryUrl}#source-code`;
   const breadcrumbId = `${url}#breadcrumb`;
   const pageId = `${url}#webpage`;
   const articleId = `${url}#article`;
@@ -172,7 +173,6 @@ function buildDocsJsonLd(args: {
           publisher: { "@id": organizationId },
           isPartOf: { "@id": websiteId },
           about: { "@id": softwareId },
-          breadcrumb: { "@id": breadcrumbId },
           inLanguage: "en",
           isBasedOn: args.editOnGithubHref ?? undefined,
           wordCount: args.doc.content.split(/\s+/).filter(Boolean).length,
@@ -218,9 +218,17 @@ function buildDocsJsonLd(args: {
         name: siteConfig.name,
         applicationCategory: "DeveloperApplication",
         operatingSystem: "Cross-platform",
-        programmingLanguage: "TypeScript",
         url: siteConfig.url,
+        softwareHelp: { "@id": websiteId },
+        subjectOf: { "@id": sourceCodeId },
+        publisher: { "@id": organizationId },
+      },
+      {
+        "@type": "SoftwareSourceCode",
+        "@id": sourceCodeId,
+        name: `${siteConfig.name} source code`,
         codeRepository: siteConfig.repositoryUrl,
+        programmingLanguage: "TypeScript",
         publisher: { "@id": organizationId },
       },
       buildBreadcrumbJsonLd(args.breadcrumbs),
