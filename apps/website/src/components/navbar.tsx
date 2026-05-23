@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import { DocsSearch } from "@/components/docs/docs-search";
 import { getDocsSearchIndex } from "@/lib/docs";
@@ -23,8 +24,16 @@ export async function Navbar({ className }: NavbarProps) {
         <nav className="flex items-center gap-6">
           <Link
             href="/"
-            className="text-sm font-semibold text-foreground hover:text-muted-foreground"
+            className="flex items-center gap-2 text-sm font-semibold text-foreground hover:text-muted-foreground"
           >
+            <Image
+              src="/logo.png"
+              alt=""
+              width={24}
+              height={24}
+              className="rounded-md"
+              priority
+            />
             Kortyx
           </Link>
           <Link

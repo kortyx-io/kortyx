@@ -4,6 +4,16 @@ type DocsMarkdownRouteParams = {
   slug?: string[];
 };
 
+function permanentRedirect(location: string): Response {
+  return new Response(null, {
+    status: 308,
+    headers: {
+      Location: location,
+      "Cache-Control": "public, max-age=0, must-revalidate",
+    },
+  });
+}
+
 export async function GET(
   _request: Request,
   { params }: { params: Promise<DocsMarkdownRouteParams> },
@@ -13,7 +23,15 @@ export async function GET(
   const resolved = await resolveDocsRoute(slug);
 
   if (!resolved || resolved.routeKind !== "doc") {
+    if (resolved?.routeKind === "section") {
+      return permanentRedirect(resolved.canonicalPath);
+    }
+
     return new Response("Not Found", { status: 404 });
+  }
+
+  if (resolved.redirectTo) {
+    return permanentRedirect(`${resolved.canonicalPath}.md`);
   }
 
   return new Response(resolved.doc.content, {
