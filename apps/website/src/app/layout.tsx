@@ -16,8 +16,8 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteConfig.url),
-  title: "Kortyx",
-  description: "Kortyx documentation and developer guides",
+  title: siteConfig.name,
+  description: siteConfig.description,
 };
 
 const themeScript = `
