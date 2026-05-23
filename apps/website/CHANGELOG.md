@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.19.1](https://github.com/kortyx-io/kortyx/compare/website-v0.19.0...website-v0.19.1) (2026-05-23)
+
+
+### Bug Fixes
+
+* update schema ([7e3e82f](https://github.com/kortyx-io/kortyx/commit/7e3e82f02fec5ccee26a1f711875f447bd689fa9))
+* update schema ([3290cb8](https://github.com/kortyx-io/kortyx/commit/3290cb8e247d6e136a54d0e78277eab1f1fb5f88))
+
 ## [0.19.0](https://github.com/kortyx-io/kortyx/compare/website-v0.18.0...website-v0.19.0) (2026-05-23)
 
 
