@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.19.0](https://github.com/kortyx-io/kortyx/compare/website-v0.18.0...website-v0.19.0) (2026-05-23)
+
+
+### Features
+
+* add dynamic kortyx og image ([044b8e7](https://github.com/kortyx-io/kortyx/commit/044b8e7277026148eac8ddcca30cfc19d79c69d9))
+* add sitemap ([8bf575d](https://github.com/kortyx-io/kortyx/commit/8bf575df4930713ac6def54b6e891d8debd7b4d5))
+
+
+### Bug Fixes
+
+* add logo to the navbar ([30b7037](https://github.com/kortyx-io/kortyx/commit/30b70375d2df6e2e21060f4d147e5b08c8e93f52))
+
 ## [0.18.0](https://github.com/kortyx-io/kortyx/compare/website-v0.17.0...website-v0.18.0) (2026-05-22)
 
 
