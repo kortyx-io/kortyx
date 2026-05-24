@@ -1,9 +1,12 @@
 import type { InterruptInput, InterruptResult } from "@kortyx/core";
 import type {
+  KortyxExecutableTool,
   KortyxFinishReason,
   KortyxProviderMetadata,
   KortyxReasoningOptions,
   KortyxResponseFormat,
+  KortyxToolCall,
+  KortyxToolResult,
   KortyxUsage,
   KortyxWarning,
   ProviderModelRef,
@@ -109,6 +112,12 @@ export type UseReasonInterruptConfig<
   schemaVersion?: string | undefined;
 };
 
+export type UseReasonToolPolicy = {
+  maxSteps?: number | undefined;
+  approval?: boolean | Record<string, boolean> | undefined;
+  emit?: boolean | Record<string, boolean> | undefined;
+};
+
 export type UseReasonArgs<
   TOutput = unknown,
   TRequest extends InterruptInput = InterruptInput,
@@ -131,6 +140,19 @@ export type UseReasonArgs<
   outputSchema?: SchemaLike<TOutput> | undefined;
   structured?: UseReasonStructuredConfig | undefined;
   interrupt?: UseReasonInterruptConfig<TRequest, TResponse> | undefined;
+  tools?: KortyxExecutableTool[] | undefined;
+  toolPolicy?: UseReasonToolPolicy | undefined;
+};
+
+export type UseReasonStep = {
+  stepIndex: number;
+  text: string;
+  toolCalls: KortyxToolCall[];
+  toolResults: KortyxToolResult[];
+  usage?: KortyxUsage | undefined;
+  finishReason?: KortyxFinishReason | undefined;
+  providerMetadata?: KortyxProviderMetadata | undefined;
+  warnings?: KortyxWarning[] | undefined;
 };
 
 export type UseReasonResult<TOutput = unknown, TResponse = InterruptResult> = {
@@ -144,6 +166,9 @@ export type UseReasonResult<TOutput = unknown, TResponse = InterruptResult> = {
   warnings?: KortyxWarning[];
   output?: TOutput;
   interruptResponse?: TResponse;
+  toolCalls?: KortyxToolCall[];
+  toolResults?: KortyxToolResult[];
+  steps?: UseReasonStep[];
 };
 
 export type UseInterruptArgs<

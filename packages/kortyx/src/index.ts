@@ -36,6 +36,8 @@ export type {
   UseInterruptArgs,
   UseReasonArgs,
   UseReasonResult,
+  UseReasonStep,
+  UseReasonToolPolicy,
   UseStructuredDataArgs,
 } from "@kortyx/hooks";
 export {
@@ -46,6 +48,13 @@ export {
   useStructuredData,
   useWorkflowState,
 } from "@kortyx/hooks";
+export type {
+  CreateMCPClientArgs,
+  MCPClient,
+  McpToolsArgs,
+  McpTransportConfig,
+} from "@kortyx/mcp";
+export { createMCPClient } from "@kortyx/mcp";
 export * from "@kortyx/providers";
 export type { WorkflowRegistry } from "@kortyx/runtime";
 export {

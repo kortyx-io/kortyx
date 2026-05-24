@@ -66,6 +66,9 @@ Expected trace attributes:
 - `user.id` from `context.userId`
 - `kortyx.tenant.id` from `context.tenantId`
 - `kortyx.trace.metadata.accountId` from `context.accountId`
+- `kortyx.tool.call.count`, `kortyx.tool.result.count`, and `kortyx.tool.step.count` from MCP-enabled `useReason(...)` calls
+
+MCP tool loops also add `useReason.tool-step.*` and `useReason.tool-call.*` events to the `useReason` span. Tool event attributes include `gen_ai.tool.name`, `kortyx.tool.name`, and `kortyx.tool.call.id` when available.
 
 ## Prompt Metadata
 

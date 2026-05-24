@@ -1,8 +1,14 @@
-import type { KortyxPromptMessage, ModelOptions } from "@kortyx/providers";
 import type {
+  KortyxPromptMessage,
+  KortyxToolDefinition,
+  ModelOptions,
+} from "@kortyx/providers";
+import type {
+  AnthropicContentBlock,
   AnthropicMessage,
   AnthropicMessagesRequest,
   AnthropicThinkingRequest,
+  AnthropicToolDefinition,
 } from "./types";
 
 const DEFAULT_MAX_OUTPUT_TOKENS = 1024;
@@ -66,10 +72,7 @@ const mergeAdjacentMessages = (
   for (const message of messages) {
     const previous = merged.at(-1);
     if (previous?.role === message.role) {
-      previous.content.push({
-        type: "text",
-        text: message.content.map((part) => part.text).join("\n\n"),
-      });
+      previous.content.push(...message.content);
       continue;
     }
     merged.push({
@@ -81,18 +84,64 @@ const mergeAdjacentMessages = (
   return merged;
 };
 
+const toAnthropicTool = (
+  tool: KortyxToolDefinition,
+): AnthropicToolDefinition => ({
+  name: tool.name,
+  ...(tool.description ? { description: tool.description } : {}),
+  input_schema: tool.inputSchema,
+});
+
 const toMessages = (messages: KortyxPromptMessage[]): AnthropicMessage[] => {
   const converted = messages.flatMap((message): AnthropicMessage[] => {
     if (message.role === "system") return [];
+
+    if (message.role === "tool") {
+      return [
+        {
+          role: "user",
+          content: [
+            {
+              type: "tool_result",
+              tool_use_id: message.toolCallId ?? "",
+              content: message.content,
+              ...(message.isError !== undefined
+                ? { is_error: message.isError }
+                : {}),
+            },
+          ],
+        },
+      ];
+    }
+
+    const content: AnthropicContentBlock[] = [];
+    if (message.content.length > 0) {
+      content.push({
+        type: "text",
+        text: message.content,
+      });
+    }
+
+    for (const toolCall of message.toolCalls ?? []) {
+      content.push({
+        type: "tool_use",
+        id: toolCall.id,
+        name: toolCall.name,
+        input: toolCall.input,
+      });
+    }
+
+    if (content.length === 0) {
+      content.push({
+        type: "text",
+        text: "",
+      });
+    }
+
     return [
       {
         role: message.role,
-        content: [
-          {
-            type: "text",
-            text: message.content,
-          },
-        ],
+        content,
       },
     ];
   });
@@ -169,6 +218,7 @@ export const createMessagesRequest = (
   const system = toSystemPrompt(messages, options);
   const topP = getNumberProviderOption(options, "topP", "top_p");
   const topK = getNumberProviderOption(options, "topK", "top_k");
+  const tools = options.tools?.map(toAnthropicTool);
 
   return {
     model: modelId,
@@ -185,5 +235,6 @@ export const createMessagesRequest = (
       ? { stop_sequences: options.stopSequences }
       : {}),
     ...(thinking !== undefined ? { thinking } : {}),
+    ...(tools?.length ? { tools } : {}),
   };
 };

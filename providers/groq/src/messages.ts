@@ -1,4 +1,9 @@
-import type { KortyxPromptMessage, ModelOptions } from "@kortyx/providers";
+import type {
+  KortyxPromptMessage,
+  KortyxToolCall,
+  KortyxToolDefinition,
+  ModelOptions,
+} from "@kortyx/providers";
 import type { GroqChatCompletionRequest, GroqChatMessage } from "./types";
 
 const getProviderOptions = (
@@ -96,6 +101,15 @@ const createResponseFormat = (
   return { type: "json_object" };
 };
 
+const toGroqTool = (tool: KortyxToolDefinition) => ({
+  type: "function" as const,
+  function: {
+    name: tool.name,
+    ...(tool.description ? { description: tool.description } : {}),
+    parameters: tool.inputSchema,
+  },
+});
+
 const toMessages = (
   messages: KortyxPromptMessage[],
   options: ModelOptions,
@@ -116,12 +130,33 @@ const toMessages = (
   }
 
   result.push(
-    ...messages.map(
-      (message): GroqChatMessage => ({
+    ...messages.map((message): GroqChatMessage => {
+      if (message.role === "tool") {
+        return {
+          role: "tool",
+          content: message.content,
+          tool_call_id: message.toolCallId ?? "",
+          ...(message.name ? { name: message.name } : {}),
+        };
+      }
+
+      return {
         role: message.role,
         content: message.content,
-      }),
-    ),
+        ...(message.toolCalls?.length
+          ? {
+              tool_calls: message.toolCalls.map((toolCall: KortyxToolCall) => ({
+                id: toolCall.id,
+                type: "function" as const,
+                function: {
+                  name: toolCall.name,
+                  arguments: JSON.stringify(toolCall.input ?? {}),
+                },
+              })),
+            }
+          : {}),
+      };
+    }),
   );
 
   if (result.length === 0) {
@@ -144,6 +179,7 @@ export const createChatCompletionRequest = (
   const reasoningFormat = normalizeReasoningFormat(options);
   const responseFormat = createResponseFormat(options);
   const serviceTier = normalizeServiceTier(options);
+  const tools = options.tools?.map(toGroqTool);
 
   return {
     model: modelId,
@@ -167,5 +203,6 @@ export const createChatCompletionRequest = (
       ? { reasoning_effort: reasoningEffort }
       : {}),
     ...(serviceTier !== undefined ? { service_tier: serviceTier } : {}),
+    ...(tools?.length ? { tools } : {}),
   };
 };

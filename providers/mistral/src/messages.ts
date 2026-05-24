@@ -1,4 +1,9 @@
-import type { KortyxPromptMessage, ModelOptions } from "@kortyx/providers";
+import type {
+  KortyxPromptMessage,
+  KortyxToolCall,
+  KortyxToolDefinition,
+  ModelOptions,
+} from "@kortyx/providers";
 import type {
   MistralChatCompletionRequest,
   MistralChatMessage,
@@ -60,6 +65,15 @@ const createResponseFormat = (
   return { type: "json_object" };
 };
 
+const toMistralTool = (tool: KortyxToolDefinition) => ({
+  type: "function" as const,
+  function: {
+    name: tool.name,
+    ...(tool.description ? { description: tool.description } : {}),
+    parameters: tool.inputSchema,
+  },
+});
+
 const supportsReasoningEffort = (modelId: string): boolean =>
   modelId === "mistral-small-latest" || modelId === "mistral-small-2603";
 
@@ -102,9 +116,30 @@ const toMessages = (
 
   result.push(
     ...messages.map((message): MistralChatMessage => {
+      if (message.role === "tool") {
+        return {
+          role: "tool",
+          content: message.content,
+          tool_call_id: message.toolCallId ?? "",
+          ...(message.name ? { name: message.name } : {}),
+        };
+      }
+
       return {
         role: message.role,
         content: message.content,
+        ...(message.toolCalls?.length
+          ? {
+              tool_calls: message.toolCalls.map((toolCall: KortyxToolCall) => ({
+                id: toolCall.id,
+                type: "function" as const,
+                function: {
+                  name: toolCall.name,
+                  arguments: JSON.stringify(toolCall.input ?? {}),
+                },
+              })),
+            }
+          : {}),
       };
     }),
   );
@@ -133,6 +168,7 @@ export const createChatCompletionRequest = (
   const topP = getNumberProviderOption(options, "topP");
   const randomSeed = getNumberProviderOption(options, "randomSeed");
   const reasoningEffort = normalizeReasoningEffort(modelId, options);
+  const tools = options.tools?.map(toMistralTool);
 
   return {
     model: modelId,
@@ -153,6 +189,7 @@ export const createChatCompletionRequest = (
     ...(reasoningEffort !== undefined
       ? { reasoning_effort: reasoningEffort }
       : {}),
+    ...(tools?.length ? { tools } : {}),
   };
 };
 

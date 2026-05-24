@@ -251,6 +251,75 @@ const result = await useReason({
 
 If a provider cannot fully support one of these generic options yet, it should surface a warning instead of silently ignoring it.
 
+### MCP tools
+
+Use MCP tools when an external MCP server should participate in one `useReason(...)` call. Create the MCP client, list the tools, then pass those tools to `useReason`.
+
+```ts tabs="mcp-tools" tab="TypeScript"
+import { createMCPClient, useReason } from "kortyx";
+import { openai } from "@/lib/providers";
+
+const mcpClient = await createMCPClient({
+  transport: {
+    type: "http",
+    url: "https://your-server.com/mcp",
+  },
+});
+
+const tools = await mcpClient.tools({
+  include: ["search_issues", "get_issue"],
+});
+
+const result = await useReason({
+  model: openai("gpt-4.1-mini"),
+  input: "Find recent open bugs and summarize the top risks.",
+  tools,
+  toolPolicy: {
+    maxSteps: 5,
+    approval: false,
+    emit: true,
+  },
+});
+```
+```js tabs="mcp-tools" tab="JavaScript"
+import { createMCPClient, useReason } from "kortyx";
+import { openai } from "@/lib/providers";
+
+const mcpClient = await createMCPClient({
+  transport: {
+    type: "http",
+    url: "https://your-server.com/mcp",
+  },
+});
+
+const tools = await mcpClient.tools({
+  include: ["search_issues", "get_issue"],
+});
+
+const result = await useReason({
+  model: openai("gpt-4.1-mini"),
+  input: "Find recent open bugs and summarize the top risks.",
+  tools,
+  toolPolicy: {
+    maxSteps: 5,
+    approval: false,
+    emit: true,
+  },
+});
+```
+
+What happens:
+
+- Kortyx sends MCP tool schemas to the provider.
+- If the model requests a tool, Kortyx calls the MCP server and feeds the result back to the next model step.
+- `toolPolicy.maxSteps` limits the number of model passes inside the tool loop.
+- `toolPolicy.approval: true` uses Kortyx interrupts before executing a tool call.
+- `toolPolicy.emit: true` emits tool lifecycle chunks in the stream.
+
+Tools returned by `mcpClient.tools()` are request-scoped by default. `useReason(...)` closes the underlying MCP client when the call finishes, errors, or interrupts. Use `mcpClient.tools({ closeAfterUse: false })` only for long-lived server processes where you close the client manually.
+
+> **Good to know:** MCP tool calling requires provider adapter support for native tool calls. `@kortyx/openai`, `@kortyx/google`, `@kortyx/anthropic`, `@kortyx/deepseek`, `@kortyx/groq`, and `@kortyx/mistral` implement the shared tool contracts.
+
 What happens:
 
 - the model still generates one JSON object

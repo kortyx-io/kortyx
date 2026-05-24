@@ -95,4 +95,74 @@ describe("mistral message mapping", () => {
       }),
     ).toBeUndefined();
   });
+
+  it("maps Kortyx tools and tool result messages to Mistral chat completions", () => {
+    const request = createChatCompletionRequest(
+      "mistral-large-latest",
+      [
+        { role: "user", content: "Check order ord_1" },
+        {
+          role: "assistant",
+          content: "",
+          toolCalls: [
+            {
+              id: "call-1",
+              name: "lookup_order",
+              input: { orderId: "ord_1" },
+            },
+          ],
+        },
+        {
+          role: "tool",
+          content: '{"status":"ready"}',
+          toolCallId: "call-1",
+          name: "lookup_order",
+        },
+      ],
+      {
+        tools: [
+          {
+            name: "lookup_order",
+            description: "Look up an order.",
+            inputSchema: { type: "object" },
+          },
+        ],
+      },
+      false,
+    );
+
+    expect(request.tools).toEqual([
+      {
+        type: "function",
+        function: {
+          name: "lookup_order",
+          description: "Look up an order.",
+          parameters: { type: "object" },
+        },
+      },
+    ]);
+    expect(request.messages).toEqual([
+      { role: "user", content: "Check order ord_1" },
+      {
+        role: "assistant",
+        content: "",
+        tool_calls: [
+          {
+            id: "call-1",
+            type: "function",
+            function: {
+              name: "lookup_order",
+              arguments: '{"orderId":"ord_1"}',
+            },
+          },
+        ],
+      },
+      {
+        role: "tool",
+        content: '{"status":"ready"}',
+        tool_call_id: "call-1",
+        name: "lookup_order",
+      },
+    ]);
+  });
 });

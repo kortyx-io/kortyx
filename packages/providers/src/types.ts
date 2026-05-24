@@ -78,6 +78,7 @@ export interface ModelOptions {
   abortSignal?: AbortSignal;
   reasoning?: KortyxReasoningOptions;
   responseFormat?: KortyxResponseFormat;
+  tools?: KortyxToolDefinition[];
   providerOptions?: Record<string, unknown>;
 }
 
@@ -109,11 +110,58 @@ export interface ProviderSelector<
   ): ProviderModelRef<ProviderId, ModelId>;
 }
 
-export type KortyxPromptRole = "system" | "user" | "assistant";
+export type KortyxPromptRole = "system" | "user" | "assistant" | "tool";
+
+export interface KortyxToolDefinition {
+  name: string;
+  title?: string | undefined;
+  description?: string | undefined;
+  inputSchema: unknown;
+  outputSchema?: unknown;
+  annotations?: Record<string, unknown> | undefined;
+  metadata?: Record<string, unknown> | undefined;
+}
+
+export interface KortyxToolCall {
+  id: string;
+  name: string;
+  input: unknown;
+  raw?: unknown;
+  providerMetadata?: KortyxProviderMetadata;
+}
+
+export interface KortyxToolResult {
+  toolCallId: string;
+  name: string;
+  content: string;
+  structuredContent?: unknown;
+  isError?: boolean | undefined;
+  raw?: unknown;
+  providerMetadata?: KortyxProviderMetadata;
+}
+
+export interface KortyxExecutableTool extends KortyxToolDefinition {
+  execute: (
+    input: unknown,
+    context: {
+      toolCallId: string;
+      abortSignal?: AbortSignal | undefined;
+    },
+  ) => Promise<KortyxToolResult | unknown> | KortyxToolResult | unknown;
+  close?: (() => Promise<void> | void) | undefined;
+  closeAfterUse?: boolean | undefined;
+  source?: string | undefined;
+}
 
 export interface KortyxPromptMessage {
   role: KortyxPromptRole;
   content: string;
+  toolCalls?: KortyxToolCall[] | undefined;
+  toolCallId?: string | undefined;
+  name?: string | undefined;
+  structuredContent?: unknown;
+  isError?: boolean | undefined;
+  raw?: unknown;
 }
 
 export type KortyxStreamPart =
@@ -128,6 +176,7 @@ export type KortyxStreamPart =
       finishReason?: KortyxFinishReason;
       usage?: KortyxUsage;
       warnings?: KortyxWarning[];
+      toolCalls?: KortyxToolCall[];
       providerMetadata?: KortyxProviderMetadata;
       raw?: unknown;
     }
@@ -152,6 +201,7 @@ export interface KortyxInvokeResult {
   raw?: unknown;
   usage?: KortyxUsage;
   finishReason?: KortyxFinishReason;
+  toolCalls?: KortyxToolCall[];
   warnings?: KortyxWarning[];
   providerMetadata?: KortyxProviderMetadata;
 }

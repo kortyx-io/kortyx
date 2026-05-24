@@ -1,4 +1,8 @@
-import type { KortyxPromptMessage, ModelOptions } from "@kortyx/providers";
+import type {
+  KortyxPromptMessage,
+  KortyxToolDefinition,
+  ModelOptions,
+} from "@kortyx/providers";
 import type {
   GoogleContent,
   GoogleGenerateContentRequest,
@@ -42,12 +46,47 @@ export const toContents = (
 ): GoogleContent[] => {
   const contents = messages
     .filter((message) => message.role !== "system")
-    .map(
-      (message): GoogleContent => ({
+    .map((message): GoogleContent => {
+      if (message.role === "tool") {
+        return {
+          role: "user",
+          parts: [
+            {
+              functionResponse: {
+                name: message.name ?? "tool",
+                response: {
+                  content: message.content,
+                  ...(message.structuredContent !== undefined
+                    ? { structuredContent: message.structuredContent }
+                    : {}),
+                  ...(message.isError !== undefined
+                    ? { isError: message.isError }
+                    : {}),
+                },
+              },
+            },
+          ],
+        };
+      }
+
+      const parts: GoogleContent["parts"] = [];
+      if (message.content.length > 0 || !message.toolCalls?.length) {
+        parts.push({ text: message.content });
+      }
+      for (const toolCall of message.toolCalls ?? []) {
+        parts.push({
+          functionCall: {
+            name: toolCall.name,
+            args: toolCall.input,
+          },
+        });
+      }
+
+      return {
         role: message.role === "assistant" ? "model" : "user",
-        parts: [{ text: message.content }],
-      }),
-    );
+        parts,
+      };
+    });
 
   if (contents.length === 0) {
     contents.push({
@@ -57,6 +96,40 @@ export const toContents = (
   }
 
   return contents;
+};
+
+const toGoogleSchema = (schema: unknown): unknown => {
+  if (Array.isArray(schema)) return schema.map(toGoogleSchema);
+  if (!schema || typeof schema !== "object") return schema;
+
+  const result: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(schema)) {
+    if (
+      key === "$schema" ||
+      key === "$defs" ||
+      key === "definitions" ||
+      key === "additionalProperties"
+    ) {
+      continue;
+    }
+    result[key] = toGoogleSchema(value);
+  }
+  return result;
+};
+
+const toGoogleTools = (
+  tools: KortyxToolDefinition[] | undefined,
+): GoogleGenerateContentRequest["tools"] => {
+  if (!tools?.length) return undefined;
+  return [
+    {
+      functionDeclarations: tools.map((tool) => ({
+        name: tool.name,
+        ...(tool.description ? { description: tool.description } : {}),
+        parameters: toGoogleSchema(tool.inputSchema),
+      })),
+    },
+  ];
 };
 
 export const createGenerateContentRequest = (
@@ -102,6 +175,9 @@ export const createGenerateContentRequest = (
 
   return {
     contents: toContents(messages),
+    ...(toGoogleTools(options.tools) !== undefined
+      ? { tools: toGoogleTools(options.tools) }
+      : {}),
     generationConfig: {
       temperature,
       ...(options.maxOutputTokens !== undefined

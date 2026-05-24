@@ -12,12 +12,24 @@ export interface DeepSeekClientConfig {
   fetch?: FetchLike | undefined;
 }
 
-export type DeepSeekChatRole = "system" | "user" | "assistant";
+export type DeepSeekChatRole = "system" | "user" | "assistant" | "tool";
+
+export interface DeepSeekToolCall {
+  id: string;
+  type: "function";
+  function: {
+    name: string;
+    arguments: string;
+  };
+}
 
 export interface DeepSeekChatMessage {
   role: DeepSeekChatRole;
-  content: string;
+  content: string | null;
   reasoning_content?: string | undefined;
+  tool_calls?: DeepSeekToolCall[] | undefined;
+  tool_call_id?: string | undefined;
+  name?: string | undefined;
 }
 
 export interface DeepSeekChatCompletionRequest {
@@ -30,6 +42,16 @@ export interface DeepSeekChatCompletionRequest {
   stream?: boolean | undefined;
   stream_options?: { include_usage: true } | undefined;
   thinking?: { type: "enabled" | "disabled" } | undefined;
+  tools?:
+    | Array<{
+        type: "function";
+        function: {
+          name: string;
+          description?: string | undefined;
+          parameters: unknown;
+        };
+      }>
+    | undefined;
 }
 
 export interface DeepSeekUsage {
@@ -57,6 +79,7 @@ export interface DeepSeekChatCompletionResponse {
               role?: string | undefined;
               content?: string | null | undefined;
               reasoning_content?: string | null | undefined;
+              tool_calls?: DeepSeekToolCall[] | undefined;
             }
           | undefined;
         finish_reason?: string | null | undefined;
@@ -75,6 +98,7 @@ export interface DeepSeekChatCompletionChunk {
           | {
               content?: string | null | undefined;
               reasoning_content?: string | null | undefined;
+              tool_calls?: DeepSeekToolCall[] | undefined;
             }
           | undefined;
         finish_reason?: string | null | undefined;

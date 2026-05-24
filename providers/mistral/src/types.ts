@@ -12,11 +12,23 @@ export interface MistralClientConfig {
   fetch?: FetchLike | undefined;
 }
 
-export type MistralChatRole = "system" | "user" | "assistant";
+export type MistralChatRole = "system" | "user" | "assistant" | "tool";
+
+export interface MistralToolCall {
+  id: string;
+  type: "function";
+  function: {
+    name: string;
+    arguments: string;
+  };
+}
 
 export interface MistralChatMessage {
   role: MistralChatRole;
-  content: string;
+  content: string | null;
+  tool_calls?: MistralToolCall[] | undefined;
+  tool_call_id?: string | undefined;
+  name?: string | undefined;
 }
 
 export type MistralResponseFormat =
@@ -41,6 +53,16 @@ export interface MistralChatCompletionRequest {
   response_format?: MistralResponseFormat | undefined;
   reasoning_effort?: "high" | "none" | undefined;
   stream?: boolean | undefined;
+  tools?:
+    | Array<{
+        type: "function";
+        function: {
+          name: string;
+          description?: string | undefined;
+          parameters: unknown;
+        };
+      }>
+    | undefined;
 }
 
 export interface MistralUsage {
@@ -74,6 +96,7 @@ export interface MistralChatCompletionResponse {
           | {
               role?: string | undefined;
               content?: MistralContent;
+              tool_calls?: MistralToolCall[] | undefined;
             }
           | undefined;
         finish_reason?: string | null | undefined;
@@ -94,6 +117,7 @@ export interface MistralChatCompletionChunk {
           | {
               role?: string | undefined;
               content?: MistralContent;
+              tool_calls?: MistralToolCall[] | undefined;
             }
           | undefined;
         finish_reason?: string | null | undefined;

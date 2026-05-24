@@ -1,7 +1,9 @@
 import { randomUUID } from "node:crypto";
 import type {
+  KortyxPromptMessage,
   KortyxReasoningOptions,
   KortyxResponseFormat,
+  KortyxToolDefinition,
   ProviderModelRef,
 } from "@kortyx/providers";
 import { getHookContext } from "../context";
@@ -20,6 +22,8 @@ export type ReasonEngineInput = {
   reasoning?: KortyxReasoningOptions | undefined;
   responseFormat?: KortyxResponseFormat | undefined;
   providerOptions?: Record<string, unknown> | undefined;
+  tools?: KortyxToolDefinition[] | undefined;
+  messages?: KortyxPromptMessage[] | undefined;
   emit?: boolean | undefined;
   stream?: boolean | undefined;
   onTextChunk?: ((text: string) => void) | undefined;
@@ -52,6 +56,8 @@ export async function reasonEngine(
     reasoning: args.reasoning,
     responseFormat: args.responseFormat,
     providerOptions: args.providerOptions,
+    tools: args.tools,
+    messages: args.messages,
     defaultTemperature: ctx.node.config?.model?.temperature,
     stream: args.stream,
     emit: args.emit,

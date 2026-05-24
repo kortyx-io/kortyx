@@ -106,6 +106,22 @@ export const normalizeKnownAttributes = (
     normalized["gen_ai.prompt.type"] = attributes.promptType;
     normalized["kortyx.prompt.type"] = attributes.promptType;
   }
+  if (typeof attributes.toolCallCount === "number") {
+    normalized["kortyx.tool.call.count"] = attributes.toolCallCount;
+  }
+  if (typeof attributes.toolResultCount === "number") {
+    normalized["kortyx.tool.result.count"] = attributes.toolResultCount;
+  }
+  if (typeof attributes.toolStepCount === "number") {
+    normalized["kortyx.tool.step.count"] = attributes.toolStepCount;
+  }
+  if (typeof attributes.tool === "string") {
+    normalized["gen_ai.tool.name"] = attributes.tool;
+    normalized["kortyx.tool.name"] = attributes.tool;
+  }
+  if (typeof attributes.toolCallId === "string") {
+    normalized["kortyx.tool.call.id"] = attributes.toolCallId;
+  }
 
   return normalized;
 };

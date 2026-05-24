@@ -14,6 +14,18 @@ export interface GoogleClientConfig {
 
 export interface GoogleContentPart {
   text?: string | undefined;
+  functionCall?:
+    | {
+        name: string;
+        args?: unknown;
+      }
+    | undefined;
+  functionResponse?:
+    | {
+        name: string;
+        response: Record<string, unknown>;
+      }
+    | undefined;
 }
 
 export interface GoogleContent {
@@ -23,6 +35,15 @@ export interface GoogleContent {
 
 export interface GoogleGenerateContentRequest {
   contents: GoogleContent[];
+  tools?:
+    | Array<{
+        functionDeclarations: Array<{
+          name: string;
+          description?: string | undefined;
+          parameters: unknown;
+        }>;
+      }>
+    | undefined;
   generationConfig?: {
     temperature?: number | undefined;
     maxOutputTokens?: number | undefined;

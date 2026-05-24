@@ -11,6 +11,8 @@ export type {
   UseInterruptArgs,
   UseReasonArgs,
   UseReasonResult,
+  UseReasonStep,
+  UseReasonToolPolicy,
   UseStructuredDataArgs,
 } from "./hooks";
 export {

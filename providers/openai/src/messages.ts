@@ -1,4 +1,9 @@
-import type { KortyxPromptMessage, ModelOptions } from "@kortyx/providers";
+import type {
+  KortyxPromptMessage,
+  KortyxToolCall,
+  KortyxToolDefinition,
+  ModelOptions,
+} from "@kortyx/providers";
 import type { OpenAIChatCompletionRequest, OpenAIChatMessage } from "./types";
 
 const getProviderOptions = (
@@ -113,6 +118,15 @@ const createResponseFormat = (
   return { type: "json_object" };
 };
 
+const toOpenAITool = (tool: KortyxToolDefinition) => ({
+  type: "function" as const,
+  function: {
+    name: tool.name,
+    ...(tool.description ? { description: tool.description } : {}),
+    parameters: tool.inputSchema,
+  },
+});
+
 const isReasoningModel = (modelId: string): boolean =>
   modelId.startsWith("o1") ||
   modelId.startsWith("o3") ||
@@ -159,10 +173,33 @@ const toMessages = (
 
   const converted = messages
     .map((message): OpenAIChatMessage | undefined => {
+      if (message.role === "tool") {
+        return {
+          role: "tool",
+          content: message.content,
+          tool_call_id: message.toolCallId ?? "",
+          ...(message.name ? { name: message.name } : {}),
+        };
+      }
+
       if (message.role !== "system") {
         return {
           role: message.role,
           content: message.content,
+          ...(message.toolCalls?.length
+            ? {
+                tool_calls: message.toolCalls.map(
+                  (toolCall: KortyxToolCall) => ({
+                    id: toolCall.id,
+                    type: "function" as const,
+                    function: {
+                      name: toolCall.name,
+                      arguments: JSON.stringify(toolCall.input ?? {}),
+                    },
+                  }),
+                ),
+              }
+            : {}),
         };
       }
 
@@ -201,6 +238,7 @@ export const createChatCompletionRequest = (
   const reasoningModel = isReasoningModel(modelId);
   const reasoningEffort = normalizeReasoningEffort(options);
   const responseFormat = createResponseFormat(options);
+  const tools = options.tools?.map(toOpenAITool);
   const serviceTier = normalizeServiceTier(options);
   const maxCompletionTokens = getMaxCompletionTokens(options);
   const useReasoningParameterRestrictions =
@@ -229,6 +267,7 @@ export const createChatCompletionRequest = (
     ...(responseFormat !== undefined
       ? { response_format: responseFormat }
       : {}),
+    ...(tools !== undefined && tools.length > 0 ? { tools } : {}),
     ...(reasoningEffort !== undefined
       ? { reasoning_effort: reasoningEffort }
       : {}),

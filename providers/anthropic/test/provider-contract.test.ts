@@ -207,6 +207,134 @@ describe("anthropic public provider contract", () => {
     }
   });
 
+  it("returns normalized tool calls from invoke responses", async () => {
+    const provider = createAnthropic({
+      apiKey: "test-key",
+      fetch: async () =>
+        new Response(
+          JSON.stringify({
+            content: [
+              {
+                type: "tool_use",
+                id: "call-1",
+                name: "lookup_order",
+                input: { orderId: "ord_1" },
+              },
+            ],
+            stop_reason: "tool_use",
+          }),
+          { headers: { "content-type": "application/json" } },
+        ),
+    });
+
+    const result = await provider
+      .getModel("claude-sonnet-4-5", {
+        tools: [
+          {
+            name: "lookup_order",
+            inputSchema: { type: "object" },
+          },
+        ],
+      })
+      .invoke([{ role: "user", content: "Check order ord_1" }]);
+
+    expect(result.toolCalls).toEqual([
+      {
+        id: "call-1",
+        name: "lookup_order",
+        input: { orderId: "ord_1" },
+        raw: {
+          type: "tool_use",
+          id: "call-1",
+          name: "lookup_order",
+          input: { orderId: "ord_1" },
+        },
+      },
+    ]);
+    expect(result.finishReason).toEqual({
+      unified: "tool-calls",
+      raw: "tool_use",
+    });
+  });
+
+  it("returns streamed tool calls assembled from input JSON deltas", async () => {
+    const provider = createAnthropic({
+      apiKey: "test-key",
+      fetch: async () =>
+        createSseResponse([
+          {
+            type: "message_start",
+            message: { id: "msg-1", stop_reason: null },
+          },
+          {
+            type: "content_block_start",
+            index: 0,
+            content_block: {
+              type: "tool_use",
+              id: "call-1",
+              name: "lookup_order",
+              input: {},
+            },
+          },
+          {
+            type: "content_block_delta",
+            index: 0,
+            delta: {
+              type: "input_json_delta",
+              partial_json: '{"orderId"',
+            },
+          },
+          {
+            type: "content_block_delta",
+            index: 0,
+            delta: {
+              type: "input_json_delta",
+              partial_json: ':"ord_1"}',
+            },
+          },
+          {
+            type: "message_delta",
+            delta: { stop_reason: "tool_use" },
+          },
+          { type: "message_stop" },
+        ]),
+    });
+
+    const parts = await collectStreamParts(
+      provider
+        .getModel("claude-sonnet-4-5", { streaming: true })
+        .stream([{ role: "user", content: "Check order ord_1" }]),
+    );
+
+    expect(parts).toEqual([
+      {
+        type: "finish",
+        finishReason: { unified: "tool-calls", raw: "tool_use" },
+        toolCalls: [
+          {
+            id: "call-1",
+            name: "lookup_order",
+            input: { orderId: "ord_1" },
+            raw: {
+              type: "content_block_delta",
+              index: 0,
+              delta: {
+                type: "input_json_delta",
+                partial_json: ':"ord_1"}',
+              },
+            },
+          },
+        ],
+        providerMetadata: {
+          providerId: "anthropic",
+          modelId: "claude-sonnet-4-5",
+          responseId: "msg-1",
+        },
+        raw: { type: "message_stop" },
+      },
+    ]);
+  });
+
   it("surfaces invalid Anthropic credential combinations during invoke", async () => {
     await expect(
       createAnthropic({ apiKey: "test-key", authToken: "test-token" })

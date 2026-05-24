@@ -46,6 +46,8 @@ export const chatNode = async ({ input }: { input: unknown }) => {
 - `reasoning`, `responseFormat`: provider-neutral advanced controls when supported.
 - `providerOptions`: provider-specific options. Prefer generic options first.
 - `abortSignal`: cancellation signal from route/client plumbing when available.
+- `tools`: MCP tools returned by `createMCPClient(...).tools()`.
+- `toolPolicy`: MCP tool loop controls such as `maxSteps`, `approval`, and `emit`.
 
 Use `stream: true` and `emit: true` for live UI output. Use `emit: false` for internal reasoning that should not render directly.
 
@@ -77,9 +79,51 @@ result.finishReason; // normalized stop reason
 result.providerMetadata; // provider-specific normalized metadata
 result.warnings; // unsupported option or compatibility warnings
 result.interruptResponse; // human response in interrupt mode
+result.toolCalls; // MCP/model tool calls made during a tool loop
+result.toolResults; // MCP tool results returned to the model
+result.steps; // per-model-pass text, tool calls, and tool results
 ```
 
 Always code a sensible fallback when `result.output` may be absent.
+
+## MCP Tools
+
+Use MCP tools when the model should call external MCP server tools during one `useReason(...)` call.
+
+```ts
+import { createMCPClient, useReason } from "kortyx";
+
+const mcpClient = await createMCPClient({
+  transport: {
+    type: "http",
+    url: "https://your-server.com/mcp",
+  },
+});
+
+const tools = await mcpClient.tools({
+  include: ["search_issues", "get_issue"],
+});
+
+const result = await useReason({
+  id: "triage",
+  model,
+  input: "Find open bugs and summarize the main risks.",
+  tools,
+  toolPolicy: {
+    maxSteps: 5,
+    approval: false,
+    emit: true,
+  },
+});
+```
+
+`maxSteps` is the maximum number of model passes in the tool loop. When the model requests a tool, Kortyx executes the MCP tool, appends the tool result to the next model pass, and continues until final text or the step limit.
+
+`approval: true` uses Kortyx interrupts before executing tool calls. `emit: true` sends `tool-call-start`, `tool-call-result`, and `tool-call-error` stream chunks.
+
+Tools returned by `mcpClient.tools()` are request-scoped by default. `useReason(...)` closes the underlying MCP client when the call finishes, errors, or interrupts. Use `mcpClient.tools({ closeAfterUse: false })` only when the app owns a long-lived MCP client and will close it manually.
+
+MCP tool calling requires provider adapter support for native tool calls. `@kortyx/openai`, `@kortyx/google`, `@kortyx/anthropic`, `@kortyx/deepseek`, `@kortyx/groq`, and `@kortyx/mistral` implement the shared tool contracts.
 
 ## Plain Text Reasoning
 

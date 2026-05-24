@@ -32,15 +32,29 @@ export interface AnthropicToolUseBlock {
   input?: unknown;
 }
 
+export interface AnthropicToolResultBlock {
+  type: "tool_result";
+  tool_use_id: string;
+  content: string;
+  is_error?: boolean | undefined;
+}
+
 export type AnthropicContentBlock =
   | AnthropicTextBlock
   | AnthropicThinkingBlock
   | AnthropicToolUseBlock
+  | AnthropicToolResultBlock
   | (Record<string, unknown> & { type: string });
 
 export interface AnthropicMessage {
   role: "user" | "assistant";
-  content: AnthropicTextBlock[];
+  content: AnthropicContentBlock[];
+}
+
+export interface AnthropicToolDefinition {
+  name: string;
+  description?: string | undefined;
+  input_schema: unknown;
 }
 
 export type AnthropicThinkingRequest =
@@ -63,6 +77,7 @@ export interface AnthropicMessagesRequest {
   stop_sequences?: string[] | undefined;
   stream?: boolean | undefined;
   thinking?: AnthropicThinkingRequest | undefined;
+  tools?: AnthropicToolDefinition[] | undefined;
 }
 
 export interface AnthropicUsage {
@@ -100,6 +115,7 @@ export type AnthropicStreamEvent =
       delta?:
         | { type: "text_delta"; text?: string | undefined }
         | { type: "thinking_delta"; thinking?: string | undefined }
+        | { type: "input_json_delta"; partial_json?: string | undefined }
         | Record<string, unknown>
         | undefined;
     }

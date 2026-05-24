@@ -5,6 +5,7 @@ import type {
   KortyxPromptMessage,
   KortyxProviderMetadata,
   KortyxStreamPart,
+  KortyxToolCall,
   KortyxUsage,
   KortyxWarning,
   ModelOptions,
@@ -152,6 +153,35 @@ const extractText = (response: AnthropicMessagesResponse): string =>
     )
     .map((block) => block.text)
     .join("") ?? "";
+
+const extractToolCallsFromBlocks = (
+  blocks: AnthropicContentBlock[] | undefined,
+): KortyxToolCall[] | undefined => {
+  const toolCalls = blocks
+    ?.map((block, index): KortyxToolCall | undefined => {
+      if (block.type !== "tool_use") return undefined;
+      if (typeof block.name !== "string" || block.name.length === 0) {
+        return undefined;
+      }
+
+      return {
+        id:
+          typeof block.id === "string" && block.id.length > 0
+            ? block.id
+            : `tool-use-${index}`,
+        name: block.name,
+        input: block.input ?? {},
+        raw: block,
+      };
+    })
+    .filter((toolCall): toolCall is KortyxToolCall => toolCall !== undefined);
+
+  return toolCalls?.length ? toolCalls : undefined;
+};
+
+const extractToolCalls = (
+  response: AnthropicMessagesResponse,
+): KortyxToolCall[] | undefined => extractToolCallsFromBlocks(response.content);
 
 const extractResponseProviderMetadata = (
   modelId: ModelId,
@@ -310,12 +340,14 @@ const createResponseFinishPart = (
   const finishReason = mapAnthropicFinishReason(response.stop_reason);
   const usage = extractUsage(response.usage);
   const providerMetadata = extractResponseProviderMetadata(modelId, response);
+  const toolCalls = extractToolCalls(response);
 
   return {
     type: "finish",
     raw: response,
     ...(finishReason ? { finishReason } : {}),
     ...(usage ? { usage } : {}),
+    ...(toolCalls ? { toolCalls } : {}),
     ...(providerMetadata ? { providerMetadata } : {}),
     ...(warnings ? { warnings } : {}),
   };
@@ -327,6 +359,7 @@ const createStreamFinishPart = (
   usage: AnthropicUsage | undefined,
   finishReasonRaw: string | null | undefined,
   stopSequence: string | null | undefined,
+  toolCalls: KortyxToolCall[] | undefined,
   raw: unknown,
   warnings: KortyxWarning[] | undefined,
 ): KortyxStreamPart => {
@@ -344,9 +377,40 @@ const createStreamFinishPart = (
     ...(raw !== undefined ? { raw } : {}),
     ...(finishReason ? { finishReason } : {}),
     ...(normalizedUsage ? { usage: normalizedUsage } : {}),
+    ...(toolCalls ? { toolCalls } : {}),
     ...(providerMetadata ? { providerMetadata } : {}),
     ...(warnings ? { warnings } : {}),
   };
+};
+
+interface StreamToolCallState {
+  id: string;
+  name: string;
+  input?: unknown;
+  inputJson: string;
+  raw?: unknown;
+}
+
+const parseStreamToolInput = (state: StreamToolCallState): unknown => {
+  if (state.inputJson.trim().length === 0) return state.input ?? {};
+  try {
+    return JSON.parse(state.inputJson);
+  } catch {
+    return state.inputJson;
+  }
+};
+
+const extractStreamToolCalls = (
+  states: Map<number, StreamToolCallState>,
+): KortyxToolCall[] | undefined => {
+  const toolCalls = [...states.values()].map((state) => ({
+    id: state.id,
+    name: state.name,
+    input: parseStreamToolInput(state),
+    ...(state.raw !== undefined ? { raw: state.raw } : {}),
+  }));
+
+  return toolCalls.length > 0 ? toolCalls : undefined;
 };
 
 const createAnthropicModel = (
@@ -388,6 +452,7 @@ const createAnthropicModel = (
     ...(options.responseFormat !== undefined
       ? { responseFormat: options.responseFormat }
       : {}),
+    ...(options.tools !== undefined ? { tools: options.tools } : {}),
     ...(options.providerOptions !== undefined
       ? { providerOptions: options.providerOptions }
       : {}),
@@ -411,6 +476,7 @@ const createAnthropicModel = (
           let finishReasonRaw: string | null | undefined;
           let stopSequence: string | null | undefined;
           let lastEvent: AnthropicStreamEvent | undefined;
+          const toolCallStates = new Map<number, StreamToolCallState>();
 
           for await (const event of client.streamMessage(request, {
             ...(resolvedOptions.abortSignal
@@ -436,6 +502,27 @@ const createAnthropicModel = (
               continue;
             }
 
+            if (event.type === "content_block_start") {
+              const block = event.content_block;
+              if (
+                block?.type === "tool_use" &&
+                typeof block.name === "string" &&
+                event.index !== undefined
+              ) {
+                toolCallStates.set(event.index, {
+                  id:
+                    typeof block.id === "string" && block.id.length > 0
+                      ? block.id
+                      : `tool-use-${event.index}`,
+                  name: block.name,
+                  ...(block.input !== undefined ? { input: block.input } : {}),
+                  inputJson: "",
+                  raw: block,
+                });
+              }
+              continue;
+            }
+
             if (event.type === "content_block_delta") {
               const delta = event.delta;
               if (
@@ -444,6 +531,17 @@ const createAnthropicModel = (
                 delta.text.length > 0
               ) {
                 yield createTextDeltaPart(delta.text, event);
+              }
+              if (
+                delta?.type === "input_json_delta" &&
+                typeof delta.partial_json === "string" &&
+                event.index !== undefined
+              ) {
+                const state = toolCallStates.get(event.index);
+                if (state) {
+                  state.inputJson += delta.partial_json;
+                  state.raw = event;
+                }
               }
               continue;
             }
@@ -461,6 +559,7 @@ const createAnthropicModel = (
             usage,
             finishReasonRaw ?? message?.stop_reason,
             stopSequence ?? message?.stop_sequence,
+            extractStreamToolCalls(toolCallStates),
             lastEvent,
             warnings,
           );
@@ -503,12 +602,14 @@ const createAnthropicModel = (
           modelId,
           result,
         );
+        const toolCalls = extractToolCalls(result);
         return {
           role: "assistant",
           content: extractText(result),
           raw: result,
           ...(usage ? { usage } : {}),
           ...(finishReason ? { finishReason } : {}),
+          ...(toolCalls ? { toolCalls } : {}),
           ...(providerMetadata ? { providerMetadata } : {}),
           ...(warnings ? { warnings } : {}),
         };

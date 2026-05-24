@@ -29,6 +29,88 @@ describe("google message mapping", () => {
     ]);
   });
 
+  it("maps tool declarations, function calls, and function responses", () => {
+    const request = createGenerateContentRequest(
+      [
+        {
+          role: "assistant",
+          content: "",
+          toolCalls: [
+            {
+              id: "call-1",
+              name: "lookup_order",
+              input: { orderId: "ord_1" },
+            },
+          ],
+        },
+        {
+          role: "tool",
+          toolCallId: "call-1",
+          name: "lookup_order",
+          content: "ready",
+          structuredContent: { status: "ready" },
+        },
+      ],
+      {
+        tools: [
+          {
+            name: "lookup_order",
+            description: "Look up an order.",
+            inputSchema: {
+              type: "object",
+              $schema: "http://json-schema.org/draft-07/schema#",
+              properties: { orderId: { type: "string" } },
+              additionalProperties: false,
+            },
+          },
+        ],
+      },
+    );
+
+    expect(request.contents).toEqual([
+      {
+        role: "model",
+        parts: [
+          {
+            functionCall: {
+              name: "lookup_order",
+              args: { orderId: "ord_1" },
+            },
+          },
+        ],
+      },
+      {
+        role: "user",
+        parts: [
+          {
+            functionResponse: {
+              name: "lookup_order",
+              response: {
+                content: "ready",
+                structuredContent: { status: "ready" },
+              },
+            },
+          },
+        ],
+      },
+    ]);
+    expect(request.tools).toEqual([
+      {
+        functionDeclarations: [
+          {
+            name: "lookup_order",
+            description: "Look up an order.",
+            parameters: {
+              type: "object",
+              properties: { orderId: { type: "string" } },
+            },
+          },
+        ],
+      },
+    ]);
+    expect(request).not.toHaveProperty("toolConfig");
+  });
+
   it("omits thinkingLevel when reasoning maxTokens is also set", () => {
     const request = createGenerateContentRequest(
       [{ role: "user", content: "Summarize this" }],
