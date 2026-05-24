@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.12.0](https://github.com/kortyx-io/kortyx/compare/agent-v0.11.3...agent-v0.12.0) (2026-05-24)
+
+
+### Features
+
+* add OpenTelemetry tracing adapter ([dc1218f](https://github.com/kortyx-io/kortyx/commit/dc1218fb3759b8cb467f6c58f953a80127b25783))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/runtime bumped to 0.10.0
+  * devDependencies
+    * @kortyx/hooks bumped to 0.15.0
+
 ## [0.11.3](https://github.com/kortyx-io/kortyx/compare/agent-v0.11.2...agent-v0.11.3) (2026-05-22)
 
 
