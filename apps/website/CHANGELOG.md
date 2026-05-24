@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.20.0](https://github.com/kortyx-io/kortyx/compare/website-v0.19.1...website-v0.20.0) (2026-05-24)
+
+
+### Features
+
+* add OpenTelemetry tracing adapter ([dc1218f](https://github.com/kortyx-io/kortyx/commit/dc1218fb3759b8cb467f6c58f953a80127b25783))
+
 ## [0.19.1](https://github.com/kortyx-io/kortyx/compare/website-v0.19.0...website-v0.19.1) (2026-05-23)
 
 

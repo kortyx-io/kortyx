@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.15.0](https://github.com/kortyx-io/kortyx/compare/hooks-v0.14.0...hooks-v0.15.0) (2026-05-24)
+
+
+### Features
+
+* add OpenTelemetry tracing adapter ([dc1218f](https://github.com/kortyx-io/kortyx/commit/dc1218fb3759b8cb467f6c58f953a80127b25783))
+
 ## [0.14.0](https://github.com/kortyx-io/kortyx/compare/hooks-v0.13.0...hooks-v0.14.0) (2026-05-22)
 
 

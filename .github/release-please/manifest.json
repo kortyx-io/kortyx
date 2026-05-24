@@ -1,11 +1,11 @@
 {
-  "packages/agent": "0.11.3",
+  "packages/agent": "0.12.0",
   "packages/cli": "0.1.5",
   "packages/core": "0.5.3",
-  "packages/hooks": "0.14.0",
+  "packages/hooks": "0.15.0",
   "packages/react": "0.3.1",
-  "packages/kortyx": "0.10.3",
-  "packages/otel": "0.1.0",
+  "packages/kortyx": "0.11.0",
+  "packages/otel": "0.2.0",
   "packages/providers": "0.4.0",
   "providers/deepseek": "0.2.0",
   "providers/groq": "0.2.0",
@@ -13,10 +13,10 @@
   "providers/anthropic": "0.2.0",
   "providers/mistral": "0.2.0",
   "providers/google": "0.3.0",
-  "packages/runtime": "0.9.6",
+  "packages/runtime": "0.10.0",
   "packages/stream": "0.7.0",
   "packages/utils": "0.2.6",
-  "apps/website": "0.19.1",
-  "examples/kortyx-nextjs-chat-api-route": "0.15.0",
-  "examples/kortyx-nextjs-chat-server-action": "0.13.4"
+  "apps/website": "0.20.0",
+  "examples/kortyx-nextjs-chat-api-route": "0.15.1",
+  "examples/kortyx-nextjs-chat-server-action": "0.13.5"
 }
