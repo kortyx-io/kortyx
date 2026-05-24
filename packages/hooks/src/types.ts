@@ -8,6 +8,7 @@ import type {
   KortyxWarning,
   ProviderModelRef,
 } from "@kortyx/providers";
+import type { KortyxTraceMetadata } from "./tracing";
 
 export type SchemaLike<T> = {
   safeParse: (value: unknown) =>
@@ -126,6 +127,7 @@ export type UseReasonArgs<
   emit?: boolean | undefined;
   stream?: boolean | undefined;
   id?: string | undefined;
+  telemetry?: KortyxTraceMetadata | undefined;
   outputSchema?: SchemaLike<TOutput> | undefined;
   structured?: UseReasonStructuredConfig | undefined;
   interrupt?: UseReasonInterruptConfig<TRequest, TResponse> | undefined;

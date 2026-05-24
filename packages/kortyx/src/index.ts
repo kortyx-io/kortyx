@@ -28,6 +28,11 @@ export type {
 } from "@kortyx/core";
 export { defineWorkflow, loadWorkflow, validateWorkflow } from "@kortyx/core";
 export type {
+  KortyxTelemetryConfig,
+  KortyxTelemetryContentCapture,
+  KortyxTelemetryPrompt,
+  KortyxTraceAdapter,
+  KortyxTraceMetadata,
   UseInterruptArgs,
   UseReasonArgs,
   UseReasonResult,

@@ -4,7 +4,11 @@ import {
   type GetProviderFn,
   getProvider as getRegisteredProvider,
 } from "@kortyx/providers";
-import type { FrameworkAdapter, WorkflowRegistry } from "@kortyx/runtime";
+import type {
+  ExecutionRuntimeConfig,
+  FrameworkAdapter,
+  WorkflowRegistry,
+} from "@kortyx/runtime";
 import {
   createFileWorkflowRegistry,
   createFrameworkAdapterFromEnv,
@@ -28,6 +32,7 @@ export interface CreateAgentArgs {
   workflowRegistry?: WorkflowRegistry;
   defaultWorkflowId?: string;
   frameworkAdapter?: FrameworkAdapter;
+  telemetry?: ExecutionRuntimeConfig["telemetry"];
 }
 
 export interface Agent {
@@ -53,6 +58,7 @@ const createAgentArgsBaseSchema = z
     workflowRegistry: z.unknown().optional(),
     defaultWorkflowId: z.string().optional(),
     frameworkAdapter: z.unknown().optional(),
+    telemetry: z.unknown().optional(),
   })
   .strict();
 
@@ -115,6 +121,7 @@ export function createAgent(args: CreateAgentArgs): Agent {
     workflowRegistry,
     defaultWorkflowId,
     frameworkAdapter,
+    telemetry,
   } = parsedArgs;
 
   const resolvedDefaultWorkflowId = defaultWorkflowId;
@@ -176,6 +183,7 @@ export function createAgent(args: CreateAgentArgs): Agent {
             }
           : {}),
         ...(runtimeOptions?.context ? { context: runtimeOptions.context } : {}),
+        ...(telemetry ? { telemetry } : {}),
       }),
     });
   };

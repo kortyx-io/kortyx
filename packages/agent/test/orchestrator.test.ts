@@ -899,6 +899,121 @@ describe("orchestrateGraphStream", () => {
     ]);
   });
 
+  it("wraps runs with an active telemetry span", async () => {
+    const runSpan = {
+      setAttributes: vi.fn(),
+      end: vi.fn(),
+      fail: vi.fn(),
+    };
+    const trace = {
+      withSpan: vi.fn(async (_args, fn) => fn(runSpan)),
+      startSpan: vi.fn(),
+    };
+
+    await collect(
+      await orchestrateGraphStream({
+        sessionId: "session-1",
+        runId: "run-trace-with-span",
+        graph: graphWithEvents(() => [{ type: "done", data: baseState }]),
+        state: baseState,
+        config: {
+          context: {
+            userId: "user-1",
+            tenantId: "tenant-1",
+            accountId: "account-1",
+          },
+          telemetry: {
+            trace,
+            metadata: { source: "test" },
+            tags: ["tag"],
+            captureContent: { input: true },
+          },
+        },
+        selectWorkflow: vi.fn(),
+      }),
+    );
+
+    expect(trace.startSpan).not.toHaveBeenCalled();
+    expect(trace.withSpan).toHaveBeenCalledWith(
+      {
+        name: "kortyx.run",
+        attributes: {
+          sessionId: "session-1",
+          runId: "run-trace-with-span",
+          workflowId: "first",
+          userId: "user-1",
+          tenantId: "tenant-1",
+        },
+        telemetry: {
+          metadata: {
+            source: "test",
+            userId: "user-1",
+            tenantId: "tenant-1",
+            accountId: "account-1",
+          },
+          tags: ["tag"],
+          captureContent: { input: true },
+        },
+      },
+      expect.any(Function),
+    );
+    expect(runSpan.setAttributes).toHaveBeenCalledWith(
+      expect.objectContaining({
+        "kortyx.run.final_workflow": "first",
+      }),
+    );
+    expect(runSpan.end).toHaveBeenCalled();
+    expect(runSpan.fail).not.toHaveBeenCalled();
+  });
+
+  it("falls back to startSpan when active telemetry spans are unavailable", async () => {
+    const runSpan = {
+      setAttributes: vi.fn(),
+      end: vi.fn(),
+      fail: vi.fn(),
+    };
+    const reasonTrace = {
+      startSpan: vi.fn(() => runSpan),
+    };
+
+    await collect(
+      await orchestrateGraphStream({
+        runId: "run-trace-start-span",
+        graph: graphWithEvents(() => [{ type: "done", data: baseState }]),
+        state: baseState,
+        config: {
+          context: null,
+          telemetry: {
+            metadata: null,
+            tags: "tag",
+          },
+          reasonTrace,
+        },
+        selectWorkflow: vi.fn(),
+      }),
+    );
+
+    expect(reasonTrace.startSpan).toHaveBeenCalledWith({
+      name: "kortyx.run",
+      attributes: {
+        runId: "run-trace-start-span",
+        workflowId: "first",
+      },
+      telemetry: {
+        metadata: {},
+        tags: undefined,
+        captureContent: undefined,
+      },
+    });
+    expect(runSpan.setAttributes).toHaveBeenCalledWith(
+      expect.objectContaining({
+        "kortyx.run.final_workflow": "first",
+      }),
+    );
+    expect(runSpan.end).toHaveBeenCalled();
+    expect(runSpan.fail).not.toHaveBeenCalled();
+  });
+
   it("emits text interrupts with optional schema metadata", async () => {
     const graph = graphWithEvents((emit) => {
       emit("interrupt", {

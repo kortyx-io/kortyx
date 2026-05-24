@@ -25,6 +25,7 @@ This page maps the current OSS packages in this monorepo.
 | `@kortyx/core` | workflow + node + state contracts | workflow authors, framework users |
 | `@kortyx/runtime` | graph execution + registries + framework adapters | advanced runtime integration |
 | `@kortyx/hooks` | node hooks (`useReason`, state hooks, interrupts, structured data) | node authors |
+| `@kortyx/otel` | optional OpenTelemetry adapter for Kortyx tracing | server apps with observability pipelines |
 | `@kortyx/providers` | provider contracts + registry | runtime/provider wiring |
 | `@kortyx/google` | Google Gemini provider implementation | apps using Google models |
 | `@kortyx/stream` | stream chunk types + SSE server/client helpers | web APIs + clients |

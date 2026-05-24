@@ -34,6 +34,10 @@
       "package-name": "kortyx",
       "component": "kortyx"
     },
+    "packages/otel": {
+      "package-name": "@kortyx/otel",
+      "component": "otel"
+    },
     "packages/providers": {
       "package-name": "@kortyx/providers",
       "component": "providers"

@@ -9,7 +9,11 @@ import type {
   KortyxWarning,
   ProviderModelRef,
 } from "@kortyx/providers";
-import type { ReasonTraceAdapter, ReasonTraceSpan } from "./tracing";
+import type {
+  KortyxTraceMetadata,
+  ReasonTraceAdapter,
+  ReasonTraceSpan,
+} from "./tracing";
 
 export interface RunReasonEngineArgs {
   model: ProviderModelRef;
@@ -31,6 +35,7 @@ export interface RunReasonEngineArgs {
   id?: string | undefined;
   opId?: string | undefined;
   segmentId?: string | undefined;
+  telemetry?: KortyxTraceMetadata | undefined;
   reasonTrace?: ReasonTraceAdapter | undefined;
 }
 
@@ -129,9 +134,25 @@ export async function runReasonEngine(
       modelId: args.model.modelId,
       stream,
       emit,
+      ...(args.telemetry?.operation
+        ? { operation: args.telemetry.operation }
+        : {}),
+      ...(args.telemetry?.prompt?.name
+        ? { promptName: args.telemetry.prompt.name }
+        : {}),
+      ...(args.telemetry?.prompt?.version !== undefined
+        ? { promptVersion: args.telemetry.prompt.version }
+        : {}),
+      ...(args.telemetry?.prompt?.type
+        ? { promptType: args.telemetry.prompt.type }
+        : {}),
       ...(typeof args.nodeId === "string" && args.nodeId.length > 0
         ? { nodeId: args.nodeId }
         : {}),
+    },
+    telemetry: {
+      ...(args.telemetry ?? {}),
+      input: args.telemetry?.input ?? messages,
     },
   });
 
@@ -150,6 +171,10 @@ export async function runReasonEngine(
       ...(result.warnings !== undefined ? { warnings: result.warnings } : {}),
       attributes: {
         textLength: result.text.length,
+      },
+      telemetry: {
+        ...(args.telemetry ?? {}),
+        output: args.telemetry?.output ?? result.text,
       },
     });
   };
