@@ -113,17 +113,27 @@ describe("runReasonEngine", () => {
         },
       ],
     });
-    expect(reasonTrace.startSpan).toHaveBeenCalledWith({
-      name: "runReasonEngine",
-      attributes: expect.objectContaining({
-        id: "reason-id",
-        opId: "op-id",
-        segmentId: "segment-id",
-        nodeId: "node-id",
-        stream: true,
-        emit: true,
+    expect(reasonTrace.startSpan).toHaveBeenCalledWith(
+      expect.objectContaining({
+        name: "runReasonEngine",
+        attributes: expect.objectContaining({
+          id: "reason-id",
+          opId: "op-id",
+          segmentId: "segment-id",
+          nodeId: "node-id",
+          providerId: "mock",
+          modelId: "mock-model",
+          stream: true,
+          emit: true,
+        }),
+        telemetry: expect.objectContaining({
+          input: [
+            { role: "system", content: "Follow the system prompt." },
+            { role: "user", content: "Say hello" },
+          ],
+        }),
       }),
-    });
+    );
     expect(span.end).toHaveBeenCalledWith(
       expect.objectContaining({
         usage: {
