@@ -39,6 +39,45 @@ export interface OrchestrateArgs {
   frameworkAdapter?: FrameworkAdapter;
 }
 
+type TraceSpanLike = {
+  setAttributes?: (attributes: Record<string, unknown>) => void;
+  addEvent?: (name: string, attributes?: Record<string, unknown>) => void;
+  end?: (args?: { attributes?: Record<string, unknown> }) => void;
+  fail?: (
+    error: unknown,
+    args?: { attributes?: Record<string, unknown> },
+  ) => void;
+};
+
+type TraceAdapterLike = {
+  startSpan?: (args: {
+    name: string;
+    attributes?: Record<string, unknown>;
+    telemetry?: unknown;
+  }) => TraceSpanLike | undefined;
+  withSpan?: <T>(
+    args: {
+      name: string;
+      attributes?: Record<string, unknown>;
+      telemetry?: unknown;
+    },
+    fn: (span: TraceSpanLike) => T | Promise<T>,
+  ) => Promise<T>;
+};
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  Boolean(value) && typeof value === "object" && !Array.isArray(value);
+
+const getTraceAdapter = (
+  config: Record<string, unknown>,
+): TraceAdapterLike | undefined => {
+  const telemetry = isRecord(config.telemetry) ? config.telemetry : undefined;
+  const traceAdapter = telemetry?.trace ?? config.reasonTrace;
+  return isRecord(traceAdapter)
+    ? (traceAdapter as TraceAdapterLike)
+    : undefined;
+};
+
 /**
  * Orchestrates runtime execution with mid-stream transitions emitted by
  * runtime events.
@@ -59,6 +98,33 @@ export async function orchestrateGraphStream({
   let finished = false;
   let structuredSeq = 0;
   const debugEnabled = Boolean((config as any)?.features?.tracing);
+  const traceAdapter = getTraceAdapter(config);
+  const contextMeta = isRecord(config.context) ? config.context : {};
+  const telemetryConfig = isRecord(config.telemetry) ? config.telemetry : {};
+  const runSpanArgs = {
+    name: "kortyx.run",
+    attributes: {
+      ...(sessionId ? { sessionId } : {}),
+      runId,
+      workflowId: state.currentWorkflow,
+      ...(typeof contextMeta.userId === "string"
+        ? { userId: contextMeta.userId }
+        : {}),
+      ...(typeof contextMeta.tenantId === "string"
+        ? { tenantId: contextMeta.tenantId }
+        : {}),
+    },
+    telemetry: {
+      metadata: {
+        ...(isRecord(telemetryConfig.metadata) ? telemetryConfig.metadata : {}),
+        ...contextMeta,
+      },
+      tags: Array.isArray(telemetryConfig.tags)
+        ? telemetryConfig.tags
+        : undefined,
+      captureContent: telemetryConfig.captureContent,
+    },
+  };
   const namespacesUsed = new Set<string>();
 
   // Announce session id to clients so they can persist it
@@ -427,7 +493,7 @@ export async function orchestrateGraphStream({
     }
   };
 
-  (async () => {
+  const runLoop = async (runTraceSpan: TraceSpanLike) => {
     while (true) {
       let workflowFinalState: GraphState | null = null;
 
@@ -542,6 +608,9 @@ export async function orchestrateGraphStream({
           currentGraph = nextGraph;
           continue; // run the next graph
         } catch (err) {
+          runTraceSpan.addEvent?.("kortyx.transition.error", {
+            transitionTo,
+          });
           out.write({
             type: "error",
             message: `Transition failed to '${transitionTo}': ${
@@ -593,17 +662,36 @@ export async function orchestrateGraphStream({
         }
 
         finished = true;
+        runTraceSpan.setAttributes?.({
+          "kortyx.run.awaiting_human_input": shouldKeepFrameworkState,
+          "kortyx.run.final_workflow": String(currentState.currentWorkflow),
+        });
+        runTraceSpan.end?.();
         out.write({ type: "done", data: workflowFinalState } as any);
         out.end();
         return;
       }
 
       // Natural end with no explicit "done" (defensive close)
+      runTraceSpan.setAttributes?.({
+        "kortyx.run.final_workflow": String(currentState.currentWorkflow),
+      });
+      runTraceSpan.end?.();
       out.write({ type: "done" });
       out.end();
       return;
     }
-  })().catch((err) => {
+  };
+
+  const fallbackRunSpan = traceAdapter?.withSpan
+    ? undefined
+    : traceAdapter?.startSpan?.(runSpanArgs);
+  const runPromise = traceAdapter?.withSpan
+    ? traceAdapter.withSpan(runSpanArgs, runLoop)
+    : runLoop(fallbackRunSpan ?? {});
+
+  runPromise.catch((err) => {
+    fallbackRunSpan?.fail?.(err);
     console.error("[error:orchestrateGraphStream]", err);
     out.write({
       type: "error",

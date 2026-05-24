@@ -7,6 +7,7 @@ import type {
 import { getHookContext } from "../context";
 import type { RunReasonEngineResult } from "../reason-engine";
 import { runReasonEngine } from "../reason-engine";
+import type { KortyxTraceMetadata } from "../tracing";
 
 export type ReasonEngineInput = {
   model: ProviderModelRef;
@@ -22,6 +23,7 @@ export type ReasonEngineInput = {
   emit?: boolean | undefined;
   stream?: boolean | undefined;
   onTextChunk?: ((text: string) => void) | undefined;
+  telemetry?: KortyxTraceMetadata | undefined;
 };
 
 export const createRuntimeId = (): string => {
@@ -54,6 +56,7 @@ export async function reasonEngine(
     stream: args.stream,
     emit: args.emit,
     onTextChunk: args.onTextChunk,
+    telemetry: args.telemetry,
     nodeId: ctx.node.graph.node,
     emitEvent: ctx.node.emit,
     reasonTrace: ctx.reasonTrace,

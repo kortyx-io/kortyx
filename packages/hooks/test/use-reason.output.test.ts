@@ -2,7 +2,11 @@ import { describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 import { runWithHookContext } from "../src/context";
 import { useReason } from "../src/hooks";
-import type { ReasonTraceAdapter, ReasonTraceSpan } from "../src/tracing";
+import type {
+  ReasonTraceAdapter,
+  ReasonTraceSpan,
+  ReasonTraceSpanStartArgs,
+} from "../src/tracing";
 import { createNode, createProvider, createState } from "./helpers";
 
 const PlanSchema = z.object({
@@ -536,7 +540,7 @@ describe("useReason output flow", () => {
     const state = createState();
     const spans: ReasonTraceSpan[] = [];
     const startSpan = vi.fn(
-      (_args: { name: "useReason" | "runReasonEngine" }): ReasonTraceSpan => {
+      (_args: ReasonTraceSpanStartArgs): ReasonTraceSpan => {
         const span = {
           end: vi.fn(),
           addEvent: vi.fn(),

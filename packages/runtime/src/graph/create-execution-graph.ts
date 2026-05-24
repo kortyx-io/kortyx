@@ -6,7 +6,7 @@ import type {
   NodeResult,
   WorkflowDefinition,
 } from "@kortyx/core";
-import type { ReasonTraceAdapter } from "@kortyx/hooks";
+import type { KortyxTelemetryConfig, ReasonTraceAdapter } from "@kortyx/hooks";
 import { runWithHookContext } from "@kortyx/hooks";
 import type { GetProviderFn } from "@kortyx/providers";
 import { deepMergeWithArrayOverwrite } from "@kortyx/utils";
@@ -43,6 +43,7 @@ export interface ExecutionRuntimeConfig {
   onCheckpoint?: (args: { nodeId: string; state: GraphState }) => void;
   checkpointer?: BaseCheckpointSaver;
   reasonTrace?: ReasonTraceAdapter;
+  telemetry?: KortyxTelemetryConfig;
   getProvider?: GetProviderFn;
   [key: string]: unknown;
 }
@@ -99,6 +100,12 @@ export async function createExecutionGraph(
 
   const isRecord = (value: unknown): value is Record<string, unknown> =>
     Boolean(value) && typeof value === "object" && !Array.isArray(value);
+
+  const traceAdapter = (): ReasonTraceAdapter | undefined =>
+    runtimeConfig.telemetry?.trace ?? runtimeConfig.reasonTrace;
+
+  const configContext = (): Record<string, unknown> | undefined =>
+    isRecord(runtimeConfig.context) ? runtimeConfig.context : undefined;
 
   const toRecordInput = (value: unknown): Record<string, unknown> => {
     if (isRecord(value)) return value;
@@ -260,17 +267,45 @@ export async function createExecutionGraph(
                   ),
                 } as GraphState)
               : state;
+          const activeTrace = traceAdapter();
           const hookContext = {
             node: hookNodeContext,
             state: attemptState,
-            reasonTrace: runtimeConfig.reasonTrace,
+            reasonTrace: activeTrace,
           };
-          const hookRun = await runWithHookContext(hookContext, async () =>
-            resolvedRun({
-              input: state.input,
-              params: (nodeParams ?? {}) as Record<string, unknown>,
-            }),
-          );
+          const runNode = () =>
+            runWithHookContext(hookContext, async () =>
+              resolvedRun({
+                input: state.input,
+                params: (nodeParams ?? {}) as Record<string, unknown>,
+              }),
+            );
+          const context = configContext();
+          const spanArgs = {
+            name: "kortyx.node",
+            attributes: {
+              workflowId: workflowName,
+              nodeId,
+              attempt,
+              ...(typeof context?.userId === "string"
+                ? { userId: context.userId }
+                : {}),
+              ...(typeof context?.tenantId === "string"
+                ? { tenantId: context.tenantId }
+                : {}),
+            },
+            telemetry: {
+              metadata: {
+                ...(runtimeConfig.telemetry?.metadata ?? {}),
+                ...(context ?? {}),
+              },
+              tags: runtimeConfig.telemetry?.tags,
+              captureContent: runtimeConfig.telemetry?.captureContent,
+            },
+          };
+          const hookRun = activeTrace?.withSpan
+            ? await activeTrace.withSpan(spanArgs, runNode)
+            : await runNode();
           nodeResult = hookRun.result as NodeResult;
           hookRuntimeUpdates = hookRun.runtimeUpdates;
           break;

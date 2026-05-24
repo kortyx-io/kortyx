@@ -230,9 +230,25 @@ export async function useReason<
         modelId: args.model.modelId,
         stream: args.stream ?? args.model.options?.streaming ?? true,
         emit: args.emit ?? true,
+        ...(args.telemetry?.operation
+          ? { operation: args.telemetry.operation }
+          : {}),
+        ...(args.telemetry?.prompt?.name
+          ? { promptName: args.telemetry.prompt.name }
+          : {}),
+        ...(args.telemetry?.prompt?.version !== undefined
+          ? { promptVersion: args.telemetry.prompt.version }
+          : {}),
+        ...(args.telemetry?.prompt?.type
+          ? { promptType: args.telemetry.prompt.type }
+          : {}),
         hasOutputSchema: Boolean(args.outputSchema),
         hasInterrupt: Boolean(args.interrupt),
         hasStructured: Boolean(args.structured),
+      },
+      telemetry: {
+        ...(args.telemetry ?? {}),
+        input: args.telemetry?.input ?? args.input,
       },
     });
   const suppressTextStream = Boolean(args.outputSchema || args.interrupt);
@@ -630,6 +646,10 @@ export async function useReason<
       textLength: finalText.length,
       resumedFromCheckpoint: Boolean(existingCheckpoint),
       interrupted: Boolean(interruptResponse !== undefined),
+    },
+    telemetry: {
+      ...(args.telemetry ?? {}),
+      output: args.telemetry?.output ?? finalOutput ?? finalText,
     },
   });
 

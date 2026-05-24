@@ -26,6 +26,7 @@ Architecture:
 - `references/architecture-nextjs.md`: Next.js API route vs Server Action guidance.
 - `references/architecture-react-node.md`: separate React frontend plus Node backend.
 - `references/architecture-runtime-persistence.md`: in-memory vs Redis and app DB boundaries.
+- `references/observability-otel.md`: server-side OpenTelemetry tracing, prompt metadata, and backend-neutral adapter setup.
 
 Hooks:
 
@@ -48,6 +49,7 @@ React client:
 - Put provider credentials/configuration, `createAgent(...)`, workflows, nodes, and runtime persistence on the server.
 - Use `@kortyx/react` for React chat clients unless the task needs lower-level stream primitives.
 - Store product/business data in the app DB or service layer, not Kortyx runtime persistence.
+- Keep OpenTelemetry tracing server-side and use generic Kortyx telemetry metadata.
 - `useReason({ outputSchema, structured.fields })` already streams known structured fields as `structured-data` chunks; do not confuse those with raw model JSON `text-delta` chunks.
 
 ## Done Criteria

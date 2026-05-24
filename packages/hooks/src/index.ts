@@ -22,6 +22,11 @@ export {
   useWorkflowState,
 } from "./hooks";
 export type {
+  KortyxTelemetryConfig,
+  KortyxTelemetryContentCapture,
+  KortyxTelemetryPrompt,
+  KortyxTraceAdapter,
+  KortyxTraceMetadata,
   ReasonTraceAdapter,
   ReasonTraceAttributes,
   ReasonTraceSpan,

@@ -3,4 +3,9 @@ export type {
   RunReasonEngineResult,
 } from "./reason-engine";
 export { runReasonEngine } from "./reason-engine";
-export type { ReasonTraceAdapter } from "./tracing";
+export type {
+  KortyxTelemetryConfig,
+  KortyxTraceAdapter,
+  KortyxTraceMetadata,
+  ReasonTraceAdapter,
+} from "./tracing";

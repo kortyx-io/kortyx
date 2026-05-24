@@ -1,0 +1,65 @@
+{
+  "name": "@kortyx/otel",
+  "version": "0.1.0",
+  "private": false,
+  "description": "OpenTelemetry adapter for Kortyx tracing.",
+  "keywords": [
+    "ai",
+    "agent",
+    "agents",
+    "opentelemetry",
+    "observability",
+    "tracing",
+    "kortyx"
+  ],
+  "license": "Apache-2.0",
+  "homepage": "https://kortyx.io/",
+  "bugs": {
+    "url": "https://github.com/kortyx-io/kortyx/issues"
+  },
+  "author": "Kortyx (https://github.com/kortyx-io)",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist/**",
+    "README.md",
+    "CHANGELOG.md"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsc --watch",
+    "lint": "biome check src test",
+    "test": "vitest run && pnpm -s type-check",
+    "coverage": "vitest run --coverage && pnpm -s type-check",
+    "type-check": "tsc --noEmit -p tsconfig.test.json"
+  },
+  "dependencies": {
+    "@kortyx/hooks": "workspace:*"
+  },
+  "peerDependencies": {
+    "@opentelemetry/api": "^1.9.0"
+  },
+  "devDependencies": {
+    "@opentelemetry/api": "^1.9.0",
+    "@vitest/coverage-v8": "catalog:",
+    "tsup": "catalog:",
+    "turbo": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  },
+  "sideEffects": false,
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/kortyx-io/kortyx.git",
+    "directory": "packages/otel"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}
