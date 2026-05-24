@@ -68,11 +68,13 @@ describe("createAgent", () => {
     const getProvider = vi.fn();
     const frameworkAdapter = { checkpointer: "custom-checkpointer" };
     const workflow = { id: "workflow-1" } as WorkflowDefinition;
+    const trace = { startSpan: vi.fn() };
     const agent = createAgent({
       workflows: [workflow],
       defaultWorkflowId: "workflow-1",
       frameworkAdapter: frameworkAdapter as unknown as FrameworkAdapter,
       getProvider,
+      telemetry: { trace },
     });
 
     await agent.streamChat([{ role: "user", content: "hello" }], {
@@ -102,6 +104,7 @@ describe("createAgent", () => {
     if (!args) throw new Error("Expected streamChat to be called.");
     expect(args.loadRuntimeConfig({ sessionId: "session-1" })).toEqual({
       session: { id: "session-1" },
+      telemetry: { trace },
     });
     expect(
       args.loadRuntimeConfig({
@@ -111,8 +114,9 @@ describe("createAgent", () => {
     ).toEqual({
       session: { id: "session-1" },
       context: { userId: "user-1" },
+      telemetry: { trace },
     });
-    expect(args.loadRuntimeConfig()).toEqual({});
+    expect(args.loadRuntimeConfig()).toEqual({ telemetry: { trace } });
   });
 
   it("uses the general-chat fallback for in-memory workflows without a default", async () => {
