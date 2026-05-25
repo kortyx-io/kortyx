@@ -1,7 +1,13 @@
 import { describe, expect, it, vi } from "vitest";
+import { z } from "zod";
 import { runWithHookContext } from "../src";
 import { useReason } from "../src/hooks";
 import { createNode, createProvider, createState } from "./helpers";
+
+const TextInterruptRequestSchema = z.object({
+  kind: z.literal("text"),
+  question: z.string(),
+});
 
 describe("useReason tool loop", () => {
   it("executes MCP-style tools, feeds results back to the model, emits tool chunks, and closes owned tools", async () => {
@@ -150,6 +156,41 @@ describe("useReason tool loop", () => {
       "text-delta",
       "text-end",
     ]);
+  });
+
+  it("rejects useReason interrupt mode when tools are provided and closes owned tools", async () => {
+    const { invoke, modelRef } = createProvider({
+      invokeResponses: [{ content: "unused" }],
+    });
+    const execute = vi.fn(async () => ({ status: "ready" }));
+    const close = vi.fn();
+    const { node } = createNode();
+    const state = createState();
+
+    await expect(
+      runWithHookContext({ node, state }, async () =>
+        useReason({
+          model: modelRef,
+          input: "Check order ord_1",
+          interrupt: {
+            requestSchema: TextInterruptRequestSchema,
+          },
+          tools: [
+            {
+              name: "lookup_order",
+              inputSchema: { type: "object" },
+              execute,
+              close,
+            },
+          ],
+        }),
+      ),
+    ).rejects.toThrow(
+      "useReason tools cannot be combined with useReason interrupt mode yet. Use toolExecution.approval for tool approval.",
+    );
+    expect(invoke).not.toHaveBeenCalled();
+    expect(execute).not.toHaveBeenCalled();
+    expect(close).toHaveBeenCalledTimes(1);
   });
 
   it("executes an approved tool call", async () => {

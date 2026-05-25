@@ -130,18 +130,29 @@ export const runReasonToolLoop = async <
   const ctx = getHookContext();
   const tools = useReasonArgs.tools ?? [];
   const toolByName = new Map<string, KortyxExecutableTool>();
+  let validationCompleted = false;
 
-  for (const tool of tools) {
-    if (toolByName.has(tool.name)) {
-      throw new Error(`useReason received duplicate tool name "${tool.name}".`);
+  try {
+    for (const tool of tools) {
+      if (toolByName.has(tool.name)) {
+        throw new Error(
+          `useReason received duplicate tool name "${tool.name}".`,
+        );
+      }
+      toolByName.set(tool.name, tool);
     }
-    toolByName.set(tool.name, tool);
-  }
 
-  if (useReasonArgs.interrupt) {
-    throw new Error(
-      "useReason tools cannot be combined with useReason interrupt mode yet. Use toolExecution.approval for tool approval.",
-    );
+    if (useReasonArgs.interrupt) {
+      throw new Error(
+        "useReason tools cannot be combined with useReason interrupt mode yet. Use toolExecution.approval for tool approval.",
+      );
+    }
+
+    validationCompleted = true;
+  } finally {
+    if (!validationCompleted) {
+      await closeOwnedTools(tools);
+    }
   }
 
   const toolDefinitions = toToolDefinitions(tools);

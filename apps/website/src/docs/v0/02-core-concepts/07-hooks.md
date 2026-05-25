@@ -316,6 +316,8 @@ What happens:
 - `toolExecution.approval: true` uses Kortyx interrupts before executing a tool call.
 - `toolExecution.emit: true` emits tool lifecycle chunks in the stream.
 
+Tools cannot be combined with `useReason`'s normal `interrupt` option yet. Use `toolExecution.approval` when the interruption is specifically for approving tool calls.
+
 Tools returned by `mcpClient.tools()` are request-scoped by default. `useReason(...)` closes the underlying MCP client when the call finishes, errors, or interrupts. Use `mcpClient.tools({ closeAfterUse: false })` only for long-lived server processes where you close the client manually.
 
 > **Good to know:** MCP tool calling requires provider adapter support for native tool calls. `@kortyx/openai`, `@kortyx/google`, `@kortyx/anthropic`, `@kortyx/deepseek`, `@kortyx/groq`, and `@kortyx/mistral` implement the shared tool contracts.
