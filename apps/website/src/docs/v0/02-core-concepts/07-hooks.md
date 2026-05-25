@@ -316,6 +316,8 @@ What happens:
 - `toolExecution.approval: true` uses Kortyx interrupts before executing a tool call.
 - `toolExecution.emit: true` emits tool lifecycle chunks in the stream.
 
+`include` is optional. Without it, `mcpClient.tools()` returns every tool advertised by the MCP server. Use `include` to expose only the tools this node should be allowed to call, which keeps the model prompt smaller and avoids accidentally giving a node access to unrelated server capabilities.
+
 Tools cannot be combined with `useReason`'s normal `interrupt` option yet. Use `toolExecution.approval` when the interruption is specifically for approving tool calls.
 
 Tools returned by `mcpClient.tools()` are request-scoped by default. `useReason(...)` closes the underlying MCP client when the call finishes, errors, or interrupts. Use `mcpClient.tools({ closeAfterUse: false })` only for long-lived server processes where you close the client manually.

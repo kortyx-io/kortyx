@@ -80,6 +80,8 @@ Simple mental model:
 - `structured-data` is for objects you render as UI state
 - `tool-call-*` is for MCP/tool lifecycle updates when `toolExecution.emit` is enabled
 
+For current `useReason` MCP tool execution, prefer the `tool-call-*` chunks. `tool-call-result` is the emitted lifecycle event for one concrete model-requested tool call and includes the provider/MCP `toolCallId`. `tool-result` is a legacy generic stream chunk shape retained in the public union for compatibility; it is not emitted by the MCP tool loop.
+
 Examples:
 
 - email drafts
