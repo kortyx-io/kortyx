@@ -47,7 +47,7 @@ export const chatNode = async ({ input }: { input: unknown }) => {
 - `providerOptions`: provider-specific options. Prefer generic options first.
 - `abortSignal`: cancellation signal from route/client plumbing when available.
 - `tools`: MCP tools returned by `createMCPClient(...).tools()`.
-- `toolPolicy`: MCP tool loop controls such as `maxSteps`, `approval`, and `emit`.
+- `toolExecution`: MCP tool loop controls such as `maxSteps`, `approval`, and `emit`.
 
 Use `stream: true` and `emit: true` for live UI output. Use `emit: false` for internal reasoning that should not render directly.
 
@@ -109,7 +109,7 @@ const result = await useReason({
   model,
   input: "Find open bugs and summarize the main risks.",
   tools,
-  toolPolicy: {
+  toolExecution: {
     maxSteps: 5,
     approval: false,
     emit: true,

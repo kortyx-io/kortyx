@@ -78,7 +78,7 @@ Simple mental model:
 
 - `text-*` is for text you show as text
 - `structured-data` is for objects you render as UI state
-- `tool-call-*` is for MCP/tool lifecycle updates when `toolPolicy.emit` is enabled
+- `tool-call-*` is for MCP/tool lifecycle updates when `toolExecution.emit` is enabled
 
 Examples:
 
@@ -91,7 +91,7 @@ Examples:
 
 ## Tool Call Chunks
 
-When `useReason(...)` runs MCP tools with `toolPolicy.emit: true`, Kortyx emits a small lifecycle channel beside assistant text.
+When `useReason(...)` runs MCP tools with `toolExecution.emit: true`, Kortyx emits a small lifecycle channel beside assistant text.
 
 Example start chunk:
 
@@ -137,7 +137,7 @@ Example error chunk:
 }
 ```
 
-Tool chunks are emitted only when the call opts in with `toolPolicy.emit`. Tool results are still fed back to the model when emission is disabled.
+Tool chunks are emitted only when the call opts in with `toolExecution.emit`. Tool results are still fed back to the model when emission is disabled.
 
 ### Structured chunk shape
 

@@ -18,7 +18,7 @@ export const loremMcpNode = async ({ input }: { input: unknown }) => {
       "You are testing MCP tool support in Kortyx. The lorem output is only valid if it comes from the available lorem tool. When the user asks for placeholder text, call the lorem tool before answering, then explain exactly what the tool returned.",
     input: String(input ?? "Generate eight words of lorem ipsum."),
     tools,
-    toolPolicy: {
+    toolExecution: {
       maxSteps: 3,
       emit: { lorem: true },
     },

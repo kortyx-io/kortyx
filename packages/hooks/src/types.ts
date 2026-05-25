@@ -112,7 +112,7 @@ export type UseReasonInterruptConfig<
   schemaVersion?: string | undefined;
 };
 
-export type UseReasonToolPolicy = {
+export type UseReasonToolExecution = {
   maxSteps?: number | undefined;
   approval?: boolean | Record<string, boolean> | undefined;
   emit?: boolean | Record<string, boolean> | undefined;
@@ -141,7 +141,7 @@ export type UseReasonArgs<
   structured?: UseReasonStructuredConfig | undefined;
   interrupt?: UseReasonInterruptConfig<TRequest, TResponse> | undefined;
   tools?: KortyxExecutableTool[] | undefined;
-  toolPolicy?: UseReasonToolPolicy | undefined;
+  toolExecution?: UseReasonToolExecution | undefined;
 };
 
 export type UseReasonStep = {

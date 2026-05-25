@@ -51,7 +51,7 @@ React client:
 - Store product/business data in the app DB or service layer, not Kortyx runtime persistence.
 - Keep OpenTelemetry tracing server-side and use generic Kortyx telemetry metadata.
 - `useReason({ outputSchema, structured.fields })` already streams known structured fields as `structured-data` chunks; do not confuse those with raw model JSON `text-delta` chunks.
-- MCP tools are passed to `useReason({ tools, toolPolicy })` from `createMCPClient(...).tools()`. `useReason` closes request-scoped MCP clients by default.
+- MCP tools are passed to `useReason({ tools, toolExecution })` from `createMCPClient(...).tools()`. `useReason` closes request-scoped MCP clients by default.
 
 ## Done Criteria
 

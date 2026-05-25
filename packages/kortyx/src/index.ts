@@ -37,7 +37,7 @@ export type {
   UseReasonArgs,
   UseReasonResult,
   UseReasonStep,
-  UseReasonToolPolicy,
+  UseReasonToolExecution,
   UseStructuredDataArgs,
 } from "@kortyx/hooks";
 export {

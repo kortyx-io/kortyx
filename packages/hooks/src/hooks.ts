@@ -19,7 +19,7 @@ export type {
   UseReasonResult,
   UseReasonStep,
   UseReasonStructuredConfig,
-  UseReasonToolPolicy,
+  UseReasonToolExecution,
   UseStructuredDataAppendArgs,
   UseStructuredDataArgs,
   UseStructuredDataFinalArgs,

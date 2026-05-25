@@ -43,7 +43,7 @@ const toToolDefinitions = (
     ...(tool.metadata !== undefined ? { metadata: tool.metadata } : {}),
   }));
 
-const resolveToolPolicyBoolean = (
+const resolveToolExecutionBoolean = (
   value: boolean | Record<string, boolean> | undefined,
   toolName: string,
   fallback: boolean,
@@ -140,12 +140,12 @@ export const runReasonToolLoop = async <
 
   if (useReasonArgs.interrupt) {
     throw new Error(
-      "useReason tools cannot be combined with useReason interrupt mode yet. Use toolPolicy.approval for tool approval.",
+      "useReason tools cannot be combined with useReason interrupt mode yet. Use toolExecution.approval for tool approval.",
     );
   }
 
   const toolDefinitions = toToolDefinitions(tools);
-  const maxSteps = Math.max(1, useReasonArgs.toolPolicy?.maxSteps ?? 3);
+  const maxSteps = Math.max(1, useReasonArgs.toolExecution?.maxSteps ?? 3);
   const messages = createInitialMessages({
     system: useReasonArgs.system,
     input: useReasonArgs.input,
@@ -240,13 +240,13 @@ export const runReasonToolLoop = async <
           );
         }
 
-        const shouldEmitTool = resolveToolPolicyBoolean(
-          useReasonArgs.toolPolicy?.emit,
+        const shouldEmitTool = resolveToolExecutionBoolean(
+          useReasonArgs.toolExecution?.emit,
           tool.name,
           false,
         );
-        const shouldApproveTool = resolveToolPolicyBoolean(
-          useReasonArgs.toolPolicy?.approval,
+        const shouldApproveTool = resolveToolExecutionBoolean(
+          useReasonArgs.toolExecution?.approval,
           tool.name,
           false,
         );

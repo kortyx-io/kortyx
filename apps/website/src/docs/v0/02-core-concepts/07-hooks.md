@@ -274,7 +274,7 @@ const result = await useReason({
   model: openai("gpt-4.1-mini"),
   input: "Find recent open bugs and summarize the top risks.",
   tools,
-  toolPolicy: {
+  toolExecution: {
     maxSteps: 5,
     approval: false,
     emit: true,
@@ -300,7 +300,7 @@ const result = await useReason({
   model: openai("gpt-4.1-mini"),
   input: "Find recent open bugs and summarize the top risks.",
   tools,
-  toolPolicy: {
+  toolExecution: {
     maxSteps: 5,
     approval: false,
     emit: true,
@@ -312,9 +312,9 @@ What happens:
 
 - Kortyx sends MCP tool schemas to the provider.
 - If the model requests a tool, Kortyx calls the MCP server and feeds the result back to the next model step.
-- `toolPolicy.maxSteps` limits the number of model passes inside the tool loop.
-- `toolPolicy.approval: true` uses Kortyx interrupts before executing a tool call.
-- `toolPolicy.emit: true` emits tool lifecycle chunks in the stream.
+- `toolExecution.maxSteps` limits the number of model passes inside the tool loop.
+- `toolExecution.approval: true` uses Kortyx interrupts before executing a tool call.
+- `toolExecution.emit: true` emits tool lifecycle chunks in the stream.
 
 Tools returned by `mcpClient.tools()` are request-scoped by default. `useReason(...)` closes the underlying MCP client when the call finishes, errors, or interrupts. Use `mcpClient.tools({ closeAfterUse: false })` only for long-lived server processes where you close the client manually.
 

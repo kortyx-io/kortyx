@@ -46,7 +46,7 @@ describe("useReason tool loop", () => {
             close,
           },
         ],
-        toolPolicy: { maxSteps: 3, emit: true },
+        toolExecution: { maxSteps: 3, emit: true },
       }),
     );
 
@@ -102,7 +102,7 @@ describe("useReason tool loop", () => {
               close,
             },
           ],
-          toolPolicy: { maxSteps: 1 },
+          toolExecution: { maxSteps: 1 },
         }),
       ),
     ).rejects.toThrow(
@@ -111,7 +111,7 @@ describe("useReason tool loop", () => {
     expect(close).toHaveBeenCalledTimes(1);
   });
 
-  it("keeps tool execution private when toolPolicy.emit is false", async () => {
+  it("keeps tool execution private when toolExecution.emit is false", async () => {
     const { modelRef } = createProvider({
       invokeResponses: [
         {
@@ -141,7 +141,7 @@ describe("useReason tool loop", () => {
             execute: async () => ({ status: "ready" }),
           },
         ],
-        toolPolicy: { emit: false },
+        toolExecution: { emit: false },
       }),
     );
 
@@ -183,7 +183,7 @@ describe("useReason tool loop", () => {
             execute,
           },
         ],
-        toolPolicy: { approval: true },
+        toolExecution: { approval: true },
       }),
     );
 
@@ -227,7 +227,7 @@ describe("useReason tool loop", () => {
             execute,
           },
         ],
-        toolPolicy: { approval: true },
+        toolExecution: { approval: true },
       }),
     );
 
