@@ -1,6 +1,6 @@
-import { readFileSync } from "node:fs";
 import path from "node:path";
 import { cache } from "react";
+import kortyxPackageJson from "../../../../../packages/kortyx/package.json";
 
 export type DocsConfig = {
   versions: string[];
@@ -15,26 +15,10 @@ export type DocsVersionDisplay = {
 };
 
 const readKortyxPackageVersion = (): string | null => {
-  try {
-    const packageJsonPath = path.join(
-      process.cwd(),
-      "..",
-      "..",
-      "packages",
-      "kortyx",
-      "package.json",
-    );
-    const packageJson = JSON.parse(readFileSync(packageJsonPath, "utf8")) as {
-      version?: unknown;
-    };
-
-    return typeof packageJson.version === "string" &&
-      packageJson.version.length > 0
-      ? packageJson.version
-      : null;
-  } catch {
-    return null;
-  }
+  return typeof kortyxPackageJson.version === "string" &&
+    kortyxPackageJson.version.length > 0
+    ? kortyxPackageJson.version
+    : null;
 };
 
 const readLatestKortyxNpmVersion = async (): Promise<string | null> => {
@@ -54,10 +38,42 @@ const readLatestKortyxNpmVersion = async (): Promise<string | null> => {
   }
 };
 
+const parseStableVersionParts = (version: string): [number, number, number] => {
+  const [major = "0", minor = "0", patch = "0"] = version.split(".");
+  return [
+    Number.parseInt(major, 10) || 0,
+    Number.parseInt(minor, 10) || 0,
+    Number.parseInt(patch, 10) || 0,
+  ];
+};
+
+const getNewestStableVersion = (
+  firstVersion: string | null,
+  secondVersion: string | null,
+): string | null => {
+  if (!firstVersion) return secondVersion;
+  if (!secondVersion) return firstVersion;
+
+  const firstParts = parseStableVersionParts(firstVersion);
+  const secondParts = parseStableVersionParts(secondVersion);
+
+  for (let index = 0; index < firstParts.length; index += 1) {
+    const firstPart = firstParts[index] ?? 0;
+    const secondPart = secondParts[index] ?? 0;
+
+    if (secondPart > firstPart) return secondVersion;
+    if (firstPart > secondPart) return firstVersion;
+  }
+
+  return secondVersion;
+};
+
 export const getLatestDocsVersionDisplay = cache(
   async (): Promise<DocsVersionDisplay> => {
-    const version =
-      (await readLatestKortyxNpmVersion()) ?? readKortyxPackageVersion();
+    const version = getNewestStableVersion(
+      readKortyxPackageVersion(),
+      await readLatestKortyxNpmVersion(),
+    );
 
     return {
       label: "Latest version",
