@@ -4,7 +4,7 @@ import { loremMcpNode } from "@/nodes/mcp/lorem-mcp.node";
 export const mcpLoremDemoWorkflow = defineWorkflow({
   id: "mcp-lorem-demo",
   version: "1.0.0",
-  description: "Workflow demonstrating Google provider tool calls through MCP.",
+  description: "Workflow demonstrating provider-native tool calls through MCP.",
   nodes: {
     lorem: {
       run: loremMcpNode,

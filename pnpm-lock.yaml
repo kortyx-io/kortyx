@@ -209,9 +209,15 @@ importers:
 
   examples/kortyx-nextjs-chat-api-route:
     dependencies:
+      '@kortyx/anthropic':
+        specifier: workspace:*
+        version: link:../../providers/anthropic
       '@kortyx/google':
         specifier: workspace:*
         version: link:../../providers/google
+      '@kortyx/openai':
+        specifier: workspace:*
+        version: link:../../providers/openai
       '@kortyx/react':
         specifier: workspace:*
         version: link:../../packages/react
