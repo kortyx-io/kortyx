@@ -393,6 +393,92 @@ export async function orchestrateGraphStream({
       });
       return;
     }
+    if (event === "tool-call-start") {
+      const payloadObj = payload as {
+        tool?: unknown;
+        toolCallId?: unknown;
+        node?: string;
+        id?: string;
+        opId?: string;
+        input?: unknown;
+      };
+      if (
+        typeof payloadObj.tool !== "string" ||
+        typeof payloadObj.toolCallId !== "string"
+      ) {
+        return;
+      }
+      out.write({
+        type: "tool-call-start",
+        tool: payloadObj.tool,
+        toolCallId: payloadObj.toolCallId,
+        ...(payloadObj.node ? { node: payloadObj.node } : {}),
+        ...(payloadObj.id ? { id: payloadObj.id } : {}),
+        ...(payloadObj.opId ? { opId: payloadObj.opId } : {}),
+        ...(payloadObj.input !== undefined ? { input: payloadObj.input } : {}),
+      });
+      return;
+    }
+    if (event === "tool-call-result") {
+      const payloadObj = payload as {
+        tool?: unknown;
+        toolCallId?: unknown;
+        node?: string;
+        id?: string;
+        opId?: string;
+        content?: unknown;
+        structuredContent?: unknown;
+        isError?: unknown;
+      };
+      if (
+        typeof payloadObj.tool !== "string" ||
+        typeof payloadObj.toolCallId !== "string"
+      ) {
+        return;
+      }
+      out.write({
+        type: "tool-call-result",
+        tool: payloadObj.tool,
+        toolCallId: payloadObj.toolCallId,
+        ...(payloadObj.node ? { node: payloadObj.node } : {}),
+        ...(payloadObj.id ? { id: payloadObj.id } : {}),
+        ...(payloadObj.opId ? { opId: payloadObj.opId } : {}),
+        content: payloadObj.content,
+        ...(payloadObj.structuredContent !== undefined
+          ? { structuredContent: payloadObj.structuredContent }
+          : {}),
+        ...(typeof payloadObj.isError === "boolean"
+          ? { isError: payloadObj.isError }
+          : {}),
+      });
+      return;
+    }
+    if (event === "tool-call-error") {
+      const payloadObj = payload as {
+        tool?: unknown;
+        toolCallId?: unknown;
+        node?: string;
+        id?: string;
+        opId?: string;
+        message?: unknown;
+      };
+      if (
+        typeof payloadObj.tool !== "string" ||
+        typeof payloadObj.toolCallId !== "string"
+      ) {
+        return;
+      }
+      out.write({
+        type: "tool-call-error",
+        tool: payloadObj.tool,
+        toolCallId: payloadObj.toolCallId,
+        ...(payloadObj.node ? { node: payloadObj.node } : {}),
+        ...(payloadObj.id ? { id: payloadObj.id } : {}),
+        ...(payloadObj.opId ? { opId: payloadObj.opId } : {}),
+        message: String(payloadObj.message ?? ""),
+      });
+      return;
+    }
     if (event === "message") {
       const node = (payload as { node?: string })?.node;
       const text = String((payload as { content?: unknown })?.content ?? "");

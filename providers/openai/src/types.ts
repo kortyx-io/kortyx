@@ -12,12 +12,29 @@ export interface OpenAIClientConfig {
   fetch?: FetchLike | undefined;
 }
 
-export type OpenAIChatRole = "system" | "developer" | "user" | "assistant";
+export type OpenAIChatRole =
+  | "system"
+  | "developer"
+  | "user"
+  | "assistant"
+  | "tool";
+
+export interface OpenAIToolCall {
+  id: string;
+  type: "function";
+  function: {
+    name: string;
+    arguments: string;
+  };
+}
 
 export interface OpenAIChatMessage {
   role: OpenAIChatRole;
-  content: string;
+  content: string | null;
   reasoning?: string | undefined;
+  tool_calls?: OpenAIToolCall[] | undefined;
+  tool_call_id?: string | undefined;
+  name?: string | undefined;
 }
 
 export interface OpenAIChatCompletionRequest {
@@ -51,6 +68,16 @@ export interface OpenAIChatCompletionRequest {
   service_tier?: "auto" | "flex" | "priority" | "default" | undefined;
   store?: boolean | undefined;
   metadata?: Record<string, string> | undefined;
+  tools?:
+    | Array<{
+        type: "function";
+        function: {
+          name: string;
+          description?: string | undefined;
+          parameters: unknown;
+        };
+      }>
+    | undefined;
 }
 
 export interface OpenAIUsage {
@@ -84,6 +111,7 @@ export interface OpenAIChatCompletionResponse {
               role?: string | undefined;
               content?: string | null | undefined;
               reasoning?: string | null | undefined;
+              tool_calls?: OpenAIToolCall[] | undefined;
             }
           | undefined;
         finish_reason?: string | null | undefined;
@@ -102,6 +130,7 @@ export interface OpenAIChatCompletionChunk {
           | {
               content?: string | null | undefined;
               reasoning?: string | null | undefined;
+              tool_calls?: OpenAIToolCall[] | undefined;
             }
           | undefined;
         finish_reason?: string | null | undefined;

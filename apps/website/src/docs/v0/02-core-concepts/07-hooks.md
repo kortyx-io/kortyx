@@ -251,6 +251,171 @@ const result = await useReason({
 
 If a provider cannot fully support one of these generic options yet, it should surface a warning instead of silently ignoring it.
 
+### MCP tools
+
+Use MCP tools when an external MCP server should participate in one `useReason(...)` call. Create the MCP client, list the tools, then pass those tools to `useReason`.
+
+```ts tabs="mcp-tools" tab="TypeScript"
+import { createMCPClient, useReason } from "kortyx";
+import { openai } from "@/lib/providers";
+
+const mcpClient = await createMCPClient({
+  transport: {
+    type: "http",
+    url: "https://your-server.com/mcp",
+  },
+});
+
+const tools = await mcpClient.tools({
+  include: ["search_issues", "get_issue"],
+});
+
+const result = await useReason({
+  model: openai("gpt-4.1-mini"),
+  input: "Find recent open bugs and summarize the top risks.",
+  tools,
+  toolExecution: {
+    maxSteps: 5,
+    approval: false,
+    emit: true,
+  },
+});
+```
+```js tabs="mcp-tools" tab="JavaScript"
+import { createMCPClient, useReason } from "kortyx";
+import { openai } from "@/lib/providers";
+
+const mcpClient = await createMCPClient({
+  transport: {
+    type: "http",
+    url: "https://your-server.com/mcp",
+  },
+});
+
+const tools = await mcpClient.tools({
+  include: ["search_issues", "get_issue"],
+});
+
+const result = await useReason({
+  model: openai("gpt-4.1-mini"),
+  input: "Find recent open bugs and summarize the top risks.",
+  tools,
+  toolExecution: {
+    maxSteps: 5,
+    approval: false,
+    emit: true,
+  },
+});
+```
+
+What happens:
+
+- Kortyx sends MCP tool schemas to the provider.
+- If the model requests a tool, Kortyx calls the MCP server and feeds the result back to the next model step.
+- `toolExecution.maxSteps` limits the number of model passes inside the tool loop.
+- `toolExecution.approval: true` uses Kortyx interrupts before executing a tool call.
+- `toolExecution.emit: true` emits tool lifecycle chunks in the stream.
+
+`include` is optional. Without it, `mcpClient.tools()` returns every tool advertised by the MCP server. Use `include` to expose only the tools this node should be allowed to call, which keeps the model prompt smaller and avoids accidentally giving a node access to unrelated server capabilities.
+
+Tools cannot be combined with `useReason`'s normal `interrupt` option yet. Use `toolExecution.approval` when the interruption is specifically for approving tool calls.
+
+When the interrupt should depend on tool results, split the flow into two calls. First run the tool loop, then use a second `useReason(...)` call to decide whether to interrupt based on the tool output.
+
+```ts tabs="mcp-tools-then-interrupt" tab="TypeScript"
+import { z } from "zod";
+import { useReason } from "kortyx";
+
+const reviewRequestSchema = z.object({
+  kind: z.literal("text"),
+  question: z.string(),
+});
+
+const lookup = await useReason({
+  model,
+  input: "Look up this account and decide whether a human should review it.",
+  tools,
+  toolExecution: { maxSteps: 3 },
+});
+
+const review = await useReason({
+  model,
+  input: `Tool results:\n${JSON.stringify(lookup.toolResults ?? [])}\nAsk for human input only if review is needed.`,
+  interrupt: {
+    mode: "optional",
+    requestSchema: reviewRequestSchema,
+    responseSchema: z.string(),
+  },
+});
+```
+```js tabs="mcp-tools-then-interrupt" tab="JavaScript"
+import { z } from "zod";
+import { useReason } from "kortyx";
+
+const reviewRequestSchema = z.object({
+  kind: z.literal("text"),
+  question: z.string(),
+});
+
+const lookup = await useReason({
+  model,
+  input: "Look up this account and decide whether a human should review it.",
+  tools,
+  toolExecution: { maxSteps: 3 },
+});
+
+const review = await useReason({
+  model,
+  input: `Tool results:\n${JSON.stringify(lookup.toolResults ?? [])}\nAsk for human input only if review is needed.`,
+  interrupt: {
+    mode: "optional",
+    requestSchema: reviewRequestSchema,
+    responseSchema: z.string(),
+  },
+});
+```
+
+When tool input should depend on the user, collect that input before the tool loop. You can do this in the same node or as a previous workflow node.
+
+```ts tabs="mcp-interrupt-then-tools" tab="TypeScript"
+import { useInterrupt, useReason } from "kortyx";
+
+const accountId = await useInterrupt({
+  request: {
+    kind: "text",
+    question: "Which account ID should I look up?",
+  },
+});
+
+const result = await useReason({
+  model,
+  input: `Use account ID ${accountId} and summarize the account status.`,
+  tools,
+  toolExecution: { maxSteps: 3 },
+});
+```
+```js tabs="mcp-interrupt-then-tools" tab="JavaScript"
+import { useInterrupt, useReason } from "kortyx";
+
+const accountId = await useInterrupt({
+  request: {
+    kind: "text",
+    question: "Which account ID should I look up?",
+  },
+});
+
+const result = await useReason({
+  model,
+  input: `Use account ID ${accountId} and summarize the account status.`,
+  tools,
+  toolExecution: { maxSteps: 3 },
+});
+```
+
+Tools returned by `mcpClient.tools()` are request-scoped by default. `useReason(...)` closes the underlying MCP client when the call finishes, errors, or interrupts. Use `mcpClient.tools({ closeAfterUse: false })` only for long-lived server processes where you close the client manually.
+
+> **Good to know:** MCP tool calling requires provider adapter support for native tool calls. `@kortyx/openai`, `@kortyx/google`, `@kortyx/anthropic`, `@kortyx/deepseek`, `@kortyx/groq`, and `@kortyx/mistral` implement the shared tool contracts.
+
 What happens:
 
 - the model still generates one JSON object

@@ -19,6 +19,7 @@ export {
 // Types
 export type {
   GetProviderFn,
+  KortyxExecutableTool,
   KortyxFinishReason,
   KortyxInvokeResult,
   KortyxModel,
@@ -30,6 +31,9 @@ export type {
   KortyxResponseFormat,
   KortyxStreamChunk,
   KortyxStreamPart,
+  KortyxToolCall,
+  KortyxToolDefinition,
+  KortyxToolResult,
   KortyxUsage,
   KortyxWarning,
   ModelOptions,

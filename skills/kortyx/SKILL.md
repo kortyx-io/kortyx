@@ -30,7 +30,7 @@ Architecture:
 
 Hooks:
 
-- `references/hooks-use-reason.md`: model calls, provider options, schema output, and text streaming.
+- `references/hooks-use-reason.md`: model calls, provider options, MCP tools, schema output, and text streaming.
 - `references/hooks-interrupts-and-state.md`: human-in-the-loop flows, resume, replay, and persistence implications.
 - `references/hooks-structured-streaming.md`: choosing `useReason({ structured })` vs `useStructuredData(...)`.
 - `references/hooks-runtime-context.md`: passing request context safely from route/client to nodes.
@@ -51,6 +51,8 @@ React client:
 - Store product/business data in the app DB or service layer, not Kortyx runtime persistence.
 - Keep OpenTelemetry tracing server-side and use generic Kortyx telemetry metadata.
 - `useReason({ outputSchema, structured.fields })` already streams known structured fields as `structured-data` chunks; do not confuse those with raw model JSON `text-delta` chunks.
+- MCP tools are passed to `useReason({ tools, toolExecution })` from `createMCPClient(...).tools()`. `useReason` closes request-scoped MCP clients by default.
+- Do not combine `useReason({ tools })` with normal `useReason({ interrupt })`; use `toolExecution.approval` for tool approval, or split tools and user input into separate hook calls/nodes.
 
 ## Done Criteria
 

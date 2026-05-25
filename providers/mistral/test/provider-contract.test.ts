@@ -198,6 +198,67 @@ describe("mistral public provider contract", () => {
     }
   });
 
+  it("returns normalized tool calls from invoke responses", async () => {
+    const provider = createMistral({
+      apiKey: "test-key",
+      fetch: async () =>
+        new Response(
+          JSON.stringify({
+            choices: [
+              {
+                message: {
+                  content: "",
+                  tool_calls: [
+                    {
+                      id: "call-1",
+                      type: "function",
+                      function: {
+                        name: "lookup_order",
+                        arguments: '{"orderId":"ord_1"}',
+                      },
+                    },
+                  ],
+                },
+                finish_reason: "tool_calls",
+              },
+            ],
+          }),
+          { headers: { "content-type": "application/json" } },
+        ),
+    });
+
+    const result = await provider
+      .getModel("mistral-large-latest", {
+        tools: [
+          {
+            name: "lookup_order",
+            inputSchema: { type: "object" },
+          },
+        ],
+      })
+      .invoke([{ role: "user", content: "Check order ord_1" }]);
+
+    expect(result.toolCalls).toEqual([
+      {
+        id: "call-1",
+        name: "lookup_order",
+        input: { orderId: "ord_1" },
+        raw: {
+          id: "call-1",
+          type: "function",
+          function: {
+            name: "lookup_order",
+            arguments: '{"orderId":"ord_1"}',
+          },
+        },
+      },
+    ]);
+    expect(result.finishReason).toEqual({
+      unified: "tool-calls",
+      raw: "tool_calls",
+    });
+  });
+
   it("surfaces missing environment credentials during invoke", async () => {
     const previousMistralKey = process.env.MISTRAL_API_KEY;
     const previousKortyxKey = process.env.KORTYX_MISTRAL_API_KEY;

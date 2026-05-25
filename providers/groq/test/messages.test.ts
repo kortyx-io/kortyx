@@ -99,4 +99,74 @@ describe("groq message mapping", () => {
 
     expect(request.messages).toEqual([{ role: "user", content: "" }]);
   });
+
+  it("maps Kortyx tools and tool result messages to Groq chat completions", () => {
+    const request = createChatCompletionRequest(
+      "llama-3.3-70b-versatile",
+      [
+        { role: "user", content: "Check order ord_1" },
+        {
+          role: "assistant",
+          content: "",
+          toolCalls: [
+            {
+              id: "call-1",
+              name: "lookup_order",
+              input: { orderId: "ord_1" },
+            },
+          ],
+        },
+        {
+          role: "tool",
+          content: '{"status":"ready"}',
+          toolCallId: "call-1",
+          name: "lookup_order",
+        },
+      ],
+      {
+        tools: [
+          {
+            name: "lookup_order",
+            description: "Look up an order.",
+            inputSchema: { type: "object" },
+          },
+        ],
+      },
+      false,
+    );
+
+    expect(request.tools).toEqual([
+      {
+        type: "function",
+        function: {
+          name: "lookup_order",
+          description: "Look up an order.",
+          parameters: { type: "object" },
+        },
+      },
+    ]);
+    expect(request.messages).toEqual([
+      { role: "user", content: "Check order ord_1" },
+      {
+        role: "assistant",
+        content: "",
+        tool_calls: [
+          {
+            id: "call-1",
+            type: "function",
+            function: {
+              name: "lookup_order",
+              arguments: '{"orderId":"ord_1"}',
+            },
+          },
+        ],
+      },
+      {
+        role: "tool",
+        content: '{"status":"ready"}',
+        tool_call_id: "call-1",
+        name: "lookup_order",
+      },
+    ]);
+  });
 });

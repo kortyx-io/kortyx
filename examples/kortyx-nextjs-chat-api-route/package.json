@@ -29,7 +29,9 @@
     "test:watch": "vitest"
   },
   "dependencies": {
+    "@kortyx/anthropic": "workspace:*",
     "@kortyx/google": "workspace:*",
+    "@kortyx/openai": "workspace:*",
     "@kortyx/react": "workspace:*",
     "@radix-ui/react-avatar": "^1.1.10",
     "@radix-ui/react-dialog": "catalog:",

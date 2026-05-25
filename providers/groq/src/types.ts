@@ -12,12 +12,24 @@ export interface GroqClientConfig {
   fetch?: FetchLike | undefined;
 }
 
-export type GroqChatRole = "system" | "user" | "assistant";
+export type GroqChatRole = "system" | "user" | "assistant" | "tool";
+
+export interface GroqToolCall {
+  id: string;
+  type: "function";
+  function: {
+    name: string;
+    arguments: string;
+  };
+}
 
 export interface GroqChatMessage {
   role: GroqChatRole;
-  content: string;
+  content: string | null;
   reasoning?: string | undefined;
+  tool_calls?: GroqToolCall[] | undefined;
+  tool_call_id?: string | undefined;
+  name?: string | undefined;
 }
 
 export interface GroqChatCompletionRequest {
@@ -42,6 +54,16 @@ export interface GroqChatCompletionRequest {
   reasoning_format?: "parsed" | "raw" | "hidden" | undefined;
   reasoning_effort?: "none" | "default" | "low" | "medium" | "high" | undefined;
   service_tier?: "on_demand" | "performance" | "flex" | "auto" | undefined;
+  tools?:
+    | Array<{
+        type: "function";
+        function: {
+          name: string;
+          description?: string | undefined;
+          parameters: unknown;
+        };
+      }>
+    | undefined;
 }
 
 export interface GroqUsage {
@@ -73,6 +95,7 @@ export interface GroqChatCompletionResponse {
               role?: string | undefined;
               content?: string | null | undefined;
               reasoning?: string | null | undefined;
+              tool_calls?: GroqToolCall[] | undefined;
             }
           | undefined;
         finish_reason?: string | null | undefined;
@@ -91,6 +114,7 @@ export interface GroqChatCompletionChunk {
           | {
               content?: string | null | undefined;
               reasoning?: string | null | undefined;
+              tool_calls?: GroqToolCall[] | undefined;
             }
           | undefined;
         finish_reason?: string | null | undefined;

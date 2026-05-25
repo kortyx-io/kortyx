@@ -34,6 +34,10 @@
       "package-name": "kortyx",
       "component": "kortyx"
     },
+    "packages/mcp": {
+      "package-name": "@kortyx/mcp",
+      "component": "mcp"
+    },
     "packages/otel": {
       "package-name": "@kortyx/otel",
       "component": "otel"

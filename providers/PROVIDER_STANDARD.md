@@ -16,13 +16,13 @@ Provider packages in v1 support only:
 
 - text generation (`invoke`)
 - streaming text generation (`stream`)
+- normalized model tool calls for providers with native tool-call APIs
 - normalized metadata for reasoning-oriented model calls
 
 Out of scope for v1:
 
 - embeddings
 - image/video generation
-- tool calling/function calling
 - advanced provider-specific features
 
 ## Monorepo Layout
@@ -110,6 +110,7 @@ Normalized call options currently include:
 - `abortSignal`
 - `reasoning`
 - `responseFormat`
+- `tools`
 - `providerOptions`
 
 Normalized invoke results currently include:
@@ -118,6 +119,7 @@ Normalized invoke results currently include:
 - `raw`
 - `usage`
 - `finishReason`
+- `toolCalls`
 - `warnings`
 - `providerMetadata`
 
@@ -125,8 +127,18 @@ Normalized internal stream parts currently include:
 
 - `text-delta`
 - `finish`
+- optional `toolCalls` on `finish`
 - `error`
 - optional `raw`
+
+Current provider adapters with shared tool-call support:
+
+- `@kortyx/openai`
+- `@kortyx/google`
+- `@kortyx/anthropic`
+- `@kortyx/deepseek`
+- `@kortyx/groq`
+- `@kortyx/mistral`
 
 ## Dependency Rules
 

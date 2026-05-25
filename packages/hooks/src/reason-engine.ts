@@ -5,6 +5,8 @@ import type {
   KortyxProviderMetadata,
   KortyxReasoningOptions,
   KortyxResponseFormat,
+  KortyxToolCall,
+  KortyxToolDefinition,
   KortyxUsage,
   KortyxWarning,
   ProviderModelRef,
@@ -26,6 +28,8 @@ export interface RunReasonEngineArgs {
   reasoning?: KortyxReasoningOptions | undefined;
   responseFormat?: KortyxResponseFormat | undefined;
   providerOptions?: Record<string, unknown> | undefined;
+  tools?: KortyxToolDefinition[] | undefined;
+  messages?: KortyxPromptMessage[] | undefined;
   defaultTemperature?: number | undefined;
   stream?: boolean | undefined;
   emit?: boolean | undefined;
@@ -44,6 +48,7 @@ export interface RunReasonEngineResult {
   raw?: unknown;
   usage?: KortyxUsage;
   finishReason?: KortyxFinishReason;
+  toolCalls?: KortyxToolCall[];
   providerMetadata?: KortyxProviderMetadata;
   warnings?: KortyxWarning[];
 }
@@ -92,6 +97,7 @@ export async function runReasonEngine(
     args.responseFormat ?? args.model.options?.responseFormat;
   const providerOptions =
     args.providerOptions ?? args.model.options?.providerOptions;
+  const tools = args.tools ?? args.model.options?.tools;
 
   const model = args.model.provider.getModel(args.model.modelId, {
     ...(temperature !== undefined ? { temperature } : {}),
@@ -101,14 +107,19 @@ export async function runReasonEngine(
     ...(abortSignal !== undefined ? { abortSignal } : {}),
     ...(reasoning !== undefined ? { reasoning } : {}),
     ...(responseFormat !== undefined ? { responseFormat } : {}),
+    ...(tools !== undefined ? { tools } : {}),
     ...(providerOptions !== undefined ? { providerOptions } : {}),
   });
 
-  const messages: KortyxPromptMessage[] = [];
-  if (typeof args.system === "string" && args.system.length > 0) {
-    messages.push({ role: "system", content: args.system });
-  }
-  messages.push({ role: "user", content: String(args.input ?? "") });
+  const messages: KortyxPromptMessage[] =
+    args.messages !== undefined
+      ? args.messages
+      : [
+          ...(typeof args.system === "string" && args.system.length > 0
+            ? [{ role: "system" as const, content: args.system }]
+            : []),
+          { role: "user" as const, content: String(args.input ?? "") },
+        ];
 
   const opId =
     typeof args.opId === "string" && args.opId.length > 0
@@ -197,6 +208,7 @@ export async function runReasonEngine(
       let raw: unknown;
       let usage: KortyxUsage | undefined;
       let finishReason: KortyxFinishReason | undefined;
+      let toolCalls: KortyxToolCall[] | undefined;
       let providerMetadata: KortyxProviderMetadata | undefined;
       let warnings: KortyxWarning[] | undefined;
 
@@ -236,6 +248,9 @@ export async function runReasonEngine(
             }
             if (chunk.finishReason !== undefined) {
               finishReason = chunk.finishReason;
+            }
+            if (chunk.toolCalls !== undefined) {
+              toolCalls = chunk.toolCalls;
             }
             if (chunk.providerMetadata !== undefined) {
               providerMetadata = chunk.providerMetadata;
@@ -278,6 +293,7 @@ export async function runReasonEngine(
         ...(raw !== undefined ? { raw } : {}),
         ...(usage !== undefined ? { usage } : {}),
         ...(finishReason !== undefined ? { finishReason } : {}),
+        ...(toolCalls !== undefined ? { toolCalls } : {}),
         ...(providerMetadata !== undefined ? { providerMetadata } : {}),
         ...(warnings !== undefined ? { warnings } : {}),
       };
@@ -308,6 +324,9 @@ export async function runReasonEngine(
       ...(response.usage !== undefined ? { usage: response.usage } : {}),
       ...(response.finishReason !== undefined
         ? { finishReason: response.finishReason }
+        : {}),
+      ...(response.toolCalls !== undefined
+        ? { toolCalls: response.toolCalls }
         : {}),
       ...(response.providerMetadata !== undefined
         ? { providerMetadata: response.providerMetadata }

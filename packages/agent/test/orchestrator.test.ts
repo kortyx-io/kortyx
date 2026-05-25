@@ -655,6 +655,45 @@ describe("orchestrateGraphStream", () => {
       emit("text-delta", { node: "plain", delta: "x" });
       emit("text-end", {});
       emit("text-end", { node: "plain" });
+      emit("tool-call-start", { tool: 1, toolCallId: "call-invalid" });
+      emit("tool-call-start", { tool: "search", toolCallId: 1 });
+      emit("tool-call-start", { tool: "search", toolCallId: "call-1" });
+      emit("tool-call-start", {
+        tool: "search",
+        toolCallId: "call-2",
+        node: "plain",
+        id: "reason-1",
+        opId: "op-1",
+        input: { query: "kortyx" },
+      });
+      emit("tool-call-result", { tool: 1, toolCallId: "call-invalid" });
+      emit("tool-call-result", { tool: "search", toolCallId: 1 });
+      emit("tool-call-result", {
+        tool: "search",
+        toolCallId: "call-1",
+        content: "ok",
+      });
+      emit("tool-call-result", {
+        tool: "search",
+        toolCallId: "call-2",
+        node: "plain",
+        id: "reason-1",
+        opId: "op-1",
+        content: "ok",
+        structuredContent: { results: 1 },
+        isError: false,
+      });
+      emit("tool-call-error", { tool: 1, toolCallId: "call-invalid" });
+      emit("tool-call-error", { tool: "search", toolCallId: 1 });
+      emit("tool-call-error", { tool: "search", toolCallId: "call-1" });
+      emit("tool-call-error", {
+        tool: "search",
+        toolCallId: "call-2",
+        node: "plain",
+        id: "reason-1",
+        opId: "op-1",
+        message: "failed",
+      });
       emit("message", {});
       emit("structured_data", {
         kind: "append",
@@ -697,6 +736,52 @@ describe("orchestrateGraphStream", () => {
         { type: "text-start", node: "plain" },
         { type: "text-delta", node: "plain", delta: "x" },
         { type: "text-end", node: "plain" },
+        {
+          type: "tool-call-start",
+          tool: "search",
+          toolCallId: "call-1",
+        },
+        {
+          type: "tool-call-start",
+          tool: "search",
+          toolCallId: "call-2",
+          node: "plain",
+          id: "reason-1",
+          opId: "op-1",
+          input: { query: "kortyx" },
+        },
+        {
+          type: "tool-call-result",
+          tool: "search",
+          toolCallId: "call-1",
+          content: "ok",
+        },
+        {
+          type: "tool-call-result",
+          tool: "search",
+          toolCallId: "call-2",
+          node: "plain",
+          id: "reason-1",
+          opId: "op-1",
+          content: "ok",
+          structuredContent: { results: 1 },
+          isError: false,
+        },
+        {
+          type: "tool-call-error",
+          tool: "search",
+          toolCallId: "call-1",
+          message: "",
+        },
+        {
+          type: "tool-call-error",
+          tool: "search",
+          toolCallId: "call-2",
+          node: "plain",
+          id: "reason-1",
+          opId: "op-1",
+          message: "failed",
+        },
         { type: "message", node: undefined, content: "" },
         expect.objectContaining({
           type: "structured-data",

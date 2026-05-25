@@ -16,6 +16,10 @@ The stream protocol is defined in `@kortyx/stream` as `StreamChunk`.
 - `text-start`
 - `text-delta`
 - `text-end`
+- `tool-call-start`
+- `tool-call-result`
+- `tool-call-error`
+- `tool-result`
 - `message`
 - `structured-data`
 - `interrupt`
@@ -74,6 +78,9 @@ Simple mental model:
 
 - `text-*` is for text you show as text
 - `structured-data` is for objects you render as UI state
+- `tool-call-*` is for MCP/tool lifecycle updates when `toolExecution.emit` is enabled
+
+For current `useReason` MCP tool execution, prefer the `tool-call-*` chunks. `tool-call-result` is the emitted lifecycle event for one concrete model-requested tool call and includes the provider/MCP `toolCallId`. `tool-result` is a legacy generic stream chunk shape retained in the public union for compatibility; it is not emitted by the MCP tool loop.
 
 Examples:
 
@@ -82,6 +89,57 @@ Examples:
 - growing result lists
 - progress panels
 - validation results
+- MCP search or action progress
+
+## Tool Call Chunks
+
+When `useReason(...)` runs MCP tools with `toolExecution.emit: true`, Kortyx emits a small lifecycle channel beside assistant text.
+
+Example start chunk:
+
+```json
+{
+  "type": "tool-call-start",
+  "node": "support",
+  "opId": "op_123",
+  "tool": "search_issues",
+  "toolCallId": "call_1",
+  "input": {
+    "query": "open payment bugs"
+  }
+}
+```
+
+Example result chunk:
+
+```json
+{
+  "type": "tool-call-result",
+  "node": "support",
+  "opId": "op_123",
+  "tool": "search_issues",
+  "toolCallId": "call_1",
+  "content": "[{\"title\":\"Payment failure\"}]",
+  "structuredContent": {
+    "results": [{ "title": "Payment failure" }]
+  }
+}
+```
+
+Example error chunk:
+
+```json
+{
+  "type": "tool-call-error",
+  "node": "support",
+  "opId": "op_123",
+  "tool": "search_issues",
+  "toolCallId": "call_1",
+  "message": "MCP request timed out"
+}
+```
+
+Tool chunks are emitted only when the call opts in with `toolExecution.emit`. Tool results are still fed back to the model when emission is disabled.
 
 ### Structured chunk shape
 

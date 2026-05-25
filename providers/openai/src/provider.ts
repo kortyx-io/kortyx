@@ -5,6 +5,7 @@ import type {
   KortyxPromptMessage,
   KortyxProviderMetadata,
   KortyxStreamPart,
+  KortyxToolCall,
   KortyxUsage,
   KortyxWarning,
   ModelOptions,
@@ -150,6 +151,28 @@ const extractChunkProviderMetadata = (
 const extractText = (response: OpenAIChatCompletionResponse): string =>
   response.choices?.[0]?.message?.content ?? "";
 
+const parseToolInput = (value: string | undefined): unknown => {
+  if (!value) return {};
+  try {
+    return JSON.parse(value);
+  } catch {
+    return value;
+  }
+};
+
+const extractToolCalls = (
+  response: OpenAIChatCompletionResponse,
+): KortyxToolCall[] | undefined => {
+  const toolCalls = response.choices?.[0]?.message?.tool_calls;
+  if (!toolCalls?.length) return undefined;
+  return toolCalls.map((toolCall) => ({
+    id: toolCall.id,
+    name: toolCall.function.name,
+    input: parseToolInput(toolCall.function.arguments),
+    raw: toolCall,
+  }));
+};
+
 const extractFinishReason = (
   response: OpenAIChatCompletionResponse,
 ): KortyxFinishReason | undefined =>
@@ -292,12 +315,14 @@ const createResponseFinishPart = (
   const finishReason = extractFinishReason(response);
   const usage = extractUsage(response.usage);
   const providerMetadata = extractResponseProviderMetadata(modelId, response);
+  const toolCalls = extractToolCalls(response);
 
   return {
     type: "finish",
     raw: response,
     ...(finishReason ? { finishReason } : {}),
     ...(usage ? { usage } : {}),
+    ...(toolCalls ? { toolCalls } : {}),
     ...(providerMetadata ? { providerMetadata } : {}),
     ...(warnings ? { warnings } : {}),
   };
@@ -342,6 +367,7 @@ const createOpenAIModel = (
     ...(options.responseFormat !== undefined
       ? { responseFormat: options.responseFormat }
       : {}),
+    ...(options.tools !== undefined ? { tools: options.tools } : {}),
     ...(options.providerOptions !== undefined
       ? { providerOptions: options.providerOptions }
       : {}),
@@ -420,12 +446,14 @@ const createOpenAIModel = (
           modelId,
           result,
         );
+        const toolCalls = extractToolCalls(result);
         return {
           role: "assistant",
           content: extractText(result),
           raw: result,
           ...(usage ? { usage } : {}),
           ...(finishReason ? { finishReason } : {}),
+          ...(toolCalls ? { toolCalls } : {}),
           ...(providerMetadata ? { providerMetadata } : {}),
           ...(warnings ? { warnings } : {}),
         };

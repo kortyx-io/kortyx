@@ -5,6 +5,7 @@ import type {
   KortyxPromptMessage,
   KortyxProviderMetadata,
   KortyxStreamPart,
+  KortyxToolCall,
   KortyxUsage,
   KortyxWarning,
   ModelOptions,
@@ -125,6 +126,25 @@ const extractFinishReason = (
   response: GoogleGenerateContentResponse,
 ): KortyxFinishReason | undefined =>
   mapGoogleFinishReason(response.candidates?.[0]?.finishReason);
+
+const extractToolCalls = (
+  response: GoogleGenerateContentResponse,
+): KortyxToolCall[] | undefined => {
+  const parts = response.candidates?.[0]?.content?.parts ?? [];
+  const toolCalls = parts
+    .map((part, index): KortyxToolCall | undefined => {
+      if (!part.functionCall) return undefined;
+      return {
+        id: `google-tool-call-${index}`,
+        name: part.functionCall.name,
+        input: part.functionCall.args ?? {},
+        raw: part.functionCall,
+      };
+    })
+    .filter((toolCall): toolCall is KortyxToolCall => toolCall !== undefined);
+
+  return toolCalls.length > 0 ? toolCalls : undefined;
+};
 
 const collectWarnings = (
   options: ModelOptions,
@@ -252,12 +272,14 @@ const createFinishPart = (
   const finishReason = extractFinishReason(response);
   const usage = extractUsage(response);
   const providerMetadata = extractProviderMetadata(modelId, response);
+  const toolCalls = extractToolCalls(response);
 
   return {
     type: "finish",
     raw: response,
     ...(finishReason ? { finishReason } : {}),
     ...(usage ? { usage } : {}),
+    ...(toolCalls ? { toolCalls } : {}),
     ...(providerMetadata ? { providerMetadata } : {}),
     ...(warnings ? { warnings } : {}),
   };
@@ -299,6 +321,7 @@ const createGoogleModel = (
     ...(options.responseFormat !== undefined
       ? { responseFormat: options.responseFormat }
       : {}),
+    ...(options.tools !== undefined ? { tools: options.tools } : {}),
     ...(options.providerOptions !== undefined
       ? { providerOptions: options.providerOptions }
       : {}),
@@ -447,12 +470,14 @@ const createGoogleModel = (
         const usage = extractUsage(result);
         const finishReason = extractFinishReason(result);
         const providerMetadata = extractProviderMetadata(modelId, result);
+        const toolCalls = extractToolCalls(result);
         return {
           role: "assistant",
           content: extractText(result),
           raw: result,
           ...(usage ? { usage } : {}),
           ...(finishReason ? { finishReason } : {}),
+          ...(toolCalls ? { toolCalls } : {}),
           ...(providerMetadata ? { providerMetadata } : {}),
           ...(warnings ? { warnings } : {}),
         };
@@ -481,6 +506,7 @@ const createGoogleModel = (
             const usage = extractUsage(result);
             const finishReason = extractFinishReason(result);
             const providerMetadata = extractProviderMetadata(modelId, result);
+            const toolCalls = extractToolCalls(result);
             const fallbackWarnings = mergeWarnings(
               collectWarnings(fallbackOptions),
               [...(warnings ?? []), createThinkingLevelFallbackWarning()],
@@ -492,6 +518,7 @@ const createGoogleModel = (
               raw: result,
               ...(usage ? { usage } : {}),
               ...(finishReason ? { finishReason } : {}),
+              ...(toolCalls ? { toolCalls } : {}),
               ...(providerMetadata ? { providerMetadata } : {}),
               ...(fallbackWarnings ? { warnings: fallbackWarnings } : {}),
             };

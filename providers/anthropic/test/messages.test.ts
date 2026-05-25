@@ -107,4 +107,75 @@ describe("anthropic message mapping", () => {
       { role: "user", content: [{ type: "text", text: "" }] },
     ]);
   });
+
+  it("maps Kortyx tools and tool result messages to Anthropic content blocks", () => {
+    const request = createMessagesRequest(
+      "claude-sonnet-4-5",
+      [
+        { role: "user", content: "Check order ord_1" },
+        {
+          role: "assistant",
+          content: "",
+          toolCalls: [
+            {
+              id: "call-1",
+              name: "lookup_order",
+              input: { orderId: "ord_1" },
+            },
+          ],
+        },
+        {
+          role: "tool",
+          content: '{"status":"ready"}',
+          toolCallId: "call-1",
+          name: "lookup_order",
+        },
+      ],
+      {
+        tools: [
+          {
+            name: "lookup_order",
+            description: "Look up an order.",
+            inputSchema: { type: "object" },
+          },
+        ],
+      },
+      false,
+    );
+
+    expect(request.tools).toEqual([
+      {
+        name: "lookup_order",
+        description: "Look up an order.",
+        input_schema: { type: "object" },
+      },
+    ]);
+    expect(request.messages).toEqual([
+      {
+        role: "user",
+        content: [{ type: "text", text: "Check order ord_1" }],
+      },
+      {
+        role: "assistant",
+        content: [
+          {
+            type: "tool_use",
+            id: "call-1",
+            name: "lookup_order",
+            input: { orderId: "ord_1" },
+          },
+        ],
+      },
+      {
+        role: "user",
+        content: [
+          {
+            type: "tool_result",
+            tool_use_id: "call-1",
+            content: '{"status":"ready"}',
+          },
+        ],
+      },
+    ]);
+  });
 });

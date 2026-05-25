@@ -1,4 +1,9 @@
-import type { KortyxPromptMessage, ModelOptions } from "@kortyx/providers";
+import type {
+  KortyxPromptMessage,
+  KortyxToolCall,
+  KortyxToolDefinition,
+  ModelOptions,
+} from "@kortyx/providers";
 import type {
   DeepSeekChatCompletionRequest,
   DeepSeekChatMessage,
@@ -39,6 +44,15 @@ const normalizeThinkingType = (
   return "enabled";
 };
 
+const toDeepSeekTool = (tool: KortyxToolDefinition) => ({
+  type: "function" as const,
+  function: {
+    name: tool.name,
+    ...(tool.description ? { description: tool.description } : {}),
+    parameters: tool.inputSchema,
+  },
+});
+
 const toMessages = (
   messages: KortyxPromptMessage[],
   options: ModelOptions,
@@ -59,12 +73,33 @@ const toMessages = (
   }
 
   result.push(
-    ...messages.map(
-      (message): DeepSeekChatMessage => ({
+    ...messages.map((message): DeepSeekChatMessage => {
+      if (message.role === "tool") {
+        return {
+          role: "tool",
+          content: message.content,
+          tool_call_id: message.toolCallId ?? "",
+          ...(message.name ? { name: message.name } : {}),
+        };
+      }
+
+      return {
         role: message.role,
         content: message.content,
-      }),
-    ),
+        ...(message.toolCalls?.length
+          ? {
+              tool_calls: message.toolCalls.map((toolCall: KortyxToolCall) => ({
+                id: toolCall.id,
+                type: "function" as const,
+                function: {
+                  name: toolCall.name,
+                  arguments: JSON.stringify(toolCall.input ?? {}),
+                },
+              })),
+            }
+          : {}),
+      };
+    }),
   );
 
   if (result.length === 0) {
@@ -84,6 +119,7 @@ export const createChatCompletionRequest = (
   stream: boolean,
 ): DeepSeekChatCompletionRequest => {
   const thinkingType = normalizeThinkingType(options);
+  const tools = options.tools?.map(toDeepSeekTool);
 
   return {
     model: modelId,
@@ -101,5 +137,6 @@ export const createChatCompletionRequest = (
       ? { response_format: { type: "json_object" } }
       : {}),
     ...(thinkingType !== undefined ? { thinking: { type: thinkingType } } : {}),
+    ...(tools?.length ? { tools } : {}),
   };
 };

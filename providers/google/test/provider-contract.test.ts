@@ -89,6 +89,69 @@ describe("google public provider contract", () => {
     ]);
   });
 
+  it("normalizes Google function calls into Kortyx tool calls", async () => {
+    const provider = createGoogleGenerativeAI({
+      apiKey: "test-key",
+      fetch: async (_input, init) => {
+        const body = JSON.parse(
+          String(init?.body),
+        ) as GoogleGenerateContentRequest;
+        expect(body.tools).toEqual([
+          {
+            functionDeclarations: [
+              {
+                name: "lookup_order",
+                description: "Look up an order.",
+                parameters: { type: "object" },
+              },
+            ],
+          },
+        ]);
+        return new Response(
+          JSON.stringify({
+            candidates: [
+              {
+                content: {
+                  parts: [
+                    {
+                      functionCall: {
+                        name: "lookup_order",
+                        args: { orderId: "ord_1" },
+                      },
+                    },
+                  ],
+                },
+                finishReason: "STOP",
+              },
+            ],
+          }),
+          { headers: { "content-type": "application/json" } },
+        );
+      },
+    });
+
+    const result = await provider
+      .getModel("gemini-2.5-flash", {
+        tools: [
+          {
+            name: "lookup_order",
+            description: "Look up an order.",
+            inputSchema: { type: "object" },
+          },
+        ],
+      })
+      .invoke([{ role: "user", content: "Check order ord_1" }]);
+
+    expect(result.toolCalls).toEqual([
+      {
+        id: "google-tool-call-0",
+        name: "lookup_order",
+        input: { orderId: "ord_1" },
+        raw: { name: "lookup_order", args: { orderId: "ord_1" } },
+      },
+    ]);
+  });
+
   it("streams non-cumulative Google chunks as independent text deltas", async () => {
     const provider = createGoogleGenerativeAI({
       apiKey: "test-key",

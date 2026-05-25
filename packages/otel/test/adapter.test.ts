@@ -441,6 +441,11 @@ describe("OpenTelemetry attribute helpers", () => {
         promptName: "prompt",
         promptVersion: 1,
         promptType: "text",
+        tool: "lookup_order",
+        toolCallId: "call-1",
+        toolCallCount: 2,
+        toolResultCount: 2,
+        toolStepCount: 3,
       }),
     ).toMatchObject({
       "gen_ai.provider.name": "google",
@@ -464,6 +469,12 @@ describe("OpenTelemetry attribute helpers", () => {
       "kortyx.prompt.version": 1,
       "gen_ai.prompt.type": "text",
       "kortyx.prompt.type": "text",
+      "gen_ai.tool.name": "lookup_order",
+      "kortyx.tool.name": "lookup_order",
+      "kortyx.tool.call.id": "call-1",
+      "kortyx.tool.call.count": 2,
+      "kortyx.tool.result.count": 2,
+      "kortyx.tool.step.count": 3,
     });
   });
 

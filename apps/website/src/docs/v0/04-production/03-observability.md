@@ -132,7 +132,7 @@ const stream = await agent.streamChat(messages, {
 });
 ```
 
-The trace contains a run span, node spans, `useReason` spans, and generation spans. Generation spans include standard `gen_ai.*` attributes for provider/model metadata and token usage.
+The trace contains a run span, node spans, `useReason` spans, and generation spans. Generation spans include standard `gen_ai.*` attributes for provider/model metadata and token usage. MCP tool loops add `useReason.tool-step.*` and `useReason.tool-call.*` events plus `kortyx.tool.*` count attributes on the `useReason` span.
 
 ## Pass identity from React
 
