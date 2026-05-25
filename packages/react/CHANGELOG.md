@@ -1,5 +1,14 @@
 # @kortyx/react
 
+## [0.3.2](https://github.com/kortyx-io/kortyx/compare/react-v0.3.1...react-v0.3.2) (2026-05-25)
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/stream bumped to 0.8.0
+
 ## [0.3.1](https://github.com/kortyx-io/kortyx/compare/react-v0.3.0...react-v0.3.1) (2026-05-22)
 
 
