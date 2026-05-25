@@ -1,5 +1,25 @@
 # Changelog
 
+## [0.12.0](https://github.com/kortyx-io/kortyx/compare/kortyx-v0.11.0...kortyx-v0.12.0) (2026-05-25)
+
+
+### Features
+
+* add MCP tool support to useReason ([8352721](https://github.com/kortyx-io/kortyx/commit/83527215fd2fa6362348d842f8f3b9e9d9d03704))
+* rename useReason tool policy to tool execution ([d6ee2f0](https://github.com/kortyx-io/kortyx/commit/d6ee2f0c92b05f9f51cb38745e94c7fed6158278))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/agent bumped to 0.13.0
+    * @kortyx/hooks bumped to 0.16.0
+    * @kortyx/mcp bumped to 0.2.0
+    * @kortyx/providers bumped to 0.5.0
+    * @kortyx/runtime bumped to 0.10.1
+    * @kortyx/stream bumped to 0.8.0
+
 ## [0.11.0](https://github.com/kortyx-io/kortyx/compare/kortyx-v0.10.3...kortyx-v0.11.0) (2026-05-24)
 
 

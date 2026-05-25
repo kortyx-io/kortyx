@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.5.0](https://github.com/kortyx-io/kortyx/compare/providers-v0.4.0...providers-v0.5.0) (2026-05-25)
+
+
+### Features
+
+* add MCP tool support to useReason ([8352721](https://github.com/kortyx-io/kortyx/commit/83527215fd2fa6362348d842f8f3b9e9d9d03704))
+
 ## [0.4.0](https://github.com/kortyx-io/kortyx/compare/providers-v0.3.2...providers-v0.4.0) (2026-04-25)
 
 

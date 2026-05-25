@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.16.0](https://github.com/kortyx-io/kortyx/compare/example-nextjs-chat-api-route-v0.15.1...example-nextjs-chat-api-route-v0.16.0) (2026-05-25)
+
+
+### Features
+
+* add MCP tool support to useReason ([8352721](https://github.com/kortyx-io/kortyx/commit/83527215fd2fa6362348d842f8f3b9e9d9d03704))
+* rename useReason tool policy to tool execution ([d6ee2f0](https://github.com/kortyx-io/kortyx/commit/d6ee2f0c92b05f9f51cb38745e94c7fed6158278))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/anthropic bumped to 0.3.0
+    * @kortyx/google bumped to 0.4.0
+    * @kortyx/openai bumped to 0.3.0
+    * @kortyx/react bumped to 0.3.2
+    * kortyx bumped to 0.12.0
+
 ## [0.15.1](https://github.com/kortyx-io/kortyx/compare/example-nextjs-chat-api-route-v0.15.0...example-nextjs-chat-api-route-v0.15.1) (2026-05-24)
 
 

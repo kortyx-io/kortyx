@@ -1,5 +1,12 @@
 # @chatbot-core/types
 
+## [0.8.0](https://github.com/kortyx-io/kortyx/compare/stream-v0.7.0...stream-v0.8.0) (2026-05-25)
+
+
+### Features
+
+* add MCP tool support to useReason ([8352721](https://github.com/kortyx-io/kortyx/commit/83527215fd2fa6362348d842f8f3b9e9d9d03704))
+
 ## [0.7.0](https://github.com/kortyx-io/kortyx/compare/stream-v0.6.1...stream-v0.7.0) (2026-05-20)
 
 
