@@ -320,6 +320,98 @@ What happens:
 
 Tools cannot be combined with `useReason`'s normal `interrupt` option yet. Use `toolExecution.approval` when the interruption is specifically for approving tool calls.
 
+When the interrupt should depend on tool results, split the flow into two calls. First run the tool loop, then use a second `useReason(...)` call to decide whether to interrupt based on the tool output.
+
+```ts tabs="mcp-tools-then-interrupt" tab="TypeScript"
+import { z } from "zod";
+import { useReason } from "kortyx";
+
+const reviewRequestSchema = z.object({
+  kind: z.literal("text"),
+  question: z.string(),
+});
+
+const lookup = await useReason({
+  model,
+  input: "Look up this account and decide whether a human should review it.",
+  tools,
+  toolExecution: { maxSteps: 3 },
+});
+
+const review = await useReason({
+  model,
+  input: `Tool results:\n${JSON.stringify(lookup.toolResults ?? [])}\nAsk for human input only if review is needed.`,
+  interrupt: {
+    mode: "optional",
+    requestSchema: reviewRequestSchema,
+    responseSchema: z.string(),
+  },
+});
+```
+```js tabs="mcp-tools-then-interrupt" tab="JavaScript"
+import { z } from "zod";
+import { useReason } from "kortyx";
+
+const reviewRequestSchema = z.object({
+  kind: z.literal("text"),
+  question: z.string(),
+});
+
+const lookup = await useReason({
+  model,
+  input: "Look up this account and decide whether a human should review it.",
+  tools,
+  toolExecution: { maxSteps: 3 },
+});
+
+const review = await useReason({
+  model,
+  input: `Tool results:\n${JSON.stringify(lookup.toolResults ?? [])}\nAsk for human input only if review is needed.`,
+  interrupt: {
+    mode: "optional",
+    requestSchema: reviewRequestSchema,
+    responseSchema: z.string(),
+  },
+});
+```
+
+When tool input should depend on the user, collect that input before the tool loop. You can do this in the same node or as a previous workflow node.
+
+```ts tabs="mcp-interrupt-then-tools" tab="TypeScript"
+import { useInterrupt, useReason } from "kortyx";
+
+const accountId = await useInterrupt({
+  request: {
+    kind: "text",
+    question: "Which account ID should I look up?",
+  },
+});
+
+const result = await useReason({
+  model,
+  input: `Use account ID ${accountId} and summarize the account status.`,
+  tools,
+  toolExecution: { maxSteps: 3 },
+});
+```
+```js tabs="mcp-interrupt-then-tools" tab="JavaScript"
+import { useInterrupt, useReason } from "kortyx";
+
+const accountId = await useInterrupt({
+  request: {
+    kind: "text",
+    question: "Which account ID should I look up?",
+  },
+});
+
+const result = await useReason({
+  model,
+  input: `Use account ID ${accountId} and summarize the account status.`,
+  tools,
+  toolExecution: { maxSteps: 3 },
+});
+```
+
 Tools returned by `mcpClient.tools()` are request-scoped by default. `useReason(...)` closes the underlying MCP client when the call finishes, errors, or interrupts. Use `mcpClient.tools({ closeAfterUse: false })` only for long-lived server processes where you close the client manually.
 
 > **Good to know:** MCP tool calling requires provider adapter support for native tool calls. `@kortyx/openai`, `@kortyx/google`, `@kortyx/anthropic`, `@kortyx/deepseek`, `@kortyx/groq`, and `@kortyx/mistral` implement the shared tool contracts.
