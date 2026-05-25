@@ -121,6 +121,10 @@ const result = await useReason({
 
 `approval: true` uses Kortyx interrupts before executing tool calls. `emit: true` sends `tool-call-start`, `tool-call-result`, and `tool-call-error` stream chunks.
 
+`include` is optional. Without it, `mcpClient.tools()` returns every tool advertised by the MCP server. Prefer `include` when a node should expose only a subset of server tools.
+
+Normal `useReason.interrupt` and `tools` are mutually exclusive for now. If user input depends on tool results, run a tool `useReason(...)` call first and then a second interrupt `useReason(...)` call using `result.toolResults`. If tool input depends on user input, call `useInterrupt(...)` first and then pass the response into a tool-enabled `useReason(...)` call.
+
 Tools returned by `mcpClient.tools()` are request-scoped by default. `useReason(...)` closes the underlying MCP client when the call finishes, errors, or interrupts. Use `mcpClient.tools({ closeAfterUse: false })` only when the app owns a long-lived MCP client and will close it manually.
 
 MCP tool calling requires provider adapter support for native tool calls. `@kortyx/openai`, `@kortyx/google`, `@kortyx/anthropic`, `@kortyx/deepseek`, `@kortyx/groq`, and `@kortyx/mistral` implement the shared tool contracts.
