@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.21.1](https://github.com/kortyx-io/kortyx/compare/website-v0.21.0...website-v0.21.1) (2026-05-25)
+
+
+### Bug Fixes
+
+* **website:** keep docs sidebar version current ([73a14eb](https://github.com/kortyx-io/kortyx/commit/73a14ebcd713b3a21cc6019838944334d4f63196))
+* **website:** keep docs sidebar version current ([50799de](https://github.com/kortyx-io/kortyx/commit/50799de085a616c4db54a9f057627ced99437bbf))
+
 ## [0.21.0](https://github.com/kortyx-io/kortyx/compare/website-v0.20.0...website-v0.21.0) (2026-05-25)
 
 

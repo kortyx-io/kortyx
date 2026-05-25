@@ -17,7 +17,7 @@
   "packages/runtime": "0.10.1",
   "packages/stream": "0.8.0",
   "packages/utils": "0.2.6",
-  "apps/website": "0.21.0",
+  "apps/website": "0.21.1",
   "examples/kortyx-nextjs-chat-api-route": "0.16.0",
   "examples/kortyx-nextjs-chat-server-action": "0.13.6"
 }
