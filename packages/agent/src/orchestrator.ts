@@ -42,10 +42,16 @@ export interface OrchestrateArgs {
 type TraceSpanLike = {
   setAttributes?: (attributes: Record<string, unknown>) => void;
   addEvent?: (name: string, attributes?: Record<string, unknown>) => void;
-  end?: (args?: { attributes?: Record<string, unknown> }) => void;
+  end?: (args?: {
+    attributes?: Record<string, unknown>;
+    telemetry?: Record<string, unknown>;
+  }) => void;
   fail?: (
     error: unknown,
-    args?: { attributes?: Record<string, unknown> },
+    args?: {
+      attributes?: Record<string, unknown>;
+      telemetry?: Record<string, unknown>;
+    },
   ) => void;
 };
 
@@ -123,6 +129,7 @@ export async function orchestrateGraphStream({
         ? telemetryConfig.tags
         : undefined,
       captureContent: telemetryConfig.captureContent,
+      ...(typeof state.input === "string" ? { input: state.input } : {}),
     },
   };
   const namespacesUsed = new Set<string>();
@@ -144,7 +151,12 @@ export async function orchestrateGraphStream({
   // Bridge internal graph emits to our stream AND capture transitions
   let lastStatusMsg = "";
   let lastStatusAt = 0;
+  let accumulatedOutput = "";
   const nextStructuredStreamId = () => `${runId}:structured:${structuredSeq++}`;
+  const runTraceEndArgs = () =>
+    accumulatedOutput.length > 0
+      ? { telemetry: { output: accumulatedOutput } }
+      : undefined;
 
   // Capture interrupt payloads emitted by runtime hooks and forward them as
   // resumable interrupt chunks.
@@ -359,6 +371,7 @@ export async function orchestrateGraphStream({
       const node = (payload as { node?: string })?.node;
       const delta = String((payload as { delta?: unknown })?.delta ?? "");
       if (!node || !delta) return;
+      accumulatedOutput += delta;
       out.write({
         type: "text-delta",
         delta,
@@ -752,7 +765,7 @@ export async function orchestrateGraphStream({
           "kortyx.run.awaiting_human_input": shouldKeepFrameworkState,
           "kortyx.run.final_workflow": String(currentState.currentWorkflow),
         });
-        runTraceSpan.end?.();
+        runTraceSpan.end?.(runTraceEndArgs());
         out.write({ type: "done", data: workflowFinalState } as any);
         out.end();
         return;
@@ -762,7 +775,7 @@ export async function orchestrateGraphStream({
       runTraceSpan.setAttributes?.({
         "kortyx.run.final_workflow": String(currentState.currentWorkflow),
       });
-      runTraceSpan.end?.();
+      runTraceSpan.end?.(runTraceEndArgs());
       out.write({ type: "done" });
       out.end();
       return;
