@@ -1,6 +1,6 @@
+import { readFileSync } from "node:fs";
 import path from "node:path";
 import { cache } from "react";
-import kortyxPackageJson from "../../../../../packages/kortyx/package.json";
 
 export type DocsConfig = {
   versions: string[];
@@ -15,10 +15,26 @@ export type DocsVersionDisplay = {
 };
 
 const readKortyxPackageVersion = (): string | null => {
-  return typeof kortyxPackageJson.version === "string" &&
-    kortyxPackageJson.version.length > 0
-    ? kortyxPackageJson.version
-    : null;
+  try {
+    const packageJsonPath = path.join(
+      process.cwd(),
+      "..",
+      "..",
+      "packages",
+      "kortyx",
+      "package.json",
+    );
+    const packageJson = JSON.parse(readFileSync(packageJsonPath, "utf8")) as {
+      version?: unknown;
+    };
+
+    return typeof packageJson.version === "string" &&
+      packageJson.version.length > 0
+      ? packageJson.version
+      : null;
+  } catch {
+    return null;
+  }
 };
 
 const readLatestKortyxNpmVersion = async (): Promise<string | null> => {

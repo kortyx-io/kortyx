@@ -1038,6 +1038,7 @@ describe("orchestrateGraphStream", () => {
           },
           tags: ["tag"],
           captureContent: { input: true },
+          input: "hello",
         },
       },
       expect.any(Function),
@@ -1088,6 +1089,7 @@ describe("orchestrateGraphStream", () => {
         metadata: {},
         tags: undefined,
         captureContent: undefined,
+        input: "hello",
       },
     });
     expect(runSpan.setAttributes).toHaveBeenCalledWith(
@@ -1097,6 +1099,75 @@ describe("orchestrateGraphStream", () => {
     );
     expect(runSpan.end).toHaveBeenCalled();
     expect(runSpan.fail).not.toHaveBeenCalled();
+  });
+
+  it("ends run telemetry spans with accumulated text output", async () => {
+    const runSpan = {
+      setAttributes: vi.fn(),
+      end: vi.fn(),
+      fail: vi.fn(),
+    };
+    const trace = {
+      withSpan: vi.fn(async (_args, fn) => fn(runSpan)),
+    };
+
+    await collect(
+      await orchestrateGraphStream({
+        runId: "run-trace-output",
+        graph: graphWithEvents((emit) => {
+          emit("text-delta", { node: "writer", delta: "hello" });
+          emit("text-delta", { node: "writer", delta: " world" });
+          return [{ type: "done", data: baseState }];
+        }),
+        state: baseState,
+        config: {
+          telemetry: {
+            trace,
+          },
+        },
+        selectWorkflow: vi.fn(),
+      }),
+    );
+
+    expect(runSpan.end).toHaveBeenCalledWith({
+      telemetry: {
+        output: "hello world",
+      },
+    });
+  });
+
+  it("does not add run telemetry input for non-string state input", async () => {
+    const runSpan = {
+      setAttributes: vi.fn(),
+      end: vi.fn(),
+      fail: vi.fn(),
+    };
+    const trace = {
+      withSpan: vi.fn(async (_args, fn) => fn(runSpan)),
+    };
+
+    await collect(
+      await orchestrateGraphStream({
+        runId: "run-trace-non-string-input",
+        graph: graphWithEvents(() => [{ type: "done", data: baseState }]),
+        state: { ...baseState, input: { prompt: "hello" } },
+        config: {
+          telemetry: {
+            trace,
+          },
+        },
+        selectWorkflow: vi.fn(),
+      }),
+    );
+
+    expect(trace.withSpan).toHaveBeenCalledWith(
+      expect.objectContaining({
+        telemetry: expect.not.objectContaining({
+          input: expect.anything(),
+        }),
+      }),
+      expect.any(Function),
+    );
   });
 
   it("emits text interrupts with optional schema metadata", async () => {
