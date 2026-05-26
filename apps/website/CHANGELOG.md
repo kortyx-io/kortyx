@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.21.2](https://github.com/kortyx-io/kortyx/compare/website-v0.21.1...website-v0.21.2) (2026-05-26)
+
+
+### Bug Fixes
+
+* **website:** avoid package json import in image build ([b1471bd](https://github.com/kortyx-io/kortyx/commit/b1471bd2a50182bedf6963bd21685ec3bf95a5c0))
+
 ## [0.21.1](https://github.com/kortyx-io/kortyx/compare/website-v0.21.0...website-v0.21.1) (2026-05-25)
 
 
