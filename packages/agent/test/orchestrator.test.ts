@@ -1052,6 +1052,58 @@ describe("orchestrateGraphStream", () => {
     expect(runSpan.fail).not.toHaveBeenCalled();
   });
 
+  it("emits an active run trace chunk before graph output", async () => {
+    const runSpan = {
+      setAttributes: vi.fn(),
+      end: vi.fn(),
+      fail: vi.fn(),
+    };
+    let active = false;
+    const trace = {
+      withSpan: vi.fn(async (_args, fn) => {
+        active = true;
+        try {
+          return await fn(runSpan);
+        } finally {
+          active = false;
+        }
+      }),
+      getActiveContext: vi.fn(() =>
+        active ? { traceId: "trace-1", spanId: "span-1" } : undefined,
+      ),
+    };
+
+    const chunks = await collect(
+      await orchestrateGraphStream({
+        sessionId: "session-1",
+        runId: "run-trace-chunk",
+        graph: graphWithEvents(() => [
+          { type: "message", content: "hello" },
+          { type: "done", data: baseState },
+        ]),
+        state: baseState,
+        config: {
+          telemetry: {
+            trace,
+          },
+        },
+        selectWorkflow: vi.fn(),
+      }),
+    );
+
+    expect(chunks.slice(0, 2)).toEqual([
+      {
+        type: "trace",
+        traceId: "trace-1",
+        spanId: "span-1",
+        runId: "run-trace-chunk",
+        rootSpanName: "kortyx.run",
+      },
+      { type: "message", content: "hello" },
+    ]);
+    expect(trace.getActiveContext).toHaveBeenCalled();
+  });
+
   it("falls back to startSpan when active telemetry spans are unavailable", async () => {
     const runSpan = {
       setAttributes: vi.fn(),

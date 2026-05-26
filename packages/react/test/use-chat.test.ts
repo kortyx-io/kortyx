@@ -110,6 +110,102 @@ describe("useChat", () => {
     expect(result.current.streamContentPieces).toEqual([]);
   });
 
+  it("attaches trace chunks to finalized assistant messages", async () => {
+    const transport: ChatTransport = {
+      stream: async ({ onChunk }) => {
+        await onChunk({
+          type: "trace",
+          traceId: "trace-1",
+          spanId: "span-1",
+          runId: "run-1",
+          rootSpanName: "kortyx.run",
+        });
+        await onChunk({
+          type: "message",
+          content: "Hello back",
+        });
+        await onChunk({
+          type: "done",
+        });
+      },
+    };
+    const memory = createMemoryStorage();
+
+    const { result } = renderHook(() =>
+      useChat({
+        transport,
+        storage: memory.storage,
+        createId: (() => {
+          let seq = 0;
+          return () => `id-${seq++}`;
+        })(),
+      }),
+    );
+
+    await flushEffects();
+
+    await act(async () => {
+      await result.current.send("Hello");
+    });
+    await flushEffects();
+
+    expect(result.current.messages[1]).toMatchObject({
+      role: "assistant",
+      content: "Hello back",
+      traceId: "trace-1",
+      spanId: "span-1",
+      runId: "run-1",
+    });
+    expect(memory.getState().messages[1]).toMatchObject({
+      traceId: "trace-1",
+      spanId: "span-1",
+      runId: "run-1",
+    });
+  });
+
+  it("ignores malformed trace chunks", async () => {
+    const transport: ChatTransport = {
+      stream: async ({ onChunk }) => {
+        await onChunk({
+          type: "trace",
+          traceId: 42,
+          spanId: "span-1",
+          runId: "run-1",
+          rootSpanName: "kortyx.run",
+        } as unknown as Parameters<typeof onChunk>[0]);
+        await onChunk({
+          type: "message",
+          content: "Hello back",
+        });
+        await onChunk({
+          type: "done",
+        });
+      },
+    };
+    const memory = createMemoryStorage();
+
+    const { result } = renderHook(() =>
+      useChat({
+        transport,
+        storage: memory.storage,
+      }),
+    );
+
+    await flushEffects();
+
+    await act(async () => {
+      await result.current.send("Hello");
+    });
+
+    expect(result.current.messages.at(-1)).toMatchObject({
+      role: "assistant",
+      content: "Hello back",
+    });
+    expect(result.current.messages.at(-1)?.traceId).toBeUndefined();
+    expect(result.current.messages.at(-1)?.spanId).toBeUndefined();
+    expect(result.current.messages.at(-1)?.runId).toBeUndefined();
+  });
+
   it("routes send() through resume when a text interrupt is active", async () => {
     const seenMessages: Array<{
       role: "user" | "assistant" | "system";

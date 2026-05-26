@@ -5,6 +5,13 @@ export function buildAssistantMessage(args: {
   createId: () => string;
   pieces: ContentPiece[];
   debug: StreamChunk[];
+  trace?:
+    | {
+        traceId: string;
+        spanId: string;
+        runId: string;
+      }
+    | undefined;
 }): ChatMsg {
   const plainTextContent = args.pieces
     .filter(
@@ -19,6 +26,7 @@ export function buildAssistantMessage(args: {
     role: "assistant" as const,
     content: plainTextContent,
     debug: args.debug,
+    ...(args.trace ? args.trace : {}),
   };
 
   return args.pieces.length > 0

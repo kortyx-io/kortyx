@@ -73,6 +73,15 @@ export function createOpenTelemetryTraceAdapter(
         },
       );
     },
+    getActiveContext: () => {
+      const span = trace.getActiveSpan();
+      if (!span) return undefined;
+      const spanContext = span.spanContext();
+      return {
+        traceId: spanContext.traceId,
+        spanId: spanContext.spanId,
+      };
+    },
   };
 }
 

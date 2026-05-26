@@ -60,6 +60,12 @@ export interface ReasonTraceAdapter {
     args: ReasonTraceSpanStartArgs,
     fn: (span: ReasonTraceSpan) => T | Promise<T>,
   ) => Promise<T>;
+  getActiveContext?: () =>
+    | {
+        traceId: string;
+        spanId: string;
+      }
+    | undefined;
 }
 
 export type KortyxTraceAdapter = ReasonTraceAdapter;
