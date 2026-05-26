@@ -32,4 +32,7 @@ export type ChatMsg = {
   content: string;
   contentPieces?: ContentPiece[];
   debug?: StreamChunk[];
+  traceId?: string;
+  spanId?: string;
+  runId?: string;
 };

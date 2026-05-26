@@ -1,6 +1,11 @@
 import type { ReasonTraceAttributes } from "@kortyx/hooks";
-import type { Exception, Span, Tracer } from "@opentelemetry/api";
-import { describe, expect, it } from "vitest";
+import {
+  type Exception,
+  type Span,
+  type Tracer,
+  trace,
+} from "@opentelemetry/api";
+import { describe, expect, it, vi } from "vitest";
 import type {
   OpenTelemetrySpanEndInfo,
   OpenTelemetrySpanStartInfo,
@@ -292,6 +297,27 @@ describe("createOpenTelemetryTraceAdapter", () => {
       "user.id": "user-1",
     });
     expect(spans[0]?.ended).toBe(true);
+  });
+
+  it("returns the current active span context", () => {
+    const { tracer } = createFakeTracer();
+    const adapter = createOpenTelemetryTraceAdapter({ tracer });
+    const activeSpan = {
+      spanContext: () => ({
+        traceId: "active-trace",
+        spanId: "active-span",
+        traceFlags: 1,
+      }),
+    } as Span;
+    const getActiveSpan = vi.spyOn(trace, "getActiveSpan");
+    getActiveSpan.mockReturnValueOnce(undefined).mockReturnValue(activeSpan);
+
+    expect(adapter.getActiveContext?.()).toBeUndefined();
+    expect(adapter.getActiveContext?.()).toEqual({
+      traceId: "active-trace",
+      spanId: "active-span",
+    });
+    getActiveSpan.mockRestore();
   });
 
   it("does not auto-end an active span that was ended by the callback", async () => {

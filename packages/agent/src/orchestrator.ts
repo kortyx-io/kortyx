@@ -69,6 +69,12 @@ type TraceAdapterLike = {
     },
     fn: (span: TraceSpanLike) => T | Promise<T>,
   ) => Promise<T>;
+  getActiveContext?: () =>
+    | {
+        traceId: string;
+        spanId: string;
+      }
+    | undefined;
 };
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
@@ -826,11 +832,30 @@ export async function orchestrateGraphStream({
     }
   };
 
+  const emitTraceChunk = () => {
+    const traceContext = traceAdapter?.getActiveContext?.();
+    if (!traceContext) return;
+
+    out.write({
+      type: "trace",
+      traceId: traceContext.traceId,
+      spanId: traceContext.spanId,
+      runId,
+      rootSpanName: "kortyx.run",
+    } satisfies StreamChunk);
+  };
+
   const fallbackRunSpan = traceAdapter?.withSpan
     ? undefined
     : traceAdapter?.startSpan?.(runSpanArgs);
+  if (!traceAdapter?.withSpan) {
+    emitTraceChunk();
+  }
   const runPromise = traceAdapter?.withSpan
-    ? traceAdapter.withSpan(runSpanArgs, runLoop)
+    ? traceAdapter.withSpan(runSpanArgs, (runTraceSpan) => {
+        emitTraceChunk();
+        return runLoop(runTraceSpan);
+      })
     : runLoop(fallbackRunSpan ?? {});
 
   runPromise.catch((err) => {

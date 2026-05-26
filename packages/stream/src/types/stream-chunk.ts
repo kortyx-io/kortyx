@@ -7,6 +7,13 @@ export const StreamChunkSchema = z.union([
     sessionId: z.string(),
   }),
   z.object({
+    type: z.literal("trace"),
+    traceId: z.string(),
+    spanId: z.string(),
+    runId: z.string(),
+    rootSpanName: z.literal("kortyx.run"),
+  }),
+  z.object({
     type: z.literal("status"),
     message: z.string(),
     node: z.string().optional(),

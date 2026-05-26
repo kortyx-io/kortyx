@@ -25,6 +25,12 @@ const defaultCreateId = () => {
 
 type DefaultChatContext = Record<string, unknown>;
 
+type ChatTraceMetadata = {
+  traceId: string;
+  spanId: string;
+  runId: string;
+};
+
 export type PrepareContextMessagesArgs<TContext = DefaultChatContext> = {
   messages: ChatMsg[];
   sessionId: string;
@@ -276,6 +282,8 @@ export function useChat<TContext = DefaultChatContext>(
     setStreamContentPieces([]);
 
     const debug = createRecorder(`${args.debugLabel} sessionId=${args.sid}`);
+    let currentTrace: ChatTraceMetadata | undefined;
+    let completedTrace: ChatTraceMetadata | undefined;
     const pieces = createLiveChatPieces({
       createId,
       onChange: setStreamContentPieces,
@@ -305,8 +313,28 @@ export function useChat<TContext = DefaultChatContext>(
           return;
         }
 
+        if (chunk.type === "trace") {
+          if (
+            typeof chunk.traceId === "string" &&
+            typeof chunk.spanId === "string" &&
+            typeof chunk.runId === "string"
+          ) {
+            currentTrace = {
+              traceId: chunk.traceId,
+              spanId: chunk.spanId,
+              runId: chunk.runId,
+            };
+          }
+          return;
+        }
+
         if (chunk.type === "error") {
           setError(new Error(chunk.message));
+        }
+
+        if (chunk.type === "done") {
+          completedTrace = currentTrace;
+          currentTrace = undefined;
         }
 
         return pieces.processChunk(chunk, {
@@ -321,6 +349,7 @@ export function useChat<TContext = DefaultChatContext>(
       createId,
       pieces: pieces.getPieces(),
       debug: debug.getAll(),
+      trace: completedTrace ?? currentTrace,
     });
     setMessages((prev) => [...prev, assistant]);
     setLastAssistantId(assistant.id);
