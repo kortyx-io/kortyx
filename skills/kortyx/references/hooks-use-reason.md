@@ -275,6 +275,7 @@ Interrupt/resume can replay node code. Give the reason call a stable `id`, and k
 - Make structured-output prompts explicit: "Return JSON only" and describe the desired fields.
 - Do not ask the model to perform deterministic business writes. Call app services directly after validation.
 - Keep untrusted client context out of `system`; derive sensitive context on the server.
+- For multilingual replies, avoid embedding raw ISO codes ("Respond in language code: en"). Models occasionally echo the code as a literal token before their answer. Use the display name instead — `new Intl.DisplayNames(["en"], { type: "language" }).of(code)` gives "English", "French", etc. and produces stable phrasings like "Respond in English." Belt-and-braces: append "Output plain text/markdown only — no language codes, no labels." when the prompt is otherwise terse.
 
 ## Debugging
 

@@ -56,6 +56,56 @@ const selected = await useInterrupt({
 });
 ```
 
+## `useInterrupt(...)` vs `useReason({ interrupt })`
+
+Both pause a node for human input. They differ in who writes the request payload:
+
+| | `useInterrupt(...)` | `useReason({ interrupt })` |
+|---|---|---|
+| Request payload | Authored by node code (static or computed) | Authored by the model output |
+| Question phrasing | Whatever string you pass | Whatever the model writes (good for locale-aware, "natural" phrasing) |
+| Attaching deterministic `meta` (candidates, prefill, anchors) | Pass `request.meta` directly | Hard: the model would have to echo `meta` back in its JSON output — fragile, do not rely on it |
+| Cost | No LLM call | One LLM call to write the request |
+| Replay caching | Cached per stable `id` | Cached per stable `id` |
+
+Choose `useInterrupt(...)` when:
+
+- You already know what to ask and the answer set is finite (choice/multi-choice).
+- You want to ship a custom payload to the client picker via `request.meta` (e.g. candidate shortlist, prefilled search query, picker variant).
+- You want to skip the extra LLM round-trip.
+
+Choose `useReason({ interrupt })` when:
+
+- The phrasing of the question depends on the model's reasoning (context-aware, locale-aware).
+- You also want a typed parse of the question itself via `requestSchema`.
+
+Hybrid pattern: branch in the node — call `useReason({ interrupt })` for the "open" picker case, and `useInterrupt(...)` for cases where you have deterministic candidates plus a custom client UI to render them.
+
+### Shipping Custom Payloads To The Client
+
+`InterruptTextInput` and `InterruptChoiceInput` accept `meta?: Record<string, unknown>`. Anything you put there appears on the client `HumanInputPiece.meta`. The shape is opaque to Kortyx; validate it on the client.
+
+```ts
+const selected = await useInterrupt({
+  id: "pick-job",
+  request: {
+    kind: "text",
+    question: "Multiple matches — pick one or search:",
+    schemaId: "pick-job",
+    schemaVersion: "1",
+    meta: {
+      prefillQuery: "marketing",
+      candidates: [
+        { id: "job-1", label: "Marketing Manager" },
+        { id: "job-2", label: "Marketing Director" },
+      ],
+    },
+  },
+});
+```
+
+`schemaId` / `schemaVersion` are first-class fields used by the client to switch picker components; `meta` is the bag for the rest of the props.
+
 ## Resume Model
 
 Kortyx resumes by replaying node logic from a checkpoint. Code before an interrupt or resumable reasoning call can run again. Make side effects replay-safe.
@@ -88,6 +138,15 @@ setApprovalCount((count) => count + 1);
 ```
 
 `useNodeState(...)` is best for replay guards inside one node. `useWorkflowState(...)` is best for short-lived counters, flags, or accumulated values used by multiple nodes in one run.
+
+### State Scope Across Workflow Transitions
+
+`useWorkflowState(...)` is keyed by `(sessionId, workflowId)` — values set in workflow A are **not** visible when the session transitions to workflow B via `transitionTo`. If two workflows in the same session need to share a value (e.g. a "resolved jobId" that survives across `general-chat → guide-creation` handoffs):
+
+- Pass it through `useRuntimeContext` (set by the route from server-derived or client-sent state).
+- Persist it in the application database keyed by `sessionId` / `userId`.
+
+Do not rely on Kortyx workflow state for cross-workflow continuity.
 
 ## Persistence
 
