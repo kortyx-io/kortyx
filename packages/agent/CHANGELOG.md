@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.13.1](https://github.com/kortyx-io/kortyx/compare/agent-v0.13.0...agent-v0.13.1) (2026-05-26)
+
+
+### Bug Fixes
+
+* **agent:** expose run span chat io to trace adapters ([250b473](https://github.com/kortyx-io/kortyx/commit/250b473c10658908e773c34b2861e11804676dbb))
+
 ## [0.13.0](https://github.com/kortyx-io/kortyx/compare/agent-v0.12.0...agent-v0.13.0) (2026-05-25)
 
 
