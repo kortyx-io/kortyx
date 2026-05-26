@@ -1,5 +1,19 @@
 # @chatbot-core/types
 
+## [0.9.0](https://github.com/kortyx-io/kortyx/compare/stream-v0.8.0...stream-v0.9.0) (2026-05-26)
+
+
+### Features
+
+* **agent:** expose run trace ids in streams ([50521cd](https://github.com/kortyx-io/kortyx/commit/50521cd27d58cd66d93cf19a88d160c0cd0b3ec4))
+* **agent:** expose run trace ids in streams ([260e96e](https://github.com/kortyx-io/kortyx/commit/260e96e72018eac5a3f91c36ed661abf11a1caf4))
+
+
+### Bug Fixes
+
+* preserve spacing when flattening text streams ([b3693d8](https://github.com/kortyx-io/kortyx/commit/b3693d8f8d495504e94ab210a496cf138615418a))
+* preserve spacing when flattening text streams ([8cc1daa](https://github.com/kortyx-io/kortyx/commit/8cc1daac05a81fc40f07a19bd96dc429fd761251))
+
 ## [0.8.0](https://github.com/kortyx-io/kortyx/compare/stream-v0.7.0...stream-v0.8.0) (2026-05-25)
 
 
