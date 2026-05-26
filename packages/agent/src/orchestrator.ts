@@ -152,6 +152,49 @@ export async function orchestrateGraphStream({
   let lastStatusMsg = "";
   let lastStatusAt = 0;
   let accumulatedOutput = "";
+  let lastOutputSegmentId: string | undefined;
+  const appendAccumulatedOutput = (payload: unknown, delta: string) => {
+    const payloadObj = payload as {
+      segmentId?: unknown;
+      opId?: unknown;
+      id?: unknown;
+      node?: unknown;
+    };
+    const opId =
+      typeof payloadObj.opId === "string" && payloadObj.opId.length > 0
+        ? payloadObj.opId
+        : undefined;
+    const segmentId =
+      typeof payloadObj.segmentId === "string" &&
+      payloadObj.segmentId.length > 0
+        ? payloadObj.segmentId
+        : undefined;
+    const textStreamId =
+      opId && segmentId
+        ? `${opId}:${segmentId}`
+        : segmentId ||
+          opId ||
+          (typeof payloadObj.id === "string" && payloadObj.id.length > 0
+            ? payloadObj.id
+            : undefined) ||
+          (typeof payloadObj.node === "string" && payloadObj.node.length > 0
+            ? payloadObj.node
+            : undefined);
+
+    if (
+      textStreamId &&
+      lastOutputSegmentId &&
+      textStreamId !== lastOutputSegmentId &&
+      accumulatedOutput.length > 0 &&
+      !/\s$/.test(accumulatedOutput) &&
+      !/^\s/.test(delta)
+    ) {
+      accumulatedOutput += " ";
+    }
+
+    if (textStreamId) lastOutputSegmentId = textStreamId;
+    accumulatedOutput += delta;
+  };
   const nextStructuredStreamId = () => `${runId}:structured:${structuredSeq++}`;
   const runTraceEndArgs = () =>
     accumulatedOutput.length > 0
@@ -371,7 +414,7 @@ export async function orchestrateGraphStream({
       const node = (payload as { node?: string })?.node;
       const delta = String((payload as { delta?: unknown })?.delta ?? "");
       if (!node || !delta) return;
-      accumulatedOutput += delta;
+      appendAccumulatedOutput(payload, delta);
       out.write({
         type: "text-delta",
         delta,

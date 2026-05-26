@@ -363,6 +363,26 @@ describe("server stream helpers", () => {
       text: "preferred",
       structured: [],
     });
+    expect(
+      summarizeStreamChunks([
+        {
+          type: "text-delta",
+          delta: "On it, adjusting the guide now.",
+          opId: "op-1",
+          segmentId: "segment-1",
+        },
+        {
+          type: "text-delta",
+          delta:
+            "The Explanation for Cross-functional and Stakeholder Collaboration has been updated.",
+          opId: "op-2",
+          segmentId: "segment-1",
+        },
+      ]),
+    ).toEqual({
+      text: "On it, adjusting the guide now. The Explanation for Cross-functional and Stakeholder Collaboration has been updated.",
+      structured: [],
+    });
 
     const response = toSSE(makeStream([{ type: "done" }]));
     expect(response.headers.get("content-type")).toBe("text/event-stream");
