@@ -1136,6 +1136,53 @@ describe("orchestrateGraphStream", () => {
     });
   });
 
+  it("separates accumulated telemetry output across text stream boundaries", async () => {
+    const runSpan = {
+      setAttributes: vi.fn(),
+      end: vi.fn(),
+      fail: vi.fn(),
+    };
+    const trace = {
+      withSpan: vi.fn(async (_args, fn) => fn(runSpan)),
+    };
+
+    await collect(
+      await orchestrateGraphStream({
+        runId: "run-trace-output-segments",
+        graph: graphWithEvents((emit) => {
+          emit("text-delta", {
+            node: "planner",
+            delta: "On it, adjusting the guide now.",
+            opId: "op-1",
+            segmentId: "segment-1",
+          });
+          emit("text-delta", {
+            node: "writer",
+            delta:
+              "The Explanation for Cross-functional and Stakeholder Collaboration has been updated.",
+            opId: "op-2",
+            segmentId: "segment-1",
+          });
+          return [{ type: "done", data: baseState }];
+        }),
+        state: baseState,
+        config: {
+          telemetry: {
+            trace,
+          },
+        },
+        selectWorkflow: vi.fn(),
+      }),
+    );
+
+    expect(runSpan.end).toHaveBeenCalledWith({
+      telemetry: {
+        output:
+          "On it, adjusting the guide now. The Explanation for Cross-functional and Stakeholder Collaboration has been updated.",
+      },
+    });
+  });
+
   it("does not add run telemetry input for non-string state input", async () => {
     const runSpan = {
       setAttributes: vi.fn(),
