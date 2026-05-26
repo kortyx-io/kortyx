@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.4.0](https://github.com/kortyx-io/kortyx/compare/otel-v0.3.0...otel-v0.4.0) (2026-05-26)
+
+
+### Features
+
+* **agent:** expose run trace ids in streams ([50521cd](https://github.com/kortyx-io/kortyx/commit/50521cd27d58cd66d93cf19a88d160c0cd0b3ec4))
+* **agent:** expose run trace ids in streams ([260e96e](https://github.com/kortyx-io/kortyx/commit/260e96e72018eac5a3f91c36ed661abf11a1caf4))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/hooks bumped to 0.17.0
+
 ## [0.3.0](https://github.com/kortyx-io/kortyx/compare/otel-v0.2.0...otel-v0.3.0) (2026-05-25)
 
 

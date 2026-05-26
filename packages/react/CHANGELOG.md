@@ -1,5 +1,20 @@
 # @kortyx/react
 
+## [0.4.0](https://github.com/kortyx-io/kortyx/compare/react-v0.3.2...react-v0.4.0) (2026-05-26)
+
+
+### Features
+
+* **agent:** expose run trace ids in streams ([50521cd](https://github.com/kortyx-io/kortyx/commit/50521cd27d58cd66d93cf19a88d160c0cd0b3ec4))
+* **agent:** expose run trace ids in streams ([260e96e](https://github.com/kortyx-io/kortyx/commit/260e96e72018eac5a3f91c36ed661abf11a1caf4))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/stream bumped to 0.9.0
+
 ## [0.3.2](https://github.com/kortyx-io/kortyx/compare/react-v0.3.1...react-v0.3.2) (2026-05-25)
 
 
