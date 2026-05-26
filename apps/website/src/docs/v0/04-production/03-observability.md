@@ -376,7 +376,109 @@ createOpenTelemetryTraceAdapter({
 });
 ```
 
+## Attach tags to traces
+
+Pass `tags` in `telemetry` to label runs with searchable strings. They are emitted as the OpenTelemetry attribute `kortyx.trace.tags` on the relevant span and most backends expose them as filter facets.
+
+App-wide tags applied to every `kortyx.run` span:
+
+```ts tabs="otel-tags-agent" tab="TypeScript"
+createAgent({
+  workflows,
+  getProvider,
+  telemetry: {
+    trace: createOpenTelemetryTraceAdapter({ captureContent: false }),
+    tags: ["env:production", "service:assistant"],
+  },
+});
+```
+```js tabs="otel-tags-agent" tab="JavaScript"
+createAgent({
+  workflows,
+  getProvider,
+  telemetry: {
+    trace: createOpenTelemetryTraceAdapter({ captureContent: false }),
+    tags: ["env:production", "service:assistant"],
+  },
+});
+```
+
+Per-call tags applied to the matching `useReason` span:
+
+```ts tabs="otel-tags-call" tab="TypeScript"
+await useReason({
+  id: "classify-intent",
+  model,
+  input,
+  telemetry: {
+    tags: ["intent-classifier", `prompt:${prompt.name}:${prompt.version}`],
+  },
+});
+```
+```js tabs="otel-tags-call" tab="JavaScript"
+await useReason({
+  id: "classify-intent",
+  model,
+  input,
+  telemetry: {
+    tags: ["intent-classifier", `prompt:${prompt.name}:${prompt.version}`],
+  },
+});
+```
+
+If your tracing backend expects a different attribute name (for example, Langfuse looks for `langfuse.trace.tags`), translate `kortyx.trace.tags` in `mapAttributes`. See the [Langfuse guide](./04-langfuse.md#map-tags) for the exact wiring.
+
+## Read trace ids from the client
+
+When `@kortyx/otel` is wired on the agent, the orchestrator emits a `trace` stream chunk as soon as the `kortyx.run` span opens:
+
+```ts
+{ type: "trace", traceId: "…", spanId: "…", runId: "…", rootSpanName: "kortyx.run" }
+```
+
+`@kortyx/react` reads it off the wire and stamps every assistant `ChatMsg` produced during that turn with `traceId`, `spanId`, and `runId`. You do not need to capture response headers or open your own wrapper spans — the values are first-class fields on the message.
+
+```tsx tabs="otel-react-trace" tab="TypeScript"
+"use client";
+
+import type { ChatMsg } from "@kortyx/react";
+
+export function Thumbs({ msg }: { msg: ChatMsg }) {
+  if (!msg.traceId) return null;
+  return (
+    <a
+      href={`https://your-trace-ui/trace/${msg.traceId}`}
+      target="_blank"
+      rel="noreferrer"
+    >
+      View trace
+    </a>
+  );
+}
+```
+```jsx tabs="otel-react-trace" tab="JavaScript"
+"use client";
+
+export function Thumbs({ msg }) {
+  if (!msg.traceId) return null;
+  return (
+    <a
+      href={`https://your-trace-ui/trace/${msg.traceId}`}
+      target="_blank"
+      rel="noreferrer"
+    >
+      View trace
+    </a>
+  );
+}
+```
+
+The trace fields are `undefined` until a `trace` chunk arrives, which happens when an OTel trace adapter is configured on the agent. Without `@kortyx/otel` (or another adapter that supports `getActiveContext`) wired into `createAgent({ telemetry: { trace } })`, no `trace` chunk is emitted and `msg.traceId` stays `undefined`.
+
+Restored-from-storage messages keep their trace ids — `createBrowserChatStorage` serializes them with the rest of the `ChatMsg`.
+
 ## What to read next
 
+- Read [Langfuse](./04-langfuse.md) to use Langfuse as your tracing backend with the right attribute names.
 - Read [Runtime Context](../02-core-concepts/08-runtime-context.md) to pass request metadata into nodes.
 - Read [Runtime Persistence](./01-persistence.md) if your traced flows use interrupts and resume.

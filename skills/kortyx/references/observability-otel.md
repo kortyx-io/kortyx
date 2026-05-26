@@ -98,3 +98,41 @@ await useReason({
 ## Content Capture
 
 Raw input/output capture is off by default. Enable it only after confirming retention, privacy, and redaction requirements.
+
+## Tags
+
+Pass `tags: string[]` in `telemetry` to label runs with searchable strings. They are emitted as the OpenTelemetry attribute `kortyx.trace.tags`.
+
+- `createAgent({ telemetry: { tags } })` applies tags to every `kortyx.run` span.
+- `useReason({ telemetry: { tags } })` applies tags to that observation span.
+
+If the backend expects a different attribute (for example, Langfuse looks for `langfuse.trace.tags`), rename via `createOpenTelemetryTraceAdapter({ mapAttributes })`.
+
+## Trace Ids On The Client
+
+When an OTel trace adapter is configured on the agent, the orchestrator emits a `trace` stream chunk right after `kortyx.run` opens:
+
+```ts
+{ type: "trace", traceId, spanId, runId, rootSpanName: "kortyx.run" }
+```
+
+`@kortyx/react` reads it and stamps `traceId`, `spanId`, and `runId` onto every assistant `ChatMsg` produced during the turn. Use `msg.traceId` to render trace deep links, attach scores, or POST feedback — no response-header capture or wrapper spans needed. The fields stay `undefined` when no trace adapter is wired.
+
+`createBrowserChatStorage` serializes these fields, so restored messages keep their trace ids.
+
+## Langfuse
+
+Langfuse ingests Kortyx traces over OpenTelemetry — there is no Langfuse-specific Kortyx package. Wire `@kortyx/otel` as the adapter, then route spans to Langfuse via `@langfuse/otel`'s `LangfuseSpanProcessor`. Use `mapAttributes` to translate the kortyx-namespaced attributes into Langfuse-native ones:
+
+| Kortyx                                          | Langfuse                                 |
+|-------------------------------------------------|------------------------------------------|
+| `kortyx.trace.tags`                             | `langfuse.trace.tags`                    |
+| `kortyx.trace.metadata.<k>`                     | `langfuse.trace.metadata.<k>`            |
+| `kortyx.trace.input` / `.output` (any span)     | `langfuse.observation.input` / `.output` |
+| `kortyx.trace.input` / `.output` (run span)     | `langfuse.trace.input` / `.output`       |
+| `gen_ai.prompt.name` / `.version`               | `langfuse.observation.prompt.*`          |
+| `kortyx.workflow.id` (run span)                 | drives `langfuse.trace.name`             |
+
+Langfuse scores (👍/👎) are written against `traceId`. Read it from `ChatMsg.traceId` on the client and POST to a server route that calls `langfuse.score.create({ traceId, ... })`. If you cannot trust the client with raw trace ids, mint a signed `{ traceId, userId }` token server-side and inject it into the stream as a follow-up `structured-data` chunk after the native `trace` chunk.
+
+Full walkthrough lives at `https://kortyx.io/docs/v0/production/langfuse`.

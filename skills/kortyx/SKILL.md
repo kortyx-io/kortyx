@@ -26,7 +26,7 @@ Architecture:
 - `references/architecture-nextjs.md`: Next.js API route vs Server Action guidance.
 - `references/architecture-react-node.md`: separate React frontend plus Node backend.
 - `references/architecture-runtime-persistence.md`: in-memory vs Redis and app DB boundaries.
-- `references/observability-otel.md`: server-side OpenTelemetry tracing, prompt metadata, and backend-neutral adapter setup.
+- `references/observability-otel.md`: server-side OpenTelemetry tracing, prompt metadata, tags, trace ids on the React client, and Langfuse adapter mapping.
 
 Hooks:
 
