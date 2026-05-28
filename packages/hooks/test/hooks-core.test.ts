@@ -148,7 +148,17 @@ describe("hooks core APIs", () => {
       id: "reason-1",
       schemaId: "reason-choice",
       schemaVersion: "1",
-      meta: { feature: "reason-demo" },
+      meta: {
+        feature: "reason-demo",
+        __kortyxResumeStatePatch: {
+          __kortyx: {
+            nodeState: {
+              nodeId: "reason",
+            },
+            workflowState: {},
+          },
+        },
+      },
     });
   });
 

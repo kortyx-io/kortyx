@@ -1,5 +1,6 @@
 import type { InterruptInput, InterruptResult } from "@kortyx/core";
 import { getHookContext } from "./context";
+import { resolveHookStatePatch } from "./reason/checkpoint";
 import type { UseInterruptArgs } from "./types";
 import { parseWithSchema } from "./validation";
 
@@ -16,6 +17,15 @@ export const awaitInterruptInternal = <
     args.request,
     "useInterrupt request",
   );
+  const userMeta =
+    args.meta && typeof args.meta === "object" && !Array.isArray(args.meta)
+      ? args.meta
+      : {};
+  const resumeStatePatch = resolveHookStatePatch({
+    nodeId: ctx.node.graph.node,
+    currentNodeState: ctx.currentNodeState,
+    workflowState: ctx.workflowState,
+  });
 
   const enrichedRequest = {
     ...request,
@@ -28,9 +38,10 @@ export const awaitInterruptInternal = <
     ...(typeof args.id === "string" && args.id.length > 0
       ? { id: args.id }
       : {}),
-    ...(args.meta && typeof args.meta === "object" && !Array.isArray(args.meta)
-      ? { meta: args.meta }
-      : {}),
+    meta: {
+      ...userMeta,
+      __kortyxResumeStatePatch: resumeStatePatch,
+    },
   } as InterruptInput;
 
   const raw = ctx.node.awaitInterrupt(enrichedRequest);

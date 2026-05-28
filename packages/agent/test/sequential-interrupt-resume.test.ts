@@ -1,5 +1,5 @@
 import { defineWorkflow } from "@kortyx/core";
-import { useInterrupt, useStructuredData } from "@kortyx/hooks";
+import { useInterrupt, useNodeState, useStructuredData } from "@kortyx/hooks";
 import { createInMemoryFrameworkAdapter } from "@kortyx/runtime";
 import { collectBufferedStream } from "@kortyx/stream";
 import { describe, expect, it } from "vitest";
@@ -186,5 +186,92 @@ describe("sequential interrupt resume", () => {
 
     expect(third.text).toContain("Done: candidate-a:fix");
     expect(third.chunks.some((chunk) => chunk.type === "done")).toBe(true);
+  });
+
+  it("preserves useNodeState across plain useInterrupt resume", async () => {
+    let guardedRuns = 0;
+
+    const confirmNode = async () => {
+      const [streamed, setStreamed] = useNodeState(false);
+
+      if (!streamed) {
+        guardedRuns += 1;
+        setStreamed(true);
+      }
+
+      const selected = await useInterrupt({
+        id: "confirm",
+        request: {
+          kind: "choice",
+          question: "Confirm?",
+          options: [{ id: "ok", label: "OK" }],
+        },
+      });
+
+      return {
+        data: { selected },
+        condition: selected === "ok" ? "confirmed" : "cancelled",
+      };
+    };
+
+    const confirmWorkflow = defineWorkflow({
+      id: "plain-interrupt-node-state-test",
+      version: "1.0.0",
+      nodes: {
+        confirm: { run: confirmNode, params: {} },
+        final: { run: finalNode, params: {} },
+      },
+      edges: [
+        ["__start__", "confirm"],
+        ["confirm", "final"],
+        ["final", "__end__"],
+      ],
+    });
+
+    const agent = createAgent({
+      workflows: [confirmWorkflow],
+      defaultWorkflowId: "plain-interrupt-node-state-test",
+      frameworkAdapter: createInMemoryFrameworkAdapter(),
+    });
+    const sessionId = `node-state-${Date.now()}`;
+
+    const first = await collectBufferedStream(
+      await agent.streamChat([{ role: "user", content: "start" }], {
+        sessionId,
+        workflowId: "plain-interrupt-node-state-test",
+      }),
+    );
+    const interrupt = first.chunks.find((chunk) => chunk.type === "interrupt");
+
+    expect(interrupt).toBeDefined();
+    expect(guardedRuns).toBe(1);
+
+    const second = await collectBufferedStream(
+      await agent.streamChat(
+        [
+          {
+            role: "user",
+            content: "ok",
+            metadata: {
+              resume: {
+                token:
+                  interrupt && "resumeToken" in interrupt
+                    ? interrupt.resumeToken
+                    : "",
+                requestId:
+                  interrupt && "requestId" in interrupt
+                    ? interrupt.requestId
+                    : "",
+                selected: ["ok"],
+              },
+            },
+          },
+        ],
+        { sessionId, workflowId: "plain-interrupt-node-state-test" },
+      ),
+    );
+
+    expect(guardedRuns).toBe(1);
+    expect(second.text).toContain("Done:");
   });
 });
