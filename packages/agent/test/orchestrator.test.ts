@@ -343,6 +343,40 @@ describe("orchestrateGraphStream", () => {
     );
   });
 
+  it("handles text interrupts without metadata", async () => {
+    const graph = graphWithEvents((emit) => {
+      emit("interrupt", {
+        input: {
+          kind: "text",
+          question: "Name?",
+        },
+      });
+      return [
+        { type: "done", data: { ...baseState, awaitingHumanInput: true } },
+      ];
+    });
+
+    const stream = await orchestrateGraphStream({
+      runId: "run-text-no-meta",
+      graph,
+      state: baseState,
+      config: {},
+      selectWorkflow: vi.fn(),
+    });
+
+    const chunks = await collect(stream);
+    expect(chunks).toContainEqual(
+      expect.objectContaining({
+        type: "interrupt",
+        input: expect.objectContaining({
+          kind: "text",
+          question: "Name?",
+          options: [],
+        }),
+      }),
+    );
+  });
+
   it("runs transition handoffs with merged state and raw input override", async () => {
     const nextGraph = graphWithEvents(() => [
       {
