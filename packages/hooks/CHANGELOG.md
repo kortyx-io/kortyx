@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.17.1](https://github.com/kortyx-io/kortyx/compare/hooks-v0.17.0...hooks-v0.17.1) (2026-05-28)
+
+
+### Bug Fixes
+
+* pass same metadata as useReason ([7b08754](https://github.com/kortyx-io/kortyx/commit/7b087542e54e9b0fe51bd3596a787dee41d5544a))
+* pass same metadata as useReason ([5540ef4](https://github.com/kortyx-io/kortyx/commit/5540ef4b0a339fd43b09721b826f6b01a670c2a7))
+
 ## [0.17.0](https://github.com/kortyx-io/kortyx/compare/hooks-v0.16.0...hooks-v0.17.0) (2026-05-26)
 
 

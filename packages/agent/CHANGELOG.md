@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.14.1](https://github.com/kortyx-io/kortyx/compare/agent-v0.14.0...agent-v0.14.1) (2026-05-28)
+
+
+### Bug Fixes
+
+* pass same metadata as useReason ([7b08754](https://github.com/kortyx-io/kortyx/commit/7b087542e54e9b0fe51bd3596a787dee41d5544a))
+* pass same metadata as useReason ([5540ef4](https://github.com/kortyx-io/kortyx/commit/5540ef4b0a339fd43b09721b826f6b01a670c2a7))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/runtime bumped to 0.10.3
+  * devDependencies
+    * @kortyx/hooks bumped to 0.17.1
+
 ## [0.14.0](https://github.com/kortyx-io/kortyx/compare/agent-v0.13.1...agent-v0.14.0) (2026-05-26)
 
 

@@ -1,6 +1,6 @@
 {
   "name": "@kortyx/example-nextjs-chat-api-route",
-  "version": "0.16.2",
+  "version": "0.16.3",
   "private": true,
   "description": "Kortyx example: Next.js chat app (API route method).",
   "keywords": [

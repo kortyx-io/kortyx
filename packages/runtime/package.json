@@ -1,6 +1,6 @@
 {
   "name": "@kortyx/runtime",
-  "version": "0.10.2",
+  "version": "0.10.3",
   "private": false,
   "description": "Runtime/orchestration wiring for Kortyx.",
   "keywords": [
