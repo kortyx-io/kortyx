@@ -90,24 +90,8 @@ Provide visible states for:
 
 ## Text Interrupts And `send(...)` Auto-Resume
 
-`useChat`'s `send(text)` is not always a fresh user turn. Before starting a new run, it walks back through `streamContentPieces` and `messages[*].contentPieces` and grabs the most recent `kind: "text"` interrupt as the "active" one. If found, the call is silently rerouted to `respondToHumanInput` against that piece's `resumeToken` and `requestId`.
+`useChat`'s `send(text)` is not always a fresh user turn. Before starting a new run, it checks the live stream and the latest assistant message for a `kind: "text"` interrupt. If found, the call is routed to `respondToHumanInput` against that piece's `resumeToken` and `requestId`.
 
 This is convenient when a `text` interrupt is genuinely awaiting input — the user types into the regular chat input and it lands as the resume payload.
 
-It is surprising once the workflow has moved past that interrupt:
-
-- The piece stays in message history even after the workflow emitted `done` or moved on to a new node.
-- The next `send(...)` still routes to it.
-- The server sees a stale resume token, logs "pending not found or mismatched", and falls back to the default workflow.
-- The user-facing result is correct (the default workflow runs), but every "fresh" turn after a completed interrupt eats one stale-resume round-trip.
-
-### Designing Around It
-
-- Prefer `choice` / `multi-choice` interrupts when the answer is bounded — they do not get auto-resumed by `send(...)`.
-- If a `text` interrupt is the right UX, render a custom control inline (`respondToInterrupt(piece, { text })` on submit) so users do not respond via the main input after the interrupt is resolved.
-- For multi-step text-interrupt flows, push a non-interrupt assistant piece (status, message, or any non-text-interrupt piece) onto the trailing message once each step is answered, so the next `send(...)` does not pick the resolved interrupt back up.
-- Call `clearMessages()` or `resetChat()` between unrelated workflows when the prior text interrupt cannot be invalidated by the server alone.
-
-### Detecting It In Tracing
-
-The status chunk reads `runChat (resume)` whenever `send(...)` auto-resumed, even if the user typed a fresh message. Combined with a server-side `[resume] pending not found or mismatched` log line, this confirms the stale-resume path. The follow-up chunks will be from the default workflow (typically a `chat-node` classifier), not from the original interrupt's node.
+Historical interrupts are not reused. Once a user response or a later assistant message exists, the next `send(...)` starts a fresh turn. Choice and multi-choice interrupts still require an explicit `respondToInterrupt(...)` call from their controls.

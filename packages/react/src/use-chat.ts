@@ -96,25 +96,25 @@ function findActiveTextInterrupt(args: {
   messages: ChatMsg[];
   streamContentPieces: ContentPiece[];
 }): HumanInputPiece | undefined {
-  const liveInterrupt = args.streamContentPieces.find(
-    (piece): piece is HumanInputPiece =>
-      piece.type === "interrupt" && piece.kind === "text",
-  );
+  const liveInterrupt = [...args.streamContentPieces]
+    .reverse()
+    .find(
+      (piece): piece is HumanInputPiece =>
+        piece.type === "interrupt" && piece.kind === "text",
+    );
   if (liveInterrupt) return liveInterrupt;
 
-  for (const message of [...args.messages].reverse()) {
-    if (message.role !== "assistant" || !message.contentPieces) continue;
-
-    const messageInterrupt = [...message.contentPieces]
-      .reverse()
-      .find(
-        (piece): piece is HumanInputPiece =>
-          piece.type === "interrupt" && piece.kind === "text",
-      );
-    if (messageInterrupt) return messageInterrupt;
+  const latestMessage = args.messages.at(-1);
+  if (latestMessage?.role !== "assistant" || !latestMessage.contentPieces) {
+    return undefined;
   }
 
-  return undefined;
+  return [...latestMessage.contentPieces]
+    .reverse()
+    .find(
+      (piece): piece is HumanInputPiece =>
+        piece.type === "interrupt" && piece.kind === "text",
+    );
 }
 
 export function useChat<TContext = DefaultChatContext>(
