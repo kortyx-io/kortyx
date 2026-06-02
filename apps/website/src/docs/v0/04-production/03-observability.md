@@ -426,7 +426,7 @@ await useReason({
 });
 ```
 
-If your tracing backend expects a different attribute name (for example, Langfuse looks for `langfuse.trace.tags`), translate `kortyx.trace.tags` in `mapAttributes`. See the [Langfuse guide](./04-langfuse.md#map-tags) for the exact wiring.
+If your tracing backend expects a different attribute name (for example, Langfuse looks for `langfuse.trace.tags`), translate `kortyx.trace.tags` in `mapAttributes`. See [Export To Langfuse](./04-langfuse.md#map-tags) for the exact wiring.
 
 ## Read trace ids from the client
 
@@ -479,6 +479,6 @@ Restored-from-storage messages keep their trace ids — `createBrowserChatStorag
 
 ## What to read next
 
-- Read [Langfuse](./04-langfuse.md) to use Langfuse as your tracing backend with the right attribute names.
+- Read [Export To Langfuse](./04-langfuse.md) to use Langfuse as your tracing backend with the right attribute names.
 - Read [Runtime Context](../02-core-concepts/08-runtime-context.md) to pass request metadata into nodes.
 - Read [Runtime Persistence](./01-persistence.md) if your traced flows use interrupts and resume.

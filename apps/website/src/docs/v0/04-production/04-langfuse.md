@@ -1,32 +1,34 @@
 ---
 id: v0-observability-langfuse
-title: "Langfuse"
-description: "Send Kortyx OpenTelemetry traces to Langfuse with the correct attribute names, tags, and trace ids surfaced on the React client."
+title: "Export To Langfuse"
+description: "Export vendor-neutral Kortyx OpenTelemetry traces to Langfuse with the correct attribute names, tags, and trace ids surfaced on the React client."
 keywords: [kortyx, langfuse, observability, tracing, opentelemetry, scores, feedback]
-sidebar_label: "Langfuse"
+sidebar_label: "Export To Langfuse"
 ---
-# Langfuse
+# Export To Langfuse
 
-[Langfuse](https://langfuse.com) ingests Kortyx traces over OpenTelemetry — there is no Langfuse-specific Kortyx package. You wire `@kortyx/otel` as usual and ship the resulting spans to Langfuse, mapping a small number of Kortyx attributes to the Langfuse-native names so the UI renders trace input, output, tags, and prompt linkage correctly.
+[Langfuse](https://langfuse.com) ingests Kortyx traces over OpenTelemetry. Kortyx remains backend-neutral: there is no Langfuse-specific Kortyx package and your app owns the exporter setup. Wire `@kortyx/otel` as usual, then map a small number of Kortyx attributes to Langfuse-native names so the UI renders trace input, output, tags, and optional managed-prompt linkage correctly.
 
 This guide assumes you have already read [OpenTelemetry](./03-observability.md). Everything here is additive on top of that setup.
 
 ## Install
 
 ```bash tabs="lf-install" tab="pnpm"
-pnpm add @kortyx/otel @langfuse/otel @langfuse/tracing @opentelemetry/api @opentelemetry/sdk-node
+pnpm add @kortyx/otel @langfuse/otel @opentelemetry/api @opentelemetry/sdk-node
 ```
 ```bash tabs="lf-install" tab="npm"
-npm install @kortyx/otel @langfuse/otel @langfuse/tracing @opentelemetry/api @opentelemetry/sdk-node
+npm install @kortyx/otel @langfuse/otel @opentelemetry/api @opentelemetry/sdk-node
 ```
 ```bash tabs="lf-install" tab="yarn"
-yarn add @kortyx/otel @langfuse/otel @langfuse/tracing @opentelemetry/api @opentelemetry/sdk-node
+yarn add @kortyx/otel @langfuse/otel @opentelemetry/api @opentelemetry/sdk-node
 ```
 ```bash tabs="lf-install" tab="bun"
-bun add @kortyx/otel @langfuse/otel @langfuse/tracing @opentelemetry/api @opentelemetry/sdk-node
+bun add @kortyx/otel @langfuse/otel @opentelemetry/api @opentelemetry/sdk-node
 ```
 
 `@kortyx/otel` is required regardless of backend — it produces the spans. `@langfuse/otel` provides the `LangfuseSpanProcessor` that exports them to Langfuse.
+
+> **Good to know:** Add `@langfuse/tracing` only when your app also needs Langfuse-specific manual observations or context propagation outside Kortyx. It is not required for the Kortyx adapter path below.
 
 ## Configure the span processor
 
@@ -37,14 +39,14 @@ Replace the OTLP exporter from the OpenTelemetry guide with Langfuse's span proc
 import { LangfuseSpanProcessor } from "@langfuse/otel";
 import { NodeSDK } from "@opentelemetry/sdk-node";
 
+export const langfuseSpanProcessor = new LangfuseSpanProcessor({
+  publicKey: process.env.LANGFUSE_PUBLIC_KEY,
+  secretKey: process.env.LANGFUSE_SECRET_KEY,
+  baseUrl: process.env.LANGFUSE_BASE_URL, // optional self-hosted URL
+});
+
 export const otelSdk = new NodeSDK({
-  spanProcessors: [
-    new LangfuseSpanProcessor({
-      publicKey: process.env.LANGFUSE_PUBLIC_KEY,
-      secretKey: process.env.LANGFUSE_SECRET_KEY,
-      baseUrl: process.env.LANGFUSE_BASE_URL, // optional self-hosted URL
-    }),
-  ],
+  spanProcessors: [langfuseSpanProcessor],
 });
 
 otelSdk.start();
@@ -54,20 +56,77 @@ otelSdk.start();
 import { LangfuseSpanProcessor } from "@langfuse/otel";
 import { NodeSDK } from "@opentelemetry/sdk-node";
 
+export const langfuseSpanProcessor = new LangfuseSpanProcessor({
+  publicKey: process.env.LANGFUSE_PUBLIC_KEY,
+  secretKey: process.env.LANGFUSE_SECRET_KEY,
+  baseUrl: process.env.LANGFUSE_BASE_URL,
+});
+
 export const otelSdk = new NodeSDK({
-  spanProcessors: [
-    new LangfuseSpanProcessor({
-      publicKey: process.env.LANGFUSE_PUBLIC_KEY,
-      secretKey: process.env.LANGFUSE_SECRET_KEY,
-      baseUrl: process.env.LANGFUSE_BASE_URL,
-    }),
-  ],
+  spanProcessors: [langfuseSpanProcessor],
 });
 
 otelSdk.start();
 ```
 
-> **Good to know:** In Next.js, register the OTel SDK from `instrumentation.ts` so it boots before the agent. The Langfuse span processor flushes asynchronously; in serverless environments you may want to call `langfuseSpanProcessor.forceFlush()` from a request lifecycle hook.
+The Langfuse span processor [batches spans by default](https://langfuse.com/docs/observability/features/queuing-batching). In short-lived runtimes, flush it before the process exits or the runtime freezes:
+
+```ts tabs="lf-flush" tab="TypeScript"
+await langfuseSpanProcessor.forceFlush();
+```
+```js tabs="lf-flush" tab="JavaScript"
+await langfuseSpanProcessor.forceFlush();
+```
+
+### Next.js serverless routes
+
+Register your OTel bootstrap from `instrumentation.ts` so tracing starts before the agent:
+
+```ts tabs="lf-next-instrumentation" tab="TypeScript"
+// instrumentation.ts
+export async function register() {
+  if (process.env.NEXT_RUNTIME === "nodejs") {
+    await import("./src/lib/otel");
+  }
+}
+```
+```js tabs="lf-next-instrumentation" tab="JavaScript"
+// instrumentation.js
+export async function register() {
+  if (process.env.NEXT_RUNTIME === "nodejs") {
+    await import("./src/lib/otel");
+  }
+}
+```
+
+In a Vercel or Next.js serverless route, schedule a flush after the response completes:
+
+```ts tabs="lf-next-flush" tab="TypeScript"
+import { after } from "next/server";
+import { langfuseSpanProcessor } from "@/lib/otel";
+
+export async function POST(request: Request) {
+  const response = await handleChat(request);
+  after(async () => {
+    await langfuseSpanProcessor.forceFlush();
+  });
+  return response;
+}
+```
+```js tabs="lf-next-flush" tab="JavaScript"
+import { after } from "next/server";
+import { langfuseSpanProcessor } from "@/lib/otel";
+
+export async function POST(request) {
+  const response = await handleChat(request);
+  after(async () => {
+    await langfuseSpanProcessor.forceFlush();
+  });
+  return response;
+}
+```
+
+> **Good to know:** If your Next.js build creates separate instrumentation and route bundles, keep the processor in a shared `globalThis`-backed singleton module. That ensures the route flushes the same processor instance registered with your tracer provider.
 
 ## Translate Kortyx attributes to Langfuse attributes
 
@@ -133,8 +192,10 @@ export const agent = createAgent({
         return Object.keys(additions).length > 0 ? additions : undefined;
       },
       mapPromptMetadata: (prompt) => ({
-        "langfuse.observation.prompt.name": prompt.name,
-        ...(prompt.version !== undefined
+        ...(prompt.name
+          ? { "langfuse.observation.prompt.name": prompt.name }
+          : {}),
+        ...(Number.isInteger(prompt.version)
           ? { "langfuse.observation.prompt.version": prompt.version }
           : {}),
       }),
@@ -198,8 +259,10 @@ export const agent = createAgent({
         return Object.keys(additions).length > 0 ? additions : undefined;
       },
       mapPromptMetadata: (prompt) => ({
-        "langfuse.observation.prompt.name": prompt.name,
-        ...(prompt.version !== undefined
+        ...(prompt.name
+          ? { "langfuse.observation.prompt.name": prompt.name }
+          : {}),
+        ...(Number.isInteger(prompt.version)
           ? { "langfuse.observation.prompt.version": prompt.version }
           : {}),
       }),
@@ -218,8 +281,51 @@ The mapping reference:
 | `kortyx.trace.metadata.<k>` (each)              | `langfuse.trace.metadata.<k>`            |
 | `kortyx.trace.input` / `.output` (any span)     | `langfuse.observation.input` / `.output` |
 | `kortyx.trace.input` / `.output` (run span)     | `langfuse.trace.input` / `.output`       |
-| `gen_ai.prompt.name` / `.version`               | `langfuse.observation.prompt.*`          |
+| `telemetry.prompt.name` / integer `.version`    | `langfuse.observation.prompt.*`          |
 | `kortyx.workflow.id` (run span)                 | drives `langfuse.trace.name`             |
+
+After the first request, Langfuse should show a trace named `agent · <workflow-id>` with the Kortyx run span as its root. If `captureContent` is enabled, the trace card and observations should include their input and output.
+
+## Optional: link managed prompts
+
+Tracing works without a prompt store. If a node uses an external managed prompt, pass its identity through `useReason({ telemetry: { prompt } })` so Langfuse links that generation to the corresponding managed prompt.
+
+Langfuse expects [`langfuse.observation.prompt.version`](https://langfuse.com/integrations/native/opentelemetry#observation-level-attributes) to be an integer. If your prompt store uses string versions such as `"v1"`, keep that value in `telemetry.prompt.metadata` for filtering instead of mapping it as the Langfuse prompt version.
+
+```ts tabs="lf-prompt-linking" tab="TypeScript"
+const prompt = await promptStore.get("assessment-chat");
+
+await useReason({
+  id: "assessment-chat",
+  model,
+  input: prompt.compile(vars),
+  telemetry: {
+    prompt: {
+      name: prompt.name,
+      version: prompt.version, // use an integer for Langfuse prompt linking
+      metadata: prompt.toJSON(),
+    },
+    tags: [`prompt:${prompt.name}:${prompt.version}`],
+  },
+});
+```
+```js tabs="lf-prompt-linking" tab="JavaScript"
+const prompt = await promptStore.get("assessment-chat");
+
+await useReason({
+  id: "assessment-chat",
+  model,
+  input: prompt.compile(vars),
+  telemetry: {
+    prompt: {
+      name: prompt.name,
+      version: prompt.version,
+      metadata: prompt.toJSON(),
+    },
+    tags: [`prompt:${prompt.name}:${prompt.version}`],
+  },
+});
+```
 
 ## Map tags
 
@@ -262,7 +368,7 @@ await useReason({
 });
 ```
 
-Run-level tags land on `kortyx.run` (the trace root) and become **trace** tags in Langfuse. Per-`useReason` tags land on the matching observation span and become **observation** tags.
+Langfuse treats `langfuse.trace.tags` as trace-level context, even when it sees the attribute on a child observation. Put stable tags such as environment and service on `createAgent(...)`; use per-`useReason` tags only when a generation should add searchable context to the whole trace.
 
 ## Score traces from the client
 
@@ -315,6 +421,19 @@ export function Thumbs({ msg }) {
 
 Then write the score with the Langfuse client in a server route:
 
+```bash tabs="lf-score-install" tab="pnpm"
+pnpm add @langfuse/client
+```
+```bash tabs="lf-score-install" tab="npm"
+npm install @langfuse/client
+```
+```bash tabs="lf-score-install" tab="yarn"
+yarn add @langfuse/client
+```
+```bash tabs="lf-score-install" tab="bun"
+bun add @langfuse/client
+```
+
 ```ts tabs="lf-score-route" tab="TypeScript"
 // app/api/feedback/route.ts
 import { LangfuseClient } from "@langfuse/client";
@@ -323,12 +442,13 @@ const langfuse = new LangfuseClient();
 
 export async function POST(request: Request) {
   const { traceId, kind } = await request.json();
-  await langfuse.score.create({
+  langfuse.score.create({
     traceId,
     name: "user-feedback",
     value: kind,
     dataType: "CATEGORICAL",
   });
+  await langfuse.flush();
   return Response.json({ ok: true });
 }
 ```
@@ -340,12 +460,13 @@ const langfuse = new LangfuseClient();
 
 export async function POST(request) {
   const { traceId, kind } = await request.json();
-  await langfuse.score.create({
+  langfuse.score.create({
     traceId,
     name: "user-feedback",
     value: kind,
     dataType: "CATEGORICAL",
   });
+  await langfuse.flush();
   return Response.json({ ok: true });
 }
 ```
