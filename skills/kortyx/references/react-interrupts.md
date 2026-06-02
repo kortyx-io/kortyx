@@ -14,21 +14,14 @@ function InterruptControls({
   chat: UseChatValue;
   piece: HumanInputPiece;
 }) {
-  if (piece.schemaId === "pick-job") {
+  if (piece.schemaId === "account-picker") {
     return (
-      <JobPicker
-        onSubmit={(jobId) =>
-          chat.respondToInterrupt(piece, { selected: [jobId] })
-        }
-      />
-    );
-  }
-
-  if (piece.schemaId === "pick-agent") {
-    return (
-      <AgentPicker
-        onSubmit={(agentId) =>
-          chat.respondToInterrupt(piece, { selected: [agentId] })
+      <AccountPicker
+        onSubmit={(account) =>
+          chat.respondToInterrupt(piece, {
+            selected: [account.id],
+            text: account.label,
+          })
         }
       />
     );
@@ -68,7 +61,7 @@ Keep UI responses tied to the original interrupt piece so the resume token and r
 - **`text`** is the visible content of the synthetic user message added to chat history after resume. It is never read by the agent runtime for the resume value.
 - If you pass `text` without `selected`, `@kortyx/react` coerces it to `selected: [text]` before sending. If you pass **both**, `selected` wins and `text` is purely cosmetic.
 
-This matters for hidden-id pickers: the chat history would show the opaque id ("job-9f3e…") unless you set `text` to a human-readable label.
+This matters for hidden-id pickers: the chat history would show the opaque id unless you set `text` to a human-readable label.
 
 ```ts
 chat.respondToInterrupt(piece, {

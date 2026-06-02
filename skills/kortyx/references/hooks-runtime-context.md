@@ -48,12 +48,17 @@ const history = body.messages
   .slice(0, -1)
   .map((m) => ({ role: m.role, content: m.content }));
 
-const context = {
-  ...clientContext,
+const approvedContext = {
+  ...serverContext,
   ...(history.length > 0 ? { history } : {}),
 };
 
-return toSSE(await agent.streamChat(body.messages, { context, sessionId }));
+return toSSE(
+  await agent.streamChat(body.messages, {
+    sessionId: body.sessionId,
+    context: approvedContext,
+  }),
+);
 ```
 
 ```ts
@@ -62,4 +67,4 @@ type Ctx = { history?: { role: "user" | "assistant"; content: string }[] };
 const { history = [] } = useRuntimeContext<Ctx>();
 ```
 
-Trim the forwarded history (last N turns, drop interrupt-only assistant turns and their picker-response user replies) to keep system-prompt token use bounded.
+Apply an app-owned history limit and filtering policy before putting prior turns into prompts.
