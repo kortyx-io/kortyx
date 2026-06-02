@@ -1,6 +1,6 @@
 ---
 name: kortyx
-description: Use when building, reviewing, documenting, or architecting apps with Kortyx. Covers Kortyx hooks, useReason, interrupts, structured streaming, runtime context, Next.js API routes and server actions, separate React + Node apps, folder structure, runtime persistence, @kortyx/react, useChat, transports, and streamed chat rendering.
+description: Use when building, reviewing, documenting, or architecting apps with Kortyx. Covers Kortyx hooks, useReason, interrupts, structured streaming, runtime context, Next.js API routes and server actions, separate React + Node apps, folder structure, runtime persistence, OpenTelemetry observability, Langfuse export, @kortyx/react, useChat, transports, and streamed chat rendering.
 ---
 
 # Kortyx
@@ -26,7 +26,8 @@ Architecture:
 - `references/architecture-nextjs.md`: Next.js API route vs Server Action guidance.
 - `references/architecture-react-node.md`: separate React frontend plus Node backend.
 - `references/architecture-runtime-persistence.md`: in-memory vs Redis and app DB boundaries.
-- `references/observability-otel.md`: server-side OpenTelemetry tracing, prompt metadata, tags, trace ids on the React client, and Langfuse adapter mapping.
+- `references/observability-otel.md`: backend-neutral server-side OpenTelemetry tracing, prompt metadata, tags, and trace ids on the React client.
+- `references/observability-langfuse.md`: app-owned Langfuse export, Kortyx attribute mapping, Next.js flush lifecycle, optional prompt linking, and client feedback scores.
 
 Hooks:
 
@@ -50,6 +51,7 @@ React client:
 - Use `@kortyx/react` for React chat clients unless the task needs lower-level stream primitives.
 - Store product/business data in the app DB or service layer, not Kortyx runtime persistence.
 - Keep OpenTelemetry tracing server-side and use generic Kortyx telemetry metadata.
+- Treat OpenTelemetry as the Kortyx observability contract. Keep backend exporters such as Langfuse app-owned.
 - `useReason({ outputSchema, structured.fields })` already streams known structured fields as `structured-data` chunks; do not confuse those with raw model JSON `text-delta` chunks.
 - MCP tools are passed to `useReason({ tools, toolExecution })` from `createMCPClient(...).tools()`. `useReason` closes request-scoped MCP clients by default.
 - Do not combine `useReason({ tools })` with normal `useReason({ interrupt })`; use `toolExecution.approval` for tool approval, or split tools and user input into separate hook calls/nodes.

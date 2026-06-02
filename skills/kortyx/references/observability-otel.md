@@ -122,21 +122,6 @@ When an OTel trace adapter is configured on the agent, the orchestrator emits a 
 
 ## Langfuse
 
-Langfuse ingests Kortyx traces over OpenTelemetry — there is no Langfuse-specific Kortyx package. Wire `@kortyx/otel` as the adapter, then route spans to Langfuse via `@langfuse/otel`'s `LangfuseSpanProcessor`. Use `mapAttributes` to translate the kortyx-namespaced attributes into Langfuse-native ones:
+Langfuse is an app-owned OpenTelemetry export recipe, not the Kortyx observability contract. Load `observability-langfuse.md` when implementing or reviewing it.
 
-| Kortyx                                          | Langfuse                                 |
-|-------------------------------------------------|------------------------------------------|
-| `kortyx.trace.tags`                             | `langfuse.trace.tags`                    |
-| `kortyx.trace.metadata.<k>`                     | `langfuse.trace.metadata.<k>`            |
-| `kortyx.trace.input` / `.output` (any span)     | `langfuse.observation.input` / `.output` |
-| `kortyx.trace.input` / `.output` (run span)     | `langfuse.trace.input` / `.output`       |
-| `telemetry.prompt.name` / integer `.version`    | `langfuse.observation.prompt.*`          |
-| `kortyx.workflow.id` (run span)                 | drives `langfuse.trace.name`             |
-
-Langfuse scores (👍/👎) are written against `traceId`. Read it from `ChatMsg.traceId` on the client and POST to a server route that calls `langfuse.score.create({ traceId, ... })`. If you cannot trust the client with raw trace ids, mint a signed `{ traceId, userId }` token server-side and inject it into the stream as a follow-up `structured-data` chunk after the native `trace` chunk.
-
-Treat `langfuse.trace.tags` as trace-level context even when the mapped Kortyx tag came from a child `useReason` span. Put stable tags on `createAgent(...)`. Langfuse managed-prompt linking is optional and requires an integer `langfuse.observation.prompt.version`; preserve string prompt-store versions as metadata instead.
-
-In short-lived runtimes, export the `LangfuseSpanProcessor` and call `forceFlush()` before the process exits or freezes. Next.js serverless routes can schedule that work with `after(...)`. Score writes use `@langfuse/client` separately and should call `await langfuse.flush()` before the feedback route resolves.
-
-Full walkthrough lives at `https://kortyx.io/docs/v0/production/langfuse`.
+Full website walkthrough: `https://kortyx.io/docs/v0/production/langfuse`.
