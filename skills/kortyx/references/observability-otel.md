@@ -98,3 +98,30 @@ await useReason({
 ## Content Capture
 
 Raw input/output capture is off by default. Enable it only after confirming retention, privacy, and redaction requirements.
+
+## Tags
+
+Pass `tags: string[]` in `telemetry` to label runs with searchable strings. They are emitted as the OpenTelemetry attribute `kortyx.trace.tags`.
+
+- `createAgent({ telemetry: { tags } })` applies tags to every `kortyx.run` span.
+- `useReason({ telemetry: { tags } })` applies tags to that observation span.
+
+If the backend expects a different attribute (for example, Langfuse looks for `langfuse.trace.tags`), rename via `createOpenTelemetryTraceAdapter({ mapAttributes })`.
+
+## Trace Ids On The Client
+
+When an OTel trace adapter is configured on the agent, the orchestrator emits a `trace` stream chunk right after `kortyx.run` opens:
+
+```ts
+{ type: "trace", traceId, spanId, runId, rootSpanName: "kortyx.run" }
+```
+
+`@kortyx/react` reads it and stamps `traceId`, `spanId`, and `runId` onto every assistant `ChatMsg` produced during the turn. Use `msg.traceId` to render trace deep links, attach scores, or POST feedback — no response-header capture or wrapper spans needed. The fields stay `undefined` when no trace adapter is wired.
+
+`createBrowserChatStorage` serializes these fields, so restored messages keep their trace ids.
+
+## Langfuse
+
+Langfuse is an app-owned OpenTelemetry export recipe, not the Kortyx observability contract. Load `observability-langfuse.md` when implementing or reviewing it.
+
+Full website walkthrough: `https://kortyx.io/docs/v0/production/langfuse`.

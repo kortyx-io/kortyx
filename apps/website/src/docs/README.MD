@@ -70,6 +70,7 @@ When removing a docs page:
 1. Expand **Reference** depth for runtime hooks, stream protocol, provider contracts, and the `@kortyx/react` surface.
 2. Add production guides: retries, observability, failure handling, and security checklist.
 3. Expand migration guides for major-version upgrades and breaking changes.
+4. Keep OpenTelemetry as the backend-neutral observability contract and maintain focused exporter recipes for supported backends such as Langfuse.
 
 ## Skill Parity Coverage
 
