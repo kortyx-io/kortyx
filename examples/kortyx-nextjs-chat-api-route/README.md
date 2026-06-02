@@ -52,6 +52,19 @@ Use workflow override `interrupt-sequential-demo` to verify the multi-interrupt 
 
 Before the fix in `@kortyx/agent`, step 4 would hang because the resumed run reached a second `useInterrupt()` but never emitted a new interrupt chunk.
 
+## Test resolved text interrupts
+
+Use workflow override `interrupt-text-resume-regression` to verify that a resolved text interrupt does not capture later chat sends.
+
+1. Start the app.
+2. In the UI, set workflow override to `interrupt-text-resume-regression`.
+3. Send any message to create the text interrupt.
+4. Answer through the regular composer and confirm the response starts with `Text resume regression completed:`.
+5. Send another message through the regular composer.
+6. Confirm the app displays a new `Regression check: enter a short answer.` interrupt.
+
+The second message in step 5 must start a fresh run. It must not be sent with the resolved interrupt's previous resume token.
+
 ## Reason + interrupt demo notes
 
 Use workflow override `reason-interrupt-structured` to test `useReason` with:
