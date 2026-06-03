@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.16.4](https://github.com/kortyx-io/kortyx/compare/example-nextjs-chat-api-route-v0.16.3...example-nextjs-chat-api-route-v0.16.4) (2026-06-03)
+
+
+### Bug Fixes
+
+* **react:** stop auto-resuming resolved text interrupts ([#123](https://github.com/kortyx-io/kortyx/issues/123)) ([d667c3d](https://github.com/kortyx-io/kortyx/commit/d667c3d43958b5ad2111aa90cfcda98637c602f0))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/react bumped to 0.4.1
+
 ## [0.16.3](https://github.com/kortyx-io/kortyx/compare/example-nextjs-chat-api-route-v0.16.2...example-nextjs-chat-api-route-v0.16.3) (2026-05-28)
 
 
