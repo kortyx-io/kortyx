@@ -21,6 +21,7 @@ export type CheckpointSummary = {
 
 export type SessionCheckpointRecord = CheckpointSummary & {
   runId: string;
+  graphCheckpointId?: string;
   state: GraphState;
   effects: {
     structuredStreamIds: string[];
@@ -32,6 +33,7 @@ export type SessionCheckpointRecord = CheckpointSummary & {
 export type AppendSessionCheckpointArgs = {
   sessionId: string;
   runId: string;
+  graphCheckpointId?: string;
   workflow: string;
   state: GraphState;
   nodes?: string[];
@@ -186,6 +188,9 @@ export function createInMemorySessionCheckpointStore(
         id: createCheckpointId(),
         sessionId: args.sessionId,
         runId: args.runId,
+        ...(args.graphCheckpointId
+          ? { graphCheckpointId: args.graphCheckpointId }
+          : {}),
         turnIndex,
         createdAt: Date.now(),
         workflow: args.workflow,

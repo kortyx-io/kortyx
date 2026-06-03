@@ -155,6 +155,9 @@ export function createRedisSessionCheckpointStore(
         id: createId("cp"),
         sessionId: args.sessionId,
         runId: args.runId,
+        ...(args.graphCheckpointId
+          ? { graphCheckpointId: args.graphCheckpointId }
+          : {}),
         turnIndex: previousHead ? previousHead.turnIndex + 1 : 0,
         createdAt: Date.now(),
         workflow: args.workflow,

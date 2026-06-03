@@ -124,6 +124,10 @@ describe("createAgent", () => {
       delete: vi.fn(async () => undefined),
       save: vi.fn(async () => undefined),
     };
+    const getLatestCheckpointId = vi.fn(
+      async (_runId: string, checkpointNs?: string) =>
+        checkpointNs === "" ? "graph-cp-1" : undefined,
+    );
     const sessionCheckpoints = {
       list: vi.fn(async () => [
         {
@@ -152,7 +156,19 @@ describe("createAgent", () => {
         head: id,
         invalidatedStructuredStreamIds: ["stream-1"],
         invalidatedInterruptTokens: ["old-token"],
-        activePendingRequests: [{ token: "active-token" }],
+        activePendingRequests: [
+          {
+            token: "active-token",
+            requestId: "human-1",
+            runId: "run-1",
+            workflow: "workflow-1",
+            node: "ask",
+            schema: { kind: "choice", multiple: false },
+            options: [],
+            createdAt: 1,
+            ttlMs: 1000,
+          },
+        ],
       })),
       fork: vi.fn(async (id: string, options?: { newSessionId?: string }) => ({
         sessionId: options?.newSessionId ?? "child",
@@ -168,14 +184,26 @@ describe("createAgent", () => {
           workflow: "workflow-1",
           state: {} as never,
           effects: { structuredStreamIds: [], interruptTokens: [] },
-          activePendingRequests: [{ token: "child-token" }],
+          activePendingRequests: [
+            {
+              token: "child-token",
+              requestId: "human-2",
+              runId: "run-1",
+              workflow: "workflow-1",
+              node: "ask",
+              schema: { kind: "choice", multiple: false },
+              options: [],
+              createdAt: 1,
+              ttlMs: 1000,
+            },
+          ],
         },
       })),
     };
     const agent = createAgent({
       workflows: [{ id: "workflow-1" } as WorkflowDefinition],
       frameworkAdapter: {
-        checkpointer: "custom-checkpointer",
+        checkpointer: { getLatestCheckpointId },
         pendingRequests,
         sessionCheckpoints,
       } as unknown as FrameworkAdapter,
@@ -193,9 +221,14 @@ describe("createAgent", () => {
       invalidatedInterruptTokens: ["old-token"],
     });
     expect(pendingRequests.delete).toHaveBeenCalledWith("old-token");
-    expect(pendingRequests.save).toHaveBeenCalledWith({
-      token: "active-token",
-    });
+    expect(getLatestCheckpointId).toHaveBeenCalledWith("run-1", "workflow-1");
+    expect(getLatestCheckpointId).toHaveBeenCalledWith("run-1", "");
+    expect(pendingRequests.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        token: "active-token",
+        graphCheckpointId: "graph-cp-1",
+      }),
+    );
 
     await expect(
       agent.fork("cp-1", { newSessionId: "child-session" }),
@@ -203,7 +236,12 @@ describe("createAgent", () => {
       sessionId: "child-session",
       forkedFrom: "cp-1",
     });
-    expect(pendingRequests.save).toHaveBeenCalledWith({ token: "child-token" });
+    expect(pendingRequests.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        token: "child-token",
+        graphCheckpointId: "graph-cp-1",
+      }),
+    );
   });
 
   it("uses the general-chat fallback for in-memory workflows without a default", async () => {

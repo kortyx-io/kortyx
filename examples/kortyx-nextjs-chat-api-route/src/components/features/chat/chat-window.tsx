@@ -28,7 +28,7 @@ export function ChatWindow({ chat }: { chat: UseChatValue }) {
     checkpoints,
     send,
     respondToHumanInput,
-    clearMessages,
+    resetChat,
     regenerate,
     retryWithEdit,
     rollbackTo,
@@ -182,7 +182,7 @@ export function ChatWindow({ chat }: { chat: UseChatValue }) {
                 variant="outline"
                 size="sm"
                 onClick={() => {
-                  clearMessages();
+                  resetChat();
                 }}
                 title="Clear chat"
               >

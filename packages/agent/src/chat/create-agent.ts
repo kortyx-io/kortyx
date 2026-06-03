@@ -10,6 +10,7 @@ import type {
   ExecutionRuntimeConfig,
   ForkSessionCheckpointResult,
   FrameworkAdapter,
+  PendingRequestRecord,
   RollbackSessionCheckpointResult,
   SessionCheckpointRecord,
   WorkflowRegistry,
@@ -123,6 +124,27 @@ const parseAgentProcessOptions = (
   return parseSchema(agentProcessOptionsSchema, value);
 };
 
+const hydratePendingGraphCheckpoint = async (
+  frameworkAdapter: FrameworkAdapter,
+  request: PendingRequestRecord,
+): Promise<PendingRequestRecord> => {
+  if (request.graphCheckpointId) return request;
+  const checkpointer = frameworkAdapter.checkpointer as
+    | {
+        getLatestCheckpointId?: (
+          threadId: string,
+          checkpointNs?: string,
+        ) => Promise<string | undefined>;
+      }
+    | undefined;
+  const graphCheckpointId =
+    (await checkpointer?.getLatestCheckpointId?.(
+      request.runId,
+      request.workflow,
+    )) ?? (await checkpointer?.getLatestCheckpointId?.(request.runId, ""));
+  return graphCheckpointId ? { ...request, graphCheckpointId } : request;
+};
+
 export function createAgent(args: CreateAgentArgs): Agent {
   const parsedArgs = parseCreateAgentArgs(args);
 
@@ -211,17 +233,22 @@ export function createAgent(args: CreateAgentArgs): Agent {
   ): Promise<RollbackSessionCheckpointResult> => {
     const result =
       await resolvedFrameworkAdapter.sessionCheckpoints.rollbackTo(id);
+    const activePendingRequests = await Promise.all(
+      result.activePendingRequests.map((request) =>
+        hydratePendingGraphCheckpoint(resolvedFrameworkAdapter, request),
+      ),
+    );
 
     await Promise.all([
       ...result.invalidatedInterruptTokens.map((token) =>
         resolvedFrameworkAdapter.pendingRequests.delete(token),
       ),
-      ...result.activePendingRequests.map((request) =>
+      ...activePendingRequests.map((request) =>
         resolvedFrameworkAdapter.pendingRequests.save(request),
       ),
     ]);
 
-    return result;
+    return { ...result, activePendingRequests };
   };
 
   const fork = async (
@@ -232,12 +259,20 @@ export function createAgent(args: CreateAgentArgs): Agent {
       id,
       options,
     );
-    await Promise.all(
+    const activePendingRequests = await Promise.all(
       result.checkpoint.activePendingRequests.map((request) =>
+        hydratePendingGraphCheckpoint(resolvedFrameworkAdapter, request),
+      ),
+    );
+    await Promise.all(
+      activePendingRequests.map((request) =>
         resolvedFrameworkAdapter.pendingRequests.save(request),
       ),
     );
-    return result;
+    return {
+      ...result,
+      checkpoint: { ...result.checkpoint, activePendingRequests },
+    };
   };
 
   return { streamChat, listCheckpoints, getCheckpoint, rollbackTo, fork };

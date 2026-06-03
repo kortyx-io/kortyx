@@ -86,6 +86,22 @@ const isRecord = (value: unknown): value is Record<string, unknown> =>
 const isGraphState = (value: unknown): value is GraphState =>
   isRecord(value) && typeof value.currentWorkflow === "string";
 
+type GraphSnapshot = {
+  state: GraphState;
+  checkpointId?: string;
+};
+
+const getGraphCheckpointId = (snapshot: unknown): string | undefined => {
+  if (!isRecord(snapshot)) return undefined;
+  const config = isRecord(snapshot.config) ? snapshot.config : undefined;
+  const configurable =
+    config && isRecord(config.configurable) ? config.configurable : undefined;
+  const checkpointId = configurable?.checkpoint_id;
+  return typeof checkpointId === "string" && checkpointId.length > 0
+    ? checkpointId
+    : undefined;
+};
+
 const getTraceAdapter = (
   config: Record<string, unknown>,
 ): TraceAdapterLike | undefined => {
@@ -669,6 +685,9 @@ export async function orchestrateGraphStream({
   const runLoop = async (runTraceSpan: TraceSpanLike) => {
     while (true) {
       let workflowFinalState: GraphState | null = null;
+      let workflowFinalGraphCheckpointId: string | undefined;
+      let sawWorkflowDone = false;
+      let workflowDoneData: unknown;
 
       // Ensure the compiled graph uses our forwardEmit
       currentGraph.config = currentGraph.config || {};
@@ -677,22 +696,48 @@ export async function orchestrateGraphStream({
         ((currentGraph.config as any)?.session?.id as string | undefined) ||
         sessionId ||
         "anonymous-session";
-      const checkpointNs = String(currentState.currentWorkflow || "default");
+      const checkpointNs = "";
       namespacesUsed.add(checkpointNs);
-      const readLatestGraphState = async (): Promise<GraphState | null> => {
-        if (typeof currentGraph.getState !== "function") return null;
-        const snapshot = await currentGraph.getState({
-          configurable: {
-            thread_id: runId,
-            checkpoint_ns: checkpointNs,
-          },
-        });
-        const values =
-          isRecord(snapshot) && "values" in snapshot
-            ? snapshot.values
-            : snapshot;
-        return isGraphState(values) ? values : null;
+      const readLatestGraphCheckpointId = async (): Promise<
+        string | undefined
+      > => {
+        const checkpointer = (currentGraph.config as any)?.checkpointer as
+          | {
+              getLatestCheckpointId?: (
+                threadId: string,
+                checkpointNs?: string,
+              ) => Promise<string | undefined>;
+            }
+          | undefined;
+        return checkpointer?.getLatestCheckpointId?.(runId, checkpointNs);
       };
+      const readLatestGraphSnapshot =
+        async (): Promise<GraphSnapshot | null> => {
+          if (typeof currentGraph.getState !== "function") {
+            const checkpointId = await readLatestGraphCheckpointId();
+            return checkpointId ? { state: currentState, checkpointId } : null;
+          }
+          const snapshot = await currentGraph.getState({
+            configurable: {
+              thread_id: runId,
+              checkpoint_ns: checkpointNs,
+            },
+          });
+          const values =
+            isRecord(snapshot) && "values" in snapshot
+              ? snapshot.values
+              : snapshot;
+          const checkpointId =
+            getGraphCheckpointId(snapshot) ??
+            (await readLatestGraphCheckpointId());
+          if (!isGraphState(values)) {
+            return checkpointId ? { state: currentState, checkpointId } : null;
+          }
+          return {
+            state: values,
+            ...(checkpointId ? { checkpointId } : {}),
+          };
+        };
       if (debugEnabled) {
         out.write({
           type: "status",
@@ -710,6 +755,8 @@ export async function orchestrateGraphStream({
       const resumeValue = (currentGraph.config as any)?.resumeValue as
         | unknown
         | undefined;
+      const resumeCheckpointId = (currentGraph.config as any)
+        ?.resumeCheckpointId as string | undefined;
       const invokeState = isResume
         ? resumeValue !== undefined && resumeUpdate
           ? (new Command({ resume: resumeValue, update: resumeUpdate }) as any)
@@ -723,8 +770,10 @@ export async function orchestrateGraphStream({
         version: "v2",
         configurable: {
           thread_id: runId,
-          // Use a stable namespace so checkpoints survive across recompiles of same workflow
           checkpoint_ns: checkpointNs,
+          ...(isResume && resumeCheckpointId
+            ? { checkpoint_id: resumeCheckpointId }
+            : {}),
         },
       });
 
@@ -747,16 +796,23 @@ export async function orchestrateGraphStream({
         }
 
         if (chunk.type === "done") {
-          workflowFinalState = isGraphState(chunk.data)
-            ? chunk.data
-            : ((await readLatestGraphState()) ?? currentState);
-          break;
+          sawWorkflowDone = true;
+          workflowDoneData = chunk.data;
+          continue;
         }
 
         out.write(chunk);
       }
 
       if (finished) return;
+
+      if (sawWorkflowDone) {
+        const graphSnapshot = await readLatestGraphSnapshot();
+        workflowFinalGraphCheckpointId = graphSnapshot?.checkpointId;
+        workflowFinalState = isGraphState(workflowDoneData)
+          ? workflowDoneData
+          : (graphSnapshot?.state ?? currentState);
+      }
 
       const transitionTo = pending.to;
       const transitionPayload = pending.payload;
@@ -827,6 +883,9 @@ export async function orchestrateGraphStream({
           if (pendingStore) {
             await pendingStore.update(pendingRecordToken, {
               state: workflowFinalState,
+              ...(workflowFinalGraphCheckpointId
+                ? { graphCheckpointId: workflowFinalGraphCheckpointId }
+                : {}),
             });
           }
           const pendingRequest = activePendingRequests.get(pendingRecordToken);
@@ -835,6 +894,9 @@ export async function orchestrateGraphStream({
             activePendingRequests.set(pendingRecordToken, {
               ...pendingRequest,
               state: workflowFinalState,
+              ...(workflowFinalGraphCheckpointId
+                ? { graphCheckpointId: workflowFinalGraphCheckpointId }
+                : {}),
             });
           }
         }
@@ -885,6 +947,9 @@ export async function orchestrateGraphStream({
               {
                 sessionId: resolvedSessionId,
                 runId,
+                ...(workflowFinalGraphCheckpointId
+                  ? { graphCheckpointId: workflowFinalGraphCheckpointId }
+                  : {}),
                 workflow: String(workflowFinalState.currentWorkflow),
                 state: workflowFinalState,
                 nodes: Array.from(touchedNodes),
@@ -910,9 +975,26 @@ export async function orchestrateGraphStream({
       }
 
       // Natural end with no explicit "done" (defensive close)
-      const naturalFinalState = (await readLatestGraphState()) ?? currentState;
+      const naturalGraphSnapshot = await readLatestGraphSnapshot();
+      const naturalFinalState = naturalGraphSnapshot?.state ?? currentState;
       if (pendingRequestWrites.length > 0) {
         await Promise.all(pendingRequestWrites);
+      }
+      if (pendingRecordToken && naturalGraphSnapshot?.checkpointId) {
+        if (pendingStore) {
+          await pendingStore.update(pendingRecordToken, {
+            state: naturalFinalState,
+            graphCheckpointId: naturalGraphSnapshot.checkpointId,
+          });
+        }
+        const pendingRequest = activePendingRequests.get(pendingRecordToken);
+        if (pendingRequest) {
+          activePendingRequests.set(pendingRecordToken, {
+            ...pendingRequest,
+            state: naturalFinalState,
+            graphCheckpointId: naturalGraphSnapshot.checkpointId,
+          });
+        }
       }
       const resolvedSessionId =
         ((config as any)?.session?.id as string | undefined) || sessionId || "";
@@ -921,6 +1003,9 @@ export async function orchestrateGraphStream({
           const checkpoint = await frameworkAdapter.sessionCheckpoints.append({
             sessionId: resolvedSessionId,
             runId,
+            ...(naturalGraphSnapshot?.checkpointId
+              ? { graphCheckpointId: naturalGraphSnapshot.checkpointId }
+              : {}),
             workflow: String(naturalFinalState.currentWorkflow),
             state: naturalFinalState,
             nodes: Array.from(touchedNodes),

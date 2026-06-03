@@ -709,7 +709,7 @@ describe("in-memory checkpoint saver", () => {
     expect(makeRequestId("human")).toMatch(/^human-/);
   });
 
-  it("keeps the latest checkpoint, bounds writes, and deletes threads", async () => {
+  it("keeps checkpoint history, bounds writes, and deletes threads", async () => {
     const saver = createInMemoryCheckpointSaver({ maxWritesPerCheckpoint: 1 });
     const baseConfig = {
       configurable: { thread_id: "thread-1", checkpoint_ns: "ns" },
@@ -751,7 +751,13 @@ describe("in-memory checkpoint saver", () => {
       id: "cp-2",
       channel_values: { state: "next" },
     });
-    await expect(saver.get(firstConfig)).resolves.toBeUndefined();
+    await expect(saver.get(firstConfig)).resolves.toMatchObject({
+      id: "cp-1",
+      channel_values: { state: "first" },
+    });
+    await expect(saver.getLatestCheckpointId("thread-1", "ns")).resolves.toBe(
+      "cp-2",
+    );
     await expect(saver.getTuple({ configurable: {} })).resolves.toBeUndefined();
     await expect(
       saver.getTuple({
@@ -834,6 +840,9 @@ describe("in-memory checkpoint saver", () => {
 
     await saver.deleteThread("thread-1");
     await expect(saver.get(baseConfig)).resolves.toBeUndefined();
+    await expect(
+      saver.getLatestCheckpointId("thread-1", "ns"),
+    ).resolves.toBeUndefined();
     await expect(
       saver.get({
         configurable: {

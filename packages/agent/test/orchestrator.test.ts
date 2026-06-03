@@ -173,6 +173,18 @@ describe("orchestrateGraphStream", () => {
         },
       ];
     });
+    graph.config = {
+      checkpointer: {
+        getLatestCheckpointId: vi.fn(async () => "graph-cp-1"),
+      },
+    };
+    graph.getState = vi.fn(async () => ({
+      values: {
+        ...baseState,
+        awaitingHumanInput: true,
+        data: { paused: true },
+      },
+    }));
 
     const stream = await orchestrateGraphStream({
       sessionId: "session-1",
@@ -299,6 +311,7 @@ describe("orchestrateGraphStream", () => {
     );
     expect(pendingRequests.update).toHaveBeenCalledWith("resume-token", {
       state: { ...baseState, awaitingHumanInput: true, data: { paused: true } },
+      graphCheckpointId: "graph-cp-1",
     });
   });
 
@@ -432,6 +445,11 @@ describe("orchestrateGraphStream", () => {
       })),
     };
     const graph = graphWithEvents(() => [{ type: "done" }]);
+    graph.config = {
+      checkpointer: {
+        getLatestCheckpointId: vi.fn(async () => "graph-cp-graph-state"),
+      },
+    };
     graph.getState = vi.fn(async () => ({ values: baseState }));
 
     const stream = await orchestrateGraphStream({
@@ -450,13 +468,14 @@ describe("orchestrateGraphStream", () => {
     expect(graph.getState).toHaveBeenCalledWith({
       configurable: {
         thread_id: "run-graph-state",
-        checkpoint_ns: "first",
+        checkpoint_ns: "",
       },
     });
     expect(sessionCheckpoints.append).toHaveBeenCalledWith(
       expect.objectContaining({
         sessionId: "session-1",
         runId: "run-graph-state",
+        graphCheckpointId: "graph-cp-graph-state",
         workflow: "first",
         state: baseState,
       }),
@@ -465,6 +484,128 @@ describe("orchestrateGraphStream", () => {
       expect.objectContaining({
         type: "checkpoint",
         id: "cp-from-graph-state",
+      }),
+    );
+  });
+
+  it("persists graph checkpoint ids from non-state graph snapshots", async () => {
+    const sessionCheckpoints = {
+      append: vi.fn(async () => ({
+        id: "cp-from-non-state-snapshot",
+        sessionId: "session-1",
+        runId: "run-non-state-snapshot",
+        turnIndex: 1,
+        createdAt: 1,
+        nodes: [],
+        workflow: "first",
+        state: baseState,
+        effects: {
+          structuredStreamIds: [],
+          interruptTokens: [],
+        },
+        activePendingRequests: [],
+      })),
+    };
+    const graph = graphWithEvents(() => [{ type: "done", data: baseState }]);
+    graph.config = {
+      checkpointer: {
+        getLatestCheckpointId: vi.fn(async () => "graph-cp-non-state"),
+      },
+    };
+    graph.getState = vi.fn(async () => ({ values: { __interrupt__: [] } }));
+
+    await collect(
+      await orchestrateGraphStream({
+        runId: "run-non-state-snapshot",
+        sessionId: "session-1",
+        graph,
+        state: baseState,
+        config: { session: { id: "session-1" } },
+        selectWorkflow: vi.fn(),
+        frameworkAdapter: {
+          sessionCheckpoints,
+        } as unknown as FrameworkAdapter,
+      }),
+    );
+
+    expect(sessionCheckpoints.append).toHaveBeenCalledWith(
+      expect.objectContaining({
+        graphCheckpointId: "graph-cp-non-state",
+        state: baseState,
+      }),
+    );
+  });
+
+  it("attaches graph checkpoint ids to pending requests when interrupted streams end naturally", async () => {
+    const pendingRequests = {
+      save: vi.fn(async () => undefined),
+      update: vi.fn(async () => undefined),
+    };
+    const sessionCheckpoints = {
+      append: vi.fn(async () => ({
+        id: "cp-interrupt-natural",
+        sessionId: "session-1",
+        runId: "run-interrupt-natural",
+        turnIndex: 1,
+        createdAt: 1,
+        nodes: [],
+        workflow: "first",
+        state: baseState,
+        effects: {
+          structuredStreamIds: [],
+          interruptTokens: [],
+        },
+        activePendingRequests: [],
+      })),
+    };
+    const graph = graphWithEvents((emit) => {
+      emit("interrupt", {
+        node: "ask",
+        workflow: "first",
+        input: {
+          kind: "choice",
+          question: "Pick",
+          options: [{ id: "a", label: "A" }],
+        },
+      });
+      return [];
+    });
+    graph.config = {
+      checkpointer: {
+        getLatestCheckpointId: vi.fn(async () => "graph-cp-natural"),
+      },
+    };
+    graph.getState = vi.fn(async () => ({ values: { __interrupt__: [] } }));
+
+    await collect(
+      await orchestrateGraphStream({
+        runId: "run-interrupt-natural",
+        sessionId: "session-1",
+        graph,
+        state: baseState,
+        config: { session: { id: "session-1" } },
+        selectWorkflow: vi.fn(),
+        frameworkAdapter: {
+          pendingRequests: pendingRequests as unknown as PendingRequestStore,
+          sessionCheckpoints,
+          ttlMs: 1000,
+        } as unknown as FrameworkAdapter,
+      }),
+    );
+
+    expect(pendingRequests.update).toHaveBeenCalledWith("resume-token", {
+      state: baseState,
+      graphCheckpointId: "graph-cp-natural",
+    });
+    expect(sessionCheckpoints.append).toHaveBeenCalledWith(
+      expect.objectContaining({
+        graphCheckpointId: "graph-cp-natural",
+        pendingRequests: [
+          expect.objectContaining({
+            token: "resume-token",
+            graphCheckpointId: "graph-cp-natural",
+          }),
+        ],
       }),
     );
   });
@@ -736,7 +877,7 @@ describe("orchestrateGraphStream", () => {
       }),
       expect.objectContaining({
         version: "v2",
-        configurable: { thread_id: "run-3", checkpoint_ns: "second" },
+        configurable: { thread_id: "run-3", checkpoint_ns: "" },
       }),
     );
     expect(chunks.at(-1)).toEqual({
@@ -787,7 +928,7 @@ describe("orchestrateGraphStream", () => {
       }),
     );
 
-    expect(cleanupRun).toHaveBeenCalledWith("run-5", ["first"]);
+    expect(cleanupRun).toHaveBeenCalledWith("run-5", [""]);
 
     const deleteThread = vi.fn(async () => undefined);
     const checkpointerGraph = graphWithEvents(() => [
@@ -1147,6 +1288,7 @@ describe("orchestrateGraphStream", () => {
       { resume: true },
       { resume: true, resumeValue: "value" },
       { resume: true, resumeUpdate: { data: { updated: true } } },
+      { resume: true, resumeCheckpointId: "graph-cp-resume" },
       {
         resume: true,
         resumeValue: "value",
@@ -1173,7 +1315,10 @@ describe("orchestrateGraphStream", () => {
         expect.objectContaining({
           configurable: {
             thread_id: `run-resume-${index}`,
-            checkpoint_ns: "first",
+            checkpoint_ns: "",
+            ...(config.resumeCheckpointId
+              ? { checkpoint_id: config.resumeCheckpointId }
+              : {}),
           },
         }),
       );

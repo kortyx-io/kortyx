@@ -155,10 +155,16 @@ export async function tryPrepareResumeStream({
       : meta.selected?.length
         ? String(meta.selected[0])
         : undefined;
+  const resumeCheckpointId =
+    typeof pending.graphCheckpointId === "string" &&
+    pending.graphCheckpointId.length > 0
+      ? pending.graphCheckpointId
+      : undefined;
   const resumedGraph = await createExecutionGraph(wf, {
     ...config,
     resume: true,
     ...(resumeValue !== undefined ? { resumeValue } : {}),
+    ...(resumeCheckpointId ? { resumeCheckpointId } : {}),
     ...(hasResumeUpdate ? { resumeUpdate } : {}),
   });
   await store.delete(pending.token);
@@ -172,6 +178,7 @@ export async function tryPrepareResumeStream({
       ...config,
       resume: true,
       ...(resumeValue !== undefined ? { resumeValue } : {}),
+      ...(resumeCheckpointId ? { resumeCheckpointId } : {}),
       ...(hasResumeUpdate ? { resumeUpdate } : {}),
     },
     selectWorkflow,

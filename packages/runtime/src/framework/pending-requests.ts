@@ -18,6 +18,11 @@ export interface PendingRequestRecord {
    * This must be stable across interrupt/resume, but should not be reused for new messages.
    */
   runId: string;
+  /**
+   * LangGraph checkpoint id for the paused interrupt within the run thread.
+   * Used to resume from the correct interrupt after session rollback.
+   */
+  graphCheckpointId?: string | undefined;
   workflow: string;
   node: string;
   state?: GraphState;
