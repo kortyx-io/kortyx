@@ -2463,6 +2463,118 @@ describe("useChat", () => {
     });
   });
 
+  it("trims local messages to the fork checkpoint when entering the child session", async () => {
+    const checkpointTransport: ChatTransport = {
+      stream: async () => undefined,
+      listCheckpoints: vi.fn(async (sessionId: string) =>
+        sessionId === "child-session"
+          ? [
+              {
+                id: "child-cp",
+                sessionId,
+                turnIndex: 1,
+                createdAt: 2,
+                nodes: [],
+                workflow: "workflow-1",
+              },
+            ]
+          : [
+              {
+                id: "cp-0",
+                sessionId,
+                turnIndex: 0,
+                createdAt: 1,
+                nodes: [],
+                workflow: "workflow-1",
+              },
+              {
+                id: "cp-1",
+                sessionId,
+                turnIndex: 1,
+                createdAt: 2,
+                nodes: [],
+                workflow: "workflow-1",
+              },
+              {
+                id: "cp-2",
+                sessionId,
+                turnIndex: 2,
+                createdAt: 3,
+                nodes: [],
+                workflow: "workflow-1",
+              },
+            ],
+      ),
+      rollbackTo: vi.fn(),
+      fork: vi.fn(async (checkpointId: string) => ({
+        sessionId: "child-session",
+        parentSessionId: "session-1",
+        forkedFrom: checkpointId,
+      })),
+    };
+    const memory = createMemoryStorage({ sessionId: "session-1" });
+
+    const { result } = renderHook(() =>
+      useChat({
+        transport: checkpointTransport,
+        storage: memory.storage,
+      }),
+    );
+    await flushEffects();
+
+    act(() => {
+      result.current.setMessages([
+        {
+          id: "user-1",
+          role: "user",
+          content: "start",
+          checkpointTurnIndex: 0,
+        },
+        {
+          id: "assistant-1",
+          role: "assistant",
+          content: "pick template",
+          checkpointId: "cp-1",
+          checkpointTurnIndex: 1,
+        },
+        {
+          id: "user-2",
+          role: "user",
+          content: "depth",
+          checkpointTurnIndex: 2,
+        },
+        {
+          id: "assistant-2",
+          role: "assistant",
+          content: "final draft",
+          checkpointId: "cp-2",
+          checkpointTurnIndex: 2,
+        },
+      ]);
+    });
+
+    await act(async () => {
+      await result.current.fork("cp-1", { newSessionId: "child-session" });
+    });
+
+    expect(checkpointTransport.fork).toHaveBeenCalledWith("cp-1", {
+      newSessionId: "child-session",
+    });
+    expect(checkpointTransport.listCheckpoints).toHaveBeenCalledWith(
+      "session-1",
+    );
+    expect(checkpointTransport.listCheckpoints).toHaveBeenLastCalledWith(
+      "child-session",
+    );
+    expect(result.current.messages.map((message) => message.id)).toEqual([
+      "user-1",
+      "assistant-1",
+    ]);
+    expect(result.current.checkpoints).toEqual([
+      expect.objectContaining({ id: "child-cp", sessionId: "child-session" }),
+    ]);
+  });
+
   it("rejects checkpoint operations while streaming", async () => {
     let finishStream: (() => void) | undefined;
     const transport: ChatTransport = {

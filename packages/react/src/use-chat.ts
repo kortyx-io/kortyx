@@ -691,9 +691,32 @@ export function useChat<TContext = DefaultChatContext>(
       throw new Error("Cannot fork while a stream is active.");
     }
     const transport = requireCheckpointTransport();
+    const sid = resolveSessionId();
+    let availableCheckpoints =
+      checkpoints.length > 0 ? checkpoints : await refreshCheckpoints(sid);
+    let target = availableCheckpoints.find(
+      (checkpoint) => checkpoint.id === id,
+    );
+    if (!target && checkpoints.length > 0) {
+      availableCheckpoints = await refreshCheckpoints(sid);
+      target = availableCheckpoints.find((checkpoint) => checkpoint.id === id);
+    }
+
     const result = await transport.fork!(id, options);
     setSessionId(result.sessionId);
-    await refreshCheckpoints(result.sessionId);
+    const childCheckpoints = await refreshCheckpoints(result.sessionId);
+    const childHead = childCheckpoints.at(-1);
+    const forkTurnIndex = target?.turnIndex ?? childHead?.turnIndex;
+    if (typeof forkTurnIndex === "number") {
+      setMessages((current) =>
+        trimMessagesToCheckpoint({
+          messages: current,
+          turnIndex: forkTurnIndex,
+        }),
+      );
+    }
+    setStreamContentPieces([]);
+    clearStructuredStreams();
     return result;
   };
 
