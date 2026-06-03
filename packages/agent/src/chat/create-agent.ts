@@ -145,6 +145,36 @@ const hydratePendingGraphCheckpoint = async (
   return graphCheckpointId ? { ...request, graphCheckpointId } : request;
 };
 
+const clearPendingGraphWrites = async (
+  frameworkAdapter: FrameworkAdapter,
+  request: PendingRequestRecord,
+): Promise<void> => {
+  if (!request.graphCheckpointId) return;
+  const checkpointer = frameworkAdapter.checkpointer as
+    | {
+        deleteCheckpointWrites?: (
+          threadId: string,
+          checkpointNs: string,
+          checkpointId: string,
+        ) => Promise<void>;
+      }
+    | undefined;
+  if (!checkpointer?.deleteCheckpointWrites) return;
+
+  await Promise.all([
+    checkpointer.deleteCheckpointWrites(
+      request.runId,
+      request.workflow,
+      request.graphCheckpointId,
+    ),
+    checkpointer.deleteCheckpointWrites(
+      request.runId,
+      "",
+      request.graphCheckpointId,
+    ),
+  ]);
+};
+
 export function createAgent(args: CreateAgentArgs): Agent {
   const parsedArgs = parseCreateAgentArgs(args);
 
@@ -238,6 +268,11 @@ export function createAgent(args: CreateAgentArgs): Agent {
         hydratePendingGraphCheckpoint(resolvedFrameworkAdapter, request),
       ),
     );
+    await Promise.all(
+      activePendingRequests.map((request) =>
+        clearPendingGraphWrites(resolvedFrameworkAdapter, request),
+      ),
+    );
 
     await Promise.all([
       ...result.invalidatedInterruptTokens.map((token) =>
@@ -262,6 +297,11 @@ export function createAgent(args: CreateAgentArgs): Agent {
     const activePendingRequests = await Promise.all(
       result.checkpoint.activePendingRequests.map((request) =>
         hydratePendingGraphCheckpoint(resolvedFrameworkAdapter, request),
+      ),
+    );
+    await Promise.all(
+      activePendingRequests.map((request) =>
+        clearPendingGraphWrites(resolvedFrameworkAdapter, request),
       ),
     );
     await Promise.all(

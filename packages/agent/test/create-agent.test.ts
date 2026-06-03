@@ -128,6 +128,7 @@ describe("createAgent", () => {
       async (_runId: string, checkpointNs?: string) =>
         checkpointNs === "" ? "graph-cp-1" : undefined,
     );
+    const deleteCheckpointWrites = vi.fn(async () => undefined);
     const sessionCheckpoints = {
       list: vi.fn(async () => [
         {
@@ -203,7 +204,7 @@ describe("createAgent", () => {
     const agent = createAgent({
       workflows: [{ id: "workflow-1" } as WorkflowDefinition],
       frameworkAdapter: {
-        checkpointer: { getLatestCheckpointId },
+        checkpointer: { getLatestCheckpointId, deleteCheckpointWrites },
         pendingRequests,
         sessionCheckpoints,
       } as unknown as FrameworkAdapter,
@@ -223,6 +224,16 @@ describe("createAgent", () => {
     expect(pendingRequests.delete).toHaveBeenCalledWith("old-token");
     expect(getLatestCheckpointId).toHaveBeenCalledWith("run-1", "workflow-1");
     expect(getLatestCheckpointId).toHaveBeenCalledWith("run-1", "");
+    expect(deleteCheckpointWrites).toHaveBeenCalledWith(
+      "run-1",
+      "workflow-1",
+      "graph-cp-1",
+    );
+    expect(deleteCheckpointWrites).toHaveBeenCalledWith(
+      "run-1",
+      "",
+      "graph-cp-1",
+    );
     expect(pendingRequests.save).toHaveBeenCalledWith(
       expect.objectContaining({
         token: "active-token",
@@ -242,6 +253,7 @@ describe("createAgent", () => {
         graphCheckpointId: "graph-cp-1",
       }),
     );
+    expect(deleteCheckpointWrites).toHaveBeenCalledTimes(4);
   });
 
   it("uses the general-chat fallback for in-memory workflows without a default", async () => {

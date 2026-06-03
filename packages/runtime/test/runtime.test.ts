@@ -17,6 +17,7 @@ import {
 } from "../src";
 import { createInMemoryCheckpointSaver } from "../src/framework/in-memory-checkpointer";
 import type { PendingRequestRecord } from "../src/framework/pending-requests";
+import { createRedisCheckpointSaver } from "../src/framework/redis/redis-checkpointer";
 import type { RedisFrameworkStore } from "../src/framework/redis/redis-store";
 import { createRedisSessionCheckpointStore } from "../src/framework/redis/session-checkpoint-store";
 
@@ -45,6 +46,7 @@ const pendingRecord = (overrides: Partial<PendingRequestRecord> = {}) =>
 
 const createMemoryRedisStore = (): RedisFrameworkStore => {
   const values = new Map<string, string>();
+  const hashes = new Map<string, Map<string, string>>();
   return {
     get: vi.fn(async (key: string) => values.get(key) ?? null),
     set: vi.fn(async (key: string, value: string) => {
@@ -52,16 +54,36 @@ const createMemoryRedisStore = (): RedisFrameworkStore => {
     }),
     del: vi.fn(async (key: string) => {
       values.delete(key);
+      hashes.delete(key);
     }),
-    hset: vi.fn(async () => undefined),
-    hsetnx: vi.fn(async () => 1),
-    hgetall: vi.fn(async () => ({})),
+    hset: vi.fn(async (key: string, field: string, value: string) => {
+      const existing = hashes.get(key) ?? new Map<string, string>();
+      existing.set(field, value);
+      hashes.set(key, existing);
+    }),
+    hsetnx: vi.fn(async (key: string, field: string, value: string) => {
+      const existing = hashes.get(key) ?? new Map<string, string>();
+      if (existing.has(field)) return 0;
+      existing.set(field, value);
+      hashes.set(key, existing);
+      return 1;
+    }),
+    hgetall: vi.fn(async (key: string) => {
+      const existing = hashes.get(key);
+      if (!existing) return {};
+      return Object.fromEntries(existing.entries());
+    }),
     expire: vi.fn(async () => undefined),
     scanKeys: vi.fn(async (prefix: string) =>
-      Array.from(values.keys()).filter((key) => key.startsWith(prefix)),
+      [...values.keys(), ...hashes.keys()].filter((key) =>
+        key.startsWith(prefix),
+      ),
     ),
     delRaw: vi.fn(async (keys: string[]) => {
-      for (const key of keys) values.delete(key);
+      for (const key of keys) {
+        values.delete(key);
+        hashes.delete(key);
+      }
     }),
   };
 };
@@ -696,7 +718,7 @@ describe("initial graph state and framework adapter", () => {
   });
 });
 
-describe("in-memory checkpoint saver", () => {
+describe("checkpoint savers", () => {
   it("reuses named checkpointers and creates request identifiers", () => {
     expect(getCheckpointer("same")).toBe(getCheckpointer("same"));
     expect(getCheckpointer("")).toBe(getCheckpointer("__default__"));
@@ -772,6 +794,11 @@ describe("in-memory checkpoint saver", () => {
     const tuple = await saver.getTuple(secondConfig);
     expect(tuple?.parentConfig).toEqual(firstConfig);
     expect(tuple?.pendingWrites).toEqual([["task", "messages", "kept"]]);
+
+    await saver.deleteCheckpointWrites("thread-1", "ns", "cp-2");
+    await expect(saver.getTuple(secondConfig)).resolves.toMatchObject({
+      pendingWrites: [],
+    });
 
     const noParentSaver = createInMemoryCheckpointSaver();
     const noParentConfig = await noParentSaver.put(
@@ -853,6 +880,46 @@ describe("in-memory checkpoint saver", () => {
     ).resolves.toMatchObject({ id: "cp-other" });
     await noParentSaver.deleteThread("thread-1");
     await duplicateSaver.deleteThread("thread-1");
+  });
+
+  it("clears Redis checkpoint writes without deleting the checkpoint", async () => {
+    const saver = createRedisCheckpointSaver({
+      store: createMemoryRedisStore(),
+      ttlMs: 60_000,
+    });
+    const config = await saver.put(
+      {
+        configurable: {
+          thread_id: "thread-1",
+          checkpoint_ns: "workflow-1",
+        },
+      },
+      {
+        v: 4,
+        id: "cp-1",
+        ts: "2026-01-01T00:00:00.000Z",
+        channel_values: { state: "paused" },
+        channel_versions: {},
+        versions_seen: {},
+      },
+      { source: "input", step: -1, parents: {} },
+      {},
+    );
+    await saver.putWrites(config, [["messages", "launch"]], "task");
+
+    await expect(saver.getTuple(config)).resolves.toMatchObject({
+      pendingWrites: [["task", "messages", "launch"]],
+    });
+
+    await saver.deleteCheckpointWrites("thread-1", "workflow-1", "cp-1");
+
+    await expect(saver.get(config)).resolves.toMatchObject({
+      id: "cp-1",
+      channel_values: { state: "paused" },
+    });
+    await expect(saver.getTuple(config)).resolves.toMatchObject({
+      pendingWrites: [],
+    });
   });
 
   it("serializes values and handles version edge cases", async () => {

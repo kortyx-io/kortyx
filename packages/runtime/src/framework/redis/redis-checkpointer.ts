@@ -53,6 +53,11 @@ type StoredWrite = {
 
 export type RedisCheckpointSaver = BaseCheckpointSaver & {
   deleteThread: (threadId: string) => Promise<void>;
+  deleteCheckpointWrites: (
+    threadId: string,
+    checkpointNs: string,
+    checkpointId: string,
+  ) => Promise<void>;
   getLatestCheckpointId: (
     threadId: string,
     checkpointNs?: string,
@@ -265,6 +270,14 @@ export function createRedisCheckpointSaver(
       const wrKeys = await store.scanKeys(`${prefix}wr:${threadId}:`);
       const latestKeys = await store.scanKeys(`${prefix}latest:${threadId}:`);
       await store.delRaw([...chkKeys, ...wrKeys, ...latestKeys]);
+    },
+
+    async deleteCheckpointWrites(
+      threadId: string,
+      checkpointNs: string,
+      checkpointId: string,
+    ): Promise<void> {
+      await store.del(writesKey(threadId, checkpointNs, checkpointId));
     },
 
     async getLatestCheckpointId(

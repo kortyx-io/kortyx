@@ -46,6 +46,11 @@ const jsonSerde: SerializerProtocol = {
 
 export type InMemoryCheckpointSaver = BaseCheckpointSaver & {
   deleteThread: (threadId: string) => Promise<void>;
+  deleteCheckpointWrites: (
+    threadId: string,
+    checkpointNs: string,
+    checkpointId: string,
+  ) => Promise<void>;
   getLatestCheckpointId: (
     threadId: string,
     checkpointNs?: string,
@@ -220,6 +225,17 @@ export function createInMemoryCheckpointSaver(
       for (const k of Array.from(checkpoints.keys())) {
         if (k.startsWith(`${threadId}\u0001`)) checkpoints.delete(k);
       }
+    },
+
+    async deleteCheckpointWrites(
+      threadId: string,
+      checkpointNs: string,
+      checkpointId: string,
+    ): Promise<void> {
+      const stored = checkpoints.get(
+        chkKey(threadId, checkpointNs, checkpointId),
+      );
+      stored?.writes.clear();
     },
 
     async getLatestCheckpointId(
