@@ -1,5 +1,12 @@
 # @kortyx/react
 
+## [0.4.1](https://github.com/kortyx-io/kortyx/compare/react-v0.4.0...react-v0.4.1) (2026-06-03)
+
+
+### Bug Fixes
+
+* **react:** stop auto-resuming resolved text interrupts ([#123](https://github.com/kortyx-io/kortyx/issues/123)) ([d667c3d](https://github.com/kortyx-io/kortyx/commit/d667c3d43958b5ad2111aa90cfcda98637c602f0))
+
 ## [0.4.0](https://github.com/kortyx-io/kortyx/compare/react-v0.3.2...react-v0.4.0) (2026-05-26)
 
 

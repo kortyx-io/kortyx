@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.21.3](https://github.com/kortyx-io/kortyx/compare/website-v0.21.2...website-v0.21.3) (2026-06-03)
+
+
+### Bug Fixes
+
+* **docs:** tighten Langfuse exporter guide ([b14961b](https://github.com/kortyx-io/kortyx/commit/b14961b5b1d9feb8f69d261384c80db953243fa7))
+* **react:** stop auto-resuming resolved text interrupts ([#123](https://github.com/kortyx-io/kortyx/issues/123)) ([d667c3d](https://github.com/kortyx-io/kortyx/commit/d667c3d43958b5ad2111aa90cfcda98637c602f0))
+
 ## [0.21.2](https://github.com/kortyx-io/kortyx/compare/website-v0.21.1...website-v0.21.2) (2026-05-26)
 
 

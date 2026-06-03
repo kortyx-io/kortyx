@@ -1,6 +1,6 @@
 {
   "name": "@kortyx/example-nextjs-chat-server-action",
-  "version": "0.13.9",
+  "version": "0.13.10",
   "private": true,
   "description": "Kortyx example: Next.js chat app (server action method).",
   "keywords": [
