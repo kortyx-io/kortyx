@@ -27,6 +27,9 @@ export interface CompiledGraphLike {
     state: GraphState,
     options?: { version?: string; configurable?: Record<string, unknown> },
   ) => AsyncIterable<unknown> | AsyncGenerator<unknown>;
+  getState?: (options?: {
+    configurable?: Record<string, unknown>;
+  }) => Promise<unknown>;
 }
 
 export interface OrchestrateArgs {
@@ -79,6 +82,9 @@ type TraceAdapterLike = {
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   Boolean(value) && typeof value === "object" && !Array.isArray(value);
+
+const isGraphState = (value: unknown): value is GraphState =>
+  isRecord(value) && typeof value.currentWorkflow === "string";
 
 const getTraceAdapter = (
   config: Record<string, unknown>,
@@ -673,6 +679,20 @@ export async function orchestrateGraphStream({
         "anonymous-session";
       const checkpointNs = String(currentState.currentWorkflow || "default");
       namespacesUsed.add(checkpointNs);
+      const readLatestGraphState = async (): Promise<GraphState | null> => {
+        if (typeof currentGraph.getState !== "function") return null;
+        const snapshot = await currentGraph.getState({
+          configurable: {
+            thread_id: runId,
+            checkpoint_ns: checkpointNs,
+          },
+        });
+        const values =
+          isRecord(snapshot) && "values" in snapshot
+            ? snapshot.values
+            : snapshot;
+        return isGraphState(values) ? values : null;
+      };
       if (debugEnabled) {
         out.write({
           type: "status",
@@ -727,7 +747,9 @@ export async function orchestrateGraphStream({
         }
 
         if (chunk.type === "done") {
-          workflowFinalState = (chunk.data as GraphState) ?? null;
+          workflowFinalState = isGraphState(chunk.data)
+            ? chunk.data
+            : ((await readLatestGraphState()) ?? currentState);
           break;
         }
 
@@ -888,11 +910,40 @@ export async function orchestrateGraphStream({
       }
 
       // Natural end with no explicit "done" (defensive close)
+      const naturalFinalState = (await readLatestGraphState()) ?? currentState;
+      if (pendingRequestWrites.length > 0) {
+        await Promise.all(pendingRequestWrites);
+      }
+      const resolvedSessionId =
+        ((config as any)?.session?.id as string | undefined) || sessionId || "";
+      if (resolvedSessionId && frameworkAdapter?.sessionCheckpoints) {
+        try {
+          const checkpoint = await frameworkAdapter.sessionCheckpoints.append({
+            sessionId: resolvedSessionId,
+            runId,
+            workflow: String(naturalFinalState.currentWorkflow),
+            state: naturalFinalState,
+            nodes: Array.from(touchedNodes),
+            structuredStreamIds: Array.from(structuredStreamIds),
+            pendingRequests: Array.from(activePendingRequests.values()),
+          });
+          out.write({
+            type: "checkpoint",
+            id: checkpoint.id,
+            sessionId: checkpoint.sessionId,
+            turnIndex: checkpoint.turnIndex,
+            ...(checkpoint.label ? { label: checkpoint.label } : {}),
+          } as StreamChunk);
+        } catch (error) {
+          // eslint-disable-next-line no-console
+          console.error("[orchestrator] session checkpoint failed", error);
+        }
+      }
       runTraceSpan.setAttributes?.({
-        "kortyx.run.final_workflow": String(currentState.currentWorkflow),
+        "kortyx.run.final_workflow": String(naturalFinalState.currentWorkflow),
       });
       runTraceSpan.end?.(runTraceEndArgs());
-      out.write({ type: "done" });
+      out.write({ type: "done", data: naturalFinalState } as any);
       out.end();
       return;
     }
