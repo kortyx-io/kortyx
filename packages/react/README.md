@@ -40,6 +40,10 @@ It also exposes stream controls for UI integrations:
 - `resetChat()`
 - `respondToInterrupt(...)`
 
+When the live stream or latest assistant message contains a text interrupt,
+`send(text)` resumes that request automatically. Historical interrupts are not
+reused after a response or later assistant message.
+
 `clearMessages()` keeps the current session. `resetChat()` clears messages,
 active stream state, errors, and the session id. Route transports forward
 `abort()` through an `AbortSignal`; custom transports should forward

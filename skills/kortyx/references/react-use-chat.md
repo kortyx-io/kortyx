@@ -40,7 +40,7 @@ Call `send(text)` for a normal user message.
 await chat.send(inputValue);
 ```
 
-If an active text interrupt exists, `send(...)` responds to that interrupt instead of starting a new normal turn.
+If an active text interrupt exists, `send(...)` responds to that interrupt instead of starting a new normal turn. "Active" means a `kind: "text"` interrupt in the live stream or latest assistant message. Historical interrupts are not reused after a response or later assistant message. See `react-interrupts.md` "Text Interrupts And `send(...)` Auto-Resume" for details.
 
 ## Context
 

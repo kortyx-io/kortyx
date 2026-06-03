@@ -197,6 +197,8 @@ For UI components rendering a `HumanInputPiece`, use `respondToInterrupt(...)` s
 
 `respondToInterrupt(piece, { selected })` handles choice and multi-choice interrupts. `respondToInterrupt(piece, { text })` handles text interrupts.
 
+> **Good to know:** When the live stream or latest assistant message contains a text interrupt, `send(text)` resumes that request automatically. Historical interrupts are not reused after a response or later assistant message.
+
 When the server sets interrupt routing metadata, `HumanInputPiece` preserves `schemaId`, `schemaVersion`, `interruptId`, and public `meta`.
 Switch on `piece.schemaId` for custom controls such as job pickers, file uploaders, or address autocompletes.
 

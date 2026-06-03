@@ -56,6 +56,55 @@ const selected = await useInterrupt({
 });
 ```
 
+## `useInterrupt(...)` vs `useReason({ interrupt })`
+
+Both pause a node for human input. They differ in who writes the request payload:
+
+| | `useInterrupt(...)` | `useReason({ interrupt })` |
+|---|---|---|
+| Request payload | Authored by node code (static or computed) | Authored by the model output |
+| Question and options | Deterministic app logic | Model output validated by `requestSchema` |
+| Public client metadata | Pass `schemaId`, `schemaVersion`, and `meta` directly | Pass `schemaId` and `schemaVersion` in the interrupt config |
+| Cost to produce request | No LLM call | One LLM call |
+
+Choose `useInterrupt(...)` when:
+
+- App code already knows what input to request.
+- You want to ship a custom payload to the client through `meta`.
+- You want to skip the extra LLM round-trip.
+
+Choose `useReason({ interrupt })` when:
+
+- The model should decide what to ask based on its reasoning.
+- The model should produce request fields validated by `requestSchema`.
+- The model may continue without interrupting when `interrupt.mode` is `"optional"`.
+
+### Shipping Custom Payloads To The Client
+
+Pass `meta?: Record<string, unknown>` at the top level of `useInterrupt(...)`. It appears on the client as `HumanInputPiece.meta`. The shape is opaque to Kortyx; validate it on the client.
+
+```ts
+const selected = await useInterrupt({
+  id: "pick-account",
+  schemaId: "account-picker",
+  schemaVersion: "1",
+  meta: {
+    prefillQuery: "north",
+    variant: "search",
+  },
+  request: {
+    kind: "choice",
+    question: "Choose an account:",
+    options: [
+      { id: "account-1", label: "Northwind" },
+      { id: "account-2", label: "Contoso" },
+    ],
+  },
+});
+```
+
+`schemaId` / `schemaVersion` are first-class fields used by the client to switch picker components; `meta` is the bag for the rest of the props.
+
 ## Resume Model
 
 Kortyx resumes by replaying node logic from a checkpoint. Code before an interrupt or resumable reasoning call can run again. Make side effects replay-safe.
@@ -88,6 +137,15 @@ setApprovalCount((count) => count + 1);
 ```
 
 `useNodeState(...)` is best for replay guards inside one node. `useWorkflowState(...)` is best for short-lived counters, flags, or accumulated values used by multiple nodes in one run.
+
+### State Scope Across Runs
+
+`useWorkflowState(...)` is runtime execution state. It flows through nodes and same-run `transitionTo` handoffs. Do not use it as durable application state or assume it will be restored for a later independent `agent.streamChat(...)` request.
+
+When a later request needs a value:
+
+- Pass server-approved request data through `useRuntimeContext(...)`.
+- Persist durable values in the application database.
 
 ## Persistence
 

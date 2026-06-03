@@ -35,3 +35,36 @@ export const supportNode = async () => {
 ## Boundary
 
 Client-provided context is not trusted authorization state. User id, roles, tenant permissions, and billing access must come from server auth/session data.
+
+## Prior Messages Are Not In Context
+
+Kortyx splits the incoming `messages` array internally — the last message becomes the node `input`, and the rest go into the agent's `runtime.priorMessages`. `useRuntimeContext<T>()` exposes only the `context` object passed to `agent.streamChat(..., { context })`; `priorMessages` is **not** available through the hook.
+
+If node code needs to see prior turns (for prompt construction, classification of follow-ups, context-aware resolvers), forward a trimmed copy through `context` in the route:
+
+```ts
+// route handler
+const history = body.messages
+  .slice(0, -1)
+  .map((m) => ({ role: m.role, content: m.content }));
+
+const approvedContext = {
+  ...serverContext,
+  ...(history.length > 0 ? { history } : {}),
+};
+
+return toSSE(
+  await agent.streamChat(body.messages, {
+    sessionId: body.sessionId,
+    context: approvedContext,
+  }),
+);
+```
+
+```ts
+// node
+type Ctx = { history?: { role: "user" | "assistant"; content: string }[] };
+const { history = [] } = useRuntimeContext<Ctx>();
+```
+
+Apply an app-owned history limit and filtering policy before putting prior turns into prompts.

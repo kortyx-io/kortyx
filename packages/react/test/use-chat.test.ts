@@ -269,6 +269,113 @@ describe("useChat", () => {
     });
   });
 
+  it("starts a fresh turn after a text interrupt has already received a response", async () => {
+    const seenMessages: Parameters<ChatTransport["stream"]>[0]["messages"][] =
+      [];
+    const interruptMessage: ChatMsg = {
+      id: "assistant-1",
+      role: "assistant",
+      content: "",
+      contentPieces: [
+        {
+          id: "interrupt-1",
+          type: "interrupt",
+          resumeToken: "resume-1",
+          requestId: "request-1",
+          kind: "text",
+          question: "Enter text",
+          multiple: false,
+          options: [],
+        },
+      ],
+    };
+    const memory = createMemoryStorage({
+      messages: [
+        interruptMessage,
+        { id: "user-1", role: "user", content: "resolved text" },
+      ],
+    });
+    const transport: ChatTransport = {
+      stream: async ({ onChunk, messages }) => {
+        seenMessages.push(messages);
+        await onChunk({ type: "done" });
+      },
+    };
+
+    const { result } = renderHook(() =>
+      useChat({
+        transport,
+        storage: memory.storage,
+      }),
+    );
+
+    await flushEffects();
+
+    await act(async () => {
+      await result.current.send("fresh text");
+    });
+
+    expect(seenMessages[0]?.at(-1)).toEqual({
+      role: "user",
+      content: "fresh text",
+    });
+  });
+
+  it("starts a fresh turn when a later assistant message supersedes a text interrupt", async () => {
+    const seenMessages: Parameters<ChatTransport["stream"]>[0]["messages"][] =
+      [];
+    const memory = createMemoryStorage({
+      messages: [
+        {
+          id: "assistant-1",
+          role: "assistant",
+          content: "",
+          contentPieces: [
+            {
+              id: "interrupt-1",
+              type: "interrupt",
+              resumeToken: "resume-1",
+              requestId: "request-1",
+              kind: "text",
+              question: "Enter text",
+              multiple: false,
+              options: [],
+            },
+          ],
+        },
+        {
+          id: "assistant-2",
+          role: "assistant",
+          content: "Completed",
+        },
+      ],
+    });
+    const transport: ChatTransport = {
+      stream: async ({ onChunk, messages }) => {
+        seenMessages.push(messages);
+        await onChunk({ type: "done" });
+      },
+    };
+
+    const { result } = renderHook(() =>
+      useChat({
+        transport,
+        storage: memory.storage,
+      }),
+    );
+
+    await flushEffects();
+
+    await act(async () => {
+      await result.current.send("fresh text");
+    });
+
+    expect(seenMessages[0]?.at(-1)).toEqual({
+      role: "user",
+      content: "fresh text",
+    });
+  });
+
   it("omits prior history when includeHistory is false", async () => {
     let seenMessages:
       | Array<{
