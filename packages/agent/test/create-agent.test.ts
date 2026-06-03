@@ -256,6 +256,129 @@ describe("createAgent", () => {
     expect(deleteCheckpointWrites).toHaveBeenCalledTimes(4);
   });
 
+  it("clears graph writes for every hydrated rollback pending request", async () => {
+    const pendingRequests = {
+      delete: vi.fn(async () => undefined),
+      save: vi.fn(async () => undefined),
+    };
+    const getLatestCheckpointId = vi.fn(
+      async (runId: string, checkpointNs?: string) => {
+        if (runId === "run-hydrate" && checkpointNs === "workflow-1") {
+          return "workflow-graph-cp";
+        }
+        return undefined;
+      },
+    );
+    const deleteCheckpointWrites = vi.fn(async () => undefined);
+    const sessionCheckpoints = {
+      list: vi.fn(async () => []),
+      get: vi.fn(async () => null),
+      rollbackTo: vi.fn(async (id: string) => ({
+        sessionId: "session-1",
+        head: id,
+        invalidatedStructuredStreamIds: [],
+        invalidatedInterruptTokens: ["old-depth-token", "old-final-token"],
+        activePendingRequests: [
+          {
+            token: "hydrate-token",
+            requestId: "human-hydrate",
+            runId: "run-hydrate",
+            workflow: "workflow-1",
+            node: "selectTemplate",
+            schema: { kind: "choice", multiple: false },
+            options: [],
+            createdAt: 1,
+            ttlMs: 1000,
+          },
+          {
+            token: "stored-token",
+            requestId: "human-stored",
+            runId: "run-stored",
+            workflow: "workflow-2",
+            node: "selectDepth",
+            schema: { kind: "choice", multiple: false },
+            options: [],
+            createdAt: 1,
+            ttlMs: 1000,
+            graphCheckpointId: "stored-graph-cp",
+          },
+          {
+            token: "unhydrated-token",
+            requestId: "human-unhydrated",
+            runId: "run-unhydrated",
+            workflow: "workflow-3",
+            node: "ask",
+            schema: { kind: "text" },
+            options: [],
+            createdAt: 1,
+            ttlMs: 1000,
+          },
+        ],
+      })),
+      fork: vi.fn(),
+    };
+    const agent = createAgent({
+      workflows: [{ id: "workflow-1" } as WorkflowDefinition],
+      frameworkAdapter: {
+        checkpointer: { getLatestCheckpointId, deleteCheckpointWrites },
+        pendingRequests,
+        sessionCheckpoints,
+      } as unknown as FrameworkAdapter,
+    });
+
+    const result = await agent.rollbackTo("cp-template");
+    expect(result.activePendingRequests).toEqual([
+      expect.objectContaining({
+        token: "hydrate-token",
+        graphCheckpointId: "workflow-graph-cp",
+      }),
+      expect.objectContaining({
+        token: "stored-token",
+        graphCheckpointId: "stored-graph-cp",
+      }),
+      expect.objectContaining({
+        token: "unhydrated-token",
+      }),
+    ]);
+    expect(result.activePendingRequests[2]).not.toHaveProperty(
+      "graphCheckpointId",
+    );
+
+    expect(pendingRequests.delete).toHaveBeenCalledWith("old-depth-token");
+    expect(pendingRequests.delete).toHaveBeenCalledWith("old-final-token");
+    expect(pendingRequests.save).toHaveBeenCalledTimes(3);
+    expect(deleteCheckpointWrites).toHaveBeenCalledTimes(4);
+    expect(deleteCheckpointWrites).toHaveBeenCalledWith(
+      "run-hydrate",
+      "workflow-1",
+      "workflow-graph-cp",
+    );
+    expect(deleteCheckpointWrites).toHaveBeenCalledWith(
+      "run-hydrate",
+      "",
+      "workflow-graph-cp",
+    );
+    expect(deleteCheckpointWrites).toHaveBeenCalledWith(
+      "run-stored",
+      "workflow-2",
+      "stored-graph-cp",
+    );
+    expect(deleteCheckpointWrites).toHaveBeenCalledWith(
+      "run-stored",
+      "",
+      "stored-graph-cp",
+    );
+    expect(getLatestCheckpointId).toHaveBeenCalledWith(
+      "run-hydrate",
+      "workflow-1",
+    );
+    expect(getLatestCheckpointId).toHaveBeenCalledWith(
+      "run-unhydrated",
+      "workflow-3",
+    );
+    expect(getLatestCheckpointId).toHaveBeenCalledWith("run-unhydrated", "");
+  });
+
   it("uses the general-chat fallback for in-memory workflows without a default", async () => {
     const workflow = { id: "workflow-1" } as WorkflowDefinition;
     const agent = createAgent({ workflows: [workflow] });

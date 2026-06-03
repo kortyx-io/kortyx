@@ -372,6 +372,93 @@ describe("session checkpoint store", () => {
     ]);
   });
 
+  it("supports repeated rollback to the same interrupt boundary after alternate branches", async () => {
+    const store = createInMemorySessionCheckpointStore();
+    const baseState = {
+      input: "start",
+      lastNode: "__start__",
+      currentWorkflow: "workflow-1",
+      config: {},
+      runtime: {},
+      conversationHistory: [],
+      awaitingHumanInput: false,
+    };
+
+    const firstInterrupt = await store.append({
+      sessionId: "session-1",
+      runId: "run-1",
+      workflow: "workflow-1",
+      state: { ...baseState, awaitingHumanInput: true },
+      structuredStreamIds: ["capture"],
+      pendingRequests: [
+        pendingRecord({
+          token: "template-token",
+          requestId: "template-request",
+        }),
+      ],
+    });
+    const launchTurn = await store.append({
+      sessionId: "session-1",
+      runId: "run-1",
+      workflow: "workflow-1",
+      state: { ...baseState, runtime: { flags: { template: "launch" } } },
+      structuredStreamIds: ["launch-step"],
+      pendingRequests: [
+        pendingRecord({
+          token: "launch-depth-token",
+          requestId: "launch-depth-request",
+        }),
+      ],
+    });
+    await store.append({
+      sessionId: "session-1",
+      runId: "run-1",
+      workflow: "workflow-1",
+      state: {
+        ...baseState,
+        runtime: { flags: { template: "launch", depth: "deep" } },
+      },
+      structuredStreamIds: ["launch-draft"],
+    });
+
+    await expect(store.rollbackTo(firstInterrupt.id)).resolves.toMatchObject({
+      head: firstInterrupt.id,
+      invalidatedStructuredStreamIds: ["launch-step", "launch-draft"],
+      invalidatedInterruptTokens: ["launch-depth-token"],
+      activePendingRequests: [
+        expect.objectContaining({ token: "template-token" }),
+      ],
+    });
+    await expect(store.get(launchTurn.id)).resolves.toBeNull();
+
+    const researchTurn = await store.append({
+      sessionId: "session-1",
+      runId: "run-1",
+      workflow: "workflow-1",
+      state: { ...baseState, runtime: { flags: { template: "research" } } },
+      structuredStreamIds: ["research-step"],
+      pendingRequests: [
+        pendingRecord({
+          token: "research-depth-token",
+          requestId: "research-depth-request",
+        }),
+      ],
+    });
+
+    await expect(store.rollbackTo(firstInterrupt.id)).resolves.toMatchObject({
+      head: firstInterrupt.id,
+      invalidatedStructuredStreamIds: ["research-step"],
+      invalidatedInterruptTokens: ["research-depth-token"],
+      activePendingRequests: [
+        expect.objectContaining({ token: "template-token" }),
+      ],
+    });
+    await expect(store.get(researchTurn.id)).resolves.toBeNull();
+    await expect(store.list("session-1")).resolves.toMatchObject([
+      { id: firstInterrupt.id, turnIndex: 0 },
+    ]);
+  });
+
   it("covers defensive in-memory checkpoint branches", async () => {
     const baseState = {
       input: "hello",
@@ -534,6 +621,97 @@ describe("redis session checkpoint store", () => {
     await expect(store.fork("missing")).rejects.toThrow(
       'Checkpoint "missing" not found.',
     );
+  });
+
+  it("supports repeated rollback to the same interrupt boundary after alternate branches", async () => {
+    const store = createRedisSessionCheckpointStore({
+      store: createMemoryRedisStore(),
+      ttlMs: 5000,
+      prefix: "session-cp:",
+    });
+    const baseState = {
+      input: "start",
+      lastNode: "__start__",
+      currentWorkflow: "workflow-1",
+      config: {},
+      runtime: {},
+      conversationHistory: [],
+      awaitingHumanInput: false,
+    };
+
+    const firstInterrupt = await store.append({
+      sessionId: "session-1",
+      runId: "run-1",
+      workflow: "workflow-1",
+      state: { ...baseState, awaitingHumanInput: true },
+      structuredStreamIds: ["capture"],
+      pendingRequests: [
+        pendingRecord({
+          token: "template-token",
+          requestId: "template-request",
+        }),
+      ],
+    });
+    const launchTurn = await store.append({
+      sessionId: "session-1",
+      runId: "run-1",
+      workflow: "workflow-1",
+      state: { ...baseState, runtime: { flags: { template: "launch" } } },
+      structuredStreamIds: ["launch-step"],
+      pendingRequests: [
+        pendingRecord({
+          token: "launch-depth-token",
+          requestId: "launch-depth-request",
+        }),
+      ],
+    });
+    await store.append({
+      sessionId: "session-1",
+      runId: "run-1",
+      workflow: "workflow-1",
+      state: {
+        ...baseState,
+        runtime: { flags: { template: "launch", depth: "deep" } },
+      },
+      structuredStreamIds: ["launch-draft"],
+    });
+
+    await expect(store.rollbackTo(firstInterrupt.id)).resolves.toMatchObject({
+      head: firstInterrupt.id,
+      invalidatedStructuredStreamIds: ["launch-step", "launch-draft"],
+      invalidatedInterruptTokens: ["launch-depth-token"],
+      activePendingRequests: [
+        expect.objectContaining({ token: "template-token" }),
+      ],
+    });
+    await expect(store.get(launchTurn.id)).resolves.toBeNull();
+
+    const researchTurn = await store.append({
+      sessionId: "session-1",
+      runId: "run-1",
+      workflow: "workflow-1",
+      state: { ...baseState, runtime: { flags: { template: "research" } } },
+      structuredStreamIds: ["research-step"],
+      pendingRequests: [
+        pendingRecord({
+          token: "research-depth-token",
+          requestId: "research-depth-request",
+        }),
+      ],
+    });
+
+    await expect(store.rollbackTo(firstInterrupt.id)).resolves.toMatchObject({
+      head: firstInterrupt.id,
+      invalidatedStructuredStreamIds: ["research-step"],
+      invalidatedInterruptTokens: ["research-depth-token"],
+      activePendingRequests: [
+        expect.objectContaining({ token: "template-token" }),
+      ],
+    });
+    await expect(store.get(researchTurn.id)).resolves.toBeNull();
+    await expect(store.list("session-1")).resolves.toMatchObject([
+      { id: firstInterrupt.id, turnIndex: 0 },
+    ]);
   });
 
   it("returns null when a redis head pointer references a missing record", async () => {
