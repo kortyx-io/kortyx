@@ -2842,6 +2842,103 @@ describe("useChat", () => {
     expect(seenMessages.at(-1)).toEqual([{ role: "user", content: "edited" }]);
   });
 
+  it("regenerates from a selected checkpoint and removes later local messages", async () => {
+    const seenMessages: Parameters<ChatTransport["stream"]>[0]["messages"][] =
+      [];
+    const transport: ChatTransport = {
+      stream: async ({ messages, onChunk }) => {
+        seenMessages.push(messages);
+        await onChunk({ type: "done" });
+      },
+      listCheckpoints: vi.fn(async () => [
+        {
+          id: "cp-0",
+          sessionId: "session-1",
+          turnIndex: 0,
+          createdAt: 1,
+          nodes: [],
+          workflow: "workflow-1",
+        },
+        {
+          id: "cp-1",
+          sessionId: "session-1",
+          turnIndex: 1,
+          createdAt: 2,
+          nodes: [],
+          workflow: "workflow-1",
+        },
+        {
+          id: "cp-2",
+          sessionId: "session-1",
+          turnIndex: 2,
+          createdAt: 3,
+          nodes: [],
+          workflow: "workflow-1",
+        },
+      ]),
+      rollbackTo: vi.fn(async (checkpointId: string) => ({
+        sessionId: "session-1",
+        head: checkpointId,
+        invalidatedStructuredStreamIds: [],
+        invalidatedInterruptTokens: [],
+        activePendingRequests: [],
+      })),
+      fork: vi.fn(),
+    };
+    const memory = createMemoryStorage({
+      sessionId: "session-1",
+      messages: [
+        { id: "user-1", role: "user", content: "start" },
+        {
+          id: "assistant-1",
+          role: "assistant",
+          content: "first reply",
+          checkpointId: "cp-1",
+          checkpointTurnIndex: 1,
+        },
+        { id: "user-2", role: "user", content: "next prompt" },
+        {
+          id: "assistant-2",
+          role: "assistant",
+          content: "old final",
+          checkpointId: "cp-2",
+          checkpointTurnIndex: 2,
+        },
+      ],
+    });
+
+    const { result } = renderHook(() =>
+      useChat({
+        transport,
+        storage: memory.storage,
+      }),
+    );
+
+    await flushEffects();
+
+    await act(async () => {
+      await result.current.regenerateFromCheckpoint("cp-1");
+    });
+
+    expect(transport.rollbackTo).toHaveBeenCalledWith("cp-1");
+    expect(seenMessages.at(-1)).toEqual([
+      { role: "user", content: "start" },
+      { role: "assistant", content: "first reply" },
+      { role: "user", content: "next prompt" },
+    ]);
+    expect(result.current.messages.map((message) => message.content)).toEqual([
+      "start",
+      "first reply",
+      "next prompt",
+      "",
+    ]);
+    expect(
+      result.current.messages.some(
+        (message) => message.content === "old final",
+      ),
+    ).toBe(false);
+  });
+
   it("replays interrupt responses as resume payloads when regenerating", async () => {
     const seenMessages: Parameters<ChatTransport["stream"]>[0]["messages"][] =
       [];

@@ -79,6 +79,7 @@ export type UseChatValue = {
     options?: { newSessionId?: string },
   ) => Promise<ForkCheckpointResult>;
   regenerate: (assistantMessageId: string) => Promise<void>;
+  regenerateFromCheckpoint: (checkpointId: string) => Promise<void>;
   retryWithEdit: (
     assistantMessageId: string,
     newUserContent: string,
@@ -826,6 +827,41 @@ export function useChat<TContext = DefaultChatContext>(
     await replayUserMessage(previousUser, baseMessages);
   };
 
+  const regenerateFromCheckpoint = async (
+    checkpointId: string,
+  ): Promise<void> => {
+    const sid = resolveSessionId();
+    let availableCheckpoints =
+      checkpoints.length > 0 ? checkpoints : await refreshCheckpoints(sid);
+    let target = availableCheckpoints.find(
+      (checkpoint) => checkpoint.id === checkpointId,
+    );
+    if (!target && checkpoints.length > 0) {
+      availableCheckpoints = await refreshCheckpoints(sid);
+      target = availableCheckpoints.find(
+        (checkpoint) => checkpoint.id === checkpointId,
+      );
+    }
+    if (!target) {
+      throw new Error(`Checkpoint "${checkpointId}" not found.`);
+    }
+
+    const baseMessages = trimMessagesToCheckpoint({
+      messages,
+      turnIndex: target.turnIndex,
+    });
+    const previousUser = messages
+      .slice(baseMessages.length)
+      .find((message) => message.role === "user");
+    if (!previousUser) {
+      throw new Error("No user message found after checkpoint for regenerate.");
+    }
+
+    await rollbackTo(target.id);
+    setMessages(baseMessages);
+    await replayUserMessage(previousUser, baseMessages);
+  };
+
   const retryWithEdit = async (
     assistantMessageId: string,
     newUserContent: string,
@@ -856,6 +892,7 @@ export function useChat<TContext = DefaultChatContext>(
     rollbackTo,
     fork,
     regenerate,
+    regenerateFromCheckpoint,
     retryWithEdit,
     clearMessages,
     resetSession,

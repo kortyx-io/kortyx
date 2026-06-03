@@ -29,7 +29,7 @@ export function ChatWindow({ chat }: { chat: UseChatValue }) {
     send,
     respondToHumanInput,
     resetChat,
-    regenerate,
+    regenerateFromCheckpoint,
     retryWithEdit,
     rollbackTo,
     fork,
@@ -220,16 +220,16 @@ export function ChatWindow({ chat }: { chat: UseChatValue }) {
                 <Button
                   variant="outline"
                   size="sm"
-                  disabled={!lastAssistantId || isStreaming}
+                  disabled={!selectedCheckpoint || isStreaming}
                   onClick={() =>
-                    lastAssistantId
+                    selectedCheckpoint
                       ? runCheckpointAction(
-                          () => regenerate(lastAssistantId),
-                          "Regenerated from the previous checkpoint.",
+                          () => regenerateFromCheckpoint(selectedCheckpoint.id),
+                          `Regenerated from turn ${selectedCheckpoint.turnIndex}.`,
                         )
                       : undefined
                   }
-                  title="Regenerate latest assistant message"
+                  title="Regenerate from selected checkpoint"
                 >
                   <RefreshCwIcon className="size-4" />
                   <span className="hidden sm:inline">Regenerate</span>
