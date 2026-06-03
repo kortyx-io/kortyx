@@ -52,6 +52,20 @@ Use workflow override `interrupt-sequential-demo` to verify the multi-interrupt 
 
 Before the fix in `@kortyx/agent`, step 4 would hang because the resumed run reached a second `useInterrupt()` but never emitted a new interrupt chunk.
 
+## Test session checkpoints, rollback, regenerate, and fork
+
+Use workflow override `checkpoint-lab` to test the user-facing checkpoint API from the browser. This workflow does not require a model provider key.
+
+1. Start the app.
+2. In the UI, set workflow override to `checkpoint-lab`.
+3. Send a request such as `Draft a rollout brief for workspace notifications`.
+4. Choose a template, then choose a detail level.
+5. Use **Regenerate** to re-run the final assistant turn from the previous checkpoint.
+6. Use **Rollback** to move the session back to an earlier turn and drop later client messages.
+7. Use **Fork** to continue the visible message history under a new session id while preserving the parent session server state.
+
+The final node emits `checkpoint-lab.brief` structured data, so regenerate also exercises structured-data invalidation for chunks produced after the rollback target. Redis is optional for local testing, but setting `KORTYX_REDIS_URL` makes checkpoints survive a dev server restart.
+
 ## Test resolved text interrupts
 
 Use workflow override `interrupt-text-resume-regression` to verify that a resolved text interrupt does not capture later chat sends.

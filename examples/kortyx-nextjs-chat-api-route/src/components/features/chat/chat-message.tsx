@@ -57,6 +57,15 @@ type MultiComposeStructuredData = {
   ctas?: string[];
 };
 
+type CheckpointLabBriefData = {
+  title?: string;
+  template?: string;
+  depth?: string;
+  summary?: string;
+  bullets?: string[];
+  generatedAt?: string;
+};
+
 const isComposeStructuredData = (
   data: StructuredData,
 ): data is StructuredData & { data: ComposeStructuredData } => {
@@ -68,6 +77,13 @@ const isMultiComposeStructuredData = (
   data: StructuredData,
 ): data is StructuredData & { data: MultiComposeStructuredData } => {
   if (data.dataType !== "reason-demo.multi-compose") return false;
+  return Boolean(data.data) && typeof data.data === "object";
+};
+
+const isCheckpointLabBriefData = (
+  data: StructuredData,
+): data is StructuredData & { data: CheckpointLabBriefData } => {
+  if (data.dataType !== "checkpoint-lab.brief") return false;
   return Boolean(data.data) && typeof data.data === "object";
 };
 
@@ -321,6 +337,85 @@ function StructuredDataBox({ data }: { data: StructuredData }) {
     );
   }
 
+  if (isCheckpointLabBriefData(data)) {
+    const brief = data.data;
+    const bullets = Array.isArray(brief.bullets)
+      ? brief.bullets.filter(
+          (item: unknown): item is string => typeof item === "string",
+        )
+      : [];
+
+    return (
+      <div className="my-3 overflow-hidden rounded-lg border border-violet-200/70 bg-white/90 shadow-sm dark:border-violet-900/70 dark:bg-slate-950/80">
+        <div className="flex items-center justify-between border-b border-violet-100 bg-violet-50/80 px-4 py-3 dark:border-violet-950/60 dark:bg-violet-950/20">
+          <div className="flex items-center gap-3 text-xs">
+            {data.node && (
+              <span className="font-semibold uppercase tracking-[0.18em] text-violet-700 dark:text-violet-300">
+                {data.node}
+              </span>
+            )}
+            <span className="font-mono text-slate-500 dark:text-slate-400">
+              {data.dataType}
+            </span>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-7 px-2 text-[11px]"
+            onClick={() => setIsExpanded((value) => !value)}
+          >
+            {isExpanded ? "Hide raw" : "Show raw"}
+          </Button>
+        </div>
+
+        <div className="space-y-4 px-5 py-4">
+          <div className="space-y-1">
+            <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
+              Brief
+            </div>
+            <div className="text-lg font-semibold text-slate-950 dark:text-slate-50">
+              {brief.title || "Checkpoint lab brief"}
+            </div>
+            <div className="text-xs text-slate-500 dark:text-slate-400">
+              {brief.template || "template"} · {brief.depth || "depth"}
+              {brief.generatedAt ? ` · ${brief.generatedAt}` : ""}
+            </div>
+          </div>
+
+          <div className="leading-7 text-slate-700 whitespace-pre-wrap dark:text-slate-200">
+            {brief.summary || ""}
+          </div>
+
+          {bullets.length > 0 && (
+            <ul className="m-0 space-y-2 list-none">
+              {bullets.map((bullet) => (
+                <li
+                  key={bullet}
+                  className="flex gap-3 text-slate-700 dark:text-slate-200"
+                >
+                  <span className="mt-2 size-2 shrink-0 rounded-full bg-violet-500" />
+                  <span>{bullet}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+
+        {isExpanded &&
+          (highlightedCode ? (
+            <div
+              className="border-t border-slate-200 text-xs dark:border-slate-800 [&_pre]:!m-0 [&_pre]:!bg-transparent [&_pre]:!p-4 [&_pre]:!whitespace-pre-wrap [&_pre]:!break-words [&_pre]:!overflow-wrap-anywhere"
+              dangerouslySetInnerHTML={{ __html: highlightedCode }}
+            />
+          ) : (
+            <pre className="m-0 overflow-x-auto border-t border-slate-200 p-4 text-xs text-slate-800 whitespace-pre-wrap break-words dark:border-slate-800 dark:text-slate-200 overflow-wrap-anywhere">
+              {rawJson}
+            </pre>
+          ))}
+      </div>
+    );
+  }
+
   return (
     <div className="my-3 overflow-hidden border rounded-lg border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-900">
       <button
@@ -482,7 +577,8 @@ export function ChatMessage({
       (piece) =>
         piece.type === "structured" &&
         (piece.data.dataType === "reason-demo.compose" ||
-          piece.data.dataType === "reason-demo.multi-compose"),
+          piece.data.dataType === "reason-demo.multi-compose" ||
+          piece.data.dataType === "checkpoint-lab.brief"),
     ),
   );
 
