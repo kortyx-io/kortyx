@@ -1,6 +1,6 @@
 ---
 name: kortyx
-description: Use when building, reviewing, documenting, or architecting apps with Kortyx. Covers Kortyx hooks, useReason, interrupts, structured streaming, runtime context, Next.js API routes and server actions, separate React + Node apps, folder structure, runtime persistence, OpenTelemetry observability, Langfuse export, @kortyx/react, useChat, transports, and streamed chat rendering.
+description: Use when building, reviewing, documenting, or architecting apps with Kortyx. Covers Kortyx hooks, useReason, interrupts, structured streaming, runtime context, Next.js API routes and server actions, separate React + Node apps, folder structure, runtime persistence, session checkpoints/rollback/fork, OpenTelemetry observability, Langfuse export, @kortyx/react, useChat, transports, and streamed chat rendering.
 ---
 
 # Kortyx
@@ -26,6 +26,7 @@ Architecture:
 - `references/architecture-nextjs.md`: Next.js API route vs Server Action guidance.
 - `references/architecture-react-node.md`: separate React frontend plus Node backend.
 - `references/architecture-runtime-persistence.md`: in-memory vs Redis and app DB boundaries.
+- `references/session-checkpoints-rollback-fork.md`: implementing user-facing session checkpoints, rollback, fork, regenerate, structured-data invalidation, and checkpoint-aware `useChat`.
 - `references/observability-otel.md`: backend-neutral server-side OpenTelemetry tracing, prompt metadata, tags, and trace ids on the React client.
 - `references/observability-langfuse.md`: app-owned Langfuse export, Kortyx attribute mapping, Next.js flush lifecycle, optional prompt linking, and client feedback scores.
 
@@ -50,6 +51,7 @@ React client:
 - Put provider credentials/configuration, `createAgent(...)`, workflows, nodes, and runtime persistence on the server.
 - Use `@kortyx/react` for React chat clients unless the task needs lower-level stream primitives.
 - Store product/business data in the app DB or service layer, not Kortyx runtime persistence.
+- Treat user-facing rollback/fork as session-level runtime state, not transcript replay. Do not implement regenerate by only truncating client messages and resending text.
 - Keep OpenTelemetry tracing server-side and use generic Kortyx telemetry metadata.
 - Treat OpenTelemetry as the Kortyx observability contract. Keep backend exporters such as Langfuse app-owned.
 - `useReason({ outputSchema, structured.fields })` already streams known structured fields as `structured-data` chunks; do not confuse those with raw model JSON `text-delta` chunks.
@@ -61,5 +63,6 @@ React client:
 - Client, route/API, agent, workflows, nodes, providers, and persistence have clear boundaries.
 - Hook choice matches the node behavior.
 - Interrupt/resume code is replay-safe.
+- Rollback/fork features restore server-side workflow state and invalidate stale structured data.
 - Streaming clients render finalized history and active stream pieces separately.
 - Sensitive auth context is derived on the server.
