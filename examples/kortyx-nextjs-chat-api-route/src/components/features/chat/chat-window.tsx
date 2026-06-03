@@ -29,7 +29,6 @@ export function ChatWindow({ chat }: { chat: UseChatValue }) {
     send,
     respondToHumanInput,
     clearMessages,
-    setMessages,
     regenerate,
     retryWithEdit,
     rollbackTo,
@@ -135,17 +134,6 @@ export function ChatWindow({ chat }: { chat: UseChatValue }) {
   const rollbackSelectedCheckpoint = async () => {
     if (!selectedCheckpoint) return;
     await rollbackTo(selectedCheckpoint.id);
-    setMessages((current) => {
-      const keepThroughIndex = current.reduce((lastIndex, message, index) => {
-        return typeof message.checkpointTurnIndex === "number" &&
-          message.checkpointTurnIndex <= selectedCheckpoint.turnIndex
-          ? index
-          : lastIndex;
-      }, -1);
-      return keepThroughIndex >= 0
-        ? current.slice(0, keepThroughIndex + 1)
-        : [];
-    });
   };
 
   const forkSelectedCheckpoint = async () => {

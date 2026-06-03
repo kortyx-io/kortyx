@@ -135,6 +135,35 @@ function findActiveTextInterrupt(args: {
     );
 }
 
+function trimMessagesToCheckpoint(args: {
+  messages: ChatMsg[];
+  turnIndex: number;
+}): ChatMsg[] {
+  const hasCheckpointMetadata = args.messages.some(
+    (message) => typeof message.checkpointTurnIndex === "number",
+  );
+  if (!hasCheckpointMetadata && args.turnIndex > 0) return args.messages;
+
+  const keepThroughIndex = args.messages.reduce((lastIndex, message, index) => {
+    return typeof message.checkpointTurnIndex === "number" &&
+      message.checkpointTurnIndex <= args.turnIndex
+      ? index
+      : lastIndex;
+  }, -1);
+
+  return keepThroughIndex >= 0
+    ? args.messages.slice(0, keepThroughIndex + 1)
+    : [];
+}
+
+function latestAssistantMessageId(messages: ChatMsg[]): string | null {
+  for (let index = messages.length - 1; index >= 0; index--) {
+    const message = messages[index];
+    if (message?.role === "assistant") return message.id;
+  }
+  return null;
+}
+
 export function useChat<TContext = DefaultChatContext>(
   options: UseChatOptions<TContext>,
 ): UseChatValue {
@@ -201,6 +230,13 @@ export function useChat<TContext = DefaultChatContext>(
       cancelled = true;
     };
   }, [resolvedStorage]);
+
+  useEffect(() => {
+    const nextLastAssistantId = latestAssistantMessageId(messages);
+    if (lastAssistantId !== nextLastAssistantId) {
+      setLastAssistantId(nextLastAssistantId);
+    }
+  }, [lastAssistantId, messages]);
 
   useEffect(() => {
     if (!didHydrateStorage) return;
@@ -630,7 +666,20 @@ export function useChat<TContext = DefaultChatContext>(
     const transport = requireCheckpointTransport();
     const result = await transport.rollbackTo!(id);
     applyStructuredInvalidations(result.invalidatedStructuredStreamIds);
-    await refreshCheckpoints(result.sessionId);
+    const refreshedCheckpoints = await refreshCheckpoints(result.sessionId);
+    const target = refreshedCheckpoints.find(
+      (checkpoint) => checkpoint.id === result.head,
+    );
+
+    if (target) {
+      setMessages((current) => {
+        return trimMessagesToCheckpoint({
+          messages: current,
+          turnIndex: target.turnIndex,
+        });
+      });
+    }
+
     return result;
   };
 
@@ -712,14 +761,10 @@ export function useChat<TContext = DefaultChatContext>(
       throw new Error("No rollback checkpoint found for regenerate.");
     }
 
-    const keepThroughIndex = messages.reduce((lastIndex, message, index) => {
-      return typeof message.checkpointTurnIndex === "number" &&
-        message.checkpointTurnIndex <= target.turnIndex
-        ? index
-        : lastIndex;
-    }, -1);
-    const baseMessages =
-      keepThroughIndex >= 0 ? messages.slice(0, keepThroughIndex + 1) : [];
+    const baseMessages = trimMessagesToCheckpoint({
+      messages,
+      turnIndex: target.turnIndex,
+    });
 
     return { target, previousUser, baseMessages };
   };

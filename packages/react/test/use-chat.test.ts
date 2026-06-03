@@ -2502,6 +2502,149 @@ describe("useChat", () => {
     });
   });
 
+  it("trims messages and resets the latest assistant when rolling back repeatedly", async () => {
+    let listedCheckpoints = [
+      {
+        id: "cp-0",
+        sessionId: "session-1",
+        turnIndex: 0,
+        createdAt: 1,
+        nodes: [],
+        workflow: "workflow-1",
+      },
+      {
+        id: "cp-1",
+        sessionId: "session-1",
+        turnIndex: 1,
+        createdAt: 2,
+        nodes: [],
+        workflow: "workflow-1",
+      },
+      {
+        id: "cp-2",
+        sessionId: "session-1",
+        turnIndex: 2,
+        createdAt: 3,
+        nodes: [],
+        workflow: "workflow-1",
+      },
+      {
+        id: "cp-3",
+        sessionId: "session-1",
+        turnIndex: 3,
+        createdAt: 4,
+        nodes: [],
+        workflow: "workflow-1",
+      },
+    ];
+    const transport: ChatTransport = {
+      stream: async () => undefined,
+      listCheckpoints: vi.fn(async () => listedCheckpoints),
+      rollbackTo: vi.fn(async (checkpointId: string) => {
+        const target = listedCheckpoints.find(
+          (checkpoint) => checkpoint.id === checkpointId,
+        );
+        if (!target) throw new Error("missing checkpoint");
+        listedCheckpoints = listedCheckpoints.filter(
+          (checkpoint) => checkpoint.turnIndex <= target.turnIndex,
+        );
+        return {
+          sessionId: "session-1",
+          head: checkpointId,
+          invalidatedStructuredStreamIds: [],
+          invalidatedInterruptTokens: [],
+          activePendingRequests: [],
+        };
+      }),
+      fork: vi.fn(),
+    };
+    const memory = createMemoryStorage({
+      sessionId: "session-1",
+      messages: [
+        { id: "user-1", role: "user", content: "original" },
+        {
+          id: "assistant-1",
+          role: "assistant",
+          content: "first interrupt",
+          checkpointId: "cp-1",
+          checkpointTurnIndex: 1,
+        },
+        {
+          id: "user-2",
+          role: "user",
+          content: "launch",
+          source: {
+            type: "interrupt-response",
+            resumeToken: "token-1",
+            requestId: "request-1",
+            selected: ["launch"],
+          },
+        },
+        {
+          id: "assistant-2",
+          role: "assistant",
+          content: "second interrupt",
+          checkpointId: "cp-2",
+          checkpointTurnIndex: 2,
+        },
+        {
+          id: "user-3",
+          role: "user",
+          content: "standard",
+          source: {
+            type: "interrupt-response",
+            resumeToken: "token-2",
+            requestId: "request-2",
+            selected: ["standard"],
+          },
+        },
+        {
+          id: "assistant-3",
+          role: "assistant",
+          content: "final",
+          checkpointId: "cp-3",
+          checkpointTurnIndex: 3,
+        },
+      ],
+    });
+
+    const { result } = renderHook(() =>
+      useChat({
+        transport,
+        storage: memory.storage,
+      }),
+    );
+
+    await flushEffects();
+    expect(result.current.messages).toHaveLength(6);
+
+    await act(async () => {
+      await result.current.rollbackTo("cp-2");
+    });
+    expect(result.current.messages.map((message) => message.id)).toEqual([
+      "user-1",
+      "assistant-1",
+      "user-2",
+      "assistant-2",
+    ]);
+    expect(result.current.lastAssistantId).toBe("assistant-2");
+
+    await act(async () => {
+      await result.current.rollbackTo("cp-1");
+    });
+    expect(result.current.messages.map((message) => message.id)).toEqual([
+      "user-1",
+      "assistant-1",
+    ]);
+    expect(result.current.lastAssistantId).toBe("assistant-1");
+
+    await act(async () => {
+      await result.current.rollbackTo("cp-0");
+    });
+    expect(result.current.messages).toEqual([]);
+    expect(result.current.lastAssistantId).toBeNull();
+  });
+
   it("regenerates and retries normal prompt messages from rollback checkpoints", async () => {
     const seenMessages: Parameters<ChatTransport["stream"]>[0]["messages"][] =
       [];
