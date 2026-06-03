@@ -127,18 +127,18 @@ export function ChatSurface() {
 
 This is the main reason checkpoint-aware regenerate exists.
 
-If the user selects a job or agent from an interrupt UI, the visible message may look like a UUID:
+If the user selects a project or template from an interrupt UI, the visible message may look like a UUID:
 
 ```txt
-user: Help me generate a guide
-assistant: pick-job interrupt
-user: job-uuid
-assistant: pick-agent interrupt
-user: agent-uuid
+user: Help me prepare a report
+assistant: pick-project interrupt
+user: project-uuid
+assistant: pick-template interrupt
+user: template-uuid
 assistant: final summary
 ```
 
-When the final summary is regenerated, Kortyx rolls back to the checkpoint where the workflow was waiting for the agent selection. Then `useChat(...)` replays `agent-uuid` as an interrupt response, not as a new natural-language prompt.
+When the final summary is regenerated, Kortyx rolls back to the checkpoint where the workflow was waiting for the template selection. Then `useChat(...)` replays `template-uuid` as an interrupt response, not as a new natural-language prompt.
 
 > **Good to know:** Normal chat messages and interrupt responses use the same visible `messages` list, but `useChat(...)` stores hidden source metadata for interrupt responses so rollback can replay the right protocol.
 
@@ -163,14 +163,14 @@ await chat.retryWithEdit(assistantMessageId, "Use a shorter format.");
 
 ## Structured Data Invalidation
 
-Rollback can invalidate structured data that lives outside chat bubbles, such as a guide canvas, preview pane, generated table, or extracted fields.
+Rollback can invalidate structured data that lives outside chat bubbles, such as a report canvas, preview pane, generated table, or extracted fields.
 
 When a rollback discards checkpoints that produced structured streams, the server returns those stream ids. The stream protocol also includes:
 
 ```json
 {
   "type": "structured-data-invalidated",
-  "streamId": "guide-1",
+  "streamId": "report-1",
   "checkpointId": "cp_123"
 }
 ```

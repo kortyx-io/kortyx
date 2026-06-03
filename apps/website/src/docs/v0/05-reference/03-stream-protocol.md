@@ -95,7 +95,7 @@ For current `useReason` MCP tool execution, prefer the `tool-call-*` chunks. `to
 Examples:
 
 - email drafts
-- job tables
+- project tables
 - growing result lists
 - progress panels
 - validation results
@@ -242,7 +242,7 @@ When session checkpoints are enabled through a `FrameworkAdapter`, Kortyx emits 
   "id": "cp-123",
   "sessionId": "session-123",
   "turnIndex": 4,
-  "label": "before guide generation"
+  "label": "before report generation"
 }
 ```
 
@@ -264,7 +264,7 @@ Rollback can discard structured streams that were produced after the restored ch
 ```json
 {
   "type": "structured-data-invalidated",
-  "streamId": "guide-1",
+  "streamId": "report-1",
   "checkpointId": "cp-123"
 }
 ```
