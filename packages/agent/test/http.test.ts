@@ -2,8 +2,11 @@ import { describe, expect, it, vi } from "vitest";
 import type { Agent } from "../src";
 import {
   createChatRouteHandler,
+  createCheckpointRouteHandler,
   handleChatRequestBody,
+  handleCheckpointRequestBody,
   parseChatRequestBody,
+  parseCheckpointRequestBody,
 } from "../src/adapters/http";
 import { extractLatestUserMessage } from "../src/utils/extract-latest-message";
 
@@ -11,6 +14,38 @@ async function* chunks() {
   yield { type: "message", content: "hello" } as const;
   yield { type: "done" } as const;
 }
+
+const createMockAgent = (overrides: Partial<Agent> = {}): Agent =>
+  ({
+    streamChat: vi.fn(async () => chunks()),
+    listCheckpoints: vi.fn(async () => []),
+    getCheckpoint: vi.fn(async () => null),
+    rollbackTo: vi.fn(async (id: string) => ({
+      sessionId: "session-1",
+      head: id,
+      invalidatedStructuredStreamIds: [],
+      invalidatedInterruptTokens: [],
+      activePendingRequests: [],
+    })),
+    fork: vi.fn(async (id: string) => ({
+      sessionId: "child-session",
+      parentSessionId: "session-1",
+      forkedFrom: id,
+      checkpoint: {
+        id: "child-checkpoint",
+        sessionId: "child-session",
+        runId: "run-1",
+        turnIndex: 1,
+        createdAt: 1,
+        nodes: [],
+        workflow: "workflow-1",
+        state: {} as never,
+        effects: { structuredStreamIds: [], interruptTokens: [] },
+        activePendingRequests: [],
+      },
+    })),
+    ...overrides,
+  }) satisfies Agent;
 
 describe("parseChatRequestBody", () => {
   it("trims optional ids and preserves valid messages", () => {
@@ -57,7 +92,7 @@ describe("handleChatRequestBody", () => {
   it("buffers the agent stream when stream=false", async () => {
     const streamChat = vi.fn(async () => chunks());
     const response = await handleChatRequestBody({
-      agent: { streamChat } satisfies Agent,
+      agent: createMockAgent({ streamChat }),
       body: {
         sessionId: "session-1",
         workflowId: "workflow-1",
@@ -85,7 +120,7 @@ describe("handleChatRequestBody", () => {
   it("returns an SSE response by default", async () => {
     const streamChat = vi.fn(async () => chunks());
     const response = await handleChatRequestBody({
-      agent: { streamChat } satisfies Agent,
+      agent: createMockAgent({ streamChat }),
       body: {
         messages: [{ role: "user", content: "hello" }],
       },
@@ -98,9 +133,7 @@ describe("handleChatRequestBody", () => {
 describe("createChatRouteHandler", () => {
   it("returns JSON errors with the configured status", async () => {
     const handler = createChatRouteHandler({
-      agent: {
-        streamChat: vi.fn(async () => chunks()),
-      },
+      agent: createMockAgent(),
       errorStatus: 422,
     });
 
@@ -119,9 +152,7 @@ describe("createChatRouteHandler", () => {
 
   it("returns successful chat responses and stringified non-error failures", async () => {
     const handler = createChatRouteHandler({
-      agent: {
-        streamChat: vi.fn(async () => chunks()),
-      },
+      agent: createMockAgent(),
     });
 
     const response = await handler(
@@ -138,11 +169,11 @@ describe("createChatRouteHandler", () => {
     await expect(response.json()).resolves.toMatchObject({ text: "hello" });
 
     const failing = createChatRouteHandler({
-      agent: {
+      agent: createMockAgent({
         streamChat: vi.fn(async () => {
           throw "plain failure";
         }),
-      },
+      }),
     });
     const failed = await failing(
       new Request("https://kortyx.test/api/chat", {
@@ -155,6 +186,61 @@ describe("createChatRouteHandler", () => {
 
     expect(failed.status).toBe(400);
     await expect(failed.json()).resolves.toEqual({ error: "plain failure" });
+  });
+});
+
+describe("checkpoint HTTP helpers", () => {
+  it("parses checkpoint actions", () => {
+    expect(
+      parseCheckpointRequestBody({
+        action: "list",
+        sessionId: "session-1",
+      }),
+    ).toEqual({ action: "list", sessionId: "session-1" });
+    expect(() =>
+      parseCheckpointRequestBody({
+        action: "rollback",
+        checkpointId: "",
+      }),
+    ).toThrow();
+  });
+
+  it("dispatches checkpoint requests to the agent", async () => {
+    const rollbackTo = vi.fn(async (id: string) => ({
+      sessionId: "session-1",
+      head: id,
+      invalidatedStructuredStreamIds: ["stream-1"],
+      invalidatedInterruptTokens: ["token-1"],
+      activePendingRequests: [],
+    }));
+    const response = await handleCheckpointRequestBody({
+      agent: createMockAgent({ rollbackTo }),
+      body: { action: "rollback", checkpointId: "cp-1" },
+    });
+
+    expect(rollbackTo).toHaveBeenCalledWith("cp-1");
+    await expect(response.json()).resolves.toMatchObject({
+      head: "cp-1",
+      invalidatedStructuredStreamIds: ["stream-1"],
+    });
+  });
+
+  it("returns JSON errors from the checkpoint route", async () => {
+    const handler = createCheckpointRouteHandler({
+      agent: createMockAgent(),
+      errorStatus: 422,
+    });
+    const response = await handler(
+      new Request("https://kortyx.test/api/checkpoints", {
+        method: "POST",
+        body: JSON.stringify({ action: "missing" }),
+      }),
+    );
+
+    expect(response.status).toBe(422);
+    await expect(response.json()).resolves.toMatchObject({
+      error: expect.any(String),
+    });
   });
 });
 

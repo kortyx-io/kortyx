@@ -2,6 +2,7 @@
 export * from "./checkpointer";
 export * from "./framework/adapter";
 export * from "./framework/pending-requests";
+export * from "./framework/session-checkpoints";
 export * from "./graph/create-execution-graph";
 export * from "./interrupt/tokens";
 export * from "./node-registry";

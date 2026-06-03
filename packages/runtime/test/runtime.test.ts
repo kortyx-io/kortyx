@@ -5,6 +5,7 @@ import {
   createFrameworkAdapterFromEnv,
   createInMemoryFrameworkAdapter,
   createInMemoryPendingRequestStore,
+  createInMemorySessionCheckpointStore,
   createInMemoryWorkflowRegistry,
   getCheckpointer,
   getRegisteredNode,
@@ -99,6 +100,75 @@ describe("pending request store", () => {
     await expect(store.update("missing", { node: "ignored" })).resolves.toBe(
       undefined,
     );
+  });
+});
+
+describe("session checkpoint store", () => {
+  it("appends, rolls back, and eagerly forks session state", async () => {
+    const store = createInMemorySessionCheckpointStore({
+      maxCheckpointsPerSession: 10,
+    });
+    const baseState = {
+      input: "hello",
+      lastNode: "__start__",
+      currentWorkflow: "workflow-1",
+      config: {},
+      runtime: {},
+      conversationHistory: [],
+      awaitingHumanInput: false,
+    };
+
+    const first = await store.append({
+      sessionId: "session-1",
+      runId: "run-1",
+      workflow: "workflow-1",
+      state: baseState,
+      nodes: ["start"],
+    });
+    const second = await store.append({
+      sessionId: "session-1",
+      runId: "run-2",
+      workflow: "workflow-1",
+      state: {
+        ...baseState,
+        input: "next",
+        runtime: { toolResults: { ok: true } },
+      },
+      nodes: ["writer"],
+      structuredStreamIds: ["stream-1"],
+      pendingRequests: [pendingRecord({ token: "token-after-first" })],
+    });
+
+    await expect(store.list("session-1")).resolves.toMatchObject([
+      { id: first.id, turnIndex: 0 },
+      { id: second.id, turnIndex: 1 },
+    ]);
+    await expect(store.getHead("session-1")).resolves.toMatchObject({
+      id: second.id,
+    });
+
+    await expect(store.rollbackTo(first.id)).resolves.toMatchObject({
+      sessionId: "session-1",
+      head: first.id,
+      invalidatedStructuredStreamIds: ["stream-1"],
+      invalidatedInterruptTokens: ["token-after-first"],
+      activePendingRequests: [],
+    });
+    await expect(store.list("session-1")).resolves.toMatchObject([
+      { id: first.id },
+    ]);
+
+    const fork = await store.fork(first.id, { newSessionId: "child" });
+    expect(fork).toMatchObject({
+      sessionId: "child",
+      parentSessionId: "session-1",
+      forkedFrom: first.id,
+    });
+    await expect(store.getHead("child")).resolves.toMatchObject({
+      sessionId: "child",
+      parentSessionId: "session-1",
+      forkedFrom: first.id,
+    });
   });
 });
 

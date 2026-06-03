@@ -25,6 +25,7 @@ export type UseStructuredStreamsResult<TData = unknown> = {
   ) => StructuredStreamItem<TData> | undefined;
   clear: () => void;
   get: (streamId: string) => StructuredStreamItem<TData> | undefined;
+  delete: (streamId: string) => boolean;
 };
 
 const defaultCreateId = () => {
@@ -115,6 +116,18 @@ export function useStructuredStreams<TData = unknown>(
     return itemsRef.current.find((item) => item.streamId === streamId);
   }, []);
 
+  const deleteStream = useCallback(
+    (streamId: string): boolean => {
+      const deleted = accumulatorRef.current.delete(streamId);
+      if (!deleted) return false;
+      setNextItems(
+        itemsRef.current.filter((item) => item.streamId !== streamId),
+      );
+      return true;
+    },
+    [setNextItems],
+  );
+
   const byStreamId = useMemo(
     () =>
       Object.fromEntries(
@@ -129,5 +142,6 @@ export function useStructuredStreams<TData = unknown>(
     applyStreamChunk,
     clear,
     get,
+    delete: deleteStream,
   };
 }

@@ -343,6 +343,74 @@ describe("orchestrateGraphStream", () => {
     );
   });
 
+  it("persists a session checkpoint and emits it before done", async () => {
+    const sessionCheckpoints = {
+      append: vi.fn(async () => ({
+        id: "cp-1",
+        sessionId: "session-1",
+        runId: "run-1",
+        turnIndex: 2,
+        createdAt: 1,
+        nodes: ["writer"],
+        workflow: "first",
+        state: baseState,
+        effects: {
+          structuredStreamIds: ["structured-1"],
+          interruptTokens: [],
+        },
+        activePendingRequests: [],
+      })),
+    };
+    const graph = graphWithEvents((emit) => {
+      emit("message", { node: "writer", content: "done" });
+      emit("structured_data", {
+        node: "writer",
+        streamId: "structured-1",
+        dataType: "guide",
+        kind: "final",
+        data: { ok: true },
+      });
+      return [{ type: "done", data: baseState }];
+    });
+
+    const stream = await orchestrateGraphStream({
+      runId: "run-1",
+      sessionId: "session-1",
+      graph,
+      state: baseState,
+      config: { session: { id: "session-1" } },
+      selectWorkflow: vi.fn(),
+      frameworkAdapter: {
+        sessionCheckpoints,
+      } as unknown as FrameworkAdapter,
+    });
+
+    const chunks = await collect(stream);
+    expect(sessionCheckpoints.append).toHaveBeenCalledWith(
+      expect.objectContaining({
+        sessionId: "session-1",
+        runId: "run-1",
+        workflow: "first",
+        nodes: ["writer"],
+        structuredStreamIds: ["structured-1"],
+      }),
+    );
+    const checkpointIndex = chunks.findIndex(
+      (chunk) => (chunk as { type?: string }).type === "checkpoint",
+    );
+    const doneIndex = chunks.findIndex(
+      (chunk) => (chunk as { type?: string }).type === "done",
+    );
+    expect(checkpointIndex).toBeGreaterThanOrEqual(0);
+    expect(checkpointIndex).toBeLessThan(doneIndex);
+    expect(chunks[checkpointIndex]).toMatchObject({
+      type: "checkpoint",
+      id: "cp-1",
+      sessionId: "session-1",
+      turnIndex: 2,
+    });
+  });
+
   it("handles text interrupts without metadata", async () => {
     const graph = graphWithEvents((emit) => {
       emit("interrupt", {

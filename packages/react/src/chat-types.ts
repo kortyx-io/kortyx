@@ -35,4 +35,15 @@ export type ChatMsg = {
   traceId?: string;
   spanId?: string;
   runId?: string;
+  checkpointId?: string;
+  checkpointTurnIndex?: number;
+  source?:
+    | { type: "prompt" }
+    | {
+        type: "interrupt-response";
+        resumeToken: string;
+        requestId: string;
+        selected: string[];
+        text?: string;
+      };
 };

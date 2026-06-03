@@ -163,6 +163,53 @@ describe("useChat", () => {
     });
   });
 
+  it("attaches checkpoint chunks to finalized assistant messages", async () => {
+    const transport: ChatTransport = {
+      stream: async ({ onChunk }) => {
+        await onChunk({
+          type: "checkpoint",
+          id: "cp-1",
+          sessionId: "session-1",
+          turnIndex: 1,
+        });
+        await onChunk({
+          type: "message",
+          content: "Hello back",
+        });
+        await onChunk({
+          type: "done",
+        });
+      },
+    };
+    const memory = createMemoryStorage();
+
+    const { result } = renderHook(() =>
+      useChat({
+        transport,
+        storage: memory.storage,
+      }),
+    );
+
+    await flushEffects();
+
+    await act(async () => {
+      await result.current.send("Hello");
+    });
+
+    const assistant = result.current.messages.at(-1);
+    expect(assistant).toMatchObject({
+      role: "assistant",
+      checkpointId: "cp-1",
+      checkpointTurnIndex: 1,
+    });
+    expect(result.current.checkpointForMessage(assistant?.id ?? "")).toBe(
+      "cp-1",
+    );
+    expect(result.current.checkpoints).toMatchObject([
+      { id: "cp-1", sessionId: "session-1", turnIndex: 1 },
+    ]);
+  });
+
   it("ignores malformed trace chunks", async () => {
     const transport: ChatTransport = {
       stream: async ({ onChunk }) => {

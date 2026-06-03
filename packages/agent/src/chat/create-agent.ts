@@ -5,8 +5,13 @@ import {
   getProvider as getRegisteredProvider,
 } from "@kortyx/providers";
 import type {
+  CheckpointId,
+  CheckpointSummary,
   ExecutionRuntimeConfig,
+  ForkSessionCheckpointResult,
   FrameworkAdapter,
+  RollbackSessionCheckpointResult,
+  SessionCheckpointRecord,
   WorkflowRegistry,
 } from "@kortyx/runtime";
 import {
@@ -40,6 +45,13 @@ export interface Agent {
     messages: ChatMessage[],
     options?: AgentProcessOptions,
   ) => Promise<AsyncIterable<StreamChunk>>;
+  listCheckpoints: (sessionId: string) => Promise<CheckpointSummary[]>;
+  getCheckpoint: (id: CheckpointId) => Promise<SessionCheckpointRecord | null>;
+  rollbackTo: (id: CheckpointId) => Promise<RollbackSessionCheckpointResult>;
+  fork: (
+    id: CheckpointId,
+    options?: { newSessionId?: string },
+  ) => Promise<ForkSessionCheckpointResult>;
 }
 
 const agentProcessOptionsSchema = z
@@ -188,5 +200,45 @@ export function createAgent(args: CreateAgentArgs): Agent {
     });
   };
 
-  return { streamChat };
+  const listCheckpoints = (sessionId: string) =>
+    resolvedFrameworkAdapter.sessionCheckpoints.list(sessionId);
+
+  const getCheckpoint = (id: CheckpointId) =>
+    resolvedFrameworkAdapter.sessionCheckpoints.get(id);
+
+  const rollbackTo = async (
+    id: CheckpointId,
+  ): Promise<RollbackSessionCheckpointResult> => {
+    const result =
+      await resolvedFrameworkAdapter.sessionCheckpoints.rollbackTo(id);
+
+    await Promise.all([
+      ...result.invalidatedInterruptTokens.map((token) =>
+        resolvedFrameworkAdapter.pendingRequests.delete(token),
+      ),
+      ...result.activePendingRequests.map((request) =>
+        resolvedFrameworkAdapter.pendingRequests.save(request),
+      ),
+    ]);
+
+    return result;
+  };
+
+  const fork = async (
+    id: CheckpointId,
+    options?: { newSessionId?: string },
+  ): Promise<ForkSessionCheckpointResult> => {
+    const result = await resolvedFrameworkAdapter.sessionCheckpoints.fork(
+      id,
+      options,
+    );
+    await Promise.all(
+      result.checkpoint.activePendingRequests.map((request) =>
+        resolvedFrameworkAdapter.pendingRequests.save(request),
+      ),
+    );
+    return result;
+  };
+
+  return { streamChat, listCheckpoints, getCheckpoint, rollbackTo, fork };
 }
