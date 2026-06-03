@@ -205,7 +205,29 @@ describe("checkpoint HTTP helpers", () => {
     ).toThrow();
   });
 
-  it("dispatches checkpoint requests to the agent", async () => {
+  it("dispatches list, get, rollback, and fork checkpoint requests to the agent", async () => {
+    const listCheckpoints = vi.fn(async () => [
+      {
+        id: "cp-1",
+        sessionId: "session-1",
+        turnIndex: 0,
+        createdAt: 1,
+        nodes: [],
+        workflow: "workflow-1",
+      },
+    ]);
+    const getCheckpoint = vi.fn(async (id: string) => ({
+      id,
+      sessionId: "session-1",
+      runId: "run-1",
+      turnIndex: 0,
+      createdAt: 1,
+      nodes: [],
+      workflow: "workflow-1",
+      state: {} as never,
+      effects: { structuredStreamIds: [], interruptTokens: [] },
+      activePendingRequests: [],
+    }));
     const rollbackTo = vi.fn(async (id: string) => ({
       sessionId: "session-1",
       head: id,
@@ -213,16 +235,75 @@ describe("checkpoint HTTP helpers", () => {
       invalidatedInterruptTokens: ["token-1"],
       activePendingRequests: [],
     }));
-    const response = await handleCheckpointRequestBody({
-      agent: createMockAgent({ rollbackTo }),
-      body: { action: "rollback", checkpointId: "cp-1" },
+    const fork = vi.fn(
+      async (id: string, options?: { newSessionId?: string }) => ({
+        sessionId: options?.newSessionId ?? "child-session",
+        parentSessionId: "session-1",
+        forkedFrom: id,
+        checkpoint: {
+          id: "child-checkpoint",
+          sessionId: options?.newSessionId ?? "child-session",
+          runId: "run-1",
+          turnIndex: 0,
+          createdAt: 1,
+          nodes: [],
+          workflow: "workflow-1",
+          state: {} as never,
+          effects: { structuredStreamIds: [], interruptTokens: [] },
+          activePendingRequests: [],
+        },
+      }),
+    );
+    const agent = createMockAgent({
+      listCheckpoints,
+      getCheckpoint,
+      rollbackTo,
+      fork,
     });
 
+    const listResponse = await handleCheckpointRequestBody({
+      agent,
+      body: { action: "list", sessionId: "session-1" },
+    });
+    expect(listCheckpoints).toHaveBeenCalledWith("session-1");
+    await expect(listResponse.json()).resolves.toMatchObject([{ id: "cp-1" }]);
+
+    const getResponse = await handleCheckpointRequestBody({
+      agent,
+      body: { action: "get", checkpointId: "cp-1" },
+    });
+    expect(getCheckpoint).toHaveBeenCalledWith("cp-1");
+    await expect(getResponse.json()).resolves.toMatchObject({ id: "cp-1" });
+
+    const rollbackResponse = await handleCheckpointRequestBody({
+      agent,
+      body: { action: "rollback", checkpointId: "cp-1" },
+    });
     expect(rollbackTo).toHaveBeenCalledWith("cp-1");
-    await expect(response.json()).resolves.toMatchObject({
+    await expect(rollbackResponse.json()).resolves.toMatchObject({
       head: "cp-1",
       invalidatedStructuredStreamIds: ["stream-1"],
     });
+
+    const forkResponse = await handleCheckpointRequestBody({
+      agent,
+      body: { action: "fork", checkpointId: "cp-1", newSessionId: "child" },
+    });
+    expect(fork).toHaveBeenCalledWith("cp-1", { newSessionId: "child" });
+    await expect(forkResponse.json()).resolves.toMatchObject({
+      sessionId: "child",
+      forkedFrom: "cp-1",
+    });
+  });
+
+  it("omits fork options when no child session id is provided", async () => {
+    const fork = vi.fn(createMockAgent().fork);
+    await handleCheckpointRequestBody({
+      agent: createMockAgent({ fork }),
+      body: { action: "fork", checkpointId: "cp-1" },
+    });
+
+    expect(fork).toHaveBeenCalledWith("cp-1", {});
   });
 
   it("returns JSON errors from the checkpoint route", async () => {

@@ -134,6 +134,7 @@ export function createInMemorySessionCheckpointStore(
   const saveRecord = (record: SessionCheckpointRecord): void => {
     byId.set(record.id, clone(record));
     const ids = bySession.get(record.sessionId) ?? [];
+    /* v8 ignore next -- checkpoint ids are generated internally, so public store calls cannot save the same id twice. */
     if (!ids.includes(record.id)) ids.push(record.id);
     bySession.set(record.sessionId, ids);
     headBySession.set(record.sessionId, record.id);
@@ -143,6 +144,7 @@ export function createInMemorySessionCheckpointStore(
     byId.delete(record.id);
     bySession.set(
       record.sessionId,
+      /* v8 ignore next -- deleteRecord only receives records that came from this session index. */
       (bySession.get(record.sessionId) ?? []).filter((id) => id !== record.id),
     );
   };

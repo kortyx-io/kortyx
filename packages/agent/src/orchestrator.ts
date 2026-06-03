@@ -808,6 +808,7 @@ export async function orchestrateGraphStream({
             });
           }
           const pendingRequest = activePendingRequests.get(pendingRecordToken);
+          /* v8 ignore next -- pendingRecordToken is assigned only after the active request is inserted. */
           if (pendingRequest) {
             activePendingRequests.set(pendingRecordToken, {
               ...pendingRequest,
@@ -815,6 +816,7 @@ export async function orchestrateGraphStream({
             });
           }
         }
+        /* v8 ignore next -- pending writes are created only by interrupt persistence, which also sets pendingRecordToken. */
         if (!pendingRecordToken && pendingRequestWrites.length > 0) {
           await Promise.all(pendingRequestWrites);
         }

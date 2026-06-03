@@ -72,6 +72,12 @@ describe("redis framework adapter", () => {
 
     expect(envDefaultTtlAdapter.kind).toBe("redis");
     expect(envDefaultTtlAdapter.ttlMs).toBe(15 * 60 * 1000);
+
+    const retainedAdapter = createRedisFrameworkAdapter({
+      url: "redis://localhost:6379",
+      maxSessionCheckpoints: 1,
+    });
+    expect(retainedAdapter.sessionCheckpoints).toBeDefined();
   });
 
   it("uses default redis prefix and ttl when options are omitted", async () => {

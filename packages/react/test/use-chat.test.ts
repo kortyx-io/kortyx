@@ -168,6 +168,13 @@ describe("useChat", () => {
       stream: async ({ onChunk }) => {
         await onChunk({
           type: "checkpoint",
+          id: "cp-2",
+          sessionId: "session-1",
+          turnIndex: 2,
+          label: "after",
+        });
+        await onChunk({
+          type: "checkpoint",
           id: "cp-1",
           sessionId: "session-1",
           turnIndex: 1,
@@ -207,6 +214,7 @@ describe("useChat", () => {
     );
     expect(result.current.checkpoints).toMatchObject([
       { id: "cp-1", sessionId: "session-1", turnIndex: 1 },
+      { id: "cp-2", sessionId: "session-1", turnIndex: 2, label: "after" },
     ]);
   });
 
@@ -2339,5 +2347,845 @@ describe("useChat", () => {
     expect(seenSignal?.aborted).toBe(true);
     expect(result.current.isStreaming).toBe(false);
     expect(result.current.error).toBeNull();
+  });
+
+  it("rolls back, refreshes checkpoints, forks sessions, and requires checkpoint transport methods", async () => {
+    const checkpointTransport: ChatTransport = {
+      stream: async ({ onChunk }) => {
+        await onChunk({
+          type: "structured-data",
+          streamId: "stream-1",
+          dataType: "demo.data",
+          kind: "set",
+          path: "body",
+          value: "Draft",
+        });
+        await onChunk({
+          type: "structured-data-invalidated",
+          streamId: "stream-1",
+          checkpointId: "cp-0",
+        });
+        await onChunk({ type: "done" });
+      },
+      listCheckpoints: vi.fn(async (sessionId: string) => [
+        {
+          id: "cp-0",
+          sessionId,
+          turnIndex: 0,
+          createdAt: 1,
+          nodes: [],
+          workflow: "workflow-1",
+        },
+      ]),
+      rollbackTo: vi.fn(async (checkpointId: string) => ({
+        sessionId: "session-1",
+        head: checkpointId,
+        invalidatedStructuredStreamIds: ["stream-1"],
+        invalidatedInterruptTokens: ["token-1"],
+        activePendingRequests: [],
+      })),
+      fork: vi.fn(
+        async (checkpointId: string, options?: { newSessionId?: string }) => ({
+          sessionId: options?.newSessionId ?? "child",
+          parentSessionId: "session-1",
+          forkedFrom: checkpointId,
+          checkpoint: {
+            id: "child-cp",
+            sessionId: options?.newSessionId ?? "child",
+            runId: "run-1",
+            turnIndex: 0,
+            createdAt: 1,
+            nodes: [],
+            workflow: "workflow-1",
+            state: {},
+            effects: { structuredStreamIds: [], interruptTokens: [] },
+            activePendingRequests: [],
+          },
+        }),
+      ),
+    };
+    const memory = createMemoryStorage({ sessionId: "session-1" });
+
+    const { result } = renderHook(() =>
+      useChat({
+        transport: checkpointTransport,
+        storage: memory.storage,
+      }),
+    );
+
+    await flushEffects();
+
+    await act(async () => {
+      await result.current.send("hello");
+    });
+    expect(result.current.messages.at(-1)?.contentPieces ?? []).toHaveLength(1);
+
+    await act(async () => {
+      await expect(result.current.rollbackTo("cp-0")).resolves.toMatchObject({
+        head: "cp-0",
+      });
+    });
+    expect(checkpointTransport.rollbackTo).toHaveBeenCalledWith("cp-0");
+    expect(checkpointTransport.listCheckpoints).toHaveBeenLastCalledWith(
+      "session-1",
+    );
+    expect(result.current.checkpoints).toEqual([
+      expect.objectContaining({ id: "cp-0" }),
+    ]);
+
+    await act(async () => {
+      await expect(
+        result.current.fork("cp-0", { newSessionId: "child-session" }),
+      ).resolves.toMatchObject({
+        sessionId: "child-session",
+      });
+    });
+    expect(checkpointTransport.fork).toHaveBeenCalledWith("cp-0", {
+      newSessionId: "child-session",
+    });
+    expect(checkpointTransport.listCheckpoints).toHaveBeenLastCalledWith(
+      "child-session",
+    );
+
+    const missingHelpers = renderHook(() =>
+      useChat({
+        transport: { stream: async () => undefined },
+        storage: createMemoryStorage().storage,
+      }),
+    );
+    await flushEffects();
+    await act(async () => {
+      await expect(
+        missingHelpers.result.current.rollbackTo("cp-1"),
+      ).rejects.toThrow(
+        "Checkpoint helpers require a transport with checkpoint methods.",
+      );
+    });
+  });
+
+  it("rejects checkpoint operations while streaming", async () => {
+    let finishStream: (() => void) | undefined;
+    const transport: ChatTransport = {
+      stream: () =>
+        new Promise<void>((resolve) => {
+          finishStream = resolve;
+        }),
+      listCheckpoints: vi.fn(async () => []),
+      rollbackTo: vi.fn(),
+      fork: vi.fn(),
+    };
+    const { result } = renderHook(() =>
+      useChat({
+        transport,
+        storage: createMemoryStorage({ sessionId: "session-1" }).storage,
+      }),
+    );
+
+    await flushEffects();
+
+    let pending: Promise<void> | undefined;
+    await act(async () => {
+      pending = result.current.send("hello") as Promise<void>;
+      await Promise.resolve();
+    });
+
+    await expect(result.current.rollbackTo("cp-1")).rejects.toThrow(
+      "Cannot rollback while a stream is active.",
+    );
+    await expect(result.current.fork("cp-1")).rejects.toThrow(
+      "Cannot fork while a stream is active.",
+    );
+
+    await act(async () => {
+      finishStream?.();
+      await pending;
+    });
+  });
+
+  it("regenerates and retries normal prompt messages from rollback checkpoints", async () => {
+    const seenMessages: Parameters<ChatTransport["stream"]>[0]["messages"][] =
+      [];
+    const transport: ChatTransport = {
+      stream: async ({ messages, onChunk }) => {
+        seenMessages.push(messages);
+        await onChunk({ type: "done" });
+      },
+      listCheckpoints: vi.fn(async () => [
+        {
+          id: "cp-0",
+          sessionId: "session-1",
+          turnIndex: 0,
+          createdAt: 1,
+          nodes: [],
+          workflow: "workflow-1",
+        },
+        {
+          id: "cp-1",
+          sessionId: "session-1",
+          turnIndex: 1,
+          createdAt: 2,
+          nodes: [],
+          workflow: "workflow-1",
+        },
+      ]),
+      rollbackTo: vi.fn(async (checkpointId: string) => ({
+        sessionId: "session-1",
+        head: checkpointId,
+        invalidatedStructuredStreamIds: [],
+        invalidatedInterruptTokens: [],
+        activePendingRequests: [],
+      })),
+      fork: vi.fn(),
+    };
+    const memory = createMemoryStorage({
+      sessionId: "session-1",
+      messages: [
+        { id: "user-1", role: "user", content: "original" },
+        {
+          id: "assistant-1",
+          role: "assistant",
+          content: "reply",
+          checkpointId: "cp-1",
+          checkpointTurnIndex: 1,
+        },
+      ],
+    });
+
+    const { result } = renderHook(() =>
+      useChat({
+        transport,
+        storage: memory.storage,
+      }),
+    );
+
+    await flushEffects();
+
+    await act(async () => {
+      await result.current.regenerate("assistant-1");
+    });
+    expect(transport.rollbackTo).toHaveBeenCalledWith("cp-0");
+    expect(seenMessages.at(-1)).toEqual([
+      { role: "user", content: "original" },
+    ]);
+
+    await act(async () => {
+      result.current.setMessages([
+        { id: "user-1", role: "user", content: "original" },
+        {
+          id: "assistant-1",
+          role: "assistant",
+          content: "reply",
+          checkpointId: "cp-1",
+          checkpointTurnIndex: 1,
+        },
+      ]);
+    });
+
+    await act(async () => {
+      await result.current.retryWithEdit("assistant-1", "edited");
+    });
+    expect(seenMessages.at(-1)).toEqual([{ role: "user", content: "edited" }]);
+  });
+
+  it("replays interrupt responses as resume payloads when regenerating", async () => {
+    const seenMessages: Parameters<ChatTransport["stream"]>[0]["messages"][] =
+      [];
+    const transport: ChatTransport = {
+      stream: async ({ messages, onChunk }) => {
+        seenMessages.push(messages);
+        await onChunk({ type: "done" });
+      },
+      listCheckpoints: vi.fn(async () => [
+        {
+          id: "cp-0",
+          sessionId: "session-1",
+          turnIndex: 0,
+          createdAt: 1,
+          nodes: [],
+          workflow: "workflow-1",
+        },
+        {
+          id: "cp-1",
+          sessionId: "session-1",
+          turnIndex: 1,
+          createdAt: 2,
+          nodes: [],
+          workflow: "workflow-1",
+        },
+      ]),
+      rollbackTo: vi.fn(async (checkpointId: string) => ({
+        sessionId: "session-1",
+        head: checkpointId,
+        invalidatedStructuredStreamIds: [],
+        invalidatedInterruptTokens: [],
+        activePendingRequests: [],
+      })),
+      fork: vi.fn(),
+    };
+    const memory = createMemoryStorage({
+      sessionId: "session-1",
+      messages: [
+        {
+          id: "assistant-interrupt",
+          role: "assistant",
+          content: "",
+          checkpointId: "cp-0",
+          checkpointTurnIndex: 0,
+        },
+        {
+          id: "user-response",
+          role: "user",
+          content: "template-a",
+          source: {
+            type: "interrupt-response",
+            resumeToken: "resume-1",
+            requestId: "request-1",
+            selected: ["template-a"],
+            text: "Template A",
+          },
+        },
+        {
+          id: "assistant-1",
+          role: "assistant",
+          content: "reply",
+          checkpointId: "cp-1",
+          checkpointTurnIndex: 1,
+        },
+      ],
+    });
+
+    const { result } = renderHook(() =>
+      useChat({
+        transport,
+        storage: memory.storage,
+      }),
+    );
+
+    await flushEffects();
+
+    await act(async () => {
+      await result.current.retryWithEdit("assistant-1", "Template B");
+    });
+
+    expect(seenMessages.at(-1)).toEqual([
+      { role: "assistant", content: "" },
+      {
+        role: "user",
+        content: "Template B",
+        metadata: {
+          resume: {
+            token: "resume-1",
+            requestId: "request-1",
+            selected: ["Template B"],
+          },
+        },
+      },
+    ]);
+  });
+
+  it("reports regenerate target errors and missing checkpoint mappings", async () => {
+    const transport: ChatTransport = {
+      stream: async () => undefined,
+      listCheckpoints: vi.fn(async () => []),
+      rollbackTo: vi.fn(),
+      fork: vi.fn(),
+    };
+    const memory = createMemoryStorage({
+      sessionId: "session-1",
+      messages: [
+        { id: "user-1", role: "user", content: "hello" },
+        { id: "assistant-1", role: "assistant", content: "reply" },
+      ],
+    });
+    const { result } = renderHook(() =>
+      useChat({
+        transport,
+        storage: memory.storage,
+      }),
+    );
+
+    await flushEffects();
+
+    expect(result.current.checkpointForMessage("missing")).toBeNull();
+    await expect(result.current.regenerate("missing")).rejects.toThrow(
+      'Assistant message "missing" not found.',
+    );
+    await expect(result.current.regenerate("user-1")).rejects.toThrow(
+      "Regenerate expects an assistant message id.",
+    );
+    await expect(result.current.regenerate("assistant-1")).rejects.toThrow(
+      "No rollback checkpoint found for regenerate.",
+    );
+
+    act(() => {
+      result.current.setMessages([
+        { id: "assistant-1", role: "assistant", content: "reply" },
+      ]);
+    });
+    await expect(result.current.regenerate("assistant-1")).rejects.toThrow(
+      "No preceding user message found for regenerate.",
+    );
+  });
+
+  it("falls back to refreshed checkpoints when stale local checkpoints miss", async () => {
+    const seenMessages: Parameters<ChatTransport["stream"]>[0]["messages"][] =
+      [];
+    const listCheckpoints = vi
+      .fn()
+      .mockResolvedValueOnce([
+        {
+          id: "stale",
+          sessionId: "session-1",
+          turnIndex: 99,
+          createdAt: 1,
+          nodes: [],
+          workflow: "workflow-1",
+        },
+      ])
+      .mockResolvedValue([
+        {
+          id: "cp-0",
+          sessionId: "session-1",
+          turnIndex: 0,
+          createdAt: 2,
+          nodes: [],
+          workflow: "workflow-1",
+        },
+        {
+          id: "cp-1",
+          sessionId: "session-1",
+          turnIndex: 1,
+          createdAt: 3,
+          nodes: [],
+          workflow: "workflow-1",
+        },
+      ]);
+    const transport: ChatTransport = {
+      stream: async ({ messages, onChunk }) => {
+        seenMessages.push(messages);
+        await onChunk({ type: "done" });
+      },
+      listCheckpoints,
+      rollbackTo: vi.fn(async (checkpointId: string) => ({
+        sessionId: "session-1",
+        head: checkpointId,
+        invalidatedStructuredStreamIds: [],
+        invalidatedInterruptTokens: [],
+        activePendingRequests: [],
+      })),
+      fork: vi.fn(),
+    };
+    const memory = createMemoryStorage({
+      sessionId: "session-1",
+      messages: [
+        { id: "user-1", role: "user", content: "original" },
+        {
+          id: "assistant-1",
+          role: "assistant",
+          content: "reply",
+          checkpointId: "cp-1",
+          checkpointTurnIndex: 1,
+        },
+      ],
+    });
+    const { result } = renderHook(() =>
+      useChat({
+        transport,
+        storage: memory.storage,
+      }),
+    );
+
+    await flushEffects();
+    await act(async () => {
+      await result.current.rollbackTo("stale");
+    });
+    await act(async () => {
+      await result.current.regenerate("assistant-1");
+    });
+
+    expect(listCheckpoints).toHaveBeenCalledTimes(3);
+    expect(transport.rollbackTo).toHaveBeenLastCalledWith("cp-0");
+    expect(seenMessages.at(-1)).toEqual([
+      { role: "user", content: "original" },
+    ]);
+  });
+
+  it("uses the previous checkpoint when assistant messages lack turn metadata", async () => {
+    const seenMessages: Parameters<ChatTransport["stream"]>[0]["messages"][] =
+      [];
+    const transport: ChatTransport = {
+      stream: async ({ messages, onChunk }) => {
+        seenMessages.push(messages);
+        await onChunk({ type: "done" });
+      },
+      listCheckpoints: vi.fn(async () => [
+        {
+          id: "cp-0",
+          sessionId: "session-1",
+          turnIndex: 0,
+          createdAt: 1,
+          nodes: [],
+          workflow: "workflow-1",
+        },
+        {
+          id: "cp-1",
+          sessionId: "session-1",
+          turnIndex: 1,
+          createdAt: 2,
+          nodes: [],
+          workflow: "workflow-1",
+        },
+      ]),
+      rollbackTo: vi.fn(async (checkpointId: string) => ({
+        sessionId: "session-1",
+        head: checkpointId,
+        invalidatedStructuredStreamIds: [],
+        invalidatedInterruptTokens: [],
+        activePendingRequests: [],
+      })),
+      fork: vi.fn(),
+    };
+    const memory = createMemoryStorage({
+      sessionId: "session-1",
+      messages: [
+        { id: "user-1", role: "user", content: "original" },
+        { id: "assistant-1", role: "assistant", content: "reply" },
+      ],
+    });
+    const { result } = renderHook(() =>
+      useChat({
+        transport,
+        storage: memory.storage,
+      }),
+    );
+
+    await flushEffects();
+    await act(async () => {
+      await result.current.regenerate("assistant-1");
+    });
+
+    expect(transport.rollbackTo).toHaveBeenCalledWith("cp-0");
+    expect(seenMessages.at(-1)).toEqual([
+      { role: "user", content: "original" },
+    ]);
+  });
+
+  it("skips non-user messages while resolving regenerate targets", async () => {
+    const seenMessages: Parameters<ChatTransport["stream"]>[0]["messages"][] =
+      [];
+    const transport: ChatTransport = {
+      stream: async ({ messages, onChunk }) => {
+        seenMessages.push(messages);
+        await onChunk({ type: "done" });
+      },
+      listCheckpoints: vi.fn(async () => [
+        {
+          id: "cp-0",
+          sessionId: "session-1",
+          turnIndex: 0,
+          createdAt: 1,
+          nodes: [],
+          workflow: "workflow-1",
+        },
+        {
+          id: "cp-1",
+          sessionId: "session-1",
+          turnIndex: 1,
+          createdAt: 2,
+          nodes: [],
+          workflow: "workflow-1",
+        },
+      ]),
+      rollbackTo: vi.fn(async (checkpointId: string) => ({
+        sessionId: "session-1",
+        head: checkpointId,
+        invalidatedStructuredStreamIds: [],
+        invalidatedInterruptTokens: [],
+        activePendingRequests: [],
+      })),
+      fork: vi.fn(),
+    };
+    const memory = createMemoryStorage({
+      sessionId: "session-1",
+      messages: [
+        { id: "user-1", role: "user", content: "original" },
+        { id: "assistant-mid", role: "assistant", content: "mid" },
+        {
+          id: "assistant-1",
+          role: "assistant",
+          content: "reply",
+          checkpointId: "cp-1",
+          checkpointTurnIndex: 1,
+        },
+      ],
+    });
+    const { result } = renderHook(() =>
+      useChat({
+        transport,
+        storage: memory.storage,
+      }),
+    );
+
+    await flushEffects();
+    await act(async () => {
+      await result.current.regenerate("assistant-1");
+    });
+
+    expect(seenMessages.at(-1)).toEqual([
+      { role: "user", content: "original" },
+    ]);
+  });
+
+  it("regenerates interrupt responses with saved text metadata", async () => {
+    const seenMessages: Parameters<ChatTransport["stream"]>[0]["messages"][] =
+      [];
+    const transport: ChatTransport = {
+      stream: async ({ messages, onChunk }) => {
+        seenMessages.push(messages);
+        await onChunk({ type: "done" });
+      },
+      listCheckpoints: vi.fn(async () => [
+        {
+          id: "cp-0",
+          sessionId: "session-1",
+          turnIndex: 0,
+          createdAt: 1,
+          nodes: [],
+          workflow: "workflow-1",
+        },
+        {
+          id: "cp-1",
+          sessionId: "session-1",
+          turnIndex: 1,
+          createdAt: 2,
+          nodes: [],
+          workflow: "workflow-1",
+        },
+      ]),
+      rollbackTo: vi.fn(async (checkpointId: string) => ({
+        sessionId: "session-1",
+        head: checkpointId,
+        invalidatedStructuredStreamIds: [],
+        invalidatedInterruptTokens: [],
+        activePendingRequests: [],
+      })),
+      fork: vi.fn(),
+    };
+    const memory = createMemoryStorage({
+      sessionId: "session-1",
+      messages: [
+        {
+          id: "assistant-interrupt",
+          role: "assistant",
+          content: "",
+          checkpointId: "cp-0",
+          checkpointTurnIndex: 0,
+        },
+        {
+          id: "user-response",
+          role: "user",
+          content: "Template A",
+          source: {
+            type: "interrupt-response",
+            resumeToken: "resume-1",
+            requestId: "request-1",
+            selected: ["template-a"],
+            text: "Template A",
+          },
+        },
+        {
+          id: "assistant-1",
+          role: "assistant",
+          content: "reply",
+          checkpointId: "cp-1",
+          checkpointTurnIndex: 1,
+        },
+      ],
+    });
+    const { result } = renderHook(() =>
+      useChat({
+        transport,
+        storage: memory.storage,
+      }),
+    );
+
+    await flushEffects();
+    await act(async () => {
+      await result.current.regenerate("assistant-1");
+    });
+
+    expect(seenMessages.at(-1)?.at(-1)).toMatchObject({
+      role: "user",
+      content: "Template A",
+      metadata: {
+        resume: {
+          selected: ["template-a"],
+        },
+      },
+    });
+  });
+
+  it("regenerates interrupt responses without saved text metadata", async () => {
+    const seenMessages: Parameters<ChatTransport["stream"]>[0]["messages"][] =
+      [];
+    const transport: ChatTransport = {
+      stream: async ({ messages, onChunk }) => {
+        seenMessages.push(messages);
+        await onChunk({ type: "done" });
+      },
+      listCheckpoints: vi.fn(async () => [
+        {
+          id: "cp-0",
+          sessionId: "session-1",
+          turnIndex: 0,
+          createdAt: 1,
+          nodes: [],
+          workflow: "workflow-1",
+        },
+        {
+          id: "cp-1",
+          sessionId: "session-1",
+          turnIndex: 1,
+          createdAt: 2,
+          nodes: [],
+          workflow: "workflow-1",
+        },
+      ]),
+      rollbackTo: vi.fn(async (checkpointId: string) => ({
+        sessionId: "session-1",
+        head: checkpointId,
+        invalidatedStructuredStreamIds: [],
+        invalidatedInterruptTokens: [],
+        activePendingRequests: [],
+      })),
+      fork: vi.fn(),
+    };
+    const memory = createMemoryStorage({
+      sessionId: "session-1",
+      messages: [
+        {
+          id: "assistant-interrupt",
+          role: "assistant",
+          content: "",
+          checkpointId: "cp-0",
+          checkpointTurnIndex: 0,
+        },
+        {
+          id: "user-response",
+          role: "user",
+          content: "template-a",
+          source: {
+            type: "interrupt-response",
+            resumeToken: "resume-1",
+            requestId: "request-1",
+            selected: ["template-a"],
+          },
+        },
+        {
+          id: "assistant-1",
+          role: "assistant",
+          content: "reply",
+          checkpointId: "cp-1",
+          checkpointTurnIndex: 1,
+        },
+      ],
+    });
+    const { result } = renderHook(() =>
+      useChat({
+        transport,
+        storage: memory.storage,
+      }),
+    );
+
+    await flushEffects();
+    await act(async () => {
+      await result.current.regenerate("assistant-1");
+    });
+
+    expect(seenMessages.at(-1)?.at(-1)).toMatchObject({
+      role: "user",
+      content: "template-a",
+      metadata: {
+        resume: {
+          selected: ["template-a"],
+        },
+      },
+    });
+  });
+
+  it("refreshes stale checkpoints when assistant turn metadata is absent", async () => {
+    const seenMessages: Parameters<ChatTransport["stream"]>[0]["messages"][] =
+      [];
+    const listCheckpoints = vi
+      .fn()
+      .mockResolvedValueOnce([
+        {
+          id: "stale",
+          sessionId: "session-1",
+          turnIndex: 99,
+          createdAt: 1,
+          nodes: [],
+          workflow: "workflow-1",
+        },
+      ])
+      .mockResolvedValue([
+        {
+          id: "cp-0",
+          sessionId: "session-1",
+          turnIndex: 0,
+          createdAt: 2,
+          nodes: [],
+          workflow: "workflow-1",
+        },
+        {
+          id: "cp-1",
+          sessionId: "session-1",
+          turnIndex: 1,
+          createdAt: 3,
+          nodes: [],
+          workflow: "workflow-1",
+        },
+      ]);
+    const transport: ChatTransport = {
+      stream: async ({ messages, onChunk }) => {
+        seenMessages.push(messages);
+        await onChunk({ type: "done" });
+      },
+      listCheckpoints,
+      rollbackTo: vi.fn(async (checkpointId: string) => ({
+        sessionId: "session-1",
+        head: checkpointId,
+        invalidatedStructuredStreamIds: [],
+        invalidatedInterruptTokens: [],
+        activePendingRequests: [],
+      })),
+      fork: vi.fn(),
+    };
+    const memory = createMemoryStorage({
+      sessionId: "session-1",
+      messages: [
+        { id: "user-1", role: "user", content: "original" },
+        { id: "assistant-1", role: "assistant", content: "reply" },
+      ],
+    });
+    const { result } = renderHook(() =>
+      useChat({
+        transport,
+        storage: memory.storage,
+      }),
+    );
+
+    await flushEffects();
+    await act(async () => {
+      await result.current.rollbackTo("stale");
+    });
+    await act(async () => {
+      await result.current.regenerate("assistant-1");
+    });
+
+    expect(transport.rollbackTo).toHaveBeenLastCalledWith("cp-0");
+    expect(seenMessages.at(-1)).toEqual([
+      { role: "user", content: "original" },
+    ]);
   });
 });

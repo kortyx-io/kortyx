@@ -353,6 +353,7 @@ describe("orchestrateGraphStream", () => {
         createdAt: 1,
         nodes: ["writer"],
         workflow: "first",
+        label: "turn complete",
         state: baseState,
         effects: {
           structuredStreamIds: ["structured-1"],
@@ -408,7 +409,87 @@ describe("orchestrateGraphStream", () => {
       id: "cp-1",
       sessionId: "session-1",
       turnIndex: 2,
+      label: "turn complete",
     });
+  });
+
+  it("tracks node ids from returned stream chunks and logs checkpoint failures", async () => {
+    const error = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => undefined);
+    const checkpointFailure = new Error("checkpoint failed");
+    const sessionCheckpoints = {
+      append: vi.fn(async () => {
+        throw checkpointFailure;
+      }),
+    };
+
+    await expect(
+      collect(
+        await orchestrateGraphStream({
+          runId: "run-checkpoint-failure",
+          sessionId: "session-1",
+          graph: graphWithEvents(() => [
+            { type: "message", node: "writer", content: "from graph" },
+            { type: "done", data: baseState },
+          ]),
+          state: baseState,
+          config: {},
+          selectWorkflow: vi.fn(),
+          frameworkAdapter: {
+            sessionCheckpoints,
+          } as unknown as FrameworkAdapter,
+        }),
+      ),
+    ).resolves.toContainEqual({ type: "done", data: baseState });
+
+    expect(sessionCheckpoints.append).toHaveBeenCalledWith(
+      expect.objectContaining({
+        nodes: ["writer"],
+      }),
+    );
+    expect(error).toHaveBeenCalledWith(
+      "[orchestrator] session checkpoint failed",
+      checkpointFailure,
+    );
+
+    const unlabeledCheckpoints = {
+      append: vi.fn(async () => ({
+        id: "cp-unlabeled",
+        sessionId: "session-1",
+        runId: "run-1",
+        turnIndex: 1,
+        createdAt: 1,
+        nodes: [],
+        workflow: "first",
+        state: baseState,
+        effects: {
+          structuredStreamIds: [],
+          interruptTokens: [],
+        },
+        activePendingRequests: [],
+      })),
+    };
+    const chunks = await collect(
+      await orchestrateGraphStream({
+        runId: "run-unlabeled-checkpoint",
+        sessionId: "session-1",
+        graph: graphWithEvents(() => [{ type: "done", data: baseState }]),
+        state: baseState,
+        config: {},
+        selectWorkflow: vi.fn(),
+        frameworkAdapter: {
+          sessionCheckpoints: unlabeledCheckpoints,
+        } as unknown as FrameworkAdapter,
+      }),
+    );
+    expect(chunks).toContainEqual({
+      type: "checkpoint",
+      id: "cp-unlabeled",
+      sessionId: "session-1",
+      turnIndex: 1,
+    });
+    error.mockRestore();
   });
 
   it("handles text interrupts without metadata", async () => {
