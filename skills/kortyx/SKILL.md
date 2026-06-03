@@ -26,7 +26,7 @@ Architecture:
 - `references/architecture-nextjs.md`: Next.js API route vs Server Action guidance.
 - `references/architecture-react-node.md`: separate React frontend plus Node backend.
 - `references/architecture-runtime-persistence.md`: in-memory vs Redis and app DB boundaries.
-- `references/session-checkpoints-rollback-fork.md`: implementing user-facing session checkpoints, rollback, fork, regenerate, structured-data invalidation, and checkpoint-aware `useChat`.
+- `references/session-checkpoints-rollback-fork.md`: adding checkpoint, rollback, fork, regenerate, undo, and structured-data cleanup features to apps built with Kortyx.
 - `references/observability-otel.md`: backend-neutral server-side OpenTelemetry tracing, prompt metadata, tags, and trace ids on the React client.
 - `references/observability-langfuse.md`: app-owned Langfuse export, Kortyx attribute mapping, Next.js flush lifecycle, optional prompt linking, and client feedback scores.
 

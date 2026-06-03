@@ -1,225 +1,207 @@
 # Session Checkpoints, Rollback, And Fork
 
-Use this reference when implementing, reviewing, or debugging user-facing session checkpoints, rollback, fork, regenerate, retry-with-edit, undo, or time-travel style behavior.
+Use this reference when adding checkpoint, rollback, fork, regenerate, retry-with-edit, undo, or time-travel behavior to an application built with Kortyx.
 
-## Core Principle
+## Table Of Contents
 
-Do not implement regenerate or fork by copying/truncating the frontend transcript.
+- [Goal](#goal)
+- [Use The Public API](#use-the-public-api)
+- [Persistence Choice](#persistence-choice)
+- [Server Setup](#server-setup)
+- [React Setup](#react-setup)
+- [Regenerate And Retry](#regenerate-and-retry)
+- [Fork](#fork)
+- [Structured Data Cleanup](#structured-data-cleanup)
+- [Workflow Changes](#workflow-changes)
+- [App Checklist](#app-checklist)
 
-Kortyx workflows can have hidden server-side state:
+## Goal
 
-- `GraphState`
-- `runtime.__kortyx`
-- `useWorkflowState(...)`
-- `useNodeState(...)`
-- pending interrupt requests
-- `useReason({ interrupt })` first-pass state
-- structured streams rendered outside chat
+Use session checkpoints when the app needs to go back to a previous conversation turn without leaving server-side workflow state behind.
 
-The correct primitive is a session-level checkpoint that snapshots the authoritative runtime state at a turn boundary.
+Use this feature for:
 
-## MVP Decisions
+- regenerating an assistant response
+- editing a previous user message and retrying
+- undoing the last user action
+- trying an alternate branch from an earlier turn
+- moving a session between processes or devices
+- debugging how workflow state evolved over time
 
-Lock these decisions before coding:
+Do not build these behaviors by only editing the frontend `messages` array. Kortyx sessions can include server-side state that is not visible in chat history:
 
-- Public granularity: turn-boundary checkpoints only.
-- Storage: add a `SessionCheckpointStore`; do not overload the LangGraph checkpointer.
-- Production: in-memory for dev, Redis or durable adapter for production.
-- Snapshot style: eager full-state snapshots for MVP.
-- Fork style: eager copy into a new `sessionId`.
-- Streaming: no mid-stream rollback in MVP; require abort or `isStreaming === false`.
-- Replay across workflow code changes: best effort. Restore state, then continue with currently deployed code.
-- Retention: default last 50 checkpoints per session, configurable.
+- workflow state from `useWorkflowState(...)`
+- node state from `useNodeState(...)`
+- pending interrupt state
+- cached hook results
+- structured streams rendered in canvases, previews, or editors
 
-## Package Boundaries
+The checkpoint API keeps the frontend transcript and server-side session state aligned.
 
-Implement the feature across these packages.
+## Use The Public API
 
-### `@kortyx/runtime`
-
-Add a store interface separate from `FrameworkAdapter.checkpointer`:
+Application server code should import Kortyx APIs from `kortyx`:
 
 ```ts
-type SessionCheckpointStore = {
-  list(sessionId: string): Promise<CheckpointSummary[]>;
-  get(id: string): Promise<SessionCheckpointRecord | null>;
-  getHead(sessionId: string): Promise<SessionCheckpointRecord | null>;
-  append(args: AppendSessionCheckpointArgs): Promise<SessionCheckpointRecord>;
-  rollbackTo(id: string): Promise<RollbackSessionCheckpointResult>;
-  fork(id: string, options?: { newSessionId?: string }): Promise<ForkSessionCheckpointResult>;
-};
+import {
+  createAgent,
+  createCheckpointRouteHandler,
+  createChatRouteHandler,
+  createRedisFrameworkAdapter,
+} from "kortyx";
 ```
 
-Store records should include:
+Use documented public imports in examples; prefer `kortyx` for server-side agent, route, persistence, and stream helpers.
 
-- `id`, `sessionId`, `turnIndex`, `createdAt`
-- `workflow`, `runId`, `nodes`
-- full `GraphState`
-- structured stream ids produced since the previous checkpoint
-- interrupt tokens / pending requests active at that boundary
-- optional `label`, `workflowVersion`, `buildId`
-
-Wire the store into `FrameworkAdapter`:
-
-- `createInMemoryFrameworkAdapter(...)` uses `createInMemorySessionCheckpointStore(...)`.
-- `createRedisFrameworkAdapter(...)` uses the same Redis connection as pending requests and internal checkpoints, with a separate key prefix.
-
-Redis key spaces should stay separate:
-
-- pending interrupts
-- internal LangGraph checkpoints
-- session checkpoints
-
-### `@kortyx/stream`
-
-Add chunk types:
+React applications can use the official React client package when they use `useChat`:
 
 ```ts
-{ type: "checkpoint"; id: string; sessionId: string; turnIndex: number; label?: string }
-{ type: "structured-data-invalidated"; streamId: string; checkpointId: string }
+import { createRouteChatTransport, useChat } from "@kortyx/react";
 ```
 
-The `checkpoint` chunk must be emitted before the public `done` chunk. If the internal graph transformer yields `done`, hold it, persist the session checkpoint, emit `checkpoint`, then emit public `done`.
-
-### `@kortyx/agent`
-
-Expose low-level APIs:
+The application-facing checkpoint operations are:
 
 ```ts
-agent.listCheckpoints(sessionId);
-agent.getCheckpoint(checkpointId);
-agent.rollbackTo(checkpointId);
-agent.fork(checkpointId, { newSessionId });
+await agent.listCheckpoints(sessionId);
+await agent.getCheckpoint(checkpointId);
+await agent.rollbackTo(checkpointId);
+await agent.fork(checkpointId, { newSessionId });
 ```
 
-Agent responsibilities:
+## Persistence Choice
 
-- On final turn boundary, append a session checkpoint from final `GraphState`.
-- Track touched node ids and structured stream ids during orchestration.
-- Track pending interrupt records and update them with final paused state before checkpointing.
-- On rollback, delete invalidated pending interrupt tokens and restore active pending requests from the target checkpoint.
-- On fork, create a child session snapshot and save child pending requests with new resume tokens/request ids.
-- On non-resume `streamChat`, start from the session checkpoint head if it exists; merge in the new input and current runtime config.
+For local development, in-memory persistence is enough.
 
-Add HTTP helpers for route-based apps:
+For production, use Redis or another durable framework adapter when the app needs checkpoints to survive process restarts, serverless cold starts, multiple workers, or mobile-to-desktop handoff.
 
-- `createCheckpointRouteHandler({ agent })`
-- `handleCheckpointRequestBody(...)`
-- `parseCheckpointRequestBody(...)`
+The same Redis-backed framework adapter should support:
 
-Keep the chat route and checkpoint route separate.
+- interrupt resume state
+- internal replay/idempotency checkpoints
+- user-facing session checkpoints
 
-### `@kortyx/react`
+Keep product data in the app database. Kortyx persistence is for runtime/session state, not the app's source-of-truth records.
 
-Extend route transport with optional checkpoint methods:
+## Server Setup
+
+Create the agent with durable persistence when the app needs production rollback/fork behavior:
 
 ```ts
-createRouteChatTransport({
+import {
+  createAgent,
+  createChatRouteHandler,
+  createCheckpointRouteHandler,
+  createRedisFrameworkAdapter,
+} from "kortyx";
+
+const agent = createAgent({
+  workflows,
+  frameworkAdapter: createRedisFrameworkAdapter({
+    url: process.env.REDIS_URL,
+  }),
+});
+
+export const chatRoute = createChatRouteHandler({ agent });
+export const checkpointRoute = createCheckpointRouteHandler({ agent });
+```
+
+Expose chat and checkpoint operations on separate endpoints. For example:
+
+```ts
+// app/api/kortyx/chat/route.ts
+export const POST = createChatRouteHandler({ agent });
+
+// app/api/kortyx/checkpoints/route.ts
+export const POST = createCheckpointRouteHandler({ agent });
+```
+
+Require the app's normal session authorization before allowing checkpoint operations. A user who cannot access a session should not be able to list, roll back, or fork its checkpoints.
+
+## React Setup
+
+Configure the transport with both endpoints:
+
+```ts
+const transport = createRouteChatTransport({
   endpoint: "/api/kortyx/chat",
   checkpointEndpoint: "/api/kortyx/checkpoints",
 });
+
+const chat = useChat({
+  sessionId,
+  transport,
+});
 ```
 
-Extend `useChat(...)` with:
-
-- `checkpoints`
-- `checkpointForMessage(messageId)`
-- `rollbackTo(checkpointId)`
-- `fork(checkpointId)`
-- `regenerate(assistantMessageId)`
-- `retryWithEdit(assistantMessageId, newUserContent)`
-
-Attach checkpoint chunk metadata to finalized assistant messages:
-
-- `checkpointId`
-- `checkpointTurnIndex`
-
-Interrupt responses must carry hidden source metadata so regenerate can replay them as resume payloads, not normal text prompts.
-
-Normal user prompts should keep the existing visible message shape unless metadata is actually needed.
-
-## Regenerate Semantics
-
-For a normal prompt:
-
-1. Find the checkpoint before the assistant message.
-2. Call server `rollbackTo(checkpointId)`.
-3. Drop client messages after that checkpoint boundary.
-4. Delete invalidated structured streams.
-5. Send the previous user text again.
-
-For an interrupt response:
-
-1. Roll back to the checkpoint where the interrupt was pending.
-2. Drop client messages after that checkpoint boundary.
-3. Replay the previous user action as `{ metadata: { resume: { token, requestId, selected } } }`.
-
-Never send an interrupt response value such as `template-uuid` as a fresh natural-language user prompt.
-
-## Structured Data Invalidation
-
-Rollback results should include:
+Use the checkpoint helpers instead of manually mutating message history:
 
 ```ts
-{
-  invalidatedStructuredStreamIds: string[];
-  invalidatedInterruptTokens: string[];
-}
+await chat.regenerate(assistantMessageId);
+await chat.retryWithEdit(assistantMessageId, editedText);
+const fork = await chat.fork(checkpointId);
+await chat.rollbackTo(checkpointId);
 ```
 
-Clients should delete or mark stale any artifact/canvas/editor state keyed by invalidated `streamId`.
+Use `checkpointForMessage(messageId)` when the UI needs to attach an undo, fork, or debug control to a specific message.
 
-Use generic examples in docs and tests, such as project/template/report flows. Avoid reusing domain-specific examples from the original discussion.
+## Regenerate And Retry
 
-## `useReason` Behavior
+For a normal user prompt, regenerate should:
 
-Rollback/fork restores the state the node uses to build `useReason(...)` inputs:
+1. find the checkpoint before the assistant message
+2. call `rollbackTo(checkpointId)`
+3. remove later messages from the client view
+4. remove invalidated structured data
+5. resend the previous user message
 
-- `GraphState`
-- workflow/node state
-- pending interrupt state
-- new user or resume input
+For an interrupt response, regenerate should replay the saved interrupt response metadata as a resume payload. Do not send a raw selection value such as `template-uuid` as a new natural-language prompt.
 
-It does not automatically guarantee deterministic replay of completed model calls. If a rollback targets before a completed `useReason` call, the model may be called again. That is usually correct for regenerate.
+For retry-with-edit, roll back to the same checkpoint, replace the previous user content, then send the edited content through the normal chat transport.
 
-Full no-model-call replay requires a durable effect/result cache and versioned workflow artifacts; treat that as a separate feature.
+## Fork
 
-## Workflow Code Changes
+Use fork when the app wants an alternate branch while preserving the original session.
 
-Do not promise deterministic replay across deploys.
+Common product patterns:
 
-Recommended metadata:
+- "Try a different approach"
+- "Compare two versions"
+- "Continue from here in a new thread"
+- "Duplicate this conversation before experimenting"
 
-- `workflowVersion`
-- `buildId`
+Fork creates a new `sessionId` whose initial runtime state equals the selected checkpoint. The parent session remains unchanged.
 
-Behavior:
+Do not implement fork by copying visible messages into a new session. That loses hidden workflow state and can mis-handle interrupts.
 
-- rollback/fork restore saved state
-- continuation uses current code
-- if workflow ids, node ids, or state shapes changed incompatibly, the app may need a migration or a compatibility error
+## Structured Data Cleanup
 
-## Tests
+Rollback can invalidate structured streams produced after the target checkpoint.
 
-Add focused tests for:
+When the app receives invalidated stream ids, delete or mark stale any UI state keyed by those ids:
 
-- in-memory session checkpoint store append/list/head/rollback/fork
-- rollback invalidates structured stream ids and trailing interrupt tokens
-- fork creates an isolated child session and child pending requests
-- checkpoint chunk is emitted before `done`
-- checkpoint metadata is attached to finalized React assistant messages
-- route checkpoint handler dispatches list/get/rollback/fork
-- type-checks for `@kortyx/runtime`, `@kortyx/stream`, `@kortyx/agent`, and `@kortyx/react`
+- generated report previews
+- canvas artifacts
+- editor drafts
+- tables or charts
+- side-panel structured outputs
 
-Run:
+The app can ignore the invalidation signal if it does not store structured outputs outside normal chat rendering.
 
-```bash
-pnpm turbo run type-check --filter=@kortyx/runtime --filter=@kortyx/stream --filter=@kortyx/agent --filter=@kortyx/react
-pnpm turbo run test --filter=@kortyx/runtime --filter=@kortyx/stream --filter=@kortyx/agent --filter=@kortyx/react
-```
+## Workflow Changes
 
-If docs changed, also run:
+Checkpoints restore saved session state, then continue with the currently deployed workflow code.
 
-```bash
-pnpm --filter=kortyx-website type-check
-```
+Do not promise perfect replay across code changes. If the app changes workflow ids, node ids, state shapes, or interrupt contracts, old checkpoints may need a migration or a clear compatibility error.
+
+For production apps, store a workflow version or build id in checkpoint metadata when available. Show a friendly error if a user tries to roll back to a checkpoint that the current workflow cannot safely continue.
+
+## App Checklist
+
+- Use `kortyx` imports for server APIs in app examples and docs.
+- Add a checkpoint endpoint next to the chat endpoint.
+- Use durable persistence for production rollback/fork behavior.
+- Protect checkpoint endpoints with the same authorization as chat sessions.
+- Use `useChat` checkpoint helpers for regenerate, retry, undo, and fork.
+- Clean up structured outputs when invalidation ids are returned.
+- Document checkpoint retention for the app, such as keeping the last 50 turn checkpoints per session.
+- Avoid examples tied to the original discussion; prefer generic project/template/report examples.

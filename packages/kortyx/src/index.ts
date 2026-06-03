@@ -5,14 +5,18 @@ export type {
   Agent,
   AgentProcessOptions,
   ChatRequestBody,
+  CheckpointRequestBody,
   CreateAgentArgs,
   StreamChatFromRouteArgs,
 } from "@kortyx/agent";
 export {
   createAgent,
   createChatRouteHandler,
+  createCheckpointRouteHandler,
   handleChatRequestBody,
+  handleCheckpointRequestBody,
   parseChatRequestBody,
+  parseCheckpointRequestBody,
   streamChatFromRoute,
 } from "@kortyx/agent";
 export type {

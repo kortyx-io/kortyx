@@ -19,7 +19,7 @@ Use them when users need to:
 
 ## Prerequisites
 
-- `@kortyx/agent` serving chat requests
+- `kortyx` serving chat requests
 - `@kortyx/react` if you use `useChat(...)`
 - a `FrameworkAdapter`
 
@@ -32,8 +32,11 @@ In-memory persistence works for local development. Use Redis for production roll
 Use one framework adapter for interrupts, LangGraph checkpoints, pending requests, and session checkpoints.
 
 ```ts
-import { createAgent, createCheckpointRouteHandler } from "@kortyx/agent";
-import { createRedisFrameworkAdapter } from "@kortyx/runtime";
+import {
+  createAgent,
+  createCheckpointRouteHandler,
+  createRedisFrameworkAdapter,
+} from "kortyx";
 
 const frameworkAdapter = createRedisFrameworkAdapter({
   url: process.env.REDIS_URL!,
@@ -48,8 +51,11 @@ export const agent = createAgent({
 export const POST = createCheckpointRouteHandler({ agent });
 ```
 ```js
-import { createAgent, createCheckpointRouteHandler } from "@kortyx/agent";
-import { createRedisFrameworkAdapter } from "@kortyx/runtime";
+import {
+  createAgent,
+  createCheckpointRouteHandler,
+  createRedisFrameworkAdapter,
+} from "kortyx";
 
 const frameworkAdapter = createRedisFrameworkAdapter({
   url: process.env.REDIS_URL,
