@@ -2636,6 +2636,184 @@ describe("useChat", () => {
     });
   });
 
+  it("updates the latest active interrupt token when forking from a later turn", async () => {
+    const seenMessages: Parameters<ChatTransport["stream"]>[0]["messages"][] =
+      [];
+    const checkpointTransport: ChatTransport = {
+      stream: async ({ messages, onChunk }) => {
+        seenMessages.push(messages);
+        await onChunk({ type: "done" });
+      },
+      listCheckpoints: vi.fn(async (sessionId: string) =>
+        sessionId === "child-session"
+          ? [
+              {
+                id: "child-cp",
+                sessionId,
+                turnIndex: 2,
+                createdAt: 3,
+                nodes: [],
+                workflow: "workflow-1",
+              },
+            ]
+          : [
+              {
+                id: "cp-0",
+                sessionId,
+                turnIndex: 0,
+                createdAt: 1,
+                nodes: [],
+                workflow: "workflow-1",
+              },
+              {
+                id: "cp-1",
+                sessionId,
+                turnIndex: 1,
+                createdAt: 2,
+                nodes: [],
+                workflow: "workflow-1",
+              },
+              {
+                id: "cp-2",
+                sessionId,
+                turnIndex: 2,
+                createdAt: 3,
+                nodes: [],
+                workflow: "workflow-1",
+              },
+            ],
+      ),
+      rollbackTo: vi.fn(),
+      fork: vi.fn(async (checkpointId: string) => ({
+        sessionId: "child-session",
+        parentSessionId: "session-1",
+        forkedFrom: checkpointId,
+        checkpoint: {
+          id: "child-cp",
+          sessionId: "child-session",
+          turnIndex: 2,
+          activePendingRequests: [
+            {
+              token: "child-depth-token",
+              requestId: "child-depth-request",
+              schema: {
+                kind: "choice" as const,
+                multiple: false,
+                question: "Choose depth",
+              },
+              options: [{ id: "standard", label: "Standard" }],
+            },
+          ],
+        },
+      })),
+    };
+    const memory = createMemoryStorage({ sessionId: "session-1" });
+
+    const { result } = renderHook(() =>
+      useChat({
+        transport: checkpointTransport,
+        storage: memory.storage,
+      }),
+    );
+    await flushEffects();
+
+    act(() => {
+      result.current.setMessages([
+        {
+          id: "user-1",
+          role: "user",
+          content: "start",
+          checkpointTurnIndex: 0,
+        },
+        {
+          id: "assistant-1",
+          role: "assistant",
+          content: "pick template",
+          checkpointId: "cp-1",
+          checkpointTurnIndex: 1,
+          contentPieces: [
+            {
+              id: "template-interrupt",
+              type: "interrupt",
+              resumeToken: "parent-template-token",
+              requestId: "parent-template-request",
+              kind: "choice",
+              multiple: false,
+              question: "Pick a template",
+              options: [{ id: "ops", label: "Operations brief" }],
+            },
+          ],
+        },
+        {
+          id: "user-2",
+          role: "user",
+          content: "ops",
+          checkpointTurnIndex: 2,
+        },
+        {
+          id: "assistant-2",
+          role: "assistant",
+          content: "pick depth",
+          checkpointId: "cp-2",
+          checkpointTurnIndex: 2,
+          contentPieces: [
+            {
+              id: "depth-interrupt",
+              type: "interrupt",
+              resumeToken: "parent-depth-token",
+              requestId: "parent-depth-request",
+              kind: "choice",
+              multiple: false,
+              question: "Choose depth",
+              options: [{ id: "standard", label: "Standard" }],
+            },
+          ],
+        },
+      ]);
+    });
+
+    await act(async () => {
+      await result.current.fork("cp-2", { newSessionId: "child-session" });
+    });
+
+    const templateInterrupt =
+      result.current.messages[1]?.contentPieces?.[0]?.type === "interrupt"
+        ? result.current.messages[1].contentPieces[0]
+        : undefined;
+    const depthInterrupt =
+      result.current.messages[3]?.contentPieces?.[0]?.type === "interrupt"
+        ? result.current.messages[3].contentPieces[0]
+        : undefined;
+
+    expect(templateInterrupt).toMatchObject({
+      resumeToken: "parent-template-token",
+      requestId: "parent-template-request",
+    });
+    expect(depthInterrupt).toMatchObject({
+      resumeToken: "child-depth-token",
+      requestId: "child-depth-request",
+    });
+
+    await act(async () => {
+      if (!depthInterrupt) throw new Error("Expected depth interrupt.");
+      await result.current.respondToInterrupt(depthInterrupt, {
+        selected: ["standard"],
+      });
+    });
+
+    expect(seenMessages.at(-1)?.at(-1)).toEqual({
+      role: "user",
+      content: "standard",
+      metadata: {
+        resume: {
+          token: "child-depth-token",
+          requestId: "child-depth-request",
+          selected: ["standard"],
+        },
+      },
+    });
+  });
+
   it("rejects checkpoint operations while streaming", async () => {
     let finishStream: (() => void) | undefined;
     const transport: ChatTransport = {

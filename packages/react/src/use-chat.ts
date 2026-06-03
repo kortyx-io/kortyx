@@ -164,17 +164,30 @@ function applyForkedPendingRequests(args: {
 }): ChatMsg[] {
   if (args.pendingRequests.length === 0) return args.messages;
 
-  let pendingIndex = 0;
-  return args.messages.map((message) => {
+  const interruptPositions = args.messages.flatMap((message, messageIndex) =>
+    (message.contentPieces ?? []).flatMap((piece, pieceIndex) =>
+      piece.type === "interrupt" ? [{ messageIndex, pieceIndex }] : [],
+    ),
+  );
+  const positionsToPatch = interruptPositions.slice(
+    -args.pendingRequests.length,
+  );
+  if (positionsToPatch.length === 0) return args.messages;
+
+  return args.messages.map((message, messageIndex) => {
     if (!message.contentPieces) return message;
 
     let changed = false;
-    const contentPieces = message.contentPieces.map((piece) => {
+    const contentPieces = message.contentPieces.map((piece, pieceIndex) => {
       if (piece.type !== "interrupt") return piece;
-      const pending = args.pendingRequests[pendingIndex];
+      const patchIndex = positionsToPatch.findIndex(
+        (position) =>
+          position.messageIndex === messageIndex &&
+          position.pieceIndex === pieceIndex,
+      );
+      const pending = args.pendingRequests[patchIndex];
       if (!pending) return piece;
 
-      pendingIndex += 1;
       changed = true;
       return {
         ...piece,
