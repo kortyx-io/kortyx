@@ -8,6 +8,7 @@ import type {
   ChatTransport,
   CheckpointSummary,
   ForkCheckpointResult,
+  ForkPendingRequest,
   OutgoingChatMessage,
   RollbackCheckpointResult,
 } from "./chat-transport";
@@ -155,6 +156,53 @@ function trimMessagesToCheckpoint(args: {
   return keepThroughIndex >= 0
     ? args.messages.slice(0, keepThroughIndex + 1)
     : [];
+}
+
+function applyForkedPendingRequests(args: {
+  messages: ChatMsg[];
+  pendingRequests: ForkPendingRequest[];
+}): ChatMsg[] {
+  if (args.pendingRequests.length === 0) return args.messages;
+
+  let pendingIndex = 0;
+  return args.messages.map((message) => {
+    if (!message.contentPieces) return message;
+
+    let changed = false;
+    const contentPieces = message.contentPieces.map((piece) => {
+      if (piece.type !== "interrupt") return piece;
+      const pending = args.pendingRequests[pendingIndex];
+      if (!pending) return piece;
+
+      pendingIndex += 1;
+      changed = true;
+      return {
+        ...piece,
+        resumeToken: pending.token,
+        requestId: pending.requestId,
+        ...(pending.schema?.kind ? { kind: pending.schema.kind } : {}),
+        ...(typeof pending.schema?.multiple === "boolean"
+          ? { multiple: pending.schema.multiple }
+          : {}),
+        ...(typeof pending.schema?.question === "string"
+          ? { question: pending.schema.question }
+          : {}),
+        ...(typeof pending.schema?.schemaId === "string"
+          ? { schemaId: pending.schema.schemaId }
+          : {}),
+        ...(typeof pending.schema?.schemaVersion === "string"
+          ? { schemaVersion: pending.schema.schemaVersion }
+          : {}),
+        ...(typeof pending.schema?.id === "string"
+          ? { interruptId: pending.schema.id }
+          : {}),
+        ...(pending.schema?.meta ? { meta: pending.schema.meta } : {}),
+        ...(pending.options ? { options: pending.options } : {}),
+      };
+    });
+
+    return changed ? { ...message, contentPieces } : message;
+  });
 }
 
 function latestAssistantMessageId(messages: ChatMsg[]): string | null {
@@ -710,9 +758,12 @@ export function useChat<TContext = DefaultChatContext>(
     const forkTurnIndex = target?.turnIndex ?? childHead?.turnIndex;
     if (typeof forkTurnIndex === "number") {
       setMessages((current) =>
-        trimMessagesToCheckpoint({
-          messages: current,
-          turnIndex: forkTurnIndex,
+        applyForkedPendingRequests({
+          messages: trimMessagesToCheckpoint({
+            messages: current,
+            turnIndex: forkTurnIndex,
+          }),
+          pendingRequests: result.checkpoint?.activePendingRequests ?? [],
         }),
       );
     }

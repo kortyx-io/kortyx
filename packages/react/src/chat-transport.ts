@@ -39,10 +39,31 @@ export type RollbackCheckpointResult = {
   invalidatedInterruptTokens: string[];
 };
 
+export type ForkPendingRequest = {
+  token: string;
+  requestId: string;
+  schema?: {
+    kind?: "choice" | "multi-choice" | "text";
+    multiple?: boolean;
+    question?: string;
+    id?: string;
+    schemaId?: string;
+    schemaVersion?: string;
+    meta?: Record<string, unknown>;
+  };
+  options?: Array<{ id: string; label: string; description?: string }>;
+};
+
 export type ForkCheckpointResult = {
   sessionId: string;
   parentSessionId: string;
   forkedFrom: string;
+  checkpoint?: {
+    id: string;
+    sessionId: string;
+    turnIndex: number;
+    activePendingRequests?: ForkPendingRequest[];
+  };
 };
 
 export type ChatTransport<TContext = DefaultChatContext> = {

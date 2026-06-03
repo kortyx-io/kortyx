@@ -2464,8 +2464,13 @@ describe("useChat", () => {
   });
 
   it("trims local messages to the fork checkpoint when entering the child session", async () => {
+    const seenMessages: Parameters<ChatTransport["stream"]>[0]["messages"][] =
+      [];
     const checkpointTransport: ChatTransport = {
-      stream: async () => undefined,
+      stream: async ({ messages, onChunk }) => {
+        seenMessages.push(messages);
+        await onChunk({ type: "done" });
+      },
       listCheckpoints: vi.fn(async (sessionId: string) =>
         sessionId === "child-session"
           ? [
@@ -2510,6 +2515,23 @@ describe("useChat", () => {
         sessionId: "child-session",
         parentSessionId: "session-1",
         forkedFrom: checkpointId,
+        checkpoint: {
+          id: "child-cp",
+          sessionId: "child-session",
+          turnIndex: 1,
+          activePendingRequests: [
+            {
+              token: "child-token",
+              requestId: "child-request",
+              schema: {
+                kind: "choice" as const,
+                multiple: false,
+                question: "Pick a template",
+              },
+              options: [{ id: "ops", label: "Operations brief" }],
+            },
+          ],
+        },
       })),
     };
     const memory = createMemoryStorage({ sessionId: "session-1" });
@@ -2536,6 +2558,18 @@ describe("useChat", () => {
           content: "pick template",
           checkpointId: "cp-1",
           checkpointTurnIndex: 1,
+          contentPieces: [
+            {
+              id: "interrupt-1",
+              type: "interrupt",
+              resumeToken: "parent-token",
+              requestId: "parent-request",
+              kind: "choice",
+              multiple: false,
+              question: "Pick a template",
+              options: [{ id: "ops", label: "Operations brief" }],
+            },
+          ],
         },
         {
           id: "user-2",
@@ -2570,9 +2604,36 @@ describe("useChat", () => {
       "user-1",
       "assistant-1",
     ]);
+    const forkedInterrupt =
+      result.current.messages[1]?.contentPieces?.[0]?.type === "interrupt"
+        ? result.current.messages[1].contentPieces[0]
+        : undefined;
+    expect(forkedInterrupt).toMatchObject({
+      resumeToken: "child-token",
+      requestId: "child-request",
+    });
     expect(result.current.checkpoints).toEqual([
       expect.objectContaining({ id: "child-cp", sessionId: "child-session" }),
     ]);
+
+    await act(async () => {
+      if (!forkedInterrupt) throw new Error("Expected forked interrupt.");
+      await result.current.respondToInterrupt(forkedInterrupt, {
+        selected: ["ops"],
+      });
+    });
+
+    expect(seenMessages.at(-1)?.at(-1)).toEqual({
+      role: "user",
+      content: "ops",
+      metadata: {
+        resume: {
+          token: "child-token",
+          requestId: "child-request",
+          selected: ["ops"],
+        },
+      },
+    });
   });
 
   it("rejects checkpoint operations while streaming", async () => {
