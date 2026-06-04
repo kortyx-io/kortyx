@@ -11,8 +11,11 @@ import {
   ChevronRightIcon,
   CopyIcon,
   EyeIcon,
+  PencilIcon,
+  SendIcon,
+  XIcon,
 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { type ReactNode, useEffect, useMemo, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import rehypeHighlight from "rehype-highlight";
 import remarkGfm from "remark-gfm";
@@ -36,6 +39,10 @@ export type ChatMessageProps = {
       }) => Promise<void> | void)
     | undefined;
   onDebug?: (id: string) => void;
+  actions?: ReactNode;
+  variantControls?: ReactNode;
+  editable?: boolean;
+  onSubmitEdit?: (content: string) => Promise<void> | void;
 };
 
 type ComposeStructuredData = {
@@ -570,8 +577,32 @@ export function ChatMessage({
   chatIsStreaming,
   onRespondToHumanInput,
   onDebug,
+  actions,
+  variantControls,
+  editable,
+  onSubmitEdit,
 }: ChatMessageProps) {
   const isUser = sender === "user";
+  const [isEditing, setIsEditing] = useState(false);
+  const [editContent, setEditContent] = useState(content);
+
+  useEffect(() => {
+    if (!isEditing) {
+      setEditContent(content);
+    }
+  }, [content, isEditing]);
+
+  const submitEdit = async () => {
+    const nextContent = editContent.trim();
+    if (!nextContent || nextContent === content) {
+      setIsEditing(false);
+      setEditContent(content);
+      return;
+    }
+    await onSubmitEdit?.(nextContent);
+    setIsEditing(false);
+  };
+
   const hasStructuredDemoCard = Boolean(
     contentPieces?.some(
       (piece) =>
@@ -592,7 +623,60 @@ export function ChatMessage({
         }
       >
         {isUser ? (
-          <div className="break-words whitespace-pre-wrap">{content}</div>
+          <>
+            {isEditing ? (
+              <textarea
+                value={editContent}
+                onChange={(event) => setEditContent(event.target.value)}
+                className="min-h-20 w-80 max-w-[70vw] resize-y rounded-md border border-emerald-400 bg-white px-3 py-2 text-sm text-slate-950 outline-none focus:ring-2 focus:ring-emerald-300"
+              />
+            ) : (
+              <div className="break-words whitespace-pre-wrap">{content}</div>
+            )}
+            <div className="mt-2 flex justify-end gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => navigator.clipboard.writeText(content)}
+                title="Copy message"
+              >
+                <CopyIcon className="size-4" />
+              </Button>
+              {editable &&
+                (isEditing ? (
+                  <>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => void submitEdit()}
+                      title="Submit edited message"
+                    >
+                      <SendIcon className="size-4" />
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setIsEditing(false);
+                        setEditContent(content);
+                      }}
+                      title="Cancel edit"
+                    >
+                      <XIcon className="size-4" />
+                    </Button>
+                  </>
+                ) : (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setIsEditing(true)}
+                    title="Edit and submit again"
+                  >
+                    <PencilIcon className="size-4" />
+                  </Button>
+                ))}
+            </div>
+          </>
         ) : (
           <div className="prose prose-slate dark:prose-invert max-w-none prose-pre:bg-slate-900 prose-pre:text-slate-100 prose-code:text-slate-800 dark:prose-code:text-slate-200">
             {contentPieces && contentPieces.length > 0 ? (
@@ -759,7 +843,9 @@ export function ChatMessage({
               </>
             )}
 
-            <div className="flex justify-end gap-2 mt-2">
+            <div className="flex flex-wrap justify-end gap-2 mt-2">
+              {variantControls}
+              {actions}
               <Button
                 variant="outline"
                 size="sm"
