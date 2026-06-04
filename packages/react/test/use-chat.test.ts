@@ -3766,6 +3766,213 @@ describe("useChat", () => {
     );
   });
 
+  it("regenerates an earlier response as a page while preserving later turns on the original page", async () => {
+    const seenMessages: Parameters<ChatTransport["stream"]>[0]["messages"][] =
+      [];
+    let forkCount = 0;
+    const transport: ChatTransport = {
+      stream: async ({ sessionId, messages, onChunk }) => {
+        seenMessages.push(messages);
+        await onChunk({
+          type: "checkpoint",
+          id: `${sessionId}-cp-1`,
+          sessionId,
+          turnIndex: 1,
+        });
+        await onChunk({
+          type: "message",
+          content: `regenerated first reply ${forkCount}`,
+        });
+        await onChunk({ type: "done" });
+      },
+      listCheckpoints: vi.fn(async (sessionId: string) =>
+        sessionId.startsWith("branch-")
+          ? [
+              {
+                id: `${sessionId}-cp-0`,
+                sessionId,
+                turnIndex: 0,
+                createdAt: 10,
+                nodes: [],
+                workflow: "workflow-1",
+              },
+              {
+                id: `${sessionId}-cp-1`,
+                sessionId,
+                turnIndex: 1,
+                createdAt: 11,
+                nodes: [],
+                workflow: "workflow-1",
+              },
+            ]
+          : [
+              {
+                id: "cp-0",
+                sessionId,
+                turnIndex: 0,
+                createdAt: 1,
+                nodes: [],
+                workflow: "workflow-1",
+              },
+              {
+                id: "cp-1",
+                sessionId,
+                turnIndex: 1,
+                createdAt: 2,
+                nodes: [],
+                workflow: "workflow-1",
+              },
+              {
+                id: "cp-2",
+                sessionId,
+                turnIndex: 2,
+                createdAt: 3,
+                nodes: [],
+                workflow: "workflow-1",
+              },
+              {
+                id: "cp-3",
+                sessionId,
+                turnIndex: 3,
+                createdAt: 4,
+                nodes: [],
+                workflow: "workflow-1",
+              },
+            ],
+      ),
+      rollbackTo: vi.fn(),
+      fork: vi.fn(async (checkpointId: string) => {
+        forkCount += 1;
+        const childSessionId = `branch-${forkCount}`;
+        return {
+          sessionId: childSessionId,
+          parentSessionId: "session-1",
+          forkedFrom: checkpointId,
+          checkpoint: {
+            id: `${childSessionId}-cp-0`,
+            sessionId: childSessionId,
+            turnIndex: 0,
+            activePendingRequests: [],
+          },
+        };
+      }),
+    };
+    const memory = createMemoryStorage({
+      sessionId: "session-1",
+      messages: [
+        { id: "user-1", role: "user", content: "first prompt" },
+        {
+          id: "assistant-1",
+          role: "assistant",
+          content: "first reply",
+          checkpointId: "cp-1",
+          checkpointTurnIndex: 1,
+        },
+        { id: "user-2", role: "user", content: "second prompt" },
+        {
+          id: "assistant-2",
+          role: "assistant",
+          content: "second reply",
+          checkpointId: "cp-2",
+          checkpointTurnIndex: 2,
+        },
+        { id: "user-3", role: "user", content: "third prompt" },
+        {
+          id: "assistant-3",
+          role: "assistant",
+          content: "third reply",
+          checkpointId: "cp-3",
+          checkpointTurnIndex: 3,
+        },
+      ],
+    });
+
+    const { result } = renderHook(() =>
+      useChat({
+        transport,
+        storage: memory.storage,
+        createId: (() => {
+          let seq = 0;
+          return () => `page-${seq++}`;
+        })(),
+      }),
+    );
+
+    await flushEffects();
+
+    let originalVariantId = "";
+    let firstGeneratedVariantId = "";
+    await act(async () => {
+      const group = await result.current.regenerateVariant("assistant-1");
+      originalVariantId = group.variants[0]?.id ?? "";
+      firstGeneratedVariantId = group.variants[1]?.id ?? "";
+    });
+
+    expect(transport.fork).toHaveBeenCalledWith("cp-0");
+    expect(seenMessages.at(-1)).toEqual([
+      { role: "user", content: "first prompt" },
+    ]);
+    expect(result.current.messages.map((message) => message.content)).toEqual([
+      "first prompt",
+      "regenerated first reply 1",
+    ]);
+
+    await act(async () => {
+      await result.current.selectVariant(
+        result.current.messages.at(-1)?.id ?? "",
+        originalVariantId,
+      );
+    });
+
+    expect(result.current.messages.map((message) => message.content)).toEqual([
+      "first prompt",
+      "first reply",
+      "second prompt",
+      "second reply",
+      "third prompt",
+      "third reply",
+    ]);
+
+    await act(async () => {
+      await result.current.selectVariant(
+        "assistant-1",
+        firstGeneratedVariantId,
+      );
+    });
+
+    expect(result.current.messages.map((message) => message.content)).toEqual([
+      "first prompt",
+      "regenerated first reply 1",
+    ]);
+
+    await act(async () => {
+      await result.current.selectVariant(
+        result.current.messages.at(-1)?.id ?? "",
+        originalVariantId,
+      );
+    });
+    await act(async () => {
+      await result.current.regenerateVariant("assistant-1");
+    });
+
+    const group = result.current.responseVariants[0];
+    expect(group?.variants).toHaveLength(3);
+    expect(
+      group?.variants[0]?.messages.map((message) => message.content),
+    ).toEqual([
+      "first prompt",
+      "first reply",
+      "second prompt",
+      "second reply",
+      "third prompt",
+      "third reply",
+    ]);
+    expect(result.current.messages.map((message) => message.content)).toEqual([
+      "first prompt",
+      "regenerated first reply 2",
+    ]);
+  });
+
   it("generates interrupt response variants with forked resume tokens", async () => {
     const seenMessages: Parameters<ChatTransport["stream"]>[0]["messages"][] =
       [];

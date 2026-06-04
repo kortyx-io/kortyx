@@ -402,6 +402,40 @@ export function useChat<TContext = DefaultChatContext>(
     }));
   }, [checkpoints, didHydrateStorage, messages, sessionId]);
 
+  useEffect(() => {
+    if (!didHydrateStorage || !sessionId) return;
+
+    setResponseVariants((current) =>
+      current.map((group) => {
+        const selectedVariant = group.variants.find(
+          (variant) =>
+            variant.id === group.selectedVariantId &&
+            variant.sessionId === sessionId,
+        );
+        if (!selectedVariant) return group;
+        if (
+          selectedVariant.messages === messages &&
+          selectedVariant.checkpoints === checkpoints
+        ) {
+          return group;
+        }
+
+        return {
+          ...group,
+          variants: group.variants.map((variant) =>
+            variant.id === selectedVariant.id
+              ? {
+                  ...variant,
+                  messages,
+                  checkpoints,
+                }
+              : variant,
+          ),
+        };
+      }),
+    );
+  }, [checkpoints, didHydrateStorage, messages, sessionId]);
+
   const clearActiveStream = () => {
     abortControllerRef.current?.abort();
     abortControllerRef.current = null;
@@ -1108,6 +1142,26 @@ export function useChat<TContext = DefaultChatContext>(
     ...(args.label ? { label: args.label } : {}),
   });
 
+  const updateVariantSnapshot = (args: {
+    variant: ChatResponseVariant;
+    sessionId: string;
+    assistantMessage: ChatMsg;
+    messages: ChatMsg[];
+    checkpoints: CheckpointSummary[];
+  }): ChatResponseVariant => ({
+    ...args.variant,
+    sessionId: args.sessionId,
+    assistantMessageId: args.assistantMessage.id,
+    messages: args.messages,
+    checkpoints: args.checkpoints,
+    ...(args.assistantMessage.checkpointId
+      ? { checkpointId: args.assistantMessage.checkpointId }
+      : {}),
+    ...(typeof args.assistantMessage.checkpointTurnIndex === "number"
+      ? { checkpointTurnIndex: args.assistantMessage.checkpointTurnIndex }
+      : {}),
+  });
+
   const replaceResponseVariantGroup = (nextGroup: ChatResponseVariantGroup) => {
     setResponseVariants((current) => [
       ...current.filter((group) => group.id !== nextGroup.id),
@@ -1128,9 +1182,23 @@ export function useChat<TContext = DefaultChatContext>(
     const existingGroup = variantForMessage(assistantMessageId);
     const sourceAssistantMessageId =
       existingGroup?.sourceAssistantMessageId ?? assistantMessageId;
+    const existingVariants = existingGroup
+      ? existingGroup.variants.map((variant) =>
+          variant.id === existingGroup.selectedVariantId ||
+          variant.assistantMessageId === assistantMessageId
+            ? updateVariantSnapshot({
+                variant,
+                sessionId: parentSessionId,
+                assistantMessage: assistant,
+                messages,
+                checkpoints,
+              })
+            : variant,
+        )
+      : undefined;
 
     const originalVariant =
-      existingGroup?.variants[0] ??
+      existingVariants?.[0] ??
       buildVariant({
         id: `${sourceAssistantMessageId}:original`,
         sessionId: parentSessionId,
@@ -1187,8 +1255,8 @@ export function useChat<TContext = DefaultChatContext>(
           : childCheckpointsBeforeReplay,
       label: `Variant ${(existingGroup?.variants.length ?? 1) + 1}`,
     });
-    const nextVariants = existingGroup
-      ? [...existingGroup.variants, nextVariant]
+    const nextVariants = existingVariants
+      ? [...existingVariants, nextVariant]
       : [originalVariant, nextVariant];
     const nextGroup: ChatResponseVariantGroup = {
       id: existingGroup?.id ?? createId(),
@@ -1239,12 +1307,20 @@ export function useChat<TContext = DefaultChatContext>(
       throw new Error(`Response variant "${variantId}" not found.`);
     }
 
-    const branch = branches[selectedVariant.sessionId];
     setSessionId(selectedVariant.sessionId);
-    setMessages(branch?.messages ?? selectedVariant.messages);
-    setCheckpoints(branch?.checkpoints ?? selectedVariant.checkpoints);
+    setMessages(selectedVariant.messages);
+    setCheckpoints(selectedVariant.checkpoints);
     setStreamContentPieces([]);
     clearStructuredStreams();
+    setBranches((current) => ({
+      ...current,
+      [selectedVariant.sessionId]: {
+        ...(current[selectedVariant.sessionId] ?? {}),
+        sessionId: selectedVariant.sessionId,
+        messages: selectedVariant.messages,
+        checkpoints: selectedVariant.checkpoints,
+      },
+    }));
     const nextGroup = {
       ...group,
       selectedVariantId: selectedVariant.id,
