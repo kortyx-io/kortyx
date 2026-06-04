@@ -38,6 +38,17 @@ type ChatTraceMetadata = {
   runId: string;
 };
 
+type ReplayResult = {
+  userMessage: ChatMsg;
+  assistantMessage?: ChatMsg;
+  messages: ChatMsg[];
+};
+
+type ResumeOverride = {
+  resumeToken: string;
+  requestId: string;
+};
+
 export type PrepareContextMessagesArgs<TContext = DefaultChatContext> = {
   messages: ChatMsg[];
   sessionId: string;
@@ -59,6 +70,9 @@ export type UseChatValue = {
   streamDebug: StreamChunk[];
   lastAssistantId: string | null;
   checkpoints: CheckpointSummary[];
+  activeSessionId: string | null;
+  branches: Record<string, ChatBranch>;
+  responseVariants: ChatResponseVariantGroup[];
   workflowId: string;
   setWorkflowId: React.Dispatch<React.SetStateAction<string>>;
   send: (text: string) => Promise<void> | void;
@@ -80,6 +94,14 @@ export type UseChatValue = {
     options?: { newSessionId?: string },
   ) => Promise<ForkCheckpointResult>;
   regenerate: (assistantMessageId: string) => Promise<void>;
+  regenerateVariant: (
+    assistantMessageId: string,
+  ) => Promise<ChatResponseVariantGroup>;
+  selectVariant: (
+    assistantMessageId: string,
+    variantId: string,
+  ) => Promise<void>;
+  variantForMessage: (messageId: string) => ChatResponseVariantGroup | null;
   regenerateFromCheckpoint: (checkpointId: string) => Promise<void>;
   retryWithEdit: (
     assistantMessageId: string,
@@ -93,6 +115,35 @@ export type UseChatValue = {
   clearError: () => void;
   includeHistory: boolean;
   setIncludeHistory: React.Dispatch<React.SetStateAction<boolean>>;
+};
+
+export type ChatBranch<TMessage = ChatMsg> = {
+  sessionId: string;
+  parentSessionId?: string;
+  forkedFrom?: string;
+  messages: TMessage[];
+  checkpoints: CheckpointSummary[];
+};
+
+export type ChatResponseVariant = {
+  id: string;
+  sessionId: string;
+  assistantMessageId: string;
+  createdAt: number;
+  messages: ChatMsg[];
+  checkpoints: CheckpointSummary[];
+  checkpointId?: string;
+  checkpointTurnIndex?: number;
+  label?: string;
+};
+
+export type ChatResponseVariantGroup = {
+  id: string;
+  sourceAssistantMessageId: string;
+  checkpointId: string;
+  checkpointTurnIndex: number;
+  selectedVariantId: string;
+  variants: ChatResponseVariant[];
 };
 
 export type UseChatOptions<TContext = DefaultChatContext> = {
@@ -250,6 +301,10 @@ export function useChat<TContext = DefaultChatContext>(
   const [includeHistory, setIncludeHistory] = useState(true);
   const [workflowId, setWorkflowId] = useState("");
   const [sessionId, setSessionId] = useState<string | null>(null);
+  const [branches, setBranches] = useState<Record<string, ChatBranch>>({});
+  const [responseVariants, setResponseVariants] = useState<
+    ChatResponseVariantGroup[]
+  >([]);
   const [didHydrateStorage, setDidHydrateStorage] = useState(false);
   const abortControllerRef = useRef<AbortController | null>(null);
   const { streamDebug, clearStreamDebug, createRecorder } =
@@ -284,6 +339,16 @@ export function useChat<TContext = DefaultChatContext>(
       ) {
         setMessages(storedState.messages);
       }
+      if (storedState.branches && typeof storedState.branches === "object") {
+        setBranches(
+          storedState.branches as unknown as Record<string, ChatBranch>,
+        );
+      }
+      if (Array.isArray(storedState.responseVariants)) {
+        setResponseVariants(
+          storedState.responseVariants as ChatResponseVariantGroup[],
+        );
+      }
 
       setDidHydrateStorage(true);
     });
@@ -309,15 +374,33 @@ export function useChat<TContext = DefaultChatContext>(
       workflowId,
       includeHistory,
       messages,
+      branches,
+      responseVariants,
     });
   }, [
+    branches,
     didHydrateStorage,
     includeHistory,
     messages,
+    responseVariants,
     sessionId,
     storageRef,
     workflowId,
   ]);
+
+  useEffect(() => {
+    if (!didHydrateStorage || !sessionId) return;
+
+    setBranches((current) => ({
+      ...current,
+      [sessionId]: {
+        ...(current[sessionId] ?? {}),
+        sessionId,
+        messages,
+        checkpoints,
+      },
+    }));
+  }, [checkpoints, didHydrateStorage, messages, sessionId]);
 
   const clearActiveStream = () => {
     abortControllerRef.current?.abort();
@@ -325,6 +408,8 @@ export function useChat<TContext = DefaultChatContext>(
     setIsStreaming(false);
     setMessages([]);
     setCheckpoints([]);
+    setBranches({});
+    setResponseVariants([]);
     setStreamContentPieces([]);
     clearStreamDebug();
     clearStructuredStreams();
@@ -362,7 +447,12 @@ export function useChat<TContext = DefaultChatContext>(
     setSessionId(sid);
   };
 
-  const resolveSessionId = () => {
+  const resolveSessionId = (preferredSessionId?: string | undefined) => {
+    if (preferredSessionId) {
+      if (sessionId !== preferredSessionId)
+        persistSessionId(preferredSessionId);
+      return preferredSessionId;
+    }
     const sid = sessionId ?? createId();
     if (!sessionId) persistSessionId(sid);
     return sid;
@@ -398,10 +488,11 @@ export function useChat<TContext = DefaultChatContext>(
   const streamAssistantResponse = async (args: {
     sid: string;
     messagesToSend: OutgoingChatMessage[];
+    messagesBeforeAssistant?: ChatMsg[] | undefined;
     debugLabel: string;
     openDebugOnInterrupt?: boolean;
     signal: AbortSignal;
-  }) => {
+  }): Promise<ChatMsg | undefined> => {
     clearStructuredStreams();
     setStreamContentPieces([]);
 
@@ -500,7 +591,7 @@ export function useChat<TContext = DefaultChatContext>(
       },
     });
 
-    if (args.signal.aborted) return;
+    if (args.signal.aborted) return undefined;
 
     const assistant = buildAssistantMessage({
       createId,
@@ -509,11 +600,16 @@ export function useChat<TContext = DefaultChatContext>(
       trace: completedTrace ?? currentTrace,
       checkpoint: currentCheckpoint,
     });
-    setMessages((prev) => [...prev, assistant]);
+    setMessages((prev) =>
+      args.messagesBeforeAssistant
+        ? [...args.messagesBeforeAssistant, assistant]
+        : [...prev, assistant],
+    );
     setLastAssistantId(assistant.id);
     clearStructuredStreams();
     setStreamContentPieces([]);
     clearStreamDebug();
+    return assistant;
   };
 
   const isAbortError = (value: unknown, signal: AbortSignal): boolean => {
@@ -528,14 +624,16 @@ export function useChat<TContext = DefaultChatContext>(
     selected,
     text,
     baseMessages,
+    sid,
   }: {
     resumeToken: string;
     requestId: string;
     selected: string[];
     text?: string;
     baseMessages?: ChatMsg[] | undefined;
-  }) => {
-    if (isStreaming) return;
+    sid?: string | undefined;
+  }): Promise<ReplayResult | undefined> => {
+    if (isStreaming) return undefined;
     setError(null);
     const label: string =
       typeof text === "string" && text.length > 0
@@ -558,7 +656,8 @@ export function useChat<TContext = DefaultChatContext>(
         ...(text !== undefined ? { text } : {}),
       },
     };
-    setMessages([...(baseMessages ?? messages), userMsg]);
+    const nextMessages = [...(baseMessages ?? messages), userMsg];
+    setMessages(nextMessages);
     setIsStreaming(true);
     setStreamContentPieces([]);
     clearStreamDebug();
@@ -575,20 +674,28 @@ export function useChat<TContext = DefaultChatContext>(
         content: label,
         metadata: resumePayload,
       };
-      const sid = resolveSessionId();
+      const resolvedSessionId = resolveSessionId(sid);
       const messagesToSend = await prepareMessagesToSend({
-        sid,
+        sid: resolvedSessionId,
         outgoingMessage: outgoing,
         reason: "resume",
         baseMessages,
       });
 
-      await streamAssistantResponse({
-        sid,
+      const assistantMessage = await streamAssistantResponse({
+        sid: resolvedSessionId,
         messagesToSend,
+        messagesBeforeAssistant: nextMessages,
         debugLabel: "runChat (resume)",
         signal: abortController.signal,
       });
+      return {
+        userMessage: userMsg,
+        ...(assistantMessage ? { assistantMessage } : {}),
+        messages: assistantMessage
+          ? [...nextMessages, assistantMessage]
+          : nextMessages,
+      };
     } catch (err) {
       if (isAbortError(err, abortController.signal)) return;
       const nextError = err instanceof Error ? err : new Error(String(err));
@@ -607,7 +714,9 @@ export function useChat<TContext = DefaultChatContext>(
     requestId: string;
     selected: string[];
     text?: string;
-  }) => respondToHumanInputFromBase(args);
+  }): Promise<void> => {
+    await respondToHumanInputFromBase(args);
+  };
 
   const respondToInterrupt = async (
     piece: HumanInputPiece,
@@ -618,7 +727,7 @@ export function useChat<TContext = DefaultChatContext>(
       response?.selected ??
       (typeof text === "string" && text.length > 0 ? [text] : []);
 
-    return respondToHumanInput({
+    await respondToHumanInput({
       resumeToken: piece.resumeToken,
       requestId: piece.requestId,
       selected,
@@ -629,9 +738,10 @@ export function useChat<TContext = DefaultChatContext>(
   const sendFromBase = async (
     text: string,
     baseMessages?: ChatMsg[] | undefined,
-  ) => {
+    sid?: string | undefined,
+  ): Promise<ReplayResult | undefined> => {
     const content = text.trim();
-    if (!content || isStreaming) return;
+    if (!content || isStreaming) return undefined;
     setError(null);
 
     const activeTextInterrupt = findActiveTextInterrupt({
@@ -640,13 +750,14 @@ export function useChat<TContext = DefaultChatContext>(
     });
 
     if (activeTextInterrupt) {
-      await respondToHumanInput({
+      return respondToHumanInputFromBase({
         resumeToken: activeTextInterrupt.resumeToken,
         requestId: activeTextInterrupt.requestId,
         selected: [content],
         text: content,
+        baseMessages,
+        sid,
       });
-      return;
     }
 
     const userId = createId();
@@ -655,7 +766,8 @@ export function useChat<TContext = DefaultChatContext>(
       role: "user",
       content,
     };
-    setMessages([...(baseMessages ?? messages), userMsg]);
+    const nextMessages = [...(baseMessages ?? messages), userMsg];
+    setMessages(nextMessages);
 
     setIsStreaming(true);
     setStreamContentPieces([]);
@@ -665,20 +777,28 @@ export function useChat<TContext = DefaultChatContext>(
     abortControllerRef.current = abortController;
 
     try {
-      const sid = resolveSessionId();
+      const resolvedSessionId = resolveSessionId(sid);
       const messagesToSend = await prepareMessagesToSend({
-        sid,
+        sid: resolvedSessionId,
         outgoingMessage: { role: "user" as const, content },
         reason: "send",
         baseMessages,
       });
-      await streamAssistantResponse({
-        sid,
+      const assistantMessage = await streamAssistantResponse({
+        sid: resolvedSessionId,
         messagesToSend,
+        messagesBeforeAssistant: nextMessages,
         debugLabel: "runChat (send)",
         openDebugOnInterrupt: true,
         signal: abortController.signal,
       });
+      return {
+        userMessage: userMsg,
+        ...(assistantMessage ? { assistantMessage } : {}),
+        messages: assistantMessage
+          ? [...nextMessages, assistantMessage]
+          : nextMessages,
+      };
     } catch (err) {
       if (isAbortError(err, abortController.signal)) return;
       const nextError = err instanceof Error ? err : new Error(String(err));
@@ -692,9 +812,15 @@ export function useChat<TContext = DefaultChatContext>(
     }
   };
 
-  const send = async (text: string) => sendFromBase(text);
+  const send = async (text: string): Promise<void> => {
+    await sendFromBase(text);
+  };
 
-  const requireCheckpointTransport = () => {
+  const requireCheckpointTransport = (): ChatTransport<TContext> & {
+    listCheckpoints: NonNullable<ChatTransport<TContext>["listCheckpoints"]>;
+    rollbackTo: NonNullable<ChatTransport<TContext>["rollbackTo"]>;
+    fork: NonNullable<ChatTransport<TContext>["fork"]>;
+  } => {
     const transport = transportRef.current;
     if (
       !transport.listCheckpoints ||
@@ -705,12 +831,16 @@ export function useChat<TContext = DefaultChatContext>(
         "Checkpoint helpers require a transport with checkpoint methods.",
       );
     }
-    return transport;
+    return transport as ChatTransport<TContext> & {
+      listCheckpoints: NonNullable<ChatTransport<TContext>["listCheckpoints"]>;
+      rollbackTo: NonNullable<ChatTransport<TContext>["rollbackTo"]>;
+      fork: NonNullable<ChatTransport<TContext>["fork"]>;
+    };
   };
 
   const refreshCheckpoints = async (sid: string) => {
     const transport = requireCheckpointTransport();
-    const next = await transport.listCheckpoints!(sid);
+    const next = await transport.listCheckpoints(sid);
     setCheckpoints(next);
     return next;
   };
@@ -726,7 +856,7 @@ export function useChat<TContext = DefaultChatContext>(
       throw new Error("Cannot rollback while a stream is active.");
     }
     const transport = requireCheckpointTransport();
-    const result = await transport.rollbackTo!(id);
+    const result = await transport.rollbackTo(id);
     applyStructuredInvalidations(result.invalidatedStructuredStreamIds);
     const refreshedCheckpoints = await refreshCheckpoints(result.sessionId);
     const target = refreshedCheckpoints.find(
@@ -764,7 +894,7 @@ export function useChat<TContext = DefaultChatContext>(
       target = availableCheckpoints.find((checkpoint) => checkpoint.id === id);
     }
 
-    const result = await transport.fork!(id, options);
+    const result = await transport.fork(id, options);
     setSessionId(result.sessionId);
     const childCheckpoints = await refreshCheckpoints(result.sessionId);
     const childHead = childCheckpoints.at(-1);
@@ -791,6 +921,68 @@ export function useChat<TContext = DefaultChatContext>(
     );
   };
 
+  const variantForMessage = (
+    messageId: string,
+  ): ChatResponseVariantGroup | null => {
+    return (
+      responseVariants.find(
+        (group) =>
+          group.sourceAssistantMessageId === messageId ||
+          group.variants.some(
+            (variant) => variant.assistantMessageId === messageId,
+          ),
+      ) ?? null
+    );
+  };
+
+  const findResumeOverrideForFork = (
+    baseMessages: ChatMsg[],
+    forkedBaseMessages: ChatMsg[],
+    userMessage: ChatMsg,
+  ): ResumeOverride | undefined => {
+    if (userMessage.source?.type !== "interrupt-response") return undefined;
+    const userSource = userMessage.source;
+
+    const interruptPositions = baseMessages.flatMap((message, messageIndex) =>
+      (message.contentPieces ?? []).flatMap((piece, pieceIndex) =>
+        piece.type === "interrupt" ? [{ messageIndex, pieceIndex, piece }] : [],
+      ),
+    );
+    const matchedPosition = [...interruptPositions]
+      .reverse()
+      .find(
+        ({ piece }) =>
+          piece.resumeToken === userSource.resumeToken ||
+          piece.requestId === userSource.requestId,
+      );
+
+    const forkedPiece =
+      typeof matchedPosition?.messageIndex === "number"
+        ? forkedBaseMessages[matchedPosition.messageIndex]?.contentPieces?.[
+            matchedPosition.pieceIndex
+          ]
+        : undefined;
+
+    if (forkedPiece?.type === "interrupt") {
+      return {
+        resumeToken: forkedPiece.resumeToken,
+        requestId: forkedPiece.requestId,
+      };
+    }
+
+    const latestForkedInterrupt = forkedBaseMessages
+      .flatMap((message) => message.contentPieces ?? [])
+      .filter((piece): piece is HumanInputPiece => piece.type === "interrupt")
+      .at(-1);
+
+    return latestForkedInterrupt
+      ? {
+          resumeToken: latestForkedInterrupt.resumeToken,
+          requestId: latestForkedInterrupt.requestId,
+        }
+      : undefined;
+  };
+
   const resolveRegenerateTarget = async (assistantMessageId: string) => {
     const assistantIndex = messages.findIndex(
       (message) => message.id === assistantMessageId,
@@ -798,7 +990,10 @@ export function useChat<TContext = DefaultChatContext>(
     if (assistantIndex < 0) {
       throw new Error(`Assistant message "${assistantMessageId}" not found.`);
     }
-    const assistant = messages[assistantIndex]!;
+    const assistant = messages[assistantIndex];
+    if (!assistant) {
+      throw new Error(`Assistant message "${assistantMessageId}" not found.`);
+    }
     if (assistant.role !== "assistant") {
       throw new Error("Regenerate expects an assistant message id.");
     }
@@ -854,33 +1049,207 @@ export function useChat<TContext = DefaultChatContext>(
       turnIndex: target.turnIndex,
     });
 
-    return { target, previousUser, baseMessages };
+    return { target, assistant, previousUser, baseMessages };
   };
 
   const replayUserMessage = async (
     userMessage: ChatMsg,
     baseMessages: ChatMsg[],
     editedContent?: string,
-  ) => {
+    options?: {
+      sid?: string | undefined;
+      resumeOverride?: ResumeOverride | undefined;
+    },
+  ): Promise<ReplayResult | undefined> => {
     const content = editedContent ?? userMessage.content;
     if (userMessage.source?.type === "interrupt-response") {
-      await respondToHumanInputFromBase({
-        resumeToken: userMessage.source.resumeToken,
-        requestId: userMessage.source.requestId,
+      return respondToHumanInputFromBase({
+        resumeToken:
+          options?.resumeOverride?.resumeToken ??
+          userMessage.source.resumeToken,
+        requestId:
+          options?.resumeOverride?.requestId ?? userMessage.source.requestId,
         selected:
           editedContent !== undefined
             ? [editedContent]
             : userMessage.source.selected,
         baseMessages,
+        sid: options?.sid,
         ...(editedContent !== undefined
           ? { text: editedContent }
           : userMessage.source.text !== undefined
             ? { text: userMessage.source.text }
             : {}),
       });
-      return;
     }
-    await sendFromBase(content, baseMessages);
+    return sendFromBase(content, baseMessages, options?.sid);
+  };
+
+  const buildVariant = (args: {
+    id: string;
+    sessionId: string;
+    assistantMessage: ChatMsg;
+    messages: ChatMsg[];
+    checkpoints: CheckpointSummary[];
+    label?: string;
+  }): ChatResponseVariant => ({
+    id: args.id,
+    sessionId: args.sessionId,
+    assistantMessageId: args.assistantMessage.id,
+    createdAt: Date.now(),
+    messages: args.messages,
+    checkpoints: args.checkpoints,
+    ...(args.assistantMessage.checkpointId
+      ? { checkpointId: args.assistantMessage.checkpointId }
+      : {}),
+    ...(typeof args.assistantMessage.checkpointTurnIndex === "number"
+      ? { checkpointTurnIndex: args.assistantMessage.checkpointTurnIndex }
+      : {}),
+    ...(args.label ? { label: args.label } : {}),
+  });
+
+  const replaceResponseVariantGroup = (nextGroup: ChatResponseVariantGroup) => {
+    setResponseVariants((current) => [
+      ...current.filter((group) => group.id !== nextGroup.id),
+      nextGroup,
+    ]);
+  };
+
+  const regenerateVariant = async (
+    assistantMessageId: string,
+  ): Promise<ChatResponseVariantGroup> => {
+    if (isStreaming) {
+      throw new Error("Cannot regenerate a variant while a stream is active.");
+    }
+    const { target, assistant, previousUser, baseMessages } =
+      await resolveRegenerateTarget(assistantMessageId);
+    const transport = requireCheckpointTransport();
+    const parentSessionId = resolveSessionId();
+    const existingGroup = variantForMessage(assistantMessageId);
+    const sourceAssistantMessageId =
+      existingGroup?.sourceAssistantMessageId ?? assistantMessageId;
+
+    const originalVariant =
+      existingGroup?.variants[0] ??
+      buildVariant({
+        id: `${sourceAssistantMessageId}:original`,
+        sessionId: parentSessionId,
+        assistantMessage: assistant,
+        messages,
+        checkpoints,
+        label: "Original",
+      });
+
+    const forkResult = await transport.fork(target.id);
+    const forkedSessionId = forkResult.sessionId;
+    setSessionId(forkedSessionId);
+
+    const childCheckpointsBeforeReplay =
+      await refreshCheckpoints(forkedSessionId);
+    const forkedBaseMessages = applyForkedPendingRequests({
+      messages: baseMessages,
+      pendingRequests: forkResult.checkpoint?.activePendingRequests ?? [],
+    });
+    const resumeOverride = findResumeOverrideForFork(
+      baseMessages,
+      forkedBaseMessages,
+      previousUser,
+    );
+    setMessages(forkedBaseMessages);
+    setStreamContentPieces([]);
+    clearStructuredStreams();
+
+    const replay = await replayUserMessage(
+      previousUser,
+      forkedBaseMessages,
+      undefined,
+      {
+        sid: forkedSessionId,
+        resumeOverride,
+      },
+    );
+    const childCheckpointsAfterReplay =
+      await refreshCheckpoints(forkedSessionId);
+    const variantMessages = replay?.messages ?? forkedBaseMessages;
+    const variantAssistant = replay?.assistantMessage;
+    if (!variantAssistant) {
+      throw new Error("Regenerate variant did not produce an assistant reply.");
+    }
+
+    const nextVariant = buildVariant({
+      id: createId(),
+      sessionId: forkedSessionId,
+      assistantMessage: variantAssistant,
+      messages: variantMessages,
+      checkpoints:
+        childCheckpointsAfterReplay.length > 0
+          ? childCheckpointsAfterReplay
+          : childCheckpointsBeforeReplay,
+      label: `Variant ${(existingGroup?.variants.length ?? 1) + 1}`,
+    });
+    const nextVariants = existingGroup
+      ? [...existingGroup.variants, nextVariant]
+      : [originalVariant, nextVariant];
+    const nextGroup: ChatResponseVariantGroup = {
+      id: existingGroup?.id ?? createId(),
+      sourceAssistantMessageId,
+      checkpointId: existingGroup?.checkpointId ?? target.id,
+      checkpointTurnIndex:
+        existingGroup?.checkpointTurnIndex ?? target.turnIndex,
+      selectedVariantId: nextVariant.id,
+      variants: nextVariants,
+    };
+
+    replaceResponseVariantGroup(nextGroup);
+    setBranches((current) => ({
+      ...current,
+      [parentSessionId]: {
+        ...(current[parentSessionId] ?? {}),
+        sessionId: parentSessionId,
+        messages,
+        checkpoints,
+      },
+      [forkedSessionId]: {
+        ...(current[forkedSessionId] ?? {}),
+        sessionId: forkedSessionId,
+        parentSessionId: forkResult.parentSessionId,
+        forkedFrom: forkResult.forkedFrom,
+        messages: variantMessages,
+        checkpoints: nextVariant.checkpoints,
+      },
+    }));
+
+    return nextGroup;
+  };
+
+  const selectVariant = async (
+    assistantMessageId: string,
+    variantId: string,
+  ): Promise<void> => {
+    const group = variantForMessage(assistantMessageId);
+    if (!group) {
+      throw new Error(
+        `No response variants found for "${assistantMessageId}".`,
+      );
+    }
+    const selectedVariant = group.variants.find(
+      (variant) => variant.id === variantId,
+    );
+    if (!selectedVariant) {
+      throw new Error(`Response variant "${variantId}" not found.`);
+    }
+
+    const branch = branches[selectedVariant.sessionId];
+    setSessionId(selectedVariant.sessionId);
+    setMessages(branch?.messages ?? selectedVariant.messages);
+    setCheckpoints(branch?.checkpoints ?? selectedVariant.checkpoints);
+    setStreamContentPieces([]);
+    clearStructuredStreams();
+    const nextGroup = {
+      ...group,
+      selectedVariantId: selectedVariant.id,
+    };
+    replaceResponseVariantGroup(nextGroup);
   };
 
   const regenerate = async (assistantMessageId: string): Promise<void> => {
@@ -946,6 +1315,9 @@ export function useChat<TContext = DefaultChatContext>(
     streamDebug,
     lastAssistantId,
     checkpoints,
+    activeSessionId: sessionId,
+    branches,
+    responseVariants,
     workflowId,
     setWorkflowId,
     send,
@@ -956,6 +1328,9 @@ export function useChat<TContext = DefaultChatContext>(
     rollbackTo,
     fork,
     regenerate,
+    regenerateVariant,
+    selectVariant,
+    variantForMessage,
     regenerateFromCheckpoint,
     retryWithEdit,
     clearMessages,

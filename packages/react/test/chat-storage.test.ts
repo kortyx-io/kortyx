@@ -98,6 +98,68 @@ describe("createBrowserChatStorage", () => {
     ]);
   });
 
+  it("loads, saves, and clears branch and response variant state", () => {
+    const storage = createBrowserChatStorage<StoredMessage>({
+      parseMessage,
+      serializeMessage,
+      maxMessages: 1,
+    });
+
+    storage.save({
+      sessionId: "session-1",
+      workflowId: "workflow-1",
+      includeHistory: true,
+      messages: [
+        { id: "m1", role: "user", content: "one" },
+        { id: "m2", role: "assistant", content: "two" },
+      ],
+      branches: {
+        "session-1": {
+          sessionId: "session-1",
+          messages: [
+            { id: "b1", role: "user", content: "branch one" },
+            { id: "b2", role: "assistant", content: "branch two" },
+          ],
+          checkpoints: [{ id: "cp-1" }],
+        },
+      },
+      responseVariants: [
+        {
+          id: "group-1",
+          variants: [{ id: "variant-1" }],
+        },
+      ],
+    });
+
+    expect(storage.load()).toMatchObject({
+      messages: [{ id: "m2", role: "assistant", content: "two" }],
+      branches: {
+        "session-1": {
+          sessionId: "session-1",
+          messages: [{ id: "b2", role: "assistant", content: "branch two" }],
+          checkpoints: [{ id: "cp-1" }],
+        },
+      },
+      responseVariants: [
+        {
+          id: "group-1",
+          variants: [{ id: "variant-1" }],
+        },
+      ],
+    });
+
+    storage.clearMessages();
+
+    expect(storage.load()).toMatchObject({
+      sessionId: "session-1",
+      workflowId: "workflow-1",
+      includeHistory: true,
+      messages: [],
+    });
+    expect(storage.load()).not.toHaveProperty("branches");
+    expect(storage.load()).not.toHaveProperty("responseVariants");
+  });
+
   it("supports configuring maxMessages without custom serializers", () => {
     const storage = createBrowserChatStorage<StoredMessage>({
       maxMessages: 1,

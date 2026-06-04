@@ -3564,6 +3564,368 @@ describe("useChat", () => {
     ]);
   });
 
+  it("generates response variants by forking without dropping the original answer", async () => {
+    const seenMessages: Parameters<ChatTransport["stream"]>[0]["messages"][] =
+      [];
+    let forkCount = 0;
+    const transport: ChatTransport = {
+      stream: async ({ sessionId, messages, onChunk }) => {
+        seenMessages.push(messages);
+        await onChunk({
+          type: "checkpoint",
+          id: `${sessionId}-cp-1`,
+          sessionId,
+          turnIndex: 1,
+        });
+        await onChunk({
+          type: "message",
+          content:
+            sessionId === "child-session-2"
+              ? "second variant reply"
+              : "variant reply",
+        });
+        await onChunk({ type: "done" });
+      },
+      listCheckpoints: vi.fn(async (sessionId: string) =>
+        sessionId.startsWith("child-session")
+          ? [
+              {
+                id: `${sessionId}-cp-0`,
+                sessionId,
+                turnIndex: 0,
+                createdAt: 3,
+                nodes: [],
+                workflow: "workflow-1",
+              },
+              {
+                id: `${sessionId}-cp-1`,
+                sessionId,
+                turnIndex: 1,
+                createdAt: 4,
+                nodes: [],
+                workflow: "workflow-1",
+              },
+            ]
+          : [
+              {
+                id: "cp-0",
+                sessionId,
+                turnIndex: 0,
+                createdAt: 1,
+                nodes: [],
+                workflow: "workflow-1",
+              },
+              {
+                id: "cp-1",
+                sessionId,
+                turnIndex: 1,
+                createdAt: 2,
+                nodes: [],
+                workflow: "workflow-1",
+              },
+            ],
+      ),
+      rollbackTo: vi.fn(),
+      fork: vi.fn(async (checkpointId: string) => {
+        forkCount += 1;
+        const childSessionId = `child-session-${forkCount}`;
+        return {
+          sessionId: childSessionId,
+          parentSessionId: forkCount === 1 ? "session-1" : "child-session-1",
+          forkedFrom: checkpointId,
+          checkpoint: {
+            id: `${childSessionId}-cp-0`,
+            sessionId: childSessionId,
+            turnIndex: 0,
+            activePendingRequests: [],
+          },
+        };
+      }),
+    };
+    const memory = createMemoryStorage({
+      sessionId: "session-1",
+      messages: [
+        { id: "user-1", role: "user", content: "original" },
+        {
+          id: "assistant-1",
+          role: "assistant",
+          content: "original reply",
+          checkpointId: "cp-1",
+          checkpointTurnIndex: 1,
+        },
+      ],
+    });
+
+    const { result } = renderHook(() =>
+      useChat({
+        transport,
+        storage: memory.storage,
+        createId: (() => {
+          let seq = 0;
+          return () => `id-${seq++}`;
+        })(),
+      }),
+    );
+
+    await flushEffects();
+
+    let groupId = "";
+    let originalVariantId = "";
+    let firstVariantId = "";
+    await act(async () => {
+      const group = await result.current.regenerateVariant("assistant-1");
+      groupId = group.id;
+      originalVariantId = group.variants[0]?.id ?? "";
+      firstVariantId = group.variants[1]?.id ?? "";
+    });
+
+    expect(transport.fork).toHaveBeenCalledWith("cp-0");
+    expect(seenMessages.at(-1)).toEqual([
+      {
+        role: "user",
+        content: "original",
+      },
+    ]);
+    expect(result.current.activeSessionId).toBe("child-session-1");
+    expect(result.current.messages.map((message) => message.content)).toEqual([
+      "original",
+      "variant reply",
+    ]);
+    expect(result.current.responseVariants).toEqual([
+      expect.objectContaining({
+        id: groupId,
+        selectedVariantId: expect.any(String),
+        variants: [
+          expect.objectContaining({
+            id: originalVariantId,
+            sessionId: "session-1",
+            messages: [
+              expect.objectContaining({ content: "original" }),
+              expect.objectContaining({ content: "original reply" }),
+            ],
+          }),
+          expect.objectContaining({
+            sessionId: "child-session-1",
+            messages: [
+              expect.objectContaining({ content: "original" }),
+              expect.objectContaining({ content: "variant reply" }),
+            ],
+          }),
+        ],
+      }),
+    ]);
+    expect(
+      result.current.variantForMessage(
+        result.current.messages.at(-1)?.id ?? "",
+      ),
+    ).toMatchObject({ id: groupId });
+
+    let secondGroupVariants = 0;
+    await act(async () => {
+      const group = await result.current.regenerateVariant(
+        result.current.messages.at(-1)?.id ?? "",
+      );
+      secondGroupVariants = group.variants.length;
+    });
+
+    expect(transport.fork).toHaveBeenLastCalledWith("child-session-1-cp-0");
+    expect(secondGroupVariants).toBe(3);
+    expect(result.current.activeSessionId).toBe("child-session-2");
+    expect(result.current.messages.map((message) => message.content)).toEqual([
+      "original",
+      "second variant reply",
+    ]);
+
+    await act(async () => {
+      await result.current.selectVariant(
+        result.current.messages.at(-1)?.id ?? "",
+        firstVariantId,
+      );
+    });
+
+    expect(result.current.activeSessionId).toBe("child-session-1");
+    expect(result.current.messages.map((message) => message.content)).toEqual([
+      "original",
+      "variant reply",
+    ]);
+
+    await act(async () => {
+      await result.current.selectVariant(
+        result.current.messages.at(-1)?.id ?? "",
+        originalVariantId,
+      );
+    });
+
+    expect(result.current.activeSessionId).toBe("session-1");
+    expect(result.current.messages.map((message) => message.content)).toEqual([
+      "original",
+      "original reply",
+    ]);
+    expect(result.current.responseVariants[0]?.selectedVariantId).toBe(
+      originalVariantId,
+    );
+  });
+
+  it("generates interrupt response variants with forked resume tokens", async () => {
+    const seenMessages: Parameters<ChatTransport["stream"]>[0]["messages"][] =
+      [];
+    const transport: ChatTransport = {
+      stream: async ({ sessionId, messages, onChunk }) => {
+        seenMessages.push(messages);
+        await onChunk({
+          type: "checkpoint",
+          id: `${sessionId}-cp-1`,
+          sessionId,
+          turnIndex: 1,
+        });
+        await onChunk({ type: "message", content: "forked final" });
+        await onChunk({ type: "done" });
+      },
+      listCheckpoints: vi.fn(async (sessionId: string) =>
+        sessionId === "child-session"
+          ? [
+              {
+                id: "child-cp-0",
+                sessionId,
+                turnIndex: 0,
+                createdAt: 3,
+                nodes: [],
+                workflow: "workflow-1",
+              },
+              {
+                id: "child-cp-1",
+                sessionId,
+                turnIndex: 1,
+                createdAt: 4,
+                nodes: [],
+                workflow: "workflow-1",
+              },
+            ]
+          : [
+              {
+                id: "cp-0",
+                sessionId,
+                turnIndex: 0,
+                createdAt: 1,
+                nodes: [],
+                workflow: "workflow-1",
+              },
+              {
+                id: "cp-1",
+                sessionId,
+                turnIndex: 1,
+                createdAt: 2,
+                nodes: [],
+                workflow: "workflow-1",
+              },
+            ],
+      ),
+      rollbackTo: vi.fn(),
+      fork: vi.fn(async (checkpointId: string) => ({
+        sessionId: "child-session",
+        parentSessionId: "session-1",
+        forkedFrom: checkpointId,
+        checkpoint: {
+          id: "child-cp-0",
+          sessionId: "child-session",
+          turnIndex: 0,
+          activePendingRequests: [
+            {
+              token: "child-token",
+              requestId: "child-request",
+              schema: {
+                kind: "choice" as const,
+                multiple: false,
+                question: "Pick a mode",
+              },
+              options: [{ id: "research", label: "Research brief" }],
+            },
+          ],
+        },
+      })),
+    };
+    const memory = createMemoryStorage({
+      sessionId: "session-1",
+      messages: [
+        {
+          id: "assistant-interrupt",
+          role: "assistant",
+          content: "",
+          checkpointId: "cp-0",
+          checkpointTurnIndex: 0,
+          contentPieces: [
+            {
+              id: "interrupt-1",
+              type: "interrupt",
+              resumeToken: "parent-token",
+              requestId: "parent-request",
+              kind: "choice",
+              multiple: false,
+              question: "Pick a mode",
+              options: [{ id: "launch", label: "Launch brief" }],
+            },
+          ],
+        },
+        {
+          id: "user-response",
+          role: "user",
+          content: "launch",
+          source: {
+            type: "interrupt-response",
+            resumeToken: "parent-token",
+            requestId: "parent-request",
+            selected: ["launch"],
+          },
+        },
+        {
+          id: "assistant-1",
+          role: "assistant",
+          content: "parent final",
+          checkpointId: "cp-1",
+          checkpointTurnIndex: 1,
+        },
+      ],
+    });
+
+    const { result } = renderHook(() =>
+      useChat({
+        transport,
+        storage: memory.storage,
+      }),
+    );
+
+    await flushEffects();
+
+    await act(async () => {
+      await result.current.regenerateVariant("assistant-1");
+    });
+
+    expect(transport.fork).toHaveBeenCalledWith("cp-0");
+    expect(seenMessages.at(-1)).toEqual([
+      { role: "assistant", content: "" },
+      {
+        role: "user",
+        content: "launch",
+        metadata: {
+          resume: {
+            token: "child-token",
+            requestId: "child-request",
+            selected: ["launch"],
+          },
+        },
+      },
+    ]);
+    const forkedInterrupt =
+      result.current.messages[0]?.contentPieces?.[0]?.type === "interrupt"
+        ? result.current.messages[0].contentPieces[0]
+        : undefined;
+    expect(forkedInterrupt).toMatchObject({
+      resumeToken: "child-token",
+      requestId: "child-request",
+      options: [{ id: "research", label: "Research brief" }],
+    });
+  });
+
   it("reports regenerate target errors and missing checkpoint mappings", async () => {
     const transport: ChatTransport = {
       stream: async () => undefined,

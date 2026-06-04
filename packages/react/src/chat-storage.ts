@@ -10,6 +10,17 @@ export type PersistedChatState<TMessage> = {
   workflowId: string;
   includeHistory: boolean;
   messages: TMessage[];
+  branches?: Record<
+    string,
+    {
+      sessionId: string;
+      parentSessionId?: string;
+      forkedFrom?: string;
+      messages: TMessage[];
+      checkpoints?: unknown[];
+    }
+  >;
+  responseVariants?: unknown[];
 };
 
 export type ChatStorage<TMessage> = {
@@ -23,6 +34,8 @@ export type BrowserChatStorageKeys = {
   includeHistory: string;
   sessionId: string;
   workflowId: string;
+  branches: string;
+  responseVariants: string;
 };
 
 export type BrowserChatStorageOptions<TMessage> = {
@@ -37,6 +50,8 @@ const DEFAULT_STORAGE_KEYS: BrowserChatStorageKeys = {
   includeHistory: "chat.includeHistory.v1",
   sessionId: "chat.sessionId",
   workflowId: "chat.workflowId",
+  branches: "chat.branches.v1",
+  responseVariants: "chat.responseVariants.v1",
 };
 
 const getLocalStorage = (): StorageLike | undefined => {
@@ -79,6 +94,8 @@ export function createBrowserChatStorage<TMessage = unknown>(
         const workflowId = storage.getItem(keys.workflowId) ?? "";
         const includeHistoryRaw = storage.getItem(keys.includeHistory);
         const rawMessages = storage.getItem(keys.messages);
+        const rawBranches = storage.getItem(keys.branches);
+        const rawResponseVariants = storage.getItem(keys.responseVariants);
         const parsedMessages = rawMessages
           ? (JSON.parse(rawMessages) as unknown)
           : [];
@@ -87,12 +104,66 @@ export function createBrowserChatStorage<TMessage = unknown>(
               .map((item) => parseMessage(item))
               .filter((message): message is TMessage => message !== null)
           : [];
+        const parsedBranches = rawBranches
+          ? (JSON.parse(rawBranches) as unknown)
+          : undefined;
+        const branches =
+          parsedBranches && typeof parsedBranches === "object"
+            ? Object.fromEntries(
+                Object.entries(
+                  parsedBranches as Record<
+                    string,
+                    {
+                      sessionId?: unknown;
+                      parentSessionId?: unknown;
+                      forkedFrom?: unknown;
+                      messages?: unknown;
+                      checkpoints?: unknown;
+                    }
+                  >,
+                ).flatMap(([sessionId, branch]) => {
+                  if (typeof branch.sessionId !== "string") return [];
+                  const rawBranchMessages = Array.isArray(branch.messages)
+                    ? branch.messages
+                    : [];
+                  const branchMessages = rawBranchMessages
+                    .map((item) => parseMessage(item))
+                    .filter((message): message is TMessage => message !== null)
+                    .slice(-maxMessages);
+                  return [
+                    [
+                      sessionId,
+                      {
+                        sessionId: branch.sessionId,
+                        ...(typeof branch.parentSessionId === "string"
+                          ? { parentSessionId: branch.parentSessionId }
+                          : {}),
+                        ...(typeof branch.forkedFrom === "string"
+                          ? { forkedFrom: branch.forkedFrom }
+                          : {}),
+                        messages: branchMessages,
+                        ...(Array.isArray(branch.checkpoints)
+                          ? { checkpoints: branch.checkpoints }
+                          : {}),
+                      },
+                    ],
+                  ];
+                }),
+              )
+            : undefined;
+        const parsedResponseVariants = rawResponseVariants
+          ? (JSON.parse(rawResponseVariants) as unknown)
+          : undefined;
 
         return {
           sessionId,
           workflowId,
           includeHistory: includeHistoryRaw !== "0",
           messages,
+          ...(branches ? { branches } : {}),
+          ...(Array.isArray(parsedResponseVariants)
+            ? { responseVariants: parsedResponseVariants }
+            : {}),
         };
       } catch {
         return {};
@@ -118,6 +189,31 @@ export function createBrowserChatStorage<TMessage = unknown>(
           .map((message) => serializeMessage(message));
 
         storage.setItem(keys.messages, JSON.stringify(trimmedMessages));
+        if (state.branches) {
+          const serializedBranches = Object.fromEntries(
+            Object.entries(state.branches).map(([sessionId, branch]) => [
+              sessionId,
+              {
+                ...branch,
+                messages: branch.messages
+                  .slice(-maxMessages)
+                  .map((message) => serializeMessage(message)),
+              },
+            ]),
+          );
+          storage.setItem(keys.branches, JSON.stringify(serializedBranches));
+        } else {
+          storage.removeItem(keys.branches);
+        }
+
+        if (state.responseVariants) {
+          storage.setItem(
+            keys.responseVariants,
+            JSON.stringify(state.responseVariants),
+          );
+        } else {
+          storage.removeItem(keys.responseVariants);
+        }
       } catch {}
     },
 
@@ -126,6 +222,8 @@ export function createBrowserChatStorage<TMessage = unknown>(
         const storage = getLocalStorage();
         if (!storage) return;
         storage.removeItem(keys.messages);
+        storage.removeItem(keys.branches);
+        storage.removeItem(keys.responseVariants);
       } catch {}
     },
   };

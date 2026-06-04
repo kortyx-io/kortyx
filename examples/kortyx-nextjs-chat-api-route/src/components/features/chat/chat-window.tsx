@@ -1,6 +1,8 @@
 import type { UseChatValue } from "@kortyx/react";
 import {
   BugIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
   GitForkIcon,
   HistoryIcon,
   RefreshCwIcon,
@@ -33,6 +35,9 @@ export function ChatWindow({ chat }: { chat: UseChatValue }) {
     retryWithEdit,
     rollbackTo,
     fork,
+    regenerateVariant,
+    selectVariant,
+    variantForMessage,
     includeHistory,
     setIncludeHistory,
     workflowId,
@@ -237,6 +242,26 @@ export function ChatWindow({ chat }: { chat: UseChatValue }) {
                 <Button
                   variant="outline"
                   size="sm"
+                  disabled={!lastAssistantId || isStreaming}
+                  onClick={() =>
+                    lastAssistantId
+                      ? runCheckpointAction(async () => {
+                          const group =
+                            await regenerateVariant(lastAssistantId);
+                          setCheckpointStatus(
+                            `Generated response ${group.variants.length} for this turn.`,
+                          );
+                        }, "Generated a response variant.")
+                      : undefined
+                  }
+                  title="Generate another response for the latest assistant message"
+                >
+                  <RefreshCwIcon className="size-4" />
+                  <span className="hidden sm:inline">New variant</span>
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
                   disabled={!selectedCheckpoint || isStreaming}
                   onClick={() =>
                     runCheckpointAction(
@@ -308,21 +333,84 @@ export function ChatWindow({ chat }: { chat: UseChatValue }) {
                 </div>
               ) : (
                 <>
-                  {messages.map((m) => (
-                    <ChatMessage
-                      key={m.id}
-                      id={m.id}
-                      sender={m.role}
-                      content={m.content}
-                      chatIsStreaming={isStreaming}
-                      onRespondToHumanInput={respondToHumanInput}
-                      {...(m.contentPieces
-                        ? { contentPieces: m.contentPieces }
-                        : {})}
-                      {...(m.debug ? { debug: m.debug } : {})}
-                      onDebug={openDebugFor}
-                    />
-                  ))}
+                  {messages.map((m) => {
+                    const variantGroup =
+                      m.role === "assistant" ? variantForMessage(m.id) : null;
+                    const selectedIndex = variantGroup
+                      ? variantGroup.variants.findIndex(
+                          (variant) =>
+                            variant.id === variantGroup.selectedVariantId,
+                        )
+                      : -1;
+                    const previousVariant =
+                      variantGroup && selectedIndex > 0
+                        ? variantGroup.variants[selectedIndex - 1]
+                        : undefined;
+                    const nextVariant =
+                      variantGroup &&
+                      selectedIndex >= 0 &&
+                      selectedIndex < variantGroup.variants.length - 1
+                        ? variantGroup.variants[selectedIndex + 1]
+                        : undefined;
+
+                    return (
+                      <div key={m.id} className="space-y-2">
+                        <ChatMessage
+                          id={m.id}
+                          sender={m.role}
+                          content={m.content}
+                          chatIsStreaming={isStreaming}
+                          onRespondToHumanInput={respondToHumanInput}
+                          {...(m.contentPieces
+                            ? { contentPieces: m.contentPieces }
+                            : {})}
+                          {...(m.debug ? { debug: m.debug } : {})}
+                          onDebug={openDebugFor}
+                        />
+                        {variantGroup && variantGroup.variants.length > 1 && (
+                          <div className="flex justify-end">
+                            <div className="flex items-center gap-1 rounded-md border border-slate-200 bg-white px-1 py-0.5 text-xs text-slate-600 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-300">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="size-7"
+                                disabled={!previousVariant || isStreaming}
+                                onClick={() =>
+                                  previousVariant
+                                    ? void selectVariant(
+                                        m.id,
+                                        previousVariant.id,
+                                      )
+                                    : undefined
+                                }
+                                title="Previous response"
+                              >
+                                <ChevronLeftIcon className="size-4" />
+                              </Button>
+                              <span className="min-w-10 text-center">
+                                {selectedIndex + 1} /{" "}
+                                {variantGroup.variants.length}
+                              </span>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="size-7"
+                                disabled={!nextVariant || isStreaming}
+                                onClick={() =>
+                                  nextVariant
+                                    ? void selectVariant(m.id, nextVariant.id)
+                                    : undefined
+                                }
+                                title="Next response"
+                              >
+                                <ChevronRightIcon className="size-4" />
+                              </Button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
 
                   {isStreaming && (
                     <ChatMessage
