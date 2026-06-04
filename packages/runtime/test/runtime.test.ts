@@ -168,6 +168,7 @@ describe("session checkpoint store", () => {
     const first = await store.append({
       sessionId: "session-1",
       runId: "run-1",
+      graphCheckpointId: "graph-cp-1",
       workflow: "workflow-1",
       state: baseState,
       nodes: ["start"],
@@ -215,6 +216,7 @@ describe("session checkpoint store", () => {
       sessionId: "child",
       parentSessionId: "session-1",
       forkedFrom: first.id,
+      graphCheckpointId: "graph-cp-1",
     });
   });
 
@@ -539,6 +541,7 @@ describe("redis session checkpoint store", () => {
     const second = await store.append({
       sessionId: "session-1",
       runId: "run-2",
+      graphCheckpointId: "graph-cp-2",
       workflow: "workflow-1",
       state: { ...baseState, input: "second" },
       structuredStreamIds: ["stream-1"],
@@ -560,6 +563,7 @@ describe("redis session checkpoint store", () => {
     await expect(store.get(second.id)).resolves.toMatchObject({
       id: second.id,
       label: "second",
+      graphCheckpointId: "graph-cp-2",
     });
     await expect(store.list("session-1")).resolves.toMatchObject([
       {
@@ -590,6 +594,7 @@ describe("redis session checkpoint store", () => {
     expect(fork.checkpoint).toMatchObject({
       parentSessionId: "session-1",
       forkedFrom: second.id,
+      graphCheckpointId: "graph-cp-2",
     });
     expect(fork.checkpoint.parentCheckpointId).toBeUndefined();
     expect(fork.checkpoint.activePendingRequests[0]).toMatchObject({
