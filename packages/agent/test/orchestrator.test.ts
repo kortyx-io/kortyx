@@ -972,6 +972,15 @@ describe("orchestrateGraphStream", () => {
   });
 
   it("defensively closes when graph stream ends without done", async () => {
+    const error = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => undefined);
+    const checkpointFailure = new Error("natural checkpoint failed");
+    const sessionCheckpoints = {
+      append: vi.fn(async () => {
+        throw checkpointFailure;
+      }),
+    };
     const graph = graphWithEvents(() => [
       { type: "message", content: "partial" },
     ]);
@@ -983,12 +992,210 @@ describe("orchestrateGraphStream", () => {
       state: baseState,
       config: {},
       selectWorkflow: vi.fn(),
+      frameworkAdapter: {
+        sessionCheckpoints,
+      } as unknown as FrameworkAdapter,
     });
 
     await expect(collect(stream)).resolves.toEqual([
       { type: "message", content: "partial" },
       expect.objectContaining({ type: "done", data: baseState }),
     ]);
+    expect(error).toHaveBeenCalledWith(
+      "[orchestrator] session checkpoint failed",
+      checkpointFailure,
+    );
+  });
+
+  it("updates pending requests from graph snapshots when natural streams end", async () => {
+    const pendingRequests = {
+      save: vi.fn(async () => undefined),
+      update: vi.fn(async () => undefined),
+    };
+    const sessionCheckpoints = {
+      append: vi.fn(async () => ({
+        id: "cp-natural-labeled",
+        sessionId: "session-1",
+        runId: "run-natural-interrupt",
+        turnIndex: 2,
+        createdAt: 1,
+        nodes: [],
+        workflow: "first",
+        state: baseState,
+        effects: {
+          structuredStreamIds: [],
+          interruptTokens: ["resume-token"],
+        },
+        activePendingRequests: [],
+        label: "natural",
+      })),
+    };
+    const getLatestCheckpointId = vi.fn(async () => "graph-cp-natural");
+    const graph = graphWithEvents((emit) => {
+      emit("interrupt", {
+        node: "ask",
+        input: {
+          kind: "choice",
+          question: "Pick",
+          options: [{ id: "a", label: "A" }],
+        },
+      });
+      return [{ type: "message", content: "partial" }];
+    });
+    graph.config = { checkpointer: { getLatestCheckpointId } };
+
+    const chunks = await collect(
+      await orchestrateGraphStream({
+        sessionId: "session-1",
+        runId: "run-natural-interrupt",
+        graph,
+        state: baseState,
+        config: {},
+        selectWorkflow: vi.fn(),
+        frameworkAdapter: {
+          pendingRequests,
+          sessionCheckpoints,
+        } as unknown as FrameworkAdapter,
+      }),
+    );
+
+    expect(pendingRequests.update).toHaveBeenCalledWith("resume-token", {
+      state: baseState,
+      graphCheckpointId: "graph-cp-natural",
+    });
+    expect(sessionCheckpoints.append).toHaveBeenCalledWith(
+      expect.objectContaining({
+        graphCheckpointId: "graph-cp-natural",
+        pendingRequests: [
+          expect.objectContaining({
+            token: "resume-token",
+            graphCheckpointId: "graph-cp-natural",
+          }),
+        ],
+      }),
+    );
+    expect(chunks).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: "checkpoint",
+          id: "cp-natural-labeled",
+          label: "natural",
+        }),
+        expect.objectContaining({ type: "done", data: baseState }),
+      ]),
+    );
+  });
+
+  it("covers natural graph snapshot fallbacks", async () => {
+    const append = vi.fn(async (_args: Record<string, unknown>) => ({
+      id: "cp-natural",
+      sessionId: "session-1",
+      runId: "run-natural",
+      turnIndex: 1,
+      createdAt: 1,
+      nodes: [],
+      workflow: "first",
+      state: baseState,
+      effects: {
+        structuredStreamIds: [],
+        interruptTokens: [],
+      },
+      activePendingRequests: [],
+    }));
+    const runNaturalStream = async (graph: CompiledGraphLike, runId: string) =>
+      collect(
+        await orchestrateGraphStream({
+          sessionId: "session-1",
+          runId,
+          graph,
+          state: baseState,
+          config: {},
+          selectWorkflow: vi.fn(),
+          frameworkAdapter: {
+            sessionCheckpoints: { append },
+          } as unknown as FrameworkAdapter,
+        }),
+      );
+
+    const nonStateGraph = graphWithEvents(() => [
+      { type: "message", content: "partial" },
+    ]);
+    nonStateGraph.getState = vi.fn(async () => ({ values: { not: "state" } }));
+    await runNaturalStream(nonStateGraph, "run-natural-non-state");
+
+    const primitiveSnapshotGraph = graphWithEvents(() => [
+      { type: "message", content: "partial" },
+    ]);
+    primitiveSnapshotGraph.getState = vi.fn(async () => "not-a-snapshot");
+    await collect(
+      await orchestrateGraphStream({
+        runId: "run-natural-no-session",
+        graph: primitiveSnapshotGraph,
+        state: baseState,
+        config: {},
+        selectWorkflow: vi.fn(),
+        frameworkAdapter: {
+          sessionCheckpoints: { append },
+        } as unknown as FrameworkAdapter,
+      }),
+    );
+
+    const stateWithoutCheckpointGraph = graphWithEvents(() => [
+      { type: "message", content: "partial" },
+    ]);
+    stateWithoutCheckpointGraph.getState = vi.fn(async () => baseState);
+    await runNaturalStream(
+      stateWithoutCheckpointGraph,
+      "run-natural-no-checkpoint",
+    );
+
+    const interruptWithoutPendingStoreGraph = graphWithEvents((emit) => {
+      emit("interrupt", {
+        node: "ask",
+        input: {
+          kind: "choice",
+          question: "Pick",
+          options: [{ id: "a", label: "A" }],
+        },
+      });
+      return [{ type: "message", content: "partial" }];
+    });
+    interruptWithoutPendingStoreGraph.getState = vi.fn(async () => ({
+      values: baseState,
+      config: { configurable: { checkpoint_id: "graph-cp-without-store" } },
+    }));
+    await runNaturalStream(
+      interruptWithoutPendingStoreGraph,
+      "run-natural-no-store",
+    );
+
+    expect(append).toHaveBeenCalledWith(
+      expect.objectContaining({
+        runId: "run-natural-non-state",
+        state: baseState,
+      }),
+    );
+    expect(append).not.toHaveBeenCalledWith(
+      expect.objectContaining({
+        runId: "run-natural-no-session",
+      }),
+    );
+    const noCheckpointAppend = append.mock.calls.find(
+      ([args]) => args.runId === "run-natural-no-checkpoint",
+    )?.[0];
+    expect(noCheckpointAppend).not.toHaveProperty("graphCheckpointId");
+    expect(append).toHaveBeenCalledWith(
+      expect.objectContaining({
+        runId: "run-natural-no-store",
+        graphCheckpointId: "graph-cp-without-store",
+        pendingRequests: [
+          expect.objectContaining({
+            token: "resume-token",
+            graphCheckpointId: "graph-cp-without-store",
+          }),
+        ],
+      }),
+    );
   });
 
   it("emits stream errors from thrown graph failures", async () => {

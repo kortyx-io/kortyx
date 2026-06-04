@@ -379,6 +379,89 @@ describe("createAgent", () => {
     expect(getLatestCheckpointId).toHaveBeenCalledWith("run-unhydrated", "");
   });
 
+  it("skips graph write cleanup when the checkpointer cannot delete writes", async () => {
+    const pendingRequests = {
+      delete: vi.fn(async () => undefined),
+      save: vi.fn(async () => undefined),
+    };
+    const sessionCheckpoints = {
+      list: vi.fn(async () => []),
+      get: vi.fn(async () => null),
+      rollbackTo: vi.fn(async (id: string) => ({
+        sessionId: "session-1",
+        head: id,
+        invalidatedStructuredStreamIds: [],
+        invalidatedInterruptTokens: [],
+        activePendingRequests: [
+          {
+            token: "active-token",
+            requestId: "human-1",
+            runId: "run-1",
+            workflow: "workflow-1",
+            node: "ask",
+            schema: { kind: "choice", multiple: false },
+            options: [],
+            createdAt: 1,
+            ttlMs: 1000,
+            graphCheckpointId: "graph-cp-1",
+          },
+        ],
+      })),
+      fork: vi.fn(async (id: string) => ({
+        sessionId: "child",
+        parentSessionId: "session-1",
+        forkedFrom: id,
+        checkpoint: {
+          id: "child-cp",
+          sessionId: "child",
+          runId: "run-1",
+          turnIndex: 0,
+          createdAt: 1,
+          nodes: [],
+          workflow: "workflow-1",
+          state: {} as never,
+          effects: { structuredStreamIds: [], interruptTokens: [] },
+          activePendingRequests: [
+            {
+              token: "child-token",
+              requestId: "human-2",
+              runId: "run-1",
+              workflow: "workflow-1",
+              node: "ask",
+              schema: { kind: "choice", multiple: false },
+              options: [],
+              createdAt: 1,
+              ttlMs: 1000,
+              graphCheckpointId: "child-graph-cp",
+            },
+          ],
+        },
+      })),
+    };
+    const agent = createAgent({
+      workflows: [{ id: "workflow-1" } as WorkflowDefinition],
+      frameworkAdapter: {
+        checkpointer: {},
+        pendingRequests,
+        sessionCheckpoints,
+      } as unknown as FrameworkAdapter,
+    });
+
+    await expect(agent.rollbackTo("cp-1")).resolves.toMatchObject({
+      activePendingRequests: [
+        expect.objectContaining({ graphCheckpointId: "graph-cp-1" }),
+      ],
+    });
+    await expect(agent.fork("cp-1")).resolves.toMatchObject({
+      checkpoint: {
+        activePendingRequests: [
+          expect.objectContaining({ graphCheckpointId: "child-graph-cp" }),
+        ],
+      },
+    });
+    expect(pendingRequests.save).toHaveBeenCalledTimes(2);
+  });
+
   it("uses the general-chat fallback for in-memory workflows without a default", async () => {
     const workflow = { id: "workflow-1" } as WorkflowDefinition;
     const agent = createAgent({ workflows: [workflow] });
