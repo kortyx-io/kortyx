@@ -4,7 +4,6 @@ import {
   ChevronLeftIcon,
   ChevronRightIcon,
   GitForkIcon,
-  HistoryIcon,
   RefreshCwIcon,
   RotateCcwIcon,
   SettingsIcon,
@@ -27,11 +26,10 @@ export function ChatWindow({ chat }: { chat: UseChatValue }) {
     streamContentPieces,
     streamDebug,
     lastAssistantId,
-    checkpoints,
     send,
     respondToHumanInput,
     resetChat,
-    regenerateFromCheckpoint,
+    regenerate,
     retryWithEdit,
     rollbackTo,
     fork,
@@ -47,8 +45,7 @@ export function ChatWindow({ chat }: { chat: UseChatValue }) {
   const [debugOpen, setDebugOpen] = useState(false);
   const [debugForId, setDebugForId] = useState<string | null>(null);
   const [parametersOpen, setParametersOpen] = useState(false);
-  const [selectedCheckpointId, setSelectedCheckpointId] = useState("");
-  const [retryEdit, setRetryEdit] = useState("");
+  const [retryEdits, setRetryEdits] = useState<Record<string, string>>({});
   const [checkpointStatus, setCheckpointStatus] = useState("");
 
   const listRef = useRef<HTMLDivElement | null>(null);
@@ -104,22 +101,6 @@ export function ChatWindow({ chat }: { chat: UseChatValue }) {
     () => messages.find((m) => m.id === debugForId),
     [messages, debugForId],
   );
-  const latestCheckpoint = checkpoints.at(-1);
-  const selectedCheckpoint =
-    checkpoints.find((checkpoint) => checkpoint.id === selectedCheckpointId) ??
-    latestCheckpoint;
-
-  useEffect(() => {
-    if (!latestCheckpoint) {
-      setSelectedCheckpointId("");
-      return;
-    }
-    setSelectedCheckpointId((current) =>
-      current && checkpoints.some((checkpoint) => checkpoint.id === current)
-        ? current
-        : latestCheckpoint.id,
-    );
-  }, [checkpoints, latestCheckpoint]);
 
   const runCheckpointAction = async (
     action: () => Promise<void>,
@@ -134,19 +115,6 @@ export function ChatWindow({ chat }: { chat: UseChatValue }) {
         error instanceof Error ? error.message : String(error),
       );
     }
-  };
-
-  const rollbackSelectedCheckpoint = async () => {
-    if (!selectedCheckpoint) return;
-    await rollbackTo(selectedCheckpoint.id);
-  };
-
-  const forkSelectedCheckpoint = async () => {
-    if (!selectedCheckpoint) return;
-    const result = await fork(selectedCheckpoint.id);
-    setCheckpointStatus(
-      `Forked from turn ${selectedCheckpoint.turnIndex} into ${result.sessionId}.`,
-    );
   };
 
   return (
@@ -197,130 +165,11 @@ export function ChatWindow({ chat }: { chat: UseChatValue }) {
             </div>
           </div>
 
-          <div className="border-b border-slate-200 dark:border-slate-800 px-4 py-2">
-            <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
-              <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
-                <div className="flex items-center gap-2 text-xs font-medium text-slate-600 dark:text-slate-300">
-                  <HistoryIcon className="size-4" />
-                  <span>Checkpoints</span>
-                </div>
-                <select
-                  value={selectedCheckpoint?.id ?? ""}
-                  onChange={(event) =>
-                    setSelectedCheckpointId(event.target.value)
-                  }
-                  disabled={checkpoints.length === 0 || isStreaming}
-                  className="h-9 max-w-[18rem] rounded-md border border-slate-300 bg-white px-2 text-xs text-slate-800 outline-none focus:ring-2 focus:ring-emerald-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
-                >
-                  {checkpoints.length === 0 ? (
-                    <option value="">No checkpoints yet</option>
-                  ) : (
-                    checkpoints.map((checkpoint) => (
-                      <option key={checkpoint.id} value={checkpoint.id}>
-                        Turn {checkpoint.turnIndex} · {checkpoint.workflow}
-                      </option>
-                    ))
-                  )}
-                </select>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={!selectedCheckpoint || isStreaming}
-                  onClick={() =>
-                    selectedCheckpoint
-                      ? runCheckpointAction(
-                          () => regenerateFromCheckpoint(selectedCheckpoint.id),
-                          `Regenerated from turn ${selectedCheckpoint.turnIndex}.`,
-                        )
-                      : undefined
-                  }
-                  title="Regenerate from selected checkpoint"
-                >
-                  <RefreshCwIcon className="size-4" />
-                  <span className="hidden sm:inline">Regenerate</span>
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={!lastAssistantId || isStreaming}
-                  onClick={() =>
-                    lastAssistantId
-                      ? runCheckpointAction(async () => {
-                          const group =
-                            await regenerateVariant(lastAssistantId);
-                          setCheckpointStatus(
-                            `Generated response ${group.variants.length} for this turn.`,
-                          );
-                        }, "Generated a response variant.")
-                      : undefined
-                  }
-                  title="Generate another response for the latest assistant message"
-                >
-                  <RefreshCwIcon className="size-4" />
-                  <span className="hidden sm:inline">New variant</span>
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={!selectedCheckpoint || isStreaming}
-                  onClick={() =>
-                    runCheckpointAction(
-                      rollbackSelectedCheckpoint,
-                      `Rolled back to turn ${selectedCheckpoint?.turnIndex ?? ""}.`,
-                    )
-                  }
-                  title="Rollback to selected checkpoint"
-                >
-                  <RotateCcwIcon className="size-4" />
-                  <span className="hidden sm:inline">Rollback</span>
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={!selectedCheckpoint || isStreaming}
-                  onClick={() => void forkSelectedCheckpoint()}
-                  title="Fork from selected checkpoint"
-                >
-                  <GitForkIcon className="size-4" />
-                  <span className="hidden sm:inline">Fork</span>
-                </Button>
-              </div>
-
-              <div className="flex min-w-0 flex-1 items-center gap-2 lg:max-w-md">
-                <Input
-                  value={retryEdit}
-                  onChange={(event) => setRetryEdit(event.target.value)}
-                  disabled={!lastAssistantId || isStreaming}
-                  placeholder="Edit previous user reply..."
-                  className="h-9 text-xs"
-                />
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={
-                    !lastAssistantId || isStreaming || !retryEdit.trim()
-                  }
-                  onClick={() =>
-                    lastAssistantId
-                      ? runCheckpointAction(async () => {
-                          await retryWithEdit(lastAssistantId, retryEdit);
-                          setRetryEdit("");
-                        }, "Retried with edited user content.")
-                      : undefined
-                  }
-                  title="Retry latest assistant message with edited user content"
-                >
-                  <Undo2Icon className="size-4" />
-                  <span className="hidden sm:inline">Retry edit</span>
-                </Button>
-              </div>
+          {checkpointStatus && (
+            <div className="border-b border-slate-200 px-4 py-2 text-xs text-slate-500 dark:border-slate-800 dark:text-slate-400">
+              {checkpointStatus}
             </div>
-            {checkpointStatus && (
-              <div className="mt-2 text-xs text-slate-500 dark:text-slate-400">
-                {checkpointStatus}
-              </div>
-            )}
-          </div>
+          )}
 
           <div className="flex flex-col flex-1 w-full max-w-4xl min-h-0 mx-auto">
             <div
@@ -333,9 +182,14 @@ export function ChatWindow({ chat }: { chat: UseChatValue }) {
                 </div>
               ) : (
                 <>
-                  {messages.map((m) => {
+                  {messages.map((m, index) => {
                     const variantGroup =
                       m.role === "assistant" ? variantForMessage(m.id) : null;
+                    const checkpointId = m.checkpointId;
+                    const hasPreviousUser = messages
+                      .slice(0, index)
+                      .some((message) => message.role === "user");
+                    const retryEdit = retryEdits[m.id] ?? "";
                     const selectedIndex = variantGroup
                       ? variantGroup.variants.findIndex(
                           (variant) =>
@@ -404,6 +258,126 @@ export function ChatWindow({ chat }: { chat: UseChatValue }) {
                                 title="Next response"
                               >
                                 <ChevronRightIcon className="size-4" />
+                              </Button>
+                            </div>
+                          </div>
+                        )}
+                        {m.role === "assistant" && checkpointId && (
+                          <div className="ml-auto flex max-w-3xl flex-col gap-2 rounded-md border border-slate-200 bg-slate-50/80 p-2 dark:border-slate-800 dark:bg-slate-950/60">
+                            <div className="flex flex-wrap items-center justify-end gap-2">
+                              <span className="mr-auto font-mono text-[11px] text-slate-500 dark:text-slate-400">
+                                Turn {m.checkpointTurnIndex ?? "?"}
+                              </span>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                disabled={isStreaming || !hasPreviousUser}
+                                onClick={() =>
+                                  runCheckpointAction(
+                                    () => regenerate(m.id),
+                                    `Regenerated turn ${m.checkpointTurnIndex ?? ""}.`,
+                                  )
+                                }
+                                title="Regenerate this assistant message"
+                              >
+                                <RefreshCwIcon className="size-4" />
+                                <span className="hidden sm:inline">
+                                  Regenerate
+                                </span>
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                disabled={isStreaming || !hasPreviousUser}
+                                onClick={() =>
+                                  runCheckpointAction(async () => {
+                                    const group = await regenerateVariant(m.id);
+                                    setCheckpointStatus(
+                                      `Generated response ${group.variants.length} for turn ${m.checkpointTurnIndex ?? ""}.`,
+                                    );
+                                  }, "Generated a response variant.")
+                                }
+                                title="Generate another response for this assistant message"
+                              >
+                                <RefreshCwIcon className="size-4" />
+                                <span className="hidden sm:inline">
+                                  New variant
+                                </span>
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                disabled={isStreaming}
+                                onClick={() =>
+                                  runCheckpointAction(
+                                    async () => {
+                                      await rollbackTo(checkpointId);
+                                    },
+                                    `Rolled back to turn ${m.checkpointTurnIndex ?? ""}.`,
+                                  )
+                                }
+                                title="Rollback to this message checkpoint"
+                              >
+                                <RotateCcwIcon className="size-4" />
+                                <span className="hidden sm:inline">
+                                  Rollback
+                                </span>
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                disabled={isStreaming}
+                                onClick={() =>
+                                  runCheckpointAction(async () => {
+                                    const result = await fork(checkpointId);
+                                    setCheckpointStatus(
+                                      `Forked from turn ${m.checkpointTurnIndex ?? ""} into ${result.sessionId}.`,
+                                    );
+                                  }, "Forked from this message.")
+                                }
+                                title="Fork from this message checkpoint"
+                              >
+                                <GitForkIcon className="size-4" />
+                                <span className="hidden sm:inline">Fork</span>
+                              </Button>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <Input
+                                value={retryEdit}
+                                onChange={(event) =>
+                                  setRetryEdits((current) => ({
+                                    ...current,
+                                    [m.id]: event.target.value,
+                                  }))
+                                }
+                                disabled={isStreaming || !hasPreviousUser}
+                                placeholder="Edit previous user reply..."
+                                className="h-8 text-xs"
+                              />
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                disabled={
+                                  isStreaming ||
+                                  !hasPreviousUser ||
+                                  !retryEdit.trim()
+                                }
+                                onClick={() =>
+                                  runCheckpointAction(async () => {
+                                    await retryWithEdit(m.id, retryEdit);
+                                    setRetryEdits((current) => {
+                                      const next = { ...current };
+                                      delete next[m.id];
+                                      return next;
+                                    });
+                                  }, "Retried with edited user content.")
+                                }
+                                title="Retry this message with edited previous user content"
+                              >
+                                <Undo2Icon className="size-4" />
+                                <span className="hidden sm:inline">
+                                  Retry edit
+                                </span>
                               </Button>
                             </div>
                           </div>
