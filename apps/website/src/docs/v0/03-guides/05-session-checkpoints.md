@@ -27,6 +27,8 @@ In-memory persistence works for local development. Use Redis for production roll
 
 > **Good to know:** Checkpoints restore Kortyx runtime state. Your product records, documents, users, and long-term conversation history still belong in your app database.
 
+> **Good to know:** In-memory checkpoints are capped by checkpoint count per session, but they stay in the Node process until the process exits. For production traffic, use Redis so checkpoint state has TTLs, survives restarts, and is shared across workers.
+
 ## Configure the Server
 
 Use one framework adapter for interrupts, LangGraph checkpoints, pending requests, and session checkpoints.
@@ -40,6 +42,7 @@ import {
 
 const frameworkAdapter = createRedisFrameworkAdapter({
   url: process.env.REDIS_URL!,
+  maxSessionCheckpoints: 50,
 });
 
 export const agent = createAgent({
@@ -59,6 +62,7 @@ import {
 
 const frameworkAdapter = createRedisFrameworkAdapter({
   url: process.env.REDIS_URL,
+  maxSessionCheckpoints: 50,
 });
 
 export const agent = createAgent({
@@ -219,7 +223,33 @@ The Redis adapter uses the same Redis connection for all Kortyx framework state,
 - internal LangGraph checkpoints
 - user-facing session checkpoints
 
-The in-memory adapter supports the same API for local development, but state is lost on restart and is not safe across multiple workers.
+You do not need a second Redis connection for session checkpoints. The same Redis-backed framework adapter handles interrupt resume, graph replay checkpoints, pending request state, and user-facing session checkpoints.
+
+Session checkpoint retention defaults to the last `50` checkpoints per session. Set `maxSessionCheckpoints` when your app needs a different cap.
+
+```ts
+const frameworkAdapter = createRedisFrameworkAdapter({
+  url: process.env.REDIS_URL!,
+  ttlMs: 15 * 60 * 1000,
+  maxSessionCheckpoints: 25,
+});
+```
+```js
+const frameworkAdapter = createRedisFrameworkAdapter({
+  url: process.env.REDIS_URL,
+  ttlMs: 15 * 60 * 1000,
+  maxSessionCheckpoints: 25,
+});
+```
+
+The in-memory adapter supports the same API for local development, but state is lost on restart and is not safe across multiple workers. It also has no global memory cap or TTL for session checkpoint records; retention only limits the number of checkpoints kept per session.
+
+Use Redis or another durable adapter when:
+
+- hundreds of users may create checkpointed sessions
+- sessions can be served by more than one process or worker
+- rollback/fork/regenerate must survive restarts, deploys, or serverless cold starts
+- users may resume from another device or process
 
 > **Good to know:** Rollback/fork restore saved `GraphState` and continue with the currently deployed workflow code. Deterministic replay across code changes requires versioned workflow artifacts and cached model/tool outputs, which are separate concerns.
 

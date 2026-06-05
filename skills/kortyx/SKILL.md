@@ -52,6 +52,7 @@ React client:
 - Use `@kortyx/react` for React chat clients unless the task needs lower-level stream primitives.
 - Store product/business data in the app DB or service layer, not Kortyx runtime persistence.
 - Treat user-facing rollback/fork as session-level runtime state, not transcript replay. Do not implement regenerate by only truncating client messages and resending text.
+- For production checkpoint/rollback/fork/regenerate features, recommend Redis or another durable framework adapter. In-memory is for local dev, tests, and small single-process demos.
 - Keep OpenTelemetry tracing server-side and use generic Kortyx telemetry metadata.
 - Treat OpenTelemetry as the Kortyx observability contract. Keep backend exporters such as Langfuse app-owned.
 - `useReason({ outputSchema, structured.fields })` already streams known structured fields as `structured-data` chunks; do not confuse those with raw model JSON `text-delta` chunks.
@@ -64,5 +65,6 @@ React client:
 - Hook choice matches the node behavior.
 - Interrupt/resume code is replay-safe.
 - Rollback/fork features restore server-side workflow state and invalidate stale structured data.
+- Production rollback/fork guidance includes persistence choice, retention, and in-memory limitations.
 - Streaming clients render finalized history and active stream pieces separately.
 - Sensitive auth context is derived on the server.

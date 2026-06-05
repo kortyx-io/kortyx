@@ -80,6 +80,19 @@ The same Redis-backed framework adapter should support:
 - internal replay/idempotency checkpoints
 - user-facing session checkpoints
 
+The Redis adapter uses one Redis connection for these Kortyx runtime persistence concerns. Apps do not need a separate Redis adapter just for user-facing checkpoints.
+
+Session checkpoint retention defaults to the last 50 checkpoints per session. Apps can tune this with `maxSessionCheckpoints`.
+
+In-memory persistence supports the same API, but it is a development and single-process fallback:
+
+- state is lost on restart
+- state is not shared across workers or serverless instances
+- session checkpoints are capped by count per session
+- session checkpoint records do not have a global memory cap or TTL
+
+For hundreds of users or long-lived sessions, recommend Redis. Memory pressure without Redis is roughly proportional to `active sessions * maxSessionCheckpoints * checkpoint state size`.
+
 Keep product data in the app database. Kortyx persistence is for runtime/session state, not the app's source-of-truth records.
 
 ## Server Setup
@@ -98,6 +111,7 @@ const agent = createAgent({
   workflows,
   frameworkAdapter: createRedisFrameworkAdapter({
     url: process.env.REDIS_URL,
+    maxSessionCheckpoints: 50,
   }),
 });
 
@@ -200,6 +214,8 @@ For production apps, store a workflow version or build id in checkpoint metadata
 - Use `kortyx` imports for server APIs in app examples and docs.
 - Add a checkpoint endpoint next to the chat endpoint.
 - Use durable persistence for production rollback/fork behavior.
+- Explain that in-memory checkpoint persistence is for development, not high-volume production traffic.
+- Set or document `maxSessionCheckpoints` for the app.
 - Protect checkpoint endpoints with the same authorization as chat sessions.
 - Use `useChat` checkpoint helpers for regenerate, retry, undo, and fork.
 - Clean up structured outputs when invalidation ids are returned.
