@@ -41,7 +41,7 @@ export function createInMemoryFrameworkAdapter(
     ttlMs,
     pendingRequests: createInMemoryPendingRequestStore(),
     sessionCheckpoints: createInMemorySessionCheckpointStore({
-      ...(options?.maxSessionCheckpoints
+      ...(options?.maxSessionCheckpoints !== undefined
         ? { maxCheckpointsPerSession: options.maxSessionCheckpoints }
         : {}),
     }),
@@ -83,7 +83,7 @@ export function createRedisFrameworkAdapter(
       store,
       ttlMs,
       prefix: "kortyx:session-cp:",
-      ...(options.maxSessionCheckpoints
+      ...(options.maxSessionCheckpoints !== undefined
         ? { maxCheckpointsPerSession: options.maxSessionCheckpoints }
         : {}),
     }),

@@ -869,6 +869,23 @@ describe("initial graph state and framework adapter", () => {
     await expect(
       inMemory.sessionCheckpoints.list("session-1"),
     ).resolves.toEqual([expect.objectContaining({ id: second.id })]);
+
+    const disabledHistory = createInMemoryFrameworkAdapter({
+      maxSessionCheckpoints: 0,
+    });
+    const pruned = await disabledHistory.sessionCheckpoints.append({
+      sessionId: "session-pruned",
+      runId: "run-1",
+      workflow: "workflow-1",
+      state: baseState,
+    });
+
+    await expect(
+      disabledHistory.sessionCheckpoints.get(pruned.id),
+    ).resolves.toBeNull();
+    await expect(
+      disabledHistory.sessionCheckpoints.getHead("session-pruned"),
+    ).resolves.toBeNull();
   });
 
   it("cleans up in-memory framework checkpoints best-effort", async () => {
