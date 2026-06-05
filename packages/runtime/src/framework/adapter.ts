@@ -7,10 +7,16 @@ import {
 import { createRedisPendingRequestStore } from "./redis/pending-request-store";
 import { createRedisCheckpointSaver } from "./redis/redis-checkpointer";
 import { createRedisFrameworkStore } from "./redis/redis-store";
+import { createRedisSessionCheckpointStore } from "./redis/session-checkpoint-store";
+import {
+  createInMemorySessionCheckpointStore,
+  type SessionCheckpointStore,
+} from "./session-checkpoints";
 
 export type FrameworkAdapter = {
   kind: "in-memory" | "redis";
   pendingRequests: PendingRequestStore;
+  sessionCheckpoints: SessionCheckpointStore;
   checkpointer: BaseCheckpointSaver;
   ttlMs: number;
   /**
@@ -22,6 +28,7 @@ export type FrameworkAdapter = {
 
 export type CreateInMemoryFrameworkAdapterOptions = {
   ttlMs?: number;
+  maxSessionCheckpoints?: number;
 };
 
 export function createInMemoryFrameworkAdapter(
@@ -33,6 +40,11 @@ export function createInMemoryFrameworkAdapter(
     kind: "in-memory",
     ttlMs,
     pendingRequests: createInMemoryPendingRequestStore(),
+    sessionCheckpoints: createInMemorySessionCheckpointStore({
+      ...(options?.maxSessionCheckpoints !== undefined
+        ? { maxCheckpointsPerSession: options.maxSessionCheckpoints }
+        : {}),
+    }),
     checkpointer,
     cleanupRun: async (runId: string) => {
       try {
@@ -48,6 +60,7 @@ export type CreateRedisFrameworkAdapterOptions = {
   url: string;
   ttlMs?: number;
   prefix?: string;
+  maxSessionCheckpoints?: number;
 };
 
 export function createRedisFrameworkAdapter(
@@ -65,6 +78,14 @@ export function createRedisFrameworkAdapter(
     pendingRequests: createRedisPendingRequestStore({
       store,
       prefix: "kortyx:pending:",
+    }),
+    sessionCheckpoints: createRedisSessionCheckpointStore({
+      store,
+      ttlMs,
+      prefix: "kortyx:session-cp:",
+      ...(options.maxSessionCheckpoints !== undefined
+        ? { maxCheckpointsPerSession: options.maxSessionCheckpoints }
+        : {}),
     }),
     checkpointer: createRedisCheckpointSaver({
       store,

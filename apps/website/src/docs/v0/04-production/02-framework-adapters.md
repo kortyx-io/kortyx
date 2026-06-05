@@ -23,6 +23,7 @@ If you are only testing locally, you can usually use the default and come back l
 
 - pending interrupt requests
 - checkpoints for paused runs
+- user-facing session checkpoints for rollback, fork, regenerate, and undo
 - short-lived runtime state with a TTL
 
 > **Good to know:** This adapter is only for Kortyx runtime state. Keep your app's business data in your own DB or service layer.
@@ -56,6 +57,7 @@ import { createAgent, createRedisFrameworkAdapter } from "kortyx";
 const frameworkAdapter = createRedisFrameworkAdapter({
   url: process.env.KORTYX_REDIS_URL!,
   ttlMs: 15 * 60 * 1000,
+  maxSessionCheckpoints: 50,
 });
 
 export const agent = createAgent({
@@ -71,6 +73,7 @@ import { createAgent, createRedisFrameworkAdapter } from "kortyx";
 const frameworkAdapter = createRedisFrameworkAdapter({
   url: process.env.KORTYX_REDIS_URL,
   ttlMs: 15 * 60 * 1000,
+  maxSessionCheckpoints: 50,
 });
 
 export const agent = createAgent({
@@ -89,6 +92,7 @@ import { createInMemoryFrameworkAdapter } from "kortyx";
 
 const frameworkAdapter = createInMemoryFrameworkAdapter({
   ttlMs: 15 * 60 * 1000,
+  maxSessionCheckpoints: 50,
 });
 ```
 
@@ -97,6 +101,7 @@ import { createInMemoryFrameworkAdapter } from "kortyx";
 
 const frameworkAdapter = createInMemoryFrameworkAdapter({
   ttlMs: 15 * 60 * 1000,
+  maxSessionCheckpoints: 50,
 });
 ```
 
@@ -104,6 +109,8 @@ const frameworkAdapter = createInMemoryFrameworkAdapter({
 - keeps checkpoints only in that running process
 - is not restart-safe
 - is not shared across multiple app instances
+- caps session checkpoints by count per session
+- does not have a global session checkpoint memory cap or session checkpoint TTL
 
 ## Redis
 
@@ -115,6 +122,7 @@ import { createRedisFrameworkAdapter } from "kortyx";
 const frameworkAdapter = createRedisFrameworkAdapter({
   url: process.env.KORTYX_REDIS_URL!,
   ttlMs: 15 * 60 * 1000,
+  maxSessionCheckpoints: 50,
 });
 ```
 
@@ -124,12 +132,17 @@ import { createRedisFrameworkAdapter } from "kortyx";
 const frameworkAdapter = createRedisFrameworkAdapter({
   url: process.env.KORTYX_REDIS_URL,
   ttlMs: 15 * 60 * 1000,
+  maxSessionCheckpoints: 50,
 });
 ```
 
-- stores pending requests and checkpoints in Redis
+- stores pending requests, internal checkpoints, and session checkpoints in Redis
 - supports resume after restart
 - works better when you have more than one app instance
+- uses the same Redis connection for all Kortyx runtime persistence key spaces
+- applies TTL to Redis-backed runtime state
+
+`maxSessionCheckpoints` controls how many user-facing session checkpoints are retained per session. The default is `50`.
 
 ## Default env-based selection
 
@@ -160,7 +173,8 @@ TTL env variables:
 ## Practical recommendation
 
 - start with the default in local dev
-- use Redis in production if you rely on interrupt/resume
+- use Redis in production if you rely on interrupt/resume, rollback, fork, or regenerate
+- lower `maxSessionCheckpoints` for high-volume apps when users do not need deep rollback history
 - do not use this adapter as a replacement for your app database
 
 ## What to read next

@@ -1,5 +1,14 @@
 import type { UseChatValue } from "@kortyx/react";
-import { BugIcon, SettingsIcon, TrashIcon } from "lucide-react";
+import {
+  BugIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
+  GitForkIcon,
+  RefreshCwIcon,
+  RotateCcwIcon,
+  SettingsIcon,
+  TrashIcon,
+} from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { SidebarProvider } from "@/components/ui/sidebar";
@@ -17,7 +26,13 @@ export function ChatWindow({ chat }: { chat: UseChatValue }) {
     lastAssistantId,
     send,
     respondToHumanInput,
-    clearMessages,
+    resetChat,
+    retryWithEdit,
+    rollbackTo,
+    fork,
+    regenerateVariant,
+    selectVariant,
+    variantForMessage,
     includeHistory,
     setIncludeHistory,
     workflowId,
@@ -27,6 +42,7 @@ export function ChatWindow({ chat }: { chat: UseChatValue }) {
   const [debugOpen, setDebugOpen] = useState(false);
   const [debugForId, setDebugForId] = useState<string | null>(null);
   const [parametersOpen, setParametersOpen] = useState(false);
+  const [checkpointStatus, setCheckpointStatus] = useState("");
 
   const listRef = useRef<HTMLDivElement | null>(null);
   const scrollToBottom = useCallback(() => {
@@ -82,6 +98,21 @@ export function ChatWindow({ chat }: { chat: UseChatValue }) {
     [messages, debugForId],
   );
 
+  const runCheckpointAction = async (
+    action: () => Promise<void>,
+    success: string,
+  ) => {
+    setCheckpointStatus("");
+    try {
+      await action();
+      setCheckpointStatus(success);
+    } catch (error) {
+      setCheckpointStatus(
+        error instanceof Error ? error.message : String(error),
+      );
+    }
+  };
+
   return (
     <SidebarProvider open={debugOpen} onOpenChange={setDebugOpen}>
       <div className="w-full h-[100vh] flex">
@@ -120,7 +151,7 @@ export function ChatWindow({ chat }: { chat: UseChatValue }) {
                 variant="outline"
                 size="sm"
                 onClick={() => {
-                  clearMessages();
+                  resetChat();
                 }}
                 title="Clear chat"
               >
@@ -129,6 +160,12 @@ export function ChatWindow({ chat }: { chat: UseChatValue }) {
               </Button>
             </div>
           </div>
+
+          {checkpointStatus && (
+            <div className="border-b border-slate-200 px-4 py-2 text-xs text-slate-500 dark:border-slate-800 dark:text-slate-400">
+              {checkpointStatus}
+            </div>
+          )}
 
           <div className="flex flex-col flex-1 w-full max-w-4xl min-h-0 mx-auto">
             <div
@@ -141,21 +178,159 @@ export function ChatWindow({ chat }: { chat: UseChatValue }) {
                 </div>
               ) : (
                 <>
-                  {messages.map((m) => (
-                    <ChatMessage
-                      key={m.id}
-                      id={m.id}
-                      sender={m.role}
-                      content={m.content}
-                      chatIsStreaming={isStreaming}
-                      onRespondToHumanInput={respondToHumanInput}
-                      {...(m.contentPieces
-                        ? { contentPieces: m.contentPieces }
-                        : {})}
-                      {...(m.debug ? { debug: m.debug } : {})}
-                      onDebug={openDebugFor}
-                    />
-                  ))}
+                  {messages.map((m, index) => {
+                    const variantGroup =
+                      m.role === "assistant" ? variantForMessage(m.id) : null;
+                    const checkpointId = m.checkpointId;
+                    const nextAssistant = messages
+                      .slice(index + 1)
+                      .find((message) => message.role === "assistant");
+                    const hasPreviousUser = messages
+                      .slice(0, index)
+                      .some((message) => message.role === "user");
+                    const selectedIndex = variantGroup
+                      ? variantGroup.variants.findIndex(
+                          (variant) =>
+                            variant.id === variantGroup.selectedVariantId,
+                        )
+                      : -1;
+                    const previousVariant =
+                      variantGroup && selectedIndex > 0
+                        ? variantGroup.variants[selectedIndex - 1]
+                        : undefined;
+                    const nextVariant =
+                      variantGroup &&
+                      selectedIndex >= 0 &&
+                      selectedIndex < variantGroup.variants.length - 1
+                        ? variantGroup.variants[selectedIndex + 1]
+                        : undefined;
+                    const variantControls =
+                      variantGroup && variantGroup.variants.length > 1 ? (
+                        <div className="flex items-center gap-1 rounded-md border border-slate-200 bg-white px-1 py-0.5 text-xs text-slate-600 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-300">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="size-7"
+                            disabled={!previousVariant || isStreaming}
+                            onClick={() =>
+                              previousVariant
+                                ? void selectVariant(m.id, previousVariant.id)
+                                : undefined
+                            }
+                            title="Previous response"
+                          >
+                            <ChevronLeftIcon className="size-4" />
+                          </Button>
+                          <span className="min-w-10 text-center">
+                            {selectedIndex + 1} / {variantGroup.variants.length}
+                          </span>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="size-7"
+                            disabled={!nextVariant || isStreaming}
+                            onClick={() =>
+                              nextVariant
+                                ? void selectVariant(m.id, nextVariant.id)
+                                : undefined
+                            }
+                            title="Next response"
+                          >
+                            <ChevronRightIcon className="size-4" />
+                          </Button>
+                        </div>
+                      ) : null;
+                    const checkpointActions =
+                      m.role === "assistant" && checkpointId ? (
+                        <>
+                          <span className="self-center font-mono text-[11px] text-slate-500 dark:text-slate-400">
+                            Turn {m.checkpointTurnIndex ?? "?"}
+                          </span>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            disabled={isStreaming || !hasPreviousUser}
+                            onClick={() =>
+                              runCheckpointAction(async () => {
+                                const group = await regenerateVariant(m.id);
+                                setCheckpointStatus(
+                                  `Generated response ${group.variants.length} for turn ${m.checkpointTurnIndex ?? ""}.`,
+                                );
+                              }, "Generated a response variant.")
+                            }
+                            title="Regenerate this response and keep prior responses as pages"
+                          >
+                            <RefreshCwIcon className="size-4" />
+                            <span className="hidden sm:inline">Regenerate</span>
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            disabled={isStreaming}
+                            onClick={() =>
+                              runCheckpointAction(
+                                async () => {
+                                  await rollbackTo(checkpointId);
+                                },
+                                `Rolled back to turn ${m.checkpointTurnIndex ?? ""}.`,
+                              )
+                            }
+                            title="Rollback to this message checkpoint"
+                          >
+                            <RotateCcwIcon className="size-4" />
+                            <span className="hidden sm:inline">Rollback</span>
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            disabled={isStreaming}
+                            onClick={() =>
+                              runCheckpointAction(async () => {
+                                const result = await fork(checkpointId);
+                                setCheckpointStatus(
+                                  `Forked from turn ${m.checkpointTurnIndex ?? ""} into ${result.sessionId}.`,
+                                );
+                              }, "Forked from this message.")
+                            }
+                            title="Fork from this message checkpoint"
+                          >
+                            <GitForkIcon className="size-4" />
+                            <span className="hidden sm:inline">Fork</span>
+                          </Button>
+                        </>
+                      ) : null;
+
+                    return (
+                      <div key={m.id} className="space-y-2">
+                        <ChatMessage
+                          id={m.id}
+                          sender={m.role}
+                          content={m.content}
+                          chatIsStreaming={isStreaming}
+                          onRespondToHumanInput={respondToHumanInput}
+                          {...(m.contentPieces
+                            ? { contentPieces: m.contentPieces }
+                            : {})}
+                          {...(m.debug ? { debug: m.debug } : {})}
+                          onDebug={openDebugFor}
+                          variantControls={variantControls}
+                          actions={checkpointActions}
+                          editable={m.role === "user" && Boolean(nextAssistant)}
+                          {...(m.role === "user" && nextAssistant
+                            ? {
+                                onSubmitEdit: (content: string) =>
+                                  runCheckpointAction(async () => {
+                                    await retryWithEdit(
+                                      nextAssistant.id,
+                                      content,
+                                    );
+                                  }, "Retried with edited user content."),
+                              }
+                            : {})}
+                        />
+                      </div>
+                    );
+                  })}
 
                   {isStreaming && (
                     <ChatMessage

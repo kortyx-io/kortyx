@@ -53,6 +53,15 @@ type StoredWrite = {
 
 export type RedisCheckpointSaver = BaseCheckpointSaver & {
   deleteThread: (threadId: string) => Promise<void>;
+  deleteCheckpointWrites: (
+    threadId: string,
+    checkpointNs: string,
+    checkpointId: string,
+  ) => Promise<void>;
+  getLatestCheckpointId: (
+    threadId: string,
+    checkpointNs?: string,
+  ) => Promise<string | undefined>;
 };
 
 export function createRedisCheckpointSaver(
@@ -182,8 +191,6 @@ export function createRedisCheckpointSaver(
         );
       }
 
-      const prevId = await store.get(latestKey(threadId, checkpointNs));
-
       const prepared = copyCheckpoint(checkpoint as any);
       const [[, chkBytes], [, metaBytes]] = await Promise.all([
         serde.dumpsTyped(prepared),
@@ -202,12 +209,6 @@ export function createRedisCheckpointSaver(
 
       await store.set(key, JSON.stringify(stored), ttlMs);
       await store.set(latestKey(threadId, checkpointNs), checkpointId, ttlMs);
-
-      // Keep storage bounded: delete the previous checkpoint and its writes.
-      if (prevId && prevId !== checkpointId) {
-        await store.del(checkpointKey(threadId, checkpointNs, prevId));
-        await store.del(writesKey(threadId, checkpointNs, prevId));
-      }
 
       return {
         configurable: {
@@ -269,6 +270,21 @@ export function createRedisCheckpointSaver(
       const wrKeys = await store.scanKeys(`${prefix}wr:${threadId}:`);
       const latestKeys = await store.scanKeys(`${prefix}latest:${threadId}:`);
       await store.delRaw([...chkKeys, ...wrKeys, ...latestKeys]);
+    },
+
+    async deleteCheckpointWrites(
+      threadId: string,
+      checkpointNs: string,
+      checkpointId: string,
+    ): Promise<void> {
+      await store.del(writesKey(threadId, checkpointNs, checkpointId));
+    },
+
+    async getLatestCheckpointId(
+      threadId: string,
+      checkpointNs = "",
+    ): Promise<string | undefined> {
+      return (await store.get(latestKey(threadId, checkpointNs))) ?? undefined;
     },
   };
 

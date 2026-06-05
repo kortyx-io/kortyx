@@ -112,16 +112,60 @@ export async function streamChat<Options = unknown>({
   if (resumeStream) return resumeStream as AsyncIterable<StreamChunk>;
 
   const runId = makeRequestId("run");
-  const currentWorkflow = baseState.currentWorkflow;
+  let headCheckpoint =
+    !isResumeRequest && frameworkAdapter?.sessionCheckpoints
+      ? await frameworkAdapter.sessionCheckpoints.getHead(resolvedSessionId)
+      : null;
+  if (
+    !isResumeRequest &&
+    !headCheckpoint &&
+    frameworkAdapter?.sessionCheckpoints
+  ) {
+    headCheckpoint = await frameworkAdapter.sessionCheckpoints.append({
+      sessionId: resolvedSessionId,
+      runId,
+      workflow: String(baseState.currentWorkflow),
+      state: {
+        ...baseState,
+        input: "",
+        awaitingHumanInput: false,
+      },
+      nodes: [],
+      structuredStreamIds: [],
+      pendingRequests: [],
+      label: "session start",
+    });
+  }
+  const currentWorkflow = requestedWorkflowId
+    ? baseState.currentWorkflow
+    : (headCheckpoint?.state.currentWorkflow ?? baseState.currentWorkflow);
   const selectedWorkflow = await workflowSelector(currentWorkflow as string);
 
   const graph = await createExecutionGraph(selectedWorkflow, runtimeConfig);
+  const initialState = headCheckpoint
+    ? {
+        ...headCheckpoint.state,
+        input,
+        config: runtimeConfig,
+        currentWorkflow,
+        awaitingHumanInput: false,
+        runtime: {
+          ...(headCheckpoint.state.runtime ?? {}),
+          ...(runtime.requestedWorkflow
+            ? { requestedWorkflow: runtime.requestedWorkflow }
+            : {}),
+          ...(runtime.priorMessages
+            ? { priorMessages: runtime.priorMessages }
+            : {}),
+        },
+      }
+    : { ...baseState, currentWorkflow };
 
   const orchestratedStream = await orchestrateGraphStream({
     sessionId: resolvedSessionId,
     runId,
     graph,
-    state: { ...baseState, currentWorkflow },
+    state: initialState,
     config: runtimeConfig,
     selectWorkflow: workflowSelector,
     ...(frameworkAdapter ? { frameworkAdapter } : {}),

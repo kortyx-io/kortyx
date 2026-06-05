@@ -12,6 +12,7 @@ The stream protocol is defined in `@kortyx/stream` as `StreamChunk`.
 ## Core chunk types
 
 - `session`
+- `checkpoint`
 - `status`
 - `text-start`
 - `text-delta`
@@ -22,6 +23,7 @@ The stream protocol is defined in `@kortyx/stream` as `StreamChunk`.
 - `tool-result`
 - `message`
 - `structured-data`
+- `structured-data-invalidated`
 - `interrupt`
 - `transition`
 - `done`
@@ -45,6 +47,10 @@ for await (const chunk of readStream(response.body)) {
     // render selection UI and resume with token/requestId
   }
 
+  if (chunk.type === "checkpoint") {
+    // map finalized assistant messages to checkpoint ids
+  }
+
   if (chunk.type === "done") {
     break;
   }
@@ -66,6 +72,10 @@ for await (const chunk of readStream(response.body)) {
     // render selection UI and resume with token/requestId
   }
 
+  if (chunk.type === "checkpoint") {
+    // map finalized assistant messages to checkpoint ids
+  }
+
   if (chunk.type === "done") {
     break;
   }
@@ -85,7 +95,7 @@ For current `useReason` MCP tool execution, prefer the `tool-call-*` chunks. `to
 Examples:
 
 - email drafts
-- job tables
+- project tables
 - growing result lists
 - progress panels
 - validation results
@@ -221,6 +231,45 @@ Runtime enforcement:
 - `append` on a non-array target is rejected
 - `text-delta` on a non-string target is rejected
 - a chunk for a different `streamId` cannot be reduced into existing state for another stream
+
+## Checkpoint Chunks
+
+When session checkpoints are enabled through a `FrameworkAdapter`, Kortyx emits a checkpoint boundary before the public `done` chunk:
+
+```json
+{
+  "type": "checkpoint",
+  "id": "cp-123",
+  "sessionId": "session-123",
+  "turnIndex": 4,
+  "label": "before report generation"
+}
+```
+
+Clients should store the checkpoint id on the assistant message finalized by that stream. `@kortyx/react` does this automatically in `useChat(...)`.
+
+Field meanings:
+
+- `id`: checkpoint id used by rollback and fork APIs
+- `sessionId`: active session id
+- `turnIndex`: zero-based session checkpoint position
+- `label`: optional app-facing label
+
+> **Good to know:** The checkpoint chunk is emitted before `done` so transports that stop reading on `done` still receive the rollback boundary first.
+
+## Structured Data Invalidation
+
+Rollback can discard structured streams that were produced after the restored checkpoint. Kortyx identifies those streams with `structured-data-invalidated` chunks or rollback API results:
+
+```json
+{
+  "type": "structured-data-invalidated",
+  "streamId": "report-1",
+  "checkpointId": "cp-123"
+}
+```
+
+Clients that render structured data outside chat bubbles should remove or mark stale any local state keyed by `streamId`.
 
 Producer expectations:
 

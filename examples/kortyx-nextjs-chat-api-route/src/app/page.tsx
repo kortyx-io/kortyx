@@ -7,6 +7,7 @@ export default function Home() {
   const chat = useChat({
     transport: createRouteChatTransport({
       endpoint: "/api/chat",
+      checkpointEndpoint: "/api/chat/checkpoints",
     }),
   });
 

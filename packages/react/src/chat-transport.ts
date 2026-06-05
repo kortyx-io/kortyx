@@ -22,12 +22,62 @@ export type ChatTransportChunkHandler = (
   chunk: StreamChunk,
 ) => undefined | boolean | Promise<boolean | undefined>;
 
+export type CheckpointSummary = {
+  id: string;
+  sessionId: string;
+  turnIndex: number;
+  createdAt: number;
+  nodes: string[];
+  workflow: string;
+  label?: string;
+};
+
+export type RollbackCheckpointResult = {
+  sessionId: string;
+  head: string;
+  invalidatedStructuredStreamIds: string[];
+  invalidatedInterruptTokens: string[];
+};
+
+export type ForkPendingRequest = {
+  token: string;
+  requestId: string;
+  schema?: {
+    kind?: "choice" | "multi-choice" | "text";
+    multiple?: boolean;
+    question?: string;
+    id?: string;
+    schemaId?: string;
+    schemaVersion?: string;
+    meta?: Record<string, unknown>;
+  };
+  options?: Array<{ id: string; label: string; description?: string }>;
+};
+
+export type ForkCheckpointResult = {
+  sessionId: string;
+  parentSessionId: string;
+  forkedFrom: string;
+  checkpoint?: {
+    id: string;
+    sessionId: string;
+    turnIndex: number;
+    activePendingRequests?: ForkPendingRequest[];
+  };
+};
+
 export type ChatTransport<TContext = DefaultChatContext> = {
   stream(
     args: ChatTransportContext<TContext> & {
       onChunk: ChatTransportChunkHandler;
     },
   ): Promise<void>;
+  listCheckpoints?: (sessionId: string) => Promise<CheckpointSummary[]>;
+  rollbackTo?: (checkpointId: string) => Promise<RollbackCheckpointResult>;
+  fork?: (
+    checkpointId: string,
+    options?: { newSessionId?: string },
+  ) => Promise<ForkCheckpointResult>;
 };
 
 export type ChatTransportChunkSource =
@@ -63,6 +113,7 @@ export type CreateRouteChatTransportArgs<TBody, TContext> = Omit<
   "body"
 > & {
   createBody?: ((context: ChatTransportContext<TContext>) => TBody) | undefined;
+  checkpointEndpoint?: string | undefined;
 };
 
 export function createRouteChatTransport<
@@ -71,7 +122,7 @@ export function createRouteChatTransport<
 >(
   args: CreateRouteChatTransportArgs<TBody, TContext>,
 ): ChatTransport<TContext> {
-  return createChatTransport<TContext>({
+  const transport = createChatTransport<TContext>({
     stream: (context) => {
       const body =
         args.createBody?.(context) ??
@@ -95,4 +146,48 @@ export function createRouteChatTransport<
       });
     },
   });
+
+  if (!args.checkpointEndpoint) return transport;
+
+  const fetchJson = async <TResult>(
+    body: Record<string, unknown>,
+  ): Promise<TResult> => {
+    const fetchImpl = args.fetchImpl ?? fetch;
+    const response = await fetchImpl(args.checkpointEndpoint as string, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        ...(args.headers ?? {}),
+      },
+      body: JSON.stringify(body),
+    });
+    if (!response.ok) {
+      let message = `Checkpoint request failed with status ${response.status}`;
+      try {
+        const parsed = (await response.json()) as { error?: unknown };
+        if (typeof parsed.error === "string") message = parsed.error;
+      } catch {}
+      throw new Error(message);
+    }
+    return (await response.json()) as TResult;
+  };
+
+  return {
+    ...transport,
+    listCheckpoints: (sessionId) =>
+      fetchJson<CheckpointSummary[]>({ action: "list", sessionId }),
+    rollbackTo: (checkpointId) =>
+      fetchJson<RollbackCheckpointResult>({
+        action: "rollback",
+        checkpointId,
+      }),
+    fork: (checkpointId, options) =>
+      fetchJson<ForkCheckpointResult>({
+        action: "fork",
+        checkpointId,
+        ...(options?.newSessionId
+          ? { newSessionId: options.newSessionId }
+          : {}),
+      }),
+  };
 }

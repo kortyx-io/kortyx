@@ -240,6 +240,7 @@ describe("tryPrepareResumeStream", () => {
     const log = vi.spyOn(console, "log").mockImplementation(() => undefined);
     const pending = {
       ...pendingBase,
+      graphCheckpointId: "graph-cp-1",
       schema: {
         ...pendingBase.schema,
         kind: "multi-choice",
@@ -291,6 +292,7 @@ describe("tryPrepareResumeStream", () => {
         feature: true,
         resume: true,
         resumeValue: ["a", "b"],
+        resumeCheckpointId: "graph-cp-1",
         resumeUpdate: {
           data: { existing: true, custom: "value" },
           runtime: { step: "patched" },
@@ -309,6 +311,7 @@ describe("tryPrepareResumeStream", () => {
         config: expect.objectContaining({
           resume: true,
           resumeValue: ["a", "b"],
+          resumeCheckpointId: "graph-cp-1",
         }),
       }),
     );

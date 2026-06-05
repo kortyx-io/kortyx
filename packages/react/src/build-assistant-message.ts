@@ -12,6 +12,12 @@ export function buildAssistantMessage(args: {
         runId: string;
       }
     | undefined;
+  checkpoint?:
+    | {
+        id: string;
+        turnIndex: number;
+      }
+    | undefined;
 }): ChatMsg {
   const plainTextContent = args.pieces
     .filter(
@@ -27,6 +33,12 @@ export function buildAssistantMessage(args: {
     content: plainTextContent,
     debug: args.debug,
     ...(args.trace ? args.trace : {}),
+    ...(args.checkpoint
+      ? {
+          checkpointId: args.checkpoint.id,
+          checkpointTurnIndex: args.checkpoint.turnIndex,
+        }
+      : {}),
   };
 
   return args.pieces.length > 0

@@ -408,4 +408,30 @@ describe("useStructuredStreams", () => {
     expect(result.current.byStreamId).toEqual({});
     expect(result.current.get("stream-a")).toBeUndefined();
   });
+
+  it("deletes existing streams and reports misses without changing items", () => {
+    const { result } = renderHook(() => useStructuredStreams());
+
+    act(() => {
+      result.current.applyStreamChunk(
+        structuredChunk({
+          streamId: "stream-1",
+          kind: "set",
+          path: "body",
+          value: "Hello",
+        }),
+      );
+    });
+
+    act(() => {
+      expect(result.current.delete("missing")).toBe(false);
+    });
+    expect(result.current.items).toHaveLength(1);
+
+    act(() => {
+      expect(result.current.delete("stream-1")).toBe(true);
+    });
+    expect(result.current.items).toEqual([]);
+    expect(result.current.byStreamId).toEqual({});
+  });
 });

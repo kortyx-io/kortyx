@@ -6,6 +6,12 @@ interface TransformOptions {
   emitStatus?: boolean;
 }
 
+const isGraphStateOutput = (value: unknown): value is Record<string, unknown> =>
+  value !== null &&
+  typeof value === "object" &&
+  !Array.isArray(value) &&
+  "currentWorkflow" in value;
+
 /**
  * Transforms runtime stream events into standardized UI chunks.
  * Runtime emits (`message`, `structured_data`, `interrupt`, `transition`) are
@@ -19,6 +25,7 @@ export async function* transformGraphStreamForUI(
   const { debug = false, emitStatus = debug } = options;
   const startedNodes = new Set<string>();
   const endedNodes = new Set<string>();
+  let latestGraphState: Record<string, unknown> | null = null;
 
   for await (const event of stream) {
     const { event: type, name, data } = event ?? {};
@@ -46,6 +53,7 @@ export async function* transformGraphStreamForUI(
             JSON.stringify(output, null, 2),
           );
         if (!output || nodeName?.startsWith("ChannelWrite")) break;
+        if (isGraphStateOutput(output)) latestGraphState = output;
 
         // Emit a simple completion status for UI progress feedback (de-dupe + skip internal nodes)
         if (nodeName !== "__start__" && nodeName !== "__end__") {
@@ -65,7 +73,11 @@ export async function* transformGraphStreamForUI(
       case "on_graph_end": {
         if (debug)
           console.log(`[debug:on_graph_end]`, JSON.stringify(data, null, 2));
-        yield { type: "done", data: (data as any)?.output ?? null };
+        const output = (data as any)?.output;
+        yield {
+          type: "done",
+          data: isGraphStateOutput(output) ? output : latestGraphState,
+        };
         break;
       }
 

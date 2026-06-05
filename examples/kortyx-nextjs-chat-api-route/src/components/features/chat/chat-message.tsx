@@ -11,8 +11,11 @@ import {
   ChevronRightIcon,
   CopyIcon,
   EyeIcon,
+  PencilIcon,
+  SendIcon,
+  XIcon,
 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { type ReactNode, useEffect, useMemo, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import rehypeHighlight from "rehype-highlight";
 import remarkGfm from "remark-gfm";
@@ -36,6 +39,10 @@ export type ChatMessageProps = {
       }) => Promise<void> | void)
     | undefined;
   onDebug?: (id: string) => void;
+  actions?: ReactNode;
+  variantControls?: ReactNode;
+  editable?: boolean;
+  onSubmitEdit?: (content: string) => Promise<void> | void;
 };
 
 type ComposeStructuredData = {
@@ -57,6 +64,15 @@ type MultiComposeStructuredData = {
   ctas?: string[];
 };
 
+type CheckpointLabBriefData = {
+  title?: string;
+  template?: string;
+  depth?: string;
+  summary?: string;
+  bullets?: string[];
+  generatedAt?: string;
+};
+
 const isComposeStructuredData = (
   data: StructuredData,
 ): data is StructuredData & { data: ComposeStructuredData } => {
@@ -68,6 +84,13 @@ const isMultiComposeStructuredData = (
   data: StructuredData,
 ): data is StructuredData & { data: MultiComposeStructuredData } => {
   if (data.dataType !== "reason-demo.multi-compose") return false;
+  return Boolean(data.data) && typeof data.data === "object";
+};
+
+const isCheckpointLabBriefData = (
+  data: StructuredData,
+): data is StructuredData & { data: CheckpointLabBriefData } => {
+  if (data.dataType !== "checkpoint-lab.brief") return false;
   return Boolean(data.data) && typeof data.data === "object";
 };
 
@@ -321,6 +344,85 @@ function StructuredDataBox({ data }: { data: StructuredData }) {
     );
   }
 
+  if (isCheckpointLabBriefData(data)) {
+    const brief = data.data;
+    const bullets = Array.isArray(brief.bullets)
+      ? brief.bullets.filter(
+          (item: unknown): item is string => typeof item === "string",
+        )
+      : [];
+
+    return (
+      <div className="my-3 overflow-hidden rounded-lg border border-violet-200/70 bg-white/90 shadow-sm dark:border-violet-900/70 dark:bg-slate-950/80">
+        <div className="flex items-center justify-between border-b border-violet-100 bg-violet-50/80 px-4 py-3 dark:border-violet-950/60 dark:bg-violet-950/20">
+          <div className="flex items-center gap-3 text-xs">
+            {data.node && (
+              <span className="font-semibold uppercase tracking-[0.18em] text-violet-700 dark:text-violet-300">
+                {data.node}
+              </span>
+            )}
+            <span className="font-mono text-slate-500 dark:text-slate-400">
+              {data.dataType}
+            </span>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-7 px-2 text-[11px]"
+            onClick={() => setIsExpanded((value) => !value)}
+          >
+            {isExpanded ? "Hide raw" : "Show raw"}
+          </Button>
+        </div>
+
+        <div className="space-y-4 px-5 py-4">
+          <div className="space-y-1">
+            <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
+              Brief
+            </div>
+            <div className="text-lg font-semibold text-slate-950 dark:text-slate-50">
+              {brief.title || "Checkpoint lab brief"}
+            </div>
+            <div className="text-xs text-slate-500 dark:text-slate-400">
+              {brief.template || "template"} · {brief.depth || "depth"}
+              {brief.generatedAt ? ` · ${brief.generatedAt}` : ""}
+            </div>
+          </div>
+
+          <div className="leading-7 text-slate-700 whitespace-pre-wrap dark:text-slate-200">
+            {brief.summary || ""}
+          </div>
+
+          {bullets.length > 0 && (
+            <ul className="m-0 space-y-2 list-none">
+              {bullets.map((bullet) => (
+                <li
+                  key={bullet}
+                  className="flex gap-3 text-slate-700 dark:text-slate-200"
+                >
+                  <span className="mt-2 size-2 shrink-0 rounded-full bg-violet-500" />
+                  <span>{bullet}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+
+        {isExpanded &&
+          (highlightedCode ? (
+            <div
+              className="border-t border-slate-200 text-xs dark:border-slate-800 [&_pre]:!m-0 [&_pre]:!bg-transparent [&_pre]:!p-4 [&_pre]:!whitespace-pre-wrap [&_pre]:!break-words [&_pre]:!overflow-wrap-anywhere"
+              dangerouslySetInnerHTML={{ __html: highlightedCode }}
+            />
+          ) : (
+            <pre className="m-0 overflow-x-auto border-t border-slate-200 p-4 text-xs text-slate-800 whitespace-pre-wrap break-words dark:border-slate-800 dark:text-slate-200 overflow-wrap-anywhere">
+              {rawJson}
+            </pre>
+          ))}
+      </div>
+    );
+  }
+
   return (
     <div className="my-3 overflow-hidden border rounded-lg border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-900">
       <button
@@ -475,209 +577,283 @@ export function ChatMessage({
   chatIsStreaming,
   onRespondToHumanInput,
   onDebug,
+  actions,
+  variantControls,
+  editable,
+  onSubmitEdit,
 }: ChatMessageProps) {
   const isUser = sender === "user";
+  const [isEditing, setIsEditing] = useState(false);
+  const [editContent, setEditContent] = useState(content);
+
+  useEffect(() => {
+    if (!isEditing) {
+      setEditContent(content);
+    }
+  }, [content, isEditing]);
+
+  const submitEdit = async () => {
+    const nextContent = editContent.trim();
+    if (!nextContent || nextContent === content) {
+      setIsEditing(false);
+      setEditContent(content);
+      return;
+    }
+    await onSubmitEdit?.(nextContent);
+    setIsEditing(false);
+  };
+
   const hasStructuredDemoCard = Boolean(
     contentPieces?.some(
       (piece) =>
         piece.type === "structured" &&
         (piece.data.dataType === "reason-demo.compose" ||
-          piece.data.dataType === "reason-demo.multi-compose"),
+          piece.data.dataType === "reason-demo.multi-compose" ||
+          piece.data.dataType === "checkpoint-lab.brief"),
     ),
   );
 
-  return (
-    <div className={isUser ? "flex justify-end" : "flex justify-start"}>
-      <div
-        className={
-          isUser
-            ? "max-w-[85%] rounded-2xl px-4 py-2 bg-emerald-600 text-white shadow"
-            : "group relative w-full px-4 py-3 text-slate-900 dark:text-slate-100"
-        }
-      >
-        {isUser ? (
-          <div className="break-words whitespace-pre-wrap">{content}</div>
-        ) : (
-          <div className="prose prose-slate dark:prose-invert max-w-none prose-pre:bg-slate-900 prose-pre:text-slate-100 prose-code:text-slate-800 dark:prose-code:text-slate-200">
-            {contentPieces && contentPieces.length > 0 ? (
-              <>
-                {contentPieces.map((piece, idx) =>
-                  piece.type === "text" ? (
-                    hasStructuredDemoCard ? null : (
-                      <div key={piece.id} className="relative">
-                        <ReactMarkdown
-                          remarkPlugins={[remarkGfm]}
-                          rehypePlugins={[rehypeHighlight]}
-                          components={{
-                            p: ({ children }) => (
-                              <p className="mb-2">{children}</p>
-                            ),
-                            h1: ({ children }) => (
-                              <h1 className="mt-6 mb-4 text-2xl font-bold">
-                                {children}
-                              </h1>
-                            ),
-                            h2: ({ children }) => (
-                              <h2 className="mt-6 mb-4 text-xl font-bold">
-                                {children}
-                              </h2>
-                            ),
-                            h3: ({ children }) => (
-                              <h3 className="mt-5 mb-3 text-lg font-semibold">
-                                {children}
-                              </h3>
-                            ),
-                            ul: ({ children }) => (
-                              <ul className="my-4 ml-6 list-disc">
-                                {children}
-                              </ul>
-                            ),
-                            ol: ({ children }) => (
-                              <ol className="my-4 ml-6 list-decimal">
-                                {children}
-                              </ol>
-                            ),
-                            li: ({ children }) => (
-                              <li className="mb-2">{children}</li>
-                            ),
-                            blockquote: ({ children }) => (
-                              <blockquote className="pl-4 my-4 border-l-4 border-slate-300 dark:border-slate-600">
-                                {children}
-                              </blockquote>
-                            ),
-                            hr: () => (
-                              <hr className="my-6 border-slate-300 dark:border-slate-700" />
-                            ),
-                            pre: ({ children }) => (
-                              <pre className="p-4 my-4 overflow-x-auto rounded-lg bg-slate-900">
-                                {children}
-                              </pre>
-                            ),
-                            code: ({ children, className }) => {
-                              const isInline = !className;
-                              return isInline ? (
-                                <code className="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200">
-                                  {children}
-                                </code>
-                              ) : (
-                                <code className={className}>{children}</code>
-                              );
-                            },
-                          }}
-                        >
-                          {piece.content || ""}
-                        </ReactMarkdown>
-                        {isStreaming && idx === contentPieces.length - 1 && (
-                          <span className="inline-flex ml-1 align-middle">
-                            <span className="rounded-full size-2 bg-slate-400 dark:bg-slate-500 animate-pulse" />
-                          </span>
-                        )}
-                      </div>
-                    )
-                  ) : piece.type === "error" ? (
-                    <Alert key={piece.id} variant="destructive">
-                      <AlertCircleIcon className="w-4 h-4" />
-                      <AlertTitle>Error</AlertTitle>
-                      <AlertDescription>{piece.content}</AlertDescription>
-                    </Alert>
-                  ) : piece.type === "interrupt" ? (
-                    <HumanInputBox
-                      key={piece.id}
-                      piece={piece}
-                      chatIsStreaming={chatIsStreaming}
-                      onRespondToHumanInput={onRespondToHumanInput}
-                    />
-                  ) : (
-                    <StructuredDataBox key={piece.id} data={piece.data} />
-                  ),
-                )}
-                {isStreaming &&
-                  contentPieces[contentPieces.length - 1]?.type ===
-                    "structured" && (
-                    <div className="flex items-center gap-2 my-2">
-                      <span className="rounded-full size-2 bg-slate-400 dark:bg-slate-500 animate-pulse" />
-                    </div>
-                  )}
-              </>
+  if (isUser) {
+    return (
+      <div className="flex justify-end">
+        <div className="flex max-w-[85%] flex-col items-end gap-2">
+          <div className="rounded-2xl bg-emerald-600 px-4 py-2 text-white shadow">
+            {isEditing ? (
+              <textarea
+                value={editContent}
+                onChange={(event) => setEditContent(event.target.value)}
+                className="min-h-20 w-80 max-w-[70vw] resize-y rounded-md border border-emerald-400 bg-white px-3 py-2 text-sm text-slate-950 outline-none focus:ring-2 focus:ring-emerald-300"
+              />
             ) : (
-              <>
-                <ReactMarkdown
-                  remarkPlugins={[remarkGfm]}
-                  rehypePlugins={[rehypeHighlight]}
-                  components={{
-                    p: ({ children }) => <p className="mb-4">{children}</p>,
-                    h1: ({ children }) => (
-                      <h1 className="mt-6 mb-4 text-2xl font-bold">
-                        {children}
-                      </h1>
-                    ),
-                    h2: ({ children }) => (
-                      <h2 className="mt-6 mb-4 text-xl font-bold">
-                        {children}
-                      </h2>
-                    ),
-                    h3: ({ children }) => (
-                      <h3 className="mt-5 mb-3 text-lg font-semibold">
-                        {children}
-                      </h3>
-                    ),
-                    ul: ({ children }) => (
-                      <ul className="my-4 ml-6 list-disc">{children}</ul>
-                    ),
-                    ol: ({ children }) => (
-                      <ol className="my-4 ml-6 list-decimal">{children}</ol>
-                    ),
-                    li: ({ children }) => <li className="mb-2">{children}</li>,
-                    blockquote: ({ children }) => (
-                      <blockquote className="pl-4 my-4 border-l-4 border-slate-300 dark:border-slate-600">
-                        {children}
-                      </blockquote>
-                    ),
-                    hr: () => (
-                      <hr className="my-6 border-slate-300 dark:border-slate-700" />
-                    ),
-                    pre: ({ children }) => (
-                      <pre className="p-4 my-4 overflow-x-auto rounded-lg bg-slate-900">
-                        {children}
-                      </pre>
-                    ),
-                    code: ({ children, className }) => {
-                      const isInline = !className;
-                      return isInline ? (
-                        <code className="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200">
-                          {children}
-                        </code>
-                      ) : (
-                        <code className={className}>{children}</code>
-                      );
-                    },
-                  }}
-                >
-                  {content || ""}
-                </ReactMarkdown>
-                {isStreaming && (
-                  <span className="inline-flex ml-1 align-middle">
-                    <span className="rounded-full size-4 bg-slate-400 dark:bg-slate-500 animate-pulse" />
-                  </span>
-                )}
-              </>
+              <div className="break-words whitespace-pre-wrap">{content}</div>
             )}
-
-            <div className="flex justify-end gap-2 mt-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => navigator.clipboard.writeText(content)}
-                title="Copy message"
-              >
-                <CopyIcon className="size-4" />
-              </Button>
-              <Button variant="outline" size="sm" onClick={() => onDebug?.(id)}>
-                <EyeIcon className="size-4" />
-              </Button>
-            </div>
           </div>
-        )}
+          <div className="flex justify-end gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => navigator.clipboard.writeText(content)}
+              title="Copy message"
+            >
+              <CopyIcon className="size-4" />
+            </Button>
+            {editable &&
+              (isEditing ? (
+                <>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => void submitEdit()}
+                    title="Submit edited message"
+                  >
+                    <SendIcon className="size-4" />
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setIsEditing(false);
+                      setEditContent(content);
+                    }}
+                    title="Cancel edit"
+                  >
+                    <XIcon className="size-4" />
+                  </Button>
+                </>
+              ) : (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setIsEditing(true)}
+                  title="Edit and submit again"
+                >
+                  <PencilIcon className="size-4" />
+                </Button>
+              ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex justify-start">
+      <div className="group relative w-full px-4 py-3 text-slate-900 dark:text-slate-100">
+        <div className="prose prose-slate dark:prose-invert max-w-none prose-pre:bg-slate-900 prose-pre:text-slate-100 prose-code:text-slate-800 dark:prose-code:text-slate-200">
+          {contentPieces && contentPieces.length > 0 ? (
+            <>
+              {contentPieces.map((piece, idx) =>
+                piece.type === "text" ? (
+                  hasStructuredDemoCard ? null : (
+                    <div key={piece.id} className="relative">
+                      <ReactMarkdown
+                        remarkPlugins={[remarkGfm]}
+                        rehypePlugins={[rehypeHighlight]}
+                        components={{
+                          p: ({ children }) => (
+                            <p className="mb-2">{children}</p>
+                          ),
+                          h1: ({ children }) => (
+                            <h1 className="mt-6 mb-4 text-2xl font-bold">
+                              {children}
+                            </h1>
+                          ),
+                          h2: ({ children }) => (
+                            <h2 className="mt-6 mb-4 text-xl font-bold">
+                              {children}
+                            </h2>
+                          ),
+                          h3: ({ children }) => (
+                            <h3 className="mt-5 mb-3 text-lg font-semibold">
+                              {children}
+                            </h3>
+                          ),
+                          ul: ({ children }) => (
+                            <ul className="my-4 ml-6 list-disc">{children}</ul>
+                          ),
+                          ol: ({ children }) => (
+                            <ol className="my-4 ml-6 list-decimal">
+                              {children}
+                            </ol>
+                          ),
+                          li: ({ children }) => (
+                            <li className="mb-2">{children}</li>
+                          ),
+                          blockquote: ({ children }) => (
+                            <blockquote className="pl-4 my-4 border-l-4 border-slate-300 dark:border-slate-600">
+                              {children}
+                            </blockquote>
+                          ),
+                          hr: () => (
+                            <hr className="my-6 border-slate-300 dark:border-slate-700" />
+                          ),
+                          pre: ({ children }) => (
+                            <pre className="p-4 my-4 overflow-x-auto rounded-lg bg-slate-900">
+                              {children}
+                            </pre>
+                          ),
+                          code: ({ children, className }) => {
+                            const isInline = !className;
+                            return isInline ? (
+                              <code className="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200">
+                                {children}
+                              </code>
+                            ) : (
+                              <code className={className}>{children}</code>
+                            );
+                          },
+                        }}
+                      >
+                        {piece.content || ""}
+                      </ReactMarkdown>
+                      {isStreaming && idx === contentPieces.length - 1 && (
+                        <span className="inline-flex ml-1 align-middle">
+                          <span className="rounded-full size-2 bg-slate-400 dark:bg-slate-500 animate-pulse" />
+                        </span>
+                      )}
+                    </div>
+                  )
+                ) : piece.type === "error" ? (
+                  <Alert key={piece.id} variant="destructive">
+                    <AlertCircleIcon className="w-4 h-4" />
+                    <AlertTitle>Error</AlertTitle>
+                    <AlertDescription>{piece.content}</AlertDescription>
+                  </Alert>
+                ) : piece.type === "interrupt" ? (
+                  <HumanInputBox
+                    key={piece.id}
+                    piece={piece}
+                    chatIsStreaming={chatIsStreaming}
+                    onRespondToHumanInput={onRespondToHumanInput}
+                  />
+                ) : (
+                  <StructuredDataBox key={piece.id} data={piece.data} />
+                ),
+              )}
+              {isStreaming &&
+                contentPieces[contentPieces.length - 1]?.type ===
+                  "structured" && (
+                  <div className="flex items-center gap-2 my-2">
+                    <span className="rounded-full size-2 bg-slate-400 dark:bg-slate-500 animate-pulse" />
+                  </div>
+                )}
+            </>
+          ) : (
+            <>
+              <ReactMarkdown
+                remarkPlugins={[remarkGfm]}
+                rehypePlugins={[rehypeHighlight]}
+                components={{
+                  p: ({ children }) => <p className="mb-4">{children}</p>,
+                  h1: ({ children }) => (
+                    <h1 className="mt-6 mb-4 text-2xl font-bold">{children}</h1>
+                  ),
+                  h2: ({ children }) => (
+                    <h2 className="mt-6 mb-4 text-xl font-bold">{children}</h2>
+                  ),
+                  h3: ({ children }) => (
+                    <h3 className="mt-5 mb-3 text-lg font-semibold">
+                      {children}
+                    </h3>
+                  ),
+                  ul: ({ children }) => (
+                    <ul className="my-4 ml-6 list-disc">{children}</ul>
+                  ),
+                  ol: ({ children }) => (
+                    <ol className="my-4 ml-6 list-decimal">{children}</ol>
+                  ),
+                  li: ({ children }) => <li className="mb-2">{children}</li>,
+                  blockquote: ({ children }) => (
+                    <blockquote className="pl-4 my-4 border-l-4 border-slate-300 dark:border-slate-600">
+                      {children}
+                    </blockquote>
+                  ),
+                  hr: () => (
+                    <hr className="my-6 border-slate-300 dark:border-slate-700" />
+                  ),
+                  pre: ({ children }) => (
+                    <pre className="p-4 my-4 overflow-x-auto rounded-lg bg-slate-900">
+                      {children}
+                    </pre>
+                  ),
+                  code: ({ children, className }) => {
+                    const isInline = !className;
+                    return isInline ? (
+                      <code className="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200">
+                        {children}
+                      </code>
+                    ) : (
+                      <code className={className}>{children}</code>
+                    );
+                  },
+                }}
+              >
+                {content || ""}
+              </ReactMarkdown>
+              {isStreaming && (
+                <span className="inline-flex ml-1 align-middle">
+                  <span className="rounded-full size-4 bg-slate-400 dark:bg-slate-500 animate-pulse" />
+                </span>
+              )}
+            </>
+          )}
+
+          <div className="flex flex-wrap justify-end gap-2 mt-2">
+            {variantControls}
+            {actions}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => navigator.clipboard.writeText(content)}
+              title="Copy message"
+            >
+              <CopyIcon className="size-4" />
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => onDebug?.(id)}>
+              <EyeIcon className="size-4" />
+            </Button>
+          </div>
+        </div>
       </div>
     </div>
   );

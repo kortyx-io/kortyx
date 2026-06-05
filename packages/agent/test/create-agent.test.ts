@@ -119,6 +119,349 @@ describe("createAgent", () => {
     expect(args.loadRuntimeConfig()).toEqual({ telemetry: { trace } });
   });
 
+  it("delegates checkpoint APIs through the framework adapter and syncs pending requests", async () => {
+    const pendingRequests = {
+      delete: vi.fn(async () => undefined),
+      save: vi.fn(async () => undefined),
+    };
+    const getLatestCheckpointId = vi.fn(
+      async (_runId: string, checkpointNs?: string) =>
+        checkpointNs === "" ? "graph-cp-1" : undefined,
+    );
+    const deleteCheckpointWrites = vi.fn(async () => undefined);
+    const sessionCheckpoints = {
+      list: vi.fn(async () => [
+        {
+          id: "cp-1",
+          sessionId: "session-1",
+          turnIndex: 0,
+          createdAt: 1,
+          nodes: [],
+          workflow: "workflow-1",
+        },
+      ]),
+      get: vi.fn(async (id: string) => ({
+        id,
+        sessionId: "session-1",
+        runId: "run-1",
+        turnIndex: 0,
+        createdAt: 1,
+        nodes: [],
+        workflow: "workflow-1",
+        state: {} as never,
+        effects: { structuredStreamIds: [], interruptTokens: [] },
+        activePendingRequests: [],
+      })),
+      rollbackTo: vi.fn(async (id: string) => ({
+        sessionId: "session-1",
+        head: id,
+        invalidatedStructuredStreamIds: ["stream-1"],
+        invalidatedInterruptTokens: ["old-token"],
+        activePendingRequests: [
+          {
+            token: "active-token",
+            requestId: "human-1",
+            runId: "run-1",
+            workflow: "workflow-1",
+            node: "ask",
+            schema: { kind: "choice", multiple: false },
+            options: [],
+            createdAt: 1,
+            ttlMs: 1000,
+          },
+        ],
+      })),
+      fork: vi.fn(async (id: string, options?: { newSessionId?: string }) => ({
+        sessionId: options?.newSessionId ?? "child",
+        parentSessionId: "session-1",
+        forkedFrom: id,
+        checkpoint: {
+          id: "child-cp",
+          sessionId: options?.newSessionId ?? "child",
+          runId: "run-1",
+          turnIndex: 0,
+          createdAt: 1,
+          nodes: [],
+          workflow: "workflow-1",
+          state: {} as never,
+          effects: { structuredStreamIds: [], interruptTokens: [] },
+          activePendingRequests: [
+            {
+              token: "child-token",
+              requestId: "human-2",
+              runId: "run-1",
+              workflow: "workflow-1",
+              node: "ask",
+              schema: { kind: "choice", multiple: false },
+              options: [],
+              createdAt: 1,
+              ttlMs: 1000,
+            },
+          ],
+        },
+      })),
+    };
+    const agent = createAgent({
+      workflows: [{ id: "workflow-1" } as WorkflowDefinition],
+      frameworkAdapter: {
+        checkpointer: { getLatestCheckpointId, deleteCheckpointWrites },
+        pendingRequests,
+        sessionCheckpoints,
+      } as unknown as FrameworkAdapter,
+    });
+
+    await expect(agent.listCheckpoints("session-1")).resolves.toMatchObject([
+      { id: "cp-1" },
+    ]);
+    await expect(agent.getCheckpoint("cp-1")).resolves.toMatchObject({
+      id: "cp-1",
+    });
+
+    await expect(agent.rollbackTo("cp-1")).resolves.toMatchObject({
+      head: "cp-1",
+      invalidatedInterruptTokens: ["old-token"],
+    });
+    expect(pendingRequests.delete).toHaveBeenCalledWith("old-token");
+    expect(getLatestCheckpointId).toHaveBeenCalledWith("run-1", "workflow-1");
+    expect(getLatestCheckpointId).toHaveBeenCalledWith("run-1", "");
+    expect(deleteCheckpointWrites).toHaveBeenCalledWith(
+      "run-1",
+      "workflow-1",
+      "graph-cp-1",
+    );
+    expect(deleteCheckpointWrites).toHaveBeenCalledWith(
+      "run-1",
+      "",
+      "graph-cp-1",
+    );
+    expect(pendingRequests.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        token: "active-token",
+        graphCheckpointId: "graph-cp-1",
+      }),
+    );
+
+    await expect(
+      agent.fork("cp-1", { newSessionId: "child-session" }),
+    ).resolves.toMatchObject({
+      sessionId: "child-session",
+      forkedFrom: "cp-1",
+    });
+    expect(pendingRequests.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        token: "child-token",
+        graphCheckpointId: "graph-cp-1",
+      }),
+    );
+    expect(deleteCheckpointWrites).toHaveBeenCalledTimes(4);
+  });
+
+  it("clears graph writes for every hydrated rollback pending request", async () => {
+    const pendingRequests = {
+      delete: vi.fn(async () => undefined),
+      save: vi.fn(async () => undefined),
+    };
+    const getLatestCheckpointId = vi.fn(
+      async (runId: string, checkpointNs?: string) => {
+        if (runId === "run-hydrate" && checkpointNs === "workflow-1") {
+          return "workflow-graph-cp";
+        }
+        return undefined;
+      },
+    );
+    const deleteCheckpointWrites = vi.fn(async () => undefined);
+    const sessionCheckpoints = {
+      list: vi.fn(async () => []),
+      get: vi.fn(async () => null),
+      rollbackTo: vi.fn(async (id: string) => ({
+        sessionId: "session-1",
+        head: id,
+        invalidatedStructuredStreamIds: [],
+        invalidatedInterruptTokens: ["old-depth-token", "old-final-token"],
+        activePendingRequests: [
+          {
+            token: "hydrate-token",
+            requestId: "human-hydrate",
+            runId: "run-hydrate",
+            workflow: "workflow-1",
+            node: "selectTemplate",
+            schema: { kind: "choice", multiple: false },
+            options: [],
+            createdAt: 1,
+            ttlMs: 1000,
+          },
+          {
+            token: "stored-token",
+            requestId: "human-stored",
+            runId: "run-stored",
+            workflow: "workflow-2",
+            node: "selectDepth",
+            schema: { kind: "choice", multiple: false },
+            options: [],
+            createdAt: 1,
+            ttlMs: 1000,
+            graphCheckpointId: "stored-graph-cp",
+          },
+          {
+            token: "unhydrated-token",
+            requestId: "human-unhydrated",
+            runId: "run-unhydrated",
+            workflow: "workflow-3",
+            node: "ask",
+            schema: { kind: "text" },
+            options: [],
+            createdAt: 1,
+            ttlMs: 1000,
+          },
+        ],
+      })),
+      fork: vi.fn(),
+    };
+    const agent = createAgent({
+      workflows: [{ id: "workflow-1" } as WorkflowDefinition],
+      frameworkAdapter: {
+        checkpointer: { getLatestCheckpointId, deleteCheckpointWrites },
+        pendingRequests,
+        sessionCheckpoints,
+      } as unknown as FrameworkAdapter,
+    });
+
+    const result = await agent.rollbackTo("cp-template");
+    expect(result.activePendingRequests).toEqual([
+      expect.objectContaining({
+        token: "hydrate-token",
+        graphCheckpointId: "workflow-graph-cp",
+      }),
+      expect.objectContaining({
+        token: "stored-token",
+        graphCheckpointId: "stored-graph-cp",
+      }),
+      expect.objectContaining({
+        token: "unhydrated-token",
+      }),
+    ]);
+    expect(result.activePendingRequests[2]).not.toHaveProperty(
+      "graphCheckpointId",
+    );
+
+    expect(pendingRequests.delete).toHaveBeenCalledWith("old-depth-token");
+    expect(pendingRequests.delete).toHaveBeenCalledWith("old-final-token");
+    expect(pendingRequests.save).toHaveBeenCalledTimes(3);
+    expect(deleteCheckpointWrites).toHaveBeenCalledTimes(4);
+    expect(deleteCheckpointWrites).toHaveBeenCalledWith(
+      "run-hydrate",
+      "workflow-1",
+      "workflow-graph-cp",
+    );
+    expect(deleteCheckpointWrites).toHaveBeenCalledWith(
+      "run-hydrate",
+      "",
+      "workflow-graph-cp",
+    );
+    expect(deleteCheckpointWrites).toHaveBeenCalledWith(
+      "run-stored",
+      "workflow-2",
+      "stored-graph-cp",
+    );
+    expect(deleteCheckpointWrites).toHaveBeenCalledWith(
+      "run-stored",
+      "",
+      "stored-graph-cp",
+    );
+    expect(getLatestCheckpointId).toHaveBeenCalledWith(
+      "run-hydrate",
+      "workflow-1",
+    );
+    expect(getLatestCheckpointId).toHaveBeenCalledWith(
+      "run-unhydrated",
+      "workflow-3",
+    );
+    expect(getLatestCheckpointId).toHaveBeenCalledWith("run-unhydrated", "");
+  });
+
+  it("skips graph write cleanup when the checkpointer cannot delete writes", async () => {
+    const pendingRequests = {
+      delete: vi.fn(async () => undefined),
+      save: vi.fn(async () => undefined),
+    };
+    const sessionCheckpoints = {
+      list: vi.fn(async () => []),
+      get: vi.fn(async () => null),
+      rollbackTo: vi.fn(async (id: string) => ({
+        sessionId: "session-1",
+        head: id,
+        invalidatedStructuredStreamIds: [],
+        invalidatedInterruptTokens: [],
+        activePendingRequests: [
+          {
+            token: "active-token",
+            requestId: "human-1",
+            runId: "run-1",
+            workflow: "workflow-1",
+            node: "ask",
+            schema: { kind: "choice", multiple: false },
+            options: [],
+            createdAt: 1,
+            ttlMs: 1000,
+            graphCheckpointId: "graph-cp-1",
+          },
+        ],
+      })),
+      fork: vi.fn(async (id: string) => ({
+        sessionId: "child",
+        parentSessionId: "session-1",
+        forkedFrom: id,
+        checkpoint: {
+          id: "child-cp",
+          sessionId: "child",
+          runId: "run-1",
+          turnIndex: 0,
+          createdAt: 1,
+          nodes: [],
+          workflow: "workflow-1",
+          state: {} as never,
+          effects: { structuredStreamIds: [], interruptTokens: [] },
+          activePendingRequests: [
+            {
+              token: "child-token",
+              requestId: "human-2",
+              runId: "run-1",
+              workflow: "workflow-1",
+              node: "ask",
+              schema: { kind: "choice", multiple: false },
+              options: [],
+              createdAt: 1,
+              ttlMs: 1000,
+              graphCheckpointId: "child-graph-cp",
+            },
+          ],
+        },
+      })),
+    };
+    const agent = createAgent({
+      workflows: [{ id: "workflow-1" } as WorkflowDefinition],
+      frameworkAdapter: {
+        checkpointer: {},
+        pendingRequests,
+        sessionCheckpoints,
+      } as unknown as FrameworkAdapter,
+    });
+
+    await expect(agent.rollbackTo("cp-1")).resolves.toMatchObject({
+      activePendingRequests: [
+        expect.objectContaining({ graphCheckpointId: "graph-cp-1" }),
+      ],
+    });
+    await expect(agent.fork("cp-1")).resolves.toMatchObject({
+      checkpoint: {
+        activePendingRequests: [
+          expect.objectContaining({ graphCheckpointId: "child-graph-cp" }),
+        ],
+      },
+    });
+    expect(pendingRequests.save).toHaveBeenCalledTimes(2);
+  });
+
   it("uses the general-chat fallback for in-memory workflows without a default", async () => {
     const workflow = { id: "workflow-1" } as WorkflowDefinition;
     const agent = createAgent({ workflows: [workflow] });

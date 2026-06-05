@@ -83,4 +83,35 @@ describe("transformGraphStreamForUI", () => {
     log.mockRestore();
     warn.mockRestore();
   });
+
+  it("falls back to the latest graph state when graph completion omits output", async () => {
+    await expect(
+      collect([
+        {
+          event: "on_chain_end",
+          name: "draft",
+          data: { output: { data: { local: true } } },
+        },
+        {
+          event: "on_chain_end",
+          name: "__end__",
+          data: {
+            output: {
+              currentWorkflow: "checkpoint-lab",
+              data: { completed: true },
+            },
+          },
+        },
+        { event: "on_graph_end", data: {} },
+      ]),
+    ).resolves.toEqual([
+      {
+        type: "done",
+        data: {
+          currentWorkflow: "checkpoint-lab",
+          data: { completed: true },
+        },
+      },
+    ]);
+  });
 });

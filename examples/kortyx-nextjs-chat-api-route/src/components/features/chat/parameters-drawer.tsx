@@ -44,8 +44,8 @@ export function ParametersDrawer({
                 Workflow override
               </Label>
               <p className="text-xs text-slate-500 dark:text-slate-400">
-                If set, runs that workflow id (e.g.{" "}
-                <code>interrupt-sequential-demo</code> or{" "}
+                If set, runs that workflow id (e.g. <code>checkpoint-lab</code>{" "}
+                or <code>interrupt-sequential-demo</code> or{" "}
                 <code>mcp-lorem-demo</code> or{" "}
                 <code>reason-interrupt-structured</code> or{" "}
                 <code>reason-structured-stream</code> or{" "}

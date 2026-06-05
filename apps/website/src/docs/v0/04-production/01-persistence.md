@@ -28,6 +28,7 @@ If you are building a simple request -> response flow with no pause/resume, you 
 | --- | --- |
 | a paused run waiting for user input | Kortyx runtime persistence |
 | a checkpoint needed to continue after restart | Kortyx runtime persistence |
+| rollback/fork checkpoints for active workflow sessions | Kortyx runtime persistence |
 | conversation history you want to show in your product | your app DB or service layer |
 | users, orgs, tickets, profiles, orders | your app DB or service layer |
 | documents, embeddings, search indexes | your app DB or service layer |
@@ -40,6 +41,7 @@ That includes:
 
 - the pending interrupt request
 - the checkpoint for the paused run
+- user-facing session checkpoints for rollback, fork, regenerate, and undo
 - short-lived runtime state tied to that run
 
 Without that stored state, a restart would lose the paused workflow.
@@ -56,6 +58,9 @@ If you want to save something because it matters to your product later, save it 
 
 - local dev or demos: in-memory is usually fine
 - production with interrupt/resume across restarts: use Redis
+- production with rollback/fork/regenerate for many users: use Redis
+
+In-memory runtime persistence is intentionally lightweight. It stores state in the current Node process, so it is not shared across workers and it disappears on restart. Session checkpoints are capped by count per session, but in-memory session checkpoint records do not have a global memory cap or TTL.
 
 > **Good to know:** The config property is still called `frameworkAdapter`, but what it controls is the runtime persistence backend used by Kortyx.
 

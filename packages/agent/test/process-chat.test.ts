@@ -217,6 +217,131 @@ describe("streamChat", () => {
     );
   });
 
+  it("starts non-resume runs from the current session checkpoint head", async () => {
+    const selectWorkflow = vi.fn(async (id: string) => workflowDefinition(id));
+    mocks.buildInitialGraphState.mockResolvedValueOnce({
+      input: "next",
+      config: {},
+      runtime: {
+        priorMessages: [{ role: "assistant", content: "previous" }],
+        requestedWorkflow: "requested-workflow",
+      },
+      lastNode: "__start__",
+      currentWorkflow: "requested-workflow",
+      conversationHistory: [],
+      data: {},
+      ui: {},
+    });
+    const frameworkAdapter = {
+      checkpointer: "checkpoint",
+      sessionCheckpoints: {
+        getHead: vi.fn(async () => ({
+          id: "cp-1",
+          sessionId: "session-1",
+          runId: "run-previous",
+          turnIndex: 1,
+          createdAt: 1,
+          nodes: [],
+          workflow: "checkpoint-workflow",
+          state: {
+            input: "old",
+            config: {},
+            runtime: { persisted: true },
+            lastNode: "__end__",
+            currentWorkflow: "checkpoint-workflow",
+            conversationHistory: [],
+            data: { fromCheckpoint: true },
+            ui: {},
+            awaitingHumanInput: true,
+          },
+          effects: { structuredStreamIds: [], interruptTokens: [] },
+          activePendingRequests: [],
+        })),
+        append: vi.fn(),
+      },
+    } as unknown as FrameworkAdapter;
+
+    await streamChat({
+      messages: [
+        { role: "assistant", content: "previous" },
+        { role: "user", content: "next" },
+      ],
+      options: { sessionId: "session-1", workflowId: "requested-workflow" },
+      loadRuntimeConfig: async () => ({ session: { id: "session-1" } }),
+      selectWorkflow,
+      frameworkAdapter,
+      getProvider: vi.fn(),
+    });
+
+    expect(frameworkAdapter.sessionCheckpoints.getHead).toHaveBeenCalledWith(
+      "session-1",
+    );
+    expect(selectWorkflow).toHaveBeenCalledWith("requested-workflow");
+    expect(orchestrateGraphStream).toHaveBeenCalledWith(
+      expect.objectContaining({
+        state: expect.objectContaining({
+          input: "next",
+          currentWorkflow: "requested-workflow",
+          awaitingHumanInput: false,
+          runtime: {
+            persisted: true,
+            requestedWorkflow: "requested-workflow",
+            priorMessages: [{ role: "assistant", content: "previous" }],
+          },
+          data: { fromCheckpoint: true },
+        }),
+      }),
+    );
+  });
+
+  it("starts from checkpoint heads without saved runtime metadata", async () => {
+    const frameworkAdapter = {
+      checkpointer: "checkpoint",
+      sessionCheckpoints: {
+        getHead: vi.fn(async () => ({
+          id: "cp-1",
+          sessionId: "session-1",
+          runId: "run-previous",
+          turnIndex: 1,
+          createdAt: 1,
+          nodes: [],
+          workflow: "checkpoint-workflow",
+          state: {
+            input: "old",
+            config: {},
+            lastNode: "__end__",
+            currentWorkflow: "checkpoint-workflow",
+            conversationHistory: [],
+            data: {},
+            ui: {},
+            awaitingHumanInput: true,
+          },
+          effects: { structuredStreamIds: [], interruptTokens: [] },
+          activePendingRequests: [],
+        })),
+        append: vi.fn(),
+      },
+    } as unknown as FrameworkAdapter;
+
+    await streamChat({
+      messages: [{ role: "user", content: "next" }],
+      options: { sessionId: "session-1" },
+      loadRuntimeConfig: async () => ({}),
+      selectWorkflow: vi.fn(async (id: string) => workflowDefinition(id)),
+      frameworkAdapter,
+      getProvider: vi.fn(),
+    });
+
+    expect(orchestrateGraphStream).toHaveBeenCalledWith(
+      expect.objectContaining({
+        state: expect.objectContaining({
+          currentWorkflow: "checkpoint-workflow",
+          runtime: {},
+        }),
+      }),
+    );
+  });
+
   it("returns prepared resume streams without creating a new graph", async () => {
     const resumeStream = (async function* () {
       yield { type: "done" };
