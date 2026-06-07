@@ -44,7 +44,7 @@ function pickNodeExport(mod: LoadedNodeModule, exportName?: string): NodeFn {
   const fnExports = Object.entries(mod).filter(
     ([, v]) => typeof v === "function",
   );
-  if (fnExports.length === 1) return fnExports[0]![1] as NodeFn;
+  if (fnExports.length === 1) return fnExports[0]?.[1] as NodeFn;
 
   const names = fnExports.map(([k]) => k).sort();
   throw new Error(

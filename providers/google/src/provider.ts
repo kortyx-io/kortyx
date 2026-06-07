@@ -68,8 +68,6 @@ const mapGoogleFinishReason = (
       return { unified: "content-filter", raw: finishReason };
     case "MALFORMED_FUNCTION_CALL":
       return { unified: "error", raw: finishReason };
-    case "FINISH_REASON_UNSPECIFIED":
-    case "OTHER":
     default:
       return { unified: "other", raw: finishReason };
   }

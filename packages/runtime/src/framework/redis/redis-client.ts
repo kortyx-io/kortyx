@@ -123,7 +123,7 @@ export function createRedisClient(options: RedisClientOptions): RedisClient {
     const payload = encodeCommand(cmd, args);
     return new Promise<RedisReply>((resolve, reject) => {
       inflight.push({ resolve, reject });
-      socket!.write(payload);
+      socket?.write(payload);
     });
   };
 
@@ -155,13 +155,13 @@ export function createRedisClient(options: RedisClientOptions): RedisClient {
 
       s.on("error", (err) => {
         ready = false;
-        while (inflight.length) inflight.shift()!.reject(err);
+        while (inflight.length) inflight.shift()?.reject(err);
       });
 
       s.on("close", () => {
         ready = false;
         while (inflight.length)
-          inflight.shift()!.reject(new Error("Redis socket closed"));
+          inflight.shift()?.reject(new Error("Redis socket closed"));
       });
 
       await new Promise<void>((resolve, reject) => {
