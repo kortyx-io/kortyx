@@ -191,16 +191,9 @@ function RecentChatItem({
         onClick={onSelect}
         isActive={isActive}
         tooltip={displayTitle}
-        // Override cxp-ui's default `px-4 py-6` so the rows stack tightly
-        // and the chat list reads as a list, not a series of cards.
-        // `pr-8` reserves space for the absolutely-positioned three-dot
-        // SidebarMenuAction so the title truncates before reaching it.
-        // When active, cxp-ui adds `border-l-4 pl-3`; shave the left
-        // padding to `pl-2` (with `!`) so the title doesn't shift right
-        // by the width of the accent border.
-        className={`!h-8 !pr-6 !py-1 text-sm ${isActive ? "!pl-3" : "!pl-4"}`}
+        className="h-8! py-1! pl-4! pr-6! text-sm"
       >
-        <span className="truncate">
+        <span className="truncate" title={displayTitle}>
           {animatedTitle === displayTitle ? (
             <TypewriterText
               key={`${chat.id}:${displayTitle}`}
