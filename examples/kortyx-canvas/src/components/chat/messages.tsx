@@ -1,17 +1,25 @@
 "use client";
 
-import type { ChatMsg, ContentPiece, HumanInputPiece } from "@kortyx/react";
+import type {
+  ChatMsg,
+  ChatResponseVariantGroup,
+  ContentPiece,
+  HumanInputPiece,
+} from "@kortyx/react";
 import { CornerDownRight } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { pickBriefPreview } from "@/components/streaming/brief-preview";
 import { useTypewriter } from "@/components/typewriter";
-import { extractQuoteFromMessage } from "@/lib/chat-quote-format";
+import {
+  combineQuoteAndMessage,
+  extractQuoteFromMessage,
+} from "@/lib/chat-quote-format";
 import { CANVAS_THINKING_DATA_TYPE } from "@/lib/protocol";
 import { BriefPreviewPiece } from "./brief-preview-piece";
 import { DiscoveryCanvasThinkingPiece } from "./canvas-thinking-piece";
 import { InterruptPiece } from "./interrupt-piece";
 import { ChatMarkdown } from "./markdown";
-import { MessageActions } from "./message-actions";
+import { MessageActions, UserMessageActions } from "./message-actions";
 
 // `canvas.thinking` is the dedicated UI-marker channel emitted by
 // `createDiscoveryCanvasNode` / `applyUpdatesNode` via `useStructuredData` BEFORE the
@@ -51,6 +59,12 @@ type Props = {
     response: { selected: string[]; text: string },
   ) => void;
   onDebugMessage: (messageId: string) => void;
+  variantForMessage: (messageId: string) => ChatResponseVariantGroup | null;
+  onSelectVariant: (messageId: string, variantId: string) => void;
+  onRegenerateMessage: (messageId: string) => void;
+  onRollbackMessage: (messageId: string, checkpointId: string) => void;
+  onForkMessage: (messageId: string, checkpointId: string) => void;
+  onRetryWithEdit: (assistantMessageId: string, content: string) => void;
 };
 
 function piecesToText(pieces: ContentPiece[]): string {
@@ -107,6 +121,12 @@ export function ChatMessages({
   emptyState,
   onRespondToInterrupt,
   onDebugMessage,
+  variantForMessage,
+  onSelectVariant,
+  onRegenerateMessage,
+  onRollbackMessage,
+  onForkMessage,
+  onRetryWithEdit,
 }: Props) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const stuckToBottomRef = useRef(true);
@@ -235,15 +255,32 @@ export function ChatMessages({
             .find((m) => m.role === "user");
           const answeredLabel = nextUser?.content;
 
-          const showActions = message.role === "assistant" && !isStreaming;
+          const nextAssistant = visibleMessages
+            .slice(index + 1)
+            .find((m) => m.role === "assistant");
+          const variantGroup =
+            message.role === "assistant" ? variantForMessage(message.id) : null;
+          const variantControls = buildVariantControls({
+            messageId: message.id,
+            variantGroup,
+            onSelectVariant,
+          });
+          const checkpointId = message.checkpointId;
 
           return (
             <div key={message.id} className="flex flex-col gap-1.5">
               {message.role === "user" ? (
                 hasContent ? (
-                  <MessageBubble
-                    author={message.role}
+                  <UserMessage
                     content={message.content}
+                    disabled={isStreaming}
+                    editable={Boolean(nextAssistant)}
+                    {...(nextAssistant
+                      ? {
+                          onSubmitEdit: (content: string) =>
+                            onRetryWithEdit(nextAssistant.id, content),
+                        }
+                      : {})}
                   />
                 ) : null
               ) : (
@@ -268,10 +305,20 @@ export function ChatMessages({
                   />
                 );
               })}
-              {showActions ? (
+              {message.role === "assistant" ? (
                 <MessageActions
                   content={actionContent}
+                  disabled={isStreaming}
                   onDebug={() => onDebugMessage(message.id)}
+                  {...(checkpointId
+                    ? {
+                        onRegenerate: () => onRegenerateMessage(message.id),
+                        onRollback: () =>
+                          onRollbackMessage(message.id, checkpointId),
+                        onFork: () => onForkMessage(message.id, checkpointId),
+                      }
+                    : {})}
+                  variantControls={variantControls}
                 />
               ) : null}
             </div>
@@ -354,6 +401,102 @@ function MessageBubble({
       ) : null}
     </div>
   );
+}
+
+function UserMessage({
+  content,
+  disabled,
+  editable,
+  onSubmitEdit,
+}: {
+  content: string;
+  disabled: boolean;
+  editable: boolean;
+  onSubmitEdit?: (content: string) => void;
+}) {
+  const { quote, body } = extractQuoteFromMessage(content);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editValue, setEditValue] = useState(body || content);
+
+  useEffect(() => {
+    if (!isEditing) setEditValue(body || content);
+  }, [body, content, isEditing]);
+
+  const submitEdit = () => {
+    const next = editValue.trim();
+    if (!next || next === (body || content).trim()) {
+      setIsEditing(false);
+      setEditValue(body || content);
+      return;
+    }
+    onSubmitEdit?.(combineQuoteAndMessage(quote, next));
+    setIsEditing(false);
+  };
+
+  return (
+    <div className="flex justify-end">
+      <div className="flex max-w-[85%] flex-col items-end gap-1.5">
+        {quote ? <UserMessageQuote text={quote} /> : null}
+        <div className="rounded-2xl rounded-br-sm bg-muted px-3.5 py-2 text-sm leading-relaxed text-foreground">
+          {isEditing ? (
+            <textarea
+              value={editValue}
+              onChange={(event) => setEditValue(event.target.value)}
+              className="min-h-24 w-80 max-w-[70vw] resize-y rounded-md border border-border bg-card px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            />
+          ) : (
+            <div className="whitespace-pre-wrap">{body}</div>
+          )}
+        </div>
+        <UserMessageActions
+          content={body}
+          disabled={disabled}
+          editDisabled={!editable}
+          isEditing={isEditing}
+          onEdit={() => setIsEditing(true)}
+          onSubmitEdit={submitEdit}
+          onCancelEdit={() => {
+            setIsEditing(false);
+            setEditValue(body || content);
+          }}
+        />
+      </div>
+    </div>
+  );
+}
+
+function buildVariantControls({
+  messageId,
+  variantGroup,
+  onSelectVariant,
+}: {
+  messageId: string;
+  variantGroup: ChatResponseVariantGroup | null;
+  onSelectVariant: (messageId: string, variantId: string) => void;
+}) {
+  if (!variantGroup || variantGroup.variants.length <= 1) return null;
+  const selectedIndex = variantGroup.variants.findIndex(
+    (variant) => variant.id === variantGroup.selectedVariantId,
+  );
+  if (selectedIndex < 0) return null;
+  const previous =
+    selectedIndex > 0 ? variantGroup.variants[selectedIndex - 1] : undefined;
+  const next =
+    selectedIndex >= 0 && selectedIndex < variantGroup.variants.length - 1
+      ? variantGroup.variants[selectedIndex + 1]
+      : undefined;
+
+  return {
+    label: `${selectedIndex + 1} / ${variantGroup.variants.length}`,
+    canPrevious: Boolean(previous),
+    canNext: Boolean(next),
+    onPrevious: () => {
+      if (previous) onSelectVariant(messageId, previous.id);
+    },
+    onNext: () => {
+      if (next) onSelectVariant(messageId, next.id);
+    },
+  };
 }
 
 /**

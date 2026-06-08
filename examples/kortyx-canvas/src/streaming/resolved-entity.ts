@@ -19,7 +19,7 @@ export function emitResolvedEntity(args: {
 }): void {
   useStructuredData({
     id: `resolved-${args.kind}`,
-    streamId: args.streamId ?? "resolved-entity",
+    streamId: args.streamId ?? `resolved-entity-${args.kind}`,
     dataType: RESOLVED_ENTITY_DATA_TYPE,
     data: {
       kind: args.kind,

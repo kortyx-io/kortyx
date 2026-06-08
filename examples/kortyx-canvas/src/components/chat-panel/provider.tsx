@@ -4,12 +4,15 @@ import {
   type ChatMsg,
   createBrowserChatStorage,
   createRouteChatTransport,
+  type ForkCheckpointResult,
+  type HumanInputPiece,
   useChat,
 } from "@kortyx/react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
+  buildDiscoveryCanvasDraftFromPieces,
   findLatestDiscoveryCanvasSaved,
-  findLatestResolvedEntity,
+  findLatestResolvedEntities,
   pickCanvasCreateStreamId,
   pickDiscoveryCanvasData,
 } from "@/components/streaming";
@@ -17,7 +20,10 @@ import { useDiscoveryCanvasStore } from "@/hooks/use-canvas-store";
 import { useChatSessions } from "@/hooks/use-chat-sessions";
 import { extractQuoteFromMessage } from "@/lib/chat-quote-format";
 import { SAVE_CANVAS_INTENT_MESSAGE, WORKFLOW_IDS } from "@/lib/protocol";
-import { discoveryCanvasDraftHasContent } from "@/providers/canvas-store";
+import {
+  discoveryCanvasDraftHasContent,
+  writeDiscoveryCanvasDraftCache,
+} from "@/providers/canvas-store";
 import { CHAT_STORAGE_PREFIX } from "@/providers/chat-sessions";
 import type { ChatContext, ChatPanelContextValue } from "@/types/chat-panel";
 import { applyStreamingPatches } from "./canvas-patches";
@@ -33,7 +39,8 @@ export function ChatProvider({
   children,
   endpoint = "/api/canvas-agent/chat",
 }: Props) {
-  const { currentChatId, autoTitleIfDefault } = useChatSessions();
+  const { currentChatId, autoTitleIfDefault, createForkedChat } =
+    useChatSessions();
   const {
     replaceDraft,
     setStreaming,
@@ -58,10 +65,16 @@ export function ChatProvider({
     setCanvasCreating,
   } = useDiscoveryCanvasStore();
 
+  const checkpointEndpoint = useMemo(
+    () => `${endpoint.replace(/\/$/, "")}/checkpoints`,
+    [endpoint],
+  );
+
   const transport = useMemo(
     () =>
       createRouteChatTransport<ChatContext>({
         endpoint,
+        checkpointEndpoint,
         // Inject the latest canvas snapshot AND any previously-resolved
         // brief/agent ids into every request, so collect-canvas-inputs-node can
         // short-circuit the picker on repeat canvas generations.
@@ -103,6 +116,7 @@ export function ChatProvider({
       }),
     [
       endpoint,
+      checkpointEndpoint,
       getDraftSnapshot,
       getResolvedIdsSnapshot,
       getSavedDiscoveryCanvasIdSnapshot,
@@ -121,6 +135,8 @@ export function ChatProvider({
         sessionId: `${prefix}sessionId`,
         workflowId: `${prefix}workflowId`,
         includeHistory: `${prefix}includeHistory`,
+        branches: `${prefix}branches`,
+        responseVariants: `${prefix}responseVariants`,
       },
     });
   }, [currentChatId]);
@@ -136,6 +152,22 @@ export function ChatProvider({
     null,
   );
   const [debugLiveMode, setDebugLiveMode] = useState(true);
+  const [checkpointStatus, setCheckpointStatus] = useState<string | null>(null);
+
+  const runCheckpointAction = useCallback(
+    async (action: () => Promise<void>, success?: string) => {
+      setCheckpointStatus(null);
+      try {
+        await action();
+        if (success) setCheckpointStatus(success);
+      } catch (error) {
+        setCheckpointStatus(
+          error instanceof Error ? error.message : String(error),
+        );
+      }
+    },
+    [],
+  );
 
   // Mirror the chat streaming state onto the canvas so the "Drafting…" badge
   // shows while the LLM is generating, even before any structured chunks
@@ -218,15 +250,21 @@ export function ChatProvider({
   // the id+label into resolvedIds so subsequent chat turns ship it back as
   // ctx.briefId / ctx.agentId.
   useEffect(() => {
-    const resolved = findLatestResolvedEntity(
+    const resolved = findLatestResolvedEntities(
       chat.messages.flatMap((msg) => msg.contentPieces ?? []),
       chat.streamContentPieces,
     );
-    if (!resolved) return;
-    if (resolved.kind === "brief") {
-      setResolvedId("brief", { id: resolved.id, label: resolved.label });
-    } else if (resolved.kind === "agent") {
-      setResolvedId("agent", { id: resolved.id, label: resolved.label });
+    if (resolved.brief) {
+      setResolvedId("brief", {
+        id: resolved.brief.id,
+        label: resolved.brief.label,
+      });
+    }
+    if (resolved.agent) {
+      setResolvedId("agent", {
+        id: resolved.agent.id,
+        label: resolved.agent.label,
+      });
     }
   }, [chat.messages, chat.streamContentPieces, setResolvedId]);
 
@@ -258,39 +296,89 @@ export function ChatProvider({
   // already tracked above; structural ops are atomic, so a single guard
   // per piece is enough.)
   const appliedStructuralOpPieceIdsRef = useRef<Set<string>>(new Set());
+  const canvasMutators = useMemo(
+    () => ({
+      updateTitle,
+      updateFacilitatorStyleId,
+      updateCanvasMode,
+      updateIntro,
+      updateSection,
+      updateItem,
+      addSection,
+      removeSection,
+      addItem,
+      removeItem,
+    }),
+    [
+      updateTitle,
+      updateFacilitatorStyleId,
+      updateCanvasMode,
+      updateIntro,
+      updateSection,
+      updateItem,
+      addSection,
+      removeSection,
+      addItem,
+      removeItem,
+    ],
+  );
+
+  const restoreCanvasFromMessages = useCallback(
+    (messages: ChatMsg[]) => {
+      const pieces = messages.flatMap((msg) => msg.contentPieces ?? []);
+      const nextDraft = buildDiscoveryCanvasDraftFromPieces(pieces);
+      lastAppliedPatchValuesRef.current.clear();
+      appliedStructuralOpPieceIdsRef.current.clear();
+      replaceDraft(nextDraft);
+      setCanvasCreating(false);
+      setStreaming(false);
+      if (discoveryCanvasDraftHasContent(nextDraft)) {
+        setCanvasOpen(true);
+      }
+
+      const saved = findLatestDiscoveryCanvasSaved(pieces, []);
+      setSavedDiscoveryCanvasId(saved?.canvasId ?? null);
+
+      const resolved = findLatestResolvedEntities(pieces, []);
+      if (resolved.brief) {
+        setResolvedId("brief", {
+          id: resolved.brief.id,
+          label: resolved.brief.label,
+        });
+      }
+      if (resolved.agent) {
+        setResolvedId("agent", {
+          id: resolved.agent.id,
+          label: resolved.agent.label,
+        });
+      }
+    },
+    [
+      replaceDraft,
+      setCanvasCreating,
+      setStreaming,
+      setCanvasOpen,
+      setSavedDiscoveryCanvasId,
+      setResolvedId,
+    ],
+  );
+
+  const restoreCanvasOnNextMessagesRef = useRef(false);
+  useEffect(() => {
+    if (!restoreCanvasOnNextMessagesRef.current) return;
+    restoreCanvasOnNextMessagesRef.current = false;
+    restoreCanvasFromMessages(chat.messages);
+  }, [chat.messages, restoreCanvasFromMessages]);
+
   useEffect(() => {
     applyStreamingPatches({
       pieces: chat.messages.flatMap((msg) => msg.contentPieces ?? []),
       streamPieces: chat.streamContentPieces,
       lastApplied: lastAppliedPatchValuesRef.current,
       appliedStructuralOpPieceIds: appliedStructuralOpPieceIdsRef.current,
-      store: {
-        updateTitle,
-        updateFacilitatorStyleId,
-        updateCanvasMode,
-        updateIntro,
-        updateSection,
-        updateItem,
-        addSection,
-        removeSection,
-        addItem,
-        removeItem,
-      },
+      store: canvasMutators,
     });
-  }, [
-    chat.messages,
-    chat.streamContentPieces,
-    updateTitle,
-    updateFacilitatorStyleId,
-    updateCanvasMode,
-    updateIntro,
-    updateSection,
-    updateItem,
-    addSection,
-    removeSection,
-    addItem,
-    removeItem,
-  ]);
+  }, [chat.messages, chat.streamContentPieces, canvasMutators]);
 
   // Title the active chat session with the first user message so it shows
   // up meaningfully in the sidebar's recent-chats list. We strip the
@@ -392,6 +480,97 @@ export function ChatProvider({
     pendingSaveCounter,
   ]);
 
+  const regenerateAssistantMessage = useCallback(
+    async (messageId: string) => {
+      await runCheckpointAction(async () => {
+        restoreCanvasOnNextMessagesRef.current = true;
+        await chat.regenerateVariant(messageId);
+      }, "Generated another response.");
+    },
+    [chat, runCheckpointAction],
+  );
+
+  const selectAssistantVariant = useCallback(
+    async (messageId: string, variantId: string) => {
+      await runCheckpointAction(async () => {
+        restoreCanvasOnNextMessagesRef.current = true;
+        await chat.selectVariant(messageId, variantId);
+      });
+    },
+    [chat, runCheckpointAction],
+  );
+
+  const rollbackToMessage = useCallback(
+    async (messageId: string, checkpointId: string) => {
+      await runCheckpointAction(async () => {
+        await chat.rollbackTo(checkpointId);
+        const trimmed = trimMessagesThroughMessage(chat.messages, messageId);
+        restoreCanvasFromMessages(trimmed);
+      }, "Rolled back to that message.");
+    },
+    [chat, restoreCanvasFromMessages, runCheckpointAction],
+  );
+
+  const retryWithEditedMessage = useCallback(
+    async (assistantMessageId: string, content: string) => {
+      await runCheckpointAction(async () => {
+        restoreCanvasOnNextMessagesRef.current = true;
+        await chat.retryWithEdit(assistantMessageId, content);
+      }, "Retried with the edited message.");
+    },
+    [chat, runCheckpointAction],
+  );
+
+  const forkInNewChat = useCallback(
+    async (messageId: string, checkpointId: string) => {
+      await runCheckpointAction(async () => {
+        const response = await fetch(checkpointEndpoint, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ action: "fork", checkpointId }),
+        });
+        if (!response.ok) {
+          let message = `Fork failed with status ${response.status}`;
+          try {
+            const parsed = (await response.json()) as { error?: unknown };
+            if (typeof parsed.error === "string") message = parsed.error;
+          } catch {}
+          throw new Error(message);
+        }
+        const result = (await response.json()) as ForkCheckpointResult;
+        const checkpointTurnIndex = result.checkpoint?.turnIndex;
+        const forkedMessages = applyForkedPendingRequests({
+          messages:
+            typeof checkpointTurnIndex === "number"
+              ? trimMessagesToCheckpoint(chat.messages, checkpointTurnIndex)
+              : trimMessagesThroughMessage(chat.messages, messageId),
+          pendingRequests: result.checkpoint?.activePendingRequests ?? [],
+        });
+        const forkTitle = buildForkTitle(forkedMessages);
+        writeForkedChatStorage({
+          chatId: result.sessionId,
+          messages: forkedMessages,
+          includeHistory: chat.includeHistory,
+        });
+        const draft = buildDiscoveryCanvasDraftFromPieces(
+          forkedMessages.flatMap((msg) => msg.contentPieces ?? []),
+        );
+        writeDiscoveryCanvasDraftCache(
+          `${CHAT_STORAGE_PREFIX}${result.sessionId}:`,
+          draft,
+        );
+        createForkedChat({ id: result.sessionId, title: forkTitle });
+      }, "Forked into a new chat.");
+    },
+    [
+      checkpointEndpoint,
+      chat.messages,
+      chat.includeHistory,
+      createForkedChat,
+      runCheckpointAction,
+    ],
+  );
+
   const value = useMemo<ChatPanelContextValue>(
     () => ({
       chat,
@@ -408,6 +587,12 @@ export function ChatProvider({
       setDebugLiveMode,
       toggleDebugLive,
       openDebugForMessage,
+      checkpointStatus,
+      regenerateAssistantMessage,
+      selectAssistantVariant,
+      rollbackToMessage,
+      forkInNewChat,
+      retryWithEditedMessage,
     }),
     [
       chat,
@@ -421,6 +606,12 @@ export function ChatProvider({
       debugLiveMode,
       toggleDebugLive,
       openDebugForMessage,
+      checkpointStatus,
+      regenerateAssistantMessage,
+      selectAssistantVariant,
+      rollbackToMessage,
+      forkInNewChat,
+      retryWithEditedMessage,
     ],
   );
 
@@ -437,4 +628,172 @@ function hasActiveInterrupt(messages: ChatMsg[]): boolean {
   return Boolean(
     latest.contentPieces?.some((piece) => piece.type === "interrupt"),
   );
+}
+
+function trimMessagesThroughMessage(
+  messages: ChatMsg[],
+  messageId: string,
+): ChatMsg[] {
+  const index = messages.findIndex((message) => message.id === messageId);
+  if (index < 0) return messages;
+  return messages.slice(0, index + 1);
+}
+
+function trimMessagesToCheckpoint(
+  messages: ChatMsg[],
+  turnIndex: number,
+): ChatMsg[] {
+  const hasCheckpointMetadata = messages.some(
+    (message) => typeof message.checkpointTurnIndex === "number",
+  );
+  if (!hasCheckpointMetadata && turnIndex > 0) return messages;
+
+  const keepThroughIndex = messages.reduce((lastIndex, message, index) => {
+    return typeof message.checkpointTurnIndex === "number" &&
+      message.checkpointTurnIndex <= turnIndex
+      ? index
+      : lastIndex;
+  }, -1);
+
+  return keepThroughIndex >= 0 ? messages.slice(0, keepThroughIndex + 1) : [];
+}
+
+type ForkPendingRequest = NonNullable<
+  NonNullable<ForkCheckpointResult["checkpoint"]>["activePendingRequests"]
+>[number];
+
+function applyForkedPendingRequests(args: {
+  messages: ChatMsg[];
+  pendingRequests: ForkPendingRequest[];
+}): ChatMsg[] {
+  if (args.pendingRequests.length === 0) return args.messages;
+
+  const interruptPositions = args.messages.flatMap((message, messageIndex) =>
+    (message.contentPieces ?? []).flatMap((piece, pieceIndex) =>
+      piece.type === "interrupt" ? [{ messageIndex, pieceIndex, piece }] : [],
+    ),
+  );
+  const usedPositions = new Set<number>();
+  const patchByPosition = new Map<number, ForkPendingRequest>();
+
+  for (
+    let pendingIndex = args.pendingRequests.length - 1;
+    pendingIndex >= 0;
+    pendingIndex -= 1
+  ) {
+    const pending = args.pendingRequests[pendingIndex];
+    if (!pending) continue;
+    const pendingId = pending.schema?.schemaId ?? pending.schema?.id;
+    const positionIndex = findLastIndex(
+      interruptPositions,
+      (position, index) => {
+        if (usedPositions.has(index)) return false;
+        const pieceId = position.piece.schemaId ?? position.piece.interruptId;
+        return pendingId ? pieceId === pendingId : true;
+      },
+    );
+    if (positionIndex < 0) continue;
+    usedPositions.add(positionIndex);
+    patchByPosition.set(positionIndex, pending);
+  }
+
+  const positionsToPatch = Array.from(patchByPosition.keys());
+  if (positionsToPatch.length === 0) return args.messages;
+
+  return args.messages.map((message, messageIndex) => {
+    if (!message.contentPieces) return message;
+
+    let changed = false;
+    const contentPieces = message.contentPieces.map((piece, pieceIndex) => {
+      if (piece.type !== "interrupt") return piece;
+      const patchIndex = positionsToPatch.findIndex((positionIndex) => {
+        const position = interruptPositions[positionIndex];
+        return (
+          position?.messageIndex === messageIndex &&
+          position.pieceIndex === pieceIndex
+        );
+      });
+      const positionToPatch = positionsToPatch[patchIndex];
+      const pending =
+        patchIndex >= 0 && typeof positionToPatch === "number"
+          ? patchByPosition.get(positionToPatch)
+          : undefined;
+      if (!pending) return piece;
+
+      changed = true;
+      return {
+        ...piece,
+        resumeToken: pending.token,
+        requestId: pending.requestId,
+        ...(pending.schema?.kind ? { kind: pending.schema.kind } : {}),
+        ...(typeof pending.schema?.multiple === "boolean"
+          ? { multiple: pending.schema.multiple }
+          : {}),
+        ...(typeof pending.schema?.question === "string"
+          ? { question: pending.schema.question }
+          : {}),
+        ...(typeof pending.schema?.schemaId === "string"
+          ? { schemaId: pending.schema.schemaId }
+          : {}),
+        ...(typeof pending.schema?.schemaVersion === "string"
+          ? { schemaVersion: pending.schema.schemaVersion }
+          : {}),
+        ...(typeof pending.schema?.id === "string"
+          ? { interruptId: pending.schema.id }
+          : {}),
+        ...(pending.schema?.meta ? { meta: pending.schema.meta } : {}),
+        ...(pending.options ? { options: pending.options } : {}),
+      } satisfies HumanInputPiece;
+    });
+
+    return changed ? { ...message, contentPieces } : message;
+  });
+}
+
+function findLastIndex<T>(
+  items: T[],
+  predicate: (item: T, index: number) => boolean,
+): number {
+  for (let index = items.length - 1; index >= 0; index -= 1) {
+    const item = items[index];
+    if (item !== undefined && predicate(item, index)) return index;
+  }
+  return -1;
+}
+
+function buildForkTitle(messages: ChatMsg[]): string {
+  const firstUser = messages.find((message) => message.role === "user");
+  const raw = firstUser?.content?.trim() ?? "";
+  const { body } = extractQuoteFromMessage(raw);
+  const title = (body || raw || "Forked chat").trim();
+  return `Fork: ${title}`.slice(0, 80);
+}
+
+function writeForkedChatStorage({
+  chatId,
+  messages,
+  includeHistory,
+}: {
+  chatId: string;
+  messages: ChatMsg[];
+  includeHistory: boolean;
+}): void {
+  if (typeof window === "undefined") return;
+  const prefix = `${CHAT_STORAGE_PREFIX}${chatId}:`;
+  try {
+    window.localStorage.setItem(`${prefix}messages`, JSON.stringify(messages));
+    window.localStorage.setItem(`${prefix}sessionId`, chatId);
+    window.localStorage.setItem(
+      `${prefix}workflowId`,
+      WORKFLOW_IDS.generalChat,
+    );
+    window.localStorage.setItem(
+      `${prefix}includeHistory`,
+      includeHistory ? "1" : "0",
+    );
+    window.localStorage.removeItem(`${prefix}branches`);
+    window.localStorage.removeItem(`${prefix}responseVariants`);
+  } catch {
+    // best-effort
+  }
 }

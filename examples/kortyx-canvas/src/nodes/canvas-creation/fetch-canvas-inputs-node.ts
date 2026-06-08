@@ -22,9 +22,9 @@ type FetchDiscoveryCanvasInputsNodeInput = {
 
 /**
  * Loads everything the canvas-generation prompt needs (brief, agent, tenant)
- * based on the IDs resolved upstream by `collectDiscoveryCanvasInputsNode` and the
- * server-derived `tenantId` from runtime context. Emits a fully-resolved
- * `promptVars` object on workflow state.
+ * based on the IDs resolved upstream by the canvas input collection nodes and
+ * the server-derived `tenantId` from runtime context. Emits a fully-resolved
+ * `promptVars` object.
  *
  * Errors are surfaced by throwing. The workflow node's
  * `onError: emit-and-stop` behavior catches the throw, streams an `error`

@@ -149,4 +149,16 @@ export type ChatPanelContextValue = {
   setDebugLiveMode: (live: boolean) => void;
   toggleDebugLive: () => void;
   openDebugForMessage: (id: string) => void;
+  checkpointStatus: string | null;
+  regenerateAssistantMessage: (messageId: string) => Promise<void>;
+  selectAssistantVariant: (
+    messageId: string,
+    variantId: string,
+  ) => Promise<void>;
+  rollbackToMessage: (messageId: string, checkpointId: string) => Promise<void>;
+  forkInNewChat: (messageId: string, checkpointId: string) => Promise<void>;
+  retryWithEditedMessage: (
+    assistantMessageId: string,
+    content: string,
+  ) => Promise<void>;
 };

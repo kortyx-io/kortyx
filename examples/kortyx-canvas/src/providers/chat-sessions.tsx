@@ -32,6 +32,8 @@ export type ChatSessionsValue = {
   removeChat: (id: string) => void;
   /** Rename a chat (e.g. from the sidebar's rename dialog). Always writes. */
   updateChatTitle: (id: string, title: string) => void;
+  /** Add an already-created fork session to the sidebar and switch to it. */
+  createForkedChat: (args: { id: string; title: string }) => void;
   /**
    * Auto-title a chat from a derived source (first user message). No-op
    * if the chat already has a non-default title — so a manual rename
@@ -269,6 +271,27 @@ export function ChatSessionsProvider({ children }: { children: ReactNode }) {
     setSessions(next);
   }, []);
 
+  const createForkedChat = useCallback(
+    ({ id, title }: { id: string; title: string }) => {
+      const now = Date.now();
+      const cleaned =
+        title.trim().slice(0, MAX_TITLE_LEN) || DEFAULT_CHAT_TITLE;
+      const prev = sessionsRef.current.filter((session) => session.id !== id);
+      const forked: ChatSession = {
+        id,
+        title: cleaned,
+        createdAt: now,
+        updatedAt: now,
+      };
+      const next = [forked, ...prev].slice(0, MAX_SESSIONS);
+      writeStoredSessions(next);
+      writeStoredCurrentChatId(id);
+      setSessions(next);
+      setCurrentChatId(id);
+    },
+    [],
+  );
+
   const autoTitleIfDefault = useCallback((id: string, title: string) => {
     const prev = sessionsRef.current;
     const current = prev.find((s) => s.id === id);
@@ -290,6 +313,7 @@ export function ChatSessionsProvider({ children }: { children: ReactNode }) {
       switchToChat,
       removeChat,
       updateChatTitle,
+      createForkedChat,
       autoTitleIfDefault,
     }),
     [
@@ -299,6 +323,7 @@ export function ChatSessionsProvider({ children }: { children: ReactNode }) {
       switchToChat,
       removeChat,
       updateChatTitle,
+      createForkedChat,
       autoTitleIfDefault,
     ],
   );

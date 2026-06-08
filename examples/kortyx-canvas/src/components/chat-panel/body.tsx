@@ -14,14 +14,35 @@ import { useChatPanel } from "./context";
  * both this body and the canvas.
  */
 export function ChatBody() {
-  const { chat, setResolvedId, openDebugForMessage } = useChatPanel();
+  const {
+    chat,
+    setResolvedId,
+    openDebugForMessage,
+    checkpointStatus,
+    regenerateAssistantMessage,
+    selectAssistantVariant,
+    rollbackToMessage,
+    forkInNewChat,
+    retryWithEditedMessage,
+  } = useChatPanel();
 
   return (
     <section className="flex h-full min-h-0 flex-col bg-card">
+      {checkpointStatus ? (
+        <div className="border-b border-border px-3 py-2 text-muted-foreground text-xs">
+          {checkpointStatus}
+        </div>
+      ) : null}
       <ChatMessages
         messages={chat.messages}
         streamPieces={chat.streamContentPieces}
         isStreaming={chat.isStreaming}
+        variantForMessage={chat.variantForMessage}
+        onSelectVariant={selectAssistantVariant}
+        onRegenerateMessage={regenerateAssistantMessage}
+        onRollbackMessage={rollbackToMessage}
+        onForkMessage={forkInNewChat}
+        onRetryWithEdit={retryWithEditedMessage}
         onRespondToInterrupt={(piece, response) => {
           const [firstId] = response.selected;
           const firstLabel = response.text;

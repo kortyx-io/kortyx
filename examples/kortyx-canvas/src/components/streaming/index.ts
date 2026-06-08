@@ -3,6 +3,7 @@ export {
   pickBriefPreview,
 } from "./brief-preview";
 export { pickDiscoveryCanvasData } from "./canvas-data";
+export { buildDiscoveryCanvasDraftFromPieces } from "./canvas-draft-from-pieces";
 export {
   type DiscoveryCanvasSavedChunk,
   findLatestDiscoveryCanvasSaved,
@@ -10,6 +11,7 @@ export {
 } from "./canvas-saved";
 export { pickCanvasCreateStreamId } from "./canvas-thinking";
 export {
+  findLatestResolvedEntities,
   findLatestResolvedEntity,
   pickResolvedEntity,
   type ResolvedEntityChunk,

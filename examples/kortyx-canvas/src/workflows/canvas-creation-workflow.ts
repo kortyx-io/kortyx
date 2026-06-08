@@ -3,26 +3,29 @@ import "server-only";
 import { defineWorkflow } from "kortyx";
 import { WORKFLOW_IDS } from "@/lib/protocol";
 import { announceDiscoveryCanvasCreationNode } from "../nodes/canvas-creation/announce-canvas-creation-node";
-import { collectDiscoveryCanvasInputsNode } from "../nodes/canvas-creation/collect-canvas-inputs-node";
+import {
+  collectDiscoveryCanvasAgentNode,
+  collectDiscoveryCanvasBriefNode,
+} from "../nodes/canvas-creation/collect-canvas-inputs-node";
 import { createDiscoveryCanvasNode } from "../nodes/canvas-creation/create-canvas-node";
 import { fetchDiscoveryCanvasInputsNode } from "../nodes/canvas-creation/fetch-canvas-inputs-node";
 import { summarizeDiscoveryCanvasNode } from "../nodes/canvas-creation/summarize-canvas-node";
 
 /**
  * Five-step canvas creation:
- *   1. `collectDiscoveryCanvasInputs` — ensures we have a brief id + agentId. Missing
- *      values are collected one at a time via `useInterrupt` (choice
- *      dropdowns rendered by the client). Stays silent in chat — the
- *      announce node downstream is the single source of pre-generation
- *      chatter so we don't double-print the agent + brief.
- *   2. `fetchDiscoveryCanvasInputs` — loads brief/agent/tenant data using the resolved
+ *   1. `collectDiscoveryCanvasBrief` — ensures we have a brief id.
+ *   2. `collectDiscoveryCanvasAgent` — ensures we have an agent id.
+ *      Missing values are collected via `useInterrupt` choice dropdowns
+ *      rendered by the client. They are separate nodes so checkpoint/fork
+ *      anchors line up with the currently visible picker.
+ *   3. `fetchDiscoveryCanvasInputs` — loads brief/agent/tenant data using the resolved
  *      IDs and writes `promptVars` to workflow state.
- *   3. `announceDiscoveryCanvasCreation` — emits one streamed sentence into chat
+ *   4. `announceDiscoveryCanvasCreation` — emits one streamed sentence into chat
  *      naming the agent + brief, so the user sees context before the
  *      thinking pill takes over the next (silent, long-running) node.
- *   4. `createDiscoveryCanvas` — runs the LLM call and emits the canvas
+ *   5. `createDiscoveryCanvas` — runs the LLM call and emits the canvas
  *      (sent to the canvas as a `structured-data` chunk).
- *   5. `summarizeDiscoveryCanvas` — streams a short 2–3 sentence chat message
+ *   6. `summarizeDiscoveryCanvas` — streams a short 2–3 sentence chat message
  *      describing the just-generated canvas so the user has something
  *      conversational in the chat panel alongside the populated canvas.
  *
@@ -37,8 +40,14 @@ export const canvasCreationWorkflow = defineWorkflow({
   description:
     "Collect brief/agent via interrupts, fetch brief/agent/tenant context, announce the run, generate a Product Discovery Canvas, then summarize it for the user.",
   nodes: {
-    collectDiscoveryCanvasInputs: {
-      run: collectDiscoveryCanvasInputsNode,
+    collectDiscoveryCanvasBrief: {
+      run: collectDiscoveryCanvasBriefNode,
+      behavior: {
+        onError: { mode: "emit-and-stop" },
+      },
+    },
+    collectDiscoveryCanvasAgent: {
+      run: collectDiscoveryCanvasAgentNode,
       behavior: {
         onError: { mode: "emit-and-stop" },
       },
@@ -78,8 +87,9 @@ export const canvasCreationWorkflow = defineWorkflow({
     },
   },
   edges: [
-    ["__start__", "collectDiscoveryCanvasInputs"],
-    ["collectDiscoveryCanvasInputs", "fetchDiscoveryCanvasInputs"],
+    ["__start__", "collectDiscoveryCanvasBrief"],
+    ["collectDiscoveryCanvasBrief", "collectDiscoveryCanvasAgent"],
+    ["collectDiscoveryCanvasAgent", "fetchDiscoveryCanvasInputs"],
     ["fetchDiscoveryCanvasInputs", "announceDiscoveryCanvasCreation"],
     ["announceDiscoveryCanvasCreation", "createDiscoveryCanvas"],
     ["createDiscoveryCanvas", "summarizeDiscoveryCanvas"],

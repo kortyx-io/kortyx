@@ -11,10 +11,20 @@ import {
   type Resolution,
   resolveFromHistory,
 } from "../../resolvers/resolve-brief-agent";
+import { getAgentById, getBriefById } from "../../services/demo-data";
+import { emitResolvedEntity } from "../../streaming/resolved-entity";
+
+type CanvasInputIds = {
+  briefId?: string;
+  agentId?: string;
+};
 
 /**
- * First step of the canvas-creation workflow. Ensures we have a brief id
- * and `agentId` before kicking off the LLM work.
+ * First step of the canvas-creation workflow. Ensures we have a brief id.
+ *
+ * Keep this as a separate workflow node from agent collection. Each node may
+ * interrupt, and separate nodes give fork/checkpoint a stable graph anchor
+ * for the currently visible picker.
  *
  * Resolution order per entity:
  *   1. LLM resolver (`resolveFromHistory`) inspects chat history + the
@@ -23,9 +33,9 @@ import {
  *      querying the tenant's briefs / agents.
  *   2. If the resolver yields a concrete id (existing one via
  *      `use_known` or a new one via `search`), it is reused — no picker.
- *   3. Otherwise (`pick_new` / `unclear` / multiple-hit `search`), the
- *      cached id is cleared and we fall back to the picker (shortlist
- *      when we have candidates, generic free-text picker otherwise).
+ *   3. Otherwise (`pick_new` / `unclear` / multiple-hit `search`), we fall
+ *      back to the picker (shortlist when we have candidates, generic
+ *      free-text picker otherwise).
  *
  * Stays silent in chat. Downstream `announceDiscoveryCanvasCreation` is the single
  * source of pre-generation messaging — adding a preamble here just
@@ -36,27 +46,25 @@ import {
  * workflow state so resumes after a picker response skip the already-
  * resolved entities.
  */
-export const collectDiscoveryCanvasInputsNode = async ({
+export const collectDiscoveryCanvasBriefNode = async ({
   input,
 }: {
   input: unknown;
 }) => {
   const ctx = useRuntimeContext<CanvasAgentContext>();
+  const inputIds = readInputIds(input);
   const [storedJobId, setStoredJobId] = useWorkflowState<string | undefined>(
     "collectedJobId",
-    ctx.briefId,
+    inputIds.briefId ?? ctx.briefId,
   );
-  const [storedAgentId, setStoredAgentId] = useWorkflowState<
-    string | undefined
-  >("collectedAgentId", ctx.agentId);
 
   if (!ctx.tenantId) {
     throw new Error(
-      "collectDiscoveryCanvasInputsNode: missing tenantId in runtime context",
+      "collectDiscoveryCanvasBriefNode: missing tenantId in runtime context",
     );
   }
 
-  const latestUserMessage = String(input ?? "").trim();
+  const latestUserMessage = readLatestUserMessage(input);
   const history = ctx.history ?? [];
 
   // Runs on every workflow invocation; cached per-replay by the stable
@@ -69,15 +77,13 @@ export const collectDiscoveryCanvasInputsNode = async ({
     tenantId: ctx.tenantId,
     knownBriefId: storedJobId,
     knownBriefLabel: ctx.briefLabel,
-    knownAgentId: storedAgentId,
+    knownAgentId: inputIds.agentId ?? ctx.agentId,
     knownAgentLabel: ctx.agentLabel,
   });
 
-  console.log("[collect-canvas-inputs] resolver", {
+  console.log("[collect-canvas-brief] resolver", {
     storedJobId,
-    storedAgentId,
     brief: resolution.brief,
-    agent: resolution.agent,
   });
 
   const jobOutcome = applyResolution({
@@ -88,6 +94,7 @@ export const collectDiscoveryCanvasInputsNode = async ({
   });
 
   let briefId = jobOutcome.id;
+  let briefLabel = jobOutcome.label;
 
   if (!briefId) {
     const picked = await runPicker({
@@ -97,8 +104,80 @@ export const collectDiscoveryCanvasInputsNode = async ({
         "The user is setting up a Product Discovery Canvas and needs to pick the discovery brief the canvas is being built for.",
     });
     briefId = picked.id;
+    briefLabel = picked.label;
     setStoredJobId(briefId);
   }
+  emitResolvedEntity({
+    kind: "brief",
+    id: briefId,
+    label:
+      briefLabel ??
+      (await lookupEntityLabel({
+        what: "brief",
+        tenantId: ctx.tenantId,
+        id: briefId,
+      })) ??
+      briefId,
+  });
+
+  return {
+    data: { ...inputIds, briefId },
+  };
+};
+
+/**
+ * Second canvas input node. Ensures we have the facilitator agent after the
+ * brief node has completed. Keeping this separate from the brief picker
+ * avoids forking a checkpoint that visually points at one interrupt while
+ * the underlying graph resumes another interrupt inside the same node.
+ */
+export const collectDiscoveryCanvasAgentNode = async ({
+  input,
+}: {
+  input: unknown;
+}) => {
+  const ctx = useRuntimeContext<CanvasAgentContext>();
+  const inputIds = readInputIds(input);
+  const [storedJobId, setStoredJobId] = useWorkflowState<string | undefined>(
+    "collectedJobId",
+    inputIds.briefId ?? ctx.briefId,
+  );
+  const [storedAgentId, setStoredAgentId] = useWorkflowState<
+    string | undefined
+  >("collectedAgentId", inputIds.agentId ?? ctx.agentId);
+
+  if (!ctx.tenantId) {
+    throw new Error(
+      "collectDiscoveryCanvasAgentNode: missing tenantId in runtime context",
+    );
+  }
+
+  const briefId = inputIds.briefId ?? storedJobId ?? ctx.briefId;
+  if (!briefId) {
+    throw new Error(
+      "collectDiscoveryCanvasAgentNode: missing briefId — run collectDiscoveryCanvasBriefNode first",
+    );
+  }
+  if (storedJobId !== briefId) setStoredJobId(briefId);
+
+  const latestUserMessage = readLatestUserMessage(input);
+  const history = ctx.history ?? [];
+
+  const resolution = await resolveFromHistory({
+    history,
+    latestUserMessage,
+    tenantId: ctx.tenantId,
+    knownBriefId: briefId,
+    knownBriefLabel: ctx.briefLabel,
+    knownAgentId: storedAgentId,
+    knownAgentLabel: ctx.agentLabel,
+  });
+
+  console.log("[collect-canvas-agent] resolver", {
+    briefId,
+    storedAgentId,
+    agent: resolution.agent,
+  });
 
   const agentOutcome = applyResolution({
     resolution: resolution.agent,
@@ -108,6 +187,7 @@ export const collectDiscoveryCanvasInputsNode = async ({
   });
 
   let agentId = agentOutcome.id;
+  let agentLabel = agentOutcome.label;
 
   if (!agentId) {
     const picked = await runPicker({
@@ -117,8 +197,21 @@ export const collectDiscoveryCanvasInputsNode = async ({
         "The user is setting up a Product Discovery Canvas and needs to pick the facilitator agent. They have already selected a brief.",
     });
     agentId = picked.id;
+    agentLabel = picked.label;
     setStoredAgentId(agentId);
   }
+  emitResolvedEntity({
+    kind: "agent",
+    id: agentId,
+    label:
+      agentLabel ??
+      (await lookupEntityLabel({
+        what: "agent",
+        tenantId: ctx.tenantId,
+        id: agentId,
+      })) ??
+      agentId,
+  });
 
   // Note: not emitting any chat preamble here on purpose. `announceDiscoveryCanvas
   // Creation` (next node down the workflow) covers the "Using brief X with
@@ -128,6 +221,19 @@ export const collectDiscoveryCanvasInputsNode = async ({
     data: { briefId, agentId },
   };
 };
+
+function readInputIds(input: unknown): CanvasInputIds {
+  if (!input || typeof input !== "object" || Array.isArray(input)) return {};
+  const record = input as Record<string, unknown>;
+  return {
+    ...(typeof record.briefId === "string" ? { briefId: record.briefId } : {}),
+    ...(typeof record.agentId === "string" ? { agentId: record.agentId } : {}),
+  };
+}
+
+function readLatestUserMessage(input: unknown): string {
+  return typeof input === "string" ? input.trim() : "";
+}
 
 type ApplyResolutionResult = {
   /** Resolved id, or undefined if we need to fall back to the picker. */
@@ -188,4 +294,18 @@ async function runPicker(args: {
     ...(args.contextHint ? { contextHint: args.contextHint } : {}),
   });
   return { id, label: undefined };
+}
+
+async function lookupEntityLabel(args: {
+  what: EntityKind;
+  tenantId: string;
+  id: string;
+}): Promise<string | undefined> {
+  if (args.what === "brief") {
+    const result = await getBriefById(args.tenantId, args.id);
+    return result.data?.translations[0]?.title;
+  }
+
+  const result = await getAgentById(args.tenantId, args.id);
+  return result.data?.title;
 }

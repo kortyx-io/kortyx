@@ -89,8 +89,8 @@ export function ChatSidebar() {
             </div>
           </Link>
         </SidebarHeader>
-        <SidebarContent>
-          <SidebarGroup className="pt-2">
+        <SidebarContent className="overflow-hidden">
+          <SidebarGroup className="shrink-0 pt-2">
             <SidebarGroupContent>
               <SidebarMenu>
                 <SidebarMenuItem>
@@ -102,9 +102,11 @@ export function ChatSidebar() {
               </SidebarMenu>
             </SidebarGroupContent>
           </SidebarGroup>
-          <SidebarGroup className="group-data-[collapsible=icon]:hidden">
-            <SidebarGroupLabel>Recent chats</SidebarGroupLabel>
-            <SidebarGroupContent>
+          <SidebarGroup className="group-data-[collapsible=icon]:hidden flex min-h-0 flex-1 flex-col overflow-hidden">
+            <SidebarGroupLabel className="shrink-0">
+              Recent chats
+            </SidebarGroupLabel>
+            <SidebarGroupContent className="scrollbar-subtle min-h-0 flex-1 overflow-y-auto">
               {recentChats.length === 0 ? (
                 <p className="px-2 py-1 text-xs text-muted-foreground">
                   No recent chats yet

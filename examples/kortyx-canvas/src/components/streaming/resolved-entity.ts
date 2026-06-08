@@ -50,3 +50,29 @@ export function findLatestResolvedEntity(
   }
   return null;
 }
+
+export function findLatestResolvedEntities(
+  finalizedPieces: ContentPiece[],
+  streamPieces: ContentPiece[],
+): Partial<Record<ResolvedEntityChunk["kind"], ResolvedEntityChunk>> {
+  const latest: Partial<
+    Record<ResolvedEntityChunk["kind"], ResolvedEntityChunk>
+  > = {};
+
+  const visit = (piece: ContentPiece) => {
+    const data = pickResolvedEntity(piece);
+    if (!data || latest[data.kind]) return;
+    latest[data.kind] = data;
+  };
+
+  for (let i = streamPieces.length - 1; i >= 0; i -= 1) {
+    const piece = streamPieces[i];
+    if (piece) visit(piece);
+  }
+  for (let i = finalizedPieces.length - 1; i >= 0; i -= 1) {
+    const piece = finalizedPieces[i];
+    if (piece) visit(piece);
+  }
+
+  return latest;
+}

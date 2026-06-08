@@ -99,6 +99,13 @@ function writeDraftCacheToStorage(
   }
 }
 
+export function writeDiscoveryCanvasDraftCache(
+  chatStorageKey: string | undefined,
+  draft: DiscoveryCanvasDraft,
+): void {
+  writeDraftCacheToStorage(chatStorageKey, draft);
+}
+
 function clearDraftCacheFromStorage(chatStorageKey: string | undefined): void {
   if (typeof window === "undefined") return;
   const key = buildDraftCacheKey(chatStorageKey);
