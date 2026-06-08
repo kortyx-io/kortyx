@@ -15,6 +15,7 @@ export type ChatSession = {
   title: string;
   createdAt: number;
   updatedAt: number;
+  hasMessages?: boolean;
 };
 
 export type ChatSessionsValue = {
@@ -35,11 +36,14 @@ export type ChatSessionsValue = {
   /** Add an already-created fork session to the sidebar and switch to it. */
   createForkedChat: (args: { id: string; title: string }) => void;
   /**
-   * Auto-title a chat from a derived source (first user message). No-op
-   * if the chat already has a non-default title — so a manual rename
-   * isn't clobbered on the next message-state change.
+   * Auto-title a chat from the generated session title. No-op if the chat
+   * already has a non-default title, so manual renames are not overwritten.
    */
   autoTitleIfDefault: (id: string, title: string) => void;
+  /** True when a chat still has the default sidebar title. */
+  isChatTitleDefault: (id: string) => boolean;
+  /** Mark a chat as having user-visible content, even before it has a title. */
+  markChatStarted: (id: string) => void;
 };
 
 const SESSIONS_STORAGE_KEY = "canvas-agent:chats";
@@ -128,6 +132,20 @@ function clearPerChatStorage(chatId: string): void {
   }
 }
 
+function hasStoredChatMessages(chatId: string): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    const raw = window.localStorage.getItem(
+      `${CHAT_STORAGE_PREFIX}${chatId}:messages`,
+    );
+    if (!raw) return false;
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) && parsed.length > 0;
+  } catch {
+    return false;
+  }
+}
+
 export function ChatSessionsProvider({ children }: { children: ReactNode }) {
   // Hydrate from storage on mount (not in initializer) so SSR/CSR agree —
   // we don't want `crypto.randomUUID()` to produce different ids on server
@@ -188,10 +206,18 @@ export function ChatSessionsProvider({ children }: { children: ReactNode }) {
     const prevSessions = sessionsRef.current;
     const prevCurrentId = currentChatIdRef.current;
 
-    // Don't pile up empty drafts — if we're already on an untitled chat,
-    // stay on it.
+    // Don't pile up empty drafts. A chat can still be titled "New chat"
+    // while LLM title generation is pending, so use explicit message state
+    // rather than the title alone.
     const current = prevSessions.find((s) => s.id === prevCurrentId);
-    if (current && current.title === DEFAULT_CHAT_TITLE) return;
+    if (
+      current &&
+      current.title === DEFAULT_CHAT_TITLE &&
+      !current.hasMessages &&
+      !hasStoredChatMessages(current.id)
+    ) {
+      return;
+    }
 
     const id = generateChatId();
     const now = Date.now();
@@ -305,6 +331,24 @@ export function ChatSessionsProvider({ children }: { children: ReactNode }) {
     setSessions(next);
   }, []);
 
+  const isChatTitleDefault = useCallback((id: string) => {
+    const current = sessionsRef.current.find((s) => s.id === id);
+    return current?.title === DEFAULT_CHAT_TITLE;
+  }, []);
+
+  const markChatStarted = useCallback((id: string) => {
+    const prev = sessionsRef.current;
+    let changed = false;
+    const next = prev.map((s) => {
+      if (s.id !== id || s.hasMessages) return s;
+      changed = true;
+      return { ...s, hasMessages: true, updatedAt: Date.now() };
+    });
+    if (!changed) return;
+    writeStoredSessions(next);
+    setSessions(next);
+  }, []);
+
   const value = useMemo<ChatSessionsValue>(
     () => ({
       sessions,
@@ -315,6 +359,8 @@ export function ChatSessionsProvider({ children }: { children: ReactNode }) {
       updateChatTitle,
       createForkedChat,
       autoTitleIfDefault,
+      isChatTitleDefault,
+      markChatStarted,
     }),
     [
       sessions,
@@ -325,6 +371,8 @@ export function ChatSessionsProvider({ children }: { children: ReactNode }) {
       updateChatTitle,
       createForkedChat,
       autoTitleIfDefault,
+      isChatTitleDefault,
+      markChatStarted,
     ],
   );
 

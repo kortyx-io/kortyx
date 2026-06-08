@@ -116,6 +116,7 @@ export type DiscoveryCanvasStoreMutators = {
  */
 export type ChatPanelContextValue = {
   chat: ReturnType<typeof useChat<ChatContext>>;
+  sendMessage: (value: string) => void;
   setResolvedId: (
     kind: "brief" | "agent",
     value: { id: string; label: string },

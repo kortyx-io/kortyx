@@ -16,6 +16,7 @@ import { useChatPanel } from "./context";
 export function ChatBody() {
   const {
     chat,
+    sendMessage,
     setResolvedId,
     openDebugForMessage,
     checkpointStatus,
@@ -83,9 +84,7 @@ export function ChatBody() {
       <ChatInput
         isStreaming={chat.isStreaming}
         canAbort={chat.canAbort}
-        onSend={(value) => {
-          void chat.send(value);
-        }}
+        onSend={sendMessage}
         onAbort={chat.abort}
       />
     </section>

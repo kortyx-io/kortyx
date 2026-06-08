@@ -9,7 +9,8 @@ import {
   Trash2,
 } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { TypewriterText } from "@/components/typewriter";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import {
@@ -43,6 +44,7 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 import { useChatSessions } from "@/hooks/use-chat-sessions";
+import { stripChatTitlePresentationNoise } from "@/lib/chat-title";
 import type { ChatSession } from "@/providers/chat-sessions";
 
 /**
@@ -170,12 +172,25 @@ function RecentChatItem({
   onRename: () => void;
   onDelete: () => void;
 }) {
+  const displayTitle =
+    stripChatTitlePresentationNoise(chat.title) || chat.title;
+  const previousTitleRef = useRef(displayTitle);
+  const [animatedTitle, setAnimatedTitle] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (previousTitleRef.current === displayTitle) return;
+    previousTitleRef.current = displayTitle;
+    if (isActive) {
+      setAnimatedTitle(displayTitle);
+    }
+  }, [displayTitle, isActive]);
+
   return (
     <SidebarMenuItem>
       <SidebarMenuButton
         onClick={onSelect}
         isActive={isActive}
-        tooltip={chat.title}
+        tooltip={displayTitle}
         // Override cxp-ui's default `px-4 py-6` so the rows stack tightly
         // and the chat list reads as a list, not a series of cards.
         // `pr-8` reserves space for the absolutely-positioned three-dot
@@ -185,12 +200,24 @@ function RecentChatItem({
         // by the width of the accent border.
         className={`!h-8 !pr-6 !py-1 text-sm ${isActive ? "!pl-3" : "!pl-4"}`}
       >
-        <span className="truncate">{chat.title}</span>
+        <span className="truncate">
+          {animatedTitle === displayTitle ? (
+            <TypewriterText
+              key={`${chat.id}:${displayTitle}`}
+              text={displayTitle}
+              done
+              baseRate={36}
+              maxRate={90}
+            />
+          ) : (
+            displayTitle
+          )}
+        </span>
       </SidebarMenuButton>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <SidebarMenuAction
-            aria-label={`Open menu for chat: ${chat.title}`}
+            aria-label={`Open menu for chat: ${displayTitle}`}
             showOnHover
             className="cursor-pointer"
           >

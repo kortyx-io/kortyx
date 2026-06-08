@@ -25,6 +25,7 @@ import {
   writeDiscoveryCanvasDraftCache,
 } from "@/providers/canvas-store";
 import { CHAT_STORAGE_PREFIX } from "@/providers/chat-sessions";
+import { generateChatSessionTitle } from "@/services/chat-title";
 import type { ChatContext, ChatPanelContextValue } from "@/types/chat-panel";
 import { applyStreamingPatches } from "./canvas-patches";
 import { ChatPanelContext } from "./context";
@@ -39,8 +40,13 @@ export function ChatProvider({
   children,
   endpoint = "/api/canvas-agent/chat",
 }: Props) {
-  const { currentChatId, autoTitleIfDefault, createForkedChat } =
-    useChatSessions();
+  const {
+    currentChatId,
+    autoTitleIfDefault,
+    createForkedChat,
+    isChatTitleDefault,
+    markChatStarted,
+  } = useChatSessions();
   const {
     replaceDraft,
     setStreaming,
@@ -380,23 +386,42 @@ export function ChatProvider({
     });
   }, [chat.messages, chat.streamContentPieces, canvasMutators]);
 
-  // Title the active chat session with the first user message so it shows
-  // up meaningfully in the sidebar's recent-chats list. We strip the
-  // leading blockquote prefix used by the canvas "Ask Kortyx Canvas" feature so
-  // the title shows the user's actual item, not the quoted context.
-  // `autoTitleIfDefault` is a no-op once the session has any non-default
-  // title — so a manual rename from the sidebar isn't overwritten on the
-  // next chat.messages tick.
+  const sendMessage = useCallback(
+    (value: string) => {
+      markChatStarted(currentChatId);
+      void chat.send(value);
+    },
+    [chat, currentChatId, markChatStarted],
+  );
+
+  // Single source of truth for auto-titling: once per chat, derive a title
+  // from the first user message. Guarded by a ref so the effect doesn't
+  // re-fire (and re-request) on every stream tick — `chat.messages` mutates
+  // continuously while the assistant streams. Covers both fresh sends and
+  // backfill for sessions restored from storage with the default title.
+  const titledChatIdsRef = useRef<Set<string>>(new Set());
   useEffect(() => {
+    if (titledChatIdsRef.current.has(currentChatId)) return;
+    if (!isChatTitleDefault(currentChatId)) {
+      titledChatIdsRef.current.add(currentChatId);
+      return;
+    }
     const firstUser = chat.messages.find((m) => m.role === "user");
-    if (!firstUser) return;
-    const raw = firstUser.content?.trim() ?? "";
+    const raw = firstUser?.content?.trim() ?? "";
     if (!raw) return;
+
+    titledChatIdsRef.current.add(currentChatId);
     const { body } = extractQuoteFromMessage(raw);
-    const title = (body || raw).trim();
-    if (!title) return;
-    autoTitleIfDefault(currentChatId, title);
-  }, [chat.messages, currentChatId, autoTitleIfDefault]);
+    const titleSource = (body || raw).trim();
+    void generateChatSessionTitle(titleSource)
+      .then((generatedTitle) => {
+        if (!generatedTitle) return;
+        autoTitleIfDefault(currentChatId, generatedTitle);
+      })
+      .catch(() => {
+        // Keep the default title when title generation fails.
+      });
+  }, [chat.messages, currentChatId, autoTitleIfDefault, isChatTitleDefault]);
 
   // DiscoveryCanvas-save orchestration. The button on the canvas calls `requestSave`,
   // which flips the chat's workflowId to `canvas-save` and queues the
@@ -574,6 +599,7 @@ export function ChatProvider({
   const value = useMemo<ChatPanelContextValue>(
     () => ({
       chat,
+      sendMessage,
       setResolvedId,
       requestSave,
       isSaving,
@@ -596,6 +622,7 @@ export function ChatProvider({
     }),
     [
       chat,
+      sendMessage,
       setResolvedId,
       requestSave,
       isSaving,
