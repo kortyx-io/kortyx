@@ -17,6 +17,7 @@ import { emitResolvedEntity } from "../../streaming/resolved-entity";
 type CanvasInputIds = {
   briefId?: string;
   agentId?: string;
+  originalUserMessage?: string;
 };
 
 /**
@@ -92,6 +93,11 @@ export const collectDiscoveryCanvasBriefNode = async ({
     knownLabel: ctx.briefLabel,
     setStoredId: setStoredJobId,
   });
+  const agentOutcome = pickResolvedId({
+    resolution: resolution.agent,
+    storedId: inputIds.agentId ?? ctx.agentId,
+    knownLabel: ctx.agentLabel,
+  });
 
   let briefId = jobOutcome.id;
   let briefLabel = jobOutcome.label;
@@ -121,7 +127,12 @@ export const collectDiscoveryCanvasBriefNode = async ({
   });
 
   return {
-    data: { ...inputIds, briefId },
+    data: {
+      ...inputIds,
+      briefId,
+      originalUserMessage: latestUserMessage || inputIds.originalUserMessage,
+      ...(agentOutcome.id ? { agentId: agentOutcome.id } : {}),
+    },
   };
 };
 
@@ -160,8 +171,26 @@ export const collectDiscoveryCanvasAgentNode = async ({
   }
   if (storedJobId !== briefId) setStoredJobId(briefId);
 
-  const latestUserMessage = readLatestUserMessage(input);
+  const latestUserMessage =
+    readLatestUserMessage(input) || inputIds.originalUserMessage || "";
   const history = ctx.history ?? [];
+
+  if (inputIds.agentId) {
+    setStoredAgentId(inputIds.agentId);
+    emitResolvedEntity({
+      kind: "agent",
+      id: inputIds.agentId,
+      label:
+        (await lookupEntityLabel({
+          what: "agent",
+          tenantId: ctx.tenantId,
+          id: inputIds.agentId,
+        })) ?? inputIds.agentId,
+    });
+    return {
+      data: { briefId, agentId: inputIds.agentId },
+    };
+  }
 
   const resolution = await resolveFromHistory({
     history,
@@ -228,6 +257,9 @@ function readInputIds(input: unknown): CanvasInputIds {
   return {
     ...(typeof record.briefId === "string" ? { briefId: record.briefId } : {}),
     ...(typeof record.agentId === "string" ? { agentId: record.agentId } : {}),
+    ...(typeof record.originalUserMessage === "string"
+      ? { originalUserMessage: record.originalUserMessage }
+      : {}),
   };
 }
 
@@ -241,6 +273,22 @@ type ApplyResolutionResult = {
   /** Display label, surfaced to the next nodes via workflow state. */
   label: string | undefined;
 };
+
+function pickResolvedId(args: {
+  resolution: Resolution;
+  storedId: string | undefined;
+  knownLabel: string | undefined;
+}): ApplyResolutionResult {
+  if (args.resolution.kind === "use_known") {
+    return args.storedId
+      ? { id: args.storedId, label: args.resolution.label ?? args.knownLabel }
+      : { id: undefined, label: undefined };
+  }
+  if (args.resolution.kind === "use_search") {
+    return { id: args.resolution.id, label: args.resolution.label };
+  }
+  return { id: undefined, label: undefined };
+}
 
 function applyResolution(args: {
   resolution: Resolution;

@@ -50,6 +50,18 @@ export type SavedDiscoveryCanvas = {
 
 const briefs: DemoBrief[] = [
   {
+    id: "product-discovery-canvas",
+    translations: [
+      {
+        language: "en",
+        title: "Product Discovery Canvas",
+        companyName: "Discovery Lab",
+        description:
+          "Product teams often start discovery with scattered notes, untested assumptions, and unclear next steps. The idea is a collaborative canvas that turns an early product opportunity into aligned user segments, pains, assumptions, experiments, risks, metrics, and open questions.",
+      },
+    ],
+  },
+  {
     id: "ai-agent-team-insights",
     translations: [
       {

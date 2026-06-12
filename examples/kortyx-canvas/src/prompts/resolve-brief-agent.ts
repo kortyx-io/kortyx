@@ -26,6 +26,7 @@ Pick exactly one intent per entity (brief, agent):
 - "unclear": cannot tell from context.
 Demonstrative rule: when the user says \`this\`, \`that\`, \`it\`, \`the brief\`, \`the idea\`, \`with this\`, etc. AND a specific brief/agent has been described in a recent assistant turn, classify as \`search\` with that entity's title, even if it does not match \`Known brief\` / \`Known agent\`. The user is referring to what is on screen, not the stale cached value.
 If the user mentions a specific brief/agent that does NOT match the known one, choose \`search\`, not \`use_known\`.
+If the user says "for <name> with <agent>", classify <name> as the brief/product idea and <agent> as the agent. For example, "generate me a canvas for Product Discovery Canvas with Lean Product Coach" means brief search query "Product Discovery Canvas" and agent search query "Lean Product Coach".
 Use \`unclear\` whenever in doubt; never invent a search query.
 Return JSON only matching the requested schema.
 
