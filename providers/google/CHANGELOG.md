@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.5.0](https://github.com/kortyx-io/kortyx/compare/google-v0.4.0...google-v0.5.0) (2026-06-12)
+
+
+### Features
+
+* init kortyx canvas example ([#134](https://github.com/kortyx-io/kortyx/issues/134)) ([b46fbfd](https://github.com/kortyx-io/kortyx/commit/b46fbfdb2efe0f92b2eff23f5234edd9827e9645))
+
 ## [0.4.0](https://github.com/kortyx-io/kortyx/compare/google-v0.3.0...google-v0.4.0) (2026-05-25)
 
 
