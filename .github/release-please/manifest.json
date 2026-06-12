@@ -19,5 +19,6 @@
   "packages/utils": "0.2.6",
   "apps/website": "0.21.3",
   "examples/kortyx-nextjs-chat-api-route": "0.16.4",
+  "examples/kortyx-canvas": "0.1.0",
   "examples/kortyx-nextjs-chat-server-action": "0.13.10"
 }
