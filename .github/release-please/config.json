@@ -90,6 +90,10 @@
       "package-name": "@kortyx/example-nextjs-chat-api-route",
       "component": "example-nextjs-chat-api-route"
     },
+    "examples/kortyx-canvas": {
+      "package-name": "@kortyx/example-canvas",
+      "component": "example-canvas"
+    },
     "examples/kortyx-nextjs-chat-server-action": {
       "package-name": "@kortyx/example-nextjs-chat-server-action",
       "component": "example-nextjs-chat-server-action"
