@@ -31,8 +31,8 @@ export function SaveDiscoveryCanvasButton() {
   const isUpdate = Boolean(savedDiscoveryCanvasId);
 
   return (
-    <div className="flex items-center justify-end gap-3 rounded-xl border border-border bg-card/80 px-5 py-4 backdrop-blur transition-colors hover:border-primary/40">
-      <p className="flex-1 text-xs text-muted-foreground">
+    <div className="grid gap-3 rounded-lg border border-border bg-card/90 px-4 py-4 shadow-sm sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center sm:px-5">
+      <p className="min-w-0 text-xs leading-relaxed text-muted-foreground">
         {isUpdate
           ? "Re-running the check will update the saved discovery canvas with your latest edits."
           : "When you're happy with the discovery sections, the agent will run a quick check and then save the canvas."}
@@ -41,7 +41,7 @@ export function SaveDiscoveryCanvasButton() {
         type="button"
         onClick={requestSave}
         disabled={disabled}
-        className="min-w-[140px]"
+        className="w-full sm:w-auto sm:min-w-[140px]"
       >
         {isSaving ? (
           <>

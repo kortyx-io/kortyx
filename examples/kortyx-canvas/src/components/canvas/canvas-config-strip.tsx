@@ -18,8 +18,8 @@ export function DiscoveryCanvasConfigStrip() {
   const mode: CanvasMode = draft.canvas_mode ?? "DISCOVERY_WORKSHOP";
 
   return (
-    <div className="flex flex-col gap-4 rounded-xl border border-border bg-card/80 px-5 py-4 backdrop-blur transition-colors hover:border-primary/40 sm:flex-row sm:items-end">
-      <div className="flex-1 min-w-0">
+    <div className="grid min-w-0 gap-3 rounded-lg border border-border bg-card/90 px-4 py-4 shadow-sm sm:grid-cols-[minmax(0,1fr)_minmax(220px,280px)] sm:items-end sm:px-5">
+      <div className="min-w-0">
         {facilitatorStyles.length === 0 ? (
           <FacilitatorStylesEmptyState />
         ) : (
@@ -30,7 +30,7 @@ export function DiscoveryCanvasConfigStrip() {
           />
         )}
       </div>
-      <div className="sm:max-w-[260px] flex-1">
+      <div className="min-w-0">
         <CanvasModeToggle
           value={mode}
           onChange={(next) => updateCanvasMode(next)}
@@ -46,7 +46,7 @@ function FacilitatorStylesEmptyState() {
       <Label className="text-xs text-muted-foreground mb-2">
         Facilitator style
       </Label>
-      <div className="flex h-10 items-center rounded-md border border-dashed border-border px-3 text-xs text-muted-foreground">
+      <div className="flex h-10 items-center rounded-md border border-dashed border-border bg-background px-3 text-xs text-muted-foreground">
         No facilitator styles available
       </div>
     </div>
@@ -63,7 +63,7 @@ function CanvasModeToggle({
   return (
     <div className="flex flex-col">
       <Label className="text-xs text-muted-foreground mb-2">Canvas mode</Label>
-      <div className="grid grid-cols-2 rounded-md border border-input p-0.5">
+      <div className="grid grid-cols-2 rounded-md border border-input bg-background p-0.5">
         <ModeButton
           active={value === "DISCOVERY_WORKSHOP"}
           onClick={() => onChange("DISCOVERY_WORKSHOP")}
@@ -99,7 +99,7 @@ function ModeButton({
       onClick={onClick}
       className={`inline-flex h-9 items-center justify-center gap-2 rounded-sm px-3 text-xs font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 ${
         active
-          ? "bg-primary text-primary-foreground shadow-sm"
+          ? "bg-foreground text-background shadow-sm"
           : "text-muted-foreground hover:bg-muted hover:text-foreground"
       }`}
     >

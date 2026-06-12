@@ -1,6 +1,13 @@
 "use client";
 
-import { CircleCheck, FileText, Loader2, Wand2, XIcon } from "lucide-react";
+import {
+  CircleCheck,
+  FileText,
+  Loader2,
+  Route,
+  Wand2,
+  XIcon,
+} from "lucide-react";
 import { useCallback, useEffect, useLayoutEffect, useRef } from "react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -13,7 +20,8 @@ import { SectionCard } from "./section-card";
 
 const DOT_PATTERN: React.CSSProperties = {
   backgroundImage:
-    "radial-gradient(circle, hsl(var(--border)) 1px, transparent 1px)",
+    "radial-gradient(circle, color-mix(in oklab, var(--foreground) 18%, transparent) 1px, transparent 1.4px)",
+  backgroundPosition: "10px 10px",
   backgroundSize: "20px 20px",
 };
 
@@ -129,19 +137,19 @@ export function Canvas() {
   return (
     <section
       aria-label="Canvas process canvas"
-      className="relative flex h-full min-h-0 w-full flex-col overflow-hidden bg-muted/30"
+      className="relative flex h-full min-h-0 w-full flex-col overflow-hidden bg-background"
     >
       {!showCanvasInfoBanner ? null : (
         <CanvasInfoBanner onDismiss={dismissCanvasInfoBanner} />
       )}
       <div
         ref={scrollRef}
-        className="scrollbar-subtle min-h-0 flex-1 overflow-y-auto"
+        className="scrollbar-subtle min-h-0 flex-1 overflow-y-auto bg-muted/25"
         style={DOT_PATTERN}
       >
         <div
           ref={contentRef}
-          className="mx-auto flex w-full max-w-3xl flex-col gap-5 px-6 py-8"
+          className="mx-auto flex w-full max-w-5xl flex-col gap-4 px-4 py-5 sm:px-6 sm:py-7"
         >
           <Header
             title={draft.title ?? ""}
@@ -157,18 +165,20 @@ export function Canvas() {
           {!hasContent ? (
             <EmptyState isStreaming={isStreaming} />
           ) : (
-            <>
+            <div className="grid min-w-0 gap-4">
               {draft.intro ? <BriefCard /> : null}
-              {sectionEntries.map(([sectionKey, section], index) => (
-                <SectionCard
-                  key={sectionKey}
-                  index={index}
-                  sectionKey={sectionKey}
-                  section={section}
-                />
-              ))}
+              <div className="grid min-w-0 gap-3">
+                {sectionEntries.map(([sectionKey, section], index) => (
+                  <SectionCard
+                    key={sectionKey}
+                    index={index}
+                    sectionKey={sectionKey}
+                    section={section}
+                  />
+                ))}
+              </div>
               <SaveDiscoveryCanvasButton />
-            </>
+            </div>
           )}
         </div>
       </div>
@@ -217,46 +227,73 @@ function Header({
   hasContent: boolean;
 }) {
   return (
-    <header className="flex items-start justify-between gap-3 rounded-xl border border-border bg-card/80 px-5 py-4 backdrop-blur transition-colors hover:border-primary/40">
-      <div className="flex flex-1 items-start gap-3 min-w-0">
-        <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
-          <FileText className="size-4" />
+    <header className="overflow-hidden rounded-lg border border-border bg-card shadow-sm">
+      <div className="flex flex-col gap-4 px-4 py-4 sm:px-5">
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex min-w-0 flex-1 items-start gap-3">
+            <div className="flex size-9 shrink-0 items-center justify-center rounded-md bg-emerald-500/10 text-emerald-700 dark:text-emerald-300">
+              <FileText className="size-4" />
+            </div>
+            <div className="flex min-w-0 flex-1 flex-col">
+              <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                Discovery workbench
+              </p>
+              {hasContent ? (
+                <EditableText
+                  value={title}
+                  onCommit={onTitleChange}
+                  variant="title"
+                  placeholder="Untitled discovery canvas"
+                  ariaLabel="Discovery canvas title"
+                  className="text-lg"
+                />
+              ) : (
+                <h2 className="text-base font-semibold leading-tight text-card-foreground">
+                  Product discovery canvas
+                </h2>
+              )}
+            </div>
+          </div>
+          {isStreaming ? (
+            <span className="inline-flex shrink-0 items-center gap-1.5 rounded-md border border-emerald-500/20 bg-emerald-500/10 px-2.5 py-1 text-[11px] font-medium text-emerald-700 dark:text-emerald-300">
+              <Loader2 className="size-3 animate-spin" />
+              Building
+            </span>
+          ) : null}
         </div>
-        <div className="flex flex-1 flex-col min-w-0">
-          {hasContent ? (
-            <EditableText
-              value={title}
-              onCommit={onTitleChange}
-              variant="title"
-              placeholder="Untitled discovery canvas"
-              ariaLabel="Discovery canvas title"
-            />
-          ) : (
-            <h2 className="text-sm font-semibold leading-tight text-card-foreground">
-              Product discovery canvas
-            </h2>
-          )}
-          <p className="text-xs text-muted-foreground">
-            {hasContent
-              ? `${sectionsCount} sections · ${totalItems} items`
-              : "Generated content will appear here"}
-          </p>
+
+        <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
+          <HeaderMetric label="Sections" value={String(sectionsCount)} />
+          <HeaderMetric label="Items" value={String(totalItems)} />
+          <div className="col-span-2 flex min-w-0 items-center gap-2 rounded-md border border-border/70 bg-muted/35 px-3 py-2 text-xs text-muted-foreground sm:flex-1">
+            <Route className="size-3.5 shrink-0" />
+            <span className="truncate">
+              {hasContent
+                ? "Edit sections inline, then save the validated canvas."
+                : "Generated content will appear here."}
+            </span>
+          </div>
         </div>
       </div>
-      {isStreaming ? (
-        <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-primary/10 px-2.5 py-1 text-[11px] font-medium text-primary">
-          <Loader2 className="size-3 animate-spin" />
-          Building…
-        </span>
-      ) : null}
     </header>
+  );
+}
+
+function HeaderMetric({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="min-w-20 rounded-md border border-border/70 bg-background px-3 py-2">
+      <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+        {label}
+      </p>
+      <p className="text-sm font-semibold text-card-foreground">{value}</p>
+    </div>
   );
 }
 
 function EmptyState({ isStreaming }: { isStreaming: boolean }) {
   return (
-    <div className="flex flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-border/70 bg-card/40 px-6 py-16 text-center">
-      <div className="flex size-12 items-center justify-center rounded-full bg-primary/10 text-primary">
+    <div className="flex min-h-[320px] flex-col items-center justify-center gap-3 rounded-lg border border-dashed border-border bg-card/75 px-6 py-16 text-center shadow-sm">
+      <div className="flex size-12 items-center justify-center rounded-md bg-emerald-500/10 text-emerald-700 dark:text-emerald-300">
         {isStreaming ? (
           <Loader2 className="size-5 animate-spin" />
         ) : (
