@@ -50,12 +50,7 @@
       "recommended": true,
       "suspicious": {
         "noArrayIndexKey": "warn",
-        "noConsole": {
-          "level": "warn",
-          "options": {
-            "allow": ["warn", "error"]
-          }
-        },
+        "noConsole": "off",
         "noExplicitAny": "warn"
       },
       "style": {
@@ -82,6 +77,16 @@
         "rules": {
           "security": {
             "noDangerouslySetInnerHtml": "off"
+          }
+        }
+      }
+    },
+    {
+      "includes": ["examples/kortyx-canvas/src/nodes/**"],
+      "linter": {
+        "rules": {
+          "correctness": {
+            "useHookAtTopLevel": "off"
           }
         }
       }

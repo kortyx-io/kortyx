@@ -1,0 +1,159 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+/* Ensure Tailwind v4 scans component sources */
+@source "../**/*.{ts,tsx,js,jsx}";
+
+@custom-variant dark (&:is(.dark *));
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+
+  a[href],
+  button:not(:disabled),
+  summary,
+  select:not(:disabled),
+  input[type="checkbox"]:not(:disabled),
+  input[type="radio"]:not(:disabled),
+  label[for],
+  [role="button"]:not([aria-disabled="true"]),
+  [role="menuitem"]:not([aria-disabled="true"]):not([data-disabled]),
+  [role="option"]:not([aria-disabled="true"]):not([data-disabled]) {
+    cursor: pointer;
+  }
+}
+
+@layer utilities {
+  .scrollbar-subtle {
+    scrollbar-color: var(--muted-foreground) transparent;
+    scrollbar-width: thin;
+  }
+
+  .scrollbar-subtle-bottom-inset {
+    scrollbar-color: var(--muted-foreground) transparent;
+    scrollbar-width: thin;
+  }
+
+  .canvas-thinking-shimmer {
+    background: linear-gradient(
+      90deg,
+      var(--muted-foreground) 0%,
+      var(--foreground) 45%,
+      var(--muted-foreground) 90%
+    );
+    background-size: 220% 100%;
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    animation: canvas-thinking-shimmer 1.6s linear infinite;
+  }
+
+  @keyframes canvas-thinking-shimmer {
+    from {
+      background-position: 120% 0;
+    }
+    to {
+      background-position: -120% 0;
+    }
+  }
+
+  .canvas-enter {
+    animation: canvas-enter 320ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+
+  @keyframes canvas-enter {
+    from {
+      opacity: 0;
+      transform: translateX(16px);
+    }
+    to {
+      opacity: 1;
+      transform: translateX(0);
+    }
+  }
+}
+
+:root {
+  --background: hsl(0 0% 100%);
+  --foreground: hsl(222.2 84% 4.9%);
+  --border: hsl(214.3 31.8% 91.4%);
+  --ring: hsl(222.2 84% 4.9%);
+  --input: hsl(214.3 31.8% 91.4%);
+  --primary: hsl(222.2 47.4% 11.2%);
+  --primary-foreground: hsl(210 40% 98%);
+  --card: hsl(0 0% 100%);
+  --card-foreground: hsl(222.2 84% 4.9%);
+  --popover: hsl(0 0% 100%);
+  --popover-foreground: hsl(222.2 84% 4.9%);
+  --muted: hsl(210 40% 96.1%);
+  --muted-foreground: hsl(215.4 16.3% 46.9%);
+  --destructive: hsl(0 72% 51%);
+  --destructive-foreground: hsl(0 0% 100%);
+
+  --sidebar: hsl(210 40% 98%);
+  --sidebar-foreground: hsl(215 16.3% 46.9%);
+  --sidebar-primary: hsl(222.2 47.4% 11.2%);
+  --sidebar-primary-foreground: hsl(210 40% 98%);
+  --sidebar-accent: hsl(210 40% 96.1%);
+  --sidebar-accent-foreground: hsl(222.2 47.4% 11.2%);
+  --sidebar-border: hsl(214.3 31.8% 91.4%);
+  --sidebar-ring: hsl(222.2 84% 4.9%);
+}
+
+.dark {
+  --background: hsl(222.2 84% 4.9%);
+  --foreground: hsl(210 40% 98%);
+  --border: hsl(217.2 32.6% 17.5%);
+  --ring: hsl(212.7 26.8% 83.9%);
+  --input: hsl(217.2 32.6% 17.5%);
+  --primary: hsl(210 40% 98%);
+  --primary-foreground: hsl(222.2 47.4% 11.2%);
+  --card: hsl(222.2 84% 4.9%);
+  --card-foreground: hsl(210 40% 98%);
+  --popover: hsl(222.2 84% 4.9%);
+  --popover-foreground: hsl(210 40% 98%);
+  --muted: hsl(217.2 32.6% 17.5%);
+  --muted-foreground: hsl(215 20.2% 65.1%);
+  --destructive: hsl(0 63% 50%);
+  --destructive-foreground: hsl(0 0% 100%);
+
+  --sidebar: hsl(222.2 84% 4.9%);
+  --sidebar-foreground: hsl(210 40% 98%);
+  --sidebar-primary: hsl(217.2 91.2% 59.8%);
+  --sidebar-primary-foreground: hsl(222.2 47.4% 11.2%);
+  --sidebar-accent: hsl(217.2 32.6% 17.5%);
+  --sidebar-accent-foreground: hsl(210 40% 98%);
+  --sidebar-border: hsl(217.2 32.6% 17.5%);
+  --sidebar-ring: hsl(217.2 91.2% 59.8%);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-border: var(--border);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+}

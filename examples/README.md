@@ -22,6 +22,16 @@ pnpm --filter @kortyx/example-nextjs-chat-api-route dev
 
 - Path: [`examples/kortyx-nextjs-chat-api-route`](./kortyx-nextjs-chat-api-route)
 
+## @kortyx/example-canvas (Canvas Agent)
+
+Canvas-oriented agent UI with structured streaming, interrupts, and editable generated content.
+
+```bash
+pnpm --filter @kortyx/example-canvas dev
+```
+
+- Path: [`examples/kortyx-canvas`](./kortyx-canvas)
+
 ## @kortyx/example-nextjs-chat-server-action (Server Action)
 
 Buffered chat through a Next.js server action.

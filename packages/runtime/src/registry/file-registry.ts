@@ -1,7 +1,7 @@
+import { readdir, readFile } from "node:fs/promises";
+import { join } from "node:path";
 import type { WorkflowDefinition } from "@kortyx/core";
 import { loadWorkflow } from "@kortyx/core";
-import { readdir, readFile } from "fs/promises";
-import { join } from "path";
 import type { WorkflowRegistry } from "./interface";
 
 export interface FileWorkflowRegistryOptions {
