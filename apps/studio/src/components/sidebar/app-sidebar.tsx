@@ -1,6 +1,16 @@
 "use client";
 
-import { Bot, LayoutDashboard, Settings, Workflow } from "lucide-react";
+import {
+  Activity,
+  Bot,
+  ChevronsUpDown,
+  CirclePause,
+  DollarSign,
+  MessageSquare,
+  RadioTower,
+  Settings,
+  Workflow,
+} from "lucide-react";
 import Link from "next/link";
 import {
   Sidebar,
@@ -17,11 +27,30 @@ import {
 } from "@/components/ui/sidebar";
 import { NavUser } from "./nav-user";
 
-const navItems = [
-  { title: "Dashboard", url: "/", icon: LayoutDashboard },
-  { title: "Agents", url: "/agents", icon: Bot },
-  { title: "Workflows", url: "/workflows", icon: Workflow },
-  { title: "Settings", url: "/settings", icon: Settings },
+const navSections = [
+  {
+    title: "Observe",
+    items: [
+      { title: "Runs", url: "/runs", icon: Activity },
+      { title: "Sessions", url: "/sessions", icon: MessageSquare },
+      { title: "Workflows", url: "/workflows", icon: Workflow },
+      { title: "Interrupts", url: "/interrupts", icon: CirclePause },
+    ],
+  },
+  {
+    title: "Analyze",
+    items: [{ title: "Costs", url: "/costs", icon: DollarSign }],
+  },
+  {
+    title: "Develop",
+    items: [
+      {
+        title: "Stream Inspector",
+        url: "/stream-inspector",
+        icon: RadioTower,
+      },
+    ],
+  },
 ];
 
 export function AppSidebar() {
@@ -35,10 +64,13 @@ export function AppSidebar() {
                 <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
                   <Bot className="size-4" />
                 </div>
-                <div className="flex flex-col gap-0.5 leading-none">
-                  <span className="font-semibold">Kortyx Studio</span>
-                  <span className="text-xs text-muted-foreground">v0.1.0</span>
+                <div className="grid flex-1 gap-0.5 text-left leading-none">
+                  <span className="font-semibold">Kortyx</span>
+                  <span className="truncate text-xs text-muted-foreground">
+                    Project / Env
+                  </span>
                 </div>
+                <ChevronsUpDown className="ml-auto size-4 text-muted-foreground" />
               </Link>
             </SidebarMenuButton>
           </SidebarMenuItem>
@@ -46,20 +78,37 @@ export function AppSidebar() {
       </SidebarHeader>
 
       <SidebarContent>
-        <SidebarGroup>
-          <SidebarGroupLabel>Navigation</SidebarGroupLabel>
+        {navSections.map((section) => (
+          <SidebarGroup key={section.title}>
+            <SidebarGroupLabel>{section.title}</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {section.items.map((item) => (
+                  <SidebarMenuItem key={item.title}>
+                    <SidebarMenuButton asChild tooltip={item.title}>
+                      <Link href={item.url}>
+                        <item.icon />
+                        <span>{item.title}</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                ))}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        ))}
+
+        <SidebarGroup className="mt-auto">
           <SidebarGroupContent>
             <SidebarMenu>
-              {navItems.map((item) => (
-                <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton asChild tooltip={item.title}>
-                    <Link href={item.url}>
-                      <item.icon />
-                      <span>{item.title}</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild tooltip="Settings">
+                  <Link href="/settings">
+                    <Settings />
+                    <span>Settings</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
