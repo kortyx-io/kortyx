@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import { NuqsAdapter } from "nuqs/adapters/next/app";
 import { SidebarLayout } from "@/components/layouts/sidebar-layout";
 import "./globals.css";
 
@@ -45,7 +46,9 @@ export default function RootLayout({
           dangerouslySetInnerHTML={{ __html: themeScript }}
           suppressHydrationWarning
         />
-        <SidebarLayout>{children}</SidebarLayout>
+        <NuqsAdapter>
+          <SidebarLayout>{children}</SidebarLayout>
+        </NuqsAdapter>
       </body>
     </html>
   );
