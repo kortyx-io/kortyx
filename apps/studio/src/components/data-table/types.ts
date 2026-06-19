@@ -7,6 +7,18 @@ export type ColumnMotion = {
 };
 
 /**
+ * The complete, serializable column layout produced by every column control
+ * (resize, reorder, pin, hide). Keyed by `DataTableColumn.key` so it can be
+ * persisted anywhere — localStorage, a user-profile DB row, etc.
+ */
+export type DataTableLayout = {
+  widths: Record<string, number>;
+  order: string[];
+  hidden: string[];
+  pinned: Partial<Record<string, ColumnPin>>;
+};
+
+/**
  * A single column definition. Generic over the row type `T` and the union of
  * sortable keys `S`. The table renders the surrounding `<td>`; `render` only
  * needs to return the cell content.
