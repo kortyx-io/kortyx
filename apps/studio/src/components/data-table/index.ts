@@ -8,5 +8,6 @@ export type {
   ColumnMotion,
   ColumnPin,
   DataTableColumn,
+  DataTableLayout,
   DataTablePagination,
 } from "@/components/data-table/types";

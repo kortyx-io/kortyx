@@ -300,8 +300,8 @@ function DataTablePaginationFooter({
         >
           <ChevronLeft /> Previous
         </Button>
-        <span className="font-mono tabular-nums">
-          {currentPage} / {totalPages}
+        <span className="shrink-0 font-mono whitespace-nowrap tabular-nums">
+          {currentPage}/{totalPages}
         </span>
         <Button
           variant="outline"

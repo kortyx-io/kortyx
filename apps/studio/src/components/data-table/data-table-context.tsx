@@ -28,14 +28,44 @@ import type {
   ColumnMotion,
   ColumnPin,
   DataTableColumn,
+  DataTableLayout,
 } from "@/components/data-table/types";
 
-type LayoutSnapshot = {
-  widths?: Record<string, number>;
-  order?: string[];
-  hidden?: string[];
-  pinned?: Partial<Record<string, ColumnPin>>;
-};
+type LayoutSnapshot = Partial<DataTableLayout>;
+
+function validateOrder(
+  order: string[] | undefined,
+  defaultOrder: string[],
+): string[] | undefined {
+  if (
+    order?.length === defaultOrder.length &&
+    order.every((column) => defaultOrder.includes(column))
+  ) {
+    return order;
+  }
+  return undefined;
+}
+
+function validateHidden(
+  hidden: string[] | undefined,
+  defaultOrder: string[],
+): string[] | undefined {
+  if (hidden?.every((column) => defaultOrder.includes(column))) return hidden;
+  return undefined;
+}
+
+function validatePinned(
+  pinned: Partial<Record<string, ColumnPin>> | undefined,
+  defaultOrder: string[],
+): Partial<Record<string, ColumnPin>> | undefined {
+  if (!pinned) return undefined;
+  return Object.fromEntries(
+    Object.entries(pinned).filter(
+      ([column, side]) =>
+        defaultOrder.includes(column) && (side === "left" || side === "right"),
+    ),
+  );
+}
 
 export type DataTableContextValue<T = unknown, S extends string = string> = {
   columns: DataTableColumn<T, S>[];
@@ -89,7 +119,19 @@ export function useDataTable<
 
 type DataTableProviderProps<T, S extends string> = {
   columns: DataTableColumn<T, S>[];
-  /** localStorage key for persisting widths, order, hidden, and pinned state. */
+  /**
+   * Initial layout to hydrate from (e.g. loaded from a user-profile DB row).
+   * Read once on mount; invalid/unknown columns are ignored. Takes precedence
+   * over `persistKey`.
+   */
+  initialLayout?: Partial<DataTableLayout>;
+  /**
+   * Called whenever the user changes the layout via any column control
+   * (resize, reorder, pin, hide). Use this to persist to a DB/profile.
+   * Debounce on the consumer side if writes are expensive.
+   */
+  onLayoutChange?: (layout: DataTableLayout) => void;
+  /** localStorage key for persisting layout. Convenience for client-only apps. */
   persistKey?: string;
   children: ReactNode;
 };
@@ -103,6 +145,8 @@ function arrayMove<V>(array: V[], from: number, to: number): V[] {
 
 export function DataTableProvider<T, S extends string>({
   columns,
+  initialLayout,
+  onLayoutChange,
   persistKey,
   children,
 }: DataTableProviderProps<T, S>) {
@@ -132,15 +176,28 @@ export function DataTableProvider<T, S extends string>({
     [columns],
   );
 
-  const [widths, setWidths] = useState<Record<string, number>>(defaultWidths);
-  const [order, setOrder] = useState<string[]>(defaultOrder);
-  const [hidden, setHidden] = useState<string[]>([]);
-  const [pinned, setPinned] = useState<Partial<Record<string, ColumnPin>>>({});
+  const [widths, setWidths] = useState<Record<string, number>>(() => ({
+    ...defaultWidths,
+    ...initialLayout?.widths,
+  }));
+  const [order, setOrder] = useState<string[]>(
+    () => validateOrder(initialLayout?.order, defaultOrder) ?? defaultOrder,
+  );
+  const [hidden, setHidden] = useState<string[]>(
+    () => validateHidden(initialLayout?.hidden, defaultOrder) ?? [],
+  );
+  const [pinned, setPinned] = useState<Partial<Record<string, ColumnPin>>>(
+    () => validatePinned(initialLayout?.pinned, defaultOrder) ?? {},
+  );
   const [draggedColumn, setDraggedColumn] = useState<string | null>(null);
   const [dragOverColumn, setDragOverColumn] = useState<string | null>(null);
   const [dragOffset, setDragOffset] = useState(0);
   const [preferencesLoaded, setPreferencesLoaded] = useState(false);
   const scrollerRef = useRef<HTMLDivElement | null>(null);
+  const onLayoutChangeRef = useRef(onLayoutChange);
+  onLayoutChangeRef.current = onLayoutChange;
+  const hasSettledRef = useRef(false);
+  const hasInitialLayout = Boolean(initialLayout);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
@@ -149,9 +206,10 @@ export function DataTableProvider<T, S extends string>({
     }),
   );
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: load layout once per persistKey, not on column changes.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: hydrate once on mount, not on column changes.
   useEffect(() => {
-    if (!persistKey) {
+    // initialLayout (e.g. DB) wins and is applied via lazy state init above.
+    if (hasInitialLayout || !persistKey) {
       setPreferencesLoaded(true);
       return;
     }
@@ -161,39 +219,29 @@ export function DataTableProvider<T, S extends string>({
       ) as LayoutSnapshot & Record<string, number>;
       const savedWidths = saved.widths ?? saved;
       setWidths((current) => ({ ...current, ...savedWidths }));
-      if (
-        saved.order?.length === defaultOrder.length &&
-        saved.order.every((column) => defaultOrder.includes(column))
-      ) {
-        setOrder(saved.order);
-      }
-      if (saved.hidden?.every((column) => defaultOrder.includes(column))) {
-        setHidden(saved.hidden);
-      }
-      if (saved.pinned) {
-        setPinned(
-          Object.fromEntries(
-            Object.entries(saved.pinned).filter(
-              ([column, side]) =>
-                defaultOrder.includes(column) &&
-                (side === "left" || side === "right"),
-            ),
-          ),
-        );
-      }
+      const order = validateOrder(saved.order, defaultOrder);
+      if (order) setOrder(order);
+      const hidden = validateHidden(saved.hidden, defaultOrder);
+      if (hidden) setHidden(hidden);
+      const pinned = validatePinned(saved.pinned, defaultOrder);
+      if (pinned) setPinned(pinned);
     } catch {
       // Ignore invalid local preferences.
     } finally {
       setPreferencesLoaded(true);
     }
-  }, [persistKey]);
+  }, [persistKey, hasInitialLayout]);
 
   useEffect(() => {
-    if (!persistKey || !preferencesLoaded) return;
-    localStorage.setItem(
-      persistKey,
-      JSON.stringify({ widths, order, hidden, pinned }),
-    );
+    if (!preferencesLoaded) return;
+    const layout: DataTableLayout = { widths, order, hidden, pinned };
+    if (persistKey) localStorage.setItem(persistKey, JSON.stringify(layout));
+    // Skip the initial settle so we only notify on real user changes.
+    if (!hasSettledRef.current) {
+      hasSettledRef.current = true;
+      return;
+    }
+    onLayoutChangeRef.current?.(layout);
   }, [persistKey, preferencesLoaded, widths, order, hidden, pinned]);
 
   const visibleColumns = useMemo(
