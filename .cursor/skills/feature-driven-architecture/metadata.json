@@ -1,0 +1,50 @@
+{
+  "name": "feature-driven-architecture",
+  "version": "1.0.0",
+  "author": "Mustafa",
+  "license": "MIT",
+  "description": "Feature-driven (feature-based) architecture for Next.js App Router and React projects: organize by business domain, keep routes thin, enforce feature boundaries and unidirectional dependencies, lean on server state, and abstract late.",
+  "keywords": [
+    "architecture",
+    "feature-driven",
+    "feature-based",
+    "feature-sliced-design",
+    "nextjs",
+    "app-router",
+    "react",
+    "project-structure",
+    "folder-structure",
+    "scalability"
+  ],
+  "references": [
+    {
+      "title": "How I Structure Next.js Projects for Scale",
+      "author": "Gerardo Perrucci",
+      "url": "https://medium.com/javascript-render/how-i-structure-next-js-projects-for-scale-80646889fd4e"
+    },
+    {
+      "title": "Feature-Driven Architecture with Next.js: A Better Way to Structure Your Application",
+      "author": "Rufat Aliyev",
+      "url": "https://dev.to/rufatalv/feature-driven-architecture-with-nextjs-a-better-way-to-structure-your-application-1lph",
+      "starter": "https://github.com/rufatalv/next-feature-based"
+    },
+    {
+      "title": "Feature-Sliced Design",
+      "author": "feature-sliced.design",
+      "url": "https://feature-sliced.design",
+      "note": "Formal methodology: layers, slices, segments; layers import only downward."
+    },
+    {
+      "title": "bulletproof-react — project structure",
+      "author": "Alan Alickovic (alan2207)",
+      "url": "https://github.com/alan2207/bulletproof-react/blob/master/docs/project-structure.md",
+      "note": "No cross-feature imports, unidirectional dependencies, prefers direct imports over barrels."
+    },
+    {
+      "title": "Screaming Architecture",
+      "author": "Robert C. Martin",
+      "url": "https://blog.cleancoder.com/uncle-bob/2011/09/30/Screaming-Architecture.html",
+      "note": "Folder structure should reflect the business domain, not the framework."
+    }
+  ]
+}

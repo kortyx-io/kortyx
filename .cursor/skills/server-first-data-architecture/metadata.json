@@ -1,0 +1,48 @@
+{
+  "name": "server-first-data-architecture",
+  "version": "1.0.0",
+  "author": "Mustafa",
+  "license": "MIT",
+  "description": "Server-first data flow for Next.js App Router apps in front of an HTTP API: fetch in the Server Component and pass props, a Result-style data-access layer that never throws, URL-driven filter state via nuqs, authorization enforced at the API (forbidden() for 403), single-component pages with loading.tsx, and the perceived-performance + resilience patterns around them.",
+  "keywords": [
+    "nextjs",
+    "app-router",
+    "react-server-components",
+    "data-fetching",
+    "data-access-layer",
+    "result-type",
+    "nuqs",
+    "url-state",
+    "authorization",
+    "forbidden",
+    "tanstack-query",
+    "hydration",
+    "loading-states"
+  ],
+  "references": [
+    {
+      "title": "Next.js — Data Fetching & Caching",
+      "url": "https://nextjs.org/docs/app/getting-started/fetching-data"
+    },
+    {
+      "title": "Next.js — Authentication (Data Access Layer)",
+      "url": "https://nextjs.org/docs/app/guides/authentication"
+    },
+    {
+      "title": "Next.js — forbidden() / authInterrupts",
+      "url": "https://nextjs.org/docs/app/api-reference/functions/forbidden"
+    },
+    {
+      "title": "Next.js — staleTimes",
+      "url": "https://nextjs.org/docs/app/api-reference/config/next-config-js/staleTimes"
+    },
+    {
+      "title": "nuqs — type-safe URL search params state",
+      "url": "https://nuqs.47ng.com"
+    },
+    {
+      "title": "TanStack Query — Advanced SSR / hydration",
+      "url": "https://tanstack.com/query/latest/docs/framework/react/guides/advanced-ssr"
+    }
+  ]
+}
