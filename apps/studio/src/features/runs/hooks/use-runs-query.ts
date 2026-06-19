@@ -13,7 +13,7 @@ import type { Run, RunStatus, SortKey } from "@/features/runs/types";
 
 const sortKeys: SortKey[] = ["started", "duration", "tokens", "cost", "status"];
 
-const runsSearchParams = {
+const baseSearchParams = {
   q: parseAsString.withDefault(""),
   env: parseAsString.withDefault("All environments"),
   range: parseAsString.withDefault("24 hours"),
@@ -23,10 +23,18 @@ const runsSearchParams = {
   minCost: parseAsFloat.withDefault(0),
   minDuration: parseAsFloat.withDefault(0),
   cursor: parseAsInteger.withDefault(0),
-  pageSize: parseAsInteger.withDefault(PAGE_SIZE),
-  sort: parseAsStringLiteral(sortKeys).withDefault("started"),
-  dir: parseAsStringLiteral(["asc", "desc"]).withDefault("desc"),
   live: parseAsBoolean.withDefault(false),
+};
+
+/**
+ * Per-user defaults (e.g. from a saved profile) applied when the corresponding
+ * URL param is absent. nuqs clears params that equal the default, so these stay
+ * the source of truth across sessions while the URL stays shareable.
+ */
+export type RunsQueryDefaults = {
+  sort?: SortKey;
+  dir?: "asc" | "desc";
+  pageSize?: number;
 };
 
 type RunsParamChanges = Partial<{
@@ -49,8 +57,22 @@ type RunsParamChanges = Partial<{
  * Owns the runs list URL state via nuqs: parsing typed search params, deriving
  * the filtered and sorted rows, and the mutations that write changes back.
  */
-export function useRunsQuery(initialRuns: Run[]) {
-  const [params, setQueryStates] = useQueryStates(runsSearchParams);
+export function useRunsQuery(initialRuns: Run[], defaults?: RunsQueryDefaults) {
+  const searchParams = useMemo(
+    () => ({
+      ...baseSearchParams,
+      pageSize: parseAsInteger.withDefault(defaults?.pageSize ?? PAGE_SIZE),
+      sort: parseAsStringLiteral(sortKeys).withDefault(
+        defaults?.sort ?? "started",
+      ),
+      dir: parseAsStringLiteral(["asc", "desc"]).withDefault(
+        defaults?.dir ?? "desc",
+      ),
+    }),
+    [defaults?.pageSize, defaults?.sort, defaults?.dir],
+  );
+
+  const [params, setQueryStates] = useQueryStates(searchParams);
 
   const {
     q: query,

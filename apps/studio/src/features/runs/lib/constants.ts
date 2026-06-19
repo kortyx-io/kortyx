@@ -35,4 +35,3 @@ export const providers = ["OpenAI", "Anthropic", "Google"] as const;
 export const timeRanges = ["Last hour", "24 hours", "7 days", "Custom range"];
 export const PAGE_SIZE = 20;
 export const PAGE_SIZES = [10, 20, 50] as const;
-export const COLUMN_LAYOUT_STORAGE_KEY = "kortyx:runs:column-widths";
