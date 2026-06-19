@@ -1,7 +1,7 @@
 "use client";
 
 import { Columns3 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useDataTable } from "@/components/data-table/data-table-context";
 import { Button } from "@/components/ui/button";
 import {
@@ -12,6 +12,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 type DataTableColumnsMenuProps = {
   label?: string;
@@ -30,7 +31,9 @@ export function DataTableColumnsMenu({
     showAllColumns,
     resetLayout,
   } = useDataTable();
+  const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
+  const searchInputRef = useRef<HTMLInputElement>(null);
 
   const total = columns.length;
   const visibleCount = total - hidden.length;
@@ -38,8 +41,22 @@ export function DataTableColumnsMenu({
     (key) => columns.find((column) => column.key === key) ?? columns[0],
   );
 
+  useEffect(() => {
+    if (!open) return;
+    const frame = requestAnimationFrame(() => {
+      searchInputRef.current?.focus();
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [open]);
+
   return (
-    <DropdownMenu>
+    <DropdownMenu
+      open={open}
+      onOpenChange={(nextOpen) => {
+        setOpen(nextOpen);
+        if (!nextOpen) setSearch("");
+      }}
+    >
       <DropdownMenuTrigger asChild>
         <Button variant="outline" size="default">
           <Columns3 /> {label}
@@ -53,17 +70,20 @@ export function DataTableColumnsMenu({
       <DropdownMenuContent align="end" className="w-60 p-2">
         <DropdownMenuLabel>Visible columns</DropdownMenuLabel>
         <div
+          role="presentation"
           className="px-1 py-1"
           onPointerDown={(event) => event.stopPropagation()}
         >
           <input
+            ref={searchInputRef}
             value={search}
             onChange={(event) => setSearch(event.target.value)}
+            onKeyDown={(event) => event.stopPropagation()}
             placeholder={placeholder}
             className="h-8 w-full rounded-md border bg-background px-2 text-xs outline-none focus:ring-2 focus:ring-ring/50"
           />
         </div>
-        <div className="max-h-64 overflow-y-auto">
+        <ScrollArea className="max-h-64" viewportClassName="max-h-64">
           {orderedColumns
             .filter((column) =>
               column.label.toLowerCase().includes(search.toLowerCase()),
@@ -78,7 +98,7 @@ export function DataTableColumnsMenu({
                 {column.label}
               </DropdownMenuCheckboxItem>
             ))}
-        </div>
+        </ScrollArea>
         <DropdownMenuSeparator />
         <div className="flex items-center justify-between gap-2 px-1 pt-1">
           <Button variant="ghost" size="xs" onClick={showAllColumns}>
