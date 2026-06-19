@@ -7,9 +7,14 @@ import { cn } from "@/lib/utils";
 
 function ScrollArea({
   className,
+  viewportClassName,
+  viewportRef,
   children,
   ...props
-}: React.ComponentProps<typeof ScrollAreaPrimitive.Root>) {
+}: React.ComponentProps<typeof ScrollAreaPrimitive.Root> & {
+  viewportClassName?: string;
+  viewportRef?: React.Ref<HTMLDivElement>;
+}) {
   return (
     <ScrollAreaPrimitive.Root
       data-slot="scroll-area"
@@ -17,12 +22,17 @@ function ScrollArea({
       {...props}
     >
       <ScrollAreaPrimitive.Viewport
+        ref={viewportRef}
         data-slot="scroll-area-viewport"
-        className="size-full rounded-[inherit] transition-[color,box-shadow] outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-1 [&>div]:!block [&>div]:h-full"
+        className={cn(
+          "size-full rounded-[inherit] transition-[color,box-shadow] outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-1 [&>div]:!block [&>div]:h-full",
+          viewportClassName,
+        )}
       >
         {children}
       </ScrollAreaPrimitive.Viewport>
       <ScrollBar />
+      <ScrollBar orientation="horizontal" />
       <ScrollAreaPrimitive.Corner />
     </ScrollAreaPrimitive.Root>
   );
@@ -39,6 +49,7 @@ function ScrollBar({
       orientation={orientation}
       className={cn(
         "flex touch-none p-px transition-colors select-none",
+        "data-[state=hidden]:animate-out data-[state=hidden]:fade-out-0 data-[state=hidden]:duration-300 data-[state=visible]:animate-in data-[state=visible]:fade-in-0 data-[state=visible]:duration-150",
         orientation === "vertical" &&
           "h-full w-2.5 border-l border-l-transparent",
         orientation === "horizontal" &&
