@@ -93,39 +93,45 @@ export function RunsToolbar({
       </div>
 
       <div className="flex flex-wrap items-center gap-2 pb-3">
-        <select
-          aria-label="Environment"
-          value={environment}
-          onChange={(event) =>
-            setParams({
-              env:
-                event.target.value === "All environments"
-                  ? null
-                  : event.target.value,
-            })
-          }
-          className="h-9 rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-ring/50"
-        >
-          <option>Development</option>
-          <option>Staging</option>
-          <option>Production</option>
-          <option>All environments</option>
-        </select>
-        <select
-          aria-label="Time range"
-          value={timeRange}
-          onChange={(event) =>
-            setParams({
-              range:
-                event.target.value === "24 hours" ? null : event.target.value,
-            })
-          }
-          className="h-9 rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-ring/50"
-        >
-          {timeRanges.map((range) => (
-            <option key={range}>{range}</option>
-          ))}
-        </select>
+        <div className="relative">
+          <select
+            aria-label="Environment"
+            value={environment}
+            onChange={(event) =>
+              setParams({
+                env:
+                  event.target.value === "All environments"
+                    ? null
+                    : event.target.value,
+              })
+            }
+            className="h-9 appearance-none rounded-md border bg-background pr-9 pl-3 text-sm outline-none focus:ring-2 focus:ring-ring/50"
+          >
+            <option>Development</option>
+            <option>Staging</option>
+            <option>Production</option>
+            <option>All environments</option>
+          </select>
+          <ChevronDown className="pointer-events-none absolute top-1/2 right-3 size-3.5 -translate-y-1/2 text-muted-foreground" />
+        </div>
+        <div className="relative">
+          <select
+            aria-label="Time range"
+            value={timeRange}
+            onChange={(event) =>
+              setParams({
+                range:
+                  event.target.value === "24 hours" ? null : event.target.value,
+              })
+            }
+            className="h-9 appearance-none rounded-md border bg-background pr-9 pl-3 text-sm outline-none focus:ring-2 focus:ring-ring/50"
+          >
+            {timeRanges.map((range) => (
+              <option key={range}>{range}</option>
+            ))}
+          </select>
+          <ChevronDown className="pointer-events-none absolute top-1/2 right-3 size-3.5 -translate-y-1/2 text-muted-foreground" />
+        </div>
         <div className="relative min-w-[230px] flex-1">
           <Search className="pointer-events-none absolute top-2.5 left-3 size-4 text-muted-foreground" />
           <Input
