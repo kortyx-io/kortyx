@@ -13,6 +13,11 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 type DataTableColumnsMenuProps = {
   label?: string;
@@ -57,16 +62,28 @@ export function DataTableColumnsMenu({
         if (!nextOpen) setSearch("");
       }}
     >
-      <DropdownMenuTrigger asChild>
-        <Button variant="outline" size="default">
-          <Columns3 /> {label}
-          {hidden.length > 0 && (
-            <span className="text-xs text-muted-foreground">
-              {visibleCount}/{total}
-            </span>
-          )}
-        </Button>
-      </DropdownMenuTrigger>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <DropdownMenuTrigger asChild>
+            <Button
+              variant="outline"
+              size="icon-sm"
+              aria-label={label}
+              className="relative"
+            >
+              <Columns3 />
+              {hidden.length > 0 && (
+                <span className="absolute -top-1.5 -right-2 rounded-full bg-foreground px-1 text-[10px] leading-4 text-background">
+                  {visibleCount}/{total}
+                </span>
+              )}
+            </Button>
+          </DropdownMenuTrigger>
+        </TooltipTrigger>
+        <TooltipContent side="top" sideOffset={8}>
+          {label}
+        </TooltipContent>
+      </Tooltip>
       <DropdownMenuContent align="end" className="w-60 p-2">
         <DropdownMenuLabel>Visible columns</DropdownMenuLabel>
         <div

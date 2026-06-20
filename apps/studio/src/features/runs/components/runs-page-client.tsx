@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { DataTable, DataTableProvider } from "@/components/data-table";
 import { createRunColumns } from "@/features/runs/components/run-table-columns";
 import { RunsEmptyState } from "@/features/runs/components/runs-empty-state";
+import { RunsFilterPanel } from "@/features/runs/components/runs-filter-panel";
 import { RunsToolbar } from "@/features/runs/components/runs-toolbar";
 import { useRunsQuery } from "@/features/runs/hooks/use-runs-query";
 import { useRunsTablePreferences } from "@/features/runs/hooks/use-runs-table-preferences";
@@ -14,6 +15,7 @@ import {
   type RunsTablePreferences,
 } from "@/features/runs/lib/table-preferences";
 import type { Run } from "@/features/runs/types";
+import { cn } from "@/lib/utils";
 
 type RunsPageClientProps = {
   runs: Run[];
@@ -43,6 +45,7 @@ export default function RunsPageClient({
     pageSize: prefs.value.pageSize,
   });
   const [refreshing, setRefreshing] = useState(false);
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const [now, setNow] = useState(0);
   const { live } = runsQuery;
 
@@ -84,42 +87,59 @@ export default function RunsPageClient({
       initialLayout={prefs.value.layout}
       onLayoutChange={(layout) => prefs.save({ layout })}
     >
-      <DataTable
-        data={runsQuery.filteredRuns}
-        getRowKey={(run) => run.id}
-        onRowClick={openRun}
-        rowClassName={(run) =>
-          run.status === "failed" ? "bg-red-500/[0.025]" : undefined
-        }
-        sort={runsQuery.sort}
-        direction={runsQuery.direction}
-        onSort={runsQuery.handleSort}
-        onSetSortDirection={runsQuery.setSortDirection}
-        onClearSort={runsQuery.clearSort}
-        header={
-          <RunsToolbar
+      <div className="flex h-full min-h-0 gap-2">
+        <DataTable
+          className="min-w-0 flex-1"
+          data={runsQuery.filteredRuns}
+          getRowKey={(run) => run.id}
+          onRowClick={openRun}
+          rowClassName={(run) =>
+            run.status === "failed" ? "bg-red-500/[0.025]" : undefined
+          }
+          sort={runsQuery.sort}
+          direction={runsQuery.direction}
+          onSort={runsQuery.handleSort}
+          onSetSortDirection={runsQuery.setSortDirection}
+          onClearSort={runsQuery.clearSort}
+          header={
+            <RunsToolbar
+              query={runsQuery}
+              live={live}
+              refreshing={refreshing}
+              filtersOpen={filtersOpen}
+              onToggleLive={() => runsQuery.setLive(!live)}
+              onToggleFilters={() => setFiltersOpen((open) => !open)}
+              onRefresh={() => {
+                setRefreshing(true);
+                window.setTimeout(() => setRefreshing(false), 650);
+              }}
+            />
+          }
+          emptyState={<RunsEmptyState onClear={runsQuery.clearFilters} />}
+          scrollRestoreKey="runs-table-scroll-position"
+          pagination={{
+            cursor: runsQuery.cursor,
+            pageSize: runsQuery.pageSize,
+            pageSizes: PAGE_SIZES,
+            totalCount: runsQuery.filteredRuns.length,
+            onCursorChange: (next) => runsQuery.setParams({ cursor: next }),
+            onPageSizeChange: (next) =>
+              runsQuery.setParams({ cursor: null, pageSize: next }),
+          }}
+        />
+        <div
+          className={cn(
+            "h-full shrink-0 overflow-hidden transition-[width] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)]",
+            filtersOpen ? "w-72" : "w-0",
+          )}
+        >
+          <RunsFilterPanel
             query={runsQuery}
-            live={live}
-            refreshing={refreshing}
-            onToggleLive={() => runsQuery.setLive(!live)}
-            onRefresh={() => {
-              setRefreshing(true);
-              window.setTimeout(() => setRefreshing(false), 650);
-            }}
+            open={filtersOpen}
+            onClose={() => setFiltersOpen(false)}
           />
-        }
-        emptyState={<RunsEmptyState onClear={runsQuery.clearFilters} />}
-        scrollRestoreKey="runs-table-scroll-position"
-        pagination={{
-          cursor: runsQuery.cursor,
-          pageSize: runsQuery.pageSize,
-          pageSizes: PAGE_SIZES,
-          totalCount: runsQuery.filteredRuns.length,
-          onCursorChange: (next) => runsQuery.setParams({ cursor: next }),
-          onPageSizeChange: (next) =>
-            runsQuery.setParams({ cursor: null, pageSize: next }),
-        }}
-      />
+        </div>
+      </div>
     </DataTableProvider>
   );
 }
