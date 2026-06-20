@@ -1,29 +1,22 @@
-import { ChevronDown, Filter, RefreshCw, Search, X } from "lucide-react";
+import { Filter, RefreshCw, Search, X } from "lucide-react";
 import { DataTableColumnsMenu } from "@/components/data-table";
 import { Button } from "@/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuCheckboxItem,
-  DropdownMenuContent,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
-import type { useRunsQuery } from "@/features/runs/hooks/use-runs-query";
 import {
-  providers,
-  statuses,
-  statusMeta,
-  timeRanges,
-} from "@/features/runs/lib/constants";
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import type { useRunsQuery } from "@/features/runs/hooks/use-runs-query";
 import { cn } from "@/lib/utils";
 
 type RunsToolbarProps = {
   query: ReturnType<typeof useRunsQuery>;
   live: boolean;
   refreshing: boolean;
+  filtersOpen: boolean;
   onToggleLive: () => void;
+  onToggleFilters: () => void;
   onRefresh: () => void;
 };
 
@@ -31,23 +24,16 @@ export function RunsToolbar({
   query,
   live,
   refreshing,
+  filtersOpen,
   onToggleLive,
+  onToggleFilters,
   onRefresh,
 }: RunsToolbarProps) {
   const {
-    environment,
-    timeRange,
     query: search,
-    selectedStatuses,
-    provider,
-    toolOnly,
-    minCost,
-    minDuration,
     activeFilterCount,
     hasActiveFilters,
-    filteredRuns,
     setParams,
-    toggleStatus,
     clearFilters,
   } = query;
 
@@ -61,9 +47,6 @@ export function RunsToolbar({
               Operational inbox for every execution
             </p>
           </div>
-          <span className="rounded-full border bg-muted px-2 py-0.5 text-xs tabular-nums text-muted-foreground">
-            {filteredRuns.length.toLocaleString()} matching
-          </span>
         </div>
         <div className="flex items-center gap-1.5">
           <Button
@@ -93,162 +76,41 @@ export function RunsToolbar({
       </div>
 
       <div className="flex flex-wrap items-center gap-2 pb-3">
-        <div className="relative">
-          <select
-            aria-label="Environment"
-            value={environment}
-            onChange={(event) =>
-              setParams({
-                env:
-                  event.target.value === "All environments"
-                    ? null
-                    : event.target.value,
-              })
-            }
-            className="h-9 appearance-none rounded-md border bg-background pr-9 pl-3 text-sm outline-none focus:ring-2 focus:ring-ring/50"
-          >
-            <option>Development</option>
-            <option>Staging</option>
-            <option>Production</option>
-            <option>All environments</option>
-          </select>
-          <ChevronDown className="pointer-events-none absolute top-1/2 right-3 size-3.5 -translate-y-1/2 text-muted-foreground" />
-        </div>
-        <div className="relative">
-          <select
-            aria-label="Time range"
-            value={timeRange}
-            onChange={(event) =>
-              setParams({
-                range:
-                  event.target.value === "24 hours" ? null : event.target.value,
-              })
-            }
-            className="h-9 appearance-none rounded-md border bg-background pr-9 pl-3 text-sm outline-none focus:ring-2 focus:ring-ring/50"
-          >
-            {timeRanges.map((range) => (
-              <option key={range}>{range}</option>
-            ))}
-          </select>
-          <ChevronDown className="pointer-events-none absolute top-1/2 right-3 size-3.5 -translate-y-1/2 text-muted-foreground" />
-        </div>
         <div className="relative min-w-[230px] flex-1">
-          <Search className="pointer-events-none absolute top-2.5 left-3 size-4 text-muted-foreground" />
+          <Search className="pointer-events-none absolute top-2 left-3 size-4 text-muted-foreground" />
           <Input
             value={search}
             onChange={(event) => setParams({ q: event.target.value || null })}
             placeholder="Search runs, sessions, workflows, errors…"
-            className="pl-9"
+            className="h-8 pl-9"
           />
         </div>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
+        <Tooltip>
+          <TooltipTrigger asChild>
             <Button
               variant="outline"
-              size="default"
+              size="icon-sm"
+              aria-label="Filters"
+              aria-expanded={filtersOpen}
+              onClick={onToggleFilters}
               className={cn(
-                activeFilterCount > 0 && "border-foreground/30 bg-accent",
+                "relative",
+                (filtersOpen || activeFilterCount > 0) &&
+                  "border-foreground/30 bg-accent",
               )}
             >
-              <Filter /> Filters
+              <Filter />
               {activeFilterCount > 0 && (
-                <span className="rounded-full bg-foreground px-1.5 text-[10px] leading-4 text-background">
+                <span className="absolute -top-1.5 -right-1.5 rounded-full bg-foreground px-1.5 text-[10px] leading-4 text-background">
                   {activeFilterCount}
                 </span>
               )}
-              <ChevronDown className="size-3.5" />
             </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-64 p-2">
-            <DropdownMenuLabel>Run status</DropdownMenuLabel>
-            {statuses.map((status) => (
-              <DropdownMenuCheckboxItem
-                key={status}
-                checked={selectedStatuses.includes(status)}
-                onCheckedChange={() => toggleStatus(status)}
-              >
-                {statusMeta[status].label}
-              </DropdownMenuCheckboxItem>
-            ))}
-            <DropdownMenuSeparator />
-            <DropdownMenuLabel>Provider</DropdownMenuLabel>
-            {providers.map((item) => (
-              <DropdownMenuCheckboxItem
-                key={item}
-                checked={provider === item}
-                onCheckedChange={() =>
-                  setParams({ provider: provider === item ? null : item })
-                }
-              >
-                {item}
-              </DropdownMenuCheckboxItem>
-            ))}
-            <DropdownMenuSeparator />
-            <DropdownMenuCheckboxItem
-              checked={toolOnly}
-              onCheckedChange={() =>
-                setParams({ tool: toolOnly ? null : true })
-              }
-            >
-              Has tool call
-            </DropdownMenuCheckboxItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuLabel>Thresholds</DropdownMenuLabel>
-            <div
-              className="grid grid-cols-2 gap-2 px-2 py-1.5"
-              onPointerDown={(event) => event.stopPropagation()}
-            >
-              <label
-                htmlFor="minimum-cost"
-                className="text-xs text-muted-foreground"
-              >
-                Cost ≥
-                <Input
-                  id="minimum-cost"
-                  type="number"
-                  min="0"
-                  step="0.001"
-                  value={minCost || ""}
-                  onChange={(event) =>
-                    setParams({
-                      minCost: event.target.value
-                        ? Number(event.target.value)
-                        : null,
-                    })
-                  }
-                  placeholder="$0.00"
-                  className="mt-1 h-8 px-2 text-xs"
-                />
-              </label>
-              <label
-                htmlFor="minimum-duration"
-                className="text-xs text-muted-foreground"
-              >
-                Duration ≥
-                <Input
-                  id="minimum-duration"
-                  type="number"
-                  min="0"
-                  step="1"
-                  value={minDuration || ""}
-                  onChange={(event) =>
-                    setParams({
-                      minDuration: event.target.value
-                        ? Number(event.target.value)
-                        : null,
-                    })
-                  }
-                  placeholder="seconds"
-                  className="mt-1 h-8 px-2 text-xs"
-                />
-              </label>
-            </div>
-            <p className="px-2 py-1.5 text-xs text-muted-foreground">
-              Search also covers workflow, node, session, user, tenant, model,
-              and error text.
-            </p>
-          </DropdownMenuContent>
-        </DropdownMenu>
+          </TooltipTrigger>
+          <TooltipContent side="top" sideOffset={8}>
+            Filters
+          </TooltipContent>
+        </Tooltip>
         <DataTableColumnsMenu />
         {hasActiveFilters && (
           <Button variant="ghost" size="sm" onClick={clearFilters}>
