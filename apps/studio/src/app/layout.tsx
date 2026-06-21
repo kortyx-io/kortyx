@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import Script from "next/script";
 import { NuqsAdapter } from "nuqs/adapters/next/app";
 import { SidebarLayout } from "@/components/layouts/sidebar-layout";
 import "./globals.css";
@@ -41,11 +42,9 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        <script
-          // biome-ignore lint/security/noDangerouslySetInnerHtml: Theme script must run before paint to prevent flash
-          dangerouslySetInnerHTML={{ __html: themeScript }}
-          suppressHydrationWarning
-        />
+        <Script id="theme-initialization" strategy="beforeInteractive">
+          {themeScript}
+        </Script>
         <NuqsAdapter>
           <SidebarLayout>{children}</SidebarLayout>
         </NuqsAdapter>
