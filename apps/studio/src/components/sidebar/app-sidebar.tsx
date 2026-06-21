@@ -2,7 +2,6 @@
 
 import {
   Activity,
-  Bot,
   ChevronsUpDown,
   CirclePause,
   DollarSign,
@@ -64,8 +63,14 @@ export function AppSidebar() {
           <SidebarMenuItem>
             <SidebarMenuButton size="lg" asChild>
               <Link href="/">
-                <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
-                  <Bot className="size-4" />
+                <div className="flex aspect-square size-8 items-center justify-center overflow-hidden rounded-lg">
+                  <img
+                    src="/favicon.ico"
+                    alt=""
+                    className="size-8"
+                    width={32}
+                    height={32}
+                  />
                 </div>
                 <div className="grid flex-1 gap-0.5 text-left leading-none">
                   <span className="font-semibold">Kortyx</span>
