@@ -1,15 +1,11 @@
-import { Check, ChevronDown, X } from "lucide-react";
+import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import type { useRunsQuery } from "@/features/runs/hooks/use-runs-query";
-import {
-  providers,
-  statuses,
-  statusMeta,
-  timeRanges,
-} from "@/features/runs/lib/constants";
-import { cn } from "@/lib/utils";
+import { providers, statuses, statusMeta } from "@/features/runs/lib/constants";
+import { FilterCheckbox } from "@/features/telemetry/components/list-filter-panel";
+import { TimeRangeFilter } from "@/features/telemetry/components/time-range-filter";
 
 type RunsFilterPanelProps = {
   query: ReturnType<typeof useRunsQuery>;
@@ -74,115 +70,78 @@ export function RunsFilterPanel({
       <ScrollArea type="hover" className="min-h-0 flex-1">
         <div className="p-4">
           <FilterSection title="Time range">
-            <div className="relative px-2">
-              <select
-                aria-label="Time range"
-                value={timeRange}
-                onChange={(event) =>
-                  setParams({
-                    range:
-                      event.target.value === "24 hours"
-                        ? null
-                        : event.target.value,
-                  })
-                }
-                className="h-9 w-full appearance-none rounded-md border bg-background pr-9 pl-3 text-sm outline-none focus:ring-2 focus:ring-ring/50"
-              >
-                {timeRanges.map((range) => (
-                  <option key={range}>{range}</option>
-                ))}
-              </select>
-              <ChevronDown className="pointer-events-none absolute top-1/2 right-5 size-3.5 -translate-y-1/2 text-muted-foreground" />
-            </div>
-            {timeRange === "Custom range" && (
-              <div className="mt-3 space-y-3 px-2">
-                <label
-                  htmlFor="started-after"
-                  className="block text-xs font-medium text-muted-foreground"
-                >
-                  Started after
-                  <Input
-                    aria-label="Started after"
-                    id="started-after"
-                    type="datetime-local"
-                    value={startedAfter}
-                    onChange={(event) =>
-                      setParams({ startedAfter: event.target.value || null })
-                    }
-                    className="mt-1.5"
-                  />
-                </label>
-                <label
-                  htmlFor="started-before"
-                  className="block text-xs font-medium text-muted-foreground"
-                >
-                  Started before
-                  <Input
-                    aria-label="Started before"
-                    id="started-before"
-                    type="datetime-local"
-                    value={startedBefore}
-                    onChange={(event) =>
-                      setParams({ startedBefore: event.target.value || null })
-                    }
-                    className="mt-1.5"
-                  />
-                </label>
-              </div>
-            )}
+            <TimeRangeFilter
+              idPrefix="runs"
+              range={timeRange}
+              startedAfter={startedAfter}
+              startedBefore={startedBefore}
+              onRangeChange={(range) =>
+                setParams({ range: range === "24 hours" ? null : range })
+              }
+              onStartedAfterChange={(startedAfter) =>
+                setParams({ startedAfter: startedAfter || null })
+              }
+              onStartedBeforeChange={(startedBefore) =>
+                setParams({ startedBefore: startedBefore || null })
+              }
+            />
           </FilterSection>
 
           <FilterSection title="Run status">
-            {statuses.map((status) => {
-              const checked = selectedStatuses.includes(status);
-              return (
-                <label
-                  key={status}
-                  className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-muted"
-                >
-                  <input
-                    type="checkbox"
-                    checked={checked}
-                    onChange={() => toggleStatus(status)}
-                    className="peer sr-only"
-                  />
-                  <span
-                    className={cn(
-                      "flex size-4 items-center justify-center rounded-sm border border-input bg-background text-background",
-                      checked && "border-primary bg-primary",
-                    )}
-                  >
-                    {checked && <Check className="size-3" />}
-                  </span>
-                  {statusMeta[status].label}
-                </label>
-              );
-            })}
+            <Button
+              type="button"
+              variant="ghost"
+              size="xs"
+              className="mb-1 ml-2"
+              onClick={() =>
+                setParams({
+                  status:
+                    selectedStatuses.length === statuses.length
+                      ? []
+                      : [...statuses],
+                })
+              }
+            >
+              {selectedStatuses.length === statuses.length
+                ? "Deselect all"
+                : "Select all"}
+            </Button>
+            {statuses.map((status) => (
+              <FilterCheckbox
+                key={status}
+                label={statusMeta[status].label}
+                checked={selectedStatuses.includes(status)}
+                onChange={() => toggleStatus(status)}
+              />
+            ))}
           </FilterSection>
 
           <FilterSection title="Provider">
-            <label className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-muted">
-              <input
-                type="checkbox"
-                checked={selectedProviders.length === 0}
-                onChange={() => setParams({ provider: null })}
-                className="accent-primary"
-              />
-              All providers
-            </label>
+            <Button
+              type="button"
+              variant="ghost"
+              size="xs"
+              className="mb-1 ml-2"
+              onClick={() =>
+                setParams({
+                  provider:
+                    selectedProviders.length === providers.length
+                      ? null
+                      : [...providers],
+                })
+              }
+            >
+              {selectedProviders.length === providers.length
+                ? "Deselect all"
+                : "Select all"}
+            </Button>
             {providers.map((item) => (
-              <label
+              <FilterCheckbox
                 key={item}
-                className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-muted"
-              >
-                <input
-                  type="checkbox"
-                  checked={selectedProviders.includes(item)}
-                  onChange={() => toggleProvider(item)}
-                  className="accent-primary"
-                />
-                {item}
-              </label>
+                label={item}
+                checked={selectedProviders.includes(item)}
+                onChange={() => toggleProvider(item)}
+              />
             ))}
           </FilterSection>
 
@@ -225,15 +184,11 @@ export function RunsFilterPanel({
           </FilterSection>
 
           <FilterSection title="Options">
-            <label className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-muted">
-              <input
-                type="checkbox"
-                checked={toolOnly}
-                onChange={() => setParams({ tool: toolOnly ? null : true })}
-                className="size-4 accent-primary"
-              />
-              Has tool call
-            </label>
+            <FilterCheckbox
+              label="Has tool call"
+              checked={toolOnly}
+              onChange={() => setParams({ tool: toolOnly ? null : true })}
+            />
           </FilterSection>
 
           <FilterSection title="Numeric columns">
