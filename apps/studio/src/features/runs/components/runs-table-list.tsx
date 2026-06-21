@@ -6,6 +6,7 @@ import { DataTable, DataTableProvider } from "@/components/data-table";
 import { createRunColumns } from "@/features/runs/components/run-table-columns";
 import { RunsEmptyState } from "@/features/runs/components/runs-empty-state";
 import { RunsFilterPanel } from "@/features/runs/components/runs-filter-panel";
+import { RunsHeader } from "@/features/runs/components/runs-header";
 import { RunsToolbar } from "@/features/runs/components/runs-toolbar";
 import { useRunsQuery } from "@/features/runs/hooks/use-runs-query";
 import { useRunsTablePreferences } from "@/features/runs/hooks/use-runs-table-preferences";
@@ -17,16 +18,16 @@ import {
 import type { Run } from "@/features/runs/types";
 import { cn } from "@/lib/utils";
 
-type RunsPageClientProps = {
+type RunsTableListProps = {
   runs: Run[];
   /** DB/server-provided table preferences for the current user. */
   preferences?: Partial<RunsTablePreferences>;
 };
 
-export default function RunsPageClient({
+export default function RunsTableList({
   runs: initialRuns,
   preferences,
-}: RunsPageClientProps) {
+}: RunsTableListProps) {
   const router = useRouter();
 
   // Single owner of all persistable table state (layout + sort + dir +
@@ -87,6 +88,15 @@ export default function RunsPageClient({
       initialLayout={prefs.value.layout}
       onLayoutChange={(layout) => prefs.save({ layout })}
     >
+      <RunsHeader
+        live={live}
+        refreshing={refreshing}
+        onToggleLive={() => runsQuery.setLive(!live)}
+        onRefresh={() => {
+          setRefreshing(true);
+          window.setTimeout(() => setRefreshing(false), 650);
+        }}
+      />
       <div className="flex h-full min-h-0 gap-2">
         <DataTable
           className="min-w-0 flex-1"
@@ -102,20 +112,15 @@ export default function RunsPageClient({
           onSetSortDirection={runsQuery.setSortDirection}
           onClearSort={runsQuery.clearSort}
           header={
-            <RunsToolbar
-              query={runsQuery}
-              live={live}
-              refreshing={refreshing}
-              filtersOpen={filtersOpen}
-              views={prefs.value.views}
-              onToggleLive={() => runsQuery.setLive(!live)}
-              onToggleFilters={() => setFiltersOpen((open) => !open)}
-              onRefresh={() => {
-                setRefreshing(true);
-                window.setTimeout(() => setRefreshing(false), 650);
-              }}
-              onViewsChange={(views) => prefs.save({ views })}
-            />
+            <div className="z-20 shrink-0 border-b bg-background/95 px-5 pt-4 backdrop-blur supports-backdrop-filter:bg-background/75">
+              <RunsToolbar
+                query={runsQuery}
+                filtersOpen={filtersOpen}
+                views={prefs.value.views}
+                onToggleFilters={() => setFiltersOpen((open) => !open)}
+                onViewsChange={(views) => prefs.save({ views })}
+              />
+            </div>
           }
           emptyState={<RunsEmptyState onClear={runsQuery.clearFilters} />}
           scrollRestoreKey="runs-table-scroll-position"

@@ -24,14 +24,24 @@ export function RunsFilterPanel({
 }: RunsFilterPanelProps) {
   const {
     selectedStatuses,
-    provider,
+    selectedProviders,
     toolOnly,
     minCost,
     minDuration,
+    minTokens,
+    model,
+    path,
+    result,
+    session,
+    startedAfter,
+    startedBefore,
     timeRange,
+    workflow,
     activeFilterCount,
+    hasActiveFilters,
     setParams,
     toggleStatus,
+    toggleProvider,
     clearFilters,
   } = query;
 
@@ -84,6 +94,42 @@ export function RunsFilterPanel({
               </select>
               <ChevronDown className="pointer-events-none absolute top-1/2 right-5 size-3.5 -translate-y-1/2 text-muted-foreground" />
             </div>
+            {timeRange === "Custom range" && (
+              <div className="mt-3 space-y-3 px-2">
+                <label
+                  htmlFor="started-after"
+                  className="block text-xs font-medium text-muted-foreground"
+                >
+                  Started after
+                  <Input
+                    aria-label="Started after"
+                    id="started-after"
+                    type="datetime-local"
+                    value={startedAfter}
+                    onChange={(event) =>
+                      setParams({ startedAfter: event.target.value || null })
+                    }
+                    className="mt-1.5"
+                  />
+                </label>
+                <label
+                  htmlFor="started-before"
+                  className="block text-xs font-medium text-muted-foreground"
+                >
+                  Started before
+                  <Input
+                    aria-label="Started before"
+                    id="started-before"
+                    type="datetime-local"
+                    value={startedBefore}
+                    onChange={(event) =>
+                      setParams({ startedBefore: event.target.value || null })
+                    }
+                    className="mt-1.5"
+                  />
+                </label>
+              </div>
+            )}
           </FilterSection>
 
           <FilterSection title="Run status">
@@ -117,9 +163,8 @@ export function RunsFilterPanel({
           <FilterSection title="Provider">
             <label className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-muted">
               <input
-                type="radio"
-                name="provider"
-                checked={!provider}
+                type="checkbox"
+                checked={selectedProviders.length === 0}
                 onChange={() => setParams({ provider: null })}
                 className="accent-primary"
               />
@@ -131,15 +176,52 @@ export function RunsFilterPanel({
                 className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-muted"
               >
                 <input
-                  type="radio"
-                  name="provider"
-                  checked={provider === item}
-                  onChange={() => setParams({ provider: item })}
+                  type="checkbox"
+                  checked={selectedProviders.includes(item)}
+                  onChange={() => toggleProvider(item)}
                   className="accent-primary"
                 />
                 {item}
               </label>
             ))}
+          </FilterSection>
+
+          <FilterSection title="Column values">
+            <TextFilter
+              id="workflow-filter"
+              label="Workflow"
+              value={workflow}
+              onChange={(value) => setParams({ workflow: value || null })}
+              placeholder="Contains…"
+            />
+            <TextFilter
+              id="path-filter"
+              label="Path"
+              value={path}
+              onChange={(value) => setParams({ path: value || null })}
+              placeholder="Contains node…"
+            />
+            <TextFilter
+              id="session-filter"
+              label="Session"
+              value={session}
+              onChange={(value) => setParams({ session: value || null })}
+              placeholder="Contains ID…"
+            />
+            <TextFilter
+              id="model-filter"
+              label="Model"
+              value={model}
+              onChange={(value) => setParams({ model: value || null })}
+              placeholder="Contains model…"
+            />
+            <TextFilter
+              id="result-filter"
+              label="Result"
+              value={result}
+              onChange={(value) => setParams({ result: value || null })}
+              placeholder="Contains result…"
+            />
           </FilterSection>
 
           <FilterSection title="Options">
@@ -154,33 +236,10 @@ export function RunsFilterPanel({
             </label>
           </FilterSection>
 
-          <FilterSection title="Thresholds">
-            <label
-              htmlFor="minimum-cost"
-              className="block text-xs font-medium text-muted-foreground"
-            >
-              Minimum cost
-              <Input
-                aria-label="Minimum cost"
-                id="minimum-cost"
-                type="number"
-                min="0"
-                step="0.001"
-                value={minCost || ""}
-                onChange={(event) =>
-                  setParams({
-                    minCost: event.target.value
-                      ? Number(event.target.value)
-                      : null,
-                  })
-                }
-                placeholder="$0.00"
-                className="mt-1.5"
-              />
-            </label>
+          <FilterSection title="Numeric columns">
             <label
               htmlFor="minimum-duration"
-              className="mt-3 block text-xs font-medium text-muted-foreground"
+              className="block text-xs font-medium text-muted-foreground"
             >
               Minimum duration
               <Input
@@ -201,6 +260,52 @@ export function RunsFilterPanel({
                 className="mt-1.5"
               />
             </label>
+            <label
+              htmlFor="minimum-tokens"
+              className="mt-3 block text-xs font-medium text-muted-foreground"
+            >
+              Minimum tokens
+              <Input
+                aria-label="Minimum tokens"
+                id="minimum-tokens"
+                type="number"
+                min="0"
+                step="1"
+                value={minTokens || ""}
+                onChange={(event) =>
+                  setParams({
+                    minTokens: event.target.value
+                      ? Number(event.target.value)
+                      : null,
+                  })
+                }
+                placeholder="tokens"
+                className="mt-1.5"
+              />
+            </label>
+            <label
+              htmlFor="minimum-cost"
+              className="mt-3 block text-xs font-medium text-muted-foreground"
+            >
+              Minimum cost
+              <Input
+                aria-label="Minimum cost"
+                id="minimum-cost"
+                type="number"
+                min="0"
+                step="0.001"
+                value={minCost || ""}
+                onChange={(event) =>
+                  setParams({
+                    minCost: event.target.value
+                      ? Number(event.target.value)
+                      : null,
+                  })
+                }
+                placeholder="$0.00"
+                className="mt-1.5"
+              />
+            </label>
           </FilterSection>
         </div>
       </ScrollArea>
@@ -210,13 +315,43 @@ export function RunsFilterPanel({
           variant="ghost"
           size="sm"
           className="w-full justify-start"
-          disabled={activeFilterCount === 0}
+          disabled={!hasActiveFilters}
           onClick={clearFilters}
         >
           <X /> Clear filters
         </Button>
       </div>
     </aside>
+  );
+}
+
+function TextFilter({
+  id,
+  label,
+  value,
+  onChange,
+  placeholder,
+}: {
+  id: string;
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  placeholder: string;
+}) {
+  return (
+    <label
+      htmlFor={id}
+      className="mt-3 block first:mt-0 text-xs font-medium text-muted-foreground"
+    >
+      {label}
+      <Input
+        id={id}
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        placeholder={placeholder}
+        className="mt-1.5"
+      />
+    </label>
   );
 }
 

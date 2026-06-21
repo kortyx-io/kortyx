@@ -1,4 +1,4 @@
-import { Filter, RefreshCw, Search, X } from "lucide-react";
+import { Filter, RefreshCw, Search } from "lucide-react";
 import { DataTableColumnsMenu } from "@/components/data-table";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -7,7 +7,9 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { RunsViewsMenu } from "@/features/runs/components/runs-views-menu";
 import type { useRunsQuery } from "@/features/runs/hooks/use-runs-query";
+import type { RunsSavedView } from "@/features/runs/lib/saved-views";
 import { cn } from "@/lib/utils";
 
 type RunsToolbarProps = {
@@ -15,9 +17,11 @@ type RunsToolbarProps = {
   live: boolean;
   refreshing: boolean;
   filtersOpen: boolean;
+  views: RunsSavedView[];
   onToggleLive: () => void;
   onToggleFilters: () => void;
   onRefresh: () => void;
+  onViewsChange: (views: RunsSavedView[]) => void;
 };
 
 export function RunsToolbar({
@@ -25,17 +29,13 @@ export function RunsToolbar({
   live,
   refreshing,
   filtersOpen,
+  views,
   onToggleLive,
   onToggleFilters,
   onRefresh,
+  onViewsChange,
 }: RunsToolbarProps) {
-  const {
-    query: search,
-    activeFilterCount,
-    hasActiveFilters,
-    setParams,
-    clearFilters,
-  } = query;
+  const { query: search, activeFilterCount, setParams } = query;
 
   return (
     <div className="z-20 shrink-0 border-b bg-background/95 px-5 pt-4 backdrop-blur supports-backdrop-filter:bg-background/75">
@@ -112,11 +112,11 @@ export function RunsToolbar({
           </TooltipContent>
         </Tooltip>
         <DataTableColumnsMenu />
-        {hasActiveFilters && (
-          <Button variant="ghost" size="sm" onClick={clearFilters}>
-            <X /> Clear filters
-          </Button>
-        )}
+        <RunsViewsMenu
+          query={query}
+          views={views}
+          onViewsChange={onViewsChange}
+        />
       </div>
     </div>
   );

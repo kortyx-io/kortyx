@@ -1,5 +1,9 @@
 import type { DataTableLayout } from "@/components/data-table";
 import { PAGE_SIZE, PAGE_SIZES } from "@/features/runs/lib/constants";
+import {
+  type RunsSavedView,
+  sanitizeRunsSavedViews,
+} from "@/features/runs/lib/saved-views";
 import type { SortKey } from "@/features/runs/types";
 
 export const RUNS_TABLE_PREFERENCES_COOKIE = "kortyx_runs_table_prefs";
@@ -17,20 +21,22 @@ const SORT_KEYS: SortKey[] = [
  * The full set of persistable runs-table state, bundled into a single object so
  * it can be written to one cookie (server-readable, so the first paint already
  * has the right layout) and later mirrored to the user's profile in the DB.
- * Transient filter state (search/status/env) stays in the URL and is excluded —
- * it is shareable, not a per-user default.
+ * Default filter state stays in the URL and is excluded; saved views include
+ * their own filters because they are named, reusable user preferences.
  */
 export type RunsTablePreferences = {
   layout?: Partial<DataTableLayout>;
   sort: SortKey;
   dir: "asc" | "desc";
   pageSize: number;
+  views: RunsSavedView[];
 };
 
 export const DEFAULT_RUNS_TABLE_PREFERENCES: RunsTablePreferences = {
   sort: "started",
   dir: "desc",
   pageSize: PAGE_SIZE,
+  views: [],
 };
 
 /**
@@ -71,6 +77,9 @@ export function parseRunsTablePreferences(
   }
   if (value.layout && typeof value.layout === "object") {
     result.layout = value.layout as Partial<DataTableLayout>;
+  }
+  if ("views" in value) {
+    result.views = sanitizeRunsSavedViews(value.views);
   }
 
   return result;
