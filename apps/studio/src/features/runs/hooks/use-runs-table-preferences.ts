@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   DEFAULT_RUNS_TABLE_PREFERENCES,
   RUNS_TABLE_PREFERENCES_COOKIE_MAX_AGE,
@@ -25,7 +25,7 @@ type UseRunsTablePreferencesOptions = {
 
 /**
  * Single owner of all persistable runs-table state (layout + sort + dir +
- * pageSize) at the page level.
+ * pageSize + saved views) at the page level.
  *
  * - `value` merges server `initial` over the defaults — pass it to
  *   `useRunsQuery` (sort/dir/pageSize) and `DataTableProvider#initialLayout`.
@@ -40,10 +40,10 @@ export function useRunsTablePreferences({
   debounceMs = 600,
   maxAge = RUNS_TABLE_PREFERENCES_COOKIE_MAX_AGE,
 }: UseRunsTablePreferencesOptions) {
-  const value = useMemo<RunsTablePreferences>(
-    () => ({ ...DEFAULT_RUNS_TABLE_PREFERENCES, ...initial }),
-    [initial],
-  );
+  const [value, setValue] = useState<RunsTablePreferences>(() => ({
+    ...DEFAULT_RUNS_TABLE_PREFERENCES,
+    ...initial,
+  }));
 
   const currentRef = useRef(value);
   const onPersistRef = useRef(onPersist);
@@ -62,6 +62,7 @@ export function useRunsTablePreferences({
       const next = { ...currentRef.current, ...patch };
       if (JSON.stringify(next) === JSON.stringify(currentRef.current)) return;
       currentRef.current = next;
+      setValue(next);
 
       // biome-ignore lint/suspicious/noDocumentCookie: small client-side preference cookie, read server-side to avoid a layout flash
       document.cookie = `${cookieName}=${serializeRunsTablePreferences(next)}; path=/; max-age=${maxAge}; samesite=lax`;

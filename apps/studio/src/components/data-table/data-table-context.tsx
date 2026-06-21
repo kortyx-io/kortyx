@@ -80,6 +80,8 @@ export type DataTableContextValue<T = unknown, S extends string = string> = {
   toggleColumnVisibility: (key: string) => void;
   showAllColumns: () => void;
   resetLayout: () => void;
+  /** Replace every persisted layout field at once (for example, when applying a saved view). */
+  applyLayout: (layout: Partial<DataTableLayout>) => void;
   resetColumnWidth: (key: string) => void;
   pinColumn: (key: string, side: ColumnPin) => void;
   unpinColumn: (key: string) => void;
@@ -285,6 +287,13 @@ export function DataTableProvider<T, S extends string>({
     setPinned({});
   }
 
+  function applyLayout(layout: Partial<DataTableLayout>) {
+    setWidths({ ...defaultWidths, ...layout.widths });
+    setOrder(validateOrder(layout.order, defaultOrder) ?? defaultOrder);
+    setHidden(validateHidden(layout.hidden, defaultOrder) ?? []);
+    setPinned(validatePinned(layout.pinned, defaultOrder) ?? {});
+  }
+
   function resetColumnWidth(key: string) {
     setWidths((current) => ({ ...current, [key]: defaultWidths[key] }));
   }
@@ -449,6 +458,7 @@ export function DataTableProvider<T, S extends string>({
     toggleColumnVisibility,
     showAllColumns,
     resetLayout,
+    applyLayout,
     resetColumnWidth,
     pinColumn,
     unpinColumn,
