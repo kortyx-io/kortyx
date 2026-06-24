@@ -11,7 +11,7 @@ import type {
   Interrupt,
   InterruptSortKey,
   InterruptStatus,
-} from "@/features/interrupts/types";
+} from "@/features/interrupts/schema";
 import {
   CompactStatus,
   type CompactStatusMeta,

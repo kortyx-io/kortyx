@@ -1,6 +1,6 @@
 {
   "name": "server-first-data-architecture",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "author": "Mustafa",
   "license": "MIT",
   "description": "Server-first data flow for Next.js App Router apps in front of an HTTP API: fetch in the Server Component and pass props, a Result-style data-access layer that never throws, URL-driven filter state via nuqs, authorization enforced at the API (forbidden() for 403), single-component pages with loading.tsx, and the perceived-performance + resilience patterns around them.",

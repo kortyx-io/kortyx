@@ -1,6 +1,6 @@
-import type { Run } from "@/features/runs/types";
+import { type Run, RunSchema } from "@/features/runs/schema";
 
-export const runFixtures: Run[] = [
+export const runFixtures: Run[] = RunSchema.array().parse([
   {
     id: "run_01HZZ4V8QN6Z5SMK6B5H6JZJ8D",
     status: "running",
@@ -410,7 +410,7 @@ export const runFixtures: Run[] = [
     tenant: "northstar",
     hasTool: true,
   },
-];
+]);
 
 const mockRunStore: Run[] = [
   ...runFixtures,

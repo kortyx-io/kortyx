@@ -15,7 +15,7 @@ import {
   DEFAULT_SESSIONS_TABLE_PREFERENCES,
   SESSIONS_TABLE_PREFERENCES_COOKIE,
 } from "@/features/sessions/lib/table-preferences";
-import type { Session, SessionSortKey } from "@/features/sessions/types";
+import type { Session, SessionSortKey } from "@/features/sessions/schema";
 import { ListToolbar } from "@/features/telemetry/components/list-toolbar";
 import { ListViewsMenu } from "@/features/telemetry/components/list-views-menu";
 import { useListTablePreferences } from "@/features/telemetry/hooks/use-list-table-preferences";

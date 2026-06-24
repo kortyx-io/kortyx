@@ -4,7 +4,7 @@ import {
   type RunsSavedView,
   sanitizeRunsSavedViews,
 } from "@/features/runs/lib/saved-views";
-import type { SortKey } from "@/features/runs/types";
+import type { SortKey } from "@/features/runs/schema";
 
 export const RUNS_TABLE_PREFERENCES_COOKIE = "kortyx_runs_table_prefs";
 export const RUNS_TABLE_PREFERENCES_COOKIE_MAX_AGE = 60 * 60 * 24 * 365;

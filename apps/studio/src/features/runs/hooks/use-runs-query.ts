@@ -14,7 +14,7 @@ import {
   providers,
   statuses,
 } from "@/features/runs/lib/constants";
-import type { Run, RunStatus, SortKey } from "@/features/runs/types";
+import type { Run, RunStatus, SortKey } from "@/features/runs/schema";
 
 const sortKeys: SortKey[] = ["started", "duration", "tokens", "cost", "status"];
 

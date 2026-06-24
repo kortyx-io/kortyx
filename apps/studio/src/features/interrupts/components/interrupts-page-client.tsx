@@ -13,7 +13,7 @@ import {
   DEFAULT_INTERRUPTS_TABLE_PREFERENCES,
   INTERRUPTS_TABLE_PREFERENCES_COOKIE,
 } from "@/features/interrupts/lib/table-preferences";
-import type { Interrupt, InterruptSortKey } from "@/features/interrupts/types";
+import type { Interrupt, InterruptSortKey } from "@/features/interrupts/schema";
 import { PAGE_SIZES } from "@/features/runs/lib/constants";
 import { ListToolbar } from "@/features/telemetry/components/list-toolbar";
 import { ListViewsMenu } from "@/features/telemetry/components/list-views-menu";

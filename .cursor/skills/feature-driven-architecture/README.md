@@ -47,8 +47,7 @@ public-API style and on how many layers to formalize.
 
 ## Note for this repo
 
-This codebase uses layered/DDD modules (`lib/hiring/{domain,application,infrastructure}`)
-and Atomic Design components, with RSC + `use cache` rather than TanStack Query —
-not the `src/features/` layout described here. Treat the skill as a general guide
-and reconcile specifics with `AGENTS.md`. See `rules/boundary-public-api.md` for
-the barrel-file vs. bundle-size trade-off.
+Studio uses feature folders. Treat the listed folders as optional conventions,
+not a mandatory DDD-style layer stack: use `schema.ts`/`schema/` for Zod as the
+single source of truth for validation and inferred types,
+`api/` only for external I/O, and `lib/` for pure feature-local helpers.

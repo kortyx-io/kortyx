@@ -19,7 +19,7 @@ This composes with `feature-driven-architecture` — that skill says *where code
 lives*, this one says *how data moves and fails*.
 
 The litmus test: **a data-backed route is an `async` page that calls a
-`Result`-returning repo, branches on the result, and renders presentational
+`Result`-returning data-access function, branches on the result, and renders presentational
 children** — no `useEffect` fetching, no read-path server actions, no
 `try/catch` in the page, and no permission check duplicated from the API.
 
@@ -31,7 +31,7 @@ children** — no `useEffect` fetching, no read-path server actions, no
 ## When to Apply
 
 - Deciding how a page fetches data, or "server action vs hook vs RSC"
-- Designing repository/data-access functions and how they report errors
+- Designing data-access functions and how they report errors
 - Choosing where filter / sort / pagination / month state lives
 - Wiring auth: "should I check the permission here?"
 - Structuring loading, empty, error, and 403 states for a route
@@ -59,7 +59,7 @@ children** — no `useEffect` fetching, no read-path server actions, no
 
 ### 2. Data Access Layer (HIGH)
 
-- `dal-result-not-throw` — Repos return `Result<T> = { data, error }`; never throw to the page.
+- `dal-result-not-throw` — Data-access functions return `Result<T> = { data, error }`; never throw to the page.
 - `dal-typed-status-error` — A typed API error carries the HTTP status; `toResult` maps it (else 500).
 
 ### 3. Authorization (HIGH)
@@ -106,8 +106,6 @@ host repo's `AGENTS.md` before applying.
 
 ## Project note
 
-This repo (`customer-success`) **follows** this skill — its `AGENTS.md`
-documents the concrete instance (routes under `app/dashboard/`, the hiring-api
-as the auth source of truth, `lib/hiring/infrastructure/repositories/*`
-returning `Result`). The rules here are written portably (generic "backend
-API" / "resource permission") so they transfer to other App Router apps.
+Use the feature architecture skill for placement. In a feature, a server-only
+`api/` function is the normal data-access boundary; call it a repository only
+when multiple interchangeable data sources make that abstraction useful.

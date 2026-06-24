@@ -5,7 +5,7 @@ import {
   CircleX,
   LoaderCircle,
 } from "lucide-react";
-import type { RunStatus } from "@/features/runs/types";
+import type { RunStatus } from "@/features/runs/schema";
 
 export const statusMeta: Record<
   RunStatus,

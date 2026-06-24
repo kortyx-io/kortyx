@@ -1,5 +1,5 @@
 import type { InterruptsViewQuery } from "@/features/interrupts/hooks/use-interrupts-query";
-import type { InterruptSortKey } from "@/features/interrupts/types";
+import type { InterruptSortKey } from "@/features/interrupts/schema";
 import { PAGE_SIZE, PAGE_SIZES } from "@/features/runs/lib/constants";
 import {
   type ListTablePreferences,

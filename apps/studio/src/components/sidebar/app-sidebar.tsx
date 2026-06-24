@@ -4,9 +4,7 @@ import {
   Activity,
   ChevronsUpDown,
   CirclePause,
-  DollarSign,
   MessageSquare,
-  RadioTower,
   Settings,
   Workflow,
 } from "lucide-react";
@@ -37,20 +35,6 @@ const navSections = [
       { title: "Interrupts", url: "/interrupts", icon: CirclePause },
     ],
   },
-  {
-    title: "Analyze",
-    items: [{ title: "Costs", url: "/costs", icon: DollarSign }],
-  },
-  {
-    title: "Develop",
-    items: [
-      {
-        title: "Stream Inspector",
-        url: "/stream-inspector",
-        icon: RadioTower,
-      },
-    ],
-  },
 ];
 
 export function AppSidebar() {
@@ -61,24 +45,24 @@ export function AppSidebar() {
       <SidebarHeader>
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton size="lg" asChild>
+            <SidebarMenuButton size="lg" asChild tooltip="Kortyx">
               <Link href="/">
-                <div className="flex aspect-square size-8 items-center justify-center overflow-hidden rounded-lg">
+                <div className="flex aspect-square size-8 shrink-0 items-center justify-center overflow-hidden rounded-lg">
                   <img
                     src="/favicon.ico"
-                    alt=""
+                    alt="Kortyx"
                     className="size-8"
                     width={32}
                     height={32}
                   />
                 </div>
-                <div className="grid flex-1 gap-0.5 text-left leading-none">
+                <div className="grid flex-1 gap-0.5 text-left leading-none group-data-[collapsible=icon]:hidden">
                   <span className="font-semibold">Kortyx</span>
                   <span className="truncate text-xs text-muted-foreground">
                     Project / Env
                   </span>
                 </div>
-                <ChevronsUpDown className="ml-auto size-4 text-muted-foreground" />
+                <ChevronsUpDown className="ml-auto size-4 shrink-0 text-muted-foreground group-data-[collapsible=icon]:hidden" />
               </Link>
             </SidebarMenuButton>
           </SidebarMenuItem>

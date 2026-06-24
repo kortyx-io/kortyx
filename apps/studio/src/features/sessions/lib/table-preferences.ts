@@ -1,6 +1,6 @@
 import { PAGE_SIZE, PAGE_SIZES } from "@/features/runs/lib/constants";
 import type { SessionsViewQuery } from "@/features/sessions/hooks/use-sessions-query";
-import type { SessionSortKey } from "@/features/sessions/types";
+import type { SessionSortKey } from "@/features/sessions/schema";
 import {
   type ListTablePreferences,
   parseListTablePreferences,

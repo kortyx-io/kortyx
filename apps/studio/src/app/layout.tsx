@@ -5,6 +5,15 @@ import { NuqsAdapter } from "nuqs/adapters/next/app";
 import { SidebarLayout } from "@/components/layouts/sidebar-layout";
 import "./globals.css";
 
+const themeInitializer = `(() => {
+  try {
+    const theme = localStorage.getItem("theme");
+    const dark = theme === "dark" || (theme !== "light" && window.matchMedia("(prefers-color-scheme: dark)").matches);
+    document.documentElement.classList.toggle("dark", dark);
+    document.documentElement.style.colorScheme = dark ? "dark" : "light";
+  } catch {}
+})();`;
+
 const geistSans = Geist({
   variable: "--font-geist-sans",
   subsets: ["latin"],
@@ -20,18 +29,6 @@ export const metadata: Metadata = {
   description: "AI agent orchestration studio",
 };
 
-const themeScript = `
-  (function(){
-    try {
-      var s = localStorage.getItem('theme');
-      var d = window.matchMedia('(prefers-color-scheme: dark)').matches;
-      var dark = s === 'dark' || ((s === null || s === 'system') && d);
-      if (dark) document.documentElement.classList.add('dark');
-      else document.documentElement.classList.remove('dark');
-    } catch (_) {}
-  })();
-`;
-
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -39,12 +36,14 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
+      <head>
+        <Script id="theme-initializer" strategy="beforeInteractive">
+          {themeInitializer}
+        </Script>
+      </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        <Script id="theme-initialization" strategy="beforeInteractive">
-          {themeScript}
-        </Script>
         <NuqsAdapter>
           <SidebarLayout>{children}</SidebarLayout>
         </NuqsAdapter>

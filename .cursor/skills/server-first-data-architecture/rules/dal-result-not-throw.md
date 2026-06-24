@@ -1,11 +1,11 @@
 ---
-title: Repositories Return a Result, Never Throw to the Page
+title: Data-Access Functions Return a Result, Never Throw to the Page
 impact: HIGH
 impactDescription: no unhandled crashes; uniform error/403 handling
 tags: dal, result, error-handling, typescript
 ---
 
-## Repositories Return a Result, Never Throw to the Page
+## Data-Access Functions Return a Result, Never Throw to the Page
 
 Data-access functions return a discriminated `Result<T> = { data, error }`
 instead of throwing. Errors become data the page branches on — no `try/catch`
