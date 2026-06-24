@@ -1,6 +1,6 @@
 {
   "name": "feature-driven-architecture",
-  "version": "1.0.0",
+  "version": "1.2.0",
   "author": "Mustafa",
   "license": "MIT",
   "description": "Feature-driven (feature-based) architecture for Next.js App Router and React projects: organize by business domain, keep routes thin, enforce feature boundaries and unidirectional dependencies, lean on server state, and abstract late.",

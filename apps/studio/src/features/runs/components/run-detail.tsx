@@ -11,7 +11,7 @@ import {
   ScrollText,
 } from "lucide-react";
 import Link from "next/link";
-import type { Run } from "@/features/runs/types";
+import type { Run } from "@/features/runs/schema";
 
 export function RunDetail({ run }: { run: Run }) {
   const status = statusMeta[run.status];

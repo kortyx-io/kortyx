@@ -11,7 +11,7 @@ import type {
   Interrupt,
   InterruptSortKey,
   InterruptStatus,
-} from "@/features/interrupts/types";
+} from "@/features/interrupts/schema";
 import { PAGE_SIZE, PAGE_SIZES } from "@/features/runs/lib/constants";
 
 const interruptStatuses = [

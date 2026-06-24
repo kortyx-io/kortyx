@@ -45,7 +45,8 @@ Reference these guidelines when:
 
 - `org-group-by-feature` — Group by business domain, not by file type
 - `org-thin-routes` — Keep `app/` for routing/layouts only; delegate to a feature
-- `org-feature-internals` — Each feature is a mini-app: `components/ hooks/ api/ types/`
+- `org-feature-internals` — Features use a small, purposeful internal structure; folders are optional
+- `schema-zod-single-source` — Zod schemas validate data and infer the matching TypeScript types
 - `org-design-system-only` — `components/` holds shared UI with zero domain knowledge
 
 ### 2. Feature Boundaries (HIGH)
@@ -55,6 +56,7 @@ Reference these guidelines when:
 - `boundary-public-api` — Expose a deliberate public surface per feature (mind the barrel trade-off)
 - `boundary-no-deep-imports` — Import a feature's public API, never its internals
 - `boundary-deletable` — A feature must be removable by deleting one folder
+- `boundary-mapping-at-boundary` — Map external data at the I/O boundary and UI shapes in feature-local `lib/`
 
 ### 3. State Management (MEDIUM)
 
@@ -83,12 +85,10 @@ methodologies this draws on, see the README and `metadata.json`.
 
 ## Project note
 
-This repository does **not** currently use this layout — it uses layered/DDD
-modules (`lib/hiring/{domain,application,infrastructure}`) plus Atomic Design
-components (`atoms/ molecules/ organisms/`), and React Server Components with
-`use cache` rather than TanStack Query. Treat this skill as a general guide for
-greenfield Next.js apps or for the principles (thin routes, clear boundaries,
-server-first state, late abstraction), and reconcile specifics with the
-conventions already in `AGENTS.md` before applying it here. See
-`boundary-public-api` for how feature barrel files interact with the
-`bundle-barrel-imports` performance rule.
+This repository uses feature folders in Studio. Apply the principles here as
+minimal conventions: use `schema.ts` (or `schema/`) when runtime schemas are
+needed; Zod schemas are the single source of truth for validation and inferred
+types; add `api/` only for external I/O; keep pure feature helpers in `lib/`;
+and do not introduce repositories, services, or a generic mapper layer without
+a concrete need. See `boundary-public-api` for how feature barrel files
+interact with the `bundle-barrel-imports` performance rule.

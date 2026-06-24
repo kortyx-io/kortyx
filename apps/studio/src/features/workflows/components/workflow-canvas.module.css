@@ -1,0 +1,10 @@
+.canvas:fullscreen {
+  width: 100vw;
+  height: 100vh;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .edgeMotion {
+    display: none;
+  }
+}

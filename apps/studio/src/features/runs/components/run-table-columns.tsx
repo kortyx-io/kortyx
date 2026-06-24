@@ -6,7 +6,7 @@ import {
   formatDuration,
   formatTokens,
 } from "@/features/runs/lib/format";
-import type { Run, RunStatus, SortKey } from "@/features/runs/types";
+import type { Run, RunStatus, SortKey } from "@/features/runs/schema";
 import { cn } from "@/lib/utils";
 
 type CreateRunColumnsOptions = {

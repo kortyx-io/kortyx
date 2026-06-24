@@ -29,6 +29,7 @@ function applyTheme(theme: Theme) {
   const root = document.documentElement;
   const dark = theme === "dark" || (theme === "system" && systemPrefersDark());
   root.classList.toggle("dark", dark);
+  root.style.colorScheme = dark ? "dark" : "light";
   if (theme === "system") localStorage.removeItem(STORAGE_KEY);
   else localStorage.setItem(STORAGE_KEY, theme);
 }
@@ -38,7 +39,9 @@ export function useTheme() {
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
-    setThemeState(getStoredTheme());
+    const storedTheme = getStoredTheme();
+    setThemeState(storedTheme);
+    applyTheme(storedTheme);
     setMounted(true);
   }, []);
 

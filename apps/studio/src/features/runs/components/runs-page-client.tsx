@@ -14,7 +14,7 @@ import {
   RUNS_TABLE_PREFERENCES_COOKIE,
   type RunsTablePreferences,
 } from "@/features/runs/lib/table-preferences";
-import type { Run } from "@/features/runs/types";
+import type { Run } from "@/features/runs/schema";
 import { cn } from "@/lib/utils";
 
 type RunsPageClientProps = {

@@ -13,7 +13,7 @@ import type {
   Session,
   SessionSortKey,
   SessionStatus,
-} from "@/features/sessions/types";
+} from "@/features/sessions/schema";
 
 const sessionStatuses = [
   "running",
