@@ -32,9 +32,16 @@ export type {
 } from "@kortyx/core";
 export { defineWorkflow, loadWorkflow, validateWorkflow } from "@kortyx/core";
 export type {
+  EnsureWorkflowTopologyRequest,
+  EnsureWorkflowTopologyResponse,
   KortyxTelemetryConfig,
   KortyxTelemetryContentCapture,
+  KortyxTelemetryCorrelation,
+  KortyxTelemetryEvent,
+  KortyxTelemetryEventType,
   KortyxTelemetryPrompt,
+  KortyxTelemetryReporter,
+  KortyxTelemetryService,
   KortyxTraceAdapter,
   KortyxTraceMetadata,
   UseInterruptArgs,

@@ -22,6 +22,7 @@ import {
 } from "@kortyx/runtime";
 import type { StreamChunk } from "@kortyx/stream";
 import { z } from "zod";
+import { emitTelemetryEvent } from "../telemetry/events";
 import type { ChatMessage } from "../types/chat-message";
 import { streamChat as runStreamChat } from "./process-chat";
 
@@ -261,6 +262,7 @@ export function createAgent(args: CreateAgentArgs): Agent {
   const rollbackTo = async (
     id: CheckpointId,
   ): Promise<RollbackSessionCheckpointResult> => {
+    const target = await resolvedFrameworkAdapter.sessionCheckpoints.get(id);
     const result =
       await resolvedFrameworkAdapter.sessionCheckpoints.rollbackTo(id);
     const activePendingRequests = await Promise.all(
@@ -282,6 +284,22 @@ export function createAgent(args: CreateAgentArgs): Agent {
         resolvedFrameworkAdapter.pendingRequests.save(request),
       ),
     ]);
+
+    if (target) {
+      emitTelemetryEvent({
+        config: { ...(telemetry ? { telemetry } : {}) },
+        type: "session.rolled_back",
+        correlation: {
+          runId: target.runId,
+          sessionId: target.sessionId,
+          workflowId: target.workflow,
+        },
+        payload: {
+          checkpointId: target.id,
+          invalidatedInterruptIds: result.invalidatedInterruptTokens,
+        },
+      });
+    }
 
     return { ...result, activePendingRequests };
   };
@@ -309,6 +327,20 @@ export function createAgent(args: CreateAgentArgs): Agent {
         resolvedFrameworkAdapter.pendingRequests.save(request),
       ),
     );
+    emitTelemetryEvent({
+      config: { ...(telemetry ? { telemetry } : {}) },
+      type: "session.forked",
+      correlation: {
+        runId: result.checkpoint.runId,
+        sessionId: result.checkpoint.sessionId,
+        workflowId: result.checkpoint.workflow,
+      },
+      payload: {
+        newSessionId: result.sessionId,
+        parentSessionId: result.parentSessionId,
+        forkedFromCheckpointId: result.forkedFrom,
+      },
+    });
     return {
       ...result,
       checkpoint: { ...result.checkpoint, activePendingRequests },

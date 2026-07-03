@@ -24,9 +24,16 @@ export {
   useWorkflowState,
 } from "./hooks";
 export type {
+  EnsureWorkflowTopologyRequest,
+  EnsureWorkflowTopologyResponse,
   KortyxTelemetryConfig,
   KortyxTelemetryContentCapture,
+  KortyxTelemetryCorrelation,
+  KortyxTelemetryEvent,
+  KortyxTelemetryEventType,
   KortyxTelemetryPrompt,
+  KortyxTelemetryReporter,
+  KortyxTelemetryService,
   KortyxTraceAdapter,
   KortyxTraceMetadata,
   ReasonTraceAdapter,

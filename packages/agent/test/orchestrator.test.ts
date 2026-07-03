@@ -77,7 +77,126 @@ type InterruptChunk = {
 };
 
 describe("orchestrateGraphStream", () => {
+  it("emits a completed interrupt outcome only after resumed execution terminates", async () => {
+    const events: unknown[] = [];
+    const graph = graphWithEvents(() => [{ type: "done", data: baseState }]);
+    await collect(
+      await orchestrateGraphStream({
+        runId: "run-resume",
+        graph,
+        state: baseState,
+        config: {
+          telemetryInterruptId: "interrupt-1",
+          telemetry: {
+            environment: "test",
+            service: { name: "app" },
+            correlation: { runId: "run-resume", workflowId: "first" },
+            reporter: {
+              ensureWorkflowTopology: async () => ({
+                workflowRevisionId: "rev",
+                created: false,
+              }),
+              emit: async (items: unknown[]) => {
+                events.push(...items);
+              },
+            },
+          },
+        },
+        selectWorkflow: vi.fn(),
+      }),
+    );
+    expect(events).toHaveLength(1);
+    expect(events[0]).toMatchObject({
+      type: "interrupt.resolved",
+      payload: { interruptId: "interrupt-1", resumeOutcome: "completed" },
+    });
+  });
+
+  it("emits a failed interrupt outcome when resumed execution fails", async () => {
+    const events: unknown[] = [];
+    const graph = graphWithEvents(() => {
+      throw new Error("resume failed");
+    });
+    const stream = await orchestrateGraphStream({
+      runId: "run-resume-fail",
+      graph,
+      state: baseState,
+      config: {
+        telemetryInterruptId: "interrupt-2",
+        telemetryInterruptNodeId: "ask",
+        telemetry: {
+          environment: "test",
+          service: { name: "app" },
+          correlation: { runId: "run-resume-fail", workflowId: "first" },
+          reporter: {
+            ensureWorkflowTopology: async () => ({
+              workflowRevisionId: "rev",
+              created: false,
+            }),
+            emit: async (items: unknown[]) => {
+              events.push(...items);
+            },
+          },
+        },
+      },
+      selectWorkflow: vi.fn(),
+    });
+    await collect(stream);
+    expect(events).toHaveLength(1);
+    expect(events[0]).toMatchObject({
+      type: "interrupt.resolved",
+      payload: {
+        interruptId: "interrupt-2",
+        resumeOutcome: "failed",
+        resumeError: "resume failed",
+      },
+    });
+  });
+
+  it("stringifies non-error interrupt resume failures safely", async () => {
+    const events: unknown[] = [];
+    const graph = graphWithEvents(() => {
+      throw "string resume failure";
+    });
+    const stream = await orchestrateGraphStream({
+      runId: "run-resume-string-fail",
+      graph,
+      state: baseState,
+      config: {
+        telemetryInterruptId: "interrupt-string",
+        telemetry: {
+          environment: "test",
+          service: { name: "app" },
+          correlation: { runId: "run-resume-string-fail", workflowId: "first" },
+          reporter: {
+            ensureWorkflowTopology: async () => ({
+              workflowRevisionId: "rev",
+              created: false,
+            }),
+            emit: async (items: unknown[]) => {
+              events.push(...items);
+            },
+          },
+        },
+      },
+      selectWorkflow: vi.fn(),
+    });
+    await collect(stream);
+
+    expect(events).toContainEqual(
+      expect.objectContaining({
+        type: "interrupt.resolved",
+        payload: expect.objectContaining({
+          interruptId: "interrupt-string",
+          resumeOutcome: "failed",
+          resumeError: "string resume failure",
+        }),
+      }),
+    );
+  });
+
   it("forwards runtime emits and hides internal interrupt metadata", async () => {
+    const telemetryEvents: unknown[] = [];
     const pendingRequests = {
       save: vi.fn(async () => undefined),
       update: vi.fn(async () => undefined),
@@ -191,7 +310,25 @@ describe("orchestrateGraphStream", () => {
       runId: "run-1",
       graph,
       state: baseState,
-      config: { features: { tracing: true }, session: { id: "session-1" } },
+      config: {
+        features: { tracing: true },
+        session: { id: "session-1" },
+        telemetry: {
+          environment: "test",
+          service: { name: "app" },
+          captureContent: true,
+          correlation: { runId: "run-1", workflowId: "first" },
+          reporter: {
+            ensureWorkflowTopology: async () => ({
+              workflowRevisionId: "revision-1",
+              created: false,
+            }),
+            emit: async (items: unknown[]) => {
+              telemetryEvents.push(...items);
+            },
+          },
+        },
+      },
       selectWorkflow: vi.fn(),
       frameworkAdapter: {
         pendingRequests: pendingRequests as unknown as PendingRequestStore,
@@ -313,6 +450,14 @@ describe("orchestrateGraphStream", () => {
       state: { ...baseState, awaitingHumanInput: true, data: { paused: true } },
       graphCheckpointId: "graph-cp-1",
     });
+    expect(telemetryEvents).toContainEqual(
+      expect.objectContaining({
+        type: "interrupt.created",
+        payload: expect.objectContaining({
+          question: "Pick",
+        }),
+      }),
+    );
   });
 
   it("handles text interrupts with default schema fields", async () => {
@@ -362,6 +507,7 @@ describe("orchestrateGraphStream", () => {
         id: "cp-1",
         sessionId: "session-1",
         runId: "run-1",
+        parentCheckpointId: "parent-cp",
         turnIndex: 2,
         createdAt: 1,
         nodes: ["writer"],
@@ -819,6 +965,7 @@ describe("orchestrateGraphStream", () => {
   });
 
   it("runs transition handoffs with merged state and raw input override", async () => {
+    const telemetryEvents: unknown[] = [];
     const nextGraph = graphWithEvents(() => [
       {
         type: "done",
@@ -834,6 +981,8 @@ describe("orchestrateGraphStream", () => {
     const graph = graphWithEvents((emit) => {
       emit("transition", {
         transitionTo: "second",
+        node: "handoff",
+        workflow: "first",
         payload: { rawInput: "new input", added: true },
       });
       return [
@@ -844,7 +993,13 @@ describe("orchestrateGraphStream", () => {
       ];
     });
     const selectWorkflow = vi.fn(
-      async (id: string) => ({ id }) as WorkflowDefinition,
+      async (id: string) =>
+        ({
+          id,
+          version: "1",
+          nodes: { start: { run: "start.node" } },
+          edges: [],
+        }) as WorkflowDefinition,
     );
 
     const stream = await orchestrateGraphStream({
@@ -852,11 +1007,35 @@ describe("orchestrateGraphStream", () => {
       runId: "run-3",
       graph,
       state: baseState,
-      config: { app: "config" },
+      config: {
+        app: "config",
+        telemetry: {
+          environment: "test",
+          service: { name: "app" },
+          correlation: {
+            runId: "run-3",
+            sessionId: "session-1",
+            workflowId: "first",
+            workflowRevisionId: "source-revision",
+            topologyHash: "source-hash",
+          },
+          reporter: {
+            ensureWorkflowTopology: async () => ({
+              workflowRevisionId: "target-revision",
+              created: false,
+            }),
+            getWorkflowRevisionId: () => "target-revision",
+            emit: async (items: unknown[]) => {
+              telemetryEvents.push(...items);
+            },
+          },
+        },
+      },
       selectWorkflow,
     });
 
     const chunks = await collect(stream);
+    await Promise.resolve();
 
     expect(chunks).toContainEqual({
       type: "transition",
@@ -865,7 +1044,7 @@ describe("orchestrateGraphStream", () => {
     });
     expect(selectWorkflow).toHaveBeenCalledWith("second");
     expect(createExecutionGraph).toHaveBeenCalledWith(
-      { id: "second" },
+      expect.objectContaining({ id: "second" }),
       expect.objectContaining({ app: "config", emit: expect.any(Function) }),
     );
     expect(nextGraph.streamEvents).toHaveBeenCalledWith(
@@ -878,6 +1057,25 @@ describe("orchestrateGraphStream", () => {
       expect.objectContaining({
         version: "v2",
         configurable: { thread_id: "run-3", checkpoint_ns: "" },
+      }),
+    );
+    expect(telemetryEvents).toContainEqual(
+      expect.objectContaining({
+        type: "workflow.transitioned",
+        correlation: expect.objectContaining({
+          runId: "run-3",
+          workflowId: "second",
+          workflowRevisionId: "target-revision",
+          topologyHash: expect.any(String),
+          nodeId: "handoff",
+        }),
+        payload: {
+          sourceNodeId: "handoff",
+          sourceWorkflowId: "first",
+          sourceWorkflowRevisionId: "source-revision",
+          targetWorkflowId: "second",
+          targetWorkflowRevisionId: "target-revision",
+        },
       }),
     );
     expect(chunks.at(-1)).toEqual({

@@ -104,6 +104,8 @@ export async function createExecutionGraph(
   const traceAdapter = (): ReasonTraceAdapter | undefined =>
     runtimeConfig.telemetry?.trace ?? runtimeConfig.reasonTrace;
 
+  const telemetryCorrelation = () => runtimeConfig.telemetry?.correlation;
+
   const configContext = (): Record<string, unknown> | undefined =>
     isRecord(runtimeConfig.context) ? runtimeConfig.context : undefined;
 
@@ -284,7 +286,22 @@ export async function createExecutionGraph(
           const spanArgs = {
             name: "kortyx.node",
             attributes: {
+              ...(typeof telemetryCorrelation()?.runId === "string"
+                ? { runId: telemetryCorrelation()?.runId }
+                : {}),
+              ...(typeof telemetryCorrelation()?.sessionId === "string"
+                ? { sessionId: telemetryCorrelation()?.sessionId }
+                : {}),
               workflowId: workflowName,
+              ...(typeof telemetryCorrelation()?.workflowRevisionId === "string"
+                ? {
+                    workflowRevisionId:
+                      telemetryCorrelation()?.workflowRevisionId,
+                  }
+                : {}),
+              ...(typeof telemetryCorrelation()?.topologyHash === "string"
+                ? { topologyHash: telemetryCorrelation()?.topologyHash }
+                : {}),
               nodeId,
               attempt,
               ...(typeof context?.userId === "string"
@@ -357,6 +374,8 @@ export async function createExecutionGraph(
 
       if (res.transitionTo) {
         emitRuntimeEvent("transition", {
+          node: nodeId,
+          workflow: workflowName,
           transitionTo: res.transitionTo,
           payload: res.data ?? {},
         });

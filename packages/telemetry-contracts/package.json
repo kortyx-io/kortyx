@@ -1,0 +1,45 @@
+{
+  "name": "@kortyx/telemetry-contracts",
+  "version": "0.1.0",
+  "private": false,
+  "description": "Shared wire contracts for Kortyx telemetry ingestion and Studio reads.",
+  "license": "Apache-2.0",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist/**",
+    "README.md",
+    "CHANGELOG.md"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsc --watch",
+    "lint": "biome check src test",
+    "test": "vitest run && pnpm -s type-check",
+    "type-check": "tsc --noEmit -p tsconfig.test.json"
+  },
+  "dependencies": {
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "tsup": "catalog:",
+    "turbo": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  },
+  "sideEffects": false,
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/kortyx-io/kortyx.git",
+    "directory": "packages/telemetry-contracts"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}
