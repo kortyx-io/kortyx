@@ -192,6 +192,29 @@ Install only the provider integrations your app needs.
 
 Kortyx Studio is on the way for cost tracking, logs, observability, prompt tracking, and operational review.
 
+## Telemetry
+
+Configure server-side Studio telemetry with `createKortyxTelemetryAdapter`:
+
+```ts
+import { createAgent } from "kortyx";
+import { createKortyxTelemetryAdapter } from "@kortyx/telemetry";
+
+const telemetry = createKortyxTelemetryAdapter({
+  endpoint: process.env.KORTYX_TELEMETRY_URL!,
+  apiKey: process.env.KORTYX_TELEMETRY_KEY!,
+  environment: "production",
+  service: { name: "support-api", deploymentRef: process.env.GIT_SHA },
+  maxQueueSize: 1_000,
+});
+
+const agent = createAgent({ workflows, telemetry });
+```
+
+Delivery is best-effort and non-blocking: events receive idempotent IDs, are batched in a bounded in-memory queue, and transient network/429/5xx failures retry with exponential backoff and jitter. Use `telemetry.flush()` during graceful shutdown; inspect `getDroppedEventCount()` and `getPermanentDeliveryFailureCount()` for delivery health. Prompt and output content is excluded by default. Enable only the sides you intend to persist with `captureContent: true` or `{ input: true, output: true }`.
+
+`interrupt.expired` is intentionally API-derived from the durable `expiresAt` sent in `interrupt.created`; the SDK does not run an unreliable local TTL timer. `run.cancelled` remains reserved until Kortyx exposes a real cancellation operation. A client disconnect is not a cancellation event.
+
 ## License
 
 Apache-2.0. See [LICENSE](https://github.com/kortyx-io/kortyx/blob/main/LICENSE).

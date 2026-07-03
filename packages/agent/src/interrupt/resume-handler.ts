@@ -8,6 +8,8 @@ import { createExecutionGraph } from "@kortyx/runtime";
 import type { StreamChunk } from "@kortyx/stream";
 import type { SelectWorkflowFn } from "../orchestrator";
 import { type OrchestrateArgs, orchestrateGraphStream } from "../orchestrator";
+import { emitTelemetryEvent } from "../telemetry/events";
+import { prepareWorkflowTelemetry } from "../telemetry/topology";
 import type { ChatMessage } from "../types/chat-message";
 
 export interface ResumeMeta {
@@ -90,6 +92,20 @@ export async function tryPrepareResumeStream({
 
   if (meta.cancel) {
     await store.delete(pending.token);
+    emitTelemetryEvent({
+      config,
+      type: "interrupt.cancelled",
+      correlation: {
+        runId: pending.runId,
+        sessionId,
+        workflowId: pending.workflow,
+        nodeId: pending.node,
+      },
+      payload: {
+        interruptId: pending.requestId,
+        reason: "cancelled_by_client",
+      },
+    });
     return null;
   }
 
@@ -138,6 +154,13 @@ export async function tryPrepareResumeStream({
   } satisfies GraphState;
 
   const wf = await selectWorkflow(resumedState.currentWorkflow as string);
+  const telemetryConfig = prepareWorkflowTelemetry({
+    config,
+    workflow: wf,
+    runId: pending.runId,
+    sessionId,
+  });
+  resumedState.config = telemetryConfig;
   const resumeUpdate: Record<string, unknown> = {};
   if (Object.keys(resumeDataPatch).length > 0) {
     resumeUpdate.data = {
@@ -161,7 +184,7 @@ export async function tryPrepareResumeStream({
       ? pending.graphCheckpointId
       : undefined;
   const resumedGraph = await createExecutionGraph(wf, {
-    ...config,
+    ...telemetryConfig,
     resume: true,
     ...(resumeValue !== undefined ? { resumeValue } : {}),
     ...(resumeCheckpointId ? { resumeCheckpointId } : {}),
@@ -175,8 +198,10 @@ export async function tryPrepareResumeStream({
     graph: resumedGraph,
     state: resumedState,
     config: {
-      ...config,
+      ...telemetryConfig,
       resume: true,
+      telemetryInterruptId: pending.requestId,
+      telemetryInterruptNodeId: pending.node,
       ...(resumeValue !== undefined ? { resumeValue } : {}),
       ...(resumeCheckpointId ? { resumeCheckpointId } : {}),
       ...(hasResumeUpdate ? { resumeUpdate } : {}),

@@ -48,6 +48,7 @@
   "dependencies": {
     "@kortyx/core": "workspace:*",
     "@kortyx/providers": "workspace:*",
+    "@kortyx/telemetry-contracts": "workspace:*",
     "zod": "catalog:"
   },
   "devDependencies": {

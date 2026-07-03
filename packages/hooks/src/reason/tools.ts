@@ -262,6 +262,12 @@ export const runReasonToolLoop = async <
           false,
         );
 
+        traceSpan?.addEvent?.("useReason.tool-call.start", {
+          stepIndex,
+          tool: tool.name,
+          toolCallId: toolCall.id,
+        });
+
         if (shouldEmitTool) {
           emitToolEvent("tool-call-start", {
             tool: tool.name,

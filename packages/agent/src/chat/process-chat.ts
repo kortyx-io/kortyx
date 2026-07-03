@@ -14,6 +14,7 @@ import {
 } from "../interrupt/resume-handler";
 import type { SelectWorkflowFn } from "../orchestrator";
 import { orchestrateGraphStream } from "../orchestrator";
+import { prepareWorkflowTelemetry } from "../telemetry/topology";
 import type { ChatMessage } from "../types/chat-message";
 import { extractLatestUserMessage } from "../utils/extract-latest-message";
 
@@ -50,7 +51,7 @@ export async function streamChat<Options = unknown>({
   applyResumeSelection,
 }: StreamChatArgs<Options>): Promise<AsyncIterable<StreamChunk>> {
   const config = await loadRuntimeConfig(options);
-  const runtimeConfig: Parameters<typeof createExecutionGraph>[1] = {
+  let runtimeConfig: Parameters<typeof createExecutionGraph>[1] = {
     ...config,
     getProvider,
     ...(frameworkAdapter
@@ -140,6 +141,12 @@ export async function streamChat<Options = unknown>({
     ? baseState.currentWorkflow
     : (headCheckpoint?.state.currentWorkflow ?? baseState.currentWorkflow);
   const selectedWorkflow = await workflowSelector(currentWorkflow as string);
+  runtimeConfig = prepareWorkflowTelemetry({
+    config: runtimeConfig,
+    workflow: selectedWorkflow,
+    runId,
+    sessionId: resolvedSessionId,
+  }) as Parameters<typeof createExecutionGraph>[1];
 
   const graph = await createExecutionGraph(selectedWorkflow, runtimeConfig);
   const initialState = headCheckpoint
@@ -159,7 +166,7 @@ export async function streamChat<Options = unknown>({
             : {}),
         },
       }
-    : { ...baseState, currentWorkflow };
+    : { ...baseState, config: runtimeConfig, currentWorkflow };
 
   const orchestratedStream = await orchestrateGraphStream({
     sessionId: resolvedSessionId,

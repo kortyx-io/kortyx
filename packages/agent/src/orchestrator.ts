@@ -11,6 +11,8 @@ import {
 import type { StreamChunk } from "@kortyx/stream";
 import { Command } from "@langchain/langgraph";
 import { transformGraphStreamForUI } from "./stream/transform-graph-stream-for-ui";
+import { emitTelemetryEvent } from "./telemetry/events";
+import { prepareWorkflowTelemetry } from "./telemetry/topology";
 
 export type SelectWorkflowFn = (
   workflowId: string,
@@ -121,12 +123,13 @@ export async function orchestrateGraphStream({
   runId,
   graph,
   state,
-  config,
+  config: initialConfig,
   selectWorkflow,
   frameworkAdapter,
 }: OrchestrateArgs): Promise<NodeJS.ReadableStream> {
   const out = new PassThrough({ objectMode: true });
 
+  let config = initialConfig;
   let currentGraph = graph;
   let currentState: GraphState = state;
   let finished = false;
@@ -135,12 +138,52 @@ export async function orchestrateGraphStream({
   const traceAdapter = getTraceAdapter(config);
   const contextMeta = isRecord(config.context) ? config.context : {};
   const telemetryConfig = isRecord(config.telemetry) ? config.telemetry : {};
+  const emitResumeOutcome = (
+    resumeOutcome: "completed" | "failed",
+    resumeError?: unknown,
+  ) => {
+    const interruptId =
+      typeof config.telemetryInterruptId === "string"
+        ? config.telemetryInterruptId
+        : undefined;
+    if (!interruptId) return;
+    emitTelemetryEvent({
+      config,
+      type: "interrupt.resolved",
+      correlation:
+        typeof config.telemetryInterruptNodeId === "string"
+          ? { nodeId: config.telemetryInterruptNodeId }
+          : undefined,
+      payload: {
+        interruptId,
+        resolvedAt: new Date().toISOString(),
+        resumeOutcome,
+        ...(resumeError
+          ? {
+              resumeError:
+                resumeError instanceof Error
+                  ? resumeError.message
+                  : String(resumeError),
+            }
+          : {}),
+      },
+    });
+  };
+  const telemetryCorrelation = isRecord(telemetryConfig.correlation)
+    ? telemetryConfig.correlation
+    : {};
   const runSpanArgs = {
     name: "kortyx.run",
     attributes: {
       ...(sessionId ? { sessionId } : {}),
       runId,
       workflowId: state.currentWorkflow,
+      ...(typeof telemetryCorrelation.topologyHash === "string"
+        ? { topologyHash: telemetryCorrelation.topologyHash }
+        : {}),
+      ...(typeof telemetryCorrelation.workflowRevisionId === "string"
+        ? { workflowRevisionId: telemetryCorrelation.workflowRevisionId }
+        : {}),
       ...(typeof contextMeta.userId === "string"
         ? { userId: contextMeta.userId }
         : {}),
@@ -175,9 +218,16 @@ export async function orchestrateGraphStream({
   } catch {}
 
   // Pending transition captured from runtime transition events.
-  const pending: { to: string | null; payload: Record<string, unknown> } = {
+  const pending: {
+    to: string | null;
+    payload: Record<string, unknown>;
+    sourceNodeId: string | undefined;
+    sourceWorkflowId: string | undefined;
+  } = {
     to: null,
     payload: {},
+    sourceNodeId: undefined,
+    sourceWorkflowId: undefined,
   };
 
   // Bridge internal graph emits to our stream AND capture transitions
@@ -397,6 +447,23 @@ export async function orchestrateGraphStream({
         })),
       },
     } as any);
+    emitTelemetryEvent({
+      config,
+      type: "interrupt.created",
+      correlation: { nodeId: record.node },
+      payload: {
+        interruptId: record.requestId,
+        requestId: record.requestId,
+        kind: record.schema.kind,
+        ...(typeof record.schema.question === "string" &&
+        telemetryConfig.captureContent
+          ? { question: record.schema.question }
+          : {}),
+        optionCount: record.options.length,
+        nodeId: record.node,
+        expiresAt: new Date(record.createdAt + record.ttlMs).toISOString(),
+      },
+    });
     wroteHumanInput = true;
   };
 
@@ -664,6 +731,13 @@ export async function orchestrateGraphStream({
       pending.to = (payload as { transitionTo?: string })?.transitionTo ?? null;
       pending.payload =
         (payload as { payload?: Record<string, unknown> })?.payload ?? {};
+      const transition = payload as { node?: unknown; workflow?: unknown };
+      pending.sourceNodeId =
+        typeof transition.node === "string" ? transition.node : undefined;
+      pending.sourceWorkflowId =
+        typeof transition.workflow === "string"
+          ? transition.workflow
+          : undefined;
       return;
     }
     if (event === "interrupt") {
@@ -817,15 +891,62 @@ export async function orchestrateGraphStream({
 
       const transitionTo = pending.to;
       const transitionPayload = pending.payload;
+      const sourceNodeId = pending.sourceNodeId;
+      const sourceWorkflowId = pending.sourceWorkflowId;
 
       // Reset pending so we don't carry it accidentally
       pending.to = null;
       pending.payload = {};
+      pending.sourceNodeId = undefined;
+      pending.sourceWorkflowId = undefined;
 
       if (transitionTo) {
         // 🔁 Handoff to the next workflow
         try {
           const nextWorkflow = await selectWorkflow(transitionTo);
+          const sourceTelemetry = isRecord(config.telemetry)
+            ? config.telemetry
+            : {};
+          config = prepareWorkflowTelemetry({
+            config,
+            workflow: nextWorkflow,
+            runId,
+            sessionId,
+          });
+          const targetTelemetry = isRecord(config.telemetry)
+            ? config.telemetry
+            : {};
+          emitTelemetryEvent({
+            config,
+            type: "workflow.transitioned",
+            ...(sourceNodeId ? { correlation: { nodeId: sourceNodeId } } : {}),
+            payload: {
+              sourceNodeId: sourceNodeId ?? "",
+              sourceWorkflowId:
+                sourceWorkflowId ?? String(currentState.currentWorkflow),
+              ...(typeof sourceTelemetry.correlation === "object" &&
+              sourceTelemetry.correlation &&
+              typeof (sourceTelemetry.correlation as Record<string, unknown>)
+                .workflowRevisionId === "string"
+                ? {
+                    sourceWorkflowRevisionId: (
+                      sourceTelemetry.correlation as Record<string, unknown>
+                    ).workflowRevisionId,
+                  }
+                : {}),
+              targetWorkflowId: transitionTo,
+              ...(typeof targetTelemetry.correlation === "object" &&
+              targetTelemetry.correlation &&
+              typeof (targetTelemetry.correlation as Record<string, unknown>)
+                .workflowRevisionId === "string"
+                ? {
+                    targetWorkflowRevisionId: (
+                      targetTelemetry.correlation as Record<string, unknown>
+                    ).workflowRevisionId,
+                  }
+                : {}),
+            },
+          });
           const nextGraph = await createExecutionGraph(nextWorkflow, {
             ...(config as Record<string, unknown>),
             emit: forwardEmit, // keep forwarding emits
@@ -850,6 +971,7 @@ export async function orchestrateGraphStream({
           currentState = {
             ...currentState,
             currentWorkflow: transitionTo as WorkflowId,
+            config,
             input: newInput,
             data: mergedData,
             ui: {}, // reset UI layer on new graph
@@ -938,6 +1060,7 @@ export async function orchestrateGraphStream({
           "kortyx.run.final_workflow": String(currentState.currentWorkflow),
         });
         runTraceSpan.end?.(runTraceEndArgs());
+        emitResumeOutcome("completed");
         const resolvedSessionId =
           ((config as any)?.session?.id as string | undefined) ||
           sessionId ||
@@ -965,6 +1088,18 @@ export async function orchestrateGraphStream({
               turnIndex: checkpoint.turnIndex,
               ...(checkpoint.label ? { label: checkpoint.label } : {}),
             } as StreamChunk);
+            emitTelemetryEvent({
+              config,
+              type: "session.checkpointed",
+              payload: {
+                checkpointId: checkpoint.id,
+                turnIndex: checkpoint.turnIndex,
+                ...(checkpoint.parentCheckpointId
+                  ? { parentCheckpointId: checkpoint.parentCheckpointId }
+                  : {}),
+                nodes: checkpoint.nodes,
+              },
+            });
           } catch (error) {
             // eslint-disable-next-line no-console
             console.error("[orchestrator] session checkpoint failed", error);
@@ -1021,6 +1156,18 @@ export async function orchestrateGraphStream({
             turnIndex: checkpoint.turnIndex,
             ...(checkpoint.label ? { label: checkpoint.label } : {}),
           } as StreamChunk);
+          emitTelemetryEvent({
+            config,
+            type: "session.checkpointed",
+            payload: {
+              checkpointId: checkpoint.id,
+              turnIndex: checkpoint.turnIndex,
+              ...(checkpoint.parentCheckpointId
+                ? { parentCheckpointId: checkpoint.parentCheckpointId }
+                : {}),
+              nodes: checkpoint.nodes,
+            },
+          });
         } catch (error) {
           // eslint-disable-next-line no-console
           console.error("[orchestrator] session checkpoint failed", error);
@@ -1030,6 +1177,7 @@ export async function orchestrateGraphStream({
         "kortyx.run.final_workflow": String(naturalFinalState.currentWorkflow),
       });
       runTraceSpan.end?.(runTraceEndArgs());
+      emitResumeOutcome("completed");
       out.write({ type: "done", data: naturalFinalState } as any);
       out.end();
       return;
@@ -1064,6 +1212,7 @@ export async function orchestrateGraphStream({
 
   runPromise.catch((err) => {
     fallbackRunSpan?.fail?.(err);
+    emitResumeOutcome("failed", err);
     console.error("[error:orchestrateGraphStream]", err);
     out.write({
       type: "error",

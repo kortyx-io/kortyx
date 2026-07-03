@@ -77,6 +77,83 @@ type InterruptChunk = {
 };
 
 describe("orchestrateGraphStream", () => {
+  it("emits a completed interrupt outcome only after resumed execution terminates", async () => {
+    const events: unknown[] = [];
+    const graph = graphWithEvents(() => [{ type: "done", data: baseState }]);
+    await collect(
+      await orchestrateGraphStream({
+        runId: "run-resume",
+        graph,
+        state: baseState,
+        config: {
+          telemetryInterruptId: "interrupt-1",
+          telemetryInterruptNodeId: "ask",
+          telemetry: {
+            environment: "test",
+            service: { name: "app" },
+            correlation: { runId: "run-resume", workflowId: "first" },
+            reporter: {
+              ensureWorkflowTopology: async () => ({
+                workflowRevisionId: "rev",
+                created: false,
+              }),
+              emit: async (items: unknown[]) => {
+                events.push(...items);
+              },
+            },
+          },
+        },
+        selectWorkflow: vi.fn(),
+      }),
+    );
+    expect(events).toHaveLength(1);
+    expect(events[0]).toMatchObject({
+      type: "interrupt.resolved",
+      payload: { interruptId: "interrupt-1", resumeOutcome: "completed" },
+    });
+  });
+
+  it("emits a failed interrupt outcome when resumed execution fails", async () => {
+    const events: unknown[] = [];
+    const graph = graphWithEvents(() => {
+      throw new Error("resume failed");
+    });
+    const stream = await orchestrateGraphStream({
+      runId: "run-resume-fail",
+      graph,
+      state: baseState,
+      config: {
+        telemetryInterruptId: "interrupt-2",
+        telemetryInterruptNodeId: "ask",
+        telemetry: {
+          environment: "test",
+          service: { name: "app" },
+          correlation: { runId: "run-resume-fail", workflowId: "first" },
+          reporter: {
+            ensureWorkflowTopology: async () => ({
+              workflowRevisionId: "rev",
+              created: false,
+            }),
+            emit: async (items: unknown[]) => {
+              events.push(...items);
+            },
+          },
+        },
+      },
+      selectWorkflow: vi.fn(),
+    });
+    await collect(stream);
+    expect(events).toHaveLength(1);
+    expect(events[0]).toMatchObject({
+      type: "interrupt.resolved",
+      payload: {
+        interruptId: "interrupt-2",
+        resumeOutcome: "failed",
+        resumeError: "resume failed",
+      },
+    });
+  });
+
   it("forwards runtime emits and hides internal interrupt metadata", async () => {
     const pendingRequests = {
       save: vi.fn(async () => undefined),

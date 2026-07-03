@@ -78,6 +78,14 @@
       "package-name": "@kortyx/stream",
       "component": "stream"
     },
+    "packages/telemetry-contracts": {
+      "package-name": "@kortyx/telemetry-contracts",
+      "component": "telemetry-contracts"
+    },
+    "packages/telemetry": {
+      "package-name": "@kortyx/telemetry",
+      "component": "telemetry"
+    },
     "packages/utils": {
       "package-name": "@kortyx/utils",
       "component": "utils"
