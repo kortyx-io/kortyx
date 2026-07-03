@@ -1,5 +1,5 @@
 import type { WorkflowDefinition } from "@kortyx/core";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   prepareWorkflowTelemetry,
   projectWorkflowTopology,
@@ -105,6 +105,45 @@ describe("projectWorkflowTopology", () => {
     );
   });
 
+  it("projects optional topology display fields and execution fallbacks", () => {
+    const workflow = {
+      id: "support",
+      version: "1.0.0",
+      description: "Support workflow",
+      nodes: {
+        reason: {
+          run: () => undefined,
+          params: { model: { providerId: "google", name: "gemini" } },
+          metadata: { label: "Reason", type: "reason" },
+        },
+      },
+      edges: [],
+      metadata: { tags: [1, false] },
+    } as unknown as WorkflowDefinition;
+
+    const projected = projectWorkflowTopology({
+      workflow,
+      environment: "test",
+      service: { name: "app" },
+    });
+
+    expect(projected.workflow).toMatchObject({
+      id: "support",
+      declaredVersion: "1.0.0",
+      description: "Support workflow",
+      nodes: [
+        {
+          id: "reason",
+          label: "Reason",
+          type: "reason",
+          provider: "google",
+          model: "gemini",
+        },
+      ],
+    });
+    expect(projected.workflow).not.toHaveProperty("tags");
+  });
+
   it("fails open when an application puts non-serializable values in workflow params", () => {
     const config = {
       telemetry: {
@@ -134,5 +173,127 @@ describe("projectWorkflowTopology", () => {
         sessionId: "session-1",
       }),
     ).toBe(config);
+  });
+
+  it("adds run correlation and starts topology ensure without blocking execution", async () => {
+    const ensureWorkflowTopology = vi.fn(async () => ({
+      workflowRevisionId: "revision-1",
+      created: false,
+    }));
+    const getWorkflowRevisionId = vi.fn(() => "revision-1");
+    const config = {
+      telemetry: {
+        environment: "test",
+        service: { name: "app" },
+        correlation: { nodeId: "existing-node" },
+        reporter: {
+          ensureWorkflowTopology,
+          getWorkflowRevisionId,
+          emit: async () => undefined,
+        },
+      },
+    };
+    const workflow = {
+      id: "workflow-1",
+      version: "1",
+      nodes: { start: { run: "start.node" } },
+      edges: [],
+    };
+
+    const next = prepareWorkflowTelemetry({
+      config,
+      workflow,
+      runId: "run-1",
+      sessionId: "session-1",
+    });
+
+    expect(next).not.toBe(config);
+    const nextTelemetry = next.telemetry as {
+      correlation: Record<string, unknown>;
+    };
+    expect(nextTelemetry.correlation).toMatchObject({
+      runId: "run-1",
+      sessionId: "session-1",
+      workflowId: "workflow-1",
+      workflowRevisionId: "revision-1",
+      nodeId: "existing-node",
+    });
+    expect(nextTelemetry.correlation.topologyHash).toEqual(expect.any(String));
+    expect(getWorkflowRevisionId).toHaveBeenCalledWith({
+      environment: "test",
+      workflowId: "workflow-1",
+      topologyHash: nextTelemetry.correlation.topologyHash,
+    });
+    expect(ensureWorkflowTopology).toHaveBeenCalledWith(
+      expect.objectContaining({
+        workflow: expect.objectContaining({
+          id: "workflow-1",
+          topologyHash: nextTelemetry.correlation.topologyHash,
+        }),
+      }),
+    );
+    await Promise.resolve();
+  });
+
+  it("keeps runs alive when topology reporters fail synchronously", () => {
+    const config = {
+      telemetry: {
+        environment: "test",
+        service: { name: "app" },
+        reporter: {
+          ensureWorkflowTopology: () => {
+            throw new Error("ensure failed");
+          },
+          getWorkflowRevisionId: () => {
+            throw new Error("cache failed");
+          },
+          emit: async () => undefined,
+        },
+      },
+    };
+    const workflow = {
+      id: "workflow-1",
+      version: "1",
+      nodes: { start: { run: "start.node" } },
+      edges: [],
+    };
+
+    expect(() =>
+      prepareWorkflowTelemetry({
+        config,
+        workflow,
+        runId: "run-1",
+      }),
+    ).not.toThrow();
+  });
+
+  it("swallows asynchronous topology ensure failures", async () => {
+    const config = {
+      telemetry: {
+        environment: "test",
+        service: { name: "app" },
+        reporter: {
+          ensureWorkflowTopology: async () => {
+            throw new Error("ensure failed");
+          },
+          emit: async () => undefined,
+        },
+      },
+    };
+    const workflow = {
+      id: "workflow-1",
+      version: "1",
+      nodes: { start: { run: "start.node" } },
+      edges: [],
+    };
+
+    prepareWorkflowTelemetry({
+      config,
+      workflow,
+      runId: "run-1",
+    });
+
+    await Promise.resolve();
+    await Promise.resolve();
   });
 });

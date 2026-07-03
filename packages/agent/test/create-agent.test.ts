@@ -120,6 +120,7 @@ describe("createAgent", () => {
   });
 
   it("delegates checkpoint APIs through the framework adapter and syncs pending requests", async () => {
+    const telemetryEvents: unknown[] = [];
     const pendingRequests = {
       delete: vi.fn(async () => undefined),
       save: vi.fn(async () => undefined),
@@ -203,6 +204,19 @@ describe("createAgent", () => {
     };
     const agent = createAgent({
       workflows: [{ id: "workflow-1" } as WorkflowDefinition],
+      telemetry: {
+        environment: "test",
+        service: { name: "app" },
+        reporter: {
+          ensureWorkflowTopology: async () => ({
+            workflowRevisionId: "revision-1",
+            created: false,
+          }),
+          emit: async (items: unknown[]) => {
+            telemetryEvents.push(...items);
+          },
+        },
+      },
       frameworkAdapter: {
         checkpointer: { getLatestCheckpointId, deleteCheckpointWrites },
         pendingRequests,
@@ -234,6 +248,20 @@ describe("createAgent", () => {
       "",
       "graph-cp-1",
     );
+    expect(telemetryEvents).toContainEqual(
+      expect.objectContaining({
+        type: "session.rolled_back",
+        correlation: expect.objectContaining({
+          runId: "run-1",
+          sessionId: "session-1",
+          workflowId: "workflow-1",
+        }),
+        payload: {
+          checkpointId: "cp-1",
+          invalidatedInterruptIds: ["old-token"],
+        },
+      }),
+    );
     expect(pendingRequests.save).toHaveBeenCalledWith(
       expect.objectContaining({
         token: "active-token",
@@ -251,6 +279,21 @@ describe("createAgent", () => {
       expect.objectContaining({
         token: "child-token",
         graphCheckpointId: "graph-cp-1",
+      }),
+    );
+    expect(telemetryEvents).toContainEqual(
+      expect.objectContaining({
+        type: "session.forked",
+        correlation: expect.objectContaining({
+          runId: "run-1",
+          sessionId: "child-session",
+          workflowId: "workflow-1",
+        }),
+        payload: {
+          newSessionId: "child-session",
+          parentSessionId: "session-1",
+          forkedFromCheckpointId: "cp-1",
+        },
       }),
     );
     expect(deleteCheckpointWrites).toHaveBeenCalledTimes(4);
@@ -460,6 +503,46 @@ describe("createAgent", () => {
       },
     });
     expect(pendingRequests.save).toHaveBeenCalledTimes(2);
+  });
+
+  it("rolls back checkpoints without telemetry configured", async () => {
+    const sessionCheckpoints = {
+      list: vi.fn(async () => []),
+      get: vi.fn(async (id: string) => ({
+        id,
+        sessionId: "session-1",
+        runId: "run-1",
+        turnIndex: 0,
+        createdAt: 1,
+        nodes: [],
+        workflow: "workflow-1",
+        state: {} as never,
+        effects: { structuredStreamIds: [], interruptTokens: [] },
+        activePendingRequests: [],
+      })),
+      rollbackTo: vi.fn(async (id: string) => ({
+        sessionId: "session-1",
+        head: id,
+        invalidatedStructuredStreamIds: [],
+        invalidatedInterruptTokens: [],
+        activePendingRequests: [],
+      })),
+      fork: vi.fn(),
+    };
+    const agent = createAgent({
+      workflows: [{ id: "workflow-1" } as WorkflowDefinition],
+      frameworkAdapter: {
+        pendingRequests: {
+          delete: vi.fn(async () => undefined),
+          save: vi.fn(async () => undefined),
+        },
+        sessionCheckpoints,
+      } as unknown as FrameworkAdapter,
+    });
+
+    await expect(agent.rollbackTo("cp-1")).resolves.toMatchObject({
+      head: "cp-1",
+    });
   });
 
   it("uses the general-chat fallback for in-memory workflows without a default", async () => {

@@ -1,6 +1,10 @@
 import type { KortyxTelemetryEvent } from "@kortyx/hooks";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { emitTelemetryEvent } from "../src/telemetry/events";
+
+afterEach(() => {
+  vi.doUnmock("node:crypto");
+});
 
 describe("emitTelemetryEvent", () => {
   it("enriches lifecycle events with trusted context and runtime correlation", async () => {
@@ -18,6 +22,7 @@ describe("emitTelemetryEvent", () => {
             sessionId: "session-1",
             workflowId: "workflow-1",
             topologyHash: "hash-1",
+            nodeId: "base-node",
           },
           reporter: {
             ensureWorkflowTopology: async () => ({
@@ -78,5 +83,73 @@ describe("emitTelemetryEvent", () => {
         payload: {},
       }),
     ).not.toThrow();
+  });
+
+  it("ignores invalid trusted context and swallowed async delivery failures", async () => {
+    emitTelemetryEvent({
+      config: {
+        context: { userId: 123, tenantId: false },
+        telemetry: {
+          environment: "test",
+          service: { name: "app" },
+          correlation: { runId: "run-1", workflowId: "workflow-1" },
+          reporter: {
+            ensureWorkflowTopology: async () => ({
+              workflowRevisionId: "revision",
+              created: false,
+            }),
+            emit: async () => {
+              throw new Error("delivery failed");
+            },
+          },
+        },
+      },
+      type: "run.cancelled",
+      payload: {},
+    });
+
+    await Promise.resolve();
+    await Promise.resolve();
+  });
+
+  it("falls back to a process-local event id when crypto UUID generation fails", async () => {
+    vi.resetModules();
+    vi.doMock("node:crypto", () => ({
+      randomUUID: () => {
+        throw new Error("crypto unavailable");
+      },
+    }));
+    const now = vi.spyOn(Date, "now").mockReturnValue(123);
+    const random = vi.spyOn(Math, "random").mockReturnValue(0.5);
+    const { emitTelemetryEvent: emitWithFallbackId } = await import(
+      "../src/telemetry/events"
+    );
+    const events: KortyxTelemetryEvent[] = [];
+
+    emitWithFallbackId({
+      config: {
+        telemetry: {
+          environment: "test",
+          service: { name: "app" },
+          correlation: { runId: "run-1", workflowId: "workflow-1" },
+          reporter: {
+            ensureWorkflowTopology: async () => ({
+              workflowRevisionId: "revision",
+              created: false,
+            }),
+            emit: async (items: KortyxTelemetryEvent[]) => {
+              events.push(...items);
+            },
+          },
+        },
+      },
+      type: "run.cancelled",
+      payload: {},
+    });
+    await Promise.resolve();
+
+    expect(events[0]?.eventId).toBe("123-i");
+    now.mockRestore();
+    random.mockRestore();
   });
 });
