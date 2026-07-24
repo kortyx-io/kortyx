@@ -4,10 +4,11 @@ export {
   DataTableProvider,
   useDataTable,
 } from "@/components/data-table/data-table-context";
-export type {
-  ColumnMotion,
-  ColumnPin,
-  DataTableColumn,
-  DataTableLayout,
-  DataTablePagination,
+export {
+  type ColumnMotion,
+  type ColumnPin,
+  DATA_TABLE_MIN_COLUMN_WIDTH,
+  type DataTableColumn,
+  type DataTableLayout,
+  type DataTablePagination,
 } from "@/components/data-table/types";

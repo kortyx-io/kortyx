@@ -15,14 +15,15 @@ export const SessionSortKeySchema = z.enum([
   "runs",
   "status",
 ]);
-const ProviderSchema = z.enum(["OpenAI", "Anthropic", "Google"]);
-const EnvironmentSchema = z.enum(["Development", "Staging", "Production"]);
+const ProviderSchema = z.string();
+const EnvironmentSchema = z.string();
 
 export const SessionSchema = z.object({
   id: z.string(),
   status: SessionStatusSchema,
   lastActivityAt: z.string(),
   workflow: z.string(),
+  workflowIds: z.array(z.string()).optional(),
   workflowCount: z.number(),
   version: z.string(),
   user: z.string().optional(),

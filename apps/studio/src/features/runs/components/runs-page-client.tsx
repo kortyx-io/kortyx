@@ -1,7 +1,7 @@
 "use client";
 
-import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useEffect, useState, useTransition } from "react";
 import { DataTable, DataTableProvider } from "@/components/data-table";
 import { createRunColumns } from "@/features/runs/components/run-table-columns";
 import { RunsEmptyState } from "@/features/runs/components/runs-empty-state";
@@ -15,19 +15,23 @@ import {
   type RunsTablePreferences,
 } from "@/features/runs/lib/table-preferences";
 import type { Run } from "@/features/runs/schema";
+import { detailNavigationHref } from "@/lib/nuqs";
 import { cn } from "@/lib/utils";
 
 type RunsPageClientProps = {
   runs: Run[];
+  totalCount: number;
   /** DB/server-provided table preferences for the current user. */
   preferences?: Partial<RunsTablePreferences>;
 };
 
 export default function RunsPageClient({
   runs: initialRuns,
+  totalCount,
   preferences,
 }: RunsPageClientProps) {
   const router = useRouter();
+  const searchParams = useSearchParams();
 
   // Single owner of all persistable table state (layout + sort + dir +
   // pageSize + saved views). Written to a cookie so the server renders the
@@ -44,16 +48,18 @@ export default function RunsPageClient({
     dir: prefs.value.dir,
     pageSize: prefs.value.pageSize,
   });
-  const [refreshing, setRefreshing] = useState(false);
-  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [refreshing, startRefreshTransition] = useTransition();
   const [now, setNow] = useState(0);
   const { live } = runsQuery;
+  const hasActiveRuns = runsQuery.filteredRuns.some(
+    (run) => run.status === "running" || run.status === "interrupted",
+  );
 
   useEffect(() => {
-    if (!live) return;
+    if (!live && !hasActiveRuns) return;
     const timer = window.setInterval(() => setNow((value) => value + 1), 1000);
     return () => window.clearInterval(timer);
-  }, [live]);
+  }, [live, hasActiveRuns]);
 
   // Persist sort/dir/pageSize alongside the column layout. No-ops on mount
   // since the values equal the hydrated preferences.
@@ -70,15 +76,21 @@ export default function RunsPageClient({
   }
 
   function openRun(run: Run, event: React.MouseEvent<HTMLTableRowElement>) {
-    const href = `/runs/${run.id}`;
+    const href = detailNavigationHref(`/runs/${run.id}`, searchParams);
     if (event.metaKey || event.ctrlKey) window.open(href, "_blank", "noopener");
-    else router.push(href);
+    else if (runsQuery.filtersOpen) {
+      void runsQuery.setFiltersOpen(false).then(() => router.push(href));
+    } else {
+      router.push(href);
+    }
   }
 
   const columns = createRunColumns({
     liveSeconds: now,
     onToggleStatus: runsQuery.toggleStatus,
     onCopy: copy,
+    workflowFilter: runsQuery.workflow,
+    versionFilter: runsQuery.version,
   });
 
   return (
@@ -87,7 +99,7 @@ export default function RunsPageClient({
       initialLayout={prefs.value.layout}
       onLayoutChange={(layout) => prefs.save({ layout })}
     >
-      <div className="flex h-full min-h-0 gap-2">
+      <div className="flex h-full min-h-0">
         <DataTable
           className="min-w-0 flex-1"
           data={runsQuery.filteredRuns}
@@ -106,14 +118,15 @@ export default function RunsPageClient({
               query={runsQuery}
               live={live}
               refreshing={refreshing}
-              filtersOpen={filtersOpen}
+              filtersOpen={runsQuery.filtersOpen}
               views={prefs.value.views}
               onToggleLive={() => runsQuery.setLive(!live)}
-              onToggleFilters={() => setFiltersOpen((open) => !open)}
-              onRefresh={() => {
-                setRefreshing(true);
-                window.setTimeout(() => setRefreshing(false), 650);
-              }}
+              onToggleFilters={runsQuery.toggleFiltersOpen}
+              onRefresh={() =>
+                startRefreshTransition(() => {
+                  router.refresh();
+                })
+              }
               onViewsChange={(views) => prefs.save({ views })}
             />
           }
@@ -123,7 +136,8 @@ export default function RunsPageClient({
             cursor: runsQuery.cursor,
             pageSize: runsQuery.pageSize,
             pageSizes: PAGE_SIZES,
-            totalCount: runsQuery.filteredRuns.length,
+            totalCount,
+            serverSide: true,
             onCursorChange: (next) => runsQuery.setParams({ cursor: next }),
             onPageSizeChange: (next) =>
               runsQuery.setParams({ cursor: null, pageSize: next }),
@@ -131,14 +145,14 @@ export default function RunsPageClient({
         />
         <div
           className={cn(
-            "h-full shrink-0 overflow-hidden transition-[width] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)]",
-            filtersOpen ? "w-72" : "w-0",
+            "h-full shrink-0 overflow-hidden transition-[width,margin] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)]",
+            runsQuery.filtersOpen ? "ml-2 w-72" : "ml-0 w-0",
           )}
         >
           <RunsFilterPanel
             query={runsQuery}
-            open={filtersOpen}
-            onClose={() => setFiltersOpen(false)}
+            open={runsQuery.filtersOpen}
+            onClose={() => runsQuery.setFiltersOpen(false)}
           />
         </div>
       </div>

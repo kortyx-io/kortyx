@@ -1,6 +1,8 @@
 import { notFound } from "next/navigation";
+import { DetailPage } from "@/components/detail/detail-page";
 import { RunDetail } from "@/features/runs/components/run-detail";
-import { getMockRun } from "@/features/runs/data/mock-runs";
+import { StudioDataError } from "@/features/telemetry/components/studio-data-error";
+import { getStudioRunDetail } from "@/lib/studio-api";
 
 export default async function RunDetailPage({
   params,
@@ -8,9 +10,17 @@ export default async function RunDetailPage({
   params: Promise<{ runId: string }>;
 }) {
   const { runId } = await params;
-  const run = await getMockRun(runId);
-
-  if (!run) notFound();
-
-  return <RunDetail run={run} />;
+  const result = await getStudioRunDetail(runId);
+  if (result.error?.status === 404) notFound();
+  if (result.error) {
+    return <StudioDataError title="Unable to load run" error={result.error} />;
+  }
+  return (
+    <DetailPage
+      title="Run details"
+      description="Inspect execution, payloads, and timing"
+    >
+      <RunDetail detail={result.data} />
+    </DetailPage>
+  );
 }

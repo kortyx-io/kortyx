@@ -89,7 +89,7 @@ export function DataTableColumnHeader<T, S extends string>({
         {...(canDrag ? attributes : {})}
         {...(canDrag ? listeners : {})}
         className={cn(
-          "mr-6 min-w-0 overflow-hidden",
+          "min-w-0 overflow-hidden",
           canDrag && "cursor-grab touch-none active:cursor-grabbing",
         )}
         title={canDrag ? `Drag ${label} column to reorder` : undefined}
@@ -98,9 +98,9 @@ export function DataTableColumnHeader<T, S extends string>({
           <button
             type="button"
             onClick={() => onSort?.(sortKey)}
-            className="flex max-w-full min-w-0 items-center gap-1 hover:text-foreground"
+            className="flex w-full min-w-0 items-center hover:text-foreground"
           >
-            <span className="truncate">{label}</span>
+            <span className="min-w-0 truncate">{label}</span>
             {active === sortKey ? (
               <SortIcon className="size-3 shrink-0" />
             ) : (
@@ -108,7 +108,7 @@ export function DataTableColumnHeader<T, S extends string>({
             )}
           </button>
         ) : (
-          <span className="whitespace-nowrap">{label}</span>
+          <span className="block truncate">{label}</span>
         )}
       </div>
       <DropdownMenu open={menuOpen} onOpenChange={onMenuOpenChange}>
@@ -116,7 +116,13 @@ export function DataTableColumnHeader<T, S extends string>({
           <button
             type="button"
             aria-label={`${label} column menu`}
-            className="absolute top-1/2 right-3 z-10 -translate-y-1/2 rounded p-0.5 opacity-0 hover:bg-accent group-hover:opacity-100 focus:opacity-100"
+            className={cn(
+              "absolute top-1/2 right-1 z-20 -translate-y-1/2 rounded p-0.5",
+              "pointer-events-none bg-muted/90 opacity-0 shadow-sm backdrop-blur-sm",
+              "hover:bg-accent group-hover:pointer-events-auto group-hover:opacity-100",
+              "focus:pointer-events-auto focus:opacity-100",
+              menuOpen && "pointer-events-auto opacity-100",
+            )}
           >
             <MoreHorizontal className="size-3.5" />
           </button>

@@ -5,7 +5,6 @@ import {
   parseAsInteger,
   parseAsString,
   parseAsStringLiteral,
-  useQueryStates,
 } from "nuqs";
 import { useCallback, useMemo } from "react";
 import { PAGE_SIZE, PAGE_SIZES } from "@/features/runs/lib/constants";
@@ -14,6 +13,11 @@ import type {
   SessionSortKey,
   SessionStatus,
 } from "@/features/sessions/schema";
+import {
+  filterPanelParser,
+  useFilterPanelState,
+  useStudioQueryStates,
+} from "@/lib/nuqs";
 
 const sessionStatuses = [
   "running",
@@ -101,120 +105,24 @@ export function useSessionsQuery(
         defaults?.dir ?? "desc",
       ),
       live: parseAsBoolean.withDefault(false),
+      filterPanel: filterPanelParser,
     }),
     [defaults?.dir, defaults?.pageSize, defaults?.sort],
   );
-  const [params, setQueryStates] = useQueryStates(parsers);
+  const [params, setQueryStates] = useStudioQueryStates(parsers);
+  const { filtersOpen, setFiltersOpen, toggleFiltersOpen } =
+    useFilterPanelState(params.filterPanel, setQueryStates);
   const cursor = Math.max(0, params.cursor);
   const pageSize = (PAGE_SIZES as readonly number[]).includes(params.pageSize)
     ? params.pageSize
     : PAGE_SIZE;
   const setParams = useCallback(
-    (changes: Changes) => {
-      void setQueryStates(
+    (changes: Changes) =>
+      setQueryStates(
         "cursor" in changes ? changes : { ...changes, cursor: null },
-      );
-    },
+      ),
     [setQueryStates],
   );
-
-  const filteredSessions = useMemo(() => {
-    const includes = (value: string | undefined, filter: string) =>
-      !filter || value?.toLowerCase().includes(filter.trim().toLowerCase());
-    const rangeMs =
-      params.range === "Last hour"
-        ? 3_600_000
-        : params.range === "24 hours"
-          ? 86_400_000
-          : params.range === "7 days"
-            ? 604_800_000
-            : Number.POSITIVE_INFINITY;
-    const needle = params.q.trim().toLowerCase();
-    return initialSessions
-      .filter(
-        (session) =>
-          (params.env === "All environments" ||
-            session.environment === params.env) &&
-          (!params.status.length || params.status.includes(session.status)) &&
-          (!params.error || Boolean(session.latestError)) &&
-          (!params.interrupt ||
-            Boolean(session.pendingInterrupt || session.interrupted)) &&
-          (!params.checkpoint || Boolean(session.checkpoints)) &&
-          (!params.fork || Boolean(session.hasFork)) &&
-          includes(session.workflow, params.workflow) &&
-          includes(session.user, params.user) &&
-          includes(session.tenant, params.tenant) &&
-          (!params.provider ||
-            session.providers
-              .join(" ")
-              .toLowerCase()
-              .includes(params.provider.toLowerCase())) &&
-          (!params.model ||
-            session.models
-              .join(" ")
-              .toLowerCase()
-              .includes(params.model.toLowerCase())) &&
-          (!params.tags ||
-            session.tags
-              .join(" ")
-              .toLowerCase()
-              .includes(params.tags.toLowerCase())) &&
-          (!params.minCost || (session.cost ?? -1) >= params.minCost) &&
-          (!params.maxCost ||
-            (session.cost ?? Number.POSITIVE_INFINITY) <= params.maxCost) &&
-          (!params.minTokens || (session.tokens ?? -1) >= params.minTokens) &&
-          (!params.maxTokens ||
-            (session.tokens ?? Number.POSITIVE_INFINITY) <= params.maxTokens) &&
-          (!params.minDuration ||
-            (session.duration ?? -1) >= params.minDuration) &&
-          (!params.maxDuration ||
-            (session.duration ?? Number.POSITIVE_INFINITY) <=
-              params.maxDuration) &&
-          (params.range === "Custom range"
-            ? Date.parse(session.lastActivityAt) >=
-                (params.startedAfter
-                  ? Date.parse(params.startedAfter)
-                  : Number.NEGATIVE_INFINITY) &&
-              Date.parse(session.lastActivityAt) <=
-                (params.startedBefore
-                  ? Date.parse(params.startedBefore)
-                  : Number.POSITIVE_INFINITY)
-            : Date.now() - Date.parse(session.lastActivityAt) <= rangeMs) &&
-          (!needle ||
-            [
-              session.id,
-              session.user,
-              session.tenant,
-              session.workflow,
-              session.latestResult,
-              session.latestError,
-              session.pendingInterrupt,
-            ]
-              .filter(Boolean)
-              .join(" ")
-              .toLowerCase()
-              .includes(needle)),
-      )
-      .sort((a, b) => {
-        const values: Record<SessionSortKey, [number, number]> = {
-          activity: [
-            Date.parse(a.lastActivityAt),
-            Date.parse(b.lastActivityAt),
-          ],
-          duration: [a.duration ?? -1, b.duration ?? -1],
-          tokens: [a.tokens ?? -1, b.tokens ?? -1],
-          cost: [a.cost ?? -1, b.cost ?? -1],
-          runs: [a.runs, b.runs],
-          status: [
-            sessionStatuses.indexOf(a.status),
-            sessionStatuses.indexOf(b.status),
-          ],
-        };
-        const [first, second] = values[params.sort];
-        return params.dir === "asc" ? first - second : second - first;
-      });
-  }, [initialSessions, params]);
-
   const activeFilterCount =
     params.status.length +
     Number(params.error) +
@@ -240,17 +148,6 @@ export function useSessionsQuery(
     Boolean(params.q) ||
     params.env !== "All environments" ||
     params.range !== "24 hours";
-  const toggleStatus = (status: SessionStatus) =>
-    setParams({
-      status: params.status.includes(status)
-        ? params.status.filter((item) => item !== status)
-        : [...params.status, status],
-    });
-  const handleSort = (sort: SessionSortKey) =>
-    setParams({
-      sort,
-      dir: params.sort === sort && params.dir === "desc" ? "asc" : "desc",
-    });
   const clearFilters = () =>
     setParams({
       q: null,
@@ -280,6 +177,8 @@ export function useSessionsQuery(
     q: params.q || null,
     env: params.env === "All environments" ? null : params.env,
     range: params.range === "24 hours" ? null : params.range,
+    startedAfter: params.startedAfter || null,
+    startedBefore: params.startedBefore || null,
     status: params.status.length ? params.status : null,
     workflow: params.workflow || null,
     user: params.user || null,
@@ -300,29 +199,41 @@ export function useSessionsQuery(
     sort: params.sort,
     dir: params.dir,
   };
-  const standardViewQuery: SessionsViewQuery = {
-    sort: "activity",
-    dir: "desc",
-  };
-  const applyViewQuery = (view: SessionsViewQuery) =>
-    setParams({ ...view, cursor: null });
+
   return {
     ...params,
     cursor,
     pageSize,
-    filteredSessions,
+    filteredSessions: initialSessions,
     activeFilterCount,
     hasActiveFilters,
     setParams,
-    toggleStatus,
-    handleSort,
+    toggleStatus: (status: SessionStatus) =>
+      setParams({
+        status: params.status.includes(status)
+          ? params.status.filter((item) => item !== status)
+          : [...params.status, status],
+      }),
+    handleSort: (sort: SessionSortKey) =>
+      setParams({
+        sort,
+        dir: params.sort === sort && params.dir === "desc" ? "asc" : "desc",
+      }),
     setSortDirection: (sort: SessionSortKey, dir: "asc" | "desc") =>
       setParams({ sort, dir }),
     clearSort: () => setParams({ sort: null, dir: null }),
     clearFilters,
-    setLive: (live: boolean) => setParams({ live: live || null }),
+    setLive: (live: boolean) =>
+      setQueryStates({ live: live || null }, { shallow: true }),
     viewQuery,
-    standardViewQuery,
-    applyViewQuery,
+    standardViewQuery: {
+      sort: "activity",
+      dir: "desc",
+    } satisfies SessionsViewQuery,
+    applyViewQuery: (view: SessionsViewQuery) =>
+      setParams({ ...view, cursor: null }),
+    filtersOpen,
+    setFiltersOpen,
+    toggleFiltersOpen,
   };
 }

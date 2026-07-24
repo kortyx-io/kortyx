@@ -7,9 +7,12 @@ export function formatRelativeTime(value: string, now = Date.now()) {
 }
 
 export function formatElapsed(seconds: number) {
-  if (seconds < 60) return `${seconds}s`;
-  if (seconds < 3600) return `${Math.floor(seconds / 60)}m ${seconds % 60}s`;
-  return `${Math.floor(seconds / 3600)}h ${Math.floor((seconds % 3600) / 60)}m`;
+  const wholeSeconds = Math.max(0, Math.round(seconds));
+  if (wholeSeconds < 60) return `${wholeSeconds}s`;
+  if (wholeSeconds < 3600) {
+    return `${Math.floor(wholeSeconds / 60)}m ${wholeSeconds % 60}s`;
+  }
+  return `${Math.floor(wholeSeconds / 3600)}h ${Math.floor((wholeSeconds % 3600) / 60)}m`;
 }
 
 export function formatOptionalNumber(value: number | undefined) {

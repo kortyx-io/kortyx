@@ -1,6 +1,7 @@
 import dagre from "@dagrejs/dagre";
 import { type Edge, MarkerType, type Node } from "@xyflow/react";
 import type { WorkflowNode, WorkflowSummary, WorkflowSystem } from "../schema";
+import { getTransitionLayoutWeight } from "./format";
 import type {
   WorkflowMetric,
   WorkflowSelection,
@@ -49,7 +50,7 @@ export function toWorkflowGraph(
     layout.setEdge(
       transition.sourceWorkflowId,
       transition.targetWorkflowId,
-      { weight: Math.max(1, Math.round(Math.log10(transition.volume))) },
+      { weight: getTransitionLayoutWeight(transition.volume) },
       transition.id,
     );
   dagre.layout(layout);

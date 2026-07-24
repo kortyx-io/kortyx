@@ -6,6 +6,7 @@ import { formatCount } from "../lib/format";
 import type { WorkflowHealth, WorkflowSystem } from "../schema";
 
 const healthClasses: Record<WorkflowHealth, string> = {
+  unknown: "bg-slate-300",
   healthy: "bg-emerald-500",
   degraded: "bg-amber-500",
   failing: "bg-red-500",

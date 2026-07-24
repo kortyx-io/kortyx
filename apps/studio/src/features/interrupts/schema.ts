@@ -7,7 +7,12 @@ export const InterruptStatusSchema = z.enum([
   "failed",
   "cancelled",
 ]);
-export const InterruptTypeSchema = z.enum(["choice", "multi-choice", "text"]);
+export const InterruptTypeSchema = z.enum([
+  "choice",
+  "multi-choice",
+  "text",
+  "unknown",
+]);
 export const ResumeOutcomeSchema = z.enum([
   "resumed",
   "resume failed",
@@ -20,7 +25,7 @@ export const InterruptSortKeySchema = z.enum([
   "age",
   "status",
 ]);
-const EnvironmentSchema = z.enum(["Development", "Staging", "Production"]);
+const EnvironmentSchema = z.string();
 
 export const InterruptSchema = z.object({
   id: z.string(),

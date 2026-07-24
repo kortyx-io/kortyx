@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useEffect, useState, useTransition } from "react";
 import { DataTable, DataTableProvider } from "@/components/data-table";
 import { createInterruptColumns } from "@/features/interrupts/components/interrupt-table-columns";
 import { InterruptsEmptyState } from "@/features/interrupts/components/interrupts-empty-state";
@@ -19,17 +20,22 @@ import { ListToolbar } from "@/features/telemetry/components/list-toolbar";
 import { ListViewsMenu } from "@/features/telemetry/components/list-views-menu";
 import { useListTablePreferences } from "@/features/telemetry/hooks/use-list-table-preferences";
 import type { ListTablePreferences } from "@/features/telemetry/lib/table-preferences";
+import { detailNavigationHref } from "@/lib/nuqs";
 import { cn } from "@/lib/utils";
 
 export default function InterruptsPageClient({
   interrupts,
+  totalCount,
   preferences,
 }: {
   interrupts: Interrupt[];
+  totalCount: number;
   preferences?: Partial<
     ListTablePreferences<InterruptSortKey, InterruptsViewQuery>
   >;
 }) {
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const prefs = useListTablePreferences({
     cookieName: INTERRUPTS_TABLE_PREFERENCES_COOKIE,
     defaults: DEFAULT_INTERRUPTS_TABLE_PREFERENCES,
@@ -40,14 +46,8 @@ export default function InterruptsPageClient({
     dir: prefs.value.dir,
     pageSize: prefs.value.pageSize,
   });
-  const [filtersOpen, setFiltersOpen] = useState(false);
-  const [refreshing, setRefreshing] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const [refreshing, startRefreshTransition] = useTransition();
   const [now, setNow] = useState(Date.now());
-  useEffect(() => {
-    const timer = window.setTimeout(() => setLoading(false), 140);
-    return () => window.clearTimeout(timer);
-  }, []);
   useEffect(() => {
     const timer = window.setInterval(() => setNow(Date.now()), 1_000);
     return () => window.clearInterval(timer);
@@ -66,12 +66,24 @@ export default function InterruptsPageClient({
       initialLayout={prefs.value.layout}
       onLayoutChange={(layout) => prefs.save({ layout })}
     >
-      <div className="flex h-full min-h-0 gap-2">
+      <div className="flex h-full min-h-0">
         <DataTable
           className="min-w-0 flex-1"
           data={query.filteredInterrupts}
           getRowKey={(interrupt) => interrupt.id}
-          loading={loading}
+          onRowClick={(interrupt, event) => {
+            const href = detailNavigationHref(
+              `/interrupts/${interrupt.id}`,
+              searchParams,
+            );
+            if (event.metaKey || event.ctrlKey)
+              window.open(href, "_blank", "noopener");
+            else if (query.filtersOpen) {
+              void query.setFiltersOpen(false).then(() => router.push(href));
+            } else {
+              router.push(href);
+            }
+          }}
           rowClassName={(interrupt) =>
             interrupt.status === "failed" ? "bg-red-500/[0.025]" : undefined
           }
@@ -87,21 +99,18 @@ export default function InterruptsPageClient({
               search={query.q}
               searchPlaceholder="Search requests, sessions, workflows, responses…"
               activeFilterCount={query.activeFilterCount}
-              filtersOpen={filtersOpen}
+              filtersOpen={query.filtersOpen}
               refreshing={refreshing}
               live={query.live}
               onSearchChange={(value) => query.setParams({ q: value || null })}
-              onToggleFilters={() => setFiltersOpen((open) => !open)}
+              onToggleFilters={query.toggleFiltersOpen}
               onClearFilters={query.clearFilters}
               onToggleLive={() => query.setLive(!query.live)}
-              onRefresh={() => {
-                setRefreshing(true);
-                setLoading(true);
-                window.setTimeout(() => {
-                  setRefreshing(false);
-                  setLoading(false);
-                }, 650);
-              }}
+              onRefresh={() =>
+                startRefreshTransition(() => {
+                  router.refresh();
+                })
+              }
               views={
                 <ListViewsMenu
                   currentQuery={query.viewQuery}
@@ -124,7 +133,8 @@ export default function InterruptsPageClient({
             cursor: query.cursor,
             pageSize: query.pageSize,
             pageSizes: PAGE_SIZES,
-            totalCount: query.filteredInterrupts.length,
+            totalCount,
+            serverSide: true,
             onCursorChange: (cursor) => query.setParams({ cursor }),
             onPageSizeChange: (pageSize) =>
               query.setParams({ cursor: null, pageSize }),
@@ -132,14 +142,14 @@ export default function InterruptsPageClient({
         />
         <div
           className={cn(
-            "h-full min-h-0 shrink-0 self-stretch overflow-hidden transition-[width] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)]",
-            filtersOpen ? "w-72" : "w-0",
+            "h-full min-h-0 shrink-0 self-stretch overflow-hidden transition-[width,margin] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)]",
+            query.filtersOpen ? "ml-2 w-72" : "ml-0 w-0",
           )}
         >
           <InterruptsFilterPanel
             query={query}
-            open={filtersOpen}
-            onClose={() => setFiltersOpen(false)}
+            open={query.filtersOpen}
+            onClose={() => query.setFiltersOpen(false)}
           />
         </div>
       </div>

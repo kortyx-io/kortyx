@@ -7,13 +7,15 @@ import {
   SortableContext,
 } from "@dnd-kit/sortable";
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import { type ReactNode, useEffect, useMemo, useState } from "react";
+import { type ReactNode, useEffect, useLayoutEffect, useState } from "react";
+import {
+  clampScrollViewport,
+  syncHorizontalScroll,
+} from "@/components/data-table/clamp-scroll-viewport";
 import { DataTableColumnHeader } from "@/components/data-table/data-table-column-header";
 import { useDataTable } from "@/components/data-table/data-table-context";
 import type { DataTablePagination } from "@/components/data-table/types";
 import { Button } from "@/components/ui/button";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 
 type DataTableProps<T, S extends string> = {
@@ -26,8 +28,6 @@ type DataTableProps<T, S extends string> = {
   onSort?: (key: S) => void;
   onSetSortDirection?: (key: S, direction: "asc" | "desc") => void;
   onClearSort?: () => void;
-  loading?: boolean;
-  skeletonRows?: number;
   emptyState?: ReactNode;
   pagination?: DataTablePagination;
   /** Toolbar/header region rendered above the grid (filters, search, etc.). */
@@ -37,7 +37,7 @@ type DataTableProps<T, S extends string> = {
   className?: string;
 };
 
-const CELL_BASE = "border-b px-3 py-3.5 align-middle";
+const CELL_BASE = "max-w-0 overflow-hidden border-b px-3 py-3.5 align-middle";
 
 export function DataTable<T, S extends string>({
   data,
@@ -49,8 +49,6 @@ export function DataTable<T, S extends string>({
   onSort,
   onSetSortDirection,
   onClearSort,
-  loading = false,
-  skeletonRows = 8,
   emptyState,
   pagination,
   header,
@@ -73,14 +71,10 @@ export function DataTable<T, S extends string>({
     getColumnCellMotion,
     getPinnedColumnStyle,
     scrollerRef,
+    headerScrollerRef,
   } = useDataTable<T, S>();
 
   const [openColumnMenu, setOpenColumnMenu] = useState<string | null>(null);
-  const skeletonKeys = useMemo(
-    () => Array.from({ length: skeletonRows }, () => crypto.randomUUID()),
-    [skeletonRows],
-  );
-
   // biome-ignore lint/correctness/useExhaustiveDependencies: restore scroll once on mount.
   useEffect(() => {
     if (!scrollRestoreKey) return;
@@ -90,6 +84,15 @@ export function DataTable<T, S extends string>({
       sessionStorage.removeItem(scrollRestoreKey);
     }
   }, [scrollRestoreKey]);
+
+  // biome-ignore lint/correctness/useExhaustiveDependencies: the viewport must be reclamped after a persisted resize changes the computed table width.
+  useLayoutEffect(() => {
+    clampScrollViewport(scrollerRef.current, headerScrollerRef.current);
+  }, [tableWidth, scrollerRef, headerScrollerRef]);
+
+  function handleBodyScroll() {
+    syncHorizontalScroll(scrollerRef.current, headerScrollerRef.current);
+  }
 
   function handleRowClick(
     item: T,
@@ -104,10 +107,21 @@ export function DataTable<T, S extends string>({
     onRowClick?.(item, event);
   }
 
-  const pageRows = pagination
-    ? data.slice(pagination.cursor, pagination.cursor + pagination.pageSize)
-    : data;
-  const isEmpty = !loading && data.length === 0;
+  const pageRows =
+    pagination && !pagination.serverSide
+      ? data.slice(pagination.cursor, pagination.cursor + pagination.pageSize)
+      : data;
+  const isEmpty = data.length === 0;
+
+  const colGroup = (
+    <colgroup>
+      {visibleColumnOrder.map((column) => (
+        <col key={column} style={{ width: widths[column] }} />
+      ))}
+    </colgroup>
+  );
+
+  const tableStyle = { width: tableWidth, minWidth: "100%" as const };
 
   return (
     <div
@@ -117,120 +131,119 @@ export function DataTable<T, S extends string>({
       )}
     >
       {header}
-      <ScrollArea
-        type="hover"
-        viewportRef={scrollerRef}
-        className="min-h-0 flex-1"
-      >
-        <DndContext
-          id="data-table-columns"
-          sensors={sensors}
-          modifiers={[restrictToHorizontalAxis]}
-          collisionDetection={collisionDetection}
-          autoScroll={false}
-          onDragStart={onDragStart}
-          onDragOver={onDragOver}
-          onDragMove={onDragMove}
-          onDragCancel={onDragCancel}
-          onDragEnd={onDragEnd}
+      <div className="flex min-h-0 flex-1 flex-col">
+        <div
+          ref={headerScrollerRef}
+          className="data-table-header-scroll shrink-0 overflow-x-auto overflow-y-hidden"
         >
-          <SortableContext
-            items={visibleColumnOrder}
-            strategy={horizontalListSortingStrategy}
-          >
-            <table
-              className="w-full table-fixed border-separate border-spacing-0 text-left text-sm"
-              style={{ minWidth: tableWidth }}
+          <div style={tableStyle}>
+            <DndContext
+              id="data-table-columns"
+              sensors={sensors}
+              modifiers={[restrictToHorizontalAxis]}
+              collisionDetection={collisionDetection}
+              autoScroll={false}
+              onDragStart={onDragStart}
+              onDragOver={onDragOver}
+              onDragMove={onDragMove}
+              onDragCancel={onDragCancel}
+              onDragEnd={onDragEnd}
             >
-              <colgroup>
-                {visibleColumnOrder.map((column) => (
-                  <col key={column} style={{ width: widths[column] }} />
-                ))}
-              </colgroup>
-              <thead className="sticky top-0 z-30 bg-muted text-xs font-medium text-muted-foreground shadow-[0_1px_0_0_var(--border)]">
-                <tr>
-                  {visibleColumnOrder.map((column, index) => (
-                    <DataTableColumnHeader
-                      key={column}
-                      column={columnsByKey[column]}
-                      isLast={index === visibleColumnOrder.length - 1}
-                      active={sort}
-                      direction={direction}
-                      onSort={onSort}
-                      onSetSortDirection={onSetSortDirection}
-                      onClearSort={onClearSort}
-                      menuOpen={openColumnMenu === column}
-                      onMenuOpenChange={(open) =>
-                        setOpenColumnMenu(open ? column : null)
-                      }
-                    />
-                  ))}
-                </tr>
-              </thead>
+              <SortableContext
+                items={visibleColumnOrder}
+                strategy={horizontalListSortingStrategy}
+              >
+                <table
+                  className="table-fixed border-separate border-spacing-0 text-left text-sm"
+                  style={{ width: tableWidth }}
+                >
+                  {colGroup}
+                  <thead className="bg-muted text-xs font-medium text-muted-foreground shadow-[0_1px_0_0_var(--border)]">
+                    <tr>
+                      {visibleColumnOrder.map((column, index) => (
+                        <DataTableColumnHeader
+                          key={column}
+                          column={columnsByKey[column]}
+                          isLast={index === visibleColumnOrder.length - 1}
+                          active={sort}
+                          direction={direction}
+                          onSort={onSort}
+                          onSetSortDirection={onSetSortDirection}
+                          onClearSort={onClearSort}
+                          menuOpen={openColumnMenu === column}
+                          onMenuOpenChange={(open) =>
+                            setOpenColumnMenu(open ? column : null)
+                          }
+                        />
+                      ))}
+                    </tr>
+                  </thead>
+                </table>
+              </SortableContext>
+            </DndContext>
+          </div>
+        </div>
+        <div
+          ref={scrollerRef}
+          onScroll={handleBodyScroll}
+          className="data-table-body-scroll min-h-0 flex-1 overflow-auto"
+        >
+          <div style={tableStyle}>
+            <table
+              className="table-fixed border-separate border-spacing-0 text-left text-sm"
+              style={{ width: tableWidth }}
+            >
+              {colGroup}
               <tbody>
-                {loading
-                  ? skeletonKeys.map((rowKey) => (
-                      <tr key={rowKey} className="border-b">
-                        {visibleColumnOrder.map((column) => (
-                          <td
-                            key={column}
-                            className={cn(
-                              CELL_BASE,
-                              columnsByKey[column].cellClassName,
-                            )}
-                          >
-                            <Skeleton className="h-5 w-full" />
-                          </td>
-                        ))}
-                      </tr>
-                    ))
-                  : pageRows.map((item) => (
-                      <tr
-                        key={getRowKey(item)}
-                        onClick={
-                          onRowClick
-                            ? (event) => handleRowClick(item, event)
-                            : undefined
-                        }
-                        className={cn(
-                          "group border-b transition-colors",
-                          onRowClick && "cursor-pointer hover:bg-muted/55",
-                          rowClassName?.(item),
-                        )}
-                      >
-                        {visibleColumnOrder.map((column) => {
-                          const definition = columnsByKey[column];
-                          const motion = getColumnCellMotion(column);
-                          const pin = pinned[column];
-                          return (
-                            <td
-                              key={column}
-                              data-column={column}
-                              title={definition.cellTitle?.(item)}
-                              className={cn(
-                                CELL_BASE,
-                                definition.cellClassName,
-                                pin &&
-                                  "sticky z-10 bg-muted group-hover:bg-accent",
-                                motion && !pin && "relative z-10",
-                              )}
-                              style={{
-                                ...motion?.style,
-                                ...getPinnedColumnStyle(column),
-                              }}
-                            >
-                              {definition.render(item)}
-                            </td>
-                          );
-                        })}
-                      </tr>
-                    ))}
+                {pageRows.map((item) => (
+                  <tr
+                    key={getRowKey(item)}
+                    onClick={
+                      onRowClick
+                        ? (event) => handleRowClick(item, event)
+                        : undefined
+                    }
+                    className={cn(
+                      "group border-b transition-colors",
+                      onRowClick && "cursor-pointer hover:bg-muted/55",
+                      rowClassName?.(item),
+                    )}
+                  >
+                    {visibleColumnOrder.map((column) => {
+                      const definition = columnsByKey[column];
+                      const motion = getColumnCellMotion(column);
+                      const pin = pinned[column];
+                      return (
+                        <td
+                          key={column}
+                          data-column={column}
+                          title={definition.cellTitle?.(item)}
+                          className={cn(
+                            CELL_BASE,
+                            definition.cellClassName,
+                            pin &&
+                              "sticky z-10 bg-background group-hover:bg-accent",
+                            motion && !pin && "relative z-10",
+                          )}
+                          style={{
+                            ...motion?.style,
+                            ...getPinnedColumnStyle(column),
+                          }}
+                        >
+                          <div className="min-w-0 overflow-hidden">
+                            {definition.render(item)}
+                          </div>
+                        </td>
+                      );
+                    })}
+                  </tr>
+                ))}
               </tbody>
             </table>
-          </SortableContext>
-        </DndContext>
-        {isEmpty && emptyState}
-      </ScrollArea>
+          </div>
+          {isEmpty && <div className="sticky left-0 w-full">{emptyState}</div>}
+        </div>
+      </div>
       {pagination && (
         <DataTablePaginationFooter
           pagination={pagination}

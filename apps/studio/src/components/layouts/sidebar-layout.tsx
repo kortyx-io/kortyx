@@ -1,6 +1,5 @@
 import { cookies } from "next/headers";
 import { AppSidebar } from "@/components/sidebar/app-sidebar";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import {
   SidebarInset,
@@ -24,9 +23,9 @@ export async function SidebarLayout({
           <SidebarTrigger className="-ml-1" />
           <Separator orientation="vertical" className="mr-2 h-6! self-center" />
         </header>
-        <ScrollArea className="min-h-0 flex-1">
-          <main className="h-full pr-4 pb-4">{children}</main>
-        </ScrollArea>
+        <main className="min-h-0 flex-1 overflow-hidden pr-4 pb-4">
+          {children}
+        </main>
       </SidebarInset>
     </SidebarProvider>
   );

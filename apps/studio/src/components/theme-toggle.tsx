@@ -1,7 +1,13 @@
 "use client";
 
 import { Monitor, Moon, Sun } from "lucide-react";
-import { useEffect, useState } from "react";
+import {
+  createContext,
+  type ReactNode,
+  useContext,
+  useEffect,
+  useState,
+} from "react";
 import {
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
@@ -9,40 +15,58 @@ import {
   DropdownMenuSubContent,
   DropdownMenuSubTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  THEME_PREFERENCE_COOKIE,
+  THEME_RESOLVED_COOKIE,
+  type ThemePreference,
+} from "@/lib/theme";
 
-type Theme = "light" | "dark" | "system";
-
-const STORAGE_KEY = "theme";
-
-function getStoredTheme(): Theme {
-  if (typeof window === "undefined") return "system";
-  const stored = localStorage.getItem(STORAGE_KEY) as Theme | null;
-  if (stored === "light" || stored === "dark") return stored;
-  return "system";
-}
+type ThemeContextValue = {
+  theme: ThemePreference;
+  setTheme: (theme: ThemePreference) => void;
+};
 
 function systemPrefersDark(): boolean {
   return window.matchMedia("(prefers-color-scheme: dark)").matches;
 }
 
-function applyTheme(theme: Theme) {
+function writeThemeCookie(name: string, value: string) {
+  // biome-ignore lint/suspicious/noDocumentCookie: Theme must persist before the next server navigation.
+  document.cookie = `${name}=${value}; Path=/; Max-Age=31536000; SameSite=Lax`;
+}
+
+function applyTheme(theme: ThemePreference) {
   const root = document.documentElement;
   const dark = theme === "dark" || (theme === "system" && systemPrefersDark());
   root.classList.toggle("dark", dark);
   root.style.colorScheme = dark ? "dark" : "light";
-  if (theme === "system") localStorage.removeItem(STORAGE_KEY);
-  else localStorage.setItem(STORAGE_KEY, theme);
+  root.dataset.themePreference = theme;
+  root.dataset.themeResolved = dark ? "dark" : "light";
+  writeThemeCookie(THEME_PREFERENCE_COOKIE, theme);
+  writeThemeCookie(THEME_RESOLVED_COOKIE, dark ? "dark" : "light");
+  localStorage.removeItem("theme");
 }
 
-export function useTheme() {
-  const [theme, setThemeState] = useState<Theme>("system");
-  const [mounted, setMounted] = useState(false);
+const ThemeContext = createContext<ThemeContextValue | null>(null);
+
+export function ThemeProvider({
+  initialTheme,
+  children,
+}: {
+  initialTheme: ThemePreference;
+  children: ReactNode;
+}) {
+  const [theme, setThemeState] = useState(initialTheme);
 
   useEffect(() => {
-    const storedTheme = getStoredTheme();
-    setThemeState(storedTheme);
-    applyTheme(storedTheme);
-    setMounted(true);
+    const bootstrappedTheme = document.documentElement.dataset.themePreference;
+    if (
+      bootstrappedTheme === "light" ||
+      bootstrappedTheme === "dark" ||
+      bootstrappedTheme === "system"
+    ) {
+      setThemeState(bootstrappedTheme);
+    }
   }, []);
 
   useEffect(() => {
@@ -53,12 +77,22 @@ export function useTheme() {
     return () => mq.removeEventListener("change", onChange);
   }, [theme]);
 
-  const setTheme = (next: Theme) => {
+  const setTheme = (next: ThemePreference) => {
     setThemeState(next);
     applyTheme(next);
   };
 
-  return { theme, setTheme, mounted };
+  return (
+    <ThemeContext.Provider value={{ theme, setTheme }}>
+      {children}
+    </ThemeContext.Provider>
+  );
+}
+
+export function useTheme() {
+  const context = useContext(ThemeContext);
+  if (!context) throw new Error("useTheme must be used within ThemeProvider");
+  return context;
 }
 
 const ICONS = { light: Sun, dark: Moon, system: Monitor } as const;
@@ -76,7 +110,7 @@ export function ThemeMenuSub() {
       <DropdownMenuSubContent>
         <DropdownMenuRadioGroup
           value={theme}
-          onValueChange={(v) => setTheme(v as Theme)}
+          onValueChange={(v) => setTheme(v as ThemePreference)}
         >
           <DropdownMenuRadioItem value="light">
             <Sun className="size-4" />

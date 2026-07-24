@@ -1,10 +1,11 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@/lib/utils";
 import { useWorkflowQuery } from "../hooks/use-workflow-query";
+import { workflowCanvasFocusId } from "../lib/view-state";
 import type { WorkflowSystem } from "../schema";
 import { WorkflowCanvas } from "./workflow-canvas";
 import { WorkflowCatalog } from "./workflow-catalog";
@@ -21,6 +22,7 @@ export default function WorkflowsPageClient({
   const [focusedWorkflow, setFocusedWorkflow] = useState<{
     id: string;
     request: number;
+    sourceKey: string;
   }>();
   const [catalogOpen, setCatalogOpen] = useState(false);
   const [inspectorOpen, setInspectorOpen] = useState(false);
@@ -60,6 +62,19 @@ export default function WorkflowsPageClient({
       );
     });
   }, [params.health, params.q, system.workflows]);
+  const canvasFocusId = workflowCanvasFocusId(selection, params.workflow);
+  const canvasFocusKey = `${canvasFocusId}:${params.node}:${params.transition}`;
+
+  useEffect(() => {
+    if (!system.workflows.some((workflow) => workflow.id === canvasFocusId)) {
+      return;
+    }
+    setFocusedWorkflow((current) => ({
+      id: canvasFocusId,
+      request: (current?.request ?? 0) + 1,
+      sourceKey: canvasFocusKey,
+    }));
+  }, [canvasFocusKey, canvasFocusId, system.workflows]);
 
   function selectItem(nextSelection: typeof selection) {
     void setSelection(nextSelection);
@@ -69,10 +84,6 @@ export default function WorkflowsPageClient({
 
   function selectWorkflow(id: string) {
     selectItem({ type: "workflow", id });
-    setFocusedWorkflow((current) => ({
-      id,
-      request: (current?.request ?? 0) + 1,
-    }));
     setCatalogOpen(false);
   }
 

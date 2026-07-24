@@ -3,7 +3,6 @@ import {
   CircleCheck,
   CirclePause,
   CircleX,
-  Clipboard,
   GitFork,
   LoaderCircle,
 } from "lucide-react";
@@ -17,6 +16,8 @@ import {
   CompactStatus,
   type CompactStatusMeta,
 } from "@/features/telemetry/components/compact-status";
+import { CopyableCell } from "@/features/telemetry/components/copyable-cell";
+import { TruncatedText } from "@/features/telemetry/components/truncated-text";
 import {
   formatElapsed,
   formatOptionalCost,
@@ -50,6 +51,15 @@ const statusMeta: Record<SessionStatus, CompactStatusMeta> = {
   },
 };
 
+const activeDurationSeconds = (session: Session, now: number) => {
+  if (session.status !== "running" && session.status !== "interrupted") {
+    return session.duration;
+  }
+  const lastActivityAt = Date.parse(session.lastActivityAt);
+  if (!Number.isFinite(lastActivityAt)) return session.duration;
+  return Math.max(session.duration ?? 0, (now - lastActivityAt) / 1000);
+};
+
 export function createSessionColumns({
   now,
   onCopy,
@@ -63,7 +73,6 @@ export function createSessionColumns({
       label: "Status",
       sortKey: "status",
       defaultWidth: 132,
-      minWidth: 110,
       cellClassName: "px-4",
       render: (session) => <CompactStatus meta={statusMeta[session.status]} />,
     },
@@ -72,57 +81,33 @@ export function createSessionColumns({
       label: "Last activity",
       sortKey: "activity",
       defaultWidth: 118,
-      minWidth: 100,
       cellClassName: "text-xs text-muted-foreground",
       cellTitle: (session) => new Date(session.lastActivityAt).toLocaleString(),
-      render: (session) => formatRelativeTime(session.lastActivityAt, now),
+      render: (session) => (
+        <TruncatedText>
+          {formatRelativeTime(session.lastActivityAt, now)}
+        </TruncatedText>
+      ),
     },
     {
       key: "session",
       label: "Session",
       defaultWidth: 155,
-      minWidth: 120,
+      cellTitle: (session) => session.id,
       render: (session) => (
-        <div className="flex items-center gap-1 font-mono text-xs text-muted-foreground">
-          <span>{session.id.slice(0, 14)}…</span>
-          <button
-            type="button"
-            aria-label="Copy session ID"
-            onClick={(event) => {
-              event.stopPropagation();
-              onCopy(session.id);
-            }}
-            className="invisible rounded p-1 hover:bg-accent group-hover:visible"
-          >
-            <Clipboard className="size-3" />
-          </button>
-        </div>
-      ),
-    },
-    {
-      key: "workflow",
-      label: "Workflow",
-      defaultWidth: 170,
-      minWidth: 130,
-      render: (session) => (
-        <div className="truncate text-xs font-medium">
-          {session.workflow}
-          <span className="ml-1 text-muted-foreground">{session.version}</span>
-          {session.workflowCount > 1 && (
-            <span className="ml-1 text-muted-foreground">
-              +{session.workflowCount - 1}
-            </span>
-          )}
-        </div>
+        <CopyableCell
+          value={session.id}
+          onCopy={onCopy}
+          ariaLabel="Copy session ID"
+        />
       ),
     },
     {
       key: "identity",
       label: "User / Tenant",
       defaultWidth: 160,
-      minWidth: 120,
       render: (session) => (
-        <div className="space-y-0.5 text-xs">
+        <div className="min-w-0 space-y-0.5 overflow-hidden text-xs">
           <div className="truncate font-medium">{session.user ?? "—"}</div>
           <div className="truncate text-muted-foreground">
             {session.tenant ?? "—"}
@@ -135,10 +120,9 @@ export function createSessionColumns({
       label: "Runs",
       sortKey: "runs",
       defaultWidth: 145,
-      minWidth: 118,
       cellClassName: "text-xs tabular-nums",
       render: (session) => (
-        <div>
+        <TruncatedText>
           <span className="font-medium">{session.runs}</span>
           <span className="ml-1 text-muted-foreground">
             {session.succeeded} ok
@@ -151,29 +135,28 @@ export function createSessionColumns({
               {session.interrupted} paused
             </span>
           )}
-        </div>
+        </TruncatedText>
       ),
     },
     {
       key: "checkpoint",
       label: "Checkpoint / Branch",
       defaultWidth: 154,
-      minWidth: 125,
       cellClassName: "text-xs text-muted-foreground",
       render: (session) =>
         session.checkpoints === undefined && !session.hasFork ? (
           "—"
         ) : (
-          <div className="flex items-center gap-2">
+          <div className="flex min-w-0 items-center gap-2 overflow-hidden text-xs text-muted-foreground">
             {session.checkpoints !== undefined && (
-              <span>
+              <span className="truncate">
                 {session.checkpoints} checkpoint
                 {session.checkpoints === 1 ? "" : "s"}
               </span>
             )}
             {session.hasFork && (
               <GitFork
-                className="size-3.5 text-foreground"
+                className="size-3.5 shrink-0 text-foreground"
                 aria-label="Has branch"
               />
             )}
@@ -185,34 +168,40 @@ export function createSessionColumns({
       label: "Duration",
       sortKey: "duration",
       defaultWidth: 108,
-      minWidth: 86,
       cellClassName: "font-mono text-xs tabular-nums",
-      render: (session) =>
-        session.duration === undefined ? "—" : formatElapsed(session.duration),
+      render: (session) => {
+        const duration = activeDurationSeconds(session, now);
+        return (
+          <TruncatedText>
+            {duration === undefined ? "—" : formatElapsed(duration)}
+          </TruncatedText>
+        );
+      },
     },
     {
       key: "tokens",
       label: "Tokens",
       sortKey: "tokens",
       defaultWidth: 96,
-      minWidth: 80,
       cellClassName: "font-mono text-xs tabular-nums",
-      render: (session) => formatOptionalNumber(session.tokens),
+      render: (session) => (
+        <TruncatedText>{formatOptionalNumber(session.tokens)}</TruncatedText>
+      ),
     },
     {
       key: "cost",
       label: "Cost",
       sortKey: "cost",
       defaultWidth: 100,
-      minWidth: 80,
       cellClassName: "font-mono text-xs tabular-nums",
-      render: (session) => formatOptionalCost(session.cost),
+      render: (session) => (
+        <TruncatedText>{formatOptionalCost(session.cost)}</TruncatedText>
+      ),
     },
     {
       key: "result",
       label: "Latest result",
       defaultWidth: 330,
-      minWidth: 200,
       render: (session) => (
         <p
           className={cn(

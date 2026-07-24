@@ -1,0 +1,1 @@
+export const DETAIL_MOTION_DURATION_MS = 300;

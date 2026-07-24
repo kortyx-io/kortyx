@@ -13,12 +13,12 @@ export function CompactStatus({ meta }: { meta: CompactStatusMeta }) {
   return (
     <span
       className={cn(
-        "flex items-center gap-2 text-xs font-medium",
+        "flex max-w-full min-w-0 items-center gap-2 text-xs font-medium",
         meta.className,
       )}
     >
-      <Icon className={cn("size-4", meta.animate && "animate-spin")} />
-      {meta.label}
+      <Icon className={cn("size-4 shrink-0", meta.animate && "animate-spin")} />
+      <span className="truncate">{meta.label}</span>
     </span>
   );
 }

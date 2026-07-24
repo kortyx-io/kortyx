@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 export const WorkflowHealthSchema = z.enum([
+  "unknown",
   "healthy",
   "degraded",
   "failing",

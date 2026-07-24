@@ -38,6 +38,8 @@ import {
   formatCost,
   formatCount,
   formatDuration,
+  getTransitionLayoutWeight,
+  getTransitionStrokeWidth,
 } from "@/features/workflows/lib/format";
 import type {
   WorkflowMetric,
@@ -86,6 +88,7 @@ type InternalEdgeData = {
 };
 
 const healthClasses: Record<WorkflowHealth, string> = {
+  unknown: "bg-slate-300",
   healthy: "bg-emerald-500",
   degraded: "bg-amber-500",
   failing: "bg-red-500",
@@ -441,10 +444,11 @@ function TransitionEdge({
     ? [routeLabel.x, routeLabel.y]
     : [fallbackLabelX, fallbackLabelY];
   const error = (data?.errorRate ?? 0) > 4;
-  const width =
-    data?.mode === "health" && data.metric === "volume"
-      ? Math.min(5, 1.5 + Math.log10(data.volume) / 2)
-      : 2;
+  const width = getTransitionStrokeWidth(
+    data?.mode,
+    data?.metric,
+    data?.volume,
+  );
   return (
     <>
       <BaseEdge
@@ -677,7 +681,7 @@ function _toGraph(
       transition.sourceWorkflowId,
       transition.targetWorkflowId,
       {
-        weight: Math.max(1, Math.round(Math.log10(transition.volume))),
+        weight: getTransitionLayoutWeight(transition.volume),
       },
       transition.id,
     );

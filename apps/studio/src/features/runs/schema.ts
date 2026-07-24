@@ -14,12 +14,8 @@ export const RunSortKeySchema = z.enum([
   "cost",
   "status",
 ]);
-export const ProviderSchema = z.enum(["OpenAI", "Anthropic", "Google"]);
-export const EnvironmentSchema = z.enum([
-  "Development",
-  "Staging",
-  "Production",
-]);
+export const ProviderSchema = z.string();
+export const EnvironmentSchema = z.string();
 
 export const RunSchema = z.object({
   id: z.string(),
@@ -27,7 +23,18 @@ export const RunSchema = z.object({
   started: z.string(),
   startedAt: z.string(),
   workflow: z.string(),
+  workflowIds: z.array(z.string()).optional(),
+  workflowRefs: z
+    .array(
+      z.object({
+        workflowId: z.string(),
+        workflowRevisionId: z.string().optional(),
+        declaredVersion: z.string().optional(),
+      }),
+    )
+    .optional(),
   version: z.string(),
+  transitionIds: z.array(z.string()).optional(),
   path: z.array(z.string()),
   session: z.string(),
   model: z.string(),

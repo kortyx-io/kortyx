@@ -1,7 +1,7 @@
 "use client";
 
-import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useEffect, useState, useTransition } from "react";
 import { DataTable, DataTableProvider } from "@/components/data-table";
 import { PAGE_SIZES } from "@/features/runs/lib/constants";
 import { createSessionColumns } from "@/features/sessions/components/session-table-columns";
@@ -20,18 +20,22 @@ import { ListToolbar } from "@/features/telemetry/components/list-toolbar";
 import { ListViewsMenu } from "@/features/telemetry/components/list-views-menu";
 import { useListTablePreferences } from "@/features/telemetry/hooks/use-list-table-preferences";
 import type { ListTablePreferences } from "@/features/telemetry/lib/table-preferences";
+import { detailNavigationHref } from "@/lib/nuqs";
 import { cn } from "@/lib/utils";
 
 export default function SessionsPageClient({
   sessions,
+  totalCount,
   preferences,
 }: {
   sessions: Session[];
+  totalCount: number;
   preferences?: Partial<
     ListTablePreferences<SessionSortKey, SessionsViewQuery>
   >;
 }) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const prefs = useListTablePreferences({
     cookieName: SESSIONS_TABLE_PREFERENCES_COOKIE,
     defaults: DEFAULT_SESSIONS_TABLE_PREFERENCES,
@@ -42,19 +46,17 @@ export default function SessionsPageClient({
     dir: prefs.value.dir,
     pageSize: prefs.value.pageSize,
   });
-  const [filtersOpen, setFiltersOpen] = useState(false);
-  const [refreshing, setRefreshing] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const [refreshing, startRefreshTransition] = useTransition();
   const [now, setNow] = useState(Date.now());
+  const hasActiveSessions = query.filteredSessions.some(
+    (session) =>
+      session.status === "running" || session.status === "interrupted",
+  );
   useEffect(() => {
-    const timer = window.setTimeout(() => setLoading(false), 140);
-    return () => window.clearTimeout(timer);
-  }, []);
-  useEffect(() => {
-    if (!query.live) return;
+    if (!query.live && !hasActiveSessions) return;
     const timer = window.setInterval(() => setNow(Date.now()), 1_000);
     return () => window.clearInterval(timer);
-  }, [query.live]);
+  }, [query.live, hasActiveSessions]);
   const columns = createSessionColumns({
     now,
     onCopy: (value) =>
@@ -69,17 +71,23 @@ export default function SessionsPageClient({
       initialLayout={prefs.value.layout}
       onLayoutChange={(layout) => prefs.save({ layout })}
     >
-      <div className="flex h-full min-h-0 gap-2">
+      <div className="flex h-full min-h-0">
         <DataTable
           className="min-w-0 flex-1"
           data={query.filteredSessions}
           getRowKey={(session) => session.id}
-          loading={loading}
           onRowClick={(session, event) => {
-            const href = `/sessions/${session.id}`;
+            const href = detailNavigationHref(
+              `/sessions/${session.id}`,
+              searchParams,
+            );
             if (event.metaKey || event.ctrlKey)
               window.open(href, "_blank", "noopener");
-            else router.push(href);
+            else if (query.filtersOpen) {
+              void query.setFiltersOpen(false).then(() => router.push(href));
+            } else {
+              router.push(href);
+            }
           }}
           rowClassName={(session) =>
             session.status === "failed" ? "bg-red-500/[0.025]" : undefined
@@ -96,21 +104,18 @@ export default function SessionsPageClient({
               search={query.q}
               searchPlaceholder="Search sessions, users, workflows, errors…"
               activeFilterCount={query.activeFilterCount}
-              filtersOpen={filtersOpen}
+              filtersOpen={query.filtersOpen}
               refreshing={refreshing}
               live={query.live}
               onSearchChange={(value) => query.setParams({ q: value || null })}
-              onToggleFilters={() => setFiltersOpen((open) => !open)}
+              onToggleFilters={query.toggleFiltersOpen}
               onClearFilters={query.clearFilters}
               onToggleLive={() => query.setLive(!query.live)}
-              onRefresh={() => {
-                setRefreshing(true);
-                setLoading(true);
-                window.setTimeout(() => {
-                  setRefreshing(false);
-                  setLoading(false);
-                }, 650);
-              }}
+              onRefresh={() =>
+                startRefreshTransition(() => {
+                  router.refresh();
+                })
+              }
               views={
                 <ListViewsMenu
                   currentQuery={query.viewQuery}
@@ -133,7 +138,8 @@ export default function SessionsPageClient({
             cursor: query.cursor,
             pageSize: query.pageSize,
             pageSizes: PAGE_SIZES,
-            totalCount: query.filteredSessions.length,
+            totalCount,
+            serverSide: true,
             onCursorChange: (cursor) => query.setParams({ cursor }),
             onPageSizeChange: (pageSize) =>
               query.setParams({ cursor: null, pageSize }),
@@ -141,14 +147,14 @@ export default function SessionsPageClient({
         />
         <div
           className={cn(
-            "h-full min-h-0 shrink-0 self-stretch overflow-hidden transition-[width] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)]",
-            filtersOpen ? "w-72" : "w-0",
+            "h-full min-h-0 shrink-0 self-stretch overflow-hidden transition-[width,margin] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)]",
+            query.filtersOpen ? "ml-2 w-72" : "ml-0 w-0",
           )}
         >
           <SessionsFilterPanel
             query={query}
-            open={filtersOpen}
-            onClose={() => setFiltersOpen(false)}
+            open={query.filtersOpen}
+            onClose={() => query.setFiltersOpen(false)}
           />
         </div>
       </div>

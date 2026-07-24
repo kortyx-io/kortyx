@@ -2,7 +2,6 @@ import {
   CircleAlert,
   CircleCheck,
   CircleX,
-  Clipboard,
   Clock3,
   LoaderCircle,
 } from "lucide-react";
@@ -16,6 +15,8 @@ import {
   CompactStatus,
   type CompactStatusMeta,
 } from "@/features/telemetry/components/compact-status";
+import { CopyableCell } from "@/features/telemetry/components/copyable-cell";
+import { TruncatedText } from "@/features/telemetry/components/truncated-text";
 import {
   formatElapsed,
   formatRelativeTime,
@@ -60,7 +61,6 @@ export function createInterruptColumns({
       label: "Status",
       sortKey: "status",
       defaultWidth: 130,
-      minWidth: 108,
       cellClassName: "px-4",
       render: (interrupt) => (
         <CompactStatus meta={statusMeta[interrupt.status]} />
@@ -71,17 +71,19 @@ export function createInterruptColumns({
       label: "Created",
       sortKey: "created",
       defaultWidth: 104,
-      minWidth: 90,
       cellClassName: "text-xs text-muted-foreground",
       cellTitle: (interrupt) => new Date(interrupt.createdAt).toLocaleString(),
-      render: (interrupt) => formatRelativeTime(interrupt.createdAt, now),
+      render: (interrupt) => (
+        <TruncatedText>
+          {formatRelativeTime(interrupt.createdAt, now)}
+        </TruncatedText>
+      ),
     },
     {
       key: "age",
       label: "Age / Resolved in",
       sortKey: "age",
       defaultWidth: 130,
-      minWidth: 112,
       cellClassName: "font-mono text-xs tabular-nums",
       render: (interrupt) => {
         const seconds = Math.max(
@@ -93,12 +95,12 @@ export function createInterruptColumns({
           ),
         );
         return interrupt.status === "pending" ? (
-          <span>
+          <TruncatedText>
             <span className="mr-1 inline-block size-1.5 animate-pulse rounded-full bg-amber-500" />
             {formatElapsed(seconds)}
-          </span>
+          </TruncatedText>
         ) : (
-          formatElapsed(seconds)
+          <TruncatedText>{formatElapsed(seconds)}</TruncatedText>
         );
       },
     },
@@ -106,15 +108,14 @@ export function createInterruptColumns({
       key: "request",
       label: "Request",
       defaultWidth: 280,
-      minWidth: 180,
       render: (interrupt) => (
-        <div className="min-w-0">
-          <div className="mb-1 flex items-center gap-1.5">
-            <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+        <div className="min-w-0 overflow-hidden">
+          <div className="mb-1 flex min-w-0 items-center gap-1.5 overflow-hidden">
+            <span className="shrink-0 rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
               {interrupt.type}
             </span>
             {interrupt.optionCount && (
-              <span className="text-[10px] text-muted-foreground">
+              <span className="truncate text-[10px] text-muted-foreground">
                 {interrupt.optionCount} options
               </span>
             )}
@@ -127,9 +128,8 @@ export function createInterruptColumns({
       key: "workflow",
       label: "Workflow / Node",
       defaultWidth: 170,
-      minWidth: 130,
       render: (interrupt) => (
-        <div className="space-y-0.5 text-xs">
+        <div className="min-w-0 space-y-0.5 overflow-hidden text-xs">
           <div className="truncate font-medium">{interrupt.workflow}</div>
           <div className="truncate text-muted-foreground">{interrupt.node}</div>
         </div>
@@ -139,31 +139,21 @@ export function createInterruptColumns({
       key: "session",
       label: "Session",
       defaultWidth: 150,
-      minWidth: 120,
+      cellTitle: (interrupt) => interrupt.session,
       render: (interrupt) => (
-        <div className="flex items-center gap-1 font-mono text-xs text-muted-foreground">
-          <span>{interrupt.session.slice(0, 14)}…</span>
-          <button
-            type="button"
-            aria-label="Copy session ID"
-            onClick={(event) => {
-              event.stopPropagation();
-              onCopy(interrupt.session);
-            }}
-            className="invisible rounded p-1 hover:bg-accent group-hover:visible"
-          >
-            <Clipboard className="size-3" />
-          </button>
-        </div>
+        <CopyableCell
+          value={interrupt.session}
+          onCopy={onCopy}
+          ariaLabel="Copy session ID"
+        />
       ),
     },
     {
       key: "identity",
       label: "User / Tenant",
       defaultWidth: 150,
-      minWidth: 120,
       render: (interrupt) => (
-        <div className="space-y-0.5 text-xs">
+        <div className="min-w-0 space-y-0.5 overflow-hidden text-xs">
           <div className="truncate font-medium">{interrupt.user ?? "—"}</div>
           <div className="truncate text-muted-foreground">
             {interrupt.tenant ?? "—"}
@@ -175,7 +165,6 @@ export function createInterruptColumns({
       key: "response",
       label: "Response",
       defaultWidth: 210,
-      minWidth: 150,
       render: (interrupt) => (
         <p
           className={cn(
@@ -193,19 +182,22 @@ export function createInterruptColumns({
       key: "outcome",
       label: "Resume outcome",
       defaultWidth: 190,
-      minWidth: 145,
       render: (interrupt) => (
-        <div
-          className={cn(
-            "text-xs",
-            interrupt.resumeError
-              ? "text-red-700 dark:text-red-400"
-              : "text-muted-foreground",
-          )}
-        >
-          <p className="truncate">{interrupt.resumeOutcome ?? "—"}</p>
+        <div className="min-w-0 overflow-hidden text-xs">
+          <p
+            className={cn(
+              "truncate",
+              interrupt.resumeError
+                ? "text-red-700 dark:text-red-400"
+                : "text-muted-foreground",
+            )}
+          >
+            {interrupt.resumeOutcome ?? "—"}
+          </p>
           {interrupt.resumeError && (
-            <p className="truncate text-[11px]">{interrupt.resumeError}</p>
+            <p className="truncate text-[11px] text-red-700 dark:text-red-400">
+              {interrupt.resumeError}
+            </p>
           )}
         </div>
       ),
@@ -214,7 +206,6 @@ export function createInterruptColumns({
       key: "run",
       label: "Run",
       defaultWidth: 145,
-      minWidth: 110,
       render: (interrupt) => (
         <a
           href={`/runs/${interrupt.runId}`}

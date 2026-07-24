@@ -24,11 +24,16 @@ import {
   useRef,
   useState,
 } from "react";
-import type {
-  ColumnMotion,
-  ColumnPin,
-  DataTableColumn,
-  DataTableLayout,
+import {
+  clampScrollViewport,
+  syncHorizontalScroll,
+} from "@/components/data-table/clamp-scroll-viewport";
+import {
+  type ColumnMotion,
+  type ColumnPin,
+  DATA_TABLE_MIN_COLUMN_WIDTH,
+  type DataTableColumn,
+  type DataTableLayout,
 } from "@/components/data-table/types";
 
 type LayoutSnapshot = Partial<DataTableLayout>;
@@ -104,6 +109,7 @@ export type DataTableContextValue<T = unknown, S extends string = string> = {
   onDragCancel: () => void;
   onDragEnd: (event: DragEndEvent) => void;
   scrollerRef: RefObject<HTMLDivElement | null>;
+  headerScrollerRef: RefObject<HTMLDivElement | null>;
 };
 
 const DataTableContext = createContext<DataTableContextValue | null>(null);
@@ -170,13 +176,6 @@ export function DataTableProvider<T, S extends string>({
       ) as Record<string, number>,
     [columns],
   );
-  const minWidths = useMemo(
-    () =>
-      Object.fromEntries(
-        columns.map((column) => [column.key, column.minWidth]),
-      ) as Record<string, number>,
-    [columns],
-  );
 
   const [widths, setWidths] = useState<Record<string, number>>(() => ({
     ...defaultWidths,
@@ -196,6 +195,7 @@ export function DataTableProvider<T, S extends string>({
   const [dragOffset, setDragOffset] = useState(0);
   const [preferencesLoaded, setPreferencesLoaded] = useState(false);
   const scrollerRef = useRef<HTMLDivElement | null>(null);
+  const headerScrollerRef = useRef<HTMLDivElement | null>(null);
   const onLayoutChangeRef = useRef(onLayoutChange);
   onLayoutChangeRef.current = onLayoutChange;
   const hasSettledRef = useRef(false);
@@ -316,24 +316,72 @@ export function DataTableProvider<T, S extends string>({
     event.preventDefault();
     const startX = event.clientX;
     const startWidth = widths[key];
+    const scroller = scrollerRef.current;
+    const headerScroller = headerScrollerRef.current;
+    const startScrollLeft = scroller?.scrollLeft ?? 0;
+    let latestClientX = startX;
+    let frameId = 0;
+    let active = true;
 
-    function resize(moveEvent: PointerEvent) {
+    const EDGE_THRESHOLD = 64;
+    const MAX_SCROLL_SPEED_RIGHT = 6;
+
+    function applyWidth() {
+      const pointerDelta = latestClientX - startX;
+      const scrollDelta = (scroller?.scrollLeft ?? 0) - startScrollLeft;
+      // Scroll delta only applies while widening (auto-scroll at the right edge).
+      const adjustedScrollDelta =
+        pointerDelta > 0 ? Math.max(0, scrollDelta) : 0;
+
       setWidths((current) => ({
         ...current,
         [key]: Math.max(
-          minWidths[key],
-          Math.round(startWidth + moveEvent.clientX - startX),
+          DATA_TABLE_MIN_COLUMN_WIDTH,
+          Math.round(startWidth + pointerDelta + adjustedScrollDelta),
         ),
       }));
     }
 
+    function autoScroll(clientX: number) {
+      if (!scroller) return;
+      // No auto-scroll while narrowing — pointer-only resize.
+      if (clientX <= startX) return;
+
+      const rect = scroller.getBoundingClientRect();
+      if (clientX > rect.right - EDGE_THRESHOLD) {
+        const intensity = Math.min(
+          1,
+          (clientX - (rect.right - EDGE_THRESHOLD)) / EDGE_THRESHOLD,
+        );
+        scroller.scrollLeft += Math.ceil(MAX_SCROLL_SPEED_RIGHT * intensity);
+        syncHorizontalScroll(scroller, headerScroller);
+      }
+    }
+
+    function tick() {
+      if (!active) return;
+      autoScroll(latestClientX);
+      applyWidth();
+      frameId = requestAnimationFrame(tick);
+    }
+
+    function resize(moveEvent: PointerEvent) {
+      latestClientX = moveEvent.clientX;
+    }
+
     function stopResize() {
+      active = false;
+      cancelAnimationFrame(frameId);
       document.body.classList.remove("cursor-col-resize", "select-none");
       window.removeEventListener("pointermove", resize);
       window.removeEventListener("pointerup", stopResize);
+      requestAnimationFrame(() => {
+        clampScrollViewport(scroller, headerScroller);
+      });
     }
 
     document.body.classList.add("cursor-col-resize", "select-none");
+    frameId = requestAnimationFrame(tick);
     window.addEventListener("pointermove", resize);
     window.addEventListener("pointerup", stopResize, { once: true });
   }
@@ -476,6 +524,7 @@ export function DataTableProvider<T, S extends string>({
     onDragCancel,
     onDragEnd,
     scrollerRef,
+    headerScrollerRef,
   };
 
   return (

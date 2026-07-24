@@ -5,16 +5,15 @@ import {
   parseAsInteger,
   parseAsString,
   parseAsStringLiteral,
-  useQueryStates,
 } from "nuqs";
 import { useCallback, useMemo } from "react";
-import {
-  PAGE_SIZE,
-  PAGE_SIZES,
-  providers,
-  statuses,
-} from "@/features/runs/lib/constants";
+import { PAGE_SIZE, PAGE_SIZES, statuses } from "@/features/runs/lib/constants";
 import type { Run, RunStatus, SortKey } from "@/features/runs/schema";
+import {
+  filterPanelParser,
+  useFilterPanelState,
+  useStudioQueryStates,
+} from "@/lib/nuqs";
 
 const sortKeys: SortKey[] = ["started", "duration", "tokens", "cost", "status"];
 
@@ -25,9 +24,11 @@ const baseSearchParams = {
   startedAfter: parseAsString.withDefault(""),
   startedBefore: parseAsString.withDefault(""),
   status: parseAsArrayOf(parseAsStringLiteral(statuses)).withDefault([]),
-  provider: parseAsArrayOf(parseAsStringLiteral(providers)).withDefault([]),
+  provider: parseAsArrayOf(parseAsString).withDefault([]),
   tool: parseAsBoolean.withDefault(false),
   workflow: parseAsString.withDefault(""),
+  version: parseAsString.withDefault(""),
+  transition: parseAsString.withDefault(""),
   path: parseAsString.withDefault(""),
   session: parseAsString.withDefault(""),
   model: parseAsString.withDefault(""),
@@ -37,20 +38,41 @@ const baseSearchParams = {
   minTokens: parseAsInteger.withDefault(0),
   cursor: parseAsInteger.withDefault(0),
   live: parseAsBoolean.withDefault(false),
+  filterPanel: filterPanelParser,
 };
 
-/**
- * Per-user defaults (e.g. from a saved profile) applied when the corresponding
- * URL param is absent. nuqs clears params that equal the default, so these stay
- * the source of truth across sessions while the URL stays shareable.
- */
 export type RunsQueryDefaults = {
   sort?: SortKey;
   dir?: "asc" | "desc";
   pageSize?: number;
 };
 
-/** The URL-backed portion of a saved runs view. Pagination and live refresh are intentionally excluded. */
+type RunsParamChanges = Partial<{
+  q: string | null;
+  env: string | null;
+  range: string | null;
+  startedAfter: string | null;
+  startedBefore: string | null;
+  status: RunStatus[] | null;
+  provider: Run["provider"][] | null;
+  tool: boolean | null;
+  workflow: string | null;
+  version: string | null;
+  transition: string | null;
+  path: string | null;
+  session: string | null;
+  model: string | null;
+  result: string | null;
+  minCost: number | null;
+  minDuration: number | null;
+  minTokens: number | null;
+  cursor: number | null;
+  pageSize: number | null;
+  sort: SortKey | null;
+  dir: "asc" | "desc" | null;
+  live: boolean | null;
+}>;
+
 export type RunsViewFilters = Pick<
   RunsParamChanges,
   | "q"
@@ -62,6 +84,8 @@ export type RunsViewFilters = Pick<
   | "provider"
   | "tool"
   | "workflow"
+  | "version"
+  | "transition"
   | "path"
   | "session"
   | "model"
@@ -77,231 +101,62 @@ export type RunsViewQuery = {
   dir: "asc" | "desc";
 };
 
-type RunsParamChanges = Partial<{
-  q: string | null;
-  env: string | null;
-  range: string | null;
-  startedAfter: string | null;
-  startedBefore: string | null;
-  status: RunStatus[] | null;
-  provider: Run["provider"][] | null;
-  tool: boolean | null;
-  workflow: string | null;
-  path: string | null;
-  session: string | null;
-  model: string | null;
-  result: string | null;
-  minCost: number | null;
-  minDuration: number | null;
-  minTokens: number | null;
-  cursor: number | null;
-  pageSize: number | null;
-  sort: SortKey | null;
-  dir: "asc" | "desc" | null;
-  live: boolean | null;
-}>;
-
-/**
- * Owns the runs list URL state via nuqs: parsing typed search params, deriving
- * the filtered and sorted rows, and the mutations that write changes back.
- */
 export function useRunsQuery(initialRuns: Run[], defaults?: RunsQueryDefaults) {
-  const searchParams = useMemo(
+  const parsers = useMemo(
     () => ({
       ...baseSearchParams,
       pageSize: parseAsInteger.withDefault(defaults?.pageSize ?? PAGE_SIZE),
       sort: parseAsStringLiteral(sortKeys).withDefault(
         defaults?.sort ?? "started",
       ),
-      dir: parseAsStringLiteral(["asc", "desc"]).withDefault(
+      dir: parseAsStringLiteral(["asc", "desc"] as const).withDefault(
         defaults?.dir ?? "desc",
       ),
     }),
-    [defaults?.pageSize, defaults?.sort, defaults?.dir],
+    [defaults?.dir, defaults?.pageSize, defaults?.sort],
   );
-
-  const [params, setQueryStates] = useQueryStates(searchParams);
-
-  const {
-    q: query,
-    env: environment,
-    range: timeRange,
-    startedAfter,
-    startedBefore,
-    status: selectedStatuses,
-    provider: rawSelectedProviders,
-    tool: toolOnly,
-    workflow,
-    path,
-    session,
-    model,
-    result,
-    minCost,
-    minDuration,
-    minTokens,
-    sort,
-    dir: direction,
-    live,
-  } = params;
-
-  const selectedProviders = rawSelectedProviders as Run["provider"][];
-
+  const [params, setQueryStates] = useStudioQueryStates(parsers);
+  const { filtersOpen, setFiltersOpen, toggleFiltersOpen } =
+    useFilterPanelState(params.filterPanel, setQueryStates);
   const cursor = Math.max(0, params.cursor);
   const pageSize = (PAGE_SIZES as readonly number[]).includes(params.pageSize)
     ? params.pageSize
     : PAGE_SIZE;
+  const selectedProviders = params.provider as Run["provider"][];
 
-  // Any filter change resets pagination unless the cursor is set explicitly.
   const setParams = useCallback(
-    (changes: RunsParamChanges) => {
-      void setQueryStates(
+    (changes: RunsParamChanges) =>
+      setQueryStates(
         "cursor" in changes ? changes : { ...changes, cursor: null },
-      );
-    },
+      ),
     [setQueryStates],
   );
 
-  const filteredRuns = useMemo(() => {
-    const needle = query.trim().toLowerCase();
-    const includes = (value: string, filter: string) =>
-      !filter || value.toLowerCase().includes(filter.trim().toLowerCase());
-    const rangeSeconds = getTimeRangeSeconds(timeRange);
-    return initialRuns
-      .filter(
-        (run) =>
-          environment === "All environments" || run.environment === environment,
-      )
-      .filter(
-        (run) =>
-          selectedStatuses.length === 0 ||
-          selectedStatuses.includes(run.status),
-      )
-      .filter(
-        (run) =>
-          selectedProviders.length === 0 ||
-          selectedProviders.includes(run.provider),
-      )
-      .filter((run) => !toolOnly || run.hasTool)
-      .filter((run) =>
-        timeRange === "Custom range"
-          ? isWithinCustomRange(run.startedAt, startedAfter, startedBefore)
-          : rangeSeconds === null ||
-            (getStartedAgoSeconds(run.started) ?? Number.POSITIVE_INFINITY) <=
-              rangeSeconds,
-      )
-      .filter((run) => includes(run.workflow, workflow))
-      .filter((run) => includes(run.path.join(" "), path))
-      .filter((run) => includes(run.session, session))
-      .filter((run) => includes(run.model, model))
-      .filter((run) => includes(run.result, result))
-      .filter((run) => !minCost || (run.cost ?? -1) >= minCost)
-      .filter((run) => !minDuration || run.duration >= minDuration)
-      .filter((run) => !minTokens || (run.tokens ?? -1) >= minTokens)
-      .filter((run) => {
-        if (!needle) return true;
-        return [
-          run.id,
-          run.session,
-          run.workflow,
-          run.path.join(" "),
-          run.user,
-          run.tenant,
-          run.model,
-          run.result,
-        ]
-          .join(" ")
-          .toLowerCase()
-          .includes(needle);
-      })
-      .sort((a, b) => {
-        const values: Record<SortKey, [number, number]> = {
-          started: [-initialRuns.indexOf(a), -initialRuns.indexOf(b)],
-          duration: [a.duration, b.duration],
-          tokens: [a.tokens ?? -1, b.tokens ?? -1],
-          cost: [a.cost ?? -1, b.cost ?? -1],
-          status: [statuses.indexOf(a.status), statuses.indexOf(b.status)],
-        };
-        const [first, second] = values[sort];
-        return direction === "asc" ? first - second : second - first;
-      });
-  }, [
-    direction,
-    environment,
-    minCost,
-    minDuration,
-    minTokens,
-    model,
-    path,
-    selectedProviders,
-    query,
-    result,
-    selectedStatuses,
-    session,
-    sort,
-    startedAfter,
-    startedBefore,
-    timeRange,
-    toolOnly,
-    workflow,
-    initialRuns,
-  ]);
-
   const activeFilterCount =
-    selectedStatuses.length +
+    params.status.length +
     selectedProviders.length +
-    Number(toolOnly) +
-    Number(Boolean(workflow)) +
-    Number(Boolean(path)) +
-    Number(Boolean(session)) +
-    Number(Boolean(model)) +
-    Number(Boolean(result)) +
-    Number(Boolean(minCost)) +
-    Number(Boolean(minDuration)) +
-    Number(Boolean(minTokens));
+    Number(params.tool) +
+    [
+      params.workflow,
+      params.version,
+      params.transition,
+      params.path,
+      params.session,
+      params.model,
+      params.result,
+      params.minCost,
+      params.minDuration,
+      params.minTokens,
+    ].filter(Boolean).length;
   const hasActiveFilters =
     activeFilterCount > 0 ||
-    query.length > 0 ||
-    environment !== "All environments" ||
-    timeRange !== "24 hours" ||
-    Boolean(startedAfter) ||
-    Boolean(startedBefore);
+    Boolean(params.q) ||
+    params.env !== "All environments" ||
+    params.range !== "24 hours" ||
+    Boolean(params.startedAfter) ||
+    Boolean(params.startedBefore);
 
-  function toggleStatus(status: RunStatus) {
-    setParams({
-      status: selectedStatuses.includes(status)
-        ? selectedStatuses.filter((item) => item !== status)
-        : [...selectedStatuses, status],
-    });
-  }
-
-  function toggleProvider(provider: Run["provider"]) {
-    setParams({
-      provider: selectedProviders.includes(provider)
-        ? selectedProviders.filter((item) => item !== provider)
-        : [...selectedProviders, provider],
-    });
-  }
-
-  function handleSort(key: SortKey) {
-    setParams({
-      sort: key,
-      dir: sort === key && direction === "desc" ? "asc" : "desc",
-    });
-  }
-
-  function setSortDirection(key: SortKey, nextDirection: "asc" | "desc") {
-    setParams({ sort: key, dir: nextDirection });
-  }
-
-  function clearSort() {
-    setParams({ sort: null, dir: null });
-  }
-
-  function setLive(next: boolean) {
-    setParams({ live: next ? true : null });
-  }
-
-  function clearFilters() {
+  const clearFilters = () =>
     setParams({
       q: null,
       env: null,
@@ -312,6 +167,8 @@ export function useRunsQuery(initialRuns: Run[], defaults?: RunsQueryDefaults) {
       provider: null,
       tool: null,
       workflow: null,
+      version: null,
+      transition: null,
       path: null,
       session: null,
       model: null,
@@ -320,112 +177,93 @@ export function useRunsQuery(initialRuns: Run[], defaults?: RunsQueryDefaults) {
       minDuration: null,
       minTokens: null,
     });
-  }
 
   const viewQuery: RunsViewQuery = {
     filters: {
-      q: query || null,
-      env: environment === "All environments" ? null : environment,
-      range: timeRange === "24 hours" ? null : timeRange,
-      startedAfter: startedAfter || null,
-      startedBefore: startedBefore || null,
-      status: selectedStatuses.length > 0 ? selectedStatuses : null,
-      provider: selectedProviders.length > 0 ? selectedProviders : null,
-      tool: toolOnly || null,
-      workflow: workflow || null,
-      path: path || null,
-      session: session || null,
-      model: model || null,
-      result: result || null,
-      minCost: minCost || null,
-      minDuration: minDuration || null,
-      minTokens: minTokens || null,
+      q: params.q || null,
+      env: params.env === "All environments" ? null : params.env,
+      range: params.range === "24 hours" ? null : params.range,
+      startedAfter: params.startedAfter || null,
+      startedBefore: params.startedBefore || null,
+      status: params.status.length ? params.status : null,
+      provider: selectedProviders.length ? selectedProviders : null,
+      tool: params.tool || null,
+      workflow: params.workflow || null,
+      version: params.version || null,
+      transition: params.transition || null,
+      path: params.path || null,
+      session: params.session || null,
+      model: params.model || null,
+      result: params.result || null,
+      minCost: params.minCost || null,
+      minDuration: params.minDuration || null,
+      minTokens: params.minTokens || null,
     },
-    sort,
-    dir: direction,
+    sort: params.sort,
+    dir: params.dir,
   };
 
-  function applyViewQuery(view: RunsViewQuery) {
-    setParams({
-      ...view.filters,
-      sort: view.sort,
-      dir: view.dir,
-      cursor: null,
-    });
-  }
-
   return {
-    query,
-    environment,
-    timeRange,
-    startedAfter,
-    startedBefore,
-    selectedStatuses,
+    query: params.q,
+    environment: params.env,
+    timeRange: params.range,
+    startedAfter: params.startedAfter,
+    startedBefore: params.startedBefore,
+    selectedStatuses: params.status,
     selectedProviders,
-    toolOnly,
-    workflow,
-    path,
-    session,
-    model,
-    result,
-    minCost,
-    minDuration,
-    minTokens,
+    toolOnly: params.tool,
+    workflow: params.workflow,
+    version: params.version,
+    transition: params.transition,
+    path: params.path,
+    session: params.session,
+    model: params.model,
+    result: params.result,
+    minCost: params.minCost,
+    minDuration: params.minDuration,
+    minTokens: params.minTokens,
     cursor,
     pageSize,
-    sort,
-    direction,
-    live,
-    filteredRuns,
+    sort: params.sort,
+    direction: params.dir,
+    live: params.live,
+    filteredRuns: initialRuns,
     activeFilterCount,
     hasActiveFilters,
     setParams,
-    setLive,
-    toggleStatus,
-    toggleProvider,
-    handleSort,
-    setSortDirection,
-    clearSort,
+    setLive: (live: boolean) =>
+      setQueryStates({ live: live || null }, { shallow: true }),
+    toggleStatus: (status: RunStatus) =>
+      setParams({
+        status: params.status.includes(status)
+          ? params.status.filter((item) => item !== status)
+          : [...params.status, status],
+      }),
+    toggleProvider: (provider: Run["provider"]) =>
+      setParams({
+        provider: selectedProviders.includes(provider)
+          ? selectedProviders.filter((item) => item !== provider)
+          : [...selectedProviders, provider],
+      }),
+    handleSort: (sort: SortKey) =>
+      setParams({
+        sort,
+        dir: params.sort === sort && params.dir === "desc" ? "asc" : "desc",
+      }),
+    setSortDirection: (sort: SortKey, dir: "asc" | "desc") =>
+      setParams({ sort, dir }),
+    clearSort: () => setParams({ sort: null, dir: null }),
     clearFilters,
     viewQuery,
-    applyViewQuery,
+    applyViewQuery: (view: RunsViewQuery) =>
+      setParams({
+        ...view.filters,
+        sort: view.sort,
+        dir: view.dir,
+        cursor: null,
+      }),
+    filtersOpen,
+    setFiltersOpen,
+    toggleFiltersOpen,
   };
-}
-
-function getTimeRangeSeconds(range: string) {
-  switch (range) {
-    case "Last hour":
-      return 60 * 60;
-    case "24 hours":
-      return 24 * 60 * 60;
-    case "7 days":
-      return 7 * 24 * 60 * 60;
-    default:
-      return null;
-  }
-}
-
-function getStartedAgoSeconds(started: string) {
-  const match = /^(\d+)([smhd]) ago$/.exec(started);
-  if (!match) return null;
-
-  const unitSeconds = { s: 1, m: 60, h: 60 * 60, d: 24 * 60 * 60 };
-  return Number(match[1]) * unitSeconds[match[2] as keyof typeof unitSeconds];
-}
-
-function isWithinCustomRange(
-  startedAt: string,
-  startedAfter: string,
-  startedBefore: string,
-) {
-  const startedTime = Date.parse(startedAt);
-  const afterTime = startedAfter
-    ? Date.parse(startedAfter)
-    : Number.NEGATIVE_INFINITY;
-  const beforeTime = startedBefore
-    ? Date.parse(startedBefore)
-    : Number.POSITIVE_INFINITY;
-
-  if (!Number.isFinite(startedTime)) return false;
-  return startedTime >= afterTime && startedTime <= beforeTime;
 }

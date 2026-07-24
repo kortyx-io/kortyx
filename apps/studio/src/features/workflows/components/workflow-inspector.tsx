@@ -1,4 +1,4 @@
-import { X } from "lucide-react";
+import { ArrowLeft, X } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -8,10 +8,20 @@ import type { WorkflowSelection } from "../lib/view-state";
 import type { WorkflowHealth, WorkflowSystem } from "../schema";
 
 const healthClasses: Record<WorkflowHealth, string> = {
+  unknown: "bg-slate-300",
   healthy: "bg-emerald-500",
   degraded: "bg-amber-500",
   failing: "bg-red-500",
   idle: "bg-slate-400",
+};
+
+const runsHref = (params: Record<string, string | null | undefined>) => {
+  const query = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    if (value) query.set(key, value);
+  }
+  const queryString = query.toString();
+  return queryString ? `/runs?${queryString}` : "/runs";
 };
 
 type WorkflowInspectorProps = {
@@ -46,11 +56,17 @@ export function WorkflowInspector({
       : undefined;
   const runHref =
     selection.type === "transition" && selectedTransition
-      ? `/runs?workflow=${selectedTransition.sourceWorkflowId}&transition=${selectedTransition.id}`
+      ? runsHref({
+          workflow: selectedTransition.sourceWorkflowId,
+          transition: selectedTransition.id,
+        })
       : selection.type === "node" && selectedNode
-        ? `/runs?workflow=${selection.workflowId}&path=${selectedNode.id}`
+        ? runsHref({ workflow: selection.workflowId, path: selectedNode.id })
         : selectedWorkflow
-          ? `/runs?workflow=${selectedWorkflow.id}&version=${selectedWorkflow.activeVersion}`
+          ? runsHref({
+              workflow: selectedWorkflow.id,
+              version: selectedWorkflow.activeVersion,
+            })
           : "/runs";
   const title =
     selection.type === "transition"
@@ -81,6 +97,30 @@ export function WorkflowInspector({
             <>
               <div>
                 <div className="flex items-center gap-2">
+                  {selection.type === "transition" && selectedTransition ? (
+                    <Button
+                      size="icon-sm"
+                      variant="ghost"
+                      className="shrink-0"
+                      aria-label={`Back to ${selectedTransition.sourceWorkflowId}`}
+                      onClick={() =>
+                        onSelect(
+                          selectedTransition.sourceNodeId
+                            ? {
+                                type: "node",
+                                workflowId: selectedTransition.sourceWorkflowId,
+                                id: selectedTransition.sourceNodeId,
+                              }
+                            : {
+                                type: "workflow",
+                                id: selectedTransition.sourceWorkflowId,
+                              },
+                        )
+                      }
+                    >
+                      <ArrowLeft />
+                    </Button>
+                  ) : null}
                   <h3 className="font-mono text-sm font-semibold">{title}</h3>
                   {selectedWorkflow && (
                     <span

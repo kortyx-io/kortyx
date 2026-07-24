@@ -4,7 +4,6 @@ import {
   parseAsInteger,
   parseAsString,
   parseAsStringLiteral,
-  useQueryStates,
 } from "nuqs";
 import { useCallback, useMemo } from "react";
 import type {
@@ -13,6 +12,11 @@ import type {
   InterruptStatus,
 } from "@/features/interrupts/schema";
 import { PAGE_SIZE, PAGE_SIZES } from "@/features/runs/lib/constants";
+import {
+  filterPanelParser,
+  useFilterPanelState,
+  useStudioQueryStates,
+} from "@/lib/nuqs";
 
 const interruptStatuses = [
   "pending",
@@ -21,7 +25,7 @@ const interruptStatuses = [
   "failed",
   "cancelled",
 ] as const;
-const interruptTypes = ["choice", "multi-choice", "text"] as const;
+const interruptTypes = ["choice", "multi-choice", "text", "unknown"] as const;
 const outcomes = [
   "resumed",
   "resume failed",
@@ -29,6 +33,7 @@ const outcomes = [
   "cancelled",
 ] as const;
 const sortKeys = ["priority", "created", "age", "status"] as const;
+
 type Changes = Partial<{
   q: string | null;
   env: string | null;
@@ -72,7 +77,7 @@ export function useInterruptsQuery(
       startedBefore: parseAsString.withDefault(""),
       status: parseAsArrayOf(
         parseAsStringLiteral(interruptStatuses),
-      ).withDefault(["pending"]),
+      ).withDefault([]),
       type: parseAsArrayOf(parseAsStringLiteral(interruptTypes)).withDefault(
         [],
       ),
@@ -95,116 +100,26 @@ export function useInterruptsQuery(
         defaults?.dir ?? "asc",
       ),
       live: parseAsBoolean.withDefault(false),
+      filterPanel: filterPanelParser,
     }),
     [defaults?.dir, defaults?.pageSize, defaults?.sort],
   );
-  const [params, setQueryStates] = useQueryStates(parsers);
+  const [params, setQueryStates] = useStudioQueryStates(parsers);
+  const { filtersOpen, setFiltersOpen, toggleFiltersOpen } =
+    useFilterPanelState(params.filterPanel, setQueryStates);
   const cursor = Math.max(0, params.cursor);
   const pageSize = (PAGE_SIZES as readonly number[]).includes(params.pageSize)
     ? params.pageSize
     : PAGE_SIZE;
   const setParams = useCallback(
-    (changes: Changes) => {
-      void setQueryStates(
+    (changes: Changes) =>
+      setQueryStates(
         "cursor" in changes ? changes : { ...changes, cursor: null },
-      );
-    },
+      ),
     [setQueryStates],
   );
-  const filteredInterrupts = useMemo(() => {
-    const includes = (value: string | undefined, filter: string) =>
-      !filter || value?.toLowerCase().includes(filter.trim().toLowerCase());
-    const rangeMs =
-      params.range === "Last hour"
-        ? 3_600_000
-        : params.range === "24 hours"
-          ? 86_400_000
-          : params.range === "7 days"
-            ? 604_800_000
-            : Number.POSITIVE_INFINITY;
-    const needle = params.q.trim().toLowerCase();
-    return initialInterrupts
-      .filter((interrupt) => {
-        const ageSeconds = Math.floor(
-          (Date.now() - Date.parse(interrupt.createdAt)) / 1000,
-        );
-        return (
-          (params.env === "All environments" ||
-            interrupt.environment === params.env) &&
-          (!params.status.length || params.status.includes(interrupt.status)) &&
-          (!params.type.length || params.type.includes(interrupt.type)) &&
-          (!params.outcome.length ||
-            (interrupt.resumeOutcome !== undefined &&
-              params.outcome.includes(interrupt.resumeOutcome))) &&
-          (!params.error || Boolean(interrupt.resumeError)) &&
-          includes(interrupt.workflow, params.workflow) &&
-          includes(interrupt.node, params.node) &&
-          includes(interrupt.session, params.session) &&
-          includes(interrupt.user, params.user) &&
-          includes(interrupt.tenant, params.tenant) &&
-          includes(interrupt.resolvedBy, params.resolver) &&
-          (!params.minAge || ageSeconds >= params.minAge * 60) &&
-          (!params.maxAge || ageSeconds <= params.maxAge * 60) &&
-          (params.range === "Custom range"
-            ? Date.parse(interrupt.createdAt) >=
-                (params.startedAfter
-                  ? Date.parse(params.startedAfter)
-                  : Number.NEGATIVE_INFINITY) &&
-              Date.parse(interrupt.createdAt) <=
-                (params.startedBefore
-                  ? Date.parse(params.startedBefore)
-                  : Number.POSITIVE_INFINITY)
-            : Date.now() - Date.parse(interrupt.createdAt) <= rangeMs) &&
-          (!needle ||
-            [
-              interrupt.id,
-              interrupt.resumeToken,
-              interrupt.session,
-              interrupt.workflow,
-              interrupt.node,
-              interrupt.user,
-              interrupt.tenant,
-              interrupt.question,
-              interrupt.response,
-              interrupt.resumeError,
-            ]
-              .filter(Boolean)
-              .join(" ")
-              .toLowerCase()
-              .includes(needle))
-        );
-      })
-      .sort((a, b) => {
-        const createdA = Date.parse(a.createdAt);
-        const createdB = Date.parse(b.createdAt);
-        const priority = (item: Interrupt) =>
-          item.status === "pending" ? 0 : 1;
-        if (params.sort === "priority") {
-          const primary = priority(a) - priority(b);
-          const value =
-            primary ||
-            (a.status === "pending"
-              ? createdA - createdB
-              : createdB - createdA);
-          return params.dir === "asc" ? value : -value;
-        }
-        const values: Record<
-          Exclude<InterruptSortKey, "priority">,
-          [number, number]
-        > = {
-          created: [createdA, createdB],
-          age: [Date.now() - createdA, Date.now() - createdB],
-          status: [
-            interruptStatuses.indexOf(a.status),
-            interruptStatuses.indexOf(b.status),
-          ],
-        };
-        const [first, second] = values[params.sort];
-        return params.dir === "asc" ? first - second : second - first;
-      });
-  }, [initialInterrupts, params]);
   const activeFilterCount =
-    Number(params.status.join(",") !== "pending") +
+    params.status.length +
     params.type.length +
     params.outcome.length +
     Number(params.error) +
@@ -223,29 +138,6 @@ export function useInterruptsQuery(
     Boolean(params.q) ||
     params.env !== "All environments" ||
     params.range !== "24 hours";
-  const toggleStatus = (status: InterruptStatus) =>
-    setParams({
-      status: params.status.includes(status)
-        ? params.status.filter((item) => item !== status)
-        : [...params.status, status],
-    });
-  const toggleType = (type: (typeof interruptTypes)[number]) =>
-    setParams({
-      type: params.type.includes(type)
-        ? params.type.filter((item) => item !== type)
-        : [...params.type, type],
-    });
-  const toggleOutcome = (outcome: (typeof outcomes)[number]) =>
-    setParams({
-      outcome: params.outcome.includes(outcome)
-        ? params.outcome.filter((item) => item !== outcome)
-        : [...params.outcome, outcome],
-    });
-  const handleSort = (sort: InterruptSortKey) =>
-    setParams({
-      sort,
-      dir: params.sort === sort && params.dir === "desc" ? "asc" : "desc",
-    });
   const clearFilters = () =>
     setParams({
       q: null,
@@ -270,7 +162,9 @@ export function useInterruptsQuery(
     q: params.q || null,
     env: params.env === "All environments" ? null : params.env,
     range: params.range === "24 hours" ? null : params.range,
-    status: params.status.join(",") === "pending" ? null : params.status,
+    startedAfter: params.startedAfter || null,
+    startedBefore: params.startedBefore || null,
+    status: params.status.length ? params.status : null,
     type: params.type.length ? params.type : null,
     workflow: params.workflow || null,
     node: params.node || null,
@@ -285,31 +179,53 @@ export function useInterruptsQuery(
     sort: params.sort,
     dir: params.dir,
   };
-  const standardViewQuery: InterruptsViewQuery = {
-    sort: "priority",
-    dir: "asc",
-  };
-  const applyViewQuery = (view: InterruptsViewQuery) =>
-    setParams({ ...view, cursor: null });
+
   return {
     ...params,
     cursor,
     pageSize,
-    filteredInterrupts,
+    filteredInterrupts: initialInterrupts,
     activeFilterCount,
     hasActiveFilters,
     setParams,
-    toggleStatus,
-    toggleType,
-    toggleOutcome,
-    handleSort,
+    toggleStatus: (status: InterruptStatus) =>
+      setParams({
+        status: params.status.includes(status)
+          ? params.status.filter((item) => item !== status)
+          : [...params.status, status],
+      }),
+    toggleType: (type: (typeof interruptTypes)[number]) =>
+      setParams({
+        type: params.type.includes(type)
+          ? params.type.filter((item) => item !== type)
+          : [...params.type, type],
+      }),
+    toggleOutcome: (outcome: (typeof outcomes)[number]) =>
+      setParams({
+        outcome: params.outcome.includes(outcome)
+          ? params.outcome.filter((item) => item !== outcome)
+          : [...params.outcome, outcome],
+      }),
+    handleSort: (sort: InterruptSortKey) =>
+      setParams({
+        sort,
+        dir: params.sort === sort && params.dir === "desc" ? "asc" : "desc",
+      }),
     setSortDirection: (sort: InterruptSortKey, dir: "asc" | "desc") =>
       setParams({ sort, dir }),
     clearSort: () => setParams({ sort: null, dir: null }),
     clearFilters,
-    setLive: (live: boolean) => setParams({ live: live || null }),
+    setLive: (live: boolean) =>
+      setQueryStates({ live: live || null }, { shallow: true }),
     viewQuery,
-    standardViewQuery,
-    applyViewQuery,
+    standardViewQuery: {
+      sort: "priority",
+      dir: "asc",
+    } satisfies InterruptsViewQuery,
+    applyViewQuery: (view: InterruptsViewQuery) =>
+      setParams({ ...view, cursor: null }),
+    filtersOpen,
+    setFiltersOpen,
+    toggleFiltersOpen,
   };
 }

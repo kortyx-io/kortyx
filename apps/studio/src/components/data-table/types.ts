@@ -1,5 +1,8 @@
 import type { CSSProperties, ReactNode } from "react";
 
+/** Minimum width (px) for every column when resizing. Content truncates below this. */
+export const DATA_TABLE_MIN_COLUMN_WIDTH = 48;
+
 export type ColumnPin = "left" | "right";
 
 export type ColumnMotion = {
@@ -32,8 +35,6 @@ export type DataTableColumn<T, S extends string = never> = {
   sortKey?: S;
   /** Initial column width in pixels. */
   defaultWidth: number;
-  /** Minimum width the user can resize the column to. */
-  minWidth: number;
   /** Extra classes for the `<th>`. */
   headerClassName?: string;
   /** Extra classes for each `<td>`. */
@@ -48,8 +49,10 @@ export type DataTablePagination = {
   cursor: number;
   pageSize: number;
   pageSizes: readonly number[];
-  /** Total number of rows across all pages (the table slices `data`). */
+  /** Total number of rows across all pages. */
   totalCount: number;
+  /** Rows are already sliced by the server. */
+  serverSide?: boolean;
   onCursorChange: (cursor: number) => void;
   onPageSizeChange: (pageSize: number) => void;
 };
