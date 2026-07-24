@@ -1,9 +1,15 @@
 {
-  "extends": "../../tsconfig.base.json",
+  "extends": "./tsconfig.json",
   "compilerOptions": {
+    "rootDir": ".",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
     "noEmit": true,
+    "composite": false,
+    "declaration": false,
+    "declarationMap": false,
+    "sourceMap": false,
     "incremental": false
   },
-  "include": ["package.json"],
-  "exclude": ["node_modules", "dist", "coverage"]
+  "include": ["src/**/*", "test/**/*"]
 }

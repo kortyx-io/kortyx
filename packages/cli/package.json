@@ -18,15 +18,38 @@
     "url": "https://github.com/kortyx-io/kortyx/issues"
   },
   "author": "Kortyx (https://github.com/kortyx-io)",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "bin": {
+    "kortyx": "./dist/index.js"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
   "files": [
     "dist/**",
     "README.md",
     "CHANGELOG.md"
   ],
   "scripts": {
+    "build": "tsup",
     "lint": "biome check .",
     "test": "pnpm -s type-check && echo 'No tests yet.'",
     "type-check": "tsc --noEmit -p tsconfig.test.json"
+  },
+  "dependencies": {
+    "@kortyx/agent": "workspace:*",
+    "@kortyx/core": "workspace:*",
+    "@kortyx/telemetry-contracts": "workspace:*",
+    "tsx": "^4.21.0"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "tsup": "catalog:",
+    "typescript": "catalog:"
   },
   "repository": {
     "type": "git",
