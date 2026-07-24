@@ -2,11 +2,14 @@ import "server-only";
 
 import { createAgent } from "kortyx";
 import { WORKFLOW_IDS } from "@/lib/protocol";
+import { getCanvasTelemetryAdapter } from "@/lib/telemetry";
 import { briefQueryWorkflow } from "@/workflows/brief-query-workflow";
 import { canvasCreationWorkflow } from "@/workflows/canvas-creation-workflow";
 import { canvasSaveWorkflow } from "@/workflows/canvas-save-workflow";
 import { generalChatWorkflow } from "@/workflows/general-chat-workflow";
 import { updateDiscoveryCanvasWorkflow } from "@/workflows/update-canvas-workflow";
+
+const telemetry = getCanvasTelemetryAdapter();
 
 export const agent = createAgent({
   workflows: [
@@ -17,4 +20,5 @@ export const agent = createAgent({
     updateDiscoveryCanvasWorkflow,
   ],
   defaultWorkflowId: WORKFLOW_IDS.generalChat,
+  ...(telemetry ? { telemetry } : {}),
 });
