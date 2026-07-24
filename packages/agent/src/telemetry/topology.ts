@@ -5,6 +5,17 @@ import type {
   KortyxTelemetryConfig,
 } from "@kortyx/hooks";
 
+type WorkflowTopologyTransition = NonNullable<
+  EnsureWorkflowTopologyRequest["workflow"]["transitions"]
+>[number];
+
+type WorkflowTopologyNodeInput = {
+  run?: unknown;
+  params?: unknown;
+  metadata?: unknown;
+  behavior?: unknown;
+};
+
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   Boolean(value) && typeof value === "object" && !Array.isArray(value);
 
@@ -34,18 +45,132 @@ const tagsFrom = (workflow: WorkflowDefinition): string[] | undefined => {
   return tags.length > 0 ? tags : undefined;
 };
 
+const wordsFrom = (value: string): string[] =>
+  value
+    .replace(/([a-z0-9])([A-Z])/g, "$1-$2")
+    .split(/[^a-zA-Z0-9]+/)
+    .map((word) => word.toLowerCase())
+    .filter(Boolean);
+
+const camelFromWorkflowId = (workflowId: string): string => {
+  const [first = "", ...rest] = wordsFrom(workflowId);
+  return [
+    first,
+    ...rest.map((word) => `${word[0]?.toUpperCase() ?? ""}${word.slice(1)}`),
+  ].join("");
+};
+
+const resolveMemberTransitionTarget = (
+  memberName: string,
+  knownWorkflowIds: readonly string[],
+): string | undefined => {
+  const exact = knownWorkflowIds.find(
+    (workflowId) => camelFromWorkflowId(workflowId) === memberName,
+  );
+  if (exact) return exact;
+
+  const memberWords = new Set(wordsFrom(memberName));
+  const candidates = knownWorkflowIds
+    .map((workflowId) => {
+      const workflowWords = wordsFrom(workflowId);
+      const matched = workflowWords.filter((word) => memberWords.has(word));
+      return {
+        workflowId,
+        matched: matched.length,
+        total: workflowWords.length,
+      };
+    })
+    .filter(
+      (candidate) =>
+        candidate.total > 0 && candidate.matched === candidate.total,
+    )
+    .sort(
+      (a, b) =>
+        b.matched - a.matched || a.workflowId.localeCompare(b.workflowId),
+    );
+
+  if (candidates.length !== 1) return undefined;
+  return candidates[0]?.workflowId;
+};
+
+const transitionTargetsFromRun = (
+  run: unknown,
+  knownWorkflowIds: readonly string[],
+): string[] => {
+  if (typeof run !== "function") return [];
+
+  const source = Function.prototype.toString.call(run);
+  const targets = new Set<string>();
+
+  for (const match of source.matchAll(
+    /\btransitionTo\s*:\s*(['"`])([^'"`$]+)\1/g,
+  )) {
+    const target = match[2]?.trim();
+    if (target) targets.add(target);
+  }
+
+  for (const match of source.matchAll(
+    /\btransitionTo\s*:\s*(?:[A-Za-z_$][\w$]*\.)+([A-Za-z_$][\w$]*)/g,
+  )) {
+    const memberName = match[1];
+    if (!memberName) continue;
+    const target = resolveMemberTransitionTarget(memberName, knownWorkflowIds);
+    if (target) targets.add(target);
+  }
+
+  for (const match of source.matchAll(
+    /\btransitionTo\s*:\s*(?:[A-Za-z_$][\w$]*\.)*[A-Za-z_$][\w$]*\[['"`]([A-Za-z_$][\w$]*)['"`]\]/g,
+  )) {
+    const memberName = match[1];
+    if (!memberName) continue;
+    const target = resolveMemberTransitionTarget(memberName, knownWorkflowIds);
+    if (target) targets.add(target);
+  }
+
+  return [...targets].sort();
+};
+
+const transitionsFromNodes = (
+  workflow: WorkflowDefinition,
+  knownWorkflowIds: readonly string[],
+): WorkflowTopologyTransition[] => {
+  const transitions = new Map<string, WorkflowTopologyTransition>();
+
+  for (const [sourceNodeId, node] of Object.entries(
+    workflow.nodes as Record<string, WorkflowTopologyNodeInput>,
+  )) {
+    for (const targetWorkflowId of transitionTargetsFromRun(
+      node.run,
+      knownWorkflowIds,
+    )) {
+      if (targetWorkflowId === workflow.id) continue;
+      const key = `${sourceNodeId}:${targetWorkflowId}`;
+      transitions.set(key, { sourceNodeId, targetWorkflowId });
+    }
+  }
+
+  return [...transitions.values()].sort((a, b) =>
+    JSON.stringify(a).localeCompare(JSON.stringify(b)),
+  );
+};
+
 /** Produces the topology-only, deterministic Contract A snapshot. */
 export const projectWorkflowTopology = (args: {
   workflow: WorkflowDefinition;
   environment: string;
   service: NonNullable<KortyxTelemetryConfig["service"]>;
+  knownWorkflowIds?: readonly string[] | undefined;
 }): EnsureWorkflowTopologyRequest => {
-  const nodes = Object.entries(args.workflow.nodes)
+  const nodes = Object.entries(
+    args.workflow.nodes as Record<string, WorkflowTopologyNodeInput>,
+  )
     .map(([id, node]) => {
       const nodeMetadata = metadata(node.metadata);
       const params = metadata(node.params);
-      const model = isRecord(node.params?.model)
-        ? node.params.model
+      const model = isRecord(node.params)
+        ? isRecord(node.params.model)
+          ? node.params.model
+          : undefined
         : undefined;
       const provider = isRecord(model)
         ? (asString(model.provider) ?? asString(model.providerId))
@@ -75,17 +200,25 @@ export const projectWorkflowTopology = (args: {
     })
     .sort((a, b) => a.id.localeCompare(b.id));
   const edges = args.workflow.edges
-    .map((edge) => ({
-      sourceNodeId: edge[0],
-      targetNodeId: edge[1],
-      ...(edge[2]?.when ? { condition: edge[2].when } : {}),
-    }))
+    .map((edge) => {
+      const condition = isRecord(edge[2]) ? asString(edge[2].when) : undefined;
+      return {
+        sourceNodeId: edge[0],
+        targetNodeId: edge[1],
+        ...(condition ? { condition } : {}),
+      };
+    })
     .sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b)));
+  const transitions = transitionsFromNodes(
+    args.workflow,
+    args.knownWorkflowIds ?? [],
+  );
   const tags = tagsFrom(args.workflow);
   const hashInput = stableValue({
     workflowId: args.workflow.id,
     nodes: nodes.map((node) => ({ id: node.id, ...node._execution })),
     edges,
+    transitions,
   });
   const topologyHash = createHash("sha256")
     .update(JSON.stringify(hashInput))
@@ -105,6 +238,7 @@ export const projectWorkflowTopology = (args: {
       topologyHash,
       nodes: nodes.map(({ _execution: _ignored, ...node }) => node),
       edges,
+      ...(transitions.length > 0 ? { transitions } : {}),
     },
   };
 };
@@ -119,6 +253,7 @@ export const prepareWorkflowTelemetry = (args: {
   workflow: WorkflowDefinition;
   runId: string;
   sessionId?: string | undefined;
+  knownWorkflowIds?: readonly string[] | undefined;
 }): Record<string, unknown> => {
   const telemetry = isRecord(args.config.telemetry)
     ? (args.config.telemetry as KortyxTelemetryConfig)
@@ -133,6 +268,7 @@ export const prepareWorkflowTelemetry = (args: {
       workflow: args.workflow,
       environment: telemetry.environment,
       service: telemetry.service,
+      knownWorkflowIds: args.knownWorkflowIds,
     });
   } catch {
     // An application may put non-serializable values in node params. That is

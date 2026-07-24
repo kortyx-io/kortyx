@@ -87,7 +87,14 @@ describe("createKortyxTelemetryAdapter", () => {
               tool: "search",
               toolCallId: "tool_1",
             });
-            generation.end?.({ usage: { input: 1, output: 2, total: 3 } });
+            generation.end?.({
+              attributes: {
+                ttftMs: 120,
+                streamDurationMs: 80,
+                timeToLastTokenMs: 200,
+              },
+              usage: { input: 1, output: 2, total: 3 },
+            });
           },
         );
         run.setAttributes?.({ "kortyx.run.final_workflow": "workflow" });
@@ -131,6 +138,12 @@ describe("createKortyxTelemetryAdapter", () => {
     }
     expect(generation.correlation.traceId).toBe(root.correlation.traceId);
     expect(generation.correlation.parentSpanId).toBe(root.correlation.spanId);
+    expect(generation.payload).toMatchObject({
+      durationMs: expect.any(Number),
+      ttftMs: 120,
+      streamDurationMs: 80,
+      postStreamDurationMs: expect.any(Number),
+    });
     const endedRoot = batch.body.events.find(
       (event) =>
         event.type === "span.ended" && event.payload.name === "kortyx.run",

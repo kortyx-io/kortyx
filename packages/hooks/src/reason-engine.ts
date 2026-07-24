@@ -166,6 +166,21 @@ export async function runReasonEngine(
       input: args.telemetry?.input ?? messages,
     },
   });
+  const modelRequestStartedAt = Date.now();
+  let firstTextTokenAt: number | undefined;
+  let lastTextTokenAt: number | undefined;
+
+  const generationTimingAttributes = (): Record<string, number> =>
+    firstTextTokenAt === undefined || lastTextTokenAt === undefined
+      ? {}
+      : {
+          ttftMs: Math.max(0, firstTextTokenAt - modelRequestStartedAt),
+          streamDurationMs: Math.max(0, lastTextTokenAt - firstTextTokenAt),
+          timeToLastTokenMs: Math.max(
+            0,
+            lastTextTokenAt - modelRequestStartedAt,
+          ),
+        };
 
   const endTrace = (
     span: ReasonTraceSpan | undefined,
@@ -182,6 +197,7 @@ export async function runReasonEngine(
       ...(result.warnings !== undefined ? { warnings: result.warnings } : {}),
       attributes: {
         textLength: result.text.length,
+        ...generationTimingAttributes(),
       },
       telemetry: {
         ...(args.telemetry ?? {}),
@@ -223,6 +239,9 @@ export async function runReasonEngine(
         switch (chunk.type) {
           case "text-delta": {
             if (chunk.delta.length === 0) break;
+            const tokenAt = Date.now();
+            firstTextTokenAt ??= tokenAt;
+            lastTextTokenAt = tokenAt;
             final += chunk.delta;
             args.onTextChunk?.(chunk.delta);
             if (chunk.raw !== undefined) {

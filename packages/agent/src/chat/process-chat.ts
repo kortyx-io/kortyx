@@ -33,6 +33,7 @@ export interface StreamChatArgs<Options> {
   ) => RuntimeConfig | Promise<RuntimeConfig>;
   selectWorkflow?: SelectWorkflowFn;
   workflowRegistry?: WorkflowRegistry;
+  knownWorkflowIds?: readonly string[] | undefined;
   frameworkAdapter?: FrameworkAdapter;
   getProvider: GetProviderFn;
   applyResumeSelection?: ApplyResumeSelection;
@@ -46,6 +47,7 @@ export async function streamChat<Options = unknown>({
   loadRuntimeConfig,
   selectWorkflow,
   workflowRegistry,
+  knownWorkflowIds,
   frameworkAdapter,
   getProvider,
   applyResumeSelection,
@@ -106,6 +108,7 @@ export async function streamChat<Options = unknown>({
     sessionId: resolvedSessionId,
     config: runtimeConfig,
     selectWorkflow: workflowSelector,
+    knownWorkflowIds,
     ...(frameworkAdapter ? { frameworkAdapter } : {}),
     ...(defaultWorkflowId ? { defaultWorkflowId } : {}),
     ...(applyResumeSelection ? { applyResumeSelection } : {}),
@@ -146,6 +149,7 @@ export async function streamChat<Options = unknown>({
     workflow: selectedWorkflow,
     runId,
     sessionId: resolvedSessionId,
+    knownWorkflowIds,
   }) as Parameters<typeof createExecutionGraph>[1];
 
   const graph = await createExecutionGraph(selectedWorkflow, runtimeConfig);
@@ -175,6 +179,7 @@ export async function streamChat<Options = unknown>({
     state: initialState,
     config: runtimeConfig,
     selectWorkflow: workflowSelector,
+    knownWorkflowIds,
     ...(frameworkAdapter ? { frameworkAdapter } : {}),
   });
 

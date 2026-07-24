@@ -27,6 +27,12 @@ export type ApplyResumeSelection = (args: {
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   Boolean(value) && typeof value === "object" && !Array.isArray(value);
 
+const responseFromSelection = (selected: string[]): string | undefined => {
+  if (selected.length === 0) return undefined;
+  if (selected.length === 1) return selected[0];
+  return JSON.stringify(selected);
+};
+
 export function parseResumeMeta(
   msg: ChatMessage | undefined,
 ): ResumeMeta | null {
@@ -59,6 +65,7 @@ interface TryResumeArgs {
   sessionId: string;
   config: Record<string, unknown>;
   selectWorkflow: SelectWorkflowFn;
+  knownWorkflowIds?: readonly string[] | undefined;
   defaultWorkflowId?: string;
   applyResumeSelection?: ApplyResumeSelection;
   frameworkAdapter?: FrameworkAdapter;
@@ -69,6 +76,7 @@ export async function tryPrepareResumeStream({
   sessionId,
   config,
   selectWorkflow,
+  knownWorkflowIds,
   defaultWorkflowId,
   applyResumeSelection,
   frameworkAdapter,
@@ -105,6 +113,7 @@ export async function tryPrepareResumeStream({
         interruptId: pending.requestId,
         reason: "cancelled_by_client",
       },
+      flush: true,
     });
     return null;
   }
@@ -159,6 +168,7 @@ export async function tryPrepareResumeStream({
     workflow: wf,
     runId: pending.runId,
     sessionId,
+    knownWorkflowIds,
   });
   resumedState.config = telemetryConfig;
   const resumeUpdate: Record<string, unknown> = {};
@@ -191,6 +201,24 @@ export async function tryPrepareResumeStream({
     ...(hasResumeUpdate ? { resumeUpdate } : {}),
   });
   await store.delete(pending.token);
+  const response = responseFromSelection(meta.selected);
+  emitTelemetryEvent({
+    config: telemetryConfig,
+    type: "interrupt.resolved",
+    correlation: {
+      runId: pending.runId,
+      sessionId,
+      workflowId,
+      nodeId: pending.node,
+    },
+    payload: {
+      interruptId: pending.requestId,
+      resolvedAt: new Date().toISOString(),
+      resumeOutcome: "resumed",
+      ...(response ? { response } : {}),
+    },
+    flush: true,
+  });
 
   const args = {
     sessionId,
@@ -207,6 +235,7 @@ export async function tryPrepareResumeStream({
       ...(hasResumeUpdate ? { resumeUpdate } : {}),
     },
     selectWorkflow,
+    knownWorkflowIds,
     frameworkAdapter: frameworkAdapter as FrameworkAdapter,
   } satisfies OrchestrateArgs;
 

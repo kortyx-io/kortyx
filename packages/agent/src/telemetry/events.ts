@@ -22,6 +22,7 @@ export const emitTelemetryEvent = (args: {
   type: KortyxTelemetryEventType;
   payload: Record<string, unknown>;
   correlation?: Partial<KortyxTelemetryEvent["correlation"]> | undefined;
+  flush?: boolean | undefined;
 }): void => {
   const telemetry = isRecord(args.config.telemetry)
     ? (args.config.telemetry as KortyxTelemetryConfig)
@@ -77,9 +78,15 @@ export const emitTelemetryEvent = (args: {
     payload: args.payload,
   };
   try {
-    void Promise.resolve(telemetry.reporter.emit([event])).catch(() => {
-      // Reporters must not affect the workflow execution path.
-    });
+    void Promise.resolve(telemetry.reporter.emit([event]))
+      .then(async () => {
+        if (!args.flush) return;
+        const flush = (telemetry as { flush?: unknown }).flush;
+        if (typeof flush === "function") await flush.call(telemetry);
+      })
+      .catch(() => {
+        // Reporters must not affect the workflow execution path.
+      });
   } catch {
     // A custom reporter may violate its async contract. Treat it like a
     // delivery failure rather than allowing observability to break a run.

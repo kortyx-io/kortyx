@@ -69,6 +69,7 @@ export const createTraceAdapter = (args: {
         ...(endArgs?.attributes ?? {}),
       };
       const telemetry = endArgs?.telemetry ?? startArgs.telemetry;
+      const durationMs = Date.now() - startedAt;
       args.enqueue(
         args.eventMapper.createEvent({
           type: "span.ended",
@@ -78,7 +79,7 @@ export const createTraceAdapter = (args: {
           payload: {
             name: startArgs.name,
             attributes: endAttributes,
-            durationMs: Date.now() - startedAt,
+            durationMs,
             telemetry: args.eventMapper.telemetryPayload(telemetry),
             ...(args.eventMapper.shouldCapture(
               endArgs?.telemetry?.captureContent ??
@@ -94,6 +95,13 @@ export const createTraceAdapter = (args: {
       );
 
       if (startArgs.name !== "runReasonEngine") return;
+      const ttftMs = nonnegativeNumber(endAttributes.ttftMs);
+      const streamDurationMs = nonnegativeNumber(
+        endAttributes.streamDurationMs,
+      );
+      const timeToLastTokenMs = nonnegativeNumber(
+        endAttributes.timeToLastTokenMs,
+      );
       args.enqueue(
         args.eventMapper.createEvent({
           type: "generation.completed",
@@ -105,6 +113,17 @@ export const createTraceAdapter = (args: {
               args.eventMapper.stringValue(attributes.providerId) ?? "unknown",
             model:
               args.eventMapper.stringValue(attributes.modelId) ?? "unknown",
+            durationMs,
+            ...(ttftMs !== undefined ? { ttftMs } : {}),
+            ...(streamDurationMs !== undefined ? { streamDurationMs } : {}),
+            ...(timeToLastTokenMs !== undefined
+              ? {
+                  postStreamDurationMs: Math.max(
+                    0,
+                    durationMs - timeToLastTokenMs,
+                  ),
+                }
+              : {}),
             ...(endArgs?.usage ? { usage: endArgs.usage } : {}),
             ...(endArgs?.finishReason
               ? { finishReason: endArgs.finishReason }
@@ -196,3 +215,8 @@ export const createTraceAdapter = (args: {
     },
   };
 };
+
+const nonnegativeNumber = (value: unknown): number | undefined =>
+  typeof value === "number" && Number.isFinite(value) && value >= 0
+    ? value
+    : undefined;

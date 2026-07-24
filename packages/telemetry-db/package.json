@@ -1,0 +1,50 @@
+{
+  "name": "@kortyx/telemetry-db",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Internal Drizzle database package for Kortyx telemetry API and workers.",
+  "license": "Apache-2.0",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./schema": {
+      "types": "./dist/schema.d.ts",
+      "default": "./dist/schema.js"
+    }
+  },
+  "files": [
+    "dist/**",
+    "drizzle/**"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "tsx src/scripts/migrate.ts",
+    "db:bootstrap": "tsx src/scripts/bootstrap-local.ts",
+    "db:seed-rates": "tsx src/scripts/seed-model-rates.ts",
+    "db:studio": "drizzle-kit studio",
+    "dev": "tsc --watch",
+    "lint": "biome check src test drizzle.config.ts",
+    "test": "vitest run && pnpm -s type-check",
+    "type-check": "tsc --noEmit -p tsconfig.test.json"
+  },
+  "dependencies": {
+    "@kortyx/telemetry-contracts": "workspace:*",
+    "drizzle-orm": "^0.45.1",
+    "postgres": "^3.4.7"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "drizzle-kit": "^0.31.10",
+    "tsup": "catalog:",
+    "tsx": "^4.21.0",
+    "turbo": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  },
+  "sideEffects": false
+}

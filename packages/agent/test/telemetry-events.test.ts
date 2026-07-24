@@ -85,6 +85,39 @@ describe("emitTelemetryEvent", () => {
     ).not.toThrow();
   });
 
+  it("flushes lifecycle events when requested", async () => {
+    const calls: string[] = [];
+    emitTelemetryEvent({
+      config: {
+        telemetry: {
+          environment: "test",
+          service: { name: "app" },
+          correlation: { runId: "run-1", workflowId: "workflow-1" },
+          reporter: {
+            ensureWorkflowTopology: async () => ({
+              workflowRevisionId: "revision-1",
+              created: false,
+            }),
+            emit: async () => {
+              calls.push("emit");
+            },
+          },
+          flush: async () => {
+            calls.push("flush");
+          },
+        },
+      },
+      type: "interrupt.created",
+      payload: { interruptId: "interrupt-1" },
+      flush: true,
+    });
+
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(calls).toEqual(["emit", "flush"]);
+  });
+
   it("ignores invalid trusted context and swallowed async delivery failures", async () => {
     emitTelemetryEvent({
       config: {

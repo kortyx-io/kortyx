@@ -41,6 +41,7 @@ export interface OrchestrateArgs {
   state: GraphState; // initial state
   config: Record<string, unknown>; // runtime config
   selectWorkflow: SelectWorkflowFn;
+  knownWorkflowIds?: readonly string[] | undefined;
   frameworkAdapter?: FrameworkAdapter;
 }
 
@@ -125,6 +126,7 @@ export async function orchestrateGraphStream({
   state,
   config: initialConfig,
   selectWorkflow,
+  knownWorkflowIds,
   frameworkAdapter,
 }: OrchestrateArgs): Promise<NodeJS.ReadableStream> {
   const out = new PassThrough({ objectMode: true });
@@ -138,10 +140,7 @@ export async function orchestrateGraphStream({
   const traceAdapter = getTraceAdapter(config);
   const contextMeta = isRecord(config.context) ? config.context : {};
   const telemetryConfig = isRecord(config.telemetry) ? config.telemetry : {};
-  const emitResumeOutcome = (
-    resumeOutcome: "completed" | "failed",
-    resumeError?: unknown,
-  ) => {
+  const emitResumeFailure = (resumeError?: unknown) => {
     const interruptId =
       typeof config.telemetryInterruptId === "string"
         ? config.telemetryInterruptId
@@ -157,7 +156,7 @@ export async function orchestrateGraphStream({
       payload: {
         interruptId,
         resolvedAt: new Date().toISOString(),
-        resumeOutcome,
+        resumeOutcome: "failed",
         ...(resumeError
           ? {
               resumeError:
@@ -167,6 +166,7 @@ export async function orchestrateGraphStream({
             }
           : {}),
       },
+      flush: true,
     });
   };
   const telemetryCorrelation = isRecord(telemetryConfig.correlation)
@@ -463,6 +463,7 @@ export async function orchestrateGraphStream({
         nodeId: record.node,
         expiresAt: new Date(record.createdAt + record.ttlMs).toISOString(),
       },
+      flush: true,
     });
     wroteHumanInput = true;
   };
@@ -912,6 +913,7 @@ export async function orchestrateGraphStream({
             workflow: nextWorkflow,
             runId,
             sessionId,
+            knownWorkflowIds,
           });
           const targetTelemetry = isRecord(config.telemetry)
             ? config.telemetry
@@ -1060,7 +1062,6 @@ export async function orchestrateGraphStream({
           "kortyx.run.final_workflow": String(currentState.currentWorkflow),
         });
         runTraceSpan.end?.(runTraceEndArgs());
-        emitResumeOutcome("completed");
         const resolvedSessionId =
           ((config as any)?.session?.id as string | undefined) ||
           sessionId ||
@@ -1177,7 +1178,6 @@ export async function orchestrateGraphStream({
         "kortyx.run.final_workflow": String(naturalFinalState.currentWorkflow),
       });
       runTraceSpan.end?.(runTraceEndArgs());
-      emitResumeOutcome("completed");
       out.write({ type: "done", data: naturalFinalState } as any);
       out.end();
       return;
@@ -1212,7 +1212,7 @@ export async function orchestrateGraphStream({
 
   runPromise.catch((err) => {
     fallbackRunSpan?.fail?.(err);
-    emitResumeOutcome("failed", err);
+    emitResumeFailure(err);
     console.error("[error:orchestrateGraphStream]", err);
     out.write({
       type: "error",

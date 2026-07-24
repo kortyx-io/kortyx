@@ -77,7 +77,7 @@ type InterruptChunk = {
 };
 
 describe("orchestrateGraphStream", () => {
-  it("emits a completed interrupt outcome only after resumed execution terminates", async () => {
+  it("does not emit a second interrupt resolution after resumed execution completes", async () => {
     const events: unknown[] = [];
     const graph = graphWithEvents(() => [{ type: "done", data: baseState }]);
     await collect(
@@ -105,11 +105,7 @@ describe("orchestrateGraphStream", () => {
         selectWorkflow: vi.fn(),
       }),
     );
-    expect(events).toHaveLength(1);
-    expect(events[0]).toMatchObject({
-      type: "interrupt.resolved",
-      payload: { interruptId: "interrupt-1", resumeOutcome: "completed" },
-    });
+    expect(events).toHaveLength(0);
   });
 
   it("emits a failed interrupt outcome when resumed execution fails", async () => {
