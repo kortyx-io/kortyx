@@ -30,6 +30,81 @@ pnpm add kortyx @kortyx/google @kortyx/react
 npm install kortyx @kortyx/google @kortyx/react
 ```
 
+## Run Kortyx Studio OSS
+
+For local development from this repository:
+
+```bash
+pnpm dev
+```
+
+This starts the development stack:
+
+- Postgres through Docker Compose
+- Kortyx API on `http://localhost:6400`
+- Studio on `http://localhost:6300`
+- canvas example on `http://localhost:4200`
+
+`pnpm dev` also runs migrations and bootstraps the local telemetry keys from
+`.env`. If you already manage Postgres yourself, run:
+
+```bash
+pnpm dev:no-db
+```
+
+The default dev `.env.example` uses host Postgres port `6543` to avoid
+colliding with a local Postgres on `5432`. If you already had a `.env`, set
+`POSTGRES_PORT=6543` and
+`DATABASE_URL=postgres://kortyx:kortyx@localhost:6543/kortyx` manually.
+
+For self-hosted installs from published images:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/kortyx-io/kortyx/main/scripts/install-studio-oss.sh | sh
+```
+
+This creates a `kortyx-studio` directory, downloads the image-based compose
+file, generates local secrets, and starts Postgres, the Kortyx API, and Studio.
+
+For explicit setup without the installer:
+
+```bash
+mkdir kortyx-studio
+cd kortyx-studio
+curl -fsSLO https://raw.githubusercontent.com/kortyx-io/kortyx/main/docker-compose.oss.yml
+curl -fsSLo .env https://raw.githubusercontent.com/kortyx-io/kortyx/main/.env.oss.example
+# Edit .env and replace all change-me values before keeping this running.
+docker compose -f docker-compose.oss.yml up -d
+```
+
+For a full local Docker packaging test from this repository:
+
+```bash
+cp -n .env.example .env
+docker compose up --build
+```
+
+Studio is available at `http://localhost:6300`. The default local Basic Auth
+credentials from `.env.example` are `admin` / `kortyx`; change them before any
+non-local deployment.
+
+To send and verify one sample telemetry run:
+
+```bash
+docker compose --profile smoke up --abort-on-container-exit --exit-code-from smoke smoke
+```
+
+To verify a real Kortyx example producer end-to-end, run the canvas example in
+another shell and point it at the Docker API:
+
+```bash
+cp -n examples/kortyx-canvas/.env.example examples/kortyx-canvas/.env.local
+pnpm --filter @kortyx/example-canvas dev
+pnpm --filter @kortyx/example-canvas smoke:studio
+```
+
+Then open Studio and check Runs/Workflows for `canvas-example-smoke`.
+
 ## Quickstart
 
 Create a workflow:

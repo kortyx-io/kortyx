@@ -1,0 +1,106 @@
+name: kortyx-studio
+
+x-api-env: &api-env
+  DATABASE_URL: postgres://kortyx:${POSTGRES_PASSWORD:-kortyx}@postgres:5432/${POSTGRES_DB:-kortyx}
+  KORTYX_API_KEY_PEPPER: ${KORTYX_API_KEY_PEPPER:?KORTYX_API_KEY_PEPPER is required}
+
+x-oss-keys: &oss-keys
+  KORTYX_TELEMETRY_API_KEY: ${KORTYX_TELEMETRY_API_KEY:?KORTYX_TELEMETRY_API_KEY is required}
+  KORTYX_STUDIO_API_KEY: ${KORTYX_STUDIO_API_KEY:?KORTYX_STUDIO_API_KEY is required}
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: kortyx
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      POSTGRES_DB: ${POSTGRES_DB:-kortyx}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - kortyx-postgres:/var/lib/postgresql/data
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U kortyx -d $${POSTGRES_DB:-kortyx}",
+        ]
+      interval: 2s
+      timeout: 5s
+      retries: 30
+
+  db-init:
+    image: ${KORTYX_API_IMAGE:-ghcr.io/kortyx-io/kortyx-api}:${KORTYX_STUDIO_IMAGE_TAG:-latest}
+    environment:
+      <<: [*api-env, *oss-keys]
+    command: >
+      sh -lc "pnpm --filter @kortyx/telemetry-db db:migrate &&
+      pnpm --filter @kortyx/telemetry-db db:bootstrap"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
+  api:
+    image: ${KORTYX_API_IMAGE:-ghcr.io/kortyx-io/kortyx-api}:${KORTYX_STUDIO_IMAGE_TAG:-latest}
+    environment:
+      <<: *api-env
+      NODE_ENV: production
+      API_HOST: 0.0.0.0
+      API_PORT: 6400
+    ports:
+      - "${API_PORT:-6400}:6400"
+    depends_on:
+      db-init:
+        condition: service_completed_successfully
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "node -e \"fetch('http://localhost:6400/health').then((r)=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))\"",
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+
+  studio:
+    image: ${KORTYX_STUDIO_IMAGE:-ghcr.io/kortyx-io/kortyx-studio}:${KORTYX_STUDIO_IMAGE_TAG:-latest}
+    environment:
+      NODE_ENV: production
+      PORT: 6300
+      KORTYX_API_URL: http://api:6400
+      KORTYX_STUDIO_API_KEY: ${KORTYX_STUDIO_API_KEY:?KORTYX_STUDIO_API_KEY is required}
+      KORTYX_STUDIO_AUTH_MODE: ${KORTYX_STUDIO_AUTH_MODE:-basic}
+      KORTYX_STUDIO_BASIC_AUTH_USERNAME: ${KORTYX_STUDIO_BASIC_AUTH_USERNAME:-admin}
+      KORTYX_STUDIO_BASIC_AUTH_PASSWORD: ${KORTYX_STUDIO_BASIC_AUTH_PASSWORD:?KORTYX_STUDIO_BASIC_AUTH_PASSWORD is required}
+    ports:
+      - "${STUDIO_PORT:-6300}:6300"
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "node -e \"fetch('http://localhost:6300').then((r)=>process.exit(r.status < 500 ? 0 : 1)).catch(()=>process.exit(1))\"",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+
+  smoke:
+    image: ${KORTYX_API_IMAGE:-ghcr.io/kortyx-io/kortyx-api}:${KORTYX_STUDIO_IMAGE_TAG:-latest}
+    profiles: ["smoke"]
+    environment:
+      KORTYX_API_URL: http://api:6400
+      <<: *oss-keys
+    command: pnpm --filter @kortyx/api smoke:telemetry
+    depends_on:
+      api:
+        condition: service_healthy
+      studio:
+        condition: service_healthy
+    restart: "no"
+
+volumes:
+  kortyx-postgres:

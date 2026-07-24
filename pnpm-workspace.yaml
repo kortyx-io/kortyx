@@ -4,6 +4,10 @@ packages:
   - "packages/*"
   - "providers/*"
 
+onlyBuiltDependencies:
+  - esbuild
+  - sharp
+
 catalog:
   "@langchain/core": ^1.1.24
   "@langchain/langgraph": ^1.1.4

@@ -10,6 +10,5 @@
 **/.next
 **/dist
 **/*.tsbuildinfo
-apps/studio
 **/.env
 **/.env.*

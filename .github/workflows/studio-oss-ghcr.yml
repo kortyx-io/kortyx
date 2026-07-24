@@ -1,0 +1,109 @@
+name: Publish Studio OSS Images (GHCR)
+
+on:
+  push:
+    tags:
+      - "studio-v*"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Studio OSS image version without the leading v, for example 0.1.0."
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  REGISTRY: ghcr.io
+  API_IMAGE_NAME: kortyx-io/kortyx-api
+  STUDIO_IMAGE_NAME: kortyx-io/kortyx-studio
+
+jobs:
+  publish-staging:
+    name: Publish Staging Images
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Derive version
+        id: version
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            version="${{ inputs.version }}"
+          else
+            ref="${GITHUB_REF_NAME}"
+            version="${ref#studio-v}"
+            if [ -z "$version" ] || [ "$version" = "$ref" ]; then
+              echo "Expected tag format studio-v<version>, got: $ref"
+              exit 1
+            fi
+          fi
+
+          if ! printf '%s' "$version" | grep -Eq '^[0-9]+(\.[0-9]+){1,2}([-.][0-9A-Za-z.-]+)?$'; then
+            echo "Expected semantic version, got: $version"
+            exit 1
+          fi
+
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - name: Setup Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Login to GHCR
+        uses: docker/login-action@v4
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push API staging image
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: apps/api/Dockerfile
+          push: true
+          platforms: linux/amd64
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.API_IMAGE_NAME }}:staging-latest
+            ${{ env.REGISTRY }}/${{ env.API_IMAGE_NAME }}:staging-v${{ steps.version.outputs.version }}
+          cache-from: type=gha,scope=kortyx-api-image
+          cache-to: type=gha,mode=max,scope=kortyx-api-image
+
+      - name: Build and push Studio staging image
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: apps/studio/Dockerfile
+          push: true
+          platforms: linux/amd64
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.STUDIO_IMAGE_NAME }}:staging-latest
+            ${{ env.REGISTRY }}/${{ env.STUDIO_IMAGE_NAME }}:staging-v${{ steps.version.outputs.version }}
+          cache-from: type=gha,scope=kortyx-studio-image
+          cache-to: type=gha,mode=max,scope=kortyx-studio-image
+
+      - name: Smoke test staging images
+        env:
+          KORTYX_STUDIO_IMAGE_TAG: staging-v${{ steps.version.outputs.version }}
+          POSTGRES_PORT: 6543
+          API_PORT: 6400
+          STUDIO_PORT: 6300
+          POSTGRES_PASSWORD: kortyx-ci-smoke
+          KORTYX_API_KEY_PEPPER: ci-smoke-pepper
+          KORTYX_TELEMETRY_API_KEY: ktyx_test_cismoketelemetry_ci-smoke-telemetry-secret
+          KORTYX_STUDIO_API_KEY: ktyx_test_cismokestudio_ci-smoke-studio-secret
+          KORTYX_STUDIO_BASIC_AUTH_PASSWORD: ci-smoke-studio-password
+        run: |
+          docker compose -f docker-compose.oss.yml --profile smoke up \
+            --abort-on-container-exit \
+            --exit-code-from smoke \
+            smoke
+
+      - name: Clean up smoke stack
+        if: always()
+        run: docker compose -f docker-compose.oss.yml --profile smoke down -v
