@@ -2,12 +2,12 @@
 
 import {
   Activity,
-  ChevronsUpDown,
   CirclePause,
   MessageSquare,
   Settings,
   Workflow,
 } from "lucide-react";
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -23,6 +23,7 @@ import {
   SidebarMenuItem,
   SidebarRail,
 } from "@/components/ui/sidebar";
+import type { StudioShellContext } from "@/lib/studio-context-model";
 import { NavUser } from "./nav-user";
 
 const navSections = [
@@ -37,18 +38,30 @@ const navSections = [
   },
 ];
 
-export function AppSidebar() {
+export function AppSidebar({
+  studioContext,
+}: {
+  studioContext: StudioShellContext;
+}) {
   const pathname = usePathname();
+  const environmentLabel =
+    studioContext.workspace.environments.length === 1
+      ? studioContext.workspace.environments[0]
+      : `${studioContext.workspace.environments.length} environments`;
 
   return (
     <Sidebar collapsible="icon">
       <SidebarHeader>
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton size="lg" asChild tooltip="Kortyx">
-              <Link href="/">
+            <SidebarMenuButton
+              size="lg"
+              asChild
+              tooltip={studioContext.workspace.project}
+            >
+              <Link href="/settings">
                 <div className="flex aspect-square size-8 shrink-0 items-center justify-center overflow-hidden rounded-lg">
-                  <img
+                  <Image
                     src="/favicon.ico"
                     alt="Kortyx"
                     className="size-8"
@@ -57,12 +70,19 @@ export function AppSidebar() {
                   />
                 </div>
                 <div className="grid flex-1 gap-0.5 text-left leading-none group-data-[collapsible=icon]:hidden">
-                  <span className="font-semibold">Kortyx</span>
-                  <span className="truncate text-xs text-muted-foreground">
-                    Project / Env
+                  <span
+                    className="truncate font-semibold"
+                    title={studioContext.workspace.project}
+                  >
+                    {studioContext.workspace.project}
+                  </span>
+                  <span
+                    className="truncate text-xs text-muted-foreground"
+                    title={environmentLabel}
+                  >
+                    {environmentLabel}
                   </span>
                 </div>
-                <ChevronsUpDown className="ml-auto size-4 shrink-0 text-muted-foreground group-data-[collapsible=icon]:hidden" />
               </Link>
             </SidebarMenuButton>
           </SidebarMenuItem>
@@ -101,7 +121,14 @@ export function AppSidebar() {
           <SidebarGroupContent>
             <SidebarMenu>
               <SidebarMenuItem>
-                <SidebarMenuButton asChild tooltip="Settings">
+                <SidebarMenuButton
+                  asChild
+                  tooltip="Settings"
+                  isActive={
+                    pathname === "/settings" ||
+                    pathname.startsWith("/settings/")
+                  }
+                >
                   <Link href="/settings">
                     <Settings />
                     <span>Settings</span>
@@ -114,13 +141,7 @@ export function AppSidebar() {
       </SidebarContent>
 
       <SidebarFooter className="pb-4">
-        <NavUser
-          user={{
-            name: "User",
-            email: "user@kortyx.dev",
-            avatar: "",
-          }}
-        />
+        <NavUser studioContext={studioContext} />
       </SidebarFooter>
       <SidebarRail className="mt-12 mb-4" />
     </Sidebar>

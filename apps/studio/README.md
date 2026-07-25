@@ -101,6 +101,24 @@ KORTYX_STUDIO_API_KEY=ktyx_test_replace_with_bootstrap_studio_read_key
 client is server-only and should only be imported by server components, route
 handlers, or server actions.
 
+The Settings route and sidebar identity use the authenticated
+`/v1/studio/context` endpoint. It returns only the organization and project
+names, allowed environments, API-key mode/scopes, and API service version. It
+never returns the read key, key identifier, API URL, Basic Auth credentials, or
+raw upstream errors. Settings reports server configuration as
+configured/missing and masks the read-key value.
+
+The OSS identity menu intentionally contains no account, billing, upgrade,
+notification, logout, or other managed-SaaS placeholders. Its supported actions
+are Settings, public documentation, and theme selection. Under HTTP Basic Auth,
+credential lifecycle belongs to the browser/reverse proxy rather than an
+in-app logout control.
+
+Telemetry content policy is producer-controlled: structural telemetry can be
+observed without prompt/response content, content is excluded by default, and
+the SDK must explicitly opt in. Studio displays this policy but never enables
+capture itself.
+
 The Runs, Sessions, and Interrupts Live controls use a same-origin SSE bridge.
 Telemetry commits publish compact project-scoped invalidations; server
 components then refresh the current route. This avoids fixed polling while

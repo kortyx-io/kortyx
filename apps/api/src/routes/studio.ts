@@ -2,6 +2,7 @@ import { createRoute, type OpenAPIHono, z } from "@hono/zod-openapi";
 import {
   resolveStudioTimeRange,
   StudioCatalogsResponseSchema,
+  StudioContextResponseSchema,
   StudioInterruptDetailResponseSchema,
   StudioInterruptsResponseSchema,
   StudioRunDetailResponseSchema,
@@ -13,6 +14,7 @@ import {
 } from "@kortyx/telemetry-contracts";
 import {
   getStudioInterruptReadModel,
+  getStudioProjectContext,
   getStudioReadModels,
   getStudioRunReadModel,
   getStudioSessionReadModel,
@@ -240,7 +242,47 @@ const catalogsRoute = createRoute({
   },
 });
 
+const contextRoute = createRoute({
+  method: "get",
+  path: "/v1/studio/context",
+  security: [{ TelemetryApiKey: [] }],
+  responses: {
+    200: {
+      description:
+        "Safe project, environment, API-key mode, and API health context for Studio.",
+      content: {
+        "application/json": { schema: StudioContextResponseSchema },
+      },
+    },
+    ...securedResponses,
+  },
+});
+
 export const registerStudioRoutes = (app: OpenAPIHono<ApiEnv>): void => {
+  app.openapi(contextRoute, async (c) => {
+    const auth = c.get("auth");
+    const context = await getStudioProjectContext(c.get("db"), {
+      organizationId: auth.organizationId,
+      projectId: auth.projectId,
+    });
+    return c.json(
+      {
+        organization: { name: context.organizationName },
+        project: { name: context.projectName },
+        environments: context.environments,
+        apiKey: {
+          mode: auth.mode,
+          scopes: auth.scopes,
+        },
+        api: {
+          status: "ok" as const,
+          service: "kortyx-api" as const,
+          version: "0.1.0",
+        },
+      },
+      200,
+    );
+  });
   app.openapi(runsRoute, async (c) => {
     const auth = c.get("auth");
     const query = c.req.valid("query");

@@ -54,6 +54,7 @@ describe("Kortyx API app", () => {
     expect(body.paths).toHaveProperty("/v1/studio/interrupts/{interruptId}");
     expect(body.paths).toHaveProperty("/v1/studio/workflows");
     expect(body.paths).toHaveProperty("/v1/studio/catalogs");
+    expect(body.paths).toHaveProperty("/v1/studio/context");
     expect(body.paths).toHaveProperty("/v1/studio/changes");
   });
 

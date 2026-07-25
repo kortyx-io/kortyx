@@ -6,6 +6,7 @@ import {
   SidebarProvider,
   SidebarTrigger,
 } from "@/components/ui/sidebar";
+import { getStudioShellContext } from "@/lib/studio-context";
 
 export async function SidebarLayout({
   children,
@@ -14,12 +15,15 @@ export async function SidebarLayout({
   children: React.ReactNode;
   detailSlots?: React.ReactNode;
 }) {
-  const cookieStore = await cookies();
+  const [cookieStore, studioContext] = await Promise.all([
+    cookies(),
+    getStudioShellContext(),
+  ]);
   const defaultOpen = cookieStore.get("sidebar_state")?.value !== "false";
 
   return (
     <SidebarProvider defaultOpen={defaultOpen}>
-      <AppSidebar />
+      <AppSidebar studioContext={studioContext} />
       <SidebarInset className="h-svh overflow-hidden bg-sidebar">
         <header className="flex h-12 shrink-0 items-center gap-2 px-4">
           <SidebarTrigger className="-ml-1" />

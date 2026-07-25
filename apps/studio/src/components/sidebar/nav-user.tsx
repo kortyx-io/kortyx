@@ -1,16 +1,15 @@
 "use client";
 
 import {
-  BadgeCheck,
-  Bell,
+  BookOpen,
   ChevronsUpDown,
-  CreditCard,
-  LogOut,
-  Sparkles,
+  ExternalLink,
+  Server,
+  Settings,
 } from "lucide-react";
+import Link from "next/link";
 
 import { ThemeMenuSub } from "@/components/theme-toggle";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -26,15 +25,23 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from "@/components/ui/sidebar";
+import type {
+  StudioConnectionStatus,
+  StudioShellContext,
+} from "@/lib/studio-context-model";
+import { cn } from "@/lib/utils";
+
+const statusClass: Record<StudioConnectionStatus, string> = {
+  connected: "bg-emerald-500",
+  misconfigured: "bg-amber-500",
+  unauthorized: "bg-destructive",
+  unavailable: "bg-destructive",
+};
 
 export function NavUser({
-  user,
+  studioContext,
 }: {
-  user: {
-    name: string;
-    email: string;
-    avatar: string;
-  };
+  studioContext: StudioShellContext;
 }) {
   const { isMobile } = useSidebar();
 
@@ -45,15 +52,26 @@ export function NavUser({
           <DropdownMenuTrigger asChild>
             <SidebarMenuButton
               size="lg"
+              aria-label={`Open Studio menu. ${studioContext.connection.label}.`}
               className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
             >
-              <Avatar className="h-8 w-8 rounded-lg">
-                <AvatarImage src={user.avatar} alt={user.name} />
-                <AvatarFallback className="rounded-lg">CN</AvatarFallback>
-              </Avatar>
+              <div className="relative flex size-8 shrink-0 items-center justify-center rounded-lg bg-sidebar-accent">
+                <Server className="size-4" aria-hidden="true" />
+                <span
+                  className={cn(
+                    "absolute -right-0.5 -bottom-0.5 size-2.5 rounded-full border-2 border-sidebar",
+                    statusClass[studioContext.connection.status],
+                  )}
+                  aria-hidden="true"
+                />
+              </div>
               <div className="grid flex-1 text-left text-sm leading-tight">
-                <span className="truncate font-medium">{user.name}</span>
-                <span className="truncate text-xs">{user.email}</span>
+                <span className="truncate font-medium">
+                  {studioContext.identity.name}
+                </span>
+                <span className="truncate text-xs text-muted-foreground">
+                  {studioContext.connection.label}
+                </span>
               </div>
               <ChevronsUpDown className="ml-auto size-4" />
             </SidebarMenuButton>
@@ -65,37 +83,49 @@ export function NavUser({
             sideOffset={4}
           >
             <DropdownMenuLabel className="p-0 font-normal">
-              <div className="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
-                <Avatar className="h-8 w-8 rounded-lg">
-                  <AvatarImage src={user.avatar} alt={user.name} />
-                  <AvatarFallback className="rounded-lg">CN</AvatarFallback>
-                </Avatar>
-                <div className="grid flex-1 text-left text-sm leading-tight">
-                  <span className="truncate font-medium">{user.name}</span>
-                  <span className="truncate text-xs">{user.email}</span>
+              <div className="grid gap-1 px-2 py-2 text-left text-sm">
+                <div className="flex items-center gap-2">
+                  <span
+                    className={cn(
+                      "size-2 rounded-full",
+                      statusClass[studioContext.connection.status],
+                    )}
+                    aria-hidden="true"
+                  />
+                  <span className="font-medium">
+                    {studioContext.connection.label}
+                  </span>
                 </div>
+                <span
+                  className="truncate text-xs text-muted-foreground"
+                  title={`${studioContext.workspace.organization} / ${studioContext.workspace.project}`}
+                >
+                  {studioContext.workspace.organization} /{" "}
+                  {studioContext.workspace.project}
+                </span>
+                <span className="truncate text-xs text-muted-foreground">
+                  {studioContext.identity.access}
+                </span>
               </div>
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
             <DropdownMenuGroup>
-              <DropdownMenuItem>
-                <Sparkles />
-                Upgrade to Pro
+              <DropdownMenuItem asChild>
+                <Link href="/settings">
+                  <Settings />
+                  Settings
+                </Link>
               </DropdownMenuItem>
-            </DropdownMenuGroup>
-            <DropdownMenuSeparator />
-            <DropdownMenuGroup>
-              <DropdownMenuItem>
-                <BadgeCheck />
-                Account
-              </DropdownMenuItem>
-              <DropdownMenuItem>
-                <CreditCard />
-                Billing
-              </DropdownMenuItem>
-              <DropdownMenuItem>
-                <Bell />
-                Notifications
+              <DropdownMenuItem asChild>
+                <a
+                  href="https://kortyx.io/docs"
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  <BookOpen />
+                  Documentation
+                  <ExternalLink className="ml-auto size-3.5 text-muted-foreground" />
+                </a>
               </DropdownMenuItem>
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
@@ -103,10 +133,12 @@ export function NavUser({
               <ThemeMenuSub />
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
-            <DropdownMenuItem>
-              <LogOut />
-              Log out
-            </DropdownMenuItem>
+            <DropdownMenuLabel className="flex items-center justify-between px-2 py-1.5 text-xs font-normal text-muted-foreground">
+              <span>Studio</span>
+              <span className="font-mono">
+                v{studioContext.identity.version}
+              </span>
+            </DropdownMenuLabel>
           </DropdownMenuContent>
         </DropdownMenu>
       </SidebarMenuItem>

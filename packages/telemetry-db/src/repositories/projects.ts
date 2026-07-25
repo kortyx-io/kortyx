@@ -1,7 +1,54 @@
-import { and, eq } from "drizzle-orm";
+import { and, asc, eq } from "drizzle-orm";
 import type { TelemetryDb } from "../client";
-import { TelemetryForbiddenError } from "../errors";
+import { TelemetryForbiddenError, TelemetryNotFoundError } from "../errors";
 import { organizations, projectEnvironments, projects } from "../schema";
+
+export type StudioProjectContext = {
+  organizationName: string;
+  projectName: string;
+  environments: string[];
+};
+
+export const getStudioProjectContext = async (
+  db: TelemetryDb,
+  input: { organizationId: string; projectId: string },
+): Promise<StudioProjectContext> => {
+  const [project] = await db
+    .select({
+      organizationName: organizations.name,
+      projectName: projects.name,
+    })
+    .from(projects)
+    .innerJoin(organizations, eq(projects.organizationId, organizations.id))
+    .where(
+      and(
+        eq(organizations.id, input.organizationId),
+        eq(projects.organizationId, input.organizationId),
+        eq(projects.id, input.projectId),
+      ),
+    )
+    .limit(1);
+
+  if (!project) {
+    throw new TelemetryNotFoundError("Studio project not found.");
+  }
+
+  const environments = await db
+    .select({ name: projectEnvironments.name })
+    .from(projectEnvironments)
+    .where(
+      and(
+        eq(projectEnvironments.organizationId, input.organizationId),
+        eq(projectEnvironments.projectId, input.projectId),
+      ),
+    )
+    .orderBy(asc(projectEnvironments.name));
+
+  return {
+    ...project,
+    environments: environments.map((environment) => environment.name),
+  };
+};
 
 export const ensureProjectEnvironmentAllowed = async (
   db: TelemetryDb,

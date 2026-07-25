@@ -20,6 +20,7 @@ import {
   THEME_RESOLVED_COOKIE,
   type ThemePreference,
 } from "@/lib/theme";
+import { cn } from "@/lib/utils";
 
 type ThemeContextValue = {
   theme: ThemePreference;
@@ -127,5 +128,67 @@ export function ThemeMenuSub() {
         </DropdownMenuRadioGroup>
       </DropdownMenuSubContent>
     </DropdownMenuSub>
+  );
+}
+
+const THEME_OPTIONS = [
+  {
+    value: "light",
+    label: "Light",
+    description: "Always use the light theme.",
+    icon: Sun,
+  },
+  {
+    value: "dark",
+    label: "Dark",
+    description: "Always use the dark theme.",
+    icon: Moon,
+  },
+  {
+    value: "system",
+    label: "System",
+    description: "Follow this device’s appearance.",
+    icon: Monitor,
+  },
+] satisfies Array<{
+  value: ThemePreference;
+  label: string;
+  description: string;
+  icon: typeof Sun;
+}>;
+
+export function ThemePreferenceControl() {
+  const { theme, setTheme } = useTheme();
+
+  return (
+    <fieldset className="grid gap-2 sm:grid-cols-3">
+      <legend className="sr-only">Theme preference</legend>
+      {THEME_OPTIONS.map((option) => {
+        const Icon = option.icon;
+        const selected = theme === option.value;
+        return (
+          <button
+            key={option.value}
+            type="button"
+            aria-pressed={selected}
+            onClick={() => setTheme(option.value)}
+            className={cn(
+              "flex min-w-0 items-start gap-3 rounded-lg border p-3 text-left transition-colors",
+              selected
+                ? "border-foreground/30 bg-accent text-accent-foreground"
+                : "bg-background hover:bg-accent/60",
+            )}
+          >
+            <Icon className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+            <span className="min-w-0">
+              <span className="block text-sm font-medium">{option.label}</span>
+              <span className="mt-0.5 block text-xs leading-4 text-muted-foreground">
+                {option.description}
+              </span>
+            </span>
+          </button>
+        );
+      })}
+    </fieldset>
   );
 }

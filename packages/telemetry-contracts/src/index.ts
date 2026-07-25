@@ -667,6 +667,34 @@ export const StudioCatalogsResponseSchema = z
     tags: z.array(z.string()),
   })
   .strict();
+export const StudioContextResponseSchema = z
+  .object({
+    organization: z
+      .object({
+        name: z.string().min(1),
+      })
+      .strict(),
+    project: z
+      .object({
+        name: z.string().min(1),
+      })
+      .strict(),
+    environments: z.array(z.string()),
+    apiKey: z
+      .object({
+        mode: z.enum(["test", "live"]),
+        scopes: z.array(z.string()),
+      })
+      .strict(),
+    api: z
+      .object({
+        status: z.literal("ok"),
+        service: z.literal("kortyx-api"),
+        version: z.string().min(1),
+      })
+      .strict(),
+  })
+  .strict();
 export type StudioRunStatus = z.infer<typeof StudioRunStatusSchema>;
 export type StudioTimeRange = z.infer<typeof StudioTimeRangeSchema>;
 export type StudioTimeRangeContext = z.infer<
@@ -715,3 +743,4 @@ export type StudioWorkflowsResponse = z.infer<
 export type StudioCatalogsResponse = z.infer<
   typeof StudioCatalogsResponseSchema
 >;
+export type StudioContextResponse = z.infer<typeof StudioContextResponseSchema>;

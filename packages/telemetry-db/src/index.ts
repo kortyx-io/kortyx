@@ -28,9 +28,11 @@ export {
   listApplicableModelRateCards,
   seedDefaultModelRateCards,
 } from "./repositories/model-rate-cards";
+export type { StudioProjectContext } from "./repositories/projects";
 export {
   ensureLocalDevelopmentProject,
   ensureProjectEnvironmentAllowed,
+  getStudioProjectContext,
 } from "./repositories/projects";
 export {
   notifyStudioChange,

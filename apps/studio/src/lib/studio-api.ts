@@ -2,6 +2,7 @@ import "server-only";
 
 import {
   StudioCatalogsResponseSchema,
+  StudioContextResponseSchema,
   StudioInterruptDetailResponseSchema,
   StudioInterruptsResponseSchema,
   type StudioInterruptType,
@@ -217,6 +218,11 @@ export const getStudioInterruptDetail = (interruptId: string) =>
   fetchJson(
     `/v1/studio/interrupts/${encodeURIComponent(interruptId)}`,
     (value) => StudioInterruptDetailResponseSchema.parse(value),
+  );
+
+export const getStudioContext = () =>
+  fetchJson("/v1/studio/context", (value) =>
+    StudioContextResponseSchema.parse(value),
   );
 
 export const getStudioSessions = async (
