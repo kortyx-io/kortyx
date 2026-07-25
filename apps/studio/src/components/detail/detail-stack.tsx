@@ -18,6 +18,7 @@ import {
   type DetailLayer,
   type DetailLayerRegistration,
   expandDetailLayerAndAncestors,
+  isDetailLayerActiveForHistory,
   registerDetailLayer,
   setDetailLayerClosing,
   setDetailLayerSplitOpen,
@@ -27,12 +28,15 @@ import { detailNavigationHref } from "@/lib/nuqs";
 
 export type { DetailLayerRegistration } from "@/components/detail/detail-stack-state";
 
+const DETAIL_BASE_PATHS = ["/sessions", "/runs", "/interrupts"] as const;
+
 type DetailStackContextValue = {
   beginClose: (id: string) => void;
   closeAbove: (id: string) => void;
   closeAll: () => void;
   closeTop: (id: string) => void;
   expand: (id: string) => void;
+  historyTargetPathRef: React.RefObject<string | null>;
   layers: DetailLayer[];
   register: (layer: DetailLayerRegistration) => () => void;
   reopen: (id: string) => void;
@@ -45,6 +49,7 @@ export function DetailStackProvider({ children }: { children: ReactNode }) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [layers, setLayers] = useState<DetailLayer[]>([]);
+  const historyTargetPathRef = useRef<string | null>(null);
   const timersRef = useRef(new Map<string, number>());
 
   const clearTimer = useCallback((key: string) => {
@@ -182,12 +187,16 @@ export function DetailStackProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const syncToHistory = () => {
+      historyTargetPathRef.current = window.location.pathname;
       setLayers((current) =>
         syncDetailLayersToHistoryPath(current, window.location.pathname),
       );
     };
-    window.addEventListener("popstate", syncToHistory);
-    return () => window.removeEventListener("popstate", syncToHistory);
+    window.addEventListener("popstate", syncToHistory, { capture: true });
+    return () =>
+      window.removeEventListener("popstate", syncToHistory, {
+        capture: true,
+      });
   }, []);
 
   const value = useMemo(
@@ -197,6 +206,7 @@ export function DetailStackProvider({ children }: { children: ReactNode }) {
       closeAll,
       closeTop,
       expand,
+      historyTargetPathRef,
       layers,
       register,
       reopen,
@@ -222,7 +232,7 @@ export function DetailStackProvider({ children }: { children: ReactNode }) {
   );
 }
 
-export function useDetailStackSlotClosing(dismissPath: string) {
+export function useDetailStackSlotState(dismissPath: string, pathname: string) {
   const stack = useContext(DetailStackContext);
   if (!stack) {
     throw new Error(
@@ -232,7 +242,19 @@ export function useDetailStackSlotClosing(dismissPath: string) {
   const layer = stack.layers
     .filter((candidate) => candidate.dismissPath === dismissPath)
     .at(-1);
-  return layer?.closing ?? false;
+  const isHistoryTarget = stack.historyTargetPathRef.current === pathname;
+  return {
+    closing: layer?.closing ?? false,
+    historyActive: isHistoryTarget
+      ? isDetailLayerActiveForHistory(
+          stack.layers,
+          dismissPath,
+          pathname,
+          DETAIL_BASE_PATHS,
+        )
+      : null,
+    registered: layer !== undefined,
+  };
 }
 
 export function useDetailStackLayer(registration: DetailLayerRegistration): {

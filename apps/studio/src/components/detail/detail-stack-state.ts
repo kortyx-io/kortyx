@@ -92,3 +92,27 @@ export function syncDetailLayersToHistoryPath(
     closing: index > targetIndex,
   }));
 }
+
+export function isDetailLayerActiveForHistory(
+  layers: DetailLayer[],
+  dismissPath: string,
+  pathname: string,
+  detailBasePaths: readonly string[],
+): boolean {
+  const layerIndex = layers.findLastIndex(
+    (layer) => layer.dismissPath === dismissPath,
+  );
+  if (layerIndex < 0) return false;
+
+  const targetIndex = layers.findLastIndex(
+    (layer) => layer.matchPath === pathname,
+  );
+  if (targetIndex >= 0) return layerIndex <= targetIndex;
+
+  const opensNewDetail = detailBasePaths.some(
+    (basePath) =>
+      pathname.startsWith(`${basePath}/`) &&
+      pathname.slice(basePath.length + 1).length > 0,
+  );
+  return opensNewDetail && !layers[layerIndex].closing;
+}

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { cookies } from "next/headers";
 import { NuqsAdapter } from "nuqs/adapters/next/app";
+import { DetailDrawerHost } from "@/components/detail/detail-drawer";
 import { DetailSlotPresence } from "@/components/detail/detail-slot-presence";
 import { DetailStackProvider } from "@/components/detail/detail-stack";
 import { SidebarLayout } from "@/components/layouts/sidebar-layout";
@@ -105,15 +106,17 @@ export default async function RootLayout({
             <SidebarLayout
               detailSlots={
                 <DetailStackProvider>
-                  <DetailSlotPresence dismissPath="/sessions">
-                    {sessionDrawer}
-                  </DetailSlotPresence>
-                  <DetailSlotPresence dismissPath="/runs">
-                    {runDrawer}
-                  </DetailSlotPresence>
-                  <DetailSlotPresence dismissPath="/interrupts">
-                    {interruptDrawer}
-                  </DetailSlotPresence>
+                  <DetailDrawerHost>
+                    <DetailSlotPresence dismissPath="/sessions">
+                      {sessionDrawer}
+                    </DetailSlotPresence>
+                    <DetailSlotPresence dismissPath="/runs">
+                      {runDrawer}
+                    </DetailSlotPresence>
+                    <DetailSlotPresence dismissPath="/interrupts">
+                      {interruptDrawer}
+                    </DetailSlotPresence>
+                  </DetailDrawerHost>
                 </DetailStackProvider>
               }
             >

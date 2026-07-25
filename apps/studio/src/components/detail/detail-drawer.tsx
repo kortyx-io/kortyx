@@ -8,8 +8,12 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
   useState,
 } from "react";
+import { DETAIL_MOTION_DURATION_MS } from "@/components/detail/detail-motion";
 import { useDetailSlotMotion } from "@/components/detail/detail-slot-presence";
 import { useDetailStackLayer } from "@/components/detail/detail-stack";
 import { Button } from "@/components/ui/button";
@@ -48,7 +52,120 @@ const detailViewParsers = {
   ),
 };
 
+type DetailDrawerRegistration = {
+  children: ReactNode;
+  description: string;
+  dismissPath: string;
+  markSlotEntered: () => void;
+  matchPath: string;
+  slotEntered: boolean;
+  title: string;
+};
+
+type HostedDetailDrawer = DetailDrawerRegistration & {
+  active: boolean;
+};
+
+type DetailDrawerHostContextValue = {
+  register: (drawer: DetailDrawerRegistration) => () => void;
+};
+
+const DetailDrawerHostContext =
+  createContext<DetailDrawerHostContextValue | null>(null);
+
 export const useDetailDrawer = () => useContext(DetailDrawerContext);
+
+export function DetailDrawerHost({ children }: { children: ReactNode }) {
+  const [drawers, setDrawers] = useState<HostedDetailDrawer[]>([]);
+  const registrationCountsRef = useRef(new Map<string, number>());
+  const timersRef = useRef(new Map<string, number>());
+
+  const clearTimer = useCallback((key: string) => {
+    const timer = timersRef.current.get(key);
+    if (timer === undefined) return;
+    window.clearTimeout(timer);
+    timersRef.current.delete(key);
+  }, []);
+
+  const register = useCallback(
+    (drawer: DetailDrawerRegistration) => {
+      const id = drawer.matchPath;
+      registrationCountsRef.current.set(
+        id,
+        (registrationCountsRef.current.get(id) ?? 0) + 1,
+      );
+      clearTimer(`deactivate:${id}`);
+      clearTimer(`remove:${id}`);
+      setDrawers((current) => {
+        const existing = current.find(
+          (candidate) => candidate.matchPath === id,
+        );
+        if (!existing) return [...current, { ...drawer, active: true }];
+        return current.map((candidate) =>
+          candidate.matchPath === id
+            ? { ...candidate, ...drawer, active: true }
+            : candidate,
+        );
+      });
+
+      return () => {
+        const remaining = Math.max(
+          0,
+          (registrationCountsRef.current.get(id) ?? 1) - 1,
+        );
+        if (remaining > 0) {
+          registrationCountsRef.current.set(id, remaining);
+          return;
+        }
+        registrationCountsRef.current.delete(id);
+        clearTimer(`deactivate:${id}`);
+        const deactivateTimer = window.setTimeout(() => {
+          timersRef.current.delete(`deactivate:${id}`);
+          if ((registrationCountsRef.current.get(id) ?? 0) > 0) return;
+          setDrawers((current) =>
+            current.map((candidate) =>
+              candidate.matchPath === id
+                ? { ...candidate, active: false }
+                : candidate,
+            ),
+          );
+          const removeTimer = window.setTimeout(() => {
+            timersRef.current.delete(`remove:${id}`);
+            if ((registrationCountsRef.current.get(id) ?? 0) > 0) return;
+            setDrawers((current) =>
+              current.filter((candidate) => candidate.matchPath !== id),
+            );
+          }, DETAIL_MOTION_DURATION_MS);
+          timersRef.current.set(`remove:${id}`, removeTimer);
+        }, 0);
+        timersRef.current.set(`deactivate:${id}`, deactivateTimer);
+      };
+    },
+    [clearTimer],
+  );
+
+  useEffect(
+    () => () => {
+      for (const timer of timersRef.current.values()) {
+        window.clearTimeout(timer);
+      }
+      timersRef.current.clear();
+      registrationCountsRef.current.clear();
+    },
+    [],
+  );
+
+  const value = useMemo(() => ({ register }), [register]);
+
+  return (
+    <DetailDrawerHostContext.Provider value={value}>
+      {children}
+      {drawers.map((drawer) => (
+        <DetailDrawerSurface key={drawer.matchPath} {...drawer} />
+      ))}
+    </DetailDrawerHostContext.Provider>
+  );
+}
 
 export function DetailSurfaceProvider({ children }: { children: ReactNode }) {
   const { isMobile } = useSidebar();
@@ -83,14 +200,55 @@ export function DetailDrawer({
   description: string;
   children: ReactNode;
 }) {
+  const host = useContext(DetailDrawerHostContext);
+  const slotMotion = useDetailSlotMotion();
+  if (!host) {
+    throw new Error("Detail drawers must be rendered inside DetailDrawerHost");
+  }
+
+  useLayoutEffect(
+    () =>
+      host.register({
+        children,
+        description,
+        dismissPath,
+        markSlotEntered: slotMotion.markEntered,
+        matchPath,
+        slotEntered: slotMotion.entered,
+        title,
+      }),
+    [
+      children,
+      description,
+      dismissPath,
+      host.register,
+      matchPath,
+      slotMotion.entered,
+      slotMotion.markEntered,
+      title,
+    ],
+  );
+
+  return null;
+}
+
+function DetailDrawerSurface({
+  active,
+  matchPath,
+  dismissPath,
+  title,
+  description,
+  children,
+  slotEntered,
+  markSlotEntered,
+}: HostedDetailDrawer) {
   const { state, isMobile } = useSidebar();
   const [{ detailView }, setDetailView] = useStudioQueryStates(
     detailViewParsers,
     { shallow: true },
   );
   const nestedInspector = useNestedInspectorState();
-  const slotMotion = useDetailSlotMotion();
-  const [entered, setEntered] = useState(slotMotion.entered);
+  const [entered, setEntered] = useState(slotEntered);
   const [localClosing, setLocalClosing] = useState(false);
   const layer = useDetailStackLayer({
     dismissPath,
@@ -100,7 +258,7 @@ export function DetailDrawer({
   const expandedRequested = detailView === "expanded";
   const expanded = expandedRequested || layer.expanded;
   const expandedView = expanded && !isMobile;
-  const closing = localClosing || layer.closing || !slotMotion.active;
+  const closing = localClosing || layer.closing || !active;
   const titleId = `detail-drawer-title-${matchPath.replaceAll(/[^a-zA-Z0-9_-]/g, "-")}`;
 
   const closeDrawer = useCallback(() => {
@@ -110,7 +268,7 @@ export function DetailDrawer({
   }, [closing, layer]);
 
   useEffect(() => {
-    if (!slotMotion.active || !layer.isTop) return;
+    if (!active || !layer.isTop) return;
     const onKeyDown = (event: KeyboardEvent) => {
       if (nestedInspector.nestedOpen) return;
       if (event.key === "Escape") closeDrawer();
@@ -137,7 +295,7 @@ export function DetailDrawer({
     layer.isTop,
     nestedInspector.nestedOpen,
     setDetailView,
-    slotMotion.active,
+    active,
   ]);
 
   useEffect(() => {
@@ -150,10 +308,10 @@ export function DetailDrawer({
   }, [layer.setSplitOpen, nestedInspector.nestedOpen]);
 
   useEffect(() => {
-    if (slotMotion.active) {
+    if (active) {
       setLocalClosing(false);
       layer.reopen();
-      if (slotMotion.entered) {
+      if (slotEntered) {
         setEntered(true);
         return;
       }
@@ -162,7 +320,7 @@ export function DetailDrawer({
       const paintFrame = window.requestAnimationFrame(() => {
         enterFrame = window.requestAnimationFrame(() => {
           setEntered(true);
-          slotMotion.markEntered();
+          markSlotEntered();
         });
       });
       return () => {
@@ -177,10 +335,10 @@ export function DetailDrawer({
   }, [
     layer.beginClose,
     layer.reopen,
+    markSlotEntered,
     nestedInspector.setNestedOpen,
-    slotMotion.active,
-    slotMotion.entered,
-    slotMotion.markEntered,
+    active,
+    slotEntered,
   ]);
 
   const sidebarOffset =
@@ -213,7 +371,7 @@ export function DetailDrawer({
       )}
       <section
         data-detail-drawer
-        data-entry-motion={slotMotion.entered ? "preserve" : "enter"}
+        data-entry-motion={slotEntered ? "preserve" : "enter"}
         data-state={closing ? "closed" : "open"}
         role="dialog"
         aria-modal={layer.isTop && !expandedView && !nestedInspector.nestedOpen}

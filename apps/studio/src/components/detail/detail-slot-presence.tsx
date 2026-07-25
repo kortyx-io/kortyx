@@ -1,5 +1,6 @@
 "use client";
 
+import { usePathname } from "next/navigation";
 import {
   createContext,
   type ReactNode,
@@ -10,7 +11,7 @@ import {
   useState,
 } from "react";
 import { DETAIL_MOTION_DURATION_MS } from "@/components/detail/detail-motion";
-import { useDetailStackSlotClosing } from "@/components/detail/detail-stack";
+import { useDetailStackSlotState } from "@/components/detail/detail-stack";
 
 type DetailSlotMotionValue = {
   active: boolean;
@@ -40,8 +41,14 @@ export function DetailSlotPresence({
   children: ReactNode;
   dismissPath: string;
 }) {
-  const layerClosing = useDetailStackSlotClosing(dismissPath);
-  const active = children !== null && children !== undefined && !layerClosing;
+  const pathname = usePathname();
+  const layer = useDetailStackSlotState(dismissPath, pathname);
+  const routeActive =
+    pathname.startsWith(`${dismissPath}/`) &&
+    pathname.slice(dismissPath.length + 1).length > 0;
+  const active =
+    routeActive ||
+    (layer.historyActive ?? (layer.registered && !layer.closing));
   const [renderedChildren, setRenderedChildren] = useState<ReactNode>(
     active ? children : null,
   );

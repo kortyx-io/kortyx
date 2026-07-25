@@ -3,6 +3,7 @@ import {
   closeAllDetailLayers,
   closeDetailLayersAbove,
   expandDetailLayerAndAncestors,
+  isDetailLayerActiveForHistory,
   registerDetailLayer,
   setDetailLayerClosing,
   setDetailLayerSplitOpen,
@@ -111,5 +112,31 @@ describe("detail stack transitions", () => {
         (layer) => layer.closing,
       ),
     ).toEqual([false, false]);
+  });
+
+  it("retains ancestors while history opens a no-longer-registered child", () => {
+    const layers = registerDetailLayer([], session);
+
+    expect(
+      isDetailLayerActiveForHistory(
+        layers,
+        session.dismissPath,
+        run.matchPath,
+        [session.dismissPath, run.dismissPath],
+      ),
+    ).toBe(true);
+  });
+
+  it("does not retain a drawer when history returns to a list", () => {
+    const layers = registerDetailLayer([], session);
+
+    expect(
+      isDetailLayerActiveForHistory(
+        layers,
+        session.dismissPath,
+        session.dismissPath,
+        [session.dismissPath, run.dismissPath],
+      ),
+    ).toBe(false);
   });
 });
