@@ -307,6 +307,11 @@ function DetailDrawerSurface({
     return () => layer.setSplitOpen(false);
   }, [layer.setSplitOpen, nestedInspector.nestedOpen]);
 
+  useEffect(
+    () => layer.registerNestedClose(nestedInspector.requestNestedClose),
+    [layer.registerNestedClose, nestedInspector.requestNestedClose],
+  );
+
   useEffect(() => {
     if (active) {
       setLocalClosing(false);
@@ -354,21 +359,10 @@ function DetailDrawerSurface({
         : `max(${sidebarOffset}, calc(100vw - ${33 + layer.depthAbove * 3}rem))`;
 
   return (
+    // The fragment intentionally keeps the drawer tree stable while the shared
+    // stack backdrop is rendered by DetailStackProvider.
+    // biome-ignore lint/complexity/noUselessFragments: preserves drawer subtree identity
     <>
-      {layer.isTop && (
-        <button
-          type="button"
-          aria-label="Close detail"
-          tabIndex={-1}
-          onClick={closeDrawer}
-          style={{ zIndex: layer.zIndex - 5 }}
-          className={cn(
-            "fixed inset-0 bg-overlay transition-opacity duration-300 ease-in-out",
-            expandedView && layer.isBottom && "pointer-events-none opacity-0",
-            (!entered || closing) && "pointer-events-none opacity-0",
-          )}
-        />
-      )}
       <section
         data-detail-drawer
         data-entry-motion={slotEntered ? "preserve" : "enter"}

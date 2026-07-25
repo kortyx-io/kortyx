@@ -18,13 +18,16 @@ import {
   type DetailLayer,
   type DetailLayerRegistration,
   expandDetailLayerAndAncestors,
+  getDetailBackdropState,
   isDetailLayerActiveForHistory,
   registerDetailLayer,
   setDetailLayerClosing,
   setDetailLayerSplitOpen,
   syncDetailLayersToHistoryPath,
 } from "@/components/detail/detail-stack-state";
+import { useSidebar } from "@/components/ui/sidebar";
 import { detailNavigationHref } from "@/lib/nuqs";
+import { cn } from "@/lib/utils";
 
 export type { DetailLayerRegistration } from "@/components/detail/detail-stack-state";
 
@@ -39,6 +42,7 @@ type DetailStackContextValue = {
   historyTargetPathRef: React.RefObject<string | null>;
   layers: DetailLayer[];
   register: (layer: DetailLayerRegistration) => () => void;
+  registerNestedClose: (id: string, close: () => void) => () => void;
   reopen: (id: string) => void;
   setSplitOpen: (id: string, open: boolean) => void;
 };
@@ -48,8 +52,11 @@ const DetailStackContext = createContext<DetailStackContextValue | null>(null);
 export function DetailStackProvider({ children }: { children: ReactNode }) {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { isMobile } = useSidebar();
   const [layers, setLayers] = useState<DetailLayer[]>([]);
   const historyTargetPathRef = useRef<string | null>(null);
+  const historyTraversalRef = useRef<(() => boolean) | null>(null);
+  const nestedCloseHandlersRef = useRef(new Map<string, () => void>());
   const timersRef = useRef(new Map<string, number>());
 
   const clearTimer = useCallback((key: string) => {
@@ -94,6 +101,15 @@ export function DetailStackProvider({ children }: { children: ReactNode }) {
     setLayers((current) => setDetailLayerSplitOpen(current, id, open));
   }, []);
 
+  const registerNestedClose = useCallback((id: string, close: () => void) => {
+    nestedCloseHandlersRef.current.set(id, close);
+    return () => {
+      if (nestedCloseHandlersRef.current.get(id) === close) {
+        nestedCloseHandlersRef.current.delete(id);
+      }
+    };
+  }, []);
+
   const scheduleNavigation = useCallback(
     (key: string, navigate: () => void) => {
       clearTimer(key);
@@ -109,9 +125,14 @@ export function DetailStackProvider({ children }: { children: ReactNode }) {
   const navigateBackUntil = useCallback(
     (reachedTarget: () => boolean, fallbackHref: string) => {
       let attempts = 0;
+      historyTraversalRef.current = reachedTarget;
       const step = () => {
-        if (reachedTarget()) return;
+        if (reachedTarget()) {
+          historyTraversalRef.current = null;
+          return;
+        }
         if (attempts >= 20) {
+          historyTraversalRef.current = null;
           router.push(fallbackHref);
           return;
         }
@@ -181,12 +202,19 @@ export function DetailStackProvider({ children }: { children: ReactNode }) {
         window.clearTimeout(timer);
       }
       timersRef.current.clear();
+      historyTraversalRef.current = null;
+      nestedCloseHandlersRef.current.clear();
     },
     [],
   );
 
   useEffect(() => {
     const syncToHistory = () => {
+      const reachedTraversalTarget = historyTraversalRef.current;
+      // Query-state entries can share the current drawer pathname. Keep the
+      // exit state intact while an intentional close walks past those entries.
+      if (reachedTraversalTarget && !reachedTraversalTarget()) return;
+      historyTraversalRef.current = null;
       historyTargetPathRef.current = window.location.pathname;
       setLayers((current) =>
         syncDetailLayersToHistoryPath(current, window.location.pathname),
@@ -209,6 +237,7 @@ export function DetailStackProvider({ children }: { children: ReactNode }) {
       historyTargetPathRef,
       layers,
       register,
+      registerNestedClose,
       reopen,
       setSplitOpen,
     }),
@@ -220,13 +249,40 @@ export function DetailStackProvider({ children }: { children: ReactNode }) {
       expand,
       layers,
       register,
+      registerNestedClose,
       reopen,
       setSplitOpen,
     ],
   );
+  const backdrop = getDetailBackdropState(layers);
+  const backdropLayer = layers[backdrop.topIndex];
+  const backdropVisible =
+    backdrop.topIndex >= 0 && !(!isMobile && backdrop.onlyActiveExpanded);
 
   return (
     <DetailStackContext.Provider value={value}>
+      <button
+        type="button"
+        aria-label="Close detail"
+        tabIndex={-1}
+        onClick={() => {
+          if (backdropLayer?.splitOpen) {
+            const closeNested = nestedCloseHandlersRef.current.get(
+              backdropLayer.id,
+            );
+            if (closeNested) {
+              closeNested();
+              return;
+            }
+          }
+          if (backdropLayer) closeTop(backdropLayer.id);
+        }}
+        style={{ zIndex: backdrop.zIndex }}
+        className={cn(
+          "fixed inset-0 bg-overlay transition-opacity duration-300 ease-in-out",
+          !backdropVisible && "pointer-events-none opacity-0",
+        )}
+      />
       {children}
     </DetailStackContext.Provider>
   );
@@ -270,6 +326,7 @@ export function useDetailStackLayer(registration: DetailLayerRegistration): {
   isBottom: boolean;
   isTop: boolean;
   reopen: () => void;
+  registerNestedClose: (close: () => void) => () => void;
   setSplitOpen: (open: boolean) => void;
   splitActive: boolean;
   zIndex: number;
@@ -302,6 +359,10 @@ export function useDetailStackLayer(registration: DetailLayerRegistration): {
   const closeTop = useCallback(() => stack.closeTop(id), [id, stack.closeTop]);
   const expand = useCallback(() => stack.expand(id), [id, stack.expand]);
   const reopen = useCallback(() => stack.reopen(id), [id, stack.reopen]);
+  const registerNestedClose = useCallback(
+    (close: () => void) => stack.registerNestedClose(id, close),
+    [id, stack.registerNestedClose],
+  );
   const setSplitOpen = useCallback(
     (open: boolean) => stack.setSplitOpen(id, open),
     [id, stack.setSplitOpen],
@@ -321,6 +382,7 @@ export function useDetailStackLayer(registration: DetailLayerRegistration): {
     isBottom: index === 0,
     isTop:
       activeIndex >= 0 && activeIndex === Math.max(0, activeLayers.length - 1),
+    registerNestedClose,
     reopen,
     setSplitOpen,
     splitActive:

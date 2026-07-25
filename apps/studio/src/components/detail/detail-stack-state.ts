@@ -79,6 +79,19 @@ export function closeAllDetailLayers(layers: DetailLayer[]): DetailLayer[] {
   return layers.map((layer) => ({ ...layer, closing: true }));
 }
 
+export function getDetailBackdropState(layers: DetailLayer[]) {
+  const topIndex = layers.findLastIndex((layer) => !layer.closing);
+  const activeLayers = layers.filter((layer) => !layer.closing);
+
+  return {
+    activeCount: activeLayers.length,
+    onlyActiveExpanded:
+      activeLayers.length === 1 && activeLayers[0]?.expanded === true,
+    topIndex,
+    zIndex: 45 + Math.max(0, topIndex) * 10,
+  };
+}
+
 export function syncDetailLayersToHistoryPath(
   layers: DetailLayer[],
   pathname: string,

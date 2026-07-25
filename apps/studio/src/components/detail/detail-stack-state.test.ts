@@ -3,6 +3,7 @@ import {
   closeAllDetailLayers,
   closeDetailLayersAbove,
   expandDetailLayerAndAncestors,
+  getDetailBackdropState,
   isDetailLayerActiveForHistory,
   registerDetailLayer,
   setDetailLayerClosing,
@@ -138,5 +139,27 @@ describe("detail stack transitions", () => {
         [session.dismissPath, run.dismissPath],
       ),
     ).toBe(false);
+  });
+
+  it("keeps the backdrop visible when multiple children close to an ancestor", () => {
+    const interrupt = {
+      dismissPath: "/interrupts",
+      id: "/interrupts/interrupt-1",
+      matchPath: "/interrupts/interrupt-1",
+    };
+    const layers = closeDetailLayersAbove(
+      registerDetailLayer(
+        registerDetailLayer(registerDetailLayer([], session), run),
+        interrupt,
+      ),
+      session.id,
+    );
+
+    expect(getDetailBackdropState(layers)).toEqual({
+      activeCount: 1,
+      onlyActiveExpanded: false,
+      topIndex: 0,
+      zIndex: 45,
+    });
   });
 });
