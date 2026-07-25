@@ -1,4 +1,8 @@
 import {
+  STUDIO_TIME_RANGES,
+  type StudioTimeRange,
+} from "@kortyx/telemetry-contracts";
+import {
   parseAsArrayOf,
   parseAsBoolean,
   parseAsFloat,
@@ -38,7 +42,7 @@ const sortKeys = [
 type Changes = Partial<{
   q: string | null;
   env: string | null;
-  range: string | null;
+  range: StudioTimeRange | null;
   startedAfter: string | null;
   startedBefore: string | null;
   status: SessionStatus[] | null;
@@ -74,7 +78,7 @@ export function useSessionsQuery(
     () => ({
       q: parseAsString.withDefault(""),
       env: parseAsString.withDefault("All environments"),
-      range: parseAsString.withDefault("24 hours"),
+      range: parseAsStringLiteral(STUDIO_TIME_RANGES).withDefault("24 hours"),
       startedAfter: parseAsString.withDefault(""),
       startedBefore: parseAsString.withDefault(""),
       status: parseAsArrayOf(parseAsStringLiteral(sessionStatuses)).withDefault(

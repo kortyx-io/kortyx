@@ -54,18 +54,41 @@ export function WorkflowInspector({
     selection.type === "transition"
       ? system.transitions.find((item) => item.id === selection.id)
       : undefined;
+  const cohortParams =
+    system.cohort.range === "All time"
+      ? { range: "All time" }
+      : {
+          range: "Custom range",
+          startedAfter: system.cohort.startedAfter,
+          startedBefore: system.cohort.startedBefore,
+        };
+  const selectedVersion =
+    selectedWorkflowId === system.cohort.workflowId
+      ? system.cohort.version
+      : null;
   const runHref =
     selection.type === "transition" && selectedTransition
       ? runsHref({
           workflow: selectedTransition.sourceWorkflowId,
           transition: selectedTransition.id,
+          version:
+            selectedTransition.sourceWorkflowId === system.cohort.workflowId
+              ? system.cohort.version
+              : null,
+          ...cohortParams,
         })
       : selection.type === "node" && selectedNode
-        ? runsHref({ workflow: selection.workflowId, path: selectedNode.id })
+        ? runsHref({
+            workflow: selection.workflowId,
+            path: selectedNode.id,
+            version: selectedVersion,
+            ...cohortParams,
+          })
         : selectedWorkflow
           ? runsHref({
               workflow: selectedWorkflow.id,
-              version: selectedWorkflow.activeVersion,
+              version: selectedVersion,
+              ...cohortParams,
             })
           : "/runs";
   const title =

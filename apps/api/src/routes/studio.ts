@@ -1,5 +1,6 @@
 import { createRoute, type OpenAPIHono, z } from "@hono/zod-openapi";
 import {
+  resolveStudioTimeRange,
   StudioCatalogsResponseSchema,
   StudioInterruptDetailResponseSchema,
   StudioInterruptsResponseSchema,
@@ -7,6 +8,7 @@ import {
   StudioRunsResponseSchema,
   StudioSessionDetailResponseSchema,
   StudioSessionsResponseSchema,
+  StudioTimeRangeSchema,
   StudioWorkflowsResponseSchema,
 } from "@kortyx/telemetry-contracts";
 import {
@@ -17,6 +19,7 @@ import {
   listStudioInterrupts,
   listStudioRuns,
   listStudioSessions,
+  listStudioWorkflows,
 } from "@kortyx/telemetry-db";
 import type { ApiEnv } from "../types";
 
@@ -47,10 +50,17 @@ const notFoundResponse = {
   },
 };
 
+const invalidQueryResponse = {
+  400: {
+    description: "The Studio filter query is invalid.",
+    content: { "application/json": { schema: ErrorResponseSchema } },
+  },
+};
+
 const listQuerySchema = z.object({
   q: z.string().optional(),
   env: z.string().optional(),
-  range: z.string().optional(),
+  range: StudioTimeRangeSchema.optional(),
   startedAfter: z.string().optional(),
   startedBefore: z.string().optional(),
   status: z.string().optional(),
@@ -98,6 +108,7 @@ const runsRoute = createRoute({
       description: "Projected Studio run rows.",
       content: { "application/json": { schema: StudioRunsResponseSchema } },
     },
+    ...invalidQueryResponse,
     ...securedResponses,
   },
 });
@@ -131,6 +142,7 @@ const sessionsRoute = createRoute({
         "application/json": { schema: StudioSessionsResponseSchema },
       },
     },
+    ...invalidQueryResponse,
     ...securedResponses,
   },
 });
@@ -165,6 +177,7 @@ const interruptsRoute = createRoute({
         "application/json": { schema: StudioInterruptsResponseSchema },
       },
     },
+    ...invalidQueryResponse,
     ...securedResponses,
   },
 });
@@ -190,6 +203,15 @@ const interruptDetailRoute = createRoute({
 const workflowsRoute = createRoute({
   method: "get",
   path: "/v1/studio/workflows",
+  request: {
+    query: z.object({
+      range: StudioTimeRangeSchema.optional(),
+      startedAfter: z.string().optional(),
+      startedBefore: z.string().optional(),
+      workflow: z.string().optional(),
+      version: z.string().optional(),
+    }),
+  },
   security: [{ TelemetryApiKey: [] }],
   responses: {
     200: {
@@ -198,6 +220,7 @@ const workflowsRoute = createRoute({
         "application/json": { schema: StudioWorkflowsResponseSchema },
       },
     },
+    ...invalidQueryResponse,
     ...securedResponses,
   },
 });
@@ -220,10 +243,18 @@ const catalogsRoute = createRoute({
 export const registerStudioRoutes = (app: OpenAPIHono<ApiEnv>): void => {
   app.openapi(runsRoute, async (c) => {
     const auth = c.get("auth");
+    const query = c.req.valid("query");
+    const timeRange = resolveStudioTimeRange(query);
+    if ("error" in timeRange) {
+      return c.json(
+        { error: "invalid_time_range", message: timeRange.error },
+        400,
+      );
+    }
     const page = await listStudioRuns(c.get("db"), {
       organizationId: auth.organizationId,
       projectId: auth.projectId,
-      query: c.req.valid("query"),
+      query,
     });
     return c.json({ runs: page.items, totalCount: page.totalCount }, 200);
   });
@@ -258,10 +289,18 @@ export const registerStudioRoutes = (app: OpenAPIHono<ApiEnv>): void => {
   });
   app.openapi(sessionsRoute, async (c) => {
     const auth = c.get("auth");
+    const query = c.req.valid("query");
+    const timeRange = resolveStudioTimeRange(query);
+    if ("error" in timeRange) {
+      return c.json(
+        { error: "invalid_time_range", message: timeRange.error },
+        400,
+      );
+    }
     const page = await listStudioSessions(c.get("db"), {
       organizationId: auth.organizationId,
       projectId: auth.projectId,
-      query: c.req.valid("query"),
+      query,
     });
     return c.json({ sessions: page.items, totalCount: page.totalCount }, 200);
   });
@@ -298,10 +337,18 @@ export const registerStudioRoutes = (app: OpenAPIHono<ApiEnv>): void => {
   });
   app.openapi(interruptsRoute, async (c) => {
     const auth = c.get("auth");
+    const query = c.req.valid("query");
+    const timeRange = resolveStudioTimeRange(query);
+    if ("error" in timeRange) {
+      return c.json(
+        { error: "invalid_time_range", message: timeRange.error },
+        400,
+      );
+    }
     const page = await listStudioInterrupts(c.get("db"), {
       organizationId: auth.organizationId,
       projectId: auth.projectId,
-      query: c.req.valid("query"),
+      query,
     });
     return c.json({ interrupts: page.items, totalCount: page.totalCount }, 200);
   });
@@ -345,11 +392,31 @@ export const registerStudioRoutes = (app: OpenAPIHono<ApiEnv>): void => {
   });
   app.openapi(workflowsRoute, async (c) => {
     const auth = c.get("auth");
-    const models = await getStudioReadModels(c.get("db"), {
-      organizationId: auth.organizationId,
-      projectId: auth.projectId,
-    });
-    return c.json(models.workflows, 200);
+    const query = c.req.valid("query");
+    const timeRange = resolveStudioTimeRange(query);
+    if ("error" in timeRange) {
+      return c.json(
+        { error: "invalid_time_range", message: timeRange.error },
+        400,
+      );
+    }
+    try {
+      const workflows = await listStudioWorkflows(c.get("db"), {
+        organizationId: auth.organizationId,
+        projectId: auth.projectId,
+        query,
+      });
+      return c.json(workflows, 200);
+    } catch (error) {
+      return c.json(
+        {
+          error: "invalid_workflow_filter",
+          message:
+            error instanceof Error ? error.message : "Invalid workflow filter.",
+        },
+        400,
+      );
+    }
   });
   app.openapi(catalogsRoute, async (c) => {
     const auth = c.get("auth");

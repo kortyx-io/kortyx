@@ -75,14 +75,12 @@ export function RunsFilterPanel({
               range={timeRange}
               startedAfter={startedAfter}
               startedBefore={startedBefore}
-              onRangeChange={(range) =>
-                setParams({ range: range === "24 hours" ? null : range })
-              }
-              onStartedAfterChange={(startedAfter) =>
-                setParams({ startedAfter: startedAfter || null })
-              }
-              onStartedBeforeChange={(startedBefore) =>
-                setParams({ startedBefore: startedBefore || null })
+              onChange={(value) =>
+                setParams({
+                  range: value.range === "24 hours" ? null : value.range,
+                  startedAfter: value.startedAfter || null,
+                  startedBefore: value.startedBefore || null,
+                })
               }
             />
           </FilterSection>

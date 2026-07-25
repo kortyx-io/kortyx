@@ -242,6 +242,134 @@ export const StudioRunStatusSchema = z.enum([
   "failed",
   "cancelled",
 ]);
+export const STUDIO_TIME_RANGES = [
+  "Last hour",
+  "24 hours",
+  "7 days",
+  "30 days",
+  "All time",
+  "Custom range",
+] as const;
+export const StudioTimeRangeSchema = z.enum(STUDIO_TIME_RANGES);
+export const StudioTimeRangeQuerySchema = z
+  .object({
+    range: StudioTimeRangeSchema.optional(),
+    startedAfter: z.string().optional(),
+    startedBefore: z.string().optional(),
+  })
+  .strict();
+export const StudioTimeRangeContextSchema = z
+  .object({
+    range: StudioTimeRangeSchema,
+    startedAfter: z.string().datetime({ offset: true }).nullable(),
+    startedBefore: z.string().datetime({ offset: true }).nullable(),
+  })
+  .strict();
+
+export type StudioTimeRangeResolution =
+  | {
+      ok: true;
+      value: z.infer<typeof StudioTimeRangeContextSchema>;
+    }
+  | {
+      ok: false;
+      error: string;
+    };
+
+const STUDIO_TIME_RANGE_MILLISECONDS: Partial<
+  Record<z.infer<typeof StudioTimeRangeSchema>, number>
+> = {
+  "Last hour": 60 * 60 * 1_000,
+  "24 hours": 24 * 60 * 60 * 1_000,
+  "7 days": 7 * 24 * 60 * 60 * 1_000,
+  "30 days": 30 * 24 * 60 * 60 * 1_000,
+};
+
+const parseIsoBoundary = (
+  value: string | undefined,
+  label: string,
+): { ok: true; date: Date } | { ok: false; error: string } => {
+  if (!value) {
+    return { ok: false, error: `${label} is required for a custom range.` };
+  }
+  if (!/(?:Z|[+-]\d{2}:\d{2})$/.test(value)) {
+    return {
+      ok: false,
+      error: `${label} must include an explicit UTC offset.`,
+    };
+  }
+  const date = new Date(value);
+  return Number.isFinite(date.getTime())
+    ? { ok: true, date }
+    : { ok: false, error: `${label} must be a valid ISO date and time.` };
+};
+
+/**
+ * Resolves Studio time filters into absolute UTC boundaries.
+ *
+ * Relative presets are evaluated against `now`. Custom boundaries must be
+ * complete ISO timestamps with an explicit offset and are normalized to UTC.
+ */
+export const resolveStudioTimeRange = (
+  input: {
+    range?: string | undefined;
+    startedAfter?: string | undefined;
+    startedBefore?: string | undefined;
+  },
+  now = new Date(),
+): StudioTimeRangeResolution => {
+  const parsedRange = StudioTimeRangeSchema.safeParse(
+    input.range || "24 hours",
+  );
+  if (!parsedRange.success) {
+    return {
+      ok: false,
+      error: `Unknown time range "${input.range}".`,
+    };
+  }
+  if (!Number.isFinite(now.getTime())) {
+    return { ok: false, error: "The time range reference date is invalid." };
+  }
+  const range = parsedRange.data;
+  if (range === "All time") {
+    return {
+      ok: true,
+      value: { range, startedAfter: null, startedBefore: null },
+    };
+  }
+  if (range === "Custom range") {
+    const after = parseIsoBoundary(input.startedAfter, "Start time");
+    if ("error" in after) return { ok: false, error: after.error };
+    const before = parseIsoBoundary(input.startedBefore, "End time");
+    if ("error" in before) return { ok: false, error: before.error };
+    if (after.date.getTime() >= before.date.getTime()) {
+      return {
+        ok: false,
+        error: "Start time must be before end time.",
+      };
+    }
+    return {
+      ok: true,
+      value: {
+        range,
+        startedAfter: after.date.toISOString(),
+        startedBefore: before.date.toISOString(),
+      },
+    };
+  }
+  const duration = STUDIO_TIME_RANGE_MILLISECONDS[range];
+  if (!duration) {
+    return { ok: false, error: `Unknown time range "${range}".` };
+  }
+  return {
+    ok: true,
+    value: {
+      range,
+      startedAfter: new Date(now.getTime() - duration).toISOString(),
+      startedBefore: now.toISOString(),
+    },
+  };
+};
 export const StudioInterruptStatusSchema = z.enum([
   "pending",
   "resolved",
@@ -524,6 +652,10 @@ export const StudioWorkflowsResponseSchema = z
   .object({
     workflows: z.array(StudioWorkflowSchema),
     transitions: z.array(StudioWorkflowTransitionSchema),
+    cohort: StudioTimeRangeContextSchema.extend({
+      workflowId: z.string().nullable(),
+      version: z.string().nullable(),
+    }).strict(),
   })
   .strict();
 export const StudioCatalogsResponseSchema = z
@@ -536,6 +668,10 @@ export const StudioCatalogsResponseSchema = z
   })
   .strict();
 export type StudioRunStatus = z.infer<typeof StudioRunStatusSchema>;
+export type StudioTimeRange = z.infer<typeof StudioTimeRangeSchema>;
+export type StudioTimeRangeContext = z.infer<
+  typeof StudioTimeRangeContextSchema
+>;
 export type StudioInterruptStatus = z.infer<typeof StudioInterruptStatusSchema>;
 export type StudioInterruptType = z.infer<typeof StudioInterruptTypeSchema>;
 export type StudioResumeOutcome = z.infer<typeof StudioResumeOutcomeSchema>;

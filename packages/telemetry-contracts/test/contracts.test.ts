@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   EnsureWorkflowTopologyRequestSchema,
+  resolveStudioTimeRange,
   StudioCatalogsResponseSchema,
   StudioChangeSchema,
   StudioRunsResponseSchema,
@@ -162,5 +163,71 @@ describe("telemetry contracts", () => {
         payload: { secret: true },
       }).success,
     ).toBe(false);
+  });
+
+  it("resolves relative Studio ranges into deterministic UTC boundaries", () => {
+    expect(
+      resolveStudioTimeRange(
+        { range: "7 days" },
+        new Date("2026-07-25T12:00:00.000Z"),
+      ),
+    ).toEqual({
+      ok: true,
+      value: {
+        range: "7 days",
+        startedAfter: "2026-07-18T12:00:00.000Z",
+        startedBefore: "2026-07-25T12:00:00.000Z",
+      },
+    });
+    expect(
+      resolveStudioTimeRange(
+        { range: "All time" },
+        new Date("2026-07-25T12:00:00.000Z"),
+      ),
+    ).toEqual({
+      ok: true,
+      value: {
+        range: "All time",
+        startedAfter: null,
+        startedBefore: null,
+      },
+    });
+  });
+
+  it("normalizes custom Studio ranges and rejects ambiguous boundaries", () => {
+    expect(
+      resolveStudioTimeRange({
+        range: "Custom range",
+        startedAfter: "2026-07-20T01:00:00+02:00",
+        startedBefore: "2026-07-21T01:00:00+02:00",
+      }),
+    ).toEqual({
+      ok: true,
+      value: {
+        range: "Custom range",
+        startedAfter: "2026-07-19T23:00:00.000Z",
+        startedBefore: "2026-07-20T23:00:00.000Z",
+      },
+    });
+    expect(
+      resolveStudioTimeRange({
+        range: "Custom range",
+        startedAfter: "2026-07-20T01:00:00",
+        startedBefore: "2026-07-21T01:00:00Z",
+      }),
+    ).toEqual({
+      ok: false,
+      error: "Start time must include an explicit UTC offset.",
+    });
+    expect(
+      resolveStudioTimeRange({
+        range: "Custom range",
+        startedAfter: "2026-07-21T01:00:00Z",
+        startedBefore: "2026-07-20T01:00:00Z",
+      }),
+    ).toEqual({
+      ok: false,
+      error: "Start time must be before end time.",
+    });
   });
 });

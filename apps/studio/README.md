@@ -109,6 +109,21 @@ Studio uses a jittered 30–60 second fallback and stops it after reconnection.
 See [Studio live refresh](../../docs/design-specs/studio-live-refresh.md) for
 the security, scaling, failure, and test boundaries.
 
+## Time-range contract
+
+Runs, Sessions, Interrupts, and Workflows share the same server-side time
+filter contract: Last hour, 24 hours, 7 days, 30 days, All time, or Custom
+range. Relative presets are resolved against the API request time. Custom
+ranges are complete absolute ISO timestamps with an explicit offset; the
+Studio calendar selects full UTC days and writes normalized `Z` timestamps to
+the URL. Missing, reversed, invalid, or timezone-ambiguous custom boundaries
+return a visible `400` error instead of silently widening the query.
+
+Workflow metric responses include the absolute cohort boundaries used by the
+server. Inspector “View runs” links convert those boundaries to an exact custom
+range, and preserve the workflow, version, node, or transition filter, so the
+run list represents the same population even as wall-clock time advances.
+
 ## Self-hosted OSS stack
 
 From published images:

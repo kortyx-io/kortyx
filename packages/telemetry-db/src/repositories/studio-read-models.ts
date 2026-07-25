@@ -876,7 +876,17 @@ const workflowModels = (
     .sort((a, b) => a.id.localeCompare(b.id));
 
   const transitions = aggregateTransitions(runs, latest);
-  return { workflows, transitions };
+  return {
+    workflows,
+    transitions,
+    cohort: {
+      range: "All time",
+      startedAfter: null,
+      startedBefore: null,
+      workflowId: null,
+      version: null,
+    },
+  };
 };
 
 const aggregateTransitions = (

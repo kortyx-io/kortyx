@@ -47,14 +47,12 @@ export function InterruptsFilterPanel({
           range={query.range}
           startedAfter={query.startedAfter}
           startedBefore={query.startedBefore}
-          onRangeChange={(range) =>
-            query.setParams({ range: range === "24 hours" ? null : range })
-          }
-          onStartedAfterChange={(startedAfter) =>
-            query.setParams({ startedAfter: startedAfter || null })
-          }
-          onStartedBeforeChange={(startedBefore) =>
-            query.setParams({ startedBefore: startedBefore || null })
+          onChange={(value) =>
+            query.setParams({
+              range: value.range === "24 hours" ? null : value.range,
+              startedAfter: value.startedAfter || null,
+              startedBefore: value.startedBefore || null,
+            })
           }
         />
       </FilterSection>

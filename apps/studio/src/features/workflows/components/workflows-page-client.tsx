@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@/lib/utils";
@@ -18,7 +19,10 @@ export default function WorkflowsPageClient({
   system: WorkflowSystem;
 }) {
   const isMobile = useIsMobile();
-  const { params, selection, setParams, setSelection } = useWorkflowQuery();
+  const router = useRouter();
+  const [refreshing, startRefresh] = useTransition();
+  const { params, selection, setParams, setSelection, setTimeRange } =
+    useWorkflowQuery();
   const [focusedWorkflow, setFocusedWorkflow] = useState<{
     id: string;
     request: number;
@@ -27,7 +31,7 @@ export default function WorkflowsPageClient({
   const [catalogOpen, setCatalogOpen] = useState(false);
   const [inspectorOpen, setInspectorOpen] = useState(false);
   const [inspectorPanelOpen, setInspectorPanelOpen] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
+  const [hydrated, setHydrated] = useState(false);
 
   const selectedWorkflowId =
     selection.type === "workflow"
@@ -64,6 +68,10 @@ export default function WorkflowsPageClient({
   }, [params.health, params.q, system.workflows]);
   const canvasFocusId = workflowCanvasFocusId(selection, params.workflow);
   const canvasFocusKey = `${canvasFocusId}:${params.node}:${params.transition}`;
+
+  useEffect(() => {
+    setHydrated(true);
+  }, []);
 
   useEffect(() => {
     if (!system.workflows.some((workflow) => workflow.id === canvasFocusId)) {
@@ -113,7 +121,10 @@ export default function WorkflowsPageClient({
   );
 
   return (
-    <div className="flex h-full min-h-[620px] overflow-hidden rounded-xl border bg-background shadow-sm">
+    <div
+      data-workflows-ready={hydrated ? "true" : "false"}
+      className="flex h-full min-h-[620px] overflow-hidden rounded-xl border bg-background shadow-sm"
+    >
       <div className="hidden md:block">{catalog}</div>
       <main className="flex min-w-0 flex-1 flex-col">
         <WorkflowToolbar
@@ -122,12 +133,17 @@ export default function WorkflowsPageClient({
           selectedWorkflow={selectedWorkflow}
           refreshing={refreshing}
           inspectorPanelOpen={inspectorPanelOpen}
+          range={params.range}
+          startedAfter={params.startedAfter}
+          startedBefore={params.startedBefore}
+          version={params.version}
           onModeChange={(mode) => void setParams({ mode })}
           onMetricChange={(metric) => void setParams({ metric })}
-          onRefresh={() => {
-            setRefreshing(true);
-            window.setTimeout(() => setRefreshing(false), 600);
-          }}
+          onTimeRangeChange={(value) => void setTimeRange(value)}
+          onVersionChange={(version) =>
+            void setParams({ version: version || null }, { shallow: false })
+          }
+          onRefresh={() => startRefresh(() => router.refresh())}
           onOpenCatalog={() => setCatalogOpen(true)}
           onOpenInspector={() => setInspectorOpen(true)}
           onOpenInspectorPanel={() => setInspectorPanelOpen(true)}

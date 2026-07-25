@@ -2,7 +2,9 @@ import type {
   StudioInterrupt,
   StudioRun,
   StudioSession,
+  StudioTimeRangeContext,
 } from "@kortyx/telemetry-contracts";
+import { resolveStudioTimeRange } from "@kortyx/telemetry-contracts";
 import {
   and,
   asc,
@@ -60,34 +62,20 @@ const containsJsonValue = (
 
 const timeRangeConditions = (
   column: AnyPgColumn,
-  query: StudioListQuery,
+  range: StudioTimeRangeContext,
 ): Array<SQL | undefined> => {
-  if (query.range === "Custom range") {
-    const after = query.startedAfter ? new Date(query.startedAfter) : undefined;
-    const before = query.startedBefore
-      ? new Date(query.startedBefore)
-      : undefined;
-    return [
-      after && Number.isFinite(after.getTime())
-        ? gte(column, after)
-        : undefined,
-      before && Number.isFinite(before.getTime())
-        ? lte(column, before)
-        : undefined,
-    ];
-  }
-  if (query.range === "All time") return [];
-  const rangeMs =
-    query.range === "Last hour"
-      ? 3_600_000
-      : !query.range || query.range === "24 hours"
-        ? 86_400_000
-        : query.range === "7 days"
-          ? 604_800_000
-          : query.range === "30 days"
-            ? 2_592_000_000
-            : undefined;
-  return rangeMs ? [gte(column, new Date(Date.now() - rangeMs))] : [];
+  return [
+    range.startedAfter ? gte(column, new Date(range.startedAfter)) : undefined,
+    range.startedBefore
+      ? lte(column, new Date(range.startedBefore))
+      : undefined,
+  ];
+};
+
+const resolveListTimeRange = (query: StudioListQuery) => {
+  const resolution = resolveStudioTimeRange(query);
+  if ("error" in resolution) throw new Error(resolution.error);
+  return resolution.value;
 };
 
 const runStatusOrder = sql<number>`case ${studioRuns.status}
@@ -131,6 +119,7 @@ export const listStudioRuns = async (
   const minimumCost = queryNumber(query.minCost);
   const minimumDurationMs = queryNumber(query.minDuration) * 1_000;
   const minimumTokens = queryNumber(query.minTokens);
+  const timeRange = resolveListTimeRange(query);
   const conditions = [
     eq(studioRuns.organizationId, input.organizationId),
     eq(studioRuns.projectId, input.projectId),
@@ -141,7 +130,14 @@ export const listStudioRuns = async (
     providers.length > 0 ? inArray(studioRuns.provider, providers) : undefined,
     queryBoolean(query.tool) ? eq(studioRuns.hasTool, true) : undefined,
     containsJsonValue(studioRuns.workflowIds, query.workflow),
-    containsJsonValue(studioRuns.workflowVersions, query.version),
+    query.workflow && query.version
+      ? sql`${studioRuns.data} -> 'workflowRefs' @> ${JSON.stringify([
+          {
+            workflowId: query.workflow.trim(),
+            declaredVersion: query.version.trim(),
+          },
+        ])}::jsonb`
+      : containsJsonValue(studioRuns.workflowVersions, query.version),
     containsJsonValue(studioRuns.transitionIds, query.transition),
     containsJsonValue(studioRuns.path, query.path),
     query.session
@@ -159,7 +155,7 @@ export const listStudioRuns = async (
       : undefined,
     minimumTokens > 0 ? gte(studioRuns.tokens, minimumTokens) : undefined,
     query.q ? ilike(studioRuns.searchText, `%${query.q.trim()}%`) : undefined,
-    ...timeRangeConditions(studioRuns.startedAt, query),
+    ...timeRangeConditions(studioRuns.startedAt, timeRange),
   ];
   const where = and(...conditions);
   const direction = query.dir === "asc" ? "asc" : "desc";
@@ -209,6 +205,7 @@ export const listStudioSessions = async (
   const maximumTokens = queryNumber(query.maxTokens);
   const minimumDurationMs = queryNumber(query.minDuration) * 1_000;
   const maximumDurationMs = queryNumber(query.maxDuration) * 1_000;
+  const timeRange = resolveListTimeRange(query);
   const conditions = [
     eq(studioSessions.organizationId, input.organizationId),
     eq(studioSessions.projectId, input.projectId),
@@ -247,7 +244,7 @@ export const listStudioSessions = async (
     query.q
       ? ilike(studioSessions.searchText, `%${query.q.trim()}%`)
       : undefined,
-    ...timeRangeConditions(studioSessions.lastActivityAt, query),
+    ...timeRangeConditions(studioSessions.lastActivityAt, timeRange),
   ];
   const where = and(...conditions);
   const direction = query.dir === "asc" ? "asc" : "desc";
@@ -298,6 +295,7 @@ export const listStudioInterrupts = async (
   const minimumAgeMs = queryNumber(query.minAge) * 60_000;
   const maximumAgeMs = queryNumber(query.maxAge) * 60_000;
   const now = Date.now();
+  const timeRange = resolveListTimeRange(query);
   const conditions = [
     eq(studioInterrupts.organizationId, input.organizationId),
     eq(studioInterrupts.projectId, input.projectId),
@@ -339,7 +337,7 @@ export const listStudioInterrupts = async (
     query.q
       ? ilike(studioInterrupts.searchText, `%${query.q.trim()}%`)
       : undefined,
-    ...timeRangeConditions(studioInterrupts.createdAt, query),
+    ...timeRangeConditions(studioInterrupts.createdAt, timeRange),
   ];
   const where = and(...conditions);
   const direction = query.dir === "desc" ? "desc" : "asc";

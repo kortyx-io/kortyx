@@ -1,3 +1,4 @@
+import type { StudioTimeRange } from "@kortyx/telemetry-contracts";
 import { PanelLeft, PanelRight, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -5,6 +6,10 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import {
+  TimeRangeFilter,
+  type TimeRangeValue,
+} from "@/features/telemetry/components/time-range-filter";
 import { cn } from "@/lib/utils";
 import {
   type WorkflowMetric,
@@ -19,8 +24,14 @@ type WorkflowToolbarProps = {
   selectedWorkflow?: WorkflowSummary;
   refreshing: boolean;
   inspectorPanelOpen: boolean;
+  range: StudioTimeRange;
+  startedAfter: string;
+  startedBefore: string;
+  version: string;
   onModeChange: (mode: WorkflowViewMode) => void;
   onMetricChange: (metric: WorkflowMetric) => void;
+  onTimeRangeChange: (value: TimeRangeValue) => void;
+  onVersionChange: (version: string) => void;
   onRefresh: () => void;
   onOpenCatalog: () => void;
   onOpenInspector: () => void;
@@ -33,8 +44,14 @@ export function WorkflowToolbar({
   selectedWorkflow,
   refreshing,
   inspectorPanelOpen,
+  range,
+  startedAfter,
+  startedBefore,
+  version,
   onModeChange,
   onMetricChange,
+  onTimeRangeChange,
+  onVersionChange,
   onRefresh,
   onOpenCatalog,
   onOpenInspector,
@@ -61,24 +78,25 @@ export function WorkflowToolbar({
           </div>
         </div>
         <div className="flex items-center gap-1.5">
-          <select
-            aria-label="Time range"
-            className="h-8 rounded-md border bg-background px-2 text-xs"
-          >
-            <option>24h</option>
-            <option>1h</option>
-            <option>7d</option>
-            <option>30d</option>
-            <option>Custom</option>
-          </select>
+          <TimeRangeFilter
+            compact
+            range={range}
+            startedAfter={startedAfter}
+            startedBefore={startedBefore}
+            onChange={onTimeRangeChange}
+          />
           <select
             aria-label="Workflow version"
             className="hidden h-8 rounded-md border bg-background px-2 text-xs sm:block"
-            value={selectedWorkflow?.activeVersion ?? ""}
-            onChange={() => undefined}
+            value={version}
+            onChange={(event) => onVersionChange(event.target.value)}
+            disabled={!selectedWorkflow}
           >
+            <option value="">All versions</option>
             {selectedWorkflow?.versions.map((version) => (
-              <option key={version}>{version}</option>
+              <option key={version} value={version}>
+                {version}
+              </option>
             ))}
           </select>
           <div className="flex rounded-md border p-0.5">

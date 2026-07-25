@@ -1,3 +1,4 @@
+import { StudioTimeRangeContextSchema } from "@kortyx/telemetry-contracts";
 import { z } from "zod";
 
 export const WorkflowHealthSchema = z.enum([
@@ -70,6 +71,10 @@ export const WorkflowSummarySchema = z.object({
 export const WorkflowSystemSchema = z.object({
   workflows: z.array(WorkflowSummarySchema),
   transitions: z.array(WorkflowTransitionSchema),
+  cohort: StudioTimeRangeContextSchema.extend({
+    workflowId: z.string().optional(),
+    version: z.string().optional(),
+  }),
 });
 
 export type WorkflowHealth = z.infer<typeof WorkflowHealthSchema>;

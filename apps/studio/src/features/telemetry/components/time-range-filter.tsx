@@ -1,82 +1,177 @@
-import { Input } from "@/components/ui/input";
+"use client";
 
-const ranges = ["Last hour", "24 hours", "7 days", "Custom range"];
+import {
+  STUDIO_TIME_RANGES,
+  type StudioTimeRange,
+} from "@kortyx/telemetry-contracts";
+import { format } from "date-fns";
+import { CalendarDays, ChevronDown } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { type DateRange, TZDate } from "react-day-picker";
+import { Button } from "@/components/ui/button";
+import { Calendar } from "@/components/ui/calendar";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { cn } from "@/lib/utils";
 
-function toLocalInputValue(date: Date) {
-  const offset = date.getTimezoneOffset() * 60_000;
-  return new Date(date.getTime() - offset).toISOString().slice(0, 16);
-}
+export type TimeRangeValue = {
+  range: StudioTimeRange;
+  startedAfter: string;
+  startedBefore: string;
+};
+
+const dayStartUtc = (date: Date) =>
+  new Date(
+    Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()),
+  );
+const dayEndUtc = (date: Date) =>
+  new Date(
+    Date.UTC(
+      date.getUTCFullYear(),
+      date.getUTCMonth(),
+      date.getUTCDate(),
+      23,
+      59,
+      59,
+      999,
+    ),
+  );
+const validDate = (value: string) => {
+  const date = new Date(value);
+  return Number.isFinite(date.getTime()) ? date : undefined;
+};
+const formatUtcDate = (date: Date) =>
+  format(new TZDate(date, "UTC"), "MMM d, yyyy");
 
 export function TimeRangeFilter({
-  idPrefix,
   range,
   startedAfter,
   startedBefore,
-  onRangeChange,
-  onStartedAfterChange,
-  onStartedBeforeChange,
+  onChange,
+  compact = false,
 }: {
-  idPrefix: string;
-  range: string;
+  idPrefix?: string;
+  range: StudioTimeRange;
   startedAfter: string;
   startedBefore: string;
-  onRangeChange: (value: string) => void;
-  onStartedAfterChange: (value: string) => void;
-  onStartedBeforeChange: (value: string) => void;
+  onChange: (value: TimeRangeValue) => void;
+  compact?: boolean;
 }) {
+  const selected = useMemo<DateRange | undefined>(() => {
+    if (range !== "Custom range") return undefined;
+    const from = validDate(startedAfter);
+    const to = validDate(startedBefore);
+    return from ? { from, to } : undefined;
+  }, [range, startedAfter, startedBefore]);
+  const [draft, setDraft] = useState<DateRange | undefined>(selected);
+  const [open, setOpen] = useState(false);
+
+  useEffect(() => setDraft(selected), [selected]);
+
+  const customLabel =
+    selected?.from && selected.to
+      ? `${formatUtcDate(selected.from)} – ${formatUtcDate(selected.to)}`
+      : "Choose UTC dates";
+
   return (
-    <>
-      <select
-        aria-label="Time range"
-        value={range}
-        onChange={(event) => {
-          const value = event.target.value;
-          if (value === "Custom range") {
-            const now = new Date();
-            if (!startedAfter)
-              onStartedAfterChange(
-                toLocalInputValue(new Date(now.getTime() - 3_600_000)),
-              );
-            if (!startedBefore) onStartedBeforeChange(toLocalInputValue(now));
-          }
-          onRangeChange(value);
-        }}
-        className="mx-2 h-9 w-[calc(100%-1rem)] rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-ring/50"
-      >
-        {ranges.map((item) => (
-          <option key={item}>{item}</option>
-        ))}
-      </select>
+    <div className={cn("space-y-2", !compact && "px-2")}>
+      <div className={cn("flex gap-2", !compact && "flex-col")}>
+        <select
+          aria-label="Time range"
+          value={open ? "Custom range" : range}
+          onChange={(event) => {
+            const nextRange = event.target.value as StudioTimeRange;
+            if (nextRange === "Custom range") {
+              const now = new Date();
+              const nextDraft =
+                selected ??
+                ({
+                  from: new Date(now.getTime() - 7 * 24 * 60 * 60 * 1_000),
+                  to: now,
+                } satisfies DateRange);
+              setDraft(nextDraft);
+              setOpen(true);
+              return;
+            }
+            setOpen(false);
+            onChange({
+              range: nextRange,
+              startedAfter: "",
+              startedBefore: "",
+            });
+          }}
+          className={cn(
+            "h-9 rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-ring/50",
+            compact ? "w-[128px]" : "w-full",
+          )}
+        >
+          {STUDIO_TIME_RANGES.map((item) => (
+            <option key={item} value={item}>
+              {item}
+            </option>
+          ))}
+        </select>
+        {(range === "Custom range" || open) && (
+          <Popover open={open} onOpenChange={setOpen}>
+            <PopoverTrigger asChild>
+              <Button
+                type="button"
+                variant="outline"
+                size={compact ? "sm" : "default"}
+                className={cn(
+                  "justify-between font-normal",
+                  compact ? "max-w-[220px]" : "w-full",
+                )}
+              >
+                <span className="flex min-w-0 items-center gap-2">
+                  <CalendarDays className="shrink-0" />
+                  <span className="truncate">{customLabel}</span>
+                </span>
+                <ChevronDown className="shrink-0 text-muted-foreground" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent align="end" className="w-auto p-3">
+              <Calendar
+                mode="range"
+                selected={draft}
+                onSelect={setDraft}
+                defaultMonth={draft?.from}
+                disabled={{ after: new Date() }}
+                numberOfMonths={1}
+              />
+              <div className="mt-3 flex items-center justify-between gap-4 border-t pt-3">
+                <p className="text-xs text-muted-foreground">
+                  Full days in UTC
+                </p>
+                <Button
+                  type="button"
+                  size="sm"
+                  disabled={!draft?.from || !draft.to}
+                  onClick={() => {
+                    if (!draft?.from || !draft.to) return;
+                    onChange({
+                      range: "Custom range",
+                      startedAfter: dayStartUtc(draft.from).toISOString(),
+                      startedBefore: dayEndUtc(draft.to).toISOString(),
+                    });
+                    setOpen(false);
+                  }}
+                >
+                  Apply range
+                </Button>
+              </div>
+            </PopoverContent>
+          </Popover>
+        )}
+      </div>
       {range === "Custom range" && (
-        <div className="mt-3 space-y-3 px-2">
-          <label
-            htmlFor={`${idPrefix}-after`}
-            className="block text-xs font-medium text-muted-foreground"
-          >
-            Started after
-            <Input
-              id={`${idPrefix}-after`}
-              type="datetime-local"
-              value={startedAfter}
-              onChange={(event) => onStartedAfterChange(event.target.value)}
-              className="mt-1.5"
-            />
-          </label>
-          <label
-            htmlFor={`${idPrefix}-before`}
-            className="block text-xs font-medium text-muted-foreground"
-          >
-            Started before
-            <Input
-              id={`${idPrefix}-before`}
-              type="datetime-local"
-              value={startedBefore}
-              onChange={(event) => onStartedBeforeChange(event.target.value)}
-              className="mt-1.5"
-            />
-          </label>
-        </div>
+        <p className="text-[11px] text-muted-foreground">
+          {customLabel}. Dates are stored and evaluated in UTC.
+        </p>
       )}
-    </>
+    </div>
   );
 }

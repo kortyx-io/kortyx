@@ -57,6 +57,10 @@ export {
   getStudioRunReadModel,
   getStudioSessionReadModel,
 } from "./repositories/studio-read-models";
+export {
+  createStudioWorkflowModelsFromProjections,
+  listStudioWorkflows,
+} from "./repositories/studio-workflows";
 export type { IngestTelemetryEventsResult } from "./repositories/telemetry-events";
 export { ingestTelemetryEvents } from "./repositories/telemetry-events";
 export type { EnsureWorkflowRevisionResult } from "./repositories/workflow-revisions";

@@ -79,12 +79,21 @@ const fetchJson = async <T>(
     });
 
     if (!response.ok) {
+      let message = `Kortyx Studio API request failed: ${response.status}`;
+      try {
+        const body = (await response.json()) as { message?: unknown };
+        if (typeof body.message === "string" && body.message) {
+          message = body.message;
+        }
+      } catch {
+        // Preserve the status fallback when an upstream error is not JSON.
+      }
       return {
         data: null,
         error: {
           type: "http",
           status: response.status,
-          message: `Kortyx Studio API request failed: ${response.status}`,
+          message,
         },
       };
     }
@@ -305,16 +314,22 @@ export const getStudioInterrupts = async (
   }
 };
 
-export const getStudioWorkflows = async (): Promise<
-  StudioRepoResult<WorkflowSystem>
-> => {
-  const response = await fetchJson("/v1/studio/workflows", (value) =>
-    StudioWorkflowsResponseSchema.parse(value),
+export const getStudioWorkflows = async (
+  query?: Record<string, string | string[] | undefined>,
+): Promise<StudioRepoResult<WorkflowSystem>> => {
+  const response = await fetchJson(
+    withQuery("/v1/studio/workflows", query),
+    (value) => StudioWorkflowsResponseSchema.parse(value),
   );
   if (response.error) return response;
   try {
     return {
       data: WorkflowSystemSchema.parse({
+        cohort: {
+          ...response.data.cohort,
+          workflowId: optional(response.data.cohort.workflowId),
+          version: optional(response.data.cohort.version),
+        },
         workflows: response.data.workflows.map((workflow) => ({
           id: workflow.id,
           name: workflow.name,

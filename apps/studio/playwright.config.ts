@@ -12,7 +12,10 @@ export default defineConfig({
   fullyParallel: false,
   forbidOnly: Boolean(process.env.CI),
   retries: process.env.CI ? 1 : 0,
-  workers: process.env.CI ? 1 : undefined,
+  // The suite shares one projected telemetry fixture and one Next dev server.
+  // Serial workers avoid HMR compilation racing the first hydrated interaction
+  // in several files, while each scenario still remains independently isolated.
+  workers: 1,
   reporter: process.env.CI
     ? [["line"], ["html", { open: "never" }]]
     : [["list"], ["html", { open: "never" }]],
