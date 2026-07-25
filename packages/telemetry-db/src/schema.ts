@@ -1,12 +1,17 @@
 import type {
   EnsureWorkflowTopologyRequest,
   KortyxTelemetryEvent,
+  StudioInterrupt,
+  StudioRun,
+  StudioSession,
   TelemetryUnitPrice,
 } from "@kortyx/telemetry-contracts";
 import { sql } from "drizzle-orm";
 import {
+  bigint,
   boolean,
   check,
+  doublePrecision,
   foreignKey,
   index,
   integer,
@@ -356,6 +361,219 @@ export const workflowRevisions = pgTable(
   ],
 );
 
+export const studioRuns = pgTable(
+  "studio_runs",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organizationId: uuid("organization_id").notNull(),
+    projectId: uuid("project_id").notNull(),
+    runId: text("run_id").notNull(),
+    sessionId: text("session_id"),
+    status: text("status").notNull(),
+    startedAt: timestampWithTimezone("started_at").notNull(),
+    endedAt: timestampWithTimezone("ended_at"),
+    durationMs: bigint("duration_ms", { mode: "number" }),
+    tokens: bigint("tokens", { mode: "number" }),
+    cost: doublePrecision("cost"),
+    environment: text("environment").notNull(),
+    provider: text("provider"),
+    model: text("model"),
+    userId: text("user_id"),
+    tenantId: text("tenant_id"),
+    hasTool: boolean("has_tool").notNull().default(false),
+    workflowIds: jsonb("workflow_ids")
+      .$type<string[]>()
+      .notNull()
+      .default(sql`'[]'::jsonb`),
+    workflowVersions: jsonb("workflow_versions")
+      .$type<string[]>()
+      .notNull()
+      .default(sql`'[]'::jsonb`),
+    transitionIds: jsonb("transition_ids")
+      .$type<string[]>()
+      .notNull()
+      .default(sql`'[]'::jsonb`),
+    path: jsonb("path").$type<string[]>().notNull().default(sql`'[]'::jsonb`),
+    models: jsonb("models")
+      .$type<string[]>()
+      .notNull()
+      .default(sql`'[]'::jsonb`),
+    searchText: text("search_text").notNull().default(""),
+    data: jsonb("data").$type<StudioRun>().notNull(),
+    updatedAt: timestampWithTimezone("updated_at").notNull().defaultNow(),
+  },
+  (table) => [
+    foreignKey({
+      columns: [table.organizationId, table.projectId],
+      foreignColumns: [projects.organizationId, projects.id],
+      name: "studio_runs_project_tenant_fk",
+    }).onDelete("cascade"),
+    uniqueIndex("studio_runs_org_project_run_unique").on(
+      table.organizationId,
+      table.projectId,
+      table.runId,
+    ),
+    index("studio_runs_scope_started_idx").on(
+      table.organizationId,
+      table.projectId,
+      table.startedAt,
+      table.runId,
+    ),
+    index("studio_runs_scope_status_started_idx").on(
+      table.organizationId,
+      table.projectId,
+      table.status,
+      table.startedAt,
+    ),
+    index("studio_runs_scope_environment_started_idx").on(
+      table.organizationId,
+      table.projectId,
+      table.environment,
+      table.startedAt,
+    ),
+    index("studio_runs_scope_session_idx").on(
+      table.organizationId,
+      table.projectId,
+      table.sessionId,
+    ),
+  ],
+);
+
+export const studioSessions = pgTable(
+  "studio_sessions",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organizationId: uuid("organization_id").notNull(),
+    projectId: uuid("project_id").notNull(),
+    sessionId: text("session_id").notNull(),
+    status: text("status").notNull(),
+    lastActivityAt: timestampWithTimezone("last_activity_at").notNull(),
+    durationMs: bigint("duration_ms", { mode: "number" }),
+    tokens: bigint("tokens", { mode: "number" }),
+    cost: doublePrecision("cost"),
+    runCount: bigint("run_count", { mode: "number" }).notNull(),
+    environment: text("environment").notNull(),
+    userId: text("user_id"),
+    tenantId: text("tenant_id"),
+    activeWorkflowId: text("active_workflow_id"),
+    activeVersion: text("active_version"),
+    pendingInterruptId: text("pending_interrupt_id"),
+    hasError: boolean("has_error").notNull().default(false),
+    hasInterrupt: boolean("has_interrupt").notNull().default(false),
+    hasCheckpoint: boolean("has_checkpoint").notNull().default(false),
+    hasFork: boolean("has_fork").notNull().default(false),
+    workflowIds: jsonb("workflow_ids")
+      .$type<string[]>()
+      .notNull()
+      .default(sql`'[]'::jsonb`),
+    providers: jsonb("providers")
+      .$type<string[]>()
+      .notNull()
+      .default(sql`'[]'::jsonb`),
+    models: jsonb("models")
+      .$type<string[]>()
+      .notNull()
+      .default(sql`'[]'::jsonb`),
+    tags: jsonb("tags").$type<string[]>().notNull().default(sql`'[]'::jsonb`),
+    searchText: text("search_text").notNull().default(""),
+    data: jsonb("data").$type<StudioSession>().notNull(),
+    updatedAt: timestampWithTimezone("updated_at").notNull().defaultNow(),
+  },
+  (table) => [
+    foreignKey({
+      columns: [table.organizationId, table.projectId],
+      foreignColumns: [projects.organizationId, projects.id],
+      name: "studio_sessions_project_tenant_fk",
+    }).onDelete("cascade"),
+    uniqueIndex("studio_sessions_org_project_session_unique").on(
+      table.organizationId,
+      table.projectId,
+      table.sessionId,
+    ),
+    index("studio_sessions_scope_activity_idx").on(
+      table.organizationId,
+      table.projectId,
+      table.lastActivityAt,
+      table.sessionId,
+    ),
+    index("studio_sessions_scope_status_activity_idx").on(
+      table.organizationId,
+      table.projectId,
+      table.status,
+      table.lastActivityAt,
+    ),
+    index("studio_sessions_scope_environment_activity_idx").on(
+      table.organizationId,
+      table.projectId,
+      table.environment,
+      table.lastActivityAt,
+    ),
+  ],
+);
+
+export const studioInterrupts = pgTable(
+  "studio_interrupts",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organizationId: uuid("organization_id").notNull(),
+    projectId: uuid("project_id").notNull(),
+    interruptId: text("interrupt_id").notNull(),
+    runId: text("run_id").notNull(),
+    sessionId: text("session_id"),
+    status: text("status").notNull(),
+    type: text("type").notNull(),
+    createdAt: timestampWithTimezone("created_at").notNull(),
+    resolvedAt: timestampWithTimezone("resolved_at"),
+    expiresAt: timestampWithTimezone("expires_at"),
+    workflowId: text("workflow_id").notNull(),
+    nodeId: text("node_id"),
+    environment: text("environment").notNull(),
+    userId: text("user_id"),
+    tenantId: text("tenant_id"),
+    resolvedBy: text("resolved_by"),
+    resumeOutcome: text("resume_outcome"),
+    hasError: boolean("has_error").notNull().default(false),
+    searchText: text("search_text").notNull().default(""),
+    data: jsonb("data").$type<StudioInterrupt>().notNull(),
+    updatedAt: timestampWithTimezone("updated_at").notNull().defaultNow(),
+  },
+  (table) => [
+    foreignKey({
+      columns: [table.organizationId, table.projectId],
+      foreignColumns: [projects.organizationId, projects.id],
+      name: "studio_interrupts_project_tenant_fk",
+    }).onDelete("cascade"),
+    uniqueIndex("studio_interrupts_org_project_interrupt_unique").on(
+      table.organizationId,
+      table.projectId,
+      table.interruptId,
+    ),
+    index("studio_interrupts_scope_created_idx").on(
+      table.organizationId,
+      table.projectId,
+      table.createdAt,
+      table.interruptId,
+    ),
+    index("studio_interrupts_scope_status_created_idx").on(
+      table.organizationId,
+      table.projectId,
+      table.status,
+      table.createdAt,
+    ),
+    index("studio_interrupts_scope_workflow_created_idx").on(
+      table.organizationId,
+      table.projectId,
+      table.workflowId,
+      table.createdAt,
+    ),
+    index("studio_interrupts_scope_run_idx").on(
+      table.organizationId,
+      table.projectId,
+      table.runId,
+    ),
+  ],
+);
+
 export const telemetryEvents = pgTable(
   "telemetry_events",
   {
@@ -464,4 +682,7 @@ export type ProjectEnvironment = typeof projectEnvironments.$inferSelect;
 export type ApiKey = typeof apiKeys.$inferSelect;
 export type ModelRateCard = typeof modelRateCards.$inferSelect;
 export type WorkflowRevision = typeof workflowRevisions.$inferSelect;
+export type StudioRunProjection = typeof studioRuns.$inferSelect;
+export type StudioSessionProjection = typeof studioSessions.$inferSelect;
+export type StudioInterruptProjection = typeof studioInterrupts.$inferSelect;
 export type TelemetryEventRecord = typeof telemetryEvents.$inferSelect;

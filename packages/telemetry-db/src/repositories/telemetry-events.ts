@@ -3,6 +3,7 @@ import type { TelemetryDb } from "../client";
 import { TelemetryForbiddenError } from "../errors";
 import { telemetryEvents } from "../schema";
 import { ensureProjectEnvironmentAllowed } from "./projects";
+import { refreshStudioProjectionScopes } from "./studio-projections";
 import {
   findWorkflowRevisionByTopology,
   findWorkflowRevisionForProject,
@@ -114,11 +115,25 @@ export const ingestTelemetryEvents = async (
     })),
   );
 
-  const inserted = await db
-    .insert(telemetryEvents)
-    .values(values)
-    .onConflictDoNothing()
-    .returning({ eventId: telemetryEvents.eventId });
+  const inserted = await db.transaction(async (transaction) => {
+    const rows = await transaction
+      .insert(telemetryEvents)
+      .values(values)
+      .onConflictDoNothing()
+      .returning({
+        eventId: telemetryEvents.eventId,
+        runId: telemetryEvents.runId,
+      });
+
+    if (rows.length > 0) {
+      await refreshStudioProjectionScopes(transaction as TelemetryDb, {
+        organizationId: input.organizationId,
+        projectId: input.projectId,
+        runIds: rows.map((row) => row.runId),
+      });
+    }
+    return rows;
+  });
 
   return {
     accepted: input.events.length,

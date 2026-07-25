@@ -52,6 +52,26 @@ This starts the development stack:
 pnpm dev:no-db
 ```
 
+After upgrading an existing installation to a release that adds or changes
+Studio projections, rebuild the derived run, session, and interrupt rows from
+the immutable telemetry log:
+
+```bash
+pnpm db:migrate
+pnpm db:backfill-studio
+```
+
+The backfill is idempotent, processes execution scopes in batches, and may be
+run again if it is interrupted. New telemetry maintains the same projections
+inside the event-ingestion transaction.
+
+To run the projection isolation, pagination, ingestion, and backfill checks
+against the local Postgres instance:
+
+```bash
+pnpm test:telemetry-db:integration
+```
+
 The default dev `.env.example` uses host Postgres port `6543` to avoid
 colliding with a local Postgres on `5432`. If you already had a `.env`, set
 `POSTGRES_PORT=6543` and

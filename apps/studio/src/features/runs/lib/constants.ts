@@ -34,4 +34,4 @@ export const statuses = Object.keys(statusMeta) as RunStatus[];
 export const providers = ["OpenAI", "Anthropic", "Google"] as const;
 export const timeRanges = ["Last hour", "24 hours", "7 days", "Custom range"];
 export const PAGE_SIZE = 20;
-export const PAGE_SIZES = [10, 20, 50] as const;
+export const PAGE_SIZES = [10, 20, 50, 100, 250] as const;

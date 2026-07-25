@@ -25,11 +25,13 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "tsx src/scripts/migrate.ts",
     "db:bootstrap": "tsx src/scripts/bootstrap-local.ts",
+    "db:backfill-studio": "tsx src/scripts/backfill-studio-projections.ts",
     "db:seed-rates": "tsx src/scripts/seed-model-rates.ts",
     "db:studio": "drizzle-kit studio",
     "dev": "tsc --watch",
     "lint": "biome check src test drizzle.config.ts",
     "test": "vitest run && pnpm -s type-check",
+    "test:integration": "vitest run test/studio-projections.integration.test.ts",
     "type-check": "tsc --noEmit -p tsconfig.test.json"
   },
   "dependencies": {
