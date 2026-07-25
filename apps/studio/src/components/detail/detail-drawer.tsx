@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronLeft, Maximize2, X } from "lucide-react";
+import { Maximize2, X } from "lucide-react";
 import { parseAsStringLiteral } from "nuqs";
 import {
   createContext,
@@ -158,11 +158,17 @@ export function DetailDrawer({
         return;
       }
       setEntered(false);
-      const frame = window.requestAnimationFrame(() => {
-        setEntered(true);
-        slotMotion.markEntered();
+      let enterFrame = 0;
+      const paintFrame = window.requestAnimationFrame(() => {
+        enterFrame = window.requestAnimationFrame(() => {
+          setEntered(true);
+          slotMotion.markEntered();
+        });
       });
-      return () => window.cancelAnimationFrame(frame);
+      return () => {
+        window.cancelAnimationFrame(paintFrame);
+        window.cancelAnimationFrame(enterFrame);
+      };
     }
 
     nestedInspector.setNestedOpen(false);
@@ -184,27 +190,30 @@ export function DetailDrawer({
   const left = isMobile
     ? "1rem"
     : expanded
-      ? sidebarOffset
+      ? `calc(${sidebarOffset} + ${layer.depthBelow * 3}rem)`
       : layer.splitActive
-        ? `max(${sidebarOffset}, calc(100vw - 73rem))`
+        ? `max(calc(${sidebarOffset} + ${layer.depthBelow * 3}rem), calc(100vw - ${73 - layer.depthBelow * 3}rem))`
         : `max(${sidebarOffset}, calc(100vw - ${33 + layer.depthAbove * 3}rem))`;
 
   return (
     <>
-      {layer.isBottom && (
+      {layer.isTop && (
         <button
           type="button"
-          aria-label="Close all details"
+          aria-label="Close detail"
           tabIndex={-1}
-          onClick={layer.closeAll}
+          onClick={closeDrawer}
+          style={{ zIndex: layer.zIndex - 5 }}
           className={cn(
-            "fixed inset-0 z-40 bg-overlay transition-opacity duration-300 ease-in-out",
-            expandedView && layer.isTop && "pointer-events-none opacity-0",
+            "fixed inset-0 bg-overlay transition-opacity duration-300 ease-in-out",
+            expandedView && layer.isBottom && "pointer-events-none opacity-0",
             (!entered || closing) && "pointer-events-none opacity-0",
           )}
         />
       )}
       <section
+        data-detail-drawer
+        data-state={closing ? "closed" : "open"}
         role="dialog"
         aria-modal={layer.isTop && !expandedView && !nestedInspector.nestedOpen}
         aria-labelledby={titleId}
@@ -214,17 +223,6 @@ export function DetailDrawer({
           (!entered || closing) && "translate-x-[calc(100%_+_1rem)]",
         )}
       >
-        {!layer.isTop && (
-          <button
-            type="button"
-            aria-label={`Return to ${title}`}
-            title={`Return to ${title}`}
-            onClick={layer.closeAbove}
-            className="absolute inset-y-0 left-0 z-20 flex w-12 items-start justify-center border-r bg-background/95 pt-[1.15rem] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-          >
-            <ChevronLeft className="size-4" />
-          </button>
-        )}
         <header className="flex h-14 shrink-0 items-center gap-3 border-b px-4">
           {layer.isTop && !isMobile && !expandedView && (
             <Button

@@ -3,7 +3,7 @@ import type {
   StudioInterruptStatus,
 } from "@kortyx/telemetry-contracts";
 import { CheckCircle2, CircleAlert, CirclePause, Clock3 } from "lucide-react";
-import Link from "next/link";
+import { DetailLink } from "@/components/detail/detail-link";
 import {
   DetailHeader,
   KeyValue,
@@ -38,19 +38,22 @@ export function InterruptDetail({
             {interrupt.nodeId ? ` / ${interrupt.nodeId}` : ""} ·{" "}
             {interrupt.environment}
             {" · "}
-            <Link className="hover:underline" href={`/runs/${interrupt.runId}`}>
+            <DetailLink
+              className="hover:underline"
+              href={`/runs/${interrupt.runId}`}
+            >
               Run
-            </Link>
+            </DetailLink>
             {interrupt.sessionId && (
               <>
                 {" "}
                 ·{" "}
-                <Link
+                <DetailLink
                   className="hover:underline"
                   href={`/sessions/${interrupt.sessionId}`}
                 >
                   Session
-                </Link>
+                </DetailLink>
               </>
             )}
           </span>
@@ -74,6 +77,7 @@ export function InterruptDetail({
       />
       <div className="min-h-0 flex-1">
         <DetailTabs
+          queryKey="interruptTab"
           tabs={[
             {
               id: "decision",

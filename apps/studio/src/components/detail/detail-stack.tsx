@@ -217,6 +217,7 @@ export function useDetailStackLayer(registration: DetailLayerRegistration): {
   closeAll: () => void;
   closeTop: () => void;
   depthAbove: number;
+  depthBelow: number;
   expand: () => void;
   closing: boolean;
   expanded: boolean;
@@ -268,6 +269,7 @@ export function useDetailStackLayer(registration: DetailLayerRegistration): {
     closing: layer?.closing ?? false,
     depthAbove:
       activeIndex < 0 ? 0 : Math.max(0, activeLayers.length - activeIndex - 1),
+    depthBelow: Math.max(0, activeIndex),
     expand,
     expanded: layer?.expanded ?? false,
     isBottom: index === 0,

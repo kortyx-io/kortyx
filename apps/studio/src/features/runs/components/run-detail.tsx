@@ -4,7 +4,7 @@ import type {
   StudioRunDetailResponse,
   StudioRunStatus,
 } from "@kortyx/telemetry-contracts";
-import Link from "next/link";
+import { DetailLink } from "@/components/detail/detail-link";
 import {
   DetailHeader,
   KeyValue,
@@ -47,12 +47,12 @@ export function RunDetail({ detail }: { detail: StudioRunDetailResponse }) {
               <>
                 {" "}
                 ·{" "}
-                <Link
+                <DetailLink
                   className="hover:underline"
                   href={`/sessions/${detail.session.id}`}
                 >
                   Session {shortId(detail.session.id)}
-                </Link>
+                </DetailLink>
               </>
             )}
           </span>
@@ -81,12 +81,12 @@ export function RunDetail({ detail }: { detail: StudioRunDetailResponse }) {
               {detail.interrupts[0] && (
                 <>
                   {" "}
-                  <Link
+                  <DetailLink
                     className="font-medium underline"
                     href={`/interrupts/${detail.interrupts[0].id}`}
                   >
                     Open interrupt
-                  </Link>
+                  </DetailLink>
                 </>
               )}
             </div>

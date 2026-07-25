@@ -11,7 +11,7 @@ import {
   GitFork,
   History,
 } from "lucide-react";
-import Link from "next/link";
+import { DetailLink } from "@/components/detail/detail-link";
 import {
   DetailHeader,
   KeyValue,
@@ -68,18 +68,19 @@ export function SessionDetail({
           session.pendingInterruptId ? (
             <div className="rounded-md border border-amber-500/25 bg-amber-500/5 px-3 py-2 text-xs text-amber-700 dark:text-amber-400">
               Waiting for human input.{" "}
-              <Link
+              <DetailLink
                 className="font-medium underline"
                 href={`/interrupts/${session.pendingInterruptId}`}
               >
                 Open interrupt
-              </Link>
+              </DetailLink>
             </div>
           ) : undefined
         }
       />
       <div className="min-h-0 flex-1">
         <DetailTabs
+          queryKey="sessionTab"
           tabs={[
             {
               id: "activity",
@@ -148,12 +149,12 @@ function SessionActivity({
             <div className="min-w-0 flex-1 rounded-lg border bg-muted/15 p-4">
               <div className="flex flex-wrap items-start justify-between gap-2">
                 <div>
-                  <Link
+                  <DetailLink
                     href={`/runs/${run.id}`}
                     className="font-mono text-xs font-semibold hover:underline"
                   >
                     {run.id}
-                  </Link>
+                  </DetailLink>
                   <p className="mt-1 text-xs text-muted-foreground">
                     {run.workflowId} ·{" "}
                     {new Date(run.startedAt).toLocaleString()}
@@ -193,7 +194,7 @@ function SessionRuns({ runs }: { runs: StudioRun[] }) {
   return (
     <div className="divide-y">
       {runs.map((run) => (
-        <Link
+        <DetailLink
           key={run.id}
           href={`/runs/${run.id}`}
           className="grid gap-2 px-5 py-4 hover:bg-muted/40 md:grid-cols-[1fr_auto_auto] md:items-center md:px-6"
@@ -208,7 +209,7 @@ function SessionRuns({ runs }: { runs: StudioRun[] }) {
             {formatDuration(run.durationMs)}
           </span>
           <StatusPill tone={statusTone(run.status)}>{run.status}</StatusPill>
-        </Link>
+        </DetailLink>
       ))}
     </div>
   );

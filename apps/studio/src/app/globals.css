@@ -137,6 +137,12 @@
 }
 
 @layer components {
+  @starting-style {
+    [data-detail-drawer][data-state="open"] {
+      translate: calc(100% + 1rem) 0;
+    }
+  }
+
   .data-table-header-scroll {
     scrollbar-width: none;
   }

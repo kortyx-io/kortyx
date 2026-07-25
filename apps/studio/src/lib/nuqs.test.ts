@@ -27,6 +27,18 @@ describe("detailNavigationHref", () => {
       ),
     ).toBe("/sessions/session-1");
   });
+
+  it("preserves parent entity tab state while opening a child detail", () => {
+    const params = new URLSearchParams({
+      sessionTab: "runs",
+      tab: "trace",
+      trace: "event-1",
+    });
+
+    expect(detailNavigationHref("/runs/run-2", params)).toBe(
+      "/runs/run-2?sessionTab=runs",
+    );
+  });
 });
 
 describe("filter panel URL state", () => {

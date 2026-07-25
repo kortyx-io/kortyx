@@ -1,9 +1,9 @@
 "use client";
 
 import { parseAsString } from "nuqs";
-import { type ReactNode, useMemo } from "react";
+import type { ReactNode } from "react";
 import { useDetailDrawer } from "@/components/detail/detail-drawer";
-import { useStudioQueryStates } from "@/lib/nuqs";
+import { useStudioQueryState } from "@/lib/nuqs";
 import { cn } from "@/lib/utils";
 
 export type DetailTab = {
@@ -12,17 +12,17 @@ export type DetailTab = {
   content: ReactNode;
 };
 
-export function DetailTabs({ tabs }: { tabs: DetailTab[] }) {
+export function DetailTabs({
+  tabs,
+  queryKey = "tab",
+}: {
+  tabs: DetailTab[];
+  queryKey?: string;
+}) {
   const initialTab = tabs[0]?.id ?? "";
-  const parsers = useMemo(
-    () => ({
-      tab: parseAsString.withDefault(initialTab),
-    }),
-    [initialTab],
-  );
-  const [{ tab: requestedTab }, setQueryStates] = useStudioQueryStates(
-    parsers,
-    { shallow: true },
+  const [requestedTab, setRequestedTab] = useStudioQueryState(
+    queryKey,
+    parseAsString.withDefault(initialTab).withOptions({ shallow: true }),
   );
   const selected = tabs.find((tab) => tab.id === requestedTab) ?? tabs[0];
   const detailDrawer = useDetailDrawer();
@@ -32,7 +32,7 @@ export function DetailTabs({ tabs }: { tabs: DetailTab[] }) {
     if (detailDrawer.nestedOpen) {
       detailDrawer.requestNestedClose();
     }
-    void setQueryStates({ tab: nextId === initialTab ? null : nextId });
+    void setRequestedTab(nextId === initialTab ? null : nextId);
   };
 
   return (
