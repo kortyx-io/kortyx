@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   closeAllDetailLayers,
   closeDetailLayersAbove,
-  expandDetailLayerAndAncestors,
+  expandDetailLayer,
   getDetailBackdropState,
   isDetailLayerActiveForHistory,
   registerDetailLayer,
@@ -31,17 +31,20 @@ describe("detail stack transitions", () => {
     expect(withRun.every((layer) => !layer.closing)).toBe(true);
   });
 
-  it("expands a selected layer and every ancestor beneath it", () => {
+  it("expands only the selected layer in a stack", () => {
     const layers = registerDetailLayer(registerDetailLayer([], session), run);
 
-    const expanded = expandDetailLayerAndAncestors(layers, run.id);
+    const expanded = expandDetailLayer(layers, run.id);
 
-    expect(expanded.map((layer) => layer.expanded)).toEqual([true, true]);
+    expect(expanded.map((layer) => layer.expanded)).toEqual([false, true]);
   });
 
   it("does not shrink an expanded parent when its child closes", () => {
-    const layers = expandDetailLayerAndAncestors(
-      registerDetailLayer(registerDetailLayer([], session), run),
+    const layers = expandDetailLayer(
+      expandDetailLayer(
+        registerDetailLayer(registerDetailLayer([], session), run),
+        session.id,
+      ),
       run.id,
     );
 

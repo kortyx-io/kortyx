@@ -255,7 +255,7 @@ function DetailDrawerSurface({
     id: matchPath,
     matchPath,
   });
-  const expandedRequested = detailView === "expanded";
+  const expandedRequested = detailView === "expanded" && layer.isTop;
   const expanded = expandedRequested || layer.expanded;
   const expandedView = expanded && !isMobile;
   const closing = localClosing || layer.closing || !active;
@@ -353,7 +353,7 @@ function DetailDrawerSurface({
   const left = isMobile
     ? "1rem"
     : expanded
-      ? `calc(${sidebarOffset} + ${layer.depthBelow * 3}rem)`
+      ? sidebarOffset
       : layer.splitActive
         ? `max(calc(${sidebarOffset} + ${layer.depthBelow * 3}rem), calc(100vw - ${73 - layer.depthBelow * 3}rem))`
         : `max(${sidebarOffset}, calc(100vw - ${33 + layer.depthAbove * 3}rem))`;

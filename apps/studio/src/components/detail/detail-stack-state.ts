@@ -43,14 +43,12 @@ export function setDetailLayerClosing(
   );
 }
 
-export function expandDetailLayerAndAncestors(
+export function expandDetailLayer(
   layers: DetailLayer[],
   id: string,
 ): DetailLayer[] {
-  const expandedIndex = layers.findIndex((layer) => layer.id === id);
-  if (expandedIndex < 0) return layers;
-  return layers.map((layer, index) =>
-    index <= expandedIndex ? { ...layer, expanded: true } : layer,
+  return layers.map((layer) =>
+    layer.id === id ? { ...layer, expanded: true } : layer,
   );
 }
 

@@ -17,7 +17,7 @@ import {
   closeDetailLayersAbove,
   type DetailLayer,
   type DetailLayerRegistration,
-  expandDetailLayerAndAncestors,
+  expandDetailLayer,
   getDetailBackdropState,
   isDetailLayerActiveForHistory,
   registerDetailLayer,
@@ -94,7 +94,7 @@ export function DetailStackProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const expand = useCallback((id: string) => {
-    setLayers((current) => expandDetailLayerAndAncestors(current, id));
+    setLayers((current) => expandDetailLayer(current, id));
   }, []);
 
   const setSplitOpen = useCallback((id: string, open: boolean) => {
