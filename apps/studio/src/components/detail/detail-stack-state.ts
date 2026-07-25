@@ -85,7 +85,10 @@ export function getDetailBackdropState(layers: DetailLayer[]) {
     activeCount: activeLayers.length,
     topActiveExpanded: activeLayers.at(-1)?.expanded === true,
     topIndex,
-    zIndex: 45 + Math.max(0, topIndex) * 10,
+    // Keep one backdrop behind every drawer surface. Putting it between
+    // stacked layers blocks the visible ancestor slivers that intentionally
+    // let users peel the stack back to an earlier entity.
+    zIndex: 45,
   };
 }
 

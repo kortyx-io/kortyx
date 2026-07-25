@@ -107,6 +107,7 @@ export function DetailInspectorDrawer({
       }}
     >
       <SheetContent
+        data-detail-inspector
         showCloseButton={false}
         overlayClassName="pointer-events-none z-[60] bg-overlay/45"
         overlayStyle={{ zIndex: detailSurface.layerZIndex + 5 }}

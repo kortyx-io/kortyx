@@ -364,12 +364,15 @@ function DetailDrawerSurface({
     // biome-ignore lint/complexity/noUselessFragments: preserves drawer subtree identity
     <>
       <section
-        data-detail-drawer
+        data-detail-drawer={matchPath}
         data-entry-motion={slotEntered ? "preserve" : "enter"}
         data-state={closing ? "closed" : "open"}
         role="dialog"
         aria-modal={layer.isTop && !expandedView && !nestedInspector.nestedOpen}
         aria-labelledby={titleId}
+        onPointerDownCapture={() => {
+          if (!layer.isTop) layer.closeAbove();
+        }}
         style={{ left, zIndex: layer.zIndex }}
         className={cn(
           "fixed top-12 right-4 bottom-4 flex min-w-0 flex-col overflow-hidden rounded-xl border bg-background shadow-2xl transition-[left,translate] duration-300 ease-in-out",

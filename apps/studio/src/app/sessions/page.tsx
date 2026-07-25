@@ -13,6 +13,7 @@ export default async function SessionsPage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
+  const renderedAt = Date.now();
   const [query, cookieStore] = await Promise.all([searchParams, cookies()]);
   const preferences = {
     ...DEFAULT_SESSIONS_TABLE_PREFERENCES,
@@ -40,6 +41,7 @@ export default async function SessionsPage({
       sessions={sessionsResult.data.items}
       totalCount={sessionsResult.data.totalCount}
       preferences={preferences}
+      initialNow={renderedAt}
     />
   );
 }

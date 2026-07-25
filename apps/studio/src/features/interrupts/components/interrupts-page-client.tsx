@@ -27,9 +27,11 @@ export default function InterruptsPageClient({
   interrupts,
   totalCount,
   preferences,
+  initialNow,
 }: {
   interrupts: Interrupt[];
   totalCount: number;
+  initialNow: number;
   preferences?: Partial<
     ListTablePreferences<InterruptSortKey, InterruptsViewQuery>
   >;
@@ -47,7 +49,7 @@ export default function InterruptsPageClient({
     pageSize: prefs.value.pageSize,
   });
   const [refreshing, startRefreshTransition] = useTransition();
-  const [now, setNow] = useState(Date.now());
+  const [now, setNow] = useState(initialNow);
   useEffect(() => {
     const timer = window.setInterval(() => setNow(Date.now()), 1_000);
     return () => window.clearInterval(timer);

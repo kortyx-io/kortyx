@@ -263,6 +263,7 @@ export function DetailStackProvider({ children }: { children: ReactNode }) {
     <DetailStackContext.Provider value={value}>
       <button
         type="button"
+        data-detail-backdrop
         aria-label="Close detail"
         tabIndex={-1}
         onClick={() => {

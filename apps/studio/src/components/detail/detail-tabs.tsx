@@ -1,8 +1,9 @@
 "use client";
 
 import { parseAsString } from "nuqs";
-import type { ReactNode } from "react";
+import { type ReactNode, useEffect, useRef, useState } from "react";
 import { useDetailDrawer } from "@/components/detail/detail-drawer";
+import { DETAIL_MOTION_DURATION_MS } from "@/components/detail/detail-motion";
 import { useStudioQueryState } from "@/lib/nuqs";
 import { cn } from "@/lib/utils";
 
@@ -26,14 +27,37 @@ export function DetailTabs({
   );
   const selected = tabs.find((tab) => tab.id === requestedTab) ?? tabs[0];
   const detailDrawer = useDetailDrawer();
+  const [leavingTabId, setLeavingTabId] = useState<string | null>(null);
+  const releaseTimerRef = useRef<number | null>(null);
+
+  useEffect(
+    () => () => {
+      if (releaseTimerRef.current !== null) {
+        window.clearTimeout(releaseTimerRef.current);
+      }
+    },
+    [],
+  );
 
   const changeTab = (nextId: string) => {
     if (nextId === selected?.id) return;
     if (detailDrawer.nestedOpen) {
+      setLeavingTabId(selected?.id ?? null);
+      if (releaseTimerRef.current !== null) {
+        window.clearTimeout(releaseTimerRef.current);
+      }
+      releaseTimerRef.current = window.setTimeout(() => {
+        releaseTimerRef.current = null;
+        setLeavingTabId(null);
+      }, DETAIL_MOTION_DURATION_MS);
       detailDrawer.requestNestedClose();
     }
     void setRequestedTab(nextId === initialTab ? null : nextId);
   };
+
+  const renderedTabs = tabs.filter(
+    (tab) => tab.id === selected?.id || tab.id === leavingTabId,
+  );
 
   return (
     <div className="flex h-full min-h-0 flex-col">
@@ -63,15 +87,19 @@ export function DetailTabs({
             "lg:pr-[30rem]",
         )}
       >
-        {selected && (
+        {renderedTabs.map((tab) => (
           <div
-            key={selected.id}
+            key={tab.id}
             role="tabpanel"
-            className="h-full min-h-0 overflow-auto"
+            aria-hidden={tab.id !== selected?.id}
+            className={cn(
+              "h-full min-h-0 overflow-auto",
+              tab.id !== selected?.id && "hidden",
+            )}
           >
-            {selected.content}
+            {tab.content}
           </div>
-        )}
+        ))}
       </div>
     </div>
   );

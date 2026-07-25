@@ -176,6 +176,17 @@ describe("detail stack transitions", () => {
       activeCount: 2,
       topActiveExpanded: true,
       topIndex: 1,
+      zIndex: 45,
+    });
+  });
+
+  it("keeps the shared backdrop behind every interactive drawer layer", () => {
+    const layers = registerDetailLayer(registerDetailLayer([], session), run);
+
+    expect(getDetailBackdropState(layers)).toMatchObject({
+      activeCount: 2,
+      topIndex: 1,
+      zIndex: 45,
     });
   });
 });

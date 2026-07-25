@@ -48,6 +48,7 @@
     "db:studio": "dotenv -e .env -- pnpm --filter @kortyx/telemetry-db db:studio",
     "lint": "biome check .",
     "test": "turbo run test",
+    "test:studio:e2e": "pnpm --filter kortyx-studio test:e2e",
     "test:telemetry-db:integration": "dotenv -e .env -- pnpm --filter @kortyx/telemetry-db test:integration",
     "coverage": "turbo run coverage",
     "test:coverage": "pnpm coverage",

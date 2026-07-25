@@ -27,9 +27,11 @@ export default function SessionsPageClient({
   sessions,
   totalCount,
   preferences,
+  initialNow,
 }: {
   sessions: Session[];
   totalCount: number;
+  initialNow: number;
   preferences?: Partial<
     ListTablePreferences<SessionSortKey, SessionsViewQuery>
   >;
@@ -47,7 +49,7 @@ export default function SessionsPageClient({
     pageSize: prefs.value.pageSize,
   });
   const [refreshing, startRefreshTransition] = useTransition();
-  const [now, setNow] = useState(Date.now());
+  const [now, setNow] = useState(initialNow);
   const hasActiveSessions = query.filteredSessions.some(
     (session) =>
       session.status === "running" || session.status === "interrupted",

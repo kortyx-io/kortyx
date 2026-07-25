@@ -21,6 +21,47 @@ If you already manage Postgres yourself, run:
 pnpm dev:no-db
 ```
 
+## Drawer-stack browser regression tests
+
+Studio uses Playwright to protect the intercepting-route detail architecture
+covered by KTX-25. The suite exercises the real Studio and telemetry API rather
+than mocking drawer components.
+
+Prepare the local database once, then run the suite from the repository root:
+
+```bash
+pnpm dev:setup
+pnpm test:studio:e2e
+```
+
+The command builds the workspace packages needed by the API, starts or reuses
+the API and Studio development servers, and runs Chromium. The setup project
+sends deterministic `e2e-ktx25-*` telemetry through the ingestion API. Its
+teardown project deletes only that scoped fixture from raw telemetry,
+projections, and its workflow revision—even after browser-test failures.
+
+The scenarios cover:
+
+- one entry animation across loading and resolved content;
+- Session → Run → Trace/Event stacking and ancestor clicks;
+- one-layer backdrop, Browser Back, and Browser Forward transitions;
+- same-path tab/selection history without close–reopen regressions;
+- immediate tab content with an animated inspector exit;
+- Interrupt → Run navigation;
+- expanded Run geometry, backdrop release, and sidebar access;
+- hard-refresh rendering for Session, Run, and Interrupt routes.
+
+Playwright records traces, screenshots, and video only on failures. Reports are
+written to `apps/studio/playwright-report`; raw artifacts are under
+`apps/studio/test-results`. Tests use web-first assertions and shared motion
+state instead of fixed sleeps.
+
+For an interactive runner:
+
+```bash
+pnpm --filter kortyx-studio test:e2e:ui
+```
+
 ## OSS authentication
 
 Kortyx Studio uses a small auth-mode boundary so the OSS build can stay simple

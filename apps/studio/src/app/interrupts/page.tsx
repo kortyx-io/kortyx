@@ -13,6 +13,7 @@ export default async function InterruptsPage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
+  const renderedAt = Date.now();
   const [query, cookieStore] = await Promise.all([searchParams, cookies()]);
   const preferences = {
     ...DEFAULT_INTERRUPTS_TABLE_PREFERENCES,
@@ -40,6 +41,7 @@ export default async function InterruptsPage({
       interrupts={interruptsResult.data.items}
       totalCount={interruptsResult.data.totalCount}
       preferences={preferences}
+      initialNow={renderedAt}
     />
   );
 }

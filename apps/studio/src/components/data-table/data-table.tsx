@@ -75,6 +75,8 @@ export function DataTable<T, S extends string>({
   } = useDataTable<T, S>();
 
   const [openColumnMenu, setOpenColumnMenu] = useState<string | null>(null);
+  const [interactive, setInteractive] = useState(false);
+  useEffect(() => setInteractive(true), []);
   // biome-ignore lint/correctness/useExhaustiveDependencies: restore scroll once on mount.
   useEffect(() => {
     if (!scrollRestoreKey) return;
@@ -125,6 +127,7 @@ export function DataTable<T, S extends string>({
 
   return (
     <div
+      data-table-ready={interactive}
       className={cn(
         "flex h-full flex-col overflow-hidden rounded-xl border bg-background shadow-sm",
         className,
@@ -198,6 +201,7 @@ export function DataTable<T, S extends string>({
                 {pageRows.map((item) => (
                   <tr
                     key={getRowKey(item)}
+                    data-row-key={getRowKey(item)}
                     onClick={
                       onRowClick
                         ? (event) => handleRowClick(item, event)
