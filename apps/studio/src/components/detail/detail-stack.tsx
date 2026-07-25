@@ -257,7 +257,7 @@ export function DetailStackProvider({ children }: { children: ReactNode }) {
   const backdrop = getDetailBackdropState(layers);
   const backdropLayer = layers[backdrop.topIndex];
   const backdropVisible =
-    backdrop.topIndex >= 0 && !(!isMobile && backdrop.onlyActiveExpanded);
+    backdrop.topIndex >= 0 && !(!isMobile && backdrop.topActiveExpanded);
 
   return (
     <DetailStackContext.Provider value={value}>

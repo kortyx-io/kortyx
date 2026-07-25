@@ -83,8 +83,7 @@ export function getDetailBackdropState(layers: DetailLayer[]) {
 
   return {
     activeCount: activeLayers.length,
-    onlyActiveExpanded:
-      activeLayers.length === 1 && activeLayers[0]?.expanded === true,
+    topActiveExpanded: activeLayers.at(-1)?.expanded === true,
     topIndex,
     zIndex: 45 + Math.max(0, topIndex) * 10,
   };

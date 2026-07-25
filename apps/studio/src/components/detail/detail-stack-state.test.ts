@@ -160,9 +160,22 @@ describe("detail stack transitions", () => {
 
     expect(getDetailBackdropState(layers)).toEqual({
       activeCount: 1,
-      onlyActiveExpanded: false,
+      topActiveExpanded: false,
       topIndex: 0,
       zIndex: 45,
+    });
+  });
+
+  it("disables the modal backdrop when the top stacked layer is expanded", () => {
+    const layers = expandDetailLayer(
+      registerDetailLayer(registerDetailLayer([], session), run),
+      run.id,
+    );
+
+    expect(getDetailBackdropState(layers)).toMatchObject({
+      activeCount: 2,
+      topActiveExpanded: true,
+      topIndex: 1,
     });
   });
 });
