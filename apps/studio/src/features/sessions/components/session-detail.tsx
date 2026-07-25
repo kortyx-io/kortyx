@@ -20,6 +20,12 @@ import {
 } from "@/components/detail/detail-primitives";
 import { DetailTabs } from "@/components/detail/detail-tabs";
 import { PayloadViewer } from "@/components/detail/payload-viewer";
+import {
+  formatCount,
+  formatCurrency,
+  formatDateTime,
+  formatDurationMs,
+} from "@/lib/format";
 
 export function SessionDetail({
   detail,
@@ -44,23 +50,39 @@ export function SessionDetail({
           <span>
             {session.activeWorkflowId ?? "Unknown workflow"}{" "}
             {session.activeVersion ?? "unversioned"} · {session.environment} ·
-            last active {new Date(session.lastActivityAt).toLocaleString()}
+            last active {formatDateTime(session.lastActivityAt)}
           </span>
         }
         metrics={
           <>
-            <Metric label="Runs" value={session.runs} />
+            <Metric
+              label="Runs"
+              value={formatCount(session.runs, { compact: false })}
+            />
             <Metric
               label="Duration"
-              value={formatDuration(session.durationMs)}
+              value={formatDurationMs(session.durationMs, {
+                fallback: "Active",
+              })}
+              title={formatDurationMs(session.durationMs, {
+                fallback: "Active",
+                style: "full",
+              })}
             />
             <Metric
               label="Tokens"
-              value={session.tokens?.toLocaleString() ?? "Not captured"}
+              value={formatCount(session.tokens, { fallback: "Not captured" })}
+              title={formatCount(session.tokens, {
+                compact: false,
+                fallback: "Not captured",
+              })}
             />
             <Metric
               label="Cost"
-              value={formatCost(session.cost, session.currency)}
+              value={formatCurrency(session.cost, {
+                currency: session.currency,
+                fallback: "Unknown",
+              })}
             />
           </>
         }
@@ -124,7 +146,7 @@ function SessionActivity({
   if (runs.length === 0)
     return <Empty label="No runs were captured for this session." />;
   return (
-    <div className="space-y-0 p-5 md:p-6">
+    <div className="@container space-y-0 p-4 @lg:p-6">
       {runs.map((run, index) => {
         const runEvents = events.filter((event) => event.runId === run.id);
         const lifecycle = runEvents.filter(
@@ -156,8 +178,7 @@ function SessionActivity({
                     {run.id}
                   </DetailLink>
                   <p className="mt-1 text-xs text-muted-foreground">
-                    {run.workflowId} ·{" "}
-                    {new Date(run.startedAt).toLocaleString()}
+                    {run.workflowId} · {formatDateTime(run.startedAt)}
                   </p>
                 </div>
                 <StatusPill tone={statusTone(run.status)}>
@@ -168,16 +189,22 @@ function SessionActivity({
                 {run.result ?? "No result captured"}
               </p>
               <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 font-mono text-[10px] text-muted-foreground">
-                <span>{formatDuration(run.durationMs)}</span>
-                <span>{run.tokens?.toLocaleString() ?? "—"} tokens</span>
-                <span>{formatCost(run.cost, run.currency)}</span>
+                <span>
+                  {formatDurationMs(run.durationMs, { fallback: "Active" })}
+                </span>
+                <span>{formatCount(run.tokens, { fallback: "—" })} tokens</span>
+                <span>
+                  {formatCurrency(run.cost, {
+                    currency: run.currency,
+                    fallback: "Unknown",
+                  })}
+                </span>
               </div>
               {lifecycle.length > 0 && (
                 <div className="mt-3 border-t pt-2 text-[11px] text-muted-foreground">
                   {lifecycle.map((event) => (
                     <p key={event.id}>
-                      {event.type} ·{" "}
-                      {new Date(event.occurredAt).toLocaleTimeString()}
+                      {event.type} · {formatDateTime(event.occurredAt)}
                     </p>
                   ))}
                 </div>
@@ -192,25 +219,33 @@ function SessionActivity({
 
 function SessionRuns({ runs }: { runs: StudioRun[] }) {
   return (
-    <div className="divide-y">
-      {runs.map((run) => (
-        <DetailLink
-          key={run.id}
-          href={`/runs/${run.id}`}
-          className="grid gap-2 px-5 py-4 hover:bg-muted/40 md:grid-cols-[1fr_auto_auto] md:items-center md:px-6"
-        >
-          <div className="min-w-0">
-            <p className="truncate font-mono text-xs font-medium">{run.id}</p>
-            <p className="mt-0.5 truncate text-xs text-muted-foreground">
-              {run.workflowId} · {run.path.join(" → ") || "No path captured"}
-            </p>
-          </div>
-          <span className="font-mono text-xs text-muted-foreground">
-            {formatDuration(run.durationMs)}
-          </span>
-          <StatusPill tone={statusTone(run.status)}>{run.status}</StatusPill>
-        </DetailLink>
-      ))}
+    <div className="@container">
+      <div className="divide-y">
+        {runs.map((run) => (
+          <DetailLink
+            key={run.id}
+            href={`/runs/${run.id}`}
+            className="grid min-w-0 gap-2 px-4 py-4 hover:bg-muted/40 @2xl:grid-cols-[minmax(0,1fr)_auto_auto] @2xl:items-center @2xl:px-6"
+          >
+            <div className="min-w-0">
+              <p className="truncate font-mono text-xs font-medium">{run.id}</p>
+              <p className="mt-0.5 truncate text-xs text-muted-foreground">
+                {run.workflowId} · {run.path.join(" → ") || "No path captured"}
+              </p>
+            </div>
+            <span
+              className="font-mono text-xs text-muted-foreground"
+              title={formatDurationMs(run.durationMs, {
+                fallback: "Active",
+                style: "full",
+              })}
+            >
+              {formatDurationMs(run.durationMs, { fallback: "Active" })}
+            </span>
+            <StatusPill tone={statusTone(run.status)}>{run.status}</StatusPill>
+          </DetailLink>
+        ))}
+      </div>
     </div>
   );
 }
@@ -224,25 +259,27 @@ function SessionState({ events }: { events: StudioDetailEvent[] }) {
       <Empty label="No checkpoint, fork, or rollback events were captured." />
     );
   return (
-    <div className="divide-y">
-      {stateEvents.map((event) => (
-        <div key={event.id} className="flex gap-3 px-5 py-4 md:px-6">
-          {event.type === "session.forked" ? (
-            <GitFork className="mt-0.5 size-4 text-muted-foreground" />
-          ) : (
-            <History className="mt-0.5 size-4 text-muted-foreground" />
-          )}
-          <div className="min-w-0 flex-1">
-            <p className="text-xs font-medium">{event.type}</p>
-            <p className="mt-0.5 font-mono text-[10px] text-muted-foreground">
-              {event.occurredAt}
-            </p>
-            <div className="mt-3">
-              <PayloadViewer value={event.payload} />
+    <div className="@container">
+      <div className="divide-y">
+        {stateEvents.map((event) => (
+          <div key={event.id} className="flex gap-3 px-4 py-4 @lg:px-6">
+            {event.type === "session.forked" ? (
+              <GitFork className="mt-0.5 size-4 text-muted-foreground" />
+            ) : (
+              <History className="mt-0.5 size-4 text-muted-foreground" />
+            )}
+            <div className="min-w-0 flex-1">
+              <p className="text-xs font-medium">{event.type}</p>
+              <p className="mt-0.5 font-mono text-[10px] text-muted-foreground">
+                {formatDateTime(event.occurredAt)}
+              </p>
+              <div className="mt-3">
+                <PayloadViewer value={event.payload} />
+              </div>
             </div>
           </div>
-        </div>
-      ))}
+        ))}
+      </div>
     </div>
   );
 }
@@ -250,35 +287,44 @@ function SessionState({ events }: { events: StudioDetailEvent[] }) {
 function SessionMetadata({ detail }: { detail: StudioSessionDetailResponse }) {
   const { session } = detail;
   return (
-    <div className="grid gap-8 p-5 md:p-6 lg:grid-cols-2">
-      <section>
-        <h3 className="text-sm font-semibold">Identity</h3>
-        <dl className="mt-3 divide-y">
-          <KeyValue label="User">{session.userId ?? "Not captured"}</KeyValue>
-          <KeyValue label="Tenant">
-            {session.tenantId ?? "Not captured"}
-          </KeyValue>
-          <KeyValue label="Environment">{session.environment}</KeyValue>
-          <KeyValue label="Tags">{session.tags.join(", ") || "None"}</KeyValue>
-        </dl>
-      </section>
-      <section>
-        <h3 className="text-sm font-semibold">Instrumentation</h3>
-        <dl className="mt-3 divide-y">
-          <KeyValue label="Workflows">
-            {session.workflowIds.join(", ") || "Unknown"}
-          </KeyValue>
-          <KeyValue label="Providers">
-            {session.providers.join(", ") || "Unknown"}
-          </KeyValue>
-          <KeyValue label="Models">
-            {session.models.join(", ") || "Unknown"}
-          </KeyValue>
-          <KeyValue label="Updated">
-            <span className="font-mono">{detail.updatedAt}</span>
-          </KeyValue>
-        </dl>
-      </section>
+    <div className="@container">
+      <div
+        data-responsive-surface="session-metadata"
+        className="grid min-w-0 gap-6 p-4 @2xl:p-6 @4xl:grid-cols-2 @4xl:gap-8"
+      >
+        <section className="min-w-0">
+          <h3 className="text-sm font-semibold">Identity</h3>
+          <dl className="mt-3 divide-y">
+            <KeyValue label="User">{session.userId ?? "Not captured"}</KeyValue>
+            <KeyValue label="Tenant">
+              {session.tenantId ?? "Not captured"}
+            </KeyValue>
+            <KeyValue label="Environment">{session.environment}</KeyValue>
+            <KeyValue label="Tags">
+              {session.tags.join(", ") || "None"}
+            </KeyValue>
+          </dl>
+        </section>
+        <section className="min-w-0">
+          <h3 className="text-sm font-semibold">Instrumentation</h3>
+          <dl className="mt-3 divide-y">
+            <KeyValue label="Workflows">
+              {session.workflowIds.join(", ") || "Unknown"}
+            </KeyValue>
+            <KeyValue label="Providers">
+              {session.providers.join(", ") || "Unknown"}
+            </KeyValue>
+            <KeyValue label="Models">
+              {session.models.join(", ") || "Unknown"}
+            </KeyValue>
+            <KeyValue label="Updated">
+              <span className="font-mono">
+                {formatDateTime(detail.updatedAt)}
+              </span>
+            </KeyValue>
+          </dl>
+        </section>
+      </div>
     </div>
   );
 }
@@ -297,18 +343,4 @@ function statusTone(
   if (status === "interrupted") return "warning";
   if (status === "running") return "info";
   return "neutral";
-}
-
-function formatDuration(value: number | null) {
-  if (value === null) return "Active";
-  if (value < 1_000) return `${Math.round(value)}ms`;
-  if (value < 60_000)
-    return `${(value / 1_000).toFixed(value < 10_000 ? 1 : 0)}s`;
-  return `${Math.floor(value / 60_000)}m ${Math.round((value % 60_000) / 1_000)}s`;
-}
-
-function formatCost(value: number | null, currency: string | null) {
-  return value === null
-    ? "Unknown"
-    : `${currency ?? "USD"} ${value.toFixed(value < 0.01 ? 4 : 2)}`;
 }

@@ -1,8 +1,8 @@
 import { Filter, Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { formatCount } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import { formatCount } from "../lib/format";
 import type { WorkflowHealth, WorkflowSystem } from "../schema";
 
 const healthClasses: Record<WorkflowHealth, string> = {

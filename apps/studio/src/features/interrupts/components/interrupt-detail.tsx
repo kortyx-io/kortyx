@@ -12,6 +12,7 @@ import {
 } from "@/components/detail/detail-primitives";
 import { DetailTabs } from "@/components/detail/detail-tabs";
 import { PayloadViewer } from "@/components/detail/payload-viewer";
+import { formatCount, formatDateTime, formatDurationMs } from "@/lib/format";
 
 export function InterruptDetail({
   detail,
@@ -61,9 +62,22 @@ export function InterruptDetail({
         metrics={
           <>
             <Metric label="Type" value={interrupt.type} />
-            <Metric label="Age" value={formatDuration(ageMs)} />
-            <Metric label="Options" value={interrupt.optionCount ?? "—"} />
-            <Metric label="Events" value={detail.events.length} />
+            <Metric
+              label="Age"
+              value={formatDurationMs(ageMs)}
+              title={formatDurationMs(ageMs, { style: "full" })}
+            />
+            <Metric
+              label="Options"
+              value={formatCount(interrupt.optionCount, {
+                compact: false,
+                fallback: "—",
+              })}
+            />
+            <Metric
+              label="Events"
+              value={formatCount(detail.events.length, { compact: false })}
+            />
           </>
         }
         alert={
@@ -104,69 +118,78 @@ export function InterruptDetail({
 function Decision({ detail }: { detail: StudioInterruptDetailResponse }) {
   const { interrupt } = detail;
   return (
-    <div className="grid gap-6 p-5 md:p-6 lg:grid-cols-[minmax(0,1fr)_280px]">
-      <section>
-        <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
-          Decision requested
-        </p>
-        <div className="mt-3 rounded-lg border bg-muted/15 p-5">
-          <p className="text-base font-medium leading-relaxed">
-            {interrupt.question ?? "Content was not captured"}
-          </p>
-          <div className="mt-4 flex flex-wrap gap-2">
-            <StatusPill>{interrupt.type}</StatusPill>
-            {interrupt.optionCount !== null && (
-              <StatusPill>{interrupt.optionCount} options</StatusPill>
-            )}
-          </div>
-        </div>
-        <div className="mt-6">
+    <div className="@container">
+      <div
+        data-responsive-surface="interrupt-decision"
+        className="grid min-w-0 gap-6 p-4 @2xl:p-6 @4xl:grid-cols-[minmax(0,1fr)_minmax(240px,280px)]"
+      >
+        <section className="min-w-0">
           <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
-            Response
+            Decision requested
           </p>
-          <div className="mt-3 rounded-lg border p-4">
-            {interrupt.status === "pending" ? (
-              <div className="flex items-center gap-2 text-sm text-amber-700 dark:text-amber-400">
-                <CirclePause className="size-4" />
-                Awaiting response — Studio is read-only in this release.
-              </div>
-            ) : (
-              <>
-                <p className="text-sm">
-                  {interrupt.response ?? "No response content captured"}
-                </p>
-                <p className="mt-2 text-xs text-muted-foreground">
-                  {interrupt.resolvedBy
-                    ? `Resolved by ${interrupt.resolvedBy}`
-                    : "Resolver not captured"}
-                  {interrupt.resolvedAt
-                    ? ` · ${new Date(interrupt.resolvedAt).toLocaleString()}`
-                    : ""}
-                </p>
-              </>
-            )}
+          <div className="mt-3 rounded-lg border bg-muted/15 p-5">
+            <p className="text-base font-medium leading-relaxed">
+              {interrupt.question ?? "Content was not captured"}
+            </p>
+            <div className="mt-4 flex flex-wrap gap-2">
+              <StatusPill>{interrupt.type}</StatusPill>
+              {interrupt.optionCount !== null && (
+                <StatusPill>{interrupt.optionCount} options</StatusPill>
+              )}
+            </div>
           </div>
-        </div>
-      </section>
-      <aside>
-        <h3 className="text-sm font-semibold">Execution context</h3>
-        <dl className="mt-3 divide-y">
-          <KeyValue label="Workflow">{interrupt.workflowId}</KeyValue>
-          <KeyValue label="Node">{interrupt.nodeId ?? "Not captured"}</KeyValue>
-          <KeyValue label="User">{interrupt.userId ?? "Not captured"}</KeyValue>
-          <KeyValue label="Tenant">
-            {interrupt.tenantId ?? "Not captured"}
-          </KeyValue>
-          <KeyValue label="Expires">
-            {interrupt.expiresAt
-              ? new Date(interrupt.expiresAt).toLocaleString()
-              : "No expiry"}
-          </KeyValue>
-          <KeyValue label="Resume outcome">
-            {interrupt.resumeOutcome ?? "Not attempted"}
-          </KeyValue>
-        </dl>
-      </aside>
+          <div className="mt-6">
+            <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
+              Response
+            </p>
+            <div className="mt-3 rounded-lg border p-4">
+              {interrupt.status === "pending" ? (
+                <div className="flex items-center gap-2 text-sm text-amber-700 dark:text-amber-400">
+                  <CirclePause className="size-4" />
+                  Awaiting response — Studio is read-only in this release.
+                </div>
+              ) : (
+                <>
+                  <p className="text-sm">
+                    {interrupt.response ?? "No response content captured"}
+                  </p>
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    {interrupt.resolvedBy
+                      ? `Resolved by ${interrupt.resolvedBy}`
+                      : "Resolver not captured"}
+                    {interrupt.resolvedAt
+                      ? ` · ${formatDateTime(interrupt.resolvedAt)}`
+                      : ""}
+                  </p>
+                </>
+              )}
+            </div>
+          </div>
+        </section>
+        <aside className="min-w-0">
+          <h3 className="text-sm font-semibold">Execution context</h3>
+          <dl className="mt-3 divide-y">
+            <KeyValue label="Workflow">{interrupt.workflowId}</KeyValue>
+            <KeyValue label="Node">
+              {interrupt.nodeId ?? "Not captured"}
+            </KeyValue>
+            <KeyValue label="User">
+              {interrupt.userId ?? "Not captured"}
+            </KeyValue>
+            <KeyValue label="Tenant">
+              {interrupt.tenantId ?? "Not captured"}
+            </KeyValue>
+            <KeyValue label="Expires">
+              {interrupt.expiresAt
+                ? formatDateTime(interrupt.expiresAt)
+                : "No expiry"}
+            </KeyValue>
+            <KeyValue label="Resume outcome">
+              {interrupt.resumeOutcome ?? "Not attempted"}
+            </KeyValue>
+          </dl>
+        </aside>
+      </div>
     </div>
   );
 }
@@ -183,7 +206,7 @@ function InterruptTimeline({
       </div>
     );
   return (
-    <div className="p-5 md:p-6">
+    <div className="@container p-4 @lg:p-6">
       {detail.events.map((event, index) => {
         const Icon =
           event.type === "interrupt.created"
@@ -204,7 +227,7 @@ function InterruptTimeline({
             <div className="min-w-0 flex-1 pt-1">
               <p className="text-xs font-medium">{event.type}</p>
               <p className="mt-0.5 font-mono text-[10px] text-muted-foreground">
-                {new Date(event.occurredAt).toLocaleString()}
+                {formatDateTime(event.occurredAt)}
               </p>
               <div className="mt-3">
                 <PayloadViewer value={event.payload} />
@@ -223,16 +246,19 @@ function InterruptPayload({
   detail: StudioInterruptDetailResponse;
 }) {
   return (
-    <div className="space-y-5 p-5 md:p-6">
+    <div className="@container space-y-5 p-4 @lg:p-6">
       <div className="rounded-md border border-blue-500/20 bg-blue-500/5 px-3 py-2 text-xs text-blue-700 dark:text-blue-400">
         Resume capability tokens are masked by the Studio API.
       </div>
       {detail.events.map((event) => (
         <section key={event.id}>
-          <div className="mb-2 flex justify-between gap-3 text-xs">
-            <h3 className="font-medium">{event.type}</h3>
-            <time className="font-mono text-[10px] text-muted-foreground">
-              {event.occurredAt}
+          <div className="mb-2 flex min-w-0 flex-wrap justify-between gap-2 text-xs">
+            <h3 className="min-w-0 break-words font-medium">{event.type}</h3>
+            <time
+              className="break-words font-mono text-[10px] text-muted-foreground"
+              dateTime={event.occurredAt}
+            >
+              {formatDateTime(event.occurredAt)}
             </time>
           </div>
           <PayloadViewer value={event.payload} />
@@ -249,11 +275,4 @@ function statusTone(
   if (status === "failed") return "danger";
   if (status === "pending") return "warning";
   return "neutral";
-}
-
-function formatDuration(value: number) {
-  const seconds = Math.max(0, Math.round(value / 1_000));
-  if (seconds < 60) return `${seconds}s`;
-  if (seconds < 3_600) return `${Math.floor(seconds / 60)}m ${seconds % 60}s`;
-  return `${Math.floor(seconds / 3_600)}h ${Math.floor((seconds % 3_600) / 60)}m`;
 }

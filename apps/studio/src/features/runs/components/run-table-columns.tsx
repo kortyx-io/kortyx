@@ -5,14 +5,14 @@ import {
   workflowPathTitle,
 } from "@/features/runs/components/workflow-path-cell";
 import { statusMeta } from "@/features/runs/lib/constants";
-import {
-  formatCost,
-  formatDuration,
-  formatTokens,
-} from "@/features/runs/lib/format";
 import type { Run, RunStatus, SortKey } from "@/features/runs/schema";
 import { CopyableCell } from "@/features/telemetry/components/copyable-cell";
 import { TruncatedText } from "@/features/telemetry/components/truncated-text";
+import {
+  formatCount,
+  formatCurrency,
+  formatDurationSeconds,
+} from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 type CreateRunColumnsOptions = {
@@ -198,6 +198,10 @@ export function createRunColumns({
       sortKey: "duration",
       defaultWidth: 108,
       cellClassName: "font-mono text-xs tabular-nums",
+      cellTitle: (run) =>
+        formatDurationSeconds(activeDurationSeconds(run, liveSeconds), {
+          style: "full",
+        }),
       render: (run) => {
         const duration = activeDurationSeconds(run, liveSeconds);
         return (
@@ -205,7 +209,7 @@ export function createRunColumns({
             {(run.status === "running" || run.status === "interrupted") && (
               <span className="mr-1 inline-block size-1.5 animate-pulse rounded-full bg-blue-500" />
             )}
-            {formatDuration(duration)}
+            {formatDurationSeconds(duration)}
           </TruncatedText>
         );
       },
@@ -218,11 +222,9 @@ export function createRunColumns({
       cellClassName: "font-mono text-xs tabular-nums",
       cellTitle: (run) =>
         run.tokens
-          ? `Input ${Math.round(run.tokens * 0.48).toLocaleString()} · Output ${Math.round(run.tokens * 0.36).toLocaleString()} · Reasoning ${Math.round(run.tokens * 0.11).toLocaleString()} · Cache read ${Math.round(run.tokens * 0.05).toLocaleString()}`
+          ? `Total ${formatCount(run.tokens, { compact: false })} · Input ${formatCount(Math.round(run.tokens * 0.48), { compact: false })} · Output ${formatCount(Math.round(run.tokens * 0.36), { compact: false })} · Reasoning ${formatCount(Math.round(run.tokens * 0.11), { compact: false })} · Cache read ${formatCount(Math.round(run.tokens * 0.05), { compact: false })}`
           : undefined,
-      render: (run) => (
-        <TruncatedText>{formatTokens(run.tokens)}</TruncatedText>
-      ),
+      render: (run) => <TruncatedText>{formatCount(run.tokens)}</TruncatedText>,
     },
     {
       key: "cost",
@@ -230,7 +232,10 @@ export function createRunColumns({
       sortKey: "cost",
       defaultWidth: 100,
       cellClassName: "font-mono text-xs tabular-nums",
-      render: (run) => <TruncatedText>{formatCost(run.cost)}</TruncatedText>,
+      cellTitle: (run) => formatCurrency(run.cost),
+      render: (run) => (
+        <TruncatedText>{formatCurrency(run.cost)}</TruncatedText>
+      ),
     },
     {
       key: "result",

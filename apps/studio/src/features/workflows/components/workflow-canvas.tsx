@@ -35,9 +35,6 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import {
-  formatCost,
-  formatCount,
-  formatDuration,
   getTransitionLayoutWeight,
   getTransitionStrokeWidth,
 } from "@/features/workflows/lib/format";
@@ -53,6 +50,7 @@ import type {
   WorkflowSummary,
   WorkflowSystem,
 } from "@/features/workflows/schema";
+import { formatCount, formatCurrency, formatDurationMs } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import styles from "./workflow-canvas.module.css";
 
@@ -313,13 +311,13 @@ function WorkflowGroup({ data }: NodeProps<Node<GroupData>>) {
         <span>
           p50{" "}
           <b className="ml-1 font-mono font-medium text-foreground">
-            {formatDuration(workflow.metrics.p50DurationMs)}
+            {formatDurationMs(workflow.metrics.p50DurationMs)}
           </b>
         </span>
         <span>
           cost{" "}
           <b className="ml-1 font-mono font-medium text-foreground">
-            {formatCost(workflow.metrics.averageCost)}
+            {formatCurrency(workflow.metrics.averageCost)}
           </b>
         </span>
         <span>
@@ -389,18 +387,18 @@ function InternalNode({ data }: NodeProps<Node<InternalData>>) {
         </span>
       </div>
       <div className="mt-1 flex gap-2 text-[9px] tabular-nums text-muted-foreground">
-        <span>{formatDuration(node.metrics.p50DurationMs)}</span>
+        <span>{formatDurationMs(node.metrics.p50DurationMs)}</span>
         {mode === "health" ? (
           <span>
             {metric === "error"
               ? `${node.metrics.errorRate ?? 0}% err`
               : metric === "cost"
-                ? formatCost(node.metrics.averageCost)
+                ? formatCurrency(node.metrics.averageCost)
                 : `${formatCount(node.metrics.runCount)} runs`}
           </span>
         ) : (
           node.metrics.averageCost !== undefined && (
-            <span>{formatCost(node.metrics.averageCost)}</span>
+            <span>{formatCurrency(node.metrics.averageCost)}</span>
           )
         )}
       </div>

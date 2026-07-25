@@ -99,11 +99,14 @@ export function PayloadViewer({
       data-clean={clean}
       data-wrap={wrap}
       className={cn(
-        "min-w-0 overflow-hidden rounded-lg border bg-muted/10 shadow-xs",
+        "@container min-w-0 overflow-hidden rounded-lg border bg-muted/10 shadow-xs",
         className,
       )}
     >
-      <div className="flex items-center justify-between gap-1.5 border-b bg-muted/25 p-1.5">
+      <div
+        data-responsive-surface="payload-toolbar"
+        className="flex min-w-0 flex-wrap items-center gap-1.5 border-b bg-muted/25 p-1.5"
+      >
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button
@@ -111,7 +114,7 @@ export function PayloadViewer({
               variant="ghost"
               size="xs"
               aria-label={`Payload representation: ${activeMode.label}`}
-              className="min-w-24 justify-start bg-background text-foreground shadow-xs hover:bg-background"
+              className="min-w-24 max-w-full justify-start bg-background text-foreground shadow-xs hover:bg-background"
             >
               <ActiveModeIcon />
               {activeMode.label}
@@ -141,7 +144,7 @@ export function PayloadViewer({
           </DropdownMenuContent>
         </DropdownMenu>
 
-        <div className="flex items-center gap-0.5">
+        <div className="ml-auto flex min-w-0 items-center gap-0.5">
           <Button
             type="button"
             variant="ghost"

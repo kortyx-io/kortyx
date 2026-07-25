@@ -1,4 +1,5 @@
 import type { StudioDetailEvent } from "@kortyx/telemetry-contracts";
+import { formatCount, formatDurationMs } from "@/lib/format";
 
 export function buildEventStory(
   events: StudioDetailEvent[],
@@ -136,9 +137,10 @@ function eventContext(event: StudioDetailEvent): string {
     if (provider) parts.push(provider);
     const usage = asRecord(event.payload.usage);
     const tokens = numberValue(usage.total);
-    if (tokens !== null) parts.push(`${tokens.toLocaleString()} tokens`);
+    if (tokens !== null)
+      parts.push(`${formatCount(tokens, { compact: false })} tokens`);
     const ttft = numberValue(event.payload.ttftMs);
-    if (ttft !== null) parts.push(`TTFT ${formatDuration(ttft)}`);
+    if (ttft !== null) parts.push(`TTFT ${formatDurationMs(ttft)}`);
   }
   if (event.type.startsWith("tool.")) {
     const callId = asString(event.payload.toolCallId);
@@ -188,15 +190,6 @@ function humanize(value: string) {
     .replace(/[._-]+/g, " ")
     .replace(/([a-z])([A-Z])/g, "$1 $2")
     .replace(/^./, (letter) => letter.toUpperCase());
-}
-
-export function formatDuration(value: number) {
-  if (value < 1_000) return `${Math.max(0, Math.round(value))} ms`;
-  if (value < 10_000) return `${(value / 1_000).toFixed(2)} s`;
-  if (value < 60_000) return `${(value / 1_000).toFixed(1)} s`;
-  const minutes = Math.floor(value / 60_000);
-  const seconds = (value % 60_000) / 1_000;
-  return `${minutes}m ${seconds < 10 ? seconds.toFixed(1) : seconds.toFixed(0)}s`;
 }
 
 function shortId(value: string) {

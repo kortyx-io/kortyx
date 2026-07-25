@@ -1,4 +1,5 @@
 import type { StudioDetailEvent } from "@kortyx/telemetry-contracts";
+import { formatDurationMs } from "@/lib/format";
 
 export type TraceStatus =
   | "completed"
@@ -297,10 +298,10 @@ function appendInterrupts(
       label: `Human input · ${created.nodeId ?? "unknown node"}`,
       description:
         status === "resolved" && durationMs !== null
-          ? `Resolved after ${formatDuration(durationMs)}`
+          ? `Resolved after ${formatDurationMs(durationMs)}`
           : status === "waiting"
             ? "Waiting for a response"
-            : `${statusLabel(status)} after ${formatDuration(durationMs ?? 0)}`,
+            : `${statusLabel(status)} after ${formatDurationMs(durationMs ?? 0)}`,
       kind: "interrupt",
       status,
       startedAt: created.occurredAt,
@@ -431,7 +432,7 @@ function appendUnobservedWaits(
     items.push({
       id: `wait-${previous.id}-${current.id}`,
       label: "Unobserved wait",
-      description: `${formatDuration(gap)} without telemetry before ${friendlyEventLabel(current.type).toLowerCase()}`,
+      description: `${formatDurationMs(gap)} without telemetry before ${friendlyEventLabel(current.type).toLowerCase()}`,
       kind: "wait",
       status: "waiting",
       startedAt: previous.occurredAt,
@@ -704,19 +705,10 @@ function generationDescription(
 ) {
   if (status === "failed") return `${provider} provider call failed`;
   if (!timing.streaming)
-    return `${provider} non-streaming call${durationMs === null ? "" : ` · ${formatDuration(durationMs)}`}`;
+    return `${provider} non-streaming call${durationMs === null ? "" : ` · ${formatDurationMs(durationMs)}`}`;
   if (timing.ttftMs === null)
-    return `${provider} provider call${durationMs === null ? "" : ` · ${formatDuration(durationMs)}`} · TTFT not captured`;
-  return `TTFT ${formatDuration(timing.ttftMs)} · output stream ${formatDuration(timing.streamDurationMs ?? 0)}${timing.postStreamDurationMs ? ` · finalize ${formatDuration(timing.postStreamDurationMs)}` : ""}`;
-}
-
-export function formatDuration(value: number) {
-  if (value < 1_000) return `${Math.max(0, Math.round(value))} ms`;
-  if (value < 10_000) return `${(value / 1_000).toFixed(2)} s`;
-  if (value < 60_000) return `${(value / 1_000).toFixed(1)} s`;
-  const minutes = Math.floor(value / 60_000);
-  const seconds = (value % 60_000) / 1_000;
-  return `${minutes}m ${seconds < 10 ? seconds.toFixed(1) : seconds.toFixed(0)}s`;
+    return `${provider} provider call${durationMs === null ? "" : ` · ${formatDurationMs(durationMs)}`} · TTFT not captured`;
+  return `TTFT ${formatDurationMs(timing.ttftMs)} · output stream ${formatDurationMs(timing.streamDurationMs ?? 0)}${timing.postStreamDurationMs ? ` · finalize ${formatDurationMs(timing.postStreamDurationMs)}` : ""}`;
 }
 
 const INTERNAL_SPANS = new Set(["useReason", "runReasonEngine"]);

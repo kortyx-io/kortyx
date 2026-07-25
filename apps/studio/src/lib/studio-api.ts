@@ -18,6 +18,7 @@ import {
   type WorkflowSystem,
   WorkflowSystemSchema,
 } from "@/features/workflows/schema";
+import { formatRelativeTime } from "@/lib/format";
 
 const apiUrl = process.env.KORTYX_API_URL;
 const apiKey = process.env.KORTYX_STUDIO_API_KEY;
@@ -124,19 +125,6 @@ const parseError = (error: unknown): StudioApiError => ({
       : "Kortyx Studio API response could not be parsed.",
 });
 
-const relativeTime = (iso: string): string => {
-  const seconds = Math.max(
-    0,
-    Math.floor((Date.now() - Date.parse(iso)) / 1000),
-  );
-  if (seconds < 60) return `${seconds}s ago`;
-  const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) return `${minutes}m ago`;
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
-  return `${Math.floor(hours / 24)}d ago`;
-};
-
 const optional = <T>(value: T | null): T | undefined =>
   value === null ? undefined : value;
 
@@ -167,7 +155,7 @@ export const getStudioRuns = async (
           response.data.runs.map((run) => ({
             id: run.id,
             status: run.status,
-            started: relativeTime(run.startedAt),
+            started: formatRelativeTime(run.startedAt),
             startedAt: run.startedAt,
             workflow: run.workflowId,
             workflowIds: run.workflowIds,

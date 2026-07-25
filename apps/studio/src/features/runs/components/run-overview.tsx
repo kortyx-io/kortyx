@@ -18,6 +18,7 @@ import {
   YAxis,
 } from "recharts";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
+import { formatDurationMs } from "@/lib/format";
 
 export function RunOverview({ detail }: { detail: StudioRunDetailResponse }) {
   const events = detail.events;
@@ -72,7 +73,7 @@ export function RunOverview({ detail }: { detail: StudioRunDetailResponse }) {
         <SignalCard
           icon={Timer}
           label="Median TTFT"
-          value={medianTtft === null ? "N/A" : formatDuration(medianTtft)}
+          value={medianTtft === null ? "N/A" : formatDurationMs(medianTtft)}
           detail={
             capturedTtfts.length > 0
               ? `${capturedTtfts.length} streaming call${capturedTtfts.length === 1 ? "" : "s"} measured`
@@ -94,7 +95,7 @@ export function RunOverview({ detail }: { detail: StudioRunDetailResponse }) {
         <SignalCard
           icon={Clock3}
           label="Largest quiet period"
-          value={formatDuration(largestGap)}
+          value={formatDurationMs(largestGap)}
           detail="No telemetry events emitted"
           explanation="The longest interval between adjacent telemetry events. It can contain a provider request, tool work, human wait, or genuinely unobserved time, so the trace provides the stronger attribution."
         />
@@ -194,7 +195,7 @@ function ActivityChart({ events }: { events: StudioDetailEvent[] }) {
   const duration = Math.max(1, end - start);
   const bucketCount = 36;
   const buckets = Array.from({ length: bucketCount }, (_, index) => ({
-    label: formatDuration((index / (bucketCount - 1)) * duration),
+    label: formatDurationMs((index / (bucketCount - 1)) * duration),
     events: 0,
   }));
   for (const event of events) {
@@ -317,7 +318,7 @@ function LatencyBars({ events }: { events: StudioDetailEvent[] }) {
             cursor={{ fill: "var(--muted)", opacity: 0.45 }}
             contentStyle={tooltipStyle}
             labelFormatter={(label) => formatChartLabel(String(label), "Span")}
-            formatter={(value) => [formatDuration(Number(value)), "Duration"]}
+            formatter={(value) => [formatDurationMs(Number(value)), "Duration"]}
           />
           <Bar
             dataKey="duration"
@@ -387,7 +388,7 @@ function ModelLatencyBars({ events }: { events: StudioDetailEvent[] }) {
             cursor={{ fill: "var(--muted)", opacity: 0.45 }}
             contentStyle={tooltipStyle}
             labelFormatter={(label) => formatChartLabel(String(label), "Call")}
-            formatter={(value) => formatDuration(Number(value))}
+            formatter={(value) => formatDurationMs(Number(value))}
           />
           <Legend wrapperStyle={{ fontSize: 10 }} />
           <Bar
@@ -665,13 +666,6 @@ function median(values: number[]): number | null {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
-}
-
-function formatDuration(value: number): string {
-  if (value < 1_000) return `${Math.max(0, Math.round(value))}ms`;
-  if (value < 60_000)
-    return `${(value / 1_000).toFixed(value < 10_000 ? 1 : 0)}s`;
-  return `${Math.floor(value / 60_000)}m ${Math.round((value % 60_000) / 1_000)}s`;
 }
 
 const INTERNAL_LATENCY_SPANS = new Set([

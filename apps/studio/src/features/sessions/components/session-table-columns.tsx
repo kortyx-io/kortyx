@@ -19,11 +19,12 @@ import {
 import { CopyableCell } from "@/features/telemetry/components/copyable-cell";
 import { TruncatedText } from "@/features/telemetry/components/truncated-text";
 import {
-  formatElapsed,
-  formatOptionalCost,
-  formatOptionalNumber,
+  formatCount,
+  formatCurrency,
+  formatDateTime,
+  formatDurationSeconds,
   formatRelativeTime,
-} from "@/features/telemetry/lib/format";
+} from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 const statusMeta: Record<SessionStatus, CompactStatusMeta> = {
@@ -82,7 +83,7 @@ export function createSessionColumns({
       sortKey: "activity",
       defaultWidth: 118,
       cellClassName: "text-xs text-muted-foreground",
-      cellTitle: (session) => new Date(session.lastActivityAt).toLocaleString(),
+      cellTitle: (session) => formatDateTime(session.lastActivityAt),
       render: (session) => (
         <TruncatedText>
           {formatRelativeTime(session.lastActivityAt, now)}
@@ -169,13 +170,13 @@ export function createSessionColumns({
       sortKey: "duration",
       defaultWidth: 108,
       cellClassName: "font-mono text-xs tabular-nums",
+      cellTitle: (session) =>
+        formatDurationSeconds(activeDurationSeconds(session, now), {
+          style: "full",
+        }),
       render: (session) => {
         const duration = activeDurationSeconds(session, now);
-        return (
-          <TruncatedText>
-            {duration === undefined ? "—" : formatElapsed(duration)}
-          </TruncatedText>
-        );
+        return <TruncatedText>{formatDurationSeconds(duration)}</TruncatedText>;
       },
     },
     {
@@ -184,8 +185,9 @@ export function createSessionColumns({
       sortKey: "tokens",
       defaultWidth: 96,
       cellClassName: "font-mono text-xs tabular-nums",
+      cellTitle: (session) => formatCount(session.tokens, { compact: false }),
       render: (session) => (
-        <TruncatedText>{formatOptionalNumber(session.tokens)}</TruncatedText>
+        <TruncatedText>{formatCount(session.tokens)}</TruncatedText>
       ),
     },
     {
@@ -194,8 +196,9 @@ export function createSessionColumns({
       sortKey: "cost",
       defaultWidth: 100,
       cellClassName: "font-mono text-xs tabular-nums",
+      cellTitle: (session) => formatCurrency(session.cost),
       render: (session) => (
-        <TruncatedText>{formatOptionalCost(session.cost)}</TruncatedText>
+        <TruncatedText>{formatCurrency(session.cost)}</TruncatedText>
       ),
     },
     {

@@ -25,7 +25,6 @@ import { OverflowText } from "@/components/ui/overflow-tooltip";
 import {
   buildTimelineScale,
   buildTraceStory,
-  formatDuration,
   isControlFlowInterrupt,
   isPointEvent,
   statusLabel,
@@ -34,6 +33,7 @@ import {
   type TraceKind,
   type TraceStatus,
 } from "@/features/runs/lib/run-trace-story";
+import { formatDateTime, formatDurationMs } from "@/lib/format";
 import { useStudioQueryStates } from "@/lib/nuqs";
 import { cn } from "@/lib/utils";
 
@@ -165,8 +165,8 @@ export function RunTrace({
                 </span>
               )}
               <span className="hidden font-mono tabular-nums @2xl:inline">
-                {formatDuration(scale.wallDurationMs)} wall ·{" "}
-                {formatDuration(scale.visibleDurationMs)} visible
+                {formatDurationMs(scale.wallDurationMs)} wall ·{" "}
+                {formatDurationMs(scale.visibleDurationMs)} visible
               </span>
             </div>
           </div>
@@ -216,9 +216,9 @@ function TraceRow({
   const durationLabel =
     item.durationMs === null
       ? pointEvent
-        ? `Occurred at ${formatDuration(offsetMs)} into the run`
+        ? `Occurred at ${formatDurationMs(offsetMs)} into the run`
         : "Duration not captured"
-      : `Duration ${formatDuration(item.durationMs)}`;
+      : `Duration ${formatDurationMs(item.durationMs)}`;
 
   return (
     <button
@@ -279,7 +279,7 @@ function TraceRow({
           <span
             key={gap.startMs}
             aria-hidden="true"
-            title={`${formatDuration(gap.actualDurationMs)} without telemetry; compressed on this axis`}
+            title={`${formatDurationMs(gap.actualDurationMs)} without telemetry; compressed on this axis`}
             className="absolute inset-y-0 border-x border-dashed border-amber-500/35 bg-amber-500/8"
             style={{
               left: `${scale.toPercent(gap.startMs)}%`,
@@ -292,7 +292,7 @@ function TraceRow({
         item.durationMs ? (
           <span
             role="img"
-            aria-label={`Waiting for first token ${formatDuration(generationTiming.ttftMs)}, first to last output chunk ${formatDuration(generationTiming.streamDurationMs ?? 0)}, finalizing response ${formatDuration(generationTiming.postStreamDurationMs ?? 0)}`}
+            aria-label={`Waiting for first token ${formatDurationMs(generationTiming.ttftMs)}, first to last output chunk ${formatDurationMs(generationTiming.streamDurationMs ?? 0)}, finalizing response ${formatDurationMs(generationTiming.postStreamDurationMs ?? 0)}`}
             className="absolute top-1/2 flex h-2 -translate-y-1/2 overflow-hidden rounded-full"
             style={{
               left: `${left}%`,
@@ -301,7 +301,7 @@ function TraceRow({
           >
             <span
               aria-hidden="true"
-              title={`Waiting for first token: ${formatDuration(generationTiming.ttftMs)}`}
+              title={`Waiting for first token: ${formatDurationMs(generationTiming.ttftMs)}`}
               className="h-full bg-amber-500"
               style={{
                 width: `${percentOf(generationTiming.ttftMs, item.durationMs)}%`,
@@ -309,7 +309,7 @@ function TraceRow({
             />
             <span
               aria-hidden="true"
-              title={`First to last output chunk: ${formatDuration(generationTiming.streamDurationMs ?? 0)}`}
+              title={`First to last output chunk: ${formatDurationMs(generationTiming.streamDurationMs ?? 0)}`}
               className="h-full bg-violet-500"
               style={{
                 width: `${percentOf(generationTiming.streamDurationMs ?? 0, item.durationMs)}%`,
@@ -317,7 +317,7 @@ function TraceRow({
             />
             <span
               aria-hidden="true"
-              title={`Finalizing response: ${formatDuration(generationTiming.postStreamDurationMs ?? 0)}`}
+              title={`Finalizing response: ${formatDurationMs(generationTiming.postStreamDurationMs ?? 0)}`}
               className="h-full flex-1 bg-slate-400 dark:bg-slate-500"
             />
           </span>
@@ -352,9 +352,9 @@ function TraceRow({
       >
         {item.durationMs === null
           ? pointEvent
-            ? `at ${formatDuration(offsetMs)}`
+            ? `at ${formatDurationMs(offsetMs)}`
             : "—"
-          : formatDuration(item.durationMs)}
+          : formatDurationMs(item.durationMs)}
       </span>
     </button>
   );
@@ -460,9 +460,7 @@ function TraceInspector({
           </KeyValue>
         )}
         <KeyValue label="Started">
-          <span className="font-mono">
-            {new Date(item.startedAt).toLocaleString()}
-          </span>
+          <span className="font-mono">{formatDateTime(item.startedAt)}</span>
         </KeyValue>
         <KeyValue label="Duration">
           <span className="font-mono">
@@ -470,14 +468,14 @@ function TraceInspector({
               ? isPointEvent(item)
                 ? "Instant event"
                 : "Not captured"
-              : formatDuration(item.durationMs)}
+              : formatDurationMs(item.durationMs)}
           </span>
         </KeyValue>
         {item.kind === "generation" && item.timing && (
           <>
             <KeyValue label="Provider request">
               <span className="font-mono">
-                {formatDuration(item.durationMs ?? 0)}
+                {formatDurationMs(item.durationMs ?? 0)}
               </span>
             </KeyValue>
             <KeyValue label="Waiting for first token">
@@ -486,20 +484,20 @@ function TraceInspector({
                   ? item.timing.streaming
                     ? "Not captured"
                     : "Not applicable"
-                  : formatDuration(item.timing.ttftMs)}
+                  : formatDurationMs(item.timing.ttftMs)}
               </span>
             </KeyValue>
             {item.timing.streamDurationMs !== null && (
               <KeyValue label="First → last output chunk">
                 <span className="font-mono text-violet-600 dark:text-violet-400">
-                  {formatDuration(item.timing.streamDurationMs)}
+                  {formatDurationMs(item.timing.streamDurationMs)}
                 </span>
               </KeyValue>
             )}
             {item.timing.postStreamDurationMs !== null && (
               <KeyValue label="Finalizing response">
                 <span className="font-mono">
-                  {formatDuration(item.timing.postStreamDurationMs)}
+                  {formatDurationMs(item.timing.postStreamDurationMs)}
                 </span>
               </KeyValue>
             )}

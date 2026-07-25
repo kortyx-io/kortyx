@@ -18,6 +18,12 @@ import {
   isControlFlowInterrupt,
   RunTrace,
 } from "@/features/runs/components/run-trace";
+import {
+  formatCount,
+  formatCurrency,
+  formatDateTime,
+  formatDurationMs,
+} from "@/lib/format";
 
 export function RunDetail({ detail }: { detail: StudioRunDetailResponse }) {
   const { run, events } = detail;
@@ -59,13 +65,33 @@ export function RunDetail({ detail }: { detail: StudioRunDetailResponse }) {
         }
         metrics={
           <>
-            <Metric label="Duration" value={formatDuration(run.durationMs)} />
+            <Metric
+              label="Duration"
+              value={formatDurationMs(run.durationMs, { fallback: "Active" })}
+              title={formatDurationMs(run.durationMs, {
+                fallback: "Active",
+                style: "full",
+              })}
+            />
             <Metric
               label="Tokens"
-              value={run.tokens?.toLocaleString() ?? "Not captured"}
+              value={formatCount(run.tokens, { fallback: "Not captured" })}
+              title={formatCount(run.tokens, {
+                compact: false,
+                fallback: "Not captured",
+              })}
             />
-            <Metric label="Cost" value={formatCost(run.cost, run.currency)} />
-            <Metric label="Events" value={events.length} />
+            <Metric
+              label="Cost"
+              value={formatCurrency(run.cost, {
+                currency: run.currency,
+                fallback: "Unknown",
+              })}
+            />
+            <Metric
+              label="Events"
+              value={formatCount(events.length, { compact: false })}
+            />
           </>
         }
         alert={
@@ -133,20 +159,19 @@ function RunSummary({ detail }: { detail: StudioRunDetailResponse }) {
   const { run } = detail;
   return (
     <div className="@container">
-      <div className="grid min-w-0 gap-6 p-4 @2xl:p-6 @4xl:grid-cols-2 @4xl:gap-8">
+      <div
+        data-responsive-surface="run-summary"
+        className="grid min-w-0 gap-6 p-4 @2xl:p-6 @4xl:grid-cols-2 @4xl:gap-8"
+      >
         <section className="min-w-0">
           <h3 className="text-sm font-semibold">Execution</h3>
           <dl className="mt-3 divide-y">
             <KeyValue label="Started">
-              <span className="font-mono">
-                {new Date(run.startedAt).toLocaleString()}
-              </span>
+              <span className="font-mono">{formatDateTime(run.startedAt)}</span>
             </KeyValue>
             <KeyValue label="Ended">
               <span className="font-mono">
-                {run.endedAt
-                  ? new Date(run.endedAt).toLocaleString()
-                  : "Still active"}
+                {run.endedAt ? formatDateTime(run.endedAt) : "Still active"}
               </span>
             </KeyValue>
             <KeyValue label="Path">
@@ -197,19 +222,6 @@ function statusTone(
   return "neutral";
 }
 
-function formatDuration(value: number | null) {
-  if (value === null) return "Active";
-  if (value < 1_000) return `${Math.round(value)}ms`;
-  if (value < 60_000)
-    return `${(value / 1_000).toFixed(value < 10_000 ? 1 : 0)}s`;
-  return `${Math.floor(value / 60_000)}m ${Math.round((value % 60_000) / 1_000)}s`;
-}
-
-function formatCost(value: number | null, currency: string | null) {
-  return value === null
-    ? "Unknown"
-    : `${currency ?? "USD"} ${value.toFixed(value < 0.01 ? 4 : 2)}`;
-}
 function shortId(value: string) {
   return value.length > 12 ? `${value.slice(0, 8)}…` : value;
 }

@@ -62,8 +62,8 @@ export function DetailTabs({
   );
 
   return (
-    <div className="flex h-full min-h-0 flex-col">
-      <div className="z-10 flex shrink-0 gap-1 overflow-x-auto border-b bg-background px-4 md:px-6">
+    <div className="@container flex h-full min-h-0 flex-col">
+      <div className="z-10 flex shrink-0 gap-1 overflow-x-auto border-b bg-background px-3 @lg:px-6">
         {tabs.map((tab) => (
           <button
             key={tab.id}

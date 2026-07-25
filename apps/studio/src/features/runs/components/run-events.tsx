@@ -27,9 +27,9 @@ import {
   type EventCategory,
   type EventState,
   type EventStoryItem,
-  formatDuration,
   numberValue,
 } from "@/features/runs/lib/run-event-story";
+import { formatCount, formatDateTime, formatDurationMs } from "@/lib/format";
 import { useStudioQueryStates } from "@/lib/nuqs";
 import { cn } from "@/lib/utils";
 
@@ -130,7 +130,7 @@ function PhaseDivider({ item }: { item: EventStoryItem }) {
         {phase === 1 ? "Initial execution" : `Resumed execution ${phase - 1}`}
       </span>
       <span className="font-mono tabular-nums text-muted-foreground">
-        +{formatDuration(item.offsetMs)}
+        +{formatDurationMs(item.offsetMs)}
       </span>
     </div>
   );
@@ -153,7 +153,7 @@ function EventRow({
   return (
     <button
       type="button"
-      aria-label={`${item.title}. ${item.description}. ${item.stateLabel}. Offset ${formatDuration(item.offsetMs)}`}
+      aria-label={`${item.title}. ${item.description}. ${item.stateLabel}. Offset ${formatDurationMs(item.offsetMs)}`}
       aria-expanded={selected}
       aria-haspopup="dialog"
       onClick={onSelect}
@@ -203,11 +203,11 @@ function EventRow({
       </span>
 
       <span className="flex min-w-16 flex-col items-end gap-1 pt-0.5 font-mono text-[9px] tabular-nums text-muted-foreground">
-        <time title={new Date(item.event.occurredAt).toLocaleString()}>
-          +{formatDuration(item.offsetMs)}
+        <time title={formatDateTime(item.event.occurredAt)}>
+          +{formatDurationMs(item.offsetMs)}
         </time>
         {item.durationMs !== null && (
-          <span>{formatDuration(item.durationMs)}</span>
+          <span>{formatDurationMs(item.durationMs)}</span>
         )}
       </span>
     </button>
@@ -256,22 +256,22 @@ function EventDrawer({
             </KeyValue>
             <KeyValue label="Occurred">
               <span className="font-mono">
-                {new Date(item.event.occurredAt).toLocaleString()}
+                {formatDateTime(item.event.occurredAt)}
               </span>
             </KeyValue>
             <KeyValue label="Run offset">
               <span className="font-mono">
-                +{formatDuration(item.offsetMs)}
+                +{formatDurationMs(item.offsetMs)}
               </span>
             </KeyValue>
             <KeyValue label="Received">
               <span className="font-mono">
-                {new Date(item.event.receivedAt).toLocaleString()}
+                {formatDateTime(item.event.receivedAt)}
               </span>
             </KeyValue>
             <KeyValue label="Ingest delay">
               <span className="font-mono">
-                {formatDuration(
+                {formatDurationMs(
                   Math.max(
                     0,
                     Date.parse(item.event.receivedAt) -
@@ -283,7 +283,7 @@ function EventDrawer({
             {item.durationMs !== null && (
               <KeyValue label="Duration">
                 <span className="font-mono">
-                  {formatDuration(item.durationMs)}
+                  {formatDurationMs(item.durationMs)}
                 </span>
               </KeyValue>
             )}
@@ -349,12 +349,14 @@ function GenerationDetails({ event }: { event: StudioDetailEvent }) {
         <span className="font-mono">
           {ttft === null
             ? "Not captured or not applicable"
-            : formatDuration(ttft)}
+            : formatDurationMs(ttft)}
         </span>
       </KeyValue>
       {tokens !== null && (
         <KeyValue label="Tokens">
-          <span className="font-mono">{tokens.toLocaleString()}</span>
+          <span className="font-mono">
+            {formatCount(tokens, { compact: false })}
+          </span>
         </KeyValue>
       )}
       {asString(event.payload.finishReason) && (

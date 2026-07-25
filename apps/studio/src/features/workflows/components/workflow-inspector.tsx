@@ -2,8 +2,8 @@ import { ArrowLeft, X } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { formatCount, formatCurrency, formatDurationMs } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import { formatCost, formatCount, formatDuration } from "../lib/format";
 import type { WorkflowSelection } from "../lib/view-state";
 import type { WorkflowHealth, WorkflowSystem } from "../schema";
 
@@ -155,7 +155,7 @@ export function WorkflowInspector({
                     ],
                     [
                       "Median transition",
-                      formatDuration(selectedTransition.medianDurationMs),
+                      formatDurationMs(selectedTransition.medianDurationMs),
                     ],
                   ]}
                 />
@@ -173,7 +173,7 @@ export function WorkflowInspector({
                     ],
                     [
                       "p50 / p95",
-                      `${formatDuration(selectedNode.metrics.p50DurationMs)} / ${formatDuration(selectedNode.metrics.p95DurationMs)}`,
+                      `${formatDurationMs(selectedNode.metrics.p50DurationMs)} / ${formatDurationMs(selectedNode.metrics.p95DurationMs)}`,
                     ],
                     [
                       "Retries / interrupts",
@@ -181,7 +181,7 @@ export function WorkflowInspector({
                     ],
                     [
                       "Cost / run",
-                      formatCost(selectedNode.metrics.averageCost),
+                      formatCurrency(selectedNode.metrics.averageCost),
                     ],
                   ]}
                 />
@@ -197,7 +197,7 @@ export function WorkflowInspector({
                       ],
                       [
                         "p50 / p95",
-                        `${formatDuration(selectedWorkflow.metrics.p50DurationMs)} / ${formatDuration(selectedWorkflow.metrics.p95DurationMs)}`,
+                        `${formatDurationMs(selectedWorkflow.metrics.p50DurationMs)} / ${formatDurationMs(selectedWorkflow.metrics.p95DurationMs)}`,
                       ],
                       [
                         "Tokens / run",
@@ -207,7 +207,7 @@ export function WorkflowInspector({
                       ],
                       [
                         "Cost / run",
-                        formatCost(selectedWorkflow.metrics.averageCost),
+                        formatCurrency(selectedWorkflow.metrics.averageCost),
                       ],
                       [
                         "Interrupt rate",

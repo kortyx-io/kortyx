@@ -18,9 +18,10 @@ import {
 import { CopyableCell } from "@/features/telemetry/components/copyable-cell";
 import { TruncatedText } from "@/features/telemetry/components/truncated-text";
 import {
-  formatElapsed,
+  formatDateTime,
+  formatDurationSeconds,
   formatRelativeTime,
-} from "@/features/telemetry/lib/format";
+} from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 const statusMeta: Record<InterruptStatus, CompactStatusMeta> = {
@@ -72,7 +73,7 @@ export function createInterruptColumns({
       sortKey: "created",
       defaultWidth: 104,
       cellClassName: "text-xs text-muted-foreground",
-      cellTitle: (interrupt) => new Date(interrupt.createdAt).toLocaleString(),
+      cellTitle: (interrupt) => formatDateTime(interrupt.createdAt),
       render: (interrupt) => (
         <TruncatedText>
           {formatRelativeTime(interrupt.createdAt, now)}
@@ -85,6 +86,15 @@ export function createInterruptColumns({
       sortKey: "age",
       defaultWidth: 130,
       cellClassName: "font-mono text-xs tabular-nums",
+      cellTitle: (interrupt) => {
+        const seconds = Math.max(
+          0,
+          ((interrupt.resolvedAt ? Date.parse(interrupt.resolvedAt) : now) -
+            Date.parse(interrupt.createdAt)) /
+            1_000,
+        );
+        return formatDurationSeconds(seconds, { style: "full" });
+      },
       render: (interrupt) => {
         const seconds = Math.max(
           0,
@@ -97,10 +107,10 @@ export function createInterruptColumns({
         return interrupt.status === "pending" ? (
           <TruncatedText>
             <span className="mr-1 inline-block size-1.5 animate-pulse rounded-full bg-amber-500" />
-            {formatElapsed(seconds)}
+            {formatDurationSeconds(seconds)}
           </TruncatedText>
         ) : (
-          <TruncatedText>{formatElapsed(seconds)}</TruncatedText>
+          <TruncatedText>{formatDurationSeconds(seconds)}</TruncatedText>
         );
       },
     },
