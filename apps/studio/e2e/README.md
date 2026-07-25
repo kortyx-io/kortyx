@@ -1,7 +1,8 @@
 # Studio detail drawer E2E architecture
 
-This suite is the executable handoff for KTX-25. Read this file before changing
-the detail stack, parallel-route slots, nested inspectors, or history behavior.
+This suite is the executable handoff for KTX-25 and KTX-17. Read this file
+before changing the detail stack, parallel-route slots, nested inspectors,
+history behavior, payload controls, or portalled overlays.
 
 ## Why browser coverage is required
 
@@ -34,6 +35,8 @@ test boundary.
   expose drawer identity and transition state.
 - `data-detail-inspector` identifies the nested Trace/Event surface.
 - `data-detail-backdrop` exposes the one persistent stack backdrop.
+- `data-payload-viewer`, `data-mode`, `data-clean`, and `data-wrap` expose
+  payload presentation state while actions remain accessible by role and name.
 
 Prefer accessible roles and names for user actions. Use these attributes only
 for state or identity that accessibility semantics cannot distinguish.
@@ -56,6 +59,11 @@ web-first assertions, or `expect.poll`; do not add fixed sleeps.
 - an expanded detail keeps the modal backdrop over the sidebar;
 - a direct hard refresh renders drawer presentation instead of route
   presentation.
+- a dropdown or tooltip portal renders below its owning drawer or inspector;
+- payload representation, clean/raw, wrap, copy, Escape, or outside dismissal
+  stops working in a route, drawer, or nested inspector;
+- a query-only detail tab change duplicates a full-page detail as an
+  intercepting drawer.
 
 If a failure reveals a new regression class, add the scenario here and to the
-KTX-25 ticket before changing the implementation.
+relevant hardening ticket before changing the implementation.

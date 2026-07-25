@@ -20,6 +20,7 @@ import { Button } from "@/components/ui/button";
 import { OverflowText } from "@/components/ui/overflow-tooltip";
 import { useSidebar } from "@/components/ui/sidebar";
 import { useStudioQueryStates } from "@/lib/nuqs";
+import { OVERLAY_LAYERS } from "@/lib/overlay-layers";
 import { cn } from "@/lib/utils";
 
 type DetailDrawerContextValue = {
@@ -37,7 +38,7 @@ type DetailDrawerContextValue = {
 const DetailDrawerContext = createContext<DetailDrawerContextValue>({
   closing: false,
   isMobile: false,
-  layerZIndex: 50,
+  layerZIndex: OVERLAY_LAYERS.detailDrawerBase,
   nestedClosing: false,
   nestedOpen: false,
   presentation: "none",
@@ -176,7 +177,7 @@ export function DetailSurfaceProvider({ children }: { children: ReactNode }) {
       value={{
         closing: false,
         isMobile,
-        layerZIndex: 50,
+        layerZIndex: OVERLAY_LAYERS.detailDrawerBase,
         presentation: "route",
         supportsSplitInspector: true,
         ...nestedInspector,

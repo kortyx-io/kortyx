@@ -27,6 +27,7 @@ import {
 } from "@/components/detail/detail-stack-state";
 import { useSidebar } from "@/components/ui/sidebar";
 import { detailNavigationHref } from "@/lib/nuqs";
+import { detailDrawerZIndex } from "@/lib/overlay-layers";
 import { cn } from "@/lib/utils";
 
 export type { DetailLayerRegistration } from "@/components/detail/detail-stack-state";
@@ -391,6 +392,6 @@ export function useDetailStackLayer(registration: DetailLayerRegistration): {
       stack.layers
         .slice(index)
         .some((candidate) => candidate.splitOpen && !candidate.closing),
-    zIndex: 50 + Math.max(0, index) * 10,
+    zIndex: detailDrawerZIndex(index),
   };
 }

@@ -23,7 +23,8 @@ export function DetailTabs({
   const initialTab = tabs[0]?.id ?? "";
   const [requestedTab, setRequestedTab] = useStudioQueryState(
     queryKey,
-    parseAsString.withDefault(initialTab).withOptions({ shallow: true }),
+    parseAsString.withDefault(initialTab),
+    { shallow: true },
   );
   const selected = tabs.find((tab) => tab.id === requestedTab) ?? tabs[0];
   const detailDrawer = useDetailDrawer();

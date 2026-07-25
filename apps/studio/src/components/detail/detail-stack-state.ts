@@ -1,3 +1,5 @@
+import { OVERLAY_LAYERS } from "@/lib/overlay-layers";
+
 export type DetailLayerRegistration = {
   dismissPath: string;
   id: string;
@@ -88,7 +90,7 @@ export function getDetailBackdropState(layers: DetailLayer[]) {
     // Keep one backdrop behind every drawer surface. Putting it between
     // stacked layers blocks the visible ancestor slivers that intentionally
     // let users peel the stack back to an earlier entity.
-    zIndex: 45,
+    zIndex: OVERLAY_LAYERS.detailBackdrop,
   };
 }
 

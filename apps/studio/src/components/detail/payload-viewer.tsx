@@ -11,7 +11,7 @@ import {
   Sparkles,
   TextWrap,
 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { chromeLight, ObjectInspector } from "react-inspector";
 import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -28,6 +28,7 @@ import {
 import { cn } from "@/lib/utils";
 
 type ViewMode = "pretty" | "json" | "yaml" | "markdown" | "text";
+type CopyStatus = "idle" | "copied" | "failed";
 
 const VIEW_MODES: Array<{
   id: ViewMode;
@@ -37,7 +38,7 @@ const VIEW_MODES: Array<{
   { id: "pretty", label: "Pretty", icon: Sparkles },
   { id: "json", label: "JSON", icon: Braces },
   { id: "yaml", label: "YAML", icon: CodeXml },
-  { id: "markdown", label: "MD", icon: FileText },
+  { id: "markdown", label: "Markdown", icon: FileText },
   { id: "text", label: "Text", icon: AlignLeft },
 ];
 
@@ -53,7 +54,7 @@ export function PayloadViewer({
   const [mode, setMode] = useState<ViewMode>(defaultMode);
   const [clean, setClean] = useState(true);
   const [wrap, setWrap] = useState(true);
-  const [copied, setCopied] = useState(false);
+  const [copyStatus, setCopyStatus] = useState<CopyStatus>("idle");
   const activeMode =
     VIEW_MODES.find((item) => item.id === mode) ?? VIEW_MODES[0];
   const ActiveModeIcon = activeMode.icon;
@@ -72,19 +73,31 @@ export function PayloadViewer({
           ? serialized.text
           : serialized.json;
 
-  function copy() {
-    navigator.clipboard
-      .writeText(copyValue)
-      .then(() => {
-        setCopied(true);
-        window.setTimeout(() => setCopied(false), 1_500);
-      })
-      .catch(() => undefined);
+  useEffect(() => {
+    if (copyStatus !== "copied") return;
+    const timer = window.setTimeout(() => setCopyStatus("idle"), 1_500);
+    return () => window.clearTimeout(timer);
+  }, [copyStatus]);
+
+  async function copy() {
+    try {
+      if (!navigator.clipboard?.writeText) {
+        throw new Error("Clipboard API unavailable");
+      }
+      await navigator.clipboard.writeText(copyValue);
+      setCopyStatus("copied");
+    } catch {
+      setCopyStatus("failed");
+    }
   }
 
   return (
     <section
       aria-label="Payload viewer"
+      data-payload-viewer
+      data-mode={mode}
+      data-clean={clean}
+      data-wrap={wrap}
       className={cn(
         "min-w-0 overflow-hidden rounded-lg border bg-muted/10 shadow-xs",
         className,
@@ -133,8 +146,11 @@ export function PayloadViewer({
             type="button"
             variant="ghost"
             size="xs"
+            aria-label={
+              clean ? "Show raw payload" : "Hide empty payload values"
+            }
             aria-pressed={clean}
-            title="Hide or show empty values"
+            title={clean ? "Show raw payload" : "Hide empty payload values"}
             onClick={() => setClean((current) => !current)}
             className={cn(clean && "bg-background shadow-xs")}
           >
@@ -162,17 +178,39 @@ export function PayloadViewer({
             type="button"
             variant="ghost"
             size="icon-xs"
-            aria-label={copied ? "Copied" : `Copy ${mode}`}
-            title={copied ? "Copied" : `Copy ${mode}`}
-            onClick={copy}
+            aria-label={
+              copyStatus === "copied"
+                ? "Copied"
+                : copyStatus === "failed"
+                  ? "Copy failed. Try again"
+                  : `Copy ${activeMode.label} payload`
+            }
+            title={
+              copyStatus === "copied"
+                ? "Copied"
+                : copyStatus === "failed"
+                  ? "Copy failed. Try again"
+                  : `Copy ${activeMode.label} payload`
+            }
+            data-copy-state={copyStatus}
+            onClick={() => void copy()}
           >
-            {copied ? <Check /> : <Clipboard />}
+            {copyStatus === "copied" ? <Check /> : <Clipboard />}
           </Button>
+          <output className="sr-only" aria-live="polite">
+            {copyStatus === "copied"
+              ? `${activeMode.label} payload copied`
+              : copyStatus === "failed"
+                ? "Could not copy payload"
+                : ""}
+          </output>
         </div>
       </div>
 
       <div
         role="tabpanel"
+        aria-label={`${activeMode.label} payload`}
+        data-payload-content
         className="data-table-body-scroll max-h-[28rem] min-h-28 overflow-auto"
       >
         {mode === "pretty" && (

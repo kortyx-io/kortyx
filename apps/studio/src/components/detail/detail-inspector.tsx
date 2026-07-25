@@ -14,6 +14,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
+import { detailInspectorZIndex } from "@/lib/overlay-layers";
 import { cn } from "@/lib/utils";
 
 export function DetailInspectorDrawer({
@@ -95,6 +96,7 @@ export function DetailInspectorDrawer({
 
   const closing =
     detailSurface.closing || detailSurface.nestedClosing || selfClosing;
+  const inspectorLayers = detailInspectorZIndex(detailSurface.layerZIndex);
 
   return (
     <Sheet
@@ -109,11 +111,11 @@ export function DetailInspectorDrawer({
       <SheetContent
         data-detail-inspector
         showCloseButton={false}
-        overlayClassName="pointer-events-none z-[60] bg-overlay/45"
-        overlayStyle={{ zIndex: detailSurface.layerZIndex + 5 }}
+        overlayClassName="pointer-events-none bg-overlay/45"
+        overlayStyle={{ zIndex: inspectorLayers.backdrop }}
         onInteractOutside={(event) => event.preventDefault()}
-        style={{ zIndex: detailSurface.layerZIndex + 10 }}
-        className="top-12 right-4 bottom-4 left-4 z-[70] h-auto w-auto gap-0 rounded-xl border p-0 sm:left-auto sm:w-[30rem] sm:max-w-none"
+        style={{ zIndex: inspectorLayers.surface }}
+        className="top-12 right-4 bottom-4 left-4 h-auto w-auto gap-0 rounded-xl border p-0 sm:left-auto sm:w-[30rem] sm:max-w-none"
       >
         <SheetHeader className="h-14 shrink-0 justify-center gap-0.5 border-b px-4 py-0">
           <div className="flex min-w-0 items-center gap-2">
