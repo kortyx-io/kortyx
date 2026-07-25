@@ -101,6 +101,14 @@ KORTYX_STUDIO_API_KEY=ktyx_test_replace_with_bootstrap_studio_read_key
 client is server-only and should only be imported by server components, route
 handlers, or server actions.
 
+The Runs, Sessions, and Interrupts Live controls use a same-origin SSE bridge.
+Telemetry commits publish compact project-scoped invalidations; server
+components then refresh the current route. This avoids fixed polling while
+preserving server-side filtering and pagination. When the stream is unhealthy,
+Studio uses a jittered 30–60 second fallback and stops it after reconnection.
+See [Studio live refresh](../../docs/design-specs/studio-live-refresh.md) for
+the security, scaling, failure, and test boundaries.
+
 ## Self-hosted OSS stack
 
 From published images:

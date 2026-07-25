@@ -275,6 +275,21 @@ export const StudioPricingStatusSchema = z.enum([
 ]);
 export const StudioPricingSourceSchema =
   TelemetryPricingSourceSchema.nullable();
+export const StudioChangeResourceSchema = z.enum([
+  "runs",
+  "sessions",
+  "interrupts",
+]);
+export const StudioChangeSchema = z
+  .object({
+    schemaVersion: z.literal(1),
+    changeId: z.string().min(1),
+    emittedAt: z.string().datetime({ offset: true }),
+    organizationId: z.string().min(1),
+    projectId: z.string().min(1),
+    resources: z.array(StudioChangeResourceSchema).min(1),
+  })
+  .strict();
 export const StudioMetricSchema = z
   .object({
     runCount: z.number().int().nonnegative(),
@@ -527,6 +542,8 @@ export type StudioResumeOutcome = z.infer<typeof StudioResumeOutcomeSchema>;
 export type StudioWorkflowHealth = z.infer<typeof StudioWorkflowHealthSchema>;
 export type StudioPricingStatus = z.infer<typeof StudioPricingStatusSchema>;
 export type StudioPricingSource = z.infer<typeof StudioPricingSourceSchema>;
+export type StudioChangeResource = z.infer<typeof StudioChangeResourceSchema>;
+export type StudioChange = z.infer<typeof StudioChangeSchema>;
 export type StudioMetric = z.infer<typeof StudioMetricSchema>;
 export type StudioRun = z.infer<typeof StudioRunSchema>;
 export type StudioSession = z.infer<typeof StudioSessionSchema>;

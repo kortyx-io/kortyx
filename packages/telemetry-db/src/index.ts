@@ -32,6 +32,10 @@ export {
   ensureLocalDevelopmentProject,
   ensureProjectEnvironmentAllowed,
 } from "./repositories/projects";
+export {
+  notifyStudioChange,
+  STUDIO_CHANGE_CHANNEL,
+} from "./repositories/studio-changes";
 export type {
   StudioListPage,
   StudioListQuery,

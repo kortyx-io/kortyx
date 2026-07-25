@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useState } from "react";
 import { DataTable, DataTableProvider } from "@/components/data-table";
 import { createRunColumns } from "@/features/runs/components/run-table-columns";
 import { RunsEmptyState } from "@/features/runs/components/runs-empty-state";
@@ -15,6 +15,7 @@ import {
   type RunsTablePreferences,
 } from "@/features/runs/lib/table-preferences";
 import type { Run } from "@/features/runs/schema";
+import { useLiveRefresh } from "@/features/telemetry/hooks/use-live-refresh";
 import { detailNavigationHref } from "@/lib/nuqs";
 import { cn } from "@/lib/utils";
 
@@ -48,9 +49,9 @@ export default function RunsPageClient({
     dir: prefs.value.dir,
     pageSize: prefs.value.pageSize,
   });
-  const [refreshing, startRefreshTransition] = useTransition();
   const [now, setNow] = useState(0);
   const { live } = runsQuery;
+  const liveRefresh = useLiveRefresh({ enabled: live, resource: "runs" });
   const hasActiveRuns = runsQuery.filteredRuns.some(
     (run) => run.status === "running" || run.status === "interrupted",
   );
@@ -117,16 +118,13 @@ export default function RunsPageClient({
             <RunsToolbar
               query={runsQuery}
               live={live}
-              refreshing={refreshing}
+              liveStatus={liveRefresh.status}
+              refreshing={liveRefresh.refreshing}
               filtersOpen={runsQuery.filtersOpen}
               views={prefs.value.views}
               onToggleLive={() => runsQuery.setLive(!live)}
               onToggleFilters={runsQuery.toggleFiltersOpen}
-              onRefresh={() =>
-                startRefreshTransition(() => {
-                  router.refresh();
-                })
-              }
+              onRefresh={liveRefresh.refreshNow}
               onViewsChange={(views) => prefs.save({ views })}
             />
           }

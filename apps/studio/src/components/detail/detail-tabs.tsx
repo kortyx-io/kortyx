@@ -24,7 +24,6 @@ export function DetailTabs({
   const [requestedTab, setRequestedTab] = useStudioQueryState(
     queryKey,
     parseAsString.withDefault(initialTab),
-    { shallow: true },
   );
   const selected = tabs.find((tab) => tab.id === requestedTab) ?? tabs[0];
   const detailDrawer = useDetailDrawer();
@@ -53,7 +52,9 @@ export function DetailTabs({
       }, DETAIL_MOTION_DURATION_MS);
       detailDrawer.requestNestedClose();
     }
-    void setRequestedTab(nextId === initialTab ? null : nextId);
+    void setRequestedTab(nextId === initialTab ? null : nextId, {
+      shallow: true,
+    });
   };
 
   const renderedTabs = tabs.filter(

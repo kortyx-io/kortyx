@@ -3,9 +3,11 @@ import type {
   KortyxTelemetryEvent,
   StudioRun,
 } from "@kortyx/telemetry-contracts";
+import { StudioChangeSchema } from "@kortyx/telemetry-contracts";
 import { eq, sql } from "drizzle-orm";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { createTelemetryDbClient, type TelemetryDbClient } from "../src/client";
+import { STUDIO_CHANGE_CHANNEL } from "../src/repositories/studio-changes";
 import { listStudioRuns } from "../src/repositories/studio-lists";
 import { backfillStudioProjections } from "../src/repositories/studio-projections";
 import { getStudioRunReadModel } from "../src/repositories/studio-read-models";
@@ -304,6 +306,56 @@ integration("Studio SQL projections", () => {
     expect(first).toEqual({ accepted: 1, inserted: 1, duplicates: 0 });
     expect(duplicate).toEqual({ accepted: 1, inserted: 0, duplicates: 1 });
     expect(projected.items.map((run) => run.id)).toEqual(["run-ingested"]);
+  });
+
+  it("publishes one compact invalidation only after a new event commits", async () => {
+    const event: KortyxTelemetryEvent = {
+      schemaVersion: 1,
+      eventId: `event-${randomUUID()}`,
+      occurredAt: new Date().toISOString(),
+      environment: "test",
+      service: { name: "integration-test" },
+      correlation: {
+        runId: `run-change-${randomUUID()}`,
+        sessionId: `session-change-${randomUUID()}`,
+        workflowId: "workflow-a",
+      },
+      type: "span.started",
+      payload: { name: "kortyx.run", privateValue: "never-forwarded" },
+    };
+    const changes: unknown[] = [];
+    const listener = await client.sql.listen(
+      STUDIO_CHANGE_CHANNEL,
+      (payload) => {
+        changes.push(JSON.parse(payload) as unknown);
+      },
+    );
+
+    try {
+      await ingestTelemetryEvents(client.db, {
+        organizationId: organizationA,
+        projectId: projectA,
+        events: [event],
+      });
+      await vi.waitFor(() => expect(changes).toHaveLength(1));
+      const change = StudioChangeSchema.parse(changes[0]);
+      expect(change).toMatchObject({
+        organizationId: organizationA,
+        projectId: projectA,
+        resources: ["runs", "sessions"],
+      });
+      expect(JSON.stringify(change)).not.toContain("privateValue");
+
+      await ingestTelemetryEvents(client.db, {
+        organizationId: organizationA,
+        projectId: projectA,
+        events: [event],
+      });
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      expect(changes).toHaveLength(1);
+    } finally {
+      await listener.unlisten();
+    }
   });
 
   it("rebuilds a missing projection with parity from immutable events", async () => {

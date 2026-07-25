@@ -21,6 +21,8 @@ export const DRAWER_FIXTURE = {
   workflowId: `${FIXTURE_PREFIX}-workflow`,
 } as const;
 
+export const LIVE_RUN_ID = `${FIXTURE_PREFIX}-live-run`;
+
 const topology = {
   nodes: [
     { id: "chat", label: "Chat", type: "agent" },
@@ -373,6 +375,45 @@ export async function seedDrawerFixture(request: APIRequestContext) {
   await pollForProjection(request, "sessions", DRAWER_FIXTURE.sessionId);
   await pollForProjection(request, "runs", DRAWER_FIXTURE.runId);
   await pollForProjection(request, "interrupts", DRAWER_FIXTURE.interruptId);
+}
+
+export async function emitLiveRunChange(request: APIRequestContext) {
+  const response = await request.post(`${apiUrl}/v1/telemetry/events:batch`, {
+    headers: {
+      ...bearer(telemetryApiKey),
+      "content-type": "application/json",
+    },
+    data: {
+      events: [
+        {
+          schemaVersion: 1,
+          eventId: `${FIXTURE_PREFIX}-live-event`,
+          occurredAt: new Date().toISOString(),
+          environment: "development",
+          service: {
+            name: "kortyx-studio-e2e",
+            deploymentRef: "playwright-live",
+          },
+          correlation: {
+            runId: LIVE_RUN_ID,
+            workflowId: DRAWER_FIXTURE.workflowId,
+            topologyHash,
+            nodeId: "chat",
+            traceId: `${FIXTURE_PREFIX}-live-trace`,
+            spanId: `${FIXTURE_PREFIX}-live-span`,
+          },
+          context: {
+            userId: "e2e-live-user",
+            tenantId: "e2e-tenant",
+            tags: ["e2e", "ktx-18"],
+          },
+          type: "span.started",
+          payload: { name: "kortyx.run" },
+        },
+      ],
+    },
+  });
+  assertResponse(response.ok(), await response.text());
 }
 
 async function pollForProjection(

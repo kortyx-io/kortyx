@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   EnsureWorkflowTopologyRequestSchema,
   StudioCatalogsResponseSchema,
+  StudioChangeSchema,
   StudioRunsResponseSchema,
   TelemetryEventBatchResponseSchema,
   TelemetryEventBatchSchema,
@@ -132,6 +133,16 @@ describe("telemetry contracts", () => {
         tags: [],
       }).success,
     ).toBe(true);
+    expect(
+      StudioChangeSchema.safeParse({
+        schemaVersion: 1,
+        changeId: "change-1",
+        emittedAt: "2026-01-01T00:00:00.000Z",
+        organizationId: "org-1",
+        projectId: "project-1",
+        resources: ["runs", "sessions"],
+      }).success,
+    ).toBe(true);
   });
   it("rejects invalid fixtures", () => {
     expect(EnsureWorkflowTopologyRequestSchema.safeParse({}).success).toBe(
@@ -140,5 +151,16 @@ describe("telemetry contracts", () => {
     expect(TelemetryEventBatchSchema.safeParse({ events: [] }).success).toBe(
       false,
     );
+    expect(
+      StudioChangeSchema.safeParse({
+        schemaVersion: 1,
+        changeId: "change-1",
+        emittedAt: "2026-01-01T00:00:00.000Z",
+        organizationId: "org-1",
+        projectId: "project-1",
+        resources: ["runs"],
+        payload: { secret: true },
+      }).success,
+    ).toBe(false);
   });
 });

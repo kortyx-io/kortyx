@@ -54,5 +54,17 @@ describe("Kortyx API app", () => {
     expect(body.paths).toHaveProperty("/v1/studio/interrupts/{interruptId}");
     expect(body.paths).toHaveProperty("/v1/studio/workflows");
     expect(body.paths).toHaveProperty("/v1/studio/catalogs");
+    expect(body.paths).toHaveProperty("/v1/studio/changes");
+  });
+
+  it("protects the Studio change stream with Studio API-key auth", async () => {
+    const app = createApiApp({
+      db: {} as TelemetryDb,
+      apiKeyPepper: "test-pepper",
+    });
+
+    const response = await app.request("/v1/studio/changes");
+
+    expect(response.status).toBe(401);
   });
 });

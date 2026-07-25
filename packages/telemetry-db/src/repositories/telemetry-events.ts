@@ -1,8 +1,12 @@
-import type { KortyxTelemetryEvent } from "@kortyx/telemetry-contracts";
+import type {
+  KortyxTelemetryEvent,
+  StudioChangeResource,
+} from "@kortyx/telemetry-contracts";
 import type { TelemetryDb } from "../client";
 import { TelemetryForbiddenError } from "../errors";
 import { telemetryEvents } from "../schema";
 import { ensureProjectEnvironmentAllowed } from "./projects";
+import { notifyStudioChange } from "./studio-changes";
 import { refreshStudioProjectionScopes } from "./studio-projections";
 import {
   findWorkflowRevisionByTopology,
@@ -123,6 +127,8 @@ export const ingestTelemetryEvents = async (
       .returning({
         eventId: telemetryEvents.eventId,
         runId: telemetryEvents.runId,
+        sessionId: telemetryEvents.sessionId,
+        type: telemetryEvents.type,
       });
 
     if (rows.length > 0) {
@@ -130,6 +136,16 @@ export const ingestTelemetryEvents = async (
         organizationId: input.organizationId,
         projectId: input.projectId,
         runIds: rows.map((row) => row.runId),
+      });
+      const resources = new Set<StudioChangeResource>(["runs"]);
+      if (rows.some((row) => row.sessionId)) resources.add("sessions");
+      if (rows.some((row) => row.type.startsWith("interrupt."))) {
+        resources.add("interrupts");
+      }
+      await notifyStudioChange(transaction as TelemetryDb, {
+        organizationId: input.organizationId,
+        projectId: input.projectId,
+        resources: [...resources],
       });
     }
     return rows;

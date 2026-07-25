@@ -10,11 +10,14 @@ import {
 import { RunsViewsMenu } from "@/features/runs/components/runs-views-menu";
 import type { useRunsQuery } from "@/features/runs/hooks/use-runs-query";
 import type { RunsSavedView } from "@/features/runs/lib/saved-views";
+import { LiveRefreshButton } from "@/features/telemetry/components/live-refresh-button";
+import type { LiveRefreshStatus } from "@/features/telemetry/lib/live-refresh-controller";
 import { cn } from "@/lib/utils";
 
 type RunsToolbarProps = {
   query: ReturnType<typeof useRunsQuery>;
   live: boolean;
+  liveStatus: LiveRefreshStatus;
   refreshing: boolean;
   filtersOpen: boolean;
   views: RunsSavedView[];
@@ -27,6 +30,7 @@ type RunsToolbarProps = {
 export function RunsToolbar({
   query,
   live,
+  liveStatus,
   refreshing,
   filtersOpen,
   views,
@@ -49,21 +53,11 @@ export function RunsToolbar({
           </div>
         </div>
         <div className="flex items-center gap-1.5">
-          <Button
-            variant={live ? "secondary" : "ghost"}
-            size="sm"
-            onClick={onToggleLive}
-          >
-            <span
-              className={cn(
-                "size-1.5 rounded-full",
-                live
-                  ? "animate-pulse bg-emerald-500"
-                  : "bg-muted-foreground/50",
-              )}
-            />
-            Live
-          </Button>
+          <LiveRefreshButton
+            enabled={live}
+            status={liveStatus}
+            onToggle={onToggleLive}
+          />
           <Button
             variant="outline"
             size="icon-sm"

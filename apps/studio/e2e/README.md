@@ -1,6 +1,6 @@
 # Studio detail drawer E2E architecture
 
-This suite is the executable handoff for KTX-25 and KTX-17. Read this file
+This suite is the executable handoff for KTX-25, KTX-17, and KTX-18. Read this file
 before changing the detail stack, parallel-route slots, nested inspectors,
 history behavior, payload controls, or portalled overlays.
 
@@ -64,6 +64,11 @@ web-first assertions, or `expect.poll`; do not add fixed sleeps.
   stops working in a route, drawer, or nested inspector;
 - a query-only detail tab change duplicates a full-page detail as an
   intercepting drawer.
+- live mode polls every browser on a fixed interval instead of consuming
+  project-scoped invalidations;
+- a committed telemetry batch does not appear without a manual refresh;
+- live refresh loses the active filters, pagination URL, drawer, or table
+  scroll state.
 
 If a failure reveals a new regression class, add the scenario here and to the
 relevant hardening ticket before changing the implementation.

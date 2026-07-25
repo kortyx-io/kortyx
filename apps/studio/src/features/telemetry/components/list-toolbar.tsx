@@ -8,6 +8,8 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { LiveRefreshButton } from "@/features/telemetry/components/live-refresh-button";
+import type { LiveRefreshStatus } from "@/features/telemetry/lib/live-refresh-controller";
 import { cn } from "@/lib/utils";
 
 type ListToolbarProps = {
@@ -19,6 +21,7 @@ type ListToolbarProps = {
   filtersOpen: boolean;
   refreshing: boolean;
   live?: boolean;
+  liveStatus?: LiveRefreshStatus;
   onSearchChange: (value: string) => void;
   onToggleFilters: () => void;
   onRefresh: () => void;
@@ -37,6 +40,7 @@ export function ListToolbar({
   filtersOpen,
   refreshing,
   live,
+  liveStatus = live ? "connecting" : "off",
   onSearchChange,
   onToggleFilters,
   onRefresh,
@@ -53,21 +57,11 @@ export function ListToolbar({
         </div>
         <div className="flex items-center gap-1.5">
           {onToggleLive && (
-            <Button
-              variant={live ? "secondary" : "ghost"}
-              size="sm"
-              onClick={onToggleLive}
-            >
-              <span
-                className={cn(
-                  "size-1.5 rounded-full",
-                  live
-                    ? "animate-pulse bg-emerald-500"
-                    : "bg-muted-foreground/50",
-                )}
-              />
-              Live
-            </Button>
+            <LiveRefreshButton
+              enabled={Boolean(live)}
+              status={liveStatus}
+              onToggle={onToggleLive}
+            />
           )}
           <Button
             variant="outline"

@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useState } from "react";
 import { DataTable, DataTableProvider } from "@/components/data-table";
 import { PAGE_SIZES } from "@/features/runs/lib/constants";
 import { createSessionColumns } from "@/features/sessions/components/session-table-columns";
@@ -19,6 +19,7 @@ import type { Session, SessionSortKey } from "@/features/sessions/schema";
 import { ListToolbar } from "@/features/telemetry/components/list-toolbar";
 import { ListViewsMenu } from "@/features/telemetry/components/list-views-menu";
 import { useListTablePreferences } from "@/features/telemetry/hooks/use-list-table-preferences";
+import { useLiveRefresh } from "@/features/telemetry/hooks/use-live-refresh";
 import type { ListTablePreferences } from "@/features/telemetry/lib/table-preferences";
 import { detailNavigationHref } from "@/lib/nuqs";
 import { cn } from "@/lib/utils";
@@ -48,7 +49,10 @@ export default function SessionsPageClient({
     dir: prefs.value.dir,
     pageSize: prefs.value.pageSize,
   });
-  const [refreshing, startRefreshTransition] = useTransition();
+  const liveRefresh = useLiveRefresh({
+    enabled: query.live,
+    resource: "sessions",
+  });
   const [now, setNow] = useState(initialNow);
   const hasActiveSessions = query.filteredSessions.some(
     (session) =>
@@ -107,17 +111,14 @@ export default function SessionsPageClient({
               searchPlaceholder="Search sessions, users, workflows, errors…"
               activeFilterCount={query.activeFilterCount}
               filtersOpen={query.filtersOpen}
-              refreshing={refreshing}
+              refreshing={liveRefresh.refreshing}
               live={query.live}
+              liveStatus={liveRefresh.status}
               onSearchChange={(value) => query.setParams({ q: value || null })}
               onToggleFilters={query.toggleFiltersOpen}
               onClearFilters={query.clearFilters}
               onToggleLive={() => query.setLive(!query.live)}
-              onRefresh={() =>
-                startRefreshTransition(() => {
-                  router.refresh();
-                })
-              }
+              onRefresh={liveRefresh.refreshNow}
               views={
                 <ListViewsMenu
                   currentQuery={query.viewQuery}
