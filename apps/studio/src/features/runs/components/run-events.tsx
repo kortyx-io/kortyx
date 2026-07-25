@@ -14,10 +14,8 @@ import {
   Play,
   Wrench,
 } from "lucide-react";
-import { useRouter, useSearchParams } from "next/navigation";
 import { parseAsString } from "nuqs";
-import { Fragment, useMemo, useRef } from "react";
-import { useDetailDrawer } from "@/components/detail/detail-drawer";
+import { Fragment, useMemo } from "react";
 import { DetailInspectorDrawer } from "@/components/detail/detail-inspector";
 import { KeyValue, StatusPill } from "@/components/detail/detail-primitives";
 import { PayloadViewer } from "@/components/detail/payload-viewer";
@@ -50,32 +48,16 @@ export function RunEvents({
     () => buildEventStory(events, startedAt),
     [events, startedAt],
   );
-  const detailSurface = useDetailDrawer();
-  const router = useRouter();
-  const searchParams = useSearchParams();
-  const selectionPushedRef = useRef(false);
   const [{ event: eventId }, setEventQuery] = useStudioQueryStates(
     eventQueryParsers,
     { shallow: true },
   );
   const selected = items.find((item) => item.event.id === eventId);
   const selectEvent = (selectedEventId: string) => {
-    selectionPushedRef.current = detailSurface.presentation !== "none";
     void setEventQuery({ event: selectedEventId });
   };
   const closeEvent = () => {
-    const activeTab = searchParams.get("tab") ?? "overview";
-    if (
-      detailSurface.presentation !== "none" &&
-      activeTab === "events" &&
-      selectionPushedRef.current
-    ) {
-      selectionPushedRef.current = false;
-      router.back();
-      return;
-    }
-    selectionPushedRef.current = false;
-    void setEventQuery({ event: null }, { history: "replace" });
+    void setEventQuery({ event: null });
   };
 
   if (items.length === 0) return <Empty label="No events captured." />;

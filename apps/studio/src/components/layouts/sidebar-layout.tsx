@@ -9,8 +9,10 @@ import {
 
 export async function SidebarLayout({
   children,
+  detailSlots,
 }: {
   children: React.ReactNode;
+  detailSlots?: React.ReactNode;
 }) {
   const cookieStore = await cookies();
   const defaultOpen = cookieStore.get("sidebar_state")?.value !== "false";
@@ -27,6 +29,7 @@ export async function SidebarLayout({
           {children}
         </main>
       </SidebarInset>
+      {detailSlots}
     </SidebarProvider>
   );
 }

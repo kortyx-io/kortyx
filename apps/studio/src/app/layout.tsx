@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { cookies } from "next/headers";
 import { NuqsAdapter } from "nuqs/adapters/next/app";
+import { DetailSlotPresence } from "@/components/detail/detail-slot-presence";
+import { DetailStackProvider } from "@/components/detail/detail-stack";
 import { SidebarLayout } from "@/components/layouts/sidebar-layout";
 import { ThemeProvider } from "@/components/theme-toggle";
 import {
@@ -59,8 +61,14 @@ export const metadata: Metadata = {
 
 export default async function RootLayout({
   children,
+  interruptDrawer,
+  runDrawer,
+  sessionDrawer,
 }: Readonly<{
   children: React.ReactNode;
+  interruptDrawer: React.ReactNode;
+  runDrawer: React.ReactNode;
+  sessionDrawer: React.ReactNode;
 }>) {
   const cookieStore = await cookies();
   const theme = parseThemePreference(
@@ -94,7 +102,17 @@ export default async function RootLayout({
       >
         <ThemeProvider initialTheme={theme}>
           <NuqsAdapter>
-            <SidebarLayout>{children}</SidebarLayout>
+            <SidebarLayout
+              detailSlots={
+                <DetailStackProvider>
+                  <DetailSlotPresence>{sessionDrawer}</DetailSlotPresence>
+                  <DetailSlotPresence>{runDrawer}</DetailSlotPresence>
+                  <DetailSlotPresence>{interruptDrawer}</DetailSlotPresence>
+                </DetailStackProvider>
+              }
+            >
+              {children}
+            </SidebarLayout>
           </NuqsAdapter>
         </ThemeProvider>
       </body>

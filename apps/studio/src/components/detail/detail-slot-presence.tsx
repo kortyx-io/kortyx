@@ -1,6 +1,5 @@
 "use client";
 
-import { usePathname } from "next/navigation";
 import {
   createContext,
   type ReactNode,
@@ -13,11 +12,13 @@ import {
 import { DETAIL_MOTION_DURATION_MS } from "@/components/detail/detail-motion";
 
 type DetailSlotMotionValue = {
+  active: boolean;
   entered: boolean;
   markEntered: () => void;
 };
 
 const DetailSlotMotionContext = createContext<DetailSlotMotionValue>({
+  active: true,
   entered: false,
   markEntered: () => undefined,
 });
@@ -31,25 +32,16 @@ export function useDetailSlotMotion() {
  * Retain the last detail slot for exactly the shared motion duration so the
  * drawer can perform the same exit transition as an explicit close.
  */
-export function DetailSlotPresence({
-  basePath,
-  children,
-}: {
-  basePath: string;
-  children: ReactNode;
-}) {
-  const pathname = usePathname();
-  const active =
-    pathname.startsWith(`${basePath}/`) &&
-    pathname.slice(basePath.length + 1).length > 0;
+export function DetailSlotPresence({ children }: { children: ReactNode }) {
+  const active = children !== null && children !== undefined;
   const [renderedChildren, setRenderedChildren] = useState<ReactNode>(
     active ? children : null,
   );
   const [entered, setEntered] = useState(false);
   const markEntered = useCallback(() => setEntered(true), []);
   const motion = useMemo(
-    () => ({ entered, markEntered }),
-    [entered, markEntered],
+    () => ({ active, entered, markEntered }),
+    [active, entered, markEntered],
   );
 
   useEffect(() => {

@@ -1,17 +1,9 @@
 import type { ReactNode } from "react";
-import { DetailSlotPresence } from "@/components/detail/detail-slot-presence";
 
 export default function InterruptsLayout({
   children,
-  drawer,
 }: {
   children: ReactNode;
-  drawer: ReactNode;
 }) {
-  return (
-    <>
-      {children}
-      <DetailSlotPresence basePath="/interrupts">{drawer}</DetailSlotPresence>
-    </>
-  );
+  return children;
 }

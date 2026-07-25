@@ -1,7 +1,6 @@
 "use client";
 
-import { Maximize2, X } from "lucide-react";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { ChevronLeft, Maximize2, X } from "lucide-react";
 import { parseAsStringLiteral } from "nuqs";
 import {
   createContext,
@@ -9,20 +8,20 @@ import {
   useCallback,
   useContext,
   useEffect,
-  useRef,
   useState,
 } from "react";
-import { DETAIL_MOTION_DURATION_MS } from "@/components/detail/detail-motion";
 import { useDetailSlotMotion } from "@/components/detail/detail-slot-presence";
+import { useDetailStackLayer } from "@/components/detail/detail-stack";
 import { Button } from "@/components/ui/button";
 import { OverflowText } from "@/components/ui/overflow-tooltip";
 import { useSidebar } from "@/components/ui/sidebar";
-import { detailNavigationHref, useStudioQueryStates } from "@/lib/nuqs";
+import { useStudioQueryStates } from "@/lib/nuqs";
 import { cn } from "@/lib/utils";
 
 type DetailDrawerContextValue = {
   closing: boolean;
   isMobile: boolean;
+  layerZIndex: number;
   nestedClosing: boolean;
   nestedOpen: boolean;
   presentation: "none" | "route" | "drawer";
@@ -34,6 +33,7 @@ type DetailDrawerContextValue = {
 const DetailDrawerContext = createContext<DetailDrawerContextValue>({
   closing: false,
   isMobile: false,
+  layerZIndex: 50,
   nestedClosing: false,
   nestedOpen: false,
   presentation: "none",
@@ -59,6 +59,7 @@ export function DetailSurfaceProvider({ children }: { children: ReactNode }) {
       value={{
         closing: false,
         isMobile,
+        layerZIndex: 50,
         presentation: "route",
         supportsSplitInspector: true,
         ...nestedInspector,
@@ -82,42 +83,34 @@ export function DetailDrawer({
   description: string;
   children: ReactNode;
 }) {
-  const pathname = usePathname();
-  const router = useRouter();
-  const searchParams = useSearchParams();
   const { state, isMobile } = useSidebar();
   const [{ detailView }, setDetailView] = useStudioQueryStates(
     detailViewParsers,
     { shallow: true },
   );
-  const headingRef = useRef<HTMLHeadingElement>(null);
-  const closeTimerRef = useRef<number | null>(null);
-  const explicitCloseRef = useRef(false);
   const nestedInspector = useNestedInspectorState();
   const slotMotion = useDetailSlotMotion();
   const [entered, setEntered] = useState(slotMotion.entered);
-  const [closing, setClosing] = useState(false);
-  const routeVisible = pathname === matchPath;
-  const [rendered, setRendered] = useState(routeVisible);
-  const expanded = detailView === "expanded";
+  const [localClosing, setLocalClosing] = useState(false);
+  const layer = useDetailStackLayer({
+    dismissPath,
+    id: matchPath,
+    matchPath,
+  });
+  const expandedRequested = detailView === "expanded";
+  const expanded = expandedRequested || layer.expanded;
   const expandedView = expanded && !isMobile;
+  const closing = localClosing || layer.closing || !slotMotion.active;
+  const titleId = `detail-drawer-title-${matchPath.replaceAll(/[^a-zA-Z0-9_-]/g, "-")}`;
 
   const closeDrawer = useCallback(() => {
-    if (closing) return;
-    explicitCloseRef.current = true;
-    setClosing(true);
-    if (closeTimerRef.current !== null) {
-      window.clearTimeout(closeTimerRef.current);
-    }
-    closeTimerRef.current = window.setTimeout(() => {
-      closeTimerRef.current = null;
-      router.push(detailNavigationHref(dismissPath, searchParams));
-    }, DETAIL_MOTION_DURATION_MS);
-  }, [closing, dismissPath, router, searchParams]);
+    if (closing || !layer.isTop) return;
+    setLocalClosing(true);
+    layer.closeTop();
+  }, [closing, layer]);
 
   useEffect(() => {
-    if (!routeVisible) return;
-    headingRef.current?.focus();
+    if (!slotMotion.active || !layer.isTop) return;
     const onKeyDown = (event: KeyboardEvent) => {
       if (nestedInspector.nestedOpen) return;
       if (event.key === "Escape") closeDrawer();
@@ -127,6 +120,7 @@ export function DetailDrawer({
           !expandedView &&
           !target?.matches("input, textarea, select, [contenteditable=true]")
         ) {
+          layer.expand();
           void setDetailView(
             { detailView: "expanded" },
             { history: "replace" },
@@ -139,35 +133,26 @@ export function DetailDrawer({
   }, [
     closeDrawer,
     expandedView,
+    layer.expand,
+    layer.isTop,
     nestedInspector.nestedOpen,
-    routeVisible,
     setDetailView,
+    slotMotion.active,
   ]);
 
-  useEffect(
-    () => () => {
-      if (closeTimerRef.current !== null) {
-        window.clearTimeout(closeTimerRef.current);
-      }
-    },
-    [],
-  );
-
-  // Next updates the pathname before a retained parallel route is discarded.
-  // Keep this surface rendered during that pathname transition so browser
-  // Back/Forward receives the same exit motion as an explicit close.
-  // biome-ignore lint/correctness/useExhaustiveDependencies: this state machine intentionally reacts only to route identity
   useEffect(() => {
-    nestedInspector.setNestedOpen(false);
+    if (expandedRequested) layer.expand();
+  }, [expandedRequested, layer.expand]);
 
-    if (routeVisible) {
-      explicitCloseRef.current = false;
-      if (closeTimerRef.current !== null) {
-        window.clearTimeout(closeTimerRef.current);
-        closeTimerRef.current = null;
-      }
-      setRendered(true);
-      setClosing(false);
+  useEffect(() => {
+    layer.setSplitOpen(nestedInspector.nestedOpen);
+    return () => layer.setSplitOpen(false);
+  }, [layer.setSplitOpen, nestedInspector.nestedOpen]);
+
+  useEffect(() => {
+    if (slotMotion.active) {
+      setLocalClosing(false);
+      layer.reopen();
       if (slotMotion.entered) {
         setEntered(true);
         return;
@@ -180,31 +165,17 @@ export function DetailDrawer({
       return () => window.cancelAnimationFrame(frame);
     }
 
-    if (explicitCloseRef.current) {
-      explicitCloseRef.current = false;
-      setRendered(false);
-      setEntered(false);
-      setClosing(false);
-      return;
-    }
-
-    setClosing(true);
-    closeTimerRef.current = window.setTimeout(() => {
-      closeTimerRef.current = null;
-      setRendered(false);
-      setEntered(false);
-      setClosing(false);
-    }, DETAIL_MOTION_DURATION_MS);
-
-    return () => {
-      if (closeTimerRef.current !== null) {
-        window.clearTimeout(closeTimerRef.current);
-        closeTimerRef.current = null;
-      }
-    };
-  }, [matchPath, routeVisible, slotMotion]);
-
-  if (!rendered) return null;
+    nestedInspector.setNestedOpen(false);
+    setLocalClosing(true);
+    layer.beginClose();
+  }, [
+    layer.beginClose,
+    layer.reopen,
+    nestedInspector.setNestedOpen,
+    slotMotion.active,
+    slotMotion.entered,
+    slotMotion.markEntered,
+  ]);
 
   const sidebarOffset =
     state === "collapsed"
@@ -214,54 +185,67 @@ export function DetailDrawer({
     ? "1rem"
     : expanded
       ? sidebarOffset
-      : nestedInspector.nestedOpen
+      : layer.splitActive
         ? `max(${sidebarOffset}, calc(100vw - 73rem))`
-        : `max(${sidebarOffset}, calc(100vw - 33rem))`;
+        : `max(${sidebarOffset}, calc(100vw - ${33 + layer.depthAbove * 3}rem))`;
 
   return (
     <>
-      <button
-        type="button"
-        aria-label="Close detail"
-        tabIndex={-1}
-        onClick={closeDrawer}
-        className={cn(
-          "fixed inset-0 z-40 bg-overlay transition-opacity duration-300 ease-in-out",
-          expandedView && "pointer-events-none opacity-0",
-          (!entered || closing) && "pointer-events-none opacity-0",
-        )}
-      />
+      {layer.isBottom && (
+        <button
+          type="button"
+          aria-label="Close all details"
+          tabIndex={-1}
+          onClick={layer.closeAll}
+          className={cn(
+            "fixed inset-0 z-40 bg-overlay transition-opacity duration-300 ease-in-out",
+            expandedView && layer.isTop && "pointer-events-none opacity-0",
+            (!entered || closing) && "pointer-events-none opacity-0",
+          )}
+        />
+      )}
       <section
         role="dialog"
-        aria-modal={!expandedView && !nestedInspector.nestedOpen}
-        aria-labelledby="detail-drawer-title"
-        style={{ left }}
+        aria-modal={layer.isTop && !expandedView && !nestedInspector.nestedOpen}
+        aria-labelledby={titleId}
+        style={{ left, zIndex: layer.zIndex }}
         className={cn(
-          "fixed top-12 right-4 bottom-4 z-50 flex min-w-0 flex-col overflow-hidden rounded-xl border bg-background shadow-2xl transition-[left,translate] duration-300 ease-in-out",
+          "fixed top-12 right-4 bottom-4 flex min-w-0 flex-col overflow-hidden rounded-xl border bg-background shadow-2xl transition-[left,translate] duration-300 ease-in-out",
           (!entered || closing) && "translate-x-[calc(100%_+_1rem)]",
         )}
       >
+        {!layer.isTop && (
+          <button
+            type="button"
+            aria-label={`Return to ${title}`}
+            title={`Return to ${title}`}
+            onClick={layer.closeAbove}
+            className="absolute inset-y-0 left-0 z-20 flex w-12 items-start justify-center border-r bg-background/95 pt-[1.15rem] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          >
+            <ChevronLeft className="size-4" />
+          </button>
+        )}
         <header className="flex h-14 shrink-0 items-center gap-3 border-b px-4">
-          {!isMobile && !expandedView && (
+          {layer.isTop && !isMobile && !expandedView && (
             <Button
               type="button"
               variant="ghost"
               size="icon-sm"
               aria-label="Expand detail"
-              onClick={() =>
+              onClick={() => {
+                layer.expand();
                 void setDetailView(
                   { detailView: "expanded" },
                   { history: "replace" },
-                )
-              }
+                );
+              }}
             >
               <Maximize2 />
             </Button>
           )}
           <div className="min-w-0 flex-1">
             <h1
-              ref={headingRef}
-              id="detail-drawer-title"
+              id={titleId}
               tabIndex={-1}
               aria-label={title}
               className="min-w-0 text-sm font-semibold outline-none"
@@ -272,7 +256,7 @@ export function DetailDrawer({
               <OverflowText ariaLabel={description}>{description}</OverflowText>
             </p>
           </div>
-          {!expandedView && (
+          {layer.isTop && !expandedView && (
             <Button
               type="button"
               variant="ghost"
@@ -288,6 +272,7 @@ export function DetailDrawer({
           value={{
             closing,
             isMobile,
+            layerZIndex: layer.zIndex,
             presentation: "drawer",
             supportsSplitInspector: true,
             ...nestedInspector,

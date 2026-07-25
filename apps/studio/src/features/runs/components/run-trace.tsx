@@ -15,10 +15,8 @@ import {
   TimerReset,
   Wrench,
 } from "lucide-react";
-import { useRouter, useSearchParams } from "next/navigation";
 import { parseAsString } from "nuqs";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useDetailDrawer } from "@/components/detail/detail-drawer";
 import { DetailInspectorDrawer } from "@/components/detail/detail-inspector";
 import { KeyValue, StatusPill } from "@/components/detail/detail-primitives";
 import { PayloadViewer } from "@/components/detail/payload-viewer";
@@ -55,9 +53,6 @@ export function RunTrace({
   focusFailure: boolean;
 }) {
   const items = useMemo(() => buildTraceStory(events), [events]);
-  const detailSurface = useDetailDrawer();
-  const router = useRouter();
-  const searchParams = useSearchParams();
   const scale = useMemo(
     () => buildTimelineScale(events, startedAt),
     [events, startedAt],
@@ -72,7 +67,6 @@ export function RunTrace({
       : undefined) ?? undefined,
   );
   const autoFocusSyncedRef = useRef(false);
-  const selectionPushedRef = useRef(false);
   const selectedId = traceId || autoFocusId;
   const selected = items.find((item) => item.id === selectedId);
 
@@ -86,23 +80,11 @@ export function RunTrace({
 
   const selectItem = (itemId: string) => {
     setAutoFocusId(undefined);
-    selectionPushedRef.current = detailSurface.presentation !== "none";
     void setTraceQuery({ trace: itemId });
   };
   const closeItem = () => {
     setAutoFocusId(undefined);
-    const activeTab = searchParams.get("tab") ?? "overview";
-    if (
-      detailSurface.presentation !== "none" &&
-      activeTab === "trace" &&
-      selectionPushedRef.current
-    ) {
-      selectionPushedRef.current = false;
-      router.back();
-      return;
-    }
-    selectionPushedRef.current = false;
-    void setTraceQuery({ trace: null }, { history: "replace" });
+    void setTraceQuery({ trace: null });
   };
 
   if (items.length === 0)

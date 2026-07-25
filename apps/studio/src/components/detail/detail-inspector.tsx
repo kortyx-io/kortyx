@@ -109,7 +109,9 @@ export function DetailInspectorDrawer({
       <SheetContent
         showCloseButton={false}
         overlayClassName="pointer-events-none z-[60] bg-overlay/45"
+        overlayStyle={{ zIndex: detailSurface.layerZIndex + 5 }}
         onInteractOutside={(event) => event.preventDefault()}
+        style={{ zIndex: detailSurface.layerZIndex + 10 }}
         className="top-12 right-4 bottom-4 left-4 z-[70] h-auto w-auto gap-0 rounded-xl border p-0 sm:left-auto sm:w-[30rem] sm:max-w-none"
       >
         <SheetHeader className="h-14 shrink-0 justify-center gap-0.5 border-b px-4 py-0">
