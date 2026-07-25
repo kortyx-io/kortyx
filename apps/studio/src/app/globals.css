@@ -138,7 +138,7 @@
 
 @layer components {
   @starting-style {
-    [data-detail-drawer][data-state="open"] {
+    [data-detail-drawer][data-entry-motion="enter"][data-state="open"] {
       translate: calc(100% + 1rem) 0;
     }
   }

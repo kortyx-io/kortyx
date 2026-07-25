@@ -213,6 +213,7 @@ export function DetailDrawer({
       )}
       <section
         data-detail-drawer
+        data-entry-motion={slotMotion.entered ? "preserve" : "enter"}
         data-state={closing ? "closed" : "open"}
         role="dialog"
         aria-modal={layer.isTop && !expandedView && !nestedInspector.nestedOpen}
