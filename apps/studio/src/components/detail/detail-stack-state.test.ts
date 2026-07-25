@@ -6,6 +6,7 @@ import {
   registerDetailLayer,
   setDetailLayerClosing,
   setDetailLayerSplitOpen,
+  syncDetailLayersToHistoryPath,
 } from "./detail-stack-state";
 
 const session = {
@@ -78,5 +79,37 @@ describe("detail stack transitions", () => {
       true,
       true,
     ]);
+  });
+
+  it("closes the top layer when history returns to an ancestor", () => {
+    const layers = registerDetailLayer(registerDetailLayer([], session), run);
+
+    expect(
+      syncDetailLayersToHistoryPath(layers, session.matchPath).map(
+        (layer) => layer.closing,
+      ),
+    ).toEqual([false, true]);
+  });
+
+  it("closes the full stack when history returns to a list", () => {
+    const layers = registerDetailLayer(registerDetailLayer([], session), run);
+
+    expect(
+      syncDetailLayersToHistoryPath(layers, "/sessions").map(
+        (layer) => layer.closing,
+      ),
+    ).toEqual([true, true]);
+  });
+
+  it("reopens retained layers when history moves forward", () => {
+    const layers = closeAllDetailLayers(
+      registerDetailLayer(registerDetailLayer([], session), run),
+    );
+
+    expect(
+      syncDetailLayersToHistoryPath(layers, run.matchPath).map(
+        (layer) => layer.closing,
+      ),
+    ).toEqual([false, false]);
   });
 });

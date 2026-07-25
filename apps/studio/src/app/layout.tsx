@@ -105,9 +105,15 @@ export default async function RootLayout({
             <SidebarLayout
               detailSlots={
                 <DetailStackProvider>
-                  <DetailSlotPresence>{sessionDrawer}</DetailSlotPresence>
-                  <DetailSlotPresence>{runDrawer}</DetailSlotPresence>
-                  <DetailSlotPresence>{interruptDrawer}</DetailSlotPresence>
+                  <DetailSlotPresence dismissPath="/sessions">
+                    {sessionDrawer}
+                  </DetailSlotPresence>
+                  <DetailSlotPresence dismissPath="/runs">
+                    {runDrawer}
+                  </DetailSlotPresence>
+                  <DetailSlotPresence dismissPath="/interrupts">
+                    {interruptDrawer}
+                  </DetailSlotPresence>
                 </DetailStackProvider>
               }
             >

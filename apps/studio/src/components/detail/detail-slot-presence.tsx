@@ -10,6 +10,7 @@ import {
   useState,
 } from "react";
 import { DETAIL_MOTION_DURATION_MS } from "@/components/detail/detail-motion";
+import { useDetailStackSlotClosing } from "@/components/detail/detail-stack";
 
 type DetailSlotMotionValue = {
   active: boolean;
@@ -32,8 +33,15 @@ export function useDetailSlotMotion() {
  * Retain the last detail slot for exactly the shared motion duration so the
  * drawer can perform the same exit transition as an explicit close.
  */
-export function DetailSlotPresence({ children }: { children: ReactNode }) {
-  const active = children !== null && children !== undefined;
+export function DetailSlotPresence({
+  children,
+  dismissPath,
+}: {
+  children: ReactNode;
+  dismissPath: string;
+}) {
+  const layerClosing = useDetailStackSlotClosing(dismissPath);
+  const active = children !== null && children !== undefined && !layerClosing;
   const [renderedChildren, setRenderedChildren] = useState<ReactNode>(
     active ? children : null,
   );

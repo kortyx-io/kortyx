@@ -21,6 +21,7 @@ import {
   registerDetailLayer,
   setDetailLayerClosing,
   setDetailLayerSplitOpen,
+  syncDetailLayersToHistoryPath,
 } from "@/components/detail/detail-stack-state";
 import { detailNavigationHref } from "@/lib/nuqs";
 
@@ -179,6 +180,16 @@ export function DetailStackProvider({ children }: { children: ReactNode }) {
     [],
   );
 
+  useEffect(() => {
+    const syncToHistory = () => {
+      setLayers((current) =>
+        syncDetailLayersToHistoryPath(current, window.location.pathname),
+      );
+    };
+    window.addEventListener("popstate", syncToHistory);
+    return () => window.removeEventListener("popstate", syncToHistory);
+  }, []);
+
   const value = useMemo(
     () => ({
       beginClose,
@@ -209,6 +220,19 @@ export function DetailStackProvider({ children }: { children: ReactNode }) {
       {children}
     </DetailStackContext.Provider>
   );
+}
+
+export function useDetailStackSlotClosing(dismissPath: string) {
+  const stack = useContext(DetailStackContext);
+  if (!stack) {
+    throw new Error(
+      "Detail drawer slots must be rendered inside DetailStackProvider",
+    );
+  }
+  const layer = stack.layers
+    .filter((candidate) => candidate.dismissPath === dismissPath)
+    .at(-1);
+  return layer?.closing ?? false;
 }
 
 export function useDetailStackLayer(registration: DetailLayerRegistration): {

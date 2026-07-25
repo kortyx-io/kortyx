@@ -78,3 +78,17 @@ export function closeDetailLayersAbove(
 export function closeAllDetailLayers(layers: DetailLayer[]): DetailLayer[] {
   return layers.map((layer) => ({ ...layer, closing: true }));
 }
+
+export function syncDetailLayersToHistoryPath(
+  layers: DetailLayer[],
+  pathname: string,
+): DetailLayer[] {
+  const targetIndex = layers.findLastIndex(
+    (layer) => layer.matchPath === pathname,
+  );
+  if (targetIndex < 0) return closeAllDetailLayers(layers);
+  return layers.map((layer, index) => ({
+    ...layer,
+    closing: index > targetIndex,
+  }));
+}
