@@ -82,16 +82,18 @@ const runStatusOrder = sql<number>`case ${studioRuns.status}
   when 'running' then 0
   when 'completed' then 1
   when 'interrupted' then 2
-  when 'failed' then 3
-  when 'cancelled' then 4
-  else 5 end`;
+  when 'incomplete' then 3
+  when 'failed' then 4
+  when 'cancelled' then 5
+  else 6 end`;
 const sessionStatusOrder = sql<number>`case ${studioSessions.status}
   when 'running' then 0
   when 'completed' then 1
   when 'interrupted' then 2
-  when 'failed' then 3
-  when 'cancelled' then 4
-  else 5 end`;
+  when 'incomplete' then 3
+  when 'failed' then 4
+  when 'cancelled' then 5
+  else 6 end`;
 const interruptStatusOrder = sql<number>`case ${studioInterrupts.status}
   when 'pending' then 0
   when 'resolved' then 1

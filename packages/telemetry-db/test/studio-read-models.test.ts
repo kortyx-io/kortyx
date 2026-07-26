@@ -263,6 +263,124 @@ describe("Studio read model projection", () => {
     });
   });
 
+  it("accepts a later terminal root event when its start event was not delivered", () => {
+    const models = createStudioReadModelsFromRecords({
+      revisions: [revision()],
+      rates: [],
+      events: [
+        event(0, {
+          eventId: "orphan-root-start",
+          type: "span.started",
+          spanId: "root-1",
+          payload: { name: "kortyx.run" },
+        }),
+        event(500, {
+          eventId: "interrupt-created",
+          type: "interrupt.created",
+          nodeId: "fetchDiscoveryCanvasInputs",
+          payload: {
+            interruptId: "human-1",
+            kind: "choice",
+            optionCount: 0,
+          },
+        }),
+        event(600, {
+          eventId: "interrupt-resolved",
+          type: "interrupt.resolved",
+          nodeId: "fetchDiscoveryCanvasInputs",
+          payload: {
+            interruptId: "human-1",
+            resumeOutcome: "resumed",
+          },
+        }),
+        event(2_000, {
+          eventId: "resumed-root-ended",
+          type: "span.ended",
+          spanId: "root-2",
+          payload: { name: "kortyx.run", durationMs: 1_000 },
+        }),
+      ],
+    });
+
+    expect(models.runs).toHaveLength(1);
+    expect(models.runs[0]).toMatchObject({
+      id: "run-1",
+      status: "completed",
+      endedAt: new Date(baseTime + 2_000).toISOString(),
+      durationMs: 2_000,
+    });
+    expect(models.sessions[0]).toMatchObject({
+      id: "session-1",
+      status: "completed",
+      succeeded: 1,
+      interrupted: 0,
+      pendingInterruptId: null,
+    });
+    expect(models.interrupts[0]).toMatchObject({
+      id: "human-1",
+      status: "resolved",
+    });
+  });
+
+  it("marks a start-only run incomplete after the session later terminates", () => {
+    const models = createStudioReadModelsFromRecords({
+      revisions: [revision()],
+      rates: [],
+      events: [
+        event(0, {
+          eventId: "abandoned-root-start",
+          type: "span.started",
+          runId: "run-abandoned",
+          spanId: "root-abandoned",
+          payload: { name: "kortyx.run" },
+        }),
+        event(500, {
+          eventId: "abandoned-node-start",
+          type: "span.started",
+          runId: "run-abandoned",
+          spanId: "node-abandoned",
+          nodeId: "fetchDiscoveryCanvasInputs",
+          payload: { name: "kortyx.node" },
+        }),
+        event(2_000, {
+          eventId: "later-root-start",
+          type: "span.started",
+          runId: "run-completed",
+          spanId: "root-completed",
+          payload: { name: "kortyx.run" },
+        }),
+        event(3_000, {
+          eventId: "later-root-ended",
+          type: "span.ended",
+          runId: "run-completed",
+          spanId: "root-completed",
+          payload: { name: "kortyx.run", durationMs: 1_000 },
+        }),
+      ],
+    });
+
+    expect(models.runs.find((run) => run.id === "run-abandoned")).toMatchObject(
+      {
+        status: "incomplete",
+        endedAt: null,
+        durationMs: null,
+        result: "Telemetry ended before a terminal run event was observed.",
+      },
+    );
+    expect(models.runs.find((run) => run.id === "run-completed")).toMatchObject(
+      {
+        status: "completed",
+      },
+    );
+    expect(models.sessions[0]).toMatchObject({
+      id: "session-1",
+      status: "completed",
+      runs: 2,
+      succeeded: 1,
+      failed: 0,
+    });
+  });
+
   it("keeps a resumed run running while the latest root attempt is active", () => {
     const models = createStudioReadModelsFromRecords({
       revisions: [revision()],

@@ -340,7 +340,7 @@ function statusTone(
 ): "success" | "danger" | "warning" | "info" | "neutral" {
   if (status === "completed") return "success";
   if (status === "failed") return "danger";
-  if (status === "interrupted") return "warning";
+  if (status === "interrupted" || status === "incomplete") return "warning";
   if (status === "running") return "info";
   return "neutral";
 }

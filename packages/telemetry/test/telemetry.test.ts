@@ -291,6 +291,46 @@ describe("createKortyxTelemetryAdapter", () => {
     expect(delivered).toEqual([["second", "third"]]);
   });
 
+  it("drains events queued while a delivery request is in flight", async () => {
+    let releaseFirstRequest: (() => void) | undefined;
+    const firstRequestBlocked = new Promise<void>((resolve) => {
+      releaseFirstRequest = resolve;
+    });
+    let firstRequestStarted: (() => void) | undefined;
+    const firstRequestReady = new Promise<void>((resolve) => {
+      firstRequestStarted = resolve;
+    });
+    const delivered: string[][] = [];
+    const adapter = createKortyxTelemetryAdapter({
+      endpoint: "https://telemetry.example",
+      apiKey: "ktyx_test_key_secret",
+      environment: "test",
+      service: { name: "telemetry-test" },
+      flushIntervalMs: 60_000,
+      fetch: async (_url, init) => {
+        const body = JSON.parse(String(init?.body)) as {
+          events: Array<{ eventId: string }>;
+        };
+        delivered.push(body.events.map((item) => item.eventId));
+        if (delivered.length === 1) {
+          firstRequestStarted?.();
+          await firstRequestBlocked;
+        }
+        return new Response("{}", { status: 200 });
+      },
+    });
+
+    await adapter.reporter?.emit([event("start")]);
+    const firstFlush = adapter.flush();
+    await firstRequestReady;
+    await adapter.reporter?.emit([event("terminal")]);
+    const secondFlush = adapter.flush();
+    releaseFirstRequest?.();
+    await Promise.all([firstFlush, secondFlush]);
+
+    expect(delivered).toEqual([["start"], ["terminal"]]);
+  });
+
   it("drops permanent 4xx delivery failures without retrying", async () => {
     let calls = 0;
     const adapter = createKortyxTelemetryAdapter({

@@ -201,9 +201,14 @@ const isRunSpan = (event: TelemetryEventRecord): boolean =>
 const eventSpanId = (event: TelemetryEventRecord): string | null =>
   event.spanId ?? asString(event.payload.spanId);
 
+type RunSpanOutcome = {
+  status: "completed" | "failed" | "running";
+  event: TelemetryEventRecord;
+};
+
 const lastRunSpanOutcome = (
   events: TelemetryEventRecord[],
-): "completed" | "failed" | "running" | null => {
+): RunSpanOutcome | null => {
   const runSpanEvents = events.filter(
     (event) =>
       isRunSpan(event) &&
@@ -211,25 +216,35 @@ const lastRunSpanOutcome = (
         event.type === "span.ended" ||
         event.type === "span.failed"),
   );
-  const started = runSpanEvents.filter(
-    (event) => event.type === "span.started",
-  );
-  const latestStarted = started.at(-1);
-  if (!latestStarted) return null;
+  const latestRunSpanEvent = runSpanEvents.at(-1);
+  if (!latestRunSpanEvent) return null;
 
-  const latestSpanId = eventSpanId(latestStarted);
-  const latestSpanEvents = runSpanEvents.filter((event) =>
-    latestSpanId
-      ? eventSpanId(event) === latestSpanId
-      : event.occurredAt.getTime() >= latestStarted.occurredAt.getTime(),
-  );
-  if (latestSpanEvents.some((event) => event.type === "span.failed")) {
-    return "failed";
+  const latestSpanId = eventSpanId(latestRunSpanEvent);
+  const latestStarted = [...runSpanEvents]
+    .reverse()
+    .find(
+      (event) =>
+        event.type === "span.started" &&
+        event.occurredAt.getTime() <= latestRunSpanEvent.occurredAt.getTime(),
+    );
+  const latestSpanEvents = runSpanEvents.filter((event) => {
+    if (latestSpanId) return eventSpanId(event) === latestSpanId;
+    if (!latestStarted) return event === latestRunSpanEvent;
+    return event.occurredAt.getTime() >= latestStarted.occurredAt.getTime();
+  });
+  const failed = [...latestSpanEvents]
+    .reverse()
+    .find((event) => event.type === "span.failed");
+  if (failed) {
+    return { status: "failed", event: failed };
   }
-  if (latestSpanEvents.some((event) => event.type === "span.ended")) {
-    return "completed";
+  const completed = [...latestSpanEvents]
+    .reverse()
+    .find((event) => event.type === "span.ended");
+  if (completed) {
+    return { status: "completed", event: completed };
   }
-  return "running";
+  return { status: "running", event: latestRunSpanEvent };
 };
 
 const modelFrom = (event: TelemetryEventRecord): string | null =>
@@ -367,8 +382,12 @@ const aggregateRunGroups = (
       if (!first) throw new Error("Run aggregate cannot be empty.");
       const runId = aggregateIdFor(groupKey, ordered);
       const last = ordered.at(-1) ?? first;
-      const failed = ordered.find((event) => event.type === "span.failed");
-      const cancelled = ordered.find((event) => event.type === "run.cancelled");
+      const failed = [...ordered]
+        .reverse()
+        .find((event) => event.type === "span.failed");
+      const cancelled = [...ordered]
+        .reverse()
+        .find((event) => event.type === "run.cancelled");
       const interrupt = [...ordered]
         .reverse()
         .find((event) => event.type === "interrupt.created");
@@ -393,14 +412,20 @@ const aggregateRunGroups = (
         ? "cancelled"
         : pendingInterrupt
           ? "interrupted"
-          : runOutcome === "running"
+          : runOutcome?.status === "running"
             ? "running"
-            : runOutcome === "failed" || (!runOutcome && failed)
+            : runOutcome?.status === "failed" || (!runOutcome && failed)
               ? "failed"
-              : runOutcome === "completed"
+              : runOutcome?.status === "completed"
                 ? "completed"
                 : "running";
-      const endedAt = status === "running" ? null : last.occurredAt;
+      const endedAt =
+        status === "running"
+          ? null
+          : (cancelled?.occurredAt ??
+            runOutcome?.event.occurredAt ??
+            failed?.occurredAt ??
+            last.occurredAt);
       const generationEvents = ordered.filter(
         (event) => event.type === "generation.completed",
       );
@@ -480,33 +505,60 @@ const aggregateRunGroups = (
     .sort((a, b) => b.startedAt.getTime() - a.startedAt.getTime());
 };
 
+const reconcileSupersededRuns = (runs: RunAggregate[]): RunAggregate[] =>
+  runs.map((run) => {
+    if (run.status !== "running" || !run.sessionId) return run;
+    const lastObservedAt =
+      run.events.at(-1)?.occurredAt.getTime() ?? run.startedAt.getTime();
+    const hasLaterTerminalRun = runs.some(
+      (candidate) =>
+        candidate.id !== run.id &&
+        candidate.sessionId === run.sessionId &&
+        candidate.status !== "running" &&
+        candidate.startedAt.getTime() > lastObservedAt,
+    );
+    if (!hasLaterTerminalRun) return run;
+    return {
+      ...run,
+      status: "incomplete",
+      endedAt: null,
+      durationMs: null,
+      latestResult: "Telemetry ended before a terminal run event was observed.",
+      latestError: null,
+    };
+  });
+
 const aggregateRuns = (
   events: TelemetryEventRecord[],
   rateCards: ModelRateCard[],
 ): RunAggregate[] =>
-  aggregateRunGroups(
-    events,
-    rateCards,
-    (event) => event.runId,
-    (runId) => runId,
+  reconcileSupersededRuns(
+    aggregateRunGroups(
+      events,
+      rateCards,
+      (event) => event.runId,
+      (runId) => runId,
+    ),
   );
 
 const aggregateWorkflowRuns = (
   events: TelemetryEventRecord[],
   rateCards: ModelRateCard[],
 ): RunAggregate[] =>
-  aggregateRunGroups(
-    events,
-    rateCards,
-    (event) =>
-      `${event.runId}\u0000${event.workflowId}\u0000${event.workflowRevisionId ?? ""}`,
-    (_groupKey, ordered) => {
-      const first = ordered[0];
-      if (!first) throw new Error("Workflow run aggregate cannot be empty.");
-      return `${first.runId}:${first.workflowId}${
-        first.workflowRevisionId ? `:${first.workflowRevisionId}` : ""
-      }`;
-    },
+  reconcileSupersededRuns(
+    aggregateRunGroups(
+      events,
+      rateCards,
+      (event) =>
+        `${event.runId}\u0000${event.workflowId}\u0000${event.workflowRevisionId ?? ""}`,
+      (_groupKey, ordered) => {
+        const first = ordered[0];
+        if (!first) throw new Error("Workflow run aggregate cannot be empty.");
+        return `${first.runId}:${first.workflowId}${
+          first.workflowRevisionId ? `:${first.workflowRevisionId}` : ""
+        }`;
+      },
+    ),
   );
 
 const runToStudioRun = (
@@ -1103,10 +1155,30 @@ const loadScopedStudioModels = async (
   return createStudioReadModelsFromRecords({ events, revisions, rates });
 };
 
-export const getStudioRunReadModel = (
+export const getStudioRunReadModel = async (
   db: TelemetryDb,
   input: { organizationId: string; projectId: string; runId: string },
-) => loadScopedStudioModels(db, input, eq(telemetryEvents.runId, input.runId));
+): Promise<StudioReadModels> => {
+  const runScope = await db
+    .select({ sessionId: telemetryEvents.sessionId })
+    .from(telemetryEvents)
+    .where(
+      and(
+        eq(telemetryEvents.organizationId, input.organizationId),
+        eq(telemetryEvents.projectId, input.projectId),
+        eq(telemetryEvents.runId, input.runId),
+      ),
+    )
+    .limit(1);
+  const sessionId = runScope[0]?.sessionId;
+  return loadScopedStudioModels(
+    db,
+    input,
+    sessionId
+      ? eq(telemetryEvents.sessionId, sessionId)
+      : eq(telemetryEvents.runId, input.runId),
+  );
+};
 
 export const getStudioSessionReadModel = (
   db: TelemetryDb,

@@ -308,6 +308,97 @@ integration("Studio SQL projections", () => {
     expect(projected.items.map((run) => run.id)).toEqual(["run-ingested"]);
   });
 
+  it("reprojects an earlier start-only run when its session later completes", async () => {
+    const sessionId = `session-lifecycle-${randomUUID()}`;
+    const incompleteRunId = `run-incomplete-${randomUUID()}`;
+    const completedRunId = `run-completed-${randomUUID()}`;
+    const occurredAt = Date.now();
+    const lifecycleEvents: KortyxTelemetryEvent[] = [
+      {
+        schemaVersion: 1,
+        eventId: `event-${randomUUID()}`,
+        occurredAt: new Date(occurredAt).toISOString(),
+        environment: "test",
+        service: { name: "integration-test" },
+        correlation: {
+          runId: incompleteRunId,
+          sessionId,
+          workflowId: "workflow-a",
+          traceId: `trace-${incompleteRunId}`,
+          spanId: `span-${incompleteRunId}`,
+        },
+        type: "span.started",
+        payload: { name: "kortyx.run" },
+      },
+      {
+        schemaVersion: 1,
+        eventId: `event-${randomUUID()}`,
+        occurredAt: new Date(occurredAt + 1_000).toISOString(),
+        environment: "test",
+        service: { name: "integration-test" },
+        correlation: {
+          runId: completedRunId,
+          sessionId,
+          workflowId: "workflow-a",
+          traceId: `trace-${completedRunId}`,
+          spanId: `span-${completedRunId}`,
+        },
+        type: "span.started",
+        payload: { name: "kortyx.run" },
+      },
+      {
+        schemaVersion: 1,
+        eventId: `event-${randomUUID()}`,
+        occurredAt: new Date(occurredAt + 2_000).toISOString(),
+        environment: "test",
+        service: { name: "integration-test" },
+        correlation: {
+          runId: completedRunId,
+          sessionId,
+          workflowId: "workflow-a",
+          traceId: `trace-${completedRunId}`,
+          spanId: `span-${completedRunId}`,
+        },
+        type: "span.ended",
+        payload: { name: "kortyx.run", durationMs: 1_000 },
+      },
+    ];
+
+    await ingestTelemetryEvents(client.db, {
+      organizationId: organizationA,
+      projectId: projectA,
+      events: lifecycleEvents,
+    });
+    const projected = await listStudioRuns(client.db, {
+      organizationId: organizationA,
+      projectId: projectA,
+      query: { range: "All time", session: sessionId },
+    });
+    const incompleteDetail = await getStudioRunReadModel(client.db, {
+      organizationId: organizationA,
+      projectId: projectA,
+      runId: incompleteRunId,
+    });
+
+    expect(
+      projected.items.find((run) => run.id === incompleteRunId),
+    ).toMatchObject({
+      status: "incomplete",
+      endedAt: null,
+      durationMs: null,
+    });
+    expect(
+      projected.items.find((run) => run.id === completedRunId),
+    ).toMatchObject({
+      status: "completed",
+    });
+    expect(
+      incompleteDetail.runs.find((run) => run.id === incompleteRunId),
+    ).toMatchObject({
+      status: "incomplete",
+    });
+  });
+
   it("publishes one compact invalidation only after a new event commits", async () => {
     const event: KortyxTelemetryEvent = {
       schemaVersion: 1,

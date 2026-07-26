@@ -239,6 +239,7 @@ export const StudioRunStatusSchema = z.enum([
   "running",
   "completed",
   "interrupted",
+  "incomplete",
   "failed",
   "cancelled",
 ]);

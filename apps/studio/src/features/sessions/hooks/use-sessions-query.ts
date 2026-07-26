@@ -27,6 +27,7 @@ const sessionStatuses = [
   "running",
   "completed",
   "interrupted",
+  "incomplete",
   "failed",
   "cancelled",
 ] as const;

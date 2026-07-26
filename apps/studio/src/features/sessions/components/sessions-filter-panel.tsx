@@ -12,6 +12,7 @@ const statuses = [
   "running",
   "completed",
   "interrupted",
+  "incomplete",
   "failed",
   "cancelled",
 ] as const;

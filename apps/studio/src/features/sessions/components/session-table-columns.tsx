@@ -1,6 +1,7 @@
 import {
   CircleAlert,
   CircleCheck,
+  CircleDashed,
   CirclePause,
   CircleX,
   GitFork,
@@ -43,6 +44,11 @@ const statusMeta: Record<SessionStatus, CompactStatusMeta> = {
     label: "Interrupted",
     icon: CirclePause,
     className: "text-amber-600",
+  },
+  incomplete: {
+    label: "Incomplete",
+    icon: CircleDashed,
+    className: "text-orange-600",
   },
   failed: { label: "Failed", icon: CircleAlert, className: "text-red-600" },
   cancelled: {
