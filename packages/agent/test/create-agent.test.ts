@@ -212,6 +212,52 @@ describe("createAgent", () => {
     );
   });
 
+  it("returns no projected topology when a registry cannot list workflows", async () => {
+    const withoutList = createAgent({
+      workflowRegistry: { select: vi.fn() } as unknown as WorkflowRegistry,
+    });
+    const withEmptyList = createAgent({
+      workflowRegistry: {
+        select: vi.fn(),
+        list: vi.fn(async () => []),
+      } as unknown as WorkflowRegistry,
+    });
+
+    await expect(
+      withoutList.projectTopology?.({
+        environment: "test",
+        service: { name: "app" },
+      }),
+    ).resolves.toEqual([]);
+    await expect(
+      withEmptyList.projectTopology?.({
+        environment: "test",
+        service: { name: "app" },
+      }),
+    ).resolves.toEqual([]);
+  });
+
+  it("continues streaming when workflow discovery fails", async () => {
+    const listFailure = new Error("workflow discovery failed");
+    const agent = createAgent({
+      workflowRegistry: {
+        select: vi.fn(),
+        list: vi.fn(async () => {
+          throw listFailure;
+        }),
+      } as unknown as WorkflowRegistry,
+    });
+
+    await expect(
+      agent.streamChat([{ role: "user", content: "hello" }]),
+    ).resolves.toBeDefined();
+    expect(runStreamChat).toHaveBeenCalledWith(
+      expect.not.objectContaining({
+        knownWorkflowIds: expect.anything(),
+      }),
+    );
+  });
+
   it("delegates checkpoint APIs through the framework adapter and syncs pending requests", async () => {
     const telemetryEvents: unknown[] = [];
     const pendingRequests = {

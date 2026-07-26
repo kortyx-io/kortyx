@@ -143,7 +143,7 @@ export async function orchestrateGraphStream({
   const traceAdapter = getTraceAdapter(config);
   const contextMeta = isRecord(config.context) ? config.context : {};
   const telemetryConfig = isRecord(config.telemetry) ? config.telemetry : {};
-  const emitResumeFailure = (resumeError?: unknown) => {
+  const emitResumeFailure = (resumeError: unknown) => {
     const interruptId =
       typeof config.telemetryInterruptId === "string"
         ? config.telemetryInterruptId
@@ -160,14 +160,10 @@ export async function orchestrateGraphStream({
         interruptId,
         resolvedAt: new Date().toISOString(),
         resumeOutcome: "failed",
-        ...(resumeError
-          ? {
-              resumeError:
-                resumeError instanceof Error
-                  ? resumeError.message
-                  : String(resumeError),
-            }
-          : {}),
+        resumeError:
+          resumeError instanceof Error
+            ? resumeError.message
+            : String(resumeError),
       },
       flush: true,
     });

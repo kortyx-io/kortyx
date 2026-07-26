@@ -272,6 +272,11 @@ describe("orchestrateGraphStream", () => {
               description: "First",
               value: { value: "a" },
             },
+            {
+              id: "b",
+              label: "B",
+              value: { value: "b" },
+            },
           ],
         },
       });
@@ -431,7 +436,10 @@ describe("orchestrateGraphStream", () => {
         schemaId: "choice-schema",
         schemaVersion: "2",
         meta: { public: "visible" },
-        options: [{ id: "a", label: "A", description: "First" }],
+        options: [
+          { id: "a", label: "A", description: "First" },
+          { id: "b", label: "B" },
+        ],
       },
     });
     expect(interrupt.input.meta).not.toHaveProperty("__kortyxSecret");
@@ -454,8 +462,11 @@ describe("orchestrateGraphStream", () => {
           schemaId: "choice-schema",
           schemaVersion: "2",
           question: "Pick",
-          optionCount: 1,
-          options: [{ id: "a", label: "A", description: "First" }],
+          optionCount: 2,
+          options: [
+            { id: "a", label: "A", description: "First" },
+            { id: "b", label: "B" },
+          ],
         }),
       }),
     );
@@ -504,6 +515,62 @@ describe("orchestrateGraphStream", () => {
           multiple: false,
           question: "Name?",
           options: [],
+        }),
+      }),
+    );
+  });
+
+  it("classifies schema-backed interrupts without static options as dynamic pickers", async () => {
+    const telemetryEvents: unknown[] = [];
+    const graph = graphWithEvents((emit) => {
+      emit("interrupt", {
+        node: "pick-agent",
+        input: {
+          kind: "choice",
+          schemaId: "agent-picker",
+          options: [],
+        },
+      });
+      return [
+        { type: "done", data: { ...baseState, awaitingHumanInput: true } },
+      ];
+    });
+
+    await collect(
+      await orchestrateGraphStream({
+        runId: "run-dynamic-picker",
+        graph,
+        state: baseState,
+        config: {
+          telemetry: {
+            environment: "test",
+            service: { name: "app" },
+            correlation: {
+              runId: "run-dynamic-picker",
+              workflowId: "first",
+            },
+            reporter: {
+              ensureWorkflowTopology: async () => ({
+                workflowRevisionId: "revision-1",
+                created: false,
+              }),
+              emit: async (items: unknown[]) => {
+                telemetryEvents.push(...items);
+              },
+            },
+          },
+        },
+        selectWorkflow: vi.fn(),
+      }),
+    );
+
+    expect(telemetryEvents).toContainEqual(
+      expect.objectContaining({
+        type: "interrupt.created",
+        payload: expect.objectContaining({
+          interactionMode: "dynamic-picker",
+          schemaId: "agent-picker",
+          optionCount: 0,
         }),
       }),
     );

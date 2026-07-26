@@ -206,6 +206,42 @@ describe("projectWorkflowTopology", () => {
     ]);
   });
 
+  it("ignores blank, ambiguous, unknown, and self-referencing transitions", () => {
+    const routeNode = new Function(`
+      return function routeNode() {
+        if (Date.now() === 1) return { transitionTo: "   " };
+        if (Date.now() === 2) {
+          return { transitionTo: WORKFLOW_IDS.routeCanvasSave };
+        }
+        if (Date.now() === 3) {
+          return { transitionTo: WORKFLOW_IDS.unknownThing };
+        }
+        if (Date.now() === 4) {
+          return { transitionTo: WORKFLOW_IDS["missingPicker"] };
+        }
+        return { transitionTo: "general-chat" };
+      };
+    `)() as WorkflowDefinition["nodes"][string]["run"];
+    const workflow = {
+      id: "general-chat",
+      version: "1",
+      nodes: { route: { run: routeNode } },
+      edges: [
+        ["__start__", "route"],
+        ["route", "__end__"],
+      ],
+    } satisfies WorkflowDefinition;
+
+    const projected = projectWorkflowTopology({
+      workflow,
+      environment: "test",
+      service: { name: "app" },
+      knownWorkflowIds: ["general-chat", "canvas", "save", "canvas-save"],
+    });
+
+    expect(projected.workflow.transitions).toBeUndefined();
+  });
+
   it("fails open when an application puts non-serializable values in workflow params", () => {
     const config = {
       telemetry: {

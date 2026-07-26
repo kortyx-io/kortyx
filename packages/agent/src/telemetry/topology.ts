@@ -56,7 +56,7 @@ const camelFromWorkflowId = (workflowId: string): string => {
   const [first = "", ...rest] = wordsFrom(workflowId);
   return [
     first,
-    ...rest.map((word) => `${word[0]?.toUpperCase() ?? ""}${word.slice(1)}`),
+    ...rest.map((word) => `${word.charAt(0).toUpperCase()}${word.slice(1)}`),
   ].join("");
 };
 
@@ -112,8 +112,7 @@ const transitionTargetsFromRun = (
   for (const match of source.matchAll(
     /\btransitionTo\s*:\s*(?:[A-Za-z_$][\w$]*\.)+([A-Za-z_$][\w$]*)/g,
   )) {
-    const memberName = match[1];
-    if (!memberName) continue;
+    const memberName = match[1] as string;
     const target = resolveMemberTransitionTarget(memberName, knownWorkflowIds);
     if (target) targets.add(target);
   }
@@ -121,8 +120,7 @@ const transitionTargetsFromRun = (
   for (const match of source.matchAll(
     /\btransitionTo\s*:\s*(?:[A-Za-z_$][\w$]*\.)*[A-Za-z_$][\w$]*\[['"`]([A-Za-z_$][\w$]*)['"`]\]/g,
   )) {
-    const memberName = match[1];
-    if (!memberName) continue;
+    const memberName = match[1] as string;
     const target = resolveMemberTransitionTarget(memberName, knownWorkflowIds);
     if (target) targets.add(target);
   }
