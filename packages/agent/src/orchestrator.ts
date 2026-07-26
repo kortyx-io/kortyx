@@ -11,7 +11,10 @@ import {
 import type { StreamChunk } from "@kortyx/stream";
 import { Command } from "@langchain/langgraph";
 import { transformGraphStreamForUI } from "./stream/transform-graph-stream-for-ui";
-import { emitTelemetryEvent } from "./telemetry/events";
+import {
+  emitTelemetryEvent,
+  shouldCaptureTelemetryContent,
+} from "./telemetry/events";
 import { prepareWorkflowTelemetry } from "./telemetry/topology";
 
 export type SelectWorkflowFn = (
@@ -455,9 +458,35 @@ export async function orchestrateGraphStream({
         interruptId: record.requestId,
         requestId: record.requestId,
         kind: record.schema.kind,
+        interactionMode:
+          record.schema.kind === "text"
+            ? "freeform"
+            : record.options.length > 0
+              ? "static-options"
+              : record.schema.schemaId
+                ? "dynamic-picker"
+                : "unknown",
+        ...(record.schema.schemaId ? { schemaId: record.schema.schemaId } : {}),
+        ...(record.schema.schemaVersion
+          ? { schemaVersion: record.schema.schemaVersion }
+          : {}),
         ...(typeof record.schema.question === "string" &&
-        telemetryConfig.captureContent
+        shouldCaptureTelemetryContent(telemetryConfig.captureContent, "output")
           ? { question: record.schema.question }
+          : {}),
+        ...(shouldCaptureTelemetryContent(
+          telemetryConfig.captureContent,
+          "output",
+        )
+          ? {
+              options: record.options.map((option) => ({
+                id: option.id,
+                label: option.label,
+                ...(option.description
+                  ? { description: option.description }
+                  : {}),
+              })),
+            }
           : {}),
         optionCount: record.options.length,
         nodeId: record.node,

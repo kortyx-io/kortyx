@@ -41,6 +41,10 @@ export const SessionSchema = z.object({
   latestResult: z.string(),
   latestError: z.string().optional(),
   pendingInterrupt: z.string().optional(),
+  interruptStatus: z
+    .enum(["pending", "resolved", "expired", "failed", "cancelled"])
+    .optional(),
+  interruptExpiresAt: z.string().optional(),
   providers: z.array(ProviderSchema),
   models: z.array(z.string()),
   tags: z.array(z.string()),

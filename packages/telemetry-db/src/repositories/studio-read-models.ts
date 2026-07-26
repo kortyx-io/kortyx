@@ -1,22 +1,25 @@
-import type {
-  StudioCatalogsResponse,
-  StudioDetailEvent,
-  StudioInterrupt,
-  StudioInterruptStatus,
-  StudioInterruptType,
-  StudioMetric,
-  StudioPricingSource,
-  StudioPricingStatus,
-  StudioResumeOutcome,
-  StudioRun,
-  StudioRunStatus,
-  StudioSession,
-  StudioWorkflow,
-  StudioWorkflowHealth,
-  StudioWorkflowInternalEdge,
-  StudioWorkflowNode,
-  StudioWorkflowsResponse,
-  StudioWorkflowTransition,
+import {
+  resolveStudioInterruptStatus,
+  type StudioCatalogsResponse,
+  type StudioDetailEvent,
+  type StudioInterrupt,
+  type StudioInterruptInteractionMode,
+  type StudioInterruptOption,
+  type StudioInterruptStatus,
+  type StudioInterruptType,
+  type StudioMetric,
+  type StudioPricingSource,
+  type StudioPricingStatus,
+  type StudioResumeOutcome,
+  type StudioRun,
+  type StudioRunStatus,
+  type StudioSession,
+  type StudioWorkflow,
+  type StudioWorkflowHealth,
+  type StudioWorkflowInternalEdge,
+  type StudioWorkflowNode,
+  type StudioWorkflowsResponse,
+  type StudioWorkflowTransition,
 } from "@kortyx/telemetry-contracts";
 import { and, desc, eq, isNull, or, type SQL, sql } from "drizzle-orm";
 import type { TelemetryDb } from "../client";
@@ -62,6 +65,9 @@ type RunAggregate = {
   hasTool: boolean;
   hasRetry: boolean;
   interruptNodeId: string | null;
+  interruptId: string | null;
+  interruptStatus: StudioInterruptStatus | null;
+  interruptExpiresAt: string | null;
   status: StudioRunStatus;
   latestResult: string | null;
   latestError: string | null;
@@ -91,6 +97,9 @@ const asString = (value: unknown): string | null =>
 
 const asNumber = (value: unknown): number | null =>
   typeof value === "number" && Number.isFinite(value) ? value : null;
+
+const asBoolean = (value: unknown): boolean | null =>
+  typeof value === "boolean" ? value : null;
 
 const asStringArray = (value: unknown): string[] =>
   Array.isArray(value)
@@ -391,26 +400,42 @@ const aggregateRunGroups = (
       const interrupt = [...ordered]
         .reverse()
         .find((event) => event.type === "interrupt.created");
-      const resolvedInterruptIds = new Set(
-        ordered
-          .filter(
-            (event) =>
-              event.type === "interrupt.resolved" ||
-              event.type === "interrupt.cancelled" ||
-              event.type === "interrupt.expired",
-          )
-          .map((event) => asString(event.payload.interruptId))
-          .filter((id): id is string => Boolean(id)),
-      );
-      const pendingInterrupt =
-        interrupt &&
-        !resolvedInterruptIds.has(
-          asString(interrupt.payload.interruptId) ?? "",
-        );
+      const interruptId = asString(interrupt?.payload.interruptId);
+      const interruptTerminal = interruptId
+        ? [...ordered]
+            .reverse()
+            .find(
+              (event) =>
+                (event.type === "interrupt.resolved" ||
+                  event.type === "interrupt.cancelled" ||
+                  event.type === "interrupt.expired") &&
+                asString(event.payload.interruptId) === interruptId,
+            )
+        : undefined;
+      const interruptExpiresAt = asString(interrupt?.payload.expiresAt) ?? null;
+      const interruptStatus: StudioInterruptStatus | null = interrupt
+        ? resolveStudioInterruptStatus({
+            status:
+              interruptTerminal?.type === "interrupt.cancelled"
+                ? "cancelled"
+                : interruptTerminal?.type === "interrupt.expired"
+                  ? "expired"
+                  : interruptTerminal?.type === "interrupt.resolved"
+                    ? asString(interruptTerminal.payload.resumeOutcome) ===
+                      "failed"
+                      ? "failed"
+                      : "resolved"
+                    : "pending",
+            expiresAt: interruptExpiresAt,
+          })
+        : null;
+      const interruptedByInput =
+        Boolean(interrupt) &&
+        (interruptStatus === "pending" || interruptStatus === "expired");
       const runOutcome = lastRunSpanOutcome(ordered);
       const status: StudioRunStatus = cancelled
         ? "cancelled"
-        : pendingInterrupt
+        : interruptedByInput
           ? "interrupted"
           : runOutcome?.status === "running"
             ? "running"
@@ -422,10 +447,12 @@ const aggregateRunGroups = (
       const endedAt =
         status === "running"
           ? null
-          : (cancelled?.occurredAt ??
-            runOutcome?.event.occurredAt ??
-            failed?.occurredAt ??
-            last.occurredAt);
+          : status === "interrupted" && interrupt
+            ? interrupt.occurredAt
+            : (cancelled?.occurredAt ??
+              runOutcome?.event.occurredAt ??
+              failed?.occurredAt ??
+              last.occurredAt);
       const generationEvents = ordered.filter(
         (event) => event.type === "generation.completed",
       );
@@ -486,11 +513,16 @@ const aggregateRunGroups = (
           JSON.stringify(event.payload).toLowerCase().includes("retry"),
         ),
         interruptNodeId: interrupt?.nodeId ?? null,
+        interruptId,
+        interruptStatus,
+        interruptExpiresAt,
         status,
         latestResult:
           latestError ??
-          (pendingInterrupt
-            ? `Interrupted at ${interrupt.nodeId ?? first.workflowId}`
+          (interruptedByInput
+            ? interruptStatus === "expired"
+              ? `Input expired at ${interrupt?.nodeId ?? first.workflowId}`
+              : `Waiting for input at ${interrupt?.nodeId ?? first.workflowId}`
             : status === "completed"
               ? "Completed"
               : status === "cancelled"
@@ -616,6 +648,9 @@ const runToStudioRun = (
     hasTool: run.hasTool,
     hasRetry: run.hasRetry,
     interruptNodeId: run.interruptNodeId,
+    interruptId: run.interruptId,
+    interruptStatus: run.interruptStatus,
+    interruptExpiresAt: run.interruptExpiresAt,
   };
 };
 
@@ -695,14 +730,11 @@ const aggregateSessions = (
         latestResult: latest.latestResult,
         latestError: latest.latestError,
         pendingInterruptId:
-          latest.status === "interrupted"
-            ? (asString(
-                [...latest.events]
-                  .reverse()
-                  .find((event) => event.type === "interrupt.created")?.payload
-                  .interruptId,
-              ) ?? null)
-            : null,
+          latest.status === "interrupted" ? latest.interruptId : null,
+        interruptStatus:
+          latest.status === "interrupted" ? latest.interruptStatus : null,
+        interruptExpiresAt:
+          latest.status === "interrupted" ? latest.interruptExpiresAt : null,
         providers: unique(sorted.flatMap((run) => run.providers)),
         models: unique(sorted.flatMap((run) => run.models)),
         tags: unique(sorted.flatMap((run) => run.tags)),
@@ -732,6 +764,57 @@ const mapResumeOutcome = (
   return null;
 };
 
+const mapInterruptInteractionMode = (
+  raw: string | null,
+  type: StudioInterruptType,
+  optionCount: number | null,
+  schemaId: string | null,
+): StudioInterruptInteractionMode => {
+  if (
+    raw === "static-options" ||
+    raw === "dynamic-picker" ||
+    raw === "freeform" ||
+    raw === "unknown"
+  ) {
+    return raw;
+  }
+  if (type === "text") return "freeform";
+  if (
+    (type === "choice" || type === "multi-choice") &&
+    optionCount !== null &&
+    optionCount > 0
+  ) {
+    return "static-options";
+  }
+  if (
+    (type === "choice" || type === "multi-choice") &&
+    optionCount === 0 &&
+    schemaId
+  ) {
+    return "dynamic-picker";
+  }
+  return "unknown";
+};
+
+const mapInterruptOptions = (
+  value: unknown,
+): StudioInterruptOption[] | null => {
+  if (!Array.isArray(value)) return null;
+  return value.flatMap((option) => {
+    if (!isRecord(option)) return [];
+    const id = asString(option.id);
+    const label = asString(option.label);
+    if (!id || !label) return [];
+    return [
+      {
+        id,
+        label,
+        description: asString(option.description),
+      },
+    ];
+  });
+};
+
 const aggregateInterrupts = (
   events: TelemetryEventRecord[],
 ): StudioInterrupt[] => {
@@ -757,39 +840,68 @@ const aggregateInterrupts = (
         .find(
           (event) =>
             event.type === "interrupt.resolved" ||
+            event.type === "interrupt.expired" ||
             event.type === "interrupt.cancelled",
         );
       const first = created ?? ordered[0];
       if (!first) throw new Error("Interrupt aggregate cannot be empty.");
       const expiresAt = asString(first.payload.expiresAt);
-      const status: StudioInterruptStatus =
+      const recordedStatus: StudioInterruptStatus =
         terminal?.type === "interrupt.cancelled"
           ? "cancelled"
-          : terminal?.type === "interrupt.resolved"
-            ? asString(terminal.payload.resumeOutcome) === "failed"
-              ? "failed"
-              : "resolved"
-            : expiresAt && Date.parse(expiresAt) <= now
-              ? "expired"
+          : terminal?.type === "interrupt.expired"
+            ? "expired"
+            : terminal?.type === "interrupt.resolved"
+              ? asString(terminal.payload.resumeOutcome) === "failed"
+                ? "failed"
+                : "resolved"
               : "pending";
+      const status = resolveStudioInterruptStatus(
+        { status: recordedStatus, expiresAt },
+        now,
+      );
       const question = asString(first.payload.question);
       const optionCount = asNumber(first.payload.optionCount);
+      const options = mapInterruptOptions(first.payload.options);
+      const type = mapInterruptType(asString(first.payload.kind));
+      const schemaId = asString(first.payload.schemaId);
+      const responseEvent = [...ordered]
+        .reverse()
+        .find(
+          (event) =>
+            event.type === "interrupt.resolved" &&
+            (asString(event.payload.response) !== null ||
+              asBoolean(event.payload.responseCaptured) !== null),
+        );
+      const response = asString(responseEvent?.payload.response);
       return {
         id: interruptId,
         status,
-        type: mapInterruptType(asString(first.payload.kind)),
+        type,
+        interactionMode: mapInterruptInteractionMode(
+          asString(first.payload.interactionMode),
+          type,
+          optionCount,
+          schemaId,
+        ),
+        schemaId,
+        schemaVersion: asString(first.payload.schemaVersion),
         createdAt: iso(first.occurredAt),
         resolvedAt: terminal ? iso(terminal.occurredAt) : null,
         expiresAt,
         question,
-        contentCaptured: question !== null,
+        contentCaptured: question !== null || options !== null,
         optionCount,
+        options,
         workflowId: first.workflowId,
         nodeId: first.nodeId ?? asString(first.payload.nodeId),
         sessionId: first.sessionId,
         userId: first.userId,
         tenantId: first.tenantId,
-        response: asString(terminal?.payload.response),
+        response,
+        responseCaptured:
+          asBoolean(responseEvent?.payload.responseCaptured) ??
+          response !== null,
         resumeOutcome: mapResumeOutcome(
           status,
           asString(terminal?.payload.resumeOutcome),

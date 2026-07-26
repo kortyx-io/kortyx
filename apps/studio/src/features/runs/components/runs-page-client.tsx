@@ -3,6 +3,7 @@
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { DataTable, DataTableProvider } from "@/components/data-table";
+import { effectiveInterruptStatus } from "@/features/interrupts/lib/interrupt-presentation";
 import { createRunColumns } from "@/features/runs/components/run-table-columns";
 import { RunsEmptyState } from "@/features/runs/components/runs-empty-state";
 import { RunsFilterPanel } from "@/features/runs/components/runs-filter-panel";
@@ -22,6 +23,7 @@ import { cn } from "@/lib/utils";
 type RunsPageClientProps = {
   runs: Run[];
   totalCount: number;
+  initialNow: number;
   /** DB/server-provided table preferences for the current user. */
   preferences?: Partial<RunsTablePreferences>;
 };
@@ -30,6 +32,7 @@ export default function RunsPageClient({
   runs: initialRuns,
   totalCount,
   preferences,
+  initialNow,
 }: RunsPageClientProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -49,16 +52,26 @@ export default function RunsPageClient({
     dir: prefs.value.dir,
     pageSize: prefs.value.pageSize,
   });
-  const [now, setNow] = useState(0);
+  const [now, setNow] = useState(initialNow);
   const { live } = runsQuery;
   const liveRefresh = useLiveRefresh({ enabled: live, resource: "runs" });
-  const hasActiveRuns = runsQuery.filteredRuns.some(
-    (run) => run.status === "running" || run.status === "interrupted",
-  );
+  const hasActiveRuns = runsQuery.filteredRuns.some((run) => {
+    if (run.status === "running") return true;
+    if (run.status !== "interrupted" || !run.interruptStatus) return false;
+    return (
+      effectiveInterruptStatus(
+        {
+          status: run.interruptStatus,
+          expiresAt: run.interruptExpiresAt,
+        },
+        now,
+      ) === "pending"
+    );
+  });
 
   useEffect(() => {
     if (!live && !hasActiveRuns) return;
-    const timer = window.setInterval(() => setNow((value) => value + 1), 1000);
+    const timer = window.setInterval(() => setNow(Date.now()), 1_000);
     return () => window.clearInterval(timer);
   }, [live, hasActiveRuns]);
 
@@ -87,7 +100,7 @@ export default function RunsPageClient({
   }
 
   const columns = createRunColumns({
-    liveSeconds: now,
+    now,
     onToggleStatus: runsQuery.toggleStatus,
     onCopy: copy,
     workflowFilter: runsQuery.workflow,

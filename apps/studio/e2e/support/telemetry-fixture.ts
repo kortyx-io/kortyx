@@ -16,6 +16,8 @@ const studioApiKey =
 
 export const DRAWER_FIXTURE = {
   interruptId: `${FIXTURE_PREFIX}-interrupt`,
+  dynamicInterruptId: `${FIXTURE_PREFIX}-dynamic-interrupt`,
+  freeformInterruptId: `${FIXTURE_PREFIX}-freeform-interrupt`,
   runId: `${FIXTURE_PREFIX}-run`,
   sessionId: `${FIXTURE_PREFIX}-session`,
   workflowId: `${FIXTURE_PREFIX}-workflow`,
@@ -246,9 +248,23 @@ export async function seedDrawerFixture(request: APIRequestContext) {
         interruptId: DRAWER_FIXTURE.interruptId,
         requestId: `${FIXTURE_PREFIX}-request`,
         kind: "choice",
+        interactionMode: "static-options",
+        schemaId: "approve-brief",
+        schemaVersion: "1",
         nodeId: "collectBrief",
         question: "Which deterministic path should the test resume?",
-        options: ["approve", "revise"],
+        options: [
+          {
+            id: "approve",
+            label: "Approve",
+            description: "Continue to publishing.",
+          },
+          {
+            id: "revise",
+            label: "Revise",
+            description: "Return the brief for changes.",
+          },
+        ],
         optionCount: 2,
         expiresAt: new Date(baseTime + 300_000).toISOString(),
       },
@@ -290,6 +306,7 @@ export async function seedDrawerFixture(request: APIRequestContext) {
         resolvedBy: "e2e-user",
         resolvedAt: new Date(baseTime + 1_200).toISOString(),
         resumeOutcome: "resumed",
+        responseCaptured: true,
       },
       `${FIXTURE_PREFIX}-execution-1`,
     ),
@@ -358,6 +375,57 @@ export async function seedDrawerFixture(request: APIRequestContext) {
       { name: "kortyx.run", durationMs: 700, result: "Completed" },
       `${FIXTURE_PREFIX}-execution-2`,
     ),
+    event(
+      "dynamic-interrupt-created",
+      2_100,
+      "interrupt.created",
+      "collectBrief",
+      {
+        interruptId: DRAWER_FIXTURE.dynamicInterruptId,
+        requestId: `${FIXTURE_PREFIX}-dynamic-request`,
+        kind: "choice",
+        interactionMode: "dynamic-picker",
+        schemaId: "pick-agent",
+        schemaVersion: "1",
+        optionCount: 0,
+        expiresAt: new Date(baseTime + 300_000).toISOString(),
+      },
+    ),
+    event(
+      "dynamic-interrupt-resolved",
+      2_200,
+      "interrupt.resolved",
+      "collectBrief",
+      {
+        interruptId: DRAWER_FIXTURE.dynamicInterruptId,
+        resolvedAt: new Date(baseTime + 2_200).toISOString(),
+        resumeOutcome: "resumed",
+        responseCaptured: false,
+      },
+    ),
+    event(
+      "freeform-interrupt-created",
+      2_300,
+      "interrupt.created",
+      "collectBrief",
+      {
+        interruptId: DRAWER_FIXTURE.freeformInterruptId,
+        requestId: `${FIXTURE_PREFIX}-freeform-request`,
+        kind: "text",
+        interactionMode: "freeform",
+        question: "Explain the requested revision.",
+        optionCount: 0,
+      },
+    ),
+    event(
+      "freeform-interrupt-expired",
+      2_400,
+      "interrupt.expired",
+      "collectBrief",
+      {
+        interruptId: DRAWER_FIXTURE.freeformInterruptId,
+      },
+    ),
   ];
 
   const eventResponse = await request.post(
@@ -375,6 +443,16 @@ export async function seedDrawerFixture(request: APIRequestContext) {
   await pollForProjection(request, "sessions", DRAWER_FIXTURE.sessionId);
   await pollForProjection(request, "runs", DRAWER_FIXTURE.runId);
   await pollForProjection(request, "interrupts", DRAWER_FIXTURE.interruptId);
+  await pollForProjection(
+    request,
+    "interrupts",
+    DRAWER_FIXTURE.dynamicInterruptId,
+  );
+  await pollForProjection(
+    request,
+    "interrupts",
+    DRAWER_FIXTURE.freeformInterruptId,
+  );
 }
 
 export async function emitLiveRunChange(request: APIRequestContext) {

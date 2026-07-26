@@ -1,12 +1,30 @@
 import type { KortyxTelemetryEvent } from "@kortyx/hooks";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { emitTelemetryEvent } from "../src/telemetry/events";
+import {
+  emitTelemetryEvent,
+  shouldCaptureTelemetryContent,
+} from "../src/telemetry/events";
 
 afterEach(() => {
   vi.doUnmock("node:crypto");
 });
 
 describe("emitTelemetryEvent", () => {
+  it("applies input and output content capture independently", () => {
+    expect(shouldCaptureTelemetryContent(true, "input")).toBe(true);
+    expect(shouldCaptureTelemetryContent(true, "output")).toBe(true);
+    expect(
+      shouldCaptureTelemetryContent({ input: true, output: false }, "input"),
+    ).toBe(true);
+    expect(
+      shouldCaptureTelemetryContent({ input: true, output: false }, "output"),
+    ).toBe(false);
+    expect(shouldCaptureTelemetryContent(false, "input")).toBe(false);
+    expect(shouldCaptureTelemetryContent({ input: "yes" }, "input")).toBe(
+      false,
+    );
+  });
+
   it("enriches lifecycle events with trusted context and runtime correlation", async () => {
     const events: KortyxTelemetryEvent[] = [];
     emitTelemetryEvent({

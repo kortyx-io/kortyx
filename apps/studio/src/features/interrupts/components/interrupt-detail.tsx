@@ -12,7 +12,13 @@ import {
 } from "@/components/detail/detail-primitives";
 import { DetailTabs } from "@/components/detail/detail-tabs";
 import { PayloadViewer } from "@/components/detail/payload-viewer";
-import { formatCount, formatDateTime, formatDurationMs } from "@/lib/format";
+import {
+  interruptInteractionLabel,
+  interruptStatusLabel,
+  interruptTimingPresentation,
+  interruptTypeLabel,
+} from "@/features/interrupts/lib/interrupt-presentation";
+import { formatCount, formatDateTime } from "@/lib/format";
 
 export function InterruptDetail({
   detail,
@@ -20,9 +26,8 @@ export function InterruptDetail({
   detail: StudioInterruptDetailResponse;
 }) {
   const { interrupt } = detail;
-  const ageMs =
-    Date.parse(interrupt.resolvedAt ?? detail.updatedAt) -
-    Date.parse(interrupt.createdAt);
+  const timing = interruptTimingPresentation(interrupt, Date.now());
+  const interactionLabel = interruptInteractionLabel(interrupt);
   return (
     <div className="flex h-full min-h-0 flex-col">
       <DetailHeader
@@ -30,7 +35,7 @@ export function InterruptDetail({
         title={interrupt.id}
         status={
           <StatusPill tone={statusTone(interrupt.status)}>
-            {interrupt.status}
+            {interruptStatusLabel(interrupt.status)}
           </StatusPill>
         }
         description={
@@ -61,19 +66,13 @@ export function InterruptDetail({
         }
         metrics={
           <>
-            <Metric label="Type" value={interrupt.type} />
             <Metric
-              label="Age"
-              value={formatDurationMs(ageMs)}
-              title={formatDurationMs(ageMs, { style: "full" })}
+              label="Interaction"
+              value={interactionLabel}
+              title={`${interactionLabel} · ${interruptTypeLabel(interrupt.type)}`}
             />
-            <Metric
-              label="Options"
-              value={formatCount(interrupt.optionCount, {
-                compact: false,
-                fallback: "—",
-              })}
-            />
+            <Metric label="Timing" value={timing.label} title={timing.title} />
+            <Metric label="Type" value={interruptTypeLabel(interrupt.type)} />
             <Metric
               label="Events"
               value={formatCount(detail.events.length, { compact: false })}
@@ -117,6 +116,7 @@ export function InterruptDetail({
 
 function Decision({ detail }: { detail: StudioInterruptDetailResponse }) {
   const { interrupt } = detail;
+  const interactionLabel = interruptInteractionLabel(interrupt);
   return (
     <div className="@container">
       <div
@@ -129,14 +129,21 @@ function Decision({ detail }: { detail: StudioInterruptDetailResponse }) {
           </p>
           <div className="mt-3 rounded-lg border bg-muted/15 p-5">
             <p className="text-base font-medium leading-relaxed">
-              {interrupt.question ?? "Content was not captured"}
+              {interrupt.question ?? "Request content was not captured"}
             </p>
             <div className="mt-4 flex flex-wrap gap-2">
-              <StatusPill>{interrupt.type}</StatusPill>
-              {interrupt.optionCount !== null && (
-                <StatusPill>{interrupt.optionCount} options</StatusPill>
+              <StatusPill>{interactionLabel}</StatusPill>
+              <StatusPill>{interruptTypeLabel(interrupt.type)}</StatusPill>
+              {interrupt.schemaId && (
+                <StatusPill>
+                  {interrupt.schemaId}
+                  {interrupt.schemaVersion
+                    ? ` v${interrupt.schemaVersion}`
+                    : ""}
+                </StatusPill>
               )}
             </div>
+            <InterruptRequestDetails detail={detail} />
           </div>
           <div className="mt-6">
             <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
@@ -148,10 +155,10 @@ function Decision({ detail }: { detail: StudioInterruptDetailResponse }) {
                   <CirclePause className="size-4" />
                   Awaiting response — Studio is read-only in this release.
                 </div>
-              ) : (
+              ) : interrupt.responseCaptured ? (
                 <>
                   <p className="text-sm">
-                    {interrupt.response ?? "No response content captured"}
+                    {interrupt.response ?? "An empty response was submitted"}
                   </p>
                   <p className="mt-2 text-xs text-muted-foreground">
                     {interrupt.resolvedBy
@@ -162,6 +169,10 @@ function Decision({ detail }: { detail: StudioInterruptDetailResponse }) {
                       : ""}
                   </p>
                 </>
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  {responseUnavailableLabel(interrupt.status)}
+                </p>
               )}
             </div>
           </div>
@@ -172,6 +183,12 @@ function Decision({ detail }: { detail: StudioInterruptDetailResponse }) {
             <KeyValue label="Workflow">{interrupt.workflowId}</KeyValue>
             <KeyValue label="Node">
               {interrupt.nodeId ?? "Not captured"}
+            </KeyValue>
+            <KeyValue label="Interaction">{interactionLabel}</KeyValue>
+            <KeyValue label="Schema">
+              {interrupt.schemaId
+                ? `${interrupt.schemaId}${interrupt.schemaVersion ? ` v${interrupt.schemaVersion}` : ""}`
+                : "Not declared"}
             </KeyValue>
             <KeyValue label="User">
               {interrupt.userId ?? "Not captured"}
@@ -184,6 +201,14 @@ function Decision({ detail }: { detail: StudioInterruptDetailResponse }) {
                 ? formatDateTime(interrupt.expiresAt)
                 : "No expiry"}
             </KeyValue>
+            <KeyValue label="Resolved">
+              {interrupt.resolvedAt
+                ? formatDateTime(interrupt.resolvedAt)
+                : "Not resolved"}
+            </KeyValue>
+            <KeyValue label="Resolver">
+              {interrupt.resolvedBy ?? "Not captured"}
+            </KeyValue>
             <KeyValue label="Resume outcome">
               {interrupt.resumeOutcome ?? "Not attempted"}
             </KeyValue>
@@ -193,6 +218,84 @@ function Decision({ detail }: { detail: StudioInterruptDetailResponse }) {
     </div>
   );
 }
+
+function InterruptRequestDetails({
+  detail,
+}: {
+  detail: StudioInterruptDetailResponse;
+}) {
+  const { interrupt } = detail;
+  if (interrupt.interactionMode === "dynamic-picker") {
+    return (
+      <p className="mt-4 rounded-md border border-blue-500/20 bg-blue-500/5 px-3 py-2 text-xs leading-relaxed text-blue-700 dark:text-blue-400">
+        Options are resolved by the client
+        {interrupt.schemaId ? ` using ${interrupt.schemaId}` : ""}. No static
+        option list was sent with this interrupt.
+      </p>
+    );
+  }
+  if (interrupt.interactionMode === "freeform") {
+    return (
+      <p className="mt-4 text-xs leading-relaxed text-muted-foreground">
+        The client requested a free-form text response.
+      </p>
+    );
+  }
+  if (interrupt.interactionMode !== "static-options") {
+    return (
+      <p className="mt-4 text-xs leading-relaxed text-muted-foreground">
+        The SDK did not capture enough structural metadata to identify where the
+        choices came from.
+      </p>
+    );
+  }
+  if (interrupt.options === null) {
+    return (
+      <p className="mt-4 text-xs leading-relaxed text-muted-foreground">
+        {formatCount(interrupt.optionCount, {
+          compact: false,
+          fallback: "Static",
+        })}{" "}
+        {interrupt.optionCount === 1 ? "option was" : "options were"} available;
+        labels were not captured by the telemetry content policy.
+      </p>
+    );
+  }
+  return (
+    <ul className="mt-4 grid min-w-0 gap-2">
+      {interrupt.options.map((option) => (
+        <li
+          key={option.id}
+          className="min-w-0 rounded-md border bg-background/60 px-3 py-2"
+        >
+          <div className="flex min-w-0 items-baseline justify-between gap-3">
+            <span className="min-w-0 break-words text-sm font-medium">
+              {option.label}
+            </span>
+            <code className="max-w-[45%] truncate text-[10px] text-muted-foreground">
+              {option.id}
+            </code>
+          </div>
+          {option.description && (
+            <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+              {option.description}
+            </p>
+          )}
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+const responseUnavailableLabel = (status: StudioInterruptStatus): string => {
+  if (status === "cancelled")
+    return "Cancelled before a response was received.";
+  if (status === "expired") return "Expired before a response was received.";
+  if (status === "failed") {
+    return "The response content was not captured; the resume attempt failed.";
+  }
+  return "Response content was not captured by the telemetry policy.";
+};
 
 function InterruptTimeline({
   detail,

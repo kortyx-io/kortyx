@@ -193,6 +193,13 @@ export const getStudioRuns = async (
             ...(run.interruptNodeId
               ? { interruptNode: run.interruptNodeId }
               : {}),
+            ...(run.interruptId ? { interruptId: run.interruptId } : {}),
+            ...(run.interruptStatus
+              ? { interruptStatus: run.interruptStatus }
+              : {}),
+            ...(run.interruptExpiresAt
+              ? { interruptExpiresAt: run.interruptExpiresAt }
+              : {}),
           })),
         ),
         totalCount: response.data.totalCount,
@@ -262,6 +269,8 @@ export const getStudioSessions = async (
             ),
             latestError: optional(session.latestError),
             pendingInterrupt: optional(session.pendingInterruptId),
+            interruptStatus: optional(session.interruptStatus ?? null),
+            interruptExpiresAt: optional(session.interruptExpiresAt ?? null),
             providers: session.providers,
             models: session.models,
             tags: session.tags,
@@ -293,16 +302,22 @@ export const getStudioInterrupts = async (
             id: interrupt.id,
             status: interrupt.status,
             type: normalizeInterruptType(interrupt.type),
+            interactionMode: interrupt.interactionMode,
+            schemaId: optional(interrupt.schemaId),
+            schemaVersion: optional(interrupt.schemaVersion),
             createdAt: interrupt.createdAt,
             resolvedAt: optional(interrupt.resolvedAt),
+            expiresAt: optional(interrupt.expiresAt),
             question: displayText(interrupt.question, "Content not captured"),
             optionCount: optional(interrupt.optionCount),
+            options: optional(interrupt.options),
             workflow: interrupt.workflowId,
             node: displayText(interrupt.nodeId),
             session: displayText(interrupt.sessionId),
             user: optional(interrupt.userId),
             tenant: optional(interrupt.tenantId),
             response: optional(interrupt.response),
+            responseCaptured: interrupt.responseCaptured,
             resumeOutcome: optional(interrupt.resumeOutcome),
             resumeError: optional(interrupt.resumeError),
             runId: interrupt.runId,

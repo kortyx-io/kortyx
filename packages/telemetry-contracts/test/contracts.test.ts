@@ -1,9 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
   EnsureWorkflowTopologyRequestSchema,
+  resolveStudioInterruptStatus,
   resolveStudioTimeRange,
   StudioCatalogsResponseSchema,
   StudioChangeSchema,
+  StudioInterruptSchema,
   StudioRunsResponseSchema,
   TelemetryEventBatchResponseSchema,
   TelemetryEventBatchSchema,
@@ -144,6 +146,36 @@ describe("telemetry contracts", () => {
         resources: ["runs", "sessions"],
       }).success,
     ).toBe(true);
+    expect(
+      StudioInterruptSchema.safeParse({
+        id: "human-1",
+        status: "resolved",
+        type: "choice",
+        interactionMode: "dynamic-picker",
+        schemaId: "pick-agent",
+        schemaVersion: "1",
+        createdAt: "2026-01-01T00:00:00.000Z",
+        resolvedAt: "2026-01-01T00:00:01.000Z",
+        expiresAt: "2026-01-01T00:15:00.000Z",
+        question: null,
+        contentCaptured: false,
+        optionCount: 0,
+        options: null,
+        workflowId: "workflow",
+        nodeId: "pickAgent",
+        sessionId: "session",
+        userId: null,
+        tenantId: null,
+        response: null,
+        responseCaptured: false,
+        resumeOutcome: "resumed",
+        resumeError: null,
+        runId: "run",
+        resumeToken: null,
+        resolvedBy: null,
+        environment: "production",
+      }).success,
+    ).toBe(true);
   });
   it("rejects invalid fixtures", () => {
     expect(EnsureWorkflowTopologyRequestSchema.safeParse({}).success).toBe(
@@ -192,6 +224,28 @@ describe("telemetry contracts", () => {
         startedBefore: null,
       },
     });
+  });
+
+  it("derives interrupt expiry from its deadline without changing terminal states", () => {
+    const expiresAt = "2026-07-26T12:15:00.000Z";
+    expect(
+      resolveStudioInterruptStatus(
+        { status: "pending", expiresAt },
+        Date.parse("2026-07-26T12:14:59.999Z"),
+      ),
+    ).toBe("pending");
+    expect(
+      resolveStudioInterruptStatus(
+        { status: "pending", expiresAt },
+        Date.parse(expiresAt),
+      ),
+    ).toBe("expired");
+    expect(
+      resolveStudioInterruptStatus(
+        { status: "resolved", expiresAt },
+        Date.parse("2026-07-26T13:00:00.000Z"),
+      ),
+    ).toBe("resolved");
   });
 
   it("normalizes custom Studio ranges and rejects ambiguous boundaries", () => {

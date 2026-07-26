@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import type {
   KortyxTelemetryEvent,
+  StudioInterrupt,
   StudioRun,
 } from "@kortyx/telemetry-contracts";
 import { StudioChangeSchema } from "@kortyx/telemetry-contracts";
@@ -8,7 +9,10 @@ import { eq, sql } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { createTelemetryDbClient, type TelemetryDbClient } from "../src/client";
 import { STUDIO_CHANGE_CHANNEL } from "../src/repositories/studio-changes";
-import { listStudioRuns } from "../src/repositories/studio-lists";
+import {
+  listStudioInterrupts,
+  listStudioRuns,
+} from "../src/repositories/studio-lists";
 import { backfillStudioProjections } from "../src/repositories/studio-projections";
 import { getStudioRunReadModel } from "../src/repositories/studio-read-models";
 import { ingestTelemetryEvents } from "../src/repositories/telemetry-events";
@@ -16,6 +20,7 @@ import {
   organizations,
   projectEnvironments,
   projects,
+  studioInterrupts,
   studioRuns,
 } from "../src/schema";
 
@@ -235,6 +240,110 @@ integration("Studio SQL projections", () => {
         (run) => run.id === "run-tenant-shadow",
       ),
     ).toBe(false);
+  });
+
+  it("derives pending and expired interrupt filters without new telemetry", async () => {
+    const marker = `expiry-${randomUUID()}`;
+    const now = Date.now();
+    const interrupt = (
+      id: string,
+      expiresAt: Date,
+      status: StudioInterrupt["status"] = "pending",
+    ): StudioInterrupt => ({
+      id,
+      status,
+      type: "choice",
+      interactionMode: "dynamic-picker",
+      schemaId: "pick-agent",
+      schemaVersion: "1",
+      createdAt: new Date(now - 60_000).toISOString(),
+      resolvedAt: null,
+      expiresAt: expiresAt.toISOString(),
+      question: "Choose an agent",
+      contentCaptured: true,
+      optionCount: 0,
+      options: null,
+      workflowId: "canvas-creation",
+      nodeId: "collectAgent",
+      sessionId: `session-${id}`,
+      userId: "user",
+      tenantId: "tenant",
+      response: null,
+      responseCaptured: false,
+      resumeOutcome: null,
+      resumeError: null,
+      runId: `run-${id}`,
+      resumeToken: null,
+      resolvedBy: null,
+      environment: "test",
+    });
+    const future = interrupt(`${marker}-future`, new Date(now + 60_000));
+    const expired = interrupt(`${marker}-expired`, new Date(now - 1_000));
+    await client.db.insert(studioInterrupts).values(
+      [future, expired].map((data) => ({
+        organizationId: organizationA,
+        projectId: projectA,
+        interruptId: data.id,
+        runId: data.runId,
+        sessionId: data.sessionId,
+        status: data.status,
+        type: data.type,
+        createdAt: new Date(data.createdAt),
+        resolvedAt: null,
+        expiresAt: data.expiresAt ? new Date(data.expiresAt) : null,
+        workflowId: data.workflowId,
+        nodeId: data.nodeId,
+        environment: data.environment,
+        userId: data.userId,
+        tenantId: data.tenantId,
+        resolvedBy: null,
+        resumeOutcome: null,
+        hasError: false,
+        searchText: marker,
+        data,
+        updatedAt: new Date(),
+      })),
+    );
+
+    const pending = await listStudioInterrupts(client.db, {
+      organizationId: organizationA,
+      projectId: projectA,
+      query: { range: "All time", q: marker, status: "pending" },
+    });
+    const expiredPage = await listStudioInterrupts(client.db, {
+      organizationId: organizationA,
+      projectId: projectA,
+      query: { range: "All time", q: marker, status: "expired" },
+    });
+    const expiredOutcome = await listStudioInterrupts(client.db, {
+      organizationId: organizationA,
+      projectId: projectA,
+      query: {
+        range: "All time",
+        q: marker,
+        outcome: "expired before resume",
+      },
+    });
+
+    expect(pending.items.map((item) => item.id)).toEqual([future.id]);
+    expect(expiredPage.items).toMatchObject([
+      {
+        id: expired.id,
+        status: "expired",
+        resumeOutcome: "expired before resume",
+      },
+    ]);
+    expect(expiredOutcome.items.map((item) => item.id)).toEqual([expired.id]);
+
+    const indexes = await client.db.execute(sql`
+      select indexname
+      from pg_indexes
+      where schemaname = current_schema()
+        and tablename = 'studio_interrupts'
+    `);
+    expect(
+      indexes.map((row) => String(row.indexname ?? "")).join("\n"),
+    ).toContain("studio_interrupts_scope_status_expires_idx");
   });
 
   it("keeps common status/time and workflow filters indexable", async () => {

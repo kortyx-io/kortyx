@@ -6,6 +6,13 @@ import {
   LoaderCircle,
 } from "lucide-react";
 import type { DataTableColumn } from "@/components/data-table";
+import {
+  effectiveInterruptStatus,
+  interruptInteractionLabel,
+  interruptStatusLabel,
+  interruptTimingPresentation,
+  interruptTypeLabel,
+} from "@/features/interrupts/lib/interrupt-presentation";
 import type {
   Interrupt,
   InterruptSortKey,
@@ -17,16 +24,12 @@ import {
 } from "@/features/telemetry/components/compact-status";
 import { CopyableCell } from "@/features/telemetry/components/copyable-cell";
 import { TruncatedText } from "@/features/telemetry/components/truncated-text";
-import {
-  formatDateTime,
-  formatDurationSeconds,
-  formatRelativeTime,
-} from "@/lib/format";
+import { formatDateTime, formatRelativeTime } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 const statusMeta: Record<InterruptStatus, CompactStatusMeta> = {
   pending: {
-    label: "Pending",
+    label: "Waiting for input",
     icon: LoaderCircle,
     className: "text-amber-600",
     animate: true,
@@ -37,7 +40,7 @@ const statusMeta: Record<InterruptStatus, CompactStatusMeta> = {
     className: "text-emerald-600",
   },
   expired: {
-    label: "Expired",
+    label: "Input expired",
     icon: Clock3,
     className: "text-muted-foreground",
   },
@@ -63,9 +66,17 @@ export function createInterruptColumns({
       sortKey: "status",
       defaultWidth: 130,
       cellClassName: "px-4",
-      render: (interrupt) => (
-        <CompactStatus meta={statusMeta[interrupt.status]} />
-      ),
+      render: (interrupt) => {
+        const status = effectiveInterruptStatus(interrupt, now);
+        return (
+          <CompactStatus
+            meta={{
+              ...statusMeta[status],
+              label: interruptStatusLabel(status),
+            }}
+          />
+        );
+      },
     },
     {
       key: "created",
@@ -82,35 +93,22 @@ export function createInterruptColumns({
     },
     {
       key: "age",
-      label: "Age / Resolved in",
+      label: "Waiting / Outcome",
       sortKey: "age",
-      defaultWidth: 130,
+      defaultWidth: 215,
       cellClassName: "font-mono text-xs tabular-nums",
-      cellTitle: (interrupt) => {
-        const seconds = Math.max(
-          0,
-          ((interrupt.resolvedAt ? Date.parse(interrupt.resolvedAt) : now) -
-            Date.parse(interrupt.createdAt)) /
-            1_000,
-        );
-        return formatDurationSeconds(seconds, { style: "full" });
-      },
+      cellTitle: (interrupt) =>
+        interruptTimingPresentation(interrupt, now).title,
       render: (interrupt) => {
-        const seconds = Math.max(
-          0,
-          Math.floor(
-            ((interrupt.resolvedAt ? Date.parse(interrupt.resolvedAt) : now) -
-              Date.parse(interrupt.createdAt)) /
-              1000,
-          ),
-        );
-        return interrupt.status === "pending" ? (
+        const status = effectiveInterruptStatus(interrupt, now);
+        const timing = interruptTimingPresentation(interrupt, now);
+        return status === "pending" ? (
           <TruncatedText>
             <span className="mr-1 inline-block size-1.5 animate-pulse rounded-full bg-amber-500" />
-            {formatDurationSeconds(seconds)}
+            {timing.label}
           </TruncatedText>
         ) : (
-          <TruncatedText>{formatDurationSeconds(seconds)}</TruncatedText>
+          <TruncatedText>{timing.label}</TruncatedText>
         );
       },
     },
@@ -118,21 +116,36 @@ export function createInterruptColumns({
       key: "request",
       label: "Request",
       defaultWidth: 280,
-      render: (interrupt) => (
-        <div className="min-w-0 overflow-hidden">
-          <div className="mb-1 flex min-w-0 items-center gap-1.5 overflow-hidden">
-            <span className="shrink-0 rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
-              {interrupt.type}
-            </span>
-            {interrupt.optionCount && (
-              <span className="truncate text-[10px] text-muted-foreground">
-                {interrupt.optionCount} options
+      render: (interrupt) => {
+        const interaction = interruptInteractionLabel({
+          interactionMode: interrupt.interactionMode,
+          type: interrupt.type,
+          optionCount: interrupt.optionCount ?? null,
+        });
+        return (
+          <div className="min-w-0 overflow-hidden">
+            <div className="mb-1 flex min-w-0 items-center gap-1.5 overflow-hidden">
+              <span
+                className="shrink-0 rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground"
+                title={interruptTypeLabel(interrupt.type)}
+              >
+                {interaction}
               </span>
-            )}
+              {interrupt.schemaId && (
+                <span
+                  className="truncate font-mono text-[10px] text-muted-foreground"
+                  title={interrupt.schemaId}
+                >
+                  {interrupt.schemaId}
+                </span>
+              )}
+            </div>
+            <p className="truncate text-xs" title={interrupt.question}>
+              {interrupt.question}
+            </p>
           </div>
-          <p className="truncate text-xs">{interrupt.question}</p>
-        </div>
-      ),
+        );
+      },
     },
     {
       key: "workflow",
@@ -175,18 +188,27 @@ export function createInterruptColumns({
       key: "response",
       label: "Response",
       defaultWidth: 210,
-      render: (interrupt) => (
-        <p
-          className={cn(
-            "truncate text-xs",
-            interrupt.status === "pending" ? "text-muted-foreground" : "",
-          )}
-        >
-          {interrupt.status === "pending"
-            ? "Awaiting response"
-            : (interrupt.response ?? "—")}
-        </p>
-      ),
+      render: (interrupt) => {
+        const status = effectiveInterruptStatus(interrupt, now);
+        return (
+          <p
+            className={cn(
+              "truncate text-xs",
+              status === "pending" ? "text-muted-foreground" : "",
+            )}
+          >
+            {status === "pending"
+              ? "Awaiting response"
+              : interrupt.responseCaptured
+                ? (interrupt.response ?? "Empty response")
+                : status === "cancelled"
+                  ? "Cancelled before response"
+                  : status === "expired"
+                    ? "Expired before response"
+                    : "Response not captured"}
+          </p>
+        );
+      },
     },
     {
       key: "outcome",

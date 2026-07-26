@@ -58,6 +58,25 @@ export default function InterruptsPageClient({
     const timer = window.setInterval(() => setNow(Date.now()), 1_000);
     return () => window.clearInterval(timer);
   }, []);
+  useEffect(() => {
+    const current = Date.now();
+    const nextExpiry = interrupts
+      .filter((interrupt) => interrupt.status === "pending")
+      .map((interrupt) =>
+        interrupt.expiresAt ? Date.parse(interrupt.expiresAt) : Number.NaN,
+      )
+      .filter((expiresAt) => Number.isFinite(expiresAt) && expiresAt > current)
+      .sort((a, b) => a - b)[0];
+    if (nextExpiry === undefined) return;
+    const timer = window.setTimeout(
+      () => {
+        setNow(Date.now());
+        router.refresh();
+      },
+      Math.max(0, nextExpiry - current + 50),
+    );
+    return () => window.clearTimeout(timer);
+  }, [interrupts, router]);
   const columns = createInterruptColumns({
     now,
     onCopy: (value) =>

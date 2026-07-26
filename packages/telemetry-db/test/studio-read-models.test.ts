@@ -152,15 +152,18 @@ describe("Studio read model projection", () => {
     expect(models.runs[0]).toMatchObject({
       id: "run-1",
       status: "interrupted",
-      durationMs: 1_200,
+      durationMs: 1_000,
       interruptNodeId: "fetchDiscoveryCanvasInputs",
+      interruptId: "human-1",
+      interruptStatus: "pending",
       path: ["fetchDiscoveryCanvasInputs"],
     });
     expect(models.sessions[0]).toMatchObject({
       id: "session-1",
       status: "interrupted",
       pendingInterruptId: "human-1",
-      durationMs: 1_200,
+      interruptStatus: "pending",
+      durationMs: 1_000,
     });
     expect(models.interrupts[0]).toMatchObject({
       id: "human-1",
@@ -175,6 +178,88 @@ describe("Studio read model projection", () => {
         (node) => node.id === "fetchDiscoveryCanvasInputs",
       )?.metrics.runCount,
     ).toBe(1);
+  });
+
+  it("ends an unfinished root span at the interrupt boundary", () => {
+    const models = createStudioReadModelsFromRecords({
+      revisions: [revision()],
+      rates: [],
+      events: [
+        event(0, {
+          eventId: "root-start",
+          type: "span.started",
+          spanId: "root-1",
+          payload: { name: "kortyx.run" },
+        }),
+        event(4_000, {
+          eventId: "interrupt-created",
+          type: "interrupt.created",
+          nodeId: "fetchDiscoveryCanvasInputs",
+          payload: {
+            interruptId: "human-open-root",
+            kind: "choice",
+            nodeId: "fetchDiscoveryCanvasInputs",
+            expiresAt: "2099-01-01T00:00:00.000Z",
+          },
+        }),
+      ],
+    });
+
+    expect(models.runs[0]).toMatchObject({
+      status: "interrupted",
+      startedAt: new Date(baseTime).toISOString(),
+      endedAt: new Date(baseTime + 4_000).toISOString(),
+      durationMs: 4_000,
+      interruptStatus: "pending",
+      result: "Waiting for input at fetchDiscoveryCanvasInputs",
+    });
+    expect(models.sessions[0]).toMatchObject({
+      durationMs: 4_000,
+      interruptStatus: "pending",
+    });
+  });
+
+  it("presents an unresolved request past its deadline as expired", () => {
+    const models = createStudioReadModelsFromRecords({
+      revisions: [revision()],
+      rates: [],
+      events: [
+        event(0, {
+          eventId: "root-start",
+          type: "span.started",
+          spanId: "root-1",
+          payload: { name: "kortyx.run" },
+        }),
+        event(1_000, {
+          eventId: "interrupt-created",
+          type: "interrupt.created",
+          nodeId: "fetchDiscoveryCanvasInputs",
+          payload: {
+            interruptId: "human-expired",
+            kind: "choice",
+            nodeId: "fetchDiscoveryCanvasInputs",
+            expiresAt: new Date(baseTime + 2_000).toISOString(),
+          },
+        }),
+      ],
+    });
+
+    expect(models.interrupts[0]).toMatchObject({
+      id: "human-expired",
+      status: "expired",
+      resumeOutcome: "expired before resume",
+    });
+    expect(models.runs[0]).toMatchObject({
+      status: "interrupted",
+      interruptStatus: "expired",
+      durationMs: 1_000,
+      result: "Input expired at fetchDiscoveryCanvasInputs",
+    });
+    expect(models.sessions[0]).toMatchObject({
+      status: "interrupted",
+      interruptStatus: "expired",
+      latestResult: "Input expired at fetchDiscoveryCanvasInputs",
+    });
   });
 
   it("redacts capability secrets from Studio detail events", () => {
@@ -206,6 +291,157 @@ describe("Studio read model projection", () => {
         totalTokenCount: 42,
         safe: "visible",
       },
+    });
+  });
+
+  it("projects static, dynamic, and free-form interrupt semantics truthfully", () => {
+    const models = createStudioReadModelsFromRecords({
+      revisions: [revision()],
+      rates: [],
+      events: [
+        event(0, {
+          eventId: "static-created",
+          type: "interrupt.created",
+          payload: {
+            interruptId: "static-1",
+            kind: "choice",
+            interactionMode: "static-options",
+            question: "Approve?",
+            optionCount: 2,
+            options: [
+              { id: "approve", label: "Approve", value: "must-not-project" },
+              {
+                id: "revise",
+                label: "Revise",
+                description: "Request changes",
+              },
+            ],
+          },
+        }),
+        event(100, {
+          eventId: "static-cancelled",
+          type: "interrupt.cancelled",
+          payload: {
+            interruptId: "static-1",
+            reason: "cancelled_by_client",
+          },
+        }),
+        event(200, {
+          eventId: "dynamic-created",
+          type: "interrupt.created",
+          payload: {
+            interruptId: "dynamic-1",
+            kind: "choice",
+            interactionMode: "dynamic-picker",
+            schemaId: "pick-agent",
+            schemaVersion: "1",
+            optionCount: 0,
+          },
+        }),
+        event(300, {
+          eventId: "dynamic-resolved",
+          type: "interrupt.resolved",
+          payload: {
+            interruptId: "dynamic-1",
+            resumeOutcome: "resumed",
+            responseCaptured: false,
+          },
+        }),
+        event(400, {
+          eventId: "text-created",
+          type: "interrupt.created",
+          payload: {
+            interruptId: "text-1",
+            kind: "text",
+            interactionMode: "freeform",
+            optionCount: 0,
+          },
+        }),
+        event(500, {
+          eventId: "text-expired",
+          type: "interrupt.expired",
+          payload: { interruptId: "text-1" },
+        }),
+        event(600, {
+          eventId: "failed-created",
+          type: "interrupt.created",
+          payload: {
+            interruptId: "failed-1",
+            kind: "choice",
+            interactionMode: "dynamic-picker",
+            schemaId: "pick-agent",
+            optionCount: 0,
+          },
+        }),
+        event(700, {
+          eventId: "failed-response",
+          type: "interrupt.resolved",
+          payload: {
+            interruptId: "failed-1",
+            response: "agent-1",
+            responseCaptured: true,
+            resumeOutcome: "resumed",
+          },
+        }),
+        event(800, {
+          eventId: "failed-resume",
+          type: "interrupt.resolved",
+          payload: {
+            interruptId: "failed-1",
+            resumeOutcome: "failed",
+            resumeError: "checkpoint rejected",
+          },
+        }),
+      ],
+    });
+
+    expect(
+      models.interrupts.find((interrupt) => interrupt.id === "static-1"),
+    ).toMatchObject({
+      status: "cancelled",
+      interactionMode: "static-options",
+      contentCaptured: true,
+      optionCount: 2,
+      options: [
+        { id: "approve", label: "Approve", description: null },
+        {
+          id: "revise",
+          label: "Revise",
+          description: "Request changes",
+        },
+      ],
+      resumeOutcome: "cancelled",
+    });
+    expect(
+      models.interrupts.find((interrupt) => interrupt.id === "dynamic-1"),
+    ).toMatchObject({
+      status: "resolved",
+      interactionMode: "dynamic-picker",
+      schemaId: "pick-agent",
+      schemaVersion: "1",
+      optionCount: 0,
+      options: null,
+      response: null,
+      responseCaptured: false,
+      resumeOutcome: "resumed",
+    });
+    expect(
+      models.interrupts.find((interrupt) => interrupt.id === "text-1"),
+    ).toMatchObject({
+      status: "expired",
+      type: "text",
+      interactionMode: "freeform",
+      responseCaptured: false,
+      resumeOutcome: "expired before resume",
+    });
+    expect(
+      models.interrupts.find((interrupt) => interrupt.id === "failed-1"),
+    ).toMatchObject({
+      status: "failed",
+      response: "agent-1",
+      responseCaptured: true,
+      resumeOutcome: "resume failed",
+      resumeError: "checkpoint rejected",
     });
   });
 

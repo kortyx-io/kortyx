@@ -16,6 +16,19 @@ const createId = (): string => {
   }
 };
 
+export const shouldCaptureTelemetryContent = (
+  value: unknown,
+  side: "input" | "output",
+): boolean => {
+  if (value === true) return true;
+  return Boolean(
+    value &&
+      typeof value === "object" &&
+      !Array.isArray(value) &&
+      (value as Record<string, unknown>)[side] === true,
+  );
+};
+
 /** Emits a lifecycle fact only when the application configured telemetry. */
 export const emitTelemetryEvent = (args: {
   config: Record<string, unknown>;

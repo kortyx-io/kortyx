@@ -27,6 +27,12 @@ import {
 
 export function RunDetail({ detail }: { detail: StudioRunDetailResponse }) {
   const { run, events } = detail;
+  const statusLabel =
+    run.status === "interrupted" && run.interruptStatus === "pending"
+      ? "waiting for input"
+      : run.status === "interrupted" && run.interruptStatus === "expired"
+        ? "input expired"
+        : run.status;
   const failure =
     run.status === "failed"
       ? [...events]
@@ -43,7 +49,7 @@ export function RunDetail({ detail }: { detail: StudioRunDetailResponse }) {
         eyebrow="Run"
         title={run.id}
         status={
-          <StatusPill tone={statusTone(run.status)}>{run.status}</StatusPill>
+          <StatusPill tone={statusTone(run.status)}>{statusLabel}</StatusPill>
         }
         description={
           <span>
@@ -102,7 +108,9 @@ export function RunDetail({ detail }: { detail: StudioRunDetailResponse }) {
             </div>
           ) : run.status === "interrupted" ? (
             <div className="rounded-md border border-amber-500/25 bg-amber-500/5 px-3 py-2 text-xs text-amber-700 dark:text-amber-400">
-              Waiting for input
+              {run.interruptStatus === "expired"
+                ? "Input expired"
+                : "Waiting for input"}
               {run.interruptNodeId ? ` at ${run.interruptNodeId}` : ""}.
               {detail.interrupts[0] && (
                 <>

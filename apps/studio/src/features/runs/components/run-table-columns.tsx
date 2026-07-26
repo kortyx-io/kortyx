@@ -1,5 +1,6 @@
-import { CirclePause } from "lucide-react";
+import { CirclePause, Clock3 } from "lucide-react";
 import type { DataTableColumn } from "@/components/data-table";
+import { effectiveInterruptStatus } from "@/features/interrupts/lib/interrupt-presentation";
 import {
   WorkflowPathCell,
   workflowPathTitle,
@@ -16,8 +17,8 @@ import {
 import { cn } from "@/lib/utils";
 
 type CreateRunColumnsOptions = {
-  /** Seconds elapsed since live mode started, used to tick running durations. */
-  liveSeconds: number;
+  /** Server-provided render clock, advanced by the client after hydration. */
+  now: number;
   onToggleStatus: (status: RunStatus) => void;
   onCopy: (text: string) => void;
   workflowFilter?: string;
@@ -34,17 +35,15 @@ const workflowRefsFor = (run: Run) =>
         },
       ];
 
-const activeDurationSeconds = (run: Run, liveSeconds: number) => {
-  if (run.status !== "running" && run.status !== "interrupted") {
-    return run.duration;
-  }
+const activeDurationSeconds = (run: Run, now: number) => {
+  if (run.status !== "running") return run.duration;
   const startedAt = Date.parse(run.startedAt);
-  if (!Number.isFinite(startedAt)) return run.duration + liveSeconds;
-  return Math.max(0, (Date.now() - startedAt) / 1000);
+  if (!Number.isFinite(startedAt)) return run.duration;
+  return Math.max(0, (now - startedAt) / 1000);
 };
 
 export function createRunColumns({
-  liveSeconds,
+  now,
   onToggleStatus,
   onCopy,
   workflowFilter = "",
@@ -58,7 +57,29 @@ export function createRunColumns({
       defaultWidth: 140,
       cellClassName: "px-4",
       render: (run) => {
-        const status = statusMeta[run.status];
+        const interruptStatus = run.interruptStatus
+          ? effectiveInterruptStatus(
+              {
+                status: run.interruptStatus,
+                expiresAt: run.interruptExpiresAt,
+              },
+              now,
+            )
+          : null;
+        const status =
+          run.status === "interrupted" && interruptStatus === "pending"
+            ? {
+                label: "Waiting for input",
+                icon: CirclePause,
+                className: "text-amber-600",
+              }
+            : run.status === "interrupted" && interruptStatus === "expired"
+              ? {
+                  label: "Input expired",
+                  icon: Clock3,
+                  className: "text-muted-foreground",
+                }
+              : statusMeta[run.status];
         const StatusIcon = status.icon;
         return (
           <button
@@ -199,14 +220,14 @@ export function createRunColumns({
       defaultWidth: 108,
       cellClassName: "font-mono text-xs tabular-nums",
       cellTitle: (run) =>
-        formatDurationSeconds(activeDurationSeconds(run, liveSeconds), {
+        formatDurationSeconds(activeDurationSeconds(run, now), {
           style: "full",
         }),
       render: (run) => {
-        const duration = activeDurationSeconds(run, liveSeconds);
+        const duration = activeDurationSeconds(run, now);
         return (
           <TruncatedText>
-            {(run.status === "running" || run.status === "interrupted") && (
+            {run.status === "running" && (
               <span className="mr-1 inline-block size-1.5 animate-pulse rounded-full bg-blue-500" />
             )}
             {formatDurationSeconds(duration)}

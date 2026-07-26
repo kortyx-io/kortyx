@@ -51,6 +51,11 @@ export const RunSchema = z.object({
   hasTool: z.boolean(),
   hasRetry: z.boolean().optional(),
   interruptNode: z.string().optional(),
+  interruptId: z.string().optional(),
+  interruptStatus: z
+    .enum(["pending", "resolved", "expired", "failed", "cancelled"])
+    .optional(),
+  interruptExpiresAt: z.string().optional(),
 });
 
 export type RunStatus = z.infer<typeof RunStatusSchema>;

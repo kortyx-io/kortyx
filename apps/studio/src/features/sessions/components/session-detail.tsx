@@ -33,6 +33,13 @@ export function SessionDetail({
   detail: StudioSessionDetailResponse;
 }) {
   const { session } = detail;
+  const statusLabel =
+    session.status === "interrupted" && session.interruptStatus === "pending"
+      ? "waiting for input"
+      : session.status === "interrupted" &&
+          session.interruptStatus === "expired"
+        ? "input expired"
+        : session.status;
   const chronologicalRuns = [...detail.runs].sort(
     (a, b) => Date.parse(a.startedAt) - Date.parse(b.startedAt),
   );
@@ -43,7 +50,7 @@ export function SessionDetail({
         title={session.id}
         status={
           <StatusPill tone={statusTone(session.status)}>
-            {session.status}
+            {statusLabel}
           </StatusPill>
         }
         description={
@@ -89,7 +96,9 @@ export function SessionDetail({
         alert={
           session.pendingInterruptId ? (
             <div className="rounded-md border border-amber-500/25 bg-amber-500/5 px-3 py-2 text-xs text-amber-700 dark:text-amber-400">
-              Waiting for human input.{" "}
+              {session.interruptStatus === "expired"
+                ? "Human input request expired."
+                : "Waiting for human input."}{" "}
               <DetailLink
                 className="font-medium underline"
                 href={`/interrupts/${session.pendingInterruptId}`}

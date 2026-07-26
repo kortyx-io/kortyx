@@ -215,6 +215,12 @@ Delivery is best-effort and non-blocking: events receive idempotent IDs, are bat
 
 `interrupt.expired` is intentionally API-derived from the durable `expiresAt` sent in `interrupt.created`; the SDK does not run an unreliable local TTL timer. `run.cancelled` remains reserved until Kortyx exposes a real cancellation operation. A client disconnect is not a cancellation event.
 
+Interrupt telemetry keeps structural fields (`kind`, `interactionMode`,
+`optionCount`, `schemaId`, and `schemaVersion`) even when content capture is
+off. Questions and static option labels use output-content capture; submitted
+responses use input-content capture. Option values and resume capability tokens
+are never emitted.
+
 ## License
 
 Apache-2.0. See [LICENSE](https://github.com/kortyx-io/kortyx/blob/main/LICENSE).

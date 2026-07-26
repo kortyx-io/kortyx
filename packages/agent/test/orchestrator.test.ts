@@ -450,10 +450,22 @@ describe("orchestrateGraphStream", () => {
       expect.objectContaining({
         type: "interrupt.created",
         payload: expect.objectContaining({
+          interactionMode: "static-options",
+          schemaId: "choice-schema",
+          schemaVersion: "2",
           question: "Pick",
+          optionCount: 1,
+          options: [{ id: "a", label: "A", description: "First" }],
         }),
       }),
     );
+    const createdEvent = telemetryEvents.find(
+      (event) =>
+        typeof event === "object" &&
+        event !== null &&
+        (event as { type?: string }).type === "interrupt.created",
+    ) as { payload: { options: Array<Record<string, unknown>> } };
+    expect(createdEvent.payload.options[0]).not.toHaveProperty("value");
   });
 
   it("handles text interrupts with default schema fields", async () => {

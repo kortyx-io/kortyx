@@ -560,6 +560,12 @@ export const studioInterrupts = pgTable(
       table.status,
       table.createdAt,
     ),
+    index("studio_interrupts_scope_status_expires_idx").on(
+      table.organizationId,
+      table.projectId,
+      table.status,
+      table.expiresAt,
+    ),
     index("studio_interrupts_scope_workflow_created_idx").on(
       table.organizationId,
       table.projectId,

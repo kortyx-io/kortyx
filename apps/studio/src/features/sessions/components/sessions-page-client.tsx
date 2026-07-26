@@ -3,6 +3,7 @@
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { DataTable, DataTableProvider } from "@/components/data-table";
+import { effectiveInterruptStatus } from "@/features/interrupts/lib/interrupt-presentation";
 import { PAGE_SIZES } from "@/features/runs/lib/constants";
 import { createSessionColumns } from "@/features/sessions/components/session-table-columns";
 import { SessionsEmptyState } from "@/features/sessions/components/sessions-empty-state";
@@ -54,10 +55,21 @@ export default function SessionsPageClient({
     resource: "sessions",
   });
   const [now, setNow] = useState(initialNow);
-  const hasActiveSessions = query.filteredSessions.some(
-    (session) =>
-      session.status === "running" || session.status === "interrupted",
-  );
+  const hasActiveSessions = query.filteredSessions.some((session) => {
+    if (session.status === "running") return true;
+    if (session.status !== "interrupted" || !session.interruptStatus) {
+      return false;
+    }
+    return (
+      effectiveInterruptStatus(
+        {
+          status: session.interruptStatus,
+          expiresAt: session.interruptExpiresAt,
+        },
+        now,
+      ) === "pending"
+    );
+  });
   useEffect(() => {
     if (!query.live && !hasActiveSessions) return;
     const timer = window.setInterval(() => setNow(Date.now()), 1_000);

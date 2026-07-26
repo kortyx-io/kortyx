@@ -13,6 +13,7 @@ export default async function RunsPage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
+  const renderedAt = Date.now();
   const [query, cookieStore] = await Promise.all([searchParams, cookies()]);
   const preferences = {
     ...DEFAULT_RUNS_TABLE_PREFERENCES,
@@ -38,6 +39,7 @@ export default async function RunsPage({
       runs={runsResult.data.items}
       totalCount={runsResult.data.totalCount}
       preferences={preferences}
+      initialNow={renderedAt}
     />
   );
 }

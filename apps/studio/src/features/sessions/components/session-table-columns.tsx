@@ -4,10 +4,12 @@ import {
   CircleDashed,
   CirclePause,
   CircleX,
+  Clock3,
   GitFork,
   LoaderCircle,
 } from "lucide-react";
 import type { DataTableColumn } from "@/components/data-table";
+import { effectiveInterruptStatus } from "@/features/interrupts/lib/interrupt-presentation";
 import type {
   Session,
   SessionSortKey,
@@ -59,9 +61,7 @@ const statusMeta: Record<SessionStatus, CompactStatusMeta> = {
 };
 
 const activeDurationSeconds = (session: Session, now: number) => {
-  if (session.status !== "running" && session.status !== "interrupted") {
-    return session.duration;
-  }
+  if (session.status !== "running") return session.duration;
   const lastActivityAt = Date.parse(session.lastActivityAt);
   if (!Number.isFinite(lastActivityAt)) return session.duration;
   return Math.max(session.duration ?? 0, (now - lastActivityAt) / 1000);
@@ -81,7 +81,32 @@ export function createSessionColumns({
       sortKey: "status",
       defaultWidth: 132,
       cellClassName: "px-4",
-      render: (session) => <CompactStatus meta={statusMeta[session.status]} />,
+      render: (session) => {
+        const interruptStatus = session.interruptStatus
+          ? effectiveInterruptStatus(
+              {
+                status: session.interruptStatus,
+                expiresAt: session.interruptExpiresAt,
+              },
+              now,
+            )
+          : null;
+        const meta =
+          session.status === "interrupted" && interruptStatus === "pending"
+            ? {
+                label: "Waiting for input",
+                icon: CirclePause,
+                className: "text-amber-600",
+              }
+            : session.status === "interrupted" && interruptStatus === "expired"
+              ? {
+                  label: "Input expired",
+                  icon: Clock3,
+                  className: "text-muted-foreground",
+                }
+              : statusMeta[session.status];
+        return <CompactStatus meta={meta} />;
+      },
     },
     {
       key: "activity",

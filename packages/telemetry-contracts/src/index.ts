@@ -378,12 +378,41 @@ export const StudioInterruptStatusSchema = z.enum([
   "failed",
   "cancelled",
 ]);
+export const resolveStudioInterruptStatus = (
+  input: {
+    status: z.infer<typeof StudioInterruptStatusSchema>;
+    expiresAt?: string | null | undefined;
+  },
+  now: Date | number = Date.now(),
+): z.infer<typeof StudioInterruptStatusSchema> => {
+  if (input.status !== "pending" || !input.expiresAt) return input.status;
+  const expiresAt = Date.parse(input.expiresAt);
+  const nowMs = typeof now === "number" ? now : now.getTime();
+  return Number.isFinite(expiresAt) &&
+    Number.isFinite(nowMs) &&
+    expiresAt <= nowMs
+    ? "expired"
+    : input.status;
+};
 export const StudioInterruptTypeSchema = z.enum([
   "choice",
   "multi-choice",
   "text",
   "unknown",
 ]);
+export const StudioInterruptInteractionModeSchema = z.enum([
+  "static-options",
+  "dynamic-picker",
+  "freeform",
+  "unknown",
+]);
+export const StudioInterruptOptionSchema = z
+  .object({
+    id: z.string().min(1),
+    label: z.string().min(1),
+    description: z.string().nullable(),
+  })
+  .strict();
 export const StudioResumeOutcomeSchema = z.enum([
   "resumed",
   "resume failed",
@@ -471,6 +500,13 @@ export const StudioRunSchema = z
     hasTool: z.boolean(),
     hasRetry: z.boolean(),
     interruptNodeId: z.string().nullable(),
+    interruptId: z.string().nullable().optional(),
+    interruptStatus: StudioInterruptStatusSchema.nullable().optional(),
+    interruptExpiresAt: z
+      .string()
+      .datetime({ offset: true })
+      .nullable()
+      .optional(),
   })
   .strict();
 export const StudioSessionSchema = z
@@ -499,6 +535,12 @@ export const StudioSessionSchema = z
     latestResult: z.string().nullable(),
     latestError: z.string().nullable(),
     pendingInterruptId: z.string().nullable(),
+    interruptStatus: StudioInterruptStatusSchema.nullable().optional(),
+    interruptExpiresAt: z
+      .string()
+      .datetime({ offset: true })
+      .nullable()
+      .optional(),
     providers: z.array(z.string()),
     models: z.array(z.string()),
     tags: z.array(z.string()),
@@ -510,18 +552,23 @@ export const StudioInterruptSchema = z
     id: z.string().min(1),
     status: StudioInterruptStatusSchema,
     type: StudioInterruptTypeSchema,
+    interactionMode: StudioInterruptInteractionModeSchema,
+    schemaId: z.string().nullable(),
+    schemaVersion: z.string().nullable(),
     createdAt: z.string().datetime({ offset: true }),
     resolvedAt: z.string().datetime({ offset: true }).nullable(),
     expiresAt: z.string().datetime({ offset: true }).nullable(),
     question: z.string().nullable(),
     contentCaptured: z.boolean(),
     optionCount: z.number().int().nonnegative().nullable(),
+    options: z.array(StudioInterruptOptionSchema).nullable(),
     workflowId: z.string().min(1),
     nodeId: z.string().nullable(),
     sessionId: z.string().nullable(),
     userId: z.string().nullable(),
     tenantId: z.string().nullable(),
     response: z.string().nullable(),
+    responseCaptured: z.boolean(),
     resumeOutcome: StudioResumeOutcomeSchema.nullable(),
     resumeError: z.string().nullable(),
     runId: z.string().min(1),
@@ -703,6 +750,10 @@ export type StudioTimeRangeContext = z.infer<
 >;
 export type StudioInterruptStatus = z.infer<typeof StudioInterruptStatusSchema>;
 export type StudioInterruptType = z.infer<typeof StudioInterruptTypeSchema>;
+export type StudioInterruptInteractionMode = z.infer<
+  typeof StudioInterruptInteractionModeSchema
+>;
+export type StudioInterruptOption = z.infer<typeof StudioInterruptOptionSchema>;
 export type StudioResumeOutcome = z.infer<typeof StudioResumeOutcomeSchema>;
 export type StudioWorkflowHealth = z.infer<typeof StudioWorkflowHealthSchema>;
 export type StudioPricingStatus = z.infer<typeof StudioPricingStatusSchema>;

@@ -8,7 +8,10 @@ import { createExecutionGraph } from "@kortyx/runtime";
 import type { StreamChunk } from "@kortyx/stream";
 import type { SelectWorkflowFn } from "../orchestrator";
 import { type OrchestrateArgs, orchestrateGraphStream } from "../orchestrator";
-import { emitTelemetryEvent } from "../telemetry/events";
+import {
+  emitTelemetryEvent,
+  shouldCaptureTelemetryContent,
+} from "../telemetry/events";
 import { prepareWorkflowTelemetry } from "../telemetry/topology";
 import type { ChatMessage } from "../types/chat-message";
 
@@ -202,6 +205,13 @@ export async function tryPrepareResumeStream({
   });
   await store.delete(pending.token);
   const response = responseFromSelection(meta.selected);
+  const telemetry = isRecord(telemetryConfig.telemetry)
+    ? telemetryConfig.telemetry
+    : {};
+  const responseCaptured = Boolean(
+    response &&
+      shouldCaptureTelemetryContent(telemetry.captureContent, "input"),
+  );
   emitTelemetryEvent({
     config: telemetryConfig,
     type: "interrupt.resolved",
@@ -215,7 +225,8 @@ export async function tryPrepareResumeStream({
       interruptId: pending.requestId,
       resolvedAt: new Date().toISOString(),
       resumeOutcome: "resumed",
-      ...(response ? { response } : {}),
+      responseCaptured,
+      ...(responseCaptured && response ? { response } : {}),
     },
     flush: true,
   });
