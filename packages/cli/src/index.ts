@@ -21,7 +21,9 @@ import {
   type EnsureWorkflowTopologyResponse,
   EnsureWorkflowTopologyResponseSchema,
 } from "@kortyx/telemetry-contracts";
+import { Command, CommanderError } from "commander";
 import { require as tsxRequire } from "tsx/cjs/api";
+import { createStudioCommand } from "./studio/command";
 
 type CliOptions = {
   entry?: string | undefined;
@@ -41,34 +43,24 @@ type PushResult = {
   response?: EnsureWorkflowTopologyResponse;
 };
 
+type TopologyPushCommandOptions = {
+  entry: string;
+  export?: string;
+  apiUrl?: string;
+  apiKey?: string;
+  environment?: string;
+  serviceName?: string;
+  deploymentRef?: string;
+  dryRun?: boolean;
+  json?: boolean;
+};
+
 type ModuleResolveFilename = (
   request: string,
   parent: NodeJS.Module | undefined,
   isMain: boolean,
   options?: unknown,
 ) => string;
-
-const commandHelp = `Usage:
-  kortyx topology push --entry <path> [options]
-
-Options:
-  --entry <path>             Module exporting an agent or workflows array.
-  --export <name>            Named export to load from the entry module.
-  --api-url <url>            Kortyx API URL. Defaults to KORTYX_TELEMETRY_API_URL or KORTYX_API_URL.
-  --api-key <key>            Telemetry API key. Defaults to KORTYX_TELEMETRY_API_KEY.
-  --environment <name>       Telemetry environment. Defaults to KORTYX_TELEMETRY_ENVIRONMENT or NODE_ENV or development.
-  --service-name <name>      Service name. Defaults to KORTYX_TELEMETRY_SERVICE_NAME or package.json name.
-  --deployment-ref <ref>     Deployment ref. Defaults to KORTYX_TELEMETRY_DEPLOYMENT_REF, GITHUB_SHA, or VERCEL_GIT_COMMIT_SHA.
-  --dry-run                  Project topology and print it without pushing.
-  --json                     Print machine-readable JSON.
-  -h, --help                 Show help.
-
-The CLI loads .env and .env.local from the current working directory without overriding existing environment variables.
-
-Examples:
-  kortyx topology push --entry src/lib/agent.ts
-  kortyx topology push --entry src/workflows.ts --export workflows --environment production
-`;
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   Boolean(value) && typeof value === "object" && !Array.isArray(value);
@@ -81,50 +73,6 @@ const isWorkflowDefinition = (value: unknown): value is WorkflowDefinition =>
 
 const isAgent = (value: unknown): value is Agent =>
   isRecord(value) && typeof value.projectTopology === "function";
-
-const parseArgs = (argv: string[], cwd = process.cwd()): CliOptions => {
-  const [command, subcommand, ...rest] = argv;
-  if (command === "-h" || command === "--help" || command === undefined) {
-    throw new HelpRequested();
-  }
-  if (command !== "topology" || subcommand !== "push") {
-    throw new Error(`Unknown command: ${argv.join(" ") || "(empty)"}`);
-  }
-
-  const options: CliOptions = { dryRun: false, json: false, cwd };
-  for (let index = 0; index < rest.length; index += 1) {
-    const arg = rest[index];
-    if (!arg) continue;
-    if (arg === "-h" || arg === "--help") throw new HelpRequested();
-    if (arg === "--dry-run") {
-      options.dryRun = true;
-      continue;
-    }
-    if (arg === "--json") {
-      options.json = true;
-      continue;
-    }
-
-    const value = rest[index + 1];
-    if (!value || value.startsWith("--")) {
-      throw new Error(`Missing value for ${arg}.`);
-    }
-    index += 1;
-
-    if (arg === "--entry") options.entry = value;
-    else if (arg === "--export") options.exportName = value;
-    else if (arg === "--api-url") options.apiUrl = value;
-    else if (arg === "--api-key") options.apiKey = value;
-    else if (arg === "--environment") options.environment = value;
-    else if (arg === "--service-name") options.serviceName = value;
-    else if (arg === "--deployment-ref") options.deploymentRef = value;
-    else throw new Error(`Unknown option: ${arg}.`);
-  }
-
-  return options;
-};
-
-class HelpRequested extends Error {}
 
 const readPackageName = async (cwd: string): Promise<string | undefined> => {
   let current = cwd;
@@ -556,16 +504,72 @@ const runTopologyPush = async (rawOptions: CliOptions): Promise<void> => {
   printResults(results, options);
 };
 
+const createCliProgram = (): Command => {
+  const program = new Command()
+    .name("kortyx")
+    .description("Build, observe, and operate Kortyx projects.")
+    .showHelpAfterError()
+    .addHelpText(
+      "after",
+      '\nRun "kortyx <command> --help" for detailed command options.',
+    );
+
+  program.addCommand(createStudioCommand());
+
+  const topology = program
+    .command("topology")
+    .description("Publish deterministic workflow topology to Studio.");
+  topology
+    .command("push")
+    .description("Project and publish workflow topology.")
+    .requiredOption(
+      "--entry <path>",
+      "Module exporting an agent or workflows array.",
+    )
+    .option("--export <name>", "Named export to load from the entry module.")
+    .option(
+      "--api-url <url>",
+      "Kortyx API URL. Defaults to KORTYX_TELEMETRY_API_URL.",
+    )
+    .option(
+      "--api-key <key>",
+      "Telemetry API key. Defaults to KORTYX_TELEMETRY_API_KEY.",
+    )
+    .option("--environment <name>", "Telemetry environment.")
+    .option("--service-name <name>", "Telemetry service name.")
+    .option("--deployment-ref <ref>", "Deployment reference.")
+    .option("--dry-run", "Print topology without publishing.", false)
+    .option("--json", "Print machine-readable JSON.", false)
+    .action(async (options: TopologyPushCommandOptions) => {
+      const cliOptions: CliOptions = {
+        entry: options.entry,
+        exportName: options.export,
+        apiUrl: options.apiUrl,
+        apiKey: options.apiKey,
+        environment: options.environment,
+        serviceName: options.serviceName,
+        deploymentRef: options.deploymentRef,
+        dryRun: options.dryRun ?? false,
+        json: options.json ?? false,
+        cwd: process.cwd(),
+      };
+      await loadEnvFiles(cliOptions.cwd);
+      await runTopologyPush(cliOptions);
+    });
+
+  return program;
+};
+
 const main = async (): Promise<void> => {
+  const program = createCliProgram().exitOverride();
+  if (process.argv.length === 2) {
+    program.outputHelp();
+    return;
+  }
   try {
-    const options = parseArgs(process.argv.slice(2));
-    await loadEnvFiles(options.cwd);
-    await runTopologyPush(options);
+    await program.parseAsync(process.argv);
   } catch (error) {
-    if (error instanceof HelpRequested) {
-      console.log(commandHelp);
-      return;
-    }
+    if (error instanceof CommanderError && error.exitCode === 0) return;
     console.error(error instanceof Error ? error.message : String(error));
     process.exitCode = 1;
   }

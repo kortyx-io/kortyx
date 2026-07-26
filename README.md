@@ -77,7 +77,18 @@ colliding with a local Postgres on `5432`. If you already had a `.env`, set
 `POSTGRES_PORT=6543` and
 `DATABASE_URL=postgres://kortyx:kortyx@localhost:6543/kortyx` manually.
 
-For self-hosted installs from published images:
+For the fastest self-hosted setup from any Kortyx SDK project:
+
+```bash
+npx kortyx studio start
+```
+
+The command creates durable local state in `~/.kortyx/studio`, waits for the
+Docker stack to become healthy, and prints both the local sign-in and the
+server-side SDK telemetry variables. Use `npx kortyx studio credentials` to
+print them again.
+
+For self-hosted installs from published images without Node.js:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/kortyx-io/kortyx/main/scripts/install-studio-oss.sh | sh

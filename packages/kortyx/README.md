@@ -20,6 +20,25 @@ pnpm add kortyx @kortyx/google @kortyx/react
 npm install kortyx @kortyx/google @kortyx/react
 ```
 
+## Run Studio locally
+
+Kortyx includes the local Studio command. With Docker Desktop running:
+
+```bash
+npx kortyx studio start
+```
+
+This starts the self-hosted Studio, API, and Postgres stack, then prints the
+sign-in and server-side telemetry variables for this SDK project. Re-running
+the command is safe and preserves credentials and data.
+
+```bash
+npx kortyx studio status
+npx kortyx studio logs
+npx kortyx studio credentials
+npx kortyx studio stop
+```
+
 ## Quickstart
 
 Create a workflow:
