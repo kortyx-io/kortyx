@@ -3,6 +3,8 @@ import { createHash, randomUUID } from "node:crypto";
 const apiUrl = process.env.KORTYX_API_URL ?? "http://localhost:6400";
 const telemetryApiKey = process.env.KORTYX_TELEMETRY_API_KEY;
 const studioApiKey = process.env.KORTYX_STUDIO_API_KEY;
+const configuredRunId = process.env.KORTYX_SMOKE_RUN_ID;
+const configuredSessionId = process.env.KORTYX_SMOKE_SESSION_ID;
 
 const requireEnv = (name: string, value: string | undefined): string => {
   if (!value) throw new Error(`${name} is required.`);
@@ -82,8 +84,8 @@ const topologyHash = createHash("sha256")
 const main = async (): Promise<void> => {
   const telemetryKey = requireEnv("KORTYX_TELEMETRY_API_KEY", telemetryApiKey);
   const now = new Date();
-  const runId = `smoke-run-${randomUUID()}`;
-  const sessionId = `smoke-session-${randomUUID()}`;
+  const runId = configuredRunId ?? `smoke-run-${randomUUID()}`;
+  const sessionId = configuredSessionId ?? `smoke-session-${randomUUID()}`;
 
   const revision = await postJson<{
     workflowRevisionId: string;

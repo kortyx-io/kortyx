@@ -28,6 +28,11 @@ then prints:
 Credentials and database data survive stop, restart, CLI upgrades, and
 repeated `start` calls.
 
+Published Studio images support `linux/amd64` and `linux/arm64`. This covers
+standard Linux hosts, Apple Silicon Docker Desktop, and ARM64 Linux. Docker
+selects the correct image automatically. Windows containers and other
+architectures are not release-tested.
+
 ```bash
 npx kortyx studio status
 npx kortyx studio logs

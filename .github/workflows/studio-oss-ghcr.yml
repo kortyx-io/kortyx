@@ -1,19 +1,25 @@
-name: Publish Studio OSS Images (GHCR)
+name: Release Studio OSS Images (GHCR)
 
 on:
-  push:
-    tags:
-      - "studio-v*"
   workflow_dispatch:
     inputs:
       version:
-        description: "Studio OSS image version without the leading v, for example 0.1.0."
+        description: "Studio version without the leading v, for example 0.1.0."
         required: true
         type: string
+      create_git_tag:
+        description: "Create studio-v<version> after production promotion."
+        required: true
+        default: true
+        type: boolean
 
 permissions:
-  contents: read
+  contents: write
   packages: write
+
+concurrency:
+  group: studio-oss-release
+  cancel-in-progress: false
 
 env:
   REGISTRY: ghcr.io
@@ -21,35 +27,99 @@ env:
   STUDIO_IMAGE_NAME: kortyx-io/kortyx-studio
 
 jobs:
-  publish-staging:
-    name: Publish Staging Images
+  prepare:
+    name: Validate release
     runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      version: ${{ steps.version.outputs.version }}
     steps:
       - name: Checkout
         uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
-      - name: Derive version
+      - name: Validate version and release tag
         id: version
+        env:
+          VERSION: ${{ inputs.version }}
         run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            version="${{ inputs.version }}"
-          else
-            ref="${GITHUB_REF_NAME}"
-            version="${ref#studio-v}"
-            if [ -z "$version" ] || [ "$version" = "$ref" ]; then
-              echo "Expected tag format studio-v<version>, got: $ref"
-              exit 1
-            fi
-          fi
-
-          if ! printf '%s' "$version" | grep -Eq '^[0-9]+(\.[0-9]+){1,2}([-.][0-9A-Za-z.-]+)?$'; then
-            echo "Expected semantic version, got: $version"
+          if [ "$GITHUB_REF" != "refs/heads/main" ]; then
+            echo "Studio releases must run from main, got: $GITHUB_REF"
             exit 1
           fi
 
-          echo "version=$version" >> "$GITHUB_OUTPUT"
+          if ! printf '%s' "$VERSION" | grep -Eq '^[0-9]+(\.[0-9]+){1,2}([-.][0-9A-Za-z.-]+)?$'; then
+            echo "Expected semantic version, got: $VERSION"
+            exit 1
+          fi
+
+          if git rev-parse --verify --quiet "refs/tags/studio-v${VERSION}"; then
+            echo "studio-v${VERSION} already exists. Studio release versions are immutable."
+            exit 1
+          fi
+
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+  package-installer:
+    name: Package clean-install candidate
+    needs: prepare
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: Setup pnpm cache
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build CLI packages
+        run: |
+          pnpm --filter @kortyx/cli build
+          pnpm --filter kortyx build
+
+      - name: Pack CLI packages
+        run: |
+          mkdir -p "$RUNNER_TEMP/studio-installer"
+          pnpm --dir packages/cli pack --pack-destination "$RUNNER_TEMP/studio-installer"
+          pnpm --dir packages/kortyx pack --pack-destination "$RUNNER_TEMP/studio-installer"
+
+      - name: Upload installer candidate
+        uses: actions/upload-artifact@v7
+        with:
+          name: studio-installer-${{ needs.prepare.outputs.version }}
+          path: ${{ runner.temp }}/studio-installer/*.tgz
+          if-no-files-found: error
+          retention-days: 7
+
+  publish-staging:
+    name: Publish multi-architecture staging images
+    needs: prepare
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    outputs:
+      api_digest: ${{ steps.api.outputs.digest }}
+      studio_digest: ${{ steps.studio.outputs.digest }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup QEMU
+        uses: docker/setup-qemu-action@v4
 
       - name: Setup Docker Buildx
         uses: docker/setup-buildx-action@v4
@@ -61,49 +131,279 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Refuse to overwrite a production version
+        env:
+          VERSION: ${{ needs.prepare.outputs.version }}
+        run: |
+          api_release="${REGISTRY}/${API_IMAGE_NAME}:v${VERSION}"
+          studio_release="${REGISTRY}/${STUDIO_IMAGE_NAME}:v${VERSION}"
+          if docker buildx imagetools inspect "$api_release" >/dev/null 2>&1; then
+            echo "$api_release already exists. Production versions are immutable."
+            exit 1
+          fi
+          if docker buildx imagetools inspect "$studio_release" >/dev/null 2>&1; then
+            echo "$studio_release already exists. Production versions are immutable."
+            exit 1
+          fi
+
       - name: Build and push API staging image
+        id: api
         uses: docker/build-push-action@v7
         with:
           context: .
           file: apps/api/Dockerfile
           push: true
-          platforms: linux/amd64
+          platforms: linux/amd64,linux/arm64
           tags: |
             ${{ env.REGISTRY }}/${{ env.API_IMAGE_NAME }}:staging-latest
-            ${{ env.REGISTRY }}/${{ env.API_IMAGE_NAME }}:staging-v${{ steps.version.outputs.version }}
+            ${{ env.REGISTRY }}/${{ env.API_IMAGE_NAME }}:staging-v${{ needs.prepare.outputs.version }}
           cache-from: type=gha,scope=kortyx-api-image
           cache-to: type=gha,mode=max,scope=kortyx-api-image
 
       - name: Build and push Studio staging image
+        id: studio
         uses: docker/build-push-action@v7
         with:
           context: .
           file: apps/studio/Dockerfile
           push: true
-          platforms: linux/amd64
+          platforms: linux/amd64,linux/arm64
           tags: |
             ${{ env.REGISTRY }}/${{ env.STUDIO_IMAGE_NAME }}:staging-latest
-            ${{ env.REGISTRY }}/${{ env.STUDIO_IMAGE_NAME }}:staging-v${{ steps.version.outputs.version }}
+            ${{ env.REGISTRY }}/${{ env.STUDIO_IMAGE_NAME }}:staging-v${{ needs.prepare.outputs.version }}
           cache-from: type=gha,scope=kortyx-studio-image
           cache-to: type=gha,mode=max,scope=kortyx-studio-image
 
-      - name: Smoke test staging images
+      - name: Verify staging indexes and digests
         env:
-          KORTYX_STUDIO_IMAGE_TAG: staging-v${{ steps.version.outputs.version }}
-          POSTGRES_PORT: 6543
-          API_PORT: 6400
-          STUDIO_PORT: 6300
-          POSTGRES_PASSWORD: kortyx-ci-smoke
-          KORTYX_API_KEY_PEPPER: ci-smoke-pepper
-          KORTYX_TELEMETRY_API_KEY: ktyx_test_cismoketelemetry_ci-smoke-telemetry-secret
-          KORTYX_STUDIO_API_KEY: ktyx_test_cismokestudio_ci-smoke-studio-secret
-          KORTYX_STUDIO_BASIC_AUTH_PASSWORD: ci-smoke-studio-password
+          VERSION: ${{ needs.prepare.outputs.version }}
+          API_DIGEST: ${{ steps.api.outputs.digest }}
+          STUDIO_DIGEST: ${{ steps.studio.outputs.digest }}
         run: |
-          docker compose -f docker-compose.oss.yml --profile smoke up \
-            --abort-on-container-exit \
-            --exit-code-from smoke \
-            smoke
+          verify_index() {
+            image_ref="$1"
+            expected_digest="$2"
+            descriptor="$(docker buildx imagetools inspect --format '{{json .}}' "$image_ref")"
+            actual_digest="$(printf '%s' "$descriptor" | jq -r '.manifest.digest')"
+            platforms="$(printf '%s' "$descriptor" | jq -r '.manifest.manifests[] | select(.platform.os == "linux") | "\(.platform.os)/\(.platform.architecture)"' | sort -u)"
 
-      - name: Clean up smoke stack
-        if: always()
-        run: docker compose -f docker-compose.oss.yml --profile smoke down -v
+            test "$actual_digest" = "$expected_digest"
+            printf '%s\n' "$platforms" | grep -Fx 'linux/amd64'
+            printf '%s\n' "$platforms" | grep -Fx 'linux/arm64'
+          }
+
+          verify_index "${REGISTRY}/${API_IMAGE_NAME}:staging-v${VERSION}" "$API_DIGEST"
+          verify_index "${REGISTRY}/${STUDIO_IMAGE_NAME}:staging-v${VERSION}" "$STUDIO_DIGEST"
+
+  smoke:
+    name: Clean install and smoke (${{ matrix.platform }})
+    needs: [prepare, package-installer, publish-staging]
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-24.04
+            platform: linux/amd64
+            node_arch: x64
+            id: amd64
+          - runner: ubuntu-24.04-arm
+            platform: linux/arm64
+            node_arch: arm64
+            id: arm64
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+
+      - name: Setup Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Login to GHCR
+        uses: docker/login-action@v4
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Download installer candidate
+        uses: actions/download-artifact@v8
+        with:
+          name: studio-installer-${{ needs.prepare.outputs.version }}
+          path: ${{ runner.temp }}/studio-installer
+
+      - name: Install and verify the staged release
+        env:
+          VERSION: ${{ needs.prepare.outputs.version }}
+          API_DIGEST: ${{ needs.publish-staging.outputs.api_digest }}
+          STUDIO_DIGEST: ${{ needs.publish-staging.outputs.studio_digest }}
+          EXPECTED_NODE_ARCH: ${{ matrix.node_arch }}
+          ARCH_ID: ${{ matrix.id }}
+        run: |
+          clean_dir="$RUNNER_TEMP/kortyx-clean-install"
+          studio_home="$RUNNER_TEMP/kortyx-studio-home"
+          api_ref="${REGISTRY}/${API_IMAGE_NAME}@${API_DIGEST}"
+          studio_ref="${REGISTRY}/${STUDIO_IMAGE_NAME}@${STUDIO_DIGEST}"
+          api_tag="${REGISTRY}/${API_IMAGE_NAME}:staging-v${VERSION}"
+          studio_tag="${REGISTRY}/${STUDIO_IMAGE_NAME}:staging-v${VERSION}"
+
+          cleanup() {
+            result=$?
+            if [ "$result" -ne 0 ] && [ -f "$studio_home/compose.yml" ]; then
+              docker compose --env-file "$studio_home/.env" -f "$studio_home/compose.yml" ps || true
+              docker compose --env-file "$studio_home/.env" -f "$studio_home/compose.yml" logs --no-color || true
+            fi
+            if [ -x "$clean_dir/node_modules/.bin/kortyx" ] && [ -f "$studio_home/config.json" ]; then
+              "$clean_dir/node_modules/.bin/kortyx" studio reset --home "$studio_home" --confirm || true
+            fi
+            rm -rf "$clean_dir" "$studio_home"
+            exit "$result"
+          }
+          trap cleanup EXIT
+
+          descriptor_digest() {
+            docker buildx imagetools inspect --format '{{json .}}' "$1" | jq -r '.manifest.digest'
+          }
+
+          test "$(descriptor_digest "$api_tag")" = "$API_DIGEST"
+          test "$(descriptor_digest "$studio_tag")" = "$STUDIO_DIGEST"
+
+          mapfile -t package_files < <(find "$RUNNER_TEMP/studio-installer" -name '*.tgz' -type f | sort)
+          test "${#package_files[@]}" -eq 2
+          mkdir -p "$clean_dir"
+          npm install --prefix "$clean_dir" --ignore-scripts "${package_files[@]}"
+
+          cli="$clean_dir/node_modules/.bin/kortyx"
+          "$cli" --help
+
+          test "$(docker run --rm "$api_ref" node -p 'process.arch')" = "$EXPECTED_NODE_ARCH"
+          test "$(docker run --rm "$studio_ref" node -p 'process.arch')" = "$EXPECTED_NODE_ARCH"
+
+          KORTYX_API_IMAGE="${REGISTRY}/${API_IMAGE_NAME}" \
+          KORTYX_STUDIO_IMAGE="${REGISTRY}/${STUDIO_IMAGE_NAME}" \
+            "$cli" studio start \
+              --home "$studio_home" \
+              --api-port 16400 \
+              --studio-port 16300 \
+              --image-tag "staging-v${VERSION}" \
+              --project-name "kortyx-studio-release-${ARCH_ID}"
+
+          credentials_before="$(sha256sum "$studio_home/.env" | cut -d ' ' -f 1)"
+          smoke_run_id="release-smoke-${VERSION}-${ARCH_ID}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+
+          docker run --rm --network host \
+            --env-file "$studio_home/.env" \
+            -e KORTYX_API_URL=http://127.0.0.1:16400 \
+            -e KORTYX_SMOKE_RUN_ID="$smoke_run_id" \
+            "$api_ref" \
+            pnpm --filter @kortyx/api smoke:telemetry
+
+          "$cli" studio stop --home "$studio_home"
+          KORTYX_API_IMAGE="${REGISTRY}/${API_IMAGE_NAME}" \
+          KORTYX_STUDIO_IMAGE="${REGISTRY}/${STUDIO_IMAGE_NAME}" \
+            "$cli" studio start --home "$studio_home"
+
+          credentials_after="$(sha256sum "$studio_home/.env" | cut -d ' ' -f 1)"
+          test "$credentials_before" = "$credentials_after"
+
+          docker run --rm --network host \
+            --env-file "$studio_home/.env" \
+            -e KORTYX_API_URL=http://127.0.0.1:16400 \
+            -e KORTYX_EXPECTED_SMOKE_RUN_ID="$smoke_run_id" \
+            "$api_ref" \
+            node -e '
+              const apiUrl = process.env.KORTYX_API_URL;
+              const expected = process.env.KORTYX_EXPECTED_SMOKE_RUN_ID;
+              const key = process.env.KORTYX_STUDIO_API_KEY;
+              fetch(`${apiUrl}/v1/studio/runs`, {
+                headers: { authorization: `Bearer ${key}` },
+              })
+                .then(async (response) => {
+                  if (!response.ok) throw new Error(await response.text());
+                  return response.json();
+                })
+                .then(({ runs }) => {
+                  if (!runs.some(({ id }) => id === expected)) {
+                    throw new Error(`Persisted smoke run ${expected} was not found.`);
+                  }
+                  console.log(`Verified persisted smoke run ${expected}.`);
+                });
+            '
+
+          "$cli" studio status --home "$studio_home"
+          "$cli" studio logs --home "$studio_home" --no-follow
+
+  promote:
+    name: Approve and publish production images
+    needs: [prepare, publish-staging, smoke]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment:
+      name: studio-production
+      url: https://github.com/kortyx-io/kortyx/pkgs/container/kortyx-studio
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Setup Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Login to GHCR
+        uses: docker/login-action@v4
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Promote exact tested digests
+        env:
+          VERSION: ${{ needs.prepare.outputs.version }}
+          API_DIGEST: ${{ needs.publish-staging.outputs.api_digest }}
+          STUDIO_DIGEST: ${{ needs.publish-staging.outputs.studio_digest }}
+        run: |
+          promote_image() {
+            image_name="$1"
+            tested_digest="$2"
+            source_ref="${REGISTRY}/${image_name}@${tested_digest}"
+            version_ref="${REGISTRY}/${image_name}:v${VERSION}"
+            latest_ref="${REGISTRY}/${image_name}:latest"
+
+            docker buildx imagetools create \
+              -t "$version_ref" \
+              -t "$latest_ref" \
+              "$source_ref"
+
+            version_digest="$(docker buildx imagetools inspect --format '{{json .}}' "$version_ref" | jq -r '.manifest.digest')"
+            latest_digest="$(docker buildx imagetools inspect --format '{{json .}}' "$latest_ref" | jq -r '.manifest.digest')"
+            test "$version_digest" = "$tested_digest"
+            test "$latest_digest" = "$tested_digest"
+          }
+
+          promote_image "$API_IMAGE_NAME" "$API_DIGEST"
+          promote_image "$STUDIO_IMAGE_NAME" "$STUDIO_DIGEST"
+
+          {
+            echo "## Studio OSS v${VERSION}"
+            echo
+            echo "| Image | Tested and promoted digest |"
+            echo "| --- | --- |"
+            echo "| API | \`${API_DIGEST}\` |"
+            echo "| Studio | \`${STUDIO_DIGEST}\` |"
+            echo
+            echo "Native clean-install smoke tests passed on linux/amd64 and linux/arm64."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Create Studio release tag
+        if: inputs.create_git_tag
+        env:
+          VERSION: ${{ needs.prepare.outputs.version }}
+        run: |
+          git tag -a "studio-v${VERSION}" -m "Kortyx Studio v${VERSION}"
+          git push origin "studio-v${VERSION}"

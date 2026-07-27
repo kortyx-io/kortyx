@@ -86,7 +86,8 @@ npx kortyx studio start
 The command creates durable local state in `~/.kortyx/studio`, waits for the
 Docker stack to become healthy, and prints both the local sign-in and the
 server-side SDK telemetry variables. Use `npx kortyx studio credentials` to
-print them again.
+print them again. Published images support `linux/amd64` and `linux/arm64`;
+Docker Desktop on Apple Silicon selects the ARM64 image automatically.
 
 For self-hosted installs from published images without Node.js:
 

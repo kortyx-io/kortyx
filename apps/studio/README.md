@@ -196,9 +196,10 @@ docker compose -f docker-compose.oss.yml up -d
 
 ## OSS image release flow
 
-Studio OSS images are published separately from the website.
+Studio OSS images are published separately from the website through the manual
+**Release Studio OSS Images (GHCR)** GitHub Actions workflow.
 
-Publishing a staging version builds and pushes:
+The workflow builds native `linux/amd64` and `linux/arm64` manifests and pushes:
 
 ```txt
 ghcr.io/kortyx-io/kortyx-api:staging-latest
@@ -207,12 +208,14 @@ ghcr.io/kortyx-io/kortyx-studio:staging-latest
 ghcr.io/kortyx-io/kortyx-studio:staging-vX.Y.Z
 ```
 
-The staging workflow then runs the image-based compose smoke test against
-`staging-vX.Y.Z`.
+It then installs the packed CLI in an empty directory and tests the staged
+images on native AMD64 and ARM64 GitHub runners. Both jobs must pass health,
+telemetry read/write, restart persistence, credential stability, and lifecycle
+checks.
 
-When the staging image is accepted, run the promotion workflow with the same
-version. Promotion does not rebuild images; it retags the tested staging image
-digest to:
+The final job is protected by the `studio-production` GitHub environment.
+After manual approval, it promotes the exact tested image-index digests—without
+rebuilding—to:
 
 ```txt
 ghcr.io/kortyx-io/kortyx-api:vX.Y.Z
@@ -220,3 +223,7 @@ ghcr.io/kortyx-io/kortyx-api:latest
 ghcr.io/kortyx-io/kortyx-studio:vX.Y.Z
 ghcr.io/kortyx-io/kortyx-studio:latest
 ```
+
+The workflow can create the immutable `studio-vX.Y.Z` Git tag after promotion.
+Repository setup and release/recovery instructions are in the
+[Studio OSS release runbook](../../docs/design-specs/studio-oss-release.md).
