@@ -31,10 +31,10 @@ describe("buildStudioShellContext", () => {
         access: "Basic authentication",
         version: "1.2.3",
       },
-      workspace: {
-        organization: "Local Development",
+      scope: {
+        label: "Local installation",
         project: "Default Project",
-        environments: ["development", "production", "test"],
+        telemetryEnvironments: ["development", "production", "test"],
       },
       connection: {
         status: "connected",

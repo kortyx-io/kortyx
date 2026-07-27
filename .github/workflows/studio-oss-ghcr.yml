@@ -1,4 +1,4 @@
-name: Release Studio OSS Images (GHCR)
+name: Release Studio Self-Hosted Images (GHCR)
 
 on:
   workflow_dispatch:
@@ -247,6 +247,7 @@ jobs:
         run: |
           clean_dir="$RUNNER_TEMP/kortyx-clean-install"
           studio_home="$RUNNER_TEMP/kortyx-studio-home"
+          backup_dir="$RUNNER_TEMP/kortyx-studio-backup"
           api_ref="${REGISTRY}/${API_IMAGE_NAME}@${API_DIGEST}"
           studio_ref="${REGISTRY}/${STUDIO_IMAGE_NAME}@${STUDIO_DIGEST}"
           api_tag="${REGISTRY}/${API_IMAGE_NAME}:staging-v${VERSION}"
@@ -261,7 +262,7 @@ jobs:
             if [ -x "$clean_dir/node_modules/.bin/kortyx" ] && [ -f "$studio_home/config.json" ]; then
               "$clean_dir/node_modules/.bin/kortyx" studio reset --home "$studio_home" --confirm || true
             fi
-            rm -rf "$clean_dir" "$studio_home"
+            rm -rf "$clean_dir" "$studio_home" "$backup_dir"
             exit "$result"
           }
           trap cleanup EXIT
@@ -295,6 +296,7 @@ jobs:
 
           credentials_before="$(sha256sum "$studio_home/.env" | cut -d ' ' -f 1)"
           smoke_run_id="release-smoke-${VERSION}-${ARCH_ID}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          mkdir -m 700 "$backup_dir"
 
           docker run --rm --network host \
             --env-file "$studio_home/.env" \
@@ -302,6 +304,17 @@ jobs:
             -e KORTYX_SMOKE_RUN_ID="$smoke_run_id" \
             "$api_ref" \
             pnpm --filter @kortyx/api smoke:telemetry
+
+          "$cli" studio credentials --home "$studio_home" > "$backup_dir/credentials.txt"
+          grep -Fq "KORTYX_TELEMETRY_API_URL=http://localhost:16400" "$backup_dir/credentials.txt"
+          grep -Fq "KORTYX_TELEMETRY_API_KEY=" "$backup_dir/credentials.txt"
+          cp -p "$studio_home/.env" "$studio_home/config.json" "$backup_dir/"
+          docker compose \
+            --env-file "$studio_home/.env" \
+            -f "$studio_home/compose.yml" \
+            exec -T postgres \
+            pg_dump -U kortyx -d kortyx -Fc > "$backup_dir/database.dump"
+          test -s "$backup_dir/database.dump"
 
           "$cli" studio stop --home "$studio_home"
           KORTYX_API_IMAGE="${REGISTRY}/${API_IMAGE_NAME}" \
@@ -311,29 +324,45 @@ jobs:
           credentials_after="$(sha256sum "$studio_home/.env" | cut -d ' ' -f 1)"
           test "$credentials_before" = "$credentials_after"
 
-          docker run --rm --network host \
-            --env-file "$studio_home/.env" \
-            -e KORTYX_API_URL=http://127.0.0.1:16400 \
-            -e KORTYX_EXPECTED_SMOKE_RUN_ID="$smoke_run_id" \
-            "$api_ref" \
-            node -e '
-              const apiUrl = process.env.KORTYX_API_URL;
-              const expected = process.env.KORTYX_EXPECTED_SMOKE_RUN_ID;
-              const key = process.env.KORTYX_STUDIO_API_KEY;
-              fetch(`${apiUrl}/v1/studio/runs`, {
-                headers: { authorization: `Bearer ${key}` },
-              })
-                .then(async (response) => {
-                  if (!response.ok) throw new Error(await response.text());
-                  return response.json();
+          verify_smoke_run() {
+            docker run --rm --network host \
+              --env-file "$studio_home/.env" \
+              -e KORTYX_API_URL=http://127.0.0.1:16400 \
+              -e KORTYX_EXPECTED_SMOKE_RUN_ID="$smoke_run_id" \
+              "$api_ref" \
+              node -e '
+                const apiUrl = process.env.KORTYX_API_URL;
+                const expected = process.env.KORTYX_EXPECTED_SMOKE_RUN_ID;
+                const key = process.env.KORTYX_STUDIO_API_KEY;
+                fetch(`${apiUrl}/v1/studio/runs`, {
+                  headers: { authorization: `Bearer ${key}` },
                 })
-                .then(({ runs }) => {
-                  if (!runs.some(({ id }) => id === expected)) {
-                    throw new Error(`Persisted smoke run ${expected} was not found.`);
-                  }
-                  console.log(`Verified persisted smoke run ${expected}.`);
-                });
-            '
+                  .then(async (response) => {
+                    if (!response.ok) throw new Error(await response.text());
+                    return response.json();
+                  })
+                  .then(({ runs }) => {
+                    if (!runs.some(({ id }) => id === expected)) {
+                      throw new Error(`Persisted smoke run ${expected} was not found.`);
+                    }
+                    console.log(`Verified persisted smoke run ${expected}.`);
+                  });
+              '
+          }
+          verify_smoke_run
+
+          docker compose \
+            --env-file "$studio_home/.env" \
+            -f "$studio_home/compose.yml" \
+            stop api studio
+          docker compose \
+            --env-file "$studio_home/.env" \
+            -f "$studio_home/compose.yml" \
+            exec -T postgres \
+            pg_restore --clean --if-exists --no-owner --exit-on-error \
+              -U kortyx -d kortyx < "$backup_dir/database.dump"
+          "$cli" studio restart --home "$studio_home"
+          verify_smoke_run
 
           "$cli" studio status --home "$studio_home"
           "$cli" studio logs --home "$studio_home" --no-follow
@@ -390,7 +419,7 @@ jobs:
           promote_image "$STUDIO_IMAGE_NAME" "$STUDIO_DIGEST"
 
           {
-            echo "## Studio OSS v${VERSION}"
+            echo "## Studio self-hosted v${VERSION}"
             echo
             echo "| Image | Tested and promoted digest |"
             echo "| --- | --- |"

@@ -18,7 +18,7 @@ Use `kortyx` as the main package. It re-exports the public server/runtime APIs f
 - **Runtime hooks:** call models with `useReason`, pause for humans with `useInterrupt`, and persist node/workflow state.
 - **Streaming-first UX:** emit text, message, lifecycle, interrupt, and structured-data chunks over SSE.
 - **Framework adapters:** run in Next.js API routes, server actions, custom HTTP handlers, or lower-level runtimes.
-- **Production path:** add Redis-backed runtime persistence today; Kortyx Studio is on the way for cost, logs, observability, prompt tracking, and operational review.
+- **Operational visibility:** send structural telemetry to the self-hosted Kortyx Studio preview for runs, sessions, workflows, interrupts, timing, token usage, and cost review.
 
 ## Install
 
@@ -30,46 +30,51 @@ pnpm add kortyx @kortyx/google @kortyx/react
 npm install kortyx @kortyx/google @kortyx/react
 ```
 
-## Run Kortyx Studio OSS
+## Self-host Kortyx Studio
 
-For local development from this repository:
+Kortyx Studio is a source-available observability interface for Kortyx SDK
+applications. From any SDK project, with Docker running:
+
+```bash
+npx kortyx studio start
+```
+
+The command creates durable private state under `~/.kortyx/studio`, generates
+the local sign-in and scoped API keys, starts the complete Docker stack, applies
+migrations, and prints the server-side SDK telemetry variables. Retrieve the
+same generated values later with:
+
+```bash
+npx kortyx studio credentials
+```
+
+Published images support `linux/amd64` and `linux/arm64`; Docker Desktop on
+Apple Silicon selects the ARM64 image automatically. CLI-managed ports bind to
+`127.0.0.1` by default.
+
+Follow the canonical
+[self-hosted preview guide](./docs/studio/self-hosted-preview.md) for SDK setup,
+first-run verification, interrupt behavior, and common commands. Use the
+[self-hosted operations guide](./docs/studio/self-hosted-operations.md) for
+backup/restore, upgrades, reset, security, and troubleshooting.
+Read the [first-preview release notes](./docs/releases/studio-self-hosted-preview.md)
+for included and deferred capabilities.
+
+Studio is source-available under Elastic License 2.0. The framework, CLI, and
+telemetry API are Apache-2.0. See the [license boundary](./LICENSES.md).
+
+### Repository development
+
+To run Postgres, the API, Studio, and the canvas example from this repository:
 
 ```bash
 pnpm dev
 ```
 
-This starts the development stack:
-
-- Postgres through Docker Compose
-- Kortyx API on `http://localhost:6400`
-- Studio on `http://localhost:6300`
-- canvas example on `http://localhost:4200`
-
-`pnpm dev` also runs migrations and bootstraps the local telemetry keys from
-`.env`. If you already manage Postgres yourself, run:
+If you already manage Postgres yourself:
 
 ```bash
 pnpm dev:no-db
-```
-
-After upgrading an existing installation to a release that adds or changes
-Studio projections, rebuild the derived run, session, and interrupt rows from
-the immutable telemetry log:
-
-```bash
-pnpm db:migrate
-pnpm db:backfill-studio
-```
-
-The backfill is idempotent, processes execution scopes in batches, and may be
-run again if it is interrupted. New telemetry maintains the same projections
-inside the event-ingestion transaction.
-
-To run the projection isolation, pagination, ingestion, and backfill checks
-against the local Postgres instance:
-
-```bash
-pnpm test:telemetry-db:integration
 ```
 
 The default dev `.env.example` uses host Postgres port `6543` to avoid
@@ -77,48 +82,19 @@ colliding with a local Postgres on `5432`. If you already had a `.env`, set
 `POSTGRES_PORT=6543` and
 `DATABASE_URL=postgres://kortyx:kortyx@localhost:6543/kortyx` manually.
 
-For the fastest self-hosted setup from any Kortyx SDK project:
+After upgrading repository development data across projection changes:
 
 ```bash
-npx kortyx studio start
+pnpm db:migrate
+pnpm db:backfill-studio
 ```
 
-The command creates durable local state in `~/.kortyx/studio`, waits for the
-Docker stack to become healthy, and prints both the local sign-in and the
-server-side SDK telemetry variables. Use `npx kortyx studio credentials` to
-print them again. Published images support `linux/amd64` and `linux/arm64`;
-Docker Desktop on Apple Silicon selects the ARM64 image automatically.
-
-For self-hosted installs from published images without Node.js:
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/kortyx-io/kortyx/main/scripts/install-studio-oss.sh | sh
-```
-
-This creates a `kortyx-studio` directory, downloads the image-based compose
-file, generates local secrets, and starts Postgres, the Kortyx API, and Studio.
-
-For explicit setup without the installer:
-
-```bash
-mkdir kortyx-studio
-cd kortyx-studio
-curl -fsSLO https://raw.githubusercontent.com/kortyx-io/kortyx/main/docker-compose.oss.yml
-curl -fsSLo .env https://raw.githubusercontent.com/kortyx-io/kortyx/main/.env.oss.example
-# Edit .env and replace all change-me values before keeping this running.
-docker compose -f docker-compose.oss.yml up -d
-```
-
-For a full local Docker packaging test from this repository:
+To test the image-based packaging stack from the repository:
 
 ```bash
 cp -n .env.example .env
 docker compose up --build
 ```
-
-Studio is available at `http://localhost:6300`. The default local Basic Auth
-credentials from `.env.example` are `admin` / `kortyx`; change them before any
-non-local deployment.
 
 To send and verify one sample telemetry run:
 
@@ -346,8 +322,10 @@ Contributions are welcome. Start with [CONTRIBUTING.md](./CONTRIBUTING.md), run 
 
 Kortyx uses a mixed licensing model:
 
-- Apache-2.0 for the open framework packages and provider packages
-- Elastic License 2.0 for `apps/studio`
+- Apache-2.0 for the framework, provider, CLI, telemetry API, examples, and
+  website code
+- Elastic License 2.0 for the source-available Studio UI in `apps/studio`
 - Per-plugin terms for `plugins/*`, defined by each plugin's `LICENSE.md`
 
-See [LICENSE](./LICENSE) for the repository-wide license boundaries.
+See [LICENSES.md](./LICENSES.md) for the repository-wide boundaries and the
+applicable license texts.

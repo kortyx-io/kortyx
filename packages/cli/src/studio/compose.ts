@@ -45,7 +45,7 @@ services:
       API_HOST: 0.0.0.0
       API_PORT: 6400
     ports:
-      - "\${API_PORT:-6400}:6400"
+      - "127.0.0.1:\${API_PORT:-6400}:6400"
     depends_on:
       db-init:
         condition: service_completed_successfully
@@ -71,7 +71,7 @@ services:
       KORTYX_STUDIO_BASIC_AUTH_USERNAME: \${KORTYX_STUDIO_BASIC_AUTH_USERNAME}
       KORTYX_STUDIO_BASIC_AUTH_PASSWORD: \${KORTYX_STUDIO_BASIC_AUTH_PASSWORD}
     ports:
-      - "\${STUDIO_PORT:-6300}:6300"
+      - "127.0.0.1:\${STUDIO_PORT:-6300}:6300"
     depends_on:
       api:
         condition: service_healthy

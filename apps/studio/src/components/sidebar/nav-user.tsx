@@ -98,10 +98,9 @@ export function NavUser({
                 </div>
                 <span
                   className="truncate text-xs text-muted-foreground"
-                  title={`${studioContext.workspace.organization} / ${studioContext.workspace.project}`}
+                  title={`${studioContext.identity.name} / ${studioContext.scope.project}`}
                 >
-                  {studioContext.workspace.organization} /{" "}
-                  {studioContext.workspace.project}
+                  {studioContext.identity.name} / {studioContext.scope.project}
                 </span>
                 <span className="truncate text-xs text-muted-foreground">
                   {studioContext.identity.access}

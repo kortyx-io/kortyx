@@ -62,18 +62,18 @@ For an interactive runner:
 pnpm --filter kortyx-studio test:e2e:ui
 ```
 
-## OSS authentication
+## Self-hosted authentication
 
-Kortyx Studio uses a small auth-mode boundary so the OSS build can stay simple
-while the managed Cloud Studio can plug in enterprise auth later.
+Kortyx Studio uses a small auth-mode boundary so the self-hosted preview can
+stay simple while the managed Cloud Studio can plug in enterprise auth later.
 
-Supported OSS modes:
+Supported self-hosted modes:
 
 - `none`: disables Studio human auth. This is the default in development.
 - `basic`: protects Studio with HTTP Basic Auth. This is the default in
   production.
-- `cloud`: reserved for the private managed Studio build. The OSS build returns
-  a clear error if this mode is selected.
+- `cloud`: reserved for the private managed Studio build. The self-hosted build
+  returns a clear error if this mode is selected.
 
 Example self-hosted configuration:
 
@@ -102,13 +102,13 @@ client is server-only and should only be imported by server components, route
 handlers, or server actions.
 
 The Settings route and sidebar identity use the authenticated
-`/v1/studio/context` endpoint. It returns only the organization and project
-names, allowed environments, API-key mode/scopes, and API service version. It
-never returns the read key, key identifier, API URL, Basic Auth credentials, or
-raw upstream errors. Settings reports server configuration as
-configured/missing and masks the read-key value.
+`/v1/studio/context` endpoint. The preview presents one local scope, its
+bootstrapped project, observed telemetry environments, API-key mode/scopes, and
+API service version. It never returns the read key, key identifier, API URL,
+Basic Auth credentials, or raw upstream errors. Settings reports server
+configuration as configured/missing and masks the read-key value.
 
-The OSS identity menu intentionally contains no account, billing, upgrade,
+The self-hosted identity menu intentionally contains no account, billing, upgrade,
 notification, logout, or other managed-SaaS placeholders. Its supported actions
 are Settings, public documentation, and theme selection. Under HTTP Basic Auth,
 credential lifecycle belongs to the browser/reverse proxy rather than an
@@ -142,24 +142,20 @@ server. Inspector “View runs” links convert those boundaries to an exact cus
 range, and preserve the workflow, version, node, or transition filter, so the
 run list represents the same population even as wall-clock time advances.
 
-## Self-hosted OSS stack
+## Self-hosted preview
 
-From published images:
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/kortyx-io/kortyx/main/scripts/install-studio-oss.sh | sh
-```
-
-Or explicitly:
+The canonical installation path from any Kortyx SDK project is:
 
 ```bash
-mkdir kortyx-studio
-cd kortyx-studio
-curl -fsSLO https://raw.githubusercontent.com/kortyx-io/kortyx/main/docker-compose.oss.yml
-curl -fsSLo .env https://raw.githubusercontent.com/kortyx-io/kortyx/main/.env.oss.example
-# Edit .env and replace all change-me values before keeping this running.
-docker compose -f docker-compose.oss.yml up -d
+npx kortyx studio start
 ```
+
+The command generates the Basic Auth password and scoped API keys; no shared
+default password is shipped. See the
+[self-hosted preview guide](../../docs/studio/self-hosted-preview.md) for the
+SDK connection and first-run verification, and the
+[self-hosted operations guide](../../docs/studio/self-hosted-operations.md) for
+backup/restore, upgrades, reset, security, and troubleshooting.
 
 From the repository root for local development:
 
@@ -167,16 +163,6 @@ From the repository root for local development:
 cp -n .env.example .env
 docker compose up --build
 ```
-
-Then open `http://localhost:6300` and sign in with:
-
-```txt
-username: admin
-password: kortyx
-```
-
-Change the default credentials and API keys in `.env` before using this outside
-local development.
 
 To verify the stack with one deterministic telemetry run:
 
@@ -187,17 +173,10 @@ docker compose --profile smoke up --abort-on-container-exit --exit-code-from smo
 The smoke command sends one workflow topology and one successful run through the
 Kortyx API, then verifies that `/v1/studio/runs` can read it back.
 
-To update a self-hosted install later:
+## Self-hosted image release flow
 
-```bash
-docker compose -f docker-compose.oss.yml pull
-docker compose -f docker-compose.oss.yml up -d
-```
-
-## OSS image release flow
-
-Studio OSS images are published separately from the website through the manual
-**Release Studio OSS Images (GHCR)** GitHub Actions workflow.
+Self-hosted Studio images are published separately from the website through the
+manual **Release Studio Self-Hosted Images (GHCR)** GitHub Actions workflow.
 
 The workflow builds native `linux/amd64` and `linux/arm64` manifests and pushes:
 
@@ -210,8 +189,8 @@ ghcr.io/kortyx-io/kortyx-studio:staging-vX.Y.Z
 
 It then installs the packed CLI in an empty directory and tests the staged
 images on native AMD64 and ARM64 GitHub runners. Both jobs must pass health,
-telemetry read/write, restart persistence, credential stability, and lifecycle
-checks.
+telemetry read/write, restart persistence, credential stability, documented
+lifecycle commands, and database backup/restore checks.
 
 The final job is protected by the `studio-production` GitHub environment.
 After manual approval, it promotes the exact tested image-index digests—without
@@ -226,4 +205,4 @@ ghcr.io/kortyx-io/kortyx-studio:latest
 
 The workflow can create the immutable `studio-vX.Y.Z` Git tag after promotion.
 Repository setup and release/recovery instructions are in the
-[Studio OSS release runbook](../../docs/design-specs/studio-oss-release.md).
+[Studio self-hosted release runbook](../../docs/design-specs/studio-oss-release.md).

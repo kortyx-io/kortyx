@@ -303,7 +303,7 @@ GET /v1/studio/interrupts/:interruptId
 
 Shared response principles:
 
-- Project and organization scope are enforced server-side.
+- The authenticated project scope is enforced server-side.
 - `404` does not reveal cross-project existence.
 - Responses contain the summary entity, ordered events, linked-entity summaries, and capture/pricing status.
 - Raw events use cursor pagination for large histories; the initial response may include a bounded event window plus counts.

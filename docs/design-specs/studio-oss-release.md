@@ -1,8 +1,9 @@
-# Studio OSS image release
+# Studio self-hosted image release
 
 ## Supported platforms
 
-Kortyx Studio OSS publishes Linux container images for:
+The source-available Kortyx Studio self-hosted preview publishes Linux
+container images for:
 
 - `linux/amd64` for standard Linux servers and Intel/AMD development machines.
 - `linux/arm64` for Apple Silicon Docker Desktop and ARM64 Linux machines.
@@ -16,7 +17,7 @@ platform manifests. Docker selects the native manifest automatically.
 
 ## One release, four gates
 
-The `Release Studio OSS Images (GHCR)` GitHub Actions workflow is the only
+The `Release Studio Self-Hosted Images (GHCR)` GitHub Actions workflow is the only
 production publication path.
 
 1. **Validate:** verify the manually supplied semantic version is new.
@@ -24,7 +25,8 @@ production publication path.
    `linux/arm64`, recording the immutable index digests.
 3. **Accept:** install the packed `kortyx` CLI in an empty directory on native
    AMD64 and ARM64 GitHub runners. Each runner starts the staged stack, ingests
-   and reads a known telemetry run, restarts the stack, verifies persistence
+   and reads a known telemetry run, exercises documented lifecycle and
+   credential commands, backs up and restores Postgres, verifies persistence
    and stable credentials, and captures Compose diagnostics on failure.
 4. **Promote:** after GitHub environment approval, copy the exact accepted
    digests to `vX.Y.Z` and `latest`. Promotion never rebuilds an image.
@@ -48,7 +50,7 @@ when the repository environment has a protection rule.
 ## Release operation
 
 1. Merge the intended Studio release commit to `main`.
-2. Open **Actions → Release Studio OSS Images (GHCR)**.
+2. Open **Actions → Release Studio Self-Hosted Images (GHCR)**.
 3. Choose **Run workflow**, enter the version without `v`, and keep Git tag
    creation enabled unless this is a recovery run.
 4. Wait for both native clean-install jobs to pass.

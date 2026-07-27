@@ -16,7 +16,7 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
       POSTGRES_DB: ${POSTGRES_DB:-kortyx}
     ports:
-      - "${POSTGRES_PORT:-5432}:5432"
+      - "${KORTYX_POSTGRES_BIND_ADDRESS:-127.0.0.1}:${POSTGRES_PORT:-5432}:5432"
     volumes:
       - kortyx-postgres:/var/lib/postgresql/data
     healthcheck:
@@ -49,7 +49,7 @@ services:
       API_HOST: 0.0.0.0
       API_PORT: 6400
     ports:
-      - "${API_PORT:-6400}:6400"
+      - "${KORTYX_API_BIND_ADDRESS:-127.0.0.1}:${API_PORT:-6400}:6400"
     depends_on:
       db-init:
         condition: service_completed_successfully
@@ -74,7 +74,7 @@ services:
       KORTYX_STUDIO_BASIC_AUTH_USERNAME: ${KORTYX_STUDIO_BASIC_AUTH_USERNAME:-admin}
       KORTYX_STUDIO_BASIC_AUTH_PASSWORD: ${KORTYX_STUDIO_BASIC_AUTH_PASSWORD:?KORTYX_STUDIO_BASIC_AUTH_PASSWORD is required}
     ports:
-      - "${STUDIO_PORT:-6300}:6300"
+      - "${KORTYX_STUDIO_BIND_ADDRESS:-127.0.0.1}:${STUDIO_PORT:-6300}:6300"
     depends_on:
       api:
         condition: service_healthy

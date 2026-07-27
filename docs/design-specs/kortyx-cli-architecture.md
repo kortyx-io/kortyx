@@ -8,7 +8,7 @@ The `kortyx` binary will support two deliberately separate kinds of command:
 2. Studio administration commands call a documented Studio Admin API.
 
 The CLI must not query or mutate the Studio database directly. Keeping the
-remote boundary at HTTP makes the same commands usable with local OSS Studio,
+remote boundary at HTTP makes the same commands usable with local self-hosted Studio,
 customer-hosted Studio, and a future Kortyx Cloud control plane.
 
 ## Command model

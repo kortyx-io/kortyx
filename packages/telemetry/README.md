@@ -9,10 +9,13 @@ import { createAgent } from "kortyx";
 import { createKortyxTelemetryAdapter } from "@kortyx/telemetry";
 
 const telemetry = createKortyxTelemetryAdapter({
-  endpoint: process.env.KORTYX_TELEMETRY_ENDPOINT!,
+  endpoint: process.env.KORTYX_TELEMETRY_API_URL!,
   apiKey: process.env.KORTYX_TELEMETRY_API_KEY!,
-  environment: "production",
-  service: { name: "support-agent" },
+  environment:
+    process.env.KORTYX_TELEMETRY_ENVIRONMENT ?? "development",
+  service: {
+    name: process.env.KORTYX_TELEMETRY_SERVICE_NAME ?? "support-agent",
+  },
 });
 
 const agent = createAgent({

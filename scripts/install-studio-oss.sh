@@ -54,6 +54,9 @@ download "$base_url/$compose_file" "$compose_file"
 if [ ! -f .env ]; then
   cat > .env <<EOF
 KORTYX_STUDIO_IMAGE_TAG=${KORTYX_STUDIO_IMAGE_TAG:-latest}
+KORTYX_POSTGRES_BIND_ADDRESS=127.0.0.1
+KORTYX_API_BIND_ADDRESS=127.0.0.1
+KORTYX_STUDIO_BIND_ADDRESS=127.0.0.1
 
 POSTGRES_PORT=${POSTGRES_PORT:-5432}
 API_PORT=${API_PORT:-6400}
@@ -78,7 +81,7 @@ fi
 docker compose -f "$compose_file" up -d
 
 echo
-echo "Kortyx Studio OSS is starting."
+echo "Kortyx Studio self-hosted preview is starting."
 echo "Studio: http://localhost:${STUDIO_PORT:-6300}"
 echo "API:    http://localhost:${API_PORT:-6400}"
 echo

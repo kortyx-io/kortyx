@@ -45,9 +45,11 @@ export function AppSidebar({
 }) {
   const pathname = usePathname();
   const environmentLabel =
-    studioContext.workspace.environments.length === 1
-      ? studioContext.workspace.environments[0]
-      : `${studioContext.workspace.environments.length} environments`;
+    studioContext.scope.telemetryEnvironments.length === 1
+      ? studioContext.scope.telemetryEnvironments[0]
+      : studioContext.scope.telemetryEnvironments.length > 1
+        ? `${studioContext.scope.telemetryEnvironments.length} telemetry environments`
+        : "No telemetry environments";
 
   return (
     <Sidebar collapsible="icon">
@@ -57,7 +59,7 @@ export function AppSidebar({
             <SidebarMenuButton
               size="lg"
               asChild
-              tooltip={studioContext.workspace.project}
+              tooltip={studioContext.scope.project}
             >
               <Link href="/settings">
                 <div className="flex aspect-square size-8 shrink-0 items-center justify-center overflow-hidden rounded-lg">
@@ -72,9 +74,9 @@ export function AppSidebar({
                 <div className="grid flex-1 gap-0.5 text-left leading-none group-data-[collapsible=icon]:hidden">
                   <span
                     className="truncate font-semibold"
-                    title={studioContext.workspace.project}
+                    title={studioContext.scope.project}
                   >
-                    {studioContext.workspace.project}
+                    {studioContext.scope.project}
                   </span>
                   <span
                     className="truncate text-xs text-muted-foreground"

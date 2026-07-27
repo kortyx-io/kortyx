@@ -1,5 +1,10 @@
 FROM node:22-bookworm-slim
 
+LABEL org.opencontainers.image.title="Kortyx API"
+LABEL org.opencontainers.image.description="Telemetry ingestion and read API for self-hosted Kortyx Studio."
+LABEL org.opencontainers.image.source="https://github.com/kortyx-io/kortyx"
+LABEL org.opencontainers.image.documentation="https://github.com/kortyx-io/kortyx/blob/main/docs/studio/self-hosted-preview.md"
+
 ENV PNPM_HOME="/pnpm"
 ENV PATH="$PNPM_HOME:$PATH"
 

@@ -10,7 +10,7 @@ test.describe("Studio settings and shell identity", () => {
     await expect(
       page.getByRole("heading", { name: "Settings", exact: true }),
     ).toBeVisible();
-    await expect(page.getByText("Local Development")).toBeVisible();
+    await expect(page.getByText("Local installation")).toBeVisible();
     await expect(
       page.getByText("Default Project", { exact: true }).first(),
     ).toBeVisible();

@@ -8,6 +8,10 @@ CLI tooling entrypoint for Kortyx projects.
 
 The main production API surface is the `kortyx` package; this package is for project automation and developer workflow commands.
 
+The CLI is Apache-2.0. The Studio UI it manages is source-available under
+Elastic License 2.0; see the
+[self-hosted preview guide](https://github.com/kortyx-io/kortyx/blob/main/docs/studio/self-hosted-preview.md).
+
 ## Start Kortyx Studio locally
 
 From any project that uses the `kortyx` SDK:

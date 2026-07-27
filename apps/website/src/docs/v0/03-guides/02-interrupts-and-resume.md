@@ -219,4 +219,41 @@ Resume only works if the framework adapter persists pending requests + checkpoin
 - redis adapter: recommended for production resume
 - hook state (`useNodeState` / `useWorkflowState`) follows the same checkpoint lifetime and limits
 
+## Expiry and late responses
+
+Pending interrupt state expires after 15 minutes by default. Configure the TTL
+for the application with `KORTYX_FRAMEWORK_TTL_MS`, or pass `ttlMs` to the
+framework adapter:
+
+```ts
+import { createRedisFrameworkAdapter } from "kortyx";
+
+const frameworkAdapter = createRedisFrameworkAdapter({
+  url: process.env.KORTYX_REDIS_URL!,
+  ttlMs: 60 * 60 * 1000,
+});
+```
+
+The runtime includes the resulting `expiresAt` timestamp in
+`interrupt.created`. Clients should stop offering the original resume action
+after that time.
+
+Once the checkpoint expires, its resume token cannot continue the original
+run. If the same message is still sent, Kortyx ignores the expired resume
+metadata and lets the application handle it as normal input. An application
+fallback may therefore start a new run, but it did not resume the expired run.
+Kortyx Studio preserves that distinction.
+
+## Static choices and dynamic pickers
+
+An interrupt can obtain choices in two ways:
+
+- a **static choice** embeds its options in the interrupt request;
+- a **dynamic picker** sends a `schemaId` and lets the client resolve options
+  from its own data source.
+
+A dynamic picker can therefore have `optionCount: 0` in telemetry even when the
+client shows valid choices. The count describes options embedded by the server,
+not the number rendered by the client.
+
 See [Runtime Persistence Adapters](../04-production/02-framework-adapters.md).

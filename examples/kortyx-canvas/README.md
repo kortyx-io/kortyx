@@ -6,9 +6,9 @@ A standalone Next.js canvas-agent example built with Kortyx workflows, structure
 pnpm --filter @kortyx/example-canvas dev
 ```
 
-## Send telemetry to Kortyx Studio OSS
+## Send telemetry to self-hosted Kortyx Studio
 
-Start the Studio OSS stack from the repository root:
+Start the repository development stack:
 
 ```bash
 cp -n .env.example .env

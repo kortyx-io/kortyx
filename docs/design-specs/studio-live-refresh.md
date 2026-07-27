@@ -12,10 +12,10 @@ for querying, filtering, sorting, pagination, authorization, and rendering.
    invalidation for `runs`, `sessions`, and/or `interrupts`.
 3. Each API process owns one PostgreSQL `LISTEN` connection. It validates the
    message and fans it out only to subscribers for the authenticated
-   organization and project.
+   authenticated telemetry scope and project.
 4. `GET /v1/studio/changes` emits coalesced SSE `change` events. Slow consumers
    retain at most one merged pending invalidation.
-5. The OSS Studio route handler proxies the stream with its server-only Studio
+5. The self-hosted Studio route handler proxies the stream with its server-only Studio
    API key. The browser connects to the same-origin route and never receives
    that key.
 6. The shared live-refresh controller asks the Next router to refresh the
@@ -23,7 +23,7 @@ for querying, filtering, sorting, pagination, authorization, and rendering.
    pagination, panels, drawers, and the table scroll restoration key.
 
 The change contract contains only its schema version, change ID, timestamp,
-organization ID, project ID, and affected resource names. Raw event payloads,
+authenticated scope ID, project ID, and affected resource names. Raw event payloads,
 prompts, outputs, user IDs, and entity data never enter the notification bus.
 
 ## Client behavior

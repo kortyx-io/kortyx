@@ -130,7 +130,14 @@ describe("Studio CLI lifecycle", () => {
     expect(env).toContain(
       `KORTYX_STUDIO_BASIC_AUTH_PASSWORD=${"r".repeat(24)}`,
     );
+    const composeVariable = "$";
     expect(compose).toContain("ghcr.io/kortyx-io/kortyx-api");
+    expect(compose).toContain(
+      `"127.0.0.1:${composeVariable}{API_PORT:-6400}:6400"`,
+    );
+    expect(compose).toContain(
+      `"127.0.0.1:${composeVariable}{STUDIO_PORT:-6300}:6300"`,
+    );
     expect(compose).not.toContain("5432:5432");
     expect((await stat(join(home, ".env"))).mode & 0o777).toBe(0o600);
     expect(runtime.logs.join("\n")).toContain(

@@ -14,10 +14,10 @@ export type StudioShellContext = {
     access: string;
     version: string;
   };
-  workspace: {
-    organization: string;
+  scope: {
+    label: "Local installation";
     project: string;
-    environments: string[];
+    telemetryEnvironments: string[];
   };
   connection: {
     status: StudioConnectionStatus;
@@ -97,10 +97,10 @@ export const buildStudioShellContext = (
   if (!input.context.error) {
     return {
       identity,
-      workspace: {
-        organization: input.context.data.organization.name,
+      scope: {
+        label: "Local installation",
         project: input.context.data.project.name,
-        environments: input.context.data.environments,
+        telemetryEnvironments: input.context.data.environments,
       },
       connection: {
         status: "connected",
@@ -117,10 +117,10 @@ export const buildStudioShellContext = (
 
   return {
     identity,
-    workspace: {
-      organization: "Unavailable",
+    scope: {
+      label: "Local installation",
       project: "Project unavailable",
-      environments: [],
+      telemetryEnvironments: [],
     },
     connection: {
       ...statusForError(input.context.error),

@@ -107,25 +107,22 @@ function DefinitionRow({
   );
 }
 
-function WorkspaceCard({ context }: { context: StudioShellContext }) {
+function ScopeCard({ context }: { context: StudioShellContext }) {
   return (
     <SettingsCard
       icon={Database}
-      title="Workspace"
-      description="The project scope authenticated by Studio’s server-only read key."
+      title="Local scope"
+      description="This preview observes one project scope authenticated by Studio’s server-only read key."
     >
       <dl>
+        <DefinitionRow label="Scope" value={context.scope.label} />
+        <DefinitionRow label="Project" value={context.scope.project} />
         <DefinitionRow
-          label="Organization"
-          value={context.workspace.organization}
-        />
-        <DefinitionRow label="Project" value={context.workspace.project} />
-        <DefinitionRow
-          label="Environments"
+          label="Telemetry environments"
           value={
-            context.workspace.environments.length ? (
+            context.scope.telemetryEnvironments.length ? (
               <span className="flex flex-wrap gap-1.5 sm:justify-end">
-                {context.workspace.environments.map((environment) => (
+                {context.scope.telemetryEnvironments.map((environment) => (
                   <span
                     key={environment}
                     className="rounded-md border bg-background px-2 py-1 font-mono text-xs"
@@ -237,7 +234,7 @@ export default async function SettingsPage() {
       </header>
 
       <div className="grid gap-4 p-4 sm:p-6 xl:grid-cols-2">
-        <WorkspaceCard context={context} />
+        <ScopeCard context={context} />
         <ConnectionCard context={context} />
 
         <SettingsCard
