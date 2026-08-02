@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.14.0](https://github.com/kortyx-io/kortyx/compare/kortyx-v0.13.0...kortyx-v0.14.0) (2026-08-02)
+
+
+### Features
+
+* **studio:** add portable self-hosting contract ([82f4851](https://github.com/kortyx-io/kortyx/commit/82f4851d7a945300fb779d08dc6fb75ed3e35c78))
+* **studio:** add portable self-hosting deployment ([6775f11](https://github.com/kortyx-io/kortyx/commit/6775f1127cb35de86e17d01ff78d94edf32f9fd2))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/cli bumped to 0.3.0
+
 ## [0.13.0](https://github.com/kortyx-io/kortyx/compare/kortyx-v0.12.4...kortyx-v0.13.0) (2026-08-02)
 
 
