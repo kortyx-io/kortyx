@@ -365,6 +365,29 @@ jobs:
           "$cli" studio status --home "$studio_home"
           "$cli" studio logs --home "$studio_home" --no-follow
 
+          old_studio_key="$(sed -n 's/^KORTYX_STUDIO_API_KEY=//p' "$studio_home/.env")"
+          old_telemetry_key="$(sed -n 's/^KORTYX_TELEMETRY_API_KEY=//p' "$studio_home/.env")"
+          "$cli" studio credentials --home "$studio_home" --rotate \
+            > "$backup_dir/rotated-credentials.txt"
+          new_studio_key="$(sed -n 's/^KORTYX_STUDIO_API_KEY=//p' "$studio_home/.env")"
+          new_telemetry_key="$(sed -n 's/^KORTYX_TELEMETRY_API_KEY=//p' "$studio_home/.env")"
+          test "$old_studio_key" != "$new_studio_key"
+          test "$old_telemetry_key" != "$new_telemetry_key"
+          test "$(curl --silent --output /dev/null --write-out '%{http_code}' \
+            -H "Authorization: Bearer $old_studio_key" \
+            http://127.0.0.1:16400/v1/studio/runs)" = "401"
+          test "$(curl --silent --output /dev/null --write-out '%{http_code}' \
+            -H "Authorization: Bearer $new_studio_key" \
+            http://127.0.0.1:16400/v1/studio/runs)" = "200"
+
+          KORTYX_API_IMAGE="${REGISTRY}/${API_IMAGE_NAME}" \
+          KORTYX_STUDIO_IMAGE="${REGISTRY}/${STUDIO_IMAGE_NAME}" \
+          KORTYX_STUDIO_IMAGE_TAG="staging-v${VERSION}" \
+          KORTYX_SMOKE_ID="${ARCH_ID}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}" \
+          KORTYX_SMOKE_API_PORT=26400 \
+          KORTYX_SMOKE_STUDIO_PORT=26300 \
+            ./scripts/smoke-studio-external-postgres.sh
+
   promote:
     name: Approve and publish production images
     needs: [prepare, publish-staging, smoke]

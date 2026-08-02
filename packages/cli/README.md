@@ -32,6 +32,11 @@ then prints:
 Credentials and database data survive stop, restart, CLI upgrades, and
 repeated `start` calls.
 
+`credentials --rotate` replaces the local browser password and application
+API-key secrets, updates their database verifiers, recreates the affected
+services, and prints the new SDK configuration. It deliberately preserves the
+PostgreSQL password and API-key pepper.
+
 Published Studio images support `linux/amd64` and `linux/arm64`. This covers
 standard Linux hosts, Apple Silicon Docker Desktop, and ARM64 Linux. Docker
 selects the correct image automatically. Windows containers and other
@@ -41,6 +46,7 @@ architectures are not release-tested.
 npx kortyx studio status
 npx kortyx studio logs
 npx kortyx studio credentials
+npx kortyx studio credentials --rotate
 npx kortyx studio restart
 npx kortyx studio stop
 ```
@@ -60,10 +66,23 @@ Reset is intentionally explicit because it deletes the local Studio database:
 npx kortyx studio reset --confirm
 ```
 
+### Prepare credentials for a server deployment
+
+Generate an unpersisted credential set for an operator-managed deployment:
+
+```bash
+npx kortyx studio credentials --generate
+```
+
+Store the result directly in the deployment secret manager. See the
+[deployment guide](https://github.com/kortyx-io/kortyx/blob/main/docs/studio/deploy-on-server.md)
+and
+[credentials guide](https://github.com/kortyx-io/kortyx/blob/main/docs/studio/credentials-and-secrets.md).
+
 ### Connect an existing SDK project
 
-Copy the values printed by `studio start` or `studio credentials` to a
-server-only `.env.local`:
+Copy the values printed by `studio start` or `studio credentials` to the
+application's server-only environment. For Next.js, this can be `.env.local`:
 
 ```bash
 KORTYX_TELEMETRY_API_URL=http://localhost:6400

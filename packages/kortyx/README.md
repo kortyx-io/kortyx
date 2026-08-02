@@ -41,8 +41,12 @@ for backup, upgrade, security, and limitation details.
 npx kortyx studio status
 npx kortyx studio logs
 npx kortyx studio credentials
+npx kortyx studio credentials --rotate
 npx kortyx studio stop
 ```
+
+For an operator-managed installation with external PostgreSQL, follow the
+[server deployment guide](https://github.com/kortyx-io/kortyx/blob/main/docs/studio/deploy-on-server.md).
 
 ## Quickstart
 

@@ -1,0 +1,46 @@
+#!/bin/sh
+
+set -eu
+
+usage() {
+  cat <<'EOF'
+Usage: kortyx-studio-db <command>
+
+Commands:
+  migrate                Apply pending Kortyx Studio database migrations.
+  bootstrap              Ensure the configured single-Project scope and API keys exist.
+  migrate-and-bootstrap  Apply migrations, then bootstrap the deployment.
+EOF
+}
+
+run_migrate() {
+  pnpm --filter @kortyx/telemetry-db db:migrate
+}
+
+run_bootstrap() {
+  : "${DATABASE_URL:?DATABASE_URL is required}"
+  : "${KORTYX_API_KEY_PEPPER:?KORTYX_API_KEY_PEPPER is required}"
+  : "${KORTYX_TELEMETRY_API_KEY:?KORTYX_TELEMETRY_API_KEY is required}"
+  : "${KORTYX_STUDIO_API_KEY:?KORTYX_STUDIO_API_KEY is required}"
+  pnpm --filter @kortyx/telemetry-db db:bootstrap
+}
+
+case "${1:-}" in
+  migrate)
+    run_migrate
+    ;;
+  bootstrap)
+    run_bootstrap
+    ;;
+  migrate-and-bootstrap)
+    run_migrate
+    run_bootstrap
+    ;;
+  help|-h|--help)
+    usage
+    ;;
+  *)
+    usage >&2
+    exit 64
+    ;;
+esac

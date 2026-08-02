@@ -22,11 +22,15 @@ kortyx studio restart
 kortyx studio status
 kortyx studio logs
 kortyx studio credentials
+kortyx studio credentials --rotate
+kortyx studio credentials --generate
 kortyx studio reset --confirm
 ```
 
 These commands own only local Docker lifecycle, generated local credentials,
-and the state in `~/.kortyx/studio`.
+and the state in `~/.kortyx/studio`. `credentials --generate` creates an
+unpersisted initial secret set for operator-managed deployments; it does not
+connect to a remote deployment or mutate its database.
 
 Future API-driven commands can grow alongside them:
 

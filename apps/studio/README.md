@@ -156,6 +156,9 @@ default password is shipped. See the
 SDK connection and first-run verification, and the
 [self-hosted operations guide](../../docs/studio/self-hosted-operations.md) for
 backup/restore, upgrades, reset, security, and troubleshooting.
+For a deployment with managed PostgreSQL, use the
+[server deployment guide](../../docs/studio/deploy-on-server.md) and its
+[portable deployment contract](../../docs/studio/deployment-contract.md).
 
 From the repository root for local development:
 

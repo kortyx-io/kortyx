@@ -48,6 +48,12 @@ same generated values later with:
 npx kortyx studio credentials
 ```
 
+For a controlled server or container-platform installation with managed
+PostgreSQL and externally supplied secrets, follow
+[Deploy Kortyx Studio on a server](./docs/studio/deploy-on-server.md). The
+[deployment contract](./docs/studio/deployment-contract.md) is the portable
+boundary for Compose, VMs, ECS, Cloud Run, Kubernetes, Terraform, and CDK.
+
 Published images support `linux/amd64` and `linux/arm64`; Docker Desktop on
 Apple Silicon selects the ARM64 image automatically. CLI-managed ports bind to
 `127.0.0.1` by default.
@@ -57,6 +63,8 @@ Follow the canonical
 first-run verification, interrupt behavior, and common commands. Use the
 [self-hosted operations guide](./docs/studio/self-hosted-operations.md) for
 backup/restore, upgrades, reset, security, and troubleshooting.
+Use [Credentials and secrets](./docs/studio/credentials-and-secrets.md) for
+credential roles, generation, rotation, and secret-manager integration.
 Read the [first-preview release notes](./docs/releases/studio-self-hosted-preview.md)
 for included and deferred capabilities.
 

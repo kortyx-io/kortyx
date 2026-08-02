@@ -1,4 +1,11 @@
-import { chmod, mkdir, readFile, writeFile } from "node:fs/promises";
+import {
+  chmod,
+  mkdir,
+  readFile,
+  rename,
+  unlink,
+  writeFile,
+} from "node:fs/promises";
 import { homedir } from "node:os";
 import { join, resolve } from "node:path";
 import { z } from "zod";
@@ -62,6 +69,14 @@ const StudioEnvironmentSchema = z
 
 export type StudioConfig = z.infer<typeof StudioConfigSchema>;
 export type StudioEnvironment = z.infer<typeof StudioEnvironmentSchema>;
+export type StudioDeploymentCredentials = Pick<
+  StudioEnvironment,
+  | "KORTYX_API_KEY_PEPPER"
+  | "KORTYX_TELEMETRY_API_KEY"
+  | "KORTYX_STUDIO_API_KEY"
+  | "KORTYX_STUDIO_BASIC_AUTH_USERNAME"
+  | "KORTYX_STUDIO_BASIC_AUTH_PASSWORD"
+>;
 
 export const defaultStudioHome = (): string =>
   resolve(
@@ -131,6 +146,17 @@ const resolveConfig = (
 const createApiKey = (purpose: string, runtime: StudioRuntime): string =>
   `ktyx_live_${purpose}${runtime.random(6).toLowerCase()}_${runtime.random(32)}`;
 
+export const createStudioDeploymentCredentials = (
+  runtime: StudioRuntime,
+  username = DEFAULT_USERNAME,
+): StudioDeploymentCredentials => ({
+  KORTYX_API_KEY_PEPPER: runtime.random(48),
+  KORTYX_TELEMETRY_API_KEY: createApiKey("telemetry", runtime),
+  KORTYX_STUDIO_API_KEY: createApiKey("studio", runtime),
+  KORTYX_STUDIO_BASIC_AUTH_USERNAME: username,
+  KORTYX_STUDIO_BASIC_AUTH_PASSWORD: runtime.random(24),
+});
+
 const createEnvironment = (
   config: StudioConfig,
   runtime: StudioRuntime,
@@ -141,11 +167,7 @@ const createEnvironment = (
     API_PORT: String(config.apiPort),
     STUDIO_PORT: String(config.studioPort),
     POSTGRES_PASSWORD: runtime.random(32),
-    KORTYX_API_KEY_PEPPER: runtime.random(48),
-    KORTYX_TELEMETRY_API_KEY: createApiKey("telemetry", runtime),
-    KORTYX_STUDIO_API_KEY: createApiKey("studio", runtime),
-    KORTYX_STUDIO_BASIC_AUTH_USERNAME: config.username,
-    KORTYX_STUDIO_BASIC_AUTH_PASSWORD: runtime.random(24),
+    ...createStudioDeploymentCredentials(runtime, config.username),
   });
 
 const parseEnvironmentFile = (raw: string, path: string): StudioEnvironment => {
@@ -171,12 +193,66 @@ const serializeEnvironment = (environment: StudioEnvironment): string =>
     .map(([key, value]) => `${key}=${value}`)
     .join("\n")}\n`;
 
+const writePrivateFileAtomically = async (
+  path: string,
+  contents: string,
+): Promise<void> => {
+  const temporaryPath = `${path}.tmp-${process.pid}`;
+  let renamed = false;
+  try {
+    await writeFile(temporaryPath, contents, { mode: 0o600 });
+    await chmod(temporaryPath, 0o600);
+    await rename(temporaryPath, path);
+    renamed = true;
+    await chmod(path, 0o600);
+  } finally {
+    if (!renamed) {
+      await unlink(temporaryPath).catch(() => undefined);
+    }
+  }
+};
+
 export const readStudioEnvironment = async (
   home: string,
 ): Promise<StudioEnvironment> => {
   const path = studioEnvPath(home);
   return parseEnvironmentFile(await readFile(path, "utf8"), path);
 };
+
+export const writeStudioEnvironment = async (
+  home: string,
+  environment: StudioEnvironment,
+): Promise<void> => {
+  const parsed = StudioEnvironmentSchema.parse(environment);
+  await writePrivateFileAtomically(
+    studioEnvPath(home),
+    serializeEnvironment(parsed),
+  );
+};
+
+const rotateApiKeySecret = (apiKey: string, runtime: StudioRuntime): string => {
+  const match = /^(ktyx_(?:test|live)_[^_]+_).+$/.exec(apiKey);
+  const prefix = match?.[1];
+  if (!prefix) throw new Error("Stored Kortyx API key has an invalid format.");
+  return `${prefix}${runtime.random(32)}`;
+};
+
+export const createRotatedStudioEnvironment = (
+  environment: StudioEnvironment,
+  runtime: StudioRuntime,
+): StudioEnvironment =>
+  StudioEnvironmentSchema.parse({
+    ...environment,
+    KORTYX_TELEMETRY_API_KEY: rotateApiKeySecret(
+      environment.KORTYX_TELEMETRY_API_KEY,
+      runtime,
+    ),
+    KORTYX_STUDIO_API_KEY: rotateApiKeySecret(
+      environment.KORTYX_STUDIO_API_KEY,
+      runtime,
+    ),
+    KORTYX_STUDIO_BASIC_AUTH_PASSWORD: runtime.random(24),
+  });
 
 export const ensureStudioState = async (
   options: StudioStartOptions,
@@ -214,12 +290,7 @@ export const ensureStudioState = async (
     STUDIO_PORT: String(config.studioPort),
     KORTYX_STUDIO_BASIC_AUTH_USERNAME: config.username,
   });
-  await writeFile(
-    studioEnvPath(options.home),
-    serializeEnvironment(updatedEnvironment),
-    { mode: 0o600 },
-  );
-  await chmod(studioEnvPath(options.home), 0o600);
+  await writeStudioEnvironment(options.home, updatedEnvironment);
   return config;
 };
 

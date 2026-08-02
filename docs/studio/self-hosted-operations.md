@@ -4,6 +4,10 @@ This guide covers backup, restore, upgrades, reset, networking, security, and
 troubleshooting for the self-hosted preview. Complete
 [Run Kortyx Studio locally](./self-hosted-preview.md) first.
 
+This guide operates the CLI-managed local stack. For an external PostgreSQL
+database or container platform, use [Deploy on a server](./deploy-on-server.md)
+and the [deployment contract](./deployment-contract.md).
+
 ## Where Studio stores data
 
 The CLI stores the default installation under `~/.kortyx/studio`:
@@ -128,6 +132,11 @@ Common failures:
   the generated username and password for that Studio home.
 - **No telemetry appears:** confirm the server process uses the printed API URL
   and key, then verify the selected time range includes the event.
+- **Studio reports an invalid service key:** confirm Studio and the database
+  bootstrap job received the same `KORTYX_STUDIO_API_KEY` and pepper. A database
+  restored without its matching environment cannot verify the key. Restart the
+  browser after correcting the deployment so a stale response is not mistaken
+  for a continuing service-key failure.
 - **A migration fails:** keep the database intact, collect logs, and restore the
   pre-upgrade backup if necessary. Do not run an older image against the
   migrated database.

@@ -5,9 +5,11 @@ import {
   Option,
 } from "commander";
 import {
+  printGeneratedDeploymentCredentials,
   printStudioConnection,
   resetStudio,
   restartStudio,
+  rotateStudioCredentials,
   showStudioLogs,
   showStudioStatus,
   startStudio,
@@ -35,6 +37,11 @@ type LogsOptions = HomeOptions & {
 
 type ResetOptions = HomeOptions & {
   confirm: boolean;
+};
+
+type CredentialsOptions = HomeOptions & {
+  generate: boolean;
+  rotate: boolean;
 };
 
 const portParser = (value: string): number => {
@@ -125,8 +132,29 @@ export const createStudioCommand = (
   withHome(
     studio
       .command("credentials")
-      .description("Print Studio sign-in and SDK telemetry configuration."),
-  ).action(async ({ home }: HomeOptions) => {
+      .description("Print or rotate Studio and SDK credentials.")
+      .option(
+        "--rotate",
+        "Replace the browser password and application API-key secrets.",
+        false,
+      )
+      .option(
+        "--generate",
+        "Generate unpersisted credentials for a self-hosted deployment.",
+        false,
+      ),
+  ).action(async ({ generate, home, rotate }: CredentialsOptions) => {
+    if (generate && rotate) {
+      throw new Error("Use either --generate or --rotate, not both.");
+    }
+    if (generate) {
+      printGeneratedDeploymentCredentials(runtime);
+      return;
+    }
+    if (rotate) {
+      await rotateStudioCredentials(home, runtime);
+      return;
+    }
     await printStudioConnection(home, await requireStudioConfig(home), runtime);
   });
 

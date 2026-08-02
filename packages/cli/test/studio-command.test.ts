@@ -223,6 +223,85 @@ describe("Studio CLI lifecycle", () => {
     );
   });
 
+  it("rotates only application credentials and applies them to the database", async () => {
+    const home = await createHome();
+    const runtime = await initialize(home);
+    const before = await readFile(join(home, ".env"), "utf8");
+    runtime.random = (bytes) => "s".repeat(Math.max(bytes, 16));
+
+    await runStudioCommand(
+      ["credentials", "--home", home, "--rotate"],
+      runtime,
+    );
+
+    const after = await readFile(join(home, ".env"), "utf8");
+    expect(after).not.toBe(before);
+    expect(after).toContain(
+      `KORTYX_STUDIO_BASIC_AUTH_PASSWORD=${"s".repeat(24)}`,
+    );
+    expect(after).toContain(
+      `KORTYX_TELEMETRY_API_KEY=ktyx_live_telemetry${"r".repeat(16)}_${"s".repeat(32)}`,
+    );
+    expect(after).toContain(
+      `KORTYX_STUDIO_API_KEY=ktyx_live_studio${"r".repeat(16)}_${"s".repeat(32)}`,
+    );
+    for (const preserved of ["POSTGRES_PASSWORD", "KORTYX_API_KEY_PEPPER"]) {
+      const value = before
+        .split("\n")
+        .find((entry) => entry.startsWith(`${preserved}=`));
+      expect(value).toBeTruthy();
+      expect(after).toContain(value as string);
+    }
+    expect(
+      runtime.calls.some(
+        ({ args }) =>
+          args.includes("run") &&
+          args.includes("--rm") &&
+          args.includes("db-init"),
+      ),
+    ).toBe(true);
+    expect(
+      runtime.calls.some(
+        ({ args }) =>
+          args.includes("--force-recreate") &&
+          args.includes("api") &&
+          args.includes("studio"),
+      ),
+    ).toBe(true);
+    expect(runtime.logs.join("\n")).toContain(
+      "previous browser password and API keys are no longer valid",
+    );
+  });
+
+  it("restores previous credentials if rotation cannot be applied", async () => {
+    const home = await createHome();
+    const runtime = await initialize(home);
+    const before = await readFile(join(home, ".env"), "utf8");
+    const originalRun = runtime.run;
+    let failed = false;
+    runtime.run = async (command, args, options) => {
+      if (!failed && args.includes("run") && args.includes("db-init")) {
+        failed = true;
+        throw new Error("bootstrap failed");
+      }
+      return await originalRun(command, args, options);
+    };
+
+    await expect(
+      runStudioCommand(["credentials", "--home", home, "--rotate"], runtime),
+    ).rejects.toThrow("bootstrap failed");
+
+    expect(await readFile(join(home, ".env"), "utf8")).toBe(before);
+    expect(
+      runtime.calls.filter(
+        ({ args }) => args.includes("run") && args.includes("db-init"),
+      ),
+    ).toHaveLength(1);
+    expect(runtime.logs.join("\n")).toContain(
+      "Restoring the previous credentials",
+    );
+  });
+
   it("reports missing and invalid local state clearly", async () => {
     const home = await createHome();
     const runtime = createRuntime();
@@ -234,6 +313,30 @@ describe("Studio CLI lifecycle", () => {
     await expect(
       runStudioCommand(["status", "--home", home], runtime),
     ).rejects.toThrow("Unsupported or invalid Studio config");
+  });
+
+  it("generates deployment credentials without Docker or local state", async () => {
+    const home = await createHome();
+    const runtime = createRuntime();
+
+    await runStudioCommand(
+      ["credentials", "--home", home, "--generate"],
+      runtime,
+    );
+
+    expect(runtime.calls).toHaveLength(0);
+    expect(runtime.logs.join("\n")).toContain("KORTYX_API_KEY_PEPPER=");
+    expect(runtime.logs.join("\n")).toContain(
+      "KORTYX_TELEMETRY_API_KEY=ktyx_live_telemetry",
+    );
+    expect(runtime.logs.join("\n")).toContain("were not persisted");
+    await expect(stat(join(home, ".env"))).rejects.toThrow();
+    await expect(
+      runStudioCommand(
+        ["credentials", "--home", home, "--generate", "--rotate"],
+        runtime,
+      ),
+    ).rejects.toThrow("either --generate or --rotate");
   });
 
   it("does not replace a path that cannot be read as an env file", async () => {
