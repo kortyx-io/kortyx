@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.23.0](https://github.com/kortyx-io/kortyx/compare/website-v0.22.0...website-v0.23.0) (2026-08-02)
+
+
+### Features
+
+* **studio:** add portable self-hosting deployment ([6775f11](https://github.com/kortyx-io/kortyx/commit/6775f1127cb35de86e17d01ff78d94edf32f9fd2))
+
 ## [0.22.0](https://github.com/kortyx-io/kortyx/compare/website-v0.21.3...website-v0.22.0) (2026-08-02)
 
 

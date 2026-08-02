@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.3.0](https://github.com/kortyx-io/kortyx/compare/cli-v0.2.0...cli-v0.3.0) (2026-08-02)
+
+
+### Features
+
+* **studio:** add portable self-hosting contract ([82f4851](https://github.com/kortyx-io/kortyx/commit/82f4851d7a945300fb779d08dc6fb75ed3e35c78))
+* **studio:** add portable self-hosting deployment ([6775f11](https://github.com/kortyx-io/kortyx/commit/6775f1127cb35de86e17d01ff78d94edf32f9fd2))
+
 ## [0.2.0](https://github.com/kortyx-io/kortyx/compare/cli-v0.1.5...cli-v0.2.0) (2026-08-02)
 
 
