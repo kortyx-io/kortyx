@@ -1,6 +1,11 @@
 # Kortyx Studio self-hosted preview
 
-Status: planned first public preview.
+Status: released on August 2, 2026.
+
+Released artifacts:
+
+- Studio and telemetry API images: `v0.1.0-preview.1` and `latest`.
+- Public installer: `kortyx@0.13.0` (`@kortyx/cli@0.2.0`).
 
 Kortyx Studio is now available as a source-available, self-hosted preview for
 observing Kortyx SDK applications on a local Docker installation.
