@@ -1,5 +1,28 @@
 # Changelog
 
+## [0.15.0](https://github.com/kortyx-io/kortyx/compare/agent-v0.14.2...agent-v0.15.0) (2026-08-02)
+
+
+### Features
+
+* **studio:** release self-hosted observability preview ([4e9d3fd](https://github.com/kortyx-io/kortyx/commit/4e9d3fdbc7233f9b1de94ca1afe6dbae9cc9157f))
+* **studio:** release self-hosted observability preview ([#139](https://github.com/kortyx-io/kortyx/issues/139)) ([4e9d3fd](https://github.com/kortyx-io/kortyx/commit/4e9d3fdbc7233f9b1de94ca1afe6dbae9cc9157f))
+* **telemetry:** add persisted studio read models ([cebb06b](https://github.com/kortyx-io/kortyx/commit/cebb06bb74ccd4422e263f0ff4efa0fee5a16240))
+
+
+### Bug Fixes
+
+* harden interrupt lifecycle semantics ([958d149](https://github.com/kortyx-io/kortyx/commit/958d149596d54215821ef5a7f8562a06a7459149))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/runtime bumped to 0.11.1
+  * devDependencies
+    * @kortyx/hooks bumped to 0.18.0
+
 ## [0.14.2](https://github.com/kortyx-io/kortyx/compare/agent-v0.14.1...agent-v0.14.2) (2026-06-12)
 
 

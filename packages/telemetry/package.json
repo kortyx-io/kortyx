@@ -1,6 +1,6 @@
 {
   "name": "@kortyx/telemetry",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": false,
   "description": "Kortyx Studio telemetry HTTP adapter.",
   "license": "Apache-2.0",

@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.22.0](https://github.com/kortyx-io/kortyx/compare/website-v0.21.3...website-v0.22.0) (2026-08-02)
+
+
+### Features
+
+* **studio:** harden self-hosted preview ([c5438f8](https://github.com/kortyx-io/kortyx/commit/c5438f89499f98df7bf6d10cff9e1e37812a1496))
+* **studio:** release self-hosted observability preview ([4e9d3fd](https://github.com/kortyx-io/kortyx/commit/4e9d3fdbc7233f9b1de94ca1afe6dbae9cc9157f))
+* **studio:** release self-hosted observability preview ([#139](https://github.com/kortyx-io/kortyx/issues/139)) ([4e9d3fd](https://github.com/kortyx-io/kortyx/commit/4e9d3fdbc7233f9b1de94ca1afe6dbae9cc9157f))
+
 ## [0.21.3](https://github.com/kortyx-io/kortyx/compare/website-v0.21.2...website-v0.21.3) (2026-06-03)
 
 
