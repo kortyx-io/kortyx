@@ -102,6 +102,9 @@ jobs:
       - name: Prepare local environment
         run: cp .env.example .env
 
+      - name: Build database bootstrap dependencies
+        run: pnpm --filter @kortyx/telemetry-contracts build
+
       - name: Migrate and bootstrap database
         run: |
           pnpm db:migrate
