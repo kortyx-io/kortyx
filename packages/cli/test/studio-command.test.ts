@@ -8,6 +8,10 @@ import {
   runStudioCommand,
   type StudioRuntime,
 } from "../src/studio/command";
+import {
+  readStudioEnvironment,
+  writeStudioEnvironment,
+} from "../src/studio/state";
 
 const homes: string[] = [];
 
@@ -300,6 +304,40 @@ describe("Studio CLI lifecycle", () => {
     expect(runtime.logs.join("\n")).toContain(
       "Restoring the previous credentials",
     );
+  });
+
+  it("reports both failures if credential rotation and rollback cannot be applied", async () => {
+    const home = await createHome();
+    const runtime = await initialize(home);
+    const before = await readFile(join(home, ".env"), "utf8");
+    const originalRun = runtime.run;
+    let bootstrapAttempts = 0;
+    runtime.run = async (command, args, options) => {
+      const result = await originalRun(command, args, options);
+      if (args.includes("run") && args.includes("db-init")) {
+        bootstrapAttempts += 1;
+        throw new Error(`bootstrap failed ${bootstrapAttempts}`);
+      }
+      return result;
+    };
+
+    await expect(
+      runStudioCommand(["credentials", "--home", home, "--rotate"], runtime),
+    ).rejects.toThrow("automatic rollback both failed");
+
+    expect(bootstrapAttempts).toBe(2);
+    expect(await readFile(join(home, ".env"), "utf8")).toBe(before);
+  });
+
+  it("cleans up a failed atomic environment write without hiding the cause", async () => {
+    const home = await createHome();
+    await initialize(home);
+    const environment = await readStudioEnvironment(home);
+    const temporaryPath = `${join(home, ".env")}.tmp-${process.pid}`;
+    await mkdir(temporaryPath);
+
+    await expect(writeStudioEnvironment(home, environment)).rejects.toThrow();
+    await expect(stat(temporaryPath)).resolves.toBeDefined();
   });
 
   it("reports missing and invalid local state clearly", async () => {
