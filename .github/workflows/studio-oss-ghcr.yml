@@ -432,5 +432,8 @@ jobs:
         env:
           VERSION: ${{ needs.prepare.outputs.version }}
         run: |
-          git tag -a "studio-v${VERSION}" -m "Kortyx Studio v${VERSION}"
+          git \
+            -c user.name="github-actions[bot]" \
+            -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
+            tag -a "studio-v${VERSION}" -m "Kortyx Studio v${VERSION}"
           git push origin "studio-v${VERSION}"
