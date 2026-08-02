@@ -122,6 +122,12 @@ describe("detail stack transitions", () => {
     const layers = registerDetailLayer([], session);
 
     expect(
+      syncDetailLayersToHistoryPath(layers, run.matchPath, [
+        session.dismissPath,
+        run.dismissPath,
+      ]).map((layer) => layer.closing),
+    ).toEqual([false]);
+    expect(
       isDetailLayerActiveForHistory(
         layers,
         session.dismissPath,

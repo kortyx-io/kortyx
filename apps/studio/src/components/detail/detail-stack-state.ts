@@ -97,11 +97,19 @@ export function getDetailBackdropState(layers: DetailLayer[]) {
 export function syncDetailLayersToHistoryPath(
   layers: DetailLayer[],
   pathname: string,
+  detailBasePaths: readonly string[] = [],
 ): DetailLayer[] {
   const targetIndex = layers.findLastIndex(
     (layer) => layer.matchPath === pathname,
   );
-  if (targetIndex < 0) return closeAllDetailLayers(layers);
+  if (targetIndex < 0) {
+    // On Browser Forward the destination parallel route can register one
+    // render after popstate. Preserve valid ancestors until that child joins
+    // the stack; list routes still close every layer immediately.
+    return isDetailPath(pathname, detailBasePaths)
+      ? layers
+      : closeAllDetailLayers(layers);
+  }
   return layers.map((layer, index) => ({
     ...layer,
     closing: index > targetIndex,
@@ -124,10 +132,14 @@ export function isDetailLayerActiveForHistory(
   );
   if (targetIndex >= 0) return layerIndex <= targetIndex;
 
-  const opensNewDetail = detailBasePaths.some(
+  const opensNewDetail = isDetailPath(pathname, detailBasePaths);
+  return opensNewDetail && !layers[layerIndex].closing;
+}
+
+function isDetailPath(pathname: string, detailBasePaths: readonly string[]) {
+  return detailBasePaths.some(
     (basePath) =>
       pathname.startsWith(`${basePath}/`) &&
       pathname.slice(basePath.length + 1).length > 0,
   );
-  return opensNewDetail && !layers[layerIndex].closing;
 }

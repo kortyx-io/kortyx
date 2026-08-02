@@ -218,7 +218,11 @@ export function DetailStackProvider({ children }: { children: ReactNode }) {
       historyTraversalRef.current = null;
       historyTargetPathRef.current = window.location.pathname;
       setLayers((current) =>
-        syncDetailLayersToHistoryPath(current, window.location.pathname),
+        syncDetailLayersToHistoryPath(
+          current,
+          window.location.pathname,
+          DETAIL_BASE_PATHS,
+        ),
       );
     };
     window.addEventListener("popstate", syncToHistory, { capture: true });

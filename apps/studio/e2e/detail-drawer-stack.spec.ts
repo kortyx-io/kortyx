@@ -218,12 +218,7 @@ test.describe("Studio detail drawer stack", () => {
     await openTraceInspector(page);
 
     const session = drawer(page, sessionPath);
-    const sessionBox = await session.boundingBox();
-    const runBox = await drawer(page, runPath).boundingBox();
-    expect(sessionBox).not.toBeNull();
-    expect(runBox).not.toBeNull();
-    if (!sessionBox || !runBox) return;
-    expect(sessionBox.x).toBeLessThan(runBox.x);
+    await expectAncestorReveal(session, drawer(page, runPath));
 
     await session.click({ position: { x: 8, y: 100 } });
 
@@ -343,25 +338,38 @@ async function openSessionDrawer(page: Page) {
   await openSessionsList(page);
   await clickTableRow(sessionTableRow(page));
   await expect(page).toHaveURL(new RegExp(`${escapeRegExp(sessionPath)}\\?`));
-  await expect(drawer(page, sessionPath)).toHaveAttribute("data-state", "open");
+  const session = drawer(page, sessionPath);
+  await expect(session).toHaveAttribute("data-state", "open");
+  await expect(session).toContainText(DRAWER_FIXTURE.sessionId);
+  await waitForSurfaceMotion(session);
 }
 
 async function openRunFromSession(page: Page) {
-  await page.getByRole("button", { name: /^Runs \d+$/ }).click();
-  await page.getByRole("tabpanel").locator(`a[href^="${runPath}"]`).click();
+  const session = drawer(page, sessionPath);
+  await session.getByRole("button", { name: /^Runs \d+$/ }).click();
+  const runLink = session
+    .getByRole("tabpanel")
+    .locator(`a[href^="${runPath}"]`);
+  await expect(runLink).toBeVisible();
+  await runLink.click();
   await expect(page).toHaveURL(new RegExp(`${escapeRegExp(runPath)}\\?`));
-  await expect(drawer(page, runPath)).toHaveAttribute("data-state", "open");
+  const run = drawer(page, runPath);
+  await expect(run).toHaveAttribute("data-state", "open");
+  await expect(run).toContainText(DRAWER_FIXTURE.runId);
+  await waitForSurfaceMotion(run);
 }
 
 async function openTraceInspector(page: Page) {
-  await page.getByRole("button", { name: "Trace", exact: true }).click();
-  const traceRow = page
+  const run = drawer(page, runPath);
+  await run.getByRole("button", { name: "Trace", exact: true }).click();
+  const traceRow = run
     .getByRole("tabpanel")
     .locator('button[aria-haspopup="dialog"]')
     .first();
   await expect(traceRow).toBeVisible();
   await traceRow.click();
   await expect(inspector(page)).toBeVisible();
+  await waitForSurfaceMotion(inspector(page));
 }
 
 const sessionTableRow = (page: Page) =>
@@ -408,6 +416,40 @@ async function expectDrawerAtRouteBounds(page: Page, surface: Locator) {
       return Math.abs(mainBox.x - drawerBox.x);
     })
     .toBeLessThanOrEqual(2);
+}
+
+async function expectAncestorReveal(ancestor: Locator, child: Locator) {
+  await expect
+    .poll(async () => {
+      const [ancestorBox, childBox] = await Promise.all([
+        ancestor.boundingBox(),
+        child.boundingBox(),
+      ]);
+      if (!ancestorBox || !childBox) return Number.NEGATIVE_INFINITY;
+      return childBox.x - ancestorBox.x;
+    })
+    .toBeGreaterThanOrEqual(40);
+}
+
+async function waitForSurfaceMotion(surface: Locator) {
+  await expect(surface).toBeVisible();
+  // Let entry styles reach the browser before sampling Web Animations. This
+  // avoids treating the frame before a CSS transition starts as "settled".
+  await surface.evaluate(
+    () =>
+      new Promise<void>((resolve) => {
+        requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+      }),
+  );
+  await expect
+    .poll(() =>
+      surface.evaluate((element) =>
+        element
+          .getAnimations({ subtree: false })
+          .some((animation) => animation.playState === "running"),
+      ),
+    )
+    .toBe(false);
 }
 
 async function installDrawerAudit(page: Page) {
