@@ -67,13 +67,23 @@ const main = async (): Promise<void> => {
     console.log("Kortyx telemetry local project bootstrapped.");
     console.log(`Organization ID: ${project.organizationId}`);
     console.log(`Project ID: ${project.projectId}`);
-    console.log(`SDK telemetry API key: ${telemetryKey.apiKey}`);
-    console.log(`Studio read API key: ${studioKey.apiKey}`);
+    console.log(
+      telemetryApiKey
+        ? `SDK telemetry API key configured: ${telemetryKey.keyId}`
+        : `SDK telemetry API key: ${telemetryKey.apiKey}`,
+    );
+    console.log(
+      studioApiKey
+        ? `Studio read API key configured: ${studioKey.keyId}`
+        : `Studio read API key: ${studioKey.apiKey}`,
+    );
     const rates = await seedDefaultModelRateCards(client.db);
     console.log(
       `Default rate cards inserted: ${rates.inserted}. Skipped: ${rates.skipped}.`,
     );
-    console.log("Store these keys now; only their hashes are persisted.");
+    if (!telemetryApiKey || !studioApiKey) {
+      console.log("Store generated keys now; only their hashes are persisted.");
+    }
   } finally {
     await client.close();
   }

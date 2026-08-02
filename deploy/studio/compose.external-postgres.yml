@@ -1,0 +1,71 @@
+name: ${KORTYX_COMPOSE_PROJECT_NAME:-kortyx-studio}
+
+x-api-environment: &api-environment
+  DATABASE_URL: ${DATABASE_URL:?DATABASE_URL is required}
+  KORTYX_API_KEY_PEPPER: ${KORTYX_API_KEY_PEPPER:?KORTYX_API_KEY_PEPPER is required}
+
+x-bootstrap-keys: &bootstrap-keys
+  KORTYX_TELEMETRY_API_KEY: ${KORTYX_TELEMETRY_API_KEY:?KORTYX_TELEMETRY_API_KEY is required}
+  KORTYX_STUDIO_API_KEY: ${KORTYX_STUDIO_API_KEY:?KORTYX_STUDIO_API_KEY is required}
+
+services:
+  db-init:
+    image: ${KORTYX_API_IMAGE:-ghcr.io/kortyx-io/kortyx-api}:${KORTYX_STUDIO_IMAGE_TAG:?KORTYX_STUDIO_IMAGE_TAG is required}
+    environment:
+      <<: [*api-environment, *bootstrap-keys]
+    command: ["kortyx-studio-db", "migrate-and-bootstrap"]
+    restart: "no"
+
+  api:
+    image: ${KORTYX_API_IMAGE:-ghcr.io/kortyx-io/kortyx-api}:${KORTYX_STUDIO_IMAGE_TAG:?KORTYX_STUDIO_IMAGE_TAG is required}
+    environment:
+      <<: *api-environment
+      NODE_ENV: production
+      API_HOST: 0.0.0.0
+      API_PORT: 6400
+    ports:
+      - "${KORTYX_API_BIND_ADDRESS:-127.0.0.1}:${API_PORT:-6400}:6400"
+    depends_on:
+      db-init:
+        condition: service_completed_successfully
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "node -e \"fetch('http://127.0.0.1:6400/health').then((response)=>process.exit(response.ok?0:1)).catch(()=>process.exit(1))\"",
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+    restart: unless-stopped
+
+  studio:
+    image: ${KORTYX_STUDIO_IMAGE:-ghcr.io/kortyx-io/kortyx-studio}:${KORTYX_STUDIO_IMAGE_TAG:?KORTYX_STUDIO_IMAGE_TAG is required}
+    environment:
+      NODE_ENV: production
+      PORT: 6300
+      KORTYX_API_URL: ${KORTYX_INTERNAL_API_URL:-http://api:6400}
+      KORTYX_STUDIO_API_KEY: ${KORTYX_STUDIO_API_KEY:?KORTYX_STUDIO_API_KEY is required}
+      KORTYX_STUDIO_AUTH_MODE: ${KORTYX_STUDIO_AUTH_MODE:-basic}
+      KORTYX_STUDIO_BASIC_AUTH_USERNAME: ${KORTYX_STUDIO_BASIC_AUTH_USERNAME:?KORTYX_STUDIO_BASIC_AUTH_USERNAME is required}
+      KORTYX_STUDIO_BASIC_AUTH_PASSWORD: ${KORTYX_STUDIO_BASIC_AUTH_PASSWORD:?KORTYX_STUDIO_BASIC_AUTH_PASSWORD is required}
+    ports:
+      - "${KORTYX_STUDIO_BIND_ADDRESS:-127.0.0.1}:${STUDIO_PORT:-6300}:6300"
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "node -e \"fetch('http://127.0.0.1:6300').then((response)=>process.exit(response.status<500?0:1)).catch(()=>process.exit(1))\"",
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+    restart: unless-stopped
+
+networks:
+  default:
+    name: ${KORTYX_STUDIO_NETWORK:-kortyx-studio-network}
+    external: ${KORTYX_STUDIO_NETWORK_EXTERNAL:-false}

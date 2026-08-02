@@ -47,6 +47,16 @@ If you need to print the values again:
 npx kortyx studio credentials
 ```
 
+To replace the local sign-in password and both application API-key secrets:
+
+```bash
+npx kortyx studio credentials --rotate
+```
+
+Rotation invalidates the previous telemetry key. Copy the newly printed value
+to every local SDK producer. The database password and API-key pepper are not
+changed.
+
 ## 2. Connect your agent
 
 Install the optional Studio telemetry adapter:
@@ -176,6 +186,10 @@ commands.
 
 Read the [self-hosted operations guide](./self-hosted-operations.md) before you
 back up, restore, upgrade, reset, or expose Studio beyond your local machine.
+To use managed PostgreSQL or a container platform, follow
+[Deploy Kortyx Studio on a server](./deploy-on-server.md) and the
+[deployment contract](./deployment-contract.md). Do not adapt the local
+CLI-managed Compose state into an internet-facing installation.
 Read the [preview release notes](../releases/studio-self-hosted-preview.md) for
 the included features and deliberate limitations.
 

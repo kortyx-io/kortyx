@@ -16,6 +16,8 @@ Kortyx is an opinionated framework for teams building production AI features tha
 - Server Action variant (buffered return, no live chunk UI): [Quickstart (Next.js Server Action)](../01-getting-started/03-quickstart-nextjs-server-action.md)
 - Build mental model first: [Define Workflows](../02-core-concepts/01-define-workflows.md), [Nodes](../02-core-concepts/03-nodes.md), and [Runtime Context](../02-core-concepts/08-runtime-context.md)
 - Implement task-oriented features: [Project Structure](../03-guides/01-project-structure.md), [Rendering Streamed Chat](../03-guides/04-render-streamed-chat.md), and [Interrupts and Resume](../03-guides/02-interrupts-and-resume.md)
+- Inspect your application locally: [Run Kortyx Studio Locally](../05-studio/02-run-locally.md)
+- Connect or deploy Studio: [Studio Overview](../05-studio/01-overview.md)
 - Harden for production: [Production](../04-production/01-persistence.md)
 - Verify exact APIs and protocols: [Reference](../05-reference/01-package-overview.md)
 
@@ -28,3 +30,15 @@ Kortyx is an opinionated framework for teams building production AI features tha
   - Then configure [Runtime Persistence Adapters](../04-production/02-framework-adapters.md)
 
 > **Good to know:** The docs are TypeScript-first and prioritize system-builder workflows with production reliability in mind.
+
+## Observe your Kortyx application
+
+Kortyx Studio turns server-side telemetry into readable sessions, runs, workflow transitions, model calls, interrupts, timing, token usage, and cost.
+
+If you already have a Kortyx agent running, start the complete local stack with one command:
+
+```bash
+npx kortyx studio start
+```
+
+Then follow [Run Kortyx Studio Locally](../05-studio/02-run-locally.md) to connect the agent and inspect its first run. Studio is optional observability infrastructure; it does not execute your workflows, and your application continues running if Studio is unavailable.

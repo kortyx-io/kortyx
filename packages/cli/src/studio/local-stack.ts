@@ -1,10 +1,13 @@
 import {
+  createRotatedStudioEnvironment,
+  createStudioDeploymentCredentials,
   ensureStudioState,
   readStudioEnvironment,
   requireStudioConfig,
   type StudioConfig,
   studioComposePath,
   studioEnvPath,
+  writeStudioEnvironment,
 } from "./state";
 import type { CommandResult, StudioRuntime, StudioStartOptions } from "./types";
 
@@ -88,6 +91,79 @@ export const printStudioConnection = async (
   runtime.log("  KORTYX_TELEMETRY_SERVICE_NAME=my-agent");
   runtime.log();
   runtime.log(`Local state: ${home}`);
+};
+
+export const printGeneratedDeploymentCredentials = (
+  runtime: StudioRuntime,
+): void => {
+  const credentials = createStudioDeploymentCredentials(runtime);
+  runtime.log("Kortyx Studio deployment credentials");
+  for (const [key, value] of Object.entries(credentials)) {
+    runtime.log(`${key}=${value}`);
+  }
+  runtime.log();
+  runtime.log(
+    "These values were not persisted. Store them in your deployment secret manager now; Kortyx cannot recover them later.",
+  );
+};
+
+const applyStudioEnvironment = async (
+  home: string,
+  runtime: StudioRuntime,
+): Promise<void> => {
+  await runCompose(home, ["run", "--rm", "db-init"], runtime);
+  await runCompose(
+    home,
+    [
+      "up",
+      "-d",
+      "--force-recreate",
+      "--wait",
+      "--wait-timeout",
+      "180",
+      "api",
+      "studio",
+    ],
+    runtime,
+  );
+};
+
+export const rotateStudioCredentials = async (
+  home: string,
+  runtime: StudioRuntime,
+): Promise<void> => {
+  await preflightDocker(runtime);
+  const config = await requireStudioConfig(home);
+  const previousEnvironment = await readStudioEnvironment(home);
+  const rotatedEnvironment = createRotatedStudioEnvironment(
+    previousEnvironment,
+    runtime,
+  );
+
+  await writeStudioEnvironment(home, rotatedEnvironment);
+  try {
+    await applyStudioEnvironment(home, runtime);
+  } catch (rotationError) {
+    runtime.log(
+      "Credential rotation failed. Restoring the previous credentials.",
+    );
+    await writeStudioEnvironment(home, previousEnvironment);
+    try {
+      await applyStudioEnvironment(home, runtime);
+    } catch (rollbackError) {
+      throw new AggregateError(
+        [rotationError, rollbackError],
+        `Credential rotation and automatic rollback both failed. Inspect "${home}" and run "kortyx studio logs --home ${home} --no-follow".`,
+      );
+    }
+    throw rotationError;
+  }
+
+  runtime.log("Kortyx Studio application credentials were rotated.");
+  runtime.log(
+    "The previous browser password and API keys are no longer valid. Update every SDK producer before sending more telemetry.",
+  );
+  await printStudioConnection(home, config, runtime);
 };
 
 export const startStudio = async (
