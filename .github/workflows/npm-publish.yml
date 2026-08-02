@@ -2,6 +2,11 @@ name: Publish Release (NPM Packages)
 
 on:
   workflow_dispatch:
+    inputs:
+      release_commit:
+        description: Exact release commit to publish (defaults to the selected ref)
+        required: false
+        type: string
 
 permissions:
   contents: read
@@ -17,6 +22,7 @@ jobs:
         uses: actions/checkout@v6
         with:
           fetch-depth: 0
+          ref: ${{ inputs.release_commit || github.sha }}
 
       - name: Setup Node
         uses: actions/setup-node@v6
@@ -44,16 +50,74 @@ jobs:
         run: pnpm build
 
       - name: Publish packages
+        env:
+          RELEASE_COMMIT: ${{ inputs.release_commit || github.sha }}
         run: |
           unset NODE_AUTH_TOKEN
           npm config delete //registry.npmjs.org/:_authToken || true
           npm config delete always-auth || true
           node -e "
-          const { execSync } = require('node:child_process');
+          const { execFileSync } = require('node:child_process');
           const { readdirSync, readFileSync } = require('node:fs');
-          const { join } = require('node:path');
+          const { dirname, join } = require('node:path');
 
           const root = process.cwd();
+          const releaseCommit = execFileSync(
+            'git',
+            ['rev-parse', '--verify', process.env.RELEASE_COMMIT + '^{commit}'],
+            { encoding: 'utf8' }
+          ).trim();
+          const releaseSubject = execFileSync(
+            'git',
+            ['show', '-s', '--format=%s', releaseCommit],
+            { encoding: 'utf8' }
+          ).trim();
+          if (!releaseSubject.startsWith('chore: release')) {
+            throw new Error(
+              'Refusing to publish from non-release commit ' +
+                releaseCommit +
+                ': ' +
+                releaseSubject
+            );
+          }
+
+          const releaseConfig = JSON.parse(
+            readFileSync(join(root, '.github/release-please/config.json'), 'utf8')
+          );
+          const managedDirs = new Set(Object.keys(releaseConfig.packages || {}));
+          const changedManifests = execFileSync(
+            'git',
+            [
+              'diff',
+              '--name-only',
+              releaseCommit + '^1',
+              releaseCommit,
+              '--',
+              ':(glob)packages/*/package.json',
+              ':(glob)providers/*/package.json'
+            ],
+            { encoding: 'utf8' }
+          )
+            .split(/\\r?\\n/)
+            .filter(Boolean);
+          const releaseDirs = new Set(
+            changedManifests.map((manifest) => dirname(manifest))
+          );
+          const unmanagedDirs = [...releaseDirs].filter(
+            (dir) => !managedDirs.has(dir)
+          );
+          if (unmanagedDirs.length > 0) {
+            throw new Error(
+              'Release commit changes unmanaged public package manifests: ' +
+                unmanagedDirs.join(', ')
+            );
+          }
+          if (releaseDirs.size === 0) {
+            throw new Error(
+              'Release commit does not change a managed public package version.'
+            );
+          }
+
           const pkgs = [];
           const roots = ['packages', 'providers'];
           for (const rootDir of roots) {
@@ -120,13 +184,20 @@ jobs:
             for (const p of pkgs) order.push(p.name);
           }
 
+          const releasePackages = order
+            .map((name) => nameToPkg.get(name))
+            .filter((p) => releaseDirs.has(p.dir));
+          console.log(
+            'Release packages: ' +
+              releasePackages.map((p) => p.name + '@' + p.version).join(', ')
+          );
+
           const tag = 'latest';
-          for (const name of order) {
-            const p = nameToPkg.get(name);
+          for (const p of releasePackages) {
             const full = p.name + '@' + p.version;
             let exists = true;
             try {
-              execSync('npm view ' + full + ' version', { stdio: 'ignore' });
+              execFileSync('npm', ['view', full, 'version'], { stdio: 'ignore' });
             } catch {
               exists = false;
             }
@@ -136,7 +207,10 @@ jobs:
             }
             const selector = './' + p.dir;
             console.log('Publishing ' + full + ' from ' + selector + '...');
-            const cmd = 'pnpm publish --provenance --access public --tag ' + tag + ' --no-git-checks';
-            execSync(cmd, { stdio: 'inherit', cwd: join(root, p.dir) });
+            execFileSync(
+              'pnpm',
+              ['publish', '--provenance', '--access', 'public', '--tag', tag, '--no-git-checks'],
+              { stdio: 'inherit', cwd: join(root, p.dir) }
+            );
           }
           "
