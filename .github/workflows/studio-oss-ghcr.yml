@@ -87,10 +87,8 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Build CLI packages
-        run: |
-          pnpm --filter @kortyx/cli build
-          pnpm --filter kortyx build
+      - name: Build CLI package graph
+        run: pnpm turbo run build --filter=kortyx
 
       - name: Pack CLI packages
         run: |
