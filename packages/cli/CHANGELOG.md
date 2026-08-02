@@ -1,5 +1,25 @@
 # Changelog
 
+## [0.2.0](https://github.com/kortyx-io/kortyx/compare/cli-v0.1.5...cli-v0.2.0) (2026-08-02)
+
+
+### Features
+
+* **cli:** add local Studio lifecycle ([6de8d4a](https://github.com/kortyx-io/kortyx/commit/6de8d4a438e12bb12648e26d7bf92cf3bd6ea987))
+* **cli:** add Studio OSS lifecycle commands ([aa3e474](https://github.com/kortyx-io/kortyx/commit/aa3e474ae134ed5ccff77021193553828a941f85))
+* **release:** add multi-architecture Studio pipeline ([f2d05b0](https://github.com/kortyx-io/kortyx/commit/f2d05b0550b7132bd51e7b3282a34e01f2b64ec7))
+* **studio:** harden self-hosted preview ([c5438f8](https://github.com/kortyx-io/kortyx/commit/c5438f89499f98df7bf6d10cff9e1e37812a1496))
+* **studio:** release self-hosted observability preview ([4e9d3fd](https://github.com/kortyx-io/kortyx/commit/4e9d3fdbc7233f9b1de94ca1afe6dbae9cc9157f))
+* **studio:** release self-hosted observability preview ([#139](https://github.com/kortyx-io/kortyx/issues/139)) ([4e9d3fd](https://github.com/kortyx-io/kortyx/commit/4e9d3fdbc7233f9b1de94ca1afe6dbae9cc9157f))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/agent bumped to 0.15.0
+    * @kortyx/telemetry-contracts bumped to 0.2.0
+
 ## [0.1.5](https://github.com/kortyx-io/kortyx/compare/cli-v0.1.4...cli-v0.1.5) (2026-02-17)
 
 

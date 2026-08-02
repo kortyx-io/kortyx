@@ -1,5 +1,25 @@
 # Changelog
 
+## [0.3.0](https://github.com/kortyx-io/kortyx/compare/example-canvas-v0.2.0...example-canvas-v0.3.0) (2026-08-02)
+
+
+### Features
+
+* **example:** emit Studio telemetry from canvas ([0ed5e57](https://github.com/kortyx-io/kortyx/commit/0ed5e57cffa77c77c7e9081fdc76cb9b23a48654))
+* **studio:** harden self-hosted preview ([c5438f8](https://github.com/kortyx-io/kortyx/commit/c5438f89499f98df7bf6d10cff9e1e37812a1496))
+* **studio:** release self-hosted observability preview ([4e9d3fd](https://github.com/kortyx-io/kortyx/commit/4e9d3fdbc7233f9b1de94ca1afe6dbae9cc9157f))
+* **studio:** release self-hosted observability preview ([#139](https://github.com/kortyx-io/kortyx/issues/139)) ([4e9d3fd](https://github.com/kortyx-io/kortyx/commit/4e9d3fdbc7233f9b1de94ca1afe6dbae9cc9157f))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/telemetry bumped to 0.2.0
+    * kortyx bumped to 0.13.0
+  * devDependencies
+    * @kortyx/cli bumped to 0.2.0
+
 ## [0.2.0](https://github.com/kortyx-io/kortyx/compare/example-canvas-v0.1.0...example-canvas-v0.2.0) (2026-06-12)
 
 

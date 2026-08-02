@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.18.0](https://github.com/kortyx-io/kortyx/compare/hooks-v0.17.1...hooks-v0.18.0) (2026-08-02)
+
+
+### Features
+
+* **studio:** release self-hosted observability preview ([4e9d3fd](https://github.com/kortyx-io/kortyx/commit/4e9d3fdbc7233f9b1de94ca1afe6dbae9cc9157f))
+* **studio:** release self-hosted observability preview ([#139](https://github.com/kortyx-io/kortyx/issues/139)) ([4e9d3fd](https://github.com/kortyx-io/kortyx/commit/4e9d3fdbc7233f9b1de94ca1afe6dbae9cc9157f))
+* **telemetry:** add persisted studio read models ([cebb06b](https://github.com/kortyx-io/kortyx/commit/cebb06bb74ccd4422e263f0ff4efa0fee5a16240))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/telemetry-contracts bumped to 0.2.0
+
 ## [0.17.1](https://github.com/kortyx-io/kortyx/compare/hooks-v0.17.0...hooks-v0.17.1) (2026-05-28)
 
 
