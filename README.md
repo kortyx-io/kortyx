@@ -18,7 +18,7 @@ Use `kortyx` as the main package. It re-exports the public server/runtime APIs f
 - **Runtime hooks:** call models with `useReason`, pause for humans with `useInterrupt`, and persist node/workflow state.
 - **Streaming-first UX:** emit text, message, lifecycle, interrupt, and structured-data chunks over SSE.
 - **Framework adapters:** run in Next.js API routes, server actions, custom HTTP handlers, or lower-level runtimes.
-- **Production path:** add Redis-backed runtime persistence today; Kortyx Studio is on the way for cost, logs, observability, prompt tracking, and operational review.
+- **Operational visibility:** send structural telemetry to the self-hosted Kortyx Studio preview for runs, sessions, workflows, interrupts, timing, token usage, and cost review.
 
 ## Install
 
@@ -29,6 +29,89 @@ pnpm add kortyx @kortyx/google @kortyx/react
 ```bash
 npm install kortyx @kortyx/google @kortyx/react
 ```
+
+## Self-host Kortyx Studio
+
+Kortyx Studio is a source-available observability interface for Kortyx SDK
+applications. From any SDK project, with Docker running:
+
+```bash
+npx kortyx studio start
+```
+
+The command creates durable private state under `~/.kortyx/studio`, generates
+the local sign-in and scoped API keys, starts the complete Docker stack, applies
+migrations, and prints the server-side SDK telemetry variables. Retrieve the
+same generated values later with:
+
+```bash
+npx kortyx studio credentials
+```
+
+Published images support `linux/amd64` and `linux/arm64`; Docker Desktop on
+Apple Silicon selects the ARM64 image automatically. CLI-managed ports bind to
+`127.0.0.1` by default.
+
+Follow the canonical
+[self-hosted preview guide](./docs/studio/self-hosted-preview.md) for SDK setup,
+first-run verification, interrupt behavior, and common commands. Use the
+[self-hosted operations guide](./docs/studio/self-hosted-operations.md) for
+backup/restore, upgrades, reset, security, and troubleshooting.
+Read the [first-preview release notes](./docs/releases/studio-self-hosted-preview.md)
+for included and deferred capabilities.
+
+Studio is source-available under Elastic License 2.0. The framework, CLI, and
+telemetry API are Apache-2.0. See the [license boundary](./LICENSES.md).
+
+### Repository development
+
+To run Postgres, the API, Studio, and the canvas example from this repository:
+
+```bash
+pnpm dev
+```
+
+If you already manage Postgres yourself:
+
+```bash
+pnpm dev:no-db
+```
+
+The default dev `.env.example` uses host Postgres port `6543` to avoid
+colliding with a local Postgres on `5432`. If you already had a `.env`, set
+`POSTGRES_PORT=6543` and
+`DATABASE_URL=postgres://kortyx:kortyx@localhost:6543/kortyx` manually.
+
+After upgrading repository development data across projection changes:
+
+```bash
+pnpm db:migrate
+pnpm db:backfill-studio
+```
+
+To test the image-based packaging stack from the repository:
+
+```bash
+cp -n .env.example .env
+docker compose up --build
+```
+
+To send and verify one sample telemetry run:
+
+```bash
+docker compose --profile smoke up --abort-on-container-exit --exit-code-from smoke smoke
+```
+
+To verify a real Kortyx example producer end-to-end, run the canvas example in
+another shell and point it at the Docker API:
+
+```bash
+cp -n examples/kortyx-canvas/.env.example examples/kortyx-canvas/.env.local
+pnpm --filter @kortyx/example-canvas dev
+pnpm --filter @kortyx/example-canvas smoke:studio
+```
+
+Then open Studio and check Runs/Workflows for `canvas-example-smoke`.
 
 ## Quickstart
 
@@ -237,4 +320,12 @@ Contributions are welcome. Start with [CONTRIBUTING.md](./CONTRIBUTING.md), run 
 
 ## License
 
-Apache-2.0. See [LICENSE](./LICENSE).
+Kortyx uses a mixed licensing model:
+
+- Apache-2.0 for the framework, provider, CLI, telemetry API, examples, and
+  website code
+- Elastic License 2.0 for the source-available Studio UI in `apps/studio`
+- Per-plugin terms for `plugins/*`, defined by each plugin's `LICENSE.md`
+
+See [LICENSES.md](./LICENSES.md) for the repository-wide boundaries and the
+applicable license texts.

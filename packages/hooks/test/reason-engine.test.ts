@@ -141,9 +141,12 @@ describe("runReasonEngine", () => {
           output: 1,
           total: 3,
         },
-        attributes: {
+        attributes: expect.objectContaining({
           textLength: 5,
-        },
+          ttftMs: expect.any(Number),
+          streamDurationMs: expect.any(Number),
+          timeToLastTokenMs: expect.any(Number),
+        }),
       }),
     );
     expect(span.fail).not.toHaveBeenCalled();

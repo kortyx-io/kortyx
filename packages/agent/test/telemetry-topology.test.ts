@@ -144,6 +144,104 @@ describe("projectWorkflowTopology", () => {
     expect(projected.workflow).not.toHaveProperty("tags");
   });
 
+  it("discovers static workflow transitions from node return values", () => {
+    const WORKFLOW_IDS = {
+      updateDiscoveryCanvas: "update-canvas",
+      canvasSave: "canvas-save",
+    } as const;
+    const routeNode = () => {
+      if (Date.now() > 0) {
+        return { transitionTo: WORKFLOW_IDS.updateDiscoveryCanvas };
+      }
+      return { transitionTo: "canvas-save" };
+    };
+    const workflow = {
+      id: "general-chat",
+      version: "1",
+      nodes: { route: { run: routeNode } },
+      edges: [
+        ["__start__", "route"],
+        ["route", "__end__"],
+      ],
+    } satisfies WorkflowDefinition;
+
+    const projected = projectWorkflowTopology({
+      workflow,
+      environment: "test",
+      service: { name: "app" },
+      knownWorkflowIds: ["general-chat", "update-canvas", "canvas-save"],
+    });
+
+    expect(projected.workflow.transitions).toEqual([
+      { sourceNodeId: "route", targetWorkflowId: "canvas-save" },
+      { sourceNodeId: "route", targetWorkflowId: "update-canvas" },
+    ]);
+  });
+
+  it("discovers static workflow transitions from compiled bracket member access", () => {
+    const routeNode = new Function(`
+      return async function routeNode() {
+        return { transitionTo: import_protocol.WORKFLOW_IDS["canvasSave"] };
+      };
+    `)() as WorkflowDefinition["nodes"][string]["run"];
+    const workflow = {
+      id: "general-chat",
+      version: "1",
+      nodes: { route: { run: routeNode } },
+      edges: [
+        ["__start__", "route"],
+        ["route", "__end__"],
+      ],
+    } satisfies WorkflowDefinition;
+
+    const projected = projectWorkflowTopology({
+      workflow,
+      environment: "test",
+      service: { name: "app" },
+      knownWorkflowIds: ["general-chat", "canvas-save"],
+    });
+
+    expect(projected.workflow.transitions).toEqual([
+      { sourceNodeId: "route", targetWorkflowId: "canvas-save" },
+    ]);
+  });
+
+  it("ignores blank, ambiguous, unknown, and self-referencing transitions", () => {
+    const routeNode = new Function(`
+      return function routeNode() {
+        if (Date.now() === 1) return { transitionTo: "   " };
+        if (Date.now() === 2) {
+          return { transitionTo: WORKFLOW_IDS.routeCanvasSave };
+        }
+        if (Date.now() === 3) {
+          return { transitionTo: WORKFLOW_IDS.unknownThing };
+        }
+        if (Date.now() === 4) {
+          return { transitionTo: WORKFLOW_IDS["missingPicker"] };
+        }
+        return { transitionTo: "general-chat" };
+      };
+    `)() as WorkflowDefinition["nodes"][string]["run"];
+    const workflow = {
+      id: "general-chat",
+      version: "1",
+      nodes: { route: { run: routeNode } },
+      edges: [
+        ["__start__", "route"],
+        ["route", "__end__"],
+      ],
+    } satisfies WorkflowDefinition;
+
+    const projected = projectWorkflowTopology({
+      workflow,
+      environment: "test",
+      service: { name: "app" },
+      knownWorkflowIds: ["general-chat", "canvas", "save", "canvas-save"],
+    });
+
+    expect(projected.workflow.transitions).toBeUndefined();
+  });
+
   it("fails open when an application puts non-serializable values in workflow params", () => {
     const config = {
       telemetry: {

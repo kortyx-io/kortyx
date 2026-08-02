@@ -20,6 +20,30 @@ pnpm add kortyx @kortyx/google @kortyx/react
 npm install kortyx @kortyx/google @kortyx/react
 ```
 
+## Run Studio locally
+
+Kortyx includes the local Studio command. With Docker Desktop running:
+
+```bash
+npx kortyx studio start
+```
+
+This starts the self-hosted Studio, API, and Postgres stack, then prints the
+sign-in and server-side telemetry variables for this SDK project. Re-running
+the command is safe and preserves credentials and data.
+
+Studio is a source-available preview under Elastic License 2.0; the Kortyx
+framework and CLI remain Apache-2.0. See the
+[self-hosted preview guide](https://github.com/kortyx-io/kortyx/blob/main/docs/studio/self-hosted-preview.md)
+for backup, upgrade, security, and limitation details.
+
+```bash
+npx kortyx studio status
+npx kortyx studio logs
+npx kortyx studio credentials
+npx kortyx studio stop
+```
+
 ## Quickstart
 
 Create a workflow:
@@ -190,7 +214,9 @@ Install only the provider integrations your app needs.
 
 ## Studio
 
-Kortyx Studio is on the way for cost tracking, logs, observability, prompt tracking, and operational review.
+The self-hosted Kortyx Studio preview provides run, session, workflow,
+interrupt, payload, timing, token, and cost inspection for telemetry emitted by
+Kortyx SDK applications.
 
 ## Telemetry
 
@@ -201,10 +227,14 @@ import { createAgent } from "kortyx";
 import { createKortyxTelemetryAdapter } from "@kortyx/telemetry";
 
 const telemetry = createKortyxTelemetryAdapter({
-  endpoint: process.env.KORTYX_TELEMETRY_URL!,
-  apiKey: process.env.KORTYX_TELEMETRY_KEY!,
-  environment: "production",
-  service: { name: "support-api", deploymentRef: process.env.GIT_SHA },
+  endpoint: process.env.KORTYX_TELEMETRY_API_URL!,
+  apiKey: process.env.KORTYX_TELEMETRY_API_KEY!,
+  environment:
+    process.env.KORTYX_TELEMETRY_ENVIRONMENT ?? "development",
+  service: {
+    name: process.env.KORTYX_TELEMETRY_SERVICE_NAME ?? "support-api",
+    deploymentRef: process.env.GIT_SHA,
+  },
   maxQueueSize: 1_000,
 });
 
@@ -214,6 +244,12 @@ const agent = createAgent({ workflows, telemetry });
 Delivery is best-effort and non-blocking: events receive idempotent IDs, are batched in a bounded in-memory queue, and transient network/429/5xx failures retry with exponential backoff and jitter. Use `telemetry.flush()` during graceful shutdown; inspect `getDroppedEventCount()` and `getPermanentDeliveryFailureCount()` for delivery health. Prompt and output content is excluded by default. Enable only the sides you intend to persist with `captureContent: true` or `{ input: true, output: true }`.
 
 `interrupt.expired` is intentionally API-derived from the durable `expiresAt` sent in `interrupt.created`; the SDK does not run an unreliable local TTL timer. `run.cancelled` remains reserved until Kortyx exposes a real cancellation operation. A client disconnect is not a cancellation event.
+
+Interrupt telemetry keeps structural fields (`kind`, `interactionMode`,
+`optionCount`, `schemaId`, and `schemaVersion`) even when content capture is
+off. Questions and static option labels use output-content capture; submitted
+responses use input-content capture. Option values and resume capability tokens
+are never emitted.
 
 ## License
 

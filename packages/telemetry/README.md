@@ -9,10 +9,13 @@ import { createAgent } from "kortyx";
 import { createKortyxTelemetryAdapter } from "@kortyx/telemetry";
 
 const telemetry = createKortyxTelemetryAdapter({
-  endpoint: process.env.KORTYX_TELEMETRY_ENDPOINT!,
+  endpoint: process.env.KORTYX_TELEMETRY_API_URL!,
   apiKey: process.env.KORTYX_TELEMETRY_API_KEY!,
-  environment: "production",
-  service: { name: "support-agent" },
+  environment:
+    process.env.KORTYX_TELEMETRY_ENVIRONMENT ?? "development",
+  service: {
+    name: process.env.KORTYX_TELEMETRY_SERVICE_NAME ?? "support-agent",
+  },
 });
 
 const agent = createAgent({
@@ -52,6 +55,14 @@ workflow execution.
 `interrupt.expired` is intentionally API-derived from the durable `expiresAt`
 included with `interrupt.created`. The SDK does not use an unreliable local TTL
 timer.
+
+Interrupt events always retain non-sensitive structure: `kind`,
+`interactionMode`, `optionCount`, `schemaId`, and `schemaVersion`.
+`interactionMode` distinguishes `static-options`, `dynamic-picker`, and
+`freeform` requests, so a client-resolved picker is not mistaken for a choice
+with zero options. Questions and static option labels follow output-content
+capture; a submitted human response follows input-content capture. Option
+values and resume capability tokens are never included in interrupt telemetry.
 
 `run.cancelled` is reserved until Kortyx exposes a real SDK cancellation
 operation. A client disconnect is not a cancellation.

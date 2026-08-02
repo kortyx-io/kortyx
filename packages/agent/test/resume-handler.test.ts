@@ -457,4 +457,58 @@ describe("tryPrepareResumeStream", () => {
       expect.not.objectContaining({ frameworkAdapter: undefined }),
     );
   });
+
+  it("captures a human response only when input content capture is enabled", async () => {
+    const emitted: Array<Record<string, unknown>> = [];
+    const store = {
+      get: vi.fn(async () => pendingBase),
+      delete: vi.fn(async () => undefined),
+    };
+
+    await tryPrepareResumeStream({
+      lastMessage: {
+        role: "user",
+        content: "resume",
+        metadata: {
+          resume: {
+            token: "token-1",
+            requestId: "request-1",
+            selected: ["private-choice"],
+          },
+        },
+      },
+      sessionId: "session-1",
+      config: {
+        telemetry: {
+          environment: "test",
+          service: { name: "app" },
+          captureContent: { input: true, output: false },
+          correlation: { runId: "run-1", workflowId: "workflow-1" },
+          reporter: {
+            ensureWorkflowTopology: async () => ({
+              workflowRevisionId: "revision-1",
+              created: false,
+            }),
+            emit: async (events: Array<Record<string, unknown>>) => {
+              emitted.push(...events);
+            },
+          },
+        },
+      },
+      selectWorkflow: vi.fn(async (id: string) => workflowDefinition(id)),
+      frameworkAdapter: {
+        pendingRequests: store,
+      } as unknown as FrameworkAdapter,
+    });
+
+    expect(emitted).toContainEqual(
+      expect.objectContaining({
+        type: "interrupt.resolved",
+        payload: expect.objectContaining({
+          response: "private-choice",
+          responseCaptured: true,
+        }),
+      }),
+    );
+  });
 });

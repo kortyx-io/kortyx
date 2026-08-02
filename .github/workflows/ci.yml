@@ -46,3 +46,82 @@ jobs:
 
       - name: Lint
         run: pnpm lint
+
+  studio_e2e:
+    name: Studio drawer-stack E2E
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: kortyx
+          POSTGRES_PASSWORD: kortyx
+          POSTGRES_DB: kortyx
+        ports:
+          - 6543:5432
+        options: >-
+          --health-cmd "pg_isready -U kortyx -d kortyx"
+          --health-interval 2s
+          --health-timeout 5s
+          --health-retries 30
+    env:
+      DATABASE_URL: postgres://kortyx:kortyx@localhost:6543/kortyx
+      API_HOST: 127.0.0.1
+      API_PORT: 6400
+      STUDIO_PORT: 6300
+      KORTYX_API_URL: http://localhost:6400
+      KORTYX_API_KEY_PEPPER: ci-e2e-pepper
+      KORTYX_TELEMETRY_API_KEY: ktyx_test_localtelemetry_oss-demo-telemetry-secret-change-me
+      KORTYX_STUDIO_API_KEY: ktyx_test_localstudio_oss-demo-studio-secret-change-me
+      KORTYX_STUDIO_AUTH_MODE: none
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          submodules: false
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+
+      - name: Enable Corepack
+        run: |
+          corepack enable
+          pnpm --version
+
+      - name: Setup pnpm cache
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Prepare local environment
+        run: cp .env.example .env
+
+      - name: Build database bootstrap dependencies
+        run: pnpm --filter @kortyx/telemetry-contracts build
+
+      - name: Migrate and bootstrap database
+        run: |
+          pnpm db:migrate
+          pnpm db:bootstrap
+
+      - name: Install Chromium
+        run: pnpm --filter kortyx-studio exec playwright install --with-deps chromium
+
+      - name: Run Studio browser regressions
+        run: pnpm test:studio:e2e
+
+      - name: Upload Playwright failure artifacts
+        if: failure()
+        uses: actions/upload-artifact@v6
+        with:
+          name: studio-playwright-artifacts
+          path: |
+            apps/studio/playwright-report
+            apps/studio/test-results
+          retention-days: 7

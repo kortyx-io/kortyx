@@ -1,0 +1,252 @@
+import {
+  CircleAlert,
+  CircleCheck,
+  CircleX,
+  Clock3,
+  LoaderCircle,
+} from "lucide-react";
+import type { DataTableColumn } from "@/components/data-table";
+import {
+  effectiveInterruptStatus,
+  interruptInteractionLabel,
+  interruptStatusLabel,
+  interruptTimingPresentation,
+  interruptTypeLabel,
+} from "@/features/interrupts/lib/interrupt-presentation";
+import type {
+  Interrupt,
+  InterruptSortKey,
+  InterruptStatus,
+} from "@/features/interrupts/schema";
+import {
+  CompactStatus,
+  type CompactStatusMeta,
+} from "@/features/telemetry/components/compact-status";
+import { CopyableCell } from "@/features/telemetry/components/copyable-cell";
+import { TruncatedText } from "@/features/telemetry/components/truncated-text";
+import { formatDateTime, formatRelativeTime } from "@/lib/format";
+import { cn } from "@/lib/utils";
+
+const statusMeta: Record<InterruptStatus, CompactStatusMeta> = {
+  pending: {
+    label: "Waiting for input",
+    icon: LoaderCircle,
+    className: "text-amber-600",
+    animate: true,
+  },
+  resolved: {
+    label: "Resolved",
+    icon: CircleCheck,
+    className: "text-emerald-600",
+  },
+  expired: {
+    label: "Input expired",
+    icon: Clock3,
+    className: "text-muted-foreground",
+  },
+  failed: { label: "Failed", icon: CircleAlert, className: "text-red-600" },
+  cancelled: {
+    label: "Cancelled",
+    icon: CircleX,
+    className: "text-muted-foreground",
+  },
+};
+
+export function createInterruptColumns({
+  now,
+  onCopy,
+}: {
+  now: number;
+  onCopy: (value: string) => void;
+}): DataTableColumn<Interrupt, InterruptSortKey>[] {
+  return [
+    {
+      key: "status",
+      label: "Status",
+      sortKey: "status",
+      defaultWidth: 130,
+      cellClassName: "px-4",
+      render: (interrupt) => {
+        const status = effectiveInterruptStatus(interrupt, now);
+        return (
+          <CompactStatus
+            meta={{
+              ...statusMeta[status],
+              label: interruptStatusLabel(status),
+            }}
+          />
+        );
+      },
+    },
+    {
+      key: "created",
+      label: "Created",
+      sortKey: "created",
+      defaultWidth: 104,
+      cellClassName: "text-xs text-muted-foreground",
+      cellTitle: (interrupt) => formatDateTime(interrupt.createdAt),
+      render: (interrupt) => (
+        <TruncatedText>
+          {formatRelativeTime(interrupt.createdAt, now)}
+        </TruncatedText>
+      ),
+    },
+    {
+      key: "age",
+      label: "Waiting / Outcome",
+      sortKey: "age",
+      defaultWidth: 215,
+      cellClassName: "font-mono text-xs tabular-nums",
+      cellTitle: (interrupt) =>
+        interruptTimingPresentation(interrupt, now).title,
+      render: (interrupt) => {
+        const status = effectiveInterruptStatus(interrupt, now);
+        const timing = interruptTimingPresentation(interrupt, now);
+        return status === "pending" ? (
+          <TruncatedText>
+            <span className="mr-1 inline-block size-1.5 animate-pulse rounded-full bg-amber-500" />
+            {timing.label}
+          </TruncatedText>
+        ) : (
+          <TruncatedText>{timing.label}</TruncatedText>
+        );
+      },
+    },
+    {
+      key: "request",
+      label: "Request",
+      defaultWidth: 280,
+      render: (interrupt) => {
+        const interaction = interruptInteractionLabel({
+          interactionMode: interrupt.interactionMode,
+          type: interrupt.type,
+          optionCount: interrupt.optionCount ?? null,
+        });
+        return (
+          <div className="min-w-0 overflow-hidden">
+            <div className="mb-1 flex min-w-0 items-center gap-1.5 overflow-hidden">
+              <span
+                className="shrink-0 rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground"
+                title={interruptTypeLabel(interrupt.type)}
+              >
+                {interaction}
+              </span>
+              {interrupt.schemaId && (
+                <span
+                  className="truncate font-mono text-[10px] text-muted-foreground"
+                  title={interrupt.schemaId}
+                >
+                  {interrupt.schemaId}
+                </span>
+              )}
+            </div>
+            <p className="truncate text-xs" title={interrupt.question}>
+              {interrupt.question}
+            </p>
+          </div>
+        );
+      },
+    },
+    {
+      key: "workflow",
+      label: "Workflow / Node",
+      defaultWidth: 170,
+      render: (interrupt) => (
+        <div className="min-w-0 space-y-0.5 overflow-hidden text-xs">
+          <div className="truncate font-medium">{interrupt.workflow}</div>
+          <div className="truncate text-muted-foreground">{interrupt.node}</div>
+        </div>
+      ),
+    },
+    {
+      key: "session",
+      label: "Session",
+      defaultWidth: 150,
+      cellTitle: (interrupt) => interrupt.session,
+      render: (interrupt) => (
+        <CopyableCell
+          value={interrupt.session}
+          onCopy={onCopy}
+          ariaLabel="Copy session ID"
+        />
+      ),
+    },
+    {
+      key: "identity",
+      label: "User / Tenant",
+      defaultWidth: 150,
+      render: (interrupt) => (
+        <div className="min-w-0 space-y-0.5 overflow-hidden text-xs">
+          <div className="truncate font-medium">{interrupt.user ?? "—"}</div>
+          <div className="truncate text-muted-foreground">
+            {interrupt.tenant ?? "—"}
+          </div>
+        </div>
+      ),
+    },
+    {
+      key: "response",
+      label: "Response",
+      defaultWidth: 210,
+      render: (interrupt) => {
+        const status = effectiveInterruptStatus(interrupt, now);
+        return (
+          <p
+            className={cn(
+              "truncate text-xs",
+              status === "pending" ? "text-muted-foreground" : "",
+            )}
+          >
+            {status === "pending"
+              ? "Awaiting response"
+              : interrupt.responseCaptured
+                ? (interrupt.response ?? "Empty response")
+                : status === "cancelled"
+                  ? "Cancelled before response"
+                  : status === "expired"
+                    ? "Expired before response"
+                    : "Response not captured"}
+          </p>
+        );
+      },
+    },
+    {
+      key: "outcome",
+      label: "Resume outcome",
+      defaultWidth: 190,
+      render: (interrupt) => (
+        <div className="min-w-0 overflow-hidden text-xs">
+          <p
+            className={cn(
+              "truncate",
+              interrupt.resumeError
+                ? "text-red-700 dark:text-red-400"
+                : "text-muted-foreground",
+            )}
+          >
+            {interrupt.resumeOutcome ?? "—"}
+          </p>
+          {interrupt.resumeError && (
+            <p className="truncate text-[11px] text-red-700 dark:text-red-400">
+              {interrupt.resumeError}
+            </p>
+          )}
+        </div>
+      ),
+    },
+    {
+      key: "run",
+      label: "Run",
+      defaultWidth: 145,
+      render: (interrupt) => (
+        <a
+          href={`/runs/${interrupt.runId}`}
+          onClick={(event) => event.stopPropagation()}
+          className="block truncate font-mono text-xs text-muted-foreground hover:underline"
+        >
+          {interrupt.runId}
+        </a>
+      ),
+    },
+  ];
+}

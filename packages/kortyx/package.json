@@ -24,6 +24,9 @@
   "author": "Kortyx (https://github.com/kortyx-io)",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
+  "bin": {
+    "kortyx": "./dist/cli.js"
+  },
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
@@ -49,6 +52,7 @@
   },
   "dependencies": {
     "@kortyx/agent": "workspace:*",
+    "@kortyx/cli": "workspace:*",
     "@kortyx/core": "workspace:*",
     "@kortyx/hooks": "workspace:*",
     "@kortyx/mcp": "workspace:*",

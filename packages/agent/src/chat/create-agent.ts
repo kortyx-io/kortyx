@@ -23,6 +23,7 @@ import {
 import type { StreamChunk } from "@kortyx/stream";
 import { z } from "zod";
 import { emitTelemetryEvent } from "../telemetry/events";
+import { projectWorkflowTopology } from "../telemetry/topology";
 import type { ChatMessage } from "../types/chat-message";
 import { streamChat as runStreamChat } from "./process-chat";
 
@@ -30,6 +31,13 @@ export interface AgentProcessOptions {
   sessionId?: string | undefined;
   workflowId?: string | undefined;
   context?: Record<string, unknown> | undefined;
+}
+
+type AgentTopologySnapshot = ReturnType<typeof projectWorkflowTopology>;
+
+export interface AgentProjectTopologyOptions {
+  environment: string;
+  service: AgentTopologySnapshot["service"];
 }
 
 export interface CreateAgentArgs {
@@ -43,6 +51,9 @@ export interface CreateAgentArgs {
 }
 
 export interface Agent {
+  projectTopology?: (
+    options: AgentProjectTopologyOptions,
+  ) => Promise<AgentTopologySnapshot[]>;
   streamChat: (
     messages: ChatMessage[],
     options?: AgentProcessOptions,
@@ -216,6 +227,25 @@ export function createAgent(args: CreateAgentArgs): Agent {
       fallbackId: resolvedDefaultWorkflowId ?? "general-chat",
     });
   })();
+  const registeredWorkflowsPromise = registryPromise.then((registry) =>
+    registry?.list?.(),
+  );
+
+  const projectTopology = async (
+    options: AgentProjectTopologyOptions,
+  ): Promise<AgentTopologySnapshot[]> => {
+    const registeredWorkflows = await registeredWorkflowsPromise;
+    if (!registeredWorkflows?.length) return [];
+    const knownWorkflowIds = registeredWorkflows.map((workflow) => workflow.id);
+    return registeredWorkflows.map((workflow) =>
+      projectWorkflowTopology({
+        workflow,
+        environment: options.environment,
+        service: options.service,
+        knownWorkflowIds,
+      }),
+    );
+  };
 
   const streamChat = async (
     messages: ChatMessage[],
@@ -229,6 +259,12 @@ export function createAgent(args: CreateAgentArgs): Agent {
         "createAgent requires workflows, workflowsDir, or workflowRegistry.",
       );
     }
+    const registeredWorkflows = await registeredWorkflowsPromise.catch(
+      () => undefined,
+    );
+    const knownWorkflowIds = registeredWorkflows?.map(
+      (workflow) => workflow.id,
+    );
 
     return runStreamChat({
       ...(resolvedDefaultWorkflowId
@@ -237,6 +273,7 @@ export function createAgent(args: CreateAgentArgs): Agent {
       messages,
       options: parsedOptions,
       workflowRegistry: registry,
+      ...(knownWorkflowIds ? { knownWorkflowIds } : {}),
       frameworkAdapter: resolvedFrameworkAdapter,
       getProvider: resolvedGetProvider,
       loadRuntimeConfig: (runtimeOptions?: AgentProcessOptions) => ({
@@ -347,5 +384,12 @@ export function createAgent(args: CreateAgentArgs): Agent {
     };
   };
 
-  return { streamChat, listCheckpoints, getCheckpoint, rollbackTo, fork };
+  return {
+    projectTopology,
+    streamChat,
+    listCheckpoints,
+    getCheckpoint,
+    rollbackTo,
+    fork,
+  };
 }

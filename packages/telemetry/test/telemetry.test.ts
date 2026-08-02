@@ -87,7 +87,14 @@ describe("createKortyxTelemetryAdapter", () => {
               tool: "search",
               toolCallId: "tool_1",
             });
-            generation.end?.({ usage: { input: 1, output: 2, total: 3 } });
+            generation.end?.({
+              attributes: {
+                ttftMs: 120,
+                streamDurationMs: 80,
+                timeToLastTokenMs: 200,
+              },
+              usage: { input: 1, output: 2, total: 3 },
+            });
           },
         );
         run.setAttributes?.({ "kortyx.run.final_workflow": "workflow" });
@@ -131,6 +138,12 @@ describe("createKortyxTelemetryAdapter", () => {
     }
     expect(generation.correlation.traceId).toBe(root.correlation.traceId);
     expect(generation.correlation.parentSpanId).toBe(root.correlation.spanId);
+    expect(generation.payload).toMatchObject({
+      durationMs: expect.any(Number),
+      ttftMs: 120,
+      streamDurationMs: 80,
+      postStreamDurationMs: expect.any(Number),
+    });
     const endedRoot = batch.body.events.find(
       (event) =>
         event.type === "span.ended" && event.payload.name === "kortyx.run",
@@ -276,6 +289,46 @@ describe("createKortyxTelemetryAdapter", () => {
     expect(attempts).toBe(2);
     expect(adapter.getDroppedEventCount()).toBe(1);
     expect(delivered).toEqual([["second", "third"]]);
+  });
+
+  it("drains events queued while a delivery request is in flight", async () => {
+    let releaseFirstRequest: (() => void) | undefined;
+    const firstRequestBlocked = new Promise<void>((resolve) => {
+      releaseFirstRequest = resolve;
+    });
+    let firstRequestStarted: (() => void) | undefined;
+    const firstRequestReady = new Promise<void>((resolve) => {
+      firstRequestStarted = resolve;
+    });
+    const delivered: string[][] = [];
+    const adapter = createKortyxTelemetryAdapter({
+      endpoint: "https://telemetry.example",
+      apiKey: "ktyx_test_key_secret",
+      environment: "test",
+      service: { name: "telemetry-test" },
+      flushIntervalMs: 60_000,
+      fetch: async (_url, init) => {
+        const body = JSON.parse(String(init?.body)) as {
+          events: Array<{ eventId: string }>;
+        };
+        delivered.push(body.events.map((item) => item.eventId));
+        if (delivered.length === 1) {
+          firstRequestStarted?.();
+          await firstRequestBlocked;
+        }
+        return new Response("{}", { status: 200 });
+      },
+    });
+
+    await adapter.reporter?.emit([event("start")]);
+    const firstFlush = adapter.flush();
+    await firstRequestReady;
+    await adapter.reporter?.emit([event("terminal")]);
+    const secondFlush = adapter.flush();
+    releaseFirstRequest?.();
+    await Promise.all([firstFlush, secondFlush]);
+
+    expect(delivered).toEqual([["start"], ["terminal"]]);
   });
 
   it("drops permanent 4xx delivery failures without retrying", async () => {

@@ -4,6 +4,7 @@ import type {
   CanvasAgentClientContext,
   CanvasAgentContext,
 } from "@/lib/runtime-context";
+import { flushCanvasTelemetry } from "@/lib/telemetry";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -26,15 +27,24 @@ export async function POST(request: Request): Promise<Response> {
 
     if (body.stream === false) {
       const buffered = await collectBufferedStream(stream);
+      await flushCanvasTelemetry();
       return Response.json(buffered);
     }
 
-    return toSSE(stream);
+    return toSSE(flushAfterStream(stream));
   } catch (error) {
     return Response.json(
       { error: error instanceof Error ? error.message : String(error) },
       { status: 400 },
     );
+  }
+}
+
+async function* flushAfterStream<T>(stream: AsyncIterable<T>) {
+  try {
+    yield* stream;
+  } finally {
+    await flushCanvasTelemetry();
   }
 }
 

@@ -14,6 +14,7 @@ export { streamChatFromRoute } from "./adapters/http-client";
 export type {
   Agent,
   AgentProcessOptions,
+  AgentProjectTopologyOptions,
   CreateAgentArgs,
 } from "./chat/create-agent";
 export { createAgent } from "./chat/create-agent";
@@ -35,5 +36,6 @@ export type {
 } from "./orchestrator";
 export { orchestrateGraphStream } from "./orchestrator";
 export { transformGraphStreamForUI } from "./stream/transform-graph-stream-for-ui";
+export { projectWorkflowTopology } from "./telemetry/topology";
 export type { ChatMessage } from "./types/chat-message";
 export { extractLatestUserMessage } from "./utils/extract-latest-message";

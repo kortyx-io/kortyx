@@ -119,6 +119,145 @@ describe("createAgent", () => {
     expect(args.loadRuntimeConfig()).toEqual({ telemetry: { trace } });
   });
 
+  it("does not push topology when constructing an agent", async () => {
+    const workflowA = {
+      id: "general-chat",
+      version: "1.0.0",
+      nodes: {
+        chat: { run: "chat" },
+      },
+      edges: [
+        ["__start__", "chat"],
+        ["chat", "__end__"],
+      ],
+    } as unknown as WorkflowDefinition;
+    const workflowB = {
+      id: "canvas-creation",
+      version: "1.0.0",
+      nodes: {
+        fetchDiscoveryCanvasInputs: { run: "fetchDiscoveryCanvasInputs" },
+      },
+      edges: [
+        ["__start__", "fetchDiscoveryCanvasInputs"],
+        ["fetchDiscoveryCanvasInputs", "__end__"],
+      ],
+    } as unknown as WorkflowDefinition;
+    const ensureWorkflowTopology = vi.fn(async () => ({
+      workflowRevisionId: "revision-1",
+      created: false,
+    }));
+    mocks.createInMemoryWorkflowRegistry.mockReturnValueOnce({
+      select: vi.fn(),
+      list: vi.fn(async () => [workflowA, workflowB]),
+    } as never);
+
+    createAgent({
+      workflows: [workflowA, workflowB],
+      telemetry: {
+        environment: "test",
+        service: { name: "app" },
+        reporter: {
+          ensureWorkflowTopology,
+          emit: async () => undefined,
+        },
+      },
+    });
+
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(ensureWorkflowTopology).not.toHaveBeenCalled();
+  });
+
+  it("projects all known workflow topologies for CLI push", async () => {
+    const workflow = {
+      id: "general-chat",
+      version: "1.0.0",
+      nodes: {
+        chat: { run: "chat" },
+      },
+      edges: [
+        ["__start__", "chat"],
+        ["chat", "__end__"],
+      ],
+    } as unknown as WorkflowDefinition;
+    mocks.createInMemoryWorkflowRegistry.mockReturnValueOnce({
+      select: vi.fn(),
+      list: vi.fn(async () => [workflow]),
+    } as never);
+
+    const agent = createAgent({
+      workflows: [workflow],
+      telemetry: {
+        environment: "test",
+        service: { name: "app" },
+        reporter: {
+          ensureWorkflowTopology: vi.fn(async () => ({
+            workflowRevisionId: "revision-1",
+            created: false,
+          })),
+          emit: async () => undefined,
+        },
+      },
+    });
+
+    const snapshots = await agent.projectTopology?.({
+      environment: "test",
+      service: { name: "app" },
+    });
+
+    expect(snapshots).toHaveLength(1);
+    expect(snapshots?.[0]).toEqual(
+      expect.objectContaining({
+        workflow: expect.objectContaining({ id: "general-chat" }),
+      }),
+    );
+  });
+
+  it("returns no projected topology when a registry cannot list workflows", async () => {
+    const withoutList = createAgent({
+      workflowRegistry: { select: vi.fn() } as unknown as WorkflowRegistry,
+    });
+    const withEmptyList = createAgent({
+      workflowRegistry: {
+        select: vi.fn(),
+        list: vi.fn(async () => []),
+      } as unknown as WorkflowRegistry,
+    });
+
+    await expect(
+      withoutList.projectTopology?.({
+        environment: "test",
+        service: { name: "app" },
+      }),
+    ).resolves.toEqual([]);
+    await expect(
+      withEmptyList.projectTopology?.({
+        environment: "test",
+        service: { name: "app" },
+      }),
+    ).resolves.toEqual([]);
+  });
+
+  it("continues streaming when workflow discovery fails", async () => {
+    const listFailure = new Error("workflow discovery failed");
+    const agent = createAgent({
+      workflowRegistry: {
+        select: vi.fn(),
+        list: vi.fn(async () => {
+          throw listFailure;
+        }),
+      } as unknown as WorkflowRegistry,
+    });
+
+    await expect(
+      agent.streamChat([{ role: "user", content: "hello" }]),
+    ).resolves.toBeDefined();
+    expect(runStreamChat).toHaveBeenCalledWith(
+      expect.not.objectContaining({
+        knownWorkflowIds: expect.anything(),
+      }),
+    );
+  });
+
   it("delegates checkpoint APIs through the framework adapter and syncs pending requests", async () => {
     const telemetryEvents: unknown[] = [];
     const pendingRequests = {
