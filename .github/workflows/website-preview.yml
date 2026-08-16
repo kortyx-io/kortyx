@@ -25,6 +25,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+      issues: write
       packages: write
     steps:
       - name: Checkout
@@ -135,6 +136,42 @@ jobs:
           echo "### Website preview" >> "${GITHUB_STEP_SUMMARY}"
           echo "[${PREVIEW_URL}](${PREVIEW_URL})" >> "${GITHUB_STEP_SUMMARY}"
 
+      - name: Publish preview URL on pull request
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const marker = "<!-- kortyx-website-preview -->";
+            const body = `${marker}\n### Website preview\n[Open ${process.env.PREVIEW_URL}](${process.env.PREVIEW_URL})\n\nProtected by Cloudflare Access.`;
+            const comments = await github.paginate(
+              github.rest.issues.listComments,
+              {
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+              },
+            );
+            const existing = comments.find(
+              (comment) =>
+                comment.user?.login === "github-actions[bot]" &&
+                comment.body?.includes(marker),
+            );
+
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existing.id,
+                body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body,
+              });
+            }
+
   remove-preview:
     name: Remove preview
     if: >-
@@ -143,6 +180,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+      issues: write
     steps:
       - name: Remove preview from Coolify
         env:
@@ -171,3 +209,31 @@ jobs:
           fi
 
           echo "Coolify preview cleanup completed with HTTP ${http_status}."
+
+      - name: Mark preview as removed on pull request
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const marker = "<!-- kortyx-website-preview -->";
+            const comments = await github.paginate(
+              github.rest.issues.listComments,
+              {
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+              },
+            );
+            const existing = comments.find(
+              (comment) =>
+                comment.user?.login === "github-actions[bot]" &&
+                comment.body?.includes(marker),
+            );
+
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existing.id,
+                body: `${marker}\nWebsite preview removed.`,
+              });
+            }
