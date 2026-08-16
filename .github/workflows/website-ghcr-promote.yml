@@ -12,7 +12,7 @@ env:
   IMAGE_NAME: kortyx-io/website
   COOLIFY_URL: ${{ vars.COOLIFY_URL }}
   COOLIFY_PRODUCTION_APP_UUID: ${{ vars.COOLIFY_PRODUCTION_APP_UUID }}
-  COOLIFY_PRODUCTION_TEST_URL: ${{ vars.COOLIFY_PRODUCTION_TEST_URL }}
+  PRODUCTION_URL: https://kortyx.io
 
 jobs:
   promote-prod:
@@ -40,39 +40,6 @@ jobs:
             "${source_image}"
 
           docker buildx imagetools inspect "${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest"
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v6
-        with:
-          node-version: 24
-
-      - name: Checkout Railway image update helper
-        uses: actions/checkout@v6
-        with:
-          repository: brody192/image-update-and-redeploy
-          path: .tmp/image-update-and-redeploy
-
-      - name: Install and build Railway image update helper
-        working-directory: .tmp/image-update-and-redeploy
-        run: |
-          npm install --no-audit --no-fund
-          npm run build
-
-      - name: Update Railway production service image and redeploy
-        env:
-          RAILWAY_API_TOKEN: ${{ secrets.RAILWAY_API_TOKEN }}
-          RAILWAY_SERVICE_ID: ${{ secrets.RAILWAY_WEBSITE_SERVICE_ID }}
-          RAILWAY_ENVIRONMENT_ID: ${{ secrets.RAILWAY_PRODUCTION_ENVIRONMENT_ID }}
-        run: |
-          if [ -z "${RAILWAY_API_TOKEN}" ] || [ -z "${RAILWAY_SERVICE_ID}" ] || [ -z "${RAILWAY_ENVIRONMENT_ID}" ]; then
-            echo "Missing required Railway secrets: RAILWAY_API_TOKEN, RAILWAY_WEBSITE_SERVICE_ID, RAILWAY_PRODUCTION_ENVIRONMENT_ID"
-            exit 1
-          fi
-
-          node .tmp/image-update-and-redeploy/dist/main.js \
-            --serviceId="${RAILWAY_SERVICE_ID}" \
-            --environmentId="${RAILWAY_ENVIRONMENT_ID}" \
-            --image="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest"
 
       - name: Deploy Coolify production image
         env:
@@ -123,20 +90,15 @@ jobs:
             sleep 5
           done
 
-      - name: Verify Coolify production test URL
+      - name: Verify production URL
         run: |
-          if [ -z "${COOLIFY_PRODUCTION_TEST_URL}" ]; then
-            echo "Missing required repository variable: COOLIFY_PRODUCTION_TEST_URL"
-            exit 1
-          fi
-
           headers=$(curl --fail --silent --show-error --head \
             --retry 10 --retry-all-errors --retry-delay 3 \
-            "${COOLIFY_PRODUCTION_TEST_URL}/docs/start-here")
+            "${PRODUCTION_URL}/docs/start-here")
 
-          if ! grep --ignore-case --quiet '^x-robots-tag:.*noindex' <<<"${headers}"; then
-            echo "Coolify production test URL is missing the noindex header."
+          if grep --ignore-case --quiet '^x-robots-tag:.*noindex' <<<"${headers}"; then
+            echo "Production URL unexpectedly has the noindex header."
             exit 1
           fi
 
-          echo "Coolify production smoke test passed: ${COOLIFY_PRODUCTION_TEST_URL}"
+          echo "Production smoke test passed: ${PRODUCTION_URL}"
