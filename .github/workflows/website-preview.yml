@@ -27,6 +27,7 @@ jobs:
       contents: read
       issues: write
       packages: write
+      pull-requests: write
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -181,6 +182,7 @@ jobs:
     permissions:
       contents: read
       issues: write
+      pull-requests: write
     steps:
       - name: Remove preview from Coolify
         env:
