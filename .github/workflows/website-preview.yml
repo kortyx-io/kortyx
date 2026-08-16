@@ -17,11 +17,54 @@ env:
   PREVIEW_URL: https://pr-${{ github.event.pull_request.number }}.kortyx.dev
 
 jobs:
-  deploy-preview:
-    name: Build and deploy preview
+  detect-website-changes:
+    name: Detect website changes
     if: >-
       github.event.action != 'closed' &&
       github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: read
+    outputs:
+      website: ${{ steps.changed.outputs.result }}
+    steps:
+      - name: Check changed files
+        id: changed
+        uses: actions/github-script@v8
+        with:
+          result-encoding: string
+          script: |
+            const files = await github.paginate(github.rest.pulls.listFiles, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.issue.number,
+            });
+            const rootInputs = new Set([
+              ".github/workflows/website-preview.yml",
+              ".nvmrc",
+              "package.json",
+              "pnpm-lock.yaml",
+              "pnpm-workspace.yaml",
+              "turbo.json",
+            ]);
+            const changed = files.some(
+              ({ filename }) =>
+                filename.startsWith("apps/website/") ||
+                rootInputs.has(filename),
+            );
+
+            core.info(
+              changed
+                ? "Website-affecting changes detected."
+                : "No website-affecting changes detected.",
+            );
+            return changed ? "true" : "false";
+
+  deploy-preview:
+    name: Build and deploy preview
+    needs: detect-website-changes
+    if: >-
+      needs.detect-website-changes.outputs.website == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: read
