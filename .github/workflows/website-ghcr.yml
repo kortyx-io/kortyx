@@ -12,8 +12,8 @@ permissions:
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: kortyx-io/website
-  COOLIFY_URL: https://coolify.onal.dev
-  COOLIFY_STAGING_RESOURCE_UUID: jq96nr4cpkdiyfbnzwytkprg
+  COOLIFY_URL: ${{ vars.COOLIFY_URL }}
+  COOLIFY_STAGING_APP_UUID: ${{ vars.COOLIFY_STAGING_APP_UUID }}
 
 jobs:
   publish-staging:
@@ -75,12 +75,16 @@ jobs:
             echo "Missing required secret: COOLIFY_STAGING_DEPLOY_TOKEN"
             exit 1
           fi
+          if [ -z "${COOLIFY_URL}" ] || [ -z "${COOLIFY_STAGING_APP_UUID}" ]; then
+            echo "Missing required repository variables: COOLIFY_URL, COOLIFY_STAGING_APP_UUID"
+            exit 1
+          fi
 
           response=$(curl --fail-with-body --silent --show-error \
             --request POST \
             --header "Authorization: Bearer ${COOLIFY_TOKEN}" \
             --header "Content-Type: application/json" \
-            --data "{\"uuid\":\"${COOLIFY_STAGING_RESOURCE_UUID}\",\"force\":true}" \
+            --data "{\"uuid\":\"${COOLIFY_STAGING_APP_UUID}\",\"force\":true}" \
             "${COOLIFY_URL}/api/v1/deploy")
 
           deployment_uuid=$(jq --exit-status --raw-output \
