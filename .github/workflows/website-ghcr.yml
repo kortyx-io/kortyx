@@ -12,6 +12,8 @@ permissions:
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: kortyx-io/website
+  COOLIFY_URL: https://coolify.onal.dev
+  COOLIFY_STAGING_RESOURCE_UUID: jq96nr4cpkdiyfbnzwytkprg
 
 jobs:
   publish-staging:
@@ -65,30 +67,45 @@ jobs:
           cache-from: type=gha,scope=website-image
           cache-to: type=gha,mode=max,scope=website-image
 
-      - name: Checkout Railway image update helper
-        uses: actions/checkout@v6
-        with:
-          repository: brody192/image-update-and-redeploy
-          path: .tmp/image-update-and-redeploy
-
-      - name: Install and build Railway image update helper
-        working-directory: .tmp/image-update-and-redeploy
-        run: |
-          npm install --no-audit --no-fund
-          npm run build
-
-      - name: Update Railway staging service image and redeploy
+      - name: Deploy staging image on Coolify
         env:
-          RAILWAY_API_TOKEN: ${{ secrets.RAILWAY_API_TOKEN }}
-          RAILWAY_SERVICE_ID: ${{ secrets.RAILWAY_WEBSITE_SERVICE_ID }}
-          RAILWAY_ENVIRONMENT_ID: ${{ secrets.RAILWAY_STAGING_ENVIRONMENT_ID }}
+          COOLIFY_TOKEN: ${{ secrets.COOLIFY_STAGING_DEPLOY_TOKEN }}
         run: |
-          if [ -z "${RAILWAY_API_TOKEN}" ] || [ -z "${RAILWAY_SERVICE_ID}" ] || [ -z "${RAILWAY_ENVIRONMENT_ID}" ]; then
-            echo "Missing required Railway secrets: RAILWAY_API_TOKEN, RAILWAY_WEBSITE_SERVICE_ID, RAILWAY_STAGING_ENVIRONMENT_ID"
+          if [ -z "${COOLIFY_TOKEN}" ]; then
+            echo "Missing required secret: COOLIFY_STAGING_DEPLOY_TOKEN"
             exit 1
           fi
 
-          node .tmp/image-update-and-redeploy/dist/main.js \
-            --serviceId="${RAILWAY_SERVICE_ID}" \
-            --environmentId="${RAILWAY_ENVIRONMENT_ID}" \
-            --image="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:staging-v${{ steps.version.outputs.version }}"
+          response=$(curl --fail-with-body --silent --show-error \
+            --request POST \
+            --header "Authorization: Bearer ${COOLIFY_TOKEN}" \
+            --header "Content-Type: application/json" \
+            --data "{\"uuid\":\"${COOLIFY_STAGING_RESOURCE_UUID}\",\"force\":true}" \
+            "${COOLIFY_URL}/api/v1/deploy")
+
+          deployment_uuid=$(jq --exit-status --raw-output \
+            '.deployments[0].deployment_uuid' <<<"${response}")
+
+          for attempt in $(seq 1 60); do
+            deployment=$(curl --fail-with-body --silent --show-error \
+              --header "Authorization: Bearer ${COOLIFY_TOKEN}" \
+              "${COOLIFY_URL}/api/v1/deployments/${deployment_uuid}")
+            status=$(jq --raw-output '.status' <<<"${deployment}")
+
+            case "${status}" in
+              finished)
+                echo "Coolify staging deployment finished."
+                exit 0
+                ;;
+              failed|cancelled)
+                echo "Coolify staging deployment ended with status: ${status}"
+                exit 1
+                ;;
+            esac
+
+            echo "Waiting for Coolify staging deployment (${attempt}/60): ${status}"
+            sleep 5
+          done
+
+          echo "Timed out waiting for Coolify staging deployment."
+          exit 1
