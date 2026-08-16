@@ -10,6 +10,9 @@ permissions:
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: kortyx-io/website
+  COOLIFY_URL: ${{ vars.COOLIFY_URL }}
+  COOLIFY_PRODUCTION_APP_UUID: ${{ vars.COOLIFY_PRODUCTION_APP_UUID }}
+  COOLIFY_PRODUCTION_TEST_URL: ${{ vars.COOLIFY_PRODUCTION_TEST_URL }}
 
 jobs:
   promote-prod:
@@ -70,3 +73,70 @@ jobs:
             --serviceId="${RAILWAY_SERVICE_ID}" \
             --environmentId="${RAILWAY_ENVIRONMENT_ID}" \
             --image="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest"
+
+      - name: Deploy Coolify production image
+        env:
+          COOLIFY_TOKEN: ${{ secrets.COOLIFY_PRODUCTION_DEPLOY_TOKEN }}
+        run: |
+          if [ -z "${COOLIFY_TOKEN}" ]; then
+            echo "Missing required secret: COOLIFY_PRODUCTION_DEPLOY_TOKEN"
+            exit 1
+          fi
+          if [ -z "${COOLIFY_URL}" ] || [ -z "${COOLIFY_PRODUCTION_APP_UUID}" ]; then
+            echo "Missing required repository variables: COOLIFY_URL, COOLIFY_PRODUCTION_APP_UUID"
+            exit 1
+          fi
+
+          response=$(curl --fail-with-body --silent --show-error \
+            --request POST \
+            --header "Authorization: Bearer ${COOLIFY_TOKEN}" \
+            --header "Content-Type: application/json" \
+            --data "{\"uuid\":\"${COOLIFY_PRODUCTION_APP_UUID}\",\"force\":true}" \
+            "${COOLIFY_URL}/api/v1/deploy")
+
+          deployment_uuid=$(jq --exit-status --raw-output \
+            '.deployments[0].deployment_uuid' <<<"${response}")
+
+          for attempt in $(seq 1 60); do
+            deployment=$(curl --fail-with-body --silent --show-error \
+              --header "Authorization: Bearer ${COOLIFY_TOKEN}" \
+              "${COOLIFY_URL}/api/v1/deployments/${deployment_uuid}")
+            status=$(jq --raw-output '.status' <<<"${deployment}")
+
+            case "${status}" in
+              finished)
+                echo "Coolify production deployment finished."
+                break
+                ;;
+              failed|cancelled)
+                echo "Coolify production deployment ended with status: ${status}"
+                exit 1
+                ;;
+            esac
+
+            if [ "${attempt}" -eq 60 ]; then
+              echo "Timed out waiting for Coolify production deployment."
+              exit 1
+            fi
+
+            echo "Waiting for Coolify production deployment (${attempt}/60): ${status}"
+            sleep 5
+          done
+
+      - name: Verify Coolify production test URL
+        run: |
+          if [ -z "${COOLIFY_PRODUCTION_TEST_URL}" ]; then
+            echo "Missing required repository variable: COOLIFY_PRODUCTION_TEST_URL"
+            exit 1
+          fi
+
+          headers=$(curl --fail --silent --show-error --head \
+            --retry 10 --retry-all-errors --retry-delay 3 \
+            "${COOLIFY_PRODUCTION_TEST_URL}/docs/start-here")
+
+          if ! grep --ignore-case --quiet '^x-robots-tag:.*noindex' <<<"${headers}"; then
+            echo "Coolify production test URL is missing the noindex header."
+            exit 1
+          fi
+
+          echo "Coolify production smoke test passed: ${COOLIFY_PRODUCTION_TEST_URL}"
