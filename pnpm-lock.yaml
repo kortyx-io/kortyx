@@ -297,6 +297,9 @@ importers:
       gray-matter:
         specifier: ^4.0.3
         version: 4.0.3
+      jose:
+        specifier: ^6.2.3
+        version: 6.2.3
       lucide-react:
         specifier: 'catalog:'
         version: 0.556.0(react@19.2.1)
