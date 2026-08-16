@@ -14,7 +14,7 @@ env:
   COOLIFY_URL: ${{ vars.COOLIFY_URL }}
   COOLIFY_STAGING_APP_UUID: ${{ vars.COOLIFY_STAGING_APP_UUID }}
   PREVIEW_TAG: pr-${{ github.event.pull_request.number }}
-  PREVIEW_URL: https://pr-${{ github.event.pull_request.number }}.staging.kortyx.dev
+  PREVIEW_URL: https://pr-${{ github.event.pull_request.number }}.kortyx.dev
 
 jobs:
   deploy-preview:
