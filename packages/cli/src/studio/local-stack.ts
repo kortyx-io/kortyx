@@ -90,7 +90,33 @@ export const printStudioConnection = async (
   runtime.log("  KORTYX_TELEMETRY_ENVIRONMENT=development");
   runtime.log("  KORTYX_TELEMETRY_SERVICE_NAME=my-agent");
   runtime.log();
+  runtime.log("Next steps:");
+  runtime.log("  1. Add the server-side variables above to your SDK project.");
+  runtime.log(
+    "  2. Publish its workflow catalog with: npx kortyx topology push --entry <agent-entry>",
+  );
+  runtime.log("  3. Restart your app, trigger a run, and open Studio.");
+  runtime.log();
+  runtime.log(
+    "For copyable SDK variables only, run: npx kortyx studio credentials --format dotenv",
+  );
+  runtime.log();
   runtime.log(`Local state: ${home}`);
+};
+
+export const printStudioSdkEnvironment = async (
+  home: string,
+  config: StudioConfig,
+  serviceName: string,
+  runtime: StudioRuntime,
+): Promise<void> => {
+  const environment = await readStudioEnvironment(home);
+  runtime.log(`KORTYX_TELEMETRY_API_URL=http://localhost:${config.apiPort}`);
+  runtime.log(
+    `KORTYX_TELEMETRY_API_KEY=${environment.KORTYX_TELEMETRY_API_KEY}`,
+  );
+  runtime.log("KORTYX_TELEMETRY_ENVIRONMENT=development");
+  runtime.log(`KORTYX_TELEMETRY_SERVICE_NAME=${serviceName}`);
 };
 
 export const printGeneratedDeploymentCredentials = (
