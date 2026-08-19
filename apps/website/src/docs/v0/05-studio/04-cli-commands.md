@@ -24,6 +24,7 @@ Local state is stored in `~/.kortyx/studio` by default. Commands reuse that stat
 | `npx kortyx studio logs` | Follow API, Studio, bootstrap, and database logs | Yes |
 | `npx kortyx studio logs --no-follow` | Print recent logs and return | Yes |
 | `npx kortyx studio credentials` | Print the current local connection details | Yes |
+| `npx kortyx studio credentials --format dotenv --service-name my-agent` | Print copyable server-side SDK variables | Yes |
 | `npx kortyx studio restart` | Recreate the stack and wait until healthy | Yes |
 | `npx kortyx studio stop` | Stop the containers | Yes |
 
@@ -63,6 +64,15 @@ Print the current browser and SDK connection values:
 npx kortyx studio credentials
 ```
 
+Print only the server-side SDK variables for an application:
+
+```bash
+npx kortyx studio credentials --format dotenv --service-name my-agent
+```
+
+This format intentionally omits the browser password and local state path, but
+it still includes a secret telemetry write key. Keep the output server-side.
+
 Replace the browser password and both application API-key secrets:
 
 ```bash
@@ -82,6 +92,20 @@ npx kortyx studio credentials --generate
 This produces an unpersisted credential set without creating local Studio state. Store it immediately in the deployment's secret manager. It cannot be printed again later.
 
 See [Credentials and Secrets](./05-credentials-secrets.md) before using generated values on a server.
+
+## Publish a workflow catalog
+
+Catalog publication is a top-level Kortyx command rather than a Studio
+lifecycle command:
+
+```bash
+npx kortyx topology push --entry src/lib/agent.ts
+```
+
+It publishes declared workflow topology before traffic arrives without
+creating runs. Use `--dry-run` to inspect the projection locally. See [Connect
+Your Project](./03-connect-project.md#publish-the-declared-workflow-catalog) for
+the complete connection flow.
 
 ## Reset local data
 

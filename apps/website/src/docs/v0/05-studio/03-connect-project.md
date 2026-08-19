@@ -87,6 +87,26 @@ export const agent = createAgent({ workflows, telemetry });
 
 Keep the service name stable across deploys. Use the environment field as an informative label; it does not create a separate security or storage boundary.
 
+## Publish the declared workflow catalog
+
+Publish deterministic topology from the module that exports your configured
+agent or workflows:
+
+```bash
+npx kortyx topology push --entry src/lib/agent.ts
+```
+
+Use `--dry-run` to inspect the projection without writing to Studio:
+
+```bash
+npx kortyx topology push --entry src/lib/agent.ts --dry-run
+```
+
+The published catalog appears under **Workflows** before traffic arrives. This
+does not create a run. **Runs** contains only real workflow executions emitted
+by your application. Keep runtime topology registration enabled as a
+best-effort fallback, but use `topology push` as the canonical deployment step.
+
 ## Choose what content Studio may store
 
 Structural telemetry is useful without storing prompts or responses. Input and output content are excluded by default.
@@ -137,12 +157,14 @@ For runtime behavior and replay-safe side effects, read [Interrupts and Resume](
 
 ## Verify the connection
 
-Trigger one agent request and open **Runs** in Studio. If nothing arrives, use this order:
+Open **Workflows** after the topology push, then trigger one agent request and
+open **Runs** in Studio. If nothing arrives, use this order:
 
 1. Confirm the application server has all four environment variables.
 2. Confirm it restarted after configuration changed.
-3. Check the Studio stack with `npx kortyx studio status`.
-4. Inspect recent logs with `npx kortyx studio logs --no-follow`.
-5. Confirm the Studio time filter includes the event.
+3. Confirm `topology push` used the entry module and service name for this app.
+4. Check the Studio stack with `npx kortyx studio status`.
+5. Inspect recent logs with `npx kortyx studio logs --no-follow`.
+6. Confirm the Studio time filter includes the event.
 
 For remote deployments, also verify network reachability from the application server to the telemetry API and confirm the supplied key has `telemetry:write` scope.
