@@ -26,7 +26,7 @@ yarn add @kortyx/otel @langfuse/otel @opentelemetry/api @opentelemetry/sdk-node
 bun add @kortyx/otel @langfuse/otel @opentelemetry/api @opentelemetry/sdk-node
 ```
 
-`@kortyx/otel` is required regardless of backend — it produces the spans. `@langfuse/otel` provides the `LangfuseSpanProcessor` that exports them to Langfuse.
+`@kortyx/otel` is required regardless of backend because it produces the spans. `@langfuse/otel` provides the `LangfuseSpanProcessor` that exports them to Langfuse.
 
 > **Good to know:** Add `@langfuse/tracing` only when your app also needs Langfuse-specific manual observations or context propagation outside Kortyx. It is not required for the Kortyx adapter path below.
 
@@ -275,8 +275,8 @@ The mapping reference:
 
 | Kortyx attribute                                | Langfuse attribute                       |
 |-------------------------------------------------|------------------------------------------|
-| `session.id` (from `streamChat.sessionId`)      | already native — no-op                   |
-| `user.id` (from `context.userId`)               | already native — no-op                   |
+| `session.id` (from `streamChat.sessionId`)      | already native (no-op)                   |
+| `user.id` (from `context.userId`)               | already native (no-op)                   |
 | `kortyx.trace.tags`                             | `langfuse.trace.tags`                    |
 | `kortyx.trace.metadata.<k>` (each)              | `langfuse.trace.metadata.<k>`            |
 | `kortyx.trace.input` / `.output` (any span)     | `langfuse.observation.input` / `.output` |
@@ -329,7 +329,7 @@ await useReason({
 
 ## Map tags
 
-Tags work the same way as in the generic OpenTelemetry guide — pass them through `telemetry.tags` and the `mapAttributes` hook above translates `kortyx.trace.tags` to `langfuse.trace.tags`. Once translated, tags become filter facets on the Langfuse trace list.
+Pass tags through `telemetry.tags` as shown in the generic OpenTelemetry guide. The `mapAttributes` hook above translates `kortyx.trace.tags` to `langfuse.trace.tags`. Once translated, tags become filter facets on the Langfuse trace list.
 
 ```ts tabs="lf-tags" tab="TypeScript"
 createAgent({
@@ -372,7 +372,7 @@ Langfuse treats `langfuse.trace.tags` as trace-level context, even when it sees 
 
 ## Score traces from the client
 
-Langfuse scores (thumbs up/down, hallucination flags, deflection rates) are written against a `traceId`. Kortyx surfaces the active trace id to the client via the [trace stream chunk](./03-observability.md#read-trace-ids-from-the-client) and `ChatMsg.traceId` — no header capture or wrapper spans needed.
+Langfuse scores (thumbs up/down, hallucination flags, deflection rates) are written against a `traceId`. Kortyx surfaces the active trace id to the client via the [trace stream chunk](./03-observability.md#read-trace-ids-from-the-client) and `ChatMsg.traceId`. You do not need to capture headers or add wrapper spans.
 
 A minimal feedback flow:
 

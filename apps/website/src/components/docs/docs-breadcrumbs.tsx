@@ -32,7 +32,7 @@ export function DocsBreadcrumbs(props: DocsBreadcrumbsProps) {
             ) : (
               <Link
                 href={crumb.href}
-                className="truncate hover:text-foreground"
+                className="inline-flex min-h-8 items-center truncate hover:text-foreground"
               >
                 {crumb.label}
               </Link>

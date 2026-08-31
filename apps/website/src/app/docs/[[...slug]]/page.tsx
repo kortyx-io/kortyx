@@ -255,7 +255,7 @@ export async function generateMetadata({
 
   if (!resolved) {
     return {
-      title: "Docs | Kortyx",
+      title: { absolute: "Docs | Kortyx" },
       description: "Kortyx documentation",
     };
   }
@@ -284,7 +284,7 @@ export async function generateMetadata({
     ]);
 
     return {
-      title,
+      title: { absolute: title },
       description: sectionDescription,
       keywords,
       applicationName: "Kortyx",
@@ -344,7 +344,7 @@ export async function generateMetadata({
   ]);
 
   return {
-    title,
+    title: { absolute: title },
     description: resolved.doc.frontmatter.description,
     keywords,
     applicationName: "Kortyx",

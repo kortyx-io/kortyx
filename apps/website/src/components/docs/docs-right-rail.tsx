@@ -13,7 +13,7 @@ export function DocsRightRail(props: DocsRightRailProps) {
   const { description, toc, editOnGithubHref } = props;
 
   return (
-    <aside className="hidden xl:block xl:sticky xl:top-14 xl:h-[calc(100vh-3.5rem)]">
+    <aside className="hidden xl:sticky xl:top-[6.25rem] xl:block xl:h-[calc(100vh-6.25rem)]">
       <div className="flex h-full flex-col py-8 pl-4">
         {description ? (
           <p className="mb-6 text-sm leading-5 text-muted-foreground">
@@ -33,7 +33,7 @@ export function DocsRightRail(props: DocsRightRailProps) {
               href={editOnGithubHref}
               target="_blank"
               rel="noreferrer"
-              className="inline-flex cursor-pointer items-center gap-2 text-sm text-muted-foreground hover:text-primary dark:hover:text-blue-200"
+              className="inline-flex min-h-8 cursor-pointer items-center gap-2 text-sm text-muted-foreground hover:text-primary dark:hover:text-blue-200"
             >
               Edit this page on GitHub
               <ExternalLinkIcon className="h-4 w-4" aria-hidden="true" />

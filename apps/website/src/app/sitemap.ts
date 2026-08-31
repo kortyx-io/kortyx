@@ -35,6 +35,14 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     priority: 1,
   });
 
+  for (const pathname of ["/product", "/examples", "/open-source"]) {
+    entries.set(pathname, {
+      url: toAbsoluteUrl(pathname),
+      changeFrequency: "weekly",
+      priority: 0.9,
+    });
+  }
+
   const docsParams = await generateDocsStaticParams();
 
   await Promise.all(

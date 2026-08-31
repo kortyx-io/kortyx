@@ -57,7 +57,7 @@ export function DocsOnThisPage(props: DocsOnThisPageProps) {
           <a
             href={`#${item.id}`}
             className={cn(
-              "block text-sm transition-colors",
+              "flex min-h-8 items-center text-sm transition-colors",
               item.level === 3 ? "pl-4" : "",
               activeId === item.id
                 ? "font-medium text-primary dark:text-blue-300"

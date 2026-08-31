@@ -21,9 +21,11 @@
     "type-check": "tsc --noEmit -p tsconfig.test.json"
   },
   "dependencies": {
+    "@bprogress/next": "^3.2.12",
     "@radix-ui/react-dialog": "catalog:",
     "class-variance-authority": "catalog:",
     "clsx": "catalog:",
+    "framer-motion": "^12.23.19",
     "github-slugger": "^2.0.0",
     "gray-matter": "^4.0.3",
     "jose": "^6.2.3",
