@@ -7,6 +7,7 @@ import {
 import {
   printGeneratedDeploymentCredentials,
   printStudioConnection,
+  printStudioSdkEnvironment,
   resetStudio,
   restartStudio,
   rotateStudioCredentials,
@@ -40,8 +41,10 @@ type ResetOptions = HomeOptions & {
 };
 
 type CredentialsOptions = HomeOptions & {
+  format: "human" | "dotenv";
   generate: boolean;
   rotate: boolean;
+  serviceName: string;
 };
 
 const portParser = (value: string): number => {
@@ -142,10 +145,32 @@ export const createStudioCommand = (
         "--generate",
         "Generate unpersisted credentials for a self-hosted deployment.",
         false,
+      )
+      .addOption(
+        new Option("--format <format>", "Credential output format.")
+          .choices(["human", "dotenv"])
+          .default("human"),
+      )
+      .option(
+        "--service-name <name>",
+        "SDK service name used by dotenv output.",
+        "my-agent",
       ),
-  ).action(async ({ generate, home, rotate }: CredentialsOptions) => {
+  ).action(async (options: CredentialsOptions) => {
+    const { format, generate, home, rotate, serviceName } = options;
     if (generate && rotate) {
       throw new Error("Use either --generate or --rotate, not both.");
+    }
+    if (format === "dotenv" && (generate || rotate)) {
+      throw new Error(
+        "--format dotenv prints persisted SDK credentials and cannot be combined with --generate or --rotate.",
+      );
+    }
+    if (format === "human" && serviceName !== "my-agent") {
+      throw new Error("--service-name requires --format dotenv.");
+    }
+    if (!/^[A-Za-z0-9@][A-Za-z0-9@._/-]*$/.test(serviceName)) {
+      throw new Error("Service name contains unsupported characters.");
     }
     if (generate) {
       printGeneratedDeploymentCredentials(runtime);
@@ -155,7 +180,12 @@ export const createStudioCommand = (
       await rotateStudioCredentials(home, runtime);
       return;
     }
-    await printStudioConnection(home, await requireStudioConfig(home), runtime);
+    const config = await requireStudioConfig(home);
+    if (format === "dotenv") {
+      await printStudioSdkEnvironment(home, config, serviceName, runtime);
+      return;
+    }
+    await printStudioConnection(home, config, runtime);
   });
 
   withHome(

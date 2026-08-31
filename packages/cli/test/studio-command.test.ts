@@ -87,6 +87,7 @@ describe("Studio CLI arguments", () => {
     [["status", "--no-follow"], "unknown option"],
     [["status", "--confirm"], "unknown option"],
     [["start", "--wat", "yes"], "unknown option"],
+    [["credentials", "--format", "json"], "Allowed choices"],
   ])("handles %# invalid/help arguments", async (args, expected) => {
     const runtime = createRuntime();
     if (expected === "help") {
@@ -147,6 +148,9 @@ describe("Studio CLI lifecycle", () => {
     expect(runtime.logs.join("\n")).toContain(
       "KORTYX_TELEMETRY_API_URL=http://localhost:7400",
     );
+    expect(runtime.logs.join("\n")).toContain(
+      "npx kortyx topology push --entry <agent-entry>",
+    );
     expect(runtime.calls.at(-1)?.args).toEqual(
       expect.arrayContaining(["up", "--wait"]),
     );
@@ -203,6 +207,27 @@ describe("Studio CLI lifecycle", () => {
     expect(runtime.logs.join("\n")).toContain(
       "KORTYX_TELEMETRY_API_KEY=ktyx_live_telemetry",
     );
+
+    runtime.logs.length = 0;
+    await runStudioCommand(
+      [
+        "credentials",
+        "--home",
+        home,
+        "--format",
+        "dotenv",
+        "--service-name",
+        "canvas-agent",
+      ],
+      runtime,
+    );
+    expect(runtime.logs).toEqual([
+      "KORTYX_TELEMETRY_API_URL=http://localhost:6400",
+      expect.stringContaining("KORTYX_TELEMETRY_API_KEY=ktyx_live_telemetry"),
+      "KORTYX_TELEMETRY_ENVIRONMENT=development",
+      "KORTYX_TELEMETRY_SERVICE_NAME=canvas-agent",
+    ]);
+    expect(runtime.logs.join("\n")).not.toContain("Password:");
 
     runtime.calls.length = 0;
     await runStudioCommand(["restart", "--home", home], runtime);
@@ -375,6 +400,38 @@ describe("Studio CLI lifecycle", () => {
         runtime,
       ),
     ).rejects.toThrow("either --generate or --rotate");
+  });
+
+  it("rejects incompatible credential output options", async () => {
+    const home = await createHome();
+    await initialize(home);
+
+    await expect(
+      runStudioCommand(
+        ["credentials", "--home", home, "--format", "dotenv", "--rotate"],
+        createRuntime(),
+      ),
+    ).rejects.toThrow("cannot be combined");
+    await expect(
+      runStudioCommand(
+        ["credentials", "--home", home, "--service-name", "canvas-agent"],
+        createRuntime(),
+      ),
+    ).rejects.toThrow("requires --format dotenv");
+    await expect(
+      runStudioCommand(
+        [
+          "credentials",
+          "--home",
+          home,
+          "--format",
+          "dotenv",
+          "--service-name",
+          "bad name",
+        ],
+        createRuntime(),
+      ),
+    ).rejects.toThrow("unsupported characters");
   });
 
   it("does not replace a path that cannot be read as an env file", async () => {
