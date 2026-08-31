@@ -1,9 +1,12 @@
 export const siteConfig = {
   name: "Kortyx",
   url: "https://kortyx.io",
-  description: "Kortyx documentation and developer guides",
+  description:
+    "A TypeScript framework for agent workflows, streamed React state, human interrupts, persisted runs, session branching, and tracing.",
+  locale: "en_US",
   ogImage: "/opengraph-image",
   repositoryUrl: "https://github.com/kortyx-io/kortyx",
+  twitterHandle: "@kortyxio",
   sameAs: [
     "https://www.npmjs.com/org/kortyx",
     "https://github.com/kortyx-io",

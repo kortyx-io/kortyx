@@ -49,7 +49,7 @@ When removing a docs page:
 - add an old-slug -> new-slug redirect in `apps/website/src/lib/docs/config.ts`
 - redirect to the closest replacement page/section (permanent)
 
-## Priority 1 — Onboarding outcomes
+## Priority 1: Onboarding outcomes
 
 1. Finish replacing manual client reducer docs with the new `@kortyx/react` path wherever React is the audience.
 2. Expand stack-specific quickstarts beyond Next.js (Express and Fastify paths).
@@ -57,7 +57,7 @@ When removing a docs page:
 4. Keep a 10–15 minute onboarding spine linking install → quickstart → guides → production.
 5. Keep provider docs complete as provider packages ship under `providers/`.
 
-## Priority 2 — Reduce adoption friction
+## Priority 2: Reduce adoption friction
 
 1. Expand **Troubleshooting** with top recurring setup/runtime errors and fixes.
 2. Add compatibility notes for Node/framework/runtime expectations where ambiguity exists.
@@ -65,7 +65,7 @@ When removing a docs page:
 4. Keep the provider selection guide current as provider packages gain new model types or provider options.
 5. Keep the new runtime context, project structure, React + Node backend, and streamed rendering pages aligned with `skills/kortyx`.
 
-## Priority 3 — Support advanced users
+## Priority 3: Support advanced users
 
 1. Expand **Reference** depth for runtime hooks, stream protocol, provider contracts, and the `@kortyx/react` surface.
 2. Add production guides: retries, observability, failure handling, and security checklist.

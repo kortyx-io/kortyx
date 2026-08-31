@@ -136,7 +136,7 @@ export function DocsSidebarContent(props: DocsSidebarProps) {
                 <CollapsibleTrigger asChild>
                   <button
                     type="button"
-                    className="inline-flex h-6 w-6 items-center justify-center rounded text-muted-foreground hover:bg-accent hover:text-foreground"
+                    className="inline-flex h-8 w-8 items-center justify-center rounded text-muted-foreground hover:bg-accent hover:text-foreground"
                     aria-label={`Toggle ${section.label}`}
                   >
                     <ChevronDown
@@ -151,7 +151,7 @@ export function DocsSidebarContent(props: DocsSidebarProps) {
                   href={section.href}
                   onClick={persistSidebarScroll}
                   className={cn(
-                    "text-sm font-semibold",
+                    "inline-flex min-h-8 items-center text-sm font-semibold",
                     section.slug === currentSectionSlug
                       ? "text-foreground"
                       : "text-primary hover:text-primary/80 dark:text-blue-300 dark:hover:text-blue-200",
@@ -170,7 +170,7 @@ export function DocsSidebarContent(props: DocsSidebarProps) {
                           href={item.href}
                           onClick={persistSidebarScroll}
                           className={cn(
-                            "block rounded px-2 py-1 text-sm",
+                            "flex min-h-8 items-center rounded px-2 py-1 text-sm",
                             isActive
                               ? "bg-primary text-primary-foreground"
                               : "text-muted-foreground hover:bg-accent",
@@ -193,7 +193,7 @@ export function DocsSidebarContent(props: DocsSidebarProps) {
 
 export function DocsSidebar(props: DocsSidebarProps) {
   return (
-    <aside className="hidden md:block md:sticky md:top-14 md:h-[calc(100vh-3.5rem)] py-8">
+    <aside className="hidden py-8 md:sticky md:top-[6.25rem] md:block md:h-[calc(100vh-6.25rem)]">
       <DocsSidebarContent {...props} />
     </aside>
   );

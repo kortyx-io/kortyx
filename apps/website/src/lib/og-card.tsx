@@ -20,7 +20,8 @@ export function KortyxOgCard({
     <div
       style={{
         alignItems: "stretch",
-        background: "#08090a",
+        background:
+          "radial-gradient(circle at 82% 12%, #332a76 0%, #11101c 34%, #08090a 68%)",
         color: "#f8fafc",
         display: "flex",
         flexDirection: "column",
@@ -87,7 +88,7 @@ export function KortyxOgCard({
       >
         <div
           style={{
-            color: "#93c5fd",
+            color: "#a89cff",
             fontSize: "30px",
             fontWeight: 700,
             letterSpacing: "0.04em",

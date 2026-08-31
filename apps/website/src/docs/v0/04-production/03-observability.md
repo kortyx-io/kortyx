@@ -436,7 +436,7 @@ When `@kortyx/otel` is wired on the agent, the orchestrator emits a `trace` stre
 { type: "trace", traceId: "…", spanId: "…", runId: "…", rootSpanName: "kortyx.run" }
 ```
 
-`@kortyx/react` reads it off the wire and stamps every assistant `ChatMsg` produced during that turn with `traceId`, `spanId`, and `runId`. You do not need to capture response headers or open your own wrapper spans — the values are first-class fields on the message.
+`@kortyx/react` reads it off the wire and stamps every assistant `ChatMsg` produced during that turn with `traceId`, `spanId`, and `runId`. You do not need to capture response headers or open your own wrapper spans. The values are first-class fields on the message.
 
 ```tsx tabs="otel-react-trace" tab="TypeScript"
 "use client";
@@ -475,7 +475,7 @@ export function Thumbs({ msg }) {
 
 The trace fields are `undefined` until a `trace` chunk arrives, which happens when an OTel trace adapter is configured on the agent. Without `@kortyx/otel` (or another adapter that supports `getActiveContext`) wired into `createAgent({ telemetry: { trace } })`, no `trace` chunk is emitted and `msg.traceId` stays `undefined`.
 
-Restored-from-storage messages keep their trace ids — `createBrowserChatStorage` serializes them with the rest of the `ChatMsg`.
+Restored-from-storage messages keep their trace ids because `createBrowserChatStorage` serializes them with the rest of the `ChatMsg`.
 
 ## What to read next
 
