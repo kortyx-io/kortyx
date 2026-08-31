@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.14.1](https://github.com/kortyx-io/kortyx/compare/kortyx-v0.14.0...kortyx-v0.14.1) (2026-08-31)
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/cli bumped to 0.4.0
+
 ## [0.14.0](https://github.com/kortyx-io/kortyx/compare/kortyx-v0.13.0...kortyx-v0.14.0) (2026-08-02)
 
 
