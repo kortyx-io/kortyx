@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.24.1](https://github.com/kortyx-io/kortyx/compare/website-v0.24.0...website-v0.24.1) (2026-08-31)
+
+
+### Bug Fixes
+
+* **website:** animate marketing flow lines reliably ([#155](https://github.com/kortyx-io/kortyx/issues/155)) ([d3f2df6](https://github.com/kortyx-io/kortyx/commit/d3f2df6e007f411ec3d9e377cbbbf97bdc215a2a))
+
 ## [0.24.0](https://github.com/kortyx-io/kortyx/compare/website-v0.23.0...website-v0.24.0) (2026-08-31)
 
 
