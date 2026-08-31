@@ -44,14 +44,7 @@ To inspect the topology without writing to the API:
 pnpm --filter @kortyx/example-canvas topology:dry-run
 ```
 
-To verify canvas → API → DB → Studio without needing an LLM key:
-
-```bash
-pnpm --filter @kortyx/example-canvas smoke:studio
-```
-
-Then open Studio at `http://localhost:6300` with `admin` / `kortyx` and check
-Runs/Workflows for `canvas-example-smoke`.
-
-Real chat runs also emit telemetry when `GOOGLE_API_KEY` is configured and the
-canvas chat API completes a request.
+Open Studio at `http://localhost:6300` with `admin` / `kortyx`. The Workflows
+view shows the published catalog without creating synthetic runs. Configure
+`GOOGLE_API_KEY` and complete a real canvas chat request to verify run
+telemetry in the Runs view.

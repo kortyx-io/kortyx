@@ -110,16 +110,17 @@ To send and verify one sample telemetry run:
 docker compose --profile smoke up --abort-on-container-exit --exit-code-from smoke smoke
 ```
 
-To verify a real Kortyx example producer end-to-end, run the canvas example in
-another shell and point it at the Docker API:
+To verify a real Kortyx example producer end-to-end, configure the canvas
+example, publish its declared workflow catalog, and run it in another shell:
 
 ```bash
 cp -n examples/kortyx-canvas/.env.example examples/kortyx-canvas/.env.local
+pnpm --filter @kortyx/example-canvas topology:push
 pnpm --filter @kortyx/example-canvas dev
-pnpm --filter @kortyx/example-canvas smoke:studio
 ```
 
-Then open Studio and check Runs/Workflows for `canvas-example-smoke`.
+Send a real Canvas request, then open Studio. The Workflows view shows the
+published catalog; the Runs view shows only workflows that have actually run.
 
 ## Quickstart
 
