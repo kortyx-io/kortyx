@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.0](https://github.com/kortyx-io/kortyx/compare/cli-v0.3.0...cli-v0.4.0) (2026-08-31)
+
+
+### Features
+
+* **cli:** improve Studio onboarding output ([#150](https://github.com/kortyx-io/kortyx/issues/150)) ([5f02710](https://github.com/kortyx-io/kortyx/commit/5f027106a69d9154d583c86b295db347dea12669))
+
 ## [0.3.0](https://github.com/kortyx-io/kortyx/compare/cli-v0.2.0...cli-v0.3.0) (2026-08-02)
 
 

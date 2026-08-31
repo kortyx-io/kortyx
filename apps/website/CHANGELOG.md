@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.24.0](https://github.com/kortyx-io/kortyx/compare/website-v0.23.0...website-v0.24.0) (2026-08-31)
+
+
+### Features
+
+* **website:** launch adoption-ready marketing site ([#153](https://github.com/kortyx-io/kortyx/issues/153)) ([f86e680](https://github.com/kortyx-io/kortyx/commit/f86e6808658e6ad37817b03656e9dbb9e8e6264d))
+
 ## [0.23.0](https://github.com/kortyx-io/kortyx/compare/website-v0.22.0...website-v0.23.0) (2026-08-02)
 
 
