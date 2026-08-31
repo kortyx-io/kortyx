@@ -54,6 +54,15 @@ The exact secret values are unique to your installation.
 
 > **Keep them private:** Local credentials are stored under `~/.kortyx/studio`. Do not commit the generated `.env` file or expose a telemetry key through a browser bundle.
 
+To print only the four copyable SDK variables, choose a stable service name:
+
+```bash
+npx kortyx studio credentials --format dotenv --service-name my-agent
+```
+
+The output contains the telemetry write key. Save it in your application's
+server-only environment, not in source control or a public shell log.
+
 ## 2. Connect your application
 
 Install the Studio telemetry adapter:
@@ -118,7 +127,24 @@ export const agent = createAgent({
 
 For a fuller explanation of identifiers and content capture, see [Connect Your Project](./03-connect-project.md).
 
-## 3. See your first run
+## 3. Publish the workflow catalog
+
+Publish the workflows declared by your agent before sending traffic:
+
+```bash
+npx kortyx topology push --entry src/lib/agent.ts
+```
+
+Use the module that exports your configured agent, workflows array, or workflow
+definitions. The command reads the `KORTYX_TELEMETRY_*` variables from your
+project environment and publishes deterministic topology to Studio.
+
+Open **Workflows** to confirm the catalog. A workflow can appear there before it
+has run; publishing topology does not create a synthetic run. Runtime topology
+registration remains a fallback when real traffic executes a workflow, but
+`topology push` is the canonical pre-traffic path.
+
+## 4. See your first real run
 
 1. Restart your application so it reads the new environment values.
 2. Trigger any request that executes the Kortyx agent.
@@ -126,7 +152,9 @@ For a fuller explanation of identifiers and content capture, see [Connect Your P
 4. Sign in with the username and password printed by the CLI.
 5. Open **Runs** and select the new run.
 
-You are connected when the run appears. Studio can now explain the workflow path, model calls, timing, token usage, interrupts, and captured payloads available for that execution.
+You are connected when the real run appears. Studio can now explain the
+workflow path, model calls, timing, token usage, interrupts, and captured
+payloads available for that execution.
 
 ## If the run does not appear
 
@@ -140,6 +168,7 @@ npx kortyx studio logs --no-follow
 Then verify:
 
 - the API URL and key are available to the server process that creates the agent;
+- the workflow catalog was published from the correct agent entry module;
 - the application was restarted after its environment changed;
 - the telemetry API is reachable from that server process; and
 - the Runs time filter includes the current time.

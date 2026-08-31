@@ -1,6 +1,6 @@
 ---
 name: kortyx
-description: Use when building, reviewing, documenting, or architecting apps with Kortyx. Covers Kortyx hooks, useReason, interrupts, structured streaming, runtime context, Next.js API routes and server actions, separate React + Node apps, folder structure, runtime persistence, session checkpoints/rollback/fork, OpenTelemetry observability, Langfuse export, @kortyx/react, useChat, transports, and streamed chat rendering.
+description: Use when building, reviewing, documenting, or architecting apps with Kortyx. Covers Kortyx Studio local setup and telemetry connection, hooks, useReason, interrupts, structured streaming, runtime context, Next.js API routes and server actions, separate React + Node apps, folder structure, runtime persistence, session checkpoints/rollback/fork, OpenTelemetry observability, Langfuse export, @kortyx/react, useChat, transports, and streamed chat rendering.
 ---
 
 # Kortyx
@@ -30,6 +30,10 @@ Architecture:
 - `references/observability-otel.md`: backend-neutral server-side OpenTelemetry tracing, prompt metadata, tags, and trace ids on the React client.
 - `references/observability-langfuse.md`: app-owned Langfuse export, Kortyx attribute mapping, Next.js flush lifecycle, optional prompt linking, and client feedback scores.
 
+Studio:
+
+- `references/studio-local-development.md`: starting Studio locally, connecting server-side SDK telemetry, publishing a workflow catalog, and verifying the first real run.
+
 Hooks:
 
 - `references/hooks-use-reason.md`: model calls, provider options, MCP tools, schema output, and text streaming.
@@ -55,6 +59,8 @@ React client:
 - For production checkpoint/rollback/fork/regenerate features, recommend Redis or another durable framework adapter. In-memory is for local dev, tests, and small single-process demos.
 - Keep OpenTelemetry tracing server-side and use generic Kortyx telemetry metadata.
 - Treat OpenTelemetry as the Kortyx observability contract. Keep backend exporters such as Langfuse app-owned.
+- Treat Studio as an observer: publish declared topology with `kortyx topology push`, and verify run telemetry with a real application request instead of a synthetic workflow.
+- Keep Studio API keys and all `KORTYX_TELEMETRY_*` configuration server-side.
 - `useReason({ outputSchema, structured.fields })` already streams known structured fields as `structured-data` chunks; do not confuse those with raw model JSON `text-delta` chunks.
 - MCP tools are passed to `useReason({ tools, toolExecution })` from `createMCPClient(...).tools()`. `useReason` closes request-scoped MCP clients by default.
 - Do not combine `useReason({ tools })` with normal `useReason({ interrupt })`; use `toolExecution.approval` for tool approval, or split tools and user input into separate hook calls/nodes.
@@ -68,3 +74,4 @@ React client:
 - Production rollback/fork guidance includes persistence choice, retention, and in-memory limitations.
 - Streaming clients render finalized history and active stream pieces separately.
 - Sensitive auth context is derived on the server.
+- Studio integrations, when requested, publish the real workflow catalog and verify a real run separately.
