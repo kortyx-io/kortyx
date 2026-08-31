@@ -1,6 +1,6 @@
 "use client";
 
-import { motion, useReducedMotion } from "framer-motion";
+import { useReducedMotion } from "framer-motion";
 import { cn } from "@/lib/utils/cn";
 
 type FlowLineProps = {
@@ -47,45 +47,49 @@ export function FlowLine({
         opacity="0.2"
         vectorEffect="non-scaling-stroke"
       />
-      <motion.path
+      <path
         d={path}
         fill="none"
         stroke={color.line}
         strokeWidth="1.5"
         strokeDasharray="5 9"
+        strokeDashoffset={reducedMotion ? 0 : undefined}
         vectorEffect="non-scaling-stroke"
-        initial={false}
-        animate={
-          reducedMotion
-            ? { strokeDashoffset: 0 }
-            : { strokeDashoffset: reverse ? [0, 28] : [0, -28] }
-        }
-        transition={
-          reducedMotion
-            ? { duration: 0 }
-            : { duration: 1.4, ease: "linear", repeat: Infinity }
-        }
-      />
-      <motion.circle
+      >
+        {!reducedMotion ? (
+          <animate
+            attributeName="stroke-dashoffset"
+            values={reverse ? "0;28" : "0;-28"}
+            dur="1.4s"
+            repeatCount="indefinite"
+          />
+        ) : null}
+      </path>
+      <circle
         r="2.2"
         fill={color.glow}
-        initial={false}
         cx={vertical ? 6 : start}
         cy={vertical ? start : 6}
-        animate={
-          reducedMotion
-            ? { opacity: 0.7 }
-            : vertical
-              ? { cy: [start, end], opacity: [0, 1, 1, 0] }
-              : { cx: [start, end], opacity: [0, 1, 1, 0] }
-        }
-        transition={
-          reducedMotion
-            ? { duration: 0 }
-            : { duration: 2.2, ease: "linear", repeat: Infinity }
-        }
+        opacity={reducedMotion ? 0.7 : 0}
         style={{ filter: `drop-shadow(0 0 4px ${color.glow})` }}
-      />
+      >
+        {!reducedMotion ? (
+          <>
+            <animate
+              attributeName={vertical ? "cy" : "cx"}
+              values={`${start};${end}`}
+              dur="2.2s"
+              repeatCount="indefinite"
+            />
+            <animate
+              attributeName="opacity"
+              values="0;1;1;0"
+              dur="2.2s"
+              repeatCount="indefinite"
+            />
+          </>
+        ) : null}
+      </circle>
     </svg>
   );
 }
