@@ -68,13 +68,17 @@ export function createWorkflowCallService(
         );
       }
       assertSequentialWorkflow(workflow);
-      const input = workflow.inputSchema.parse(args.input);
-      workflowCallFingerprint(input);
       const snapshot = args.snapshot as ChildSnapshot | undefined;
       if (snapshot && snapshot.version !== workflow.version)
         throw new Error(
           `Workflow '${workflow.id}' changed since the call was suspended.`,
         );
+      // The checkpoint already contains parsed input. Re-running a transform
+      // during resume could change its meaning or repeat validation effects.
+      const input = snapshot
+        ? undefined
+        : workflow.inputSchema.parse(args.input);
+      if (!snapshot) workflowCallFingerprint(input);
       const saver = createInMemoryCheckpointSaver();
       const threadId = "child";
       if (snapshot)

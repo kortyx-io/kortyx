@@ -167,4 +167,4 @@ save workflows from nodes. Its update fallback calls save as a nested child.
 A deterministic canvas test forks the real save-confirmation workflow and
 resumes both branches. Live browser verification exercises creation pickers,
 a fork with a different brief, streaming canvas generation, and server restart
-while the original child is paused.
+while the original child is paused, followed by save confirmation and completion.

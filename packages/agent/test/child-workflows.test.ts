@@ -432,6 +432,40 @@ function simpleChild(run: NodeFn) {
 }
 
 describe("call safety", () => {
+  it("does not reapply input transforms when an interrupted child resumes", async () => {
+    let parses = 0;
+    const child = defineWorkflow({
+      ...simpleChild(async ({ input }) => {
+        await useInterrupt({
+          request: { kind: "text", question: "Continue?" },
+        });
+        return { data: z.object({ answer: z.string() }).parse(input) };
+      }),
+      inputSchema: z.object({
+        answer: z.string().transform((value) => {
+          parses++;
+          return value.toUpperCase();
+        }),
+      }),
+    });
+    const agent = caller(
+      async () => ({
+        data: (
+          await useWorkflow({
+            id: "call",
+            workflow: child,
+            input: { answer: "once" },
+          })
+        ).data,
+      }),
+      [child],
+    );
+    expect(data(await resume(agent, await start(agent), "yes"))).toMatchObject({
+      answer: "ONCE",
+    });
+    expect(parses).toBe(1);
+  });
+
   it("resumes a reasoning interrupt and counts child usage once across a later parent pause", async () => {
     const responses = [
       {
