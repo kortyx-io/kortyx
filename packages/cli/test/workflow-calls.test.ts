@@ -2,8 +2,12 @@ import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import type { EnsureWorkflowTopologyRequest } from "@kortyx/telemetry-contracts";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { discoverWorkflowCalls } from "../src/workflow-calls";
+
+// These integration cases build real TypeScript programs; coverage on shared
+// CI runners can take longer than Vitest’s five-second unit-test default.
+vi.setConfig({ testTimeout: 20_000 });
 
 const snapshot = (
   id: string,
