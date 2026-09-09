@@ -38,7 +38,12 @@ export function discoverWorkflowCalls(
     !n.getSourceFile().isDeclarationFile &&
     !n.getSourceFile().fileName.includes("node_modules");
   const symbol = (n: ts.Node): ts.Symbol | undefined => {
-    const s = checker.getSymbolAtLocation(n);
+    let s = checker.getSymbolAtLocation(n);
+    if (
+      s?.valueDeclaration &&
+      ts.isShorthandPropertyAssignment(s.valueDeclaration)
+    )
+      s = checker.getShorthandAssignmentValueSymbol(s.valueDeclaration);
     return s && s.flags & ts.SymbolFlags.Alias
       ? checker.getAliasedSymbol(s)
       : s;
@@ -87,12 +92,6 @@ export function discoverWorkflowCalls(
             (d.parent.flags & ts.NodeFlags.Const) !== 0))
       )
         return resolve(d.initializer, bindings, seen);
-      if (d && ts.isShorthandPropertyAssignment(d)) {
-        const value =
-          checker.getShorthandAssignmentValueSymbol(d)?.valueDeclaration;
-        if (value && ts.isVariableDeclaration(value))
-          return resolve(value.initializer, bindings, seen);
-      }
     }
     if (ts.isPropertyAccessExpression(e)) {
       const found = property(e.expression, e.name.text, bindings, seen);
@@ -144,11 +143,7 @@ export function discoverWorkflowCalls(
         p.name.text === key
       ) {
         if (ts.isPropertyAssignment(p)) return p.initializer;
-        if (ts.isShorthandPropertyAssignment(p)) {
-          const d =
-            checker.getShorthandAssignmentValueSymbol(p)?.valueDeclaration;
-          if (d && ts.isVariableDeclaration(d)) return d.initializer;
-        }
+        if (ts.isShorthandPropertyAssignment(p)) return p.name;
       }
     }
     return undefined;

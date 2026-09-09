@@ -13,7 +13,9 @@ RUN pnpm dlx turbo@2.6.1 prune --scope=kortyx-website --docker
 FROM base AS installer
 WORKDIR /repo
 COPY --from=pruner /repo/out/json/ ./
-COPY --from=pruner /repo/out/pnpm-lock.yaml ./pnpm-lock.yaml
+# Turbo 2.6 pruning drops alternate peer snapshots (for example Vite/esbuild).
+# Keep the complete frozen lockfile; pnpm installs only the pruned manifests.
+COPY --from=pruner /repo/pnpm-lock.yaml ./pnpm-lock.yaml
 RUN pnpm install --frozen-lockfile
 COPY --from=pruner /repo/out/full/ ./
 RUN pnpm --filter kortyx-website build
