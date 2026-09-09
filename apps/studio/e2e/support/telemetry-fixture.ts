@@ -43,6 +43,9 @@ const topology = {
     { sourceNodeId: "collectBrief", targetNodeId: "publishBrief" },
     { sourceNodeId: "publishBrief", targetNodeId: "__end__" },
   ],
+  calls: [
+    { sourceNodeId: "chat", targetWorkflowId: DRAWER_FIXTURE.workflowId },
+  ],
   transitions: [
     {
       sourceNodeId: "collectBrief",

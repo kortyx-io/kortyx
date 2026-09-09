@@ -193,3 +193,9 @@ The first two steps form the minimum useful Studio support. The overlay can foll
 - Browser checks cover run/interrupt navigation, call selection after refresh/Back, narrow drawer layout, accessible expand/collapse, and the optional call overlay using real Canvas traffic.
 
 The user approved this experience, including searchable child rows behind the Include child workflows toggle. Implementation uses additive event contracts and existing projection tables. Existing events can be reprojected with `pnpm db:backfill-studio`; generic pre-lifecycle spans cannot be upgraded into missing logical facts.
+
+## Catalog regression correction
+
+Migrating Canvas from `transitionTo` to `useWorkflow` exposed that the original projector only discovered handoffs. The CLI now follows source-level workflow references and calls through local custom hooks, publishing supplemental call metadata on the existing topology revision. Runtime registration preserves it; an explicit CLI republish replaces it. The executable hash remains stable between CLI and runtime.
+
+Studio shows source-discovered call/return paths before traffic, distinguishes calls from handoffs, and overlays observed metrics without duplicate edges. Dynamic or unavailable source targets produce CLI warnings. Regression coverage includes all four general-chat calls and update-canvas's save fallback with no executions, custom-hook/alias resolution, catalog preservation across runtime registration, and overlay deduplication.

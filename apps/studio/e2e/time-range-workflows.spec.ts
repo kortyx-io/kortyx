@@ -2,6 +2,49 @@ import { expect, test } from "@playwright/test";
 import { DRAWER_FIXTURE } from "./support/telemetry-fixture";
 
 test.describe("Studio time ranges and workflow cohorts", () => {
+  test("keeps unexecuted catalog calls visible and preserves caller context through selection and reload", async ({
+    page,
+  }) => {
+    await page.goto(
+      `/workflows?workflow=${DRAWER_FIXTURE.workflowId}&range=All+time`,
+    );
+    await expect(page.locator('[data-workflows-ready="true"]')).toBeVisible();
+    const callId = `catalog-call:${DRAWER_FIXTURE.workflowId}:chat:${DRAWER_FIXTURE.workflowId}`;
+    const edge = page.locator(`[data-id="${callId}"]`);
+    await expect(edge).toHaveCount(1);
+    await page.getByRole("checkbox", { name: /Observed calls/ }).uncheck();
+    await expect(edge).toHaveCount(1);
+    const inspector = page.getByRole("complementary", {
+      name: "Selection inspector",
+    });
+    // There is also a handoff to this workflow. Select the source-discovered
+    // call by its transition query rather than depending on graph coordinates.
+    await page.goto(
+      `/workflows?workflow=${DRAWER_FIXTURE.workflowId}&transition=${encodeURIComponent(callId)}&range=All+time`,
+    );
+    await expect(
+      inspector.getByRole("heading", { name: "Child workflow call" }),
+    ).toBeVisible();
+    await expect(
+      inspector.getByText("Discovered in source · returns to caller", {
+        exact: true,
+      }),
+    ).toBeVisible();
+    await expect(
+      inspector.getByRole("link", { name: "View runs" }),
+    ).toHaveAttribute("href", /includeChildren=true/);
+    await page.reload();
+    await expect(
+      inspector.getByRole("heading", { name: "Child workflow call" }),
+    ).toBeVisible();
+    await inspector
+      .getByRole("button", { name: `Back to ${DRAWER_FIXTURE.workflowId}` })
+      .click();
+    await expect(page).toHaveURL(
+      new RegExp(`workflow=${DRAWER_FIXTURE.workflowId}.*node=chat`),
+    );
+  });
+
   test("keeps range and version filters URL-backed and preserves the exact View runs cohort", async ({
     page,
   }) => {

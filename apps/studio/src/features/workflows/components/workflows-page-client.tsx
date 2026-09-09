@@ -7,6 +7,7 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@/lib/utils";
 import { useWorkflowQuery } from "../hooks/use-workflow-query";
 import { workflowCanvasFocusId } from "../lib/view-state";
+import { withWorkflowCallEvidence } from "../lib/workflow-calls";
 import type { WorkflowSystem } from "../schema";
 import { WorkflowCanvas } from "./workflow-canvas";
 import { WorkflowCatalog } from "./workflow-catalog";
@@ -22,7 +23,7 @@ export default function WorkflowsPageClient({
   const router = useRouter();
   const [refreshing, startRefresh] = useTransition();
   const { params, selection, setParams, setSelection, setTimeRange } =
-    useWorkflowQuery();
+    useWorkflowQuery(system.transitions);
   const [focusedWorkflow, setFocusedWorkflow] = useState<{
     id: string;
     request: number;
@@ -30,16 +31,7 @@ export default function WorkflowsPageClient({
   }>();
   const [showCalls, setShowCalls] = useState(true);
   const canvasSystem = useMemo(
-    () =>
-      showCalls
-        ? {
-            ...system,
-            transitions: [
-              ...system.transitions,
-              ...(system.observedCalls ?? []),
-            ],
-          }
-        : system,
+    () => withWorkflowCallEvidence(system, showCalls),
     [system, showCalls],
   );
   const [catalogOpen, setCatalogOpen] = useState(false);
@@ -124,7 +116,7 @@ export default function WorkflowsPageClient({
   );
   const inspector = (
     <WorkflowInspector
-      system={system}
+      system={canvasSystem}
       selection={selection}
       onSelect={selectItem}
       onClose={() => {
@@ -175,7 +167,7 @@ export default function WorkflowsPageClient({
           </span>
           <span className="ml-auto">
             {system.observedCalls?.length
-              ? "Dotted purple links call a workflow and return"
+              ? "Overlay recorded calls on source-discovered paths"
               : "No child calls recorded in this time range"}
           </span>
         </label>

@@ -69,9 +69,15 @@ export function WorkflowInspector({
   const runHref =
     selection.type === "transition" && selectedTransition
       ? runsHref({
-          workflow: selectedTransition.sourceWorkflowId,
-          transition: selectedTransition.id,
+          workflow:
+            selectedTransition.kind === "call"
+              ? selectedTransition.targetWorkflowId
+              : selectedTransition.sourceWorkflowId,
+          includeChildren: selectedTransition.kind === "call" ? "true" : null,
+          transition:
+            selectedTransition.kind === "call" ? null : selectedTransition.id,
           version:
+            selectedTransition.kind !== "call" &&
             selectedTransition.sourceWorkflowId === system.cohort.workflowId
               ? system.cohort.version
               : null,
@@ -93,7 +99,9 @@ export function WorkflowInspector({
           : "/runs";
   const title =
     selection.type === "transition"
-      ? "Transition"
+      ? selectedTransition?.kind === "call"
+        ? "Child workflow call"
+        : "Transition"
       : selection.type === "node"
         ? selectedNode?.label
         : selectedWorkflow?.name;
@@ -171,13 +179,22 @@ export function WorkflowInspector({
                     ],
                     ["Target", selectedTransition.targetWorkflowId],
                     ["Condition", selectedTransition.condition ?? "—"],
-                    ["Handoffs", formatCount(selectedTransition.volume)],
                     [
-                      "Success after handoff",
+                      selectedTransition.kind === "call"
+                        ? "Observed calls"
+                        : "Handoffs",
+                      formatCount(selectedTransition.volume),
+                    ],
+                    [
+                      selectedTransition.kind === "call"
+                        ? "Child success"
+                        : "Success after handoff",
                       `${selectedTransition.successRate ?? "—"}%`,
                     ],
                     [
-                      "Median transition",
+                      selectedTransition.kind === "call"
+                        ? "Median call duration"
+                        : "Median transition",
                       formatDurationMs(selectedTransition.medianDurationMs),
                     ],
                   ]}
@@ -239,7 +256,9 @@ export function WorkflowInspector({
                     ]}
                   />
                   <div>
-                    <h4 className="mb-2 text-xs font-medium">Transitions</h4>
+                    <h4 className="mb-2 text-xs font-medium">
+                      Workflow connections
+                    </h4>
                     {system.transitions
                       .filter(
                         (edge) =>

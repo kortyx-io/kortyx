@@ -48,12 +48,19 @@ export const WorkflowTopologyEdgeSchema = z
     condition: z.string().optional(),
   })
   .strict();
+export const WorkflowTopologyCallSchema = z
+  .object({
+    sourceNodeId: z.string().min(1),
+    targetWorkflowId: z.string().min(1),
+  })
+  .strict();
 export const WorkflowTopologyTransitionSchema = z
   .object({
     sourceNodeId: z.string().min(1).optional(),
     targetWorkflowId: z.string().min(1),
     condition: z.string().optional(),
     intent: z.string().optional(),
+    kind: z.enum(["call", "handoff"]).optional(),
   })
   .strict();
 export const EnsureWorkflowTopologyRequestSchema = z
@@ -71,6 +78,7 @@ export const EnsureWorkflowTopologyRequestSchema = z
         nodes: z.array(WorkflowTopologyNodeSchema),
         edges: z.array(WorkflowTopologyEdgeSchema),
         transitions: z.array(WorkflowTopologyTransitionSchema).optional(),
+        calls: z.array(WorkflowTopologyCallSchema).optional(),
       })
       .strict(),
   })
@@ -641,6 +649,7 @@ export const StudioWorkflowInternalEdgeSchema = z
   .strict();
 export const StudioWorkflowTransitionSchema = z
   .object({
+    kind: z.enum(["call", "handoff"]).optional(),
     id: z.string().min(1),
     sourceWorkflowId: z.string().min(1),
     sourceNodeId: z.string().nullable(),

@@ -1082,14 +1082,18 @@ const aggregateTransitions = (
     for (const transition of revision.workflowTransitions ?? []) {
       const sourceNodeId = transition.sourceNodeId ?? null;
       const condition = transition.condition ?? null;
-      const key = transitionKey({
-        sourceWorkflowId: revision.workflowId,
-        sourceNodeId,
-        targetWorkflowId: transition.targetWorkflowId,
-        condition,
-      });
+      const key =
+        transition.kind === "call"
+          ? `catalog-call:${revision.workflowId}:${sourceNodeId ?? ""}:${transition.targetWorkflowId}`
+          : transitionKey({
+              sourceWorkflowId: revision.workflowId,
+              sourceNodeId,
+              targetWorkflowId: transition.targetWorkflowId,
+              condition,
+            });
       declared.set(key, {
         id: key,
+        ...(transition.kind ? { kind: transition.kind } : {}),
         sourceWorkflowId: revision.workflowId,
         sourceNodeId,
         targetWorkflowId: transition.targetWorkflowId,

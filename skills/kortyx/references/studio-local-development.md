@@ -71,9 +71,9 @@ to make Studio look connected.
 
 ## Child Workflow Visibility
 
-Register parent and child definitions in the catalog. Calls inside custom hooks are observed at runtime; no topology declaration is required. In **Runs**, enable **Include child workflows** to search individual calls, then open a child row to its parent execution's **Execution** tab. This view shows nested calls, node/generation ownership, lifecycle, captured input/returned data, and branch selection. Child rows do not increase session root-run counts.
+Register parent and child definitions in the catalog. The CLI discovers resolvable calls from node/custom-hook source; dynamic targets are added through runtime observations. No call declarations are required. In **Runs**, enable **Include child workflows** to search individual calls, then open a child row to its parent execution's **Execution** tab. This view shows nested calls, node/generation ownership, lifecycle, captured input/returned data, and branch selection. Child rows do not increase session root-run counts.
 
-**Observed calls** is enabled by default on the workflow canvas, displaying dotted purple call/return links. Turn it off to inspect only declared topology. Click a link to open a concrete call. Handoff relationships remain separate. Publish the catalog before running real application traffic; an absent observed link means no call was captured in the selected cohort.
+Source-discovered calls appear as dotted purple call/return links even before traffic. **Observed calls** is enabled by default and overlays recorded metrics plus dynamic targets. Turning it off keeps source-discovered links visible. Click a link to open a concrete call. Handoff relationships remain separate. Publish the catalog before running real application traffic; an absent source link should be checked with `topology push --dry-run --json` and its discovery warnings; an absent observed link means no call was captured in the selected cohort.
 
 For fork/rollback testing, compare `(runId, branchId, invocationId)`, not invocation ID alone. Restored calls reference source evidence, completed results can be reused without new execution, and leaf human interrupts link back to the call tree. Input/output capture is opt-in; oversized child payloads are omitted with a marker. Old SDK generic spans cannot establish logical completion.
 

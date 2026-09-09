@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import type {
+  EnsureWorkflowTopologyRequest,
   KortyxTelemetryEvent,
   StudioInterrupt,
   StudioRun,
@@ -15,7 +16,9 @@ import {
 } from "../src/repositories/studio-lists";
 import { backfillStudioProjections } from "../src/repositories/studio-projections";
 import { getStudioRunReadModel } from "../src/repositories/studio-read-models";
+import { listStudioWorkflows } from "../src/repositories/studio-workflows";
 import { ingestTelemetryEvents } from "../src/repositories/telemetry-events";
+import { ensureWorkflowRevision } from "../src/repositories/workflow-revisions";
 import {
   organizations,
   projectEnvironments,
@@ -115,6 +118,74 @@ integration("Studio SQL projections", () => {
   let organizationB: string;
   let projectA: string;
   let projectB: string;
+
+  it("publishes source calls without runs, preserves them on runtime ensure, and replaces them on republish", async () => {
+    const request: EnsureWorkflowTopologyRequest = {
+      schemaVersion: 1,
+      environment: "test",
+      service: { name: "catalog-test" },
+      workflow: {
+        id: "catalog-parent",
+        declaredVersion: "1",
+        topologyHash: "f".repeat(64),
+        nodes: [{ id: "chat" }],
+        edges: [],
+        transitions: [{ sourceNodeId: "chat", targetWorkflowId: "handoff" }],
+      },
+    };
+    const ensure = (value: EnsureWorkflowTopologyRequest) =>
+      ensureWorkflowRevision(client.db, {
+        organizationId: organizationA,
+        projectId: projectA,
+        request: value,
+      });
+    const initial = await ensure(request);
+    const withCalls = {
+      ...request,
+      workflow: {
+        ...request.workflow,
+        calls: [{ sourceNodeId: "chat", targetWorkflowId: "catalog-child" }],
+      },
+    };
+    const published = await ensure(withCalls);
+    expect(published.workflowRevisionId).toBe(initial.workflowRevisionId);
+    await ensure(request);
+    const read = () =>
+      listStudioWorkflows(client.db, {
+        organizationId: organizationA,
+        projectId: projectA,
+        query: { range: "All time", env: "test" },
+      });
+    const catalog = await read();
+    expect(
+      catalog.transitions.filter(
+        (edge) => edge.sourceWorkflowId === "catalog-parent",
+      ),
+    ).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          kind: "call",
+          sourceNodeId: "chat",
+          targetWorkflowId: "catalog-child",
+          volume: 0,
+        }),
+        expect.objectContaining({ targetWorkflowId: "handoff", volume: 0 }),
+      ]),
+    );
+    expect(
+      catalog.transitions.filter((edge) => edge.kind === "call"),
+    ).toHaveLength(1);
+    const other = await listStudioWorkflows(client.db, {
+      organizationId: organizationB,
+      projectId: projectB,
+      query: { range: "All time" },
+    });
+    expect(other.transitions.some((edge) => edge.kind === "call")).toBe(false);
+    await ensure({ ...request, workflow: { ...request.workflow, calls: [] } });
+    expect(
+      (await read()).transitions.some((edge) => edge.kind === "call"),
+    ).toBe(false);
+  });
 
   beforeAll(async () => {
     if (!databaseUrl) return;

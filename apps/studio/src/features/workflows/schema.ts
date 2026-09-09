@@ -42,6 +42,7 @@ export const WorkflowInternalEdgeSchema = z.object({
 });
 
 export const WorkflowTransitionSchema = z.object({
+  kind: z.enum(["call", "handoff"]).optional(),
   id: z.string(),
   sourceWorkflowId: z.string(),
   sourceNodeId: z.string().optional(),

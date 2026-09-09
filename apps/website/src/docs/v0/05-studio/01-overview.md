@@ -68,6 +68,8 @@ The SDK's [child workflow API](../03-guides/06-child-workflows.md) is visible in
 
 Forks and rollbacks have separate branch histories. Inherited calls link to their source execution; new work and cached reuse remain distinguishable. Interrupt details show the child ancestry and link to the waiting call. Studio observes these operations; resume and fork still happen in your application.
 
-On **Workflows**, **Observed calls** is enabled by default, showing dotted purple call/return links from actual traffic in the selected cohort. Turn it off to inspect only declared topology. Click a link to inspect an example call. These relationships are separate from `transitionTo` handoffs. Publishing topology registers definitions; it does not invent calls inside custom hooks.
+On **Workflows**, the CLI discovers resolvable `useWorkflow` calls from node and custom-hook source and publishes dotted purple call/return links before any runs occur. No call declarations are needed. **Observed calls**, enabled by default, overlays execution metrics and adds dynamic targets discovered during runs. Turning it off keeps source-discovered paths visible. Click a link with recorded traffic to inspect an example call; an unexecuted path opens its source/target details. These relationships stay separate from `transitionTo` handoffs.
+
+Run `kortyx topology push --entry src/lib/agent.ts --dry-run --json` to inspect discovered calls, then publish without `--dry-run`. Unresolvable targets produce CLI warnings and rely on runtime observations.
 
 Input and returned data require explicit telemetry content capture. Child payloads over the capture limit are omitted with a marker. Older SDKs retain their generic trace view; an ended attempt span alone cannot establish that a child returned.

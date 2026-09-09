@@ -103,7 +103,9 @@ const transitionId = (
   revision: WorkflowRevision,
   transition: WorkflowRevision["workflowTransitions"][number],
 ) =>
-  `${revision.workflowId}:${transition.sourceNodeId ?? ""}:${transition.targetWorkflowId}:${transition.condition ?? ""}`;
+  transition.kind === "call"
+    ? `catalog-call:${revision.workflowId}:${transition.sourceNodeId ?? ""}:${transition.targetWorkflowId}`
+    : `${revision.workflowId}:${transition.sourceNodeId ?? ""}:${transition.targetWorkflowId}:${transition.condition ?? ""}`;
 
 export const createStudioWorkflowModelsFromProjections = (input: {
   runs: StudioRun[];
@@ -199,10 +201,14 @@ export const createStudioWorkflowModelsFromProjections = (input: {
       const id = transitionId(revision, transition);
       declared.set(id, {
         id,
+        ...(transition.kind ? { kind: transition.kind } : {}),
         sourceWorkflowId: revision.workflowId,
         sourceNodeId: transition.sourceNodeId ?? null,
         targetWorkflowId: transition.targetWorkflowId,
-        condition: transition.condition ?? null,
+        condition:
+          transition.kind === "call"
+            ? "Discovered in source · returns to caller"
+            : (transition.condition ?? null),
         volume: 0,
         successRate: null,
         medianDurationMs: null,
@@ -302,6 +308,9 @@ export const listStudioWorkflows = async (
         and(
           eq(workflowRevisions.organizationId, input.organizationId),
           eq(workflowRevisions.projectId, input.projectId),
+          input.query.env && input.query.env !== "All environments"
+            ? eq(workflowRevisions.environment, input.query.env)
+            : undefined,
         ),
       )
       .orderBy(desc(workflowRevisions.createdAt)),

@@ -412,6 +412,7 @@ export const getStudioWorkflows = async (
         })),
         transitions: response.data.transitions.map((transition) => ({
           id: transition.id,
+          kind: transition.kind,
           sourceWorkflowId: transition.sourceWorkflowId,
           sourceNodeId: optional(transition.sourceNodeId),
           targetWorkflowId: transition.targetWorkflowId,

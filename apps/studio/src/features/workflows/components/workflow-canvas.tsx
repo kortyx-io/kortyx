@@ -52,6 +52,7 @@ import type {
 } from "@/features/workflows/schema";
 import { formatCount, formatCurrency, formatDurationMs } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { sameWorkflowCall } from "../lib/workflow-calls";
 import styles from "./workflow-canvas.module.css";
 
 type LayoutDirection = "LR" | "TB";
@@ -70,6 +71,7 @@ type InternalData = {
   direction: LayoutDirection;
 };
 type TransitionData = {
+  kind?: "call" | "handoff";
   volume: number;
   condition?: string;
   errorRate?: number;
@@ -220,8 +222,11 @@ export function WorkflowCanvas({
           }
         }}
         onEdgeClick={(_, edge) => {
+          const path = system.transitions.find((path) => path.id === edge.id);
           const call = system.observedCalls?.find(
-            (call) => call.id === edge.id,
+            (call) =>
+              call.id === edge.id ||
+              (path?.kind === "call" && sameWorkflowCall(path, call)),
           );
           if (call) {
             window.location.href = `/runs/${encodeURIComponent(call.runId)}?tab=calls&call=${encodeURIComponent(call.invocationId)}&branch=${encodeURIComponent(call.branchId)}`;
@@ -448,7 +453,7 @@ function TransitionEdge({
   const [labelX, labelY] = routeLabel
     ? [routeLabel.x, routeLabel.y]
     : [fallbackLabelX, fallbackLabelY];
-  const isCall = id.startsWith("observed-call:");
+  const isCall = data?.kind === "call" || id.startsWith("observed-call:");
   const error = (data?.errorRate ?? 0) > 4;
   const width = getTransitionStrokeWidth(
     data?.mode,
