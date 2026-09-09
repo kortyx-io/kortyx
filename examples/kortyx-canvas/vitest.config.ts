@@ -2,6 +2,10 @@ import { resolve } from "node:path";
 import { defineKortyxVitestConfig } from "../../vitest.shared";
 
 export default defineKortyxVitestConfig({
+  test: {
+    // Next's standalone output can contain traced source tests. Run originals only.
+    include: ["src/**/*.{test,spec}.{ts,tsx,js,jsx}"],
+  },
   resolve: {
     alias: {
       "@": resolve(__dirname, "src"),
