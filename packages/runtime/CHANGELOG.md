@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.12.0](https://github.com/kortyx-io/kortyx/compare/runtime-v0.11.1...runtime-v0.12.0) (2026-09-09)
+
+
+### Features
+
+* add resumable child workflows and Studio inspection ([#157](https://github.com/kortyx-io/kortyx/issues/157)) ([542ba29](https://github.com/kortyx-io/kortyx/commit/542ba29b3b57217e6e5d98c1b409bbec5ce3261f))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/core bumped to 0.6.0
+    * @kortyx/hooks bumped to 0.19.0
+
 ## [0.11.1](https://github.com/kortyx-io/kortyx/compare/runtime-v0.11.0...runtime-v0.11.1) (2026-08-02)
 
 

@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.16.0](https://github.com/kortyx-io/kortyx/compare/agent-v0.15.0...agent-v0.16.0) (2026-09-09)
+
+
+### Features
+
+* add resumable child workflows and Studio inspection ([#157](https://github.com/kortyx-io/kortyx/issues/157)) ([542ba29](https://github.com/kortyx-io/kortyx/commit/542ba29b3b57217e6e5d98c1b409bbec5ce3261f))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/core bumped to 0.6.0
+    * @kortyx/runtime bumped to 0.12.0
+  * devDependencies
+    * @kortyx/hooks bumped to 0.19.0
+
 ## [0.15.0](https://github.com/kortyx-io/kortyx/compare/agent-v0.14.2...agent-v0.15.0) (2026-08-02)
 
 
