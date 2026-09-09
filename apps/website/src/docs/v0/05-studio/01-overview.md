@@ -68,6 +68,6 @@ The SDK's [child workflow API](../03-guides/06-child-workflows.md) is visible in
 
 Forks and rollbacks have separate branch histories. Inherited calls link to their source execution; new work and cached reuse remain distinguishable. Interrupt details show the child ancestry and link to the waiting call. Studio observes these operations; resume and fork still happen in your application.
 
-On **Workflows**, enable **Observed calls** to see dotted purple call/return links from actual traffic in the selected cohort. Click a link to inspect an example call. These relationships are separate from `transitionTo` handoffs. Publishing topology registers definitions; it does not invent calls inside custom hooks.
+On **Workflows**, **Observed calls** is enabled by default, showing dotted purple call/return links from actual traffic in the selected cohort. Turn it off to inspect only declared topology. Click a link to inspect an example call. These relationships are separate from `transitionTo` handoffs. Publishing topology registers definitions; it does not invent calls inside custom hooks.
 
 Input and returned data require explicit telemetry content capture. Child payloads over the capture limit are omitted with a marker. Older SDKs retain their generic trace view; an ended attempt span alone cannot establish that a child returned.

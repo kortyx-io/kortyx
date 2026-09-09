@@ -1,6 +1,6 @@
 # Studio support for child workflows
 
-Status: Approved and implemented. Runs defaults to root executions, with an optional **Include child workflows** toggle. The execution tree, lifecycle and result inspector, interrupt ancestry, branch histories, and optional observed-call overlay are implemented. Generic traces remain available for older telemetry.
+Status: Approved and implemented. Runs defaults to root executions, with an optional **Include child workflows** toggle. The execution tree, lifecycle and result inspector, interrupt ancestry, branch histories, and observed-call overlay are implemented. Observed calls are visible by default and can be hidden with the toggle. Generic traces remain available for older telemetry.
 
 Related: [SDK child workflow contract](./child-workflows.md), [Observe detail views](./observe-detail-views.md).
 
@@ -86,7 +86,7 @@ Source and fork may contain the same saved `invocationId`. The UI and projection
 
 ### Workflow catalog and canvas
 
-Keep declared internal edges and handoffs as they are. Add an “Observed calls” toggle beside existing view controls; show call relationships only for the selected environment/time range and revision filters.
+Keep declared internal edges and handoffs as they are. Add an “Observed calls” toggle, enabled by default, beside existing view controls; show call relationships only for the selected environment/time range and revision filters.
 
 - Draw a distinct, labelled “calls · returns” connector from the calling node to the child's workflow container. Use line style, arrow treatment, and text, not color alone.
 - Aggregate by calling workflow revision, node, call ID, and target workflow revision. Repeated invocations affect volume without generating duplicate connectors.

@@ -28,7 +28,7 @@ export default function WorkflowsPageClient({
     request: number;
     sourceKey: string;
   }>();
-  const [showCalls, setShowCalls] = useState(false);
+  const [showCalls, setShowCalls] = useState(true);
   const canvasSystem = useMemo(
     () =>
       showCalls
@@ -174,7 +174,9 @@ export default function WorkflowsPageClient({
             {system.observedCalls?.length ?? 0}
           </span>
           <span className="ml-auto">
-            Dotted purple links call a workflow and return
+            {system.observedCalls?.length
+              ? "Dotted purple links call a workflow and return"
+              : "No child calls recorded in this time range"}
           </span>
         </label>
         <div className="min-h-0 flex-1">
