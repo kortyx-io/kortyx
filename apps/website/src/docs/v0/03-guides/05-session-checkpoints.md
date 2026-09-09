@@ -215,6 +215,14 @@ const fork = await agent.fork(checkpointId, {
 
 `fork(...)` creates a new session whose runtime state starts from the checkpoint. Parent and child sessions are isolated after the fork.
 
+## Checkpoints while a child workflow is waiting
+
+A `useWorkflow(...)` call saves its interrupted child graph inside the parent's checkpoint, including nested children. Forking a snapshot-backed pause creates independent run IDs and resume tokens. Each branch can answer the child differently and continue its own parent. Rollback restores the selected graph and replaces later pending writes.
+
+Completed children before the selected pause are reused from saved results. External effects after the fork or rollback point still need application idempotency and are not undone by restoring a checkpoint. Legacy records without graph snapshots keep their previous compatibility path.
+
+See [Call Child Workflows](./06-child-workflows.md) for call identity, version changes, context retention, and restart behavior.
+
 ## Storage Behavior
 
 The Redis adapter uses the same Redis connection for all Kortyx framework state, with separate key spaces:

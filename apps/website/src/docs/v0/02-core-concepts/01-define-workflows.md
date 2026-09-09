@@ -75,6 +75,12 @@ export const supportWorkflow = defineWorkflow({
 });
 ```
 
+## Callable workflows
+
+A workflow called by `useWorkflow(...)` declares `inputSchema` and `outputSchema`. Its last node returns ordinary `data` and reaches `__end__`; the runtime validates accumulated child data and returns it to the caller. Existing root workflows can omit these schemas.
+
+Calls live in node code or custom hooks. Register both workflows with the agent; no special call edge or return node is required. See [Call Child Workflows](../03-guides/06-child-workflows.md) for typed definitions, string IDs, and interrupts.
+
 ## Node return shape
 
 Nodes return a subset of `NodeResult`. See [Nodes](./03-nodes.md#node-return-values) for the full return contract and how returned `data` is passed to the next node.

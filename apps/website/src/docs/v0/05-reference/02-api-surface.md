@@ -48,6 +48,9 @@ Plus types like `GraphState`, `NodeResult`, `WorkflowDefinition`, `WorkflowId`.
 
 ```ts
 export {
+  createWorkflowHooks,
+  useWorkflow,
+  WorkflowCallError,
   useInterrupt,
   useReason,
   useNodeState,
@@ -57,6 +60,9 @@ export {
 ```
 ```js
 export {
+  createWorkflowHooks,
+  useWorkflow,
+  WorkflowCallError,
   useInterrupt,
   useReason,
   useNodeState,
@@ -64,6 +70,8 @@ export {
   useWorkflowState,
 } from "@kortyx/hooks";
 ```
+
+`useWorkflow({ id, workflow, input })` returns a promise of `{ data }`. Typed definitions and bound registries infer input/output from the child's schemas; dynamic unbound strings return `Record<string, unknown>`. `WorkflowCallError` represents a rejected child invocation. See [Call Child Workflows](../03-guides/06-child-workflows.md).
 
 ## Providers
 

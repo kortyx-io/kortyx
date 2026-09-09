@@ -116,6 +116,10 @@ Replay-safe patterns:
 - Use idempotency keys when calling app services.
 - Keep random ids and timestamps stable if they affect external writes.
 
+## Interrupts in Child Calls
+
+`useWorkflow(...)` bridges child interrupts through the parent's normal transport. The child snapshot is stored inside parent hook state, so resume and snapshot-backed forks retain nested calls. Completed children are reused during parent replay; surrounding code may rerun. Read [Child Workflow Implementation](./hooks-child-workflows.md) before composing these hooks.
+
 ## State Choices
 
 - Use `useNodeState(...)` for state local to one node execution flow.

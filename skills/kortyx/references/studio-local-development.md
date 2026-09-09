@@ -69,6 +69,10 @@ pnpm --filter @kortyx/example-canvas topology:push
 Then send a real Canvas request. Do not add or invoke a synthetic smoke workflow
 to make Studio look connected.
 
+## Child Workflow Visibility
+
+Register parent and child definitions in the catalog. Calls made inside custom hooks are discovered at runtime, not by adding mandatory topology declarations. Current `kortyx.workflow.call` spans can appear as generic operations; a dedicated child tree, return inspector, and observed call links are not yet implemented in Studio. Do not claim those UI features when documenting or connecting an SDK application.
+
 ## Troubleshooting Order
 
 1. Run `npx kortyx studio status`.

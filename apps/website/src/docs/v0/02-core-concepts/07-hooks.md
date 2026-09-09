@@ -2,15 +2,16 @@
 id: v0-runtime-hooks
 title: "Hooks"
 description: "Practical guide to when each hook is useful and how structured streaming works in real node logic."
-keywords: [kortyx, hooks, useReason, useInterrupt, useWorkflowState, useNodeState, useStructuredData]
+keywords: [kortyx, hooks, useReason, useInterrupt, useWorkflow, createWorkflowHooks, useWorkflowState, useNodeState, useStructuredData]
 sidebar_label: "Hooks"
 ---
 # Hooks
 
 Hooks are the public node-level runtime API. Import them from `kortyx`.
 
-Use them for four things:
+Use them to:
 
+- call a registered child workflow and continue with its result
 - run model reasoning
 - pause for human input
 - keep short-lived runtime state
@@ -18,12 +19,20 @@ Use them for four things:
 
 ## Quick Selection
 
+- Need a child workflow result before continuing: `useWorkflow(...)`
+- Need typed workflow names: `createWorkflowHooks(...)`
 - Need an LLM call in a node: `useReason(...)`
 - Need manual human-in-the-loop input: `useInterrupt(...)`
 - Need state local to one node execution flow: `useNodeState(...)`
 - Need state shared across nodes in the same run: `useWorkflowState(...)`
 - Need request metadata inside a node: `useRuntimeContext(...)`
 - Need structured UI updates in the stream: `useStructuredData(...)`
+
+## `useWorkflow(...)`
+
+Await a registered child workflow from a node or custom hook, then use its validated `result.data`. Use a typed workflow definition or bind string IDs with `createWorkflowHooks(...)` for inferred input and output types. Callable workflows declare input/output schemas; calling parents need no extra graph declarations.
+
+The child uses ordinary nodes and ends at `__end__`. Its human interrupts pause the parent; resume and snapshot-backed forks preserve the nested child state. Calls are sequential and require stable IDs. See [Call Child Workflows](../03-guides/06-child-workflows.md) for the complete implementation and replay contract.
 
 ## Structured Streaming Mental Model
 
@@ -566,6 +575,7 @@ const [todos, setTodos] = useWorkflowState("todos", []);
 
 - persists across nodes and workflow transitions within the same run
 - restores on interrupt resume for that run
+- is isolated from state inside child workflows called with `useWorkflow`
 
 Across messages and sessions:
 

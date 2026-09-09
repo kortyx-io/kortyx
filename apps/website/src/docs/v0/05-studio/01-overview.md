@@ -60,6 +60,12 @@ Structural telemetry can show:
 
 Prompt, input, and output content is excluded by default. The SDK application decides whether that content may be sent. See [Connect Your Project](./03-connect-project.md#choose-what-content-studio-may-store).
 
+## Child workflow visibility
+
+The SDK's [child workflow API](../03-guides/06-child-workflows.md) emits `kortyx.workflow.call` spans when tracing is configured. These currently appear as generic trace operations. Studio does not yet provide a dedicated child invocation tree, child return inspector, or observed call relationships on the workflow canvas.
+
+Publishing topology registers workflow definitions; it does not discover dynamic calls inside node code. Dedicated child workflow presentation is a proposed Studio follow-up, not a prerequisite for executing children.
+
 ## Current self-hosted boundary
 
 The first self-hosted release is intentionally small: one Project, one Studio instance, one telemetry API instance, and PostgreSQL. Local development and a controlled single-instance server deployment are supported.

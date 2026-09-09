@@ -115,6 +115,12 @@ return {
 };
 ```
 
+## Calls That Return
+
+Use `useWorkflow(...)` in a node or custom hook when a registered workflow should return data and the parent should continue. Define child input/output schemas and return ordinary node `data` at `__end__`. No call edge or special return node is required.
+
+Read [Child Workflow Implementation](./hooks-child-workflows.md) for typed string IDs, direct references, registration, and migration from `transitionTo`.
+
 ## Retry Behavior
 
 Attach retry behavior at the workflow node definition:
