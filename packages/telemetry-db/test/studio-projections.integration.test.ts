@@ -242,6 +242,86 @@ integration("Studio SQL projections", () => {
     ).toBe(false);
   });
 
+  it("includes child rows before filtering and pagination without changing root counts", async () => {
+    const now = new Date().toISOString();
+    const correlation = { runId: "run-child-list", workflowId: "parent" };
+    const facts = [
+      { type: "span.started", payload: { name: "kortyx.run" } },
+      ...["first", "second"].flatMap((invocationId) => [
+        {
+          type: "workflow.call.started",
+          payload: {
+            invocationId,
+            branchId: "branch",
+            callId: "research",
+            targetWorkflowId: "research-child",
+            sourceWorkflowId: "parent",
+            sequence: 1,
+          },
+        },
+        {
+          type: "workflow.call.completed",
+          payload: {
+            invocationId,
+            branchId: "branch",
+            callId: "research",
+            targetWorkflowId: "research-child",
+            sourceWorkflowId: "parent",
+            sequence: 2,
+          },
+        },
+      ]),
+      { type: "span.ended", payload: { name: "kortyx.run" } },
+    ].map((fact) => ({
+      ...fact,
+      schemaVersion: 1,
+      eventId: randomUUID(),
+      occurredAt: now,
+      environment: "test",
+      service: { name: "integration-test" },
+      correlation,
+    })) as KortyxTelemetryEvent[];
+    await ingestTelemetryEvents(client.db, {
+      organizationId: organizationA,
+      projectId: projectA,
+      events: facts,
+    });
+    const input = { organizationId: organizationA, projectId: projectA };
+    const roots = await listStudioRuns(client.db, {
+      ...input,
+      query: { range: "All time", q: "run-child-list" },
+    });
+    const page = await listStudioRuns(client.db, {
+      ...input,
+      query: {
+        range: "All time",
+        includeChildren: "true",
+        workflow: "research-child",
+        pageSize: "1",
+        cursor: "1",
+      },
+    });
+    expect(roots.totalCount).toBe(1);
+    expect(page.totalCount).toBe(2);
+    expect(page.items).toHaveLength(1);
+    expect(page.items[0]).toMatchObject({
+      parentRunId: "run-child-list",
+      workflowId: "research-child",
+      status: "completed",
+      branchId: "branch",
+    });
+    const otherProject = await listStudioRuns(client.db, {
+      organizationId: organizationB,
+      projectId: projectB,
+      query: {
+        range: "All time",
+        includeChildren: "true",
+        workflow: "research-child",
+      },
+    });
+    expect(otherProject.totalCount).toBe(0);
+  });
+
   it("derives pending and expired interrupt filters without new telemetry", async () => {
     const marker = `expiry-${randomUUID()}`;
     const now = Date.now();

@@ -13,6 +13,14 @@ export const TELEMETRY_EVENT_TYPES = [
   "interrupt.cancelled",
   "run.cancelled",
   "workflow.transitioned",
+  "workflow.call.started",
+  "workflow.call.suspended",
+  "workflow.call.resumed",
+  "workflow.call.completed",
+  "workflow.call.failed",
+  "workflow.call.reused",
+  "workflow.call.restored",
+
   "session.checkpointed",
   "session.forked",
   "session.rolled_back",
@@ -80,6 +88,9 @@ export const TelemetryEventSchema = z
     service: TelemetryServiceSchema,
     correlation: z
       .object({
+        invocationId: z.string().optional(),
+        parentInvocationId: z.string().optional(),
+        branchId: z.string().optional(),
         traceId: z.string().optional(),
         spanId: z.string().optional(),
         parentSpanId: z.string().optional(),
@@ -465,6 +476,12 @@ export const StudioMetricSchema = z
 export const StudioRunSchema = z
   .object({
     id: z.string().min(1),
+    callerNodeId: z.string().optional(),
+    parentRunId: z.string().optional(),
+    parentWorkflowId: z.string().optional(),
+    invocationId: z.string().optional(),
+    branchId: z.string().optional(),
+    callId: z.string().optional(),
     status: StudioRunStatusSchema,
     startedAt: z.string().datetime({ offset: true }),
     endedAt: z.string().datetime({ offset: true }).nullable(),
@@ -699,6 +716,15 @@ export const StudioInterruptDetailResponseSchema = z
 export const StudioWorkflowsResponseSchema = z
   .object({
     workflows: z.array(StudioWorkflowSchema),
+    observedCalls: z
+      .array(
+        StudioWorkflowTransitionSchema.extend({
+          runId: z.string(),
+          invocationId: z.string(),
+          branchId: z.string(),
+        }),
+      )
+      .optional(),
     transitions: z.array(StudioWorkflowTransitionSchema),
     cohort: StudioTimeRangeContextSchema.extend({
       workflowId: z.string().nullable(),
@@ -796,3 +822,8 @@ export type StudioCatalogsResponse = z.infer<
   typeof StudioCatalogsResponseSchema
 >;
 export type StudioContextResponse = z.infer<typeof StudioContextResponseSchema>;
+
+export {
+  projectWorkflowCalls,
+  type StudioWorkflowCall,
+} from "./workflow-calls";

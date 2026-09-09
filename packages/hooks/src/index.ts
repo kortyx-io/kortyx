@@ -49,3 +49,4 @@ export {
   WorkflowCallError,
   workflowCallFingerprint,
 } from "./workflow";
+export { emitWorkflowCall } from "./workflow-telemetry";

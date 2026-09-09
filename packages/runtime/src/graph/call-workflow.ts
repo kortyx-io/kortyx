@@ -85,7 +85,9 @@ export function createWorkflowCallService(
         await restoreGraphSnapshot(saver, snapshot.checkpoint, threadId);
       let request: InterruptInput | undefined;
       const invocationPath = `${config.invocationPath ?? "root"}/${encodeURIComponent(args.id)}:${args.invocationId}`;
-      const childConfig: ExecutionRuntimeConfig = {
+      let childConfig: ExecutionRuntimeConfig = {
+        executionBranchId: config.executionBranchId,
+        prepareChildTelemetry: config.prepareChildTelemetry,
         context: config.context,
         session: config.session,
         selectWorkflow: config.selectWorkflow,
@@ -97,6 +99,9 @@ export function createWorkflowCallService(
                 runId: config.telemetry.correlation?.runId,
                 sessionId: config.telemetry.correlation?.sessionId,
                 workflowId: workflow.id,
+                invocationId: args.invocationId,
+                parentInvocationId: config.telemetry.correlation?.invocationId,
+                branchId: config.executionBranchId ?? config.executionRunId,
               },
             }
           : undefined,
@@ -107,7 +112,28 @@ export function createWorkflowCallService(
         invocationPath,
         emit: (event, payload) => {
           if (event === "interrupt") {
-            request = (payload as { input: InterruptInput }).input;
+            const original = (payload as { input: InterruptInput }).input;
+            request = {
+              ...original,
+              meta: {
+                ...original.meta,
+                workflowCallPath: [
+                  {
+                    workflowId: workflow.id,
+                    invocationId: args.invocationId,
+                    callId: args.id,
+                  },
+                  ...(Array.isArray(original.meta?.workflowCallPath)
+                    ? original.meta.workflowCallPath
+                    : []),
+                ],
+                workflowCall: original.meta?.workflowCall ?? {
+                  invocationId: args.invocationId,
+                  workflowId: workflow.id,
+                  nodeId: (payload as { node?: string }).node,
+                },
+              },
+            };
             return;
           }
           if (event === "error")
@@ -131,6 +157,8 @@ export function createWorkflowCallService(
           config.emit?.(event, scoped);
         },
       };
+      childConfig =
+        config.prepareChildTelemetry?.(workflow, childConfig) ?? childConfig;
       const graph = await createExecutionGraph(workflow, childConfig);
       const initial: GraphState = {
         input,
@@ -192,6 +220,9 @@ export function createWorkflowCallService(
             attributes: {
               workflowId: args.workflow,
               runId: config.executionRunId,
+              branchId: config.executionBranchId ?? config.executionRunId,
+              parentInvocationId: config.telemetry?.correlation?.invocationId,
+              callerNodeExecutionId: args.callerNodeExecutionId,
               callId: args.id,
               invocationId: args.invocationId,
             },

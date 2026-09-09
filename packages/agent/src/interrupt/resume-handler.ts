@@ -170,7 +170,12 @@ export async function tryPrepareResumeStream({
 
   const wf = await selectWorkflow(resumedState.currentWorkflow as string);
   const telemetryConfig = prepareWorkflowTelemetry({
-    config,
+    config: {
+      ...config,
+      ...(pending.state?.config?.executionBranchId
+        ? { executionBranchId: pending.state.config.executionBranchId }
+        : {}),
+    },
     workflow: wf,
     runId: pending.runId,
     sessionId,

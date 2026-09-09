@@ -62,16 +62,12 @@ Prompt, input, and output content is excluded by default. The SDK application de
 
 ## Child workflow visibility
 
-The SDK's [child workflow API](../03-guides/06-child-workflows.md) emits `kortyx.workflow.call` spans when tracing is configured. These currently appear as generic trace operations. Studio does not yet provide a dedicated child invocation tree, child return inspector, or observed call relationships on the workflow canvas.
+The SDK's [child workflow API](../03-guides/06-child-workflows.md) is visible in the **Execution** tab of a run. Expand calls beneath their calling node, inspect captured input and returned data, and follow nested nodes and generations. The lifecycle distinguishes waiting, resuming, returning, failure, and cached reuse.
 
-Publishing topology registers workflow definitions; it does not discover dynamic calls inside node code. Dedicated child workflow presentation is a proposed Studio follow-up, not a prerequisite for executing children.
+**Runs** defaults to root executions. Enable **Include child workflows** to search and filter individual child calls. Opening a child row selects that call inside its parent execution; it does not create an independent runtime run. Session counts continue to count roots.
 
-## Current self-hosted boundary
+Forks and rollbacks have separate branch histories. Inherited calls link to their source execution; new work and cached reuse remain distinguishable. Interrupt details show the child ancestry and link to the waiting call. Studio observes these operations; resume and fork still happen in your application.
 
-The first self-hosted release is intentionally small: one Project, one Studio instance, one telemetry API instance, and PostgreSQL. Local development and a controlled single-instance server deployment are supported.
+On **Workflows**, enable **Observed calls** to see dotted purple call/return links from actual traffic in the selected cohort. Click a link to inspect an example call. These relationships are separate from `transitionTo` handoffs. Publishing topology registers definitions; it does not invent calls inside custom hooks.
 
-Built-in OIDC, users, granular RBAC, multiple Project administration, official cloud modules, high availability, and published capacity guarantees are not claimed yet.
-
-> **Security boundary:** Local CLI deployments bind to loopback by default. Before remote exposure, add HTTPS and a trusted access boundary such as a VPN or identity-aware proxy. Basic Auth must never cross an unencrypted connection.
-
-Kortyx Studio is source-available under the Elastic License 2.0. The Kortyx framework, CLI, telemetry API, and supporting packages are Apache-2.0.
+Input and returned data require explicit telemetry content capture. Child payloads over the capture limit are omitted with a marker. Older SDKs retain their generic trace view; an ended attempt span alone cannot establish that a child returned.

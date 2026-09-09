@@ -28,6 +28,20 @@ export default function WorkflowsPageClient({
     request: number;
     sourceKey: string;
   }>();
+  const [showCalls, setShowCalls] = useState(false);
+  const canvasSystem = useMemo(
+    () =>
+      showCalls
+        ? {
+            ...system,
+            transitions: [
+              ...system.transitions,
+              ...(system.observedCalls ?? []),
+            ],
+          }
+        : system,
+    [system, showCalls],
+  );
   const [catalogOpen, setCatalogOpen] = useState(false);
   const [inspectorOpen, setInspectorOpen] = useState(false);
   const [inspectorPanelOpen, setInspectorPanelOpen] = useState(true);
@@ -148,9 +162,24 @@ export default function WorkflowsPageClient({
           onOpenInspector={() => setInspectorOpen(true)}
           onOpenInspectorPanel={() => setInspectorPanelOpen(true)}
         />
+        <label className="flex items-center gap-2 border-b px-4 py-2 text-xs text-muted-foreground">
+          <input
+            type="checkbox"
+            checked={showCalls}
+            onChange={(event) => setShowCalls(event.target.checked)}
+            className="accent-violet-500"
+          />
+          Observed calls{" "}
+          <span className="ml-1 rounded bg-violet-500/10 px-1.5 text-violet-600">
+            {system.observedCalls?.length ?? 0}
+          </span>
+          <span className="ml-auto">
+            Dotted purple links call a workflow and return
+          </span>
+        </label>
         <div className="min-h-0 flex-1">
           <WorkflowCanvas
-            system={system}
+            system={canvasSystem}
             mode={params.mode}
             metric={params.metric}
             selection={selection}

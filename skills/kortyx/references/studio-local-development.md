@@ -58,7 +58,7 @@ pnpm dev
 
 This prepares workspace packages and starts PostgreSQL, the API, Studio, and the
 Canvas example. By default Studio is at `http://localhost:6300` and Canvas is at
-`http://localhost:3002`.
+`http://localhost:4200` (or the configured `KORTYX_CANVAS_PORT`).
 
 Publish the Canvas catalog through its repository script:
 
@@ -71,7 +71,11 @@ to make Studio look connected.
 
 ## Child Workflow Visibility
 
-Register parent and child definitions in the catalog. Calls made inside custom hooks are discovered at runtime, not by adding mandatory topology declarations. Current `kortyx.workflow.call` spans can appear as generic operations; a dedicated child tree, return inspector, and observed call links are not yet implemented in Studio. Do not claim those UI features when documenting or connecting an SDK application.
+Register parent and child definitions in the catalog. Calls inside custom hooks are observed at runtime; no topology declaration is required. In **Runs**, enable **Include child workflows** to search individual calls, then open a child row to its parent execution's **Execution** tab. This view shows nested calls, node/generation ownership, lifecycle, captured input/returned data, and branch selection. Child rows do not increase session root-run counts.
+
+Use **Observed calls** on the workflow canvas to display dotted purple call/return links. Click a link to open a concrete call. Handoff relationships remain separate. Publish the catalog before running real application traffic; an absent observed link means no call was captured in the selected cohort.
+
+For fork/rollback testing, compare `(runId, branchId, invocationId)`, not invocation ID alone. Restored calls reference source evidence, completed results can be reused without new execution, and leaf human interrupts link back to the call tree. Input/output capture is opt-in; oversized child payloads are omitted with a marker. Old SDK generic spans cannot establish logical completion.
 
 ## Troubleshooting Order
 

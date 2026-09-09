@@ -24,6 +24,7 @@ import type { StreamChunk } from "@kortyx/stream";
 import { z } from "zod";
 import { emitTelemetryEvent } from "../telemetry/events";
 import { projectWorkflowTopology } from "../telemetry/topology";
+import { restoreWorkflowCallBranch } from "../telemetry/workflow-call-branch";
 import type { ChatMessage } from "../types/chat-message";
 import { streamChat as runStreamChat } from "./process-chat";
 
@@ -307,6 +308,11 @@ export function createAgent(args: CreateAgentArgs): Agent {
         hydratePendingGraphCheckpoint(resolvedFrameworkAdapter, request),
       ),
     );
+    restoreWorkflowCallBranch(
+      activePendingRequests,
+      telemetry,
+      target?.runId ?? "unknown",
+    );
     await Promise.all(
       activePendingRequests.map((request) =>
         clearPendingGraphWrites(resolvedFrameworkAdapter, request),
@@ -345,6 +351,7 @@ export function createAgent(args: CreateAgentArgs): Agent {
     id: CheckpointId,
     options?: { newSessionId?: string },
   ): Promise<ForkSessionCheckpointResult> => {
+    const source = await resolvedFrameworkAdapter.sessionCheckpoints.get(id);
     const result = await resolvedFrameworkAdapter.sessionCheckpoints.fork(
       id,
       options,
@@ -353,6 +360,11 @@ export function createAgent(args: CreateAgentArgs): Agent {
       result.checkpoint.activePendingRequests.map((request) =>
         hydratePendingGraphCheckpoint(resolvedFrameworkAdapter, request),
       ),
+    );
+    restoreWorkflowCallBranch(
+      activePendingRequests,
+      telemetry,
+      source?.runId ?? "unknown",
     );
     await Promise.all(
       activePendingRequests.map((request) =>

@@ -467,6 +467,9 @@ export async function orchestrateGraphStream({
       type: "interrupt.created",
       correlation: { nodeId: record.node },
       payload: {
+        workflowCall: record.schema.meta?.workflowCall ?? null,
+        workflowCallPath: record.schema.meta?.workflowCallPath ?? null,
+        branchId: config.executionBranchId ?? runId,
         interruptId: record.requestId,
         requestId: record.requestId,
         kind: record.schema.kind,

@@ -44,6 +44,8 @@ const detailUiParamKeys = [
   "trace",
   "event",
   "detailView",
+  "call",
+  "branch",
 ] as const;
 
 /**
@@ -56,8 +58,11 @@ export function detailNavigationHref(
 ) {
   const next = new URLSearchParams(searchParams.toString());
   for (const key of detailUiParamKeys) next.delete(key);
+  const [path, explicitQuery] = pathname.split("?", 2);
+  for (const [key, value] of new URLSearchParams(explicitQuery))
+    next.set(key, value);
   const query = next.toString();
-  return `${pathname}${query ? `?${query}` : ""}`;
+  return `${path}${query ? `?${query}` : ""}`;
 }
 
 export function filterPanelParamChanges(open: boolean) {

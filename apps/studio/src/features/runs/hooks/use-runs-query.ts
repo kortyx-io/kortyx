@@ -22,6 +22,7 @@ import {
 const sortKeys: SortKey[] = ["started", "duration", "tokens", "cost", "status"];
 
 const baseSearchParams = {
+  includeChildren: parseAsBoolean.withDefault(false),
   q: parseAsString.withDefault(""),
   env: parseAsString.withDefault("All environments"),
   range: parseAsStringLiteral(STUDIO_TIME_RANGES).withDefault("24 hours"),
@@ -52,6 +53,7 @@ export type RunsQueryDefaults = {
 };
 
 type RunsParamChanges = Partial<{
+  includeChildren: boolean | null;
   q: string | null;
   env: string | null;
   range: StudioTimeRange | null;
@@ -79,6 +81,7 @@ type RunsParamChanges = Partial<{
 
 export type RunsViewFilters = Pick<
   RunsParamChanges,
+  | "includeChildren"
   | "q"
   | "env"
   | "range"
@@ -162,6 +165,7 @@ export function useRunsQuery(initialRuns: Run[], defaults?: RunsQueryDefaults) {
 
   const clearFilters = () =>
     setParams({
+      includeChildren: null,
       q: null,
       env: null,
       range: null,
@@ -184,6 +188,7 @@ export function useRunsQuery(initialRuns: Run[], defaults?: RunsQueryDefaults) {
 
   const viewQuery: RunsViewQuery = {
     filters: {
+      includeChildren: params.includeChildren || null,
       q: params.q || null,
       env: params.env === "All environments" ? null : params.env,
       range: params.range === "24 hours" ? null : params.range,
@@ -208,6 +213,7 @@ export function useRunsQuery(initialRuns: Run[], defaults?: RunsQueryDefaults) {
   };
 
   return {
+    includeChildren: params.includeChildren,
     query: params.q,
     environment: params.env,
     timeRange: params.range,

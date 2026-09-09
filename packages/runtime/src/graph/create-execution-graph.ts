@@ -46,6 +46,13 @@ interface HookPatchError {
 
 export interface ExecutionRuntimeConfig {
   executionRunId?: string | undefined;
+  executionBranchId?: string | undefined;
+  prepareChildTelemetry?:
+    | ((
+        workflow: WorkflowDefinition,
+        config: ExecutionRuntimeConfig,
+      ) => ExecutionRuntimeConfig)
+    | undefined;
   selectWorkflow?: ((id: string) => Promise<WorkflowDefinition>) | undefined;
   workflowCallDepth?: number;
   invocationPath?: string;
@@ -174,6 +181,18 @@ export async function createExecutionGraph(
       };
       let suspension: unknown;
       const hookNodeContext = {
+        workflowCallTelemetry: runtimeConfig.telemetry
+          ? {
+              ...runtimeConfig.telemetry,
+              correlation: {
+                ...runtimeConfig.telemetry.correlation,
+                runId: runtimeConfig.executionRunId,
+                branchId:
+                  runtimeConfig.executionBranchId ??
+                  runtimeConfig.executionRunId,
+              },
+            }
+          : undefined,
         ...(runtimeConfig.selectWorkflow
           ? {
               callWorkflow: createWorkflowCallService(
@@ -328,6 +347,9 @@ export async function createExecutionGraph(
               ...(typeof telemetryCorrelation()?.topologyHash === "string"
                 ? { topologyHash: telemetryCorrelation()?.topologyHash }
                 : {}),
+              invocationId: runtimeConfig.telemetry?.correlation?.invocationId,
+              branchId:
+                runtimeConfig.executionBranchId ?? runtimeConfig.executionRunId,
               nodeId,
               attempt,
               ...(typeof context?.userId === "string"

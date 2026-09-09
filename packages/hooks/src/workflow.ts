@@ -7,6 +7,7 @@ import type {
 import type { z } from "zod";
 import { accumulateTokenUsage, getHookContext } from "./context";
 import { awaitInterruptInternal } from "./interrupt";
+import { emitWorkflowCall, workflowCallContent } from "./workflow-telemetry";
 
 export type WorkflowCallOutcome =
   | {
@@ -24,10 +25,13 @@ export type WorkflowCallService = (args: {
   definition?: WorkflowDefinition | undefined;
   invocationId: string;
   response?: string | string[] | undefined;
+  callerNodeExecutionId?: string | undefined;
 }) => Promise<WorkflowCallOutcome>;
 
 type CallRecord = {
   fingerprint: string;
+  sequence?: number;
+  telemetry?: Record<string, unknown>;
   invocationId: string;
   status: "running" | "interrupted" | "completed" | "failed";
   snapshot?: unknown;
@@ -162,6 +166,45 @@ export async function useWorkflow(args: {
   ctx.currentNodeState.byKey[key] = record;
   ctx.stateDirty = true;
   ctx.workflowCallActive = true;
+  const telemetry = ctx.node.workflowCallTelemetry;
+  const activationKey = "__useWorkflowActivation";
+  ctx.currentNodeState.byKey[activationKey] ??= randomUUID();
+  const callerNodeExecutionId = ctx.currentNodeState.byKey[
+    activationKey
+  ] as string;
+  const metadata = {
+    invocationId: record.invocationId,
+    parentInvocationId: telemetry?.correlation?.invocationId ?? null,
+    branchId:
+      telemetry?.correlation?.branchId ??
+      telemetry?.correlation?.runId ??
+      "unknown",
+    callId: args.id,
+    callerNodeId: ctx.node.graph.node,
+    callerNodeExecutionId,
+    sourceWorkflowId: ctx.node.graph.name,
+    targetWorkflowId: workflow,
+    targetVersion: definition?.version ?? null,
+  };
+  record.telemetry = metadata;
+  const report = (
+    status:
+      | "started"
+      | "suspended"
+      | "resumed"
+      | "completed"
+      | "failed"
+      | "reused",
+    content: Record<string, unknown> = {},
+  ) => {
+    record.sequence = (record.sequence ?? 0) + 1;
+    emitWorkflowCall(telemetry, `workflow.call.${status}`, {
+      ...metadata,
+      sequence: record.sequence,
+      ...content,
+    });
+  };
+  const cached = record.status === "completed";
 
   try {
     // Replay every bridged interrupt, even for a completed call. The parent
@@ -169,6 +212,9 @@ export async function useWorkflow(args: {
     for (const interruption of record.interrupts) {
       interruption.response = await awaitInterruptInternal({
         request: interruption.request,
+        ...(interruption.request.meta
+          ? { meta: interruption.request.meta }
+          : {}),
       });
     }
     if (record.status === "failed")
@@ -176,7 +222,12 @@ export async function useWorkflow(args: {
     while (record.status !== "completed") {
       let outcome: WorkflowCallOutcome;
       try {
+        report(
+          record.snapshot ? "resumed" : "started",
+          workflowCallContent(telemetry, "input", input),
+        );
         outcome = await service({
+          callerNodeExecutionId,
           id: args.id,
           workflow,
           input,
@@ -190,6 +241,7 @@ export async function useWorkflow(args: {
       } catch (error) {
         record.status = "failed";
         record.error = error instanceof Error ? error.message : String(error);
+        report("failed", { error: "Child workflow failed" });
         throw new WorkflowCallError(workflow, record.error);
       }
       if (outcome.status === "completed") {
@@ -199,18 +251,30 @@ export async function useWorkflow(args: {
         workflowCallFingerprint(record.data);
         record.status = "completed";
         delete record.snapshot;
+        report(
+          "completed",
+          workflowCallContent(telemetry, "output", record.data),
+        );
       } else {
         record.status = "interrupted";
         record.snapshot = outcome.snapshot;
+        report("suspended", {
+          leaf: outcome.request.meta?.workflowCall ?? null,
+        });
         const interruption: CallRecord["interrupts"][number] = {
           request: outcome.request,
         };
         record.interrupts.push(interruption);
         interruption.response = await awaitInterruptInternal({
           request: interruption.request,
+          ...(interruption.request.meta
+            ? { meta: interruption.request.meta }
+            : {}),
         });
       }
     }
+    if (cached)
+      report("reused", workflowCallContent(telemetry, "output", record.data));
     const data = record.data ?? {};
     return {
       data: JSON.parse(JSON.stringify(data)) as Record<string, unknown>,

@@ -179,3 +179,7 @@ The saved runtime context is retained during resume. New client history or picke
 - Durability is at checkpoints. This API does not add background scheduling or arbitrary in-flight JavaScript crash recovery. Serialize concurrent rollback/fork/edit operations at the application/session boundary.
 
 The Canvas example uses this API for creation, brief queries, updates, and saves. The update workflow can call save as a nested child. See [interrupts and resume](./02-interrupts-and-resume.md) and [hooks](../02-core-concepts/07-hooks.md) for the surrounding APIs.
+
+## Inspect calls in Studio
+
+See the [Studio overview](../05-studio/01-overview.md#child-workflow-visibility) for the child execution tree, child rows, and observed call links.

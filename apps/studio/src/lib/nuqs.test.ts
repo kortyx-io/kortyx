@@ -2,6 +2,15 @@ import { describe, expect, it } from "vitest";
 import { detailNavigationHref, filterPanelParamChanges } from "./nuqs";
 
 describe("detailNavigationHref", () => {
+  it("merges explicit child selection while dropping the previous detail selection", () => {
+    expect(
+      detailNavigationHref(
+        "/runs/parent?tab=calls&call=child&branch=fork",
+        new URLSearchParams("q=test&tab=trace&call=old&branch=old"),
+      ),
+    ).toBe("/runs/parent?q=test&tab=calls&call=child&branch=fork");
+  });
+
   it("preserves list state while removing panel and stale detail UI state", () => {
     const params = new URLSearchParams({
       q: "failed run",

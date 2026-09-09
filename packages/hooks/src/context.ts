@@ -7,7 +7,7 @@ import type {
   TokenUsage,
 } from "@kortyx/core";
 import type { KortyxUsage } from "@kortyx/providers";
-import type { ReasonTraceAdapter } from "./tracing";
+import type { KortyxTelemetryConfig, ReasonTraceAdapter } from "./tracing";
 
 import type { WorkflowCallService } from "./workflow";
 
@@ -39,6 +39,7 @@ export type HookNodeRuntimeContext = {
   emit: (event: string, payload: unknown) => void;
   awaitInterrupt: (args: InterruptInput) => InterruptResult;
   callWorkflow?: WorkflowCallService;
+  workflowCallTelemetry?: KortyxTelemetryConfig | undefined;
 };
 
 export type HookRuntimeContext = {
@@ -224,7 +225,10 @@ export async function runWithHookContext<T>(
     const result = await storage.run(internal, fn);
     cleanupCompletedReasonCheckpoints(internal);
     for (const key of Object.keys(internal.currentNodeState.byKey)) {
-      if (key.startsWith("__useWorkflow:")) {
+      if (
+        key.startsWith("__useWorkflow:") ||
+        key === "__useWorkflowActivation"
+      ) {
         internal.currentNodeState.byKey[key] = null;
         internal.stateDirty = true;
       }

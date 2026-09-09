@@ -6,6 +6,7 @@ import {
 } from "@kortyx/core";
 import {
   createWorkflowHooks,
+  type KortyxTelemetryEvent,
   useInterrupt,
   useNodeState,
   useReason,
@@ -326,8 +327,24 @@ for (const persistence of [
               url: process.env.KORTYX_TEST_REDIS_URL!,
               prefix: `child-test:${sessionId}:`,
             });
+      const telemetryEvents: KortyxTelemetryEvent[] = [];
+      const telemetry = {
+        environment: "test",
+        service: { name: "child-test" },
+        captureContent: true,
+        reporter: {
+          ensureWorkflowTopology: vi.fn(async () => ({
+            workflowRevisionId: "revision",
+            created: false,
+          })),
+          emit: async (events: KortyxTelemetryEvent[]) => {
+            telemetryEvents.push(...events);
+          },
+        },
+      };
       const makeAgent = () =>
         createAgent({
+          telemetry,
           workflows: [parent, child, grandchild, sibling],
           defaultWorkflowId: "parent",
           frameworkAdapter: makeAdapter(),
@@ -391,6 +408,64 @@ for (const persistence of [
       });
       expect(siblingRuns).toBe(1);
       expect(grandchildBefore).toBe(1);
+      const calls = telemetryEvents.filter((event) =>
+        event.type.startsWith("workflow.call."),
+      );
+      const grandchildEvents = calls.filter(
+        (event) => event.payload.targetWorkflowId === "grandchild",
+      );
+      expect(
+        new Set(grandchildEvents.map((event) => event.payload.invocationId))
+          .size,
+      ).toBe(1);
+      expect(
+        new Set(grandchildEvents.map((event) => event.payload.branchId)).size,
+      ).toBe(3);
+      expect(
+        grandchildEvents.filter(
+          (event) => event.type === "workflow.call.started",
+        ),
+      ).toHaveLength(1);
+      expect(
+        grandchildEvents.filter(
+          (event) => event.type === "workflow.call.resumed",
+        ),
+      ).toHaveLength(3);
+      expect(
+        grandchildEvents
+          .filter((event) => event.type === "workflow.call.completed")
+          .map((event) => event.payload.output),
+      ).toEqual([
+        { answer: "fork answer" },
+        { answer: "source answer" },
+        { answer: "edited answer" },
+      ]);
+      expect(
+        grandchildEvents.every(
+          (event) => typeof event.payload.parentInvocationId === "string",
+        ),
+      ).toBe(true);
+      expect(
+        calls.filter((event) => event.type === "workflow.call.restored"),
+      ).toHaveLength(6);
+      expect(
+        calls.some(
+          (event) =>
+            event.type === "workflow.call.reused" &&
+            event.payload.targetWorkflowId === "sibling",
+        ),
+      ).toBe(true);
+      expect(
+        telemetry.reporter.ensureWorkflowTopology.mock.calls.length,
+      ).toBeGreaterThan(3);
+      expect(JSON.stringify(calls)).not.toContain("__kortyxResumeStatePatch");
+      const firstHuman = telemetryEvents.find(
+        (event) => event.type === "interrupt.created",
+      );
+      expect(firstHuman?.payload.workflowCallPath).toEqual([
+        expect.objectContaining({ workflowId: "child" }),
+        expect.objectContaining({ workflowId: "grandchild" }),
+      ]);
     });
   });
 }

@@ -220,6 +220,13 @@ export function WorkflowCanvas({
           }
         }}
         onEdgeClick={(_, edge) => {
+          const call = system.observedCalls?.find(
+            (call) => call.id === edge.id,
+          );
+          if (call) {
+            window.location.href = `/runs/${encodeURIComponent(call.runId)}?tab=calls&call=${encodeURIComponent(call.invocationId)}&branch=${encodeURIComponent(call.branchId)}`;
+            return;
+          }
           if (edge.type === "transition")
             onSelect({ type: "transition", id: edge.id });
         }}
@@ -441,6 +448,7 @@ function TransitionEdge({
   const [labelX, labelY] = routeLabel
     ? [routeLabel.x, routeLabel.y]
     : [fallbackLabelX, fallbackLabelY];
+  const isCall = id.startsWith("observed-call:");
   const error = (data?.errorRate ?? 0) > 4;
   const width = getTransitionStrokeWidth(
     data?.mode,
@@ -453,7 +461,11 @@ function TransitionEdge({
         id={id}
         path={path}
         style={{
-          stroke: error ? "var(--destructive)" : "var(--primary)",
+          stroke: isCall
+            ? "#8b5cf6"
+            : error
+              ? "var(--destructive)"
+              : "var(--primary)",
           strokeWidth: width,
           opacity: 0.18,
           strokeLinejoin: "round",
@@ -463,9 +475,11 @@ function TransitionEdge({
       <AnimatedEdgePath
         path={path}
         markerEnd={markerEnd}
-        stroke={error ? "var(--destructive)" : "var(--primary)"}
+        stroke={
+          isCall ? "#8b5cf6" : error ? "var(--destructive)" : "var(--primary)"
+        }
         strokeWidth={width}
-        dashArray="9 7"
+        dashArray={isCall ? "2 7" : "9 7"}
         offset={-32}
         duration="1s"
         opacity={data?.selected ? 1 : 0.75}
@@ -486,7 +500,7 @@ function TransitionEdge({
           textAnchor="middle"
           className="fill-foreground text-[8px] font-medium"
         >
-          {formatCount(data?.volume ?? 0)} handoffs
+          {formatCount(data?.volume ?? 0)} {isCall ? "calls" : "handoffs"}
         </text>
         <text
           x="52"
@@ -497,7 +511,7 @@ function TransitionEdge({
             error && "fill-red-500",
           )}
         >
-          {data?.condition ?? "transitionTo"}
+          {isCall ? "call → return" : (data?.condition ?? "transitionTo")}
         </text>
         {error && (
           <TriangleAlert x="92" y="3" className="fill-red-500 text-red-500" />

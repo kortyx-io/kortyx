@@ -56,7 +56,11 @@ export default function RunsPageClient({
   const { live } = runsQuery;
   const liveRefresh = useLiveRefresh({ enabled: live, resource: "runs" });
   const hasActiveRuns = runsQuery.filteredRuns.some((run) => {
-    if (run.status === "running") return true;
+    if (
+      run.status === "running" ||
+      (run.parentRunId && run.status === "interrupted")
+    )
+      return true;
     if (run.status !== "interrupted" || !run.interruptStatus) return false;
     return (
       effectiveInterruptStatus(
@@ -90,7 +94,16 @@ export default function RunsPageClient({
   }
 
   function openRun(run: Run, event: React.MouseEvent<HTMLTableRowElement>) {
-    const href = detailNavigationHref(`/runs/${run.id}`, searchParams);
+    const target = new URL(
+      detailNavigationHref(`/runs/${run.parentRunId ?? run.id}`, searchParams),
+      window.location.origin,
+    );
+    if (run.invocationId) {
+      target.searchParams.set("tab", "calls");
+      target.searchParams.set("call", run.invocationId);
+      if (run.branchId) target.searchParams.set("branch", run.branchId);
+    }
+    const href = `${target.pathname}${target.search}`;
     if (event.metaKey || event.ctrlKey) window.open(href, "_blank", "noopener");
     else if (runsQuery.filtersOpen) {
       void runsQuery.setFiltersOpen(false).then(() => router.push(href));

@@ -1,6 +1,6 @@
 # Studio support for child workflows
 
-Status: Proposal for review. No Studio, telemetry contract, or database implementation is included in this change.
+Status: Approved and implemented. Runs defaults to root executions, with an optional **Include child workflows** toggle. The execution tree, lifecycle and result inspector, interrupt ancestry, branch histories, and optional observed-call overlay are implemented. Generic traces remain available for older telemetry.
 
 Related: [SDK child workflow contract](./child-workflows.md), [Observe detail views](./observe-detail-views.md).
 
@@ -192,4 +192,4 @@ The first two steps form the minimum useful Studio support. The overlay can foll
 - Child spans never borrow a different workflow's revision/hash. Uncaptured data and internal snapshots never appear as business results.
 - Browser checks cover run/interrupt navigation, call selection after refresh/Back, narrow drawer layout, accessible expand/collapse, and the optional call overlay using real Canvas traffic.
 
-Approval requested for this experience and delivery order before changing Studio or its telemetry/projection contracts.
+The user approved this experience, including searchable child rows behind the Include child workflows toggle. Implementation uses additive event contracts and existing projection tables. Existing events can be reprojected with `pnpm db:backfill-studio`; generic pre-lifecycle spans cannot be upgraded into missing logical facts.
