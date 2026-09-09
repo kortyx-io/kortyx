@@ -60,6 +60,7 @@ const invalidQueryResponse = {
 };
 
 const listQuerySchema = z.object({
+  includeChildren: z.string().optional(),
   q: z.string().optional(),
   env: z.string().optional(),
   range: StudioTimeRangeSchema.optional(),

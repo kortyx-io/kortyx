@@ -19,6 +19,11 @@ export const ProviderSchema = z.string();
 export const EnvironmentSchema = z.string();
 
 export const RunSchema = z.object({
+  parentRunId: z.string().optional(),
+  parentWorkflowId: z.string().optional(),
+  invocationId: z.string().optional(),
+  branchId: z.string().optional(),
+  callId: z.string().optional(),
   id: z.string(),
   status: RunStatusSchema,
   started: z.string(),

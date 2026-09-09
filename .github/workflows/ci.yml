@@ -8,6 +8,17 @@ on:
 jobs:
   typecheck_lint:
     runs-on: ubuntu-latest
+    services:
+      redis:
+        image: redis:7-alpine
+        ports: [6379:6379]
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 2s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      KORTYX_TEST_REDIS_URL: redis://127.0.0.1:6379
     timeout-minutes: 15
 
     steps:
@@ -40,6 +51,9 @@ jobs:
 
       - name: Build
         run: pnpm build
+
+      - name: Canvas workflow regressions
+        run: pnpm --filter @kortyx/example-canvas test
 
       - name: Typecheck
         run: pnpm -r --if-present run type-check

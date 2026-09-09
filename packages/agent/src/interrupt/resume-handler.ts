@@ -4,7 +4,7 @@ import type {
   PendingRequestRecord,
   PendingRequestStore,
 } from "@kortyx/runtime";
-import { createExecutionGraph } from "@kortyx/runtime";
+import { createExecutionGraph, restoreGraphSnapshot } from "@kortyx/runtime";
 import type { StreamChunk } from "@kortyx/stream";
 import type { SelectWorkflowFn } from "../orchestrator";
 import { type OrchestrateArgs, orchestrateGraphStream } from "../orchestrator";
@@ -93,14 +93,15 @@ export async function tryPrepareResumeStream({
 
   const pending = await store.get(meta.token);
   if (!pending || pending.requestId !== meta.requestId) {
-    // Invalid/expired; ignore and continue normal flow
-    // eslint-disable-next-line no-console
-    console.log(
-      `[resume] pending not found or mismatched. token=${meta.token} requestId=${meta.requestId}`,
+    throw new Error(
+      "Interrupt is expired, already consumed, or does not match the request.",
     );
-    return null;
   }
 
+  if (pending.sessionId && pending.sessionId !== sessionId)
+    throw new Error("Interrupt belongs to another session.");
+  if (store.take && !(await store.take(meta.token)))
+    throw new Error("Interrupt has already been resumed or cancelled.");
   if (meta.cancel) {
     await store.delete(pending.token);
     emitTelemetryEvent({
@@ -118,7 +119,9 @@ export async function tryPrepareResumeStream({
       },
       flush: true,
     });
-    return null;
+    return (async function* (): AsyncGenerator<StreamChunk> {
+      yield { type: "done" };
+    })();
   }
 
   // Build a minimal state; the checkpointer (keyed by sessionId) will restore paused context
@@ -167,14 +170,32 @@ export async function tryPrepareResumeStream({
 
   const wf = await selectWorkflow(resumedState.currentWorkflow as string);
   const telemetryConfig = prepareWorkflowTelemetry({
-    config,
+    config: {
+      ...config,
+      ...(pending.state?.config?.executionBranchId
+        ? { executionBranchId: pending.state.config.executionBranchId }
+        : {}),
+    },
     workflow: wf,
     runId: pending.runId,
     sessionId,
     knownWorkflowIds,
   });
   resumedState.config = telemetryConfig;
-  const resumeUpdate: Record<string, unknown> = {};
+  const resumeUpdate: Record<string, unknown> = pending.graphSnapshot
+    ? {
+        config: {
+          ...telemetryConfig,
+          context: pending.state?.config?.context ?? telemetryConfig.context,
+        },
+      }
+    : {};
+  if (pending.graphSnapshot && frameworkAdapter)
+    await restoreGraphSnapshot(
+      frameworkAdapter.checkpointer,
+      pending.graphSnapshot,
+      pending.runId,
+    );
   if (Object.keys(resumeDataPatch).length > 0) {
     resumeUpdate.data = {
       ...pendingData,

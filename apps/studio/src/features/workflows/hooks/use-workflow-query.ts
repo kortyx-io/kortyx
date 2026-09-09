@@ -14,6 +14,7 @@ import {
   workflowMetrics,
   workflowViewModes,
 } from "../lib/view-state";
+import type { WorkflowSystem } from "../schema";
 
 const parsers = {
   q: parseAsString.withDefault(""),
@@ -31,12 +32,7 @@ const parsers = {
   transition: parseAsString.withDefault(""),
 };
 
-function sourceWorkflowFromTransitionId(transitionId: string): string | null {
-  const sourceWorkflowId = transitionId.split(":")[0];
-  return sourceWorkflowId || null;
-}
-
-export function useWorkflowQuery() {
+export function useWorkflowQuery(transitions: WorkflowSystem["transitions"]) {
   const [params, setQueryStates] = useStudioQueryStates(parsers);
   const didCanonicalizeWorkflow = useRef(false);
   const selection: WorkflowSelection = params.transition
@@ -94,7 +90,8 @@ export function useWorkflowQuery() {
         );
       case "transition": {
         const sourceWorkflowId =
-          sourceWorkflowFromTransitionId(next.id) ?? params.workflow;
+          transitions.find((path) => path.id === next.id)?.sourceWorkflowId ??
+          params.workflow;
         return setQueryStates(
           {
             transition: next.id,

@@ -26,6 +26,27 @@ export function InterruptDetail({
   detail: StudioInterruptDetailResponse;
 }) {
   const { interrupt } = detail;
+  const created = detail.events.find(
+    (event) => event.type === "interrupt.created",
+  );
+  const callPath = Array.isArray(created?.payload.workflowCallPath)
+    ? (created.payload.workflowCallPath as Array<{
+        workflowId: string;
+        invocationId: string;
+      }>)
+    : [];
+  const branchId =
+    typeof created?.payload.branchId === "string"
+      ? created.payload.branchId
+      : "";
+  const leaf = created?.payload.workflowCall;
+  const leafNodeId =
+    leaf &&
+    typeof leaf === "object" &&
+    "nodeId" in leaf &&
+    typeof leaf.nodeId === "string"
+      ? leaf.nodeId
+      : null;
   const timing = interruptTimingPresentation(interrupt, Date.now());
   const interactionLabel = interruptInteractionLabel(interrupt);
   return (
@@ -41,7 +62,20 @@ export function InterruptDetail({
         description={
           <span>
             {interrupt.workflowId}
-            {interrupt.nodeId ? ` / ${interrupt.nodeId}` : ""} ·{" "}
+            {interrupt.nodeId ? ` / ${interrupt.nodeId}` : ""}
+            {callPath.map((call) => (
+              <span key={call.invocationId}>
+                {" "}
+                →{" "}
+                <DetailLink
+                  className="text-violet-600 hover:underline"
+                  href={`/runs/${interrupt.runId}?tab=calls&call=${encodeURIComponent(call.invocationId)}&branch=${encodeURIComponent(branchId)}`}
+                >
+                  {call.workflowId}
+                </DetailLink>
+              </span>
+            ))}
+            {callPath.length > 0 && leafNodeId ? ` / ${leafNodeId}` : ""} ·{" "}
             {interrupt.environment}
             {" · "}
             <DetailLink

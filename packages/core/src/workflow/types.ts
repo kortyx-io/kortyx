@@ -1,3 +1,4 @@
+import type { z } from "zod";
 import type { NodeResult } from "../node";
 import type { WorkflowEdge, WorkflowNodeBehavior } from "./schema";
 
@@ -30,6 +31,8 @@ export type WorkflowDefinition = {
   id: string;
   version: string;
   description?: string | undefined;
+  inputSchema?: z.ZodType | undefined;
+  outputSchema?: z.ZodType<Record<string, unknown>> | undefined;
   nodes: WorkflowNodes;
   edges: WorkflowEdge[];
   metadata?: Record<string, unknown> | undefined;

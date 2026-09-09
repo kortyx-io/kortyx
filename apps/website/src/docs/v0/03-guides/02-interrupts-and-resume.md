@@ -48,6 +48,12 @@ Or use `useReason({ interrupt: ... })` when you want model-generated interrupt r
 
 > **Good to know:** Use required interrupts for approvals and safety gates. Optional interrupts are best for flows where the model can answer immediately but may ask for user input when the request is ambiguous.
 
+## Interrupts inside child workflows
+
+A child called with `useWorkflow(...)` can use either interrupt hook. Its request is bridged through the parent stream and uses the existing resume token/request ID protocol. The parent continues after the child completes. Do not start the child again as a separate root request to answer its interrupt.
+
+See [Call Child Workflows](./06-child-workflows.md) for a working typed example, replay rules, and fork behavior.
+
 ## Stream side
 
 During interrupt, runtime/orchestrator emits:

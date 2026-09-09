@@ -60,12 +60,16 @@ Structural telemetry can show:
 
 Prompt, input, and output content is excluded by default. The SDK application decides whether that content may be sent. See [Connect Your Project](./03-connect-project.md#choose-what-content-studio-may-store).
 
-## Current self-hosted boundary
+## Child workflow visibility
 
-The first self-hosted release is intentionally small: one Project, one Studio instance, one telemetry API instance, and PostgreSQL. Local development and a controlled single-instance server deployment are supported.
+The SDK's [child workflow API](../03-guides/06-child-workflows.md) is visible in the **Execution** tab of a run. Expand calls beneath their calling node, inspect captured input and returned data, and follow nested nodes and generations. The lifecycle distinguishes waiting, resuming, returning, failure, and cached reuse.
 
-Built-in OIDC, users, granular RBAC, multiple Project administration, official cloud modules, high availability, and published capacity guarantees are not claimed yet.
+**Runs** defaults to root executions. Enable **Include child workflows** to search and filter individual child calls. Opening a child row selects that call inside its parent execution; it does not create an independent runtime run. Session counts continue to count roots.
 
-> **Security boundary:** Local CLI deployments bind to loopback by default. Before remote exposure, add HTTPS and a trusted access boundary such as a VPN or identity-aware proxy. Basic Auth must never cross an unencrypted connection.
+Forks and rollbacks have separate branch histories. Inherited calls link to their source execution; new work and cached reuse remain distinguishable. Interrupt details show the child ancestry and link to the waiting call. Studio observes these operations; resume and fork still happen in your application.
 
-Kortyx Studio is source-available under the Elastic License 2.0. The Kortyx framework, CLI, telemetry API, and supporting packages are Apache-2.0.
+On **Workflows**, the CLI discovers resolvable `useWorkflow` calls from node and custom-hook source and publishes dotted purple call/return links before any runs occur. No call declarations are needed. **Observed calls**, enabled by default, overlays execution metrics and adds dynamic targets discovered during runs. Turning it off keeps source-discovered paths visible. Click a link with recorded traffic to inspect an example call; an unexecuted path opens its source/target details. The map legend distinguishes purple dotted `useWorkflow` calls (return to the caller) from blue dashed `transitionTo` handoffs (transfer execution). Canvas includes both: its normal operations use child calls, while `/help` hands off from `general-chat` to `canvas-help`.
+
+Run `kortyx topology push --entry src/lib/agent.ts --dry-run --json` to inspect discovered calls, then publish without `--dry-run`. Unresolvable targets produce CLI warnings and rely on runtime observations.
+
+Input and returned data require explicit telemetry content capture. Child payloads over the capture limit are omitted with a marker. Older SDKs retain their generic trace view; an ended attempt span alone cannot establish that a child returned.

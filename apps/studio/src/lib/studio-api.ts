@@ -164,6 +164,11 @@ export const getStudioRuns = async (
         items: RunSchema.array().parse(
           response.data.runs.map((run) => ({
             id: run.id,
+            parentRunId: run.parentRunId,
+            parentWorkflowId: run.parentWorkflowId,
+            invocationId: run.invocationId,
+            branchId: run.branchId,
+            callId: run.callId,
             status: run.status,
             started: formatRelativeTime(run.startedAt),
             startedAt: run.startedAt,
@@ -397,8 +402,17 @@ export const getStudioWorkflows = async (
             condition: optional(edge.condition),
           })),
         })),
+        observedCalls: response.data.observedCalls?.map((call) => ({
+          ...call,
+          sourceNodeId: optional(call.sourceNodeId),
+          condition: optional(call.condition),
+          successRate: optional(call.successRate),
+          errorRate: optional(call.errorRate),
+          medianDurationMs: optional(call.medianDurationMs),
+        })),
         transitions: response.data.transitions.map((transition) => ({
           id: transition.id,
+          kind: transition.kind,
           sourceWorkflowId: transition.sourceWorkflowId,
           sourceNodeId: optional(transition.sourceNodeId),
           targetWorkflowId: transition.targetWorkflowId,

@@ -1,6 +1,6 @@
 ---
 name: kortyx
-description: Use when building, reviewing, documenting, or architecting apps with Kortyx. Covers Kortyx Studio local setup and telemetry connection, hooks, useReason, interrupts, structured streaming, runtime context, Next.js API routes and server actions, separate React + Node apps, folder structure, runtime persistence, session checkpoints/rollback/fork, OpenTelemetry observability, Langfuse export, @kortyx/react, useChat, transports, and streamed chat rendering.
+description: Use when building, reviewing, documenting, or architecting apps with Kortyx. Covers Kortyx Studio local setup and telemetry connection, hooks, useReason, useWorkflow child calls, interrupts, structured streaming, runtime context, Next.js API routes and server actions, separate React + Node apps, folder structure, runtime persistence, session checkpoints/rollback/fork, OpenTelemetry observability, Langfuse export, @kortyx/react, useChat, transports, and streamed chat rendering.
 ---
 
 # Kortyx
@@ -36,6 +36,7 @@ Studio:
 
 Hooks:
 
+- `references/hooks-child-workflows.md`: typed child calls from custom hooks, output contracts, interrupt/replay safety, fork/rollback, and migration from handoffs.
 - `references/hooks-use-reason.md`: model calls, provider options, MCP tools, schema output, and text streaming.
 - `references/hooks-interrupts-and-state.md`: human-in-the-loop flows, resume, replay, and persistence implications.
 - `references/hooks-structured-streaming.md`: choosing `useReason({ structured })` vs `useStructuredData(...)`.
@@ -50,6 +51,7 @@ React client:
 
 ## Core Rules
 
+- Use `useWorkflow(...)` for registered child calls that return to their caller. Read `references/hooks-child-workflows.md` before implementing call contracts or replay behavior; no special call edges are needed.
 - Use Next.js API routes or a Node HTTP backend for live SSE streaming.
 - Use Server Actions only for buffered/non-live flows.
 - Put provider credentials/configuration, `createAgent(...)`, workflows, nodes, and runtime persistence on the server.
@@ -70,6 +72,7 @@ React client:
 - Client, route/API, agent, workflows, nodes, providers, and persistence have clear boundaries.
 - Hook choice matches the node behavior.
 - Interrupt/resume code is replay-safe.
+- Child workflows use inferred schema contracts, stable call IDs, and the parent checkpoint/transport; verification covers their actual interrupt and fork paths.
 - Rollback/fork features restore server-side workflow state and invalidate stale structured data.
 - Production rollback/fork guidance includes persistence choice, retention, and in-memory limitations.
 - Streaming clients render finalized history and active stream pieces separately.

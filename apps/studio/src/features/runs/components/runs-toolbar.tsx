@@ -105,6 +105,17 @@ export function RunsToolbar({
             Filters
           </TooltipContent>
         </Tooltip>
+        <label className="flex cursor-pointer items-center gap-2 rounded-md border px-3 py-1.5 text-xs">
+          <input
+            type="checkbox"
+            checked={query.includeChildren}
+            onChange={(event) =>
+              setParams({ includeChildren: event.target.checked || null })
+            }
+            className="accent-foreground"
+          />
+          Include child workflows
+        </label>
         <DataTableColumnsMenu />
         <RunsViewsMenu
           query={query}

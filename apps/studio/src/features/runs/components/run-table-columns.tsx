@@ -1,5 +1,6 @@
 import { CirclePause, Clock3 } from "lucide-react";
 import type { DataTableColumn } from "@/components/data-table";
+import { DetailLink } from "@/components/detail/detail-link";
 import { effectiveInterruptStatus } from "@/features/interrupts/lib/interrupt-presentation";
 import {
   WorkflowPathCell,
@@ -36,7 +37,11 @@ const workflowRefsFor = (run: Run) =>
       ];
 
 const activeDurationSeconds = (run: Run, now: number) => {
-  if (run.status !== "running") return run.duration;
+  if (
+    run.status !== "running" &&
+    !(run.parentRunId && run.status === "interrupted")
+  )
+    return run.duration;
   const startedAt = Date.parse(run.startedAt);
   if (!Number.isFinite(startedAt)) return run.duration;
   return Math.max(0, (now - startedAt) / 1000);
@@ -50,6 +55,28 @@ export function createRunColumns({
   versionFilter = "",
 }: CreateRunColumnsOptions): DataTableColumn<Run, SortKey>[] {
   return [
+    {
+      key: "parent",
+      label: "Execution",
+      defaultWidth: 170,
+      render: (run) =>
+        run.parentRunId ? (
+          <div className="flex min-w-0 flex-col gap-1 text-xs">
+            <span className="font-medium text-violet-600">
+              ↳ Child · {run.callId}
+            </span>
+            <DetailLink
+              className="truncate text-muted-foreground hover:underline"
+              href={`/runs/${run.parentRunId}?tab=calls`}
+              onClick={(event) => event.stopPropagation()}
+            >
+              Parent {run.parentRunId.slice(0, 8)}…
+            </DetailLink>
+          </div>
+        ) : (
+          <span className="text-xs text-muted-foreground">Root execution</span>
+        ),
+    },
     {
       key: "status",
       label: "Status",
@@ -67,7 +94,8 @@ export function createRunColumns({
             )
           : null;
         const status =
-          run.status === "interrupted" && interruptStatus === "pending"
+          run.status === "interrupted" &&
+          (interruptStatus === "pending" || Boolean(run.parentRunId))
             ? {
                 label: "Waiting for input",
                 icon: CirclePause,

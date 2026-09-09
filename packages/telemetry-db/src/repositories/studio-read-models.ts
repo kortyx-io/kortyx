@@ -1,4 +1,5 @@
 import {
+  projectWorkflowCalls,
   resolveStudioInterruptStatus,
   type StudioCatalogsResponse,
   type StudioDetailEvent,
@@ -40,6 +41,7 @@ export type StudioReadModels = {
   workflows: StudioWorkflowsResponse;
   catalogs: StudioCatalogsResponse;
   detailEvents: StudioDetailEvent[];
+  childRuns?: StudioRun[];
 };
 
 type RunAggregate = {
@@ -433,17 +435,29 @@ const aggregateRunGroups = (
         Boolean(interrupt) &&
         (interruptStatus === "pending" || interruptStatus === "expired");
       const runOutcome = lastRunSpanOutcome(ordered);
-      const status: StudioRunStatus = cancelled
-        ? "cancelled"
-        : interruptedByInput
-          ? "interrupted"
-          : runOutcome?.status === "running"
-            ? "running"
-            : runOutcome?.status === "failed" || (!runOutcome && failed)
-              ? "failed"
-              : runOutcome?.status === "completed"
-                ? "completed"
-                : "running";
+      const restored = [...ordered]
+        .reverse()
+        .find(
+          (event) =>
+            event.type === "workflow.call.restored" &&
+            event.payload.status === "interrupted",
+        );
+      const waitingAfterRestore =
+        restored &&
+        (!runOutcome || restored.occurredAt > runOutcome.event.occurredAt);
+      const status: StudioRunStatus = waitingAfterRestore
+        ? "interrupted"
+        : cancelled
+          ? "cancelled"
+          : interruptedByInput
+            ? "interrupted"
+            : runOutcome?.status === "running"
+              ? "running"
+              : runOutcome?.status === "failed" || (!runOutcome && failed)
+                ? "failed"
+                : runOutcome?.status === "completed"
+                  ? "completed"
+                  : "running";
       const endedAt =
         status === "running"
           ? null
@@ -476,12 +490,14 @@ const aggregateRunGroups = (
         ),
       );
       const path = unique(
-        ordered.flatMap((event) => [
-          ...(event.nodeId ? [event.nodeId] : []),
-          ...(event.type === "session.checkpointed"
-            ? asStringArray(event.payload.nodes)
-            : []),
-        ]),
+        ordered
+          .filter((event) => !event.payload.invocationId)
+          .flatMap((event) => [
+            ...(event.nodeId ? [event.nodeId] : []),
+            ...(event.type === "session.checkpointed"
+              ? asStringArray(event.payload.nodes)
+              : []),
+          ]),
       );
       const durationMs = endedAt
         ? endedAt.getTime() - first.occurredAt.getTime()
@@ -492,7 +508,11 @@ const aggregateRunGroups = (
         id: runId,
         events: ordered,
         workflowId: first.workflowId,
-        workflowRevisionId: first.workflowRevisionId,
+        workflowRevisionId:
+          ordered.find(
+            (event) =>
+              event.workflowId === first.workflowId && event.workflowRevisionId,
+          )?.workflowRevisionId ?? null,
         sessionId: first.sessionId,
         environment: first.environment,
         startedAt: first.occurredAt,
@@ -1062,14 +1082,18 @@ const aggregateTransitions = (
     for (const transition of revision.workflowTransitions ?? []) {
       const sourceNodeId = transition.sourceNodeId ?? null;
       const condition = transition.condition ?? null;
-      const key = transitionKey({
-        sourceWorkflowId: revision.workflowId,
-        sourceNodeId,
-        targetWorkflowId: transition.targetWorkflowId,
-        condition,
-      });
+      const key =
+        transition.kind === "call"
+          ? `catalog-call:${revision.workflowId}:${sourceNodeId ?? ""}:${transition.targetWorkflowId}`
+          : transitionKey({
+              sourceWorkflowId: revision.workflowId,
+              sourceNodeId,
+              targetWorkflowId: transition.targetWorkflowId,
+              condition,
+            });
       declared.set(key, {
         id: key,
+        ...(transition.kind ? { kind: transition.kind } : {}),
         sourceWorkflowId: revision.workflowId,
         sourceNodeId,
         targetWorkflowId: transition.targetWorkflowId,
@@ -1337,10 +1361,97 @@ export const createStudioReadModelsFromRecords = (input: {
   const events = [...input.events].sort(byTimeAsc);
   const runs = aggregateRuns(events, input.rates);
   const workflowRuns = aggregateWorkflowRuns(events, input.rates);
+  const calls = projectWorkflowCalls(events.map(toDetailEvent));
+  const childRuns = calls.flatMap((call) => {
+    const root = runs.find((run) => run.id === call.events[0]?.runId);
+    if (!root) return [];
+    const ids = new Set([call.invocationId]);
+    // Include descendant generation facts exactly once, even for recursive calls.
+    for (let size = -1; size !== ids.size; ) {
+      size = ids.size;
+      for (const child of calls)
+        if (
+          child.branchId === call.branchId &&
+          child.parentInvocationId &&
+          ids.has(child.parentInvocationId)
+        )
+          ids.add(child.invocationId);
+    }
+    const own = events.filter(
+      (event) =>
+        event.runId === root.id &&
+        event.payload.branchId === call.branchId &&
+        ids.has(String(event.payload.invocationId)),
+    );
+    const aggregate = aggregateRuns(own, input.rates)[0];
+    const base = runToStudioRun(aggregate ?? root, revisionsById);
+    const targetRevisionId =
+      own.find(
+        (event) =>
+          event.workflowId === call.targetWorkflowId &&
+          event.workflowRevisionId,
+      )?.workflowRevisionId ?? null;
+    const targetVersion = targetRevisionId
+      ? (revisionsById.get(targetRevisionId)?.declaredVersion ??
+        call.targetVersion)
+      : call.targetVersion;
+    return [
+      {
+        ...base,
+        id: `call:${call.id}`,
+        parentRunId: root.id,
+        parentWorkflowId: call.sourceWorkflowId,
+        callerNodeId: call.callerNodeId,
+        path: unique(
+          own
+            .filter(
+              (event) =>
+                event.workflowId === call.targetWorkflowId &&
+                event.payload.invocationId === call.invocationId,
+            )
+            .flatMap((event) => (event.nodeId ? [event.nodeId] : [])),
+        ),
+        invocationId: call.invocationId,
+        branchId: call.branchId,
+        callId: call.callId,
+        workflowId: call.targetWorkflowId,
+        workflowIds: [call.targetWorkflowId],
+        workflowRefs: [
+          {
+            workflowId: call.targetWorkflowId,
+            workflowRevisionId: targetRevisionId,
+            declaredVersion: targetVersion,
+          },
+        ],
+        workflowRevisionId: targetRevisionId,
+        declaredVersion: targetVersion,
+        status: call.status,
+        startedAt: call.startedAt,
+        endedAt: call.endedAt,
+        durationMs: call.endedAt
+          ? Math.max(0, Date.parse(call.endedAt) - Date.parse(call.startedAt))
+          : null,
+        result:
+          call.status === "interrupted"
+            ? `Waiting in ${call.leaf?.workflowId ?? call.targetWorkflowId}${call.leaf?.nodeId ? ` / ${call.leaf.nodeId}` : ""}`
+            : call.status === "completed"
+              ? call.reused
+                ? "Returned cached result"
+                : "Returned to parent"
+              : call.status,
+        interruptId: null,
+        interruptStatus: null,
+        interruptExpiresAt: null,
+        interruptNodeId: call.leaf?.nodeId ?? null,
+        transitionIds: [],
+      } satisfies StudioRun,
+    ];
+  });
   return {
     runs: runs
       .map((run) => runToStudioRun(run, revisionsById))
       .sort(byTimeDesc),
+    childRuns,
     sessions: aggregateSessions(runs, revisionsById),
     interrupts: aggregateInterrupts(events),
     workflows: workflowModels(input.revisions, workflowRuns),

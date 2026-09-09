@@ -292,6 +292,17 @@ export const prepareWorkflowTelemetry = (args: {
 
   return {
     ...args.config,
+    prepareChildTelemetry: (
+      workflow: WorkflowDefinition,
+      config: Record<string, unknown>,
+    ) =>
+      prepareWorkflowTelemetry({
+        config,
+        workflow,
+        runId: args.runId,
+        sessionId: args.sessionId,
+        knownWorkflowIds: args.knownWorkflowIds,
+      }),
     telemetry: {
       ...telemetry,
       correlation: {

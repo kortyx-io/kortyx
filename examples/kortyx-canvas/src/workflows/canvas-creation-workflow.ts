@@ -1,6 +1,7 @@
 import "server-only";
 
 import { defineWorkflow } from "kortyx";
+import { z } from "zod";
 import { WORKFLOW_IDS } from "@/lib/protocol";
 import { announceDiscoveryCanvasCreationNode } from "../nodes/canvas-creation/announce-canvas-creation-node";
 import {
@@ -10,6 +11,7 @@ import {
 import { createDiscoveryCanvasNode } from "../nodes/canvas-creation/create-canvas-node";
 import { fetchDiscoveryCanvasInputsNode } from "../nodes/canvas-creation/fetch-canvas-inputs-node";
 import { summarizeDiscoveryCanvasNode } from "../nodes/canvas-creation/summarize-canvas-node";
+import { discoveryCanvasResponseSchema } from "../schemas/discovery-canvas";
 
 /**
  * Five-step canvas creation:
@@ -36,9 +38,13 @@ import { summarizeDiscoveryCanvasNode } from "../nodes/canvas-creation/summarize
  */
 export const canvasCreationWorkflow = defineWorkflow({
   id: WORKFLOW_IDS.canvasCreation,
-  version: "1.4.0",
+  version: "1.5.0",
   description:
     "Collect brief/agent via interrupts, fetch brief/agent/tenant context, announce the run, generate a Product Discovery Canvas, then summarize it for the user.",
+  inputSchema: z.string(),
+  outputSchema: z
+    .object({ summary: z.string(), canvas: discoveryCanvasResponseSchema })
+    .passthrough(),
   nodes: {
     collectDiscoveryCanvasBrief: {
       run: collectDiscoveryCanvasBriefNode,

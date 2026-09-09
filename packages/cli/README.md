@@ -186,3 +186,13 @@ npm install -g @kortyx/cli
 ## License
 
 Apache-2.0. See [LICENSE](https://github.com/kortyx-io/kortyx/blob/main/LICENSE).
+
+### Child workflow discovery
+
+`topology push` also inspects the entry's TypeScript/JavaScript source and imported local helpers for `useWorkflow` calls. It resolves registered workflow references, literal IDs and constants, import aliases, `createWorkflowHooks`, and arguments passed through custom hooks. No call edges or caller declarations are needed in workflow definitions, and discovery does not execute nodes or hooks.
+
+`--dry-run --json` includes the discovered `calls` for each workflow. Unresolvable dynamic targets, ambiguous workflow definitions, or unavailable source produce warnings; runtime observations can supply those relationships later. Publish from application source, rather than a minified bundle, for reliable discovery.
+
+Calls are supplemental source-derived catalog metadata on the existing executable topology revision. Republishing replaces this metadata (including removed calls); runtime registration omits it and preserves the published relationships. Call metadata does not change the runtime topology hash.
+
+Studio draws discovered call/return links before traffic exists. The **Observed calls** overlay adds recorded metrics and dynamic targets without duplicating discovered edges. Calls remain distinct from `transitionTo` handoffs.

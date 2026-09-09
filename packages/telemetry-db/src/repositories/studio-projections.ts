@@ -64,6 +64,9 @@ const runProjectionValues = (
   models: run.models,
   searchText: compactSearchText([
     run.id,
+    run.parentRunId,
+    run.parentWorkflowId,
+    run.callId,
     run.sessionId,
     ...run.workflowIds,
     ...run.workflowRefs.flatMap((reference) => [
@@ -297,7 +300,7 @@ export const refreshStudioProjectionScopes = async (
     }
   }
 
-  const runValues = models.runs.map((run) =>
+  const runValues = [...models.runs, ...(models.childRuns ?? [])].map((run) =>
     runProjectionValues(
       input.organizationId,
       input.projectId,

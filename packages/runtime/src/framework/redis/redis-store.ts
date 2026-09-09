@@ -10,6 +10,7 @@ export type FrameworkTtl = {
 };
 
 export type RedisFrameworkStore = {
+  take?: (key: string) => Promise<string | null>;
   get: (key: string) => Promise<string | null>;
   set: (key: string, value: string, ttlMs: number) => Promise<void>;
   del: (key: string) => Promise<void>;
@@ -34,6 +35,11 @@ export function createRedisFrameworkStore(
   const k = (key: string) => `${prefix}${key}`;
 
   return {
+    async take(key: string): Promise<string | null> {
+      const r = await client.command("GETDEL", [k(key)]);
+      if (isRedisError(r)) throw new Error(`Redis GETDEL error: ${r.message}`);
+      return typeof r === "string" ? r : null;
+    },
     async get(key: string): Promise<string | null> {
       const r = await client.command("GET", [k(key)]);
       if (r === null) return null;

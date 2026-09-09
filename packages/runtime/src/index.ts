@@ -1,6 +1,7 @@
 // release-test: 2026-01-22
 export * from "./checkpointer";
 export * from "./framework/adapter";
+export * from "./framework/graph-snapshot";
 export * from "./framework/pending-requests";
 export * from "./framework/session-checkpoints";
 export * from "./graph/create-execution-graph";

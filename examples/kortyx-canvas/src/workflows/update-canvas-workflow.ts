@@ -1,6 +1,7 @@
 import "server-only";
 
 import { defineWorkflow } from "kortyx";
+import { z } from "zod";
 import { WORKFLOW_IDS } from "@/lib/protocol";
 import { acknowledgeUpdateIntentNode } from "../nodes/update-canvas/acknowledge-update-intent-node";
 import { addItemNode } from "../nodes/update-canvas/add-item-node";
@@ -37,7 +38,7 @@ import { summarizeUpdatesNode } from "../nodes/update-canvas/summarize-updates-n
  *
  *   Branch A — update_field (existing string rewrite, streamed progressively):
  *       findUpdatePaths → applyUpdates → summarizeUpdates
- *       findUpdatePaths short-circuits with `transitionTo: canvas-save` when
+ *       findUpdatePaths calls the canvas-save child with `useWorkflow` when
  *       it can't pin down a target — see `find-update-paths-node.ts`.
  *
  *   Branch B — add_section / remove_section / add_item /
@@ -55,9 +56,16 @@ import { summarizeUpdatesNode } from "../nodes/update-canvas/summarize-updates-n
  */
 export const updateDiscoveryCanvasWorkflow = defineWorkflow({
   id: WORKFLOW_IDS.updateDiscoveryCanvas,
-  version: "2.1.0",
+  version: "2.2.0",
   description:
     "Screen for policy, ack the user, classify into one of five canvas ops (set / add* / remove*), execute the matching branch, then confirm.",
+  inputSchema: z.string(),
+  outputSchema: z
+    .object({
+      summary: z.string().optional(),
+      responseText: z.string().optional(),
+    })
+    .passthrough(),
   nodes: {
     screenUpdateIntent: {
       run: screenUpdateIntentNode,
@@ -138,7 +146,7 @@ export const updateDiscoveryCanvasWorkflow = defineWorkflow({
     // Each branch funnels into summarizeUpdates. `findUpdatePaths` may
     // also short-circuit via `condition: "redirect"` when it couldn't
     // pin down a target — that route ends the workflow immediately so
-    // the `transitionTo: canvas-save` it set takes over without firing
+    // the canvas-save child already completed without firing
     // `applyUpdates` or `summarizeUpdates` (which would otherwise stream
     // a stale "I couldn't tell which part…" message).
     ["findUpdatePaths", "applyUpdates", { when: "ok" }],

@@ -70,6 +70,8 @@ export async function streamChat<Options = unknown>({
     );
   }
 
+  runtimeConfig.selectWorkflow = workflowSelector;
+
   const fallbackSessionId = (options as { sessionId?: string } | undefined)
     ?.sessionId;
   const resolvedSessionId =

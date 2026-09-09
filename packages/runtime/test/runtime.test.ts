@@ -1,3 +1,4 @@
+import { emptyCheckpoint } from "@langchain/langgraph-checkpoint";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   buildInitialGraphState,
@@ -15,6 +16,10 @@ import {
   registerNode,
   resolveNode,
 } from "../src";
+import {
+  captureGraphSnapshot,
+  restoreGraphSnapshot,
+} from "../src/framework/graph-snapshot";
 import { createInMemoryCheckpointSaver } from "../src/framework/in-memory-checkpointer";
 import type { PendingRequestRecord } from "../src/framework/pending-requests";
 import { createRedisCheckpointSaver } from "../src/framework/redis/redis-checkpointer";
@@ -1162,4 +1167,99 @@ describe("checkpoint savers", () => {
     }
     expect(listed).toEqual([]);
   });
+});
+
+describe("self-contained graph snapshots", () => {
+  it("restores independent pending writes and removes writes from a later execution", async () => {
+    const saver = createInMemoryCheckpointSaver();
+    expect(await captureGraphSnapshot(saver, "missing")).toBeUndefined();
+    const checkpoint = emptyCheckpoint();
+    checkpoint.channel_values = { input: { topic: "original" } };
+    const config = await saver.put(
+      { configurable: { thread_id: "source", checkpoint_ns: "" } },
+      checkpoint,
+      { source: "loop", step: 0, parents: {} },
+      {},
+    );
+    await saver.putWrites(
+      config,
+      [
+        ["__resume__", ["first"]],
+        ["data", { original: true }],
+      ],
+      "task",
+    );
+    const snapshot = await captureGraphSnapshot(saver, "source", checkpoint.id);
+    if (!snapshot) throw new Error("Missing snapshot");
+    await saver.putWrites(config, [["data", { late: true }]], "later-task");
+    await restoreGraphSnapshot(saver, snapshot, "source");
+    expect(
+      (await captureGraphSnapshot(saver, "source"))?.pendingWrites,
+    ).toEqual(snapshot.pendingWrites);
+    await restoreGraphSnapshot(saver, snapshot, "fork");
+    const restored = await captureGraphSnapshot(saver, "fork");
+    expect(restored?.config.configurable?.thread_id).toBe("fork");
+    expect(restored?.pendingWrites).toEqual(snapshot.pendingWrites);
+    if (restored) restored.checkpoint.channel_values.input = { changed: true };
+    expect(
+      (await captureGraphSnapshot(saver, "source"))?.checkpoint.channel_values
+        .input,
+    ).toEqual({ topic: "original" });
+    const { pendingWrites: _writes, ...withoutWrites } = snapshot;
+    const { deleteCheckpointWrites: _reset, ...basicSaver } = saver;
+    await restoreGraphSnapshot(
+      basicSaver as typeof saver,
+      withoutWrites,
+      "basic",
+    );
+    expect((await captureGraphSnapshot(saver, "basic"))?.pendingWrites).toEqual(
+      [],
+    );
+  });
+
+  it("takes a pending request once without exposing the stored snapshot", async () => {
+    const store = createInMemoryPendingRequestStore();
+    await store.save(pendingRecord());
+    expect(await store.take?.("token-1")).toMatchObject({
+      requestId: "request-1",
+    });
+    expect(await store.take?.("token-1")).toBeNull();
+  });
+
+  for (const kind of ["memory", "redis"]) {
+    it(`gives forked graph snapshots an independent run id (${kind})`, async () => {
+      const store =
+        kind === "memory"
+          ? createInMemorySessionCheckpointStore()
+          : createRedisSessionCheckpointStore({
+              store: createMemoryRedisStore(),
+              ttlMs: 10000,
+            });
+      const record = await store.append({
+        sessionId: "source",
+        runId: "original-run",
+        workflow: "workflow-1",
+        state: {
+          input: "",
+          lastNode: "ask",
+          currentWorkflow: "workflow-1",
+          runtime: {},
+          config: {},
+          awaitingHumanInput: true,
+          conversationHistory: [],
+        },
+        pendingRequests: [
+          pendingRecord({
+            graphSnapshot: { config: {}, checkpoint: emptyCheckpoint() },
+          }),
+        ],
+      });
+      const fork = await store.fork(record.id, { newSessionId: "fork" });
+      expect(fork.checkpoint.runId).not.toBe("original-run");
+      expect(fork.checkpoint.activePendingRequests[0]?.runId).toBe(
+        fork.checkpoint.runId,
+      );
+      expect((await store.get(record.id))?.runId).toBe("original-run");
+    });
+  }
 });

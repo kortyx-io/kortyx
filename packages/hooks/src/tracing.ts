@@ -108,6 +108,9 @@ export interface KortyxTelemetryReporter {
 }
 
 export type KortyxTelemetryCorrelation = {
+  invocationId?: string | undefined;
+  parentInvocationId?: string | undefined;
+  branchId?: string | undefined;
   runId?: string | undefined;
   sessionId?: string | undefined;
   workflowId?: string | undefined;

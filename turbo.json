@@ -46,11 +46,13 @@
     },
     "test": {
       "dependsOn": ["^build", "^test"],
+      "env": ["KORTYX_TEST_REDIS_URL"],
       "outputs": [],
       "cache": false
     },
     "coverage": {
       "dependsOn": ["^build", "^coverage"],
+      "env": ["KORTYX_TEST_REDIS_URL"],
       "outputs": ["coverage/**"],
       "cache": false
     },

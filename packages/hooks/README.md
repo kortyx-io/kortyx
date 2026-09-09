@@ -53,3 +53,31 @@ Workarounds:
 ## License
 
 Apache-2.0. See [LICENSE](https://github.com/kortyx-io/kortyx/blob/main/LICENSE).
+
+
+## Child workflows
+
+Call a registered workflow from a node or custom hook and continue with its
+result:
+
+```ts
+const result = await useWorkflow({
+  id: "research",
+  workflow: researchWorkflow,
+  input: { topic: "AI agents" },
+});
+return { data: { summary: result.data.summary } };
+```
+
+The child defines `inputSchema` and `outputSchema` on `defineWorkflow`.
+Inputs and returned data are inferred from those schemas and validated at
+runtime. The result is the child's accumulated data parsed by its output
+schema. Use `createWorkflowHooks({ research: researchWorkflow })` for typed
+string ids. Register the same definitions with the agent.
+
+Calls need stable ids. A child interrupt pauses the chain; resuming replays
+the enclosing node and reuses saved child results. Keep effects before calls
+idempotent. Fork/rollback retain nested checkpoints; use Redis for persistence
+across server restarts. Concurrent calls are unsupported.
+
+See [the execution and replay contract](../../docs/design-specs/child-workflows.md).

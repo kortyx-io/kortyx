@@ -2,11 +2,13 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState, useTransition } from "react";
-import { Sheet, SheetContent } from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@/lib/utils";
 import { useWorkflowQuery } from "../hooks/use-workflow-query";
+import { CONNECTION_STYLE } from "../lib/connection-style";
 import { workflowCanvasFocusId } from "../lib/view-state";
+import { withWorkflowCallEvidence } from "../lib/workflow-calls";
 import type { WorkflowSystem } from "../schema";
 import { WorkflowCanvas } from "./workflow-canvas";
 import { WorkflowCatalog } from "./workflow-catalog";
@@ -22,12 +24,17 @@ export default function WorkflowsPageClient({
   const router = useRouter();
   const [refreshing, startRefresh] = useTransition();
   const { params, selection, setParams, setSelection, setTimeRange } =
-    useWorkflowQuery();
+    useWorkflowQuery(system.transitions);
   const [focusedWorkflow, setFocusedWorkflow] = useState<{
     id: string;
     request: number;
     sourceKey: string;
   }>();
+  const [showCalls, setShowCalls] = useState(true);
+  const canvasSystem = useMemo(
+    () => withWorkflowCallEvidence(system, showCalls),
+    [system, showCalls],
+  );
   const [catalogOpen, setCatalogOpen] = useState(false);
   const [inspectorOpen, setInspectorOpen] = useState(false);
   const [inspectorPanelOpen, setInspectorPanelOpen] = useState(true);
@@ -110,9 +117,13 @@ export default function WorkflowsPageClient({
   );
   const inspector = (
     <WorkflowInspector
-      system={system}
+      system={canvasSystem}
       selection={selection}
       onSelect={selectItem}
+      onNavigate={() => {
+        setInspectorOpen(false);
+        setCatalogOpen(false);
+      }}
       onClose={() => {
         setInspectorOpen(false);
         setInspectorPanelOpen(false);
@@ -148,9 +159,52 @@ export default function WorkflowsPageClient({
           onOpenInspector={() => setInspectorOpen(true)}
           onOpenInspectorPanel={() => setInspectorPanelOpen(true)}
         />
+        <div className="flex flex-wrap items-center gap-x-5 gap-y-2 border-b px-4 py-2 text-xs text-muted-foreground">
+          <fieldset
+            aria-label="Workflow connection legend"
+            className="flex flex-wrap items-center gap-x-4 gap-y-2"
+          >
+            {(
+              [
+                ["call", "useWorkflow · child call + return"],
+                ["handoff", "transitionTo · handoff"],
+              ] as const
+            ).map(([kind, label]) => (
+              <span key={kind} className="inline-flex items-center gap-2">
+                <svg width="28" height="8" aria-hidden="true">
+                  <line
+                    x1="1"
+                    y1="4"
+                    x2="27"
+                    y2="4"
+                    stroke={CONNECTION_STYLE[kind].color}
+                    strokeWidth="2"
+                    strokeDasharray={CONNECTION_STYLE[kind].dashArray}
+                  />
+                </svg>
+                {label}
+              </span>
+            ))}
+          </fieldset>
+          <label
+            className="ml-auto flex items-center gap-2"
+            title="Overlay recorded calls on source-discovered paths"
+          >
+            <input
+              type="checkbox"
+              checked={showCalls}
+              onChange={(event) => setShowCalls(event.target.checked)}
+              className="accent-violet-500"
+            />
+            Observed calls
+            <span className="rounded bg-violet-500/10 px-1.5 text-violet-600">
+              {system.observedCalls?.length ?? 0}
+            </span>
+          </label>
+        </div>
         <div className="min-h-0 flex-1">
           <WorkflowCanvas
-            system={system}
+            system={canvasSystem}
             mode={params.mode}
             metric={params.metric}
             selection={selection}
@@ -168,12 +222,20 @@ export default function WorkflowsPageClient({
         {inspector}
       </div>
       <Sheet open={catalogOpen} onOpenChange={setCatalogOpen}>
-        <SheetContent side="left" className="w-[300px] p-0">
+        <SheetContent
+          side="left"
+          className="w-[300px] p-0"
+          aria-describedby={undefined}
+        >
+          <SheetTitle className="sr-only">Workflow catalog</SheetTitle>
           {catalog}
         </SheetContent>
       </Sheet>
       <Sheet open={inspectorOpen} onOpenChange={setInspectorOpen}>
-        <SheetContent className="w-[340px] p-0">{inspector}</SheetContent>
+        <SheetContent className="w-[340px] p-0" aria-describedby={undefined}>
+          <SheetTitle className="sr-only">Workflow inspector</SheetTitle>
+          {inspector}
+        </SheetContent>
       </Sheet>
     </div>
   );

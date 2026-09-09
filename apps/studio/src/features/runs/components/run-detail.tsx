@@ -24,6 +24,7 @@ import {
   formatDateTime,
   formatDurationMs,
 } from "@/lib/format";
+import { WorkflowCalls } from "./workflow-calls";
 
 export function RunDetail({ detail }: { detail: StudioRunDetailResponse }) {
   const { run, events } = detail;
@@ -130,6 +131,15 @@ export function RunDetail({ detail }: { detail: StudioRunDetailResponse }) {
       <div className="min-h-0 flex-1">
         <DetailTabs
           tabs={[
+            ...(events.some((event) => event.type.startsWith("workflow.call."))
+              ? [
+                  {
+                    id: "calls",
+                    label: "Execution",
+                    content: <WorkflowCalls detail={detail} />,
+                  },
+                ]
+              : []),
             {
               id: "overview",
               label: "Overview",

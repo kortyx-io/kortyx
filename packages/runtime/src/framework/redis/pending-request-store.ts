@@ -16,6 +16,14 @@ export function createRedisPendingRequestStore(
   const key = (token: string) => `${prefix}${token}`;
 
   return {
+    ...(options.store.take
+      ? {
+          take: async (token: string): Promise<PendingRequestRecord | null> => {
+            const raw = await options.store.take!(key(token));
+            return raw ? (JSON.parse(raw) as PendingRequestRecord) : null;
+          },
+        }
+      : {}),
     async save(rec: PendingRequestRecord) {
       await options.store.set(key(rec.token), JSON.stringify(rec), rec.ttlMs);
     },

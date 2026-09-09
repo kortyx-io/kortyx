@@ -81,6 +81,29 @@ export const ensureWorkflowRevision = async (
     environment: input.request.environment,
   });
 
+  // Source-discovered calls supplement the executable topology hash. A runtime
+  // ensure omits calls and must not erase a catalog published by the CLI.
+  const catalogTransitions = [
+    ...(input.request.workflow.transitions ?? []),
+    ...(input.request.workflow.calls ?? []).map((call) => ({
+      ...call,
+      kind: "call" as const,
+    })),
+  ];
+  const updateCatalog = async (id: string) => {
+    if (input.request.workflow.calls !== undefined) {
+      await db
+        .update(workflowRevisions)
+        .set({ workflowTransitions: catalogTransitions })
+        .where(
+          and(
+            eq(workflowRevisions.id, id),
+            eq(workflowRevisions.organizationId, input.organizationId),
+            eq(workflowRevisions.projectId, input.projectId),
+          ),
+        );
+    }
+  };
   const existingId = await findWorkflowRevisionByTopology(db, {
     organizationId: input.organizationId,
     projectId: input.projectId,
@@ -89,6 +112,7 @@ export const ensureWorkflowRevision = async (
     topologyHash: input.request.workflow.topologyHash,
   });
   if (existingId) {
+    await updateCatalog(existingId);
     return { workflowRevisionId: existingId, created: false };
   }
 
@@ -104,7 +128,7 @@ export const ensureWorkflowRevision = async (
       serviceName: input.request.service.name,
       nodes: input.request.workflow.nodes,
       edges: input.request.workflow.edges,
-      workflowTransitions: input.request.workflow.transitions ?? [],
+      workflowTransitions: catalogTransitions,
       ...(input.request.service.deploymentRef
         ? { deploymentRef: input.request.service.deploymentRef }
         : {}),
@@ -134,5 +158,6 @@ export const ensureWorkflowRevision = async (
     throw new Error("Failed to ensure workflow revision.");
   }
 
+  await updateCatalog(revisionId);
   return { workflowRevisionId: revisionId, created: false };
 };

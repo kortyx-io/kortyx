@@ -61,6 +61,10 @@ export const WorkflowDefinitionSchema = z
     id: z.string(),
     version: z.string(),
     description: z.string().optional(),
+    inputSchema: z.custom<z.ZodType>((v) => v instanceof z.ZodType).optional(),
+    outputSchema: z
+      .custom<z.ZodType<Record<string, unknown>>>((v) => v instanceof z.ZodType)
+      .optional(),
     nodes: z.record(z.string(), WorkflowNodeDefSchema),
     edges: z.array(WorkflowEdgeSchema),
     metadata: z.record(z.string(), z.unknown()).optional(),

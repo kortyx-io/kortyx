@@ -1,6 +1,7 @@
 import { PassThrough } from "node:stream";
 import type { GraphState, WorkflowDefinition, WorkflowId } from "@kortyx/core";
 import {
+  captureGraphSnapshot,
   createExecutionGraph,
   type FrameworkAdapter,
   makeRequestId,
@@ -311,6 +312,21 @@ export async function orchestrateGraphStream({
 
   const pendingStore: PendingRequestStore | undefined =
     frameworkAdapter?.pendingRequests;
+  const sealPendingSnapshots = async () => {
+    if (typeof frameworkAdapter?.checkpointer?.getTuple !== "function") return;
+    for (const [token, request] of activePendingRequests) {
+      const graphSnapshot = await captureGraphSnapshot(
+        frameworkAdapter.checkpointer,
+        runId,
+        request.graphCheckpointId,
+      );
+      if (graphSnapshot) {
+        const sealed = { ...request, graphSnapshot };
+        activePendingRequests.set(token, sealed);
+        await pendingStore?.update(token, { graphSnapshot });
+      }
+    }
+  };
   const pendingTtlMs = frameworkAdapter?.ttlMs ?? 15 * 60 * 1000;
 
   const persistAndEmitInterrupt = async (
@@ -451,6 +467,9 @@ export async function orchestrateGraphStream({
       type: "interrupt.created",
       correlation: { nodeId: record.node },
       payload: {
+        workflowCall: record.schema.meta?.workflowCall ?? null,
+        workflowCallPath: record.schema.meta?.workflowCallPath ?? null,
+        branchId: config.executionBranchId ?? runId,
         interruptId: record.requestId,
         requestId: record.requestId,
         kind: record.schema.kind,
@@ -792,6 +811,7 @@ export async function orchestrateGraphStream({
       // Ensure the compiled graph uses our forwardEmit
       currentGraph.config = currentGraph.config || {};
       currentGraph.config.emit = forwardEmit;
+      currentGraph.config.executionRunId = runId;
       const threadId =
         ((currentGraph.config as any)?.session?.id as string | undefined) ||
         sessionId ||
@@ -1091,6 +1111,7 @@ export async function orchestrateGraphStream({
           ((config as any)?.session?.id as string | undefined) ||
           sessionId ||
           "";
+        await sealPendingSnapshots();
         if (resolvedSessionId && frameworkAdapter?.sessionCheckpoints) {
           try {
             const checkpoint = await frameworkAdapter.sessionCheckpoints.append(
@@ -1161,6 +1182,7 @@ export async function orchestrateGraphStream({
       }
       const resolvedSessionId =
         ((config as any)?.session?.id as string | undefined) || sessionId || "";
+      await sealPendingSnapshots();
       if (resolvedSessionId && frameworkAdapter?.sessionCheckpoints) {
         try {
           const checkpoint = await frameworkAdapter.sessionCheckpoints.append({

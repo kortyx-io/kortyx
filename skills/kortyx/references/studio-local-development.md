@@ -58,7 +58,7 @@ pnpm dev
 
 This prepares workspace packages and starts PostgreSQL, the API, Studio, and the
 Canvas example. By default Studio is at `http://localhost:6300` and Canvas is at
-`http://localhost:3002`.
+`http://localhost:4200` (or the configured `KORTYX_CANVAS_PORT`).
 
 Publish the Canvas catalog through its repository script:
 
@@ -68,6 +68,14 @@ pnpm --filter @kortyx/example-canvas topology:push
 
 Then send a real Canvas request. Do not add or invoke a synthetic smoke workflow
 to make Studio look connected.
+
+## Child Workflow Visibility
+
+Register parent and child definitions in the catalog. The CLI discovers resolvable calls from node/custom-hook source; dynamic targets are added through runtime observations. No call declarations are required. In **Runs**, enable **Include child workflows** to search individual calls, then open a child row to its parent execution's **Execution** tab. This view shows nested calls, node/generation ownership, lifecycle, captured input/returned data, and branch selection. Child rows do not increase session root-run counts.
+
+Source-discovered calls appear as dotted purple call/return links even before traffic. **Observed calls** is enabled by default and overlays recorded metrics plus dynamic targets. Turning it off keeps source-discovered links visible. Click a link to open a concrete call. The map legend distinguishes these purple dotted calls (return to caller) from blue dashed `transitionTo` handoffs (transfer execution). In the Canvas example, send `/help` to exercise the handoff to `canvas-help` alongside the existing child-call paths. Publish the catalog before running real application traffic; an absent source link should be checked with `topology push --dry-run --json` and its discovery warnings; an absent observed link means no call was captured in the selected cohort.
+
+For fork/rollback testing, compare `(runId, branchId, invocationId)`, not invocation ID alone. Restored calls reference source evidence, completed results can be reused without new execution, and leaf human interrupts link back to the call tree. Input/output capture is opt-in; oversized child payloads are omitted with a marker. Old SDK generic spans cannot establish logical completion.
 
 ## Troubleshooting Order
 

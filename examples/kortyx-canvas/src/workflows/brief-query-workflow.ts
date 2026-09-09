@@ -1,6 +1,7 @@
 import "server-only";
 
 import { defineWorkflow } from "kortyx";
+import { z } from "zod";
 import { WORKFLOW_IDS } from "@/lib/protocol";
 import { describeBriefNode } from "../nodes/brief-query/describe-brief-node";
 import { findBriefNode } from "../nodes/brief-query/find-brief-node";
@@ -24,9 +25,13 @@ import { findBriefNode } from "../nodes/brief-query/find-brief-node";
  */
 export const briefQueryWorkflow = defineWorkflow({
   id: WORKFLOW_IDS.briefQuery,
-  version: "1.0.0",
+  version: "1.1.0",
   description:
     "Resolve which product discovery brief the user is asking about and stream a short description back.",
+  inputSchema: z.string(),
+  outputSchema: z
+    .object({ briefId: z.string(), briefTitle: z.string() })
+    .passthrough(),
   nodes: {
     findBrief: {
       run: findBriefNode,

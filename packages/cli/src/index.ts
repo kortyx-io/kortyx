@@ -24,6 +24,7 @@ import {
 import { Command, CommanderError } from "commander";
 import { require as tsxRequire } from "tsx/cjs/api";
 import { createStudioCommand } from "./studio/command";
+import { discoverWorkflowCalls } from "./workflow-calls";
 
 type CliOptions = {
   entry?: string | undefined;
@@ -436,6 +437,7 @@ const printResults = (results: PushResult[], options: CliOptions): void => {
             declaredVersion: snapshot.workflow.declaredVersion,
             topologyHash: snapshot.workflow.topologyHash,
             transitionCount: snapshot.workflow.transitions?.length ?? 0,
+            calls: snapshot.workflow.calls ?? [],
             workflowRevisionId: response?.workflowRevisionId,
             created: response?.created,
           })),
@@ -457,7 +459,7 @@ const printResults = (results: PushResult[], options: CliOptions): void => {
       `- ${snapshot.workflow.id}@${snapshot.workflow.declaredVersion} hash=${snapshot.workflow.topologyHash.slice(
         0,
         12,
-      )} transitions=${snapshot.workflow.transitions?.length ?? 0}${revision}`,
+      )} transitions=${snapshot.workflow.transitions?.length ?? 0} calls=${snapshot.workflow.calls?.length ?? 0}${revision}`,
     );
   }
 };
@@ -485,6 +487,13 @@ const runTopologyPush = async (rawOptions: CliOptions): Promise<void> => {
     environment: options.environment,
     service,
   });
+  const discovered = discoverWorkflowCalls(options.entry, snapshots);
+  for (const warning of discovered.warnings)
+    console.error(`Topology: ${warning}`);
+  for (const snapshot of snapshots) {
+    const calls = discovered.calls.get(snapshot.workflow.id);
+    if (calls) snapshot.workflow.calls = calls;
+  }
   const parsedSnapshots = snapshots.map((snapshot) =>
     EnsureWorkflowTopologyRequestSchema.parse(snapshot),
   );

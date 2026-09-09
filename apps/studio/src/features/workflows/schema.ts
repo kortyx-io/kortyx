@@ -42,6 +42,7 @@ export const WorkflowInternalEdgeSchema = z.object({
 });
 
 export const WorkflowTransitionSchema = z.object({
+  kind: z.enum(["call", "handoff"]).optional(),
   id: z.string(),
   sourceWorkflowId: z.string(),
   sourceNodeId: z.string().optional(),
@@ -70,6 +71,15 @@ export const WorkflowSummarySchema = z.object({
 
 export const WorkflowSystemSchema = z.object({
   workflows: z.array(WorkflowSummarySchema),
+  observedCalls: z
+    .array(
+      WorkflowTransitionSchema.extend({
+        runId: z.string(),
+        invocationId: z.string(),
+        branchId: z.string(),
+      }),
+    )
+    .optional(),
   transitions: z.array(WorkflowTransitionSchema),
   cohort: StudioTimeRangeContextSchema.extend({
     workflowId: z.string().optional(),

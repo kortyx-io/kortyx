@@ -52,12 +52,15 @@ export type {
   UseStructuredDataArgs,
 } from "@kortyx/hooks";
 export {
+  createWorkflowHooks,
   useInterrupt,
   useNodeState,
   useReason,
   useRuntimeContext,
   useStructuredData,
+  useWorkflow,
   useWorkflowState,
+  WorkflowCallError,
 } from "@kortyx/hooks";
 export type {
   CreateMCPClientArgs,

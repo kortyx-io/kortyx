@@ -33,17 +33,29 @@ const correlationFrom = (
     stringValue(source.workflowId) ?? active?.correlation.workflowId;
   if (!runId || !workflowId) return undefined;
 
+  const sameWorkflow = workflowId === active?.correlation.workflowId;
   const sessionId =
     stringValue(source.sessionId) ?? active?.correlation.sessionId;
   const workflowRevisionId =
     stringValue(source.workflowRevisionId) ??
-    active?.correlation.workflowRevisionId;
+    (sameWorkflow ? active?.correlation.workflowRevisionId : undefined);
   const topologyHash =
-    stringValue(source.topologyHash) ?? active?.correlation.topologyHash;
-  const nodeId = stringValue(source.nodeId) ?? active?.correlation.nodeId;
+    stringValue(source.topologyHash) ??
+    (sameWorkflow ? active?.correlation.topologyHash : undefined);
+  const nodeId =
+    stringValue(source.nodeId) ??
+    (sameWorkflow ? active?.correlation.nodeId : undefined);
   return {
     runId,
     workflowId,
+    ...Object.fromEntries(
+      ["invocationId", "parentInvocationId", "branchId"].flatMap((key) => {
+        const value =
+          stringValue(source[key]) ??
+          active?.correlation[key as "invocationId"];
+        return value ? [[key, value]] : [];
+      }),
+    ),
     ...(sessionId ? { sessionId } : {}),
     ...(workflowRevisionId ? { workflowRevisionId } : {}),
     ...(topologyHash ? { topologyHash } : {}),
@@ -88,7 +100,18 @@ export const createEventMapper = (args: {
         }
       : {}),
     type: input.type,
-    payload: input.payload,
+    payload: {
+      ...input.payload,
+      ...(input.correlation.invocationId
+        ? { invocationId: input.correlation.invocationId }
+        : {}),
+      ...(input.correlation.parentInvocationId
+        ? { parentInvocationId: input.correlation.parentInvocationId }
+        : {}),
+      ...(input.correlation.branchId
+        ? { branchId: input.correlation.branchId }
+        : {}),
+    },
   });
 
   const spanContext = (

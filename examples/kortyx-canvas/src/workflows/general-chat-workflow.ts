@@ -6,7 +6,7 @@ import { chatNode } from "../nodes/general-chat/chat-node";
 
 export const generalChatWorkflow = defineWorkflow({
   id: WORKFLOW_IDS.generalChat,
-  version: "1.0.0",
+  version: "1.2.0",
   description: "Single-node Canvas Agent chat workflow.",
   nodes: {
     chat: {

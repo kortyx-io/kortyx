@@ -16,6 +16,7 @@ import {
   Position,
   ReactFlow,
   type ReactFlowInstance,
+  type Viewport,
 } from "@xyflow/react";
 import {
   Maximize,
@@ -52,6 +53,13 @@ import type {
 } from "@/features/workflows/schema";
 import { formatCount, formatCurrency, formatDurationMs } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { CONNECTION_STYLE } from "../lib/connection-style";
+import {
+  loadWorkflowViewport,
+  saveWorkflowViewport,
+  workflowViewportKey,
+} from "../lib/viewport-state";
+import { sameWorkflowCall } from "../lib/workflow-calls";
 import styles from "./workflow-canvas.module.css";
 
 type LayoutDirection = "LR" | "TB";
@@ -70,6 +78,7 @@ type InternalData = {
   direction: LayoutDirection;
 };
 type TransitionData = {
+  kind?: "call" | "handoff";
   volume: number;
   condition?: string;
   errorRate?: number;
@@ -115,7 +124,7 @@ export function WorkflowCanvas({
   mode: WorkflowViewMode;
   metric: WorkflowMetric;
   selection: WorkflowSelection;
-  focusedWorkflow?: { id: string; request: number };
+  focusedWorkflow?: { id: string; request: number; sourceKey: string };
   onSelect: (selection: WorkflowSelection) => void;
 }) {
   const [flow, setFlow] = useState<ReactFlowInstance | null>(null);
@@ -125,9 +134,11 @@ export function WorkflowCanvas({
     () => toWorkflowGraph(system, selection, mode, metric),
     [system, selection, mode, metric],
   );
-  const layoutSignature = system.workflows
-    .map((workflow) => workflow.id)
-    .join(",");
+  // Refs survive Next's hidden Activity boundary when returning with Back.
+  // Keep the last visible viewport instead of fitting the entire graph again.
+  const savedViewport = useRef<{ key: string; viewport: Viewport } | null>(
+    null,
+  );
   const focusedBounds = useMemo(() => {
     const group = layoutNodes.find((node) => node.id === focusedWorkflow?.id);
     const width = Number(group?.style?.width ?? 0);
@@ -136,11 +147,19 @@ export function WorkflowCanvas({
       ? { x: group.position.x, y: group.position.y, width, height }
       : undefined;
   }, [focusedWorkflow?.id, layoutNodes]);
-  const focusRequest = focusedWorkflow?.request;
+  const focusKey = focusedWorkflow?.sourceKey;
   const focusX = focusedBounds?.x;
   const focusY = focusedBounds?.y;
   const focusWidth = focusedBounds?.width;
   const focusHeight = focusedBounds?.height;
+  const viewportSelection = [
+    focusKey ?? "overview",
+    focusX,
+    focusY,
+    focusWidth,
+    focusHeight,
+    layoutNodes.length,
+  ].join(":");
 
   const fit = useCallback(
     () => flow?.fitView({ padding: 0.18, duration: 220, maxZoom: 1.1 }),
@@ -160,31 +179,62 @@ export function WorkflowCanvas({
       document.removeEventListener("fullscreenchange", onFullscreenChange);
   }, []);
   useEffect(() => {
-    if (!layoutSignature) return;
-    const id = window.setTimeout(fit, 50);
-    return () => window.clearTimeout(id);
-  }, [layoutSignature, fit]);
-  useEffect(() => {
-    if (
-      !flow ||
-      focusRequest === undefined ||
-      focusX === undefined ||
-      focusY === undefined ||
-      focusWidth === undefined ||
-      focusHeight === undefined
-    )
-      return;
-
-    // A group owns the full bounds of its internal nodes and footer. Fitting the
-    // calculated bounds avoids relying on React Flow's deferred node measurement.
-    const frame = window.requestAnimationFrame(() => {
-      flow.fitBounds(
-        { x: focusX, y: focusY, width: focusWidth, height: focusHeight },
-        { padding: 0.1, duration: 240 },
-      );
-    });
-    return () => window.cancelAnimationFrame(frame);
-  }, [flow, focusRequest, focusX, focusY, focusWidth, focusHeight]);
+    if (!flow || !layoutNodes.length) return;
+    const element = canvasRef.current;
+    if (!element) return;
+    let frame = 0;
+    let restored = false;
+    const restore = () => {
+      if (restored || !element.clientWidth || !element.clientHeight) return;
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => {
+        if (!element.clientWidth || !element.clientHeight) return;
+        restored = true;
+        const key = workflowViewportKey(viewportSelection);
+        const saved =
+          savedViewport.current?.key === key
+            ? savedViewport.current.viewport
+            : loadWorkflowViewport(key);
+        if (saved) {
+          void flow.setViewport(saved, { duration: 0 });
+        } else if (
+          focusX !== undefined &&
+          focusY !== undefined &&
+          focusWidth !== undefined &&
+          focusHeight !== undefined
+        ) {
+          void flow.fitBounds(
+            { x: focusX, y: focusY, width: focusWidth, height: focusHeight },
+            { padding: 0.1, duration: 0 },
+          );
+        } else {
+          void flow.fitView({ padding: 0.18, maxZoom: 1.1, duration: 0 });
+        }
+      });
+    };
+    // A cached route can reactivate before its container has a nonzero size.
+    const observer = new ResizeObserver(restore);
+    observer.observe(element);
+    const onPageShow = () => {
+      restored = false;
+      restore();
+    };
+    window.addEventListener("pageshow", onPageShow);
+    restore();
+    return () => {
+      cancelAnimationFrame(frame);
+      observer.disconnect();
+      window.removeEventListener("pageshow", onPageShow);
+    };
+  }, [
+    flow,
+    viewportSelection,
+    layoutNodes.length,
+    focusX,
+    focusY,
+    focusWidth,
+    focusHeight,
+  ]);
 
   return (
     <div
@@ -200,8 +250,17 @@ export function WorkflowCanvas({
         nodeTypes={{ workflow: WorkflowGroup, internal: InternalNode }}
         edgeTypes={{ transition: TransitionEdge, internal: InternalEdge }}
         onInit={setFlow}
-        fitView
-        fitViewOptions={{ padding: 0.18, maxZoom: 1.1 }}
+        onMoveEnd={(_, viewport) => {
+          if (
+            canvasRef.current?.clientWidth &&
+            canvasRef.current?.clientHeight
+          ) {
+            if (window.location.pathname !== "/workflows") return;
+            const key = workflowViewportKey(viewportSelection);
+            savedViewport.current = { key, viewport };
+            saveWorkflowViewport(key, viewport);
+          }
+        }}
         minZoom={0.25}
         maxZoom={1.5}
         proOptions={{ hideAttribution: true }}
@@ -220,6 +279,16 @@ export function WorkflowCanvas({
           }
         }}
         onEdgeClick={(_, edge) => {
+          const path = system.transitions.find((path) => path.id === edge.id);
+          const call = system.observedCalls?.find(
+            (call) =>
+              call.id === edge.id ||
+              (path?.kind === "call" && sameWorkflowCall(path, call)),
+          );
+          if (call) {
+            window.location.href = `/runs/${encodeURIComponent(call.runId)}?tab=calls&call=${encodeURIComponent(call.invocationId)}&branch=${encodeURIComponent(call.branchId)}`;
+            return;
+          }
           if (edge.type === "transition")
             onSelect({ type: "transition", id: edge.id });
         }}
@@ -441,6 +510,8 @@ function TransitionEdge({
   const [labelX, labelY] = routeLabel
     ? [routeLabel.x, routeLabel.y]
     : [fallbackLabelX, fallbackLabelY];
+  const isCall = data?.kind === "call" || id.startsWith("observed-call:");
+  const connectionStyle = CONNECTION_STYLE[isCall ? "call" : "handoff"];
   const error = (data?.errorRate ?? 0) > 4;
   const width = getTransitionStrokeWidth(
     data?.mode,
@@ -453,7 +524,7 @@ function TransitionEdge({
         id={id}
         path={path}
         style={{
-          stroke: error ? "var(--destructive)" : "var(--primary)",
+          stroke: connectionStyle.color,
           strokeWidth: width,
           opacity: 0.18,
           strokeLinejoin: "round",
@@ -463,9 +534,9 @@ function TransitionEdge({
       <AnimatedEdgePath
         path={path}
         markerEnd={markerEnd}
-        stroke={error ? "var(--destructive)" : "var(--primary)"}
+        stroke={connectionStyle.color}
         strokeWidth={width}
-        dashArray="9 7"
+        dashArray={connectionStyle.dashArray}
         offset={-32}
         duration="1s"
         opacity={data?.selected ? 1 : 0.75}
@@ -486,7 +557,7 @@ function TransitionEdge({
           textAnchor="middle"
           className="fill-foreground text-[8px] font-medium"
         >
-          {formatCount(data?.volume ?? 0)} handoffs
+          {formatCount(data?.volume ?? 0)} {isCall ? "calls" : "handoffs"}
         </text>
         <text
           x="52"
@@ -497,7 +568,7 @@ function TransitionEdge({
             error && "fill-red-500",
           )}
         >
-          {data?.condition ?? "transitionTo"}
+          {isCall ? "call → return" : (data?.condition ?? "transitionTo")}
         </text>
         {error && (
           <TriangleAlert x="92" y="3" className="fill-red-500 text-red-500" />

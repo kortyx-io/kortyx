@@ -2,6 +2,68 @@ import { expect, test } from "@playwright/test";
 import { DRAWER_FIXTURE } from "./support/telemetry-fixture";
 
 test.describe("Studio time ranges and workflow cohorts", () => {
+  test("keeps unexecuted catalog calls visible and preserves caller context through selection and reload", async ({
+    page,
+  }) => {
+    await page.goto(
+      `/workflows?workflow=${DRAWER_FIXTURE.workflowId}&range=All+time`,
+    );
+    await expect(page.locator('[data-workflows-ready="true"]')).toBeVisible();
+    const callId = `catalog-call:${DRAWER_FIXTURE.workflowId}:chat:${DRAWER_FIXTURE.workflowId}`;
+    const edge = page.locator(`[data-id="${callId}"]`);
+    await expect(edge).toHaveCount(1);
+    const legend = page.getByRole("group", {
+      name: "Workflow connection legend",
+    });
+    await expect(
+      legend.getByText("useWorkflow · child call + return"),
+    ).toBeVisible();
+    await expect(legend.getByText("transitionTo · handoff")).toBeVisible();
+    await expect(edge.locator(".react-flow__edge-path").last()).toHaveCSS(
+      "stroke",
+      "rgb(139, 92, 246)",
+    );
+    const handoff = page.locator(
+      `.react-flow__edge[data-id="${DRAWER_FIXTURE.workflowId}:collectBrief:${DRAWER_FIXTURE.workflowId}:"]`,
+    );
+    await expect(handoff).toHaveCount(1);
+    await expect(handoff.locator(".react-flow__edge-path").last()).toHaveCSS(
+      "stroke",
+      "rgb(14, 165, 233)",
+    );
+    await page.getByRole("checkbox", { name: /Observed calls/ }).uncheck();
+    await expect(edge).toHaveCount(1);
+    const inspector = page.getByRole("complementary", {
+      name: "Selection inspector",
+    });
+    // There is also a handoff to this workflow. Select the source-discovered
+    // call by its transition query rather than depending on graph coordinates.
+    await page.goto(
+      `/workflows?workflow=${DRAWER_FIXTURE.workflowId}&transition=${encodeURIComponent(callId)}&range=All+time`,
+    );
+    await expect(
+      inspector.getByRole("heading", { name: "Child workflow call" }),
+    ).toBeVisible();
+    await expect(
+      inspector.getByText("Discovered in source · returns to caller", {
+        exact: true,
+      }),
+    ).toBeVisible();
+    await expect(
+      inspector.getByRole("link", { name: "View runs" }),
+    ).toHaveAttribute("href", /includeChildren=true/);
+    await page.reload();
+    await expect(
+      inspector.getByRole("heading", { name: "Child workflow call" }),
+    ).toBeVisible();
+    await inspector
+      .getByRole("button", { name: `Back to ${DRAWER_FIXTURE.workflowId}` })
+      .click();
+    await expect(page).toHaveURL(
+      new RegExp(`workflow=${DRAWER_FIXTURE.workflowId}.*node=chat`),
+    );
+  });
+
   test("keeps range and version filters URL-backed and preserves the exact View runs cohort", async ({
     page,
   }) => {
@@ -73,3 +135,69 @@ test.describe("Studio time ranges and workflow cohorts", () => {
     ).toBeVisible();
   });
 });
+
+for (const width of [1440, 700]) {
+  test(`restores graph nodes, edges, and viewport through Back/Forward at ${width}px`, async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width, height: 900 });
+    await page.goto(
+      `/workflows?workflow=${DRAWER_FIXTURE.workflowId}&range=All+time`,
+    );
+    const graph = page.locator(".react-flow");
+    const viewport = page.locator(".react-flow__viewport");
+    const transform = () =>
+      viewport.evaluate((e) => {
+        const matrix = new DOMMatrixReadOnly(getComputedStyle(e).transform);
+        return { zoom: matrix.a, x: matrix.e, y: matrix.f };
+      });
+    const selected = page.locator(`[data-id="${DRAWER_FIXTURE.workflowId}"]`);
+    await expect(selected).toBeVisible();
+    await expect
+      .poll(async () => (await transform()).zoom)
+      .toBeGreaterThan(0.25);
+    const nodes = await graph.locator(".react-flow__node:visible").count();
+    const edges = await graph.locator(".react-flow__edge").count();
+    const initial = await transform();
+    await page.getByRole("button", { name: "Zoom out", exact: true }).click();
+    await expect
+      .poll(async () => (await transform()).zoom)
+      .toBeCloseTo(initial.zoom / 1.2, 3);
+    const saved = await transform();
+    if (width < 1024)
+      await page
+        .getByRole("button", { name: "Open selected item panel", exact: true })
+        .click();
+    await page.getByRole("link", { name: "View runs", exact: true }).click();
+    await expect(
+      page.getByRole("heading", { name: "Runs", exact: true }),
+    ).toBeVisible();
+    for (let attempt = 0; attempt < 2; attempt++) {
+      await page.goBack();
+      await expect(graph).toBeVisible();
+      await expect(graph.locator(".react-flow__node:visible")).toHaveCount(
+        nodes,
+      );
+      await expect(graph.locator(".react-flow__edge")).toHaveCount(edges);
+      await expect(page.getByRole("dialog")).toHaveCount(0);
+      await expect
+        .poll(async () => (await transform()).zoom)
+        .toBeCloseTo(saved.zoom, 3);
+      await expect
+        .poll(async () => (await transform()).x)
+        .toBeCloseTo(saved.x, 1);
+      await expect
+        .poll(async () => (await transform()).y)
+        .toBeCloseTo(saved.y, 1);
+      await page.goForward();
+      await expect(
+        page.getByRole("heading", { name: "Runs", exact: true }),
+      ).toBeVisible();
+    }
+    await page.goBack();
+    await page.getByRole("button", { name: "Zoom in", exact: true }).click();
+    await expect
+      .poll(async () => (await transform()).zoom)
+      .toBeGreaterThan(saved.zoom);
+  });
+}

@@ -187,7 +187,7 @@ describe("tryPrepareResumeStream", () => {
     ).resolves.toBeNull();
   });
 
-  it("ignores expired, mismatched, and canceled pending requests", async () => {
+  it("rejects expired/mismatched requests and terminates cancellation without a new run", async () => {
     const log = vi.spyOn(console, "log").mockImplementation(() => undefined);
     const store = {
       get: vi.fn(async () => ({ ...pendingBase, requestId: "other" })),
@@ -208,10 +208,7 @@ describe("tryPrepareResumeStream", () => {
           pendingRequests: store,
         } as unknown as FrameworkAdapter,
       }),
-    ).resolves.toBeNull();
-    expect(log).toHaveBeenCalledWith(
-      "[resume] pending not found or mismatched. token=token-1 requestId=request-1",
-    );
+    ).rejects.toThrow("Interrupt is expired");
 
     store.get.mockResolvedValueOnce(pendingBase);
     await expect(
@@ -230,7 +227,7 @@ describe("tryPrepareResumeStream", () => {
           pendingRequests: store,
         } as unknown as FrameworkAdapter,
       }),
-    ).resolves.toBeNull();
+    ).resolves.not.toBeNull();
     expect(store.delete).toHaveBeenCalledWith("token-1");
 
     log.mockRestore();

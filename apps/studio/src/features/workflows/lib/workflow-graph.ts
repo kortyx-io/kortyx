@@ -113,7 +113,7 @@ export function toWorkflowGraph(
           y: point.y + groupPosition.y,
         }));
       edges.push({
-        id: edge.id,
+        id: `${workflow.id}:${edge.id}`,
         type: "internal",
         source: `${workflow.id}:${edge.source}`,
         target: `${workflow.id}:${edge.target}`,

@@ -359,6 +359,9 @@ export const listStudioRuns = async (
   const minimumTokens = queryNumber(query.minTokens);
   const timeRange = resolveListTimeRange(query);
   const conditions = [
+    queryBoolean(query.includeChildren)
+      ? undefined
+      : sql`${studioRuns.data} ->> 'parentRunId' is null`,
     eq(studioRuns.organizationId, input.organizationId),
     eq(studioRuns.projectId, input.projectId),
     query.env && query.env !== "All environments"

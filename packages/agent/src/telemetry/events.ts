@@ -88,7 +88,12 @@ export const emitTelemetryEvent = (args: {
         }
       : {}),
     type: args.type,
-    payload: args.payload,
+    payload: {
+      ...args.payload,
+      ...(args.type === "run.cancelled"
+        ? { branchId: args.config.executionBranchId ?? runId }
+        : {}),
+    },
   };
   try {
     void Promise.resolve(telemetry.reporter.emit([event]))

@@ -103,10 +103,13 @@ const transitionId = (
   revision: WorkflowRevision,
   transition: WorkflowRevision["workflowTransitions"][number],
 ) =>
-  `${revision.workflowId}:${transition.sourceNodeId ?? ""}:${transition.targetWorkflowId}:${transition.condition ?? ""}`;
+  transition.kind === "call"
+    ? `catalog-call:${revision.workflowId}:${transition.sourceNodeId ?? ""}:${transition.targetWorkflowId}`
+    : `${revision.workflowId}:${transition.sourceNodeId ?? ""}:${transition.targetWorkflowId}:${transition.condition ?? ""}`;
 
 export const createStudioWorkflowModelsFromProjections = (input: {
   runs: StudioRun[];
+  childRuns?: StudioRun[];
   revisions: WorkflowRevision[];
   range: StudioWorkflowsResponse["cohort"];
   now?: Date;
@@ -141,9 +144,20 @@ export const createStudioWorkflowModelsFromProjections = (input: {
   const workflows: StudioWorkflow[] = Array.from(revisionsByWorkflow)
     .map(([workflowId, revisions]) => {
       const active = activeRevisions.get(workflowId);
-      const runs = input.runs.filter((run) =>
-        run.workflowIds.includes(workflowId),
+      const childRuns = (input.childRuns ?? []).filter(
+        (run) => run.workflowId === workflowId,
       );
+      const childParents = new Set(childRuns.map((run) => run.parentRunId));
+      const runs = [
+        ...input.runs.filter(
+          (run) =>
+            run.workflowIds.includes(workflowId) &&
+            (run.workflowId === workflowId ||
+              !childParents.has(run.id) ||
+              run.transitionIds.some((id) => id.split(":")[2] === workflowId)),
+        ),
+        ...childRuns,
+      ];
       return {
         id: workflowId,
         name: workflowId,
@@ -187,10 +201,14 @@ export const createStudioWorkflowModelsFromProjections = (input: {
       const id = transitionId(revision, transition);
       declared.set(id, {
         id,
+        ...(transition.kind ? { kind: transition.kind } : {}),
         sourceWorkflowId: revision.workflowId,
         sourceNodeId: transition.sourceNodeId ?? null,
         targetWorkflowId: transition.targetWorkflowId,
-        condition: transition.condition ?? null,
+        condition:
+          transition.kind === "call"
+            ? "Discovered in source · returns to caller"
+            : (transition.condition ?? null),
         volume: 0,
         successRate: null,
         medianDurationMs: null,
@@ -260,6 +278,9 @@ export const listStudioWorkflows = async (
   const runConditions: Array<SQL | undefined> = [
     eq(studioRuns.organizationId, input.organizationId),
     eq(studioRuns.projectId, input.projectId),
+    input.query.env && input.query.env !== "All environments"
+      ? eq(studioRuns.environment, input.query.env)
+      : undefined,
     resolution.value.startedAfter
       ? gte(studioRuns.startedAt, new Date(resolution.value.startedAfter))
       : undefined,
@@ -287,6 +308,9 @@ export const listStudioWorkflows = async (
         and(
           eq(workflowRevisions.organizationId, input.organizationId),
           eq(workflowRevisions.projectId, input.projectId),
+          input.query.env && input.query.env !== "All environments"
+            ? eq(workflowRevisions.environment, input.query.env)
+            : undefined,
         ),
       )
       .orderBy(desc(workflowRevisions.createdAt)),
@@ -304,8 +328,9 @@ export const listStudioWorkflows = async (
       `Workflow "${workflowId}" does not have version "${version}".`,
     );
   }
-  return createStudioWorkflowModelsFromProjections({
-    runs: runRows.map((row) => row.data),
+  const result = createStudioWorkflowModelsFromProjections({
+    runs: runRows.map((row) => row.data).filter((run) => !run.parentRunId),
+    childRuns: runRows.map((row) => row.data).filter((run) => run.parentRunId),
     revisions,
     range: {
       ...resolution.value,
@@ -314,4 +339,49 @@ export const listStudioWorkflows = async (
     },
     now,
   });
+  const groups = new Map<string, StudioRun[]>();
+  for (const { data: run } of runRows) {
+    if (
+      !run.parentRunId ||
+      !run.parentWorkflowId ||
+      !run.invocationId ||
+      !run.branchId
+    )
+      continue;
+    const key = `observed-call:${run.parentWorkflowId}:${run.callerNodeId ?? ""}:${run.workflowId}`;
+    const group = groups.get(key) ?? [];
+    group.push(run);
+    groups.set(key, group);
+  }
+  return {
+    ...result,
+    observedCalls: [...groups.entries()].map(([id, runs]) => {
+      const first = runs[0]!;
+      return {
+        id,
+        sourceWorkflowId: first.parentWorkflowId!,
+        sourceNodeId: first.callerNodeId ?? null,
+        targetWorkflowId: first.workflowId,
+        condition: "Observed call · returns to caller",
+        volume: runs.length,
+        successRate: percentage(
+          runs.filter((run) => run.status === "completed").length,
+          runs.length,
+        ),
+        errorRate: percentage(
+          runs.filter((run) => run.status === "failed").length,
+          runs.length,
+        ),
+        medianDurationMs: percentile(
+          runs.flatMap((run) =>
+            run.durationMs === null ? [] : [run.durationMs],
+          ),
+          0.5,
+        ),
+        runId: first.parentRunId!,
+        invocationId: first.invocationId!,
+        branchId: first.branchId!,
+      };
+    }),
+  };
 };

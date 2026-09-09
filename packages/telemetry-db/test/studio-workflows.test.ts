@@ -74,6 +74,43 @@ const run = (
 });
 
 describe("Studio workflow projections", () => {
+  it("counts repeated child calls independently without borrowing parent success", () => {
+    const at = "2026-07-25T10:00:00.000Z";
+    const root = {
+      ...run("root", "1", "completed", at),
+      workflowId: "parent",
+      workflowIds: ["parent", "support"],
+      transitionIds: [],
+    };
+    const models = createStudioWorkflowModelsFromProjections({
+      runs: [root],
+      childRuns: [
+        { ...run("child1", "1", "completed", at), parentRunId: "root" },
+        { ...run("child2", "1", "failed", at), parentRunId: "root" },
+      ],
+      revisions: [revision("revision-1", "1", at)],
+      range: {
+        range: "All time",
+        startedAfter: null,
+        startedBefore: null,
+        workflowId: null,
+        version: null,
+      },
+    });
+    expect(
+      models.workflows.find((workflow) => workflow.id === "support")?.metrics,
+    ).toMatchObject({
+      runCount: 2,
+      successRate: 50,
+      errorRate: 50,
+      averageTokens: 100,
+    });
+    expect(
+      models.workflows.find((workflow) => workflow.id === "parent")?.metrics
+        .runCount,
+    ).toBe(1);
+  });
+
   it("recomputes topology, metrics, health and transitions for the selected cohort", () => {
     const models = createStudioWorkflowModelsFromProjections({
       revisions: [

@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import type {
+  EnsureWorkflowTopologyRequest,
   KortyxTelemetryEvent,
   StudioInterrupt,
   StudioRun,
@@ -15,7 +16,9 @@ import {
 } from "../src/repositories/studio-lists";
 import { backfillStudioProjections } from "../src/repositories/studio-projections";
 import { getStudioRunReadModel } from "../src/repositories/studio-read-models";
+import { listStudioWorkflows } from "../src/repositories/studio-workflows";
 import { ingestTelemetryEvents } from "../src/repositories/telemetry-events";
+import { ensureWorkflowRevision } from "../src/repositories/workflow-revisions";
 import {
   organizations,
   projectEnvironments,
@@ -115,6 +118,74 @@ integration("Studio SQL projections", () => {
   let organizationB: string;
   let projectA: string;
   let projectB: string;
+
+  it("publishes source calls without runs, preserves them on runtime ensure, and replaces them on republish", async () => {
+    const request: EnsureWorkflowTopologyRequest = {
+      schemaVersion: 1,
+      environment: "test",
+      service: { name: "catalog-test" },
+      workflow: {
+        id: "catalog-parent",
+        declaredVersion: "1",
+        topologyHash: "f".repeat(64),
+        nodes: [{ id: "chat" }],
+        edges: [],
+        transitions: [{ sourceNodeId: "chat", targetWorkflowId: "handoff" }],
+      },
+    };
+    const ensure = (value: EnsureWorkflowTopologyRequest) =>
+      ensureWorkflowRevision(client.db, {
+        organizationId: organizationA,
+        projectId: projectA,
+        request: value,
+      });
+    const initial = await ensure(request);
+    const withCalls = {
+      ...request,
+      workflow: {
+        ...request.workflow,
+        calls: [{ sourceNodeId: "chat", targetWorkflowId: "catalog-child" }],
+      },
+    };
+    const published = await ensure(withCalls);
+    expect(published.workflowRevisionId).toBe(initial.workflowRevisionId);
+    await ensure(request);
+    const read = () =>
+      listStudioWorkflows(client.db, {
+        organizationId: organizationA,
+        projectId: projectA,
+        query: { range: "All time", env: "test" },
+      });
+    const catalog = await read();
+    expect(
+      catalog.transitions.filter(
+        (edge) => edge.sourceWorkflowId === "catalog-parent",
+      ),
+    ).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          kind: "call",
+          sourceNodeId: "chat",
+          targetWorkflowId: "catalog-child",
+          volume: 0,
+        }),
+        expect.objectContaining({ targetWorkflowId: "handoff", volume: 0 }),
+      ]),
+    );
+    expect(
+      catalog.transitions.filter((edge) => edge.kind === "call"),
+    ).toHaveLength(1);
+    const other = await listStudioWorkflows(client.db, {
+      organizationId: organizationB,
+      projectId: projectB,
+      query: { range: "All time" },
+    });
+    expect(other.transitions.some((edge) => edge.kind === "call")).toBe(false);
+    await ensure({ ...request, workflow: { ...request.workflow, calls: [] } });
+    expect(
+      (await read()).transitions.some((edge) => edge.kind === "call"),
+    ).toBe(false);
+  });
 
   beforeAll(async () => {
     if (!databaseUrl) return;
@@ -240,6 +311,86 @@ integration("Studio SQL projections", () => {
         (run) => run.id === "run-tenant-shadow",
       ),
     ).toBe(false);
+  });
+
+  it("includes child rows before filtering and pagination without changing root counts", async () => {
+    const now = new Date().toISOString();
+    const correlation = { runId: "run-child-list", workflowId: "parent" };
+    const facts = [
+      { type: "span.started", payload: { name: "kortyx.run" } },
+      ...["first", "second"].flatMap((invocationId) => [
+        {
+          type: "workflow.call.started",
+          payload: {
+            invocationId,
+            branchId: "branch",
+            callId: "research",
+            targetWorkflowId: "research-child",
+            sourceWorkflowId: "parent",
+            sequence: 1,
+          },
+        },
+        {
+          type: "workflow.call.completed",
+          payload: {
+            invocationId,
+            branchId: "branch",
+            callId: "research",
+            targetWorkflowId: "research-child",
+            sourceWorkflowId: "parent",
+            sequence: 2,
+          },
+        },
+      ]),
+      { type: "span.ended", payload: { name: "kortyx.run" } },
+    ].map((fact) => ({
+      ...fact,
+      schemaVersion: 1,
+      eventId: randomUUID(),
+      occurredAt: now,
+      environment: "test",
+      service: { name: "integration-test" },
+      correlation,
+    })) as KortyxTelemetryEvent[];
+    await ingestTelemetryEvents(client.db, {
+      organizationId: organizationA,
+      projectId: projectA,
+      events: facts,
+    });
+    const input = { organizationId: organizationA, projectId: projectA };
+    const roots = await listStudioRuns(client.db, {
+      ...input,
+      query: { range: "All time", q: "run-child-list" },
+    });
+    const page = await listStudioRuns(client.db, {
+      ...input,
+      query: {
+        range: "All time",
+        includeChildren: "true",
+        workflow: "research-child",
+        pageSize: "1",
+        cursor: "1",
+      },
+    });
+    expect(roots.totalCount).toBe(1);
+    expect(page.totalCount).toBe(2);
+    expect(page.items).toHaveLength(1);
+    expect(page.items[0]).toMatchObject({
+      parentRunId: "run-child-list",
+      workflowId: "research-child",
+      status: "completed",
+      branchId: "branch",
+    });
+    const otherProject = await listStudioRuns(client.db, {
+      organizationId: organizationB,
+      projectId: projectB,
+      query: {
+        range: "All time",
+        includeChildren: "true",
+        workflow: "research-child",
+      },
+    });
+    expect(otherProject.totalCount).toBe(0);
   });
 
   it("derives pending and expired interrupt filters without new telemetry", async () => {
