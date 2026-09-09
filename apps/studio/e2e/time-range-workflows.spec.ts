@@ -12,6 +12,25 @@ test.describe("Studio time ranges and workflow cohorts", () => {
     const callId = `catalog-call:${DRAWER_FIXTURE.workflowId}:chat:${DRAWER_FIXTURE.workflowId}`;
     const edge = page.locator(`[data-id="${callId}"]`);
     await expect(edge).toHaveCount(1);
+    const legend = page.getByRole("group", {
+      name: "Workflow connection legend",
+    });
+    await expect(
+      legend.getByText("useWorkflow · child call + return"),
+    ).toBeVisible();
+    await expect(legend.getByText("transitionTo · handoff")).toBeVisible();
+    await expect(edge.locator(".react-flow__edge-path").last()).toHaveCSS(
+      "stroke",
+      "rgb(139, 92, 246)",
+    );
+    const handoff = page.locator(
+      `.react-flow__edge[data-id="${DRAWER_FIXTURE.workflowId}:collectBrief:${DRAWER_FIXTURE.workflowId}:"]`,
+    );
+    await expect(handoff).toHaveCount(1);
+    await expect(handoff.locator(".react-flow__edge-path").last()).toHaveCSS(
+      "stroke",
+      "rgb(14, 165, 233)",
+    );
     await page.getByRole("checkbox", { name: /Observed calls/ }).uncheck();
     await expect(edge).toHaveCount(1);
     const inspector = page.getByRole("complementary", {

@@ -6,6 +6,7 @@ import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@/lib/utils";
 import { useWorkflowQuery } from "../hooks/use-workflow-query";
+import { CONNECTION_STYLE } from "../lib/connection-style";
 import { workflowCanvasFocusId } from "../lib/view-state";
 import { withWorkflowCallEvidence } from "../lib/workflow-calls";
 import type { WorkflowSystem } from "../schema";
@@ -158,23 +159,49 @@ export default function WorkflowsPageClient({
           onOpenInspector={() => setInspectorOpen(true)}
           onOpenInspectorPanel={() => setInspectorPanelOpen(true)}
         />
-        <label className="flex items-center gap-2 border-b px-4 py-2 text-xs text-muted-foreground">
-          <input
-            type="checkbox"
-            checked={showCalls}
-            onChange={(event) => setShowCalls(event.target.checked)}
-            className="accent-violet-500"
-          />
-          Observed calls{" "}
-          <span className="ml-1 rounded bg-violet-500/10 px-1.5 text-violet-600">
-            {system.observedCalls?.length ?? 0}
-          </span>
-          <span className="ml-auto">
-            {system.observedCalls?.length
-              ? "Overlay recorded calls on source-discovered paths"
-              : "No child calls recorded in this time range"}
-          </span>
-        </label>
+        <div className="flex flex-wrap items-center gap-x-5 gap-y-2 border-b px-4 py-2 text-xs text-muted-foreground">
+          <fieldset
+            aria-label="Workflow connection legend"
+            className="flex flex-wrap items-center gap-x-4 gap-y-2"
+          >
+            {(
+              [
+                ["call", "useWorkflow · child call + return"],
+                ["handoff", "transitionTo · handoff"],
+              ] as const
+            ).map(([kind, label]) => (
+              <span key={kind} className="inline-flex items-center gap-2">
+                <svg width="28" height="8" aria-hidden="true">
+                  <line
+                    x1="1"
+                    y1="4"
+                    x2="27"
+                    y2="4"
+                    stroke={CONNECTION_STYLE[kind].color}
+                    strokeWidth="2"
+                    strokeDasharray={CONNECTION_STYLE[kind].dashArray}
+                  />
+                </svg>
+                {label}
+              </span>
+            ))}
+          </fieldset>
+          <label
+            className="ml-auto flex items-center gap-2"
+            title="Overlay recorded calls on source-discovered paths"
+          >
+            <input
+              type="checkbox"
+              checked={showCalls}
+              onChange={(event) => setShowCalls(event.target.checked)}
+              className="accent-violet-500"
+            />
+            Observed calls
+            <span className="rounded bg-violet-500/10 px-1.5 text-violet-600">
+              {system.observedCalls?.length ?? 0}
+            </span>
+          </label>
+        </div>
         <div className="min-h-0 flex-1">
           <WorkflowCanvas
             system={canvasSystem}

@@ -2,6 +2,7 @@ import "server-only";
 
 import { google } from "@kortyx/google";
 import { useReason, useRuntimeContext, useWorkflow } from "kortyx";
+import { WORKFLOW_IDS } from "@/lib/protocol";
 import type {
   CanvasAgentContext,
   ChatHistoryMessage,
@@ -38,6 +39,11 @@ export const chatNode = async ({
   params: ChatNodeParams;
 }) => {
   const userText = String(input ?? "").trim();
+  // Help takes over this turn; unlike a child call, it never returns here.
+  if (userText.toLowerCase() === "/help") {
+    return { transitionTo: WORKFLOW_IDS.canvasHelp };
+  }
+
   const ctx = useRuntimeContext<CanvasAgentContext>();
   const currentDiscoveryCanvas = ctx.currentDiscoveryCanvas;
   const history = ctx.history ?? [];

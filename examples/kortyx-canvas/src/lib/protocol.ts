@@ -45,6 +45,7 @@ export const CONFIRM_SAVE_INTERRUPT_ID = "confirm-save";
 /** Workflow ids registered on the kortyx agent. */
 export const WORKFLOW_IDS = {
   generalChat: "general-chat",
+  canvasHelp: "canvas-help",
   canvasCreation: "canvas-creation",
   briefQuery: "brief-query",
   updateDiscoveryCanvas: "update-canvas",

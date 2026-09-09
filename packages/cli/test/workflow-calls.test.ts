@@ -66,6 +66,7 @@ describe("child workflow source discovery", () => {
       resolve("../../examples/kortyx-canvas/src/lib/agent.ts"),
       [
         snapshot("general-chat"),
+        snapshot("canvas-help", ["showHelp"]),
         snapshot("canvas-creation", []),
         snapshot("brief-query", []),
         snapshot("canvas-save", []),

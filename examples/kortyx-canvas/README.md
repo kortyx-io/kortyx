@@ -70,3 +70,16 @@ facilitator. Fork while the brief picker is open; choose different briefs in
 the two chats. Both must resume independently, stream their own canvas, and
 finish the parent. With Redis configured, restart the server while one chat
 is at the facilitator picker and complete it after restart.
+
+### Handoff and child calls in the same map
+
+Send `/help` in Canvas chat to run a deterministic, model-free handoff:
+`general-chat/chat` returns `transitionTo: WORKFLOW_IDS.canvasHelp`, and
+`canvas-help/showHelp` displays the help message and ends the turn. Execution
+does not return to the chat node. The next user message starts at general-chat.
+
+Publish the catalog with `topology:push`, then open Studio’s Workflows page.
+All five child-call relationships remain visible in purple (dotted, call +
+return). The help handoff appears in blue (dashed, `transitionTo`). The legend
+explains both, and selecting either connection opens its inspector. Sending
+`/help` records a real handoff; no model key or interrupt is needed.

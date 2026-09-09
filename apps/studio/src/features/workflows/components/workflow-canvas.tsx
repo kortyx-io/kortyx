@@ -53,6 +53,7 @@ import type {
 } from "@/features/workflows/schema";
 import { formatCount, formatCurrency, formatDurationMs } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { CONNECTION_STYLE } from "../lib/connection-style";
 import {
   loadWorkflowViewport,
   saveWorkflowViewport,
@@ -510,6 +511,7 @@ function TransitionEdge({
     ? [routeLabel.x, routeLabel.y]
     : [fallbackLabelX, fallbackLabelY];
   const isCall = data?.kind === "call" || id.startsWith("observed-call:");
+  const connectionStyle = CONNECTION_STYLE[isCall ? "call" : "handoff"];
   const error = (data?.errorRate ?? 0) > 4;
   const width = getTransitionStrokeWidth(
     data?.mode,
@@ -522,11 +524,7 @@ function TransitionEdge({
         id={id}
         path={path}
         style={{
-          stroke: isCall
-            ? "#8b5cf6"
-            : error
-              ? "var(--destructive)"
-              : "var(--primary)",
+          stroke: connectionStyle.color,
           strokeWidth: width,
           opacity: 0.18,
           strokeLinejoin: "round",
@@ -536,11 +534,9 @@ function TransitionEdge({
       <AnimatedEdgePath
         path={path}
         markerEnd={markerEnd}
-        stroke={
-          isCall ? "#8b5cf6" : error ? "var(--destructive)" : "var(--primary)"
-        }
+        stroke={connectionStyle.color}
         strokeWidth={width}
-        dashArray={isCall ? "2 7" : "9 7"}
+        dashArray={connectionStyle.dashArray}
         offset={-32}
         duration="1s"
         opacity={data?.selected ? 1 : 0.75}

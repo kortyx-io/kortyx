@@ -4,6 +4,7 @@ import {
   type StreamChunk,
 } from "kortyx";
 import { describe, expect, it, vi } from "vitest";
+import { canvasHelpWorkflow } from "./canvas-help-workflow";
 import { canvasSaveWorkflow } from "./canvas-save-workflow";
 import { generalChatWorkflow } from "./general-chat-workflow";
 
@@ -103,5 +104,71 @@ describe("canvas save child workflow", () => {
       calls.ids.filter((id) => id === "confirm-save-message"),
     ).toHaveLength(1);
     expect(calls.ids.filter((id) => id === "respond-to-save")).toHaveLength(2);
+  });
+});
+
+describe("Canvas handoffs alongside child calls", () => {
+  it("publishes the help handoff, emits help once, then starts the next turn in chat", async () => {
+    calls.ids = [];
+    const agent = createAgent({
+      workflows: [generalChatWorkflow, canvasHelpWorkflow, canvasSaveWorkflow],
+      defaultWorkflowId: generalChatWorkflow.id,
+      frameworkAdapter: createInMemoryFrameworkAdapter(),
+    });
+    const topology = await agent.projectTopology?.({
+      environment: "test",
+      service: { name: "canvas" },
+    });
+    expect(
+      topology?.find((s) => s.workflow.id === "general-chat")?.workflow
+        .transitions,
+    ).toEqual([{ sourceNodeId: "chat", targetWorkflowId: "canvas-help" }]);
+    const chunks: StreamChunk[] = [];
+    for await (const chunk of await agent.streamChat(
+      [{ role: "user", content: "/help" }],
+      { sessionId: "canvas-help-test" },
+    ))
+      chunks.push(chunk);
+    expect(chunks.filter((c) => c.type === "error")).toEqual([]);
+    expect(chunks.filter((c) => c.type === "transition")).toEqual([
+      expect.objectContaining({ transitionTo: "canvas-help" }),
+    ]);
+    expect(chunks.filter((c) => c.type === "message")).toEqual([
+      expect.objectContaining({
+        content: expect.stringContaining("## Canvas help"),
+      }),
+    ]);
+    expect(calls.ids).toEqual([]);
+    expect(chunks.some((c) => c.type === "done")).toBe(true);
+
+    // Canvas resets its selected workflow to general-chat after a completed turn.
+    // That subsequent turn can still pause in a child.
+    const next: StreamChunk[] = [];
+    for await (const chunk of await agent.streamChat(
+      [{ role: "user", content: "Save the canvas" }],
+      {
+        sessionId: "canvas-help-test",
+        workflowId: generalChatWorkflow.id,
+        context: {
+          tenantId: "demo",
+          currentDiscoveryCanvas: {
+            title: "Demo",
+            intro: {
+              label: "Demo",
+              summary: "A discovery canvas",
+              item_text: "Who needs it?",
+            },
+            sections: {},
+          },
+        },
+      },
+    ))
+      next.push(chunk);
+    expect(next.filter((c) => c.type === "error")).toEqual([]);
+    expect(next.find((c) => c.type === "interrupt")).toMatchObject({
+      schemaId: "confirm-save",
+    });
+    expect(calls.ids).toContain("classify-intent");
+    expect(next.filter((c) => c.type === "transition")).toEqual([]);
   });
 });
