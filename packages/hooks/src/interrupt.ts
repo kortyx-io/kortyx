@@ -40,7 +40,10 @@ export const awaitInterruptInternal = <
       : {}),
     meta: {
       ...userMeta,
-      __kortyxResumeStatePatch: resumeStatePatch,
+      __kortyxResumeStatePatch: {
+        ...resumeStatePatch,
+        ...(ctx.tokenUsage ? { tokenUsage: ctx.tokenUsage } : {}),
+      },
     },
   } as InterruptInput;
 

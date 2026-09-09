@@ -257,8 +257,14 @@ export function createInMemorySessionCheckpointStore(
       const sessionId = options?.newSessionId || createSessionId();
       const { parentCheckpointId: _parentCheckpointId, ...sourceRecord } =
         clone(source);
+      const runId = source.activePendingRequests.some(
+        (request) => request.graphSnapshot,
+      )
+        ? `run-${randomUUID()}`
+        : source.runId;
       const forked: SessionCheckpointRecord = {
         ...sourceRecord,
+        runId,
         id: createCheckpointId(),
         sessionId,
         parentSessionId: source.sessionId,
@@ -266,6 +272,7 @@ export function createInMemorySessionCheckpointStore(
         activePendingRequests: clone(source.activePendingRequests).map(
           (request) => ({
             ...request,
+            runId,
             token: createResumeToken(),
             requestId: createRequestId(),
             sessionId,

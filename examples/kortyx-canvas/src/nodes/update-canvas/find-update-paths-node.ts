@@ -1,8 +1,7 @@
 import "server-only";
 
 import { google } from "@kortyx/google";
-import { useReason, useRuntimeContext } from "kortyx";
-import { WORKFLOW_IDS } from "@/lib/protocol";
+import { useReason, useRuntimeContext, useWorkflow } from "kortyx";
 import type { CanvasAgentContext } from "@/lib/runtime-context";
 import {
   extractUserText,
@@ -15,6 +14,7 @@ import {
 import { serializeHistoryForPrompt } from "../../lib/serialize-history";
 import { loadPrompt } from "../../prompts/_registry";
 import { updateTargetsSchema } from "../../schemas/canvas-ops";
+import { canvasSaveWorkflow } from "../../workflows/canvas-save-workflow";
 
 /**
  * First content step of the update-canvas workflow's `update_field` branch.
@@ -82,18 +82,12 @@ export const findUpdatePathsNode = async ({
     // and the cancel responder can invite a clarifying retry instead of
     // a generic "saved nothing" message.
     ctx.saveTriggerSource = "update-fallback";
-    // CRITICAL: `transitionTo` alone does NOT preempt downstream edges in
-    // kortyx — the current workflow still runs to `__end__` before the
-    // handoff fires. Without a `condition`, the unconditional
-    // `findUpdatePaths → applyUpdates → summarizeUpdates` chain would run
-    // and emit a stale "I couldn't tell which part…" message right
-    // before the new save-confirm interrupt. We return a `redirect`
-    // condition + transitionTo so the workflow can route us straight to
-    // `__end__` (see workflow edges).
-    return {
-      condition: "redirect",
-      transitionTo: WORKFLOW_IDS.canvasSave,
-    };
+    const saved = await useWorkflow({
+      id: "save-fallback",
+      workflow: canvasSaveWorkflow,
+      input: userText,
+    });
+    return { condition: "redirect", data: saved.data };
   }
 
   return { condition: "ok", data: { updates } };

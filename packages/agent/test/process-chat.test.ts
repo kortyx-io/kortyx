@@ -133,6 +133,7 @@ describe("streamChat", () => {
       config: {
         features: { tracing: true },
         getProvider,
+        selectWorkflow,
         checkpointer: "checkpoint",
       },
       runtime: {

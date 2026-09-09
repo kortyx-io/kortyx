@@ -10,13 +10,19 @@ import type { KortyxTelemetryConfig, ReasonTraceAdapter } from "@kortyx/hooks";
 import { runWithHookContext } from "@kortyx/hooks";
 import type { GetProviderFn } from "@kortyx/providers";
 import { deepMergeWithArrayOverwrite } from "@kortyx/utils";
-import { Annotation, interrupt, StateGraph } from "@langchain/langgraph";
+import {
+  Annotation,
+  interrupt,
+  isGraphInterrupt,
+  StateGraph,
+} from "@langchain/langgraph";
 import type { BaseCheckpointSaver } from "@langchain/langgraph-checkpoint";
 import { getCheckpointer } from "../checkpointer";
 import { resolveNodeHandler } from "../node-loader";
+import { createWorkflowCallService } from "./call-workflow";
 
 interface CompiledGraphBase {
-  invoke(state: unknown): Promise<unknown>;
+  invoke(state: unknown, options?: Record<string, unknown>): Promise<unknown>;
   streamEvents(
     state: GraphState,
     options?: { version?: string; configurable?: Record<string, unknown> },
@@ -39,12 +45,16 @@ interface HookPatchError {
 }
 
 export interface ExecutionRuntimeConfig {
+  executionRunId?: string | undefined;
+  selectWorkflow?: ((id: string) => Promise<WorkflowDefinition>) | undefined;
+  workflowCallDepth?: number;
+  invocationPath?: string;
   emit?: (event: string, payload: unknown) => void;
   onCheckpoint?: (args: { nodeId: string; state: GraphState }) => void;
   checkpointer?: BaseCheckpointSaver;
-  reasonTrace?: ReasonTraceAdapter;
-  telemetry?: KortyxTelemetryConfig;
-  getProvider?: GetProviderFn;
+  reasonTrace?: ReasonTraceAdapter | undefined;
+  telemetry?: KortyxTelemetryConfig | undefined;
+  getProvider?: GetProviderFn | undefined;
   [key: string]: unknown;
 }
 
@@ -53,6 +63,7 @@ export async function createExecutionGraph(
   config: ExecutionRuntimeConfig,
 ) {
   const StateAnnotation = Annotation.Root({
+    currentWorkflow: Annotation<string>,
     input: Annotation<unknown>,
     output: Annotation<string>,
     lastNode: Annotation<string>,
@@ -161,7 +172,19 @@ export async function createExecutionGraph(
       const emitRuntimeEvent = (event: string, payload: unknown) => {
         runtimeConfig.emit(event, payload);
       };
+      let suspension: unknown;
       const hookNodeContext = {
+        ...(runtimeConfig.selectWorkflow
+          ? {
+              callWorkflow: createWorkflowCallService(
+                {
+                  ...runtimeConfig,
+                  context: state.config?.context ?? runtimeConfig.context,
+                },
+                workflow,
+              ),
+            }
+          : {}),
         graph: { name: workflowName, node: nodeId },
         config: nodeConfig,
         emit: emitRuntimeEvent,
@@ -208,6 +231,7 @@ export async function createExecutionGraph(
           try {
             resumed = interrupt(payload) as unknown;
           } catch (error) {
+            suspension = error;
             emitRuntimeEvent("interrupt", {
               node: nodeId,
               workflow: workflowName,
@@ -276,12 +300,14 @@ export async function createExecutionGraph(
             reasonTrace: activeTrace,
           };
           const runNode = () =>
-            runWithHookContext(hookContext, async () =>
-              resolvedRun({
+            runWithHookContext(hookContext, async () => {
+              const result = await resolvedRun({
                 input: state.input,
                 params: (nodeParams ?? {}) as Record<string, unknown>,
-              }),
-            );
+              });
+              if (suspension) throw suspension;
+              return result;
+            });
           const context = configContext();
           const spanArgs = {
             name: "kortyx.node",
@@ -344,6 +370,7 @@ export async function createExecutionGraph(
               patch,
             );
           }
+          if (isGraphInterrupt(err)) throw err;
           const hasMore = attempt < maxAttempts;
           const delayMs = behavior.retry?.delayMs ?? 0;
           if (hasMore && delayMs > 0) {

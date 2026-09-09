@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { z } from "zod";
 import {
   defineWorkflow,
   loadWorkflow,
@@ -29,6 +30,24 @@ const validWorkflow = {
 };
 
 describe("workflow validation", () => {
+  it("preserves callable workflow schemas and rejects non-schema contracts", () => {
+    const inputSchema = z.object({ topic: z.string() });
+    const outputSchema = z.object({ summary: z.string() });
+    const workflow = loadWorkflow({
+      ...validWorkflow,
+      inputSchema,
+      outputSchema,
+    });
+    expect(workflow.inputSchema).toBe(inputSchema);
+    expect(workflow.outputSchema).toBe(outputSchema);
+    expect(validateWorkflow({ ...validWorkflow, inputSchema: {} }).ok).toBe(
+      false,
+    );
+    expect(validateWorkflow({ ...validWorkflow, outputSchema: {} }).ok).toBe(
+      false,
+    );
+  });
+
   it("accepts the supported workflow shape", () => {
     const result = validateWorkflow(validWorkflow);
 

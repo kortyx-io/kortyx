@@ -161,7 +161,7 @@ const clearPendingGraphWrites = async (
   frameworkAdapter: FrameworkAdapter,
   request: PendingRequestRecord,
 ): Promise<void> => {
-  if (!request.graphCheckpointId) return;
+  if (request.graphSnapshot || !request.graphCheckpointId) return;
   const checkpointer = frameworkAdapter.checkpointer as
     | {
         deleteCheckpointWrites?: (

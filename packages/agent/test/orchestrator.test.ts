@@ -810,6 +810,7 @@ describe("orchestrateGraphStream", () => {
           pendingRequests: pendingRequests as unknown as PendingRequestStore,
           sessionCheckpoints,
           ttlMs: 1000,
+          checkpointer: { getTuple: vi.fn(async () => undefined) },
         } as unknown as FrameworkAdapter,
       }),
     );

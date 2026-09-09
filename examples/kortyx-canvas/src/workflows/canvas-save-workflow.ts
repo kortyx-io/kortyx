@@ -1,6 +1,7 @@
 import "server-only";
 
 import { defineWorkflow } from "kortyx";
+import { z } from "zod";
 import { WORKFLOW_IDS } from "@/lib/protocol";
 import { confirmSaveNode } from "../nodes/canvas-save/confirm-save-node";
 import { respondToSaveNode } from "../nodes/canvas-save/respond-to-save-node";
@@ -13,7 +14,7 @@ import { validateDiscoveryCanvasContentNode } from "../nodes/shared/validate-can
  *   - canvas Save button → `ctx.saveConfirmed = true` → `confirmSave`
  *     short-circuits and we go straight to validation.
  *   - chat prompt like "save the canvas" → general-chat node routes here
- *     via `transitionTo` → `confirmSave` raises a Save/Cancel interrupt
+ *     via `useWorkflow` → `confirmSave` raises a Save/Cancel interrupt
  *     before any persistence call.
  *
  * Steps:
@@ -33,9 +34,11 @@ import { validateDiscoveryCanvasContentNode } from "../nodes/shared/validate-can
  */
 export const canvasSaveWorkflow = defineWorkflow({
   id: WORKFLOW_IDS.canvasSave,
-  version: "1.4.0",
+  version: "1.5.0",
   description:
     "Confirm intent (when reached via chat prompt), validate the canvas against policy, persist it when clean, and reply conversationally with the outcome.",
+  inputSchema: z.string(),
+  outputSchema: z.object({ responseText: z.string() }).passthrough(),
   nodes: {
     confirmSave: {
       run: confirmSaveNode,

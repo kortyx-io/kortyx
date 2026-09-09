@@ -94,7 +94,7 @@ export function ChatProvider({
           // signal that the user explicitly consented to save, so
           // `confirmSaveNode` can skip the chat-side Save/Cancel
           // interrupt. Prompt-driven saves stay on general-chat at this
-          // point and reach the save workflow via `transitionTo`, where
+          // point and reach the save workflow via `useWorkflow`, where
           // the interrupt fires because this flag is undefined.
           const saveConfirmed = workflowId === WORKFLOW_IDS.canvasSave;
           return {

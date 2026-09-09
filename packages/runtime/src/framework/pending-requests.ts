@@ -1,4 +1,5 @@
 import type { GraphState } from "@kortyx/core";
+import type { GraphSnapshotBundle } from "./graph-snapshot";
 
 export type HumanInputKind = "choice" | "multi-choice" | "text";
 
@@ -23,6 +24,7 @@ export interface PendingRequestRecord {
    * Used to resume from the correct interrupt after session rollback.
    */
   graphCheckpointId?: string | undefined;
+  graphSnapshot?: GraphSnapshotBundle;
   workflow: string;
   node: string;
   state?: GraphState;
@@ -41,6 +43,7 @@ export interface PendingRequestRecord {
 }
 
 export interface PendingRequestStore {
+  take?: (token: string) => Promise<PendingRequestRecord | null>;
   save: (rec: PendingRequestRecord) => Promise<void>;
   get: (token: string) => Promise<PendingRequestRecord | null>;
   delete: (token: string) => Promise<void>;
@@ -61,6 +64,14 @@ export function createInMemoryPendingRequestStore(): PendingRequestStore {
   };
 
   return {
+    async take(token) {
+      prune();
+      const record = store.get(token);
+      store.delete(token);
+      return record
+        ? (JSON.parse(JSON.stringify(record)) as PendingRequestRecord)
+        : null;
+    },
     async save(rec) {
       prune();
       store.set(rec.token, rec);

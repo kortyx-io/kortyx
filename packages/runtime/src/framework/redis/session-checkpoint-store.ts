@@ -225,8 +225,14 @@ export function createRedisSessionCheckpointStore(
       const sessionId = options?.newSessionId || createId("session");
       const { parentCheckpointId: _parentCheckpointId, ...sourceRecord } =
         clone(source);
+      const runId = source.activePendingRequests.some(
+        (request) => request.graphSnapshot,
+      )
+        ? `run-${randomUUID()}`
+        : source.runId;
       const forked: SessionCheckpointRecord = {
         ...sourceRecord,
+        runId,
         id: createId("cp"),
         sessionId,
         parentSessionId: source.sessionId,
@@ -234,6 +240,7 @@ export function createRedisSessionCheckpointStore(
         activePendingRequests: clone(source.activePendingRequests).map(
           (request) => ({
             ...request,
+            runId,
             token: createResumeToken(),
             requestId: createId("human"),
             sessionId,

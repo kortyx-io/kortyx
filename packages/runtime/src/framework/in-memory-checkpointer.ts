@@ -138,7 +138,9 @@ export function createInMemoryCheckpointSaver(
         };
       }
 
-      return tuple;
+      // The engine may mutate returned checkpoints while inspecting state.
+      // Never expose the stored object (Redis already returns a decoded copy).
+      return JSON.parse(JSON.stringify(tuple)) as CheckpointTuple;
     },
 
     async *list(_config: RunnableConfig, _options?: CheckpointListOptions) {

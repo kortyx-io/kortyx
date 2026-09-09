@@ -1,8 +1,7 @@
 import "server-only";
 
 import { google } from "@kortyx/google";
-import { useReason, useRuntimeContext } from "kortyx";
-import { WORKFLOW_IDS } from "@/lib/protocol";
+import { useReason, useRuntimeContext, useWorkflow } from "kortyx";
 import type {
   CanvasAgentContext,
   ChatHistoryMessage,
@@ -19,6 +18,11 @@ import {
 } from "../../lib/serialize-history";
 import { loadPrompt } from "../../prompts/_registry";
 import { type ChatIntent, chatIntentSchema } from "../../schemas/chat-intent";
+
+import { briefQueryWorkflow } from "../../workflows/brief-query-workflow";
+import { canvasCreationWorkflow } from "../../workflows/canvas-creation-workflow";
+import { canvasSaveWorkflow } from "../../workflows/canvas-save-workflow";
+import { updateDiscoveryCanvasWorkflow } from "../../workflows/update-canvas-workflow";
 
 const DEMO_LANGUAGE = "en";
 
@@ -68,26 +72,46 @@ export const chatNode = async ({
   });
 
   if (intent === "create_canvas") {
-    console.log("[chat-node] handing off to canvas-creation");
-    return { transitionTo: WORKFLOW_IDS.canvasCreation };
+    console.log("[chat-node] calling canvas-creation");
+    const result = await useWorkflow({
+      id: "canvasCreation",
+      workflow: canvasCreationWorkflow,
+      input: userText,
+    });
+    return { data: { intent, ...result.data } };
   }
 
   if (intent === "find_brief") {
-    console.log("[chat-node] handing off to brief-query");
-    return { transitionTo: WORKFLOW_IDS.briefQuery };
+    console.log("[chat-node] calling brief-query");
+    const result = await useWorkflow({
+      id: "briefQuery",
+      workflow: briefQueryWorkflow,
+      input: userText,
+    });
+    return { data: { intent, ...result.data } };
   }
 
   if (intent === "update_canvas" && hasDiscoveryCanvas) {
-    console.log("[chat-node] handing off to update-canvas");
-    return { transitionTo: WORKFLOW_IDS.updateDiscoveryCanvas };
+    console.log("[chat-node] calling update-canvas");
+    const result = await useWorkflow({
+      id: "updateDiscoveryCanvas",
+      workflow: updateDiscoveryCanvasWorkflow,
+      input: userText,
+    });
+    return { data: { intent, ...result.data } };
   }
 
   if (intent === "save_canvas" && hasDiscoveryCanvas) {
     // Prompt-driven save. The save workflow will ask the user to
     // confirm via an interrupt before persisting since `ctx.saveConfirmed`
     // is undefined (only the canvas Save button sets it).
-    console.log("[chat-node] handing off to canvas-save (will confirm)");
-    return { transitionTo: WORKFLOW_IDS.canvasSave };
+    console.log("[chat-node] calling canvas-save (will confirm)");
+    const result = await useWorkflow({
+      id: "canvasSave",
+      workflow: canvasSaveWorkflow,
+      input: userText,
+    });
+    return { data: { intent, ...result.data } };
   }
 
   const briefBlock = await loadJobBlock({

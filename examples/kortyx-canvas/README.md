@@ -48,3 +48,25 @@ Open Studio at `http://localhost:6300` with `admin` / `kortyx`. The Workflows
 view shows the published catalog without creating synthetic runs. Configure
 `GOOGLE_API_KEY` and complete a real canvas chat request to verify run
 telemetry in the Runs view.
+
+
+### Child workflow regression
+
+The chat node uses `useWorkflow` to call creation, brief lookup, update, and
+save workflows, then returns their validated data. The update fallback calls
+the save workflow as a nested child. Calls use the same definitions registered
+in `src/lib/agent.ts`; the definitions supply input/output schemas.
+
+Run `pnpm --filter @kortyx/example-canvas test` for the deterministic save
+confirmation/fork regression. For the runtime's nested interrupt, concurrent
+resume, rollback, and fork tests against Redis:
+
+```sh
+KORTYX_TEST_REDIS_URL=redis://127.0.0.1:6379 pnpm --filter @kortyx/agent exec vitest run test/child-workflows.test.ts
+```
+
+To verify manually, ask the chat to create a canvas and choose the brief and
+facilitator. Fork while the brief picker is open; choose different briefs in
+the two chats. Both must resume independently, stream their own canvas, and
+finish the parent. With Redis configured, restart the server while one chat
+is at the facilitator picker and complete it after restart.

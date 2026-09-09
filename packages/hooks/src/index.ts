@@ -42,3 +42,10 @@ export type {
   ReasonTraceSpanEndArgs,
   ReasonTraceSpanStartArgs,
 } from "./tracing";
+export type { WorkflowCallOutcome, WorkflowCallService } from "./workflow";
+export {
+  createWorkflowHooks,
+  useWorkflow,
+  WorkflowCallError,
+  workflowCallFingerprint,
+} from "./workflow";

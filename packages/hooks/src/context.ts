@@ -9,6 +9,8 @@ import type {
 import type { KortyxUsage } from "@kortyx/providers";
 import type { ReasonTraceAdapter } from "./tracing";
 
+import type { WorkflowCallService } from "./workflow";
+
 type NodeStateStore = {
   byIndex: unknown[];
   byKey: Record<string, unknown>;
@@ -36,6 +38,7 @@ export type HookNodeRuntimeContext = {
   config: NodeConfig;
   emit: (event: string, payload: unknown) => void;
   awaitInterrupt: (args: InterruptInput) => InterruptResult;
+  callWorkflow?: WorkflowCallService;
 };
 
 export type HookRuntimeContext = {
@@ -45,6 +48,8 @@ export type HookRuntimeContext = {
 };
 
 type HookInternalContext = HookRuntimeContext & {
+  workflowCallActive: boolean;
+  workflowCallIds: Set<string>;
   nodeStateIndex: number;
   reasonCallIndex: number;
   currentNodeState: NodeStateStore;
@@ -122,6 +127,8 @@ const createInternalContext = (
 
   return {
     ...ctx,
+    workflowCallActive: false,
+    workflowCallIds: new Set(),
     nodeStateIndex: 0,
     reasonCallIndex: 0,
     currentNodeState,
@@ -216,6 +223,12 @@ export async function runWithHookContext<T>(
   try {
     const result = await storage.run(internal, fn);
     cleanupCompletedReasonCheckpoints(internal);
+    for (const key of Object.keys(internal.currentNodeState.byKey)) {
+      if (key.startsWith("__useWorkflow:")) {
+        internal.currentNodeState.byKey[key] = null;
+        internal.stateDirty = true;
+      }
+    }
     return { result, runtimeUpdates: buildRuntimeStateUpdates(internal) };
   } catch (err) {
     const runtimeUpdates = buildRuntimeStateUpdates(internal);
