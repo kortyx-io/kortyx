@@ -116,3 +116,69 @@ test.describe("Studio time ranges and workflow cohorts", () => {
     ).toBeVisible();
   });
 });
+
+for (const width of [1440, 700]) {
+  test(`restores graph nodes, edges, and viewport through Back/Forward at ${width}px`, async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width, height: 900 });
+    await page.goto(
+      `/workflows?workflow=${DRAWER_FIXTURE.workflowId}&range=All+time`,
+    );
+    const graph = page.locator(".react-flow");
+    const viewport = page.locator(".react-flow__viewport");
+    const transform = () =>
+      viewport.evaluate((e) => {
+        const matrix = new DOMMatrixReadOnly(getComputedStyle(e).transform);
+        return { zoom: matrix.a, x: matrix.e, y: matrix.f };
+      });
+    const selected = page.locator(`[data-id="${DRAWER_FIXTURE.workflowId}"]`);
+    await expect(selected).toBeVisible();
+    await expect
+      .poll(async () => (await transform()).zoom)
+      .toBeGreaterThan(0.25);
+    const nodes = await graph.locator(".react-flow__node:visible").count();
+    const edges = await graph.locator(".react-flow__edge").count();
+    const initial = await transform();
+    await page.getByRole("button", { name: "Zoom out", exact: true }).click();
+    await expect
+      .poll(async () => (await transform()).zoom)
+      .toBeCloseTo(initial.zoom / 1.2, 3);
+    const saved = await transform();
+    if (width < 1024)
+      await page
+        .getByRole("button", { name: "Open selected item panel", exact: true })
+        .click();
+    await page.getByRole("link", { name: "View runs", exact: true }).click();
+    await expect(
+      page.getByRole("heading", { name: "Runs", exact: true }),
+    ).toBeVisible();
+    for (let attempt = 0; attempt < 2; attempt++) {
+      await page.goBack();
+      await expect(graph).toBeVisible();
+      await expect(graph.locator(".react-flow__node:visible")).toHaveCount(
+        nodes,
+      );
+      await expect(graph.locator(".react-flow__edge")).toHaveCount(edges);
+      await expect(page.getByRole("dialog")).toHaveCount(0);
+      await expect
+        .poll(async () => (await transform()).zoom)
+        .toBeCloseTo(saved.zoom, 3);
+      await expect
+        .poll(async () => (await transform()).x)
+        .toBeCloseTo(saved.x, 1);
+      await expect
+        .poll(async () => (await transform()).y)
+        .toBeCloseTo(saved.y, 1);
+      await page.goForward();
+      await expect(
+        page.getByRole("heading", { name: "Runs", exact: true }),
+      ).toBeVisible();
+    }
+    await page.goBack();
+    await page.getByRole("button", { name: "Zoom in", exact: true }).click();
+    await expect
+      .poll(async () => (await transform()).zoom)
+      .toBeGreaterThan(saved.zoom);
+  });
+}

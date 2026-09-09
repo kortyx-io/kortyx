@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState, useTransition } from "react";
-import { Sheet, SheetContent } from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@/lib/utils";
 import { useWorkflowQuery } from "../hooks/use-workflow-query";
@@ -119,6 +119,10 @@ export default function WorkflowsPageClient({
       system={canvasSystem}
       selection={selection}
       onSelect={selectItem}
+      onNavigate={() => {
+        setInspectorOpen(false);
+        setCatalogOpen(false);
+      }}
       onClose={() => {
         setInspectorOpen(false);
         setInspectorPanelOpen(false);
@@ -191,12 +195,20 @@ export default function WorkflowsPageClient({
         {inspector}
       </div>
       <Sheet open={catalogOpen} onOpenChange={setCatalogOpen}>
-        <SheetContent side="left" className="w-[300px] p-0">
+        <SheetContent
+          side="left"
+          className="w-[300px] p-0"
+          aria-describedby={undefined}
+        >
+          <SheetTitle className="sr-only">Workflow catalog</SheetTitle>
           {catalog}
         </SheetContent>
       </Sheet>
       <Sheet open={inspectorOpen} onOpenChange={setInspectorOpen}>
-        <SheetContent className="w-[340px] p-0">{inspector}</SheetContent>
+        <SheetContent className="w-[340px] p-0" aria-describedby={undefined}>
+          <SheetTitle className="sr-only">Workflow inspector</SheetTitle>
+          {inspector}
+        </SheetContent>
       </Sheet>
     </div>
   );

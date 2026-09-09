@@ -28,6 +28,7 @@ type WorkflowInspectorProps = {
   system: WorkflowSystem;
   selection: WorkflowSelection;
   onClose: () => void;
+  onNavigate?: () => void;
   onSelect: (selection: WorkflowSelection) => void;
 };
 
@@ -35,6 +36,7 @@ export function WorkflowInspector({
   system,
   selection,
   onClose,
+  onNavigate,
   onSelect,
 }: WorkflowInspectorProps) {
   const selectedWorkflowId =
@@ -292,7 +294,9 @@ export function WorkflowInspector({
             </p>
           )}
           <Button asChild className="w-full" size="sm">
-            <Link href={runHref}>View runs</Link>
+            <Link href={runHref} onNavigate={onNavigate}>
+              View runs
+            </Link>
           </Button>
         </div>
       </ScrollArea>
