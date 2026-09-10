@@ -1,5 +1,12 @@
 # @chatbot-core/types
 
+## [0.11.0](https://github.com/kortyx-io/kortyx/compare/stream-v0.10.0...stream-v0.11.0) (2026-09-10)
+
+
+### Features
+
+* **runtime:** add shared execution limits and checkpoint continuation ([#163](https://github.com/kortyx-io/kortyx/issues/163)) ([e22232c](https://github.com/kortyx-io/kortyx/commit/e22232c059fae4f7df1bd36423902bd365887942))
+
 ## [0.10.0](https://github.com/kortyx-io/kortyx/compare/stream-v0.9.0...stream-v0.10.0) (2026-09-10)
 
 

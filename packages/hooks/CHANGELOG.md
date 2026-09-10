@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.21.0](https://github.com/kortyx-io/kortyx/compare/hooks-v0.20.0...hooks-v0.21.0) (2026-09-10)
+
+
+### Features
+
+* **runtime:** add shared execution limits and checkpoint continuation ([#163](https://github.com/kortyx-io/kortyx/issues/163)) ([e22232c](https://github.com/kortyx-io/kortyx/commit/e22232c059fae4f7df1bd36423902bd365887942))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/core bumped to 0.8.0
+    * @kortyx/telemetry-contracts bumped to 0.4.0
+
 ## [0.20.0](https://github.com/kortyx-io/kortyx/compare/hooks-v0.19.0...hooks-v0.20.0) (2026-09-10)
 
 
