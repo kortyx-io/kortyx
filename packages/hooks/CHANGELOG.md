@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.19.0](https://github.com/kortyx-io/kortyx/compare/hooks-v0.18.0...hooks-v0.19.0) (2026-09-09)
+
+
+### Features
+
+* add resumable child workflows and Studio inspection ([#157](https://github.com/kortyx-io/kortyx/issues/157)) ([542ba29](https://github.com/kortyx-io/kortyx/commit/542ba29b3b57217e6e5d98c1b409bbec5ce3261f))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/core bumped to 0.6.0
+    * @kortyx/telemetry-contracts bumped to 0.3.0
+
 ## [0.18.0](https://github.com/kortyx-io/kortyx/compare/hooks-v0.17.1...hooks-v0.18.0) (2026-08-02)
 
 

@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.16.9](https://github.com/kortyx-io/kortyx/compare/example-nextjs-chat-api-route-v0.16.8...example-nextjs-chat-api-route-v0.16.9) (2026-09-09)
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * kortyx bumped to 0.15.0
+
 ## [0.16.8](https://github.com/kortyx-io/kortyx/compare/example-nextjs-chat-api-route-v0.16.7...example-nextjs-chat-api-route-v0.16.8) (2026-08-31)
 
 
