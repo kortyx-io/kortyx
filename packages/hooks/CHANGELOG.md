@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.20.0](https://github.com/kortyx-io/kortyx/compare/hooks-v0.19.0...hooks-v0.20.0) (2026-09-10)
+
+
+### Features
+
+* execute and resume workflows without chat transport ([#159](https://github.com/kortyx-io/kortyx/issues/159)) ([6decb17](https://github.com/kortyx-io/kortyx/commit/6decb1714fedc021ac9e125b6ed9f75475ed928a))
+
 ## [0.19.0](https://github.com/kortyx-io/kortyx/compare/hooks-v0.18.0...hooks-v0.19.0) (2026-09-09)
 
 

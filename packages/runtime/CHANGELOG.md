@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.13.0](https://github.com/kortyx-io/kortyx/compare/runtime-v0.12.0...runtime-v0.13.0) (2026-09-10)
+
+
+### Features
+
+* execute and resume workflows without chat transport ([#159](https://github.com/kortyx-io/kortyx/issues/159)) ([6decb17](https://github.com/kortyx-io/kortyx/commit/6decb1714fedc021ac9e125b6ed9f75475ed928a))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/hooks bumped to 0.20.0
+
 ## [0.12.0](https://github.com/kortyx-io/kortyx/compare/runtime-v0.11.1...runtime-v0.12.0) (2026-09-09)
 
 

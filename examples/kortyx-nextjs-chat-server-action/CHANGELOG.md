@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.13.16](https://github.com/kortyx-io/kortyx/compare/example-nextjs-chat-server-action-v0.13.15...example-nextjs-chat-server-action-v0.13.16) (2026-09-10)
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * kortyx bumped to 0.16.0
+
 ## [0.13.15](https://github.com/kortyx-io/kortyx/compare/example-nextjs-chat-server-action-v0.13.14...example-nextjs-chat-server-action-v0.13.15) (2026-09-09)
 
 
