@@ -142,6 +142,18 @@ export const StreamChunkSchema = z.union([
     payload: z.any().optional(),
   }),
   z.object({
+    type: z.literal("limit-reached"),
+    runId: z.string(),
+    limit: z.enum([
+      "maxNodeExecutions",
+      "maxModelPasses",
+      "maxToolCalls",
+      "maxChildInvocations",
+    ]),
+    maximum: z.number(),
+    consumed: z.number(),
+  }),
+  z.object({
     type: z.literal("cancelled"),
     runId: z.string(),
     reason: z.string(),

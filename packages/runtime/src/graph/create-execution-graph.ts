@@ -7,7 +7,13 @@ import type {
   NodeResult,
   WorkflowDefinition,
 } from "@kortyx/core";
-import { isExecutionCancelled, throwIfExecutionAborted } from "@kortyx/core";
+import {
+  assertExecutionBudget,
+  consumeExecutionBudget,
+  isExecutionCancelled,
+  isExecutionLimitReached,
+  throwIfExecutionAborted,
+} from "@kortyx/core";
 import type { KortyxTelemetryConfig, ReasonTraceAdapter } from "@kortyx/hooks";
 import { runWithHookContext } from "@kortyx/hooks";
 import type { GetProviderFn } from "@kortyx/providers";
@@ -31,7 +37,10 @@ interface CompiledGraphBase {
   ): AsyncIterable<unknown> | AsyncGenerator<unknown>;
 }
 
-export type ExecutionControl = { abortSignal?: AbortSignal | undefined };
+export type ExecutionControl = {
+  abortSignal?: AbortSignal | undefined;
+  budget?: import("@kortyx/core").ExecutionBudget | undefined;
+};
 
 interface GraphExtensions {
   execution: ExecutionControl;
@@ -189,6 +198,10 @@ export async function createExecutionGraph(
       let suspension: unknown;
       const hookNodeContext = {
         abortSignal: execution.abortSignal,
+        consumeExecution: (limit: import("@kortyx/core").ExecutionLimit) => {
+          throwIfExecutionAborted(execution.abortSignal);
+          if (execution.budget) consumeExecutionBudget(execution.budget, limit);
+        },
         workflowCallTelemetry: runtimeConfig.telemetry
           ? {
               ...runtimeConfig.telemetry,
@@ -218,6 +231,7 @@ export async function createExecutionGraph(
         emit: emitRuntimeEvent,
         awaitInterrupt: (interruptConfig: InterruptInput): InterruptResult => {
           throwIfExecutionAborted(execution.abortSignal);
+          if (execution.budget) assertExecutionBudget(execution.budget);
           const { kind, question } = interruptConfig;
           const isMulti =
             kind === "multi-choice" ||
@@ -331,13 +345,21 @@ export async function createExecutionGraph(
           };
           const runNode = () =>
             runWithHookContext(hookContext, async () => {
-              const result = await resolvedRun({
-                input: state.input,
-                params: (nodeParams ?? {}) as Record<string, unknown>,
-              });
-              throwIfExecutionAborted(execution.abortSignal);
-              if (suspension) throw suspension;
-              return result;
+              try {
+                hookNodeContext.consumeExecution("maxNodeExecutions");
+                const result = await resolvedRun({
+                  input: state.input,
+                  params: (nodeParams ?? {}) as Record<string, unknown>,
+                });
+                throwIfExecutionAborted(execution.abortSignal);
+                if (execution.budget) assertExecutionBudget(execution.budget);
+                if (suspension) throw suspension;
+                return result;
+              } catch (error) {
+                throwIfExecutionAborted(execution.abortSignal);
+                if (execution.budget) assertExecutionBudget(execution.budget);
+                throw error;
+              }
             });
           const context = configContext();
           const spanArgs = {
@@ -405,6 +427,10 @@ export async function createExecutionGraph(
             );
           }
           throwIfExecutionAborted(execution.abortSignal);
+          if (isExecutionLimitReached(err)) {
+            Object.assign(err, { nodeId, workflowId: workflowName });
+            throw err;
+          }
           if (isExecutionCancelled(err) || isGraphInterrupt(err)) throw err;
           const hasMore = attempt < maxAttempts;
           const delayMs = behavior.retry?.delayMs ?? 0;

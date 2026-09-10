@@ -4,7 +4,7 @@ import type {
   TokenUsage,
   WorkflowDefinition,
 } from "@kortyx/core";
-import { throwIfExecutionAborted } from "@kortyx/core";
+import { isExecutionLimitReached, throwIfExecutionAborted } from "@kortyx/core";
 import type { WorkflowCallService } from "@kortyx/hooks";
 import { workflowCallFingerprint } from "@kortyx/hooks";
 import { AsyncLocalStorageProviderSingleton } from "@langchain/core/singletons";
@@ -24,7 +24,8 @@ import {
 type ChildSnapshot = {
   version: string;
   checkpoint: GraphSnapshotBundle;
-  request: InterruptInput;
+  request?: InterruptInput;
+  limitPaused?: boolean;
 };
 
 function assertSequentialWorkflow(workflow: WorkflowDefinition) {
@@ -86,8 +87,6 @@ export function createWorkflowCallService(
       if (!snapshot) workflowCallFingerprint(input);
       const saver = createInMemoryCheckpointSaver();
       const threadId = "child";
-      if (snapshot)
-        await restoreGraphSnapshot(saver, snapshot.checkpoint, threadId);
       let request: InterruptInput | undefined;
       const invocationPath = `${config.invocationPath ?? "root"}/${encodeURIComponent(args.id)}:${args.invocationId}`;
       let childConfig: ExecutionRuntimeConfig = {
@@ -164,6 +163,11 @@ export function createWorkflowCallService(
       };
       childConfig =
         config.prepareChildTelemetry?.(workflow, childConfig) ?? childConfig;
+      if (snapshot) {
+        if (snapshot.limitPaused)
+          snapshot.checkpoint.checkpoint.channel_values.config = childConfig;
+        await restoreGraphSnapshot(saver, snapshot.checkpoint, threadId);
+      }
       const graph = await createExecutionGraph(
         workflow,
         childConfig,
@@ -179,26 +183,55 @@ export function createWorkflowCallService(
         awaitingHumanInput: false,
         conversationHistory: [],
       };
-      const resumePatch = snapshot?.request.meta?.__kortyxResumeStatePatch;
-      const command = snapshot
-        ? new Command({
-            resume: args.response,
-            update: {
-              config: childConfig,
-              ...(resumePatch ? { runtime: resumePatch } : {}),
-            },
-          })
-        : initial;
+      const resumePatch = snapshot?.request?.meta?.__kortyxResumeStatePatch;
+      const command = snapshot?.limitPaused
+        ? null
+        : snapshot
+          ? new Command({
+              resume: args.response,
+              update: {
+                config: childConfig,
+                ...(resumePatch ? { runtime: resumePatch } : {}),
+              },
+            })
+          : initial;
       // Do not inherit the parent's engine task/scratchpad/callbacks. Child
       // interrupts are bridged deliberately, and child completion stays internal.
-      const result = (await AsyncLocalStorageProviderSingleton.runWithConfig(
-        {},
-        () =>
-          graph.invoke(command, {
-            configurable: { thread_id: threadId, checkpoint_ns: "" },
-            callbacks: [],
-          }),
-      )) as GraphState;
+      let result: GraphState;
+      try {
+        result = (await AsyncLocalStorageProviderSingleton.runWithConfig(
+          {},
+          () =>
+            graph.invoke(command, {
+              configurable: { thread_id: threadId, checkpoint_ns: "" },
+              callbacks: [],
+            }),
+        )) as GraphState;
+      } catch (error) {
+        throwIfExecutionAborted(execution.abortSignal);
+        if (isExecutionLimitReached(error)) {
+          const checkpoint = await captureGraphSnapshot(saver, threadId);
+          if (checkpoint) {
+            const state = checkpoint.checkpoint
+              .channel_values as unknown as GraphState;
+            const patch = (
+              error as unknown as {
+                __kortyxHookStatePatch?: Record<string, unknown>;
+              }
+            ).__kortyxHookStatePatch;
+            if (patch) state.runtime = { ...state.runtime, ...patch };
+            Object.assign(error, {
+              __kortyxChildSnapshot: {
+                version: workflow.version,
+                checkpoint,
+                limitPaused: true,
+              } satisfies ChildSnapshot,
+              __kortyxChildUsage: state.runtime.tokenUsage,
+            });
+          }
+        }
+        throw error;
+      }
       throwIfExecutionAborted(execution.abortSignal);
       if (request) {
         const checkpoint = await captureGraphSnapshot(saver, threadId);

@@ -139,7 +139,7 @@ Execution continues without a UI stream reader. Model calls may still use provid
 
 A fork inherits completed work and then accumulates its own subsequent usage. Rolling back restores the checkpoint's accounting baseline. Runtime restoration cannot undo committed business side effects; use application idempotency or transactions where needed.
 
-This API executes in-process until completion, suspension, cancellation, or failure. Shared whole-tree execution budgets remain a separate feature.
+This API executes in-process until completion, suspension, cancellation, or failure. Whole-tree execution limits are configured in server code (see below).
 
 
 ## Cancel active work
@@ -202,8 +202,92 @@ human-input pause or make the consumed handle reusable. Earlier checkpoints rema
 available for explicit replay/fork, with the usual side-effect safeguards.
 
 `response: { type: "cancel" }` remains the separate operation for declining a
-waiting human interrupt. Cancellation by run ID across processes and shared
-execution budgets are not part of this API yet.
+waiting human interrupt. Cancellation by run ID across processes is not part of this API yet.
 
 Try `/execute` in the simple Next.js example: enable the 10-second delay and press
 Stop. `/api/chat`, `/api/execute`, and `/api/resume` all forward the request signal.
+
+## Bound an execution
+
+Set limits in server code, either on the agent or on an individual execution:
+
+```ts
+const agent = createAgent({
+  workflows: [researchWorkflow],
+  limits: {
+    maxNodeExecutions: 100,
+    maxModelPasses: 20,
+    maxToolCalls: 40,
+    maxChildInvocations: 10,
+  },
+});
+
+const result = await agent.execute({
+  workflow: researchWorkflow,
+  input: { topic },
+  limits: { maxModelPasses: 5 }, // overrides this field for this execution
+});
+```
+
+`agent.streamChat(messages, { limits })` accepts the same server policy for new
+runs. Omitted fields inherit agent defaults; fields omitted everywhere are
+unlimited. Values must be positive safe integers. Never spread browser-supplied
+limits into these options: authorize and select policy on the server.
+
+| Limit | What consumes one unit |
+| --- | --- |
+| `maxNodeExecutions` | Starting a node attempt, including retries and replay. Bounds loops that make no model calls. |
+| `maxModelPasses` | Dispatching an invoked or streaming model request, including each tool-loop pass. |
+| `maxToolCalls` | Starting a tool implementation. A failed tool attempt still counts. |
+| `maxChildInvocations` | Starting a new `useWorkflow` call. Restoring a saved child call or reusing its result does not count again. |
+
+The root, its descendants and `transitionTo` handoffs share one allowance.
+Starting a child does not reset the counters. Cached results do not consume
+model/tool units; actual replayed work does. Model provider SDK-internal HTTP
+retries are part of one model dispatch. Counts are activity limits, not token
+estimates or monetary ceilings; provider-reported token usage remains separate.
+
+Kortyx checks before dispatch and suspends when the next operation would exceed
+a ceiling. A connected chat stream receives `limit-reached` with `runId`, `limit`,
+`maximum` and `consumed`, followed by the existing interrupt/checkpoint flow and
+one root `done`. The standard chat UI shows **“Limit reached — Continue?”**.
+Studio records `run.limit_reached` and shows the run and interrupted spans as paused.
+Cancellation continues to have its own outcome and stream event.
+
+For a direct execution, handle the suspended outcome using the existing resume API:
+
+```ts
+if (result.status === "suspended" && result.reason === "limit_reached") {
+  // Return the prompt and private resume handle to your authorized UI.
+  // Call this only after the user chooses Continue:
+  const next = await agent.resume({
+    workflow: researchWorkflow,
+    resume: result.resume,
+    response: { type: "select", ids: ["continue"] },
+  });
+}
+```
+
+Continue restores the saved checkpoint with a **fresh allowance using the saved
+server ceilings**. Server code can override that next allowance with
+`agent.resume({ ..., limits })`. It does not automatically increase ceilings.
+Ordinary human-input resumes retain the spent allowance; `limits` on such a resume
+are not applied. Chat route limits apply to new runs; Continue uses the saved policy.
+Duplicate Continue requests cannot both claim the same handle.
+
+Continuation uses the existing graph checkpoint granularity. Completed nodes and
+saved child results are reused. The active node, reasoning loop or partially
+executed tool batch can replay, repeating side effects and consuming allowance
+again. If the active node needs more work than its entire allowance, it can pause
+again at the same place; the server must choose a sufficient policy. Continue
+does not create checkpoints between model passes or tools and does not promise
+exactly-once side effects. Keep business idempotency in application code.
+
+A fork copies checkpoint state and then spends independently. Rollback restores
+that checkpoint's accounting state; it does not refund money or undo side effects.
+There is no shared budget ledger across independent runs or forks. Token usage
+already recorded in the checkpoint is retained across Continue and new replayed
+usage is added.
+
+Try `/limits` in the simple Next.js API-route example. It pauses before its second
+child invocation, then Continue reuses the first child's result and completes.

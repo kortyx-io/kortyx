@@ -2,6 +2,7 @@ import type { InterruptInput, InterruptResult } from "@kortyx/core";
 import {
   combineAbortSignals,
   isExecutionCancelled,
+  isExecutionLimitReached,
   throwIfExecutionAborted,
 } from "@kortyx/core";
 import type {
@@ -15,7 +16,7 @@ import type {
   KortyxUsage,
   KortyxWarning,
 } from "@kortyx/providers";
-import { getHookContext } from "../context";
+import { accumulateTokenUsage, getHookContext } from "../context";
 import { awaitInterruptInternal } from "../interrupt";
 import type { ReasonTraceSpan } from "../tracing";
 import type { UseReasonArgs, UseReasonResult, UseReasonStep } from "../types";
@@ -216,6 +217,7 @@ export const runReasonToolLoop = async <
       finalText = step.text;
       finalRaw = step.raw;
       aggregatedUsage = mergeUsage(aggregatedUsage, step.usage);
+      accumulateTokenUsage(step.usage);
       finalFinishReason = step.finishReason;
       aggregatedProviderMetadata = mergeProviderMetadata(
         aggregatedProviderMetadata,
@@ -333,6 +335,7 @@ export const runReasonToolLoop = async <
 
         try {
           throwIfExecutionAborted(abortSignal);
+          ctx.node.consumeExecution?.("maxToolCalls");
           const rawResult = await tool.execute(toolCall.input, {
             toolCallId: toolCall.id,
             ...(abortSignal ? { abortSignal } : {}),
@@ -362,7 +365,8 @@ export const runReasonToolLoop = async <
           });
         } catch (error) {
           throwIfExecutionAborted(abortSignal);
-          if (isExecutionCancelled(error)) throw error;
+          if (isExecutionLimitReached(error) || isExecutionCancelled(error))
+            throw error;
           const result = {
             toolCallId: toolCall.id,
             name: tool.name,

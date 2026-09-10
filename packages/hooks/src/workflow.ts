@@ -4,7 +4,11 @@ import type {
   TokenUsage,
   WorkflowDefinition,
 } from "@kortyx/core";
-import { isExecutionCancelled, throwIfExecutionAborted } from "@kortyx/core";
+import {
+  isExecutionCancelled,
+  isExecutionLimitReached,
+  throwIfExecutionAborted,
+} from "@kortyx/core";
 import type { z } from "zod";
 import { accumulateTokenUsage, getHookContext } from "./context";
 import { awaitInterruptInternal } from "./interrupt";
@@ -165,6 +169,7 @@ export async function useWorkflow(args: {
       workflow,
       "call input or target changed during replay",
     );
+  if (!record) ctx.node.consumeExecution?.("maxChildInvocations");
   record ??= {
     fingerprint,
     invocationId: randomUUID(),
@@ -212,6 +217,15 @@ export async function useWorkflow(args: {
       ...content,
     });
   };
+  const recordUsage = (usage: TokenUsage | undefined) => {
+    if (!usage) return;
+    accumulateTokenUsage({
+      input: usage.input - (record.usage?.input ?? 0),
+      output: usage.output - (record.usage?.output ?? 0),
+      total: usage.total - (record.usage?.total ?? 0),
+    });
+    record.usage = usage;
+  };
   const cached = record.status === "completed";
 
   try {
@@ -249,21 +263,28 @@ export async function useWorkflow(args: {
       } catch (error) {
         throwIfExecutionAborted(ctx.node.abortSignal);
         if (isExecutionCancelled(error)) throw error;
+        if (isExecutionLimitReached(error)) {
+          const child = error as unknown as {
+            __kortyxChildSnapshot?: unknown;
+            __kortyxChildUsage?: TokenUsage;
+          };
+          if (child.__kortyxChildSnapshot)
+            record.snapshot = child.__kortyxChildSnapshot;
+          recordUsage(child.__kortyxChildUsage);
+          report("suspended", {
+            reason: "limit_reached",
+            limit: error.limitReached,
+          });
+          throw error;
+        }
         record.status = "failed";
         record.error = error instanceof Error ? error.message : String(error);
         report("failed", { error: "Child workflow failed" });
         throw new WorkflowCallError(workflow, record.error);
       }
       throwIfExecutionAborted(ctx.node.abortSignal);
-      if (outcome.usage) {
-        // Child totals survive suspension. Only newly reported work belongs to this attempt.
-        accumulateTokenUsage({
-          input: outcome.usage.input - (record.usage?.input ?? 0),
-          output: outcome.usage.output - (record.usage?.output ?? 0),
-          total: outcome.usage.total - (record.usage?.total ?? 0),
-        });
-        record.usage = outcome.usage;
-      }
+      // Child totals survive suspension; count only newly reported work.
+      recordUsage(outcome.usage);
       if (outcome.status === "completed") {
         // Validate cached and live outputs against the caller's actual contract.
         record.data = outcome.data;

@@ -2413,3 +2413,44 @@ it("treats an aborted handoff as cancellation rather than a transition failure",
   expect(chunks).toContainEqual(expect.objectContaining({ type: "cancelled" }));
   expect(chunks.filter((x: any) => x.type === "error")).toHaveLength(0);
 });
+
+it("uses the checkpoint node when a limit error has no runtime node annotation", async () => {
+  const runtime =
+    await vi.importActual<typeof import("@kortyx/runtime")>("@kortyx/runtime");
+  const core = await import("@kortyx/core");
+  const adapter = runtime.createInMemoryFrameworkAdapter();
+  const budget = core.createExecutionBudget({ maxNodeExecutions: 1 });
+  core.consumeExecutionBudget(budget, "maxNodeExecutions");
+  const graph = graphWithEvents(() => {
+    core.consumeExecutionBudget(budget, "maxNodeExecutions");
+    return [];
+  });
+  vi.spyOn(adapter.checkpointer, "getTuple").mockResolvedValue({
+    config: {
+      configurable: { thread_id: "limit-fallback", checkpoint_ns: "" },
+    },
+    checkpoint: {
+      id: "checkpoint",
+      v: 4,
+      ts: new Date().toISOString(),
+      channel_values: baseState,
+      channel_versions: {},
+      versions_seen: {},
+    },
+    pendingWrites: [],
+  } as never);
+  const chunks = await collect(
+    await orchestrateGraphStream({
+      graph,
+      state: baseState,
+      runId: "limit-fallback",
+      sessionId: "limit-session",
+      config: { executionBudget: budget },
+      selectWorkflow: vi.fn(),
+      frameworkAdapter: adapter,
+    }),
+  );
+  expect(chunks).toContainEqual(
+    expect.objectContaining({ type: "interrupt", node: "__start__" }),
+  );
+});

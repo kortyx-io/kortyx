@@ -1,4 +1,9 @@
-import type { TokenUsage, WorkflowDefinition } from "@kortyx/core";
+import type {
+  ExecutionLimitReached,
+  ExecutionLimits,
+  TokenUsage,
+  WorkflowDefinition,
+} from "@kortyx/core";
 import type { PendingRequestRecord } from "@kortyx/runtime";
 import type { z } from "zod";
 
@@ -44,6 +49,8 @@ export type ExecutionResult<T = Record<string, unknown>> = ExecutionInfo &
     | { status: "completed"; data: T }
     | {
         status: "suspended";
+        reason?: "limit_reached";
+        limit?: ExecutionLimitReached;
         interrupt: ExecutionInterrupt;
         resume: ResumeHandle;
       }
@@ -52,6 +59,7 @@ export type ExecutionResult<T = Record<string, unknown>> = ExecutionInfo &
   );
 
 export type ExecuteOptions<W extends ExecutableWorkflow> = {
+  limits?: ExecutionLimits;
   abortSignal?: AbortSignal;
   workflow: W;
   input: z.input<W["inputSchema"]>;
@@ -59,6 +67,7 @@ export type ExecuteOptions<W extends ExecutableWorkflow> = {
   context?: Record<string, unknown>;
 };
 export type ResumeOptions<W extends ExecutableWorkflow> = {
+  limits?: ExecutionLimits;
   abortSignal?: AbortSignal;
   workflow: W;
   resume: ResumeHandle;

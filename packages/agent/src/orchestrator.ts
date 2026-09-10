@@ -3,7 +3,9 @@ import type { GraphState, WorkflowDefinition, WorkflowId } from "@kortyx/core";
 import {
   combineAbortSignals,
   createExecutionCancelledError,
+  type ExecutionBudget,
   isExecutionCancelled,
+  isExecutionLimitReached,
   throwIfExecutionAborted,
 } from "@kortyx/core";
 import {
@@ -38,7 +40,10 @@ export type SaveMemoryFn = (
 ) => Promise<void>;
 
 export interface CompiledGraphLike {
-  execution?: { abortSignal?: AbortSignal | undefined };
+  execution?: {
+    abortSignal?: AbortSignal | undefined;
+    budget?: ExecutionBudget | undefined;
+  };
   config?: Record<string, unknown>;
   streamEvents: (
     state: GraphState,
@@ -167,6 +172,7 @@ export async function orchestrateGraphStream({
   let outcomeError: unknown;
   let sessionCheckpointId: string | undefined;
   let config = initialConfig;
+  const budget = config.executionBudget as ExecutionBudget | undefined;
   let currentGraph = graph;
   let currentState: GraphState = state;
   let finished = false;
@@ -353,8 +359,10 @@ export async function orchestrateGraphStream({
   const pendingStore: PendingRequestStore | undefined =
     frameworkAdapter?.pendingRequests;
   const sealPendingSnapshots = async () => {
+    if (budget) outcomeState.config.executionBudget = budget;
     if (typeof frameworkAdapter?.checkpointer?.getTuple !== "function") return;
     for (const [token, request] of activePendingRequests) {
+      if (budget) request.state!.config.executionBudget = budget;
       const graphSnapshot = await captureGraphSnapshot(
         frameworkAdapter.checkpointer,
         runId,
@@ -363,7 +371,10 @@ export async function orchestrateGraphStream({
       if (graphSnapshot) {
         const sealed = { ...request, graphSnapshot };
         activePendingRequests.set(token, sealed);
-        await pendingStore?.update(token, { graphSnapshot });
+        await pendingStore?.update(token, {
+          graphSnapshot,
+          state: request.state!,
+        });
       }
     }
   };
@@ -854,6 +865,7 @@ export async function orchestrateGraphStream({
       // Ensure the compiled graph uses our forwardEmit
       currentGraph.execution ??= {};
       currentGraph.execution.abortSignal = abortSignal;
+      currentGraph.execution.budget = budget;
       currentGraph.config = currentGraph.config || {};
       currentGraph.config.emit = forwardEmit;
       currentGraph.config.executionRunId = runId;
@@ -1070,6 +1082,11 @@ export async function orchestrateGraphStream({
                 : {}),
             },
           });
+          // Resume controls belong only to the graph restored from the checkpoint.
+          delete config.resume;
+          delete config.resumeValue;
+          delete config.resumeUpdate;
+          delete config.resumeCheckpointId;
           const nextGraph = await createExecutionGraph(nextWorkflow, {
             ...(config as Record<string, unknown>),
             emit: forwardEmit, // keep forwarding emits
@@ -1362,36 +1379,157 @@ export async function orchestrateGraphStream({
       })
     : runLoop(fallbackRunSpan ?? {});
 
+  const finishCancelled = async () => {
+    emitTelemetryEvent({
+      config,
+      type: "run.cancelled",
+      correlation: { runId, workflowId: outcomeState.currentWorkflow },
+      payload: { reason: "execution_aborted" },
+      flush: true,
+    });
+    await Promise.allSettled(pendingRequestWrites);
+    await Promise.allSettled(
+      [...activePendingRequests.keys()].map((token) =>
+        pendingStore?.delete(token),
+      ),
+    );
+    activePendingRequests.clear();
+    try {
+      await frameworkAdapter?.cleanupRun?.(runId, [...namespacesUsed]);
+    } catch (cleanupError) {
+      console.error("[cancel:cleanupRun]", cleanupError);
+    }
+    outcomeError = createExecutionCancelledError();
+    fallbackRunSpan?.setAttributes?.({ "kortyx.run.cancelled": true });
+    fallbackRunSpan?.end?.();
+    write({ type: "cancelled", runId, reason: "Execution cancelled." });
+    write({ type: "done" });
+    finished = true;
+    out.end();
+  };
+
   runPromise
     .catch(async (err) => {
       if (abortSignal?.aborted || isExecutionCancelled(err)) {
-        emitTelemetryEvent({
-          config,
-          type: "run.cancelled",
-          correlation: { runId, workflowId: outcomeState.currentWorkflow },
-          payload: { reason: "execution_aborted" },
-          flush: true,
-        });
-        await Promise.allSettled(pendingRequestWrites);
-        await Promise.allSettled(
-          [...activePendingRequests.keys()].map((token) =>
-            pendingStore?.delete(token),
-          ),
-        );
-        activePendingRequests.clear();
-        try {
-          await frameworkAdapter?.cleanupRun?.(runId, [...namespacesUsed]);
-        } catch (cleanupError) {
-          console.error("[cancel:cleanupRun]", cleanupError);
-        }
-        outcomeError = createExecutionCancelledError();
-        fallbackRunSpan?.setAttributes?.({ "kortyx.run.cancelled": true });
-        fallbackRunSpan?.end?.();
-        write({ type: "cancelled", runId, reason: "Execution cancelled." });
-        write({ type: "done" });
-        finished = true;
-        out.end();
+        await finishCancelled();
         return;
+      }
+      if (isExecutionLimitReached(err)) {
+        try {
+          const snapshot =
+            frameworkAdapter &&
+            (await captureGraphSnapshot(frameworkAdapter.checkpointer, runId));
+          throwIfExecutionAborted(abortSignal);
+          if (!snapshot)
+            throw new Error(
+              "Execution limit reached without a resumable checkpoint.",
+            );
+          const savedState = snapshot.checkpoint
+            .channel_values as unknown as GraphState;
+          const pausedState: GraphState = {
+            ...savedState,
+            config: {
+              ...savedState.config,
+              ...config,
+              executionBudget: budget,
+            },
+            awaitingHumanInput: true,
+          };
+          // Keep the existing hook replay cache, but do not checkpoint individual tool steps.
+          const patch = (
+            err as unknown as {
+              __kortyxHookStatePatch?: Record<string, unknown>;
+            }
+          ).__kortyxHookStatePatch;
+          currentState = pausedState;
+          outcomeState = pausedState;
+          const limitReached = err.limitReached;
+          write({ type: "limit-reached", runId, ...limitReached });
+          emitTelemetryEvent({
+            config,
+            type: "run.limit_reached",
+            payload: limitReached,
+          });
+          await persistAndEmitInterrupt({
+            node: String(
+              (err as unknown as { nodeId?: string }).nodeId ??
+                savedState.lastNode,
+            ),
+            workflow: String(savedState.currentWorkflow),
+            input: {
+              kind: "choice",
+              question: "Limit reached — Continue?",
+              options: [{ id: "continue", label: "Continue" }],
+              meta: {
+                __kortyxExecutionLimit: true,
+                executionLimit: limitReached,
+                ...(patch ? { __kortyxResumeStatePatch: patch } : {}),
+              },
+            },
+          });
+          await Promise.all(pendingRequestWrites);
+          throwIfExecutionAborted(abortSignal);
+          if (outcomeError) throw outcomeError;
+          const request = activePendingRequests.get(pendingRecordToken!)!;
+          const sealed = {
+            ...request,
+            state: pausedState,
+            graphCheckpointId: snapshot.checkpoint.id,
+            graphSnapshot: snapshot,
+          };
+          activePendingRequests.set(request.token, sealed);
+          await pendingStore?.update(request.token, sealed);
+          const checkpoint = await frameworkAdapter!.sessionCheckpoints.append({
+            sessionId: sessionId!,
+            runId,
+            graphCheckpointId: snapshot.checkpoint.id,
+            workflow: String(pausedState.currentWorkflow),
+            state: pausedState,
+            nodes: Array.from(touchedNodes),
+            structuredStreamIds: Array.from(structuredStreamIds),
+            pendingRequests: [sealed],
+            label: "Execution limit reached",
+          });
+          throwIfExecutionAborted(abortSignal);
+          sessionCheckpointId = checkpoint.id;
+          write({
+            type: "checkpoint",
+            id: checkpoint.id,
+            sessionId: checkpoint.sessionId,
+            turnIndex: checkpoint.turnIndex,
+            label: checkpoint.label,
+          });
+          emitTelemetryEvent({
+            config,
+            type: "session.checkpointed",
+            payload: {
+              checkpointId: checkpoint.id,
+              turnIndex: checkpoint.turnIndex,
+              nodes: checkpoint.nodes,
+            },
+          });
+          fallbackRunSpan?.setAttributes?.({
+            "kortyx.run.awaiting_human_input": true,
+            "kortyx.run.limit_reached": limitReached.limit,
+          });
+          fallbackRunSpan?.end?.();
+          finished = true;
+          write({ type: "done" });
+          out.end();
+          return;
+        } catch (pauseError) {
+          if (abortSignal?.aborted || isExecutionCancelled(pauseError)) {
+            await finishCancelled();
+            return;
+          }
+          await Promise.allSettled(
+            [...activePendingRequests.keys()].map((token) =>
+              pendingStore?.delete(token),
+            ),
+          );
+          activePendingRequests.clear();
+          err = pauseError;
+        }
       }
       outcomeError = err;
       fallbackRunSpan?.fail?.(err);

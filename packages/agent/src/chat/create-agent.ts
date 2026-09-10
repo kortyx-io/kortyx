@@ -1,6 +1,11 @@
 import { resolve } from "node:path";
 import type { WorkflowDefinition } from "@kortyx/core";
 import {
+  createExecutionBudget,
+  type ExecutionLimits,
+  ExecutionLimitsSchema,
+} from "@kortyx/core";
+import {
   type GetProviderFn,
   getProvider as getRegisteredProvider,
 } from "@kortyx/providers";
@@ -38,6 +43,7 @@ import type { ChatMessage } from "../types/chat-message";
 import { streamChat as runStreamChat } from "./process-chat";
 
 export interface AgentProcessOptions {
+  limits?: ExecutionLimits | undefined;
   abortSignal?: AbortSignal | undefined;
   sessionId?: string | undefined;
   workflowId?: string | undefined;
@@ -52,6 +58,7 @@ export interface AgentProjectTopologyOptions {
 }
 
 export interface CreateAgentArgs {
+  limits?: ExecutionLimits | undefined;
   getProvider?: GetProviderFn | undefined;
   workflows?: WorkflowDefinition[];
   workflowsDir?: string;
@@ -66,6 +73,7 @@ export interface Agent {
     args: ExecuteOptions<W>,
   ): Promise<ExecutionResult<z.output<W["outputSchema"]>>>;
   execute(args: {
+    limits?: ExecutionLimits;
     abortSignal?: AbortSignal;
     workflow: string;
     input: unknown;
@@ -76,6 +84,7 @@ export interface Agent {
     args: ResumeOptions<W>,
   ): Promise<ExecutionResult<z.output<W["outputSchema"]>>>;
   resume(args: {
+    limits?: ExecutionLimits;
     abortSignal?: AbortSignal;
     workflow: string;
     resume: ResumeHandle;
@@ -99,6 +108,7 @@ export interface Agent {
 
 const agentProcessOptionsSchema = z
   .object({
+    limits: ExecutionLimitsSchema.optional(),
     abortSignal: z
       .custom<AbortSignal>((value) => value instanceof AbortSignal)
       .optional(),
@@ -110,6 +120,7 @@ const agentProcessOptionsSchema = z
 
 const createAgentArgsBaseSchema = z
   .object({
+    limits: ExecutionLimitsSchema.optional(),
     getProvider: z.unknown().optional(),
     workflows: z.array(z.unknown()).optional(),
     workflowsDir: z.string().optional(),
@@ -224,6 +235,7 @@ export function createAgent(args: CreateAgentArgs): Agent {
   const parsedArgs = parseCreateAgentArgs(args);
 
   const {
+    limits,
     getProvider,
     workflows,
     workflowsDir,
@@ -311,6 +323,14 @@ export function createAgent(args: CreateAgentArgs): Agent {
       frameworkAdapter: resolvedFrameworkAdapter,
       getProvider: resolvedGetProvider,
       loadRuntimeConfig: (runtimeOptions?: AgentProcessOptions) => ({
+        ...(limits || runtimeOptions?.limits
+          ? {
+              executionBudget: createExecutionBudget(
+                limits,
+                runtimeOptions?.limits,
+              ),
+            }
+          : {}),
         ...(runtimeOptions?.sessionId
           ? {
               session: {
@@ -434,6 +454,7 @@ export function createAgent(args: CreateAgentArgs): Agent {
     if (!registry) throw new Error("Workflow registry is unavailable.");
     return {
       registry,
+      limits,
       frameworkAdapter: resolvedFrameworkAdapter,
       getProvider: resolvedGetProvider,
       telemetry,

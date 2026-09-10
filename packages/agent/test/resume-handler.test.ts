@@ -163,6 +163,32 @@ describe("tryPrepareResumeStream", () => {
     });
   });
 
+  it("resumes legacy requests without a saved state", async () => {
+    const { state: _state, ...pending } = pendingBase;
+    const store = {
+      get: vi.fn(async () => pending),
+      delete: vi.fn(async () => undefined),
+    };
+    await tryPrepareResumeStream({
+      meta: {
+        token: pending.token,
+        requestId: pending.requestId,
+        selected: ["yes"],
+      },
+      sessionId: pending.sessionId,
+      config: {},
+      selectWorkflow: async (id) => workflowDefinition(id),
+      frameworkAdapter: {
+        pendingRequests: store,
+      } as unknown as FrameworkAdapter,
+    });
+    expect(mocks.orchestrateGraphStream).toHaveBeenCalledWith(
+      expect.objectContaining({
+        state: expect.objectContaining({ input: "" }),
+      }),
+    );
+  });
+
   it("ignores non-resume messages and missing stores", async () => {
     await expect(
       tryPrepareResumeStream({

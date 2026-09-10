@@ -51,6 +51,7 @@ export async function reasonEngine(
     args.model.options?.abortSignal,
   );
   throwIfExecutionAborted(abortSignal);
+  ctx.node.consumeExecution?.("maxModelPasses");
 
   return runReasonEngine({
     model: args.model,

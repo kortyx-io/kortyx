@@ -29,6 +29,9 @@ export {
   streamChatFromRoute,
 } from "@kortyx/agent";
 export type {
+  ExecutionLimit,
+  ExecutionLimitReached,
+  ExecutionLimits,
   GraphState,
   NodeConfig,
   NodeContext,
