@@ -33,6 +33,9 @@ type HookStatePatchedError = {
 export type HookNodeRuntimeContext = {
   /** Transient execution control; never part of checkpointed state. */
   abortSignal?: AbortSignal | undefined;
+  consumeExecution?:
+    | ((limit: import("@kortyx/core").ExecutionLimit) => void)
+    | undefined;
   graph: {
     name: string;
     node: string;

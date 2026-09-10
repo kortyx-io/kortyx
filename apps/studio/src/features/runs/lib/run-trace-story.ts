@@ -396,16 +396,25 @@ function appendNarrativeEvents(
     if (
       event.type === "session.forked" ||
       event.type === "session.rolled_back" ||
-      event.type === "run.cancelled"
+      event.type === "run.cancelled" ||
+      event.type === "run.limit_reached"
     ) {
       items.push({
         id: event.id,
         label: friendlyEventLabel(event.type),
-        description: event.nodeId
-          ? `At ${event.nodeId}`
-          : "Run lifecycle event",
+        description:
+          event.type === "run.limit_reached"
+            ? `${event.payload.limit}: ${event.payload.consumed}/${event.payload.maximum}`
+            : event.nodeId
+              ? `At ${event.nodeId}`
+              : "Run lifecycle event",
         kind: "event",
-        status: event.type === "run.cancelled" ? "cancelled" : "event",
+        status:
+          event.type === "run.cancelled"
+            ? "cancelled"
+            : event.type === "run.limit_reached"
+              ? "interrupted"
+              : "event",
         startedAt: event.occurredAt,
         durationMs: null,
         depth: 1,
@@ -627,7 +636,8 @@ export function isControlFlowInterrupt(event: StudioDetailEvent): boolean {
     error !== undefined &&
     typeof error === "object" &&
     "name" in error &&
-    error.name === "GraphInterrupt"
+    (error.name === "GraphInterrupt" ||
+      error.name === "ExecutionLimitReachedError")
   );
 }
 
@@ -670,6 +680,7 @@ function friendlyEventLabel(type: StudioDetailEvent["type"]) {
     "session.forked": "Session forked",
     "session.rolled_back": "Session rolled back",
     "run.cancelled": "Run cancelled",
+    "run.limit_reached": "Limit reached — Continue?",
     "workflow.transitioned": "Workflow transitioned",
   };
   return labels[type] ?? type;

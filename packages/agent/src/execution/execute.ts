@@ -1,5 +1,11 @@
 import type { WorkflowDefinition } from "@kortyx/core";
-import { isExecutionCancelled, throwIfExecutionAborted } from "@kortyx/core";
+import {
+  createExecutionBudget,
+  type ExecutionLimitReached,
+  type ExecutionLimits,
+  isExecutionCancelled,
+  throwIfExecutionAborted,
+} from "@kortyx/core";
 import type { GetProviderFn } from "@kortyx/providers";
 import {
   buildInitialGraphState,
@@ -26,6 +32,7 @@ import {
 } from "./types";
 
 export interface ExecutionServices {
+  limits?: ExecutionLimits | undefined;
   registry: WorkflowRegistry;
   frameworkAdapter: FrameworkAdapter;
   getProvider: GetProviderFn;
@@ -100,6 +107,12 @@ export function resultFromOutcome(
     return {
       ...info,
       status: "suspended",
+      ...(pending.schema.meta?.__kortyxExecutionLimit
+        ? {
+            reason: "limit_reached" as const,
+            limit: pending.schema.meta.executionLimit as ExecutionLimitReached,
+          }
+        : {}),
       interrupt: {
         workflow: pending.workflow,
         node: pending.node,
@@ -142,6 +155,7 @@ function runtimeConfig(
 export async function executeWorkflow(
   services: ExecutionServices,
   args: {
+    limits?: ExecutionLimits;
     abortSignal?: AbortSignal;
     workflow: WorkflowDefinition | string;
     input: unknown;
@@ -162,6 +176,14 @@ export async function executeWorkflow(
   const config = prepareWorkflowTelemetry({
     config: {
       ...runtimeConfig(services, sessionId, args.context),
+      ...(services.limits || args.limits
+        ? {
+            executionBudget: createExecutionBudget(
+              services.limits,
+              args.limits,
+            ),
+          }
+        : {}),
       executionContract: { id: workflow.id, version: workflow.version },
     },
     workflow,
@@ -201,6 +223,7 @@ export async function executeWorkflow(
 export async function resumeWorkflow(
   services: ExecutionServices,
   args: {
+    limits?: ExecutionLimits;
     abortSignal?: AbortSignal;
     workflow: WorkflowDefinition | string;
     resume: ResumeHandle;
@@ -261,6 +284,7 @@ export async function resumeWorkflow(
   };
   return new Promise<ExecutionResult>((resolve, reject) => {
     void tryPrepareResumeStream({
+      limits: args.limits,
       abortSignal: args.abortSignal,
       meta: {
         token: handle.token,

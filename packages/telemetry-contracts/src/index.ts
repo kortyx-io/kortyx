@@ -12,6 +12,7 @@ export const TELEMETRY_EVENT_TYPES = [
   "interrupt.expired",
   "interrupt.cancelled",
   "run.cancelled",
+  "run.limit_reached",
   "workflow.transitioned",
   "workflow.call.started",
   "workflow.call.suspended",

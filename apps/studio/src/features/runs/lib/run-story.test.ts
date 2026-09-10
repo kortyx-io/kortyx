@@ -252,3 +252,51 @@ it("shows aborted execution and child spans as cancelled in event and trace view
     "Run cancelled",
   );
 });
+
+it("shows limit exhaustion and its span endings as a pause instead of failure or success", () => {
+  const events = [
+    detailEvent(
+      "start",
+      "span.started",
+      0,
+      { name: "kortyx.run" },
+      { spanId: "limit-span" },
+    ),
+    detailEvent(
+      "blocked",
+      "span.failed",
+      20,
+      {
+        name: "kortyx.run",
+        error: { name: "ExecutionLimitReachedError", message: "Limit reached" },
+      },
+      { spanId: "limit-span" },
+    ),
+    detailEvent(
+      "end",
+      "span.ended",
+      21,
+      { name: "kortyx.run" },
+      { spanId: "limit-span" },
+    ),
+    detailEvent("limit", "run.limit_reached", 22, {
+      limit: "maxToolCalls",
+      maximum: 2,
+      consumed: 2,
+    }),
+    detailEvent("wait", "interrupt.created", 23, {
+      interruptId: "limit-request",
+      question: "Limit reached — Continue?",
+    }),
+  ];
+  const story = buildEventStory(events, START);
+  expect(story.find((x) => x.event.id === "end")).toMatchObject({
+    state: "interrupted",
+  });
+  expect(story.find((x) => x.event.id === "limit")).toMatchObject({
+    state: "interrupted",
+    title: "Limit reached — Continue?",
+    description: expect.stringContaining("2/2"),
+  });
+  expect(isControlFlowInterrupt(events[1]!)).toBe(true);
+});

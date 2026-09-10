@@ -36,6 +36,7 @@ export default function RootLayout({
           <span className="mr-3 font-semibold">Kortyx examples</span>
           <Link href="/">Chat</Link>
           <Link href="/execute">Execute</Link>
+          <Link href="/limits">Limits / Continue</Link>
           <Link href="/resume">Resume / approvals</Link>
         </nav>
         {children}

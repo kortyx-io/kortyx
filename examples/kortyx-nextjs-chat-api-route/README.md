@@ -110,3 +110,17 @@ Apache-2.0. See [LICENSE](https://github.com/kortyx-io/kortyx/blob/main/LICENSE)
 The example also has `/execute` and `/resume` pages, backed by `POST /api/execute` and `POST /api/resume`. They share the existing server agent. Start a brief with approval enabled, follow **Open approval page**, then approve or decline to see the parent workflow result. Disable approval to receive an immediate result. The demonstration is deterministic and requires no model key.
 
 Set `KORTYX_REDIS_URL` when running separate server processes or retaining pauses across restarts. The example keeps its private pending handle in browser session storage only to demonstrate navigation; a production approval inbox should store and authorize requests on the server. `/api/chat` retains its existing SSE/buffered contract.
+
+
+### Limits and Continue
+
+Open `/limits` and send any message. The deterministic `limit-demo` workflow calls
+research and review children with `maxChildInvocations: 1`, selected by the server
+in `/api/limits`. Choose **Continue** after the limit prompt to reuse the saved
+research result and finish review. No model credentials are needed.
+
+The route uses the same agent and checkpoint endpoint as chat. Continue restores
+the checkpoint with a fresh allowance at the saved ceilings. Ordinary human
+resumes preserve spent allowance. Active node code/tools can replay; completed
+checkpoints and saved child results are reused. These activity caps are not dollar
+budgets. Never trust client-provided caps.

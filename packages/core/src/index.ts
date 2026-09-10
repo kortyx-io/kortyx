@@ -6,6 +6,20 @@ export {
   isExecutionCancelled,
   throwIfExecutionAborted,
 } from "./cancellation";
+export type {
+  ExecutionBudget,
+  ExecutionLimit,
+  ExecutionLimitReached,
+  ExecutionLimits,
+} from "./execution-limits";
+export {
+  assertExecutionBudget,
+  consumeExecutionBudget,
+  createExecutionBudget,
+  ExecutionLimitsSchema,
+  isExecutionLimitReached,
+  restartExecutionBudget,
+} from "./execution-limits";
 export * from "./node";
 export * from "./state";
 export * from "./workflow/define-workflow";

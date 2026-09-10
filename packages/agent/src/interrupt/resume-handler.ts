@@ -1,5 +1,10 @@
 import type { GraphState } from "@kortyx/core";
-import { createExecutionCancelledError } from "@kortyx/core";
+import {
+  createExecutionCancelledError,
+  type ExecutionBudget,
+  type ExecutionLimits,
+  restartExecutionBudget,
+} from "@kortyx/core";
 import type {
   FrameworkAdapter,
   PendingRequestRecord,
@@ -65,6 +70,7 @@ export function parseResumeMeta(
 }
 
 interface TryResumeArgs {
+  limits?: ExecutionLimits | undefined;
   abortSignal?: AbortSignal | undefined;
   lastMessage?: ChatMessage | undefined;
   meta?: ResumeMeta | undefined;
@@ -83,6 +89,7 @@ interface TryResumeArgs {
 }
 
 export async function tryPrepareResumeStream({
+  limits,
   abortSignal,
   lastMessage,
   meta: suppliedMeta,
@@ -114,6 +121,15 @@ export async function tryPrepareResumeStream({
   if (pending.sessionId && pending.sessionId !== sessionId)
     throw new Error("Interrupt belongs to another session.");
   await validatePending?.(pending);
+  const isLimitPause = Boolean(pending.schema.meta?.__kortyxExecutionLimit);
+
+  const savedBudget = pending.state?.config?.executionBudget as
+    | ExecutionBudget
+    | undefined;
+  const resumedBudget =
+    savedBudget && isLimitPause && !meta.cancel
+      ? restartExecutionBudget(savedBudget, limits)
+      : savedBudget;
   if (abortSignal?.aborted) {
     onOutcome?.({
       state: pending.state as GraphState,
@@ -154,11 +170,13 @@ export async function tryPrepareResumeStream({
   }
 
   try {
-    const resumeData = applyResumeSelection
-      ? applyResumeSelection({ pending, selected: meta.selected })
-      : meta.selected?.length
-        ? { coordinates: String(meta.selected[0]) }
-        : {};
+    const resumeData = isLimitPause
+      ? {}
+      : applyResumeSelection
+        ? applyResumeSelection({ pending, selected: meta.selected })
+        : meta.selected?.length
+          ? { coordinates: String(meta.selected[0]) }
+          : {};
 
     const resumeDataPatch = isRecord(resumeData) ? resumeData : {};
     const pendingMeta = isRecord(pending.schema?.meta)
@@ -181,7 +199,7 @@ export async function tryPrepareResumeStream({
     const resumedState = {
       // For static breakpoints, resume with null input (set in orchestrator),
       // and stash the user selection into data so the next node can read it.
-      input: "",
+      input: pending.state ? pending.state.input : "",
       lastNode: "__start__",
       currentWorkflow: workflowId,
       config,
@@ -198,6 +216,7 @@ export async function tryPrepareResumeStream({
     const telemetryConfig = prepareWorkflowTelemetry({
       config: {
         ...config,
+        ...(resumedBudget ? { executionBudget: resumedBudget } : {}),
         ...(pending.state?.config?.context
           ? { context: pending.state.config.context }
           : {}),
@@ -222,6 +241,17 @@ export async function tryPrepareResumeStream({
           },
         }
       : {};
+    if (isLimitPause && pending.graphSnapshot) {
+      pending.graphSnapshot.checkpoint.channel_values.config = telemetryConfig;
+      if (resumeStatePatch)
+        pending.graphSnapshot.checkpoint.channel_values.runtime = {
+          ...(pending.graphSnapshot.checkpoint.channel_values.runtime as Record<
+            string,
+            unknown
+          >),
+          ...resumeStatePatch,
+        };
+    }
     if (pending.graphSnapshot && frameworkAdapter)
       await restoreGraphSnapshot(
         frameworkAdapter.checkpointer,
@@ -237,9 +267,11 @@ export async function tryPrepareResumeStream({
     if (resumeStatePatch) {
       resumeUpdate.runtime = resumeStatePatch;
     }
-    const hasResumeUpdate = Object.keys(resumeUpdate).length > 0;
-    const resumeValue =
-      meta.selected?.length && pending.schema.kind === "multi-choice"
+    const hasResumeUpdate =
+      !isLimitPause && Object.keys(resumeUpdate).length > 0;
+    const resumeValue = isLimitPause
+      ? undefined
+      : meta.selected?.length && pending.schema.kind === "multi-choice"
         ? meta.selected.map((x) => String(x))
         : meta.selected?.length
           ? String(meta.selected[0])

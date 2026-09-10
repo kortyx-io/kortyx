@@ -29,6 +29,14 @@ export function buildEventStory(
       )
       .map((event) => event.spanId),
   );
+  const interruptedSpans = new Set(
+    ordered
+      .filter(
+        (event) =>
+          event.type === "span.failed" && isControlFlowInterrupt(event),
+      )
+      .map((event) => event.spanId),
+  );
   const depthBySpan = new Map<string, number>();
 
   const spanDepth = (
@@ -60,7 +68,16 @@ export function buildEventStory(
         cancelledSpans.has(event.spanId) &&
         (event.type === "span.ended" || event.type === "generation.completed"),
     );
-    const state = cancelledEnd ? "cancelled" : eventState(event);
+    const interruptedEnd = Boolean(
+      event.spanId &&
+        interruptedSpans.has(event.spanId) &&
+        event.type === "span.ended",
+    );
+    const state = cancelledEnd
+      ? "cancelled"
+      : interruptedEnd
+        ? "interrupted"
+        : eventState(event);
     const context = eventContext(event);
     return {
       event,
@@ -73,7 +90,9 @@ export function buildEventStory(
       categoryLabel: CATEGORY_LABELS[category],
       state,
       stateLabel: STATE_LABELS[state],
-      title: eventTitle(event, phase, cancelledEnd),
+      title: interruptedEnd
+        ? `${spanSubject(event, asString(event.payload.name), "Model")} ended after pause`
+        : eventTitle(event, phase, cancelledEnd),
       description: context,
     };
   });
@@ -106,6 +125,7 @@ function eventTitle(
   if (event.type === "session.forked") return "Session forked";
   if (event.type === "session.rolled_back") return "Session rolled back";
   if (event.type === "run.cancelled") return "Run cancelled";
+  if (event.type === "run.limit_reached") return "Limit reached — Continue?";
   if (event.type === "workflow.transitioned") {
     const source =
       asString(event.payload.sourceWorkflowId) ??
@@ -152,6 +172,10 @@ function spanSubject(
 function eventContext(event: StudioDetailEvent): string {
   const attributes = asRecord(event.payload.attributes);
   const parts: string[] = [];
+  if (event.type === "run.limit_reached")
+    parts.push(
+      `${humanize(String(event.payload.limit))}: ${event.payload.consumed}/${event.payload.maximum}`,
+    );
   if (event.nodeId) parts.push(event.nodeId);
   if (!event.nodeId || event.workflowId !== event.nodeId)
     parts.push(event.workflowId);
@@ -187,7 +211,11 @@ function eventCategory(event: StudioDetailEvent): EventCategory {
   if (event.type.startsWith("interrupt.")) return "interrupt";
   if (event.type.startsWith("session.")) return "session";
   if (event.type === "workflow.transitioned") return "workflow";
-  if (event.type === "run.cancelled" || event.payload.name === "kortyx.run")
+  if (
+    event.type === "run.cancelled" ||
+    event.type === "run.limit_reached" ||
+    event.payload.name === "kortyx.run"
+  )
     return "run";
   if (event.payload.name === "kortyx.node") return "node";
   if (event.payload.name === "runReasonEngine") return "model";
@@ -196,6 +224,7 @@ function eventCategory(event: StudioDetailEvent): EventCategory {
 
 function eventState(event: StudioDetailEvent): EventState {
   const { type } = event;
+  if (type === "run.limit_reached") return "interrupted";
   if (type === "span.failed" && isControlFlowCancellation(event))
     return "cancelled";
   if (type === "span.failed" && isControlFlowInterrupt(event))
@@ -245,7 +274,8 @@ function isControlFlowInterrupt(event: StudioDetailEvent): boolean {
     error !== undefined &&
     typeof error === "object" &&
     "name" in error &&
-    error.name === "GraphInterrupt"
+    (error.name === "GraphInterrupt" ||
+      error.name === "ExecutionLimitReachedError")
   );
 }
 
