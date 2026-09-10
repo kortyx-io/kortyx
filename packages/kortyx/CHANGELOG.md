@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.17.0](https://github.com/kortyx-io/kortyx/compare/kortyx-v0.16.0...kortyx-v0.17.0) (2026-09-10)
+
+
+### Features
+
+* **runtime:** add shared execution limits and checkpoint continuation ([#163](https://github.com/kortyx-io/kortyx/issues/163)) ([e22232c](https://github.com/kortyx-io/kortyx/commit/e22232c059fae4f7df1bd36423902bd365887942))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/agent bumped to 0.18.0
+    * @kortyx/cli bumped to 0.5.2
+    * @kortyx/core bumped to 0.8.0
+    * @kortyx/hooks bumped to 0.21.0
+    * @kortyx/runtime bumped to 0.14.0
+    * @kortyx/stream bumped to 0.11.0
+
 ## [0.16.0](https://github.com/kortyx-io/kortyx/compare/kortyx-v0.15.0...kortyx-v0.16.0) (2026-09-10)
 
 

@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.8.0](https://github.com/kortyx-io/kortyx/compare/core-v0.7.0...core-v0.8.0) (2026-09-10)
+
+
+### Features
+
+* **runtime:** add shared execution limits and checkpoint continuation ([#163](https://github.com/kortyx-io/kortyx/issues/163)) ([e22232c](https://github.com/kortyx-io/kortyx/commit/e22232c059fae4f7df1bd36423902bd365887942))
+
 ## [0.7.0](https://github.com/kortyx-io/kortyx/compare/core-v0.6.0...core-v0.7.0) (2026-09-10)
 
 

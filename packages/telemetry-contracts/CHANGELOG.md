@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.0](https://github.com/kortyx-io/kortyx/compare/telemetry-contracts-v0.3.0...telemetry-contracts-v0.4.0) (2026-09-10)
+
+
+### Features
+
+* **runtime:** add shared execution limits and checkpoint continuation ([#163](https://github.com/kortyx-io/kortyx/issues/163)) ([e22232c](https://github.com/kortyx-io/kortyx/commit/e22232c059fae4f7df1bd36423902bd365887942))
+
 ## [0.3.0](https://github.com/kortyx-io/kortyx/compare/telemetry-contracts-v0.2.0...telemetry-contracts-v0.3.0) (2026-09-09)
 
 

@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.18.0](https://github.com/kortyx-io/kortyx/compare/example-nextjs-chat-api-route-v0.17.0...example-nextjs-chat-api-route-v0.18.0) (2026-09-10)
+
+
+### Features
+
+* **runtime:** add shared execution limits and checkpoint continuation ([#163](https://github.com/kortyx-io/kortyx/issues/163)) ([e22232c](https://github.com/kortyx-io/kortyx/commit/e22232c059fae4f7df1bd36423902bd365887942))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/react bumped to 0.4.3
+    * kortyx bumped to 0.17.0
+
 ## [0.17.0](https://github.com/kortyx-io/kortyx/compare/example-nextjs-chat-api-route-v0.16.9...example-nextjs-chat-api-route-v0.17.0) (2026-09-10)
 
 
