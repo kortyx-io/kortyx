@@ -22,6 +22,15 @@ import {
 } from "@kortyx/runtime";
 import type { StreamChunk } from "@kortyx/stream";
 import { z } from "zod";
+import { executeWorkflow, resumeWorkflow } from "../execution/execute";
+import type {
+  ExecutableWorkflow,
+  ExecuteOptions,
+  ExecutionResult,
+  ResumeHandle,
+  ResumeOptions,
+  ResumeResponse,
+} from "../execution/types";
 import { emitTelemetryEvent } from "../telemetry/events";
 import { projectWorkflowTopology } from "../telemetry/topology";
 import { restoreWorkflowCallBranch } from "../telemetry/workflow-call-branch";
@@ -52,6 +61,23 @@ export interface CreateAgentArgs {
 }
 
 export interface Agent {
+  execute<W extends ExecutableWorkflow>(
+    args: ExecuteOptions<W>,
+  ): Promise<ExecutionResult<z.output<W["outputSchema"]>>>;
+  execute(args: {
+    workflow: string;
+    input: unknown;
+    sessionId?: string;
+    context?: Record<string, unknown>;
+  }): Promise<ExecutionResult>;
+  resume<W extends ExecutableWorkflow>(
+    args: ResumeOptions<W>,
+  ): Promise<ExecutionResult<z.output<W["outputSchema"]>>>;
+  resume(args: {
+    workflow: string;
+    resume: ResumeHandle;
+    response: ResumeResponse;
+  }): Promise<ExecutionResult>;
   projectTopology?: (
     options: AgentProjectTopologyOptions,
   ) => Promise<AgentTopologySnapshot[]>;
@@ -396,7 +422,27 @@ export function createAgent(args: CreateAgentArgs): Agent {
     };
   };
 
+  const services = async () => {
+    const registry = await registryPromise;
+    if (!registry) throw new Error("Workflow registry is unavailable.");
+    return {
+      registry,
+      frameworkAdapter: resolvedFrameworkAdapter,
+      getProvider: resolvedGetProvider,
+      telemetry,
+      knownWorkflowIds: (await registeredWorkflowsPromise)?.map(
+        (workflow) => workflow.id,
+      ),
+    };
+  };
+  const execute = (async (options: Parameters<typeof executeWorkflow>[1]) =>
+    executeWorkflow(await services(), options)) as Agent["execute"];
+  const resume = (async (options: Parameters<typeof resumeWorkflow>[1]) =>
+    resumeWorkflow(await services(), options)) as Agent["resume"];
+
   return {
+    execute,
+    resume,
     projectTopology,
     streamChat,
     listCheckpoints,

@@ -17,6 +17,8 @@ async function* chunks() {
 
 const createMockAgent = (overrides: Partial<Agent> = {}): Agent =>
   ({
+    execute: vi.fn(),
+    resume: vi.fn(),
     streamChat: vi.fn(async () => chunks()),
     listCheckpoints: vi.fn(async () => []),
     getCheckpoint: vi.fn(async () => null),

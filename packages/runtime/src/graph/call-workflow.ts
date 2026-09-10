@@ -1,6 +1,7 @@
 import type {
   GraphState,
   InterruptInput,
+  TokenUsage,
   WorkflowDefinition,
 } from "@kortyx/core";
 import type { WorkflowCallService } from "@kortyx/hooks";
@@ -196,6 +197,12 @@ export function createWorkflowCallService(
           throw new Error("Child interrupted without a graph checkpoint.");
         return {
           status: "interrupted" as const,
+          usage:
+            (
+              request.meta?.__kortyxResumeStatePatch as
+                | { tokenUsage?: TokenUsage }
+                | undefined
+            )?.tokenUsage ?? result.runtime.tokenUsage,
           request,
           snapshot: {
             version: workflow.version,

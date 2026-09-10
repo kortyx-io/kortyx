@@ -732,6 +732,9 @@ describe("createAgent", () => {
     mocks.createFileWorkflowRegistry.mockReturnValueOnce(undefined as never);
     const missing = createAgent({ workflowsDir: "missing" });
     await expect(
+      missing.execute({ workflow: "missing", input: {} }),
+    ).rejects.toThrow("Workflow registry is unavailable.");
+    await expect(
       missing.streamChat([{ role: "user", content: "hello" }]),
     ).rejects.toThrow(
       "createAgent requires workflows, workflowsDir, or workflowRegistry.",

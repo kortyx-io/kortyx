@@ -2195,7 +2195,7 @@ describe("orchestrateGraphStream", () => {
     });
   });
 
-  it("does not add run telemetry input for non-string state input", async () => {
+  it("serializes structured workflow input for run telemetry", async () => {
     const runSpan = {
       setAttributes: vi.fn(),
       end: vi.fn(),
@@ -2221,8 +2221,8 @@ describe("orchestrateGraphStream", () => {
 
     expect(trace.withSpan).toHaveBeenCalledWith(
       expect.objectContaining({
-        telemetry: expect.not.objectContaining({
-          input: expect.anything(),
+        telemetry: expect.objectContaining({
+          input: JSON.stringify({ prompt: "hello" }),
         }),
       }),
       expect.any(Function),
@@ -2307,4 +2307,26 @@ describe("orchestrateGraphStream", () => {
       }),
     );
   });
+});
+
+it("settles an emitted execution failure without a stream reader", async () => {
+  const graph = graphWithEvents((emit) => {
+    emit("error", { message: "stop now" });
+    return [{ event: "on_chain_end", data: { output: baseState } }];
+  });
+  const outcome = await new Promise<
+    import("../src/orchestrator").OrchestrationOutcome
+  >((resolve, reject) => {
+    void orchestrateGraphStream({
+      graph,
+      state: baseState,
+      config: {},
+      runId: "direct-error",
+      selectWorkflow: vi.fn(),
+      emitOutput: false,
+      onOutcome: resolve,
+    }).catch(reject);
+  });
+  expect(outcome.error).toEqual(new Error("stop now"));
+  expect(outcome.pending).toBeUndefined();
 });

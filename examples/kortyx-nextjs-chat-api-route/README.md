@@ -104,3 +104,9 @@ Resume replays the node function from the top. `useReason` continues from checkp
 ## License
 
 Apache-2.0. See [LICENSE](https://github.com/kortyx-io/kortyx/blob/main/LICENSE).
+
+## Execute and resume without chat
+
+The example also has `/execute` and `/resume` pages, backed by `POST /api/execute` and `POST /api/resume`. They share the existing server agent. Start a brief with approval enabled, follow **Open approval page**, then approve or decline to see the parent workflow result. Disable approval to receive an immediate result. The demonstration is deterministic and requires no model key.
+
+Set `KORTYX_REDIS_URL` when running separate server processes or retaining pauses across restarts. The example keeps its private pending handle in browser session storage only to demonstrate navigation; a production approval inbox should store and authorize requests on the server. `/api/chat` retains its existing SSE/buffered contract.

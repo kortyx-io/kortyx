@@ -1,4 +1,8 @@
 import { createAgent } from "kortyx";
+import {
+  briefApprovalWorkflow,
+  briefReviewWorkflow,
+} from "@/workflows/brief-review.workflow";
 import { checkpointLabWorkflow } from "@/workflows/checkpoint-lab.workflow";
 import { generalChatWorkflow } from "@/workflows/general-chat.workflow";
 import { interruptDemoWorkflow } from "@/workflows/interrupt-demo.workflow";
@@ -14,6 +18,8 @@ import { threeStepsWorkflow } from "@/workflows/three-steps.workflow";
 export const agent = createAgent({
   workflows: [
     generalChatWorkflow,
+    briefReviewWorkflow,
+    briefApprovalWorkflow,
     checkpointLabWorkflow,
     threeStepsWorkflow,
     interruptDemoWorkflow,

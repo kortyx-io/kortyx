@@ -21,6 +21,17 @@ export { createAgent } from "./chat/create-agent";
 export type { StreamChatArgs } from "./chat/process-chat";
 export { streamChat } from "./chat/process-chat";
 export type {
+  ExecutableWorkflow,
+  ExecuteOptions,
+  ExecutionInfo,
+  ExecutionInterrupt,
+  ExecutionResult,
+  ResumeHandle,
+  ResumeOptions,
+  ResumeResponse,
+} from "./execution/types";
+export { ExecutionRequestError } from "./execution/types";
+export type {
   ApplyResumeSelection,
   ResumeMeta,
 } from "./interrupt/resume-handler";
