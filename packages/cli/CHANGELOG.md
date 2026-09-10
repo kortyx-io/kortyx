@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.5.0](https://github.com/kortyx-io/kortyx/compare/cli-v0.4.0...cli-v0.5.0) (2026-09-09)
+
+
+### Features
+
+* add resumable child workflows and Studio inspection ([#157](https://github.com/kortyx-io/kortyx/issues/157)) ([542ba29](https://github.com/kortyx-io/kortyx/commit/542ba29b3b57217e6e5d98c1b409bbec5ce3261f))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/agent bumped to 0.16.0
+    * @kortyx/core bumped to 0.6.0
+    * @kortyx/telemetry-contracts bumped to 0.3.0
+
 ## [0.4.0](https://github.com/kortyx-io/kortyx/compare/cli-v0.3.0...cli-v0.4.0) (2026-08-31)
 
 

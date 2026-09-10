@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.4.0](https://github.com/kortyx-io/kortyx/compare/example-canvas-v0.3.2...example-canvas-v0.4.0) (2026-09-09)
+
+
+### Features
+
+* add resumable child workflows and Studio inspection ([#157](https://github.com/kortyx-io/kortyx/issues/157)) ([542ba29](https://github.com/kortyx-io/kortyx/commit/542ba29b3b57217e6e5d98c1b409bbec5ce3261f))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/telemetry bumped to 0.3.0
+    * kortyx bumped to 0.15.0
+  * devDependencies
+    * @kortyx/cli bumped to 0.5.0
+
 ## [0.3.2](https://github.com/kortyx-io/kortyx/compare/example-canvas-v0.3.1...example-canvas-v0.3.2) (2026-08-31)
 
 

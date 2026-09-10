@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.0](https://github.com/kortyx-io/kortyx/compare/telemetry-contracts-v0.2.0...telemetry-contracts-v0.3.0) (2026-09-09)
+
+
+### Features
+
+* add resumable child workflows and Studio inspection ([#157](https://github.com/kortyx-io/kortyx/issues/157)) ([542ba29](https://github.com/kortyx-io/kortyx/commit/542ba29b3b57217e6e5d98c1b409bbec5ce3261f))
+
 ## [0.2.0](https://github.com/kortyx-io/kortyx/compare/telemetry-contracts-v0.1.0...telemetry-contracts-v0.2.0) (2026-08-02)
 
 

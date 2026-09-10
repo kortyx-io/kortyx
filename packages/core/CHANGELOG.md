@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.0](https://github.com/kortyx-io/kortyx/compare/core-v0.5.3...core-v0.6.0) (2026-09-09)
+
+
+### Features
+
+* add resumable child workflows and Studio inspection ([#157](https://github.com/kortyx-io/kortyx/issues/157)) ([542ba29](https://github.com/kortyx-io/kortyx/commit/542ba29b3b57217e6e5d98c1b409bbec5ce3261f))
+
 ## [0.5.3](https://github.com/kortyx-io/kortyx/compare/core-v0.5.2...core-v0.5.3) (2026-05-22)
 
 
