@@ -1,4 +1,5 @@
 import type { WorkflowDefinition } from "@kortyx/core";
+import { isExecutionCancelled, throwIfExecutionAborted } from "@kortyx/core";
 import type { GetProviderFn } from "@kortyx/providers";
 import {
   buildInitialGraphState,
@@ -68,6 +69,8 @@ export function resultFromOutcome(
     ...(outcome.checkpointId ? { checkpointId: outcome.checkpointId } : {}),
     ...(usage ? { usage } : {}),
   };
+  if (isExecutionCancelled(outcome.error))
+    return { ...info, status: "cancelled", reason: "Execution cancelled." };
   if (outcome.error) {
     const error = outcome.error;
     return {
@@ -139,6 +142,7 @@ function runtimeConfig(
 export async function executeWorkflow(
   services: ExecutionServices,
   args: {
+    abortSignal?: AbortSignal;
     workflow: WorkflowDefinition | string;
     input: unknown;
     sessionId?: string;
@@ -175,6 +179,7 @@ export async function executeWorkflow(
     const onOutcome = (outcome: OrchestrationOutcome) =>
       resolve(resultFromOutcome(outcome, runId, sessionId));
     void (async () => {
+      throwIfExecutionAborted(args.abortSignal);
       const graph = await createExecutionGraph(workflow, config);
       await orchestrateGraphStream({
         graph,
@@ -185,6 +190,7 @@ export async function executeWorkflow(
         selectWorkflow: select,
         frameworkAdapter: services.frameworkAdapter,
         knownWorkflowIds: services.knownWorkflowIds,
+        abortSignal: args.abortSignal,
         emitOutput: false,
         onOutcome,
       });
@@ -195,6 +201,7 @@ export async function executeWorkflow(
 export async function resumeWorkflow(
   services: ExecutionServices,
   args: {
+    abortSignal?: AbortSignal;
     workflow: WorkflowDefinition | string;
     resume: ResumeHandle;
     response: ResumeResponse;
@@ -254,6 +261,7 @@ export async function resumeWorkflow(
   };
   return new Promise<ExecutionResult>((resolve, reject) => {
     void tryPrepareResumeStream({
+      abortSignal: args.abortSignal,
       meta: {
         token: handle.token,
         requestId: handle.requestId,

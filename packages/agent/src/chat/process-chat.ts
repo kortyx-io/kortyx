@@ -25,6 +25,7 @@ export interface RuntimeConfig {
 }
 
 export interface StreamChatArgs<Options> {
+  abortSignal?: AbortSignal | undefined;
   messages: ChatMessage[];
   options?: Options | undefined;
   sessionId?: string;
@@ -42,6 +43,7 @@ export interface StreamChatArgs<Options> {
 
 export async function streamChat<Options = unknown>({
   messages,
+  abortSignal,
   options,
   sessionId,
   defaultWorkflowId,
@@ -99,14 +101,8 @@ export async function streamChat<Options = unknown>({
     else runtime.requestedWorkflow = requestedWorkflowId;
   }
 
-  const baseState = await buildInitialGraphState({
-    input,
-    config: runtimeConfig,
-    runtime,
-    ...(defaultWorkflowId ? { defaultWorkflowId } : {}),
-  });
-
   const resumeStream = await tryPrepareResumeStream({
+    abortSignal,
     lastMessage: last,
     sessionId: resolvedSessionId,
     config: runtimeConfig,
@@ -117,6 +113,13 @@ export async function streamChat<Options = unknown>({
     ...(applyResumeSelection ? { applyResumeSelection } : {}),
   });
   if (resumeStream) return resumeStream as AsyncIterable<StreamChunk>;
+
+  const baseState = await buildInitialGraphState({
+    input,
+    config: runtimeConfig,
+    runtime,
+    ...(defaultWorkflowId ? { defaultWorkflowId } : {}),
+  });
 
   const runId = makeRequestId("run");
   let headCheckpoint =
@@ -191,6 +194,7 @@ export async function streamChat<Options = unknown>({
       };
 
   const orchestratedStream = await orchestrateGraphStream({
+    abortSignal,
     sessionId: resolvedSessionId,
     runId,
     graph,

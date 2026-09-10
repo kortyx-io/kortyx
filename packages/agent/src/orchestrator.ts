@@ -1,6 +1,12 @@
 import { PassThrough } from "node:stream";
 import type { GraphState, WorkflowDefinition, WorkflowId } from "@kortyx/core";
 import {
+  combineAbortSignals,
+  createExecutionCancelledError,
+  isExecutionCancelled,
+  throwIfExecutionAborted,
+} from "@kortyx/core";
+import {
   captureGraphSnapshot,
   createExecutionGraph,
   type FrameworkAdapter,
@@ -32,6 +38,7 @@ export type SaveMemoryFn = (
 ) => Promise<void>;
 
 export interface CompiledGraphLike {
+  execution?: { abortSignal?: AbortSignal | undefined };
   config?: Record<string, unknown>;
   streamEvents: (
     state: GraphState,
@@ -51,6 +58,7 @@ export type OrchestrationOutcome = {
 };
 
 export interface OrchestrateArgs {
+  abortSignal?: AbortSignal | undefined;
   emitOutput?: boolean | undefined;
   onOutcome?: ((outcome: OrchestrationOutcome) => void) | undefined;
   sessionId?: string;
@@ -143,6 +151,7 @@ export async function orchestrateGraphStream({
   graph,
   state,
   config: initialConfig,
+  abortSignal: requestSignal,
   emitOutput = true,
   onOutcome,
   selectWorkflow,
@@ -152,7 +161,7 @@ export async function orchestrateGraphStream({
   const out = new PassThrough({ objectMode: true });
 
   const write = (chunk: unknown) => {
-    if (emitOutput) out.write(chunk);
+    if (emitOutput && !out.destroyed) out.write(chunk);
   };
   let outcomeState = state;
   let outcomeError: unknown;
@@ -161,6 +170,11 @@ export async function orchestrateGraphStream({
   let currentGraph = graph;
   let currentState: GraphState = state;
   let finished = false;
+  const controller = new AbortController();
+  const abortSignal = combineAbortSignals(requestSignal, controller.signal);
+  out.on("close", () => {
+    if (!finished) controller.abort();
+  });
   let structuredSeq = 0;
   const debugEnabled = Boolean((config as any)?.features?.tracing);
   const traceAdapter = getTraceAdapter(config);
@@ -831,12 +845,15 @@ export async function orchestrateGraphStream({
 
   const runLoop = async (runTraceSpan: TraceSpanLike) => {
     while (true) {
+      throwIfExecutionAborted(abortSignal);
       let workflowFinalState: GraphState | null = null;
       let workflowFinalGraphCheckpointId: string | undefined;
       let sawWorkflowDone = false;
       let workflowDoneData: unknown;
 
       // Ensure the compiled graph uses our forwardEmit
+      currentGraph.execution ??= {};
+      currentGraph.execution.abortSignal = abortSignal;
       currentGraph.config = currentGraph.config || {};
       currentGraph.config.emit = forwardEmit;
       currentGraph.config.executionRunId = runId;
@@ -993,6 +1010,7 @@ export async function orchestrateGraphStream({
           : (graphSnapshot?.state ?? currentState);
       }
 
+      throwIfExecutionAborted(abortSignal);
       const transitionTo = pending.to;
       const transitionPayload = pending.payload;
       const sourceNodeId = pending.sourceNodeId;
@@ -1088,6 +1106,8 @@ export async function orchestrateGraphStream({
           currentGraph = nextGraph;
           continue; // run the next graph
         } catch (err) {
+          throwIfExecutionAborted(abortSignal);
+          if (isExecutionCancelled(err)) throw err;
           outcomeError = err;
           runTraceSpan.fail?.(err);
           runTraceSpan.addEvent?.("kortyx.transition.error", {
@@ -1308,6 +1328,7 @@ export async function orchestrateGraphStream({
       runTraceSpan.setAttributes?.({
         "kortyx.run.final_workflow": String(naturalFinalState.currentWorkflow),
       });
+      finished = true;
       runTraceSpan.end?.(runTraceEndArgs());
       write({ type: "done", data: naturalFinalState } as any);
       out.end();
@@ -1342,7 +1363,36 @@ export async function orchestrateGraphStream({
     : runLoop(fallbackRunSpan ?? {});
 
   runPromise
-    .catch((err) => {
+    .catch(async (err) => {
+      if (abortSignal?.aborted || isExecutionCancelled(err)) {
+        emitTelemetryEvent({
+          config,
+          type: "run.cancelled",
+          correlation: { runId, workflowId: outcomeState.currentWorkflow },
+          payload: { reason: "execution_aborted" },
+          flush: true,
+        });
+        await Promise.allSettled(pendingRequestWrites);
+        await Promise.allSettled(
+          [...activePendingRequests.keys()].map((token) =>
+            pendingStore?.delete(token),
+          ),
+        );
+        activePendingRequests.clear();
+        try {
+          await frameworkAdapter?.cleanupRun?.(runId, [...namespacesUsed]);
+        } catch (cleanupError) {
+          console.error("[cancel:cleanupRun]", cleanupError);
+        }
+        outcomeError = createExecutionCancelledError();
+        fallbackRunSpan?.setAttributes?.({ "kortyx.run.cancelled": true });
+        fallbackRunSpan?.end?.();
+        write({ type: "cancelled", runId, reason: "Execution cancelled." });
+        write({ type: "done" });
+        finished = true;
+        out.end();
+        return;
+      }
       outcomeError = err;
       fallbackRunSpan?.fail?.(err);
       emitResumeFailure(err);
@@ -1352,6 +1402,7 @@ export async function orchestrateGraphStream({
         message: err instanceof Error ? err.message : String(err),
       });
       write({ type: "done" });
+      finished = true;
       out.end();
     })
     .finally(() => {

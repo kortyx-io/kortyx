@@ -246,7 +246,7 @@ describe("useReason output flow", () => {
       streaming: true,
       maxOutputTokens: 900,
       stopSequences: ["STOP"],
-      abortSignal: callAbortController.signal,
+      abortSignal: expect.any(AbortSignal),
       reasoning: {
         effort: "medium",
         maxTokens: 96,
@@ -259,6 +259,10 @@ describe("useReason output flow", () => {
         requestTag: "call-override",
       },
     });
+    const effectiveSignal = vi.mocked(provider.getModel).mock.calls[0]?.[1]
+      ?.abortSignal;
+    callAbortController.abort();
+    expect(effectiveSignal?.aborted).toBe(true);
   });
 
   it("returns normalized provider metadata for direct invoke calls", async () => {

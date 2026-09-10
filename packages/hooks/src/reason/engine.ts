@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { combineAbortSignals, throwIfExecutionAborted } from "@kortyx/core";
 import type {
   KortyxPromptMessage,
   KortyxReasoningOptions,
@@ -44,6 +45,12 @@ export async function reasonEngine(
   inputOverride?: string,
 ): Promise<RunReasonEngineResult> {
   const ctx = getHookContext();
+  const abortSignal = combineAbortSignals(
+    ctx.node.abortSignal,
+    args.abortSignal,
+    args.model.options?.abortSignal,
+  );
+  throwIfExecutionAborted(abortSignal);
 
   return runReasonEngine({
     model: args.model,
@@ -52,7 +59,7 @@ export async function reasonEngine(
     temperature: args.temperature,
     maxOutputTokens: args.maxOutputTokens,
     stopSequences: args.stopSequences,
-    abortSignal: args.abortSignal,
+    abortSignal,
     reasoning: args.reasoning,
     responseFormat: args.responseFormat,
     providerOptions: args.providerOptions,

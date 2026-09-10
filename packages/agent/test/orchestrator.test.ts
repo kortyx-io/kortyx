@@ -2330,3 +2330,86 @@ it("settles an emitted execution failure without a stream reader", async () => {
   expect(outcome.error).toEqual(new Error("stop now"));
   expect(outcome.pending).toBeUndefined();
 });
+
+it("cancels a pending interrupt race, emits run cancellation and tolerates failed cleanup", async () => {
+  const controller = new AbortController();
+  const deleted = vi.fn();
+  const events: any[] = [];
+  const log = vi.spyOn(console, "error").mockImplementation(() => {});
+  const graph = graphWithEvents(async (emit) => {
+    emit("interrupt", { input: { kind: "text", question: "Wait?" } });
+    await new Promise((resolve) => setTimeout(resolve, 5));
+    controller.abort();
+    throw new DOMException("Aborted", "AbortError");
+  });
+  const onOutcome = vi.fn();
+  try {
+    const chunks = await collect(
+      await orchestrateGraphStream({
+        graph,
+        state: baseState,
+        runId: "cancel-race",
+        abortSignal: controller.signal,
+        config: {
+          telemetry: {
+            environment: "test",
+            service: { name: "test" },
+            reporter: {
+              emit: async (items: any[]) => {
+                events.push(...items);
+              },
+              flush: async () => {},
+            },
+          },
+        },
+        selectWorkflow: vi.fn(),
+        onOutcome,
+        frameworkAdapter: {
+          pendingRequests: {
+            save: vi.fn(async () => {
+              throw new Error("save unavailable");
+            }),
+            delete: deleted,
+          },
+          cleanupRun: async () => {
+            throw new Error("storage unavailable");
+          },
+        } as unknown as FrameworkAdapter,
+      }),
+    );
+    expect(deleted).toHaveBeenCalled();
+    expect(chunks.filter((x: any) => x.type === "cancelled")).toHaveLength(1);
+    expect(onOutcome).toHaveBeenCalledWith(
+      expect.objectContaining({
+        error: expect.objectContaining({ code: "EXECUTION_CANCELLED" }),
+        pending: undefined,
+      }),
+    );
+    expect(events).toContainEqual(
+      expect.objectContaining({ type: "run.cancelled" }),
+    );
+    expect(log).toHaveBeenCalledWith("[cancel:cleanupRun]", expect.any(Error));
+  } finally {
+    log.mockRestore();
+  }
+});
+
+it("treats an aborted handoff as cancellation rather than a transition failure", async () => {
+  const graph = graphWithEvents((emit) => {
+    emit("transition", { transitionTo: "next" });
+    return [];
+  });
+  const chunks = await collect(
+    await orchestrateGraphStream({
+      graph,
+      state: baseState,
+      runId: "abort-handoff",
+      config: {},
+      selectWorkflow: async () => {
+        throw new DOMException("Aborted", "AbortError");
+      },
+    }),
+  );
+  expect(chunks).toContainEqual(expect.objectContaining({ type: "cancelled" }));
+  expect(chunks.filter((x: any) => x.type === "error")).toHaveLength(0);
+});

@@ -817,3 +817,31 @@ describe("Studio read model projection", () => {
     });
   });
 });
+
+it("projects active root cancellation over abort failures into run and session status", () => {
+  const models = createStudioReadModelsFromRecords({
+    revisions: [revision()],
+    rates: [],
+    events: [
+      event(0, {
+        eventId: "start",
+        type: "span.started",
+        spanId: "root",
+        payload: { name: "kortyx.run" },
+      }),
+      event(10, {
+        eventId: "abort",
+        type: "span.failed",
+        spanId: "root",
+        payload: { name: "kortyx.run", error: { name: "AbortError" } },
+      }),
+      event(11, {
+        eventId: "cancel",
+        type: "run.cancelled",
+        payload: { reason: "execution_aborted", branchId: "run-1" },
+      }),
+    ],
+  });
+  expect(models.runs[0]?.status).toBe("cancelled");
+  expect(models.sessions[0]?.status).toBe("cancelled");
+});

@@ -21,6 +21,14 @@ export function buildEventStory(
       parentBySpan.set(event.spanId, event.parentSpanId);
     }
   }
+  const cancelledSpans = new Set(
+    ordered
+      .filter(
+        (event) =>
+          event.type === "span.failed" && isControlFlowCancellation(event),
+      )
+      .map((event) => event.spanId),
+  );
   const depthBySpan = new Map<string, number>();
 
   const spanDepth = (
@@ -47,7 +55,12 @@ export function buildEventStory(
       else break;
     }
     const category = eventCategory(event);
-    const state = eventState(event);
+    const cancelledEnd = Boolean(
+      event.spanId &&
+        cancelledSpans.has(event.spanId) &&
+        (event.type === "span.ended" || event.type === "generation.completed"),
+    );
+    const state = cancelledEnd ? "cancelled" : eventState(event);
     const context = eventContext(event);
     return {
       event,
@@ -60,13 +73,17 @@ export function buildEventStory(
       categoryLabel: CATEGORY_LABELS[category],
       state,
       stateLabel: STATE_LABELS[state],
-      title: eventTitle(event, phase),
+      title: eventTitle(event, phase, cancelledEnd),
       description: context,
     };
   });
 }
 
-function eventTitle(event: StudioDetailEvent, phase: number | null): string {
+function eventTitle(
+  event: StudioDetailEvent,
+  phase: number | null,
+  cancelledEnd = false,
+): string {
   const name = asString(event.payload.name);
   const attributes = asRecord(event.payload.attributes);
   const model =
@@ -74,7 +91,9 @@ function eventTitle(event: StudioDetailEvent, phase: number | null): string {
   const tool = asString(event.payload.tool) ?? "Tool";
 
   if (event.type === "generation.completed")
-    return `${model} response completed`;
+    return cancelledEnd
+      ? `${model} request cancelled`
+      : `${model} response completed`;
   if (event.type === "tool.started") return `${tool} tool started`;
   if (event.type === "tool.completed") return `${tool} tool completed`;
   if (event.type === "tool.failed") return `${tool} tool failed`;
@@ -105,7 +124,12 @@ function eventTitle(event: StudioDetailEvent, phase: number | null): string {
       return phase === 1 ? "Run execution started" : "Run execution resumed";
     return `${subject} started`;
   }
-  if (event.type === "span.ended") return `${subject} completed`;
+  if (event.type === "span.ended")
+    return cancelledEnd
+      ? `${subject} ended after cancellation`
+      : `${subject} completed`;
+  if (event.type === "span.failed" && isControlFlowCancellation(event))
+    return `${subject} cancelled`;
   if (event.type === "span.failed")
     return isControlFlowInterrupt(event)
       ? `${subject} paused`
@@ -172,6 +196,8 @@ function eventCategory(event: StudioDetailEvent): EventCategory {
 
 function eventState(event: StudioDetailEvent): EventState {
   const { type } = event;
+  if (type === "span.failed" && isControlFlowCancellation(event))
+    return "cancelled";
   if (type === "span.failed" && isControlFlowInterrupt(event))
     return "interrupted";
   if (type.endsWith(".started") || type === "interrupt.created")
@@ -290,3 +316,8 @@ const STATE_LABELS: Record<EventState, string> = {
   cancelled: "Cancelled",
   recorded: "Recorded",
 };
+
+export function isControlFlowCancellation(event: StudioDetailEvent): boolean {
+  const error = asRecord(event.payload.error);
+  return error.name === "AbortError" || error.code === "EXECUTION_CANCELLED";
+}

@@ -8,6 +8,7 @@ export async function POST(request: Request): Promise<Response> {
   try {
     const body = await request.json();
     const result = await agent.execute({
+      abortSignal: request.signal,
       workflow: briefReviewWorkflow,
       input: body.input,
     });

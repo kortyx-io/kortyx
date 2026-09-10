@@ -4,6 +4,7 @@ import type {
   TokenUsage,
   WorkflowDefinition,
 } from "@kortyx/core";
+import { isExecutionCancelled, throwIfExecutionAborted } from "@kortyx/core";
 import type { z } from "zod";
 import { accumulateTokenUsage, getHookContext } from "./context";
 import { awaitInterruptInternal } from "./interrupt";
@@ -129,6 +130,7 @@ export async function useWorkflow(args: {
   input: unknown;
 }): Promise<{ data: Record<string, unknown> }> {
   const ctx = getHookContext();
+  throwIfExecutionAborted(ctx.node.abortSignal);
   const service = ctx.node.callWorkflow;
   if (!service)
     throw new Error("useWorkflow requires an agent workflow registry.");
@@ -245,11 +247,14 @@ export async function useWorkflow(args: {
             : {}),
         });
       } catch (error) {
+        throwIfExecutionAborted(ctx.node.abortSignal);
+        if (isExecutionCancelled(error)) throw error;
         record.status = "failed";
         record.error = error instanceof Error ? error.message : String(error);
         report("failed", { error: "Child workflow failed" });
         throw new WorkflowCallError(workflow, record.error);
       }
+      throwIfExecutionAborted(ctx.node.abortSignal);
       if (outcome.usage) {
         // Child totals survive suspension. Only newly reported work belongs to this attempt.
         accumulateTokenUsage({

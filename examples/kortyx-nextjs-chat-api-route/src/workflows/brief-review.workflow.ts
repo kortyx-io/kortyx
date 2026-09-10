@@ -1,5 +1,11 @@
 // biome-ignore-all lint/correctness/useHookAtTopLevel: Kortyx hooks run in server workflow nodes.
-import { defineWorkflow, useInterrupt, useWorkflow } from "kortyx";
+import { setTimeout } from "node:timers/promises";
+import {
+  defineWorkflow,
+  useAbortSignal,
+  useInterrupt,
+  useWorkflow,
+} from "kortyx";
 import { z } from "zod";
 
 export const briefApprovalWorkflow = defineWorkflow({
@@ -39,6 +45,7 @@ export const briefReviewWorkflow = defineWorkflow({
   inputSchema: z.object({
     brief: z.string().trim().min(1),
     requireApproval: z.boolean(),
+    slow: z.boolean().optional(),
   }),
   outputSchema: z.object({
     summary: z.string(),
@@ -47,9 +54,13 @@ export const briefReviewWorkflow = defineWorkflow({
   nodes: {
     summarize: {
       // Deterministic so this example works without model credentials.
-      run: ({ input }: { input: { brief: string } }) => ({
-        data: { summary: input.brief.replace(/\s+/g, " ").slice(0, 180) },
-      }),
+      run: async ({ input }: { input: { brief: string; slow?: boolean } }) => {
+        const signal = useAbortSignal();
+        if (input.slow) await setTimeout(10_000, undefined, { signal });
+        return {
+          data: { summary: input.brief.replace(/\s+/g, " ").slice(0, 180) },
+        };
+      },
     },
     review: {
       run: async ({

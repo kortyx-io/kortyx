@@ -8,6 +8,7 @@ export async function POST(request: Request): Promise<Response> {
   try {
     const body = await request.json();
     const result = await agent.resume({
+      abortSignal: request.signal,
       workflow: briefReviewWorkflow,
       resume: body.resume,
       response: body.response,

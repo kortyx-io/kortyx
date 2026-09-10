@@ -180,3 +180,75 @@ function detailEvent(
     ...overrides,
   };
 }
+
+it("shows aborted execution and child spans as cancelled in event and trace views", () => {
+  const events = [
+    detailEvent(
+      "root-start",
+      "span.started",
+      0,
+      { name: "kortyx.run" },
+      { spanId: "root" },
+    ),
+    detailEvent(
+      "child-start",
+      "span.started",
+      1,
+      { name: "kortyx.workflow.call" },
+      { spanId: "child", parentSpanId: "root" },
+    ),
+    detailEvent(
+      "child-abort",
+      "span.failed",
+      20,
+      {
+        name: "kortyx.workflow.call",
+        error: { name: "AbortError", message: "Execution cancelled." },
+      },
+      { spanId: "child", parentSpanId: "root" },
+    ),
+    detailEvent(
+      "root-abort",
+      "span.failed",
+      21,
+      {
+        name: "kortyx.run",
+        error: { name: "AbortError", message: "Execution cancelled." },
+      },
+      { spanId: "root" },
+    ),
+    detailEvent(
+      "root-end",
+      "span.ended",
+      22,
+      { name: "kortyx.run" },
+      { spanId: "root" },
+    ),
+    detailEvent("cancel", "run.cancelled", 22, { reason: "execution_aborted" }),
+  ];
+  const story = buildEventStory(events, START);
+  expect(
+    story
+      .filter((item) => item.event.type === "span.failed")
+      .map((item) => item.state),
+  ).toEqual(["cancelled", "cancelled"]);
+  expect(
+    story.find((item) => item.event.id === "child-abort")?.title,
+  ).toContain("cancelled");
+  expect(story.find((item) => item.event.id === "root-end")?.state).toBe(
+    "cancelled",
+  );
+  expect(story.find((item) => item.event.id === "root-end")?.title).toContain(
+    "ended after cancellation",
+  );
+  const trace = buildTraceStory(events);
+  expect(trace.find((item) => item.id === "root-start")?.status).toBe(
+    "cancelled",
+  );
+  expect(trace.find((item) => item.id === "child-start")?.status).toBe(
+    "cancelled",
+  );
+  expect(trace.find((item) => item.id === "cancel")?.label).toBe(
+    "Run cancelled",
+  );
+});

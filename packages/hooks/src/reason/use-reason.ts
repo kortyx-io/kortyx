@@ -1,4 +1,5 @@
 import type { InterruptInput, InterruptResult } from "@kortyx/core";
+import { combineAbortSignals, throwIfExecutionAborted } from "@kortyx/core";
 import type {
   KortyxFinishReason,
   KortyxProviderMetadata,
@@ -108,6 +109,13 @@ export async function useReason<
 ): Promise<UseReasonResult<TOutput, TResponse>> {
   assertReasoningThoughtsCompatibility(args);
   const ctx = getHookContext();
+  const abortSignal = combineAbortSignals(
+    ctx.node.abortSignal,
+    args.abortSignal,
+    args.model.options?.abortSignal,
+  );
+  throwIfExecutionAborted(abortSignal);
+  args = { ...args, abortSignal };
   const id =
     typeof args.id === "string" && args.id.length > 0 ? args.id : undefined;
   const opId = createRuntimeId();

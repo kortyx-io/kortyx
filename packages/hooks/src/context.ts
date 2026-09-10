@@ -31,6 +31,8 @@ type HookStatePatchedError = {
 };
 
 export type HookNodeRuntimeContext = {
+  /** Transient execution control; never part of checkpointed state. */
+  abortSignal?: AbortSignal | undefined;
   graph: {
     name: string;
     node: string;

@@ -16,6 +16,7 @@ export type {
   UseStructuredDataArgs,
 } from "./hooks";
 export {
+  useAbortSignal,
   useInterrupt,
   useNodeState,
   useReason,
