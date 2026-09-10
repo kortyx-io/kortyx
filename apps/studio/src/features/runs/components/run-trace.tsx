@@ -7,6 +7,7 @@ import {
   CheckCircle2,
   CircleAlert,
   CirclePause,
+  CircleX,
   Database,
   GitBranch,
   type LucideIcon,
@@ -553,6 +554,13 @@ function kindAppearance(
   iconBackground: string;
   bar: string;
 } {
+  if (status === "cancelled")
+    return {
+      icon: CircleX,
+      iconColor: "text-muted-foreground",
+      iconBackground: "bg-muted",
+      bar: "bg-muted-foreground",
+    };
   if (status === "failed")
     return {
       icon: CircleAlert,

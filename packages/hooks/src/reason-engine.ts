@@ -1,5 +1,8 @@
 import { randomUUID } from "node:crypto";
-import { throwIfExecutionAborted } from "@kortyx/core";
+import {
+  createExecutionCancelledError,
+  throwIfExecutionAborted,
+} from "@kortyx/core";
 import type {
   KortyxFinishReason,
   KortyxPromptMessage,
@@ -362,8 +365,10 @@ export async function runReasonEngine(
     endTrace(traceSpan, result);
     return result;
   } catch (error) {
-    failTrace(traceSpan, error);
-    throwIfExecutionAborted(abortSignal);
-    throw error;
+    const failure = abortSignal?.aborted
+      ? createExecutionCancelledError()
+      : error;
+    failTrace(traceSpan, failure);
+    throw failure;
   }
 }

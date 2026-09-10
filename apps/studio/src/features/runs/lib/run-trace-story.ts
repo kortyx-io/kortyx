@@ -1,5 +1,6 @@
 import type { StudioDetailEvent } from "@kortyx/telemetry-contracts";
 import { formatDurationMs } from "@/lib/format";
+import { isControlFlowCancellation } from "./run-event-story";
 
 export type TraceStatus =
   | "completed"
@@ -158,7 +159,12 @@ export function buildTraceStory(events: StudioDetailEvent[]): TraceItem[] {
               ? "Initial execution"
               : "Additional execution phase",
         kind: "execution",
-        status: interruptInExecution ? "interrupted" : baseStatus,
+        status:
+          baseStatus === "cancelled"
+            ? "cancelled"
+            : interruptInExecution
+              ? "interrupted"
+              : baseStatus,
         startedAt: event.occurredAt,
         durationMs,
         depth: 0,
@@ -477,6 +483,7 @@ function spanStatus(
 ): TraceStatus {
   if (!terminal) return hasLaterExecution ? "incomplete" : "running";
   if (!terminal.type.endsWith("failed")) return "completed";
+  if (isControlFlowCancellation(terminal)) return "cancelled";
   return isControlFlowInterrupt(terminal) ? "interrupted" : "failed";
 }
 
@@ -704,6 +711,7 @@ function generationDescription(
   status: TraceStatus,
 ) {
   if (status === "failed") return `${provider} provider call failed`;
+  if (status === "cancelled") return `${provider} provider call cancelled`;
   if (!timing.streaming)
     return `${provider} non-streaming call${durationMs === null ? "" : ` · ${formatDurationMs(durationMs)}`}`;
   if (timing.ttftMs === null)

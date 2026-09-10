@@ -172,6 +172,10 @@ signal; it cannot override root cancellation. Abort errors bypass node retries a
 ordinary tool-error feedback. Direct calls return `status: "cancelled"`; connected
 stream consumers receive a `cancelled` event and one root `done` event.
 
+With Studio telemetry configured, `run.cancelled` marks the run and active child
+calls as cancelled. Studio presents AbortError spans as cancelled in its trace
+and event views. It records the outcome, not the live AbortSignal object.
+
 Custom node I/O can cooperate using `useAbortSignal`:
 
 ```ts
