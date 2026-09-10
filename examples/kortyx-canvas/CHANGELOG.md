@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.5.0](https://github.com/kortyx-io/kortyx/compare/example-canvas-v0.4.0...example-canvas-v0.5.0) (2026-09-10)
+
+
+### Features
+
+* cancel workflow trees and reflect cancellation in Studio ([#161](https://github.com/kortyx-io/kortyx/issues/161)) ([699ad18](https://github.com/kortyx-io/kortyx/commit/699ad18905955c6340c3d85b9fae7f0bffd00a0d))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/react bumped to 0.4.2
+    * @kortyx/telemetry bumped to 0.4.0
+    * kortyx bumped to 0.16.0
+  * devDependencies
+    * @kortyx/cli bumped to 0.5.1
+
 ## [0.4.0](https://github.com/kortyx-io/kortyx/compare/example-canvas-v0.3.2...example-canvas-v0.4.0) (2026-09-09)
 
 

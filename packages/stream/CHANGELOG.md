@@ -1,5 +1,12 @@
 # @chatbot-core/types
 
+## [0.10.0](https://github.com/kortyx-io/kortyx/compare/stream-v0.9.0...stream-v0.10.0) (2026-09-10)
+
+
+### Features
+
+* cancel workflow trees and reflect cancellation in Studio ([#161](https://github.com/kortyx-io/kortyx/issues/161)) ([699ad18](https://github.com/kortyx-io/kortyx/commit/699ad18905955c6340c3d85b9fae7f0bffd00a0d))
+
 ## [0.9.0](https://github.com/kortyx-io/kortyx/compare/stream-v0.8.0...stream-v0.9.0) (2026-05-26)
 
 

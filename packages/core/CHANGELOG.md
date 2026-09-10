@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.7.0](https://github.com/kortyx-io/kortyx/compare/core-v0.6.0...core-v0.7.0) (2026-09-10)
+
+
+### Features
+
+* cancel workflow trees and reflect cancellation in Studio ([#161](https://github.com/kortyx-io/kortyx/issues/161)) ([699ad18](https://github.com/kortyx-io/kortyx/commit/699ad18905955c6340c3d85b9fae7f0bffd00a0d))
+
 ## [0.6.0](https://github.com/kortyx-io/kortyx/compare/core-v0.5.3...core-v0.6.0) (2026-09-09)
 
 

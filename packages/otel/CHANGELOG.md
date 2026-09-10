@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.4.4](https://github.com/kortyx-io/kortyx/compare/otel-v0.4.3...otel-v0.4.4) (2026-09-10)
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/hooks bumped to 0.20.0
+
 ## [0.4.3](https://github.com/kortyx-io/kortyx/compare/otel-v0.4.2...otel-v0.4.3) (2026-09-09)
 
 

@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.4.0](https://github.com/kortyx-io/kortyx/compare/telemetry-v0.3.0...telemetry-v0.4.0) (2026-09-10)
+
+
+### Features
+
+* cancel workflow trees and reflect cancellation in Studio ([#161](https://github.com/kortyx-io/kortyx/issues/161)) ([699ad18](https://github.com/kortyx-io/kortyx/commit/699ad18905955c6340c3d85b9fae7f0bffd00a0d))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/hooks bumped to 0.20.0
+
 ## [0.3.0](https://github.com/kortyx-io/kortyx/compare/telemetry-v0.2.0...telemetry-v0.3.0) (2026-09-09)
 
 

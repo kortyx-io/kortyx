@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.26.0](https://github.com/kortyx-io/kortyx/compare/website-v0.25.0...website-v0.26.0) (2026-09-10)
+
+
+### Features
+
+* cancel workflow trees and reflect cancellation in Studio ([#161](https://github.com/kortyx-io/kortyx/issues/161)) ([699ad18](https://github.com/kortyx-io/kortyx/commit/699ad18905955c6340c3d85b9fae7f0bffd00a0d))
+* execute and resume workflows without chat transport ([#159](https://github.com/kortyx-io/kortyx/issues/159)) ([6decb17](https://github.com/kortyx-io/kortyx/commit/6decb1714fedc021ac9e125b6ed9f75475ed928a))
+
 ## [0.25.0](https://github.com/kortyx-io/kortyx/compare/website-v0.24.1...website-v0.25.0) (2026-09-09)
 
 
