@@ -12,7 +12,7 @@ export default function Home() {
   });
 
   return (
-    <div className="h-screen w-screen flex items-center justify-center">
+    <div className="h-[calc(100dvh-3.5rem)] w-full flex items-center justify-center">
       <ChatWindow chat={chat} />
     </div>
   );

@@ -15,7 +15,12 @@ export type WorkflowCallOutcome =
       data: Record<string, unknown>;
       usage?: TokenUsage | undefined;
     }
-  | { status: "interrupted"; request: InterruptInput; snapshot: unknown };
+  | {
+      status: "interrupted";
+      request: InterruptInput;
+      snapshot: unknown;
+      usage?: TokenUsage | undefined;
+    };
 
 export type WorkflowCallService = (args: {
   id: string;
@@ -29,6 +34,7 @@ export type WorkflowCallService = (args: {
 }) => Promise<WorkflowCallOutcome>;
 
 type CallRecord = {
+  usage?: TokenUsage;
   fingerprint: string;
   sequence?: number;
   telemetry?: Record<string, unknown>;
@@ -244,10 +250,18 @@ export async function useWorkflow(args: {
         report("failed", { error: "Child workflow failed" });
         throw new WorkflowCallError(workflow, record.error);
       }
+      if (outcome.usage) {
+        // Child totals survive suspension. Only newly reported work belongs to this attempt.
+        accumulateTokenUsage({
+          input: outcome.usage.input - (record.usage?.input ?? 0),
+          output: outcome.usage.output - (record.usage?.output ?? 0),
+          total: outcome.usage.total - (record.usage?.total ?? 0),
+        });
+        record.usage = outcome.usage;
+      }
       if (outcome.status === "completed") {
         // Validate cached and live outputs against the caller's actual contract.
         record.data = outcome.data;
-        accumulateTokenUsage(outcome.usage);
         workflowCallFingerprint(record.data);
         record.status = "completed";
         delete record.snapshot;

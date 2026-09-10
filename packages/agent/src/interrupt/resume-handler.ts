@@ -64,7 +64,13 @@ export function parseResumeMeta(
 }
 
 interface TryResumeArgs {
-  lastMessage: ChatMessage | undefined;
+  lastMessage?: ChatMessage | undefined;
+  meta?: ResumeMeta | undefined;
+  emitOutput?: boolean | undefined;
+  onOutcome?: OrchestrateArgs["onOutcome"];
+  validatePending?:
+    | ((pending: PendingRequestRecord) => void | Promise<void>)
+    | undefined;
   sessionId: string;
   config: Record<string, unknown>;
   selectWorkflow: SelectWorkflowFn;
@@ -76,6 +82,10 @@ interface TryResumeArgs {
 
 export async function tryPrepareResumeStream({
   lastMessage,
+  meta: suppliedMeta,
+  emitOutput,
+  onOutcome,
+  validatePending,
   sessionId,
   config,
   selectWorkflow,
@@ -84,7 +94,7 @@ export async function tryPrepareResumeStream({
   applyResumeSelection,
   frameworkAdapter,
 }: TryResumeArgs): Promise<AsyncIterable<StreamChunk> | null> {
-  const meta = parseResumeMeta(lastMessage);
+  const meta = suppliedMeta ?? parseResumeMeta(lastMessage);
   if (!meta) return null;
 
   const store: PendingRequestStore | undefined =
@@ -100,6 +110,7 @@ export async function tryPrepareResumeStream({
 
   if (pending.sessionId && pending.sessionId !== sessionId)
     throw new Error("Interrupt belongs to another session.");
+  await validatePending?.(pending);
   if (store.take && !(await store.take(meta.token)))
     throw new Error("Interrupt has already been resumed or cancelled.");
   if (meta.cancel) {
@@ -119,158 +130,168 @@ export async function tryPrepareResumeStream({
       },
       flush: true,
     });
+    onOutcome?.({ state: pending.state as GraphState, cancelled: true });
     return (async function* (): AsyncGenerator<StreamChunk> {
       yield { type: "done" };
     })();
   }
 
-  // Build a minimal state; the checkpointer (keyed by sessionId) will restore paused context
-  // eslint-disable-next-line no-console
-  console.log(
-    `[resume] token=${meta.token} requestId=${meta.requestId} selected=${JSON.stringify(
-      meta.selected,
-    )} sessionId=${sessionId}`,
-  );
-
-  const resumeData = applyResumeSelection
-    ? applyResumeSelection({ pending, selected: meta.selected })
-    : meta.selected?.length
-      ? { coordinates: String(meta.selected[0]) }
-      : {};
-
-  const resumeDataPatch = isRecord(resumeData) ? resumeData : {};
-  const pendingMeta = isRecord(pending.schema?.meta) ? pending.schema.meta : {};
-  const resumeStatePatch = isRecord(pendingMeta.__kortyxResumeStatePatch)
-    ? pendingMeta.__kortyxResumeStatePatch
-    : undefined;
-
-  const pendingData = isRecord(pending.state?.data) ? pending.state?.data : {};
-  const workflowId =
-    typeof pending.workflow === "string" && pending.workflow.trim()
-      ? pending.workflow
-      : typeof defaultWorkflowId === "string" && defaultWorkflowId.trim()
-        ? defaultWorkflowId
-        : "job-search";
-
-  const resumedState = {
-    // For static breakpoints, resume with null input (set in orchestrator),
-    // and stash the user selection into data so the next node can read it.
-    input: "",
-    lastNode: "__start__",
-    currentWorkflow: workflowId,
-    config,
-    runtime: {},
-    conversationHistory: [],
-    awaitingHumanInput: false,
-    data: {
-      ...pendingData,
-      ...resumeDataPatch,
-    },
-  } satisfies GraphState;
-
-  const wf = await selectWorkflow(resumedState.currentWorkflow as string);
-  const telemetryConfig = prepareWorkflowTelemetry({
-    config: {
-      ...config,
-      ...(pending.state?.config?.executionBranchId
-        ? { executionBranchId: pending.state.config.executionBranchId }
-        : {}),
-    },
-    workflow: wf,
-    runId: pending.runId,
-    sessionId,
-    knownWorkflowIds,
-  });
-  resumedState.config = telemetryConfig;
-  const resumeUpdate: Record<string, unknown> = pending.graphSnapshot
-    ? {
-        config: {
-          ...telemetryConfig,
-          context: pending.state?.config?.context ?? telemetryConfig.context,
-        },
-      }
-    : {};
-  if (pending.graphSnapshot && frameworkAdapter)
-    await restoreGraphSnapshot(
-      frameworkAdapter.checkpointer,
-      pending.graphSnapshot,
-      pending.runId,
-    );
-  if (Object.keys(resumeDataPatch).length > 0) {
-    resumeUpdate.data = {
-      ...pendingData,
-      ...resumeDataPatch,
-    };
-  }
-  if (resumeStatePatch) {
-    resumeUpdate.runtime = resumeStatePatch;
-  }
-  const hasResumeUpdate = Object.keys(resumeUpdate).length > 0;
-  const resumeValue =
-    meta.selected?.length && pending.schema.kind === "multi-choice"
-      ? meta.selected.map((x) => String(x))
+  try {
+    const resumeData = applyResumeSelection
+      ? applyResumeSelection({ pending, selected: meta.selected })
       : meta.selected?.length
-        ? String(meta.selected[0])
-        : undefined;
-  const resumeCheckpointId =
-    typeof pending.graphCheckpointId === "string" &&
-    pending.graphCheckpointId.length > 0
-      ? pending.graphCheckpointId
+        ? { coordinates: String(meta.selected[0]) }
+        : {};
+
+    const resumeDataPatch = isRecord(resumeData) ? resumeData : {};
+    const pendingMeta = isRecord(pending.schema?.meta)
+      ? pending.schema.meta
+      : {};
+    const resumeStatePatch = isRecord(pendingMeta.__kortyxResumeStatePatch)
+      ? pendingMeta.__kortyxResumeStatePatch
       : undefined;
-  const resumedGraph = await createExecutionGraph(wf, {
-    ...telemetryConfig,
-    resume: true,
-    ...(resumeValue !== undefined ? { resumeValue } : {}),
-    ...(resumeCheckpointId ? { resumeCheckpointId } : {}),
-    ...(hasResumeUpdate ? { resumeUpdate } : {}),
-  });
-  await store.delete(pending.token);
-  const response = responseFromSelection(meta.selected);
-  const telemetry = isRecord(telemetryConfig.telemetry)
-    ? telemetryConfig.telemetry
-    : {};
-  const responseCaptured = Boolean(
-    response &&
-      shouldCaptureTelemetryContent(telemetry.captureContent, "input"),
-  );
-  emitTelemetryEvent({
-    config: telemetryConfig,
-    type: "interrupt.resolved",
-    correlation: {
+
+    const pendingData = isRecord(pending.state?.data)
+      ? pending.state?.data
+      : {};
+    const workflowId =
+      typeof pending.workflow === "string" && pending.workflow.trim()
+        ? pending.workflow
+        : typeof defaultWorkflowId === "string" && defaultWorkflowId.trim()
+          ? defaultWorkflowId
+          : "job-search";
+
+    const resumedState = {
+      // For static breakpoints, resume with null input (set in orchestrator),
+      // and stash the user selection into data so the next node can read it.
+      input: "",
+      lastNode: "__start__",
+      currentWorkflow: workflowId,
+      config,
+      runtime: {},
+      conversationHistory: [],
+      awaitingHumanInput: false,
+      data: {
+        ...pendingData,
+        ...resumeDataPatch,
+      },
+    } satisfies GraphState;
+
+    const wf = await selectWorkflow(resumedState.currentWorkflow as string);
+    const telemetryConfig = prepareWorkflowTelemetry({
+      config: {
+        ...config,
+        ...(pending.state?.config?.context
+          ? { context: pending.state.config.context }
+          : {}),
+        ...(pending.state?.config?.executionContract
+          ? { executionContract: pending.state.config.executionContract }
+          : {}),
+        ...(pending.state?.config?.executionBranchId
+          ? { executionBranchId: pending.state.config.executionBranchId }
+          : {}),
+      },
+      workflow: wf,
       runId: pending.runId,
       sessionId,
-      workflowId,
-      nodeId: pending.node,
-    },
-    payload: {
-      interruptId: pending.requestId,
-      resolvedAt: new Date().toISOString(),
-      resumeOutcome: "resumed",
-      responseCaptured,
-      ...(responseCaptured && response ? { response } : {}),
-    },
-    flush: true,
-  });
-
-  const args = {
-    sessionId,
-    runId: pending.runId,
-    graph: resumedGraph,
-    state: resumedState,
-    config: {
+      knownWorkflowIds,
+    });
+    resumedState.config = telemetryConfig;
+    const resumeUpdate: Record<string, unknown> = pending.graphSnapshot
+      ? {
+          config: {
+            ...telemetryConfig,
+            context: pending.state?.config?.context ?? telemetryConfig.context,
+          },
+        }
+      : {};
+    if (pending.graphSnapshot && frameworkAdapter)
+      await restoreGraphSnapshot(
+        frameworkAdapter.checkpointer,
+        pending.graphSnapshot,
+        pending.runId,
+      );
+    if (Object.keys(resumeDataPatch).length > 0) {
+      resumeUpdate.data = {
+        ...pendingData,
+        ...resumeDataPatch,
+      };
+    }
+    if (resumeStatePatch) {
+      resumeUpdate.runtime = resumeStatePatch;
+    }
+    const hasResumeUpdate = Object.keys(resumeUpdate).length > 0;
+    const resumeValue =
+      meta.selected?.length && pending.schema.kind === "multi-choice"
+        ? meta.selected.map((x) => String(x))
+        : meta.selected?.length
+          ? String(meta.selected[0])
+          : undefined;
+    const resumeCheckpointId =
+      typeof pending.graphCheckpointId === "string" &&
+      pending.graphCheckpointId.length > 0
+        ? pending.graphCheckpointId
+        : undefined;
+    const resumedGraph = await createExecutionGraph(wf, {
       ...telemetryConfig,
       resume: true,
-      telemetryInterruptId: pending.requestId,
-      telemetryInterruptNodeId: pending.node,
       ...(resumeValue !== undefined ? { resumeValue } : {}),
       ...(resumeCheckpointId ? { resumeCheckpointId } : {}),
       ...(hasResumeUpdate ? { resumeUpdate } : {}),
-    },
-    selectWorkflow,
-    knownWorkflowIds,
-    frameworkAdapter: frameworkAdapter as FrameworkAdapter,
-  } satisfies OrchestrateArgs;
+    });
+    await store.delete(pending.token);
+    const response = responseFromSelection(meta.selected);
+    const telemetry = isRecord(telemetryConfig.telemetry)
+      ? telemetryConfig.telemetry
+      : {};
+    const responseCaptured = Boolean(
+      response &&
+        shouldCaptureTelemetryContent(telemetry.captureContent, "input"),
+    );
+    emitTelemetryEvent({
+      config: telemetryConfig,
+      type: "interrupt.resolved",
+      correlation: {
+        runId: pending.runId,
+        sessionId,
+        workflowId,
+        nodeId: pending.node,
+      },
+      payload: {
+        interruptId: pending.requestId,
+        resolvedAt: new Date().toISOString(),
+        resumeOutcome: "resumed",
+        responseCaptured,
+        ...(responseCaptured && response ? { response } : {}),
+      },
+      flush: true,
+    });
 
-  const stream = await orchestrateGraphStream(args);
-  return stream as unknown as AsyncIterable<StreamChunk>;
+    const args = {
+      emitOutput,
+      onOutcome,
+      sessionId,
+      runId: pending.runId,
+      graph: resumedGraph,
+      state: resumedState,
+      config: {
+        ...telemetryConfig,
+        resume: true,
+        telemetryInterruptId: pending.requestId,
+        telemetryInterruptNodeId: pending.node,
+        ...(resumeValue !== undefined ? { resumeValue } : {}),
+        ...(resumeCheckpointId ? { resumeCheckpointId } : {}),
+        ...(hasResumeUpdate ? { resumeUpdate } : {}),
+      },
+      selectWorkflow,
+      knownWorkflowIds,
+      frameworkAdapter: frameworkAdapter as FrameworkAdapter,
+    } satisfies OrchestrateArgs;
+
+    const stream = await orchestrateGraphStream(args);
+    return stream as unknown as AsyncIterable<StreamChunk>;
+  } catch (error) {
+    await store.save(pending);
+    throw error;
+  }
 }

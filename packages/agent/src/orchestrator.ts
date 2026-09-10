@@ -11,6 +11,10 @@ import {
 } from "@kortyx/runtime";
 import type { StreamChunk } from "@kortyx/stream";
 import { Command } from "@langchain/langgraph";
+import {
+  parseExecutionInput,
+  validateExecutionOutput,
+} from "./execution/contracts";
 import { transformGraphStreamForUI } from "./stream/transform-graph-stream-for-ui";
 import {
   emitTelemetryEvent,
@@ -38,7 +42,17 @@ export interface CompiledGraphLike {
   }) => Promise<unknown>;
 }
 
+export type OrchestrationOutcome = {
+  cancelled?: boolean;
+  state: GraphState;
+  pending?: PendingRequestRecord | undefined;
+  checkpointId?: string | undefined;
+  error?: unknown;
+};
+
 export interface OrchestrateArgs {
+  emitOutput?: boolean | undefined;
+  onOutcome?: ((outcome: OrchestrationOutcome) => void) | undefined;
   sessionId?: string;
   runId: string;
   graph: CompiledGraphLike; // minimal graph surface used here
@@ -129,12 +143,20 @@ export async function orchestrateGraphStream({
   graph,
   state,
   config: initialConfig,
+  emitOutput = true,
+  onOutcome,
   selectWorkflow,
   knownWorkflowIds,
   frameworkAdapter,
 }: OrchestrateArgs): Promise<NodeJS.ReadableStream> {
   const out = new PassThrough({ objectMode: true });
 
+  const write = (chunk: unknown) => {
+    if (emitOutput) out.write(chunk);
+  };
+  let outcomeState = state;
+  let outcomeError: unknown;
+  let sessionCheckpointId: string | undefined;
   let config = initialConfig;
   let currentGraph = graph;
   let currentState: GraphState = state;
@@ -200,7 +222,10 @@ export async function orchestrateGraphStream({
         ? telemetryConfig.tags
         : undefined,
       captureContent: telemetryConfig.captureContent,
-      ...(typeof state.input === "string" ? { input: state.input } : {}),
+      input:
+        typeof state.input === "string"
+          ? state.input
+          : JSON.stringify(state.input),
     },
   };
   const namespacesUsed = new Set<string>();
@@ -213,7 +238,7 @@ export async function orchestrateGraphStream({
   try {
     const sid = (config as any)?.session?.id as string | undefined;
     if (sid && typeof sid === "string") {
-      out.write({ type: "session", sessionId: sid } as any);
+      write({ type: "session", sessionId: sid } as any);
     }
   } catch {}
 
@@ -277,6 +302,7 @@ export async function orchestrateGraphStream({
 
     lastOutputSegmentId = textStreamId;
     accumulatedOutput += delta;
+    if (!emitOutput) accumulatedOutput = accumulatedOutput.slice(0, 65536);
   };
   const nextStructuredStreamId = () => `${runId}:structured:${structuredSeq++}`;
   const runTraceEndArgs = () =>
@@ -404,6 +430,7 @@ export async function orchestrateGraphStream({
     if (pendingStore) {
       const savePromise = pendingStore.save(record).catch((error) => {
         // eslint-disable-next-line no-console
+        outcomeError = error;
         console.error("[orchestrator] failed to save pending request", error);
       });
       pendingRequestWrites.push(savePromise);
@@ -420,7 +447,7 @@ export async function orchestrateGraphStream({
           )
         : undefined;
 
-    out.write({
+    write({
       type: "interrupt",
       requestId: record.requestId,
       resumeToken: record.token,
@@ -517,8 +544,9 @@ export async function orchestrateGraphStream({
       const msg = String(
         (payload as { message?: unknown })?.message ?? "Unexpected error",
       );
-      out.write({ type: "error", message: msg });
-      out.write({ type: "done" });
+      outcomeError = new Error(msg);
+      write({ type: "error", message: msg });
+      write({ type: "done" });
       finished = true;
       out.end();
       return;
@@ -536,14 +564,14 @@ export async function orchestrateGraphStream({
       if (msg && msg === lastStatusMsg && now - lastStatusAt < 250) return; // de-dupe rapid duplicates
       lastStatusMsg = msg;
       lastStatusAt = now;
-      out.write({ type: "status", message: msg });
+      write({ type: "status", message: msg });
       return;
     }
     if (event === "text-start") {
       const node = (payload as { node?: string })?.node;
       if (!node) return;
       touchedNodes.add(node);
-      out.write({
+      write({
         type: "text-start",
         node,
         ...(typeof (payload as { id?: string }).id === "string"
@@ -564,7 +592,7 @@ export async function orchestrateGraphStream({
       if (!node || !delta) return;
       touchedNodes.add(node);
       appendAccumulatedOutput(payload, node, delta);
-      out.write({
+      write({
         type: "text-delta",
         delta,
         node,
@@ -584,7 +612,7 @@ export async function orchestrateGraphStream({
       const node = (payload as { node?: string })?.node;
       if (!node) return;
       touchedNodes.add(node);
-      out.write({
+      write({
         type: "text-end",
         node,
         ...(typeof (payload as { id?: string }).id === "string"
@@ -614,7 +642,7 @@ export async function orchestrateGraphStream({
       ) {
         return;
       }
-      out.write({
+      write({
         type: "tool-call-start",
         tool: payloadObj.tool,
         toolCallId: payloadObj.toolCallId,
@@ -643,7 +671,7 @@ export async function orchestrateGraphStream({
       ) {
         return;
       }
-      out.write({
+      write({
         type: "tool-call-result",
         tool: payloadObj.tool,
         toolCallId: payloadObj.toolCallId,
@@ -676,7 +704,7 @@ export async function orchestrateGraphStream({
       ) {
         return;
       }
-      out.write({
+      write({
         type: "tool-call-error",
         tool: payloadObj.tool,
         toolCallId: payloadObj.toolCallId,
@@ -692,7 +720,7 @@ export async function orchestrateGraphStream({
       const node = (payload as { node?: string })?.node;
       const text = String((payload as { content?: unknown })?.content ?? "");
       if (node) touchedNodes.add(node);
-      out.write({ type: "message", node, content: text });
+      write({ type: "message", node, content: text });
       return;
     }
     if (event === "structured_data") {
@@ -725,7 +753,7 @@ export async function orchestrateGraphStream({
       structuredStreamIds.add(streamId);
       if (payloadObj.node) touchedNodes.add(payloadObj.node);
 
-      out.write({
+      write({
         type: "structured-data",
         node: payloadObj.node,
         streamId,
@@ -766,7 +794,7 @@ export async function orchestrateGraphStream({
     // legacy 'human_required' removed — dynamic interrupts are used instead
     if (event === "transition") {
       // 1) surface to the client (useful for dev tools)
-      out.write({
+      write({
         type: "transition",
         transitionTo: (payload as { transitionTo?: string })?.transitionTo,
         payload:
@@ -860,7 +888,7 @@ export async function orchestrateGraphStream({
           };
         };
       if (debugEnabled) {
-        out.write({
+        write({
           type: "status",
           message: `🧵 thread_id=${threadId} run_id=${runId} workflow=${currentState.currentWorkflow}`,
         });
@@ -899,18 +927,45 @@ export async function orchestrateGraphStream({
       });
 
       if (debugEnabled) {
-        out.write({
+        write({
           type: "status",
           message: `▶️ streamEvents invoke: resume=${Boolean((currentGraph.config as any)?.resume)} thread_id=${threadId} run_id=${runId} ns=${String(currentState.currentWorkflow || "default")}`,
         } as any);
       }
 
-      const uiStream = transformGraphStreamForUI(runtimeStream as any, {
+      // Observe engine state independently of UI chunks or their consumers.
+      const observedStream = (async function* () {
+        for await (const event of runtimeStream) {
+          const raw = event as {
+            event?: string;
+            name?: string;
+            data?: { output?: unknown };
+          };
+          if (
+            (raw.event === "on_chain_end" || raw.event === "on_graph_end") &&
+            !raw.name?.startsWith("ChannelWrite") &&
+            isGraphState(raw.data?.output)
+          ) {
+            outcomeState = raw.data.output;
+          }
+          yield event;
+        }
+      })();
+      const uiStream = transformGraphStreamForUI(observedStream as any, {
         debug: debugEnabled,
         emitStatus: debugEnabled,
       });
 
-      for await (const chunk of uiStream as AsyncIterable<StreamChunk>) {
+      if (!emitOutput) {
+        for await (const _event of observedStream) {
+          if (finished) break;
+        }
+        sawWorkflowDone = true;
+        workflowDoneData = outcomeState;
+      }
+      for await (const chunk of (emitOutput
+        ? uiStream
+        : []) as AsyncIterable<StreamChunk>) {
         if (finished) break;
         if ("node" in chunk && typeof chunk.node === "string") {
           touchedNodes.add(chunk.node);
@@ -922,10 +977,13 @@ export async function orchestrateGraphStream({
           continue;
         }
 
-        out.write(chunk);
+        write(chunk);
       }
 
-      if (finished) return;
+      if (finished) {
+        runTraceSpan.fail?.(outcomeError);
+        return;
+      }
 
       if (sawWorkflowDone) {
         const graphSnapshot = await readLatestGraphSnapshot();
@@ -1010,16 +1068,19 @@ export async function orchestrateGraphStream({
               rawInput?: unknown;
             }
           )?.rawInput;
-          const newInput =
+          const rawNextInput =
             typeof rawInputFromPayload === "string"
               ? rawInputFromPayload
               : currentState.input;
 
           currentState = {
             ...currentState,
+            runtime: workflowFinalState?.runtime ?? currentState.runtime,
             currentWorkflow: transitionTo as WorkflowId,
             config,
-            input: newInput,
+            input: nextWorkflow.inputSchema
+              ? parseExecutionInput(nextWorkflow, rawNextInput)
+              : rawNextInput,
             data: mergedData,
             ui: {}, // reset UI layer on new graph
           };
@@ -1027,16 +1088,18 @@ export async function orchestrateGraphStream({
           currentGraph = nextGraph;
           continue; // run the next graph
         } catch (err) {
+          outcomeError = err;
+          runTraceSpan.fail?.(err);
           runTraceSpan.addEvent?.("kortyx.transition.error", {
             transitionTo,
           });
-          out.write({
+          write({
             type: "error",
             message: `Transition failed to '${transitionTo}': ${
               err instanceof Error ? err.message : String(err)
             }`,
           });
-          out.write({ type: "done" });
+          write({ type: "done" });
           out.end();
           return;
         }
@@ -1079,6 +1142,10 @@ export async function orchestrateGraphStream({
           Boolean(pendingRecordToken) ||
           Boolean((workflowFinalState as any)?.awaitingHumanInput);
         if (!shouldKeepFrameworkState) {
+          workflowFinalState = await validateExecutionOutput(
+            workflowFinalState,
+            selectWorkflow,
+          );
           // Best-effort cleanup: completed runs don't need to retain checkpoints.
           try {
             if (frameworkAdapter?.cleanupRun) {
@@ -1101,6 +1168,12 @@ export async function orchestrateGraphStream({
           }
         }
 
+        outcomeState = workflowFinalState;
+        if (!emitOutput && !shouldKeepFrameworkState)
+          accumulatedOutput = JSON.stringify(workflowFinalState.data).slice(
+            0,
+            65536,
+          );
         finished = true;
         runTraceSpan.setAttributes?.({
           "kortyx.run.awaiting_human_input": shouldKeepFrameworkState,
@@ -1128,7 +1201,8 @@ export async function orchestrateGraphStream({
                 pendingRequests: Array.from(activePendingRequests.values()),
               },
             );
-            out.write({
+            sessionCheckpointId = checkpoint.id;
+            write({
               type: "checkpoint",
               id: checkpoint.id,
               sessionId: checkpoint.sessionId,
@@ -1149,17 +1223,25 @@ export async function orchestrateGraphStream({
             });
           } catch (error) {
             // eslint-disable-next-line no-console
+            outcomeError = error;
             console.error("[orchestrator] session checkpoint failed", error);
           }
         }
-        out.write({ type: "done", data: workflowFinalState } as any);
+        write({ type: "done", data: workflowFinalState } as any);
         out.end();
         return;
       }
 
       // Natural end with no explicit "done" (defensive close)
       const naturalGraphSnapshot = await readLatestGraphSnapshot();
-      const naturalFinalState = naturalGraphSnapshot?.state ?? currentState;
+      let naturalFinalState = naturalGraphSnapshot?.state ?? currentState;
+      if (!pendingRecordToken && !naturalFinalState.awaitingHumanInput) {
+        naturalFinalState = await validateExecutionOutput(
+          naturalFinalState,
+          selectWorkflow,
+        );
+      }
+      outcomeState = naturalFinalState;
       if (pendingRequestWrites.length > 0) {
         await Promise.all(pendingRequestWrites);
       }
@@ -1197,7 +1279,8 @@ export async function orchestrateGraphStream({
             structuredStreamIds: Array.from(structuredStreamIds),
             pendingRequests: Array.from(activePendingRequests.values()),
           });
-          out.write({
+          sessionCheckpointId = checkpoint.id;
+          write({
             type: "checkpoint",
             id: checkpoint.id,
             sessionId: checkpoint.sessionId,
@@ -1218,6 +1301,7 @@ export async function orchestrateGraphStream({
           });
         } catch (error) {
           // eslint-disable-next-line no-console
+          outcomeError = error;
           console.error("[orchestrator] session checkpoint failed", error);
         }
       }
@@ -1225,7 +1309,7 @@ export async function orchestrateGraphStream({
         "kortyx.run.final_workflow": String(naturalFinalState.currentWorkflow),
       });
       runTraceSpan.end?.(runTraceEndArgs());
-      out.write({ type: "done", data: naturalFinalState } as any);
+      write({ type: "done", data: naturalFinalState } as any);
       out.end();
       return;
     }
@@ -1235,7 +1319,7 @@ export async function orchestrateGraphStream({
     const traceContext = traceAdapter?.getActiveContext?.();
     if (!traceContext) return;
 
-    out.write({
+    write({
       type: "trace",
       traceId: traceContext.traceId,
       spanId: traceContext.spanId,
@@ -1257,17 +1341,29 @@ export async function orchestrateGraphStream({
       })
     : runLoop(fallbackRunSpan ?? {});
 
-  runPromise.catch((err) => {
-    fallbackRunSpan?.fail?.(err);
-    emitResumeFailure(err);
-    console.error("[error:orchestrateGraphStream]", err);
-    out.write({
-      type: "error",
-      message: err instanceof Error ? err.message : String(err),
+  runPromise
+    .catch((err) => {
+      outcomeError = err;
+      fallbackRunSpan?.fail?.(err);
+      emitResumeFailure(err);
+      console.error("[error:orchestrateGraphStream]", err);
+      write({
+        type: "error",
+        message: err instanceof Error ? err.message : String(err),
+      });
+      write({ type: "done" });
+      out.end();
+    })
+    .finally(() => {
+      onOutcome?.({
+        state: outcomeState,
+        pending: pendingRecordToken
+          ? activePendingRequests.get(pendingRecordToken)
+          : undefined,
+        checkpointId: sessionCheckpointId,
+        ...(outcomeError ? { error: outcomeError } : {}),
+      });
     });
-    out.write({ type: "done" });
-    out.end();
-  });
 
   return out;
 }

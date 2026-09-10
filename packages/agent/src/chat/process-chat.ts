@@ -7,6 +7,7 @@ import {
   makeRequestId,
 } from "@kortyx/runtime";
 import type { StreamChunk } from "@kortyx/stream";
+import { parseExecutionInput } from "../execution/contracts";
 import type { ApplyResumeSelection } from "../interrupt/resume-handler";
 import {
   parseResumeMeta,
@@ -154,11 +155,21 @@ export async function streamChat<Options = unknown>({
     knownWorkflowIds,
   }) as Parameters<typeof createExecutionGraph>[1];
 
+  runtimeConfig = {
+    ...runtimeConfig,
+    executionContract: {
+      id: selectedWorkflow.id,
+      version: selectedWorkflow.version,
+    },
+  };
+  const parsedInput = selectedWorkflow.inputSchema
+    ? parseExecutionInput(selectedWorkflow, input)
+    : input;
   const graph = await createExecutionGraph(selectedWorkflow, runtimeConfig);
   const initialState = headCheckpoint
     ? {
         ...headCheckpoint.state,
-        input,
+        input: parsedInput,
         config: runtimeConfig,
         currentWorkflow,
         awaitingHumanInput: false,
@@ -172,7 +183,12 @@ export async function streamChat<Options = unknown>({
             : {}),
         },
       }
-    : { ...baseState, config: runtimeConfig, currentWorkflow };
+    : {
+        ...baseState,
+        input: parsedInput,
+        config: runtimeConfig,
+        currentWorkflow,
+      };
 
   const orchestratedStream = await orchestrateGraphStream({
     sessionId: resolvedSessionId,

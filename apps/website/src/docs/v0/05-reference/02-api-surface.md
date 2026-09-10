@@ -150,3 +150,7 @@ export {
 - `StreamChunk` type
 
 Use this entry for client-only bundles where you want to avoid Node-only runtime exports.
+
+## Workflow execution
+
+`agent.execute({ workflow, input, sessionId?, context? })` returns a typed `ExecutionResult` for a registered workflow with input/output schemas. `agent.resume({ workflow, resume, response })` continues a suspended execution, including nested children. Outcomes are `completed`, `suspended`, `cancelled`, or `failed`; invalid commands reject with `ExecutionRequestError`. See [Execute and Resume Workflows](../03-guides/07-workflow-execution.md).

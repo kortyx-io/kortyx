@@ -1,4 +1,5 @@
 import { defineWorkflow } from "kortyx";
+import { z } from "zod";
 import { chatNode } from "@/nodes/chat.node";
 
 // const chatParams = {
@@ -10,6 +11,8 @@ import { chatNode } from "@/nodes/chat.node";
 
 export const generalChatWorkflow = defineWorkflow({
   id: "general-chat",
+  inputSchema: z.string(),
+  outputSchema: z.object({ text: z.string() }),
   version: "1.0.0",
   description: "Single-node LLM chat workflow.",
   nodes: {
