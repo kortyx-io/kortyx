@@ -1,4 +1,5 @@
 import type { GraphState } from "@kortyx/core";
+import { createExecutionCancelledError } from "@kortyx/core";
 import type {
   FrameworkAdapter,
   PendingRequestRecord,
@@ -64,6 +65,7 @@ export function parseResumeMeta(
 }
 
 interface TryResumeArgs {
+  abortSignal?: AbortSignal | undefined;
   lastMessage?: ChatMessage | undefined;
   meta?: ResumeMeta | undefined;
   emitOutput?: boolean | undefined;
@@ -81,6 +83,7 @@ interface TryResumeArgs {
 }
 
 export async function tryPrepareResumeStream({
+  abortSignal,
   lastMessage,
   meta: suppliedMeta,
   emitOutput,
@@ -111,6 +114,20 @@ export async function tryPrepareResumeStream({
   if (pending.sessionId && pending.sessionId !== sessionId)
     throw new Error("Interrupt belongs to another session.");
   await validatePending?.(pending);
+  if (abortSignal?.aborted) {
+    onOutcome?.({
+      state: pending.state as GraphState,
+      error: createExecutionCancelledError(),
+    });
+    return (async function* () {
+      yield {
+        type: "cancelled",
+        runId: pending.runId,
+        reason: "Execution cancelled.",
+      } as const;
+      yield { type: "done" } as const;
+    })();
+  }
   if (store.take && !(await store.take(meta.token)))
     throw new Error("Interrupt has already been resumed or cancelled.");
   if (meta.cancel) {
@@ -268,6 +285,7 @@ export async function tryPrepareResumeStream({
     });
 
     const args = {
+      abortSignal,
       emitOutput,
       onOutcome,
       sessionId,

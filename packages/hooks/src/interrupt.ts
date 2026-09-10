@@ -1,4 +1,5 @@
 import type { InterruptInput, InterruptResult } from "@kortyx/core";
+import { throwIfExecutionAborted } from "@kortyx/core";
 import { getHookContext } from "./context";
 import { resolveHookStatePatch } from "./reason/checkpoint";
 import type { UseInterruptArgs } from "./types";
@@ -11,6 +12,7 @@ export const awaitInterruptInternal = <
   args: UseInterruptArgs<TRequest, TResponse>,
 ): Promise<TResponse> => {
   const ctx = getHookContext();
+  throwIfExecutionAborted(ctx.node.abortSignal);
 
   const request = parseWithSchema(
     args.requestSchema,

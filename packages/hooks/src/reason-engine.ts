@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { throwIfExecutionAborted } from "@kortyx/core";
 import type {
   KortyxFinishReason,
   KortyxPromptMessage,
@@ -99,6 +100,7 @@ export async function runReasonEngine(
     args.providerOptions ?? args.model.options?.providerOptions;
   const tools = args.tools ?? args.model.options?.tools;
 
+  throwIfExecutionAborted(abortSignal);
   const model = args.model.provider.getModel(args.model.modelId, {
     ...(temperature !== undefined ? { temperature } : {}),
     streaming: stream,
@@ -236,6 +238,7 @@ export async function runReasonEngine(
 
       const response = await model.stream(messages);
       for await (const chunk of response) {
+        throwIfExecutionAborted(abortSignal);
         switch (chunk.type) {
           case "text-delta": {
             if (chunk.delta.length === 0) break;
@@ -316,11 +319,13 @@ export async function runReasonEngine(
         ...(providerMetadata !== undefined ? { providerMetadata } : {}),
         ...(warnings !== undefined ? { warnings } : {}),
       };
+      throwIfExecutionAborted(abortSignal);
       endTrace(traceSpan, result);
       return result;
     }
 
     const response = await model.invoke(messages);
+    throwIfExecutionAborted(abortSignal);
 
     if (emit) {
       emitNodeEvent(args.emitEvent, args.nodeId, "text-start", {
@@ -358,6 +363,7 @@ export async function runReasonEngine(
     return result;
   } catch (error) {
     failTrace(traceSpan, error);
+    throwIfExecutionAborted(abortSignal);
     throw error;
   }
 }

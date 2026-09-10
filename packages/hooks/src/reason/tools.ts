@@ -1,4 +1,9 @@
 import type { InterruptInput, InterruptResult } from "@kortyx/core";
+import {
+  combineAbortSignals,
+  isExecutionCancelled,
+  throwIfExecutionAborted,
+} from "@kortyx/core";
 import type {
   KortyxExecutableTool,
   KortyxFinishReason,
@@ -128,6 +133,11 @@ export const runReasonToolLoop = async <
 }): Promise<UseReasonResult<TOutput, TResponse>> => {
   const { useReasonArgs, id, opId, traceSpan } = args;
   const ctx = getHookContext();
+  const abortSignal = combineAbortSignals(
+    ctx.node.abortSignal,
+    useReasonArgs.abortSignal,
+    useReasonArgs.model.options?.abortSignal,
+  );
   const tools = useReasonArgs.tools ?? [];
   const toolByName = new Map<string, KortyxExecutableTool>();
   let validationCompleted = false;
@@ -186,6 +196,7 @@ export const runReasonToolLoop = async <
 
   try {
     for (let stepIndex = 0; stepIndex < maxSteps; stepIndex += 1) {
+      throwIfExecutionAborted(abortSignal);
       traceSpan?.addEvent?.("useReason.tool-step.start", {
         stepIndex,
         toolCount: toolDefinitions.length,
@@ -244,6 +255,7 @@ export const runReasonToolLoop = async <
       });
 
       for (const toolCall of toolCalls) {
+        throwIfExecutionAborted(abortSignal);
         const tool = toolByName.get(toolCall.name);
         if (!tool) {
           throw new Error(
@@ -320,12 +332,12 @@ export const runReasonToolLoop = async <
         }
 
         try {
+          throwIfExecutionAborted(abortSignal);
           const rawResult = await tool.execute(toolCall.input, {
             toolCallId: toolCall.id,
-            ...(useReasonArgs.abortSignal
-              ? { abortSignal: useReasonArgs.abortSignal }
-              : {}),
+            ...(abortSignal ? { abortSignal } : {}),
           });
+          throwIfExecutionAborted(abortSignal);
           const result = normalizeToolResult(toolCall, rawResult);
           toolResults.push(result);
           allToolResults.push(result);
@@ -349,6 +361,8 @@ export const runReasonToolLoop = async <
             isError: Boolean(result.isError),
           });
         } catch (error) {
+          throwIfExecutionAborted(abortSignal);
+          if (isExecutionCancelled(error)) throw error;
           const result = {
             toolCallId: toolCall.id,
             name: tool.name,

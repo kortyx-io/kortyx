@@ -64,5 +64,6 @@ with zero options. Questions and static option labels follow output-content
 capture; a submitted human response follows input-content capture. Option
 values and resume capability tokens are never included in interrupt telemetry.
 
-`run.cancelled` is reserved until Kortyx exposes a real SDK cancellation
-operation. A client disconnect is not a cancellation.
+`run.cancelled` records aborted active executions. Custom HTTP routes must forward
+`request.signal`; `createChatRouteHandler` forwards it automatically. Cancelling a
+`toSSE` response body also cancels its active execution source.

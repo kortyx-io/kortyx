@@ -771,3 +771,13 @@ setStarted(false);
 ```
 
 For chunk shapes and recommended client reducers, see [Stream Protocol](../05-reference/03-stream-protocol.md).
+
+
+## useAbortSignal
+
+`useAbortSignal()` returns the live execution signal inside a workflow node or
+custom hook. Forward it to cooperative I/O such as `fetch(url, { signal })`.
+Children, `useReason`, and tools already inherit cancellation automatically.
+Do not persist signals in runtime context or workflow state. See
+[Execute and resume workflows](../03-guides/07-workflow-execution.md#cancel-active-work)
+for HTTP wiring, cancellation outcomes, and resume behavior.

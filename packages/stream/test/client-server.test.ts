@@ -467,3 +467,54 @@ describe("createStructuredStreamAccumulator", () => {
     expect(accumulator.size()).toBe(0);
   });
 });
+
+describe("SSE consumer cancellation", () => {
+  it.each([
+    "value",
+    "end",
+    "error",
+  ])("closes a Node source and tolerates a late %s", async (late) => {
+    let settle!: (value: IteratorResult<StreamChunk>) => void;
+    let reject!: (error: Error) => void;
+    const pending = new Promise<IteratorResult<StreamChunk>>((res, rej) => {
+      settle = res;
+      reject = rej;
+    });
+    const destroy = vi.fn(() => {
+      if (late === "error") reject(new Error("source aborted"));
+      else
+        settle(
+          late === "end"
+            ? { done: true, value: undefined }
+            : { done: false, value: { type: "message", content: "late" } },
+        );
+    });
+    const returnIterator = vi.fn(async () => {
+      throw new Error("already destroyed");
+    });
+    const response = createStreamResponse({
+      destroy,
+      [Symbol.asyncIterator]: () => ({
+        next: () => pending,
+        return: returnIterator,
+      }),
+    } as AsyncIterable<StreamChunk>);
+    await response.body!.cancel();
+    await vi.waitFor(() => expect(destroy).toHaveBeenCalledTimes(1));
+    expect(returnIterator).toHaveBeenCalledTimes(1);
+  });
+
+  it("cancels a generic iterable without a destroy or return method", async () => {
+    let settle!: (value: IteratorResult<StreamChunk>) => void;
+    const response = createStreamResponse({
+      [Symbol.asyncIterator]: () => ({
+        next: () =>
+          new Promise((resolve) => {
+            settle = resolve;
+          }),
+      }),
+    });
+    await response.body!.cancel();
+    settle({ done: true, value: undefined });
+  });
+});

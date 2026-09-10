@@ -10,6 +10,7 @@ export async function POST(request: Request): Promise<Response> {
     const body = parseChatRequestBody(await request.json());
 
     const stream = await agent.streamChat(body.messages, {
+      abortSignal: request.signal,
       sessionId: body.sessionId,
       workflowId: body.workflowId,
       context: body.context,

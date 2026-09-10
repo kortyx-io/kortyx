@@ -141,6 +141,11 @@ export const StreamChunkSchema = z.union([
     transitionTo: z.string(),
     payload: z.any().optional(),
   }),
+  z.object({
+    type: z.literal("cancelled"),
+    runId: z.string(),
+    reason: z.string(),
+  }),
   z.object({ type: z.literal("done"), data: z.any().optional() }),
   z.object({ type: z.literal("error"), message: z.string() }),
 ]);

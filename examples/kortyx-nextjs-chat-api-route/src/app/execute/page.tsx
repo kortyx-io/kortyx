@@ -2,7 +2,7 @@
 
 import type { ExecutionResult } from "kortyx";
 import Link from "next/link";
-import { useState } from "react";
+import { useRef, useState } from "react";
 
 export default function ExecutePage() {
   const [brief, setBrief] = useState(
@@ -12,16 +12,23 @@ export default function ExecutePage() {
   const [result, setResult] = useState<ExecutionResult | null>(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [slow, setSlow] = useState(false);
+  const controllerRef = useRef<AbortController | null>(null);
+  const [stopped, setStopped] = useState(false);
 
   async function execute() {
+    const controller = new AbortController();
+    controllerRef.current = controller;
+    setStopped(false);
     setBusy(true);
     setError("");
     setResult(null);
     try {
       const response = await fetch("/api/execute", {
         method: "POST",
+        signal: controller.signal,
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ input: { brief, requireApproval } }),
+        body: JSON.stringify({ input: { brief, requireApproval, slow } }),
       });
       const next = await response.json();
       if (!response.ok) throw new Error(next.error);
@@ -29,8 +36,11 @@ export default function ExecutePage() {
       if (next.status === "suspended")
         sessionStorage.setItem("kortyx-demo-pending", JSON.stringify(next));
     } catch (failure) {
-      setError(failure instanceof Error ? failure.message : String(failure));
+      if (controller.signal.aborted) setStopped(true);
+      else
+        setError(failure instanceof Error ? failure.message : String(failure));
     } finally {
+      controllerRef.current = null;
       setBusy(false);
     }
   }
@@ -63,6 +73,14 @@ export default function ExecutePage() {
             />
             Require human approval
           </label>
+          <label className="mt-4 flex items-center gap-3 text-sm">
+            <input
+              type="checkbox"
+              checked={slow}
+              onChange={(event) => setSlow(event.target.checked)}
+            />
+            Add a 10-second delay to try Stop
+          </label>
           <button
             type="button"
             disabled={busy || !brief.trim()}
@@ -71,6 +89,21 @@ export default function ExecutePage() {
           >
             {busy ? "Executing…" : "Execute workflow"}
           </button>
+          {busy && (
+            <button
+              type="button"
+              onClick={() => controllerRef.current?.abort()}
+              className="ml-3 rounded-lg border border-slate-500 px-5 py-2.5"
+            >
+              Stop
+            </button>
+          )}
+          {stopped && (
+            <output className="mt-4 block text-amber-200">
+              Request stopped. The server receives cancellation through the
+              connection; no result can return over the closed request.
+            </output>
+          )}
           {error && (
             <p role="alert" className="mt-4 text-red-300">
               {error}

@@ -20,6 +20,7 @@ export async function POST(request: Request): Promise<Response> {
     const context = buildRuntimeContext(clientContext, history);
 
     const stream = await agent.streamChat(body.messages, {
+      abortSignal: request.signal,
       ...(body.sessionId ? { sessionId: body.sessionId } : {}),
       workflowId: body.workflowId,
       context,

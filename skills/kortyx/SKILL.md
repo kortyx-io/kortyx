@@ -21,7 +21,7 @@ Use this skill when a task involves using Kortyx correctly in an application.
 
 Architecture:
 
-- `references/workflow-execution.md`: typed `agent.execute` / `agent.resume`, separate HTTP entry points, outcomes, and durable human approval.
+- `references/workflow-execution.md`: typed `agent.execute` / `agent.resume`, separate HTTP entry points, outcomes, cancellation signals, and durable human approval.
 
 - `references/architecture-folder-structure.md`: default layouts and responsibility boundaries.
 - `references/architecture-workflows-and-nodes.md`: defining workflows, nodes, return shapes, routing, and agent wiring.

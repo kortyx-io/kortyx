@@ -116,11 +116,13 @@ export function parseCheckpointRequestBody(
 }
 
 export async function handleChatRequestBody(args: {
+  abortSignal?: AbortSignal | undefined;
   agent: Agent;
   body: ChatRequestBody;
 }): Promise<Response> {
   const { agent, body } = args;
   const stream = await agent.streamChat(body.messages, {
+    ...(args.abortSignal ? { abortSignal: args.abortSignal } : {}),
     sessionId: body.sessionId,
     workflowId: body.workflowId,
     context: body.context,
@@ -147,7 +149,11 @@ export function createChatRouteHandler(args: {
   return async function POST(request: Request): Promise<Response> {
     try {
       const body = parseChatRequestBody(await request.json());
-      return await handleChatRequestBody({ agent, body });
+      return await handleChatRequestBody({
+        agent,
+        body,
+        abortSignal: request.signal,
+      });
     } catch (error) {
       return new Response(
         JSON.stringify({

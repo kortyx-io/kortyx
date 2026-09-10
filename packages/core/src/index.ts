@@ -1,4 +1,11 @@
 // release-test: 2026-01-22
+
+export {
+  combineAbortSignals,
+  createExecutionCancelledError,
+  isExecutionCancelled,
+  throwIfExecutionAborted,
+} from "./cancellation";
 export * from "./node";
 export * from "./state";
 export * from "./workflow/define-workflow";

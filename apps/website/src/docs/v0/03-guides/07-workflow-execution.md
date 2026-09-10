@@ -59,7 +59,7 @@ Every result includes `runId` and `sessionId`, plus `checkpointId` and reported 
 | --- | --- | --- |
 | `completed` | `data` | Validated final workflow output |
 | `suspended` | `interrupt`, `resume` | Waiting for a human response |
-| `cancelled` | `reason` | The waiting request was explicitly cancelled |
+| `cancelled` | `reason` | Active execution or the waiting request was cancelled |
 | `failed` | `error.code`, `error.message` | Execution or output validation failed |
 
 Invalid commands reject with `ExecutionRequestError`: for example invalid input, a mismatched workflow reference, or an invalid/stale resume handle. They do not turn an existing waiting execution into a failed run. A business rejection, such as `{ approved: false }`, can be a successful `completed` result.
@@ -139,4 +139,67 @@ Execution continues without a UI stream reader. Model calls may still use provid
 
 A fork inherits completed work and then accumulates its own subsequent usage. Rolling back restores the checkpoint's accounting baseline. Runtime restoration cannot undo committed business side effects; use application idempotency or transactions where needed.
 
-This API executes in-process until completion, suspension, or failure. Root cancellation-signal propagation and shared whole-tree execution budgets are separate features. The `cancelled` outcome here covers explicit cancellation of a suspended request.
+This API executes in-process until completion, suspension, cancellation, or failure. Shared whole-tree execution budgets remain a separate feature.
+
+
+## Cancel active work
+
+Pass a live `AbortSignal` to `agent.execute`, `agent.resume`, or `agent.streamChat`.
+In an HTTP route, forward `request.signal` so disconnecting the request cancels
+its workflow tree. `createChatRouteHandler` forwards it automatically; custom
+routes and `handleChatRequestBody` callers supply it explicitly.
+
+```ts
+const result = await agent.execute({
+  workflow: researchWorkflow,
+  input: { topic: "Workflow cancellation" },
+  abortSignal: request.signal,
+});
+if (result.status === "cancelled") {
+  // This branch is observable when the caller is still connected.
+}
+```
+
+For a browser Stop button, use an `AbortController` with `fetch`, then call
+`controller.abort()`. The server framework must expose client disconnects through
+`request.signal`. Cancelling an SSE response body created by `toSSE` also cancels
+its active Kortyx source. A disconnected browser cannot receive the final outcome.
+
+The signal automatically reaches child workflows, model requests, and tools.
+Kortyx checks it before starting subsequent nodes, retry attempts, child calls,
+model passes, and tools. A local reasoning/model signal is combined with the root
+signal; it cannot override root cancellation. Abort errors bypass node retries and
+ordinary tool-error feedback. Direct calls return `status: "cancelled"`; connected
+stream consumers receive a `cancelled` event and one root `done` event.
+
+Custom node I/O can cooperate using `useAbortSignal`:
+
+```ts
+import { useAbortSignal } from "kortyx";
+
+async function loadDocument() {
+  const response = await fetch("https://example.com/document", {
+    signal: useAbortSignal(),
+  });
+  return { data: { text: await response.text() } };
+}
+```
+
+Tools receive `abortSignal` in their execution context. Forward it to their I/O
+as well. Cancellation cannot undo committed side effects or forcibly stop
+arbitrary JavaScript. Work that ignores the signal can delay termination until
+it returns; Kortyx then prevents subsequent work.
+
+Signals are transient and never stored in checkpoints. Each resume receives its
+own fresh signal, including resumes of nested child interrupts and forks. A
+pre-aborted resume leaves the waiting handle unclaimed. Once a resume has claimed
+the handle and started, cancellation ends that attempt; it does not create a new
+human-input pause or make the consumed handle reusable. Earlier checkpoints remain
+available for explicit replay/fork, with the usual side-effect safeguards.
+
+`response: { type: "cancel" }` remains the separate operation for declining a
+waiting human interrupt. Cancellation by run ID across processes and shared
+execution budgets are not part of this API yet.
+
+Try `/execute` in the simple Next.js example: enable the 10-second delay and press
+Stop. `/api/chat`, `/api/execute`, and `/api/resume` all forward the request signal.

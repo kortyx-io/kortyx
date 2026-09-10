@@ -62,6 +62,7 @@ export type {
 } from "@kortyx/hooks";
 export {
   createWorkflowHooks,
+  useAbortSignal,
   useInterrupt,
   useNodeState,
   useReason,

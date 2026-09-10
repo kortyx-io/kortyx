@@ -52,6 +52,11 @@ export function useInterrupt<
   return awaitInterruptInternal(args);
 }
 
+/** Live execution signal for cooperative I/O. Never store it in workflow state. */
+export function useAbortSignal(): AbortSignal | undefined {
+  return getHookContext().node.abortSignal;
+}
+
 export function useRuntimeContext<
   TContext extends Record<string, unknown> = Record<string, unknown>,
 >(): TContext {

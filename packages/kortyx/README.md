@@ -247,7 +247,7 @@ const agent = createAgent({ workflows, telemetry });
 
 Delivery is best-effort and non-blocking: events receive idempotent IDs, are batched in a bounded in-memory queue, and transient network/429/5xx failures retry with exponential backoff and jitter. Use `telemetry.flush()` during graceful shutdown; inspect `getDroppedEventCount()` and `getPermanentDeliveryFailureCount()` for delivery health. Prompt and output content is excluded by default. Enable only the sides you intend to persist with `captureContent: true` or `{ input: true, output: true }`.
 
-`interrupt.expired` is intentionally API-derived from the durable `expiresAt` sent in `interrupt.created`; the SDK does not run an unreliable local TTL timer. `run.cancelled` remains reserved until Kortyx exposes a real cancellation operation. A client disconnect is not a cancellation event.
+`interrupt.expired` is intentionally API-derived from the durable `expiresAt` sent in `interrupt.created`; the SDK does not run an unreliable local TTL timer. `run.cancelled` records aborted active executions. Forward `request.signal` in custom routes; `createChatRouteHandler` forwards it automatically. Children, models and tools inherit the live signal. Use `useAbortSignal()` for custom node I/O.
 
 Interrupt telemetry keeps structural fields (`kind`, `interactionMode`,
 `optionCount`, `schemaId`, and `schemaVersion`) even when content capture is

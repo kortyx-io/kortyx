@@ -4,6 +4,7 @@ import type {
   TokenUsage,
   WorkflowDefinition,
 } from "@kortyx/core";
+import { throwIfExecutionAborted } from "@kortyx/core";
 import type { WorkflowCallService } from "@kortyx/hooks";
 import { workflowCallFingerprint } from "@kortyx/hooks";
 import { AsyncLocalStorageProviderSingleton } from "@langchain/core/singletons";
@@ -16,6 +17,7 @@ import {
 import { createInMemoryCheckpointSaver } from "../framework/in-memory-checkpointer";
 import {
   createExecutionGraph,
+  type ExecutionControl,
   type ExecutionRuntimeConfig,
 } from "./create-execution-graph";
 
@@ -44,9 +46,11 @@ function assertSequentialWorkflow(workflow: WorkflowDefinition) {
 export function createWorkflowCallService(
   config: ExecutionRuntimeConfig,
   parent?: WorkflowDefinition,
+  execution: ExecutionControl = {},
 ): WorkflowCallService {
   return async (args) => {
     const execute = async () => {
+      throwIfExecutionAborted(execution.abortSignal);
       if (parent) assertSequentialWorkflow(parent);
       const depth = (config.workflowCallDepth ?? 0) + 1;
       if (depth > 16)
@@ -160,7 +164,11 @@ export function createWorkflowCallService(
       };
       childConfig =
         config.prepareChildTelemetry?.(workflow, childConfig) ?? childConfig;
-      const graph = await createExecutionGraph(workflow, childConfig);
+      const graph = await createExecutionGraph(
+        workflow,
+        childConfig,
+        execution,
+      );
       const initial: GraphState = {
         input,
         data: {},
@@ -191,6 +199,7 @@ export function createWorkflowCallService(
             callbacks: [],
           }),
       )) as GraphState;
+      throwIfExecutionAborted(execution.abortSignal);
       if (request) {
         const checkpoint = await captureGraphSnapshot(saver, threadId);
         if (!checkpoint)

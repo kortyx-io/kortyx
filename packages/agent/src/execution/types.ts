@@ -52,12 +52,14 @@ export type ExecutionResult<T = Record<string, unknown>> = ExecutionInfo &
   );
 
 export type ExecuteOptions<W extends ExecutableWorkflow> = {
+  abortSignal?: AbortSignal;
   workflow: W;
   input: z.input<W["inputSchema"]>;
   sessionId?: string;
   context?: Record<string, unknown>;
 };
 export type ResumeOptions<W extends ExecutableWorkflow> = {
+  abortSignal?: AbortSignal;
   workflow: W;
   resume: ResumeHandle;
   response: ResumeResponse;

@@ -9,30 +9,39 @@ export const STREAM_HEADERS = {
   "x-accel-buffering": "no",
 };
 
-/**
- * Turns an AsyncIterable<StreamChunk> into a streamed HTTP Response.
- * Works in Node, Bun, Cloudflare, Edge, etc.
- */
+/** Bridge stream cancellation to the source, including Node execution streams. */
 export function createStreamResponse(
   stream: AsyncIterable<StreamChunk>,
 ): Response {
+  let cancelled = false;
+  const iterator = stream[Symbol.asyncIterator]();
   const readable = new ReadableStream<StreamChunk>({
     async start(controller) {
       try {
-        for await (const chunk of stream) {
-          controller.enqueue(chunk);
+        while (!cancelled) {
+          const next = await iterator.next();
+          if (cancelled || next.done) break;
+          controller.enqueue(next.value);
         }
-      } catch (err) {
-        controller.enqueue({
-          type: "error",
-          message: err instanceof Error ? err.message : String(err),
-        } as StreamChunk);
+      } catch (error) {
+        if (!cancelled)
+          controller.enqueue({
+            type: "error",
+            message: error instanceof Error ? error.message : String(error),
+          });
       } finally {
-        controller.close();
+        if (!cancelled) controller.close();
       }
     },
+    cancel() {
+      cancelled = true;
+      // Destroying an active Kortyx stream signals its transient execution controller.
+      (
+        stream as AsyncIterable<StreamChunk> & { destroy?: () => void }
+      ).destroy?.();
+      void Promise.resolve(iterator.return?.()).catch(() => {});
+    },
   });
-
   return new Response(
     readable
       .pipeThrough(new JsonToSseTransformStream())

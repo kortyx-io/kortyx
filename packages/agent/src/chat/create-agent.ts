@@ -38,6 +38,7 @@ import type { ChatMessage } from "../types/chat-message";
 import { streamChat as runStreamChat } from "./process-chat";
 
 export interface AgentProcessOptions {
+  abortSignal?: AbortSignal | undefined;
   sessionId?: string | undefined;
   workflowId?: string | undefined;
   context?: Record<string, unknown> | undefined;
@@ -65,6 +66,7 @@ export interface Agent {
     args: ExecuteOptions<W>,
   ): Promise<ExecutionResult<z.output<W["outputSchema"]>>>;
   execute(args: {
+    abortSignal?: AbortSignal;
     workflow: string;
     input: unknown;
     sessionId?: string;
@@ -74,6 +76,7 @@ export interface Agent {
     args: ResumeOptions<W>,
   ): Promise<ExecutionResult<z.output<W["outputSchema"]>>>;
   resume(args: {
+    abortSignal?: AbortSignal;
     workflow: string;
     resume: ResumeHandle;
     response: ResumeResponse;
@@ -96,6 +99,9 @@ export interface Agent {
 
 const agentProcessOptionsSchema = z
   .object({
+    abortSignal: z
+      .custom<AbortSignal>((value) => value instanceof AbortSignal)
+      .optional(),
     sessionId: z.string().optional(),
     workflowId: z.string().optional(),
     context: z.record(z.string(), z.unknown()).optional(),
@@ -298,6 +304,7 @@ export function createAgent(args: CreateAgentArgs): Agent {
         ? { defaultWorkflowId: resolvedDefaultWorkflowId }
         : {}),
       messages,
+      abortSignal: parsedOptions?.abortSignal,
       options: parsedOptions,
       workflowRegistry: registry,
       ...(knownWorkflowIds ? { knownWorkflowIds } : {}),

@@ -1,3 +1,4 @@
+import { setTimeout as delay } from "node:timers/promises";
 import type {
   GraphState,
   InterruptInput,
@@ -6,6 +7,7 @@ import type {
   NodeResult,
   WorkflowDefinition,
 } from "@kortyx/core";
+import { isExecutionCancelled, throwIfExecutionAborted } from "@kortyx/core";
 import type { KortyxTelemetryConfig, ReasonTraceAdapter } from "@kortyx/hooks";
 import { runWithHookContext } from "@kortyx/hooks";
 import type { GetProviderFn } from "@kortyx/providers";
@@ -29,7 +31,10 @@ interface CompiledGraphBase {
   ): AsyncIterable<unknown> | AsyncGenerator<unknown>;
 }
 
+export type ExecutionControl = { abortSignal?: AbortSignal | undefined };
+
 interface GraphExtensions {
+  execution: ExecutionControl;
   name: string;
   config: ExecutionRuntimeConfig;
   resume(state: GraphState, input: unknown): Promise<GraphState>;
@@ -68,6 +73,7 @@ export interface ExecutionRuntimeConfig {
 export async function createExecutionGraph(
   workflow: WorkflowDefinition,
   config: ExecutionRuntimeConfig,
+  execution: ExecutionControl = {},
 ) {
   const StateAnnotation = Annotation.Root({
     currentWorkflow: Annotation<string>,
@@ -176,11 +182,13 @@ export async function createExecutionGraph(
     const behavior = nodeConfig.behavior ?? {};
 
     builder.addNode(nodeId, async (state: GraphState) => {
+      throwIfExecutionAborted(execution.abortSignal);
       const emitRuntimeEvent = (event: string, payload: unknown) => {
         runtimeConfig.emit(event, payload);
       };
       let suspension: unknown;
       const hookNodeContext = {
+        abortSignal: execution.abortSignal,
         workflowCallTelemetry: runtimeConfig.telemetry
           ? {
               ...runtimeConfig.telemetry,
@@ -201,6 +209,7 @@ export async function createExecutionGraph(
                   context: state.config?.context ?? runtimeConfig.context,
                 },
                 workflow,
+                execution,
               ),
             }
           : {}),
@@ -208,6 +217,7 @@ export async function createExecutionGraph(
         config: nodeConfig,
         emit: emitRuntimeEvent,
         awaitInterrupt: (interruptConfig: InterruptInput): InterruptResult => {
+          throwIfExecutionAborted(execution.abortSignal);
           const { kind, question } = interruptConfig;
           const isMulti =
             kind === "multi-choice" ||
@@ -301,6 +311,7 @@ export async function createExecutionGraph(
 
       while (attempt < maxAttempts) {
         try {
+          throwIfExecutionAborted(execution.abortSignal);
           attempt++;
           const attemptState =
             retryHookRuntime && typeof retryHookRuntime === "object"
@@ -324,6 +335,7 @@ export async function createExecutionGraph(
                 input: state.input,
                 params: (nodeParams ?? {}) as Record<string, unknown>,
               });
+              throwIfExecutionAborted(execution.abortSignal);
               if (suspension) throw suspension;
               return result;
             });
@@ -392,17 +404,19 @@ export async function createExecutionGraph(
               patch,
             );
           }
-          if (isGraphInterrupt(err)) throw err;
+          throwIfExecutionAborted(execution.abortSignal);
+          if (isExecutionCancelled(err) || isGraphInterrupt(err)) throw err;
           const hasMore = attempt < maxAttempts;
           const delayMs = behavior.retry?.delayMs ?? 0;
           if (hasMore && delayMs > 0) {
-            await new Promise((r) => setTimeout(r, delayMs));
+            await delay(delayMs, undefined, { signal: execution.abortSignal });
             continue;
           }
           if (!hasMore) throw err;
         }
       }
 
+      throwIfExecutionAborted(execution.abortSignal);
       const res: NodeResult = (nodeResult ?? {}) as NodeResult;
       if (hookRuntimeUpdates) {
         res.infra = {
@@ -551,6 +565,7 @@ export async function createExecutionGraph(
   const runtimeGraph = graph as RuntimeGraph;
   runtimeGraph.name = workflow.id;
   runtimeGraph.config = config;
+  runtimeGraph.execution = execution;
 
   runtimeGraph.resume = async (state: GraphState, input: unknown) => {
     const resumed = { ...state, input, awaitingHumanInput: false };
