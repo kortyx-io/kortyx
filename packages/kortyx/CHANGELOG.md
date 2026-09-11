@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.19.0](https://github.com/kortyx-io/kortyx/compare/kortyx-v0.18.2...kortyx-v0.19.0) (2026-09-11)
+
+
+### Features
+
+* **hooks:** support durable parallel child workflows ([#171](https://github.com/kortyx-io/kortyx/issues/171)) ([fdf2d56](https://github.com/kortyx-io/kortyx/commit/fdf2d564d88e921988e8f3e20da9fe0c30bbcdf9))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/agent bumped to 0.21.0
+    * @kortyx/cli bumped to 0.5.6
+    * @kortyx/hooks bumped to 0.24.0
+    * @kortyx/runtime bumped to 0.16.0
+
 ## [0.18.2](https://github.com/kortyx-io/kortyx/compare/kortyx-v0.18.1...kortyx-v0.18.2) (2026-09-11)
 
 

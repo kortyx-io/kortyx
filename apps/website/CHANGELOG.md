@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.30.0](https://github.com/kortyx-io/kortyx/compare/website-v0.29.1...website-v0.30.0) (2026-09-11)
+
+
+### Features
+
+* **hooks:** support durable parallel child workflows ([#171](https://github.com/kortyx-io/kortyx/issues/171)) ([fdf2d56](https://github.com/kortyx-io/kortyx/commit/fdf2d564d88e921988e8f3e20da9fe0c30bbcdf9))
+
 ## [0.29.1](https://github.com/kortyx-io/kortyx/compare/website-v0.29.0...website-v0.29.1) (2026-09-11)
 
 
