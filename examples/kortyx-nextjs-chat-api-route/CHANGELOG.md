@@ -1,5 +1,27 @@
 # Changelog
 
+## [0.20.0](https://github.com/kortyx-io/kortyx/compare/example-nextjs-chat-api-route-v0.19.0...example-nextjs-chat-api-route-v0.20.0) (2026-09-11)
+
+
+### ⚠ BREAKING CHANGES
+
+* **openai:** OpenAI now defaults to Responses. Select api: chat-completions on the provider or model to keep the previous transport. Raw payloads remain transport-specific.
+
+### Features
+
+* **openai:** support Responses reasoning tool workflows ([#167](https://github.com/kortyx-io/kortyx/issues/167)) ([b55ba6e](https://github.com/kortyx-io/kortyx/commit/b55ba6e9a16a6f0f39511c4e60961c41f689abd0))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/anthropic bumped to 0.3.1
+    * @kortyx/google bumped to 0.5.1
+    * @kortyx/openai bumped to 0.4.0
+    * kortyx bumped to 0.18.1
+    * @kortyx/telemetry bumped to 0.5.0
+
 ## [0.19.0](https://github.com/kortyx-io/kortyx/compare/example-nextjs-chat-api-route-v0.18.0...example-nextjs-chat-api-route-v0.19.0) (2026-09-11)
 
 
