@@ -185,9 +185,13 @@ Register both schema-bearing children with the parent agent. Await each group be
 
 The join waits for every sibling to finish, fail or suspend before exposing a parent pause. If several children interrupt, all their snapshots are saved; their questions are presented one at a time through the existing parent resume handle. Completed and failed children are cached, and each answer is routed to its own child. A slow running sibling delays the parent suspension. Graph and external-effect durability remain checkpoint-based.
 
+For example, if company research asks for approval at 2 seconds and role research finishes at 60 seconds, the parent exposes the approval at about 60 seconds. Approvals are not delivered immediately while siblings continue running, and a suspended result does not expose a batch of child questions. Answer the current question through the parent, then use the fresh handle returned with the next question. Concurrent child execution does not imply simultaneous approval delivery.
+
 If children fail, `parallel` throws `ParallelError` after the group settles. Its `errors` contains the failures and its `results` contains standard fulfilled/rejected entries in input order, allowing application reconciliation. A waiting sibling is preserved before terminal failures are delivered. Suspension, cancellation and execution-limit exhaustion propagate as control flow and cannot become successful fallback output. Use `instanceof ParallelError` when catching task failures; do not swallow other errors.
 
 Children share the root signal and node/model/tool/child allowances. Cached work is not charged again. Continue remains an explicit server-authorized allowance decision. This helper has no concurrency-cap option: its array contains eager calls. Overlapping groups in the same node, native `Promise.all` child calls, and parallel edges in calling/called graphs remain unsupported.
+
+To preserve dependency waves, await one `parallel` group before starting the next inside the parent node. Independent tasks in a wave still run concurrently; this pattern does not require parallel graph edges.
 
 ## Fork, rollback, and persistence
 
