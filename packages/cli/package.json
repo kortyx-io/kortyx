@@ -1,6 +1,6 @@
 {
   "name": "@kortyx/cli",
-  "version": "0.5.3",
+  "version": "0.5.4",
   "private": false,
   "description": "CLI tooling for Kortyx.",
   "keywords": [

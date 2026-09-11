@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.6.0](https://github.com/kortyx-io/kortyx/compare/providers-v0.5.0...providers-v0.6.0) (2026-09-11)
+
+
+### ⚠ BREAKING CHANGES
+
+* **openai:** OpenAI now defaults to Responses. Select api: chat-completions on the provider or model to keep the previous transport. Raw payloads remain transport-specific.
+
+### Features
+
+* **openai:** support Responses reasoning tool workflows ([#167](https://github.com/kortyx-io/kortyx/issues/167)) ([b55ba6e](https://github.com/kortyx-io/kortyx/commit/b55ba6e9a16a6f0f39511c4e60961c41f689abd0))
+
 ## [0.5.0](https://github.com/kortyx-io/kortyx/compare/providers-v0.4.0...providers-v0.5.0) (2026-05-25)
 
 
