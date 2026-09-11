@@ -28,6 +28,9 @@ import { WorkflowCalls } from "./workflow-calls";
 
 export function RunDetail({ detail }: { detail: StudioRunDetailResponse }) {
   const { run, events } = detail;
+  const responseCompleted = events.find(
+    (event) => event.type === "response.completed",
+  );
   const statusLabel =
     run.status === "interrupted" && run.interruptStatus === "pending"
       ? "waiting for input"
@@ -72,6 +75,13 @@ export function RunDetail({ detail }: { detail: StudioRunDetailResponse }) {
         }
         metrics={
           <>
+            {responseCompleted && (
+              <Metric
+                label="Response"
+                value="Completed"
+                title={`Client response completed at ${formatDateTime(responseCompleted.occurredAt)}. Execution has its own status.`}
+              />
+            )}
             <Metric
               label="Duration"
               value={formatDurationMs(run.durationMs, { fallback: "Active" })}

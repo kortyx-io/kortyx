@@ -503,3 +503,7 @@ for await (const chunk of readStream(response.body)) {
 - `done` is terminal for a stream run
 - `error` may be followed by `done`
 - `session` helps clients persist conversation identity
+
+## Complete a response before execution finishes
+
+See [Background Continuation](/docs/guides/background-continuation) for `completeResponse()`, independent execution lifetime, and discovering human requests through `agent.listInterrupts()` without Studio. A `done` chunk ends client delivery; it does not prove successful execution.

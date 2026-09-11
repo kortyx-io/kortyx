@@ -177,6 +177,13 @@ function Decision({ detail }: { detail: StudioInterruptDetailResponse }) {
                 </StatusPill>
               )}
             </div>
+            {interrupt.afterResponseCompleted && (
+              <p className="mt-4 rounded-md border border-amber-500/25 bg-amber-500/5 p-3 text-sm text-amber-700 dark:text-amber-400">
+                Input requested after response completion. The chat connection
+                is closed. Responses are handled through your application’s
+                approval interface and resume API.
+              </p>
+            )}
             <InterruptRequestDetails detail={detail} />
           </div>
           <div className="mt-6">
@@ -187,7 +194,8 @@ function Decision({ detail }: { detail: StudioInterruptDetailResponse }) {
               {interrupt.status === "pending" ? (
                 <div className="flex items-center gap-2 text-sm text-amber-700 dark:text-amber-400">
                   <CirclePause className="size-4" />
-                  Awaiting response — Studio is read-only in this release.
+                  Awaiting response — resolve through your application. Studio
+                  is read-only.
                 </div>
               ) : interrupt.responseCaptured ? (
                 <>

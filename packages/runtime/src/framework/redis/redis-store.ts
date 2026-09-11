@@ -10,6 +10,7 @@ export type FrameworkTtl = {
 };
 
 export type RedisFrameworkStore = {
+  list?: (prefix: string) => Promise<string[]>;
   take?: (key: string) => Promise<string | null>;
   get: (key: string) => Promise<string | null>;
   set: (key: string, value: string, ttlMs: number) => Promise<void>;
@@ -35,6 +36,20 @@ export function createRedisFrameworkStore(
   const k = (key: string) => `${prefix}${key}`;
 
   return {
+    async list(prefixKey) {
+      const keys = await this.scanKeys(prefixKey);
+      const values = await Promise.all(
+        [...new Set(keys)].map(async (key) => {
+          const value = await client.command("GET", [key]);
+          if (isRedisError(value))
+            throw new Error(`Redis GET error: ${value.message}`);
+          return value;
+        }),
+      );
+      return values.filter(
+        (value): value is string => typeof value === "string",
+      );
+    },
     async take(key: string): Promise<string | null> {
       const r = await client.command("GETDEL", [k(key)]);
       if (isRedisError(r)) throw new Error(`Redis GETDEL error: ${r.message}`);
@@ -117,6 +132,7 @@ export function createRedisFrameworkStore(
           "COUNT",
           "200",
         ]);
+        if (isRedisError(r)) throw new Error(`Redis SCAN error: ${r.message}`);
         if (!Array.isArray(r) || r.length < 2) break;
         cursor = typeof r[0] === "string" ? r[0] : "0";
         const batch = r[1];

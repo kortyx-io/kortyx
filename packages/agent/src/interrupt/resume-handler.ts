@@ -72,6 +72,8 @@ export function parseResumeMeta(
 interface TryResumeArgs {
   limits?: ExecutionLimits | undefined;
   abortSignal?: AbortSignal | undefined;
+  executionSignal?: AbortSignal | undefined;
+  onExecution?: ((completion: Promise<void>) => void) | undefined;
   lastMessage?: ChatMessage | undefined;
   meta?: ResumeMeta | undefined;
   emitOutput?: boolean | undefined;
@@ -91,6 +93,8 @@ interface TryResumeArgs {
 export async function tryPrepareResumeStream({
   limits,
   abortSignal,
+  executionSignal,
+  onExecution,
   lastMessage,
   meta: suppliedMeta,
   emitOutput,
@@ -216,6 +220,12 @@ export async function tryPrepareResumeStream({
     const telemetryConfig = prepareWorkflowTelemetry({
       config: {
         ...config,
+        ...(pending.responseCompleted
+          ? {
+              responseCompleted: true,
+              responseCheckpointId: pending.state?.config?.responseCheckpointId,
+            }
+          : {}),
         ...(resumedBudget ? { executionBudget: resumedBudget } : {}),
         ...(pending.state?.config?.context
           ? { context: pending.state.config.context }
@@ -318,6 +328,11 @@ export async function tryPrepareResumeStream({
 
     const args = {
       abortSignal,
+      executionSignal:
+        pending.responseCompleted && emitOutput === false
+          ? abortSignal
+          : executionSignal,
+      onExecution,
       emitOutput,
       onOutcome,
       sessionId,

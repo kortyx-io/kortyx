@@ -36,6 +36,7 @@ import type {
   ResumeOptions,
   ResumeResponse,
 } from "../execution/types";
+import { createInterruptDiscovery } from "../interrupt/discovery";
 import { emitTelemetryEvent } from "../telemetry/events";
 import { projectWorkflowTopology } from "../telemetry/topology";
 import { restoreWorkflowCallBranch } from "../telemetry/workflow-call-branch";
@@ -43,6 +44,8 @@ import type { ChatMessage } from "../types/chat-message";
 import { streamChat as runStreamChat } from "./process-chat";
 
 export interface AgentProcessOptions {
+  executionSignal?: AbortSignal | undefined;
+  onExecution?: ((completion: Promise<void>) => void) | undefined;
   limits?: ExecutionLimits | undefined;
   abortSignal?: AbortSignal | undefined;
   sessionId?: string | undefined;
@@ -68,7 +71,7 @@ export interface CreateAgentArgs {
   telemetry?: ExecutionRuntimeConfig["telemetry"];
 }
 
-export interface Agent {
+export interface Agent extends ReturnType<typeof createInterruptDiscovery> {
   execute<W extends ExecutableWorkflow>(
     args: ExecuteOptions<W>,
   ): Promise<ExecutionResult<z.output<W["outputSchema"]>>>;
@@ -108,6 +111,14 @@ export interface Agent {
 
 const agentProcessOptionsSchema = z
   .object({
+    executionSignal: z
+      .custom<AbortSignal>((value) => value instanceof AbortSignal)
+      .optional(),
+    onExecution: z
+      .custom<(completion: Promise<void>) => void>(
+        (value) => typeof value === "function",
+      )
+      .optional(),
     limits: ExecutionLimitsSchema.optional(),
     abortSignal: z
       .custom<AbortSignal>((value) => value instanceof AbortSignal)
@@ -317,6 +328,8 @@ export function createAgent(args: CreateAgentArgs): Agent {
         : {}),
       messages,
       abortSignal: parsedOptions?.abortSignal,
+      executionSignal: parsedOptions?.executionSignal,
+      onExecution: parsedOptions?.onExecution,
       options: parsedOptions,
       workflowRegistry: registry,
       ...(knownWorkflowIds ? { knownWorkflowIds } : {}),
@@ -469,6 +482,7 @@ export function createAgent(args: CreateAgentArgs): Agent {
     resumeWorkflow(await services(), options)) as Agent["resume"];
 
   return {
+    ...createInterruptDiscovery(resolvedFrameworkAdapter.pendingRequests),
     execute,
     resume,
     projectTopology,

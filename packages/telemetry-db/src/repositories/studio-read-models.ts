@@ -896,6 +896,7 @@ const aggregateInterrupts = (
       const response = asString(responseEvent?.payload.response);
       return {
         id: interruptId,
+        afterResponseCompleted: first.payload.responseCompleted === true,
         status,
         type,
         interactionMode: mapInterruptInteractionMode(

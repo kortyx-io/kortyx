@@ -1,7 +1,6 @@
 import { PassThrough } from "node:stream";
 import type { GraphState, WorkflowDefinition, WorkflowId } from "@kortyx/core";
 import {
-  combineAbortSignals,
   createExecutionCancelledError,
   type ExecutionBudget,
   isExecutionCancelled,
@@ -23,6 +22,7 @@ import {
   parseExecutionInput,
   validateExecutionOutput,
 } from "./execution/contracts";
+import { createResponseLifecycle } from "./stream/response-lifecycle";
 import { transformGraphStreamForUI } from "./stream/transform-graph-stream-for-ui";
 import {
   emitTelemetryEvent,
@@ -43,6 +43,12 @@ export interface CompiledGraphLike {
   execution?: {
     abortSignal?: AbortSignal | undefined;
     budget?: ExecutionBudget | undefined;
+    completeResponse?:
+      | ((
+          options: import("@kortyx/hooks").CompleteResponseOptions,
+          state: GraphState,
+        ) => Promise<void>)
+      | undefined;
   };
   config?: Record<string, unknown>;
   streamEvents: (
@@ -63,6 +69,8 @@ export type OrchestrationOutcome = {
 };
 
 export interface OrchestrateArgs {
+  executionSignal?: AbortSignal | undefined;
+  onExecution?: ((completion: Promise<void>) => void) | undefined;
   abortSignal?: AbortSignal | undefined;
   emitOutput?: boolean | undefined;
   onOutcome?: ((outcome: OrchestrationOutcome) => void) | undefined;
@@ -157,6 +165,8 @@ export async function orchestrateGraphStream({
   state,
   config: initialConfig,
   abortSignal: requestSignal,
+  executionSignal,
+  onExecution,
   emitOutput = true,
   onOutcome,
   selectWorkflow,
@@ -166,20 +176,91 @@ export async function orchestrateGraphStream({
   const out = new PassThrough({ objectMode: true });
 
   const write = (chunk: unknown) => {
-    if (emitOutput && !out.destroyed) out.write(chunk);
+    if (emitOutput && !response.closed && !out.destroyed) out.write(chunk);
   };
   let outcomeState = state;
   let outcomeError: unknown;
-  let sessionCheckpointId: string | undefined;
+  let sessionCheckpointId: string | undefined =
+    initialConfig.responseCheckpointId as string | undefined;
   let config = initialConfig;
   const budget = config.executionBudget as ExecutionBudget | undefined;
   let currentGraph = graph;
   let currentState: GraphState = state;
   let finished = false;
-  const controller = new AbortController();
-  const abortSignal = combineAbortSignals(requestSignal, controller.signal);
+  const response = createResponseLifecycle({
+    enabled: emitOutput,
+    restored: initialConfig.responseCompleted === true,
+    requestSignal,
+    executionSignal,
+    onClosed: () => {
+      out.write({ type: "done" });
+      out.end();
+    },
+    finalize: async (options, nodeState) => {
+      // Snapshot the foreground before any later node return or handoff.
+      const snapshot = JSON.parse(JSON.stringify(nodeState)) as GraphState;
+      delete snapshot.config.responseCompleted;
+      delete snapshot.config.responseCheckpointId;
+      if (options.message !== undefined) {
+        forwardEmit("message", {
+          node: nodeState.lastNode,
+          content: options.message,
+        });
+      }
+      if (options.data !== undefined) {
+        forwardEmit("structured_data", {
+          node: nodeState.lastNode,
+          data: options.data,
+        });
+      }
+      if (sessionId && frameworkAdapter) {
+        const checkpoint = await frameworkAdapter.sessionCheckpoints.append({
+          sessionId,
+          runId,
+          workflow: String(snapshot.currentWorkflow),
+          state: snapshot,
+          nodes: [...touchedNodes],
+          structuredStreamIds: [...structuredStreamIds],
+          pendingRequests: [],
+        });
+        sessionCheckpointId = checkpoint.id;
+        write({
+          type: "checkpoint",
+          id: checkpoint.id,
+          sessionId,
+          turnIndex: checkpoint.turnIndex,
+        });
+        emitTelemetryEvent({
+          config,
+          type: "session.checkpointed",
+          payload: {
+            checkpointId: checkpoint.id,
+            turnIndex: checkpoint.turnIndex,
+            nodes: checkpoint.nodes,
+          },
+        });
+      }
+      throwIfExecutionAborted(abortSignal);
+      config.responseCompleted = true;
+      config.responseCheckpointId = sessionCheckpointId;
+      currentState.config.responseCompleted = true;
+      nodeState.config.responseCompleted = true;
+      // The marker travels with graph config across retries, children and resumes.
+      currentGraph.config!.responseCompleted = true;
+      emitTelemetryEvent({
+        config,
+        type: "response.completed",
+        payload: {
+          nodeId: nodeState.lastNode,
+          checkpointId: sessionCheckpointId,
+        },
+        flush: true,
+      });
+    },
+  });
+  const abortSignal = response.signal;
   out.on("close", () => {
-    if (!finished) controller.abort();
+    if (!finished) response.disconnect();
   });
   let structuredSeq = 0;
   const debugEnabled = Boolean((config as any)?.features?.tracing);
@@ -360,19 +441,22 @@ export async function orchestrateGraphStream({
     frameworkAdapter?.pendingRequests;
   const sealPendingSnapshots = async () => {
     if (budget) outcomeState.config.executionBudget = budget;
+    if (response.closed) outcomeState.config.responseCompleted = true;
     if (typeof frameworkAdapter?.checkpointer?.getTuple !== "function") return;
     for (const [token, request] of activePendingRequests) {
       if (budget) request.state!.config.executionBudget = budget;
+      if (response.closed) request.state!.config.responseCompleted = true;
       const graphSnapshot = await captureGraphSnapshot(
         frameworkAdapter.checkpointer,
         runId,
         request.graphCheckpointId,
       );
       if (graphSnapshot) {
-        const sealed = { ...request, graphSnapshot };
+        const sealed = { ...request, graphSnapshot, ready: true };
         activePendingRequests.set(token, sealed);
         await pendingStore?.update(token, {
           graphSnapshot,
+          ready: true,
           state: request.state!,
         });
       }
@@ -395,6 +479,8 @@ export async function orchestrateGraphStream({
 
     const record: PendingRequestRecord = {
       token,
+      ready: false,
+      responseCompleted: response.closed,
       requestId,
       sessionId,
       runId,
@@ -523,6 +609,7 @@ export async function orchestrateGraphStream({
         workflowCallPath: record.schema.meta?.workflowCallPath ?? null,
         branchId: config.executionBranchId ?? runId,
         interruptId: record.requestId,
+        responseCompleted: response.closed,
         requestId: record.requestId,
         kind: record.schema.kind,
         interactionMode:
@@ -866,6 +953,7 @@ export async function orchestrateGraphStream({
       currentGraph.execution ??= {};
       currentGraph.execution.abortSignal = abortSignal;
       currentGraph.execution.budget = budget;
+      currentGraph.execution.completeResponse = response.complete;
       currentGraph.config = currentGraph.config || {};
       currentGraph.config.emit = forwardEmit;
       currentGraph.config.executionRunId = runId;
@@ -1222,7 +1310,11 @@ export async function orchestrateGraphStream({
           sessionId ||
           "";
         await sealPendingSnapshots();
-        if (resolvedSessionId && frameworkAdapter?.sessionCheckpoints) {
+        if (
+          !response.closed &&
+          resolvedSessionId &&
+          frameworkAdapter?.sessionCheckpoints
+        ) {
           try {
             const checkpoint = await frameworkAdapter.sessionCheckpoints.append(
               {
@@ -1302,7 +1394,11 @@ export async function orchestrateGraphStream({
       const resolvedSessionId =
         ((config as any)?.session?.id as string | undefined) || sessionId || "";
       await sealPendingSnapshots();
-      if (resolvedSessionId && frameworkAdapter?.sessionCheckpoints) {
+      if (
+        !response.closed &&
+        resolvedSessionId &&
+        frameworkAdapter?.sessionCheckpoints
+      ) {
         try {
           const checkpoint = await frameworkAdapter.sessionCheckpoints.append({
             sessionId: resolvedSessionId,
@@ -1408,7 +1504,7 @@ export async function orchestrateGraphStream({
     out.end();
   };
 
-  runPromise
+  const completion = runPromise
     .catch(async (err) => {
       if (abortSignal?.aborted || isExecutionCancelled(err)) {
         await finishCancelled();
@@ -1476,38 +1572,43 @@ export async function orchestrateGraphStream({
             state: pausedState,
             graphCheckpointId: snapshot.checkpoint.id,
             graphSnapshot: snapshot,
+            ready: true,
           };
           activePendingRequests.set(request.token, sealed);
           await pendingStore?.update(request.token, sealed);
-          const checkpoint = await frameworkAdapter!.sessionCheckpoints.append({
-            sessionId: sessionId!,
-            runId,
-            graphCheckpointId: snapshot.checkpoint.id,
-            workflow: String(pausedState.currentWorkflow),
-            state: pausedState,
-            nodes: Array.from(touchedNodes),
-            structuredStreamIds: Array.from(structuredStreamIds),
-            pendingRequests: [sealed],
-            label: "Execution limit reached",
-          });
-          throwIfExecutionAborted(abortSignal);
-          sessionCheckpointId = checkpoint.id;
-          write({
-            type: "checkpoint",
-            id: checkpoint.id,
-            sessionId: checkpoint.sessionId,
-            turnIndex: checkpoint.turnIndex,
-            label: checkpoint.label,
-          });
-          emitTelemetryEvent({
-            config,
-            type: "session.checkpointed",
-            payload: {
-              checkpointId: checkpoint.id,
+          if (response.closed) pausedState.config.responseCompleted = true;
+          if (!response.closed) {
+            const checkpoint =
+              await frameworkAdapter!.sessionCheckpoints.append({
+                sessionId: sessionId!,
+                runId,
+                graphCheckpointId: snapshot.checkpoint.id,
+                workflow: String(pausedState.currentWorkflow),
+                state: pausedState,
+                nodes: Array.from(touchedNodes),
+                structuredStreamIds: Array.from(structuredStreamIds),
+                pendingRequests: [sealed],
+                label: "Execution limit reached",
+              });
+            throwIfExecutionAborted(abortSignal);
+            sessionCheckpointId = checkpoint.id;
+            write({
+              type: "checkpoint",
+              id: checkpoint.id,
+              sessionId: checkpoint.sessionId,
               turnIndex: checkpoint.turnIndex,
-              nodes: checkpoint.nodes,
-            },
-          });
+              label: checkpoint.label,
+            });
+            emitTelemetryEvent({
+              config,
+              type: "session.checkpointed",
+              payload: {
+                checkpointId: checkpoint.id,
+                turnIndex: checkpoint.turnIndex,
+                nodes: checkpoint.nodes,
+              },
+            });
+          }
           fallbackRunSpan?.setAttributes?.({
             "kortyx.run.awaiting_human_input": true,
             "kortyx.run.limit_reached": limitReached.limit,
@@ -1544,6 +1645,7 @@ export async function orchestrateGraphStream({
       out.end();
     })
     .finally(() => {
+      response.dispose();
       onOutcome?.({
         state: outcomeState,
         pending: pendingRecordToken
@@ -1554,5 +1656,7 @@ export async function orchestrateGraphStream({
       });
     });
 
+  onExecution?.(completion);
+  if (response.closed) out.end();
   return out;
 }

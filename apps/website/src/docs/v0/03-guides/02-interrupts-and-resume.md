@@ -263,3 +263,7 @@ client shows valid choices. The count describes options embedded by the server,
 not the number rendered by the client.
 
 See [Runtime Persistence Adapters](../04-production/02-framework-adapters.md).
+
+## Complete a response before execution finishes
+
+See [Background Continuation](/docs/guides/background-continuation) for `completeResponse()`, independent execution lifetime, and discovering human requests through `agent.listInterrupts()` without Studio. A `done` chunk ends client delivery; it does not prove successful execution.

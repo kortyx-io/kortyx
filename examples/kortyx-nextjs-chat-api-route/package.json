@@ -54,7 +54,8 @@
     "remark-gfm": "catalog:",
     "shiki": "^3.21.0",
     "tailwind-merge": "catalog:",
-    "zod": "catalog:"
+    "zod": "catalog:",
+    "@kortyx/telemetry": "workspace:*"
   },
   "devDependencies": {
     "@babel/core": "^7.23.0",

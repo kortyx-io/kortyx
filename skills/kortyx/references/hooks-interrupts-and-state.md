@@ -169,3 +169,5 @@ The conceptual boundary stays the same even when docs are unavailable: Kortyx ru
 - Assuming in-memory persistence is restart-safe.
 - Generating new interrupt ids dynamically on every replay.
 - Storing durable product records only in node/workflow state.
+
+For early chat completion and human requests after its connection closes, see [response completion](response-completion.md). Discovery through agent.listInterrupts/getInterrupt does not require Studio or changes to useInterrupt.

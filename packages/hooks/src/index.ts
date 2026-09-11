@@ -5,6 +5,10 @@
  * Internal hook implementations resolved via async-local context.
  */
 
+export {
+  type CompleteResponseOptions,
+  completeResponse,
+} from "./complete-response";
 export type { HookRuntimeContext } from "./context";
 export { runWithHookContext } from "./context";
 export type {

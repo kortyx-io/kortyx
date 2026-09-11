@@ -11,6 +11,8 @@ export interface HumanInputOption {
 }
 
 export interface PendingRequestRecord {
+  ready?: boolean;
+  responseCompleted?: boolean;
   token: string;
   requestId: string;
   sessionId?: string | undefined;
@@ -43,6 +45,7 @@ export interface PendingRequestRecord {
 }
 
 export interface PendingRequestStore {
+  list?: () => Promise<PendingRequestRecord[]>;
   take?: (token: string) => Promise<PendingRequestRecord | null>;
   save: (rec: PendingRequestRecord) => Promise<void>;
   get: (token: string) => Promise<PendingRequestRecord | null>;
@@ -64,6 +67,12 @@ export function createInMemoryPendingRequestStore(): PendingRequestStore {
   };
 
   return {
+    async list() {
+      prune();
+      return JSON.parse(
+        JSON.stringify([...store.values()]),
+      ) as PendingRequestRecord[];
+    },
     async take(token) {
       prune();
       const record = store.get(token);
