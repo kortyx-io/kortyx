@@ -130,11 +130,24 @@ const toGoogleTools = (
   ];
 };
 
+// Keep JSON constraints off tool-selection turns. Gemini 2.x rejects that
+// combination; Gemini 3 generateContent can keep choosing tools instead of ending.
+export const requiresSeparateOutput = (options: ModelOptions): boolean =>
+  options.responseFormat?.type === "json";
+
 export const createGenerateContentRequest = (
   messages: KortyxPromptMessage[],
   options: ModelOptions,
   modelId?: string,
 ): GoogleGenerateContentRequest => {
+  if (
+    options.tools?.length &&
+    requiresSeparateOutput(options) &&
+    /^gemini-[12](?:\.|-)/.test((modelId ?? "").replace(/^models\//, ""))
+  )
+    throw new Error(
+      "This Gemini model cannot combine JSON output with tools. Use useReason for automatic finalization or make a separate JSON-only call.",
+    );
   const systemInstruction = toSystemInstruction(messages);
   const nativeOptions = options.providerOptions?.google as
     | {

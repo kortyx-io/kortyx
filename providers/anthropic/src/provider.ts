@@ -25,6 +25,7 @@ import {
   supportsNativeSchema,
 } from "./messages";
 import { MODELS, type ModelId, PROVIDER_ID } from "./models";
+import { normalizeOutputSchema } from "./schema";
 import type {
   AnthropicContentBlock,
   AnthropicMessagesResponse,
@@ -300,7 +301,21 @@ const collectWarnings = (
       type: "compatibility",
       feature: "reasoning.effort",
       details:
-        "Anthropic manual thinking maps minimal=1024, low=2048, medium=8192, high=16384 tokens. Set reasoning.maxTokens for an explicit budget.",
+        "This Anthropic model uses manual thinking budgets rather than effort levels. Kortyx retains its 1024-token default; set reasoning.maxTokens for an explicit budget.",
+    });
+  }
+
+  if (
+    options.responseFormat?.type === "json" &&
+    options.responseFormat.schema &&
+    supportsNativeSchema(modelId) &&
+    normalizeOutputSchema(options.responseFormat.schema).changed
+  ) {
+    warnings.push({
+      type: "compatibility",
+      feature: "responseFormat.schema",
+      details:
+        "Anthropic's wire schema omits unsupported constraints and records them in descriptions. useReason still validates output against the original outputSchema; direct provider callers must validate these constraints locally.",
     });
   }
 
@@ -488,6 +503,12 @@ const createAnthropicModel = (
 
   return {
     supportsToolStreaming: true,
+    // Adaptive thinking + native schema + tools can fail inside Anthropic's
+    // stream. Keep tool selection separate without changing the selected effort.
+    requiresSeparateStructuredOutput:
+      getThinkingRequest(resolvedOptions, modelId)?.type === "adaptive" &&
+      resolvedOptions.responseFormat?.type === "json" &&
+      resolvedOptions.responseFormat.schema !== undefined,
     async *stream(messages: KortyxPromptMessage[]) {
       let partialUsage: AnthropicUsage | undefined;
       const client = getClient();

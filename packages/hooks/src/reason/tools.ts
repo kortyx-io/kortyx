@@ -140,6 +140,7 @@ export const runReasonToolLoop = async <
   traceSpan?: ReasonTraceSpan | undefined;
   checkpointKey: string;
   initialWarnings?: KortyxWarning[] | undefined;
+  allowValidatedToolOutput?: boolean;
 }): Promise<UseReasonResult<TOutput, TResponse>> => {
   const { useReasonArgs, id, traceSpan, checkpointKey } = args;
   const ctx = getHookContext();
@@ -177,6 +178,9 @@ export const runReasonToolLoop = async <
     separateOutput = Boolean(
       useReasonArgs.model.provider.getModel(useReasonArgs.model.modelId, {
         ...useReasonArgs.model.options,
+        ...(useReasonArgs.reasoning !== undefined
+          ? { reasoning: useReasonArgs.reasoning }
+          : {}),
         ...(useReasonArgs.responseFormat
           ? { responseFormat: useReasonArgs.responseFormat }
           : {}),
@@ -337,6 +341,30 @@ export const runReasonToolLoop = async <
 
       if (toolCalls.length === 0) {
         if (separateOutput && !finalizing) {
+          if (args.allowValidatedToolOutput && useReasonArgs.outputSchema) {
+            try {
+              finalOutput = parseReasonOutputWithSchema({
+                text: step.text,
+                schema: useReasonArgs.outputSchema,
+                ...(step.finishReason
+                  ? { finishReason: step.finishReason }
+                  : {}),
+                label: "useReason output",
+              });
+              aggregatedWarnings = mergeWarnings(aggregatedWarnings, [
+                {
+                  type: "compatibility",
+                  feature: "responseFormat",
+                  details:
+                    "Reused locally validated tool-phase output without an extra native-schema request. Set responseFormat.schema explicitly to require provider schema enforcement.",
+                },
+              ]);
+              completed = true;
+              break;
+            } catch {
+              // A schema-only pass can repair a nonconforming draft, within the existing limits.
+            }
+          }
           messages.push({
             role: "assistant",
             content: step.text,
@@ -541,7 +569,7 @@ export const runReasonToolLoop = async <
       );
     }
 
-    if (useReasonArgs.outputSchema) {
+    if (useReasonArgs.outputSchema && finalOutput === undefined) {
       finalOutput = parseReasonOutputWithSchema({
         text: finalText,
         schema: useReasonArgs.outputSchema,

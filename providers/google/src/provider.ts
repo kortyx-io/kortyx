@@ -19,7 +19,11 @@ import {
   requireApiKey,
   toProviderRequestError,
 } from "./errors";
-import { createGenerateContentRequest, extractText } from "./messages";
+import {
+  createGenerateContentRequest,
+  extractText,
+  requiresSeparateOutput,
+} from "./messages";
 import { MODELS, type ModelId, PROVIDER_ID } from "./models";
 import type { GoogleGenerateContentResponse, ProviderSettings } from "./types";
 
@@ -295,6 +299,7 @@ const createGoogleModel = (
   };
   return {
     supportsToolStreaming: true,
+    requiresSeparateStructuredOutput: requiresSeparateOutput(resolvedOptions),
     async *stream(messages: KortyxPromptMessage[]) {
       let partialUsage: KortyxUsage | undefined;
       try {
@@ -327,6 +332,13 @@ const createGoogleModel = (
         )) {
           accumulated = { ...accumulated, ...chunk };
           partialUsage = extractUsage(chunk) ?? partialUsage;
+          const errorEnvelope = toRecord(chunk)?.error;
+          if (errorEnvelope)
+            throw new Error(
+              String(
+                toRecord(errorEnvelope)?.message ?? "Google stream error.",
+              ),
+            );
           parts.push(...(chunk.candidates?.[0]?.content?.parts ?? []));
           finishReason = chunk.candidates?.[0]?.finishReason ?? finishReason;
           const text = extractText(chunk);

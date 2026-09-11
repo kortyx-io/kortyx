@@ -110,7 +110,7 @@ describe("useReason with native provider fixtures", () => {
       );
       expect(result.output).toEqual({ value: 3 });
       expect(execute).toHaveBeenCalledTimes(1);
-      expect(calls).toBe(vendor === "groq" ? 3 : 2);
+      expect(calls).toBe(2);
     });
     it.each([
       false,

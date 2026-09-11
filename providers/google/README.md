@@ -77,6 +77,8 @@ Compatible `outputSchema` calls use native JSON Schema enforcement. Tool schemas
 
 **Behavior change:** rejected reasoning settings now fail explicitly; Kortyx no longer retries without effort. `none` disables thinking on compatible Gemini 2.5 Flash models and fails on models that cannot disable thinking. No model is substituted automatically.
 
+When combining tools with JSON output, `useReason` keeps output constraints off tool-selection turns. Gemini 2.x rejects the combined request, and live Gemini 3 `generateContent` tests repeatedly selected a tool instead of returning the final JSON. With only `outputSchema`, Kortyx reuses an answer that passes local validation and reports a compatibility warning. Otherwise it makes a separate JSON-only call, using the same model and reasoning and counting toward existing limits. An explicit `responseFormat.schema` always requires provider-enforced finalization. Direct Gemini 2.x requests combining tools and JSON fail with guidance.
+
 See [Google thought signatures](https://ai.google.dev/gemini-api/docs/generate-content/thought-signatures) and [structured output](https://ai.google.dev/gemini-api/docs/generate-content/structured-output).
 
 ## Documentation

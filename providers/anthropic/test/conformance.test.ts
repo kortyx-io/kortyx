@@ -131,7 +131,11 @@ describeProviderConformance({
         cacheReadTokens: 2,
         cacheWriteTokens: 1,
       });
-      expect(result.warnings).toBeUndefined();
+      expect(result.warnings).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ feature: "responseFormat.schema" }),
+        ]),
+      );
     },
   },
   stream: {

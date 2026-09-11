@@ -3,6 +3,7 @@ import type {
   KortyxToolDefinition,
   ModelOptions,
 } from "@kortyx/providers";
+import { normalizeOutputSchema } from "./schema";
 import type {
   AnthropicContentBlock,
   AnthropicMessage,
@@ -203,7 +204,11 @@ export const getThinkingRequest = (
     options.reasoning.effort !== "none"
   )
     throw new Error("Conflicting reasoning effort and zero token budget.");
-  if (!reasoning) return undefined;
+  if (
+    !reasoning ||
+    Object.values(reasoning).every((value) => value === undefined)
+  )
+    return undefined;
   if (reasoning.effort === "none" || reasoning.maxTokens === 0)
     return { type: "disabled" };
   if (reasoning.maxTokens !== undefined) {
@@ -216,9 +221,9 @@ export const getThinkingRequest = (
   if (supportsAdaptiveThinking(modelId)) return { type: "adaptive" };
   const budgets: Record<string, number> = {
     minimal: 1024,
-    low: 2048,
-    medium: 8192,
-    high: 16384,
+    low: 1024,
+    medium: 1024,
+    high: 1024,
   };
   if (reasoning.effort && budgets[reasoning.effort] === undefined)
     throw new Error(
@@ -248,7 +253,7 @@ export const createMessagesRequest = (
     options.responseFormat?.type === "json" &&
     options.responseFormat.schema !== undefined &&
     supportsNativeSchema(modelId)
-      ? options.responseFormat.schema
+      ? normalizeOutputSchema(options.responseFormat.schema).schema
       : undefined;
   const effort =
     getProviderOptions(options)?.effort ??
