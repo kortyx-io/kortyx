@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.5.2](https://github.com/kortyx-io/kortyx/compare/google-v0.5.1...google-v0.5.2) (2026-09-11)
+
+
+### Bug Fixes
+
+* **providers:** preserve reasoning across tool workflows ([#169](https://github.com/kortyx-io/kortyx/issues/169)) ([6e4e403](https://github.com/kortyx-io/kortyx/commit/6e4e403d104d83586e05aab799510bc4c35b0f49))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/providers bumped to 0.6.1
+
 ## [0.5.1](https://github.com/kortyx-io/kortyx/compare/google-v0.5.0...google-v0.5.1) (2026-09-11)
 
 

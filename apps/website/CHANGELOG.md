@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.29.1](https://github.com/kortyx-io/kortyx/compare/website-v0.29.0...website-v0.29.1) (2026-09-11)
+
+
+### Bug Fixes
+
+* **providers:** preserve reasoning across tool workflows ([#169](https://github.com/kortyx-io/kortyx/issues/169)) ([6e4e403](https://github.com/kortyx-io/kortyx/commit/6e4e403d104d83586e05aab799510bc4c35b0f49))
+
 ## [0.29.0](https://github.com/kortyx-io/kortyx/compare/website-v0.28.0...website-v0.29.0) (2026-09-11)
 
 
