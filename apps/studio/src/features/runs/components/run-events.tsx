@@ -337,6 +337,11 @@ function EventDrawer({
 
 function GenerationDetails({ event }: { event: StudioDetailEvent }) {
   const usage = asRecord(event.payload.usage);
+  const metadata = asRecord(event.payload.providerMetadata);
+  const reasoning = asRecord(metadata.reasoning);
+  const finish =
+    asString(event.payload.finishReason) ??
+    asString(asRecord(event.payload.finishReason).unified);
   const tokens = numberValue(usage.total);
   const ttft = numberValue(event.payload.ttftMs);
   return (
@@ -345,6 +350,32 @@ function GenerationDetails({ event }: { event: StudioDetailEvent }) {
         {asString(event.payload.provider) ?? "Unknown"} /{" "}
         {asString(event.payload.model) ?? "Unknown"}
       </KeyValue>
+      {asString(metadata.api) && (
+        <KeyValue label="API">{asString(metadata.api)}</KeyValue>
+      )}
+      {asString(reasoning.effort) && (
+        <KeyValue label="Reasoning effort">
+          {asString(reasoning.effort)}
+        </KeyValue>
+      )}
+      {asString(metadata.status) && (
+        <KeyValue label="Response status">{asString(metadata.status)}</KeyValue>
+      )}
+      {(
+        [
+          ["Input tokens", "input"],
+          ["Output tokens", "output"],
+          ["Reasoning tokens", "reasoning"],
+          ["Cached input tokens", "cacheRead"],
+        ] as const
+      ).map(([label, key]) => {
+        const count = numberValue(usage[key]);
+        return count === null ? null : (
+          <KeyValue key={key} label={label}>
+            {formatCount(count, { compact: false })}
+          </KeyValue>
+        );
+      })}
       <KeyValue label="TTFT">
         <span className="font-mono">
           {ttft === null
@@ -359,11 +390,7 @@ function GenerationDetails({ event }: { event: StudioDetailEvent }) {
           </span>
         </KeyValue>
       )}
-      {asString(event.payload.finishReason) && (
-        <KeyValue label="Finish reason">
-          {asString(event.payload.finishReason)}
-        </KeyValue>
-      )}
+      {finish && <KeyValue label="Finish reason">{finish}</KeyValue>}
     </>
   );
 }

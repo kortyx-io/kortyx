@@ -4,6 +4,7 @@ import {
   throwIfExecutionAborted,
 } from "@kortyx/core";
 import type {
+  KortyxContinuation,
   KortyxFinishReason,
   KortyxPromptMessage,
   KortyxProviderMetadata,
@@ -48,6 +49,7 @@ export interface RunReasonEngineArgs {
 }
 
 export interface RunReasonEngineResult {
+  continuation?: KortyxContinuation;
   text: string;
   raw?: unknown;
   usage?: KortyxUsage;
@@ -86,7 +88,7 @@ const emitNodeEvent = (
 export async function runReasonEngine(
   args: RunReasonEngineArgs,
 ): Promise<RunReasonEngineResult> {
-  const stream = args.stream ?? args.model.options?.streaming ?? true;
+  let stream = args.stream ?? args.model.options?.streaming ?? true;
   const emit = args.emit ?? true;
   const temperature =
     args.temperature ??
@@ -99,8 +101,26 @@ export async function runReasonEngine(
   const reasoning = args.reasoning ?? args.model.options?.reasoning;
   const responseFormat =
     args.responseFormat ?? args.model.options?.responseFormat;
+  const defaults = args.model.options?.providerOptions;
   const providerOptions =
-    args.providerOptions ?? args.model.options?.providerOptions;
+    defaults || args.providerOptions
+      ? { ...defaults, ...args.providerOptions }
+      : undefined;
+  // Provider namespaces inherit model defaults (including transport) while
+  // allowing individual call settings to override them.
+  for (const [key, value] of Object.entries(args.providerOptions ?? {})) {
+    const previous = defaults?.[key];
+    if (
+      previous &&
+      value &&
+      typeof previous === "object" &&
+      typeof value === "object" &&
+      !Array.isArray(previous) &&
+      !Array.isArray(value)
+    ) {
+      if (providerOptions) providerOptions[key] = { ...previous, ...value };
+    }
+  }
   const tools = args.tools ?? args.model.options?.tools;
 
   throwIfExecutionAborted(abortSignal);
@@ -115,6 +135,8 @@ export async function runReasonEngine(
     ...(tools !== undefined ? { tools } : {}),
     ...(providerOptions !== undefined ? { providerOptions } : {}),
   });
+
+  if (tools?.length && !model.supportsToolStreaming) stream = false;
 
   const messages: KortyxPromptMessage[] =
     args.messages !== undefined
@@ -168,7 +190,11 @@ export async function runReasonEngine(
     },
     telemetry: {
       ...(args.telemetry ?? {}),
-      input: args.telemetry?.input ?? messages,
+      input:
+        args.telemetry?.input ??
+        messages.map(
+          ({ continuation: _continuation, raw: _raw, ...message }) => message,
+        ),
     },
   });
   const modelRequestStartedAt = Date.now();
@@ -215,7 +241,13 @@ export async function runReasonEngine(
     span: ReasonTraceSpan | undefined,
     error: unknown,
   ): void => {
+    const detail = error as Partial<RunReasonEngineResult> | undefined;
     span?.fail?.(error, {
+      ...(detail?.usage ? { usage: detail.usage } : {}),
+      ...(detail?.finishReason ? { finishReason: detail.finishReason } : {}),
+      ...(detail?.providerMetadata
+        ? { providerMetadata: detail.providerMetadata }
+        : {}),
       attributes: {
         providerId: args.model.provider.id,
         modelId: args.model.modelId,
@@ -225,6 +257,7 @@ export async function runReasonEngine(
 
   try {
     if (stream) {
+      let continuation: KortyxContinuation | undefined;
       let final = "";
       let raw: unknown;
       let usage: KortyxUsage | undefined;
@@ -265,6 +298,7 @@ export async function runReasonEngine(
             break;
           }
           case "finish": {
+            continuation = chunk.continuation;
             if (chunk.raw !== undefined) {
               raw = chunk.raw;
             }
@@ -315,6 +349,7 @@ export async function runReasonEngine(
 
       const result = {
         text: final,
+        ...(continuation ? { continuation } : {}),
         ...(raw !== undefined ? { raw } : {}),
         ...(usage !== undefined ? { usage } : {}),
         ...(finishReason !== undefined ? { finishReason } : {}),
@@ -329,6 +364,7 @@ export async function runReasonEngine(
 
     const response = await model.invoke(messages);
     throwIfExecutionAborted(abortSignal);
+    if (response.content) args.onTextChunk?.(response.content);
 
     if (emit) {
       emitNodeEvent(args.emitEvent, args.nodeId, "text-start", {
@@ -347,6 +383,7 @@ export async function runReasonEngine(
 
     const result = {
       text: response.content,
+      ...(response.continuation ? { continuation: response.continuation } : {}),
       ...(response.raw !== undefined ? { raw: response.raw } : {}),
       ...(response.usage !== undefined ? { usage: response.usage } : {}),
       ...(response.finishReason !== undefined

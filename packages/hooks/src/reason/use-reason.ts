@@ -24,6 +24,8 @@ import {
   resolveReasonCheckpointKey,
 } from "./checkpoint";
 import { createRuntimeId, reasonEngine } from "./engine";
+import { inferOutputFormat } from "./output-format";
+import { createStructuredOutputStreamer } from "./output-stream";
 import {
   parseInterruptFirstPassResult,
   parseReasonOutputWithSchema,
@@ -115,7 +117,17 @@ export async function useReason<
     args.model.options?.abortSignal,
   );
   throwIfExecutionAborted(abortSignal);
-  args = { ...args, abortSignal };
+  const inferred = inferOutputFormat(
+    args.outputSchema,
+    args.responseFormat ?? args.model.options?.responseFormat,
+  );
+  args = {
+    ...args,
+    abortSignal,
+    ...(!args.interrupt && inferred.responseFormat
+      ? { responseFormat: inferred.responseFormat }
+      : {}),
+  };
   const id =
     typeof args.id === "string" && args.id.length > 0 ? args.id : undefined;
   const opId = createRuntimeId();
@@ -174,6 +186,8 @@ export async function useReason<
   if (args.tools?.length) {
     return runReasonToolLoop({
       useReasonArgs: args,
+      checkpointKey,
+      initialWarnings: inferred.warnings,
       ...(id ? { id } : {}),
       opId,
       ...(traceSpan ? { traceSpan } : {}),
@@ -205,10 +219,7 @@ export async function useReason<
   let aggregatedUsage: KortyxUsage | undefined;
   let finalFinishReason: KortyxFinishReason | undefined;
   let aggregatedProviderMetadata: KortyxProviderMetadata | undefined;
-  let aggregatedWarnings: KortyxWarning[] | undefined;
-  const emittedSetValues = new Map<string, string>();
-  const emittedAppendCounts = new Map<string, number>();
-  const emittedTextValues = new Map<string, string>();
+  let aggregatedWarnings: KortyxWarning[] | undefined = inferred.warnings;
 
   if (existingCheckpoint) {
     firstText = existingCheckpoint.firstText;
@@ -236,104 +247,7 @@ export async function useReason<
             : args.stream,
         ...(useStructuredIncrementalStreaming
           ? {
-              onTextChunk: (delta: string) => {
-                firstText += delta;
-                finalText = firstText;
-
-                for (const fieldPath of setFieldPaths) {
-                  const values = extractCompletedFieldValues({
-                    text: firstText,
-                    path: fieldPath,
-                  });
-
-                  for (const { path, value } of values) {
-                    const nextSerialized = JSON.stringify(value);
-                    if (emittedSetValues.get(path) === nextSerialized) continue;
-
-                    emittedSetValues.set(path, nextSerialized);
-                    emitStructuredData({
-                      kind: "set",
-                      path,
-                      value,
-                      dataType: args.structured?.dataType ?? "reason-output",
-                      ...(args.structured?.schemaId
-                        ? { schemaId: args.structured.schemaId }
-                        : {}),
-                      ...(args.structured?.schemaVersion
-                        ? { schemaVersion: args.structured.schemaVersion }
-                        : {}),
-                      ...(id ? { id } : {}),
-                      streamId: opId,
-                    });
-                  }
-                }
-
-                for (const fieldPath of appendFieldPaths) {
-                  const groups = extractCompletedArrayItemGroups({
-                    text: firstText,
-                    path: fieldPath,
-                  });
-
-                  for (const { path, items } of groups) {
-                    const emittedAppendCount =
-                      emittedAppendCounts.get(path) ?? 0;
-                    if (items.length <= emittedAppendCount) continue;
-
-                    const nextItems = items.slice(emittedAppendCount);
-                    emittedAppendCounts.set(path, items.length);
-                    emitStructuredData({
-                      kind: "append",
-                      path,
-                      items: nextItems,
-                      dataType: args.structured?.dataType ?? "reason-output",
-                      ...(args.structured?.schemaId
-                        ? { schemaId: args.structured.schemaId }
-                        : {}),
-                      ...(args.structured?.schemaVersion
-                        ? { schemaVersion: args.structured.schemaVersion }
-                        : {}),
-                      ...(id ? { id } : {}),
-                      streamId: opId,
-                    });
-                  }
-                }
-
-                for (const fieldPath of textDeltaFieldPaths) {
-                  const values = extractStreamingStringValues({
-                    text: firstText,
-                    path: fieldPath,
-                  });
-
-                  for (const { path, value } of values) {
-                    const emittedTextValue = emittedTextValues.get(path) ?? "";
-                    if (
-                      value.length <= emittedTextValue.length ||
-                      !value.startsWith(emittedTextValue)
-                    ) {
-                      continue;
-                    }
-
-                    const nextDelta = value.slice(emittedTextValue.length);
-                    emittedTextValues.set(path, value);
-                    if (nextDelta.length === 0) continue;
-
-                    emitStructuredData({
-                      kind: "text-delta",
-                      path,
-                      delta: nextDelta,
-                      dataType: args.structured?.dataType ?? "reason-output",
-                      ...(args.structured?.schemaId
-                        ? { schemaId: args.structured.schemaId }
-                        : {}),
-                      ...(args.structured?.schemaVersion
-                        ? { schemaVersion: args.structured.schemaVersion }
-                        : {}),
-                      ...(id ? { id } : {}),
-                      streamId: opId,
-                    });
-                  }
-                }
-              },
+              onTextChunk: createStructuredOutputStreamer(args, id, opId),
             }
           : {}),
       },
@@ -487,6 +401,9 @@ export async function useReason<
     const second = await reasonEngine(
       {
         ...args,
+        ...(inferred.responseFormat
+          ? { responseFormat: inferred.responseFormat }
+          : {}),
         emit: suppressTextStream ? false : args.emit,
         stream: suppressTextStream ? false : args.stream,
       },

@@ -300,3 +300,16 @@ it("shows limit exhaustion and its span endings as a pause instead of failure or
   });
   expect(isControlFlowInterrupt(events[1]!)).toBe(true);
 });
+
+it("labels failed provider generations as failures rather than completed answers", () => {
+  const event = detailEvent("failed-response", "generation.completed", 100, {
+    model: "gpt-5.6-luna",
+    outcome: "failed",
+    finishReason: { unified: "length", raw: "incomplete" },
+  });
+  const [item] = buildEventStory([event], START);
+  expect(item).toMatchObject({
+    state: "failed",
+    title: "gpt-5.6-luna request failed",
+  });
+});

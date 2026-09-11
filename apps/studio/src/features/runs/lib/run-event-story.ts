@@ -112,7 +112,9 @@ function eventTitle(
   if (event.type === "generation.completed")
     return cancelledEnd
       ? `${model} request cancelled`
-      : `${model} response completed`;
+      : event.payload.outcome === "failed"
+        ? `${model} request failed`
+        : `${model} response completed`;
   if (event.type === "tool.started") return `${tool} tool started`;
   if (event.type === "tool.completed") return `${tool} tool completed`;
   if (event.type === "tool.failed") return `${tool} tool failed`;
@@ -225,6 +227,8 @@ function eventCategory(event: StudioDetailEvent): EventCategory {
 
 function eventState(event: StudioDetailEvent): EventState {
   const { type } = event;
+  if (type === "generation.completed" && event.payload.outcome === "failed")
+    return "failed";
   if (type === "run.limit_reached") return "interrupted";
   if (type === "span.failed" && isControlFlowCancellation(event))
     return "cancelled";

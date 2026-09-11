@@ -125,3 +125,53 @@ describe("calculateGenerationCost", () => {
     });
   });
 });
+
+it("does not double bill cached input or reasoning already included in OpenAI output", () => {
+  const event = baseEvent({
+    provider: "openai",
+    model: "gpt-4.1-mini",
+    usage: {
+      input: 1_000_000,
+      output: 500_000,
+      reasoning: 100_000,
+      cacheRead: 250_000,
+    },
+  });
+  expect(
+    calculateGenerationCost(event, DEFAULT_MODEL_RATE_CARDS as ModelRateCard[]),
+  ).toMatchObject({ costMicros: 1_125_000 });
+});
+
+it("prices Luna cache writes separately and leaves unsupported tiers unpriced", () => {
+  const event = {
+    ...baseEvent({
+      provider: "openai",
+      model: "gpt-5.6-luna",
+      usage: {
+        input: 100_000,
+        output: 10_000,
+        reasoning: 5_000,
+        cacheRead: 20_000,
+        cacheWrite: 10_000,
+        inputIncludesCacheWrite: true,
+        outputIncludesReasoning: true,
+      },
+    }),
+    occurredAt: new Date("2026-09-11T00:00:00Z"),
+  };
+  expect(
+    calculateGenerationCost(event, DEFAULT_MODEL_RATE_CARDS as ModelRateCard[]),
+  ).toMatchObject({ costMicros: 28_900 });
+  expect(
+    calculateGenerationCost(
+      {
+        ...event,
+        payload: {
+          ...event.payload,
+          providerMetadata: { serviceTier: "priority" },
+        },
+      },
+      DEFAULT_MODEL_RATE_CARDS as ModelRateCard[],
+    ),
+  ).toMatchObject({ pricingStatus: "unpriced" });
+});

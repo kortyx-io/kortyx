@@ -54,6 +54,33 @@ const textTokenPrices = (args: {
 
 export const DEFAULT_MODEL_RATE_CARDS: DefaultModelRateCard[] = [
   {
+    provider: "openai",
+    model: "gpt-5.6-luna",
+    modality: "text",
+    currency: "USD",
+    source: "default-rate-card",
+    pricingRef: "openai-gpt-5.6-luna-standard-short-context-2026-09-11",
+    effectiveFrom: new Date("2026-09-11T00:00:00.000Z"),
+    unitPrices: [
+      ...textTokenPrices({
+        inputMicrosPer1M: 200_000,
+        outputMicrosPer1M: 1_200_000,
+        cacheReadMicrosPer1M: 20_000,
+      }),
+      {
+        usageType: "cache_write",
+        unit: "token",
+        unitQuantity: 1_000_000,
+        priceMicros: 250_000,
+      },
+    ],
+    metadata: {
+      sourceUrl: "https://developers.openai.com/api/docs/pricing",
+      maxInputTokens: 272_000,
+      note: "Standard short-context pricing. Other tiers and long context require a project rate card.",
+    },
+  },
+  {
     provider: "google",
     model: "gemini-2.5-flash",
     modality: "text",

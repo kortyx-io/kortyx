@@ -18,10 +18,14 @@ import type {
 } from "@kortyx/providers";
 import { accumulateTokenUsage, getHookContext } from "../context";
 import { awaitInterruptInternal } from "../interrupt";
+import type { RunReasonEngineResult } from "../reason-engine";
+import { shouldStreamStructured } from "../structured";
 import type { ReasonTraceSpan } from "../tracing";
 import type { UseReasonArgs, UseReasonResult, UseReasonStep } from "../types";
 import { reasonEngine } from "./engine";
+import { createStructuredOutputStreamer } from "./output-stream";
 import { parseReasonOutputWithSchema } from "./parsing";
+import { withOutputGuardrails } from "./prompting";
 import {
   emitReasonStructuredOutput,
   mergeProviderMetadata,
@@ -131,14 +135,21 @@ export const runReasonToolLoop = async <
   id?: string | undefined;
   opId: string;
   traceSpan?: ReasonTraceSpan | undefined;
+  checkpointKey: string;
+  initialWarnings?: KortyxWarning[] | undefined;
 }): Promise<UseReasonResult<TOutput, TResponse>> => {
-  const { useReasonArgs, id, opId, traceSpan } = args;
+  const { useReasonArgs, id, traceSpan, checkpointKey } = args;
   const ctx = getHookContext();
   const abortSignal = combineAbortSignals(
     ctx.node.abortSignal,
     useReasonArgs.abortSignal,
     useReasonArgs.model.options?.abortSignal,
   );
+  const saved = ctx.currentNodeState.byKey[checkpointKey] as
+    | ToolLoopCheckpoint
+    | undefined;
+  const checkpoint = saved?.status === "tool_loop" ? saved : undefined;
+  const opId = checkpoint?.opId ?? args.opId;
   const tools = useReasonArgs.tools ?? [];
   const toolByName = new Map<string, KortyxExecutableTool>();
   let validationCompleted = false;
@@ -168,20 +179,47 @@ export const runReasonToolLoop = async <
 
   const toolDefinitions = toToolDefinitions(tools);
   const maxSteps = Math.max(1, useReasonArgs.toolExecution?.maxSteps ?? 3);
-  const messages = createInitialMessages({
-    system: useReasonArgs.system,
-    input: useReasonArgs.input,
-  });
-  const steps: UseReasonStep[] = [];
-  const allToolCalls: KortyxToolCall[] = [];
-  const allToolResults: KortyxToolResult[] = [];
+  const messages =
+    checkpoint?.messages ??
+    createInitialMessages({
+      system: useReasonArgs.system,
+      input: useReasonArgs.outputSchema
+        ? withOutputGuardrails(useReasonArgs.input, useReasonArgs.outputSchema)
+        : useReasonArgs.input,
+    });
+  const steps: UseReasonStep[] = checkpoint?.steps ?? [];
+  const allToolCalls: KortyxToolCall[] = steps.flatMap(
+    (step) => step.toolCalls,
+  );
+  const allToolResults: KortyxToolResult[] = steps.flatMap(
+    (step) => step.toolResults,
+  );
   let finalText = "";
   let finalRaw: unknown;
   let finalOutput: TOutput | undefined;
-  let aggregatedUsage: KortyxUsage | undefined;
+  let aggregatedUsage = steps.reduce<KortyxUsage | undefined>(
+    (usage, step) => mergeUsage(usage, step.usage),
+    undefined,
+  );
   let finalFinishReason: KortyxFinishReason | undefined;
   let aggregatedProviderMetadata: KortyxProviderMetadata | undefined;
-  let aggregatedWarnings: KortyxWarning[] | undefined;
+  let aggregatedWarnings = steps.reduce<KortyxWarning[] | undefined>(
+    (warnings, step) => mergeWarnings(warnings, step.warnings),
+    args.initialWarnings,
+  );
+  let pending = checkpoint?.pending;
+  const approvedCalls = checkpoint?.approvedCalls ?? [];
+  const save = () => {
+    ctx.currentNodeState.byKey[checkpointKey] = {
+      status: "tool_loop",
+      opId,
+      messages,
+      steps,
+      approvedCalls,
+      ...(pending ? { pending } : {}),
+    } satisfies ToolLoopCheckpoint;
+    ctx.stateDirty = true;
+  };
 
   const emitToolEvent = (
     event: string,
@@ -196,28 +234,58 @@ export const runReasonToolLoop = async <
   };
 
   try {
-    for (let stepIndex = 0; stepIndex < maxSteps; stepIndex += 1) {
+    for (
+      let stepIndex = pending ? steps.length - 1 : steps.length;
+      stepIndex < maxSteps;
+      stepIndex += 1
+    ) {
       throwIfExecutionAborted(abortSignal);
       traceSpan?.addEvent?.("useReason.tool-step.start", {
         stepIndex,
         toolCount: toolDefinitions.length,
       });
 
-      const step = await reasonEngine(
-        {
-          ...useReasonArgs,
-          tools: toolDefinitions,
-          messages,
-          emit: false,
-          stream: false,
-        },
-        { ...(id ? { id } : {}), opId },
-      );
+      const reused = Boolean(pending);
+      const stream =
+        useReasonArgs.stream ?? useReasonArgs.model.options?.streaming ?? true;
+      const emit = useReasonArgs.emit ?? true;
+      let textStarted = false;
+      const structuredChunk =
+        useReasonArgs.outputSchema &&
+        stream &&
+        emit &&
+        shouldStreamStructured(useReasonArgs.structured)
+          ? createStructuredOutputStreamer(useReasonArgs, id, opId)
+          : undefined;
+      const step =
+        pending ??
+        (await reasonEngine(
+          {
+            ...useReasonArgs,
+            tools: toolDefinitions,
+            messages,
+            emit: false,
+            stream,
+            onTextChunk: (delta) => {
+              if (structuredChunk) structuredChunk(delta);
+              if (!emit || useReasonArgs.outputSchema || !delta) return;
+              if (!textStarted) {
+                emitToolEvent("text-start", {});
+                textStarted = true;
+              }
+              emitToolEvent("text-delta", { delta });
+            },
+          },
+          { ...(id ? { id } : {}), opId },
+        ));
 
+      if (textStarted) emitToolEvent("text-end", {});
       finalText = step.text;
       finalRaw = step.raw;
-      aggregatedUsage = mergeUsage(aggregatedUsage, step.usage);
-      accumulateTokenUsage(step.usage);
+      if (!reused) {
+        aggregatedUsage = mergeUsage(aggregatedUsage, step.usage);
+        accumulateTokenUsage(step.usage);
+      }
       finalFinishReason = step.finishReason;
       aggregatedProviderMetadata = mergeProviderMetadata(
         aggregatedProviderMetadata,
@@ -226,37 +294,42 @@ export const runReasonToolLoop = async <
       aggregatedWarnings = mergeWarnings(aggregatedWarnings, step.warnings);
 
       const toolCalls = step.toolCalls ?? [];
-      const toolResults: KortyxToolResult[] = [];
-      steps.push({
-        stepIndex,
-        text: step.text,
-        toolCalls,
-        toolResults,
-        ...(step.usage ? { usage: step.usage } : {}),
-        ...(step.finishReason ? { finishReason: step.finishReason } : {}),
-        ...(step.providerMetadata
-          ? { providerMetadata: step.providerMetadata }
-          : {}),
-        ...(step.warnings ? { warnings: step.warnings } : {}),
-      });
+      const toolResults: KortyxToolResult[] = reused
+        ? (steps[stepIndex]?.toolResults ?? [])
+        : [];
+      if (!reused)
+        steps.push({
+          stepIndex,
+          text: step.text,
+          toolCalls,
+          toolResults,
+          ...(step.usage ? { usage: step.usage } : {}),
+          ...(step.finishReason ? { finishReason: step.finishReason } : {}),
+          ...(step.providerMetadata
+            ? { providerMetadata: step.providerMetadata }
+            : {}),
+          ...(step.warnings ? { warnings: step.warnings } : {}),
+        });
 
       if (toolCalls.length === 0) {
-        if ((useReasonArgs.emit ?? true) && step.text.length > 0) {
-          emitToolEvent("text-start", {});
-          emitToolEvent("text-delta", { delta: step.text });
-          emitToolEvent("text-end", {});
-        }
         break;
       }
 
-      allToolCalls.push(...toolCalls);
-      messages.push({
-        role: "assistant",
-        content: step.text,
-        toolCalls,
-      });
+      if (!reused) {
+        allToolCalls.push(...toolCalls);
+        messages.push({
+          role: "assistant",
+          content: step.text,
+          toolCalls,
+          ...(step.continuation ? { continuation: step.continuation } : {}),
+        });
+      }
+      pending = step;
+      save();
 
       for (const toolCall of toolCalls) {
+        if (toolResults.some((result) => result.toolCallId === toolCall.id))
+          continue;
         throwIfExecutionAborted(abortSignal);
         const tool = toolByName.get(toolCall.name);
         if (!tool) {
@@ -290,7 +363,7 @@ export const runReasonToolLoop = async <
           });
         }
 
-        if (shouldApproveTool) {
+        if (shouldApproveTool && !approvedCalls.includes(toolCall.id)) {
           const approval = await awaitInterruptInternal({
             id: `tool:${toolCall.id}`,
             request: {
@@ -329,8 +402,18 @@ export const runReasonToolLoop = async <
                 isError: true,
               });
             }
+            messages.push({
+              role: "tool",
+              content: denied.content,
+              toolCallId: denied.toolCallId,
+              name: denied.name,
+              isError: true,
+            });
+            save();
             continue;
           }
+          approvedCalls.push(toolCall.id);
+          save();
         }
 
         try {
@@ -389,29 +472,22 @@ export const runReasonToolLoop = async <
             message: result.content,
           });
         }
+        const completed = toolResults.at(-1);
+        if (completed)
+          messages.push({
+            role: "tool",
+            content: completed.content,
+            toolCallId: completed.toolCallId,
+            name: completed.name,
+            ...(completed.isError !== undefined
+              ? { isError: completed.isError }
+              : {}),
+          });
+        save();
       }
 
-      const currentStep = steps[steps.length - 1];
-      if (currentStep) {
-        steps[steps.length - 1] = {
-          ...currentStep,
-          toolResults,
-        };
-      }
-
-      for (const result of toolResults) {
-        messages.push({
-          role: "tool",
-          content: result.content,
-          toolCallId: result.toolCallId,
-          name: result.name,
-          ...(result.structuredContent !== undefined
-            ? { structuredContent: result.structuredContent }
-            : {}),
-          ...(result.isError !== undefined ? { isError: result.isError } : {}),
-          ...(result.raw !== undefined ? { raw: result.raw } : {}),
-        });
-      }
+      pending = undefined;
+      save();
     }
 
     if (steps.length >= maxSteps && steps.at(-1)?.toolCalls.length) {
@@ -483,6 +559,8 @@ export const runReasonToolLoop = async <
       },
     });
 
+    ctx.currentNodeState.byKey[checkpointKey] = { status: "completed", result };
+    ctx.stateDirty = true;
     return result;
   } catch (error) {
     traceSpan?.fail?.(error, {
@@ -496,3 +574,12 @@ export const runReasonToolLoop = async <
     await closeOwnedTools(tools);
   }
 };
+
+interface ToolLoopCheckpoint {
+  status: "tool_loop";
+  opId: string;
+  messages: KortyxPromptMessage[];
+  steps: UseReasonStep[];
+  pending?: RunReasonEngineResult;
+  approvedCalls: string[];
+}

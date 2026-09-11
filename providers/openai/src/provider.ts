@@ -9,8 +9,8 @@ import type {
   KortyxUsage,
   KortyxWarning,
   ModelOptions,
+  ProviderInstance,
   ProviderModelRef,
-  ProviderSelector,
 } from "@kortyx/providers";
 import { createOpenAIClient } from "./client";
 import {
@@ -20,9 +20,11 @@ import {
 } from "./errors";
 import { createChatCompletionRequest } from "./messages";
 import { MODELS, type ModelId, PROVIDER_ID } from "./models";
+import { createResponsesModel } from "./responses";
 import type {
   OpenAIChatCompletionChunk,
   OpenAIChatCompletionResponse,
+  OpenAIModelOptions,
   OpenAIUsage,
   ProviderSettings,
 } from "./types";
@@ -79,6 +81,8 @@ const extractUsage = (
     usage.completion_tokens_details?.reasoning_tokens ?? undefined;
 
   return {
+    outputIncludesReasoning: true,
+    inputIncludesCacheRead: true,
     ...(usage.prompt_tokens != null ? { input: usage.prompt_tokens } : {}),
     ...(usage.completion_tokens != null
       ? { output: usage.completion_tokens }
@@ -99,6 +103,7 @@ const extractResponseProviderMetadata = (
   const usage = toRecord(response.usage);
   const metadata: KortyxProviderMetadata = {
     providerId: PROVIDER_ID,
+    api: "chat-completions",
     modelId,
     ...(response.id !== undefined ? { responseId: response.id } : {}),
     ...(response.model !== undefined ? { responseModel: response.model } : {}),
@@ -127,6 +132,7 @@ const extractChunkProviderMetadata = (
   const usage = toRecord(chunk.usage);
   const metadata: KortyxProviderMetadata = {
     providerId: PROVIDER_ID,
+    api: "chat-completions",
     modelId,
     ...(chunk.id !== undefined ? { responseId: chunk.id } : {}),
     ...(chunk.model !== undefined ? { responseModel: chunk.model } : {}),
@@ -234,7 +240,7 @@ const collectWarnings = (
       type: "compatibility",
       feature: "reasoning.effort",
       details:
-        "OpenAI supports none, minimal, low, medium, high, or xhigh reasoning effort. Kortyx only maps compatible generic reasoning efforts.",
+        "The requested reasoning effort is forwarded unchanged; the selected OpenAI model may reject it.",
     });
   }
 
@@ -250,6 +256,7 @@ const collectWarnings = (
   const providerOptions = options.providerOptions;
   const allowedProviderOptions = new Set([
     "openai",
+    "api",
     "reasoningEffort",
     "maxCompletionTokens",
     "serviceTier",
@@ -375,6 +382,7 @@ const createOpenAIModel = (
   const warnings = collectWarnings(modelId, resolvedOptions);
 
   return {
+    supportsToolStreaming: true,
     async *stream(messages: KortyxPromptMessage[]) {
       const client = getClient();
       const request = createChatCompletionRequest(
@@ -387,6 +395,11 @@ const createOpenAIModel = (
       try {
         if (resolvedOptions.streaming !== false) {
           let lastChunk: OpenAIChatCompletionChunk | undefined;
+          let finishReason: string | null | undefined;
+          const calls = new Map<
+            number,
+            { id: string; name: string; arguments: string }
+          >();
           for await (const chunk of client.streamChatCompletion(request, {
             ...(resolvedOptions.abortSignal
               ? { signal: resolvedOptions.abortSignal }
@@ -401,12 +414,52 @@ const createOpenAIModel = (
               return;
             }
 
-            lastChunk = chunk;
+            finishReason = chunk.choices?.[0]?.finish_reason ?? finishReason;
+            lastChunk = {
+              ...chunk,
+              usage: chunk.usage ?? lastChunk?.usage,
+              choices: [{ finish_reason: finishReason }],
+            };
+            for (const [position, delta] of (
+              chunk.choices?.[0]?.delta?.tool_calls ?? []
+            ).entries()) {
+              const index = (delta as { index?: number }).index ?? position;
+              const call = calls.get(index) ?? {
+                id: "",
+                name: "",
+                arguments: "",
+              };
+              call.id = delta.id ?? call.id;
+              call.name += delta.function?.name ?? "";
+              call.arguments += delta.function?.arguments ?? "";
+              calls.set(index, call);
+            }
             const delta = chunk.choices?.[0]?.delta?.content;
             if (delta) yield createTextDeltaPart(delta, chunk);
           }
 
-          yield createFinishPart(modelId, lastChunk, warnings);
+          if (!finishReason)
+            throw new Error(
+              "OpenAI Chat Completions stream ended without a finish reason.",
+            );
+          yield {
+            ...createFinishPart(modelId, lastChunk, warnings),
+            ...(calls.size
+              ? {
+                  toolCalls: [...calls.values()].map((call) => {
+                    if (!call.id || !call.name)
+                      throw new Error(
+                        "OpenAI returned an incomplete streamed function call.",
+                      );
+                    return {
+                      id: call.id,
+                      name: call.name,
+                      input: JSON.parse(call.arguments) as unknown,
+                    };
+                  }),
+                }
+              : {}),
+          };
           return;
         }
 
@@ -465,19 +518,39 @@ const createOpenAIModel = (
 };
 
 export type OpenAIModelRef = ProviderModelRef<typeof PROVIDER_ID, ModelId>;
-export type OpenAIProvider = ProviderSelector<typeof PROVIDER_ID, ModelId>;
+export interface OpenAIProvider
+  extends ProviderInstance<typeof PROVIDER_ID, ModelId> {
+  (modelId: ModelId, options?: OpenAIModelOptions): OpenAIModelRef;
+  getModel: (modelId: string, options?: OpenAIModelOptions) => KortyxModel;
+}
 
 export function createOpenAI(settings: ProviderSettings = {}): OpenAIProvider {
-  const getModel = (modelId: string, options?: ModelOptions): KortyxModel => {
+  const getModel = (
+    modelId: string,
+    options?: OpenAIModelOptions,
+  ): KortyxModel => {
     if (modelId.trim().length === 0) {
       throw new Error("OpenAI model id must be a non-empty string.");
     }
 
-    return createOpenAIModel(modelId, settings, options);
+    const nested = options?.providerOptions?.openai;
+    const providerOptions =
+      nested && typeof nested === "object"
+        ? (nested as Record<string, unknown>)
+        : options?.providerOptions;
+    const api =
+      options?.api ?? providerOptions?.api ?? settings.api ?? "responses";
+    if (api === "responses")
+      return createResponsesModel(modelId, settings, options ?? {}, () =>
+        loadOpenAIApiKey(settings.apiKey),
+      );
+    if (api === "chat-completions")
+      return createOpenAIModel(modelId, settings, options);
+    throw new ProviderConfigurationError(`Unknown OpenAI API: ${String(api)}`);
   };
 
   const provider = Object.assign(
-    ((modelId: ModelId, options?: ModelOptions) => {
+    ((modelId: ModelId, options?: OpenAIModelOptions) => {
       if (modelId.trim().length === 0) {
         throw new Error("OpenAI model id must be a non-empty string.");
       }
@@ -485,7 +558,26 @@ export function createOpenAI(settings: ProviderSettings = {}): OpenAIProvider {
       return {
         provider,
         modelId,
-        ...(options ? { options } : {}),
+        ...(options
+          ? {
+              options: {
+                ...options,
+                ...(options.api
+                  ? {
+                      providerOptions: {
+                        ...options.providerOptions,
+                        openai: {
+                          ...(options.providerOptions?.openai as
+                            | Record<string, unknown>
+                            | undefined),
+                          api: options.api,
+                        },
+                      },
+                    }
+                  : {}),
+              },
+            }
+          : {}),
       } satisfies OpenAIModelRef;
     }) as unknown as OpenAIProvider,
     {

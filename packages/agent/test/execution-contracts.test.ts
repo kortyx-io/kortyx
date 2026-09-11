@@ -73,6 +73,25 @@ it("keeps the result envelope serializable and omits absent usage", async () => 
     error: { message: "failure" },
   });
   expect(failed).not.toHaveProperty("usage");
+  const chargedFailure = resultFromOutcome(
+    {
+      state,
+      error: Object.assign(new Error("Output budget exhausted"), {
+        __kortyxHookStatePatch: {
+          tokenUsage: { input: 22, output: 16, total: 38 },
+        },
+      }),
+    },
+    "run",
+    "session",
+  );
+  expect(chargedFailure).toMatchObject({
+    status: "failed",
+    usage: { total: 38 },
+  });
+  expect(JSON.stringify(chargedFailure)).not.toContain(
+    "__kortyxHookStatePatch",
+  );
   expect(resultFromOutcome({ state }, "run", "session")).toMatchObject({
     status: "completed",
     data: {},

@@ -35,8 +35,87 @@ const createSseResponse = (events: unknown[]): Response => {
 };
 
 describe("openai public provider contract", () => {
+  it("assembles streamed function arguments and retains finish reason across the usage chunk", async () => {
+    const model = createOpenAI({
+      api: "chat-completions",
+      apiKey: "test",
+      fetch: async () =>
+        createSseResponse([
+          {
+            choices: [
+              {
+                delta: {
+                  tool_calls: [
+                    {
+                      index: 0,
+                      id: "call_1",
+                      function: { name: "lookup", arguments: '{"id":' },
+                    },
+                  ],
+                },
+              },
+            ],
+          },
+          {
+            choices: [
+              {
+                delta: {
+                  tool_calls: [{ index: 0, function: { arguments: "42}" } }],
+                },
+                finish_reason: "tool_calls",
+              },
+            ],
+          },
+          {
+            choices: [],
+            usage: {
+              prompt_tokens: 20,
+              completion_tokens: 10,
+              total_tokens: 30,
+            },
+          },
+        ]),
+    }).getModel("gpt-4.1-mini");
+    expect(
+      await collectStreamParts(
+        model.stream([{ role: "user", content: "Look up 42" }]),
+      ),
+    ).toMatchObject([
+      {
+        type: "finish",
+        toolCalls: [{ id: "call_1", name: "lookup", input: { id: 42 } }],
+        finishReason: { unified: "tool-calls" },
+        usage: { total: 30 },
+      },
+    ]);
+  });
+  it("preserves requested legacy effort even with maxTokens zero", async () => {
+    const provider = createOpenAI({
+      api: "chat-completions",
+      apiKey: "test",
+      fetch: async (_url, init) => {
+        expect(JSON.parse(String(init?.body)).reasoning_effort).toBe(
+          "future-effort",
+        );
+        return new Response(
+          JSON.stringify({
+            choices: [{ message: { content: "ok" }, finish_reason: "stop" }],
+          }),
+        );
+      },
+    });
+    await provider
+      .getModel("gpt-5.6-luna", {
+        reasoning: { effort: "future-effort", maxTokens: 0 },
+      })
+      .invoke([{ role: "user", content: "test" }]);
+  });
+
   it("validates model ids on getModel and selector calls", () => {
-    const provider = createOpenAI({ apiKey: "test-key" });
+    const provider = createOpenAI({
+      api: "chat-completions",
+      apiKey: "test-key",
+    });
 
     expect(() => provider.getModel(" ")).toThrow(
       "OpenAI model id must be a non-empty string.",
@@ -53,6 +132,7 @@ describe("openai public provider contract", () => {
 
   it("streams from the non-streaming invoke transport when streaming is disabled", async () => {
     const provider = createOpenAI({
+      api: "chat-completions",
       apiKey: "test-key",
       fetch: async (_input, init) => {
         const body = JSON.parse(
@@ -90,6 +170,7 @@ describe("openai public provider contract", () => {
 
   it("reports provider stream error chunks without emitting a finish", async () => {
     const provider = createOpenAI({
+      api: "chat-completions",
       apiKey: "test-key",
       fetch: async () =>
         createSseResponse([{ error: { message: "provider overloaded" } }]),
@@ -111,6 +192,7 @@ describe("openai public provider contract", () => {
 
   it("surfaces warning contracts for unsupported OpenAI options", async () => {
     const provider = createOpenAI({
+      api: "chat-completions",
       apiKey: "test-key",
       fetch: async () =>
         new Response(
@@ -157,6 +239,7 @@ describe("openai public provider contract", () => {
 
     const finishReasons = ["content_filter", "function_call", "unexpected"];
     const provider = createOpenAI({
+      api: "chat-completions",
       fetch: async (_input, init) => {
         expect(init?.headers).toMatchObject({
           authorization: "Bearer env-openai-key",
@@ -209,6 +292,7 @@ describe("openai public provider contract", () => {
 
   it("returns normalized tool calls from invoke responses", async () => {
     const provider = createOpenAI({
+      api: "chat-completions",
       apiKey: "test-key",
       fetch: async () =>
         new Response(
@@ -276,7 +360,7 @@ describe("openai public provider contract", () => {
 
     try {
       await expect(
-        createOpenAI()
+        createOpenAI({ api: "chat-completions" })
           .getModel("gpt-4.1-mini")
           .invoke([{ role: "user", content: "Hello" }]),
       ).rejects.toThrow("OpenAI provider failed to invoke content");

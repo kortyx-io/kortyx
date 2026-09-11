@@ -6,4 +6,4 @@ export {
   createOpenAI as createProvider,
   openai,
 } from "./provider";
-export type { ProviderSettings } from "./types";
+export type { OpenAIAPI, OpenAIModelOptions, ProviderSettings } from "./types";

@@ -22,6 +22,10 @@ export type KortyxResponseFormat =
     };
 
 export interface KortyxUsage {
+  /** Whether the detailed categories are already included in the main counts. */
+  outputIncludesReasoning?: boolean;
+  inputIncludesCacheRead?: boolean;
+  inputIncludesCacheWrite?: boolean;
   input?: number;
   output?: number;
   total?: number;
@@ -153,7 +157,15 @@ export interface KortyxExecutableTool extends KortyxToolDefinition {
   source?: string | undefined;
 }
 
+/** Opaque, server-owned continuation data. Never send to clients or telemetry. */
+export interface KortyxContinuation {
+  providerId: string;
+  api: string;
+  items: unknown[];
+}
+
 export interface KortyxPromptMessage {
+  continuation?: KortyxContinuation;
   role: KortyxPromptRole;
   content: string;
   toolCalls?: KortyxToolCall[] | undefined;
@@ -173,6 +185,7 @@ export type KortyxStreamPart =
     }
   | {
       type: "finish";
+      continuation?: KortyxContinuation;
       finishReason?: KortyxFinishReason;
       usage?: KortyxUsage;
       warnings?: KortyxWarning[];
@@ -196,6 +209,7 @@ export type KortyxStreamPart =
 export type KortyxStreamChunk = KortyxStreamPart;
 
 export interface KortyxInvokeResult {
+  continuation?: KortyxContinuation;
   role?: "assistant" | undefined;
   content: string;
   raw?: unknown;
@@ -211,6 +225,8 @@ export interface KortyxInvokeResult {
  * This abstracts away the underlying LLM provider (Google, OpenAI, etc.)
  */
 export interface KortyxModel {
+  /** Adapters opt in once streamed function calls are assembled completely. */
+  supportsToolStreaming?: boolean;
   /**
    * Stream responses from the model
    */

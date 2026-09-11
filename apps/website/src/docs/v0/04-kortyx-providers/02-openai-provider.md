@@ -7,7 +7,7 @@ sidebar_label: "OpenAI"
 ---
 # OpenAI Provider
 
-`@kortyx/openai` is the OpenAI provider package for Kortyx.
+`@kortyx/openai` uses the OpenAI Responses API by default. The same provider also supports Chat Completions through an explicit transport option.
 
 It gives you two entry points:
 
@@ -221,75 +221,85 @@ result.warnings;
 
 ## 9. Supported normalized call options
 
-OpenAI currently maps these generic Kortyx options:
+Use reasoning, executable function tools, and structured output together without configuring a transport:
 
-- `temperature`
-- `streaming`
-- `maxOutputTokens`
-- `stopSequences`
-- `abortSignal`
-- `reasoning.effort`
-- `reasoning.maxTokens`
-- `responseFormat.type`
-- `responseFormat.schema`
+```ts
+import { openai } from "@kortyx/openai";
+import { useReason, type KortyxExecutableTool } from "kortyx";
+import { z } from "zod";
 
-Current OpenAI provider options:
+const lookup: KortyxExecutableTool = {
+  name: "lookup",
+  description: "Read the current task status",
+  inputSchema: { type: "object", properties: {}, additionalProperties: false },
+  execute: async (_input, context) => {
+    const response = await fetch("https://your-api.example/task", {
+      signal: context.abortSignal,
+    });
+    if (!response.ok) throw new Error(`Lookup failed: ${response.status}`);
+    return response.json();
+  },
+};
 
-- `providerOptions.openai.reasoningEffort`
-- `providerOptions.openai.maxCompletionTokens`
-- `providerOptions.openai.serviceTier`
-- `providerOptions.openai.store`
-- `providerOptions.openai.metadata`
-- `providerOptions.openai.systemMessageMode`
-- `providerOptions.openai.structuredOutputs`
-- `providerOptions.openai.strictJsonSchema`
+// Inside a workflow node:
+const result = await useReason({
+  model: openai("gpt-5.6-luna"),
+  input: "Look up the task and explain its status.",
+  reasoning: { effort: "medium" },
+  tools: [lookup],
+  outputSchema: z.object({ status: z.string(), explanation: z.string() }),
+  stream: false,
+});
 
-Current mapping details:
+result.output; // Validated { status, explanation }
+```
 
-- `responseFormat.type: "json"` maps to OpenAI JSON mode
-- `responseFormat.schema` maps to OpenAI structured outputs unless `structuredOutputs` is `false`
-- reasoning models use `max_completion_tokens`; non-reasoning models use `max_tokens`
-- reasoning model system messages default to OpenAI developer messages
+`stream: true` also supports function tools. For incremental structured fields, configure `structured.fields` using the existing hook API. Tool rounds, approvals and execution-limit resumes preserve completed results and provider continuation. Pass the tool context's `abortSignal` to your own I/O so root cancellation can stop it cooperatively.
 
-Current warning-backed gaps:
+For compatible Zod object schemas, `outputSchema` automatically supplies the provider JSON schema. Custom validators, transforms, optional properties and dynamic object keys use JSON mode plus local validation and an `outputSchema` compatibility warning. Supply an explicit `responseFormat` to control the wire format. An explicit format always wins; local validation still runs.
 
-- `temperature` is omitted for OpenAI reasoning models unless `reasoning.effort` is `"none"` on supported newer models
-- `reasoning.maxTokens` is not a separate OpenAI reasoning budget; Kortyx maps output token limits to the provider field
-- unknown `providerOptions` keys are ignored and reported in `result.warnings`
+Responses maps `maxOutputTokens` to `max_output_tokens`, `reasoning.effort` to `reasoning.effort`, and JSON output to `text.format`. The output budget includes reasoning tokens. Unsupported `stopSequences`, `reasoning.maxTokens`, and `reasoning.includeThoughts` fail explicitly. Temperature is omitted with a warning when the reasoning model/effort does not support it.
 
-## 10. Normalized metadata you get back
+Provider options belong under `providerOptions.openai`: `api`, `reasoningEffort`, `maxCompletionTokens`, `serviceTier`, `store`, `metadata`, `systemMessageMode`, `structuredOutputs`, and `strictJsonSchema`. Call options override corresponding model defaults. Unknown options produce warnings. There is no automatic model, reasoning-effort, or transport retry/fallback after a provider error.
 
-OpenAI returns the normalized Kortyx result fields when the API provides them:
+## 10. Transport selection and migration
 
-- `usage`
-- `finishReason`
-- `providerMetadata`
-- `warnings`
-- `raw`
+Earlier releases used Chat Completions by default. To retain that transport, including for compatible third-party gateways:
 
-OpenAI-specific metadata currently includes fields such as:
+```ts
+import { createOpenAI, openai } from "@kortyx/openai";
 
-- `providerId`
-- `modelId`
-- `responseId`
-- `responseModel`
-- `created`
-- `usage`
-- `cachedTokens`
-- `reasoningTokens`
-- `acceptedPredictionTokens`
-- `rejectedPredictionTokens`
+const legacy = createOpenAI({ api: "chat-completions" });
+const legacyModel = legacy("gpt-4.1-mini");
 
-Use `providerMetadata` when you need debugging or observability details without coupling your app code to the raw provider payload shape.
+// Or override just one model:
+const model = openai("gpt-4.1-mini", { api: "chat-completions" });
+
+// A model can also override a provider's default:
+const reasoningModel = legacy("gpt-5.6-luna", { api: "responses" });
+```
+
+Keep importing from `@kortyx/openai`; there is no separate legacy package. Check that custom `baseUrl` gateways expose `/responses` before using the new default. Chat Completions retains its existing option mapping and model restrictions; selecting it does not make unsupported reasoning/function-tool combinations work.
+
+Responses defaults to `store: false`. Kortyx replays required reasoning and function-call items, including encrypted reasoning content, from server-owned runtime state. It does not depend on `previous_response_id` or provider-hosted conversation storage. Keep checkpoint storage private. Internal continuation is excluded from client stream events and automatic telemetry content capture. Applications explicitly exporting `result.raw` remain responsible for handling that provider-native payload.
+
+`result.raw` now has the selected transport's native shape. Prefer `output`, `text`, `usage`, `finishReason` and `providerMetadata` for transport-independent code. Update all affected Kortyx workspace packages together when consuming this change from source.
+
+## 11. Usage, errors, and Studio
+
+`providerMetadata.api` identifies the selected transport. Responses also reports response ID, status, reasoning settings and service tier. Studio displays these alongside finish reason and input, output, reasoning and cached-token counts. Older event payloads remain readable.
+
+OpenAI's output-token count already includes reasoning tokens; cached input is a subset of input. Kortyx records these relationships so total tokens and cost do not count them twice. Usage reported by an incomplete/failed response remains charged to the failed execution. Refusals, malformed responses, provider failures, and streams missing a terminal response never become successful results. No usage is invented when the provider supplies none.
+
+The built-in Luna price card covers standard-tier requests up to 272,000 input tokens. Configure a project rate for other tiers/context sizes; they remain unpriced without one.
 
 ## Supported scope
 
-`@kortyx/openai` currently supports text generation through OpenAI chat completions via `useReason(...)`, including streaming and non-streaming invocation.
-
-It does not currently expose the OpenAI Responses API, embeddings, image generation, audio, transcription, file APIs, or OpenAI-hosted tools. Check `result.warnings` when you rely on advanced generic options and want to verify how OpenAI handled them.
+Text generation, executable function tools, structured output, streaming and non-streaming execution are supported through Responses and Chat Completions. OpenAI-hosted tools, embeddings, image generation, audio, transcription and file APIs are not exposed by this transport addition.
 
 ## Available built-in OpenAI model ids
 
+- `gpt-5.6-luna`
 - `gpt-5.4`
 - `gpt-5.4-mini`
 - `gpt-5.4-nano`

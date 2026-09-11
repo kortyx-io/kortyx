@@ -1531,7 +1531,7 @@ export async function orchestrateGraphStream({
             },
             awaitingHumanInput: true,
           };
-          // Keep the existing hook replay cache, but do not checkpoint individual tool steps.
+          // Preserve hook checkpoints, including completed and pending tool rounds.
           const patch = (
             err as unknown as {
               __kortyxHookStatePatch?: Record<string, unknown>;

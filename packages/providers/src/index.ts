@@ -19,6 +19,7 @@ export {
 // Types
 export type {
   GetProviderFn,
+  KortyxContinuation,
   KortyxExecutableTool,
   KortyxFinishReason,
   KortyxInvokeResult,

@@ -191,7 +191,11 @@ const toTokenUsageDelta = (
 
   const input = usage.input ?? 0;
   const output = usage.output ?? 0;
-  const total = usage.total ?? input + output + (usage.reasoning ?? 0);
+  const total =
+    usage.total ??
+    input +
+      output +
+      (usage.outputIncludesReasoning ? 0 : (usage.reasoning ?? 0));
 
   if (input === 0 && output === 0 && total === 0) {
     return undefined;

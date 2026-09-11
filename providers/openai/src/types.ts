@@ -1,6 +1,12 @@
+import type { ModelOptions } from "@kortyx/providers";
+
+export type OpenAIAPI = "responses" | "chat-completions";
+export type OpenAIModelOptions = ModelOptions & { api?: OpenAIAPI };
+
 export type FetchLike = typeof fetch;
 
 export interface ProviderSettings {
+  api?: OpenAIAPI;
   apiKey?: string | undefined;
   baseUrl?: string | undefined;
   fetch?: FetchLike | undefined;
@@ -57,14 +63,7 @@ export interface OpenAIChatCompletionRequest {
     | undefined;
   stream?: boolean | undefined;
   stream_options?: { include_usage: true } | undefined;
-  reasoning_effort?:
-    | "none"
-    | "minimal"
-    | "low"
-    | "medium"
-    | "high"
-    | "xhigh"
-    | undefined;
+  reasoning_effort?: string;
   service_tier?: "auto" | "flex" | "priority" | "default" | undefined;
   store?: boolean | undefined;
   metadata?: Record<string, string> | undefined;

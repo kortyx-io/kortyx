@@ -4,6 +4,7 @@ import type {
   KortyxToolDefinition,
   ModelOptions,
 } from "@kortyx/providers";
+import { ProviderConfigurationError } from "./errors";
 import type { OpenAIChatCompletionRequest, OpenAIChatMessage } from "./types";
 
 const getProviderOptions = (
@@ -20,37 +21,17 @@ const getProviderOptions = (
 
 const normalizeReasoningEffort = (
   options: ModelOptions,
-): "none" | "minimal" | "low" | "medium" | "high" | "xhigh" | undefined => {
-  const providerOptions = getProviderOptions(options);
-  const explicit = providerOptions?.reasoningEffort;
-  if (
-    explicit === "none" ||
-    explicit === "minimal" ||
-    explicit === "low" ||
-    explicit === "medium" ||
-    explicit === "high" ||
-    explicit === "xhigh"
-  ) {
-    return explicit;
+): string | undefined => {
+  const effort =
+    getProviderOptions(options)?.reasoningEffort ?? options.reasoning?.effort;
+  if (effort !== undefined) {
+    if (typeof effort !== "string" || !effort.trim())
+      throw new ProviderConfigurationError(
+        "reasoning effort must be a non-empty string.",
+      );
+    return effort;
   }
-
-  if (options.reasoning === undefined) return undefined;
-  if (options.reasoning.maxTokens === 0) return "none";
-
-  switch (options.reasoning.effort) {
-    case "none":
-      return "none";
-    case "minimal":
-      return "minimal";
-    case "low":
-      return "low";
-    case "medium":
-      return "medium";
-    case "high":
-      return "high";
-    default:
-      return undefined;
-  }
+  return options.reasoning?.maxTokens === 0 ? "none" : undefined;
 };
 
 const normalizeServiceTier = (
