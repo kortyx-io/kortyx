@@ -7,7 +7,7 @@ import type {
   KortyxToolDefinition,
   ProviderModelRef,
 } from "@kortyx/providers";
-import { getHookContext } from "../context";
+import { accumulateTokenUsage, getHookContext } from "../context";
 import type { RunReasonEngineResult } from "../reason-engine";
 import { runReasonEngine } from "../reason-engine";
 import type { KortyxTraceMetadata } from "../tracing";
@@ -53,28 +53,34 @@ export async function reasonEngine(
   throwIfExecutionAborted(abortSignal);
   ctx.node.consumeExecution?.("maxModelPasses");
 
-  return runReasonEngine({
-    model: args.model,
-    input: inputOverride ?? args.input,
-    system: args.system,
-    temperature: args.temperature,
-    maxOutputTokens: args.maxOutputTokens,
-    stopSequences: args.stopSequences,
-    abortSignal,
-    reasoning: args.reasoning,
-    responseFormat: args.responseFormat,
-    providerOptions: args.providerOptions,
-    tools: args.tools,
-    messages: args.messages,
-    defaultTemperature: ctx.node.config?.model?.temperature,
-    stream: args.stream,
-    emit: args.emit,
-    onTextChunk: args.onTextChunk,
-    telemetry: args.telemetry,
-    nodeId: ctx.node.graph.node,
-    emitEvent: ctx.node.emit,
-    reasonTrace: ctx.reasonTrace,
-    id: meta.id,
-    opId: meta.opId,
-  });
+  try {
+    return await runReasonEngine({
+      model: args.model,
+      input: inputOverride ?? args.input,
+      system: args.system,
+      temperature: args.temperature,
+      maxOutputTokens: args.maxOutputTokens,
+      stopSequences: args.stopSequences,
+      abortSignal,
+      reasoning: args.reasoning,
+      responseFormat: args.responseFormat,
+      providerOptions: args.providerOptions,
+      tools: args.tools,
+      messages: args.messages,
+      defaultTemperature: ctx.node.config?.model?.temperature,
+      stream: args.stream,
+      emit: args.emit,
+      onTextChunk: args.onTextChunk,
+      telemetry: args.telemetry,
+      nodeId: ctx.node.graph.node,
+      emitEvent: ctx.node.emit,
+      reasonTrace: ctx.reasonTrace,
+      id: meta.id,
+      opId: meta.opId,
+    });
+  } catch (error) {
+    const usage = (error as Partial<RunReasonEngineResult> | undefined)?.usage;
+    if (usage) accumulateTokenUsage(usage);
+    throw error;
+  }
 }

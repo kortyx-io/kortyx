@@ -41,6 +41,7 @@ describeProviderConformance({
   invoke: {
     createModel: () => {
       const provider = createOpenAI({
+        api: "chat-completions",
         apiKey: "test-key",
         fetch: async (_input, init) => {
           const requestBody = JSON.parse(
@@ -136,6 +137,7 @@ describeProviderConformance({
   stream: {
     createModel: () => {
       const provider = createOpenAI({
+        api: "chat-completions",
         apiKey: "test-key",
         fetch: async (_input, init) => {
           const requestBody = JSON.parse(
@@ -232,6 +234,7 @@ describeProviderConformance({
   abort: {
     createModel: (signal) => {
       const provider = createOpenAI({
+        api: "chat-completions",
         apiKey: "test-key",
         fetch: async (_input, init) => {
           const receivedSignal = init?.signal as AbortSignal | undefined;
@@ -272,6 +275,7 @@ describeProviderFailureConformance({
   providerName: "OpenAI",
   createModel: (fetch) =>
     createOpenAI({
+      api: "chat-completions",
       apiKey: "test-key",
       fetch,
     }).getModel("gpt-4.1-mini"),

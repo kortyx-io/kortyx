@@ -59,6 +59,7 @@ export const createTraceAdapter = (args: {
     }
 
     let ended = false;
+    let failed = false;
     const end = (endArgs?: ReasonTraceSpanEndArgs): void => {
       if (ended) return;
       ended = true;
@@ -109,6 +110,7 @@ export const createTraceAdapter = (args: {
           span,
           ...(parent ? { parentSpanId: parent.spanId } : {}),
           payload: {
+            outcome: failed ? "failed" : "completed",
             provider:
               args.eventMapper.stringValue(attributes.providerId) ?? "unknown",
             model:
@@ -166,6 +168,7 @@ export const createTraceAdapter = (args: {
       end,
       fail: (error, endArgs) => {
         if (ended) return;
+        failed = true;
         if (correlation) {
           args.enqueue(
             args.eventMapper.createEvent({

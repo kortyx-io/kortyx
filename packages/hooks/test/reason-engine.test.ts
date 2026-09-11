@@ -3,6 +3,25 @@ import { runReasonEngine } from "../src/internal";
 import { createProvider } from "./helpers";
 
 describe("runReasonEngine", () => {
+  it("preserves model transport defaults when overriding another provider setting", async () => {
+    const { modelRef } = createProvider({ invokeResponses: ["ok"] });
+    const getModel = vi.spyOn(modelRef.provider, "getModel");
+    modelRef.options = {
+      providerOptions: { openai: { api: "chat-completions", store: false } },
+    };
+    await runReasonEngine({
+      model: modelRef,
+      input: "test",
+      stream: false,
+      providerOptions: { openai: { store: true } },
+    });
+    expect(getModel).toHaveBeenCalledWith(
+      modelRef.modelId,
+      expect.objectContaining({
+        providerOptions: { openai: { api: "chat-completions", store: true } },
+      }),
+    );
+  });
   it("streams text with system prompts, raw chunks, metadata, and stable event ordering", async () => {
     const { modelRef, stream } = createProvider({
       streamResponses: [

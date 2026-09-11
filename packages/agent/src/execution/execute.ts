@@ -69,7 +69,17 @@ export function resultFromOutcome(
       outcome.pending?.schema.meta?.__kortyxResumeStatePatch as
         | { tokenUsage?: import("@kortyx/core").TokenUsage }
         | undefined
-    )?.tokenUsage ?? outcome.state.runtime?.tokenUsage;
+    )?.tokenUsage ??
+    (
+      outcome.error as
+        | {
+            __kortyxHookStatePatch?: {
+              tokenUsage?: import("@kortyx/core").TokenUsage;
+            };
+          }
+        | undefined
+    )?.__kortyxHookStatePatch?.tokenUsage ??
+    outcome.state.runtime?.tokenUsage;
   const info = {
     runId,
     sessionId,

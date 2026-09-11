@@ -34,7 +34,10 @@ const parseErrorMessage = async (response: Response): Promise<string> => {
   }
 };
 
-const assertOk = async (response: Response, action: string): Promise<void> => {
+export const assertOk = async (
+  response: Response,
+  action: string,
+): Promise<void> => {
   if (response.ok) return;
   const message = await parseErrorMessage(response);
   throw new ProviderRequestError(
@@ -76,7 +79,9 @@ const extractSseData = (eventBlock: string): string | undefined => {
   return dataLines.join("\n");
 };
 
-async function* readSseEvents(response: Response): AsyncGenerator<string> {
+export async function* readSseEvents(
+  response: Response,
+): AsyncGenerator<string> {
   const body = response.body;
   if (!body) {
     throw new ProviderRequestError(
@@ -88,25 +93,33 @@ async function* readSseEvents(response: Response): AsyncGenerator<string> {
   const decoder = new TextDecoder();
   let buffer = "";
 
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
 
-    buffer += decoder.decode(value, { stream: true }).replaceAll("\r\n", "\n");
+      buffer = (buffer + decoder.decode(value, { stream: true })).replaceAll(
+        "\r\n",
+        "\n",
+      );
 
-    let split = buffer.indexOf("\n\n");
-    while (split !== -1) {
-      const block = buffer.slice(0, split);
-      buffer = buffer.slice(split + 2);
-      const data = extractSseData(block);
-      if (data) yield data;
-      split = buffer.indexOf("\n\n");
+      let split = buffer.indexOf("\n\n");
+      while (split !== -1) {
+        const block = buffer.slice(0, split);
+        buffer = buffer.slice(split + 2);
+        const data = extractSseData(block);
+        if (data) yield data;
+        split = buffer.indexOf("\n\n");
+      }
     }
-  }
 
-  buffer += decoder.decode().replaceAll("\r\n", "\n");
-  const data = extractSseData(buffer);
-  if (data) yield data;
+    buffer += decoder.decode().replaceAll("\r\n", "\n");
+    const data = extractSseData(buffer);
+    if (data) yield data;
+  } finally {
+    await reader.cancel().catch(() => {});
+    reader.releaseLock();
+  }
 }
 
 const resolveFetch = (

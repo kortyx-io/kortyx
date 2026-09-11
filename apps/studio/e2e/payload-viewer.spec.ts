@@ -9,6 +9,26 @@ const detailDrawer = (page: Page, path: string) =>
 const inspector = (page: Page) => page.locator("[data-detail-inspector]");
 
 test.describe("Payload viewer controls and overlay layering", () => {
+  test("shows Responses transport, effort, finish reason and token details", async ({
+    page,
+  }) => {
+    await openGenerationEventInspector(page);
+    const details = inspector(page);
+    for (const [label, value] of [
+      ["API", "responses"],
+      ["Reasoning effort", "medium"],
+      ["Response status", "completed"],
+      ["Finish reason", "stop"],
+      ["Input tokens", "400"],
+      ["Output tokens", "120"],
+      ["Reasoning tokens", "30"],
+      ["Cached input tokens", "80"],
+    ]) {
+      await expect(
+        details.getByText(label, { exact: true }).locator(".."),
+      ).toContainText(value);
+    }
+  });
   test("supports every representation and toolbar state on a light full-page detail", async ({
     page,
   }) => {
@@ -160,7 +180,7 @@ async function openGenerationEventInspector(page: Page) {
   await page.getByRole("button", { name: /^Events \d+$/ }).click();
   await page
     .getByRole("button", {
-      name: /^gpt-4\.1-mini response completed\./,
+      name: /^gpt-5\.6-luna response completed\./,
     })
     .click();
   await expect(inspector(page)).toBeVisible();

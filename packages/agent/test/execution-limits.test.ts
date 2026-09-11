@@ -255,11 +255,11 @@ it("exposes a limit event and existing Continue UI through chat with one done", 
   });
 });
 
-it("bounds tool batches and replays the active node on Continue without finer checkpoints", async () => {
+it("bounds tool batches and resumes pending calls without repeating completed results", async () => {
   const execute = vi
     .fn(async () => "ok")
     .mockRejectedValueOnce(new Error("tool failed"));
-  // Each restarted reasoning loop starts with the model requesting its tools again.
+  // The resumed reasoning loop retains the original model response and tool results.
   const p = {
     id: "mock",
     models: ["mock"],
@@ -305,9 +305,9 @@ it("bounds tool batches and replays the active node on Continue without finer ch
     }),
   ).toMatchObject({
     status: "completed",
-    usage: { input: 6, output: 9, total: 15 },
+    usage: { input: 4, output: 6, total: 10 },
   });
-  expect(execute).toHaveBeenCalledTimes(3);
+  expect(execute).toHaveBeenCalledTimes(2);
 });
 
 it("counts model retries and cannot turn a caught limit into successful output", async () => {

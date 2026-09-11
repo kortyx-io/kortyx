@@ -76,8 +76,26 @@ const lineItemsCostMicros = (
 const standardUsageItems = (
   payload: Record<string, unknown>,
 ): TelemetryUsageItem[] => {
-  const usage = isRecord(payload.usage) ? payload.usage : undefined;
+  const usage = isRecord(payload.usage) ? { ...payload.usage } : undefined;
   if (!usage) return [];
+  const includesReasoning =
+    usage.outputIncludesReasoning ?? payload.provider === "openai";
+  // Reasoning is billed through output when already included in that count.
+  if (includesReasoning) delete usage.reasoning;
+  if (
+    usage.inputIncludesCacheRead ??
+    ["openai", "google"].includes(String(payload.provider))
+  ) {
+    usage.input = Math.max(
+      0,
+      (asNumber(usage.input) ?? 0) - (asNumber(usage.cacheRead) ?? 0),
+    );
+  }
+  if (usage.inputIncludesCacheWrite)
+    usage.input = Math.max(
+      0,
+      (asNumber(usage.input) ?? 0) - (asNumber(usage.cacheWrite) ?? 0),
+    );
   const mapping: Array<[keyof typeof usage, TelemetryPricingUsageType]> = [
     ["input", "input"],
     ["output", "output"],
@@ -139,6 +157,18 @@ const findRateCard = (
   return rateCards
     .filter(
       (rate) =>
+        (!(
+          isRecord(rate.metadata) &&
+          typeof rate.metadata.maxInputTokens === "number"
+        ) ||
+          ((isRecord(event.payload.usage)
+            ? (asNumber(event.payload.usage.input) ?? Infinity)
+            : Infinity) <= rate.metadata.maxInputTokens &&
+            (!isRecord(event.payload.providerMetadata) ||
+              !event.payload.providerMetadata.serviceTier ||
+              ["default", "auto"].includes(
+                String(event.payload.providerMetadata.serviceTier),
+              )))) &&
         normalize(rate.provider) === normalize(provider) &&
         normalize(rate.model) === normalize(model) &&
         rate.effectiveFrom <= event.occurredAt &&

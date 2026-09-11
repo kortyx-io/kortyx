@@ -194,7 +194,12 @@ const usageTotal = (payload: Record<string, unknown>): number | null => {
   const input = asNumber(usage.input) ?? 0;
   const output = asNumber(usage.output) ?? 0;
   const reasoning = asNumber(usage.reasoning) ?? 0;
-  const computed = input + output + reasoning;
+  const computed =
+    input +
+    output +
+    ((usage.outputIncludesReasoning ?? payload.provider === "openai")
+      ? 0
+      : reasoning);
   return computed > 0 ? computed : null;
 };
 

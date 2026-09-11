@@ -1,6 +1,7 @@
 export const PROVIDER_ID = "openai" as const;
 
 export const MODELS = [
+  "gpt-5.6-luna",
   "gpt-5.4",
   "gpt-5.4-mini",
   "gpt-5.4-nano",

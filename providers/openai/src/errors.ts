@@ -19,6 +19,7 @@ export const toProviderRequestError = (
   action: string,
   error: unknown,
 ): ProviderRequestError => {
+  if (error instanceof ProviderRequestError) return error;
   const message = error instanceof Error ? error.message : String(error);
   return new ProviderRequestError(
     `OpenAI provider failed to ${action}: ${message}`,
