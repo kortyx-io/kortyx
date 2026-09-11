@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.22.0](https://github.com/kortyx-io/kortyx/compare/hooks-v0.21.0...hooks-v0.22.0) (2026-09-11)
+
+
+### Features
+
+* complete client responses while workflows continue in background ([#165](https://github.com/kortyx-io/kortyx/issues/165)) ([a8a08cd](https://github.com/kortyx-io/kortyx/commit/a8a08cd1e9533e4b44efa4af54a2d2cec54431ae))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/telemetry-contracts bumped to 0.5.0
+
 ## [0.21.0](https://github.com/kortyx-io/kortyx/compare/hooks-v0.20.0...hooks-v0.21.0) (2026-09-10)
 
 

@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.15.0](https://github.com/kortyx-io/kortyx/compare/runtime-v0.14.0...runtime-v0.15.0) (2026-09-11)
+
+
+### Features
+
+* complete client responses while workflows continue in background ([#165](https://github.com/kortyx-io/kortyx/issues/165)) ([a8a08cd](https://github.com/kortyx-io/kortyx/commit/a8a08cd1e9533e4b44efa4af54a2d2cec54431ae))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/hooks bumped to 0.22.0
+
 ## [0.14.0](https://github.com/kortyx-io/kortyx/compare/runtime-v0.13.0...runtime-v0.14.0) (2026-09-10)
 
 
