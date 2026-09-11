@@ -124,3 +124,21 @@ the checkpoint with a fresh allowance at the saved ceilings. Ordinary human
 resumes preserve spent allowance. Active node code/tools can replay; completed
 checkpoints and saved child results are reused. These activity caps are not dollar
 budgets. Never trust client-provided caps.
+
+## Background review example
+
+Open `/background` to receive a response that closes before analysis and human review.
+Click Start example, then Refresh pending reviews after a moment; Save/Skip resumes
+the workflow through the app's own `/api/background/interrupts` endpoint. No model
+credentials or Studio required. The HTTP-only cookie scopes this demo; production
+apps must authenticate and authorize users. Resume tokens stay server-side.
+
+The route registers `onExecution` with Next `after` so the closed response does not
+end its active attempt. Host time limits still apply; this is not a durable worker.
+Set `KORTYX_REDIS_URL` for persistence across process reconstruction (see adapter
+environment settings). A review waits only for the configured execution TTL.
+
+Optional Studio connection uses `KORTYX_TELEMETRY_API_URL` (or `KORTYX_API_URL`),
+`KORTYX_TELEMETRY_API_KEY`, and `KORTYX_TELEMETRY_CAPTURE_CONTENT=true` to show example
+questions. Inspect Response: Completed while execution is waiting, then the flagged
+interrupt and its resolved state. Studio remains read-only.

@@ -116,6 +116,7 @@ function eventTitle(
   if (event.type === "tool.started") return `${tool} tool started`;
   if (event.type === "tool.completed") return `${tool} tool completed`;
   if (event.type === "tool.failed") return `${tool} tool failed`;
+  if (event.type === "response.completed") return "Client response completed";
   if (event.type === "interrupt.created") return "Human input requested";
   if (event.type === "interrupt.resolved") return "Human input received";
   if (event.type === "interrupt.expired") return "Human input request expired";

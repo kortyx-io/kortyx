@@ -12,6 +12,10 @@ export type {
   ExecutionInfo,
   ExecutionInterrupt,
   ExecutionResult,
+  InterruptScope,
+  ListInterruptsOptions,
+  PendingInterrupt,
+  ResumableInterrupt,
   ResumeHandle,
   ResumeOptions,
   ResumeResponse,
@@ -64,6 +68,8 @@ export type {
   UseStructuredDataArgs,
 } from "@kortyx/hooks";
 export {
+  type CompleteResponseOptions,
+  completeResponse,
   createWorkflowHooks,
   useAbortSignal,
   useInterrupt,

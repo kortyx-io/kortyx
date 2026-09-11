@@ -482,6 +482,9 @@ importers:
       '@kortyx/react':
         specifier: workspace:*
         version: link:../../packages/react
+      '@kortyx/telemetry':
+        specifier: workspace:*
+        version: link:../../packages/telemetry
       '@radix-ui/react-avatar':
         specifier: ^1.1.10
         version: 1.1.11(@types/react-dom@19.2.3(@types/react@19.2.7))(@types/react@19.2.7)(react-dom@19.2.1(react@19.2.1))(react@19.2.1)

@@ -117,11 +117,13 @@ export function parseCheckpointRequestBody(
 
 export async function handleChatRequestBody(args: {
   abortSignal?: AbortSignal | undefined;
+  onExecution?: ((completion: Promise<void>) => void) | undefined;
   agent: Agent;
   body: ChatRequestBody;
 }): Promise<Response> {
   const { agent, body } = args;
   const stream = await agent.streamChat(body.messages, {
+    ...(args.onExecution ? { onExecution: args.onExecution } : {}),
     ...(args.abortSignal ? { abortSignal: args.abortSignal } : {}),
     sessionId: body.sessionId,
     workflowId: body.workflowId,
@@ -141,6 +143,7 @@ export async function handleChatRequestBody(args: {
 }
 
 export function createChatRouteHandler(args: {
+  onExecution?: ((completion: Promise<void>) => void) | undefined;
   agent: Agent;
   errorStatus?: number | undefined;
 }): (request: Request) => Promise<Response> {
@@ -153,6 +156,7 @@ export function createChatRouteHandler(args: {
         agent,
         body,
         abortSignal: request.signal,
+        onExecution: args.onExecution,
       });
     } catch (error) {
       return new Response(

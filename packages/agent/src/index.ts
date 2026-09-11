@@ -32,6 +32,12 @@ export type {
 } from "./execution/types";
 export { ExecutionRequestError } from "./execution/types";
 export type {
+  InterruptScope,
+  ListInterruptsOptions,
+  PendingInterrupt,
+  ResumableInterrupt,
+} from "./interrupt/discovery";
+export type {
   ApplyResumeSelection,
   ResumeMeta,
 } from "./interrupt/resume-handler";

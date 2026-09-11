@@ -109,6 +109,35 @@ const revision = (
 };
 
 describe("Studio read model projection", () => {
+  it.each([
+    true,
+    false,
+    undefined,
+  ])("keeps response completion separate from pending execution (%s)", (responseCompleted) => {
+    const models = createStudioReadModelsFromRecords({
+      revisions: [revision()],
+      rates: [],
+      events: [
+        event(0, { eventId: "response", type: "response.completed" }),
+        event(100, {
+          eventId: "pending",
+          type: "interrupt.created",
+          payload: {
+            interruptId: "background-review",
+            kind: "text",
+            responseCompleted,
+          },
+        }),
+      ],
+    });
+    expect(models.runs[0]).toMatchObject({ status: "interrupted" });
+    expect(models.interrupts[0]).toMatchObject({
+      id: "background-review",
+      status: "pending",
+      afterResponseCompleted: responseCompleted === true,
+    });
+  });
+
   it("keeps an interrupted run interrupted and derives node metrics from checkpoints", () => {
     const models = createStudioReadModelsFromRecords({
       revisions: [revision()],

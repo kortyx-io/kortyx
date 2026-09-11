@@ -7,6 +7,7 @@ export const TELEMETRY_EVENT_TYPES = [
   "tool.started",
   "tool.completed",
   "tool.failed",
+  "response.completed",
   "interrupt.created",
   "interrupt.resolved",
   "interrupt.expired",
@@ -575,6 +576,7 @@ export const StudioSessionSchema = z
   .strict();
 export const StudioInterruptSchema = z
   .object({
+    afterResponseCompleted: z.boolean().optional(),
     id: z.string().min(1),
     status: StudioInterruptStatusSchema,
     type: StudioInterruptTypeSchema,

@@ -38,6 +38,12 @@ interface CompiledGraphBase {
 }
 
 export type ExecutionControl = {
+  completeResponse?:
+    | ((
+        options: import("@kortyx/hooks").CompleteResponseOptions,
+        state: GraphState,
+      ) => Promise<void>)
+    | undefined;
   abortSignal?: AbortSignal | undefined;
   budget?: import("@kortyx/core").ExecutionBudget | undefined;
 };
@@ -197,6 +203,9 @@ export async function createExecutionGraph(
       };
       let suspension: unknown;
       const hookNodeContext = {
+        completeResponse: runtimeConfig.workflowCallDepth
+          ? undefined
+          : execution.completeResponse,
         abortSignal: execution.abortSignal,
         consumeExecution: (limit: import("@kortyx/core").ExecutionLimit) => {
           throwIfExecutionAborted(execution.abortSignal);

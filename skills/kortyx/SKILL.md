@@ -1,6 +1,6 @@
 ---
 name: kortyx
-description: Use when building, reviewing, documenting, or architecting apps with Kortyx. Covers Kortyx Studio local setup and telemetry connection, hooks, useReason, useWorkflow child calls, interrupts, structured streaming, runtime context, Next.js API routes and server actions, separate React + Node apps, folder structure, runtime persistence, session checkpoints/rollback/fork, OpenTelemetry observability, Langfuse export, @kortyx/react, useChat, transports, and streamed chat rendering.
+description: Use when building, reviewing, documenting, or architecting apps with Kortyx. Covers Kortyx Studio local setup and telemetry connection, hooks, useReason, useWorkflow child calls, interrupts, completeResponse background continuation, scoped interrupt discovery, structured streaming, runtime context, Next.js API routes and server actions, separate React + Node apps, folder structure, runtime persistence, session checkpoints/rollback/fork, OpenTelemetry observability, Langfuse export, @kortyx/react, useChat, transports, and streamed chat rendering.
 ---
 
 # Kortyx
@@ -20,6 +20,8 @@ Use this skill when a task involves using Kortyx correctly in an application.
 ## Topic Router
 
 Architecture:
+
+- `references/response-completion.md`: completeResponse, background continuation, host lifetime, scoped listInterrupts/getInterrupt discovery and independent approval interfaces.
 
 - `references/workflow-execution.md`: typed `agent.execute` / `agent.resume`, separate HTTP entry points, outcomes, cancellation signals, shared execution limits/Continue, and durable human approval.
 
@@ -54,6 +56,7 @@ React client:
 ## Core Rules
 
 - Use `useWorkflow(...)` for registered child calls that return to their caller. Read `references/hooks-child-workflows.md` before implementing call contracts or replay behavior; no special call edges are needed.
+- For response completion/background human review, read `references/response-completion.md`; keep useInterrupt unchanged and Studio optional/read-only.
 - Use Next.js API routes or a Node HTTP backend for live SSE streaming.
 - Use Server Actions only for buffered/non-live flows.
 - Put provider credentials/configuration, `createAgent(...)`, workflows, nodes, and runtime persistence on the server.

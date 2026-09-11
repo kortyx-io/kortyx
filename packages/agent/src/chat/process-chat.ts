@@ -26,6 +26,8 @@ export interface RuntimeConfig {
 
 export interface StreamChatArgs<Options> {
   abortSignal?: AbortSignal | undefined;
+  executionSignal?: AbortSignal | undefined;
+  onExecution?: ((completion: Promise<void>) => void) | undefined;
   messages: ChatMessage[];
   options?: Options | undefined;
   sessionId?: string;
@@ -44,6 +46,8 @@ export interface StreamChatArgs<Options> {
 export async function streamChat<Options = unknown>({
   messages,
   abortSignal,
+  executionSignal,
+  onExecution,
   options,
   sessionId,
   defaultWorkflowId,
@@ -103,6 +107,8 @@ export async function streamChat<Options = unknown>({
 
   const resumeStream = await tryPrepareResumeStream({
     abortSignal,
+    executionSignal,
+    onExecution,
     lastMessage: last,
     sessionId: resolvedSessionId,
     config: runtimeConfig,
@@ -195,6 +201,8 @@ export async function streamChat<Options = unknown>({
 
   const orchestratedStream = await orchestrateGraphStream({
     abortSignal,
+    executionSignal,
+    onExecution,
     sessionId: resolvedSessionId,
     runId,
     graph,

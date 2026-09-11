@@ -1,5 +1,9 @@
 import { createAgent } from "kortyx";
 import {
+  backgroundAnalyticsWorkflow,
+  backgroundReviewWorkflow,
+} from "@/workflows/background-review.workflow";
+import {
   briefApprovalWorkflow,
   briefReviewWorkflow,
 } from "@/workflows/brief-review.workflow";
@@ -18,9 +22,13 @@ import { reasonStructuredMultiStreamWorkflow } from "@/workflows/reason-structur
 import { reasonStructuredStreamWorkflow } from "@/workflows/reason-structured-stream.workflow";
 import { reasonStructuredWildcardStreamWorkflow } from "@/workflows/reason-structured-wildcard-stream.workflow";
 import { threeStepsWorkflow } from "@/workflows/three-steps.workflow";
+import { telemetry } from "./telemetry";
 
 export const agent = createAgent({
+  telemetry,
   workflows: [
+    backgroundReviewWorkflow,
+    backgroundAnalyticsWorkflow,
     generalChatWorkflow,
     limitDemoWorkflow,
     limitStepWorkflow,

@@ -154,3 +154,13 @@ Use this entry for client-only bundles where you want to avoid Node-only runtime
 ## Workflow execution
 
 `agent.execute({ workflow, input, sessionId?, context? })` returns a typed `ExecutionResult` for a registered workflow with input/output schemas. `agent.resume({ workflow, resume, response })` continues a suspended execution, including nested children. Outcomes are `completed`, `suspended`, `cancelled`, or `failed`; invalid commands reject with `ExecutionRequestError`. See [Execute and Resume Workflows](../03-guides/07-workflow-execution.md).
+
+## Response completion and pending interrupts
+
+- `completeResponse(options?: { message?: string; data?: unknown }): Promise<void>`: close chat output from a root node, continuing execution.
+- `agent.listInterrupts({ sessionId?, runId?, context?, status?: "pending", afterResponseCompleted? })`: list ready, unexpired public interrupt summaries. Supply at least one nonempty authorized scope.
+- `agent.getInterrupt(id, { sessionId?, runId?, context? })`: lookup within scope; returns null or the summary plus a private server-only resume handle.
+- `agent.streamChat(messages, { onExecution?, executionSignal?, ... })`: observe attempt completion for host lifetime and independently control server cancellation.
+- `createChatRouteHandler({ agent, onExecution? })`: connect chat attempt lifetime to the hosting framework.
+
+Existing useInterrupt and agent.resume APIs remain unchanged. See the [complete guide](/docs/guides/background-continuation) for ordering, checkpoints, scope authorization, parallel branches, and Studio's optional read-only role.

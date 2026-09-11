@@ -6,6 +6,7 @@ const projectRoot = fileURLToPath(new URL(".", import.meta.url));
 export default defineConfig({
   resolve: {
     alias: {
+      "server-only": `${projectRoot}node_modules/next/dist/compiled/server-only/empty.js`,
       "@": `${projectRoot}src`,
     },
   },

@@ -31,6 +31,12 @@ type HookStatePatchedError = {
 };
 
 export type HookNodeRuntimeContext = {
+  completeResponse?:
+    | ((
+        options: import("./complete-response").CompleteResponseOptions,
+        state: GraphState,
+      ) => Promise<void>)
+    | undefined;
   /** Transient execution control; never part of checkpointed state. */
   abortSignal?: AbortSignal | undefined;
   consumeExecution?:
@@ -263,4 +269,14 @@ export function getHookContext(): HookInternalContext {
     throw new Error("Hooks can only be used while a node is executing.");
   }
   return ctx;
+}
+
+/** Include hook state already written in this node, excluding future node returns. */
+export function snapshotHookState(): GraphState {
+  const ctx = getHookContext();
+  return {
+    ...ctx.state,
+    lastNode: ctx.node.graph.node,
+    runtime: { ...ctx.state.runtime, ...buildRuntimeStateUpdates(ctx) },
+  };
 }

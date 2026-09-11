@@ -291,3 +291,7 @@ usage is added.
 
 Try `/limits` in the simple Next.js API-route example. It pauses before its second
 child invocation, then Continue reuses the first child's result and completes.
+
+## Complete a response before execution finishes
+
+See [Background Continuation](/docs/guides/background-continuation) for `completeResponse()`, independent execution lifetime, and discovering human requests through `agent.listInterrupts()` without Studio. A `done` chunk ends client delivery; it does not prove successful execution.
