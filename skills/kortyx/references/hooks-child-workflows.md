@@ -82,7 +82,7 @@ Parent and child have isolated input/data and node/workflow state. Pass explicit
 ## Preserve replay semantics
 
 - Await calls sequentially or use `parallel([useWorkflow(...), useWorkflow(...)])` from `kortyx`. It preserves tuple inference and input order. Await each group before the next group in the same node. Children can use their own nested groups. Native `Promise.all` child calls and parallel edges in calling/called graphs remain unsupported.
-- `parallel` drains siblings before suspension, stores every waiting child and presents their questions one at a time through the existing parent handle. Completed/failed siblings stay cached. Preserve group order, membership and explicit call IDs through replay. No separate child resume endpoint, multi-answer command, concurrency option or factory overload is available.
+- `parallel` waits for every sibling to finish, fail or suspend before exposing the parent's approval request. A still-running sibling delays that request; approval delivery is not immediate while sibling work continues. Every waiting child is saved, but questions are presented one at a time through the existing parent handle, not as a batch. Completed/failed siblings stay cached. Preserve group order, membership and explicit call IDs through replay. No separate child resume endpoint, multi-answer command, concurrency option or factory overload is available.
 - Catch `ParallelError` for terminal group failure: its `errors` contains failures and `results` contains standard fulfilled/rejected entries in input order. Propagate suspension/cancellation/limit control flow. Child allowances and cancellation remain shared with the root.
 - Give each call a distinct stable ID in the current node activation. A helper accepts its ID from its caller. Do not generate IDs randomly or from timestamps during replay.
 - Keep call order, target, and input stable through pauses. A graph loop re-entering a completed node creates a fresh invocation even with the same call ID.
@@ -91,6 +91,8 @@ Parent and child have isolated input/data and node/workflow state. Pass explicit
 - External writes need idempotency keys or application transactions. A `useNodeState` flag and an external write are not atomic with each other. Moving a write after an interrupt does not by itself protect it from a later pause or rollback.
 - A `WorkflowCallError` can be handled by the parent. A suspension is control flow and must propagate; catching it cannot commit fallback output. Cached child failures are reused on parent retry. A deliberate child retry uses a distinct stable attempt ID and a bounded policy.
 - Input/output must be JSON values. Reject undefined, non-finite numbers, dates, maps, functions, and cycles. Keep snapshots small. Limits: 16 nested levels, 64 calls per node activation.
+
+For example, if company research asks for approval at 2 seconds and role research finishes at 60 seconds, the parent exposes the approval at about 60 seconds. If both children ask for approval, answer the first question through the parent, then use the fresh handle returned with the next question. Concurrent child execution does not imply simultaneous approval delivery. Applications can preserve dependency waves by awaiting one `parallel` group before starting the next inside a node; this does not require parallel graph edges.
 
 ## Persistence and branches
 

@@ -77,7 +77,7 @@ export {
 
 `useWorkflow({ id, workflow, input })` returns a promise of `{ data }`. Typed definitions and bound registries infer input/output from the child's schemas; dynamic unbound strings return `Record<string, unknown>`. `WorkflowCallError` represents a rejected child invocation. See [Call Child Workflows](../03-guides/06-child-workflows.md).
 
-`parallel([useWorkflow(...), useWorkflow(...)])` returns an inferred result tuple in input order. It joins independent children under shared execution control and preserves their snapshots before suspension. `ParallelError.results` exposes terminal fulfilled/rejected outcomes; interrupts, cancellation and limits remain control flow. Multiple child questions use the existing parent resume handle one at a time.
+`parallel([useWorkflow(...), useWorkflow(...)])` returns an inferred result tuple in input order. It joins independent children under shared execution control and preserves their snapshots before suspension. `ParallelError.results` exposes terminal fulfilled/rejected outcomes; interrupts, cancellation and limits remain control flow. The parent exposes approval only after every sibling finishes, fails or suspends, so a still-running sibling delays the request. Multiple child questions use the existing parent resume handle one at a time; immediate and batched approval delivery are not supported. See [parallel child workflows](../03-guides/06-child-workflows.md#run-independent-children-in-parallel).
 
 ## Providers
 
