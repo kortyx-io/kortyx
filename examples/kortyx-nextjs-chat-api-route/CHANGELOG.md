@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.21.0](https://github.com/kortyx-io/kortyx/compare/example-nextjs-chat-api-route-v0.20.1...example-nextjs-chat-api-route-v0.21.0) (2026-09-11)
+
+
+### Features
+
+* **hooks:** support durable parallel child workflows ([#171](https://github.com/kortyx-io/kortyx/issues/171)) ([fdf2d56](https://github.com/kortyx-io/kortyx/commit/fdf2d564d88e921988e8f3e20da9fe0c30bbcdf9))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * kortyx bumped to 0.19.0
+    * @kortyx/telemetry bumped to 0.5.2
+
 ## [0.20.1](https://github.com/kortyx-io/kortyx/compare/example-nextjs-chat-api-route-v0.20.0...example-nextjs-chat-api-route-v0.20.1) (2026-09-11)
 
 
