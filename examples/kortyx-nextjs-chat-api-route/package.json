@@ -26,7 +26,8 @@
     "redis:logs": "docker logs -f kortyx-redis",
     "redis:cli": "redis-cli -h 127.0.0.1 -p ${KORTYX_REDIS_PORT:-6379}",
     "test": "vitest run --passWithNoTests && pnpm -s type-check",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "test:parallel:e2e": "node scripts/parallel-api.e2e.mjs"
   },
   "dependencies": {
     "@kortyx/anthropic": "workspace:*",

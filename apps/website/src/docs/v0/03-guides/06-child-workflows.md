@@ -158,6 +158,37 @@ Child graph checkpoints travel inside the parent's saved hook state. When the pa
 
 Code surrounding a hook can replay, including code in `catch` and `finally`. Keep call order and input stable. Use idempotency keys for external writes; a flag in runtime state alone does not make a write atomic with a checkpoint. A child failure rejects with `WorkflowCallError`; a parent can handle that error, but catching a suspension cannot turn a waiting call into a successful fallback.
 
+## Run independent children in parallel
+
+Use `parallel` from `kortyx` inside a node. Each child keeps its own schemas and stable call ID; the returned tuple follows the input order:
+
+```ts
+import { parallel, useWorkflow } from "kortyx";
+
+const [company, role] = await parallel([
+  useWorkflow({
+    id: "company",
+    workflow: companyResearchWorkflow,
+    input: { companyId },
+  }),
+  useWorkflow({
+    id: "role",
+    workflow: roleAnalysisWorkflow,
+    input: { roleId },
+  }),
+]);
+
+return { data: { company: company.data, role: role.data } };
+```
+
+Register both schema-bearing children with the parent agent. Await each group before starting a dependent group in the same node. A child can itself call `parallel` for its own children. Keep group order, membership, call IDs and inputs stable through replay. Call the helper directly around the child calls so it owns them before they dispatch.
+
+The join waits for every sibling to finish, fail or suspend before exposing a parent pause. If several children interrupt, all their snapshots are saved; their questions are presented one at a time through the existing parent resume handle. Completed and failed children are cached, and each answer is routed to its own child. A slow running sibling delays the parent suspension. Graph and external-effect durability remain checkpoint-based.
+
+If children fail, `parallel` throws `ParallelError` after the group settles. Its `errors` contains the failures and its `results` contains standard fulfilled/rejected entries in input order, allowing application reconciliation. A waiting sibling is preserved before terminal failures are delivered. Suspension, cancellation and execution-limit exhaustion propagate as control flow and cannot become successful fallback output. Use `instanceof ParallelError` when catching task failures; do not swallow other errors.
+
+Children share the root signal and node/model/tool/child allowances. Cached work is not charged again. Continue remains an explicit server-authorized allowance decision. This helper has no concurrency-cap option: its array contains eager calls. Overlapping groups in the same node, native `Promise.all` child calls, and parallel edges in calling/called graphs remain unsupported.
+
 ## Fork, rollback, and persistence
 
 Use the existing [session checkpoint APIs](./05-session-checkpoints.md). A fork made while a child is waiting contains the nested waiting chain. Snapshot-backed forks get separate run IDs and resume tokens, so source and fork can answer differently. Rollback restores the selected child checkpoint and pending writes. It does not undo changes already made to your application database.
@@ -168,7 +199,7 @@ The saved runtime context is retained during resume. New client history or picke
 
 ## Limits and migration
 
-- Calls are sequential: await each call. `Promise.all` child calls and parallel edges in calling/called workflows are rejected.
+- Await calls sequentially or join independent calls with `parallel([...])`. Native `Promise.all` child calls and parallel edges in calling/called workflows are rejected.
 - Use a unique, stable call `id` within each node activation. Re-entering a node through a graph loop starts a fresh child invocation. The limits are 64 calls per node activation and 16 nested child levels.
 - Child input and output must be JSON values. Avoid `undefined`, functions, dates, maps, cycles, and non-finite numbers.
 - Each child has isolated input, accumulated data, node state, and workflow state. Server runtime context, provider access, and tracing are inherited.

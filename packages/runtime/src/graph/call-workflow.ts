@@ -208,17 +208,26 @@ export function createWorkflowCallService(
             }),
         )) as GraphState;
       } catch (error) {
-        throwIfExecutionAborted(execution.abortSignal);
+        const checkpoint = await captureGraphSnapshot(saver, threadId);
+        const state = checkpoint?.checkpoint.channel_values as
+          | GraphState
+          | undefined;
+        const patch = (
+          error as { __kortyxHookStatePatch?: Record<string, unknown> } | null
+        )?.__kortyxHookStatePatch;
+        const usage = (patch?.tokenUsage ?? state?.runtime.tokenUsage) as
+          | TokenUsage
+          | undefined;
+        if (error && typeof error === "object")
+          Object.assign(error, { __kortyxChildUsage: usage });
+        try {
+          throwIfExecutionAborted(execution.abortSignal);
+        } catch (cancelled) {
+          Object.assign(cancelled as object, { __kortyxChildUsage: usage });
+          throw cancelled;
+        }
         if (isExecutionLimitReached(error)) {
-          const checkpoint = await captureGraphSnapshot(saver, threadId);
-          if (checkpoint) {
-            const state = checkpoint.checkpoint
-              .channel_values as unknown as GraphState;
-            const patch = (
-              error as unknown as {
-                __kortyxHookStatePatch?: Record<string, unknown>;
-              }
-            ).__kortyxHookStatePatch;
+          if (checkpoint && state) {
             if (patch) state.runtime = { ...state.runtime, ...patch };
             Object.assign(error, {
               __kortyxChildSnapshot: {

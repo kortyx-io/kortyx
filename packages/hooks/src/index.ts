@@ -28,6 +28,7 @@ export {
   useStructuredData,
   useWorkflowState,
 } from "./hooks";
+export { ParallelError, parallel } from "./parallel";
 export type {
   EnsureWorkflowTopologyRequest,
   EnsureWorkflowTopologyResponse,

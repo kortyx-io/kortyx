@@ -111,6 +111,47 @@ The example also has `/execute` and `/resume` pages, backed by `POST /api/execut
 
 Set `KORTYX_REDIS_URL` when running separate server processes or retaining pauses across restarts. The example keeps its private pending handle in browser session storage only to demonstrate navigation; a production approval inbox should store and authorize requests on the server. `/api/chat` retains its existing SSE/buffered contract.
 
+## Parallel child workflows over HTTP
+
+`src/workflows/parallel-demo.workflow.ts` uses `parallel([useWorkflow(...), useWorkflow(...)])`
+to research a company and role concurrently, then join their results. The work is
+deterministic and requires no model credentials. Each child can request its own approval.
+
+With the example running, start it through `POST /api/parallel`:
+
+```json
+{
+  "action": "execute",
+  "input": {
+    "companyId": "Acme",
+    "roleId": "Engineer",
+    "requireApproval": true
+  }
+}
+```
+
+Pass the returned `resume` object back to the same endpoint with `action: "resume"`
+and `response: { "type": "select", "ids": ["approve"] }` (or `"decline"`). The parent
+presents each pending child approval in turn. Use the new handle returned after
+each suspension. Set `requireApproval: false` for an immediate completed result.
+Add `limited: true` alongside `action` to exercise the server's fixed allowance of
+one child invocation and an explicit Continue decision.
+
+Run the automated HTTP E2E checks from the repository root:
+
+```bash
+pnpm exec turbo run build --filter='@kortyx/example-nextjs-chat-api-route^...'
+pnpm --filter @kortyx/example-nextjs-chat-api-route test:parallel:e2e
+```
+
+The runner requires `redis-server` on PATH. It starts isolated Redis and Next.js
+processes on available loopback ports, restarts Next.js between suspension and
+resume, and cleans up its processes and temporary build files. It verifies
+concurrent starts, ordered results, separate approval answers, reuse of completed
+research across restart, stale-handle rejection, shared limits and Continue,
+child failure, and invalid input. These tests use real HTTP and Redis; they do
+not call a model provider or exercise the browser UI.
+
 
 ### Limits and Continue
 

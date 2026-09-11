@@ -1,6 +1,7 @@
 import { defineWorkflow } from "@kortyx/core";
 import { expectTypeOf, it } from "vitest";
 import { z } from "zod";
+import { parallel } from "../src/parallel";
 import { createWorkflowHooks, useWorkflow } from "../src/workflow";
 
 const research = defineWorkflow({
@@ -15,6 +16,14 @@ const research = defineWorkflow({
 // Checked by tsc, never executed outside a node context.
 async function typeChecks() {
   const { useWorkflow: call } = createWorkflowHooks({ research });
+  const [typed, other] = await parallel([
+    call({ id: "parallel", workflow: "research", input: { topic: "test" } }),
+    Promise.resolve({ count: 1 }),
+  ]);
+  expectTypeOf(typed.data.sources).toEqualTypeOf<string[]>();
+  expectTypeOf(other.count).toEqualTypeOf<number>();
+  // @ts-expect-error The tuple preserves each entry's type.
+  typed.count;
   const result = await call({
     id: "a",
     workflow: "research",

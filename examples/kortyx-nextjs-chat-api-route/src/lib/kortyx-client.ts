@@ -17,6 +17,11 @@ import {
   limitStepWorkflow,
 } from "@/workflows/limit-demo.workflow";
 import { mcpLoremDemoWorkflow } from "@/workflows/mcp-lorem-demo.workflow";
+import {
+  companyResearchWorkflow,
+  parallelDemoWorkflow,
+  roleAnalysisWorkflow,
+} from "@/workflows/parallel-demo.workflow";
 import { reasonInterruptStructuredWorkflow } from "@/workflows/reason-interrupt-structured.workflow";
 import { reasonStructuredMultiStreamWorkflow } from "@/workflows/reason-structured-multi-stream.workflow";
 import { reasonStructuredStreamWorkflow } from "@/workflows/reason-structured-stream.workflow";
@@ -28,6 +33,9 @@ export const agent = createAgent({
   telemetry,
   workflows: [
     backgroundReviewWorkflow,
+    parallelDemoWorkflow,
+    companyResearchWorkflow,
+    roleAnalysisWorkflow,
     backgroundAnalyticsWorkflow,
     generalChatWorkflow,
     limitDemoWorkflow,

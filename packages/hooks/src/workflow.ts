@@ -12,6 +12,11 @@ import {
 import type { z } from "zod";
 import { accumulateTokenUsage, getHookContext } from "./context";
 import { awaitInterruptInternal } from "./interrupt";
+import {
+  ParallelChildWaiting,
+  registerWorkflowTask,
+  type WorkflowTask,
+} from "./parallel";
 import { emitWorkflowCall, workflowCallContent } from "./workflow-telemetry";
 
 export type WorkflowCallOutcome =
@@ -38,7 +43,8 @@ export type WorkflowCallService = (args: {
   callerNodeExecutionId?: string | undefined;
 }) => Promise<WorkflowCallOutcome>;
 
-type CallRecord = {
+export type CallRecord = {
+  parallelKey?: string;
   usage?: TokenUsage;
   fingerprint: string;
   sequence?: number;
@@ -133,6 +139,29 @@ export async function useWorkflow(args: {
   workflow: string | SchematizedWorkflow;
   input: unknown;
 }): Promise<{ data: Record<string, unknown> }> {
+  const task = registerWorkflowTask(args.id);
+  try {
+    // Give the enclosing parallel([...]) call a chance to claim the eager calls.
+    await Promise.resolve();
+    if (task.group) await task.group.ready;
+    return await runWorkflowCall(args, task);
+  } catch (error) {
+    if (isExecutionCancelled(error) || isExecutionLimitReached(error))
+      getHookContext().workflowControlError = error;
+    throw error;
+  } finally {
+    task.finish();
+  }
+}
+
+async function runWorkflowCall(
+  args: {
+    id: string;
+    workflow: string | SchematizedWorkflow;
+    input: unknown;
+  },
+  task: WorkflowTask,
+): Promise<{ data: Record<string, unknown> }> {
   const ctx = getHookContext();
   throwIfExecutionAborted(ctx.node.abortSignal);
   const service = ctx.node.callWorkflow;
@@ -140,9 +169,9 @@ export async function useWorkflow(args: {
     throw new Error("useWorkflow requires an agent workflow registry.");
   if (!args.id.trim())
     throw new Error("useWorkflow requires a stable, nonempty id.");
-  if (ctx.workflowCallActive)
+  if (ctx.workflowCallActive && !task.group)
     throw new Error(
-      "Concurrent workflow calls are not supported; await each call.",
+      "Concurrent workflow calls require parallel([...]); otherwise await each call.",
     );
   if (ctx.workflowCallIds.has(args.id))
     throw new Error(
@@ -164,6 +193,11 @@ export async function useWorkflow(args: {
   });
   const key = `__useWorkflow:${args.id}`;
   let record = ctx.currentNodeState.byKey[key] as CallRecord | undefined;
+  if (record && record.parallelKey !== task.group?.key)
+    throw new WorkflowCallError(
+      workflow,
+      "parallel call membership changed during replay",
+    );
   if (record && record.fingerprint !== fingerprint)
     throw new WorkflowCallError(
       workflow,
@@ -175,10 +209,11 @@ export async function useWorkflow(args: {
     invocationId: randomUUID(),
     status: "running",
     interrupts: [],
+    ...(task.group ? { parallelKey: task.group.key } : {}),
   };
   ctx.currentNodeState.byKey[key] = record;
   ctx.stateDirty = true;
-  ctx.workflowCallActive = true;
+  if (!task.group) ctx.workflowCallActive = true;
   const telemetry = ctx.node.workflowCallTelemetry;
   const activationKey = "__useWorkflowActivation";
   ctx.currentNodeState.byKey[activationKey] ??= randomUUID();
@@ -231,7 +266,7 @@ export async function useWorkflow(args: {
   try {
     // Replay every bridged interrupt, even for a completed call. The parent
     // graph assigns resume values by interrupt position within its node.
-    for (const interruption of record.interrupts) {
+    for (const interruption of task.group ? [] : record.interrupts) {
       interruption.response = await awaitInterruptInternal({
         request: interruption.request,
         ...(interruption.request.meta
@@ -241,6 +276,12 @@ export async function useWorkflow(args: {
     }
     if (record.status === "failed")
       throw new WorkflowCallError(workflow, record.error ?? "child failed");
+    if (
+      task.group &&
+      record.status === "interrupted" &&
+      record.interrupts.at(-1)?.response === undefined
+    )
+      throw new ParallelChildWaiting();
     while (record.status !== "completed") {
       let outcome: WorkflowCallOutcome;
       try {
@@ -261,16 +302,16 @@ export async function useWorkflow(args: {
             : {}),
         });
       } catch (error) {
+        const child = error as {
+          __kortyxChildSnapshot?: unknown;
+          __kortyxChildUsage?: TokenUsage;
+        } | null;
+        recordUsage(child?.__kortyxChildUsage);
         throwIfExecutionAborted(ctx.node.abortSignal);
         if (isExecutionCancelled(error)) throw error;
         if (isExecutionLimitReached(error)) {
-          const child = error as unknown as {
-            __kortyxChildSnapshot?: unknown;
-            __kortyxChildUsage?: TokenUsage;
-          };
-          if (child.__kortyxChildSnapshot)
+          if (child?.__kortyxChildSnapshot)
             record.snapshot = child.__kortyxChildSnapshot;
-          recordUsage(child.__kortyxChildUsage);
           report("suspended", {
             reason: "limit_reached",
             limit: error.limitReached,
@@ -305,6 +346,7 @@ export async function useWorkflow(args: {
           request: outcome.request,
         };
         record.interrupts.push(interruption);
+        if (task.group) throw new ParallelChildWaiting();
         interruption.response = await awaitInterruptInternal({
           request: interruption.request,
           ...(interruption.request.meta
@@ -320,6 +362,6 @@ export async function useWorkflow(args: {
       data: JSON.parse(JSON.stringify(data)) as Record<string, unknown>,
     };
   } finally {
-    ctx.workflowCallActive = false;
+    if (!task.group) ctx.workflowCallActive = false;
   }
 }
