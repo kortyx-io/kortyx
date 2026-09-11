@@ -225,6 +225,8 @@ export interface KortyxInvokeResult {
  * This abstracts away the underlying LLM provider (Google, OpenAI, etc.)
  */
 export interface KortyxModel {
+  /** Native schema output must run after tool rounds, in a separate model pass. */
+  requiresSeparateStructuredOutput?: boolean;
   /** Adapters opt in once streamed function calls are assembled completely. */
   supportsToolStreaming?: boolean;
   /**

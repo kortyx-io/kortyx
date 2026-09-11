@@ -41,6 +41,7 @@ export interface DeepSeekChatCompletionRequest {
   response_format?: { type: "json_object" } | undefined;
   stream?: boolean | undefined;
   stream_options?: { include_usage: true } | undefined;
+  reasoning_effort?: string;
   thinking?: { type: "enabled" | "disabled" } | undefined;
   tools?:
     | Array<{

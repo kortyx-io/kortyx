@@ -71,6 +71,14 @@ Kortyx ships autocomplete for:
 
 Arbitrary Mistral model IDs are accepted as strings.
 
+## Reasoning and function tools
+
+`useReason` preserves native thinking chunks privately across tool rounds and approval resumes. Configurable reasoning supports current Mistral Small and Medium aliases, including `mistral-medium-3-5`. `effort: "none"` disables reasoning; positive generic efforts map to the API's `high` mode, with a warning when the requested level differs. Use `providerOptions.mistral.reasoningEffort` for the native none/high control.
+
+Compatible output schemas continue to use native structured output. Streamed function arguments are assembled before execution, with final usage and finish reason preserved.
+
+See [Mistral reasoning guidance](https://docs.mistral.ai/studio/conversations/reasoning).
+
 ## Documentation
 
 - [Documentation](https://kortyx.io/docs)

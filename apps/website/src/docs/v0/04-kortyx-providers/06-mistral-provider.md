@@ -265,7 +265,7 @@ Current mapping details:
 - `responseFormat.type: "json"` maps to Mistral JSON mode
 - `responseFormat.schema` maps to Mistral JSON schema output unless `structuredOutputs` is `false`
 - `safePrompt` maps to Mistral `safe_prompt`
-- `reasoningEffort` maps only for `mistral-small-latest` and `mistral-small-2603`
+- `reasoningEffort` maps for compatible Mistral Small and Medium models, including `mistral-medium-3-5`
 
 Current warning-backed gaps:
 
@@ -323,3 +323,11 @@ It does not currently expose Mistral embeddings, OCR/document APIs, file APIs, o
 
 - See [Hooks](../02-core-concepts/07-hooks.md) for `useReason(...)` behavior and structured output
 - See [Provider API](../05-reference/04-provider-api.md) for the shared normalized provider contract
+
+## Reasoning and function tools
+
+`useReason` preserves native thinking chunks privately across tool rounds and approval resumes. Configurable reasoning supports current Mistral Small and Medium aliases, including `mistral-medium-3-5`. `effort: "none"` disables reasoning; positive generic efforts map to the API's `high` mode, with a warning when the requested level differs. Use `providerOptions.mistral.reasoningEffort` for the native none/high control.
+
+Compatible output schemas continue to use native structured output. Streamed function arguments are assembled before execution, with final usage and finish reason preserved.
+
+See [Mistral reasoning guidance](https://docs.mistral.ai/studio/conversations/reasoning).

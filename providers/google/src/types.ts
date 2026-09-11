@@ -14,14 +14,18 @@ export interface GoogleClientConfig {
 
 export interface GoogleContentPart {
   text?: string | undefined;
+  thought?: boolean;
+  thoughtSignature?: string;
   functionCall?:
     | {
+        id?: string;
         name: string;
         args?: unknown;
       }
     | undefined;
   functionResponse?:
     | {
+        id?: string;
         name: string;
         response: Record<string, unknown>;
       }
@@ -38,9 +42,10 @@ export interface GoogleGenerateContentRequest {
   tools?:
     | Array<{
         functionDeclarations: Array<{
+          id?: string;
           name: string;
           description?: string | undefined;
-          parameters: unknown;
+          parametersJsonSchema: unknown;
         }>;
       }>
     | undefined;
@@ -48,6 +53,7 @@ export interface GoogleGenerateContentRequest {
     temperature?: number | undefined;
     maxOutputTokens?: number | undefined;
     stopSequences?: string[] | undefined;
+    responseJsonSchema?: unknown;
     responseMimeType?: "application/json" | "text/plain" | undefined;
     thinkingConfig?:
       | {

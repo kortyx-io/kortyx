@@ -12,6 +12,7 @@ import type {
   ProviderModelRef,
   ProviderSelector,
 } from "@kortyx/providers";
+import { ChatStreamAccumulator } from "@kortyx/providers";
 import { createDeepSeekClient } from "./client";
 import {
   ProviderConfigurationError,
@@ -21,7 +22,6 @@ import {
 import { createChatCompletionRequest } from "./messages";
 import { MODELS, type ModelId, PROVIDER_ID } from "./models";
 import type {
-  DeepSeekChatCompletionChunk,
   DeepSeekChatCompletionResponse,
   DeepSeekUsage,
   ProviderSettings,
@@ -80,6 +80,8 @@ const extractUsage = (
     usage.completion_tokens_details?.reasoning_tokens ?? undefined;
 
   return {
+    outputIncludesReasoning: true,
+    inputIncludesCacheRead: true,
     ...(usage.prompt_tokens != null ? { input: usage.prompt_tokens } : {}),
     ...(usage.completion_tokens != null
       ? { output: usage.completion_tokens }
@@ -116,29 +118,6 @@ const extractResponseProviderMetadata = (
   return Object.keys(metadata).length > 0 ? metadata : undefined;
 };
 
-const extractChunkProviderMetadata = (
-  modelId: ModelId,
-  chunk: DeepSeekChatCompletionChunk,
-): KortyxProviderMetadata | undefined => {
-  const usage = toRecord(chunk.usage);
-  const metadata: KortyxProviderMetadata = {
-    providerId: PROVIDER_ID,
-    modelId,
-    ...(chunk.id !== undefined ? { responseId: chunk.id } : {}),
-    ...(chunk.model !== undefined ? { responseModel: chunk.model } : {}),
-    ...(chunk.created !== undefined ? { created: chunk.created } : {}),
-    ...(usage !== undefined
-      ? {
-          usage,
-          promptCacheHitTokens: usage.prompt_cache_hit_tokens,
-          promptCacheMissTokens: usage.prompt_cache_miss_tokens,
-        }
-      : {}),
-  };
-
-  return Object.keys(metadata).length > 0 ? metadata : undefined;
-};
-
 const extractText = (response: DeepSeekChatCompletionResponse): string =>
   response.choices?.[0]?.message?.content ?? "";
 
@@ -147,7 +126,7 @@ const parseToolInput = (value: string | undefined): unknown => {
   try {
     return JSON.parse(value);
   } catch {
-    return value;
+    throw new Error("Invalid JSON in provider function arguments.");
   }
 };
 
@@ -156,12 +135,16 @@ const extractToolCalls = (
 ): KortyxToolCall[] | undefined => {
   const toolCalls = response.choices?.[0]?.message?.tool_calls;
   if (!toolCalls?.length) return undefined;
-  return toolCalls.map((toolCall) => ({
-    id: toolCall.id,
-    name: toolCall.function.name,
-    input: parseToolInput(toolCall.function.arguments),
-    raw: toolCall,
-  }));
+  return toolCalls.map((toolCall) => {
+    if (!toolCall.id || !toolCall.function?.name)
+      throw new Error("Incomplete provider function call.");
+    return {
+      id: toolCall.id,
+      name: toolCall.function.name,
+      input: parseToolInput(toolCall.function.arguments),
+      raw: toolCall,
+    };
+  });
 };
 
 const extractFinishReason = (
@@ -195,20 +178,6 @@ const collectWarnings = (
     });
   }
 
-  if (
-    options.reasoning?.effort !== undefined &&
-    !["none", "minimal", "low", "medium", "high"].includes(
-      options.reasoning.effort,
-    )
-  ) {
-    warnings.push({
-      type: "compatibility",
-      feature: "reasoning.effort",
-      details:
-        "DeepSeek only supports enabling or disabling thinking. Kortyx maps generic reasoning options to thinking.enabled.",
-    });
-  }
-
   if (options.reasoning?.maxTokens !== undefined) {
     warnings.push({
       type: "unsupported",
@@ -228,7 +197,7 @@ const collectWarnings = (
       type: "unsupported",
       feature: "providerOptions",
       details:
-        "DeepSeek provider currently maps providerOptions.deepseek.thinking.",
+        "DeepSeek provider currently maps providerOptions.deepseek.thinking and reasoningEffort.",
     });
   }
 
@@ -236,13 +205,15 @@ const collectWarnings = (
   if (
     providerOptions?.deepseek !== undefined &&
     nestedProviderOptions &&
-    Object.keys(nestedProviderOptions).some((key) => key !== "thinking")
+    Object.keys(nestedProviderOptions).some(
+      (key) => !["thinking", "reasoningEffort"].includes(key),
+    )
   ) {
     warnings.push({
       type: "unsupported",
       feature: "providerOptions.deepseek",
       details:
-        "DeepSeek provider currently maps providerOptions.deepseek.thinking.",
+        "DeepSeek provider currently maps providerOptions.deepseek.thinking and reasoningEffort.",
     });
   }
 
@@ -258,27 +229,21 @@ const createTextDeltaPart = (
   raw,
 });
 
-const createFinishPart = (
-  modelId: ModelId,
-  chunk: DeepSeekChatCompletionChunk | undefined,
-  warnings: KortyxWarning[] | undefined,
-): KortyxStreamPart => {
-  const finishReason = mapDeepSeekFinishReason(
-    chunk?.choices?.[0]?.finish_reason,
-  );
-  const usage = extractUsage(chunk?.usage);
-  const providerMetadata =
-    chunk !== undefined
-      ? extractChunkProviderMetadata(modelId, chunk)
-      : undefined;
-
+const continuation = (response: DeepSeekChatCompletionResponse) => {
+  const message = response.choices?.[0]?.message;
   return {
-    type: "finish",
-    ...(chunk !== undefined ? { raw: chunk } : {}),
-    ...(finishReason ? { finishReason } : {}),
-    ...(usage ? { usage } : {}),
-    ...(providerMetadata ? { providerMetadata } : {}),
-    ...(warnings ? { warnings } : {}),
+    providerId: PROVIDER_ID,
+    api: "chat-completions",
+    items: message
+      ? [
+          {
+            role: "assistant",
+            content: message.content ?? "",
+            reasoning_content: message.reasoning_content ?? "",
+            ...(message.tool_calls ? { tool_calls: message.tool_calls } : {}),
+          },
+        ]
+      : [],
   };
 };
 
@@ -294,6 +259,7 @@ const createResponseFinishPart = (
 
   return {
     type: "finish",
+    continuation: continuation(response),
     raw: response,
     ...(finishReason ? { finishReason } : {}),
     ...(usage ? { usage } : {}),
@@ -348,6 +314,7 @@ const createDeepSeekModel = (
   const warnings = collectWarnings(resolvedOptions);
 
   return {
+    supportsToolStreaming: true,
     async *stream(messages: KortyxPromptMessage[]) {
       const client = getClient();
       const request = createChatCompletionRequest(
@@ -357,29 +324,35 @@ const createDeepSeekModel = (
         resolvedOptions.streaming !== false,
       );
 
+      let partialUsage: DeepSeekUsage | undefined;
       try {
         if (resolvedOptions.streaming !== false) {
-          let lastChunk: DeepSeekChatCompletionChunk | undefined;
+          const accumulator = new ChatStreamAccumulator();
           for await (const chunk of client.streamChatCompletion(request, {
             ...(resolvedOptions.abortSignal
               ? { signal: resolvedOptions.abortSignal }
               : {}),
           })) {
+            partialUsage = chunk.usage ?? partialUsage;
             if (chunk.error?.message) {
               yield {
                 type: "error",
-                error: new Error(chunk.error.message),
+                error: Object.assign(new Error(chunk.error.message), {
+                  usage: extractUsage(partialUsage),
+                }),
                 raw: chunk,
-              } satisfies KortyxStreamPart;
+              };
               return;
             }
-
-            lastChunk = chunk;
+            accumulator.add(chunk);
             const delta = chunk.choices?.[0]?.delta?.content;
             if (delta) yield createTextDeltaPart(delta, chunk);
           }
-
-          yield createFinishPart(modelId, lastChunk, warnings);
+          yield createResponseFinishPart(
+            modelId,
+            accumulator.finish() as DeepSeekChatCompletionResponse,
+            warnings,
+          );
           return;
         }
 
@@ -394,7 +367,10 @@ const createDeepSeekModel = (
       } catch (error) {
         yield {
           type: "error",
-          error: toProviderRequestError("stream content", error),
+          error: Object.assign(
+            toProviderRequestError("stream content", error),
+            { usage: extractUsage(partialUsage) },
+          ),
         } satisfies KortyxStreamPart;
       }
     },
@@ -423,6 +399,7 @@ const createDeepSeekModel = (
         return {
           role: "assistant",
           content: extractText(result),
+          continuation: continuation(result),
           raw: result,
           ...(usage ? { usage } : {}),
           ...(finishReason ? { finishReason } : {}),

@@ -5,7 +5,7 @@ This document defines the canonical structure and rules for provider packages un
 ## Goals
 
 - Keep provider packages small, consistent, and automatable.
-- Keep `@kortyx/providers` as contracts + registry only.
+- Keep `@kortyx/providers` limited to contracts, registry, and shared transport decoding; vendor request semantics belong in concrete adapters.
 - Avoid provider-specific architecture drift.
 - Avoid provider-name repetition in filenames and exported API names.
 - Make provider results operationally useful with normalized metadata.
@@ -203,3 +203,13 @@ Before merging a provider package:
 - Keep v1 feature surface minimal and identical across providers.
 - Avoid one-off provider APIs in shared contracts.
 - Add provider-specific advanced features only after core providers are stable.
+
+## Reasoning continuation and transport correctness
+
+- Replay provider-native reasoning state through the private `continuation` contract. Preserve signatures, content order, and original tool IDs; never include that state in client events or telemetry.
+- Use the shared SSE decoder so early exit cancels and releases response readers.
+- Treat EOF without a provider terminal event as failure. Preserve observed usage on failed streams.
+- Assemble all function argument fragments before advertising `supportsToolStreaming`.
+- Set usage inclusion flags whenever reasoning or cached tokens are already part of output/input totals.
+- Providers that cannot combine native schemas with tools can set `requiresSeparateStructuredOutput`; the hook loop performs a separately accounted, resumable final model pass.
+- Fixture compatibility tests must cover multiple reasoning/tool rounds, stream fragmentation/truncation, cancellation and usage. Current provider documentation is authoritative; Vercel AI SDK is a cross-check, not a guarantee of live compatibility.

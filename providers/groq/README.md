@@ -60,6 +60,16 @@ Kortyx ships autocomplete for:
 
 Arbitrary Groq-compatible model IDs are accepted as strings.
 
+## Reasoning, tools, and structured output
+
+Use a model supporting the requested combination, such as `openai/gpt-oss-120b` for reasoning and schema output. GPT-OSS cannot disable reasoning. Unsupported settings fail explicitly; no model or reasoning fallback is applied.
+
+Groq does not currently support native schema output together with tools or streaming. `useReason` handles this by running tool rounds first, then a separate schema-only final request using the same model and reasoning settings. The extra request counts toward `toolExecution.maxSteps`, execution model-pass limits, usage and Studio telemetry. For two tool rounds, allow at least four model steps. Approval/resume and cancellation cover finalization too. Schema-only responses are buffered even when `stream: true`.
+
+Direct provider requests combining native schemas and tools fail with guidance. An explicit `providerOptions.groq.structuredOutputs: false` retains JSON mode plus local validation; Kortyx does not silently choose that weaker mode. `reasoningFormat: "raw"` cannot be combined with tools or JSON output.
+
+See [Groq structured-output restrictions](https://console.groq.com/docs/structured-outputs).
+
 ## Documentation
 
 - [Documentation](https://kortyx.io/docs)

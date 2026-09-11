@@ -277,8 +277,8 @@ Current mapping details:
 Current warning-backed gaps:
 
 - `temperature` is omitted when Anthropic thinking is enabled
-- Anthropic JSON mode is instruction-based in this provider, not a provider-native JSON schema request
-- generic `reasoning.effort` without `reasoning.maxTokens` maps to the minimum supported thinking budget
+- schema-bearing JSON requests use native schema output on compatible Anthropic models; plain JSON mode uses instructions
+- generic `reasoning.effort` uses adaptive effort controls on current models and documented budget presets on manual-thinking models
 - unknown `providerOptions` keys are ignored and reported in `result.warnings`
 
 ## 10. Normalized metadata you get back
@@ -329,3 +329,11 @@ It does not currently expose provider-native file APIs, skills, tool execution, 
 
 - See [Hooks](../02-core-concepts/07-hooks.md) for `useReason(...)` behavior and structured output
 - See [Provider API](../05-reference/04-provider-api.md) for the shared normalized provider contract
+
+## Reasoning, tools, and structured output
+
+`useReason` preserves signed thinking and redacted-thinking blocks privately across tool rounds and approval resumes. Current adaptive models use `thinking: { type: "adaptive" }` and native effort controls. Older manual-thinking models map minimal/low/medium/high to 1,024/2,048/8,192/16,384 tokens; use `reasoning.maxTokens` for a specific manual budget. `effort: "none"` disables thinking. Models that require adaptive thinking reject manual budgets explicitly.
+
+For native overrides, use `providerOptions.anthropic.thinking` and `providerOptions.anthropic.effort`. Compatible `outputSchema` calls use native `output_config.format`; JSON mode or older models retain explicit compatibility warnings and local output validation. Existing `maxOutputTokens` behavior is retained: manual thinking budget is added to the requested answer budget.
+
+See [Anthropic thinking](https://platform.claude.com/docs/en/build-with-claude/thinking) and [structured output](https://platform.claude.com/docs/en/build-with-claude/structured-outputs).

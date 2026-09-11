@@ -85,6 +85,30 @@ const emitNodeEvent = (
   });
 };
 
+export const resolveProviderOptions = (
+  defaults: Record<string, unknown> | undefined,
+  overrides: Record<string, unknown> | undefined,
+): Record<string, unknown> | undefined => {
+  const providerOptions =
+    defaults || overrides ? { ...defaults, ...overrides } : undefined;
+  // Provider namespaces inherit model defaults (including transport) while
+  // allowing individual call settings to override them.
+  for (const [key, value] of Object.entries(overrides ?? {})) {
+    const previous = defaults?.[key];
+    if (
+      previous &&
+      value &&
+      typeof previous === "object" &&
+      typeof value === "object" &&
+      !Array.isArray(previous) &&
+      !Array.isArray(value)
+    ) {
+      if (providerOptions) providerOptions[key] = { ...previous, ...value };
+    }
+  }
+  return providerOptions;
+};
+
 export async function runReasonEngine(
   args: RunReasonEngineArgs,
 ): Promise<RunReasonEngineResult> {
@@ -101,26 +125,10 @@ export async function runReasonEngine(
   const reasoning = args.reasoning ?? args.model.options?.reasoning;
   const responseFormat =
     args.responseFormat ?? args.model.options?.responseFormat;
-  const defaults = args.model.options?.providerOptions;
-  const providerOptions =
-    defaults || args.providerOptions
-      ? { ...defaults, ...args.providerOptions }
-      : undefined;
-  // Provider namespaces inherit model defaults (including transport) while
-  // allowing individual call settings to override them.
-  for (const [key, value] of Object.entries(args.providerOptions ?? {})) {
-    const previous = defaults?.[key];
-    if (
-      previous &&
-      value &&
-      typeof previous === "object" &&
-      typeof value === "object" &&
-      !Array.isArray(previous) &&
-      !Array.isArray(value)
-    ) {
-      if (providerOptions) providerOptions[key] = { ...previous, ...value };
-    }
-  }
+  const providerOptions = resolveProviderOptions(
+    args.model.options?.providerOptions,
+    args.providerOptions,
+  );
   const tools = args.tools ?? args.model.options?.tools;
 
   throwIfExecutionAborted(abortSignal);

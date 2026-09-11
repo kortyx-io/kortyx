@@ -73,6 +73,7 @@ describe("google message mapping", () => {
         parts: [
           {
             functionCall: {
+              id: "call-1",
               name: "lookup_order",
               args: { orderId: "ord_1" },
             },
@@ -84,6 +85,7 @@ describe("google message mapping", () => {
         parts: [
           {
             functionResponse: {
+              id: "call-1",
               name: "lookup_order",
               response: {
                 content: "ready",
@@ -100,7 +102,9 @@ describe("google message mapping", () => {
           {
             name: "lookup_order",
             description: "Look up an order.",
-            parameters: {
+            parametersJsonSchema: {
+              $schema: "http://json-schema.org/draft-07/schema#",
+              additionalProperties: false,
               type: "object",
               properties: { orderId: { type: "string" } },
             },
@@ -111,12 +115,11 @@ describe("google message mapping", () => {
     expect(request).not.toHaveProperty("toolConfig");
   });
 
-  it("omits thinkingLevel when reasoning maxTokens is also set", () => {
+  it("uses an explicit reasoning budget", () => {
     const request = createGenerateContentRequest(
       [{ role: "user", content: "Summarize this" }],
       {
         reasoning: {
-          effort: "low",
           maxTokens: 128,
           includeThoughts: false,
         },
@@ -138,7 +141,7 @@ describe("google message mapping", () => {
         stopSequences: ["STOP"],
         responseFormat: { type: "text" },
         reasoning: {
-          effort: "provider-custom",
+          effort: "medium",
           includeThoughts: true,
         },
       },

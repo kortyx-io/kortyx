@@ -67,8 +67,7 @@ describe("groq message mapping", () => {
     );
 
     expect(request).toMatchObject({
-      stream: true,
-      stream_options: { include_usage: true },
+      stream: false,
       reasoning_effort: "low",
       service_tier: "auto",
       response_format: {

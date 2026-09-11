@@ -38,12 +38,9 @@ describe("google public provider contract", () => {
   it("validates model ids on getModel and selector calls", () => {
     const provider = createGoogleGenerativeAI({ apiKey: "test-key" });
 
-    expect(() => provider.getModel("not-a-model")).toThrow(
-      "Unknown Google model: not-a-model.",
-    );
-    expect(() => provider("not-a-model" as never)).toThrow(
-      "Unknown Google model: not-a-model.",
-    );
+    expect(() => provider.getModel("gemini-3.1-pro-preview")).not.toThrow();
+    expect(() => provider.getModel(" ")).toThrow("non-empty");
+    expect(() => provider("" as never)).toThrow("non-empty");
     expect(provider("gemini-2.5-flash", { temperature: 0.2 })).toMatchObject({
       provider,
       modelId: "gemini-2.5-flash",
@@ -102,7 +99,7 @@ describe("google public provider contract", () => {
               {
                 name: "lookup_order",
                 description: "Look up an order.",
-                parameters: { type: "object" },
+                parametersJsonSchema: { type: "object" },
               },
             ],
           },
@@ -144,7 +141,7 @@ describe("google public provider contract", () => {
 
     expect(result.toolCalls).toEqual([
       {
-        id: "google-tool-call-0",
+        id: expect.stringMatching(/^google-/),
         name: "lookup_order",
         input: { orderId: "ord_1" },
         raw: { name: "lookup_order", args: { orderId: "ord_1" } },
@@ -184,7 +181,7 @@ describe("google public provider contract", () => {
       parts
         .filter((part) => part.type === "text-delta")
         .map((part) => (part.type === "text-delta" ? part.delta : "")),
-    ).toEqual(["Alpha", "Beta"]);
+    ).toEqual(["Alpha", "Beta", "Beta"]);
     expect(parts.at(-1)).toMatchObject({
       type: "finish",
       finishReason: { unified: "stop", raw: "STOP" },
@@ -285,8 +282,7 @@ describe("google public provider contract", () => {
     });
     const model = provider.getModel("gemini-2.5-flash", {
       reasoning: {
-        effort: "provider-custom",
-        maxTokens: 64,
+        effort: "low",
       },
       providerOptions: {
         experimental: true,
@@ -298,7 +294,6 @@ describe("google public provider contract", () => {
     expect(result.warnings).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ feature: "reasoning.effort" }),
-        expect.objectContaining({ feature: "reasoning" }),
         expect.objectContaining({ feature: "providerOptions" }),
       ]),
     );

@@ -67,7 +67,7 @@ describe("anthropic message mapping", () => {
       getThinkingRequest({
         providerOptions: {
           anthropic: {
-            thinking: { type: "enabled", budgetTokens: 12 },
+            thinking: { type: "enabled", budgetTokens: 1024 },
           },
         },
       }),

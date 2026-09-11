@@ -1,3 +1,4 @@
+import { readSseEvents } from "@kortyx/providers";
 import { ProviderConfigurationError, ProviderRequestError } from "./errors";
 import type {
   OpenAIChatCompletionChunk,
@@ -68,60 +69,6 @@ const parseJsonResponse = async (
   return payload as OpenAIChatCompletionResponse;
 };
 
-const extractSseData = (eventBlock: string): string | undefined => {
-  const lines = eventBlock.split("\n");
-  const dataLines: string[] = [];
-  for (const line of lines) {
-    if (!line.startsWith("data:")) continue;
-    dataLines.push(line.slice(5).trimStart());
-  }
-  if (dataLines.length === 0) return undefined;
-  return dataLines.join("\n");
-};
-
-export async function* readSseEvents(
-  response: Response,
-): AsyncGenerator<string> {
-  const body = response.body;
-  if (!body) {
-    throw new ProviderRequestError(
-      "OpenAI provider failed to stream content: response body is empty.",
-    );
-  }
-
-  const reader = body.getReader();
-  const decoder = new TextDecoder();
-  let buffer = "";
-
-  try {
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-
-      buffer = (buffer + decoder.decode(value, { stream: true })).replaceAll(
-        "\r\n",
-        "\n",
-      );
-
-      let split = buffer.indexOf("\n\n");
-      while (split !== -1) {
-        const block = buffer.slice(0, split);
-        buffer = buffer.slice(split + 2);
-        const data = extractSseData(block);
-        if (data) yield data;
-        split = buffer.indexOf("\n\n");
-      }
-    }
-
-    buffer += decoder.decode().replaceAll("\r\n", "\n");
-    const data = extractSseData(buffer);
-    if (data) yield data;
-  } finally {
-    await reader.cancel().catch(() => {});
-    reader.releaseLock();
-  }
-}
-
 const resolveFetch = (
   fetchOverride: OpenAIClientConfig["fetch"],
 ): NonNullable<OpenAIClientConfig["fetch"]> => {
@@ -191,3 +138,5 @@ export const createOpenAIClient = (
     streamChatCompletion,
   };
 };
+
+export { readSseEvents } from "@kortyx/providers";

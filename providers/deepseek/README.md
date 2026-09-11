@@ -57,6 +57,14 @@ Kortyx ships autocomplete for:
 
 Arbitrary DeepSeek-compatible model IDs are accepted as strings.
 
+## Reasoning and function tools
+
+`useReason` preserves `reasoning_content` privately across tool rounds and approval resumes, including earlier assistant turns. Generic `reasoning.effort` is forwarded to the API's `reasoning_effort`; `none` disables thinking. Native controls remain available as `providerOptions.deepseek.thinking` and `providerOptions.deepseek.reasoningEffort`. Unsupported positive token budgets produce a warning.
+
+DeepSeek JSON mode is accompanied by schema instructions and local validation; it is not advertised as native schema enforcement. Streamed function arguments are assembled before execution, and trailing usage does not erase the finish reason.
+
+See [DeepSeek thinking and tool requirements](https://api-docs.deepseek.com/guides/thinking_mode/).
+
 ## Documentation
 
 - [Documentation](https://kortyx.io/docs)

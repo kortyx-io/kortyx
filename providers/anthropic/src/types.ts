@@ -58,6 +58,7 @@ export interface AnthropicToolDefinition {
 }
 
 export type AnthropicThinkingRequest =
+  | { type: "adaptive" }
   | {
       type: "enabled";
       budget_tokens: number;
@@ -76,6 +77,10 @@ export interface AnthropicMessagesRequest {
   top_k?: number | undefined;
   stop_sequences?: string[] | undefined;
   stream?: boolean | undefined;
+  output_config?: {
+    effort?: string;
+    format?: { type: "json_schema"; schema: unknown };
+  };
   thinking?: AnthropicThinkingRequest | undefined;
   tools?: AnthropicToolDefinition[] | undefined;
 }
@@ -83,6 +88,7 @@ export interface AnthropicMessagesRequest {
 export interface AnthropicUsage {
   input_tokens?: number | null | undefined;
   output_tokens?: number | null | undefined;
+  output_tokens_details?: { thinking_tokens?: number };
   cache_creation_input_tokens?: number | null | undefined;
   cache_read_input_tokens?: number | null | undefined;
   server_tool_use?: Record<string, unknown> | null | undefined;

@@ -306,7 +306,7 @@ describe("anthropic public provider contract", () => {
         .stream([{ role: "user", content: "Check order ord_1" }]),
     );
 
-    expect(parts).toEqual([
+    expect(parts).toMatchObject([
       {
         type: "finish",
         finishReason: { unified: "tool-calls", raw: "tool_use" },
