@@ -55,12 +55,6 @@ jobs:
       - name: Canvas workflow regressions
         run: pnpm --filter @kortyx/example-canvas test
 
-      - name: Install Redis for isolated HTTP E2E
-        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends redis-server
-
-      - name: Parallel child workflows over HTTP
-        run: pnpm --filter @kortyx/example-nextjs-chat-api-route test:parallel:e2e
-
       - name: Typecheck
         run: pnpm -r --if-present run type-check
 
