@@ -81,7 +81,9 @@ Parent and child have isolated input/data and node/workflow state. Pass explicit
 
 ## Preserve replay semantics
 
-- Await calls sequentially. No overlapping `Promise.all` calls or parallel edges in calling/called graphs.
+- Await calls sequentially or use `parallel([useWorkflow(...), useWorkflow(...)])` from `kortyx`. It preserves tuple inference and input order. Await each group before the next group in the same node. Children can use their own nested groups. Native `Promise.all` child calls and parallel edges in calling/called graphs remain unsupported.
+- `parallel` drains siblings before suspension, stores every waiting child and presents their questions one at a time through the existing parent handle. Completed/failed siblings stay cached. Preserve group order, membership and explicit call IDs through replay. No separate child resume endpoint, multi-answer command, concurrency option or factory overload is available.
+- Catch `ParallelError` for terminal group failure: its `errors` contains failures and `results` contains standard fulfilled/rejected entries in input order. Propagate suspension/cancellation/limit control flow. Child allowances and cancellation remain shared with the root.
 - Give each call a distinct stable ID in the current node activation. A helper accepts its ID from its caller. Do not generate IDs randomly or from timestamps during replay.
 - Keep call order, target, and input stable through pauses. A graph loop re-entering a completed node creates a fresh invocation even with the same call ID.
 - Use ordinary `useInterrupt` or `useReason({ interrupt })` in children. Continue using the parent's existing transport and human-input UI.

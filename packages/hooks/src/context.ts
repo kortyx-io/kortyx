@@ -7,8 +7,8 @@ import type {
   TokenUsage,
 } from "@kortyx/core";
 import type { KortyxUsage } from "@kortyx/providers";
+import type { ParallelGroup, WorkflowTask } from "./parallel";
 import type { KortyxTelemetryConfig, ReasonTraceAdapter } from "./tracing";
-
 import type { WorkflowCallService } from "./workflow";
 
 type NodeStateStore = {
@@ -62,6 +62,12 @@ export type HookRuntimeContext = {
 type HookInternalContext = HookRuntimeContext & {
   workflowCallActive: boolean;
   workflowCallIds: Set<string>;
+  workflowTasks: WorkflowTask[];
+  parallelJoins: Promise<unknown>[];
+  parallelGroup: ParallelGroup | undefined;
+  parallelIndex: number;
+  workflowControlError?: unknown;
+  workflowContextClosed: boolean;
   nodeStateIndex: number;
   reasonCallIndex: number;
   currentNodeState: NodeStateStore;
@@ -141,6 +147,11 @@ const createInternalContext = (
     ...ctx,
     workflowCallActive: false,
     workflowCallIds: new Set(),
+    workflowTasks: [],
+    parallelJoins: [],
+    parallelGroup: undefined,
+    parallelIndex: 0,
+    workflowContextClosed: false,
     nodeStateIndex: 0,
     reasonCallIndex: 0,
     currentNodeState,
@@ -237,11 +248,35 @@ export async function runWithHookContext<T>(
 ): Promise<{ result: T; runtimeUpdates: Record<string, unknown> | null }> {
   const internal = createInternalContext(ctx);
   try {
-    const result = await storage.run(internal, fn);
+    const result = await storage.run(internal, async () => {
+      const drain = async () => {
+        let drained = -1;
+        while (
+          drained !==
+          internal.parallelJoins.length + internal.workflowTasks.length
+        ) {
+          drained =
+            internal.parallelJoins.length + internal.workflowTasks.length;
+          await Promise.allSettled(internal.parallelJoins);
+          await Promise.all(internal.workflowTasks.map((task) => task.done));
+        }
+        internal.workflowContextClosed = true;
+      };
+      try {
+        const result = await fn();
+        await drain();
+        if (internal.workflowControlError) throw internal.workflowControlError;
+        return result;
+      } catch (error) {
+        await drain();
+        throw internal.workflowControlError ?? error;
+      }
+    });
     cleanupCompletedReasonCheckpoints(internal);
     for (const key of Object.keys(internal.currentNodeState.byKey)) {
       if (
         key.startsWith("__useWorkflow:") ||
+        key.startsWith("__parallel:") ||
         key === "__useWorkflowActivation"
       ) {
         internal.currentNodeState.byKey[key] = null;

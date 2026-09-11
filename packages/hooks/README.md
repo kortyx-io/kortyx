@@ -78,6 +78,19 @@ string ids. Register the same definitions with the agent.
 Calls need stable ids. A child interrupt pauses the chain; resuming replays
 the enclosing node and reuses saved child results. Keep effects before calls
 idempotent. Fork/rollback retain nested checkpoints; use Redis for persistence
-across server restarts. Concurrent calls are unsupported.
+across server restarts. Join concurrent children with `parallel`:
+
+```ts
+const [first, second] = await parallel([
+  useWorkflow({ id: "first", workflow: researchWorkflow, input: { topic: "AI" } }),
+  useWorkflow({ id: "second", workflow: researchWorkflow, input: { topic: "Robotics" } }),
+]);
+```
+
+The tuple follows input order. The join preserves all siblings before pausing and
+presents waiting questions individually through the parent handle. Terminal group
+failures throw `ParallelError`, whose `results` exposes each settled outcome.
+Await groups sequentially within one node; children may contain nested groups.
+Native `Promise.all` calls and parallel graph edges remain unsupported.
 
 See [the execution and replay contract](../../docs/design-specs/child-workflows.md).

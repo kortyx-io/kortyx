@@ -71,6 +71,8 @@ export {
   type CompleteResponseOptions,
   completeResponse,
   createWorkflowHooks,
+  ParallelError,
+  parallel,
   useAbortSignal,
   useInterrupt,
   useNodeState,

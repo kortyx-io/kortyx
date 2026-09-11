@@ -202,6 +202,7 @@ export async function createExecutionGraph(
         runtimeConfig.emit(event, payload);
       };
       let suspension: unknown;
+      let deniedAdmission: unknown;
       const hookNodeContext = {
         completeResponse: runtimeConfig.workflowCallDepth
           ? undefined
@@ -209,7 +210,14 @@ export async function createExecutionGraph(
         abortSignal: execution.abortSignal,
         consumeExecution: (limit: import("@kortyx/core").ExecutionLimit) => {
           throwIfExecutionAborted(execution.abortSignal);
-          if (execution.budget) consumeExecutionBudget(execution.budget, limit);
+          if (suspension) throw suspension;
+          try {
+            if (execution.budget)
+              consumeExecutionBudget(execution.budget, limit);
+          } catch (error) {
+            deniedAdmission = error;
+            throw error;
+          }
         },
         workflowCallTelemetry: runtimeConfig.telemetry
           ? {
@@ -361,12 +369,15 @@ export async function createExecutionGraph(
                   params: (nodeParams ?? {}) as Record<string, unknown>,
                 });
                 throwIfExecutionAborted(execution.abortSignal);
-                if (execution.budget) assertExecutionBudget(execution.budget);
+                // A sibling may exhaust the shared budget while this admitted
+                // node completes. Preserve its result; only its own denial
+                // prevents a caught limit from committing fallback output.
+                if (deniedAdmission) throw deniedAdmission;
                 if (suspension) throw suspension;
                 return result;
               } catch (error) {
                 throwIfExecutionAborted(execution.abortSignal);
-                if (execution.budget) assertExecutionBudget(execution.budget);
+                if (deniedAdmission) throw deniedAdmission;
                 throw error;
               }
             });

@@ -83,8 +83,18 @@ Children may call children and a node may await multiple children in order.
 Each call needs a distinct stable id within that node activation, including
 inside loops/custom hooks. Re-entering a node through a graph loop starts a
 fresh activation. Calls are limited to 16 nested levels and 64 calls per node
-activation. Overlapping calls and parallel edges in calling/called workflows
-are unsupported and rejected.
+activation. Use `parallel([useWorkflow(...), useWorkflow(...)])` for concurrent
+children in one node, with typed results in input order. Await successive groups;
+children may contain nested groups. Native overlapping calls without `parallel`
+and parallel edges in calling/called workflows remain rejected.
+
+The parallel join drains every sibling before bridging a parent interrupt. Its
+saved journal maps each displayed question to a child call and local interrupt
+index, independently of completion order. All waiting snapshots are retained;
+questions use the existing parent handle one at a time. `ParallelError` exposes
+terminal errors and settled results in input order after waiting siblings have
+resolved. Root cancellation and limit exhaustion remain control flow. Known child
+usage, including work before failure, is accumulated by deltas.
 
 `transitionTo` remains a root-workflow handoff. A child must finish and return;
 a transition from inside a child fails explicitly. A failed child rejects
