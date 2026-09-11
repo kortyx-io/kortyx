@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.19.0](https://github.com/kortyx-io/kortyx/compare/example-nextjs-chat-api-route-v0.18.0...example-nextjs-chat-api-route-v0.19.0) (2026-09-11)
+
+
+### Features
+
+* complete client responses while workflows continue in background ([#165](https://github.com/kortyx-io/kortyx/issues/165)) ([a8a08cd](https://github.com/kortyx-io/kortyx/commit/a8a08cd1e9533e4b44efa4af54a2d2cec54431ae))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * kortyx bumped to 0.18.0
+    * @kortyx/telemetry bumped to 0.4.2
+
 ## [0.18.0](https://github.com/kortyx-io/kortyx/compare/example-nextjs-chat-api-route-v0.17.0...example-nextjs-chat-api-route-v0.18.0) (2026-09-10)
 
 

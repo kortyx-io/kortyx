@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.18.0](https://github.com/kortyx-io/kortyx/compare/kortyx-v0.17.0...kortyx-v0.18.0) (2026-09-11)
+
+
+### Features
+
+* complete client responses while workflows continue in background ([#165](https://github.com/kortyx-io/kortyx/issues/165)) ([a8a08cd](https://github.com/kortyx-io/kortyx/commit/a8a08cd1e9533e4b44efa4af54a2d2cec54431ae))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/agent bumped to 0.19.0
+    * @kortyx/cli bumped to 0.5.3
+    * @kortyx/hooks bumped to 0.22.0
+    * @kortyx/runtime bumped to 0.15.0
+
 ## [0.17.0](https://github.com/kortyx-io/kortyx/compare/kortyx-v0.16.0...kortyx-v0.17.0) (2026-09-10)
 
 

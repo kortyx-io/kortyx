@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.28.0](https://github.com/kortyx-io/kortyx/compare/website-v0.27.0...website-v0.28.0) (2026-09-11)
+
+
+### Features
+
+* complete client responses while workflows continue in background ([#165](https://github.com/kortyx-io/kortyx/issues/165)) ([a8a08cd](https://github.com/kortyx-io/kortyx/commit/a8a08cd1e9533e4b44efa4af54a2d2cec54431ae))
+
 ## [0.27.0](https://github.com/kortyx-io/kortyx/compare/website-v0.26.0...website-v0.27.0) (2026-09-10)
 
 
