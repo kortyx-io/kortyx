@@ -340,7 +340,7 @@ it("warns for legacy top-level DeepSeek thinking provider options", async () => 
       type: "unsupported",
       feature: "providerOptions",
       details:
-        "DeepSeek provider currently maps providerOptions.deepseek.thinking.",
+        "DeepSeek provider currently maps providerOptions.deepseek.thinking and reasoningEffort.",
     },
   ]);
 });

@@ -47,7 +47,7 @@ describeProviderConformance({
             String(init?.body),
           ) as GroqChatCompletionRequest;
           expect(requestBody).toMatchObject({
-            model: "llama-3.3-70b-versatile",
+            model: "openai/gpt-oss-120b",
             temperature: 0.2,
             max_tokens: 256,
             stop: ["END"],
@@ -66,7 +66,7 @@ describeProviderConformance({
           });
           return createJsonResponse({
             id: "resp-invoke",
-            model: "llama-3.3-70b-versatile",
+            model: "openai/gpt-oss-120b",
             choices: [
               {
                 message: {
@@ -91,7 +91,7 @@ describeProviderConformance({
         },
       });
 
-      return provider.getModel("llama-3.3-70b-versatile", {
+      return provider.getModel("openai/gpt-oss-120b", {
         temperature: 0.2,
         maxOutputTokens: 256,
         stopSequences: ["END"],
@@ -124,9 +124,9 @@ describeProviderConformance({
       });
       expect(result.providerMetadata).toMatchObject({
         providerId: "groq",
-        modelId: "llama-3.3-70b-versatile",
+        modelId: "openai/gpt-oss-120b",
         responseId: "resp-invoke",
-        responseModel: "llama-3.3-70b-versatile",
+        responseModel: "openai/gpt-oss-120b",
         cachedTokens: 2,
         reasoningTokens: 1,
       });

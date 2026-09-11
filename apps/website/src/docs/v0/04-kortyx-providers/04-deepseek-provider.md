@@ -253,7 +253,7 @@ Current DeepSeek provider options:
 Current mapping details:
 
 - `responseFormat.type: "json"` maps to DeepSeek JSON object mode
-- `reasoning.effort` and `reasoning.maxTokens` map to enabling or disabling provider thinking
+- `reasoning.effort` maps to native effort controls; `none` or a zero budget disables thinking
 - `temperature` defaults to `0.7` when you do not set it
 
 Current warning-backed gaps:
@@ -300,3 +300,11 @@ It does not currently expose embeddings, image generation, file APIs, or provide
 
 - See [Hooks](../02-core-concepts/07-hooks.md) for `useReason(...)` behavior and structured output
 - See [Provider API](../05-reference/04-provider-api.md) for the shared normalized provider contract
+
+## Reasoning and function tools
+
+`useReason` preserves `reasoning_content` privately across tool rounds and approval resumes, including earlier assistant turns. Generic `reasoning.effort` is forwarded to the API's `reasoning_effort`; `none` disables thinking. Native controls remain available as `providerOptions.deepseek.thinking` and `providerOptions.deepseek.reasoningEffort`. Unsupported positive token budgets produce a warning.
+
+DeepSeek JSON mode is accompanied by schema instructions and local validation; it is not advertised as native schema enforcement. Streamed function arguments are assembled before execution, and trailing usage does not erase the finish reason.
+
+See [DeepSeek thinking and tool requirements](https://api-docs.deepseek.com/guides/thinking_mode/).

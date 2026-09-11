@@ -142,7 +142,6 @@ describe("deepseek public provider contract", () => {
     expect(result.warnings).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ feature: "responseFormat.schema" }),
-        expect.objectContaining({ feature: "reasoning.effort" }),
         expect.objectContaining({ feature: "reasoning.maxTokens" }),
         expect.objectContaining({ feature: "providerOptions" }),
         expect.objectContaining({ feature: "providerOptions.deepseek" }),

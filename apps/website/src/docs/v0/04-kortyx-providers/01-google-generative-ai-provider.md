@@ -260,9 +260,9 @@ Current Google mapping details:
 
 Current warning-backed gaps:
 
-- `responseFormat.schema` is not yet translated into Google `responseSchema`
-- `providerOptions` is not yet mapped into Google request fields
-- unsupported `reasoning.effort` values fall back to `"medium"` and add a compatibility warning
+- `responseFormat.schema` maps to native `responseJsonSchema`
+- `providerOptions.google.thinkingConfig` supports native thinking controls; unknown options produce warnings
+- unsupported or rejected `reasoning.effort` values fail explicitly; no request is retried without effort
 
 That means you should check `result.warnings` if you are relying on advanced generic options and want to confirm how the provider handled them.
 
@@ -304,3 +304,15 @@ It does not currently expose provider-native embeddings, image generation, file 
 
 - See [Hooks](../02-core-concepts/07-hooks.md) for `useReason(...)` behavior and structured output
 - See [Provider API](../05-reference/04-provider-api.md) for the shared normalized provider contract
+
+## Reasoning, tools, and structured output
+
+Model IDs accept arbitrary non-empty strings; `MODELS` supplies autocomplete suggestions. `useReason` preserves thought signatures and original function-call IDs across tool rounds and approval resumes. Thought summaries are kept separate from final text and JSON.
+
+Compatible `outputSchema` calls use native JSON Schema enforcement. Tool schemas retain references and property names. Gemini 3 models receive `reasoning.effort` as a thinking level; Gemini 2.5 maps minimal/low/medium/high to budgets of 512/1,024/8,192/24,576 tokens, with a compatibility warning. Use `reasoning.maxTokens` for a specific budget, or `providerOptions.google.thinkingConfig` for native controls. Do not supply both generic effort and budget.
+
+**Behavior change:** rejected reasoning settings now fail explicitly; Kortyx no longer retries without effort. `none` disables thinking on compatible Gemini 2.5 Flash models and fails on models that cannot disable thinking. No model is substituted automatically.
+
+When combining tools with JSON output, `useReason` keeps output constraints off tool-selection turns. Gemini 2.x rejects the combined request, and live Gemini 3 `generateContent` tests repeatedly selected a tool instead of returning the final JSON. With only `outputSchema`, Kortyx reuses an answer that passes local validation and reports a compatibility warning. Otherwise it makes a separate JSON-only call, using the same model and reasoning and counting toward existing limits. An explicit `responseFormat.schema` always requires provider-enforced finalization. Direct Gemini 2.x requests combining tools and JSON fail with guidance.
+
+See [Google thought signatures](https://ai.google.dev/gemini-api/docs/generate-content/thought-signatures) and [structured output](https://ai.google.dev/gemini-api/docs/generate-content/structured-output).

@@ -5,7 +5,7 @@ This document defines the canonical structure and rules for provider packages un
 ## Goals
 
 - Keep provider packages small, consistent, and automatable.
-- Keep `@kortyx/providers` as contracts + registry only.
+- Keep `@kortyx/providers` limited to contracts, registry, and shared transport decoding; vendor request semantics belong in concrete adapters.
 - Avoid provider-specific architecture drift.
 - Avoid provider-name repetition in filenames and exported API names.
 - Make provider results operationally useful with normalized metadata.
@@ -203,3 +203,23 @@ Before merging a provider package:
 - Keep v1 feature surface minimal and identical across providers.
 - Avoid one-off provider APIs in shared contracts.
 - Add provider-specific advanced features only after core providers are stable.
+
+## Reasoning continuation and transport correctness
+
+- Replay provider-native reasoning state through the private `continuation` contract. Preserve signatures, content order, and original tool IDs; never include that state in client events or telemetry.
+- Use the shared SSE decoder so early exit cancels and releases response readers.
+- Treat EOF without a provider terminal event as failure. Preserve observed usage on failed streams.
+- Assemble all function argument fragments before advertising `supportsToolStreaming`.
+- Set usage inclusion flags whenever reasoning or cached tokens are already part of output/input totals.
+- Providers with incompatible or unreliable schema/tool combinations can set `requiresSeparateStructuredOutput`. When only `outputSchema` was supplied, the hook loop can reuse locally validated output with a compatibility warning; invalid drafts or explicit native schemas require a separately accounted, resumable final pass. Explicit execution limits are never increased.
+- Fixture compatibility tests must cover multiple reasoning/tool rounds, stream fragmentation/truncation, cancellation and usage. Current provider documentation is authoritative; Vercel AI SDK is a cross-check, not a guarantee of live compatibility.
+
+## Optional live verification
+
+The hook integration suite includes opt-in Google and Anthropic API tests. Provide `ANTHROPIC_API_KEY` and `GOOGLE_GENERATIVE_AI_API_KEY` through the environment, then run from the repository root:
+
+```bash
+KORTYX_LIVE_PROVIDERS=1 pnpm --filter @kortyx/hooks exec vitest run test/providers.live.test.ts
+```
+
+To load a local file, use `pnpm exec dotenv -e <env-file> --` before the filtered pnpm command. Normal test runs skip the live suite. It exercises two dependent tool calls, constrained output, native finalization, approval/resume, usage, private-state redaction and root cancellation. Tests cover manual/adaptive Anthropic thinking and Gemini 2.5/3, with streaming on and off. Summary files in the OS temporary directory contain only model IDs, counts and token usage; API keys and request bodies are not written.

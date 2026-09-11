@@ -33,6 +33,12 @@ const normalizeReasoningEffort = (
   }
 
   if (options.reasoning === undefined) return undefined;
+  if (
+    options.reasoning?.maxTokens === 0 &&
+    options.reasoning.effort &&
+    options.reasoning.effort !== "none"
+  )
+    throw new Error("Conflicting reasoning effort and zero token budget.");
   if (options.reasoning.maxTokens === 0) return "none";
 
   switch (options.reasoning.effort) {
@@ -46,6 +52,10 @@ const normalizeReasoningEffort = (
     case "high":
       return "high";
     default:
+      if (options.reasoning.effort !== undefined)
+        throw new Error(
+          `Unsupported Groq reasoning effort: ${options.reasoning.effort}`,
+        );
       return undefined;
   }
 };
@@ -80,6 +90,11 @@ const shouldUseStructuredOutputs = (options: ModelOptions): boolean =>
 
 const shouldUseStrictJsonSchema = (options: ModelOptions): boolean =>
   getProviderOptions(options)?.strictJsonSchema !== false;
+
+export const usesNativeSchema = (options: ModelOptions): boolean =>
+  options.responseFormat?.type === "json" &&
+  options.responseFormat.schema !== undefined &&
+  shouldUseStructuredOutputs(options);
 
 const createResponseFormat = (
   options: ModelOptions,
@@ -140,6 +155,16 @@ const toMessages = (
         };
       }
 
+      if (
+        message.role === "assistant" &&
+        message.continuation?.providerId === "groq" &&
+        message.continuation.api === "chat-completions"
+      ) {
+        const native = message.continuation.items[0] as
+          | GroqChatMessage
+          | undefined;
+        if (native) return { ...native, role: "assistant" };
+      }
       return {
         role: message.role,
         content: message.content,
@@ -180,12 +205,30 @@ export const createChatCompletionRequest = (
   const responseFormat = createResponseFormat(options);
   const serviceTier = normalizeServiceTier(options);
   const tools = options.tools?.map(toGroqTool);
+  if (responseFormat?.type === "json_schema" && tools?.length)
+    throw new Error(
+      "Groq cannot combine native JSON schema output and tools in one request. Use useReason for automatic finalization, or make a separate schema-only call.",
+    );
+  if (reasoningFormat === "raw" && (tools?.length || responseFormat))
+    throw new Error(
+      "Groq raw reasoning is incompatible with tools and JSON output.",
+    );
+  if (reasoningEffort === "none" && modelId.startsWith("openai/gpt-oss"))
+    throw new Error("Groq GPT-OSS models cannot disable reasoning.");
+  if (reasoningEffort && /^(llama-|meta-llama\/)/.test(modelId))
+    throw new Error(`Groq ${modelId} does not support reasoning effort.`);
+  if (usesNativeSchema(options) && /^(llama-|meta-llama\/)/.test(modelId))
+    throw new Error(
+      `Groq ${modelId} does not support native schema output. Select a compatible model or explicitly set structuredOutputs: false.`,
+    );
 
   return {
     model: modelId,
     messages: toMessages(messages, options),
-    stream,
-    ...(stream ? { stream_options: { include_usage: true } } : {}),
+    stream: usesNativeSchema(options) ? false : stream,
+    ...(stream && !usesNativeSchema(options)
+      ? { stream_options: { include_usage: true } }
+      : {}),
     temperature: options.temperature ?? 0.7,
     ...(options.maxOutputTokens !== undefined
       ? { max_tokens: options.maxOutputTokens }

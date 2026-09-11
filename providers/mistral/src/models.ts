@@ -1,6 +1,8 @@
 export const PROVIDER_ID = "mistral" as const;
 
 export const MODELS = [
+  "mistral-medium-3-5",
+
   "ministral-3b-latest",
   "ministral-8b-latest",
   "ministral-14b-latest",

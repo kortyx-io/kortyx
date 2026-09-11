@@ -303,3 +303,13 @@ It does not currently expose Groq transcription, browser search, embeddings, ima
 
 - See [Hooks](../02-core-concepts/07-hooks.md) for `useReason(...)` behavior and structured output
 - See [Provider API](../05-reference/04-provider-api.md) for the shared normalized provider contract
+
+## Reasoning, tools, and structured output
+
+Use a model supporting the requested combination, such as `openai/gpt-oss-120b` for reasoning and schema output. GPT-OSS cannot disable reasoning. Unsupported settings fail explicitly; no model or reasoning fallback is applied.
+
+Groq does not currently support native schema output together with tools or streaming. When you provide only `outputSchema`, `useReason` runs tool rounds and reuses an answer that passes the original local validator, with a compatibility warning. This avoids an extra model call; two tool rounds plus a valid answer fit the default three steps. If validation fails, it makes a separate schema-only final request using the same model and reasoning settings. An explicit `responseFormat.schema` (including a model default) always requires that native finalization, even when the draft is valid. The extra request counts toward `toolExecution.maxSteps`, execution model-pass limits, usage and Studio telemetry; allow four steps for two tool rounds when finalization is needed. Approval/resume and cancellation cover finalization too. Schema-only responses are buffered even when `stream: true`.
+
+Direct provider requests combining native schemas and tools fail with guidance. An explicit `providerOptions.groq.structuredOutputs: false` retains JSON mode plus local validation; Kortyx does not silently choose that weaker mode. `reasoningFormat: "raw"` cannot be combined with tools or JSON output.
+
+See [Groq structured-output restrictions](https://console.groq.com/docs/structured-outputs).

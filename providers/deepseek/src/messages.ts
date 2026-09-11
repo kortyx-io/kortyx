@@ -36,6 +36,12 @@ const normalizeThinkingType = (
 
   if (options.reasoning === undefined) return undefined;
   if (
+    options.reasoning?.maxTokens === 0 &&
+    options.reasoning.effort &&
+    options.reasoning.effort !== "none"
+  )
+    throw new Error("Conflicting reasoning effort and zero token budget.");
+  if (
     options.reasoning.effort === "none" ||
     options.reasoning.maxTokens === 0
   ) {
@@ -83,9 +89,22 @@ const toMessages = (
         };
       }
 
+      if (
+        message.role === "assistant" &&
+        message.continuation?.providerId === "deepseek" &&
+        message.continuation.api === "chat-completions"
+      ) {
+        const native = message.continuation.items[0] as
+          | DeepSeekChatMessage
+          | undefined;
+        if (native) return { ...native, role: "assistant" };
+      }
       return {
         role: message.role,
         content: message.content,
+        ...(message.role === "assistant" && options.tools?.length
+          ? { reasoning_content: "" }
+          : {}),
         ...(message.toolCalls?.length
           ? {
               tool_calls: message.toolCalls.map((toolCall: KortyxToolCall) => ({
@@ -135,6 +154,16 @@ export const createChatCompletionRequest = (
       : {}),
     ...(options.responseFormat?.type === "json"
       ? { response_format: { type: "json_object" } }
+      : {}),
+    ...((getProviderOptions(options)?.reasoningEffort ??
+      options.reasoning?.effort) !== undefined &&
+    options.reasoning?.effort !== "none"
+      ? {
+          reasoning_effort: String(
+            getProviderOptions(options)?.reasoningEffort ??
+              options.reasoning?.effort,
+          ),
+        }
       : {}),
     ...(thinkingType !== undefined ? { thinking: { type: thinkingType } } : {}),
     ...(tools?.length ? { tools } : {}),

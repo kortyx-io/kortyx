@@ -75,7 +75,17 @@ const toMistralTool = (tool: KortyxToolDefinition) => ({
 });
 
 const supportsReasoningEffort = (modelId: string): boolean =>
-  modelId === "mistral-small-latest" || modelId === "mistral-small-2603";
+  [
+    "mistral-small-latest",
+    "mistral-small-2603",
+    "mistral-small",
+    "mistral-medium",
+    "mistral-medium-2604",
+    "mistral-medium-3",
+    "mistral-medium-3-5",
+    "mistral-medium-3.5",
+    "mistral-medium-latest",
+  ].includes(modelId);
 
 export const normalizeReasoningEffort = (
   modelId: string,
@@ -90,7 +100,23 @@ export const normalizeReasoningEffort = (
   }
 
   if (options.reasoning === undefined) return undefined;
-  if (options.reasoning.maxTokens === 0) return "none";
+  if (
+    options.reasoning?.maxTokens === 0 &&
+    options.reasoning.effort &&
+    options.reasoning.effort !== "none"
+  )
+    throw new Error("Conflicting reasoning effort and zero token budget.");
+  if (
+    options.reasoning.effort &&
+    !["none", "minimal", "low", "medium", "high"].includes(
+      options.reasoning.effort,
+    )
+  )
+    throw new Error(
+      `Unsupported Mistral reasoning effort: ${options.reasoning.effort}`,
+    );
+  if (options.reasoning.effort === "none" || options.reasoning.maxTokens === 0)
+    return "none";
   return options.reasoning.effort !== undefined ||
     options.reasoning.maxTokens !== undefined ||
     options.reasoning.includeThoughts !== undefined
@@ -125,6 +151,16 @@ const toMessages = (
         };
       }
 
+      if (
+        message.role === "assistant" &&
+        message.continuation?.providerId === "mistral" &&
+        message.continuation.api === "chat-completions"
+      ) {
+        const native = message.continuation.items[0] as
+          | MistralChatMessage
+          | undefined;
+        if (native) return { ...native, role: "assistant" };
+      }
       return {
         role: message.role,
         content: message.content,

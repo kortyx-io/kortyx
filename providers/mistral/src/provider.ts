@@ -12,6 +12,7 @@ import type {
   ProviderModelRef,
   ProviderSelector,
 } from "@kortyx/providers";
+import { ChatStreamAccumulator } from "@kortyx/providers";
 import { createMistralClient } from "./client";
 import {
   ProviderConfigurationError,
@@ -24,7 +25,6 @@ import {
 } from "./messages";
 import { MODELS, type ModelId, PROVIDER_ID } from "./models";
 import type {
-  MistralChatCompletionChunk,
   MistralChatCompletionResponse,
   MistralContent,
   MistralUsage,
@@ -110,7 +110,7 @@ const parseToolInput = (value: string | undefined): unknown => {
   try {
     return JSON.parse(value);
   } catch {
-    return value;
+    throw new Error("Invalid JSON in provider function arguments.");
   }
 };
 
@@ -119,12 +119,16 @@ const extractToolCalls = (
 ): KortyxToolCall[] | undefined => {
   const toolCalls = response.choices?.[0]?.message?.tool_calls;
   if (!toolCalls?.length) return undefined;
-  return toolCalls.map((toolCall) => ({
-    id: toolCall.id,
-    name: toolCall.function.name,
-    input: parseToolInput(toolCall.function.arguments),
-    raw: toolCall,
-  }));
+  return toolCalls.map((toolCall) => {
+    if (!toolCall.id || !toolCall.function?.name)
+      throw new Error("Incomplete provider function call.");
+    return {
+      id: toolCall.id,
+      name: toolCall.function.name,
+      input: parseToolInput(toolCall.function.arguments),
+      raw: toolCall,
+    };
+  });
 };
 
 const extractFinishReason = (
@@ -155,29 +159,6 @@ const extractResponseProviderMetadata = (
   return Object.keys(metadata).length > 0 ? metadata : undefined;
 };
 
-const extractChunkProviderMetadata = (
-  modelId: ModelId,
-  chunk: MistralChatCompletionChunk,
-): KortyxProviderMetadata | undefined => {
-  const usage = toRecord(chunk.usage);
-  const metadata: KortyxProviderMetadata = {
-    providerId: PROVIDER_ID,
-    modelId,
-    ...(chunk.id !== undefined && chunk.id !== null
-      ? { responseId: chunk.id }
-      : {}),
-    ...(chunk.model !== undefined && chunk.model !== null
-      ? { responseModel: chunk.model }
-      : {}),
-    ...(chunk.created !== undefined && chunk.created !== null
-      ? { created: chunk.created }
-      : {}),
-    ...(usage !== undefined ? { usage } : {}),
-  };
-
-  return Object.keys(metadata).length > 0 ? metadata : undefined;
-};
-
 const getProviderOptions = (
   options: ModelOptions,
 ): Record<string, unknown> | undefined => {
@@ -193,6 +174,17 @@ const collectWarnings = (
   options: ModelOptions,
 ): KortyxWarning[] | undefined => {
   const warnings: KortyxWarning[] = [];
+  if (
+    modelSupportsReasoningEffort(modelId) &&
+    options.reasoning?.effort &&
+    ["minimal", "low", "medium"].includes(options.reasoning.effort)
+  )
+    warnings.push({
+      type: "compatibility",
+      feature: "reasoning.effort",
+      details:
+        "Mistral exposes none/high reasoning. Positive generic effort levels map to high.",
+    });
 
   if (options.stopSequences !== undefined) {
     warnings.push({
@@ -211,7 +203,7 @@ const collectWarnings = (
       type: "unsupported",
       feature: "reasoning",
       details:
-        "Mistral reasoning effort is only mapped for mistral-small-latest and mistral-small-2603.",
+        "This Mistral model does not expose configurable reasoning effort.",
     });
   }
 
@@ -265,27 +257,20 @@ const createTextDeltaPart = (
   raw,
 });
 
-const createFinishPart = (
-  modelId: ModelId,
-  chunk: MistralChatCompletionChunk | undefined,
-  warnings: KortyxWarning[] | undefined,
-): KortyxStreamPart => {
-  const finishReason = mapMistralFinishReason(
-    chunk?.choices?.[0]?.finish_reason,
-  );
-  const usage = extractUsage(chunk?.usage);
-  const providerMetadata =
-    chunk !== undefined
-      ? extractChunkProviderMetadata(modelId, chunk)
-      : undefined;
-
+const continuation = (response: MistralChatCompletionResponse) => {
+  const message = response.choices?.[0]?.message;
   return {
-    type: "finish",
-    ...(chunk !== undefined ? { raw: chunk } : {}),
-    ...(finishReason ? { finishReason } : {}),
-    ...(usage ? { usage } : {}),
-    ...(providerMetadata ? { providerMetadata } : {}),
-    ...(warnings ? { warnings } : {}),
+    providerId: PROVIDER_ID,
+    api: "chat-completions",
+    items: message
+      ? [
+          {
+            role: "assistant",
+            content: message.content ?? "",
+            ...(message.tool_calls ? { tool_calls: message.tool_calls } : {}),
+          },
+        ]
+      : [],
   };
 };
 
@@ -301,6 +286,7 @@ const createResponseFinishPart = (
 
   return {
     type: "finish",
+    continuation: continuation(response),
     raw: response,
     ...(finishReason ? { finishReason } : {}),
     ...(usage ? { usage } : {}),
@@ -357,6 +343,7 @@ const createMistralModel = (
   const warnings = collectWarnings(modelId, resolvedOptions);
 
   return {
+    supportsToolStreaming: true,
     async *stream(messages: KortyxPromptMessage[]) {
       const client = getClient();
       const request = createChatCompletionRequest(
@@ -366,31 +353,37 @@ const createMistralModel = (
         resolvedOptions.streaming !== false,
       );
 
+      let partialUsage: MistralUsage | undefined;
       try {
         if (resolvedOptions.streaming !== false) {
-          let lastChunk: MistralChatCompletionChunk | undefined;
+          const accumulator = new ChatStreamAccumulator();
           for await (const chunk of client.streamChatCompletion(request, {
             ...(resolvedOptions.abortSignal
               ? { signal: resolvedOptions.abortSignal }
               : {}),
           })) {
+            partialUsage = chunk.usage ?? partialUsage;
             if (chunk.error?.message) {
               yield {
                 type: "error",
-                error: new Error(chunk.error.message),
+                error: Object.assign(new Error(chunk.error.message), {
+                  usage: extractUsage(partialUsage),
+                }),
                 raw: chunk,
-              } satisfies KortyxStreamPart;
+              };
               return;
             }
-
-            lastChunk = chunk;
+            accumulator.add(chunk);
             const delta = extractTextFromContent(
               chunk.choices?.[0]?.delta?.content,
             );
             if (delta) yield createTextDeltaPart(delta, chunk);
           }
-
-          yield createFinishPart(modelId, lastChunk, warnings);
+          yield createResponseFinishPart(
+            modelId,
+            accumulator.finish() as MistralChatCompletionResponse,
+            warnings,
+          );
           return;
         }
 
@@ -405,7 +398,10 @@ const createMistralModel = (
       } catch (error) {
         yield {
           type: "error",
-          error: toProviderRequestError("stream content", error),
+          error: Object.assign(
+            toProviderRequestError("stream content", error),
+            { usage: extractUsage(partialUsage) },
+          ),
         } satisfies KortyxStreamPart;
       }
     },
@@ -434,6 +430,7 @@ const createMistralModel = (
         return {
           role: "assistant",
           content: extractText(result),
+          continuation: continuation(result),
           raw: result,
           ...(usage ? { usage } : {}),
           ...(finishReason ? { finishReason } : {}),

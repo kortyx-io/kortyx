@@ -18,8 +18,14 @@ import {
   requireSecret,
   toProviderRequestError,
 } from "./errors";
-import { createMessagesRequest, getThinkingRequest } from "./messages";
+import {
+  createMessagesRequest,
+  getThinkingRequest,
+  supportsAdaptiveThinking,
+  supportsNativeSchema,
+} from "./messages";
 import { MODELS, type ModelId, PROVIDER_ID } from "./models";
+import { normalizeOutputSchema } from "./schema";
 import type {
   AnthropicContentBlock,
   AnthropicMessagesResponse,
@@ -134,6 +140,12 @@ const extractUsage = (
   const total = addOptionalNumbers(input, output);
 
   return {
+    inputIncludesCacheRead: true,
+    inputIncludesCacheWrite: true,
+    outputIncludesReasoning: true,
+    ...(usage.output_tokens_details?.thinking_tokens !== undefined
+      ? { reasoning: usage.output_tokens_details.thinking_tokens }
+      : {}),
     ...(input != null ? { input } : {}),
     ...(output != null ? { output } : {}),
     ...(total != null ? { total } : {}),
@@ -158,17 +170,18 @@ const extractToolCallsFromBlocks = (
   blocks: AnthropicContentBlock[] | undefined,
 ): KortyxToolCall[] | undefined => {
   const toolCalls = blocks
-    ?.map((block, index): KortyxToolCall | undefined => {
+    ?.map((block): KortyxToolCall | undefined => {
       if (block.type !== "tool_use") return undefined;
-      if (typeof block.name !== "string" || block.name.length === 0) {
-        return undefined;
-      }
+      if (
+        typeof block.name !== "string" ||
+        !block.name ||
+        typeof block.id !== "string" ||
+        !block.id
+      )
+        throw new Error("Anthropic returned an incomplete tool_use block.");
 
       return {
-        id:
-          typeof block.id === "string" && block.id.length > 0
-            ? block.id
-            : `tool-use-${index}`,
+        id: block.id,
         name: block.name,
         input: block.input ?? {},
         raw: block,
@@ -249,11 +262,15 @@ const getProviderOptions = (
 
 const collectWarnings = (
   options: ModelOptions,
+  modelId: string,
 ): KortyxWarning[] | undefined => {
   const warnings: KortyxWarning[] = [];
-  const thinking = getThinkingRequest(options);
+  const thinking = getThinkingRequest(options, modelId);
 
-  if (thinking?.type === "enabled" && options.temperature !== undefined) {
+  if (
+    (thinking?.type === "enabled" || thinking?.type === "adaptive") &&
+    options.temperature !== undefined
+  ) {
     warnings.push({
       type: "unsupported",
       feature: "temperature",
@@ -262,24 +279,43 @@ const collectWarnings = (
     });
   }
 
-  if (options.responseFormat?.type === "json") {
+  if (
+    options.responseFormat?.type === "json" &&
+    (!options.responseFormat.schema || !supportsNativeSchema(modelId))
+  ) {
     warnings.push({
       type: "compatibility",
       feature: "responseFormat",
       details:
-        "Anthropic does not expose a provider-native JSON schema response format in this provider. Kortyx maps JSON mode through system instructions.",
+        "This request uses JSON instructions; native schema enforcement requires a schema and a compatible Anthropic model.",
     });
   }
 
   if (
     options.reasoning?.effort !== undefined &&
-    options.reasoning.maxTokens === undefined
+    options.reasoning.maxTokens === undefined &&
+    !supportsAdaptiveThinking(modelId) &&
+    options.reasoning.effort !== "none"
   ) {
     warnings.push({
       type: "compatibility",
       feature: "reasoning.effort",
       details:
-        "Anthropic uses a thinking token budget. Kortyx maps generic reasoning effort to the minimum supported thinking budget.",
+        "This Anthropic model uses manual thinking budgets rather than effort levels. Kortyx retains its 1024-token default; set reasoning.maxTokens for an explicit budget.",
+    });
+  }
+
+  if (
+    options.responseFormat?.type === "json" &&
+    options.responseFormat.schema &&
+    supportsNativeSchema(modelId) &&
+    normalizeOutputSchema(options.responseFormat.schema).changed
+  ) {
+    warnings.push({
+      type: "compatibility",
+      feature: "responseFormat.schema",
+      details:
+        "Anthropic's wire schema omits unsupported constraints and records them in descriptions. useReason still validates output against the original outputSchema; direct provider callers must validate these constraints locally.",
     });
   }
 
@@ -287,6 +323,7 @@ const collectWarnings = (
   const allowedProviderOptions = new Set([
     "anthropic",
     "thinking",
+    "effort",
     "topK",
     "top_k",
     "topP",
@@ -344,6 +381,11 @@ const createResponseFinishPart = (
 
   return {
     type: "finish",
+    continuation: {
+      providerId: PROVIDER_ID,
+      api: "messages",
+      items: response.content ?? [],
+    },
     raw: response,
     ...(finishReason ? { finishReason } : {}),
     ...(usage ? { usage } : {}),
@@ -396,7 +438,7 @@ const parseStreamToolInput = (state: StreamToolCallState): unknown => {
   try {
     return JSON.parse(state.inputJson);
   } catch {
-    return state.inputJson;
+    throw new Error("Invalid JSON in Anthropic function arguments.");
   }
 };
 
@@ -457,10 +499,18 @@ const createAnthropicModel = (
       ? { providerOptions: options.providerOptions }
       : {}),
   };
-  const warnings = collectWarnings(resolvedOptions);
+  const warnings = collectWarnings(resolvedOptions, modelId);
 
   return {
+    supportsToolStreaming: true,
+    // Adaptive thinking + native schema + tools can fail inside Anthropic's
+    // stream. Keep tool selection separate without changing the selected effort.
+    requiresSeparateStructuredOutput:
+      getThinkingRequest(resolvedOptions, modelId)?.type === "adaptive" &&
+      resolvedOptions.responseFormat?.type === "json" &&
+      resolvedOptions.responseFormat.schema !== undefined,
     async *stream(messages: KortyxPromptMessage[]) {
+      let partialUsage: AnthropicUsage | undefined;
       const client = getClient();
       const request = createMessagesRequest(
         modelId,
@@ -476,6 +526,8 @@ const createAnthropicModel = (
           let finishReasonRaw: string | null | undefined;
           let stopSequence: string | null | undefined;
           let lastEvent: AnthropicStreamEvent | undefined;
+          let stopped = false;
+          const nativeBlocks = new Map<number, Record<string, unknown>>();
           const toolCallStates = new Map<number, StreamToolCallState>();
 
           for await (const event of client.streamMessage(request, {
@@ -484,12 +536,14 @@ const createAnthropicModel = (
               : {}),
           })) {
             lastEvent = event;
+            if (event.type === "message_stop") stopped = true;
 
             if (event.type === "error") {
               yield {
                 type: "error",
-                error: new Error(
-                  event.error?.message ?? "Anthropic stream error.",
+                error: Object.assign(
+                  new Error(event.error?.message ?? "Anthropic stream error."),
+                  { usage: extractUsage(partialUsage) },
                 ),
                 raw: event,
               } satisfies KortyxStreamPart;
@@ -499,21 +553,27 @@ const createAnthropicModel = (
             if (event.type === "message_start") {
               message = event.message;
               usage = mergeAnthropicUsage(usage, event.message?.usage);
+              partialUsage = usage;
               continue;
             }
 
             if (event.type === "content_block_start") {
               const block = event.content_block;
-              if (
-                block?.type === "tool_use" &&
-                typeof block.name === "string" &&
-                event.index !== undefined
-              ) {
+              if (block && event.index !== undefined)
+                nativeBlocks.set(event.index, { ...block });
+              if (block?.type === "tool_use") {
+                if (
+                  typeof block.id !== "string" ||
+                  !block.id ||
+                  typeof block.name !== "string" ||
+                  !block.name ||
+                  event.index === undefined
+                )
+                  throw new Error(
+                    "Anthropic returned an incomplete streamed tool_use block.",
+                  );
                 toolCallStates.set(event.index, {
-                  id:
-                    typeof block.id === "string" && block.id.length > 0
-                      ? block.id
-                      : `tool-use-${event.index}`,
+                  id: block.id,
                   name: block.name,
                   ...(block.input !== undefined ? { input: block.input } : {}),
                   inputJson: "",
@@ -525,6 +585,23 @@ const createAnthropicModel = (
 
             if (event.type === "content_block_delta") {
               const delta = event.delta;
+              const native =
+                event.index !== undefined
+                  ? nativeBlocks.get(event.index)
+                  : undefined;
+              if (native && delta) {
+                if (delta.type === "text_delta")
+                  native.text =
+                    String(native.text ?? "") + String(delta.text ?? "");
+                if (delta.type === "thinking_delta")
+                  native.thinking =
+                    String(native.thinking ?? "") +
+                    String(delta.thinking ?? "");
+                if (delta.type === "signature_delta")
+                  native.signature =
+                    String(native.signature ?? "") +
+                    String(delta.signature ?? "");
+              }
               if (
                 delta?.type === "text_delta" &&
                 typeof delta.text === "string" &&
@@ -548,12 +625,21 @@ const createAnthropicModel = (
 
             if (event.type === "message_delta") {
               usage = mergeAnthropicUsage(usage, event.usage);
+              partialUsage = usage;
               finishReasonRaw = event.delta?.stop_reason;
               stopSequence = event.delta?.stop_sequence;
             }
           }
 
-          yield createStreamFinishPart(
+          if (!stopped || !(finishReasonRaw ?? message?.stop_reason))
+            throw new Error(
+              "Anthropic stream ended without a terminal message_stop/stop_reason.",
+            );
+          for (const [index, state] of toolCallStates) {
+            const native = nativeBlocks.get(index);
+            if (native) native.input = parseStreamToolInput(state);
+          }
+          const finish = createStreamFinishPart(
             modelId,
             message,
             usage,
@@ -563,6 +649,16 @@ const createAnthropicModel = (
             lastEvent,
             warnings,
           );
+          yield {
+            ...finish,
+            continuation: {
+              providerId: PROVIDER_ID,
+              api: "messages",
+              items: [...nativeBlocks.entries()]
+                .sort(([a], [b]) => a - b)
+                .map(([, block]) => block as AnthropicContentBlock),
+            },
+          };
           return;
         }
 
@@ -577,7 +673,10 @@ const createAnthropicModel = (
       } catch (error) {
         yield {
           type: "error",
-          error: toProviderRequestError("stream content", error),
+          error: Object.assign(
+            toProviderRequestError("stream content", error),
+            { usage: extractUsage(partialUsage) },
+          ),
         } satisfies KortyxStreamPart;
       }
     },
@@ -606,6 +705,11 @@ const createAnthropicModel = (
         return {
           role: "assistant",
           content: extractText(result),
+          continuation: {
+            providerId: PROVIDER_ID,
+            api: "messages",
+            items: result.content ?? [],
+          },
           raw: result,
           ...(usage ? { usage } : {}),
           ...(finishReason ? { finishReason } : {}),

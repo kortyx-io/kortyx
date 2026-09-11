@@ -16,6 +16,7 @@ export {
   registerProvider,
   resetProviders,
 } from "./factory";
+export { ChatStreamAccumulator, readSseEvents } from "./transport";
 // Types
 export type {
   GetProviderFn,

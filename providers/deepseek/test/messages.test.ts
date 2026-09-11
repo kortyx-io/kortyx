@@ -124,6 +124,7 @@ describe("deepseek message mapping", () => {
       {
         role: "assistant",
         content: "",
+        reasoning_content: "",
         tool_calls: [
           {
             id: "call-1",

@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import type {
   KortyxFinishReason,
   KortyxInvokeResult,
@@ -18,7 +19,11 @@ import {
   requireApiKey,
   toProviderRequestError,
 } from "./errors";
-import { createGenerateContentRequest, extractText } from "./messages";
+import {
+  createGenerateContentRequest,
+  extractText,
+  requiresSeparateOutput,
+} from "./messages";
 import { MODELS, type ModelId, PROVIDER_ID } from "./models";
 import type { GoogleGenerateContentResponse, ProviderSettings } from "./types";
 
@@ -80,6 +85,8 @@ const extractUsage = (
   if (!usage) return undefined;
 
   return {
+    inputIncludesCacheRead: true,
+    outputIncludesReasoning: false,
     ...(usage.promptTokenCount != null
       ? { input: usage.promptTokenCount }
       : {}),
@@ -122,18 +129,27 @@ const extractProviderMetadata = (
 
 const extractFinishReason = (
   response: GoogleGenerateContentResponse,
-): KortyxFinishReason | undefined =>
-  mapGoogleFinishReason(response.candidates?.[0]?.finishReason);
+): KortyxFinishReason | undefined => {
+  const candidate = response.candidates?.[0];
+  if (
+    candidate?.finishReason === "STOP" &&
+    candidate.content?.parts?.some((part) => part.functionCall)
+  )
+    return { unified: "tool-calls", raw: "STOP" };
+  return mapGoogleFinishReason(candidate?.finishReason);
+};
 
 const extractToolCalls = (
   response: GoogleGenerateContentResponse,
 ): KortyxToolCall[] | undefined => {
   const parts = response.candidates?.[0]?.content?.parts ?? [];
   const toolCalls = parts
-    .map((part, index): KortyxToolCall | undefined => {
+    .map((part): KortyxToolCall | undefined => {
       if (!part.functionCall) return undefined;
+      if (!part.functionCall.name)
+        throw new Error("Google returned an incomplete function call.");
       return {
-        id: `google-tool-call-${index}`,
+        id: part.functionCall.id ?? `google-${randomUUID()}`,
         name: part.functionCall.name,
         input: part.functionCall.args ?? {},
         raw: part.functionCall,
@@ -146,111 +162,36 @@ const extractToolCalls = (
 
 const collectWarnings = (
   options: ModelOptions,
+  modelId: string,
 ): KortyxWarning[] | undefined => {
   const warnings: KortyxWarning[] = [];
-
   if (
-    options.responseFormat?.type === "json" &&
-    options.responseFormat.schema !== undefined
-  ) {
-    warnings.push({
-      type: "compatibility",
-      feature: "responseFormat.schema",
-      details:
-        "Google provider currently applies JSON mode via responseMimeType but does not yet translate generic JSON schema to Google responseSchema.",
-    });
-  }
-
-  if (
-    options.providerOptions &&
-    Object.keys(options.providerOptions).length > 0
-  ) {
-    warnings.push({
-      type: "unsupported",
-      feature: "providerOptions",
-      details:
-        "Google provider does not yet map providerOptions into request fields.",
-    });
-  }
-
-  if (
-    options.reasoning?.effort !== undefined &&
-    !["minimal", "low", "medium", "high"].includes(options.reasoning.effort)
-  ) {
+    modelId.includes("gemini-2.5") &&
+    options.reasoning?.effort &&
+    options.reasoning.effort !== "none"
+  )
     warnings.push({
       type: "compatibility",
       feature: "reasoning.effort",
       details:
-        "Google provider supports minimal, low, medium, or high reasoning effort and falls back to medium for other values.",
+        "Gemini 2.5 uses token budgets: minimal=512, low=1024, medium=8192, high=24576. Set reasoning.maxTokens for an explicit budget.",
     });
-  }
-
   if (
-    options.reasoning?.maxTokens !== undefined &&
-    options.reasoning?.effort !== undefined
-  ) {
+    options.providerOptions &&
+    Object.keys(options.providerOptions).some((key) => key !== "google")
+  )
     warnings.push({
-      type: "compatibility",
-      feature: "reasoning",
-      details:
-        "Google provider supports either reasoning.maxTokens or reasoning.effort in the same request. Kortyx prioritizes maxTokens and omits effort.",
+      type: "unsupported",
+      feature: "providerOptions",
+      details: "Google maps providerOptions.google.thinkingConfig.",
     });
-  }
-
-  return warnings.length > 0 ? warnings : undefined;
+  return warnings.length ? warnings : undefined;
 };
 
-const mergeWarnings = (
-  left: KortyxWarning[] | undefined,
-  right: KortyxWarning[] | undefined,
-): KortyxWarning[] | undefined => {
-  if (!left?.length) return right;
-  if (!right?.length) return left;
-
-  const seen = new Set<string>();
-  const merged: KortyxWarning[] = [];
-  for (const warning of [...left, ...right]) {
-    const key = JSON.stringify(warning);
-    if (seen.has(key)) continue;
-    seen.add(key);
-    merged.push(warning);
-  }
-
-  return merged;
-};
-
-const supportsThinkingLevelRetry = (options: ModelOptions): boolean =>
-  options.reasoning?.effort !== undefined &&
-  options.reasoning?.maxTokens === undefined;
-
-const isThinkingLevelUnsupportedError = (error: unknown): boolean => {
-  const message = error instanceof Error ? error.message : String(error);
-  return message.includes("Thinking level is not supported for this model.");
-};
-
-const createThinkingLevelFallbackOptions = (
-  options: ModelOptions,
-): ModelOptions => ({
-  ...options,
-  ...(options.reasoning
-    ? {
-        reasoning: {
-          ...(options.reasoning.maxTokens !== undefined
-            ? { maxTokens: options.reasoning.maxTokens }
-            : {}),
-          ...(options.reasoning.includeThoughts !== undefined
-            ? { includeThoughts: options.reasoning.includeThoughts }
-            : {}),
-        },
-      }
-    : {}),
-});
-
-const createThinkingLevelFallbackWarning = (): KortyxWarning => ({
-  type: "compatibility",
-  feature: "reasoning.effort",
-  details:
-    "Google rejected reasoning.effort for this model or request. Kortyx retried without it. Try other reasoning settings such as reasoning.maxTokens.",
+const continuation = (response: GoogleGenerateContentResponse) => ({
+  providerId: PROVIDER_ID,
+  api: "generate-content",
+  items: response.candidates?.[0]?.content?.parts ?? [],
 });
 
 const createTextDeltaPart = (
@@ -274,6 +215,7 @@ const createFinishPart = (
 
   return {
     type: "finish",
+    continuation: continuation(response),
     raw: response,
     ...(finishReason ? { finishReason } : {}),
     ...(usage ? { usage } : {}),
@@ -324,207 +266,110 @@ const createGoogleModel = (
       ? { providerOptions: options.providerOptions }
       : {}),
   };
-  const warnings = collectWarnings(resolvedOptions);
+  const warnings = collectWarnings(resolvedOptions, modelId);
 
+  const normalize = (
+    result: GoogleGenerateContentResponse,
+  ): KortyxInvokeResult => {
+    const finishReason = extractFinishReason(result);
+    const usage = extractUsage(result);
+    const toolCalls = extractToolCalls(result);
+    const providerMetadata = extractProviderMetadata(modelId, result);
+    return {
+      role: "assistant",
+      content: extractText(result),
+      raw: result,
+      continuation: continuation(result),
+      ...(usage ? { usage } : {}),
+      ...(finishReason
+        ? {
+            finishReason:
+              toolCalls?.length && finishReason.unified === "stop"
+                ? {
+                    unified: "tool-calls",
+                    ...(finishReason.raw ? { raw: finishReason.raw } : {}),
+                  }
+                : finishReason,
+          }
+        : {}),
+      ...(toolCalls ? { toolCalls } : {}),
+      ...(warnings ? { warnings } : {}),
+      ...(providerMetadata ? { providerMetadata } : {}),
+    };
+  };
   return {
+    supportsToolStreaming: true,
+    requiresSeparateStructuredOutput: requiresSeparateOutput(resolvedOptions),
     async *stream(messages: KortyxPromptMessage[]) {
-      const client = getClient();
-      const request = createGenerateContentRequest(messages, resolvedOptions);
-
-      try {
-        if (resolvedOptions.streaming !== false) {
-          let emitted = "";
-          let lastChunk: GoogleGenerateContentResponse | undefined;
-          for await (const chunk of client.streamGenerateContent(
-            modelId,
-            request,
-            resolvedOptions.abortSignal
-              ? {
-                  signal: resolvedOptions.abortSignal,
-                }
-              : undefined,
-          )) {
-            lastChunk = chunk;
-            const text = extractText(chunk);
-            if (!text) continue;
-
-            if (text.startsWith(emitted)) {
-              const delta = text.slice(emitted.length);
-              emitted = text;
-              if (delta) yield createTextDeltaPart(delta, chunk);
-              continue;
-            }
-
-            if (emitted.endsWith(text)) continue;
-
-            emitted += text;
-            yield createTextDeltaPart(text, chunk);
-          }
-
-          if (lastChunk) {
-            yield createFinishPart(modelId, lastChunk, warnings);
-          }
-          return;
-        }
-
-        const response = await client.generateContent(modelId, request, {
-          ...(resolvedOptions.abortSignal
-            ? { signal: resolvedOptions.abortSignal }
-            : {}),
-        });
-        const text = extractText(response);
-        if (text) yield createTextDeltaPart(text, response);
-        yield createFinishPart(modelId, response, warnings);
-      } catch (error) {
-        if (
-          supportsThinkingLevelRetry(resolvedOptions) &&
-          isThinkingLevelUnsupportedError(error)
-        ) {
-          const fallbackOptions =
-            createThinkingLevelFallbackOptions(resolvedOptions);
-          const fallbackRequest = createGenerateContentRequest(
-            messages,
-            fallbackOptions,
-          );
-          const fallbackWarnings = mergeWarnings(
-            collectWarnings(fallbackOptions),
-            [...(warnings ?? []), createThinkingLevelFallbackWarning()],
-          );
-
-          try {
-            if (fallbackOptions.streaming !== false) {
-              let emitted = "";
-              let lastChunk: GoogleGenerateContentResponse | undefined;
-              for await (const chunk of client.streamGenerateContent(
-                modelId,
-                fallbackRequest,
-                fallbackOptions.abortSignal
-                  ? {
-                      signal: fallbackOptions.abortSignal,
-                    }
-                  : undefined,
-              )) {
-                lastChunk = chunk;
-                const text = extractText(chunk);
-                if (!text) continue;
-
-                if (text.startsWith(emitted)) {
-                  const delta = text.slice(emitted.length);
-                  emitted = text;
-                  if (delta) yield createTextDeltaPart(delta, chunk);
-                  continue;
-                }
-
-                if (emitted.endsWith(text)) continue;
-
-                emitted += text;
-                yield createTextDeltaPart(text, chunk);
-              }
-
-              if (lastChunk) {
-                yield createFinishPart(modelId, lastChunk, fallbackWarnings);
-              }
-              return;
-            }
-
-            const response = await client.generateContent(
-              modelId,
-              fallbackRequest,
-              {
-                ...(fallbackOptions.abortSignal
-                  ? { signal: fallbackOptions.abortSignal }
-                  : {}),
-              },
-            );
-            const text = extractText(response);
-            if (text) yield createTextDeltaPart(text, response);
-            yield createFinishPart(modelId, response, fallbackWarnings);
-            return;
-          } catch (fallbackError) {
-            yield {
-              type: "error",
-              error: toProviderRequestError("stream content", fallbackError),
-            } satisfies KortyxStreamPart;
-            return;
-          }
-        }
-
-        yield {
-          type: "error",
-          error: toProviderRequestError("stream content", error),
-        } satisfies KortyxStreamPart;
-      }
-    },
-
-    async invoke(messages: KortyxPromptMessage[]): Promise<KortyxInvokeResult> {
+      let partialUsage: KortyxUsage | undefined;
       try {
         const client = getClient();
-        const request = createGenerateContentRequest(messages, resolvedOptions);
-        const result = await client.generateContent(modelId, request, {
-          ...(resolvedOptions.abortSignal
-            ? { signal: resolvedOptions.abortSignal }
-            : {}),
-        });
-        const usage = extractUsage(result);
-        const finishReason = extractFinishReason(result);
-        const providerMetadata = extractProviderMetadata(modelId, result);
-        const toolCalls = extractToolCalls(result);
-        return {
-          role: "assistant",
-          content: extractText(result),
-          raw: result,
-          ...(usage ? { usage } : {}),
-          ...(finishReason ? { finishReason } : {}),
-          ...(toolCalls ? { toolCalls } : {}),
-          ...(providerMetadata ? { providerMetadata } : {}),
-          ...(warnings ? { warnings } : {}),
-        };
-      } catch (error) {
-        if (
-          supportsThinkingLevelRetry(resolvedOptions) &&
-          isThinkingLevelUnsupportedError(error)
-        ) {
-          try {
-            const client = getClient();
-            const fallbackOptions =
-              createThinkingLevelFallbackOptions(resolvedOptions);
-            const fallbackRequest = createGenerateContentRequest(
-              messages,
-              fallbackOptions,
-            );
-            const result = await client.generateContent(
-              modelId,
-              fallbackRequest,
-              {
-                ...(fallbackOptions.abortSignal
-                  ? { signal: fallbackOptions.abortSignal }
-                  : {}),
-              },
-            );
-            const usage = extractUsage(result);
-            const finishReason = extractFinishReason(result);
-            const providerMetadata = extractProviderMetadata(modelId, result);
-            const toolCalls = extractToolCalls(result);
-            const fallbackWarnings = mergeWarnings(
-              collectWarnings(fallbackOptions),
-              [...(warnings ?? []), createThinkingLevelFallbackWarning()],
-            );
-
-            return {
-              role: "assistant",
-              content: extractText(result),
-              raw: result,
-              ...(usage ? { usage } : {}),
-              ...(finishReason ? { finishReason } : {}),
-              ...(toolCalls ? { toolCalls } : {}),
-              ...(providerMetadata ? { providerMetadata } : {}),
-              ...(fallbackWarnings ? { warnings: fallbackWarnings } : {}),
-            };
-          } catch (fallbackError) {
-            throw toProviderRequestError("invoke content", fallbackError);
-          }
+        const request = createGenerateContentRequest(
+          messages,
+          resolvedOptions,
+          modelId,
+        );
+        if (resolvedOptions.streaming === false) {
+          const result = await client.generateContent(modelId, request, {
+            signal: resolvedOptions.abortSignal,
+          });
+          const text = extractText(result);
+          if (text) yield createTextDeltaPart(text, result);
+          yield createFinishPart(modelId, result, warnings);
+          return;
         }
-
+        let accumulated: GoogleGenerateContentResponse = {};
+        const parts: NonNullable<
+          NonNullable<
+            GoogleGenerateContentResponse["candidates"]
+          >[number]["content"]
+        >["parts"] = [];
+        let finishReason: string | undefined;
+        for await (const chunk of client.streamGenerateContent(
+          modelId,
+          request,
+          { signal: resolvedOptions.abortSignal },
+        )) {
+          accumulated = { ...accumulated, ...chunk };
+          partialUsage = extractUsage(chunk) ?? partialUsage;
+          const errorEnvelope = toRecord(chunk)?.error;
+          if (errorEnvelope)
+            throw new Error(
+              String(
+                toRecord(errorEnvelope)?.message ?? "Google stream error.",
+              ),
+            );
+          parts.push(...(chunk.candidates?.[0]?.content?.parts ?? []));
+          finishReason = chunk.candidates?.[0]?.finishReason ?? finishReason;
+          const text = extractText(chunk);
+          if (text) yield createTextDeltaPart(text, chunk);
+        }
+        if (!finishReason)
+          throw new Error(
+            "Google stream ended without a terminal finish reason.",
+          );
+        accumulated.candidates = [{ content: { parts }, finishReason }];
+        yield createFinishPart(modelId, accumulated, warnings);
+      } catch (error) {
+        yield {
+          type: "error",
+          error: Object.assign(
+            toProviderRequestError("stream content", error),
+            { usage: partialUsage },
+          ),
+        };
+      }
+    },
+    async invoke(messages: KortyxPromptMessage[]) {
+      try {
+        return normalize(
+          await getClient().generateContent(
+            modelId,
+            createGenerateContentRequest(messages, resolvedOptions, modelId),
+            { signal: resolvedOptions.abortSignal },
+          ),
+        );
+      } catch (error) {
         throw toProviderRequestError("invoke content", error);
       }
     },
@@ -541,22 +386,16 @@ export function createGoogleGenerativeAI(
   settings: ProviderSettings = {},
 ): GoogleGenerativeAIProvider {
   const getModel = (modelId: string, options?: ModelOptions): KortyxModel => {
-    if (!MODELS.includes(modelId as ModelId)) {
-      throw new Error(
-        `Unknown Google model: ${modelId}. Available models: ${MODELS.join(", ")}`,
-      );
-    }
+    if (!modelId.trim())
+      throw new Error("Google model id must be a non-empty string.");
 
     return createGoogleModel(modelId as ModelId, settings, options);
   };
 
   const provider = Object.assign(
     ((modelId: ModelId, options?: ModelOptions) => {
-      if (!MODELS.includes(modelId)) {
-        throw new Error(
-          `Unknown Google model: ${modelId}. Available models: ${MODELS.join(", ")}`,
-        );
-      }
+      if (!modelId.trim())
+        throw new Error("Google model id must be a non-empty string.");
 
       return {
         provider,

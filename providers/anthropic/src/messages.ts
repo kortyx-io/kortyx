@@ -3,6 +3,7 @@ import type {
   KortyxToolDefinition,
   ModelOptions,
 } from "@kortyx/providers";
+import { normalizeOutputSchema } from "./schema";
 import type {
   AnthropicContentBlock,
   AnthropicMessage,
@@ -114,6 +115,18 @@ const toMessages = (messages: KortyxPromptMessage[]): AnthropicMessage[] => {
       ];
     }
 
+    if (
+      message.role === "assistant" &&
+      message.continuation?.providerId === "anthropic" &&
+      message.continuation.api === "messages"
+    ) {
+      return [
+        {
+          role: "assistant",
+          content: message.continuation.items as AnthropicContentBlock[],
+        },
+      ];
+    }
     const content: AnthropicContentBlock[] = [];
     if (message.content.length > 0) {
       content.push({
@@ -157,52 +170,69 @@ const toMessages = (messages: KortyxPromptMessage[]): AnthropicMessage[] => {
   return result;
 };
 
+export const supportsAdaptiveThinking = (modelId: string): boolean =>
+  /claude-(?:sonnet|opus)-4-[6-9]/.test(modelId) ||
+  /claude-(?:sonnet|opus|fable|mythos)-[5-9]/.test(modelId);
+export const supportsNativeSchema = (modelId: string): boolean =>
+  !/claude-(?:3|(?:sonnet|opus)-4-(?:0|1|2025))/.test(modelId);
+
 export const getThinkingRequest = (
   options: ModelOptions,
+  modelId = "",
 ): AnthropicThinkingRequest | undefined => {
-  const providerOptions = getProviderOptions(options);
-  const explicitThinking = providerOptions?.thinking;
-
-  if (isRecord(explicitThinking)) {
-    if (explicitThinking.type === "disabled") {
-      return { type: "disabled" };
+  const explicit = getProviderOptions(options)?.thinking;
+  if (isRecord(explicit)) {
+    if (explicit.type === "disabled" || explicit.type === "adaptive")
+      return { type: explicit.type };
+    if (explicit.type === "enabled") {
+      const budget =
+        explicit.budgetTokens ??
+        explicit.budget_tokens ??
+        MIN_THINKING_BUDGET_TOKENS;
+      if (typeof budget !== "number" || budget < MIN_THINKING_BUDGET_TOKENS)
+        throw new Error(
+          "Anthropic thinking budget must be at least 1024 tokens.",
+        );
+      return { type: "enabled", budget_tokens: budget };
     }
-    if (explicitThinking.type === "enabled") {
-      const explicitBudget =
-        typeof explicitThinking.budgetTokens === "number"
-          ? explicitThinking.budgetTokens
-          : typeof explicitThinking.budget_tokens === "number"
-            ? explicitThinking.budget_tokens
-            : undefined;
-      return {
-        type: "enabled",
-        budget_tokens: Math.max(
-          MIN_THINKING_BUDGET_TOKENS,
-          explicitBudget ?? MIN_THINKING_BUDGET_TOKENS,
-        ),
-      };
-    }
+    throw new Error("Unsupported Anthropic thinking configuration.");
   }
-
-  if (options.reasoning?.maxTokens === 0) {
-    return { type: "disabled" };
-  }
-
+  const reasoning = options.reasoning;
   if (
-    options.reasoning?.maxTokens !== undefined ||
-    options.reasoning?.effort !== undefined ||
-    options.reasoning?.includeThoughts !== undefined
-  ) {
-    return {
-      type: "enabled",
-      budget_tokens: Math.max(
-        MIN_THINKING_BUDGET_TOKENS,
-        options.reasoning.maxTokens ?? MIN_THINKING_BUDGET_TOKENS,
-      ),
-    };
+    options.reasoning?.maxTokens === 0 &&
+    options.reasoning.effort &&
+    options.reasoning.effort !== "none"
+  )
+    throw new Error("Conflicting reasoning effort and zero token budget.");
+  if (
+    !reasoning ||
+    Object.values(reasoning).every((value) => value === undefined)
+  )
+    return undefined;
+  if (reasoning.effort === "none" || reasoning.maxTokens === 0)
+    return { type: "disabled" };
+  if (reasoning.maxTokens !== undefined) {
+    if (reasoning.maxTokens < MIN_THINKING_BUDGET_TOKENS)
+      throw new Error(
+        "Anthropic thinking budget must be at least 1024 tokens.",
+      );
+    return { type: "enabled", budget_tokens: reasoning.maxTokens };
   }
-
-  return undefined;
+  if (supportsAdaptiveThinking(modelId)) return { type: "adaptive" };
+  const budgets: Record<string, number> = {
+    minimal: 1024,
+    low: 1024,
+    medium: 1024,
+    high: 1024,
+  };
+  if (reasoning.effort && budgets[reasoning.effort] === undefined)
+    throw new Error(
+      `Unsupported manual Anthropic reasoning effort: ${reasoning.effort}`,
+    );
+  return {
+    type: "enabled",
+    budget_tokens: budgets[reasoning.effort ?? "minimal"] ?? 1024,
+  };
 };
 
 export const createMessagesRequest = (
@@ -211,7 +241,7 @@ export const createMessagesRequest = (
   options: ModelOptions,
   stream: boolean,
 ): AnthropicMessagesRequest => {
-  const thinking = getThinkingRequest(options);
+  const thinking = getThinkingRequest(options, modelId);
   const thinkingBudget =
     thinking?.type === "enabled" ? thinking.budget_tokens : 0;
   const maxOutputTokens = options.maxOutputTokens ?? DEFAULT_MAX_OUTPUT_TOKENS;
@@ -219,6 +249,29 @@ export const createMessagesRequest = (
   const topP = getNumberProviderOption(options, "topP", "top_p");
   const topK = getNumberProviderOption(options, "topK", "top_k");
   const tools = options.tools?.map(toAnthropicTool);
+  const nativeSchema =
+    options.responseFormat?.type === "json" &&
+    options.responseFormat.schema !== undefined &&
+    supportsNativeSchema(modelId)
+      ? normalizeOutputSchema(options.responseFormat.schema).schema
+      : undefined;
+  const effort =
+    getProviderOptions(options)?.effort ??
+    ((thinking?.type === "adaptive" || modelId.includes("opus-4-5")) &&
+    options.reasoning?.effort !== "none"
+      ? options.reasoning?.effort
+      : undefined);
+  if (
+    thinking?.type === "enabled" &&
+    /claude-(?:(?:opus-4-[7-9])|(?:sonnet|opus|fable|mythos)-[5-9])/.test(
+      modelId,
+    )
+  )
+    throw new Error(
+      `${modelId} requires adaptive thinking; manual token budgets are unsupported.`,
+    );
+  const thinkingOn =
+    thinking?.type === "enabled" || thinking?.type === "adaptive";
 
   return {
     model: modelId,
@@ -226,7 +279,7 @@ export const createMessagesRequest = (
     messages: toMessages(messages),
     stream,
     ...(system !== undefined ? { system } : {}),
-    ...(options.temperature !== undefined && thinking?.type !== "enabled"
+    ...(options.temperature !== undefined && !thinkingOn
       ? { temperature: options.temperature }
       : {}),
     ...(topP !== undefined ? { top_p: topP } : {}),
@@ -235,6 +288,21 @@ export const createMessagesRequest = (
       ? { stop_sequences: options.stopSequences }
       : {}),
     ...(thinking !== undefined ? { thinking } : {}),
+    ...(nativeSchema !== undefined || effort !== undefined
+      ? {
+          output_config: {
+            ...(nativeSchema !== undefined
+              ? {
+                  format: {
+                    type: "json_schema" as const,
+                    schema: nativeSchema,
+                  },
+                }
+              : {}),
+            ...(effort !== undefined ? { effort: String(effort) } : {}),
+          },
+        }
+      : {}),
     ...(tools?.length ? { tools } : {}),
   };
 };

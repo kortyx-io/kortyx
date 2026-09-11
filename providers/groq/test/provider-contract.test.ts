@@ -124,9 +124,9 @@ describe("groq public provider contract", () => {
           { headers: { "content-type": "application/json" } },
         ),
     });
-    const model = provider.getModel("llama-3.3-70b-versatile", {
+    const model = provider.getModel("openai/gpt-oss-120b", {
       reasoning: {
-        effort: "provider-custom",
+        effort: "medium",
         maxTokens: 32,
       },
       responseFormat: {
@@ -144,7 +144,6 @@ describe("groq public provider contract", () => {
     expect(result.warnings).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ feature: "responseFormat" }),
-        expect.objectContaining({ feature: "reasoning.effort" }),
         expect.objectContaining({ feature: "reasoning.maxTokens" }),
         expect.objectContaining({ feature: "providerOptions" }),
       ]),

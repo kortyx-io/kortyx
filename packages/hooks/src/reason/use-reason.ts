@@ -117,6 +117,10 @@ export async function useReason<
     args.model.options?.abortSignal,
   );
   throwIfExecutionAborted(abortSignal);
+  const allowValidatedToolOutput = Boolean(
+    args.outputSchema &&
+      !(args.responseFormat ?? args.model.options?.responseFormat),
+  );
   const inferred = inferOutputFormat(
     args.outputSchema,
     args.responseFormat ?? args.model.options?.responseFormat,
@@ -186,6 +190,7 @@ export async function useReason<
   if (args.tools?.length) {
     return runReasonToolLoop({
       useReasonArgs: args,
+      allowValidatedToolOutput,
       checkpointKey,
       initialWarnings: inferred.warnings,
       ...(id ? { id } : {}),

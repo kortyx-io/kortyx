@@ -25,7 +25,9 @@ const normalizeThinkingLevel = (
     case undefined:
       return undefined;
     default:
-      return "medium";
+      throw new Error(
+        `Google does not support reasoning effort "${effort}". Use a supported effort or an explicit budget.`,
+      );
   }
 };
 
@@ -53,6 +55,10 @@ export const toContents = (
           parts: [
             {
               functionResponse: {
+                ...(message.toolCallId &&
+                !message.toolCallId.startsWith("google-")
+                  ? { id: message.toolCallId }
+                  : {}),
                 name: message.name ?? "tool",
                 response: {
                   content: message.content,
@@ -69,6 +75,16 @@ export const toContents = (
         };
       }
 
+      if (
+        message.role === "assistant" &&
+        message.continuation?.providerId === "google" &&
+        message.continuation.api === "generate-content"
+      ) {
+        return {
+          role: "model",
+          parts: message.continuation.items as GoogleContent["parts"],
+        };
+      }
       const parts: GoogleContent["parts"] = [];
       if (message.content.length > 0 || !message.toolCalls?.length) {
         parts.push({ text: message.content });
@@ -76,6 +92,7 @@ export const toContents = (
       for (const toolCall of message.toolCalls ?? []) {
         parts.push({
           functionCall: {
+            id: toolCall.id,
             name: toolCall.name,
             args: toolCall.input,
           },
@@ -98,25 +115,6 @@ export const toContents = (
   return contents;
 };
 
-const toGoogleSchema = (schema: unknown): unknown => {
-  if (Array.isArray(schema)) return schema.map(toGoogleSchema);
-  if (!schema || typeof schema !== "object") return schema;
-
-  const result: Record<string, unknown> = {};
-  for (const [key, value] of Object.entries(schema)) {
-    if (
-      key === "$schema" ||
-      key === "$defs" ||
-      key === "definitions" ||
-      key === "additionalProperties"
-    ) {
-      continue;
-    }
-    result[key] = toGoogleSchema(value);
-  }
-  return result;
-};
-
 const toGoogleTools = (
   tools: KortyxToolDefinition[] | undefined,
 ): GoogleGenerateContentRequest["tools"] => {
@@ -126,20 +124,69 @@ const toGoogleTools = (
       functionDeclarations: tools.map((tool) => ({
         name: tool.name,
         ...(tool.description ? { description: tool.description } : {}),
-        parameters: toGoogleSchema(tool.inputSchema),
+        parametersJsonSchema: tool.inputSchema,
       })),
     },
   ];
 };
 
+// Keep JSON constraints off tool-selection turns. Gemini 2.x rejects that
+// combination; Gemini 3 generateContent can keep choosing tools instead of ending.
+export const requiresSeparateOutput = (options: ModelOptions): boolean =>
+  options.responseFormat?.type === "json";
+
 export const createGenerateContentRequest = (
   messages: KortyxPromptMessage[],
   options: ModelOptions,
+  modelId?: string,
 ): GoogleGenerateContentRequest => {
+  if (
+    options.tools?.length &&
+    requiresSeparateOutput(options) &&
+    /^gemini-[12](?:\.|-)/.test((modelId ?? "").replace(/^models\//, ""))
+  )
+    throw new Error(
+      "This Gemini model cannot combine JSON output with tools. Use useReason for automatic finalization or make a separate JSON-only call.",
+    );
   const systemInstruction = toSystemInstruction(messages);
-  const normalizedThinkingLevel = normalizeThinkingLevel(
-    options.reasoning?.effort,
-  );
+  const nativeOptions = options.providerOptions?.google as
+    | {
+        thinkingConfig?: {
+          thinkingBudget?: number;
+          thinkingLevel?: "minimal" | "low" | "medium" | "high";
+          includeThoughts?: boolean;
+        };
+      }
+    | undefined;
+  const effort = options.reasoning?.effort;
+  const is25 = modelId?.includes("gemini-2.5");
+  if (effort !== undefined && options.reasoning?.maxTokens !== undefined)
+    throw new Error(
+      "Google reasoning accepts either effort or maxTokens, not both.",
+    );
+  if (effort === "none" && modelId && !is25)
+    throw new Error(
+      `Google ${modelId} cannot disable thinking through reasoning.effort. Select a compatible model.`,
+    );
+  if (
+    (effort === "none" || options.reasoning?.maxTokens === 0) &&
+    modelId?.includes("gemini-2.5-pro")
+  )
+    throw new Error("Gemini 2.5 Pro cannot disable thinking.");
+  const budgets: Record<string, number> = {
+    none: 0,
+    minimal: 512,
+    low: 1024,
+    medium: 8192,
+    high: 24576,
+  };
+  if (is25 && effort !== undefined && budgets[effort] === undefined)
+    throw new Error(`Unsupported Google reasoning effort: ${effort}`);
+  const budget =
+    options.reasoning?.maxTokens ??
+    (is25 && effort ? budgets[effort] : effort === "none" ? 0 : undefined);
+  const normalizedThinkingLevel =
+    budget === undefined ? normalizeThinkingLevel(effort) : undefined;
   const temperature = options.temperature ?? 0.7;
   const responseMimeType =
     options.responseFormat?.type === "json"
@@ -158,11 +205,8 @@ export const createGenerateContentRequest = (
     options.reasoning?.effort !== undefined ||
     options.reasoning?.includeThoughts !== undefined
       ? {
-          ...(options.reasoning?.maxTokens !== undefined
-            ? { thinkingBudget: options.reasoning.maxTokens }
-            : {}),
-          ...(options.reasoning?.maxTokens === undefined &&
-          normalizedThinkingLevel !== undefined
+          ...(budget !== undefined ? { thinkingBudget: budget } : {}),
+          ...(budget === undefined && normalizedThinkingLevel !== undefined
             ? {
                 thinkingLevel: normalizedThinkingLevel,
               }
@@ -187,7 +231,13 @@ export const createGenerateContentRequest = (
         ? { stopSequences: options.stopSequences }
         : {}),
       ...(responseMimeType !== undefined ? { responseMimeType } : {}),
-      ...(thinkingConfig !== undefined ? { thinkingConfig } : {}),
+      ...((nativeOptions?.thinkingConfig ?? thinkingConfig) !== undefined
+        ? { thinkingConfig: nativeOptions?.thinkingConfig ?? thinkingConfig }
+        : {}),
+      ...(options.responseFormat?.type === "json" &&
+      options.responseFormat.schema !== undefined
+        ? { responseJsonSchema: options.responseFormat.schema }
+        : {}),
     },
     ...(systemInstruction
       ? {
@@ -204,6 +254,7 @@ export const extractText = (
 ): string => {
   const parts = response.candidates?.[0]?.content?.parts ?? [];
   return parts
+    .filter((part) => !part.thought)
     .map((part) => part.text)
     .filter((text): text is string => typeof text === "string")
     .join("");

@@ -18,7 +18,10 @@ import type {
 } from "@kortyx/providers";
 import { accumulateTokenUsage, getHookContext } from "../context";
 import { awaitInterruptInternal } from "../interrupt";
-import type { RunReasonEngineResult } from "../reason-engine";
+import {
+  type RunReasonEngineResult,
+  resolveProviderOptions,
+} from "../reason-engine";
 import { shouldStreamStructured } from "../structured";
 import type { ReasonTraceSpan } from "../tracing";
 import type { UseReasonArgs, UseReasonResult, UseReasonStep } from "../types";
@@ -137,6 +140,7 @@ export const runReasonToolLoop = async <
   traceSpan?: ReasonTraceSpan | undefined;
   checkpointKey: string;
   initialWarnings?: KortyxWarning[] | undefined;
+  allowValidatedToolOutput?: boolean;
 }): Promise<UseReasonResult<TOutput, TResponse>> => {
   const { useReasonArgs, id, traceSpan, checkpointKey } = args;
   const ctx = getHookContext();
@@ -153,6 +157,7 @@ export const runReasonToolLoop = async <
   const tools = useReasonArgs.tools ?? [];
   const toolByName = new Map<string, KortyxExecutableTool>();
   let validationCompleted = false;
+  let separateOutput = false;
 
   try {
     for (const tool of tools) {
@@ -170,6 +175,22 @@ export const runReasonToolLoop = async <
       );
     }
 
+    separateOutput = Boolean(
+      useReasonArgs.model.provider.getModel(useReasonArgs.model.modelId, {
+        ...useReasonArgs.model.options,
+        ...(useReasonArgs.reasoning !== undefined
+          ? { reasoning: useReasonArgs.reasoning }
+          : {}),
+        ...(useReasonArgs.responseFormat
+          ? { responseFormat: useReasonArgs.responseFormat }
+          : {}),
+        providerOptions:
+          resolveProviderOptions(
+            useReasonArgs.model.options?.providerOptions,
+            useReasonArgs.providerOptions,
+          ) ?? {},
+      }).requiresSeparateStructuredOutput,
+    );
     validationCompleted = true;
   } finally {
     if (!validationCompleted) {
@@ -178,6 +199,8 @@ export const runReasonToolLoop = async <
   }
 
   const toolDefinitions = toToolDefinitions(tools);
+  let finalizing = checkpoint?.finalizing ?? false;
+  let completed = false;
   const maxSteps = Math.max(1, useReasonArgs.toolExecution?.maxSteps ?? 3);
   const messages =
     checkpoint?.messages ??
@@ -216,6 +239,7 @@ export const runReasonToolLoop = async <
       messages,
       steps,
       approvedCalls,
+      finalizing,
       ...(pending ? { pending } : {}),
     } satisfies ToolLoopCheckpoint;
     ctx.stateDirty = true;
@@ -252,6 +276,7 @@ export const runReasonToolLoop = async <
       let textStarted = false;
       const structuredChunk =
         useReasonArgs.outputSchema &&
+        (!separateOutput || finalizing) &&
         stream &&
         emit &&
         shouldStreamStructured(useReasonArgs.structured)
@@ -262,7 +287,10 @@ export const runReasonToolLoop = async <
         (await reasonEngine(
           {
             ...useReasonArgs,
-            tools: toolDefinitions,
+            tools: finalizing ? [] : toolDefinitions,
+            ...(separateOutput && !finalizing
+              ? { responseFormat: { type: "text" as const } }
+              : {}),
             messages,
             emit: false,
             stream,
@@ -312,8 +340,53 @@ export const runReasonToolLoop = async <
         });
 
       if (toolCalls.length === 0) {
+        if (separateOutput && !finalizing) {
+          if (args.allowValidatedToolOutput && useReasonArgs.outputSchema) {
+            try {
+              finalOutput = parseReasonOutputWithSchema({
+                text: step.text,
+                schema: useReasonArgs.outputSchema,
+                ...(step.finishReason
+                  ? { finishReason: step.finishReason }
+                  : {}),
+                label: "useReason output",
+              });
+              aggregatedWarnings = mergeWarnings(aggregatedWarnings, [
+                {
+                  type: "compatibility",
+                  feature: "responseFormat",
+                  details:
+                    "Reused locally validated tool-phase output without an extra native-schema request. Set responseFormat.schema explicitly to require provider schema enforcement.",
+                },
+              ]);
+              completed = true;
+              break;
+            } catch {
+              // A schema-only pass can repair a nonconforming draft, within the existing limits.
+            }
+          }
+          messages.push({
+            role: "assistant",
+            content: step.text,
+            ...(step.continuation ? { continuation: step.continuation } : {}),
+          });
+          messages.push({
+            role: "user",
+            content:
+              "Return the final answer using the requested output schema and the tool results above.",
+          });
+          finalizing = true;
+          pending = undefined;
+          save();
+          continue;
+        }
+        completed = true;
         break;
       }
+      if (finalizing)
+        throw new Error(
+          "Provider requested a tool during schema-only finalization.",
+        );
 
       if (!reused) {
         allToolCalls.push(...toolCalls);
@@ -490,13 +563,13 @@ export const runReasonToolLoop = async <
       save();
     }
 
-    if (steps.length >= maxSteps && steps.at(-1)?.toolCalls.length) {
+    if (!completed) {
       throw new Error(
         `useReason tool loop reached maxSteps (${maxSteps}) before producing a final response.`,
       );
     }
 
-    if (useReasonArgs.outputSchema) {
+    if (useReasonArgs.outputSchema && finalOutput === undefined) {
       finalOutput = parseReasonOutputWithSchema({
         text: finalText,
         schema: useReasonArgs.outputSchema,
@@ -582,4 +655,5 @@ interface ToolLoopCheckpoint {
   steps: UseReasonStep[];
   pending?: RunReasonEngineResult;
   approvedCalls: string[];
+  finalizing?: boolean;
 }

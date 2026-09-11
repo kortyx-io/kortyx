@@ -114,16 +114,9 @@ describeProviderConformance({
       });
       expect(result.warnings).toEqual([
         {
-          type: "compatibility",
-          feature: "responseFormat.schema",
-          details:
-            "Google provider currently applies JSON mode via responseMimeType but does not yet translate generic JSON schema to Google responseSchema.",
-        },
-        {
           type: "unsupported",
           feature: "providerOptions",
-          details:
-            "Google provider does not yet map providerOptions into request fields.",
+          details: "Google maps providerOptions.google.thinkingConfig.",
         },
       ]);
     },
@@ -154,7 +147,7 @@ describeProviderConformance({
               candidates: [
                 {
                   content: {
-                    parts: [{ text: "Hello world" }],
+                    parts: [{ text: " world" }],
                   },
                   finishReason: "STOP",
                 },

@@ -131,14 +131,11 @@ describeProviderConformance({
         cacheReadTokens: 2,
         cacheWriteTokens: 1,
       });
-      expect(result.warnings).toEqual([
-        {
-          type: "compatibility",
-          feature: "responseFormat",
-          details:
-            "Anthropic does not expose a provider-native JSON schema response format in this provider. Kortyx maps JSON mode through system instructions.",
-        },
-      ]);
+      expect(result.warnings).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ feature: "responseFormat.schema" }),
+        ]),
+      );
     },
   },
   stream: {

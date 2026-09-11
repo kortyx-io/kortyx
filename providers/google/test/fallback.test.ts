@@ -1,377 +1,48 @@
-import { describe, expect, it } from "vitest";
-import { createGoogleGenerativeAI } from "../src/provider";
-import type { GoogleGenerateContentRequest } from "../src/types";
+import { describe, expect, it, vi } from "vitest";
+import { createProvider } from "../src";
 
-const createJsonResponse = (payload: unknown, status = 200): Response =>
-  new Response(JSON.stringify(payload), {
-    status,
-    headers: {
-      "content-type": "application/json",
-    },
-  });
-
-const createSseResponse = (events: unknown[]): Response => {
-  const encoder = new TextEncoder();
-
-  return new Response(
-    new ReadableStream({
-      start(controller) {
-        for (const event of events) {
-          controller.enqueue(
-            encoder.encode(`data: ${JSON.stringify(event)}\n\n`),
-          );
-        }
-        controller.enqueue(encoder.encode("data: [DONE]\n\n"));
-        controller.close();
-      },
-    }),
-    {
-      status: 200,
-      headers: {
-        "content-type": "text/event-stream",
-      },
-    },
-  );
-};
-
-describe("google reasoning fallback", () => {
-  it("retries invoke without thinkingLevel when the model rejects reasoning effort", async () => {
-    const requests: GoogleGenerateContentRequest[] = [];
-    const provider = createGoogleGenerativeAI({
-      apiKey: "test-key",
-      fetch: async (_input, init) => {
-        const body = JSON.parse(
-          String(init?.body),
-        ) as GoogleGenerateContentRequest;
-        requests.push(body);
-
-        const hasThinkingLevel =
-          body.generationConfig?.thinkingConfig?.thinkingLevel !== undefined;
-
-        if (hasThinkingLevel) {
-          return createJsonResponse(
-            {
-              error: {
-                message: "Thinking level is not supported for this model.",
-              },
-            },
-            400,
-          );
-        }
-
-        return createJsonResponse({
-          candidates: [
-            {
-              content: {
-                parts: [{ text: "Hello from Gemini" }],
-              },
-              finishReason: "STOP",
-            },
-          ],
-        });
-      },
-    });
-
-    const model = provider.getModel("gemini-2.5-flash", {
-      reasoning: {
-        effort: "low",
-        includeThoughts: false,
-      },
-    });
-
-    const result = await model.invoke([{ role: "user", content: "Hello" }]);
-
-    expect(requests).toHaveLength(2);
-    expect(requests[0]?.generationConfig?.thinkingConfig).toEqual({
-      thinkingLevel: "low",
-      includeThoughts: false,
-    });
-    expect(requests[1]?.generationConfig?.thinkingConfig).toEqual({
-      includeThoughts: false,
-    });
-    expect(result.content).toBe("Hello from Gemini");
-    expect(result.warnings).toContainEqual({
-      type: "compatibility",
-      feature: "reasoning.effort",
-      details:
-        "Google rejected reasoning.effort for this model or request. Kortyx retried without it. Try other reasoning settings such as reasoning.maxTokens.",
-    });
-  });
-
-  it("retries streaming without thinkingLevel when the model rejects reasoning effort", async () => {
-    const requests: GoogleGenerateContentRequest[] = [];
-    const provider = createGoogleGenerativeAI({
-      apiKey: "test-key",
-      fetch: async (_input, init) => {
-        const body = JSON.parse(
-          String(init?.body),
-        ) as GoogleGenerateContentRequest;
-        requests.push(body);
-
-        const hasThinkingLevel =
-          body.generationConfig?.thinkingConfig?.thinkingLevel !== undefined;
-
-        if (hasThinkingLevel) {
-          return createJsonResponse(
-            {
-              error: {
-                message: "Thinking level is not supported for this model.",
-              },
-            },
-            400,
-          );
-        }
-
-        return createSseResponse([
-          {
-            candidates: [
-              {
-                content: {
-                  parts: [{ text: "Hello" }],
-                },
-              },
-            ],
-          },
-          {
-            candidates: [
-              {
-                content: {
-                  parts: [{ text: "Hello world" }],
-                },
-                finishReason: "STOP",
-              },
-            ],
-          },
-        ]);
-      },
-    });
-
-    const model = provider.getModel("gemini-2.5-flash", {
-      reasoning: {
-        effort: "low",
-        includeThoughts: false,
-      },
-      streaming: true,
-    });
-
-    const parts = [];
-    for await (const part of await model.stream([
-      { role: "user", content: "Hello" },
-    ])) {
-      parts.push(part);
-    }
-
-    expect(requests).toHaveLength(2);
-    expect(requests[0]?.generationConfig?.thinkingConfig).toEqual({
-      thinkingLevel: "low",
-      includeThoughts: false,
-    });
-    expect(requests[1]?.generationConfig?.thinkingConfig).toEqual({
-      includeThoughts: false,
-    });
-    const finishPart = parts.find((part) => part.type === "finish");
-    expect(finishPart).toMatchObject({
-      type: "finish",
-      finishReason: {
-        unified: "stop",
-        raw: "STOP",
-      },
-      warnings: [
-        {
-          type: "compatibility",
-          feature: "reasoning.effort",
-          details:
-            "Google rejected reasoning.effort for this model or request. Kortyx retried without it. Try other reasoning settings such as reasoning.maxTokens.",
-        },
-      ],
-    });
-    expect(finishPart?.raw).toEqual(expect.any(Object));
-  });
-
-  it("handles non-cumulative text during fallback streaming retries", async () => {
-    const requests: GoogleGenerateContentRequest[] = [];
-    const provider = createGoogleGenerativeAI({
-      apiKey: "test-key",
-      fetch: async (_input, init) => {
-        const body = JSON.parse(
-          String(init?.body),
-        ) as GoogleGenerateContentRequest;
-        requests.push(body);
-
-        const hasThinkingLevel =
-          body.generationConfig?.thinkingConfig?.thinkingLevel !== undefined;
-
-        if (hasThinkingLevel) {
-          return createJsonResponse(
-            {
-              error: {
-                message: "Thinking level is not supported for this model.",
-              },
-            },
-            400,
-          );
-        }
-
-        return createSseResponse([
-          {
-            candidates: [
-              {
-                content: { parts: [{ text: "Alpha" }] },
-              },
-            ],
-          },
-          {
-            candidates: [
-              {
-                content: { parts: [{ text: "Beta" }] },
-                finishReason: "STOP",
-              },
-            ],
-          },
-        ]);
-      },
-    });
-
-    const model = provider.getModel("gemini-2.5-flash", {
-      reasoning: { effort: "low" },
-      streaming: true,
-    });
-
-    const parts = [];
-    for await (const part of await model.stream([
-      { role: "user", content: "Hello" },
-    ])) {
-      parts.push(part);
-    }
-
-    expect(requests).toHaveLength(2);
-    expect(
-      parts
-        .filter((part) => part.type === "text-delta")
-        .map((part) => (part.type === "text-delta" ? part.delta : "")),
-    ).toEqual(["Alpha", "Beta"]);
-  });
-
-  it("retries non-streaming stream fallback without thinkingLevel", async () => {
-    const requests: GoogleGenerateContentRequest[] = [];
-    const provider = createGoogleGenerativeAI({
-      apiKey: "test-key",
-      fetch: async (_input, init) => {
-        const body = JSON.parse(
-          String(init?.body),
-        ) as GoogleGenerateContentRequest;
-        requests.push(body);
-
-        const hasThinkingLevel =
-          body.generationConfig?.thinkingConfig?.thinkingLevel !== undefined;
-
-        if (hasThinkingLevel) {
-          return createJsonResponse(
-            {
-              error: {
-                message: "Thinking level is not supported for this model.",
-              },
-            },
-            400,
-          );
-        }
-
-        return createJsonResponse({
-          candidates: [
-            {
-              content: {
-                parts: [{ text: "Hello from fallback invoke" }],
-              },
-              finishReason: "STOP",
-            },
-          ],
-        });
-      },
-    });
-
-    const model = provider.getModel("gemini-2.5-flash", {
-      reasoning: {
-        effort: "low",
-        includeThoughts: true,
-      },
-      streaming: false,
-    });
-
-    const parts = [];
-    for await (const part of await model.stream([
-      { role: "user", content: "Hello" },
-    ])) {
-      parts.push(part);
-    }
-
-    expect(requests).toHaveLength(2);
-    expect(requests[1]?.generationConfig?.thinkingConfig).toEqual({
-      includeThoughts: true,
-    });
-    expect(parts).toMatchObject([
-      { type: "text-delta", delta: "Hello from fallback invoke" },
-      {
-        type: "finish",
-        finishReason: { unified: "stop", raw: "STOP" },
-      },
-    ]);
-  });
-
-  it("returns a stream error part when the fallback streaming retry also fails", async () => {
-    const provider = createGoogleGenerativeAI({
-      apiKey: "test-key",
-      fetch: async () =>
-        createJsonResponse(
-          {
+describe("Google explicit reasoning failures", () => {
+  it.each([
+    true,
+    false,
+  ])("never retries a rejected effort (stream=%s)", async (stream) => {
+    const fetch = vi.fn(
+      async () =>
+        new Response(
+          JSON.stringify({
             error: {
               message: "Thinking level is not supported for this model.",
             },
-          },
-          400,
+          }),
+          { status: 400 },
         ),
-    });
-    const model = provider.getModel("gemini-2.5-flash", {
-      reasoning: { effort: "low" },
-      streaming: true,
-    });
-
-    const parts = [];
-    for await (const part of await model.stream([
-      { role: "user", content: "Hello" },
-    ])) {
-      parts.push(part);
-    }
-
-    expect(parts).toHaveLength(1);
-    expect(parts[0]).toMatchObject({
-      type: "error",
-      error: expect.objectContaining({
-        message: expect.stringContaining(
-          "Google provider failed to stream content",
-        ),
-      }),
-    });
+    );
+    const model = createProvider({ apiKey: "test-key", fetch }).getModel(
+      "gemini-3-flash-preview",
+      { reasoning: { effort: "medium" } },
+    );
+    if (stream) {
+      const parts = [];
+      for await (const part of await model.stream([
+        { role: "user", content: "hi" },
+      ]))
+        parts.push(part);
+      expect(parts).toEqual([expect.objectContaining({ type: "error" })]);
+    } else
+      await expect(
+        model.invoke([{ role: "user", content: "hi" }]),
+      ).rejects.toThrow("Thinking level");
+    expect(fetch).toHaveBeenCalledTimes(1);
   });
-
-  it("throws when the fallback invoke retry also fails", async () => {
-    const provider = createGoogleGenerativeAI({
-      apiKey: "test-key",
-      fetch: async () =>
-        createJsonResponse(
-          {
-            error: {
-              message: "Thinking level is not supported for this model.",
-            },
-          },
-          400,
-        ),
-    });
-    const model = provider.getModel("gemini-2.5-flash", {
-      reasoning: { effort: "low" },
-    });
-
+  it("rejects conflicting reasoning controls without a request", async () => {
+    const fetch = vi.fn();
+    const model = createProvider({ apiKey: "test-key", fetch }).getModel(
+      "gemini-2.5-flash",
+      { reasoning: { effort: "low", maxTokens: 128 } },
+    );
     await expect(
-      model.invoke([{ role: "user", content: "Hello" }]),
-    ).rejects.toThrow("Google provider failed to invoke content");
+      model.invoke([{ role: "user", content: "hi" }]),
+    ).rejects.toThrow("either effort or maxTokens");
+    expect(fetch).not.toHaveBeenCalled();
   });
 });
