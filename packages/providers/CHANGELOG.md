@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.1](https://github.com/kortyx-io/kortyx/compare/providers-v0.6.0...providers-v0.6.1) (2026-09-11)
+
+
+### Bug Fixes
+
+* **providers:** preserve reasoning across tool workflows ([#169](https://github.com/kortyx-io/kortyx/issues/169)) ([6e4e403](https://github.com/kortyx-io/kortyx/commit/6e4e403d104d83586e05aab799510bc4c35b0f49))
+
 ## [0.6.0](https://github.com/kortyx-io/kortyx/compare/providers-v0.5.0...providers-v0.6.0) (2026-09-11)
 
 

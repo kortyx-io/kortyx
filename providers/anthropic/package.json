@@ -1,6 +1,6 @@
 {
   "name": "@kortyx/anthropic",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "private": false,
   "description": "Anthropic provider integration for Kortyx.",
   "keywords": [
