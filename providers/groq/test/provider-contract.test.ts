@@ -280,7 +280,7 @@ describe("groq public provider contract", () => {
         createGroq()
           .getModel("llama-3.3-70b-versatile")
           .invoke([{ role: "user", content: "Hello" }]),
-      ).rejects.toThrow("Groq provider failed to invoke content");
+      ).rejects.toMatchObject({ code: "PROVIDER_CONFIGURATION" });
     } finally {
       if (previousGroqKey !== undefined) {
         process.env.GROQ_API_KEY = previousGroqKey;

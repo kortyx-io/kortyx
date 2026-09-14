@@ -1,3 +1,5 @@
+import { createFailureResponse, readRequestJson } from "kortyx";
+import type { z } from "zod";
 import { agent } from "@/lib/kortyx-client";
 import {
   parallelDemoWorkflow,
@@ -16,13 +18,15 @@ export function GET(): Response {
 
 export async function POST(request: Request): Promise<Response> {
   try {
-    const body = await request.json();
+    const body = await readRequestJson(request);
     if (body.action === "resume") {
       return Response.json(
         await agent.resume({
           workflow: parallelDemoWorkflow,
-          resume: body.resume,
-          response: body.response,
+          resume: body.resume as Parameters<typeof agent.resume>[0]["resume"],
+          response: body.response as Parameters<
+            typeof agent.resume
+          >[0]["response"],
           abortSignal: request.signal,
         }),
       );
@@ -35,7 +39,8 @@ export async function POST(request: Request): Promise<Response> {
     return Response.json(
       await agent.execute({
         workflow: parallelDemoWorkflow,
-        input: body.input,
+        // execute validates untrusted input against this schema before running.
+        input: body.input as z.input<typeof parallelDemoWorkflow.inputSchema>,
         abortSignal: request.signal,
         // This example offers a fixed lower allowance, never client-selected ceilings.
         ...(body.limited === true
@@ -44,9 +49,6 @@ export async function POST(request: Request): Promise<Response> {
       }),
     );
   } catch (error) {
-    return Response.json(
-      { error: error instanceof Error ? error.message : String(error) },
-      { status: 400 },
-    );
+    return createFailureResponse(error);
   }
 }

@@ -1,6 +1,6 @@
 "use server";
 
-import { collectStream, type StreamChunk } from "kortyx";
+import { collectStream, type StreamChunk, serializeFailure } from "kortyx";
 import { agent } from "@/lib/kortyx-client";
 
 export async function runChat(args: {
@@ -12,10 +12,18 @@ export async function runChat(args: {
     metadata?: Record<string, unknown>;
   }>;
 }): Promise<StreamChunk[]> {
-  const stream = await agent.streamChat(args.messages, {
-    sessionId: args.sessionId,
-    workflowId: args.workflowId,
-  });
+  try {
+    const stream = await agent.streamChat(args.messages, {
+      sessionId: args.sessionId,
+      workflowId: args.workflowId,
+    });
 
-  return collectStream(stream);
+    return await collectStream(stream);
+  } catch (error) {
+    const failure = serializeFailure(error);
+    return [
+      { type: "error", message: failure.message, failure },
+      { type: "done" },
+    ];
+  }
 }

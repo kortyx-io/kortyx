@@ -4,10 +4,12 @@ export type { ChatRequestBody, CheckpointRequestBody } from "./adapters/http";
 export {
   createChatRouteHandler,
   createCheckpointRouteHandler,
+  createFailureResponse,
   handleChatRequestBody,
   handleCheckpointRequestBody,
   parseChatRequestBody,
   parseCheckpointRequestBody,
+  readRequestJson,
 } from "./adapters/http";
 export type { StreamChatFromRouteArgs } from "./adapters/http-client";
 export { streamChatFromRoute } from "./adapters/http-client";

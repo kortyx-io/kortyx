@@ -1767,7 +1767,7 @@ describe("useReason output flow", () => {
     expect(invoke).toHaveBeenCalledTimes(1);
   });
 
-  it("throws a truncation-specific error when structured JSON is cut off even without finishReason metadata", async () => {
+  it("reports invalid JSON without claiming truncation when finish metadata is absent", async () => {
     const { invoke, modelRef } = createProvider({
       invokeResponses: [
         {
@@ -1788,9 +1788,7 @@ describe("useReason output flow", () => {
           outputSchema: PlanSchema,
         }),
       ),
-    ).rejects.toThrow(
-      "useReason output was truncated before producing valid structured output.",
-    );
+    ).rejects.toMatchObject({ code: "INVALID_MODEL_JSON" });
 
     expect(invoke).toHaveBeenCalledTimes(1);
   });

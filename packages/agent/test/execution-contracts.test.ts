@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { z } from "zod";
 import {
   parseExecutionInput,
+  resolveExecutionWorkflow,
   validateExecutionOutput,
 } from "../src/execution/contracts";
 
@@ -17,6 +18,19 @@ const state: GraphState = {
   conversationHistory: [],
 };
 describe("execution contract validation", () => {
+  it("preserves registry infrastructure errors and recognizes structural not-found errors", async () => {
+    const outage = new Error("registry unavailable");
+    await expect(
+      resolveExecutionWorkflow(async () => {
+        throw outage;
+      }, "missing"),
+    ).rejects.toBe(outage);
+    await expect(
+      resolveExecutionWorkflow(async () => {
+        throw { code: "UNKNOWN_WORKFLOW" };
+      }, "missing"),
+    ).rejects.toHaveProperty("code", "UNKNOWN_WORKFLOW");
+  });
   it("validates JSON and serializes arbitrary transform errors", async () => {
     expect(parseExecutionInput(workflow, "x")).toBe("x");
     expect(() =>
@@ -70,7 +84,10 @@ it("keeps the result envelope serializable and omits absent usage", async () => 
   );
   expect(failed).toMatchObject({
     status: "failed",
-    error: { message: "failure" },
+    error: {
+      code: "EXECUTION_FAILED",
+      message: "An unexpected error occurred.",
+    },
   });
   expect(failed).not.toHaveProperty("usage");
   const chargedFailure = resultFromOutcome(
@@ -147,7 +164,10 @@ it("keeps the result envelope serializable and omits absent usage", async () => 
       resume,
       response: { type: "text", text: "yes" },
     }),
-  ).rejects.toThrow("store unavailable");
+  ).rejects.toMatchObject({
+    code: "RESUME_FAILED",
+    cause: "store unavailable",
+  });
   const unavailable = {
     ...services,
     frameworkAdapter: {

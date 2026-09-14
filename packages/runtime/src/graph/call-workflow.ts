@@ -5,6 +5,14 @@ import type {
   WorkflowDefinition,
 } from "@kortyx/core";
 import { isExecutionLimitReached, throwIfExecutionAborted } from "@kortyx/core";
+import {
+  errorFromFailure,
+  errorProperty,
+  isFailureDescriptor,
+  PersistenceError,
+  ValidationError,
+  WorkflowContractError,
+} from "@kortyx/core/errors";
 import type { WorkflowCallService } from "@kortyx/hooks";
 import { workflowCallFingerprint } from "@kortyx/hooks";
 import { AsyncLocalStorageProviderSingleton } from "@langchain/core/singletons";
@@ -36,7 +44,7 @@ function assertSequentialWorkflow(workflow: WorkflowDefinition) {
     else group.plain++;
     groups.set(from, group);
     if (group.plain > 1 || (group.plain > 0 && group.conditional > 0)) {
-      throw new Error(
+      throw new WorkflowContractError(
         `Workflow '${workflow.id}' has parallel edges; child calls require sequential graphs.`,
       );
     }
@@ -55,12 +63,16 @@ export function createWorkflowCallService(
       if (parent) assertSequentialWorkflow(parent);
       const depth = (config.workflowCallDepth ?? 0) + 1;
       if (depth > 16)
-        throw new Error("Maximum child workflow depth (16) exceeded.");
+        throw new WorkflowContractError(
+          "Maximum child workflow depth (16) exceeded.",
+        );
       const workflow = await config.selectWorkflow?.(args.workflow);
       if (!workflow || workflow.id !== args.workflow)
-        throw new Error(`Workflow '${args.workflow}' is not registered.`);
+        throw new WorkflowContractError(
+          `Workflow '${args.workflow}' is not registered.`,
+        );
       if (!workflow.inputSchema || !workflow.outputSchema)
-        throw new Error(
+        throw new WorkflowContractError(
           `Callable workflow '${workflow.id}' requires inputSchema and outputSchema.`,
         );
       if (
@@ -69,14 +81,14 @@ export function createWorkflowCallService(
           args.definition.inputSchema !== workflow.inputSchema ||
           args.definition.outputSchema !== workflow.outputSchema)
       ) {
-        throw new Error(
+        throw new WorkflowContractError(
           "The typed workflow contract does not match the registered definition.",
         );
       }
       assertSequentialWorkflow(workflow);
       const snapshot = args.snapshot as ChildSnapshot | undefined;
       if (snapshot && snapshot.version !== workflow.version)
-        throw new Error(
+        throw new WorkflowContractError(
           `Workflow '${workflow.id}' changed since the call was suspended.`,
         );
       // The checkpoint already contains parsed input. Re-running a transform
@@ -140,15 +152,14 @@ export function createWorkflowCallService(
             };
             return;
           }
-          if (event === "error")
-            throw new Error(
-              String(
-                (payload as { message?: unknown }).message ??
-                  "Child workflow failed.",
-              ),
-            );
+          if (event === "error") {
+            const failure = (payload as { failure?: unknown })?.failure;
+            throw isFailureDescriptor(failure)
+              ? errorFromFailure(failure)
+              : new Error("Child workflow failed.");
+          }
           if (event === "transition")
-            throw new Error(
+            throw new WorkflowContractError(
               "transitionTo is not supported inside child workflows; useWorkflow returns to its caller.",
             );
           const value = payload as Record<string, unknown>;
@@ -208,7 +219,19 @@ export function createWorkflowCallService(
             }),
         )) as GraphState;
       } catch (error) {
-        const checkpoint = await captureGraphSnapshot(saver, threadId);
+        throwIfExecutionAborted(execution.abortSignal);
+        const checkpoint = await captureGraphSnapshot(saver, threadId).catch(
+          (cause) => {
+            // A failed diagnostic snapshot must not replace the child failure.
+            // Limit suspension, however, requires a recoverable checkpoint.
+            if (isExecutionLimitReached(error))
+              throw new PersistenceError(
+                "Cannot checkpoint a suspended child workflow.",
+                cause,
+              );
+            return undefined;
+          },
+        );
         const state = checkpoint?.checkpoint.channel_values as
           | GraphState
           | undefined;
@@ -245,7 +268,9 @@ export function createWorkflowCallService(
       if (request) {
         const checkpoint = await captureGraphSnapshot(saver, threadId);
         if (!checkpoint)
-          throw new Error("Child interrupted without a graph checkpoint.");
+          throw new WorkflowContractError(
+            "Child interrupted without a graph checkpoint.",
+          );
         return {
           status: "interrupted" as const,
           usage:
@@ -262,7 +287,17 @@ export function createWorkflowCallService(
           } satisfies ChildSnapshot,
         };
       }
-      const data = workflow.outputSchema.parse(result.data ?? {});
+      let data: Record<string, unknown>;
+      try {
+        data = workflow.outputSchema.parse(result.data ?? {});
+      } catch (cause) {
+        if (!Array.isArray(errorProperty(cause, "issues"))) throw cause;
+        throw new ValidationError(
+          "INVALID_OUTPUT",
+          "Child output validation failed.",
+          cause,
+        );
+      }
       workflowCallFingerprint(data);
       return {
         status: "completed" as const,

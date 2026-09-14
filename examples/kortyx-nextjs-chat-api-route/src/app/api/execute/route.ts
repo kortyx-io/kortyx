@@ -1,3 +1,5 @@
+import { createFailureResponse, readRequestJson } from "kortyx";
+import type { z } from "zod";
 import { agent } from "@/lib/kortyx-client";
 import { briefReviewWorkflow } from "@/workflows/brief-review.workflow";
 
@@ -6,17 +8,15 @@ export const dynamic = "force-dynamic";
 
 export async function POST(request: Request): Promise<Response> {
   try {
-    const body = await request.json();
+    const body = await readRequestJson(request);
     const result = await agent.execute({
       abortSignal: request.signal,
       workflow: briefReviewWorkflow,
-      input: body.input,
+      // execute validates untrusted input against this schema before running.
+      input: body.input as z.input<typeof briefReviewWorkflow.inputSchema>,
     });
     return Response.json(result);
   } catch (error) {
-    return Response.json(
-      { error: error instanceof Error ? error.message : String(error) },
-      { status: 400 },
-    );
+    return createFailureResponse(error);
   }
 }

@@ -340,6 +340,6 @@ describe("anthropic public provider contract", () => {
       createAnthropic({ apiKey: "test-key", authToken: "test-token" })
         .getModel("claude-sonnet-4-5")
         .invoke([{ role: "user", content: "Hello" }]),
-    ).rejects.toThrow("Anthropic provider failed to invoke content");
+    ).rejects.toMatchObject({ code: "PROVIDER_CONFIGURATION" });
   });
 });

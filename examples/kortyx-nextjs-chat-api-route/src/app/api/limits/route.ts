@@ -1,4 +1,9 @@
-import { parseChatRequestBody, toSSE } from "kortyx";
+import {
+  createFailureResponse,
+  parseChatRequestBody,
+  readRequestJson,
+  toSSE,
+} from "kortyx";
 import { agent } from "@/lib/kortyx-client";
 
 export const runtime = "nodejs";
@@ -6,7 +11,7 @@ export const dynamic = "force-dynamic";
 
 export async function POST(request: Request): Promise<Response> {
   try {
-    const body = parseChatRequestBody(await request.json());
+    const body = parseChatRequestBody(await readRequestJson(request));
     return toSSE(
       await agent.streamChat(body.messages, {
         abortSignal: request.signal,
@@ -17,9 +22,6 @@ export async function POST(request: Request): Promise<Response> {
       }),
     );
   } catch (error) {
-    return Response.json(
-      { error: error instanceof Error ? error.message : String(error) },
-      { status: 400 },
-    );
+    return createFailureResponse(error);
   }
 }

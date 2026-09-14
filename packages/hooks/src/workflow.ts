@@ -9,6 +9,12 @@ import {
   isExecutionLimitReached,
   throwIfExecutionAborted,
 } from "@kortyx/core";
+import {
+  type FailureDescriptor,
+  KortyxError,
+  serializeFailure,
+  WorkflowContractError,
+} from "@kortyx/core/errors";
 import type { z } from "zod";
 import { accumulateTokenUsage, getHookContext } from "./context";
 import { awaitInterruptInternal } from "./interrupt";
@@ -54,15 +60,28 @@ export type CallRecord = {
   snapshot?: unknown;
   data?: Record<string, unknown>;
   error?: string;
+  failure?: FailureDescriptor;
   interrupts: Array<{ request: InterruptInput; response?: string | string[] }>;
 };
 
-export class WorkflowCallError extends Error {
+export class WorkflowCallError extends KortyxError {
   constructor(
     public readonly workflow: string,
     message: string,
+    cause?: unknown,
+    failure?: FailureDescriptor,
   ) {
-    super(`Workflow '${workflow}': ${message}`);
+    const detail = serializeFailure(
+      failure ?? cause ?? new WorkflowContractError(message),
+    );
+    super(detail.code, `Workflow '${workflow}': ${message}`, {
+      ...detail,
+      safeMessage: detail.message,
+      ...(cause !== undefined ? { cause } : {}),
+    });
+    Object.assign(this.failure, detail, {
+      context: { ...detail.context, workflow },
+    });
     this.name = "WorkflowCallError";
   }
 }
@@ -74,10 +93,12 @@ export function workflowCallFingerprint(value: unknown): string {
     if (v === null || typeof v === "string" || typeof v === "boolean") return v;
     if (typeof v === "number" && Number.isFinite(v)) return v;
     if (typeof v !== "object" || !v || seen.has(v)) {
-      throw new Error("Workflow input and output must be JSON serializable.");
+      throw new WorkflowContractError(
+        "Workflow input and output must be JSON serializable.",
+      );
     }
     if (!Array.isArray(v) && Object.getPrototypeOf(v) !== Object.prototype) {
-      throw new Error(
+      throw new WorkflowContractError(
         "Workflow input and output must contain plain JSON objects.",
       );
     }
@@ -115,7 +136,9 @@ export function createWorkflowHooks<
     }): Promise<{ data: z.output<W[K]["outputSchema"]> }> => {
       const workflow = workflows[args.workflow];
       if (!workflow || workflow.id !== args.workflow)
-        throw new Error("Workflow registry keys must match definition ids.");
+        throw new WorkflowContractError(
+          "Workflow registry keys must match definition ids.",
+        );
       return useWorkflow({ ...args, workflow }) as Promise<{
         data: z.output<W[K]["outputSchema"]>;
       }>;
@@ -166,19 +189,23 @@ async function runWorkflowCall(
   throwIfExecutionAborted(ctx.node.abortSignal);
   const service = ctx.node.callWorkflow;
   if (!service)
-    throw new Error("useWorkflow requires an agent workflow registry.");
+    throw new WorkflowContractError(
+      "useWorkflow requires an agent workflow registry.",
+    );
   if (!args.id.trim())
-    throw new Error("useWorkflow requires a stable, nonempty id.");
+    throw new WorkflowContractError(
+      "useWorkflow requires a stable, nonempty id.",
+    );
   if (ctx.workflowCallActive && !task.group)
-    throw new Error(
+    throw new WorkflowContractError(
       "Concurrent workflow calls require parallel([...]); otherwise await each call.",
     );
   if (ctx.workflowCallIds.has(args.id))
-    throw new Error(
+    throw new WorkflowContractError(
       `Duplicate workflow call id '${args.id}' in one node activation.`,
     );
   if (ctx.workflowCallIds.size >= 64)
-    throw new Error(
+    throw new WorkflowContractError(
       "A node may call at most 64 child workflows per activation.",
     );
   ctx.workflowCallIds.add(args.id);
@@ -275,7 +302,12 @@ async function runWorkflowCall(
       });
     }
     if (record.status === "failed")
-      throw new WorkflowCallError(workflow, record.error ?? "child failed");
+      throw new WorkflowCallError(
+        workflow,
+        record.error ?? "child failed",
+        undefined,
+        record.failure ?? serializeFailure(undefined),
+      );
     if (
       task.group &&
       record.status === "interrupted" &&
@@ -319,9 +351,15 @@ async function runWorkflowCall(
           throw error;
         }
         record.status = "failed";
-        record.error = error instanceof Error ? error.message : String(error);
+        record.failure = serializeFailure(error);
+        record.error = record.failure.message;
         report("failed", { error: "Child workflow failed" });
-        throw new WorkflowCallError(workflow, record.error);
+        throw new WorkflowCallError(
+          workflow,
+          record.error,
+          error,
+          record.failure,
+        );
       }
       throwIfExecutionAborted(ctx.node.abortSignal);
       // Child totals survive suspension; count only newly reported work.

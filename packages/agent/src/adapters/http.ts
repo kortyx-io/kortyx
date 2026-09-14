@@ -1,3 +1,8 @@
+import {
+  failureHttpStatus,
+  KortyxError,
+  serializeFailure,
+} from "@kortyx/core/errors";
 import { collectBufferedStream, toSSE } from "@kortyx/stream";
 import { z } from "zod";
 import type { Agent } from "../chat/create-agent";
@@ -76,8 +81,40 @@ const checkpointRequestBodySchema = z.discriminatedUnion("action", [
     .strict(),
 ]);
 
-const toErrorMessage = (error: unknown): string =>
-  error instanceof Error ? error.message : String(error);
+/** Read an object-shaped API command without exposing parser/input details. */
+export async function readRequestJson(
+  request: Request,
+): Promise<Record<string, unknown>> {
+  try {
+    const value: unknown = await request.json();
+    if (!value || typeof value !== "object" || Array.isArray(value))
+      throw new Error("Expected a JSON object.");
+    return value as Record<string, unknown>;
+  } catch (cause) {
+    throw new KortyxError(
+      "INVALID_REQUEST",
+      "Request body is not valid JSON.",
+      {
+        category: "request",
+        retryable: false,
+        safeMessage: "The request body must contain a valid JSON object.",
+        cause,
+      },
+    );
+  }
+}
+
+/** Safe response for custom route handlers. Control flow propagates unchanged. */
+export function createFailureResponse(
+  error: unknown,
+  status?: number,
+): Response {
+  const failure = serializeFailure(error);
+  return Response.json(
+    { error: failure.message, failure },
+    { status: status ?? failureHttpStatus(failure) },
+  );
+}
 
 export function parseChatRequestBody(value: unknown): ChatRequestBody {
   const parsed = chatRequestBodySchema.safeParse(value);
@@ -86,7 +123,11 @@ export function parseChatRequestBody(value: unknown): ChatRequestBody {
       { message: string },
       ...Array<{ message: string }>,
     ];
-    throw new Error(firstIssue.message);
+    throw new KortyxError("INVALID_REQUEST", firstIssue.message, {
+      category: "request",
+      retryable: false,
+      safeMessage: "The request body is invalid.",
+    });
   }
 
   const sessionId = parsed.data.sessionId?.trim();
@@ -112,7 +153,11 @@ export function parseCheckpointRequestBody(
     { message: string },
     ...Array<{ message: string }>,
   ];
-  throw new Error(firstIssue.message);
+  throw new KortyxError("INVALID_REQUEST", firstIssue.message, {
+    category: "request",
+    retryable: false,
+    safeMessage: "The request body is invalid.",
+  });
 }
 
 export async function handleChatRequestBody(args: {
@@ -147,11 +192,11 @@ export function createChatRouteHandler(args: {
   agent: Agent;
   errorStatus?: number | undefined;
 }): (request: Request) => Promise<Response> {
-  const { agent, errorStatus = 400 } = args;
+  const { agent, errorStatus } = args;
 
   return async function POST(request: Request): Promise<Response> {
     try {
-      const body = parseChatRequestBody(await request.json());
+      const body = parseChatRequestBody(await readRequestJson(request));
       return await handleChatRequestBody({
         agent,
         body,
@@ -159,17 +204,7 @@ export function createChatRouteHandler(args: {
         onExecution: args.onExecution,
       });
     } catch (error) {
-      return new Response(
-        JSON.stringify({
-          error: toErrorMessage(error),
-        }),
-        {
-          status: errorStatus,
-          headers: {
-            "content-type": "application/json",
-          },
-        },
-      );
+      return createFailureResponse(error, errorStatus);
     }
   };
 }
@@ -201,24 +236,14 @@ export function createCheckpointRouteHandler(args: {
   agent: Agent;
   errorStatus?: number | undefined;
 }): (request: Request) => Promise<Response> {
-  const { agent, errorStatus = 400 } = args;
+  const { agent, errorStatus } = args;
 
   return async function POST(request: Request): Promise<Response> {
     try {
-      const body = parseCheckpointRequestBody(await request.json());
+      const body = parseCheckpointRequestBody(await readRequestJson(request));
       return await handleCheckpointRequestBody({ agent, body });
     } catch (error) {
-      return new Response(
-        JSON.stringify({
-          error: toErrorMessage(error),
-        }),
-        {
-          status: errorStatus,
-          headers: {
-            "content-type": "application/json",
-          },
-        },
-      );
+      return createFailureResponse(error, errorStatus);
     }
   };
 }

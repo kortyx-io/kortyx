@@ -1,5 +1,7 @@
 "use client";
 
+import { errorFromFailure, isFailureDescriptor } from "@kortyx/core/errors";
+
 import type { StreamChunk } from "@kortyx/stream/browser";
 import { type RefObject, useEffect, useRef, useState } from "react";
 import { buildAssistantMessage } from "./build-assistant-message";
@@ -611,7 +613,11 @@ export function useChat<TContext = DefaultChatContext>(
         }
 
         if (chunk.type === "error") {
-          setError(new Error(chunk.message));
+          setError(
+            isFailureDescriptor(chunk.failure)
+              ? errorFromFailure(chunk.failure)
+              : new Error(chunk.message),
+          );
         }
 
         if (chunk.type === "done") {

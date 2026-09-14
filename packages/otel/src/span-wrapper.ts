@@ -1,3 +1,4 @@
+import { isControlFlowError, serializeFailure } from "@kortyx/core/errors";
 import type { ReasonTraceSpan, ReasonTraceSpanEndArgs } from "@kortyx/hooks";
 import { type Span, SpanStatusCode } from "@opentelemetry/api";
 import {
@@ -53,8 +54,14 @@ export const createSpanWrapper = (
       });
     },
     fail: (error, args) => {
-      const message = error instanceof Error ? error.message : String(error);
-      span.recordException(error instanceof Error ? error : new Error(message));
+      if (isControlFlowError(error)) {
+        span.setAttribute("kortyx.control_flow", true);
+        wrapper.end?.(args);
+        return;
+      }
+      const failure = serializeFailure(error);
+      const message = failure.message;
+      span.recordException({ name: failure.code, message });
       span.setStatus({ code: SpanStatusCode.ERROR, message });
       const attributes = spanErrorAttributes(error, args);
       span.setAttributes(
@@ -86,10 +93,12 @@ const spanErrorAttributes = (
   error: unknown,
   args: ReasonTraceSpanEndArgs | undefined,
 ) => {
-  const message = error instanceof Error ? error.message : String(error);
+  const failure = serializeFailure(error);
+  const message = failure.message;
   return {
     ...(args?.attributes ?? {}),
-    "error.type": error instanceof Error ? error.name : typeof error,
+    "error.type": failure.code,
+    "kortyx.error.category": failure.category,
     "error.message": message,
     ...usageAttributes(args),
   };

@@ -4,6 +4,7 @@ import {
   type NodeFn,
   type WorkflowDefinition,
 } from "@kortyx/core";
+import { DomainError } from "@kortyx/core/errors";
 import {
   createWorkflowHooks,
   type KortyxTelemetryEvent,
@@ -720,7 +721,11 @@ describe("call safety", () => {
       );
       expect(
         (await start(agent)).some(
-          (c) => c.type === "error" && c.message.includes(message),
+          (c) =>
+            c.type === "error" &&
+            ["WORKFLOW_CONTRACT_ERROR", "UNKNOWN_WORKFLOW"].includes(
+              c.failure?.code ?? "",
+            ),
         ),
       ).toBe(true);
     }
@@ -827,7 +832,7 @@ describe("call safety", () => {
     let attempts = 0;
     const child = simpleChild(() => {
       attempts++;
-      throw new Error("failure");
+      throw new DomainError("TEST_FAILURE", "failure");
     });
     const agent = caller(async () => {
       let failure = "";
@@ -922,7 +927,7 @@ describe("call safety", () => {
     expect(
       (await resume(agent, first, "yes")).some(
         (c) =>
-          c.type === "error" && c.message.includes("changed during replay"),
+          c.type === "error" && c.failure?.code === "WORKFLOW_CONTRACT_ERROR",
       ),
     ).toBe(true);
     const complete = simpleChild(() => ({ data: { answer: "yes" } }));
@@ -933,7 +938,8 @@ describe("call safety", () => {
     }, [complete]);
     expect(
       (await start(duplicate)).some(
-        (c) => c.type === "error" && c.message.includes("Duplicate"),
+        (c) =>
+          c.type === "error" && c.failure?.code === "WORKFLOW_CONTRACT_ERROR",
       ),
     ).toBe(true);
   });

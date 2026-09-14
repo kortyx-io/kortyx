@@ -3,6 +3,7 @@ import {
   isExecutionLimitReached,
   throwIfExecutionAborted,
 } from "@kortyx/core";
+import { type FailureDescriptor, serializeFailure } from "@kortyx/core/errors";
 import { getHookContext } from "./context";
 import { awaitInterruptInternal } from "./interrupt";
 import type { CallRecord } from "./workflow";
@@ -29,10 +30,17 @@ export type WorkflowTask = {
 };
 
 /** Internal control flow: the child snapshot is ready for its owning join. */
-export class ParallelChildWaiting extends Error {}
+export class ParallelChildWaiting extends Error {
+  override name = "ParallelChildWaiting";
+}
 
 /** All siblings have settled; results retain the order passed to parallel(). */
 export class ParallelError extends AggregateError {
+  readonly code = "PARALLEL_FAILED";
+  readonly failure: FailureDescriptor;
+  toJSON(): FailureDescriptor {
+    return serializeFailure(this);
+  }
   constructor(
     public readonly results: readonly PromiseSettledResult<unknown>[],
   ) {
@@ -43,6 +51,18 @@ export class ParallelError extends AggregateError {
       "One or more parallel operations failed.",
     );
     this.name = "ParallelError";
+    this.failure = serializeFailure({
+      version: 1,
+      code: this.code,
+      category: "workflow",
+      message: this.message,
+      retryable: null,
+      results: results.map((result) =>
+        result.status === "fulfilled"
+          ? { status: "fulfilled" }
+          : { status: "rejected", failure: serializeFailure(result.reason) },
+      ),
+    });
   }
 }
 

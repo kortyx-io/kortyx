@@ -8,6 +8,11 @@ import {
   throwIfExecutionAborted,
 } from "@kortyx/core";
 import {
+  errorFromFailure,
+  isFailureDescriptor,
+  serializeFailure,
+} from "@kortyx/core/errors";
+import {
   captureGraphSnapshot,
   createExecutionGraph,
   type FrameworkAdapter,
@@ -284,10 +289,8 @@ export async function orchestrateGraphStream({
         interruptId,
         resolvedAt: new Date().toISOString(),
         resumeOutcome: "failed",
-        resumeError:
-          resumeError instanceof Error
-            ? resumeError.message
-            : String(resumeError),
+        resumeError: serializeFailure(resumeError).message,
+        failure: serializeFailure(resumeError),
       },
       flush: true,
     });
@@ -444,8 +447,10 @@ export async function orchestrateGraphStream({
     if (response.closed) outcomeState.config.responseCompleted = true;
     if (typeof frameworkAdapter?.checkpointer?.getTuple !== "function") return;
     for (const [token, request] of activePendingRequests) {
-      if (budget) request.state!.config.executionBudget = budget;
-      if (response.closed) request.state!.config.responseCompleted = true;
+      if (budget && request.state)
+        request.state.config.executionBudget = budget;
+      if (response.closed && request.state)
+        request.state.config.responseCompleted = true;
       const graphSnapshot = await captureGraphSnapshot(
         frameworkAdapter.checkpointer,
         runId,
@@ -542,7 +547,10 @@ export async function orchestrateGraphStream({
       const savePromise = pendingStore.save(record).catch((error) => {
         // eslint-disable-next-line no-console
         outcomeError = error;
-        console.error("[orchestrator] failed to save pending request", error);
+        console.error(
+          "[orchestrator] failed to save pending request",
+          serializeFailure(error),
+        );
       });
       pendingRequestWrites.push(savePromise);
     }
@@ -656,8 +664,15 @@ export async function orchestrateGraphStream({
       const msg = String(
         (payload as { message?: unknown })?.message ?? "Unexpected error",
       );
-      outcomeError = new Error(msg);
-      write({ type: "error", message: msg });
+      const supplied = (payload as { failure?: unknown })?.failure;
+      outcomeError = isFailureDescriptor(supplied)
+        ? errorFromFailure(supplied)
+        : new Error(msg);
+      write({
+        type: "error",
+        message: serializeFailure(outcomeError).message,
+        failure: serializeFailure(outcomeError),
+      });
       write({ type: "done" });
       finished = true;
       out.end();
@@ -935,7 +950,10 @@ export async function orchestrateGraphStream({
       };
       void persistAndEmitInterrupt(local).catch((error) => {
         // eslint-disable-next-line no-console
-        console.error("[orchestrator] failed to emit interrupt", error);
+        console.error(
+          "[orchestrator] failed to emit interrupt",
+          serializeFailure(error),
+        );
       });
       return;
     }
@@ -1220,9 +1238,8 @@ export async function orchestrateGraphStream({
           });
           write({
             type: "error",
-            message: `Transition failed to '${transitionTo}': ${
-              err instanceof Error ? err.message : String(err)
-            }`,
+            message: serializeFailure(err).message,
+            failure: serializeFailure(err),
           });
           write({ type: "done" });
           out.end();
@@ -1289,7 +1306,10 @@ export async function orchestrateGraphStream({
             }
           } catch (e) {
             // eslint-disable-next-line no-console
-            console.error("[orchestrator] framework cleanup failed", e);
+            console.error(
+              "[orchestrator] framework cleanup failed",
+              serializeFailure(e),
+            );
           }
         }
 
@@ -1353,7 +1373,10 @@ export async function orchestrateGraphStream({
           } catch (error) {
             // eslint-disable-next-line no-console
             outcomeError = error;
-            console.error("[orchestrator] session checkpoint failed", error);
+            console.error(
+              "[orchestrator] session checkpoint failed",
+              serializeFailure(error),
+            );
           }
         }
         write({ type: "done", data: workflowFinalState } as any);
@@ -1435,7 +1458,10 @@ export async function orchestrateGraphStream({
         } catch (error) {
           // eslint-disable-next-line no-console
           outcomeError = error;
-          console.error("[orchestrator] session checkpoint failed", error);
+          console.error(
+            "[orchestrator] session checkpoint failed",
+            serializeFailure(error),
+          );
         }
       }
       runTraceSpan.setAttributes?.({
@@ -1493,7 +1519,7 @@ export async function orchestrateGraphStream({
     try {
       await frameworkAdapter?.cleanupRun?.(runId, [...namespacesUsed]);
     } catch (cleanupError) {
-      console.error("[cancel:cleanupRun]", cleanupError);
+      console.error("[cancel:cleanupRun]", serializeFailure(cleanupError));
     }
     outcomeError = createExecutionCancelledError();
     fallbackRunSpan?.setAttributes?.({ "kortyx.run.cancelled": true });
@@ -1635,10 +1661,11 @@ export async function orchestrateGraphStream({
       outcomeError = err;
       fallbackRunSpan?.fail?.(err);
       emitResumeFailure(err);
-      console.error("[error:orchestrateGraphStream]", err);
+      console.error("[error:orchestrateGraphStream]", serializeFailure(err));
       write({
         type: "error",
-        message: err instanceof Error ? err.message : String(err),
+        message: serializeFailure(err).message,
+        failure: serializeFailure(err),
       });
       write({ type: "done" });
       finished = true;

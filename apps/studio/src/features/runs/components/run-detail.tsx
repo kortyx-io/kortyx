@@ -235,8 +235,20 @@ function errorText(payload: Record<string, unknown>) {
     typeof payload.error === "object" &&
     "message" in payload.error &&
     typeof payload.error.message === "string"
-  )
-    return payload.error.message;
+  ) {
+    const error = payload.error as Record<string, unknown>;
+    const code = typeof error.code === "string" ? `[${error.code}] ` : "";
+    const status =
+      typeof error.status === "number" ? ` (HTTP ${error.status})` : "";
+    const cause =
+      error.cause &&
+      typeof error.cause === "object" &&
+      "message" in error.cause &&
+      typeof error.cause.message === "string"
+        ? ` Cause: ${error.cause.message}`
+        : "";
+    return `${code}${error.message}${status}${cause}`;
+  }
   return "The run reported a failure. Inspect the trace for details.";
 }
 

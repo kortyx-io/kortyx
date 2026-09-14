@@ -1,3 +1,8 @@
+import {
+  type FailureDescriptor,
+  isFailureDescriptor,
+  serializeFailure,
+} from "@kortyx/core/errors";
 import { z } from "zod";
 import { StreamChunkSchema } from "./stream-chunk";
 
@@ -9,6 +14,10 @@ export const StreamResultSchema = z.object({
     .object({
       message: z.string(),
       code: z.string().optional(),
+      failure: z
+        .custom<FailureDescriptor>(isFailureDescriptor)
+        .transform(serializeFailure)
+        .optional(),
       cause: z.unknown().optional(),
     })
     .nullable()

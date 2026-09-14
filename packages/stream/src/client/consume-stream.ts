@@ -1,3 +1,4 @@
+import { streamError } from "../failure";
 import type { StreamChunk } from "../types/stream-chunk";
 
 export interface ConsumeStreamHandlers {
@@ -28,10 +29,7 @@ export async function consumeStream(
       const shouldContinue = await handlers.onChunk?.(chunk);
 
       if (chunk.type === "error") {
-        await handlers.onError?.(
-          new Error(chunk.message || "Stream error."),
-          chunk,
-        );
+        await handlers.onError?.(streamError(chunk), chunk);
       }
 
       if (chunk.type === "done" || shouldContinue === false) {

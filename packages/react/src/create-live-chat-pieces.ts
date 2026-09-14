@@ -1,3 +1,4 @@
+import type { FailureDescriptor } from "@kortyx/core/errors";
 import type {
   StreamChunk,
   StructuredStreamState,
@@ -19,6 +20,7 @@ export type LiveChatStructuredPiece<TStructuredData = unknown> = {
 export type LiveChatErrorPiece = {
   id: string;
   type: "error";
+  failure?: FailureDescriptor;
   content: string;
 };
 
@@ -206,6 +208,7 @@ export function createLiveChatPieces<
         id: args.createId(),
         type: "error",
         content: chunk.message ?? "An error occurred",
+        ...(chunk.failure ? { failure: chunk.failure } : {}),
       });
       return true;
     }

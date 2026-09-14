@@ -39,7 +39,8 @@
     "type-check": "tsc --noEmit -p tsconfig.test.json"
   },
   "dependencies": {
-    "@kortyx/providers": "workspace:*"
+    "@kortyx/providers": "workspace:*",
+    "@kortyx/core": "workspace:*"
   },
   "devDependencies": {
     "turbo": "catalog:",

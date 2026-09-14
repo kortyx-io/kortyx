@@ -24,7 +24,7 @@
     "redis:down": "docker rm -f kortyx-redis",
     "redis:logs": "docker logs -f kortyx-redis",
     "redis:cli": "redis-cli -h 127.0.0.1 -p ${KORTYX_REDIS_PORT:-6379}",
-    "test": "echo 'Running frontend tests...' && pnpm -s type-check && echo 'All tests passed!'"
+    "test": "vitest run && pnpm -s type-check"
   },
   "dependencies": {
     "@kortyx/google": "workspace:*",
@@ -72,7 +72,8 @@
     "tw-animate-css": "catalog:",
     "typescript": "catalog:",
     "webpack": "^5.105.4",
-    "webpack-cli": "^5.1.0"
+    "webpack-cli": "^5.1.0",
+    "vitest": "catalog:"
   },
   "homepage": "https://kortyx.io/",
   "bugs": {

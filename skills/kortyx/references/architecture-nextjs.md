@@ -28,32 +28,46 @@ Use a custom route when you need auth, rate limits, custom request context, cust
 
 ```ts
 import { agent } from "@/lib/kortyx-client";
-import { collectBufferedStream, parseChatRequestBody, toSSE } from "kortyx";
+import {
+  collectBufferedStream,
+  createFailureResponse,
+  parseChatRequestBody,
+  readRequestJson,
+  toSSE,
+} from "kortyx";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function POST(request: Request): Promise<Response> {
-  const body = parseChatRequestBody(await request.json());
   // App-owned auth helper. Replace with the app's auth/session layer.
+  // Keep its response/redirect handling outside the Kortyx failure boundary.
   const user = await requireUser(request);
 
-  const stream = await agent.streamChat(body.messages, {
-    sessionId: body.sessionId,
-    workflowId: body.workflowId,
-    context: {
-      ...body.context,
-      userId: user.id,
-    },
-  });
+  try {
+    const body = parseChatRequestBody(await readRequestJson(request));
+    const stream = await agent.streamChat(body.messages, {
+      abortSignal: request.signal,
+      sessionId: body.sessionId,
+      workflowId: body.workflowId,
+      context: {
+        ...body.context,
+        userId: user.id,
+      },
+    });
 
-  if (body.stream === false) {
-    return Response.json(await collectBufferedStream(stream));
+    if (body.stream === false) {
+      return Response.json(await collectBufferedStream(stream));
+    }
+
+    return toSSE(stream);
+  } catch (error) {
+    return createFailureResponse(error);
   }
-
-  return toSSE(stream);
 }
 ```
+
+The shared error helpers require the coordinated error-contract release. Check installed exports and read [Error handling](error-handling.md) before adapting an older application. `createFailureResponse` propagates control flow and emits safe diagnostics for ordinary failures.
 
 Client shape:
 

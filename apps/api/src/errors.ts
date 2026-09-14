@@ -1,6 +1,7 @@
 import {
   TelemetryAuthError,
   TelemetryForbiddenError,
+  TelemetryNotFoundError,
 } from "@kortyx/telemetry-db";
 import type { ErrorHandler } from "hono";
 import { HTTPException } from "hono/http-exception";
@@ -23,6 +24,13 @@ export const apiErrorHandler: ErrorHandler<ApiEnv> = (error, c) => {
     );
   }
 
+  if (error instanceof TelemetryNotFoundError) {
+    return c.json(
+      { error: error.code, message: error.message, requestId },
+      404,
+    );
+  }
+
   if (error instanceof HTTPException) {
     return c.json(
       {
@@ -34,7 +42,11 @@ export const apiErrorHandler: ErrorHandler<ApiEnv> = (error, c) => {
     );
   }
 
-  console.error(error);
+  console.error({
+    code: "INTERNAL_SERVER_ERROR",
+    requestId,
+    message: "Internal server error.",
+  });
   return c.json(
     {
       error: "INTERNAL_SERVER_ERROR",

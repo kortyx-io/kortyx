@@ -1,3 +1,4 @@
+import { assertProviderResponse } from "@kortyx/core/errors";
 import { readSseEvents } from "@kortyx/providers";
 import { ProviderConfigurationError, ProviderRequestError } from "./errors";
 import type {
@@ -19,32 +20,8 @@ const createHeaders = (apiKey: string): Record<string, string> => ({
   "content-type": "application/json",
 });
 
-const parseErrorMessage = async (response: Response): Promise<string> => {
-  try {
-    const payload = (await response.json()) as unknown;
-    if (!isRecord(payload)) return `HTTP ${response.status}`;
-    const error = payload.error;
-    if (!isRecord(error)) return `HTTP ${response.status}`;
-    const message = error.message;
-    if (typeof message !== "string" || message.trim().length === 0) {
-      return `HTTP ${response.status}`;
-    }
-    return message;
-  } catch {
-    return `HTTP ${response.status}`;
-  }
-};
-
-export const assertOk = async (
-  response: Response,
-  action: string,
-): Promise<void> => {
-  if (response.ok) return;
-  const message = await parseErrorMessage(response);
-  throw new ProviderRequestError(
-    `OpenAI provider failed to ${action}: ${message}`,
-  );
-};
+export const assertOk = (response: Response, action: string): Promise<void> =>
+  assertProviderResponse("openai", response, action);
 
 const parseJsonResponse = async (
   response: Response,
@@ -57,6 +34,7 @@ const parseJsonResponse = async (
     const message = error instanceof Error ? error.message : String(error);
     throw new ProviderRequestError(
       `OpenAI provider failed to ${action}: invalid JSON response (${message})`,
+      { cause: error },
     );
   }
 
@@ -125,6 +103,7 @@ export const createOpenAIClient = (
         const message = error instanceof Error ? error.message : String(error);
         throw new ProviderRequestError(
           `OpenAI provider failed to stream content: invalid SSE JSON (${message})`,
+          { cause: error },
         );
       }
 

@@ -125,3 +125,5 @@ When an OTel trace adapter is configured on the agent, the orchestrator emits a 
 Langfuse is an app-owned OpenTelemetry export recipe, not the Kortyx observability contract. Load `observability-langfuse.md` when implementing or reviewing it.
 
 Full website walkthrough: `https://kortyx.io/docs/v0/production/langfuse`.
+
+For typed failure propagation and safe recovery policy, see [Error handling](error-handling.md).
