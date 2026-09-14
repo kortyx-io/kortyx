@@ -6,6 +6,13 @@ Kortyx Studio is the source-available Studio shell for the Kortyx plugin ecosyst
 
 This app is licensed under the Elastic License 2.0. See `LICENSE.md`.
 
+## Local updates
+
+The updater preserves the installation owner's UID/GID on private state,
+configuration, and backups. On Linux, the regular installer user can continue
+using the CLI after the Docker updater checks or installs a release. State
+directories remain private (0700), and written files remain private (0600).
+
 ## Development
 
 ```bash

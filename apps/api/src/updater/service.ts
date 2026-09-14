@@ -1,5 +1,5 @@
 import { createHash, randomUUID, timingSafeEqual } from "node:crypto";
-import { mkdir, rm, stat } from "node:fs/promises";
+import { rm, stat } from "node:fs/promises";
 import { createServer } from "node:http";
 import type {
   StudioRelease,
@@ -19,7 +19,9 @@ import { failUpdate } from "./engine";
 import { latestStudioRelease, ReleaseCheckError } from "./releases";
 import {
   environment,
+  initializeStorage,
   operation,
+  privateDirectory,
   readJson,
   saveJson,
   settings,
@@ -133,9 +135,9 @@ export class StudioUpdater {
 
   async start(version: string): Promise<void> {
     StudioReleaseVersionSchema.parse(version);
-    await mkdir(updatesPath(this.home, ""), { recursive: true, mode: 0o700 });
+    await privateDirectory(updatesPath(this.home, ""));
     try {
-      await mkdir(updatesPath(this.home, "lock"), { mode: 0o700 });
+      await privateDirectory(updatesPath(this.home, "lock"), true);
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code === "EEXIST")
         throw new Error("An update is already running.");
@@ -309,6 +311,7 @@ export function updaterAuthorized(
 }
 
 export async function serveUpdater(home: string): Promise<void> {
+  await initializeStorage(home);
   const updater = new StudioUpdater(home);
   let ticking = false;
   const tick = async () => {
