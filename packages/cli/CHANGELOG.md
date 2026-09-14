@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.7.1](https://github.com/kortyx-io/kortyx/compare/cli-v0.7.0...cli-v0.7.1) (2026-09-14)
+
+
+### Bug Fixes
+
+* **studio:** preserve host ownership of updater state ([#186](https://github.com/kortyx-io/kortyx/issues/186)) ([45c5b0c](https://github.com/kortyx-io/kortyx/commit/45c5b0c9736a1a4af9d4323747af77dbb98c32bf))
+
 ## [0.7.0](https://github.com/kortyx-io/kortyx/compare/cli-v0.6.0...cli-v0.7.0) (2026-09-14)
 
 

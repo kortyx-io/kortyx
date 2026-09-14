@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.20.2](https://github.com/kortyx-io/kortyx/compare/kortyx-v0.20.1...kortyx-v0.20.2) (2026-09-14)
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/cli bumped to 0.7.1
+
 ## [0.20.1](https://github.com/kortyx-io/kortyx/compare/kortyx-v0.20.0...kortyx-v0.20.1) (2026-09-14)
 
 
