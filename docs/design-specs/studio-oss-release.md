@@ -20,7 +20,9 @@ platform manifests. Docker selects the native manifest automatically.
 The `Release Studio Self-Hosted Images (GHCR)` GitHub Actions workflow is the only
 production publication path.
 
-1. **Validate:** verify the manually supplied semantic version is new.
+1. **Validate:** derive the version from the release-please `studio-vX.Y.Z` tag,
+   require it to match Studio's package and release manifest, and verify the
+   tagged commit is on `main`.
 2. **Stage:** build and push API and Studio indexes for `linux/amd64` and
    `linux/arm64`, recording the immutable index digests.
 3. **Accept:** install the packed `kortyx` CLI in an empty directory on native
@@ -42,17 +44,22 @@ least one required reviewer:
 1. Open **Settings → Environments** in the GitHub repository.
 2. Create or select `studio-production`.
 3. Enable **Required reviewers** and select the release approver(s).
-4. Restrict deployment branches to `main`.
+4. Allow deployment tags matching `studio-v*`. The workflow verifies that the
+   tagged commit is on `main`; a branch-only `main` policy will block tag runs.
 
 The workflow contains the environment gate, but GitHub only pauses for approval
 when the repository environment has a protection rule.
 
 ## Release operation
 
-1. Merge the intended Studio release commit to `main`.
-2. Open **Actions → Release Studio Self-Hosted Images (GHCR)**.
-3. Choose **Run workflow**, enter the version without `v`, and keep Git tag
-   creation enabled unless this is a recovery run.
+1. Merge Studio changes to `main` using conventional commit messages, as for
+   the other release-please packages.
+2. Run **Prepare Release PR (Repo)** and merge the shared release PR. It updates
+   `apps/studio/package.json`, `apps/studio/CHANGELOG.md`, and Studio's entry in
+   `.github/release-please/manifest.json` together.
+3. **Create Release Tags (Repo)** creates `studio-vX.Y.Z`, which automatically
+   starts **Release Studio Self-Hosted Images (GHCR)**, following the website's
+   component-tag pattern.
 4. Wait for both native clean-install jobs to pass.
 5. Review the staged version and approve the `studio-production` deployment.
 6. Confirm the workflow summary lists the promoted API and Studio digests.
@@ -66,7 +73,14 @@ ghcr.io/kortyx-io/kortyx-studio:vX.Y.Z
 ghcr.io/kortyx-io/kortyx-studio:latest
 ```
 
-It also creates `studio-vX.Y.Z` when requested.
+Release-please owns the Git tag and GitHub release. The image workflow never
+creates a second tag or accepts an independently entered version. The GitHub
+release can exist before image approval; the image workflow summary confirms
+when production images have been promoted. The native smoke tests also verify
+that the Studio package version inside the image matches its release tag.
+
+The Studio menu displays the version from `apps/studio/package.json` included
+in the running build. It does not check for newer releases.
 
 ## Failure and recovery
 
@@ -74,8 +88,9 @@ It also creates `studio-vX.Y.Z` when requested.
 - A smoke failure prints container state and logs, then removes its isolated
   database volume.
 - Rejecting the environment deployment leaves only staging tags.
-- Re-running the same version is safe until a production tag or release Git tag
-  exists.
+- To retry a failed build, rerun the tag's workflow or use **Run workflow** with
+  that existing `studio-vX.Y.Z` tag selected. Re-running is safe until a
+  production image tag exists; the release-please Git tag is expected to exist.
 - If promotion partially succeeds, inspect the recorded digests before any
   manual recovery. Never rebuild under the same version.
 

@@ -14,8 +14,7 @@ export const getStudioShellContext = cache(
     const context = await getStudioContext();
     return buildStudioShellContext({
       authMode: resolveStudioAuthMode(),
-      studioVersion:
-        process.env.KORTYX_STUDIO_VERSION?.trim() || studioPackage.version,
+      studioVersion: studioPackage.version,
       apiUrlConfigured: Boolean(process.env.KORTYX_API_URL),
       studioApiKeyConfigured: Boolean(process.env.KORTYX_STUDIO_API_KEY),
       context,
