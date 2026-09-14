@@ -1,6 +1,6 @@
 ---
 name: kortyx
-description: Use when building, reviewing, documenting, or architecting apps with Kortyx. Covers Kortyx Studio local setup and telemetry connection, hooks, useReason, useWorkflow child calls, interrupts, completeResponse background continuation, scoped interrupt discovery, structured streaming, runtime context, Next.js API routes and server actions, separate React + Node apps, folder structure, runtime persistence, session checkpoints/rollback/fork, OpenTelemetry observability, Langfuse export, @kortyx/react, useChat, transports, and streamed chat rendering.
+description: Use when building, reviewing, documenting, or architecting apps with Kortyx. Covers Kortyx Studio local setup and telemetry connection, hooks, useReason, useWorkflow child calls, interrupts, completeResponse background continuation, scoped interrupt discovery, structured streaming, runtime context, typed errors and recovery, Next.js API routes and server actions, separate React + Node apps, folder structure, runtime persistence, session checkpoints/rollback/fork, OpenTelemetry observability, Langfuse export, @kortyx/react, useChat, transports, and streamed chat rendering.
 ---
 
 # Kortyx
@@ -19,7 +19,7 @@ Use this skill when a task involves using Kortyx correctly in an application.
 
 ## Error handling
 
-For failures and recovery, read `references/error-handling.md`. Keep recovery policy application-owned and propagate control flow.
+For catching, displaying or persisting failures, custom route errors, provider retries, or schema correction, read [references/error-handling.md](references/error-handling.md). It covers shared helpers, safe domain errors, transport fields and legacy compatibility. Verify the installed package exports before using the new API; keep recovery policy application-owned and propagate control flow.
 
 ## Topic Router
 
