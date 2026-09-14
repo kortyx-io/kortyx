@@ -12,6 +12,7 @@ import {
   ShieldCheck,
 } from "lucide-react";
 import type { ReactNode } from "react";
+import { StudioUpdates } from "@/components/studio-updates";
 import { ThemePreferenceControl } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
 import { getStudioShellContext } from "@/lib/studio-context";
@@ -234,6 +235,7 @@ export default async function SettingsPage() {
       </header>
 
       <div className="grid gap-4 p-4 sm:p-6 xl:grid-cols-2">
+        <StudioUpdates installedVersion={context.identity.version} />
         <ScopeCard context={context} />
         <ConnectionCard context={context} />
 
