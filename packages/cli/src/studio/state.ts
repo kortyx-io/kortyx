@@ -269,6 +269,7 @@ export const ensureStudioState = async (
   }
   await mkdir(options.home, { recursive: true, mode: 0o700 });
   await chmod(options.home, 0o700);
+  await mkdir(join(options.home, ".updates"), { recursive: true, mode: 0o700 });
   const existing = await readStudioConfig(options.home);
   const config = resolveConfig(existing, options, runtime);
 

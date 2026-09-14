@@ -1,4 +1,4 @@
-import { copyFile, mkdir, readFile, rm, stat } from "node:fs/promises";
+import { readFile, rm, stat } from "node:fs/promises";
 import { join } from "node:path";
 import type { StudioUpdateOperation } from "@kortyx/telemetry-contracts";
 import {
@@ -11,6 +11,7 @@ import {
   atomicWrite,
   environment,
   operation,
+  privateDirectory,
   saveJson,
   settings,
   updatesPath,
@@ -71,9 +72,13 @@ export async function applyUpdate(
     await run(["pull", release.studio]);
 
     const backup = updatesPath(home, `backups/${id}`);
-    await mkdir(backup, { recursive: true, mode: 0o700 });
+    await privateDirectory(updatesPath(home, "backups"));
+    await privateDirectory(backup);
     for (const name of [".env", "config.json", "compose.yml"])
-      await copyFile(join(home, name), join(backup, name));
+      await atomicWrite(
+        join(backup, name),
+        await readFile(join(home, name), "utf8"),
+      );
     current = { ...current, backup };
     await progress(
       "backup",
@@ -81,6 +86,7 @@ export async function applyUpdate(
     );
     await run(composeArgs(home, ["stop", "api", "studio"]));
     stopped = true;
+    await atomicWrite(join(backup, "database.dump"), "");
     await run(
       composeArgs(home, [
         "exec",

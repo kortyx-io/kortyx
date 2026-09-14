@@ -1,6 +1,14 @@
 import { randomUUID } from "node:crypto";
-import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
-import { join } from "node:path";
+import {
+  chown,
+  mkdir,
+  readFile,
+  rename,
+  rm,
+  stat,
+  writeFile,
+} from "node:fs/promises";
+import { dirname, join } from "node:path";
 import type {
   StudioUpdateOperation,
   StudioUpdateSettings,
@@ -22,13 +30,54 @@ export async function readJson<T>(path: string, fallback: T): Promise<T> {
   }
 }
 
+// Root inside Docker must not take ownership away from the host installer.
+export async function inheritOwner(path: string): Promise<void> {
+  const owner = await stat(dirname(path));
+  const current = await stat(path);
+  if (current.uid !== owner.uid || current.gid !== owner.gid)
+    await chown(path, owner.uid, owner.gid);
+}
+
+export async function privateDirectory(
+  path: string,
+  exclusive = false,
+): Promise<void> {
+  await mkdir(path, { recursive: !exclusive, mode: 0o700 });
+  await inheritOwner(path);
+}
+
+export async function initializeStorage(home: string): Promise<void> {
+  await privateDirectory(updatesPath(home, ""));
+  for (const path of [
+    join(home, ".env"),
+    join(home, "config.json"),
+    ...[
+      "check.json",
+      "settings.json",
+      "operation.json",
+      "automatic-day.json",
+    ].map((name) => updatesPath(home, name)),
+  ]) {
+    try {
+      await inheritOwner(path);
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+    }
+  }
+}
+
 export async function atomicWrite(
   path: string,
   contents: string,
 ): Promise<void> {
   const temporary = `${path}.${randomUUID()}.tmp`;
-  await writeFile(temporary, contents, { mode: 0o600 });
-  await rename(temporary, path);
+  try {
+    await writeFile(temporary, contents, { mode: 0o600 });
+    await inheritOwner(temporary);
+    await rename(temporary, path);
+  } finally {
+    await rm(temporary, { force: true });
+  }
 }
 
 export async function saveJson(
@@ -36,7 +85,7 @@ export async function saveJson(
   name: string,
   data: unknown,
 ): Promise<void> {
-  await mkdir(updatesPath(home, ""), { recursive: true, mode: 0o700 });
+  await privateDirectory(updatesPath(home, ""));
   await atomicWrite(
     updatesPath(home, name),
     `${JSON.stringify(data, null, 2)}\n`,
