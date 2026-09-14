@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.4.0](https://github.com/kortyx-io/kortyx/compare/groq-v0.3.2...groq-v0.4.0) (2026-09-14)
+
+
+### ⚠ BREAKING CHANGES
+
+* **errors:** public failure messages and default HTTP statuses change; malformed streams fail explicitly, provider error classes are shared, and retry helpers exclude control flow. Existing calls and legacy records remain supported. See the error-contract migration and release notes.
+
+### Features
+
+* **errors:** harden failure contracts across execution and recovery ([#175](https://github.com/kortyx-io/kortyx/issues/175)) ([d231e36](https://github.com/kortyx-io/kortyx/commit/d231e364259a4f23fc3675d8783fde5ba338416e))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/providers bumped to 0.7.0
+    * @kortyx/core bumped to 0.9.0
+
 ## [0.3.2](https://github.com/kortyx-io/kortyx/compare/groq-v0.3.1...groq-v0.3.2) (2026-09-11)
 
 

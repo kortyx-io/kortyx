@@ -1,6 +1,6 @@
 {
   "name": "@kortyx/react",
-  "version": "0.4.3",
+  "version": "0.5.0",
   "private": false,
   "description": "React hooks for Kortyx client streaming experiences.",
   "keywords": [
