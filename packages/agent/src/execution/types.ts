@@ -4,6 +4,7 @@ import type {
   TokenUsage,
   WorkflowDefinition,
 } from "@kortyx/core";
+import { type FailureDescriptor, KortyxError } from "@kortyx/core/errors";
 import type { PendingRequestRecord } from "@kortyx/runtime";
 import type { z } from "zod";
 
@@ -55,7 +56,11 @@ export type ExecutionResult<T = Record<string, unknown>> = ExecutionInfo &
         resume: ResumeHandle;
       }
     | { status: "cancelled"; reason: string }
-    | { status: "failed"; error: { code: string; message: string } }
+    | {
+        status: "failed";
+        error: Pick<FailureDescriptor, "code" | "message"> &
+          Partial<FailureDescriptor>;
+      }
   );
 
 export type ExecuteOptions<W extends ExecutableWorkflow> = {
@@ -75,12 +80,15 @@ export type ResumeOptions<W extends ExecutableWorkflow> = {
 };
 
 /** The command was rejected before starting work or claiming an interrupt. */
-export class ExecutionRequestError extends Error {
+export class ExecutionRequestError extends KortyxError {
   override name = "ExecutionRequestError";
-  constructor(
-    public readonly code: string,
-    message: string,
-  ) {
-    super(message);
+  constructor(code: string, message: string, cause?: unknown) {
+    super(code, message, {
+      category: "request",
+      retryable: false,
+      safeMessage:
+        "The execution request is invalid. Check the workflow contract and request fields.",
+      cause,
+    });
   }
 }

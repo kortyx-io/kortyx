@@ -68,9 +68,7 @@ describe("reason parsing", () => {
         schema: OutputSchema,
         label: "useReason output",
       }),
-    ).toThrow(
-      "useReason output was truncated before producing valid structured output.",
-    );
+    ).toThrow(expect.objectContaining({ code: "INVALID_MODEL_JSON" }));
   });
 
   it("reports empty interrupt first-pass payloads as missing JSON objects", () => {
@@ -93,7 +91,7 @@ describe("reason parsing", () => {
     );
   });
 
-  it("reports string output payloads as invalid structured output", () => {
+  it("preserves schema failures for string fields inside valid interrupt JSON", () => {
     expect(() =>
       parseInterruptFirstPassResult({
         text: JSON.stringify({
@@ -108,9 +106,7 @@ describe("reason parsing", () => {
         requestSchema: ChoiceRequestSchema,
         outputSchema: OutputSchema,
       }),
-    ).toThrow(
-      "useReason output did not produce valid structured output. The model returned text instead of the expected JSON payload.",
-    );
+    ).toThrow(expect.objectContaining({ code: "MODEL_OUTPUT_SCHEMA" }));
   });
 
   it("preserves schema validation failures for malformed structured output payloads", () => {

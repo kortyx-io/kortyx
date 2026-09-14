@@ -17,6 +17,10 @@ Use this skill when a task involves using Kortyx correctly in an application.
 6. If network access is available and current details matter, prefer the official docs at `https://kortyx.io/docs` and source at `https://github.com/kortyx-io/kortyx`.
 7. If the local app has Kortyx docs, examples, package README files, or existing Kortyx integration code, prefer those over inventing new patterns.
 
+## Error handling
+
+For failures and recovery, read `references/error-handling.md`. Keep recovery policy application-owned and propagate control flow.
+
 ## Topic Router
 
 Architecture:

@@ -67,7 +67,11 @@ export function createOpenTelemetryTraceAdapter(
             if (!wrapped.ended) wrapped.end?.();
             return result;
           } catch (error) {
-            wrapped.fail?.(error);
+            try {
+              wrapped.fail?.(error);
+            } catch {
+              /* Preserve the callback failure. */
+            }
             throw error;
           }
         },

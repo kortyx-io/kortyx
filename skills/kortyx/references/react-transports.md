@@ -31,3 +31,5 @@ Rules:
 - Call `onChunk` for every parsed stream chunk.
 - Preserve `sessionId`, `workflowId`, `messages`, and `context` semantics.
 - Surface transport errors through the hook rather than swallowing them.
+
+For typed failure propagation and safe recovery policy, see [Error handling](error-handling.md).

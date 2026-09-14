@@ -1,3 +1,4 @@
+import { createFailureResponse } from "kortyx";
 import { cookies } from "next/headers";
 import { z } from "zod";
 import { agent } from "@/lib/kortyx-client";
@@ -54,9 +55,6 @@ export async function POST(request: Request) {
         : {}),
     });
   } catch (error) {
-    return Response.json(
-      { error: error instanceof Error ? error.message : String(error) },
-      { status: 409 },
-    );
+    return createFailureResponse(error, 409);
   }
 }

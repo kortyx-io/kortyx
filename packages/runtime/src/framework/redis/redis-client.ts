@@ -1,5 +1,6 @@
 import { connect as netConnect, type Socket } from "node:net";
 import { type TLSSocket, connect as tlsConnect } from "node:tls";
+import { PersistenceError } from "@kortyx/core/errors";
 
 export type RedisReply =
   | string
@@ -187,14 +188,18 @@ export function createRedisClient(options: RedisClientOptions): RedisClient {
       if (password) {
         const r = await send("AUTH", [password]);
         if (typeof r === "object" && r && (r as any).type === "error") {
-          throw new Error(`Redis AUTH failed: ${(r as any).message}`);
+          throw new PersistenceError(
+            `Redis AUTH failed: ${(r as any).message}`,
+          );
         }
       }
 
       if (db && Number.isFinite(db) && db > 0) {
         const r = await send("SELECT", [String(db)]);
         if (typeof r === "object" && r && (r as any).type === "error") {
-          throw new Error(`Redis SELECT failed: ${(r as any).message}`);
+          throw new PersistenceError(
+            `Redis SELECT failed: ${(r as any).message}`,
+          );
         }
       }
 

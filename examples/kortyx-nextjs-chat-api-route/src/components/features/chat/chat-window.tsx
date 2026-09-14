@@ -50,8 +50,8 @@ export function ChatWindow({ chat }: { chat: UseChatValue }) {
     listRef.current.scrollTop = listRef.current.scrollHeight;
   }, []);
   useEffect(() => {
-    scrollToBottom();
-  }, [scrollToBottom]);
+    if (messages.length || streamContentPieces.length) scrollToBottom();
+  }, [messages, streamContentPieces, scrollToBottom]);
 
   // Auto-switch debug panel to live stream when new stream starts
   useEffect(() => {

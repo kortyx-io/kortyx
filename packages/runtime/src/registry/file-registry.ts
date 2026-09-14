@@ -2,6 +2,7 @@ import { readdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { WorkflowDefinition } from "@kortyx/core";
 import { loadWorkflow } from "@kortyx/core";
+import { KortyxError } from "@kortyx/core/errors";
 import type { WorkflowRegistry } from "./interface";
 
 export interface FileWorkflowRegistryOptions {
@@ -130,8 +131,14 @@ export function createFileWorkflowRegistry(
     const selected = workflows[id] ?? (fallback ? workflows[fallback] : null);
 
     if (!selected) {
-      throw new Error(
+      throw new KortyxError(
+        "UNKNOWN_WORKFLOW",
         `No workflow found for id "${id}" and no fallback "${fallback}" workflow available`,
+        {
+          category: "request",
+          retryable: false,
+          safeMessage: "The requested workflow is not registered.",
+        },
       );
     }
 

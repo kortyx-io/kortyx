@@ -7,6 +7,24 @@ import {
   withRetries,
 } from "../src";
 
+it("does not dispatch after cancellation during retry notification", async () => {
+  const controller = new AbortController();
+  const failure = new Error("failed");
+  const call = vi.fn(async () => {
+    throw failure;
+  });
+  await expect(
+    withRetries(call, {
+      retries: 2,
+      abortSignal: controller.signal,
+      onRetry() {
+        controller.abort();
+      },
+    }),
+  ).rejects.toHaveProperty("name", "AbortError");
+  expect(call).toHaveBeenCalledTimes(1);
+});
+
 describe("deepMergeWithArrayOverwrite", () => {
   it("deep merges plain objects while replacing arrays", () => {
     expect(
@@ -61,6 +79,48 @@ describe("contentToText", () => {
 });
 
 describe("withRetries", () => {
+  it.each([
+    "EXECUTION_CANCELLED",
+    "EXECUTION_LIMIT_REACHED",
+  ])("never retries %s", async (code) => {
+    const error = Object.assign(new Error("control flow"), { code });
+    const fn = vi.fn(async () => {
+      throw error;
+    });
+    await expect(withRetries(fn, { retries: 3 })).rejects.toBe(error);
+    expect(fn).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not retry graph interrupts and aborts an in-flight backoff", async () => {
+    const interrupt = Object.assign(new Error("pause"), {
+      name: "GraphInterrupt",
+    });
+    await expect(
+      withRetries(
+        async () => {
+          throw interrupt;
+        },
+        { retries: 3 },
+      ),
+    ).rejects.toBe(interrupt);
+    const controller = new AbortController();
+    const fn = vi.fn(async () => {
+      throw new Error("retry candidate");
+    });
+    const promise = withRetries(fn, {
+      retries: 3,
+      delayMs: 60_000,
+      abortSignal: controller.signal,
+      onRetry: () => {
+        setTimeout(() => controller.abort(), 0);
+      },
+    });
+    await expect(promise).rejects.toHaveProperty("name", "AbortError");
+    expect(fn).toHaveBeenCalledTimes(1);
+    await expect(
+      withRetries(fn, { retries: 3, abortSignal: controller.signal }),
+    ).rejects.toHaveProperty("name", "AbortError");
+  });
   it("retries failed attempts and reports retry metadata", async () => {
     const fn = vi
       .fn<(attempt: number) => Promise<string>>()

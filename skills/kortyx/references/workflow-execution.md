@@ -61,3 +61,5 @@ Verify the same workflow through chat and execute, both directions of chat/direc
 - Verify all four limits, model/tool failures, retries and handoff loops, nested human answers before and after a limit, duplicate Continue, independent forks with memory and real Redis, persistence failure and cancellation while saving a pause. Test `/limits` in the API-route example and inspect a real paused/resumed run in Studio.
 
 For early chat completion and human requests after its connection closes, see [response completion](response-completion.md). Discovery through agent.listInterrupts/getInterrupt does not require Studio or changes to useInterrupt.
+
+For typed failure propagation and safe recovery policy, see [Error handling](error-handling.md).

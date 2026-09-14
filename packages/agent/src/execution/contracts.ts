@@ -1,4 +1,9 @@
 import type { GraphState, WorkflowDefinition } from "@kortyx/core";
+import {
+  errorProperty,
+  ValidationError,
+  WorkflowContractError,
+} from "@kortyx/core/errors";
 import { z } from "zod";
 import type { SelectWorkflowFn } from "../orchestrator";
 import { ExecutionRequestError } from "./types";
@@ -11,7 +16,8 @@ export async function resolveExecutionWorkflow(
   let workflow: WorkflowDefinition;
   try {
     workflow = await select(id);
-  } catch {
+  } catch (error) {
+    if (errorProperty(error, "code") !== "UNKNOWN_WORKFLOW") throw error;
     throw new ExecutionRequestError(
       "UNKNOWN_WORKFLOW",
       `Workflow '${id}' is not registered.`,
@@ -52,10 +58,8 @@ export function parseExecutionInput(
     z.json().parse(parsed);
     return parsed;
   } catch (error) {
-    throw new ExecutionRequestError(
-      "INVALID_INPUT",
-      error instanceof Error ? error.message : String(error),
-    );
+    if (!(error instanceof z.ZodError)) throw error;
+    throw new ExecutionRequestError("INVALID_INPUT", error.message, error);
   }
 }
 
@@ -72,7 +76,9 @@ export async function validateExecutionOutput(
   };
   const root = await select(contract.id);
   if (root.id !== contract.id || root.version !== contract.version)
-    throw new Error("The root workflow changed since execution started.");
+    throw new WorkflowContractError(
+      "The root workflow changed since execution started.",
+    );
   let data = state.data ?? {};
   try {
     for (const schema of new Set([terminal.outputSchema, root.outputSchema])) {
@@ -80,10 +86,12 @@ export async function validateExecutionOutput(
     }
     if (terminal.outputSchema || root.outputSchema) z.json().parse(data);
   } catch (error) {
-    const failure = new Error(
-      `Workflow output validation failed: ${error instanceof Error ? error.message : String(error)}`,
+    if (!(error instanceof z.ZodError)) throw error;
+    const failure = new ValidationError(
+      "INVALID_OUTPUT",
+      `Workflow output validation failed: ${error.message}`,
+      error,
     );
-    Object.assign(failure, { code: "INVALID_OUTPUT" });
     throw failure;
   }
   return { ...state, data };

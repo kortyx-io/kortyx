@@ -363,7 +363,7 @@ describe("openai public provider contract", () => {
         createOpenAI({ api: "chat-completions" })
           .getModel("gpt-4.1-mini")
           .invoke([{ role: "user", content: "Hello" }]),
-      ).rejects.toThrow("OpenAI provider failed to invoke content");
+      ).rejects.toMatchObject({ code: "PROVIDER_CONFIGURATION" });
     } finally {
       if (previousOpenAIKey !== undefined) {
         process.env.OPENAI_API_KEY = previousOpenAIKey;

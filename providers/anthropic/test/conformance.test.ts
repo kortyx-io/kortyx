@@ -281,9 +281,7 @@ describeProviderConformance({
     },
     assert: async (error) => {
       expect(error).toBeInstanceOf(Error);
-      expect((error as Error).message).toContain(
-        "Anthropic provider failed to invoke content",
-      );
+      expect(error).toHaveProperty("name", "AbortError");
     },
   },
 });

@@ -1,11 +1,12 @@
-export class ProviderConfigurationError extends Error {
-  override name = "ProviderConfigurationError";
-}
+import {
+  normalizeProviderError,
+  ProviderConfigurationError,
+} from "@kortyx/core/errors";
 
-export class ProviderRequestError extends Error {
-  override name = "ProviderRequestError";
-}
-
+export {
+  ProviderConfigurationError,
+  ProviderRequestError,
+} from "@kortyx/core/errors";
 export const requireApiKey = (apiKey: string | undefined): string => {
   if (!apiKey || apiKey.trim().length === 0) {
     throw new ProviderConfigurationError("Groq provider requires an API key.");
@@ -13,12 +14,5 @@ export const requireApiKey = (apiKey: string | undefined): string => {
   return apiKey;
 };
 
-export const toProviderRequestError = (
-  action: string,
-  error: unknown,
-): ProviderRequestError => {
-  const message = error instanceof Error ? error.message : String(error);
-  return new ProviderRequestError(
-    `Groq provider failed to ${action}: ${message}`,
-  );
-};
+export const toProviderRequestError = (action: string, error: unknown): Error =>
+  normalizeProviderError("groq", action, error);

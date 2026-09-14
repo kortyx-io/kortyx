@@ -3,6 +3,7 @@ import {
   createExecutionCancelledError,
   throwIfExecutionAborted,
 } from "@kortyx/core";
+import { KortyxError } from "@kortyx/core/errors";
 import type {
   KortyxContinuation,
   KortyxFinishReason,
@@ -21,6 +22,24 @@ import type {
   ReasonTraceAdapter,
   ReasonTraceSpan,
 } from "./tracing";
+
+function assertModelFinish(result: {
+  finishReason?: KortyxFinishReason | undefined;
+  usage?: KortyxUsage | undefined;
+}): void {
+  if (result.finishReason?.unified !== "content-filter") return;
+  throw Object.assign(
+    new KortyxError("PROVIDER_REFUSAL", "The provider refused the request.", {
+      category: "provider",
+      retryable: false,
+      safeMessage: "The provider refused the request.",
+    }),
+    {
+      ...(result.usage ? { usage: result.usage } : {}),
+      finishReason: result.finishReason,
+    },
+  );
+}
 
 export interface RunReasonEngineArgs {
   model: ProviderModelRef;
@@ -250,17 +269,21 @@ export async function runReasonEngine(
     error: unknown,
   ): void => {
     const detail = error as Partial<RunReasonEngineResult> | undefined;
-    span?.fail?.(error, {
-      ...(detail?.usage ? { usage: detail.usage } : {}),
-      ...(detail?.finishReason ? { finishReason: detail.finishReason } : {}),
-      ...(detail?.providerMetadata
-        ? { providerMetadata: detail.providerMetadata }
-        : {}),
-      attributes: {
-        providerId: args.model.provider.id,
-        modelId: args.model.modelId,
-      },
-    });
+    try {
+      span?.fail?.(error, {
+        ...(detail?.usage ? { usage: detail.usage } : {}),
+        ...(detail?.finishReason ? { finishReason: detail.finishReason } : {}),
+        ...(detail?.providerMetadata
+          ? { providerMetadata: detail.providerMetadata }
+          : {}),
+        attributes: {
+          providerId: args.model.provider.id,
+          modelId: args.model.modelId,
+        },
+      });
+    } catch {
+      /* Reporting must not replace the execution failure. */
+    }
   };
 
   try {
@@ -349,6 +372,8 @@ export async function runReasonEngine(
         }
       }
 
+      throwIfExecutionAborted(abortSignal);
+      assertModelFinish({ finishReason, usage });
       if (emit) {
         emitNodeEvent(args.emitEvent, args.nodeId, "text-end", {
           ...commonMeta,
@@ -372,6 +397,7 @@ export async function runReasonEngine(
 
     const response = await model.invoke(messages);
     throwIfExecutionAborted(abortSignal);
+    assertModelFinish(response);
     if (response.content) args.onTextChunk?.(response.content);
 
     if (emit) {

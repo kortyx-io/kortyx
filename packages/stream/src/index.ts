@@ -1,3 +1,4 @@
+export * from "./failure";
 // release-test: 2026-01-22
 // packages/stream/src/index.ts
 

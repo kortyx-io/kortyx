@@ -1,3 +1,4 @@
+import { PersistenceError } from "@kortyx/core/errors";
 import { createRedisClient, type RedisClient } from "./redis-client";
 
 export type RedisFrameworkStoreOptions = {
@@ -30,7 +31,17 @@ const isRedisError = (r: unknown): r is RedisErrorReply =>
 export function createRedisFrameworkStore(
   options: RedisFrameworkStoreOptions,
 ): RedisFrameworkStore {
-  const client: RedisClient = createRedisClient({ url: options.url });
+  const rawClient = createRedisClient({ url: options.url });
+  const client: RedisClient = {
+    ...rawClient,
+    command: async (...args) => {
+      try {
+        return await rawClient.command(...args);
+      } catch (cause) {
+        throw new PersistenceError("Redis command failed.", cause);
+      }
+    },
+  };
   const prefix = options.prefix ?? "kortyx:fw:";
 
   const k = (key: string) => `${prefix}${key}`;
@@ -42,7 +53,7 @@ export function createRedisFrameworkStore(
         [...new Set(keys)].map(async (key) => {
           const value = await client.command("GET", [key]);
           if (isRedisError(value))
-            throw new Error(`Redis GET error: ${value.message}`);
+            throw new PersistenceError(`Redis GET error: ${value.message}`);
           return value;
         }),
       );
@@ -52,7 +63,8 @@ export function createRedisFrameworkStore(
     },
     async take(key: string): Promise<string | null> {
       const r = await client.command("GETDEL", [k(key)]);
-      if (isRedisError(r)) throw new Error(`Redis GETDEL error: ${r.message}`);
+      if (isRedisError(r))
+        throw new PersistenceError(`Redis GETDEL error: ${r.message}`);
       return typeof r === "string" ? r : null;
     },
     async get(key: string): Promise<string | null> {
@@ -60,7 +72,7 @@ export function createRedisFrameworkStore(
       if (r === null) return null;
       if (typeof r === "string") return r;
       if (isRedisError(r)) {
-        throw new Error(`Redis GET error: ${r.message}`);
+        throw new PersistenceError(`Redis GET error: ${r.message}`);
       }
       return null;
     },
@@ -69,28 +81,28 @@ export function createRedisFrameworkStore(
       const args = [k(key), value, "PX", String(Math.max(1, ttlMs))];
       const r = await client.command("SET", args);
       if (isRedisError(r)) {
-        throw new Error(`Redis SET error: ${r.message}`);
+        throw new PersistenceError(`Redis SET error: ${r.message}`);
       }
     },
 
     async del(key: string): Promise<void> {
       const r = await client.command("DEL", [k(key)]);
       if (isRedisError(r)) {
-        throw new Error(`Redis DEL error: ${r.message}`);
+        throw new PersistenceError(`Redis DEL error: ${r.message}`);
       }
     },
 
     async hset(key: string, field: string, value: string): Promise<void> {
       const r = await client.command("HSET", [k(key), field, value]);
       if (isRedisError(r)) {
-        throw new Error(`Redis HSET error: ${r.message}`);
+        throw new PersistenceError(`Redis HSET error: ${r.message}`);
       }
     },
 
     async hsetnx(key: string, field: string, value: string): Promise<number> {
       const r = await client.command("HSETNX", [k(key), field, value]);
       if (isRedisError(r)) {
-        throw new Error(`Redis HSETNX error: ${r.message}`);
+        throw new PersistenceError(`Redis HSETNX error: ${r.message}`);
       }
       return typeof r === "number" ? r : 0;
     },
@@ -98,7 +110,7 @@ export function createRedisFrameworkStore(
     async hgetall(key: string): Promise<Record<string, string>> {
       const r = await client.command("HGETALL", [k(key)]);
       if (isRedisError(r)) {
-        throw new Error(`Redis HGETALL error: ${r.message}`);
+        throw new PersistenceError(`Redis HGETALL error: ${r.message}`);
       }
       if (!Array.isArray(r)) return {};
       const out: Record<string, string> = {};
@@ -116,7 +128,7 @@ export function createRedisFrameworkStore(
         String(Math.max(1, ttlMs)),
       ]);
       if (isRedisError(r)) {
-        throw new Error(`Redis PEXPIRE error: ${r.message}`);
+        throw new PersistenceError(`Redis PEXPIRE error: ${r.message}`);
       }
     },
 
@@ -132,7 +144,8 @@ export function createRedisFrameworkStore(
           "COUNT",
           "200",
         ]);
-        if (isRedisError(r)) throw new Error(`Redis SCAN error: ${r.message}`);
+        if (isRedisError(r))
+          throw new PersistenceError(`Redis SCAN error: ${r.message}`);
         if (!Array.isArray(r) || r.length < 2) break;
         cursor = typeof r[0] === "string" ? r[0] : "0";
         const batch = r[1];
@@ -149,7 +162,7 @@ export function createRedisFrameworkStore(
       if (keys.length === 0) return;
       const r = await client.command("DEL", keys);
       if (isRedisError(r)) {
-        throw new Error(`Redis DEL error: ${r.message}`);
+        throw new PersistenceError(`Redis DEL error: ${r.message}`);
       }
     },
   };

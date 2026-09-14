@@ -12,6 +12,7 @@ import type {
 } from "@kortyx/runtime";
 import { createExecutionGraph, restoreGraphSnapshot } from "@kortyx/runtime";
 import type { StreamChunk } from "@kortyx/stream";
+import { ExecutionRequestError } from "../execution/types";
 import type { SelectWorkflowFn } from "../orchestrator";
 import { type OrchestrateArgs, orchestrateGraphStream } from "../orchestrator";
 import {
@@ -117,13 +118,17 @@ export async function tryPrepareResumeStream({
 
   const pending = await store.get(meta.token);
   if (!pending || pending.requestId !== meta.requestId) {
-    throw new Error(
+    throw new ExecutionRequestError(
+      "INVALID_RESUME",
       "Interrupt is expired, already consumed, or does not match the request.",
     );
   }
 
   if (pending.sessionId && pending.sessionId !== sessionId)
-    throw new Error("Interrupt belongs to another session.");
+    throw new ExecutionRequestError(
+      "RESUME_MISMATCH",
+      "Interrupt belongs to another session.",
+    );
   await validatePending?.(pending);
   const isLimitPause = Boolean(pending.schema.meta?.__kortyxExecutionLimit);
 
@@ -149,7 +154,10 @@ export async function tryPrepareResumeStream({
     })();
   }
   if (store.take && !(await store.take(meta.token)))
-    throw new Error("Interrupt has already been resumed or cancelled.");
+    throw new ExecutionRequestError(
+      "INVALID_RESUME",
+      "Interrupt has already been resumed or cancelled.",
+    );
   if (meta.cancel) {
     await store.delete(pending.token);
     emitTelemetryEvent({

@@ -10,6 +10,46 @@ const TextInterruptRequestSchema = z.object({
 });
 
 describe("useReason tool loop", () => {
+  it("preserves a model failure when cleanup also fails", async () => {
+    const { modelRef, invoke } = createProvider();
+    const primary = new Error("model failed");
+    invoke.mockRejectedValue(primary);
+    const { node } = createNode();
+    const close = vi.fn(async () => {
+      throw new Error("cleanup failed");
+    });
+    await expect(
+      runWithHookContext({ node, state: createState() }, () =>
+        useReason({
+          model: modelRef,
+          input: "run",
+          tools: [
+            { name: "test", inputSchema: {}, execute: async () => ({}), close },
+          ],
+        }),
+      ),
+    ).rejects.toBe(primary);
+    expect(close).toHaveBeenCalledTimes(1);
+  });
+
+  it("preserves setup failures when cleanup fails before the model starts", async () => {
+    const { modelRef, invoke } = createProvider();
+    const { node } = createNode();
+    const tool = {
+      name: "duplicate",
+      inputSchema: {},
+      execute: async () => ({}),
+      close: async () => {
+        throw new Error("cleanup failed");
+      },
+    };
+    await expect(
+      runWithHookContext({ node, state: createState() }, () =>
+        useReason({ model: modelRef, input: "run", tools: [tool, tool] }),
+      ),
+    ).rejects.toThrow("duplicate tool name");
+    expect(invoke).not.toHaveBeenCalled();
+  });
   it("executes MCP-style tools, feeds results back to the model, emits tool chunks, and closes owned tools", async () => {
     const { invoke, modelRef } = createProvider({
       invokeResponses: [
@@ -234,6 +274,11 @@ describe("useReason tool loop", () => {
     expect(interrupts[0]).toMatchObject({
       kind: "choice",
       question: "Approve lookup_order?",
+      meta: {
+        tool: "lookup_order",
+        toolCallId: "call-1",
+        input: { orderId: "ord_1" },
+      },
     });
   });
 

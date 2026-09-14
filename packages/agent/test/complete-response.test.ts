@@ -529,7 +529,10 @@ it("a failure after completion is observable without reopening or corrupting the
     expect(chunks.filter((c) => c.type === "done")).toHaveLength(1);
     expect(errorLog).toHaveBeenCalledWith(
       "[error:orchestrateGraphStream]",
-      expect.objectContaining({ message: "background failed" }),
+      expect.objectContaining({
+        code: "EXECUTION_FAILED",
+        message: "An unexpected error occurred.",
+      }),
     );
   } finally {
     errorLog.mockRestore();

@@ -297,3 +297,5 @@ If the UI is not streaming, check both provider streaming (`stream`) and Kortyx 
 - Trusting client-sent context for authorization.
 - Hand-parsing JSON that should be validated by `outputSchema`.
 - Using structured streaming for deterministic UI updates that belong in `useStructuredData(...)`.
+
+For typed failure propagation and safe recovery policy, see [Error handling](error-handling.md).

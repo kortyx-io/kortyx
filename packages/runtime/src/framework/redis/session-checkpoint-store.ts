@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { KortyxError } from "@kortyx/core/errors";
 import type {
   AppendSessionCheckpointArgs,
   CheckpointId,
@@ -187,7 +188,12 @@ export function createRedisSessionCheckpointStore(
       id: CheckpointId,
     ): Promise<RollbackSessionCheckpointResult> {
       const target = await getRecord(id);
-      if (!target) throw new Error(`Checkpoint "${id}" not found.`);
+      if (!target)
+        throw new KortyxError("NOT_FOUND", `Checkpoint "${id}" not found.`, {
+          category: "request",
+          retryable: false,
+          safeMessage: "The requested checkpoint was not found.",
+        });
 
       const records = await sortedRecords(target.sessionId);
       const trailing = records.filter(
@@ -220,7 +226,12 @@ export function createRedisSessionCheckpointStore(
       options?: { newSessionId?: string },
     ): Promise<ForkSessionCheckpointResult> {
       const source = await getRecord(id);
-      if (!source) throw new Error(`Checkpoint "${id}" not found.`);
+      if (!source)
+        throw new KortyxError("NOT_FOUND", `Checkpoint "${id}" not found.`, {
+          category: "request",
+          retryable: false,
+          safeMessage: "The requested checkpoint was not found.",
+        });
 
       const sessionId = options?.newSessionId || createId("session");
       const { parentCheckpointId: _parentCheckpointId, ...sourceRecord } =

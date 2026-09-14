@@ -1,4 +1,5 @@
 import type { WorkflowDefinition } from "@kortyx/core";
+import { KortyxError } from "@kortyx/core/errors";
 import type { WorkflowRegistry } from "./interface";
 
 export function createInMemoryWorkflowRegistry(
@@ -21,8 +22,14 @@ export function createInMemoryWorkflowRegistry(
       const fallback = selectOptions?.fallbackId ?? fallbackId;
       const wf = byId.get(id) ?? (fallback ? byId.get(fallback) : undefined);
       if (!wf) {
-        throw new Error(
+        throw new KortyxError(
+          "UNKNOWN_WORKFLOW",
           `Workflow "${id}" not found${fallback ? ` (fallback "${fallback}" missing too)` : ""}.`,
+          {
+            category: "request",
+            retryable: false,
+            safeMessage: "The requested workflow is not registered.",
+          },
         );
       }
       return wf;

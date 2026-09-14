@@ -1,3 +1,8 @@
+import {
+  errorFromFailure,
+  isFailureDescriptor,
+  KortyxError,
+} from "@kortyx/core/errors";
 import type { StreamChunk, StreamFromRouteArgs } from "@kortyx/stream/browser";
 import { streamFromRoute } from "@kortyx/stream/browser";
 
@@ -162,12 +167,23 @@ export function createRouteChatTransport<
       body: JSON.stringify(body),
     });
     if (!response.ok) {
+      let failure: unknown;
       let message = `Checkpoint request failed with status ${response.status}`;
       try {
-        const parsed = (await response.json()) as { error?: unknown };
+        const parsed = (await response.json()) as {
+          error?: unknown;
+          failure?: unknown;
+        };
+        failure = parsed.failure;
         if (typeof parsed.error === "string") message = parsed.error;
       } catch {}
-      throw new Error(message);
+      throw isFailureDescriptor(failure)
+        ? errorFromFailure(failure)
+        : new KortyxError("CHECKPOINT_REQUEST_FAILED", message, {
+            category: "transport",
+            status: response.status,
+            safeMessage: message,
+          });
     }
     return (await response.json()) as TResult;
   };

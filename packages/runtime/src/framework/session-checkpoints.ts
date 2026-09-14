@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import type { GraphState } from "@kortyx/core";
+import { KortyxError } from "@kortyx/core/errors";
 import type { PendingRequestRecord } from "./pending-requests";
 
 export type CheckpointId = string;
@@ -219,7 +220,11 @@ export function createInMemorySessionCheckpointStore(
     async rollbackTo(id) {
       const target = byId.get(id);
       if (!target) {
-        throw new Error(`Checkpoint "${id}" not found.`);
+        throw new KortyxError("NOT_FOUND", `Checkpoint "${id}" not found.`, {
+          category: "request",
+          retryable: false,
+          safeMessage: "The requested checkpoint was not found.",
+        });
       }
 
       const records = sortedRecords(target.sessionId);
@@ -251,7 +256,11 @@ export function createInMemorySessionCheckpointStore(
     async fork(id, options) {
       const source = byId.get(id);
       if (!source) {
-        throw new Error(`Checkpoint "${id}" not found.`);
+        throw new KortyxError("NOT_FOUND", `Checkpoint "${id}" not found.`, {
+          category: "request",
+          retryable: false,
+          safeMessage: "The requested checkpoint was not found.",
+        });
       }
 
       const sessionId = options?.newSessionId || createSessionId();

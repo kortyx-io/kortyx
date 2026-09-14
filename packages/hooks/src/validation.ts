@@ -1,3 +1,4 @@
+import { ValidationError } from "@kortyx/core/errors";
 import type { SchemaLike } from "./types";
 
 export const parseWithSchema = <T>(
@@ -16,5 +17,9 @@ export const parseWithSchema = <T>(
     typeof parsedError?.message === "string" && parsedError.message.length > 0
       ? parsedError.message
       : "invalid payload";
-  throw new Error(`${label} validation failed: ${reason}`);
+  throw new ValidationError(
+    label === "useReason output" ? "MODEL_OUTPUT_SCHEMA" : "SCHEMA_VALIDATION",
+    `${label} validation failed: ${reason}`,
+    parsedError,
+  );
 };

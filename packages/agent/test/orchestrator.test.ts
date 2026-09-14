@@ -1,4 +1,5 @@
 import type { GraphState, WorkflowDefinition } from "@kortyx/core";
+import { DomainError, serializeFailure } from "@kortyx/core/errors";
 import {
   createExecutionGraph,
   type FrameworkAdapter,
@@ -144,7 +145,7 @@ describe("orchestrateGraphStream", () => {
       payload: {
         interruptId: "interrupt-2",
         resumeOutcome: "failed",
-        resumeError: "resume failed",
+        resumeError: "An unexpected error occurred.",
       },
     });
   });
@@ -185,7 +186,7 @@ describe("orchestrateGraphStream", () => {
         payload: expect.objectContaining({
           interruptId: "interrupt-string",
           resumeOutcome: "failed",
-          resumeError: "string resume failure",
+          resumeError: "An unexpected error occurred.",
         }),
       }),
     );
@@ -964,7 +965,7 @@ describe("orchestrateGraphStream", () => {
     );
     expect(error).toHaveBeenCalledWith(
       "[orchestrator] session checkpoint failed",
-      checkpointFailure,
+      serializeFailure(checkpointFailure),
     );
 
     const unlabeledCheckpoints = {
@@ -1182,7 +1183,8 @@ describe("orchestrateGraphStream", () => {
 
     await expect(collect(stream)).resolves.toContainEqual({
       type: "error",
-      message: "Transition failed to 'missing': missing",
+      message: "An unexpected error occurred.",
+      failure: serializeFailure(new Error("missing")),
     });
   });
 
@@ -1240,7 +1242,32 @@ describe("orchestrateGraphStream", () => {
     });
 
     await expect(collect(stream)).resolves.toEqual([
-      { type: "error", message: "boom" },
+      {
+        type: "error",
+        message: "An unexpected error occurred.",
+        failure: serializeFailure(new Error("boom")),
+      },
+      { type: "done" },
+    ]);
+  });
+
+  it("preserves a structured emitted failure and emits one terminal sequence", async () => {
+    const failure = new DomainError("UNAVAILABLE", "Specialist unavailable.")
+      .failure;
+    const graph = graphWithEvents((emit) => {
+      emit("error", { message: "ignored unsafe prose", failure });
+      return [{ type: "message", content: "ignored" }];
+    });
+    const stream = await orchestrateGraphStream({
+      sessionId: "session",
+      runId: "structured-error",
+      graph,
+      state: baseState,
+      config: {},
+      selectWorkflow: vi.fn(),
+    });
+    expect(await collect(stream)).toEqual([
+      { type: "error", message: failure.message, failure },
       { type: "done" },
     ]);
   });
@@ -1277,7 +1304,7 @@ describe("orchestrateGraphStream", () => {
     ]);
     expect(error).toHaveBeenCalledWith(
       "[orchestrator] session checkpoint failed",
-      checkpointFailure,
+      serializeFailure(checkpointFailure),
     );
   });
 
@@ -1491,7 +1518,11 @@ describe("orchestrateGraphStream", () => {
     });
 
     await expect(collect(stream)).resolves.toEqual([
-      { type: "error", message: "stream failed" },
+      {
+        type: "error",
+        message: "An unexpected error occurred.",
+        failure: serializeFailure(new Error("stream failed")),
+      },
       { type: "done" },
     ]);
   });
@@ -1532,7 +1563,7 @@ describe("orchestrateGraphStream", () => {
 
     expect(error).toHaveBeenCalledWith(
       "[orchestrator] failed to save pending request",
-      saveFailure,
+      serializeFailure(saveFailure),
     );
 
     const emitFailure = new Error("emit failed");
@@ -1570,7 +1601,7 @@ describe("orchestrateGraphStream", () => {
 
     expect(error).toHaveBeenCalledWith(
       "[orchestrator] failed to emit interrupt",
-      emitFailure,
+      serializeFailure(emitFailure),
     );
 
     await collect(
@@ -1591,7 +1622,7 @@ describe("orchestrateGraphStream", () => {
 
     expect(error).toHaveBeenCalledWith(
       "[orchestrator] framework cleanup failed",
-      cleanupFailure,
+      serializeFailure(cleanupFailure),
     );
     error.mockRestore();
   });
@@ -1847,7 +1878,8 @@ describe("orchestrateGraphStream", () => {
       ),
     ).resolves.toContainEqual({
       type: "error",
-      message: "Transition failed to 'bad': string failure",
+      message: "An unexpected error occurred.",
+      failure: serializeFailure("string failure"),
     });
 
     const thrownStringGraph: CompiledGraphLike = {
@@ -1869,7 +1901,11 @@ describe("orchestrateGraphStream", () => {
         }),
       ),
     ).resolves.toEqual([
-      { type: "error", message: "string stream failure" },
+      {
+        type: "error",
+        message: "An unexpected error occurred.",
+        failure: serializeFailure(new Error("string stream failure")),
+      },
       { type: "done" },
     ]);
   });
@@ -1939,7 +1975,11 @@ describe("orchestrateGraphStream", () => {
         }),
       ),
     ).resolves.toEqual([
-      { type: "error", message: "Unexpected error" },
+      {
+        type: "error",
+        message: "An unexpected error occurred.",
+        failure: serializeFailure(new Error("Unexpected error")),
+      },
       { type: "done" },
     ]);
   });
@@ -2388,7 +2428,10 @@ it("cancels a pending interrupt race, emits run cancellation and tolerates faile
     expect(events).toContainEqual(
       expect.objectContaining({ type: "run.cancelled" }),
     );
-    expect(log).toHaveBeenCalledWith("[cancel:cleanupRun]", expect.any(Error));
+    expect(log).toHaveBeenCalledWith(
+      "[cancel:cleanupRun]",
+      expect.objectContaining({ code: "EXECUTION_FAILED" }),
+    );
   } finally {
     log.mockRestore();
   }

@@ -51,6 +51,48 @@ export function describeProviderFailureConformance(
   args: ProviderFailureConformanceArgs,
 ): void {
   describe(`${args.providerName} provider failure conformance`, () => {
+    it.each([
+      [408, true],
+      [429, true],
+      [503, true],
+      [400, false],
+      [401, false],
+      [403, false],
+    ])("preserves classification for HTTP %i in invoke and stream", async (status, retryable) => {
+      const model = args.createModel(
+        async () =>
+          new Response(
+            JSON.stringify({ error: { message: "private provider detail" } }),
+            { status, headers: { "retry-after": "3" } },
+          ),
+      );
+      await expect(model.invoke(DEFAULT_MESSAGES)).rejects.toMatchObject({
+        code: "PROVIDER_HTTP_ERROR",
+        status,
+        statusCode: status,
+        retryable,
+        retryAfterMs: 3000,
+      });
+      const parts = await collectStreamParts(model);
+      expect(parts).toHaveLength(1);
+      expect(parts[0]).toMatchObject({
+        type: "error",
+        error: { code: "PROVIDER_HTTP_ERROR", status, retryable },
+      });
+      expect(JSON.stringify(parts)).not.toContain("private provider detail");
+    });
+
+    it("retains the original network exception as its live cause", async () => {
+      const cause = new TypeError("connection failed");
+      const model = args.createModel(async () => {
+        throw cause;
+      });
+      await expect(model.invoke(DEFAULT_MESSAGES)).rejects.toMatchObject({
+        code: "PROVIDER_TRANSPORT_ERROR",
+        cause,
+      });
+    });
+
     it("surfaces HTTP provider errors from invoke", async () => {
       const model = args.createModel(async () =>
         createJsonResponse(

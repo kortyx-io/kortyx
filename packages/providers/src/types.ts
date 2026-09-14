@@ -1,3 +1,4 @@
+import type { FailureDescriptor } from "@kortyx/core/errors";
 export type KortyxReasoningEffort =
   | "minimal"
   | "low"
@@ -135,6 +136,7 @@ export interface KortyxToolCall {
 }
 
 export interface KortyxToolResult {
+  failure?: FailureDescriptor;
   toolCallId: string;
   name: string;
   content: string;

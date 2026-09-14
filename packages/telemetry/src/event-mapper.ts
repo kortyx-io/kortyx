@@ -1,3 +1,8 @@
+import {
+  errorProperty,
+  isControlFlowError,
+  serializeFailure,
+} from "@kortyx/core/errors";
 import type {
   KortyxTelemetryConfig,
   KortyxTelemetryEvent,
@@ -18,10 +23,15 @@ const shouldCapture = (
   return Boolean(value && typeof value === "object" && value[side]);
 };
 
-const asErrorPayload = (error: unknown): Record<string, unknown> => ({
-  message: error instanceof Error ? error.message : String(error),
-  ...(error instanceof Error && error.name ? { name: error.name } : {}),
-});
+const asErrorPayload = (error: unknown): Record<string, unknown> =>
+  isControlFlowError(error)
+    ? {
+        name: errorProperty(error, "name"),
+        code: errorProperty(error, "code"),
+        message: "Execution paused or cancelled.",
+        controlFlow: true,
+      }
+    : { ...serializeFailure(error), name: "KortyxError" };
 
 const correlationFrom = (
   attributes: ReasonTraceAttributes | undefined,

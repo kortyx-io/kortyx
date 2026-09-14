@@ -1,3 +1,8 @@
+import {
+  type FailureDescriptor,
+  isFailureDescriptor,
+  serializeFailure,
+} from "@kortyx/core/errors";
 import { z } from "zod";
 import { StructuredDataChunkSchema } from "./structured-data";
 
@@ -85,6 +90,10 @@ export const StreamChunkSchema = z.union([
   }),
   z.object({
     type: z.literal("tool-call-error"),
+    failure: z
+      .custom<FailureDescriptor>(isFailureDescriptor)
+      .transform(serializeFailure)
+      .optional(),
     tool: z.string(),
     toolCallId: z.string(),
     node: z.string().optional(),
@@ -159,7 +168,14 @@ export const StreamChunkSchema = z.union([
     reason: z.string(),
   }),
   z.object({ type: z.literal("done"), data: z.any().optional() }),
-  z.object({ type: z.literal("error"), message: z.string() }),
+  z.object({
+    type: z.literal("error"),
+    message: z.string(),
+    failure: z
+      .custom<FailureDescriptor>(isFailureDescriptor)
+      .transform(serializeFailure)
+      .optional(),
+  }),
 ]);
 
 export type StreamChunk = z.infer<typeof StreamChunkSchema>;

@@ -140,7 +140,8 @@ it.each([
   const response = await resolve(request({ id: "i", decision: "save" }));
   expect(response.status).toBe(409);
   expect(await response.json()).toEqual({
-    error: error instanceof Error ? error.message : error,
+    error: "An unexpected error occurred.",
+    failure: expect.objectContaining({ code: "EXECUTION_FAILED" }),
   });
 });
 

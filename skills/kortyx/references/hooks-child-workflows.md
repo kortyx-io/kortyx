@@ -124,3 +124,5 @@ Studio's **Execution** tab groups logical calls under their caller, including ne
 Implementation invariants: lifecycle facts distinguish started, suspended, resumed, completed, failed, reused, and restored. Keep `invocationId` stable during replay; use `(runId, branchId, invocationId)` for identity across forks/rollback. Sequence numbers are local to the call and branch. Keep restored evidence separate from new generation costs; never infer a successful child result from an attempt span ending. Reuse the application's content-capture policy and never send snapshots or resume tokens in call events. Child topology registration must resolve the child's revision, never inherit the parent's revision.
 
 Verify Studio with a completed child, a waiting leaf, divergent fork answers, and a cached sibling. Check parent links and pagination with the child toggle enabled. Public implementation guide: `https://kortyx.io/docs/guides/child-workflows` (when the containing SDK/docs release is available).
+
+For typed failure propagation and safe recovery policy, see [Error handling](error-handling.md).
