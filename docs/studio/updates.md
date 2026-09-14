@@ -118,6 +118,8 @@ responses eligible for caching and respects the origin Cache-Control header.
 JSON is not cached by Cloudflare's default extension rules. Do not put browser
 login challenges or Cloudflare Access in front of this machine-readable endpoint.
 Verify TLS, JSON content, Cache-Control, and a subsequent `CF-Cache-Status: HIT`.
+The publisher and updater identify themselves with explicit User-Agent headers;
+Cloudflare may reject generic HTTP-library user agents.
 
 Configure these repository variables:
 

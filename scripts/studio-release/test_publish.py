@@ -102,8 +102,9 @@ class PublishTest(unittest.TestCase):
             result = io.BytesIO(json.dumps(value).encode())
             result.url = "https://updates.kortyx.io/studio/stable.json"
             return result
-        with patch("publish.urllib.request.urlopen", side_effect=[response(manifest("0.2.0")), response(manifest())]):
+        with patch("publish.urllib.request.urlopen", side_effect=[response(manifest("0.2.0")), response(manifest())]) as request:
             verify_public(manifest(), attempts=2, delay=0)
+            self.assertEqual(request.call_args.args[0].get_header("User-agent"), "Kortyx-Studio-Release-Publisher")
         with patch("publish.urllib.request.urlopen", return_value=response(manifest("0.2.0"))):
             with self.assertRaises(RuntimeError):
                 verify_public(manifest(), attempts=1)

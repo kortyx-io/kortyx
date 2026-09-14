@@ -102,7 +102,7 @@ def verify_public(expected, *, attempts=36, delay=10):
     # Allow the five-minute CDN cache to expire. No GitHub API fallback.
     for attempt in range(attempts):
         try:
-            request = urllib.request.Request(PUBLIC_ORIGIN + "/studio/stable.json", headers={"Accept": "application/json"})
+            request = urllib.request.Request(PUBLIC_ORIGIN + "/studio/stable.json", headers={"Accept": "application/json", "User-Agent": "Kortyx-Studio-Release-Publisher"})
             with urllib.request.urlopen(request, timeout=15) as response:
                 if response.url != request.full_url:
                     raise ValueError("Unexpected manifest redirect")
