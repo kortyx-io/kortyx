@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.1](https://github.com/kortyx-io/kortyx/compare/studio-v0.3.0...studio-v0.3.1) (2026-09-14)
+
+
+### Bug Fixes
+
+* **studio:** preserve stacked drawers on first navigation ([#182](https://github.com/kortyx-io/kortyx/issues/182)) ([bd7af14](https://github.com/kortyx-io/kortyx/commit/bd7af14bf8a6b2e8196060e8554663b91d0aeff8))
+
 ## [0.3.0](https://github.com/kortyx-io/kortyx/compare/studio-v0.2.0...studio-v0.3.0) (2026-09-14)
 
 
