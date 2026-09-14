@@ -19,6 +19,7 @@ export function RunsFilterPanel({
   onClose,
 }: RunsFilterPanelProps) {
   const {
+    includeChildren,
     selectedStatuses,
     selectedProviders,
     toolOnly,
@@ -81,6 +82,16 @@ export function RunsFilterPanel({
                   startedAfter: value.startedAfter || null,
                   startedBefore: value.startedBefore || null,
                 })
+              }
+            />
+          </FilterSection>
+
+          <FilterSection title="Execution">
+            <FilterCheckbox
+              label="Include child workflows"
+              checked={includeChildren}
+              onChange={() =>
+                setParams({ includeChildren: !includeChildren || null })
               }
             />
           </FilterSection>

@@ -3,22 +3,22 @@ import { Skeleton } from "@/components/ui/skeleton";
 export function DetailSkeleton() {
   const rows = ["event-a", "event-b", "event-c", "event-d", "event-e"];
   return (
-    <div className="space-y-6 p-6">
+    <div className="min-w-0 space-y-6 p-4 sm:p-6">
       <div className="space-y-2">
         <Skeleton className="h-3 w-20" />
         <Skeleton className="h-6 w-3/5" />
         <Skeleton className="h-4 w-4/5" />
       </div>
-      <div className="flex gap-2">
-        <Skeleton className="h-14 w-28" />
-        <Skeleton className="h-14 w-28" />
-        <Skeleton className="h-14 w-28" />
+      <div className="grid max-w-sm grid-cols-3 gap-2">
+        <Skeleton className="h-14 w-full" />
+        <Skeleton className="h-14 w-full" />
+        <Skeleton className="h-14 w-full" />
       </div>
       <Skeleton className="h-10 w-full" />
       {rows.map((row) => (
         <div key={row} className="flex gap-3">
-          <Skeleton className="size-8 rounded-full" />
-          <div className="flex-1 space-y-2">
+          <Skeleton className="size-8 shrink-0 rounded-full" />
+          <div className="min-w-0 flex-1 space-y-2">
             <Skeleton className="h-4 w-2/5" />
             <Skeleton className="h-14 w-full" />
           </div>

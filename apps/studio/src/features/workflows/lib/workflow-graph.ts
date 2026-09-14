@@ -1,7 +1,9 @@
 import dagre from "@dagrejs/dagre";
 import { type Edge, MarkerType, type Node } from "@xyflow/react";
 import type { WorkflowNode, WorkflowSummary, WorkflowSystem } from "../schema";
-import { getTransitionLayoutWeight } from "./format";
+import { CONNECTION_STYLE } from "./connection-style";
+import { type EdgeLabel, placeEdgeLabels } from "./edge-label-layout";
+import { routeAroundNodes } from "./edge-routing";
 import type {
   WorkflowMetric,
   WorkflowSelection,
@@ -10,12 +12,40 @@ import type {
 
 type LayoutDirection = "LR" | "TB";
 
+export type { EdgeLabel } from "./edge-label-layout";
+
+export function conditionLabelWidth(condition: string) {
+  return Math.min(260, Math.max(44, condition.length * 5.4 + 20));
+}
+
+function edgeLabel(edge: {
+  x?: number;
+  y?: number;
+  width?: number;
+  height?: number;
+}): EdgeLabel | undefined {
+  return edge.x !== undefined &&
+    edge.y !== undefined &&
+    edge.width &&
+    edge.height
+    ? { x: edge.x, y: edge.y, width: edge.width, height: edge.height }
+    : undefined;
+}
+
 export function toWorkflowGraph(
   system: WorkflowSystem,
   selection: WorkflowSelection,
   mode: WorkflowViewMode,
   metric: WorkflowMetric,
 ): { nodes: Node[]; edges: Edge[] } {
+  // Stable ordering keeps refreshes and metric changes from rearranging the map.
+  system = {
+    ...system,
+    workflows: [...system.workflows].sort((a, b) => a.id.localeCompare(b.id)),
+    transitions: [...system.transitions].sort((a, b) =>
+      a.id.localeCompare(b.id),
+    ),
+  };
   const internalLayouts = new Map(
     system.workflows.map((workflow) => [
       workflow.id,
@@ -50,7 +80,7 @@ export function toWorkflowGraph(
     layout.setEdge(
       transition.sourceWorkflowId,
       transition.targetWorkflowId,
-      { weight: getTransitionLayoutWeight(transition.volume) },
+      { weight: 1, width: 144, height: 36, labelpos: "r", labeloffset: 18 },
       transition.id,
     );
   dagre.layout(layout);
@@ -112,13 +142,29 @@ export function toWorkflowGraph(
           x: point.x + groupPosition.x,
           y: point.y + groupPosition.y,
         }));
+      const label = internal?.labels.get(edge.id);
       edges.push({
         id: `${workflow.id}:${edge.id}`,
         type: "internal",
         source: `${workflow.id}:${edge.source}`,
         target: `${workflow.id}:${edge.target}`,
-        markerEnd: { type: MarkerType.ArrowClosed, width: 12, height: 12 },
-        data: { condition: edge.condition, routePoints },
+        markerEnd: {
+          type: MarkerType.ArrowClosed,
+          width: 12,
+          height: 12,
+          color: "var(--muted-foreground)",
+        },
+        data: {
+          condition: edge.condition,
+          routePoints,
+          label: label
+            ? {
+                ...label,
+                x: label.x + groupPosition.x,
+                y: label.y + groupPosition.y,
+              }
+            : undefined,
+        },
         zIndex: 1,
       });
     }
@@ -135,19 +181,80 @@ export function toWorkflowGraph(
           selection.type === "transition" && selection.id === transition.id,
         mode,
         metric,
+        label: edgeLabel(
+          layout.edge({
+            v: transition.sourceWorkflowId,
+            w: transition.targetWorkflowId,
+            name: transition.id,
+          }),
+        ),
         routePoints: layout.edge({
           v: transition.sourceWorkflowId,
           w: transition.targetWorkflowId,
           name: transition.id,
         })?.points,
       },
-      markerEnd: { type: MarkerType.ArrowClosed, width: 14, height: 14 },
-      zIndex: 0,
+      markerEnd: {
+        type: MarkerType.ArrowClosed,
+        width: 14,
+        height: 14,
+        color:
+          CONNECTION_STYLE[transition.kind === "call" ? "call" : "handoff"]
+            .color,
+      },
+      zIndex: 1,
     });
+  const groupObstacles = nodes
+    .filter((node) => !node.parentId)
+    .map((node) => ({
+      id: node.id,
+      ...node.position,
+      width: Number(node.style?.width),
+      height: Number(node.style?.height),
+    }));
+  edges
+    .filter((edge) => edge.type === "transition")
+    .forEach((edge, index) => {
+      if (edge.data)
+        edge.data.routePoints = routeAroundNodes(
+          edge.data.routePoints as Array<{ x: number; y: number }>,
+          groupObstacles,
+          edge.source,
+          edge.target,
+          14 + (index % 8) * 6,
+        );
+    });
+  const transitionLabels = placeEdgeLabels(
+    edges
+      .filter((edge) => edge.type === "transition")
+      .map((edge) => ({
+        id: edge.id,
+        points: edge.data?.routePoints as Array<{ x: number; y: number }>,
+        label: edge.data?.label as EdgeLabel | undefined,
+      })),
+    nodes
+      .filter((node) => !node.parentId)
+      .map((node) => ({
+        ...node.position,
+        width: Number(node.style?.width),
+        height: Number(node.style?.height),
+      })),
+  );
+  for (const edge of edges) {
+    if (edge.type === "transition" && edge.data)
+      edge.data.label = transitionLabels.get(edge.id);
+  }
   return { nodes, edges };
 }
 
 function layoutInternalWorkflow(workflow: WorkflowSummary) {
+  workflow = {
+    ...workflow,
+    nodes: [...workflow.nodes].sort((a, b) => a.id.localeCompare(b.id)),
+    internalEdges: [...workflow.internalEdges].sort((a, b) =>
+      a.id.localeCompare(b.id),
+    ),
+  };
   const nodeHeight = 54;
   const offsetX = 18;
   const offsetY = 76;
@@ -168,7 +275,19 @@ function layoutInternalWorkflow(workflow: WorkflowSummary) {
       height: nodeHeight,
     });
   for (const edge of workflow.internalEdges)
-    layout.setEdge(edge.source, edge.target, {}, edge.id);
+    layout.setEdge(
+      edge.source,
+      edge.target,
+      edge.condition
+        ? {
+            width: conditionLabelWidth(edge.condition),
+            height: 20,
+            labelpos: "r",
+            labeloffset: 14,
+          }
+        : {},
+      edge.id,
+    );
   dagre.layout(layout);
   const direction: LayoutDirection =
     layout.graph().width > layout.graph().height * 1.6 ? "TB" : "LR";
@@ -183,26 +302,39 @@ function layoutInternalWorkflow(workflow: WorkflowSummary) {
       return [
         node.id,
         {
-          x: Math.round((point?.x ?? width / 2) - width / 2 + offsetX),
-          y: Math.round(
-            (point?.y ?? nodeHeight / 2) - nodeHeight / 2 + offsetY,
-          ),
+          x: (point?.x ?? width / 2) - width / 2 + offsetX,
+          y: (point?.y ?? nodeHeight / 2) - nodeHeight / 2 + offsetY,
         },
       ];
     }),
   );
   const maxX = Math.max(
+    offsetX + (layout.graph().width || 0),
     ...workflow.nodes.map(
       (node) =>
         (positions.get(node.id)?.x ?? offsetX) + getInternalNodeWidth(node),
     ),
   );
   const maxY = Math.max(
+    offsetY + (layout.graph().height || 0),
     ...[...positions.values()].map((position) => position.y + nodeHeight),
   );
-  return {
+  const result = {
     direction,
     positions,
+    labels: new Map(
+      workflow.internalEdges.map((edge) => {
+        const label = edgeLabel(
+          layout.edge({ v: edge.source, w: edge.target, name: edge.id }),
+        );
+        return [
+          edge.id,
+          label
+            ? { ...label, x: label.x + offsetX, y: label.y + offsetY }
+            : undefined,
+        ];
+      }),
+    ),
     routes: new Map(
       workflow.internalEdges.map((edge) => [
         edge.id,
@@ -210,14 +342,50 @@ function layoutInternalWorkflow(workflow: WorkflowSummary) {
           layout.edge({ v: edge.source, w: edge.target, name: edge.id })
             ?.points ?? []
         ).map((point: { x: number; y: number }) => ({
-          x: Math.round(point.x + offsetX),
-          y: Math.round(point.y + offsetY),
+          x: point.x + offsetX,
+          y: point.y + offsetY,
         })),
       ]),
     ),
     width: Math.max(420, maxX + 28),
     height: Math.max(280, maxY + 54),
   };
+  const internalObstacles = workflow.nodes.map((node) => ({
+    id: node.id,
+    ...(positions.get(node.id) ?? { x: offsetX, y: offsetY }),
+    width: getInternalNodeWidth(node),
+    height: nodeHeight,
+  }));
+  for (const edge of workflow.internalEdges) {
+    result.routes.set(
+      edge.id,
+      routeAroundNodes(
+        result.routes.get(edge.id) ?? [],
+        internalObstacles,
+        edge.source,
+        edge.target,
+      ),
+    );
+  }
+  result.labels = placeEdgeLabels(
+    workflow.internalEdges.map((edge) => ({
+      id: edge.id,
+      points: result.routes.get(edge.id) ?? [],
+      label: result.labels.get(edge.id),
+    })),
+    workflow.nodes.map((node) => ({
+      ...(positions.get(node.id) ?? { x: offsetX, y: offsetY }),
+      width: getInternalNodeWidth(node),
+      height: nodeHeight,
+    })),
+    { x: offsetX, y: offsetY },
+  );
+  for (const label of result.labels.values()) {
+    if (!label) continue;
+    result.width = Math.max(result.width, label.x + label.width / 2 + 28);
+    result.height = Math.max(result.height, label.y + label.height / 2 + 54);
+  }
+  return result;
 }
 
 function getInternalNodeWidth(node: WorkflowNode) {

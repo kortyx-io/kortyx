@@ -20,6 +20,7 @@ import {
   type RefObject,
   useContext,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -196,6 +197,16 @@ export function DataTableProvider<T, S extends string>({
   const [preferencesLoaded, setPreferencesLoaded] = useState(false);
   const scrollerRef = useRef<HTMLDivElement | null>(null);
   const headerScrollerRef = useRef<HTMLDivElement | null>(null);
+  const [viewportWidth, setViewportWidth] = useState(0);
+  useLayoutEffect(() => {
+    const viewport = scrollerRef.current;
+    if (!viewport) return;
+    const measure = () => setViewportWidth(viewport.clientWidth);
+    const observer = new ResizeObserver(measure);
+    observer.observe(viewport);
+    measure();
+    return () => observer.disconnect();
+  }, []);
   const onLayoutChangeRef = useRef(onLayoutChange);
   onLayoutChangeRef.current = onLayoutChange;
   const hasSettledRef = useRef(false);
@@ -258,10 +269,25 @@ export function DataTableProvider<T, S extends string>({
     ],
     [visibleColumns, pinned],
   );
-  const tableWidth = useMemo(
-    () =>
-      visibleColumnOrder.reduce((total, column) => total + widths[column], 0),
-    [visibleColumnOrder, widths],
+  // Fill wide viewports without writing responsive sizes into saved preferences.
+  // The same widths drive cells, sticky offsets, dragging, and resize handles.
+  const renderedWidths = useMemo(() => {
+    const total = visibleColumnOrder.reduce((sum, key) => sum + widths[key], 0);
+    if (!total || total >= viewportWidth) return widths;
+    const result = { ...widths };
+    let consumed = 0;
+    let cumulative = 0;
+    for (const key of visibleColumnOrder) {
+      cumulative += widths[key];
+      const boundary = Math.round((cumulative / total) * viewportWidth);
+      result[key] = boundary - consumed;
+      consumed = boundary;
+    }
+    return result;
+  }, [visibleColumnOrder, widths, viewportWidth]);
+  const tableWidth = visibleColumnOrder.reduce(
+    (sum, key) => sum + renderedWidths[key],
+    0,
   );
   const isPinnedColumnDragging =
     draggedColumn !== null && Boolean(pinned[draggedColumn]);
@@ -315,7 +341,9 @@ export function DataTableProvider<T, S extends string>({
   ) {
     event.preventDefault();
     const startX = event.clientX;
-    const startWidth = widths[key];
+    const startWidth = renderedWidths[key];
+    // Begin at the displayed sizes so grabbing a stretched column never jumps.
+    const resizeWidths = { ...widths, ...renderedWidths };
     const scroller = scrollerRef.current;
     const headerScroller = headerScrollerRef.current;
     const startScrollLeft = scroller?.scrollLeft ?? 0;
@@ -333,13 +361,13 @@ export function DataTableProvider<T, S extends string>({
       const adjustedScrollDelta =
         pointerDelta > 0 ? Math.max(0, scrollDelta) : 0;
 
-      setWidths((current) => ({
-        ...current,
+      setWidths({
+        ...resizeWidths,
         [key]: Math.max(
           DATA_TABLE_MIN_COLUMN_WIDTH,
           Math.round(startWidth + pointerDelta + adjustedScrollDelta),
         ),
-      }));
+      });
     }
 
     function autoScroll(clientX: number) {
@@ -406,7 +434,7 @@ export function DataTableProvider<T, S extends string>({
         ? pinnedOnSide.slice(0, index)
         : pinnedOnSide.slice(index + 1);
     const offset = offsetColumns.reduce(
-      (total, item) => total + widths[item],
+      (total, item) => total + renderedWidths[item],
       0,
     );
     return side === "left" ? { left: offset } : { right: offset };
@@ -432,7 +460,7 @@ export function DataTableProvider<T, S extends string>({
       columnIndex >= overIndex &&
       columnIndex < activeIndex;
     if (!shiftsLeft && !shiftsRight) return undefined;
-    const shift = widths[draggedColumn] * (shiftsLeft ? -1 : 1);
+    const shift = renderedWidths[draggedColumn] * (shiftsLeft ? -1 : 1);
     return {
       style: {
         transform: `translate3d(${shift}px, 0, 0)`,
@@ -497,7 +525,7 @@ export function DataTableProvider<T, S extends string>({
     columns,
     columnsByKey,
     defaultOrder,
-    widths,
+    widths: renderedWidths,
     order,
     hidden,
     pinned,

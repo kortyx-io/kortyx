@@ -9,6 +9,7 @@ import {
   ChevronDown,
   ChevronRight,
   CornerDownRight,
+  CornerUpLeft,
   GitBranch,
   Workflow,
 } from "lucide-react";
@@ -162,10 +163,13 @@ export function WorkflowCalls({ detail }: { detail: StudioRunDetailResponse }) {
                   onClick={() =>
                     setSelection(call.invocationId, { shallow: true })
                   }
-                  className="w-full py-2 text-left text-xs text-emerald-600"
+                  className="flex w-full items-center gap-2 py-2 text-left text-xs text-emerald-600"
                   style={{ paddingLeft: 48 + depth * 20 }}
                 >
-                  ↩{" "}
+                  <CornerUpLeft
+                    aria-hidden="true"
+                    className="size-3.5 shrink-0"
+                  />
                   {call.reused
                     ? "Cached result reused"
                     : "Result returned to parent"}
@@ -177,8 +181,8 @@ export function WorkflowCalls({ detail }: { detail: StudioRunDetailResponse }) {
     ));
   };
   return (
-    <div className="h-full overflow-auto">
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b px-5 py-4">
+    <div className="flex h-full min-h-0 flex-col overflow-auto">
+      <div className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-b px-5 py-4">
         <div>
           <h3 className="text-sm font-semibold">Workflow calls</h3>
           <p className="mt-1 text-xs text-muted-foreground">
@@ -213,7 +217,7 @@ export function WorkflowCalls({ detail }: { detail: StudioRunDetailResponse }) {
       </div>
       <div
         className={cn(
-          "grid min-w-0",
+          "grid min-w-0 flex-1",
           selected && "@4xl:grid-cols-[minmax(0,1fr)_340px]",
         )}
       >

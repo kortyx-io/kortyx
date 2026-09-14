@@ -75,7 +75,7 @@ export function ListToolbar({
       </div>
 
       <div className="flex flex-wrap items-center gap-2 pb-3">
-        <div className="relative min-w-[230px] flex-1">
+        <div className="relative min-w-0 basis-full flex-1 sm:basis-48">
           <Search className="pointer-events-none absolute top-2 left-3 size-4 text-muted-foreground" />
           <Input
             value={search}
