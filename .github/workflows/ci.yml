@@ -58,6 +58,9 @@ jobs:
       - name: Typecheck
         run: pnpm -r --if-present run type-check
 
+      - name: Studio release publication regressions
+        run: python3 -m unittest discover -s .github/scripts/studio-release -v
+
       - name: Lint
         run: pnpm lint
 

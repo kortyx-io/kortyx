@@ -835,6 +835,7 @@ export type StudioCatalogsResponse = z.infer<
 >;
 export type StudioContextResponse = z.infer<typeof StudioContextResponseSchema>;
 
+export * from "./studio-updates";
 export {
   projectWorkflowCalls,
   type StudioWorkflowCall,

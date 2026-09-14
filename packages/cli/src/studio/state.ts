@@ -1,4 +1,5 @@
 import {
+  access,
   chmod,
   mkdir,
   readFile,
@@ -258,6 +259,14 @@ export const ensureStudioState = async (
   options: StudioStartOptions,
   runtime: StudioRuntime,
 ): Promise<StudioConfig> => {
+  try {
+    await access(join(options.home, ".updates", "lock"));
+    throw new Error(
+      "A Studio update is in progress. Wait for it to finish before changing the installation.",
+    );
+  } catch (error) {
+    if (!isMissingFile(error)) throw error;
+  }
   await mkdir(options.home, { recursive: true, mode: 0o700 });
   await chmod(options.home, 0o700);
   const existing = await readStudioConfig(options.home);
@@ -282,6 +291,10 @@ export const ensureStudioState = async (
     environment = createEnvironment(config, runtime);
   }
 
+  if (options.imageTag && options.imageTag !== existing?.imageTag) {
+    delete environment.KORTYX_API_IMAGE_REF;
+    delete environment.KORTYX_STUDIO_IMAGE_REF;
+  }
   const updatedEnvironment = StudioEnvironmentSchema.parse({
     ...environment,
     KORTYX_COMPOSE_PROJECT_NAME: config.projectName,
@@ -289,6 +302,9 @@ export const ensureStudioState = async (
     API_PORT: String(config.apiPort),
     STUDIO_PORT: String(config.studioPort),
     KORTYX_STUDIO_BASIC_AUTH_USERNAME: config.username,
+    KORTYX_STUDIO_STATE_DIR: resolve(options.home),
+    KORTYX_STUDIO_UPDATE_TOKEN:
+      environment.KORTYX_STUDIO_UPDATE_TOKEN ?? runtime.random(48),
   });
   await writeStudioEnvironment(options.home, updatedEnvironment);
   return config;

@@ -1,3 +1,5 @@
+import { writeFile } from "node:fs/promises";
+import { studioComposeFile } from "./compose";
 import {
   createRotatedStudioEnvironment,
   createStudioDeploymentCredentials,
@@ -198,6 +200,32 @@ export const startStudio = async (
 ): Promise<void> => {
   await preflightDocker(runtime);
   const config = await ensureStudioState(options, runtime);
+  const environment = await readStudioEnvironment(options.home);
+  const apiImage = String(
+    environment.KORTYX_API_IMAGE_REF ??
+      `${environment.KORTYX_API_IMAGE ?? "ghcr.io/kortyx-io/kortyx-api"}:${config.imageTag}`,
+  );
+  await runtime.run("docker", ["pull", apiImage], { inherit: true });
+  const capability = await runtime.run(
+    "docker",
+    [
+      "run",
+      "--rm",
+      "--entrypoint",
+      "node",
+      apiImage,
+      "-e",
+      'if (require("node:fs").existsSync("/app/apps/api/dist/updater.js")) console.log("supported")',
+    ],
+    { inherit: false },
+  );
+  await writeFile(
+    studioComposePath(options.home),
+    studioComposeFile(
+      process.platform !== "win32" && capability.stdout.trim() === "supported",
+    ),
+    { mode: 0o600 },
+  );
   if (!(await hasRunningServices(options.home, runtime))) {
     await assertPortsAvailable(config, runtime);
   }
@@ -206,7 +234,7 @@ export const startStudio = async (
   );
   await runCompose(
     options.home,
-    ["up", "-d", "--wait", "--wait-timeout", "180"],
+    ["up", "-d", "--remove-orphans", "--wait", "--wait-timeout", "180"],
     runtime,
   );
   runtime.log("Kortyx Studio is ready.");

@@ -401,6 +401,9 @@ jobs:
     needs: [prepare, publish-staging, smoke]
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    permissions:
+      contents: read
+      packages: write
     environment:
       name: studio-production
       url: https://github.com/kortyx-io/kortyx/pkgs/container/kortyx-studio
@@ -410,6 +413,33 @@ jobs:
         with:
           ref: ${{ needs.prepare.outputs.commit }}
           fetch-depth: 0
+
+      - name: Checkout publisher from the workflow commit
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.workflow_sha }}
+          path: .release-publisher
+
+      - name: Check update publication configuration
+        env:
+          STUDIO_UPDATES_R2_ACCOUNT_ID: ${{ vars.STUDIO_UPDATES_R2_ACCOUNT_ID }}
+          STUDIO_UPDATES_R2_BUCKET: ${{ vars.STUDIO_UPDATES_R2_BUCKET }}
+          STUDIO_UPDATES_R2_ACCESS_KEY_ID: ${{ secrets.STUDIO_UPDATES_R2_ACCESS_KEY_ID }}
+          STUDIO_UPDATES_R2_SECRET_ACCESS_KEY: ${{ secrets.STUDIO_UPDATES_R2_SECRET_ACCESS_KEY }}
+        run: |
+          for name in STUDIO_UPDATES_R2_ACCOUNT_ID STUDIO_UPDATES_R2_BUCKET STUDIO_UPDATES_R2_ACCESS_KEY_ID STUDIO_UPDATES_R2_SECRET_ACCESS_KEY; do
+            if [ -z "${!name}" ]; then
+              echo "Missing update publication configuration: ${name}"
+              exit 1
+            fi
+          done
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+
+      - name: Install release publisher dependencies
+        run: python -m pip install -r .release-publisher/.github/scripts/studio-release/requirements.txt
 
       - name: Setup Docker Buildx
         uses: docker/setup-buildx-action@v4
@@ -458,3 +488,20 @@ jobs:
             echo
             echo "Native clean-install smoke tests passed on linux/amd64 and linux/arm64."
           } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Publish the completed release to the update CDN
+        env:
+          VERSION: ${{ needs.prepare.outputs.version }}
+          API_DIGEST: ${{ needs.publish-staging.outputs.api_digest }}
+          STUDIO_DIGEST: ${{ needs.publish-staging.outputs.studio_digest }}
+          STUDIO_UPDATES_R2_ACCOUNT_ID: ${{ vars.STUDIO_UPDATES_R2_ACCOUNT_ID }}
+          STUDIO_UPDATES_R2_BUCKET: ${{ vars.STUDIO_UPDATES_R2_BUCKET }}
+          STUDIO_UPDATES_R2_ACCESS_KEY_ID: ${{ secrets.STUDIO_UPDATES_R2_ACCESS_KEY_ID }}
+          STUDIO_UPDATES_R2_SECRET_ACCESS_KEY: ${{ secrets.STUDIO_UPDATES_R2_SECRET_ACCESS_KEY }}
+        run: |
+          jq -n --arg version "$VERSION" \
+            --arg api "${REGISTRY}/${API_IMAGE_NAME}@${API_DIGEST}" \
+            --arg studio "${REGISTRY}/${STUDIO_IMAGE_NAME}@${STUDIO_DIGEST}" \
+            '{format: 1, installer: 1, version: $version, api: $api, studio: $studio}' \
+            > "$RUNNER_TEMP/studio-update.json"
+          python .release-publisher/.github/scripts/studio-release/publish.py "$RUNNER_TEMP/studio-update.json"

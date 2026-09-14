@@ -178,6 +178,9 @@ Kortyx API, then verifies that `/v1/studio/runs` can read it back.
 
 ## Self-hosted image release flow
 
+For installed instances, see [Studio updates](../../docs/studio/updates.md) for
+the Settings controls, optional daily updates, backups, and manual recovery.
+
 Self-hosted Studio images are published separately from the website through the
 manual **Publish Release (Studio)** GitHub Actions workflow.
 First complete **Publish Release (NPM Packages)** for the release commit. Then

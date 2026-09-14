@@ -32,6 +32,7 @@ const createHome = async (): Promise<string> => {
 const createRuntime = (input?: {
   running?: boolean;
   portsAvailable?: boolean;
+  updater?: boolean;
 }): StudioRuntime & {
   calls: Array<{ command: string; args: string[]; inherit?: boolean }>;
   logs: string[];
@@ -53,9 +54,13 @@ const createRuntime = (input?: {
       });
       return {
         stdout:
-          args.includes("ps") && args.includes("--services") && input?.running
-            ? "api\nstudio\n"
-            : "",
+          args.includes("--entrypoint") && input?.updater
+            ? "supported\n"
+            : args.includes("ps") &&
+                args.includes("--services") &&
+                input?.running
+              ? "api\nstudio\n"
+              : "",
         stderr: "",
       };
     },
@@ -100,6 +105,57 @@ describe("Studio CLI arguments", () => {
 });
 
 describe("Studio CLI lifecycle", () => {
+  it("includes a private updater only when the published image supports it", async () => {
+    const home = await createHome();
+    await runStudioCommand(
+      ["start", "--home", home, "--image-tag", "v0.3.0"],
+      createRuntime({ updater: true }),
+    );
+    const compose = await readFile(join(home, "compose.yml"), "utf8");
+    expect(compose).toContain("  updater:");
+    expect(compose).toContain("/var/run/docker.sock:/var/run/docker.sock");
+    expect(compose.split("  updater:")[1]).not.toContain("ports:");
+    const env = await readStudioEnvironment(home);
+    expect(env.KORTYX_STUDIO_STATE_DIR).toBe(home);
+    expect(
+      String(env.KORTYX_STUDIO_UPDATE_TOKEN).length,
+    ).toBeGreaterThanOrEqual(32);
+    await runStudioCommand(
+      ["start", "--home", home, "--image-tag", "v0.2.0"],
+      createRuntime(),
+    );
+    expect(await readFile(join(home, "compose.yml"), "utf8")).not.toContain(
+      "  updater:",
+    );
+  });
+
+  it("blocks changes during an update and clears pinned images for an explicit version change", async () => {
+    const home = await createHome();
+    await initialize(home);
+    const env = await readStudioEnvironment(home);
+    await writeStudioEnvironment(home, {
+      ...env,
+      KORTYX_API_IMAGE_REF: "previous-api",
+      KORTYX_STUDIO_IMAGE_REF: "previous-studio",
+    });
+    await mkdir(join(home, ".updates", "lock"), { recursive: true });
+    await expect(
+      runStudioCommand(["start", "--home", home], createRuntime()),
+    ).rejects.toThrow("in progress");
+    const { rm } = await import("node:fs/promises");
+    await rm(join(home, ".updates", "lock"), { recursive: true });
+    await runStudioCommand(
+      ["start", "--home", home, "--image-tag", "v0.3.0"],
+      createRuntime(),
+    );
+    expect(
+      (await readStudioEnvironment(home)).KORTYX_API_IMAGE_REF,
+    ).toBeUndefined();
+    expect((await readStudioEnvironment(home)).KORTYX_STUDIO_UPDATE_TOKEN).toBe(
+      env.KORTYX_STUDIO_UPDATE_TOKEN,
+    );
+  });
+
   it("creates secure persistent state and prints the SDK connection", async () => {
     const home = await createHome();
     const runtime = createRuntime();
