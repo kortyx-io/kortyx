@@ -1,3 +1,4 @@
+export * from "./failure";
 // Browser-safe exports for client bundles.
 // Keep this file free of Node-only imports (fs, path, etc).
 

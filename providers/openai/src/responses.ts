@@ -1,3 +1,4 @@
+import { KortyxError } from "@kortyx/core/errors";
 import type {
   KortyxInvokeResult,
   KortyxModel,
@@ -201,11 +202,31 @@ export function responsesResult(
     serviceTier: payload.service_tier,
   };
   const fail = (message: string, reason: string): never => {
-    throw Object.assign(new ProviderRequestError(message), {
-      usage,
-      providerMetadata,
-      finishReason: { unified: reason, raw: payload.status },
-    });
+    throw Object.assign(
+      new KortyxError(
+        reason === "content-filter"
+          ? "PROVIDER_REFUSAL"
+          : reason === "length"
+            ? "OUTPUT_TRUNCATED"
+            : "PROVIDER_INVALID_RESPONSE",
+        message,
+        {
+          category: "provider",
+          retryable: false,
+          safeMessage:
+            reason === "content-filter"
+              ? "The provider refused the request."
+              : reason === "length"
+                ? "The provider stopped before completing the output."
+                : "The provider returned an invalid response.",
+        },
+      ),
+      {
+        usage,
+        providerMetadata,
+        finishReason: { unified: reason, raw: payload.status },
+      },
+    );
   };
   if (payload.status !== "completed") {
     const detail = record(payload.incomplete_details)

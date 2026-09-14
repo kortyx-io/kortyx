@@ -90,6 +90,10 @@
       "package-name": "@kortyx/utils",
       "component": "utils"
     },
+    "apps/studio": {
+      "package-name": "kortyx-studio",
+      "component": "studio"
+    },
     "apps/website": {
       "package-name": "kortyx-website",
       "component": "website"

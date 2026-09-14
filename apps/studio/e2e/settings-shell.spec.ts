@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import studioPackage from "../package.json";
 
 test.describe("Studio settings and shell identity", () => {
   test("shows real project context and only supported identity-menu actions", async ({
@@ -26,7 +27,9 @@ test.describe("Studio settings and shell identity", () => {
       page.getByRole("menuitem", { name: /Documentation/ }),
     ).toBeVisible();
     await expect(
-      page.getByRole("menu").getByText("v0.1.0", { exact: true }),
+      page
+        .getByRole("menu")
+        .getByText(`v${studioPackage.version}`, { exact: true }),
     ).toBeVisible();
 
     for (const unsupported of [

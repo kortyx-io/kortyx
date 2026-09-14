@@ -55,7 +55,7 @@ describe("readStream", () => {
     await expect(collectStream(readStream(null))).resolves.toEqual([]);
   });
 
-  it("skips invalid JSON chunks and ignores trailing partial buffers", async () => {
+  it("rejects malformed JSON without logging private stream payloads", async () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     const error = vi.spyOn(console, "error").mockImplementation(() => {});
     const body = new ReadableStream<Uint8Array>({
@@ -73,14 +73,11 @@ describe("readStream", () => {
     });
 
     try {
-      await expect(collectStream(readStream(body))).resolves.toEqual([
-        { type: "message", content: "ok" },
-      ]);
-      expect(warn).toHaveBeenCalledWith(
-        "Invalid JSON in stream chunk:",
-        "not-json",
-      );
-      expect(error).toHaveBeenCalledWith(expect.any(SyntaxError));
+      await expect(collectStream(readStream(body))).rejects.toMatchObject({
+        code: "MALFORMED_STREAM",
+      });
+      expect(warn).not.toHaveBeenCalled();
+      expect(error).not.toHaveBeenCalled();
     } finally {
       warn.mockRestore();
       error.mockRestore();
@@ -236,8 +233,12 @@ describe("streamFromRoute", () => {
             }),
         }),
       ),
-    ).resolves.toEqual([
-      { type: "error", message: "bad request" },
+    ).resolves.toMatchObject([
+      {
+        type: "error",
+        message: "bad request",
+        failure: { code: "HTTP_REQUEST_FAILED", status: 400 },
+      },
       { type: "done" },
     ]);
 
@@ -251,8 +252,12 @@ describe("streamFromRoute", () => {
           },
         }),
       ),
-    ).resolves.toEqual([
-      { type: "error", message: "offline" },
+    ).resolves.toMatchObject([
+      {
+        type: "error",
+        message: "The request could not reach the server.",
+        failure: { code: "NETWORK_ERROR" },
+      },
       { type: "done" },
     ]);
 
@@ -267,7 +272,7 @@ describe("streamFromRoute", () => {
             }),
         }),
       ),
-    ).resolves.toEqual([
+    ).resolves.toMatchObject([
       { type: "error", message: "Request failed (503)" },
       { type: "done" },
     ]);
@@ -283,7 +288,7 @@ describe("streamFromRoute", () => {
             }),
         }),
       ),
-    ).resolves.toEqual([
+    ).resolves.toMatchObject([
       { type: "error", message: "Request failed (502)" },
       { type: "done" },
     ]);
@@ -298,8 +303,12 @@ describe("streamFromRoute", () => {
           },
         }),
       ),
-    ).resolves.toEqual([
-      { type: "error", message: "offline" },
+    ).resolves.toMatchObject([
+      {
+        type: "error",
+        message: "The request could not reach the server.",
+        failure: { code: "NETWORK_ERROR" },
+      },
       { type: "done" },
     ]);
   });
@@ -397,7 +406,7 @@ describe("server stream helpers", () => {
       })(),
     );
     await expect(responseText(errorResponse)).resolves.toContain(
-      '"message":"stream failed"',
+      '"code":"EXECUTION_FAILED"',
     );
 
     const nonErrorResponse = createStreamResponse(
@@ -407,7 +416,7 @@ describe("server stream helpers", () => {
       })(),
     );
     await expect(responseText(nonErrorResponse)).resolves.toContain(
-      '"message":"stream failed"',
+      '"code":"EXECUTION_FAILED"',
     );
   });
 });

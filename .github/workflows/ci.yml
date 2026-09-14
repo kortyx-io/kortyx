@@ -52,8 +52,8 @@ jobs:
       - name: Build
         run: pnpm build
 
-      - name: Canvas workflow regressions
-        run: pnpm --filter @kortyx/example-canvas test
+      - name: Example workflow and error regressions
+        run: pnpm -r --no-bail --filter './examples/*' test
 
       - name: Typecheck
         run: pnpm -r --if-present run type-check

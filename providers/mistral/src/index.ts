@@ -1,3 +1,7 @@
+export {
+  ProviderConfigurationError,
+  ProviderRequestError,
+} from "@kortyx/core/errors";
 export type { ModelId } from "./models";
 export { MODELS, PROVIDER_ID } from "./models";
 export type { MistralModelRef, MistralProvider } from "./provider";

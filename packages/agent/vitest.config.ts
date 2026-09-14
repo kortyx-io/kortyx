@@ -4,6 +4,10 @@ import { defineKortyxVitestConfig } from "../../vitest.shared";
 export default defineKortyxVitestConfig({
   resolve: {
     alias: {
+      "@kortyx/openai": resolve(
+        __dirname,
+        "../../providers/openai/src/index.ts",
+      ),
       "@kortyx/hooks/internal": resolve(__dirname, "../hooks/src/internal.ts"),
       "@kortyx/core": resolve(__dirname, "../core/src/index.ts"),
       "@kortyx/hooks": resolve(__dirname, "../hooks/src/index.ts"),

@@ -12,7 +12,7 @@ import {
   getReasonTraceAdapter,
 } from "../context";
 import { awaitInterruptInternal } from "../interrupt";
-import { emitStructuredData, shouldStreamStructured } from "../structured";
+import { shouldStreamStructured } from "../structured";
 import type { ReasonTraceSpan } from "../tracing";
 import type { SchemaLike, UseReasonArgs, UseReasonResult } from "../types";
 import { parseWithSchema } from "../validation";
@@ -43,9 +43,6 @@ import {
   mergeWarnings,
 } from "./result";
 import {
-  extractCompletedArrayItemGroups,
-  extractCompletedFieldValues,
-  extractStreamingStringValues,
   resolveAppendFieldPaths,
   resolveSetFieldPaths,
   resolveTextDeltaFieldPaths,
@@ -299,6 +296,7 @@ export async function useReason<
         text: first.text,
         requestSchema: args.interrupt.requestSchema,
         ...(first.finishReason ? { finishReason: first.finishReason } : {}),
+        ...(first.usage ? { usage: first.usage } : {}),
         ...(args.outputSchema
           ? { outputSchema: args.outputSchema as SchemaLike<TOutput> }
           : {}),
@@ -318,6 +316,7 @@ export async function useReason<
           text: first.text,
           schema: args.outputSchema,
           ...(first.finishReason ? { finishReason: first.finishReason } : {}),
+          ...(first.usage ? { usage: first.usage } : {}),
           label: "useReason output",
         });
       }
@@ -439,6 +438,7 @@ export async function useReason<
         text: finalText,
         schema: args.outputSchema,
         ...(second.finishReason ? { finishReason: second.finishReason } : {}),
+        ...(aggregatedUsage ? { usage: aggregatedUsage } : {}),
         label: "useReason output",
       });
     }

@@ -1,3 +1,4 @@
+import { ProviderRequestError } from "@kortyx/core/errors";
 import type {
   KortyxFinishReason,
   KortyxInvokeResult,
@@ -408,7 +409,7 @@ const createOpenAIModel = (
             if (chunk.error?.message) {
               yield {
                 type: "error",
-                error: new Error(chunk.error.message),
+                error: new ProviderRequestError(chunk.error.message),
                 raw: chunk,
               } satisfies KortyxStreamPart;
               return;

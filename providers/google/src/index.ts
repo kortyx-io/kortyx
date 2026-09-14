@@ -1,3 +1,7 @@
+export {
+  ProviderConfigurationError,
+  ProviderRequestError,
+} from "@kortyx/core/errors";
 // release-test: 2026-01-22
 
 export type { ModelId } from "./models";

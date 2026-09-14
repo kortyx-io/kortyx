@@ -1,3 +1,4 @@
+import { assertProviderResponse } from "@kortyx/core/errors";
 import { readSseEvents } from "@kortyx/providers";
 import { ProviderConfigurationError, ProviderRequestError } from "./errors";
 import type {
@@ -19,37 +20,8 @@ const createHeaders = (apiKey: string): Record<string, string> => ({
   "content-type": "application/json",
 });
 
-const parseErrorMessage = async (response: Response): Promise<string> => {
-  try {
-    const payload = (await response.json()) as unknown;
-    if (!isRecord(payload)) return `HTTP ${response.status}`;
-    const message = payload.message;
-    if (typeof message === "string" && message.trim().length > 0) {
-      return message;
-    }
-    const detail = payload.detail;
-    if (typeof detail === "string" && detail.trim().length > 0) {
-      return detail;
-    }
-    const error = payload.error;
-    if (!isRecord(error)) return `HTTP ${response.status}`;
-    const errorMessage = error.message;
-    if (typeof errorMessage !== "string" || errorMessage.trim().length === 0) {
-      return `HTTP ${response.status}`;
-    }
-    return errorMessage;
-  } catch {
-    return `HTTP ${response.status}`;
-  }
-};
-
-const assertOk = async (response: Response, action: string): Promise<void> => {
-  if (response.ok) return;
-  const message = await parseErrorMessage(response);
-  throw new ProviderRequestError(
-    `Mistral provider failed to ${action}: ${message}`,
-  );
-};
+const assertOk = (response: Response, action: string): Promise<void> =>
+  assertProviderResponse("mistral", response, action);
 
 const parseJsonResponse = async (
   response: Response,
@@ -62,6 +34,7 @@ const parseJsonResponse = async (
     const message = error instanceof Error ? error.message : String(error);
     throw new ProviderRequestError(
       `Mistral provider failed to ${action}: invalid JSON response (${message})`,
+      { cause: error },
     );
   }
 
@@ -135,6 +108,7 @@ export const createMistralClient = (
         const message = error instanceof Error ? error.message : String(error);
         throw new ProviderRequestError(
           `Mistral provider failed to stream content: invalid SSE JSON (${message})`,
+          { cause: error },
         );
       }
 

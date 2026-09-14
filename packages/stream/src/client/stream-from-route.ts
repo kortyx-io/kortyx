@@ -1,3 +1,9 @@
+import {
+  errorFromFailure,
+  isFailureDescriptor,
+  KortyxError,
+} from "@kortyx/core/errors";
+import { failureChunk } from "../failure";
 import type { StreamChunk } from "../types/stream-chunk";
 import { readStream } from "./read-stream";
 
@@ -10,13 +16,17 @@ export interface StreamFromRouteArgs<TBody = unknown> {
   signal?: AbortSignal | undefined;
 }
 
-const toErrorMessage = (error: unknown): string =>
-  error instanceof Error ? error.message : String(error);
-
-const readErrorMessage = async (response: Response): Promise<string> => {
+const readErrorMessage = async (response: Response): Promise<Error> => {
   let message = `Request failed (${response.status})`;
   try {
     const payload = (await response.json()) as unknown;
+    if (
+      payload &&
+      typeof payload === "object" &&
+      "failure" in payload &&
+      isFailureDescriptor(payload.failure)
+    )
+      return errorFromFailure(payload.failure);
     if (
       payload &&
       typeof payload === "object" &&
@@ -26,7 +36,11 @@ const readErrorMessage = async (response: Response): Promise<string> => {
       message = (payload as { error: string }).error;
     }
   } catch {}
-  return message;
+  return new KortyxError("HTTP_REQUEST_FAILED", message, {
+    category: "transport",
+    status: response.status,
+    safeMessage: message,
+  });
 };
 
 export async function* streamFromRoute<TBody = unknown>(
@@ -51,13 +65,20 @@ export async function* streamFromRoute<TBody = unknown>(
       ...(args.signal ? { signal: args.signal } : {}),
     });
   } catch (error) {
-    yield { type: "error", message: toErrorMessage(error) };
+    if (args.signal?.aborted) throw error;
+    yield failureChunk(
+      new KortyxError("NETWORK_ERROR", "Network request failed.", {
+        category: "transport",
+        cause: error,
+        safeMessage: "The request could not reach the server.",
+      }),
+    );
     yield { type: "done" };
     return;
   }
 
   if (!response.ok) {
-    yield { type: "error", message: await readErrorMessage(response) };
+    yield failureChunk(await readErrorMessage(response));
     yield { type: "done" };
     return;
   }

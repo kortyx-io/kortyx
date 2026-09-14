@@ -286,7 +286,7 @@ describe("deepseek public provider contract", () => {
         createDeepSeek()
           .getModel("deepseek-chat")
           .invoke([{ role: "user", content: "Hello" }]),
-      ).rejects.toThrow("DeepSeek provider failed to invoke content");
+      ).rejects.toMatchObject({ code: "PROVIDER_CONFIGURATION" });
     } finally {
       if (previousDeepSeekKey !== undefined) {
         process.env.DEEPSEEK_API_KEY = previousDeepSeekKey;

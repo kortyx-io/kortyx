@@ -1,4 +1,10 @@
-import { collectBufferedStream, parseChatRequestBody, toSSE } from "kortyx";
+import {
+  collectBufferedStream,
+  createFailureResponse,
+  parseChatRequestBody,
+  readRequestJson,
+  toSSE,
+} from "kortyx";
 import { agent } from "@/lib/agent";
 import type {
   CanvasAgentClientContext,
@@ -11,7 +17,7 @@ export const dynamic = "force-dynamic";
 
 export async function POST(request: Request): Promise<Response> {
   try {
-    const body = parseChatRequestBody(await request.json());
+    const body = parseChatRequestBody(await readRequestJson(request));
     const clientContext = (body.context ?? {}) as CanvasAgentClientContext;
     const history = body.messages
       .slice(0, -1)
@@ -34,10 +40,7 @@ export async function POST(request: Request): Promise<Response> {
 
     return toSSE(flushAfterStream(stream));
   } catch (error) {
-    return Response.json(
-      { error: error instanceof Error ? error.message : String(error) },
-      { status: 400 },
-    );
+    return createFailureResponse(error);
   }
 }
 

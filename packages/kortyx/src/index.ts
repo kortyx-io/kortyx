@@ -1,3 +1,4 @@
+export * from "@kortyx/core/errors";
 // release-test: 2026-01-22
 // Public DX surface for the Kortyx framework.
 
@@ -25,11 +26,13 @@ export {
   createAgent,
   createChatRouteHandler,
   createCheckpointRouteHandler,
+  createFailureResponse,
   ExecutionRequestError,
   handleChatRequestBody,
   handleCheckpointRequestBody,
   parseChatRequestBody,
   parseCheckpointRequestBody,
+  readRequestJson,
   streamChatFromRoute,
 } from "@kortyx/agent";
 export type {

@@ -15,6 +15,7 @@ import {
   projectWorkflowTopology,
 } from "@kortyx/agent";
 import type { WorkflowDefinition } from "@kortyx/core";
+import { KortyxError, serializeFailure } from "@kortyx/core/errors";
 import {
   type EnsureWorkflowTopologyRequest,
   EnsureWorkflowTopologyRequestSchema,
@@ -418,9 +419,14 @@ const pushSnapshot = async (
   );
 
   if (!response.ok) {
-    const text = await response.text().catch(() => "");
-    throw new Error(
-      `Kortyx API rejected topology ${snapshot.workflow.id} (${response.status}): ${text}`,
+    throw new KortyxError(
+      "TOPOLOGY_HTTP_ERROR",
+      `Kortyx API rejected topology ${snapshot.workflow.id} (${response.status}).`,
+      {
+        category: "transport",
+        status: response.status,
+        safeMessage: `Topology request failed (HTTP ${response.status}). Check the API URL, credentials and server logs.`,
+      },
     );
   }
 
@@ -579,7 +585,14 @@ const main = async (): Promise<void> => {
     await program.parseAsync(process.argv);
   } catch (error) {
     if (error instanceof CommanderError && error.exitCode === 0) return;
-    console.error(error instanceof Error ? error.message : String(error));
+    const failure = serializeFailure(error);
+    console.error(
+      error instanceof KortyxError
+        ? `[${failure.code}] ${failure.message}`
+        : error instanceof Error
+          ? error.message.slice(0, 1024)
+          : failure.message,
+    );
     process.exitCode = 1;
   }
 };

@@ -204,7 +204,11 @@ export const createTraceAdapter = (args: {
           created.span.end?.();
           return result;
         } catch (error) {
-          created.span.fail?.(error);
+          try {
+            created.span.fail?.(error);
+          } catch {
+            /* Preserve the callback failure. */
+          }
           throw error;
         }
       };

@@ -1,3 +1,4 @@
+import { PersistenceError } from "@kortyx/core/errors";
 import type { RunnableConfig } from "@langchain/core/runnables";
 import {
   type BaseCheckpointSaver,
@@ -96,7 +97,9 @@ export function createRedisCheckpointSaver(
 
     getNextVersion(current: number | string | undefined) {
       if (typeof current === "string") {
-        throw new Error("Please override this method to use string versions.");
+        throw new PersistenceError(
+          "Please override this method to use string versions.",
+        );
       }
       return current !== undefined && typeof current === "number"
         ? current + 1
@@ -186,7 +189,7 @@ export function createRedisCheckpointSaver(
       const checkpointNs =
         (config.configurable?.checkpoint_ns as string | undefined) ?? "";
       if (!threadId) {
-        throw new Error(
+        throw new PersistenceError(
           'Failed to put checkpoint: missing "thread_id" in config.configurable.',
         );
       }
@@ -232,12 +235,12 @@ export function createRedisCheckpointSaver(
         | string
         | undefined;
       if (!threadId) {
-        throw new Error(
+        throw new PersistenceError(
           'Failed to put writes: missing "thread_id" in config.configurable.',
         );
       }
       if (!checkpointId) {
-        throw new Error(
+        throw new PersistenceError(
           'Failed to put writes: missing "checkpoint_id" in config.configurable.',
         );
       }

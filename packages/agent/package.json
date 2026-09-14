@@ -60,7 +60,8 @@
     "typescript": "catalog:",
     "tsup": "catalog:",
     "vitest": "catalog:",
-    "@vitest/coverage-v8": "catalog:"
+    "@vitest/coverage-v8": "catalog:",
+    "@kortyx/openai": "workspace:*"
   },
   "sideEffects": false,
   "repository": {

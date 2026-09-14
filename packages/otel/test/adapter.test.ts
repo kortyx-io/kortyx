@@ -347,18 +347,20 @@ describe("createOpenTelemetryTraceAdapter", () => {
 
     expect(spans[0]?.attributes).toMatchObject({
       "app.phase": "end",
-      "error.type": "Error",
-      "error.message": "boom",
+      "error.type": "EXECUTION_FAILED",
+      "error.message": "An unexpected error occurred.",
     });
     expect(spans[0]?.status).toMatchObject({
       code: 2,
-      message: "boom",
+      message: "An unexpected error occurred.",
     });
-    expect(spans[0]?.exceptions).toEqual([error]);
+    expect(spans[0]?.exceptions).toEqual([
+      { name: "EXECUTION_FAILED", message: "An unexpected error occurred." },
+    ]);
     expect(spans[0]?.ended).toBe(true);
   });
 
-  it("records non-Error failures with stringified messages", () => {
+  it("records non-Error failures without exposing their payload", () => {
     const { tracer, spans } = createFakeTracer();
     const adapter = createOpenTelemetryTraceAdapter({ tracer });
     const span = adapter.startSpan({ name: "error.span" });
@@ -369,13 +371,42 @@ describe("createOpenTelemetryTraceAdapter", () => {
     });
 
     expect(spans[0]?.attributes).toMatchObject({
-      "error.type": "string",
-      "error.message": "bad",
+      "error.type": "EXECUTION_FAILED",
+      "error.message": "An unexpected error occurred.",
       "gen_ai.request.model": "gemini",
       "gen_ai.operation.name": "generation",
     });
-    expect(spans[0]?.exceptions[0]).toBeInstanceOf(Error);
+    expect(spans[0]?.exceptions[0]).toEqual({
+      name: "EXECUTION_FAILED",
+      message: "An unexpected error occurred.",
+    });
     expect(spans[0]?.ended).toBe(true);
+  });
+
+  it("ends control-flow spans without recording an ordinary error", () => {
+    const { tracer, spans } = createFakeTracer();
+    const adapter = createOpenTelemetryTraceAdapter({ tracer });
+    const span = adapter.startSpan({ name: "cancelled" });
+    span?.fail?.(new DOMException("private", "AbortError"));
+    expect(spans[0]?.exceptions).toEqual([]);
+    expect(spans[0]?.attributes).toMatchObject({ "kortyx.control_flow": true });
+    expect(spans[0]?.ended).toBe(true);
+  });
+
+  it("does not let a failed end reporter replace a callback failure", async () => {
+    const { tracer } = createFakeTracer();
+    const adapter = createOpenTelemetryTraceAdapter({
+      tracer,
+      onSpanEnd() {
+        throw new Error("reporter");
+      },
+    });
+    const original = new Error("original");
+    await expect(
+      adapter.withSpan?.({ name: "failure" }, async () => {
+        throw original;
+      }),
+    ).rejects.toBe(original);
   });
 
   it("can create spans from the global OpenTelemetry tracer", () => {

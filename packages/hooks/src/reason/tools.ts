@@ -1,10 +1,6 @@
 import type { InterruptInput, InterruptResult } from "@kortyx/core";
-import {
-  combineAbortSignals,
-  isExecutionCancelled,
-  isExecutionLimitReached,
-  throwIfExecutionAborted,
-} from "@kortyx/core";
+import { combineAbortSignals, throwIfExecutionAborted } from "@kortyx/core";
+import { isControlFlowError, serializeFailure } from "@kortyx/core/errors";
 import type {
   KortyxExecutableTool,
   KortyxFinishReason,
@@ -35,9 +31,6 @@ import {
   mergeUsage,
   mergeWarnings,
 } from "./result";
-
-const toErrorMessage = (error: unknown): string =>
-  error instanceof Error ? error.message : String(error);
 
 const toToolDefinitions = (
   tools: KortyxExecutableTool[],
@@ -105,6 +98,8 @@ const normalizeToolResult = (
 
 const closeOwnedTools = async (
   tools: KortyxExecutableTool[],
+  preserveFailure = false,
+  traceSpan?: ReasonTraceSpan,
 ): Promise<void> => {
   const closeFns = new Set<NonNullable<KortyxExecutableTool["close"]>>();
   for (const tool of tools) {
@@ -112,11 +107,22 @@ const closeOwnedTools = async (
     closeFns.add(tool.close);
   }
 
-  await Promise.all(
-    [...closeFns].map(async (close) => {
-      await close();
-    }),
-  );
+  try {
+    await Promise.all(
+      [...closeFns].map(async (close) => {
+        await close();
+      }),
+    );
+  } catch (error) {
+    if (!preserveFailure) throw error;
+    try {
+      traceSpan?.addEvent?.("useReason.cleanup.failed", {
+        failure: serializeFailure(error),
+      });
+    } catch {
+      /* Preserve the primary failure. */
+    }
+  }
 };
 
 const createInitialMessages = (args: {
@@ -154,6 +160,7 @@ export const runReasonToolLoop = async <
     | undefined;
   const checkpoint = saved?.status === "tool_loop" ? saved : undefined;
   const opId = checkpoint?.opId ?? args.opId;
+  let primaryFailure = false;
   const tools = useReasonArgs.tools ?? [];
   const toolByName = new Map<string, KortyxExecutableTool>();
   let validationCompleted = false;
@@ -194,7 +201,8 @@ export const runReasonToolLoop = async <
     validationCompleted = true;
   } finally {
     if (!validationCompleted) {
-      await closeOwnedTools(tools);
+      // Preserve the validation failure even if request-owned cleanup also fails.
+      await closeOwnedTools(tools, true, traceSpan);
     }
   }
 
@@ -349,6 +357,7 @@ export const runReasonToolLoop = async <
                 ...(step.finishReason
                   ? { finishReason: step.finishReason }
                   : {}),
+                ...(aggregatedUsage ? { usage: aggregatedUsage } : {}),
                 label: "useReason output",
               });
               aggregatedWarnings = mergeWarnings(aggregatedWarnings, [
@@ -446,11 +455,11 @@ export const runReasonToolLoop = async <
                 { id: "approve", label: "Approve" },
                 { id: "deny", label: "Deny" },
               ],
-              meta: {
-                tool: tool.name,
-                toolCallId: toolCall.id,
-                input: toolCall.input,
-              },
+            },
+            meta: {
+              tool: tool.name,
+              toolCallId: toolCall.id,
+              input: toolCall.input,
             },
           });
 
@@ -521,12 +530,12 @@ export const runReasonToolLoop = async <
           });
         } catch (error) {
           throwIfExecutionAborted(abortSignal);
-          if (isExecutionLimitReached(error) || isExecutionCancelled(error))
-            throw error;
+          if (isControlFlowError(error)) throw error;
           const result = {
             toolCallId: toolCall.id,
             name: tool.name,
-            content: toErrorMessage(error),
+            content: serializeFailure(error).message,
+            failure: serializeFailure(error),
             isError: true,
           } satisfies KortyxToolResult;
           toolResults.push(result);
@@ -536,6 +545,7 @@ export const runReasonToolLoop = async <
               tool: tool.name,
               toolCallId: toolCall.id,
               message: result.content,
+              failure: result.failure,
             });
           }
           traceSpan?.addEvent?.("useReason.tool-call.error", {
@@ -543,6 +553,7 @@ export const runReasonToolLoop = async <
             tool: tool.name,
             toolCallId: toolCall.id,
             message: result.content,
+            failure: result.failure,
           });
         }
         const completed = toolResults.at(-1);
@@ -574,6 +585,7 @@ export const runReasonToolLoop = async <
         text: finalText,
         schema: useReasonArgs.outputSchema,
         ...(finalFinishReason ? { finishReason: finalFinishReason } : {}),
+        ...(aggregatedUsage ? { usage: aggregatedUsage } : {}),
         label: "useReason output",
       });
     }
@@ -636,15 +648,20 @@ export const runReasonToolLoop = async <
     ctx.stateDirty = true;
     return result;
   } catch (error) {
-    traceSpan?.fail?.(error, {
-      attributes: {
-        toolStepCount: steps.length,
-        toolCallCount: allToolCalls.length,
-      },
-    });
+    primaryFailure = true;
+    try {
+      traceSpan?.fail?.(error, {
+        attributes: {
+          toolStepCount: steps.length,
+          toolCallCount: allToolCalls.length,
+        },
+      });
+    } catch {
+      /* Reporting must not replace the execution failure. */
+    }
     throw error;
   } finally {
-    await closeOwnedTools(tools);
+    await closeOwnedTools(tools, primaryFailure, traceSpan);
   }
 };
 

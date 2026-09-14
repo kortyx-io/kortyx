@@ -1,3 +1,4 @@
+export * from "@kortyx/core/errors";
 // Browser-safe exports for client bundles (e.g. Next.js Client Components).
 // Keep this file free of Node-only imports (fs, path, etc).
 

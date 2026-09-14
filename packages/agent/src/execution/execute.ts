@@ -6,6 +6,7 @@ import {
   isExecutionCancelled,
   throwIfExecutionAborted,
 } from "@kortyx/core";
+import { KortyxError, serializeFailure } from "@kortyx/core/errors";
 import type { GetProviderFn } from "@kortyx/providers";
 import {
   buildInitialGraphState,
@@ -93,16 +94,7 @@ export function resultFromOutcome(
     return {
       ...info,
       status: "failed",
-      error: {
-        code:
-          typeof error === "object" &&
-          error !== null &&
-          "code" in error &&
-          typeof error.code === "string"
-            ? error.code
-            : "EXECUTION_FAILED",
-        message: error instanceof Error ? error.message : String(error),
-      },
+      error: serializeFailure(error),
     };
   }
   if (outcome.cancelled)
@@ -329,12 +321,13 @@ export async function resumeWorkflow(
       })
       .catch((error) =>
         reject(
-          error instanceof ExecutionRequestError
+          error instanceof Error
             ? error
-            : new ExecutionRequestError(
-                "INVALID_RESUME",
-                error instanceof Error ? error.message : String(error),
-              ),
+            : new KortyxError("RESUME_FAILED", "Resume failed.", {
+                category: "persistence",
+                cause: error,
+                safeMessage: "The saved execution could not be resumed.",
+              }),
         ),
       );
   });

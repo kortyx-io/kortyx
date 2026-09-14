@@ -25,6 +25,8 @@ const apiUrl = process.env.KORTYX_API_URL;
 const apiKey = process.env.KORTYX_STUDIO_API_KEY;
 
 export type StudioApiError = {
+  code?: string | undefined;
+  requestId?: string | undefined;
   type: "not_configured" | "http" | "parse" | "network";
   message: string;
   status?: number | undefined;
@@ -80,9 +82,18 @@ const fetchJson = async <T>(
     });
 
     if (!response.ok) {
+      let code: string | undefined;
+      let requestId: string | undefined;
       let message = `Kortyx Studio API request failed: ${response.status}`;
       try {
-        const body = (await response.json()) as { message?: unknown };
+        const body = (await response.json()) as {
+          message?: unknown;
+          error?: unknown;
+          requestId?: unknown;
+        };
+        code = typeof body.error === "string" ? body.error : undefined;
+        requestId =
+          typeof body.requestId === "string" ? body.requestId : undefined;
         if (typeof body.message === "string" && body.message) {
           message = body.message;
         }
@@ -93,6 +104,8 @@ const fetchJson = async <T>(
         data: null,
         error: {
           type: "http",
+          code,
+          requestId,
           status: response.status,
           message,
         },

@@ -270,7 +270,7 @@ describe("mistral public provider contract", () => {
         createMistral()
           .getModel("mistral-large-latest")
           .invoke([{ role: "user", content: "Hello" }]),
-      ).rejects.toThrow("Mistral provider failed to invoke content");
+      ).rejects.toMatchObject({ code: "PROVIDER_CONFIGURATION" });
     } finally {
       if (previousMistralKey !== undefined) {
         process.env.MISTRAL_API_KEY = previousMistralKey;

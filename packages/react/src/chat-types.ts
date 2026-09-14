@@ -1,3 +1,4 @@
+import type { FailureDescriptor } from "@kortyx/core/errors";
 import type {
   StreamChunk,
   StructuredStreamState,
@@ -23,7 +24,7 @@ export type HumanInputPiece = {
 export type ContentPiece =
   | { id: string; type: "text"; content: string }
   | { id: string; type: "structured"; data: StructuredData }
-  | { id: string; type: "error"; content: string }
+  | { id: string; type: "error"; content: string; failure?: FailureDescriptor }
   | HumanInputPiece;
 
 export type ChatMsg = {

@@ -1,3 +1,4 @@
+import { resolve } from "node:path";
 import { defineConfig, mergeConfig, type UserConfig } from "vitest/config";
 
 const DEFAULT_COVERAGE_THRESHOLDS = {
@@ -10,6 +11,14 @@ const DEFAULT_COVERAGE_THRESHOLDS = {
 export function defineKortyxVitestConfig(config: UserConfig = {}) {
   return mergeConfig(
     defineConfig({
+      resolve: {
+        alias: {
+          "@kortyx/core/errors": resolve(
+            __dirname,
+            "packages/core/src/errors.ts",
+          ),
+        },
+      },
       test: {
         environment: "node",
         coverage: {

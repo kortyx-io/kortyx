@@ -40,7 +40,9 @@
     "coverage": "vitest run --coverage && pnpm -s type-check",
     "type-check": "tsc --noEmit -p tsconfig.test.json"
   },
-  "dependencies": {},
+  "dependencies": {
+    "@kortyx/core": "workspace:*"
+  },
   "devDependencies": {
     "typescript": "catalog:",
     "turbo": "catalog:",

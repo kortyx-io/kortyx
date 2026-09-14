@@ -1,3 +1,4 @@
+export * from "./errors";
 // release-test: 2026-01-22
 
 export {

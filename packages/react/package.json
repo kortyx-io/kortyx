@@ -41,7 +41,8 @@
     "type-check": "tsc --noEmit -p tsconfig.test.json"
   },
   "dependencies": {
-    "@kortyx/stream": "workspace:*"
+    "@kortyx/stream": "workspace:*",
+    "@kortyx/core": "workspace:*"
   },
   "peerDependencies": {
     "react": ">=19"

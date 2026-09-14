@@ -46,7 +46,8 @@
     "type-check": "tsc --noEmit -p tsconfig.test.json"
   },
   "dependencies": {
-    "zod": "catalog:"
+    "zod": "catalog:",
+    "@kortyx/core": "workspace:*"
   },
   "devDependencies": {
     "concurrently": "^9.2.0",

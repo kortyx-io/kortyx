@@ -3,6 +3,25 @@ import { runReasonEngine } from "../src/internal";
 import { createProvider } from "./helpers";
 
 describe("runReasonEngine", () => {
+  it("preserves a provider failure when its trace reporter also fails", async () => {
+    const { modelRef, invoke } = createProvider();
+    const primary = new Error("provider failed");
+    invoke.mockRejectedValue(primary);
+    await expect(
+      runReasonEngine({
+        model: modelRef,
+        input: "Run",
+        stream: false,
+        reasonTrace: {
+          startSpan: () => ({
+            fail() {
+              throw new Error("reporter failed");
+            },
+          }),
+        },
+      }),
+    ).rejects.toBe(primary);
+  });
   it("preserves model transport defaults when overriding another provider setting", async () => {
     const { modelRef } = createProvider({ invokeResponses: ["ok"] });
     const getModel = vi.spyOn(modelRef.provider, "getModel");

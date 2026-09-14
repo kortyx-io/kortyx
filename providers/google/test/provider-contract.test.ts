@@ -234,7 +234,7 @@ describe("google public provider contract", () => {
         createGoogleGenerativeAI()
           .getModel("gemini-2.5-flash")
           .invoke([{ role: "user", content: "Hello" }]),
-      ).rejects.toThrow("Google provider failed to invoke content");
+      ).rejects.toMatchObject({ code: "PROVIDER_CONFIGURATION" });
     } finally {
       if (previousGoogleKey === undefined) {
         delete process.env.GOOGLE_API_KEY;

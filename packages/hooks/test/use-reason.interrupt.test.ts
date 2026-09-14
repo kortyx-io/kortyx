@@ -997,7 +997,7 @@ describe("useReason interrupt flow", () => {
     expect(interrupts).toHaveLength(0);
   });
 
-  it("throws a truncation-specific error when interrupt first-pass JSON is cut off without finishReason metadata", async () => {
+  it("reports malformed interrupt JSON without inferring an output length limit", async () => {
     const { invoke, modelRef } = createProvider({
       invokeResponses: [
         {
@@ -1023,9 +1023,7 @@ describe("useReason interrupt flow", () => {
           },
         }),
       ),
-    ).rejects.toThrow(
-      "useReason output was truncated before producing valid structured output.",
-    );
+    ).rejects.toMatchObject({ code: "INVALID_MODEL_JSON" });
 
     expect(invoke).toHaveBeenCalledTimes(1);
     expect(interrupts).toHaveLength(0);

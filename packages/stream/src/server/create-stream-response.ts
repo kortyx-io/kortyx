@@ -1,3 +1,4 @@
+import { failureChunk } from "../failure";
 // packages/stream/src/server/create-stream-response.ts
 import type { StreamChunk } from "../types/stream-chunk";
 import { JsonToSseTransformStream } from "./json-to-sse";
@@ -24,11 +25,10 @@ export function createStreamResponse(
           controller.enqueue(next.value);
         }
       } catch (error) {
-        if (!cancelled)
-          controller.enqueue({
-            type: "error",
-            message: error instanceof Error ? error.message : String(error),
-          });
+        if (!cancelled) {
+          controller.enqueue(failureChunk(error));
+          controller.enqueue({ type: "done" });
+        }
       } finally {
         if (!cancelled) controller.close();
       }

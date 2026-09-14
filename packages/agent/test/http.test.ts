@@ -3,10 +3,12 @@ import type { Agent } from "../src";
 import {
   createChatRouteHandler,
   createCheckpointRouteHandler,
+  createFailureResponse,
   handleChatRequestBody,
   handleCheckpointRequestBody,
   parseChatRequestBody,
   parseCheckpointRequestBody,
+  readRequestJson,
 } from "../src/adapters/http";
 import { extractLatestUserMessage } from "../src/utils/extract-latest-message";
 
@@ -52,6 +54,31 @@ const createMockAgent = (overrides: Partial<Agent> = {}): Agent =>
   }) satisfies Agent;
 
 describe("parseChatRequestBody", () => {
+  it.each([
+    null,
+    [],
+    "text",
+    42,
+    false,
+  ])("rejects non-object JSON commands: %j", async (value) => {
+    await expect(
+      readRequestJson(
+        new Request("https://kortyx.test/api", {
+          method: "POST",
+          body: JSON.stringify(value),
+        }),
+      ),
+    ).rejects.toMatchObject({ code: "INVALID_REQUEST", retryable: false });
+  });
+
+  it("propagates request cancellation through JSON parsing and custom responses", async () => {
+    const aborted = new DOMException("Cancelled", "AbortError");
+    const request = new Request("https://kortyx.test/api");
+    vi.spyOn(request, "json").mockRejectedValue(aborted);
+    await expect(readRequestJson(request)).rejects.toBe(aborted);
+    expect(() => createFailureResponse(aborted)).toThrow(aborted);
+  });
+
   it("trims optional ids and preserves valid messages", () => {
     expect(
       parseChatRequestBody({
@@ -154,7 +181,7 @@ describe("createChatRouteHandler", () => {
     });
   });
 
-  it("returns successful chat responses and stringified non-error failures", async () => {
+  it("returns successful chat responses and safe server failure descriptors", async () => {
     const handler = createChatRouteHandler({
       agent: createMockAgent(),
     });
@@ -188,8 +215,11 @@ describe("createChatRouteHandler", () => {
       }),
     );
 
-    expect(failed.status).toBe(400);
-    await expect(failed.json()).resolves.toEqual({ error: "plain failure" });
+    expect(failed.status).toBe(500);
+    await expect(failed.json()).resolves.toMatchObject({
+      error: "An unexpected error occurred.",
+      failure: { code: "EXECUTION_FAILED" },
+    });
   });
 });
 
@@ -330,6 +360,37 @@ describe("checkpoint HTTP helpers", () => {
 });
 
 describe("extractLatestUserMessage", () => {
+  it("classifies request JSON and server failures independently in both route handlers", async () => {
+    for (const create of [
+      createChatRouteHandler,
+      createCheckpointRouteHandler,
+    ]) {
+      const invalid = await create({ agent: createMockAgent() })(
+        new Request("https://kortyx.test/api", { method: "POST", body: "{" }),
+      );
+      expect(invalid.status).toBe(400);
+      expect(await invalid.json()).toMatchObject({
+        failure: { code: "INVALID_REQUEST", category: "request" },
+      });
+    }
+    const handler = createCheckpointRouteHandler({
+      agent: createMockAgent({
+        getCheckpoint: async () => {
+          throw new SyntaxError("secret database content");
+        },
+      }),
+    });
+    const response = await handler(
+      new Request("https://kortyx.test/api", {
+        method: "POST",
+        body: JSON.stringify({ action: "get", checkpointId: "cp" }),
+      }),
+    );
+    expect(response.status).toBe(500);
+    expect(JSON.stringify(await response.json())).not.toContain(
+      "secret database content",
+    );
+  });
   it("returns the last non-empty user message", () => {
     expect(
       extractLatestUserMessage([

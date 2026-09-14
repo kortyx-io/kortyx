@@ -1,4 +1,5 @@
 import type { WorkflowDefinition } from "@kortyx/core";
+import { serializeFailure } from "@kortyx/core/errors";
 import type { StreamChunk } from "@kortyx/stream";
 import { describe, expect, it, vi } from "vitest";
 import { streamChat } from "../src/chat/process-chat";
@@ -44,7 +45,11 @@ describe("node error contract", () => {
     });
 
     await expect(collect(stream)).resolves.toEqual([
-      { type: "error", message: "Node exploded" },
+      {
+        type: "error",
+        message: "An unexpected error occurred.",
+        failure: serializeFailure(new Error("Node exploded")),
+      },
       { type: "done" },
     ]);
     expect(downstream).not.toHaveBeenCalled();

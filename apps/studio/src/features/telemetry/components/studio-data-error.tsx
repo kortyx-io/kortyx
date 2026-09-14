@@ -22,6 +22,10 @@ export function StudioDataError({ title, error }: StudioDataErrorProps) {
       <div className="max-w-md text-center">
         <h1 className="text-base font-semibold">{title}</h1>
         <p className="mt-2 text-sm text-muted-foreground">{error.message}</p>
+        {error.code && <p className="mt-2 text-xs">{error.code}</p>}
+        {error.requestId && (
+          <p className="mt-1 text-xs">Request: {error.requestId}</p>
+        )}
         <p className="mt-3 font-mono text-xs text-muted-foreground">{detail}</p>
       </div>
     </div>

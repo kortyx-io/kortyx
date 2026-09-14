@@ -1,4 +1,6 @@
+import { isControlFlowError } from "@kortyx/core/errors";
 export type RetryOptions = {
+  abortSignal?: AbortSignal;
   /** Total attempts including the first try. Must be >= 1. */
   retries: number;
   /** Delay between attempts in ms or a function of the current attempt (1-based). */
@@ -11,9 +13,6 @@ export type RetryOptions = {
 
 const toError = (err: unknown) =>
   err instanceof Error ? err : new Error(String(err));
-
-const sleep = (ms: number) =>
-  ms > 0 ? new Promise((r) => setTimeout(r, ms)) : Promise.resolve();
 
 /**
  * Runs an async function with retry semantics.
@@ -28,9 +27,12 @@ export async function withRetries<T>(
   let attempt = 1;
 
   while (true) {
+    options.abortSignal?.throwIfAborted();
     try {
       return await fn(attempt);
     } catch (err) {
+      options.abortSignal?.throwIfAborted();
+      if (isControlFlowError(err)) throw err;
       const error = toError(err);
       const hasNext = attempt < total;
       const shouldRetry = hasNext && (await retryOn(error, attempt));
@@ -45,7 +47,25 @@ export async function withRetries<T>(
         typeof options.delayMs === "function"
           ? options.delayMs(attempt)
           : (options.delayMs ?? 0);
-      await sleep(Math.max(0, delay));
+      await new Promise<void>((resolve, reject) => {
+        const signal = options.abortSignal;
+        if (signal?.aborted) {
+          reject(signal.reason);
+          return;
+        }
+        const aborted = () => {
+          clearTimeout(timer);
+          reject(signal?.reason);
+        };
+        const timer = setTimeout(
+          () => {
+            signal?.removeEventListener("abort", aborted);
+            resolve();
+          },
+          Math.max(0, delay),
+        );
+        signal?.addEventListener("abort", aborted, { once: true });
+      });
       attempt++;
     }
   }
