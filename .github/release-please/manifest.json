@@ -1,10 +1,10 @@
 {
   "packages/agent": "0.22.1",
-  "packages/cli": "0.7.0",
+  "packages/cli": "0.7.1",
   "packages/core": "0.9.0",
   "packages/hooks": "0.25.1",
   "packages/react": "0.5.0",
-  "packages/kortyx": "0.20.1",
+  "packages/kortyx": "0.20.2",
   "packages/mcp": "0.2.3",
   "packages/otel": "0.5.1",
   "packages/providers": "0.7.0",
@@ -19,9 +19,9 @@
   "packages/telemetry-contracts": "0.6.0",
   "packages/telemetry": "0.6.1",
   "packages/utils": "0.3.0",
-  "apps/studio": "0.3.1",
+  "apps/studio": "0.3.2",
   "apps/website": "0.31.0",
-  "examples/kortyx-nextjs-chat-api-route": "0.22.1",
-  "examples/kortyx-canvas": "0.6.1",
-  "examples/kortyx-nextjs-chat-server-action": "0.14.1"
+  "examples/kortyx-nextjs-chat-api-route": "0.22.2",
+  "examples/kortyx-canvas": "0.6.2",
+  "examples/kortyx-nextjs-chat-server-action": "0.14.2"
 }
