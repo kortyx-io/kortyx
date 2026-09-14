@@ -439,7 +439,7 @@ jobs:
           python-version: "3.13"
 
       - name: Install release publisher dependencies
-        run: python -m pip install -r .release-publisher/scripts/studio-release/requirements.txt
+        run: python -m pip install -r .release-publisher/.github/scripts/studio-release/requirements.txt
 
       - name: Setup Docker Buildx
         uses: docker/setup-buildx-action@v4
@@ -504,4 +504,4 @@ jobs:
             --arg studio "${REGISTRY}/${STUDIO_IMAGE_NAME}@${STUDIO_DIGEST}" \
             '{format: 1, installer: 1, version: $version, api: $api, studio: $studio}' \
             > "$RUNNER_TEMP/studio-update.json"
-          python .release-publisher/scripts/studio-release/publish.py "$RUNNER_TEMP/studio-update.json"
+          python .release-publisher/.github/scripts/studio-release/publish.py "$RUNNER_TEMP/studio-update.json"
