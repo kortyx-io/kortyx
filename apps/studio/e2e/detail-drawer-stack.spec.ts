@@ -11,6 +11,36 @@ const backdrop = (page: Page) => page.locator("[data-detail-backdrop]");
 const inspector = (page: Page) => page.locator("[data-detail-inspector]");
 
 test.describe("Studio detail drawer stack", () => {
+  test("keeps the list and Session mounted after the first Run navigation resolves", async ({
+    page,
+  }) => {
+    await openSessionDrawer(page);
+    const session = drawer(page, sessionPath);
+    const sessionNode = await session.elementHandle();
+    const listNode = await page
+      .locator('[data-table-ready="true"]')
+      .elementHandle();
+
+    await session.getByRole("button", { name: /^Runs \d+$/ }).click();
+    // Exercise completed production prefetches, not only a click before the
+    // link enters the viewport cache. Live refresh is off for this fixture.
+    await page.waitForLoadState("networkidle");
+    await openRunFromSession(page);
+
+    // Check resolved content, not just the loading drawer: a prefetched
+    // standalone route can briefly show loading before replacing the stack.
+    await expect(
+      drawer(page, runPath).getByRole("button", {
+        name: "Overview",
+        exact: true,
+      }),
+    ).toBeVisible();
+    await expect(page.getByRole("dialog")).toHaveCount(2);
+    expect(await sessionNode?.evaluate((node) => node.isConnected)).toBe(true);
+    expect(await listNode?.evaluate((node) => node.isConnected)).toBe(true);
+    await expectAncestorReveal(session, drawer(page, runPath));
+  });
+
   test("keeps one animated surface through loading, close, and reopen", async ({
     page,
   }) => {

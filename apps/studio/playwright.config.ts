@@ -2,6 +2,7 @@ import { defineConfig, devices } from "@playwright/test";
 
 const studioUrl = process.env.KORTYX_E2E_STUDIO_URL ?? "http://localhost:6300";
 const apiUrl = process.env.KORTYX_API_URL ?? "http://localhost:6400";
+const production = process.env.KORTYX_E2E_PRODUCTION === "1";
 
 export default defineConfig({
   testDir: "./e2e",
@@ -42,9 +43,18 @@ export default defineConfig({
     },
     {
       name: "Kortyx Studio",
-      command: "pnpm dev",
+      command: production
+        ? `pnpm build && pnpm start --port ${new URL(studioUrl).port || "6300"}`
+        : "pnpm dev",
       url: `${studioUrl.replace(/\/$/, "")}/sessions`,
-      reuseExistingServer: !process.env.CI,
+      // A development server silently skips the production prefetch path.
+      reuseExistingServer: !process.env.CI && !production,
+      env: {
+        KORTYX_STUDIO_BASIC_AUTH_USERNAME:
+          process.env.KORTYX_STUDIO_BASIC_AUTH_USERNAME ?? "admin",
+        KORTYX_STUDIO_BASIC_AUTH_PASSWORD:
+          process.env.KORTYX_STUDIO_BASIC_AUTH_PASSWORD ?? "kortyx",
+      },
       timeout: 120_000,
       stdout: "ignore",
       stderr: "pipe",
