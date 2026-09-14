@@ -1,4 +1,5 @@
-import { Filter, Search } from "lucide-react";
+import { PanelLeftClose, Search } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { formatCount } from "@/lib/format";
@@ -23,6 +24,7 @@ type WorkflowCatalogProps = {
   onHealthChange: (health: WorkflowHealth | "all") => void;
   onSelectWorkflow: (id: string) => void;
   onClear: () => void;
+  onCollapse: () => void;
 };
 
 export function WorkflowCatalog({
@@ -35,6 +37,7 @@ export function WorkflowCatalog({
   onHealthChange,
   onSelectWorkflow,
   onClear,
+  onCollapse,
 }: WorkflowCatalogProps) {
   return (
     <aside
@@ -44,26 +47,39 @@ export function WorkflowCatalog({
       <div className="border-b p-3">
         <div className="mb-2 flex items-center justify-between">
           <h2 className="text-sm font-semibold">Workflow catalog</h2>
-          <span className="text-xs tabular-nums text-muted-foreground">
-            {workflows.length}
-          </span>
+          <div className="flex items-center gap-1">
+            <span className="text-xs tabular-nums text-muted-foreground">
+              {workflows.length}
+            </span>
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              className="hidden md:inline-flex"
+              aria-label="Collapse workflow catalog"
+              title="Collapse workflow catalog"
+              onClick={onCollapse}
+            >
+              <PanelLeftClose />
+            </Button>
+          </div>
         </div>
         <div className="relative">
           <Search className="pointer-events-none absolute top-2 left-2.5 size-3.5 text-muted-foreground" />
           <Input
             value={query}
             onChange={(event) => onQueryChange(event.target.value)}
+            aria-label="Search workflows"
             placeholder="Search workflows…"
             className="h-8 pl-8 text-xs"
           />
         </div>
-        <div className="mt-2 flex items-center gap-1 overflow-x-auto">
-          <Filter className="size-3.5 text-muted-foreground" />
+        <div className="mt-2 flex flex-wrap items-center gap-1">
           {(["all", "healthy", "degraded", "failing", "idle"] as const).map(
             (item) => (
               <button
                 type="button"
                 key={item}
+                aria-pressed={health === item}
                 onClick={() => onHealthChange(item)}
                 className={cn(
                   "rounded px-1.5 py-1 text-[11px] capitalize",
@@ -92,6 +108,8 @@ export function WorkflowCatalog({
                 <button
                   type="button"
                   key={workflow.id}
+                  aria-pressed={selectedWorkflowId === workflow.id}
+                  title={workflow.name}
                   onClick={() => onSelectWorkflow(workflow.id)}
                   className={cn(
                     "w-full border-b px-3 py-3 text-left transition-colors hover:bg-accent/60",
@@ -117,7 +135,9 @@ export function WorkflowCatalog({
                   </p>
                   <div className="mt-2 flex items-center justify-between pl-3.5 text-[10px] tabular-nums text-muted-foreground">
                     <span>{formatCount(workflow.metrics.runCount)} runs</span>
-                    <span>
+                    <span
+                      title={`${inbound} incoming, ${outbound} outgoing connections`}
+                    >
                       ←{inbound} · {outbound}→
                     </span>
                     <span>{workflow.lastActivityAt}</span>

@@ -2,7 +2,6 @@
 
 import "@xyflow/react/dist/style.css";
 
-import dagre from "@dagrejs/dagre";
 import {
   Background,
   BaseEdge,
@@ -10,7 +9,6 @@ import {
   type EdgeProps,
   getSmoothStepPath,
   Handle,
-  MarkerType,
   type Node,
   type NodeProps,
   Position,
@@ -28,7 +26,14 @@ import {
   ZoomIn,
   ZoomOut,
 } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  type CSSProperties,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { Button } from "@/components/ui/button";
 import {
   Tooltip,
@@ -36,7 +41,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import {
-  getTransitionLayoutWeight,
+  formatRate,
   getTransitionStrokeWidth,
 } from "@/features/workflows/lib/format";
 import type {
@@ -44,10 +49,12 @@ import type {
   WorkflowSelection,
   WorkflowViewMode,
 } from "@/features/workflows/lib/view-state";
-import { toWorkflowGraph } from "@/features/workflows/lib/workflow-graph";
+import {
+  type EdgeLabel,
+  toWorkflowGraph,
+} from "@/features/workflows/lib/workflow-graph";
 import type {
   WorkflowHealth,
-  WorkflowNode,
   WorkflowSummary,
   WorkflowSystem,
 } from "@/features/workflows/schema";
@@ -88,10 +95,12 @@ type TransitionData = {
   mode: WorkflowViewMode;
   metric: WorkflowMetric;
   routePoints?: Array<{ x: number; y: number }>;
+  label?: EdgeLabel;
 };
 type InternalEdgeData = {
   condition?: string;
   routePoints?: Array<{ x: number; y: number }>;
+  label?: EdgeLabel;
 };
 
 const healthClasses: Record<WorkflowHealth, string> = {
@@ -124,15 +133,91 @@ export function WorkflowCanvas({
   mode: WorkflowViewMode;
   metric: WorkflowMetric;
   selection: WorkflowSelection;
-  focusedWorkflow?: { id: string; request: number; sourceKey: string };
+  focusedWorkflow?: {
+    id: string;
+    request: number;
+    sourceKey: string;
+    animate?: boolean;
+  };
   onSelect: (selection: WorkflowSelection) => void;
 }) {
   const [flow, setFlow] = useState<ReactFlowInstance | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const canvasRef = useRef<HTMLDivElement>(null);
+  // Metric refreshes replace API objects. Cache by topology so navigation never
+  // reruns collision detection and blocks the camera animation.
+  const topologyKey = JSON.stringify({
+    workflows: system.workflows.map(({ id, nodes, internalEdges }) => ({
+      id,
+      nodes: nodes.map(({ id }) => id),
+      internalEdges,
+    })),
+    transitions: system.transitions.map(
+      ({ id, sourceWorkflowId, targetWorkflowId, condition, kind }) => ({
+        id,
+        sourceWorkflowId,
+        targetWorkflowId,
+        condition,
+        kind,
+      }),
+    ),
+  });
+  const graphCache = useRef<{
+    key: string;
+    graph: ReturnType<typeof toWorkflowGraph>;
+  } | null>(null);
+  if (graphCache.current?.key !== topologyKey) {
+    graphCache.current = {
+      key: topologyKey,
+      graph: toWorkflowGraph(
+        system,
+        { type: "workflow", id: "" },
+        "system",
+        "volume",
+      ),
+    };
+  }
+  const graph = graphCache.current.graph;
   const { nodes: layoutNodes, edges } = useMemo(
-    () => toWorkflowGraph(system, selection, mode, metric),
-    [system, selection, mode, metric],
+    () => ({
+      nodes: graph.nodes.map((node) => {
+        const workflow = system.workflows.find(
+          (item) => item.id === (node.parentId ?? node.id),
+        );
+        return {
+          ...node,
+          data: {
+            ...node.data,
+            workflow,
+            mode,
+            metric,
+            ...(node.type === "internal"
+              ? {
+                  node: workflow?.nodes.find(
+                    (item) => `${workflow.id}:${item.id}` === node.id,
+                  ),
+                }
+              : {}),
+            selected:
+              node.type === "workflow"
+                ? selection.type === "workflow" && selection.id === node.id
+                : selection.type === "node" &&
+                  `${selection.workflowId}:${selection.id}` === node.id,
+          },
+        };
+      }),
+      edges: graph.edges.map((edge) => ({
+        ...edge,
+        data: {
+          ...edge.data,
+          ...system.transitions.find((item) => item.id === edge.id),
+          mode,
+          metric,
+          selected: selection.type === "transition" && selection.id === edge.id,
+        },
+      })),
+    }),
+    [graph, system, selection, mode, metric],
   );
   // Refs survive Next's hidden Activity boundary when returning with Back.
   // Keep the last visible viewport instead of fitting the entire graph again.
@@ -148,11 +233,14 @@ export function WorkflowCanvas({
       : undefined;
   }, [focusedWorkflow?.id, layoutNodes]);
   const focusKey = focusedWorkflow?.sourceKey;
+  const focusRequest = focusedWorkflow?.request;
+  const animateFocus = focusedWorkflow?.animate;
   const focusX = focusedBounds?.x;
   const focusY = focusedBounds?.y;
   const focusWidth = focusedBounds?.width;
   const focusHeight = focusedBounds?.height;
   const viewportSelection = [
+    "layout-v2",
     focusKey ?? "overview",
     focusX,
     focusY,
@@ -178,12 +266,15 @@ export function WorkflowCanvas({
     return () =>
       document.removeEventListener("fullscreenchange", onFullscreenChange);
   }, []);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: repeated catalog clicks must refocus the same workflow.
   useEffect(() => {
     if (!flow || !layoutNodes.length) return;
     const element = canvasRef.current;
     if (!element) return;
     let frame = 0;
     let restored = false;
+    let resizeTimer: ReturnType<typeof setTimeout> | undefined;
+    const navigationSettlesAt = performance.now() + 1000;
     const restore = () => {
       if (restored || !element.clientWidth || !element.clientHeight) return;
       cancelAnimationFrame(frame);
@@ -195,7 +286,12 @@ export function WorkflowCanvas({
           savedViewport.current?.key === key
             ? savedViewport.current.viewport
             : loadWorkflowViewport(key);
-        if (saved) {
+        const duration =
+          animateFocus &&
+          !window.matchMedia("(prefers-reduced-motion: reduce)").matches
+            ? 450
+            : 0;
+        if (saved && !animateFocus) {
           void flow.setViewport(saved, { duration: 0 });
         } else if (
           focusX !== undefined &&
@@ -205,7 +301,7 @@ export function WorkflowCanvas({
         ) {
           void flow.fitBounds(
             { x: focusX, y: focusY, width: focusWidth, height: focusHeight },
-            { padding: 0.1, duration: 0 },
+            { padding: 0.1, duration },
           );
         } else {
           void flow.fitView({ padding: 0.18, maxZoom: 1.1, duration: 0 });
@@ -213,7 +309,20 @@ export function WorkflowCanvas({
       });
     };
     // A cached route can reactivate before its container has a nonzero size.
-    const observer = new ResizeObserver(restore);
+    const observer = new ResizeObserver(() => {
+      if (!restored) {
+        restore();
+        return;
+      }
+      // Opening the inspector changes the available width during navigation.
+      // Refit after its width transition, so the destination is fully visible.
+      if (!animateFocus || performance.now() > navigationSettlesAt) return;
+      clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(() => {
+        restored = false;
+        restore();
+      }, 80);
+    });
     observer.observe(element);
     const onPageShow = () => {
       restored = false;
@@ -223,12 +332,15 @@ export function WorkflowCanvas({
     restore();
     return () => {
       cancelAnimationFrame(frame);
+      clearTimeout(resizeTimer);
       observer.disconnect();
       window.removeEventListener("pageshow", onPageShow);
     };
   }, [
     flow,
     viewportSelection,
+    focusRequest,
+    animateFocus,
     layoutNodes.length,
     focusX,
     focusY,
@@ -241,14 +353,14 @@ export function WorkflowCanvas({
       ref={canvasRef}
       className={cn(
         styles.canvas,
-        "relative h-full min-h-[500px] bg-[radial-gradient(var(--border)_1px,transparent_1px)] bg-size-[16px_16px]",
+        "relative h-full min-h-[500px] bg-background",
       )}
     >
       <ReactFlow
         nodes={layoutNodes}
         edges={edges}
-        nodeTypes={{ workflow: WorkflowGroup, internal: InternalNode }}
-        edgeTypes={{ transition: TransitionEdge, internal: InternalEdge }}
+        nodeTypes={nodeTypes}
+        edgeTypes={edgeTypes}
         onInit={setFlow}
         onMoveEnd={(_, viewport) => {
           if (
@@ -261,7 +373,7 @@ export function WorkflowCanvas({
             saveWorkflowViewport(key, viewport);
           }
         }}
-        minZoom={0.25}
+        minZoom={0.04}
         maxZoom={1.5}
         proOptions={{ hideAttribution: true }}
         nodesDraggable={false}
@@ -392,13 +504,13 @@ function WorkflowGroup({ data }: NodeProps<Node<GroupData>>) {
         <span>
           interrupt{" "}
           <b className="ml-1 font-mono font-medium text-foreground">
-            {workflow.metrics.interruptRate ?? 0}%
+            {formatRate(workflow.metrics.interruptRate)}
           </b>
         </span>
         <span>
           success{" "}
           <b className="ml-1 font-mono font-medium text-foreground">
-            {workflow.metrics.successRate ?? 0}%
+            {formatRate(workflow.metrics.successRate)}
           </b>
         </span>
       </div>
@@ -442,7 +554,7 @@ function InternalNode({ data }: NodeProps<Node<InternalData>>) {
         <span
           className={cn(
             "size-1.5 rounded-full",
-            stateClasses[node.state ?? "healthy"],
+            node.state ? stateClasses[node.state] : "bg-slate-400",
           )}
         />
         {node.state === "interrupted" && (
@@ -451,7 +563,10 @@ function InternalNode({ data }: NodeProps<Node<InternalData>>) {
         {node.state === "retried" && (
           <RotateCcw className="size-2.5 text-amber-500" />
         )}
-        <span className="whitespace-nowrap font-mono text-[10px] font-medium">
+        <span
+          title={node.id}
+          className="min-w-0 truncate font-mono text-[10px] font-medium"
+        >
           {node.id}
         </span>
       </div>
@@ -460,7 +575,7 @@ function InternalNode({ data }: NodeProps<Node<InternalData>>) {
         {mode === "health" ? (
           <span>
             {metric === "error"
-              ? `${node.metrics.errorRate ?? 0}% err`
+              ? `${formatRate(node.metrics.errorRate)} err`
               : metric === "cost"
                 ? formatCurrency(node.metrics.averageCost)
                 : `${formatCount(node.metrics.runCount)} runs`}
@@ -504,12 +619,13 @@ function TransitionEdge({
   const path = data?.routePoints?.length
     ? toPolylinePath(data.routePoints)
     : fallbackPath;
-  const routeLabel = data?.routePoints?.length
-    ? getEdgeLabelPosition(data.routePoints, data.condition, 104)
-    : undefined;
+  const routeLabel = data?.label;
   const [labelX, labelY] = routeLabel
     ? [routeLabel.x, routeLabel.y]
-    : [fallbackLabelX, fallbackLabelY];
+    : [fallbackLabelX, fallbackLabelY - 36];
+  const labelWidth = routeLabel?.width ?? 144;
+  const labelHeight = routeLabel?.height ?? 36;
+  const origin = data?.routePoints?.[0] ?? { x: sourceX, y: sourceY };
   const isCall = data?.kind === "call" || id.startsWith("observed-call:");
   const connectionStyle = CONNECTION_STYLE[isCall ? "call" : "handoff"];
   const error = (data?.errorRate ?? 0) > 4;
@@ -541,37 +657,56 @@ function TransitionEdge({
         duration="1s"
         opacity={data?.selected ? 1 : 0.75}
       />
-      <g
-        transform={`translate(${labelX - 52} ${labelY - 13})`}
+      <circle
+        cx={origin.x}
+        cy={origin.y}
+        r={4}
+        fill={connectionStyle.color}
+        stroke={connectionStyle.color}
+        strokeWidth={1.8}
         className="pointer-events-none"
+      />
+      <g
+        data-edge-label={id}
+        transform={`translate(${labelX - labelWidth / 2} ${labelY - labelHeight / 2})`}
+        className="cursor-pointer"
       >
+        <title>{`${formatCount(data?.volume ?? 0)} ${isCall ? "calls" : "handoffs"} · ${isCall ? "call → return" : truncateLabel(data?.condition ?? "transitionTo", labelWidth)}`}</title>
         <rect
-          width="104"
-          height="26"
+          width={labelWidth}
+          height={labelHeight}
           rx="4"
           className="fill-background stroke-border"
         />
         <text
-          x="52"
-          y="11"
+          x={labelWidth / 2}
+          y="14"
           textAnchor="middle"
-          className="fill-foreground text-[8px] font-medium"
+          className="fill-foreground text-[10px] font-medium"
         >
           {formatCount(data?.volume ?? 0)} {isCall ? "calls" : "handoffs"}
         </text>
         <text
-          x="52"
-          y="20"
+          x={labelWidth / 2}
+          y="27"
           textAnchor="middle"
           className={cn(
-            "fill-muted-foreground text-[7px]",
+            "fill-muted-foreground text-[9px]",
             error && "fill-red-500",
           )}
         >
-          {isCall ? "call → return" : (data?.condition ?? "transitionTo")}
+          {isCall
+            ? "call → return"
+            : truncateLabel(data?.condition ?? "transitionTo", labelWidth)}
         </text>
         {error && (
-          <TriangleAlert x="92" y="3" className="fill-red-500 text-red-500" />
+          <TriangleAlert
+            x={labelWidth - 14}
+            y="3"
+            width="10"
+            height="10"
+            className="fill-red-500 text-red-500"
+          />
         )}
       </g>
     </>
@@ -601,7 +736,8 @@ function InternalEdge({
   });
   const points = data?.routePoints;
   const path = points?.length ? toPolylinePath(points) : fallbackPath;
-  const label = getEdgeLabelPosition(points ?? [], data?.condition);
+  const label = data?.label;
+  const origin = points?.[0] ?? { x: sourceX, y: sourceY };
 
   return (
     <>
@@ -624,27 +760,38 @@ function InternalEdge({
         dashArray="4 10"
         offset={-28}
         duration="2.2s"
-        opacity={0.58}
+        opacity={0.8}
+      />
+      <circle
+        cx={origin.x}
+        cy={origin.y}
+        r={3}
+        fill="var(--muted-foreground)"
+        stroke="var(--muted-foreground)"
+        strokeWidth={1.4}
+        className="pointer-events-none"
       />
       {data?.condition && label && (
         <g
-          transform={`translate(${label.x - label.width / 2} ${label.y - 8})`}
+          data-edge-label={id}
+          transform={`translate(${label.x - label.width / 2} ${label.y - label.height / 2})`}
           className="pointer-events-none"
         >
+          <title>{data.condition}</title>
           <rect
             width={label.width}
-            height="16"
+            height={label.height}
             rx="3"
             className="fill-background stroke-border"
             opacity="0.96"
           />
           <text
             x={label.width / 2}
-            y="11"
+            y="14"
             textAnchor="middle"
-            className="fill-muted-foreground text-[8px]"
+            className="fill-muted-foreground text-[9px]"
           >
-            {data.condition}
+            {truncateLabel(data.condition, label.width)}
           </text>
         </g>
       )}
@@ -677,178 +824,20 @@ function AnimatedEdgePath({
       fill="none"
       markerEnd={markerEnd}
       className={cn("react-flow__edge-path", styles.edgeMotion)}
-      style={{
-        stroke,
-        strokeWidth,
-        strokeDasharray: dashArray,
-        opacity,
-        strokeLinejoin: "round",
-        strokeLinecap: "round",
-      }}
-    >
-      <animate
-        attributeName="stroke-dashoffset"
-        from="0"
-        to={String(offset)}
-        dur={duration}
-        repeatCount="indefinite"
-      />
-    </path>
-  );
-}
-
-function _toGraph(
-  system: WorkflowSystem,
-  expanded: string[],
-  selection: WorkflowSelection,
-  mode: WorkflowViewMode,
-  metric: WorkflowMetric,
-): { nodes: Node[]; edges: Edge[] } {
-  const nodes: Node[] = [];
-  const edges: Edge[] = [];
-  const internalLayouts = new Map(
-    [...system.workflows]
-      .sort(compareById)
-      .map((workflow) => [
-        workflow.id,
-        expanded.includes(workflow.id)
-          ? layoutInternalWorkflow(workflow)
-          : undefined,
-      ]),
-  );
-  const dimensions = new Map(
-    [...system.workflows].sort(compareById).map((workflow) => {
-      const isExpanded = expanded.includes(workflow.id);
-      const internalLayout = internalLayouts.get(workflow.id);
-      return [
-        workflow.id,
+      style={
         {
-          width: internalLayout?.width ?? (isExpanded ? 660 : 270),
-          height:
-            internalLayout?.height ??
-            (isExpanded ? 260 : mode === "health" ? 146 : 116),
-        },
-      ];
-    }),
-  );
-  const layout = new dagre.graphlib.Graph({ multigraph: true });
-  layout.setDefaultEdgeLabel(() => ({}));
-  layout.setGraph({
-    rankdir: "LR",
-    ranksep: 180,
-    nodesep: 150,
-    edgesep: 80,
-    acyclicer: "greedy",
-    ranker: "network-simplex",
-  });
-  for (const workflow of [...system.workflows].sort(compareById)) {
-    const dimension = dimensions.get(workflow.id);
-    if (dimension) layout.setNode(workflow.id, dimension);
-  }
-  for (const transition of [...system.transitions].sort(compareById)) {
-    layout.setEdge(
-      transition.sourceWorkflowId,
-      transition.targetWorkflowId,
-      {
-        weight: getTransitionLayoutWeight(transition.volume),
-      },
-      transition.id,
-    );
-  }
-  dagre.layout(layout);
-
-  for (const workflow of [...system.workflows].sort(compareById)) {
-    const isExpanded = expanded.includes(workflow.id);
-    const { width, height } = dimensions.get(workflow.id) ?? {
-      width: 270,
-      height: 116,
-    };
-    const position = layout.node(workflow.id);
-    const selected =
-      selection.type === "workflow" && selection.id === workflow.id;
-    const groupPosition = {
-      x: (position?.x ?? width / 2) - width / 2,
-      y: (position?.y ?? height / 2) - height / 2,
-    };
-    nodes.push({
-      id: workflow.id,
-      type: "workflow",
-      position: groupPosition,
-      data: { workflow, selected, mode },
-      style: { width, height },
-      draggable: false,
-      zIndex: 0,
-    });
-    if (isExpanded) {
-      const internalLayout = internalLayouts.get(workflow.id);
-      [...workflow.nodes].sort(compareById).forEach((node, index) => {
-        const position = internalLayout?.positions.get(node.id) ?? {
-          x: 18 + index * 126,
-          y: 76,
-        };
-        nodes.push({
-          id: `${workflow.id}:${node.id}`,
-          type: "internal",
-          parentId: workflow.id,
-          extent: "parent",
-          draggable: false,
-          position,
-          data: {
-            workflow,
-            node,
-            selected:
-              selection.type === "node" &&
-              selection.workflowId === workflow.id &&
-              selection.id === node.id,
-            mode,
-            metric,
-            direction: internalLayout?.direction ?? "LR",
-          },
-          style: { width: getInternalNodeWidth(node), height: 54 },
-          zIndex: 2,
-        });
-      });
-      for (const edge of [...workflow.internalEdges].sort(compareById)) {
-        const routePoints = internalLayout?.routes
-          .get(edge.id)
-          ?.map((point: { x: number; y: number }) => ({
-            x: point.x + groupPosition.x,
-            y: point.y + groupPosition.y,
-          }));
-        edges.push({
-          id: edge.id,
-          type: "internal",
-          source: `${workflow.id}:${edge.source}`,
-          target: `${workflow.id}:${edge.target}`,
-          markerEnd: { type: MarkerType.ArrowClosed, width: 12, height: 12 },
-          data: { condition: edge.condition, routePoints },
-          zIndex: 1,
-        });
+          stroke,
+          strokeWidth,
+          strokeDasharray: dashArray,
+          opacity,
+          strokeLinejoin: "round",
+          strokeLinecap: "round",
+          "--edge-offset": offset,
+          "--edge-duration": duration,
+        } as CSSProperties
       }
-    }
-  }
-  for (const transition of [...system.transitions].sort(compareById))
-    edges.push({
-      id: transition.id,
-      type: "transition",
-      source: transition.sourceWorkflowId,
-      target: transition.targetWorkflowId,
-      data: {
-        ...transition,
-        selected:
-          selection.type === "transition" && selection.id === transition.id,
-        mode,
-        metric,
-        routePoints: layout.edge({
-          v: transition.sourceWorkflowId,
-          w: transition.targetWorkflowId,
-          name: transition.id,
-        })?.points,
-      },
-      markerEnd: { type: MarkerType.ArrowClosed, width: 14, height: 14 },
-      zIndex: 0,
-    });
-  return { nodes, edges };
+    />
+  );
 }
 
 function toPolylinePath(points: Array<{ x: number; y: number }>) {
@@ -857,129 +846,10 @@ function toPolylinePath(points: Array<{ x: number; y: number }>) {
     .join(" ");
 }
 
-function getEdgeLabelPosition(
-  points: Array<{ x: number; y: number }>,
-  condition?: string,
-  minimumWidth = 34,
-) {
-  if (points.length < 2) return undefined;
-  const segments = points.slice(1).map((point, index) => {
-    const start = points[index];
-    return {
-      start,
-      end: point,
-      horizontal: Math.abs(point.x - start.x) >= Math.abs(point.y - start.y),
-      length: Math.hypot(point.x - start.x, point.y - start.y),
-    };
-  });
-  const horizontalSegments = segments.filter((segment) => segment.horizontal);
-  const segment = (
-    horizontalSegments.length ? horizontalSegments : segments
-  ).reduce((longest, current) =>
-    current.length > longest.length ? current : longest,
-  );
-  const textWidth = Math.min(
-    132,
-    Math.max(minimumWidth, (condition?.length ?? 0) * 5.4 + 14),
-  );
-  // Keeping the label offset off the route makes it legible without obscuring
-  // arrowheads or sitting on top of an internal node.
-  const midpoint = {
-    x: (segment.start.x + segment.end.x) / 2,
-    y: (segment.start.y + segment.end.y) / 2,
-  };
-  return {
-    x: midpoint.x + (segment.horizontal ? 0 : 12),
-    y: midpoint.y + (segment.horizontal ? -12 : 0),
-    width: textWidth,
-  };
+function truncateLabel(text: string, width: number) {
+  const limit = Math.floor((width - 20) / 5.4);
+  return text.length > limit ? `${text.slice(0, limit - 1)}…` : text;
 }
 
-function layoutInternalWorkflow(workflow: WorkflowSummary) {
-  const nodeHeight = 54;
-  const offsetX = 18;
-  const offsetY = 76;
-  const footerHeight = 42;
-  const layout = new dagre.graphlib.Graph({ multigraph: true });
-  layout.setDefaultEdgeLabel(() => ({}));
-  const layoutOptions = (rankdir: LayoutDirection) => ({
-    rankdir,
-    ranksep: rankdir === "TB" ? 56 : 92,
-    nodesep: 80,
-    edgesep: 64,
-    acyclicer: "greedy",
-    ranker: "network-simplex",
-  });
-  layout.setGraph(layoutOptions("LR"));
-  for (const node of [...workflow.nodes].sort(compareById)) {
-    layout.setNode(node.id, {
-      width: getInternalNodeWidth(node),
-      height: nodeHeight,
-    });
-  }
-  for (const edge of [...workflow.internalEdges].sort(compareById)) {
-    layout.setEdge(edge.source, edge.target, {}, edge.id);
-  }
-  dagre.layout(layout);
-
-  // A long linear chain is more legible when it uses the canvas height than
-  // when six or more cards force the focused viewport to zoom far out.
-  const lrBounds = layout.graph();
-  const direction: LayoutDirection =
-    lrBounds.width > lrBounds.height * 1.6 ? "TB" : "LR";
-  if (direction === "TB") {
-    layout.setGraph(layoutOptions(direction));
-    dagre.layout(layout);
-  }
-
-  const positions = new Map(
-    [...workflow.nodes].sort(compareById).map((node) => {
-      const point = layout.node(node.id);
-      const width = getInternalNodeWidth(node);
-      return [
-        node.id,
-        {
-          x: Math.round((point?.x ?? width / 2) - width / 2 + offsetX),
-          y: Math.round(
-            (point?.y ?? nodeHeight / 2) - nodeHeight / 2 + offsetY,
-          ),
-        },
-      ];
-    }),
-  );
-  const maxX = Math.max(
-    ...workflow.nodes.map(
-      (node) =>
-        (positions.get(node.id)?.x ?? offsetX) + getInternalNodeWidth(node),
-    ),
-  );
-  const maxY = Math.max(
-    ...[...positions.values()].map((position) => position.y + nodeHeight),
-  );
-  return {
-    direction,
-    positions,
-    routes: new Map(
-      [...workflow.internalEdges].sort(compareById).map((edge) => [
-        edge.id,
-        (
-          layout.edge({ v: edge.source, w: edge.target, name: edge.id })
-            ?.points ?? []
-        ).map((point: { x: number; y: number }) => ({
-          x: Math.round(point.x + offsetX),
-          y: Math.round(point.y + offsetY),
-        })),
-      ]),
-    ),
-    width: Math.max(420, maxX + 28),
-    height: Math.max(280, maxY + footerHeight + 12),
-  };
-}
-
-function compareById<T extends { id: string }>(a: T, b: T) {
-  return a.id.localeCompare(b.id);
-}
-
-function getInternalNodeWidth(node: WorkflowNode) {
-  return Math.min(250, Math.max(118, node.id.length * 6.4 + 34));
-}
+const nodeTypes = { workflow: WorkflowGroup, internal: InternalNode };
+const edgeTypes = { transition: TransitionEdge, internal: InternalEdge };

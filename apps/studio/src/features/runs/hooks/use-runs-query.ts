@@ -143,6 +143,7 @@ export function useRunsQuery(initialRuns: Run[], defaults?: RunsQueryDefaults) {
     params.status.length +
     selectedProviders.length +
     Number(params.tool) +
+    Number(params.includeChildren) +
     [
       params.workflow,
       params.version,

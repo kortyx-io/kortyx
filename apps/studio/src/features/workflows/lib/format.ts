@@ -12,3 +12,7 @@ export function getTransitionStrokeWidth(
 export function getTransitionLayoutWeight(volume: number): number {
   return Math.max(1, Math.round(Math.log10(Math.max(1, volume))));
 }
+
+export function formatRate(value: number | undefined): string {
+  return value === undefined ? "—" : `${value}%`;
+}

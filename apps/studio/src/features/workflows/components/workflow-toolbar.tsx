@@ -24,6 +24,8 @@ type WorkflowToolbarProps = {
   selectedWorkflow?: WorkflowSummary;
   refreshing: boolean;
   inspectorPanelOpen: boolean;
+  catalogPanelOpen: boolean;
+  onOpenCatalogPanel: () => void;
   range: StudioTimeRange;
   startedAfter: string;
   startedBefore: string;
@@ -44,6 +46,8 @@ export function WorkflowToolbar({
   selectedWorkflow,
   refreshing,
   inspectorPanelOpen,
+  catalogPanelOpen,
+  onOpenCatalogPanel,
   range,
   startedAfter,
   startedBefore,
@@ -70,6 +74,18 @@ export function WorkflowToolbar({
           >
             <PanelLeft />
           </Button>
+          {!catalogPanelOpen && (
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              className="hidden md:inline-flex"
+              aria-label="Expand workflow catalog"
+              title="Expand workflow catalog"
+              onClick={onOpenCatalogPanel}
+            >
+              <PanelLeft />
+            </Button>
+          )}
           <div>
             <h1 className="text-xl font-semibold tracking-tight">Workflows</h1>
             <p className="text-xs text-muted-foreground">
@@ -77,7 +93,7 @@ export function WorkflowToolbar({
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-1.5">
+        <div className="flex flex-wrap items-center gap-1.5">
           <TimeRangeFilter
             compact
             range={range}
@@ -104,9 +120,10 @@ export function WorkflowToolbar({
               <button
                 type="button"
                 key={item}
+                aria-pressed={mode === item}
                 onClick={() => onModeChange(item)}
                 className={cn(
-                  "rounded px-2 py-1 text-xs",
+                  "whitespace-nowrap rounded px-2 py-1 text-xs",
                   mode === item && "bg-accent font-medium",
                 )}
               >
@@ -158,6 +175,7 @@ export function WorkflowToolbar({
             <button
               type="button"
               key={item}
+              aria-pressed={metric === item}
               onClick={() => onMetricChange(item)}
               className={cn(
                 "rounded px-2 py-1 text-[11px] capitalize",

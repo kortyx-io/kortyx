@@ -3,8 +3,18 @@
   height: 100vh;
 }
 
+.edgeMotion {
+  animation: edge-flow var(--edge-duration) linear infinite;
+}
+
+@keyframes edge-flow {
+  to {
+    stroke-dashoffset: var(--edge-offset);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .edgeMotion {
-    display: none;
+    animation: none;
   }
 }

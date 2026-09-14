@@ -70,7 +70,7 @@ export function RunsToolbar({
       </div>
 
       <div className="flex flex-wrap items-center gap-2 pb-3">
-        <div className="relative min-w-[230px] flex-1">
+        <div className="relative min-w-0 basis-full flex-1 sm:basis-48">
           <Search className="pointer-events-none absolute top-2 left-3 size-4 text-muted-foreground" />
           <Input
             value={search}
@@ -105,17 +105,6 @@ export function RunsToolbar({
             Filters
           </TooltipContent>
         </Tooltip>
-        <label className="flex cursor-pointer items-center gap-2 rounded-md border px-3 py-1.5 text-xs">
-          <input
-            type="checkbox"
-            checked={query.includeChildren}
-            onChange={(event) =>
-              setParams({ includeChildren: event.target.checked || null })
-            }
-            className="accent-foreground"
-          />
-          Include child workflows
-        </label>
         <DataTableColumnsMenu />
         <RunsViewsMenu
           query={query}

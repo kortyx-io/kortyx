@@ -108,8 +108,6 @@ const routeConfig: Record<
   },
 };
 
-const rows = Array.from({ length: 8 }, (_, index) => `row-${index}`);
-
 function StaticToolbar({
   title,
   subtitle,
@@ -131,13 +129,13 @@ function StaticToolbar({
             <span className="size-1.5 rounded-full bg-muted-foreground/50" />
             Live
           </div>
-          <div className="flex size-8 items-center justify-center rounded-md border bg-background shadow-xs">
+          <div className="flex size-8 shrink-0 items-center justify-center rounded-md border bg-background shadow-xs">
             <RefreshCw className="size-4" />
           </div>
         </div>
       </div>
       <div className="flex flex-wrap items-center gap-2 pb-3">
-        <div className="relative h-8 min-w-[230px] flex-1 rounded-md border border-input bg-transparent shadow-xs dark:bg-input/30">
+        <div className="relative h-8 min-w-0 basis-full flex-1 sm:basis-48 rounded-md border border-input bg-transparent shadow-xs dark:bg-input/30">
           <Search className="absolute top-2 left-3 size-4 text-muted-foreground" />
           <span className="block truncate pr-3 pl-9 text-sm leading-8 text-muted-foreground">
             {searchPlaceholder}
@@ -146,7 +144,7 @@ function StaticToolbar({
         {[Filter, Columns3, LayoutPanelTop].map((Icon, index) => (
           <div
             key={index === 0 ? "filters" : index === 1 ? "columns" : "views"}
-            className="flex size-8 items-center justify-center rounded-md border bg-background shadow-xs"
+            className="flex size-8 shrink-0 items-center justify-center rounded-md border bg-background shadow-xs"
           >
             <Icon className="size-4" />
           </div>
@@ -232,6 +230,11 @@ export function StudioRouteLoading({
   const config = routeConfig[route];
   const columns = resolveColumns(config.columns, layout);
   const tableWidth = columns.reduce((total, column) => total + column.width, 0);
+  const tableStyle = { width: tableWidth, minWidth: "100%" };
+  const rows = Array.from(
+    { length: Math.max(1, Math.min(pageSize, 100)) },
+    (_, index) => `row-${index}`,
+  );
   const SortIcon = direction === "asc" ? ArrowUp : ArrowDown;
 
   return (
@@ -242,14 +245,17 @@ export function StudioRouteLoading({
       <StaticToolbar {...config} />
 
       <div className="min-h-0 flex-1 overflow-hidden">
-        <div style={{ width: tableWidth, minWidth: "100%" }}>
+        <div style={tableStyle}>
           <table
             className="table-fixed border-separate border-spacing-0 text-left text-sm"
-            style={{ width: tableWidth }}
+            style={tableStyle}
           >
             <colgroup>
               {columns.map((column) => (
-                <col key={column.key} style={{ width: column.width }} />
+                <col
+                  key={column.key}
+                  style={{ width: `${(column.width / tableWidth) * 100}%` }}
+                />
               ))}
             </colgroup>
             <thead className="bg-muted text-xs font-medium text-muted-foreground shadow-[0_1px_0_0_var(--border)]">
@@ -284,12 +290,7 @@ export function StudioRouteLoading({
                       <Skeleton
                         className="h-5"
                         style={{
-                          width: `${Math.min(
-                            column.width - 24,
-                            42 +
-                              ((rowIndex * 29 + columnIndex * 17) %
-                                Math.max(24, column.width - 66)),
-                          )}px`,
+                          width: `${35 + ((rowIndex * 29 + columnIndex * 17) % 55)}%`,
                         }}
                       />
                     </td>
@@ -301,19 +302,21 @@ export function StudioRouteLoading({
         </div>
       </div>
 
-      <div className="flex h-14 shrink-0 items-center justify-between border-t bg-background px-4 text-xs text-muted-foreground">
+      <div className="flex min-h-14 shrink-0 flex-wrap items-center justify-between gap-x-4 gap-y-2 border-t bg-background px-4 py-2 text-xs text-muted-foreground">
         <span>Loading results…</span>
-        <div className="flex items-center gap-2">
-          <span>Rows per page</span>
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="whitespace-nowrap">Rows per page</span>
           <span className="flex h-8 min-w-12 items-center rounded-md border px-2 text-foreground">
             {pageSize}
           </span>
           <span className="flex h-8 items-center gap-1 rounded-md border px-3 opacity-50">
-            <ChevronLeft className="size-4" /> Previous
+            <ChevronLeft className="size-4" />{" "}
+            <span className="hidden sm:inline">Previous</span>
           </span>
           <span className="font-mono tabular-nums">1/1</span>
           <span className="flex h-8 items-center gap-1 rounded-md border px-3 opacity-50">
-            Next <ChevronRight className="size-4" />
+            <span className="hidden sm:inline">Next</span>{" "}
+            <ChevronRight className="size-4" />
           </span>
         </div>
       </div>

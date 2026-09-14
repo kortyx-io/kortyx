@@ -118,7 +118,10 @@ export function DataTable<T, S extends string>({
   const colGroup = (
     <colgroup>
       {visibleColumnOrder.map((column) => (
-        <col key={column} style={{ width: widths[column] }} />
+        <col
+          key={column}
+          style={{ width: `${(widths[column] / tableWidth) * 100}%` }}
+        />
       ))}
     </colgroup>
   );
@@ -158,7 +161,7 @@ export function DataTable<T, S extends string>({
               >
                 <table
                   className="table-fixed border-separate border-spacing-0 text-left text-sm"
-                  style={{ width: tableWidth }}
+                  style={tableStyle}
                 >
                   {colGroup}
                   <thead className="bg-muted text-xs font-medium text-muted-foreground shadow-[0_1px_0_0_var(--border)]">
@@ -194,7 +197,7 @@ export function DataTable<T, S extends string>({
           <div style={tableStyle}>
             <table
               className="table-fixed border-separate border-spacing-0 text-left text-sm"
-              style={{ width: tableWidth }}
+              style={tableStyle}
             >
               {colGroup}
               <tbody>
@@ -281,13 +284,13 @@ function DataTablePaginationFooter({
   const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
 
   return (
-    <div className="flex h-14 shrink-0 items-center justify-between border-t bg-background px-4 text-xs text-muted-foreground">
+    <div className="flex min-h-14 shrink-0 flex-wrap items-center justify-between gap-x-4 gap-y-2 border-t bg-background px-4 py-2 text-xs text-muted-foreground">
       <span>
         {totalCount > 0
           ? `Showing ${firstVisible}–${lastVisible} of ${totalCount}`
           : "No results"}
       </span>
-      <div className="flex items-center gap-2">
+      <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
         <label className="flex items-center gap-2 whitespace-nowrap">
           Rows per page
           <select
@@ -297,7 +300,7 @@ function DataTablePaginationFooter({
               onBeforeChange();
               onPageSizeChange(Number(event.target.value));
             }}
-            className="h-8 rounded-md border bg-background px-2 text-xs text-foreground outline-none focus:ring-2 focus:ring-ring/50"
+            className="h-8 w-14 rounded-md border bg-background px-2 text-xs text-foreground outline-none focus:ring-2 focus:ring-ring/50 sm:w-auto"
           >
             {pageSizes.map((size) => (
               <option key={size} value={size}>
@@ -309,13 +312,14 @@ function DataTablePaginationFooter({
         <Button
           variant="outline"
           size="sm"
+          aria-label="Previous page"
           disabled={!hasPrevious}
           onClick={() => {
             onBeforeChange();
             onCursorChange(Math.max(0, cursor - pageSize));
           }}
         >
-          <ChevronLeft /> Previous
+          <ChevronLeft /> <span className="hidden sm:inline">Previous</span>
         </Button>
         <span className="shrink-0 font-mono whitespace-nowrap tabular-nums">
           {currentPage}/{totalPages}
@@ -323,13 +327,14 @@ function DataTablePaginationFooter({
         <Button
           variant="outline"
           size="sm"
+          aria-label="Next page"
           disabled={!hasNext}
           onClick={() => {
             onBeforeChange();
             onCursorChange(cursor + pageSize);
           }}
         >
-          Next <ChevronRight />
+          <span className="hidden sm:inline">Next</span> <ChevronRight />
         </Button>
       </div>
     </div>

@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@/lib/utils";
@@ -29,12 +29,15 @@ export default function WorkflowsPageClient({
     id: string;
     request: number;
     sourceKey: string;
+    animate?: boolean;
   }>();
+  const pendingCatalogFocus = useRef<string | null>(null);
   const [showCalls, setShowCalls] = useState(true);
   const canvasSystem = useMemo(
     () => withWorkflowCallEvidence(system, showCalls),
     [system, showCalls],
   );
+  const [catalogPanelOpen, setCatalogPanelOpen] = useState(true);
   const [catalogOpen, setCatalogOpen] = useState(false);
   const [inspectorOpen, setInspectorOpen] = useState(false);
   const [inspectorPanelOpen, setInspectorPanelOpen] = useState(true);
@@ -81,14 +84,27 @@ export default function WorkflowsPageClient({
   }, []);
 
   useEffect(() => {
+    // URL updates can briefly render the previous selection after a catalog click.
+    // Keep the explicit camera request until the URL catches up.
+    if (
+      pendingCatalogFocus.current &&
+      pendingCatalogFocus.current !== canvasFocusId
+    )
+      return;
+    pendingCatalogFocus.current = null;
     if (!system.workflows.some((workflow) => workflow.id === canvasFocusId)) {
       return;
     }
-    setFocusedWorkflow((current) => ({
-      id: canvasFocusId,
-      request: (current?.request ?? 0) + 1,
-      sourceKey: canvasFocusKey,
-    }));
+    setFocusedWorkflow((current) =>
+      current?.sourceKey === canvasFocusKey
+        ? current
+        : {
+            id: canvasFocusId,
+            request: (current?.request ?? 0) + 1,
+            sourceKey: canvasFocusKey,
+            animate: current !== undefined,
+          },
+    );
   }, [canvasFocusKey, canvasFocusId, system.workflows]);
 
   function selectItem(nextSelection: typeof selection) {
@@ -98,7 +114,14 @@ export default function WorkflowsPageClient({
   }
 
   function selectWorkflow(id: string) {
+    pendingCatalogFocus.current = id;
     selectItem({ type: "workflow", id });
+    setFocusedWorkflow((current) => ({
+      id,
+      sourceKey: `${id}::`,
+      request: (current?.request ?? 0) + 1,
+      animate: true,
+    }));
     setCatalogOpen(false);
   }
 
@@ -112,6 +135,7 @@ export default function WorkflowsPageClient({
       onQueryChange={(q) => void setParams({ q })}
       onHealthChange={(health) => void setParams({ health })}
       onSelectWorkflow={selectWorkflow}
+      onCollapse={() => setCatalogPanelOpen(false)}
       onClear={() => void setParams({ q: null, health: null })}
     />
   );
@@ -136,7 +160,15 @@ export default function WorkflowsPageClient({
       data-workflows-ready={hydrated ? "true" : "false"}
       className="flex h-full min-h-[620px] overflow-hidden rounded-xl border bg-background shadow-sm"
     >
-      <div className="hidden md:block">{catalog}</div>
+      <div
+        inert={!catalogPanelOpen}
+        className={cn(
+          "hidden h-full shrink-0 overflow-hidden transition-[width] duration-200 motion-reduce:transition-none md:block",
+          catalogPanelOpen ? "w-[260px]" : "w-0",
+        )}
+      >
+        {catalog}
+      </div>
       <main className="flex min-w-0 flex-1 flex-col">
         <WorkflowToolbar
           mode={params.mode}
@@ -144,6 +176,8 @@ export default function WorkflowsPageClient({
           selectedWorkflow={selectedWorkflow}
           refreshing={refreshing}
           inspectorPanelOpen={inspectorPanelOpen}
+          catalogPanelOpen={catalogPanelOpen}
+          onOpenCatalogPanel={() => setCatalogPanelOpen(true)}
           range={params.range}
           startedAfter={params.startedAfter}
           startedBefore={params.startedBefore}

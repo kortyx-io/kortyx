@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { formatCount, formatCurrency, formatDurationMs } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { formatRate } from "../lib/format";
 import type { WorkflowSelection } from "../lib/view-state";
 import type { WorkflowHealth, WorkflowSystem } from "../schema";
 
@@ -154,7 +155,9 @@ export function WorkflowInspector({
                       <ArrowLeft />
                     </Button>
                   ) : null}
-                  <h3 className="font-mono text-sm font-semibold">{title}</h3>
+                  <h3 className="min-w-0 break-words font-mono text-sm font-semibold">
+                    {title}
+                  </h3>
                   {selectedWorkflow && (
                     <span
                       className={cn(
@@ -191,7 +194,7 @@ export function WorkflowInspector({
                       selectedTransition.kind === "call"
                         ? "Child success"
                         : "Success after handoff",
-                      `${selectedTransition.successRate ?? "—"}%`,
+                      formatRate(selectedTransition.successRate),
                     ],
                     [
                       selectedTransition.kind === "call"
@@ -211,7 +214,7 @@ export function WorkflowInspector({
                     ["Runs", formatCount(selectedNode.metrics.runCount)],
                     [
                       "Success / error",
-                      `${selectedNode.metrics.successRate ?? "—"}% / ${selectedNode.metrics.errorRate ?? "—"}%`,
+                      `${formatRate(selectedNode.metrics.successRate)} / ${formatRate(selectedNode.metrics.errorRate)}`,
                     ],
                     [
                       "p50 / p95",
@@ -219,7 +222,7 @@ export function WorkflowInspector({
                     ],
                     [
                       "Retries / interrupts",
-                      `${selectedNode.metrics.retryCount ?? 0} / ${selectedNode.metrics.interruptRate ?? 0}%`,
+                      `${selectedNode.metrics.retryCount ?? "—"} / ${formatRate(selectedNode.metrics.interruptRate)}`,
                     ],
                     [
                       "Cost / run",
@@ -235,7 +238,7 @@ export function WorkflowInspector({
                       ["Runs", formatCount(selectedWorkflow.metrics.runCount)],
                       [
                         "Completion / error",
-                        `${selectedWorkflow.metrics.successRate ?? "—"}% / ${selectedWorkflow.metrics.errorRate ?? "—"}%`,
+                        `${formatRate(selectedWorkflow.metrics.successRate)} / ${formatRate(selectedWorkflow.metrics.errorRate)}`,
                       ],
                       [
                         "p50 / p95",
@@ -243,9 +246,9 @@ export function WorkflowInspector({
                       ],
                       [
                         "Tokens / run",
-                        formatCount(
-                          selectedWorkflow.metrics.averageTokens ?? 0,
-                        ),
+                        selectedWorkflow.metrics.averageTokens === undefined
+                          ? "—"
+                          : formatCount(selectedWorkflow.metrics.averageTokens),
                       ],
                       [
                         "Cost / run",
@@ -253,7 +256,7 @@ export function WorkflowInspector({
                       ],
                       [
                         "Interrupt rate",
-                        `${selectedWorkflow.metrics.interruptRate ?? 0}%`,
+                        `${formatRate(selectedWorkflow.metrics.interruptRate)}`,
                       ],
                     ]}
                   />
@@ -261,6 +264,15 @@ export function WorkflowInspector({
                     <h4 className="mb-2 text-xs font-medium">
                       Workflow connections
                     </h4>
+                    {!system.transitions.some(
+                      (edge) =>
+                        edge.sourceWorkflowId === selectedWorkflow.id ||
+                        edge.targetWorkflowId === selectedWorkflow.id,
+                    ) && (
+                      <p className="text-xs text-muted-foreground">
+                        No workflow connections.
+                      </p>
+                    )}
                     {system.transitions
                       .filter(
                         (edge) =>
@@ -313,7 +325,10 @@ function MetricList({ items }: { items: [string, string][] }) {
           className="flex items-center justify-between gap-4 px-3 py-2"
         >
           <dt className="text-muted-foreground">{label}</dt>
-          <dd className="truncate text-right font-mono tabular-nums">
+          <dd
+            title={value}
+            className="min-w-0 truncate text-right font-mono tabular-nums"
+          >
             {value}
           </dd>
         </div>
