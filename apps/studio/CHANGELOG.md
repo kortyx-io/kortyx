@@ -1,5 +1,25 @@
 # Changelog
 
+## [0.3.0](https://github.com/kortyx-io/kortyx/compare/studio-v0.2.0...studio-v0.3.0) (2026-09-14)
+
+
+### Features
+
+* **studio:** add manual and scheduled updates through a release CDN ([#181](https://github.com/kortyx-io/kortyx/issues/181)) ([af1fde3](https://github.com/kortyx-io/kortyx/commit/af1fde351642f3bf8e240ff41f5c7f9ad88584de))
+
+
+### Bug Fixes
+
+* **studio:** make Publish Release (Studio) manual ([e80e097](https://github.com/kortyx-io/kortyx/commit/e80e0974e649dab3ef99ddb55979d11b8ba9ba51))
+* **studio:** publish releases through a manual workflow ([e3569e9](https://github.com/kortyx-io/kortyx/commit/e3569e923e591886e6478ba444f7a2cee2df0466))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/telemetry-contracts bumped to 0.6.0
+
 ## [0.2.0](https://github.com/kortyx-io/kortyx/compare/studio-v0.1.0...studio-v0.2.0) (2026-09-14)
 
 

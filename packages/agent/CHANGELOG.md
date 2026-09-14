@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.22.1](https://github.com/kortyx-io/kortyx/compare/agent-v0.22.0...agent-v0.22.1) (2026-09-14)
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/runtime bumped to 0.17.1
+  * devDependencies
+    * @kortyx/hooks bumped to 0.25.1
+
 ## [0.22.0](https://github.com/kortyx-io/kortyx/compare/agent-v0.21.0...agent-v0.22.0) (2026-09-14)
 
 

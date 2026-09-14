@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.0](https://github.com/kortyx-io/kortyx/compare/telemetry-contracts-v0.5.0...telemetry-contracts-v0.6.0) (2026-09-14)
+
+
+### Features
+
+* **studio:** add manual and scheduled updates through a release CDN ([#181](https://github.com/kortyx-io/kortyx/issues/181)) ([af1fde3](https://github.com/kortyx-io/kortyx/commit/af1fde351642f3bf8e240ff41f5c7f9ad88584de))
+
 ## [0.5.0](https://github.com/kortyx-io/kortyx/compare/telemetry-contracts-v0.4.0...telemetry-contracts-v0.5.0) (2026-09-11)
 
 

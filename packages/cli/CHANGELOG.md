@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.7.0](https://github.com/kortyx-io/kortyx/compare/cli-v0.6.0...cli-v0.7.0) (2026-09-14)
+
+
+### Features
+
+* **studio:** add manual and scheduled updates through a release CDN ([#181](https://github.com/kortyx-io/kortyx/issues/181)) ([af1fde3](https://github.com/kortyx-io/kortyx/commit/af1fde351642f3bf8e240ff41f5c7f9ad88584de))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/agent bumped to 0.22.1
+    * @kortyx/telemetry-contracts bumped to 0.6.0
+
 ## [0.6.0](https://github.com/kortyx-io/kortyx/compare/cli-v0.5.6...cli-v0.6.0) (2026-09-14)
 
 
