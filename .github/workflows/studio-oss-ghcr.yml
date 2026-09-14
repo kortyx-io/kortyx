@@ -267,7 +267,10 @@ jobs:
             if [ -x "$clean_dir/node_modules/.bin/kortyx" ] && [ -f "$studio_home/config.json" ]; then
               "$clean_dir/node_modules/.bin/kortyx" studio reset --home "$studio_home" --confirm || true
             fi
-            rm -rf "$clean_dir" "$studio_home" "$backup_dir"
+            # The updater writes root-owned state inside its bind-mounted home.
+            # Remove only this disposable CI home with elevated permissions.
+            sudo rm -rf -- "$studio_home"
+            rm -rf -- "$clean_dir" "$backup_dir"
             exit "$result"
           }
           trap cleanup EXIT
