@@ -1,20 +1,13 @@
 name: Release Studio Self-Hosted Images (GHCR)
 
 on:
+  push:
+    tags:
+      - "studio-v*"
   workflow_dispatch:
-    inputs:
-      version:
-        description: "Studio version without the leading v, for example 0.1.0."
-        required: true
-        type: string
-      create_git_tag:
-        description: "Create studio-v<version> after production promotion."
-        required: true
-        default: true
-        type: boolean
 
 permissions:
-  contents: write
+  contents: read
   packages: write
 
 concurrency:
@@ -39,27 +32,28 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Validate version and release tag
+      - name: Derive and validate version from release tag
         id: version
-        env:
-          VERSION: ${{ inputs.version }}
         run: |
-          if [ "$GITHUB_REF" != "refs/heads/main" ]; then
-            echo "Studio releases must run from main, got: $GITHUB_REF"
+          if [[ "$GITHUB_REF" != refs/tags/studio-v* ]]; then
+            echo "Select a release-please Studio tag (studio-v<version>), got: $GITHUB_REF"
             exit 1
           fi
 
-          if ! printf '%s' "$VERSION" | grep -Eq '^[0-9]+(\.[0-9]+){1,2}([-.][0-9A-Za-z.-]+)?$'; then
-            echo "Expected semantic version, got: $VERSION"
+          version="${GITHUB_REF_NAME#studio-v}"
+          package_version="$(node -p 'require("./apps/studio/package.json").version')"
+          manifest_version="$(node -p 'require("./.github/release-please/manifest.json")["apps/studio"]')"
+          if [ "$version" != "$package_version" ] || [ "$version" != "$manifest_version" ]; then
+            echo "Studio tag ($version), package ($package_version), and release-please manifest ($manifest_version) must match."
             exit 1
           fi
 
-          if git rev-parse --verify --quiet "refs/tags/studio-v${VERSION}"; then
-            echo "studio-v${VERSION} already exists. Studio release versions are immutable."
+          if ! git merge-base --is-ancestor HEAD origin/main; then
+            echo "Studio release tags must point to a commit merged into main."
             exit 1
           fi
 
-          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
 
   package-installer:
     name: Package clean-install candidate
@@ -282,6 +276,7 @@ jobs:
 
           test "$(docker run --rm "$api_ref" node -p 'process.arch')" = "$EXPECTED_NODE_ARCH"
           test "$(docker run --rm "$studio_ref" node -p 'process.arch')" = "$EXPECTED_NODE_ARCH"
+          test "$(docker run --rm "$studio_ref" node -p 'require("/app/apps/studio/package.json").version')" = "$VERSION"
 
           KORTYX_API_IMAGE="${REGISTRY}/${API_IMAGE_NAME}" \
           KORTYX_STUDIO_IMAGE="${REGISTRY}/${STUDIO_IMAGE_NAME}" \
@@ -449,14 +444,3 @@ jobs:
             echo
             echo "Native clean-install smoke tests passed on linux/amd64 and linux/arm64."
           } >> "$GITHUB_STEP_SUMMARY"
-
-      - name: Create Studio release tag
-        if: inputs.create_git_tag
-        env:
-          VERSION: ${{ needs.prepare.outputs.version }}
-        run: |
-          git \
-            -c user.name="github-actions[bot]" \
-            -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
-            tag -a "studio-v${VERSION}" -m "Kortyx Studio v${VERSION}"
-          git push origin "studio-v${VERSION}"
