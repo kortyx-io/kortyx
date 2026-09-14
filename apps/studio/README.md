@@ -62,6 +62,14 @@ For an interactive runner:
 pnpm --filter kortyx-studio test:e2e:ui
 ```
 
+Also run drawer navigation against a production build, where Next.js enables
+automatic link prefetching. Use a free Studio port; this mode builds and starts
+its own server so it cannot accidentally reuse a development server:
+
+```bash
+KORTYX_E2E_PRODUCTION=1 KORTYX_E2E_STUDIO_URL=http://localhost:6301 pnpm --filter kortyx-studio test:e2e detail-drawer-stack.spec.ts
+```
+
 ## Self-hosted authentication
 
 Kortyx Studio uses a small auth-mode boundary so the self-hosted preview can

@@ -49,6 +49,8 @@ web-first assertions, or `expect.poll`; do not add fixed sleeps.
 
 - loading and resolved slots create two drawer surfaces;
 - a list row opens a full route or skips its entry motion;
+- the first Session → Run navigation replaces the stack with a standalone
+  route after loading (production link prefetching);
 - Browser Back removes a drawer before its exit state is observable;
 - the backdrop disappears between layers or closes more than one layer;
 - the backdrop sits above ancestor drawers and blocks their visible slivers;
