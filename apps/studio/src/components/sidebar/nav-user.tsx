@@ -59,7 +59,7 @@ export function NavUser({
                 <Server className="size-4" aria-hidden="true" />
                 <span
                   className={cn(
-                    "absolute -right-0.5 -bottom-0.5 size-2.5 rounded-full border-2 border-sidebar",
+                    "absolute right-0.5 bottom-0.5 size-2.5 rounded-full border-2 border-sidebar",
                     statusClass[studioContext.connection.status],
                   )}
                   aria-hidden="true"
