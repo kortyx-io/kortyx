@@ -179,7 +179,10 @@ Kortyx API, then verifies that `/v1/studio/runs` can read it back.
 ## Self-hosted image release flow
 
 Self-hosted Studio images are published separately from the website through the
-manual **Release Studio Self-Hosted Images (GHCR)** GitHub Actions workflow.
+manual **Publish Release (Studio)** GitHub Actions workflow.
+First complete **Publish Release (NPM Packages)** for the release commit. Then
+run the Studio workflow from `main`, supplying the existing `studio-vX.Y.Z` tag
+in `release_tag`. Creating the tag alone does not publish Docker images.
 
 The workflow builds native `linux/amd64` and `linux/arm64` manifests and pushes:
 
@@ -206,6 +209,6 @@ ghcr.io/kortyx-io/kortyx-studio:vX.Y.Z
 ghcr.io/kortyx-io/kortyx-studio:latest
 ```
 
-The workflow can create the immutable `studio-vX.Y.Z` Git tag after promotion.
+Release-please creates the immutable `studio-vX.Y.Z` Git tag before publication.
 Repository setup and release/recovery instructions are in the
 [Studio self-hosted release runbook](../../docs/design-specs/studio-oss-release.md).

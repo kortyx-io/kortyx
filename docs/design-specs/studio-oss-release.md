@@ -17,8 +17,9 @@ platform manifests. Docker selects the native manifest automatically.
 
 ## One release, four gates
 
-The `Release Studio Self-Hosted Images (GHCR)` GitHub Actions workflow is the only
-production publication path.
+The `Publish Release (Studio)` GitHub Actions workflow is the only
+production publication path. It is started manually after npm publication;
+creating a `studio-vX.Y.Z` tag does not start Docker publication.
 
 1. **Validate:** derive the version from the release-please `studio-vX.Y.Z` tag,
    require it to match Studio's package and release manifest, and verify the
@@ -44,8 +45,11 @@ least one required reviewer:
 1. Open **Settings → Environments** in the GitHub repository.
 2. Create or select `studio-production`.
 3. Enable **Required reviewers** and select the release approver(s).
-4. Allow deployment tags matching `studio-v*`. The workflow verifies that the
-   tagged commit is on `main`; a branch-only `main` policy will block tag runs.
+4. Allow deployments from `main`. Run the workflow from `main` and supply the
+   existing `studio-vX.Y.Z` tag in `release_tag`. The workflow checks out that
+   tag, verifies its commit is on `main`, then pins every remaining job to the
+   same SHA. The environment policy applies to the selected workflow ref
+   (`main`), not the `release_tag` input.
 
 The workflow contains the environment gate, but GitHub only pauses for approval
 when the repository environment has a protection rule.
@@ -57,12 +61,14 @@ when the repository environment has a protection rule.
 2. Run **Prepare Release PR (Repo)** and merge the shared release PR. It updates
    `apps/studio/package.json`, `apps/studio/CHANGELOG.md`, and Studio's entry in
    `.github/release-please/manifest.json` together.
-3. **Create Release Tags (Repo)** creates `studio-vX.Y.Z`, which automatically
-   starts **Release Studio Self-Hosted Images (GHCR)**, following the website's
-   component-tag pattern.
-4. Wait for both native clean-install jobs to pass.
-5. Review the staged version and approve the `studio-production` deployment.
-6. Confirm the workflow summary lists the promoted API and Studio digests.
+3. Wait for **Create Release Tags (Repo)** to create `studio-vX.Y.Z`.
+4. Run **Publish Release (NPM Packages)** for the release commit and wait for it
+   to succeed. The Studio installer depends on those published npm versions.
+5. Run **Publish Release (Studio)** with **Use workflow from:
+   main** and `release_tag` set to `studio-vX.Y.Z`.
+6. Wait for both native clean-install jobs to pass, then review the staged
+   version and approve the `studio-production` deployment.
+7. Confirm the workflow summary lists the promoted API and Studio digests.
 
 The workflow publishes:
 
@@ -88,9 +94,11 @@ in the running build. It does not check for newer releases.
 - A smoke failure prints container state and logs, then removes its isolated
   database volume.
 - Rejecting the environment deployment leaves only staging tags.
-- To retry a failed build, rerun the tag's workflow or use **Run workflow** with
-  that existing `studio-vX.Y.Z` tag selected. Re-running is safe until a
-  production image tag exists; the release-please Git tag is expected to exist.
+- To retry, prefer **Re-run failed jobs**. If npm dependencies were missing,
+  complete npm publication first. To use updated workflow code for an older
+  release, choose **Run workflow** from `main` and supply its existing
+  `studio-vX.Y.Z` tag in `release_tag`. Re-running is safe until a production
+  image tag exists; the release-please Git tag is expected to exist.
 - If promotion partially succeeds, inspect the recorded digests before any
   manual recovery. Never rebuild under the same version.
 

@@ -1,10 +1,12 @@
-name: Release Studio Self-Hosted Images (GHCR)
+name: Publish Release (Studio)
 
 on:
-  push:
-    tags:
-      - "studio-v*"
   workflow_dispatch:
+    inputs:
+      release_tag:
+        description: Existing Studio release tag to publish after npm publication (studio-vX.Y.Z)
+        required: true
+        type: string
 
 permissions:
   contents: read
@@ -26,21 +28,25 @@ jobs:
     timeout-minutes: 5
     outputs:
       version: ${{ steps.version.outputs.version }}
+      commit: ${{ steps.version.outputs.commit }}
     steps:
       - name: Checkout
         uses: actions/checkout@v6
         with:
+          ref: refs/tags/${{ inputs.release_tag }}
           fetch-depth: 0
 
       - name: Derive and validate version from release tag
         id: version
+        env:
+          RELEASE_TAG: ${{ inputs.release_tag }}
         run: |
-          if [[ "$GITHUB_REF" != refs/tags/studio-v* ]]; then
-            echo "Select a release-please Studio tag (studio-v<version>), got: $GITHUB_REF"
+          if [[ ! "$RELEASE_TAG" =~ ^studio-v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Enter a release-please Studio tag (studio-v<version>), got: $RELEASE_TAG"
             exit 1
           fi
 
-          version="${GITHUB_REF_NAME#studio-v}"
+          version="${RELEASE_TAG#studio-v}"
           package_version="$(node -p 'require("./apps/studio/package.json").version')"
           manifest_version="$(node -p 'require("./.github/release-please/manifest.json")["apps/studio"]')"
           if [ "$version" != "$package_version" ] || [ "$version" != "$manifest_version" ]; then
@@ -54,6 +60,7 @@ jobs:
           fi
 
           echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "commit=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
   package-installer:
     name: Package clean-install candidate
@@ -63,6 +70,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v6
+        with:
+          ref: ${{ needs.prepare.outputs.commit }}
 
       - name: Setup Node
         uses: actions/setup-node@v6
@@ -109,6 +118,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v6
+        with:
+          ref: ${{ needs.prepare.outputs.commit }}
 
       - name: Setup QEMU
         uses: docker/setup-qemu-action@v4
@@ -207,6 +218,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v6
+        with:
+          ref: ${{ needs.prepare.outputs.commit }}
 
       - name: Setup Node
         uses: actions/setup-node@v6
@@ -395,6 +408,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
         with:
+          ref: ${{ needs.prepare.outputs.commit }}
           fetch-depth: 0
 
       - name: Setup Docker Buildx
