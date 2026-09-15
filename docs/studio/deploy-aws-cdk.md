@@ -14,6 +14,14 @@ The construct creates ECS Fargate, PostgreSQL on RDS, generated credentials in S
 
 The load balancer accepts traffic from the VPC CIDR by default. Neither the ECS task nor RDS receives a public IP.
 
+## Choose a deployment path
+
+This construct is the maintained, batteries-included AWS path, not a requirement for running Kortyx on AWS. Use it when your infrastructure is managed with CDK and its defaults fit your environment.
+
+The published containers and [deployment contract](deployment-contract.md) can also be implemented with your own ECS service using Terraform, Pulumi, CloudFormation, or lower-level CDK; with EKS; or with Docker Compose on EC2. The construct can reuse an existing database, cluster, certificate, and hosted zone when you want its orchestration without its resource defaults.
+
+`@kortyx/aws-cdk` is an infrastructure dependency, not a dependency of the deployed Kortyx workload. If your organization has standardized on another infrastructure tool, keep it and follow [Deploy on a Server](deploy-on-server.md) for the portable container contract.
+
 ## Prerequisites
 
 - AWS CLI credentials with permission to deploy CDK stacks;

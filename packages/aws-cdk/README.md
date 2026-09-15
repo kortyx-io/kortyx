@@ -2,6 +2,8 @@
 
 Deploy a private Kortyx Studio installation on ECS Fargate with PostgreSQL on RDS, HTTPS on an internal Application Load Balancer, Route 53 DNS, and generated Secrets Manager credentials.
 
+This is the maintained, batteries-included CDK path. It is not required at runtime: the same Kortyx containers can be deployed with Terraform, Pulumi, CloudFormation, lower-level CDK, EKS, or Docker Compose.
+
 ```bash
 pnpm add @kortyx/aws-cdk aws-cdk-lib constructs
 ```
