@@ -1,6 +1,6 @@
 {
   "name": "@kortyx/aws-cdk",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "private": false,
   "description": "AWS CDK constructs for self-hosting Kortyx Studio.",
   "keywords": [
