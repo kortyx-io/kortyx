@@ -83,4 +83,20 @@ describe("Studio update controls", () => {
       ).status,
     ).toBe(401);
   });
+  it("explains update ownership when no updater is configured", async () => {
+    vi.stubEnv("KORTYX_STUDIO_UPDATER_URL", "");
+    vi.stubEnv("KORTYX_STUDIO_UPDATE_TOKEN", "");
+
+    const response = await studioUpdateRequest(
+      new Request("http://localhost/api/studio/updates", {
+        headers: { authorization },
+      }),
+    );
+
+    expect(response.status).toBe(503);
+    expect(await response.json()).toEqual({
+      error:
+        "This installation does not have an in-product updater. Manage updates through your deployment workflow, or use the Kortyx installer for local Docker update management.",
+    });
+  });
 });
