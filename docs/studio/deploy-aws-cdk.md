@@ -142,7 +142,7 @@ curl --fail https://studio.example.com/health
 curl --head https://studio.example.com
 ```
 
-Upgrade by changing `version`, running `cdk diff`, and deploying through the same reviewed path. ECS/CDK deployments do not use the local Docker updater shown in Studio.
+Upgrade by changing `version`, running `cdk diff`, and deploying through the same reviewed path. The Studio message "This installation does not have an updater" is normal for orchestrated installations: image updates belong to their deployment workflow, such as CDK/ECS on AWS, Terraform or Cloud Deploy on Google Cloud, or Helm/GitOps on Kubernetes.
 
 The ECS circuit breaker can roll back a failed task definition, but it cannot roll back a database schema. Back up RDS before an upgrade; database downgrade is unsupported.
 

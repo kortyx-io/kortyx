@@ -265,6 +265,6 @@ ECS deployments are controlled by CDK, not by the local Docker updater shown in 
 
 The ECS deployment circuit breaker can roll back a task definition when a replacement fails; it cannot roll back a database schema. Database downgrade is unsupported, so restore the matching pre-upgrade snapshot if a newer migration is incompatible with the previous release.
 
-> **Expected Studio message:** An ECS/CDK installation does not run the local Docker updater. Update management belongs to your infrastructure repository and deployment workflow.
+> **Expected Studio message:** "This installation does not have an updater." This is normal for an orchestrated installation: image updates belong to its deployment workflow, such as CDK/ECS on AWS, Terraform or Cloud Deploy on Google Cloud, or Helm/GitOps on Kubernetes.
 
 For backups, credential handling, and failure recovery, continue with [Operations and Troubleshooting](./07-operations.md) and the [Configuration Reference](./08-configuration-reference.md).
