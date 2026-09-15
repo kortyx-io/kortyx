@@ -53,6 +53,9 @@ PostgreSQL and externally supplied secrets, follow
 [Deploy Kortyx Studio on a server](./docs/studio/deploy-on-server.md). The
 [deployment contract](./docs/studio/deployment-contract.md) is the portable
 boundary for Compose, VMs, ECS, Cloud Run, Kubernetes, Terraform, and CDK.
+For production, the [high-availability guide](./docs/studio/high-availability.md)
+defines the two-replica baseline, health probes, serialized migrations, and
+rolling-update contract.
 
 Published images support `linux/amd64` and `linux/arm64`; Docker Desktop on
 Apple Silicon selects the ARM64 image automatically. CLI-managed ports bind to

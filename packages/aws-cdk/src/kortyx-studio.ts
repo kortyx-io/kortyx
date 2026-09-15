@@ -216,7 +216,7 @@ export class KortyxStudio extends Construct {
       healthCheck: {
         command: [
           "CMD-SHELL",
-          "node -e \"fetch('http://127.0.0.1:6400/health').then((response)=>process.exit(response.ok?0:1)).catch(()=>process.exit(1))\"",
+          "node -e \"fetch('http://127.0.0.1:6400/live').then((response)=>process.exit(response.ok?0:1)).catch(()=>process.exit(1))\"",
         ],
         interval: cdk.Duration.seconds(15),
         timeout: cdk.Duration.seconds(5),
@@ -358,7 +358,7 @@ export class KortyxStudio extends Construct {
         port: 6400,
         protocol: elbv2.ApplicationProtocol.HTTP,
         deregistrationDelay: cdk.Duration.seconds(30),
-        healthCheck: { path: "/health", healthyHttpCodes: "200" },
+        healthCheck: { path: "/ready", healthyHttpCodes: "200" },
       },
     );
     apiTargetGroup.addTarget(

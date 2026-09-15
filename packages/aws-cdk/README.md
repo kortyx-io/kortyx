@@ -25,7 +25,7 @@ export class ObservabilityStack extends cdk.Stack {
     new KortyxStudio(this, "Studio", {
       vpc,
       domainName: "studio.example.com",
-      version: "v0.3.2",
+      version: "v0.4.0",
     });
   }
 }
@@ -34,5 +34,7 @@ export class ObservabilityStack extends cdk.Stack {
 The default is private: the ALB accepts HTTPS from the VPC CIDR, tasks and RDS have no public IP, and credentials are generated in Secrets Manager. The construct infers the `example.com` hosted zone from `studio.example.com` and creates a DNS-validated certificate. Pass `hostedZone` or `certificate` when the inferred defaults do not match your DNS layout.
 
 The same URL serves Studio and telemetry. Requests to `/v1/telemetry/*` and `/health` route to the API; all other requests route to Studio.
+
+The construct intentionally deploys one cohesive ECS task. The Kortyx runtime supports multiple replicas, but this convenience package does not model independently scaled services or an external migration job. Use the portable deployment contract for a custom highly available ECS or EKS topology; do not deploy two copies of this construct against one database.
 
 See the full [AWS CDK deployment guide](https://kortyx.io/docs/studio/deploy-aws-cdk) for prerequisites, credentials, upgrades, and the current availability model.

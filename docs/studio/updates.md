@@ -101,10 +101,18 @@ one public HTTPS request to the CDN; they do not query GitHub's Releases API.
   continue seeing the previous release. A failure after the final write may mean
   the new release is already visible; rerunning the same publication is safe.
 
-The manifest contains the stable version, both official image digests, and the
-update format and installer protocol version. Unknown protocols, prereleases,
-and arbitrary image repositories are rejected. The release pipeline is the only
+The manifest contains the stable version, both official image digests, the
+update format and installer protocol version, and a deployment strategy. A
+`rolling` strategy means the reviewed release can overlap its predecessor;
+`recreate` requires a maintenance deployment. Missing strategy metadata from a
+legacy release is treated as `recreate`. Unknown protocols, prereleases, and
+arbitrary image repositories are rejected. The release pipeline is the only
 intended writer; never store credentials or private files in the public bucket.
+
+Externally orchestrated installations can consume the same manifest from their
+infrastructure workflow. They must not run the local Docker updater on every
+replica. See [Run with multiple replicas](./high-availability.md) for the
+GitHub Actions discovery pattern and rollout contract.
 
 ### Cloudflare configuration
 

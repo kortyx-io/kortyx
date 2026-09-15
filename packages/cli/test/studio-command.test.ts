@@ -193,6 +193,7 @@ describe("Studio CLI lifecycle", () => {
     );
     const composeVariable = "$";
     expect(compose).toContain("ghcr.io/kortyx-io/kortyx-api");
+    expect(compose).toContain("http://localhost:6400/ready");
     expect(compose).toContain(
       `"127.0.0.1:${composeVariable}{API_PORT:-6400}:6400"`,
     );

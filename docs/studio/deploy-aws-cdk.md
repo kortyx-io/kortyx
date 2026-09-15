@@ -6,7 +6,7 @@ Install `@kortyx/aws-cdk` to deploy Kortyx Studio privately in an existing VPC:
 new KortyxStudio(this, "Studio", {
   vpc,
   domainName: "studio.example.com",
-  version: "v0.3.2",
+  version: "v0.4.0",
 });
 ```
 
@@ -60,7 +60,7 @@ export class KortyxStudioInfraStack extends cdk.Stack {
     new KortyxStudio(this, "Studio", {
       vpc,
       domainName: "studio.example.com",
-      version: "v0.3.2",
+      version: "v0.4.0",
     });
   }
 }
@@ -74,7 +74,7 @@ Useful overrides include:
 new KortyxStudio(this, "Studio", {
   vpc,
   domainName: "studio.example.com",
-  version: "v0.3.2",
+  version: "v0.4.0",
   allowedCidrs: [vpc.vpcCidrBlock, "10.50.0.0/16"],
   databaseMultiAz: true,
   databaseInstanceType: ec2.InstanceType.of(
@@ -88,11 +88,27 @@ You can also provide an existing `cluster`, `hostedZone`, `certificate`, or `dat
 
 ## Availability model
 
-Kortyx currently runs one active application task. This affects availability, not data durability: application state lives in PostgreSQL, and ECS starts a replacement task after a failure. Studio and telemetry are briefly unavailable while that task initializes and during a planned version update.
+The `@kortyx/aws-cdk` convenience construct runs one active application task.
+This affects availability, not data durability: application state lives in
+PostgreSQL, and ECS starts a replacement task after a failure. Studio and
+telemetry are briefly unavailable while that task initializes and during a
+planned version update.
 
-The construct does not expose multiple tasks yet because each new task runs schema migration and bootstrap. Kortyx has not yet guaranteed concurrent initializers or backwards-compatible rolling migrations. Multi-replica support needs serialized migrations, expand-and-contract schema compatibility, and rolling-deployment tests before `desiredCount: 2` can be a safe promise.
+The Kortyx runtime supports multiple replicas, but the convenience construct
+intentionally keeps its cohesive task topology and one-step API. It does not
+model an existing load balancer, independently scaled services, or a separate
+deployment job. Do not deploy two copies of the construct against one database
+to imitate high availability.
 
-RDS has seven-day backups and deletion protection. Set `databaseMultiAz: true` for a database standby and automatic RDS failover; this does not remove the application restart window.
+When an AWS environment needs continuous application availability, implement
+the [multi-replica deployment contract](./high-availability.md) with lower-level
+CDK, Terraform, CloudFormation, ECS, or EKS: run migrations once, keep at least
+two replicas healthy across Availability Zones, and follow each release's
+`rolling` or `recreate` marker.
+
+RDS has seven-day backups and deletion protection. Set `databaseMultiAz: true`
+for a database standby and automatic RDS failover; this does not remove the
+single application task's restart window.
 
 ## 3. Deploy
 
@@ -142,8 +158,9 @@ curl --fail https://studio.example.com/health
 curl --head https://studio.example.com
 ```
 
-Upgrade by changing `version`, running `cdk diff`, and deploying through the same reviewed path. The Studio message "This installation does not have an in-product updater. Manage updates through your deployment workflow, or use the Kortyx installer for local Docker update management" is normal for orchestrated installations. That workflow might be CDK/ECS on AWS, Terraform or Cloud Deploy on Google Cloud, or Helm/GitOps on Kubernetes.
+Upgrade by changing `version`, running `cdk diff`, and deploying through the same reviewed path. The Studio message "This installation does not have an in-product updater. Manage updates through your deployment workflow, or use the Kortyx installer for local Docker update management" is normal for orchestrated installations. That workflow might be CDK/ECS on AWS, Terraform or Cloud Deploy on Google Cloud, or Helm/GitOps on Kubernetes. The [multi-replica guide](./high-availability.md) includes a scheduled GitHub Actions pattern for proposing these updates.
 
 The ECS circuit breaker can roll back a failed task definition, but it cannot roll back a database schema. Back up RDS before an upgrade; database downgrade is unsupported.
 
-For operational detail, see [Operations and Troubleshooting](operations.md) and the [Configuration Reference](configuration-reference.md).
+For operational detail, see [self-hosted operations](./self-hosted-operations.md)
+and the [deployment contract](./deployment-contract.md).
