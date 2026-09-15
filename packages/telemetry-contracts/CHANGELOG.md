@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.7.0](https://github.com/kortyx-io/kortyx/compare/telemetry-contracts-v0.6.0...telemetry-contracts-v0.7.0) (2026-09-15)
+
+
+### Features
+
+* **studio:** support highly available runtimes ([#192](https://github.com/kortyx-io/kortyx/issues/192)) ([450bf3c](https://github.com/kortyx-io/kortyx/commit/450bf3c5099b9520eef5dc43542bfc2b83501986))
+
 ## [0.6.0](https://github.com/kortyx-io/kortyx/compare/telemetry-contracts-v0.5.0...telemetry-contracts-v0.6.0) (2026-09-14)
 
 

@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.7.2](https://github.com/kortyx-io/kortyx/compare/cli-v0.7.1...cli-v0.7.2) (2026-09-15)
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/agent bumped to 0.22.2
+    * @kortyx/telemetry-contracts bumped to 0.7.0
+
 ## [0.7.1](https://github.com/kortyx-io/kortyx/compare/cli-v0.7.0...cli-v0.7.1) (2026-09-14)
 
 
