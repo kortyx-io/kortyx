@@ -508,6 +508,7 @@ jobs:
           VERSION: ${{ needs.prepare.outputs.version }}
           API_DIGEST: ${{ needs.publish-staging.outputs.api_digest }}
           STUDIO_DIGEST: ${{ needs.publish-staging.outputs.studio_digest }}
+          DEPLOYMENT_STRATEGY: ${{ inputs.deployment_strategy }}
           STUDIO_UPDATES_R2_ACCOUNT_ID: ${{ vars.STUDIO_UPDATES_R2_ACCOUNT_ID }}
           STUDIO_UPDATES_R2_BUCKET: ${{ vars.STUDIO_UPDATES_R2_BUCKET }}
           STUDIO_UPDATES_R2_ACCESS_KEY_ID: ${{ secrets.STUDIO_UPDATES_R2_ACCESS_KEY_ID }}
