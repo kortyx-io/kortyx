@@ -45,7 +45,8 @@
     },
     "packages/aws-cdk": {
       "package-name": "@kortyx/aws-cdk",
-      "component": "aws-cdk"
+      "component": "aws-cdk",
+      "initial-version": "0.1.0"
     },
     "packages/providers": {
       "package-name": "@kortyx/providers",
