@@ -63,6 +63,12 @@ listener and pool. Set the platform termination grace period above 25 seconds.
 The Studio container is healthy when its root path returns any status below
 `500`; `401` is expected when Basic Auth is active.
 
+Replica redundancy preserves capacity for new traffic after the load balancer
+withdraws a failed target. It cannot finish a request that was already executing
+inside a process when that process is hard-killed. Clients should retry transient
+network and `5xx` failures. Telemetry writes are safe to retry with the same
+stable event IDs because ingestion deduplicates those IDs per project.
+
 ## Run database work once
 
 Application replicas must not run migrations in their normal startup command.
