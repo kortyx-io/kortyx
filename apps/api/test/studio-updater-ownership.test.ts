@@ -44,6 +44,7 @@ it.skipIf(!rootLinux)(
           version: "0.3.2",
           api: `ghcr.io/kortyx-io/kortyx-api@sha256:${"a".repeat(64)}`,
           studio: `ghcr.io/kortyx-io/kortyx-studio@sha256:${"b".repeat(64)}`,
+          deployment: { strategy: "recreate" },
         },
         phase: "starting",
         startedAt: new Date().toISOString(),

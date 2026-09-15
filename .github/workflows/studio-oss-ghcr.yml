@@ -7,6 +7,14 @@ on:
         description: Existing Studio release tag to publish after npm publication (studio-vX.Y.Z)
         required: true
         type: string
+      deployment_strategy:
+        description: Whether this release can overlap safely with the previous release
+        required: true
+        default: recreate
+        type: choice
+        options:
+          - recreate
+          - rolling
 
 permissions:
   contents: read
@@ -247,6 +255,7 @@ jobs:
           VERSION: ${{ needs.prepare.outputs.version }}
           API_DIGEST: ${{ needs.publish-staging.outputs.api_digest }}
           STUDIO_DIGEST: ${{ needs.publish-staging.outputs.studio_digest }}
+          DEPLOYMENT_STRATEGY: ${{ inputs.deployment_strategy }}
           EXPECTED_NODE_ARCH: ${{ matrix.node_arch }}
           ARCH_ID: ${{ matrix.id }}
         run: |
@@ -507,6 +516,7 @@ jobs:
           jq -n --arg version "$VERSION" \
             --arg api "${REGISTRY}/${API_IMAGE_NAME}@${API_DIGEST}" \
             --arg studio "${REGISTRY}/${STUDIO_IMAGE_NAME}@${STUDIO_DIGEST}" \
-            '{format: 1, installer: 1, version: $version, api: $api, studio: $studio}' \
+            --arg strategy "$DEPLOYMENT_STRATEGY" \
+            '{format: 1, installer: 1, version: $version, api: $api, studio: $studio, deployment: {strategy: $strategy}}' \
             > "$RUNNER_TEMP/studio-update.json"
           python .release-publisher/.github/scripts/studio-release/publish.py "$RUNNER_TEMP/studio-update.json"

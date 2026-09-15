@@ -29,6 +29,7 @@ const release: StudioRelease = {
   version: "0.3.0",
   api: `ghcr.io/kortyx-io/kortyx-api@sha256:${"a".repeat(64)}`,
   studio: `ghcr.io/kortyx-io/kortyx-studio@sha256:${"b".repeat(64)}`,
+  deployment: { strategy: "recreate" },
 };
 const homes: string[] = [];
 afterEach(async () => {

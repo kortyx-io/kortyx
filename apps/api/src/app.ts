@@ -18,6 +18,7 @@ export type CreateApiAppOptions = {
   db: TelemetryDb;
   apiKeyPepper: string;
   studioChangeBus?: StudioChangeBus;
+  readiness?: () => Promise<void>;
 };
 
 export const createApiApp = (options: CreateApiAppOptions) => {
@@ -52,7 +53,7 @@ export const createApiApp = (options: CreateApiAppOptions) => {
 
   app.onError(apiErrorHandler);
 
-  registerHealthRoutes(app);
+  registerHealthRoutes(app, options.readiness ?? (() => Promise.resolve()));
 
   app.use(
     "/v1/telemetry/*",

@@ -119,13 +119,20 @@ jobs:
       - name: Prepare local environment
         run: cp .env.example .env
 
-      - name: Build database bootstrap dependencies
-        run: pnpm --filter @kortyx/telemetry-contracts build
+      - name: Build database and HA test dependencies
+        run: |
+          pnpm --filter @kortyx/telemetry-contracts build
+          pnpm --filter @kortyx/telemetry-db build
 
       - name: Migrate and bootstrap database
         run: |
           pnpm db:migrate
           pnpm db:bootstrap
+
+      - name: Run high-availability database regressions
+        run: |
+          pnpm --filter @kortyx/telemetry-db test:integration:ha
+          pnpm --filter @kortyx/api test:integration:ha
 
       - name: Install Chromium
         run: pnpm --filter kortyx-studio exec playwright install --with-deps chromium

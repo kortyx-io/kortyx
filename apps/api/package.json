@@ -13,6 +13,7 @@
     "start": "node dist/index.js",
     "lint": "biome check src test",
     "test": "vitest run && pnpm -s type-check",
+    "test:integration:ha": "vitest run test/ha.integration.test.ts",
     "type-check": "tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {
