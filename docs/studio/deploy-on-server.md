@@ -72,7 +72,7 @@ both services publicly.
 Check health and logs:
 
 ```bash
-curl --fail http://127.0.0.1:6400/health
+curl --fail http://127.0.0.1:6400/ready
 docker compose \
   --env-file "$deployment_dir/deployment.env" \
   -f "$compose_file" \
@@ -121,14 +121,17 @@ run Compose verbatim:
 
 1. one retryable job using the API image and
    `kortyx-studio-db migrate-and-bootstrap`;
-2. one long-running API service;
-3. one long-running Studio service; and
+2. one long-running API service with one or more replicas;
+3. one long-running Studio service with one or more replicas; and
 4. one externally managed PostgreSQL database.
 
 Reference secret-manager entries from the task or workload definition. Do not
 put secret values in Terraform variables, generated manifests, or CDK source.
 See the [deployment contract](./deployment-contract.md) for the complete
 configuration and platform mapping.
+
+For production availability, use at least two replicas and follow the
+[multi-replica deployment contract](./high-availability.md).
 
 For a complete private AWS implementation, continue with
 [Deploy Kortyx Studio on AWS with CDK](./deploy-aws-cdk.md).

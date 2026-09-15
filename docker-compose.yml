@@ -59,7 +59,7 @@ services:
       test:
         [
           "CMD-SHELL",
-          "node -e \"fetch('http://localhost:6400/health').then((r)=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))\"",
+          "node -e \"fetch('http://localhost:6400/ready').then((r)=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))\"",
         ]
       interval: 5s
       timeout: 5s

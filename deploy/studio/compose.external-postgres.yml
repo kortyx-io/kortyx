@@ -32,7 +32,7 @@ services:
       test:
         [
           "CMD-SHELL",
-          "node -e \"fetch('http://127.0.0.1:6400/health').then((response)=>process.exit(response.ok?0:1)).catch(()=>process.exit(1))\"",
+          "node -e \"fetch('http://127.0.0.1:6400/ready').then((response)=>process.exit(response.ok?0:1)).catch(()=>process.exit(1))\"",
         ]
       interval: 5s
       timeout: 5s

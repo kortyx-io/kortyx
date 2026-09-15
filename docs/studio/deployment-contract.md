@@ -4,10 +4,12 @@ Kortyx Studio is distributed as two OCI images and requires PostgreSQL. This
 contract is the stable boundary for Docker Compose, virtual machines, ECS,
 Cloud Run, Kubernetes, Terraform, CDK, and other deployment systems.
 
-The initial supported remote topology is a single Studio instance, a single
-telemetry API instance, one Project, and an externally managed PostgreSQL
-database. Kortyx agents keep running if Studio is unavailable; Studio is an
-observability system, not the agent execution control plane.
+The supported remote topology is one or more Studio instances, one or more
+telemetry API instances, one Project, and an externally managed PostgreSQL
+database. Production deployments that need continuous application availability
+should run at least two replicas of each service. Kortyx agents keep running if
+Studio is unavailable; Studio is an observability system, not the agent
+execution control plane.
 
 ## Components
 
@@ -39,8 +41,11 @@ kortyx-studio-db bootstrap
 
 All commands require `DATABASE_URL`. Bootstrap also requires the API-key
 pepper, telemetry write key, and Studio read key. Migration and bootstrap are
-idempotent, so a failed deployment job can be retried. Operator-provided raw
-keys are not written to bootstrap logs.
+idempotent, so a failed deployment job can be retried. Migrations hold a
+PostgreSQL advisory lock across the ordered migration set, which serializes
+accidentally concurrent jobs. Still schedule one database job per deployment
+rather than running it in every application replica. Operator-provided raw keys
+are not written to bootstrap logs.
 
 After the job succeeds, start the API and then Studio. Do not start newer
 application images against an older schema. Database downgrade is unsupported;
@@ -109,10 +114,15 @@ key.
 
 ## Health and lifecycle
 
-- API liveness: `GET /health` on port `6400`.
+- API liveness: `GET /live` on port `6400` (`/health` remains a compatibility
+  alias).
+- API traffic readiness: `GET /ready` on port `6400`; it returns `503` while
+  draining or when PostgreSQL cannot be reached.
 - Studio container health: an HTTP response below `500` on port `6300`; a `401`
   is healthy when Basic Auth is enabled.
-- The API and Studio handle `SIGTERM` for orchestrated shutdown.
+- On `SIGTERM`, the API stops readiness, drains HTTP for up to 25 seconds, then
+  closes PostgreSQL connections. Set the termination grace period above 25
+  seconds.
 - PostgreSQL is the durable state boundary; API and Studio containers do not
   require persistent filesystems.
 
@@ -129,29 +139,35 @@ key.
 Kortyx does not need cloud-provider SDKs to support these platforms. Their
 orchestrators inject secret values into the documented variables. Native
 Terraform and Helm packaging can consume this contract later without changing
-the application. The official `@kortyx/aws-cdk` construct implements the AWS
-mapping.
+the application. The official `@kortyx/aws-cdk` construct implements a
+convenient single-task AWS mapping. Use lower-level ECS/EKS resources and the
+[high-availability contract](./high-availability.md) when you need multiple
+replicas.
 
-## Initial support boundary
+## Support boundary
 
 Supported now:
 
 - one Project per deployment;
-- one API and one Studio replica;
+- one or more API and Studio replicas, with two recommended for production;
 - external PostgreSQL;
 - version-pinned AMD64 or ARM64 images;
 - externally injected secrets;
-- retryable migration/bootstrap jobs;
+- retryable, serialized migration/bootstrap jobs;
+- cross-replica live invalidations through PostgreSQL;
+- graceful API draining and distinct liveness/readiness checks;
+- rolling deployments for releases explicitly marked `rolling`;
 - HTTPS and access control supplied at the deployment edge.
 
 Not yet claimed:
 
-- high availability or multi-region recovery;
-- horizontal-scaling guarantees and published capacity limits;
+- database high availability or multi-region recovery;
+- unlimited horizontal scaling or published capacity limits;
 - built-in OIDC, users, RBAC, RLS, or audit logs;
 - multiple Project administration;
 - managed credential rotation through a remote Admin API;
 - official Terraform or Helm modules.
 
-This is a deployable self-hosted preview, not a claim of enterprise-grade high
-availability.
+See [Run with multiple replicas](./high-availability.md) for the complete
+orchestration and release contract. High application availability does not
+remove the need for provider-managed PostgreSQL failover and tested recovery.

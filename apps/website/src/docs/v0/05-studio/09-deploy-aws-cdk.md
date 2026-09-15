@@ -13,7 +13,7 @@ sidebar_label: "Deploy on AWS with CDK"
 new KortyxStudio(this, "Studio", {
   vpc,
   domainName: "studio.example.com",
-  version: "v0.3.2",
+  version: "v0.4.0",
 });
 ```
 
@@ -103,7 +103,7 @@ export class KortyxStudioInfraStack extends cdk.Stack {
     new KortyxStudio(this, "Studio", {
       vpc,
       domainName: "studio.example.com",
-      version: "v0.3.2",
+      version: "v0.4.0",
     });
   }
 }
@@ -124,7 +124,7 @@ new KortyxStudio(this, "Studio", {
   vpc,
   hostedZone,
   domainName: "studio.internal.example.com",
-  version: "v0.3.2",
+  version: "v0.4.0",
 });
 ```
 
@@ -145,7 +145,7 @@ Common overrides remain concise:
 new KortyxStudio(this, "Studio", {
   vpc,
   domainName: "studio.example.com",
-  version: "v0.3.2",
+  version: "v0.4.0",
   allowedCidrs: [vpc.vpcCidrBlock, "10.50.0.0/16"],
   databaseMultiAz: true,
   databaseInstanceType: ec2.InstanceType.of(
@@ -159,16 +159,18 @@ You can also supply an existing `cluster`, `hostedZone`, `certificate`, or `data
 
 ## Availability: what one application task means
 
-Kortyx currently runs one active ECS task. This is an **availability boundary, not a data-durability boundary**:
+The `@kortyx/aws-cdk` convenience construct runs one active ECS task. This is an **availability boundary, not a data-durability boundary**:
 
 - telemetry, projects, and Studio state live in PostgreSQL, not in the task;
 - if the task crashes, ECS starts a replacement against the same database;
 - RDS backups, deletion protection, and an optional Multi-AZ standby protect the database; but
 - Studio and telemetry are briefly unavailable while the replacement initializes, and planned version updates also have a short interruption.
 
-The construct does not expose `desiredCount: 2` yet because every new task runs schema migration and bootstrap before it starts. Kortyx has not yet guaranteed concurrent initializers or backwards-compatible rolling migrations between adjacent releases. Starting two replicas would look highly available while leaving upgrade races undefined.
+The Kortyx runtime supports multiple replicas, but the convenience construct intentionally keeps its cohesive task topology and one-step API. It does not model an existing load balancer, independently scaled services, or a separate deployment job. Do not deploy two copies of the construct against one database to imitate high availability.
 
-True multi-replica support requires serialized migrations, expand-and-contract schema compatibility, rolling-deployment tests, and then at least two tasks with health-preserving ECS deployment settings. Until that contract ships, one task is the honest supported topology. For stronger database availability today, enable `databaseMultiAz`; it does not remove the application restart window.
+When an AWS environment needs continuous application availability, implement the [multi-replica deployment contract](./10-high-availability.md) with lower-level CDK, Terraform, CloudFormation, ECS, or EKS: run migrations once, keep at least two replicas healthy across Availability Zones, and follow each release's `rolling` or `recreate` marker.
+
+For stronger database availability, enable `databaseMultiAz`; it does not remove the convenience construct's single application task restart window.
 
 ## 4. Bootstrap, inspect, and deploy
 
@@ -266,5 +268,7 @@ ECS deployments are controlled by CDK, not by the local Docker updater shown in 
 The ECS deployment circuit breaker can roll back a task definition when a replacement fails; it cannot roll back a database schema. Database downgrade is unsupported, so restore the matching pre-upgrade snapshot if a newer migration is incompatible with the previous release.
 
 > **Expected Studio message:** "This installation does not have an in-product updater. Manage updates through your deployment workflow, or use the Kortyx installer for local Docker update management." This is normal for an orchestrated installation: the workflow might be CDK/ECS on AWS, Terraform or Cloud Deploy on Google Cloud, or Helm/GitOps on Kubernetes.
+
+The [High Availability guide](./10-high-availability.md) includes a scheduled GitHub Actions pattern that proposes image updates in the infrastructure repository and keeps rollout ownership in the platform.
 
 For backups, credential handling, and failure recovery, continue with [Operations and Troubleshooting](./07-operations.md) and the [Configuration Reference](./08-configuration-reference.md).

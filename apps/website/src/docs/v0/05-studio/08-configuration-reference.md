@@ -39,6 +39,8 @@ kortyx-studio-db bootstrap
 
 Migration and bootstrap are idempotent, so a failed job can be retried. After it succeeds, start the telemetry API and then Studio.
 
+Migrations hold a PostgreSQL advisory lock across the ordered migration set, so accidentally concurrent jobs serialize. Still schedule one database job per deployment rather than running migrations in every application replica.
+
 Do not start newer application images against an older schema. Database downgrade is unsupported.
 
 ## Telemetry API and database job variables
@@ -76,11 +78,12 @@ The Studio read key is consumed by the Next.js server and must never be sent to 
 
 | Service | Check |
 | --- | --- |
-| Telemetry API | `GET /health` on port `6400` |
+| Telemetry API liveness | `GET /live` on port `6400`; `/health` is a compatibility alias |
+| Telemetry API readiness | `GET /ready` on port `6400`; checks traffic acceptance and PostgreSQL |
 | Studio | Any HTTP response below `500` on port `6300`; `401` is healthy with Basic Auth |
 | PostgreSQL | Provider or orchestrator database readiness check |
 
-The API and Studio handle `SIGTERM` for orchestrated shutdown. PostgreSQL is the durable state boundary; API and Studio containers do not need persistent filesystems.
+On `SIGTERM`, the API stops readiness, drains HTTP for up to 25 seconds, then closes PostgreSQL connections. Set the termination grace period above 25 seconds. PostgreSQL is the durable state boundary; API and Studio containers do not need persistent filesystems.
 
 ## Platform mapping
 
@@ -94,25 +97,29 @@ The API and Studio handle `SIGTERM` for orchestrated shutdown. PostgreSQL is the
 
 Cloud-provider SDKs are not required by Studio. The platform injects the documented variables and schedules the documented components.
 
+The `@kortyx/aws-cdk` package implements a convenient single-task AWS mapping. Use lower-level ECS/EKS resources and the [High Availability contract](./10-high-availability.md) when you need multiple replicas.
+
 ## Supported boundary
 
 ### Supported now
 
 - one Project per deployment;
-- one API and one Studio replica;
+- one or more API and Studio replicas, with two recommended for production;
 - external PostgreSQL;
 - version-pinned AMD64 or ARM64 images;
 - externally injected secrets;
-- retryable migration/bootstrap jobs; and
+- retryable, serialized migration/bootstrap jobs;
+- cross-replica live invalidations through PostgreSQL;
+- rolling deployments for releases explicitly marked `rolling`; and
 - HTTPS and access control supplied at the deployment edge.
 
 ### Not yet claimed
 
-- high availability or multi-region recovery;
-- horizontal-scaling guarantees and published capacity limits;
+- database high availability or multi-region recovery;
+- unlimited horizontal scaling or published capacity limits;
 - built-in OIDC, users, RBAC, RLS, or audit logs;
 - multiple Project administration;
 - overlapping remote credential rotation through an Admin API; or
 - official Terraform or Helm modules.
 
-> **Release boundary:** This is a deployable self-hosted release for controlled environments, not a claim of enterprise-grade high availability.
+Continue with [High Availability](./10-high-availability.md) for the complete multi-replica, migration, health, and release contract.
