@@ -32,6 +32,7 @@
     "lint": "biome check src test drizzle.config.ts",
     "test": "vitest run && pnpm -s type-check",
     "test:integration": "vitest run test/studio-projections.integration.test.ts",
+    "test:integration:ha": "vitest run test/migrate.integration.test.ts",
     "type-check": "tsc --noEmit -p tsconfig.test.json"
   },
   "dependencies": {

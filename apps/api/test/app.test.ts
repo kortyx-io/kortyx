@@ -16,6 +16,25 @@ describe("Kortyx API app", () => {
       status: "ok",
       service: "kortyx-api",
     });
+
+    const live = await app.request("/live");
+    expect(live.status).toBe(200);
+  });
+
+  it("reports dependency and drain readiness without failing liveness", async () => {
+    let ready = true;
+    const app = createApiApp({
+      db: {} as TelemetryDb,
+      apiKeyPepper: "test-pepper",
+      readiness: async () => {
+        if (!ready) throw new Error("not ready");
+      },
+    });
+
+    expect((await app.request("/ready")).status).toBe(200);
+    ready = false;
+    expect((await app.request("/ready")).status).toBe(503);
+    expect((await app.request("/live")).status).toBe(200);
   });
 
   it("serves OpenAPI document", async () => {

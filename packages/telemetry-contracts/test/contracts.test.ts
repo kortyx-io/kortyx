@@ -6,6 +6,7 @@ import {
   StudioCatalogsResponseSchema,
   StudioChangeSchema,
   StudioInterruptSchema,
+  StudioReleaseSchema,
   StudioRunsResponseSchema,
   TelemetryEventBatchResponseSchema,
   TelemetryEventBatchSchema,
@@ -195,6 +196,18 @@ describe("telemetry contracts", () => {
         payload: { secret: true },
       }).success,
     ).toBe(false);
+  });
+
+  it("treats legacy Studio releases as requiring recreate deployment", () => {
+    expect(
+      StudioReleaseSchema.parse({
+        format: 1,
+        installer: 1,
+        version: "0.4.0",
+        api: `ghcr.io/kortyx-io/kortyx-api@sha256:${"a".repeat(64)}`,
+        studio: `ghcr.io/kortyx-io/kortyx-studio@sha256:${"b".repeat(64)}`,
+      }).deployment,
+    ).toEqual({ strategy: "recreate" });
   });
 
   it("resolves relative Studio ranges into deterministic UTC boundaries", () => {

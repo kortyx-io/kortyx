@@ -14,7 +14,8 @@ VERSION = r"(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)"
 
 
 def validate(value):
-    if not isinstance(value, dict) or set(value) != {"format", "installer", "version", "api", "studio"}:
+    required = {"format", "installer", "version", "api", "studio"}
+    if not isinstance(value, dict) or set(value) not in (required, required | {"deployment"}):
         raise ValueError("Invalid release manifest fields")
     if type(value["format"]) is not int or value["format"] != 1 or type(value["installer"]) is not int or value["installer"] != 1:
         raise ValueError("Unsupported release protocol")
@@ -23,7 +24,10 @@ def validate(value):
     for name in ("api", "studio"):
         if not isinstance(value[name], str) or not re.fullmatch(r"ghcr\.io/kortyx-io/kortyx-" + name + r"@sha256:[a-f0-9]{64}", value[name]):
             raise ValueError("Only promoted official image digests can be published")
-    return value
+    deployment = value.get("deployment", {"strategy": "recreate"})
+    if not isinstance(deployment, dict) or set(deployment) != {"strategy"} or deployment["strategy"] not in ("rolling", "recreate"):
+        raise ValueError("Invalid deployment compatibility")
+    return {**value, "deployment": deployment}
 
 
 def decode(body):
@@ -54,7 +58,7 @@ def read_object(client, bucket, key):
 
 def publish(client, bucket, manifest):
     """Immutable history first; compare-and-swap the stable pointer last."""
-    validate(manifest)
+    manifest = validate(manifest)
     body = (json.dumps(manifest, sort_keys=True, separators=(",", ":")) + "\n").encode()
     key = f'studio/releases/{manifest["version"]}.json'
     try:

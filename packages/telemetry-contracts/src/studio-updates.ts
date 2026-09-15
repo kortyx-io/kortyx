@@ -4,6 +4,10 @@ export const StudioReleaseVersionSchema = z
   .string()
   .regex(/^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/);
 
+export const StudioReleaseDeploymentSchema = z.object({
+  strategy: z.enum(["rolling", "recreate"]),
+});
+
 export const StudioReleaseSchema = z.object({
   format: z.literal(1),
   installer: z.literal(1),
@@ -14,6 +18,9 @@ export const StudioReleaseSchema = z.object({
   studio: z
     .string()
     .regex(/^ghcr\.io\/kortyx-io\/kortyx-studio@sha256:[a-f0-9]{64}$/),
+  deployment: StudioReleaseDeploymentSchema.default({
+    strategy: "recreate",
+  }),
 });
 export type StudioRelease = z.infer<typeof StudioReleaseSchema>;
 

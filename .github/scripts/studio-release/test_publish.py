@@ -6,10 +6,11 @@ from unittest.mock import patch
 from publish import decode, publish, validate, verify_public
 
 
-def manifest(version="0.3.0", digest="a"):
+def manifest(version="0.3.0", digest="a", strategy="recreate"):
     return {"format": 1, "installer": 1, "version": version,
             "api": "ghcr.io/kortyx-io/kortyx-api@sha256:" + digest * 64,
-            "studio": "ghcr.io/kortyx-io/kortyx-studio@sha256:" + "b" * 64}
+            "studio": "ghcr.io/kortyx-io/kortyx-studio@sha256:" + "b" * 64,
+            "deployment": {"strategy": strategy}}
 
 
 class StorageError(Exception):
@@ -91,11 +92,16 @@ class PublishTest(unittest.TestCase):
         self.assertEqual(client.objects["studio/stable.json"], b"invalid")
 
     def test_rejects_invalid_manifests(self):
-        for invalid in [manifest("0.4.0-rc.1"), {**manifest(), "installer": 2}, {**manifest(), "api": "evil:latest"}, {**manifest(), "format": True}]:
+        for invalid in [manifest("0.4.0-rc.1"), {**manifest(), "installer": 2}, {**manifest(), "api": "evil:latest"}, {**manifest(), "format": True}, manifest(strategy="unknown")]:
             with self.assertRaises(ValueError):
                 validate(invalid)
         with self.assertRaises(ValueError):
             decode(b" " * 16_385)
+
+    def test_legacy_manifest_defaults_to_recreate(self):
+        legacy = manifest()
+        del legacy["deployment"]
+        self.assertEqual(validate(legacy), manifest())
 
     def test_public_verification_waits_for_cache_and_requires_valid_manifest(self):
         def response(value):

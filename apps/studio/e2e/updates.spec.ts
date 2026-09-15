@@ -10,6 +10,7 @@ test("checks a release, saves a schedule, and reports a failed update", async ({
     version: "0.3.0",
     api: `ghcr.io/kortyx-io/kortyx-api@sha256:${"a".repeat(64)}`,
     studio: `ghcr.io/kortyx-io/kortyx-studio@sha256:${"b".repeat(64)}`,
+    deployment: { strategy: "recreate" as const },
   };
   let status: StudioUpdateStatus = {
     current: "0.2.0",
@@ -107,6 +108,7 @@ test("keeps an in-progress update visible while Studio restarts", async ({
             version: "0.3.0",
             api: `ghcr.io/kortyx-io/kortyx-api@sha256:${"a".repeat(64)}`,
             studio: `ghcr.io/kortyx-io/kortyx-studio@sha256:${"b".repeat(64)}`,
+            deployment: { strategy: "recreate" },
           },
           phase: "installing",
           startedAt: new Date().toISOString(),
