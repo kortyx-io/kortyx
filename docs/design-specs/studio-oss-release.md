@@ -100,7 +100,12 @@ in the running build. It does not check for newer releases.
   `studio-vX.Y.Z` tag in `release_tag`. Re-running is safe until a production
   image tag exists; the release-please Git tag is expected to exist.
 - If promotion partially succeeds, inspect the recorded digests before any
-  manual recovery. Never rebuild under the same version.
+  recovery. Never rebuild under the same version. Use **Recover Release
+  (Studio update channel)** with the existing `studio-vX.Y.Z` tag, the API and
+  Studio digests recorded by the failed run, and the original deployment
+  strategy. The protected recovery job verifies both production image indexes
+  before it publishes the missing immutable history and stable-channel
+  manifests.
 
 Versioned tags are the reproducible choice for long-lived installations:
 
