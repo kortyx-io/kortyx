@@ -50,6 +50,7 @@ const packages = [
     "OpenAI · Anthropic · Google · Groq · Mistral",
   ],
   ["@kortyx/otel", "Apache-2.0", "OpenTelemetry spans · normalized attributes"],
+  ["@kortyx/aws-cdk", "Apache-2.0", "private Studio · ECS · RDS · ALB"],
 ] as const;
 
 function TerminalHero() {

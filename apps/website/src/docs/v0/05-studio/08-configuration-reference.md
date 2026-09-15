@@ -113,6 +113,6 @@ Cloud-provider SDKs are not required by Studio. The platform injects the documen
 - built-in OIDC, users, RBAC, RLS, or audit logs;
 - multiple Project administration;
 - overlapping remote credential rotation through an Admin API; or
-- official Terraform, CDK, or Helm modules.
+- official Terraform or Helm modules.
 
 > **Release boundary:** This is a deployable self-hosted release for controlled environments, not a claim of enterprise-grade high availability.

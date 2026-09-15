@@ -42,6 +42,10 @@
       "package-name": "@kortyx/otel",
       "component": "otel"
     },
+    "packages/aws-cdk": {
+      "package-name": "@kortyx/aws-cdk",
+      "component": "aws-cdk"
+    },
     "packages/providers": {
       "package-name": "@kortyx/providers",
       "component": "providers"

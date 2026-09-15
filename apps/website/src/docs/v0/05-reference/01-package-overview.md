@@ -27,6 +27,7 @@ This page maps the current OSS packages in this monorepo.
 | `@kortyx/hooks` | node hooks (`useReason`, state hooks, interrupts, structured data) | node authors |
 | `@kortyx/mcp` | MCP client helper that exposes MCP server tools to `useReason` | server apps using MCP tool servers |
 | `@kortyx/otel` | optional OpenTelemetry adapter for Kortyx tracing | server apps with observability pipelines |
+| `@kortyx/aws-cdk` | private AWS deployment construct for Kortyx Studio | infrastructure repositories using AWS CDK |
 | `@kortyx/providers` | provider contracts + registry | runtime/provider wiring |
 | `@kortyx/google` | Google Gemini provider implementation | apps using Google models |
 | `@kortyx/stream` | stream chunk types + SSE server/client helpers | web APIs + clients |
