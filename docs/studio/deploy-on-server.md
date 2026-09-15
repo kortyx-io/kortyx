@@ -129,3 +129,6 @@ Reference secret-manager entries from the task or workload definition. Do not
 put secret values in Terraform variables, generated manifests, or CDK source.
 See the [deployment contract](./deployment-contract.md) for the complete
 configuration and platform mapping.
+
+For a complete private AWS implementation, continue with
+[Deploy Kortyx Studio on AWS with CDK](./deploy-aws-cdk.md).
