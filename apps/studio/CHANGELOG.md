@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.5.0](https://github.com/kortyx-io/kortyx/compare/studio-v0.4.0...studio-v0.5.0) (2026-09-15)
+
+
+### Features
+
+* **studio:** support highly available runtimes ([#192](https://github.com/kortyx-io/kortyx/issues/192)) ([450bf3c](https://github.com/kortyx-io/kortyx/commit/450bf3c5099b9520eef5dc43542bfc2b83501986))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/telemetry-contracts bumped to 0.7.0
+
 ## [0.4.0](https://github.com/kortyx-io/kortyx/compare/studio-v0.3.2...studio-v0.4.0) (2026-09-15)
 
 
