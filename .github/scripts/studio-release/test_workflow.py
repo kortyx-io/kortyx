@@ -3,6 +3,9 @@ from pathlib import Path
 
 
 WORKFLOW = Path(__file__).parents[2] / "workflows" / "studio-oss-ghcr.yml"
+RECOVERY_WORKFLOW = (
+    Path(__file__).parents[2] / "workflows" / "studio-oss-cdn-recover.yml"
+)
 
 
 class StudioReleaseWorkflowTests(unittest.TestCase):
@@ -15,6 +18,17 @@ class StudioReleaseWorkflowTests(unittest.TestCase):
         self.assertIn(
             "          DEPLOYMENT_STRATEGY: ${{ inputs.deployment_strategy }}\n",
             publish_step,
+        )
+
+    def test_recovery_revalidates_images_and_receives_deployment_strategy(self):
+        workflow = RECOVERY_WORKFLOW.read_text()
+
+        self.assertIn("      api_digest:\n", workflow)
+        self.assertIn("      studio_digest:\n", workflow)
+        self.assertIn("      - name: Verify promoted production indexes\n", workflow)
+        self.assertIn(
+            "          DEPLOYMENT_STRATEGY: ${{ inputs.deployment_strategy }}\n",
+            workflow,
         )
 
 
