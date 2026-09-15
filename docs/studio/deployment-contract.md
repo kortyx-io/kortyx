@@ -128,8 +128,9 @@ key.
 
 Kortyx does not need cloud-provider SDKs to support these platforms. Their
 orchestrators inject secret values into the documented variables. Native
-Terraform, CDK, and Helm packaging can consume this contract later without
-changing the application.
+Terraform and Helm packaging can consume this contract later without changing
+the application. The official `@kortyx/aws-cdk` construct implements the AWS
+mapping.
 
 ## Initial support boundary
 
@@ -150,7 +151,7 @@ Not yet claimed:
 - built-in OIDC, users, RBAC, RLS, or audit logs;
 - multiple Project administration;
 - managed credential rotation through a remote Admin API;
-- official Terraform, CDK, or Helm modules.
+- official Terraform or Helm modules.
 
 This is a deployable self-hosted preview, not a claim of enterprise-grade high
 availability.

@@ -1,0 +1,63 @@
+{
+  "name": "@kortyx/aws-cdk",
+  "version": "0.0.0",
+  "private": false,
+  "description": "AWS CDK constructs for self-hosting Kortyx Studio.",
+  "keywords": [
+    "aws",
+    "cdk",
+    "ecs",
+    "fargate",
+    "kortyx",
+    "studio"
+  ],
+  "license": "Apache-2.0",
+  "homepage": "https://kortyx.io/",
+  "bugs": {
+    "url": "https://github.com/kortyx-io/kortyx/issues"
+  },
+  "author": "Kortyx (https://github.com/kortyx-io)",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist/**",
+    "README.md",
+    "CHANGELOG.md"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsc --watch",
+    "lint": "biome check src test",
+    "test": "vitest run && pnpm -s type-check",
+    "coverage": "vitest run --coverage && pnpm -s type-check",
+    "type-check": "tsc --noEmit -p tsconfig.test.json"
+  },
+  "peerDependencies": {
+    "aws-cdk-lib": "^2.269.0",
+    "constructs": "^10.5.0"
+  },
+  "devDependencies": {
+    "@vitest/coverage-v8": "catalog:",
+    "aws-cdk-lib": "^2.269.0",
+    "constructs": "^10.5.0",
+    "tsup": "catalog:",
+    "turbo": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  },
+  "sideEffects": false,
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/kortyx-io/kortyx.git",
+    "directory": "packages/aws-cdk"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

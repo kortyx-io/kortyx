@@ -29,7 +29,7 @@ export async function studioUpdateRequest(request: Request): Promise<Response> {
     return Response.json(
       {
         error:
-          "This installation does not have an updater. Use the published Kortyx installer to enable update management.",
+          "This installation does not have an in-product updater. Manage updates through your deployment workflow, or use the Kortyx installer for local Docker update management.",
       },
       { status: 503 },
     );

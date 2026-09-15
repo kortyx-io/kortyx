@@ -139,3 +139,5 @@ Infrastructure tooling should represent the same components rather than run Comp
 Reference secret-manager entries from workload definitions. Do not serialize raw secret values into Terraform state, generated manifests, or CDK source.
 
 Use the [Configuration Reference](./08-configuration-reference.md) to map ports, variables, health checks, startup order, and service responsibilities to your platform.
+
+For a complete private AWS implementation, continue with [Deploy on AWS with CDK](./09-deploy-aws-cdk.md).

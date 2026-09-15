@@ -7,6 +7,7 @@
   "packages/kortyx": "0.20.2",
   "packages/mcp": "0.2.3",
   "packages/otel": "0.5.1",
+  "packages/aws-cdk": "0.0.0",
   "packages/providers": "0.7.0",
   "providers/deepseek": "0.4.0",
   "providers/groq": "0.4.0",
