@@ -124,7 +124,7 @@ export function DetailInspectorDrawer({
           setSelfClosing(false);
         }}
         style={{ zIndex: inspectorLayers.surface }}
-        className="top-12 right-4 bottom-4 left-4 h-auto w-auto gap-0 rounded-xl border p-0 sm:left-auto sm:w-[30rem] sm:max-w-none"
+        className="top-12 right-4 bottom-4 left-4 h-auto w-auto gap-0 rounded-xl border p-0 data-[state=closed]:[animation-fill-mode:forwards] sm:left-auto sm:w-[30rem] sm:max-w-none"
       >
         <SheetHeader className="h-14 shrink-0 justify-center gap-0.5 border-b px-4 py-0">
           <div className="flex min-w-0 items-center gap-2">
