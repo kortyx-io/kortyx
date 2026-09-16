@@ -12,6 +12,7 @@ import {
   StatusPill,
 } from "@/components/detail/detail-primitives";
 import { DetailTabs } from "@/components/detail/detail-tabs";
+import { RunFeedback } from "@/features/feedback/components/run-feedback";
 import { RunEvents } from "@/features/runs/components/run-events";
 import { RunOverview } from "@/features/runs/components/run-overview";
 import {
@@ -174,6 +175,11 @@ export function RunDetail({ detail }: { detail: StudioRunDetailResponse }) {
               id: "summary",
               label: "Summary",
               content: <RunSummary detail={detail} />,
+            },
+            {
+              id: "feedback",
+              label: `Feedback ${detail.scores?.filter((score) => score.source === "end-user").length ?? 0}`,
+              content: <RunFeedback key={run.id} detail={detail} />,
             },
             {
               id: "events",

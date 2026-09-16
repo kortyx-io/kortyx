@@ -1,6 +1,13 @@
-import { Filter, RefreshCw, Search } from "lucide-react";
+import { ChevronDown, Filter, RefreshCw, Search } from "lucide-react";
 import { DataTableColumnsMenu } from "@/components/data-table";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import {
   Tooltip,
@@ -25,6 +32,13 @@ type RunsToolbarProps = {
   onToggleFilters: () => void;
   onRefresh: () => void;
   onViewsChange: (views: RunsSavedView[]) => void;
+};
+
+const feedbackLabels = {
+  "": "All feedback",
+  positive: "Positive feedback",
+  negative: "Negative feedback",
+  unrated: "Unrated",
 };
 
 export function RunsToolbar({
@@ -79,6 +93,41 @@ export function RunsToolbar({
             className="h-8 pl-9"
           />
         </div>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              id="runs-feedback-filter"
+              type="button"
+              variant="outline"
+              size="sm"
+              aria-label={`User feedback: ${feedbackLabels[query.feedback]}`}
+              className="h-8 max-w-full text-xs"
+            >
+              {feedbackLabels[query.feedback]}
+              <ChevronDown aria-hidden="true" className="size-4 opacity-50" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent
+            align="start"
+            className="min-w-(--radix-dropdown-menu-trigger-width)"
+          >
+            <DropdownMenuRadioGroup
+              aria-label="User feedback"
+              value={query.feedback}
+              onValueChange={(selected) =>
+                setParams({
+                  feedback: (selected as typeof query.feedback) || null,
+                })
+              }
+            >
+              {Object.entries(feedbackLabels).map(([key, label]) => (
+                <DropdownMenuRadioItem key={key} value={key}>
+                  {label}
+                </DropdownMenuRadioItem>
+              ))}
+            </DropdownMenuRadioGroup>
+          </DropdownMenuContent>
+        </DropdownMenu>
         <Tooltip>
           <TooltipTrigger asChild>
             <Button

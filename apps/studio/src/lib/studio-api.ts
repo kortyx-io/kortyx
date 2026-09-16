@@ -177,6 +177,7 @@ export const getStudioRuns = async (
         items: RunSchema.array().parse(
           response.data.runs.map((run) => ({
             id: run.id,
+            feedback: run.feedback,
             parentRunId: run.parentRunId,
             parentWorkflowId: run.parentWorkflowId,
             invocationId: run.invocationId,

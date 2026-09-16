@@ -142,6 +142,53 @@ Studio uses a jittered 30–60 second fallback and stops it after reconnection.
 See [Studio live refresh](../../docs/design-specs/studio-live-refresh.md) for
 the security, scaling, failure, and test boundaries.
 
+## Response feedback and reviews
+
+Root executions have a Feedback column and an All/Positive/Negative/Unrated filter. Ratings
+link directly to the existing run detail's Feedback tab. Session activity shows
+the same badges. Both positive and negative counts remain visible if different
+users disagree; a run can match both filters. Feedback never changes execution
+status. Human correctness reviews are shown separately from end-user ratings.
+
+The application's authenticated backend sends `POST /v1/telemetry/scores` with
+`{ runId, actorId, value: 0 | 1, reasons?, comment? }`, using its server-only
+`telemetry:write` key. Verify response ownership and derive `actorId` from the
+authenticated application user before forwarding feedback. Never expose this
+key in browser code. Re-rating updates the same score; `DELETE` on the same
+endpoint with `{ runId, actorId }` clears that actor's vote. Runs must already be
+ingested; a 404 can mean telemetry is still flushing. See the API's OpenAPI docs.
+
+Reviews require a server-only Studio key with **both** `studio:read` and
+`studio:write`. Existing read-only keys remain read-only. To opt the repository's
+local development key into reviews, bootstrap explicitly:
+
+```bash
+KORTYX_STUDIO_ENABLE_REVIEWS=1 pnpm db:bootstrap
+```
+
+Omitting the opt-in on a later bootstrap restores the key to read-only. For a
+remote deployment, set `KORTYX_STUDIO_ENABLE_REVIEWS=1` in the database bootstrap
+job's environment (or provision a key with both scopes). Keep the opt-in across
+later bootstraps; the Compose stacks forward it to the database job. No migration
+grants new key permissions.
+Review POST/DELETE requests go through Studio's authenticated same-origin
+bridge, never directly from the browser with the API key. The API derives
+review identity from its authenticated Studio key. Shared installations share
+one reviewer identity per key, not per-person cloud identity.
+
+Scores live in their own tenant-scoped table, not workflow state or mutable
+execution events. The schema supports boolean, categorical, and numeric values,
+with end-user/reviewer/evaluator provenance. This release implements feedback
+and human review only, not an evaluation runner or automatic Langfuse forwarding.
+Comments are deliberate user submissions: apply your retention/privacy policy
+and avoid copying sensitive response content into them. Score deletion cascades
+with the retained run/project. Run and session Live refresh invalidations fire
+only after committed score changes.
+
+Run `feedback.spec.ts` for the real API/drawer regression test. It verifies
+write/edit/clear with a review-capable key and the disabled/read-only state with
+a read-only key; run both configurations when changing permissions.
+
 ## Time-range contract
 
 Runs, Sessions, Interrupts, and Workflows share the same server-side time

@@ -27,6 +27,7 @@ import {
 import type { AnyPgColumn } from "drizzle-orm/pg-core";
 import type { TelemetryDb } from "../client";
 import { studioInterrupts, studioRuns, studioSessions } from "../schema";
+import { withRunFeedback } from "./scores";
 
 export type StudioListQuery = Record<string, string | undefined>;
 
@@ -358,7 +359,22 @@ export const listStudioRuns = async (
   const minimumDurationMs = queryNumber(query.minDuration) * 1_000;
   const minimumTokens = queryNumber(query.minTokens);
   const timeRange = resolveListTimeRange(query);
+  const feedbackExists = sql`exists (
+    select 1 from telemetry_scores as feedback
+    where feedback.organization_id = ${studioRuns.organizationId}
+      and feedback.project_id = ${studioRuns.projectId}
+      and feedback.run_id = ${studioRuns.runId}
+      and feedback.source = 'end-user'
+      and feedback.name = 'user-feedback'
+      and feedback.data_type = 'BOOLEAN'
+      ${query.feedback === "positive" ? sql`and feedback.value = '1'::jsonb` : query.feedback === "negative" ? sql`and feedback.value = '0'::jsonb` : sql``}
+  )`;
   const conditions = [
+    query.feedback === "unrated"
+      ? sql`not ${feedbackExists}`
+      : query.feedback
+        ? feedbackExists
+        : undefined,
     queryBoolean(query.includeChildren)
       ? undefined
       : sql`${studioRuns.data} ->> 'parentRunId' is null`,
@@ -430,15 +446,19 @@ export const listStudioRuns = async (
     db.select({ value: count() }).from(studioRuns).where(where),
   ]);
   return {
-    items: rows.map((row) =>
-      normalizeStudioRunProjection({
-        ...row.data,
-        interruptId: row.interruptId ?? row.data.interruptId ?? null,
-        interruptStatus:
-          row.interruptStatus ?? row.data.interruptStatus ?? null,
-        interruptExpiresAt:
-          row.interruptExpiresAt ?? row.data.interruptExpiresAt ?? null,
-      }),
+    items: await withRunFeedback(
+      db,
+      input,
+      rows.map((row) =>
+        normalizeStudioRunProjection({
+          ...row.data,
+          interruptId: row.interruptId ?? row.data.interruptId ?? null,
+          interruptStatus:
+            row.interruptStatus ?? row.data.interruptStatus ?? null,
+          interruptExpiresAt:
+            row.interruptExpiresAt ?? row.data.interruptExpiresAt ?? null,
+        }),
+      ),
     ),
     totalCount: totalRows[0]?.value ?? 0,
   };

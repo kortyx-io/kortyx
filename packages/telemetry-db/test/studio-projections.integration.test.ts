@@ -729,6 +729,11 @@ integration("Studio SQL projections", () => {
       query: { range: "All time", q: "run-ingested" },
     });
 
-    expect(projected.items).toEqual(source.runs);
+    expect(projected.items).toEqual(
+      source.runs.map((run) => ({
+        ...run,
+        feedback: { positive: 0, negative: 0 },
+      })),
+    );
   });
 });

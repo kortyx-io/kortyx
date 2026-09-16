@@ -20,6 +20,7 @@ import {
 } from "@/components/detail/detail-primitives";
 import { DetailTabs } from "@/components/detail/detail-tabs";
 import { PayloadViewer } from "@/components/detail/payload-viewer";
+import { FeedbackBadge } from "@/features/feedback/components/feedback-badge";
 import {
   formatCount,
   formatCurrency,
@@ -194,9 +195,17 @@ function SessionActivity({
                     {run.workflowId} · {formatDateTime(run.startedAt)}
                   </p>
                 </div>
-                <StatusPill tone={statusTone(run.status)}>
-                  {run.status}
-                </StatusPill>
+                <div className="flex flex-wrap items-center gap-2">
+                  <DetailLink
+                    href={studioDetailHref("runs", run.id, { tab: "feedback" })}
+                    aria-label={`View feedback for run ${run.id}`}
+                  >
+                    <FeedbackBadge feedback={run.feedback} />
+                  </DetailLink>
+                  <StatusPill tone={statusTone(run.status)}>
+                    {run.status}
+                  </StatusPill>
+                </div>
               </div>
               <p className="mt-3 text-sm">
                 {run.result ?? "No result captured"}

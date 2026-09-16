@@ -1,6 +1,7 @@
 import { CirclePause, Clock3 } from "lucide-react";
 import type { DataTableColumn } from "@/components/data-table";
 import { DetailLink } from "@/components/detail/detail-link";
+import { FeedbackBadge } from "@/features/feedback/components/feedback-badge";
 import { effectiveInterruptStatus } from "@/features/interrupts/lib/interrupt-presentation";
 import {
   WorkflowPathCell,
@@ -141,6 +142,28 @@ export function createRunColumns({
       cellClassName: "text-xs text-muted-foreground",
       cellTitle: (run) => run.startedAt,
       render: (run) => <TruncatedText>{run.started}</TruncatedText>,
+    },
+    {
+      key: "feedback",
+      label: "Feedback",
+      defaultWidth: 120,
+      render: (run) =>
+        run.parentRunId ? (
+          <span
+            className="text-xs text-muted-foreground"
+            title="Feedback is collected on the root execution"
+          >
+            —
+          </span>
+        ) : (
+          <DetailLink
+            href={studioDetailHref("runs", run.id, { tab: "feedback" })}
+            onClick={(event) => event.stopPropagation()}
+            aria-label={`View feedback for run ${run.id}`}
+          >
+            <FeedbackBadge feedback={run.feedback} />
+          </DetailLink>
+        ),
     },
     {
       key: "workflow",

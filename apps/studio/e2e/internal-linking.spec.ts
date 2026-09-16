@@ -16,7 +16,7 @@ async function openRow(page: Page, resource: string, id: string) {
   await page.goto(`/${resource}?q=${encodeURIComponent(id)}&range=All+time`);
   await expect(page.locator('[data-table-ready="true"]')).toBeVisible();
   await page
-    .locator(`[data-row-key="${id}"]`)
+    .locator(`[data-row-key="${id}"]:visible`)
     .click({ position: { x: 8, y: 8 } });
   // A fresh dev server compiles the first intercepted destination on demand.
   await expect(page).toHaveURL((url) => url.pathname === path(resource, id), {

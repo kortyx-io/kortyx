@@ -3,6 +3,7 @@ import type {
   KortyxTelemetryEvent,
   StudioInterrupt,
   StudioRun,
+  StudioScore,
   StudioSession,
   TelemetryUnitPrice,
 } from "@kortyx/telemetry-contracts";
@@ -435,6 +436,67 @@ export const studioRuns = pgTable(
       table.organizationId,
       table.projectId,
       table.sessionId,
+    ),
+  ],
+);
+
+export const telemetryScores = pgTable(
+  "telemetry_scores",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organizationId: uuid("organization_id").notNull(),
+    projectId: uuid("project_id").notNull(),
+    runId: text("run_id").notNull(),
+    environment: text("environment").notNull(),
+    name: text("name").notNull(),
+    dataType: text("data_type").$type<StudioScore["dataType"]>().notNull(),
+    value: jsonb("value").$type<StudioScore["value"]>().notNull(),
+    source: text("source").$type<StudioScore["source"]>().notNull(),
+    actorId: text("actor_id").notNull(),
+    reasons: jsonb("reasons")
+      .$type<StudioScore["reasons"]>()
+      .notNull()
+      .default(sql`'[]'::jsonb`),
+    comment: text("comment"),
+    createdAt: timestampWithTimezone("created_at").notNull().defaultNow(),
+    updatedAt: timestampWithTimezone("updated_at").notNull().defaultNow(),
+  },
+  (table) => [
+    foreignKey({
+      columns: [table.organizationId, table.projectId, table.runId],
+      foreignColumns: [
+        studioRuns.organizationId,
+        studioRuns.projectId,
+        studioRuns.runId,
+      ],
+      name: "telemetry_scores_run_tenant_fk",
+    }).onDelete("cascade"),
+    uniqueIndex("telemetry_scores_actor_target_name_unique").on(
+      table.organizationId,
+      table.projectId,
+      table.runId,
+      table.source,
+      table.actorId,
+      table.name,
+    ),
+    index("telemetry_scores_run_feedback_idx").on(
+      table.organizationId,
+      table.projectId,
+      table.runId,
+      table.source,
+      table.name,
+    ),
+    check(
+      "telemetry_scores_source_check",
+      sql`${table.source} in ('end-user', 'human-review', 'evaluator')`,
+    ),
+    check(
+      "telemetry_scores_value_check",
+      sql`(
+      (${table.dataType} = 'BOOLEAN' and ${table.value} in ('0'::jsonb, '1'::jsonb)) or
+      (${table.dataType} = 'CATEGORICAL' and jsonb_typeof(${table.value}) = 'string') or
+      (${table.dataType} = 'NUMERIC' and jsonb_typeof(${table.value}) = 'number')
+    )`,
     ),
   ],
 );

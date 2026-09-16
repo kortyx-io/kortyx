@@ -60,8 +60,11 @@ const main = async (): Promise<void> => {
       apiKey: studioApiKey,
       organizationId: project.organizationId,
       projectId: project.projectId,
-      name: "Local Studio read key",
-      scopes: ["studio:read"],
+      name: "Local Studio key",
+      scopes:
+        process.env.KORTYX_STUDIO_ENABLE_REVIEWS === "1"
+          ? ["studio:read", "studio:write"]
+          : ["studio:read"],
     });
 
     console.log("Kortyx telemetry local project bootstrapped.");
@@ -74,8 +77,8 @@ const main = async (): Promise<void> => {
     );
     console.log(
       studioApiKey
-        ? `Studio read API key configured: ${studioKey.keyId}`
-        : `Studio read API key: ${studioKey.apiKey}`,
+        ? `Studio API key configured: ${studioKey.keyId}`
+        : `Studio API key: ${studioKey.apiKey}`,
     );
     const rates = await seedDefaultModelRateCards(client.db);
     console.log(

@@ -35,6 +35,12 @@ export {
   getStudioProjectContext,
 } from "./repositories/projects";
 export {
+  clearRunScore,
+  listRunScores,
+  upsertRunScore,
+  withRunFeedback,
+} from "./repositories/scores";
+export {
   notifyStudioChange,
   STUDIO_CHANGE_CHANNEL,
 } from "./repositories/studio-changes";

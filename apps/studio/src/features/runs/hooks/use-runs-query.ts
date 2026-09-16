@@ -1,4 +1,5 @@
 import {
+  FEEDBACK_FILTERS,
   STUDIO_TIME_RANGES,
   type StudioTimeRange,
 } from "@kortyx/telemetry-contracts";
@@ -22,6 +23,10 @@ import {
 const sortKeys: SortKey[] = ["started", "duration", "tokens", "cost", "status"];
 
 const baseSearchParams = {
+  feedback: parseAsStringLiteral([
+    "",
+    ...FEEDBACK_FILTERS,
+  ] as const).withDefault(""),
   includeChildren: parseAsBoolean.withDefault(false),
   q: parseAsString.withDefault(""),
   env: parseAsString.withDefault("All environments"),
@@ -53,6 +58,7 @@ export type RunsQueryDefaults = {
 };
 
 type RunsParamChanges = Partial<{
+  feedback: (typeof FEEDBACK_FILTERS)[number] | null;
   includeChildren: boolean | null;
   q: string | null;
   env: string | null;
@@ -81,6 +87,7 @@ type RunsParamChanges = Partial<{
 
 export type RunsViewFilters = Pick<
   RunsParamChanges,
+  | "feedback"
   | "includeChildren"
   | "q"
   | "env"
@@ -145,6 +152,7 @@ export function useRunsQuery(initialRuns: Run[], defaults?: RunsQueryDefaults) {
     Number(params.tool) +
     Number(params.includeChildren) +
     [
+      params.feedback,
       params.workflow,
       params.version,
       params.transition,
@@ -166,6 +174,7 @@ export function useRunsQuery(initialRuns: Run[], defaults?: RunsQueryDefaults) {
 
   const clearFilters = () =>
     setParams({
+      feedback: null,
       includeChildren: null,
       q: null,
       env: null,
@@ -189,6 +198,7 @@ export function useRunsQuery(initialRuns: Run[], defaults?: RunsQueryDefaults) {
 
   const viewQuery: RunsViewQuery = {
     filters: {
+      feedback: params.feedback || null,
       includeChildren: params.includeChildren || null,
       q: params.q || null,
       env: params.env === "All environments" ? null : params.env,
@@ -214,6 +224,7 @@ export function useRunsQuery(initialRuns: Run[], defaults?: RunsQueryDefaults) {
   };
 
   return {
+    feedback: params.feedback,
     includeChildren: params.includeChildren,
     query: params.q,
     environment: params.env,
@@ -269,6 +280,7 @@ export function useRunsQuery(initialRuns: Run[], defaults?: RunsQueryDefaults) {
     applyViewQuery: (view: RunsViewQuery) =>
       setParams({
         ...view.filters,
+        feedback: view.filters.feedback ?? null,
         sort: view.sort,
         dir: view.dir,
         cursor: null,

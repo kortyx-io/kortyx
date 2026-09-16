@@ -1,3 +1,4 @@
+import { FeedbackSummarySchema } from "@kortyx/telemetry-contracts";
 import { z } from "zod";
 
 export const RunStatusSchema = z.enum([
@@ -19,6 +20,7 @@ export const ProviderSchema = z.string();
 export const EnvironmentSchema = z.string();
 
 export const RunSchema = z.object({
+  feedback: FeedbackSummarySchema.optional(),
   parentRunId: z.string().optional(),
   parentWorkflowId: z.string().optional(),
   invocationId: z.string().optional(),
