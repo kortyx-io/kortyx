@@ -56,17 +56,26 @@ export interface PendingRequestStore {
   ) => Promise<void>;
 }
 
-export function createInMemoryPendingRequestStore(): PendingRequestStore {
+export function createInMemoryPendingRequestStore(): PendingRequestStore & {
+  pruneExpired: (now: number, batchSize: number) => number;
+} {
   const store = new Map<string, PendingRequestRecord>();
 
-  const prune = () => {
-    const t = Date.now();
+  const pruneExpired = (t: number, batchSize: number) => {
+    let deleted = 0;
     for (const [k, v] of store.entries()) {
-      if (t - v.createdAt > v.ttlMs) store.delete(k);
+      if (deleted === batchSize) break;
+      if (t - v.createdAt > v.ttlMs) {
+        store.delete(k);
+        deleted++;
+      }
     }
+    return deleted;
   };
+  const prune = () => pruneExpired(Date.now(), Number.POSITIVE_INFINITY);
 
   return {
+    pruneExpired,
     async list() {
       prune();
       return JSON.parse(

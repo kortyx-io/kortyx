@@ -61,7 +61,8 @@
     "tsup": "catalog:",
     "vitest": "catalog:",
     "@vitest/coverage-v8": "catalog:",
-    "@kortyx/openai": "workspace:*"
+    "@kortyx/openai": "workspace:*",
+    "postgres": "^3.4.7"
   },
   "sideEffects": false,
   "repository": {
