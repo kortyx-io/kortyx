@@ -89,6 +89,8 @@ Keep the service name stable across deploys. Use the environment field as an inf
 
 ## Publish the declared workflow catalog
 
+> **Good to know: Make this a CI/CD step, not a one-time setup command.** Publish topology for each application release, ideally before that version serves traffic. Run the CLI where the telemetry API is reachable and inject the same server-only telemetry variables as the application. If the API is private, use a network-connected runner or a one-off task/job inside the allowed network; an ordinary public CI runner does not gain access just because Studio is deployed. See the [AWS ECS task pattern](./09-deploy-aws-cdk.md#publish-topology-from-the-application-release).
+
 Publish deterministic topology from the module that exports your configured
 agent or workflows:
 
@@ -106,6 +108,20 @@ The published catalog appears under **Workflows** before traffic arrives. This
 does not create a run. **Runs** contains only real workflow executions emitted
 by your application. Keep runtime topology registration enabled as a
 best-effort fallback, but use `topology push` as the canonical deployment step.
+
+For a release container, keep a small catalog module in the application repository that exports the same workflow definitions without starting the server or connecting to application persistence:
+
+```ts file="src/catalog.ts"
+export { workflows } from "./workflows.js";
+```
+
+Build and include it in the application artifact. If the compiled path is `dist/catalog.js`, run the installed CLI from the application directory:
+
+```bash
+./node_modules/.bin/kortyx topology push --entry dist/catalog.js
+```
+
+Use the exact application version being released, keep the service name and environment aligned with runtime telemetry, and check the command's exit code before marking publication successful. Topology publication targets the telemetry API, not the Studio browser interface. It is separate from deploying Studio or running its database bootstrap.
 
 ## Choose what content Studio may store
 

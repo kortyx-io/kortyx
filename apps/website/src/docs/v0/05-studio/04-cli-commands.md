@@ -107,6 +107,8 @@ creating runs. Use `--dry-run` to inspect the projection locally. See [Connect
 Your Project](./03-connect-project.md#publish-the-declared-workflow-catalog) for
 the complete connection flow.
 
+> **Good to know: Publication runs in your application's deployment environment.** The CLI imports the application entry module and calls the telemetry API with its write key. Include it in CI/CD for each application release. For a private API, run from an allowed network, for example in a one-off ECS task using the application's release image; the GitHub runner can launch that task without reaching the private API itself. Deploying Studio does not run this command for your applications.
+
 ## Reset local data
 
 ```bash
