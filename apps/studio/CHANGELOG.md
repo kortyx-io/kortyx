@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.6.0](https://github.com/kortyx-io/kortyx/compare/studio-v0.5.2...studio-v0.6.0) (2026-09-16)
+
+
+### Features
+
+* **studio:** surface consumer feedback and human reviews ([#209](https://github.com/kortyx-io/kortyx/issues/209)) ([b757879](https://github.com/kortyx-io/kortyx/commit/b757879ab72c3bb3bf3d5c8f2d10611606834cf6))
+
+
+### Bug Fixes
+
+* **studio:** restore drawer stacks across cyclic history ([#208](https://github.com/kortyx-io/kortyx/issues/208)) ([a0b67ee](https://github.com/kortyx-io/kortyx/commit/a0b67ee38bf5dde54d66bca846c14235beefad20))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/telemetry-contracts bumped to 0.8.0
+
 ## [0.5.2](https://github.com/kortyx-io/kortyx/compare/studio-v0.5.1...studio-v0.5.2) (2026-09-16)
 
 

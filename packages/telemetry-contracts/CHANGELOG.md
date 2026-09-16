@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.8.0](https://github.com/kortyx-io/kortyx/compare/telemetry-contracts-v0.7.0...telemetry-contracts-v0.8.0) (2026-09-16)
+
+
+### Features
+
+* **studio:** surface consumer feedback and human reviews ([#209](https://github.com/kortyx-io/kortyx/issues/209)) ([b757879](https://github.com/kortyx-io/kortyx/commit/b757879ab72c3bb3bf3d5c8f2d10611606834cf6))
+
 ## [0.7.0](https://github.com/kortyx-io/kortyx/compare/telemetry-contracts-v0.6.0...telemetry-contracts-v0.7.0) (2026-09-15)
 
 

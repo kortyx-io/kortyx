@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.25.3](https://github.com/kortyx-io/kortyx/compare/hooks-v0.25.2...hooks-v0.25.3) (2026-09-16)
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/telemetry-contracts bumped to 0.8.0
+
 ## [0.25.2](https://github.com/kortyx-io/kortyx/compare/hooks-v0.25.1...hooks-v0.25.2) (2026-09-15)
 
 

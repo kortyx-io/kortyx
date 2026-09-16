@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.8.0](https://github.com/kortyx-io/kortyx/compare/cli-v0.7.3...cli-v0.8.0) (2026-09-16)
+
+
+### Features
+
+* **studio:** surface consumer feedback and human reviews ([#209](https://github.com/kortyx-io/kortyx/issues/209)) ([b757879](https://github.com/kortyx-io/kortyx/commit/b757879ab72c3bb3bf3d5c8f2d10611606834cf6))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/agent bumped to 0.24.0
+    * @kortyx/telemetry-contracts bumped to 0.8.0
+
 ## [0.7.3](https://github.com/kortyx-io/kortyx/compare/cli-v0.7.2...cli-v0.7.3) (2026-09-16)
 
 
