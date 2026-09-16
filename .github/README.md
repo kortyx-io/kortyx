@@ -29,17 +29,23 @@ workflows in `workflows/shared/`.
 | `ci.yml` | CI | Pull requests and pushes to main |
 | `release-prepare.yml` | Release / Prepare PR | Manual, main only |
 | `release-tags.yml` | Release / Tags | Release manifest changes on main, or manual |
-| `release-npm.yml` | Release / NPM | Manual, main only, npm environment approval |
+| `npm-publish.yml` | Release / NPM | Manual, main only, npm environment approval |
 | `release-studio-images.yml` | Release / Studio Images | Manual, existing Studio release tag |
 | `release-studio-recover.yml` | Release / Studio Recovery | Manual, existing tag and recorded digests |
 | `website-preview.yml` | Website / Preview | Same-repository PR changes and closure |
 | `website-release.yml` | Website / Release | Website version tags |
 | `website-promote.yml` | Website / Promote | Manual production promotion |
 
-The former `release.yml`, `npm-publish.yml`, `studio-oss-ghcr.yml`,
+The former `release.yml`, `studio-oss-ghcr.yml`,
 `studio-oss-cdn-recover.yml`, `website-ghcr.yml`, and `website-ghcr-promote.yml` have
 been renamed as above. Update any external workflow-dispatch clients using those
 filenames. GitHub may retain historical workflow entries for their old names.
+
+The npm entry point deliberately remains `npm-publish.yml`: existing npm trusted
+publishers are configured for that exact filename and the `NPM Package Publishing`
+environment. Publishing stays in the same workflow job through a composite action,
+with `id-token: write` retained. No npm trusted-publisher configuration changes
+are required. See [npm trusted publishing](https://docs.npmjs.com/trusted-publishers/).
 
 ## Shared validation
 
