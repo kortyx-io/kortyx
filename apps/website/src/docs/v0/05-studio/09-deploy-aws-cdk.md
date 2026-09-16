@@ -21,6 +21,8 @@ The construct creates ECS Fargate, PostgreSQL on RDS, generated credentials in S
 
 > **Private by default:** The load balancer accepts traffic from the VPC CIDR, and neither the ECS task nor RDS receives a public IP. Reach it from the VPC, a peered network, or a VPN.
 
+> **Good to know: Wire topology publication into your application's CI/CD.** Deploying this construct does not publish your application's workflow catalog. Run `kortyx topology push` for each application release from a workload that can reach the private telemetry API. A public GitHub-hosted runner cannot reach the internal ALB without additional network connectivity. See [Publish topology from the application release](#publish-topology-from-the-application-release).
+
 ## Choose a deployment path
 
 This construct is the maintained, batteries-included AWS path, not a requirement for running Kortyx on AWS. Use it when your infrastructure is managed with CDK and its defaults fit your environment.
@@ -243,6 +245,33 @@ KORTYX_TELEMETRY_SERVICE_NAME=my-agent
 ```
 
 The application must have a network route to the internal load balancer. Never put the telemetry key in a browser bundle. Continue with [Connect Your Project](./03-connect-project.md) to publish workflow topology.
+
+### Publish topology from the application release
+
+Keep the catalog entrypoint with your **agent application's source**, not in the Studio infrastructure repository. It should export the same workflows the agent uses without starting an HTTP server or connecting to application persistence. For example:
+
+```ts file="src/catalog.ts"
+export { workflows } from "./workflows.js";
+```
+
+Include that module and the installed Kortyx CLI in your application's release image. If your build emits `dist/catalog.js`, run this command from the application directory inside that image:
+
+```bash
+./node_modules/.bin/kortyx topology push --entry dist/catalog.js
+```
+
+For ECS applications, the release workflow can launch a **separate one-off ECS task** using the same immutable application image, with its command overridden to run the CLI. This is not an exec into a running application container, and it does not run in the Studio container. Configure the task's network access and inject the application's four telemetry environment variables above through the workload definition and secret manager.
+
+The workflow runner calls the AWS ECS API to start the task; the task itself sends topology to the telemetry API behind the internal ALB. It needs working DNS, a route to that ALB, and allowed security-group/CIDR access. Network access alone is not authentication: the CLI also needs the Project-scoped telemetry write key.
+
+Wire this as an explicit application-release step, ideally before enabling traffic to the new application version:
+
+1. Wait for the Kortyx telemetry API to be ready.
+2. Launch the catalog task for the application version being released.
+3. Wait for it to finish and fail the release step if its exit code is nonzero.
+4. Open **Workflows** in Studio to confirm the catalog, then execute a real request to verify **Runs**.
+
+A runner already connected to the allowed private network can run the CLI directly instead. Keep the same service name and environment as the application runtime, and never print the write key in CI logs. This job belongs to the application's release workflow; it is separate from the Studio database migration/bootstrap job.
 
 From an allowed VPC or VPN client:
 
