@@ -82,6 +82,93 @@ test.describe("Studio detail drawer stack", () => {
       .toMatchObject({ added: 2, removed: 1 });
   });
 
+  for (const presentation of ["route", "expanded drawer"] as const) {
+    test(`closes a reopened Trace once without remounting in the ${presentation}`, async ({
+      page,
+    }) => {
+      if (presentation === "route") {
+        await page.goto(
+          `${runPath}?tab=trace&detailView=expanded&trace=e2e-ktx25-chat-started`,
+        );
+      } else {
+        await openRunsList(page);
+        await clickTableRow(runTableRow(page));
+        const run = drawer(page, runPath);
+        await expect(run).toHaveAttribute("data-state", "open");
+        await waitForSurfaceMotion(run);
+        await run.getByRole("button", { name: "Expand detail" }).click();
+        await expect(page).toHaveURL(/detailView=expanded/);
+        await run.getByRole("button", { name: "Trace", exact: true }).click();
+        await page
+          .getByRole("tabpanel")
+          .locator('button[aria-haspopup="dialog"]')
+          .nth(1)
+          .click();
+      }
+
+      const rows = page
+        .getByRole("tabpanel")
+        .locator('button[aria-haspopup="dialog"]');
+      const selectedRow = page.locator(
+        'button[aria-haspopup="dialog"][aria-expanded="true"]',
+      );
+      const selectedName = await selectedRow.getAttribute("aria-label");
+      expect(selectedName).not.toBeNull();
+      const sameTrace = page.getByRole("button", {
+        name: selectedName ?? "",
+        exact: true,
+      });
+
+      // Repeat the same item, then switch items on the still-mounted inspector.
+      // Checking only the original element misses a new portal replaying exit.
+      for (const iteration of [0, 1, 2, 3]) {
+        if (iteration > 0) await sameTrace.click();
+        if (iteration === 3) {
+          await waitForSurfaceMotion(inspector(page));
+          await rows.last().click();
+          await sameTrace.click();
+        }
+        await expect(inspector(page)).toHaveCount(1);
+        await waitForSurfaceMotion(inspector(page));
+        await installInspectorCloseAudit(page);
+
+        if (iteration === 2) {
+          await page.keyboard.press("Escape");
+        } else {
+          await inspector(page)
+            .getByRole("button", { name: "Close item details" })
+            .click();
+        }
+        await expect(inspector(page)).toHaveAttribute("data-state", "closed", {
+          timeout: 250,
+        });
+        // Selection clears during exit; Presence owns the remaining lifetime.
+        await expect(page).toHaveURL((url) => !url.searchParams.has("trace"), {
+          timeout: 250,
+        });
+        await expect(inspector(page)).toHaveCount(0);
+        // Include the paint following removal and the URL-backed close commit.
+        await page.evaluate(
+          () =>
+            new Promise<void>((resolve) => {
+              requestAnimationFrame(() =>
+                requestAnimationFrame(() => resolve()),
+              );
+            }),
+        );
+        expect(await readInspectorCloseAudit(page)).toEqual({
+          added: 0,
+          removed: 1,
+          starts: ["exit"],
+          ends: ["exit"],
+          reopened: false,
+          movedBackwards: false,
+        });
+        await expect(sameTrace).toHaveAttribute("aria-expanded", "false");
+      }
+    });
+  }
+
   test("stacks Session, Run, and Trace while the shared backdrop peels one level at a time", async ({
     page,
   }) => {
@@ -523,4 +610,102 @@ async function readDrawerAudit(page: Page) {
 
 function escapeRegExp(value: string) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+async function installInspectorCloseAudit(page: Page) {
+  await page.evaluate(() => {
+    const audit = {
+      added: 0,
+      removed: 0,
+      starts: [] as string[],
+      ends: [] as string[],
+      reopened: false,
+      movedBackwards: false,
+    };
+    const state = window as typeof window & {
+      __inspectorCloseAudit?: typeof audit;
+      __stopInspectorCloseAudit?: () => void;
+    };
+    state.__stopInspectorCloseAudit?.();
+    state.__inspectorCloseAudit = audit;
+    const selector = "[data-detail-inspector]";
+    const count = (node: Node) =>
+      node instanceof Element
+        ? Number(node.matches(selector)) +
+          node.querySelectorAll(selector).length
+        : 0;
+    let closed = false;
+    let lastLeft: number | undefined;
+    let frame = 0;
+    const sample = () => {
+      const surface = document.querySelector(selector);
+      if (surface?.getAttribute("data-state") === "closed") {
+        closed = true;
+        const left = surface.getBoundingClientRect().left;
+        if (lastLeft !== undefined && left < lastLeft - 1) {
+          audit.movedBackwards = true;
+        }
+        lastLeft = left;
+      } else if (closed && surface) {
+        audit.reopened = true;
+      }
+      frame = requestAnimationFrame(sample);
+    };
+    const observer = new MutationObserver((records) => {
+      for (const record of records) {
+        for (const node of record.addedNodes) audit.added += count(node);
+        for (const node of record.removedNodes) audit.removed += count(node);
+        if (
+          record.type === "attributes" &&
+          record.target instanceof Element &&
+          record.target.matches(selector) &&
+          record.oldValue === "closed" &&
+          record.target.getAttribute("data-state") === "open"
+        ) {
+          audit.reopened = true;
+        }
+      }
+    });
+    observer.observe(document.body, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeFilter: ["data-state"],
+      attributeOldValue: true,
+    });
+    const onAnimation = (event: AnimationEvent) => {
+      if (!(event.target instanceof Element) || !event.target.matches(selector))
+        return;
+      if (event.type === "animationstart")
+        audit.starts.push(event.animationName);
+      else audit.ends.push(event.animationName);
+    };
+    document.addEventListener("animationstart", onAnimation, true);
+    document.addEventListener("animationend", onAnimation, true);
+    frame = requestAnimationFrame(sample);
+    state.__stopInspectorCloseAudit = () => {
+      cancelAnimationFrame(frame);
+      observer.disconnect();
+      document.removeEventListener("animationstart", onAnimation, true);
+      document.removeEventListener("animationend", onAnimation, true);
+    };
+  });
+}
+
+async function readInspectorCloseAudit(page: Page) {
+  return page.evaluate(() => {
+    const state = window as typeof window & {
+      __inspectorCloseAudit?: {
+        added: number;
+        removed: number;
+        starts: string[];
+        ends: string[];
+        reopened: boolean;
+        movedBackwards: boolean;
+      };
+      __stopInspectorCloseAudit?: () => void;
+    };
+    state.__stopInspectorCloseAudit?.();
+    return state.__inspectorCloseAudit;
+  });
 }

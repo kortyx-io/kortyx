@@ -3,7 +3,6 @@
 import { X } from "lucide-react";
 import { type ReactNode, useEffect, useRef, useState } from "react";
 import { useDetailDrawer } from "@/components/detail/detail-drawer";
-import { DETAIL_MOTION_DURATION_MS } from "@/components/detail/detail-motion";
 import { Button } from "@/components/ui/button";
 import { OverflowText } from "@/components/ui/overflow-tooltip";
 import {
@@ -39,6 +38,7 @@ export function DetailInspectorDrawer({
   const detailSurface = useDetailDrawer();
   const closeRef = useRef(onClose);
   const ownsSplitPaneRef = useRef(false);
+  const closeRequestedRef = useRef(false);
   const retainedContentRef = useRef({
     badges,
     bodyClassName,
@@ -77,7 +77,6 @@ export function DetailInspectorDrawer({
     } else if (!open && ownsSplitPaneRef.current) {
       ownsSplitPaneRef.current = false;
       detailSurface.setNestedOpen(false);
-      setSelfClosing(false);
     }
   }, [
     detailSurface.nestedClosing,
@@ -88,10 +87,13 @@ export function DetailInspectorDrawer({
 
   useEffect(() => {
     if (!open || (!selfClosing && !detailSurface.nestedClosing)) return;
-    const timer = window.setTimeout(() => {
-      closeRef.current();
-    }, DETAIL_MOTION_DURATION_MS);
-    return () => window.clearTimeout(timer);
+    if (closeRequestedRef.current) return;
+    closeRequestedRef.current = true;
+    setSelfClosing(true);
+    // Clear selection when exit starts. Radix Presence retains the content for
+    // its animation; a competing timer can reconcile a cached selection just
+    // as Presence removes the portal and mount a second exit surface.
+    closeRef.current();
   }, [detailSurface.nestedClosing, open, selfClosing]);
 
   const closing =
@@ -114,6 +116,13 @@ export function DetailInspectorDrawer({
         overlayClassName="pointer-events-none bg-overlay/45"
         overlayStyle={{ zIndex: inspectorLayers.backdrop }}
         onInteractOutside={(event) => event.preventDefault()}
+        onEscapeKeyDown={(event) => event.stopPropagation()}
+        onCloseAutoFocus={() => {
+          // FocusScope releases the portal after Presence completes its exit.
+          // Keep the close latched across intermediate URL state reconciliation.
+          closeRequestedRef.current = false;
+          setSelfClosing(false);
+        }}
         style={{ zIndex: inspectorLayers.surface }}
         className="top-12 right-4 bottom-4 left-4 h-auto w-auto gap-0 rounded-xl border p-0 sm:left-auto sm:w-[30rem] sm:max-w-none"
       >

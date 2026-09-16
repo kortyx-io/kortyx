@@ -41,12 +41,15 @@ test.describe("Responsive detail surfaces", () => {
     const decision = page.locator(
       '[data-responsive-surface="interrupt-decision"]',
     );
+    // Wait for the streamed detail subtree to settle before measuring it.
+    await expect(decision).toHaveCount(1);
     await expect(decision).toBeVisible();
     await expectNoHorizontalOverflow(decision);
     await expectStacked(decision.locator("section"), decision.locator("aside"));
 
     await page.goto(`${runPath}?tab=summary`);
     const summary = page.locator('[data-responsive-surface="run-summary"]');
+    await expect(summary).toHaveCount(1);
     await expect(summary).toBeVisible();
     await expectNoHorizontalOverflow(summary);
     await expectStacked(

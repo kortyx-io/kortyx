@@ -55,6 +55,7 @@ web-first assertions, or `expect.poll`; do not add fixed sleeps.
 - the backdrop disappears between layers or closes more than one layer;
 - the backdrop sits above ancestor drawers and blocks their visible slivers;
 - Trace/Event selection history reopens Run during an intentional close;
+- reopening the same Trace remounts its portal or replays its exit animation;
 - a tab change unmounts the inspector before its exit motion finishes;
 - closing a child shrinks an expanded Run;
 - `detailView=expanded` affects an ancestor instead of only the active layer;
