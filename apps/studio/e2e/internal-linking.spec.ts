@@ -542,10 +542,7 @@ test.describe("Studio cyclic drawer history", () => {
     await surface(page, href("sessions"))
       .getByRole("button", { name: /^Runs \d+$/ })
       .click();
-    await surface(page, href("sessions"))
-      .getByRole("tabpanel")
-      .getByRole("link", { name: ids.runs, exact: true })
-      .click();
+    await sessionRunLink(surface(page, href("sessions")), ids.runs).click();
     await expect(page).toHaveURL((url) => url.pathname === href("runs"));
     await expect(run).toHaveAttribute("data-state", "open");
     await expect(surface(page, href("sessions"))).toHaveCount(0);
