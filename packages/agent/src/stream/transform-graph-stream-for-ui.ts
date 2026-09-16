@@ -29,6 +29,8 @@ export async function* transformGraphStreamForUI(
 
   for await (const event of stream) {
     const { event: type, name, data } = event ?? {};
+    // Parallel scheduling is internal plumbing, not application topology.
+    if (name?.startsWith("__kortyx_parallel_")) continue;
     if (debug) console.log(`[debug:event]`, JSON.stringify(event, null, 2));
 
     switch (type) {

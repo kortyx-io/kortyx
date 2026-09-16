@@ -22,6 +22,21 @@ const collect = async (
 };
 
 describe("transformGraphStreamForUI", () => {
+  it("does not expose internal parallel scheduling nodes", async () => {
+    expect(
+      await collect(
+        [
+          { event: "on_chain_start", name: "__kortyx_parallel_work" },
+          {
+            event: "on_chain_end",
+            name: "__kortyx_parallel_wait",
+            data: { output: {} },
+          },
+        ],
+        { emitStatus: true },
+      ),
+    ).toEqual([]);
+  });
   it("emits deduped node lifecycle status and graph completion", async () => {
     await expect(
       collect(

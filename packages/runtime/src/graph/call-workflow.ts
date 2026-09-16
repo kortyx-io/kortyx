@@ -36,31 +36,15 @@ type ChildSnapshot = {
   limitPaused?: boolean;
 };
 
-function assertSequentialWorkflow(workflow: WorkflowDefinition) {
-  const groups = new Map<string, { plain: number; conditional: number }>();
-  for (const [from, , condition] of workflow.edges) {
-    const group = groups.get(from) ?? { plain: 0, conditional: 0 };
-    if (condition) group.conditional++;
-    else group.plain++;
-    groups.set(from, group);
-    if (group.plain > 1 || (group.plain > 0 && group.conditional > 0)) {
-      throw new WorkflowContractError(
-        `Workflow '${workflow.id}' has parallel edges; child calls require sequential graphs.`,
-      );
-    }
-  }
-}
-
 /** Children have private engine state. Their snapshots travel in parent hook state. */
 export function createWorkflowCallService(
   config: ExecutionRuntimeConfig,
-  parent?: WorkflowDefinition,
+  _parent?: WorkflowDefinition,
   execution: ExecutionControl = {},
 ): WorkflowCallService {
   return async (args) => {
     const execute = async () => {
       throwIfExecutionAborted(execution.abortSignal);
-      if (parent) assertSequentialWorkflow(parent);
       const depth = (config.workflowCallDepth ?? 0) + 1;
       if (depth > 16)
         throw new WorkflowContractError(
@@ -85,7 +69,6 @@ export function createWorkflowCallService(
           "The typed workflow contract does not match the registered definition.",
         );
       }
-      assertSequentialWorkflow(workflow);
       const snapshot = args.snapshot as ChildSnapshot | undefined;
       if (snapshot && snapshot.version !== workflow.version)
         throw new WorkflowContractError(
@@ -102,6 +85,7 @@ export function createWorkflowCallService(
       let request: InterruptInput | undefined;
       const invocationPath = `${config.invocationPath ?? "root"}/${encodeURIComponent(args.id)}:${args.invocationId}`;
       let childConfig: ExecutionRuntimeConfig = {
+        resume: Boolean(snapshot),
         executionBranchId: config.executionBranchId,
         prepareChildTelemetry: config.prepareChildTelemetry,
         context: config.context,

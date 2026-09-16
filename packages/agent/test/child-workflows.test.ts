@@ -691,14 +691,14 @@ describe("call safety", () => {
     expect(data(final)).toMatchObject({ answer: "original" });
   });
 
-  it("rejects changed contracts, missing registration, and unsupported parallel children", async () => {
+  it("rejects changed contracts, missing registration, and cyclic parallel children", async () => {
     const child = simpleChild(() => ({ data: { answer: "done" } }));
     const changed = { ...child, version: "2" };
     for (const [target, children, message] of [
       [changed, [child], "contract does not match"],
       [child, [], "not registered"],
       [
-        { ...child, edges: [...child.edges, ["__start__", "run"]] },
+        { ...child, edges: [...child.edges, ["run", "run"]] },
         [],
         "parallel edges",
       ],
@@ -723,9 +723,11 @@ describe("call safety", () => {
         (await start(agent)).some(
           (c) =>
             c.type === "error" &&
-            ["WORKFLOW_CONTRACT_ERROR", "UNKNOWN_WORKFLOW"].includes(
-              c.failure?.code ?? "",
-            ),
+            [
+              "WORKFLOW_CONTRACT_ERROR",
+              "UNKNOWN_WORKFLOW",
+              "GRAPH_CYCLE",
+            ].includes(c.failure?.code ?? ""),
         ),
       ).toBe(true);
     }

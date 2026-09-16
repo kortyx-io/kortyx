@@ -2,6 +2,13 @@
 
 Status: initial child-call implementation in the working tree, 2026-09-11; not published.
 
+Update, 2026-09-16: acyclic parallel graph composition is implemented by a
+root-owned coordinator with isolated node journals. See
+[Parallel graph runtime](./parallel-graph-runtime.md). The baseline probes and
+broader proposals below are historical analysis, not current limitations for
+acyclic graphs. Batch questions, parallel graph cycles, concurrency caps and
+settled/factory overloads remain outside this slice.
+
 The user confirmed `parallel`. This slice implements the eager array form, typed
 tuples, `ParallelError.results`, shared limits/cancellation and durable child
 snapshots with sequential presentation of questions through the existing parent
