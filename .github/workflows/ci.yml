@@ -143,6 +143,10 @@ jobs:
       - name: Run production Studio navigation regressions
         env:
           KORTYX_E2E_PRODUCTION: "1"
+          API_PORT: 6401
+          STUDIO_PORT: 6301
+          KORTYX_API_URL: http://localhost:6401
+          KORTYX_E2E_STUDIO_URL: http://localhost:6301
         run: >-
           pnpm --filter kortyx-studio exec dotenv -e ../../.env -- playwright test
           internal-linking.spec.ts detail-drawer-stack.spec.ts
