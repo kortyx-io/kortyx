@@ -6,10 +6,18 @@ import {
   type StudioScore,
   StudioScoreResponseSchema,
 } from "@kortyx/telemetry-contracts";
+import { ChevronDown } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useId, useState } from "react";
 import { DetailLink } from "@/components/detail/detail-link";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { formatDateTime } from "@/lib/format";
 import { studioDetailHref } from "@/lib/studio-routes";
 import { FeedbackBadge } from "./feedback-badge";
@@ -209,26 +217,52 @@ export function RunFeedback({ detail }: { detail: StudioRunDetailResponse }) {
             }}
           >
             <label
+              id={`${fieldId}-verdict-label`}
               htmlFor={`${fieldId}-verdict`}
               className="block text-xs font-medium"
             >
               Correctness
             </label>
-            <select
-              id={`${fieldId}-verdict`}
-              value={value}
-              onChange={(event) =>
-                setValue(event.target.value as StudioReviewRequest["value"])
-              }
-              disabled={pending}
-              className="h-9 max-w-full rounded-md border bg-background px-3 text-sm"
-            >
-              {Object.entries(verdictLabels).map(([key, label]) => (
-                <option key={key} value={key}>
-                  {label}
-                </option>
-              ))}
-            </select>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  id={`${fieldId}-verdict`}
+                  type="button"
+                  variant="outline"
+                  disabled={pending}
+                  aria-labelledby={`${fieldId}-verdict-label ${fieldId}-verdict-value`}
+                  className="max-w-full justify-between"
+                >
+                  <span id={`${fieldId}-verdict-value`}>
+                    {verdictLabels[value]}
+                  </span>
+                  <ChevronDown
+                    aria-hidden="true"
+                    className="size-4 opacity-50"
+                  />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent
+                align="start"
+                className="min-w-(--radix-dropdown-menu-trigger-width)"
+                onEscapeKeyDown={(event) => event.stopPropagation()}
+                onKeyDown={(event) => event.stopPropagation()}
+              >
+                <DropdownMenuRadioGroup
+                  aria-label="Correctness"
+                  value={value}
+                  onValueChange={(selected) =>
+                    setValue(selected as StudioReviewRequest["value"])
+                  }
+                >
+                  {Object.entries(verdictLabels).map(([key, label]) => (
+                    <DropdownMenuRadioItem key={key} value={key}>
+                      {label}
+                    </DropdownMenuRadioItem>
+                  ))}
+                </DropdownMenuRadioGroup>
+              </DropdownMenuContent>
+            </DropdownMenu>
             <label
               htmlFor={`${fieldId}-comment`}
               className="block text-xs font-medium"

@@ -37,9 +37,13 @@ test("filters feedback, opens the existing drawer, and keeps human review separa
   expect(rated.ok(), await rated.text()).toBe(true);
   await page.goto(`/runs?q=${DRAWER_FIXTURE.runId}`);
   await expect(page.locator('[data-table-ready="true"]')).toBeVisible();
+  await page.getByRole("button", { name: /^User feedback:/ }).click();
+  await expect(
+    page.getByRole("menuitemradio", { name: "All feedback", exact: true }),
+  ).toHaveAttribute("aria-checked", "true");
   await page
-    .getByLabel("User feedback", { exact: true })
-    .selectOption("negative");
+    .getByRole("menuitemradio", { name: "Negative feedback", exact: true })
+    .click();
   await expect(page).toHaveURL(/feedback=negative/);
   await expect(
     page.getByRole("link", {
@@ -73,9 +77,15 @@ test("filters feedback, opens the existing drawer, and keeps human review separa
   });
   if (before.canReview) {
     await addReview.click();
-    await drawer
-      .getByLabel("Correctness", { exact: true })
-      .selectOption("incorrect");
+    await drawer.getByRole("button", { name: /^Correctness / }).press("Enter");
+    await expect(
+      page.getByRole("menuitemradio", { name: "Incorrect", exact: true }),
+    ).toHaveAttribute("aria-checked", "true");
+    await page.getByRole("menu").press("Escape");
+    await expect(drawer).toHaveAttribute("data-state", "open");
+    await expect(
+      drawer.getByRole("button", { name: /^Correctness / }),
+    ).toBeFocused();
     await drawer
       .getByLabel("Reviewer note (optional)")
       .fill("Reviewed separately from the user vote.");
@@ -90,9 +100,11 @@ test("filters feedback, opens the existing drawer, and keeps human review separa
     await drawer
       .getByRole("button", { name: "Edit review", exact: true })
       .click();
-    await drawer
-      .getByLabel("Correctness", { exact: true })
-      .selectOption("partially-correct");
+    await drawer.getByRole("button", { name: /^Correctness / }).click();
+    await page
+      .getByRole("menuitemradio", { name: "Partially correct", exact: true })
+      .click();
+    await expect(page.getByRole("menu")).toBeHidden();
     await drawer
       .getByRole("button", { name: "Save review", exact: true })
       .click();
@@ -163,6 +175,33 @@ test("renders feedback at mobile widths and shows actionable empty states", asyn
       () => document.documentElement.scrollWidth <= window.innerWidth,
     ),
   ).toBe(true);
+});
+
+test("feedback filter uses Studio's radio menu with mobile keyboard navigation", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto(`/runs?q=${DRAWER_FIXTURE.runId}`);
+  const trigger = page.getByRole("button", { name: /^User feedback:/ });
+  await trigger.press("Enter");
+  const menu = page.getByRole("menu");
+  await expect(menu).toHaveAttribute("data-slot", "dropdown-menu-content");
+  const bounds = await menu.boundingBox();
+  if (!bounds) throw new Error("The feedback menu has no visible bounds.");
+  expect(bounds.x).toBeGreaterThanOrEqual(0);
+  expect(bounds.x + bounds.width).toBeLessThanOrEqual(390);
+  await menu.press("Home");
+  await menu.press("ArrowDown");
+  await menu.press("Enter");
+  await expect(trigger).toHaveText("Positive feedback");
+  await expect(menu).toBeHidden();
+  await expect(page).toHaveURL(/feedback=positive/);
+  await trigger.press("Enter");
+  await expect(
+    page.getByRole("menuitemradio", { name: "Positive feedback", exact: true }),
+  ).toHaveAttribute("aria-checked", "true");
+  await menu.press("Escape");
+  await expect(trigger).toBeFocused();
 });
 
 for (const fixture of NAVIGATION_FIXTURES.filter((item) =>

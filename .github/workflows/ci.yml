@@ -149,6 +149,10 @@ jobs:
       - name: Run review-capable Studio feedback regressions
         env:
           KORTYX_STUDIO_ENABLE_REVIEWS: "1"
+          API_PORT: 6402
+          STUDIO_PORT: 6302
+          KORTYX_API_URL: http://localhost:6402
+          KORTYX_E2E_STUDIO_URL: http://localhost:6302
         run: |
           pnpm db:bootstrap
           pnpm --filter kortyx-studio exec dotenv -e ../../.env -- playwright test feedback.spec.ts
