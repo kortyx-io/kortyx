@@ -1,4 +1,4 @@
-import { expect, type Page, test } from "@playwright/test";
+import { expect, type Locator, type Page, test } from "@playwright/test";
 import {
   CALL_LINK_FIXTURE,
   NAVIGATION_FIXTURES,
@@ -11,6 +11,12 @@ const surface = (page: Page, href: string) =>
   page.locator(`[data-detail-drawer="${href}"]`);
 const heading = (page: Page, id: string) =>
   page.getByRole("heading", { name: id, exact: true });
+
+// Activity has a separate feedback shortcut; Runs makes the entire card a link.
+const sessionRunLink = (session: Locator, runId: string) =>
+  session
+    .getByRole("tabpanel")
+    .locator(`a[href^="${path("runs", runId)}"]:not([href*="tab=feedback"])`);
 
 async function openRow(page: Page, resource: string, id: string) {
   await page.goto(`/${resource}?q=${encodeURIComponent(id)}&range=All+time`);
@@ -79,10 +85,7 @@ test.describe("Studio internal entity links", () => {
       await expect(heading(page, fixture.sessionId)).toBeVisible();
       await expect(session).toHaveAttribute("data-state", "open");
       await session.getByRole("button", { name: /^Runs \d+$/ }).click();
-      await session
-        .getByRole("tabpanel")
-        .getByRole("link", { name: fixture.runId, exact: true })
-        .click();
+      await sessionRunLink(session, fixture.runId).click();
       await expect(page).toHaveURL((url) => url.pathname === runPath);
       await expect(session).toHaveCount(0);
       await expect(run).toHaveAttribute("data-state", "open");
@@ -104,10 +107,7 @@ test.describe("Studio internal entity links", () => {
       await openRow(page, "sessions", fixture.sessionId);
       const session = surface(page, sessionPath);
       await session.getByRole("button", { name: /^Runs \d+$/ }).click();
-      await session
-        .getByRole("tabpanel")
-        .getByRole("link", { name: fixture.runId, exact: true })
-        .click();
+      await sessionRunLink(session, fixture.runId).click();
       const run = surface(page, runPath);
       await expect(heading(page, fixture.runId)).toBeVisible();
       await run.getByRole("link", { name: /^Session / }).click();
@@ -135,18 +135,14 @@ test.describe("Studio internal entity links", () => {
       const session = surface(page, sessionPath);
       await expect(heading(page, fixture.sessionId)).toBeVisible();
       if (direct) {
-        await session.getByRole("button", { name: /^Runs \d+$/ }).click();
-        // The feedback shortcut points to the same run with a different tab.
+        // Exercise Activity explicitly, where both links point to the same run.
         await expect(
           session.getByRole("tabpanel").getByRole("link", {
             name: `View feedback for run ${fixture.runId}`,
             exact: true,
           }),
         ).toHaveAttribute("href", /tab=feedback/);
-        await session
-          .getByRole("tabpanel")
-          .getByRole("link", { name: fixture.runId, exact: true })
-          .click();
+        await sessionRunLink(session, fixture.runId).click();
         const revisitedRun = surface(page, runPath);
         await expect(revisitedRun).toHaveAttribute("data-state", "open");
         await revisitedRun
@@ -224,10 +220,7 @@ test.describe("Studio internal entity links", () => {
     await openRow(page, "sessions", DRAWER_FIXTURE.sessionId);
     const session = surface(page, sessionPath);
     await session.getByRole("button", { name: /^Runs \d+$/ }).click();
-    await session
-      .getByRole("tabpanel")
-      .getByRole("link", { name: DRAWER_FIXTURE.runId, exact: true })
-      .click();
+    await sessionRunLink(session, DRAWER_FIXTURE.runId).click();
     const run = surface(page, runPath);
     await expect(heading(page, DRAWER_FIXTURE.runId)).toBeVisible();
     const newTab = context.waitForEvent("page");
@@ -329,10 +322,7 @@ test.describe("Studio cyclic drawer history", () => {
     const drawer = surface(page, href(from));
     if (from === "sessions" && to === "runs") {
       await drawer.getByRole("button", { name: /^Runs \d+$/ }).click();
-      await drawer
-        .getByRole("tabpanel")
-        .getByRole("link", { name: ids[to], exact: true })
-        .click();
+      await sessionRunLink(drawer, ids[to]).click();
     } else {
       const name =
         to === "sessions"
@@ -445,10 +435,7 @@ test.describe("Studio cyclic drawer history", () => {
       const session = surface(page, href("sessions"));
       await session.getByRole("button", { name: /^Runs \d+$/ }).click();
       const otherPath = path("runs", fixture.otherRunId);
-      await session
-        .getByRole("tabpanel")
-        .getByRole("link", { name: fixture.otherRunId, exact: true })
-        .click();
+      await sessionRunLink(session, fixture.otherRunId).click();
       const otherRun = surface(page, otherPath);
       async function expectOtherRun() {
         await expect(page).toHaveURL((url) => url.pathname === otherPath);
