@@ -27,6 +27,11 @@ import {
   type PostgresFrameworkAdapter,
 } from "../src/framework/postgres/adapter";
 import { PostgresCheckpointSaver } from "../src/framework/postgres/checkpointer";
+import {
+  type RuntimeMigration,
+  runRuntimeMigrations,
+  runtimeMigrations,
+} from "../src/framework/postgres/migrations";
 import { PostgresRuntimeStore } from "../src/framework/postgres/store";
 import { createRedisClient } from "../src/framework/redis/redis-client";
 
@@ -113,6 +118,338 @@ const age = async (days = 31) => {
   await sql`UPDATE kortyx_runtime_session_checkpoints SET created_at = ${timestamp} WHERE scope = ${scope}`;
   await sql`UPDATE kortyx_runtime_runs SET last_activity = ${timestamp} WHERE scope = ${scope}`;
 };
+
+// Upgrade tests use isolated schemas so they cannot change the runtime tables used
+// by recovery/retention tests or other concurrently running package tests.
+const withMigrationSchema = async (
+  test: (database: postgres.Sql, schema: string) => Promise<void>,
+  isolation: "read committed" | "repeatable read" = "read committed",
+) => {
+  const schema = `migration_${randomUUID().replaceAll("-", "")}`;
+  await sql`CREATE SCHEMA ${sql(schema)}`;
+  const database = postgres(url, {
+    max: 4,
+    connection: {
+      search_path: schema,
+      default_transaction_isolation: isolation,
+    },
+    onnotice: () => {},
+  });
+  try {
+    await test(database, schema);
+  } finally {
+    await database.end();
+    await sql`DROP SCHEMA ${sql(schema)} CASCADE`;
+  }
+};
+const upgradeMigration: RuntimeMigration = {
+  version: 2,
+  description: "Add an upgrade marker",
+  sql: "ALTER TABLE kortyx_runtime_sessions ADD COLUMN upgrade_marker text;",
+};
+const backfillMigration: RuntimeMigration = {
+  version: 3,
+  description: "Backfill the upgrade marker",
+  sql: "UPDATE kortyx_runtime_sessions SET upgrade_marker = 'preserved'; CREATE INDEX runtime_upgrade_marker ON kortyx_runtime_sessions (upgrade_marker);",
+};
+
+describe("ordered runtime schema migrations", () => {
+  it("rolls back the ledger and partial tables if the first migration fails", async () => {
+    await withMigrationSchema(async (database) => {
+      await expect(
+        runRuntimeMigrations(database, [
+          {
+            version: 1,
+            description: "Failed bootstrap",
+            sql: "CREATE TABLE migration_partial (id integer); SELECT 1 / 0;",
+          },
+        ]),
+      ).rejects.toThrow("migration 1");
+      expect(
+        await database`SELECT to_regclass('kortyx_runtime_migrations') AS ledger, to_regclass('migration_partial') AS partial`,
+      ).toEqual([{ ledger: null, partial: null }]);
+      await runRuntimeMigrations(database);
+      expect(
+        await database`SELECT version FROM kortyx_runtime_migrations`,
+      ).toEqual([{ version: 1 }]);
+    });
+  });
+  it("creates the seven tables on a fresh database and leaves their identity unchanged on rerun", async () => {
+    await withMigrationSchema(async (database, schema) => {
+      await runRuntimeMigrations(database);
+      const tables =
+        await database`SELECT table_name FROM information_schema.tables WHERE table_schema = ${schema} ORDER BY table_name`;
+      expect(tables.map((row) => row.table_name)).toEqual([
+        "kortyx_runtime_graph_checkpoints",
+        "kortyx_runtime_graph_writes",
+        "kortyx_runtime_migrations",
+        "kortyx_runtime_pending_requests",
+        "kortyx_runtime_runs",
+        "kortyx_runtime_session_checkpoints",
+        "kortyx_runtime_sessions",
+      ]);
+      const before =
+        await database`SELECT oid FROM pg_class WHERE relnamespace = ${schema}::regnamespace ORDER BY oid`;
+      await runRuntimeMigrations(database);
+      expect(
+        await database`SELECT oid FROM pg_class WHERE relnamespace = ${schema}::regnamespace ORDER BY oid`,
+      ).toEqual(before);
+      expect(
+        await database`SELECT version FROM kortyx_runtime_migrations`,
+      ).toEqual([{ version: 1 }]);
+    });
+  });
+
+  it("upgrades an existing v1 schema in order and preserves existing session data", async () => {
+    await withMigrationSchema(async (database) => {
+      await runRuntimeMigrations(database);
+      await database`INSERT INTO kortyx_runtime_sessions (scope, id, last_activity) VALUES ('app', 'existing', 123)`;
+      const migrations = [
+        ...runtimeMigrations,
+        upgradeMigration,
+        backfillMigration,
+      ];
+      await runRuntimeMigrations(database, migrations);
+      expect(
+        await database`SELECT id, last_activity, upgrade_marker FROM kortyx_runtime_sessions`,
+      ).toEqual([
+        { id: "existing", last_activity: "123", upgrade_marker: "preserved" },
+      ]);
+      expect(
+        await database`SELECT version FROM kortyx_runtime_migrations ORDER BY version`,
+      ).toEqual([{ version: 1 }, { version: 2 }, { version: 3 }]);
+      await runRuntimeMigrations(database, migrations);
+      expect(
+        await database`SELECT count(*)::integer AS count FROM kortyx_runtime_sessions`,
+      ).toEqual([{ count: 1 }]);
+    });
+  });
+
+  it("rolls back failed migration DDL and version recording, then allows a retry", async () => {
+    await withMigrationSchema(async (database, schema) => {
+      await runRuntimeMigrations(database);
+      await expect(
+        runRuntimeMigrations(database, [
+          ...runtimeMigrations,
+          { ...upgradeMigration, sql: `${upgradeMigration.sql} SELECT 1 / 0;` },
+        ]),
+      ).rejects.toMatchObject({ code: "PERSISTENCE_ERROR" });
+      expect(
+        await database`SELECT version FROM kortyx_runtime_migrations`,
+      ).toEqual([{ version: 1 }]);
+      expect(
+        await database`SELECT column_name FROM information_schema.columns WHERE table_schema = ${schema} AND table_name = 'kortyx_runtime_sessions' AND column_name = 'upgrade_marker'`,
+      ).toEqual([]);
+      await runRuntimeMigrations(database, [
+        ...runtimeMigrations,
+        upgradeMigration,
+      ]);
+      expect(
+        await database`SELECT version FROM kortyx_runtime_migrations ORDER BY version`,
+      ).toEqual([{ version: 1 }, { version: 2 }]);
+    });
+  });
+
+  it("keeps earlier migrations committed when a later migration fails", async () => {
+    await withMigrationSchema(async (database) => {
+      const failed = {
+        ...backfillMigration,
+        sql: `${backfillMigration.sql} SELECT 1 / 0;`,
+      };
+      await expect(
+        runRuntimeMigrations(database, [
+          ...runtimeMigrations,
+          upgradeMigration,
+          failed,
+        ]),
+      ).rejects.toThrow("migration 3");
+      expect(
+        await database`SELECT version FROM kortyx_runtime_migrations ORDER BY version`,
+      ).toEqual([{ version: 1 }, { version: 2 }]);
+      expect(
+        await database`SELECT to_regclass('runtime_upgrade_marker') AS marker`,
+      ).toEqual([{ marker: null }]);
+      await runRuntimeMigrations(database, [
+        ...runtimeMigrations,
+        upgradeMigration,
+        backfillMigration,
+      ]);
+      expect(
+        await database`SELECT version FROM kortyx_runtime_migrations ORDER BY version`,
+      ).toEqual([{ version: 1 }, { version: 2 }, { version: 3 }]);
+    });
+  });
+
+  it("serializes concurrent setup and executes each migration exactly once", async () => {
+    await withMigrationSchema(async (database) => {
+      expect(await database`SHOW default_transaction_isolation`).toEqual([
+        { default_transaction_isolation: "repeatable read" },
+      ]);
+      const marker: RuntimeMigration = {
+        version: 2,
+        description: "Count application",
+        sql: "CREATE TABLE migration_applications (id integer); INSERT INTO migration_applications VALUES (1); SELECT pg_sleep(0.05);",
+      };
+      const migrations = [...runtimeMigrations, marker];
+      await Promise.all([
+        runRuntimeMigrations(database, migrations),
+        runRuntimeMigrations(database, migrations),
+      ]);
+      expect(
+        await database`SELECT count(*)::integer AS count FROM migration_applications`,
+      ).toEqual([{ count: 1 }]);
+      expect(
+        await database`SELECT version FROM kortyx_runtime_migrations ORDER BY version`,
+      ).toEqual([{ version: 1 }, { version: 2 }]);
+    }, "repeatable read");
+  });
+
+  it("rejects newer schemas and gaps in history before executing pending migration SQL", async () => {
+    await withMigrationSchema(async (database, schema) => {
+      await runRuntimeMigrations(database);
+      await database`INSERT INTO kortyx_runtime_migrations (version) VALUES (2)`;
+      await expect(runRuntimeMigrations(database)).rejects.toThrow(
+        "newer than this SDK",
+      );
+      await database`DELETE FROM kortyx_runtime_migrations WHERE version = 1`;
+      await expect(
+        runRuntimeMigrations(database, [
+          ...runtimeMigrations,
+          upgradeMigration,
+          backfillMigration,
+        ]),
+      ).rejects.toThrow("history is not a consecutive");
+      expect(
+        await database`SELECT column_name FROM information_schema.columns WHERE table_schema = ${schema} AND table_name = 'kortyx_runtime_sessions' AND column_name = 'upgrade_marker'`,
+      ).toEqual([]);
+      expect(
+        await database`SELECT version FROM kortyx_runtime_migrations`,
+      ).toEqual([{ version: 2 }]);
+    });
+  });
+
+  it("adopts the original version-only v1 ledger without rerunning schema SQL", async () => {
+    await withMigrationSchema(async (database) => {
+      await database.unsafe(runtimeMigrations[0]!.sql);
+      await database`CREATE TABLE kortyx_runtime_migrations (version integer PRIMARY KEY)`;
+      await database`INSERT INTO kortyx_runtime_migrations VALUES (1)`;
+      await database`INSERT INTO kortyx_runtime_sessions (scope, id, last_activity) VALUES ('app', 'legacy', 123)`;
+      await runRuntimeMigrations(database);
+      expect(
+        await database`SELECT checksum FROM kortyx_runtime_migrations`,
+      ).toEqual([{ checksum: expect.stringMatching(/^[a-f0-9]{64}$/) }]);
+      await runRuntimeMigrations(database);
+      expect(await database`SELECT id FROM kortyx_runtime_sessions`).toEqual([
+        { id: "legacy" },
+      ]);
+    });
+  });
+
+  it("rejects changes to applied SQL or missing checksums before any pending migration", async () => {
+    await withMigrationSchema(async (database) => {
+      await runRuntimeMigrations(database);
+      await expect(
+        runRuntimeMigrations(database, [
+          {
+            ...runtimeMigrations[0]!,
+            sql: `${runtimeMigrations[0]!.sql} SELECT 1;`,
+          },
+          upgradeMigration,
+        ]),
+      ).rejects.toThrow("checksum does not match");
+      expect(
+        await database`SELECT version FROM kortyx_runtime_migrations`,
+      ).toEqual([{ version: 1 }]);
+      await database`UPDATE kortyx_runtime_migrations SET checksum = NULL`;
+      await expect(runRuntimeMigrations(database)).rejects.toThrow(
+        "checksum does not match",
+      );
+    });
+  });
+
+  it("bounds advisory lock waits, rolls back, and succeeds after lock release", async () => {
+    await withMigrationSchema(async (database) => {
+      const blocker = await database.reserve();
+      try {
+        await blocker`BEGIN`;
+        await blocker`SELECT pg_advisory_xact_lock(hashtextextended('kortyx:runtime:schema', 0))`;
+        await expect(runRuntimeMigrations(database)).rejects.toThrow(
+          "migration 1",
+        );
+        expect(
+          await database`SELECT to_regclass('kortyx_runtime_migrations') AS ledger`,
+        ).toEqual([{ ledger: null }]);
+      } finally {
+        await blocker`ROLLBACK`;
+        blocker.release();
+      }
+      await runRuntimeMigrations(database);
+      expect(await database`SHOW lock_timeout`).toEqual([
+        { lock_timeout: "0" },
+      ]);
+    });
+  });
+
+  it("preserves stricter lock limits and rolls back blocked DDL", async () => {
+    await withMigrationSchema(async (database) => {
+      await runRuntimeMigrations(database);
+      const blocker = await database.reserve();
+      try {
+        await blocker`BEGIN`;
+        await blocker`LOCK TABLE kortyx_runtime_sessions IN ACCESS SHARE MODE`;
+        // Set every other pool connection's session limit for this isolated test.
+        const clients = await Promise.all([
+          database.reserve(),
+          database.reserve(),
+          database.reserve(),
+        ]);
+        for (const client of clients) {
+          await client`SET lock_timeout = '100ms'`;
+          client.release();
+        }
+        const started = Date.now();
+        await expect(
+          runRuntimeMigrations(database, [
+            ...runtimeMigrations,
+            upgradeMigration,
+          ]),
+        ).rejects.toThrow("migration 2");
+        expect(Date.now() - started).toBeLessThan(3000);
+        expect(
+          await database`SELECT version FROM kortyx_runtime_migrations`,
+        ).toEqual([{ version: 1 }]);
+      } finally {
+        await blocker`ROLLBACK`;
+        blocker.release();
+      }
+      await runRuntimeMigrations(database, [
+        ...runtimeMigrations,
+        upgradeMigration,
+      ]);
+    });
+  });
+
+  it("rejects invalid migration definitions before touching the database", async () => {
+    await withMigrationSchema(async (database) => {
+      const initial = runtimeMigrations[0]!;
+      for (const migrations of [
+        [],
+        [{ ...initial, version: 0 }],
+        [{ ...initial, version: 1.5 }],
+        [initial, initial],
+        [initial, backfillMigration],
+        [{ ...initial, sql: " " }],
+      ]) {
+        await expect(
+          runRuntimeMigrations(database, migrations),
+        ).rejects.toThrow(TypeError);
+      }
+      expect(
+        await database`SELECT to_regclass('kortyx_runtime_migrations') AS ledger`,
+      ).toEqual([{ ledger: null }]);
+    });
+  });
+});
 
 describe("built-in framework adapter contract", () => {
   for (const backend of ["in-memory", "redis", "postgres", "postgres+redis"]) {
