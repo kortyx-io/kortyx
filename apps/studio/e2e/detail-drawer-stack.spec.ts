@@ -139,13 +139,9 @@ test.describe("Studio detail drawer stack", () => {
             .getByRole("button", { name: "Close item details" })
             .click();
         }
-        await expect(inspector(page)).toHaveAttribute("data-state", "closed", {
-          timeout: 250,
-        });
-        // Selection clears during exit; Presence owns the remaining lifetime.
-        await expect(page).toHaveURL((url) => !url.searchParams.has("trace"), {
-          timeout: 250,
-        });
+        // Observe the transient closed state in the browser. A loaded runner
+        // can receive the click response after the exit has already finished.
+        await expect(page).toHaveURL((url) => !url.searchParams.has("trace"));
         await expect(inspector(page)).toHaveCount(0);
         // Include the paint following removal and the URL-backed close commit.
         await page.evaluate(
@@ -157,6 +153,8 @@ test.describe("Studio detail drawer stack", () => {
             }),
         );
         expect(await readInspectorCloseAudit(page)).toEqual({
+          closed: true,
+          selectionClearedAtExitEnd: true,
           added: 0,
           removed: 1,
           starts: ["exit"],
@@ -570,6 +568,14 @@ async function waitForSurfaceMotion(surface: Locator) {
       ),
     )
     .toBe(false);
+  // Finished animations may still have an animationend event queued. Drain
+  // those entry events before installing an audit of the next close operation.
+  await surface.evaluate(
+    () =>
+      new Promise<void>((resolve) => {
+        requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+      }),
+  );
 }
 
 async function installDrawerAudit(page: Page) {
@@ -618,6 +624,8 @@ function escapeRegExp(value: string) {
 async function installInspectorCloseAudit(page: Page) {
   await page.evaluate(() => {
     const audit = {
+      closed: false,
+      selectionClearedAtExitEnd: false,
       added: 0,
       removed: 0,
       starts: [] as string[],
@@ -643,6 +651,7 @@ async function installInspectorCloseAudit(page: Page) {
     const sample = () => {
       const surface = document.querySelector(selector);
       if (surface?.getAttribute("data-state") === "closed") {
+        audit.closed = true;
         closed = true;
         const left = surface.getBoundingClientRect().left;
         if (lastLeft !== undefined && left < lastLeft - 1) {
@@ -658,6 +667,14 @@ async function installInspectorCloseAudit(page: Page) {
       for (const record of records) {
         for (const node of record.addedNodes) audit.added += count(node);
         for (const node of record.removedNodes) audit.removed += count(node);
+        if (
+          record.type === "attributes" &&
+          record.target instanceof Element &&
+          record.target.matches(selector) &&
+          record.target.getAttribute("data-state") === "closed"
+        ) {
+          audit.closed = true;
+        }
         if (
           record.type === "attributes" &&
           record.target instanceof Element &&
@@ -681,7 +698,14 @@ async function installInspectorCloseAudit(page: Page) {
         return;
       if (event.type === "animationstart")
         audit.starts.push(event.animationName);
-      else audit.ends.push(event.animationName);
+      else {
+        audit.ends.push(event.animationName);
+        if (event.animationName === "exit") {
+          audit.selectionClearedAtExitEnd = !new URL(
+            window.location.href,
+          ).searchParams.has("trace");
+        }
+      }
     };
     document.addEventListener("animationstart", onAnimation, true);
     document.addEventListener("animationend", onAnimation, true);
@@ -699,6 +723,8 @@ async function readInspectorCloseAudit(page: Page) {
   return page.evaluate(() => {
     const state = window as typeof window & {
       __inspectorCloseAudit?: {
+        closed: boolean;
+        selectionClearedAtExitEnd: boolean;
         added: number;
         removed: number;
         starts: string[];
