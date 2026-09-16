@@ -5,9 +5,14 @@ Kortyx owns the runtime persistence contract. PostgreSQL stores authoritative ex
 ## Public API
 
 ```ts
-import { createAgent, createPostgresFrameworkAdapter } from "kortyx";
+import {
+  createAgent,
+  createPostgresFrameworkAdapter,
+  createRedisFrameworkAdapter,
+  createCachingFrameworkAdapter,
+} from "kortyx";
 
-const persistence = createPostgresFrameworkAdapter({
+const storage = createPostgresFrameworkAdapter({
   connectionString: process.env.KORTYX_POSTGRES_URL!,
   namespace: "my-app",
   ttlMs: 7 * 24 * 60 * 60 * 1000,
@@ -15,8 +20,14 @@ const persistence = createPostgresFrameworkAdapter({
     checkpointHistoryDays: 30,
     inactiveSessionDays: 30,
   },
-  redis: { url: process.env.REDIS_URL!, ttlMs: 15 * 60 * 1000 },
 });
+
+// Optional Redis payload caching; omit the helper to use storage alone.
+const cache = createRedisFrameworkAdapter({
+  url: process.env.REDIS_URL!,
+  ttlMs: 15 * 60 * 1000,
+});
+const persistence = createCachingFrameworkAdapter({ storage, cache, timeoutMs: 25 });
 
 // Deployment/migration command: finish before accepting application traffic.
 await persistence.maintenance.setup();
@@ -31,6 +42,16 @@ await persistence.close();
 ```
 
 The method is a server-side library API, not an HTTP endpoint. The application chooses its policy and schedule. The SDK implements safe deletion. No retention timer runs inside request handlers. Any HTTP scheduler trigger and its authorization remain application-owned.
+
+## Shared adapter contract and composition
+
+Keep `createInMemoryFrameworkAdapter()` and `createRedisFrameworkAdapter()` supported; add PostgreSQL and `createCachingFrameworkAdapter({ storage, cache, timeoutMs? })`. No unified factory or deprecation is needed. All built-in factories return `ManagedFrameworkAdapter`, which extends the existing `FrameworkAdapter` with required maintenance and shutdown methods. Existing custom adapters retain the original structural contract. Future built-in lifecycle methods belong on the managed contract, making missing backend implementations a type error. Backend conformance tests cover memory, Redis, PostgreSQL, and PostgreSQL with Redis caching.
+
+Setup is explicit for every backend: PostgreSQL creates its schema, Redis and memory are no-ops. Redis pruning delegates physical expiry to native TTL and reports zero explicit deletions. Memory pruning removes expired approvals in bounded batches while session history remains count-limited. PostgreSQL pruning enforces history/session retention. The common method shape preserves each backend's existing guarantees instead of implying that ephemeral stores gain PostgreSQL retention.
+
+The caching helper attaches Redis's internal payload-cache capability to the supplied PostgreSQL store before traffic. It returns the exact storage adapter rather than copying selected methods or wrapping authoritative stores. Existing and future methods, execution leases, retention, and atomic approval consumption therefore remain PostgreSQL operations. The helper preserves the concrete storage type and opens no additional PostgreSQL or Redis pool. Redis cache keys use a distinct `kortyx:runtime-cache:` prefix inside the existing Redis adapter's configured key space. Its `ttlMs` governs payloads; the storage adapter's `ttlMs` governs approvals.
+
+Currently only PostgreSQL storage with a Redis cache is supported. Unsupported combinations, duplicate cache bindings, closed storage, invalid cache settings, and sharing an already-owned cache adapter are rejected. Composition transfers cache shutdown responsibility to storage; callers close the returned adapter after executions finish and do not independently use the cache input as storage. Attaching caching changes the supplied storage's cache configuration without changing authoritative behavior. Data transfer between backends is outside the feature's scope.
 
 ## Independent lifetimes
 
@@ -60,7 +81,7 @@ Pending consumption uses PostgreSQL `DELETE ... RETURNING`, so only one worker c
 
 Authoritative writes finish in PostgreSQL. Reads resolve visibility/existence and graph revision in PostgreSQL before using Redis. Redis saves the larger immutable session snapshot or graph tuple; graph cache keys include checkpoint position and the run revision, which changes on checkpoint/write mutations. Namespace and connection identity isolate cache keys.
 
-A missing/expired cache entry is populated from PostgreSQL asynchronously; cache writes do not delay the authoritative read. Cache population is deduplicated per key and limited to ten concurrent operations per adapter, with excess population skipped. Operations have a configurable `redis.timeoutMs` budget, default 25 ms and maximum 1000 ms. A Redis error, malformed cached JSON, or timeout falls back to PostgreSQL and bypasses the cache for five seconds before retrying. Shutdown drains the bounded population tasks before closing connections. A cached payload cannot make an expired or physically removed record visible. Old cache keys disappear through their independent TTL rather than requiring a cross-store deletion transaction. Redis is optional, and PostgreSQL availability remains necessary even on a cache hit.
+A missing/expired cache entry is populated from PostgreSQL asynchronously; cache writes do not delay the authoritative read. Cache population is deduplicated per key and limited to ten concurrent operations per adapter, with excess population skipped. The composition helper has a configurable `timeoutMs` budget, default 25 ms and maximum 1000 ms. A Redis error, malformed cached JSON, or timeout falls back to PostgreSQL and bypasses the cache for five seconds before retrying. Shutdown drains the bounded population tasks before closing connections. A cached payload cannot make an expired or physically removed record visible. Old cache keys disappear through their independent TTL rather than requiring a cross-store deletion transaction. Redis is optional, and PostgreSQL availability remains necessary even on a cache hit.
 
 Session head reads validate the head, session expiry, and checkpoint protection in one database query. Without Redis, that query also returns the immutable payload. Session activity is an expiry-guarded atomic upsert; execution lease acquisition atomically inserts or claims its run. Task writes are persisted in a batch rather than through one query per channel. Repeated special write indices retain their last value, while ordinary conflicting writes retain the original value.
 
@@ -82,7 +103,7 @@ Read-time expiry is independent of physical deletion. Late or missing maintenanc
 
 This supports durable resume, retained session rollback, and fork. Runtime functions/services are intentionally not serialized; the host supplies them again. Continuation uses registered workflow code. Existing execute/resume contract validation checks workflow versions; applications must preserve compatible chat workflow/state/interrupt contracts or migrate them. Versioned code artifacts, exact original model outputs for arbitrary historical re-execution, and a durable side-effect ledger are separate features. PostgreSQL persistence alone does not promise deterministic reproduction across deployments.
 
-Existing Redis-only state is not automatically imported when PostgreSQL is enabled. Hosts must plan a cutover for outstanding approvals or provide an explicit migration. Reuse adapters per process to reuse their connection pools. Cleanup does not reverse business side effects or operate on application tables.
+Backend data transfer is outside this contract; configuring another storage backend does not import existing runtime data. Reuse adapters per process to reuse their connection pools. Cleanup does not reverse business side effects or operate on application tables.
 
 ## Local latency measurement
 

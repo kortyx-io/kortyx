@@ -11,7 +11,12 @@ import {
   it,
   vi,
 } from "vitest";
-import { createFrameworkAdapterFromEnv } from "../src/framework/adapter";
+import {
+  createFrameworkAdapterFromEnv,
+  createInMemoryFrameworkAdapter,
+  createRedisFrameworkAdapter,
+} from "../src/framework/adapter";
+import { createCachingFrameworkAdapter } from "../src/framework/caching";
 import {
   captureGraphSnapshot,
   restoreGraphSnapshot,
@@ -108,6 +113,111 @@ const age = async (days = 31) => {
   await sql`UPDATE kortyx_runtime_session_checkpoints SET created_at = ${timestamp} WHERE scope = ${scope}`;
   await sql`UPDATE kortyx_runtime_runs SET last_activity = ${timestamp} WHERE scope = ${scope}`;
 };
+
+describe("built-in framework adapter contract", () => {
+  for (const backend of ["in-memory", "redis", "postgres", "postgres+redis"]) {
+    it.runIf(!backend.includes("redis") || Boolean(redisUrl))(
+      `${backend}: shares lifecycle, approvals, graph checkpoints and session operations`,
+      async () => {
+        const cache = backend.includes("redis")
+          ? createRedisFrameworkAdapter({
+              url: redisUrl!,
+              prefix: `${scope}:`,
+              ttlMs: DAY,
+            })
+          : undefined;
+        const storage =
+          backend === "in-memory"
+            ? createInMemoryFrameworkAdapter()
+            : backend === "redis"
+              ? cache!
+              : backend === "postgres+redis"
+                ? createCachingFrameworkAdapter({
+                    storage: adapter,
+                    cache: cache!,
+                  })
+                : adapter;
+        if (storage !== adapter) extras.push(storage);
+        await storage.maintenance.setup();
+        await storage.maintenance.setup();
+        const request = pending({
+          sessionId: "contract",
+          runId: "contract-run",
+        });
+        await storage.pendingRequests.save(request);
+        await storage.pendingRequests.update(request.token, { ready: true });
+        expect(await storage.pendingRequests.get(request.token)).toMatchObject({
+          ...request,
+          ready: true,
+        });
+        expect(await storage.pendingRequests.list!()).toEqual(
+          expect.arrayContaining([
+            expect.objectContaining({ token: request.token }),
+          ]),
+        );
+        if (backend === "postgres+redis")
+          expect(await cache!.pendingRequests.get(request.token)).toBeNull();
+        expect(
+          await storage.pendingRequests.take!(request.token),
+        ).toMatchObject({ token: request.token });
+        expect(await storage.pendingRequests.take!(request.token)).toBeNull();
+        await storage.pendingRequests.save(request);
+        await storage.pendingRequests.delete(request.token);
+        expect(await storage.pendingRequests.get(request.token)).toBeNull();
+
+        const cfg = await storage.checkpointer.put(
+          config(undefined, "contract-run"),
+          graph(),
+          metadata,
+          {},
+        );
+        await storage.checkpointer.putWrites(
+          cfg,
+          [["result", "saved"]],
+          "task",
+        );
+        expect(
+          (await storage.checkpointer.getTuple(cfg))?.pendingWrites,
+        ).toEqual([["task", "result", "saved"]]);
+
+        const first = await storage.sessionCheckpoints.append({
+          sessionId: "contract",
+          runId: "contract-run",
+          workflow: "root",
+          state,
+        });
+        const second = await storage.sessionCheckpoints.append({
+          sessionId: "contract",
+          runId: "contract-run",
+          workflow: "root",
+          state,
+        });
+        expect(await storage.sessionCheckpoints.get(first.id)).toMatchObject({
+          state,
+        });
+        expect(
+          await storage.sessionCheckpoints.getHead("contract"),
+        ).toMatchObject({ id: second.id });
+        expect(await storage.sessionCheckpoints.list("contract")).toHaveLength(
+          2,
+        );
+        const fork = await storage.sessionCheckpoints.fork(first.id, {
+          newSessionId: "contract-fork",
+        });
+        expect(
+          await storage.sessionCheckpoints.getHead(fork.sessionId),
+        ).toMatchObject({ state, forkedFrom: first.id });
+        await storage.sessionCheckpoints.rollbackTo(first.id);
+        expect(
+          await storage.sessionCheckpoints.getHead("contract"),
+        ).toMatchObject({ id: first.id });
+        expect(await storage.maintenance.prune({ batchSize: 1 })).toMatchObject(
+          { skipped: false, hasMore: false },
+        );
+      },
+    );
+  }
+});
 
 describe("PostgreSQL runtime persistence", () => {
   it("sets up idempotently, stores history and reconstructs the adapter after restart", async () => {
@@ -667,24 +777,41 @@ describe("PostgreSQL runtime persistence", () => {
         retention: { inactiveSessionDays: 1e20 },
       }),
     ).toThrow();
+    const cache = createRedisFrameworkAdapter({
+      url: "redis://localhost",
+      ttlMs: 0,
+    });
     expect(() =>
-      createPostgresFrameworkAdapter({
-        connectionString: url,
-        redis: { url: "redis://localhost", ttlMs: 0 },
+      createCachingFrameworkAdapter({ storage: adapter, cache }),
+    ).toThrow();
+    await cache.close();
+    const validCache = createRedisFrameworkAdapter({
+      url: "redis://localhost",
+    });
+    expect(() =>
+      createCachingFrameworkAdapter({
+        storage: adapter,
+        cache: validCache,
+        timeoutMs: 0,
       }),
     ).toThrow();
     expect(() =>
-      createPostgresFrameworkAdapter({
-        connectionString: url,
-        redis: { url: "redis://localhost", timeoutMs: 0 },
+      createCachingFrameworkAdapter({
+        storage: adapter,
+        cache: validCache,
+        timeoutMs: 1001,
       }),
     ).toThrow();
+    await validCache.close();
+    const closed = createPostgresFrameworkAdapter({ connectionString: url });
+    await closed.close();
+    const unusedCache = createRedisFrameworkAdapter({
+      url: "redis://localhost",
+    });
     expect(() =>
-      createPostgresFrameworkAdapter({
-        connectionString: url,
-        redis: { url: "redis://localhost", timeoutMs: 1001 },
-      }),
-    ).toThrow();
+      createCachingFrameworkAdapter({ storage: closed, cache: unusedCache }),
+    ).toThrow("closed storage");
+    await unusedCache.close();
   });
 
   it("validates PostgreSQL visibility on cached reads, versions graph writes, and tolerates cache errors", async () => {
@@ -725,12 +852,18 @@ describe("PostgreSQL runtime persistence", () => {
   it.runIf(Boolean(redisUrl))(
     "hydrates real Redis from PostgreSQL after cache expiry and cannot serve physically deleted checkpoints",
     async () => {
-      const cached = createPostgresFrameworkAdapter({
-        connectionString: url,
-        namespace: scope,
-        redis: { url: redisUrl!, ttlMs: 10 },
-      });
-      extras.push(cached);
+      const cache = createRedisFrameworkAdapter({ url: redisUrl!, ttlMs: 10 });
+      const cached = createCachingFrameworkAdapter({ storage: adapter, cache });
+      expect(cached).toBe(adapter);
+      expect(cached.pendingRequests).toBe(adapter.pendingRequests);
+      expect(() =>
+        createCachingFrameworkAdapter({ storage: adapter, cache }),
+      ).toThrow("already has");
+      const nextCache = createRedisFrameworkAdapter({ url: redisUrl! });
+      expect(() =>
+        createCachingFrameworkAdapter({ storage: adapter, cache: nextCache }),
+      ).toThrow("already has");
+      await nextCache.close();
       const saved = await append();
       expect(await cached.sessionCheckpoints.get(saved.id)).toMatchObject({
         state,

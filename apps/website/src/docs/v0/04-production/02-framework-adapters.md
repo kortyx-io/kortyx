@@ -190,9 +190,14 @@ Go back to [Runtime Persistence](./01-persistence.md) if you want the high-level
 For month-long runtime history, use the PostgreSQL adapter. PostgreSQL is the source of truth; Redis optionally caches checkpoint payloads. The runtime schema is separate from your business tables and Studio telemetry.
 
 ```ts
-import { createAgent, createPostgresFrameworkAdapter } from "kortyx";
+import {
+  createAgent,
+  createPostgresFrameworkAdapter,
+  createRedisFrameworkAdapter,
+  createCachingFrameworkAdapter,
+} from "kortyx";
 
-const persistence = createPostgresFrameworkAdapter({
+const storage = createPostgresFrameworkAdapter({
   connectionString: process.env.KORTYX_POSTGRES_URL!,
   namespace: "my-app",
   ttlMs: 7 * 24 * 60 * 60 * 1000,
@@ -200,9 +205,14 @@ const persistence = createPostgresFrameworkAdapter({
     checkpointHistoryDays: 30,
     inactiveSessionDays: 30,
   },
-  // Optional:
-  redis: { url: process.env.REDIS_URL!, ttlMs: 15 * 60 * 1000 },
 });
+
+// Optional Redis payload caching; omit the helper to use storage alone.
+const cache = createRedisFrameworkAdapter({
+  url: process.env.REDIS_URL!,
+  ttlMs: 15 * 60 * 1000,
+});
+const persistence = createCachingFrameworkAdapter({ storage, cache, timeoutMs: 25 });
 
 // Deployment command, before serving requests:
 await persistence.maintenance.setup();
@@ -213,6 +223,14 @@ const agent = createAgent({ workflows, frameworkAdapter: persistence });
 const result = await persistence.maintenance.prune({ batchSize: 500 });
 ```
 
+The existing in-memory and Redis factories remain supported. Every built-in adapter implements `ManagedFrameworkAdapter`, adding the same `maintenance.setup()`, `maintenance.prune()`, and `close()` methods to the shared runtime API. Existing custom `FrameworkAdapter` implementations remain compatible. A new built-in lifecycle method belongs in the shared contract and must be implemented by every backend.
+
+`setup()` creates the PostgreSQL schema; it is a no-op for Redis and memory. Redis `prune()` returns zero deletion counts because Redis already expires keys through native TTL. Memory `prune()` removes expired approvals in bounded batches; session history remains count-limited, with no global session inactivity policy. PostgreSQL applies the configured history/session retention. The common API does not make these storage guarantees identical.
+
+Configure composition before serving requests. `createCachingFrameworkAdapter({ storage, cache })` attaches a cache to the supplied storage adapter and returns that same adapter, preserving its methods, type, and identity. It currently supports PostgreSQL storage with a Redis cache; unsupported combinations are rejected. The cache adapter's `ttlMs` controls cache lifetime, while the storage adapter's `ttlMs` controls approvals. Composition uses a separate cache key space and does not call Redis's approval/session stores or run cleanup.
+
+The returned adapter owns both connections. Close it once on shutdown after executions finish. Give each storage adapter its own cache adapter; do not share that cache adapter with another storage adapter or use it independently as authoritative storage. Configuring a second cache on the same storage or using an already-owned cache is rejected.
+
 `maintenance.prune()` is a server-side library method. Your app schedules it; Kortyx determines what is safe to delete. No cleanup timer or HTTP endpoint is installed automatically. If your scheduler calls an HTTP endpoint, create and authorize that endpoint in your app.
 
 | Setting | Default | Meaning |
@@ -220,8 +238,8 @@ const result = await persistence.maintenance.prune({ batchSize: 500 });
 | `retention.checkpointHistoryDays` | 30 | Rolling history window, with no 50-checkpoint cap |
 | `retention.inactiveSessionDays` | 30 | Session inactivity window |
 | `ttlMs` | 15 minutes | Independent interrupt/approval lifetime |
-| `redis.ttlMs` | 15 minutes | Cache lifetime; a miss reloads from PostgreSQL |
-| `redis.timeoutMs` | 25 milliseconds | Maximum wait for a cache operation; configurable up to 1000 ms |
+| `cache.ttlMs` | 15 minutes | Cache lifetime; a miss reloads from PostgreSQL |
+| `timeoutMs` | 25 milliseconds | Maximum wait for a cache operation; configurable up to 1000 ms |
 
 The current head of a retained session, unexpired pauses, and executing runs are protected. Reads enforce expiry before physical cleanup. Session expiry ends access to its history; choose a session window at least as long as the history window if you want the full history available after inactivity. Browsing history does not extend session lifetime. Rollback retains abandoned branches, which checkpoint summaries identify through `branchStatus`.
 
@@ -231,14 +249,12 @@ Env-based selection uses PostgreSQL when `KORTYX_POSTGRES_URL` exists, optionall
 
 ```ts
 const persistence = createFrameworkAdapterFromEnv();
-if (persistence.kind === "postgres") {
-  await persistence.maintenance.setup();
-}
+await persistence.maintenance.setup();
 ```
 
 Durable storage supports resume, rollback, and fork. Continue with compatible workflow code and state contracts. Exact reproduction across code/model/tool changes requires additional versioned artifacts and side-effect idempotency; storage alone cannot provide it.
 
-Switching an existing application from Redis persistence to PostgreSQL starts a separate runtime store; existing Redis checkpoints and approval tokens are not automatically migrated. Plan the transition so outstanding approvals can finish on the original adapter. PostgreSQL is required even for Redis cache hits, because it validates visibility and revisions. Reuse an adapter per application process to reuse its database connection pool.
+Backend data transfer is outside the adapter contract. Changing storage does not import existing runtime data. PostgreSQL is required even for Redis cache hits, because it validates visibility and revisions. Reuse an adapter per application process to reuse its database connection pool.
 
 Approval consumption is atomic across workers, but a worker crash after consumption does not automatically retry the resume. External actions, such as payments or API writes, still need application-owned idempotency. Retention cleanup deletes Kortyx runtime records for the configured namespace; it does not undo those external actions or delete your business records.
 

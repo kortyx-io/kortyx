@@ -2,7 +2,11 @@
 import { randomUUID } from "node:crypto";
 import { defineWorkflow } from "@kortyx/core";
 import { useInterrupt, useReason, useWorkflow } from "@kortyx/hooks";
-import { createPostgresFrameworkAdapter } from "@kortyx/runtime";
+import {
+  createCachingFrameworkAdapter,
+  createPostgresFrameworkAdapter,
+  createRedisFrameworkAdapter,
+} from "@kortyx/runtime";
 import postgres from "postgres";
 import { describe, expect, it, vi } from "vitest";
 import { z } from "zod";
@@ -265,10 +269,16 @@ describe.skipIf(!url)("PostgreSQL-backed agent recovery", () => {
     const second = createPostgresFrameworkAdapter({
       connectionString: url!,
       namespace,
-      ...(process.env.KORTYX_TEST_REDIS_URL
-        ? { redis: { url: process.env.KORTYX_TEST_REDIS_URL, ttlMs: 10 } }
-        : {}),
     });
+    if (process.env.KORTYX_TEST_REDIS_URL) {
+      createCachingFrameworkAdapter({
+        storage: second,
+        cache: createRedisFrameworkAdapter({
+          url: process.env.KORTYX_TEST_REDIS_URL,
+          ttlMs: 10,
+        }),
+      });
+    }
     let completedBeforePause = 0;
     const child = defineWorkflow({
       id: "child",

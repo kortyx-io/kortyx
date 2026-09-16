@@ -1,12 +1,9 @@
 import { randomUUID } from "node:crypto";
 import { PersistenceError } from "@kortyx/core/errors";
-import type { FrameworkAdapter } from "../adapter";
-import { createRedisFrameworkStore } from "../redis/redis-store";
+import type { ManagedFrameworkAdapter } from "../adapter";
+import { registerFrameworkCacheStorage } from "../caching";
 import { PostgresCheckpointSaver } from "./checkpointer";
-import {
-  createRuntimeMaintenance,
-  type RuntimeMaintenance,
-} from "./maintenance";
+import { createRuntimeMaintenance } from "./maintenance";
 import { createPostgresPendingRequestStore } from "./pending-request-store";
 import { createPostgresSessionCheckpointStore } from "./session-checkpoint-store";
 import {
@@ -22,19 +19,11 @@ export type CreatePostgresFrameworkAdapterOptions = {
   /** Interrupt lifetime, independent of checkpoint retention. Default: 15 minutes. */
   ttlMs?: number;
   retention?: RuntimeRetentionPolicy;
-  /** Optional payload cache. All writes and token consumption remain authoritative in PostgreSQL. */
-  redis?: {
-    url: string;
-    ttlMs?: number;
-    /** Maximum cache operation wait; default: 25 ms, maximum: 1000 ms. */
-    timeoutMs?: number;
-  };
 };
 
-export type PostgresFrameworkAdapter = FrameworkAdapter & {
+export type PostgresFrameworkAdapter = ManagedFrameworkAdapter & {
   kind: "postgres";
   checkpointer: PostgresCheckpointSaver;
-  maintenance: RuntimeMaintenance;
   /** Closes owned connections. Call after in-flight executions have completed. */
   close: () => Promise<void>;
 };
@@ -43,26 +32,13 @@ export function createPostgresFrameworkAdapter(
   options: CreatePostgresFrameworkAdapterOptions,
 ): PostgresFrameworkAdapter {
   const ttlMs = positiveInteger("ttlMs", options.ttlMs ?? 15 * 60 * 1000);
-  const cacheTtlMs = positiveInteger(
-    "redis ttlMs",
-    options.redis?.ttlMs ?? 15 * 60 * 1000,
-  );
-  const cache = options.redis
-    ? createRedisFrameworkStore({
-        url: options.redis.url,
-        prefix: "kortyx:pg-cache:",
-      })
-    : undefined;
   const store = new PostgresRuntimeStore(
     options.connectionString,
     options.namespace ?? "default",
     options.retention ?? {},
-    cache,
-    cacheTtlMs,
-    options.redis?.timeoutMs,
   );
   const saver = new PostgresCheckpointSaver(store);
-  return {
+  const adapter: PostgresFrameworkAdapter = {
     kind: "postgres",
     ttlMs,
     checkpointer: saver,
@@ -143,4 +119,8 @@ export function createPostgresFrameworkAdapter(
     },
     close: () => store.close(),
   };
+  registerFrameworkCacheStorage(adapter, (cache, ttlMs, timeoutMs) =>
+    store.attachCache(cache, ttlMs, timeoutMs),
+  );
+  return adapter;
 }

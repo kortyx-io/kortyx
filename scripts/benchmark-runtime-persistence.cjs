@@ -11,6 +11,7 @@ const {
   createInMemoryFrameworkAdapter,
   createRedisFrameworkAdapter,
   createPostgresFrameworkAdapter,
+  createCachingFrameworkAdapter,
 } = require(`${repo}/packages/runtime/dist/index.js`);
 const { z } = require(`${repo}/packages/agent/node_modules/zod`);
 const postgres = require(`${repo}/packages/runtime/node_modules/postgres`);
@@ -71,10 +72,13 @@ async function sample(entry, record) {
             : createPostgresFrameworkAdapter({
                 connectionString: pgUrl,
                 namespace: scope,
-                ...(mode === "postgres-redis"
-                  ? { redis: { url: redisUrl } }
-                  : {}),
               });
+      if (mode === "postgres-redis") {
+        createCachingFrameworkAdapter({
+          storage: adapter,
+          cache: createRedisFrameworkAdapter({ url: redisUrl }),
+        });
+      }
       const entry = {
         mode,
         scope,
@@ -154,7 +158,7 @@ async function sample(entry, record) {
     console.log(JSON.stringify(results, null, 2));
   } finally {
     for (const { adapter, scope } of entries) {
-      if (adapter.close) await adapter.close();
+      await adapter.close();
       if (adapter.kind === "postgres") {
         await sql`DELETE FROM kortyx_runtime_pending_requests WHERE scope = ${scope}`;
         await sql`DELETE FROM kortyx_runtime_sessions WHERE scope = ${scope}`;
@@ -163,9 +167,7 @@ async function sample(entry, record) {
     }
     await sql.end();
   }
-  // The legacy Redis adapter has no public close method; the benchmark owns its process.
-  process.exit(0);
 })().catch((error) => {
   console.error(error);
-  process.exit(1);
+  process.exitCode = 1;
 });

@@ -55,18 +55,28 @@ Apache-2.0. See [LICENSE](https://github.com/kortyx-io/kortyx/blob/main/LICENSE)
 
 ## PostgreSQL and retention
 
-Use `createPostgresFrameworkAdapter` for durable runtime history. PostgreSQL is authoritative; Redis is an optional checkpoint payload cache.
+Use `createPostgresFrameworkAdapter` for durable runtime history. PostgreSQL is authoritative. Optionally attach a Redis adapter as a checkpoint payload cache with `createCachingFrameworkAdapter({ storage, cache })`.
 
 ```ts
-import { createPostgresFrameworkAdapter } from "kortyx";
+import {
+  createPostgresFrameworkAdapter,
+  createRedisFrameworkAdapter,
+  createCachingFrameworkAdapter,
+} from "kortyx";
 
-const persistence = createPostgresFrameworkAdapter({
+const storage = createPostgresFrameworkAdapter({
   connectionString: process.env.KORTYX_POSTGRES_URL!,
   namespace: "my-app",
   ttlMs: 7 * 24 * 60 * 60 * 1000, // Approval lifetime, independent of history.
   retention: { checkpointHistoryDays: 30, inactiveSessionDays: 30 },
-  // Optional: redis: { url: process.env.REDIS_URL!, ttlMs: 15 * 60 * 1000, timeoutMs: 25 },
 });
+
+// Optional Redis payload caching; omit the helper to use storage alone.
+const cache = createRedisFrameworkAdapter({
+  url: process.env.REDIS_URL!,
+  ttlMs: 15 * 60 * 1000,
+});
+const persistence = createCachingFrameworkAdapter({ storage, cache, timeoutMs: 25 });
 
 // Run during deployment before serving requests.
 await persistence.maintenance.setup();
@@ -81,7 +91,11 @@ await persistence.close();
 
 History and inactive sessions default to 30 days, without a 50-checkpoint cap. Interrupts default to 15 minutes; set `ttlMs` explicitly for longer pauses. Current session heads, unexpired pauses, and executing runs are protected. Rollback preserves abandoned branches until retention expires. Reads enforce expiry even before cleanup runs. The app owns scheduling; Kortyx owns safe, bounded pruning.
 
-`KORTYX_POSTGRES_URL` takes precedence over Redis during env-based selection, with Redis used as a cache when configured. `DATABASE_URL` is not used implicitly. Env-based PostgreSQL also requires explicit schema setup before traffic; use the helper's `kind === "postgres"` branch to access `maintenance` and `close`.
+`KORTYX_POSTGRES_URL` takes precedence over Redis during env-based selection, with Redis used as a cache when configured. `DATABASE_URL` is not used implicitly. Call `maintenance.setup()` before traffic for every built-in adapter; PostgreSQL creates its schema, while Redis and memory need no schema. `maintenance.prune()` and `close()` are also available on every built-in adapter.
+
+Existing factories remain supported. Their shared `ManagedFrameworkAdapter` lifecycle contract requires implementations for every built-in backend; existing custom `FrameworkAdapter` implementations remain compatible. Redis prune reports zero explicit deletions because native TTL owns expiry. Memory prune removes expired approvals in bounded batches; its session history remains count-limited.
+
+Configure the caching helper before traffic. It returns the exact storage adapter and preserves all current/future methods. Currently PostgreSQL storage with Redis caching is supported; unsupported combinations, repeated bindings, and sharing an already-owned cache are rejected. Cache `ttlMs` comes from the Redis adapter; approval `ttlMs` comes from PostgreSQL. The returned adapter owns both connections: close it after executions finish and do not independently use its cache input as another storage backend. Cache keys are separate from standalone Redis runtime keys. Data transfer between storage backends is outside this contract.
 
 Run real-service integration coverage with `KORTYX_TEST_POSTGRES_URL=... KORTYX_TEST_REDIS_URL=... pnpm --filter @kortyx/runtime test:integration:postgres`. Use a disposable test database. Redis is optional for these tests.
 

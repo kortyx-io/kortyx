@@ -1,6 +1,10 @@
 import { createHash } from "node:crypto";
 import { KortyxError, PersistenceError } from "@kortyx/core/errors";
 import postgres from "postgres";
+import {
+  type FrameworkPayloadCache,
+  validateFrameworkCacheOptions,
+} from "../caching";
 import type { RedisFrameworkStore } from "../redis/redis-store";
 
 export type RuntimeSql = postgres.Sql | postgres.TransactionSql;
@@ -87,7 +91,6 @@ export class PostgresRuntimeStore {
   readonly scope: string;
   readonly historyMs: number;
   readonly sessionMs: number;
-  readonly cacheEnabled: boolean;
   private readonly cachePrefix: string;
   private cacheRetryAfter = 0;
   private cacheClosed = false;
@@ -97,9 +100,9 @@ export class PostgresRuntimeStore {
     connectionString: string,
     namespace: string,
     retention: RuntimeRetentionPolicy,
-    private readonly cache?: Pick<RedisFrameworkStore, "get" | "set" | "close">,
-    private readonly cacheTtlMs = 15 * 60 * 1000,
-    private readonly cacheTimeoutMs = 25,
+    private cache?: Pick<RedisFrameworkStore, "get" | "set" | "close">,
+    private cacheTtlMs = 15 * 60 * 1000,
+    private cacheTimeoutMs = 25,
   ) {
     const url = new URL(connectionString);
     if (!["postgres:", "postgresql:"].includes(url.protocol))
@@ -118,11 +121,7 @@ export class PostgresRuntimeStore {
       ) * 86_400_000;
     positiveInteger("checkpoint history duration", this.historyMs);
     positiveInteger("session retention duration", this.sessionMs);
-    positiveInteger("cache ttlMs", cacheTtlMs);
-    positiveInteger("cache timeoutMs", cacheTimeoutMs);
-    if (cacheTimeoutMs > 1000)
-      throw new TypeError("cache timeoutMs must not exceed 1000.");
-    this.cacheEnabled = Boolean(cache);
+    validateFrameworkCacheOptions(cacheTtlMs, cacheTimeoutMs);
     this.sql = postgres(connectionString, {
       max: 10,
       connect_timeout: 5,
@@ -131,6 +130,25 @@ export class PostgresRuntimeStore {
     this.cachePrefix = createHash("sha256")
       .update(`${connectionString}\0${namespace}`)
       .digest("hex");
+  }
+
+  get cacheEnabled(): boolean {
+    return Boolean(this.cache);
+  }
+
+  attachCache(
+    cache: FrameworkPayloadCache,
+    ttlMs: number,
+    timeoutMs: number,
+  ): void {
+    if (this.cacheClosed)
+      throw new TypeError("Cannot configure a closed storage adapter.");
+    if (this.cache)
+      throw new TypeError("Storage already has a framework cache.");
+    validateFrameworkCacheOptions(ttlMs, timeoutMs);
+    this.cache = cache;
+    this.cacheTtlMs = ttlMs;
+    this.cacheTimeoutMs = timeoutMs;
   }
 
   async setup(): Promise<void> {

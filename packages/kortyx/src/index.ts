@@ -95,8 +95,10 @@ export type {
 export { createMCPClient } from "@kortyx/mcp";
 export * from "@kortyx/providers";
 export type {
+  CreateCachingFrameworkAdapterOptions,
   CreatePostgresFrameworkAdapterOptions,
   FrameworkAdapter,
+  ManagedFrameworkAdapter,
   PostgresFrameworkAdapter,
   PruneRuntimeOptions,
   PruneRuntimeResult,
@@ -106,6 +108,7 @@ export type {
 } from "@kortyx/runtime";
 export {
   clearRegisteredNodes,
+  createCachingFrameworkAdapter,
   createFileWorkflowRegistry,
   createFrameworkAdapterFromEnv,
   createInMemoryFrameworkAdapter,

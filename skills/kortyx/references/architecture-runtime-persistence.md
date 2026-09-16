@@ -26,7 +26,8 @@ export const agent = createAgent({
 
 Default env selection:
 
-- Redis if `KORTYX_REDIS_URL`, `REDIS_URL`, or `KORTYX_FRAMEWORK_REDIS_URL` exists.
+- PostgreSQL if `KORTYX_POSTGRES_URL` exists (explicit setup required), optionally cached using Redis.
+- Otherwise Redis if `KORTYX_REDIS_URL`, `REDIS_URL`, or `KORTYX_FRAMEWORK_REDIS_URL` exists.
 - Otherwise in-memory.
 - TTL can be set with `KORTYX_FRAMEWORK_TTL_MS` or `KORTYX_TTL_MS`.
 
@@ -82,7 +83,7 @@ In-memory persistence has no cross-process sharing and no restart safety. It cap
 
 ## PostgreSQL durable runtime history
 
-Use `createPostgresFrameworkAdapter({ connectionString, namespace, ttlMs, retention, redis? })` for durable runtime history. PostgreSQL is authoritative; Redis optionally caches checkpoint payloads. This is runtime execution persistence, separate from the app's business data and semantic memory.
+Use `createPostgresFrameworkAdapter({ connectionString, namespace, ttlMs, retention })` for durable runtime history. PostgreSQL is authoritative. Optionally combine it with `createRedisFrameworkAdapter({ url, ttlMs })` using `createCachingFrameworkAdapter({ storage, cache, timeoutMs: 25 })`; Redis then caches checkpoint payloads. This is runtime execution persistence, separate from the app's business data and semantic memory.
 
 Run `await persistence.maintenance.setup()` explicitly in a deployment/migration command before serving requests. The app schedules `await persistence.maintenance.prune({ batchSize: 500 })`; the adapter owns safe deletion and dependency checks. No automatic retention timer or maintenance HTTP endpoint is installed. `result.deleted`, `result.skipped`, and `result.hasMore` support job monitoring and repeated batches. Call `await persistence.close()` after executions finish on shutdown.
 
@@ -91,12 +92,12 @@ Retention is separate from approval and cache lifetime:
 - `retention.checkpointHistoryDays` defaults to 30, without a 50-checkpoint cap.
 - `retention.inactiveSessionDays` defaults to 30 since runtime activity; browsing history does not extend it.
 - `ttlMs` defaults to 15 minutes for interrupts; configure longer approval windows explicitly.
-- `redis.ttlMs` defaults to 15 minutes for cache payloads, which can reload from PostgreSQL.
-- `redis.timeoutMs` defaults to 25 milliseconds per cache operation (maximum 1000). Cache fills are asynchronous and bounded; errors/timeouts bypass Redis for five seconds.
+- the cache adapter’s `ttlMs` defaults to 15 minutes for cache payloads, which can reload from PostgreSQL.
+- the helper’s `timeoutMs` defaults to 25 milliseconds per cache operation (maximum 1000). Cache fills are asynchronous and bounded; errors/timeouts bypass Redis for five seconds.
 
 Retained session heads, unexpired pauses, and executing runs are protected. Reads enforce expiry before maintenance physically removes records. Session expiry ends access to its history. Rollback preserves abandoned branches, identified by checkpoint summary `branchStatus`; forks own complete paused snapshots and independent tokens. Expired approvals cannot be revived through rollback/fork.
 
-`createFrameworkAdapterFromEnv()` selects PostgreSQL first if `KORTYX_POSTGRES_URL` is provided; existing Redis URL settings then supply optional caching. It never implicitly uses the app's `DATABASE_URL`. Narrow `kind === "postgres"` to access maintenance/setup/close. Explicit setup is still required.
+`createFrameworkAdapterFromEnv()` selects PostgreSQL first if `KORTYX_POSTGRES_URL` is provided; existing Redis URL settings then supply optional caching. It never implicitly uses the app's `DATABASE_URL`. All built-in adapters share `maintenance.setup()`, `maintenance.prune()`, and `close()` through `ManagedFrameworkAdapter`; existing custom `FrameworkAdapter` implementations remain compatible. Redis prune delegates expiry to native TTL; memory prune removes expired approvals, while its session history stays count-limited. Explicit setup is still required.
 
 Durability supports resume/rollback/fork with compatible workflow code. It does not promise exact historical reproduction across code changes or exactly-once external side effects.
 

@@ -1,31 +1,9 @@
-import { type PostgresRuntimeStore, positiveInteger } from "./store";
-
-export type PruneRuntimeOptions = {
-  /** Defaults to wall-clock time; future timestamps are rejected. */
-  now?: Date;
-  /** Maximum parent records removed per table in one call. Default: 500, maximum: 1000. */
-  batchSize?: number;
-};
-
-export type PruneRuntimeResult = {
-  skipped: boolean;
-  /** True when a batch filled. Repeat later; this is a conservative hint, not a total count. */
-  hasMore: boolean;
-  deleted: {
-    pendingRequests: number;
-    sessionCheckpoints: number;
-    graphCheckpoints: number;
-    sessions: number;
-    runs: number;
-  };
-};
-
-export type RuntimeMaintenance = {
-  /** Explicit, idempotent schema setup. Run during deployment before serving requests. */
-  setup: () => Promise<void>;
-  /** The application schedules this method. No automatic cleanup timer is started. */
-  prune: (options?: PruneRuntimeOptions) => Promise<PruneRuntimeResult>;
-};
+import {
+  type PruneRuntimeResult,
+  type RuntimeMaintenance,
+  resolvePruneOptions,
+} from "../maintenance";
+import type { PostgresRuntimeStore } from "./store";
 
 export function createRuntimeMaintenance(
   store: PostgresRuntimeStore,
@@ -33,13 +11,7 @@ export function createRuntimeMaintenance(
   return {
     setup: () => store.setup(),
     async prune(options = {}) {
-      const now = options.now?.getTime() ?? Date.now();
-      if (!Number.isSafeInteger(now) || now < 0 || now > Date.now())
-        throw new TypeError(
-          "prune now must be a valid date no later than the current time.",
-        );
-      const batch = positiveInteger("batchSize", options.batchSize ?? 500);
-      if (batch > 1000) throw new TypeError("batchSize must not exceed 1000.");
+      const { now, batchSize: batch } = resolvePruneOptions(options);
       return (await store.query(
         store.sql.begin(async (sql) => {
           const deleted = {
