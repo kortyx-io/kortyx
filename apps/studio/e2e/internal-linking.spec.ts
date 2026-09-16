@@ -81,7 +81,7 @@ test.describe("Studio internal entity links", () => {
       await session.getByRole("button", { name: /^Runs \d+$/ }).click();
       await session
         .getByRole("tabpanel")
-        .locator(`a[href^="${runPath}"]`)
+        .getByRole("link", { name: fixture.runId, exact: true })
         .click();
       await expect(page).toHaveURL((url) => url.pathname === runPath);
       await expect(session).toHaveCount(0);
@@ -106,7 +106,7 @@ test.describe("Studio internal entity links", () => {
       await session.getByRole("button", { name: /^Runs \d+$/ }).click();
       await session
         .getByRole("tabpanel")
-        .locator(`a[href^="${runPath}"]`)
+        .getByRole("link", { name: fixture.runId, exact: true })
         .click();
       const run = surface(page, runPath);
       await expect(heading(page, fixture.runId)).toBeVisible();
@@ -136,9 +136,16 @@ test.describe("Studio internal entity links", () => {
       await expect(heading(page, fixture.sessionId)).toBeVisible();
       if (direct) {
         await session.getByRole("button", { name: /^Runs \d+$/ }).click();
+        // The feedback shortcut points to the same run with a different tab.
+        await expect(
+          session.getByRole("tabpanel").getByRole("link", {
+            name: `View feedback for run ${fixture.runId}`,
+            exact: true,
+          }),
+        ).toHaveAttribute("href", /tab=feedback/);
         await session
           .getByRole("tabpanel")
-          .locator(`a[href^="${runPath}"]`)
+          .getByRole("link", { name: fixture.runId, exact: true })
           .click();
         const revisitedRun = surface(page, runPath);
         await expect(revisitedRun).toHaveAttribute("data-state", "open");
@@ -219,7 +226,7 @@ test.describe("Studio internal entity links", () => {
     await session.getByRole("button", { name: /^Runs \d+$/ }).click();
     await session
       .getByRole("tabpanel")
-      .locator(`a[href^="${runPath}"]`)
+      .getByRole("link", { name: DRAWER_FIXTURE.runId, exact: true })
       .click();
     const run = surface(page, runPath);
     await expect(heading(page, DRAWER_FIXTURE.runId)).toBeVisible();
@@ -324,7 +331,7 @@ test.describe("Studio cyclic drawer history", () => {
       await drawer.getByRole("button", { name: /^Runs \d+$/ }).click();
       await drawer
         .getByRole("tabpanel")
-        .locator(`a[href^="${href(to)}"]`)
+        .getByRole("link", { name: ids[to], exact: true })
         .click();
     } else {
       const name =
@@ -440,7 +447,7 @@ test.describe("Studio cyclic drawer history", () => {
       const otherPath = path("runs", fixture.otherRunId);
       await session
         .getByRole("tabpanel")
-        .locator(`a[href^="${otherPath}"]`)
+        .getByRole("link", { name: fixture.otherRunId, exact: true })
         .click();
       const otherRun = surface(page, otherPath);
       async function expectOtherRun() {
@@ -550,7 +557,7 @@ test.describe("Studio cyclic drawer history", () => {
       .click();
     await surface(page, href("sessions"))
       .getByRole("tabpanel")
-      .locator(`a[href^="${href("runs")}"]`)
+      .getByRole("link", { name: ids.runs, exact: true })
       .click();
     await expect(page).toHaveURL((url) => url.pathname === href("runs"));
     await expect(run).toHaveAttribute("data-state", "open");
