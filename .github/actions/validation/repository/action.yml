@@ -1,0 +1,51 @@
+name: Validate repository
+description: Run the same setup, database-backed coverage, build, regressions, typechecks, publication tests, and lint for CI and release.
+inputs:
+  registry-url:
+    description: Optional npm registry URL
+    required: false
+    default: ""
+runs:
+  using: composite
+  steps:
+    - name: Setup Node and pnpm
+      uses: ./.github/automation/.github/actions/setup/node
+      with:
+        registry-url: ${{ inputs.registry-url }}
+    - name: Start Redis
+      uses: ./.github/automation/.github/actions/setup/redis
+    - name: Start PostgreSQL
+      uses: ./.github/automation/.github/actions/setup/postgres
+    - name: Test with coverage gates
+      run: pnpm coverage
+      shell: bash
+    - name: Build
+      run: pnpm build
+      shell: bash
+    - name: PostgreSQL runtime persistence integration coverage
+      run: pnpm --filter @kortyx/runtime test:integration:postgres
+      shell: bash
+    - name: Studio unit regressions
+      run: pnpm --filter kortyx-studio test
+      shell: bash
+    - name: Example workflow and error regressions
+      run: pnpm -r --no-bail --filter './examples/*' test
+      shell: bash
+    - name: Typecheck
+      run: pnpm -r --if-present run type-check
+      shell: bash
+    - name: Studio release publication regressions
+      run: |-
+        python3 -m unittest discover -s ./.github/automation/.github/scripts/studio/update-channel -v
+        python3 -m unittest discover -s ./.github/automation/.github/scripts/tests -v
+        node --test ./.github/automation/.github/scripts/tests/website.test.cjs
+      shell: bash
+    - name: Lint
+      run: pnpm lint
+      shell: bash
+    - name: Stop test databases
+      if: always()
+      shell: bash
+      run: bash "$ACTION_PATH/../../../scripts/setup/stop-databases.sh"
+      env:
+        ACTION_PATH: ${{ github.action_path }}

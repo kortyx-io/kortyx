@@ -2,9 +2,9 @@ import unittest
 from pathlib import Path
 
 
-WORKFLOW = Path(__file__).parents[2] / "workflows" / "studio-oss-ghcr.yml"
+WORKFLOW = Path(__file__).parents[3] / "workflows" / "release-studio-images.yml"
 RECOVERY_WORKFLOW = (
-    Path(__file__).parents[2] / "workflows" / "studio-oss-cdn-recover.yml"
+    Path(__file__).parents[3] / "workflows" / "release-studio-recover.yml"
 )
 
 

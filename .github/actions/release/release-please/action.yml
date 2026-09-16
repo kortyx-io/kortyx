@@ -1,0 +1,31 @@
+name: Run Release Please
+description: Prepare release PRs or create release tags with a GitHub App token.
+
+inputs:
+  app-id:
+    description: GitHub App ID
+    required: true
+  private-key:
+    description: GitHub App private key
+    required: true
+  mode:
+    description: prepare for PRs, tags for GitHub releases
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Create GitHub App token
+      id: app-token
+      uses: actions/create-github-app-token@v3
+      with:
+        app-id: ${{ inputs.app-id }}
+        private-key: ${{ inputs.private-key }}
+    - name: Release Please
+      uses: googleapis/release-please-action@v5
+      with:
+        token: ${{ steps.app-token.outputs.token }}
+        skip-github-release: ${{ inputs.mode == 'prepare' }}
+        skip-github-pull-request: ${{ inputs.mode == 'tags' }}
+        config-file: .github/release-please/config.json
+        manifest-file: .github/release-please/manifest.json

@@ -1,0 +1,41 @@
+name: Build and push container image
+description: Build and publish with the existing registry-cache configuration.
+
+inputs:
+  context:
+    description: Docker build context
+    required: false
+    default: .
+  file:
+    description: Dockerfile path
+    required: true
+  platforms:
+    description: Target platforms
+    required: false
+    default: linux/amd64
+  tags:
+    description: Destination tags
+    required: true
+  cache-scope:
+    description: GitHub Actions cache scope
+    required: true
+
+outputs:
+  digest:
+    description: Published image index digest
+    value: ${{ steps.build.outputs.digest }}
+
+runs:
+  using: composite
+  steps:
+    - name: Build and push
+      id: build
+      uses: docker/build-push-action@v7
+      with:
+        context: ${{ inputs.context }}
+        file: ${{ inputs.file }}
+        push: true
+        platforms: ${{ inputs.platforms }}
+        tags: ${{ inputs.tags }}
+        cache-from: type=gha,scope=${{ inputs.cache-scope }}
+        cache-to: type=gha,mode=max,scope=${{ inputs.cache-scope }}

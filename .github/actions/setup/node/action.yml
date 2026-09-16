@@ -1,0 +1,37 @@
+name: Setup Node and pnpm
+description: Configure repository Node, Corepack, pnpm cache, and optionally install dependencies.
+
+inputs:
+  registry-url:
+    description: Optional npm registry URL
+    required: false
+    default: ""
+  install:
+    description: Install dependencies from the frozen lockfile
+    required: false
+    default: "true"
+
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-node@v6
+      with:
+        node-version-file: .nvmrc
+        registry-url: ${{ inputs.registry-url }}
+    - name: Enable Corepack
+      run: |
+        corepack enable
+        pnpm --version
+      shell: bash
+      if: inputs.install == 'true'
+    - name: Setup pnpm cache
+      uses: actions/setup-node@v6
+      with:
+        node-version-file: .nvmrc
+        cache: pnpm
+        registry-url: ${{ inputs.registry-url }}
+      if: inputs.install == 'true'
+    - name: Install
+      run: pnpm install --frozen-lockfile
+      shell: bash
+      if: inputs.install == 'true'

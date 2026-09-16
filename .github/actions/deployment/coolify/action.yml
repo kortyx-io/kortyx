@@ -1,0 +1,39 @@
+name: Deploy with Coolify
+description: Deploy staging, production, or PR previews with common polling, or remove a preview.
+
+inputs:
+  url:
+    description: Coolify API URL
+    required: true
+  token:
+    description: Scoped Coolify token
+    required: true
+  app-uuid:
+    description: Application UUID
+    required: true
+  pr-number:
+    description: Preview pull request number
+    required: false
+    default: ""
+  docker-tag:
+    description: Preview image tag
+    required: false
+    default: ""
+  operation:
+    description: deploy or remove-preview
+    required: false
+    default: deploy
+
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      env:
+        COOLIFY_TOKEN: ${{ inputs.token }}
+        COOLIFY_URL: ${{ inputs.url }}
+        COOLIFY_APP_UUID: ${{ inputs.app-uuid }}
+        PR_NUMBER: ${{ inputs.pr-number }}
+        DOCKER_TAG: ${{ inputs.docker-tag }}
+        OPERATION: ${{ inputs.operation }}
+        ACTION_PATH: ${{ github.action_path }}
+      run: bash "$ACTION_PATH/deploy.sh"

@@ -1,0 +1,48 @@
+name: Website / Promote
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: kortyx-io/website
+  COOLIFY_URL: ${{ vars.COOLIFY_URL }}
+  COOLIFY_PRODUCTION_APP_UUID: ${{ vars.COOLIFY_PRODUCTION_APP_UUID }}
+  PRODUCTION_URL: https://kortyx.io
+
+jobs:
+  promote-prod:
+    name: Promote Image To Prod Tags
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout workflow modules
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.workflow_sha }}
+          path: .github/automation
+          sparse-checkout: .github
+          persist-credentials: false
+      - name: Setup container registry
+        uses: ./.github/automation/.github/actions/setup/container-registry
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+          qemu: "false"
+      - name: Promote staging-latest to latest
+        uses: ./.github/automation/.github/actions/containers/promote
+        with:
+          source: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:staging-latest
+          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+      - name: Deploy Coolify production image
+        uses: ./.github/automation/.github/actions/deployment/coolify
+        with:
+          url: ${{ env.COOLIFY_URL }}
+          token: ${{ secrets.COOLIFY_PRODUCTION_DEPLOY_TOKEN }}
+          app-uuid: ${{ env.COOLIFY_PRODUCTION_APP_UUID }}
+      - name: Verify production URL
+        run: bash ./.github/automation/.github/scripts/website/verify-production.sh

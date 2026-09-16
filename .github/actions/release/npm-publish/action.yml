@@ -1,0 +1,21 @@
+name: Publish npm packages
+description: Publish only managed packages changed by the validated release commit; skip existing versions.
+
+inputs:
+  commit:
+    description: Exact validated release commit
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Publish packages
+      shell: bash
+      env:
+        ACTION_PATH: ${{ github.action_path }}
+        RELEASE_COMMIT: ${{ inputs.commit }}
+      run: |-
+        unset NODE_AUTH_TOKEN
+        npm config delete //registry.npmjs.org/:_authToken || true
+        npm config delete always-auth || true
+        node "$ACTION_PATH/publish.mjs"

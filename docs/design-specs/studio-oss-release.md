@@ -17,7 +17,7 @@ platform manifests. Docker selects the native manifest automatically.
 
 ## One release, four gates
 
-The `Publish Release (Studio)` GitHub Actions workflow is the only
+The `Release / Studio Images` GitHub Actions workflow is the only
 production publication path. It is started manually after npm publication;
 creating a `studio-vX.Y.Z` tag does not start Docker publication.
 
@@ -58,13 +58,13 @@ when the repository environment has a protection rule.
 
 1. Merge Studio changes to `main` using conventional commit messages, as for
    the other release-please packages.
-2. Run **Prepare Release PR (Repo)** and merge the shared release PR. It updates
+2. Run **Release / Prepare PR** and merge the shared release PR. It updates
    `apps/studio/package.json`, `apps/studio/CHANGELOG.md`, and Studio's entry in
    `.github/release-please/manifest.json` together.
-3. Wait for **Create Release Tags (Repo)** to create `studio-vX.Y.Z`.
-4. Run **Publish Release (NPM Packages)** for the release commit and wait for it
+3. Wait for **Release / Tags** to create `studio-vX.Y.Z`.
+4. Run **Release / NPM** for the release commit and wait for it
    to succeed. The Studio installer depends on those published npm versions.
-5. Run **Publish Release (Studio)** with **Use workflow from:
+5. Run **Release / Studio Images** with **Use workflow from:
    main** and `release_tag` set to `studio-vX.Y.Z`.
 6. Wait for both native clean-install jobs to pass, then review the staged
    version and approve the `studio-production` deployment.
@@ -100,8 +100,8 @@ in the running build. It does not check for newer releases.
   `studio-vX.Y.Z` tag in `release_tag`. Re-running is safe until a production
   image tag exists; the release-please Git tag is expected to exist.
 - If promotion partially succeeds, inspect the recorded digests before any
-  recovery. Never rebuild under the same version. Use **Recover Release
-  (Studio update channel)** with the existing `studio-vX.Y.Z` tag, the API and
+  recovery. Never rebuild under the same version. Use **Release / Studio Recovery**
+  with the existing `studio-vX.Y.Z` tag, the API and
   Studio digests recorded by the failed run, and the original deployment
   strategy. The protected recovery job verifies both production image indexes
   before it publishes the missing immutable history and stable-channel

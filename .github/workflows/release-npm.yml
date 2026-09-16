@@ -1,0 +1,42 @@
+name: Release / NPM
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_commit:
+        description: Exact release commit to publish (defaults to the selected ref)
+        required: false
+        type: string
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    environment: NPM Package Publishing
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          ref: ${{ inputs.release_commit || github.sha }}
+      - name: Checkout workflow modules
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.workflow_sha }}
+          path: .github/automation
+          sparse-checkout: .github
+          persist-credentials: false
+      - name: Record selected release commit
+        id: candidate
+        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+      - name: Validate repository
+        uses: ./.github/automation/.github/actions/validation/repository
+      - name: Publish packages
+        uses: ./.github/automation/.github/actions/release/npm-publish
+        with:
+          commit: ${{ steps.candidate.outputs.sha }}
+    timeout-minutes: 20

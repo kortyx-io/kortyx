@@ -1,0 +1,64 @@
+name: Validate Studio E2E
+description: Run database, feedback, review, browser, and production-navigation regressions and collect failures.
+
+runs:
+  using: composite
+  steps:
+    - name: Setup Node and pnpm
+      uses: ./.github/automation/.github/actions/setup/node
+    - name: Prepare local environment
+      run: cp .env.example .env
+      shell: bash
+    - name: Build database and HA test dependencies
+      run: |
+        pnpm --filter @kortyx/telemetry-contracts build
+        pnpm --filter @kortyx/telemetry-db build
+      shell: bash
+    - name: Migrate and bootstrap database
+      run: |
+        pnpm db:migrate
+        pnpm db:bootstrap
+      shell: bash
+    - name: Run high-availability database regressions
+      run: |
+        pnpm --filter @kortyx/telemetry-db test:integration:ha
+        pnpm --filter @kortyx/api test:integration:ha
+      shell: bash
+    - name: Run native feedback API regressions
+      run: pnpm --filter @kortyx/api exec vitest run test/scores.integration.test.ts
+      shell: bash
+    - name: Install Chromium
+      run: pnpm --filter kortyx-studio exec playwright install --with-deps chromium
+      shell: bash
+    - name: Run Studio browser regressions
+      run: pnpm test:studio:e2e
+      shell: bash
+    - name: Run review-capable Studio feedback regressions
+      env:
+        KORTYX_STUDIO_ENABLE_REVIEWS: "1"
+        API_PORT: 6402
+        STUDIO_PORT: 6302
+        KORTYX_API_URL: http://localhost:6402
+        KORTYX_E2E_STUDIO_URL: http://localhost:6302
+      run: |
+        pnpm db:bootstrap
+        pnpm --filter kortyx-studio exec dotenv -e ../../.env -- playwright test feedback.spec.ts
+      shell: bash
+    - name: Run production Studio navigation regressions
+      env:
+        KORTYX_E2E_PRODUCTION: "1"
+        API_PORT: 6401
+        STUDIO_PORT: 6301
+        KORTYX_API_URL: http://localhost:6401
+        KORTYX_E2E_STUDIO_URL: http://localhost:6301
+      run: pnpm --filter kortyx-studio exec dotenv -e ../../.env -- playwright test internal-linking.spec.ts detail-drawer-stack.spec.ts
+      shell: bash
+    - name: Upload Playwright failure artifacts
+      if: failure()
+      uses: actions/upload-artifact@v6
+      with:
+        name: studio-playwright-artifacts
+        path: |
+          apps/studio/playwright-report
+          apps/studio/test-results
+        retention-days: 7
