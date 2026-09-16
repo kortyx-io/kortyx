@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.5.1](https://github.com/kortyx-io/kortyx/compare/studio-v0.5.0...studio-v0.5.1) (2026-09-16)
+
+
+### Bug Fixes
+
+* **studio:** harden Run, Session, and Interrupt navigation ([#199](https://github.com/kortyx-io/kortyx/issues/199)) ([7830e1c](https://github.com/kortyx-io/kortyx/commit/7830e1ceb010ee79f939b1539e348c654297fcf5))
+* **studio:** prevent trace inspector exit replay ([#198](https://github.com/kortyx-io/kortyx/issues/198)) ([8723389](https://github.com/kortyx-io/kortyx/commit/872338935767bd9af8c35aa6dae5dceadbe749ca))
+
 ## [0.5.0](https://github.com/kortyx-io/kortyx/compare/studio-v0.4.0...studio-v0.5.0) (2026-09-15)
 
 
