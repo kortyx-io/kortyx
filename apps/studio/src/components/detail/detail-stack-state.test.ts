@@ -5,7 +5,9 @@ import {
   expandDetailLayer,
   getDetailBackdropState,
   isDetailLayerActiveForHistory,
+  readDetailHistorySnapshot,
   registerDetailLayer,
+  restoreDetailLayersFromHistory,
   setDetailLayerClosing,
   setDetailLayerSplitOpen,
   syncDetailLayersToHistoryPath,
@@ -194,5 +196,107 @@ describe("detail stack transitions", () => {
       topIndex: 1,
       zIndex: 45,
     });
+  });
+});
+
+describe("detail history snapshots", () => {
+  it("restores an unmounted child and reopens its explicitly closed ancestor", () => {
+    const saved = registerDetailLayer(registerDetailLayer([], run), session);
+    const current = setDetailLayerClosing([saved[0]], run.id, true);
+    const restored = restoreDetailLayersFromHistory(current, saved);
+    expect(restored.map((layer) => [layer.id, layer.closing])).toEqual([
+      [run.id, false],
+      [session.id, false],
+    ]);
+  });
+
+  it("distinguishes two occurrences of the same pathname by their saved stack", () => {
+    const original = registerDetailLayer(registerDetailLayer([], run), session);
+    const later = [original[1]];
+    expect(
+      restoreDetailLayersFromHistory(later, original).map((layer) => layer.id),
+    ).toEqual([run.id, session.id]);
+    expect(
+      restoreDetailLayersFromHistory(original, later).map((layer) => [
+        layer.id,
+        layer.closing,
+      ]),
+    ).toEqual([
+      [session.id, false],
+      [run.id, true],
+    ]);
+  });
+
+  it("retains departing surfaces for exit and restores saved expansion", () => {
+    const saved = expandDetailLayer(
+      registerDetailLayer([], session),
+      session.id,
+    );
+    const current = registerDetailLayer(registerDetailLayer([], session), run);
+    expect(restoreDetailLayersFromHistory(current, saved)).toMatchObject([
+      { id: session.id, closing: false, expanded: true },
+      { id: run.id, closing: true },
+    ]);
+    expect(current.every((layer) => !layer.closing)).toBe(true);
+  });
+
+  it("restores a full page or list with no drawers while existing surfaces exit", () => {
+    expect(
+      restoreDetailLayersFromHistory(registerDetailLayer([], run), []),
+    ).toMatchObject([{ id: run.id, closing: true }]);
+  });
+
+  it("keeps a restored ancestor slot active while another Run departs", () => {
+    const other = { ...run, id: "/runs/run-2", matchPath: "/runs/run-2" };
+    const saved = registerDetailLayer(registerDetailLayer([], run), session);
+    const current = registerDetailLayer(
+      registerDetailLayer([], session),
+      other,
+    );
+    const restored = restoreDetailLayersFromHistory(current, saved);
+    expect(
+      isDetailLayerActiveForHistory(
+        restored,
+        run.dismissPath,
+        session.matchPath,
+        [run.dismissPath, session.dismissPath],
+      ),
+    ).toBe(true);
+  });
+
+  it("keeps mounted inspector ownership and does not revive saved split panes", () => {
+    const saved = setDetailLayerSplitOpen(
+      registerDetailLayer(registerDetailLayer([], run), session),
+      session.id,
+      true,
+    );
+    const current = setDetailLayerSplitOpen(
+      registerDetailLayer([], run),
+      run.id,
+      true,
+    );
+    expect(
+      restoreDetailLayersFromHistory(current, saved).map(
+        (layer) => layer.splitOpen,
+      ),
+    ).toEqual([true, false]);
+  });
+
+  it("ignores missing, malformed, and copied snapshots belonging to another path", () => {
+    for (const value of [
+      undefined,
+      null,
+      {},
+      { pathname: run.matchPath, layers: [null] },
+      { pathname: run.matchPath, layers: [run] },
+      { pathname: session.matchPath, layers: [] },
+    ]) {
+      expect(readDetailHistorySnapshot(value, run.matchPath)).toBeNull();
+    }
+    const valid = {
+      pathname: run.matchPath,
+      layers: registerDetailLayer([], run),
+    };
+    expect(readDetailHistorySnapshot(valid, run.matchPath)).toEqual(valid);
   });
 });

@@ -20,6 +20,7 @@ export const NAVIGATION_FIXTURES = [
 ].map(({ name, suffix }) => ({
   name,
   runId: `e2e-ktx25-link-run-${suffix}`,
+  otherRunId: `e2e-ktx25-link-sibling-run-${suffix}`,
   sessionId: `e2e-ktx25-link-session-${suffix}`,
   interruptId: `e2e-ktx25-link-interrupt-${suffix}`,
 }));
@@ -62,6 +63,17 @@ export async function seedNavigationFixtures(request: APIRequestContext) {
     });
   };
   for (const fixture of NAVIGATION_FIXTURES) {
+    // Keep the primary interrupted Run as the Session's latest Run so its
+    // pending-interrupt link remains part of the navigation matrix.
+    add(
+      {
+        ...fixture,
+        name: `${fixture.name}-sibling`,
+        runId: fixture.otherRunId,
+      },
+      "span.started",
+      { name: "kortyx.run" },
+    );
     add(fixture, "span.started", { name: "kortyx.run" });
     add(fixture, "interrupt.created", {
       interruptId: fixture.interruptId,
