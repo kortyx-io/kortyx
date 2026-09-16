@@ -103,6 +103,7 @@ export function createPostgresSessionCheckpointStore(
   };
 
   return {
+    managesPendingRequests: true,
     get,
     async list(sessionId) {
       const { sql } = store;
@@ -171,7 +172,7 @@ export function createPostgresSessionCheckpointStore(
         return record;
       });
     },
-    async rollbackTo(id) {
+    async rollbackTo(id, options) {
       return store.transaction(async (sql) => {
         const targets =
           await sql`SELECT c.record FROM kortyx_runtime_session_checkpoints c
@@ -215,14 +216,16 @@ export function createPostgresSessionCheckpointStore(
         await sql`UPDATE kortyx_runtime_sessions SET head_id = ${id} WHERE scope = ${store.scope} AND id = ${target.sessionId}`;
         if (tokens.length)
           await sql`DELETE FROM kortyx_runtime_pending_requests WHERE scope = ${store.scope} AND token IN ${sql(tokens)}`;
-        for (const request of target.activePendingRequests)
+        const requests = clone(target.activePendingRequests);
+        options?.preparePendingRequests?.(requests);
+        for (const request of requests)
           await savePendingRequest(store, sql, request);
         return {
           sessionId: target.sessionId,
           head: id,
           invalidatedStructuredStreamIds: streams,
           invalidatedInterruptTokens: tokens,
-          activePendingRequests: clone(target.activePendingRequests),
+          activePendingRequests: requests,
         };
       });
     },
@@ -258,6 +261,7 @@ export function createPostgresSessionCheckpointStore(
       checkpoint.effects.interruptTokens = checkpoint.activePendingRequests.map(
         (request) => request.token,
       );
+      options?.preparePendingRequests?.(checkpoint.activePendingRequests);
       // Resume restores this fork's complete snapshot into its own run. No parent storage is required.
       await store.transaction(async (sql) => {
         const existing =

@@ -74,6 +74,8 @@ export type OrchestrationOutcome = {
 };
 
 export interface OrchestrateArgs {
+  /** Resume owns the lease while restoring its snapshot, then transfers it to execution. */
+  executionLeaseRelease?: (() => Promise<void>) | undefined;
   executionSignal?: AbortSignal | undefined;
   onExecution?: ((completion: Promise<void>) => void) | undefined;
   abortSignal?: AbortSignal | undefined;
@@ -177,6 +179,7 @@ export async function orchestrateGraphStream({
   selectWorkflow,
   knownWorkflowIds,
   frameworkAdapter,
+  executionLeaseRelease,
 }: OrchestrateArgs): Promise<NodeJS.ReadableStream> {
   const out = new PassThrough({ objectMode: true });
 
@@ -198,7 +201,7 @@ export async function orchestrateGraphStream({
   let currentState: GraphState = state;
   let finished = false;
   const leaseAbort = new AbortController();
-  let releaseLease: (() => Promise<void>) | undefined;
+  let releaseLease = executionLeaseRelease;
   const response = createResponseLifecycle({
     enabled: emitOutput,
     restored: initialConfig.responseCompleted === true,
@@ -1512,18 +1515,19 @@ export async function orchestrateGraphStream({
           return runLoop(runTraceSpan);
         })
       : runLoop(fallbackRunSpan ?? {});
-  const runPromise = frameworkAdapter?.acquireRunLease
-    ? frameworkAdapter
-        .acquireRunLease({
-          runId,
-          ...(sessionId ? { sessionId } : {}),
-          onLost: (cause) => leaseAbort.abort(cause),
-        })
-        .then((release) => {
-          releaseLease = release;
-          return startRun();
-        })
-    : startRun();
+  const runPromise =
+    frameworkAdapter?.acquireRunLease && !releaseLease
+      ? frameworkAdapter
+          .acquireRunLease({
+            runId,
+            ...(sessionId ? { sessionId } : {}),
+            onLost: (cause) => leaseAbort.abort(cause),
+          })
+          .then((release) => {
+            releaseLease = release;
+            return startRun();
+          })
+      : startRun();
 
   const finishCancelled = async () => {
     emitTelemetryEvent({

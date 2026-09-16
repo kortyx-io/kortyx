@@ -51,6 +51,7 @@ export class PostgresCheckpointSaver extends BaseCheckpointSaver {
       FROM kortyx_runtime_graph_checkpoints g
       JOIN kortyx_runtime_runs r ON r.scope = g.scope AND r.id = g.run_id
       WHERE g.scope = ${scope} AND g.run_id = ${runId} AND g.ns = ${ns}
+        AND g.record ? 'checkpoint'
         ${id ? sql`AND g.id = ${id}` : sql``}
         AND ${this.store.liveRun(sql, Date.now())}
       ORDER BY g.position DESC LIMIT 1`);
@@ -104,6 +105,7 @@ export class PostgresCheckpointSaver extends BaseCheckpointSaver {
       await this.store.query(sql`SELECT g.run_id, g.ns, g.id FROM kortyx_runtime_graph_checkpoints g
       JOIN kortyx_runtime_runs r ON r.scope = g.scope AND r.id = g.run_id
       WHERE g.scope = ${scope} AND ${this.store.liveRun(sql, Date.now())}
+        AND g.record ? 'checkpoint'
         ${runId ? sql`AND g.run_id = ${runId}` : sql``}
         ${ns !== undefined ? sql`AND g.ns = ${ns}` : sql``}
         ${id ? sql`AND g.id = ${id}` : sql``}
@@ -160,6 +162,12 @@ export class PostgresCheckpointSaver extends BaseCheckpointSaver {
     const ns = (config.configurable?.checkpoint_ns as string | undefined) ?? "";
     await this.store.transaction(async (sql) => {
       await this.store.touchRun(sql, runId);
+      // The engine may enqueue task writes before its asynchronous checkpoint save.
+      // An unreadable placeholder preserves the foreign key and cascaded cleanup;
+      // put() publishes the complete record without discarding those early writes.
+      await sql`INSERT INTO kortyx_runtime_graph_checkpoints (scope, run_id, ns, id, record)
+        VALUES (${this.store.scope}, ${runId}, ${ns}, ${id}, ${sql.json({})})
+        ON CONFLICT (scope, run_id, ns, id) DO NOTHING`;
       for (const [idx, [channel, value]] of writes.entries()) {
         const mapped = WRITES_IDX_MAP[channel] ?? idx;
         await sql`INSERT INTO kortyx_runtime_graph_writes (scope, run_id, ns, checkpoint_id, task_id, idx, channel, value)

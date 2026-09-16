@@ -46,7 +46,11 @@ An inactive session's expiry ends access to all its checkpoints, even if the che
 
 Shared `kortyx_runtime_*` tables contain namespace-scoped sessions, session checkpoints, runs, graph checkpoints, graph pending writes, and pending human requests. The migration table versions the shared schema. Setup is explicit, idempotent, transactional, and serialized with a schema advisory lock. PostgreSQL connection credentials and runtime tables are separate concerns from Studio telemetry and the application's business tables.
 
+The engine can enqueue task writes before its asynchronous checkpoint save. Writes create an internal placeholder when necessary, preserving relational ownership and cascaded cleanup. Reads and lists exclude placeholders; saving the complete checkpoint publishes it while preserving the early writes. A failed checkpoint save can leave an unreadable placeholder, which normal orphan-run retention removes.
+
 Session append locks its session row and assigns a monotonically increasing turn index. The checkpoint and head update commit together. Rollback moves the head and changes active lineage without deleting later checkpoints; summaries expose `branchStatus: "active" | "abandoned"`. Retained abandoned checkpoints can still be inspected, forked, or reactivated. Stream and interrupt invalidations are computed from the formerly active branch.
+
+The PostgreSQL session store owns pending-request publication for rollback and fork. The agent prepares workflow-call branch state before publication and does not repeat token deletions or saves after the store returns; a token consumed by another worker after commit cannot be recreated by that post-processing.
 
 Paused session checkpoints contain complete graph snapshots and pending writes. Fork copies that snapshot and generates independent run/request/token identities. Continuing a fork does not need the parent's storage. Parent ids in session records are provenance, not execution dependencies. An incomplete paused snapshot is rejected. Rolling back or forking an expired embedded approval returns `INTERRUPT_EXPIRED` instead of reviving it.
 
@@ -62,6 +66,8 @@ A missing/expired cache entry is populated from PostgreSQL. A Redis error, malfo
 
 The orchestrator acquires a run lease before executing nodes and releases it after the complete outcome has been persisted, including pauses and background continuation. Leases last two minutes and renew every 30 seconds only while executing. A duplicate execution of the same run is rejected. Renewal failure or a 90-second local renewal deadline aborts execution; an application crash leaves a bounded lease instead of an eternal active flag. Rollback of a session with an executing run is rejected.
 
+Resume acquires the lease before consuming its token or restoring its graph snapshot, then transfers the lease to the orchestrator. Lease acquisition failure leaves the approval available. Preparation failure restores a consumed approval only while ownership has not been lost, and releases the lease. Resume uses the record returned by atomic consumption rather than an earlier lookup that may precede a session transition.
+
 Ordinary mutations acquire a shared transaction advisory lock for their namespace. A prune call attempts the exclusive counterpart and reports `skipped` if a mutation or another cleanup job owns it. Cleanup therefore cannot delete between a dependency check and a write. Mutations still run concurrently, using row locks for session heads and graph write revisions.
 
 Prune first removes expired pending requests, then unprotected session checkpoints, orphan graph checkpoints, empty expired sessions, and empty orphan runs. Every table phase removes at most `batchSize` parent records (maximum 1000). Graph writes cascade with their owning graph checkpoint; large runs are pruned checkpoint by checkpoint. `deleted` reports counts by table and `hasMore` is a conservative hint that a batch filled. Each call is one transaction and can be retried safely. The host decides whether to repeat immediately or schedule another batch.
@@ -71,3 +77,5 @@ Read-time expiry is independent of physical deletion. Late or missing maintenanc
 ## Replay boundary
 
 This supports durable resume, retained session rollback, and fork. Runtime functions/services are intentionally not serialized; the host supplies them again. Continuation uses registered workflow code. Existing execute/resume contract validation checks workflow versions; applications must preserve compatible chat workflow/state/interrupt contracts or migrate them. Versioned code artifacts, exact original model outputs for arbitrary historical re-execution, and a durable side-effect ledger are separate features. PostgreSQL persistence alone does not promise deterministic reproduction across deployments.
+
+Existing Redis-only state is not automatically imported when PostgreSQL is enabled. Hosts must plan a cutover for outstanding approvals or provide an explicit migration. Reuse adapters per process to reuse their connection pools. Cleanup does not reverse business side effects or operate on application tables.

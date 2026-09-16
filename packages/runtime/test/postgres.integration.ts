@@ -295,6 +295,37 @@ describe("PostgreSQL runtime persistence", () => {
     ).rejects.toHaveProperty("code", "PERSISTENCE_ERROR");
   });
 
+  it("retains writes arriving before their checkpoint without exposing incomplete execution state", async () => {
+    const checkpoint = graph("early-checkpoint");
+    const saved = config(checkpoint.id);
+    await adapter.checkpointer.putWrites(saved, [["result", "early"]], "task");
+    expect(await adapter.checkpointer.getTuple(saved)).toBeUndefined();
+    expect(
+      await adapter.checkpointer.getLatestCheckpointId("run-1"),
+    ).toBeUndefined();
+    const incomplete = [];
+    for await (const tuple of adapter.checkpointer.list({}))
+      incomplete.push(tuple);
+    expect(incomplete).toEqual([]);
+    await adapter.checkpointer.put(config(), checkpoint, metadata, {});
+    expect((await adapter.checkpointer.getTuple(saved))?.pendingWrites).toEqual(
+      [["task", "result", "early"]],
+    );
+    // A failed checkpoint save can leave only the placeholder; retention still removes its writes.
+    await adapter.checkpointer.putWrites(
+      config("never-published", "orphan"),
+      [["result", "orphan"]],
+      "task",
+    );
+    await sql`UPDATE kortyx_runtime_runs SET last_activity = ${Date.now() - 31 * DAY} WHERE scope = ${scope} AND id = 'orphan'`;
+    expect((await adapter.maintenance.prune()).deleted.graphCheckpoints).toBe(
+      1,
+    );
+    expect(
+      await sql`SELECT * FROM kortyx_runtime_graph_writes WHERE scope = ${scope} AND run_id = 'orphan'`,
+    ).toHaveLength(0);
+  });
+
   it("consumes a pending interrupt exactly once across adapters", async () => {
     const request = pending();
     await adapter.pendingRequests.save(request);

@@ -234,3 +234,7 @@ if (persistence.kind === "postgres") {
 ```
 
 Durable storage supports resume, rollback, and fork. Continue with compatible workflow code and state contracts. Exact reproduction across code/model/tool changes requires additional versioned artifacts and side-effect idempotency; storage alone cannot provide it.
+
+Switching an existing application from Redis persistence to PostgreSQL starts a separate runtime store; existing Redis checkpoints and approval tokens are not automatically migrated. Plan the transition so outstanding approvals can finish on the original adapter. PostgreSQL is required even for Redis cache hits, because it validates visibility and revisions. Reuse an adapter per application process to reuse its database connection pool.
+
+Approval consumption is atomic across workers, but a worker crash after consumption does not automatically retry the resume. External actions, such as payments or API writes, still need application-owned idempotency. Retention cleanup deletes Kortyx runtime records for the configured namespace; it does not undo those external actions or delete your business records.
