@@ -66,11 +66,10 @@ test.describe("Studio detail drawer stack", () => {
       .poll(() => readDrawerAudit(page))
       .toMatchObject({ added: 1, removed: 0 });
 
+    const sessionExit = await observeClosedState(session);
     await closeButton(session).click();
-    await expect(session).toHaveAttribute("data-state", "closed", {
-      timeout: 250,
-    });
     await expect(session).toHaveCount(0);
+    await expectClosedState(sessionExit);
     await expect(page).toHaveURL(/\/sessions\?/);
 
     await clickTableRow(sessionTableRow(page));
@@ -154,6 +153,7 @@ test.describe("Studio detail drawer stack", () => {
         );
         expect(await readInspectorCloseAudit(page)).toEqual({
           closed: true,
+          exitPoseRetained: true,
           selectionClearedAtExitEnd: true,
           added: 0,
           removed: 1,
@@ -183,35 +183,28 @@ test.describe("Studio detail drawer stack", () => {
     await expect(page.getByRole("dialog")).toHaveCount(3);
     await expectBackdropActive(page);
 
+    const inspectorExit = await observeClosedState(inspector(page));
     await clickBackdrop(page);
-    await expect(inspector(page)).toHaveAttribute("data-state", "closed", {
-      timeout: 250,
-    });
     await expectBackdropActive(page);
     await expect(inspector(page)).toHaveCount(0);
+    await expectClosedState(inspectorExit);
     await expect(drawer(page, runPath)).toHaveAttribute("data-state", "open");
 
+    const runExit = await observeClosedState(drawer(page, runPath));
     await clickBackdrop(page);
-    await expect(drawer(page, runPath)).toHaveAttribute(
-      "data-state",
-      "closed",
-      { timeout: 250 },
-    );
     await expectBackdropActive(page);
     await expect(drawer(page, runPath)).toHaveCount(0);
+    await expectClosedState(runExit);
     await expect(page).toHaveURL(new RegExp(`${escapeRegExp(sessionPath)}\\?`));
     await expect(drawer(page, sessionPath)).toHaveAttribute(
       "data-state",
       "open",
     );
 
+    const sessionExit = await observeClosedState(drawer(page, sessionPath));
     await clickBackdrop(page);
-    await expect(drawer(page, sessionPath)).toHaveAttribute(
-      "data-state",
-      "closed",
-      { timeout: 250 },
-    );
     await expect(drawer(page, sessionPath)).toHaveCount(0);
+    await expectClosedState(sessionExit);
     await expect(page).toHaveURL(/\/sessions\?/);
   });
 
@@ -222,12 +215,11 @@ test.describe("Studio detail drawer stack", () => {
     await openRunFromSession(page);
 
     const run = drawer(page, runPath);
+    const runExit = await observeClosedState(run);
     await page.goBack();
     await expect(page).toHaveURL(new RegExp(`${escapeRegExp(sessionPath)}\\?`));
-    await expect(run).toHaveAttribute("data-state", "closed", {
-      timeout: 250,
-    });
     await expect(run).toHaveCount(0);
+    await expectClosedState(runExit);
     await expect(drawer(page, sessionPath)).toHaveAttribute(
       "data-state",
       "open",
@@ -303,15 +295,14 @@ test.describe("Studio detail drawer stack", () => {
       ).__runDrawerNode = value;
     }, runPath);
 
+    const inspectorExit = await observeClosedState(inspector(page));
     await page.getByRole("button", { name: /^Events \d+$/ }).click();
-    await expect(inspector(page)).toHaveAttribute("data-state", "closed", {
-      timeout: 250,
-    });
     await expect(page).toHaveURL(/tab=events/);
     await expect(
       drawer(page, runPath).getByText("Chronological event stream"),
     ).toBeVisible();
     await expect(inspector(page)).toHaveCount(0);
+    await expectClosedState(inspectorExit);
 
     const sameNode = await page.evaluate((path) => {
       const current = document.querySelector(`[data-detail-drawer="${path}"]`);
@@ -578,6 +569,38 @@ async function waitForSurfaceMotion(surface: Locator) {
   );
 }
 
+async function observeClosedState(surface: Locator) {
+  return surface.evaluateHandle((element) => {
+    if (element.getAttribute("data-state") !== "open")
+      throw new Error("Close audits must start on an open surface");
+    const audit = { closed: false };
+    const observer = new MutationObserver((records) => {
+      if (
+        element.getAttribute("data-state") === "closed" ||
+        records.some((record) => record.oldValue === "closed")
+      )
+        audit.closed = true;
+    });
+    observer.observe(element, {
+      attributes: true,
+      attributeFilter: ["data-state"],
+      attributeOldValue: true,
+    });
+    return { audit, observer };
+  });
+}
+
+async function expectClosedState(
+  handle: Awaited<ReturnType<typeof observeClosedState>>,
+) {
+  const closed = await handle.evaluate(({ audit, observer }) => {
+    observer.disconnect();
+    return audit.closed;
+  });
+  await handle.dispose();
+  expect(closed).toBe(true);
+}
+
 async function installDrawerAudit(page: Page) {
   await page.evaluate(() => {
     const audit = { added: 0, removed: 0 };
@@ -625,6 +648,7 @@ async function installInspectorCloseAudit(page: Page) {
   await page.evaluate(() => {
     const audit = {
       closed: false,
+      exitPoseRetained: false,
       selectionClearedAtExitEnd: false,
       added: 0,
       removed: 0,
@@ -640,6 +664,9 @@ async function installInspectorCloseAudit(page: Page) {
     state.__stopInspectorCloseAudit?.();
     state.__inspectorCloseAudit = audit;
     const selector = "[data-detail-inspector]";
+    const openBounds = document
+      .querySelector(selector)
+      ?.getBoundingClientRect();
     const count = (node: Node) =>
       node instanceof Element
         ? Number(node.matches(selector)) +
@@ -701,6 +728,10 @@ async function installInspectorCloseAudit(page: Page) {
       else {
         audit.ends.push(event.animationName);
         if (event.animationName === "exit") {
+          audit.exitPoseRetained =
+            openBounds !== undefined &&
+            event.target.getBoundingClientRect().left >=
+              openBounds.left + openBounds.width - 2;
           audit.selectionClearedAtExitEnd = !new URL(
             window.location.href,
           ).searchParams.has("trace");
@@ -724,6 +755,7 @@ async function readInspectorCloseAudit(page: Page) {
     const state = window as typeof window & {
       __inspectorCloseAudit?: {
         closed: boolean;
+        exitPoseRetained: boolean;
         selectionClearedAtExitEnd: boolean;
         added: number;
         removed: number;
