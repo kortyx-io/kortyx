@@ -10,6 +10,7 @@ import { fileURLToPath } from "node:url";
 const app = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const require = createRequire(resolve(app, "package.json"));
 const next = require.resolve("next/dist/bin/next");
+const graph = process.argv.includes("--graph");
 const distDir = `.next/parallel-e2e-${process.pid}`;
 const tsconfig = `.next/parallel-e2e-${process.pid}.json`;
 const children = new Set();
@@ -92,9 +93,9 @@ async function waitUntil(check, processState, label) {
 
 const redisPort = await freePort();
 const httpPort = await freePort();
-const endpoint = `http://127.0.0.1:${httpPort}/api/parallel`;
+const endpoint = `http://127.0.0.1:${httpPort}/api/${graph ? "parallel-graph" : "parallel"}`;
 let server;
-const input = { companyId: "Acme", roleId: "Engineer" };
+const input = { companyId: "Acme", roleId: "Engineer", requireApproval: false };
 const checks = [];
 const passed = (name) => {
   checks.push(name);
@@ -275,9 +276,46 @@ try {
 
   const failed = await post({
     action: "execute",
-    input: { ...input, failRole: true },
+    input: {
+      ...input,
+      ...(graph ? { failCompany: true } : { failRole: true }),
+    },
   });
   assert.equal(failed.status, "failed");
+  if (graph) {
+    assert.equal(failed.error.code, "GRAPH_DEPENDENCY_FAILED");
+    assert.ok(
+      failed.error.results.some(
+        (result) => result.failure.context.node === "company",
+      ),
+    );
+    const conflicting = await post({
+      action: "execute",
+      input: { ...input, conflict: true },
+    });
+    assert.equal(conflicting.status, "failed");
+    assert.equal(conflicting.error.code, "GRAPH_OUTPUT_CONFLICT");
+    assert.match(conflicting.error.message, /join.*overlapping.*company.*role/);
+    passed(
+      "Graph conflicts fail the shared consumer with named writers and field",
+    );
+    const mixed = await post({
+      action: "execute",
+      input: { ...input, failCompany: true, requireApproval: true },
+    });
+    assert.equal(mixed.status, "suspended");
+    assert.equal(mixed.interrupt.input.question, "Approve Engineer?");
+    const mixedDone = await post({
+      action: "resume",
+      resume: mixed.resume,
+      response: { type: "select", ids: ["approve"] },
+    });
+    assert.equal(mixedDone.status, "failed");
+    assert.equal(mixedDone.error.code, "GRAPH_DEPENDENCY_FAILED");
+    passed(
+      "A failed graph branch does not discard another branch's pending approval",
+    );
+  }
   await post({ action: "execute", input: { companyId: "" } }, 400);
   passed("Child failure and invalid input produce the expected HTTP outcomes");
 
@@ -287,6 +325,7 @@ try {
         passed: checks.length,
         transport: "HTTP",
         example: "kortyx-nextjs-chat-api-route",
+        graphEdges: graph,
         processRestart: true,
         persistence: "Redis",
         liveModelCalls: false,

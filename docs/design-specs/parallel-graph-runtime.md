@@ -100,3 +100,28 @@ fork answers, stale tokens, child graphs containing parallel edges, mixed
 waiting/failure, shared allowances and usage, cancellation cleanup, and root
 response completion followed by background approval. Existing sequential child,
 parallel-group, execution, HTTP, stream and checkpoint tests remain regression gates.
+
+### Application-level verification (2026-09-16)
+
+The API-route example registers `parallel-graph-demo`, a real fan-out graph that
+calls the existing research children without `parallel` wrappers. Manual browser
+checks against the built SDK, Next.js and isolated Redis verified:
+
+- Company approval advances its successor while role remains waiting and no join
+  report appears. A separate role decline produces exactly one report with
+  company=true and role=false.
+- Conflicting outputs show the field and both writers; independent successors
+  finish, but the join report does not execute.
+- Company failure preserves role's question. Answering role runs its successor,
+  then the join reports its failed required dependency.
+- Forking the first approval checkpoint permits opposite answers and produces
+  company=false and role=true, without reusing the parent's answers.
+- Clicking an answered historical prompt is safely rejected. The example's
+  existing UI still renders those controls as clickable, a separate UX rough edge.
+
+`node examples/kortyx-nextjs-chat-api-route/scripts/parallel-api.e2e.mjs --graph`
+passed nine HTTP checks, including a real Next.js process restart between pause
+and resume, saved child operation/worker identity, distinct answers, stale handles,
+shared allowance/Continue, conflicts, mixed waiting/failure and invalid commands.
+The original wrapper-based runner also passed its seven regression checks. These
+checks are deterministic and make no model-provider calls.
