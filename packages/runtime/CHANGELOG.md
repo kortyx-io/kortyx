@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.18.0](https://github.com/kortyx-io/kortyx/compare/runtime-v0.17.2...runtime-v0.18.0) (2026-09-16)
+
+
+### Features
+
+* **runtime:** support durable child calls in parallel DAGs ([#203](https://github.com/kortyx-io/kortyx/issues/203)) ([525e0e7](https://github.com/kortyx-io/kortyx/commit/525e0e7a73fa5f9d78232ca3155d86be7bc1022d))
+
 ## [0.17.2](https://github.com/kortyx-io/kortyx/compare/runtime-v0.17.1...runtime-v0.17.2) (2026-09-15)
 
 
