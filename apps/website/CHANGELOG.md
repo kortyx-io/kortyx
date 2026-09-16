@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.34.0](https://github.com/kortyx-io/kortyx/compare/website-v0.33.0...website-v0.34.0) (2026-09-16)
+
+
+### Features
+
+* **runtime:** add PostgreSQL persistence, caching composition, and retention ([#207](https://github.com/kortyx-io/kortyx/issues/207)) ([6c1e7df](https://github.com/kortyx-io/kortyx/commit/6c1e7df22ffe8c792bf52b7dba5ae6ea04c1eb2a))
+* **studio:** surface consumer feedback and human reviews ([#209](https://github.com/kortyx-io/kortyx/issues/209)) ([b757879](https://github.com/kortyx-io/kortyx/commit/b757879ab72c3bb3bf3d5c8f2d10611606834cf6))
+
 ## [0.33.0](https://github.com/kortyx-io/kortyx/compare/website-v0.32.0...website-v0.33.0) (2026-09-16)
 
 

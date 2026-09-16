@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.21.0](https://github.com/kortyx-io/kortyx/compare/kortyx-v0.20.4...kortyx-v0.21.0) (2026-09-16)
+
+
+### Features
+
+* **runtime:** add PostgreSQL persistence, caching composition, and retention ([#207](https://github.com/kortyx-io/kortyx/issues/207)) ([6c1e7df](https://github.com/kortyx-io/kortyx/commit/6c1e7df22ffe8c792bf52b7dba5ae6ea04c1eb2a))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/agent bumped to 0.24.0
+    * @kortyx/cli bumped to 0.8.0
+    * @kortyx/hooks bumped to 0.25.3
+    * @kortyx/runtime bumped to 0.19.0
+
 ## [0.20.4](https://github.com/kortyx-io/kortyx/compare/kortyx-v0.20.3...kortyx-v0.20.4) (2026-09-16)
 
 
