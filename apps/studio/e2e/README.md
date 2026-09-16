@@ -23,8 +23,8 @@ that prefix from `studio_interrupts`, `studio_runs`, `studio_sessions`,
 Projected child Runs use `call:` IDs, so cleanup also matches their parent's
 reserved prefix. Never broaden cleanup to non-fixture parents.
 
-`support/navigation-fixture.ts` adds opaque IDs and suspended calls in two
-branches through the same ingestion API and reserved cleanup prefix.
+`support/navigation-fixture.ts` adds opaque IDs, a second Run per Session,
+and suspended calls in two branches through the same ingestion API and reserved cleanup prefix.
 
 Never replace the fixture with hard-coded local database rows. Going through
 ingestion keeps Studio projections, API contracts, and detail routes in the
@@ -61,6 +61,16 @@ response after Presence has already removed the closing surface.
   ID cause a wrong lookup, a 404, or a different drawer identity;
 - Run → Session → Run or Session → Run → Session changes the URL while leaving
   the destination hidden under a retained descendant;
+- closing a revisited Run, Session, or Interrupt leaves its original history
+  occurrence closed, including two-entity and three-entity cycles;
+- revisiting a Session across two different Runs sharing it leaves a closed
+  drawer or returns to the wrong Run;
+- restoring a history visit reconstructs only its top drawer and leaves saved
+  ancestors closed or missing after their surfaces were removed;
+- a pending close navigates away after a newer Back/Forward or entity link;
+- Forward during an explicit exit fails to revive the retained surface;
+- cyclic close or history restoration loses the list filters, blocks the
+  destination controls, or collapses an expanded ancestor;
 - a selected workflow call links to another branch or invocation's interrupt;
 - an Interrupt breadcrumb returns to a retained Run without selecting the
   requested call and branch;

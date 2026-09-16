@@ -130,7 +130,12 @@ export function isDetailLayerActiveForHistory(
   const targetIndex = layers.findLastIndex(
     (layer) => layer.matchPath === pathname,
   );
-  if (targetIndex >= 0) return layerIndex <= targetIndex;
+  if (targetIndex >= 0) {
+    // A departing drawer of the same resource can follow the restored ancestor.
+    return layers
+      .slice(0, targetIndex + 1)
+      .some((layer) => layer.dismissPath === dismissPath && !layer.closing);
+  }
 
   const opensNewDetail = isDetailPath(pathname, detailBasePaths);
   return opensNewDetail && !layers[layerIndex].closing;
@@ -142,4 +147,55 @@ function isDetailPath(pathname: string, detailBasePaths: readonly string[]) {
       pathname.startsWith(`${basePath}/`) &&
       pathname.slice(basePath.length + 1).length > 0,
   );
+}
+
+export type DetailHistorySnapshot = {
+  pathname: string;
+  layers: DetailLayer[];
+};
+
+export function readDetailHistorySnapshot(
+  value: unknown,
+  pathname: string,
+): DetailHistorySnapshot | null {
+  if (!value || typeof value !== "object") return null;
+  const snapshot = value as Partial<DetailHistorySnapshot>;
+  if (snapshot.pathname !== pathname || !Array.isArray(snapshot.layers))
+    return null;
+  if (
+    !snapshot.layers.every(
+      (layer) =>
+        layer &&
+        typeof layer.id === "string" &&
+        typeof layer.matchPath === "string" &&
+        typeof layer.dismissPath === "string" &&
+        typeof layer.closing === "boolean" &&
+        typeof layer.expanded === "boolean" &&
+        typeof layer.splitOpen === "boolean",
+    )
+  )
+    return null;
+  return snapshot as DetailHistorySnapshot;
+}
+
+export function restoreDetailLayersFromHistory(
+  current: DetailLayer[],
+  restored: DetailLayer[],
+): DetailLayer[] {
+  const ids = new Set(restored.map((layer) => layer.id));
+  const splitOpen = new Map(
+    current.map((layer) => [layer.id, layer.splitOpen]),
+  );
+  return [
+    // Split panes belong to the currently mounted inspector, not history.
+    ...restored.map((layer) => ({
+      ...layer,
+      closing: false,
+      splitOpen: splitOpen.get(layer.id) ?? false,
+    })),
+    // Keep departing surfaces registered long enough to animate out.
+    ...current
+      .filter((layer) => !ids.has(layer.id))
+      .map((layer) => ({ ...layer, closing: true })),
+  ];
 }

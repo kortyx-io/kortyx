@@ -250,7 +250,6 @@ function DetailDrawerSurface({
   );
   const nestedInspector = useNestedInspectorState();
   const [entered, setEntered] = useState(slotEntered);
-  const [localClosing, setLocalClosing] = useState(false);
   const layer = useDetailStackLayer({
     dismissPath,
     id: matchPath,
@@ -259,12 +258,13 @@ function DetailDrawerSurface({
   const expandedRequested = detailView === "expanded" && layer.isTop;
   const expanded = expandedRequested || layer.expanded;
   const expandedView = expanded && !isMobile;
-  const closing = localClosing || layer.closing || !active;
+  // History and retained-ancestor links reopen layers in the shared stack.
+  // Keep that state authoritative even when this surface stays mounted.
+  const closing = layer.closing || !active;
   const titleId = `detail-drawer-title-${matchPath.replaceAll(/[^a-zA-Z0-9_-]/g, "-")}`;
 
   const closeDrawer = useCallback(() => {
     if (closing || !layer.isTop) return;
-    setLocalClosing(true);
     layer.closeTop();
   }, [closing, layer]);
 
@@ -314,9 +314,15 @@ function DetailDrawerSurface({
   );
 
   useEffect(() => {
+    if (active) layer.reopen();
+    else {
+      nestedInspector.setNestedOpen(false);
+      layer.beginClose();
+    }
+  }, [active, layer.beginClose, layer.reopen, nestedInspector.setNestedOpen]);
+
+  useEffect(() => {
     if (active) {
-      setLocalClosing(false);
-      layer.reopen();
       if (slotEntered) {
         setEntered(true);
         return;
@@ -334,18 +340,7 @@ function DetailDrawerSurface({
         window.cancelAnimationFrame(enterFrame);
       };
     }
-
-    nestedInspector.setNestedOpen(false);
-    setLocalClosing(true);
-    layer.beginClose();
-  }, [
-    layer.beginClose,
-    layer.reopen,
-    markSlotEntered,
-    nestedInspector.setNestedOpen,
-    active,
-    slotEntered,
-  ]);
+  }, [markSlotEntered, active, slotEntered]);
 
   const sidebarOffset =
     state === "collapsed"
