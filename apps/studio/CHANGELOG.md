@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.5.2](https://github.com/kortyx-io/kortyx/compare/studio-v0.5.1...studio-v0.5.2) (2026-09-16)
+
+
+### Bug Fixes
+
+* **studio:** retain inspector exit position until removal ([#202](https://github.com/kortyx-io/kortyx/issues/202)) ([a0fe62c](https://github.com/kortyx-io/kortyx/commit/a0fe62c607c987a8a9a480c43c55d24484431868))
+
 ## [0.5.1](https://github.com/kortyx-io/kortyx/compare/studio-v0.5.0...studio-v0.5.1) (2026-09-16)
 
 
