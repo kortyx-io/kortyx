@@ -3,90 +3,30 @@ name: CI
 on:
   pull_request:
   push:
-    branches: [main]
+    branches:
+      - main
 
 jobs:
   typecheck_lint:
     runs-on: ubuntu-latest
-    services:
-      runtime_postgres:
-        image: postgres:17-alpine
-        env:
-          POSTGRES_USER: kortyx
-          POSTGRES_PASSWORD: kortyx
-          POSTGRES_DB: kortyx_runtime_test
-        ports: [5432:5432]
-        options: >-
-          --health-cmd "pg_isready -U kortyx -d kortyx_runtime_test"
-          --health-interval 2s
-          --health-timeout 5s
-          --health-retries 20
-      redis:
-        image: redis:7-alpine
-        ports: [6379:6379]
-        options: >-
-          --health-cmd "redis-cli ping"
-          --health-interval 2s
-          --health-timeout 5s
-          --health-retries 20
-    env:
-      KORTYX_TEST_REDIS_URL: redis://127.0.0.1:6379
-      KORTYX_TEST_POSTGRES_URL: postgres://kortyx:kortyx@127.0.0.1:5432/kortyx_runtime_test
     timeout-minutes: 15
-
     steps:
       - uses: actions/checkout@v6
         with:
-          # NOTE: Do not checkout submodules here. This repo includes a private Studio submodule
-          # that isn't available in OSS CI contexts.
           submodules: false
-
-      - uses: actions/setup-node@v6
+      - name: Checkout workflow modules
+        uses: actions/checkout@v6
         with:
-          node-version-file: .nvmrc
-
-      - name: Enable Corepack
-        run: |
-          corepack enable
-          pnpm --version
-
-      - name: Setup pnpm cache
-        uses: actions/setup-node@v6
-        with:
-          node-version-file: .nvmrc
-          cache: pnpm
-
-      - name: Install
-        run: pnpm install --frozen-lockfile
-
-      - name: Test with coverage gates
-        run: pnpm coverage
-
-      - name: Build
-        run: pnpm build
-
-      - name: PostgreSQL runtime persistence integration coverage
-        run: pnpm --filter @kortyx/runtime test:integration:postgres
-
-      - name: Studio unit regressions
-        run: pnpm --filter kortyx-studio test
-
-      - name: Example workflow and error regressions
-        run: pnpm -r --no-bail --filter './examples/*' test
-
-      - name: Typecheck
-        run: pnpm -r --if-present run type-check
-
-      - name: Studio release publication regressions
-        run: python3 -m unittest discover -s .github/scripts/studio-release -v
-
-      - name: Lint
-        run: pnpm lint
-
+          ref: ${{ github.workflow_sha }}
+          path: .github/automation
+          sparse-checkout: .github
+          persist-credentials: false
+      - name: Validate repository
+        uses: ./.github/automation/.github/actions/validation/repository
   studio_e2e:
     name: Studio drawer-stack E2E
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
     services:
       postgres:
         image: postgres:17-alpine
@@ -96,11 +36,7 @@ jobs:
           POSTGRES_DB: kortyx
         ports:
           - 6543:5432
-        options: >-
-          --health-cmd "pg_isready -U kortyx -d kortyx"
-          --health-interval 2s
-          --health-timeout 5s
-          --health-retries 30
+        options: --health-cmd "pg_isready -U kortyx -d kortyx" --health-interval 2s --health-timeout 5s --health-retries 30
     env:
       DATABASE_URL: postgres://kortyx:kortyx@localhost:6543/kortyx
       API_HOST: 127.0.0.1
@@ -111,85 +47,16 @@ jobs:
       KORTYX_TELEMETRY_API_KEY: ktyx_test_localtelemetry_oss-demo-telemetry-secret-change-me
       KORTYX_STUDIO_API_KEY: ktyx_test_localstudio_oss-demo-studio-secret-change-me
       KORTYX_STUDIO_AUTH_MODE: none
-
     steps:
       - uses: actions/checkout@v6
         with:
           submodules: false
-
-      - uses: actions/setup-node@v6
+      - name: Checkout workflow modules
+        uses: actions/checkout@v6
         with:
-          node-version-file: .nvmrc
-
-      - name: Enable Corepack
-        run: |
-          corepack enable
-          pnpm --version
-
-      - name: Setup pnpm cache
-        uses: actions/setup-node@v6
-        with:
-          node-version-file: .nvmrc
-          cache: pnpm
-
-      - name: Install
-        run: pnpm install --frozen-lockfile
-
-      - name: Prepare local environment
-        run: cp .env.example .env
-
-      - name: Build database and HA test dependencies
-        run: |
-          pnpm --filter @kortyx/telemetry-contracts build
-          pnpm --filter @kortyx/telemetry-db build
-
-      - name: Migrate and bootstrap database
-        run: |
-          pnpm db:migrate
-          pnpm db:bootstrap
-
-      - name: Run high-availability database regressions
-        run: |
-          pnpm --filter @kortyx/telemetry-db test:integration:ha
-          pnpm --filter @kortyx/api test:integration:ha
-
-      - name: Run native feedback API regressions
-        run: pnpm --filter @kortyx/api exec vitest run test/scores.integration.test.ts
-
-      - name: Install Chromium
-        run: pnpm --filter kortyx-studio exec playwright install --with-deps chromium
-
-      - name: Run Studio browser regressions
-        run: pnpm test:studio:e2e
-
-      - name: Run review-capable Studio feedback regressions
-        env:
-          KORTYX_STUDIO_ENABLE_REVIEWS: "1"
-          API_PORT: 6402
-          STUDIO_PORT: 6302
-          KORTYX_API_URL: http://localhost:6402
-          KORTYX_E2E_STUDIO_URL: http://localhost:6302
-        run: |
-          pnpm db:bootstrap
-          pnpm --filter kortyx-studio exec dotenv -e ../../.env -- playwright test feedback.spec.ts
-
-      - name: Run production Studio navigation regressions
-        env:
-          KORTYX_E2E_PRODUCTION: "1"
-          API_PORT: 6401
-          STUDIO_PORT: 6301
-          KORTYX_API_URL: http://localhost:6401
-          KORTYX_E2E_STUDIO_URL: http://localhost:6301
-        run: >-
-          pnpm --filter kortyx-studio exec dotenv -e ../../.env -- playwright test
-          internal-linking.spec.ts detail-drawer-stack.spec.ts
-
-      - name: Upload Playwright failure artifacts
-        if: failure()
-        uses: actions/upload-artifact@v6
-        with:
-          name: studio-playwright-artifacts
-          path: |
-            apps/studio/playwright-report
-            apps/studio/test-results
-          retention-days: 7
+          ref: ${{ github.workflow_sha }}
+          path: .github/automation
+          sparse-checkout: .github
+          persist-credentials: false
+      - name: Validate Studio E2E
+        uses: ./.github/automation/.github/actions/validation/studio-e2e

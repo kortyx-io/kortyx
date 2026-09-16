@@ -1,0 +1,9 @@
+name: Setup redis
+description: Start an isolated test database and export its URL to subsequent steps.
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      env:
+        ACTION_PATH: ${{ github.action_path }}
+      run: bash "$ACTION_PATH/../../../scripts/setup/start-database.sh" redis

@@ -1,0 +1,65 @@
+name: Website / Release
+
+on:
+  push:
+    tags:
+      - website-v*
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: kortyx-io/website
+  COOLIFY_URL: ${{ vars.COOLIFY_URL }}
+  COOLIFY_STAGING_APP_UUID: ${{ vars.COOLIFY_STAGING_APP_UUID }}
+
+jobs:
+  publish-staging:
+    name: Publish Staging Image
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - name: Checkout workflow modules
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.workflow_sha }}
+          path: .github/automation
+          sparse-checkout: .github
+          persist-credentials: false
+      - name: Setup Node and pnpm
+        uses: ./.github/automation/.github/actions/setup/node
+        with:
+          install: "false"
+      - name: Generate docs last updated manifest
+        run: node apps/website/scripts/generate-docs-last-updated.mjs
+      - name: Derive version from tag
+        id: version
+        run: bash ./.github/automation/.github/scripts/website/derive-version.sh
+      - name: Setup container registry
+        uses: ./.github/automation/.github/actions/setup/container-registry
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+          qemu: "false"
+      - name: Build and push staging image
+        uses: ./.github/automation/.github/actions/containers/build-push
+        with:
+          context: .
+          file: apps/website/Dockerfile
+          platforms: linux/amd64
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:staging-latest
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:staging-v${{ steps.version.outputs.version }}
+          cache-scope: website-image
+      - name: Deploy staging image on Coolify
+        uses: ./.github/automation/.github/actions/deployment/coolify
+        with:
+          url: ${{ env.COOLIFY_URL }}
+          token: ${{ secrets.COOLIFY_STAGING_DEPLOY_TOKEN }}
+          app-uuid: ${{ env.COOLIFY_STAGING_APP_UUID }}

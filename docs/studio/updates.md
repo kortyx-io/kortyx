@@ -86,7 +86,7 @@ available even when Studio cannot start.
 
 ## Release publication
 
-The **Publish Release (Studio)** workflow publishes the stable channel only after
+The **Release / Studio Images** workflow publishes the stable channel only after
 both production image digests pass smoke tests and promotion. Installations make
 one public HTTPS request to the CDN; they do not query GitHub's Releases API.
 
@@ -146,11 +146,11 @@ endpoint directly so its version comparison sees current data, not CDN caches.
 Run publisher regressions with:
 
 ```sh
-python3 -m unittest discover -s .github/scripts/studio-release -v
+python3 -m unittest discover -s .github/scripts/studio/update-channel -v
 ```
 
 After verifying the official image digests, an operator can seed the first
-manifest or retry publication with `.github/scripts/studio-release/publish.py`. Install
+manifest or retry publication with `.github/scripts/studio/update-channel/publish.py`. Install
 its pinned requirements in an isolated Python environment, supply the same four
 environment variables above, and pass the JSON manifest path. The script is
 idempotent and refuses a changed digest for an existing release version.

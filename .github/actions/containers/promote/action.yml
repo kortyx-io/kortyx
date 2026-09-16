@@ -1,0 +1,25 @@
+name: Promote container image
+description: Promote an existing image index and verify that destination tags retain its digest.
+
+inputs:
+  source:
+    description: Source image reference
+    required: true
+  tags:
+    description: Destination tags, one per line
+    required: true
+  expected-digest:
+    description: Required tested source digest
+    required: false
+    default: ""
+
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      env:
+        SOURCE: ${{ inputs.source }}
+        TAGS: ${{ inputs.tags }}
+        EXPECTED_DIGEST: ${{ inputs.expected-digest }}
+        ACTION_PATH: ${{ github.action_path }}
+      run: bash "$ACTION_PATH/promote.sh"

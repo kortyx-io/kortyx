@@ -1,0 +1,115 @@
+name: Release / Studio Recovery
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: Existing Studio release tag (studio-vX.Y.Z)
+        required: true
+        type: string
+      api_digest:
+        description: Tested and promoted API index digest (sha256:...)
+        required: true
+        type: string
+      studio_digest:
+        description: Tested and promoted Studio index digest (sha256:...)
+        required: true
+        type: string
+      deployment_strategy:
+        description: Compatibility recorded for this release
+        required: true
+        default: recreate
+        type: choice
+        options:
+          - recreate
+          - rolling
+
+permissions:
+  contents: read
+  packages: read
+
+concurrency:
+  group: studio-oss-release
+  cancel-in-progress: false
+
+env:
+  REGISTRY: ghcr.io
+  API_IMAGE_NAME: kortyx-io/kortyx-api
+  STUDIO_IMAGE_NAME: kortyx-io/kortyx-studio
+
+jobs:
+  recover:
+    name: Approve and republish update manifest
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment:
+      name: studio-production
+      url: https://updates.kortyx.io/studio/stable.json
+    steps:
+      - name: Checkout publisher from main
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          fetch-depth: 0
+      - name: Checkout workflow modules
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.workflow_sha }}
+          path: .github/automation
+          sparse-checkout: .github
+          persist-credentials: false
+      - name: Checkout release candidate
+        uses: actions/checkout@v6
+        with:
+          ref: refs/tags/${{ inputs.release_tag }}
+          path: .release-candidate
+          fetch-depth: 0
+      - name: Validate release and recorded digests
+        id: release
+        env:
+          RELEASE_TAG: ${{ inputs.release_tag }}
+          API_DIGEST: ${{ inputs.api_digest }}
+          STUDIO_DIGEST: ${{ inputs.studio_digest }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        run: bash ./.github/automation/.github/scripts/studio/validate-recovery.sh
+      - name: Check update publication configuration
+        uses: ./.github/automation/.github/actions/release/studio-update
+        with:
+          operation: prepare
+          account-id: ${{ vars.STUDIO_UPDATES_R2_ACCOUNT_ID }}
+          bucket: ${{ vars.STUDIO_UPDATES_R2_BUCKET }}
+          access-key-id: ${{ secrets.STUDIO_UPDATES_R2_ACCESS_KEY_ID }}
+          secret-access-key: ${{ secrets.STUDIO_UPDATES_R2_SECRET_ACCESS_KEY }}
+      - name: Setup container registry
+        uses: ./.github/automation/.github/actions/setup/container-registry
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+          qemu: "false"
+      - name: Verify promoted production indexes
+        env:
+          VERSION: ${{ steps.release.outputs.version }}
+          API_DIGEST: ${{ inputs.api_digest }}
+          STUDIO_DIGEST: ${{ inputs.studio_digest }}
+          IMAGE_TAG_PREFIX: v
+        run: bash ./.github/automation/.github/scripts/studio/verify-images.sh
+      - name: Publish the recovered release to the update CDN
+        uses: ./.github/automation/.github/actions/release/studio-update
+        with:
+          account-id: ${{ vars.STUDIO_UPDATES_R2_ACCOUNT_ID }}
+          bucket: ${{ vars.STUDIO_UPDATES_R2_BUCKET }}
+          access-key-id: ${{ secrets.STUDIO_UPDATES_R2_ACCESS_KEY_ID }}
+          secret-access-key: ${{ secrets.STUDIO_UPDATES_R2_SECRET_ACCESS_KEY }}
+        env:
+          VERSION: ${{ steps.release.outputs.version }}
+          API_DIGEST: ${{ inputs.api_digest }}
+          STUDIO_DIGEST: ${{ inputs.studio_digest }}
+          DEPLOYMENT_STRATEGY: ${{ inputs.deployment_strategy }}
+      - name: Summarize recovered release
+        env:
+          VERSION: ${{ steps.release.outputs.version }}
+          API_DIGEST: ${{ inputs.api_digest }}
+          STUDIO_DIGEST: ${{ inputs.studio_digest }}
+          DEPLOYMENT_STRATEGY: ${{ inputs.deployment_strategy }}
+        run: bash ./.github/automation/.github/scripts/studio/recovery-summary.sh
