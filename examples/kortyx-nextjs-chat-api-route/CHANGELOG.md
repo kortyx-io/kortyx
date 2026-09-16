@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.23.0](https://github.com/kortyx-io/kortyx/compare/example-nextjs-chat-api-route-v0.22.3...example-nextjs-chat-api-route-v0.23.0) (2026-09-16)
+
+
+### Features
+
+* **runtime:** support durable child calls in parallel DAGs ([#203](https://github.com/kortyx-io/kortyx/issues/203)) ([525e0e7](https://github.com/kortyx-io/kortyx/commit/525e0e7a73fa5f9d78232ca3155d86be7bc1022d))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * kortyx bumped to 0.20.4
+
 ## [0.22.3](https://github.com/kortyx-io/kortyx/compare/example-nextjs-chat-api-route-v0.22.2...example-nextjs-chat-api-route-v0.22.3) (2026-09-15)
 
 
