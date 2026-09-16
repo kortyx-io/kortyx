@@ -26,7 +26,7 @@ jobs:
   studio_e2e:
     name: Studio drawer-stack E2E
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
     services:
       postgres:
         image: postgres:17-alpine

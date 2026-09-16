@@ -58,7 +58,9 @@ only the two test containers at the end.
 
 The CI job ID `typecheck_lint` remains unchanged because the main branch ruleset
 requires that check. Studio E2E keeps its own PostgreSQL service, port overrides,
-review-mode tests, production-navigation tests, and failure artifacts.
+review-mode tests, production-navigation tests, and failure artifacts. Its job
+limit is 30 minutes: all three browser suites passed in a GitHub runner trial,
+but their combined duration reached the former 20-minute limit.
 
 ## Workflow code versus release code
 
