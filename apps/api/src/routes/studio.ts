@@ -1,5 +1,6 @@
 import { createRoute, type OpenAPIHono, z } from "@hono/zod-openapi";
 import {
+  FEEDBACK_FILTERS,
   resolveStudioTimeRange,
   StudioCatalogsResponseSchema,
   StudioContextResponseSchema,
@@ -11,6 +12,7 @@ import {
   StudioSessionsResponseSchema,
   StudioTimeRangeSchema,
   StudioWorkflowsResponseSchema,
+  summarizeUserFeedback,
 } from "@kortyx/telemetry-contracts";
 import {
   getStudioInterruptReadModel,
@@ -18,12 +20,15 @@ import {
   getStudioReadModels,
   getStudioRunReadModel,
   getStudioSessionReadModel,
+  listRunScores,
   listStudioInterrupts,
   listStudioRuns,
   listStudioSessions,
   listStudioWorkflows,
+  withRunFeedback,
 } from "@kortyx/telemetry-db";
 import type { ApiEnv } from "../types";
+import { studioReviewActorId } from "./scores";
 
 const ErrorResponseSchema = z.object({
   error: z.string(),
@@ -60,6 +65,7 @@ const invalidQueryResponse = {
 };
 
 const listQuerySchema = z.object({
+  feedback: z.enum(FEEDBACK_FILTERS).optional(),
   includeChildren: z.string().optional(),
   q: z.string().optional(),
   env: z.string().optional(),
@@ -317,10 +323,24 @@ export const registerStudioRoutes = (app: OpenAPIHono<ApiEnv>): void => {
       return c.json({ error: "not_found", message: "Run not found." }, 404);
     }
     const events = models.detailEvents.filter((event) => event.runId === runId);
-    const updatedAt = events.at(-1)?.receivedAt ?? run.startedAt;
+    const scores = await listRunScores(c.get("db"), {
+      organizationId: auth.organizationId,
+      projectId: auth.projectId,
+      runIds: [runId],
+    });
+    const updatedAt =
+      [
+        events.at(-1)?.receivedAt ?? run.startedAt,
+        ...scores.map((score) => score.updatedAt),
+      ]
+        .sort()
+        .at(-1) ?? run.startedAt;
     return c.json(
       {
-        run,
+        run: { ...run, feedback: summarizeUserFeedback(scores) },
+        scores,
+        canReview: auth.scopes.includes("studio:write"),
+        reviewActorId: studioReviewActorId(auth.keyId),
         events,
         session:
           models.sessions.find((item) => item.id === run.sessionId) ?? null,
@@ -368,7 +388,11 @@ export const registerStudioRoutes = (app: OpenAPIHono<ApiEnv>): void => {
     return c.json(
       {
         session,
-        runs: models.runs.filter((item) => item.sessionId === sessionId),
+        runs: await withRunFeedback(
+          c.get("db"),
+          { organizationId: auth.organizationId, projectId: auth.projectId },
+          models.runs.filter((item) => item.sessionId === sessionId),
+        ),
         events,
         interrupts: models.interrupts.filter(
           (item) => item.sessionId === sessionId,

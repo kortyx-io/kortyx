@@ -7,6 +7,7 @@ import { ListViewsMenu } from "@/features/telemetry/components/list-views-menu";
 
 const STANDARD_VIEW_QUERY: RunsViewQuery = {
   filters: {
+    feedback: null,
     q: null,
     env: null,
     range: null,

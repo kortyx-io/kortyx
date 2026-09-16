@@ -79,6 +79,25 @@ export function RunsToolbar({
             className="h-8 pl-9"
           />
         </div>
+        <label className="sr-only" htmlFor="runs-feedback-filter">
+          User feedback
+        </label>
+        <select
+          id="runs-feedback-filter"
+          aria-label="User feedback"
+          className="h-8 max-w-full rounded-md border bg-background px-2 text-xs"
+          value={query.feedback}
+          onChange={(event) =>
+            setParams({
+              feedback: (event.target.value as typeof query.feedback) || null,
+            })
+          }
+        >
+          <option value="">All feedback</option>
+          <option value="positive">Positive feedback</option>
+          <option value="negative">Negative feedback</option>
+          <option value="unrated">Unrated</option>
+        </select>
         <Tooltip>
           <TooltipTrigger asChild>
             <Button

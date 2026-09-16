@@ -58,8 +58,15 @@ Do not start newer application images against an older schema. Database downgrad
 | --- | --- | --- |
 | `KORTYX_TELEMETRY_API_KEY` | Yes | Project-scoped `telemetry:write` credential for SDK producers |
 | `KORTYX_STUDIO_API_KEY` | Yes | Project-scoped `studio:read` credential used by Studio |
+| `KORTYX_STUDIO_ENABLE_REVIEWS` | No | Bootstrap-job opt-in: `1` grants `studio:write` as well as `studio:read` to the configured Studio key; default `0` keeps it read-only |
 
 Raw keys are used to create or replace their verifier records. They are not written to bootstrap logs.
+
+Keep the review opt-in in the deployment's bootstrap environment if reviews are
+enabled. A later bootstrap without it restores the configured key to read-only.
+The CLI-generated and repository Compose stacks pass this optional variable to
+the database job. Reviews share a pseudonymous actor identity per Studio key;
+they do not imply individual Cloud Studio accounts.
 
 ## Studio variables
 

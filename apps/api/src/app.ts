@@ -8,6 +8,10 @@ import {
   type StudioChangeBus,
 } from "./realtime/studio-change-bus";
 import { registerHealthRoutes } from "./routes/health";
+import {
+  registerStudioReviewRoutes,
+  registerUserFeedbackRoutes,
+} from "./routes/scores";
 import { registerStudioRoutes } from "./routes/studio";
 import { registerStudioChangeRoutes } from "./routes/studio-changes";
 import { registerTelemetryEventRoutes } from "./routes/telemetry/events";
@@ -64,6 +68,7 @@ export const createApiApp = (options: CreateApiAppOptions) => {
   );
   registerWorkflowRevisionRoutes(app);
   registerTelemetryEventRoutes(app);
+  registerUserFeedbackRoutes(app);
 
   app.use(
     "/v1/studio/*",
@@ -73,6 +78,7 @@ export const createApiApp = (options: CreateApiAppOptions) => {
     }),
   );
   registerStudioRoutes(app);
+  registerStudioReviewRoutes(app);
   registerStudioChangeRoutes(
     app,
     options.studioChangeBus ?? createNoopStudioChangeBus(),

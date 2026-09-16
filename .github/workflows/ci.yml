@@ -137,11 +137,21 @@ jobs:
           pnpm --filter @kortyx/telemetry-db test:integration:ha
           pnpm --filter @kortyx/api test:integration:ha
 
+      - name: Run native feedback API regressions
+        run: pnpm --filter @kortyx/api exec vitest run test/scores.integration.test.ts
+
       - name: Install Chromium
         run: pnpm --filter kortyx-studio exec playwright install --with-deps chromium
 
       - name: Run Studio browser regressions
         run: pnpm test:studio:e2e
+
+      - name: Run review-capable Studio feedback regressions
+        env:
+          KORTYX_STUDIO_ENABLE_REVIEWS: "1"
+        run: |
+          pnpm db:bootstrap
+          pnpm --filter kortyx-studio exec dotenv -e ../../.env -- playwright test feedback.spec.ts
 
       - name: Run production Studio navigation regressions
         env:

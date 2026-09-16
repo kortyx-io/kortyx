@@ -1,4 +1,7 @@
 import { z } from "zod";
+import { FeedbackSummarySchema, StudioScoreSchema } from "./scores";
+
+export * from "./scores";
 export const TELEMETRY_EVENT_TYPES = [
   "span.started",
   "span.ended",
@@ -486,6 +489,7 @@ export const StudioMetricSchema = z
 export const StudioRunSchema = z
   .object({
     id: z.string().min(1),
+    feedback: FeedbackSummarySchema.optional(),
     callerNodeId: z.string().optional(),
     parentRunId: z.string().optional(),
     parentWorkflowId: z.string().optional(),
@@ -701,6 +705,9 @@ export const StudioInterruptsResponseSchema = z
 export const StudioRunDetailResponseSchema = z
   .object({
     run: StudioRunSchema,
+    scores: z.array(StudioScoreSchema).optional(),
+    canReview: z.boolean().optional(),
+    reviewActorId: z.string().optional(),
     events: z.array(StudioDetailEventSchema),
     session: StudioSessionSchema.nullable(),
     interrupts: z.array(StudioInterruptSchema),

@@ -7,6 +7,7 @@ x-api-env: &api-env
 x-bootstrap-keys: &bootstrap-keys
   KORTYX_TELEMETRY_API_KEY: \${KORTYX_TELEMETRY_API_KEY}
   KORTYX_STUDIO_API_KEY: \${KORTYX_STUDIO_API_KEY}
+  KORTYX_STUDIO_ENABLE_REVIEWS: \${KORTYX_STUDIO_ENABLE_REVIEWS:-0}
 
 services:
   postgres:
