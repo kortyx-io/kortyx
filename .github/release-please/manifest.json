@@ -20,7 +20,7 @@
   "packages/telemetry-contracts": "0.7.0",
   "packages/telemetry": "0.6.2",
   "packages/utils": "0.3.0",
-  "apps/studio": "0.5.1",
+  "apps/studio": "0.5.2",
   "apps/website": "0.32.0",
   "examples/kortyx-nextjs-chat-api-route": "0.22.3",
   "examples/kortyx-canvas": "0.6.3",
