@@ -1,7 +1,7 @@
 // biome-ignore-all lint/correctness/useHookAtTopLevel: Kortyx hooks run in server workflow nodes.
 import { randomUUID } from "node:crypto";
 import { defineWorkflow } from "@kortyx/core";
-import { useInterrupt, useWorkflow } from "@kortyx/hooks";
+import { useInterrupt, useReason, useWorkflow } from "@kortyx/hooks";
 import { createPostgresFrameworkAdapter } from "@kortyx/runtime";
 import postgres from "postgres";
 import { describe, expect, it, vi } from "vitest";
@@ -10,6 +10,121 @@ import { createAgent } from "../src/chat/create-agent";
 
 const url = process.env.KORTYX_TEST_POSTGRES_URL;
 describe.skipIf(!url)("PostgreSQL-backed agent recovery", () => {
+  it("streams the first model token while PostgreSQL checkpoint saves are still pending", async () => {
+    const namespace = `agent-stream-${randomUUID()}`;
+    const database = postgres(url!);
+    const adapter = createPostgresFrameworkAdapter({
+      connectionString: url!,
+      namespace,
+    });
+    let unblock!: () => void;
+    const blocked = new Promise<void>((resolve) => {
+      unblock = resolve;
+    });
+    let released = false;
+    const release = () => {
+      released = true;
+      unblock();
+    };
+    const put = adapter.checkpointer.put.bind(adapter.checkpointer);
+    const save = vi
+      .spyOn(adapter.checkpointer, "put")
+      .mockImplementation(async (...args) => {
+        await blocked;
+        return put(...args);
+      });
+    const provider = {
+      id: "mock",
+      models: ["mock"],
+      getModel: () => ({
+        invoke: async () => ({ content: "answer" }),
+        stream: async function* () {
+          yield { type: "text-delta" as const, delta: "answer" };
+        },
+      }),
+    };
+    const workflow = defineWorkflow({
+      id: "streaming",
+      version: "1",
+      inputSchema: z.string(),
+      outputSchema: z.object({ answer: z.string() }),
+      nodes: {
+        answer: {
+          run: async () => ({
+            data: {
+              answer: (
+                await useReason({
+                  model: { provider, modelId: "mock" },
+                  input: "hello",
+                  stream: true,
+                })
+              ).text,
+            },
+          }),
+        },
+      },
+      edges: [
+        ["__start__", "answer"],
+        ["answer", "__end__"],
+      ],
+    });
+    let completion: Promise<void> | undefined;
+    let timer: NodeJS.Timeout | undefined;
+    try {
+      await adapter.maintenance.setup();
+      const agent = createAgent({
+        workflows: [workflow],
+        defaultWorkflowId: workflow.id,
+        frameworkAdapter: adapter,
+      });
+      const stream = await agent.streamChat(
+        [{ role: "user", content: "hello" }],
+        {
+          sessionId: "session",
+          onExecution: (value) => {
+            completion = value;
+          },
+        },
+      );
+      const iterator = stream[Symbol.asyncIterator]();
+      const firstToken = (async () => {
+        while (true) {
+          const next = await iterator.next();
+          if (next.done) throw new Error("Stream ended without a model token.");
+          if (next.value.type === "text-delta") return next.value;
+        }
+      })();
+      const token = await Promise.race([
+        firstToken,
+        new Promise<never>((_resolve, reject) => {
+          timer = setTimeout(
+            () =>
+              reject(new Error("Checkpoint save blocked token generation.")),
+            5000,
+          );
+        }),
+      ]);
+      expect(token).toMatchObject({ delta: "answer" });
+      expect(save).toHaveBeenCalled();
+      expect(released).toBe(false);
+      release();
+      while (!(await iterator.next()).done) {}
+      await completion;
+      expect(await adapter.sessionCheckpoints.getHead("session")).toMatchObject(
+        { state: { data: { answer: "answer" } } },
+      );
+    } finally {
+      clearTimeout(timer);
+      release();
+      await completion;
+      save.mockRestore();
+      await adapter.close();
+      await database`DELETE FROM kortyx_runtime_pending_requests WHERE scope = ${namespace}`;
+      await database`DELETE FROM kortyx_runtime_sessions WHERE scope = ${namespace}`;
+      await database`DELETE FROM kortyx_runtime_runs WHERE scope = ${namespace}`;
+      await database.end();
+    }
+  }, 20_000);
   it("publishes rollback/fork approvals once and protects snapshot restoration before resume", async () => {
     const namespace = `agent-race-${randomUUID()}`;
     const database = postgres(url!);

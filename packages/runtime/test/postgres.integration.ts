@@ -221,9 +221,13 @@ describe("PostgreSQL runtime persistence", () => {
     );
     await adapter.checkpointer.putWrites(
       first,
-      [["__error__", "updated"]],
+      [
+        ["__error__", "intermediate"],
+        ["__error__", "updated"],
+      ],
       "task-2",
     );
+    await adapter.checkpointer.putWrites(first, [], "empty-task");
     const second = await adapter.checkpointer.put(
       first,
       graph("g-002"),
@@ -669,6 +673,18 @@ describe("PostgreSQL runtime persistence", () => {
         redis: { url: "redis://localhost", ttlMs: 0 },
       }),
     ).toThrow();
+    expect(() =>
+      createPostgresFrameworkAdapter({
+        connectionString: url,
+        redis: { url: "redis://localhost", timeoutMs: 0 },
+      }),
+    ).toThrow();
+    expect(() =>
+      createPostgresFrameworkAdapter({
+        connectionString: url,
+        redis: { url: "redis://localhost", timeoutMs: 1001 },
+      }),
+    ).toThrow();
   });
 
   it("validates PostgreSQL visibility on cached reads, versions graph writes, and tolerates cache errors", async () => {
@@ -691,10 +707,15 @@ describe("PostgreSQL runtime persistence", () => {
       ["task", "result", "new"],
     ]);
     cache.get.mockRejectedValueOnce(new Error("Redis unavailable"));
-    cache.set.mockRejectedValueOnce(new Error("Redis unavailable"));
     expect(await saver.getTuple(cfg)).toBeDefined();
+    const clock = vi.spyOn(Date, "now").mockReturnValue(Date.now() + 5001);
     cache.get.mockResolvedValueOnce("invalid-json");
     expect(await saver.getTuple(cfg)).toBeDefined();
+    clock.mockReturnValue(Date.now() + 5001);
+    cache.get.mockResolvedValueOnce(null);
+    cache.set.mockRejectedValueOnce(new Error("Redis unavailable"));
+    expect(await saver.getTuple(cfg)).toBeDefined();
+    clock.mockRestore();
     await age();
     expect(await saver.getTuple(cfg)).toBeUndefined();
     await saver.deleteThread("run-1");
@@ -760,11 +781,54 @@ describe("PostgreSQL runtime persistence", () => {
     };
     const store = new PostgresRuntimeStore(url, scope, {}, cache);
     extras.push(store);
-    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "Date"] });
     const read = store.payload(["timeout"], async () => "postgres-value");
-    await vi.advanceTimersByTimeAsync(1000);
+    await vi.advanceTimersByTimeAsync(25);
     await expect(read).resolves.toBe("postgres-value");
     expect(cache.close).toHaveBeenCalledOnce();
+    expect(await store.payload(["another"], async () => "postgres-again")).toBe(
+      "postgres-again",
+    );
+    expect(cache.get).toHaveBeenCalledOnce();
+    expect(cache.set).not.toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(5000);
+    cache.get.mockResolvedValueOnce('"recovered"');
+    expect(
+      await store.payload(["recovered"], async () => "postgres-value"),
+    ).toBe("recovered");
+    expect(cache.get).toHaveBeenCalledTimes(2);
+    vi.useRealTimers();
+  });
+
+  it("returns PostgreSQL payloads before slow cache fills, bounds queued work, and drains it on close", async () => {
+    const cache = {
+      get: vi.fn(async () => null),
+      set: vi.fn(() => new Promise<void>(() => {})),
+      close: vi.fn(async () => {}),
+    };
+    const store = new PostgresRuntimeStore(url, scope, {}, cache);
+    extras.push(store);
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "Date"] });
+    expect(await store.payload(["same"], async () => "postgres")).toBe(
+      "postgres",
+    );
+    expect(await store.payload(["same"], async () => "postgres")).toBe(
+      "postgres",
+    );
+    expect(cache.set).toHaveBeenCalledOnce();
+    for (let index = 0; index < 12; index++) {
+      expect(await store.payload([index], async () => index)).toBe(index);
+    }
+    expect(cache.set).toHaveBeenCalledTimes(10);
+    let closed = false;
+    const close = store.close().then(() => {
+      closed = true;
+    });
+    await Promise.resolve();
+    expect(closed).toBe(false);
+    await vi.advanceTimersByTimeAsync(25);
+    await close;
+    expect(closed).toBe(true);
     vi.useRealTimers();
   });
 

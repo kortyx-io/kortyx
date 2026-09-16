@@ -219,6 +219,7 @@ const result = await persistence.maintenance.prune({ batchSize: 500 });
 | `retention.inactiveSessionDays` | 30 | Session inactivity window |
 | `ttlMs` | 15 minutes | Independent interrupt/approval lifetime |
 | `redis.ttlMs` | 15 minutes | Cache lifetime; a miss reloads from PostgreSQL |
+| `redis.timeoutMs` | 25 milliseconds | Maximum wait for a cache operation; configurable up to 1000 ms |
 
 The current head of a retained session, unexpired pauses, and executing runs are protected. Reads enforce expiry before physical cleanup. Session expiry ends access to its history; choose a session window at least as long as the history window if you want the full history available after inactivity. Browsing history does not extend session lifetime. Rollback retains abandoned branches, which checkpoint summaries identify through `branchStatus`.
 
@@ -238,3 +239,5 @@ Durable storage supports resume, rollback, and fork. Continue with compatible wo
 Switching an existing application from Redis persistence to PostgreSQL starts a separate runtime store; existing Redis checkpoints and approval tokens are not automatically migrated. Plan the transition so outstanding approvals can finish on the original adapter. PostgreSQL is required even for Redis cache hits, because it validates visibility and revisions. Reuse an adapter per application process to reuse its database connection pool.
 
 Approval consumption is atomic across workers, but a worker crash after consumption does not automatically retry the resume. External actions, such as payments or API writes, still need application-owned idempotency. Retention cleanup deletes Kortyx runtime records for the configured namespace; it does not undo those external actions or delete your business records.
+
+PostgreSQL durability adds database round trips; it does not promise zero added response latency. Tokens stream while the engine saves graph checkpoints asynchronously, and cache population does not delay authoritative reads. Session restoration, execution lease acquisition, and durable pause publication still require acknowledgements. Cache lookups have the configured time budget, and a Redis failure bypasses the cache for five seconds. Maintenance runs through your scheduled job. Measure time to first token and execution completion against Redis using your actual database location, workload, and concurrency.

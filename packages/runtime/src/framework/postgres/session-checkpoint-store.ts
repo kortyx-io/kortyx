@@ -46,22 +46,42 @@ export function createPostgresSessionCheckpointStore(
 ): SessionCheckpointStore {
   const visible = (sql: RuntimeSql, now: number) => sql`c.scope = ${store.scope}
     AND ${store.liveSession(sql, now)} AND ${store.liveCheckpoint(sql, now)}`;
+  const read = async (
+    row:
+      | { id: string; active: boolean; record?: SessionCheckpointRecord }
+      | undefined,
+  ) => {
+    if (!row) return null;
+    const record = store.cacheEnabled
+      ? await store.payload(["session", row.id], async () => {
+          const records =
+            await store.query(store.sql`SELECT record FROM kortyx_runtime_session_checkpoints
+        WHERE scope = ${store.scope} AND id = ${row.id}`);
+          return records[0]
+            ? (records[0].record as SessionCheckpointRecord)
+            : null;
+        })
+      : row.record;
+    return record
+      ? {
+          ...record,
+          branchStatus: row.active
+            ? ("active" as const)
+            : ("abandoned" as const),
+        }
+      : null;
+  };
   const get = async (id: string): Promise<SessionCheckpointRecord | null> => {
     const { sql } = store;
     const rows =
-      await store.query(sql`SELECT c.id, c.active FROM kortyx_runtime_session_checkpoints c
+      await store.query(sql`SELECT c.id, c.active ${store.cacheEnabled ? sql`` : sql`, c.record`} FROM kortyx_runtime_session_checkpoints c
       JOIN kortyx_runtime_sessions s ON s.scope = c.scope AND s.id = c.session_id
       WHERE c.id = ${id} AND ${visible(sql, Date.now())}`);
-    if (!rows[0]) return null;
-    const record = await store.payload(["session", id], async () => {
-      const records =
-        await store.query(sql`SELECT record FROM kortyx_runtime_session_checkpoints
-        WHERE scope = ${store.scope} AND id = ${id}`);
-      return records[0] ? (records[0].record as SessionCheckpointRecord) : null;
-    });
-    return record
-      ? { ...record, branchStatus: rows[0].active ? "active" : "abandoned" }
-      : null;
+    return read(
+      rows[0] as
+        | { id: string; active: boolean; record?: SessionCheckpointRecord }
+        | undefined,
+    );
   };
 
   const sealRequests = async (
@@ -127,10 +147,17 @@ export function createPostgresSessionCheckpointStore(
       });
     },
     async getHead(sessionId) {
+      const { sql } = store;
       const rows =
-        await store.query(store.sql`SELECT head_id FROM kortyx_runtime_sessions s
-        WHERE scope = ${store.scope} AND id = ${sessionId} AND ${store.liveSession(store.sql, Date.now())}`);
-      return rows[0]?.head_id ? get(rows[0].head_id) : null;
+        await store.query(sql`SELECT c.id, c.active ${store.cacheEnabled ? sql`` : sql`, c.record`}
+        FROM kortyx_runtime_sessions s JOIN kortyx_runtime_session_checkpoints c
+          ON c.scope = s.scope AND c.id = s.head_id
+        WHERE s.id = ${sessionId} AND ${visible(sql, Date.now())}`);
+      return read(
+        rows[0] as
+          | { id: string; active: boolean; record?: SessionCheckpointRecord }
+          | undefined,
+      );
     },
     async append(args) {
       const requests = await sealRequests(args.pendingRequests ?? []);

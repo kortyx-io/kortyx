@@ -87,7 +87,11 @@ export class PostgresRuntimeStore {
   readonly scope: string;
   readonly historyMs: number;
   readonly sessionMs: number;
+  readonly cacheEnabled: boolean;
   private readonly cachePrefix: string;
+  private cacheRetryAfter = 0;
+  private cacheClosed = false;
+  private readonly cachePopulations = new Map<string, Promise<void>>();
 
   constructor(
     connectionString: string,
@@ -95,6 +99,7 @@ export class PostgresRuntimeStore {
     retention: RuntimeRetentionPolicy,
     private readonly cache?: Pick<RedisFrameworkStore, "get" | "set" | "close">,
     private readonly cacheTtlMs = 15 * 60 * 1000,
+    private readonly cacheTimeoutMs = 25,
   ) {
     const url = new URL(connectionString);
     if (!["postgres:", "postgresql:"].includes(url.protocol))
@@ -114,6 +119,10 @@ export class PostgresRuntimeStore {
     positiveInteger("checkpoint history duration", this.historyMs);
     positiveInteger("session retention duration", this.sessionMs);
     positiveInteger("cache ttlMs", cacheTtlMs);
+    positiveInteger("cache timeoutMs", cacheTimeoutMs);
+    if (cacheTimeoutMs > 1000)
+      throw new TypeError("cache timeoutMs must not exceed 1000.");
+    this.cacheEnabled = Boolean(cache);
     this.sql = postgres(connectionString, {
       max: 10,
       connect_timeout: 5,
@@ -200,9 +209,12 @@ export class PostgresRuntimeStore {
     sql: postgres.TransactionSql,
     sessionId: string,
   ): Promise<void> {
-    const existing = await sql`SELECT s.id FROM kortyx_runtime_sessions s
-      WHERE s.scope = ${this.scope} AND s.id = ${sessionId} AND NOT ${this.liveSession(sql, Date.now())} FOR UPDATE`;
-    if (existing.length)
+    const updated =
+      await sql`INSERT INTO kortyx_runtime_sessions AS s (scope, id, last_activity)
+      VALUES (${this.scope}, ${sessionId}, ${Date.now()})
+      ON CONFLICT (scope, id) DO UPDATE SET last_activity = EXCLUDED.last_activity
+      WHERE ${this.liveSession(sql, Date.now())} RETURNING id`;
+    if (!updated.length)
       throw new KortyxError(
         "SESSION_EXPIRED",
         "The runtime session has expired. Start a new session.",
@@ -212,31 +224,43 @@ export class PostgresRuntimeStore {
           safeMessage: "This session has expired. Start a new session.",
         },
       );
-    await sql`INSERT INTO kortyx_runtime_sessions (scope, id, last_activity)
-      VALUES (${this.scope}, ${sessionId}, ${Date.now()})
-      ON CONFLICT (scope, id) DO UPDATE SET last_activity = EXCLUDED.last_activity`;
   }
 
   async payload<T>(key: unknown[], load: () => Promise<T>): Promise<T> {
     const cacheKey = `${this.cachePrefix}:${createHash("sha256").update(JSON.stringify(key)).digest("hex")}`;
     const cache = this.cache;
-    if (cache) {
+    if (cache && !this.cacheClosed && Date.now() >= this.cacheRetryAfter) {
       try {
         const raw = await this.cacheCall(() => cache.get(cacheKey));
         if (raw) return JSON.parse(raw) as T;
       } catch {
+        this.cacheRetryAfter = Date.now() + 5000;
         /* PostgreSQL remains available when Redis fails. */
       }
     }
     const value = await load();
-    if (cache && value !== undefined && value !== null) {
-      try {
-        await this.cacheCall(() =>
-          cache.set(cacheKey, JSON.stringify(value), this.cacheTtlMs),
-        );
-      } catch {
-        /* Cache population is best effort. */
-      }
+    if (
+      cache &&
+      !this.cacheClosed &&
+      Date.now() >= this.cacheRetryAfter &&
+      value !== undefined &&
+      value !== null &&
+      !this.cachePopulations.has(cacheKey) &&
+      this.cachePopulations.size < 10
+    ) {
+      // Payload cache writes never delay authoritative reads. Bound and deduplicate
+      // work so a slow cache cannot create an unbounded background queue.
+      const population = this.cacheCall(() =>
+        cache.set(cacheKey, JSON.stringify(value), this.cacheTtlMs),
+      )
+        .then(() => {})
+        .catch(() => {
+          this.cacheRetryAfter = Date.now() + 5000;
+        })
+        .finally(() => {
+          this.cachePopulations.delete(cacheKey);
+        });
+      this.cachePopulations.set(cacheKey, population);
     }
     return value;
   }
@@ -250,7 +274,7 @@ export class PostgresRuntimeStore {
           timer = setTimeout(() => {
             void this.cache?.close?.().catch(() => {});
             reject(new Error("Runtime cache operation timed out."));
-          }, 1000);
+          }, this.cacheTimeoutMs);
           timer.unref();
         }),
       ]);
@@ -260,7 +284,9 @@ export class PostgresRuntimeStore {
   }
 
   async close(): Promise<void> {
+    this.cacheClosed = true;
     try {
+      await Promise.all(this.cachePopulations.values());
       await this.cache?.close?.();
     } finally {
       await this.sql.end({ timeout: 5 });

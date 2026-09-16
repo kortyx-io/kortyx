@@ -23,7 +23,12 @@ export type CreatePostgresFrameworkAdapterOptions = {
   ttlMs?: number;
   retention?: RuntimeRetentionPolicy;
   /** Optional payload cache. All writes and token consumption remain authoritative in PostgreSQL. */
-  redis?: { url: string; ttlMs?: number };
+  redis?: {
+    url: string;
+    ttlMs?: number;
+    /** Maximum cache operation wait; default: 25 ms, maximum: 1000 ms. */
+    timeoutMs?: number;
+  };
 };
 
 export type PostgresFrameworkAdapter = FrameworkAdapter & {
@@ -54,6 +59,7 @@ export function createPostgresFrameworkAdapter(
     options.retention ?? {},
     cache,
     cacheTtlMs,
+    options.redis?.timeoutMs,
   );
   const saver = new PostgresCheckpointSaver(store);
   return {
@@ -81,10 +87,13 @@ export function createPostgresFrameworkAdapter(
       };
       await store.transaction(async (sql) => {
         if (sessionId) await store.touchSession(sql, sessionId);
-        await store.touchRun(sql, runId);
         const rows =
-          await sql`UPDATE kortyx_runtime_runs SET lease_token = ${token}, lease_until = ${Date.now() + 120_000}, session_id = ${sessionId ?? null}
-          WHERE scope = ${store.scope} AND id = ${runId} AND lease_until <= ${Date.now()} RETURNING id`;
+          await sql`INSERT INTO kortyx_runtime_runs AS r (scope, id, last_activity, lease_token, lease_until, session_id)
+          VALUES (${store.scope}, ${runId}, ${Date.now()}, ${token}, ${Date.now() + 120_000}, ${sessionId ?? null})
+          ON CONFLICT (scope, id) DO UPDATE SET last_activity = EXCLUDED.last_activity,
+            revision = r.revision + 1, lease_token = EXCLUDED.lease_token,
+            lease_until = EXCLUDED.lease_until, session_id = EXCLUDED.session_id
+          WHERE r.lease_until <= ${Date.now()} RETURNING id`;
         if (!rows.length)
           throw new PersistenceError("This runtime run is already executing.");
       });

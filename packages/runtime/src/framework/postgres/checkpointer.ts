@@ -61,15 +61,15 @@ export class PostgresCheckpointSaver extends BaseCheckpointSaver {
     return this.store.payload(
       ["graph", runId, ns, row.id, row.position, row.revision],
       async () => {
-        const records =
-          await this.store.query(sql`SELECT record FROM kortyx_runtime_graph_checkpoints
-        WHERE scope = ${scope} AND run_id = ${runId} AND ns = ${ns} AND id = ${row.id}`);
+        const [records, writes] = await Promise.all([
+          this.store.query(sql`SELECT record FROM kortyx_runtime_graph_checkpoints
+        WHERE scope = ${scope} AND run_id = ${runId} AND ns = ${ns} AND id = ${row.id}`),
+          this.store.query(sql`SELECT task_id, channel, value FROM kortyx_runtime_graph_writes
+        WHERE scope = ${scope} AND run_id = ${runId} AND ns = ${ns} AND checkpoint_id = ${row.id}
+        ORDER BY task_id, idx`),
+        ]);
         if (!records[0]) return undefined;
         const record = records[0].record as StoredGraphCheckpoint;
-        const writes =
-          await this.store.query(sql`SELECT task_id, channel, value FROM kortyx_runtime_graph_writes
-        WHERE scope = ${scope} AND run_id = ${runId} AND ns = ${ns} AND checkpoint_id = ${row.id}
-        ORDER BY task_id, idx`);
         return {
           config: configFor(runId, ns, row.id),
           checkpoint: record.checkpoint,
@@ -168,13 +168,39 @@ export class PostgresCheckpointSaver extends BaseCheckpointSaver {
       await sql`INSERT INTO kortyx_runtime_graph_checkpoints (scope, run_id, ns, id, record)
         VALUES (${this.store.scope}, ${runId}, ${ns}, ${id}, ${sql.json({})})
         ON CONFLICT (scope, run_id, ns, id) DO NOTHING`;
+      const rows = new Map<
+        number,
+        {
+          scope: string;
+          run_id: string;
+          ns: string;
+          checkpoint_id: string;
+          task_id: string;
+          idx: number;
+          channel: string;
+          value: ReturnType<typeof sql.json>;
+        }
+      >();
       for (const [idx, [channel, value]] of writes.entries()) {
         const mapped = WRITES_IDX_MAP[channel] ?? idx;
-        await sql`INSERT INTO kortyx_runtime_graph_writes (scope, run_id, ns, checkpoint_id, task_id, idx, channel, value)
-          VALUES (${this.store.scope}, ${runId}, ${ns}, ${id}, ${taskId}, ${mapped}, ${channel}, ${sql.json({ value: clone(value ?? null) } as postgres.JSONValue)})
-          ON CONFLICT (scope, run_id, ns, checkpoint_id, task_id, idx)
-          ${mapped >= 0 ? sql`DO NOTHING` : sql`DO UPDATE SET channel = EXCLUDED.channel, value = EXCLUDED.value`}`;
+        rows.set(mapped, {
+          scope: this.store.scope,
+          run_id: runId,
+          ns,
+          checkpoint_id: id,
+          task_id: taskId,
+          idx: mapped,
+          channel,
+          value: sql.json({
+            value: clone(value ?? null),
+          } as postgres.JSONValue),
+        });
       }
+      if (rows.size)
+        await sql`INSERT INTO kortyx_runtime_graph_writes
+        ${sql([...rows.values()], "scope", "run_id", "ns", "checkpoint_id", "task_id", "idx", "channel", "value")}
+        ON CONFLICT (scope, run_id, ns, checkpoint_id, task_id, idx)
+        DO UPDATE SET channel = EXCLUDED.channel, value = EXCLUDED.value WHERE EXCLUDED.idx < 0`;
     });
   }
 

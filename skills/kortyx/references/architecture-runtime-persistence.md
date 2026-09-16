@@ -92,9 +92,12 @@ Retention is separate from approval and cache lifetime:
 - `retention.inactiveSessionDays` defaults to 30 since runtime activity; browsing history does not extend it.
 - `ttlMs` defaults to 15 minutes for interrupts; configure longer approval windows explicitly.
 - `redis.ttlMs` defaults to 15 minutes for cache payloads, which can reload from PostgreSQL.
+- `redis.timeoutMs` defaults to 25 milliseconds per cache operation (maximum 1000). Cache fills are asynchronous and bounded; errors/timeouts bypass Redis for five seconds.
 
 Retained session heads, unexpired pauses, and executing runs are protected. Reads enforce expiry before maintenance physically removes records. Session expiry ends access to its history. Rollback preserves abandoned branches, identified by checkpoint summary `branchStatus`; forks own complete paused snapshots and independent tokens. Expired approvals cannot be revived through rollback/fork.
 
 `createFrameworkAdapterFromEnv()` selects PostgreSQL first if `KORTYX_POSTGRES_URL` is provided; existing Redis URL settings then supply optional caching. It never implicitly uses the app's `DATABASE_URL`. Narrow `kind === "postgres"` to access maintenance/setup/close. Explicit setup is still required.
 
 Durability supports resume/rollback/fork with compatible workflow code. It does not promise exact historical reproduction across code changes or exactly-once external side effects.
+
+Durable PostgreSQL acknowledgements add database round trips. Graph checkpoint saves overlap token generation, while cache fills and scheduled maintenance run outside the response path. Session continuation reads, execution ownership, and durable pause publication still need acknowledgements. Do not promise zero latency overhead or move those required commits into an unacknowledged background task; measure time to first token against Redis in the actual deployment.

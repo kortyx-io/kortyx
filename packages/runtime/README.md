@@ -65,7 +65,7 @@ const persistence = createPostgresFrameworkAdapter({
   namespace: "my-app",
   ttlMs: 7 * 24 * 60 * 60 * 1000, // Approval lifetime, independent of history.
   retention: { checkpointHistoryDays: 30, inactiveSessionDays: 30 },
-  // Optional: redis: { url: process.env.REDIS_URL!, ttlMs: 15 * 60 * 1000 },
+  // Optional: redis: { url: process.env.REDIS_URL!, ttlMs: 15 * 60 * 1000, timeoutMs: 25 },
 });
 
 // Run during deployment before serving requests.
@@ -84,3 +84,5 @@ History and inactive sessions default to 30 days, without a 50-checkpoint cap. I
 `KORTYX_POSTGRES_URL` takes precedence over Redis during env-based selection, with Redis used as a cache when configured. `DATABASE_URL` is not used implicitly. Env-based PostgreSQL also requires explicit schema setup before traffic; use the helper's `kind === "postgres"` branch to access `maintenance` and `close`.
 
 Run real-service integration coverage with `KORTYX_TEST_POSTGRES_URL=... KORTYX_TEST_REDIS_URL=... pnpm --filter @kortyx/runtime test:integration:postgres`. Use a disposable test database. Redis is optional for these tests.
+
+Graph checkpoints are saved asynchronously while tokens stream; cache fills do not block authoritative reads. Cache operations default to a 25 ms budget, and cache failures bypass Redis for five seconds. Required PostgreSQL reads and durable acknowledgements still add latency. After building the SDK, compare persistence overhead using an immediate mock model with `KORTYX_TEST_POSTGRES_URL=... KORTYX_TEST_REDIS_URL=... node scripts/benchmark-runtime-persistence.cjs` from the repository root. The benchmark reports generation start, first token, and execution completion at p50/p95; use disposable services and measure production network conditions separately.

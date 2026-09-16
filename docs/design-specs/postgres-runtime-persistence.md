@@ -60,7 +60,11 @@ Pending consumption uses PostgreSQL `DELETE ... RETURNING`, so only one worker c
 
 Authoritative writes finish in PostgreSQL. Reads resolve visibility/existence and graph revision in PostgreSQL before using Redis. Redis saves the larger immutable session snapshot or graph tuple; graph cache keys include checkpoint position and the run revision, which changes on checkpoint/write mutations. Namespace and connection identity isolate cache keys.
 
-A missing/expired cache entry is populated from PostgreSQL. A Redis error, malformed cached JSON, or cache operation exceeding one second falls back to PostgreSQL. A cached payload cannot make an expired or physically removed record visible. Old cache keys disappear through their independent TTL rather than requiring a cross-store deletion transaction. Redis is optional, and PostgreSQL availability remains necessary even on a cache hit.
+A missing/expired cache entry is populated from PostgreSQL asynchronously; cache writes do not delay the authoritative read. Cache population is deduplicated per key and limited to ten concurrent operations per adapter, with excess population skipped. Operations have a configurable `redis.timeoutMs` budget, default 25 ms and maximum 1000 ms. A Redis error, malformed cached JSON, or timeout falls back to PostgreSQL and bypasses the cache for five seconds before retrying. Shutdown drains the bounded population tasks before closing connections. A cached payload cannot make an expired or physically removed record visible. Old cache keys disappear through their independent TTL rather than requiring a cross-store deletion transaction. Redis is optional, and PostgreSQL availability remains necessary even on a cache hit.
+
+Session head reads validate the head, session expiry, and checkpoint protection in one database query. Without Redis, that query also returns the immutable payload. Session activity is an expiry-guarded atomic upsert; execution lease acquisition atomically inserts or claims its run. Task writes are persisted in a batch rather than through one query per channel. Repeated special write indices retain their last value, while ordinary conflicting writes retain the original value.
+
+Durability does not imply zero response latency. The engine overlaps graph checkpoint saves with token generation, and best-effort cache fills run outside the response path. Reads needed for continuation, run ownership, and successful durable pause publication still require database acknowledgements. Moving those writes to an unacknowledged background task would introduce a loss window. Maintenance is application-scheduled, but database contention can still affect requests. Measure generation start, time to first token, and completion with the deployment's network latency and workload; local tests cannot establish a production latency guarantee.
 
 ## Cleanup and execution concurrency
 
@@ -79,3 +83,18 @@ Read-time expiry is independent of physical deletion. Late or missing maintenanc
 This supports durable resume, retained session rollback, and fork. Runtime functions/services are intentionally not serialized; the host supplies them again. Continuation uses registered workflow code. Existing execute/resume contract validation checks workflow versions; applications must preserve compatible chat workflow/state/interrupt contracts or migrate them. Versioned code artifacts, exact original model outputs for arbitrary historical re-execution, and a durable side-effect ledger are separate features. PostgreSQL persistence alone does not promise deterministic reproduction across deployments.
 
 Existing Redis-only state is not automatically imported when PostgreSQL is enabled. Hosts must plan a cutover for outstanding approvals or provide an explicit migration. Reuse adapters per process to reuse their connection pools. Cleanup does not reverse business side effects or operate on application tables.
+
+## Local latency measurement
+
+The repository includes `scripts/benchmark-runtime-persistence.cjs`. Build the SDK first and run it with explicitly disposable `KORTYX_TEST_POSTGRES_URL` and `KORTYX_TEST_REDIS_URL` services. `BENCH_SAMPLES` defaults to 100; optional `BENCH_OUTPUT` writes the JSON report.
+
+A local run on 2026-09-16 used PostgreSQL 17 and Redis 7 Docker services, ten warmup turns per adapter, 100 measured turns per adapter, a continuing session with 16 KiB state, and an immediate one-token mock model. Adapter order rotates between measured turns to reduce gradual load bias. The mock model makes runtime overhead visible without model-provider latency. Results are elapsed from `agent.streamChat()` invocation:
+
+| Adapter | Generation start p50 / p95 | First token p50 / p95 | Completion p50 / p95 |
+| --- | --- | --- | --- |
+| memory | 1.39 / 4.30 ms | 2.17 / 6.50 ms | 2.18 / 6.55 ms |
+| redis | 2.44 / 10.13 ms | 2.81 / 10.64 ms | 21.43 / 61.88 ms |
+| postgres | 5.10 / 16.61 ms | 5.42 / 19.30 ms | 22.08 / 68.26 ms |
+| postgres-redis | 5.56 / 22.17 ms | 5.91 / 22.57 ms | 22.30 / 86.49 ms |
+
+These measurements are local observations, not an SLA or a production concurrency benchmark. Network distance, database contention, cold connections, state size, and actual model behavior affect results. Optional Redis is a payload cache rather than a way to remove required PostgreSQL acknowledgements; it can add a lookup on a miss. The parallel-streaming regression independently blocks graph checkpoint saves and proves that the first model token still reaches the client before those saves complete.
