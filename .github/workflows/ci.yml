@@ -52,6 +52,9 @@ jobs:
       - name: Build
         run: pnpm build
 
+      - name: Studio unit regressions
+        run: pnpm --filter kortyx-studio test
+
       - name: Example workflow and error regressions
         run: pnpm -r --no-bail --filter './examples/*' test
 
