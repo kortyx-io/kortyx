@@ -9,6 +9,18 @@ jobs:
   typecheck_lint:
     runs-on: ubuntu-latest
     services:
+      runtime_postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: kortyx
+          POSTGRES_PASSWORD: kortyx
+          POSTGRES_DB: kortyx_runtime_test
+        ports: [5432:5432]
+        options: >-
+          --health-cmd "pg_isready -U kortyx -d kortyx_runtime_test"
+          --health-interval 2s
+          --health-timeout 5s
+          --health-retries 20
       redis:
         image: redis:7-alpine
         ports: [6379:6379]
@@ -19,6 +31,7 @@ jobs:
           --health-retries 20
     env:
       KORTYX_TEST_REDIS_URL: redis://127.0.0.1:6379
+      KORTYX_TEST_POSTGRES_URL: postgres://kortyx:kortyx@127.0.0.1:5432/kortyx_runtime_test
     timeout-minutes: 15
 
     steps:
@@ -51,6 +64,9 @@ jobs:
 
       - name: Build
         run: pnpm build
+
+      - name: PostgreSQL runtime persistence integration coverage
+        run: pnpm --filter @kortyx/runtime test:integration:postgres
 
       - name: Studio unit regressions
         run: pnpm --filter kortyx-studio test

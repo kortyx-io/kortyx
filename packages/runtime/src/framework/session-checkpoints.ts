@@ -18,6 +18,8 @@ export type CheckpointSummary = {
   forkedFrom?: string;
   workflowVersion?: string;
   buildId?: string;
+  /** PostgreSQL retains abandoned branches until their history window expires. */
+  branchStatus?: "active" | "abandoned";
 };
 
 export type SessionCheckpointRecord = CheckpointSummary & {

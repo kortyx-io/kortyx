@@ -3,6 +3,13 @@ export * from "./checkpointer";
 export * from "./framework/adapter";
 export * from "./framework/graph-snapshot";
 export * from "./framework/pending-requests";
+export * from "./framework/postgres/adapter";
+export type {
+  PruneRuntimeOptions,
+  PruneRuntimeResult,
+  RuntimeMaintenance,
+} from "./framework/postgres/maintenance";
+export type { RuntimeRetentionPolicy } from "./framework/postgres/store";
 export * from "./framework/session-checkpoints";
 export * from "./graph/create-execution-graph";
 export * from "./interrupt/tokens";

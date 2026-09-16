@@ -2,7 +2,7 @@
 id: v0-runtime-framework-adapters
 title: "Runtime Persistence Adapters"
 description: "Choose and configure the backend Kortyx uses for interrupt/resume checkpoints."
-keywords: [kortyx, runtime-persistence, framework-adapter, redis, ttl]
+keywords: [kortyx, runtime-persistence, framework-adapter, redis, postgresql, retention, ttl]
 sidebar_label: "Runtime Adapters"
 ---
 # Runtime Persistence Adapters
@@ -15,7 +15,7 @@ Read this page if:
 
 - you use interrupts or resume
 - you need paused runs to survive restarts
-- you want to choose between in-memory and Redis
+- you want to choose between in-memory, Redis, and PostgreSQL
 
 If you are only testing locally, you can usually use the default and come back later.
 
@@ -36,7 +36,7 @@ For most apps:
 2. production resume: set `KORTYX_REDIS_URL`
 3. only create adapters manually when you want explicit control in code
 
-> **Good to know:** `createFrameworkAdapterFromEnv()` is not a third backend. It is the default helper that chooses between in-memory and Redis.
+> **Good to know:** `createFrameworkAdapterFromEnv()` is not a third backend. It is the default helper that chooses between in-memory, Redis, and PostgreSQL.
 
 ## Where this is used
 
@@ -46,8 +46,9 @@ If you do nothing, `createAgent(...)` falls back to `createFrameworkAdapterFromE
 
 That means:
 
-- no Redis env var -> in-memory
-- Redis env var present -> Redis
+- `KORTYX_POSTGRES_URL` present -> PostgreSQL, with optional Redis caching
+- otherwise Redis env var present -> Redis
+- otherwise -> in-memory
 
 You pass `frameworkAdapter` to `createAgent(...)` only when you want explicit control.
 
@@ -162,7 +163,8 @@ const frameworkAdapter = createFrameworkAdapterFromEnv();
 
 Resolution:
 
-- Redis if any of these exist: `KORTYX_REDIS_URL`, `REDIS_URL`, `KORTYX_FRAMEWORK_REDIS_URL`
+- PostgreSQL if `KORTYX_POSTGRES_URL` exists (explicit schema setup required)
+- otherwise Redis if any of these exist: `KORTYX_REDIS_URL`, `REDIS_URL`, `KORTYX_FRAMEWORK_REDIS_URL`
 - otherwise in-memory
 
 TTL env variables:
@@ -180,3 +182,55 @@ TTL env variables:
 ## What to read next
 
 Go back to [Runtime Persistence](./01-persistence.md) if you want the high-level distinction between Kortyx runtime state and your app's business data.
+
+## PostgreSQL durable history
+
+For month-long runtime history, use the PostgreSQL adapter. PostgreSQL is the source of truth; Redis optionally caches checkpoint payloads. The runtime schema is separate from your business tables and Studio telemetry.
+
+```ts
+import { createAgent, createPostgresFrameworkAdapter } from "kortyx";
+
+const persistence = createPostgresFrameworkAdapter({
+  connectionString: process.env.KORTYX_POSTGRES_URL!,
+  namespace: "my-app",
+  ttlMs: 7 * 24 * 60 * 60 * 1000,
+  retention: {
+    checkpointHistoryDays: 30,
+    inactiveSessionDays: 30,
+  },
+  // Optional:
+  redis: { url: process.env.REDIS_URL!, ttlMs: 15 * 60 * 1000 },
+});
+
+// Deployment command, before serving requests:
+await persistence.maintenance.setup();
+
+const agent = createAgent({ workflows, frameworkAdapter: persistence });
+
+// Application-owned scheduled job or worker:
+const result = await persistence.maintenance.prune({ batchSize: 500 });
+```
+
+`maintenance.prune()` is a server-side library method. Your app schedules it; Kortyx determines what is safe to delete. No cleanup timer or HTTP endpoint is installed automatically. If your scheduler calls an HTTP endpoint, create and authorize that endpoint in your app.
+
+| Setting | Default | Meaning |
+| --- | --- | --- |
+| `retention.checkpointHistoryDays` | 30 | Rolling history window, with no 50-checkpoint cap |
+| `retention.inactiveSessionDays` | 30 | Session inactivity window |
+| `ttlMs` | 15 minutes | Independent interrupt/approval lifetime |
+| `redis.ttlMs` | 15 minutes | Cache lifetime; a miss reloads from PostgreSQL |
+
+The current head of a retained session, unexpired pauses, and executing runs are protected. Reads enforce expiry before physical cleanup. Session expiry ends access to its history; choose a session window at least as long as the history window if you want the full history available after inactivity. Browsing history does not extend session lifetime. Rollback retains abandoned branches, which checkpoint summaries identify through `branchStatus`.
+
+Cleanup removes at most `batchSize` parent records per table (maximum 1000), with graph writes deleted with their owning checkpoint. Inspect `result.deleted`, `result.skipped`, and `result.hasMore` to monitor or repeat the job. Calls are transactional and retry-safe. Call `await persistence.close()` on host shutdown after executions finish.
+
+Env-based selection uses PostgreSQL when `KORTYX_POSTGRES_URL` exists, optionally caching through the configured Redis URL. It does not use the application's `DATABASE_URL`. Complete explicit setup before traffic:
+
+```ts
+const persistence = createFrameworkAdapterFromEnv();
+if (persistence.kind === "postgres") {
+  await persistence.maintenance.setup();
+}
+```
+
+Durable storage supports resume, rollback, and fork. Continue with compatible workflow code and state contracts. Exact reproduction across code/model/tool changes requires additional versioned artifacts and side-effect idempotency; storage alone cannot provide it.

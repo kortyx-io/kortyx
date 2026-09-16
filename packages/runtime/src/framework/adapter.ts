@@ -4,6 +4,10 @@ import {
   createInMemoryPendingRequestStore,
   type PendingRequestStore,
 } from "./pending-requests";
+import {
+  createPostgresFrameworkAdapter,
+  type PostgresFrameworkAdapter,
+} from "./postgres/adapter";
 import { createRedisPendingRequestStore } from "./redis/pending-request-store";
 import { createRedisCheckpointSaver } from "./redis/redis-checkpointer";
 import { createRedisFrameworkStore } from "./redis/redis-store";
@@ -14,11 +18,17 @@ import {
 } from "./session-checkpoints";
 
 export type FrameworkAdapter = {
-  kind: "in-memory" | "redis";
+  kind: "in-memory" | "redis" | "postgres";
   pendingRequests: PendingRequestStore;
   sessionCheckpoints: SessionCheckpointStore;
   checkpointer: BaseCheckpointSaver;
   ttlMs: number;
+  /** Protects execution from concurrent retention cleanup. Released after the entire outcome is persisted. */
+  acquireRunLease?: (args: {
+    runId: string;
+    sessionId?: string;
+    onLost: (cause: unknown) => void;
+  }) => Promise<() => Promise<void>>;
   /**
    * Best-effort cleanup for ephemeral framework state for a single run.
    * Called when a workflow completes without pausing for an interrupt.
@@ -115,7 +125,9 @@ export function createRedisFrameworkAdapter(
 
 export function createFrameworkAdapterFromEnv(
   env: Record<string, string | undefined> = process.env,
-): FrameworkAdapter {
+):
+  | (FrameworkAdapter & { kind: "in-memory" | "redis" })
+  | PostgresFrameworkAdapter {
   const url =
     env.KORTYX_REDIS_URL ||
     env.REDIS_URL ||
@@ -124,9 +136,21 @@ export function createFrameworkAdapterFromEnv(
   const ttlMsRaw = env.KORTYX_FRAMEWORK_TTL_MS || env.KORTYX_TTL_MS || "";
   const ttlMs = ttlMsRaw ? Number(ttlMsRaw) : undefined;
 
+  if (env.KORTYX_POSTGRES_URL)
+    return createPostgresFrameworkAdapter({
+      connectionString: env.KORTYX_POSTGRES_URL,
+      ...(ttlMs !== undefined ? { ttlMs } : {}),
+      ...(url ? { redis: { url } } : {}),
+    });
+
   if (url)
-    return createRedisFrameworkAdapter({ url, ...(ttlMs ? { ttlMs } : {}) });
+    return createRedisFrameworkAdapter({
+      url,
+      ...(ttlMs ? { ttlMs } : {}),
+    }) as FrameworkAdapter & { kind: "redis" };
 
   // Dev fallback: in-memory. Not production-safe for resume across processes.
-  return createInMemoryFrameworkAdapter({ ...(ttlMs ? { ttlMs } : {}) });
+  return createInMemoryFrameworkAdapter({
+    ...(ttlMs ? { ttlMs } : {}),
+  }) as FrameworkAdapter & { kind: "in-memory" };
 }

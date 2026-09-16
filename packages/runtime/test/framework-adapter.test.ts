@@ -102,3 +102,29 @@ describe("redis framework adapter", () => {
     });
   });
 });
+
+it("selects PostgreSQL before Redis and exposes maintenance without using the application's DATABASE_URL", async () => {
+  const { createFrameworkAdapterFromEnv } = await import(
+    "../src/framework/adapter"
+  );
+  const adapter = createFrameworkAdapterFromEnv({
+    KORTYX_POSTGRES_URL: "postgres://test:test@localhost/test",
+  });
+  expect(adapter.kind).toBe("postgres");
+  if (adapter.kind !== "postgres")
+    throw new Error("Expected PostgreSQL adapter");
+  expect(adapter.maintenance.prune).toBeTypeOf("function");
+  await adapter.close();
+  const configured = createFrameworkAdapterFromEnv({
+    KORTYX_POSTGRES_URL: "postgres://test:test@localhost/test",
+    REDIS_URL: "redis://localhost",
+    KORTYX_FRAMEWORK_TTL_MS: "1000",
+  });
+  expect(configured.kind).toBe("postgres");
+  expect(configured.ttlMs).toBe(1000);
+  if (configured.kind === "postgres") await configured.close();
+  expect(
+    createFrameworkAdapterFromEnv({ DATABASE_URL: "postgres://localhost/app" })
+      .kind,
+  ).toBe("in-memory");
+});

@@ -11,6 +11,7 @@ export type FrameworkTtl = {
 };
 
 export type RedisFrameworkStore = {
+  close?: () => Promise<void>;
   list?: (prefix: string) => Promise<string[]>;
   take?: (key: string) => Promise<string | null>;
   get: (key: string) => Promise<string | null>;
@@ -47,8 +48,9 @@ export function createRedisFrameworkStore(
   const k = (key: string) => `${prefix}${key}`;
 
   return {
+    close: async () => rawClient.close?.(),
     async list(prefixKey) {
-      const keys = await this.scanKeys(prefixKey);
+      const keys: string[] = await this.scanKeys(prefixKey);
       const values = await Promise.all(
         [...new Set(keys)].map(async (key) => {
           const value = await client.command("GET", [key]);

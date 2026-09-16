@@ -94,13 +94,23 @@ export type {
 } from "@kortyx/mcp";
 export { createMCPClient } from "@kortyx/mcp";
 export * from "@kortyx/providers";
-export type { WorkflowRegistry } from "@kortyx/runtime";
+export type {
+  CreatePostgresFrameworkAdapterOptions,
+  FrameworkAdapter,
+  PostgresFrameworkAdapter,
+  PruneRuntimeOptions,
+  PruneRuntimeResult,
+  RuntimeMaintenance,
+  RuntimeRetentionPolicy,
+  WorkflowRegistry,
+} from "@kortyx/runtime";
 export {
   clearRegisteredNodes,
   createFileWorkflowRegistry,
   createFrameworkAdapterFromEnv,
   createInMemoryFrameworkAdapter,
   createInMemoryWorkflowRegistry,
+  createPostgresFrameworkAdapter,
   createRedisFrameworkAdapter,
   getRegisteredNode,
   listRegisteredNodes,

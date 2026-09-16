@@ -15,6 +15,8 @@ export default defineKortyxVitestConfig({
         "src/framework/redis/redis-checkpointer.ts",
         "src/framework/redis/redis-client.ts",
         "src/framework/redis/redis-store.ts",
+        // Database infrastructure has its own real-service coverage suite (test:integration:postgres).
+        "src/framework/postgres/**",
         "src/graph/**",
         "src/node-loader.ts",
         "src/registry/file-registry.ts",

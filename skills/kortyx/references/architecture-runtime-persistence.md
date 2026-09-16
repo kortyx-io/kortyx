@@ -79,3 +79,22 @@ In-memory persistence has no cross-process sharing and no restart safety. It cap
 - Multiple server instances: use Redis.
 - Need visible conversation history or audit records: use the app database.
 - Need longer pause windows: set TTL intentionally and make the UX handle expiry.
+
+## PostgreSQL durable runtime history
+
+Use `createPostgresFrameworkAdapter({ connectionString, namespace, ttlMs, retention, redis? })` for durable runtime history. PostgreSQL is authoritative; Redis optionally caches checkpoint payloads. This is runtime execution persistence, separate from the app's business data and semantic memory.
+
+Run `await persistence.maintenance.setup()` explicitly in a deployment/migration command before serving requests. The app schedules `await persistence.maintenance.prune({ batchSize: 500 })`; the adapter owns safe deletion and dependency checks. No automatic retention timer or maintenance HTTP endpoint is installed. `result.deleted`, `result.skipped`, and `result.hasMore` support job monitoring and repeated batches. Call `await persistence.close()` after executions finish on shutdown.
+
+Retention is separate from approval and cache lifetime:
+
+- `retention.checkpointHistoryDays` defaults to 30, without a 50-checkpoint cap.
+- `retention.inactiveSessionDays` defaults to 30 since runtime activity; browsing history does not extend it.
+- `ttlMs` defaults to 15 minutes for interrupts; configure longer approval windows explicitly.
+- `redis.ttlMs` defaults to 15 minutes for cache payloads, which can reload from PostgreSQL.
+
+Retained session heads, unexpired pauses, and executing runs are protected. Reads enforce expiry before maintenance physically removes records. Session expiry ends access to its history. Rollback preserves abandoned branches, identified by checkpoint summary `branchStatus`; forks own complete paused snapshots and independent tokens. Expired approvals cannot be revived through rollback/fork.
+
+`createFrameworkAdapterFromEnv()` selects PostgreSQL first if `KORTYX_POSTGRES_URL` is provided; existing Redis URL settings then supply optional caching. It never implicitly uses the app's `DATABASE_URL`. Narrow `kind === "postgres"` to access maintenance/setup/close. Explicit setup is still required.
+
+Durability supports resume/rollback/fork with compatible workflow code. It does not promise exact historical reproduction across code changes or exactly-once external side effects.
