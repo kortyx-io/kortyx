@@ -163,6 +163,133 @@ describe("tryPrepareResumeStream", () => {
     });
   });
 
+  it("acquires protection before consuming approval and transfers the lease to execution", async () => {
+    const release = vi.fn(async () => {});
+    const order: string[] = [];
+    const store = {
+      get: vi.fn(async () => pendingBase),
+      take: vi.fn(async () => {
+        order.push("take");
+        return {
+          ...pendingBase,
+          state: { ...pendingBase.state, data: { authoritative: true } },
+        };
+      }),
+      delete: vi.fn(async () => {}),
+      save: vi.fn(async () => {}),
+    };
+    const acquire = vi.fn(async () => {
+      order.push("lease");
+      return release;
+    });
+    await tryPrepareResumeStream({
+      meta: {
+        token: pendingBase.token,
+        requestId: pendingBase.requestId,
+        selected: [],
+      },
+      sessionId: pendingBase.sessionId,
+      config: {},
+      selectWorkflow: async (id) => workflowDefinition(id),
+      frameworkAdapter: {
+        pendingRequests: store,
+        acquireRunLease: acquire,
+      } as unknown as FrameworkAdapter,
+    });
+    expect(order).toEqual(["lease", "take"]);
+    expect(mocks.orchestrateGraphStream).toHaveBeenCalledWith(
+      expect.objectContaining({
+        executionLeaseRelease: release,
+        state: expect.objectContaining({ data: { authoritative: true } }),
+      }),
+    );
+    expect(release).not.toHaveBeenCalled();
+    expect(store.save).not.toHaveBeenCalled();
+  });
+
+  it("does not consume or recreate an approval when lease acquisition or atomic consumption fails", async () => {
+    const release = vi.fn(async () => {});
+    const store = {
+      get: vi.fn(async () => pendingBase),
+      take: vi.fn(async () => null),
+      save: vi.fn(async () => {}),
+    };
+    const acquire = vi.fn(async () => release);
+    const args = {
+      meta: {
+        token: pendingBase.token,
+        requestId: pendingBase.requestId,
+        selected: [],
+      },
+      sessionId: pendingBase.sessionId,
+      config: {},
+      selectWorkflow: vi.fn(),
+      frameworkAdapter: {
+        pendingRequests: store,
+        acquireRunLease: acquire,
+      } as unknown as FrameworkAdapter,
+    };
+    acquire.mockRejectedValueOnce(new Error("already executing"));
+    await expect(tryPrepareResumeStream(args)).rejects.toThrow(
+      "already executing",
+    );
+    expect(store.take).not.toHaveBeenCalled();
+    await expect(tryPrepareResumeStream(args)).rejects.toThrow(
+      "already been resumed",
+    );
+    expect(store.save).not.toHaveBeenCalled();
+    expect(release).toHaveBeenCalledTimes(1);
+    expect(mocks.orchestrateGraphStream).not.toHaveBeenCalled();
+  });
+
+  it("releases preparation leases after cancellation or errors and does not republish after ownership loss", async () => {
+    const release = vi.fn(async () => {});
+    const store = {
+      get: vi.fn(async () => pendingBase),
+      take: vi.fn(async () => pendingBase),
+      delete: vi.fn(async () => {}),
+      save: vi.fn(async () => {}),
+    };
+    let lose: (cause: unknown) => void = () => {};
+    const acquire = vi.fn(
+      async (args: { onLost: (cause: unknown) => void }) => {
+        lose = args.onLost;
+        return release;
+      },
+    );
+    const args = {
+      meta: {
+        token: pendingBase.token,
+        requestId: pendingBase.requestId,
+        selected: [],
+      },
+      sessionId: pendingBase.sessionId,
+      config: {},
+      selectWorkflow: vi.fn(async (id: string) => workflowDefinition(id)),
+      frameworkAdapter: {
+        pendingRequests: store,
+        acquireRunLease: acquire,
+      } as unknown as FrameworkAdapter,
+    };
+    await tryPrepareResumeStream({
+      ...args,
+      meta: { ...args.meta, cancel: true },
+    });
+    expect(release).toHaveBeenCalledTimes(1);
+    args.selectWorkflow.mockRejectedValueOnce(new Error("preparation failed"));
+    await expect(tryPrepareResumeStream(args)).rejects.toThrow(
+      "preparation failed",
+    );
+    expect(store.save).toHaveBeenCalledTimes(1);
+    args.selectWorkflow.mockImplementationOnce(async (id) => {
+      lose(new Error("lease lost"));
+      return workflowDefinition(id);
+    });
+    await expect(tryPrepareResumeStream(args)).rejects.toThrow("lease lost");
+    expect(store.save).toHaveBeenCalledTimes(1);
+    expect(release).toHaveBeenCalledTimes(3);
+  });
+
   it("resumes legacy requests without a saved state", async () => {
     const { state: _state, ...pending } = pendingBase;
     const store = {

@@ -2,6 +2,7 @@ import type { GraphState, WorkflowDefinition } from "@kortyx/core";
 import { DomainError, serializeFailure } from "@kortyx/core/errors";
 import {
   createExecutionGraph,
+  createInMemoryFrameworkAdapter,
   type FrameworkAdapter,
   type PendingRequestStore,
 } from "@kortyx/runtime";
@@ -2496,4 +2497,110 @@ it("uses the checkpoint node when a limit error has no runtime node annotation",
   expect(chunks).toContainEqual(
     expect.objectContaining({ type: "interrupt", node: "__start__" }),
   );
+});
+
+it("acquires an execution lease before running nodes and releases it after persisting the outcome", async () => {
+  const adapter = createInMemoryFrameworkAdapter();
+  const order: string[] = [];
+  adapter.acquireRunLease = async ({ sessionId }) => {
+    expect(sessionId).toBe("lease-session");
+    order.push("acquire");
+    return async () => {
+      order.push("release");
+    };
+  };
+  const graph = graphWithEvents(() => {
+    order.push("execute");
+    return [{ type: "done", data: baseState }];
+  });
+  let completion: Promise<void> | undefined;
+  await collect(
+    await orchestrateGraphStream({
+      graph,
+      state: baseState,
+      runId: "lease-run",
+      sessionId: "lease-session",
+      config: {},
+      frameworkAdapter: adapter,
+      selectWorkflow: vi.fn(),
+      onExecution: (promise) => {
+        completion = promise;
+      },
+    }),
+  );
+  await completion;
+  expect(order).toEqual(["acquire", "execute", "release"]);
+});
+
+it("reports lease acquisition failure before starting a graph", async () => {
+  const adapter = createInMemoryFrameworkAdapter();
+  adapter.acquireRunLease = async () => {
+    throw new Error("already executing");
+  };
+  const graph = graphWithEvents(() => []);
+  const log = vi.spyOn(console, "error").mockImplementation(() => {});
+  try {
+    const chunks = await collect(
+      await orchestrateGraphStream({
+        graph,
+        state: baseState,
+        runId: "lease-run",
+        config: {},
+        frameworkAdapter: adapter,
+        selectWorkflow: vi.fn(),
+      }),
+    );
+    expect(chunks).toContainEqual(
+      expect.objectContaining({
+        type: "error",
+        failure: expect.objectContaining({ code: "EXECUTION_FAILED" }),
+      }),
+    );
+    expect(graph.streamEvents).not.toHaveBeenCalled();
+  } finally {
+    log.mockRestore();
+  }
+});
+
+it("aborts on lost ownership and handles release failure without hiding the outcome", async () => {
+  const adapter = createInMemoryFrameworkAdapter();
+  let lost: ((cause: unknown) => void) | undefined;
+  adapter.acquireRunLease = async ({ onLost }) => {
+    lost = onLost;
+    return async () => {
+      throw new Error("release unavailable");
+    };
+  };
+  const graph = graphWithEvents(() => {
+    lost?.(new Error("ownership lost"));
+    return [];
+  });
+  const log = vi.spyOn(console, "error").mockImplementation(() => {});
+  let completion: Promise<void> | undefined;
+  try {
+    const chunks = await collect(
+      await orchestrateGraphStream({
+        graph,
+        state: baseState,
+        runId: "lease-run",
+        config: {},
+        executionSignal: new AbortController().signal,
+        frameworkAdapter: adapter,
+        selectWorkflow: vi.fn(),
+        onExecution: (promise) => {
+          completion = promise;
+        },
+      }),
+    );
+    await completion;
+    expect(chunks).toContainEqual(
+      expect.objectContaining({ type: "cancelled" }),
+    );
+    expect(log).toHaveBeenCalledWith(
+      "[execution:releaseLease]",
+      expect.anything(),
+    );
+  } finally {
+    log.mockRestore();
+  }
 });

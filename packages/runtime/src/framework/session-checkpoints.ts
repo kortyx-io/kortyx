@@ -18,6 +18,8 @@ export type CheckpointSummary = {
   forkedFrom?: string;
   workflowVersion?: string;
   buildId?: string;
+  /** PostgreSQL retains abandoned branches until their history window expires. */
+  branchStatus?: "active" | "abandoned";
 };
 
 export type SessionCheckpointRecord = CheckpointSummary & {
@@ -61,16 +63,26 @@ export type ForkSessionCheckpointResult = {
 };
 
 export type SessionCheckpointStore = {
+  /** The store publishes pending requests in the same transaction as the session transition. */
+  managesPendingRequests?: boolean;
   list: (sessionId: string) => Promise<CheckpointSummary[]>;
   get: (id: CheckpointId) => Promise<SessionCheckpointRecord | null>;
   getHead: (sessionId: string) => Promise<SessionCheckpointRecord | null>;
   append: (
     args: AppendSessionCheckpointArgs,
   ) => Promise<SessionCheckpointRecord>;
-  rollbackTo: (id: CheckpointId) => Promise<RollbackSessionCheckpointResult>;
+  rollbackTo: (
+    id: CheckpointId,
+    options?: {
+      preparePendingRequests?: (requests: PendingRequestRecord[]) => void;
+    },
+  ) => Promise<RollbackSessionCheckpointResult>;
   fork: (
     id: CheckpointId,
-    options?: { newSessionId?: string },
+    options?: {
+      newSessionId?: string;
+      preparePendingRequests?: (requests: PendingRequestRecord[]) => void;
+    },
   ) => Promise<ForkSessionCheckpointResult>;
 };
 

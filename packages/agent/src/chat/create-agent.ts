@@ -367,32 +367,43 @@ export function createAgent(args: CreateAgentArgs): Agent {
     id: CheckpointId,
   ): Promise<RollbackSessionCheckpointResult> => {
     const target = await resolvedFrameworkAdapter.sessionCheckpoints.get(id);
-    const result =
-      await resolvedFrameworkAdapter.sessionCheckpoints.rollbackTo(id);
-    const activePendingRequests = await Promise.all(
-      result.activePendingRequests.map((request) =>
-        hydratePendingGraphCheckpoint(resolvedFrameworkAdapter, request),
-      ),
+    const sourceRunId = target?.runId ?? "unknown";
+    const managed =
+      resolvedFrameworkAdapter.sessionCheckpoints.managesPendingRequests;
+    const result = await resolvedFrameworkAdapter.sessionCheckpoints.rollbackTo(
+      id,
+      managed
+        ? {
+            preparePendingRequests: (requests) =>
+              restoreWorkflowCallBranch(requests, telemetry, sourceRunId),
+          }
+        : undefined,
     );
-    restoreWorkflowCallBranch(
-      activePendingRequests,
-      telemetry,
-      target?.runId ?? "unknown",
-    );
-    await Promise.all(
-      activePendingRequests.map((request) =>
-        clearPendingGraphWrites(resolvedFrameworkAdapter, request),
-      ),
-    );
+    let activePendingRequests: PendingRequestRecord[];
+    if (managed) {
+      activePendingRequests = result.activePendingRequests;
+    } else {
+      activePendingRequests = await Promise.all(
+        result.activePendingRequests.map((request) =>
+          hydratePendingGraphCheckpoint(resolvedFrameworkAdapter, request),
+        ),
+      );
+      restoreWorkflowCallBranch(activePendingRequests, telemetry, sourceRunId);
+      await Promise.all(
+        activePendingRequests.map((request) =>
+          clearPendingGraphWrites(resolvedFrameworkAdapter, request),
+        ),
+      );
 
-    await Promise.all([
-      ...result.invalidatedInterruptTokens.map((token) =>
-        resolvedFrameworkAdapter.pendingRequests.delete(token),
-      ),
-      ...activePendingRequests.map((request) =>
-        resolvedFrameworkAdapter.pendingRequests.save(request),
-      ),
-    ]);
+      await Promise.all([
+        ...result.invalidatedInterruptTokens.map((token) =>
+          resolvedFrameworkAdapter.pendingRequests.delete(token),
+        ),
+        ...activePendingRequests.map((request) =>
+          resolvedFrameworkAdapter.pendingRequests.save(request),
+        ),
+      ]);
+    }
 
     if (target) {
       emitTelemetryEvent({
@@ -418,30 +429,40 @@ export function createAgent(args: CreateAgentArgs): Agent {
     options?: { newSessionId?: string },
   ): Promise<ForkSessionCheckpointResult> => {
     const source = await resolvedFrameworkAdapter.sessionCheckpoints.get(id);
+    const sourceRunId = source?.runId ?? "unknown";
+    const managed =
+      resolvedFrameworkAdapter.sessionCheckpoints.managesPendingRequests;
     const result = await resolvedFrameworkAdapter.sessionCheckpoints.fork(
       id,
-      options,
+      managed
+        ? {
+            ...options,
+            preparePendingRequests: (requests) =>
+              restoreWorkflowCallBranch(requests, telemetry, sourceRunId),
+          }
+        : options,
     );
-    const activePendingRequests = await Promise.all(
-      result.checkpoint.activePendingRequests.map((request) =>
-        hydratePendingGraphCheckpoint(resolvedFrameworkAdapter, request),
-      ),
-    );
-    restoreWorkflowCallBranch(
-      activePendingRequests,
-      telemetry,
-      source?.runId ?? "unknown",
-    );
-    await Promise.all(
-      activePendingRequests.map((request) =>
-        clearPendingGraphWrites(resolvedFrameworkAdapter, request),
-      ),
-    );
-    await Promise.all(
-      activePendingRequests.map((request) =>
-        resolvedFrameworkAdapter.pendingRequests.save(request),
-      ),
-    );
+    let activePendingRequests: PendingRequestRecord[];
+    if (managed) {
+      activePendingRequests = result.checkpoint.activePendingRequests;
+    } else {
+      activePendingRequests = await Promise.all(
+        result.checkpoint.activePendingRequests.map((request) =>
+          hydratePendingGraphCheckpoint(resolvedFrameworkAdapter, request),
+        ),
+      );
+      restoreWorkflowCallBranch(activePendingRequests, telemetry, sourceRunId);
+      await Promise.all(
+        activePendingRequests.map((request) =>
+          clearPendingGraphWrites(resolvedFrameworkAdapter, request),
+        ),
+      );
+      await Promise.all(
+        activePendingRequests.map((request) =>
+          resolvedFrameworkAdapter.pendingRequests.save(request),
+        ),
+      );
+    }
     emitTelemetryEvent({
       config: { ...(telemetry ? { telemetry } : {}) },
       type: "session.forked",

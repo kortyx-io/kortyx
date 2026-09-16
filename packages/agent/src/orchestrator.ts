@@ -74,6 +74,8 @@ export type OrchestrationOutcome = {
 };
 
 export interface OrchestrateArgs {
+  /** Resume owns the lease while restoring its snapshot, then transfers it to execution. */
+  executionLeaseRelease?: (() => Promise<void>) | undefined;
   executionSignal?: AbortSignal | undefined;
   onExecution?: ((completion: Promise<void>) => void) | undefined;
   abortSignal?: AbortSignal | undefined;
@@ -177,6 +179,7 @@ export async function orchestrateGraphStream({
   selectWorkflow,
   knownWorkflowIds,
   frameworkAdapter,
+  executionLeaseRelease,
 }: OrchestrateArgs): Promise<NodeJS.ReadableStream> {
   const out = new PassThrough({ objectMode: true });
 
@@ -197,11 +200,15 @@ export async function orchestrateGraphStream({
   let currentGraph = graph;
   let currentState: GraphState = state;
   let finished = false;
+  const leaseAbort = new AbortController();
+  let releaseLease = executionLeaseRelease;
   const response = createResponseLifecycle({
     enabled: emitOutput,
     restored: initialConfig.responseCompleted === true,
     requestSignal,
-    executionSignal,
+    executionSignal: executionSignal
+      ? AbortSignal.any([executionSignal, leaseAbort.signal])
+      : leaseAbort.signal,
     onClosed: () => {
       out.write({ type: "done" });
       out.end();
@@ -1501,12 +1508,26 @@ export async function orchestrateGraphStream({
   if (!traceAdapter?.withSpan) {
     emitTraceChunk();
   }
-  const runPromise = traceAdapter?.withSpan
-    ? traceAdapter.withSpan(runSpanArgs, (runTraceSpan) => {
-        emitTraceChunk();
-        return runLoop(runTraceSpan);
-      })
-    : runLoop(fallbackRunSpan ?? {});
+  const startRun = () =>
+    traceAdapter?.withSpan
+      ? traceAdapter.withSpan(runSpanArgs, (runTraceSpan) => {
+          emitTraceChunk();
+          return runLoop(runTraceSpan);
+        })
+      : runLoop(fallbackRunSpan ?? {});
+  const runPromise =
+    frameworkAdapter?.acquireRunLease && !releaseLease
+      ? frameworkAdapter
+          .acquireRunLease({
+            runId,
+            ...(sessionId ? { sessionId } : {}),
+            onLost: (cause) => leaseAbort.abort(cause),
+          })
+          .then((release) => {
+            releaseLease = release;
+            return startRun();
+          })
+      : startRun();
 
   const finishCancelled = async () => {
     emitTelemetryEvent({
@@ -1686,7 +1707,12 @@ export async function orchestrateGraphStream({
       finished = true;
       out.end();
     })
-    .finally(() => {
+    .finally(async () => {
+      try {
+        await releaseLease?.();
+      } catch (error) {
+        console.error("[execution:releaseLease]", serializeFailure(error));
+      }
       response.dispose();
       onOutcome?.({
         state: outcomeState,

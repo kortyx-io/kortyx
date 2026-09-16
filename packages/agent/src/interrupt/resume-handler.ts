@@ -116,7 +116,7 @@ export async function tryPrepareResumeStream({
     frameworkAdapter?.pendingRequests;
   if (!store) return null;
 
-  const pending = await store.get(meta.token);
+  let pending = await store.get(meta.token);
   if (!pending || pending.requestId !== meta.requestId) {
     throw new ExecutionRequestError(
       "INVALID_RESUME",
@@ -153,35 +153,49 @@ export async function tryPrepareResumeStream({
       yield { type: "done" } as const;
     })();
   }
-  if (store.take && !(await store.take(meta.token)))
-    throw new ExecutionRequestError(
-      "INVALID_RESUME",
-      "Interrupt has already been resumed or cancelled.",
-    );
-  if (meta.cancel) {
-    await store.delete(pending.token);
-    emitTelemetryEvent({
-      config,
-      type: "interrupt.cancelled",
-      correlation: {
-        runId: pending.runId,
-        sessionId,
-        workflowId: pending.workflow,
-        nodeId: pending.node,
-      },
-      payload: {
-        interruptId: pending.requestId,
-        reason: "cancelled_by_client",
-      },
-      flush: true,
-    });
-    onOutcome?.({ state: pending.state as GraphState, cancelled: true });
-    return (async function* (): AsyncGenerator<StreamChunk> {
-      yield { type: "done" };
-    })();
-  }
-
+  const leaseAbort = new AbortController();
+  let releaseLease: (() => Promise<void>) | undefined;
+  let consumed = false;
   try {
+    releaseLease = await frameworkAdapter?.acquireRunLease?.({
+      runId: pending.runId,
+      sessionId,
+      onLost: (cause) => leaseAbort.abort(cause),
+    });
+    leaseAbort.signal.throwIfAborted();
+    if (store.take) {
+      const taken = await store.take(meta.token);
+      if (!taken)
+        throw new ExecutionRequestError(
+          "INVALID_RESUME",
+          "Interrupt has already been resumed or cancelled.",
+        );
+      pending = taken;
+    }
+    consumed = true;
+    if (meta.cancel) {
+      await store.delete(pending.token);
+      emitTelemetryEvent({
+        config,
+        type: "interrupt.cancelled",
+        correlation: {
+          runId: pending.runId,
+          sessionId,
+          workflowId: pending.workflow,
+          nodeId: pending.node,
+        },
+        payload: {
+          interruptId: pending.requestId,
+          reason: "cancelled_by_client",
+        },
+        flush: true,
+      });
+      onOutcome?.({ state: pending.state as GraphState, cancelled: true });
+      return (async function* (): AsyncGenerator<StreamChunk> {
+        yield { type: "done" };
+      })();
+    }
+
     const resumeData = isLimitPause
       ? {}
       : applyResumeSelection
@@ -270,6 +284,7 @@ export async function tryPrepareResumeStream({
           ...resumeStatePatch,
         };
     }
+    leaseAbort.signal.throwIfAborted();
     if (pending.graphSnapshot && frameworkAdapter)
       await restoreGraphSnapshot(
         frameworkAdapter.checkpointer,
@@ -334,12 +349,16 @@ export async function tryPrepareResumeStream({
       flush: true,
     });
 
+    const continuedSignal =
+      pending.responseCompleted && emitOutput === false
+        ? abortSignal
+        : executionSignal;
     const args = {
       abortSignal,
-      executionSignal:
-        pending.responseCompleted && emitOutput === false
-          ? abortSignal
-          : executionSignal,
+      executionSignal: continuedSignal
+        ? AbortSignal.any([continuedSignal, leaseAbort.signal])
+        : leaseAbort.signal,
+      executionLeaseRelease: releaseLease,
       onExecution,
       emitOutput,
       onOutcome,
@@ -361,10 +380,14 @@ export async function tryPrepareResumeStream({
       frameworkAdapter: frameworkAdapter as FrameworkAdapter,
     } satisfies OrchestrateArgs;
 
+    leaseAbort.signal.throwIfAborted();
     const stream = await orchestrateGraphStream(args);
+    releaseLease = undefined;
     return stream as unknown as AsyncIterable<StreamChunk>;
   } catch (error) {
-    await store.save(pending);
+    if (consumed && !leaseAbort.signal.aborted) await store.save(pending);
     throw error;
+  } finally {
+    await releaseLease?.();
   }
 }

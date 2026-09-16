@@ -87,6 +87,7 @@ function parseReply(
 }
 
 export type RedisClient = {
+  close?: () => Promise<void>;
   command: (cmd: string, args?: string[]) => Promise<RedisReply>;
 };
 
@@ -150,17 +151,22 @@ export function createRedisClient(options: RedisClientOptions): RedisClient {
       s.setKeepAlive(true);
 
       s.on("data", (chunk) => {
+        if (socket !== s) return;
         buffer = Buffer.concat([buffer, chunk]);
         drainReplies();
       });
 
       s.on("error", (err) => {
+        if (socket !== s) return;
         ready = false;
         while (inflight.length) inflight.shift()?.reject(err);
       });
 
       s.on("close", () => {
+        if (socket !== s) return;
         ready = false;
+        socket = null;
+        buffer = Buffer.alloc(0);
         while (inflight.length)
           inflight.shift()?.reject(new Error("Redis socket closed"));
       });
@@ -214,6 +220,14 @@ export function createRedisClient(options: RedisClientOptions): RedisClient {
   };
 
   return {
+    async close() {
+      socket?.destroy();
+      socket = null;
+      buffer = Buffer.alloc(0);
+      ready = false;
+      while (inflight.length)
+        inflight.shift()?.reject(new Error("Redis socket closed"));
+    },
     async command(cmd: string, args: string[] = []) {
       await ensureConnected();
       return send(cmd, args);
