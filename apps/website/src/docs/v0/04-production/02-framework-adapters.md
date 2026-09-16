@@ -24,7 +24,7 @@ If you are only testing locally, you can usually use the default and come back l
 - pending interrupt requests
 - checkpoints for paused runs
 - user-facing session checkpoints for rollback, fork, regenerate, and undo
-- short-lived runtime state with a TTL
+- runtime execution state, with adapter-specific expiry and retention
 
 > **Good to know:** This adapter is only for Kortyx runtime state. Keep your app's business data in your own DB or service layer.
 
@@ -33,8 +33,9 @@ If you are only testing locally, you can usually use the default and come back l
 For most apps:
 
 1. local dev: pass nothing and use the default
-2. production resume: set `KORTYX_REDIS_URL`
-3. only create adapters manually when you want explicit control in code
+2. short-lived production resume: set `KORTYX_REDIS_URL`
+3. month-long history: configure PostgreSQL and complete schema setup before traffic
+4. create adapters manually when you want explicit control in code
 
 > **Good to know:** `createFrameworkAdapterFromEnv()` is not a third backend. It is the default helper that chooses between in-memory, Redis, and PostgreSQL.
 
@@ -176,6 +177,7 @@ TTL env variables:
 
 - start with the default in local dev
 - use Redis in production if you rely on interrupt/resume, rollback, fork, or regenerate
+- use PostgreSQL for durable runtime history beyond Redis's TTL, with optional Redis caching
 - lower `maxSessionCheckpoints` for high-volume apps when users do not need deep rollback history
 - do not use this adapter as a replacement for your app database
 
