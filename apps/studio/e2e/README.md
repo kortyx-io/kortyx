@@ -50,6 +50,11 @@ Assert relational geometry (for example, expanded drawer left edge equals the
 sidebar inset edge), not screenshot pixels. Use Playwright auto-waiting,
 web-first assertions, or `expect.poll`; do not add fixed sleeps.
 
+For transient animation states, install the browser audit before the action.
+Drain queued entry animation events before observing close, then assert the
+captured state and selection at exit completion. A runner may receive a click
+response after Presence has already removed the closing surface.
+
 ## Regressions this suite must keep failing on
 
 - colon, URL delimiter, Unicode, or literal percent escapes in an opaque entity
