@@ -167,6 +167,58 @@ test.describe("Studio detail drawer stack", () => {
     });
   }
 
+  for (const tab of ["Trace", "Events"] as const) {
+    test(`restores the saved ${tab} inspector after closing Run → Session → Run`, async ({
+      page,
+    }) => {
+      await openRunsList(page);
+      await clickTableRow(runTableRow(page));
+      const run = drawer(page, runPath);
+      await run
+        .getByRole("button", { name: "Expand detail", exact: true })
+        .click();
+      await expectDrawerAtRouteBounds(page, run);
+      await run
+        .getByRole("button", {
+          name: tab === "Events" ? /^Events \d+$/ : "Trace",
+          exact: tab === "Trace",
+        })
+        .click();
+      await run
+        .getByRole("tabpanel")
+        .locator('button[aria-haspopup="dialog"]')
+        .first()
+        .click();
+      await expect(inspector(page)).toHaveAttribute("data-state", "open");
+      await waitForSurfaceMotion(inspector(page));
+      const originalUrl = page.url();
+      await run.getByRole("link", { name: /^Session / }).click();
+      const session = drawer(page, sessionPath);
+      await expect(session).toHaveAttribute("data-state", "open");
+      await openRunFromSession(page);
+      await expect(session).toHaveCount(0);
+      await expect(inspector(page)).toHaveCount(0);
+      await page.keyboard.press("Escape");
+      await expect(session).toHaveAttribute("data-state", "open");
+      await closeButton(session).click();
+      await expect(page).toHaveURL(originalUrl);
+      await expect(run).toHaveAttribute("data-state", "open");
+      await expectDrawerAtRouteBounds(page, run);
+      await expect(inspector(page)).toHaveAttribute("data-state", "open");
+      await expect(inspector(page)).toBeInViewport();
+      await expect(
+        run.locator('button[aria-haspopup="dialog"][aria-expanded="true"]'),
+      ).toHaveCount(1);
+      await waitForSurfaceMotion(inspector(page));
+      await page.keyboard.press("Escape");
+      await expect(inspector(page)).toHaveCount(0);
+      await expect(run).toHaveAttribute("data-state", "open");
+      await page.keyboard.press("Escape");
+      await expect(page).toHaveURL(/\/runs\?/);
+      await expect(page.locator("[data-detail-drawer]")).toHaveCount(0);
+    });
+  }
+
   test("stacks Session, Run, and Trace while the shared backdrop peels one level at a time", async ({
     page,
   }) => {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useRouter, useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   createContext,
   type ReactNode,
@@ -20,7 +20,9 @@ import {
   expandDetailLayer,
   getDetailBackdropState,
   isDetailLayerActiveForHistory,
+  readDetailHistorySnapshot,
   registerDetailLayer,
+  restoreDetailLayersFromHistory,
   setDetailLayerClosing,
   setDetailLayerSplitOpen,
   syncDetailLayersToHistoryPath,
@@ -31,6 +33,8 @@ import { detailDrawerZIndex } from "@/lib/overlay-layers";
 import { cn } from "@/lib/utils";
 
 export type { DetailLayerRegistration } from "@/components/detail/detail-stack-state";
+
+const DETAIL_HISTORY_KEY = "__kortyxDetailStack";
 
 const DETAIL_BASE_PATHS = ["/sessions", "/runs", "/interrupts"] as const;
 
@@ -54,6 +58,7 @@ const DetailStackContext = createContext<DetailStackContextValue | null>(null);
 export function DetailStackProvider({ children }: { children: ReactNode }) {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const pathname = usePathname();
   const { isMobile } = useSidebar();
   const [layers, setLayers] = useState<DetailLayer[]>([]);
   const historyTargetPathRef = useRef<string | null>(null);
@@ -61,12 +66,55 @@ export function DetailStackProvider({ children }: { children: ReactNode }) {
   const nestedCloseHandlersRef = useRef(new Map<string, () => void>());
   const timersRef = useRef(new Map<string, number>());
 
+  const saveCurrentStack = useCallback(() => {
+    if (historyTraversalRef.current) return;
+    const path = window.location.pathname;
+    const target = layers.find((layer) => layer.matchPath === path);
+    if (target?.closing) return;
+    const isList = DETAIL_BASE_PATHS.some((base) => base === path);
+    if (!target && !isList && layers.length > 0) return;
+    // Metadata-only writes bypass Next/Nuqs wrappers, which can reset a
+    // queued query selection even when the URL has not changed.
+    History.prototype.replaceState.call(
+      window.history,
+      {
+        ...window.history.state,
+        [DETAIL_HISTORY_KEY]: {
+          pathname: path,
+          layers: isList
+            ? []
+            : layers
+                .filter((layer) => !layer.closing)
+                .map((layer) => ({ ...layer, splitOpen: false })),
+        },
+      },
+      "",
+    );
+  }, [layers]);
+
+  useEffect(() => {
+    // Do not overwrite a restored entry before Next commits its route tree.
+    if (
+      pathname === window.location.pathname &&
+      searchParams.toString() ===
+        new URLSearchParams(window.location.search).toString()
+    )
+      saveCurrentStack();
+  }, [pathname, searchParams, saveCurrentStack]);
+
   const clearTimer = useCallback((key: string) => {
     const timer = timersRef.current.get(key);
     if (timer === undefined) return;
     window.clearTimeout(timer);
     timersRef.current.delete(key);
   }, []);
+
+  const cancelPendingNavigation = useCallback(() => {
+    for (const key of timersRef.current.keys()) {
+      if (key.startsWith("navigate")) clearTimer(key);
+    }
+    historyTraversalRef.current = null;
+  }, [clearTimer]);
 
   const register = useCallback(
     (registration: DetailLayerRegistration) => {
@@ -129,6 +177,7 @@ export function DetailStackProvider({ children }: { children: ReactNode }) {
       let attempts = 0;
       historyTraversalRef.current = reachedTarget;
       const step = () => {
+        if (historyTraversalRef.current !== reachedTarget) return;
         if (reachedTarget()) {
           historyTraversalRef.current = null;
           return;
@@ -153,6 +202,7 @@ export function DetailStackProvider({ children }: { children: ReactNode }) {
     (id: string) => {
       const target = layers.find((layer) => layer.id === id);
       if (!target) return;
+      saveCurrentStack();
       beginClose(id);
       scheduleNavigation(`navigate:${id}`, () => {
         navigateBackUntil(
@@ -161,7 +211,14 @@ export function DetailStackProvider({ children }: { children: ReactNode }) {
         );
       });
     },
-    [beginClose, layers, navigateBackUntil, scheduleNavigation, searchParams],
+    [
+      beginClose,
+      layers,
+      navigateBackUntil,
+      saveCurrentStack,
+      scheduleNavigation,
+      searchParams,
+    ],
   );
 
   const closeAbove = useCallback(
@@ -169,6 +226,7 @@ export function DetailStackProvider({ children }: { children: ReactNode }) {
       const index = layers.findIndex((layer) => layer.id === id);
       if (index < 0 || index === layers.length - 1) return;
       const target = layers[index];
+      saveCurrentStack();
       setLayers((current) => closeDetailLayersAbove(current, id));
       scheduleNavigation(`navigate-above:${id}`, () => {
         let href = detailNavigationHref(target.matchPath, searchParams);
@@ -182,12 +240,19 @@ export function DetailStackProvider({ children }: { children: ReactNode }) {
         );
       });
     },
-    [layers, navigateBackUntil, scheduleNavigation, searchParams],
+    [
+      layers,
+      navigateBackUntil,
+      saveCurrentStack,
+      scheduleNavigation,
+      searchParams,
+    ],
   );
 
   const closeAll = useCallback(() => {
     const bottom = layers[0];
     if (!bottom) return;
+    saveCurrentStack();
     setLayers(closeAllDetailLayers);
     scheduleNavigation("navigate:all", () => {
       const detailPaths = new Set(layers.map((layer) => layer.matchPath));
@@ -196,10 +261,18 @@ export function DetailStackProvider({ children }: { children: ReactNode }) {
         detailNavigationHref(bottom.dismissPath, searchParams),
       );
     });
-  }, [layers, navigateBackUntil, scheduleNavigation, searchParams]);
+  }, [
+    layers,
+    navigateBackUntil,
+    saveCurrentStack,
+    scheduleNavigation,
+    searchParams,
+  ]);
 
   const prepareNavigation = useCallback(
     (href: string) => {
+      cancelPendingNavigation();
+      saveCurrentStack();
       const pathname = href.split("?", 1)[0] ?? href;
       if (!layers.some((layer) => layer.matchPath === pathname)) return;
       // A link to a retained ancestor is a regular navigation, just like a
@@ -210,7 +283,7 @@ export function DetailStackProvider({ children }: { children: ReactNode }) {
         syncDetailLayersToHistoryPath(current, pathname, DETAIL_BASE_PATHS),
       );
     },
-    [layers],
+    [cancelPendingNavigation, layers, saveCurrentStack],
   );
 
   useEffect(
@@ -231,14 +304,24 @@ export function DetailStackProvider({ children }: { children: ReactNode }) {
       // Query-state entries can share the current drawer pathname. Keep the
       // exit state intact while an intentional close walks past those entries.
       if (reachedTraversalTarget && !reachedTraversalTarget()) return;
+      if (!reachedTraversalTarget) cancelPendingNavigation();
       historyTraversalRef.current = null;
       historyTargetPathRef.current = window.location.pathname;
+      const snapshot = readDetailHistorySnapshot(
+        window.history.state?.[DETAIL_HISTORY_KEY],
+        window.location.pathname,
+      );
+      if (snapshot) {
+        for (const layer of snapshot.layers) clearTimer(`remove:${layer.id}`);
+      }
       setLayers((current) =>
-        syncDetailLayersToHistoryPath(
-          current,
-          window.location.pathname,
-          DETAIL_BASE_PATHS,
-        ),
+        snapshot
+          ? restoreDetailLayersFromHistory(current, snapshot.layers)
+          : syncDetailLayersToHistoryPath(
+              current,
+              window.location.pathname,
+              DETAIL_BASE_PATHS,
+            ),
       );
     };
     window.addEventListener("popstate", syncToHistory, { capture: true });
@@ -246,7 +329,7 @@ export function DetailStackProvider({ children }: { children: ReactNode }) {
       window.removeEventListener("popstate", syncToHistory, {
         capture: true,
       });
-  }, []);
+  }, [cancelPendingNavigation, clearTimer]);
 
   const value = useMemo(
     () => ({
