@@ -14,6 +14,7 @@ import {
   isExecutionLimitReached,
   throwIfExecutionAborted,
 } from "@kortyx/core";
+import { KortyxError } from "@kortyx/core/errors";
 import type { KortyxTelemetryConfig, ReasonTraceAdapter } from "@kortyx/hooks";
 import { runWithHookContext } from "@kortyx/hooks";
 import type { GetProviderFn } from "@kortyx/providers";
@@ -28,6 +29,11 @@ import type { BaseCheckpointSaver } from "@langchain/langgraph-checkpoint";
 import { getCheckpointer } from "../checkpointer";
 import { resolveNodeHandler } from "../node-loader";
 import { createWorkflowCallService } from "./call-workflow";
+import {
+  addParallelGraphCoordinator,
+  hasParallelEdges,
+  type NodeExecutor,
+} from "./parallel-graph";
 
 interface CompiledGraphBase {
   invoke(state: unknown, options?: Record<string, unknown>): Promise<unknown>;
@@ -127,6 +133,8 @@ export async function createExecutionGraph(
     compile: (args: { checkpointer: BaseCheckpointSaver }) => CompiledGraphBase;
   };
   const workflowName = workflow.id;
+  const parallelGraph = hasParallelEdges(workflow);
+  const nodeExecutors: Record<string, NodeExecutor> = {};
 
   // Ensure an emit function exists so internal hook plumbing can emit events.
   type WithEmit = ExecutionRuntimeConfig & {
@@ -196,17 +204,36 @@ export async function createExecutionGraph(
     );
     const behavior = nodeConfig.behavior ?? {};
 
-    builder.addNode(nodeId, async (state: GraphState) => {
+    const executeNode: NodeExecutor = async (
+      state,
+      awaitInput,
+      snapshotGraph,
+    ) => {
       throwIfExecutionAborted(execution.abortSignal);
       const emitRuntimeEvent = (event: string, payload: unknown) => {
         runtimeConfig.emit(event, payload);
       };
+      if (awaitInput)
+        emitRuntimeEvent("status", {
+          node: nodeId,
+          message: `Processing node: ${nodeId}`,
+        });
       let suspension: unknown;
       let deniedAdmission: unknown;
       const hookNodeContext = {
         completeResponse: runtimeConfig.workflowCallDepth
           ? undefined
-          : execution.completeResponse,
+          : execution.completeResponse
+            ? async (
+                options: import("@kortyx/hooks").CompleteResponseOptions,
+                nodeState: GraphState,
+              ) => {
+                await execution.completeResponse?.(
+                  options,
+                  snapshotGraph ? snapshotGraph(nodeState) : nodeState,
+                );
+              }
+            : undefined,
         abortSignal: execution.abortSignal,
         consumeExecution: (limit: import("@kortyx/core").ExecutionLimit) => {
           throwIfExecutionAborted(execution.abortSignal);
@@ -289,14 +316,15 @@ export async function createExecutionGraph(
                 };
           let resumed: unknown;
           try {
-            resumed = interrupt(payload) as unknown;
+            resumed = awaitInput ? awaitInput(payload) : interrupt(payload);
           } catch (error) {
             suspension = error;
-            emitRuntimeEvent("interrupt", {
-              node: nodeId,
-              workflow: workflowName,
-              input: payload,
-            });
+            if (!awaitInput)
+              emitRuntimeEvent("interrupt", {
+                node: nodeId,
+                workflow: workflowName,
+                input: payload,
+              });
             throw error;
           }
           if (isMulti) {
@@ -482,6 +510,20 @@ export async function createExecutionGraph(
       }
 
       if (res.transitionTo) {
+        if (awaitInput)
+          throw Object.assign(
+            new KortyxError(
+              "GRAPH_BRANCH_HANDOFF",
+              "transitionTo cannot hand off from a parallel branch; useWorkflow returns to its caller.",
+              {
+                category: "workflow",
+                retryable: false,
+                safeMessage:
+                  "transitionTo cannot hand off from a parallel branch; useWorkflow returns to its caller.",
+              },
+            ),
+            { __kortyxHookStatePatch: hookRuntimeUpdates },
+          );
         emitRuntimeEvent("transition", {
           node: nodeId,
           workflow: workflowName,
@@ -555,8 +597,20 @@ export async function createExecutionGraph(
         });
       }
 
+      if (awaitInput) updates.__kortyxNodeData = res.data ?? {};
+      if (awaitInput)
+        emitRuntimeEvent("status", {
+          node: nodeId,
+          message: `✅ Completed node: ${nodeId}`,
+        });
       return updates;
+    };
+    Object.defineProperty(nodeExecutors, nodeId, {
+      value: executeNode,
+      enumerable: true,
     });
+    if (!parallelGraph)
+      builder.addNode(nodeId, (state: GraphState) => executeNode(state));
   }
 
   type EdgeTriple = readonly [string, string, { when?: string }?];
@@ -573,27 +627,37 @@ export async function createExecutionGraph(
     }
   }
 
-  for (const [from, to] of plainEdges) {
-    edgeApi.addEdge(from, to);
-  }
+  if (parallelGraph) {
+    addParallelGraphCoordinator(
+      builder as unknown as Parameters<typeof addParallelGraphCoordinator>[0],
+      workflow,
+      runtimeConfig,
+      execution,
+      nodeExecutors,
+    );
+  } else {
+    for (const [from, to] of plainEdges) {
+      edgeApi.addEdge(from, to);
+    }
 
-  for (const [from, rules] of Object.entries(condGroups)) {
-    const mapping: Record<string, string> = Object.fromEntries(
-      rules.map((r) => [r.when, r.to]),
-    );
-    const fallbackKey = `__default__:${from}`;
-    mapping[fallbackKey] = "__end__";
-    edgeApi.addConditionalEdges(
-      from,
-      (s: GraphState) => {
-        const trigger = s.lastCondition ?? s.lastIntent;
-        if (trigger && Object.hasOwn(mapping, trigger as string)) {
-          return trigger as string;
-        }
-        return fallbackKey;
-      },
-      mapping,
-    );
+    for (const [from, rules] of Object.entries(condGroups)) {
+      const mapping: Record<string, string> = Object.fromEntries(
+        rules.map((r) => [r.when, r.to]),
+      );
+      const fallbackKey = `__default__:${from}`;
+      mapping[fallbackKey] = "__end__";
+      edgeApi.addConditionalEdges(
+        from,
+        (s: GraphState) => {
+          const trigger = s.lastCondition ?? s.lastIntent;
+          if (trigger && Object.hasOwn(mapping, trigger as string)) {
+            return trigger as string;
+          }
+          return fallbackKey;
+        },
+        mapping,
+      );
+    }
   }
 
   const sessionId =

@@ -181,6 +181,11 @@ export async function orchestrateGraphStream({
   const out = new PassThrough({ objectMode: true });
 
   const write = (chunk: unknown) => {
+    if (isRecord(chunk) && chunk.type === "done" && isGraphState(chunk.data)) {
+      const { __kortyxParallelGraph: _journal, ...runtime } = chunk.data
+        .runtime as Record<string, unknown>;
+      chunk = { ...chunk, data: { ...chunk.data, runtime } };
+    }
     if (emitOutput && !response.closed && !out.destroyed) out.write(chunk);
   };
   let outcomeState = state;
@@ -679,6 +684,8 @@ export async function orchestrateGraphStream({
       return;
     }
     if (event === "status") {
+      const statusNode = (payload as { node?: string } | null)?.node;
+      if (typeof statusNode === "string") touchedNodes.add(statusNode);
       if (!debugEnabled) return;
       const statusMessage = (
         payload as { message?: unknown } | null | undefined
@@ -1532,6 +1539,14 @@ export async function orchestrateGraphStream({
 
   const completion = runPromise
     .catch(async (err) => {
+      const runtimePatch = (
+        err as { __kortyxHookStatePatch?: Record<string, unknown> } | null
+      )?.__kortyxHookStatePatch;
+      if (runtimePatch)
+        outcomeState = {
+          ...outcomeState,
+          runtime: { ...outcomeState.runtime, ...runtimePatch },
+        };
       if (abortSignal?.aborted || isExecutionCancelled(err)) {
         await finishCancelled();
         return;

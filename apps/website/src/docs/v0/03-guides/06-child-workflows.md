@@ -189,9 +189,49 @@ For example, if company research asks for approval at 2 seconds and role researc
 
 If children fail, `parallel` throws `ParallelError` after the group settles. Its `errors` contains the failures and its `results` contains standard fulfilled/rejected entries in input order, allowing application reconciliation. A waiting sibling is preserved before terminal failures are delivered. Suspension, cancellation and execution-limit exhaustion propagate as control flow and cannot become successful fallback output. Use `instanceof ParallelError` when catching task failures; do not swallow other errors.
 
-Children share the root signal and node/model/tool/child allowances. Cached work is not charged again. Continue remains an explicit server-authorized allowance decision. This helper has no concurrency-cap option: its array contains eager calls. Overlapping groups in the same node, native `Promise.all` child calls, and parallel edges in calling/called graphs remain unsupported.
+Children share the root signal and node/model/tool/child allowances. Cached work is not charged again. Continue remains an explicit server-authorized allowance decision. This helper has no concurrency-cap option: its array contains eager calls. Overlapping groups in the same node and native `Promise.all` child calls remain unsupported.
 
 To preserve dependency waves, await one `parallel` group before starting the next inside the parent node. Independent tasks in a wave still run concurrently; this pattern does not require parallel graph edges.
+
+## Child calls in parallel graph branches
+
+Forward-moving parallel graphs can call children from their ordinary nodes. Callable children can also contain parallel graph edges. Keep using `useWorkflow`; no wrapper workflow, call edge, or new resume endpoint is required.
+
+```ts
+nodes: {
+  company: {
+    run: async () => ({
+      data: { company: (await useWorkflow({
+        id: "research", workflow: companyResearchWorkflow, input: { companyId },
+      })).data },
+    }),
+  },
+  role: {
+    run: async () => ({
+      data: { role: (await useWorkflow({
+        id: "research", workflow: roleAnalysisWorkflow, input: { roleId },
+      })).data },
+    }),
+  },
+  plan: { run: planNode },
+},
+edges: [
+  ["__start__", "company"], ["__start__", "role"],
+  ["company", "plan"], ["role", "plan"], ["plan", "__end__"],
+],
+```
+
+The two calls run independently. Call IDs need only be unique within their own node activation. `plan` waits for both selected predecessors, even when one branch has more nodes. Unselected conditional paths do not count as required predecessors. Nodes receive their dependency results, not unrelated sibling outputs.
+
+Disjoint top-level fields combine automatically. If unrelated branches both write the same field, the shared node fails before its code runs with `GRAPH_OUTPUT_CONFLICT`, naming the field and writers. The runtime never renames fields or picks a winner. Return separate fields in application logic. Sequential updates and common-ancestor values are not parallel conflicts. The same conflict rule applies to workflow state.
+
+After configured retries are exhausted, an ordinary branch failure is saved locally. Independent branches and their descendants continue. A node requiring the failed branch fails before executing with `GRAPH_DEPENDENCY_FAILED`. The root ultimately returns a failed outcome, preserving branch failure descriptors. An application may catch an expected failure and return valid fallback data instead. Optional dependencies are not implicit.
+
+A human interrupt pauses only its node. Other branches keep advancing until they finish or pause. All waiting node journals and child snapshots are checkpointed before the root presents one question through its existing handle. Answering that question resumes only its owning node; other questions remain waiting. The resumed node and its independent successors can advance while a shared node still waits. Questions are presented one at a time, not as a batch; a running sibling still delays publishing a durable suspension.
+
+Whole-execution cancellation reaches all running branches. Execution-limit pauses preserve completed and waiting branches for Continue. Use Redis for restart durability and the existing checkpoint APIs for fork/rollback. External actions still require application idempotency; arbitrary in-flight JavaScript is not crash-recovered.
+
+Parallel graphs must be acyclic: they cannot route back to an earlier graph node. Sequential loops inside a child remain supported. Use `useWorkflow` rather than `transitionTo` from parallel branches; branch handoffs are rejected instead of abandoning siblings. Existing sequential workflow semantics are unchanged.
 
 ## Fork, rollback, and persistence
 
@@ -203,7 +243,7 @@ The saved runtime context is retained during resume. New client history or picke
 
 ## Limits and migration
 
-- Await calls sequentially or join independent calls with `parallel([...])`. Native `Promise.all` child calls and parallel edges in calling/called workflows are rejected.
+- Within one node, await calls sequentially or join independent calls with `parallel([...])`. Native `Promise.all` child calls are rejected. Acyclic calling/called graphs may have parallel edges.
 - Use a unique, stable call `id` within each node activation. Re-entering a node through a graph loop starts a fresh child invocation. The limits are 64 calls per node activation and 16 nested child levels.
 - Child input and output must be JSON values. Avoid `undefined`, functions, dates, maps, cycles, and non-finite numbers.
 - Each child has isolated input, accumulated data, node state, and workflow state. Server runtime context, provider access, and tracing are inherited.

@@ -152,6 +152,32 @@ research across restart, stale-handle rejection, shared limits and Continue,
 child failure, and invalid input. These tests use real HTTP and Redis; they do
 not call a model provider or exercise the browser UI.
 
+### Real parallel graph branches (no wrapper)
+
+`parallel-graph-demo` calls the same research children from separate graph nodes,
+then runs a successor on each branch before a shared join. Set the chat UI's
+**Parameters → Workflow override** to `parallel-graph-demo` and send a message.
+Approve company: its successor appears while the role approval remains waiting.
+Decline role: the final report preserves the two distinct answers.
+
+Send JSON text to try failure cases:
+
+- `{"requireApproval":false,"conflict":true}`: both successors run, but the join
+  reports the overlapping field and writers instead of silently choosing data.
+- `{"requireApproval":true,"failCompany":true}`: role remains answerable and its
+  successor runs; the join then reports its failed required dependency.
+
+The same object input is accepted by `POST /api/parallel-graph`, using the
+execute/resume command shape above. Run the restart/Redis HTTP checks for this
+graph variant with:
+
+```bash
+node examples/kortyx-nextjs-chat-api-route/scripts/parallel-api.e2e.mjs --graph
+```
+
+The default runner still checks the original `parallel` group example. Neither
+variant needs a model key or sends telemetry when no telemetry key is configured.
+
 
 ### Limits and Continue
 

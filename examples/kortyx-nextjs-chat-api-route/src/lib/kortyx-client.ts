@@ -22,6 +22,7 @@ import {
   parallelDemoWorkflow,
   roleAnalysisWorkflow,
 } from "@/workflows/parallel-demo.workflow";
+import { parallelGraphDemoWorkflow } from "@/workflows/parallel-graph-demo.workflow";
 import { reasonInterruptStructuredWorkflow } from "@/workflows/reason-interrupt-structured.workflow";
 import { reasonStructuredMultiStreamWorkflow } from "@/workflows/reason-structured-multi-stream.workflow";
 import { reasonStructuredStreamWorkflow } from "@/workflows/reason-structured-stream.workflow";
@@ -34,6 +35,7 @@ export const agent = createAgent({
   workflows: [
     backgroundReviewWorkflow,
     parallelDemoWorkflow,
+    parallelGraphDemoWorkflow,
     companyResearchWorkflow,
     roleAnalysisWorkflow,
     backgroundAnalyticsWorkflow,

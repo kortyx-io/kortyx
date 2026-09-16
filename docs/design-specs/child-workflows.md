@@ -86,7 +86,9 @@ fresh activation. Calls are limited to 16 nested levels and 64 calls per node
 activation. Use `parallel([useWorkflow(...), useWorkflow(...)])` for concurrent
 children in one node, with typed results in input order. Await successive groups;
 children may contain nested groups. Native overlapping calls without `parallel`
-and parallel edges in calling/called workflows remain rejected.
+remain rejected. Acyclic parallel calling/called graphs support child calls;
+see [Parallel graph runtime](./parallel-graph-runtime.md) for branch isolation,
+joins, failures and suspension ownership.
 
 The parallel join drains every sibling before bridging a parent interrupt. Its
 saved journal maps each displayed question to a child call and local interrupt
