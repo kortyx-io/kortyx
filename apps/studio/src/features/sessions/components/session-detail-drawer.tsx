@@ -3,6 +3,7 @@
 import type { StudioSessionDetailResponse } from "@kortyx/telemetry-contracts";
 import { DetailDrawer } from "@/components/detail/detail-drawer";
 import { SessionDetail } from "@/features/sessions/components/session-detail";
+import { studioDetailHref } from "@/lib/studio-routes";
 
 export function SessionDetailDrawer({
   sessionId,
@@ -13,7 +14,7 @@ export function SessionDetailDrawer({
 }) {
   return (
     <DetailDrawer
-      matchPath={`/sessions/${sessionId}`}
+      matchPath={studioDetailHref("sessions", sessionId)}
       dismissPath="/sessions"
       title="Session details"
       description="Replay runs, state, and lifecycle events"

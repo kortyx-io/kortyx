@@ -3,13 +3,14 @@ import { DetailPage } from "@/components/detail/detail-page";
 import { RunDetail } from "@/features/runs/components/run-detail";
 import { StudioDataError } from "@/features/telemetry/components/studio-data-error";
 import { getStudioRunDetail } from "@/lib/studio-api";
+import { studioRouteId } from "@/lib/studio-routes";
 
 export default async function RunDetailPage({
   params,
 }: {
   params: Promise<{ runId: string }>;
 }) {
-  const { runId } = await params;
+  const runId = studioRouteId((await params).runId);
   const result = await getStudioRunDetail(runId);
   if (result.error?.status === 404) notFound();
   if (result.error) {

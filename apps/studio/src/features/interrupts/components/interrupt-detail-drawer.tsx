@@ -3,6 +3,7 @@
 import type { StudioInterruptDetailResponse } from "@kortyx/telemetry-contracts";
 import { DetailDrawer } from "@/components/detail/detail-drawer";
 import { InterruptDetail } from "@/features/interrupts/components/interrupt-detail";
+import { studioDetailHref } from "@/lib/studio-routes";
 
 export function InterruptDetailDrawer({
   interruptId,
@@ -13,7 +14,7 @@ export function InterruptDetailDrawer({
 }) {
   return (
     <DetailDrawer
-      matchPath={`/interrupts/${interruptId}`}
+      matchPath={studioDetailHref("interrupts", interruptId)}
       dismissPath="/interrupts"
       title="Interrupt details"
       description="Inspect the decision and resume audit trail"

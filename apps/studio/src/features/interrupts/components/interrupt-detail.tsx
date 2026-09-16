@@ -19,6 +19,7 @@ import {
   interruptTypeLabel,
 } from "@/features/interrupts/lib/interrupt-presentation";
 import { formatCount, formatDateTime } from "@/lib/format";
+import { studioDetailHref } from "@/lib/studio-routes";
 
 export function InterruptDetail({
   detail,
@@ -69,7 +70,11 @@ export function InterruptDetail({
                 →{" "}
                 <DetailLink
                   className="text-violet-600 hover:underline"
-                  href={`/runs/${interrupt.runId}?tab=calls&call=${encodeURIComponent(call.invocationId)}&branch=${encodeURIComponent(branchId)}`}
+                  href={studioDetailHref("runs", interrupt.runId, {
+                    tab: "calls",
+                    call: call.invocationId,
+                    branch: branchId,
+                  })}
                 >
                   {call.workflowId}
                 </DetailLink>
@@ -80,7 +85,7 @@ export function InterruptDetail({
             {" · "}
             <DetailLink
               className="hover:underline"
-              href={`/runs/${interrupt.runId}`}
+              href={studioDetailHref("runs", interrupt.runId)}
             >
               Run
             </DetailLink>
@@ -90,7 +95,7 @@ export function InterruptDetail({
                 ·{" "}
                 <DetailLink
                   className="hover:underline"
-                  href={`/sessions/${interrupt.sessionId}`}
+                  href={studioDetailHref("sessions", interrupt.sessionId)}
                 >
                   Session
                 </DetailLink>

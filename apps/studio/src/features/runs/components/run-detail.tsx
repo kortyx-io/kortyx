@@ -24,6 +24,7 @@ import {
   formatDateTime,
   formatDurationMs,
 } from "@/lib/format";
+import { studioDetailHref } from "@/lib/studio-routes";
 import { WorkflowCalls } from "./workflow-calls";
 
 export function RunDetail({ detail }: { detail: StudioRunDetailResponse }) {
@@ -65,7 +66,7 @@ export function RunDetail({ detail }: { detail: StudioRunDetailResponse }) {
                 ·{" "}
                 <DetailLink
                   className="hover:underline"
-                  href={`/sessions/${detail.session.id}`}
+                  href={studioDetailHref("sessions", detail.session.id)}
                 >
                   Session {shortId(detail.session.id)}
                 </DetailLink>
@@ -128,7 +129,10 @@ export function RunDetail({ detail }: { detail: StudioRunDetailResponse }) {
                   {" "}
                   <DetailLink
                     className="font-medium underline"
-                    href={`/interrupts/${detail.interrupts[0].id}`}
+                    href={studioDetailHref(
+                      "interrupts",
+                      detail.interrupts[0].id,
+                    )}
                   >
                     Open interrupt
                   </DetailLink>

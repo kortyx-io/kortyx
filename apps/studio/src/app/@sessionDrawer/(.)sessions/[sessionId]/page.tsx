@@ -2,13 +2,14 @@ import { notFound } from "next/navigation";
 import { SessionDetailDrawer } from "@/features/sessions/components/session-detail-drawer";
 import { StudioDataError } from "@/features/telemetry/components/studio-data-error";
 import { getStudioSessionDetail } from "@/lib/studio-api";
+import { studioRouteId } from "@/lib/studio-routes";
 
 export default async function SessionDrawerPage({
   params,
 }: {
   params: Promise<{ sessionId: string }>;
 }) {
-  const { sessionId } = await params;
+  const sessionId = studioRouteId((await params).sessionId);
   const result = await getStudioSessionDetail(sessionId);
   if (result.error?.status === 404) notFound();
   if (result.error) {

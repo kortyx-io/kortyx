@@ -3,13 +3,14 @@ import { DetailPage } from "@/components/detail/detail-page";
 import { SessionDetail } from "@/features/sessions/components/session-detail";
 import { StudioDataError } from "@/features/telemetry/components/studio-data-error";
 import { getStudioSessionDetail } from "@/lib/studio-api";
+import { studioRouteId } from "@/lib/studio-routes";
 
 export default async function SessionDetailPage({
   params,
 }: {
   params: Promise<{ sessionId: string }>;
 }) {
-  const { sessionId } = await params;
+  const sessionId = studioRouteId((await params).sessionId);
   const result = await getStudioSessionDetail(sessionId);
   if (result.error?.status === 404) notFound();
   if (result.error)

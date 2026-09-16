@@ -22,6 +22,7 @@ import { useListTablePreferences } from "@/features/telemetry/hooks/use-list-tab
 import { useLiveRefresh } from "@/features/telemetry/hooks/use-live-refresh";
 import type { ListTablePreferences } from "@/features/telemetry/lib/table-preferences";
 import { detailNavigationHref } from "@/lib/nuqs";
+import { studioDetailHref } from "@/lib/studio-routes";
 import { cn } from "@/lib/utils";
 
 export default function InterruptsPageClient({
@@ -98,7 +99,7 @@ export default function InterruptsPageClient({
           getRowKey={(interrupt) => interrupt.id}
           onRowClick={(interrupt, event) => {
             const href = detailNavigationHref(
-              `/interrupts/${interrupt.id}`,
+              studioDetailHref("interrupts", interrupt.id),
               searchParams,
             );
             if (event.metaKey || event.ctrlKey)

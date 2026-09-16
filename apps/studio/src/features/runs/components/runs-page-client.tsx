@@ -18,6 +18,7 @@ import {
 import type { Run } from "@/features/runs/schema";
 import { useLiveRefresh } from "@/features/telemetry/hooks/use-live-refresh";
 import { detailNavigationHref } from "@/lib/nuqs";
+import { studioDetailHref } from "@/lib/studio-routes";
 import { cn } from "@/lib/utils";
 
 type RunsPageClientProps = {
@@ -95,7 +96,10 @@ export default function RunsPageClient({
 
   function openRun(run: Run, event: React.MouseEvent<HTMLTableRowElement>) {
     const target = new URL(
-      detailNavigationHref(`/runs/${run.parentRunId ?? run.id}`, searchParams),
+      detailNavigationHref(
+        studioDetailHref("runs", run.parentRunId ?? run.id),
+        searchParams,
+      ),
       window.location.origin,
     );
     if (run.invocationId) {

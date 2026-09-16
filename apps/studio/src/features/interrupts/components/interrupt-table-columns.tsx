@@ -6,6 +6,7 @@ import {
   LoaderCircle,
 } from "lucide-react";
 import type { DataTableColumn } from "@/components/data-table";
+import { DetailLink } from "@/components/detail/detail-link";
 import {
   effectiveInterruptStatus,
   interruptInteractionLabel,
@@ -25,6 +26,7 @@ import {
 import { CopyableCell } from "@/features/telemetry/components/copyable-cell";
 import { TruncatedText } from "@/features/telemetry/components/truncated-text";
 import { formatDateTime, formatRelativeTime } from "@/lib/format";
+import { studioDetailHref } from "@/lib/studio-routes";
 import { cn } from "@/lib/utils";
 
 const statusMeta: Record<InterruptStatus, CompactStatusMeta> = {
@@ -239,13 +241,13 @@ export function createInterruptColumns({
       label: "Run",
       defaultWidth: 145,
       render: (interrupt) => (
-        <a
-          href={`/runs/${interrupt.runId}`}
+        <DetailLink
+          href={studioDetailHref("runs", interrupt.runId)}
           onClick={(event) => event.stopPropagation()}
           className="block truncate font-mono text-xs text-muted-foreground hover:underline"
         >
           {interrupt.runId}
-        </a>
+        </DetailLink>
       ),
     },
   ];

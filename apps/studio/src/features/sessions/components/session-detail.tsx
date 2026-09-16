@@ -26,6 +26,7 @@ import {
   formatDateTime,
   formatDurationMs,
 } from "@/lib/format";
+import { studioDetailHref } from "@/lib/studio-routes";
 
 export function SessionDetail({
   detail,
@@ -101,7 +102,10 @@ export function SessionDetail({
                 : "Waiting for human input."}{" "}
               <DetailLink
                 className="font-medium underline"
-                href={`/interrupts/${session.pendingInterruptId}`}
+                href={studioDetailHref(
+                  "interrupts",
+                  session.pendingInterruptId,
+                )}
               >
                 Open interrupt
               </DetailLink>
@@ -181,7 +185,7 @@ function SessionActivity({
               <div className="flex flex-wrap items-start justify-between gap-2">
                 <div>
                   <DetailLink
-                    href={`/runs/${run.id}`}
+                    href={studioDetailHref("runs", run.id)}
                     className="font-mono text-xs font-semibold hover:underline"
                   >
                     {run.id}
@@ -233,7 +237,7 @@ function SessionRuns({ runs }: { runs: StudioRun[] }) {
         {runs.map((run) => (
           <DetailLink
             key={run.id}
-            href={`/runs/${run.id}`}
+            href={studioDetailHref("runs", run.id)}
             className="grid min-w-0 gap-2 px-4 py-4 hover:bg-muted/40 @2xl:grid-cols-[minmax(0,1fr)_auto_auto] @2xl:items-center @2xl:px-6"
           >
             <div className="min-w-0">

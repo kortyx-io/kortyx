@@ -469,7 +469,10 @@ async function openRunFromSession(page: Page) {
     .locator(`a[href^="${runPath}"]`);
   await expect(runLink).toBeVisible();
   await runLink.click();
-  await expect(page).toHaveURL(new RegExp(`${escapeRegExp(runPath)}\\?`));
+  // The first intercepted Run route is compiled on demand by the dev server.
+  await expect(page).toHaveURL(new RegExp(`${escapeRegExp(runPath)}\\?`), {
+    timeout: 15_000,
+  });
   const run = drawer(page, runPath);
   await expect(run).toHaveAttribute("data-state", "open");
   await expect(run).toContainText(DRAWER_FIXTURE.runId);

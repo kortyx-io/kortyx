@@ -1,5 +1,7 @@
 "use client";
 
+import { studioDetailHref } from "@/lib/studio-routes";
+
 import "@xyflow/react/dist/style.css";
 
 import {
@@ -398,7 +400,11 @@ export function WorkflowCanvas({
               (path?.kind === "call" && sameWorkflowCall(path, call)),
           );
           if (call) {
-            window.location.href = `/runs/${encodeURIComponent(call.runId)}?tab=calls&call=${encodeURIComponent(call.invocationId)}&branch=${encodeURIComponent(call.branchId)}`;
+            window.location.href = studioDetailHref("runs", call.runId, {
+              tab: "calls",
+              call: call.invocationId,
+              branch: call.branchId,
+            });
             return;
           }
           if (edge.type === "transition")

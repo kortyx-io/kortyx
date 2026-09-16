@@ -15,6 +15,7 @@ import {
   formatCurrency,
   formatDurationSeconds,
 } from "@/lib/format";
+import { studioDetailHref } from "@/lib/studio-routes";
 import { cn } from "@/lib/utils";
 
 type CreateRunColumnsOptions = {
@@ -67,7 +68,7 @@ export function createRunColumns({
             </span>
             <DetailLink
               className="truncate text-muted-foreground hover:underline"
-              href={`/runs/${run.parentRunId}?tab=calls`}
+              href={studioDetailHref("runs", run.parentRunId, { tab: "calls" })}
               onClick={(event) => event.stopPropagation()}
             >
               Parent {run.parentRunId.slice(0, 8)}…

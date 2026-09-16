@@ -3,6 +3,7 @@
 import type { StudioRunDetailResponse } from "@kortyx/telemetry-contracts";
 import { DetailDrawer } from "@/components/detail/detail-drawer";
 import { RunDetail } from "@/features/runs/components/run-detail";
+import { studioDetailHref } from "@/lib/studio-routes";
 
 export function RunDetailDrawer({
   runId,
@@ -13,7 +14,7 @@ export function RunDetailDrawer({
 }) {
   return (
     <DetailDrawer
-      matchPath={`/runs/${runId}`}
+      matchPath={studioDetailHref("runs", runId)}
       dismissPath="/runs"
       title="Run details"
       description="Inspect execution, payloads, and timing"

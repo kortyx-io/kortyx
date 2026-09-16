@@ -17,8 +17,10 @@ import { parseAsString } from "nuqs";
 import { useMemo, useState } from "react";
 import { DetailLink } from "@/components/detail/detail-link";
 import { KeyValue, StatusPill } from "@/components/detail/detail-primitives";
+import { pendingCallInterrupt } from "@/features/runs/lib/call-interrupt";
 import { formatDurationMs } from "@/lib/format";
 import { useStudioQueryState } from "@/lib/nuqs";
+import { studioDetailHref } from "@/lib/studio-routes";
 import { cn } from "@/lib/utils";
 
 export function WorkflowCalls({ detail }: { detail: StudioRunDetailResponse }) {
@@ -38,6 +40,7 @@ export function WorkflowCalls({ detail }: { detail: StudioRunDetailResponse }) {
   const currentBranch = branches.includes(branch) ? branch : branches.at(-1);
   const visible = calls.filter((call) => call.branchId === currentBranch);
   const selected = visible.find((call) => call.invocationId === selection);
+  const selectedInterrupt = pendingCallInterrupt(detail, selected);
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const toggle = (id: string) =>
     setCollapsed((previous) => {
@@ -300,7 +303,9 @@ export function WorkflowCalls({ detail }: { detail: StudioRunDetailResponse }) {
                 <KeyValue label="Inherited from">
                   <DetailLink
                     className="underline"
-                    href={`/runs/${selected.sourceRunId}?tab=calls`}
+                    href={studioDetailHref("runs", selected.sourceRunId, {
+                      tab: "calls",
+                    })}
                   >
                     Source execution
                   </DetailLink>
@@ -313,12 +318,10 @@ export function WorkflowCalls({ detail }: { detail: StudioRunDetailResponse }) {
                 {selected.leaf?.workflowId ?? selected.targetWorkflowId}
                 {selected.leaf?.nodeId ? ` / ${selected.leaf.nodeId}` : ""}. The
                 parent is suspended.
-                {detail.interrupts.find(
-                  (interrupt) => interrupt.status === "pending",
-                ) && (
+                {selectedInterrupt && (
                   <DetailLink
                     className="mt-2 block underline"
-                    href={`/interrupts/${detail.interrupts.find((interrupt) => interrupt.status === "pending")?.id}`}
+                    href={studioDetailHref("interrupts", selectedInterrupt.id)}
                   >
                     Open human interrupt
                   </DetailLink>
