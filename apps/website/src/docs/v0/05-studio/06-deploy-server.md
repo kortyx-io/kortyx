@@ -111,6 +111,8 @@ KORTYX_TELEMETRY_SERVICE_NAME=my-agent
 
 The application server must reach the telemetry endpoint. The key must never enter a browser bundle. Continue with [Connect Your Project](./03-connect-project.md).
 
+> **Good to know: A healthy Studio deployment is not a published workflow catalog.** Add `kortyx topology push` to each agent application's release workflow, using that application's catalog entrypoint and telemetry write key. Run it from a network-connected runner or an application-image job/task that can reach the telemetry API; public CI runners cannot reach private endpoints by default. This applies to ECS tasks, Kubernetes Jobs, Cloud Run Jobs, and VM deployment scripts. See [Publish the declared workflow catalog](./03-connect-project.md#publish-the-declared-workflow-catalog) for source placement and the command.
+
 ## Upgrade
 
 1. Back up PostgreSQL and deployment secrets.
