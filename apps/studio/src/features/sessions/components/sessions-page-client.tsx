@@ -23,6 +23,7 @@ import { useListTablePreferences } from "@/features/telemetry/hooks/use-list-tab
 import { useLiveRefresh } from "@/features/telemetry/hooks/use-live-refresh";
 import type { ListTablePreferences } from "@/features/telemetry/lib/table-preferences";
 import { detailNavigationHref } from "@/lib/nuqs";
+import { studioDetailHref } from "@/lib/studio-routes";
 import { cn } from "@/lib/utils";
 
 export default function SessionsPageClient({
@@ -96,7 +97,7 @@ export default function SessionsPageClient({
           getRowKey={(session) => session.id}
           onRowClick={(session, event) => {
             const href = detailNavigationHref(
-              `/sessions/${session.id}`,
+              studioDetailHref("sessions", session.id),
               searchParams,
             );
             if (event.metaKey || event.ctrlKey)

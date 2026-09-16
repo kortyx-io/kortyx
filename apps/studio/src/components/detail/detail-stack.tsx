@@ -42,6 +42,7 @@ type DetailStackContextValue = {
   expand: (id: string) => void;
   historyTargetPathRef: React.RefObject<string | null>;
   layers: DetailLayer[];
+  prepareNavigation: (href: string) => void;
   register: (layer: DetailLayerRegistration) => () => void;
   registerNestedClose: (id: string, close: () => void) => () => void;
   reopen: (id: string) => void;
@@ -197,6 +198,21 @@ export function DetailStackProvider({ children }: { children: ReactNode }) {
     });
   }, [layers, navigateBackUntil, scheduleNavigation, searchParams]);
 
+  const prepareNavigation = useCallback(
+    (href: string) => {
+      const pathname = href.split("?", 1)[0] ?? href;
+      if (!layers.some((layer) => layer.matchPath === pathname)) return;
+      // A link to a retained ancestor is a regular navigation, just like a
+      // new entity link. Close its descendants before parallel slots update;
+      // the requested query and browser Back/Forward entries stay intact.
+      historyTargetPathRef.current = pathname;
+      setLayers((current) =>
+        syncDetailLayersToHistoryPath(current, pathname, DETAIL_BASE_PATHS),
+      );
+    },
+    [layers],
+  );
+
   useEffect(
     () => () => {
       for (const timer of timersRef.current.values()) {
@@ -241,6 +257,7 @@ export function DetailStackProvider({ children }: { children: ReactNode }) {
       expand,
       historyTargetPathRef,
       layers,
+      prepareNavigation,
       register,
       registerNestedClose,
       reopen,
@@ -253,6 +270,7 @@ export function DetailStackProvider({ children }: { children: ReactNode }) {
       closeTop,
       expand,
       layers,
+      prepareNavigation,
       register,
       registerNestedClose,
       reopen,
@@ -292,6 +310,10 @@ export function DetailStackProvider({ children }: { children: ReactNode }) {
       {children}
     </DetailStackContext.Provider>
   );
+}
+
+export function usePrepareDetailNavigation() {
+  return useContext(DetailStackContext)?.prepareNavigation;
 }
 
 export function useDetailStackSlotState(dismissPath: string, pathname: string) {

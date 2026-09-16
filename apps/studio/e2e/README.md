@@ -21,6 +21,9 @@ through the public telemetry ingestion API. IDs use the reserved
 that prefix from `studio_interrupts`, `studio_runs`, `studio_sessions`,
 `telemetry_events`, and the dedicated workflow revision.
 
+`support/navigation-fixture.ts` adds opaque IDs and suspended calls in two
+branches through the same ingestion API and reserved cleanup prefix.
+
 Never replace the fixture with hard-coded local database rows. Going through
 ingestion keeps Studio projections, API contracts, and detail routes in the
 test boundary.
@@ -47,6 +50,15 @@ web-first assertions, or `expect.poll`; do not add fixed sleeps.
 
 ## Regressions this suite must keep failing on
 
+- colon, URL delimiter, Unicode, or literal percent escapes in an opaque entity
+  ID cause a wrong lookup, a 404, or a different drawer identity;
+- Run → Session → Run or Session → Run → Session changes the URL while leaving
+  the destination hidden under a retained descendant;
+- a selected workflow call links to another branch or invocation's interrupt;
+- an Interrupt breadcrumb returns to a retained Run without selecting the
+  requested call and branch;
+- an Interrupt table's Run link reloads the document or drops the list filters;
+- modified entity clicks close retained ancestors in the original tab;
 - loading and resolved slots create two drawer surfaces;
 - a list row opens a full route or skips its entry motion;
 - the first Session → Run navigation replaces the stack with a standalone
@@ -75,3 +87,16 @@ web-first assertions, or `expect.poll`; do not add fixed sleeps.
 
 If a failure reveals a new regression class, add the scenario here and to the
 relevant hardening ticket before changing the implementation.
+
+## Development and production checks
+
+Run the full development suite with `pnpm test:studio:e2e`. CI also runs
+`internal-linking.spec.ts` and `detail-drawer-stack.spec.ts` with
+`KORTYX_E2E_PRODUCTION=1` so Next's built routes and intercepted navigation
+remain covered. After preparing dependencies and the database, run that check
+locally with:
+
+```sh
+KORTYX_E2E_PRODUCTION=1 pnpm --filter kortyx-studio exec dotenv -e ../../.env -- \
+  playwright test internal-linking.spec.ts detail-drawer-stack.spec.ts
+```

@@ -140,6 +140,13 @@ jobs:
       - name: Run Studio browser regressions
         run: pnpm test:studio:e2e
 
+      - name: Run production Studio navigation regressions
+        env:
+          KORTYX_E2E_PRODUCTION: "1"
+        run: >-
+          pnpm --filter kortyx-studio exec dotenv -e ../../.env -- playwright test
+          internal-linking.spec.ts detail-drawer-stack.spec.ts
+
       - name: Upload Playwright failure artifacts
         if: failure()
         uses: actions/upload-artifact@v6
