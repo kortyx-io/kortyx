@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.23.0](https://github.com/kortyx-io/kortyx/compare/agent-v0.22.2...agent-v0.23.0) (2026-09-16)
+
+
+### Features
+
+* **runtime:** support durable child calls in parallel DAGs ([#203](https://github.com/kortyx-io/kortyx/issues/203)) ([525e0e7](https://github.com/kortyx-io/kortyx/commit/525e0e7a73fa5f9d78232ca3155d86be7bc1022d))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/runtime bumped to 0.18.0
+
 ## [0.22.2](https://github.com/kortyx-io/kortyx/compare/agent-v0.22.1...agent-v0.22.2) (2026-09-15)
 
 
