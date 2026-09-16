@@ -80,6 +80,7 @@ export async function cleanupDrawerFixture() {
       await transaction`
         delete from studio_runs
         where run_id like ${idPattern}
+           or data->>'parentRunId' like ${idPattern}
       `;
       await transaction`
         delete from studio_sessions

@@ -20,6 +20,8 @@ through the public telemetry ingestion API. IDs use the reserved
 `e2e-ktx25-*` prefix. Setup removes stale copies first; teardown deletes only
 that prefix from `studio_interrupts`, `studio_runs`, `studio_sessions`,
 `telemetry_events`, and the dedicated workflow revision.
+Projected child Runs use `call:` IDs, so cleanup also matches their parent's
+reserved prefix. Never broaden cleanup to non-fixture parents.
 
 `support/navigation-fixture.ts` adds opaque IDs and suspended calls in two
 branches through the same ingestion API and reserved cleanup prefix.
