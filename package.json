@@ -44,6 +44,7 @@
     "dev:all": "dotenv -e .env -- turbo run dev --parallel --concurrency=50 --continue=dependencies-successful",
     "db:migrate": "dotenv -e .env -- pnpm --filter @kortyx/telemetry-db db:migrate",
     "db:bootstrap": "dotenv -e .env -- pnpm --filter @kortyx/telemetry-db db:bootstrap",
+    "db:seed-rates": "dotenv -e .env -- pnpm --filter @kortyx/telemetry-db db:seed-rates",
     "db:backfill-studio": "dotenv -e .env -- pnpm --filter @kortyx/telemetry-db db:backfill-studio",
     "db:studio": "dotenv -e .env -- pnpm --filter @kortyx/telemetry-db db:studio",
     "lint": "biome check .",

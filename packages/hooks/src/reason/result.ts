@@ -33,6 +33,7 @@ export const mergeUsage = (
   const reasoning = sum(left.reasoning, right.reasoning);
   const cacheRead = sum(left.cacheRead, right.cacheRead);
   const cacheWrite = sum(left.cacheWrite, right.cacheWrite);
+  const cacheWrite1h = sum(left.cacheWrite1h, right.cacheWrite1h);
   const merged: KortyxUsage = {
     ...(right.outputIncludesReasoning !== undefined
       ? { outputIncludesReasoning: right.outputIncludesReasoning }
@@ -51,6 +52,7 @@ export const mergeUsage = (
   if (reasoning !== undefined) merged.reasoning = reasoning;
   if (cacheRead !== undefined) merged.cacheRead = cacheRead;
   if (cacheWrite !== undefined) merged.cacheWrite = cacheWrite;
+  if (cacheWrite1h !== undefined) merged.cacheWrite1h = cacheWrite1h;
   if (raw) merged.raw = raw;
 
   return merged;

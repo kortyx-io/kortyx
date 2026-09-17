@@ -1,3 +1,4 @@
+import { parseArgs } from "node:util";
 import { createTelemetryDbClient } from "../client";
 import { backfillStudioProjections } from "../repositories/studio-projections";
 
@@ -10,7 +11,18 @@ const main = async (): Promise<void> => {
 
   const client = createTelemetryDbClient(databaseUrl);
   try {
-    const result = await backfillStudioProjections(client.db);
+    const { values } = parseArgs({
+      options: {
+        "organization-id": { type: "string" },
+        "project-id": { type: "string" },
+      },
+    });
+    const result = await backfillStudioProjections(client.db, {
+      ...(values["organization-id"]
+        ? { organizationId: values["organization-id"] }
+        : {}),
+      ...(values["project-id"] ? { projectId: values["project-id"] } : {}),
+    });
     console.log(
       `Studio projection backfill complete: ${result.projects} projects, ${result.runs} run writes, ${result.sessions} session writes, ${result.interrupts} interrupt writes.`,
     );

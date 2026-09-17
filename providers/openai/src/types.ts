@@ -64,7 +64,7 @@ export interface OpenAIChatCompletionRequest {
   stream?: boolean | undefined;
   stream_options?: { include_usage: true } | undefined;
   reasoning_effort?: string;
-  service_tier?: "auto" | "flex" | "priority" | "default" | undefined;
+  service_tier?: "auto" | "flex" | "priority" | "fast" | "default" | undefined;
   store?: boolean | undefined;
   metadata?: Record<string, string> | undefined;
   tools?:
@@ -103,6 +103,7 @@ export interface OpenAIChatCompletionResponse {
   id?: string | undefined;
   model?: string | undefined;
   created?: number | undefined;
+  service_tier?: string | undefined;
   choices?:
     | Array<{
         message?:
@@ -123,6 +124,7 @@ export interface OpenAIChatCompletionChunk {
   id?: string | undefined;
   model?: string | undefined;
   created?: number | undefined;
+  service_tier?: string | undefined;
   choices?:
     | Array<{
         delta?:

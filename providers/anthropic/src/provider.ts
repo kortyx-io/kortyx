@@ -151,6 +151,9 @@ const extractUsage = (
     ...(total != null ? { total } : {}),
     ...(cacheRead != null ? { cacheRead } : {}),
     ...(cacheWrite != null ? { cacheWrite } : {}),
+    ...(usage.cache_creation?.ephemeral_1h_input_tokens !== undefined
+      ? { cacheWrite1h: usage.cache_creation.ephemeral_1h_input_tokens }
+      : {}),
     ...(isRecord(usage) ? { raw: usage } : {}),
   };
 };
@@ -215,6 +218,8 @@ const extractResponseProviderMetadata = (
           cacheReadTokens: usage.cache_read_input_tokens,
           cacheWriteTokens: usage.cache_creation_input_tokens,
           serverToolUse: usage.server_tool_use,
+          serviceTier: usage.service_tier,
+          inferenceGeo: usage.inference_geo,
         }
       : {}),
   };
@@ -243,6 +248,8 @@ const extractStreamProviderMetadata = (
           cacheReadTokens: usageRecord.cache_read_input_tokens,
           cacheWriteTokens: usageRecord.cache_creation_input_tokens,
           serverToolUse: usageRecord.server_tool_use,
+          serviceTier: usageRecord.service_tier,
+          inferenceGeo: usageRecord.inference_geo,
         }
       : {}),
   };

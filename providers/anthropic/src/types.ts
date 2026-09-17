@@ -91,6 +91,12 @@ export interface AnthropicUsage {
   output_tokens_details?: { thinking_tokens?: number };
   cache_creation_input_tokens?: number | null | undefined;
   cache_read_input_tokens?: number | null | undefined;
+  cache_creation?: {
+    ephemeral_5m_input_tokens?: number;
+    ephemeral_1h_input_tokens?: number;
+  };
+  service_tier?: string;
+  inference_geo?: string;
   server_tool_use?: Record<string, unknown> | null | undefined;
 }
 
