@@ -66,6 +66,7 @@ export interface MistralChatCompletionRequest {
 }
 
 export interface MistralUsage {
+  prompt_tokens_details?: { cached_tokens?: number };
   prompt_tokens?: number | null | undefined;
   completion_tokens?: number | null | undefined;
   total_tokens?: number | null | undefined;

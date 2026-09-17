@@ -78,6 +78,11 @@ const extractUsage = (
   if (usage == null) return undefined;
 
   return {
+    inputIncludesCacheRead: true,
+    outputIncludesReasoning: true,
+    ...(usage.prompt_tokens_details?.cached_tokens !== undefined
+      ? { cacheRead: usage.prompt_tokens_details.cached_tokens }
+      : {}),
     ...(usage.prompt_tokens != null ? { input: usage.prompt_tokens } : {}),
     ...(usage.completion_tokens != null
       ? { output: usage.completion_tokens }

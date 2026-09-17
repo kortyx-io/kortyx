@@ -33,6 +33,8 @@ export interface KortyxUsage {
   reasoning?: number;
   cacheRead?: number;
   cacheWrite?: number;
+  /** Subset of cacheWrite with a one-hour TTL (Anthropic). */
+  cacheWrite1h?: number;
   raw?: Record<string, unknown>;
 }
 

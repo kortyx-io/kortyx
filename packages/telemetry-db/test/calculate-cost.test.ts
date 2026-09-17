@@ -175,3 +175,71 @@ it("prices Luna cache writes separately and leaves unsupported tiers unpriced", 
     ),
   ).toMatchObject({ pricingStatus: "unpriced" });
 });
+
+it("requires unit prices for every positive usage item and matches labels exactly", () => {
+  const event = baseEvent({
+    usage: { input: 100, output: 10 },
+    pricing: {
+      source: "custom",
+      currency: "USD",
+      unitPrices: [{ usageType: "input", unit: "token", priceMicros: 1 }],
+    },
+  });
+  expect(calculateGenerationCost(event, []).pricingStatus).toBe("unpriced");
+  const labelled = baseEvent({
+    pricing: {
+      source: "custom",
+      currency: "USD",
+      usageItems: [
+        { usageType: "cache_write", unit: "token", quantity: 20, label: "1h" },
+      ],
+      unitPrices: [
+        { usageType: "cache_write", unit: "token", priceMicros: 1 },
+        {
+          usageType: "cache_write",
+          unit: "token",
+          priceMicros: 2,
+          label: "1h",
+        },
+      ],
+    },
+  });
+  expect(calculateGenerationCost(labelled, []).costMicros).toBe(40);
+});
+
+it("keeps project rate cards ahead of default cards for custom tiers", () => {
+  const rate = DEFAULT_MODEL_RATE_CARDS.find(
+    (rate) => rate.model === "gpt-4.1-mini",
+  );
+  const event = baseEvent({
+    provider: "openai",
+    model: "gpt-4.1-mini",
+    usage: { input: 1000000 },
+    providerMetadata: { serviceTier: "priority" },
+  });
+  expect(
+    calculateGenerationCost(event, [
+      ...DEFAULT_MODEL_RATE_CARDS,
+      { ...rate, projectId: "project", pricingRef: "contract" },
+    ] as ModelRateCard[]),
+  ).toMatchObject({
+    costMicros: 400000,
+    pricingSource: "project-rate-card",
+    pricingRef: "contract",
+  });
+});
+
+it("distinguishes known zero usage from absent usage", () => {
+  const rateCards = DEFAULT_MODEL_RATE_CARDS as ModelRateCard[];
+  const payload = { provider: "openai", model: "gpt-4.1-mini" };
+  expect(
+    calculateGenerationCost(
+      baseEvent({ ...payload, usage: { input: 0, output: 0 } }),
+      rateCards,
+    ),
+  ).toMatchObject({ costMicros: 0, pricingStatus: "priced" });
+  expect(
+    calculateGenerationCost(baseEvent({ ...payload, usage: {} }), rateCards)
+      .pricingStatus,
+  ).toBe("unknown");
+});

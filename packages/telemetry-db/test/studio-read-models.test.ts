@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
+import { DEFAULT_MODEL_RATE_CARDS } from "../src/pricing/default-rates";
 import { createStudioReadModelsFromRecords } from "../src/repositories/studio-read-models";
-import type { TelemetryEventRecord, WorkflowRevision } from "../src/schema";
+import type {
+  ModelRateCard,
+  TelemetryEventRecord,
+  WorkflowRevision,
+} from "../src/schema";
 
 const baseTime = Date.parse("2026-07-06T10:00:00.000Z");
 
@@ -873,4 +878,88 @@ it("projects active root cancellation over abort failures into run and session s
   });
   expect(models.runs[0]?.status).toBe("cancelled");
   expect(models.sessions[0]?.status).toBe("cancelled");
+});
+
+describe("complete cost aggregation", () => {
+  const generation = (
+    id: string,
+    model: string,
+    runId = "run-1",
+    pricing?: Record<string, unknown>,
+  ) =>
+    event(10, {
+      eventId: id,
+      runId,
+      type: "generation.completed",
+      payload: {
+        provider: "openai",
+        model,
+        usage: { input: 1000000, output: 100000 },
+        ...(pricing ? { pricing } : {}),
+      },
+    });
+  it("marks a run and session unpriced when one generation is missing prices", () => {
+    const result = createStudioReadModelsFromRecords({
+      events: [
+        generation("priced", "gpt-4.1-mini"),
+        generation("missing", "unlisted"),
+      ],
+      revisions: [],
+      rates: DEFAULT_MODEL_RATE_CARDS as ModelRateCard[],
+    });
+    expect(result.runs[0]).toMatchObject({
+      cost: null,
+      currency: null,
+      pricingStatus: "unpriced",
+    });
+    expect(result.sessions[0]).toMatchObject({
+      cost: null,
+      pricingStatus: "unpriced",
+    });
+  });
+  it("propagates an unpriced run into its session, and refuses mixed currencies", () => {
+    const result = createStudioReadModelsFromRecords({
+      events: [
+        generation("priced", "gpt-4.1-mini"),
+        generation("missing", "unlisted", "run-2"),
+      ],
+      revisions: [],
+      rates: DEFAULT_MODEL_RATE_CARDS as ModelRateCard[],
+    });
+    expect(result.sessions[0]).toMatchObject({
+      cost: null,
+      pricingStatus: "unpriced",
+    });
+    const mixed = createStudioReadModelsFromRecords({
+      events: [
+        generation("usd", "gpt-4.1-mini"),
+        generation("eur", "custom", "run-1", {
+          source: "custom",
+          currency: "EUR",
+          actualCostMicros: 1000,
+        }),
+      ],
+      revisions: [],
+      rates: DEFAULT_MODEL_RATE_CARDS as ModelRateCard[],
+    });
+    expect(mixed.runs[0]).toMatchObject({
+      cost: null,
+      pricingStatus: "unpriced",
+    });
+  });
+  it("still sums fully priced calls", () => {
+    const result = createStudioReadModelsFromRecords({
+      events: [
+        generation("one", "gpt-4.1-mini"),
+        generation("two", "gpt-4.1-mini"),
+      ],
+      revisions: [],
+      rates: DEFAULT_MODEL_RATE_CARDS as ModelRateCard[],
+    });
+    expect(result.runs[0]).toMatchObject({
+      cost: 1.12,
+      currency: "USD",
+      pricingStatus: "priced",
+    });
+  });
 });

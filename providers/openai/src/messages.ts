@@ -36,12 +36,13 @@ const normalizeReasoningEffort = (
 
 const normalizeServiceTier = (
   options: ModelOptions,
-): "auto" | "flex" | "priority" | "default" | undefined => {
+): "auto" | "flex" | "priority" | "fast" | "default" | undefined => {
   const value = getProviderOptions(options)?.serviceTier;
   if (
     value === "auto" ||
     value === "flex" ||
     value === "priority" ||
+    value === "fast" ||
     value === "default"
   ) {
     return value;
@@ -112,13 +113,16 @@ const isReasoningModel = (modelId: string): boolean =>
   modelId.startsWith("o1") ||
   modelId.startsWith("o3") ||
   modelId.startsWith("o4-mini") ||
+  modelId.startsWith("gpt-6") ||
   (modelId.startsWith("gpt-5") && !modelId.startsWith("gpt-5-chat"));
 
 const supportsNonReasoningParameters = (modelId: string): boolean =>
   modelId.startsWith("gpt-5.1") ||
   modelId.startsWith("gpt-5.2") ||
   modelId.startsWith("gpt-5.3") ||
-  modelId.startsWith("gpt-5.4");
+  modelId.startsWith("gpt-5.4") ||
+  modelId.startsWith("gpt-5.5") ||
+  modelId.startsWith("gpt-5.6");
 
 const getSystemMessageMode = (
   modelId: string,

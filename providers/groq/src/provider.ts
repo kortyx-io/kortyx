@@ -103,6 +103,9 @@ const extractResponseProviderMetadata = (
     modelId,
     ...(response.id !== undefined ? { responseId: response.id } : {}),
     ...(response.model !== undefined ? { responseModel: response.model } : {}),
+    ...(response.service_tier !== undefined
+      ? { serviceTier: response.service_tier }
+      : {}),
     ...(response.created !== undefined ? { created: response.created } : {}),
     ...(usage !== undefined
       ? {

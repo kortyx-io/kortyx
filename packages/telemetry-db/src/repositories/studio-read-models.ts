@@ -338,6 +338,22 @@ const aggregateCost = (
   const priced = costs.filter(
     (cost) => cost.pricingStatus === "priced" && cost.cost !== null,
   );
+  if (
+    costs.some(
+      (cost) =>
+        cost.pricingStatus !== "priced" ||
+        cost.cost === null ||
+        cost.currency === null,
+    ) &&
+    priced.length > 0
+  ) {
+    return {
+      cost: null,
+      currency: null,
+      pricingStatus: "unpriced",
+      pricingSource: null,
+    };
+  }
   if (priced.length > 0) {
     const currencies = unique(
       priced
@@ -357,8 +373,11 @@ const aggregateCost = (
           ? priced.reduce((sum, item) => sum + (item.cost ?? 0), 0)
           : null,
       currency: currencies.length === 1 ? (currencies[0] ?? null) : null,
-      pricingStatus: "priced",
-      pricingSource: sources.length === 1 ? (sources[0] ?? null) : null,
+      pricingStatus: currencies.length === 1 ? "priced" : "unpriced",
+      pricingSource:
+        currencies.length === 1 && sources.length === 1
+          ? (sources[0] ?? null)
+          : null,
     };
   }
   if (costs.some((cost) => cost.pricingStatus === "unpriced")) {

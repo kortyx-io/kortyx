@@ -22,6 +22,13 @@ runs:
     - name: Build
       run: pnpm build
       shell: bash
+    - name: Telemetry pricing and projection regressions
+      run: |-
+        pnpm --filter @kortyx/telemetry-db db:migrate
+        pnpm --filter @kortyx/telemetry-db test
+      shell: bash
+      env:
+        DATABASE_URL: ${{ env.KORTYX_TEST_POSTGRES_URL }}
     - name: PostgreSQL runtime persistence integration coverage
       run: pnpm --filter @kortyx/runtime test:integration:postgres
       shell: bash

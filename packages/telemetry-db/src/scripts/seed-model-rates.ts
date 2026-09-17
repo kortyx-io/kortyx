@@ -7,9 +7,13 @@ const main = async (): Promise<void> => {
 
   const client = createTelemetryDbClient(databaseUrl);
   try {
-    const result = await seedDefaultModelRateCards(client.db);
+    const args = process.argv.slice(2);
+    if (args.some((arg) => arg !== "--dry-run"))
+      throw new Error("Usage: seed-model-rates [--dry-run]");
+    const dryRun = args.includes("--dry-run");
+    const result = await seedDefaultModelRateCards(client.db, { dryRun });
     console.log(
-      `Seeded model rate cards. Inserted: ${result.inserted}. Skipped: ${result.skipped}.`,
+      `Model rate cards${dryRun ? " (dry run)" : ""}. Inserted: ${result.inserted}. Updated: ${result.updated}. Skipped: ${result.skipped}.`,
     );
   } finally {
     await client.close();

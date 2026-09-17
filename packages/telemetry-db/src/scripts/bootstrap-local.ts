@@ -82,7 +82,7 @@ const main = async (): Promise<void> => {
     );
     const rates = await seedDefaultModelRateCards(client.db);
     console.log(
-      `Default rate cards inserted: ${rates.inserted}. Skipped: ${rates.skipped}.`,
+      `Default rate cards inserted: ${rates.inserted}. Updated: ${rates.updated}. Skipped: ${rates.skipped}.`,
     );
     if (!telemetryApiKey || !studioApiKey) {
       console.log("Store generated keys now; only their hashes are persisted.");

@@ -108,6 +108,9 @@ const extractResponseProviderMetadata = (
     modelId,
     ...(response.id !== undefined ? { responseId: response.id } : {}),
     ...(response.model !== undefined ? { responseModel: response.model } : {}),
+    ...(response.service_tier !== undefined
+      ? { serviceTier: response.service_tier }
+      : {}),
     ...(response.created !== undefined ? { created: response.created } : {}),
     ...(usage !== undefined
       ? {
@@ -137,6 +140,9 @@ const extractChunkProviderMetadata = (
     modelId,
     ...(chunk.id !== undefined ? { responseId: chunk.id } : {}),
     ...(chunk.model !== undefined ? { responseModel: chunk.model } : {}),
+    ...(chunk.service_tier !== undefined
+      ? { serviceTier: chunk.service_tier }
+      : {}),
     ...(chunk.created !== undefined ? { created: chunk.created } : {}),
     ...(usage !== undefined
       ? {
@@ -418,6 +424,7 @@ const createOpenAIModel = (
             finishReason = chunk.choices?.[0]?.finish_reason ?? finishReason;
             lastChunk = {
               ...chunk,
+              service_tier: chunk.service_tier ?? lastChunk?.service_tier,
               usage: chunk.usage ?? lastChunk?.usage,
               choices: [{ finish_reason: finishReason }],
             };

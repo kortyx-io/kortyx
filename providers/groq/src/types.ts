@@ -88,6 +88,7 @@ export interface GroqChatCompletionResponse {
   id?: string | undefined;
   model?: string | undefined;
   created?: number | undefined;
+  service_tier?: string | undefined;
   choices?:
     | Array<{
         message?:
@@ -108,6 +109,7 @@ export interface GroqChatCompletionChunk {
   id?: string | undefined;
   model?: string | undefined;
   created?: number | undefined;
+  service_tier?: string | undefined;
   choices?:
     | Array<{
         delta?:
