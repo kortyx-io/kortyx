@@ -1985,7 +1985,11 @@ describe("orchestrateGraphStream", () => {
     ]);
   });
 
-  it("wraps runs with an active telemetry span", async () => {
+  it.each([
+    { input: true },
+    { input: "invalid", output: false },
+    { output: "invalid" },
+  ])("wraps runs with an active telemetry span (%j)", async (captureContent) => {
     const runSpan = {
       setAttributes: vi.fn(),
       end: vi.fn(),
@@ -2012,7 +2016,7 @@ describe("orchestrateGraphStream", () => {
             trace,
             metadata: { source: "test" },
             tags: ["tag"],
-            captureContent: { input: true },
+            captureContent,
           },
         },
         selectWorkflow: vi.fn(),
@@ -2037,7 +2041,11 @@ describe("orchestrateGraphStream", () => {
             tenantId: "tenant-1",
           },
           tags: ["tag"],
-          captureContent: { input: true },
+          captureContent: Object.fromEntries(
+            Object.entries(captureContent).filter(
+              ([, value]) => typeof value === "boolean",
+            ),
+          ),
           input: "hello",
         },
       },

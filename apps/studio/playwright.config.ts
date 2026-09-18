@@ -5,6 +5,7 @@ const apiUrl = process.env.KORTYX_API_URL ?? "http://localhost:6400";
 const production = process.env.KORTYX_E2E_PRODUCTION === "1";
 
 export default defineConfig({
+  tsconfig: "./tsconfig.tools-e2e.json",
   testDir: "./e2e",
   timeout: 30_000,
   expect: {

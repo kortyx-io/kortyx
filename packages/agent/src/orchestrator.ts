@@ -1529,10 +1529,9 @@ export async function orchestrateGraphStream({
     }
   };
 
-  const fallbackRunSpan = traceAdapter?.withSpan
-    ? undefined
-    : safeStartSpan(traceAdapter, runSpanArgs);
+  let fallbackRunSpan: ReturnType<typeof safeStartSpan>;
   if (!traceAdapter?.withSpan) {
+    fallbackRunSpan = safeStartSpan(traceAdapter, runSpanArgs);
     emitTraceChunk();
   }
   const startRun = () =>
@@ -1541,7 +1540,7 @@ export async function orchestrateGraphStream({
           emitTraceChunk();
           return runLoop(runTraceSpan);
         })
-      : runLoop(fallbackRunSpan ?? {});
+      : runLoop(fallbackRunSpan);
   const runPromise =
     frameworkAdapter?.acquireRunLease && !releaseLease
       ? frameworkAdapter
