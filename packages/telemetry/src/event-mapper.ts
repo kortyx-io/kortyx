@@ -10,7 +10,11 @@ import type {
   ReasonTraceAttributes,
   ReasonTraceSpanStartArgs,
 } from "@kortyx/hooks";
-import { safeTelemetryMetadata } from "@kortyx/hooks/internal";
+import {
+  errorDiagnostics,
+  isModelTraceSpan,
+  safeTelemetryMetadata,
+} from "@kortyx/hooks/internal";
 import type { ActiveSpan, SpanContext } from "./types";
 
 const stringValue = (value: unknown): string | undefined =>
@@ -24,15 +28,27 @@ const shouldCapture = (
   return Boolean(value && typeof value === "object" && value[side]);
 };
 
-const asErrorPayload = (error: unknown): Record<string, unknown> =>
-  isControlFlowError(error)
-    ? {
-        name: errorProperty(error, "name"),
-        code: errorProperty(error, "code"),
-        message: "Execution paused or cancelled.",
-        controlFlow: true,
-      }
-    : { ...serializeFailure(error), name: "KortyxError" };
+const asErrorPayload = (
+  error: unknown,
+  name?: string,
+  project?: import("@kortyx/hooks").KortyxTraceErrorProjection,
+): Record<string, unknown> => {
+  if (isControlFlowError(error))
+    return {
+      name: errorProperty(error, "name"),
+      code: errorProperty(error, "code"),
+      message: "Execution paused or cancelled.",
+      controlFlow: true,
+    };
+  const failure = serializeFailure(error);
+  if (!isModelTraceSpan(name ?? "")) return { ...failure, name: "KortyxError" };
+  const diagnostic = errorDiagnostics(error, project);
+  return {
+    ...failure,
+    name: diagnostic.errorType ?? "Error",
+    message: diagnostic.errorMessage ?? "Model execution failed.",
+  };
+};
 
 const correlationFrom = (
   attributes: ReasonTraceAttributes | undefined,
@@ -80,6 +96,7 @@ export const createEventMapper = (args: {
   metadata?: Record<string, unknown> | undefined;
   tags?: string[] | undefined;
   createId: () => string;
+  error?: import("@kortyx/hooks").KortyxTraceErrorProjection;
 }) => {
   const createEvent = (input: {
     type: KortyxTelemetryEventType;
@@ -173,7 +190,8 @@ export const createEventMapper = (args: {
   });
 
   return {
-    asErrorPayload,
+    asErrorPayload: (error: unknown, name?: string) =>
+      asErrorPayload(error, name, args.error),
     correlationFrom,
     createEvent,
     shouldCapture,

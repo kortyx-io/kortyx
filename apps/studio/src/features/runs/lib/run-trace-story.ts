@@ -131,16 +131,29 @@ export function buildTraceStory(events: StudioDetailEvent[]): TraceItem[] {
     const isNode = name === "kortyx.node";
     const isGeneration = name === "runReasonEngine";
     const isTool = event.type.startsWith("tool.");
+    const terminal = terminals.get(lifecycleKey(event));
+    const isReasonFailure =
+      name === "useReason" &&
+      terminal?.type === "span.failed" &&
+      asRecord(terminal.payload.error).controlFlow !== true &&
+      !isControlFlowInterrupt(terminal) &&
+      !isControlFlowCancellation(terminal) &&
+      !ordered.some(
+        (candidate) =>
+          candidate.type === "span.failed" &&
+          candidate.parentSpanId === event.spanId &&
+          candidate.payload.name === "runReasonEngine",
+      );
     if (
       !isExecution &&
       !isNode &&
       !isGeneration &&
       !isTool &&
+      !isReasonFailure &&
       INTERNAL_SPANS.has(name)
     )
       continue;
 
-    const terminal = terminals.get(lifecycleKey(event));
     const durationMs =
       isTool && event.payload.executed === false
         ? null
@@ -239,7 +252,10 @@ export function buildTraceStory(events: StudioDetailEvent[]): TraceItem[] {
         timing,
         modelCalls: 0,
         event: generation ?? event,
-        inspectEvent: generation ?? terminal ?? event,
+        inspectEvent:
+          terminal?.type === "span.failed"
+            ? terminal
+            : (generation ?? terminal ?? event),
       });
       continue;
     }
@@ -275,10 +291,12 @@ export function buildTraceStory(events: StudioDetailEvent[]): TraceItem[] {
 
     items.push({
       id: event.id,
-      label: name,
-      description: isTool
-        ? `${event.payload.callingMode === "direct" ? "Direct call" : event.payload.callingMode === "model" ? "Model-selected call" : "Tool call"} from ${event.nodeId ?? "workflow"}${terminal?.payload.denialCode ? ` · ${terminal.payload.denialCode}` : ""}${baseStatus === "replayed" ? ` · cached ${terminal?.payload.outcome ?? "result"}, not executed` : ""}`
-        : "Nested operation",
+      label: isReasonFailure ? "Model reasoning" : name,
+      description: isReasonFailure
+        ? "Model decision or output processing failed"
+        : isTool
+          ? `${event.payload.callingMode === "direct" ? "Direct call" : event.payload.callingMode === "model" ? "Model-selected call" : "Tool call"} from ${event.nodeId ?? "workflow"}${terminal?.payload.denialCode ? ` · ${terminal.payload.denialCode}` : ""}${baseStatus === "replayed" ? ` · cached ${terminal?.payload.outcome ?? "result"}, not executed` : ""}`
+          : "Nested operation",
       kind: isTool ? "tool" : "span",
       status: baseStatus,
       startedAt: event.occurredAt,

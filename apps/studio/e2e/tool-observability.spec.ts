@@ -384,3 +384,103 @@ test("automatically renders thrown and returned tool faults in a completed workf
     await page.keyboard.press("Escape");
   }
 });
+
+test("automatically diagnoses provider and invalid JSON errors without capturing model content", async ({
+  page,
+}) => {
+  const telemetry = createKortyxTelemetryAdapter({
+    endpoint: apiUrl,
+    apiKey,
+    environment: "test",
+    service: { name: "model-fault-e2e" },
+  });
+  for (const kind of ["provider", "json"] as const) {
+    const error = Object.assign(new TypeError("Provider connection refused"), {
+      cause: new Error("E2E_PRIVATE_CAUSE"),
+      body: "E2E_PRIVATE_PROVIDER_BODY",
+      providerMetadata: { raw: "E2E_PRIVATE_METADATA" },
+      usage: { input: 17, output: 2, raw: { body: "E2E_PRIVATE_USAGE" } },
+      apiKey: "E2E_PRIVATE_CREDENTIAL",
+    });
+    const provider = {
+      id: "model-fault-provider",
+      models: ["deterministic"],
+      getModel: () => ({
+        invoke: async () => {
+          if (kind === "provider") throw error;
+          return {
+            content: "not JSON E2E_PRIVATE_OUTPUT",
+            finishReason: { unified: "stop" as const, raw: "stop" },
+          };
+        },
+        stream: async function* () {},
+      }),
+    };
+    const workflow = defineWorkflow({
+      id: `e2e-model-fault-${kind}`,
+      version: "1",
+      inputSchema: z.object({}),
+      outputSchema: z.object({ status: z.string() }),
+      nodes: {
+        decide: {
+          run: async () => {
+            try {
+              await useReason({
+                model: { provider, modelId: "deterministic" },
+                input: "E2E_PRIVATE_PROMPT",
+                stream: false,
+                emit: false,
+                outputSchema: z.object({ title: z.string() }),
+              });
+              throw new Error("Expected a model fault");
+            } catch (caught) {
+              if (kind === "provider") expect(caught).toBe(error);
+              else expect(caught).toMatchObject({ code: "INVALID_MODEL_JSON" });
+            }
+            return { data: { status: "Handled" } };
+          },
+        },
+      },
+      edges: [
+        ["__start__", "decide"],
+        ["decide", "__end__"],
+      ],
+    });
+    const result = await createAgent({
+      workflows: [workflow],
+      telemetry,
+      frameworkAdapter: createInMemoryFrameworkAdapter(),
+    }).execute({ workflow, input: {} });
+    expect(result.status).toBe("completed");
+    await telemetry.flush();
+    const response = await page.request.get(
+      `${apiUrl}/v1/studio/runs/${result.runId}`,
+      {
+        headers: {
+          authorization: `Bearer ${process.env.KORTYX_STUDIO_API_KEY ?? "ktyx_test_localstudio_oss-demo-studio-secret-change-me"}`,
+        },
+      },
+    );
+    expect(response.ok()).toBe(true);
+    expect(await response.text()).not.toContain("E2E_PRIVATE");
+    await page.goto(`/runs/${result.runId}?tab=trace&env=test`);
+    const label = kind === "provider" ? "deterministic" : "Model reasoning";
+    await page
+      .getByRole("button", { name: new RegExp(`${label}.*failed`) })
+      .click();
+    const inspector = page.getByRole("dialog", { name: label, exact: true });
+    await expect(inspector).toContainText("Error type");
+    await expect(inspector).toContainText(
+      kind === "provider" ? "TypeError" : "ValidationError",
+    );
+    await expect(inspector).toContainText(
+      kind === "provider"
+        ? "Provider connection refused"
+        : "did not produce valid structured output",
+    );
+    if (kind === "json")
+      await expect(inspector).toContainText("INVALID_MODEL_JSON");
+    await expect(page.locator("body")).not.toContainText("E2E_PRIVATE");
+    await page.keyboard.press("Escape");
+  }
+});

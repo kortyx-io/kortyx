@@ -160,12 +160,39 @@ export const createTraceAdapter = (args: {
                   ),
                 }
               : {}),
-            ...(endArgs?.usage ? { usage: endArgs.usage } : {}),
+            ...(endArgs?.usage
+              ? {
+                  usage: failed
+                    ? Object.fromEntries(
+                        Object.entries(endArgs.usage).filter(
+                          ([key, value]) =>
+                            ([
+                              "input",
+                              "output",
+                              "total",
+                              "reasoning",
+                              "cacheRead",
+                              "cacheWrite",
+                              "cacheWrite1h",
+                            ].includes(key) &&
+                              typeof value === "number" &&
+                              Number.isFinite(value)) ||
+                            ([
+                              "outputIncludesReasoning",
+                              "inputIncludesCacheRead",
+                              "inputIncludesCacheWrite",
+                            ].includes(key) &&
+                              typeof value === "boolean"),
+                        ),
+                      )
+                    : endArgs.usage,
+                }
+              : {}),
             ...(endArgs?.finishReason
               ? { finishReason: endArgs.finishReason }
               : {}),
             ...(endArgs?.warnings ? { warnings: endArgs.warnings } : {}),
-            ...(endArgs?.providerMetadata
+            ...(endArgs?.providerMetadata && !failed
               ? { providerMetadata: endArgs.providerMetadata }
               : {}),
           },
@@ -217,7 +244,7 @@ export const createTraceAdapter = (args: {
               ...(parent ? { parentSpanId: parent.spanId } : {}),
               payload: {
                 name: startArgs.name,
-                error: args.eventMapper.asErrorPayload(error),
+                error: args.eventMapper.asErrorPayload(error, startArgs.name),
                 durationMs: Date.now() - startedAt,
               },
             }),

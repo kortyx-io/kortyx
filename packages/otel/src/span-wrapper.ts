@@ -1,5 +1,6 @@
 import { isControlFlowError, serializeFailure } from "@kortyx/core/errors";
 import type { ReasonTraceSpan, ReasonTraceSpanEndArgs } from "@kortyx/hooks";
+import { errorDiagnostics, isModelTraceSpan } from "@kortyx/hooks/internal";
 import { type Span, SpanStatusCode } from "@opentelemetry/api";
 import {
   applyAttributeMapping,
@@ -65,17 +66,24 @@ export const createSpanWrapper = (
       } catch {}
     },
     fail: (error, args) => {
+      if (wrapper.ended) return;
       if (isControlFlowError(error)) {
         span.setAttribute("kortyx.control_flow", true);
         wrapper.end?.(args);
         return;
       }
       const failure = serializeFailure(error);
-      const message = failure.message;
-      span.recordException({ name: failure.code, message });
+      const diagnostic = isModelTraceSpan(name)
+        ? errorDiagnostics(error, options.error)
+        : { errorType: failure.code, errorMessage: failure.message };
+      const message = diagnostic.errorMessage ?? "Model execution failed.";
+      span.recordException({
+        name: diagnostic.errorType ?? failure.code,
+        message,
+      });
       span.setStatus({ code: SpanStatusCode.ERROR, message });
       try {
-        const attributes = spanErrorAttributes(error, args);
+        const attributes = spanErrorAttributes(error, args, diagnostic);
         span.setAttributes(
           toAttributes(
             applyAttributeMapping(name, attributes, options, {
@@ -107,12 +115,13 @@ const spanEndAttributes = (
 const spanErrorAttributes = (
   error: unknown,
   args: ReasonTraceSpanEndArgs | undefined,
+  diagnostic: { errorType?: string; errorMessage?: string },
 ) => {
   const failure = serializeFailure(error);
-  const message = failure.message;
+  const message = diagnostic.errorMessage ?? "Model execution failed.";
   return {
     ...(args?.attributes ?? {}),
-    "error.type": failure.code,
+    "error.type": diagnostic.errorType ?? failure.code,
     "kortyx.error.category": failure.category,
     "error.message": message,
     ...usageAttributes(args),

@@ -433,6 +433,12 @@ function TraceInspector({
   hideHeading?: boolean;
 }) {
   const event = item.inspectEvent;
+  const error =
+    event.payload.error && typeof event.payload.error === "object"
+      ? (event.payload.error as Record<string, unknown>)
+      : undefined;
+  const errorType = event.payload.errorType ?? error?.name;
+  const errorMessage = event.payload.errorMessage ?? error?.message;
   const source = event.payload.source;
   const sourceParams = new URLSearchParams({
     tab: "trace",
@@ -523,6 +529,23 @@ function TraceInspector({
         </p>
       )}
       <dl className="mt-4 divide-y">
+        {typeof errorType === "string" && (
+          <KeyValue label="Error type">
+            <code>{errorType}</code>
+          </KeyValue>
+        )}
+        {typeof errorMessage === "string" && (
+          <KeyValue label="Error message">
+            <span className="whitespace-pre-wrap break-words">
+              {errorMessage}
+            </span>
+          </KeyValue>
+        )}
+        {error && typeof error.code === "string" && (
+          <KeyValue label="Error code">
+            <code>{error.code}</code>
+          </KeyValue>
+        )}
         {item.kind === "tool" && (
           <>
             <KeyValue label="Called by">
@@ -539,18 +562,6 @@ function TraceInspector({
                   ? "Yes"
                   : "Not captured"}
             </KeyValue>
-            {typeof event.payload.errorType === "string" && (
-              <KeyValue label="Error type">
-                <code>{event.payload.errorType}</code>
-              </KeyValue>
-            )}
-            {typeof event.payload.errorMessage === "string" && (
-              <KeyValue label="Error message">
-                <span className="whitespace-pre-wrap break-words">
-                  {event.payload.errorMessage}
-                </span>
-              </KeyValue>
-            )}
             {typeof event.payload.denialCode === "string" && (
               <KeyValue label="Denial code">
                 <code>{event.payload.denialCode}</code>

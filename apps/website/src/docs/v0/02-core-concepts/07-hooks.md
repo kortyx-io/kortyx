@@ -869,3 +869,10 @@ for HTTP wiring, cancellation outcomes, and resume behavior.
 
 
 Tool faults automatically capture error type and message in Studio and OpenTelemetry, for both direct and model-selected execution. No extra wiring is required. Exceptions are not serialized: inputs, results, stack traces, causes and custom fields remain excluded. Explicit `isError: true` tool result content is captured as the error message. Messages are bounded to 8192 characters and are exported verbatim; if needed, a tool may override `telemetry.error(error)` to return `{type, message}` or `null` to suppress diagnostics. An override failure never changes tool execution.
+
+
+### Automatic model error diagnostics
+
+With tracing configured, provider/model-call failures and `useReason` decision/output-parsing failures automatically export bounded error type/message, without additional call-site wiring. Studio's failed model request inspector shows provider diagnostics; a separate **Model reasoning** row shows JSON/schema processing failures after an otherwise normally completed model response. Failed provider requests do not add a duplicate reasoning-failure row. Interrupts and cancellation retain their control-flow treatment.
+
+Error messages are exported verbatim (type up to 256 characters, message up to 8192). Exception objects, stacks, causes, prompts, outputs and raw provider responses are not automatically captured. Failed-generation events retain normalized usage counts and omit arbitrary provider metadata/raw usage. Existing explicit content capture remains opt-in. Both `createKortyxTelemetryAdapter` and `createOpenTelemetryTraceAdapter` optionally accept `error(error)` returning `{type, message}` or `null` to replace/suppress model diagnostics before export; a throwing override suppresses them without changing execution. Tool diagnostics use the optional tool `telemetry.error` override. Client-facing `serializeFailure` and execution failure contracts remain unchanged; tracing diagnostics are for access-controlled Studio/internal logs.

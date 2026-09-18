@@ -89,3 +89,10 @@ For fork/rollback testing, compare `(runId, branchId, invocationId)`, not invoca
 
 Use `npx kortyx studio credentials` for browser sign-in details. Treat every
 printed telemetry key as a secret.
+
+
+### Automatic model error diagnostics
+
+With tracing configured, provider/model-call failures and `useReason` decision/output-parsing failures automatically export bounded error type/message, without additional call-site wiring. Studio's failed model request inspector shows provider diagnostics; a separate **Model reasoning** row shows JSON/schema processing failures after an otherwise normally completed model response. Failed provider requests do not add a duplicate reasoning-failure row. Interrupts and cancellation retain their control-flow treatment.
+
+Error messages are exported verbatim (type up to 256 characters, message up to 8192). Exception objects, stacks, causes, prompts, outputs and raw provider responses are not automatically captured. Failed-generation events retain normalized usage counts and omit arbitrary provider metadata/raw usage. Existing explicit content capture remains opt-in. Both `createKortyxTelemetryAdapter` and `createOpenTelemetryTraceAdapter` optionally accept `error(error)` returning `{type, message}` or `null` to replace/suppress model diagnostics before export; a throwing override suppresses them without changing execution. Tool diagnostics use the optional tool `telemetry.error` override. Client-facing `serializeFailure` and execution failure contracts remain unchanged; tracing diagnostics are for access-controlled Studio/internal logs.

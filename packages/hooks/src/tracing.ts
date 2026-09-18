@@ -14,6 +14,12 @@ import type {
   KortyxWorkflowTopologyNode as ContractKortyxWorkflowTopologyNode,
 } from "@kortyx/telemetry-contracts";
 
+export type KortyxErrorDetails = { type?: string | undefined; message: string };
+/** Optional override for automatically captured model fault diagnostics. */
+export type KortyxTraceErrorProjection = (
+  error: unknown,
+) => KortyxErrorDetails | null;
+
 export type ReasonTraceAttributes = Record<string, unknown>;
 
 export type KortyxTelemetryPrompt = {

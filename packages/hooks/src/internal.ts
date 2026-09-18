@@ -1,3 +1,4 @@
+export { errorDiagnostics, isModelTraceSpan } from "./error-diagnostics";
 export type {
   RunReasonEngineArgs,
   RunReasonEngineResult,

@@ -8,6 +8,7 @@ import type {
   ToolOutcomeDescriptor,
 } from "@kortyx/providers";
 import { getHookContext } from "./context";
+import { errorDiagnostics } from "./error-diagnostics";
 import { withSafeTraceSpan } from "./safe-tracing";
 import type { ReasonTraceAdapter } from "./tracing";
 import { emitWorkflowCall } from "./workflow-telemetry";
@@ -123,26 +124,10 @@ function captureToolError(
       typeof error.content === "string"
         ? { name: "ToolError", message: error.content }
         : error;
-    const details = policy?.error
-      ? policy.error(error)
-      : typeof reported === "string"
-        ? { type: "Error", message: reported }
-        : reported && typeof reported === "object"
-          ? {
-              type:
-                "name" in reported && typeof reported.name === "string"
-                  ? reported.name
-                  : "Error",
-              message:
-                "message" in reported && typeof reported.message === "string"
-                  ? reported.message
-                  : "Tool reported a fault.",
-            }
-          : { type: "Error", message: "Tool threw a non-Error value." };
-    if (!details || typeof details.message !== "string") return;
-    observation.errorMessage = details.message.slice(0, 8192);
-    if (typeof details.type === "string")
-      observation.errorType = details.type.slice(0, 256);
+    Object.assign(
+      observation,
+      errorDiagnostics(policy?.error ? error : reported, policy?.error),
+    );
   } catch {
     // An application's projection or an exception getter cannot change execution.
   }

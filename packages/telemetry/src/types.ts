@@ -9,6 +9,8 @@ export type CreateKortyxTelemetryAdapterOptions = {
   apiKey: string;
   environment: string;
   service: KortyxTelemetryService;
+  /** Optional replacement/suppression of automatically captured model fault diagnostics. */
+  error?: import("@kortyx/hooks").KortyxTraceErrorProjection;
   captureContent?: KortyxTelemetryConfig["captureContent"] | undefined;
   metadata?: Record<string, unknown> | undefined;
   tags?: string[] | undefined;

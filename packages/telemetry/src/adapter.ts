@@ -71,6 +71,7 @@ export function createKortyxTelemetryAdapter(
     ...(options.metadata ? { metadata: options.metadata } : {}),
     ...(options.tags ? { tags: options.tags } : {}),
     createId,
+    ...(options.error ? { error: options.error } : {}),
   });
   const topology = createTopologyResolver({
     ensure: async (snapshot) => {

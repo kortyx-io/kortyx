@@ -34,6 +34,7 @@ export { useTool } from "./tool";
 export type {
   EnsureWorkflowTopologyRequest,
   EnsureWorkflowTopologyResponse,
+  KortyxErrorDetails,
   KortyxTelemetryConfig,
   KortyxTelemetryContentCapture,
   KortyxTelemetryCorrelation,
@@ -43,6 +44,7 @@ export type {
   KortyxTelemetryReporter,
   KortyxTelemetryService,
   KortyxTraceAdapter,
+  KortyxTraceErrorProjection,
   KortyxTraceMetadata,
   ReasonTraceAdapter,
   ReasonTraceAttributes,
