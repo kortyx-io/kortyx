@@ -725,6 +725,9 @@ describe("canonical tool spans", () => {
           attemptId: outcome,
           executed: true,
           outcome,
+          ...(outcome === "fault"
+            ? { errorType: "TypeError", errorMessage: "list_jobs unavailable" }
+            : {}),
         },
       });
     }
@@ -736,6 +739,10 @@ describe("canonical tool spans", () => {
     });
     expect(spans[0]?.status).toBeUndefined();
     expect(spans[1]?.status).toMatchObject({ code: 2 });
+    expect(spans[1]?.attributes).toMatchObject({
+      "error.type": "TypeError",
+      "error.message": "list_jobs unavailable",
+    });
     expect(spans.every((span) => span.endCount === 1)).toBe(true);
   });
   it("finishes physical spans and preserves callback results when observer callbacks or mapping fail", async () => {

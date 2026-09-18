@@ -77,7 +77,7 @@ attachments are marked unresolved and become observed after real execution. The
 CLI still imports the configured entry to obtain workflow definitions; keep that
 entry's top-level initialization safe.
 
-Tool observations exclude raw input/result/errors and credentials. Request context
+Tool faults automatically capture error type and message without extra wiring. Explicit `isError: true` result content is the error message. Diagnostics are bounded to 256/8192 characters; exception objects, causes, stacks and raw inputs/results are excluded. Messages are exported verbatim, so applications may optionally use `tool.telemetry.error(error)` to return `{type, message}` or `null` to suppress diagnostics. Throwing projections suppress capture without changing execution. Denials and cancellation do not capture errors. Request context
 is not copied wholesale into telemetry. Explicit app telemetry metadata is opt-in;
 credential-shaped fields are filtered, but free text cannot be automatically made
 safe. Telemetry delivery and observer callback failures never change execution.

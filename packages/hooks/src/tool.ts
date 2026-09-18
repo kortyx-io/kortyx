@@ -20,6 +20,7 @@ type ToolScope = {
   providerToolCallId: string;
   adopted: boolean;
   classify?: KortyxExecutableTool["outcomes"] | undefined;
+  telemetry?: KortyxExecutableTool["telemetry"] | undefined;
 };
 const tools = new AsyncLocalStorage<ToolScope>();
 
@@ -102,6 +103,49 @@ export async function closeOwnedTools(
       }
     }),
   );
+}
+
+/** Read only diagnostic strings; never serialize an exception, cause, input or stack. */
+function captureToolError(
+  observation: ToolObservation,
+  error: unknown,
+  policy: KortyxExecutableTool["telemetry"],
+  returned = false,
+) {
+  try {
+    const reported =
+      returned &&
+      error &&
+      typeof error === "object" &&
+      "isError" in error &&
+      error.isError === true &&
+      "content" in error &&
+      typeof error.content === "string"
+        ? { name: "ToolError", message: error.content }
+        : error;
+    const details = policy?.error
+      ? policy.error(error)
+      : typeof reported === "string"
+        ? { type: "Error", message: reported }
+        : reported && typeof reported === "object"
+          ? {
+              type:
+                "name" in reported && typeof reported.name === "string"
+                  ? reported.name
+                  : "Error",
+              message:
+                "message" in reported && typeof reported.message === "string"
+                  ? reported.message
+                  : "Tool reported a fault.",
+            }
+          : { type: "Error", message: "Tool threw a non-Error value." };
+    if (!details || typeof details.message !== "string") return;
+    observation.errorMessage = details.message.slice(0, 8192);
+    if (typeof details.type === "string")
+      observation.errorType = details.type.slice(0, 256);
+  } catch {
+    // An application's projection or an exception getter cannot change execution.
+  }
 }
 
 function ownership() {
@@ -255,6 +299,14 @@ export async function executeObservedTool(args: {
           );
           observation.outcome = outcome.outcome;
           if (outcome.code) observation.denialCode = outcome.code;
+          if (observation.outcome === "fault") {
+            captureToolError(
+              observation,
+              result,
+              scope.telemetry ?? args.tool.telemetry,
+              true,
+            );
+          }
           return result;
         } catch (error) {
           if (args.abortSignal?.aborted) observation.outcome = "cancelled";
@@ -267,6 +319,12 @@ export async function executeObservedTool(args: {
             );
             observation.outcome = outcome.outcome;
             if (outcome.code) observation.denialCode = outcome.code;
+            if (observation.outcome === "fault")
+              captureToolError(
+                observation,
+                error,
+                scope.telemetry ?? args.tool.telemetry,
+              );
           }
           throw error;
         } finally {
@@ -330,6 +388,7 @@ export async function useTool<T extends KortyxExecutableTool>(
   ) {
     scope.adopted = true;
     scope.classify = args.tool.outcomes ?? scope.classify;
+    scope.telemetry = args.tool.telemetry ?? scope.telemetry;
     return tools.run({ ...scope, mode: "direct" }, () =>
       args.tool.execute(args.input, {
         toolCallId: scope.providerToolCallId,

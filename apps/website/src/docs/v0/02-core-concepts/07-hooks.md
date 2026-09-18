@@ -866,3 +866,6 @@ Children, `useReason`, and tools already inherit cancellation automatically.
 Do not persist signals in runtime context or workflow state. See
 [Execute and resume workflows](../03-guides/07-workflow-execution.md#cancel-active-work)
 for HTTP wiring, cancellation outcomes, and resume behavior.
+
+
+Tool faults automatically capture error type and message in Studio and OpenTelemetry, for both direct and model-selected execution. No extra wiring is required. Exceptions are not serialized: inputs, results, stack traces, causes and custom fields remain excluded. Explicit `isError: true` tool result content is captured as the error message. Messages are bounded to 8192 characters and are exported verbatim; if needed, a tool may override `telemetry.error(error)` to return `{type, message}` or `null` to suppress diagnostics. An override failure never changes tool execution.

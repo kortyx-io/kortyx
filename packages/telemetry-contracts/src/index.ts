@@ -171,6 +171,16 @@ export const TelemetryEventSchema = z
       for (const issue of parsed.error.issues)
         ctx.addIssue({ ...issue, path: ["payload", ...issue.path] });
     else {
+      if (
+        (parsed.data.errorType !== undefined ||
+          parsed.data.errorMessage !== undefined) &&
+        parsed.data.outcome !== "fault"
+      )
+        ctx.addIssue({
+          code: "custom",
+          path: ["payload"],
+          message: "Error diagnostics require a fault outcome.",
+        });
       const terminalOutcomes: Record<string, string> = {
         "tool.completed": "success",
         "tool.failed": "fault",

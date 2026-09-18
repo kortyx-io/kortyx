@@ -18,6 +18,8 @@ export const ToolObservationSchema = z.object({
     .string()
     .regex(/^[A-Z][A-Z0-9_]{0,63}$/)
     .optional(),
+  errorType: z.string().max(256).optional(),
+  errorMessage: z.string().max(8192).optional(),
   durationMs: z.number().finite().nonnegative().optional(),
   workflowId: z.string().optional(),
   nodeId: z.string().optional(),

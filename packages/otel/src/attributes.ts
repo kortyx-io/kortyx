@@ -132,6 +132,8 @@ export const normalizeKnownAttributes = (
     normalized["kortyx.tool.outcome"] = attributes.outcome;
     normalized["kortyx.tool.executed"] = attributes.executed;
     normalized["kortyx.tool.denial.code"] = attributes.denialCode;
+    normalized["error.type"] = attributes.errorType;
+    normalized["error.message"] = attributes.errorMessage;
   }
   return normalized;
 };

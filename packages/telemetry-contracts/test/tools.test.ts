@@ -73,3 +73,32 @@ describe("safe canonical tool contract", () => {
       ).success,
     ).toBe(true));
 });
+
+it("accepts bounded tool fault diagnostics and rejects stacks and non-fault error fields", () => {
+  const fault = {
+    ...fact,
+    outcome: "fault",
+    denialCode: undefined,
+    errorType: "TypeError",
+    errorMessage: "list_jobs unavailable",
+  };
+  expect(
+    TelemetryEventSchema.safeParse(event("tool.failed", fault)).success,
+  ).toBe(true);
+  for (const override of [
+    { errorMessage: "x".repeat(8193) },
+    { errorType: "x".repeat(257) },
+    { stack: "PRIVATE_STACK" },
+    { outcome: "success" },
+  ])
+    expect(
+      TelemetryEventSchema.safeParse(
+        event("tool.failed", { ...fault, ...override }),
+      ).success,
+    ).toBe(false);
+  expect(
+    TelemetryEventSchema.safeParse(
+      event("tool.denied", { ...fact, errorMessage: "message" }),
+    ).success,
+  ).toBe(false);
+});

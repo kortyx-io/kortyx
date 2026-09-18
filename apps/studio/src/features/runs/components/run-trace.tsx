@@ -539,6 +539,18 @@ function TraceInspector({
                   ? "Yes"
                   : "Not captured"}
             </KeyValue>
+            {typeof event.payload.errorType === "string" && (
+              <KeyValue label="Error type">
+                <code>{event.payload.errorType}</code>
+              </KeyValue>
+            )}
+            {typeof event.payload.errorMessage === "string" && (
+              <KeyValue label="Error message">
+                <span className="whitespace-pre-wrap break-words">
+                  {event.payload.errorMessage}
+                </span>
+              </KeyValue>
+            )}
             {typeof event.payload.denialCode === "string" && (
               <KeyValue label="Denial code">
                 <code>{event.payload.denialCode}</code>

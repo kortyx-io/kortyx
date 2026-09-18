@@ -273,3 +273,114 @@ test("discovers tools in workflow search, inspects capabilities, and drills into
   );
   await expect(page.locator("body")).not.toContainText("E2E_PRIVATE");
 });
+
+test("automatically renders thrown and returned tool faults in a completed workflow", async ({
+  page,
+}) => {
+  const responses = [
+    {
+      content: "",
+      toolCalls: [
+        {
+          id: "native-fault",
+          name: "search_jobs",
+          input: { private: "E2E_PRIVATE_INPUT" },
+        },
+      ],
+    },
+    { content: "Handled." },
+  ];
+  const provider = {
+    id: "fault-provider",
+    models: ["deterministic"],
+    getModel: () => ({
+      invoke: async () => {
+        const response = responses.shift();
+        if (!response) throw new Error("Unexpected provider call");
+        return response;
+      },
+      stream: async function* () {},
+    }),
+  };
+  const telemetry = createKortyxTelemetryAdapter({
+    endpoint: apiUrl,
+    apiKey,
+    environment: "test",
+    service: { name: "fault-e2e" },
+  });
+  const error = Object.assign(new TypeError("list_jobs database unavailable"), {
+    cause: new Error("E2E_PRIVATE_CAUSE"),
+    secret: "E2E_PRIVATE_FIELD",
+  });
+  const workflow = defineWorkflow({
+    id: "e2e-tool-fault-diagnostics",
+    version: "1",
+    inputSchema: z.object({}),
+    outputSchema: z.object({ status: z.string() }),
+    nodes: {
+      lookup: {
+        run: async () => {
+          try {
+            await useTool({
+              tool: {
+                name: "list_jobs",
+                inputSchema: {},
+                execute: () => {
+                  throw error;
+                },
+              },
+              input: { private: "E2E_PRIVATE_INPUT" },
+            });
+          } catch (caught) {
+            expect(caught).toBe(error);
+          }
+          await useReason({
+            model: { provider, modelId: "deterministic" },
+            input: "Check jobs",
+            stream: false,
+            emit: false,
+            tools: [
+              {
+                name: "search_jobs",
+                inputSchema: {},
+                execute: () => ({
+                  isError: true,
+                  content: "search_jobs upstream unavailable",
+                  raw: { secret: "E2E_PRIVATE_RESULT" },
+                }),
+              },
+            ],
+          });
+          return { data: { status: "OK" } };
+        },
+      },
+    },
+    edges: [
+      ["__start__", "lookup"],
+      ["lookup", "__end__"],
+    ],
+  });
+  const result = await createAgent({
+    workflows: [workflow],
+    telemetry,
+    frameworkAdapter: createInMemoryFrameworkAdapter(),
+  }).execute({ workflow, input: {} });
+  expect(result.status).toBe("completed");
+  await telemetry.flush();
+  await page.goto(`/runs/${result.runId}?tab=trace&env=test`);
+  for (const [name, type, message] of [
+    ["list_jobs", "TypeError", "list_jobs database unavailable"],
+    ["search_jobs", "ToolError", "search_jobs upstream unavailable"],
+  ] as const) {
+    await page
+      .getByRole("button", { name: new RegExp(`${name}.*Fault`) })
+      .click();
+    const inspector = page.getByRole("dialog", { name, exact: true });
+    await expect(inspector).toContainText("Error type");
+    await expect(inspector).toContainText(type);
+    await expect(inspector).toContainText("Error message");
+    await expect(inspector).toContainText(message);
+    await expect(page.locator("body")).not.toContainText("E2E_PRIVATE");
+    await page.keyboard.press("Escape");
+  }
+});

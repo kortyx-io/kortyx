@@ -76,3 +76,10 @@ The ad hoc manual execution scripts and their detailed run manifests were kept
 under `/tmp/kortyx-manual-tools*`; their disposable installation is cleaned up
 after verification. No live model inference, live Workfully permission checks or
 production Redis persistence is claimed by this local exercise.
+
+
+## Automatic fault diagnostics follow-up
+
+Tool faults now capture bounded exception type/message automatically, without extra wiring on either direct or model-selected calls. Explicit `isError: true` content is treated as the error message. Messages are exported verbatim; optional `tool.telemetry.error` replacement/suppression runs before export and projection failures cannot affect execution. Exception objects, causes, custom fields, stack fields and raw inputs/results remain excluded.
+
+Verified locally with SDK/API builds, 28 package test tasks, 28 type-check tasks and the OpenTelemetry mapping test. All three disposable-install hydrated browser journeys pass, including an otherwise completed workflow containing a thrown `list_jobs` TypeError and a returned `search_jobs` fault. Both inspectors show Error type/message; private input/result/cause/custom-field markers are absent from the rendered page. The earlier browser rerun failed solely because the standalone inspector uses a dialog rather than the nested run drawer test attribute; the corrected semantic dialog locator passes. This does not retroactively add diagnostics to historical runs.

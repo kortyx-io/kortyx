@@ -118,7 +118,11 @@ describe("useTool", () => {
       ),
     ).rejects.toBe(error);
     expect(events[1]?.type).toBe("tool.failed");
-    expect(JSON.stringify(events)).not.toContain("PRIVATE_ERROR");
+    expect(events[1]?.payload).toMatchObject({
+      errorType: "Error",
+      errorMessage: "PRIVATE_ERROR",
+    });
+    expect(JSON.stringify(events)).not.toContain(error.stack);
   });
   it("records cancellation before dispatch without counting an execution", async () => {
     const execute = vi.fn();
@@ -256,4 +260,86 @@ describe("useTool", () => {
     });
     expect(JSON.stringify(events)).not.toContain("PRIVATE_DENIAL");
   });
+});
+
+it.each([
+  "replace",
+  "suppress",
+  "throws",
+])("supports %s fault projection without changing the error", async (mode) => {
+  const error = new Error("PRIVATE_ORIGINAL");
+  const { run, events } = setup();
+  await expect(
+    run(() =>
+      useTool({
+        input: { secret: "PRIVATE_INPUT" },
+        tool: {
+          name: "lookup",
+          inputSchema: {},
+          execute: () => {
+            throw error;
+          },
+          telemetry: {
+            error: () => {
+              if (mode === "throws") throw new Error("PRIVATE_PROJECTOR");
+              return mode === "suppress"
+                ? null
+                : { type: "DatabaseError", message: "Database unavailable" };
+            },
+          },
+        },
+      }),
+    ),
+  ).rejects.toBe(error);
+  expect(JSON.stringify(events)).not.toMatch(
+    /PRIVATE_ORIGINAL|PRIVATE_INPUT|PRIVATE_PROJECTOR/,
+  );
+  if (mode === "replace")
+    expect(events[1]?.payload).toMatchObject({
+      errorType: "DatabaseError",
+      errorMessage: "Database unavailable",
+    });
+  else expect(events[1]?.payload).not.toHaveProperty("errorMessage");
+});
+it("captures explicit error result text, bounds diagnostics and does not serialize custom values", async () => {
+  const { run, events } = setup();
+  const result = {
+    isError: true,
+    content: "upstream unavailable",
+    raw: { secret: "PRIVATE_RAW" },
+    structuredContent: { input: "PRIVATE_RESULT" },
+  };
+  const returned = await run(() =>
+    useTool({
+      tool: { name: "lookup", inputSchema: {}, execute: () => result },
+      input: {},
+    }),
+  );
+  expect(returned.result).toBe(result);
+  expect(events[1]?.payload).toMatchObject({
+    errorType: "ToolError",
+    errorMessage: "upstream unavailable",
+  });
+  expect(JSON.stringify(events)).not.toMatch(/PRIVATE_RAW|PRIVATE_RESULT/);
+  const fault = Object.assign(new Error("x".repeat(9000)), {
+    name: "T".repeat(300),
+    secret: "PRIVATE_FIELD",
+  });
+  await expect(
+    run(() =>
+      useTool({
+        tool: {
+          name: "lookup",
+          inputSchema: {},
+          execute: () => {
+            throw fault;
+          },
+        },
+        input: {},
+      }),
+    ),
+  ).rejects.toBe(fault);
+  expect(events[3]?.payload.errorMessage).toHaveLength(8192);
+  expect(events[3]?.payload.errorType).toHaveLength(256);
+  expect(JSON.stringify(events)).not.toContain("PRIVATE_FIELD");
 });

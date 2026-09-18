@@ -159,6 +159,14 @@ export interface ToolOutcomes<TResult = unknown> {
   classifyResult?(result: TResult): ToolOutcomeDescriptor;
   classifyError?(error: unknown): ToolOutcomeDescriptor;
 }
+export interface ToolErrorDetails {
+  type?: string | undefined;
+  message: string;
+}
+export interface ToolTelemetry {
+  /** Replace or suppress fault diagnostics before export. Throwing suppresses capture. */
+  error?(error: unknown): ToolErrorDetails | null;
+}
 export interface ToolObservation {
   workflowId?: string | undefined;
   nodeId?: string | undefined;
@@ -172,6 +180,8 @@ export interface ToolObservation {
   executed: boolean;
   outcome?: ToolOutcome;
   denialCode?: string | undefined;
+  errorType?: string | undefined;
+  errorMessage?: string | undefined;
   durationMs?: number | undefined;
   runId?: string | undefined;
   invocationId?: string | undefined;
@@ -188,6 +198,7 @@ export interface ToolObservation {
 export interface KortyxExecutableTool<TInput = unknown, TResult = unknown>
   extends KortyxToolDefinition {
   outcomes?: ToolOutcomes<TResult>;
+  telemetry?: ToolTelemetry;
   execute(
     input: TInput,
     context: {

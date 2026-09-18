@@ -43,8 +43,10 @@ export type {
   ProviderModelRef,
   ProviderRegistry,
   ProviderSelector,
+  ToolErrorDetails,
   ToolObservation,
   ToolOutcome,
   ToolOutcomeDescriptor,
   ToolOutcomes,
+  ToolTelemetry,
 } from "./types";
