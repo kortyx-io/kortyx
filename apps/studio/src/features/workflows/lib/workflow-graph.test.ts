@@ -68,6 +68,111 @@ function graph(value = system()) {
 }
 
 describe("automatic workflow layout", () => {
+  it.each([
+    [
+      "parallel exits",
+      [
+        ["__start__", "title"],
+        ["__start__", "classify"],
+        ["title", "__end__"],
+        ["classify", "dispatch"],
+        ["dispatch", "__end__"],
+      ],
+    ],
+    [
+      "parallel join",
+      [
+        ["__start__", "a"],
+        ["__start__", "b"],
+        ["a", "join"],
+        ["b", "join"],
+        ["join", "__end__"],
+      ],
+    ],
+    [
+      "early exit and loop",
+      [
+        ["__start__", "gate"],
+        ["gate", "__end__"],
+        ["gate", "work"],
+        ["work", "gate"],
+        ["work", "__end__"],
+      ],
+    ],
+    ["direct start to end", [["__start__", "__end__"]]],
+  ])("renders every endpoint and contains boundary routes for %s", (_name, pairs) => {
+    const boundaries = new Set(["__start__", "__end__"]);
+    const nodeIds = [...new Set(pairs.flat())].filter(
+      (id) => !boundaries.has(id),
+    );
+    const summary = {
+      ...workflow("example"),
+      nodes: nodeIds.map((id) => ({ id, label: id, metrics: { runCount: 1 } })),
+      internalEdges: pairs.map(([source, target], index) => ({
+        id: String(index),
+        source,
+        target,
+      })),
+    };
+    const value = { ...system(), workflows: [summary], transitions: [] };
+    const before = structuredClone(value);
+    const { nodes, edges } = graph(value);
+    expect(value).toEqual(before);
+    expect(edges).toHaveLength(pairs.length);
+    expect(nodes.filter((node) => node.type === "boundary")).toHaveLength(2);
+    const parent = nodes.find((node) => node.id === "example");
+    if (!parent) throw new Error("Missing workflow group");
+    for (const edge of edges) {
+      expect(nodes.some((node) => node.id === edge.source)).toBe(true);
+      expect(nodes.some((node) => node.id === edge.target)).toBe(true);
+      for (const point of edge.data?.routePoints as Point[]) {
+        expect(Number.isFinite(point.x) && Number.isFinite(point.y)).toBe(true);
+        expect(point.x).toBeGreaterThanOrEqual(parent.position.x);
+        expect(point.y).toBeGreaterThanOrEqual(parent.position.y + 48);
+        expect(point.x).toBeLessThanOrEqual(
+          parent.position.x + Number(parent.style?.width),
+        );
+        expect(point.y).toBeLessThanOrEqual(
+          parent.position.y + Number(parent.style?.height) - 40,
+        );
+      }
+    }
+    for (const node of nodes.filter((node) => node.type === "boundary")) {
+      expect(node.selectable).toBe(false);
+      expect(node.parentId).toBe("example");
+    }
+  });
+
+  it("does not add boundaries when a catalog has no boundary edges", () => {
+    expect(graph().nodes.some((node) => node.type === "boundary")).toBe(false);
+  });
+
+  it("deduplicates catalog boundaries and renders only referenced boundaries", () => {
+    const summary = workflow("example");
+    summary.nodes.push({
+      id: "__start__",
+      label: "Start",
+      metrics: { runCount: 99 },
+    });
+    summary.internalEdges.push({
+      id: "entry",
+      source: "__start__",
+      target: "enter",
+    });
+    const { nodes } = graph({
+      ...system(),
+      workflows: [summary],
+      transitions: [],
+    });
+    expect(
+      nodes.filter((node) => node.id === "example:__start__"),
+    ).toHaveLength(1);
+    expect(nodes.some((node) => node.id === "example:__end__")).toBe(false);
+    expect(nodes.find((node) => node.id === "example:__start__")?.type).toBe(
+      "boundary",
+    );
+  });
+
   it("keeps labels clear of every route, card and other label in a dense multigraph", () => {
     const { nodes, edges } = graph();
     const boxes = nodes.map((node) => {

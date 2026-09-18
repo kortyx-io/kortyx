@@ -12,6 +12,31 @@ import type {
 
 type LayoutDirection = "LR" | "TB";
 
+function isBoundary(id: string) {
+  return id === "__start__" || id === "__end__";
+}
+
+// Boundaries are edge endpoints in the catalog, not executable workflow nodes.
+function layoutNodes(workflow: WorkflowSummary): WorkflowNode[] {
+  const endpoints = new Set(
+    workflow.internalEdges.flatMap((edge) => [edge.source, edge.target]),
+  );
+  return [
+    ...workflow.nodes.filter((node) => !isBoundary(node.id)),
+    ...["__start__", "__end__"]
+      .filter((id) => endpoints.has(id))
+      .map((id) => ({
+        id,
+        label: id === "__start__" ? "Start" : "End",
+        metrics: { runCount: 0 },
+      })),
+  ];
+}
+
+function getInternalNodeHeight(node: WorkflowNode) {
+  return isBoundary(node.id) ? 24 : 54;
+}
+
 export type { EdgeLabel } from "./edge-label-layout";
 
 export function conditionLabelWidth(condition: string) {
@@ -111,18 +136,23 @@ export function toWorkflowGraph(
       draggable: false,
       zIndex: 0,
     });
-    for (const node of workflow.nodes) {
+    for (const node of layoutNodes(workflow)) {
+      const boundary = isBoundary(node.id);
       const nodePosition = internal?.positions.get(node.id) ?? { x: 18, y: 76 };
       nodes.push({
         id: `${workflow.id}:${node.id}`,
-        type: "internal",
+        type: boundary ? "boundary" : "internal",
         parentId: workflow.id,
         extent: "parent",
         draggable: false,
+        ...(boundary ? { selectable: false, focusable: false } : {}),
         position: nodePosition,
         data: {
           workflow,
           node,
+          ...(boundary
+            ? { boundary: node.id === "__start__" ? "start" : "end" }
+            : {}),
           selected:
             selection.type === "node" &&
             selection.workflowId === workflow.id &&
@@ -131,7 +161,10 @@ export function toWorkflowGraph(
           metric,
           direction: internal?.direction ?? "LR",
         },
-        style: { width: getInternalNodeWidth(node), height: 54 },
+        style: {
+          width: getInternalNodeWidth(node),
+          height: getInternalNodeHeight(node),
+        },
         zIndex: 2,
       });
     }
@@ -250,12 +283,11 @@ export function toWorkflowGraph(
 function layoutInternalWorkflow(workflow: WorkflowSummary) {
   workflow = {
     ...workflow,
-    nodes: [...workflow.nodes].sort((a, b) => a.id.localeCompare(b.id)),
+    nodes: layoutNodes(workflow).sort((a, b) => a.id.localeCompare(b.id)),
     internalEdges: [...workflow.internalEdges].sort((a, b) =>
       a.id.localeCompare(b.id),
     ),
   };
-  const nodeHeight = 54;
   const offsetX = 18;
   const offsetY = 76;
   const layout = new dagre.graphlib.Graph({ multigraph: true });
@@ -272,7 +304,7 @@ function layoutInternalWorkflow(workflow: WorkflowSummary) {
   for (const node of workflow.nodes)
     layout.setNode(node.id, {
       width: getInternalNodeWidth(node),
-      height: nodeHeight,
+      height: getInternalNodeHeight(node),
     });
   for (const edge of workflow.internalEdges)
     layout.setEdge(
@@ -303,7 +335,10 @@ function layoutInternalWorkflow(workflow: WorkflowSummary) {
         node.id,
         {
           x: (point?.x ?? width / 2) - width / 2 + offsetX,
-          y: (point?.y ?? nodeHeight / 2) - nodeHeight / 2 + offsetY,
+          y:
+            (point?.y ?? getInternalNodeHeight(node) / 2) -
+            getInternalNodeHeight(node) / 2 +
+            offsetY,
         },
       ];
     }),
@@ -317,7 +352,10 @@ function layoutInternalWorkflow(workflow: WorkflowSummary) {
   );
   const maxY = Math.max(
     offsetY + (layout.graph().height || 0),
-    ...[...positions.values()].map((position) => position.y + nodeHeight),
+    ...workflow.nodes.map(
+      (node) =>
+        (positions.get(node.id)?.y ?? offsetY) + getInternalNodeHeight(node),
+    ),
   );
   const result = {
     direction,
@@ -354,7 +392,7 @@ function layoutInternalWorkflow(workflow: WorkflowSummary) {
     id: node.id,
     ...(positions.get(node.id) ?? { x: offsetX, y: offsetY }),
     width: getInternalNodeWidth(node),
-    height: nodeHeight,
+    height: getInternalNodeHeight(node),
   }));
   for (const edge of workflow.internalEdges) {
     result.routes.set(
@@ -376,7 +414,7 @@ function layoutInternalWorkflow(workflow: WorkflowSummary) {
     workflow.nodes.map((node) => ({
       ...(positions.get(node.id) ?? { x: offsetX, y: offsetY }),
       width: getInternalNodeWidth(node),
-      height: nodeHeight,
+      height: getInternalNodeHeight(node),
     })),
     { x: offsetX, y: offsetY },
   );
@@ -389,5 +427,6 @@ function layoutInternalWorkflow(workflow: WorkflowSummary) {
 }
 
 function getInternalNodeWidth(node: WorkflowNode) {
+  if (isBoundary(node.id)) return 60;
   return Math.min(250, Math.max(118, node.id.length * 6.4 + 34));
 }
