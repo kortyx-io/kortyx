@@ -2,6 +2,41 @@ import { expect, test } from "@playwright/test";
 import { DRAWER_FIXTURE } from "./support/telemetry-fixture";
 
 test.describe("Studio time ranges and workflow cohorts", () => {
+  test("renders catalog Start and End edges without making boundaries inspectable nodes", async ({
+    page,
+  }) => {
+    const workflowId = DRAWER_FIXTURE.workflowId;
+    await page.goto(`/workflows?workflow=${workflowId}&range=All+time`);
+    const start = page.locator(
+      `.react-flow__node-boundary[data-id="${workflowId}:__start__"]`,
+    );
+    const end = page.locator(
+      `.react-flow__node-boundary[data-id="${workflowId}:__end__"]`,
+    );
+    await expect(start).toHaveText("Start");
+    await expect(end).toHaveText("End");
+    for (const [source, target] of [
+      ["__start__", "chat"],
+      ["publishBrief", "__end__"],
+    ]) {
+      await expect(
+        page
+          .locator(
+            `.react-flow__edge[data-id="${workflowId}:${source}->${target}"] .react-flow__edge-path`,
+          )
+          .first(),
+      ).toBeAttached();
+    }
+    const inspector = page.getByRole("complementary", {
+      name: "Selection inspector",
+    });
+    await start.click();
+    await expect(
+      inspector.getByRole("heading", { name: workflowId, exact: true }),
+    ).toBeVisible();
+    await expect(page).not.toHaveURL(/node=/);
+  });
+
   test("keeps unexecuted catalog calls visible and preserves caller context through selection and reload", async ({
     page,
   }) => {

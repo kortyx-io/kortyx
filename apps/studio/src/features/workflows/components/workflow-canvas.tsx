@@ -86,6 +86,10 @@ type InternalData = {
   metric: WorkflowMetric;
   direction: LayoutDirection;
 };
+type BoundaryData = {
+  boundary: "start" | "end";
+  direction: LayoutDirection;
+};
 type TransitionData = {
   kind?: "call" | "handoff";
   volume: number;
@@ -383,7 +387,7 @@ export function WorkflowCanvas({
         onNodeClick={(_, node) => {
           if (node.type === "workflow")
             onSelect({ type: "workflow", id: node.id });
-          else {
+          else if (node.type === "internal") {
             const data = node.data as InternalData;
             onSelect({
               type: "node",
@@ -525,6 +529,38 @@ function WorkflowGroup({ data }: NodeProps<Node<GroupData>>) {
         position={Position.Right}
         className="!size-2 !border-0 !bg-transparent !opacity-0"
       />
+    </div>
+  );
+}
+
+function BoundaryNode({ data }: NodeProps<Node<BoundaryData>>) {
+  const start = data.boundary === "start";
+  return (
+    <div
+      title={start ? "Workflow start" : "Workflow end"}
+      className="flex h-full w-full items-center justify-center gap-1.5 rounded-full border border-border bg-background text-[10px] font-medium text-muted-foreground"
+    >
+      {!start && (
+        <Handle
+          type="target"
+          position={data.direction === "TB" ? Position.Top : Position.Left}
+          className="!size-1.5 !border-0 !bg-transparent !opacity-0"
+        />
+      )}
+      <span
+        className={cn(
+          "size-1.5 rounded-full",
+          start ? "bg-muted-foreground" : "border border-muted-foreground",
+        )}
+      />
+      {start ? "Start" : "End"}
+      {start && (
+        <Handle
+          type="source"
+          position={data.direction === "TB" ? Position.Bottom : Position.Right}
+          className="!size-1.5 !border-0 !bg-transparent !opacity-0"
+        />
+      )}
     </div>
   );
 }
@@ -857,5 +893,9 @@ function truncateLabel(text: string, width: number) {
   return text.length > limit ? `${text.slice(0, limit - 1)}…` : text;
 }
 
-const nodeTypes = { workflow: WorkflowGroup, internal: InternalNode };
+const nodeTypes = {
+  workflow: WorkflowGroup,
+  internal: InternalNode,
+  boundary: BoundaryNode,
+};
 const edgeTypes = { transition: TransitionEdge, internal: InternalEdge };

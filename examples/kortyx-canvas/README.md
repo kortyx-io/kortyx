@@ -50,6 +50,34 @@ view shows the published catalog without creating synthetic runs. Configure
 telemetry in the Runs view.
 
 
+### Studio workflow layout examples
+
+The local-only scripts in `scripts/studio-example-workflows.mjs` and
+`scripts/studio-workflow-examples.mjs` publish seven workflow topologies and run
+thirteen deterministic scenarios through the real Kortyx runtime and telemetry
+adapter. No model credentials are needed. The chat-fork example reproduces the
+`hiring-monster@1.2.0` topology with deterministic node implementations.
+
+After starting the repository development stack with `pnpm dev`, run from the
+repository root:
+
+```sh
+pnpm exec dotenv -e .env -- node packages/kortyx/dist/cli.js topology push --entry examples/kortyx-canvas/scripts/studio-example-workflows.mjs
+pnpm exec dotenv -e .env -- pnpm --filter @kortyx/example-canvas exec node scripts/studio-workflow-examples.mjs
+```
+
+Open Studio's Workflows page with **All time**, search `studio-example`, and
+select a workflow. Collapse the catalog and inspector to inspect a larger map.
+The cases cover linear execution, parallel branches with separate terminal
+nodes, three alternative exits, a three-way parallel join, a sequential retry
+loop, a conditional edge directly to End, and a larger parallel/conditional flow.
+Every terminal edge connects to the workflow's shared End marker. Start and End
+are visual boundaries with no execution metrics or node inspector.
+
+The loop example is sequential: the runtime does not support back-edges in
+parallel graphs. Re-running the script adds another set of runs to the local
+project. The runner refuses non-loopback telemetry destinations.
+
 ### Child workflow regression
 
 The chat node uses `useWorkflow` to call creation, brief lookup, update, and
