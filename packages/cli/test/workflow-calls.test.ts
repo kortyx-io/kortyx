@@ -343,3 +343,64 @@ it("resolves statically bound factory names separately for each attachment", () 
       ?.tools.map((tool) => tool.name),
   ).toEqual(["one", "two"]);
 });
+
+it("summarizes static arrays and schema fields while preserving unresolved attachments", () => {
+  const result = discover(`
+    const base = {name: "base", description: "Safe description"};
+    const name = "spread";
+    const good = {...base, name, inputSchema: {properties: {id: {type: "string"}, optional: {}, ...dynamic, [computed]: {}, method() {}}, required: ["id", dynamic]}};
+    const list = [good, {...base, name: "base"}];
+    const cyclic = [ ...cyclic ];
+    function make(name = "default") { return {name}; }
+    const expr = function(name) { return {name}; };
+    function nothing() { return; }
+    const makeArrow = name => ({name});
+    function unbound(name) { return {name}; }
+    function destructured({name}) { return {name}; }
+    function multiple() { return {}; return {}; }
+    let mutable = good;
+    const dynamicSpread = {...dynamic};
+    const parent = define({id:"parent", nodes:{chat:{run:async()=>{
+      useReason({tools:[...list, good, make(), expr("expr"), ...cyclic, ...unknown]});
+      useTool({tool: (good["missing"] as any)!});
+      useTool({tool: mutable});
+      useTool({tool: dynamicSpread});
+      useTool({tool: nothing()});
+      useTool({tool: unbound()});
+      useTool({tool: makeArrow("arrow")});
+      useTool({tool: destructured({name:"dynamic"})});
+      useTool({tool: multiple()});
+      useTool({});
+      useTool({tool: {name: "no-schema"}});
+    }}}, edges:[]});
+  `);
+  const node = result.tools.get("parent")?.get("chat");
+  expect(node?.toolDiscovery.status).toBe("unresolved");
+  expect(node?.tools.map((t) => t.name)).toEqual([
+    "arrow",
+    "base",
+    "default",
+    "expr",
+    "no-schema",
+    "spread",
+  ]);
+  expect(node?.tools.find((t) => t.name === "spread")?.inputFields).toEqual([
+    { name: "id", type: "string", required: true },
+    { name: "optional", type: "unknown", required: false },
+  ]);
+});
+
+it("marks discovered tools unresolved when custom helper traversal exceeds its bound", () => {
+  const helpers = Array.from(
+    { length: 34 },
+    (_, i) =>
+      `function helper${i}() { ${i === 0 ? 'useTool({tool:{name:"early"}});' : ""} ${i < 33 ? `helper${i + 1}();` : ""} }`,
+  ).join("\n");
+  const result = discover(
+    `${helpers}\nconst parent=define({id:"parent", nodes:{chat:{run:()=>helper0()}},edges:[]});`,
+  );
+  expect(result.tools.get("parent")?.get("chat")?.toolDiscovery).toMatchObject({
+    status: "unresolved",
+    warnings: ["Custom-hook discovery depth exceeded."],
+  });
+});
