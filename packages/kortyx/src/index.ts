@@ -53,6 +53,7 @@ export { defineWorkflow, loadWorkflow, validateWorkflow } from "@kortyx/core";
 export type {
   EnsureWorkflowTopologyRequest,
   EnsureWorkflowTopologyResponse,
+  KortyxErrorDetails,
   KortyxTelemetryConfig,
   KortyxTelemetryContentCapture,
   KortyxTelemetryCorrelation,
@@ -62,6 +63,7 @@ export type {
   KortyxTelemetryReporter,
   KortyxTelemetryService,
   KortyxTraceAdapter,
+  KortyxTraceErrorProjection,
   KortyxTraceMetadata,
   UseInterruptArgs,
   UseReasonArgs,
@@ -69,6 +71,7 @@ export type {
   UseReasonStep,
   UseReasonToolExecution,
   UseStructuredDataArgs,
+  UseToolArgs,
 } from "@kortyx/hooks";
 export {
   type CompleteResponseOptions,
@@ -82,6 +85,7 @@ export {
   useReason,
   useRuntimeContext,
   useStructuredData,
+  useTool,
   useWorkflow,
   useWorkflowState,
   WorkflowCallError,

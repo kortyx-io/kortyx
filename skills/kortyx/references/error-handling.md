@@ -52,3 +52,8 @@ HTTP rejection bodies expose `{ error: string, failure }`. Stream error chunks e
 - Generic public messages, corrected default HTTP statuses, shared provider error constructors and explicit malformed/truncated stream failures are behavioral compatibility changes. Use descriptor `source` when available, rather than a provider package's constructor identity, to distinguish providers.
 - Persisted issues replace string field names with `[field]` and omit custom validation prose. Use original live issues for detailed correction prompts when available. Do not put arbitrary provider bodies, tool arguments, tokens or stack traces in error details.
 - Verify positive recovery, terminal authorization/refusal behavior, budget enforcement and actual Redis reconstruction before claiming parity. A blocker reproduction passing is not recovery evidence.
+
+
+## Internal model/tool tracing diagnostics
+
+Configured tracing automatically records bounded fault type/message for shared tools and model failures. Raw exception objects, stack fields and causes are not serialized. Messages themselves are exported verbatim and can contain sensitive text. Tool `telemetry.error` and model trace adapter `error` overrides can optionally replace or suppress messages before export; no override is needed for ordinary diagnostic capture. This tracing policy does not change client-facing `serializeFailure`, HTTP responses or returned execution failure descriptors. Keep Studio/internal logs access-controlled.

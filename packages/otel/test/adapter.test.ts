@@ -700,3 +700,156 @@ describe("OpenTelemetry attribute helpers", () => {
     expect(normalizeKnownAttributes(attributes)).toEqual(attributes);
   });
 });
+
+describe("canonical tool spans", () => {
+  it("maps tool identity and faults without treating denial as an execution fault", () => {
+    const { tracer, spans } = createFakeTracer();
+    const adapter = createOpenTelemetryTraceAdapter({ tracer });
+    for (const outcome of ["denied", "fault"]) {
+      const span = adapter.startSpan({
+        name: "kortyx.tool",
+        attributes: {
+          version: 1,
+          name: "lookup",
+          toolCallId: "logical-call",
+          attemptId: outcome,
+          callingMode: "direct",
+          executed: true,
+        },
+      });
+      span?.end?.({
+        attributes: {
+          version: 1,
+          name: "lookup",
+          toolCallId: "logical-call",
+          attemptId: outcome,
+          executed: true,
+          outcome,
+          ...(outcome === "fault"
+            ? { errorType: "TypeError", errorMessage: "list_jobs unavailable" }
+            : {}),
+        },
+      });
+    }
+    expect(spans[0]?.attributes).toMatchObject({
+      "gen_ai.operation.name": "execute_tool",
+      "gen_ai.tool.name": "lookup",
+      "gen_ai.tool.call.id": "logical-call",
+      "kortyx.tool.outcome": "denied",
+    });
+    expect(spans[0]?.status).toBeUndefined();
+    expect(spans[1]?.status).toMatchObject({ code: 2 });
+    expect(spans[1]?.attributes).toMatchObject({
+      "error.type": "TypeError",
+      "error.message": "list_jobs unavailable",
+    });
+    expect(spans.every((span) => span.endCount === 1)).toBe(true);
+  });
+  it("finishes physical spans and preserves callback results when observer callbacks or mapping fail", async () => {
+    const { tracer, spans } = createFakeTracer();
+    const adapter = createOpenTelemetryTraceAdapter({
+      tracer,
+      onSpanStart: () => {
+        throw new Error("start callback failed");
+      },
+      onSpanEnd: () => {
+        throw new Error("end callback failed");
+      },
+      mapAttributes: ({ phase }) => {
+        if (phase === "end") throw new Error("end mapping failed");
+        return {};
+      },
+    });
+    expect(await adapter.withSpan?.({ name: "kortyx.tool" }, () => "OK")).toBe(
+      "OK",
+    );
+    expect(spans[0]?.endCount).toBe(1);
+  });
+  it("filters credentials in explicit metadata before export", () => {
+    const { tracer, spans } = createFakeTracer();
+    const adapter = createOpenTelemetryTraceAdapter({ tracer });
+    adapter
+      .startSpan({
+        name: "kortyx.tool",
+        telemetry: {
+          metadata: {
+            userId: "user",
+            apiKey: "PRIVATE_CREDENTIAL",
+            nested: { authorization: "PRIVATE_AUTH" },
+          },
+        },
+      })
+      ?.end?.();
+    expect(JSON.stringify(spans)).not.toMatch(
+      /PRIVATE_CREDENTIAL|PRIVATE_AUTH/,
+    );
+  });
+});
+
+it.each([
+  undefined,
+  "replace",
+  "suppress",
+  "throws",
+])("automatically captures model fault diagnostics with %s override", async (mode) => {
+  const { tracer, spans } = createFakeTracer();
+  const adapter = createOpenTelemetryTraceAdapter({
+    tracer,
+    ...(mode
+      ? {
+          error: () => {
+            if (mode === "throws") throw new Error("PRIVATE_PROJECTOR");
+            return mode === "suppress"
+              ? null
+              : { type: "ProviderError", message: "Provider unavailable" };
+          },
+        }
+      : {}),
+  });
+  const error = Object.assign(new TypeError("Provider connection refused"), {
+    cause: new Error("PRIVATE_CAUSE"),
+    body: "PRIVATE_BODY",
+  });
+  await expect(
+    adapter.withSpan?.(
+      {
+        name: "runReasonEngine",
+        telemetry: { input: "PRIVATE_PROMPT", output: "PRIVATE_OUTPUT" },
+      },
+      () => {
+        throw error;
+      },
+    ),
+  ).rejects.toBe(error);
+  expect(spans[0]?.attributes["error.message"]).toBe(
+    mode === undefined
+      ? "Provider connection refused"
+      : mode === "replace"
+        ? "Provider unavailable"
+        : "Model execution failed.",
+  );
+  expect(spans[0]?.status).toMatchObject({ code: 2 });
+  expect(spans[0]?.ended).toBe(true);
+  expect(JSON.stringify(spans)).not.toMatch(
+    /PRIVATE_CAUSE|PRIVATE_BODY|PRIVATE_PROMPT|PRIVATE_OUTPUT|PRIVATE_PROJECTOR/,
+  );
+});
+
+it("records a model failure once when nested tracing guards observe the same exception", () => {
+  const { tracer, spans } = createFakeTracer();
+  const projection = vi.fn(() => ({
+    type: "ProviderError",
+    message: "Provider unavailable",
+  }));
+  const adapter = createOpenTelemetryTraceAdapter({
+    tracer,
+    error: projection,
+  });
+  const span = adapter.startSpan({ name: "runReasonEngine" });
+  const error = new Error("Provider failed");
+  span?.fail?.(error);
+  span?.fail?.(error);
+  expect(projection).toHaveBeenCalledTimes(1);
+  expect(spans[0]?.exceptions).toHaveLength(1);
+  expect(spans[0]?.endCount).toBe(1);
+});

@@ -17,6 +17,10 @@ import {
 import { KortyxError } from "@kortyx/core/errors";
 import type { KortyxTelemetryConfig, ReasonTraceAdapter } from "@kortyx/hooks";
 import { runWithHookContext } from "@kortyx/hooks";
+import {
+  safeTelemetryMetadata,
+  withSafeTraceSpan,
+} from "@kortyx/hooks/internal";
 import type { GetProviderFn } from "@kortyx/providers";
 import { deepMergeWithArrayOverwrite } from "@kortyx/utils";
 import {
@@ -442,17 +446,18 @@ export async function createExecutionGraph(
                 : {}),
             },
             telemetry: {
-              metadata: {
+              metadata: safeTelemetryMetadata({
                 ...(runtimeConfig.telemetry?.metadata ?? {}),
-                ...(context ?? {}),
-              },
+              }),
               tags: runtimeConfig.telemetry?.tags,
               captureContent: runtimeConfig.telemetry?.captureContent,
             },
           };
-          const hookRun = activeTrace?.withSpan
-            ? await activeTrace.withSpan(spanArgs, runNode)
-            : await runNode();
+          const hookRun = await withSafeTraceSpan(
+            activeTrace,
+            spanArgs,
+            runNode,
+          );
           nodeResult = hookRun.result as NodeResult;
           hookRuntimeUpdates = hookRun.runtimeUpdates;
           break;

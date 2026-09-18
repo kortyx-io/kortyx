@@ -12,8 +12,9 @@ import {
   getReasonTraceAdapter,
 } from "../context";
 import { awaitInterruptInternal } from "../interrupt";
+import { withSafeTraceSpan } from "../safe-tracing";
 import { shouldStreamStructured } from "../structured";
-import type { ReasonTraceSpan } from "../tracing";
+import { closeOwnedTools, replayToolObservations } from "../tool";
 import type { SchemaLike, UseReasonArgs, UseReasonResult } from "../types";
 import { parseWithSchema } from "../validation";
 import {
@@ -99,7 +100,7 @@ const assertReasoningThoughtsCompatibility = <
   );
 };
 
-export async function useReason<
+async function runReason<
   TOutput = unknown,
   TRequest extends InterruptInput = InterruptInput,
   TResponse = InterruptResult,
@@ -141,6 +142,11 @@ export async function useReason<
   );
 
   if (existingCompleted) {
+    await replayToolObservations(
+      existingCompleted.result.steps?.flatMap(
+        (step) => step.toolObservations ?? [],
+      ) ?? [],
+    );
     return existingCompleted.result as UseReasonResult<TOutput, TResponse>;
   }
 
@@ -150,8 +156,9 @@ export async function useReason<
 
   const reasonMeta =
     typeof id === "string" ? ({ id, opId } as const) : ({ opId } as const);
-  const traceSpan: ReasonTraceSpan | undefined =
-    getReasonTraceAdapter()?.startSpan({
+  return withSafeTraceSpan(
+    getReasonTraceAdapter(),
+    {
       name: "useReason",
       attributes: {
         ...(id ? { id } : {}),
@@ -182,326 +189,350 @@ export async function useReason<
         ...(args.telemetry ?? {}),
         input: args.telemetry?.input ?? args.input,
       },
-    });
-
-  if (args.tools?.length) {
-    return runReasonToolLoop({
-      useReasonArgs: args,
-      allowValidatedToolOutput,
-      checkpointKey,
-      initialWarnings: inferred.warnings,
-      ...(id ? { id } : {}),
-      opId,
-      ...(traceSpan ? { traceSpan } : {}),
-    });
-  }
-  const suppressTextStream = Boolean(args.outputSchema || args.interrupt);
-  const setFieldPaths = resolveSetFieldPaths(args.structured);
-  const appendFieldPaths = resolveAppendFieldPaths(args.structured);
-  const textDeltaFieldPaths = resolveTextDeltaFieldPaths(args.structured);
-  const useStructuredIncrementalStreaming = Boolean(
-    args.outputSchema &&
-      !args.interrupt &&
-      (setFieldPaths.length > 0 ||
-        appendFieldPaths.length > 0 ||
-        textDeltaFieldPaths.length > 0) &&
-      args.stream !== false &&
-      shouldStreamReasonStructured(args),
-  );
-
-  let firstText = "";
-  let firstRaw: unknown;
-  let firstOutput: TOutput | undefined;
-  let firstInterruptRequest: TRequest | undefined;
-  let firstInterruptRequired = false;
-
-  let finalText = "";
-  let finalRaw: unknown;
-  let finalOutput: TOutput | undefined;
-  let aggregatedUsage: KortyxUsage | undefined;
-  let finalFinishReason: KortyxFinishReason | undefined;
-  let aggregatedProviderMetadata: KortyxProviderMetadata | undefined;
-  let aggregatedWarnings: KortyxWarning[] | undefined = inferred.warnings;
-
-  if (existingCheckpoint) {
-    firstText = existingCheckpoint.firstText;
-    firstRaw = existingCheckpoint.firstRaw;
-    firstOutput = existingCheckpoint.firstOutput as TOutput | undefined;
-    finalText = firstText;
-    finalRaw = firstRaw;
-    finalOutput = firstOutput;
-    aggregatedUsage = existingCheckpoint.firstUsage;
-    finalFinishReason = existingCheckpoint.firstFinishReason;
-    aggregatedProviderMetadata = existingCheckpoint.firstProviderMetadata;
-    aggregatedWarnings = existingCheckpoint.firstWarnings;
-    traceSpan?.addEvent?.("useReason.resume", {
-      checkpointKey,
-    });
-  } else {
-    const first = await reasonEngine(
-      {
-        ...args,
-        emit: suppressTextStream ? false : args.emit,
-        stream: useStructuredIncrementalStreaming
-          ? true
-          : suppressTextStream
-            ? false
-            : args.stream,
-        ...(useStructuredIncrementalStreaming
-          ? {
-              onTextChunk: createStructuredOutputStreamer(args, id, opId),
-            }
-          : {}),
-      },
-      reasonMeta,
-      args.interrupt
-        ? defaultInterruptFirstPassInput({
-            input: args.input,
-            requestSchema: args.interrupt.requestSchema,
-            mode: args.interrupt.mode ?? "required",
-            ...(args.outputSchema
-              ? { outputSchema: args.outputSchema as SchemaLike<unknown> }
-              : {}),
-          })
-        : args.outputSchema
-          ? withOutputGuardrails(
-              withStructuredStreamHints(args.input, {
-                ...(setFieldPaths.length > 0 ? { setFieldPaths } : {}),
-                ...(appendFieldPaths.length > 0 ? { appendFieldPaths } : {}),
-                ...(textDeltaFieldPaths.length > 0
-                  ? { textDeltaFieldPaths }
-                  : {}),
-              }),
-              args.outputSchema as SchemaLike<unknown>,
-            )
-          : undefined,
-    );
-    firstRaw = first.raw;
-    finalRaw = first.raw;
-    accumulateTokenUsage(first.usage);
-    aggregatedUsage = mergeUsage(aggregatedUsage, first.usage);
-    finalFinishReason = first.finishReason;
-    aggregatedProviderMetadata = mergeProviderMetadata(
-      aggregatedProviderMetadata,
-      first.providerMetadata,
-    );
-    aggregatedWarnings = mergeWarnings(aggregatedWarnings, first.warnings);
-    traceSpan?.addEvent?.("useReason.first-pass.complete", {
-      textLength: first.text.length,
-      hasInterrupt: Boolean(args.interrupt),
-    });
-
-    if (args.interrupt) {
-      const firstPass = parseInterruptFirstPassResult<TRequest, TOutput>({
-        text: first.text,
-        requestSchema: args.interrupt.requestSchema,
-        ...(first.finishReason ? { finishReason: first.finishReason } : {}),
-        ...(first.usage ? { usage: first.usage } : {}),
-        ...(args.outputSchema
-          ? { outputSchema: args.outputSchema as SchemaLike<TOutput> }
-          : {}),
-        mode: args.interrupt.mode ?? "required",
-      });
-      firstText = firstPass.draftText;
-      finalText = firstPass.draftText;
-      firstInterruptRequired = firstPass.interruptRequired;
-      firstInterruptRequest = firstPass.request;
-      firstOutput = firstPass.output;
-      finalOutput = firstPass.output;
-    } else {
-      firstText = first.text;
-      finalText = first.text;
-      if (args.outputSchema) {
-        firstOutput = parseReasonOutputWithSchema({
-          text: first.text,
-          schema: args.outputSchema,
-          ...(first.finishReason ? { finishReason: first.finishReason } : {}),
-          ...(first.usage ? { usage: first.usage } : {}),
-          label: "useReason output",
+    },
+    async (traceSpan) => {
+      if (args.tools?.length) {
+        return runReasonToolLoop({
+          useReasonArgs: args,
+          allowValidatedToolOutput,
+          checkpointKey,
+          initialWarnings: inferred.warnings,
+          ...(id ? { id } : {}),
+          opId,
+          ...(traceSpan ? { traceSpan } : {}),
         });
       }
-      finalOutput = firstOutput;
-    }
-  }
-
-  let interruptResponse: TResponse | undefined;
-
-  if (args.interrupt && (existingCheckpoint || firstInterruptRequired)) {
-    const requestSchema = args.interrupt.requestSchema;
-
-    const interruptRequest = existingCheckpoint
-      ? parseWithSchema(
-          requestSchema,
-          existingCheckpoint.request,
-          "useReason interrupt.request",
-        )
-      : firstInterruptRequest;
-
-    if (!interruptRequest) {
-      throw new Error(
-        "useReason interrupt request is missing; first pass did not produce a valid interrupt payload.",
+      const suppressTextStream = Boolean(args.outputSchema || args.interrupt);
+      const setFieldPaths = resolveSetFieldPaths(args.structured);
+      const appendFieldPaths = resolveAppendFieldPaths(args.structured);
+      const textDeltaFieldPaths = resolveTextDeltaFieldPaths(args.structured);
+      const useStructuredIncrementalStreaming = Boolean(
+        args.outputSchema &&
+          !args.interrupt &&
+          (setFieldPaths.length > 0 ||
+            appendFieldPaths.length > 0 ||
+            textDeltaFieldPaths.length > 0) &&
+          args.stream !== false &&
+          shouldStreamReasonStructured(args),
       );
-    }
 
-    if (!existingCheckpoint) {
-      ctx.currentNodeState.byKey[checkpointKey] = {
-        status: "awaiting_interrupt",
-        request: interruptRequest,
-        firstText,
-        ...(firstRaw !== undefined ? { firstRaw } : {}),
-        ...(aggregatedUsage !== undefined
-          ? { firstUsage: aggregatedUsage }
-          : {}),
+      let firstText = "";
+      let firstRaw: unknown;
+      let firstOutput: TOutput | undefined;
+      let firstInterruptRequest: TRequest | undefined;
+      let firstInterruptRequired = false;
+
+      let finalText = "";
+      let finalRaw: unknown;
+      let finalOutput: TOutput | undefined;
+      let aggregatedUsage: KortyxUsage | undefined;
+      let finalFinishReason: KortyxFinishReason | undefined;
+      let aggregatedProviderMetadata: KortyxProviderMetadata | undefined;
+      let aggregatedWarnings: KortyxWarning[] | undefined = inferred.warnings;
+
+      if (existingCheckpoint) {
+        firstText = existingCheckpoint.firstText;
+        firstRaw = existingCheckpoint.firstRaw;
+        firstOutput = existingCheckpoint.firstOutput as TOutput | undefined;
+        finalText = firstText;
+        finalRaw = firstRaw;
+        finalOutput = firstOutput;
+        aggregatedUsage = existingCheckpoint.firstUsage;
+        finalFinishReason = existingCheckpoint.firstFinishReason;
+        aggregatedProviderMetadata = existingCheckpoint.firstProviderMetadata;
+        aggregatedWarnings = existingCheckpoint.firstWarnings;
+        traceSpan?.addEvent?.("useReason.resume", {
+          checkpointKey,
+        });
+      } else {
+        const first = await reasonEngine(
+          {
+            ...args,
+            emit: suppressTextStream ? false : args.emit,
+            stream: useStructuredIncrementalStreaming
+              ? true
+              : suppressTextStream
+                ? false
+                : args.stream,
+            ...(useStructuredIncrementalStreaming
+              ? {
+                  onTextChunk: createStructuredOutputStreamer(args, id, opId),
+                }
+              : {}),
+          },
+          reasonMeta,
+          args.interrupt
+            ? defaultInterruptFirstPassInput({
+                input: args.input,
+                requestSchema: args.interrupt.requestSchema,
+                mode: args.interrupt.mode ?? "required",
+                ...(args.outputSchema
+                  ? { outputSchema: args.outputSchema as SchemaLike<unknown> }
+                  : {}),
+              })
+            : args.outputSchema
+              ? withOutputGuardrails(
+                  withStructuredStreamHints(args.input, {
+                    ...(setFieldPaths.length > 0 ? { setFieldPaths } : {}),
+                    ...(appendFieldPaths.length > 0
+                      ? { appendFieldPaths }
+                      : {}),
+                    ...(textDeltaFieldPaths.length > 0
+                      ? { textDeltaFieldPaths }
+                      : {}),
+                  }),
+                  args.outputSchema as SchemaLike<unknown>,
+                )
+              : undefined,
+        );
+        firstRaw = first.raw;
+        finalRaw = first.raw;
+        accumulateTokenUsage(first.usage);
+        aggregatedUsage = mergeUsage(aggregatedUsage, first.usage);
+        finalFinishReason = first.finishReason;
+        aggregatedProviderMetadata = mergeProviderMetadata(
+          aggregatedProviderMetadata,
+          first.providerMetadata,
+        );
+        aggregatedWarnings = mergeWarnings(aggregatedWarnings, first.warnings);
+        traceSpan?.addEvent?.("useReason.first-pass.complete", {
+          textLength: first.text.length,
+          hasInterrupt: Boolean(args.interrupt),
+        });
+
+        if (args.interrupt) {
+          const firstPass = parseInterruptFirstPassResult<TRequest, TOutput>({
+            text: first.text,
+            requestSchema: args.interrupt.requestSchema,
+            ...(first.finishReason ? { finishReason: first.finishReason } : {}),
+            ...(first.usage ? { usage: first.usage } : {}),
+            ...(args.outputSchema
+              ? { outputSchema: args.outputSchema as SchemaLike<TOutput> }
+              : {}),
+            mode: args.interrupt.mode ?? "required",
+          });
+          firstText = firstPass.draftText;
+          finalText = firstPass.draftText;
+          firstInterruptRequired = firstPass.interruptRequired;
+          firstInterruptRequest = firstPass.request;
+          firstOutput = firstPass.output;
+          finalOutput = firstPass.output;
+        } else {
+          firstText = first.text;
+          finalText = first.text;
+          if (args.outputSchema) {
+            firstOutput = parseReasonOutputWithSchema({
+              text: first.text,
+              schema: args.outputSchema,
+              ...(first.finishReason
+                ? { finishReason: first.finishReason }
+                : {}),
+              ...(first.usage ? { usage: first.usage } : {}),
+              label: "useReason output",
+            });
+          }
+          finalOutput = firstOutput;
+        }
+      }
+
+      let interruptResponse: TResponse | undefined;
+
+      if (args.interrupt && (existingCheckpoint || firstInterruptRequired)) {
+        const requestSchema = args.interrupt.requestSchema;
+
+        const interruptRequest = existingCheckpoint
+          ? parseWithSchema(
+              requestSchema,
+              existingCheckpoint.request,
+              "useReason interrupt.request",
+            )
+          : firstInterruptRequest;
+
+        if (!interruptRequest) {
+          throw new Error(
+            "useReason interrupt request is missing; first pass did not produce a valid interrupt payload.",
+          );
+        }
+
+        if (!existingCheckpoint) {
+          ctx.currentNodeState.byKey[checkpointKey] = {
+            status: "awaiting_interrupt",
+            request: interruptRequest,
+            firstText,
+            ...(firstRaw !== undefined ? { firstRaw } : {}),
+            ...(aggregatedUsage !== undefined
+              ? { firstUsage: aggregatedUsage }
+              : {}),
+            ...(finalFinishReason !== undefined
+              ? { firstFinishReason: finalFinishReason }
+              : {}),
+            ...(aggregatedProviderMetadata !== undefined
+              ? { firstProviderMetadata: aggregatedProviderMetadata }
+              : {}),
+            ...(aggregatedWarnings !== undefined
+              ? { firstWarnings: aggregatedWarnings }
+              : {}),
+            ...(firstOutput !== undefined ? { firstOutput } : {}),
+          } satisfies ReasonInterruptCheckpoint;
+          ctx.stateDirty = true;
+        }
+
+        const resumeStatePatch = resolveHookStatePatch({
+          nodeId: ctx.node.graph.node,
+          currentNodeState: ctx.currentNodeState,
+          workflowState: ctx.workflowState,
+        });
+
+        interruptResponse = await awaitInterruptInternal<TRequest, TResponse>({
+          request: interruptRequest,
+          requestSchema,
+          responseSchema: args.interrupt.responseSchema,
+          ...(args.interrupt.schemaId
+            ? { schemaId: args.interrupt.schemaId }
+            : {}),
+          ...(args.interrupt.schemaVersion
+            ? { schemaVersion: args.interrupt.schemaVersion }
+            : {}),
+          ...(id ? { id } : {}),
+          meta: {
+            __kortyxResumeStatePatch: resumeStatePatch,
+          },
+        });
+        traceSpan?.addEvent?.("useReason.interrupt.resolved", {
+          checkpointKey,
+        });
+
+        if (Object.hasOwn(ctx.currentNodeState.byKey, checkpointKey)) {
+          delete ctx.currentNodeState.byKey[checkpointKey];
+          ctx.stateDirty = true;
+        }
+
+        const continuationInput = defaultContinuationInput({
+          input: args.input,
+          draftText: firstText,
+          ...(firstOutput !== undefined ? { draftOutput: firstOutput } : {}),
+          request: interruptRequest,
+          response: interruptResponse,
+        });
+
+        const second = await reasonEngine(
+          {
+            ...args,
+            ...(inferred.responseFormat
+              ? { responseFormat: inferred.responseFormat }
+              : {}),
+            emit: suppressTextStream ? false : args.emit,
+            stream: suppressTextStream ? false : args.stream,
+          },
+          reasonMeta,
+          args.outputSchema
+            ? withOutputGuardrails(
+                continuationInput,
+                args.outputSchema as SchemaLike<unknown>,
+              )
+            : continuationInput,
+        );
+        finalText = second.text;
+        finalRaw = second.raw;
+        accumulateTokenUsage(second.usage);
+        aggregatedUsage = mergeUsage(aggregatedUsage, second.usage);
+        finalFinishReason = second.finishReason;
+        aggregatedProviderMetadata = mergeProviderMetadata(
+          aggregatedProviderMetadata,
+          second.providerMetadata,
+        );
+        aggregatedWarnings = mergeWarnings(aggregatedWarnings, second.warnings);
+        traceSpan?.addEvent?.("useReason.continuation.complete", {
+          textLength: second.text.length,
+        });
+
+        if (args.outputSchema) {
+          finalOutput = parseReasonOutputWithSchema({
+            text: finalText,
+            schema: args.outputSchema,
+            ...(second.finishReason
+              ? { finishReason: second.finishReason }
+              : {}),
+            ...(aggregatedUsage ? { usage: aggregatedUsage } : {}),
+            label: "useReason output",
+          });
+        }
+      }
+
+      if (finalOutput !== undefined) {
+        emitReasonStructuredOutput<TOutput>({
+          ...(id ? { id } : {}),
+          opId,
+          output: finalOutput,
+          structured: args.structured,
+          emit: args.emit ?? true,
+        });
+      }
+
+      const result = {
+        ...(id ? { id } : {}),
+        opId,
+        text: finalText,
+        ...(finalRaw !== undefined ? { raw: finalRaw } : {}),
+        ...(aggregatedUsage !== undefined ? { usage: aggregatedUsage } : {}),
         ...(finalFinishReason !== undefined
-          ? { firstFinishReason: finalFinishReason }
+          ? { finishReason: finalFinishReason }
           : {}),
         ...(aggregatedProviderMetadata !== undefined
-          ? { firstProviderMetadata: aggregatedProviderMetadata }
+          ? { providerMetadata: aggregatedProviderMetadata }
           : {}),
         ...(aggregatedWarnings !== undefined
-          ? { firstWarnings: aggregatedWarnings }
+          ? { warnings: aggregatedWarnings }
           : {}),
-        ...(firstOutput !== undefined ? { firstOutput } : {}),
-      } satisfies ReasonInterruptCheckpoint;
-      ctx.stateDirty = true;
-    }
+        ...(finalOutput !== undefined ? { output: finalOutput } : {}),
+        ...(interruptResponse !== undefined ? { interruptResponse } : {}),
+      };
 
-    const resumeStatePatch = resolveHookStatePatch({
-      nodeId: ctx.node.graph.node,
-      currentNodeState: ctx.currentNodeState,
-      workflowState: ctx.workflowState,
-    });
+      if (args.interrupt) {
+        ctx.currentNodeState.byKey[checkpointKey] = {
+          status: "completed",
+          result,
+        };
+        ctx.stateDirty = true;
+      }
 
-    interruptResponse = await awaitInterruptInternal<TRequest, TResponse>({
-      request: interruptRequest,
-      requestSchema,
-      responseSchema: args.interrupt.responseSchema,
-      ...(args.interrupt.schemaId ? { schemaId: args.interrupt.schemaId } : {}),
-      ...(args.interrupt.schemaVersion
-        ? { schemaVersion: args.interrupt.schemaVersion }
-        : {}),
-      ...(id ? { id } : {}),
-      meta: {
-        __kortyxResumeStatePatch: resumeStatePatch,
-      },
-    });
-    traceSpan?.addEvent?.("useReason.interrupt.resolved", {
-      checkpointKey,
-    });
-
-    if (Object.hasOwn(ctx.currentNodeState.byKey, checkpointKey)) {
-      delete ctx.currentNodeState.byKey[checkpointKey];
-      ctx.stateDirty = true;
-    }
-
-    const continuationInput = defaultContinuationInput({
-      input: args.input,
-      draftText: firstText,
-      ...(firstOutput !== undefined ? { draftOutput: firstOutput } : {}),
-      request: interruptRequest,
-      response: interruptResponse,
-    });
-
-    const second = await reasonEngine(
-      {
-        ...args,
-        ...(inferred.responseFormat
-          ? { responseFormat: inferred.responseFormat }
+      traceSpan?.end?.({
+        ...(aggregatedUsage !== undefined ? { usage: aggregatedUsage } : {}),
+        ...(finalFinishReason !== undefined
+          ? { finishReason: finalFinishReason }
           : {}),
-        emit: suppressTextStream ? false : args.emit,
-        stream: suppressTextStream ? false : args.stream,
-      },
-      reasonMeta,
-      args.outputSchema
-        ? withOutputGuardrails(
-            continuationInput,
-            args.outputSchema as SchemaLike<unknown>,
-          )
-        : continuationInput,
-    );
-    finalText = second.text;
-    finalRaw = second.raw;
-    accumulateTokenUsage(second.usage);
-    aggregatedUsage = mergeUsage(aggregatedUsage, second.usage);
-    finalFinishReason = second.finishReason;
-    aggregatedProviderMetadata = mergeProviderMetadata(
-      aggregatedProviderMetadata,
-      second.providerMetadata,
-    );
-    aggregatedWarnings = mergeWarnings(aggregatedWarnings, second.warnings);
-    traceSpan?.addEvent?.("useReason.continuation.complete", {
-      textLength: second.text.length,
-    });
-
-    if (args.outputSchema) {
-      finalOutput = parseReasonOutputWithSchema({
-        text: finalText,
-        schema: args.outputSchema,
-        ...(second.finishReason ? { finishReason: second.finishReason } : {}),
-        ...(aggregatedUsage ? { usage: aggregatedUsage } : {}),
-        label: "useReason output",
+        ...(aggregatedProviderMetadata !== undefined
+          ? { providerMetadata: aggregatedProviderMetadata }
+          : {}),
+        ...(aggregatedWarnings !== undefined
+          ? { warnings: aggregatedWarnings }
+          : {}),
+        attributes: {
+          textLength: finalText.length,
+          resumedFromCheckpoint: Boolean(existingCheckpoint),
+          interrupted: Boolean(interruptResponse !== undefined),
+        },
+        telemetry: {
+          ...(args.telemetry ?? {}),
+          output: args.telemetry?.output ?? finalOutput ?? finalText,
+        },
       });
-    }
-  }
 
-  if (finalOutput !== undefined) {
-    emitReasonStructuredOutput<TOutput>({
-      ...(id ? { id } : {}),
-      opId,
-      output: finalOutput,
-      structured: args.structured,
-      emit: args.emit ?? true,
-    });
-  }
-
-  const result = {
-    ...(id ? { id } : {}),
-    opId,
-    text: finalText,
-    ...(finalRaw !== undefined ? { raw: finalRaw } : {}),
-    ...(aggregatedUsage !== undefined ? { usage: aggregatedUsage } : {}),
-    ...(finalFinishReason !== undefined
-      ? { finishReason: finalFinishReason }
-      : {}),
-    ...(aggregatedProviderMetadata !== undefined
-      ? { providerMetadata: aggregatedProviderMetadata }
-      : {}),
-    ...(aggregatedWarnings !== undefined
-      ? { warnings: aggregatedWarnings }
-      : {}),
-    ...(finalOutput !== undefined ? { output: finalOutput } : {}),
-    ...(interruptResponse !== undefined ? { interruptResponse } : {}),
-  };
-
-  if (args.interrupt) {
-    ctx.currentNodeState.byKey[checkpointKey] = {
-      status: "completed",
-      result,
-    };
-    ctx.stateDirty = true;
-  }
-
-  traceSpan?.end?.({
-    ...(aggregatedUsage !== undefined ? { usage: aggregatedUsage } : {}),
-    ...(finalFinishReason !== undefined
-      ? { finishReason: finalFinishReason }
-      : {}),
-    ...(aggregatedProviderMetadata !== undefined
-      ? { providerMetadata: aggregatedProviderMetadata }
-      : {}),
-    ...(aggregatedWarnings !== undefined
-      ? { warnings: aggregatedWarnings }
-      : {}),
-    attributes: {
-      textLength: finalText.length,
-      resumedFromCheckpoint: Boolean(existingCheckpoint),
-      interrupted: Boolean(interruptResponse !== undefined),
+      return result;
     },
-    telemetry: {
-      ...(args.telemetry ?? {}),
-      output: args.telemetry?.output ?? finalOutput ?? finalText,
-    },
-  });
+  );
+}
 
-  return result;
+export async function useReason<
+  TOutput = unknown,
+  TRequest extends InterruptInput = InterruptInput,
+  TResponse = InterruptResult,
+>(
+  args: UseReasonArgs<TOutput, TRequest, TResponse>,
+): Promise<UseReasonResult<TOutput, TResponse>> {
+  try {
+    return await runReason(args);
+  } finally {
+    await closeOwnedTools(args.tools ?? []);
+  }
 }

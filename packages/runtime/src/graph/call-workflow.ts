@@ -15,6 +15,7 @@ import {
 } from "@kortyx/core/errors";
 import type { WorkflowCallService } from "@kortyx/hooks";
 import { workflowCallFingerprint } from "@kortyx/hooks";
+import { withSafeTraceSpan } from "@kortyx/hooks/internal";
 import { AsyncLocalStorageProviderSingleton } from "@langchain/core/singletons";
 import { Command } from "@langchain/langgraph";
 import {
@@ -286,26 +287,35 @@ export function createWorkflowCallService(
       return {
         status: "completed" as const,
         data,
+        toolObservations:
+          (
+            (result.runtime as unknown as Record<string, unknown>).__kortyx as
+              | {
+                  workflowState?: {
+                    __kortyxToolObservations?: import("@kortyx/providers").ToolObservation[];
+                  };
+                }
+              | undefined
+          )?.workflowState?.__kortyxToolObservations ?? [],
         usage: result.runtime.tokenUsage,
       };
     };
     const trace = config.telemetry?.trace ?? config.reasonTrace;
-    return trace?.withSpan
-      ? trace.withSpan(
-          {
-            name: "kortyx.workflow.call",
-            attributes: {
-              workflowId: args.workflow,
-              runId: config.executionRunId,
-              branchId: config.executionBranchId ?? config.executionRunId,
-              parentInvocationId: config.telemetry?.correlation?.invocationId,
-              callerNodeExecutionId: args.callerNodeExecutionId,
-              callId: args.id,
-              invocationId: args.invocationId,
-            },
-          },
-          execute,
-        )
-      : execute();
+    return withSafeTraceSpan(
+      trace,
+      {
+        name: "kortyx.workflow.call",
+        attributes: {
+          workflowId: args.workflow,
+          runId: config.executionRunId,
+          branchId: config.executionBranchId ?? config.executionRunId,
+          parentInvocationId: config.telemetry?.correlation?.invocationId,
+          callerNodeExecutionId: args.callerNodeExecutionId,
+          callId: args.id,
+          invocationId: args.invocationId,
+        },
+      },
+      execute,
+    );
   };
 }

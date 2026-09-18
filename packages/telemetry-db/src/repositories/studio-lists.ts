@@ -26,7 +26,12 @@ import {
 } from "drizzle-orm";
 import type { AnyPgColumn } from "drizzle-orm/pg-core";
 import type { TelemetryDb } from "../client";
-import { studioInterrupts, studioRuns, studioSessions } from "../schema";
+import {
+  studioInterrupts,
+  studioRuns,
+  studioSessions,
+  telemetryEvents,
+} from "../schema";
 import { withRunFeedback } from "./scores";
 
 export type StudioListQuery = Record<string, string | undefined>;
@@ -386,6 +391,22 @@ export const listStudioRuns = async (
     statuses.length > 0 ? inArray(studioRuns.status, statuses) : undefined,
     providers.length > 0 ? inArray(studioRuns.provider, providers) : undefined,
     queryBoolean(query.tool) ? eq(studioRuns.hasTool, true) : undefined,
+    query.toolName || query.toolOutcome || query.toolMode
+      ? sql`exists (
+      select 1 from ${telemetryEvents} where ${telemetryEvents.organizationId} = ${studioRuns.organizationId}
+      and ${telemetryEvents.projectId} = ${studioRuns.projectId}
+      and ${telemetryEvents.runId} = coalesce(${studioRuns.data} ->> 'parentRunId', ${studioRuns.runId})
+      and (${studioRuns.data} ->> 'parentRunId' is null or ${telemetryEvents.payload} ->> 'invocationId' = ${studioRuns.data} ->> 'invocationId')
+      and ${telemetryEvents.type} like 'tool.%'
+      and (${studioRuns.data} ->> 'parentRunId' is null or ${telemetryEvents.payload} ->> 'branchId' = ${studioRuns.data} ->> 'branchId')
+      ${query.path ? sql`and ${telemetryEvents.nodeId} = ${query.path}` : sql``}
+      ${query.version ? sql`and exists (select 1 from workflow_revisions revision where revision.id = ${telemetryEvents.workflowRevisionId} and revision.organization_id = ${studioRuns.organizationId} and revision.project_id = ${studioRuns.projectId} and revision.declared_version = ${query.version})` : sql``}
+      ${query.toolName ? sql`and coalesce(${telemetryEvents.payload} ->> 'name', ${telemetryEvents.payload} ->> 'tool') = ${query.toolName}` : sql``}
+      ${query.toolOutcome === "reused" ? sql`and ${telemetryEvents.type} = 'tool.reused'` : query.toolOutcome ? sql`and ${telemetryEvents.payload} ->> 'outcome' = ${query.toolOutcome} and ${telemetryEvents.type} not in ('tool.started', 'tool.reused', 'tool.waiting')` : sql``}
+      ${query.toolMode ? sql`and ${telemetryEvents.payload} ->> 'callingMode' = ${query.toolMode}` : sql``}
+      ${query.workflow ? sql`and ${telemetryEvents.workflowId} = ${query.workflow}` : sql``}
+    )`
+      : undefined,
     containsJsonValue(studioRuns.workflowIds, query.workflow),
     query.workflow && query.version
       ? sql`${studioRuns.data} -> 'workflowRefs' @> ${JSON.stringify([

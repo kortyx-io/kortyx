@@ -148,14 +148,64 @@ export interface KortyxToolResult {
   providerMetadata?: KortyxProviderMetadata;
 }
 
-export interface KortyxExecutableTool extends KortyxToolDefinition {
-  execute: (
-    input: unknown,
+export type ToolOutcome = "success" | "denied" | "fault" | "cancelled";
+export type ToolOutcomeDescriptor = {
+  outcome: Exclude<ToolOutcome, "cancelled">;
+  code?: string;
+};
+export interface ToolOutcomes<TResult = unknown> {
+  /** Only these application-approved identifiers may leave the process. */
+  denialCodes?: readonly string[];
+  classifyResult?(result: TResult): ToolOutcomeDescriptor;
+  classifyError?(error: unknown): ToolOutcomeDescriptor;
+}
+export interface ToolErrorDetails {
+  type?: string | undefined;
+  message: string;
+}
+export interface ToolTelemetry {
+  /** Replace or suppress fault diagnostics before export. Throwing suppresses capture. */
+  error?(error: unknown): ToolErrorDetails | null;
+}
+export interface ToolObservation {
+  workflowId?: string | undefined;
+  nodeId?: string | undefined;
+  workflowRevisionId?: string | undefined;
+  parentInvocationId?: string | undefined;
+  version: 1;
+  name: string;
+  toolCallId: string;
+  attemptId: string;
+  callingMode: "direct" | "model";
+  executed: boolean;
+  outcome?: ToolOutcome;
+  denialCode?: string | undefined;
+  errorType?: string | undefined;
+  errorMessage?: string | undefined;
+  durationMs?: number | undefined;
+  runId?: string | undefined;
+  invocationId?: string | undefined;
+  branchId?: string | undefined;
+  source?: {
+    runId?: string | undefined;
+    invocationId?: string | undefined;
+    branchId?: string | undefined;
+    toolCallId: string;
+    attemptId: string;
+  };
+}
+
+export interface KortyxExecutableTool<TInput = unknown, TResult = unknown>
+  extends KortyxToolDefinition {
+  outcomes?: ToolOutcomes<TResult>;
+  telemetry?: ToolTelemetry;
+  execute(
+    input: TInput,
     context: {
       toolCallId: string;
       abortSignal?: AbortSignal | undefined;
     },
-  ) => Promise<KortyxToolResult | unknown> | KortyxToolResult | unknown;
+  ): Promise<TResult> | TResult;
   close?: (() => Promise<void> | void) | undefined;
   closeAfterUse?: boolean | undefined;
   source?: string | undefined;

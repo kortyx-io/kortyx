@@ -4,6 +4,7 @@ import type {
   ReasonTraceSpanEndArgs,
   ReasonTraceSpanStartArgs,
 } from "@kortyx/hooks";
+import { safeTelemetryMetadata } from "@kortyx/hooks/internal";
 import type { Attributes } from "@opentelemetry/api";
 import { type ContentCaptureSide, shouldCapture } from "./content";
 import type { OpenTelemetryTraceAdapterOptions } from "./types";
@@ -123,6 +124,17 @@ export const normalizeKnownAttributes = (
     normalized["kortyx.tool.call.id"] = attributes.toolCallId;
   }
 
+  if (attributes.version === 1 && typeof attributes.attemptId === "string") {
+    normalized["gen_ai.operation.name"] = "execute_tool";
+    normalized["gen_ai.tool.name"] = attributes.name;
+    normalized["gen_ai.tool.call.id"] = attributes.toolCallId;
+    normalized["kortyx.tool.attempt.id"] = attributes.attemptId;
+    normalized["kortyx.tool.outcome"] = attributes.outcome;
+    normalized["kortyx.tool.executed"] = attributes.executed;
+    normalized["kortyx.tool.denial.code"] = attributes.denialCode;
+    normalized["error.type"] = attributes.errorType;
+    normalized["error.message"] = attributes.errorMessage;
+  }
   return normalized;
 };
 
@@ -150,7 +162,9 @@ export const telemetryAttributes = (
     if (prompt.type) attributes["gen_ai.prompt.type"] = prompt.type;
     if (prompt.type) attributes["kortyx.prompt.type"] = prompt.type;
     if (prompt.source) attributes["kortyx.prompt.source"] = prompt.source;
-    Object.assign(attributes, options.mapPromptMetadata?.(prompt) ?? {});
+    try {
+      Object.assign(attributes, options.mapPromptMetadata?.(prompt) ?? {});
+    } catch {}
   }
 
   if (telemetry.tags?.length) {
@@ -158,7 +172,9 @@ export const telemetryAttributes = (
   }
 
   if (telemetry.metadata) {
-    for (const [key, value] of Object.entries(telemetry.metadata)) {
+    for (const [key, value] of Object.entries(
+      safeTelemetryMetadata(telemetry.metadata),
+    )) {
       attributes[`kortyx.trace.metadata.${key}`] = value;
     }
   }
@@ -237,11 +253,9 @@ export const applyAttributeMapping = (
     "name" | "attributes"
   >,
 ): ReasonTraceAttributes => {
-  const mapped =
-    options.mapAttributes?.({
-      ...args,
-      name,
-      attributes,
-    }) ?? {};
+  let mapped: ReasonTraceAttributes = {};
+  try {
+    mapped = options.mapAttributes?.({ ...args, name, attributes }) ?? {};
+  } catch {}
   return normalizeKnownAttributes({ ...attributes, ...mapped });
 };

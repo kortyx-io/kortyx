@@ -91,6 +91,21 @@ export const ensureWorkflowRevision = async (
     })),
   ];
   const updateCatalog = async (id: string) => {
+    const hasTools = input.request.workflow.nodes.some(
+      (node) => node.tools !== undefined || node.toolDiscovery !== undefined,
+    );
+    if (hasTools) {
+      await db
+        .update(workflowRevisions)
+        .set({ nodes: input.request.workflow.nodes })
+        .where(
+          and(
+            eq(workflowRevisions.id, id),
+            eq(workflowRevisions.organizationId, input.organizationId),
+            eq(workflowRevisions.projectId, input.projectId),
+          ),
+        );
+    }
     if (input.request.workflow.calls !== undefined) {
       await db
         .update(workflowRevisions)

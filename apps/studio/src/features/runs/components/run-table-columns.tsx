@@ -241,20 +241,30 @@ export function createRunColumns({
       render: (run) => (
         <div className="flex min-w-0 items-center gap-1.5 overflow-hidden text-xs">
           <span
+            role="img"
+            aria-label={
+              run.provider === "unknown"
+                ? "Provider not captured"
+                : run.provider
+            }
             className={cn(
               "flex size-4 shrink-0 items-center justify-center rounded-full text-[9px] font-bold",
-              run.provider === "OpenAI"
+              run.provider.toLowerCase() === "openai"
                 ? "bg-emerald-500/15 text-emerald-700"
-                : run.provider === "Anthropic"
+                : run.provider.toLowerCase() === "anthropic"
                   ? "bg-orange-500/15 text-orange-700"
-                  : "bg-blue-500/15 text-blue-700",
+                  : run.provider.toLowerCase() === "google"
+                    ? "bg-blue-500/15 text-blue-700"
+                    : "bg-muted text-muted-foreground",
             )}
           >
-            {run.provider === "OpenAI"
+            {run.provider.toLowerCase() === "openai"
               ? "O"
-              : run.provider === "Anthropic"
+              : run.provider.toLowerCase() === "anthropic"
                 ? "A"
-                : "G"}
+                : run.provider.toLowerCase() === "google"
+                  ? "G"
+                  : "?"}
           </span>
           <span className="min-w-0 truncate">{run.model}</span>
           {run.models && (

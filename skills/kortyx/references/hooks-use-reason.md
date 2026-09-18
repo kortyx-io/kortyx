@@ -299,3 +299,7 @@ If the UI is not streaming, check both provider streaming (`stream`) and Kortyx 
 - Using structured streaming for deterministic UI updates that belong in `useStructuredData(...)`.
 
 For typed failure propagation and safe recovery policy, see [Error handling](error-handling.md).
+
+## Shared local tools
+
+Plain `KortyxExecutableTool` definitions also work in `useReason({ tools })`: the model selects the tool and supplies its input. The same definition works with `await useTool({tool, input})` for direct node execution. See `hooks-use-tool.md` for denial classification, ownership, privacy and replay semantics. Native tool observations are automatic; do not add legacy manual tool-call events.

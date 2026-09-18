@@ -444,6 +444,11 @@ const printResults = (results: PushResult[], options: CliOptions): void => {
             topologyHash: snapshot.workflow.topologyHash,
             transitionCount: snapshot.workflow.transitions?.length ?? 0,
             calls: snapshot.workflow.calls ?? [],
+            tools: snapshot.workflow.nodes.map((node) => ({
+              nodeId: node.id,
+              tools: node.tools ?? [],
+              discovery: node.toolDiscovery,
+            })),
             workflowRevisionId: response?.workflowRevisionId,
             created: response?.created,
           })),
@@ -465,7 +470,7 @@ const printResults = (results: PushResult[], options: CliOptions): void => {
       `- ${snapshot.workflow.id}@${snapshot.workflow.declaredVersion} hash=${snapshot.workflow.topologyHash.slice(
         0,
         12,
-      )} transitions=${snapshot.workflow.transitions?.length ?? 0} calls=${snapshot.workflow.calls?.length ?? 0}${revision}`,
+      )} transitions=${snapshot.workflow.transitions?.length ?? 0} calls=${snapshot.workflow.calls?.length ?? 0} tools=${snapshot.workflow.nodes.reduce((sum, node) => sum + (node.tools?.length ?? 0), 0)}${revision}`,
     );
   }
 };
@@ -499,6 +504,18 @@ const runTopologyPush = async (rawOptions: CliOptions): Promise<void> => {
   for (const snapshot of snapshots) {
     const calls = discovered.calls.get(snapshot.workflow.id);
     if (calls) snapshot.workflow.calls = calls;
+    for (const node of snapshot.workflow.nodes) {
+      const discoveredTools = discovered.tools
+        .get(snapshot.workflow.id)
+        ?.get(node.id);
+      if (discoveredTools)
+        Object.assign(node, discoveredTools, {
+          toolDiscovery: {
+            ...discoveredTools.toolDiscovery,
+            publishedAt: new Date().toISOString(),
+          },
+        });
+    }
   }
   const parsedSnapshots = snapshots.map((snapshot) =>
     EnsureWorkflowTopologyRequestSchema.parse(snapshot),

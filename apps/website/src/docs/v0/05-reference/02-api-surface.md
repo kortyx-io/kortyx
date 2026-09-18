@@ -55,6 +55,7 @@ export {
   WorkflowCallError,
   useInterrupt,
   useReason,
+  useTool,
   useNodeState,
   useStructuredData,
   useWorkflowState,
@@ -69,11 +70,14 @@ export {
   WorkflowCallError,
   useInterrupt,
   useReason,
+  useTool,
   useNodeState,
   useStructuredData,
   useWorkflowState,
 } from "@kortyx/hooks";
 ```
+
+`useTool({tool, input, id?, abortSignal?})` executes a shared tool immediately and returns its inferred result. It creates observations without adding a model call or MCP transport. `UseToolArgs`, `KortyxExecutableTool`, `ToolOutcomes`, `ToolOutcomeDescriptor`, `ToolTelemetry` and `ToolErrorDetails` are exported types. See [Hooks](../02-core-concepts/07-hooks.md).
 
 `useWorkflow({ id, workflow, input })` returns a promise of `{ data }`. Typed definitions and bound registries infer input/output from the child's schemas; dynamic unbound strings return `Record<string, unknown>`. `WorkflowCallError` represents a rejected child invocation. See [Call Child Workflows](../03-guides/06-child-workflows.md).
 
@@ -170,3 +174,8 @@ Use this entry for client-only bundles where you want to avoid Node-only runtime
 - `createChatRouteHandler({ agent, onExecution? })`: connect chat attempt lifetime to the hosting framework.
 
 Existing useInterrupt and agent.resume APIs remain unchanged. See the [complete guide](/docs/guides/background-continuation) for ordering, checkpoints, scope authorization, parallel branches, and Studio's optional read-only role.
+
+Tool faults automatically include their error type and bounded message, with no extra wiring. An optional `tool.telemetry.error(error)` override returns `{type, message}` or `null` to replace or suppress diagnostics before export. Stack traces, exception causes/custom fields and raw tool inputs/results remain excluded.
+
+
+`KortyxErrorDetails` and `KortyxTraceErrorProjection` are exported tracing types. Configured Studio/OpenTelemetry adapters automatically capture model fault type/message; their optional `error` projection can replace or suppress that diagnostic. JSON/schema parsing errors remain separately diagnosable even when the provider stopped normally. This does not change client-facing execution/HTTP failure descriptors.

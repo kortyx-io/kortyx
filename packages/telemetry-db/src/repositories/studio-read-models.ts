@@ -15,12 +15,14 @@ import {
   type StudioRun,
   type StudioRunStatus,
   type StudioSession,
+  type StudioTool,
   type StudioWorkflow,
   type StudioWorkflowHealth,
   type StudioWorkflowInternalEdge,
   type StudioWorkflowNode,
   type StudioWorkflowsResponse,
   type StudioWorkflowTransition,
+  type WorkflowTool,
 } from "@kortyx/telemetry-contracts";
 import { and, desc, eq, isNull, or, type SQL, sql } from "drizzle-orm";
 import type { TelemetryDb } from "../client";
@@ -1019,9 +1021,107 @@ const nodeStateFor = (
   return null;
 };
 
+export function summarizeNodeTools(
+  declared: readonly WorkflowTool[],
+  events: readonly TelemetryEventRecord[],
+): StudioTool[] {
+  const tools = new Map<string, StudioTool>();
+  const empty = (
+    tool:
+      | WorkflowTool
+      | { name: string; callingMode: "unknown"; provenance: "observed" },
+  ): StudioTool => ({
+    ...tool,
+    calls: 0,
+    replays: 0,
+    successes: 0,
+    denials: 0,
+    faults: 0,
+    cancellations: 0,
+    p50DurationMs: null,
+    p95DurationMs: null,
+  });
+  const key = (name: string, mode: string) => JSON.stringify([name, mode]);
+  for (const tool of declared)
+    tools.set(key(tool.name, tool.callingMode), empty(tool));
+  const attempts = new Set<string>();
+  const outcomes = new Set<string>();
+  const durations = new Map<string, number[]>();
+  for (const event of events) {
+    if (!event.type.startsWith("tool.")) continue;
+    const name = asString(event.payload.name) ?? asString(event.payload.tool);
+    if (!name) continue;
+    const callingMode =
+      event.payload.callingMode === "direct"
+        ? "direct"
+        : event.payload.callingMode === "model"
+          ? "model"
+          : "unknown";
+    const id = key(name, callingMode);
+    const tool =
+      tools.get(id) ?? empty({ name, callingMode, provenance: "observed" });
+    tools.set(id, tool);
+    const attempt = JSON.stringify([
+      id,
+      event.runId,
+      event.payload.invocationId,
+      event.payload.branchId,
+      event.payload.toolCallId,
+      event.payload.attemptId ?? event.spanId,
+    ]);
+    if (event.type === "tool.reused") {
+      tool.replays += 1;
+      continue;
+    }
+    if (event.type === "tool.waiting") continue;
+    if (event.payload.executed !== false && !attempts.has(attempt)) {
+      tool.calls += 1;
+      attempts.add(attempt);
+    }
+    if (
+      event.type === "tool.started" ||
+      event.type === "tool.suspended" ||
+      outcomes.has(attempt)
+    )
+      continue;
+    outcomes.add(attempt);
+    const outcome =
+      event.payload.outcome ??
+      (event.type === "tool.denied"
+        ? "denied"
+        : event.type === "tool.cancelled"
+          ? "cancelled"
+          : event.type === "tool.failed" || event.payload.isError === true
+            ? "fault"
+            : "success");
+    if (outcome === "denied") tool.denials += 1;
+    else if (outcome === "fault") tool.faults += 1;
+    else if (outcome === "cancelled") tool.cancellations += 1;
+    else tool.successes += 1;
+    if (
+      event.payload.executed !== false &&
+      typeof event.payload.durationMs === "number"
+    ) {
+      const list = durations.get(id) ?? [];
+      list.push(event.payload.durationMs);
+      durations.set(id, list);
+    }
+  }
+  for (const [id, tool] of tools) {
+    tool.p50DurationMs = percentile(durations.get(id) ?? [], 0.5);
+    tool.p95DurationMs = percentile(durations.get(id) ?? [], 0.95);
+  }
+  return [...tools.values()].sort(
+    (a, b) =>
+      a.name.localeCompare(b.name) ||
+      a.callingMode.localeCompare(b.callingMode),
+  );
+}
+
 const workflowModels = (
   revisions: WorkflowRevision[],
   runs: RunAggregate[],
+  events: TelemetryEventRecord[],
 ): StudioWorkflowsResponse => {
   const byWorkflow = new Map<string, WorkflowRevision[]>();
   for (const revision of revisions) {
@@ -1050,6 +1150,17 @@ const workflowModels = (
           provider: node.provider ?? null,
           model: node.model ?? null,
           metrics: metricsForRuns(nodeRuns),
+          tools: summarizeNodeTools(
+            node.tools ?? [],
+            events.filter(
+              (event) =>
+                event.workflowId === workflowId &&
+                event.nodeId === node.id &&
+                (!event.workflowRevisionId ||
+                  event.workflowRevisionId === active?.id),
+            ),
+          ),
+          ...(node.toolDiscovery ? { toolDiscovery: node.toolDiscovery } : {}),
         };
       });
       const internalEdges: StudioWorkflowInternalEdge[] = (
@@ -1479,7 +1590,7 @@ export const createStudioReadModelsFromRecords = (input: {
     childRuns,
     sessions: aggregateSessions(runs, revisionsById),
     interrupts: aggregateInterrupts(events),
-    workflows: workflowModels(input.revisions, workflowRuns),
+    workflows: workflowModels(input.revisions, workflowRuns, events),
     catalogs: catalogsFor(events, input.revisions, workflowRuns),
     detailEvents: events.map(toDetailEvent),
   };

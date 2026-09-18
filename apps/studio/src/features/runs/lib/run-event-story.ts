@@ -89,7 +89,10 @@ export function buildEventStory(
       category,
       categoryLabel: CATEGORY_LABELS[category],
       state,
-      stateLabel: STATE_LABELS[state],
+      stateLabel:
+        event.type === "tool.completed" && state === "completed"
+          ? "Succeeded"
+          : STATE_LABELS[state],
       title: interruptedEnd
         ? `${spanSubject(event, asString(event.payload.name), "Model")} ended after pause`
         : eventTitle(event, phase, cancelledEnd),
@@ -107,7 +110,8 @@ function eventTitle(
   const attributes = asRecord(event.payload.attributes);
   const model =
     asString(event.payload.model) ?? asString(attributes.modelId) ?? "Model";
-  const tool = asString(event.payload.tool) ?? "Tool";
+  const tool =
+    asString(event.payload.name) ?? asString(event.payload.tool) ?? "Tool";
 
   if (event.type === "generation.completed")
     return cancelledEnd
@@ -116,7 +120,17 @@ function eventTitle(
         ? `${model} request failed`
         : `${model} response completed`;
   if (event.type === "tool.started") return `${tool} tool started`;
-  if (event.type === "tool.completed") return `${tool} tool completed`;
+  if (event.type === "tool.denied") return `${tool} denied`;
+  if (event.type === "tool.cancelled") return `${tool} cancelled`;
+  if (event.type === "tool.reused") return `${tool} replayed (not executed)`;
+  if (event.type === "tool.waiting") return `${tool} waiting for approval`;
+  if (event.type === "tool.suspended") return `${tool} suspended`;
+  if (event.type === "tool.completed")
+    return event.payload.outcome === "denied"
+      ? `${tool} denied`
+      : event.payload.isError === true || event.payload.outcome === "fault"
+        ? `${tool} fault`
+        : `${tool} succeeded`;
   if (event.type === "tool.failed") return `${tool} tool failed`;
   if (event.type === "response.completed") return "Client response completed";
   if (event.type === "interrupt.created") return "Human input requested";
@@ -227,6 +241,18 @@ function eventCategory(event: StudioDetailEvent): EventCategory {
 
 function eventState(event: StudioDetailEvent): EventState {
   const { type } = event;
+  if (
+    type === "tool.denied" ||
+    (type === "tool.completed" && event.payload.outcome === "denied")
+  )
+    return "denied";
+  if (type === "tool.reused") return "replayed";
+  if (type === "tool.waiting" || type === "tool.suspended") return "waiting";
+  if (
+    type === "tool.failed" ||
+    (type === "tool.completed" && event.payload.isError === true)
+  )
+    return "fault";
   if (type === "generation.completed" && event.payload.outcome === "failed")
     return "failed";
   if (type === "run.limit_reached") return "interrupted";
@@ -313,6 +339,10 @@ export type EventState =
   | "resolved"
   | "expired"
   | "cancelled"
+  | "denied"
+  | "replayed"
+  | "waiting"
+  | "fault"
   | "recorded";
 
 export type EventStoryItem = {
@@ -349,6 +379,10 @@ const STATE_LABELS: Record<EventState, string> = {
   resolved: "Resolved",
   expired: "Expired",
   cancelled: "Cancelled",
+  denied: "Denied",
+  replayed: "Replayed",
+  waiting: "Waiting",
+  fault: "Fault",
   recorded: "Recorded",
 };
 

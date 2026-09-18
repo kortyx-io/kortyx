@@ -1,4 +1,8 @@
-import { StudioTimeRangeContextSchema } from "@kortyx/telemetry-contracts";
+import {
+  StudioTimeRangeContextSchema,
+  StudioToolSchema,
+  ToolDiscoverySchema,
+} from "@kortyx/telemetry-contracts";
 import { z } from "zod";
 
 export const WorkflowHealthSchema = z.enum([
@@ -22,6 +26,8 @@ export const WorkflowNodeMetricsSchema = z.object({
 });
 
 export const WorkflowNodeSchema = z.object({
+  tools: z.array(StudioToolSchema).optional(),
+  toolDiscovery: ToolDiscoverySchema.optional(),
   id: z.string(),
   label: z.string(),
   type: z.string().optional(),
@@ -82,6 +88,7 @@ export const WorkflowSystemSchema = z.object({
     .optional(),
   transitions: z.array(WorkflowTransitionSchema),
   cohort: StudioTimeRangeContextSchema.extend({
+    environment: z.string().optional(),
     workflowId: z.string().optional(),
     version: z.string().optional(),
   }),

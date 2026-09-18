@@ -469,6 +469,7 @@ for (const limit of ["maxModelPasses", "maxToolCalls"] as const) {
     };
     const a = child("left", run),
       b = child("right", run);
+    let observations: { attemptId: string }[] = [];
     const parent = branches(
       async () => {
         await useWorkflow({ id: "left", workflow: a, input: {} });
@@ -476,6 +477,14 @@ for (const limit of ["maxModelPasses", "maxToolCalls"] as const) {
       },
       async () => {
         await useWorkflow({ id: "right", workflow: b, input: {} });
+        return {};
+      },
+      () => {
+        const [saved] = useWorkflowState<{ attemptId: string }[]>(
+          "__kortyxToolObservations",
+          [],
+        );
+        observations = saved;
         return {};
       },
     );
@@ -496,7 +505,11 @@ for (const limit of ["maxModelPasses", "maxToolCalls"] as const) {
     expect(result.status).toBe("completed");
     expect(result.usage?.total).toBe(invoke.mock.calls.length * 5);
     expect(invoke).toHaveBeenCalledTimes(limit === "maxToolCalls" ? 4 : 2);
-    if (limit === "maxToolCalls") expect(execute).toHaveBeenCalledTimes(2);
+    if (limit === "maxToolCalls") {
+      expect(execute).toHaveBeenCalledTimes(2);
+      expect(observations).toHaveLength(2);
+      expect(new Set(observations.map((item) => item.attemptId)).size).toBe(2);
+    }
   });
 }
 

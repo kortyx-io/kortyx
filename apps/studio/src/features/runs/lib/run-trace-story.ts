@@ -3,6 +3,9 @@ import { formatDurationMs } from "@/lib/format";
 import { isControlFlowCancellation } from "./run-event-story";
 
 export type TraceStatus =
+  | "denied"
+  | "replayed"
+  | "fault"
   | "completed"
   | "failed"
   | "interrupted"
@@ -78,9 +81,24 @@ export function buildTraceStory(events: StudioDetailEvent[]): TraceItem[] {
       .filter((event) => event.type === "generation.completed" && event.spanId)
       .map((event) => [event.spanId as string, event]),
   );
-  const starts = ordered.filter(
+  const actualStarts = ordered.filter(
     (event) => event.type === "span.started" || event.type === "tool.started",
   );
+  const observedKeys = new Set(
+    actualStarts
+      .filter((event) => event.type === "tool.started")
+      .map(lifecycleKey),
+  );
+  const starts = [
+    ...actualStarts,
+    ...ordered.filter(
+      (event) =>
+        event.type.startsWith("tool.") &&
+        event.type !== "tool.started" &&
+        !observedKeys.has(lifecycleKey(event)) &&
+        terminals.get(lifecycleKey(event))?.id === event.id,
+    ),
+  ];
   const executions = starts.filter(
     (event) => event.payload.name === "kortyx.run",
   );
@@ -102,22 +120,44 @@ export function buildTraceStory(events: StudioDetailEvent[]): TraceItem[] {
   const items: TraceItem[] = [];
 
   for (const event of starts) {
-    const name = asString(event.payload.name) ?? event.nodeId ?? "span";
+    const name =
+      asString(event.payload.name) ??
+      (event.type.startsWith("tool.")
+        ? asString(event.payload.tool)
+        : undefined) ??
+      event.nodeId ??
+      "span";
     const isExecution = name === "kortyx.run";
     const isNode = name === "kortyx.node";
     const isGeneration = name === "runReasonEngine";
-    const isTool = event.type === "tool.started";
+    const isTool = event.type.startsWith("tool.");
+    const terminal = terminals.get(lifecycleKey(event));
+    const isReasonFailure =
+      name === "useReason" &&
+      terminal?.type === "span.failed" &&
+      asRecord(terminal.payload.error).controlFlow !== true &&
+      !isControlFlowInterrupt(terminal) &&
+      !isControlFlowCancellation(terminal) &&
+      !ordered.some(
+        (candidate) =>
+          candidate.type === "span.failed" &&
+          candidate.parentSpanId === event.spanId &&
+          candidate.payload.name === "runReasonEngine",
+      );
     if (
       !isExecution &&
       !isNode &&
       !isGeneration &&
       !isTool &&
+      !isReasonFailure &&
       INTERNAL_SPANS.has(name)
     )
       continue;
 
-    const terminal = event.spanId ? terminals.get(event.spanId) : undefined;
-    const durationMs = eventDuration(event, terminal);
+    const durationMs =
+      isTool && event.payload.executed === false
+        ? null
+        : eventDuration(event, terminal);
     const phase = phaseNumberAt(event.occurredAt);
     const baseStatus = spanStatus(terminal, laterExecutionExists(event));
 
@@ -212,7 +252,10 @@ export function buildTraceStory(events: StudioDetailEvent[]): TraceItem[] {
         timing,
         modelCalls: 0,
         event: generation ?? event,
-        inspectEvent: generation ?? terminal ?? event,
+        inspectEvent:
+          terminal?.type === "span.failed"
+            ? terminal
+            : (generation ?? terminal ?? event),
       });
       continue;
     }
@@ -248,10 +291,12 @@ export function buildTraceStory(events: StudioDetailEvent[]): TraceItem[] {
 
     items.push({
       id: event.id,
-      label: name,
-      description: isTool
-        ? `Tool call from ${event.nodeId ?? "workflow"}`
-        : "Nested operation",
+      label: isReasonFailure ? "Model reasoning" : name,
+      description: isReasonFailure
+        ? "Model decision or output processing failed"
+        : isTool
+          ? `${event.payload.callingMode === "direct" ? "Direct call" : event.payload.callingMode === "model" ? "Model-selected call" : "Tool call"} from ${event.nodeId ?? "workflow"}${terminal?.payload.denialCode ? ` · ${terminal.payload.denialCode}` : ""}${baseStatus === "replayed" ? ` · cached ${terminal?.payload.outcome ?? "result"}, not executed` : ""}`
+          : "Nested operation",
       kind: isTool ? "tool" : "span",
       status: baseStatus,
       startedAt: event.occurredAt,
@@ -260,8 +305,12 @@ export function buildTraceStory(events: StudioDetailEvent[]): TraceItem[] {
       phase,
       modelCalls: 0,
       event,
-      inspectEvent:
-        terminal?.type.endsWith("failed") && terminal ? terminal : event,
+      inspectEvent: isTool
+        ? (terminal ?? event)
+        : terminal?.type.endsWith("failed") && terminal
+          ? terminal
+          : event,
+      ...(isTool && terminal ? { endEvent: terminal } : {}),
     });
   }
 
@@ -461,13 +510,28 @@ function appendUnobservedWaits(
   }
 }
 
+function lifecycleKey(event: StudioDetailEvent): string {
+  if (event.type.startsWith("tool.") && event.payload.toolCallId)
+    return JSON.stringify([
+      event.runId,
+      event.workflowId,
+      event.nodeId,
+      event.payload.invocationId,
+      event.payload.branchId,
+      event.payload.toolCallId,
+      event.payload.attemptId ?? "legacy",
+    ]);
+  return event.spanId ?? event.id;
+}
+
 function terminalEvents(events: StudioDetailEvent[]) {
   const terminals = new Map<string, StudioDetailEvent>();
   for (const event of events) {
     if (!event.spanId || !SPAN_TERMINALS.has(event.type)) continue;
-    const current = terminals.get(event.spanId);
+    const key = lifecycleKey(event);
+    const current = terminals.get(key);
     if (!current?.type.endsWith("failed") || event.type.endsWith("failed")) {
-      terminals.set(event.spanId, event);
+      terminals.set(key, event);
     }
   }
   return terminals;
@@ -491,6 +555,21 @@ function spanStatus(
   hasLaterExecution: boolean,
 ): TraceStatus {
   if (!terminal) return hasLaterExecution ? "incomplete" : "running";
+  if (terminal.type === "tool.reused") return "replayed";
+  if (terminal.type === "tool.waiting" || terminal.type === "tool.suspended")
+    return "waiting";
+  if (terminal.type === "tool.denied" || terminal.payload.outcome === "denied")
+    return "denied";
+  if (
+    terminal.type === "tool.cancelled" ||
+    terminal.payload.outcome === "cancelled"
+  )
+    return "cancelled";
+  if (
+    terminal.type === "tool.failed" ||
+    (terminal.type.startsWith("tool.") && terminal.payload.isError === true)
+  )
+    return "fault";
   if (!terminal.type.endsWith("failed")) return "completed";
   if (isControlFlowCancellation(terminal)) return "cancelled";
   return isControlFlowInterrupt(terminal) ? "interrupted" : "failed";
@@ -651,6 +730,9 @@ function interruptStatus(
 }
 
 export function statusLabel(status: TraceStatus) {
+  if (status === "denied") return "Denied";
+  if (status === "replayed") return "Replayed";
+  if (status === "fault") return "Fault";
   if (status === "event") return "recorded";
   return status;
 }
@@ -736,6 +818,11 @@ const SPAN_TERMINALS = new Set<StudioDetailEvent["type"]>([
   "span.failed",
   "tool.completed",
   "tool.failed",
+  "tool.denied",
+  "tool.cancelled",
+  "tool.reused",
+  "tool.waiting",
+  "tool.suspended",
 ]);
 const INTERRUPT_TERMINALS = new Set<StudioDetailEvent["type"]>([
   "interrupt.resolved",

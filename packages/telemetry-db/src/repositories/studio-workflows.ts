@@ -8,14 +8,17 @@ import {
   type StudioWorkflowsResponse,
   type StudioWorkflowTransition,
 } from "@kortyx/telemetry-contracts";
-import { and, desc, eq, gte, lte, type SQL, sql } from "drizzle-orm";
+import { and, desc, eq, gte, inArray, lte, type SQL, sql } from "drizzle-orm";
 import type { TelemetryDb } from "../client";
 import {
   studioRuns,
+  type TelemetryEventRecord,
+  telemetryEvents,
   type WorkflowRevision,
   workflowRevisions,
 } from "../schema";
 import type { StudioListQuery } from "./studio-lists";
+import { summarizeNodeTools } from "./studio-read-models";
 
 const unique = <T>(values: T[]) => [...new Set(values)];
 const percentage = (count: number, total: number) =>
@@ -111,6 +114,7 @@ export const createStudioWorkflowModelsFromProjections = (input: {
   runs: StudioRun[];
   childRuns?: StudioRun[];
   revisions: WorkflowRevision[];
+  toolEvents?: TelemetryEventRecord[];
   range: StudioWorkflowsResponse["cohort"];
   now?: Date;
 }): StudioWorkflowsResponse => {
@@ -183,6 +187,26 @@ export const createStudioWorkflowModelsFromProjections = (input: {
             provider: node.provider ?? null,
             model: node.model ?? null,
             metrics: metricsForRuns(nodeRuns),
+            tools: summarizeNodeTools(
+              node.tools ?? [],
+              (input.toolEvents ?? []).filter(
+                (event) =>
+                  event.workflowId === workflowId &&
+                  event.nodeId === node.id &&
+                  (!event.workflowRevisionId ||
+                    event.workflowRevisionId === active?.id) &&
+                  runs.some(
+                    (run) =>
+                      (run.parentRunId ?? run.id) === event.runId &&
+                      (!run.parentRunId ||
+                        (run.invocationId === event.payload.invocationId &&
+                          run.branchId === event.payload.branchId)),
+                  ),
+              ),
+            ),
+            ...(node.toolDiscovery
+              ? { toolDiscovery: node.toolDiscovery }
+              : {}),
           };
         }),
         internalEdges: (active?.edges ?? []).map((edge) => ({
@@ -328,7 +352,29 @@ export const listStudioWorkflows = async (
       `Workflow "${workflowId}" does not have version "${version}".`,
     );
   }
+  const eligibleRunIds = unique(
+    runRows.map(({ data }) => data.parentRunId ?? data.id),
+  );
+  const toolEvents = eligibleRunIds.length
+    ? await db
+        .select()
+        .from(telemetryEvents)
+        .where(
+          and(
+            eq(telemetryEvents.organizationId, input.organizationId),
+            eq(telemetryEvents.projectId, input.projectId),
+            sql`${telemetryEvents.type} like 'tool.%'`,
+            inArray(telemetryEvents.runId, eligibleRunIds),
+            input.query.env && input.query.env !== "All environments"
+              ? eq(telemetryEvents.environment, input.query.env)
+              : undefined,
+          ),
+        )
+        .orderBy(telemetryEvents.occurredAt)
+    : [];
+
   const result = createStudioWorkflowModelsFromProjections({
+    toolEvents,
     runs: runRows.map((row) => row.data).filter((run) => !run.parentRunId),
     childRuns: runRows.map((row) => row.data).filter((run) => run.parentRunId),
     revisions,

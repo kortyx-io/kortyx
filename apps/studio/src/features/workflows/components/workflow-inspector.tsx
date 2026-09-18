@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 import { formatRate } from "../lib/format";
 import type { WorkflowSelection } from "../lib/view-state";
 import type { WorkflowHealth, WorkflowSystem } from "../schema";
+import { WorkflowTools } from "./workflow-tools";
 
 const healthClasses: Record<WorkflowHealth, string> = {
   unknown: "bg-slate-300",
@@ -131,6 +132,16 @@ export function WorkflowInspector({
             <>
               <div>
                 <div className="flex items-center gap-2">
+                  {selectedWorkflow && (
+                    <WorkflowTools
+                      workflow={selectedWorkflow}
+                      nodeId={selectedNode?.id}
+                      cohort={system.cohort}
+                      environment={system.cohort.environment}
+                      onSelect={onSelect}
+                      onNavigate={onNavigate}
+                    />
+                  )}
                   {selection.type === "transition" && selectedTransition ? (
                     <Button
                       size="icon-sm"

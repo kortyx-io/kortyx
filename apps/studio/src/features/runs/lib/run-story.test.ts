@@ -313,3 +313,107 @@ it("labels failed provider generations as failures rather than completed answers
     title: "gpt-5.6-luna request failed",
   });
 });
+
+it("inspects failed model spans instead of generation completion metadata", () => {
+  const start = detailEvent(
+    "model-start",
+    "span.started",
+    0,
+    { name: "runReasonEngine" },
+    { spanId: "model" },
+  );
+  const failure = detailEvent(
+    "model-fail",
+    "span.failed",
+    10,
+    {
+      name: "runReasonEngine",
+      error: { name: "TypeError", message: "Provider unavailable" },
+    },
+    { spanId: "model" },
+  );
+  const generation = detailEvent(
+    "gen",
+    "generation.completed",
+    11,
+    { model: "test", outcome: "failed" },
+    { spanId: "model" },
+  );
+  expect(buildTraceStory([start, failure, generation])[0]).toMatchObject({
+    kind: "generation",
+    status: "failed",
+    inspectEvent: failure,
+  });
+});
+it("shows output-processing failures without duplicating failed provider generations", () => {
+  const start = detailEvent(
+    "reason-start",
+    "span.started",
+    0,
+    { name: "useReason" },
+    { spanId: "reason" },
+  );
+  const failure = detailEvent(
+    "reason-fail",
+    "span.failed",
+    12,
+    {
+      name: "useReason",
+      error: {
+        name: "ValidationError",
+        code: "INVALID_MODEL_JSON",
+        message: "Invalid JSON",
+      },
+    },
+    { spanId: "reason" },
+  );
+  expect(buildTraceStory([start, failure])[0]).toMatchObject({
+    label: "Model reasoning",
+    status: "failed",
+    inspectEvent: failure,
+  });
+  const model = detailEvent(
+    "model-start",
+    "span.started",
+    1,
+    { name: "runReasonEngine" },
+    { spanId: "model", parentSpanId: "reason" },
+  );
+  const modelFailure = detailEvent(
+    "model-fail",
+    "span.failed",
+    10,
+    {
+      name: "runReasonEngine",
+      error: { name: "TypeError", message: "Provider unavailable" },
+    },
+    { spanId: "model", parentSpanId: "reason" },
+  );
+  expect(
+    buildTraceStory([start, model, modelFailure, failure]).filter(
+      (item) => item.label === "Model reasoning",
+    ),
+  ).toHaveLength(0);
+});
+
+it("keeps paused reasoning spans hidden rather than labeling them as model errors", () => {
+  const start = detailEvent(
+    "reason",
+    "span.started",
+    0,
+    { name: "useReason" },
+    { spanId: "reason" },
+  );
+  const pause = detailEvent(
+    "pause",
+    "span.failed",
+    10,
+    { name: "useReason", error: { name: "GraphInterrupt", controlFlow: true } },
+    { spanId: "reason" },
+  );
+  expect(
+    buildTraceStory([start, pause]).filter(
+      (item) => item.label === "Model reasoning",
+    ),
+  ).toHaveLength(0);
+});

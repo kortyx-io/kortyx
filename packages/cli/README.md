@@ -196,3 +196,9 @@ Apache-2.0. See [LICENSE](https://github.com/kortyx-io/kortyx/blob/main/LICENSE)
 Calls are supplemental source-derived catalog metadata on the existing executable topology revision. Republishing replaces this metadata (including removed calls); runtime registration omits it and preserves the published relationships. Call metadata does not change the runtime topology hash.
 
 Studio draws discovered call/return links before traffic exists. The **Observed calls** overlay adds recorded metrics and dynamic targets without duplicating discovered edges. Calls remain distinct from `transitionTo` handoffs.
+
+## Attached tools
+
+`kortyx topology push` discovers shared tool definitions attached via `useTool({tool, input})` and `useReason({tools})` through local imports, custom hooks, and statically bound factories. Discovery does not execute nodes, tool factories or MCP discovery. The configured entry is still imported to obtain the workflow registry.
+
+Published node capabilities contain names, descriptions, calling mode, safe input-field summaries and discovery freshness. Dynamic attachments produce an unresolved warning rather than an empty-tools claim. Studio merges real observed tools and shows execution outcomes/durations separately from cached reuse. `--dry-run --json` exposes the discovered attachments and status without publishing.

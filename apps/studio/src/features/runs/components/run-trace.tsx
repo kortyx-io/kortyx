@@ -42,6 +42,10 @@ export { isControlFlowInterrupt } from "@/features/runs/lib/run-trace-story";
 
 const traceQueryParsers = {
   trace: parseAsString.withDefault(""),
+  toolCallId: parseAsString.withDefault(""),
+  toolAttemptId: parseAsString.withDefault(""),
+  invocationId: parseAsString.withDefault(""),
+  branchId: parseAsString.withDefault(""),
 };
 
 export function RunTrace({
@@ -58,17 +62,30 @@ export function RunTrace({
     () => buildTimelineScale(events, startedAt),
     [events, startedAt],
   );
-  const [{ trace: traceId }, setTraceQuery] = useStudioQueryStates(
-    traceQueryParsers,
-    { shallow: true },
-  );
+  const [
+    { trace: traceId, toolCallId, toolAttemptId, invocationId, branchId },
+    setTraceQuery,
+  ] = useStudioQueryStates(traceQueryParsers, { shallow: true });
   const [autoFocusId, setAutoFocusId] = useState(
     (focusFailure
-      ? [...items].reverse().find((item) => item.status === "failed")?.id
+      ? [...items]
+          .reverse()
+          .find((item) => item.status === "failed" || item.status === "fault")
+          ?.id
       : undefined) ?? undefined,
   );
   const autoFocusSyncedRef = useRef(false);
-  const selectedId = traceId || autoFocusId;
+  const toolFocusId = toolCallId
+    ? items.find(
+        (item) =>
+          item.kind === "tool" &&
+          item.event.payload.toolCallId === toolCallId &&
+          (!toolAttemptId || item.event.payload.attemptId === toolAttemptId) &&
+          (!invocationId || item.event.payload.invocationId === invocationId) &&
+          (!branchId || item.event.payload.branchId === branchId),
+      )?.id
+    : undefined;
+  const selectedId = traceId || toolFocusId || autoFocusId;
   const selected = items.find((item) => item.id === selectedId);
 
   useEffect(() => {
@@ -81,11 +98,23 @@ export function RunTrace({
 
   const selectItem = (itemId: string) => {
     setAutoFocusId(undefined);
-    void setTraceQuery({ trace: itemId });
+    void setTraceQuery({
+      trace: itemId,
+      toolCallId: null,
+      toolAttemptId: null,
+      invocationId: null,
+      branchId: null,
+    });
   };
   const closeItem = () => {
     setAutoFocusId(undefined);
-    void setTraceQuery({ trace: null });
+    void setTraceQuery({
+      trace: null,
+      toolCallId: null,
+      toolAttemptId: null,
+      invocationId: null,
+      branchId: null,
+    });
   };
 
   if (items.length === 0)
@@ -252,13 +281,21 @@ function TraceRow({
               ariaLabel={item.label}
               className={cn(
                 "flex-1 text-xs font-medium",
-                item.status === "failed" && "text-red-700 dark:text-red-400",
+                (item.status === "failed" || item.status === "fault") &&
+                  "text-red-700 dark:text-red-400",
                 (item.status === "interrupted" || item.status === "waiting") &&
                   "text-amber-700 dark:text-amber-400",
               )}
             >
               {item.label}
             </OverflowText>
+            {item.kind === "tool" && (
+              <span className="rounded bg-muted px-1.5 py-0.5 text-[9px]">
+                {item.status === "completed"
+                  ? "Succeeded"
+                  : statusLabel(item.status)}
+              </span>
+            )}
             {item.modelCalls > 0 && (
               <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-violet-500/10 px-1.5 py-0.5 text-[9px] text-violet-700 dark:text-violet-400">
                 <Bot className="size-2.5" />
@@ -396,6 +433,36 @@ function TraceInspector({
   hideHeading?: boolean;
 }) {
   const event = item.inspectEvent;
+  const error =
+    event.payload.error && typeof event.payload.error === "object"
+      ? (event.payload.error as Record<string, unknown>)
+      : undefined;
+  const errorType = event.payload.errorType ?? error?.name;
+  const errorMessage = event.payload.errorMessage ?? error?.message;
+  const source = event.payload.source;
+  const sourceParams = new URLSearchParams({
+    tab: "trace",
+    env: event.environment,
+  });
+  if (source && typeof source === "object") {
+    for (const key of [
+      "toolCallId",
+      "attemptId",
+      "invocationId",
+      "branchId",
+    ] as const) {
+      const value = (source as Record<string, unknown>)[key];
+      if (typeof value === "string")
+        sourceParams.set(key === "attemptId" ? "toolAttemptId" : key, value);
+    }
+  }
+  const sourceRunId =
+    source &&
+    typeof source === "object" &&
+    "runId" in source &&
+    typeof source.runId === "string"
+      ? source.runId
+      : undefined;
   return (
     <div className="min-w-0 p-5 md:p-6">
       {!hideHeading && (
@@ -450,7 +517,58 @@ function TraceInspector({
         </p>
       )}
 
+      {item.kind === "tool" && sourceRunId && (
+        <p className="mt-3 text-xs text-muted-foreground">
+          Cached result; the tool did not execute in this observation.{" "}
+          <a
+            className="text-primary hover:underline"
+            href={`/runs/${encodeURIComponent(sourceRunId)}?${sourceParams}`}
+          >
+            Original execution
+          </a>
+        </p>
+      )}
       <dl className="mt-4 divide-y">
+        {typeof errorType === "string" && (
+          <KeyValue label="Error type">
+            <code>{errorType}</code>
+          </KeyValue>
+        )}
+        {typeof errorMessage === "string" && (
+          <KeyValue label="Error message">
+            <span className="whitespace-pre-wrap break-words">
+              {errorMessage}
+            </span>
+          </KeyValue>
+        )}
+        {error && typeof error.code === "string" && (
+          <KeyValue label="Error code">
+            <code>{error.code}</code>
+          </KeyValue>
+        )}
+        {item.kind === "tool" && (
+          <>
+            <KeyValue label="Called by">
+              {event.payload.callingMode === "direct"
+                ? "Workflow code"
+                : event.payload.callingMode === "model"
+                  ? "Model"
+                  : "Not captured"}
+            </KeyValue>
+            <KeyValue label="Executed">
+              {event.payload.executed === false
+                ? "No"
+                : event.payload.executed === true
+                  ? "Yes"
+                  : "Not captured"}
+            </KeyValue>
+            {typeof event.payload.denialCode === "string" && (
+              <KeyValue label="Denial code">
+                <code>{event.payload.denialCode}</code>
+              </KeyValue>
+            )}
+          </>
+        )}
         {item.kind === "execution" && item.executionRole && (
           <KeyValue label="Execution">
             {item.executionRole === "initial"
@@ -561,12 +679,26 @@ function kindAppearance(
       iconBackground: "bg-muted",
       bar: "bg-muted-foreground",
     };
-  if (status === "failed")
+  if (status === "failed" || status === "fault")
     return {
       icon: CircleAlert,
       iconColor: "text-red-600 dark:text-red-400",
       iconBackground: "bg-red-500/10",
       bar: "bg-red-500",
+    };
+  if (status === "denied")
+    return {
+      icon: CirclePause,
+      iconColor: "text-amber-600 dark:text-amber-400",
+      iconBackground: "bg-amber-500/10",
+      bar: "bg-amber-500",
+    };
+  if (status === "replayed")
+    return {
+      icon: RotateCcw,
+      iconColor: "text-blue-600 dark:text-blue-400",
+      iconBackground: "bg-blue-500/10",
+      bar: "bg-blue-500",
     };
   if (kind === "execution")
     return {
@@ -645,10 +777,15 @@ function traceStatusTone(
   status: TraceStatus,
 ): "success" | "danger" | "warning" | "info" | "neutral" {
   if (status === "completed" || status === "resolved") return "success";
-  if (status === "failed") return "danger";
-  if (status === "interrupted" || status === "waiting" || status === "expired")
+  if (status === "failed" || status === "fault") return "danger";
+  if (
+    status === "interrupted" ||
+    status === "waiting" ||
+    status === "expired" ||
+    status === "denied"
+  )
     return "warning";
-  if (status === "running") return "info";
+  if (status === "running" || status === "replayed") return "info";
   return "neutral";
 }
 

@@ -10,6 +10,11 @@ import type {
   ReasonTraceAttributes,
   ReasonTraceSpanStartArgs,
 } from "@kortyx/hooks";
+import {
+  errorDiagnostics,
+  isModelTraceSpan,
+  safeTelemetryMetadata,
+} from "@kortyx/hooks/internal";
 import type { ActiveSpan, SpanContext } from "./types";
 
 const stringValue = (value: unknown): string | undefined =>
@@ -23,15 +28,27 @@ const shouldCapture = (
   return Boolean(value && typeof value === "object" && value[side]);
 };
 
-const asErrorPayload = (error: unknown): Record<string, unknown> =>
-  isControlFlowError(error)
-    ? {
-        name: errorProperty(error, "name"),
-        code: errorProperty(error, "code"),
-        message: "Execution paused or cancelled.",
-        controlFlow: true,
-      }
-    : { ...serializeFailure(error), name: "KortyxError" };
+const asErrorPayload = (
+  error: unknown,
+  name?: string,
+  project?: import("@kortyx/hooks").KortyxTraceErrorProjection,
+): Record<string, unknown> => {
+  if (isControlFlowError(error))
+    return {
+      name: errorProperty(error, "name"),
+      code: errorProperty(error, "code"),
+      message: "Execution paused or cancelled.",
+      controlFlow: true,
+    };
+  const failure = serializeFailure(error);
+  if (!isModelTraceSpan(name ?? "")) return { ...failure, name: "KortyxError" };
+  const diagnostic = errorDiagnostics(error, project);
+  return {
+    ...failure,
+    name: diagnostic.errorType ?? "Error",
+    message: diagnostic.errorMessage ?? "Model execution failed.",
+  };
+};
 
 const correlationFrom = (
   attributes: ReasonTraceAttributes | undefined,
@@ -79,6 +96,7 @@ export const createEventMapper = (args: {
   metadata?: Record<string, unknown> | undefined;
   tags?: string[] | undefined;
   createId: () => string;
+  error?: import("@kortyx/hooks").KortyxTraceErrorProjection;
 }) => {
   const createEvent = (input: {
     type: KortyxTelemetryEventType;
@@ -104,7 +122,9 @@ export const createEventMapper = (args: {
       ? {
           context: {
             ...(args.tags ? { tags: args.tags } : {}),
-            ...(args.metadata ? { metadata: args.metadata } : {}),
+            ...(args.metadata
+              ? { metadata: safeTelemetryMetadata(args.metadata) }
+              : {}),
             ...(input.context ?? {}),
           },
         }
@@ -129,10 +149,10 @@ export const createEventMapper = (args: {
     attributes: ReasonTraceAttributes,
   ): KortyxTelemetryEvent["context"] | undefined => {
     const tags = [...(args.tags ?? []), ...(telemetry?.tags ?? [])];
-    const metadata = {
+    const metadata = safeTelemetryMetadata({
       ...(args.metadata ?? {}),
       ...(telemetry?.metadata ?? {}),
-    };
+    });
     const userId = stringValue(attributes.userId);
     const tenantId = stringValue(attributes.tenantId);
     return userId || tenantId || tags.length || Object.keys(metadata).length
@@ -150,7 +170,9 @@ export const createEventMapper = (args: {
   ): Record<string, unknown> => ({
     ...(telemetry?.operation ? { operation: telemetry.operation } : {}),
     ...(telemetry?.tags?.length ? { tags: telemetry.tags } : {}),
-    ...(telemetry?.metadata ? { metadata: telemetry.metadata } : {}),
+    ...(telemetry?.metadata
+      ? { metadata: safeTelemetryMetadata(telemetry.metadata) }
+      : {}),
     ...(telemetry?.prompt
       ? {
           prompt: {
@@ -168,7 +190,8 @@ export const createEventMapper = (args: {
   });
 
   return {
-    asErrorPayload,
+    asErrorPayload: (error: unknown, name?: string) =>
+      asErrorPayload(error, name, args.error),
     correlationFrom,
     createEvent,
     shouldCapture,

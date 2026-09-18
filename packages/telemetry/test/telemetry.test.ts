@@ -447,3 +447,107 @@ describe("createKortyxTelemetryAdapter", () => {
     });
   });
 });
+
+it.each([
+  undefined,
+  "replace",
+  "suppress",
+  "throws",
+])("captures model diagnostics automatically with optional %s projection", async (mode) => {
+  const sent: SentEvent[] = [];
+  const adapter = createKortyxTelemetryAdapter({
+    endpoint: "https://telemetry.example",
+    apiKey: "key",
+    environment: "test",
+    service: { name: "test" },
+    flushIntervalMs: 60000,
+    ...(mode
+      ? {
+          error: () => {
+            if (mode === "throws") throw new Error("PRIVATE_PROJECTOR");
+            return mode === "suppress"
+              ? null
+              : { type: "ProviderError", message: "Provider unavailable" };
+          },
+        }
+      : {}),
+    fetch: async (_url, init) => {
+      sent.push(...JSON.parse(String(init?.body)).events);
+      return new Response(JSON.stringify({ accepted: true }), { status: 200 });
+    },
+  });
+  const error = Object.assign(new TypeError("Provider connection refused"), {
+    cause: new Error("PRIVATE_CAUSE"),
+    body: "PRIVATE_BODY",
+    apiKey: "PRIVATE_KEY",
+  });
+  await expect(
+    adapter.trace?.withSpan?.(
+      {
+        name: "runReasonEngine",
+        attributes: {
+          runId: "run",
+          workflowId: "workflow",
+          providerId: "test",
+          modelId: "model",
+        },
+        telemetry: { input: "PRIVATE_PROMPT", output: "PRIVATE_OUTPUT" },
+      },
+      async () => {
+        throw error;
+      },
+    ),
+  ).rejects.toBe(error);
+  await adapter.flush();
+  const failed = sent.find((e) => e.type === "span.failed");
+  expect(failed?.payload.error).toMatchObject({
+    name:
+      mode === undefined
+        ? "TypeError"
+        : mode === "replace"
+          ? "ProviderError"
+          : "Error",
+    message:
+      mode === undefined
+        ? "Provider connection refused"
+        : mode === "replace"
+          ? "Provider unavailable"
+          : "Model execution failed.",
+  });
+  expect(JSON.stringify(sent)).not.toMatch(
+    /PRIVATE_CAUSE|PRIVATE_BODY|PRIVATE_KEY|PRIVATE_PROMPT|PRIVATE_OUTPUT|PRIVATE_PROJECTOR/,
+  );
+});
+
+it("exports failed-generation usage counts without raw usage or provider metadata", async () => {
+  const sent: SentEvent[] = [];
+  const adapter = createKortyxTelemetryAdapter({
+    endpoint: "https://telemetry.example",
+    apiKey: "key",
+    environment: "test",
+    service: { name: "test" },
+    flushIntervalMs: 60000,
+    fetch: async (_url, init) => {
+      sent.push(...JSON.parse(String(init?.body)).events);
+      return new Response(JSON.stringify({ accepted: true }), { status: 200 });
+    },
+  });
+  const span = adapter.trace?.startSpan({
+    name: "runReasonEngine",
+    attributes: { runId: "run", workflowId: "workflow" },
+  });
+  span?.fail?.(new Error("Provider unavailable"), {
+    usage: {
+      input: 17,
+      output: 2,
+      inputIncludesCacheRead: true,
+      raw: { body: "PRIVATE_USAGE" },
+    },
+    providerMetadata: { body: "PRIVATE_METADATA" },
+  });
+  await adapter.flush();
+  expect(JSON.stringify(sent)).not.toMatch(/PRIVATE_USAGE|PRIVATE_METADATA/);
+  expect(
+    sent.find((e) => e.type === "generation.completed")?.payload.usage,
+  ).toEqual({ input: 17, output: 2, inputIncludesCacheRead: true });
+});

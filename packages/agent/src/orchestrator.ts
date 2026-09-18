@@ -13,6 +13,11 @@ import {
   serializeFailure,
 } from "@kortyx/core/errors";
 import {
+  safeStartSpan,
+  safeTelemetryMetadata,
+  withSafeTraceSpan,
+} from "@kortyx/hooks/internal";
+import {
   captureGraphSnapshot,
   createExecutionGraph,
   type FrameworkAdapter,
@@ -96,13 +101,13 @@ type TraceSpanLike = {
   addEvent?: (name: string, attributes?: Record<string, unknown>) => void;
   end?: (args?: {
     attributes?: Record<string, unknown>;
-    telemetry?: Record<string, unknown>;
+    telemetry?: Record<string, unknown> | undefined;
   }) => void;
   fail?: (
     error: unknown,
     args?: {
       attributes?: Record<string, unknown>;
-      telemetry?: Record<string, unknown>;
+      telemetry?: Record<string, unknown> | undefined;
     },
   ) => void;
 };
@@ -282,7 +287,11 @@ export async function orchestrateGraphStream({
   let structuredSeq = 0;
   const debugEnabled = Boolean((config as any)?.features?.tracing);
   const traceAdapter = getTraceAdapter(config);
-  const contextMeta = isRecord(config.context) ? config.context : {};
+  const contextMeta = safeTelemetryMetadata(
+    isRecord(config.context)
+      ? { userId: config.context.userId, tenantId: config.context.tenantId }
+      : {},
+  );
   const telemetryConfig = isRecord(config.telemetry) ? config.telemetry : {};
   const emitResumeFailure = (resumeError: unknown) => {
     const interruptId =
@@ -335,9 +344,23 @@ export async function orchestrateGraphStream({
         ...contextMeta,
       },
       tags: Array.isArray(telemetryConfig.tags)
-        ? telemetryConfig.tags
+        ? telemetryConfig.tags.filter(
+            (tag): tag is string => typeof tag === "string",
+          )
         : undefined,
-      captureContent: telemetryConfig.captureContent,
+      captureContent:
+        typeof telemetryConfig.captureContent === "boolean"
+          ? telemetryConfig.captureContent
+          : isRecord(telemetryConfig.captureContent)
+            ? {
+                ...(typeof telemetryConfig.captureContent.input === "boolean"
+                  ? { input: telemetryConfig.captureContent.input }
+                  : {}),
+                ...(typeof telemetryConfig.captureContent.output === "boolean"
+                  ? { output: telemetryConfig.captureContent.output }
+                  : {}),
+              }
+            : undefined,
       input:
         typeof state.input === "string"
           ? state.input
@@ -1490,31 +1513,34 @@ export async function orchestrateGraphStream({
   };
 
   const emitTraceChunk = () => {
-    const traceContext = traceAdapter?.getActiveContext?.();
-    if (!traceContext) return;
+    try {
+      const traceContext = traceAdapter?.getActiveContext?.();
+      if (!traceContext) return;
 
-    write({
-      type: "trace",
-      traceId: traceContext.traceId,
-      spanId: traceContext.spanId,
-      runId,
-      rootSpanName: "kortyx.run",
-    } satisfies StreamChunk);
+      write({
+        type: "trace",
+        traceId: traceContext.traceId,
+        spanId: traceContext.spanId,
+        runId,
+        rootSpanName: "kortyx.run",
+      } satisfies StreamChunk);
+    } catch {
+      /* Trace context does not participate in execution. */
+    }
   };
 
-  const fallbackRunSpan = traceAdapter?.withSpan
-    ? undefined
-    : traceAdapter?.startSpan?.(runSpanArgs);
+  let fallbackRunSpan: ReturnType<typeof safeStartSpan>;
   if (!traceAdapter?.withSpan) {
+    fallbackRunSpan = safeStartSpan(traceAdapter, runSpanArgs);
     emitTraceChunk();
   }
   const startRun = () =>
     traceAdapter?.withSpan
-      ? traceAdapter.withSpan(runSpanArgs, (runTraceSpan) => {
+      ? withSafeTraceSpan(traceAdapter, runSpanArgs, async (runTraceSpan) => {
           emitTraceChunk();
           return runLoop(runTraceSpan);
         })
-      : runLoop(fallbackRunSpan ?? {});
+      : runLoop(fallbackRunSpan);
   const runPromise =
     frameworkAdapter?.acquireRunLease && !releaseLease
       ? frameworkAdapter

@@ -54,7 +54,7 @@ function discover(
     writeFileSync(
       join(dir, "entry.ts"),
       `import {defineWorkflow as define} from "@kortyx/core";
-      import {useWorkflow as invoke, createWorkflowHooks} from "../../hooks/src/index";
+      import {useWorkflow as invoke, createWorkflowHooks, useTool, useReason} from "../../hooks/src/index";
       import {useResearch, recurse} from "./hooks";
       const IDS = {child:"child"} as const;
       const child = define({id:IDS.child, version:"1", nodes:{}, edges:[]});
@@ -281,4 +281,126 @@ it("discovers workflows without a tsconfig, and tolerates an unreadable config",
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
+});
+
+describe("source-only tool capability discovery", () => {
+  it("finds direct and model attachments through a shared factory and helper without running them", () => {
+    const result = discover(`
+      const lookup = makeLookup("PRIVATE_TOKEN");
+      function makeLookup(token: string) {
+        throw new Error("factory must not execute");
+        return { name: "lookup", description: "Look up a job", inputSchema: { type: "object", properties: {jobId: { type: "string", default: "PRIVATE_DEFAULT" }}, required: ["jobId"] }, execute: () => token };
+      }
+      async function useLookup(tool: unknown) { return useTool({ tool, input: { jobId: "PRIVATE_INPUT" } }); }
+      const parent = define({ id: "parent", version: "1", nodes: { chat: { run: async () => {
+        await useLookup(lookup); await useReason({ tools: [lookup], input: "check" });
+      } } }, edges: [] });
+    `);
+    expect(result.tools.get("parent")?.get("chat")).toMatchObject({
+      toolDiscovery: { status: "complete" },
+      tools: [
+        {
+          name: "lookup",
+          callingMode: "direct",
+          provenance: "source",
+          inputFields: [{ name: "jobId", type: "string", required: true }],
+        },
+        { name: "lookup", callingMode: "model", provenance: "source" },
+      ],
+    });
+    expect(JSON.stringify([...(result.tools.get("parent") ?? [])])).not.toMatch(
+      /PRIVATE_TOKEN|PRIVATE_DEFAULT|PRIVATE_INPUT/,
+    );
+  });
+  it("marks dynamic model attachments unresolved rather than claiming there are no tools", () => {
+    const result = discover(
+      `const parent = define({ id: "parent", nodes: { chat: {run: async () => { await useReason({tools: client.tools()}); }} }, edges: [] });`,
+    );
+    expect(result.tools.get("parent")?.get("chat")).toMatchObject({
+      tools: [],
+      toolDiscovery: { status: "unresolved" },
+    });
+    expect(result.warnings.join(" ")).toContain("not statically resolved");
+  });
+  it("marks unavailable workflow source unresolved", () => {
+    const result = discover("", { snapshots: [snapshot("missing")] });
+    expect(result.tools.get("missing")?.get("chat")?.toolDiscovery.status).toBe(
+      "unresolved",
+    );
+  });
+});
+
+it("resolves statically bound factory names separately for each attachment", () => {
+  const result = discover(`
+    function factory(args: {name: string}) { return {name: args.name, inputSchema: {}, execute: () => 1}; }
+    const one = factory({name: "one"}); const two = factory({name: "two"});
+    const parent = define({id: "parent", nodes: {chat: {run: async () => { await useReason({tools: [one, two]}); }}}, edges: []});
+  `);
+  expect(
+    result.tools
+      .get("parent")
+      ?.get("chat")
+      ?.tools.map((tool) => tool.name),
+  ).toEqual(["one", "two"]);
+});
+
+it("summarizes static arrays and schema fields while preserving unresolved attachments", () => {
+  const result = discover(`
+    const base = {name: "base", description: "Safe description"};
+    const name = "spread";
+    const good = {...base, name, inputSchema: {properties: {id: {type: "string"}, optional: {}, ...dynamic, [computed]: {}, method() {}}, required: ["id", dynamic]}};
+    const list = [good, {...base, name: "base"}];
+    const cyclic = [ ...cyclic ];
+    function make(name = "default") { return {name}; }
+    const expr = function(name) { return {name}; };
+    function nothing() { return; }
+    const makeArrow = name => ({name});
+    function unbound(name) { return {name}; }
+    function destructured({name}) { return {name}; }
+    function multiple() { return {}; return {}; }
+    let mutable = good;
+    const dynamicSpread = {...dynamic};
+    const parent = define({id:"parent", nodes:{chat:{run:async()=>{
+      useReason({tools:[...list, good, make(), expr("expr"), ...cyclic, ...unknown]});
+      useTool({tool: (good["missing"] as any)!});
+      useTool({tool: mutable});
+      useTool({tool: dynamicSpread});
+      useTool({tool: nothing()});
+      useTool({tool: unbound()});
+      useTool({tool: makeArrow("arrow")});
+      useTool({tool: destructured({name:"dynamic"})});
+      useTool({tool: multiple()});
+      useTool({});
+      useTool({tool: {name: "no-schema"}});
+    }}}, edges:[]});
+  `);
+  const node = result.tools.get("parent")?.get("chat");
+  expect(node?.toolDiscovery.status).toBe("unresolved");
+  expect(node?.tools.map((t) => t.name)).toEqual([
+    "arrow",
+    "base",
+    "default",
+    "expr",
+    "no-schema",
+    "spread",
+  ]);
+  expect(node?.tools.find((t) => t.name === "spread")?.inputFields).toEqual([
+    { name: "id", type: "string", required: true },
+    { name: "optional", type: "unknown", required: false },
+  ]);
+});
+
+it("marks discovered tools unresolved when custom helper traversal exceeds its bound", () => {
+  const helpers = Array.from(
+    { length: 34 },
+    (_, i) =>
+      `function helper${i}() { ${i === 0 ? 'useTool({tool:{name:"early"}});' : ""} ${i < 33 ? `helper${i + 1}();` : ""} }`,
+  ).join("\n");
+  const result = discover(
+    `${helpers}\nconst parent=define({id:"parent", nodes:{chat:{run:()=>helper0()}},edges:[]});`,
+  );
+  expect(result.tools.get("parent")?.get("chat")?.toolDiscovery).toMatchObject({
+    status: "unresolved",
+    warnings: ["Custom-hook discovery depth exceeded."],
+  });
 });
