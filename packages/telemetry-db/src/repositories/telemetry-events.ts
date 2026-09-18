@@ -85,7 +85,29 @@ export const ingestTelemetryEvents = async (
       serviceName: event.service.name,
       runId: event.correlation.runId,
       workflowId: event.correlation.workflowId,
-      payload: event.payload,
+      payload: event.type.startsWith("tool.")
+        ? {
+            ...event.payload,
+            ...Object.fromEntries(
+              [
+                "runId",
+                "workflowId",
+                "nodeId",
+                "workflowRevisionId",
+                "invocationId",
+                "parentInvocationId",
+                "branchId",
+              ].flatMap((key) => {
+                const value = event.correlation[key as "invocationId"];
+                if (value && event.payload[key] && value !== event.payload[key])
+                  throw new TelemetryForbiddenError(
+                    "Tool ownership does not match correlation.",
+                  );
+                return value ? [[key, value]] : [];
+              }),
+            ),
+          }
+        : event.payload,
       ...(event.service.deploymentRef
         ? { deploymentRef: event.service.deploymentRef }
         : {}),
@@ -139,6 +161,8 @@ export const ingestTelemetryEvents = async (
       });
       const resources = new Set<StudioChangeResource>(["runs"]);
       if (rows.some((row) => row.sessionId)) resources.add("sessions");
+      if (rows.some((row) => row.type.startsWith("tool.")))
+        resources.add("workflows");
       if (rows.some((row) => row.type.startsWith("interrupt."))) {
         resources.add("interrupts");
       }

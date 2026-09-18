@@ -2035,7 +2035,6 @@ describe("orchestrateGraphStream", () => {
             source: "test",
             userId: "user-1",
             tenantId: "tenant-1",
-            accountId: "account-1",
           },
           tags: ["tag"],
           captureContent: { input: true },

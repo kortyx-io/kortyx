@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { emitWorkflowCall, type KortyxTelemetryConfig } from "@kortyx/hooks";
+import type { ToolObservation } from "@kortyx/providers";
 import type { PendingRequestRecord } from "@kortyx/runtime";
 
 /** Rebase every snapshot copy; emit each inherited logical invocation only once. */
@@ -10,6 +11,7 @@ export function restoreWorkflowCallBranch(
 ) {
   const branchId = randomUUID();
   const emitted = new Set<string>();
+  const toolEvidence = new Set<string>();
   for (const request of requests) {
     if (request.state)
       request.state.config = {
@@ -57,6 +59,61 @@ export function restoreWorkflowCallBranch(
                 status: record.status,
               },
             );
+            if (
+              record.status === "completed" &&
+              Array.isArray(record.toolObservations)
+            ) {
+              if (
+                telemetry?.reporter &&
+                telemetry.environment &&
+                telemetry.service
+              )
+                record.restoredToolBranch = branchId;
+              for (const original of record.toolObservations as ToolObservation[]) {
+                const key = JSON.stringify([
+                  original.invocationId,
+                  original.toolCallId,
+                  original.attemptId,
+                ]);
+                if (toolEvidence.has(key)) continue;
+                toolEvidence.add(key);
+                const payload = {
+                  ...original,
+                  runId: request.runId,
+                  branchId,
+                  attemptId: randomUUID(),
+                  executed: false,
+                  durationMs: undefined,
+                  observationKind: "reused",
+                  source: original.source ?? {
+                    runId: original.runId ?? sourceRunId,
+                    invocationId: original.invocationId,
+                    branchId: original.branchId,
+                    toolCallId: original.toolCallId,
+                    attemptId: original.attemptId,
+                  },
+                };
+                emitWorkflowCall(
+                  telemetry
+                    ? {
+                        ...telemetry,
+                        correlation: {
+                          runId: request.runId,
+                          sessionId: request.sessionId,
+                          workflowId: original.workflowId ?? request.workflow,
+                          nodeId: original.nodeId,
+                          workflowRevisionId: original.workflowRevisionId,
+                          invocationId: original.invocationId,
+                          parentInvocationId: original.parentInvocationId,
+                          branchId,
+                        },
+                      }
+                    : undefined,
+                  "tool.reused",
+                  payload,
+                );
+              }
+            }
           }
         }
       }

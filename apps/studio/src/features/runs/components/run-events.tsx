@@ -467,10 +467,16 @@ function stateTone(
   state: EventState,
 ): "success" | "danger" | "warning" | "info" | "neutral" {
   if (state === "completed" || state === "resolved") return "success";
-  if (state === "failed") return "danger";
-  if (state === "cancelled" || state === "expired" || state === "interrupted")
+  if (state === "failed" || state === "fault") return "danger";
+  if (
+    state === "denied" ||
+    state === "waiting" ||
+    state === "cancelled" ||
+    state === "expired" ||
+    state === "interrupted"
+  )
     return "warning";
-  if (state === "started") return "info";
+  if (state === "started" || state === "replayed") return "info";
   return "neutral";
 }
 

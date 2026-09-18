@@ -89,6 +89,11 @@ const listQuerySchema = z.object({
   resolver: z.string().optional(),
   tags: z.string().optional(),
   tool: z.string().optional(),
+  toolName: z.string().optional(),
+  toolOutcome: z
+    .enum(["success", "denied", "fault", "cancelled", "reused"])
+    .optional(),
+  toolMode: z.enum(["direct", "model"]).optional(),
   error: z.string().optional(),
   interrupt: z.string().optional(),
   checkpoint: z.string().optional(),

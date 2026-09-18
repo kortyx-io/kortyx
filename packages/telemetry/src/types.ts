@@ -30,5 +30,6 @@ export type SpanContext = {
 };
 
 export type ActiveSpan = SpanContext & {
+  name?: string | undefined;
   correlation: KortyxTelemetryEvent["correlation"];
 };

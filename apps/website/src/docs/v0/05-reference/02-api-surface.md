@@ -55,6 +55,7 @@ export {
   WorkflowCallError,
   useInterrupt,
   useReason,
+  useTool,
   useNodeState,
   useStructuredData,
   useWorkflowState,
@@ -69,11 +70,14 @@ export {
   WorkflowCallError,
   useInterrupt,
   useReason,
+  useTool,
   useNodeState,
   useStructuredData,
   useWorkflowState,
 } from "@kortyx/hooks";
 ```
+
+`useTool({tool, input, id?, abortSignal?})` executes a shared tool immediately and returns its inferred result. It creates observations without adding a model call or MCP transport. `UseToolArgs`, `KortyxExecutableTool`, `ToolOutcomes` and `ToolOutcomeDescriptor` are exported types. See [Hooks](../02-core-concepts/07-hooks.md).
 
 `useWorkflow({ id, workflow, input })` returns a promise of `{ data }`. Typed definitions and bound registries infer input/output from the child's schemas; dynamic unbound strings return `Record<string, unknown>`. `WorkflowCallError` represents a rejected child invocation. See [Call Child Workflows](../03-guides/06-child-workflows.md).
 

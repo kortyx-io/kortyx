@@ -17,6 +17,7 @@ import type {
   KortyxWarning,
   ProviderModelRef,
 } from "@kortyx/providers";
+import { safeStartSpan } from "./safe-tracing";
 import type {
   KortyxTraceMetadata,
   ReasonTraceAdapter,
@@ -191,7 +192,7 @@ export async function runReasonEngine(
     opId,
     segmentId,
   };
-  const traceSpan = args.reasonTrace?.startSpan({
+  const traceSpan = safeStartSpan(args.reasonTrace, {
     name: "runReasonEngine",
     attributes: {
       ...commonMeta,

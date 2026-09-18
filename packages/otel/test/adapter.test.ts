@@ -700,3 +700,81 @@ describe("OpenTelemetry attribute helpers", () => {
     expect(normalizeKnownAttributes(attributes)).toEqual(attributes);
   });
 });
+
+describe("canonical tool spans", () => {
+  it("maps tool identity and faults without treating denial as an execution fault", () => {
+    const { tracer, spans } = createFakeTracer();
+    const adapter = createOpenTelemetryTraceAdapter({ tracer });
+    for (const outcome of ["denied", "fault"]) {
+      const span = adapter.startSpan({
+        name: "kortyx.tool",
+        attributes: {
+          version: 1,
+          name: "lookup",
+          toolCallId: "logical-call",
+          attemptId: outcome,
+          callingMode: "direct",
+          executed: true,
+        },
+      });
+      span?.end?.({
+        attributes: {
+          version: 1,
+          name: "lookup",
+          toolCallId: "logical-call",
+          attemptId: outcome,
+          executed: true,
+          outcome,
+        },
+      });
+    }
+    expect(spans[0]?.attributes).toMatchObject({
+      "gen_ai.operation.name": "execute_tool",
+      "gen_ai.tool.name": "lookup",
+      "gen_ai.tool.call.id": "logical-call",
+      "kortyx.tool.outcome": "denied",
+    });
+    expect(spans[0]?.status).toBeUndefined();
+    expect(spans[1]?.status).toMatchObject({ code: 2 });
+    expect(spans.every((span) => span.endCount === 1)).toBe(true);
+  });
+  it("finishes physical spans and preserves callback results when observer callbacks or mapping fail", async () => {
+    const { tracer, spans } = createFakeTracer();
+    const adapter = createOpenTelemetryTraceAdapter({
+      tracer,
+      onSpanStart: () => {
+        throw new Error("start callback failed");
+      },
+      onSpanEnd: () => {
+        throw new Error("end callback failed");
+      },
+      mapAttributes: ({ phase }) => {
+        if (phase === "end") throw new Error("end mapping failed");
+        return {};
+      },
+    });
+    expect(await adapter.withSpan?.({ name: "kortyx.tool" }, () => "OK")).toBe(
+      "OK",
+    );
+    expect(spans[0]?.endCount).toBe(1);
+  });
+  it("filters credentials in explicit metadata before export", () => {
+    const { tracer, spans } = createFakeTracer();
+    const adapter = createOpenTelemetryTraceAdapter({ tracer });
+    adapter
+      .startSpan({
+        name: "kortyx.tool",
+        telemetry: {
+          metadata: {
+            userId: "user",
+            apiKey: "PRIVATE_CREDENTIAL",
+            nested: { authorization: "PRIVATE_AUTH" },
+          },
+        },
+      })
+      ?.end?.();
+    expect(JSON.stringify(spans)).not.toMatch(
+      /PRIVATE_CREDENTIAL|PRIVATE_AUTH/,
+    );
+  });
+});

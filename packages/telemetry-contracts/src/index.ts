@@ -2,6 +2,22 @@ import { z } from "zod";
 import { FeedbackSummarySchema, StudioScoreSchema } from "./scores";
 
 export * from "./scores";
+
+import {
+  StudioToolSchema,
+  ToolDiscoverySchema,
+  ToolObservationSchema,
+  WorkflowToolSchema,
+} from "./tools";
+
+export type { StudioTool, WorkflowTool } from "./tools";
+export {
+  StudioToolSchema,
+  ToolDiscoverySchema,
+  ToolObservationSchema,
+  ToolOutcomeSchema,
+  WorkflowToolSchema,
+} from "./tools";
 export const TELEMETRY_EVENT_TYPES = [
   "span.started",
   "span.ended",
@@ -10,6 +26,11 @@ export const TELEMETRY_EVENT_TYPES = [
   "tool.started",
   "tool.completed",
   "tool.failed",
+  "tool.denied",
+  "tool.cancelled",
+  "tool.reused",
+  "tool.waiting",
+  "tool.suspended",
   "response.completed",
   "interrupt.created",
   "interrupt.resolved",
@@ -44,6 +65,8 @@ export const WorkflowTopologyNodeSchema = z
     provider: z.string().optional(),
     model: z.string().optional(),
     metadata: z.record(z.string(), z.unknown()).optional(),
+    tools: z.array(WorkflowToolSchema).optional(),
+    toolDiscovery: ToolDiscoverySchema.optional(),
   })
   .strict();
 export const WorkflowTopologyEdgeSchema = z
@@ -130,7 +153,48 @@ export const TelemetryEventSchema = z
     type: TelemetryEventTypeSchema,
     payload: z.record(z.string(), z.unknown()),
   })
-  .strict();
+  .strict()
+  .superRefine((event, ctx) => {
+    if (!event.type.startsWith("tool.")) return;
+    const canonical =
+      event.payload.version === 1 ||
+      [
+        "tool.denied",
+        "tool.cancelled",
+        "tool.reused",
+        "tool.waiting",
+        "tool.suspended",
+      ].includes(event.type);
+    if (!canonical) return; // Previous SDK event envelopes remain readable.
+    const parsed = ToolObservationSchema.strict().safeParse(event.payload);
+    if (!parsed.success)
+      for (const issue of parsed.error.issues)
+        ctx.addIssue({ ...issue, path: ["payload", ...issue.path] });
+    else {
+      const terminalOutcomes: Record<string, string> = {
+        "tool.completed": "success",
+        "tool.failed": "fault",
+        "tool.denied": "denied",
+        "tool.cancelled": "cancelled",
+      };
+      const expected = terminalOutcomes[event.type];
+      if (expected && parsed.data.outcome !== expected)
+        ctx.addIssue({
+          code: "custom",
+          path: ["payload", "outcome"],
+          message: "Outcome must match the tool event type.",
+        });
+      if (
+        event.type === "tool.reused" &&
+        (parsed.data.executed || !parsed.data.source)
+      )
+        ctx.addIssue({
+          code: "custom",
+          path: ["payload"],
+          message: "Reuse must be unexecuted and reference its source.",
+        });
+    }
+  });
 export const TelemetryEventBatchSchema = z
   .object({ events: z.array(TelemetryEventSchema).min(1) })
   .strict();
@@ -458,6 +522,7 @@ export const StudioPricingStatusSchema = z.enum([
 export const StudioPricingSourceSchema =
   TelemetryPricingSourceSchema.nullable();
 export const StudioChangeResourceSchema = z.enum([
+  "workflows",
   "runs",
   "sessions",
   "interrupts",
@@ -635,6 +700,8 @@ export const StudioDetailEventSchema = z
   .strict();
 export const StudioWorkflowNodeSchema = z
   .object({
+    tools: z.array(StudioToolSchema).optional(),
+    toolDiscovery: ToolDiscoverySchema.optional(),
     id: z.string().min(1),
     label: z.string(),
     type: z.string().nullable(),

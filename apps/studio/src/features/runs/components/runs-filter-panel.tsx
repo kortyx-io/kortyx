@@ -23,6 +23,9 @@ export function RunsFilterPanel({
     selectedStatuses,
     selectedProviders,
     toolOnly,
+    toolName,
+    toolOutcome,
+    toolMode,
     minCost,
     minDuration,
     minTokens,
@@ -190,6 +193,61 @@ export function RunsFilterPanel({
               onChange={(value) => setParams({ result: value || null })}
               placeholder="Contains result…"
             />
+          </FilterSection>
+
+          <FilterSection title="Tools">
+            <TextFilter
+              id="tool-name-filter"
+              label="Tool name"
+              value={toolName}
+              onChange={(value) => setParams({ toolName: value || null })}
+              placeholder="Exact tool name…"
+            />
+            <label
+              className="mt-3 block text-xs font-medium text-muted-foreground"
+              htmlFor="tool-outcome-filter"
+            >
+              Tool outcome
+              <select
+                id="tool-outcome-filter"
+                className="mt-1.5 h-8 w-full rounded-md border bg-background px-2 text-sm"
+                value={toolOutcome}
+                onChange={(event) =>
+                  setParams({ toolOutcome: event.target.value || null })
+                }
+              >
+                <option value="">All outcomes</option>
+                {[
+                  ["success", "Succeeded"],
+                  ["denied", "Denied"],
+                  ["fault", "Fault"],
+                  ["cancelled", "Cancelled"],
+                  ["reused", "Cached reuse"],
+                ].map(([value, label]) => (
+                  <option key={value} value={value}>
+                    {label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label
+              className="mt-3 block text-xs font-medium text-muted-foreground"
+              htmlFor="tool-mode-filter"
+            >
+              Called by
+              <select
+                id="tool-mode-filter"
+                className="mt-1.5 h-8 w-full rounded-md border bg-background px-2 text-sm"
+                value={toolMode}
+                onChange={(event) =>
+                  setParams({ toolMode: event.target.value || null })
+                }
+              >
+                <option value="">All callers</option>
+                <option value="direct">Workflow code</option>
+                <option value="model">Model</option>
+              </select>
+            </label>
           </FilterSection>
 
           <FilterSection title="Options">

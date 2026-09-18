@@ -9,6 +9,7 @@ export default async function WorkflowsPage({
 }) {
   const params = await searchParams;
   const workflowsResult = await getStudioWorkflows({
+    env: typeof params.env === "string" ? params.env : undefined,
     range: typeof params.range === "string" ? params.range : undefined,
     startedAfter:
       typeof params.startedAfter === "string" ? params.startedAfter : undefined,

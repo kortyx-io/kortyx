@@ -15,6 +15,7 @@ import {
   serializeFailure,
   WorkflowContractError,
 } from "@kortyx/core/errors";
+import type { ToolObservation } from "@kortyx/providers";
 import type { z } from "zod";
 import { accumulateTokenUsage, getHookContext } from "./context";
 import { awaitInterruptInternal } from "./interrupt";
@@ -23,12 +24,14 @@ import {
   registerWorkflowTask,
   type WorkflowTask,
 } from "./parallel";
+import { rememberToolObservation, replayToolObservations } from "./tool";
 import { emitWorkflowCall, workflowCallContent } from "./workflow-telemetry";
 
 export type WorkflowCallOutcome =
   | {
       status: "completed";
       data: Record<string, unknown>;
+      toolObservations?: ToolObservation[];
       usage?: TokenUsage | undefined;
     }
   | {
@@ -50,6 +53,8 @@ export type WorkflowCallService = (args: {
 }) => Promise<WorkflowCallOutcome>;
 
 export type CallRecord = {
+  restoredToolBranch?: string;
+  toolObservations?: ToolObservation[];
   parallelKey?: string;
   usage?: TokenUsage;
   fingerprint: string;
@@ -369,6 +374,9 @@ async function runWorkflowCall(
         record.data = outcome.data;
         workflowCallFingerprint(record.data);
         record.status = "completed";
+        record.toolObservations = outcome.toolObservations ?? [];
+        for (const observation of record.toolObservations)
+          rememberToolObservation(observation);
         delete record.snapshot;
         report(
           "completed",
@@ -393,8 +401,12 @@ async function runWorkflowCall(
         });
       }
     }
-    if (cached)
+    if (cached) {
       report("reused", workflowCallContent(telemetry, "output", record.data));
+      if (record.restoredToolBranch !== telemetry?.correlation?.branchId)
+        await replayToolObservations(record.toolObservations ?? [], true);
+      delete record.restoredToolBranch;
+    }
     const data = record.data ?? {};
     return {
       data: JSON.parse(JSON.stringify(data)) as Record<string, unknown>,

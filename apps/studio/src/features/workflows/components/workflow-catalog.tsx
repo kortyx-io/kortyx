@@ -69,7 +69,7 @@ export function WorkflowCatalog({
             value={query}
             onChange={(event) => onQueryChange(event.target.value)}
             aria-label="Search workflows"
-            placeholder="Search workflows…"
+            placeholder="Search workflows or tools…"
             className="h-8 pl-8 text-xs"
           />
         </div>
@@ -134,7 +134,17 @@ export function WorkflowCatalog({
                     {workflow.description}
                   </p>
                   <div className="mt-2 flex items-center justify-between pl-3.5 text-[10px] tabular-nums text-muted-foreground">
-                    <span>{formatCount(workflow.metrics.runCount)} runs</span>
+                    <span>
+                      {formatCount(workflow.metrics.runCount)} runs ·{" "}
+                      {
+                        new Set(
+                          workflow.nodes.flatMap((node) =>
+                            (node.tools ?? []).map((tool) => tool.name),
+                          ),
+                        ).size
+                      }{" "}
+                      tools
+                    </span>
                     <span
                       title={`${inbound} incoming, ${outbound} outgoing connections`}
                     >

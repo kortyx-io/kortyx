@@ -10,6 +10,7 @@ import type {
   ReasonTraceAttributes,
   ReasonTraceSpanStartArgs,
 } from "@kortyx/hooks";
+import { safeTelemetryMetadata } from "@kortyx/hooks/internal";
 import type { ActiveSpan, SpanContext } from "./types";
 
 const stringValue = (value: unknown): string | undefined =>
@@ -104,7 +105,9 @@ export const createEventMapper = (args: {
       ? {
           context: {
             ...(args.tags ? { tags: args.tags } : {}),
-            ...(args.metadata ? { metadata: args.metadata } : {}),
+            ...(args.metadata
+              ? { metadata: safeTelemetryMetadata(args.metadata) }
+              : {}),
             ...(input.context ?? {}),
           },
         }
@@ -129,10 +132,10 @@ export const createEventMapper = (args: {
     attributes: ReasonTraceAttributes,
   ): KortyxTelemetryEvent["context"] | undefined => {
     const tags = [...(args.tags ?? []), ...(telemetry?.tags ?? [])];
-    const metadata = {
+    const metadata = safeTelemetryMetadata({
       ...(args.metadata ?? {}),
       ...(telemetry?.metadata ?? {}),
-    };
+    });
     const userId = stringValue(attributes.userId);
     const tenantId = stringValue(attributes.tenantId);
     return userId || tenantId || tags.length || Object.keys(metadata).length
@@ -150,7 +153,9 @@ export const createEventMapper = (args: {
   ): Record<string, unknown> => ({
     ...(telemetry?.operation ? { operation: telemetry.operation } : {}),
     ...(telemetry?.tags?.length ? { tags: telemetry.tags } : {}),
-    ...(telemetry?.metadata ? { metadata: telemetry.metadata } : {}),
+    ...(telemetry?.metadata
+      ? { metadata: safeTelemetryMetadata(telemetry.metadata) }
+      : {}),
     ...(telemetry?.prompt
       ? {
           prompt: {

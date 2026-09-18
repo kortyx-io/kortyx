@@ -262,3 +262,9 @@ Apache-2.0. See [LICENSE](https://github.com/kortyx-io/kortyx/blob/main/LICENSE)
 ## Error handling
 
 Use `serializeFailure` for safe structured diagnostics and `DomainError` for explicitly approved domain details that must survive child checkpoint restore. Cancellation, execution limits and human interrupts remain control flow. Applications own retry and schema correction policy. See the [error handling guide](../../apps/website/src/docs/v0/03-guides/08-error-handling.md).
+
+## Shared tools
+
+`await useTool({tool, input})` executes a typed plain tool immediately inside a workflow node, without a model call or MCP transport. Pass the same definition to `useReason({tools: [tool]})` for model-driven selection and arguments. Tool definitions can provide `outcomes.denialCodes`, `classifyResult` and `classifyError`; permission enforcement remains application-owned. Direct calls preserve result/error identity and do not cache executions.
+
+Studio records individual durations and separate success, denial, fault and cancellation outcomes; cached native and child calls appear as reuse with their original scope. Observations exclude raw inputs/results/errors. Observer and delivery failures cannot change execution. `kortyx topology push` discovers attached tools from source, marks dynamic attachments unresolved, and makes available tools visible before traffic.

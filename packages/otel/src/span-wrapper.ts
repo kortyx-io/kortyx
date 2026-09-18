@@ -34,24 +34,35 @@ export const createSpanWrapper = (
     },
     end: (args) => {
       if (wrapper.ended) return;
-      const attributes = spanEndAttributes(args, options);
-      span.setAttributes(
-        toAttributes(
-          applyAttributeMapping(name, attributes, options, {
-            phase: "end",
-            telemetry: args?.telemetry,
-            end: args,
-          }),
-        ),
-      );
+      try {
+        const attributes = spanEndAttributes(args, options);
+        if (name === "kortyx.tool" && args?.attributes?.outcome === "fault")
+          span.setStatus({
+            code: SpanStatusCode.ERROR,
+            message: "Tool execution failed.",
+          });
+        span.setAttributes(
+          toAttributes(
+            applyAttributeMapping(name, attributes, options, {
+              phase: "end",
+              telemetry: args?.telemetry,
+              end: args,
+            }),
+          ),
+        );
+      } catch {
+        /* Attribute callbacks are observers. */
+      }
       wrapper.ended = true;
       span.end();
       const spanContext = span.spanContext();
-      options.onSpanEnd?.({
-        name,
-        traceId: spanContext.traceId,
-        spanId: spanContext.spanId,
-      });
+      try {
+        options.onSpanEnd?.({
+          name,
+          traceId: spanContext.traceId,
+          spanId: spanContext.spanId,
+        });
+      } catch {}
     },
     fail: (error, args) => {
       if (isControlFlowError(error)) {
@@ -63,17 +74,21 @@ export const createSpanWrapper = (
       const message = failure.message;
       span.recordException({ name: failure.code, message });
       span.setStatus({ code: SpanStatusCode.ERROR, message });
-      const attributes = spanErrorAttributes(error, args);
-      span.setAttributes(
-        toAttributes(
-          applyAttributeMapping(name, attributes, options, {
-            phase: "error",
-            telemetry: args?.telemetry,
-            end: args,
-            error,
-          }),
-        ),
-      );
+      try {
+        const attributes = spanErrorAttributes(error, args);
+        span.setAttributes(
+          toAttributes(
+            applyAttributeMapping(name, attributes, options, {
+              phase: "error",
+              telemetry: args?.telemetry,
+              end: args,
+              error,
+            }),
+          ),
+        );
+      } catch {
+        /* Preserve execution failure and finish the physical span. */
+      }
       wrapper.end?.(args);
     },
   };

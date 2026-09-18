@@ -367,6 +367,7 @@ export const getStudioWorkflows = async (
       data: WorkflowSystemSchema.parse({
         cohort: {
           ...response.data.cohort,
+          environment: typeof query?.env === "string" ? query.env : undefined,
           workflowId: optional(response.data.cohort.workflowId),
           version: optional(response.data.cohort.version),
         },
@@ -393,6 +394,8 @@ export const getStudioWorkflows = async (
           nodes: workflow.nodes.map((node) => ({
             id: node.id,
             label: node.label,
+            tools: node.tools,
+            toolDiscovery: node.toolDiscovery,
             type: optional(node.type),
             state: optional(node.state),
             provider: optional(node.provider),

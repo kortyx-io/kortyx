@@ -611,7 +611,18 @@ function InternalNode({ data }: NodeProps<Node<InternalData>>) {
         >
           {node.id}
         </span>
+        {node.tools?.length ? (
+          <span
+            className="ml-auto shrink-0 rounded bg-muted px-1 text-[9px] text-muted-foreground"
+            title={node.tools.map((tool) => tool.name).join(", ")}
+            role="note"
+            aria-label={`${node.tools.length} attached tools`}
+          >
+            {node.tools.length} tools
+          </span>
+        ) : null}
       </div>
+
       <div className="mt-1 flex gap-2 text-[9px] tabular-nums text-muted-foreground">
         <span>{formatDurationMs(node.metrics.p50DurationMs)}</span>
         {mode === "health" ? (

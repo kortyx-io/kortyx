@@ -29,6 +29,8 @@ export {
   useWorkflowState,
 } from "./hooks";
 export { ParallelError, parallel } from "./parallel";
+export type { UseToolArgs } from "./tool";
+export { useTool } from "./tool";
 export type {
   EnsureWorkflowTopologyRequest,
   EnsureWorkflowTopologyResponse,

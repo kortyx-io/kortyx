@@ -65,6 +65,10 @@ export default function WorkflowsPageClient({
           node.label,
           node.provider,
           node.model,
+          ...(node.tools ?? []).flatMap((tool) => [
+            tool.name,
+            tool.description,
+          ]),
         ]),
       ]
         .filter(Boolean)

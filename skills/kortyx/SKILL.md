@@ -44,6 +44,8 @@ Studio:
 
 Hooks:
 
+- `references/hooks-use-tool.md`: shared executable tools, direct/model execution, denial classification, replay, ownership and Studio discovery.
+
 - `references/hooks-child-workflows.md`: typed child calls, `parallel` groups, approval timing, output contracts, interrupt/replay safety, fork/rollback, and migration from handoffs.
 - `references/hooks-use-reason.md`: model calls, provider options, MCP tools, schema output, and text streaming.
 - `references/hooks-interrupts-and-state.md`: human-in-the-loop flows, resume, replay, and persistence implications.

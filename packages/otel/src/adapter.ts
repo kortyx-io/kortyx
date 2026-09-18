@@ -34,12 +34,14 @@ export function createOpenTelemetryTraceAdapter(
       context.active(),
     );
     const spanContext = span.spanContext();
-    options.onSpanStart?.({
-      name: args.name,
-      traceId: spanContext.traceId,
-      spanId: spanContext.spanId,
-      attributes,
-    });
+    try {
+      options.onSpanStart?.({
+        name: args.name,
+        traceId: spanContext.traceId,
+        spanId: spanContext.spanId,
+        attributes,
+      });
+    } catch {}
     return createSpanWrapper(span, args.name, options);
   };
 
@@ -56,12 +58,14 @@ export function createOpenTelemetryTraceAdapter(
         async (span) => {
           const wrapped = createSpanWrapper(span, args.name, options);
           const spanContext = span.spanContext();
-          options.onSpanStart?.({
-            name: args.name,
-            traceId: spanContext.traceId,
-            spanId: spanContext.spanId,
-            attributes,
-          });
+          try {
+            options.onSpanStart?.({
+              name: args.name,
+              traceId: spanContext.traceId,
+              spanId: spanContext.spanId,
+              attributes,
+            });
+          } catch {}
           try {
             const result = await fn(wrapped);
             if (!wrapped.ended) wrapped.end?.();

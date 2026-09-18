@@ -70,6 +70,7 @@ type HookInternalContext = HookRuntimeContext & {
   workflowContextClosed: boolean;
   nodeStateIndex: number;
   reasonCallIndex: number;
+  toolCallIndex: number;
   currentNodeState: NodeStateStore;
   workflowState: Record<string, unknown>;
   tokenUsage?: TokenUsage | undefined;
@@ -154,6 +155,7 @@ const createInternalContext = (
     workflowContextClosed: false,
     nodeStateIndex: 0,
     reasonCallIndex: 0,
+    toolCallIndex: 0,
     currentNodeState,
     workflowState: cloneWorkflowState(hookRuntimeState.workflowState),
     tokenUsage: cloneTokenUsage(ctx.state.runtime?.tokenUsage),
@@ -273,6 +275,12 @@ export async function runWithHookContext<T>(
       }
     });
     cleanupCompletedReasonCheckpoints(internal);
+    for (const key of Object.keys(internal.currentNodeState.byKey)) {
+      if (key.startsWith("__useTool:")) {
+        delete internal.currentNodeState.byKey[key];
+        internal.stateDirty = true;
+      }
+    }
     for (const key of Object.keys(internal.currentNodeState.byKey)) {
       if (
         key.startsWith("__useWorkflow:") ||

@@ -7,6 +7,7 @@ import type {
   ReasonTraceSpanEndArgs,
   ReasonTraceSpanStartArgs,
 } from "@kortyx/hooks";
+import { ToolObservationSchema } from "@kortyx/telemetry-contracts";
 import type { createEventMapper } from "./event-mapper";
 import type { ActiveSpan, SpanContext } from "./types";
 
@@ -32,24 +33,29 @@ export const createTraceAdapter = (args: {
     const correlation = args.eventMapper.correlationFrom(attributes, parent);
     const startedAt = Date.now();
 
-    if (correlation) {
+    const isTool = startArgs.name === "kortyx.tool";
+    if (correlation && (!isTool || attributes.executed === true)) {
       args.enqueue(
         args.eventMapper.createEvent({
-          type: "span.started",
+          type: isTool ? "tool.started" : "span.started",
           correlation,
           span,
           ...(parent ? { parentSpanId: parent.spanId } : {}),
-          payload: {
-            name: startArgs.name,
-            attributes: currentAttributes,
-            telemetry: args.eventMapper.telemetryPayload(startArgs.telemetry),
-            ...(args.eventMapper.shouldCapture(
-              startArgs.telemetry?.captureContent ?? args.captureContent,
-              "input",
-            )
-              ? { input: startArgs.telemetry?.input }
-              : {}),
-          },
+          payload: isTool
+            ? ToolObservationSchema.parse(attributes)
+            : {
+                name: startArgs.name,
+                attributes: currentAttributes,
+                telemetry: args.eventMapper.telemetryPayload(
+                  startArgs.telemetry,
+                ),
+                ...(args.eventMapper.shouldCapture(
+                  startArgs.telemetry?.captureContent ?? args.captureContent,
+                  "input",
+                )
+                  ? { input: startArgs.telemetry?.input }
+                  : {}),
+              },
           context: args.eventMapper.spanContext(
             startArgs.telemetry,
             currentAttributes,
@@ -71,6 +77,34 @@ export const createTraceAdapter = (args: {
       };
       const telemetry = endArgs?.telemetry ?? startArgs.telemetry;
       const durationMs = Date.now() - startedAt;
+      if (isTool) {
+        const payload = ToolObservationSchema.parse(endAttributes);
+        const type =
+          payload.observationKind === "reused"
+            ? "tool.reused"
+            : payload.observationKind === "waiting"
+              ? "tool.waiting"
+              : payload.suspended
+                ? "tool.suspended"
+                : payload.outcome === "denied"
+                  ? "tool.denied"
+                  : payload.outcome === "fault"
+                    ? "tool.failed"
+                    : payload.outcome === "cancelled"
+                      ? "tool.cancelled"
+                      : "tool.completed";
+        args.enqueue(
+          args.eventMapper.createEvent({
+            type,
+            correlation,
+            span,
+            ...(parent ? { parentSpanId: parent.spanId } : {}),
+            payload,
+          }),
+        );
+        return;
+      }
+
       args.enqueue(
         args.eventMapper.createEvent({
           type: "span.ended",
@@ -145,7 +179,12 @@ export const createTraceAdapter = (args: {
         Object.assign(currentAttributes, nextAttributes);
       },
       addEvent: (name, eventAttributes = {}) => {
-        if (!correlation) return;
+        if (
+          !correlation ||
+          activeSpans.getStore()?.name === "kortyx.tool" ||
+          startArgs.name === "kortyx.tool"
+        )
+          return;
         const type =
           name === "useReason.tool-call.start"
             ? "tool.started"
@@ -190,7 +229,9 @@ export const createTraceAdapter = (args: {
 
     return {
       span: traceSpan,
-      ...(correlation ? { active: { ...span, correlation } } : {}),
+      ...(correlation
+        ? { active: { ...span, name: startArgs.name, correlation } }
+        : {}),
     };
   };
 

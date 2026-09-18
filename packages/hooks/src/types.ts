@@ -145,6 +145,7 @@ export type UseReasonArgs<
 };
 
 export type UseReasonStep = {
+  toolObservations?: import("@kortyx/providers").ToolObservation[];
   stepIndex: number;
   text: string;
   toolCalls: KortyxToolCall[];

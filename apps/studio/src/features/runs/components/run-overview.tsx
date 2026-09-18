@@ -4,7 +4,14 @@ import type {
   StudioDetailEvent,
   StudioRunDetailResponse,
 } from "@kortyx/telemetry-contracts";
-import { Bot, CirclePause, Clock3, RotateCcw, Timer } from "lucide-react";
+import {
+  Bot,
+  CirclePause,
+  Clock3,
+  RotateCcw,
+  Timer,
+  Wrench,
+} from "lucide-react";
 import type { ReactNode } from "react";
 import {
   Bar,
@@ -37,6 +44,37 @@ export function RunOverview({ detail }: { detail: StudioRunDetailResponse }) {
   const generationEvents = events.filter(
     (event) => event.type === "generation.completed",
   );
+  const toolEvents = events.filter((event) => event.type.startsWith("tool."));
+  const toolExecutions = new Set(
+    toolEvents
+      .filter((event) => event.type === "tool.started")
+      .map((event) =>
+        JSON.stringify([
+          event.runId,
+          event.payload.invocationId,
+          event.payload.branchId,
+          event.payload.toolCallId,
+          event.payload.attemptId ?? event.spanId,
+        ]),
+      ),
+  ).size;
+  const toolDenials = toolEvents.filter(
+    (event) => event.type === "tool.denied",
+  ).length;
+  const toolFaults = toolEvents.filter(
+    (event) =>
+      event.type === "tool.failed" ||
+      (event.type === "tool.completed" && event.payload.isError === true),
+  ).length;
+  const toolCancellations = toolEvents.filter(
+    (event) => event.type === "tool.cancelled",
+  ).length;
+  const toolReplays = toolEvents.filter(
+    (event) => event.type === "tool.reused",
+  ).length;
+  const knownModels = detail.run.models.filter(
+    (model) => model !== "unknown",
+  ).length;
   const capturedTtfts = generationEvents
     .map((event) => nullableNumber(event.payload.ttftMs))
     .filter((value): value is number => value !== null);
@@ -51,7 +89,7 @@ export function RunOverview({ detail }: { detail: StudioRunDetailResponse }) {
 
   return (
     <div className="@container space-y-4 p-4 md:p-6">
-      <div className="grid gap-3 @2xl:grid-cols-2 @4xl:grid-cols-5">
+      <div className="grid gap-3 @2xl:grid-cols-2 @4xl:grid-cols-3">
         <SignalCard
           icon={RotateCcw}
           label="Resumptions"
@@ -67,8 +105,21 @@ export function RunOverview({ detail }: { detail: StudioRunDetailResponse }) {
           icon={Bot}
           label="Model calls"
           value={generationEvents.length}
-          detail={`${detail.run.models.length || 1} model${detail.run.models.length === 1 ? "" : "s"}`}
+          detail={
+            generationEvents.length === 0
+              ? "No model requests"
+              : knownModels === 0
+                ? "Model identity not captured"
+                : `${knownModels} model${knownModels === 1 ? "" : "s"}`
+          }
           explanation="Provider requests captured inside this run. Calls may be streaming or non-streaming depending on how the SDK invoked the model."
+        />
+        <SignalCard
+          icon={Wrench}
+          label="Tool executions"
+          value={toolExecutions}
+          detail={`${toolDenials} denied · ${toolFaults} faults · ${toolCancellations} cancelled · ${toolReplays} replays`}
+          explanation="Actual tool attempts are counted separately from cached reuse. Business denials and handled faults do not imply workflow failure."
         />
         <SignalCard
           icon={Timer}

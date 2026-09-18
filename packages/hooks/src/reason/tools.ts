@@ -19,6 +19,11 @@ import {
   resolveProviderOptions,
 } from "../reason-engine";
 import { shouldStreamStructured } from "../structured";
+import {
+  executeObservedTool,
+  observeToolFact,
+  replayToolObservations,
+} from "../tool";
 import type { ReasonTraceSpan } from "../tracing";
 import type { UseReasonArgs, UseReasonResult, UseReasonStep } from "../types";
 import { reasonEngine } from "./engine";
@@ -71,14 +76,19 @@ const normalizeToolResult = (
     !Array.isArray(value) &&
     "toolCallId" in value &&
     "name" in value &&
-    "content" in value
+    "content" in value &&
+    typeof value.content === "string"
   ) {
-    return value as KortyxToolResult;
+    const result = value as KortyxToolResult;
+    return { ...result, toolCallId: toolCall.id, name: toolCall.name };
   }
 
   let content: string;
   try {
-    content = typeof value === "string" ? value : JSON.stringify(value);
+    content =
+      typeof value === "string"
+        ? value
+        : (JSON.stringify(value) ?? String(value));
   } catch {
     content = String(value);
   }
@@ -94,35 +104,6 @@ const normalizeToolResult = (
       ? { structuredContent: value }
       : {}),
   };
-};
-
-const closeOwnedTools = async (
-  tools: KortyxExecutableTool[],
-  preserveFailure = false,
-  traceSpan?: ReasonTraceSpan,
-): Promise<void> => {
-  const closeFns = new Set<NonNullable<KortyxExecutableTool["close"]>>();
-  for (const tool of tools) {
-    if (tool.closeAfterUse === false || !tool.close) continue;
-    closeFns.add(tool.close);
-  }
-
-  try {
-    await Promise.all(
-      [...closeFns].map(async (close) => {
-        await close();
-      }),
-    );
-  } catch (error) {
-    if (!preserveFailure) throw error;
-    try {
-      traceSpan?.addEvent?.("useReason.cleanup.failed", {
-        failure: serializeFailure(error),
-      });
-    } catch {
-      /* Preserve the primary failure. */
-    }
-  }
 };
 
 const createInitialMessages = (args: {
@@ -160,51 +141,39 @@ export const runReasonToolLoop = async <
     | undefined;
   const checkpoint = saved?.status === "tool_loop" ? saved : undefined;
   const opId = checkpoint?.opId ?? args.opId;
-  let primaryFailure = false;
   const tools = useReasonArgs.tools ?? [];
   const toolByName = new Map<string, KortyxExecutableTool>();
-  let validationCompleted = false;
   let separateOutput = false;
 
-  try {
-    for (const tool of tools) {
-      if (toolByName.has(tool.name)) {
-        throw new Error(
-          `useReason received duplicate tool name "${tool.name}".`,
-        );
-      }
-      toolByName.set(tool.name, tool);
+  for (const tool of tools) {
+    if (toolByName.has(tool.name)) {
+      throw new Error(`useReason received duplicate tool name "${tool.name}".`);
     }
-
-    if (useReasonArgs.interrupt) {
-      throw new Error(
-        "useReason tools cannot be combined with useReason interrupt mode yet. Use toolExecution.approval for tool approval.",
-      );
-    }
-
-    separateOutput = Boolean(
-      useReasonArgs.model.provider.getModel(useReasonArgs.model.modelId, {
-        ...useReasonArgs.model.options,
-        ...(useReasonArgs.reasoning !== undefined
-          ? { reasoning: useReasonArgs.reasoning }
-          : {}),
-        ...(useReasonArgs.responseFormat
-          ? { responseFormat: useReasonArgs.responseFormat }
-          : {}),
-        providerOptions:
-          resolveProviderOptions(
-            useReasonArgs.model.options?.providerOptions,
-            useReasonArgs.providerOptions,
-          ) ?? {},
-      }).requiresSeparateStructuredOutput,
-    );
-    validationCompleted = true;
-  } finally {
-    if (!validationCompleted) {
-      // Preserve the validation failure even if request-owned cleanup also fails.
-      await closeOwnedTools(tools, true, traceSpan);
-    }
+    toolByName.set(tool.name, tool);
   }
+
+  if (useReasonArgs.interrupt) {
+    throw new Error(
+      "useReason tools cannot be combined with useReason interrupt mode yet. Use toolExecution.approval for tool approval.",
+    );
+  }
+
+  separateOutput = Boolean(
+    useReasonArgs.model.provider.getModel(useReasonArgs.model.modelId, {
+      ...useReasonArgs.model.options,
+      ...(useReasonArgs.reasoning !== undefined
+        ? { reasoning: useReasonArgs.reasoning }
+        : {}),
+      ...(useReasonArgs.responseFormat
+        ? { responseFormat: useReasonArgs.responseFormat }
+        : {}),
+      providerOptions:
+        resolveProviderOptions(
+          useReasonArgs.model.options?.providerOptions,
+          useReasonArgs.providerOptions,
+        ) ?? {},
+    }).requiresSeparateStructuredOutput,
+  );
 
   const toolDefinitions = toToolDefinitions(tools);
   let finalizing = checkpoint?.finalizing ?? false;
@@ -330,6 +299,16 @@ export const runReasonToolLoop = async <
       aggregatedWarnings = mergeWarnings(aggregatedWarnings, step.warnings);
 
       const toolCalls = step.toolCalls ?? [];
+      const ids = new Set<string>();
+      for (const call of toolCalls) {
+        if (
+          !call.id ||
+          ids.has(call.id) ||
+          (!reused && allToolCalls.some((prior) => prior.id === call.id))
+        )
+          throw new Error("Model returned duplicate or empty tool call IDs.");
+        ids.add(call.id);
+      }
       const toolResults: KortyxToolResult[] = reused
         ? (steps[stepIndex]?.toolResults ?? [])
         : [];
@@ -410,8 +389,15 @@ export const runReasonToolLoop = async <
       save();
 
       for (const toolCall of toolCalls) {
-        if (toolResults.some((result) => result.toolCallId === toolCall.id))
+        if (toolResults.some((result) => result.toolCallId === toolCall.id)) {
+          await replayToolObservations(
+            steps[stepIndex]?.toolObservations?.filter(
+              (observation) =>
+                observation.toolCallId === `${opId}:${toolCall.id}`,
+            ) ?? [],
+          );
           continue;
+        }
         throwIfExecutionAborted(abortSignal);
         const tool = toolByName.get(toolCall.name);
         if (!tool) {
@@ -431,12 +417,6 @@ export const runReasonToolLoop = async <
           false,
         );
 
-        traceSpan?.addEvent?.("useReason.tool-call.start", {
-          stepIndex,
-          tool: tool.name,
-          toolCallId: toolCall.id,
-        });
-
         if (shouldEmitTool) {
           emitToolEvent("tool-call-start", {
             tool: tool.name,
@@ -446,6 +426,17 @@ export const runReasonToolLoop = async <
         }
 
         if (shouldApproveTool && !approvedCalls.includes(toolCall.id)) {
+          await observeToolFact(
+            {
+              version: 1,
+              name: tool.name,
+              toolCallId: `${opId}:${toolCall.id}`,
+              attemptId: `${opId}:${toolCall.id}:approval`,
+              callingMode: "model",
+              executed: false,
+            },
+            "waiting",
+          );
           const approval = await awaitInterruptInternal({
             id: `tool:${toolCall.id}`,
             request: {
@@ -468,6 +459,22 @@ export const runReasonToolLoop = async <
             : approval === "approve";
 
           if (!approved) {
+            const deniedObservation = {
+              version: 1 as const,
+              name: tool.name,
+              toolCallId: `${opId}:${toolCall.id}`,
+              attemptId: `${opId}:${toolCall.id}:approval`,
+              callingMode: "model" as const,
+              executed: false,
+              outcome: "denied" as const,
+              denialCode: "APPROVAL_DENIED",
+            };
+            await observeToolFact(deniedObservation);
+            const entry = steps[stepIndex];
+            if (entry) {
+              entry.toolObservations ??= [];
+              entry.toolObservations.push(deniedObservation);
+            }
             const denied = {
               toolCallId: toolCall.id,
               name: tool.name,
@@ -500,10 +507,21 @@ export const runReasonToolLoop = async <
 
         try {
           throwIfExecutionAborted(abortSignal);
-          ctx.node.consumeExecution?.("maxToolCalls");
-          const rawResult = await tool.execute(toolCall.input, {
-            toolCallId: toolCall.id,
-            ...(abortSignal ? { abortSignal } : {}),
+          const rawResult = await executeObservedTool({
+            tool,
+            input: toolCall.input,
+            toolCallId: `${opId}:${toolCall.id}`,
+            providerToolCallId: toolCall.id,
+            callingMode: "model",
+            abortSignal,
+            onObservation: (observation) => {
+              const entry = steps[stepIndex];
+              if (entry) {
+                entry.toolObservations ??= [];
+                entry.toolObservations.push(observation);
+                save();
+              }
+            },
           });
           throwIfExecutionAborted(abortSignal);
           const result = normalizeToolResult(toolCall, rawResult);
@@ -522,12 +540,6 @@ export const runReasonToolLoop = async <
                 : {}),
             });
           }
-          traceSpan?.addEvent?.("useReason.tool-call.complete", {
-            stepIndex,
-            tool: result.name,
-            toolCallId: result.toolCallId,
-            isError: Boolean(result.isError),
-          });
         } catch (error) {
           throwIfExecutionAborted(abortSignal);
           if (isControlFlowError(error)) throw error;
@@ -548,13 +560,6 @@ export const runReasonToolLoop = async <
               failure: result.failure,
             });
           }
-          traceSpan?.addEvent?.("useReason.tool-call.error", {
-            stepIndex,
-            tool: tool.name,
-            toolCallId: toolCall.id,
-            message: result.content,
-            failure: result.failure,
-          });
         }
         const completed = toolResults.at(-1);
         if (completed)
@@ -648,7 +653,6 @@ export const runReasonToolLoop = async <
     ctx.stateDirty = true;
     return result;
   } catch (error) {
-    primaryFailure = true;
     try {
       traceSpan?.fail?.(error, {
         attributes: {
@@ -660,8 +664,6 @@ export const runReasonToolLoop = async <
       /* Reporting must not replace the execution failure. */
     }
     throw error;
-  } finally {
-    await closeOwnedTools(tools, primaryFailure, traceSpan);
   }
 };
 

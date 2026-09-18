@@ -69,6 +69,7 @@ export type {
   UseReasonStep,
   UseReasonToolExecution,
   UseStructuredDataArgs,
+  UseToolArgs,
 } from "@kortyx/hooks";
 export {
   type CompleteResponseOptions,
@@ -82,6 +83,7 @@ export {
   useReason,
   useRuntimeContext,
   useStructuredData,
+  useTool,
   useWorkflow,
   useWorkflowState,
   WorkflowCallError,

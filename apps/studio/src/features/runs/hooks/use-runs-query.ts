@@ -36,6 +36,9 @@ const baseSearchParams = {
   status: parseAsArrayOf(parseAsStringLiteral(statuses)).withDefault([]),
   provider: parseAsArrayOf(parseAsString).withDefault([]),
   tool: parseAsBoolean.withDefault(false),
+  toolName: parseAsString.withDefault(""),
+  toolOutcome: parseAsString.withDefault(""),
+  toolMode: parseAsString.withDefault(""),
   workflow: parseAsString.withDefault(""),
   version: parseAsString.withDefault(""),
   transition: parseAsString.withDefault(""),
@@ -68,6 +71,9 @@ type RunsParamChanges = Partial<{
   status: RunStatus[] | null;
   provider: Run["provider"][] | null;
   tool: boolean | null;
+  toolName: string | null;
+  toolOutcome: string | null;
+  toolMode: string | null;
   workflow: string | null;
   version: string | null;
   transition: string | null;
@@ -96,6 +102,9 @@ export type RunsViewFilters = Pick<
   | "startedBefore"
   | "status"
   | "provider"
+  | "toolName"
+  | "toolOutcome"
+  | "toolMode"
   | "tool"
   | "workflow"
   | "version"
@@ -153,6 +162,9 @@ export function useRunsQuery(initialRuns: Run[], defaults?: RunsQueryDefaults) {
     Number(params.includeChildren) +
     [
       params.feedback,
+      params.toolName,
+      params.toolOutcome,
+      params.toolMode,
       params.workflow,
       params.version,
       params.transition,
@@ -184,6 +196,9 @@ export function useRunsQuery(initialRuns: Run[], defaults?: RunsQueryDefaults) {
       status: null,
       provider: null,
       tool: null,
+      toolName: null,
+      toolOutcome: null,
+      toolMode: null,
       workflow: null,
       version: null,
       transition: null,
@@ -208,6 +223,9 @@ export function useRunsQuery(initialRuns: Run[], defaults?: RunsQueryDefaults) {
       status: params.status.length ? params.status : null,
       provider: selectedProviders.length ? selectedProviders : null,
       tool: params.tool || null,
+      toolName: params.toolName || null,
+      toolOutcome: params.toolOutcome || null,
+      toolMode: params.toolMode || null,
       workflow: params.workflow || null,
       version: params.version || null,
       transition: params.transition || null,
@@ -234,6 +252,9 @@ export function useRunsQuery(initialRuns: Run[], defaults?: RunsQueryDefaults) {
     selectedStatuses: params.status,
     selectedProviders,
     toolOnly: params.tool,
+    toolName: params.toolName,
+    toolOutcome: params.toolOutcome,
+    toolMode: params.toolMode,
     workflow: params.workflow,
     version: params.version,
     transition: params.transition,
