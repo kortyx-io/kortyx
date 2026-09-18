@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.6.6](https://github.com/kortyx-io/kortyx/compare/example-canvas-v0.6.5...example-canvas-v0.6.6) (2026-09-18)
+
+
+### Bug Fixes
+
+* **studio:** render workflow start and end boundaries ([#214](https://github.com/kortyx-io/kortyx/issues/214)) ([968cc80](https://github.com/kortyx-io/kortyx/commit/968cc805138da2989d8c96d42351bc2687ee787e))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/google bumped to 0.6.1
+    * @kortyx/telemetry bumped to 0.7.0
+    * kortyx bumped to 0.22.0
+  * devDependencies
+    * @kortyx/cli bumped to 0.9.0
+
 ## [0.6.5](https://github.com/kortyx-io/kortyx/compare/example-canvas-v0.6.4...example-canvas-v0.6.5) (2026-09-16)
 
 
