@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.8.0](https://github.com/kortyx-io/kortyx/compare/providers-v0.7.0...providers-v0.8.0) (2026-09-18)
+
+
+### Features
+
+* **tools:** add useTool and first-class Studio observability ([#215](https://github.com/kortyx-io/kortyx/issues/215)) ([224c92d](https://github.com/kortyx-io/kortyx/commit/224c92d73caead320dd14582d8b624efc3252c9f))
+
+
+### Bug Fixes
+
+* **telemetry:** refresh model pricing and reject incomplete totals ([#213](https://github.com/kortyx-io/kortyx/issues/213)) ([b9e44f9](https://github.com/kortyx-io/kortyx/commit/b9e44f94c506f1d74b4f52a56b7b1998a1a932b5))
+
 ## [0.7.0](https://github.com/kortyx-io/kortyx/compare/providers-v0.6.1...providers-v0.7.0) (2026-09-14)
 
 

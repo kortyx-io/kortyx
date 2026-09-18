@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.25.0](https://github.com/kortyx-io/kortyx/compare/agent-v0.24.0...agent-v0.25.0) (2026-09-18)
+
+
+### Features
+
+* **tools:** add useTool and first-class Studio observability ([#215](https://github.com/kortyx-io/kortyx/issues/215)) ([224c92d](https://github.com/kortyx-io/kortyx/commit/224c92d73caead320dd14582d8b624efc3252c9f))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/providers bumped to 0.8.0
+    * @kortyx/runtime bumped to 0.20.0
+  * devDependencies
+    * @kortyx/hooks bumped to 0.26.0
+    * @kortyx/openai bumped to 0.5.1
+
 ## [0.24.0](https://github.com/kortyx-io/kortyx/compare/agent-v0.23.0...agent-v0.24.0) (2026-09-16)
 
 

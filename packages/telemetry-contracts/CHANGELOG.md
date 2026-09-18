@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.9.0](https://github.com/kortyx-io/kortyx/compare/telemetry-contracts-v0.8.0...telemetry-contracts-v0.9.0) (2026-09-18)
+
+
+### Features
+
+* **tools:** add useTool and first-class Studio observability ([#215](https://github.com/kortyx-io/kortyx/issues/215)) ([224c92d](https://github.com/kortyx-io/kortyx/commit/224c92d73caead320dd14582d8b624efc3252c9f))
+
 ## [0.8.0](https://github.com/kortyx-io/kortyx/compare/telemetry-contracts-v0.7.0...telemetry-contracts-v0.8.0) (2026-09-16)
 
 

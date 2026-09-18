@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.7.0](https://github.com/kortyx-io/kortyx/compare/telemetry-v0.6.3...telemetry-v0.7.0) (2026-09-18)
+
+
+### Features
+
+* **tools:** add useTool and first-class Studio observability ([#215](https://github.com/kortyx-io/kortyx/issues/215)) ([224c92d](https://github.com/kortyx-io/kortyx/commit/224c92d73caead320dd14582d8b624efc3252c9f))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/hooks bumped to 0.26.0
+    * @kortyx/telemetry-contracts bumped to 0.9.0
+
 ## [0.6.3](https://github.com/kortyx-io/kortyx/compare/telemetry-v0.6.2...telemetry-v0.6.3) (2026-09-16)
 
 

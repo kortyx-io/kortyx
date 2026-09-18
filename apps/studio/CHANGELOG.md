@@ -1,5 +1,28 @@
 # Changelog
 
+## [0.7.0](https://github.com/kortyx-io/kortyx/compare/studio-v0.6.0...studio-v0.7.0) (2026-09-18)
+
+
+### Features
+
+* **tools:** add useTool and first-class Studio observability ([#215](https://github.com/kortyx-io/kortyx/issues/215)) ([224c92d](https://github.com/kortyx-io/kortyx/commit/224c92d73caead320dd14582d8b624efc3252c9f))
+
+
+### Bug Fixes
+
+* **studio:** render workflow start and end boundaries ([#214](https://github.com/kortyx-io/kortyx/issues/214)) ([968cc80](https://github.com/kortyx-io/kortyx/commit/968cc805138da2989d8c96d42351bc2687ee787e))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/telemetry-contracts bumped to 0.9.0
+  * devDependencies
+    * @kortyx/agent bumped to 0.25.0
+    * @kortyx/telemetry bumped to 0.7.0
+    * kortyx bumped to 0.22.0
+
 ## [0.6.0](https://github.com/kortyx-io/kortyx/compare/studio-v0.5.2...studio-v0.6.0) (2026-09-16)
 
 

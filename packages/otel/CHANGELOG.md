@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.6.0](https://github.com/kortyx-io/kortyx/compare/otel-v0.5.3...otel-v0.6.0) (2026-09-18)
+
+
+### Features
+
+* **tools:** add useTool and first-class Studio observability ([#215](https://github.com/kortyx-io/kortyx/issues/215)) ([224c92d](https://github.com/kortyx-io/kortyx/commit/224c92d73caead320dd14582d8b624efc3252c9f))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/hooks bumped to 0.26.0
+
 ## [0.5.3](https://github.com/kortyx-io/kortyx/compare/otel-v0.5.2...otel-v0.5.3) (2026-09-16)
 
 

@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.6.1](https://github.com/kortyx-io/kortyx/compare/google-v0.6.0...google-v0.6.1) (2026-09-18)
+
+
+### Bug Fixes
+
+* **telemetry:** refresh model pricing and reject incomplete totals ([#213](https://github.com/kortyx-io/kortyx/issues/213)) ([b9e44f9](https://github.com/kortyx-io/kortyx/commit/b9e44f94c506f1d74b4f52a56b7b1998a1a932b5))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/providers bumped to 0.8.0
+
 ## [0.6.0](https://github.com/kortyx-io/kortyx/compare/google-v0.5.2...google-v0.6.0) (2026-09-14)
 
 
