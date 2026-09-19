@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.7.1](https://github.com/kortyx-io/kortyx/compare/studio-v0.7.0...studio-v0.7.1) (2026-09-19)
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * devDependencies
+    * kortyx bumped to 0.22.1
+
 ## [0.7.0](https://github.com/kortyx-io/kortyx/compare/studio-v0.6.0...studio-v0.7.0) (2026-09-18)
 
 
