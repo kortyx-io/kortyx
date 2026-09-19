@@ -13,6 +13,7 @@ export type StudioRuntime = {
   now(): string;
   random(bytes: number): string;
   log(message?: string): void;
+  error?(message?: string): void;
 };
 
 export type StudioStartOptions = {

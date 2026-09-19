@@ -16,6 +16,7 @@ import {
   startStudio,
   stopStudio,
 } from "./local-stack";
+import { registerStudioReadCommands } from "./read-command";
 import { defaultStudioRuntime } from "./runtime";
 import { defaultStudioHome, requireStudioConfig } from "./state";
 import type { StudioRuntime } from "./types";
@@ -67,7 +68,7 @@ const withHome = (command: Command): Command =>
 const configureOutput = (command: Command, runtime: StudioRuntime): Command =>
   command.configureOutput({
     writeOut: (output) => runtime.log(output.trimEnd()),
-    writeErr: (output) => runtime.log(output.trimEnd()),
+    writeErr: (output) => (runtime.error ?? runtime.log)(output.trimEnd()),
   });
 
 export const createStudioCommand = (
@@ -197,6 +198,7 @@ export const createStudioCommand = (
     await resetStudio(home, confirm, runtime);
   });
 
+  registerStudioReadCommands(studio, (message) => runtime.log(message));
   return studio;
 };
 
