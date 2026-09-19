@@ -20,7 +20,9 @@ The CLI remains a thin HTTP adapter rather than a second Studio query engine.
 ```text
 kortyx connections add/list/use/remove
 kortyx studio inspect <run/session/interrupt-url>
+kortyx studio inspect <url-with-selection> --focus-selection
 kortyx studio runs list/get
+kortyx studio runs compare <left-run> <right-run>
 kortyx studio sessions list/get
 kortyx studio interrupts list/get
 kortyx studio workflows list
@@ -77,18 +79,37 @@ in JSON mode; Commander argument errors retain its stderr diagnostics. Exit
 status is 0 for success/help and 1 for failures.
 
 Inspection validates each entity's existing contract and returns live project
-context, detail, a latest-event window, branch-aware logical call summaries,
-diagnostic evidence, and explicit windowing/capture caveats. Logical calls use
+context, detail, a compact model/tool/interrupt/resume timeline, a latest-event
+window, branch-aware logical call summaries, diagnostic evidence, and explicit
+windowing/capture caveats. Logical calls use
 the shared projector, maintaining `(runId, branchId, invocationId)` identity and
 restored/reused result semantics. Call event IDs are references rather than
-duplicated full events. Navigation selectors are retained but not applied as
-API query filters. Unknown URL query parameters are discarded.
+duplicated full events. Navigation selectors are retained; `--focus-selection`
+applies event/trace/node/branch/call selectors locally after the authorized
+detail read. Unknown URL query parameters are discarded.
+
+Run detail also performs an optional read of the workflow catalog and compares
+the executed revision/version with the active published revision. A failed or
+incompatible catalog lookup is reported as unavailable and does not hide run
+evidence. `runs compare` reads two runs from the same resolved project and
+reports metadata, deployment, catalog, and compact timeline differences.
 
 Diagnostic findings are not root-cause verdicts. Failures and contextual
 interrupt/retry/denial/cancellation/limit events must be compared with the
 final execution outcome. Evidence generation examines all returned events,
 even if the visible timeline is windowed; finding/call omission counts are
 reported separately. Missing events cannot prove absence of execution.
+
+The evidence rules additionally flag repeated tools with identical captured
+input, consecutive human interrupts without a terminal tool event, execution
+limits, output-schema failures/repairs, and suspended runs with pending human
+input. They do not claim that candidates should have prevented clarification
+or that a tool result was unused: those conclusions require application-level
+semantics or consumption telemetry that the current contracts do not provide.
+
+Live follow/watch is deferred. A durable command needs server-side cursor,
+terminal-state, reconnect, and duplicate-delivery semantics rather than client
+polling hidden behind a streaming-shaped interface.
 
 Content fields are omitted by default; `--include-content` explicitly opts
 into already captured data. Resume tokens and recognizable sensitive fields,

@@ -5,6 +5,8 @@ import { join } from "node:path";
 import {
   StudioContextResponseSchema,
   type StudioDetailEvent,
+  type StudioInterrupt,
+  type StudioRun,
 } from "@kortyx/telemetry-contracts";
 import { Command } from "commander";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -20,6 +22,13 @@ import {
   runStudioCommand,
   type StudioRuntime,
 } from "../src/studio/command";
+import {
+  analyzeStudioDiagnostics,
+  buildStudioTimeline,
+  compareCatalogRuntime,
+  compareRunAnalysis,
+  focusStudioEvents,
+} from "../src/studio/read-analysis";
 import {
   normalizeConnectionUrl,
   StudioReadClient,
@@ -41,7 +50,32 @@ const context = {
   apiKey: { mode: "test", scopes: ["studio:read"] },
   api: { status: "ok", service: "kortyx-api", version: "0.1.0" },
 };
-const run = {
+const workflow = {
+  id: "canvas",
+  name: "Canvas",
+  description: null,
+  versions: ["1", "2"],
+  activeVersion: "2",
+  activeRevisionId: "revision-2",
+  health: "healthy" as const,
+  tags: [],
+  lastActivityAt: date,
+  metrics: {
+    runCount: 1,
+    successRate: 100,
+    errorRate: 0,
+    retryCount: 0,
+    interruptRate: 0,
+    p50DurationMs: 1,
+    p95DurationMs: 1,
+    averageTokens: 1,
+    averageCost: null,
+    currency: null,
+  },
+  nodes: [],
+  internalEdges: [],
+};
+const run: StudioRun = {
   id: "run-1",
   status: "failed",
   startedAt: date,
@@ -101,7 +135,7 @@ const session = {
   tags: [],
   environment: "staging",
 };
-const interrupt = {
+const interrupt: StudioInterrupt = {
   id: "interrupt-1",
   status: "pending",
   type: "text",
@@ -912,13 +946,19 @@ describe("Studio URL inspection and evidence", () => {
   it("extracts entity IDs, keeps branch/call context, and discards arbitrary query parameters", () => {
     expect(
       parseStudioTarget(
-        "https://studio.example.test/runs/run-1?tab=calls&call=child&branch=fork&token=private",
+        "https://studio.example.test/runs/run-1?tab=calls&call=child&branch=fork&trace=trace-1&detailView=timeline&token=private",
       ),
     ).toEqual({
       entity: "runs",
       id: "run-1",
       url: "https://studio.example.test/runs/run-1",
-      selection: { tab: "calls", call: "child", branch: "fork" },
+      selection: {
+        tab: "calls",
+        call: "child",
+        branch: "fork",
+        trace: "trace-1",
+        detailView: "timeline",
+      },
     });
     expect(parseStudioTarget("session-1", "sessions")).toEqual({
       entity: "sessions",
@@ -968,6 +1008,330 @@ describe("Studio URL inspection and evidence", () => {
     expect(summarizeEvidence(events).findings).toMatchObject([
       { eventId: "e2", severity: "error" },
     ]);
+  });
+  it("builds a compact model/tool/interrupt timeline and evidence-based loop diagnostics", () => {
+    const sequence = [
+      {
+        ...event("model", "generation.completed", {
+          provider: "openai",
+          model: "gpt-test",
+          durationMs: 1350,
+          finishReason: { unified: "tool-calls" },
+        }),
+        occurredAt: "2026-09-19T12:00:00.000Z",
+      },
+      {
+        ...event("resume", "interrupt.resolved", {
+          interruptId: "interrupt-b",
+          resumeOutcome: "resumed",
+        }),
+        occurredAt: "2026-09-19T12:00:02.500Z",
+      },
+      {
+        ...event("interrupt-a", "interrupt.created", {
+          interruptId: "interrupt-a",
+          kind: "text",
+          interactionMode: "freeform",
+          question: "Private question",
+        }),
+        occurredAt: "2026-09-19T12:00:01.000Z",
+      },
+      {
+        ...event("interrupt-b", "interrupt.created", {
+          interruptId: "interrupt-b",
+          kind: "text",
+        }),
+        occurredAt: "2026-09-19T12:00:02.000Z",
+      },
+      {
+        ...event("tool-a", "tool.completed", {
+          name: "search_jobs",
+          outcome: "success",
+          durationMs: 40,
+          input: { location: "Berlin", query: "engineer" },
+        }),
+        occurredAt: "2026-09-19T12:00:03.000Z",
+      },
+      {
+        ...event("tool-b", "tool.completed", {
+          name: "search_jobs",
+          outcome: "success",
+          durationMs: 41,
+          input: { query: "engineer", location: "Berlin" },
+        }),
+        occurredAt: "2026-09-19T12:00:04.000Z",
+      },
+      {
+        ...event("limit", "run.limit_reached", {
+          limit: "maxToolCalls",
+          consumed: 2,
+          maximum: 2,
+        }),
+        occurredAt: "2026-09-19T12:00:05.000Z",
+      },
+    ];
+    expect(buildStudioTimeline(sequence)).toMatchObject([
+      { step: 1, kind: "model", model: "gpt-test", durationMs: 1350 },
+      { step: 2, kind: "interrupt", interruptType: "text" },
+      { step: 3, kind: "interrupt" },
+      { step: 4, kind: "resume", resumeOutcome: "resumed" },
+      {
+        step: 5,
+        kind: "tool",
+        toolName: "search_jobs",
+        toolOutcome: "success",
+      },
+      { step: 6, kind: "tool", toolName: "search_jobs" },
+      { step: 7, kind: "limit", limit: "maxToolCalls" },
+    ]);
+    expect(
+      analyzeStudioDiagnostics(sequence).map((finding) => finding.code),
+    ).toEqual([
+      "repeated_tool_input",
+      "consecutive_human_interrupts",
+      "tool_step_limit_reached",
+    ]);
+  });
+  it("keeps sparse timeline facts compact without inventing missing metadata", () => {
+    const matchedInterrupt: StudioInterrupt = {
+      ...interrupt,
+      resumeToken: null,
+      question: "Captured question",
+    };
+    const sparse = buildStudioTimeline(
+      [
+        event("empty-model", "generation.completed", {}),
+        event("empty-tool", "tool.completed", {}),
+        event("legacy-tool", "tool.failed", {
+          tool: "legacy",
+          toolCallId: "call-1",
+          output: "fault",
+        }),
+        event("matched-interrupt", "interrupt.created", {
+          interruptId: "interrupt-1",
+        }),
+        event("empty-interrupt", "interrupt.created", {}),
+        event("empty-resume", "interrupt.resolved", {}),
+        event("empty-limit", "run.limit_reached", {}),
+        event("ignored", "span.ended", {}),
+      ],
+      [matchedInterrupt],
+    );
+    expect(sparse).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ kind: "model" }),
+        expect.objectContaining({ kind: "tool", toolOutcome: "success" }),
+        expect.objectContaining({
+          kind: "tool",
+          toolName: "legacy",
+          toolOutcome: "failed",
+          toolCallId: "call-1",
+        }),
+        expect.objectContaining({
+          kind: "interrupt",
+          interruptType: "text",
+          interactionMode: "freeform",
+          question: "Captured question",
+        }),
+        expect.objectContaining({ kind: "resume" }),
+        expect.objectContaining({ kind: "limit" }),
+      ]),
+    );
+  });
+  it("focuses pasted execution selectors and rejects selectors with no matching evidence", () => {
+    const call = event("call", "workflow.call.completed", {
+      invocationId: "child-1",
+      callId: "call-1",
+      branchId: "fork-1",
+      targetWorkflowId: "child",
+    });
+    expect(
+      focusStudioEvents([call, ...events], {
+        entity: "runs",
+        id: "run-1",
+        selection: { call: "call-1", branch: "fork-1" },
+      }),
+    ).toMatchObject({
+      events: [{ id: "call" }],
+      applied: { call: "call-1", branch: "fork-1" },
+    });
+    expect(() =>
+      focusStudioEvents(events, {
+        entity: "runs",
+        id: "run-1",
+        selection: { event: "missing" },
+      }),
+    ).toThrow("did not match");
+    expect(() =>
+      focusStudioEvents(events, {
+        entity: "runs",
+        id: "run-1",
+        selection: { tab: "timeline" },
+      }),
+    ).toThrow("no event, trace, node, branch, or call");
+    expect(() =>
+      focusStudioEvents(events, { entity: "runs", id: "run-1" }),
+    ).toThrow("no event, trace, node, branch, or call");
+    for (const selection of [
+      { event: "e1" },
+      { trace: "trace-1" },
+      { node: "reason" },
+    ])
+      expect(
+        focusStudioEvents(events, {
+          entity: "runs",
+          id: "run-1",
+          selection,
+        }).events.length,
+      ).toBeGreaterThan(0);
+    const toolCall = event("tool-call", "tool.completed", {
+      callId: "direct-call",
+    });
+    expect(
+      focusStudioEvents([toolCall], {
+        entity: "runs",
+        id: "run-1",
+        selection: { call: "direct-call" },
+      }).events,
+    ).toEqual([toolCall]);
+  });
+  it("reports catalog drift and the first meaningful run divergence", () => {
+    const executed: StudioRun = {
+      ...run,
+      status: "failed",
+      workflowRevisionId: "revision-1",
+      declaredVersion: "1",
+    };
+    const catalog = compareCatalogRuntime(executed, [workflow]);
+    expect(catalog.status).toBe("drift");
+    const leftTimeline = buildStudioTimeline([
+      event("left", "generation.completed", { model: "a", durationMs: 1 }),
+    ]);
+    const rightTimeline = buildStudioTimeline([
+      event("right", "generation.completed", { model: "b", durationMs: 1 }),
+    ]);
+    expect(
+      compareRunAnalysis(
+        { run: executed, timeline: leftTimeline, catalog },
+        { run: { ...executed, model: "b" }, timeline: rightTimeline, catalog },
+      ),
+    ).toMatchObject({
+      different: true,
+      firstDivergence: 1,
+      metadata: [{ field: "model", left: "test-model", right: "b" }],
+    });
+  });
+  it("detects schema repair attempts, terminal schema failures, and unresolved interrupts", () => {
+    const schemaFailure = {
+      ...event("schema", "span.failed", {
+        error: { code: "MODEL_OUTPUT_SCHEMA", message: "invalid output" },
+      }),
+      occurredAt: "2026-09-19T12:00:00.000Z",
+    };
+    const repair = {
+      ...event("repair", "generation.completed", { model: "gpt-test" }),
+      occurredAt: "2026-09-19T12:00:01.000Z",
+    };
+    const interruptedRun: StudioRun = {
+      ...run,
+      status: "interrupted",
+      endedAt: null,
+    };
+    const pending = {
+      ...interrupt,
+      id: "interrupt-a",
+      resumeToken: null,
+    };
+    expect(
+      analyzeStudioDiagnostics(
+        [
+          schemaFailure,
+          repair,
+          event("ask", "interrupt.created", { interruptId: "interrupt-a" }),
+        ],
+        interruptedRun,
+        [pending],
+      ).map((finding) => finding.code),
+    ).toEqual(["output_schema_retry", "unresolved_interrupt"]);
+    expect(analyzeStudioDiagnostics([schemaFailure])[0]).toMatchObject({
+      code: "output_schema_failure",
+      severity: "error",
+    });
+  });
+  it("covers current, unpublished, and version-only catalog comparisons", () => {
+    const currentRun: StudioRun = {
+      ...run,
+      status: "failed",
+      workflowRevisionId: "revision-2",
+      declaredVersion: "2",
+      workflowRefs: [
+        {
+          workflowId: "canvas",
+          workflowRevisionId: "revision-2",
+          declaredVersion: "2",
+        },
+      ],
+    };
+    expect(compareCatalogRuntime(currentRun, [workflow]).status).toBe(
+      "current",
+    );
+    expect(compareCatalogRuntime(currentRun, []).status).toBe("not-published");
+    expect(
+      compareCatalogRuntime(
+        {
+          ...currentRun,
+          workflowRevisionId: null,
+          declaredVersion: "1",
+          workflowRefs: [],
+        },
+        [workflow],
+      ).status,
+    ).toBe("drift");
+  });
+  it("classifies equal, changed, divergent, added, and removed timeline steps", () => {
+    const catalog = compareCatalogRuntime(
+      { ...run, status: "failed", workflowRevisionId: "revision-2" },
+      [workflow],
+    );
+    const [model] = buildStudioTimeline([
+      event("model", "generation.completed", { model: "same", durationMs: 1 }),
+    ]);
+    if (!model) throw new Error("Expected model timeline item");
+    const changed = {
+      ...model,
+      eventId: "other",
+      at: "2026-09-20T00:00:00.000Z",
+      durationMs: 2,
+    };
+    const [tool] = buildStudioTimeline([
+      event("tool", "tool.failed", { tool: "lookup" }),
+    ]);
+    if (!tool) throw new Error("Expected tool timeline item");
+    const base = { run: { ...run, status: "failed" as const }, catalog };
+    expect(
+      compareRunAnalysis(
+        { ...base, timeline: [model, tool], deploymentRefs: ["a"] },
+        { ...base, timeline: [model], deploymentRefs: ["b"] },
+      ),
+    ).toMatchObject({
+      timeline: [{ status: "same" }, { status: "removed" }],
+      metadata: [{ field: "deploymentRefs" }],
+    });
+    expect(
+      compareRunAnalysis(
+        { ...base, timeline: [model] },
+        { ...base, timeline: [changed, tool] },
+      ).timeline,
+    ).toMatchObject([{ status: "changed" }, { status: "added" }]);
+    expect(
+      compareRunAnalysis(
+        { ...base, timeline: [model] },
+        { ...base, timeline: [tool] },
+      ).timeline[0]?.status,
+    ).toBe("diverged");
+    expect(
+      compareRunAnalysis({ ...base, timeline: [] }, { ...base, timeline: [] }),
+    ).toMatchObject({ different: false, firstDivergence: null });
   });
   it.each([
     [
@@ -1026,6 +1390,219 @@ describe("Studio URL inspection and evidence", () => {
     expect(request.mock.calls[1]?.[0]?.toString()).toBe(
       `https://api.example.test/v1/studio/${entity}/${id}`,
     );
+  });
+  it("focuses URL-selected evidence and reports catalog/runtime drift", async () => {
+    const path = await configured();
+    const driftedRun = {
+      ...run,
+      workflowRevisionId: "revision-1",
+      declaredVersion: "1",
+    };
+    const focusedEvent = event("selected", "run.limit_reached", {
+      limit: "maxToolCalls",
+      consumed: 4,
+      maximum: 4,
+    });
+    const request = vi.fn<typeof fetch>().mockImplementation(async (input) => {
+      const url = new URL(String(input));
+      const value =
+        url.pathname === "/v1/studio/context"
+          ? context
+          : url.pathname === "/v1/studio/workflows"
+            ? {
+                workflows: [workflow],
+                transitions: [],
+                cohort: {
+                  range: "All time",
+                  startedAfter: date,
+                  startedBefore: date,
+                  workflowId: "canvas",
+                  version: null,
+                },
+              }
+            : {
+                run: driftedRun,
+                session,
+                events: [events[0], focusedEvent],
+                interrupts: [],
+                updatedAt: date,
+              };
+      return new Response(JSON.stringify(value));
+    });
+    const command = cli(request);
+    await command.run([
+      "inspect",
+      "https://studio.example.test/runs/run-1?event=selected&detailView=timeline",
+      "--config-home",
+      path,
+      "--home",
+      path,
+      "--focus-selection",
+      "--json",
+    ]);
+    const value = JSON.parse(command.output[0] ?? "");
+    expect(value).toMatchObject({
+      detail: { events: [{ id: "selected" }] },
+      timeline: [{ kind: "limit", eventId: "selected" }],
+      catalog: { status: "drift" },
+      coverage: {
+        selectionFocus: {
+          applied: { event: "selected" },
+          matchedEvents: 1,
+          totalEvents: 2,
+        },
+      },
+    });
+    expect(
+      value.diagnostics.findings.some(
+        (finding: { code?: string }) =>
+          finding.code === "catalog_runtime_drift",
+      ),
+    ).toBe(true);
+  });
+  it("compares two runs through the read-only command", async () => {
+    const path = await configured();
+    const leftEvent = event("left-model", "generation.completed", {
+      provider: "openai",
+      model: "model-a",
+      durationMs: 10,
+      finishReason: { unified: "tool-calls" },
+    });
+    const rightEvent = {
+      ...event("right-tool", "tool.completed", {
+        name: "search_jobs",
+        outcome: "success",
+        output: "3 candidates",
+      }),
+      deploymentRef: "commit-2",
+      runId: "run-2",
+    };
+    const request = vi.fn<typeof fetch>().mockImplementation(async (input) => {
+      const url = new URL(String(input));
+      let value: unknown;
+      if (url.pathname === "/v1/studio/context") value = context;
+      else if (url.pathname === "/v1/studio/workflows")
+        value = {
+          workflows: [workflow],
+          transitions: [],
+          cohort: {
+            range: "All time",
+            startedAfter: date,
+            startedBefore: date,
+            workflowId: "canvas",
+            version: null,
+          },
+        };
+      else if (url.pathname.endsWith("/run-1"))
+        value = {
+          run: {
+            ...run,
+            workflowRevisionId: "revision-1",
+            declaredVersion: "1",
+          },
+          session,
+          events: [
+            { ...events[0], occurredAt: "2026-09-19T12:00:01.000Z" },
+            leftEvent,
+          ],
+          interrupts: [],
+          updatedAt: date,
+        };
+      else
+        value = {
+          run: {
+            ...run,
+            id: "run-2",
+            status: "completed",
+            workflowRevisionId: "revision-2",
+            declaredVersion: "2",
+            model: "model-b",
+            result: "different result",
+          },
+          session,
+          events: [
+            { ...events[0], id: "right-span", runId: "run-2" },
+            rightEvent,
+          ],
+          interrupts: [],
+          updatedAt: date,
+        };
+      return new Response(JSON.stringify(value));
+    });
+    const command = cli(request);
+    await command.run([
+      "runs",
+      "compare",
+      "run-1",
+      "run-2",
+      "--connection",
+      "staging",
+      "--config-home",
+      path,
+      "--home",
+      path,
+      "--include-content",
+      "--event-limit",
+      "1",
+      "--json",
+    ]);
+    const value = JSON.parse(command.output[0] ?? "");
+    expect(value).toMatchObject({
+      left: {
+        run: { id: "run-1" },
+        timeline: [{ kind: "model" }],
+        catalog: { status: "drift" },
+      },
+      right: {
+        run: { id: "run-2" },
+        timeline: [{ kind: "tool", output: "3 candidates" }],
+        catalog: { status: "current" },
+      },
+      comparison: { different: true, firstDivergence: 1 },
+    });
+    expect(request).toHaveBeenCalledTimes(5);
+  });
+  it("keeps run comparison useful when the optional catalog lookup is unavailable", async () => {
+    const path = await configured();
+    const request = vi.fn<typeof fetch>().mockImplementation(async (input) => {
+      const url = new URL(String(input));
+      if (url.pathname === "/v1/studio/context")
+        return new Response(JSON.stringify(context));
+      if (url.pathname === "/v1/studio/workflows")
+        return new Response("{}", { status: 503 });
+      return new Response(
+        JSON.stringify({
+          run: {
+            ...run,
+            id: url.pathname.endsWith("run-2") ? "run-2" : "run-1",
+          },
+          session,
+          events: [],
+          interrupts: [],
+          updatedAt: date,
+        }),
+      );
+    });
+    const command = cli(request);
+    await command.run([
+      "runs",
+      "compare",
+      "run-1",
+      "run-2",
+      "--connection",
+      "staging",
+      "--config-home",
+      path,
+      "--home",
+      path,
+      "--json",
+    ]);
+    const value = JSON.parse(command.output[0] ?? "");
+    expect(value.left.catalog).toMatchObject({
+      status: "unavailable",
+      reason: "api_error",
+    });
+    expect(value.right.catalog.status).toBe("unavailable");
   });
   it("keeps child calls distinct across branches and does not duplicate full events", async () => {
     const path = await configured();
@@ -1273,7 +1850,7 @@ describe("Studio URL inspection and evidence", () => {
       path,
       "--json",
     ]);
-    expect(methods).toEqual(["GET", "GET"]);
+    expect(methods).toEqual(["GET", "GET", "GET"]);
     expect(
       JSON.parse(command.output[0] ?? "").diagnostics.findings[0].evidence.error
         .code,

@@ -34,8 +34,8 @@ unpersisted initial secret set for operator-managed deployments; it does not
 connect to a remote deployment or mutate its database.
 
 The read-only debugging surface now includes `studio inspect`, entity
-`list`/`get` commands, `studio workflows list`, `studio catalogs`, and
-`studio doctor`. `connections add/list/use/remove` manages API/browser URL
+`list`/`get` commands, `studio runs compare`, `studio workflows list`,
+`studio catalogs`, and `studio doctor`. `connections add/list/use/remove` manages API/browser URL
 profiles with environment-variable credential references. The reserved local
 profile reuses managed local Studio state. See [Studio read CLI](./studio-read-cli.md)
 for URL resolution, privacy, output, and authorization boundaries.

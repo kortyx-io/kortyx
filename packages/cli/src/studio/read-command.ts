@@ -18,6 +18,14 @@ import {
   defaultConnectionsHome,
   resolveConnection,
 } from "../connections";
+import {
+  analyzeStudioDiagnostics,
+  buildStudioTimeline,
+  type CatalogDrift,
+  compareCatalogRuntime,
+  compareRunAnalysis,
+  focusStudioEvents,
+} from "./read-analysis";
 import { StudioReadClient, StudioReadError } from "./read-client";
 import {
   formatReadOutput,
@@ -49,6 +57,7 @@ type ReadOptions = ConnectionOptions & {
   toolOutcome?: string;
   q?: string;
   includeChildren?: boolean;
+  focusSelection?: boolean;
 };
 type DetailOptions = ReadOptions & { eventLimit: number };
 type CohortOptions = ReadOptions & { range: string };
@@ -151,8 +160,67 @@ export const registerStudioReadCommands = (
         Date.parse(a.receivedAt) - Date.parse(b.receivedAt) ||
         a.id.localeCompare(b.id),
     );
-    const evidence = summarizeEvidence(events);
-    const calls = projectWorkflowCalls(events);
+    const focus = options.focusSelection
+      ? focusStudioEvents(events, target)
+      : { events, applied: {} };
+    const selectedEvents = focus.events;
+    const evidence = summarizeEvidence(selectedEvents);
+    const run = "run" in detail ? detail.run : null;
+    const interrupts =
+      "interrupts" in detail
+        ? detail.interrupts
+        : "interrupt" in detail
+          ? [detail.interrupt]
+          : [];
+    const analyzedFindings = analyzeStudioDiagnostics(
+      selectedEvents,
+      run,
+      interrupts,
+    );
+    const supersededEventIds = new Set(
+      analyzedFindings.flatMap((finding) => finding.eventIds),
+    );
+    const findings = [
+      ...evidence.findings.filter(
+        (finding) => !supersededEventIds.has(finding.eventId),
+      ),
+      ...analyzedFindings,
+    ];
+    const calls = projectWorkflowCalls(selectedEvents);
+    let catalog: CatalogDrift | undefined;
+    if (target.entity === "runs" && run) {
+      try {
+        const workflows = await client.get(
+          "/v1/studio/workflows",
+          StudioWorkflowsResponseSchema,
+          { range: "All time", workflow: run.workflowId },
+        );
+        catalog = compareCatalogRuntime(run, workflows.workflows);
+      } catch (error) {
+        catalog = {
+          status: "unavailable",
+          workflows: [],
+          reason:
+            error instanceof StudioReadError
+              ? error.code
+              : "catalog_comparison_failed",
+        };
+      }
+    }
+    const catalogFinding =
+      catalog?.status === "drift"
+        ? [
+            {
+              code: "catalog_runtime_drift",
+              severity: "warning" as const,
+              message:
+                "The executed workflow revision differs from the currently active catalog revision.",
+              eventIds: [],
+              evidence: catalog.workflows,
+            },
+          ]
+        : [];
+    const allFindings = [...findings, ...catalogFinding];
     print(
       {
         schemaVersion: 1,
@@ -162,22 +230,31 @@ export const registerStudioReadCommands = (
           context,
         },
         target,
-        detail: { ...detail, events: events.slice(-limit) },
+        detail: { ...detail, events: selectedEvents.slice(-limit) },
+        timeline: buildStudioTimeline(selectedEvents, interrupts).slice(-limit),
         calls: calls.slice(-limit).map(({ events: callEvents, ...call }) => ({
           ...call,
           eventIds: callEvents.map((event) => event.id),
         })),
         diagnostics: {
           ...evidence,
-          findings: evidence.findings.slice(-limit),
-          findingCount: evidence.findings.length,
-          findingsOmitted: Math.max(0, evidence.findings.length - limit),
+          findings: allFindings.slice(-limit),
+          findingCount: allFindings.length,
+          findingsOmitted: Math.max(0, allFindings.length - limit),
         },
+        ...(catalog ? { catalog } : {}),
         coverage: {
-          returnedEvents: Math.min(events.length, limit),
-          availableEvents: events.length,
-          omittedEvents: Math.max(0, events.length - limit),
+          returnedEvents: Math.min(selectedEvents.length, limit),
+          availableEvents: selectedEvents.length,
+          omittedEvents: Math.max(0, selectedEvents.length - limit),
           eventWindow: "latest",
+          selectionFocus: options.focusSelection
+            ? {
+                applied: focus.applied,
+                matchedEvents: selectedEvents.length,
+                totalEvents: events.length,
+              }
+            : null,
           contentIncluded: options.includeContent ?? false,
           availableCalls: calls.length,
           omittedCalls: Math.max(0, calls.length - limit),
@@ -188,12 +265,17 @@ export const registerStudioReadCommands = (
     );
   };
   const detailOptions = (command: Command) =>
-    common(command).option(
-      "--event-limit <count>",
-      "Maximum latest events and diagnostic findings (1–10000).",
-      integer(1, 10_000),
-      100,
-    );
+    common(command)
+      .option(
+        "--event-limit <count>",
+        "Maximum latest events and diagnostic findings (1–10000).",
+        integer(1, 10_000),
+        100,
+      )
+      .option(
+        "--focus-selection",
+        "Focus events using call/event/branch/node/trace selectors from the URL.",
+      );
   detailOptions(
     studio
       .command("inspect <url>")
@@ -298,6 +380,136 @@ export const registerStudioReadCommands = (
     ).action((input: string, options: DetailOptions) =>
       inspect(input, options, entity),
     );
+    if (entity === "runs") {
+      common(
+        group
+          .command("compare <left-id-or-url> <right-id-or-url>")
+          .description(
+            "Compare two runs' versions, outcomes, and compact execution timelines.",
+          ),
+      )
+        .option(
+          "--event-limit <count>",
+          "Maximum timeline steps returned per run (1–10000).",
+          integer(1, 10_000),
+          100,
+        )
+        .action(
+          async (
+            leftInput: string,
+            rightInput: string,
+            options: DetailOptions,
+          ) => {
+            const leftTarget = parseStudioTarget(leftInput, "runs");
+            const rightTarget = parseStudioTarget(rightInput, "runs");
+            const { connection, client } = await clientFor(
+              options,
+              leftTarget.url,
+            );
+            // Resolve again against the selected profile so a second pasted URL
+            // cannot silently send this project's credential to another locator.
+            await resolveConnection(
+              { ...options, connection: connection.name },
+              rightTarget.url,
+            );
+            const context = await client.get(
+              "/v1/studio/context",
+              StudioContextResponseSchema,
+            );
+            const [leftDetail, rightDetail] = await Promise.all([
+              client.get(
+                `/v1/studio/runs/${encodeURIComponent(leftTarget.id)}`,
+                StudioRunDetailResponseSchema,
+              ),
+              client.get(
+                `/v1/studio/runs/${encodeURIComponent(rightTarget.id)}`,
+                StudioRunDetailResponseSchema,
+              ),
+            ]);
+            const catalogFor = async (
+              detail: typeof leftDetail,
+            ): Promise<CatalogDrift> => {
+              try {
+                const response = await client.get(
+                  "/v1/studio/workflows",
+                  StudioWorkflowsResponseSchema,
+                  { range: "All time", workflow: detail.run.workflowId },
+                );
+                return compareCatalogRuntime(detail.run, response.workflows);
+              } catch (error) {
+                return {
+                  status: "unavailable",
+                  workflows: [],
+                  reason:
+                    error instanceof StudioReadError
+                      ? error.code
+                      : "catalog_comparison_failed",
+                };
+              }
+            };
+            const [leftCatalog, rightCatalog] = await Promise.all([
+              catalogFor(leftDetail),
+              catalogFor(rightDetail),
+            ]);
+            const side = (
+              target: ReturnType<typeof parseStudioTarget>,
+              detail: typeof leftDetail,
+              catalog: CatalogDrift,
+            ) => {
+              const ordered = [...detail.events].sort(
+                (a, b) =>
+                  Date.parse(a.occurredAt) - Date.parse(b.occurredAt) ||
+                  Date.parse(a.receivedAt) - Date.parse(b.receivedAt) ||
+                  a.id.localeCompare(b.id),
+              );
+              const timeline = buildStudioTimeline(
+                ordered,
+                detail.interrupts,
+              ).slice(-options.eventLimit);
+              return {
+                target,
+                run: detail.run,
+                timeline,
+                catalog,
+                deploymentRefs: [
+                  ...new Set(
+                    ordered
+                      .map((event) => event.deploymentRef)
+                      .filter((value): value is string => Boolean(value)),
+                  ),
+                ],
+                diagnostics: analyzeStudioDiagnostics(
+                  ordered,
+                  detail.run,
+                  detail.interrupts,
+                ),
+                coverage: {
+                  returnedTimelineSteps: timeline.length,
+                  availableEvents: ordered.length,
+                  contentIncluded: options.includeContent ?? false,
+                },
+              };
+            };
+            const left = side(leftTarget, leftDetail, leftCatalog);
+            const right = side(rightTarget, rightDetail, rightCatalog);
+            print(
+              {
+                schemaVersion: 1,
+                connection: {
+                  name: connection.name,
+                  apiUrl: connection.apiUrl,
+                  context,
+                },
+                left,
+                right,
+                comparison: compareRunAnalysis(left, right),
+                note: "Comparison reports observed differences, not an automated root-cause verdict. Missing or omitted content cannot prove equivalence.",
+              },
+              options,
+            );
+          },
+        );
+    }
     const list = filters(
       group.command("list").description("Read a bounded, filtered page."),
     )

@@ -61,6 +61,8 @@ export const parseStudioTarget = (
       "branch",
       "node",
       "event",
+      "trace",
+      "detailView",
     ]) {
       const value = url.searchParams.get(key);
       if (value) selection[key] = value;
