@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.36.0](https://github.com/kortyx-io/kortyx/compare/website-v0.35.0...website-v0.36.0) (2026-09-19)
+
+
+### Features
+
+* **cli:** add read-only Studio debugging ([#217](https://github.com/kortyx-io/kortyx/issues/217)) ([6c96433](https://github.com/kortyx-io/kortyx/commit/6c9643355c720815f79509b41860f2c1e4e4d706))
+
 ## [0.35.0](https://github.com/kortyx-io/kortyx/compare/website-v0.34.0...website-v0.35.0) (2026-09-18)
 
 
