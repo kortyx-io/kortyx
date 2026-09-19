@@ -41,6 +41,7 @@ Architecture:
 Studio:
 
 - `references/studio-local-development.md`: starting Studio locally, connecting server-side SDK telemetry, publishing a workflow catalog, and verifying the first real run.
+- `references/studio-agent-debugging.md`: analyzing Studio run/session/interrupt URLs through the read-only CLI, connection selection, branch-aware evidence, and capture limitations.
 
 Hooks:
 

@@ -5,7 +5,8 @@
 The `kortyx` binary will support two deliberately separate kinds of command:
 
 1. Local runtime commands operate Docker Compose on the developer's machine.
-2. Studio administration commands call a documented Studio Admin API.
+2. Studio data reads call the existing project-scoped Studio HTTP API; future
+   administration commands will call a documented Studio Admin API.
 
 The CLI must not query or mutate the Studio database directly. Keeping the
 remote boundary at HTTP makes the same commands usable with local self-hosted Studio,
@@ -32,6 +33,13 @@ and the state in `~/.kortyx/studio`. `credentials --generate` creates an
 unpersisted initial secret set for operator-managed deployments; it does not
 connect to a remote deployment or mutate its database.
 
+The read-only debugging surface now includes `studio inspect`, entity
+`list`/`get` commands, `studio workflows list`, `studio catalogs`, and
+`studio doctor`. `connections add/list/use/remove` manages API/browser URL
+profiles with environment-variable credential references. The reserved local
+profile reuses managed local Studio state. See [Studio read CLI](./studio-read-cli.md)
+for URL resolution, privacy, output, and authorization boundaries.
+
 Future API-driven commands can grow alongside them:
 
 ```text
@@ -54,6 +62,7 @@ repositories.
 Commander command tree
   ├─ local Studio commands ──> local-stack ──> Execa ──> Docker Compose
   ├─ topology commands ──────> telemetry HTTP API
+  ├─ Studio read commands ───> Studio read API client
   └─ future admin commands ──> Studio Admin API client
 
 Zod schemas validate persisted CLI state at every filesystem boundary.
@@ -85,9 +94,9 @@ Interactive prompts, spinners, shell completion, and update notifications can
 be added when the command catalog needs them. Automation-safe flags and stable
 machine-readable output should exist before adding interactive-only workflows.
 
-## Future connection profiles
+## Connection profiles
 
-A future profile should contain locators and authentication references, not
+Profiles contain locators and authentication references, not
 project data:
 
 ```text
@@ -97,16 +106,18 @@ authentication mode or credential reference
 last selected account/workspace/project
 ```
 
-Local Studio can register a default `local` profile after startup. Cloud and
-self-hosted instances can register additional profiles. Secrets must use the
-platform credential store when login is introduced; plaintext profile files
-should contain only non-sensitive configuration.
+Local Studio is resolved automatically as `local` after startup. Self-hosted
+instances can register additional project-scoped profiles. Remote secrets are
+currently injected through named environment variables; raw remote keys are
+never saved in profile files. Account login and platform credential-store
+integration remain future work; plaintext profile files contain only locators,
+references, defaults, and informational project/organization labels.
 
 ## Compatibility commitments
 
 - Local data and credentials remain stable across CLI upgrades.
 - Persisted state is versioned and validated before use.
 - Destructive commands require explicit confirmation.
-- Human-readable output is the default; future automation commands should
+- Human-readable output is the default; Studio read/connection commands
   provide `--json`.
 - Repository development commands remain separate from the external-user CLI.

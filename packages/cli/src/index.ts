@@ -24,7 +24,9 @@ import {
 } from "@kortyx/telemetry-contracts";
 import { Command, CommanderError } from "commander";
 import { require as tsxRequire } from "tsx/cjs/api";
+import { createConnectionsCommand } from "./connections-command";
 import { createStudioCommand } from "./studio/command";
+import { StudioReadError } from "./studio/read-client";
 import { discoverWorkflowCalls } from "./workflow-calls";
 
 type CliOptions = {
@@ -547,6 +549,7 @@ const createCliProgram = (): Command => {
     );
 
   program.addCommand(createStudioCommand());
+  program.addCommand(createConnectionsCommand());
 
   const topology = program
     .command("topology")
@@ -602,6 +605,15 @@ const main = async (): Promise<void> => {
     await program.parseAsync(process.argv);
   } catch (error) {
     if (error instanceof CommanderError && error.exitCode === 0) return;
+    if (error instanceof StudioReadError) {
+      console.error(
+        process.argv.includes("--json")
+          ? JSON.stringify(error.toJSON())
+          : `[${error.code}] ${error.message}`,
+      );
+      process.exitCode = 1;
+      return;
+    }
     const failure = serializeFailure(error);
     console.error(
       error instanceof KortyxError
