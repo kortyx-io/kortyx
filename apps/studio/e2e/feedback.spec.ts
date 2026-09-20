@@ -190,9 +190,17 @@ test("feedback filter uses Studio's radio menu with mobile keyboard navigation",
   if (!bounds) throw new Error("The feedback menu has no visible bounds.");
   expect(bounds.x).toBeGreaterThanOrEqual(0);
   expect(bounds.x + bounds.width).toBeLessThanOrEqual(390);
-  await menu.press("Home");
-  await menu.press("ArrowDown");
-  await menu.press("Enter");
+  // Keep keyboard events on the focused item; locator.press() would refocus
+  // the menu container and reset Radix's roving focus between keystrokes.
+  await page.keyboard.press("Home");
+  await expect(
+    page.getByRole("menuitemradio", { name: "All feedback", exact: true }),
+  ).toBeFocused();
+  await page.keyboard.press("ArrowDown");
+  await expect(
+    page.getByRole("menuitemradio", { name: "Positive feedback", exact: true }),
+  ).toBeFocused();
+  await page.keyboard.press("Enter");
   await expect(trigger).toHaveText("Positive feedback");
   await expect(menu).toBeHidden();
   await expect(page).toHaveURL(/feedback=positive/);
@@ -200,7 +208,7 @@ test("feedback filter uses Studio's radio menu with mobile keyboard navigation",
   await expect(
     page.getByRole("menuitemradio", { name: "Positive feedback", exact: true }),
   ).toHaveAttribute("aria-checked", "true");
-  await menu.press("Escape");
+  await page.keyboard.press("Escape");
   await expect(trigger).toBeFocused();
 });
 
