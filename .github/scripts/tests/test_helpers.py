@@ -128,7 +128,7 @@ if "inspect" in args:
         self.assertNotEqual(result.returncode, 0)
         self.assertFalse(any("create" in call for call in self.calls()))
 
-    def npm_fixture(self, subject="chore: release main", managed=True):
+    def npm_fixture(self, subject="chore: release main", managed=True, changed=True):
         for directory in ["packages/a", "packages/b", "providers", ".github/release-please"]:
             (self.root / directory).mkdir(parents=True, exist_ok=True)
         config = {"packages": {"packages/a": {}} if managed else {"packages/other": {}}}
@@ -146,9 +146,10 @@ if "inspect" in args:
         git("config", "user.name", "Test")
         git("add", ".")
         git("commit", "-qm", "Initial packages")
-        package("a", "1.1.0")
+        if changed:
+            package("a", "1.1.0")
         git("add", ".")
-        git("commit", "-qm", subject)
+        git("commit", "--allow-empty", "-qm", subject)
         self.env["RELEASE_COMMIT"] = git("rev-parse", "HEAD")
         self.fake("npm", '''import os, sys
 sys.exit(0 if os.environ.get("NPM_EXISTS") == "1" else 1)
@@ -173,9 +174,30 @@ with open(os.environ["TEST_LOG"], "a") as f: f.write(json.dumps({"args":sys.argv
         self.assertEqual(self.run_npm(NPM_EXISTS="1").returncode, 0)
         self.assertEqual(self.calls(), [])
 
-    def test_npm_refuses_nonrelease_commits(self):
+    def test_npm_skips_nonrelease_commits_even_with_manifest_changes(self):
         self.npm_fixture(subject="feat: feature commit")
-        self.assertNotEqual(self.run_npm().returncode, 0)
+        result = self.run_npm()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("Nothing to publish", result.stdout)
+        self.assertEqual(self.calls(), [])
+
+    def test_npm_skips_test_only_commits(self):
+        self.npm_fixture(subject="test(studio): fix keyboard navigation", changed=False)
+        result = self.run_npm()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("Nothing to publish", result.stdout)
+        self.assertEqual(self.calls(), [])
+
+    def test_npm_skips_releases_without_public_package_changes(self):
+        self.npm_fixture(changed=False)
+        result = self.run_npm()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("Nothing to publish", result.stdout)
+        self.assertEqual(self.calls(), [])
+
+    def test_npm_refuses_invalid_commit(self):
+        self.npm_fixture()
+        self.assertNotEqual(self.run_npm(RELEASE_COMMIT="missing-release").returncode, 0)
         self.assertEqual(self.calls(), [])
 
     def test_npm_refuses_unmanaged_package_changes(self):
