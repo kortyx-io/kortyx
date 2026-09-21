@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.37.0](https://github.com/kortyx-io/kortyx/compare/website-v0.36.0...website-v0.37.0) (2026-09-21)
+
+
+### Features
+
+* **observability:** report handled workflow errors ([#222](https://github.com/kortyx-io/kortyx/issues/222)) ([68a3b0e](https://github.com/kortyx-io/kortyx/commit/68a3b0eea5d93cb89bdcef63c4767f3b0d59e60d))
+
 ## [0.36.0](https://github.com/kortyx-io/kortyx/compare/website-v0.35.0...website-v0.36.0) (2026-09-19)
 
 

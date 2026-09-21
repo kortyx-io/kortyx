@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.27.0](https://github.com/kortyx-io/kortyx/compare/hooks-v0.26.0...hooks-v0.27.0) (2026-09-21)
+
+
+### Features
+
+* **observability:** report handled workflow errors ([#222](https://github.com/kortyx-io/kortyx/issues/222)) ([68a3b0e](https://github.com/kortyx-io/kortyx/commit/68a3b0eea5d93cb89bdcef63c4767f3b0d59e60d))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/telemetry-contracts bumped to 0.10.0
+
 ## [0.26.0](https://github.com/kortyx-io/kortyx/compare/hooks-v0.25.3...hooks-v0.26.0) (2026-09-18)
 
 
