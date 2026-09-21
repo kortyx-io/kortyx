@@ -22,8 +22,6 @@ import {
   Maximize,
   Maximize2,
   Minimize,
-  Pause,
-  RotateCcw,
   TriangleAlert,
   ZoomIn,
   ZoomOut,
@@ -56,7 +54,6 @@ import {
   toWorkflowGraph,
 } from "@/features/workflows/lib/workflow-graph";
 import type {
-  WorkflowHealth,
   WorkflowSummary,
   WorkflowSystem,
 } from "@/features/workflows/schema";
@@ -70,6 +67,10 @@ import {
 } from "../lib/viewport-state";
 import { sameWorkflowCall } from "../lib/workflow-calls";
 import styles from "./workflow-canvas.module.css";
+import {
+  NodeStatusIndicator,
+  WorkflowHealthIndicator,
+} from "./workflow-status-indicator";
 
 type LayoutDirection = "LR" | "TB";
 
@@ -107,24 +108,6 @@ type InternalEdgeData = {
   condition?: string;
   routePoints?: Array<{ x: number; y: number }>;
   label?: EdgeLabel;
-};
-
-const healthClasses: Record<WorkflowHealth, string> = {
-  unknown: "bg-slate-300",
-  healthy: "bg-emerald-500",
-  degraded: "bg-amber-500",
-  failing: "bg-red-500",
-  idle: "bg-slate-400",
-};
-const stateClasses: Record<
-  NonNullable<WorkflowSummary["nodes"][number]["state"]>,
-  string
-> = {
-  healthy: "bg-emerald-500",
-  warning: "bg-amber-500",
-  failed: "bg-red-500",
-  interrupted: "bg-blue-500",
-  retried: "bg-amber-500",
 };
 
 export function WorkflowCanvas({
@@ -483,9 +466,7 @@ function WorkflowGroup({ data }: NodeProps<Node<GroupData>>) {
         className="!size-2 !border-0 !bg-transparent !opacity-0"
       />
       <div className="flex h-12 items-center gap-2 border-b px-3">
-        <span
-          className={cn("size-2 rounded-full", healthClasses[workflow.health])}
-        />
+        <WorkflowHealthIndicator health={workflow.health} />
         <div className="min-w-0 flex-1">
           <div className="truncate font-mono text-xs font-semibold">
             {workflow.name}
@@ -593,18 +574,7 @@ function InternalNode({ data }: NodeProps<Node<InternalData>>) {
         className="!size-1.5 !border-0 !bg-transparent !opacity-0"
       />
       <div className="flex items-center gap-1">
-        <span
-          className={cn(
-            "size-1.5 rounded-full",
-            node.state ? stateClasses[node.state] : "bg-slate-400",
-          )}
-        />
-        {node.state === "interrupted" && (
-          <Pause className="size-2.5 text-blue-500" />
-        )}
-        {node.state === "retried" && (
-          <RotateCcw className="size-2.5 text-amber-500" />
-        )}
+        <NodeStatusIndicator state={node.state} />
         <span
           title={node.id}
           className="min-w-0 truncate font-mono text-[10px] font-medium"
@@ -724,7 +694,7 @@ function TransitionEdge({
         transform={`translate(${labelX - labelWidth / 2} ${labelY - labelHeight / 2})`}
         className="cursor-pointer"
       >
-        <title>{`${formatCount(data?.volume ?? 0)} ${isCall ? "calls" : "handoffs"} · ${isCall ? "call → return" : truncateLabel(data?.condition ?? "transitionTo", labelWidth)}`}</title>
+        <title>{`${formatCount(data?.volume ?? 0)} ${isCall ? "calls" : "handoffs"} · ${isCall ? "call → return" : truncateLabel(data?.condition ?? "transitionTo", labelWidth)}${error ? ` · Warning: ${formatRate(data?.errorRate)} error rate` : ""}`}</title>
         <rect
           width={labelWidth}
           height={labelHeight}

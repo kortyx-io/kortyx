@@ -1,20 +1,48 @@
-import { ArrowLeft, X } from "lucide-react";
+import { ArrowLeft, CircleHelp, X } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { formatCount, formatCurrency, formatDurationMs } from "@/lib/format";
-import { cn } from "@/lib/utils";
 import { formatRate } from "../lib/format";
 import type { WorkflowSelection } from "../lib/view-state";
-import type { WorkflowHealth, WorkflowSystem } from "../schema";
+import type { WorkflowSystem } from "../schema";
+import {
+  NodeStatusIndicator,
+  WorkflowHealthIndicator,
+} from "./workflow-status-indicator";
 import { WorkflowTools } from "./workflow-tools";
 
-const healthClasses: Record<WorkflowHealth, string> = {
-  unknown: "bg-slate-300",
-  healthy: "bg-emerald-500",
-  degraded: "bg-amber-500",
-  failing: "bg-red-500",
-  idle: "bg-slate-400",
+const metricDescriptions: Record<string, string> = {
+  Source: "The workflow and node where this connection starts.",
+  Target: "The workflow this connection enters.",
+  Condition: "The routing condition recorded for this connection.",
+  "Observed calls": "Child-workflow calls recorded in the selected period.",
+  Handoffs: "Workflow handoffs recorded in the selected period.",
+  "Child success": "Share of child-workflow calls that completed successfully.",
+  "Success after handoff":
+    "Share of runs that completed successfully after this handoff.",
+  "Median call duration": "Median time spent in the child workflow (p50).",
+  "Median transition": "Median time measured for this transition (p50).",
+  Provider:
+    "The provider and model used by this node. Internal means no external model provider was recorded.",
+  Runs: "Runs in the selected time range, environment, and version filters.",
+  "Success / error":
+    "Share of runs that completed successfully versus the share that failed.",
+  "p50 / p95":
+    "Median duration versus the duration that 95% of runs finished within.",
+  "Retries / interrupts":
+    "Number of runs that included a retry versus the share that paused for input.",
+  "Cost / run": "Average recorded model cost per run.",
+  Version: "The active published workflow version.",
+  "Completion / error":
+    "Share of runs that completed versus the share that failed.",
+  "Tokens / run": "Average recorded model tokens per run.",
+  "Interrupt rate": "Share of runs that paused for human or external input.",
 };
 
 const runsHref = (params: Record<string, string | null | undefined>) => {
@@ -117,14 +145,19 @@ export function WorkflowInspector({
     >
       <div className="flex h-12 items-center justify-between border-b px-4">
         <h2 className="text-sm font-semibold">Selected item</h2>
-        <Button
-          size="icon-sm"
-          variant="ghost"
-          aria-label="Close selected item panel"
-          onClick={onClose}
-        >
-          <X />
-        </Button>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              size="icon-sm"
+              variant="ghost"
+              aria-label="Close selected item panel"
+              onClick={onClose}
+            >
+              <X />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>Close selected item panel</TooltipContent>
+        </Tooltip>
       </div>
       <ScrollArea className="min-h-0 flex-1">
         <div className="space-y-5 p-4">
@@ -132,51 +165,46 @@ export function WorkflowInspector({
             <>
               <div>
                 <div className="flex items-center gap-2">
-                  {selectedWorkflow && (
-                    <WorkflowTools
-                      workflow={selectedWorkflow}
-                      nodeId={selectedNode?.id}
-                      cohort={system.cohort}
-                      environment={system.cohort.environment}
-                      onSelect={onSelect}
-                      onNavigate={onNavigate}
-                    />
-                  )}
                   {selection.type === "transition" && selectedTransition ? (
-                    <Button
-                      size="icon-sm"
-                      variant="ghost"
-                      className="shrink-0"
-                      aria-label={`Back to ${selectedTransition.sourceWorkflowId}`}
-                      onClick={() =>
-                        onSelect(
-                          selectedTransition.sourceNodeId
-                            ? {
-                                type: "node",
-                                workflowId: selectedTransition.sourceWorkflowId,
-                                id: selectedTransition.sourceNodeId,
-                              }
-                            : {
-                                type: "workflow",
-                                id: selectedTransition.sourceWorkflowId,
-                              },
-                        )
-                      }
-                    >
-                      <ArrowLeft />
-                    </Button>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          size="icon-sm"
+                          variant="ghost"
+                          className="shrink-0"
+                          aria-label={`Back to ${selectedTransition.sourceWorkflowId}`}
+                          onClick={() =>
+                            onSelect(
+                              selectedTransition.sourceNodeId
+                                ? {
+                                    type: "node",
+                                    workflowId:
+                                      selectedTransition.sourceWorkflowId,
+                                    id: selectedTransition.sourceNodeId,
+                                  }
+                                : {
+                                    type: "workflow",
+                                    id: selectedTransition.sourceWorkflowId,
+                                  },
+                            )
+                          }
+                        >
+                          <ArrowLeft />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        Back to {selectedTransition.sourceWorkflowId}
+                      </TooltipContent>
+                    </Tooltip>
                   ) : null}
-                  <h3 className="min-w-0 break-words font-mono text-sm font-semibold">
+                  <h3 className="min-w-0 flex-1 break-words font-mono text-sm font-semibold">
                     {title}
                   </h3>
-                  {selectedWorkflow && (
-                    <span
-                      className={cn(
-                        "size-1.5 rounded-full",
-                        healthClasses[selectedWorkflow.health],
-                      )}
-                    />
-                  )}
+                  {selectedNode ? (
+                    <NodeStatusIndicator state={selectedNode.state} />
+                  ) : selectedWorkflow ? (
+                    <WorkflowHealthIndicator health={selectedWorkflow.health} />
+                  ) : null}
                 </div>
                 <p className="mt-1 text-xs leading-5 text-muted-foreground">
                   {selection.type === "transition"
@@ -186,6 +214,16 @@ export function WorkflowInspector({
                       : selectedWorkflow?.description}
                 </p>
               </div>
+              {selectedWorkflow && (
+                <WorkflowTools
+                  workflow={selectedWorkflow}
+                  nodeId={selectedNode?.id}
+                  cohort={system.cohort}
+                  environment={system.cohort.environment}
+                  onSelect={onSelect}
+                  onNavigate={onNavigate}
+                />
+              )}
               {selection.type === "transition" && selectedTransition ? (
                 <MetricList
                   items={[
@@ -330,20 +368,41 @@ export function WorkflowInspector({
 function MetricList({ items }: { items: [string, string][] }) {
   return (
     <dl className="divide-y rounded-md border text-xs">
-      {items.map(([label, value]) => (
-        <div
-          key={label}
-          className="flex items-center justify-between gap-4 px-3 py-2"
-        >
-          <dt className="text-muted-foreground">{label}</dt>
-          <dd
-            title={value}
-            className="min-w-0 truncate text-right font-mono tabular-nums"
+      {items.map(([label, value]) => {
+        const description = metricDescriptions[label];
+        return (
+          <div
+            key={label}
+            className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] items-center gap-3 px-3 py-2"
           >
-            {value}
-          </dd>
-        </div>
-      ))}
+            <dt className="flex min-w-0 items-center gap-1 text-muted-foreground">
+              <span>{label}</span>
+              {description ? (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      type="button"
+                      aria-label={`Explain ${label}`}
+                      className="shrink-0 rounded-sm outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50"
+                    >
+                      <CircleHelp className="size-3" />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent className="max-w-72">
+                    {description}
+                  </TooltipContent>
+                </Tooltip>
+              ) : null}
+            </dt>
+            <dd
+              title={value}
+              className="min-w-0 break-words text-right font-mono tabular-nums"
+            >
+              {value}
+            </dd>
+          </div>
+        );
+      })}
     </dl>
   );
 }

@@ -139,6 +139,47 @@ test.describe("Studio time ranges and workflow cohorts", () => {
     await expect(range).toHaveValue("7 days");
   });
 
+  test("explains node states and keeps inspector sections in one column", async ({
+    page,
+  }) => {
+    await page.goto(
+      `/workflows?workflow=${DRAWER_FIXTURE.workflowId}&node=collectBrief&range=All+time`,
+    );
+    await expect(page.locator('[data-workflows-ready="true"]')).toBeVisible();
+
+    const inspector = page.getByRole("complementary", {
+      name: "Selection inspector",
+    });
+    const title = inspector.getByRole("heading", { name: "Collect brief" });
+    const tools = inspector.getByRole("region", { name: "Attached tools" });
+    await expect(title).toBeVisible();
+    await expect(tools).toBeVisible();
+
+    const [titleBox, toolsBox] = await Promise.all([
+      title.boundingBox(),
+      tools.boundingBox(),
+    ]);
+    expect(titleBox).not.toBeNull();
+    expect(toolsBox).not.toBeNull();
+    expect(toolsBox?.y).toBeGreaterThan(
+      (titleBox?.y ?? 0) + (titleBox?.height ?? 0),
+    );
+
+    const nodeState = inspector.getByRole("button", {
+      name: /^Interrupted node\./,
+    });
+    await nodeState.focus();
+    await expect(page.getByRole("tooltip")).toContainText("Interrupted node");
+    await expect(page.getByRole("tooltip")).toContainText(
+      "paused for input at this node",
+    );
+
+    await inspector.getByRole("button", { name: "Explain p50 / p95" }).focus();
+    await expect(
+      page.getByRole("tooltip", { name: /Median duration/ }),
+    ).toBeVisible();
+  });
+
   test("round-trips custom UTC bounds through reload and reports partial ranges", async ({
     page,
   }) => {

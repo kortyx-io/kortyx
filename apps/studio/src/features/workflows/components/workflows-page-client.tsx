@@ -1,8 +1,14 @@
 "use client";
 
+import { CircleHelp } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@/lib/utils";
 import { useWorkflowQuery } from "../hooks/use-workflow-query";
@@ -224,21 +230,35 @@ export default function WorkflowsPageClient({
               </span>
             ))}
           </fieldset>
-          <label
-            className="ml-auto flex items-center gap-2"
-            title="Overlay recorded calls on source-discovered paths"
-          >
-            <input
-              type="checkbox"
-              checked={showCalls}
-              onChange={(event) => setShowCalls(event.target.checked)}
-              className="accent-violet-500"
-            />
-            Observed calls
+          <div className="ml-auto flex items-center gap-2">
+            <label className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                checked={showCalls}
+                onChange={(event) => setShowCalls(event.target.checked)}
+                className="accent-violet-500"
+              />
+              Observed calls
+            </label>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  type="button"
+                  aria-label="Explain observed calls"
+                  className="rounded-sm outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+                >
+                  <CircleHelp className="size-3.5" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent className="max-w-72">
+                Show real child-workflow calls recorded during runs on top of
+                the connections published from source.
+              </TooltipContent>
+            </Tooltip>
             <span className="rounded bg-violet-500/10 px-1.5 text-violet-600">
               {system.observedCalls?.length ?? 0}
             </span>
-          </label>
+          </div>
         </div>
         <div className="min-h-0 flex-1">
           <WorkflowCanvas
