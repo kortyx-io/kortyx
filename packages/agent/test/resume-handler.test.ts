@@ -64,6 +64,29 @@ const pendingBase = {
 };
 
 describe("parseResumeMeta", () => {
+  it("preserves a structured custom interrupt response", () => {
+    expect(
+      parseResumeMeta({
+        role: "user",
+        content: "Selected job",
+        metadata: {
+          resume: {
+            token: "t",
+            requestId: "r",
+            value: { type: "select", jobId: "job-2" },
+          },
+        },
+      }),
+    ).toEqual({
+      token: "t",
+      requestId: "r",
+      selected: [],
+      cancel: false,
+      hasValue: true,
+      value: { type: "select", jobId: "job-2" },
+    });
+  });
+
   it("normalizes supported resume metadata shapes", () => {
     expect(parseResumeMeta(undefined)).toBeNull();
     expect(parseResumeMeta({ role: "user", content: "x" })).toBeNull();
@@ -363,7 +386,13 @@ describe("tryPrepareResumeStream", () => {
       }),
     ).rejects.toThrow("Interrupt is expired");
 
-    store.get.mockResolvedValueOnce(pendingBase);
+    store.get.mockResolvedValueOnce({
+      ...pendingBase,
+      schema: {
+        ...pendingBase.schema,
+        contract: "approval",
+      } as typeof pendingBase.schema & { contract: string },
+    });
     await expect(
       tryPrepareResumeStream({
         lastMessage: {
@@ -657,6 +686,83 @@ describe("tryPrepareResumeStream", () => {
         payload: expect.objectContaining({
           response: "private-choice",
           responseCaptured: true,
+        }),
+      }),
+    );
+  });
+
+  it("captures structured contract responses and carries contract identity into resumed telemetry", async () => {
+    const emitted: Array<Record<string, unknown>> = [];
+    const pending = {
+      ...pendingBase,
+      schema: {
+        ...pendingBase.schema,
+        kind: "custom",
+        contract: "jobPicker",
+        schemaId: "wolly.job-picker",
+        schemaVersion: "1",
+        request: { question: "Which engineering job?" },
+      },
+    };
+    const store = {
+      get: vi.fn(async () => pending),
+      delete: vi.fn(async () => undefined),
+    };
+
+    await tryPrepareResumeStream({
+      lastMessage: {
+        role: "user",
+        content: "Selected job",
+        metadata: {
+          resume: {
+            token: "token-1",
+            requestId: "request-1",
+            value: { type: "select", jobId: "job-2" },
+          },
+        },
+      },
+      sessionId: "session-1",
+      config: {
+        telemetry: {
+          environment: "test",
+          service: { name: "app" },
+          captureContent: { input: true, output: false },
+          correlation: { runId: "run-1", workflowId: "workflow-1" },
+          reporter: {
+            ensureWorkflowTopology: async () => ({
+              workflowRevisionId: "revision-1",
+              created: false,
+            }),
+            emit: async (events: Array<Record<string, unknown>>) => {
+              emitted.push(...events);
+            },
+          },
+        },
+      },
+      selectWorkflow: vi.fn(async (id: string) => workflowDefinition(id)),
+      frameworkAdapter: {
+        pendingRequests: store,
+      } as unknown as FrameworkAdapter,
+    });
+
+    expect(emitted).toContainEqual(
+      expect.objectContaining({
+        type: "interrupt.resolved",
+        payload: expect.objectContaining({
+          contract: "jobPicker",
+          schemaId: "wolly.job-picker",
+          schemaVersion: "1",
+          responseCaptured: true,
+          responseValue: { type: "select", jobId: "job-2" },
+        }),
+      }),
+    );
+    expect(orchestrateGraphStream).toHaveBeenCalledWith(
+      expect.objectContaining({
+        config: expect.objectContaining({
+          telemetryInterruptContract: "jobPicker",
+          telemetryInterruptSchemaId: "wolly.job-picker",
+          telemetryInterruptSchemaVersion: "1",
         }),
       }),
     );

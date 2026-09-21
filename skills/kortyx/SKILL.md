@@ -77,7 +77,7 @@ React client:
 - Keep Studio API keys and all `KORTYX_TELEMETRY_*` configuration server-side.
 - `useReason({ outputSchema, structured.fields })` already streams known structured fields as `structured-data` chunks; do not confuse those with raw model JSON `text-delta` chunks.
 - MCP tools are passed to `useReason({ tools, toolExecution })` from `createMCPClient(...).tools()`. `useReason` closes request-scoped MCP clients by default.
-- Do not combine `useReason({ tools })` with normal `useReason({ interrupt })`; use `toolExecution.approval` for tool approval, or split tools and user input into separate hook calls/nodes.
+- For model-decided human input inside a tool loop, define one or more contracts with `defineInterruptContract` and pass `useReason({ interrupts: { contracts } })`. The singular `interrupt` option is deprecated and is removed in the next major.
 
 ## Done Criteria
 

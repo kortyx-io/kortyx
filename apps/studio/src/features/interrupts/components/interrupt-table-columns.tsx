@@ -133,6 +133,14 @@ export function createInterruptColumns({
               >
                 {interaction}
               </span>
+              {interrupt.contract && (
+                <span
+                  className="truncate font-mono text-[10px] font-medium text-violet-600 dark:text-violet-400"
+                  title={`Interrupt contract: ${interrupt.contract}`}
+                >
+                  {interrupt.contract}
+                </span>
+              )}
               {interrupt.schemaId && (
                 <span
                   className="truncate font-mono text-[10px] text-muted-foreground"
@@ -192,6 +200,13 @@ export function createInterruptColumns({
       defaultWidth: 210,
       render: (interrupt) => {
         const status = effectiveInterruptStatus(interrupt, now);
+        const capturedResponse =
+          interrupt.responseValue !== null &&
+          interrupt.responseValue !== undefined
+            ? typeof interrupt.responseValue === "string"
+              ? interrupt.responseValue
+              : JSON.stringify(interrupt.responseValue)
+            : interrupt.response;
         return (
           <p
             className={cn(
@@ -202,7 +217,7 @@ export function createInterruptColumns({
             {status === "pending"
               ? "Awaiting response"
               : interrupt.responseCaptured
-                ? (interrupt.response ?? "Empty response")
+                ? (capturedResponse ?? "Empty response")
                 : status === "cancelled"
                   ? "Cancelled before response"
                   : status === "expired"

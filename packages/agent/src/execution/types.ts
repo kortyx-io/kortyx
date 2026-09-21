@@ -24,6 +24,7 @@ export type ResumeHandle = {
 export type ResumeResponse =
   | { type: "text"; text: string }
   | { type: "select"; ids: string[] }
+  | { type: "value"; value: unknown }
   | { type: "cancel" };
 
 export type ExecutionInterrupt = {

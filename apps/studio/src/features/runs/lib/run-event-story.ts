@@ -139,8 +139,14 @@ function eventTitle(
         : `${tool} succeeded`;
   if (event.type === "tool.failed") return `${tool} tool failed`;
   if (event.type === "response.completed") return "Client response completed";
-  if (event.type === "interrupt.created") return "Human input requested";
-  if (event.type === "interrupt.resolved") return "Human input received";
+  if (event.type === "interrupt.created")
+    return asString(event.payload.contract)
+      ? `Human input requested · ${asString(event.payload.contract)}`
+      : "Human input requested";
+  if (event.type === "interrupt.resolved")
+    return asString(event.payload.contract)
+      ? `Human input received · ${asString(event.payload.contract)}`
+      : "Human input received";
   if (event.type === "interrupt.expired") return "Human input request expired";
   if (event.type === "interrupt.cancelled")
     return "Human input request cancelled";
@@ -220,6 +226,12 @@ function eventContext(event: StudioDetailEvent): string {
   if (event.type.startsWith("tool.")) {
     const callId = asString(event.payload.toolCallId);
     if (callId) parts.push(`call ${shortId(callId)}`);
+  }
+  if (event.type.startsWith("interrupt.")) {
+    const contract = asString(event.payload.contract);
+    const schemaId = asString(event.payload.schemaId);
+    if (contract) parts.unshift(`contract ${contract}`);
+    if (schemaId) parts.push(schemaId);
   }
   if (event.payload.name === "runReasonEngine") {
     const provider = asString(attributes.providerId);

@@ -83,10 +83,16 @@ export type UseChatValue = {
     requestId: string;
     selected: string[];
     text?: string;
+    value?: unknown;
+    hasValue?: boolean;
   }) => Promise<void> | void;
   respondToInterrupt: (
     piece: HumanInputPiece,
-    response?: { selected?: string[] | undefined; text?: string | undefined },
+    response?: {
+      selected?: string[] | undefined;
+      text?: string | undefined;
+      value?: unknown;
+    },
   ) => Promise<void> | void;
   setMessages: React.Dispatch<React.SetStateAction<ChatMsg[]>>;
   checkpointForMessage: (messageId: string) => string | null;
@@ -663,6 +669,8 @@ export function useChat<TContext = DefaultChatContext>(
     requestId,
     selected,
     text,
+    value,
+    hasValue,
     baseMessages,
     sid,
   }: {
@@ -670,6 +678,8 @@ export function useChat<TContext = DefaultChatContext>(
     requestId: string;
     selected: string[];
     text?: string;
+    value?: unknown;
+    hasValue?: boolean;
     baseMessages?: ChatMsg[] | undefined;
     sid?: string | undefined;
   }): Promise<ReplayResult | undefined> => {
@@ -682,7 +692,9 @@ export function useChat<TContext = DefaultChatContext>(
           ? selected.length === 1
             ? (selected[0] as string)
             : selected.join(", ")
-          : "(selection)";
+          : hasValue
+            ? "(response)"
+            : "(selection)";
     const userId = createId();
     const userMsg: ChatMsg = {
       id: userId,
@@ -694,6 +706,7 @@ export function useChat<TContext = DefaultChatContext>(
         requestId,
         selected,
         ...(text !== undefined ? { text } : {}),
+        ...(hasValue ? { value } : {}),
       },
     };
     const nextMessages = [...(baseMessages ?? messages), userMsg];
@@ -707,7 +720,12 @@ export function useChat<TContext = DefaultChatContext>(
 
     try {
       const resumePayload: Record<string, unknown> = {
-        resume: { token: resumeToken, requestId, selected },
+        resume: {
+          token: resumeToken,
+          requestId,
+          selected,
+          ...(hasValue ? { value } : {}),
+        },
       };
       const outgoing = {
         role: "user" as const,
@@ -754,15 +772,22 @@ export function useChat<TContext = DefaultChatContext>(
     requestId: string;
     selected: string[];
     text?: string;
+    value?: unknown;
+    hasValue?: boolean;
   }): Promise<void> => {
     await respondToHumanInputFromBase(args);
   };
 
   const respondToInterrupt = async (
     piece: HumanInputPiece,
-    response?: { selected?: string[] | undefined; text?: string | undefined },
+    response?: {
+      selected?: string[] | undefined;
+      text?: string | undefined;
+      value?: unknown;
+    },
   ) => {
     const text = response?.text;
+    const hasValue = Boolean(response && Object.hasOwn(response, "value"));
     const selected =
       response?.selected ??
       (typeof text === "string" && text.length > 0 ? [text] : []);
@@ -772,6 +797,7 @@ export function useChat<TContext = DefaultChatContext>(
       requestId: piece.requestId,
       selected,
       ...(text !== undefined ? { text } : {}),
+      ...(hasValue ? { value: response?.value, hasValue: true } : {}),
     });
   };
 
@@ -1120,6 +1146,10 @@ export function useChat<TContext = DefaultChatContext>(
           : userMessage.source.text !== undefined
             ? { text: userMessage.source.text }
             : {}),
+        ...(editedContent === undefined &&
+        Object.hasOwn(userMessage.source, "value")
+          ? { value: userMessage.source.value, hasValue: true }
+          : {}),
       });
     }
     return sendFromBase(content, baseMessages, options?.sid);

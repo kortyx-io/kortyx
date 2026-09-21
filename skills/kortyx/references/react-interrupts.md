@@ -57,7 +57,7 @@ Keep UI responses tied to the original interrupt piece so the resume token and r
 
 `respondToInterrupt(piece, { selected, text })` accepts both fields, but they play different roles:
 
-- **`selected`** is what the node receives as the resume value (`result.interruptResponse` from `useReason({ interrupt })`, or the return value of `useInterrupt(...)`). The agent runtime builds the resume value from `selected` only — `selected[0]` for `choice` / `text`, the full array for `multi-choice`.
+- **`selected`** remains the resume value for legacy `choice`, `text`, and `multi-choice` interrupts. Model interrupt contracts use `respondToInterrupt(piece, { value })`; `piece.request` is the opaque validated request and `value` is validated against the contract response schema. The singular `useReason({ interrupt })` and `result.interruptResponse` are deprecated and removed next major.
 - **`text`** is the visible content of the synthetic user message added to chat history after resume. It is never read by the agent runtime for the resume value.
 - If you pass `text` without `selected`, `@kortyx/react` coerces it to `selected: [text]` before sending. If you pass **both**, `selected` wins and `text` is purely cosmetic.
 

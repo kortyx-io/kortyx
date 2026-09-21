@@ -147,36 +147,52 @@ describe("telemetry contracts", () => {
         resources: ["runs", "sessions"],
       }).success,
     ).toBe(true);
-    expect(
-      StudioInterruptSchema.safeParse({
-        id: "human-1",
-        status: "resolved",
-        type: "choice",
-        interactionMode: "dynamic-picker",
-        schemaId: "pick-agent",
-        schemaVersion: "1",
-        createdAt: "2026-01-01T00:00:00.000Z",
-        resolvedAt: "2026-01-01T00:00:01.000Z",
-        expiresAt: "2026-01-01T00:15:00.000Z",
-        question: null,
-        contentCaptured: false,
-        optionCount: 0,
-        options: null,
-        workflowId: "workflow",
-        nodeId: "pickAgent",
-        sessionId: "session",
-        userId: null,
-        tenantId: null,
-        response: null,
-        responseCaptured: false,
-        resumeOutcome: "resumed",
-        resumeError: null,
-        runId: "run",
-        resumeToken: null,
-        resolvedBy: null,
-        environment: "production",
-      }).success,
-    ).toBe(true);
+    const studioInterrupt = {
+      id: "human-1",
+      status: "resolved",
+      type: "choice",
+      interactionMode: "dynamic-picker",
+      contract: null,
+      schemaId: "pick-agent",
+      schemaVersion: "1",
+      createdAt: "2026-01-01T00:00:00.000Z",
+      resolvedAt: "2026-01-01T00:00:01.000Z",
+      expiresAt: "2026-01-01T00:15:00.000Z",
+      question: null,
+      contentCaptured: false,
+      request: null,
+      requestCaptured: false,
+      optionCount: 0,
+      options: null,
+      workflowId: "workflow",
+      nodeId: "pickAgent",
+      sessionId: "session",
+      userId: null,
+      tenantId: null,
+      response: null,
+      responseValue: null,
+      responseCaptured: false,
+      resumeOutcome: "resumed",
+      resumeError: null,
+      runId: "run",
+      resumeToken: null,
+      resolvedBy: null,
+      environment: "production",
+    };
+    expect(StudioInterruptSchema.safeParse(studioInterrupt).success).toBe(true);
+    const {
+      contract: _contract,
+      request: _request,
+      requestCaptured: _requestCaptured,
+      responseValue: _responseValue,
+      ...legacyStudioInterrupt
+    } = studioInterrupt;
+    expect(StudioInterruptSchema.parse(legacyStudioInterrupt)).toMatchObject({
+      contract: null,
+      request: null,
+      requestCaptured: false,
+      responseValue: null,
+    });
   });
   it("rejects invalid fixtures", () => {
     expect(EnsureWorkflowTopologyRequestSchema.safeParse({}).success).toBe(

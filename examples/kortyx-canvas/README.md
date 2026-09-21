@@ -99,6 +99,13 @@ the two chats. Both must resume independently, stream their own canvas, and
 finish the parent. With Redis configured, restart the server while one chat
 is at the facilitator picker and complete it after restart.
 
+The brief and facilitator pickers are also the live example for model-driven
+interrupt contracts. One `useReason` call receives both `briefPicker` and
+`agentPicker`; the model chooses the appropriate contract, the Canvas picker
+submits a structured response value, and the same reasoning operation resumes.
+To exercise it directly, ask “Tell me about the brief” (generic brief picker)
+or “Create a canvas” (brief and facilitator pickers).
+
 ### Handoff and child calls in the same map
 
 Send `/help` in Canvas chat to run a deterministic, model-free handoff:

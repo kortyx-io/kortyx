@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { z } from "zod";
-import { runWithHookContext } from "../src";
+import { defineInterruptContract, runWithHookContext } from "../src";
 import { useReason } from "../src/hooks";
 import { createNode, createProvider, createState } from "./helpers";
 
@@ -10,6 +10,126 @@ const TextInterruptRequestSchema = z.object({
 });
 
 describe("useReason tool loop", () => {
+  it("uses one of multiple interrupt contracts between ordinary tool calls", async () => {
+    const jobPicker = defineInterruptContract({
+      description: "Ask the user to select a matching job.",
+      schemaId: "wolly.job-picker",
+      schemaVersion: "1",
+      requestSchema: z.object({
+        kind: z.literal("choice"),
+        question: z.string(),
+        candidates: z.array(z.object({ jobId: z.string(), title: z.string() })),
+      }),
+      responseSchema: z.discriminatedUnion("type", [
+        z.object({ type: z.literal("select"), jobId: z.string() }),
+        z.object({ type: z.literal("cancel") }),
+      ]),
+    });
+    const refinement = defineInterruptContract({
+      description: "Ask the user to refine an ambiguous search.",
+      schemaId: "wolly.job-refinement",
+      schemaVersion: "1",
+      requestSchema: z.object({ question: z.string() }),
+      responseSchema: z.object({ query: z.string() }),
+    });
+    const candidates = [
+      { jobId: "job-1", title: "Platform Engineer" },
+      { jobId: "job-2", title: "Frontend Engineer" },
+    ];
+    const { modelRef, invoke } = createProvider({
+      invokeResponses: [
+        {
+          content: "",
+          toolCalls: [
+            { id: "search-1", name: "search_jobs", input: { q: "France" } },
+          ],
+        },
+        {
+          content: "",
+          toolCalls: [
+            {
+              id: "ask-1",
+              name: "kortyx_request_input__jobPicker",
+              input: {
+                kind: "choice",
+                question: "Which engineering job?",
+                candidates,
+              },
+            },
+          ],
+        },
+        {
+          content: "",
+          toolCalls: [
+            { id: "read-1", name: "read_job", input: { jobId: "job-2" } },
+          ],
+        },
+        { content: "The Frontend Engineer role is based in Paris." },
+      ],
+    });
+    const search = vi.fn(async () => candidates);
+    const read = vi.fn(async () => ({
+      jobId: "job-2",
+      title: "Frontend Engineer",
+      city: "Paris",
+    }));
+    const { node, interrupts } = createNode({
+      interruptResponse: { type: "select", jobId: "job-2" },
+    });
+
+    const { result } = await runWithHookContext(
+      { node, state: createState() },
+      () =>
+        useReason({
+          model: modelRef,
+          input: "Tell me about that engineering job in France.",
+          tools: [
+            { name: "search_jobs", inputSchema: {}, execute: search },
+            { name: "read_job", inputSchema: {}, execute: read },
+          ],
+          interrupts: {
+            mode: "optional",
+            maxRequests: 2,
+            contracts: { jobPicker, refinement },
+          },
+          toolExecution: { maxSteps: 6 },
+        }),
+    );
+
+    expect(search).toHaveBeenCalledTimes(1);
+    expect(read).toHaveBeenCalledWith(
+      { jobId: "job-2" },
+      { toolCallId: "read-1" },
+    );
+    expect(interrupts).toEqual([
+      expect.objectContaining({
+        kind: "custom",
+        contract: "jobPicker",
+        schemaId: "wolly.job-picker",
+        schemaVersion: "1",
+        request: expect.objectContaining({ candidates }),
+      }),
+    ]);
+    expect(result.interruptHistory).toEqual([
+      {
+        contract: "jobPicker",
+        request: {
+          kind: "choice",
+          question: "Which engineering job?",
+          candidates,
+        },
+        response: { type: "select", jobId: "job-2" },
+      },
+    ]);
+    expect(result.toolCalls?.map((call) => call.name)).toEqual([
+      "search_jobs",
+      "read_job",
+    ]);
+    expect(result.toolResults).toHaveLength(2);
+    expect(result.text).toContain("Paris");
+    expect(invoke).toHaveBeenCalledTimes(4);
+  });
+
   it("preserves a model failure when cleanup also fails", async () => {
     const { modelRef, invoke } = createProvider();
     const primary = new Error("model failed");
@@ -198,17 +318,29 @@ describe("useReason tool loop", () => {
     ]);
   });
 
-  it("rejects useReason interrupt mode when tools are provided and closes owned tools", async () => {
+  it("adapts deprecated interrupt mode into the tool loop and closes owned tools", async () => {
     const { invoke, modelRef } = createProvider({
-      invokeResponses: [{ content: "unused" }],
+      invokeResponses: [
+        {
+          content: "",
+          toolCalls: [
+            {
+              id: "ask-1",
+              name: "kortyx_request_input__default",
+              input: { kind: "text", question: "Which country?" },
+            },
+          ],
+        },
+        { content: "The order is in France." },
+      ],
     });
     const execute = vi.fn(async () => ({ status: "ready" }));
     const close = vi.fn();
-    const { node } = createNode();
     const state = createState();
 
-    await expect(
-      runWithHookContext({ node, state }, async () =>
+    const { result } = await runWithHookContext(
+      { node: createNode({ interruptResponse: "France" }).node, state },
+      async () =>
         useReason({
           model: modelRef,
           input: "Check order ord_1",
@@ -224,11 +356,17 @@ describe("useReason tool loop", () => {
             },
           ],
         }),
-      ),
-    ).rejects.toThrow(
-      "useReason tools cannot be combined with useReason interrupt mode yet. Use toolExecution.approval for tool approval.",
     );
-    expect(invoke).not.toHaveBeenCalled();
+    expect(result.text).toBe("The order is in France.");
+    expect(result.interruptResponse).toBe("France");
+    expect(result.interruptHistory).toEqual([
+      {
+        contract: "default",
+        request: { kind: "text", question: "Which country?" },
+        response: "France",
+      },
+    ]);
+    expect(invoke).toHaveBeenCalledTimes(2);
     expect(execute).not.toHaveBeenCalled();
     expect(close).toHaveBeenCalledTimes(1);
   });

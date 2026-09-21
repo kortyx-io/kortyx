@@ -122,6 +122,9 @@ describe("orchestrateGraphStream", () => {
       config: {
         telemetryInterruptId: "interrupt-2",
         telemetryInterruptNodeId: "ask",
+        telemetryInterruptContract: "jobPicker",
+        telemetryInterruptSchemaId: "wolly.job-picker",
+        telemetryInterruptSchemaVersion: "1",
         telemetry: {
           environment: "test",
           service: { name: "app" },
@@ -147,6 +150,9 @@ describe("orchestrateGraphStream", () => {
         interruptId: "interrupt-2",
         resumeOutcome: "failed",
         resumeError: "An unexpected error occurred.",
+        contract: "jobPicker",
+        schemaId: "wolly.job-picker",
+        schemaVersion: "1",
       },
     });
   });
@@ -574,6 +580,112 @@ describe("orchestrateGraphStream", () => {
           schemaId: "agent-picker",
           optionCount: 0,
         }),
+      }),
+    );
+  });
+
+  it("captures structured interrupt contract requests only under output content capture", async () => {
+    const telemetryEvents: unknown[] = [];
+    const graph = graphWithEvents((emit) => {
+      emit("interrupt", {
+        node: "brief",
+        input: {
+          kind: "custom",
+          contract: "jobPicker",
+          schemaId: "wolly.job-picker",
+          schemaVersion: "1",
+          question: "Which engineering job?",
+          request: {
+            kind: "choice",
+            question: "Which engineering job?",
+            candidates: [{ jobId: "job-1", title: "Engineer" }],
+          },
+          options: [],
+        },
+      });
+      return [
+        { type: "done", data: { ...baseState, awaitingHumanInput: true } },
+      ];
+    });
+
+    await collect(
+      await orchestrateGraphStream({
+        runId: "run-contract-picker",
+        graph,
+        state: baseState,
+        config: {
+          telemetry: {
+            environment: "test",
+            service: { name: "app" },
+            captureContent: { output: true },
+            correlation: {
+              runId: "run-contract-picker",
+              workflowId: "first",
+            },
+            reporter: {
+              ensureWorkflowTopology: async () => ({
+                workflowRevisionId: "revision-1",
+                created: false,
+              }),
+              emit: async (items: unknown[]) => {
+                telemetryEvents.push(...items);
+              },
+            },
+          },
+        },
+        selectWorkflow: vi.fn(),
+      }),
+    );
+
+    expect(telemetryEvents).toContainEqual(
+      expect.objectContaining({
+        type: "interrupt.created",
+        payload: expect.objectContaining({
+          kind: "custom",
+          interactionMode: "dynamic-picker",
+          contract: "jobPicker",
+          schemaId: "wolly.job-picker",
+          schemaVersion: "1",
+          requestCaptured: true,
+          request: expect.objectContaining({
+            candidates: [{ jobId: "job-1", title: "Engineer" }],
+          }),
+        }),
+      }),
+    );
+  });
+
+  it("persists a minimal custom interrupt without optional contract metadata", async () => {
+    const pendingRequests = {
+      save: vi.fn(async () => undefined),
+      update: vi.fn(async () => undefined),
+    };
+    const graph = graphWithEvents((emit) => {
+      emit("interrupt", {
+        node: "brief",
+        input: { kind: "custom", options: [] },
+      });
+      return [
+        { type: "done", data: { ...baseState, awaitingHumanInput: true } },
+      ];
+    });
+
+    await collect(
+      await orchestrateGraphStream({
+        runId: "run-minimal-custom",
+        graph,
+        state: baseState,
+        config: {},
+        selectWorkflow: vi.fn(),
+        frameworkAdapter: {
+          pendingRequests,
+        } as unknown as FrameworkAdapter,
+      }),
+    );
+
+    expect(pendingRequests.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        schema: { kind: "custom", multiple: false },
       }),
     );
   });

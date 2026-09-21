@@ -166,8 +166,15 @@ const interruptProjectionValues = (
     interrupt.userId,
     interrupt.tenantId,
     interrupt.resolvedBy,
+    interrupt.contract,
+    interrupt.schemaId,
+    interrupt.schemaVersion,
     interrupt.question,
+    interrupt.request ? JSON.stringify(interrupt.request) : null,
     interrupt.response,
+    interrupt.responseValue !== null
+      ? JSON.stringify(interrupt.responseValue)
+      : null,
     interrupt.resumeError,
   ]),
   data: interrupt,

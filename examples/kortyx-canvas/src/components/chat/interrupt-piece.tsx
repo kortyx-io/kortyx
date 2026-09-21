@@ -25,7 +25,11 @@ import {
 type ResolverCandidate = { id: string; label: string };
 
 function readCandidates(piece: HumanInputPiece): ResolverCandidate[] {
-  const raw = piece.meta?.candidates;
+  const request =
+    piece.request && typeof piece.request === "object"
+      ? (piece.request as Record<string, unknown>)
+      : undefined;
+  const raw = request?.candidates ?? piece.meta?.candidates;
   if (!Array.isArray(raw)) return [];
   const out: ResolverCandidate[] = [];
   for (const item of raw) {
@@ -37,7 +41,11 @@ function readCandidates(piece: HumanInputPiece): ResolverCandidate[] {
   return out;
 }
 
-type InterruptResponse = { selected: string[]; text: string };
+type InterruptResponse = {
+  selected: string[];
+  text: string;
+  value?: unknown;
+};
 
 type RespondHandler = (
   piece: HumanInputPiece,
@@ -55,6 +63,26 @@ type Props = {
   disabled?: boolean;
   answeredLabel?: string;
 };
+
+function readQuestion(piece: HumanInputPiece): string | undefined {
+  if (piece.request && typeof piece.request === "object") {
+    const question = (piece.request as Record<string, unknown>).question;
+    if (typeof question === "string") return question;
+  }
+  return piece.question;
+}
+
+function selectionResponse(
+  piece: HumanInputPiece,
+  id: string,
+  label: string,
+): InterruptResponse {
+  return {
+    selected: [id],
+    text: label,
+    ...(piece.kind === "custom" ? { value: id } : {}),
+  };
+}
 
 export function InterruptPiece({
   piece,
@@ -455,11 +483,11 @@ function BriefPickerPiece({
   const candidates = readCandidates(piece);
 
   return (
-    <PickerShell question={piece.question}>
+    <PickerShell question={readQuestion(piece)}>
       <CandidateShortlist
         candidates={candidates}
         onPick={(id, label) =>
-          onRespond(piece, { selected: [id], text: label })
+          onRespond(piece, selectionResponse(piece, id, label))
         }
       />
       <AsyncSearchSelect<BriefPickerOption>
@@ -468,7 +496,7 @@ function BriefPickerPiece({
         onChange={(value) => {
           setSelected(value);
           if (value) {
-            onRespond(piece, { selected: [value.id], text: value.title });
+            onRespond(piece, selectionResponse(piece, value.id, value.title));
           }
         }}
         renderItem={(brief) => (
@@ -505,11 +533,11 @@ function AgentPickerPiece({
   const candidates = readCandidates(piece);
 
   return (
-    <PickerShell question={piece.question}>
+    <PickerShell question={readQuestion(piece)}>
       <CandidateShortlist
         candidates={candidates}
         onPick={(id, label) =>
-          onRespond(piece, { selected: [id], text: label })
+          onRespond(piece, selectionResponse(piece, id, label))
         }
       />
       <AsyncSearchSelect<AgentPickerOption>
@@ -518,7 +546,7 @@ function AgentPickerPiece({
         onChange={(value) => {
           setSelected(value);
           if (value) {
-            onRespond(piece, { selected: [value.id], text: value.title });
+            onRespond(piece, selectionResponse(piece, value.id, value.title));
           }
         }}
         renderItem={(agent) => (

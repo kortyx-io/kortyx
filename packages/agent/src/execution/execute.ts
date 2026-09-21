@@ -57,6 +57,7 @@ const responseSchema = z.discriminatedUnion("type", [
       ids: z.array(z.string().min(1)).min(1),
     })
     .strict(),
+  z.object({ type: z.literal("value"), value: z.unknown() }).strict(),
   z.object({ type: z.literal("cancel") }).strict(),
 ]);
 
@@ -254,7 +255,13 @@ export async function resumeWorkflow(
         "Resume handle does not match the root execution and workflow version.",
       );
     if (response.type === "cancel") return;
-    if (response.type === "text") {
+    if (response.type === "value") {
+      if (pending.schema.kind !== "custom")
+        throw new ExecutionRequestError(
+          "INVALID_RESPONSE",
+          "Structured values are only valid for custom interrupts.",
+        );
+    } else if (response.type === "text") {
       if (pending.schema.kind !== "text")
         throw new ExecutionRequestError(
           "INVALID_RESPONSE",
@@ -297,6 +304,9 @@ export async function resumeWorkflow(
             : response.type === "select"
               ? response.ids
               : [],
+        ...(response.type === "value"
+          ? { value: response.value, hasValue: true }
+          : {}),
         cancel: response.type === "cancel",
       },
       sessionId: handle.sessionId,

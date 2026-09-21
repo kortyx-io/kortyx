@@ -1,8 +1,7 @@
 import "server-only";
 
 import { google } from "@kortyx/google";
-import { useInterrupt, useReason } from "kortyx";
-import type { z } from "zod";
+import { defineInterruptContract, useReason } from "kortyx";
 import {
   PICK_AGENT_INTERRUPT_ID,
   PICK_BRIEF_INTERRUPT_ID,
@@ -12,9 +11,28 @@ import {
   pickerResponseSchema,
 } from "@/schemas/interrupts";
 import type { EntityCandidate } from "../lib/search-entities";
-import { localizedAmbiguityItem } from "../resolvers/picker-item";
 
 export type EntityKind = "brief" | "agent";
+
+const briefPicker = defineInterruptContract({
+  description:
+    "Ask the user to choose a discovery brief from model-provided candidates or search for another brief.",
+  schemaId: PICK_BRIEF_INTERRUPT_ID,
+  schemaVersion: "2",
+  requestSchema: pickerRequestSchema,
+  responseSchema: pickerResponseSchema,
+});
+
+const agentPicker = defineInterruptContract({
+  description:
+    "Ask the user to choose a facilitator agent from model-provided candidates or search for another agent.",
+  schemaId: PICK_AGENT_INTERRUPT_ID,
+  schemaVersion: "2",
+  requestSchema: pickerRequestSchema,
+  responseSchema: pickerResponseSchema,
+});
+
+const pickerContracts = { briefPicker, agentPicker } as const;
 
 /** Maps the entity kind to the canonical interrupt id seen by the client. */
 export function pickerInterruptId(what: EntityKind): string {
@@ -34,40 +52,11 @@ export async function askCandidatePicker(args: {
   candidates: EntityCandidate[];
 }): Promise<{ id: string; label: string | undefined }> {
   const labelById = new Map(args.candidates.map((c) => [c.id, c.label]));
-  const interruptId = pickerInterruptId(args.what);
-
-  const question = await localizedAmbiguityItem({
-    id: `pick-${args.what}-ambiguity-question`,
+  const id = await askModelPicker({
     what: args.what,
-    query: args.query,
+    candidates: args.candidates,
+    contextHint: `The search query was "${args.query}" and matched several results. Ask the user to choose one of the supplied candidates or search for another.`,
   });
-
-  const selected = await useInterrupt({
-    id: interruptId,
-    request: {
-      // `choice` (not `text`) so kortyx's chat.send doesn't auto-route a
-      // plain chat-input submission as the interrupt response — the picker
-      // UI calls respondToInterrupt explicitly; everything else is a new
-      // chat turn that re-classifies. Options is intentionally empty: the
-      // client renders an AsyncSearchSelect against `meta.candidates` (and
-      // a server-action search), not a static option list. See
-      // schemas/interrupts.ts.
-      kind: "choice",
-      question,
-      options: [],
-      schemaId: interruptId,
-      schemaVersion: "1",
-      meta: {
-        prefillQuery: args.query,
-        candidates: args.candidates satisfies EntityCandidate[],
-      },
-    },
-  });
-
-  const id = Array.isArray(selected) ? selected[0] : selected;
-  if (typeof id !== "string" || id.length === 0) {
-    throw new Error(`pickEntity: missing interrupt response for ${args.what}`);
-  }
   return { id, label: labelById.get(id) };
 }
 
@@ -86,67 +75,80 @@ export async function askGenericPicker(args: {
    */
   contextHint?: string;
 }): Promise<string> {
-  const interruptId = pickerInterruptId(args.what);
+  return askModelPicker({
+    what: args.what,
+    candidates: [],
+    ...(args.contextHint ? { contextHint: args.contextHint } : {}),
+  });
+}
 
-  // Split question generation from the interrupt so resume only replays
-  // the user's pick — `useReason({ interrupt })` always runs a continuation
-  // LLM pass after the pick, which added ~15s of dead air before any stream
-  // events on brief-query resume.
-  const questionResult = await useReason<z.infer<typeof pickerRequestSchema>>({
-    id: `${interruptId}-question`,
+/**
+ * Runs one durable reasoning operation with both Canvas picker contracts.
+ * The model chooses the contract matching `what`, Kortyx pauses at the
+ * generated request, and the selected id is returned to the same operation
+ * as that control tool's result. The response is read from interrupt history
+ * after the continuation completes; application code does not own a replay
+ * loop or a separate `useInterrupt` checkpoint.
+ */
+async function askModelPicker(args: {
+  what: EntityKind;
+  candidates: EntityCandidate[];
+  contextHint?: string;
+}): Promise<string> {
+  const interruptId = pickerInterruptId(args.what);
+  const expectedContract =
+    args.what === "brief" ? "briefPicker" : "agentPicker";
+  const result = await useReason({
+    id: `${interruptId}-reason`,
     model: google("gemini-2.5-flash"),
-    system: buildGenericPickerSystem({
+    system: buildPickerSystem({
       what: args.what,
       ...(args.contextHint ? { contextHint: args.contextHint } : {}),
     }),
-    input:
-      args.what === "brief"
-        ? "Generate the question asking which discovery brief to use."
-        : "Generate the question asking which facilitator agent to use.",
-    outputSchema: pickerRequestSchema,
-    responseFormat: { type: "json" },
+    input: [
+      `Request the ${args.what} selection now.`,
+      `Candidates (copy these exactly into the request): ${JSON.stringify(args.candidates)}`,
+      "After the human response arrives, acknowledge it briefly and finish without requesting input again.",
+    ].join("\n"),
+    interrupts: {
+      mode: "required",
+      maxRequests: 1,
+      contracts: pickerContracts,
+    },
+    toolExecution: { maxSteps: 3, approval: false, emit: true },
     emit: false,
   });
 
-  const request = questionResult.output;
-  if (!request?.question?.trim()) {
+  const history = result.interruptHistory as
+    | Array<{ contract: keyof typeof pickerContracts; response: string }>
+    | undefined;
+  const response = history?.find(
+    (entry) => entry.contract === expectedContract,
+  )?.response;
+  if (typeof response !== "string" || response.length === 0) {
     throw new Error(
-      `pickEntity: generic picker question generation failed for ${args.what}`,
+      `pickEntity: missing ${expectedContract} response for ${args.what}`,
     );
   }
-
-  const selected = await useInterrupt({
-    id: interruptId,
-    request: {
-      kind: request.kind,
-      question: request.question,
-      options: request.options,
-      schemaId: interruptId,
-      schemaVersion: "1",
-    },
-    responseSchema: pickerResponseSchema,
-  });
-
-  const id = Array.isArray(selected) ? selected[0] : selected;
-  if (typeof id !== "string" || id.length === 0) {
-    throw new Error(`pickEntity: missing interrupt response for ${args.what}`);
-  }
-  return id;
+  return response;
 }
 
-function buildGenericPickerSystem(args: {
+function buildPickerSystem(args: {
   what: EntityKind;
   contextHint?: string;
 }): string {
   const subject =
     args.what === "brief" ? "a discovery brief" : "a facilitator agent";
+  const expectedContract =
+    args.what === "brief" ? "briefPicker" : "agentPicker";
 
   return [
     "You are the Canvas Agent helping an user.",
-    `Write ONE short, natural question (max 20 words) asking the user which ${subject} they want.`,
+    `You must call the ${expectedContract} human-input contract, not the other picker contract.`,
+    `Write one short, natural question (max 20 words) asking which ${subject} the user wants.`,
     "Use the provided context to phrase the question appropriately. Do NOT assume a canvas-generation framing when the context says otherwise.",
-    'Always set `kind` to "choice", set `question`, and leave `options` as an empty array — the UI renders its own search picker, not a static option list.',
-    "Return JSON only matching the requested schema.",
+    'Set `kind` to "choice", set `question`, leave `options` empty, and copy the supplied `candidates` exactly. The UI renders its own search picker.',
+    "After the contract returns a selected id, finish. Never request human input a second time.",
     args.contextHint ? `Context: ${args.contextHint}` : "",
   ]
     .filter(Boolean)

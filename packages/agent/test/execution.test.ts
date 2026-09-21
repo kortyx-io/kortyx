@@ -1,6 +1,7 @@
 // biome-ignore-all lint/correctness/useHookAtTopLevel: Kortyx server hooks run within workflow nodes.
 import { defineWorkflow } from "@kortyx/core";
 import {
+  defineInterruptContract,
   useInterrupt,
   useReason,
   useRuntimeContext,
@@ -32,6 +33,137 @@ const workflow = (run: (args: { input: { topic: string } }) => any) =>
       ["run", "__end__"],
     ],
   });
+
+it("resumes one reasoning loop across tools and a structured interrupt", async () => {
+  const picker = defineInterruptContract({
+    description: "Ask the user to choose a matching job.",
+    schemaId: "wolly.job-picker",
+    schemaVersion: "1",
+    requestSchema: z.object({
+      question: z.string(),
+      candidates: z.array(z.object({ jobId: z.string(), title: z.string() })),
+    }),
+    responseSchema: z.object({
+      type: z.literal("select"),
+      jobId: z.string(),
+    }),
+  });
+  const candidates = [
+    { jobId: "job-1", title: "Platform Engineer" },
+    { jobId: "job-2", title: "Frontend Engineer" },
+  ];
+  const responses = [
+    {
+      content: "",
+      toolCalls: [
+        { id: "search-1", name: "search_jobs", input: { country: "France" } },
+      ],
+    },
+    {
+      content: "",
+      toolCalls: [
+        {
+          id: "ask-1",
+          name: "kortyx_request_input__jobPicker",
+          input: { question: "Which job?", candidates },
+        },
+      ],
+    },
+    {
+      content: "",
+      toolCalls: [
+        { id: "read-1", name: "read_job", input: { jobId: "job-2" } },
+      ],
+    },
+    { content: "Frontend Engineer in Paris" },
+  ];
+  const invoke = vi.fn(async () => {
+    const response = responses.shift();
+    if (!response) throw new Error("No model response configured");
+    return response;
+  });
+  const provider = {
+    id: "mock",
+    models: ["mock"],
+    getModel: () => ({
+      invoke,
+      stream: async function* () {
+        yield { type: "text-delta" as const, delta: "unused" };
+      },
+    }),
+  };
+  const search = vi.fn(async () => candidates);
+  const read = vi.fn(async () => ({ city: "Paris" }));
+  const research = workflow(async () => {
+    const result = await useReason({
+      id: "brief",
+      model: { provider, modelId: "mock" },
+      input: "Tell me about the engineering job in France.",
+      stream: false,
+      emit: false,
+      tools: [
+        { name: "search_jobs", inputSchema: {}, execute: search },
+        { name: "read_job", inputSchema: {}, execute: read },
+      ],
+      interrupts: {
+        mode: "optional",
+        maxRequests: 2,
+        contracts: { jobPicker: picker },
+      },
+      toolExecution: { maxSteps: 6 },
+    });
+    expect(result.toolCalls?.map((call) => call.name)).toEqual([
+      "search_jobs",
+      "read_job",
+    ]);
+    expect(result.toolResults?.map((toolResult) => toolResult.name)).toEqual([
+      "search_jobs",
+      "read_job",
+    ]);
+    expect(result.interruptHistory).toEqual([
+      {
+        contract: "jobPicker",
+        request: { question: "Which job?", candidates },
+        response: { type: "select", jobId: "job-2" },
+      },
+    ]);
+    return { data: { summary: result.text } };
+  });
+  const adapter = createInMemoryFrameworkAdapter();
+  const make = () =>
+    createAgent({ workflows: [research], frameworkAdapter: adapter });
+
+  const pause = suspended(
+    await make().execute({
+      workflow: research,
+      input: { topic: "jobs" },
+    }),
+  );
+  expect(pause.interrupt.input).toMatchObject({
+    kind: "custom",
+    contract: "jobPicker",
+    request: { question: "Which job?", candidates },
+    schemaId: "wolly.job-picker",
+    schemaVersion: "1",
+  });
+
+  const final = await make().resume({
+    workflow: research,
+    resume: pause.resume,
+    response: {
+      type: "value",
+      value: { type: "select", jobId: "job-2" },
+    },
+  });
+  expect(final).toMatchObject({
+    status: "completed",
+    runId: pause.runId,
+    data: { summary: "Frontend Engineer in Paris" },
+  });
+  expect(search).toHaveBeenCalledTimes(1);
+  expect(read).toHaveBeenCalledTimes(1);
+  expect(invoke).toHaveBeenCalledTimes(4);
+});
 
 it("infers and validates input/output, isolates fresh runs even in one session", async () => {
   const research = workflow(({ input }) => ({
@@ -297,6 +429,7 @@ for (const persistence of [
       );
       for (const response of [
         { type: "text", text: "wrong" },
+        { type: "value", value: { approved: true } },
         { type: "select", ids: ["unknown"] },
         { type: "select", ids: ["yes", "yes"] },
       ] as const) {

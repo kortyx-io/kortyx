@@ -438,6 +438,108 @@ describe("createAgent", () => {
     expect(deleteCheckpointWrites).toHaveBeenCalledTimes(4);
   });
 
+  it("lets checkpoint stores atomically prepare managed pending requests", async () => {
+    const request = {
+      token: "managed-token",
+      requestId: "human-managed",
+      sessionId: "session-1",
+      runId: "run-1",
+      workflow: "workflow-1",
+      node: "ask",
+      schema: { kind: "choice" as const, multiple: false },
+      options: [],
+      createdAt: 1,
+      ttlMs: 1000,
+    };
+    const pendingRequests = {
+      delete: vi.fn(async () => undefined),
+      save: vi.fn(async () => undefined),
+    };
+    const sessionCheckpoints = {
+      managesPendingRequests: true,
+      list: vi.fn(async () => []),
+      get: vi.fn(async () => null),
+      rollbackTo: vi.fn(
+        async (
+          id: string,
+          options?: {
+            preparePendingRequests?: (requests: (typeof request)[]) => void;
+          },
+        ) => {
+          options?.preparePendingRequests?.([request]);
+          return {
+            sessionId: "session-1",
+            head: id,
+            invalidatedStructuredStreamIds: [],
+            invalidatedInterruptTokens: [],
+            activePendingRequests: [request],
+          };
+        },
+      ),
+      fork: vi.fn(
+        async (
+          id: string,
+          options?: {
+            newSessionId?: string;
+            preparePendingRequests?: (requests: (typeof request)[]) => void;
+          },
+        ) => {
+          options?.preparePendingRequests?.([request]);
+          return {
+            sessionId: options?.newSessionId ?? "child",
+            parentSessionId: "session-1",
+            forkedFrom: id,
+            checkpoint: {
+              id: "child-cp",
+              sessionId: options?.newSessionId ?? "child",
+              runId: "run-1",
+              turnIndex: 0,
+              createdAt: 1,
+              nodes: [],
+              workflow: "workflow-1",
+              state: {} as never,
+              effects: { structuredStreamIds: [], interruptTokens: [] },
+              activePendingRequests: [request],
+            },
+          };
+        },
+      ),
+    };
+    const agent = createAgent({
+      workflows: [{ id: "workflow-1" } as WorkflowDefinition],
+      frameworkAdapter: {
+        pendingRequests,
+        sessionCheckpoints,
+      } as unknown as FrameworkAdapter,
+    });
+
+    await expect(agent.rollbackTo("cp-1")).resolves.toMatchObject({
+      activePendingRequests: [{ token: "managed-token" }],
+    });
+    await expect(
+      agent.fork("cp-1", { newSessionId: "child-session" }),
+    ).resolves.toMatchObject({
+      sessionId: "child-session",
+      checkpoint: {
+        activePendingRequests: [{ token: "managed-token" }],
+      },
+    });
+    expect(sessionCheckpoints.rollbackTo).toHaveBeenCalledWith(
+      "cp-1",
+      expect.objectContaining({
+        preparePendingRequests: expect.any(Function),
+      }),
+    );
+    expect(sessionCheckpoints.fork).toHaveBeenCalledWith(
+      "cp-1",
+      expect.objectContaining({
+        newSessionId: "child-session",
+        preparePendingRequests: expect.any(Function),
+      }),
+    );
+    expect(pendingRequests.save).not.toHaveBeenCalled();
+  });
+
   it("clears graph writes for every hydrated rollback pending request", async () => {
     const pendingRequests = {
       delete: vi.fn(async () => undefined),

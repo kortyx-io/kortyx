@@ -10,13 +10,15 @@ interface HumanInputStreamChunk {
   schemaVersion?: string;
   meta?: Record<string, unknown>;
   input?: {
-    kind?: "text" | "choice" | "multi-choice";
+    kind?: "text" | "choice" | "multi-choice" | "custom";
     question?: string;
     multiple?: boolean;
     id?: string;
     schemaId?: string;
     schemaVersion?: string;
     meta?: Record<string, unknown>;
+    contract?: string;
+    request?: unknown;
     options?: Array<{
       id?: string | number;
       label?: string;
@@ -58,6 +60,7 @@ export function toHumanInputPiece(args: {
     input.schemaVersion,
   );
   const interruptId = firstNonEmptyString(hi.id, input.id);
+  const contract = nonEmptyString(input.contract);
   const inputMeta = isRecord(input.meta) ? input.meta : undefined;
   const chunkMeta = isRecord(hi.meta) ? hi.meta : undefined;
   const meta =
@@ -98,6 +101,8 @@ export function toHumanInputPiece(args: {
     ...(schemaId ? { schemaId } : {}),
     ...(schemaVersion ? { schemaVersion } : {}),
     ...(interruptId ? { interruptId } : {}),
+    ...(contract ? { contract } : {}),
+    ...(Object.hasOwn(input, "request") ? { request: input.request } : {}),
     ...(meta ? { meta } : {}),
   };
 }

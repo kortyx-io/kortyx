@@ -11,6 +11,7 @@ export const InterruptTypeSchema = z.enum([
   "choice",
   "multi-choice",
   "text",
+  "structured",
   "unknown",
 ]);
 export const InterruptInteractionModeSchema = z.enum([
@@ -43,12 +44,15 @@ export const InterruptSchema = z.object({
   status: InterruptStatusSchema,
   type: InterruptTypeSchema,
   interactionMode: InterruptInteractionModeSchema,
+  contract: z.string().optional(),
   schemaId: z.string().optional(),
   schemaVersion: z.string().optional(),
   createdAt: z.string(),
   resolvedAt: z.string().optional(),
   expiresAt: z.string().optional(),
   question: z.string(),
+  request: z.record(z.string(), z.unknown()).optional(),
+  requestCaptured: z.boolean(),
   optionCount: z.number().optional(),
   options: z.array(InterruptOptionSchema).optional(),
   workflow: z.string(),
@@ -57,6 +61,15 @@ export const InterruptSchema = z.object({
   user: z.string().optional(),
   tenant: z.string().optional(),
   response: z.string().optional(),
+  responseValue: z
+    .union([
+      z.record(z.string(), z.unknown()),
+      z.array(z.unknown()),
+      z.string(),
+      z.number(),
+      z.boolean(),
+    ])
+    .optional(),
   responseCaptured: z.boolean(),
   resumeOutcome: ResumeOutcomeSchema.optional(),
   resumeError: z.string().optional(),

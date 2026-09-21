@@ -56,7 +56,7 @@ type Props = {
   emptyState?: React.ReactNode;
   onRespondToInterrupt: (
     piece: HumanInputPiece,
-    response: { selected: string[]; text: string },
+    response: { selected: string[]; text: string; value?: unknown },
   ) => void;
   onDebugMessage: (messageId: string) => void;
   variantForMessage: (messageId: string) => ChatResponseVariantGroup | null;

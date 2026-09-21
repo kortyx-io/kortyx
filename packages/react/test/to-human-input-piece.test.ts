@@ -3,6 +3,45 @@ import { describe, expect, it } from "vitest";
 import { toHumanInputPiece } from "../src/to-human-input-piece";
 
 describe("toHumanInputPiece", () => {
+  it("preserves custom contract identity and request payload", () => {
+    const request = {
+      kind: "choice",
+      question: "Which job?",
+      candidates: [{ jobId: "job-1", title: "Engineer" }],
+    };
+    const piece = toHumanInputPiece({
+      chunk: {
+        type: "interrupt",
+        requestId: "request-custom",
+        resumeToken: "resume-custom",
+        input: {
+          kind: "custom",
+          multiple: false,
+          contract: "jobPicker",
+          request,
+          schemaId: "wolly.job-picker",
+          schemaVersion: "1",
+        },
+      } as StreamChunk,
+      createId: () => "piece-custom",
+    });
+
+    expect(piece).toEqual({
+      id: "piece-custom",
+      type: "interrupt",
+      resumeToken: "resume-custom",
+      requestId: "request-custom",
+      kind: "custom",
+      question: "Please choose",
+      multiple: false,
+      options: [],
+      contract: "jobPicker",
+      request,
+      schemaId: "wolly.job-picker",
+      schemaVersion: "1",
+    });
+  });
+
   it("defaults non-text interrupts to a choice prompt", () => {
     const piece = toHumanInputPiece({
       chunk: {

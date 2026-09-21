@@ -2,7 +2,7 @@ import { setTimeout as delay } from "node:timers/promises";
 import type {
   GraphState,
   InterruptInput,
-  InterruptResult,
+  InterruptResumeValue,
   NodeConfig,
   NodeResult,
   WorkflowDefinition,
@@ -277,13 +277,16 @@ export async function createExecutionGraph(
         graph: { name: workflowName, node: nodeId },
         config: nodeConfig,
         emit: emitRuntimeEvent,
-        awaitInterrupt: (interruptConfig: InterruptInput): InterruptResult => {
+        awaitInterrupt: (
+          interruptConfig: InterruptInput,
+        ): InterruptResumeValue => {
           throwIfExecutionAborted(execution.abortSignal);
           if (execution.budget) assertExecutionBudget(execution.budget);
           const { kind, question } = interruptConfig;
+          const isCustom = kind === "custom";
           const isMulti =
             kind === "multi-choice" ||
-            (interruptConfig.kind !== "text" &&
+            (interruptConfig.kind === "choice" &&
               interruptConfig.multiple === true);
           const sharedInterruptFields = {
             ...(typeof interruptConfig.id === "string" &&
@@ -304,8 +307,19 @@ export async function createExecutionGraph(
               ? { meta: interruptConfig.meta }
               : {}),
           };
-          const payload: InterruptInput =
-            interruptConfig.kind === "text"
+          const payload: InterruptInput = isCustom
+            ? {
+                kind: "custom",
+                request: interruptConfig.request,
+                ...(question ? { question } : {}),
+                ...(interruptConfig.contract
+                  ? { contract: interruptConfig.contract }
+                  : {}),
+                schemaId: interruptConfig.schemaId,
+                schemaVersion: interruptConfig.schemaVersion,
+                ...sharedInterruptFields,
+              }
+            : interruptConfig.kind === "text"
               ? {
                   kind: "text",
                   ...(question ? { question } : {}),
@@ -331,6 +345,7 @@ export async function createExecutionGraph(
               });
             throw error;
           }
+          if (isCustom) return resumed;
           if (isMulti) {
             if (Array.isArray(resumed)) {
               return (resumed as unknown[])

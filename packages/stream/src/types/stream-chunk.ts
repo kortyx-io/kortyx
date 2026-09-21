@@ -124,6 +124,18 @@ export const StreamChunkSchema = z.union([
         meta: z.record(z.string(), z.unknown()).optional(),
         options: z.array(z.never()).optional(),
       }),
+      z.object({
+        kind: z.literal("custom"),
+        multiple: z.literal(false),
+        question: z.string().optional(),
+        contract: z.string().optional(),
+        request: z.unknown(),
+        id: z.string().optional(),
+        schemaId: z.string(),
+        schemaVersion: z.string(),
+        meta: z.record(z.string(), z.unknown()).optional(),
+        options: z.array(z.never()).optional(),
+      }),
       // Choice/multi-choice: question + options required
       z.object({
         kind: z.enum(["choice", "multi-choice"]),

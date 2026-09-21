@@ -26,6 +26,8 @@ export interface ResumeMeta {
   token: string;
   requestId: string;
   selected: string[]; // normalized to array for consistency
+  value?: unknown;
+  hasValue?: boolean;
   cancel?: boolean;
 }
 
@@ -53,6 +55,7 @@ export function parseResumeMeta(
   const token = typeof raw.token === "string" ? raw.token : "";
   const requestId = typeof raw.requestId === "string" ? raw.requestId : "";
   const cancel = raw.cancel === true;
+  const hasValue = Object.hasOwn(raw, "value");
 
   // Accept multiple shapes; normalize to selected: string[]
   let selected: string[] = [];
@@ -67,7 +70,13 @@ export function parseResumeMeta(
       .filter((id): id is string => typeof id === "string");
 
   if (!token || !requestId) return null;
-  return { token, requestId, selected, cancel };
+  return {
+    token,
+    requestId,
+    selected,
+    cancel,
+    ...(hasValue ? { value: raw.value, hasValue: true } : {}),
+  };
 }
 
 interface TryResumeArgs {
@@ -187,6 +196,9 @@ export async function tryPrepareResumeStream({
         payload: {
           interruptId: pending.requestId,
           reason: "cancelled_by_client",
+          ...(pending.schema.contract
+            ? { contract: pending.schema.contract }
+            : {}),
         },
         flush: true,
       });
@@ -304,11 +316,13 @@ export async function tryPrepareResumeStream({
       !isLimitPause && Object.keys(resumeUpdate).length > 0;
     const resumeValue = isLimitPause
       ? undefined
-      : meta.selected?.length && pending.schema.kind === "multi-choice"
-        ? meta.selected.map((x) => String(x))
-        : meta.selected?.length
-          ? String(meta.selected[0])
-          : undefined;
+      : meta.hasValue && pending.schema.kind === "custom"
+        ? meta.value
+        : meta.selected?.length && pending.schema.kind === "multi-choice"
+          ? meta.selected.map((x) => String(x))
+          : meta.selected?.length
+            ? String(meta.selected[0])
+            : undefined;
     const resumeCheckpointId =
       typeof pending.graphCheckpointId === "string" &&
       pending.graphCheckpointId.length > 0
@@ -322,7 +336,9 @@ export async function tryPrepareResumeStream({
       ...(hasResumeUpdate ? { resumeUpdate } : {}),
     });
     await store.delete(pending.token);
-    const response = responseFromSelection(meta.selected);
+    const response = meta.hasValue
+      ? JSON.stringify(meta.value)
+      : responseFromSelection(meta.selected);
     const telemetry = isRecord(telemetryConfig.telemetry)
       ? telemetryConfig.telemetry
       : {};
@@ -344,6 +360,18 @@ export async function tryPrepareResumeStream({
         resolvedAt: new Date().toISOString(),
         resumeOutcome: "resumed",
         responseCaptured,
+        ...(pending.schema.contract
+          ? { contract: pending.schema.contract }
+          : {}),
+        ...(pending.schema.schemaId
+          ? { schemaId: pending.schema.schemaId }
+          : {}),
+        ...(pending.schema.schemaVersion
+          ? { schemaVersion: pending.schema.schemaVersion }
+          : {}),
+        ...(responseCaptured && meta.hasValue
+          ? { responseValue: meta.value }
+          : {}),
         ...(responseCaptured && response ? { response } : {}),
       },
       flush: true,
@@ -371,6 +399,17 @@ export async function tryPrepareResumeStream({
         resume: true,
         telemetryInterruptId: pending.requestId,
         telemetryInterruptNodeId: pending.node,
+        ...(pending.schema.contract
+          ? { telemetryInterruptContract: pending.schema.contract }
+          : {}),
+        ...(pending.schema.schemaId
+          ? { telemetryInterruptSchemaId: pending.schema.schemaId }
+          : {}),
+        ...(pending.schema.schemaVersion
+          ? {
+              telemetryInterruptSchemaVersion: pending.schema.schemaVersion,
+            }
+          : {}),
         ...(resumeValue !== undefined ? { resumeValue } : {}),
         ...(resumeCheckpointId ? { resumeCheckpointId } : {}),
         ...(hasResumeUpdate ? { resumeUpdate } : {}),

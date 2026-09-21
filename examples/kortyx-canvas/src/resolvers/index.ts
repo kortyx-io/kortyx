@@ -1,4 +1,3 @@
-export { localizedAmbiguityItem } from "./picker-item";
 export {
   type Resolution,
   type ResolutionCandidate,

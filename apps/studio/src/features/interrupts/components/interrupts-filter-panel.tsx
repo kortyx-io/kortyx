@@ -15,7 +15,7 @@ const statuses = [
   "failed",
   "cancelled",
 ] as const;
-const types = ["choice", "multi-choice", "text"] as const;
+const types = ["choice", "multi-choice", "text", "structured"] as const;
 const outcomes = [
   "resumed",
   "resume failed",
@@ -73,7 +73,7 @@ export function InterruptsFilterPanel({
         {types.map((type) => (
           <FilterCheckbox
             key={type}
-            label={type}
+            label={type === "structured" ? "Structured contract" : type}
             checked={query.type.includes(type)}
             onChange={() => query.toggleType(type)}
           />

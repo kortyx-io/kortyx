@@ -105,6 +105,21 @@ const asNumber = (value: unknown): number | null =>
 const asBoolean = (value: unknown): boolean | null =>
   typeof value === "boolean" ? value : null;
 
+const asRecordOrNull = (value: unknown): Record<string, unknown> | null =>
+  isRecord(value) ? value : null;
+
+const asInterruptValue = (value: unknown): StudioInterrupt["responseValue"] => {
+  if (
+    typeof value === "string" ||
+    typeof value === "number" ||
+    typeof value === "boolean" ||
+    Array.isArray(value) ||
+    isRecord(value)
+  )
+    return value;
+  return null;
+};
+
 const asStringArray = (value: unknown): string[] =>
   Array.isArray(value)
     ? value.filter((item): item is string => typeof item === "string")
@@ -796,6 +811,7 @@ const mapInterruptType = (kind: string | null): StudioInterruptType => {
   if (kind === "choice") return "choice";
   if (kind === "multi-choice") return "multi-choice";
   if (kind === "text") return "text";
+  if (kind === "custom") return "structured";
   return "unknown";
 };
 
@@ -907,6 +923,7 @@ const aggregateInterrupts = (
         now,
       );
       const question = asString(first.payload.question);
+      const request = asRecordOrNull(redactDetailValue(first.payload.request));
       const optionCount = asNumber(first.payload.optionCount);
       const options = mapInterruptOptions(first.payload.options);
       const type = mapInterruptType(asString(first.payload.kind));
@@ -920,6 +937,9 @@ const aggregateInterrupts = (
               asBoolean(event.payload.responseCaptured) !== null),
         );
       const response = asString(responseEvent?.payload.response);
+      const responseValue = asInterruptValue(
+        redactDetailValue(responseEvent?.payload.responseValue),
+      );
       return {
         id: interruptId,
         afterResponseCompleted: first.payload.responseCompleted === true,
@@ -931,13 +951,18 @@ const aggregateInterrupts = (
           optionCount,
           schemaId,
         ),
+        contract: asString(first.payload.contract),
         schemaId,
         schemaVersion: asString(first.payload.schemaVersion),
         createdAt: iso(first.occurredAt),
         resolvedAt: terminal ? iso(terminal.occurredAt) : null,
         expiresAt,
         question,
-        contentCaptured: question !== null || options !== null,
+        contentCaptured:
+          question !== null || request !== null || options !== null,
+        request,
+        requestCaptured:
+          asBoolean(first.payload.requestCaptured) ?? request !== null,
         optionCount,
         options,
         workflowId: first.workflowId,
@@ -946,9 +971,10 @@ const aggregateInterrupts = (
         userId: first.userId,
         tenantId: first.tenantId,
         response,
+        responseValue,
         responseCaptured:
           asBoolean(responseEvent?.payload.responseCaptured) ??
-          response !== null,
+          (response !== null || responseValue !== null),
         resumeOutcome: mapResumeOutcome(
           status,
           asString(terminal?.payload.resumeOutcome),

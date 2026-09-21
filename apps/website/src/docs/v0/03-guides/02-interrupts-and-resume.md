@@ -44,7 +44,16 @@ const picked = await useInterrupt({
 
 Use stable `id` values for interrupts in nodes that can replay or contain multiple interrupt calls.
 
-Or use `useReason({ interrupt: ... })` when you want model-generated interrupt requests constrained by schema. By default, `useReason` treats interrupt config as required: the model must produce an interrupt request, the runtime pauses, and the hook continues after resume. Set `interrupt.mode` to `"optional"` when the model should return either `decision: "continue"` for a single-call result or `decision: "interrupt"` with an interrupt request.
+Use `defineInterruptContract(...)` with
+`useReason({ interrupts: { contracts } })` when the model should decide whether
+to ask. You may provide several named contracts; each becomes a model-visible
+control tool with validated request and response schemas. Ordinary tools can run
+before and after the pause. `mode: "required"` requires at least one human turn,
+while `mode: "optional"` lets the model finish immediately when clarification is
+unnecessary. `maxRequests` bounds sequential interruptions.
+
+The singular `useReason({ interrupt })` API is deprecated and will be removed
+in the next major release.
 
 > **Good to know:** Use required interrupts for approvals and safety gates. Optional interrupts are best for flows where the model can answer immediately but may ask for user input when the request is ambiguous.
 
@@ -101,6 +110,40 @@ Accepted `selected` shapes:
 - string[]
 - `{ choice: { id } }`
 - `{ choices: [{ id }, ...] }`
+
+Contract interrupts use an opaque structured value instead of `selected`:
+
+```json
+{
+  "resume": {
+    "token": "<resumeToken>",
+    "requestId": "<requestId>",
+    "value": { "type": "select", "jobId": "job-123" }
+  }
+}
+```
+
+In `@kortyx/react`, custom renderers receive `piece.contract`,
+`piece.request`, `piece.schemaId`, and `piece.schemaVersion`, then call
+`respondToInterrupt(piece, { value })`. The server validates that value against
+the selected contract's response schema before reasoning continues.
+
+## Inspecting contract interrupts in Studio
+
+Studio remains read-only: your application renders the picker and sends the
+response. When Studio telemetry is connected, the interrupt list and run trace
+identify the model-selected contract, its schema ID/version, lifecycle, wait
+time, and resume outcome. The interrupt detail shows the structured request and
+response when the corresponding content-capture direction is enabled:
+
+- `captureContent.output` includes the model-authored request.
+- `captureContent.input` includes the submitted structured response.
+- With capture disabled, Studio still shows structural lifecycle and contract
+  identity without storing application content.
+
+Contract control calls are shown as human-input pauses, not as executed
+application tools. Existing `useInterrupt(...)` records continue to appear as
+static choices, free-form requests, or client-resolved dynamic pickers.
 
 > **Good to know:** On resume, node code starts again from the top. `useReason` continues from its internal checkpoint, but code before `useReason` can run again unless you guard it. Prefer putting `useReason` first in the node and use `useNodeState` for pre-events that should emit once.
 

@@ -497,6 +497,7 @@ export const StudioInterruptTypeSchema = z.enum([
   "choice",
   "multi-choice",
   "text",
+  "structured",
   "unknown",
 ]);
 export const StudioInterruptInteractionModeSchema = z.enum([
@@ -512,6 +513,13 @@ export const StudioInterruptOptionSchema = z
     description: z.string().nullable(),
   })
   .strict();
+export const StudioInterruptValueSchema = z.union([
+  z.record(z.string(), z.unknown()),
+  z.array(z.unknown()),
+  z.string(),
+  z.number(),
+  z.boolean(),
+]);
 export const StudioResumeOutcomeSchema = z.enum([
   "resumed",
   "resume failed",
@@ -661,6 +669,7 @@ export const StudioInterruptSchema = z
     status: StudioInterruptStatusSchema,
     type: StudioInterruptTypeSchema,
     interactionMode: StudioInterruptInteractionModeSchema,
+    contract: z.string().nullable().default(null),
     schemaId: z.string().nullable(),
     schemaVersion: z.string().nullable(),
     createdAt: z.string().datetime({ offset: true }),
@@ -668,6 +677,8 @@ export const StudioInterruptSchema = z
     expiresAt: z.string().datetime({ offset: true }).nullable(),
     question: z.string().nullable(),
     contentCaptured: z.boolean(),
+    request: z.record(z.string(), z.unknown()).nullable().default(null),
+    requestCaptured: z.boolean().default(false),
     optionCount: z.number().int().nonnegative().nullable(),
     options: z.array(StudioInterruptOptionSchema).nullable(),
     workflowId: z.string().min(1),
@@ -676,6 +687,7 @@ export const StudioInterruptSchema = z
     userId: z.string().nullable(),
     tenantId: z.string().nullable(),
     response: z.string().nullable(),
+    responseValue: StudioInterruptValueSchema.nullable().default(null),
     responseCaptured: z.boolean(),
     resumeOutcome: StudioResumeOutcomeSchema.nullable(),
     resumeError: z.string().nullable(),

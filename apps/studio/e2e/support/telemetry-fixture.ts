@@ -17,6 +17,7 @@ const studioApiKey =
 export const DRAWER_FIXTURE = {
   interruptId: `${FIXTURE_PREFIX}-interrupt`,
   dynamicInterruptId: `${FIXTURE_PREFIX}-dynamic-interrupt`,
+  contractInterruptId: `${FIXTURE_PREFIX}-contract-interrupt`,
   freeformInterruptId: `${FIXTURE_PREFIX}-freeform-interrupt`,
   runId: `${FIXTURE_PREFIX}-run`,
   sessionId: `${FIXTURE_PREFIX}-session`,
@@ -444,6 +445,60 @@ export async function seedDrawerFixture(request: APIRequestContext) {
         interruptId: DRAWER_FIXTURE.freeformInterruptId,
       },
     ),
+    event(
+      "contract-interrupt-created",
+      2_500,
+      "interrupt.created",
+      "collectBrief",
+      {
+        interruptId: DRAWER_FIXTURE.contractInterruptId,
+        requestId: `${FIXTURE_PREFIX}-contract-request`,
+        kind: "custom",
+        interactionMode: "dynamic-picker",
+        contract: "jobPicker",
+        schemaId: "wolly.job-picker",
+        schemaVersion: "1",
+        question: "Which engineering job did you mean?",
+        requestCaptured: true,
+        request: {
+          kind: "choice",
+          question: "Which engineering job did you mean?",
+          candidates: [
+            {
+              jobId: "job-1",
+              title: "Senior Engineer",
+              companyName: "Example France",
+              city: "Paris",
+            },
+            {
+              jobId: "job-2",
+              title: "Platform Engineer",
+              companyName: "Example France",
+              city: "Lyon",
+            },
+          ],
+          allowRefinement: true,
+        },
+        optionCount: 0,
+      },
+    ),
+    event(
+      "contract-interrupt-resolved",
+      2_600,
+      "interrupt.resolved",
+      "collectBrief",
+      {
+        interruptId: DRAWER_FIXTURE.contractInterruptId,
+        contract: "jobPicker",
+        schemaId: "wolly.job-picker",
+        schemaVersion: "1",
+        resolvedAt: new Date(baseTime + 2_600).toISOString(),
+        resumeOutcome: "resumed",
+        responseCaptured: true,
+        response: '{"type":"select","jobId":"job-1"}',
+        responseValue: { type: "select", jobId: "job-1" },
+      },
+    ),
   ];
 
   const eventResponse = await request.post(
@@ -470,6 +525,11 @@ export async function seedDrawerFixture(request: APIRequestContext) {
     request,
     "interrupts",
     DRAWER_FIXTURE.freeformInterruptId,
+  );
+  await pollForProjection(
+    request,
+    "interrupts",
+    DRAWER_FIXTURE.contractInterruptId,
   );
 }
 

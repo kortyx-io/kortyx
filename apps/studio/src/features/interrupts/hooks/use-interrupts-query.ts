@@ -29,7 +29,13 @@ const interruptStatuses = [
   "failed",
   "cancelled",
 ] as const;
-const interruptTypes = ["choice", "multi-choice", "text", "unknown"] as const;
+const interruptTypes = [
+  "choice",
+  "multi-choice",
+  "text",
+  "structured",
+  "unknown",
+] as const;
 const outcomes = [
   "resumed",
   "resume failed",
