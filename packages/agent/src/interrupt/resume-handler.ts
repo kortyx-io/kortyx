@@ -376,6 +376,20 @@ export async function tryPrepareResumeStream({
       },
       flush: true,
     });
+    emitTelemetryEvent({
+      config: telemetryConfig,
+      type: "workflow.resumed",
+      correlation: {
+        runId: pending.runId,
+        sessionId,
+        workflowId,
+        nodeId: pending.node,
+      },
+      payload: {
+        interruptId: pending.requestId,
+        resumedAt: new Date().toISOString(),
+      },
+    });
 
     const continuedSignal =
       pending.responseCompleted && emitOutput === false

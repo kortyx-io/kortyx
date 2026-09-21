@@ -30,7 +30,7 @@ workflows in `workflows/shared/`.
 | `release-prepare.yml` | Release / Prepare PR | Manual, main only |
 | `release-tags.yml` | Release / Tags | Release manifest changes on main, or manual |
 | `npm-publish.yml` | Release / NPM | Manual, main only, npm environment approval |
-| `release-studio-images.yml` | Release / Studio Images | Manual, existing Studio release tag |
+| `release-studio-images.yml` | Release / Studio Images | Published Studio release, or manual recovery with an existing tag |
 | `release-studio-recover.yml` | Release / Studio Recovery | Manual, existing tag and recorded digests |
 | `website-preview.yml` | Website / Preview | Same-repository PR changes and closure |
 | `website-release.yml` | Website / Release | Website version tags |
@@ -82,6 +82,9 @@ image build contexts even for older release candidates.
 - npm publishes only changed, managed public packages from a release commit, skips
   existing versions, and retains provenance and the npm environment gate. The
   publication step receives the actual SHA recorded after checkout.
+- Publishing a `studio-v*` GitHub release automatically starts the Studio image
+  pipeline; non-Studio package releases are ignored. Manual dispatch remains
+  available for an existing Studio tag when publication must be retried.
 - Studio release tag/package/manifest agreement, main ancestry, immutable version
   checks, native amd64/arm64 smoke tests, credential rotation, persistence,
   backup/restore, external PostgreSQL, and updater ownership checks are retained.

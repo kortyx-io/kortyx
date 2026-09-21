@@ -79,6 +79,12 @@ export type StudioDeploymentCredentials = Pick<
   | "KORTYX_STUDIO_BASIC_AUTH_PASSWORD"
 >;
 
+export type StudioStateSnapshot = {
+  config: string | null;
+  environment: string | null;
+  compose: string | null;
+};
+
 export const defaultStudioHome = (): string =>
   resolve(
     process.env.KORTYX_STUDIO_HOME ?? join(homedir(), ".kortyx", "studio"),
@@ -213,6 +219,37 @@ const writePrivateFileAtomically = async (
   }
 };
 
+const readOptionalFile = async (path: string): Promise<string | null> => {
+  try {
+    return await readFile(path, "utf8");
+  } catch (error) {
+    if (isMissingFile(error)) return null;
+    throw error;
+  }
+};
+
+export const captureStudioState = async (
+  home: string,
+): Promise<StudioStateSnapshot> => ({
+  config: await readOptionalFile(studioConfigPath(home)),
+  environment: await readOptionalFile(studioEnvPath(home)),
+  compose: await readOptionalFile(studioComposePath(home)),
+});
+
+export const restoreStudioState = async (
+  home: string,
+  snapshot: StudioStateSnapshot,
+): Promise<void> => {
+  for (const [path, contents] of [
+    [studioConfigPath(home), snapshot.config],
+    [studioEnvPath(home), snapshot.environment],
+    [studioComposePath(home), snapshot.compose],
+  ] as const) {
+    if (contents === null) await unlink(path).catch(() => undefined);
+    else await writePrivateFileAtomically(path, contents);
+  }
+};
+
 export const readStudioEnvironment = async (
   home: string,
 ): Promise<StudioEnvironment> => {
@@ -273,16 +310,14 @@ export const ensureStudioState = async (
   const existing = await readStudioConfig(options.home);
   const config = resolveConfig(existing, options, runtime);
 
-  await writeFile(
+  await writePrivateFileAtomically(
     studioConfigPath(options.home),
     `${JSON.stringify(config, null, 2)}\n`,
-    { mode: 0o600 },
   );
-  await chmod(studioConfigPath(options.home), 0o600);
-  await writeFile(studioComposePath(options.home), STUDIO_COMPOSE_FILE, {
-    mode: 0o600,
-  });
-  await chmod(studioComposePath(options.home), 0o600);
+  await writePrivateFileAtomically(
+    studioComposePath(options.home),
+    STUDIO_COMPOSE_FILE,
+  );
 
   let environment: StudioEnvironment;
   try {

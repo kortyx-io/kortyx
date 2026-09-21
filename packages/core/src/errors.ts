@@ -121,6 +121,14 @@ export function isControlFlowError(error: unknown): boolean {
     code === "EXECUTION_CANCELLED" ||
     code === "EXECUTION_LIMIT_REACHED" ||
     name === "AbortError" ||
+    isSuspensionControlFlowError(error)
+  );
+}
+
+/** Expected suspension signals pause execution without representing a failure. */
+export function isSuspensionControlFlowError(error: unknown): boolean {
+  const name = errorProperty(error, "name");
+  return (
     name === "GraphInterrupt" ||
     name === "NodeInterrupt" ||
     name === "ParallelChildWaiting"

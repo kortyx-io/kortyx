@@ -12,6 +12,8 @@ describe("Kortyx API app", () => {
     const response = await app.request("/health");
 
     expect(response.status).toBe(200);
+    expect(response.headers.get("x-kortyx-studio-api-version")).toBe("1");
+    expect(response.headers.get("x-kortyx-studio-release")).toBe("development");
     await expect(response.json()).resolves.toEqual({
       status: "ok",
       service: "kortyx-api",

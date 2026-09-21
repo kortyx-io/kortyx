@@ -763,6 +763,8 @@ function friendlyEventLabel(type: StudioDetailEvent["type"]) {
     "session.forked": "Session forked",
     "session.rolled_back": "Session rolled back",
     "run.cancelled": "Run cancelled",
+    "workflow.suspended": "Workflow suspended",
+    "workflow.resumed": "Workflow resumed",
     "run.limit_reached": "Limit reached — Continue?",
     "workflow.transitioned": "Workflow transitioned",
   };

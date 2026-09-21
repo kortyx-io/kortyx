@@ -29,6 +29,11 @@ import {
 } from "@kortyx/telemetry-db";
 import type { ApiEnv } from "../types";
 import { studioReviewActorId } from "./scores";
+import {
+  compatibleStudioEvents,
+  compatibleStudioInterrupt,
+  currentStudioReadContract,
+} from "./studio-compatibility";
 
 const ErrorResponseSchema = z.object({
   error: z.string(),
@@ -289,7 +294,7 @@ export const registerStudioRoutes = (app: OpenAPIHono<ApiEnv>): void => {
         api: {
           status: "ok" as const,
           service: "kortyx-api" as const,
-          version: "0.1.0",
+          version: process.env.KORTYX_STUDIO_RELEASE ?? "development",
         },
       },
       200,
@@ -327,7 +332,13 @@ export const registerStudioRoutes = (app: OpenAPIHono<ApiEnv>): void => {
     if (!run) {
       return c.json({ error: "not_found", message: "Run not found." }, 404);
     }
-    const events = models.detailEvents.filter((event) => event.runId === runId);
+    const current = currentStudioReadContract(
+      c.req.header("x-kortyx-studio-api-version"),
+    );
+    const events = compatibleStudioEvents(
+      models.detailEvents.filter((event) => event.runId === runId),
+      current,
+    );
     const scores = await listRunScores(c.get("db"), {
       organizationId: auth.organizationId,
       projectId: auth.projectId,
@@ -349,7 +360,9 @@ export const registerStudioRoutes = (app: OpenAPIHono<ApiEnv>): void => {
         events,
         session:
           models.sessions.find((item) => item.id === run.sessionId) ?? null,
-        interrupts: models.interrupts.filter((item) => item.runId === runId),
+        interrupts: models.interrupts
+          .filter((item) => item.runId === runId)
+          .map((item) => compatibleStudioInterrupt(item, current)),
         updatedAt,
       },
       200,
@@ -387,8 +400,12 @@ export const registerStudioRoutes = (app: OpenAPIHono<ApiEnv>): void => {
     if (!session) {
       return c.json({ error: "not_found", message: "Session not found." }, 404);
     }
-    const events = models.detailEvents.filter(
-      (event) => event.sessionId === sessionId,
+    const current = currentStudioReadContract(
+      c.req.header("x-kortyx-studio-api-version"),
+    );
+    const events = compatibleStudioEvents(
+      models.detailEvents.filter((event) => event.sessionId === sessionId),
+      current,
     );
     return c.json(
       {
@@ -399,9 +416,9 @@ export const registerStudioRoutes = (app: OpenAPIHono<ApiEnv>): void => {
           models.runs.filter((item) => item.sessionId === sessionId),
         ),
         events,
-        interrupts: models.interrupts.filter(
-          (item) => item.sessionId === sessionId,
-        ),
+        interrupts: models.interrupts
+          .filter((item) => item.sessionId === sessionId)
+          .map((item) => compatibleStudioInterrupt(item, current)),
         updatedAt: events.at(-1)?.receivedAt ?? session.lastActivityAt,
       },
       200,
@@ -422,7 +439,18 @@ export const registerStudioRoutes = (app: OpenAPIHono<ApiEnv>): void => {
       projectId: auth.projectId,
       query,
     });
-    return c.json({ interrupts: page.items, totalCount: page.totalCount }, 200);
+    const current = currentStudioReadContract(
+      c.req.header("x-kortyx-studio-api-version"),
+    );
+    return c.json(
+      {
+        interrupts: page.items.map((item) =>
+          compatibleStudioInterrupt(item, current),
+        ),
+        totalCount: page.totalCount,
+      },
+      200,
+    );
   });
   app.openapi(interruptDetailRoute, async (c) => {
     const auth = c.get("auth");
@@ -445,13 +473,19 @@ export const registerStudioRoutes = (app: OpenAPIHono<ApiEnv>): void => {
         404,
       );
     }
-    const events = models.detailEvents.filter(
-      (event) => event.payload.interruptId === interruptId,
+    const current = currentStudioReadContract(
+      c.req.header("x-kortyx-studio-api-version"),
+    );
+    const events = compatibleStudioEvents(
+      models.detailEvents.filter(
+        (event) => event.payload.interruptId === interruptId,
+      ),
+      current,
     );
     const run = models.runs.find((item) => item.id === interrupt.runId) ?? null;
     return c.json(
       {
-        interrupt,
+        interrupt: compatibleStudioInterrupt(interrupt, current),
         events,
         run,
         session:

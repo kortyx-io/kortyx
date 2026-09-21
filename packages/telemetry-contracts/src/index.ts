@@ -3,6 +3,9 @@ import { FeedbackSummarySchema, StudioScoreSchema } from "./scores";
 
 export * from "./scores";
 
+/** Studio read API compatibility changes only when the wire protocol breaks. */
+export const STUDIO_API_PROTOCOL_VERSION = "1";
+
 import {
   StudioToolSchema,
   ToolDiscoverySchema,
@@ -39,6 +42,8 @@ export const TELEMETRY_EVENT_TYPES = [
   "interrupt.cancelled",
   "run.cancelled",
   "run.limit_reached",
+  "workflow.suspended",
+  "workflow.resumed",
   "workflow.transitioned",
   "workflow.call.started",
   "workflow.call.suspended",
@@ -512,7 +517,7 @@ export const StudioInterruptOptionSchema = z
     label: z.string().min(1),
     description: z.string().nullable(),
   })
-  .strict();
+  .strip();
 export const StudioInterruptValueSchema = z.union([
   z.record(z.string(), z.unknown()),
   z.array(z.unknown()),
@@ -569,7 +574,7 @@ export const StudioMetricSchema = z
     averageCost: z.number().nonnegative().nullable(),
     currency: z.string().nullable(),
   })
-  .strict();
+  .strip();
 export const StudioRunSchema = z
   .object({
     id: z.string().min(1),
@@ -592,7 +597,7 @@ export const StudioRunSchema = z
           workflowRevisionId: z.string().nullable(),
           declaredVersion: z.string().nullable(),
         })
-        .strict(),
+        .strip(),
     ),
     workflowRevisionId: z.string().nullable(),
     declaredVersion: z.string().nullable(),
@@ -623,7 +628,7 @@ export const StudioRunSchema = z
       .nullable()
       .optional(),
   })
-  .strict();
+  .strip();
 export const StudioSessionSchema = z
   .object({
     id: z.string().min(1),
@@ -661,7 +666,7 @@ export const StudioSessionSchema = z
     tags: z.array(z.string()),
     environment: z.string().min(1),
   })
-  .strict();
+  .strip();
 export const StudioInterruptSchema = z
   .object({
     afterResponseCompleted: z.boolean().optional(),
@@ -696,11 +701,12 @@ export const StudioInterruptSchema = z
     resolvedBy: z.string().nullable(),
     environment: z.string().min(1),
   })
-  .strict();
+  .strip();
 export const StudioDetailEventSchema = z
   .object({
     id: z.string().min(1),
-    type: TelemetryEventTypeSchema,
+    // Studio readers must preserve future event kinds within the same API major.
+    type: z.string().min(1),
     occurredAt: z.string().datetime({ offset: true }),
     receivedAt: z.string().datetime({ offset: true }),
     environment: z.string().min(1),
@@ -720,7 +726,7 @@ export const StudioDetailEventSchema = z
     metadata: z.record(z.string(), z.unknown()).nullable(),
     payload: z.record(z.string(), z.unknown()),
   })
-  .strict();
+  .strip();
 export const StudioWorkflowNodeSchema = z
   .object({
     tools: z.array(StudioToolSchema).optional(),
@@ -735,7 +741,7 @@ export const StudioWorkflowNodeSchema = z
     model: z.string().nullable(),
     metrics: StudioMetricSchema,
   })
-  .strict();
+  .strip();
 export const StudioWorkflowInternalEdgeSchema = z
   .object({
     id: z.string().min(1),
@@ -743,7 +749,7 @@ export const StudioWorkflowInternalEdgeSchema = z
     target: z.string().min(1),
     condition: z.string().nullable(),
   })
-  .strict();
+  .strip();
 export const StudioWorkflowTransitionSchema = z
   .object({
     kind: z.enum(["call", "handoff"]).optional(),
@@ -757,7 +763,7 @@ export const StudioWorkflowTransitionSchema = z
     medianDurationMs: z.number().nonnegative().nullable(),
     errorRate: z.number().min(0).max(100).nullable(),
   })
-  .strict();
+  .strip();
 export const StudioWorkflowSchema = z
   .object({
     id: z.string().min(1),
@@ -773,25 +779,25 @@ export const StudioWorkflowSchema = z
     nodes: z.array(StudioWorkflowNodeSchema),
     internalEdges: z.array(StudioWorkflowInternalEdgeSchema),
   })
-  .strict();
+  .strip();
 export const StudioRunsResponseSchema = z
   .object({
     runs: z.array(StudioRunSchema),
     totalCount: z.number().int().nonnegative(),
   })
-  .strict();
+  .strip();
 export const StudioSessionsResponseSchema = z
   .object({
     sessions: z.array(StudioSessionSchema),
     totalCount: z.number().int().nonnegative(),
   })
-  .strict();
+  .strip();
 export const StudioInterruptsResponseSchema = z
   .object({
     interrupts: z.array(StudioInterruptSchema),
     totalCount: z.number().int().nonnegative(),
   })
-  .strict();
+  .strip();
 export const StudioRunDetailResponseSchema = z
   .object({
     run: StudioRunSchema,
@@ -803,7 +809,7 @@ export const StudioRunDetailResponseSchema = z
     interrupts: z.array(StudioInterruptSchema),
     updatedAt: z.string().datetime({ offset: true }),
   })
-  .strict();
+  .strip();
 export const StudioSessionDetailResponseSchema = z
   .object({
     session: StudioSessionSchema,
@@ -812,7 +818,7 @@ export const StudioSessionDetailResponseSchema = z
     interrupts: z.array(StudioInterruptSchema),
     updatedAt: z.string().datetime({ offset: true }),
   })
-  .strict();
+  .strip();
 export const StudioInterruptDetailResponseSchema = z
   .object({
     interrupt: StudioInterruptSchema,
@@ -821,7 +827,7 @@ export const StudioInterruptDetailResponseSchema = z
     session: StudioSessionSchema.nullable(),
     updatedAt: z.string().datetime({ offset: true }),
   })
-  .strict();
+  .strip();
 export const StudioWorkflowsResponseSchema = z
   .object({
     workflows: z.array(StudioWorkflowSchema),
@@ -838,9 +844,9 @@ export const StudioWorkflowsResponseSchema = z
     cohort: StudioTimeRangeContextSchema.extend({
       workflowId: z.string().nullable(),
       version: z.string().nullable(),
-    }).strict(),
+    }).strip(),
   })
-  .strict();
+  .strip();
 export const StudioCatalogsResponseSchema = z
   .object({
     environments: z.array(z.string()),
@@ -849,35 +855,35 @@ export const StudioCatalogsResponseSchema = z
     workflows: z.array(z.string()),
     tags: z.array(z.string()),
   })
-  .strict();
+  .strip();
 export const StudioContextResponseSchema = z
   .object({
     organization: z
       .object({
         name: z.string().min(1),
       })
-      .strict(),
+      .strip(),
     project: z
       .object({
         name: z.string().min(1),
       })
-      .strict(),
+      .strip(),
     environments: z.array(z.string()),
     apiKey: z
       .object({
         mode: z.enum(["test", "live"]),
         scopes: z.array(z.string()),
       })
-      .strict(),
+      .strip(),
     api: z
       .object({
         status: z.literal("ok"),
         service: z.literal("kortyx-api"),
         version: z.string().min(1),
       })
-      .strict(),
+      .strip(),
   })
-  .strict();
+  .strip();
 export type StudioRunStatus = z.infer<typeof StudioRunStatusSchema>;
 export type StudioTimeRange = z.infer<typeof StudioTimeRangeSchema>;
 export type StudioTimeRangeContext = z.infer<

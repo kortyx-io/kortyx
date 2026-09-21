@@ -138,14 +138,29 @@ export const sanitizeStudioData = (
 export const summarizeEvidence = (events: StudioDetailEvent[]) => {
   const findings = events.flatMap((event) => {
     const payload = event.payload;
+    const error =
+      payload.error &&
+      typeof payload.error === "object" &&
+      !Array.isArray(payload.error)
+        ? (payload.error as Record<string, unknown>)
+        : {};
+    const suspension =
+      event.type === "span.failed" &&
+      (error.controlFlow === true ||
+        ["GraphInterrupt", "NodeInterrupt", "ParallelChildWaiting"].includes(
+          String(error.name),
+        ));
     const failed =
-      /(?:failed|error|fault)/i.test(event.type) ||
-      payload.outcome === "fault" ||
-      payload.status === "failed";
+      !suspension &&
+      (/(?:failed|error|fault)/i.test(event.type) ||
+        payload.outcome === "fault" ||
+        payload.status === "failed");
     const warning =
+      suspension ||
       /(?:retry|cancel|interrupt|limit_reached|denied|suspended|waiting)/i.test(
         event.type,
-      ) || ["denied", "cancelled"].includes(String(payload.outcome));
+      ) ||
+      ["denied", "cancelled"].includes(String(payload.outcome));
     if (!failed && !warning) return [];
     return [
       {

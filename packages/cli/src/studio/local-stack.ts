@@ -1,11 +1,18 @@
 import { writeFile } from "node:fs/promises";
-import { studioComposeFile } from "./compose";
 import {
+  STUDIO_API_PROTOCOL_VERSION,
+  StudioContextResponseSchema,
+} from "@kortyx/telemetry-contracts";
+import { studioComposeFile } from "./compose";
+import { StudioReadClient, StudioReadError } from "./read-client";
+import {
+  captureStudioState,
   createRotatedStudioEnvironment,
   createStudioDeploymentCredentials,
   ensureStudioState,
   readStudioEnvironment,
   requireStudioConfig,
+  restoreStudioState,
   type StudioConfig,
   studioComposePath,
   studioEnvPath,
@@ -199,46 +206,66 @@ export const startStudio = async (
   runtime: StudioRuntime,
 ): Promise<void> => {
   await preflightDocker(runtime);
-  const config = await ensureStudioState(options, runtime);
-  const environment = await readStudioEnvironment(options.home);
-  const apiImage = String(
-    environment.KORTYX_API_IMAGE_REF ??
-      `${environment.KORTYX_API_IMAGE ?? "ghcr.io/kortyx-io/kortyx-api"}:${config.imageTag}`,
-  );
-  await runtime.run("docker", ["pull", apiImage], { inherit: true });
-  const capability = await runtime.run(
-    "docker",
-    [
-      "run",
-      "--rm",
-      "--entrypoint",
-      "node",
-      apiImage,
-      "-e",
-      'if (require("node:fs").existsSync("/app/apps/api/dist/updater.js")) console.log("supported")',
-    ],
-    { inherit: false },
-  );
-  await writeFile(
-    studioComposePath(options.home),
-    studioComposeFile(
-      process.platform !== "win32" && capability.stdout.trim() === "supported",
-    ),
-    { mode: 0o600 },
-  );
-  if (!(await hasRunningServices(options.home, runtime))) {
-    await assertPortsAvailable(config, runtime);
+  const snapshot = await captureStudioState(options.home);
+  try {
+    const config = await ensureStudioState(options, runtime);
+    const environment = await readStudioEnvironment(options.home);
+    const apiImage = String(
+      environment.KORTYX_API_IMAGE_REF ??
+        `${environment.KORTYX_API_IMAGE ?? "ghcr.io/kortyx-io/kortyx-api"}:${config.imageTag}`,
+    );
+    const studioImage = String(
+      environment.KORTYX_STUDIO_IMAGE_REF ??
+        `${environment.KORTYX_STUDIO_IMAGE ?? "ghcr.io/kortyx-io/kortyx-studio"}:${config.imageTag}`,
+    );
+    await runtime.run("docker", ["pull", apiImage], { inherit: true });
+    if (studioImage !== apiImage)
+      await runtime.run("docker", ["pull", studioImage], { inherit: true });
+    const capability = await runtime.run(
+      "docker",
+      [
+        "run",
+        "--rm",
+        "--entrypoint",
+        "node",
+        apiImage,
+        "-e",
+        'if (require("node:fs").existsSync("/app/apps/api/dist/updater.js")) console.log("supported")',
+      ],
+      { inherit: false },
+    );
+    await writeFile(
+      studioComposePath(options.home),
+      studioComposeFile(
+        process.platform !== "win32" &&
+          capability.stdout.trim() === "supported",
+      ),
+      { mode: 0o600 },
+    );
+    if (!(await hasRunningServices(options.home, runtime))) {
+      await assertPortsAvailable(config, runtime);
+    }
+    runtime.log(
+      "Starting Kortyx Studio. The first image pull can take a few minutes.",
+    );
+    await runCompose(
+      options.home,
+      ["up", "-d", "--remove-orphans", "--wait", "--wait-timeout", "180"],
+      runtime,
+    );
+    runtime.log("Kortyx Studio is ready.");
+    await printStudioConnection(options.home, config, runtime);
+  } catch (error) {
+    try {
+      await restoreStudioState(options.home, snapshot);
+    } catch (rollbackError) {
+      throw new AggregateError(
+        [error, rollbackError],
+        `Studio startup failed and the previous configuration could not be restored. Inspect "${options.home}" before retrying.`,
+      );
+    }
+    throw error;
   }
-  runtime.log(
-    "Starting Kortyx Studio. The first image pull can take a few minutes.",
-  );
-  await runCompose(
-    options.home,
-    ["up", "-d", "--remove-orphans", "--wait", "--wait-timeout", "180"],
-    runtime,
-  );
-  runtime.log("Kortyx Studio is ready.");
-  await printStudioConnection(options.home, config, runtime);
 };
 
 export const stopStudio = async (
@@ -278,6 +305,26 @@ export const showStudioStatus = async (
   runtime.log();
   runtime.log(`Studio: http://localhost:${config.studioPort}`);
   runtime.log(`API:    http://localhost:${config.apiPort}`);
+  if (runtime.request) {
+    const environment = await readStudioEnvironment(home);
+    const client = new StudioReadClient(
+      `http://localhost:${config.apiPort}`,
+      environment.KORTYX_STUDIO_API_KEY,
+      runtime.request,
+    );
+    try {
+      await client.get("/v1/studio/context", StudioContextResponseSchema);
+      runtime.log(
+        client.compatibility.protocolVersion
+          ? `Compatibility: Studio API v${client.compatibility.protocolVersion} (${client.compatibility.release ?? config.imageTag}) is compatible with CLI API v${STUDIO_API_PROTOCOL_VERSION}.`
+          : `Compatibility: response is compatible with CLI API v${STUDIO_API_PROTOCOL_VERSION}; this older server does not report its protocol version.`,
+      );
+    } catch (error) {
+      runtime.log(
+        `Compatibility: ${error instanceof StudioReadError ? error.message : "could not query the Studio API."}`,
+      );
+    }
+  }
   runtime.log(`State:  ${home}`);
 };
 

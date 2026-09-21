@@ -46,6 +46,12 @@ Pin both Studio images to an immutable published release:
 npx kortyx studio start --image-tag vX.Y.Z
 ```
 
+Studio image tags use the Studio release version, not the CLI package version.
+CLI and Studio minor versions may differ while remaining compatible through the
+stable Studio API protocol. `studio status` reports the configured image and the
+negotiated protocol; `studio inspect` rejects only an incompatible protocol major
+or a response that violates the advertised protocol.
+
 Use an alternate state directory or local username:
 
 ```bash

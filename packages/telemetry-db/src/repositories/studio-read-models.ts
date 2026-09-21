@@ -225,6 +225,17 @@ const errorMessage = (payload: Record<string, unknown>): string | null => {
   return asString(error?.message) ?? asString(payload.message);
 };
 
+const isSuspensionFailure = (event: TelemetryEventRecord): boolean => {
+  if (event.type !== "span.failed") return false;
+  const error = asRecordOrNull(event.payload.error);
+  return (
+    error?.controlFlow === true ||
+    ["GraphInterrupt", "NodeInterrupt", "ParallelChildWaiting"].includes(
+      String(error?.name),
+    )
+  );
+};
+
 const spanName = (event: TelemetryEventRecord): string | null =>
   asString(event.payload.name);
 
@@ -267,7 +278,9 @@ const lastRunSpanOutcome = (
   });
   const failed = [...latestSpanEvents]
     .reverse()
-    .find((event) => event.type === "span.failed");
+    .find(
+      (event) => event.type === "span.failed" && !isSuspensionFailure(event),
+    );
   if (failed) {
     return { status: "failed", event: failed };
   }
@@ -436,7 +449,10 @@ const aggregateRunGroups = (
       const last = ordered.at(-1) ?? first;
       const failed = [...ordered]
         .reverse()
-        .find((event) => event.type === "span.failed");
+        .find(
+          (event) =>
+            event.type === "span.failed" && !isSuspensionFailure(event),
+        );
       const cancelled = [...ordered]
         .reverse()
         .find((event) => event.type === "run.cancelled");

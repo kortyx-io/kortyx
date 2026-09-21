@@ -689,6 +689,12 @@ describe("tryPrepareResumeStream", () => {
         }),
       }),
     );
+    expect(emitted).toContainEqual(
+      expect.objectContaining({
+        type: "workflow.resumed",
+        payload: expect.objectContaining({ interruptId: "request-1" }),
+      }),
+    );
   });
 
   it("captures structured contract responses and carries contract identity into resumed telemetry", async () => {

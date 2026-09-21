@@ -1,6 +1,8 @@
 name: Release / Studio Images
 
 on:
+  release:
+    types: [published]
   workflow_dispatch:
     inputs:
       release_tag:
@@ -32,6 +34,7 @@ env:
 jobs:
   prepare:
     name: Validate release
+    if: github.event_name == 'workflow_dispatch' || startsWith(github.event.release.tag_name, 'studio-v')
     runs-on: ubuntu-latest
     timeout-minutes: 5
     outputs:
@@ -41,7 +44,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
         with:
-          ref: refs/tags/${{ inputs.release_tag }}
+          ref: refs/tags/${{ inputs.release_tag || github.event.release.tag_name }}
           fetch-depth: 0
       - name: Checkout workflow modules
         uses: actions/checkout@v6
@@ -53,7 +56,7 @@ jobs:
       - name: Derive and validate version from release tag
         id: version
         env:
-          RELEASE_TAG: ${{ inputs.release_tag }}
+          RELEASE_TAG: ${{ inputs.release_tag || github.event.release.tag_name }}
         run: bash ./.github/automation/.github/scripts/studio/validate-release.sh
   package-installer:
     name: Package clean-install candidate
@@ -200,7 +203,7 @@ jobs:
           VERSION: ${{ needs.prepare.outputs.version }}
           API_DIGEST: ${{ needs.publish-staging.outputs.api_digest }}
           STUDIO_DIGEST: ${{ needs.publish-staging.outputs.studio_digest }}
-          DEPLOYMENT_STRATEGY: ${{ inputs.deployment_strategy }}
+          DEPLOYMENT_STRATEGY: ${{ inputs.deployment_strategy || 'recreate' }}
           EXPECTED_NODE_ARCH: ${{ matrix.node_arch }}
           ARCH_ID: ${{ matrix.id }}
         run: bash ./.github/automation/.github/scripts/studio/smoke-install.sh

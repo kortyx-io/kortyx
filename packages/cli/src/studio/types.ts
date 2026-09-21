@@ -12,6 +12,7 @@ export type StudioRuntime = {
   portAvailable(port: number): Promise<boolean>;
   now(): string;
   random(bytes: number): string;
+  request?: typeof fetch;
   log(message?: string): void;
   error?(message?: string): void;
 };

@@ -591,6 +591,43 @@ it("reports a handled error on the active span without failing it", async () => 
   expect(JSON.stringify(sent)).not.toContain("PRIVATE_KEY");
 });
 
+it("ends expected suspension spans without emitting failures", async () => {
+  const sent: SentEvent[] = [];
+  const adapter = createKortyxTelemetryAdapter({
+    endpoint: "https://telemetry.example",
+    apiKey: "key",
+    environment: "test",
+    service: { name: "test" },
+    flushIntervalMs: 60_000,
+    fetch: async (_url, init) => {
+      sent.push(...JSON.parse(String(init?.body)).events);
+      return new Response(JSON.stringify({ accepted: true }), { status: 200 });
+    },
+  });
+  const interrupt = Object.assign(new Error("Execution paused"), {
+    name: "GraphInterrupt",
+  });
+
+  await expect(
+    adapter.trace?.withSpan?.(
+      {
+        name: "useReason",
+        attributes: { runId: "run", workflowId: "workflow" },
+      },
+      async () => {
+        throw interrupt;
+      },
+    ),
+  ).rejects.toBe(interrupt);
+  await adapter.flush();
+
+  expect(sent.map((item) => item.type)).toEqual(["span.started", "span.ended"]);
+  expect(sent[1]?.payload.attributes).toMatchObject({
+    "kortyx.control_flow": true,
+    "kortyx.suspended": true,
+  });
+});
+
 it("exports failed-generation usage counts without raw usage or provider metadata", async () => {
   const sent: SentEvent[] = [];
   const adapter = createKortyxTelemetryAdapter({

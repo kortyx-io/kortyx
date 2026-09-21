@@ -787,6 +787,43 @@ describe("Studio read model projection", () => {
     });
   });
 
+  it("does not fail completed runs because of legacy interrupt span failures", () => {
+    const models = createStudioReadModelsFromRecords({
+      revisions: [revision()],
+      rates: [],
+      events: [
+        event(0, {
+          eventId: "root-start",
+          type: "span.started",
+          spanId: "root",
+          payload: { name: "kortyx.run" },
+        }),
+        event(10, {
+          eventId: "pause",
+          type: "span.failed",
+          spanId: "root",
+          payload: {
+            name: "kortyx.run",
+            error: { name: "GraphInterrupt", controlFlow: true },
+          },
+        }),
+        event(20, {
+          eventId: "resolved",
+          type: "interrupt.resolved",
+          payload: { interruptId: "human-1", resumeOutcome: "resumed" },
+        }),
+        event(30, {
+          eventId: "root-end",
+          type: "span.ended",
+          spanId: "root",
+          payload: { name: "kortyx.run" },
+        }),
+      ],
+    });
+
+    expect(models.runs[0]).toMatchObject({ status: "completed" });
+  });
+
   it("projects workflow handoffs as Studio transitions", () => {
     const models = createStudioReadModelsFromRecords({
       revisions: [

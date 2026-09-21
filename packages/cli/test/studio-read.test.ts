@@ -374,6 +374,36 @@ describe("safe Studio API client", () => {
       () => new StudioReadClient("https://api.example.test", "bad-key"),
     ).toThrow("Expected a Kortyx");
   });
+  it("accepts additive response fields and reports incompatible protocol majors", async () => {
+    const additive = {
+      ...context,
+      future: true,
+      api: { ...context.api, buildCommit: "abc123" },
+    };
+    await expect(
+      new StudioReadClient(
+        "https://api.example.test",
+        key,
+        mockFetch(additive),
+      ).get("/v1/studio/context", StudioContextResponseSchema),
+    ).resolves.toEqual(context);
+
+    const incompatible = vi.fn<typeof fetch>().mockResolvedValue(
+      new Response(JSON.stringify(context), {
+        headers: {
+          "x-request-id": "request-2",
+          "x-kortyx-studio-api-version": "2",
+          "x-kortyx-studio-release": "v2.0.0",
+        },
+      }),
+    );
+    await expect(
+      new StudioReadClient("https://api.example.test", key, incompatible).get(
+        "/v1/studio/context",
+        StudioContextResponseSchema,
+      ),
+    ).rejects.toThrow("supports Studio API v1, but the server reports v2");
+  });
   it("rejects a body exceeding the safety limit", async () => {
     const request = vi
       .fn()
@@ -1012,6 +1042,24 @@ describe("Studio URL inspection and evidence", () => {
     expect(summarizeEvidence(events).findings).toMatchObject([
       { eventId: "e2", severity: "error" },
     ]);
+  });
+  it("treats legacy interrupt span failures as control-flow context", () => {
+    const finding = summarizeEvidence([
+      event("pause", "span.failed", {
+        name: "useReason",
+        handled: false,
+        severity: "error",
+        error: {
+          name: "GraphInterrupt",
+          message: "Execution paused or cancelled.",
+          controlFlow: true,
+        },
+      }),
+    ]).findings[0];
+    expect(finding).toMatchObject({
+      eventId: "pause",
+      severity: "context",
+    });
   });
   it("builds a compact model/tool/interrupt timeline and evidence-based loop diagnostics", () => {
     const sequence = [
