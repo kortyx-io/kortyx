@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.11.0](https://github.com/kortyx-io/kortyx/compare/cli-v0.10.1...cli-v0.11.0) (2026-09-21)
+
+
+### Features
+
+* **hooks:** add model-driven interrupt contracts to useReason ([#224](https://github.com/kortyx-io/kortyx/issues/224)) ([e0147d5](https://github.com/kortyx-io/kortyx/commit/e0147d5234ca38d450d452af924b242f8cbdeb16))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/agent bumped to 0.26.0
+    * @kortyx/core bumped to 0.10.0
+    * @kortyx/telemetry-contracts bumped to 0.11.0
+
 ## [0.10.1](https://github.com/kortyx-io/kortyx/compare/cli-v0.10.0...cli-v0.10.1) (2026-09-21)
 
 

@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.10.0](https://github.com/kortyx-io/kortyx/compare/core-v0.9.0...core-v0.10.0) (2026-09-21)
+
+
+### Features
+
+* **hooks:** add model-driven interrupt contracts to useReason ([#224](https://github.com/kortyx-io/kortyx/issues/224)) ([e0147d5](https://github.com/kortyx-io/kortyx/commit/e0147d5234ca38d450d452af924b242f8cbdeb16))
+
 ## [0.9.0](https://github.com/kortyx-io/kortyx/compare/core-v0.8.0...core-v0.9.0) (2026-09-14)
 
 

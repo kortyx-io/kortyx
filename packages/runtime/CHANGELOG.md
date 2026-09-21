@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.21.0](https://github.com/kortyx-io/kortyx/compare/runtime-v0.20.1...runtime-v0.21.0) (2026-09-21)
+
+
+### Features
+
+* **hooks:** add model-driven interrupt contracts to useReason ([#224](https://github.com/kortyx-io/kortyx/issues/224)) ([e0147d5](https://github.com/kortyx-io/kortyx/commit/e0147d5234ca38d450d452af924b242f8cbdeb16))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/stream bumped to 0.13.0
+    * @kortyx/core bumped to 0.10.0
+    * @kortyx/hooks bumped to 0.28.0
+    * @kortyx/providers bumped to 0.8.1
+    * @kortyx/utils bumped to 0.3.1
+
 ## [0.20.1](https://github.com/kortyx-io/kortyx/compare/runtime-v0.20.0...runtime-v0.20.1) (2026-09-21)
 
 

@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.28.0](https://github.com/kortyx-io/kortyx/compare/hooks-v0.27.0...hooks-v0.28.0) (2026-09-21)
+
+
+### Features
+
+* **hooks:** add model-driven interrupt contracts to useReason ([#224](https://github.com/kortyx-io/kortyx/issues/224)) ([e0147d5](https://github.com/kortyx-io/kortyx/commit/e0147d5234ca38d450d452af924b242f8cbdeb16))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/core bumped to 0.10.0
+    * @kortyx/providers bumped to 0.8.1
+    * @kortyx/telemetry-contracts bumped to 0.11.0
+
 ## [0.27.0](https://github.com/kortyx-io/kortyx/compare/hooks-v0.26.0...hooks-v0.27.0) (2026-09-21)
 
 

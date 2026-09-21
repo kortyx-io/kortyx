@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.4.2](https://github.com/kortyx-io/kortyx/compare/mistral-v0.4.1...mistral-v0.4.2) (2026-09-21)
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/providers bumped to 0.8.1
+    * @kortyx/core bumped to 0.10.0
+
 ## [0.4.1](https://github.com/kortyx-io/kortyx/compare/mistral-v0.4.0...mistral-v0.4.1) (2026-09-18)
 
 

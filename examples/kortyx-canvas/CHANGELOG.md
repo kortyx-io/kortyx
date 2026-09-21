@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.7.0](https://github.com/kortyx-io/kortyx/compare/example-canvas-v0.6.8...example-canvas-v0.7.0) (2026-09-21)
+
+
+### Features
+
+* **hooks:** add model-driven interrupt contracts to useReason ([#224](https://github.com/kortyx-io/kortyx/issues/224)) ([e0147d5](https://github.com/kortyx-io/kortyx/commit/e0147d5234ca38d450d452af924b242f8cbdeb16))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/google bumped to 0.6.2
+    * @kortyx/react bumped to 0.6.0
+    * @kortyx/telemetry bumped to 0.8.1
+    * kortyx bumped to 0.24.0
+  * devDependencies
+    * @kortyx/cli bumped to 0.11.0
+
 ## [0.6.8](https://github.com/kortyx-io/kortyx/compare/example-canvas-v0.6.7...example-canvas-v0.6.8) (2026-09-21)
 
 
