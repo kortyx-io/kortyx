@@ -16,6 +16,6 @@ runs:
         RELEASE_COMMIT: ${{ inputs.commit }}
       run: |-
         unset NODE_AUTH_TOKEN
-        npm config delete //registry.npmjs.org/:_authToken || true
-        npm config delete always-auth || true
+        npm config delete //registry.npmjs.org/:_authToken --workspaces=false || true
+        npm config delete always-auth --workspaces=false || true
         node "$ACTION_PATH/publish.mjs"

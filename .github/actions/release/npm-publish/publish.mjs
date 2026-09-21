@@ -14,12 +14,13 @@ const releaseSubject = execFileSync(
   { encoding: "utf8" },
 ).trim();
 if (!releaseSubject.startsWith("chore: release")) {
-  throw new Error(
-    "Refusing to publish from non-release commit " +
+  console.log(
+    "Nothing to publish: selected commit is not a release commit " +
       releaseCommit +
       ": " +
       releaseSubject,
   );
+  process.exit(0);
 }
 
 const releaseConfig = JSON.parse(
@@ -52,9 +53,10 @@ if (unmanagedDirs.length > 0) {
   );
 }
 if (releaseDirs.size === 0) {
-  throw new Error(
-    "Release commit does not change a managed public package version.",
+  console.log(
+    "Nothing to publish: release commit does not change a public package manifest.",
   );
+  process.exit(0);
 }
 
 const pkgs = [];
