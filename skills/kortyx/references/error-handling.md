@@ -33,6 +33,8 @@ throw new DomainError("SPECIALIST_UNAVAILABLE", "Research is unavailable.", {
 
 Catchers classify this using `serializeFailure(error).domainCode`, including after a child checkpoint restore. Adding arbitrary properties to a plain `Error` does not opt them into persistence. The message and details above are an explicit declaration that the content is safe to persist and display.
 
+`DomainError` is not an observability primitive. Throw an ordinary `Error` for an uncaught failure; configured tracing records it automatically before the workflow fails. When a catch deliberately continues with a fallback, call `reportError(error, {severity?, metadata?, tags?})`. It records a handled error on the active span and never changes control flow. Do not manually report an error that will be rethrown.
+
 ## Routes and clients
 
 Prefer `createChatRouteHandler({ agent })` for the standard HTTP contract. Custom routes should use `readRequestJson(request)` for object-shaped JSON commands and `createFailureResponse(error)` for safe pre-execution failure responses. See [the custom Next.js route](architecture-nextjs.md#custom-route) for auth, server-derived context and abort propagation.
@@ -54,6 +56,6 @@ HTTP rejection bodies expose `{ error: string, failure }`. Stream error chunks e
 - Verify positive recovery, terminal authorization/refusal behavior, budget enforcement and actual Redis reconstruction before claiming parity. A blocker reproduction passing is not recovery evidence.
 
 
-## Internal model/tool tracing diagnostics
+## Internal error tracing diagnostics
 
-Configured tracing automatically records bounded fault type/message for shared tools and model failures. Raw exception objects, stack fields and causes are not serialized. Messages themselves are exported verbatim and can contain sensitive text. Tool `telemetry.error` and model trace adapter `error` overrides can optionally replace or suppress messages before export; no override is needed for ordinary diagnostic capture. This tracing policy does not change client-facing `serializeFailure`, HTTP responses or returned execution failure descriptors. Keep Studio/internal logs access-controlled.
+Configured tracing automatically records bounded type, message, stack and cause details for thrown workflow/model errors. `reportError` creates the same trusted diagnostic for a handled error while leaving the span successful. Messages, stacks and causes are exported verbatim and can contain sensitive text. The trace adapter `error` projection can replace or suppress diagnostics; tool `telemetry.error` retains its narrower tool-fault projection. This tracing policy does not change client-facing `serializeFailure`, HTTP responses or returned execution failure descriptors. Keep Studio/internal logs access-controlled.

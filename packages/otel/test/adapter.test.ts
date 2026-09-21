@@ -347,20 +347,22 @@ describe("createOpenTelemetryTraceAdapter", () => {
 
     expect(spans[0]?.attributes).toMatchObject({
       "app.phase": "end",
-      "error.type": "EXECUTION_FAILED",
-      "error.message": "An unexpected error occurred.",
+      "error.type": "Error",
+      "error.message": "boom",
     });
     expect(spans[0]?.status).toMatchObject({
       code: 2,
-      message: "An unexpected error occurred.",
+      message: "boom",
     });
-    expect(spans[0]?.exceptions).toEqual([
-      { name: "EXECUTION_FAILED", message: "An unexpected error occurred." },
-    ]);
+    expect(spans[0]?.exceptions[0]).toMatchObject({
+      name: "Error",
+      message: "boom",
+      stack: expect.stringContaining("Error: boom"),
+    });
     expect(spans[0]?.ended).toBe(true);
   });
 
-  it("records non-Error failures without exposing their payload", () => {
+  it("records non-Error failure diagnostics", () => {
     const { tracer, spans } = createFakeTracer();
     const adapter = createOpenTelemetryTraceAdapter({ tracer });
     const span = adapter.startSpan({ name: "error.span" });
@@ -371,15 +373,53 @@ describe("createOpenTelemetryTraceAdapter", () => {
     });
 
     expect(spans[0]?.attributes).toMatchObject({
-      "error.type": "EXECUTION_FAILED",
-      "error.message": "An unexpected error occurred.",
+      "error.type": "Error",
+      "error.message": "bad",
       "gen_ai.request.model": "gemini",
       "gen_ai.operation.name": "generation",
     });
     expect(spans[0]?.exceptions[0]).toEqual({
-      name: "EXECUTION_FAILED",
-      message: "An unexpected error occurred.",
+      name: "Error",
+      message: "bad",
     });
+    expect(spans[0]?.ended).toBe(true);
+  });
+
+  it("reports a handled error without failing or ending the active span", async () => {
+    const { tracer, spans } = createFakeTracer();
+    const adapter = createOpenTelemetryTraceAdapter({ tracer });
+    const error = new TypeError("Candidate was not observed", {
+      cause: new Error("Search response was stale"),
+    });
+
+    await adapter.withSpan?.({ name: "kortyx.node" }, async () => {
+      adapter.reportError?.(error, {
+        severity: "warning",
+        metadata: { candidateCount: 3, apiKey: "PRIVATE_KEY" },
+        tags: ["brief"],
+      });
+      expect(spans[0]?.ended).toBe(false);
+    });
+
+    expect(spans[0]?.exceptions[0]).toMatchObject({
+      name: "TypeError",
+      message: "Candidate was not observed",
+      stack: expect.stringContaining("TypeError: Candidate was not observed"),
+    });
+    expect(spans[0]?.events).toContainEqual({
+      name: "kortyx.error.reported",
+      attributes: expect.objectContaining({
+        "exception.escaped": false,
+        "kortyx.error.handled": true,
+        "kortyx.error.severity": "warning",
+        "kortyx.error.metadata.candidateCount": 3,
+        "kortyx.error.cause": expect.stringContaining(
+          "Search response was stale",
+        ),
+      }),
+    });
+    expect(JSON.stringify(spans)).not.toContain("PRIVATE_KEY");
+    expect(spans[0]?.status).toBeUndefined();
     expect(spans[0]?.ended).toBe(true);
   });
 
@@ -826,12 +866,17 @@ it.each([
       ? "Provider connection refused"
       : mode === "replace"
         ? "Provider unavailable"
-        : "Model execution failed.",
+        : "An unexpected error occurred.",
   );
   expect(spans[0]?.status).toMatchObject({ code: 2 });
   expect(spans[0]?.ended).toBe(true);
+  if (mode === undefined) {
+    expect(spans[0]?.attributes["kortyx.error.cause"]).toEqual(
+      expect.stringContaining("PRIVATE_CAUSE"),
+    );
+  }
   expect(JSON.stringify(spans)).not.toMatch(
-    /PRIVATE_CAUSE|PRIVATE_BODY|PRIVATE_PROMPT|PRIVATE_OUTPUT|PRIVATE_PROJECTOR/,
+    /PRIVATE_BODY|PRIVATE_PROMPT|PRIVATE_OUTPUT|PRIVATE_PROJECTOR/,
   );
 });
 

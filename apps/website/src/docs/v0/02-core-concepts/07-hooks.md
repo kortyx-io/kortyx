@@ -28,6 +28,39 @@ Use them to:
 - Need state shared across nodes in the same run: `useWorkflowState(...)`
 - Need request metadata inside a node: `useRuntimeContext(...)`
 - Need structured UI updates in the stream: `useStructuredData(...)`
+- Need to record a handled error without stopping execution: `reportError(...)`
+
+## `reportError(error, options?)`
+
+`reportError` records a handled error on the active workflow span without changing
+control flow. Use it when the node catches an error and deliberately continues with
+a fallback:
+
+```ts
+import { reportError } from "kortyx";
+
+try {
+  return await loadCandidate(jobId);
+} catch (error) {
+  reportError(error, {
+    severity: "warning",
+    tags: ["brief"],
+    metadata: { jobId },
+  });
+  return fallbackCandidate(jobId);
+}
+```
+
+Do not call `reportError` immediately before rethrowing. Uncaught node errors are
+recorded automatically and still stop the workflow after configured retries. A
+manual report is marked handled, leaves the active span successful, and is a no-op
+when no compatible observer is configured. Observer failures never affect the node.
+
+Studio records bounded exception type, message, stack and cause details with the
+active run/workflow/node/trace correlation. Metadata filters credential-shaped
+keys, but messages, stacks and free-form values can still contain sensitive text;
+keep Studio access-controlled. OpenTelemetry records the exception and a
+`kortyx.error.reported` event without setting the span status to error.
 
 ## `useTool({tool, input})`
 
@@ -875,4 +908,4 @@ Tool faults automatically capture error type and message in Studio and OpenTelem
 
 With tracing configured, provider/model-call failures and `useReason` decision/output-parsing failures automatically export bounded error type/message, without additional call-site wiring. Studio's failed model request inspector shows provider diagnostics; a separate **Model reasoning** row shows JSON/schema processing failures after an otherwise normally completed model response. Failed provider requests do not add a duplicate reasoning-failure row. Interrupts and cancellation retain their control-flow treatment.
 
-Error messages are exported verbatim (type up to 256 characters, message up to 8192). Exception objects, stacks, causes, prompts, outputs and raw provider responses are not automatically captured. Failed-generation events retain normalized usage counts and omit arbitrary provider metadata/raw usage. Existing explicit content capture remains opt-in. Both `createKortyxTelemetryAdapter` and `createOpenTelemetryTraceAdapter` optionally accept `error(error)` returning `{type, message}` or `null` to replace/suppress model diagnostics before export; a throwing override suppresses them without changing execution. Tool diagnostics use the optional tool `telemetry.error` override. Client-facing `serializeFailure` and execution failure contracts remain unchanged; tracing diagnostics are for access-controlled Studio/internal logs.
+Unhandled workflow and model errors automatically include bounded exception type, message, stack and cause diagnostics in trusted Studio/OpenTelemetry observations. Failed-generation events retain normalized usage counts and omit arbitrary provider metadata/raw usage. Prompts, outputs and raw provider responses remain controlled by explicit content capture. Both `createKortyxTelemetryAdapter` and `createOpenTelemetryTraceAdapter` optionally accept `error(error)` returning `{type, message, stack?, cause?}` or `null` to replace or suppress diagnostics before export; a throwing override suppresses them without changing execution. Tool diagnostics retain their narrower optional `tool.telemetry.error` projection. Client-facing `serializeFailure` and execution failure contracts remain sanitized and unchanged.

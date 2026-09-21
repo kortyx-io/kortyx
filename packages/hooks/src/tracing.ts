@@ -14,11 +14,22 @@ import type {
   KortyxWorkflowTopologyNode as ContractKortyxWorkflowTopologyNode,
 } from "@kortyx/telemetry-contracts";
 
-export type KortyxErrorDetails = { type?: string | undefined; message: string };
-/** Optional override for automatically captured model fault diagnostics. */
+export type KortyxErrorDetails = {
+  type?: string | undefined;
+  message: string;
+  stack?: string | undefined;
+  cause?: KortyxErrorDetails | undefined;
+};
+/** Optional replacement or suppression of captured error diagnostics. */
 export type KortyxTraceErrorProjection = (
   error: unknown,
 ) => KortyxErrorDetails | null;
+
+export type ReportErrorOptions = {
+  severity?: "warning" | "error" | undefined;
+  metadata?: Record<string, unknown> | undefined;
+  tags?: string[] | undefined;
+};
 
 export type ReasonTraceAttributes = Record<string, unknown>;
 
@@ -81,6 +92,8 @@ export interface ReasonTraceAdapter {
         spanId: string;
       }
     | undefined;
+  /** Records a handled error without changing workflow control flow. */
+  reportError?: (error: unknown, options?: ReportErrorOptions) => void;
 }
 
 export type KortyxTraceAdapter = ReasonTraceAdapter;

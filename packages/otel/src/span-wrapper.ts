@@ -1,6 +1,6 @@
 import { isControlFlowError, serializeFailure } from "@kortyx/core/errors";
 import type { ReasonTraceSpan, ReasonTraceSpanEndArgs } from "@kortyx/hooks";
-import { errorDiagnostics, isModelTraceSpan } from "@kortyx/hooks/internal";
+import { exceptionDiagnostics } from "@kortyx/hooks/internal";
 import { type Span, SpanStatusCode } from "@opentelemetry/api";
 import {
   applyAttributeMapping,
@@ -73,17 +73,20 @@ export const createSpanWrapper = (
         return;
       }
       const failure = serializeFailure(error);
-      const diagnostic = isModelTraceSpan(name)
-        ? errorDiagnostics(error, options.error)
-        : { errorType: failure.code, errorMessage: failure.message };
-      const message = diagnostic.errorMessage ?? "Model execution failed.";
+      const diagnostic = exceptionDiagnostics(error, options.error);
+      const message = diagnostic?.message ?? failure.message;
       span.recordException({
-        name: diagnostic.errorType ?? failure.code,
+        name: diagnostic?.type ?? failure.code,
         message,
+        ...(diagnostic?.stack ? { stack: diagnostic.stack } : {}),
       });
       span.setStatus({ code: SpanStatusCode.ERROR, message });
       try {
-        const attributes = spanErrorAttributes(error, args, diagnostic);
+        const attributes = spanErrorAttributes(error, args, {
+          type: diagnostic?.type,
+          message: diagnostic?.message,
+          cause: diagnostic?.cause,
+        });
         span.setAttributes(
           toAttributes(
             applyAttributeMapping(name, attributes, options, {
@@ -115,15 +118,20 @@ const spanEndAttributes = (
 const spanErrorAttributes = (
   error: unknown,
   args: ReasonTraceSpanEndArgs | undefined,
-  diagnostic: { errorType?: string; errorMessage?: string },
+  diagnostic: {
+    type: string | undefined;
+    message: string | undefined;
+    cause: import("@kortyx/hooks").KortyxErrorDetails | undefined;
+  },
 ) => {
   const failure = serializeFailure(error);
-  const message = diagnostic.errorMessage ?? "Model execution failed.";
+  const message = diagnostic.message ?? failure.message;
   return {
     ...(args?.attributes ?? {}),
-    "error.type": diagnostic.errorType ?? failure.code,
+    "error.type": diagnostic.type ?? failure.code,
     "kortyx.error.category": failure.category,
     "error.message": message,
+    ...(diagnostic.cause ? { "kortyx.error.cause": diagnostic.cause } : {}),
     ...usageAttributes(args),
   };
 };

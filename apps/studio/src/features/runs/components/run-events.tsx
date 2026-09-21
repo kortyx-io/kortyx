@@ -406,7 +406,7 @@ function eventAppearance(item: EventStoryItem): {
   return {
     ...category,
     icon:
-      item.state === "failed"
+      item.state === "failed" || item.state === "error"
         ? CircleAlert
         : item.state === "interrupted"
           ? CirclePause
@@ -414,17 +414,19 @@ function eventAppearance(item: EventStoryItem): {
             ? CheckCircle2
             : category.icon,
     stateBadge:
-      item.state === "failed"
+      item.state === "failed" || item.state === "error"
         ? "border-red-500/25 bg-red-500/8 text-red-700 dark:text-red-400"
-        : item.state === "interrupted"
+        : item.state === "warning"
           ? "border-amber-500/25 bg-amber-500/8 text-amber-700 dark:text-amber-400"
-          : item.state === "started"
-            ? "border-blue-500/20 bg-blue-500/8 text-blue-700 dark:text-blue-400"
-            : item.state === "completed" || item.state === "resolved"
-              ? "border-emerald-500/20 bg-emerald-500/8 text-emerald-700 dark:text-emerald-400"
-              : item.state === "cancelled" || item.state === "expired"
-                ? "border-amber-500/20 bg-amber-500/8 text-amber-700 dark:text-amber-400"
-                : "border-border bg-muted/40 text-muted-foreground",
+          : item.state === "interrupted"
+            ? "border-amber-500/25 bg-amber-500/8 text-amber-700 dark:text-amber-400"
+            : item.state === "started"
+              ? "border-blue-500/20 bg-blue-500/8 text-blue-700 dark:text-blue-400"
+              : item.state === "completed" || item.state === "resolved"
+                ? "border-emerald-500/20 bg-emerald-500/8 text-emerald-700 dark:text-emerald-400"
+                : item.state === "cancelled" || item.state === "expired"
+                  ? "border-amber-500/20 bg-amber-500/8 text-amber-700 dark:text-amber-400"
+                  : "border-border bg-muted/40 text-muted-foreground",
   };
 }
 
@@ -467,13 +469,15 @@ function stateTone(
   state: EventState,
 ): "success" | "danger" | "warning" | "info" | "neutral" {
   if (state === "completed" || state === "resolved") return "success";
-  if (state === "failed" || state === "fault") return "danger";
+  if (state === "failed" || state === "fault" || state === "error")
+    return "danger";
   if (
     state === "denied" ||
     state === "waiting" ||
     state === "cancelled" ||
     state === "expired" ||
-    state === "interrupted"
+    state === "interrupted" ||
+    state === "warning"
   )
     return "warning";
   if (state === "started" || state === "replayed") return "info";
@@ -539,6 +543,12 @@ const CATEGORY_APPEARANCE: Record<
     iconColor: "text-cyan-600 dark:text-cyan-400",
     border: "border-cyan-500/25",
     badge: "border-cyan-500/20 bg-cyan-500/8 text-cyan-700 dark:text-cyan-400",
+  },
+  error: {
+    icon: CircleAlert,
+    iconColor: "text-red-600 dark:text-red-400",
+    border: "border-red-500/25",
+    badge: "border-red-500/20 bg-red-500/8 text-red-700 dark:text-red-400",
   },
   span: {
     icon: Activity,

@@ -35,7 +35,7 @@ export interface OpenTelemetryTraceAdapterOptions {
   instrumentationName?: string | undefined;
   instrumentationVersion?: string | undefined;
   defaultAttributes?: ReasonTraceAttributes | undefined;
-  /** Optional replacement/suppression of automatically captured model fault diagnostics. */
+  /** Optional replacement or suppression of captured error diagnostics. */
   error?: import("@kortyx/hooks").KortyxTraceErrorProjection;
   captureContent?:
     | boolean

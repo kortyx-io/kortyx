@@ -22,6 +22,7 @@ export const TELEMETRY_EVENT_TYPES = [
   "span.started",
   "span.ended",
   "span.failed",
+  "error.reported",
   "generation.completed",
   "tool.started",
   "tool.completed",
