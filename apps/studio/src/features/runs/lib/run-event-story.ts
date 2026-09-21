@@ -119,6 +119,12 @@ function eventTitle(
       : event.payload.outcome === "failed"
         ? `${model} request failed`
         : `${model} response completed`;
+  if (event.type === "error.reported") {
+    const error = asRecord(event.payload.error);
+    const type = asString(error.name) ?? "Error";
+    const message = asString(error.message);
+    return message ? `${type}: ${message}` : `${type} reported`;
+  }
   if (event.type === "tool.started") return `${tool} tool started`;
   if (event.type === "tool.denied") return `${tool} denied`;
   if (event.type === "tool.cancelled") return `${tool} cancelled`;
@@ -207,6 +213,10 @@ function eventContext(event: StudioDetailEvent): string {
     const ttft = numberValue(event.payload.ttftMs);
     if (ttft !== null) parts.push(`TTFT ${formatDurationMs(ttft)}`);
   }
+  if (event.type === "error.reported") {
+    const severity = asString(event.payload.severity);
+    if (severity) parts.unshift(severity);
+  }
   if (event.type.startsWith("tool.")) {
     const callId = asString(event.payload.toolCallId);
     if (callId) parts.push(`call ${shortId(callId)}`);
@@ -223,6 +233,7 @@ function eventContext(event: StudioDetailEvent): string {
 }
 
 function eventCategory(event: StudioDetailEvent): EventCategory {
+  if (event.type === "error.reported") return "error";
   if (event.type === "generation.completed") return "model";
   if (event.type.startsWith("tool.")) return "tool";
   if (event.type.startsWith("interrupt.")) return "interrupt";
@@ -241,6 +252,8 @@ function eventCategory(event: StudioDetailEvent): EventCategory {
 
 function eventState(event: StudioDetailEvent): EventState {
   const { type } = event;
+  if (type === "error.reported")
+    return event.payload.severity === "warning" ? "warning" : "error";
   if (
     type === "tool.denied" ||
     (type === "tool.completed" && event.payload.outcome === "denied")
@@ -315,6 +328,7 @@ function eventOrder(event: StudioDetailEvent): number {
   if (event.type.endsWith(".started") || event.type === "interrupt.created")
     return 1;
   if (event.type === "generation.completed") return 2;
+  if (event.type === "error.reported") return 2;
   if (event.type.endsWith(".ended") || event.type.endsWith(".completed"))
     return 3;
   if (event.type.endsWith(".failed")) return 4;
@@ -329,6 +343,7 @@ export type EventCategory =
   | "interrupt"
   | "session"
   | "workflow"
+  | "error"
   | "span";
 
 export type EventState =
@@ -343,6 +358,8 @@ export type EventState =
   | "replayed"
   | "waiting"
   | "fault"
+  | "warning"
+  | "error"
   | "recorded";
 
 export type EventStoryItem = {
@@ -368,6 +385,7 @@ const CATEGORY_LABELS: Record<EventCategory, string> = {
   interrupt: "Interrupt",
   session: "Session",
   workflow: "Workflow",
+  error: "Error",
   span: "Operation",
 };
 
@@ -383,6 +401,8 @@ const STATE_LABELS: Record<EventState, string> = {
   replayed: "Replayed",
   waiting: "Waiting",
   fault: "Fault",
+  warning: "Warning",
+  error: "Error",
   recorded: "Recorded",
 };
 

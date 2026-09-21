@@ -11,8 +11,7 @@ import type {
   ReasonTraceSpanStartArgs,
 } from "@kortyx/hooks";
 import {
-  errorDiagnostics,
-  isModelTraceSpan,
+  exceptionDiagnostics,
   safeTelemetryMetadata,
 } from "@kortyx/hooks/internal";
 import type { ActiveSpan, SpanContext } from "./types";
@@ -30,7 +29,6 @@ const shouldCapture = (
 
 const asErrorPayload = (
   error: unknown,
-  name?: string,
   project?: import("@kortyx/hooks").KortyxTraceErrorProjection,
 ): Record<string, unknown> => {
   if (isControlFlowError(error))
@@ -41,12 +39,13 @@ const asErrorPayload = (
       controlFlow: true,
     };
   const failure = serializeFailure(error);
-  if (!isModelTraceSpan(name ?? "")) return { ...failure, name: "KortyxError" };
-  const diagnostic = errorDiagnostics(error, project);
+  const diagnostic = exceptionDiagnostics(error, project);
   return {
     ...failure,
-    name: diagnostic.errorType ?? "Error",
-    message: diagnostic.errorMessage ?? "Model execution failed.",
+    name: diagnostic?.type ?? "Error",
+    message: diagnostic?.message ?? failure.message,
+    ...(diagnostic?.stack ? { stack: diagnostic.stack } : {}),
+    ...(diagnostic?.cause ? { cause: diagnostic.cause } : {}),
   };
 };
 
@@ -190,8 +189,7 @@ export const createEventMapper = (args: {
   });
 
   return {
-    asErrorPayload: (error: unknown, name?: string) =>
-      asErrorPayload(error, name, args.error),
+    asErrorPayload: (error: unknown) => asErrorPayload(error, args.error),
     correlationFrom,
     createEvent,
     shouldCapture,

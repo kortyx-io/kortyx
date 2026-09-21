@@ -1,10 +1,15 @@
+import { AsyncLocalStorage } from "node:async_hooks";
 import type {
   ReasonTraceAdapter,
   ReasonTraceAttributes,
   ReasonTraceSpan,
   ReasonTraceSpanStartArgs,
 } from "@kortyx/hooks";
-import { context, SpanKind, trace } from "@opentelemetry/api";
+import {
+  exceptionDiagnostics,
+  safeTelemetryMetadata,
+} from "@kortyx/hooks/internal";
+import { context, type Span, SpanKind, trace } from "@opentelemetry/api";
 import {
   applyAttributeMapping,
   startAttributes,
@@ -22,6 +27,7 @@ export function createOpenTelemetryTraceAdapter(
       options.instrumentationName ?? "kortyx",
       options.instrumentationVersion,
     );
+  const activeSpans = new AsyncLocalStorage<Span>();
 
   const start = (args: ReasonTraceSpanStartArgs): ReasonTraceSpan => {
     const attributes = startAttributes(args, options);
@@ -66,29 +72,76 @@ export function createOpenTelemetryTraceAdapter(
               attributes,
             });
           } catch {}
-          try {
-            const result = await fn(wrapped);
-            if (!wrapped.ended) wrapped.end?.();
-            return result;
-          } catch (error) {
+          return activeSpans.run(span, async () => {
             try {
-              wrapped.fail?.(error);
-            } catch {
-              /* Preserve the callback failure. */
+              const result = await fn(wrapped);
+              if (!wrapped.ended) wrapped.end?.();
+              return result;
+            } catch (error) {
+              try {
+                wrapped.fail?.(error);
+              } catch {
+                /* Preserve the callback failure. */
+              }
+              throw error;
             }
-            throw error;
-          }
+          });
         },
       );
     },
     getActiveContext: () => {
-      const span = trace.getActiveSpan();
+      const span = activeSpans.getStore() ?? trace.getActiveSpan();
       if (!span) return undefined;
       const spanContext = span.spanContext();
       return {
         traceId: spanContext.traceId,
         spanId: spanContext.spanId,
       };
+    },
+    reportError: (error, reportOptions = {}) => {
+      try {
+        const span = activeSpans.getStore() ?? trace.getActiveSpan();
+        if (!span) return;
+        const diagnostic = exceptionDiagnostics(error, options.error);
+        if (!diagnostic) return;
+        span.recordException({
+          name: diagnostic.type ?? "Error",
+          message: diagnostic.message,
+          ...(diagnostic.stack ? { stack: diagnostic.stack } : {}),
+        });
+        span.addEvent(
+          "kortyx.error.reported",
+          toAttributes({
+            "exception.type": diagnostic.type ?? "Error",
+            "exception.message": diagnostic.message,
+            ...(diagnostic.stack
+              ? { "exception.stacktrace": diagnostic.stack }
+              : {}),
+            ...(diagnostic.cause
+              ? { "kortyx.error.cause": diagnostic.cause }
+              : {}),
+            "exception.escaped": false,
+            "kortyx.error.handled": true,
+            "kortyx.error.severity":
+              reportOptions.severity === "warning" ? "warning" : "error",
+            ...(reportOptions.tags?.length
+              ? { "kortyx.trace.tags": reportOptions.tags }
+              : {}),
+            ...(reportOptions.metadata
+              ? Object.fromEntries(
+                  Object.entries(
+                    safeTelemetryMetadata(reportOptions.metadata),
+                  ).map(([key, value]) => [
+                    `kortyx.error.metadata.${key}`,
+                    value,
+                  ]),
+                )
+              : {}),
+          }),
+        );
+      } catch {
+        // Error reporting is an observer and cannot change execution.
+      }
     },
   };
 }

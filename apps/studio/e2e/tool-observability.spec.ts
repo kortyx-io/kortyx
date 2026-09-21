@@ -396,7 +396,7 @@ test("automatically diagnoses provider and invalid JSON errors without capturing
   });
   for (const kind of ["provider", "json"] as const) {
     const error = Object.assign(new TypeError("Provider connection refused"), {
-      cause: new Error("E2E_PRIVATE_CAUSE"),
+      cause: new Error("E2E_CAUSE_DIAGNOSTIC"),
       body: "E2E_PRIVATE_PROVIDER_BODY",
       providerMetadata: { raw: "E2E_PRIVATE_METADATA" },
       usage: { input: 17, output: 2, raw: { body: "E2E_PRIVATE_USAGE" } },
@@ -462,7 +462,13 @@ test("automatically diagnoses provider and invalid JSON errors without capturing
       },
     );
     expect(response.ok()).toBe(true);
-    expect(await response.text()).not.toContain("E2E_PRIVATE");
+    const responseText = await response.text();
+    if (kind === "provider") {
+      expect(responseText).toContain("E2E_CAUSE_DIAGNOSTIC");
+    } else {
+      expect(responseText).not.toContain("E2E_CAUSE_DIAGNOSTIC");
+    }
+    expect(responseText).not.toContain("E2E_PRIVATE");
     await page.goto(`/runs/${result.runId}?tab=trace&env=test`);
     const label = kind === "provider" ? "deterministic" : "Model reasoning";
     await page

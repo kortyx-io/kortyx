@@ -244,7 +244,9 @@ export const createTraceAdapter = (args: {
               ...(parent ? { parentSpanId: parent.spanId } : {}),
               payload: {
                 name: startArgs.name,
-                error: args.eventMapper.asErrorPayload(error, startArgs.name),
+                error: args.eventMapper.asErrorPayload(error),
+                handled: false,
+                severity: "error",
                 durationMs: Date.now() - startedAt,
               },
             }),
@@ -287,6 +289,33 @@ export const createTraceAdapter = (args: {
       return active
         ? { traceId: active.traceId, spanId: active.spanId }
         : undefined;
+    },
+    reportError: (error, options = {}) => {
+      try {
+        const active = activeSpans.getStore();
+        if (!active) return;
+        args.enqueue(
+          args.eventMapper.createEvent({
+            type: "error.reported",
+            correlation: active.correlation,
+            span: active,
+            payload: {
+              handled: true,
+              severity: options.severity === "warning" ? "warning" : "error",
+              error: args.eventMapper.asErrorPayload(error),
+            },
+            context: args.eventMapper.spanContext(
+              {
+                ...(options.metadata ? { metadata: options.metadata } : {}),
+                ...(options.tags ? { tags: options.tags } : {}),
+              },
+              {},
+            ),
+          }),
+        );
+      } catch {
+        // Error reporting is an observer and cannot change execution.
+      }
     },
   };
 };

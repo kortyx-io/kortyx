@@ -453,7 +453,7 @@ it.each([
   "replace",
   "suppress",
   "throws",
-])("captures model diagnostics automatically with optional %s projection", async (mode) => {
+])("captures error diagnostics automatically with optional %s projection", async (mode) => {
   const sent: SentEvent[] = [];
   const adapter = createKortyxTelemetryAdapter({
     endpoint: "https://telemetry.example",
@@ -512,11 +512,83 @@ it.each([
         ? "Provider connection refused"
         : mode === "replace"
           ? "Provider unavailable"
-          : "Model execution failed.",
+          : "An unexpected error occurred.",
   });
+  if (mode === undefined) {
+    expect(failed?.payload.error).toMatchObject({
+      stack: expect.stringContaining("TypeError: Provider connection refused"),
+      cause: { type: "Error", message: "PRIVATE_CAUSE" },
+    });
+  }
   expect(JSON.stringify(sent)).not.toMatch(
-    /PRIVATE_CAUSE|PRIVATE_BODY|PRIVATE_KEY|PRIVATE_PROMPT|PRIVATE_OUTPUT|PRIVATE_PROJECTOR/,
+    /PRIVATE_BODY|PRIVATE_KEY|PRIVATE_PROMPT|PRIVATE_OUTPUT|PRIVATE_PROJECTOR/,
   );
+});
+
+it("reports a handled error on the active span without failing it", async () => {
+  const sent: SentEvent[] = [];
+  const adapter = createKortyxTelemetryAdapter({
+    endpoint: "https://telemetry.example",
+    apiKey: "key",
+    environment: "test",
+    service: { name: "test" },
+    flushIntervalMs: 60_000,
+    fetch: async (_url, init) => {
+      sent.push(...JSON.parse(String(init?.body)).events);
+      return new Response(JSON.stringify({ accepted: true }), { status: 200 });
+    },
+  });
+  const error = new TypeError("Candidate was not observed");
+
+  await adapter.trace?.withSpan?.(
+    {
+      name: "kortyx.node",
+      attributes: {
+        runId: "run",
+        workflowId: "workflow",
+        nodeId: "resolve-brief",
+      },
+    },
+    async () => {
+      adapter.trace?.reportError?.(error, {
+        severity: "warning",
+        metadata: { candidateCount: 3, apiKey: "PRIVATE_KEY" },
+        tags: ["brief"],
+      });
+      return "continued";
+    },
+  );
+  await adapter.flush();
+
+  expect(sent.map((event) => event.type)).toEqual([
+    "span.started",
+    "error.reported",
+    "span.ended",
+  ]);
+  const reported = sent[1] as SentEvent & {
+    context?: { metadata?: Record<string, unknown>; tags?: string[] };
+  };
+  expect(reported.payload).toMatchObject({
+    handled: true,
+    severity: "warning",
+    error: {
+      name: "TypeError",
+      message: "Candidate was not observed",
+      stack: expect.stringContaining("TypeError: Candidate was not observed"),
+    },
+  });
+  expect(reported.correlation).toMatchObject({
+    runId: "run",
+    workflowId: "workflow",
+    nodeId: "resolve-brief",
+    traceId: expect.any(String),
+    spanId: expect.any(String),
+  });
+  expect(reported.context).toEqual({
+    tags: ["brief"],
+    metadata: { candidateCount: 3 },
+  });
+  expect(JSON.stringify(sent)).not.toContain("PRIVATE_KEY");
 });
 
 it("exports failed-generation usage counts without raw usage or provider metadata", async () => {

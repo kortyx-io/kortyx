@@ -59,6 +59,33 @@ describe("buildEventStory", () => {
     expect(item?.state).toBe("interrupted");
     expect(item?.title).toBe("collectBrief paused");
   });
+
+  it("presents handled reported errors without failing the run", () => {
+    const reported = detailEvent(
+      "reported",
+      "error.reported",
+      500,
+      {
+        handled: true,
+        severity: "warning",
+        error: {
+          name: "TypeError",
+          message: "Candidate was not observed",
+          stack: "TypeError: Candidate was not observed",
+        },
+      },
+      { nodeId: "resolveBrief" },
+    );
+
+    const [item] = buildEventStory([reported], START);
+
+    expect(item).toMatchObject({
+      category: "error",
+      state: "warning",
+      stateLabel: "Warning",
+      title: "TypeError: Candidate was not observed",
+    });
+  });
 });
 
 describe("buildTraceStory", () => {

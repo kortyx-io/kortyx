@@ -32,6 +32,31 @@ Descriptors contain `version: 1`, `code`, `category`, `message`, and `retryable`
 
 Use `isFailureDescriptor` and `errorFromFailure` for values crossing JSON boundaries. Restoring a descriptor does not recreate an application's original error class or raw cause.
 
+## Report a handled error
+
+Throw an ordinary `Error` when the workflow cannot continue. Configured tracing
+records it automatically before normal retry/failure handling. When application
+code catches an error and intentionally continues, use `reportError`:
+
+```ts
+import { reportError } from "kortyx";
+
+try {
+  return await readLatestCandidate(id);
+} catch (error) {
+  reportError(error, {
+    severity: "warning",
+    metadata: { candidateId: id },
+  });
+  return fallbackCandidate(id);
+}
+```
+
+`reportError` is observation only: it never retries, throws, changes the active
+span status or stops the workflow. Do not report and then rethrow the same error;
+the uncaught path already records it. `DomainError` is unrelated—it is reserved
+for a deliberately public, stable failure contract that must survive persistence.
+
 | Code | Meaning |
 | --- | --- |
 | `PROVIDER_CONFIGURATION` | Invalid provider settings or unavailable credentials |
@@ -93,6 +118,6 @@ Failed `agent.execute`/`agent.resume` outcomes include safe structured fields in
 
 Request validation errors use client-error statuses; unexpected server errors default to HTTP 500. An explicit route `errorStatus` override remains authoritative. A provider's HTTP status describes the upstream request and does not automatically become the application's HTTP status. Once SSE headers are sent, failures travel as stream events. Partial output followed by an error is still a failed response; `done` means stream termination, not business success.
 
-Malformed stream events surface a typed failure without logging their payload. Intentional cancellation remains separate from network failures. Studio/telemetry show safe failure codes and context, while historical name/message events continue to render. OTel cancellation and suspension do not set error status. Reporter or cleanup failures must not replace an existing primary failure.
+Malformed stream events surface a typed failure without logging their payload. Intentional cancellation remains separate from network failures. Public transports keep safe failure codes, while trusted Studio/OpenTelemetry observations retain bounded exception diagnostics for debugging. OTel cancellation and suspension do not set error status. Reporter or cleanup failures must not replace an existing primary failure.
 
 Upgrade dependent SDK/provider/runtime packages together. Mixed old/new workers and legacy checkpoints do not establish recovery parity. Safe generic messages, corrected default HTTP statuses and explicit malformed-stream failures are observable changes; replace tests that assert raw public error text with code/metadata assertions. Keep secrets out of `DomainError` messages/details: constructing one is an explicit declaration that those fields are safe to persist.

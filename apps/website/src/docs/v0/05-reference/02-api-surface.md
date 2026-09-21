@@ -51,6 +51,7 @@ export {
   createWorkflowHooks,
   parallel,
   ParallelError,
+  reportError,
   useWorkflow,
   WorkflowCallError,
   useInterrupt,
@@ -66,6 +67,7 @@ export {
   createWorkflowHooks,
   parallel,
   ParallelError,
+  reportError,
   useWorkflow,
   WorkflowCallError,
   useInterrupt,
@@ -78,6 +80,8 @@ export {
 ```
 
 `useTool({tool, input, id?, abortSignal?})` executes a shared tool immediately and returns its inferred result. It creates observations without adding a model call or MCP transport. `UseToolArgs`, `KortyxExecutableTool`, `ToolOutcomes`, `ToolOutcomeDescriptor`, `ToolTelemetry` and `ToolErrorDetails` are exported types. See [Hooks](../02-core-concepts/07-hooks.md).
+
+`reportError(error, {severity?, metadata?, tags?})` records a handled error on the active workflow span without stopping execution. Thrown errors are recorded automatically and retain their ordinary retry/failure behavior. `ReportErrorOptions` is exported for wrappers and custom hooks.
 
 `useWorkflow({ id, workflow, input })` returns a promise of `{ data }`. Typed definitions and bound registries infer input/output from the child's schemas; dynamic unbound strings return `Record<string, unknown>`. `WorkflowCallError` represents a rejected child invocation. See [Call Child Workflows](../03-guides/06-child-workflows.md).
 
@@ -178,4 +182,4 @@ Existing useInterrupt and agent.resume APIs remain unchanged. See the [complete 
 Tool faults automatically include their error type and bounded message, with no extra wiring. An optional `tool.telemetry.error(error)` override returns `{type, message}` or `null` to replace or suppress diagnostics before export. Stack traces, exception causes/custom fields and raw tool inputs/results remain excluded.
 
 
-`KortyxErrorDetails` and `KortyxTraceErrorProjection` are exported tracing types. Configured Studio/OpenTelemetry adapters automatically capture model fault type/message; their optional `error` projection can replace or suppress that diagnostic. JSON/schema parsing errors remain separately diagnosable even when the provider stopped normally. This does not change client-facing execution/HTTP failure descriptors.
+`KortyxErrorDetails` and `KortyxTraceErrorProjection` are exported tracing types. Configured Studio/OpenTelemetry adapters automatically capture bounded exception type/message/stack/cause diagnostics; their optional `error` projection can replace or suppress that diagnostic. JSON/schema parsing errors remain separately diagnosable even when the provider stopped normally. This does not change client-facing execution/HTTP failure descriptors.
