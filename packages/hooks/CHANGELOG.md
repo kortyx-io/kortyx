@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.28.1](https://github.com/kortyx-io/kortyx/compare/hooks-v0.28.0...hooks-v0.28.1) (2026-09-21)
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/core bumped to 0.10.1
+    * @kortyx/providers bumped to 0.8.2
+    * @kortyx/telemetry-contracts bumped to 0.11.1
+
 ## [0.28.0](https://github.com/kortyx-io/kortyx/compare/hooks-v0.27.0...hooks-v0.28.0) (2026-09-21)
 
 

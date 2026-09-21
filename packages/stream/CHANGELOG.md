@@ -1,5 +1,14 @@
 # @chatbot-core/types
 
+## [0.13.1](https://github.com/kortyx-io/kortyx/compare/stream-v0.13.0...stream-v0.13.1) (2026-09-21)
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/core bumped to 0.10.1
+
 ## [0.13.0](https://github.com/kortyx-io/kortyx/compare/stream-v0.12.0...stream-v0.13.0) (2026-09-21)
 
 
