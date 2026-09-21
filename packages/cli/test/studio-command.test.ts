@@ -33,6 +33,7 @@ const createRuntime = (input?: {
   running?: boolean;
   portsAvailable?: boolean;
   updater?: boolean;
+  failPull?: "api" | "studio";
 }): StudioRuntime & {
   calls: Array<{ command: string; args: string[]; inherit?: boolean }>;
   logs: string[];
@@ -52,6 +53,12 @@ const createRuntime = (input?: {
         args,
         ...(options.inherit === undefined ? {} : { inherit: options.inherit }),
       });
+      if (
+        args[0] === "pull" &&
+        input?.failPull &&
+        String(args[1]).includes(`kortyx-${input.failPull}`)
+      )
+        throw new Error(`missing ${input.failPull} image`);
       return {
         stdout:
           args.includes("--entrypoint") && input?.updater
@@ -67,6 +74,22 @@ const createRuntime = (input?: {
     portAvailable: async () => input?.portsAvailable ?? true,
     now: () => "2026-07-26T12:00:00.000Z",
     random: (bytes) => "r".repeat(Math.max(bytes, 16)),
+    request: async () =>
+      new Response(
+        JSON.stringify({
+          organization: { name: "Kortyx" },
+          project: { name: "Studio" },
+          environments: ["test"],
+          apiKey: { mode: "live", scopes: ["studio:read"] },
+          api: { status: "ok", service: "kortyx-api", version: "v0.9.0" },
+        }),
+        {
+          headers: {
+            "x-kortyx-studio-api-version": "1",
+            "x-kortyx-studio-release": "v0.9.0",
+          },
+        },
+      ),
     log: (message = "") => logs.push(message),
   };
 };
@@ -229,6 +252,29 @@ describe("Studio CLI lifecycle", () => {
     expect(after.replace("v2.0.0", "latest")).toBe(before);
   });
 
+  it("restores the previous image configuration when a pull fails", async () => {
+    const home = await createHome();
+    await initialize(home);
+    const configBefore = await readFile(join(home, "config.json"), "utf8");
+    const environmentBefore = await readFile(join(home, ".env"), "utf8");
+    const composeBefore = await readFile(join(home, "compose.yml"), "utf8");
+
+    await expect(
+      runStudioCommand(
+        ["start", "--home", home, "--image-tag", "v9.9.9"],
+        createRuntime({ failPull: "studio" }),
+      ),
+    ).rejects.toThrow("missing studio image");
+
+    expect(await readFile(join(home, "config.json"), "utf8")).toBe(
+      configBefore,
+    );
+    expect(await readFile(join(home, ".env"), "utf8")).toBe(environmentBefore);
+    expect(await readFile(join(home, "compose.yml"), "utf8")).toBe(
+      composeBefore,
+    );
+  });
+
   it("fails before Docker startup when a new stack port is occupied", async () => {
     const home = await createHome();
     const runtime = createRuntime({ portsAvailable: false });
@@ -245,6 +291,9 @@ describe("Studio CLI lifecycle", () => {
     await runStudioCommand(["status", "--home", home], runtime);
     expect(runtime.calls.some(({ args }) => args.includes("ps"))).toBe(true);
     expect(runtime.logs.join("\n")).toContain("Studio: http://localhost:6300");
+    expect(runtime.logs.join("\n")).toContain(
+      "Compatibility: Studio API v1 (v0.9.0) is compatible with CLI API v1.",
+    );
 
     runtime.calls.length = 0;
     await runStudioCommand(["logs", "--home", home, "--no-follow"], runtime);

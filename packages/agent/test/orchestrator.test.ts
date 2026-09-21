@@ -478,6 +478,15 @@ describe("orchestrateGraphStream", () => {
         }),
       }),
     );
+    expect(telemetryEvents).toContainEqual(
+      expect.objectContaining({
+        type: "workflow.suspended",
+        payload: expect.objectContaining({
+          interruptId: "human-request",
+          reason: "human_input",
+        }),
+      }),
+    );
     const createdEvent = telemetryEvents.find(
       (event) =>
         typeof event === "object" &&

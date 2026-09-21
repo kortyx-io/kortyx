@@ -45,6 +45,7 @@ services:
       NODE_ENV: production
       API_HOST: 0.0.0.0
       API_PORT: 6400
+      KORTYX_STUDIO_RELEASE: \${KORTYX_STUDIO_IMAGE_TAG:-latest}
     ports:
       - "127.0.0.1:\${API_PORT:-6400}:6400"
     depends_on:

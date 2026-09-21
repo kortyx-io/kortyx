@@ -53,6 +53,7 @@ export const defaultStudioRuntime: StudioRuntime = {
   portAvailable,
   now: () => new Date().toISOString(),
   random: (bytes) => randomBytes(bytes).toString("base64url"),
+  request: fetch,
   log: (message = "") => console.log(message),
   error: (message = "") => console.error(message),
 };

@@ -1,5 +1,6 @@
 import { swaggerUI } from "@hono/swagger-ui";
 import { OpenAPIHono } from "@hono/zod-openapi";
+import { STUDIO_API_PROTOCOL_VERSION } from "@kortyx/telemetry-contracts";
 import type { TelemetryDb } from "@kortyx/telemetry-db";
 import { apiErrorHandler } from "./errors";
 import { apiKeyAuth } from "./middleware/api-key-auth";
@@ -52,6 +53,11 @@ export const createApiApp = (options: CreateApiAppOptions) => {
     c.set("requestId", requestId);
     c.set("db", options.db);
     c.header("x-request-id", requestId);
+    c.header("x-kortyx-studio-api-version", STUDIO_API_PROTOCOL_VERSION);
+    c.header(
+      "x-kortyx-studio-release",
+      process.env.KORTYX_STUDIO_RELEASE ?? "development",
+    );
     await next();
   });
 

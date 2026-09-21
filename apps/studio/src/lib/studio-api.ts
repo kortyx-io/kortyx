@@ -1,6 +1,7 @@
 import "server-only";
 
 import {
+  STUDIO_API_PROTOCOL_VERSION,
   StudioCatalogsResponseSchema,
   StudioContextResponseSchema,
   StudioInterruptDetailResponseSchema,
@@ -77,6 +78,7 @@ const fetchJson = async <T>(
       headers: {
         authorization: `Bearer ${apiKey}`,
         accept: "application/json",
+        "x-kortyx-studio-api-version": STUDIO_API_PROTOCOL_VERSION,
       },
       cache: "no-store",
     });

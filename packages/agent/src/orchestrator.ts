@@ -742,6 +742,16 @@ export async function orchestrateGraphStream({
       },
       flush: true,
     });
+    emitTelemetryEvent({
+      config,
+      type: "workflow.suspended",
+      correlation: { nodeId: record.node },
+      payload: {
+        interruptId: record.requestId,
+        reason: "human_input",
+        suspendedAt: new Date().toISOString(),
+      },
+    });
     wroteHumanInput = true;
   };
 

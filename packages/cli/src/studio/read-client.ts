@@ -1,4 +1,10 @@
+import { STUDIO_API_PROTOCOL_VERSION } from "@kortyx/telemetry-contracts";
 import type { z } from "zod";
+
+export type StudioCompatibility = {
+  protocolVersion: string | null;
+  release: string | null;
+};
 
 export class StudioReadError extends Error {
   constructor(
@@ -52,6 +58,10 @@ export const normalizeConnectionUrl = (input: string): string => {
 /** Intentionally restricted to the Studio read API: no arbitrary requests or writes. */
 export class StudioReadClient {
   readonly apiUrl: string;
+  compatibility: StudioCompatibility = {
+    protocolVersion: null,
+    release: null,
+  };
   constructor(
     apiUrl: string,
     private readonly apiKey: string,
@@ -92,6 +102,7 @@ export class StudioReadClient {
         headers: {
           authorization: `Bearer ${this.apiKey}`,
           accept: "application/json",
+          "x-kortyx-studio-api-version": STUDIO_API_PROTOCOL_VERSION,
         },
         redirect: "error",
         signal: AbortSignal.timeout(15_000),
@@ -103,6 +114,22 @@ export class StudioReadClient {
       );
     }
     const requestId = response.headers.get("x-request-id") ?? undefined;
+    this.compatibility = {
+      protocolVersion: response.headers.get("x-kortyx-studio-api-version"),
+      release: response.headers.get("x-kortyx-studio-release"),
+    };
+    if (
+      this.compatibility.protocolVersion &&
+      this.compatibility.protocolVersion !== STUDIO_API_PROTOCOL_VERSION
+    ) {
+      await response.body?.cancel();
+      throw new StudioReadError(
+        "incompatible_studio_api",
+        `This CLI supports Studio API v${STUDIO_API_PROTOCOL_VERSION}, but the server reports v${this.compatibility.protocolVersion}${this.compatibility.release ? ` (${this.compatibility.release})` : ""}. Install a CLI and Studio release that use the same Studio API major.`,
+        response.status,
+        requestId,
+      );
+    }
     if (!response.ok) {
       await response.body?.cancel();
       const message =
@@ -160,9 +187,12 @@ export class StudioReadClient {
     }
     const result = schema.safeParse(value);
     if (!result.success) {
+      const server = this.compatibility.protocolVersion
+        ? `Studio API v${this.compatibility.protocolVersion}${this.compatibility.release ? ` (${this.compatibility.release})` : ""}`
+        : "a server that did not report its Studio API version";
       throw new StudioReadError(
         "schema_mismatch",
-        "Studio response does not match this CLI's contracts. Check API/CLI version compatibility.",
+        `Studio response does not match this CLI's Studio API v${STUDIO_API_PROTOCOL_VERSION} contracts. The response came from ${server}. Upgrade both components if this server predates protocol negotiation; otherwise report this as an API compatibility regression.`,
         response.status,
         requestId,
       );

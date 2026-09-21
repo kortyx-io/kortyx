@@ -1,4 +1,5 @@
 import { AsyncLocalStorage } from "node:async_hooks";
+import { isSuspensionControlFlowError } from "@kortyx/core/errors";
 import type {
   KortyxTelemetryConfig,
   KortyxTelemetryEvent,
@@ -66,6 +67,7 @@ export const createTraceAdapter = (args: {
 
     let ended = false;
     let failed = false;
+    let suspended = false;
     const end = (endArgs?: ReasonTraceSpanEndArgs): void => {
       if (ended) return;
       ended = true;
@@ -129,7 +131,7 @@ export const createTraceAdapter = (args: {
         }),
       );
 
-      if (startArgs.name !== "runReasonEngine") return;
+      if (startArgs.name !== "runReasonEngine" || suspended) return;
       const ttftMs = nonnegativeNumber(endAttributes.ttftMs);
       const streamDurationMs = nonnegativeNumber(
         endAttributes.streamDurationMs,
@@ -234,6 +236,15 @@ export const createTraceAdapter = (args: {
       end,
       fail: (error, endArgs) => {
         if (ended) return;
+        if (isSuspensionControlFlowError(error)) {
+          suspended = true;
+          Object.assign(currentAttributes, {
+            "kortyx.control_flow": true,
+            "kortyx.suspended": true,
+          });
+          end(endArgs);
+          return;
+        }
         failed = true;
         if (correlation) {
           args.enqueue(
