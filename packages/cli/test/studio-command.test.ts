@@ -275,6 +275,34 @@ describe("Studio CLI lifecycle", () => {
     );
   });
 
+  it("reports both startup and configuration rollback failures", async () => {
+    const home = await createHome();
+    await initialize(home);
+    const runtime = createRuntime({ failPull: "studio" });
+    const originalRun = runtime.run;
+    runtime.run = async (command, args, options) => {
+      try {
+        return await originalRun(command, args, options);
+      } catch (error) {
+        if (args[0] === "pull" && String(args[1]).includes("kortyx-studio")) {
+          const { rm } = await import("node:fs/promises");
+          await rm(join(home, "config.json"));
+          await mkdir(join(home, "config.json"));
+        }
+        throw error;
+      }
+    };
+
+    await expect(
+      runStudioCommand(
+        ["start", "--home", home, "--image-tag", "v9.9.9"],
+        runtime,
+      ),
+    ).rejects.toThrow(
+      "Studio startup failed and the previous configuration could not be restored",
+    );
+  });
+
   it("fails before Docker startup when a new stack port is occupied", async () => {
     const home = await createHome();
     const runtime = createRuntime({ portsAvailable: false });
@@ -355,6 +383,36 @@ describe("Studio CLI lifecycle", () => {
     await runStudioCommand(["reset", "--home", home, "--confirm"], runtime);
     expect(runtime.calls.at(-1)?.args).toEqual(
       expect.arrayContaining(["down", "--volumes", "--remove-orphans"]),
+    );
+  });
+
+  it("reports incompatible and unavailable Studio APIs in status", async () => {
+    const home = await createHome();
+    await initialize(home);
+
+    const incompatible = createRuntime();
+    incompatible.request = async () =>
+      new Response("{}", {
+        headers: {
+          "x-kortyx-studio-api-version": "2",
+          "x-kortyx-studio-release": "v2.0.0",
+        },
+      });
+    await runStudioCommand(["status", "--home", home], incompatible);
+    expect(incompatible.logs.join("\n")).toContain(
+      "This CLI supports Studio API v1, but the server reports v2 (v2.0.0)",
+    );
+
+    const unavailable = createRuntime();
+    unavailable.request = async () =>
+      ({
+        get headers() {
+          throw new Error("invalid response object");
+        },
+      }) as unknown as Response;
+    await runStudioCommand(["status", "--home", home], unavailable);
+    expect(unavailable.logs.join("\n")).toContain(
+      "Compatibility: could not query the Studio API.",
     );
   });
 
