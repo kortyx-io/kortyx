@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.3.2](https://github.com/kortyx-io/kortyx/compare/utils-v0.3.1...utils-v0.3.2) (2026-09-21)
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/core bumped to 0.10.1
+
 ## [0.3.1](https://github.com/kortyx-io/kortyx/compare/utils-v0.3.0...utils-v0.3.1) (2026-09-21)
 
 

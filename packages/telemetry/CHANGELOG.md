@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.8.2](https://github.com/kortyx-io/kortyx/compare/telemetry-v0.8.1...telemetry-v0.8.2) (2026-09-21)
+
+
+### Bug Fixes
+
+* preserve interrupt control flow and Studio compatibility ([#226](https://github.com/kortyx-io/kortyx/issues/226)) ([72ba7c2](https://github.com/kortyx-io/kortyx/commit/72ba7c2b9a467db0e54b5a4ab5844c8d7f895135))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/hooks bumped to 0.28.1
+    * @kortyx/telemetry-contracts bumped to 0.11.1
+    * @kortyx/core bumped to 0.10.1
+
 ## [0.8.1](https://github.com/kortyx-io/kortyx/compare/telemetry-v0.8.0...telemetry-v0.8.1) (2026-09-21)
 
 

@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.11.1](https://github.com/kortyx-io/kortyx/compare/telemetry-contracts-v0.11.0...telemetry-contracts-v0.11.1) (2026-09-21)
+
+
+### Bug Fixes
+
+* preserve interrupt control flow and Studio compatibility ([#226](https://github.com/kortyx-io/kortyx/issues/226)) ([72ba7c2](https://github.com/kortyx-io/kortyx/commit/72ba7c2b9a467db0e54b5a4ab5844c8d7f895135))
+
 ## [0.11.0](https://github.com/kortyx-io/kortyx/compare/telemetry-contracts-v0.10.0...telemetry-contracts-v0.11.0) (2026-09-21)
 
 

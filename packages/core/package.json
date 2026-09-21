@@ -1,6 +1,6 @@
 {
   "name": "@kortyx/core",
-  "version": "0.10.0",
+  "version": "0.10.1",
   "private": false,
   "description": "Core primitives and shared types for the Kortyx framework.",
   "keywords": [

@@ -1,5 +1,26 @@
 # Changelog
 
+## [0.26.1](https://github.com/kortyx-io/kortyx/compare/agent-v0.26.0...agent-v0.26.1) (2026-09-21)
+
+
+### Bug Fixes
+
+* preserve interrupt control flow and Studio compatibility ([#226](https://github.com/kortyx-io/kortyx/issues/226)) ([72ba7c2](https://github.com/kortyx-io/kortyx/commit/72ba7c2b9a467db0e54b5a4ab5844c8d7f895135))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/core bumped to 0.10.1
+    * @kortyx/providers bumped to 0.8.2
+    * @kortyx/runtime bumped to 0.21.1
+    * @kortyx/stream bumped to 0.13.1
+    * @kortyx/utils bumped to 0.3.2
+  * devDependencies
+    * @kortyx/hooks bumped to 0.28.1
+    * @kortyx/openai bumped to 0.5.3
+
 ## [0.26.0](https://github.com/kortyx-io/kortyx/compare/agent-v0.25.1...agent-v0.26.0) (2026-09-21)
 
 
