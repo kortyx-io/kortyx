@@ -1,5 +1,20 @@
 # @kortyx/react
 
+## [0.6.0](https://github.com/kortyx-io/kortyx/compare/react-v0.5.0...react-v0.6.0) (2026-09-21)
+
+
+### Features
+
+* **hooks:** add model-driven interrupt contracts to useReason ([#224](https://github.com/kortyx-io/kortyx/issues/224)) ([e0147d5](https://github.com/kortyx-io/kortyx/commit/e0147d5234ca38d450d452af924b242f8cbdeb16))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/stream bumped to 0.13.0
+    * @kortyx/core bumped to 0.10.0
+
 ## [0.5.0](https://github.com/kortyx-io/kortyx/compare/react-v0.4.3...react-v0.5.0) (2026-09-14)
 
 

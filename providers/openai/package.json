@@ -1,6 +1,6 @@
 {
   "name": "@kortyx/openai",
-  "version": "0.5.1",
+  "version": "0.5.2",
   "private": false,
   "description": "OpenAI provider integration for Kortyx.",
   "keywords": [

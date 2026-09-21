@@ -1,5 +1,26 @@
 # Changelog
 
+## [0.26.0](https://github.com/kortyx-io/kortyx/compare/agent-v0.25.1...agent-v0.26.0) (2026-09-21)
+
+
+### Features
+
+* **hooks:** add model-driven interrupt contracts to useReason ([#224](https://github.com/kortyx-io/kortyx/issues/224)) ([e0147d5](https://github.com/kortyx-io/kortyx/commit/e0147d5234ca38d450d452af924b242f8cbdeb16))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/core bumped to 0.10.0
+    * @kortyx/providers bumped to 0.8.1
+    * @kortyx/runtime bumped to 0.21.0
+    * @kortyx/stream bumped to 0.13.0
+    * @kortyx/utils bumped to 0.3.1
+  * devDependencies
+    * @kortyx/hooks bumped to 0.28.0
+    * @kortyx/openai bumped to 0.5.2
+
 ## [0.25.1](https://github.com/kortyx-io/kortyx/compare/agent-v0.25.0...agent-v0.25.1) (2026-09-21)
 
 

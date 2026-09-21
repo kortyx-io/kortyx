@@ -1,5 +1,19 @@
 # @chatbot-core/types
 
+## [0.13.0](https://github.com/kortyx-io/kortyx/compare/stream-v0.12.0...stream-v0.13.0) (2026-09-21)
+
+
+### Features
+
+* **hooks:** add model-driven interrupt contracts to useReason ([#224](https://github.com/kortyx-io/kortyx/issues/224)) ([e0147d5](https://github.com/kortyx-io/kortyx/commit/e0147d5234ca38d450d452af924b242f8cbdeb16))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/core bumped to 0.10.0
+
 ## [0.12.0](https://github.com/kortyx-io/kortyx/compare/stream-v0.11.0...stream-v0.12.0) (2026-09-14)
 
 

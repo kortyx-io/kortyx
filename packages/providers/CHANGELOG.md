@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.8.1](https://github.com/kortyx-io/kortyx/compare/providers-v0.8.0...providers-v0.8.1) (2026-09-21)
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/core bumped to 0.10.0
+
 ## [0.8.0](https://github.com/kortyx-io/kortyx/compare/providers-v0.7.0...providers-v0.8.0) (2026-09-18)
 
 

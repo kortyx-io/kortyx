@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.38.0](https://github.com/kortyx-io/kortyx/compare/website-v0.37.0...website-v0.38.0) (2026-09-21)
+
+
+### Features
+
+* **hooks:** add model-driven interrupt contracts to useReason ([#224](https://github.com/kortyx-io/kortyx/issues/224)) ([e0147d5](https://github.com/kortyx-io/kortyx/commit/e0147d5234ca38d450d452af924b242f8cbdeb16))
+
 ## [0.37.0](https://github.com/kortyx-io/kortyx/compare/website-v0.36.0...website-v0.37.0) (2026-09-21)
 
 
