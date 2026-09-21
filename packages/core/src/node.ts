@@ -59,9 +59,27 @@ export type InterruptChoiceInput = {
   meta?: Record<string, unknown>;
 };
 
-export type InterruptInput = InterruptTextInput | InterruptChoiceInput;
+export type InterruptCustomInput = {
+  kind: "custom";
+  /** Opaque, schema-validated request rendered by a custom client. */
+  request: unknown;
+  question?: string;
+  contract?: string;
+  id?: string;
+  schemaId: string;
+  schemaVersion: string;
+  meta?: Record<string, unknown>;
+};
 
+export type InterruptInput =
+  | InterruptTextInput
+  | InterruptChoiceInput
+  | InterruptCustomInput;
+
+/** Legacy text/choice interrupt result. */
 export type InterruptResult = string | string[];
+/** Wire resume value; custom interrupt contracts may return structured JSON. */
+export type InterruptResumeValue = unknown;
 
 export type NodeContext = {
   graph: {

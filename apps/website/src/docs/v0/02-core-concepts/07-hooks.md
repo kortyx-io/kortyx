@@ -304,7 +304,7 @@ result.usage;
 result.finishReason;
 result.providerMetadata;
 result.warnings;
-result.interruptResponse;
+result.interruptHistory;
 ```
 ```js
 const result = await useReason({
@@ -319,7 +319,7 @@ result.usage;
 result.finishReason;
 result.providerMetadata;
 result.warnings;
-result.interruptResponse;
+result.interruptHistory;
 ```
 
 What each field means:
@@ -331,7 +331,11 @@ What each field means:
 - `finishReason`: normalized stop reason
 - `providerMetadata`: provider-specific metadata that does not fit the shared top-level contract
 - `warnings`: compatibility or unsupported-feature warnings surfaced by the provider
-- `interruptResponse`: final human response when you use interrupt mode
+- `interruptHistory`: validated requests and responses from named interrupt contracts
+
+> **Deprecated:** `interruptResponse` is retained for the singular
+> `useReason({ interrupt })` compatibility API only. Both are removed in the
+> next major release.
 
 > **Good to know:** In interrupt flows, Kortyx aggregates `usage`, `warnings`, and `providerMetadata` across the first pass and continuation pass. Runtime token usage is also accumulated into `state.runtime.tokenUsage`.
 
@@ -445,99 +449,53 @@ What happens:
 
 `include` is optional. Without it, `mcpClient.tools()` returns every tool advertised by the MCP server. Use `include` to expose only the tools this node should be allowed to call, which keeps the model prompt smaller and avoids accidentally giving a node access to unrelated server capabilities.
 
-Tools cannot be combined with `useReason`'s normal `interrupt` option yet. Use `toolExecution.approval` when the interruption is specifically for approving tool calls.
-
-When the interrupt should depend on tool results, split the flow into two calls. First run the tool loop, then use a second `useReason(...)` call to decide whether to interrupt based on the tool output.
+Model-decided interrupts can run inside the same durable tool loop. Define one
+or more contracts; the model chooses the appropriate contract tool after
+inspecting ordinary tool results, and can continue calling tools after resume.
 
 ```ts tabs="mcp-tools-then-interrupt" tab="TypeScript"
+import { defineInterruptContract, useReason } from "kortyx";
 import { z } from "zod";
-import { useReason } from "kortyx";
 
-const reviewRequestSchema = z.object({
-  kind: z.literal("text"),
-  question: z.string(),
+const accountPicker = defineInterruptContract({
+  description: "Ask the user to choose between matching accounts.",
+  schemaId: "acme.account-picker",
+  schemaVersion: "1",
+  requestSchema: z.object({
+    question: z.string(),
+    candidates: z.array(z.object({ id: z.string(), label: z.string() })),
+  }),
+  responseSchema: z.union([
+    z.object({ type: z.literal("select"), id: z.string() }),
+    z.object({ type: z.literal("cancel") }),
+  ]),
 });
 
-const lookup = await useReason({
+const result = await useReason({
   model,
-  input: "Look up this account and decide whether a human should review it.",
+  input: "Find this account, clarify if ambiguous, then summarize it.",
   tools,
-  toolExecution: { maxSteps: 3 },
-});
-
-const review = await useReason({
-  model,
-  input: `Tool results:\n${JSON.stringify(lookup.toolResults ?? [])}\nAsk for human input only if review is needed.`,
-  interrupt: {
+  interrupts: {
     mode: "optional",
-    requestSchema: reviewRequestSchema,
-    responseSchema: z.string(),
+    maxRequests: 2,
+    contracts: { accountPicker },
   },
+  toolExecution: { maxSteps: 6 },
 });
 ```
 ```js tabs="mcp-tools-then-interrupt" tab="JavaScript"
-import { z } from "zod";
-import { useReason } from "kortyx";
-
-const reviewRequestSchema = z.object({
-  kind: z.literal("text"),
-  question: z.string(),
-});
-
-const lookup = await useReason({
-  model,
-  input: "Look up this account and decide whether a human should review it.",
-  tools,
-  toolExecution: { maxSteps: 3 },
-});
-
-const review = await useReason({
-  model,
-  input: `Tool results:\n${JSON.stringify(lookup.toolResults ?? [])}\nAsk for human input only if review is needed.`,
-  interrupt: {
-    mode: "optional",
-    requestSchema: reviewRequestSchema,
-    responseSchema: z.string(),
-  },
-});
+// The JavaScript API is identical; omit TypeScript type annotations.
 ```
 
-When tool input should depend on the user, collect that input before the tool loop. You can do this in the same node or as a previous workflow node.
+Each contract becomes a reserved model control tool. It does not execute an
+application callback or count as an application tool call. `maxSteps` remains
+cumulative across resume, while `maxRequests` independently limits human turns.
+The request and response are validated and recorded in
+`result.interruptHistory`.
 
-```ts tabs="mcp-interrupt-then-tools" tab="TypeScript"
-import { useInterrupt, useReason } from "kortyx";
-
-const accountId = await useInterrupt({
-  request: {
-    kind: "text",
-    question: "Which account ID should I look up?",
-  },
-});
-
-const result = await useReason({
-  model,
-  input: `Use account ID ${accountId} and summarize the account status.`,
-  tools,
-  toolExecution: { maxSteps: 3 },
-});
-```
-```js tabs="mcp-interrupt-then-tools" tab="JavaScript"
-import { useInterrupt, useReason } from "kortyx";
-
-const accountId = await useInterrupt({
-  request: {
-    kind: "text",
-    question: "Which account ID should I look up?",
-  },
-});
-
-const result = await useReason({
-  model,
-  input: `Use account ID ${accountId} and summarize the account status.`,
-  tools,
-  toolExecution: { maxSteps: 3 },
-});
-```
+> **Deprecated:** The singular `useReason({ interrupt })` option is supported
+> for the current major and emits a deprecation warning. It cannot express
+> multiple named contracts and will be removed in the next major release.
 
 Tools returned by `mcpClient.tools()` are request-scoped by default. `useReason(...)` closes the underlying MCP client when the call finishes, errors, or interrupts. Use `mcpClient.tools({ closeAfterUse: false })` only for long-lived server processes where you close the client manually.
 

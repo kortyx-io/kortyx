@@ -1,21 +1,32 @@
 import type { InterruptInput, InterruptResult } from "@kortyx/core";
 import { getHookContext } from "./context";
 import { awaitInterruptInternal } from "./interrupt";
+import { defineInterruptContract } from "./interrupt-contract";
 import { useReason as useReasonInternal } from "./reason/use-reason";
 import { emitStructuredData } from "./structured";
 import type {
+  InterruptContractMap,
+  UseContractInterruptArgs,
   UseInterruptArgs,
   UseReasonArgs,
   UseReasonResult,
   UseStructuredDataArgs,
 } from "./types";
+import { parseWithSchema } from "./validation";
+
+export { defineInterruptContract };
 
 export type {
+  InterruptContract,
+  InterruptContractMap,
+  InterruptHistoryEntry,
   SchemaLike,
   StructuredDataKind,
+  UseContractInterruptArgs,
   UseInterruptArgs,
   UseReasonArgs,
   UseReasonInterruptConfig,
+  UseReasonInterruptsConfig,
   UseReasonResult,
   UseReasonStep,
   UseReasonStructuredConfig,
@@ -39,16 +50,43 @@ export function useReason<
   TOutput = unknown,
   TRequest extends InterruptInput = InterruptInput,
   TResponse = InterruptResult,
+  TContracts extends InterruptContractMap = InterruptContractMap,
 >(
-  args: UseReasonArgs<TOutput, TRequest, TResponse>,
-): Promise<UseReasonResult<TOutput, TResponse>> {
+  args: UseReasonArgs<TOutput, TRequest, TResponse, TContracts>,
+): Promise<UseReasonResult<TOutput, TResponse, TContracts>> {
   return useReasonInternal(args);
 }
 
+export function useInterrupt<TRequest, TResponse>(
+  args: UseContractInterruptArgs<TRequest, TResponse>,
+): Promise<TResponse>;
 export function useInterrupt<
   TRequest extends InterruptInput = InterruptInput,
   TResponse = InterruptResult,
->(args: UseInterruptArgs<TRequest, TResponse>): Promise<TResponse> {
+>(args: UseInterruptArgs<TRequest, TResponse>): Promise<TResponse>;
+export function useInterrupt(
+  args:
+    | UseContractInterruptArgs<unknown, unknown>
+    | UseInterruptArgs<InterruptInput, InterruptResult>,
+): Promise<unknown> {
+  if ("contract" in args) {
+    const contract = defineInterruptContract(args.contract);
+    return awaitInterruptInternal({
+      request: {
+        kind: "custom",
+        request: parseWithSchema(
+          contract.requestSchema,
+          args.request,
+          "useInterrupt contract request",
+        ),
+        schemaId: contract.schemaId,
+        schemaVersion: contract.schemaVersion,
+        ...(args.id ? { id: args.id } : {}),
+        ...(args.meta ? { meta: args.meta } : {}),
+      },
+      responseSchema: contract.responseSchema,
+    });
+  }
   return awaitInterruptInternal(args);
 }
 

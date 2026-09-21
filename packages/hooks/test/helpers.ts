@@ -1,4 +1,8 @@
-import type { GraphState, InterruptInput, InterruptResult } from "@kortyx/core";
+import type {
+  GraphState,
+  InterruptInput,
+  InterruptResumeValue,
+} from "@kortyx/core";
 import type {
   GetProviderFn,
   KortyxInvokeResult,
@@ -21,8 +25,8 @@ type CreateProviderArgs = {
 
 type CreateNodeArgs = {
   nodeId?: string;
-  interruptResponse?: InterruptResult;
-  onInterrupt?: (input: InterruptInput) => InterruptResult;
+  interruptResponse?: InterruptResumeValue;
+  onInterrupt?: (input: InterruptInput) => InterruptResumeValue;
 };
 
 export const createState = (

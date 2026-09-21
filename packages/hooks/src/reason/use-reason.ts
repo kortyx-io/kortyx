@@ -12,10 +12,16 @@ import {
   getReasonTraceAdapter,
 } from "../context";
 import { awaitInterruptInternal } from "../interrupt";
+import { normalizeReasonInterrupts } from "../interrupt-contract";
 import { withSafeTraceSpan } from "../safe-tracing";
 import { shouldStreamStructured } from "../structured";
 import { closeOwnedTools, replayToolObservations } from "../tool";
-import type { SchemaLike, UseReasonArgs, UseReasonResult } from "../types";
+import type {
+  InterruptContractMap,
+  SchemaLike,
+  UseReasonArgs,
+  UseReasonResult,
+} from "../types";
 import { parseWithSchema } from "../validation";
 import {
   type ReasonInterruptCheckpoint,
@@ -54,16 +60,18 @@ const shouldStreamReasonStructured = <
   TOutput,
   TRequest extends InterruptInput,
   TResponse,
+  TContracts extends InterruptContractMap,
 >(
-  args: UseReasonArgs<TOutput, TRequest, TResponse>,
+  args: UseReasonArgs<TOutput, TRequest, TResponse, TContracts>,
 ): boolean => (args.emit ?? true) && shouldStreamStructured(args.structured);
 
 const resolveEffectiveReasoningIncludeThoughts = <
   TOutput,
   TRequest extends InterruptInput,
   TResponse,
+  TContracts extends InterruptContractMap,
 >(
-  args: UseReasonArgs<TOutput, TRequest, TResponse>,
+  args: UseReasonArgs<TOutput, TRequest, TResponse, TContracts>,
 ): boolean =>
   args.reasoning?.includeThoughts ??
   args.model.options?.reasoning?.includeThoughts ??
@@ -73,8 +81,9 @@ const resolveEffectiveResponseFormatType = <
   TOutput,
   TRequest extends InterruptInput,
   TResponse,
+  TContracts extends InterruptContractMap,
 >(
-  args: UseReasonArgs<TOutput, TRequest, TResponse>,
+  args: UseReasonArgs<TOutput, TRequest, TResponse, TContracts>,
 ): "text" | "json" | undefined =>
   args.responseFormat?.type ?? args.model.options?.responseFormat?.type;
 
@@ -90,6 +99,7 @@ const assertReasoningThoughtsCompatibility = <
   const usesStructuredOutput =
     Boolean(args.outputSchema) ||
     Boolean(args.interrupt) ||
+    Boolean(args.interrupts) ||
     Boolean(args.structured) ||
     resolveEffectiveResponseFormatType(args) === "json";
 
@@ -104,10 +114,15 @@ async function runReason<
   TOutput = unknown,
   TRequest extends InterruptInput = InterruptInput,
   TResponse = InterruptResult,
+  TContracts extends InterruptContractMap = InterruptContractMap,
 >(
-  args: UseReasonArgs<TOutput, TRequest, TResponse>,
-): Promise<UseReasonResult<TOutput, TResponse>> {
+  args: UseReasonArgs<TOutput, TRequest, TResponse, TContracts>,
+): Promise<UseReasonResult<TOutput, TResponse, TContracts>> {
   assertReasoningThoughtsCompatibility(args);
+  const interruptConfig = normalizeReasonInterrupts({
+    interrupt: args.interrupt,
+    interrupts: args.interrupts,
+  });
   const ctx = getHookContext();
   const abortSignal = combineAbortSignals(
     ctx.node.abortSignal,
@@ -123,23 +138,34 @@ async function runReason<
     args.outputSchema,
     args.responseFormat ?? args.model.options?.responseFormat,
   );
+  const usesLegacyNoToolInterrupt = Boolean(
+    args.interrupt && !args.interrupts && !args.tools?.length,
+  );
   args = {
     ...args,
     abortSignal,
-    ...(!args.interrupt && inferred.responseFormat
+    ...(!usesLegacyNoToolInterrupt && inferred.responseFormat
       ? { responseFormat: inferred.responseFormat }
       : {}),
   };
   const id =
     typeof args.id === "string" && args.id.length > 0 ? args.id : undefined;
-  const opId = createRuntimeId();
+  const provisionalOpId = createRuntimeId();
   const checkpointKey = resolveReasonCheckpointKey({
     ...(id ? { id } : {}),
     autoIndex: ctx.reasonCallIndex++,
   });
-  const existingCompleted = readReasonCompletedCheckpoint(
-    ctx.currentNodeState.byKey[checkpointKey],
-  );
+  const checkpointValue = ctx.currentNodeState.byKey[checkpointKey];
+  const opId =
+    checkpointValue &&
+    typeof checkpointValue === "object" &&
+    "status" in checkpointValue &&
+    checkpointValue.status === "tool_loop" &&
+    "opId" in checkpointValue &&
+    typeof checkpointValue.opId === "string"
+      ? checkpointValue.opId
+      : provisionalOpId;
+  const existingCompleted = readReasonCompletedCheckpoint(checkpointValue);
 
   if (existingCompleted) {
     await replayToolObservations(
@@ -147,12 +173,14 @@ async function runReason<
         (step) => step.toolObservations ?? [],
       ) ?? [],
     );
-    return existingCompleted.result as UseReasonResult<TOutput, TResponse>;
+    return existingCompleted.result as unknown as UseReasonResult<
+      TOutput,
+      TResponse,
+      TContracts
+    >;
   }
 
-  const existingCheckpoint = readReasonCheckpoint(
-    ctx.currentNodeState.byKey[checkpointKey],
-  );
+  const existingCheckpoint = readReasonCheckpoint(checkpointValue);
 
   const reasonMeta =
     typeof id === "string" ? ({ id, opId } as const) : ({ opId } as const);
@@ -181,7 +209,9 @@ async function runReason<
           ? { promptType: args.telemetry.prompt.type }
           : {}),
         hasOutputSchema: Boolean(args.outputSchema),
-        hasInterrupt: Boolean(args.interrupt),
+        hasInterrupt: Boolean(interruptConfig),
+        interruptContractCount: Object.keys(interruptConfig?.contracts ?? {})
+          .length,
         hasStructured: Boolean(args.structured),
         hasTools: Boolean(args.tools?.length),
       },
@@ -191,7 +221,11 @@ async function runReason<
       },
     },
     async (traceSpan) => {
-      if (args.tools?.length) {
+      // New contracts always use the durable tool loop. The deprecated
+      // no-tools form keeps its checkpoint reader so in-flight legacy runs can
+      // resume during the deprecation window; legacy + tools is normalized to
+      // the new control-tool runtime.
+      if ((args.tools?.length || args.interrupts) && !existingCheckpoint) {
         return runReasonToolLoop({
           useReasonArgs: args,
           allowValidatedToolOutput,
@@ -527,9 +561,10 @@ export async function useReason<
   TOutput = unknown,
   TRequest extends InterruptInput = InterruptInput,
   TResponse = InterruptResult,
+  TContracts extends InterruptContractMap = InterruptContractMap,
 >(
-  args: UseReasonArgs<TOutput, TRequest, TResponse>,
-): Promise<UseReasonResult<TOutput, TResponse>> {
+  args: UseReasonArgs<TOutput, TRequest, TResponse, TContracts>,
+): Promise<UseReasonResult<TOutput, TResponse, TContracts>> {
   try {
     return await runReason(args);
   } finally {

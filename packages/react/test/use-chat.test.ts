@@ -886,6 +886,52 @@ describe("useChat", () => {
     });
   });
 
+  it("sends structured values for custom interrupt contracts", async () => {
+    const contexts: Parameters<ChatTransport["stream"]>[0][] = [];
+    const transport: ChatTransport = {
+      stream: async (context) => {
+        contexts.push(context);
+        await context.onChunk({ type: "done" });
+      },
+    };
+    const { result } = renderHook(() =>
+      useChat({ transport, storage: createMemoryStorage().storage }),
+    );
+    await flushEffects();
+
+    await act(async () => {
+      await result.current.respondToInterrupt(
+        {
+          id: "interrupt-custom",
+          type: "interrupt",
+          resumeToken: "resume-custom",
+          requestId: "request-custom",
+          kind: "custom",
+          multiple: false,
+          options: [],
+          contract: "jobPicker",
+          request: { question: "Which job?" },
+          schemaId: "wolly.job-picker",
+          schemaVersion: "1",
+        },
+        { value: { type: "select", jobId: "job-2" } },
+      );
+    });
+
+    expect(contexts[0]?.messages.at(-1)).toMatchObject({
+      role: "user",
+      content: "(response)",
+      metadata: {
+        resume: {
+          token: "resume-custom",
+          requestId: "request-custom",
+          selected: [],
+          value: { type: "select", jobId: "job-2" },
+        },
+      },
+    });
+  });
+
   it("separates clearing visible messages from resetting the session", async () => {
     const memory = createMemoryStorage({
       sessionId: "session-1",

@@ -78,7 +78,7 @@ result.usage; // normalized token usage when available
 result.finishReason; // normalized stop reason
 result.providerMetadata; // provider-specific normalized metadata
 result.warnings; // unsupported option or compatibility warnings
-result.interruptResponse; // human response in interrupt mode
+result.interruptHistory; // typed contract requests and responses
 result.toolCalls; // MCP/model tool calls made during a tool loop
 result.toolResults; // MCP tool results returned to the model
 result.steps; // per-model-pass text, tool calls, and tool results
@@ -123,7 +123,16 @@ const result = await useReason({
 
 `include` is optional. Without it, `mcpClient.tools()` returns every tool advertised by the MCP server. Prefer `include` when a node should expose only a subset of server tools.
 
-Normal `useReason.interrupt` and `tools` are mutually exclusive for now. If user input depends on tool results, run a tool `useReason(...)` call first and then a second interrupt `useReason(...)` call using `result.toolResults`. If tool input depends on user input, call `useInterrupt(...)` first and then pass the response into a tool-enabled `useReason(...)` call.
+Model-decided human input can participate in the same tool loop. Define a
+contract with `defineInterruptContract(...)` and pass it in
+`interrupts.contracts`. The model may call ordinary tools, select one of several
+interrupt contracts, resume with its validated response, and continue calling
+tools. `interrupts.maxRequests` bounds sequential human turns independently of
+`toolExecution.maxSteps`.
+
+The singular `interrupt` option and `result.interruptResponse` are deprecated
+and will be removed in the next major release. Use `interrupts.contracts` and
+`result.interruptHistory` in new code.
 
 Tools returned by `mcpClient.tools()` are request-scoped by default. `useReason(...)` closes the underlying MCP client when the call finishes, errors, or interrupts. Use `mcpClient.tools({ closeAfterUse: false })` only when the app owns a long-lived MCP client and will close it manually.
 

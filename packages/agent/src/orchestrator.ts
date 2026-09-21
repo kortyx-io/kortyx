@@ -461,6 +461,8 @@ export async function orchestrateGraphStream({
       id?: string;
       schemaId?: string;
       schemaVersion?: string;
+      contract?: string;
+      request?: unknown;
       meta?: Record<string, unknown>;
       options?: Array<{
         id: string;
@@ -516,6 +518,7 @@ export async function orchestrateGraphStream({
     const optionsList = Array.isArray(input.options) ? input.options : [];
     const kind = input.kind || (input.multiple ? "multi-choice" : "choice");
     const isText = kind === "text";
+    const isCustom = kind === "custom";
 
     const record: PendingRequestRecord = {
       token,
@@ -527,13 +530,19 @@ export async function orchestrateGraphStream({
       workflow: payload.workflow || (currentState.currentWorkflow as string),
       node: payload.node || "",
       state: { ...(currentState as GraphState), awaitingHumanInput: true },
-      schema: isText
+      schema: isCustom
         ? {
-            kind: kind as any,
-            multiple: Boolean(input.multiple),
+            kind: "custom",
+            multiple: false,
             ...(input.question ? { question: input.question } : {}),
             ...(typeof input.id === "string" && input.id.length > 0
               ? { id: input.id }
+              : {}),
+            ...(typeof input.contract === "string" && input.contract.length > 0
+              ? { contract: input.contract }
+              : {}),
+            ...(Object.hasOwn(input, "request")
+              ? { request: input.request }
               : {}),
             ...(typeof input.schemaId === "string" && input.schemaId.length > 0
               ? { schemaId: input.schemaId }
@@ -546,24 +555,45 @@ export async function orchestrateGraphStream({
               ? { meta: input.meta }
               : {}),
           }
-        : {
-            kind: kind as any,
-            multiple: Boolean(input.multiple),
-            question: String(input.question || "Please choose an option."),
-            ...(typeof input.id === "string" && input.id.length > 0
-              ? { id: input.id }
-              : {}),
-            ...(typeof input.schemaId === "string" && input.schemaId.length > 0
-              ? { schemaId: input.schemaId }
-              : {}),
-            ...(typeof input.schemaVersion === "string" &&
-            input.schemaVersion.length > 0
-              ? { schemaVersion: input.schemaVersion }
-              : {}),
-            ...(input.meta && typeof input.meta === "object"
-              ? { meta: input.meta }
-              : {}),
-          },
+        : isText
+          ? {
+              kind: kind as any,
+              multiple: Boolean(input.multiple),
+              ...(input.question ? { question: input.question } : {}),
+              ...(typeof input.id === "string" && input.id.length > 0
+                ? { id: input.id }
+                : {}),
+              ...(typeof input.schemaId === "string" &&
+              input.schemaId.length > 0
+                ? { schemaId: input.schemaId }
+                : {}),
+              ...(typeof input.schemaVersion === "string" &&
+              input.schemaVersion.length > 0
+                ? { schemaVersion: input.schemaVersion }
+                : {}),
+              ...(input.meta && typeof input.meta === "object"
+                ? { meta: input.meta }
+                : {}),
+            }
+          : {
+              kind: kind as any,
+              multiple: Boolean(input.multiple),
+              question: String(input.question || "Please choose an option."),
+              ...(typeof input.id === "string" && input.id.length > 0
+                ? { id: input.id }
+                : {}),
+              ...(typeof input.schemaId === "string" &&
+              input.schemaId.length > 0
+                ? { schemaId: input.schemaId }
+                : {}),
+              ...(typeof input.schemaVersion === "string" &&
+              input.schemaVersion.length > 0
+                ? { schemaVersion: input.schemaVersion }
+                : {}),
+              ...(input.meta && typeof input.meta === "object"
+                ? { meta: input.meta }
+                : {}),
+            },
       options: optionsList.map((option: any) => ({
         id: String(option.id),
         label: String(option.label),
@@ -622,6 +652,10 @@ export async function orchestrateGraphStream({
         kind: record.schema.kind,
         multiple: record.schema.multiple,
         question: record.schema.question,
+        ...(record.schema.contract ? { contract: record.schema.contract } : {}),
+        ...(Object.hasOwn(record.schema, "request")
+          ? { request: record.schema.request }
+          : {}),
         ...(typeof record.schema.id === "string" && record.schema.id.length > 0
           ? { id: record.schema.id }
           : {}),
@@ -667,6 +701,7 @@ export async function orchestrateGraphStream({
         ...(record.schema.schemaVersion
           ? { schemaVersion: record.schema.schemaVersion }
           : {}),
+        ...(record.schema.contract ? { contract: record.schema.contract } : {}),
         ...(typeof record.schema.question === "string" &&
         shouldCaptureTelemetryContent(telemetryConfig.captureContent, "output")
           ? { question: record.schema.question }

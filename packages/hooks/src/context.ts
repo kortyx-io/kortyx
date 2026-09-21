@@ -2,7 +2,7 @@ import { AsyncLocalStorage } from "node:async_hooks";
 import type {
   GraphState,
   InterruptInput,
-  InterruptResult,
+  InterruptResumeValue,
   NodeConfig,
   TokenUsage,
 } from "@kortyx/core";
@@ -48,7 +48,7 @@ export type HookNodeRuntimeContext = {
   };
   config: NodeConfig;
   emit: (event: string, payload: unknown) => void;
-  awaitInterrupt: (args: InterruptInput) => InterruptResult;
+  awaitInterrupt: (args: InterruptInput) => InterruptResumeValue;
   callWorkflow?: WorkflowCallService;
   workflowCallTelemetry?: KortyxTelemetryConfig | undefined;
 };

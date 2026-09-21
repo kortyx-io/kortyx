@@ -56,15 +56,15 @@ const selected = await useInterrupt({
 });
 ```
 
-## `useInterrupt(...)` vs `useReason({ interrupt })`
+## `useInterrupt(...)` vs model interrupt contracts
 
 Both pause a node for human input. They differ in who writes the request payload:
 
-| | `useInterrupt(...)` | `useReason({ interrupt })` |
+| | `useInterrupt(...)` | `useReason({ interrupts })` |
 |---|---|---|
 | Request payload | Authored by node code (static or computed) | Authored by the model output |
 | Question and options | Deterministic app logic | Model output validated by `requestSchema` |
-| Public client metadata | Pass `schemaId`, `schemaVersion`, and `meta` directly | Pass `schemaId` and `schemaVersion` in the interrupt config |
+| Public client metadata | Pass `schemaId`, `schemaVersion`, and `meta` directly | Define `schemaId` and `schemaVersion` on each contract |
 | Cost to produce request | No LLM call | One LLM call |
 
 Choose `useInterrupt(...)` when:
@@ -73,11 +73,16 @@ Choose `useInterrupt(...)` when:
 - You want to ship a custom payload to the client through `meta`.
 - You want to skip the extra LLM round-trip.
 
-Choose `useReason({ interrupt })` when:
+Choose `useReason({ interrupts })` when:
 
 - The model should decide what to ask based on its reasoning.
 - The model should produce request fields validated by `requestSchema`.
-- The model may continue without interrupting when `interrupt.mode` is `"optional"`.
+- The model may continue without interrupting when `interrupts.mode` is `"optional"`.
+- Ordinary tools should run before or after the human response.
+- The model should choose among multiple request/response contracts.
+
+The singular `useReason({ interrupt })` form and `interruptResponse` result are
+deprecated and removed in the next major release.
 
 ### Shipping Custom Payloads To The Client
 

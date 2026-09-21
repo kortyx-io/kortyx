@@ -64,6 +64,29 @@ const pendingBase = {
 };
 
 describe("parseResumeMeta", () => {
+  it("preserves a structured custom interrupt response", () => {
+    expect(
+      parseResumeMeta({
+        role: "user",
+        content: "Selected job",
+        metadata: {
+          resume: {
+            token: "t",
+            requestId: "r",
+            value: { type: "select", jobId: "job-2" },
+          },
+        },
+      }),
+    ).toEqual({
+      token: "t",
+      requestId: "r",
+      selected: [],
+      cancel: false,
+      hasValue: true,
+      value: { type: "select", jobId: "job-2" },
+    });
+  });
+
   it("normalizes supported resume metadata shapes", () => {
     expect(parseResumeMeta(undefined)).toBeNull();
     expect(parseResumeMeta({ role: "user", content: "x" })).toBeNull();

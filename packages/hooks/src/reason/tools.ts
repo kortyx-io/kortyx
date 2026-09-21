@@ -12,8 +12,15 @@ import type {
   KortyxUsage,
   KortyxWarning,
 } from "@kortyx/providers";
+import { toJSONSchema } from "zod";
 import { accumulateTokenUsage, getHookContext } from "../context";
 import { awaitInterruptInternal } from "../interrupt";
+import {
+  interruptControlToolName,
+  isInterruptControlToolName,
+  isLegacyInterruptContracts,
+  normalizeReasonInterrupts,
+} from "../interrupt-contract";
 import {
   type RunReasonEngineResult,
   resolveProviderOptions,
@@ -25,7 +32,15 @@ import {
   replayToolObservations,
 } from "../tool";
 import type { ReasonTraceSpan } from "../tracing";
-import type { UseReasonArgs, UseReasonResult, UseReasonStep } from "../types";
+import type {
+  InterruptContract,
+  InterruptContractMap,
+  InterruptHistoryEntry,
+  UseReasonArgs,
+  UseReasonResult,
+  UseReasonStep,
+} from "../types";
+import { parseWithSchema } from "../validation";
 import { reasonEngine } from "./engine";
 import { createStructuredOutputStreamer } from "./output-stream";
 import { parseReasonOutputWithSchema } from "./parsing";
@@ -109,9 +124,17 @@ const normalizeToolResult = (
 const createInitialMessages = (args: {
   system?: string | undefined;
   input: string;
+  interruptInstructions?: string | undefined;
 }): KortyxPromptMessage[] => [
-  ...(typeof args.system === "string" && args.system.length > 0
-    ? [{ role: "system" as const, content: args.system }]
+  ...(typeof args.system === "string" || args.interruptInstructions
+    ? [
+        {
+          role: "system" as const,
+          content: [args.system, args.interruptInstructions]
+            .filter((value): value is string => Boolean(value))
+            .join("\n\n"),
+        },
+      ]
     : []),
   { role: "user" as const, content: String(args.input ?? "") },
 ];
@@ -120,15 +143,16 @@ export const runReasonToolLoop = async <
   TOutput,
   TRequest extends InterruptInput,
   TResponse = InterruptResult,
+  TContracts extends InterruptContractMap = InterruptContractMap,
 >(args: {
-  useReasonArgs: UseReasonArgs<TOutput, TRequest, TResponse>;
+  useReasonArgs: UseReasonArgs<TOutput, TRequest, TResponse, TContracts>;
   id?: string | undefined;
   opId: string;
   traceSpan?: ReasonTraceSpan | undefined;
   checkpointKey: string;
   initialWarnings?: KortyxWarning[] | undefined;
   allowValidatedToolOutput?: boolean;
-}): Promise<UseReasonResult<TOutput, TResponse>> => {
+}): Promise<UseReasonResult<TOutput, TResponse, TContracts>> => {
   const { useReasonArgs, id, traceSpan, checkpointKey } = args;
   const ctx = getHookContext();
   const abortSignal = combineAbortSignals(
@@ -142,20 +166,26 @@ export const runReasonToolLoop = async <
   const checkpoint = saved?.status === "tool_loop" ? saved : undefined;
   const opId = checkpoint?.opId ?? args.opId;
   const tools = useReasonArgs.tools ?? [];
+  const interruptConfig = normalizeReasonInterrupts({
+    interrupt: useReasonArgs.interrupt,
+    interrupts: useReasonArgs.interrupts,
+  });
+  const interruptByToolName = new Map<
+    string,
+    { name: string; contract: InterruptContract<unknown, unknown> }
+  >();
   const toolByName = new Map<string, KortyxExecutableTool>();
   let separateOutput = false;
 
   for (const tool of tools) {
+    if (isInterruptControlToolName(tool.name))
+      throw new Error(
+        `useReason tool name "${tool.name}" uses the reserved interrupt control-tool namespace.`,
+      );
     if (toolByName.has(tool.name)) {
       throw new Error(`useReason received duplicate tool name "${tool.name}".`);
     }
     toolByName.set(tool.name, tool);
-  }
-
-  if (useReasonArgs.interrupt) {
-    throw new Error(
-      "useReason tools cannot be combined with useReason interrupt mode yet. Use toolExecution.approval for tool approval.",
-    );
   }
 
   separateOutput = Boolean(
@@ -175,7 +205,45 @@ export const runReasonToolLoop = async <
     }).requiresSeparateStructuredOutput,
   );
 
-  const toolDefinitions = toToolDefinitions(tools);
+  const interruptDefinitions: KortyxToolDefinition[] = [];
+  for (const [name, contract] of Object.entries(
+    interruptConfig?.contracts ?? {},
+  )) {
+    const toolName = interruptControlToolName(name);
+    if (toolByName.has(toolName))
+      throw new Error(
+        `useReason tool name "${toolName}" is reserved for interrupt contracts.`,
+      );
+    let inputSchema: unknown;
+    try {
+      inputSchema = toJSONSchema(contract.requestSchema as never);
+    } catch (error) {
+      throw new Error(
+        `useReason interrupt contract "${name}" requestSchema must support JSON Schema conversion.`,
+        { cause: error },
+      );
+    }
+    interruptByToolName.set(toolName, { name, contract });
+    interruptDefinitions.push({
+      name: toolName,
+      title: `Request human input: ${name}`,
+      description: [
+        contract.description,
+        "Call this only when human input is needed. Execution pauses until the validated response is returned as this tool's result.",
+      ].join(" "),
+      inputSchema,
+      metadata: {
+        kortyxControl: "interrupt",
+        contract: name,
+        schemaId: contract.schemaId,
+        schemaVersion: contract.schemaVersion,
+      },
+    });
+  }
+  const toolDefinitions = [
+    ...toToolDefinitions(tools),
+    ...interruptDefinitions,
+  ];
   let finalizing = checkpoint?.finalizing ?? false;
   let completed = false;
   const maxSteps = Math.max(1, useReasonArgs.toolExecution?.maxSteps ?? 3);
@@ -186,14 +254,26 @@ export const runReasonToolLoop = async <
       input: useReasonArgs.outputSchema
         ? withOutputGuardrails(useReasonArgs.input, useReasonArgs.outputSchema)
         : useReasonArgs.input,
+      ...(interruptConfig
+        ? {
+            interruptInstructions: [
+              "Human-input rules:",
+              "- The kortyx_request_input__* tools pause this reasoning operation and return the validated human response as a normal tool result.",
+              "- Call at most one human-input tool in a model turn, and do not combine it with other tool calls in that turn.",
+              interruptConfig.mode === "required"
+                ? "- You must call at least one human-input tool before returning the final answer."
+                : "- Human input is optional; call a human-input tool only when the request cannot be completed safely without it.",
+            ].join("\n"),
+          }
+        : {}),
     });
   const steps: UseReasonStep[] = checkpoint?.steps ?? [];
-  const allToolCalls: KortyxToolCall[] = steps.flatMap(
-    (step) => step.toolCalls,
-  );
-  const allToolResults: KortyxToolResult[] = steps.flatMap(
-    (step) => step.toolResults,
-  );
+  const allToolCalls: KortyxToolCall[] = steps
+    .flatMap((step) => step.toolCalls)
+    .filter((call) => !interruptByToolName.has(call.name));
+  const allToolResults: KortyxToolResult[] = steps
+    .flatMap((step) => step.toolResults)
+    .filter((result) => !interruptByToolName.has(result.name));
   let finalText = "";
   let finalRaw: unknown;
   let finalOutput: TOutput | undefined;
@@ -209,6 +289,9 @@ export const runReasonToolLoop = async <
   );
   let pending = checkpoint?.pending;
   const approvedCalls = checkpoint?.approvedCalls ?? [];
+  const interruptHistory = (checkpoint?.interruptHistory ?? []) as Array<
+    InterruptHistoryEntry<TContracts>
+  >;
   const save = () => {
     ctx.currentNodeState.byKey[checkpointKey] = {
       status: "tool_loop",
@@ -216,6 +299,7 @@ export const runReasonToolLoop = async <
       messages,
       steps,
       approvedCalls,
+      interruptHistory,
       finalizing,
       ...(pending ? { pending } : {}),
     } satisfies ToolLoopCheckpoint;
@@ -327,6 +411,13 @@ export const runReasonToolLoop = async <
         });
 
       if (toolCalls.length === 0) {
+        if (
+          interruptConfig?.mode === "required" &&
+          interruptHistory.length === 0
+        )
+          throw new Error(
+            "useReason interrupts.mode is required, but the model returned a final answer without requesting human input.",
+          );
         if (separateOutput && !finalizing) {
           if (args.allowValidatedToolOutput && useReasonArgs.outputSchema) {
             try {
@@ -377,7 +468,9 @@ export const runReasonToolLoop = async <
         );
 
       if (!reused) {
-        allToolCalls.push(...toolCalls);
+        allToolCalls.push(
+          ...toolCalls.filter((call) => !interruptByToolName.has(call.name)),
+        );
         messages.push({
           role: "assistant",
           content: step.text,
@@ -387,6 +480,93 @@ export const runReasonToolLoop = async <
       }
       pending = step;
       save();
+
+      const interruptCalls = toolCalls.filter((call) =>
+        interruptByToolName.has(call.name),
+      );
+      if (interruptCalls.length > 0) {
+        if (toolCalls.length !== 1)
+          throw new Error(
+            "A useReason interrupt contract call must be the only tool call in its model turn.",
+          );
+        const interruptCall = interruptCalls[0];
+        if (!interruptCall)
+          throw new Error("Missing useReason interrupt control call.");
+        if (interruptHistory.length >= (interruptConfig?.maxRequests ?? 1))
+          throw new Error(
+            `useReason reached interrupts.maxRequests (${interruptConfig?.maxRequests ?? 1}).`,
+          );
+        const resolved = interruptByToolName.get(interruptCall.name);
+        if (!resolved)
+          throw new Error(
+            `Unknown useReason interrupt contract tool "${interruptCall.name}".`,
+          );
+        if (
+          toolResults.some((result) => result.toolCallId === interruptCall.id)
+        ) {
+          pending = undefined;
+          save();
+          continue;
+        }
+        const request = parseWithSchema(
+          resolved.contract.requestSchema,
+          interruptCall.input,
+          `useReason interrupt contract "${resolved.name}" request`,
+        );
+        traceSpan?.addEvent?.("useReason.interrupt.requested", {
+          checkpointKey,
+          contract: resolved.name,
+          interruptIndex: interruptHistory.length,
+        });
+        const question =
+          request &&
+          typeof request === "object" &&
+          !Array.isArray(request) &&
+          typeof (request as Record<string, unknown>).question === "string"
+            ? String((request as Record<string, unknown>).question)
+            : undefined;
+        const response = await awaitInterruptInternal({
+          request: {
+            kind: "custom",
+            request,
+            contract: resolved.name,
+            ...(question ? { question } : {}),
+            schemaId: resolved.contract.schemaId,
+            schemaVersion: resolved.contract.schemaVersion,
+          },
+          responseSchema: resolved.contract.responseSchema,
+          id: `${id ?? "reason"}:${resolved.name}:${interruptHistory.length + 1}`,
+          meta: {
+            __kortyxReason: {
+              opId,
+              stepIndex,
+              interruptIndex: interruptHistory.length,
+              contract: resolved.name,
+            },
+          },
+        });
+        const result = normalizeToolResult(interruptCall, response);
+        toolResults.push(result);
+        messages.push({
+          role: "tool",
+          content: result.content,
+          toolCallId: result.toolCallId,
+          name: result.name,
+        });
+        interruptHistory.push({
+          contract: resolved.name,
+          request,
+          response,
+        } as InterruptHistoryEntry<TContracts>);
+        traceSpan?.addEvent?.("useReason.interrupt.resolved", {
+          checkpointKey,
+          contract: resolved.name,
+          interruptIndex: interruptHistory.length - 1,
+        });
+        pending = undefined;
+        save();
+        continue;
+      }
 
       for (const toolCall of toolCalls) {
         if (toolResults.some((result) => result.toolCallId === toolCall.id)) {
@@ -624,7 +804,14 @@ export const runReasonToolLoop = async <
       toolCalls: allToolCalls,
       toolResults: allToolResults,
       steps,
-    } satisfies UseReasonResult<TOutput, TResponse>;
+      ...(interruptHistory.length > 0 ? { interruptHistory } : {}),
+      ...(isLegacyInterruptContracts(interruptConfig) &&
+      interruptHistory.length > 0
+        ? {
+            interruptResponse: interruptHistory.at(-1)?.response as TResponse,
+          }
+        : {}),
+    } satisfies UseReasonResult<TOutput, TResponse, TContracts>;
 
     traceSpan?.end?.({
       ...(aggregatedUsage !== undefined ? { usage: aggregatedUsage } : {}),
@@ -642,6 +829,7 @@ export const runReasonToolLoop = async <
         toolCallCount: allToolCalls.length,
         toolResultCount: allToolResults.length,
         toolStepCount: steps.length,
+        interruptCount: interruptHistory.length,
       },
       telemetry: {
         ...(useReasonArgs.telemetry ?? {}),
@@ -674,5 +862,10 @@ interface ToolLoopCheckpoint {
   steps: UseReasonStep[];
   pending?: RunReasonEngineResult;
   approvedCalls: string[];
+  interruptHistory?: Array<{
+    contract: string;
+    request: unknown;
+    response: unknown;
+  }>;
   finalizing?: boolean;
 }

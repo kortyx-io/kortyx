@@ -122,7 +122,11 @@ Keep definitions inferred from `defineWorkflow(...)`. Widening them to `Workflow
 
 ## Human interrupts and resume
 
-Inside a child, use the same `useInterrupt(...)` and `useReason({ interrupt: ... })` hooks used in a root workflow. For example, this can be the research workflow's final node:
+Inside a child, use the same `useInterrupt(...)` and
+`useReason({ interrupts: { contracts } })` APIs used in a root workflow. Custom
+contract requests and structured responses bridge through the parent. The
+singular `interrupt` option is deprecated and removed next major. For example,
+this can be the research workflow's final node:
 
 ```ts
 import { useInterrupt } from "kortyx";

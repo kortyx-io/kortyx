@@ -12,14 +12,21 @@ export {
 export type { HookRuntimeContext } from "./context";
 export { runWithHookContext } from "./context";
 export type {
+  InterruptContract,
+  InterruptContractMap,
+  InterruptHistoryEntry,
+  UseContractInterruptArgs,
   UseInterruptArgs,
   UseReasonArgs,
+  UseReasonInterruptConfig,
+  UseReasonInterruptsConfig,
   UseReasonResult,
   UseReasonStep,
   UseReasonToolExecution,
   UseStructuredDataArgs,
 } from "./hooks";
 export {
+  defineInterruptContract,
   useAbortSignal,
   useInterrupt,
   useNodeState,

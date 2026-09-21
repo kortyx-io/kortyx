@@ -27,9 +27,16 @@ npm install @kortyx/hooks
 - `useRuntimeContext(...)` for request context made available to node execution.
 - `useNodeState(...)` / `useWorkflowState(...)` for stateful node logic.
 
-`useReason({ interrupt })` defaults to required interrupt behavior. Use
-`interrupt.mode: "optional"` when the model should decide whether to continue
-with a single model call or pause for user input.
+Define reusable model-driven human-input contracts with
+`defineInterruptContract(...)`, then pass one or more through
+`useReason({ interrupts: { contracts } })`. Contract calls share the ordinary
+tool loop, so tools can run before and after a pause. Use `mode: "optional"`
+when the model may finish without asking, and `maxRequests` to bound sequential
+human turns.
+
+The singular `useReason({ interrupt })` option and `result.interruptResponse`
+are deprecated and will be removed in the next major release. Migrate to
+`interrupts.contracts` and `result.interruptHistory`.
 
 ## Runtime Resume Behavior
 

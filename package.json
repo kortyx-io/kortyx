@@ -62,7 +62,8 @@
     "format": "biome check --write .",
     "format:check": "biome check .",
     "prepare": "command -v husky >/dev/null 2>&1 && husky || echo 'Husky not available, skipping'",
-    "test:examples:errors": "node scripts/error-contract-examples.e2e.mjs"
+    "test:examples:errors": "node scripts/error-contract-examples.e2e.mjs",
+    "test:manual:interrupt-contracts": "node scripts/manual-verify-model-interrupt-contracts.mjs"
   },
   "engines": {
     "node": ">=22.0.0",

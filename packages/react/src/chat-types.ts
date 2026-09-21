@@ -11,12 +11,14 @@ export type HumanInputPiece = {
   type: "interrupt";
   resumeToken: string;
   requestId: string;
-  kind: "text" | "choice" | "multi-choice";
+  kind: "text" | "choice" | "multi-choice" | "custom";
   question?: string;
   multiple: boolean;
   options: Array<{ id: string; label: string; description?: string }>;
   schemaId?: string;
   schemaVersion?: string;
+  contract?: string;
+  request?: unknown;
   interruptId?: string;
   meta?: Record<string, unknown>;
 };
@@ -46,5 +48,6 @@ export type ChatMsg = {
         requestId: string;
         selected: string[];
         text?: string;
+        value?: unknown;
       };
 };

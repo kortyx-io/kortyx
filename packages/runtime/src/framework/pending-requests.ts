@@ -1,7 +1,7 @@
 import type { GraphState } from "@kortyx/core";
 import type { GraphSnapshotBundle } from "./graph-snapshot";
 
-export type HumanInputKind = "choice" | "multi-choice" | "text";
+export type HumanInputKind = "choice" | "multi-choice" | "text" | "custom";
 
 export interface HumanInputOption {
   id: string;
@@ -37,6 +37,8 @@ export interface PendingRequestRecord {
     id?: string;
     schemaId?: string;
     schemaVersion?: string;
+    contract?: string;
+    request?: unknown;
     meta?: Record<string, unknown>;
   };
   options: HumanInputOption[];
