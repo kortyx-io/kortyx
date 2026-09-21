@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.10.0](https://github.com/kortyx-io/kortyx/compare/telemetry-contracts-v0.9.0...telemetry-contracts-v0.10.0) (2026-09-21)
+
+
+### Features
+
+* **observability:** report handled workflow errors ([#222](https://github.com/kortyx-io/kortyx/issues/222)) ([68a3b0e](https://github.com/kortyx-io/kortyx/commit/68a3b0eea5d93cb89bdcef63c4767f3b0d59e60d))
+
 ## [0.9.0](https://github.com/kortyx-io/kortyx/compare/telemetry-contracts-v0.8.0...telemetry-contracts-v0.9.0) (2026-09-18)
 
 

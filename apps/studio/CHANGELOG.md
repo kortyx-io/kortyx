@@ -1,5 +1,28 @@
 # Changelog
 
+## [0.8.0](https://github.com/kortyx-io/kortyx/compare/studio-v0.7.1...studio-v0.8.0) (2026-09-21)
+
+
+### Features
+
+* **observability:** report handled workflow errors ([#222](https://github.com/kortyx-io/kortyx/issues/222)) ([68a3b0e](https://github.com/kortyx-io/kortyx/commit/68a3b0eea5d93cb89bdcef63c4767f3b0d59e60d))
+
+
+### Bug Fixes
+
+* **studio:** explain workflow status indicators ([#221](https://github.com/kortyx-io/kortyx/issues/221)) ([58f3ace](https://github.com/kortyx-io/kortyx/commit/58f3acee7fef4f3bca2f093d23a2b46039fe5095))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/telemetry-contracts bumped to 0.10.0
+  * devDependencies
+    * @kortyx/agent bumped to 0.25.1
+    * @kortyx/telemetry bumped to 0.8.0
+    * kortyx bumped to 0.23.0
+
 ## [0.7.1](https://github.com/kortyx-io/kortyx/compare/studio-v0.7.0...studio-v0.7.1) (2026-09-19)
 
 
