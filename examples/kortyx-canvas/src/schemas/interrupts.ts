@@ -1,23 +1,27 @@
 import { z } from "zod";
 
 /**
- * Shape the LLM must produce when emitting a picker (brief / agent)
- * interrupt. Uses `kind: "choice"` (not `text`) so kortyx's client-side
- * `chat.send` does NOT auto-route plain chat-input submissions into
- * `respondToHumanInput` — only an explicit pick from the picker UI
- * (which calls `chat.respondToInterrupt`) resolves the interrupt; any
- * other typing falls through as a fresh chat turn that re-classifies.
+ * Shape the model must send through a brief / agent interrupt contract.
+ * Kortyx transports it as an opaque `custom` request, so only the picker UI's
+ * explicit `respondToInterrupt(..., { value })` call resolves the operation;
+ * typing in the normal composer remains a fresh chat turn.
  *
- * `options` is required by kortyx's `InterruptChoiceInput` type but the
- * picker UI doesn't render it (it dispatches on `schemaId` and uses an
- * AsyncSearchSelect against `meta.candidates`), so we default it to an
- * empty array. The system prompt instructs the LLM not to generate any
- * options.
+ * The UI dispatches on the contract's `schemaId`, renders `candidates` as a
+ * shortlist, and keeps an AsyncSearchSelect as the fallback. `options` stays
+ * empty because this custom picker does not use Kortyx's generic choice UI.
  */
 export const pickerRequestSchema = z.object({
   kind: z.literal("choice"),
   question: z.string().min(1),
   options: z.array(z.object({ id: z.string(), label: z.string() })).default([]),
+  candidates: z
+    .array(
+      z.object({
+        id: z.string().min(1),
+        label: z.string().min(1),
+      }),
+    )
+    .default([]),
 });
 
 /** The picker resolves with the selected entity id as a plain string. */
