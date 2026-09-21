@@ -18,6 +18,21 @@ import {
 } from "../lib/view-state";
 import type { WorkflowSummary } from "../schema";
 
+const modeHelp: Record<WorkflowViewMode, string> = {
+  system:
+    "Show workflow structure, node activity, and connections between workflows.",
+  health:
+    "Highlight nodes using the selected operational metric and its attention threshold.",
+};
+
+const metricHelp: Record<WorkflowMetric, string> = {
+  volume: "Emphasize nodes and connections with more recorded runs.",
+  error: "Emphasize nodes whose error rate is above 3%.",
+  latency: "Emphasize nodes whose p95 duration is above 2 seconds.",
+  cost: "Show recorded average cost for each node.",
+  interrupt: "Emphasize nodes whose interrupt rate is above 10%.",
+};
+
 type WorkflowToolbarProps = {
   mode: WorkflowViewMode;
   metric: WorkflowMetric;
@@ -65,26 +80,35 @@ export function WorkflowToolbar({
     <header className="border-b bg-background px-4 pt-3">
       <div className="flex flex-wrap items-center justify-between gap-2 pb-3">
         <div className="flex items-center gap-2">
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            className="md:hidden"
-            aria-label="Open workflow catalog"
-            onClick={onOpenCatalog}
-          >
-            <PanelLeft />
-          </Button>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                className="md:hidden"
+                aria-label="Open workflow catalog"
+                onClick={onOpenCatalog}
+              >
+                <PanelLeft />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Open workflow catalog</TooltipContent>
+          </Tooltip>
           {!catalogPanelOpen && (
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              className="hidden md:inline-flex"
-              aria-label="Expand workflow catalog"
-              title="Expand workflow catalog"
-              onClick={onOpenCatalogPanel}
-            >
-              <PanelLeft />
-            </Button>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  className="hidden md:inline-flex"
+                  aria-label="Expand workflow catalog"
+                  onClick={onOpenCatalogPanel}
+                >
+                  <PanelLeft />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Expand workflow catalog</TooltipContent>
+            </Tooltip>
           )}
           <div>
             <h1 className="text-xl font-semibold tracking-tight">Workflows</h1>
@@ -117,18 +141,24 @@ export function WorkflowToolbar({
           </select>
           <div className="flex rounded-md border p-0.5">
             {(["system", "health"] as const).map((item) => (
-              <button
-                type="button"
-                key={item}
-                aria-pressed={mode === item}
-                onClick={() => onModeChange(item)}
-                className={cn(
-                  "whitespace-nowrap rounded px-2 py-1 text-xs",
-                  mode === item && "bg-accent font-medium",
-                )}
-              >
-                {item === "system" ? "System Map" : "Health"}
-              </button>
+              <Tooltip key={item}>
+                <TooltipTrigger asChild>
+                  <button
+                    type="button"
+                    aria-pressed={mode === item}
+                    onClick={() => onModeChange(item)}
+                    className={cn(
+                      "whitespace-nowrap rounded px-2 py-1 text-xs",
+                      mode === item && "bg-accent font-medium",
+                    )}
+                  >
+                    {item === "system" ? "System Map" : "Health"}
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent className="max-w-64">
+                  {modeHelp[item]}
+                </TooltipContent>
+              </Tooltip>
             ))}
           </div>
           <Tooltip>
@@ -145,25 +175,35 @@ export function WorkflowToolbar({
             <TooltipContent>Refresh metrics</TooltipContent>
           </Tooltip>
           {!inspectorPanelOpen && (
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              className="hidden lg:inline-flex"
-              aria-label="Open selected item panel"
-              onClick={onOpenInspectorPanel}
-            >
-              <PanelRight />
-            </Button>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  className="hidden lg:inline-flex"
+                  aria-label="Open selected item panel"
+                  onClick={onOpenInspectorPanel}
+                >
+                  <PanelRight />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Open selected item panel</TooltipContent>
+            </Tooltip>
           )}
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            className="lg:hidden"
-            aria-label="Open selected item panel"
-            onClick={onOpenInspector}
-          >
-            <PanelRight />
-          </Button>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                className="lg:hidden"
+                aria-label="Open selected item panel"
+                onClick={onOpenInspector}
+              >
+                <PanelRight />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Open selected item panel</TooltipContent>
+          </Tooltip>
         </div>
       </div>
       {mode === "health" && (
@@ -172,24 +212,30 @@ export function WorkflowToolbar({
             Emphasis
           </span>
           {workflowMetrics.map((item) => (
-            <button
-              type="button"
-              key={item}
-              aria-pressed={metric === item}
-              onClick={() => onMetricChange(item)}
-              className={cn(
-                "rounded px-2 py-1 text-[11px] capitalize",
-                metric === item
-                  ? "bg-accent font-medium"
-                  : "text-muted-foreground hover:text-foreground",
-              )}
-            >
-              {item === "error"
-                ? "Error rate"
-                : item === "interrupt"
-                  ? "Interrupt rate"
-                  : item}
-            </button>
+            <Tooltip key={item}>
+              <TooltipTrigger asChild>
+                <button
+                  type="button"
+                  aria-pressed={metric === item}
+                  onClick={() => onMetricChange(item)}
+                  className={cn(
+                    "rounded px-2 py-1 text-[11px] capitalize",
+                    metric === item
+                      ? "bg-accent font-medium"
+                      : "text-muted-foreground hover:text-foreground",
+                  )}
+                >
+                  {item === "error"
+                    ? "Error rate"
+                    : item === "interrupt"
+                      ? "Interrupt rate"
+                      : item}
+                </button>
+              </TooltipTrigger>
+              <TooltipContent className="max-w-64">
+                {metricHelp[item]}
+              </TooltipContent>
+            </Tooltip>
           ))}
         </div>
       )}

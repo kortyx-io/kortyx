@@ -2,16 +2,26 @@ import { PanelLeftClose, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { formatCount } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import type { WorkflowHealth, WorkflowSystem } from "../schema";
+import {
+  WorkflowHealthIndicator,
+  workflowHealthLabel,
+} from "./workflow-status-indicator";
 
-const healthClasses: Record<WorkflowHealth, string> = {
-  unknown: "bg-slate-300",
-  healthy: "bg-emerald-500",
-  degraded: "bg-amber-500",
-  failing: "bg-red-500",
-  idle: "bg-slate-400",
+const healthFilterHelp: Record<WorkflowHealth | "all", string> = {
+  all: "Show workflows in every health state.",
+  unknown: "No runs were recorded in the selected period.",
+  healthy: "Error rate is below 5% and interrupt rate is below 25%.",
+  degraded: "Error rate is at least 5%, or interrupt rate is at least 25%.",
+  failing: "Error rate is at least 20%.",
+  idle: "Latest recorded activity is more than 7 days old.",
 };
 
 type WorkflowCatalogProps = {
@@ -51,16 +61,20 @@ export function WorkflowCatalog({
             <span className="text-xs tabular-nums text-muted-foreground">
               {workflows.length}
             </span>
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              className="hidden md:inline-flex"
-              aria-label="Collapse workflow catalog"
-              title="Collapse workflow catalog"
-              onClick={onCollapse}
-            >
-              <PanelLeftClose />
-            </Button>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  className="hidden md:inline-flex"
+                  aria-label="Collapse workflow catalog"
+                  onClick={onCollapse}
+                >
+                  <PanelLeftClose />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Collapse workflow catalog</TooltipContent>
+            </Tooltip>
           </div>
         </div>
         <div className="relative">
@@ -74,24 +88,37 @@ export function WorkflowCatalog({
           />
         </div>
         <div className="mt-2 flex flex-wrap items-center gap-1">
-          {(["all", "healthy", "degraded", "failing", "idle"] as const).map(
-            (item) => (
-              <button
-                type="button"
-                key={item}
-                aria-pressed={health === item}
-                onClick={() => onHealthChange(item)}
-                className={cn(
-                  "rounded px-1.5 py-1 text-[11px] capitalize",
-                  health === item
-                    ? "bg-accent font-medium text-foreground"
-                    : "text-muted-foreground hover:text-foreground",
-                )}
-              >
-                {item}
-              </button>
-            ),
-          )}
+          {(
+            [
+              "all",
+              "unknown",
+              "healthy",
+              "degraded",
+              "failing",
+              "idle",
+            ] as const
+          ).map((item) => (
+            <Tooltip key={item}>
+              <TooltipTrigger asChild>
+                <button
+                  type="button"
+                  aria-pressed={health === item}
+                  onClick={() => onHealthChange(item)}
+                  className={cn(
+                    "rounded px-1.5 py-1 text-[11px] capitalize",
+                    health === item
+                      ? "bg-accent font-medium text-foreground"
+                      : "text-muted-foreground hover:text-foreground",
+                  )}
+                >
+                  {item}
+                </button>
+              </TooltipTrigger>
+              <TooltipContent className="max-w-64">
+                {healthFilterHelp[item]}
+              </TooltipContent>
+            </Tooltip>
+          ))}
         </div>
       </div>
       <ScrollArea className="min-h-0 flex-1">
@@ -117,12 +144,13 @@ export function WorkflowCatalog({
                   )}
                 >
                   <div className="flex items-center gap-2">
-                    <span
-                      className={cn(
-                        "size-1.5 shrink-0 rounded-full",
-                        healthClasses[workflow.health],
-                      )}
+                    <WorkflowHealthIndicator
+                      health={workflow.health}
+                      focusable={false}
                     />
+                    <span className="sr-only">
+                      {workflowHealthLabel(workflow.health)}.
+                    </span>
                     <span className="min-w-0 flex-1 truncate font-mono text-xs font-medium">
                       {workflow.name}
                     </span>
