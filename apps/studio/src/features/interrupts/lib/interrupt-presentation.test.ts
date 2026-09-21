@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
   effectiveInterruptStatus,
+  interruptInteractionLabel,
   interruptTimingPresentation,
+  interruptTypeLabel,
 } from "@/features/interrupts/lib/interrupt-presentation";
 
 const createdAt = "2026-07-26T12:00:00.000Z";
@@ -48,5 +50,25 @@ describe("interrupt timing presentation", () => {
         Date.parse("2026-07-26T13:00:00.000Z"),
       ).label,
     ).toBe("Resolved in 34s");
+  });
+});
+
+describe("interrupt contract presentation", () => {
+  it("distinguishes a structured contract from a legacy dynamic picker", () => {
+    expect(
+      interruptInteractionLabel({
+        interactionMode: "dynamic-picker",
+        type: "structured",
+        optionCount: 0,
+      }),
+    ).toBe("Contract UI");
+    expect(interruptTypeLabel("structured")).toBe("Structured contract");
+    expect(
+      interruptInteractionLabel({
+        interactionMode: "dynamic-picker",
+        type: "choice",
+        optionCount: 0,
+      }),
+    ).toBe("Dynamic picker");
   });
 });

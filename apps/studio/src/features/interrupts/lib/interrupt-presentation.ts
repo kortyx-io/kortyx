@@ -17,7 +17,8 @@ export const interruptInteractionLabel = ({
   type,
   optionCount,
 }: InterruptPresentationInput): string => {
-  if (interactionMode === "dynamic-picker") return "Dynamic picker";
+  if (interactionMode === "dynamic-picker")
+    return type === "structured" ? "Contract UI" : "Dynamic picker";
   if (interactionMode === "freeform") return "Free-form response";
   if (interactionMode === "static-options") {
     const count = optionCount ?? 0;
@@ -33,6 +34,7 @@ export const interruptTypeLabel = (type: StudioInterruptType): string => {
   if (type === "multi-choice") return "Multiple choice";
   if (type === "choice") return "Single choice";
   if (type === "text") return "Text";
+  if (type === "structured") return "Structured contract";
   return "Unknown type";
 };
 

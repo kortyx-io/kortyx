@@ -43,9 +43,13 @@ describe("normalizeStudioInterruptProjection", () => {
     expect(normalizeStudioInterruptProjection(legacyInterrupt())).toMatchObject(
       {
         interactionMode: "unknown",
+        contract: null,
         schemaId: null,
         schemaVersion: null,
+        request: null,
+        requestCaptured: false,
         options: null,
+        responseValue: null,
         responseCaptured: false,
       },
     );

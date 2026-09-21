@@ -38,6 +38,11 @@ export type StudioTimelineItem = {
   interruptId?: string | undefined;
   interruptType?: string | undefined;
   interactionMode?: string | undefined;
+  contract?: string | undefined;
+  schemaId?: string | undefined;
+  schemaVersion?: string | undefined;
+  request?: unknown;
+  response?: unknown;
   resumeOutcome?: string | undefined;
   limit?: string | undefined;
   consumed?: unknown;
@@ -132,6 +137,19 @@ export const buildStudioTimeline = (
                 stringValue(payload.interactionMode),
             }
           : {}),
+        ...(interrupt?.contract || stringValue(payload.contract)
+          ? { contract: interrupt?.contract ?? stringValue(payload.contract) }
+          : {}),
+        ...(interrupt?.schemaId || stringValue(payload.schemaId)
+          ? { schemaId: interrupt?.schemaId ?? stringValue(payload.schemaId) }
+          : {}),
+        ...(interrupt?.schemaVersion || stringValue(payload.schemaVersion)
+          ? {
+              schemaVersion:
+                interrupt?.schemaVersion ?? stringValue(payload.schemaVersion),
+            }
+          : {}),
+        ...(payload.request !== undefined ? { request: payload.request } : {}),
         ...(interrupt?.question !== undefined && interrupt.question !== null
           ? { question: interrupt.question }
           : payload.question !== undefined
@@ -150,6 +168,14 @@ export const buildStudioTimeline = (
         ...(stringValue(payload.resumeOutcome)
           ? { resumeOutcome: stringValue(payload.resumeOutcome) }
           : {}),
+        ...(stringValue(payload.contract)
+          ? { contract: stringValue(payload.contract) }
+          : {}),
+        ...(payload.responseValue !== undefined
+          ? { response: payload.responseValue }
+          : payload.response !== undefined
+            ? { response: payload.response }
+            : {}),
       });
       continue;
     }

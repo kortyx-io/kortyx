@@ -150,6 +150,10 @@ for presenting the request and sending the resume response.
   process it as a new run; Studio keeps the original interrupt and run expired.
 - A dynamic picker can correctly show `0` embedded options. Its options are
   resolved by the client from `schemaId`; it is not an empty static choice.
+- A model-selected `useReason` interrupt contract appears as a structured
+  contract UI. Studio shows the contract name, schema ID/version, pause/resume
+  lifecycle, and the structured request/response when content capture permits.
+  The contract control call is not reported as an executed application tool.
 - Questions and static option labels follow output-content capture. Submitted
   responses follow input-content capture. Option values and resume tokens are
   never sent as telemetry.

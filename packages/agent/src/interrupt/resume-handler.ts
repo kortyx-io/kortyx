@@ -369,6 +369,9 @@ export async function tryPrepareResumeStream({
         ...(pending.schema.schemaVersion
           ? { schemaVersion: pending.schema.schemaVersion }
           : {}),
+        ...(responseCaptured && meta.hasValue
+          ? { responseValue: meta.value }
+          : {}),
         ...(responseCaptured && response ? { response } : {}),
       },
       flush: true,
@@ -396,6 +399,17 @@ export async function tryPrepareResumeStream({
         resume: true,
         telemetryInterruptId: pending.requestId,
         telemetryInterruptNodeId: pending.node,
+        ...(pending.schema.contract
+          ? { telemetryInterruptContract: pending.schema.contract }
+          : {}),
+        ...(pending.schema.schemaId
+          ? { telemetryInterruptSchemaId: pending.schema.schemaId }
+          : {}),
+        ...(pending.schema.schemaVersion
+          ? {
+              telemetryInterruptSchemaVersion: pending.schema.schemaVersion,
+            }
+          : {}),
         ...(resumeValue !== undefined ? { resumeValue } : {}),
         ...(resumeCheckpointId ? { resumeCheckpointId } : {}),
         ...(hasResumeUpdate ? { resumeUpdate } : {}),

@@ -74,9 +74,18 @@ const response = await useInterrupt({
   payload, contract name, schema ID/version, and structured response travel
   through the same resume handle.
 - Interrupt lifecycle telemetry remains `interrupt.created`,
-  `interrupt.resolved`, `interrupt.cancelled`, and `interrupt.failed`. Reason
-  traces additionally record the contract and interrupt index. Contract calls
-  are not reported as executed application tools.
+  `interrupt.resolved` (including a failed resume outcome),
+  `interrupt.cancelled`, and API-derived `interrupt.expired`. Reason traces
+  additionally record the contract and interrupt index. Contract calls are not
+  reported as executed application tools.
+
+Studio projects `kind: "custom"` as a structured contract interrupt. Its list,
+detail, filters, and run trace preserve the contract name and schema identity.
+The model-authored request is exported only under output-content capture; the
+human response is exported only under input-content capture. Studio redacts
+sensitive object keys, renders captured values structurally, and remains
+read-only. Persisted projections from older releases normalize missing contract
+fields to `null`/`false` instead of requiring a blocking database backfill.
 
 The transport carries a `custom` interrupt with opaque `request`. Clients route
 by `schemaId` / `schemaVersion` and respond with a structured `value` (or

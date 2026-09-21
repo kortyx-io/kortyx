@@ -105,11 +105,19 @@ describe("buildTraceStory", () => {
         { name: "kortyx.run", durationMs: 1_000 },
         { spanId: "run-span-1" },
       ),
-      detailEvent("interrupt", "interrupt.created", 900, {
-        interruptId: "interrupt-1",
-      }),
+      detailEvent(
+        "interrupt",
+        "interrupt.created",
+        900,
+        {
+          interruptId: "interrupt-1",
+          contract: "jobPicker",
+        },
+        { nodeId: "brief" },
+      ),
       detailEvent("resolved", "interrupt.resolved", 5_000, {
         interruptId: "interrupt-1",
+        contract: "jobPicker",
       }),
       detailEvent(
         "run-2",
@@ -137,6 +145,13 @@ describe("buildTraceStory", () => {
       "resumed",
     ]);
     expect(executions[1]?.label).toBe("Run resumed");
+    expect(
+      buildTraceStory(events).find((item) => item.kind === "interrupt"),
+    ).toMatchObject({
+      label: "Human input · jobPicker",
+      description: "brief · Resolved after 4.1s",
+      status: "resolved",
+    });
   });
 
   it("compresses long unobserved waits without changing wall-clock duration", () => {
@@ -325,7 +340,10 @@ it("shows limit exhaustion and its span endings as a pause instead of failure or
     title: "Limit reached — Continue?",
     description: expect.stringContaining("2/2"),
   });
-  expect(isControlFlowInterrupt(events[1]!)).toBe(true);
+  const resolvedEvent = events[1];
+  expect(resolvedEvent).toBeDefined();
+  if (!resolvedEvent) throw new Error("Expected a resolved interrupt event.");
+  expect(isControlFlowInterrupt(resolvedEvent)).toBe(true);
 });
 
 it("labels failed provider generations as failures rather than completed answers", () => {

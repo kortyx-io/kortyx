@@ -312,6 +312,15 @@ export async function orchestrateGraphStream({
         resumeOutcome: "failed",
         resumeError: serializeFailure(resumeError).message,
         failure: serializeFailure(resumeError),
+        ...(typeof config.telemetryInterruptContract === "string"
+          ? { contract: config.telemetryInterruptContract }
+          : {}),
+        ...(typeof config.telemetryInterruptSchemaId === "string"
+          ? { schemaId: config.telemetryInterruptSchemaId }
+          : {}),
+        ...(typeof config.telemetryInterruptSchemaVersion === "string"
+          ? { schemaVersion: config.telemetryInterruptSchemaVersion }
+          : {}),
       },
       flush: true,
     });
@@ -677,6 +686,13 @@ export async function orchestrateGraphStream({
         })),
       },
     } as any);
+    const captureRequest = shouldCaptureTelemetryContent(
+      telemetryConfig.captureContent,
+      "output",
+    );
+    const structuredRequest = isRecord(record.schema.request)
+      ? record.schema.request
+      : undefined;
     emitTelemetryEvent({
       config,
       type: "interrupt.created",
@@ -702,14 +718,14 @@ export async function orchestrateGraphStream({
           ? { schemaVersion: record.schema.schemaVersion }
           : {}),
         ...(record.schema.contract ? { contract: record.schema.contract } : {}),
-        ...(typeof record.schema.question === "string" &&
-        shouldCaptureTelemetryContent(telemetryConfig.captureContent, "output")
+        requestCaptured: Boolean(captureRequest && structuredRequest),
+        ...(captureRequest && structuredRequest
+          ? { request: structuredRequest }
+          : {}),
+        ...(typeof record.schema.question === "string" && captureRequest
           ? { question: record.schema.question }
           : {}),
-        ...(shouldCaptureTelemetryContent(
-          telemetryConfig.captureContent,
-          "output",
-        )
+        ...(captureRequest
           ? {
               options: record.options.map((option) => ({
                 id: option.id,

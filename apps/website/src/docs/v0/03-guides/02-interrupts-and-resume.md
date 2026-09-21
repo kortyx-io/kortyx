@@ -128,6 +128,23 @@ In `@kortyx/react`, custom renderers receive `piece.contract`,
 `respondToInterrupt(piece, { value })`. The server validates that value against
 the selected contract's response schema before reasoning continues.
 
+## Inspecting contract interrupts in Studio
+
+Studio remains read-only: your application renders the picker and sends the
+response. When Studio telemetry is connected, the interrupt list and run trace
+identify the model-selected contract, its schema ID/version, lifecycle, wait
+time, and resume outcome. The interrupt detail shows the structured request and
+response when the corresponding content-capture direction is enabled:
+
+- `captureContent.output` includes the model-authored request.
+- `captureContent.input` includes the submitted structured response.
+- With capture disabled, Studio still shows structural lifecycle and contract
+  identity without storing application content.
+
+Contract control calls are shown as human-input pauses, not as executed
+application tools. Existing `useInterrupt(...)` records continue to appear as
+static choices, free-form requests, or client-resolved dynamic pickers.
+
 > **Good to know:** On resume, node code starts again from the top. `useReason` continues from its internal checkpoint, but code before `useReason` can run again unless you guard it. Prefer putting `useReason` first in the node and use `useNodeState` for pre-events that should emit once.
 
 ```ts

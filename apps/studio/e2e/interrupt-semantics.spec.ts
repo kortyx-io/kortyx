@@ -32,6 +32,30 @@ test.describe("Interrupt semantics", () => {
     await expect(page.getByText(/0 options/i)).toHaveCount(0);
   });
 
+  test("shows model-selected interrupt contracts with structured request and response data", async ({
+    page,
+  }) => {
+    await page.goto(`/interrupts/${DRAWER_FIXTURE.contractInterruptId}`);
+
+    await expect(page.getByText("Contract UI").first()).toBeVisible();
+    await expect(page.getByText("Structured contract").first()).toBeVisible();
+    await expect(page.getByText("jobPicker").first()).toBeVisible();
+    await expect(page.getByText("wolly.job-picker v1").first()).toBeVisible();
+    await expect(
+      page.getByText("Which engineering job did you mean?").first(),
+    ).toBeVisible();
+    await expect(page.getByText("Structured request")).toBeVisible();
+    await expect(page.locator("[data-payload-viewer]").first()).toContainText(
+      "candidates: Array(2)",
+    );
+    await expect(page.locator("[data-payload-viewer]").last()).toContainText(
+      'jobId: "job-1"',
+    );
+    await expect(
+      page.getByText(/The model selected the jobPicker interrupt contract/),
+    ).toBeVisible();
+  });
+
   test("distinguishes an expired free-form request in details and the list", async ({
     page,
   }) => {

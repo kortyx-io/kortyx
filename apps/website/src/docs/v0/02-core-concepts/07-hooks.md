@@ -493,6 +493,12 @@ cumulative across resume, while `maxRequests` independently limits human turns.
 The request and response are validated and recorded in
 `result.interruptHistory`.
 
+With Studio telemetry enabled, the run trace labels the human-input pause with
+the selected contract name. The interrupt inspector shows its schema and, when
+allowed by `captureContent`, the structured request and response. The reserved
+contract control tool is not counted or displayed as an executed application
+tool.
+
 > **Deprecated:** The singular `useReason({ interrupt })` option is supported
 > for the current major and emits a deprecation warning. It cannot express
 > multiple named contracts and will be removed in the next major release.

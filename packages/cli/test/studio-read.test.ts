@@ -140,6 +140,7 @@ const interrupt: StudioInterrupt = {
   status: "pending",
   type: "text",
   interactionMode: "freeform",
+  contract: null,
   schemaId: null,
   schemaVersion: null,
   createdAt: date,
@@ -147,6 +148,8 @@ const interrupt: StudioInterrupt = {
   expiresAt: null,
   question: "sensitive question",
   contentCaptured: true,
+  request: null,
+  requestCaptured: false,
   optionCount: null,
   options: null,
   workflowId: "canvas",
@@ -155,6 +158,7 @@ const interrupt: StudioInterrupt = {
   userId: null,
   tenantId: null,
   response: null,
+  responseValue: null,
   responseCaptured: false,
   resumeOutcome: null,
   resumeError: null,
@@ -1023,6 +1027,8 @@ describe("Studio URL inspection and evidence", () => {
       {
         ...event("resume", "interrupt.resolved", {
           interruptId: "interrupt-b",
+          contract: "jobPicker",
+          responseValue: { type: "select", jobId: "job-1" },
           resumeOutcome: "resumed",
         }),
         occurredAt: "2026-09-19T12:00:02.500Z",
@@ -1039,7 +1045,11 @@ describe("Studio URL inspection and evidence", () => {
       {
         ...event("interrupt-b", "interrupt.created", {
           interruptId: "interrupt-b",
-          kind: "text",
+          kind: "custom",
+          contract: "jobPicker",
+          schemaId: "wolly.job-picker",
+          schemaVersion: "1",
+          request: { question: "Which job?" },
         }),
         occurredAt: "2026-09-19T12:00:02.000Z",
       },
@@ -1073,8 +1083,21 @@ describe("Studio URL inspection and evidence", () => {
     expect(buildStudioTimeline(sequence)).toMatchObject([
       { step: 1, kind: "model", model: "gpt-test", durationMs: 1350 },
       { step: 2, kind: "interrupt", interruptType: "text" },
-      { step: 3, kind: "interrupt" },
-      { step: 4, kind: "resume", resumeOutcome: "resumed" },
+      {
+        step: 3,
+        kind: "interrupt",
+        contract: "jobPicker",
+        schemaId: "wolly.job-picker",
+        schemaVersion: "1",
+        request: { question: "Which job?" },
+      },
+      {
+        step: 4,
+        kind: "resume",
+        contract: "jobPicker",
+        response: { type: "select", jobId: "job-1" },
+        resumeOutcome: "resumed",
+      },
       {
         step: 5,
         kind: "tool",

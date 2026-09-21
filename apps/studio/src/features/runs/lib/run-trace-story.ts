@@ -341,6 +341,7 @@ function appendInterrupts(
 
   for (const [id, created] of createdById) {
     const terminal = terminalById.get(id);
+    const contract = asString(created.payload.contract);
     const durationMs = terminal
       ? Math.max(
           0,
@@ -350,12 +351,12 @@ function appendInterrupts(
     const status = interruptStatus(terminal?.type);
     items.push({
       id: created.id,
-      label: `Human input · ${created.nodeId ?? "unknown node"}`,
+      label: `Human input · ${contract ?? created.nodeId ?? "unknown node"}`,
       description:
         status === "resolved" && durationMs !== null
-          ? `Resolved after ${formatDurationMs(durationMs)}`
+          ? `${contract && created.nodeId ? `${created.nodeId} · ` : ""}Resolved after ${formatDurationMs(durationMs)}`
           : status === "waiting"
-            ? "Waiting for a response"
+            ? `${contract && created.nodeId ? `${created.nodeId} · ` : ""}Waiting for a response`
             : `${statusLabel(status)} after ${formatDurationMs(durationMs ?? 0)}`,
       kind: "interrupt",
       status,

@@ -429,6 +429,7 @@ for (const persistence of [
       );
       for (const response of [
         { type: "text", text: "wrong" },
+        { type: "value", value: { approved: true } },
         { type: "select", ids: ["unknown"] },
         { type: "select", ids: ["yes", "yes"] },
       ] as const) {

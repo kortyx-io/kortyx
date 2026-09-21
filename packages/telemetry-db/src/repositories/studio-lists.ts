@@ -261,9 +261,13 @@ export const normalizeStudioInterruptProjection = (
       Pick<
         StudioInterrupt,
         | "interactionMode"
+        | "contract"
         | "schemaId"
         | "schemaVersion"
+        | "request"
+        | "requestCaptured"
         | "options"
+        | "responseValue"
         | "responseCaptured"
       >
     >;
@@ -280,9 +284,19 @@ export const normalizeStudioInterruptProjection = (
     ...interrupt,
     status: resolveStudioInterruptStatus(interrupt, now),
     interactionMode,
+    contract: legacy.contract ?? null,
     schemaId: legacy.schemaId ?? null,
     schemaVersion: legacy.schemaVersion ?? null,
+    request:
+      legacy.request && typeof legacy.request === "object"
+        ? legacy.request
+        : null,
+    requestCaptured:
+      typeof legacy.requestCaptured === "boolean"
+        ? legacy.requestCaptured
+        : legacy.request !== null && legacy.request !== undefined,
     options: Array.isArray(legacy.options) ? legacy.options : null,
+    responseValue: legacy.responseValue ?? null,
     responseCaptured:
       typeof legacy.responseCaptured === "boolean"
         ? legacy.responseCaptured

@@ -381,6 +381,47 @@ describe("Studio read model projection", () => {
             responseCaptured: false,
           },
         }),
+        event(350, {
+          eventId: "contract-created",
+          type: "interrupt.created",
+          payload: {
+            interruptId: "contract-1",
+            kind: "custom",
+            interactionMode: "dynamic-picker",
+            contract: "jobPicker",
+            schemaId: "wolly.job-picker",
+            schemaVersion: "1",
+            question: "Which engineering job?",
+            requestCaptured: true,
+            request: {
+              kind: "choice",
+              candidates: [
+                {
+                  jobId: "job-1",
+                  title: "Engineer",
+                  api_key: "must-not-project",
+                },
+              ],
+            },
+            optionCount: 0,
+          },
+        }),
+        event(375, {
+          eventId: "contract-resolved",
+          type: "interrupt.resolved",
+          payload: {
+            interruptId: "contract-1",
+            contract: "jobPicker",
+            responseCaptured: true,
+            response: '{"type":"select","jobId":"job-1"}',
+            responseValue: {
+              type: "select",
+              jobId: "job-1",
+              accessToken: "must-not-project",
+            },
+            resumeOutcome: "resumed",
+          },
+        }),
         event(400, {
           eventId: "text-created",
           type: "interrupt.created",
@@ -467,6 +508,35 @@ describe("Studio read model projection", () => {
       interactionMode: "freeform",
       responseCaptured: false,
       resumeOutcome: "expired before resume",
+    });
+    expect(
+      models.interrupts.find((interrupt) => interrupt.id === "contract-1"),
+    ).toMatchObject({
+      status: "resolved",
+      type: "structured",
+      interactionMode: "dynamic-picker",
+      contract: "jobPicker",
+      schemaId: "wolly.job-picker",
+      schemaVersion: "1",
+      question: "Which engineering job?",
+      requestCaptured: true,
+      request: {
+        kind: "choice",
+        candidates: [
+          {
+            jobId: "job-1",
+            title: "Engineer",
+            api_key: "[REDACTED]",
+          },
+        ],
+      },
+      responseCaptured: true,
+      responseValue: {
+        type: "select",
+        jobId: "job-1",
+        accessToken: "[REDACTED]",
+      },
+      resumeOutcome: "resumed",
     });
     expect(
       models.interrupts.find((interrupt) => interrupt.id === "failed-1"),

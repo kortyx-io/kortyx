@@ -164,7 +164,7 @@ function Decision({ detail }: { detail: StudioInterruptDetailResponse }) {
       >
         <section className="min-w-0">
           <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
-            Decision requested
+            {interrupt.contract ? "Contract request" : "Decision requested"}
           </p>
           <div className="mt-3 rounded-lg border bg-muted/15 p-5">
             <p className="text-base font-medium leading-relaxed">
@@ -173,6 +173,9 @@ function Decision({ detail }: { detail: StudioInterruptDetailResponse }) {
             <div className="mt-4 flex flex-wrap gap-2">
               <StatusPill>{interactionLabel}</StatusPill>
               <StatusPill>{interruptTypeLabel(interrupt.type)}</StatusPill>
+              {interrupt.contract && (
+                <StatusPill>{interrupt.contract}</StatusPill>
+              )}
               {interrupt.schemaId && (
                 <StatusPill>
                   {interrupt.schemaId}
@@ -190,6 +193,14 @@ function Decision({ detail }: { detail: StudioInterruptDetailResponse }) {
               </p>
             )}
             <InterruptRequestDetails detail={detail} />
+            {interrupt.requestCaptured && interrupt.request && (
+              <div className="mt-5">
+                <p className="mb-2 text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
+                  Structured request
+                </p>
+                <PayloadViewer value={interrupt.request} />
+              </div>
+            )}
           </div>
           <div className="mt-6">
             <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
@@ -204,9 +215,13 @@ function Decision({ detail }: { detail: StudioInterruptDetailResponse }) {
                 </div>
               ) : interrupt.responseCaptured ? (
                 <>
-                  <p className="text-sm">
-                    {interrupt.response ?? "An empty response was submitted"}
-                  </p>
+                  {interrupt.responseValue !== null ? (
+                    <PayloadViewer value={interrupt.responseValue} />
+                  ) : (
+                    <p className="text-sm">
+                      {interrupt.response ?? "An empty response was submitted"}
+                    </p>
+                  )}
                   <p className="mt-2 text-xs text-muted-foreground">
                     {interrupt.resolvedBy
                       ? `Resolved by ${interrupt.resolvedBy}`
@@ -232,6 +247,9 @@ function Decision({ detail }: { detail: StudioInterruptDetailResponse }) {
               {interrupt.nodeId ?? "Not captured"}
             </KeyValue>
             <KeyValue label="Interaction">{interactionLabel}</KeyValue>
+            <KeyValue label="Contract">
+              {interrupt.contract ?? "Not a contract interrupt"}
+            </KeyValue>
             <KeyValue label="Schema">
               {interrupt.schemaId
                 ? `${interrupt.schemaId}${interrupt.schemaVersion ? ` v${interrupt.schemaVersion}` : ""}`
@@ -273,6 +291,16 @@ function InterruptRequestDetails({
 }) {
   const { interrupt } = detail;
   if (interrupt.interactionMode === "dynamic-picker") {
+    if (interrupt.contract) {
+      return (
+        <p className="mt-4 rounded-md border border-violet-500/20 bg-violet-500/5 px-3 py-2 text-xs leading-relaxed text-violet-700 dark:text-violet-400">
+          The model selected the <strong>{interrupt.contract}</strong> interrupt
+          contract. The application renders and resolves its structured UI
+          {interrupt.schemaId ? ` using ${interrupt.schemaId}` : ""}; Studio is
+          read-only.
+        </p>
+      );
+    }
     return (
       <p className="mt-4 rounded-md border border-blue-500/20 bg-blue-500/5 px-3 py-2 text-xs leading-relaxed text-blue-700 dark:text-blue-400">
         Options are resolved by the client
