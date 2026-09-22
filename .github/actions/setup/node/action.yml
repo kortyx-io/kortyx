@@ -21,7 +21,15 @@ runs:
     - name: Enable Corepack
       run: |
         corepack enable
-        pnpm --version
+        for attempt in 1 2 3; do
+          if pnpm --version; then
+            break
+          fi
+          if [ "$attempt" -eq 3 ]; then
+            exit 1
+          fi
+          sleep "$((attempt * 2))"
+        done
       shell: bash
       if: inputs.install == 'true'
     - name: Setup pnpm cache
