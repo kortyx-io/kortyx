@@ -16,7 +16,7 @@ class StudioReleaseWorkflowTests(unittest.TestCase):
         )[1].split("\n      - name:", 1)[0]
 
         self.assertIn(
-            "          DEPLOYMENT_STRATEGY: ${{ inputs.deployment_strategy }}\n",
+            "          DEPLOYMENT_STRATEGY: ${{ inputs.deployment_strategy || 'recreate' }}\n",
             publish_step,
         )
 

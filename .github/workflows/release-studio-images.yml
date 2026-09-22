@@ -282,4 +282,4 @@ jobs:
           VERSION: ${{ needs.prepare.outputs.version }}
           API_DIGEST: ${{ needs.publish-staging.outputs.api_digest }}
           STUDIO_DIGEST: ${{ needs.publish-staging.outputs.studio_digest }}
-          DEPLOYMENT_STRATEGY: ${{ inputs.deployment_strategy }}
+          DEPLOYMENT_STRATEGY: ${{ inputs.deployment_strategy || 'recreate' }}
