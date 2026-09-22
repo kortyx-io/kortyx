@@ -97,3 +97,49 @@ const chat = useChat<ChatContext>({
 ## Storage
 
 Browser storage is used by default. Pass `storage` when the app needs custom persistence or no browser persistence.
+
+`useChat(...)` does **not** accept a `sessionId` option. It creates a session id on
+the first send or hydrates one from `ChatStorage.load()`. To open an existing
+thread, return its session id and visible messages from custom storage:
+
+```ts
+import type { ChatMsg, ChatStorage } from "@kortyx/react";
+
+function createServerChatStorage(threadId: string): ChatStorage<ChatMsg> {
+  return {
+    async load() {
+      const response = await fetch(`/api/threads/${threadId}/chat-state`);
+      if (!response.ok) return {};
+      const state = await response.json();
+      return {
+        sessionId: state.sessionId,
+        workflowId: state.workflowId ?? "",
+        includeHistory: false,
+        messages: state.messages ?? [],
+      };
+    },
+    async save(state) {
+      await fetch(`/api/threads/${threadId}/chat-state`, {
+        method: "PUT",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(state),
+      });
+    },
+    async clearMessages() {
+      await fetch(`/api/threads/${threadId}/messages`, { method: "DELETE" });
+    },
+  };
+}
+
+const chat = useChat({
+  transport,
+  storage: createServerChatStorage(threadId),
+});
+```
+
+Treat server-owned history as authoritative. Authenticate the thread/session at
+the route, load the approved history or summary there, and keep
+`includeHistory: false` when the client transcript should not be sent back as
+model context. `ChatStorage` hydrates the UI and active session; it does not make
+client-supplied messages trustworthy. A custom storage implementation may persist
+only the session id locally and fetch visible messages from an app API.

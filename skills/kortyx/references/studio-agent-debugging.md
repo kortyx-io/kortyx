@@ -18,6 +18,58 @@ Use the project-installed `kortyx` binary (for example `pnpm exec kortyx`) when
 available. These commands require a version containing the Studio read CLI;
 use `kortyx studio inspect --help` to discover the actual installed surface.
 
+## Debugging Workflow
+
+1. Verify the selected connection and API compatibility:
+
+   ```bash
+   kortyx connections list --json
+   kortyx studio doctor --connection staging --json
+   kortyx studio catalogs --connection staging --json
+   ```
+
+   `doctor` checks reachability, credentials, project context, and protocol
+   compatibility. `catalogs` confirms available workflow/provider/filter values;
+   it does not prove that a workflow has executed.
+
+2. Inspect the pasted Studio URL first:
+
+   ```bash
+   kortyx studio inspect "<run-session-or-interrupt-url>" --connection staging --json
+   ```
+
+   Add `--focus-selection` when the URL includes a selected event, call, node, or
+   branch and that selection is the user's question.
+
+3. Read the canonical entity directly when more detail is needed:
+
+   ```bash
+   kortyx studio runs get <run-id> --connection staging --json
+   kortyx studio sessions get <session-id> --connection staging --json
+   kortyx studio interrupts get <interrupt-id> --connection staging --json
+   ```
+
+   A session may contain several root and child runs. Move from session to the
+   relevant run before attributing a failure.
+
+4. Compare a failed run with a retry, regeneration, or known-good run:
+
+   ```bash
+   kortyx studio runs compare <failed-run-id> <comparison-run-id> \
+     --connection staging --json
+   ```
+
+   Treat the first divergence and catalog/version differences as leads. Correlate
+   them with timeline events and source before claiming causation.
+
+5. Expand only the evidence you need: use list filters and cursors, raise
+   `--event-limit` when output reports omissions, and add `--include-content` only
+   when captured content is necessary and authorized.
+
+6. Report observed sequence, ids, likely cause, confidence, omitted/missing
+   evidence, and the next check. If the user asks for a fix, inspect application
+   source and reproduce through a real request before changing code.
+
 Managed local Studio supplies the `local` connection automatically, without
 printing credentials. Remote profiles map API and Studio browser base URLs to
 an environment variable containing a project-scoped `studio:read` key:

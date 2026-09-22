@@ -1,6 +1,10 @@
 # Child Workflow Implementation
 
-Use this reference when a node or custom hook must call another registered workflow, await its output, then continue the parent. Confirm the installed `kortyx` version exports `useWorkflow` and `createWorkflowHooks` before using this API. Older releases may only support handoffs.
+Use this reference when a node or custom hook must call another registered workflow,
+await its output, then continue the parent. `useWorkflow` and
+`createWorkflowHooks` are the current returning-call APIs. If a consuming app pins
+an older Kortyx release, inspect its installed exports instead of copying current
+implementation claims into that app.
 
 ## Choose the control flow
 
@@ -96,17 +100,23 @@ For example, if company research asks for approval at 2 seconds and role researc
 
 For parallel graphs, shared nodes wait for all selected predecessors, including unequal-length paths. Each node receives dependency outputs only. Disjoint top-level fields merge; overlapping writes from unrelated branches fail the shared node with `GRAPH_OUTPUT_CONFLICT` before its code runs, naming the field/writers. Never silently rename or overwrite parallel fields. Sequential overwrites and inherited common-ancestor values remain valid. Equivalent rules apply to workflow state.
 
-Ordinary branch failures stay local after configured retries; independent descendants continue. Required dependents fail before executing with `GRAPH_DEPENDENCY_FAILED`. Waiting human/limit pauses are not failures. All runnable branches drain before a durable suspension is published; one existing root handle presents one question, and only that node resumes when answered. Unanswered nodes remain waiting. Whole-root cancellation and persistence failures cannot be treated as ordinary branch success. Optional dependencies are not implicit; application fallback must return valid data. Use the same memory/Redis and fork/rollback APIs, preserving all node journals. Root `completeResponse` snapshots preserve settled progress and the invoking activation's hook state; incomplete concurrent activations can replay and still need external idempotency.
+Ordinary branch failures stay local after configured retries; independent descendants continue. Required dependents fail before executing with `GRAPH_DEPENDENCY_FAILED`. Waiting human/limit pauses are not failures. All runnable branches drain before a durable suspension is published; one existing root handle presents one question, and only that node resumes when answered. Unanswered nodes remain waiting. Whole-root cancellation and persistence failures cannot be treated as ordinary branch success. Optional dependencies are not implicit; application fallback must return valid data. Use one memory, Redis, PostgreSQL, or PostgreSQL-plus-Redis framework adapter for the root and all children, preserving all node journals. Root `completeResponse` snapshots preserve settled progress and the invoking activation's hook state; incomplete concurrent activations can replay and still need external idempotency.
 
 ## Persistence and branches
 
-Use one framework adapter on the parent agent. Child checkpoints are carried inside the parent snapshot; do not configure a separate child store. Use Redis for pauses that must survive restarts or multiple server workers, and choose TTL/retention for the application's pause duration.
+Use one framework adapter on the parent agent. Child checkpoints are carried inside
+the parent snapshot; do not configure a separate child store. Use Redis,
+PostgreSQL, or PostgreSQL plus Redis for pauses that must survive restarts or
+multiple workers, and choose TTL/retention for the application's pause duration.
 
 Fork/rollback uses the existing session checkpoint APIs. Snapshot-backed forks have independent run IDs and tokens while preserving the waiting call chain. They may reuse invocation IDs from their source; do not treat `invocationId` alone as globally unique across forks. Restoring runtime state does not undo external writes.
 
 Saved runtime context is retained on resume so new client history/picker values do not reroute an interrupted call. Reauthorize each request at the server boundary. Deploying a different child version can reject resume: retain compatible registered definitions or provide an explicit application restart path, rather than pretending to load historic code.
 
-Built-in memory and Redis stores claim tokens atomically. Expired, consumed, cancelled, and cross-session tokens fail. Selecting an app-defined Cancel choice resumes ordinary logic; protocol cancellation ends the waiting execution. Serialize concurrent rollback/fork/edit operations in the application.
+Built-in memory, Redis, and PostgreSQL stores claim tokens atomically. Expired,
+consumed, cancelled, and cross-session tokens fail. Selecting an app-defined
+Cancel choice resumes ordinary logic; protocol cancellation ends the waiting
+execution. Serialize concurrent rollback/fork/edit operations in the application.
 
 ## Migrate an existing handoff
 
@@ -119,9 +129,11 @@ Built-in memory and Redis stores claim tokens atomically. Expired, consumed, can
 
 ## Verify the implementation
 
-Choose coverage based on the application's call shape. For a reusable framework change, cover typed IDs/input/output, runtime invalid results, a child interrupt followed by a later parent interrupt, nested grandchildren, cached siblings, retries, and state isolation. Fork a waiting child and give branches different answers; then restore a checkpoint and edit the response. Reconstruct the agent with Redis to verify actual persistence, and test duplicate/stale tokens and cancelled requests.
+Choose coverage based on the application's call shape. For a reusable framework change, cover typed IDs/input/output, runtime invalid results, a child interrupt followed by a later parent interrupt, nested grandchildren, cached siblings, retries, and state isolation. Fork a waiting child and give branches different answers; then restore a checkpoint and edit the response. Reconstruct the agent with the production adapter actually selected by the app, and test duplicate/stale tokens and cancelled requests.
 
-When running Redis tests through a task runner, verify the Redis URL reaches the test process and the Redis cases actually ran. A green suite that skipped them is insufficient evidence of durable replay.
+When running persistence tests through a task runner, verify the configured Redis
+or PostgreSQL connection reaches the test process and those cases actually ran. A
+green suite that skipped them is insufficient evidence of durable replay.
 
 Studio's **Execution** tab groups logical calls under their caller, including nested nodes and generations. Enable **Include child workflows** in Runs for searchable child rows; use **Observed calls** on the workflow canvas for runtime call/return links. Publish both parent and child definitions from application source: the CLI discovers resolvable calls (including local custom hooks) before traffic. Check `topology push --dry-run --json` for `calls` and unresolved-target warnings. Runtime observations overlay metrics without duplicating source-discovered paths. No static call declarations are needed.
 

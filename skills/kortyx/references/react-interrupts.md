@@ -43,13 +43,55 @@ function InterruptControls({
 
 `TextForm` and `ChoiceList` represent app UI components; keep the original interrupt `piece` when submitting so the resume token and request id are preserved.
 
-Use `piece.schemaId` for app-specific routing when the server set `interrupt.schemaId` on `useReason(...)` or `useInterrupt(...)`.
+Use `piece.schemaId` for app-specific routing when the server set it on a
+`defineInterruptContract(...)` definition or `useInterrupt(...)` request.
 `HumanInputPiece` also preserves `schemaVersion`, `interruptId`, and public `meta` so clients can select custom pickers without joining against debug chunks.
+
+Model-driven interrupt contracts arrive as `kind: "custom"` pieces. The built-in
+projection preserves `contract`, opaque validated `request`, `schemaId`, and
+`schemaVersion`. Validate or narrow `piece.request` with the same client-safe schema
+before rendering app-specific controls:
+
+```tsx
+if (
+  piece.kind === "custom" &&
+  piece.contract === "accountPicker" &&
+  piece.schemaId === "acme.account-picker"
+) {
+  const request = AccountPickerRequest.safeParse(piece.request);
+  if (!request.success) return <InvalidInterrupt />;
+
+  return (
+    <AccountPicker
+      candidates={request.data.candidates}
+      onSubmit={(id) => {
+        const label = request.data.candidates.find((item) => item.id === id)?.label;
+        return chat.respondToInterrupt(piece, {
+          value: { type: "select", id },
+          ...(label ? { text: label } : {}),
+        });
+      }}
+    />
+  );
+}
+```
+
+`value` is the runtime response for a contract interrupt and is validated against
+that contract's `responseSchema`. Optional `text` is only the human-readable chat
+message. Keep value and display text separate when ids are opaque.
+
+Advanced clients can pass `toHumanInputPiece` to `useChat(...)` to customize how a
+raw interrupt chunk becomes a `HumanInputPiece`. Preserve `resumeToken`,
+`requestId`, contract/schema identity, and the request payload; otherwise resume
+or custom rendering will break. Prefer the built-in projection unless the app
+really needs another client-side shape.
 
 ## Response Shapes
 
-- Choice and multi-choice interrupts: pass selected values.
-- Text interrupts: pass text.
+- Choice and multi-choice `useInterrupt` requests: pass selected values.
+- Text `useInterrupt` requests: pass text.
+- Model-driven contract requests: pass `{ value }` matching the selected
+  contract's response schema.
 
 Keep UI responses tied to the original interrupt piece so the resume token and request id stay aligned.
 

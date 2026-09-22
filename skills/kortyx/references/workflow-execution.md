@@ -36,7 +36,7 @@ if (result.status === "suspended") {
 
 Prefer the simple Next.js API-route example when explaining entry points: `/api/chat`, `/api/execute`, `/api/resume`. Preserve the existing chat route's `stream: false` buffered response shape. Checkpoint HTTP helpers serve list/get/rollback/fork, not human responses. Canvas is an integration regression example, not a required public API pattern.
 
-Verify the same workflow through chat and execute, both directions of chat/direct resume, nested child + later parent pauses, rejected/duplicate/stale responses, independent forks, context preservation, schema transforms, and usage with no output reader. For multi-process guarantees, reconstruct the agent with Redis and verify the tests actually use it.
+Verify the same workflow through chat and execute, both directions of chat/direct resume, nested child + later parent pauses, rejected/duplicate/stale responses, independent forks, context preservation, schema transforms, and usage with no output reader. For multi-process guarantees, reconstruct the agent with the production Redis, PostgreSQL, or composed adapter and verify the tests actually use it.
 
 
 ## Cancellation implementation guide
@@ -46,19 +46,55 @@ Verify the same workflow through chat and execute, both directions of chat/direc
 - Use `useAbortSignal()` inside a custom node/hook and pass it to fetch or other cooperative I/O. Tools receive `abortSignal` in their execution context. Never write signals/controllers into context, node state, workflow state or checkpoints.
 - Handle `status: "cancelled"` separately from failure/suspension. Connected streams emit `cancelled` then one root `done`; disconnected clients cannot receive an outcome. Cancellation does not undo side effects or forcibly stop arbitrary JavaScript.
 - Every resume supplies a fresh signal. Pre-aborted resume leaves the handle usable; abort after claiming terminates that attempt and does not restore the consumed handle. Test old-signal abort after suspension and independent forks. Human `response: { type: "cancel" }` is a distinct waiting-interrupt operation.
-- Verify nested invoked/streaming model cancellation, in-flight tool cancellation with cleanup and no extra model passes, between-child cancellation, retry boundaries, concurrent root isolation, SSE disconnects, and checkpoint serialization with memory plus real Redis.
+- Verify nested invoked/streaming model cancellation, in-flight tool cancellation with cleanup and no extra model passes, between-child cancellation, retry boundaries, concurrent root isolation, SSE disconnects, and checkpoint serialization with memory plus the real production persistence adapter.
 - Do not invent `agent.abort({runId})`: cross-process cancellation requires routing to the live worker and remains a separate feature.
 
 
 ## Execution limits implementation guide
 
 - Configure `limits` on `createAgent` or server calls to `agent.execute` / `agent.streamChat`. Supported positive integer caps: `maxNodeExecutions`, `maxModelPasses`, `maxToolCalls`, `maxChildInvocations`. Partial overrides inherit defaults. Never accept browser-selected ceilings without application authorization.
+- Omitted limits are currently unlimited. Choose explicit server-owned ceilings for
+  production agents; do not imply that Kortyx supplies a cost cap by default.
+- Start from the workflow's expected shape, then tune with real run telemetry. A
+  simple baseline might be `{ maxNodeExecutions: 100, maxModelPasses: 20,
+  maxToolCalls: 40, maxChildInvocations: 10 }`, but these are example policy
+  values, not framework defaults. A specialist's `toolExecution.maxSteps` and
+  `interrupts.maxRequests` are narrower local bounds and do not replace the shared
+  root allowance.
 - Nodes (including retries), dispatched model passes, executed tools and newly started child calls consume the shared root allowance. Children and `transitionTo` handoffs share it. Cached results consume no new model/tool work; actual replay does. SDK-internal retries are not separate model passes. Keep reported token usage separate from these counters; do not advertise a monetary cap.
 - On exhaustion, handle `status: "suspended", reason: "limit_reached"` and the usual interrupt/handle. Streams emit `limit-reached` with runId/limit/maximum/consumed, then the normal interrupt/checkpoint flow and one done. The existing choice UI displays “Limit reached — Continue?”. Studio receives `run.limit_reached` and shows paused control flow.
 - Continue uses `agent.resume({workflow, resume, response: {type: "select", ids: ["continue"]}})`. It restores the saved graph checkpoint with a fresh allowance at the saved server ceilings. Optional server `resume.limits` changes that next allowance; there is no automatic ceiling increase. Ordinary human resumes retain spent allowance and ignore limit overrides. Chat options select new-run policy; limit continuations restore the saved policy.
 - Use existing checkpoint/replay semantics. Do not add tool/model micro-checkpoints or claim exactly-once execution. Completed nodes and saved child results are reused, while the active node/tool loop can repeat side effects and consume the fresh allowance. If that node exceeds a whole allowance it can pause again; choose appropriate server caps. Retain existing token usage across continuation.
 - Forks copy checkpoint state and spend independently; rollback restores its checkpoint's accounting state. No cross-run budget ledger is required. Signals remain transient; counters are serializable.
-- Verify all four limits, model/tool failures, retries and handoff loops, nested human answers before and after a limit, duplicate Continue, independent forks with memory and real Redis, persistence failure and cancellation while saving a pause. Test `/limits` in the API-route example and inspect a real paused/resumed run in Studio.
+- Verify all four limits, model/tool failures, retries and handoff loops, nested human answers before and after a limit, duplicate Continue, independent forks with memory and the chosen production adapter, persistence failure and cancellation while saving a pause. Test `/limits` in the API-route example and inspect a real paused/resumed run in Studio.
+
+## Conversational Regression Testing
+
+Test observable conversation behavior in addition to graph/unit correctness. Use
+deterministic provider/tool fixtures for CI and a small live-model evaluation set
+for prompt/model changes.
+
+Cover at least:
+
+- a direct answer that does not call tools or interrupt unnecessarily
+- an ambiguous request that selects the correct interrupt contract, validates a
+  value response, and continues naturally after resume
+- a tool-grounded answer with the expected tool, arguments, and source facts
+- a denied or faulting tool that produces a safe, useful response without leaking
+  raw errors, arguments, credentials, workflow ids, or tool mechanics
+- coordinator routing to the correct specialist and `useWorkflow` returning to the
+  coordinator instead of permanently handing off
+- multi-turn history under the app's chosen client- or server-owned history policy
+- cancellation, replay, duplicate/stale resume, and a limit-reached Continue path
+- natural final prose with no duplicated streamed/final message, raw JSON, canned
+  internal narration, or framework terminology unless the user asked for it
+
+Assert semantics and stable contracts: selected workflow, tool/interrupt sequence,
+validated output, failure code, budget consumption, and user-visible meaning. Avoid
+brittle full-string snapshots for model prose. For live-model regressions, score
+task completion, grounding, unnecessary tool/interrupt rate, safety, latency, and
+model/tool-pass counts; preserve representative multi-turn transcripts as cases,
+not as exact wording expectations.
 
 For early chat completion and human requests after its connection closes, see [response completion](response-completion.md). Discovery through agent.listInterrupts/getInterrupt does not require Studio or changes to useInterrupt.
 

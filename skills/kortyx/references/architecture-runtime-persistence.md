@@ -11,7 +11,19 @@ Stores short-lived execution state:
 - user-facing session checkpoints for rollback, fork, regenerate, and undo
 - short-lived runtime state
 
-Use in-memory for local demos. Use Redis in production if interrupt/resume or checkpoint rollback/fork must survive restarts, deploys, or multiple app instances.
+Choose among the current built-in models:
+
+- **Memory:** local development, tests, and small single-process demos. It is not
+  shared or restart-safe.
+- **Redis:** shared, low-latency runtime state with native TTL. Use it when the
+  desired history fits a bounded expiry window and several app instances must
+  resume the same work.
+- **PostgreSQL:** authoritative durable runtime history with retention and
+  maintenance. Use it for longer-lived checkpoint, rollback, fork, and session
+  history.
+- **PostgreSQL plus Redis:** PostgreSQL remains authoritative; Redis caches
+  checkpoint payloads to reduce repeated-read latency. Redis never controls
+  visibility or token consumption in this mode.
 
 By default, `createAgent(...)` uses env-based runtime persistence selection.
 
@@ -31,7 +43,7 @@ Default env selection:
 - Otherwise in-memory.
 - TTL can be set with `KORTYX_FRAMEWORK_TTL_MS` or `KORTYX_TTL_MS`.
 
-Use explicit Redis config when the app should own the setting in code:
+Use explicit Redis config when shared TTL-oriented runtime state is sufficient:
 
 ```ts
 import { createAgent, createRedisFrameworkAdapter } from "kortyx";
@@ -64,9 +76,10 @@ Kortyx runtime persistence is execution state, not the app data layer.
 
 ## Checkpoint Retention And Scale
 
-User-facing session checkpoint retention defaults to the last 50 checkpoints per session.
-
-Use `maxSessionCheckpoints` to lower or raise that cap. Lower values reduce storage cost but shorten rollback history.
+Memory and Redis user-facing session checkpoint retention defaults to the last 50
+checkpoints per session. Use `maxSessionCheckpoints` to lower or raise that cap.
+PostgreSQL instead uses configured history/session retention windows and has no
+50-checkpoint cap.
 
 Redis-backed persistence applies TTL to Kortyx runtime state and shares state across app instances. The same Redis connection handles pending interrupts, internal graph checkpoints, and user-facing session checkpoints.
 
@@ -75,13 +88,15 @@ In-memory persistence has no cross-process sharing and no restart safety. It cap
 ## Decision Rules
 
 - No interrupts/resume and no paused runs: default local behavior is usually enough.
-- Interrupt/resume in production: use Redis.
-- Rollback/fork/regenerate in production: use Redis.
-- Multiple server instances: use Redis.
+- Short-lived interrupt/resume across production workers: use Redis or PostgreSQL.
+- Durable rollback/fork/regenerate history: prefer PostgreSQL.
+- Multiple server instances: use Redis, PostgreSQL, or PostgreSQL plus Redis; do
+  not use process-local memory.
+- Durable history plus faster repeated payload reads: PostgreSQL plus Redis.
 - Need visible conversation history or audit records: use the app database.
 - Need longer pause windows: set TTL intentionally and make the UX handle expiry.
 
-## PostgreSQL durable runtime history
+## PostgreSQL Durable Runtime History
 
 Use `createPostgresFrameworkAdapter({ connectionString, namespace, ttlMs, retention })` for durable runtime history. PostgreSQL is authoritative. Optionally combine it with `createRedisFrameworkAdapter({ url, ttlMs })` using `createCachingFrameworkAdapter({ storage, cache, timeoutMs: 25 })`; Redis then caches checkpoint payloads. This is runtime execution persistence, separate from the app's business data and semantic memory.
 

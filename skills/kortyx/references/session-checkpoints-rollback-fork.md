@@ -47,7 +47,6 @@ import {
   createAgent,
   createCheckpointRouteHandler,
   createChatRouteHandler,
-  createRedisFrameworkAdapter,
 } from "kortyx";
 ```
 
@@ -72,17 +71,28 @@ await agent.fork(checkpointId, { newSessionId });
 
 For local development, in-memory persistence is enough.
 
-For production, use Redis or another durable framework adapter when the app needs checkpoints to survive process restarts, serverless cold starts, multiple workers, or mobile-to-desktop handoff.
+For production, choose Redis, PostgreSQL, or PostgreSQL plus Redis when checkpoints
+must survive process restarts, serverless cold starts, multiple workers, or
+mobile-to-desktop handoff:
 
-The same Redis-backed framework adapter should support:
+- Redis provides shared TTL-oriented runtime state.
+- PostgreSQL provides authoritative durable history and retention.
+- PostgreSQL plus Redis keeps PostgreSQL authoritative and uses Redis as a payload
+  cache.
+
+The same framework adapter supports:
 
 - interrupt resume state
 - internal replay/idempotency checkpoints
 - user-facing session checkpoints
 
-The Redis adapter uses one Redis connection for these Kortyx runtime persistence concerns. Apps do not need a separate Redis adapter just for user-facing checkpoints.
+Apps do not need a separate adapter just for user-facing checkpoints. Read
+[Runtime Persistence](architecture-runtime-persistence.md) for setup and retention
+tradeoffs.
 
-Session checkpoint retention defaults to the last 50 checkpoints per session. Apps can tune this with `maxSessionCheckpoints`.
+Memory and Redis session checkpoint retention defaults to the last 50 checkpoints
+per session and can be tuned with `maxSessionCheckpoints`. PostgreSQL uses its
+configured history and inactive-session retention windows instead of that count cap.
 
 In-memory persistence supports the same API, but it is a development and single-process fallback:
 
@@ -91,13 +101,17 @@ In-memory persistence supports the same API, but it is a development and single-
 - session checkpoints are capped by count per session
 - session checkpoint records do not have a global memory cap or TTL
 
-For hundreds of users or long-lived sessions, recommend Redis. Memory pressure without Redis is roughly proportional to `active sessions * maxSessionCheckpoints * checkpoint state size`.
+For hundreds of users or long-lived sessions, use a shared production adapter.
+Memory pressure in the in-process adapter is roughly proportional to
+`active sessions * maxSessionCheckpoints * checkpoint state size`.
 
 Keep product data in the app database. Kortyx persistence is for runtime/session state, not the app's source-of-truth records.
 
 ## Server Setup
 
-Create the agent with durable persistence when the app needs production rollback/fork behavior:
+Create the agent with shared persistence when the app needs production
+rollback/fork behavior. This is a Redis example; use the PostgreSQL or composed
+adapter when the retention model calls for it:
 
 ```ts
 import {
@@ -136,16 +150,50 @@ Require the app's normal session authorization before allowing checkpoint operat
 Configure the transport with both endpoints:
 
 ```ts
+import {
+  createRouteChatTransport,
+  useChat,
+  type ChatMsg,
+  type ChatStorage,
+} from "@kortyx/react";
+
 const transport = createRouteChatTransport({
   endpoint: "/api/kortyx/chat",
   checkpointEndpoint: "/api/kortyx/checkpoints",
 });
 
+const storage: ChatStorage<ChatMsg> = {
+  async load() {
+    const response = await fetch(`/api/chat-state/${threadId}`);
+    if (!response.ok) return {};
+    const state = await response.json();
+    return {
+      sessionId: state.sessionId,
+      messages: state.messages,
+      workflowId: state.workflowId ?? "",
+      includeHistory: false,
+    };
+  },
+  async save(state) {
+    await saveVisibleChatState(threadId, state);
+  },
+  async clearMessages() {
+    await clearVisibleChatState(threadId);
+  },
+};
+
 const chat = useChat({
-  sessionId,
   transport,
+  storage,
 });
 ```
+
+`useChat(...)` has no `sessionId` option. Its active session is generated on first
+send or restored from `ChatStorage.load()`. Hydrate an existing server-owned
+session and visible transcript through custom storage. When the server owns
+authoritative conversation history, load it at the authenticated route boundary,
+keep `includeHistory: false`, and do not trust a client transcript as the source of
+truth.
 
 Use the checkpoint helpers instead of manually mutating message history:
 
@@ -215,9 +263,11 @@ For production apps, store a workflow version or build id in checkpoint metadata
 - Add a checkpoint endpoint next to the chat endpoint.
 - Use durable persistence for production rollback/fork behavior.
 - Explain that in-memory checkpoint persistence is for development, not high-volume production traffic.
-- Set or document `maxSessionCheckpoints` for the app.
+- Set or document `maxSessionCheckpoints` for memory/Redis, or retention windows
+  for PostgreSQL.
 - Protect checkpoint endpoints with the same authorization as chat sessions.
 - Use `useChat` checkpoint helpers for regenerate, retry, undo, and fork.
 - Clean up structured outputs when invalidation ids are returned.
-- Document checkpoint retention for the app, such as keeping the last 50 turn checkpoints per session.
+- Document checkpoint retention for the app, such as a count cap in Redis or a
+  history window in PostgreSQL.
 - Avoid examples tied to the original discussion; prefer generic project/template/report examples.

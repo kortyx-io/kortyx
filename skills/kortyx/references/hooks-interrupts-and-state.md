@@ -158,7 +158,11 @@ When a later request needs a value:
 
 ## Persistence
 
-Default local behavior can be in-memory. Production interrupt/resume should use Redis through Kortyx runtime persistence when paused runs must survive restarts, deploys, or multiple instances.
+Default local behavior can be in-memory. When production pauses must survive
+restarts, deploys, or multiple instances, choose Redis for shared TTL-oriented
+state, PostgreSQL for authoritative durable history, or PostgreSQL plus Redis for
+durable storage with a payload cache. Read
+[Runtime Persistence](architecture-runtime-persistence.md) before choosing.
 
 When persistence details matter, verify the installed Kortyx version's available runtime persistence APIs from local package docs, TypeScript exports, existing app code, or the official docs:
 

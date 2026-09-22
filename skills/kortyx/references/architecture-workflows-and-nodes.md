@@ -32,7 +32,8 @@ export const generalChatWorkflow = defineWorkflow({
 Node functions receive `{ input, params }`.
 
 ```ts
-import { google, useReason } from "kortyx";
+import { google } from "@kortyx/google";
+import { useReason } from "kortyx";
 
 type ChatParams = {
   temperature?: number;

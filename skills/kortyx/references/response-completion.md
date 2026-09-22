@@ -61,18 +61,20 @@ Never serialize the get result wholesale or expose its token in telemetry. IDs a
 not authorization. Validate identity/access in app endpoints and handle concurrent,
 consumed or expired requests; handle every resume outcome, including another pause.
 
-Memory and Redis support optional pendingRequests.list. Custom stores without it
-fail discovery explicitly. Discovery enumerates pending records; namespace stores
-per application and use bounded polling. Configure TTL for approval latency (default
-15 minutes). A backend can query independently of Studio. Studio is a read-only
-second discovery surface: its interrupt IDs match runtime request IDs, and its
-post-response notice is informational, not proof an approval interface is missing.
+Built-in memory, Redis, and PostgreSQL adapters support pending-request listing.
+Custom stores without it fail discovery explicitly. Discovery enumerates pending
+records; namespace stores per application and use bounded polling. Configure TTL
+for approval latency (default 15 minutes). A backend can query independently of
+Studio. Studio is a read-only second discovery surface: its interrupt IDs match
+runtime request IDs, and its post-response notice is informational, not proof an
+approval interface is missing.
 
 ## Boundaries and verification
 
 Keep conversation archives, long-term memory, business decisions, approval UI,
-notifications and worker scheduling app-owned. Do not add PostgreSQL or make Studio
-an execution dependency for this feature.
+notifications and worker scheduling app-owned. Do not add ad hoc database writes
+inside nodes or make Studio an execution dependency. PostgreSQL is valid only
+through the runtime framework adapter when that persistence model is selected.
 
 Exercise `/background` in the API-route example: response closes, refresh discovers
 an internal review, Save/Skip resumes, chat stays closed. No model key required. The
@@ -80,5 +82,5 @@ example cookie is demo session isolation, not production authentication. Configu
 telemetry optionally, publish the real workflow catalog and inspect the run's
 separate response status and flagged interrupt in Studio. Test actual SSE closure,
 request/server cancellation races, second chat turns, repeated/replayed completion,
-background human and limit resume with reconstructed Redis, scoped discovery and
+background human and limit resume with a reconstructed production adapter, scoped discovery and
 stale answers. Do not infer lifetime correctness from observing a done chunk alone.
