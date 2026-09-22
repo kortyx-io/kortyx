@@ -86,7 +86,10 @@ jobs:
         with:
           ref: ${{ github.workflow_sha }}
           path: .github/automation
-          sparse-checkout: .github
+          sparse-checkout: |
+            .github
+            apps/api/Dockerfile
+          sparse-checkout-cone-mode: false
           persist-credentials: false
       - name: Setup container registry
         uses: ./.github/automation/.github/actions/setup/container-registry
@@ -104,7 +107,7 @@ jobs:
         uses: ./.github/automation/.github/actions/containers/build-push
         with:
           context: .
-          file: apps/api/Dockerfile
+          file: .github/automation/apps/api/Dockerfile
           platforms: linux/amd64,linux/arm64
           tags: |
             ${{ env.REGISTRY }}/${{ env.API_IMAGE_NAME }}:staging-latest
@@ -129,7 +132,10 @@ jobs:
         with:
           ref: ${{ github.workflow_sha }}
           path: .github/automation
-          sparse-checkout: .github
+          sparse-checkout: |
+            .github
+            apps/studio/Dockerfile
+          sparse-checkout-cone-mode: false
           persist-credentials: false
       - name: Setup container registry
         uses: ./.github/automation/.github/actions/setup/container-registry
@@ -147,7 +153,7 @@ jobs:
         uses: ./.github/automation/.github/actions/containers/build-push
         with:
           context: .
-          file: apps/studio/Dockerfile
+          file: .github/automation/apps/studio/Dockerfile
           platforms: linux/amd64,linux/arm64
           tags: |
             ${{ env.REGISTRY }}/${{ env.STUDIO_IMAGE_NAME }}:staging-latest

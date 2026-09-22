@@ -25,6 +25,7 @@ COPY --from=pruner /repo/out/json/ ./
 COPY --from=pruner /repo/out/pnpm-lock.yaml ./pnpm-lock.yaml
 RUN --mount=type=cache,id=pnpm-api,target=/pnpm/store pnpm config set store-dir /pnpm/store && pnpm install --frozen-lockfile
 COPY --from=pruner /repo/out/full/ ./
+COPY --from=pruner /repo/tsconfig.base.json /repo/tsconfig.lib.json ./
 COPY apps/api/docker/kortyx-studio-db /usr/local/bin/kortyx-studio-db
 RUN chmod 0755 /usr/local/bin/kortyx-studio-db \
   && pnpm --filter @kortyx/telemetry-contracts build \
