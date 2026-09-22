@@ -59,7 +59,16 @@ runs:
       run: pnpm --filter kortyx-studio exec dotenv -e ../../.env -- playwright test feedback.spec.ts
       shell: bash
     - name: Run production navigation partition
-      if: inputs.suite == 'production'
+      if: inputs.suite == 'production' && inputs.shard != ''
+      env:
+        KORTYX_E2E_PRODUCTION: "1"
+        KORTYX_E2E_SHARDED_CI: "1"
+        PLAYWRIGHT_SPEC: ${{ inputs.spec }}
+        PLAYWRIGHT_SHARD: ${{ inputs.shard }}
+      run: pnpm --filter kortyx-studio exec dotenv -e ../../.env -- playwright test "$PLAYWRIGHT_SPEC" --shard="$PLAYWRIGHT_SHARD"
+      shell: bash
+    - name: Run unsharded production navigation partition
+      if: inputs.suite == 'production' && inputs.shard == ''
       env:
         KORTYX_E2E_PRODUCTION: "1"
         PLAYWRIGHT_SPEC: ${{ inputs.spec }}

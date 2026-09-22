@@ -56,10 +56,17 @@ jobs:
             echo "studio=false" >> "$GITHUB_OUTPUT"
           fi
 
-  validate_repository:
-    name: Validate repository
+  repository_suite:
+    name: Validate (${{ matrix.suite }})
+    strategy:
+      fail-fast: false
+      matrix:
+        suite: [coverage, integration, build-typecheck, static]
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    env:
+      TURBO_SCM_BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+      TURBO_SCM_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
         with:
@@ -74,6 +81,19 @@ jobs:
           persist-credentials: false
       - name: Validate repository
         uses: ./.github/automation/.github/actions/validation/repository
+        with:
+          suite: ${{ matrix.suite }}
+
+  validate_repository:
+    name: Validate repository
+    needs: repository_suite
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require every repository suite
+        env:
+          RESULT: ${{ needs.repository_suite.result }}
+        run: test "$RESULT" = success
 
   typecheck_lint:
     needs: validate_repository
@@ -121,15 +141,31 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { label: "standard 1/4", suite: standard, shard: "1/4", spec: "" }
-          - { label: "standard 2/4", suite: standard, shard: "2/4", spec: "" }
-          - { label: "standard 3/4", suite: standard, shard: "3/4", spec: "" }
-          - { label: "standard 4/4", suite: standard, shard: "4/4", spec: "" }
+          - { label: "standard 1/8", suite: standard, shard: "1/8", spec: "" }
+          - { label: "standard 2/8", suite: standard, shard: "2/8", spec: "" }
+          - { label: "standard 3/8", suite: standard, shard: "3/8", spec: "" }
+          - { label: "standard 4/8", suite: standard, shard: "4/8", spec: "" }
+          - { label: "standard 5/8", suite: standard, shard: "5/8", spec: "" }
+          - { label: "standard 6/8", suite: standard, shard: "6/8", spec: "" }
+          - { label: "standard 7/8", suite: standard, shard: "7/8", spec: "" }
+          - { label: "standard 8/8", suite: standard, shard: "8/8", spec: "" }
           - { label: reviews, suite: reviews, shard: "", spec: "" }
           - {
-              label: "production internal links",
+              label: "production internal links 1/3",
               suite: production,
-              shard: "",
+              shard: "1/3",
+              spec: internal-linking.spec.ts,
+            }
+          - {
+              label: "production internal links 2/3",
+              suite: production,
+              shard: "2/3",
+              spec: internal-linking.spec.ts,
+            }
+          - {
+              label: "production internal links 3/3",
+              suite: production,
+              shard: "3/3",
               spec: internal-linking.spec.ts,
             }
           - {

@@ -50,16 +50,16 @@ visible before it calls the Studio and website release workflows. See
 
 ## Shared validation
 
-CI calls `actions/validation/repository`. It installs frozen dependencies, starts Redis 7
-and PostgreSQL 17 with health checks, exports both test URLs, and runs coverage,
-builds, PostgreSQL integration coverage, Studio unit tests, example regressions,
-typechecks, publication/helper regressions, and lint. An `always()` step removes
-only the two test containers at the end.
+CI calls `actions/validation/repository` in four parallel jobs: coverage,
+integration regressions, build/typecheck, and static publication tests/lint.
+Each job installs frozen dependencies. Coverage and integration start isolated Redis 7
+and PostgreSQL 17 test containers and remove them with an `always()` step.
 
 The stable CI gate names `typecheck_lint` and `Studio drawer-stack E2E` remain
 unchanged because the main branch ruleset requires them. Studio E2E runs database
-preflight separately from four standard browser shards, review mode, and two
-production-navigation partitions. Each browser partition has an isolated database
+preflight separately from eight standard browser shards, review mode, three
+production internal-linking shards, and one production drawer-stack partition.
+Each browser partition has an isolated database
 and server, and their blob reports are merged into one retained HTML report. Changes
 that do not affect Studio or its API/database dependencies skip this matrix.
 
