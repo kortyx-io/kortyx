@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.21.2](https://github.com/kortyx-io/kortyx/compare/runtime-v0.21.1...runtime-v0.21.2) (2026-09-22)
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/stream bumped to 0.13.2
+    * @kortyx/core bumped to 0.11.0
+    * @kortyx/hooks bumped to 0.29.0
+    * @kortyx/providers bumped to 0.8.3
+    * @kortyx/utils bumped to 0.3.3
+
 ## [0.21.1](https://github.com/kortyx-io/kortyx/compare/runtime-v0.21.0...runtime-v0.21.1) (2026-09-21)
 
 

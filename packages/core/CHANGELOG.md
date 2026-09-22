@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.11.0](https://github.com/kortyx-io/kortyx/compare/core-v0.10.1...core-v0.11.0) (2026-09-22)
+
+
+### Features
+
+* **providers:** add OpenRouter and Jev support ([#230](https://github.com/kortyx-io/kortyx/issues/230)) ([7a6ac2c](https://github.com/kortyx-io/kortyx/commit/7a6ac2c2171850fa89f041e66c980521409e6819))
+
 ## [0.10.1](https://github.com/kortyx-io/kortyx/compare/core-v0.10.0...core-v0.10.1) (2026-09-21)
 
 
