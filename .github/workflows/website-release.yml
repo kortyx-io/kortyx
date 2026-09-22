@@ -60,6 +60,10 @@ jobs:
         run: |
           if [ "${{ github.event_name }}" = workflow_dispatch ]; then
             echo "website=true" >> "$GITHUB_OUTPUT"
+          elif [ -n "$(git diff --name-only "$TURBO_SCM_BASE" "$TURBO_SCM_HEAD" -- .github/release-please/manifest.json)" ]; then
+            # The release orchestrator stages and promotes this exact website
+            # version after npm publication. Avoid a duplicate standalone deploy.
+            echo "website=false" >> "$GITHUB_OUTPUT"
           elif pnpm turbo ls --affected --output=json | jq -e '.packages.items | map(.name) | any(. == "kortyx-website")' >/dev/null; then
             echo "website=true" >> "$GITHUB_OUTPUT"
           else

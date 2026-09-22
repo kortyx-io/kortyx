@@ -95,7 +95,8 @@ image build contexts even for older release candidates.
 - The existing R2 publisher retains idempotency, concurrent-update protection,
   release-history-before-channel ordering, and public CDN verification.
 - Coolify uses the same helper for staging, production, preview payloads, polling,
-  and idempotent preview removal. Affected main commits deploy to staging immediately;
+  and idempotent preview removal. Affected non-release main commits deploy to
+  staging immediately. Release Please commits skip that standalone deployment;
   website releases rebuild the exact release commit, stage it, then promote its
   recorded digest to versioned and `latest` production tags.
 
