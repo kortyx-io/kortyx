@@ -27,14 +27,13 @@ workflows in `workflows/shared/`.
 | File | Actions display name | Trigger |
 | --- | --- | --- |
 | `ci.yml` | CI | Pull requests and pushes to main |
-| `release-prepare.yml` | Release / Prepare PR | Manual, main only |
-| `release-tags.yml` | Release / Tags | Release manifest changes on main, or manual |
-| `npm-publish.yml` | Release / NPM | Manual, main only, npm environment approval |
-| `release-studio-images.yml` | Release / Studio Images | Published Studio release, or manual recovery with an existing tag |
+| `release-prepare.yml` | Release / Prepare PR | Every push to main, or manual |
+| `npm-publish.yml` | Release / Orchestrate | Successful main CI for a release commit, or manual resume |
+| `release-studio-images.yml` | Release / Studio Images | Called after npm readiness, or manual recovery with an existing tag |
 | `release-studio-recover.yml` | Release / Studio Recovery | Manual, existing tag and recorded digests |
 | `website-preview.yml` | Website / Preview | Same-repository PR changes and closure |
-| `website-release.yml` | Website / Release | Website version tags |
-| `website-promote.yml` | Website / Promote | Manual production promotion |
+| `website-release.yml` | Website / Staging | Affected pushes to main, or manual |
+| `website-promote.yml` | Website / Production | Called for a website release, or manual recovery |
 
 The former `release.yml`, `studio-oss-ghcr.yml`,
 `studio-oss-cdn-recover.yml`, `website-ghcr.yml`, and `website-ghcr-promote.yml` have
@@ -43,24 +42,26 @@ filenames. GitHub may retain historical workflow entries for their old names.
 
 The npm entry point deliberately remains `npm-publish.yml`: existing npm trusted
 publishers are configured for that exact filename and the `NPM Package Publishing`
-environment. Publishing stays in the same workflow job through a composite action,
-with `id-token: write` retained. No npm trusted-publisher configuration changes
-are required. See [npm trusted publishing](https://docs.npmjs.com/trusted-publishers/).
+environment. Publishing stays in that workflow with `id-token: write`, so no npm
+trusted-publisher configuration change is required. The workflow now creates tags,
+publishes changed packages, and waits until every exact version and `latest` tag are
+visible before it calls the Studio and website release workflows. See
+[npm trusted publishing](https://docs.npmjs.com/trusted-publishers/).
 
 ## Shared validation
 
-CI, release preparation, and npm publication all call
-`actions/validation/repository`. It installs frozen dependencies, starts Redis 7
-and PostgreSQL 17 with health checks, exports both test URLs, and runs coverage,
-builds, PostgreSQL integration coverage, Studio unit tests, example regressions,
-typechecks, publication/helper regressions, and lint. An `always()` step removes
-only the two test containers at the end.
+CI calls `actions/validation/repository` in four parallel jobs: coverage,
+integration regressions, build/typecheck, and static publication tests/lint.
+Each job installs frozen dependencies. Coverage and integration start isolated Redis 7
+and PostgreSQL 17 test containers and remove them with an `always()` step.
 
-The CI job ID `typecheck_lint` remains unchanged because the main branch ruleset
-requires that check. Studio E2E keeps its own PostgreSQL service, port overrides,
-review-mode tests, production-navigation tests, and failure artifacts. Its job
-limit is 30 minutes: all three browser suites passed in a GitHub runner trial,
-but their combined duration reached the former 20-minute limit.
+The stable CI gate names `typecheck_lint` and `Studio drawer-stack E2E` remain
+unchanged because the main branch ruleset requires them. Studio E2E runs database
+preflight separately from eight standard browser shards, review mode, two
+production internal-linking shards, and one production drawer-stack partition.
+Each browser partition has an isolated database
+and server, and their blob reports are merged into one retained HTML report. Changes
+that do not affect Studio or its API/database dependencies skip this matrix.
 
 ## Workflow code versus release code
 
@@ -82,21 +83,21 @@ image build contexts even for older release candidates.
 - npm publishes only changed, managed public packages from a release commit, skips
   existing versions, and retains provenance and the npm environment gate. The
   publication step receives the actual SHA recorded after checkout.
-- Publishing a `studio-v*` GitHub release automatically starts the Studio image
-  pipeline; non-Studio package releases are ignored. Manual dispatch remains
-  available for an existing Studio tag when publication must be retried.
+- The release orchestrator calls Studio only when `apps/studio` changed and only
+  after npm registry verification. Manual dispatch remains available for recovery.
 - Studio release tag/package/manifest agreement, main ancestry, immutable version
   checks, native amd64/arm64 smoke tests, credential rotation, persistence,
   backup/restore, external PostgreSQL, and updater ownership checks are retained.
-- Production Studio promotion still requires `studio-production` approval and
-  promotes the exact tested digests. The publisher dependencies are prepared before
+- Production Studio promotion uses the automatic `studio-production-auto`
+  environment and promotes the exact tested digests. The publisher dependencies are prepared before
   promotion; update CDN publication follows verified image promotion. Recovery
   verifies the supplied production digests and both architectures before publication.
 - The existing R2 publisher retains idempotency, concurrent-update protection,
   release-history-before-channel ordering, and public CDN verification.
 - Coolify uses the same helper for staging, production, preview payloads, polling,
-  and idempotent preview removal. Website production and Cloudflare Access checks
-  remain distinct steps.
+  and idempotent preview removal. Affected main commits deploy to staging immediately;
+  website releases rebuild the exact release commit, stage it, then promote its
+  recorded digest to versioned and `latest` production tags.
 
 ## Local helper checks
 

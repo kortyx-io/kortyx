@@ -33,10 +33,8 @@ descriptor_digest() {
 test "$(descriptor_digest "$api_tag")" = "$API_DIGEST"
 test "$(descriptor_digest "$studio_tag")" = "$STUDIO_DIGEST"
 
-mapfile -t package_files < <(find "$RUNNER_TEMP/studio-installer" -name '*.tgz' -type f | sort)
-test "${#package_files[@]}" -eq 2
 mkdir -p "$clean_dir"
-npm install --prefix "$clean_dir" --ignore-scripts "${package_files[@]}"
+npm install --prefix "$clean_dir" --ignore-scripts "kortyx@${KORTYX_VERSION}"
 
 cli="$clean_dir/node_modules/.bin/kortyx"
 "$cli" --help

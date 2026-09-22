@@ -1,11 +1,19 @@
 import { execFileSync } from "node:child_process";
-import { readdirSync, readFileSync } from "node:fs";
+import { appendFileSync, readdirSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 
 const root = process.cwd();
+const setPackagesOutput = (packages) => {
+  if (process.env.GITHUB_OUTPUT) {
+    appendFileSync(
+      process.env.GITHUB_OUTPUT,
+      `packages=${JSON.stringify(packages)}\n`,
+    );
+  }
+};
 const releaseCommit = execFileSync(
   "git",
-  ["rev-parse", "--verify", process.env.RELEASE_COMMIT + "^{commit}"],
+  ["rev-parse", "--verify", `${process.env.RELEASE_COMMIT}^{commit}`],
   { encoding: "utf8" },
 ).trim();
 const releaseSubject = execFileSync(
@@ -14,6 +22,7 @@ const releaseSubject = execFileSync(
   { encoding: "utf8" },
 ).trim();
 if (!releaseSubject.startsWith("chore: release")) {
+  setPackagesOutput([]);
   console.log(
     "Nothing to publish: selected commit is not a release commit " +
       releaseCommit +
@@ -32,7 +41,7 @@ const changedManifests = execFileSync(
   [
     "diff",
     "--name-only",
-    releaseCommit + "^1",
+    `${releaseCommit}^1`,
     releaseCommit,
     "--",
     ":(glob)packages/*/package.json",
@@ -53,6 +62,7 @@ if (unmanagedDirs.length > 0) {
   );
 }
 if (releaseDirs.size === 0) {
+  setPackagesOutput([]);
   console.log(
     "Nothing to publish: release commit does not change a public package manifest.",
   );
@@ -134,12 +144,15 @@ const releasePackages = order
   .filter((p) => releaseDirs.has(p.dir));
 console.log(
   "Release packages: " +
-    releasePackages.map((p) => p.name + "@" + p.version).join(", "),
+    releasePackages.map((p) => `${p.name}@${p.version}`).join(", "),
+);
+setPackagesOutput(
+  releasePackages.map(({ name, version }) => ({ name, version })),
 );
 
 const tag = "latest";
 for (const p of releasePackages) {
-  const full = p.name + "@" + p.version;
+  const full = `${p.name}@${p.version}`;
   let exists = true;
   try {
     execFileSync("npm", ["view", full, "version"], { stdio: "ignore" });
@@ -147,11 +160,11 @@ for (const p of releasePackages) {
     exists = false;
   }
   if (exists) {
-    console.log("Skipping " + full + " (already on npm)");
+    console.log(`Skipping ${full} (already on npm)`);
     continue;
   }
-  const selector = "./" + p.dir;
-  console.log("Publishing " + full + " from " + selector + "...");
+  const selector = `./${p.dir}`;
+  console.log(`Publishing ${full} from ${selector}...`);
   execFileSync(
     "pnpm",
     [

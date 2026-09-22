@@ -1,5 +1,18 @@
 name: Validate Studio E2E
-description: Run database, feedback, review, browser, and production-navigation regressions and collect failures.
+description: Run one isolated Studio database or browser regression partition.
+
+inputs:
+  suite:
+    description: preflight, standard, reviews, or production
+    required: true
+  shard:
+    description: Optional Playwright shard in current/total form
+    required: false
+    default: ""
+  spec:
+    description: Optional Playwright spec file for a production partition
+    required: false
+    default: ""
 
 runs:
   using: composite
@@ -9,56 +22,71 @@ runs:
     - name: Prepare local environment
       run: cp .env.example .env
       shell: bash
-    - name: Build database and HA test dependencies
-      run: |
-        pnpm --filter @kortyx/telemetry-contracts build
-        pnpm --filter @kortyx/telemetry-db build
+    - name: Build database dependencies
+      run: pnpm turbo run build --filter=@kortyx/telemetry-db
       shell: bash
     - name: Migrate and bootstrap database
       run: |
         pnpm db:migrate
         pnpm db:bootstrap
       shell: bash
-    - name: Run high-availability database regressions
+    - name: Run high-availability and feedback API regressions
+      if: inputs.suite == 'preflight'
       run: |
         pnpm --filter @kortyx/telemetry-db test:integration:ha
         pnpm --filter @kortyx/api test:integration:ha
-      shell: bash
-    - name: Run native feedback API regressions
-      run: pnpm --filter @kortyx/api exec vitest run test/scores.integration.test.ts
+        pnpm --filter @kortyx/api exec vitest run test/scores.integration.test.ts
       shell: bash
     - name: Install Chromium
+      if: inputs.suite != 'preflight'
       run: pnpm --filter kortyx-studio exec playwright install --with-deps chromium
       shell: bash
-    - name: Run Studio browser regressions
-      run: pnpm test:studio:e2e
+    - name: Build Studio runtime dependencies
+      if: inputs.suite != 'preflight'
+      run: pnpm dev:prepare
       shell: bash
-    - name: Run review-capable Studio feedback regressions
+    - name: Run standard browser shard
+      if: inputs.suite == 'standard'
+      env:
+        KORTYX_E2E_SHARDED_CI: "1"
+        PLAYWRIGHT_SHARD: ${{ inputs.shard }}
+      run: pnpm --filter kortyx-studio exec dotenv -e ../../.env -- playwright test --shard="$PLAYWRIGHT_SHARD"
+      shell: bash
+    - name: Run review-capable feedback regressions
+      if: inputs.suite == 'reviews'
       env:
         KORTYX_STUDIO_ENABLE_REVIEWS: "1"
-        API_PORT: 6402
-        STUDIO_PORT: 6302
-        KORTYX_API_URL: http://localhost:6402
-        KORTYX_E2E_STUDIO_URL: http://localhost:6302
-      run: |
-        pnpm db:bootstrap
-        pnpm --filter kortyx-studio exec dotenv -e ../../.env -- playwright test feedback.spec.ts
+      run: pnpm --filter kortyx-studio exec dotenv -e ../../.env -- playwright test feedback.spec.ts
       shell: bash
-    - name: Run production Studio navigation regressions
+    - name: Run production navigation partition
+      if: inputs.suite == 'production' && inputs.shard != ''
       env:
         KORTYX_E2E_PRODUCTION: "1"
-        API_PORT: 6401
-        STUDIO_PORT: 6301
-        KORTYX_API_URL: http://localhost:6401
-        KORTYX_E2E_STUDIO_URL: http://localhost:6301
-      run: pnpm --filter kortyx-studio exec dotenv -e ../../.env -- playwright test internal-linking.spec.ts detail-drawer-stack.spec.ts
+        KORTYX_E2E_SHARDED_CI: "1"
+        PLAYWRIGHT_SPEC: ${{ inputs.spec }}
+        PLAYWRIGHT_SHARD: ${{ inputs.shard }}
+      run: pnpm --filter kortyx-studio exec dotenv -e ../../.env -- playwright test "$PLAYWRIGHT_SPEC" --shard="$PLAYWRIGHT_SHARD"
       shell: bash
+    - name: Run unsharded production navigation partition
+      if: inputs.suite == 'production' && inputs.shard == ''
+      env:
+        KORTYX_E2E_PRODUCTION: "1"
+        PLAYWRIGHT_SPEC: ${{ inputs.spec }}
+      run: pnpm --filter kortyx-studio exec dotenv -e ../../.env -- playwright test "$PLAYWRIGHT_SPEC"
+      shell: bash
+    - name: Upload Playwright blob report
+      if: inputs.suite != 'preflight' && !cancelled()
+      uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+      with:
+        name: studio-playwright-blob-${{ inputs.suite }}-${{ strategy.job-index }}-${{ github.run_attempt }}
+        path: apps/studio/blob-report
+        if-no-files-found: error
+        retention-days: 1
     - name: Upload Playwright failure artifacts
       if: failure()
-      uses: actions/upload-artifact@v6
+      uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
       with:
-        name: studio-playwright-artifacts
-        path: |
-          apps/studio/playwright-report
-          apps/studio/test-results
+        name: studio-playwright-failure-${{ inputs.suite }}-${{ strategy.job-index }}-${{ github.run_attempt }}
+        path: apps/studio/test-results
+        if-no-files-found: ignore
         retention-days: 7

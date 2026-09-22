@@ -1,13 +1,24 @@
-name: Website / Release
+name: Website / Staging
 
 on:
   push:
-    tags:
-      - website-v*
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      commit:
+        description: Exact main commit to deploy
+        required: false
+        type: string
 
 permissions:
   contents: read
   packages: write
+  id-token: write
+  attestations: write
+
+concurrency:
+  group: website-staging
+  cancel-in-progress: true
 
 env:
   REGISTRY: ghcr.io
@@ -16,16 +27,21 @@ env:
   COOLIFY_STAGING_APP_UUID: ${{ vars.COOLIFY_STAGING_APP_UUID }}
 
 jobs:
-  publish-staging:
-    name: Publish Staging Image
+  detect:
+    name: Detect website changes
     runs-on: ubuntu-latest
+    outputs:
+      website: ${{ steps.affected.outputs.website }}
+      commit: ${{ steps.commit.outputs.sha }}
     steps:
-      - name: Checkout
-        uses: actions/checkout@v6
+      - name: Checkout main commit
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
         with:
           fetch-depth: 0
+          filter: blob:none
+          ref: ${{ inputs.commit || github.sha }}
       - name: Checkout workflow modules
-        uses: actions/checkout@v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
         with:
           ref: ${{ github.workflow_sha }}
           path: .github/automation
@@ -33,13 +49,45 @@ jobs:
           persist-credentials: false
       - name: Setup Node and pnpm
         uses: ./.github/automation/.github/actions/setup/node
+      - name: Record commit
+        id: commit
+        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+      - name: Detect affected website
+        id: affected
+        env:
+          TURBO_SCM_BASE: ${{ github.event.before }}
+          TURBO_SCM_HEAD: ${{ inputs.commit || github.sha }}
+        run: |
+          if [ "${{ github.event_name }}" = workflow_dispatch ]; then
+            echo "website=true" >> "$GITHUB_OUTPUT"
+          elif pnpm turbo ls --affected --output=json | jq -e '.packages.items | map(.name) | any(. == "kortyx-website")' >/dev/null; then
+            echo "website=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "website=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  deploy:
+    name: Build and deploy staging
+    needs: detect
+    if: needs.detect.outputs.website == 'true'
+    runs-on: ubuntu-latest
+    environment:
+      name: website-staging
+    steps:
+      - name: Checkout selected commit
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
         with:
-          install: "false"
+          fetch-depth: 0
+          ref: ${{ needs.detect.outputs.commit }}
+      - name: Checkout workflow modules
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          ref: ${{ github.workflow_sha }}
+          path: .github/automation
+          sparse-checkout: .github
+          persist-credentials: false
       - name: Generate docs last updated manifest
         run: node apps/website/scripts/generate-docs-last-updated.mjs
-      - name: Derive version from tag
-        id: version
-        run: bash ./.github/automation/.github/scripts/website/derive-version.sh
       - name: Setup container registry
         uses: ./.github/automation/.github/actions/setup/container-registry
         with:
@@ -47,19 +95,29 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
           qemu: "false"
-      - name: Build and push staging image
+      - name: Build and push immutable staging image
+        id: image
         uses: ./.github/automation/.github/actions/containers/build-push
         with:
           context: .
           file: apps/website/Dockerfile
           platforms: linux/amd64
           tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:sha-${{ needs.detect.outputs.commit }}
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:staging-latest
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:staging-v${{ steps.version.outputs.version }}
           cache-scope: website-image
+          subject-name: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
       - name: Deploy staging image on Coolify
         uses: ./.github/automation/.github/actions/deployment/coolify
         with:
           url: ${{ env.COOLIFY_URL }}
           token: ${{ secrets.COOLIFY_STAGING_DEPLOY_TOKEN }}
           app-uuid: ${{ env.COOLIFY_STAGING_APP_UUID }}
+      - name: Summarize staging deployment
+        env:
+          COMMIT: ${{ needs.detect.outputs.commit }}
+          DIGEST: ${{ steps.image.outputs.digest }}
+        run: |
+          echo "### Website staging" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Commit: \`$COMMIT\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Digest: \`$DIGEST\`" >> "$GITHUB_STEP_SUMMARY"

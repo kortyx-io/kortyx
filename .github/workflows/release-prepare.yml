@@ -1,7 +1,13 @@
 name: Release / Prepare PR
 
 on:
+  push:
+    branches: [main]
   workflow_dispatch:
+
+concurrency:
+  group: release-please-prepare
+  cancel-in-progress: true
 
 permissions:
   contents: write
@@ -13,20 +19,16 @@ jobs:
     if: github.ref == 'refs/heads/main'
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
         with:
           fetch-depth: 0
       - name: Checkout workflow modules
-        uses: actions/checkout@v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
         with:
           ref: ${{ github.workflow_sha }}
           path: .github/automation
           sparse-checkout: .github
           persist-credentials: false
-      - name: Validate repository
-        uses: ./.github/automation/.github/actions/validation/repository
-        with:
-          registry-url: https://registry.npmjs.org
       - name: Release Please (stable)
         uses: ./.github/automation/.github/actions/release/release-please
         with:

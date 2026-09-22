@@ -1,26 +1,125 @@
-name: Website / Promote
+name: Website / Production
 
 on:
+  workflow_call:
+    inputs:
+      release_commit:
+        required: true
+        type: string
+      website_version:
+        required: true
+        type: string
   workflow_dispatch:
+    inputs:
+      release_commit:
+        description: Exact release commit; defaults to main
+        required: false
+        type: string
+      website_version:
+        description: Website version; defaults to package.json at the selected commit
+        required: false
+        type: string
 
 permissions:
   contents: read
   packages: write
+  id-token: write
+  attestations: write
+
+concurrency:
+  group: website-production
+  cancel-in-progress: false
 
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: kortyx-io/website
   COOLIFY_URL: ${{ vars.COOLIFY_URL }}
+  COOLIFY_STAGING_APP_UUID: ${{ vars.COOLIFY_STAGING_APP_UUID }}
   COOLIFY_PRODUCTION_APP_UUID: ${{ vars.COOLIFY_PRODUCTION_APP_UUID }}
   PRODUCTION_URL: https://kortyx.io
 
 jobs:
-  promote-prod:
-    name: Promote Image To Prod Tags
+  prepare:
     runs-on: ubuntu-latest
+    outputs:
+      commit: ${{ steps.release.outputs.commit }}
+      version: ${{ steps.release.outputs.version }}
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          fetch-depth: 0
+          ref: ${{ inputs.release_commit || github.event.repository.default_branch }}
+      - name: Validate selected website release
+        id: release
+        env:
+          REQUESTED_VERSION: ${{ inputs.website_version }}
+        run: |
+          commit=$(git rev-parse HEAD)
+          package_version=$(node -p 'require("./apps/website/package.json").version')
+          version=${REQUESTED_VERSION:-$package_version}
+          test "$version" = "$package_version"
+          echo "commit=$commit" >> "$GITHUB_OUTPUT"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+  stage:
+    name: Build and verify release in staging
+    needs: prepare
+    runs-on: ubuntu-latest
+    environment:
+      name: website-staging
+    outputs:
+      digest: ${{ steps.image.outputs.digest }}
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          fetch-depth: 0
+          ref: ${{ needs.prepare.outputs.commit }}
+      - name: Checkout workflow modules
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          ref: ${{ github.workflow_sha }}
+          path: .github/automation
+          sparse-checkout: .github
+          persist-credentials: false
+      - name: Generate docs last updated manifest
+        run: node apps/website/scripts/generate-docs-last-updated.mjs
+      - name: Setup container registry
+        uses: ./.github/automation/.github/actions/setup/container-registry
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+          qemu: "false"
+      - name: Build immutable website release
+        id: image
+        uses: ./.github/automation/.github/actions/containers/build-push
+        with:
+          context: .
+          file: apps/website/Dockerfile
+          platforms: linux/amd64
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:sha-${{ needs.prepare.outputs.commit }}
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:staging-v${{ needs.prepare.outputs.version }}
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:staging-latest
+          cache-scope: website-image
+          subject-name: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+      - name: Deploy tested candidate to staging
+        uses: ./.github/automation/.github/actions/deployment/coolify
+        with:
+          url: ${{ env.COOLIFY_URL }}
+          token: ${{ secrets.COOLIFY_STAGING_DEPLOY_TOKEN }}
+          app-uuid: ${{ env.COOLIFY_STAGING_APP_UUID }}
+
+  promote:
+    name: Promote tested digest to production
+    needs: [prepare, stage]
+    runs-on: ubuntu-latest
+    environment:
+      name: website-production
+      url: https://kortyx.io
     steps:
       - name: Checkout workflow modules
-        uses: actions/checkout@v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
         with:
           ref: ${{ github.workflow_sha }}
           path: .github/automation
@@ -33,11 +132,14 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
           qemu: "false"
-      - name: Promote staging-latest to latest
+      - name: Promote immutable release digest
         uses: ./.github/automation/.github/actions/containers/promote
         with:
-          source: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:staging-latest
-          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+          source: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ needs.stage.outputs.digest }}
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:v${{ needs.prepare.outputs.version }}
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+          expected-digest: ${{ needs.stage.outputs.digest }}
       - name: Deploy Coolify production image
         uses: ./.github/automation/.github/actions/deployment/coolify
         with:

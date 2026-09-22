@@ -1,6 +1,9 @@
 name: Validate repository
-description: Run the same setup, database-backed coverage, build, regressions, typechecks, publication tests, and lint for CI and release.
+description: Run one independent repository validation suite.
 inputs:
+  suite:
+    description: coverage, integration, build-typecheck, or static
+    required: true
   registry-url:
     description: Optional npm registry URL
     required: false
@@ -13,45 +16,82 @@ runs:
       with:
         registry-url: ${{ inputs.registry-url }}
     - name: Start Redis
+      if: inputs.suite == 'coverage' || inputs.suite == 'integration'
       uses: ./.github/automation/.github/actions/setup/redis
     - name: Start PostgreSQL
+      if: inputs.suite == 'coverage' || inputs.suite == 'integration'
       uses: ./.github/automation/.github/actions/setup/postgres
+    - name: Detect affected packages
+      if: inputs.suite != 'static'
+      run: pnpm turbo ls --affected --output=json > "$RUNNER_TEMP/kortyx-affected.json"
+      shell: bash
     - name: Test with coverage gates
-      run: pnpm coverage
+      if: inputs.suite == 'coverage'
+      run: pnpm turbo run coverage --affected
       shell: bash
     - name: Build
-      run: pnpm build
+      if: inputs.suite == 'integration' || inputs.suite == 'build-typecheck'
+      run: pnpm turbo run build --affected
       shell: bash
     - name: Telemetry pricing and projection regressions
+      if: inputs.suite == 'integration'
       run: |-
-        pnpm --filter @kortyx/telemetry-db db:migrate
-        pnpm --filter @kortyx/telemetry-db test
+        if jq -e '.packages.items | map(.name) | any(. == "@kortyx/telemetry-db")' "$RUNNER_TEMP/kortyx-affected.json" >/dev/null; then
+          pnpm --filter @kortyx/telemetry-db db:migrate
+          pnpm --filter @kortyx/telemetry-db test
+        else
+          echo "Skipping unaffected telemetry database regressions."
+        fi
       shell: bash
       env:
         DATABASE_URL: ${{ env.KORTYX_TEST_POSTGRES_URL }}
     - name: PostgreSQL runtime persistence integration coverage
-      run: pnpm --filter @kortyx/runtime test:integration:postgres
+      if: inputs.suite == 'integration'
+      run: |-
+        if jq -e '.packages.items | map(.name) | any(. == "@kortyx/runtime")' "$RUNNER_TEMP/kortyx-affected.json" >/dev/null; then
+          pnpm --filter @kortyx/runtime test:integration:postgres
+        else
+          echo "Skipping unaffected runtime persistence regressions."
+        fi
       shell: bash
     - name: Studio unit regressions
-      run: pnpm --filter kortyx-studio test
+      if: inputs.suite == 'integration'
+      run: |-
+        if jq -e '.packages.items | map(.name) | any(. == "kortyx-studio")' "$RUNNER_TEMP/kortyx-affected.json" >/dev/null; then
+          pnpm --filter kortyx-studio test
+        else
+          echo "Skipping unaffected Studio unit regressions."
+        fi
       shell: bash
     - name: Example workflow and error regressions
-      run: pnpm -r --no-bail --filter './examples/*' test
+      if: inputs.suite == 'integration'
+      run: |-
+        mapfile -t examples < <(jq -r '.packages.items[] | select(.path | startswith("examples/")) | .name' "$RUNNER_TEMP/kortyx-affected.json")
+        if [ "${#examples[@]}" -eq 0 ]; then
+          echo "Skipping unaffected example regressions."
+        else
+          filters=()
+          for package in "${examples[@]}"; do filters+=(--filter "$package"); done
+          pnpm -r --no-bail "${filters[@]}" test
+        fi
       shell: bash
     - name: Typecheck
-      run: pnpm -r --if-present run type-check
+      if: inputs.suite == 'build-typecheck'
+      run: pnpm turbo run type-check --affected
       shell: bash
     - name: Studio release publication regressions
+      if: inputs.suite == 'static'
       run: |-
         python3 -m unittest discover -s ./.github/automation/.github/scripts/studio/update-channel -v
         python3 -m unittest discover -s ./.github/automation/.github/scripts/tests -v
         node --test ./.github/automation/.github/scripts/tests/website.test.cjs
       shell: bash
     - name: Lint
+      if: inputs.suite == 'static'
       run: pnpm lint
       shell: bash
     - name: Stop test databases
-      if: always()
+      if: always() && (inputs.suite == 'coverage' || inputs.suite == 'integration')
       shell: bash
       run: bash "$ACTION_PATH/../../../scripts/setup/stop-databases.sh"
       env:
