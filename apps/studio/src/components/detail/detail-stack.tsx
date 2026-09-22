@@ -274,7 +274,12 @@ export function DetailStackProvider({ children }: { children: ReactNode }) {
       cancelPendingNavigation();
       saveCurrentStack();
       const pathname = href.split("?", 1)[0] ?? href;
-      if (!layers.some((layer) => layer.matchPath === pathname)) return;
+      // Exiting layers remain mounted for their animation. Revisiting one is
+      // a new child navigation, not a jump to a retained ancestor.
+      if (
+        !layers.some((layer) => layer.matchPath === pathname && !layer.closing)
+      )
+        return;
       // A link to a retained ancestor is a regular navigation, just like a
       // new entity link. Close its descendants before parallel slots update;
       // the requested query and browser Back/Forward entries stay intact.
