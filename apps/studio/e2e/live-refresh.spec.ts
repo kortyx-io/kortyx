@@ -18,6 +18,7 @@ test.describe("Studio live refresh", () => {
     });
     await live.click();
     await expect(live).toHaveAttribute("aria-pressed", "true");
+    await expect(page).toHaveURL(/\blive=true\b/);
     await expect(
       page.getByRole("button", {
         name: /Live refresh: Connected\./,
