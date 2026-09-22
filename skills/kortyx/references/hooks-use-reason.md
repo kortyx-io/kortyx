@@ -8,14 +8,19 @@ A `useReason(...)` call has three layers:
 
 - request: model, prompt, generation options, and provider options
 - runtime behavior: streaming, emitted chunks, checkpoints, interrupts
-- result: final text, parsed output, metadata, warnings, and optional interrupt response
+- result: final text, parsed output, metadata, warnings, tool history, and typed interrupt history
 
 Keep provider credentials and model construction on the server. Call `useReason(...)` only from Kortyx node execution, not from React/client code.
+
+Import provider selectors from their adapter packages: `@kortyx/google`,
+`@kortyx/openai`, `@kortyx/anthropic`, `@kortyx/deepseek`, `@kortyx/groq`, or
+`@kortyx/mistral`. Do not import those selectors from `kortyx`.
 
 ## Basic Shape
 
 ```ts
-import { google, useReason } from "kortyx";
+import { google } from "@kortyx/google";
+import { useReason } from "kortyx";
 
 export const chatNode = async ({ input }: { input: unknown }) => {
   const result = await useReason({
@@ -46,8 +51,12 @@ export const chatNode = async ({ input }: { input: unknown }) => {
 - `reasoning`, `responseFormat`: provider-neutral advanced controls when supported.
 - `providerOptions`: provider-specific options. Prefer generic options first.
 - `abortSignal`: cancellation signal from route/client plumbing when available.
-- `tools`: MCP tools returned by `createMCPClient(...).tools()`.
-- `toolExecution`: MCP tool loop controls such as `maxSteps`, `approval`, and `emit`.
+- `tools`: a `KortyxExecutableTool[]`, including directly imported local tools,
+  request-bound tools, and MCP-derived tools returned by
+  `createMCPClient(...).tools()`.
+- `toolExecution`: shared model tool-loop controls such as `maxSteps`, `approval`,
+  and `emit`.
+- `interrupts`: one or more named, typed model-driven human-input contracts.
 
 Use `stream: true` and `emit: true` for live UI output. Use `emit: false` for internal reasoning that should not render directly.
 
@@ -79,16 +88,59 @@ result.finishReason; // normalized stop reason
 result.providerMetadata; // provider-specific normalized metadata
 result.warnings; // unsupported option or compatibility warnings
 result.interruptHistory; // typed contract requests and responses
-result.toolCalls; // MCP/model tool calls made during a tool loop
-result.toolResults; // MCP tool results returned to the model
+result.toolCalls; // local or MCP-derived model tool calls made during the loop
+result.toolResults; // normalized tool results returned to the model
 result.steps; // per-model-pass text, tool calls, and tool results
 ```
 
 Always code a sensible fallback when `result.output` may be absent.
 
-## MCP Tools
+## `useTool(...)` Or `useReason({ tools })`
 
-Use MCP tools when the model should call external MCP server tools during one `useReason(...)` call.
+Use `useTool({ tool, input })` when application code already knows which tool to
+run and supplies its arguments deterministically. It adds no model call or MCP
+transport and returns the tool's original result.
+
+Use `useReason({ tools })` when the model should decide whether to call a tool,
+which tool to call, or what arguments to supply. Both local tools and MCP-derived
+tools implement the same `KortyxExecutableTool` contract, so one definition can be
+used through either path. Do not call `useReason` merely to make a deterministic
+service call observable; use `useTool`.
+
+Read [Direct and model-driven tools](hooks-use-tool.md) before defining execution,
+denial, safe-failure, cleanup, or telemetry behavior.
+
+## Local And MCP-Derived Tools
+
+Directly imported local tools work without an MCP connection:
+
+```ts
+import type { KortyxExecutableTool } from "kortyx";
+
+export const lookupAccount: KortyxExecutableTool<
+  { accountId: string },
+  { id: string; name: string }
+> = {
+  name: "lookup_account",
+  description: "Read an account by id when account details are needed.",
+  inputSchema: {
+    type: "object",
+    properties: { accountId: { type: "string" } },
+    required: ["accountId"],
+  },
+  execute: ({ accountId }, { abortSignal }) =>
+    accountService.read(accountId, { signal: abortSignal }),
+};
+
+const result = await useReason({
+  model,
+  input: "Summarize account acme-123.",
+  tools: [lookupAccount],
+  toolExecution: { maxSteps: 4 },
+});
+```
+
+Use MCP-derived tools when the capability comes from an MCP server:
 
 ```ts
 import { createMCPClient, useReason } from "kortyx";
@@ -117,17 +169,18 @@ const result = await useReason({
 });
 ```
 
-`maxSteps` is the maximum number of model passes in the tool loop. When the model requests a tool, Kortyx executes the MCP tool, appends the tool result to the next model pass, and continues until final text or the step limit.
+`maxSteps` is the maximum number of model passes in the tool loop. When the model
+requests a local or MCP-derived tool, Kortyx executes it, appends the normalized
+tool result to the next model pass, and continues until final text or the limit.
 
 `approval: true` uses Kortyx interrupts before executing tool calls. `emit: true` sends `tool-call-start`, `tool-call-result`, and `tool-call-error` stream chunks.
 
 `include` is optional. Without it, `mcpClient.tools()` returns every tool advertised by the MCP server. Prefer `include` when a node should expose only a subset of server tools.
 
-Model-decided human input can participate in the same tool loop. Define a
-contract with `defineInterruptContract(...)` and pass it in
-`interrupts.contracts`. The model may call ordinary tools, select one of several
-interrupt contracts, resume with its validated response, and continue calling
-tools. `interrupts.maxRequests` bounds sequential human turns independently of
+Model-decided human input participates in the same tool loop. The model may call
+ordinary tools, select one of several interrupt contracts, resume with a validated
+response, and continue calling tools. Tools and interrupts can be combined.
+`interrupts.maxRequests` bounds sequential human turns independently of
 `toolExecution.maxSteps`.
 
 The singular `interrupt` option and `result.interruptResponse` are deprecated
@@ -233,47 +286,82 @@ Field modes:
 
 `structured.fields` supports literal nested paths, numeric array segments, and single-segment `*` patterns such as `assessment_points.*.criteria_label`. Wildcard matches emit concrete paths such as `assessment_points.commercial_resilience.criteria_label`; recursive `**` patterns are not supported.
 
-With `outputSchema` or `interrupt`, Kortyx suppresses raw assistant `text-delta` chunks because the raw stream is partial JSON. This does not mean structured output is not streaming: configured fields stream as `structured-data` chunks such as `{ kind: "text-delta", path: "draft.body", delta }`, `{ kind: "append", path, items }`, and `{ kind: "set", path, value }`.
+With `outputSchema` or the deprecated singular `interrupt` form, Kortyx suppresses
+raw assistant `text-delta` chunks when the raw stream is partial JSON. This does
+not mean structured output is not streaming:
+configured fields stream as `structured-data` chunks such as
+`{ kind: "text-delta", path: "draft.body", delta }`,
+`{ kind: "append", path, items }`, and `{ kind: "set", path, value }`.
 
 If `structured` is provided without `fields`, Kortyx emits the final structured object when parsing and validation succeed.
 
-## Interrupt Mode
+## Model-Driven Interrupt Contracts
 
-Use `interrupt` when the model should produce a structured request for human input, then continue after the user responds.
+Use plural `interrupts` when the model should decide whether and how to request
+human input, then continue reasoning after the response. Define each reusable
+request/response pair with `defineInterruptContract(...)`.
 
 ```ts
-const ChoiceRequestSchema = z.object({
-  kind: z.enum(["choice", "multi-choice"]),
-  question: z.string().min(1),
-  options: z.array(
-    z.object({
-      id: z.string().min(1),
-      label: z.string().min(1),
-    }),
-  ),
+import { defineInterruptContract } from "kortyx";
+
+const accountPicker = defineInterruptContract({
+  description: "Ask the user to choose between matching accounts.",
+  schemaId: "acme.account-picker",
+  schemaVersion: "1",
+  requestSchema: z.object({
+    question: z.string().min(1),
+    candidates: z.array(z.object({ id: z.string(), label: z.string() })),
+  }),
+  responseSchema: z.union([
+    z.object({ type: z.literal("select"), id: z.string() }),
+    z.object({ type: z.literal("cancel") }),
+  ]),
 });
 
-const ChoiceResponseSchema = z.union([
-  z.string().min(1),
-  z.array(z.string().min(1)),
-]);
+const freeText = defineInterruptContract({
+  description: "Ask for a missing free-form detail.",
+  schemaId: "acme.free-text",
+  schemaVersion: "1",
+  requestSchema: z.object({ question: z.string().min(1) }),
+  responseSchema: z.object({ text: z.string().min(1) }),
+});
 
-const result = await useReason<Plan, z.infer<typeof ChoiceRequestSchema>, z.infer<typeof ChoiceResponseSchema>>({
-  id: "plan-with-choice",
+const result = await useReason({
+  id: "plan-with-human-input",
   model,
-  system: "Return JSON only.",
-  input: "Create a plan and ask the user to choose a priority.",
+  system: "Create a useful plan. Ask only when a material detail is missing.",
+  input: "Create an account migration plan.",
   outputSchema: PlanSchema,
-  interrupt: {
-    schemaId: "priority-choice",
-    schemaVersion: "1",
-    requestSchema: ChoiceRequestSchema,
-    responseSchema: ChoiceResponseSchema,
+  tools: [lookupAccount],
+  interrupts: {
+    mode: "optional",
+    maxRequests: 2,
+    contracts: { accountPicker, freeText },
   },
+  toolExecution: { maxSteps: 7 },
 });
 
-const choice = result.interruptResponse;
+for (const turn of result.interruptHistory ?? []) {
+  if (turn.contract === "accountPicker") {
+    // turn.request and turn.response are inferred from accountPicker.
+  }
+}
 ```
+
+- `contracts` maps stable model-visible names to contract definitions.
+- `mode: "required"` requires at least one human request before final output.
+- `mode: "optional"` lets the model finish without asking. Use this for ordinary
+  clarification; deterministic approvals are usually better with `useInterrupt`.
+- Omitted `mode` currently behaves as optional; set it explicitly so intent remains
+  clear across reviews and upgrades.
+- `maxRequests` caps sequential human turns for this reason operation. It is
+  independent from `toolExecution.maxSteps` and the agent's root execution limits.
+- `result.interruptHistory` records typed `{ contract, request, response }` entries
+  in order.
+
+The singular `useReason({ interrupt })` option and `result.interruptResponse` are
+deprecated and removed in the next major. Keep them only while migrating an
+existing caller.
 
 Interrupt/resume can replay node code. Give the reason call a stable `id`, and keep side effects before it idempotent or guarded with node/workflow state.
 
@@ -282,6 +370,10 @@ Interrupt/resume can replay node code. Give the reason call a stable `id`, and k
 - Put stable behavior in `system`.
 - Put task-specific user/request content in `input`.
 - Make structured-output prompts explicit: "Return JSON only" and describe the desired fields.
+- Put capability-selection guidance in short tool descriptions; keep authorization,
+  input validation, and business invariants in tool code.
+- Ask for natural user-facing prose. Do not expose workflow ids, tool names,
+  schemas, model passes, or interrupt machinery unless the user is debugging them.
 - Do not ask the model to perform deterministic business writes. Call app services directly after validation.
 - Keep untrusted client context out of `system`; derive sensitive context on the server.
 
@@ -308,7 +400,3 @@ If the UI is not streaming, check both provider streaming (`stream`) and Kortyx 
 - Using structured streaming for deterministic UI updates that belong in `useStructuredData(...)`.
 
 For typed failure propagation and safe recovery policy, see [Error handling](error-handling.md).
-
-## Shared local tools
-
-Plain `KortyxExecutableTool` definitions also work in `useReason({ tools })`: the model selects the tool and supplies its input. The same definition works with `await useTool({tool, input})` for direct node execution. See `hooks-use-tool.md` for denial classification, ownership, privacy and replay semantics. Native tool observations are automatic; do not add legacy manual tool-call events.

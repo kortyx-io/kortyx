@@ -13,11 +13,20 @@ import { type KortyxExecutableTool, useTool, useReason } from "kortyx";
 type LookupResult = { status: "OK"; text: string } | { status: "DENIED" };
 const lookup: KortyxExecutableTool<{ jobId: string }, LookupResult> = {
   name: "read_job_knowledge",
+  title: "Read job knowledge",
   description: "Read permitted job information",
   inputSchema: {
     type: "object",
     properties: { jobId: { type: "string" } },
     required: ["jobId"],
+  },
+  outputSchema: {
+    type: "object",
+    properties: {
+      status: { type: "string" },
+      text: { type: "string" },
+    },
+    required: ["status"],
   },
   outcomes: {
     denialCodes: ["JOB_INFORMATION_UNAVAILABLE"],
@@ -35,6 +44,76 @@ const result = await useTool({ tool: lookup, input: { jobId } });
 const reason = await useReason({ model, input: "Read this job", tools: [lookup] });
 ```
 
+## Choose The Execution Path
+
+- Use `useTool({ tool, input })` when node code deterministically chooses the tool
+  and already has its arguments. No model pass is added.
+- Use `useReason({ tools: [tool] })` when the model should choose whether to call
+  the tool, select among tools, or construct arguments.
+- Import local tools directly or build them from request-scoped factories. Tools
+  returned by `createMCPClient(...).tools()` implement the same executable
+  contract and can be mixed with local tools in one `useReason` call.
+
+Do not wrap a deterministic service call in `useReason` merely to get Studio
+visibility. Conversely, do not use `useTool` when model judgment is required to
+select a capability or arguments.
+
+## Complete `KortyxExecutableTool` Contract
+
+```ts
+interface KortyxExecutableTool<TInput = unknown, TResult = unknown> {
+  name: string;
+  title?: string;
+  description?: string;
+  inputSchema: unknown;
+  outputSchema?: unknown;
+  annotations?: Record<string, unknown>;
+  metadata?: Record<string, unknown>;
+  outcomes?: {
+    denialCodes?: readonly string[];
+    classifyResult?(result: TResult): {
+      outcome: "success" | "denied" | "fault";
+      code?: string;
+    };
+    classifyError?(error: unknown): {
+      outcome: "success" | "denied" | "fault";
+      code?: string;
+    };
+  };
+  telemetry?: {
+    error?(error: unknown): { type?: string; message: string } | null;
+  };
+  execute(
+    input: TInput,
+    context: { toolCallId: string; abortSignal?: AbortSignal },
+  ): TResult | Promise<TResult>;
+  close?: () => void | Promise<void>;
+  closeAfterUse?: boolean;
+  source?: string;
+}
+```
+
+- `name` is the stable provider/telemetry identifier. Keep it safe and free of
+  user data.
+- `title` and `description` help people and models understand the capability.
+  Describe when to use it and what it returns, not credentials or workflow state.
+- `inputSchema` and optional `outputSchema` advertise the provider contract. A
+  local direct call is not automatically validated by these schemas; validate
+  untrusted input inside `execute` or before `useTool`.
+- `annotations` and `metadata` are provider/tool metadata, not an authorization or
+  secret-storage channel.
+- `execute` receives the runtime-owned tool-call id and effective cancellation
+  signal. Forward `abortSignal` to cooperative I/O and preserve cancellation.
+- `outcomes` classifies observation only. It never changes the returned value,
+  thrown error, permission decision, retry policy, or control flow.
+- `telemetry.error` may project a fault to bounded safe diagnostic strings or
+  return `null` to suppress them. It must not throw intentionally or perform the
+  business operation.
+- `close` releases an owned resource. `closeAfterUse` defaults to `true`; use
+  `false` only for an application-owned long-lived resource that the app closes.
+- `source` records tool provenance for integrations. Do not use it for access
+  policy or per-request secrets.
+
 Permission enforcement and input validation remain inside the application's tool.
 `inputSchema` advertises model arguments; it is not an automatic local validator.
 `outcomes` classifies observations without changing returned values, throwing a
@@ -43,6 +122,66 @@ map an application error to a denial; the original exception still propagates
 from `useTool`. Throwing classifiers cannot affect execution. Without a mapper,
 returned values succeed, thrown errors and `isError: true` tool results are faults.
 Cancellation is runtime-owned and cannot be reclassified.
+
+## Results, Structured Content, And Safe Failures
+
+Ordinary local return values are preserved by `useTool`. In a model-driven loop,
+Kortyx converts strings to text and object values to JSON text plus
+`structuredContent`. If a tool needs explicit control, return a
+`KortyxToolResult` using the current call id:
+
+```ts
+import {
+  serializeFailure,
+  type KortyxExecutableTool,
+  type KortyxToolResult,
+} from "kortyx";
+
+const accountTool: KortyxExecutableTool<
+  { id: string },
+  KortyxToolResult
+> = {
+  name: "read_account",
+  inputSchema: {
+    type: "object",
+    properties: { id: { type: "string" } },
+    required: ["id"],
+  },
+  async execute({ id }, { toolCallId, abortSignal }) {
+    try {
+      const account = await accounts.read(id, { signal: abortSignal });
+      return {
+        toolCallId,
+        name: "read_account",
+        content: `Found ${account.name}`,
+        structuredContent: { id: account.id, name: account.name },
+      };
+    } catch (error) {
+      const failure = serializeFailure(error); // propagates control flow
+      return {
+        toolCallId,
+        name: "read_account",
+        content: failure.message,
+        failure,
+        isError: true,
+      };
+    }
+  },
+};
+```
+
+`content` is the model-readable string; `structuredContent` retains a structured
+payload; `isError: true` classifies the returned result as a fault; and optional
+`failure` carries a JSON-safe `FailureDescriptor`. Keep public content and
+structured values free of secrets. `raw` and provider metadata are advanced
+adapter fields and are not a safe place for credentials.
+
+When a model-selected tool throws an ordinary error, Kortyx catches it, applies
+`serializeFailure`, and returns a safe `isError` result to the model so the loop
+may recover. Cancellation, human suspension, and execution limits are control
+flow and propagate instead of becoming tool feedback. Direct `useTool` preserves
+the original thrown error. Do not expose raw provider bodies, stacks, tokens, or
+arbitrary exception properties as tool content.
 
 Denial codes are explicit allowlisted identifiers: uppercase letters, digits and
 underscores, beginning with a letter, up to 64 characters. Unsafe or unapproved

@@ -2,6 +2,13 @@
 
 Use `serializeFailure`, `isFailureDescriptor`, `DomainError` and related types from `kortyx` or browser-safe `@kortyx/core/errors`. Verify the installed release includes these exports before suggesting them.
 
+`FailureDescriptor` always contains `version`, `code`, `category`, `message`, and
+`retryable`. It may also include `source`, `operation`, `status`, `retryAfterMs`,
+`domainCode`, explicitly safe `details`, validation `issues`, usage,
+`finishReason`, context, bounded causes, ordered aggregate results, and
+`truncated`. Branch on stable codes/fields, not message text or error-class identity
+across package copies.
+
 ## Inspect and propagate
 
 ```ts
@@ -43,6 +50,29 @@ Prefer `createChatRouteHandler({ agent })` for the standard HTTP contract. Custo
 
 HTTP rejection bodies expose `{ error: string, failure }`. Stream error chunks expose `{ type: "error", message, failure }`; React error content pieces expose `content` and optional `failure`. Retain the descriptor when adapting these shapes. Accepted execute/resume results still use their result envelope, and errors after SSE headers are sent travel as events. `done` means termination, not success; retain partial output alongside its failure. Server Actions return buffered chunks and should convert ordinary pre-execution errors into an error chunk followed by `done`, while propagating control flow.
 
+Render only the safe descriptor message or an application-owned message selected by
+code. Keep raw exceptions and trusted diagnostics in server logs/telemetry:
+
+```tsx
+import { isFailureDescriptor } from "@kortyx/core/errors";
+
+function failureFrom(error: Error | null) {
+  if (!error || !("failure" in error)) return undefined;
+  return isFailureDescriptor(error.failure) ? error.failure : undefined;
+}
+
+const failure = failureFrom(chat.error);
+const message = failure?.message ??
+  (chat.error ? "Something went wrong. Please try again." : null);
+
+return message ? <ErrorBanner>{message}</ErrorBanner> : null;
+```
+
+Do not render raw provider bodies, stack traces, arbitrary `Error.message` values,
+tool arguments, or telemetry diagnostics. A `DomainError` message/details are an
+explicit declaration that those fields are safe to persist and display; do not put
+secrets there.
+
 ## Recovery policy and compatibility
 
 - Handle stable codes and fields rather than matching messages. Provider HTTP failures expose status, retry eligibility and available Retry-After; schema failures use `MODEL_OUTPUT_SCHEMA`, with original issues/cause available on the live ValidationError.
@@ -53,7 +83,10 @@ HTTP rejection bodies expose `{ error: string, failure }`. Stream error chunks e
 - Upgrade dependent packages together. Legacy message-only events/checkpoints remain readable but discarded metadata cannot be reconstructed; never require new fields from an old server. Preserve legacy display text while treating classification as unknown.
 - Generic public messages, corrected default HTTP statuses, shared provider error constructors and explicit malformed/truncated stream failures are behavioral compatibility changes. Use descriptor `source` when available, rather than a provider package's constructor identity, to distinguish providers.
 - Persisted issues replace string field names with `[field]` and omit custom validation prose. Use original live issues for detailed correction prompts when available. Do not put arbitrary provider bodies, tool arguments, tokens or stack traces in error details.
-- Verify positive recovery, terminal authorization/refusal behavior, budget enforcement and actual Redis reconstruction before claiming parity. A blocker reproduction passing is not recovery evidence.
+- Verify positive recovery, terminal authorization/refusal behavior, budget
+  enforcement, and reconstruction with the application's actual production
+  persistence adapter before claiming parity. A blocker reproduction passing is
+  not recovery evidence.
 
 
 ## Internal error tracing diagnostics
