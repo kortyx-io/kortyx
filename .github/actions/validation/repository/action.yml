@@ -16,30 +16,55 @@ runs:
       uses: ./.github/automation/.github/actions/setup/redis
     - name: Start PostgreSQL
       uses: ./.github/automation/.github/actions/setup/postgres
+    - name: Detect affected packages
+      run: pnpm turbo ls --affected --output=json > "$RUNNER_TEMP/kortyx-affected.json"
+      shell: bash
     - name: Test with coverage gates
-      run: pnpm coverage
+      run: pnpm turbo run coverage --affected
       shell: bash
     - name: Build
-      run: pnpm build
+      run: pnpm turbo run build --affected
       shell: bash
     - name: Telemetry pricing and projection regressions
       run: |-
-        pnpm --filter @kortyx/telemetry-db db:migrate
-        pnpm --filter @kortyx/telemetry-db test
+        if jq -e '.packages.items | map(.name) | any(. == "@kortyx/telemetry-db")' "$RUNNER_TEMP/kortyx-affected.json" >/dev/null; then
+          pnpm --filter @kortyx/telemetry-db db:migrate
+          pnpm --filter @kortyx/telemetry-db test
+        else
+          echo "Skipping unaffected telemetry database regressions."
+        fi
       shell: bash
       env:
         DATABASE_URL: ${{ env.KORTYX_TEST_POSTGRES_URL }}
     - name: PostgreSQL runtime persistence integration coverage
-      run: pnpm --filter @kortyx/runtime test:integration:postgres
+      run: |-
+        if jq -e '.packages.items | map(.name) | any(. == "@kortyx/runtime")' "$RUNNER_TEMP/kortyx-affected.json" >/dev/null; then
+          pnpm --filter @kortyx/runtime test:integration:postgres
+        else
+          echo "Skipping unaffected runtime persistence regressions."
+        fi
       shell: bash
     - name: Studio unit regressions
-      run: pnpm --filter kortyx-studio test
+      run: |-
+        if jq -e '.packages.items | map(.name) | any(. == "kortyx-studio")' "$RUNNER_TEMP/kortyx-affected.json" >/dev/null; then
+          pnpm --filter kortyx-studio test
+        else
+          echo "Skipping unaffected Studio unit regressions."
+        fi
       shell: bash
     - name: Example workflow and error regressions
-      run: pnpm -r --no-bail --filter './examples/*' test
+      run: |-
+        mapfile -t examples < <(jq -r '.packages.items[] | select(.path | startswith("examples/")) | .name' "$RUNNER_TEMP/kortyx-affected.json")
+        if [ "${#examples[@]}" -eq 0 ]; then
+          echo "Skipping unaffected example regressions."
+        else
+          filters=()
+          for package in "${examples[@]}"; do filters+=(--filter "$package"); done
+          pnpm -r --no-bail "${filters[@]}" test
+        fi
       shell: bash
     - name: Typecheck
-      run: pnpm -r --if-present run type-check
+      run: pnpm turbo run type-check --affected
       shell: bash
     - name: Studio release publication regressions
       run: |-

@@ -19,6 +19,10 @@ inputs:
   cache-scope:
     description: GitHub Actions cache scope
     required: true
+  subject-name:
+    description: Optional fully-qualified image name for a GitHub provenance attestation
+    required: false
+    default: ""
 
 outputs:
   digest:
@@ -30,7 +34,7 @@ runs:
   steps:
     - name: Build and push
       id: build
-      uses: docker/build-push-action@v7
+      uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc
       with:
         context: ${{ inputs.context }}
         file: ${{ inputs.file }}
@@ -39,3 +43,10 @@ runs:
         tags: ${{ inputs.tags }}
         cache-from: type=gha,scope=${{ inputs.cache-scope }}
         cache-to: type=gha,mode=max,scope=${{ inputs.cache-scope }}
+    - name: Attest published image
+      if: inputs.subject-name != ''
+      uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6
+      with:
+        subject-name: ${{ inputs.subject-name }}
+        subject-digest: ${{ steps.build.outputs.digest }}
+        push-to-registry: true

@@ -3,19 +3,70 @@ name: CI
 on:
   pull_request:
   push:
-    branches:
-      - main
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  DATABASE_URL: postgres://kortyx:kortyx@localhost:6543/kortyx
+  API_HOST: 127.0.0.1
+  API_PORT: 6400
+  STUDIO_PORT: 6300
+  KORTYX_API_URL: http://localhost:6400
+  KORTYX_API_KEY_PEPPER: ci-e2e-pepper
+  KORTYX_TELEMETRY_API_KEY: ktyx_test_localtelemetry_oss-demo-telemetry-secret-change-me
+  KORTYX_STUDIO_API_KEY: ktyx_test_localstudio_oss-demo-studio-secret-change-me
+  KORTYX_STUDIO_AUTH_MODE: none
 
 jobs:
-  typecheck_lint:
+  changes:
+    name: Detect affected packages
+    runs-on: ubuntu-latest
+    outputs:
+      studio: ${{ steps.affected.outputs.studio }}
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          fetch-depth: 0
+          filter: blob:none
+      - name: Checkout workflow modules
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          ref: ${{ github.workflow_sha }}
+          path: .github/automation
+          sparse-checkout: .github
+          persist-credentials: false
+      - name: Setup Node and pnpm
+        uses: ./.github/automation/.github/actions/setup/node
+      - name: Detect Studio dependency changes
+        id: affected
+        env:
+          TURBO_SCM_BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+          TURBO_SCM_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          pnpm turbo ls --affected --output=json > "$RUNNER_TEMP/affected.json"
+          if jq -e '.packages.items | map(.name) | any(. == "kortyx-studio" or . == "@kortyx/api" or . == "@kortyx/telemetry-db" or . == "@kortyx/telemetry-contracts")' "$RUNNER_TEMP/affected.json" >/dev/null; then
+            echo "studio=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "studio=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  validate_repository:
+    name: Validate repository
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
         with:
-          submodules: false
+          fetch-depth: 0
+          filter: blob:none
       - name: Checkout workflow modules
-        uses: actions/checkout@v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
         with:
           ref: ${{ github.workflow_sha }}
           path: .github/automation
@@ -23,10 +74,23 @@ jobs:
           persist-credentials: false
       - name: Validate repository
         uses: ./.github/automation/.github/actions/validation/repository
-  studio_e2e:
-    name: Studio drawer-stack E2E
+
+  typecheck_lint:
+    needs: validate_repository
+    if: always()
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    steps:
+      - name: Require repository validation
+        env:
+          RESULT: ${{ needs.validate_repository.result }}
+        run: test "$RESULT" = success
+
+  studio_e2e_preflight:
+    name: Studio E2E preflight
+    needs: changes
+    if: needs.changes.outputs.studio == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
     services:
       postgres:
         image: postgres:17-alpine
@@ -34,29 +98,119 @@ jobs:
           POSTGRES_USER: kortyx
           POSTGRES_PASSWORD: kortyx
           POSTGRES_DB: kortyx
-        ports:
-          - 6543:5432
+        ports: ["6543:5432"]
         options: --health-cmd "pg_isready -U kortyx -d kortyx" --health-interval 2s --health-timeout 5s --health-retries 30
-    env:
-      DATABASE_URL: postgres://kortyx:kortyx@localhost:6543/kortyx
-      API_HOST: 127.0.0.1
-      API_PORT: 6400
-      STUDIO_PORT: 6300
-      KORTYX_API_URL: http://localhost:6400
-      KORTYX_API_KEY_PEPPER: ci-e2e-pepper
-      KORTYX_TELEMETRY_API_KEY: ktyx_test_localtelemetry_oss-demo-telemetry-secret-change-me
-      KORTYX_STUDIO_API_KEY: ktyx_test_localstudio_oss-demo-studio-secret-change-me
-      KORTYX_STUDIO_AUTH_MODE: none
     steps:
-      - uses: actions/checkout@v6
-        with:
-          submodules: false
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
       - name: Checkout workflow modules
-        uses: actions/checkout@v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
         with:
           ref: ${{ github.workflow_sha }}
           path: .github/automation
           sparse-checkout: .github
           persist-credentials: false
-      - name: Validate Studio E2E
-        uses: ./.github/automation/.github/actions/validation/studio-e2e
+      - uses: ./.github/automation/.github/actions/validation/studio-e2e
+        with:
+          suite: preflight
+
+  studio_browser:
+    name: Studio E2E (${{ matrix.label }})
+    needs: changes
+    if: needs.changes.outputs.studio == 'true'
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { label: "standard 1/4", suite: standard, shard: "1/4", spec: "" }
+          - { label: "standard 2/4", suite: standard, shard: "2/4", spec: "" }
+          - { label: "standard 3/4", suite: standard, shard: "3/4", spec: "" }
+          - { label: "standard 4/4", suite: standard, shard: "4/4", spec: "" }
+          - { label: reviews, suite: reviews, shard: "", spec: "" }
+          - {
+              label: "production internal links",
+              suite: production,
+              shard: "",
+              spec: internal-linking.spec.ts,
+            }
+          - {
+              label: "production drawer stack",
+              suite: production,
+              shard: "",
+              spec: detail-drawer-stack.spec.ts,
+            }
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: kortyx
+          POSTGRES_PASSWORD: kortyx
+          POSTGRES_DB: kortyx
+        ports: ["6543:5432"]
+        options: --health-cmd "pg_isready -U kortyx -d kortyx" --health-interval 2s --health-timeout 5s --health-retries 30
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+      - name: Checkout workflow modules
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          ref: ${{ github.workflow_sha }}
+          path: .github/automation
+          sparse-checkout: .github
+          persist-credentials: false
+      - uses: ./.github/automation/.github/actions/validation/studio-e2e
+        with:
+          suite: ${{ matrix.suite }}
+          shard: ${{ matrix.shard }}
+          spec: ${{ matrix.spec }}
+
+  studio_e2e_report:
+    name: Merge Studio E2E report
+    needs: [changes, studio_browser]
+    if: needs.changes.outputs.studio == 'true' && !cancelled()
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+      - name: Checkout workflow modules
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          ref: ${{ github.workflow_sha }}
+          path: .github/automation
+          sparse-checkout: .github
+          persist-credentials: false
+      - name: Setup Node and pnpm
+        uses: ./.github/automation/.github/actions/setup/node
+      - name: Download blob reports
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          pattern: studio-playwright-blob-*
+          path: all-blob-reports
+          merge-multiple: true
+      - name: Merge reports
+        run: pnpm --filter kortyx-studio exec playwright merge-reports --reporter=html,github ../../all-blob-reports
+      - name: Upload merged report
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: studio-playwright-report-${{ github.run_attempt }}
+          path: apps/studio/playwright-report
+          retention-days: 7
+
+  studio_e2e:
+    name: Studio drawer-stack E2E
+    needs: [changes, studio_e2e_preflight, studio_browser, studio_e2e_report]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require Studio checks when affected
+        env:
+          CHANGES: ${{ needs.changes.result }}
+          AFFECTED: ${{ needs.changes.outputs.studio }}
+          PREFLIGHT: ${{ needs.studio_e2e_preflight.result }}
+          BROWSER: ${{ needs.studio_browser.result }}
+          REPORT: ${{ needs.studio_e2e_report.result }}
+        run: |
+          test "$CHANGES" = success
+          if [ "$AFFECTED" != true ]; then exit 0; fi
+          test "$PREFLIGHT" = success
+          test "$BROWSER" = success
+          test "$REPORT" = success

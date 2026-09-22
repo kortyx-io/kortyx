@@ -3,6 +3,7 @@ import { defineConfig, devices } from "@playwright/test";
 const studioUrl = process.env.KORTYX_E2E_STUDIO_URL ?? "http://localhost:6300";
 const apiUrl = process.env.KORTYX_API_URL ?? "http://localhost:6400";
 const production = process.env.KORTYX_E2E_PRODUCTION === "1";
+const shardedCi = process.env.KORTYX_E2E_SHARDED_CI === "1";
 
 export default defineConfig({
   tsconfig: "./tsconfig.tools-e2e.json",
@@ -11,7 +12,10 @@ export default defineConfig({
   expect: {
     timeout: 5_000,
   },
-  fullyParallel: false,
+  // CI shards run in separate jobs with independent databases and servers, so
+  // distributing individual tests is safe and avoids large spec files making
+  // file-level shards dramatically uneven. Local and unsharded runs stay serial.
+  fullyParallel: shardedCi,
   forbidOnly: Boolean(process.env.CI),
   retries: process.env.CI ? 1 : 0,
   // The suite shares one projected telemetry fixture and one Next dev server.
@@ -19,7 +23,7 @@ export default defineConfig({
   // in several files, while each scenario still remains independently isolated.
   workers: 1,
   reporter: process.env.CI
-    ? [["line"], ["html", { open: "never" }]]
+    ? [["line"], ["blob"]]
     : [["list"], ["html", { open: "never" }]],
   use: {
     baseURL: studioUrl,

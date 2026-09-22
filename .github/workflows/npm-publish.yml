@@ -1,42 +1,138 @@
-name: Release / NPM
+name: Release / Orchestrate
 
 on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
   workflow_dispatch:
     inputs:
       release_commit:
-        description: Exact release commit to publish (defaults to the selected ref)
+        description: Exact release commit to resume (defaults to main)
         required: false
         type: string
 
+concurrency:
+  group: release-orchestrator
+  cancel-in-progress: false
+
 permissions:
   contents: read
-  id-token: write
 
 jobs:
-  publish:
+  prepare:
+    name: Select tested release
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main'
-    environment: NPM Package Publishing
+    outputs:
+      commit: ${{ steps.release.outputs.commit }}
+      release: ${{ steps.release.outputs.release }}
+      paths: ${{ steps.release.outputs.paths }}
+      studio_version: ${{ steps.release.outputs.studio_version }}
+      website_version: ${{ steps.release.outputs.website_version }}
     steps:
-      - name: Checkout
-        uses: actions/checkout@v6
+      - name: Checkout tested commit
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
         with:
           fetch-depth: 0
-          ref: ${{ inputs.release_commit || github.sha }}
+          ref: ${{ inputs.release_commit || github.event.workflow_run.head_sha || github.event.repository.default_branch }}
+      - name: Describe release commit
+        id: release
+        env:
+          RELEASE_COMMIT: ${{ inputs.release_commit || github.event.workflow_run.head_sha || github.sha }}
+        run: node .github/scripts/release/describe-release.mjs
+
+  tags:
+    name: Create GitHub releases and tags
+    needs: prepare
+    if: needs.prepare.outputs.release == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: read
+    steps:
+      - name: Checkout release commit
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          fetch-depth: 0
+          ref: ${{ needs.prepare.outputs.commit }}
       - name: Checkout workflow modules
-        uses: actions/checkout@v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
         with:
           ref: ${{ github.workflow_sha }}
           path: .github/automation
           sparse-checkout: .github
           persist-credentials: false
-      - name: Record selected release commit
-        id: candidate
-        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
-      - name: Validate repository
-        uses: ./.github/automation/.github/actions/validation/repository
-      - name: Publish packages
+      - name: Release Please (tags only)
+        uses: ./.github/automation/.github/actions/release/release-please
+        with:
+          app-id: ${{ secrets.GH_APP_ID }}
+          private-key: ${{ secrets.GH_APP_PRIVATE_KEY }}
+          mode: tags
+
+  publish:
+    name: Publish and verify npm packages
+    needs: [prepare, tags]
+    if: needs.prepare.outputs.release == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    environment: NPM Package Publishing
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Checkout release commit
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          fetch-depth: 0
+          ref: ${{ needs.prepare.outputs.commit }}
+      - name: Checkout workflow modules
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          ref: ${{ github.workflow_sha }}
+          path: .github/automation
+          sparse-checkout: .github
+          persist-credentials: false
+      - name: Setup Node and pnpm
+        uses: ./.github/automation/.github/actions/setup/node
+        with:
+          registry-url: https://registry.npmjs.org
+      - name: Build release package graph
+        env:
+          TURBO_SCM_BASE: ${{ needs.prepare.outputs.commit }}^1
+          TURBO_SCM_HEAD: ${{ needs.prepare.outputs.commit }}
+        run: pnpm turbo run build --affected
+      - name: Publish packages and wait for npm
         uses: ./.github/automation/.github/actions/release/npm-publish
         with:
-          commit: ${{ steps.candidate.outputs.sha }}
-    timeout-minutes: 20
+          commit: ${{ needs.prepare.outputs.commit }}
+
+  studio:
+    name: Release Studio
+    needs: [prepare, publish]
+    if: contains(fromJSON(needs.prepare.outputs.paths), 'apps/studio')
+    uses: ./.github/workflows/release-studio-images.yml
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+      attestations: write
+    with:
+      release_tag: studio-v${{ needs.prepare.outputs.studio_version }}
+      deployment_strategy: recreate
+    secrets: inherit
+
+  website:
+    name: Release website
+    needs: [prepare, publish]
+    if: contains(fromJSON(needs.prepare.outputs.paths), 'apps/website')
+    uses: ./.github/workflows/website-promote.yml
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+      attestations: write
+    with:
+      release_commit: ${{ needs.prepare.outputs.commit }}
+      website_version: ${{ needs.prepare.outputs.website_version }}
+    secrets: inherit

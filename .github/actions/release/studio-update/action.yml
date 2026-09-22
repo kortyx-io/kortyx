@@ -37,7 +37,7 @@ runs:
       run: bash "$ACTION_PATH/check-config.sh"
     - name: Setup Python
       if: inputs.operation == 'prepare'
-      uses: actions/setup-python@v6
+      uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1
       with:
         python-version: "3.13"
     - name: Install publisher dependencies

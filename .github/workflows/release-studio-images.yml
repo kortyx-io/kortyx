@@ -1,8 +1,14 @@
 name: Release / Studio Images
 
 on:
-  release:
-    types: [published]
+  workflow_call:
+    inputs:
+      release_tag:
+        required: true
+        type: string
+      deployment_strategy:
+        required: true
+        type: string
   workflow_dispatch:
     inputs:
       release_tag:
@@ -21,6 +27,8 @@ on:
 permissions:
   contents: read
   packages: write
+  id-token: write
+  attestations: write
 
 concurrency:
   group: studio-oss-release
@@ -34,20 +42,20 @@ env:
 jobs:
   prepare:
     name: Validate release
-    if: github.event_name == 'workflow_dispatch' || startsWith(github.event.release.tag_name, 'studio-v')
     runs-on: ubuntu-latest
     timeout-minutes: 5
     outputs:
       version: ${{ steps.version.outputs.version }}
       commit: ${{ steps.version.outputs.commit }}
+      installer_version: ${{ steps.installer.outputs.version }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
         with:
-          ref: refs/tags/${{ inputs.release_tag || github.event.release.tag_name }}
+          ref: refs/tags/${{ inputs.release_tag }}
           fetch-depth: 0
       - name: Checkout workflow modules
-        uses: actions/checkout@v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
         with:
           ref: ${{ github.workflow_sha }}
           path: .github/automation
@@ -56,55 +64,25 @@ jobs:
       - name: Derive and validate version from release tag
         id: version
         env:
-          RELEASE_TAG: ${{ inputs.release_tag || github.event.release.tag_name }}
+          RELEASE_TAG: ${{ inputs.release_tag }}
         run: bash ./.github/automation/.github/scripts/studio/validate-release.sh
-  package-installer:
-    name: Package clean-install candidate
-    needs: prepare
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v6
-        with:
-          ref: ${{ needs.prepare.outputs.commit }}
-      - name: Checkout workflow modules
-        uses: actions/checkout@v6
-        with:
-          ref: ${{ github.workflow_sha }}
-          path: .github/automation
-          sparse-checkout: .github
-          persist-credentials: false
-      - name: Setup Node and pnpm
-        uses: ./.github/automation/.github/actions/setup/node
-        with:
-          install: "true"
-      - name: Build CLI package graph
-        run: pnpm turbo run build --filter=kortyx
-      - name: Pack CLI packages
-        run: bash ./.github/automation/.github/scripts/studio/pack-installer.sh
-      - name: Upload installer candidate
-        uses: actions/upload-artifact@v7
-        with:
-          name: studio-installer-${{ needs.prepare.outputs.version }}
-          path: ${{ runner.temp }}/studio-installer/*.tgz
-          if-no-files-found: error
-          retention-days: 7
-  publish-staging:
-    name: Publish multi-architecture staging images
+      - name: Select published CLI installer version
+        id: installer
+        run: echo "version=$(node -p 'require(\"./packages/kortyx/package.json\").version')" >> "$GITHUB_OUTPUT"
+  publish-api:
+    name: Publish API staging image
     needs: prepare
     runs-on: ubuntu-latest
     timeout-minutes: 90
     outputs:
-      api_digest: ${{ steps.api.outputs.digest }}
-      studio_digest: ${{ steps.studio.outputs.digest }}
+      digest: ${{ steps.image.outputs.digest }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
         with:
           ref: ${{ needs.prepare.outputs.commit }}
       - name: Checkout workflow modules
-        uses: actions/checkout@v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
         with:
           ref: ${{ github.workflow_sha }}
           path: .github/automation
@@ -122,7 +100,7 @@ jobs:
           VERSION: ${{ needs.prepare.outputs.version }}
         run: bash ./.github/automation/.github/scripts/studio/refuse-overwrite.sh
       - name: Build and push API staging image
-        id: api
+        id: image
         uses: ./.github/automation/.github/actions/containers/build-push
         with:
           context: .
@@ -132,8 +110,40 @@ jobs:
             ${{ env.REGISTRY }}/${{ env.API_IMAGE_NAME }}:staging-latest
             ${{ env.REGISTRY }}/${{ env.API_IMAGE_NAME }}:staging-v${{ needs.prepare.outputs.version }}
           cache-scope: kortyx-api-image
+          subject-name: ${{ env.REGISTRY }}/${{ env.API_IMAGE_NAME }}
+
+  publish-studio:
+    name: Publish Studio staging image
+    needs: prepare
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    outputs:
+      digest: ${{ steps.image.outputs.digest }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          ref: ${{ needs.prepare.outputs.commit }}
+      - name: Checkout workflow modules
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          ref: ${{ github.workflow_sha }}
+          path: .github/automation
+          sparse-checkout: .github
+          persist-credentials: false
+      - name: Setup container registry
+        uses: ./.github/automation/.github/actions/setup/container-registry
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+          qemu: "true"
+      - name: Refuse to overwrite a production version
+        env:
+          VERSION: ${{ needs.prepare.outputs.version }}
+        run: bash ./.github/automation/.github/scripts/studio/refuse-overwrite.sh
       - name: Build and push Studio staging image
-        id: studio
+        id: image
         uses: ./.github/automation/.github/actions/containers/build-push
         with:
           context: .
@@ -143,19 +153,46 @@ jobs:
             ${{ env.REGISTRY }}/${{ env.STUDIO_IMAGE_NAME }}:staging-latest
             ${{ env.REGISTRY }}/${{ env.STUDIO_IMAGE_NAME }}:staging-v${{ needs.prepare.outputs.version }}
           cache-scope: kortyx-studio-image
+          subject-name: ${{ env.REGISTRY }}/${{ env.STUDIO_IMAGE_NAME }}
+
+  verify-staging:
+    name: Verify staging image indexes
+    needs: [prepare, publish-api, publish-studio]
+    runs-on: ubuntu-latest
+    outputs:
+      api_digest: ${{ needs.publish-api.outputs.digest }}
+      studio_digest: ${{ needs.publish-studio.outputs.digest }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          ref: ${{ needs.prepare.outputs.commit }}
+      - name: Checkout workflow modules
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          ref: ${{ github.workflow_sha }}
+          path: .github/automation
+          sparse-checkout: .github
+          persist-credentials: false
+      - name: Setup container registry
+        uses: ./.github/automation/.github/actions/setup/container-registry
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+          qemu: "false"
       - name: Verify staging indexes and digests
         env:
           VERSION: ${{ needs.prepare.outputs.version }}
-          API_DIGEST: ${{ steps.api.outputs.digest }}
-          STUDIO_DIGEST: ${{ steps.studio.outputs.digest }}
+          API_DIGEST: ${{ needs.publish-api.outputs.digest }}
+          STUDIO_DIGEST: ${{ needs.publish-studio.outputs.digest }}
           IMAGE_TAG_PREFIX: staging-v
         run: bash ./.github/automation/.github/scripts/studio/verify-images.sh
   smoke:
     name: Clean install and smoke (${{ matrix.platform }})
     needs:
       - prepare
-      - package-installer
-      - publish-staging
+      - verify-staging
     strategy:
       fail-fast: false
       matrix:
@@ -172,11 +209,11 @@ jobs:
     timeout-minutes: 30
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
         with:
           ref: ${{ needs.prepare.outputs.commit }}
       - name: Checkout workflow modules
-        uses: actions/checkout@v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
         with:
           ref: ${{ github.workflow_sha }}
           path: .github/automation
@@ -193,25 +230,21 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
           qemu: "false"
-      - name: Download installer candidate
-        uses: actions/download-artifact@v8
-        with:
-          name: studio-installer-${{ needs.prepare.outputs.version }}
-          path: ${{ runner.temp }}/studio-installer
       - name: Install and verify the staged release
         env:
           VERSION: ${{ needs.prepare.outputs.version }}
-          API_DIGEST: ${{ needs.publish-staging.outputs.api_digest }}
-          STUDIO_DIGEST: ${{ needs.publish-staging.outputs.studio_digest }}
-          DEPLOYMENT_STRATEGY: ${{ inputs.deployment_strategy || 'recreate' }}
+          KORTYX_VERSION: ${{ needs.prepare.outputs.installer_version }}
+          API_DIGEST: ${{ needs.verify-staging.outputs.api_digest }}
+          STUDIO_DIGEST: ${{ needs.verify-staging.outputs.studio_digest }}
+          DEPLOYMENT_STRATEGY: ${{ inputs.deployment_strategy }}
           EXPECTED_NODE_ARCH: ${{ matrix.node_arch }}
           ARCH_ID: ${{ matrix.id }}
         run: bash ./.github/automation/.github/scripts/studio/smoke-install.sh
   promote:
-    name: Approve and publish production images
+    name: Publish production images and update channel
     needs:
       - prepare
-      - publish-staging
+      - verify-staging
       - smoke
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -219,16 +252,16 @@ jobs:
       contents: read
       packages: write
     environment:
-      name: studio-production
+      name: studio-production-auto
       url: https://github.com/kortyx-io/kortyx/pkgs/container/kortyx-studio
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
         with:
           ref: ${{ needs.prepare.outputs.commit }}
           fetch-depth: 0
       - name: Checkout workflow modules
-        uses: actions/checkout@v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
         with:
           ref: ${{ github.workflow_sha }}
           path: .github/automation
@@ -252,24 +285,24 @@ jobs:
       - name: Promote tested API digest
         uses: ./.github/automation/.github/actions/containers/promote
         with:
-          source: ${{ env.REGISTRY }}/${{ env.API_IMAGE_NAME }}@${{ needs.publish-staging.outputs.api_digest }}
+          source: ${{ env.REGISTRY }}/${{ env.API_IMAGE_NAME }}@${{ needs.verify-staging.outputs.api_digest }}
           tags: |-
             ${{ env.REGISTRY }}/${{ env.API_IMAGE_NAME }}:v${{ needs.prepare.outputs.version }}
             ${{ env.REGISTRY }}/${{ env.API_IMAGE_NAME }}:latest
-          expected-digest: ${{ needs.publish-staging.outputs.api_digest }}
+          expected-digest: ${{ needs.verify-staging.outputs.api_digest }}
       - name: Promote tested STUDIO digest
         uses: ./.github/automation/.github/actions/containers/promote
         with:
-          source: ${{ env.REGISTRY }}/${{ env.STUDIO_IMAGE_NAME }}@${{ needs.publish-staging.outputs.studio_digest }}
+          source: ${{ env.REGISTRY }}/${{ env.STUDIO_IMAGE_NAME }}@${{ needs.verify-staging.outputs.studio_digest }}
           tags: |-
             ${{ env.REGISTRY }}/${{ env.STUDIO_IMAGE_NAME }}:v${{ needs.prepare.outputs.version }}
             ${{ env.REGISTRY }}/${{ env.STUDIO_IMAGE_NAME }}:latest
-          expected-digest: ${{ needs.publish-staging.outputs.studio_digest }}
+          expected-digest: ${{ needs.verify-staging.outputs.studio_digest }}
       - name: Summarize promoted images
         env:
           VERSION: ${{ needs.prepare.outputs.version }}
-          API_DIGEST: ${{ needs.publish-staging.outputs.api_digest }}
-          STUDIO_DIGEST: ${{ needs.publish-staging.outputs.studio_digest }}
+          API_DIGEST: ${{ needs.verify-staging.outputs.api_digest }}
+          STUDIO_DIGEST: ${{ needs.verify-staging.outputs.studio_digest }}
         run: bash ./.github/automation/.github/scripts/studio/promotion-summary.sh
       - name: Publish the completed release to the update CDN
         uses: ./.github/automation/.github/actions/release/studio-update
@@ -280,6 +313,6 @@ jobs:
           secret-access-key: ${{ secrets.STUDIO_UPDATES_R2_SECRET_ACCESS_KEY }}
         env:
           VERSION: ${{ needs.prepare.outputs.version }}
-          API_DIGEST: ${{ needs.publish-staging.outputs.api_digest }}
-          STUDIO_DIGEST: ${{ needs.publish-staging.outputs.studio_digest }}
+          API_DIGEST: ${{ needs.verify-staging.outputs.api_digest }}
+          STUDIO_DIGEST: ${{ needs.verify-staging.outputs.studio_digest }}
           DEPLOYMENT_STRATEGY: ${{ inputs.deployment_strategy }}

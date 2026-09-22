@@ -32,7 +32,7 @@ jobs:
       website: ${{ steps.changed.outputs.result }}
     steps:
       - name: Checkout workflow modules
-        uses: actions/checkout@v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
         with:
           ref: ${{ github.workflow_sha }}
           path: .github/automation
@@ -40,7 +40,7 @@ jobs:
           persist-credentials: false
       - name: Check changed files
         id: changed
-        uses: actions/github-script@v8
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd
         with:
           result-encoding: string
           script: return await require('./.github/automation/.github/scripts/website/detect-changes.cjs')({ github, context, core });
@@ -56,11 +56,11 @@ jobs:
       pull-requests: write
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
         with:
           fetch-depth: 0
       - name: Checkout workflow modules
-        uses: actions/checkout@v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
         with:
           ref: ${{ github.workflow_sha }}
           path: .github/automation
@@ -98,7 +98,7 @@ jobs:
       - name: Verify Cloudflare Access and publish preview URL
         run: bash ./.github/automation/.github/scripts/website/verify-preview.sh
       - name: Publish preview URL on pull request
-        uses: actions/github-script@v8
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd
         with:
           script: return await require('./.github/automation/.github/scripts/website/preview-comment.cjs')({ github, context, core });
   remove-preview:
@@ -111,7 +111,7 @@ jobs:
       pull-requests: write
     steps:
       - name: Checkout workflow modules
-        uses: actions/checkout@v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
         with:
           ref: ${{ github.workflow_sha }}
           path: .github/automation
@@ -126,6 +126,6 @@ jobs:
           pr-number: ${{ github.event.pull_request.number }}
           operation: remove-preview
       - name: Mark preview as removed on pull request
-        uses: actions/github-script@v8
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd
         with:
           script: return await require('./.github/automation/.github/scripts/website/remove-preview-comment.cjs')({ github, context, core });

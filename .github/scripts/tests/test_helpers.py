@@ -22,8 +22,10 @@ class HelperTests(unittest.TestCase):
         self.bin = self.root / "bin"
         self.bin.mkdir()
         self.log = self.root / "calls.jsonl"
+        self.github_output = self.root / "github-output"
         self.env = {**os.environ, "PATH": str(self.bin) + os.pathsep + os.environ["PATH"],
-                    "TEST_LOG": str(self.log), "RUNNER_TEMP": str(self.root)}
+                    "TEST_LOG": str(self.log), "RUNNER_TEMP": str(self.root),
+                    "GITHUB_OUTPUT": str(self.github_output)}
 
     def fake(self, name, body):
         file = self.bin / name
@@ -168,6 +170,8 @@ with open(os.environ["TEST_LOG"], "a") as f: f.write(json.dumps({"args":sys.argv
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(self.calls(), [{"cwd": str(self.root / "packages/a"),
                           "args": ["publish", "--provenance", "--access", "public", "--tag", "latest", "--no-git-checks"]}])
+        self.assertEqual(self.github_output.read_text(),
+                         'packages=[{"name":"@test/a","version":"1.1.0"}]\n')
 
     def test_npm_skips_versions_already_published(self):
         self.npm_fixture()

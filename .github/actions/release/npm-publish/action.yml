@@ -6,10 +6,16 @@ inputs:
     description: Exact validated release commit
     required: true
 
+outputs:
+  packages:
+    description: JSON array of package names and versions selected for publication.
+    value: ${{ steps.publish.outputs.packages }}
+
 runs:
   using: composite
   steps:
     - name: Publish packages
+      id: publish
       shell: bash
       env:
         ACTION_PATH: ${{ github.action_path }}
@@ -19,3 +25,9 @@ runs:
         npm config delete //registry.npmjs.org/:_authToken --workspaces=false || true
         npm config delete always-auth --workspaces=false || true
         node "$ACTION_PATH/publish.mjs"
+    - name: Wait for npm registry availability
+      shell: bash
+      env:
+        ACTION_PATH: ${{ github.action_path }}
+        RELEASE_PACKAGES: ${{ steps.publish.outputs.packages }}
+      run: node "$ACTION_PATH/verify-registry.mjs"

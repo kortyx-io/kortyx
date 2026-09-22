@@ -14,7 +14,7 @@ inputs:
 runs:
   using: composite
   steps:
-    - uses: actions/setup-node@v6
+    - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
       with:
         node-version-file: .nvmrc
         registry-url: ${{ inputs.registry-url }}
@@ -25,11 +25,20 @@ runs:
       shell: bash
       if: inputs.install == 'true'
     - name: Setup pnpm cache
-      uses: actions/setup-node@v6
+      uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
       with:
         node-version-file: .nvmrc
         cache: pnpm
         registry-url: ${{ inputs.registry-url }}
+      if: inputs.install == 'true'
+    - name: Restore Turborepo cache
+      uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25
+      with:
+        path: .turbo
+        key: turbo-${{ runner.os }}-${{ github.job }}-${{ github.sha }}
+        restore-keys: |
+          turbo-${{ runner.os }}-${{ github.job }}-
+          turbo-${{ runner.os }}-
       if: inputs.install == 'true'
     - name: Install
       run: pnpm install --frozen-lockfile
