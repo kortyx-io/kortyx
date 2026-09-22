@@ -10,15 +10,9 @@ test.describe("Studio live refresh", () => {
     page,
     request,
   }) => {
-    await page.goto(`/runs?q=${DRAWER_FIXTURE.workflowId}`);
+    await page.goto(`/runs?q=${DRAWER_FIXTURE.workflowId}&live=true`);
     await expect(page.locator('[data-table-ready="true"]')).toBeVisible();
 
-    const live = page.getByRole("button", {
-      name: /Live refresh:/,
-    });
-    await live.click();
-    await expect(live).toHaveAttribute("aria-pressed", "true");
-    await expect(page).toHaveURL(/\blive=true\b/);
     await expect(
       page.getByRole("button", {
         name: /Live refresh: Connected\./,
@@ -48,5 +42,15 @@ test.describe("Studio live refresh", () => {
     await runDrawer.getByRole("button", { name: "Close detail" }).click();
     await expect(runDrawer).toHaveCount(0);
     await expect(page.locator(`[data-row-key="${LIVE_RUN_ID}"]`)).toBeVisible();
+  });
+
+  test("persists the live toggle in the URL", async ({ page }) => {
+    await page.goto("/runs");
+    await expect(page.locator('[data-table-ready="true"]')).toBeVisible();
+
+    const live = page.getByRole("button", { name: /Live refresh:/ });
+    await live.click();
+    await expect(live).toHaveAttribute("aria-pressed", "true");
+    await expect(page).toHaveURL(/\blive=true\b/);
   });
 });

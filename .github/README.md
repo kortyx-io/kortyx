@@ -57,7 +57,7 @@ and PostgreSQL 17 test containers and remove them with an `always()` step.
 
 The stable CI gate names `typecheck_lint` and `Studio drawer-stack E2E` remain
 unchanged because the main branch ruleset requires them. Studio E2E runs database
-preflight separately from eight standard browser shards, review mode, three
+preflight separately from eight standard browser shards, review mode, two
 production internal-linking shards, and one production drawer-stack partition.
 Each browser partition has an isolated database
 and server, and their blob reports are merged into one retained HTML report. Changes

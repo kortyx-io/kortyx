@@ -151,21 +151,15 @@ jobs:
           - { label: "standard 8/8", suite: standard, shard: "8/8", spec: "" }
           - { label: reviews, suite: reviews, shard: "", spec: "" }
           - {
-              label: "production internal links 1/3",
+              label: "production internal links 1/2",
               suite: production,
-              shard: "1/3",
+              shard: "1/2",
               spec: internal-linking.spec.ts,
             }
           - {
-              label: "production internal links 2/3",
+              label: "production internal links 2/2",
               suite: production,
-              shard: "2/3",
-              spec: internal-linking.spec.ts,
-            }
-          - {
-              label: "production internal links 3/3",
-              suite: production,
-              shard: "3/3",
+              shard: "2/2",
               spec: internal-linking.spec.ts,
             }
           - {
