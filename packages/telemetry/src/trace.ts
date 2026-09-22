@@ -12,6 +12,20 @@ import { ToolObservationSchema } from "@kortyx/telemetry-contracts";
 import type { createEventMapper } from "./event-mapper";
 import type { ActiveSpan, SpanContext } from "./types";
 
+const providerPricing = (
+  metadata: ReasonTraceSpanEndArgs["providerMetadata"],
+): Record<string, unknown> | undefined => {
+  if (metadata?.providerId !== "openrouter") return undefined;
+  const cost = metadata.cost;
+  if (typeof cost !== "number" || !Number.isFinite(cost) || cost < 0)
+    return undefined;
+  return {
+    source: "provider",
+    currency: "USD",
+    actualCostMicros: Math.round(cost * 1_000_000),
+  };
+};
+
 /** Maps generic SDK trace calls to Kortyx Studio's span and generation facts. */
 export const createTraceAdapter = (args: {
   captureContent?: KortyxTelemetryConfig["captureContent"] | undefined;
@@ -139,6 +153,7 @@ export const createTraceAdapter = (args: {
       const timeToLastTokenMs = nonnegativeNumber(
         endAttributes.timeToLastTokenMs,
       );
+      const pricing = providerPricing(endArgs?.providerMetadata);
       args.enqueue(
         args.eventMapper.createEvent({
           type: "generation.completed",
@@ -194,6 +209,7 @@ export const createTraceAdapter = (args: {
               ? { finishReason: endArgs.finishReason }
               : {}),
             ...(endArgs?.warnings ? { warnings: endArgs.warnings } : {}),
+            ...(pricing ? { pricing } : {}),
             ...(endArgs?.providerMetadata && !failed
               ? { providerMetadata: endArgs.providerMetadata }
               : {}),

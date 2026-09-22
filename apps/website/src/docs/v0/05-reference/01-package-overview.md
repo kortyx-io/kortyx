@@ -30,6 +30,7 @@ This page maps the current OSS packages in this monorepo.
 | `@kortyx/aws-cdk` | private AWS deployment construct for Kortyx Studio | infrastructure repositories using AWS CDK |
 | `@kortyx/providers` | provider contracts + registry | runtime/provider wiring |
 | `@kortyx/google` | Google Gemini provider implementation | apps using Google models |
+| `@kortyx/openrouter` | OpenRouter model routing plus TypeSafe Jev through `useReason` | apps using multiple model vendors or Jev through one OpenRouter key |
 | `@kortyx/stream` | stream chunk types + SSE server/client helpers | web APIs + clients |
 | `@kortyx/utils` | shared helpers (`deepMergeWithArrayOverwrite`, `withRetries`, `contentToText`) | framework internals |
 | `@kortyx/cli` | CLI tooling (early stage) | CLI users |

@@ -14,7 +14,13 @@ Keep provider credentials and model construction on the server. Call `useReason(
 
 Import provider selectors from their adapter packages: `@kortyx/google`,
 `@kortyx/openai`, `@kortyx/anthropic`, `@kortyx/deepseek`, `@kortyx/groq`, or
-`@kortyx/mistral`. Do not import those selectors from `kortyx`.
+`@kortyx/mistral`. Use `openrouter` from `@kortyx/openrouter` for models routed
+through OpenRouter. Do not import those selectors from `kortyx`.
+
+For OpenRouter routing or TypeSafe Jev, read
+[OpenRouter and TypeSafe Jev](providers-openrouter-and-jev.md). Jev remains a
+regular `useReason(...)` model but uses `jevOutputSchema(...)` rather than a
+general structured-output schema.
 
 ## Basic Shape
 
@@ -189,7 +195,7 @@ and will be removed in the next major release. Use `interrupts.contracts` and
 
 Tools returned by `mcpClient.tools()` are request-scoped by default. `useReason(...)` closes the underlying MCP client when the call finishes, errors, or interrupts. Use `mcpClient.tools({ closeAfterUse: false })` only when the app owns a long-lived MCP client and will close it manually.
 
-MCP tool calling requires provider adapter support for native tool calls. `@kortyx/openai`, `@kortyx/google`, `@kortyx/anthropic`, `@kortyx/deepseek`, `@kortyx/groq`, and `@kortyx/mistral` implement the shared tool contracts.
+MCP tool calling requires provider adapter support for native tool calls. `@kortyx/openai`, `@kortyx/google`, `@kortyx/anthropic`, `@kortyx/deepseek`, `@kortyx/groq`, `@kortyx/mistral`, and OpenRouter chat models implement the shared tool contracts. TypeSafe Jev through OpenRouter does not support tools.
 
 ## Plain Text Reasoning
 

@@ -34,6 +34,26 @@ describe("calculateGenerationCost", () => {
     });
   });
 
+  it("uses OpenRouter's reported cost from existing provider metadata", () => {
+    const result = calculateGenerationCost(
+      baseEvent({
+        provider: "openrouter",
+        model: "anthropic/claude-sonnet-4.6",
+        usage: { input: 468, output: 10, total: 478 },
+        providerMetadata: { cost: 0.001554 },
+      }),
+      [],
+    );
+
+    expect(result).toMatchObject({
+      costMicros: 1_554,
+      cost: 0.001554,
+      currency: "USD",
+      pricingStatus: "priced",
+      pricingSource: "provider",
+    });
+  });
+
   it("uses custom SDK unit prices for non-token usage", () => {
     const result = calculateGenerationCost(
       baseEvent({

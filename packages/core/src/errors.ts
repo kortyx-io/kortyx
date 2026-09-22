@@ -488,6 +488,7 @@ const providerName = (id: string): string =>
     deepseek: "DeepSeek",
     groq: "Groq",
     mistral: "Mistral",
+    openrouter: "OpenRouter",
   })[id] ?? id;
 
 export function providerHttpError(

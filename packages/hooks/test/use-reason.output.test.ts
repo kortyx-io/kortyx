@@ -967,6 +967,44 @@ describe("useReason output flow", () => {
     expect(result.output?.summary).toBe("Summary");
   });
 
+  it("keeps the original input for provider-native output schemas", async () => {
+    const schema = z
+      .object({ answer: z.string() })
+      .meta({ "x-native-output-test": { enabled: true } });
+    Object.defineProperty(schema, "~kortyx", {
+      value: { nativeOutput: true },
+    });
+    const { invoke, modelRef, provider } = createProvider({
+      invokeResponses: ['{"answer":"native"}'],
+    });
+    const { node } = createNode();
+    const state = createState();
+
+    const { result } = await runWithHookContext({ node, state }, async () =>
+      useReason({
+        model: modelRef,
+        input: "Original provider input",
+        outputSchema: schema,
+      }),
+    );
+
+    expect(result.output).toEqual({ answer: "native" });
+    expect(invoke).toHaveBeenCalledWith([
+      { role: "user", content: "Original provider input" },
+    ]);
+    expect(provider.getModel).toHaveBeenCalledWith(
+      "mock-model",
+      expect.objectContaining({
+        responseFormat: expect.objectContaining({
+          type: "json",
+          schema: expect.objectContaining({
+            "x-native-output-test": { enabled: true },
+          }),
+        }),
+      }),
+    );
+  });
+
   it("streams append updates for one declared array field before final output", async () => {
     const { stream, invoke, modelRef } = createProvider({
       streamResponses: [

@@ -2,7 +2,7 @@
 id: v0-choose-a-provider
 title: "Choose a Provider"
 description: "Pick a Kortyx provider package, configure credentials, and understand the current provider scope."
-keywords: [kortyx, providers, ai providers, openai, anthropic, google, deepseek, groq, mistral]
+keywords: [kortyx, providers, ai providers, openai, anthropic, google, deepseek, groq, mistral, openrouter]
 sidebar_label: "Choose a Provider"
 ---
 # Choose a Provider
@@ -21,6 +21,8 @@ Use this page to pick a package, set the right environment variables, and then j
 | DeepSeek | `@kortyx/deepseek` | `deepseek-chat` | `DEEPSEEK_API_KEY`, `KORTYX_DEEPSEEK_API_KEY` | DeepSeek chat and reasoner models |
 | Groq | `@kortyx/groq` | `llama-3.3-70b-versatile` | `GROQ_API_KEY`, `KORTYX_GROQ_API_KEY` | Groq-hosted low-latency model access |
 | Mistral | `@kortyx/mistral` | `mistral-large-latest` | `MISTRAL_API_KEY`, `KORTYX_MISTRAL_API_KEY` | Mistral, Magistral, Ministral, and Pixtral model families |
+| OpenRouter | `@kortyx/openrouter` | `anthropic/claude-sonnet-4.6` | `OPENROUTER_API_KEY`, `KORTYX_OPENROUTER_API_KEY` | One integration for OpenRouter's changing multi-provider model catalog and TypeSafe Jev decisions |
+| TypeSafe Jev via OpenRouter | `@kortyx/openrouter` | `typesafe/jev-1.13` | `OPENROUTER_API_KEY`, `KORTYX_OPENROUTER_API_KEY` | Native System One choices, scores, and yes/no probabilities through `useReason(...)` and `jevOutputSchema(...)` |
 
 > **Good to know:** The model ids above are starter choices from the package autocomplete lists. Provider packages also accept arbitrary provider model id strings when the underlying API supports them.
 
@@ -52,6 +54,8 @@ Use the provider-specific page if you need package-specific install commands:
 - [DeepSeek](./04-deepseek-provider.md)
 - [Groq](./05-groq-provider.md)
 - [Mistral](./06-mistral-provider.md)
+- [OpenRouter](./07-openrouter-provider.md)
+- [TypeSafe Jev through OpenRouter](./08-jev-openrouter.md)
 
 ## Centralize provider imports
 
@@ -62,6 +66,7 @@ Create one app-owned provider file so workflow and node code imports models from
 export { google } from "@kortyx/google";
 export { openai } from "@kortyx/openai";
 export { anthropic } from "@kortyx/anthropic";
+export { openrouter } from "@kortyx/openrouter";
 ```
 
 ```js
@@ -69,6 +74,7 @@ export { anthropic } from "@kortyx/anthropic";
 export { google } from "@kortyx/google";
 export { openai } from "@kortyx/openai";
 export { anthropic } from "@kortyx/anthropic";
+export { openrouter } from "@kortyx/openrouter";
 ```
 
 Then choose a model where your node actually reasons:
@@ -151,6 +157,13 @@ They do not currently expose provider-native APIs for:
 - audio, speech, or transcription
 - file upload APIs
 - provider-hosted tools or tool execution
+
+`@kortyx/openrouter` also supports TypeSafe System One models such as Jev as
+regular `useReason(...)` model refs. Use its `jevOutputSchema(...)` helper to
+define native questions and infer the typed output without adding another
+invocation shape. Jev has different question, output, streaming, and tool
+capabilities, so read the dedicated
+[TypeSafe Jev guide](./08-jev-openrouter.md) before using it.
 
 Use `result.warnings` when you rely on advanced normalized options. Providers report unsupported or compatibility-mapped options there instead of silently pretending every provider behaves the same.
 

@@ -24,6 +24,12 @@ For catching, displaying or persisting failures, custom route errors, provider r
 
 ## Topic Router
 
+Providers:
+
+- `references/providers-openrouter-and-jev.md`: OpenRouter's standard provider
+  shape, routing options, dynamic model capabilities, and TypeSafe Jev's
+  distinct `jevOutputSchema(...)` contract.
+
 Architecture:
 
 - `references/response-completion.md`: completeResponse, background continuation, host lifetime, scoped listInterrupts/getInterrupt discovery and independent approval interfaces.
@@ -87,7 +93,7 @@ React client:
 - `useReason({ tools })` accepts `KortyxExecutableTool[]`: directly imported local tools, request-bound tools, and MCP-derived tools from `createMCPClient(...).tools()`. `useReason` closes owned request-scoped resources by default.
 - Tools and model-driven human input share the same durable `useReason` loop. Define one or more contracts with `defineInterruptContract`, pass them under `interrupts.contracts`, choose `mode`, bound human turns with `maxRequests`, and read `result.interruptHistory`.
 - The singular `useReason({ interrupt })` option and `result.interruptResponse` are deprecated and removed in the next major; do not use them in new code.
-- Import provider selectors from their provider packages, such as `google` from `@kortyx/google` and `openai` from `@kortyx/openai`, not from `kortyx`.
+- Import provider selectors from their provider packages, such as `google` from `@kortyx/google`, `openai` from `@kortyx/openai`, and `openrouter` from `@kortyx/openrouter`, not from `kortyx`.
 - `useChat(...)` does not accept `sessionId`. Hydrate an existing session and visible history through `ChatStorage`; when the server owns history, keep it authoritative and send only the current turn or an app-approved summary/context.
 
 ## Done Criteria

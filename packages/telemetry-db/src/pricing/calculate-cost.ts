@@ -168,6 +168,17 @@ const costFromUnitPrices = (
   return total;
 };
 
+const openRouterReportedCost = (event: TelemetryEventRecord): number | null => {
+  if (event.payload.provider !== "openrouter") return null;
+  const metadata = isRecord(event.payload.providerMetadata)
+    ? event.payload.providerMetadata
+    : {};
+  const usage = isRecord(event.payload.usage) ? event.payload.usage : {};
+  const raw = isRecord(usage.raw) ? usage.raw : {};
+  const cost = asNumber(metadata.cost) ?? asNumber(raw.cost);
+  return cost !== null && cost >= 0 ? cost : null;
+};
+
 const findRateCard = (
   event: TelemetryEventRecord,
   rateCards: ModelRateCard[],
@@ -304,6 +315,15 @@ export const calculateGenerationCost = (
       currency: hint.currency,
       pricingSource: hint.source,
       pricingRef: hint.pricingRef,
+    });
+  }
+
+  const reportedCost = openRouterReportedCost(event);
+  if (reportedCost !== null) {
+    return toCost({
+      costMicros: Math.round(reportedCost * 1_000_000),
+      currency: "USD",
+      pricingSource: "provider",
     });
   }
 

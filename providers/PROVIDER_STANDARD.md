@@ -139,6 +139,7 @@ Current provider adapters with shared tool-call support:
 - `@kortyx/deepseek`
 - `@kortyx/groq`
 - `@kortyx/mistral`
+- `@kortyx/openrouter`
 
 ## Dependency Rules
 
