@@ -1,16 +1,19 @@
 """Exercise consolidated helpers with local fakes; never deploy or publish externally."""
 import json
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import os
 from pathlib import Path
 import shutil
 import subprocess
 import tempfile
+from threading import Thread
 import unittest
 
 GITHUB = Path(__file__).resolve().parents[2]
 COOLIFY = GITHUB / "actions/deployment/coolify/deploy.sh"
 PROMOTE = GITHUB / "actions/containers/promote/promote.sh"
 NPM = GITHUB / "actions/release/npm-publish/publish.mjs"
+NPM_VERIFY = GITHUB / "actions/release/npm-publish/verify-registry.mjs"
 DIGEST = "sha256:" + "a" * 64
 
 
@@ -153,16 +156,57 @@ if "inspect" in args:
         git("add", ".")
         git("commit", "--allow-empty", "-qm", subject)
         self.env["RELEASE_COMMIT"] = git("rev-parse", "HEAD")
-        self.fake("npm", '''import os, sys
-sys.exit(0 if os.environ.get("NPM_EXISTS") == "1" else 1)
-''')
+        test = self
+        class RegistryHandler(BaseHTTPRequestHandler):
+            def do_GET(self):
+                test.registry_reads += 1
+                test.registry_cache_headers.append(self.headers.get("Cache-Control"))
+                if self.path != "/%40test%2Fa":
+                    self.send_error(404)
+                    return
+                exists = test.registry_exists and test.registry_reads > test.registry_stale_reads
+                metadata = {"versions": {"1.1.0": {}} if exists else {},
+                            "dist-tags": {"latest": "1.1.0" if exists else "1.0.0"}}
+                body = json.dumps(metadata).encode()
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Content-Length", str(len(body)))
+                self.end_headers()
+                self.wfile.write(body)
+
+            def log_message(self, *_):
+                pass
+
+        self.registry_exists = False
+        self.registry_stale_reads = 0
+        self.registry_reads = 0
+        self.registry_cache_headers = []
+        server = ThreadingHTTPServer(("127.0.0.1", 0), RegistryHandler)
+        self.addCleanup(server.server_close)
+        self.addCleanup(server.shutdown)
+        Thread(target=server.serve_forever, daemon=True).start()
+        self.env["NPM_REGISTRY_URL"] = f"http://127.0.0.1:{server.server_port}/"
         self.fake("pnpm", '''import json, os, sys
 with open(os.environ["TEST_LOG"], "a") as f: f.write(json.dumps({"args":sys.argv[1:],"cwd":os.getcwd()}) + "\\n")
 ''')
 
     def run_npm(self, **env):
+        self.registry_exists = env.pop("NPM_EXISTS", "0") == "1"
         return subprocess.run(["node", str(NPM)], cwd=self.root, env={**self.env, **env},
                               text=True, capture_output=True)
+
+    def test_npm_verifier_retries_stale_registry_metadata(self):
+        self.npm_fixture()
+        self.registry_exists = True
+        self.registry_stale_reads = 1
+        result = subprocess.run(["node", str(NPM_VERIFY)], cwd=self.root,
+                                env={**self.env, "RELEASE_PACKAGES": json.dumps([
+                                    {"name": "@test/a", "version": "1.1.0"}])},
+                                text=True, capture_output=True, timeout=10)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(self.registry_reads, 2)
+        self.assertEqual(self.registry_cache_headers, ["no-cache", "no-cache"])
+        self.assertIn("Verified @test/a@1.1.0", result.stdout)
 
     def test_npm_publishes_only_changed_managed_packages_with_provenance(self):
         self.npm_fixture()

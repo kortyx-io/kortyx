@@ -1,6 +1,7 @@
 import { execFileSync } from "node:child_process";
 import { appendFileSync, readdirSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
+import { packageMetadata } from "./registry.mjs";
 
 const root = process.cwd();
 const setPackagesOutput = (packages) => {
@@ -153,13 +154,8 @@ setPackagesOutput(
 const tag = "latest";
 for (const p of releasePackages) {
   const full = `${p.name}@${p.version}`;
-  let exists = true;
-  try {
-    execFileSync("npm", ["view", full, "version"], { stdio: "ignore" });
-  } catch {
-    exists = false;
-  }
-  if (exists) {
+  const metadata = await packageMetadata(p.name);
+  if (metadata?.versions?.[p.version]) {
     console.log(`Skipping ${full} (already on npm)`);
     continue;
   }
