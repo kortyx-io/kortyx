@@ -180,6 +180,48 @@ describe("OpenRouter public provider contract", () => {
     ]);
   });
 
+  it("normalizes non-text tool-call responses without usage", async () => {
+    const provider = createOpenRouter({
+      apiKey: "test-key",
+      fetch: async () =>
+        jsonResponse({
+          id: "gen-tool",
+          object: "chat.completion",
+          created: 1,
+          model: "openai/gpt-5.2",
+          system_fingerprint: null,
+          choices: [
+            {
+              index: 0,
+              finish_reason: "length",
+              message: {
+                role: "assistant",
+                content: "",
+                tool_calls: [
+                  {
+                    id: "call-1",
+                    type: "function",
+                    function: { name: "lookup", arguments: "not-json" },
+                  },
+                ],
+              },
+            },
+          ],
+        }),
+    });
+
+    const result = await provider
+      .getModel("openai/gpt-5.2")
+      .invoke([{ role: "user", content: "Look it up" }]);
+
+    expect(result).toMatchObject({
+      content: "",
+      finishReason: { unified: "length" },
+      toolCalls: [{ id: "call-1", name: "lookup", input: "not-json" }],
+    });
+    expect(result.usage).toBeUndefined();
+  });
+
   it("uses Jev as a regular model through its native System One contract", async () => {
     const schema = jevOutputSchema({
       queue: {
@@ -234,9 +276,13 @@ describe("OpenRouter public provider contract", () => {
 
     const result = await provider
       .getModel("typesafe/jev-1.13", {
-        streaming: false,
         temperature: 0.2,
         maxOutputTokens: 100,
+        stopSequences: ["stop"],
+        reasoning: { effort: "high" },
+        providerOptions: {
+          openrouter: { models: ["typesafe/jev-1.13"] },
+        },
         responseFormat: { type: "json", schema: toJSONSchema(schema) },
       })
       .invoke([{ role: "user", content: "My invoice is wrong" }]);
@@ -248,6 +294,13 @@ describe("OpenRouter public provider contract", () => {
       warnings: [
         { type: "unsupported", feature: "temperature" },
         { type: "unsupported", feature: "maxOutputTokens" },
+        { type: "unsupported", feature: "stopSequences" },
+        { type: "unsupported", feature: "reasoning" },
+        { type: "compatibility", feature: "streaming" },
+        {
+          type: "unsupported",
+          feature: "providerOptions.openrouter.models",
+        },
       ],
       providerMetadata: {
         providerId: "openrouter",

@@ -59,5 +59,42 @@ describe("jevOutputSchema", () => {
         },
       }),
     ).toThrow("between 2 and 10 criteria");
+
+    expect(() =>
+      jevOutputSchema({
+        invalid: {
+          type: "score",
+          instructions: "Score it",
+          criteria: Array.from({ length: 11 }, (_, index) => `Level ${index}`),
+        },
+      }),
+    ).toThrow("between 2 and 10 criteria");
+  });
+
+  it("rejects choice questions outside Jev's supported bounds", () => {
+    expect(() =>
+      jevOutputSchema({
+        invalid: {
+          type: "choice",
+          instructions: "Choose one",
+          criteria: {},
+        },
+      }),
+    ).toThrow("requires at least one criterion");
+
+    expect(() =>
+      jevOutputSchema({
+        invalid: {
+          type: "choice",
+          instructions: "Choose one",
+          criteria: Object.fromEntries(
+            Array.from({ length: 256 }, (_, index) => [
+              `choice-${index}`,
+              `Choice ${index}`,
+            ]),
+          ),
+        },
+      }),
+    ).toThrow("accepts at most 255 criteria");
   });
 });
