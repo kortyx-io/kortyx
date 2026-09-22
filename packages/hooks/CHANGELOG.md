@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.29.0](https://github.com/kortyx-io/kortyx/compare/hooks-v0.28.1...hooks-v0.29.0) (2026-09-22)
+
+
+### Features
+
+* **providers:** add OpenRouter and Jev support ([#230](https://github.com/kortyx-io/kortyx/issues/230)) ([7a6ac2c](https://github.com/kortyx-io/kortyx/commit/7a6ac2c2171850fa89f041e66c980521409e6819))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/core bumped to 0.11.0
+    * @kortyx/providers bumped to 0.8.3
+
 ## [0.28.1](https://github.com/kortyx-io/kortyx/compare/hooks-v0.28.0...hooks-v0.28.1) (2026-09-21)
 
 

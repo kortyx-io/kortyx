@@ -1,6 +1,6 @@
 {
   "name": "@kortyx/groq",
-  "version": "0.4.3",
+  "version": "0.4.4",
   "private": false,
   "description": "Groq provider integration for Kortyx.",
   "keywords": [

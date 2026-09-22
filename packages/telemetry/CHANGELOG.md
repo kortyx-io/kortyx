@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.9.0](https://github.com/kortyx-io/kortyx/compare/telemetry-v0.8.2...telemetry-v0.9.0) (2026-09-22)
+
+
+### Features
+
+* **providers:** add OpenRouter and Jev support ([#230](https://github.com/kortyx-io/kortyx/issues/230)) ([7a6ac2c](https://github.com/kortyx-io/kortyx/commit/7a6ac2c2171850fa89f041e66c980521409e6819))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/hooks bumped to 0.29.0
+    * @kortyx/core bumped to 0.11.0
+
 ## [0.8.2](https://github.com/kortyx-io/kortyx/compare/telemetry-v0.8.1...telemetry-v0.8.2) (2026-09-21)
 
 

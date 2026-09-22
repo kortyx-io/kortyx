@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.9.2](https://github.com/kortyx-io/kortyx/compare/studio-v0.9.1...studio-v0.9.2) (2026-09-22)
+
+
+### Bug Fixes
+
+* **ci:** automate release delivery and shard Studio tests ([#231](https://github.com/kortyx-io/kortyx/issues/231)) ([5844120](https://github.com/kortyx-io/kortyx/commit/584412043a99b93dfcc3f2bf004df1bb95090b37))
+* **studio:** ignore exiting drawers during ancestor navigation ([#234](https://github.com/kortyx-io/kortyx/issues/234)) ([89c6864](https://github.com/kortyx-io/kortyx/commit/89c6864191527a9f13598a4c6e70cad38bb0c68e))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * devDependencies
+    * @kortyx/agent bumped to 0.26.2
+    * @kortyx/telemetry bumped to 0.9.0
+    * kortyx bumped to 0.24.2
+
 ## [0.9.1](https://github.com/kortyx-io/kortyx/compare/studio-v0.9.0...studio-v0.9.1) (2026-09-21)
 
 
