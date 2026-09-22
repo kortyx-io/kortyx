@@ -174,6 +174,10 @@ reasons are normalized to the shared Kortyx contracts. Provider-native routing,
 cost, cache, BYOK, and service-tier details remain available in
 `result.providerMetadata` and `result.raw`.
 
+When OpenRouter reports cost, Kortyx records that provider-reported USD amount
+as the authoritative generation cost. Kortyx Studio then aggregates it across
+the run without maintaining a separate rate card for every routed model.
+
 ## 7. Reasoning continuation
 
 OpenRouter reasoning details are retained as private continuation state for

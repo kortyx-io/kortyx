@@ -63,7 +63,9 @@ parameters. Do not maintain a second package-level capability registry; use
 OpenRouter validation/metadata and test the exact production route.
 
 Prefer normalized `text`, `output`, `usage`, `finishReason`, `warnings`, and
-`providerMetadata`. Use `raw` only for provider-specific diagnostics.
+`providerMetadata`. OpenRouter-reported cost is retained in
+`providerMetadata.cost` and emitted as provider-reported USD pricing for
+Studio. Use `raw` only for provider-specific diagnostics.
 
 ## TypeSafe Jev
 
@@ -111,7 +113,8 @@ The helper uses the official question shapes and infers the simplified output:
 
 Use `result.output` for normal branching. Native probabilities, legends, and
 confidence remain in `result.providerMetadata.answers`; cost remains in
-`result.providerMetadata.cost`; token counts are normalized in `result.usage`.
+`result.providerMetadata.cost` and is emitted as provider-reported USD pricing
+for Studio; token counts are normalized in `result.usage`.
 
 ## Jev compatibility rules
 

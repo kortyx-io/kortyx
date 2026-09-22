@@ -73,8 +73,8 @@ describe("createKortyxTelemetryAdapter", () => {
           {
             name: "runReasonEngine",
             attributes: {
-              providerId: "google",
-              modelId: "gemini",
+              providerId: "openrouter",
+              modelId: "anthropic/claude-sonnet-4.6",
               nodeId: "node_1",
             },
           },
@@ -94,6 +94,10 @@ describe("createKortyxTelemetryAdapter", () => {
                 timeToLastTokenMs: 200,
               },
               usage: { input: 1, output: 2, total: 3 },
+              providerMetadata: {
+                providerId: "openrouter",
+                cost: 0.001234,
+              },
             });
           },
         );
@@ -129,7 +133,7 @@ describe("createKortyxTelemetryAdapter", () => {
     const generation = batch.body.events.find(
       (event) =>
         event.type === "generation.completed" &&
-        event.payload.provider === "google",
+        event.payload.provider === "openrouter",
     );
     if (!root || !generation) {
       throw new Error(
@@ -139,6 +143,11 @@ describe("createKortyxTelemetryAdapter", () => {
     expect(generation.correlation.traceId).toBe(root.correlation.traceId);
     expect(generation.correlation.parentSpanId).toBe(root.correlation.spanId);
     expect(generation.payload).toMatchObject({
+      pricing: {
+        source: "provider",
+        currency: "USD",
+        actualCostMicros: 1234,
+      },
       durationMs: expect.any(Number),
       ttftMs: 120,
       streamDurationMs: 80,
