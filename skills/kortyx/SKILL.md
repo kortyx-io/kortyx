@@ -79,6 +79,10 @@ React client:
 - Treat OpenTelemetry as the Kortyx observability contract. Keep backend exporters such as Langfuse app-owned.
 - Treat Studio as an observer: publish declared topology with `kortyx topology push`, and verify run telemetry with a real application request instead of a synthetic workflow.
 - Keep Studio API keys and all `KORTYX_TELEMETRY_*` configuration server-side.
+- Write user-facing answers, interrupt questions, and safe error messages in the
+  user's language unless they request another language. Preserve code, schema
+  fields, identifiers, and quoted source text rather than translating them
+  implicitly.
 - `useReason({ outputSchema, structured.fields })` already streams known structured fields as `structured-data` chunks; do not confuse those with raw model JSON `text-delta` chunks.
 - `useReason({ tools })` accepts `KortyxExecutableTool[]`: directly imported local tools, request-bound tools, and MCP-derived tools from `createMCPClient(...).tools()`. `useReason` closes owned request-scoped resources by default.
 - Tools and model-driven human input share the same durable `useReason` loop. Define one or more contracts with `defineInterruptContract`, pass them under `interrupts.contracts`, choose `mode`, bound human turns with `maxRequests`, and read `result.interruptHistory`.

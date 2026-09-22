@@ -39,6 +39,28 @@ Render pieces by type:
 - interrupt pieces: render choice/text input controls and call `respondToInterrupt`.
 - error pieces or `chat.error`: show a recoverable error state.
 
+## Structured Output Placement
+
+Choose placement from the product behavior, not merely from the chunk type:
+
+- Keep structured output inside the assistant turn when it is part of the
+  conversation and should replay with message history, such as a compact result
+  card or status summary. Render the active version from `streamContentPieces`
+  and the finalized version from the assistant message's `contentPieces`.
+- Project it into an app-owned surface such as a side panel, canvas, preview, or
+  editor when the artifact should remain visible, editable, or navigable
+  independently of the chat transcript. Key that projection by
+  `piece.data.streamId`; use `dataType`, `schemaId`, and `schemaVersion` to select
+  and validate the renderer.
+- Treat the final validated structured object (`status: "done"`) as authoritative
+  over partial field updates. Do not render the same artifact inline and in an
+  external surface unless the duplication is an intentional product choice.
+- App-owned projections also own their lifecycle: key them by session and
+  `streamId`, apply the invalidated stream ids returned by rollback-based
+  operations, and copy only checkpoint-valid data into a fork. `useChat(...)`
+  cleans up its own stream state, but it cannot clean a separate application
+  store.
+
 ## Common Mistakes
 
 - Rendering `messages` plus the latest active text from `messages` again.

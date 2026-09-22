@@ -41,7 +41,11 @@ await agent.streamChat(messages, {
 
 React clients can pass request context through `useChat({ context })`, and route transports send `{ sessionId, workflowId, messages, context }` by default.
 
-For authenticated apps, derive trusted identity on the server before calling the agent:
+For authenticated apps, derive trusted identity on the server before calling the
+agent. When the app has its own user record, use the stable string form of its
+canonical database id for `context.userId` so traces can join back to app data.
+Do not substitute a browser-supplied id, email address, or auth-provider subject
+unless that value is the application's intentional canonical identity.
 
 ```ts
 const body = parseChatRequestBody(await request.json());
@@ -66,9 +70,12 @@ Expected trace attributes:
 - `user.id` from `context.userId`
 - `kortyx.tenant.id` from `context.tenantId`
 - `kortyx.trace.metadata.accountId` from `context.accountId`
-- `kortyx.tool.call.count`, `kortyx.tool.result.count`, and `kortyx.tool.step.count` from MCP-enabled `useReason(...)` calls
+- `kortyx.tool.call.count`, `kortyx.tool.result.count`, and `kortyx.tool.step.count` from tool-enabled `useReason({ tools })` calls
 
-MCP tool loops also add `useReason.tool-step.*` and `useReason.tool-call.*` events to the `useReason` span. Tool event attributes include `gen_ai.tool.name`, `kortyx.tool.name`, and `kortyx.tool.call.id` when available.
+Model-dispatched tool loops add `useReason.tool-step.*` and
+`useReason.tool-call.*` events to the `useReason` span for directly imported local
+tools, request-bound tools, and MCP-derived tools. Tool event attributes include
+`gen_ai.tool.name`, `kortyx.tool.name`, and `kortyx.tool.call.id` when available.
 
 ## Prompt Metadata
 
