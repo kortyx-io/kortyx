@@ -65,6 +65,9 @@ const shouldStreamReasonStructured = <
   args: UseReasonArgs<TOutput, TRequest, TResponse, TContracts>,
 ): boolean => (args.emit ?? true) && shouldStreamStructured(args.structured);
 
+const usesNativeOutput = (schema: SchemaLike<unknown> | undefined): boolean =>
+  schema?.["~kortyx"]?.nativeOutput === true;
+
 const resolveEffectiveReasoningIncludeThoughts = <
   TOutput,
   TRequest extends InterruptInput,
@@ -305,18 +308,20 @@ async function runReason<
                   : {}),
               })
             : args.outputSchema
-              ? withOutputGuardrails(
-                  withStructuredStreamHints(args.input, {
-                    ...(setFieldPaths.length > 0 ? { setFieldPaths } : {}),
-                    ...(appendFieldPaths.length > 0
-                      ? { appendFieldPaths }
-                      : {}),
-                    ...(textDeltaFieldPaths.length > 0
-                      ? { textDeltaFieldPaths }
-                      : {}),
-                  }),
-                  args.outputSchema as SchemaLike<unknown>,
-                )
+              ? usesNativeOutput(args.outputSchema)
+                ? undefined
+                : withOutputGuardrails(
+                    withStructuredStreamHints(args.input, {
+                      ...(setFieldPaths.length > 0 ? { setFieldPaths } : {}),
+                      ...(appendFieldPaths.length > 0
+                        ? { appendFieldPaths }
+                        : {}),
+                      ...(textDeltaFieldPaths.length > 0
+                        ? { textDeltaFieldPaths }
+                        : {}),
+                    }),
+                    args.outputSchema as SchemaLike<unknown>,
+                  )
               : undefined,
         );
         firstRaw = first.raw;

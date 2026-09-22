@@ -14,6 +14,12 @@ import type {
 import type { KortyxTraceMetadata } from "./tracing";
 
 export type SchemaLike<T> = {
+  /** Provider helpers can opt out of prompt-appended output instructions. */
+  readonly "~kortyx"?:
+    | {
+        readonly nativeOutput?: boolean | undefined;
+      }
+    | undefined;
   safeParse: (value: unknown) =>
     | {
         success: true;

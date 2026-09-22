@@ -1420,6 +1420,37 @@ importers:
         specifier: 'catalog:'
         version: 4.1.5(@opentelemetry/api@1.9.0)(@types/node@20.19.17)(@vitest/coverage-v8@4.1.5)(jsdom@29.1.1)(vite@8.0.10(@types/node@20.19.17)(esbuild@0.28.1)(jiti@2.6.1)(terser@5.46.0)(tsx@4.22.5)(yaml@2.8.3))
 
+  providers/openrouter:
+    dependencies:
+      '@kortyx/core':
+        specifier: workspace:*
+        version: link:../../packages/core
+      '@kortyx/providers':
+        specifier: workspace:*
+        version: link:../../packages/providers
+      '@openrouter/sdk':
+        specifier: 1.3.17
+        version: 1.3.17
+      zod:
+        specifier: 'catalog:'
+        version: 4.3.6
+    devDependencies:
+      '@vitest/coverage-v8':
+        specifier: 'catalog:'
+        version: 4.1.5(vitest@4.1.5)
+      tsup:
+        specifier: 'catalog:'
+        version: 8.5.1(jiti@2.6.1)(postcss@8.5.10)(tsx@4.22.5)(typescript@5.9.3)(yaml@2.8.3)
+      turbo:
+        specifier: 'catalog:'
+        version: 2.6.1
+      typescript:
+        specifier: 'catalog:'
+        version: 5.9.3
+      vitest:
+        specifier: 'catalog:'
+        version: 4.1.5(@opentelemetry/api@1.9.0)(@types/node@20.19.17)(@vitest/coverage-v8@4.1.5)(jsdom@29.1.1)(vite@8.0.10(@types/node@20.19.17)(esbuild@0.28.1)(jiti@2.6.1)(terser@5.46.0)(tsx@4.22.5)(yaml@2.8.3))
+
 packages:
 
   '@ai-sdk/gateway@2.0.29':
@@ -3190,6 +3221,9 @@ packages:
     engines: {node: '>= 10'}
     cpu: [x64]
     os: [win32]
+
+  '@openrouter/sdk@1.3.17':
+    resolution: {integrity: sha512-A6W+Em7J0+uS+4Bfiqt/PrRGj5rC94rqOgyHi04FYw0mcFrqNhe9MDrebq0xRNa+F1lBvx2CxTak9WMHISWk5Q==}
 
   '@opentelemetry/api@1.9.0':
     resolution: {integrity: sha512-3giAOQvZiH5F9bMlMiv8+GSPMeqg0dbaeo58/0SlA9sxSqZhnUtxzX9/2FzyhS9sWQf5S0GJE0AKBrFqjpeYcg==}
@@ -9228,6 +9262,10 @@ snapshots:
 
   '@next/swc-win32-x64-msvc@16.2.4':
     optional: true
+
+  '@openrouter/sdk@1.3.17':
+    dependencies:
+      zod: 4.3.6
 
   '@opentelemetry/api@1.9.0': {}
 

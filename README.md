@@ -272,6 +272,7 @@ Install only the provider integrations your app needs.
 | DeepSeek | `@kortyx/deepseek` | `deepseek(...)` | `DEEPSEEK_API_KEY` |
 | Groq | `@kortyx/groq` | `groq(...)` | `GROQ_API_KEY` |
 | Mistral | `@kortyx/mistral` | `mistral(...)` | `MISTRAL_API_KEY` |
+| OpenRouter | `@kortyx/openrouter` | `openrouter(...)` | `OPENROUTER_API_KEY` |
 
 ## Package Map
 

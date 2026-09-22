@@ -1,0 +1,72 @@
+{
+  "name": "@kortyx/openrouter",
+  "version": "0.1.0",
+  "private": false,
+  "description": "OpenRouter provider integration for Kortyx.",
+  "keywords": [
+    "ai",
+    "agent",
+    "providers",
+    "openrouter",
+    "kortyx"
+  ],
+  "license": "Apache-2.0",
+  "type": "module",
+  "homepage": "https://kortyx.io/",
+  "bugs": {
+    "url": "https://github.com/kortyx-io/kortyx/issues"
+  },
+  "author": "Kortyx (https://github.com/kortyx-io)",
+  "main": "./dist/index.cjs",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
+    }
+  },
+  "files": [
+    "dist/**",
+    "README.md",
+    "CHANGELOG.md"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsc --watch",
+    "lint": "biome check src",
+    "pretest": "pnpm -s build",
+    "test": "vitest run && pnpm -s type-check && pnpm -s type-check:consumer",
+    "coverage": "vitest run --coverage && pnpm -s type-check",
+    "test:watch": "vitest",
+    "type-check": "tsc --noEmit -p tsconfig.test.json",
+    "type-check:consumer": "tsc --noEmit -p tsconfig.consumer.json"
+  },
+  "dependencies": {
+    "@kortyx/core": "workspace:*",
+    "@kortyx/providers": "workspace:*",
+    "@openrouter/sdk": "1.3.17",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@vitest/coverage-v8": "catalog:",
+    "tsup": "catalog:",
+    "turbo": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  },
+  "sideEffects": false,
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/kortyx-io/kortyx.git",
+    "directory": "providers/openrouter"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}
