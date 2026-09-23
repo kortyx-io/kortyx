@@ -120,13 +120,14 @@ export function createFinalizedChatMessageAccumulator(clientTurnId: string) {
         case "text-delta": {
           sawTextDelta = true;
           const index = ensureText(textStreamKey(chunk));
-          const current = pieces[index];
-          if (current?.type === "text") {
-            pieces[index] = {
-              ...current,
-              content: current.content + chunk.delta,
-            };
-          }
+          const current = pieces[index] as Extract<
+            FinalizedChatContentPiece,
+            { type: "text" }
+          >;
+          pieces[index] = {
+            ...current,
+            content: current.content + chunk.delta,
+          };
           break;
         }
         case "message":

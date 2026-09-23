@@ -147,6 +147,44 @@ it("reports a failed finalization hook without changing a completed response", a
   );
 });
 
+it("contains a direct streamChat finalization callback failure", async () => {
+  const log = vi.spyOn(console, "error").mockImplementation(() => {});
+  try {
+    const root = workflow("direct-finalize-error", async () => {
+      await completeResponse({ message: "Ready" });
+      return done();
+    });
+    let completion!: Promise<void>;
+    const stream = await createAgent({ workflows: [root] }).streamChat(
+      [{ role: "user", content: "hello" }],
+      {
+        sessionId: "session-1",
+        clientTurnId: "turn-1",
+        workflowId: "direct-finalize-error",
+        onResponseFinalized: () => {
+          throw new Error("save failed");
+        },
+        onExecution: (value) => {
+          completion = value;
+        },
+      },
+    );
+    const chunks = await collectStream(stream);
+    await completion;
+    expect(chunks).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ type: "message", content: "Ready" }),
+      ]),
+    );
+    expect(log).toHaveBeenCalledWith(
+      "[chat:onResponseFinalized]",
+      expect.any(Object),
+    );
+  } finally {
+    log.mockRestore();
+  }
+});
+
 it("persists a naturally completed reply after the SSE reader disconnects", async () => {
   const release = gate();
   let completion!: Promise<void>;

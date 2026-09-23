@@ -120,6 +120,18 @@ describe("parseChatRequestBody", () => {
 });
 
 describe("handleChatRequestBody", () => {
+  it("rejects direct finalization without a stable session and turn ID", async () => {
+    const streamChat = vi.fn(async () => chunks());
+    await expect(
+      handleChatRequestBody({
+        agent: createMockAgent({ streamChat }),
+        body: { messages: [{ role: "user", content: "hello" }] },
+        onResponseFinalized: vi.fn(),
+      }),
+    ).rejects.toMatchObject({ code: "INVALID_REQUEST" });
+    expect(streamChat).not.toHaveBeenCalled();
+  });
+
   it("buffers the agent stream when stream=false", async () => {
     const streamChat = vi.fn(async () => chunks());
     const response = await handleChatRequestBody({
@@ -162,6 +174,122 @@ describe("handleChatRequestBody", () => {
 });
 
 describe("createChatRouteHandler", () => {
+  it("requires a user message for lifecycle hooks", async () => {
+    const streamChat = vi.fn(async () => chunks());
+    const handler = createChatRouteHandler({
+      agent: createMockAgent({ streamChat }),
+      onTurnAccepted: vi.fn(),
+    });
+    const response = await handler(
+      new Request("https://kortyx.test/chat", {
+        method: "POST",
+        body: JSON.stringify({
+          sessionId: "session-1",
+          clientTurnId: "turn-1",
+          messages: [{ role: "assistant", content: "hello" }],
+        }),
+      }),
+    );
+    expect(response.status).toBe(400);
+    expect(streamChat).not.toHaveBeenCalled();
+  });
+
+  it("marks a valid resume message as an interrupt response", async () => {
+    const onTurnAccepted = vi.fn();
+    const handler = createChatRouteHandler({
+      agent: createMockAgent(),
+      onTurnAccepted,
+    });
+    const response = await handler(
+      new Request("https://kortyx.test/chat", {
+        method: "POST",
+        body: JSON.stringify({
+          sessionId: "session-1",
+          clientTurnId: "turn-1",
+          stream: false,
+          messages: [
+            {
+              role: "user",
+              content: "yes",
+              metadata: {
+                resume: {
+                  token: "token",
+                  requestId: "request",
+                  selected: ["yes"],
+                },
+              },
+            },
+          ],
+        }),
+      }),
+    );
+    expect(response.status).toBe(200);
+    expect(onTurnAccepted).toHaveBeenCalledWith(
+      expect.objectContaining({ kind: "interrupt-response" }),
+    );
+  });
+
+  it("contains errors thrown by the lifecycle error reporter", async () => {
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      const handler = createChatRouteHandler({
+        agent: createMockAgent(),
+        onTurnAccepted: () => {
+          throw new Error("save failed");
+        },
+        onLifecycleError: () => {
+          throw new Error("report failed");
+        },
+      });
+      const response = await handler(
+        new Request("https://kortyx.test/chat", {
+          method: "POST",
+          body: JSON.stringify({
+            sessionId: "session-1",
+            clientTurnId: "turn-1",
+            messages: [{ role: "user", content: "hello" }],
+          }),
+        }),
+      );
+      expect(response.status).toBe(503);
+      expect(log).toHaveBeenCalledWith(
+        "[chat:onLifecycleError]",
+        expect.any(Object),
+      );
+    } finally {
+      log.mockRestore();
+    }
+  });
+
+  it("logs a hook failure when no error reporter is configured", async () => {
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      const handler = createChatRouteHandler({
+        agent: createMockAgent(),
+        onTurnAccepted: () => {
+          throw new Error("save failed");
+        },
+      });
+      const response = await handler(
+        new Request("https://kortyx.test/chat", {
+          method: "POST",
+          body: JSON.stringify({
+            sessionId: "session-1",
+            clientTurnId: "turn-1",
+            messages: [{ role: "user", content: "hello" }],
+          }),
+        }),
+      );
+      expect(response.status).toBe(503);
+      expect(log).toHaveBeenCalledWith(
+        "[chat:lifecycle]",
+        expect.objectContaining({ code: "CHAT_LIFECYCLE_HOOK_FAILED" }),
+      );
+    } finally {
+      log.mockRestore();
+    }
+  });
+
   it("requires stable IDs with lifecycle hooks and writes the accepted turn before starting", async () => {
     const order: string[] = [];
     const streamChat = vi.fn(async () => {
@@ -471,6 +599,27 @@ describe("checkpoint HTTP helpers", () => {
         headCheckpointId: "cp-1",
         invalidatedStructuredStreamIds: [],
       }),
+    );
+  });
+
+  it("preserves a rollback when its app hook fails", async () => {
+    const onLifecycleError = vi.fn();
+    const handler = createCheckpointRouteHandler({
+      agent: createMockAgent(),
+      onRolledBack: () => {
+        throw new Error("save failed");
+      },
+      onLifecycleError,
+    });
+    const response = await handler(
+      new Request("https://kortyx.test/checkpoints", {
+        method: "POST",
+        body: JSON.stringify({ action: "rollback", checkpointId: "cp-1" }),
+      }),
+    );
+    expect(response.status).toBe(200);
+    expect(onLifecycleError).toHaveBeenCalledWith(
+      expect.objectContaining({ phase: "rolled-back" }),
     );
   });
 
