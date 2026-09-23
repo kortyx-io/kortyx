@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.9.3](https://github.com/kortyx-io/kortyx/compare/studio-v0.9.2...studio-v0.9.3) (2026-09-23)
+
+
+### Bug Fixes
+
+* **studio:** include root TypeScript configs in release images ([#236](https://github.com/kortyx-io/kortyx/issues/236)) ([10b78c9](https://github.com/kortyx-io/kortyx/commit/10b78c92ab602d2820e5cfa55de83d1713d85dff))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * devDependencies
+    * @kortyx/agent bumped to 0.27.0
+    * kortyx bumped to 0.25.0
+
 ## [0.9.2](https://github.com/kortyx-io/kortyx/compare/studio-v0.9.1...studio-v0.9.2) (2026-09-22)
 
 

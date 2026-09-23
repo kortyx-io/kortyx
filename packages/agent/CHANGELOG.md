@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.27.0](https://github.com/kortyx-io/kortyx/compare/agent-v0.26.2...agent-v0.27.0) (2026-09-23)
+
+
+### Features
+
+* **chat:** add server-side transcript lifecycle hooks ([#240](https://github.com/kortyx-io/kortyx/issues/240)) ([f84a674](https://github.com/kortyx-io/kortyx/commit/f84a6749819ee7bab343efb03f38eae743de0655))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/runtime bumped to 0.21.3
+    * @kortyx/stream bumped to 0.14.0
+
 ## [0.26.2](https://github.com/kortyx-io/kortyx/compare/agent-v0.26.1...agent-v0.26.2) (2026-09-22)
 
 
