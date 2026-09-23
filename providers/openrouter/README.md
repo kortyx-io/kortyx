@@ -28,8 +28,8 @@ import { createOpenRouter } from "@kortyx/openrouter";
 
 export const openrouter = createOpenRouter({
   apiKey: process.env.OPENROUTER_API_KEY,
-  appTitle: "Wolly",
-  httpReferer: "https://workfully.com",
+  appTitle: "Example Chat App",
+  httpReferer: "https://example.com",
 });
 ```
 

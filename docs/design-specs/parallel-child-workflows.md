@@ -26,7 +26,7 @@ The helper uses the existing node/child runtime and checkpoint ownership.
 `parallel` is a framework-aware join, not another workflow executor.
 
 Keep workflow definitions, schema inference, provider configuration and registration
-unchanged. Wolly owns its task DAG, waves and business decisions; Kortyx owns child
+unchanged. The consumer owns its task DAG, waves and business decisions; Kortyx owns child
 lifecycle, durable suspension, limits, cancellation and trace correlation.
 
 Do not release a successful-path-only implementation as migration-ready. Parallel
@@ -135,7 +135,7 @@ checkpointing or retrying even if user code catches a rejection.
 
 ### Collecting each task's outcome
 
-If Wolly needs terminal failure collection, a possible companion is
+If an application needs terminal failure collection, a possible companion is
 `parallel.settled`, keeping the same array of ordinary calls:
 
 ```ts
@@ -202,7 +202,7 @@ Persist queued slot identity and validate its child identity when admitted. Arbi
 factory bodies cannot all be validated without executing them; unlike descriptors,
 this form cannot promise complete prevalidation before any child work starts.
 
-### Wolly's existing waves
+### Application-owned execution waves
 
 Schematic caller code with application-owned planning and reconciliation:
 
@@ -380,7 +380,7 @@ Before removing `assertSequentialWorkflow`, fix and prove:
 3. Define joins for unequal-length paths. Multiple incoming plain edges are not a
    substitute for an explicit all-predecessors barrier. The current public edge
    schema cannot express an array-source LangGraph join; decide its representation
-   before advertising arbitrary DAG joins. Wolly's group call already supplies a
+   before advertising arbitrary DAG joins. The consumer's group call already supplies a
    join and does not need that graph API expansion to retain its own waves.
 4. Collect all graph interrupts and route an ID-keyed resume map into the engine,
    including parent parallel nodes, parallel nodes inside a child and nested children.
@@ -430,7 +430,7 @@ and factory wrappers.
 4. **Graph composition:** activation-indexed state, deterministic merges, explicit
    joins and graph-level multiple interrupts. Remove topology guards only after its
    separate regression matrix passes.
-5. **Consumer parity:** replace the Wolly blocker expectation with positive SINGLE,
+5. **Consumer parity:** replace the existing blocker expectation with positive SINGLE,
    SERIAL, PARALLEL and MIXED tests. Run the existing orchestration, goal action,
    memory, delivery and evaluation corpus before cutover. Framework support alone
    does not prove migration completeness.

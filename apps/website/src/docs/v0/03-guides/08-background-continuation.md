@@ -130,7 +130,9 @@ receive the live execution signal. Completion never removes execution limits.
 
 ## Save the visible chat response on the server
 
-An application can persist a turn without reading or teeing the SSE response:
+An application can persist a turn without reading or teeing the SSE response.
+For the full callback, retry, checkpoint, and hydration contract, see
+[Server-Owned Chat Transcripts](./09-server-owned-chat-transcripts.md).
 
 ```ts
 import {

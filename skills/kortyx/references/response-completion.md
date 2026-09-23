@@ -36,7 +36,8 @@ exports in the installed release. Public guide: `/docs/guides/background-continu
   route transport sends a user-message ID for the latter. With
   `disconnect: "continue"`, the host must retain `onExecution`, and client abort
   closes only delivery. Hook delivery is one in-process attempt, not a durable
-  outbox.
+  outbox. Read `references/server-owned-chat-transcripts.md` for the full app DB,
+  checkpoint-route, authentication, and hydration contract.
 - Finalize the chat checkpoint before closure; background work must not change the
   session head or next turn's workflow/data. Internal execution persistence remains
   necessary for suspension. Closed-response state survives background resume.

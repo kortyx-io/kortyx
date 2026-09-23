@@ -2,7 +2,7 @@
 
 Studio now renders the catalog's `__start__` and `__end__` endpoints as compact
 Start/End markers. Previously those endpoints had edges but no React Flow nodes,
-so React Flow omitted their edges. The title branch in `hiring-monster@1.2.0`
+so React Flow omitted their edges. The title branch in the chat-fork example
 therefore appeared disconnected even though its runtime definition was correct.
 
 The markers participate in layout, routing, obstacle avoidance and label
@@ -39,7 +39,7 @@ Reproduction commands are in the [Canvas README](../../examples/kortyx-canvas/RE
 
 ## Title/classification fork
 
-Same declared topology as `hiring-monster@1.2.0`.
+The example's declared title/classification fork topology.
 
 ![Title and classification branches connected to Start and End](studio-workflow-boundaries/chat-fork.png)
 

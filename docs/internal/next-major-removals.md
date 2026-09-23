@@ -26,7 +26,7 @@ Replacement:
 ```ts
 const picker = defineInterruptContract({
   description: "Ask the user to choose a job.",
-  schemaId: "wolly.job-picker",
+  schemaId: "example.job-picker",
   schemaVersion: "1",
   requestSchema: JobPickerRequest,
   responseSchema: JobPickerResponse,

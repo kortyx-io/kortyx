@@ -334,6 +334,8 @@ visible turn. When the server database is authoritative, use `ChatStorage.load()
 to fetch it, keep `includeHistory: false` if the server supplies model context,
 and avoid writing a browser snapshot back over a newer server turn. The server's
 finalized assistant message uses the same `contentPieces` type as `ChatMsg`.
+See [Server-Owned Chat Transcripts](../03-guides/09-server-owned-chat-transcripts.md)
+for route hooks, checkpoint updates, and delivery guarantees.
 
 ```ts
 import type { ChatStorage } from "@kortyx/react";

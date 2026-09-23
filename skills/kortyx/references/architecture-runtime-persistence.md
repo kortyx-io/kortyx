@@ -94,6 +94,9 @@ In-memory persistence has no cross-process sharing and no restart safety. It cap
   not use process-local memory.
 - Durable history plus faster repeated payload reads: PostgreSQL plus Redis.
 - Need visible conversation history or audit records: use the app database.
+- For server-owned visible chat, use the route lifecycle hooks described in
+  `references/server-owned-chat-transcripts.md`; runtime checkpoints alone do
+  not create a product transcript.
 - Need longer pause windows: set TTL intentionally and make the UX handle expiry.
 
 ## PostgreSQL Durable Runtime History

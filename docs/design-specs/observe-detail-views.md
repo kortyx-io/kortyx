@@ -40,7 +40,7 @@ Recurring pain points that should shape the design:
 - **Deep links must retain exact selection.** A link to a source observation that lands only at the parent trace loses the user's context. [Langfuse issue listing](https://github.com/langfuse/langfuse/issues)
 - **Derived projections can drift from the event source.** Detail APIs should project from stored telemetry deterministically and offer raw events for verification, rather than create an independent mutable detail model.
 
-The referenced Workfully implementation was inspected after repository authorization was restored. Its most useful choices are:
+An existing consumer implementation was inspected. Its most useful choices are:
 
 - a segment-local `@drawer` parallel slot and `(.)[entityId]` intercepting route;
 - the same canonical URL for the intercepted and direct states—the navigation type selects the presentation;
