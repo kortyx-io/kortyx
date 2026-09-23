@@ -64,6 +64,10 @@
       "package-name": "@kortyx/openai",
       "component": "openai"
     },
+    "providers/openrouter": {
+      "package-name": "@kortyx/openrouter",
+      "component": "openrouter"
+    },
     "providers/anthropic": {
       "package-name": "@kortyx/anthropic",
       "component": "anthropic"
