@@ -89,6 +89,20 @@ describe("streamChat", () => {
     });
   });
 
+  it("requires a stable turn ID for direct server finalization", async () => {
+    await expect(
+      streamChat({
+        messages: [{ role: "user", content: "hello" }],
+        sessionId: "session-1",
+        clientTurnId: " ",
+        onResponseFinalized: vi.fn(),
+        loadRuntimeConfig: async () => ({}),
+        getProvider: vi.fn(),
+      }),
+    ).rejects.toMatchObject({ code: "INVALID_REQUEST" });
+    expect(mocks.createExecutionGraph).not.toHaveBeenCalled();
+  });
+
   it("requires a workflow selector", async () => {
     await expect(
       streamChat({

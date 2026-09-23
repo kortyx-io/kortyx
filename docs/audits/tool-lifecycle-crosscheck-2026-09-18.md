@@ -23,7 +23,7 @@ Inspected official documentation and these pinned repository snapshots. Main-bra
 
 LangGraph replay behavior is checked against its [official JavaScript interrupt guide](https://docs.langchain.com/oss/javascript/langgraph/interrupts), independently of the LangChain source snapshot. OpenTelemetry's former GenAI agent-span documentation now [points to a separate conventions repository](https://opentelemetry.io/docs/specs/semconv/gen-ai/gen-ai-agent-spans/); this audit does not treat that old page as a maintained normative specification.
 
-Kortyx probes execute its current source. The disposable runner uses the actual SDK/runtime, authenticated telemetry API routes, PostgreSQL repositories, Studio API, trace builder and selected React server rendering. Providers are local stubs. New low-level cases use hook context to retain checkpoints across an interrupted node; this isolates the native logic without a live model. It does not independently verify browser hydration, production delivery or Workfully permissions.
+Kortyx probes execute its current source. The disposable runner uses the actual SDK/runtime, authenticated telemetry API routes, PostgreSQL repositories, Studio API, trace builder and selected React server rendering. Providers are local stubs. New low-level cases use hook context to retain checkpoints across an interrupted node; this isolates the native logic without a live model. It does not independently verify browser hydration, production delivery or consumer-specific permissions.
 
 ## Comparison
 
@@ -81,7 +81,7 @@ This requires the application to put a credential in execution context; credenti
 
 ## Contract decision, not automatically a bug
 
-**K7 — Tool schemas are advertised, not locally enforced.** The native probe gives a tool a JSON schema requiring `jobId`, makes the provider select `{}`, and confirms the callback runs with `{}`. There is no validator in the dispatcher. Since `inputSchema` is currently `unknown`, installing an implicit universal parser would be a new compatibility contract, not a small observability patch. Application factories such as Workfully's schema-parsing adapter can already validate.
+**K7 — Tool schemas are advertised, not locally enforced.** The native probe gives a tool a JSON schema requiring `jobId`, makes the provider select `{}`, and confirms the callback runs with `{}`. There is no validator in the dispatcher. Since `inputSchema` is currently `unknown`, installing an implicit universal parser would be a new compatibility contract, not a small observability patch. Application factories with schema-parsing adapters can already validate.
 
 Decide and document whether Kortyx guarantees local parsing or the callback owns it. If adding supported validation later, share it between model-selected and direct calls, validate before side effects and dynamic permission checks, and record a safe validation failure without raw arguments. A schema is not a permission check. Invalid input should not be mislabeled as business denial.
 

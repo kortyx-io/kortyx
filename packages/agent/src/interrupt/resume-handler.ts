@@ -84,6 +84,9 @@ interface TryResumeArgs {
   abortSignal?: AbortSignal | undefined;
   executionSignal?: AbortSignal | undefined;
   onExecution?: ((completion: Promise<void>) => void) | undefined;
+  clientTurnId?: string | undefined;
+  continueOnDisconnect?: boolean | undefined;
+  onResponseFinalized?: OrchestrateArgs["onResponseFinalized"];
   lastMessage?: ChatMessage | undefined;
   meta?: ResumeMeta | undefined;
   emitOutput?: boolean | undefined;
@@ -105,6 +108,9 @@ export async function tryPrepareResumeStream({
   abortSignal,
   executionSignal,
   onExecution,
+  clientTurnId,
+  continueOnDisconnect,
+  onResponseFinalized,
   lastMessage,
   meta: suppliedMeta,
   emitOutput,
@@ -402,6 +408,9 @@ export async function tryPrepareResumeStream({
         : leaseAbort.signal,
       executionLeaseRelease: releaseLease,
       onExecution,
+      clientTurnId,
+      continueOnDisconnect,
+      onResponseFinalized,
       emitOutput,
       onOutcome,
       sessionId,

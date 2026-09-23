@@ -146,6 +146,7 @@ describe("createChatTransport", () => {
 
     await transport.stream({
       ...baseContext,
+      clientTurnId: "turn-1",
       context: { userId: "user-1" },
       onChunk: () => undefined,
     });
@@ -153,6 +154,7 @@ describe("createChatTransport", () => {
     expect(seenInit?.body).toBe(
       JSON.stringify({
         sessionId: "session-1",
+        clientTurnId: "turn-1",
         workflowId: "workflow-1",
         messages: baseContext.messages,
         context: { userId: "user-1" },

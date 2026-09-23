@@ -9,6 +9,11 @@ sidebar_label: "Rendering Streamed Chat"
 
 `useChat(...)` separates completed history from the current in-flight assistant response.
 
+When your application database owns finalized history, use the
+[server-owned transcript guide](./09-server-owned-chat-transcripts.md) to
+persist accepted and finalized turns from the server and hydrate them through
+`ChatStorage.load()`.
+
 - Render `messages` for finalized chat history.
 - Render `streamContentPieces` for the active assistant response.
 - Expect text, structured data, interrupts, and errors to appear before finalization.

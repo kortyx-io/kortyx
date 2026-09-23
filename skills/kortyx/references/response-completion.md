@@ -29,6 +29,15 @@ exports in the installed release. Public guide: `/docs/guides/background-continu
   Connect it to host lifetime, e.g. Next after(async () => { await completion; ... }).
   It settles at completion/failure/cancellation/suspension; resolution is not success.
   Flush telemetry there. No automatic worker recovery or durable scheduling exists.
+- `createChatRouteHandler` can also accept `onTurnAccepted` and
+  `onResponseFinalized` for application transcript writes. The latter receives a
+  server-built visible message at response completion, not background-run
+  completion. Lifecycle hooks require `sessionId` and `clientTurnId`; the React
+  route transport sends a user-message ID for the latter. With
+  `disconnect: "continue"`, the host must retain `onExecution`, and client abort
+  closes only delivery. Hook delivery is one in-process attempt, not a durable
+  outbox. Read `references/server-owned-chat-transcripts.md` for the full app DB,
+  checkpoint-route, authentication, and hydration contract.
 - Finalize the chat checkpoint before closure; background work must not change the
   session head or next turn's workflow/data. Internal execution persistence remains
   necessary for suspension. Closed-response state survives background resume.

@@ -56,7 +56,7 @@ const chat = useChat({
 });
 ```
 
-The default route transport sends `{ sessionId, workflowId, messages, context }`. Route handlers should forward the approved context to `agent.streamChat(..., { context })`, and nodes can read it with `useRuntimeContext<T>()`.
+The default route transport sends `{ sessionId, clientTurnId, workflowId, messages, context }`. `clientTurnId` is the user message ID for the current prompt or interrupt response. Route handlers should forward the approved context to `agent.streamChat(..., { context })`, and nodes can read it with `useRuntimeContext<T>()`.
 
 Use `prepareContextMessages` when the app owns a custom history strategy, such as server-side history, summaries, or key facts.
 
@@ -136,6 +136,16 @@ const chat = useChat({
   storage: createServerChatStorage(threadId),
 });
 ```
+
+The default route transport sends a `clientTurnId` for each prompt and
+interrupt response. Server chat lifecycle hooks can use it for idempotent
+transcript upserts. Server-finalized assistant messages share the `contentPieces`
+shape with `ChatMsg`; `ChatStorage.load()` remains the hydration path.
+When lifecycle hooks own transcript writes, make `save()` persist only local
+preferences/session selection or reconcile versions explicitly; do not let a
+browser snapshot overwrite the server-finalized turn.
+See `references/server-owned-chat-transcripts.md` for the complete route and
+checkpoint callback contract.
 
 Treat server-owned history as authoritative. Authenticate the thread/session at
 the route, load the approved history or summary there, and keep

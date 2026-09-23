@@ -74,7 +74,7 @@ bash scripts/test-tool-observability-ui.sh
 
 The ad hoc manual execution scripts and their detailed run manifests were kept
 under `/tmp/kortyx-manual-tools*`; their disposable installation is cleaned up
-after verification. No live model inference, live Workfully permission checks or
+after verification. No live model inference, live consumer permission checks or
 production Redis persistence is claimed by this local exercise.
 
 

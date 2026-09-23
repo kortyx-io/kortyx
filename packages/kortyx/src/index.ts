@@ -5,8 +5,14 @@ export * from "@kortyx/core/errors";
 export type {
   Agent,
   AgentProcessOptions,
+  ChatLifecycleErrorEvent,
+  ChatLifecyclePhase,
   ChatRequestBody,
+  ChatResponseFinalized,
+  ChatResponseStatus,
+  ChatRouteHandlerOptions,
   CheckpointRequestBody,
+  CheckpointRouteHandlerOptions,
   CreateAgentArgs,
   ExecutableWorkflow,
   ExecuteOptions,
@@ -23,6 +29,7 @@ export type {
   StreamChatFromRouteArgs,
 } from "@kortyx/agent";
 export {
+  ChatLifecycleHookError,
   createAgent,
   createChatRouteHandler,
   createCheckpointRouteHandler,
@@ -135,6 +142,8 @@ export {
 export type {
   BufferedStreamResult,
   ConsumeStreamHandlers,
+  FinalizedChatContentPiece,
+  FinalizedChatMessage,
   StreamChunk,
   StructuredDataChunk,
   StructuredStreamAccumulator,
@@ -145,8 +154,10 @@ export {
   collectBufferedStream,
   collectStream,
   consumeStream,
+  createFinalizedChatMessageAccumulator,
   createStreamResponse,
   createStructuredStreamAccumulator,
+  projectInterruptPiece,
   readStream,
   reduceStructuredChunks,
   summarizeStreamChunks,

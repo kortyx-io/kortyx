@@ -55,8 +55,8 @@ telemetry in the Runs view.
 The local-only scripts in `scripts/studio-example-workflows.mjs` and
 `scripts/studio-workflow-examples.mjs` publish seven workflow topologies and run
 thirteen deterministic scenarios through the real Kortyx runtime and telemetry
-adapter. No model credentials are needed. The chat-fork example reproduces the
-`hiring-monster@1.2.0` topology with deterministic node implementations.
+adapter. No model credentials are needed. The chat-fork example uses a
+title/classification fork with deterministic node implementations.
 
 After starting the repository development stack with `pnpm dev`, run from the
 repository root:

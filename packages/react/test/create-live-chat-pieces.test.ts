@@ -1,10 +1,12 @@
 import {
+  createFinalizedChatMessageAccumulator,
   createStructuredStreamAccumulator,
   type StreamChunk,
   type StructuredStreamState,
 } from "@kortyx/stream/browser";
 import { describe, expect, it } from "vitest";
 import { createLiveChatPieces } from "../src/create-live-chat-pieces";
+import { toHumanInputPiece } from "../src/to-human-input-piece";
 
 type HumanInputPiece = {
   id: string;
@@ -34,6 +36,59 @@ const createHumanInputPiece = (): HumanInputPiece => ({
 });
 
 describe("createLiveChatPieces", () => {
+  it("uses the same persisted piece shape and IDs as the server collector", () => {
+    const createId = createIdFactory();
+    const server = createFinalizedChatMessageAccumulator("turn-1");
+    const structured =
+      createStructuredStreamAccumulator<Record<string, unknown>>();
+    const client = createLiveChatPieces({
+      createId,
+      turnId: "turn-1",
+      onChange: () => {},
+      structuredStreams: {
+        applyStreamChunk: (chunk) => {
+          const state = structured.applyStreamChunk(chunk);
+          return state
+            ? { id: createId(), streamId: state.streamId, state }
+            : undefined;
+        },
+      },
+      toHumanInputPiece: (chunk) =>
+        toHumanInputPiece({
+          chunk,
+          createId: () =>
+            `turn-1:interrupt:${chunk.type === "interrupt" ? chunk.requestId : "unknown"}`,
+        }),
+    });
+    const chunks: StreamChunk[] = [
+      { type: "text-start", node: "writer" },
+      { type: "text-delta", node: "writer", delta: "Hello" },
+      {
+        type: "structured-data",
+        streamId: "brief",
+        dataType: "brief",
+        kind: "final",
+        data: { title: "A title" },
+      },
+      {
+        type: "interrupt",
+        requestId: "request-1",
+        resumeToken: "resume-1",
+        input: {
+          kind: "choice",
+          multiple: false,
+          question: "Approve?",
+          options: [{ id: "yes", label: "Yes" }],
+        },
+      },
+    ];
+    for (const chunk of chunks) {
+      server.apply(chunk);
+      client.processChunk(chunk);
+    }
+    expect(client.getPieces()).toEqual(server.message().contentPieces);
+  });
+
   it("keeps first-seen order when structured chunks arrive after text starts", () => {
     const createId = createIdFactory();
     const snapshots: string[][] = [];

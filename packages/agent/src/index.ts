@@ -1,6 +1,12 @@
 // release-test: 2026-01-22
 
-export type { ChatRequestBody, CheckpointRequestBody } from "./adapters/http";
+export type {
+  ChatLifecycleErrorEvent,
+  ChatRequestBody,
+  ChatRouteHandlerOptions,
+  CheckpointRequestBody,
+  CheckpointRouteHandlerOptions,
+} from "./adapters/http";
 export {
   createChatRouteHandler,
   createCheckpointRouteHandler,
@@ -20,6 +26,12 @@ export type {
   CreateAgentArgs,
 } from "./chat/create-agent";
 export { createAgent } from "./chat/create-agent";
+export type {
+  ChatLifecyclePhase,
+  ChatResponseFinalized,
+  ChatResponseStatus,
+} from "./chat/lifecycle";
+export { ChatLifecycleHookError } from "./chat/lifecycle";
 export type { StreamChatArgs } from "./chat/process-chat";
 export { streamChat } from "./chat/process-chat";
 export type {

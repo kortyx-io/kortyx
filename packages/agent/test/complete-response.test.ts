@@ -39,6 +39,294 @@ const workflow = (id: string, run: () => any) =>
   });
 const done = () => ({ data: { answer: "done" } });
 
+it("finalizes a parsed server message after client disconnect when continuation is enabled", async () => {
+  const release = gate();
+  let completion!: Promise<void>;
+  const onTurnAccepted = vi.fn();
+  const onResponseFinalized = vi.fn();
+  const adapter = createInMemoryFrameworkAdapter();
+  const root = workflow("persisted", async () => {
+    await release.promise;
+    await completeResponse({
+      message: "Saved answer",
+      data: { title: "A title" },
+    });
+    return done();
+  });
+  const handler = createChatRouteHandler({
+    agent: createAgent({ workflows: [root], frameworkAdapter: adapter }),
+    disconnect: "continue",
+    onExecution: (value) => {
+      completion = value;
+    },
+    onTurnAccepted,
+    onResponseFinalized,
+  });
+  const response = await handler(
+    new Request("http://localhost/chat", {
+      method: "POST",
+      body: JSON.stringify({
+        sessionId: "session-1",
+        clientTurnId: "turn-1",
+        workflowId: "persisted",
+        messages: [{ role: "user", content: "hello" }],
+      }),
+    }),
+  );
+  expect(response.status).toBe(200);
+  expect(onTurnAccepted).toHaveBeenCalledWith(
+    expect.objectContaining({
+      sessionId: "session-1",
+      clientTurnId: "turn-1",
+      userMessage: { role: "user", content: "hello" },
+    }),
+  );
+  await response.body?.cancel();
+  release.resolve();
+  await completion;
+  expect(onResponseFinalized).toHaveBeenCalledOnce();
+  expect(onResponseFinalized).toHaveBeenCalledWith(
+    expect.objectContaining({
+      sessionId: "session-1",
+      clientTurnId: "turn-1",
+      status: "completed",
+      checkpointId: expect.any(String),
+      message: expect.objectContaining({
+        id: "turn-1:assistant",
+        content: "Saved answer",
+        contentPieces: expect.arrayContaining([
+          expect.objectContaining({ type: "text", content: "Saved answer" }),
+          expect.objectContaining({
+            type: "structured",
+            data: expect.objectContaining({ data: { title: "A title" } }),
+          }),
+        ]),
+      }),
+    }),
+  );
+});
+
+it("reports a failed finalization hook without changing a completed response", async () => {
+  let completion!: Promise<void>;
+  const onLifecycleError = vi.fn();
+  const root = workflow("finalize-error", async () => {
+    await completeResponse({ message: "Ready" });
+    return done();
+  });
+  const handler = createChatRouteHandler({
+    agent: createAgent({ workflows: [root] }),
+    onExecution: (value) => {
+      completion = value;
+    },
+    onResponseFinalized: () => {
+      throw new Error("database failed");
+    },
+    onLifecycleError,
+  });
+  const response = await handler(
+    new Request("http://localhost/chat", {
+      method: "POST",
+      body: JSON.stringify({
+        sessionId: "session-1",
+        clientTurnId: "turn-1",
+        workflowId: "finalize-error",
+        stream: false,
+        messages: [{ role: "user", content: "hello" }],
+      }),
+    }),
+  );
+  expect(response.status).toBe(200);
+  expect(await response.json()).toMatchObject({ text: "Ready" });
+  await completion;
+  expect(onLifecycleError).toHaveBeenCalledWith(
+    expect.objectContaining({
+      phase: "response-finalized",
+      clientTurnId: "turn-1",
+      error: expect.objectContaining({ code: "CHAT_LIFECYCLE_HOOK_FAILED" }),
+    }),
+  );
+});
+
+it("contains a direct streamChat finalization callback failure", async () => {
+  const log = vi.spyOn(console, "error").mockImplementation(() => {});
+  try {
+    const root = workflow("direct-finalize-error", async () => {
+      await completeResponse({ message: "Ready" });
+      return done();
+    });
+    let completion!: Promise<void>;
+    const stream = await createAgent({ workflows: [root] }).streamChat(
+      [{ role: "user", content: "hello" }],
+      {
+        sessionId: "session-1",
+        clientTurnId: "turn-1",
+        workflowId: "direct-finalize-error",
+        onResponseFinalized: () => {
+          throw new Error("save failed");
+        },
+        onExecution: (value) => {
+          completion = value;
+        },
+      },
+    );
+    const chunks = await collectStream(stream);
+    await completion;
+    expect(chunks).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ type: "message", content: "Ready" }),
+      ]),
+    );
+    expect(log).toHaveBeenCalledWith(
+      "[chat:onResponseFinalized]",
+      expect.any(Object),
+    );
+  } finally {
+    log.mockRestore();
+  }
+});
+
+it("persists a naturally completed reply after the SSE reader disconnects", async () => {
+  const release = gate();
+  let completion!: Promise<void>;
+  const onResponseFinalized = vi.fn();
+  const root = workflow("natural-detached", async () => {
+    await release.promise;
+    return { ...done(), ui: { message: "After disconnect" } };
+  });
+  const handler = createChatRouteHandler({
+    agent: createAgent({ workflows: [root] }),
+    disconnect: "continue",
+    onExecution: (value) => {
+      completion = value;
+    },
+    onResponseFinalized,
+  });
+  const response = await handler(
+    new Request("http://localhost/chat", {
+      method: "POST",
+      body: JSON.stringify({
+        sessionId: "session-1",
+        clientTurnId: "turn-2",
+        workflowId: "natural-detached",
+        messages: [{ role: "user", content: "hello" }],
+      }),
+    }),
+  );
+  await response.body?.cancel();
+  release.resolve();
+  await completion;
+  expect(onResponseFinalized).toHaveBeenCalledWith(
+    expect.objectContaining({
+      clientTurnId: "turn-2",
+      status: "completed",
+      message: expect.objectContaining({
+        id: "turn-2:assistant",
+        content: "After disconnect",
+      }),
+    }),
+  );
+});
+
+it("finalizes a visible interrupt with its pending question", async () => {
+  let completion!: Promise<void>;
+  const onResponseFinalized = vi.fn();
+  const root = workflow("visible-interrupt", async () => {
+    await useInterrupt({
+      id: "approval",
+      request: {
+        kind: "choice",
+        question: "Approve the brief?",
+        options: [{ id: "yes", label: "Yes" }],
+      },
+    });
+    return done();
+  });
+  const handler = createChatRouteHandler({
+    agent: createAgent({
+      workflows: [root],
+      frameworkAdapter: createInMemoryFrameworkAdapter(),
+    }),
+    onExecution: (value) => {
+      completion = value;
+    },
+    onResponseFinalized,
+  });
+  const response = await handler(
+    new Request("http://localhost/chat", {
+      method: "POST",
+      body: JSON.stringify({
+        sessionId: "session-1",
+        clientTurnId: "turn-interrupt",
+        workflowId: "visible-interrupt",
+        stream: false,
+        messages: [{ role: "user", content: "hello" }],
+      }),
+    }),
+  );
+  expect(response.status).toBe(200);
+  await response.json();
+  await completion;
+  expect(onResponseFinalized).toHaveBeenCalledWith(
+    expect.objectContaining({
+      status: "interrupted",
+      message: expect.objectContaining({
+        contentPieces: expect.arrayContaining([
+          expect.objectContaining({
+            type: "interrupt",
+            question: "Approve the brief?",
+            options: [{ id: "yes", label: "Yes" }],
+          }),
+        ]),
+      }),
+    }),
+  );
+});
+
+it("finalizes a failed run with an error piece", async () => {
+  let completion!: Promise<void>;
+  const onResponseFinalized = vi.fn();
+  const root = workflow("failed-response", async () => {
+    throw new Error("model failed");
+  });
+  const handler = createChatRouteHandler({
+    agent: createAgent({ workflows: [root] }),
+    onExecution: (value) => {
+      completion = value;
+    },
+    onResponseFinalized,
+  });
+  const previous = vi.spyOn(console, "error").mockImplementation(() => {});
+  try {
+    const response = await handler(
+      new Request("http://localhost/chat", {
+        method: "POST",
+        body: JSON.stringify({
+          sessionId: "session-1",
+          clientTurnId: "turn-failed",
+          workflowId: "failed-response",
+          stream: false,
+          messages: [{ role: "user", content: "hello" }],
+        }),
+      }),
+    );
+    expect(response.status).toBe(200);
+    await response.json();
+    await completion;
+    expect(onResponseFinalized).toHaveBeenCalledWith(
+      expect.objectContaining({
+        status: "failed",
+        message: expect.objectContaining({
+          contentPieces: expect.arrayContaining([
+            expect.objectContaining({ type: "error" }),
+          ]),
+        }),
+      }),
+    );
+  } finally {
+    previous.mockRestore();
+  }
+});
+
 it("closes a real SSE response, continues handoff despite request abort and freezes the session head", async () => {
   const release = gate();
   const background = vi.fn();

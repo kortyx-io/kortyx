@@ -60,6 +60,7 @@ export function createLiveChatPieces<
   TCustomPiece extends LiveChatCustomPiece = never,
 >(args: {
   createId: () => string;
+  turnId?: string | undefined;
   onChange: (pieces: LiveChatPiece<TStructuredData, TCustomPiece>[]) => void;
   structuredStreams: StructuredStreamsController<TStructuredData>;
   toHumanInputPiece: (chunk: StreamChunk) => TCustomPiece;
@@ -141,7 +142,7 @@ export function createLiveChatPieces<
     }
 
     const nextPiece: LiveChatTextPiece = {
-      id: args.createId(),
+      id: args.turnId ? `${args.turnId}:text:${key}` : args.createId(),
       type: "text",
       content: "",
     };
@@ -179,7 +180,9 @@ export function createLiveChatPieces<
       const nextItem = args.structuredStreams.applyStreamChunk(chunk);
       if (nextItem) {
         upsertPiece(`structured:${nextItem.streamId}`, {
-          id: nextItem.id,
+          id: args.turnId
+            ? `${args.turnId}:structured:${nextItem.streamId}`
+            : nextItem.id,
           type: "structured",
           data: nextItem.state,
         });
@@ -195,7 +198,9 @@ export function createLiveChatPieces<
     if (chunk.type === "message") {
       if (!sawTextDelta) {
         pushPiece({
-          id: args.createId(),
+          id: args.turnId
+            ? `${args.turnId}:message:${keyedPieces.length}`
+            : args.createId(),
           type: "text",
           content: chunk.content ?? "",
         });
@@ -205,7 +210,9 @@ export function createLiveChatPieces<
 
     if (chunk.type === "error") {
       pushPiece({
-        id: args.createId(),
+        id: args.turnId
+          ? `${args.turnId}:error:${keyedPieces.length}`
+          : args.createId(),
         type: "error",
         content: chunk.message ?? "An error occurred",
         ...(chunk.failure ? { failure: chunk.failure } : {}),

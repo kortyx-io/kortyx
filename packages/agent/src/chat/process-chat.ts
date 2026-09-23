@@ -1,4 +1,5 @@
 import type { RuntimeEnvelope } from "@kortyx/core";
+import { KortyxError } from "@kortyx/core/errors";
 import type { GetProviderFn } from "@kortyx/providers";
 import type { FrameworkAdapter, WorkflowRegistry } from "@kortyx/runtime";
 import {
@@ -28,6 +29,13 @@ export interface StreamChatArgs<Options> {
   abortSignal?: AbortSignal | undefined;
   executionSignal?: AbortSignal | undefined;
   onExecution?: ((completion: Promise<void>) => void) | undefined;
+  clientTurnId?: string | undefined;
+  continueOnDisconnect?: boolean | undefined;
+  onResponseFinalized?:
+    | ((
+        event: import("./lifecycle").ChatResponseFinalized,
+      ) => void | Promise<void>)
+    | undefined;
   messages: ChatMessage[];
   options?: Options | undefined;
   sessionId?: string;
@@ -48,6 +56,9 @@ export async function streamChat<Options = unknown>({
   abortSignal,
   executionSignal,
   onExecution,
+  clientTurnId,
+  continueOnDisconnect,
+  onResponseFinalized,
   options,
   sessionId,
   defaultWorkflowId,
@@ -59,6 +70,22 @@ export async function streamChat<Options = unknown>({
   getProvider,
   applyResumeSelection,
 }: StreamChatArgs<Options>): Promise<AsyncIterable<StreamChunk>> {
+  const suppliedSessionId =
+    sessionId || (options as { sessionId?: string } | undefined)?.sessionId;
+  if (
+    onResponseFinalized &&
+    (!suppliedSessionId || !clientTurnId?.trim() || clientTurnId.length > 128)
+  ) {
+    throw new KortyxError(
+      "INVALID_REQUEST",
+      "sessionId and clientTurnId are required with onResponseFinalized.",
+      {
+        category: "request",
+        retryable: false,
+        safeMessage: "This chat request needs a session and turn ID.",
+      },
+    );
+  }
   const config = await loadRuntimeConfig(options);
   let runtimeConfig: Parameters<typeof createExecutionGraph>[1] = {
     ...config,
@@ -109,6 +136,9 @@ export async function streamChat<Options = unknown>({
     abortSignal,
     executionSignal,
     onExecution,
+    clientTurnId,
+    continueOnDisconnect,
+    onResponseFinalized,
     lastMessage: last,
     sessionId: resolvedSessionId,
     config: runtimeConfig,
@@ -203,6 +233,9 @@ export async function streamChat<Options = unknown>({
     abortSignal,
     executionSignal,
     onExecution,
+    clientTurnId,
+    continueOnDisconnect,
+    onResponseFinalized,
     sessionId: resolvedSessionId,
     runId,
     graph,

@@ -11,7 +11,7 @@ result. Ordinary tools can run before and after the pause.
 ```ts
 const jobPicker = defineInterruptContract({
   description: "Ask the user to choose between matching jobs.",
-  schemaId: "wolly.job-picker",
+  schemaId: "example.job-picker",
   schemaVersion: "1",
   requestSchema: JobClarificationRequest,
   responseSchema: JobClarificationResponse,
@@ -113,7 +113,7 @@ const result = await useReason({
     mode: "optional",
     requestSchema: JobClarificationRequest,
     responseSchema: JobClarificationResponse,
-    schemaId: "wolly.job-picker",
+    schemaId: "example.job-picker",
     schemaVersion: "1",
   },
 });
@@ -128,7 +128,7 @@ const jobPicker = defineInterruptContract({
   description: "Ask the user to choose between matching jobs.",
   requestSchema: JobClarificationRequest,
   responseSchema: JobClarificationResponse,
-  schemaId: "wolly.job-picker",
+  schemaId: "example.job-picker",
   schemaVersion: "1",
 });
 

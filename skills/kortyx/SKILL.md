@@ -1,6 +1,6 @@
 ---
 name: kortyx
-description: Use when building, reviewing, documenting, testing, or architecting apps with Kortyx. Covers providers, useReason/useTool tools, model-driven interrupts, supervisor and specialist composition, child workflows, execution limits, typed failures, runtime persistence, Studio debugging, React chat hydration, and streamed UI behavior.
+description: Use when building, reviewing, documenting, testing, or architecting apps with Kortyx. Covers providers, useReason/useTool tools, model-driven interrupts, supervisor and specialist composition, child workflows, execution limits, typed failures, runtime persistence, server-owned chat transcripts, Studio debugging, React chat hydration, and streamed UI behavior.
 ---
 
 # Kortyx
@@ -33,6 +33,7 @@ Providers:
 Architecture:
 
 - `references/response-completion.md`: completeResponse, background continuation, host lifetime, scoped listInterrupts/getInterrupt discovery and independent approval interfaces.
+- `references/server-owned-chat-transcripts.md`: chat route acceptance/finalization hooks, normalized assistant messages, client turn IDs, disconnect continuation, checkpoint route hooks, and app DB reconciliation.
 
 - `references/workflow-execution.md`: typed `agent.execute` / `agent.resume`, separate HTTP entry points, outcomes, cancellation signals, shared execution limits/Continue, durable human approval, and conversational regression testing.
 
@@ -79,6 +80,7 @@ React client:
 - Put provider credentials/configuration, `createAgent(...)`, workflows, nodes, and runtime persistence on the server.
 - Use `@kortyx/react` for React chat clients unless the task needs lower-level stream primitives.
 - Store product/business data in the app DB or service layer, not Kortyx runtime persistence.
+- For a server-owned visible transcript, use chat route lifecycle hooks for pending and finalized turns, checkpoint route hooks for fork/rollback, and `ChatStorage.load()` for client hydration. Read `references/server-owned-chat-transcripts.md` before wiring persistence.
 - Treat user-facing rollback/fork as session-level runtime state, not transcript replay. Do not implement regenerate by only truncating client messages and resending text.
 - Choose runtime persistence explicitly: memory for local/single-process use, Redis for shared TTL-oriented runtime state, PostgreSQL for authoritative durable history, or PostgreSQL plus Redis for durable storage with a payload cache. This storage is separate from the app database.
 - Keep OpenTelemetry tracing server-side and use generic Kortyx telemetry metadata.
@@ -111,6 +113,7 @@ React client:
 - Streaming clients render finalized history and active stream pieces separately.
 - Existing chat sessions hydrate through `ChatStorage`; server-owned history stays
   authoritative.
+- Server-owned transcript writes are scoped to an authenticated session and keyed by a stable client turn ID; callback delivery and app DB reconciliation remain application responsibilities.
 - Public error UI uses safe failure descriptors, while raw diagnostics stay in
   trusted server/observability paths.
 - Sensitive auth context is derived on the server.

@@ -225,6 +225,17 @@ See [Call Child Workflows](./06-child-workflows.md) for call identity, version c
 
 ## Storage Behavior
 
+If the application stores a server-owned visible transcript, the checkpoint
+route can report successful mutations through `onForked` and `onRolledBack`.
+`onForked` supplies source/new session and checkpoint IDs. `onRolledBack`
+supplies the new head checkpoint ID and invalidated structured-stream IDs.
+Kortyx cannot supply invalidated application turn IDs because those belong to
+the application database. Map the checkpoint to your own turns and update the
+transcript in these callbacks. If an app callback fails after the runtime
+operation, `onLifecycleError` receives a typed error while the runtime result
+remains successful; reconcile the two stores. These callbacks do not form a
+cross-store transaction.
+
 The Redis adapter uses the same Redis connection for all Kortyx framework state, with separate key spaces:
 
 - pending interrupt requests

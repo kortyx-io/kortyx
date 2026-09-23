@@ -46,6 +46,13 @@ import { streamChat as runStreamChat } from "./process-chat";
 export interface AgentProcessOptions {
   executionSignal?: AbortSignal | undefined;
   onExecution?: ((completion: Promise<void>) => void) | undefined;
+  clientTurnId?: string | undefined;
+  continueOnDisconnect?: boolean | undefined;
+  onResponseFinalized?:
+    | ((
+        event: import("./lifecycle").ChatResponseFinalized,
+      ) => void | Promise<void>)
+    | undefined;
   limits?: ExecutionLimits | undefined;
   abortSignal?: AbortSignal | undefined;
   sessionId?: string | undefined;
@@ -118,6 +125,15 @@ const agentProcessOptionsSchema = z
       .custom<(completion: Promise<void>) => void>(
         (value) => typeof value === "function",
       )
+      .optional(),
+    clientTurnId: z.string().min(1).max(128).optional(),
+    continueOnDisconnect: z.boolean().optional(),
+    onResponseFinalized: z
+      .custom<
+        (
+          event: import("./lifecycle").ChatResponseFinalized,
+        ) => void | Promise<void>
+      >((value) => typeof value === "function")
       .optional(),
     limits: ExecutionLimitsSchema.optional(),
     abortSignal: z
@@ -330,6 +346,9 @@ export function createAgent(args: CreateAgentArgs): Agent {
       abortSignal: parsedOptions?.abortSignal,
       executionSignal: parsedOptions?.executionSignal,
       onExecution: parsedOptions?.onExecution,
+      clientTurnId: parsedOptions?.clientTurnId,
+      continueOnDisconnect: parsedOptions?.continueOnDisconnect,
+      onResponseFinalized: parsedOptions?.onResponseFinalized,
       options: parsedOptions,
       workflowRegistry: registry,
       ...(knownWorkflowIds ? { knownWorkflowIds } : {}),
