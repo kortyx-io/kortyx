@@ -17,6 +17,7 @@ export type OutgoingChatMessage = {
 
 export type ChatTransportContext<TContext = DefaultChatContext> = {
   sessionId: string;
+  clientTurnId?: string | undefined;
   workflowId: string;
   messages: OutgoingChatMessage[];
   context: TContext;
@@ -108,6 +109,7 @@ export function createChatTransport<TContext = DefaultChatContext>(args: {
 
 export type RouteChatRequestBody<TContext = DefaultChatContext> = {
   sessionId: string;
+  clientTurnId?: string | undefined;
   workflowId: string;
   messages: OutgoingChatMessage[];
   context: TContext;
@@ -133,6 +135,9 @@ export function createRouteChatTransport<
         args.createBody?.(context) ??
         ({
           sessionId: context.sessionId,
+          ...(context.clientTurnId
+            ? { clientTurnId: context.clientTurnId }
+            : {}),
           workflowId: context.workflowId,
           messages: context.messages,
           context: context.context,

@@ -137,6 +137,14 @@ const chat = useChat({
 });
 ```
 
+The default route transport sends a `clientTurnId` for each prompt and
+interrupt response. Server chat lifecycle hooks can use it for idempotent
+transcript upserts. Server-finalized assistant messages share the `contentPieces`
+shape with `ChatMsg`; `ChatStorage.load()` remains the hydration path.
+When lifecycle hooks own transcript writes, make `save()` persist only local
+preferences/session selection or reconcile versions explicitly; do not let a
+browser snapshot overwrite the server-finalized turn.
+
 Treat server-owned history as authoritative. Authenticate the thread/session at
 the route, load the approved history or summary there, and keep
 `includeHistory: false` when the client transcript should not be sent back as

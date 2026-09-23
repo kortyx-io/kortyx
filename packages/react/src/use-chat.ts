@@ -529,6 +529,7 @@ export function useChat<TContext = DefaultChatContext>(
 
   const streamAssistantResponse = async (args: {
     sid: string;
+    clientTurnId: string;
     messagesToSend: OutgoingChatMessage[];
     messagesBeforeAssistant?: ChatMsg[] | undefined;
     debugLabel: string;
@@ -549,6 +550,7 @@ export function useChat<TContext = DefaultChatContext>(
       | undefined;
     const pieces = createLiveChatPieces({
       createId,
+      turnId: args.clientTurnId,
       onChange: setStreamContentPieces,
       structuredStreams: {
         applyStreamChunk,
@@ -556,12 +558,16 @@ export function useChat<TContext = DefaultChatContext>(
       toHumanInputPiece: (chunk) =>
         toHumanInputPieceRef.current({
           chunk,
-          createId,
+          createId: () =>
+            !options.toHumanInputPiece && chunk.type === "interrupt"
+              ? `${args.clientTurnId}:interrupt:${chunk.requestId}`
+              : createId(),
         }),
     });
 
     await transportRef.current.stream({
       sessionId: args.sid,
+      clientTurnId: args.clientTurnId,
       workflowId,
       messages: args.messagesToSend,
       context: requestContext,
@@ -640,7 +646,7 @@ export function useChat<TContext = DefaultChatContext>(
     if (args.signal.aborted) return undefined;
 
     const assistant = buildAssistantMessage({
-      createId,
+      createId: () => `${args.clientTurnId}:assistant`,
       pieces: pieces.getPieces(),
       debug: debug.getAll(),
       trace: completedTrace ?? currentTrace,
@@ -742,6 +748,7 @@ export function useChat<TContext = DefaultChatContext>(
 
       const assistantMessage = await streamAssistantResponse({
         sid: resolvedSessionId,
+        clientTurnId: userId,
         messagesToSend,
         messagesBeforeAssistant: nextMessages,
         debugLabel: "runChat (resume)",
@@ -852,6 +859,7 @@ export function useChat<TContext = DefaultChatContext>(
       });
       const assistantMessage = await streamAssistantResponse({
         sid: resolvedSessionId,
+        clientTurnId: userId,
         messagesToSend,
         messagesBeforeAssistant: nextMessages,
         debugLabel: "runChat (send)",

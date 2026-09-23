@@ -6,6 +6,8 @@ export type { StreamChatFromRouteArgs } from "@kortyx/agent/browser";
 export { streamChatFromRoute } from "@kortyx/agent/browser";
 export type {
   ConsumeStreamHandlers,
+  FinalizedChatContentPiece,
+  FinalizedChatMessage,
   StreamChunk,
   StreamFromRouteArgs,
   StructuredDataChunk,
@@ -15,7 +17,9 @@ export type {
 export {
   applyStructuredChunk,
   consumeStream,
+  createFinalizedChatMessageAccumulator,
   createStructuredStreamAccumulator,
+  projectInterruptPiece,
   readStream,
   reduceStructuredChunks,
   streamFromRoute,

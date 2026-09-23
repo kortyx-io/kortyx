@@ -61,8 +61,10 @@ const createMemoryStorage = (
 
 describe("useChat", () => {
   it("sends a user message and finalizes an assistant message from streamed chunks", async () => {
+    let sentTurnId: string | undefined;
     const transport: ChatTransport = {
-      stream: async ({ onChunk }) => {
+      stream: async ({ onChunk, clientTurnId }) => {
+        sentTurnId = clientTurnId;
         await onChunk({
           type: "message",
           content: "Hello back",
@@ -92,6 +94,8 @@ describe("useChat", () => {
     });
 
     expect(result.current.messages).toHaveLength(2);
+    expect(sentTurnId).toBe(result.current.messages[0]?.id);
+    expect(result.current.messages[1]?.id).toBe(`${sentTurnId}:assistant`);
     expect(result.current.messages[0]).toMatchObject({
       role: "user",
       content: "Hello",

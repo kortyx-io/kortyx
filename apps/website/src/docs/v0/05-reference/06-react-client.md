@@ -328,6 +328,13 @@ const storage = createBrowserChatStorage();
 
 You can also provide your own `ChatStorage` implementation for app APIs, databases, or hybrid sync strategies.
 
+The default route transport sends `clientTurnId` with each prompt or interrupt
+response. It is the user message ID and lets a server lifecycle hook upsert the
+visible turn. When the server database is authoritative, use `ChatStorage.load()`
+to fetch it, keep `includeHistory: false` if the server supplies model context,
+and avoid writing a browser snapshot back over a newer server turn. The server's
+finalized assistant message uses the same `contentPieces` type as `ChatMsg`.
+
 ```ts
 import type { ChatStorage } from "@kortyx/react";
 

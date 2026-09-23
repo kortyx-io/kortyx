@@ -13,6 +13,7 @@ export * from "./server/collect-stream";
 export * from "./server/create-stream-response";
 export * from "./server/to-sse";
 export * from "./structured/apply-structured-chunk";
+export * from "./structured/finalized-chat-message";
 export * from "./structured/structured-stream-accumulator";
 export * from "./types/stream-chunk";
 export * from "./types/structured-data";

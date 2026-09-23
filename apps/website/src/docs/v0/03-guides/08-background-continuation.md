@@ -128,6 +128,100 @@ Pass a separate `executionSignal` to `agent.streamChat` when server-controlled
 cancellation must remain effective throughout. Models, tools and `useAbortSignal()`
 receive the live execution signal. Completion never removes execution limits.
 
+## Save the visible chat response on the server
+
+An application can persist a turn without reading or teeing the SSE response:
+
+```ts
+import {
+  createChatRouteHandler,
+  createFailureResponse,
+  parseChatRequestBody,
+  readRequestJson,
+} from "kortyx";
+import { after } from "next/server";
+import { agent } from "@/lib/agent";
+import { appDb } from "@/lib/app-db";
+
+export async function POST(request: Request) {
+  const owner = await authenticateRequest(request);
+  if (!owner) return new Response("Unauthorized", { status: 401 });
+  let body;
+  try {
+    body = parseChatRequestBody(await readRequestJson(request.clone()));
+  } catch (error) {
+    return createFailureResponse(error);
+  }
+  if (!body.sessionId || !await appDb.canAccessSession(owner, body.sessionId)) {
+    return new Response("Forbidden", { status: 403 });
+  }
+
+  return createChatRouteHandler({
+    agent,
+    disconnect: "continue",
+    onExecution: (completion) => after(() => completion),
+    onTurnAccepted: async ({ sessionId, clientTurnId, userMessage }) => {
+      await appDb.upsertPendingTurn(owner, sessionId, clientTurnId, {
+        id: clientTurnId,
+        role: "user",
+        content: userMessage.content,
+      });
+    },
+    onResponseFinalized: async ({ sessionId, clientTurnId, status, message, checkpointId }) => {
+      await appDb.finalizeTurn(owner, sessionId, clientTurnId, {
+        status,
+        message,
+        checkpointId,
+      });
+    },
+    onLifecycleError: ({ error, phase, clientTurnId }) => {
+      reportAppPersistenceFailure({ error, phase, clientTurnId });
+    },
+  })(request);
+}
+```
+
+`authenticateRequest`, `appDb`, and `reportAppPersistenceFailure` are
+application functions. Authenticate the session before the generated handler;
+client-provided session IDs and context are not proof of ownership. Once either
+chat lifecycle hook is configured, requests need a nonempty `sessionId` and
+`clientTurnId`. The default `@kortyx/react` route transport sends the user message
+ID as `clientTurnId` for prompts and interrupt responses. A retry of the same
+attempt must reuse that ID. Use an idempotent upsert scoped to the authenticated
+conversation; the key prevents duplicate transcript rows, not duplicate model
+execution.
+
+The accepted request's `userMessage.metadata` can contain an interrupt resume
+token. Persist only the fields the application needs. A finalized interrupt
+piece also contains a resume token so a reloaded UI can answer it; protect
+transcript reads with the same ownership check as the checkpoint route.
+
+`onTurnAccepted` is awaited before execution. If it fails, the request returns a
+typed persistence error and the run does not start. `onResponseFinalized` receives
+one server-built assistant message with `content` and ordered `contentPieces`:
+text, reduced structured data, pending interrupt, and error pieces. A failed or
+interrupted response can contain partial pieces. It runs after the response's
+checkpoint decision and is separate from any later background execution. A
+failure in this callback leaves the runtime outcome intact and reaches
+`onLifecycleError` as `ChatLifecycleHookError`.
+
+`disconnect: "continue"` keeps execution running after the SSE reader closes.
+The host must retain `onExecution`; its promise includes finalization. This
+setting also means a browser AbortController or `useChat.abort()` closes the
+client stream without cancelling server work. Implement a separate authorized
+server cancellation path with a custom route and `agent.streamChat`'s
+`executionSignal` if the product needs a Stop control. The default
+`disconnect: "cancel"` preserves the existing cancellation behavior.
+
+Callbacks are attempted once per run attempt while the process is alive. They
+are not a durable delivery queue: a process crash between checkpoint commit and
+the callback can leave a pending app row. Reconcile stale rows in the app or use
+an app-owned durable outbox if crash recovery is required. `stream: false` still
+returns `{ chunks, text, structured }` to the HTTP caller; the callback receives
+the same parsed message as in SSE mode. `ChatStorage.load()` can hydrate the
+server-owned transcript, while the client should use `includeHistory: false`
+when the server supplies model history.
+
 ## Human input after the response closes
 
 Keep the normal hook:

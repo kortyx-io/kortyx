@@ -174,8 +174,9 @@ Use this entry for client-only bundles where you want to avoid Node-only runtime
 - `completeResponse(options?: { message?: string; data?: unknown }): Promise<void>`: close chat output from a root node, continuing execution.
 - `agent.listInterrupts({ sessionId?, runId?, context?, status?: "pending", afterResponseCompleted? })`: list ready, unexpired public interrupt summaries. Supply at least one nonempty authorized scope.
 - `agent.getInterrupt(id, { sessionId?, runId?, context? })`: lookup within scope; returns null or the summary plus a private server-only resume handle.
-- `agent.streamChat(messages, { onExecution?, executionSignal?, ... })`: observe attempt completion for host lifetime and independently control server cancellation.
-- `createChatRouteHandler({ agent, onExecution? })`: connect chat attempt lifetime to the hosting framework.
+- `agent.streamChat(messages, { onExecution?, executionSignal?, clientTurnId?, onResponseFinalized?, continueOnDisconnect?, ... })`: observe attempt completion and optionally collect a finalized visible message independent of HTTP consumption.
+- `createChatRouteHandler({ agent, onExecution?, disconnect?, onTurnAccepted?, onResponseFinalized?, onLifecycleError? })`: connect host lifetime and optional app-owned transcript persistence. Hooks require `sessionId` and `clientTurnId`; `disconnect: "continue"` requires `onExecution`.
+- `createCheckpointRouteHandler({ agent, onForked?, onRolledBack?, onLifecycleError? })`: report successful runtime fork and rollback facts so the app can update its transcript. The hooks do not make runtime and app writes atomic.
 
 Existing useInterrupt and agent.resume APIs remain unchanged. See the [complete guide](/docs/guides/background-continuation) for ordering, checkpoints, scope authorization, parallel branches, and Studio's optional read-only role.
 

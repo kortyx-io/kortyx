@@ -249,6 +249,20 @@ Delivery is best-effort and non-blocking: events receive idempotent IDs, are bat
 
 `interrupt.expired` is intentionally API-derived from the durable `expiresAt` sent in `interrupt.created`; the SDK does not run an unreliable local TTL timer. `run.cancelled` records aborted active executions. Forward `request.signal` in custom routes; `createChatRouteHandler` forwards it automatically. Children, models and tools inherit the live signal. Use `useAbortSignal()` for custom node I/O.
 
+Applications that own visible conversation history can use
+`createChatRouteHandler({ onTurnAccepted, onResponseFinalized })` to write a
+pending user turn before execution and a parsed assistant message after the
+response's checkpoint decision. The hooks require `sessionId` and
+`clientTurnId`; `@kortyx/react` sends the latter from the user message ID.
+`onResponseFinalized` includes `status`, `checkpointId`, and a message with
+ordered text, structured, interrupt, and error pieces. Configure
+`disconnect: "continue"` with `onExecution` to finish an ordinary run after
+the browser closes its stream. The default remains request cancellation.
+`createCheckpointRouteHandler` additionally exposes `onForked` and
+`onRolledBack` for app-owned transcript updates. Hook delivery is in-process;
+crash recovery and cross-store transactions remain application concerns. See
+[Background Continuation](https://kortyx.io/docs/guides/background-continuation).
+
 Interrupt telemetry keeps structural fields (`kind`, `interactionMode`,
 `optionCount`, `schemaId`, and `schemaVersion`) even when content capture is
 off. Questions and static option labels use output-content capture; submitted

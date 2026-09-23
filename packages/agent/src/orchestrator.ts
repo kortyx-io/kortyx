@@ -26,8 +26,15 @@ import {
   type PendingRequestRecord,
   type PendingRequestStore,
 } from "@kortyx/runtime";
-import type { StreamChunk } from "@kortyx/stream";
+import {
+  createFinalizedChatMessageAccumulator,
+  type StreamChunk,
+} from "@kortyx/stream";
 import { Command } from "@langchain/langgraph";
+import type {
+  ChatResponseFinalized,
+  ChatResponseStatus,
+} from "./chat/lifecycle";
 import {
   parseExecutionInput,
   validateExecutionOutput,
@@ -83,6 +90,11 @@ export interface OrchestrateArgs {
   executionLeaseRelease?: (() => Promise<void>) | undefined;
   executionSignal?: AbortSignal | undefined;
   onExecution?: ((completion: Promise<void>) => void) | undefined;
+  clientTurnId?: string | undefined;
+  continueOnDisconnect?: boolean | undefined;
+  onResponseFinalized?:
+    | ((event: ChatResponseFinalized) => void | Promise<void>)
+    | undefined;
   abortSignal?: AbortSignal | undefined;
   emitOutput?: boolean | undefined;
   onOutcome?: ((outcome: OrchestrationOutcome) => void) | undefined;
@@ -179,6 +191,9 @@ export async function orchestrateGraphStream({
   abortSignal: requestSignal,
   executionSignal,
   onExecution,
+  clientTurnId,
+  continueOnDisconnect = false,
+  onResponseFinalized,
   emitOutput = true,
   onOutcome,
   selectWorkflow,
@@ -187,6 +202,37 @@ export async function orchestrateGraphStream({
   executionLeaseRelease,
 }: OrchestrateArgs): Promise<NodeJS.ReadableStream> {
   const out = new PassThrough({ objectMode: true });
+  const visibleMessage =
+    emitOutput &&
+    clientTurnId &&
+    onResponseFinalized &&
+    initialConfig.responseCompleted !== true
+      ? createFinalizedChatMessageAccumulator(clientTurnId)
+      : undefined;
+  let responseFinalized = false;
+  const finalizeVisibleResponse = async (status: ChatResponseStatus) => {
+    if (
+      !visibleMessage ||
+      !onResponseFinalized ||
+      !clientTurnId ||
+      !sessionId ||
+      responseFinalized
+    )
+      return;
+    responseFinalized = true;
+    try {
+      await onResponseFinalized({
+        sessionId,
+        runId,
+        clientTurnId,
+        status,
+        message: visibleMessage.message(),
+        ...(sessionCheckpointId ? { checkpointId: sessionCheckpointId } : {}),
+      });
+    } catch (error) {
+      console.error("[chat:onResponseFinalized]", serializeFailure(error));
+    }
+  };
 
   const write = (chunk: unknown) => {
     if (isRecord(chunk) && chunk.type === "done" && isGraphState(chunk.data)) {
@@ -194,7 +240,10 @@ export async function orchestrateGraphStream({
         .runtime as Record<string, unknown>;
       chunk = { ...chunk, data: { ...chunk.data, runtime } };
     }
-    if (emitOutput && !response.closed && !out.destroyed) out.write(chunk);
+    if (emitOutput && !response.closed) {
+      visibleMessage?.apply(chunk as StreamChunk);
+      if (!out.destroyed) out.write(chunk);
+    }
   };
   let outcomeState = state;
   let outcomeError: unknown;
@@ -210,7 +259,7 @@ export async function orchestrateGraphStream({
   const response = createResponseLifecycle({
     enabled: emitOutput,
     restored: initialConfig.responseCompleted === true,
-    requestSignal,
+    requestSignal: continueOnDisconnect ? undefined : requestSignal,
     executionSignal: executionSignal
       ? AbortSignal.any([executionSignal, leaseAbort.signal])
       : leaseAbort.signal,
@@ -278,11 +327,12 @@ export async function orchestrateGraphStream({
         },
         flush: true,
       });
+      await finalizeVisibleResponse("completed");
     },
   });
   const abortSignal = response.signal;
   out.on("close", () => {
-    if (!finished) response.disconnect();
+    if (!finished && !continueOnDisconnect) response.disconnect();
   });
   let structuredSeq = 0;
   const debugEnabled = Boolean((config as any)?.features?.tracing);
@@ -1477,6 +1527,13 @@ export async function orchestrateGraphStream({
             );
           }
         }
+        await finalizeVisibleResponse(
+          outcomeError
+            ? "failed"
+            : shouldKeepFrameworkState
+              ? "interrupted"
+              : "completed",
+        );
         write({ type: "done", data: workflowFinalState } as any);
         out.end();
         return;
@@ -1567,6 +1624,13 @@ export async function orchestrateGraphStream({
       });
       finished = true;
       runTraceSpan.end?.(runTraceEndArgs());
+      await finalizeVisibleResponse(
+        outcomeError
+          ? "failed"
+          : pendingRecordToken || naturalFinalState.awaitingHumanInput
+            ? "interrupted"
+            : "completed",
+      );
       write({ type: "done", data: naturalFinalState } as any);
       out.end();
       return;
@@ -1640,6 +1704,7 @@ export async function orchestrateGraphStream({
     fallbackRunSpan?.setAttributes?.({ "kortyx.run.cancelled": true });
     fallbackRunSpan?.end?.();
     write({ type: "cancelled", runId, reason: "Execution cancelled." });
+    await finalizeVisibleResponse("cancelled");
     write({ type: "done" });
     finished = true;
     out.end();
@@ -1801,6 +1866,15 @@ export async function orchestrateGraphStream({
         console.error("[execution:releaseLease]", serializeFailure(error));
       }
       response.dispose();
+      await finalizeVisibleResponse(
+        outcomeError
+          ? isExecutionCancelled(outcomeError)
+            ? "cancelled"
+            : "failed"
+          : pendingRecordToken || outcomeState.awaitingHumanInput
+            ? "interrupted"
+            : "completed",
+      );
       onOutcome?.({
         state: outcomeState,
         pending: pendingRecordToken
