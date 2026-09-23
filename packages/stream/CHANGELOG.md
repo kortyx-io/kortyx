@@ -1,5 +1,12 @@
 # @chatbot-core/types
 
+## [0.14.0](https://github.com/kortyx-io/kortyx/compare/stream-v0.13.2...stream-v0.14.0) (2026-09-23)
+
+
+### Features
+
+* **chat:** add server-side transcript lifecycle hooks ([#240](https://github.com/kortyx-io/kortyx/issues/240)) ([f84a674](https://github.com/kortyx-io/kortyx/commit/f84a6749819ee7bab343efb03f38eae743de0655))
+
 ## [0.13.2](https://github.com/kortyx-io/kortyx/compare/stream-v0.13.1...stream-v0.13.2) (2026-09-22)
 
 

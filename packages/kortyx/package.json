@@ -1,6 +1,6 @@
 {
   "name": "kortyx",
-  "version": "0.24.2",
+  "version": "0.25.0",
   "private": false,
   "description": "TypeScript framework for production AI agents with explicit workflows, provider-agnostic models, streaming, interrupts, and runtime persistence.",
   "keywords": [
