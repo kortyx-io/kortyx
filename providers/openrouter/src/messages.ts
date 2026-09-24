@@ -90,6 +90,7 @@ const toTool = (tool: KortyxToolDefinition): ChatFunctionTool => ({
     name: tool.name,
     ...(tool.description ? { description: tool.description } : {}),
     parameters: isRecord(tool.inputSchema) ? tool.inputSchema : {},
+    strict: false,
   },
 });
 
