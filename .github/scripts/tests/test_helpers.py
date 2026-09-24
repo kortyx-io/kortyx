@@ -383,6 +383,8 @@ with open(os.environ["TEST_LOG"], "a") as f: f.write(json.dumps({"args":sys.argv
             "--tag", "pr-42"]}])
 
     def test_canary_packer_records_verified_tarball(self):
+        (self.root / "package.json").write_text(json.dumps(
+            {"private": True, "packageManager": "pnpm@10.0.0"}))
         package = self.root / "packages/a"
         package.mkdir(parents=True)
         version = "1.0.1-canary.pr42.abcdef12.7.1"
