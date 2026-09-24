@@ -45,7 +45,7 @@ jobs:
       commit: ${{ steps.release.outputs.commit }}
       version: ${{ steps.release.outputs.version }}
     steps:
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           fetch-depth: 0
           ref: ${{ inputs.release_commit || github.event.repository.default_branch }}
@@ -70,12 +70,12 @@ jobs:
     outputs:
       digest: ${{ steps.image.outputs.digest }}
     steps:
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           fetch-depth: 0
           ref: ${{ needs.prepare.outputs.commit }}
       - name: Checkout workflow modules
-        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           ref: ${{ github.workflow_sha }}
           path: .github/automation
@@ -119,7 +119,7 @@ jobs:
       url: https://kortyx.io
     steps:
       - name: Checkout workflow modules
-        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           ref: ${{ github.workflow_sha }}
           path: .github/automation
