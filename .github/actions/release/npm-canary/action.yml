@@ -1,0 +1,85 @@
+name: Build npm canary artifacts
+description: Plan, version, build, and pack the Release Please-style package closure for a PR.
+
+inputs:
+  base-sha:
+    required: true
+    description: Pull request base commit.
+  head-sha:
+    required: true
+    description: Pull request head commit.
+  pr-number:
+    required: true
+    description: Pull request number.
+  run-number:
+    required: true
+    description: GitHub workflow run number.
+  run-attempt:
+    required: true
+    description: GitHub workflow run attempt.
+  dry-run:
+    required: false
+    default: "false"
+    description: Plan without modifying, building, or packing packages.
+  artifact-dir:
+    required: true
+    description: Destination for packed tarballs and their identity/checksum manifest.
+
+outputs:
+  packages:
+    value: ${{ steps.plan.outputs.packages }}
+    description: Planned npm package names and versions.
+  has_packages:
+    value: ${{ steps.plan.outputs.has_packages }}
+    description: Whether the PR affects public npm packages.
+  tag:
+    value: ${{ steps.plan.outputs.tag }}
+    description: PR-specific npm dist-tag.
+  studio:
+    value: ${{ steps.plan.outputs.studio }}
+    description: Whether Turbo marks Studio or its API as affected.
+  website:
+    value: ${{ steps.plan.outputs.website }}
+    description: Whether Turbo marks the website as affected.
+
+runs:
+  using: composite
+  steps:
+    - name: Detect Turbo package and application closure
+      shell: bash
+      env:
+        TURBO_SCM_BASE: ${{ inputs.base-sha }}
+        TURBO_SCM_HEAD: ${{ inputs.head-sha }}
+      run: pnpm turbo ls --affected --output=json > "$RUNNER_TEMP/canary-turbo-affected.json"
+    - name: Plan coordinated canary versions
+      id: plan
+      shell: bash
+      env:
+        ACTION_PATH: ${{ github.action_path }}
+        CANARY_APPLY: ${{ inputs.dry-run != 'true' }}
+        CANARY_BASE_SHA: ${{ inputs.base-sha }}
+        CANARY_HEAD_SHA: ${{ inputs.head-sha }}
+        CANARY_PR_NUMBER: ${{ inputs.pr-number }}
+        CANARY_RUN_NUMBER: ${{ inputs.run-number }}
+        CANARY_RUN_ATTEMPT: ${{ inputs.run-attempt }}
+        CANARY_PLAN_PATH: ${{ runner.temp }}/canary-plan.json
+        CANARY_TURBO_AFFECTED: ${{ runner.temp }}/canary-turbo-affected.json
+      run: node "$ACTION_PATH/plan.mjs"
+    - name: Build canary package closure
+      if: inputs.dry-run != 'true' && steps.plan.outputs.has_packages == 'true'
+      shell: bash
+      env:
+        CANARY_PACKAGES: ${{ steps.plan.outputs.packages }}
+      run: |-
+        mapfile -t package_names < <(node -e 'for (const pkg of JSON.parse(process.env.CANARY_PACKAGES)) console.log(pkg.name)')
+        filters=()
+        for package_name in "${package_names[@]}"; do filters+=(--filter "$package_name"); done
+        pnpm turbo run build "${filters[@]}"
+    - name: Pack and verify canary artifacts
+      if: inputs.dry-run != 'true' && steps.plan.outputs.has_packages == 'true'
+      shell: bash
+      env:
+        ACTION_PATH: ${{ github.action_path }}
+        CANARY_PLAN_PATH: ${{ runner.temp }}/canary-plan.json
+        CANARY_ARTIFACT_DIR: ${{ inputs.artifact-dir }}
+      run: node "$ACTION_PATH/pack.mjs"

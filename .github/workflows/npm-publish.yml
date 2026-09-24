@@ -7,13 +7,30 @@ on:
     branches: [main]
   workflow_dispatch:
     inputs:
+      operation:
+        description: Stable release recovery or an npm canary for an open PR
+        required: true
+        default: stable
+        type: choice
+        options:
+          - stable
+          - canary
       release_commit:
-        description: Exact release commit to resume (defaults to main)
+        description: Stable only — exact release commit to resume (defaults to main)
         required: false
         type: string
+      pr_number:
+        description: Canary only — same-repository pull request number
+        required: false
+        type: string
+      dry_run:
+        description: Canary only — calculate the publication plan without publishing
+        required: true
+        default: false
+        type: boolean
 
 concurrency:
-  group: release-orchestrator
+  group: ${{ github.event_name == 'workflow_dispatch' && inputs.operation == 'canary' && format('npm-canary-pr-{0}', inputs.pr_number) || 'release-orchestrator' }}
   cancel-in-progress: false
 
 permissions:
@@ -22,7 +39,7 @@ permissions:
 jobs:
   prepare:
     name: Select tested release
-    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    if: (github.event_name == 'workflow_dispatch' && inputs.operation == 'stable') || (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success')
     runs-on: ubuntu-latest
     outputs:
       commit: ${{ steps.release.outputs.commit }}
@@ -136,3 +153,176 @@ jobs:
       release_commit: ${{ needs.prepare.outputs.commit }}
       website_version: ${{ needs.prepare.outputs.website_version }}
     secrets: inherit
+
+  canary-resolve:
+    name: Resolve tested PR canary
+    if: github.event_name == 'workflow_dispatch' && inputs.operation == 'canary'
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    permissions:
+      checks: read
+      contents: read
+      pull-requests: read
+    outputs:
+      base_sha: ${{ steps.pr.outputs.base_sha }}
+      head_sha: ${{ steps.pr.outputs.head_sha }}
+      head_ref: ${{ steps.pr.outputs.head_ref }}
+      number: ${{ steps.pr.outputs.number }}
+    steps:
+      - name: Validate pull request selection
+        id: pr
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd
+        with:
+          script: |-
+            const raw = `${{ inputs.pr_number }}`.trim();
+            if (!/^\d+$/.test(raw)) throw new Error("Canary publication requires a numeric PR number.");
+            const number = Number(raw);
+            const { data: pr } = await github.rest.pulls.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: number,
+            });
+            if (pr.state !== "open") throw new Error(`PR #${number} is not open.`);
+            if (pr.base.ref !== context.payload.repository.default_branch)
+              throw new Error(`PR #${number} does not target ${context.payload.repository.default_branch}.`);
+            if (pr.head.repo?.full_name !== `${context.repo.owner}/${context.repo.repo}`)
+              throw new Error("Canaries can only be published from same-repository branches.");
+            core.setOutput("number", String(number));
+            core.setOutput("base_sha", pr.base.sha);
+            core.setOutput("head_sha", pr.head.sha);
+            core.setOutput("head_ref", pr.head.ref);
+            core.summary
+              .addHeading(`Canary request for PR #${number}`)
+              .addRaw(`Head: \`${pr.head.sha}\` (${pr.head.ref})`)
+              .write();
+      - name: Require successful pull request checks
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ steps.pr.outputs.number }}
+        run: gh pr checks "$PR_NUMBER" --repo "$GITHUB_REPOSITORY" --watch --fail-fast
+
+  canary-build:
+    name: Build npm canary artifacts
+    needs: canary-resolve
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    outputs:
+      packages: ${{ steps.canary.outputs.packages }}
+      has_packages: ${{ steps.canary.outputs.has_packages }}
+      tag: ${{ steps.canary.outputs.tag }}
+      studio: ${{ steps.canary.outputs.studio }}
+      website: ${{ steps.canary.outputs.website }}
+    steps:
+      - name: Checkout selected PR commit
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          fetch-depth: 0
+          ref: ${{ needs.canary-resolve.outputs.head_sha }}
+      - name: Checkout trusted workflow modules
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          ref: ${{ github.workflow_sha }}
+          path: .github/automation
+          sparse-checkout: .github
+          persist-credentials: false
+      - name: Setup Node and pnpm
+        uses: ./.github/automation/.github/actions/setup/node
+      - name: Plan and pack npm canaries
+        id: canary
+        uses: ./.github/automation/.github/actions/release/npm-canary
+        with:
+          base-sha: ${{ needs.canary-resolve.outputs.base_sha }}
+          head-sha: ${{ needs.canary-resolve.outputs.head_sha }}
+          pr-number: ${{ needs.canary-resolve.outputs.number }}
+          run-number: ${{ github.run_number }}
+          run-attempt: ${{ github.run_attempt }}
+          dry-run: ${{ inputs.dry_run }}
+          artifact-dir: ${{ runner.temp }}/npm-canary
+      - name: Upload immutable canary artifacts
+        if: inputs.dry_run == false && steps.canary.outputs.has_packages == 'true'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: npm-canary-pr-${{ needs.canary-resolve.outputs.number }}-${{ needs.canary-resolve.outputs.head_sha }}
+          path: ${{ runner.temp }}/npm-canary
+          if-no-files-found: error
+          retention-days: 7
+
+  canary-publish:
+    name: Publish and verify npm canaries
+    needs: [canary-resolve, canary-build]
+    if: inputs.dry_run == false && needs.canary-build.outputs.has_packages == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    environment: NPM Package Publishing
+    permissions:
+      contents: read
+      id-token: write
+      issues: write
+      pull-requests: write
+    outputs:
+      packages: ${{ steps.publish.outputs.packages }}
+    steps:
+      - name: Checkout trusted workflow modules
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          ref: ${{ github.workflow_sha }}
+          sparse-checkout: |
+            .github
+            .nvmrc
+          sparse-checkout-cone-mode: false
+          persist-credentials: false
+      - name: Setup Node without repository install
+        uses: ./.github/actions/setup/node
+        with:
+          registry-url: https://registry.npmjs.org
+          install: "false"
+      - name: Download immutable canary artifacts
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          name: npm-canary-pr-${{ needs.canary-resolve.outputs.number }}-${{ needs.canary-resolve.outputs.head_sha }}
+          path: ${{ runner.temp }}/npm-canary
+      - name: Publish npm canaries
+        id: publish
+        uses: ./.github/actions/release/npm-canary-publish
+        with:
+          artifact-dir: ${{ runner.temp }}/npm-canary
+          head-sha: ${{ needs.canary-resolve.outputs.head_sha }}
+          pr-number: ${{ needs.canary-resolve.outputs.number }}
+      - name: Add installation commands to the pull request
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd
+        env:
+          CANARY_PACKAGES: ${{ steps.publish.outputs.packages }}
+          CANARY_TAG: ${{ steps.publish.outputs.tag }}
+          PR_NUMBER: ${{ needs.canary-resolve.outputs.number }}
+          HEAD_SHA: ${{ needs.canary-resolve.outputs.head_sha }}
+        with:
+          script: |-
+            const packages = JSON.parse(process.env.CANARY_PACKAGES);
+            const commands = packages
+              .map(pkg => `pnpm add -E ${pkg.name}@${pkg.version}`)
+              .join("\n");
+            const marker = "<!-- kortyx-npm-canary -->";
+            const body = `${marker}\n### npm canary\n\nPublished from \`${process.env.HEAD_SHA}\` with dist-tag \`${process.env.CANARY_TAG}\`.\n\n\`\`\`sh\n${commands}\n\`\`\``;
+            const comments = await github.paginate(github.rest.issues.listComments, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: Number(process.env.PR_NUMBER),
+            });
+            const existing = comments.find(comment => comment.body?.includes(marker));
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existing.id,
+                body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: Number(process.env.PR_NUMBER),
+                body,
+              });
+            }

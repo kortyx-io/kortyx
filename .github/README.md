@@ -28,7 +28,7 @@ workflows in `workflows/shared/`.
 | --- | --- | --- |
 | `ci.yml` | CI | Pull requests and pushes to main |
 | `release-prepare.yml` | Release / Prepare PR | Every push to main, or manual |
-| `npm-publish.yml` | Release / Orchestrate | Successful main CI for a release commit, or manual resume |
+| `npm-publish.yml` | Release / Orchestrate | Successful main CI, manual stable recovery, or a manually selected PR canary |
 | `release-studio-images.yml` | Release / Studio Images | Called after npm readiness, or manual recovery with an existing tag |
 | `release-studio-recover.yml` | Release / Studio Recovery | Manual, existing tag and recorded digests |
 | `website-preview.yml` | Website / Preview | Same-repository PR changes and closure |
@@ -47,6 +47,29 @@ trusted-publisher configuration change is required. The workflow now creates tag
 publishes changed packages, and waits until every exact version and `latest` tag are
 visible before it calls the Studio and website release workflows. See
 [npm trusted publishing](https://docs.npmjs.com/trusted-publishers/).
+
+## Pull request canaries
+
+Run `Release / Orchestrate` manually with operation `canary`, an open
+same-repository PR number, and optionally `dry_run`. The workflow waits for that
+PR's checks, freezes its head SHA, and applies the same managed Node workspace
+dependency-closure rules configured for Release Please. Directly changed public
+packages and their publishable dependents receive coordinated versions such as
+`0.2.1-canary.pr241.419a45ee.123.1`.
+
+PR code builds and packs without npm authority. The gated publisher downloads the
+resulting tarballs, verifies their identities and SHA-256 checksums, publishes them
+with provenance under the PR-specific `pr-<number>` dist-tag, waits for registry
+propagation, and resolves every exact version in a clean consumer. It then creates
+or updates a PR comment containing exact `pnpm add -E` commands. Canary runs never
+write package versions, changelogs, Release Please manifests, Git tags, GitHub
+releases, or npm's `latest` tag.
+
+Applications keep their native preview artifacts. `Website / Preview` remains the
+automatic website canary and owns its Coolify lifecycle. Studio and API changes are
+reported in the canary plan but are not published to npm; their eventual preview
+lane should build immutable PR/SHA container images without touching staging,
+production, or the Studio update channel.
 
 ## Shared validation
 

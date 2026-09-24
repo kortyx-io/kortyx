@@ -1,0 +1,55 @@
+name: Publish npm canary artifacts
+description: Verify and publish prebuilt canary tarballs without executing pull request build code.
+
+inputs:
+  artifact-dir:
+    required: true
+    description: Directory containing canary-manifest.json and package tarballs.
+  head-sha:
+    required: true
+    description: Expected pull request head commit.
+  pr-number:
+    required: true
+    description: Expected pull request number.
+
+outputs:
+  packages:
+    value: ${{ steps.publish.outputs.packages }}
+    description: Published package names and versions.
+  tag:
+    value: ${{ steps.publish.outputs.tag }}
+    description: Published PR-specific npm dist-tag.
+
+runs:
+  using: composite
+  steps:
+    - name: Publish prebuilt canary packages
+      id: publish
+      shell: bash
+      env:
+        ACTION_PATH: ${{ github.action_path }}
+        CANARY_ARTIFACT_DIR: ${{ inputs.artifact-dir }}
+        CANARY_HEAD_SHA: ${{ inputs.head-sha }}
+        CANARY_PR_NUMBER: ${{ inputs.pr-number }}
+      run: |-
+        unset NODE_AUTH_TOKEN
+        npm config delete //registry.npmjs.org/:_authToken --workspaces=false || true
+        npm config delete always-auth --workspaces=false || true
+        node "$ACTION_PATH/../npm-canary/publish.mjs"
+    - name: Wait for npm registry availability
+      shell: bash
+      env:
+        ACTION_PATH: ${{ github.action_path }}
+        RELEASE_PACKAGES: ${{ steps.publish.outputs.packages }}
+        RELEASE_DIST_TAG: ${{ steps.publish.outputs.tag }}
+      run: node "$ACTION_PATH/../npm-publish/verify-registry.mjs"
+    - name: Resolve published canaries in a clean consumer
+      shell: bash
+      env:
+        CANARY_PACKAGES: ${{ steps.publish.outputs.packages }}
+      run: |-
+        consumer_dir=$(mktemp -d)
+        cd "$consumer_dir"
+        npm init --yes >/dev/null
+        mapfile -t specs < <(node -e 'for (const pkg of JSON.parse(process.env.CANARY_PACKAGES)) console.log(`${pkg.name}@${pkg.version}`)')
+        npm install --save-exact --ignore-scripts "${specs[@]}"
