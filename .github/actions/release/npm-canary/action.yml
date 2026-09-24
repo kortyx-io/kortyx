@@ -23,7 +23,7 @@ inputs:
     description: Plan without modifying, building, or packing packages.
   artifact-dir:
     required: true
-    description: Destination for packed tarballs and their signed-input manifest.
+    description: Destination for packed tarballs and their identity/checksum manifest.
 
 outputs:
   packages:
