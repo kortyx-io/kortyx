@@ -49,7 +49,7 @@ jobs:
       website_version: ${{ steps.release.outputs.website_version }}
     steps:
       - name: Checkout tested commit
-        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           fetch-depth: 0
           ref: ${{ inputs.release_commit || github.event.workflow_run.head_sha || github.event.repository.default_branch }}
@@ -69,12 +69,12 @@ jobs:
       pull-requests: read
     steps:
       - name: Checkout release commit
-        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           fetch-depth: 0
           ref: ${{ needs.prepare.outputs.commit }}
       - name: Checkout workflow modules
-        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           ref: ${{ github.workflow_sha }}
           path: .github/automation
@@ -99,12 +99,12 @@ jobs:
       id-token: write
     steps:
       - name: Checkout release commit
-        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           fetch-depth: 0
           ref: ${{ needs.prepare.outputs.commit }}
       - name: Checkout workflow modules
-        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           ref: ${{ github.workflow_sha }}
           path: .github/automation
@@ -171,7 +171,7 @@ jobs:
     steps:
       - name: Validate pull request selection
         id: pr
-        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3
         with:
           script: |-
             const raw = `${{ inputs.pr_number }}`.trim();
@@ -216,12 +216,12 @@ jobs:
       website: ${{ steps.canary.outputs.website }}
     steps:
       - name: Checkout selected PR commit
-        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           fetch-depth: 0
           ref: ${{ needs.canary-resolve.outputs.head_sha }}
       - name: Checkout trusted workflow modules
-        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           ref: ${{ github.workflow_sha }}
           path: .github/automation
@@ -265,7 +265,7 @@ jobs:
       packages: ${{ steps.publish.outputs.packages }}
     steps:
       - name: Checkout trusted workflow modules
-        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           ref: ${{ github.workflow_sha }}
           sparse-checkout: |
@@ -291,7 +291,7 @@ jobs:
           head-sha: ${{ needs.canary-resolve.outputs.head_sha }}
           pr-number: ${{ needs.canary-resolve.outputs.number }}
       - name: Add installation commands to the pull request
-        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3
         env:
           CANARY_PACKAGES: ${{ steps.publish.outputs.packages }}
           CANARY_TAG: ${{ steps.publish.outputs.tag }}
