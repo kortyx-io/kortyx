@@ -1,6 +1,7 @@
 import { packageMetadata } from "./registry.mjs";
 
 const packages = JSON.parse(process.env.RELEASE_PACKAGES || "[]");
+const distTag = process.env.RELEASE_DIST_TAG || "latest";
 if (packages.length === 0) {
   console.log("No npm packages need registry verification.");
   process.exit(0);
@@ -16,9 +17,9 @@ while (pending.size > 0 && Date.now() < deadline) {
       const metadata = await packageMetadata(name);
       if (
         metadata?.versions?.[version] &&
-        metadata["dist-tags"]?.latest === version
+        metadata["dist-tags"]?.[distTag] === version
       ) {
-        console.log(`Verified ${name}@${version} and its latest dist-tag.`);
+        console.log(`Verified ${name}@${version} and its ${distTag} dist-tag.`);
         pending.delete(name);
       }
     } catch {
@@ -37,7 +38,7 @@ while (pending.size > 0 && Date.now() < deadline) {
 
 if (pending.size > 0) {
   throw new Error(
-    `npm registry did not expose the expected versions and latest tags: ${[
+    `npm registry did not expose the expected versions and ${distTag} tags: ${[
       ...pending,
     ]
       .map(([name, version]) => `${name}@${version}`)
