@@ -2,6 +2,49 @@ import { describe, expect, it } from "vitest";
 import { createChatRequest, toMessages } from "../src/messages";
 
 describe("OpenRouter message mapping", () => {
+  it("disables strict mode for mapped tool definitions", () => {
+    const request = createChatRequest(
+      "openai/gpt-5.4-mini",
+      [{ role: "user", content: "Find engineering jobs in Spain" }],
+      {
+        tools: [
+          {
+            name: "list_jobs",
+            inputSchema: {
+              type: "object",
+              properties: {
+                query: { type: "string" },
+                city: { type: "string" },
+              },
+              required: ["query"],
+              additionalProperties: false,
+            },
+          },
+        ],
+      },
+      false,
+    );
+
+    expect(request.tools).toEqual([
+      {
+        type: "function",
+        function: {
+          name: "list_jobs",
+          parameters: {
+            type: "object",
+            properties: {
+              query: { type: "string" },
+              city: { type: "string" },
+            },
+            required: ["query"],
+            additionalProperties: false,
+          },
+          strict: false,
+        },
+      },
+    ]);
+  });
+
   it("maps normalized options and preserves OpenRouter routing controls", () => {
     const request = createChatRequest(
       "anthropic/claude-sonnet-4.6",
