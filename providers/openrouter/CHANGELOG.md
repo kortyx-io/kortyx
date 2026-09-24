@@ -1,5 +1,12 @@
 # @kortyx/openrouter
 
+## [0.2.1](https://github.com/kortyx-io/kortyx/compare/openrouter-v0.2.0...openrouter-v0.2.1) (2026-09-24)
+
+
+### Bug Fixes
+
+* **openrouter:** disable strict tool schemas by default ([#241](https://github.com/kortyx-io/kortyx/issues/241)) ([ef3e53a](https://github.com/kortyx-io/kortyx/commit/ef3e53ac4f76cea84f54eb0e27ab787dd62eedc6))
+
 ## [0.2.0](https://github.com/kortyx-io/kortyx/compare/openrouter-v0.1.0...openrouter-v0.2.0) (2026-09-23)
 
 
