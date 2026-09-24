@@ -12,7 +12,7 @@
   "providers/deepseek": "0.4.4",
   "providers/groq": "0.4.4",
   "providers/openai": "0.5.4",
-  "providers/openrouter": "0.2.0",
+  "providers/openrouter": "0.2.1",
   "providers/anthropic": "0.4.4",
   "providers/mistral": "0.4.4",
   "providers/google": "0.6.4",
