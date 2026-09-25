@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.10.0](https://github.com/kortyx-io/kortyx/compare/studio-v0.9.3...studio-v0.10.0) (2026-09-25)
+
+
+### Features
+
+* **studio:** improve run inspection and telemetry resilience ([#244](https://github.com/kortyx-io/kortyx/issues/244)) ([f03dfdc](https://github.com/kortyx-io/kortyx/commit/f03dfdcb32dee26023c0f4ea1af8708da623673a))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * devDependencies
+    * @kortyx/telemetry bumped to 0.10.0
+
 ## [0.9.3](https://github.com/kortyx-io/kortyx/compare/studio-v0.9.2...studio-v0.9.3) (2026-09-23)
 
 
