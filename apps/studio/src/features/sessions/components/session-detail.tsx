@@ -198,7 +198,7 @@ function SessionActivity({
                 <div className="flex flex-wrap items-center gap-2">
                   <DetailLink
                     href={studioDetailHref("runs", run.id, { tab: "feedback" })}
-                    aria-label={`View feedback for run ${run.id}`}
+                    aria-label={`View feedback for run ${run.id}. ${run.feedback?.positive ?? 0} positive and ${run.feedback?.negative ?? 0} negative user ratings`}
                   >
                     <FeedbackBadge feedback={run.feedback} />
                   </DetailLink>

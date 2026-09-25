@@ -13,7 +13,7 @@ export function DetailPage({
 }) {
   return (
     <div className="flex h-full min-h-0 w-full flex-col overflow-hidden rounded-xl border bg-background shadow-sm">
-      <header className="flex h-14 shrink-0 items-center gap-3 border-b px-4">
+      <header className="sr-only">
         <div className="min-w-0 flex-1">
           <h1 aria-label={title} className="min-w-0 text-sm font-semibold">
             <OverflowText ariaLabel={title}>{title}</OverflowText>

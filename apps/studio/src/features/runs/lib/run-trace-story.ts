@@ -70,7 +70,10 @@ export type TimelineScale = {
   toPercent: (timeMs: number) => number;
 };
 
-export function buildTraceStory(events: StudioDetailEvent[]): TraceItem[] {
+export function buildTraceStory(
+  events: StudioDetailEvent[],
+  runFinished = false,
+): TraceItem[] {
   const ordered = [...events].sort(
     (first, second) =>
       Date.parse(first.occurredAt) - Date.parse(second.occurredAt),
@@ -159,7 +162,10 @@ export function buildTraceStory(events: StudioDetailEvent[]): TraceItem[] {
         ? null
         : eventDuration(event, terminal);
     const phase = phaseNumberAt(event.occurredAt);
-    const baseStatus = spanStatus(terminal, laterExecutionExists(event));
+    const baseStatus = spanStatus(
+      terminal,
+      laterExecutionExists(event) || runFinished,
+    );
 
     if (isExecution) {
       const phaseNumber = executions.indexOf(event) + 1;
@@ -242,6 +248,7 @@ export function buildTraceStory(events: StudioDetailEvent[]): TraceItem[] {
           totalDurationMs,
           timing,
           baseStatus,
+          generation,
         ),
         kind: "generation",
         status: baseStatus,
@@ -805,13 +812,24 @@ function generationDescription(
   durationMs: number | null,
   timing: GenerationTiming,
   status: TraceStatus,
+  generation?: StudioDetailEvent,
 ) {
   if (status === "failed") return `${provider} provider call failed`;
   if (status === "cancelled") return `${provider} provider call cancelled`;
+  if (status === "incomplete")
+    return `${provider} provider call · completion not captured`;
   if (!timing.streaming)
     return `${provider} non-streaming call${durationMs === null ? "" : ` · ${formatDurationMs(durationMs)}`}`;
-  if (timing.ttftMs === null)
-    return `${provider} provider call${durationMs === null ? "" : ` · ${formatDurationMs(durationMs)}`} · TTFT not captured`;
+  if (timing.ttftMs === null) {
+    const reason = asRecord(generation?.payload.finishReason);
+    const detail =
+      reason.unified === "tool-calls"
+        ? "tool call · no text TTFT"
+        : durationMs === null
+          ? "awaiting first text chunk"
+          : "no text TTFT";
+    return `${provider} provider call${durationMs === null ? "" : ` · ${formatDurationMs(durationMs)}`} · ${detail}`;
+  }
   return `TTFT ${formatDurationMs(timing.ttftMs)} · output stream ${formatDurationMs(timing.streamDurationMs ?? 0)}${timing.postStreamDurationMs ? ` · finalize ${formatDurationMs(timing.postStreamDurationMs)}` : ""}`;
 }
 

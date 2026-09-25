@@ -17,6 +17,35 @@ export const createDelivery = (args: {
   let retryAttempt = 0;
   let timer: ReturnType<typeof setTimeout> | undefined;
   let inFlight: Promise<{ retryDelay: number | null }> | undefined;
+  const sendBatch = async (events: KortyxTelemetryEvent[]): Promise<void> => {
+    try {
+      await args.send(events);
+    } catch (error) {
+      const status =
+        error instanceof TelemetryHttpError ? error.status : undefined;
+      // One invalid event (or an oversized request) must not discard the other
+      // lifecycle facts in the same flush. Event IDs make a later retry safe.
+      if (
+        events.length > 1 &&
+        (status === 400 || status === 413 || status === 422)
+      ) {
+        const middle = Math.floor(events.length / 2);
+        await sendBatch(events.slice(0, middle));
+        await sendBatch(events.slice(middle));
+        return;
+      }
+      if (
+        events.length === 1 &&
+        status !== undefined &&
+        status !== 429 &&
+        status < 500
+      ) {
+        permanentFailures += 1;
+        return;
+      }
+      throw error;
+    }
+  };
   const schedule = (delay = args.flushIntervalMs) => {
     if (timer || inFlight || queue.length === 0) return;
     timer = setTimeout(() => {
@@ -40,7 +69,7 @@ export const createDelivery = (args: {
       const events = queue.splice(0);
       const current = (async (): Promise<{ retryDelay: number | null }> => {
         try {
-          await args.send(events);
+          await sendBatch(events);
           retryAttempt = 0;
           return { retryDelay: null };
         } catch (error) {

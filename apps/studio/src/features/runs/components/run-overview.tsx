@@ -204,7 +204,7 @@ function SignalCard({
   return (
     <div className="rounded-lg border bg-muted/15 p-3.5">
       <div className="flex items-center gap-2 text-xs text-muted-foreground">
-        <Icon className="size-3.5" />
+        <Icon aria-hidden="true" className="size-3.5" />
         <span>{label}</span>
         <InfoTooltip label={`Explain ${label}`}>{explanation}</InfoTooltip>
       </div>

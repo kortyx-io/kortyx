@@ -21,29 +21,32 @@ export function DetailHeader({
     <div className="@container shrink-0 border-b">
       <div
         data-responsive-surface="detail-header"
-        className="min-w-0 px-4 py-4 @lg:px-6 @lg:py-5"
+        className="min-w-0 px-4 py-3 @lg:px-6 @lg:py-4"
       >
-        <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
-          {eyebrow}
-        </p>
-        <div className="mt-1 flex min-w-0 flex-wrap items-center gap-2">
+        <div className="flex min-w-0 items-center justify-between gap-2">
+          <p className="text-[10px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
+            {eyebrow}
+          </p>
+          {status}
+        </div>
+        <div className="mt-1 flex min-w-0 items-center gap-2">
           <h2
             aria-label={title}
-            className="min-w-0 max-w-full font-mono text-lg font-semibold"
+            title={title}
+            className="min-w-0 max-w-full truncate font-mono text-sm font-semibold @lg:text-base"
           >
             <OverflowText ariaLabel={title}>{title}</OverflowText>
           </h2>
-          {status}
         </div>
-        <div className="mt-1 min-w-0 break-words text-sm text-muted-foreground">
+        <div className="mt-0.5 min-w-0 line-clamp-2 break-words text-xs leading-4 text-muted-foreground">
           {description}
         </div>
         {metrics && (
-          <div className="mt-4 grid min-w-0 grid-cols-2 gap-2 @2xl:flex @2xl:flex-wrap">
+          <div className="mt-2 flex min-w-0 gap-0 overflow-x-auto rounded-md border bg-muted/20">
             {metrics}
           </div>
         )}
-        {alert && <div className="mt-4">{alert}</div>}
+        {alert && <div className="mt-2">{alert}</div>}
       </div>
     </div>
   );
@@ -59,12 +62,12 @@ export function Metric({
   title?: string;
 }) {
   return (
-    <div className="min-w-0 rounded-md border bg-muted/25 px-3 py-2 @2xl:min-w-24">
-      <p className="text-[10px] uppercase tracking-wide text-muted-foreground">
+    <div className="min-w-20 shrink-0 border-r px-3 py-1.5 last:border-r-0 @2xl:min-w-24">
+      <p className="text-[9px] uppercase tracking-wide text-muted-foreground">
         {label}
       </p>
       <div
-        className="mt-0.5 min-w-0 truncate font-mono text-xs font-medium"
+        className="min-w-0 truncate font-mono text-[11px] font-medium"
         title={title}
       >
         {value}

@@ -14,7 +14,9 @@ import {
 import { DetailTabs } from "@/components/detail/detail-tabs";
 import { RunFeedback } from "@/features/feedback/components/run-feedback";
 import { RunEvents } from "@/features/runs/components/run-events";
+import { RunModelIO } from "@/features/runs/components/run-model-io";
 import { RunOverview } from "@/features/runs/components/run-overview";
+import { RunTopology } from "@/features/runs/components/run-topology";
 import {
   isControlFlowInterrupt,
   RunTrace,
@@ -168,8 +170,19 @@ export function RunDetail({ detail }: { detail: StudioRunDetailResponse }) {
                   events={events}
                   startedAt={run.startedAt}
                   focusFailure={run.status === "failed"}
+                  runFinished={run.status !== "running"}
                 />
               ),
+            },
+            {
+              id: "topology",
+              label: "Topology",
+              content: <RunTopology detail={detail} />,
+            },
+            {
+              id: "model-io",
+              label: "Model I/O",
+              content: <RunModelIO events={events} />,
             },
             {
               id: "summary",

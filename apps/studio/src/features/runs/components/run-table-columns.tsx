@@ -1,6 +1,11 @@
 import { CirclePause, Clock3 } from "lucide-react";
 import type { DataTableColumn } from "@/components/data-table";
 import { DetailLink } from "@/components/detail/detail-link";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { FeedbackBadge } from "@/features/feedback/components/feedback-badge";
 import { effectiveInterruptStatus } from "@/features/interrupts/lib/interrupt-presentation";
 import {
@@ -159,7 +164,7 @@ export function createRunColumns({
           <DetailLink
             href={studioDetailHref("runs", run.id, { tab: "feedback" })}
             onClick={(event) => event.stopPropagation()}
-            aria-label={`View feedback for run ${run.id}`}
+            aria-label={`View feedback for run ${run.id}. ${run.feedback?.positive ?? 0} positive and ${run.feedback?.negative ?? 0} negative user ratings`}
           >
             <FeedbackBadge feedback={run.feedback} />
           </DetailLink>
@@ -240,37 +245,59 @@ export function createRunColumns({
       defaultWidth: 165,
       render: (run) => (
         <div className="flex min-w-0 items-center gap-1.5 overflow-hidden text-xs">
-          <span
-            role="img"
-            aria-label={
-              run.provider === "unknown"
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                type="button"
+                onClick={(event) => event.stopPropagation()}
+                aria-label={
+                  run.provider === "unknown"
+                    ? "Provider not captured"
+                    : `${run.provider} provider`
+                }
+                className={cn(
+                  "flex size-4 shrink-0 items-center justify-center rounded-full text-[9px] font-bold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                  run.provider.toLowerCase() === "openai"
+                    ? "bg-emerald-500/15 text-emerald-700"
+                    : run.provider.toLowerCase() === "anthropic"
+                      ? "bg-orange-500/15 text-orange-700"
+                      : run.provider.toLowerCase() === "google"
+                        ? "bg-blue-500/15 text-blue-700"
+                        : "bg-muted text-muted-foreground",
+                )}
+              >
+                {run.provider.toLowerCase() === "openai"
+                  ? "O"
+                  : run.provider.toLowerCase() === "anthropic"
+                    ? "A"
+                    : run.provider.toLowerCase() === "google"
+                      ? "G"
+                      : "?"}
+              </button>
+            </TooltipTrigger>
+            <TooltipContent>
+              {run.provider === "unknown"
                 ? "Provider not captured"
-                : run.provider
-            }
-            className={cn(
-              "flex size-4 shrink-0 items-center justify-center rounded-full text-[9px] font-bold",
-              run.provider.toLowerCase() === "openai"
-                ? "bg-emerald-500/15 text-emerald-700"
-                : run.provider.toLowerCase() === "anthropic"
-                  ? "bg-orange-500/15 text-orange-700"
-                  : run.provider.toLowerCase() === "google"
-                    ? "bg-blue-500/15 text-blue-700"
-                    : "bg-muted text-muted-foreground",
-            )}
-          >
-            {run.provider.toLowerCase() === "openai"
-              ? "O"
-              : run.provider.toLowerCase() === "anthropic"
-                ? "A"
-                : run.provider.toLowerCase() === "google"
-                  ? "G"
-                  : "?"}
-          </span>
+                : `${run.provider} provider`}
+            </TooltipContent>
+          </Tooltip>
           <span className="min-w-0 truncate">{run.model}</span>
           {run.models && (
-            <span className="shrink-0 text-muted-foreground">
-              +{run.models}
-            </span>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  type="button"
+                  onClick={(event) => event.stopPropagation()}
+                  aria-label={`${run.models} additional models`}
+                  className="shrink-0 text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  +{run.models}
+                </button>
+              </TooltipTrigger>
+              <TooltipContent>
+                {run.models} additional models used in this run
+              </TooltipContent>
+            </Tooltip>
           )}
         </div>
       ),

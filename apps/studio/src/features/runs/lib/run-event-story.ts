@@ -16,9 +16,18 @@ export function buildEventStory(
       event.type === "span.started" && event.payload.name === "kortyx.run",
   );
   const parentBySpan = new Map<string, string | null>();
+  const modelBySpan = new Map<string, string>();
   for (const event of ordered) {
     if (event.spanId && !parentBySpan.has(event.spanId)) {
       parentBySpan.set(event.spanId, event.parentSpanId);
+    }
+    if (
+      event.type === "span.started" &&
+      event.payload.name === "runReasonEngine" &&
+      event.spanId
+    ) {
+      const model = asString(asRecord(event.payload.attributes).modelId);
+      if (model) modelBySpan.set(event.spanId, model);
     }
   }
   const cancelledSpans = new Set(
@@ -95,7 +104,12 @@ export function buildEventStory(
           : STATE_LABELS[state],
       title: interruptedEnd
         ? `${spanSubject(event, asString(event.payload.name), "Model")} ended after pause`
-        : eventTitle(event, phase, cancelledEnd),
+        : eventTitle(
+            event,
+            phase,
+            cancelledEnd,
+            event.spanId ? modelBySpan.get(event.spanId) : undefined,
+          ),
       description: context,
     };
   });
@@ -105,11 +119,15 @@ function eventTitle(
   event: StudioDetailEvent,
   phase: number | null,
   cancelledEnd = false,
+  linkedModel?: string,
 ): string {
   const name = asString(event.payload.name);
   const attributes = asRecord(event.payload.attributes);
   const model =
-    asString(event.payload.model) ?? asString(attributes.modelId) ?? "Model";
+    asString(event.payload.model) ??
+    asString(attributes.modelId) ??
+    linkedModel ??
+    "Model";
   const tool =
     asString(event.payload.name) ?? asString(event.payload.tool) ?? "Tool";
 

@@ -24,6 +24,11 @@ import { PayloadViewer } from "@/components/detail/payload-viewer";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { OverflowText } from "@/components/ui/overflow-tooltip";
 import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import {
   buildTimelineScale,
   buildTraceStory,
   isControlFlowInterrupt,
@@ -47,17 +52,23 @@ const traceQueryParsers = {
   invocationId: parseAsString.withDefault(""),
   branchId: parseAsString.withDefault(""),
 };
+const DEPTH_GUIDES = ["one", "two", "three", "four"];
 
 export function RunTrace({
   events,
   startedAt,
   focusFailure,
+  runFinished = false,
 }: {
   events: StudioDetailEvent[];
   startedAt: string;
   focusFailure: boolean;
+  runFinished?: boolean;
 }) {
-  const items = useMemo(() => buildTraceStory(events), [events]);
+  const items = useMemo(
+    () => buildTraceStory(events, runFinished),
+    [events, runFinished],
+  );
   const scale = useMemo(
     () => buildTimelineScale(events, startedAt),
     [events, startedAt],
@@ -251,150 +262,179 @@ function TraceRow({
       : `Duration ${formatDurationMs(item.durationMs)}`;
 
   return (
-    <button
-      type="button"
-      aria-label={`${item.label}. ${item.description}. ${statusLabel(item.status)}. ${durationLabel}`}
-      aria-expanded={selected}
-      aria-haspopup="dialog"
-      onClick={onSelect}
-      className={cn(
-        "grid w-full grid-cols-[minmax(0,1fr)_76px] items-center gap-3 rounded-md px-2 py-2 text-left transition-colors hover:bg-muted/70 @2xl:grid-cols-[minmax(240px,0.8fr)_minmax(220px,1fr)_76px]",
-        selected && "bg-muted",
-        item.kind === "execution" && "mt-1 border bg-muted/35",
-      )}
-    >
-      <span
-        className="flex min-w-0 items-start gap-2"
-        style={{ paddingLeft: `${Math.min(item.depth, 4) * 14}px` }}
-      >
-        <span
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <button
+          type="button"
+          aria-label={`${item.label}. ${item.description}. ${statusLabel(item.status)}. ${durationLabel}${item.modelCalls > 0 ? `. ${item.modelCalls} model ${item.modelCalls === 1 ? "call" : "calls"} in this operation` : ""}`}
+          aria-expanded={selected}
+          aria-haspopup="dialog"
+          onClick={onSelect}
           className={cn(
-            "mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-md",
-            appearance.iconBackground,
+            "grid w-full grid-cols-[minmax(0,1fr)_76px] items-center gap-3 rounded-md px-2 py-2 text-left transition-colors hover:bg-muted/70 @2xl:grid-cols-[minmax(240px,0.8fr)_minmax(220px,1fr)_76px]",
+            selected && "bg-muted",
+            item.kind === "execution" && "mt-1 border bg-muted/35",
           )}
         >
-          <Icon className={cn("size-3", appearance.iconColor)} />
-        </span>
-        <span className="min-w-0 flex-1">
-          <span className="flex min-w-0 items-center gap-1.5">
-            <OverflowText
-              ariaLabel={item.label}
+          <span
+            className="relative flex min-w-0 items-start gap-2"
+            style={{ paddingLeft: `${Math.min(item.depth, 4) * 14}px` }}
+          >
+            {DEPTH_GUIDES.slice(0, item.depth).map((guide, level) => (
+              <span
+                key={guide}
+                aria-hidden="true"
+                className="pointer-events-none absolute inset-y-[-8px] border-l border-border/70"
+                style={{ left: `${level * 14 + 7}px` }}
+              />
+            ))}
+            <span
               className={cn(
-                "flex-1 text-xs font-medium",
-                (item.status === "failed" || item.status === "fault") &&
-                  "text-red-700 dark:text-red-400",
-                (item.status === "interrupted" || item.status === "waiting") &&
-                  "text-amber-700 dark:text-amber-400",
+                "mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-md",
+                appearance.iconBackground,
               )}
             >
-              {item.label}
-            </OverflowText>
-            {item.kind === "tool" && (
-              <span className="rounded bg-muted px-1.5 py-0.5 text-[9px]">
-                {item.status === "completed"
-                  ? "Succeeded"
-                  : statusLabel(item.status)}
+              <Icon
+                aria-hidden="true"
+                className={cn("size-3", appearance.iconColor)}
+              />
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="flex min-w-0 items-center gap-1.5">
+                <OverflowText
+                  ariaLabel={item.label}
+                  className={cn(
+                    "flex-1 text-xs font-medium",
+                    (item.status === "failed" || item.status === "fault") &&
+                      "text-red-700 dark:text-red-400",
+                    (item.status === "interrupted" ||
+                      item.status === "waiting") &&
+                      "text-amber-700 dark:text-amber-400",
+                  )}
+                >
+                  {item.label}
+                </OverflowText>
+                {item.kind === "tool" && (
+                  <span
+                    className={cn(
+                      "rounded px-1.5 py-0.5 text-[9px]",
+                      item.status === "failed" || item.status === "fault"
+                        ? "bg-red-500/10 text-red-700 dark:text-red-400"
+                        : "bg-muted",
+                    )}
+                  >
+                    {item.status === "completed"
+                      ? "Succeeded"
+                      : statusLabel(item.status)}
+                  </span>
+                )}
+                {item.modelCalls > 0 && (
+                  <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-violet-500/10 px-1.5 py-0.5 text-[9px] text-violet-700 dark:text-violet-400">
+                    <Bot aria-hidden="true" className="size-2.5" />
+                    {item.modelCalls}
+                  </span>
+                )}
               </span>
-            )}
-            {item.modelCalls > 0 && (
-              <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-violet-500/10 px-1.5 py-0.5 text-[9px] text-violet-700 dark:text-violet-400">
-                <Bot className="size-2.5" />
-                {item.modelCalls}
-              </span>
-            )}
+              <OverflowText
+                ariaLabel={item.description}
+                className="mt-0.5 text-[9px] text-muted-foreground"
+              >
+                {item.description}
+              </OverflowText>
+            </span>
           </span>
-          <OverflowText
-            ariaLabel={item.description}
-            className="mt-0.5 text-[9px] text-muted-foreground"
-          >
-            {item.description}
-          </OverflowText>
-        </span>
-      </span>
 
-      <span className="relative hidden h-7 overflow-hidden rounded bg-muted/45 @2xl:block">
-        {scale.gaps.map((gap) => (
-          <span
-            key={gap.startMs}
-            aria-hidden="true"
-            title={`${formatDurationMs(gap.actualDurationMs)} without telemetry; compressed on this axis`}
-            className="absolute inset-y-0 border-x border-dashed border-amber-500/35 bg-amber-500/8"
-            style={{
-              left: `${scale.toPercent(gap.startMs)}%`,
-              width: `${Math.max(0.8, scale.toPercent(gap.endMs) - scale.toPercent(gap.startMs))}%`,
-            }}
-          />
-        ))}
-        {generationTiming &&
-        generationTiming.ttftMs !== null &&
-        item.durationMs ? (
-          <span
-            role="img"
-            aria-label={`Waiting for first token ${formatDurationMs(generationTiming.ttftMs)}, first to last output chunk ${formatDurationMs(generationTiming.streamDurationMs ?? 0)}, finalizing response ${formatDurationMs(generationTiming.postStreamDurationMs ?? 0)}`}
-            className="absolute top-1/2 flex h-2 -translate-y-1/2 overflow-hidden rounded-full"
-            style={{
-              left: `${left}%`,
-              width: `max(3px, ${Math.min(width, 100 - left)}%)`,
-            }}
-          >
-            <span
-              aria-hidden="true"
-              title={`Waiting for first token: ${formatDurationMs(generationTiming.ttftMs)}`}
-              className="h-full bg-amber-500"
-              style={{
-                width: `${percentOf(generationTiming.ttftMs, item.durationMs)}%`,
-              }}
-            />
-            <span
-              aria-hidden="true"
-              title={`First to last output chunk: ${formatDurationMs(generationTiming.streamDurationMs ?? 0)}`}
-              className="h-full bg-violet-500"
-              style={{
-                width: `${percentOf(generationTiming.streamDurationMs ?? 0, item.durationMs)}%`,
-              }}
-            />
-            <span
-              aria-hidden="true"
-              title={`Finalizing response: ${formatDurationMs(generationTiming.postStreamDurationMs ?? 0)}`}
-              className="h-full flex-1 bg-slate-400 dark:bg-slate-500"
-            />
+          <span className="relative hidden h-7 overflow-hidden rounded bg-muted/45 @2xl:block">
+            {scale.gaps.map((gap) => (
+              <span
+                key={gap.startMs}
+                aria-hidden="true"
+                title={`${formatDurationMs(gap.actualDurationMs)} without telemetry; compressed on this axis`}
+                className="absolute inset-y-0 border-x border-dashed border-amber-500/35 bg-amber-500/8"
+                style={{
+                  left: `${scale.toPercent(gap.startMs)}%`,
+                  width: `${Math.max(0.8, scale.toPercent(gap.endMs) - scale.toPercent(gap.startMs))}%`,
+                }}
+              />
+            ))}
+            {generationTiming &&
+            generationTiming.ttftMs !== null &&
+            item.durationMs ? (
+              <span
+                role="img"
+                aria-label={`Waiting for first token ${formatDurationMs(generationTiming.ttftMs)}, first to last output chunk ${formatDurationMs(generationTiming.streamDurationMs ?? 0)}, finalizing response ${formatDurationMs(generationTiming.postStreamDurationMs ?? 0)}`}
+                className="absolute top-1/2 flex h-2 -translate-y-1/2 overflow-hidden rounded-full"
+                style={{
+                  left: `${left}%`,
+                  width: `max(3px, ${Math.min(width, 100 - left)}%)`,
+                }}
+              >
+                <span
+                  aria-hidden="true"
+                  title={`Waiting for first token: ${formatDurationMs(generationTiming.ttftMs)}`}
+                  className="h-full bg-amber-500"
+                  style={{
+                    width: `${percentOf(generationTiming.ttftMs, item.durationMs)}%`,
+                  }}
+                />
+                <span
+                  aria-hidden="true"
+                  title={`First to last output chunk: ${formatDurationMs(generationTiming.streamDurationMs ?? 0)}`}
+                  className="h-full bg-violet-500"
+                  style={{
+                    width: `${percentOf(generationTiming.streamDurationMs ?? 0, item.durationMs)}%`,
+                  }}
+                />
+                <span
+                  aria-hidden="true"
+                  title={`Finalizing response: ${formatDurationMs(generationTiming.postStreamDurationMs ?? 0)}`}
+                  className="h-full flex-1 bg-slate-400 dark:bg-slate-500"
+                />
+              </span>
+            ) : (
+              <span
+                className={cn(
+                  "absolute top-1/2 -translate-y-1/2 rounded-full",
+                  instant ? "size-2 -translate-x-1/2" : "h-2",
+                  item.kind === "generation" && item.timing?.ttftMs === null
+                    ? "bg-muted-foreground/55"
+                    : appearance.bar,
+                  item.status === "incomplete" &&
+                    "border border-dashed border-muted-foreground bg-transparent",
+                )}
+                style={
+                  instant
+                    ? { left: `${left}%` }
+                    : {
+                        left: `${left}%`,
+                        width: `max(3px, ${Math.min(width, 100 - left)}%)`,
+                      }
+                }
+              />
+            )}
           </span>
-        ) : (
+
           <span
             className={cn(
-              "absolute top-1/2 -translate-y-1/2 rounded-full",
-              instant ? "size-2 -translate-x-1/2" : "h-2",
-              item.kind === "generation" && item.timing?.ttftMs === null
-                ? "bg-muted-foreground/55"
-                : appearance.bar,
-              item.status === "incomplete" &&
-                "border border-dashed border-muted-foreground bg-transparent",
+              "text-right font-mono text-[10px] tabular-nums text-muted-foreground",
+              item.kind === "wait" && "text-amber-600 dark:text-amber-400",
             )}
-            style={
-              instant
-                ? { left: `${left}%` }
-                : {
-                    left: `${left}%`,
-                    width: `max(3px, ${Math.min(width, 100 - left)}%)`,
-                  }
-            }
-          />
-        )}
-      </span>
-
-      <span
-        className={cn(
-          "text-right font-mono text-[10px] tabular-nums text-muted-foreground",
-          item.kind === "wait" && "text-amber-600 dark:text-amber-400",
-        )}
-      >
-        {item.durationMs === null
-          ? pointEvent
-            ? `at ${formatDurationMs(offsetMs)}`
-            : "—"
-          : formatDurationMs(item.durationMs)}
-      </span>
-    </button>
+          >
+            {item.durationMs === null
+              ? pointEvent
+                ? `at ${formatDurationMs(offsetMs)}`
+                : "—"
+              : formatDurationMs(item.durationMs)}
+          </span>
+        </button>
+      </TooltipTrigger>
+      {item.modelCalls > 0 && (
+        <TooltipContent side="top">
+          {item.modelCalls} model {item.modelCalls === 1 ? "call" : "calls"}{" "}
+          inside this operation
+        </TooltipContent>
+      )}
+    </Tooltip>
   );
 }
 
@@ -505,7 +545,13 @@ function TraceInspector({
       {item.kind === "generation" && item.timing?.ttftMs === null && (
         <p className="mt-3 rounded-md border bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
           {item.timing.streaming
-            ? "TTFT was not captured for this historical model call. The total provider duration is still accurate."
+            ? (
+                item.event.payload.finishReason as
+                  | { unified?: unknown }
+                  | undefined
+              )?.unified === "tool-calls"
+              ? "The model returned a tool call without a text chunk. Text TTFT does not apply; the provider duration is still captured."
+              : "No text chunk was observed, so text TTFT is unavailable. The provider duration is still captured."
             : "This was a non-streaming model call, so time to first token does not apply."}
         </p>
       )}
@@ -601,7 +647,13 @@ function TraceInspector({
               <span className="font-mono text-amber-600 dark:text-amber-400">
                 {item.timing.ttftMs === null
                   ? item.timing.streaming
-                    ? "Not captured"
+                    ? (
+                        item.event.payload.finishReason as
+                          | { unified?: unknown }
+                          | undefined
+                      )?.unified === "tool-calls"
+                      ? "No text (tool call)"
+                      : "No text observed"
                     : "Not applicable"
                   : formatDurationMs(item.timing.ttftMs)}
               </span>
