@@ -164,7 +164,7 @@ export function createRunColumns({
           <DetailLink
             href={studioDetailHref("runs", run.id, { tab: "feedback" })}
             onClick={(event) => event.stopPropagation()}
-            aria-label={`View feedback for run ${run.id}. ${run.feedback?.positive ?? 0} positive and ${run.feedback?.negative ?? 0} negative user ratings`}
+            aria-label={`View feedback for run ${run.id}`}
           >
             <FeedbackBadge feedback={run.feedback} />
           </DetailLink>

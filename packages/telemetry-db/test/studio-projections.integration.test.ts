@@ -572,6 +572,62 @@ integration("Studio SQL projections", () => {
     expect(projected.items.map((run) => run.id)).toEqual(["run-ingested"]);
   });
 
+  it("keeps a human interrupt visible when suspension and checkpoint facts share its batch", async () => {
+    const runId = `run-interrupt-${randomUUID()}`;
+    const interruptId = `interrupt-${randomUUID()}`;
+    const occurredAt = Date.now();
+    const correlation = {
+      runId,
+      sessionId: `session-${randomUUID()}`,
+      workflowId: "workflow-a",
+      nodeId: "approval",
+    };
+    const facts: KortyxTelemetryEvent[] = [
+      { type: "span.started", payload: { name: "kortyx.run" } },
+      { type: "workflow.suspended", payload: { reason: "interrupt" } },
+      {
+        type: "interrupt.created",
+        payload: { interruptId, kind: "text", nodeId: "approval" },
+      },
+      {
+        type: "session.checkpointed",
+        payload: { checkpointId: `checkpoint-${randomUUID()}`, turnIndex: 1 },
+      },
+    ].map((fact, index) => ({
+      ...fact,
+      schemaVersion: 1,
+      eventId: `event-${randomUUID()}`,
+      occurredAt: new Date(occurredAt + index).toISOString(),
+      environment: "test",
+      service: { name: "integration-test" },
+      correlation,
+    }));
+
+    const accepted = await ingestTelemetryEvents(client.db, {
+      organizationId: organizationA,
+      projectId: projectA,
+      events: facts,
+    });
+    const interrupts = await listStudioInterrupts(client.db, {
+      organizationId: organizationA,
+      projectId: projectA,
+      query: { range: "All time", q: interruptId },
+    });
+    const run = await getStudioRunReadModel(client.db, {
+      organizationId: organizationA,
+      projectId: projectA,
+      runId,
+    });
+
+    expect(accepted).toEqual({ accepted: 4, inserted: 4, duplicates: 0 });
+    expect(interrupts.items).toEqual([
+      expect.objectContaining({ id: interruptId, status: "pending", runId }),
+    ]);
+    expect(run.interrupts).toEqual([
+      expect.objectContaining({ id: interruptId, status: "pending" }),
+    ]);
+  });
+
   it("reprojects an earlier start-only run when its session later completes", async () => {
     const sessionId = `session-lifecycle-${randomUUID()}`;
     const incompleteRunId = `run-incomplete-${randomUUID()}`;

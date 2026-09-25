@@ -242,9 +242,8 @@ test.describe("Studio internal entity links", () => {
     const runPath = path("runs", fixture.runId);
     await openRow(page, "runs", fixture.runId);
     const run = surface(page, runPath);
-    await run
-      .getByRole("combobox", { name: "Execution branch" })
-      .selectOption("branch-a");
+    await run.getByRole("combobox", { name: "Execution branch" }).click();
+    await page.getByRole("option", { name: /branch-a/ }).click();
     await run
       .getByRole("button", { name: /^e2e-ktx25-workflow approval ·/ })
       .click();
