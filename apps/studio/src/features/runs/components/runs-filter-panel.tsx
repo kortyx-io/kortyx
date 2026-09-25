@@ -2,6 +2,13 @@ import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import type { useRunsQuery } from "@/features/runs/hooks/use-runs-query";
 import { providers, statuses, statusMeta } from "@/features/runs/lib/constants";
 import { FilterCheckbox } from "@/features/telemetry/components/list-filter-panel";
@@ -203,51 +210,59 @@ export function RunsFilterPanel({
               onChange={(value) => setParams({ toolName: value || null })}
               placeholder="Exact tool name…"
             />
-            <label
-              className="mt-3 block text-xs font-medium text-muted-foreground"
-              htmlFor="tool-outcome-filter"
-            >
-              Tool outcome
-              <select
-                id="tool-outcome-filter"
-                className="mt-1.5 h-8 w-full rounded-md border bg-background px-2 text-sm"
-                value={toolOutcome}
-                onChange={(event) =>
-                  setParams({ toolOutcome: event.target.value || null })
+            <div className="mt-3 text-xs font-medium text-muted-foreground">
+              <span>Tool outcome</span>
+              <Select
+                value={toolOutcome || "__all__"}
+                onValueChange={(value) =>
+                  setParams({ toolOutcome: value === "__all__" ? null : value })
                 }
               >
-                <option value="">All outcomes</option>
-                {[
-                  ["success", "Succeeded"],
-                  ["denied", "Denied"],
-                  ["fault", "Fault"],
-                  ["cancelled", "Cancelled"],
-                  ["reused", "Cached reuse"],
-                ].map(([value, label]) => (
-                  <option key={value} value={value}>
-                    {label}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label
-              className="mt-3 block text-xs font-medium text-muted-foreground"
-              htmlFor="tool-mode-filter"
-            >
-              Called by
-              <select
-                id="tool-mode-filter"
-                className="mt-1.5 h-8 w-full rounded-md border bg-background px-2 text-sm"
-                value={toolMode}
-                onChange={(event) =>
-                  setParams({ toolMode: event.target.value || null })
+                <SelectTrigger
+                  size="sm"
+                  aria-label="Tool outcome"
+                  className="mt-1.5 w-full text-sm"
+                >
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__all__">All outcomes</SelectItem>
+                  {[
+                    ["success", "Succeeded"],
+                    ["denied", "Denied"],
+                    ["fault", "Fault"],
+                    ["cancelled", "Cancelled"],
+                    ["reused", "Cached reuse"],
+                  ].map(([value, label]) => (
+                    <SelectItem key={value} value={value}>
+                      {label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="mt-3 text-xs font-medium text-muted-foreground">
+              <span>Called by</span>
+              <Select
+                value={toolMode || "__all__"}
+                onValueChange={(value) =>
+                  setParams({ toolMode: value === "__all__" ? null : value })
                 }
               >
-                <option value="">All callers</option>
-                <option value="direct">Workflow code</option>
-                <option value="model">Model</option>
-              </select>
-            </label>
+                <SelectTrigger
+                  size="sm"
+                  aria-label="Called by"
+                  className="mt-1.5 w-full text-sm"
+                >
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__all__">All callers</SelectItem>
+                  <SelectItem value="direct">Workflow code</SelectItem>
+                  <SelectItem value="model">Model</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </FilterSection>
 
           <FilterSection title="Options">

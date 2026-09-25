@@ -15,11 +15,18 @@ import {
   Wrench,
 } from "lucide-react";
 import { parseAsString } from "nuqs";
-import { Fragment, useMemo } from "react";
+import { Fragment, useMemo, useState } from "react";
 import { DetailInspectorDrawer } from "@/components/detail/detail-inspector";
 import { KeyValue, StatusPill } from "@/components/detail/detail-primitives";
 import { PayloadViewer } from "@/components/detail/payload-viewer";
 import { OverflowText } from "@/components/ui/overflow-tooltip";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   asRecord,
   asString,
@@ -29,6 +36,7 @@ import {
   type EventStoryItem,
   numberValue,
 } from "@/features/runs/lib/run-event-story";
+import { matchesSearchText } from "@/features/runs/lib/search-text";
 import { formatCount, formatDateTime, formatDurationMs } from "@/lib/format";
 import { useStudioQueryStates } from "@/lib/nuqs";
 import { cn } from "@/lib/utils";
@@ -36,6 +44,8 @@ import { cn } from "@/lib/utils";
 const eventQueryParsers = {
   event: parseAsString.withDefault(""),
 };
+const DEPTH_GUIDES = ["one", "two", "three", "four", "five"];
+const FAILURE_STATES = new Set(["failed", "fault", "error"]);
 
 export function RunEvents({
   events,
@@ -53,6 +63,34 @@ export function RunEvents({
     { shallow: true },
   );
   const selected = items.find((item) => item.event.id === eventId);
+  const selectedModelStart = selected?.event.spanId
+    ? events.find(
+        (event) =>
+          event.type === "span.started" &&
+          event.payload.name === "runReasonEngine" &&
+          event.spanId === selected.event.spanId,
+      )
+    : undefined;
+  const [search, setSearch] = useState("");
+  const [category, setCategory] = useState("all");
+  const [state, setState] = useState("all");
+  const visibleItems = useMemo(() => {
+    return items.filter(
+      (item) =>
+        (category === "all" || item.category === category) &&
+        (state === "all" ||
+          (state === "errors"
+            ? FAILURE_STATES.has(item.state)
+            : item.state === state)) &&
+        matchesSearchText(search, [
+          item.title,
+          item.description,
+          item.event.type,
+          item.event.nodeId,
+          item.event.workflowId,
+        ]),
+    );
+  }, [items, search, category, state]);
   const selectEvent = (selectedEventId: string) => {
     void setEventQuery({ event: selectedEventId });
   };
@@ -62,52 +100,83 @@ export function RunEvents({
 
   if (items.length === 0) return <Empty label="No events captured." />;
 
-  const modelEvents = items.filter((item) => item.category === "model").length;
-  const failures = items.filter((item) => item.state === "failed").length;
-  const interrupts = items.filter(
-    (item) => item.category === "interrupt",
-  ).length;
-
   return (
     <div className="h-full min-h-0">
       <div className="flex h-full min-h-0 flex-col">
-        <header className="shrink-0 border-b bg-muted/10 px-4 py-3 md:px-6">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <div>
-              <h3 className="text-xs font-semibold">
-                Chronological event stream
-              </h3>
-              <p className="mt-0.5 text-[10px] text-muted-foreground">
-                Every telemetry fact, ordered as it was emitted.
-              </p>
-            </div>
-            <div className="flex flex-wrap gap-1.5 text-[9px] text-muted-foreground">
-              <SummaryBadge>{items.length} events</SummaryBadge>
-              {modelEvents > 0 && (
-                <SummaryBadge>{modelEvents} model events</SummaryBadge>
-              )}
-              {interrupts > 0 && (
-                <SummaryBadge>{interrupts} interrupt events</SummaryBadge>
-              )}
-              {failures > 0 && (
-                <SummaryBadge className="border-red-500/25 text-red-700 dark:text-red-400">
-                  {failures} failed
-                </SummaryBadge>
-              )}
-            </div>
+        <header className="@container shrink-0 border-b bg-muted/10 px-3 py-1.5">
+          <div className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-1.5 @3xl:grid-cols-[auto_minmax(0,1fr)_auto_auto]">
+            <h3 className="whitespace-nowrap text-xs font-semibold @3xl:mr-2">
+              Events
+              <output className="ml-1.5 font-mono text-[10px] font-normal text-muted-foreground">
+                {visibleItems.length === items.length
+                  ? items.length
+                  : `${visibleItems.length}/${items.length}`}
+              </output>
+            </h3>
+            <input
+              aria-label="Search events"
+              type="search"
+              placeholder="Search events…"
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              className="col-span-2 h-7 min-w-0 rounded-md border bg-background px-2 text-xs outline-none focus-visible:ring-2 focus-visible:ring-ring @3xl:col-span-1"
+            />
+            <Select value={category} onValueChange={setCategory}>
+              <SelectTrigger
+                size="sm"
+                aria-label="Filter event category"
+                className="h-7 w-full text-xs @3xl:w-28"
+              >
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All categories</SelectItem>
+                {[...new Set(items.map((item) => item.category))].map(
+                  (value) => (
+                    <SelectItem key={value} value={value}>
+                      {
+                        items.find((item) => item.category === value)
+                          ?.categoryLabel
+                      }
+                    </SelectItem>
+                  ),
+                )}
+              </SelectContent>
+            </Select>
+            <Select value={state} onValueChange={setState}>
+              <SelectTrigger
+                size="sm"
+                aria-label="Filter event status"
+                className="h-7 w-full text-xs @3xl:w-36"
+              >
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All statuses</SelectItem>
+                <SelectItem value="errors">Errors &amp; failures</SelectItem>
+                {[...new Set(items.map((item) => item.state))].map((value) => (
+                  <SelectItem key={value} value={value}>
+                    {items.find((item) => item.state === value)?.stateLabel}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
         </header>
 
         <div className="data-table-body-scroll min-h-0 flex-1 overflow-y-auto">
-          {items.map((item, index) => {
+          {visibleItems.length === 0 && (
+            <Empty label="No events match these filters." />
+          )}
+          {visibleItems.map((item, index) => {
             const showPhase =
-              item.phase !== items[index - 1]?.phase && item.phase !== null;
+              item.phase !== visibleItems[index - 1]?.phase &&
+              item.phase !== null;
             return (
               <Fragment key={item.event.id}>
                 {showPhase && <PhaseDivider item={item} />}
                 <EventRow
                   item={item}
-                  last={index === items.length - 1}
                   selected={selected?.event.id === item.event.id}
                   onSelect={() => selectEvent(item.event.id)}
                 />
@@ -117,7 +186,11 @@ export function RunEvents({
         </div>
       </div>
 
-      <EventDrawer item={selected} onClose={closeEvent} />
+      <EventDrawer
+        item={selected}
+        modelStart={selectedModelStart}
+        onClose={closeEvent}
+      />
     </div>
   );
 }
@@ -138,17 +211,15 @@ function PhaseDivider({ item }: { item: EventStoryItem }) {
 
 function EventRow({
   item,
-  last,
   selected,
   onSelect,
 }: {
   item: EventStoryItem;
-  last: boolean;
   selected: boolean;
   onSelect: () => void;
 }) {
   const appearance = eventAppearance(item);
-  const Icon = appearance.icon;
+  const depth = Math.min(item.depth, 5);
 
   return (
     <button
@@ -158,28 +229,22 @@ function EventRow({
       aria-haspopup="dialog"
       onClick={onSelect}
       className={cn(
-        "group relative grid w-full grid-cols-[28px_minmax(0,1fr)_auto] gap-3 px-4 py-3 text-left transition-colors hover:bg-muted/45 md:px-6",
+        "group relative grid w-full grid-cols-[minmax(0,1fr)_auto] gap-3 px-4 py-3 text-left transition-colors hover:bg-muted/45 md:px-6",
         selected && "bg-muted/60",
       )}
     >
-      <span className="relative flex h-full justify-center">
-        {!last && (
-          <span className="absolute top-5 bottom-[-18px] w-px bg-border" />
-        )}
-        <span
-          className={cn(
-            "relative z-[1] flex size-7 items-center justify-center rounded-full border bg-background",
-            appearance.border,
-          )}
-        >
-          <Icon className={cn("size-3.5", appearance.iconColor)} />
-        </span>
-      </span>
-
       <span
-        className="min-w-0"
-        style={{ paddingLeft: `${Math.min(item.depth, 4) * 10}px` }}
+        className="relative min-w-0"
+        style={{ paddingLeft: `${depth * 14 + 10}px` }}
       >
+        {DEPTH_GUIDES.slice(0, depth).map((guide, level) => (
+          <span
+            key={guide}
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-y-[-12px] border-l border-border/80"
+            style={{ left: `${level * 14 + 5}px` }}
+          />
+        ))}
         <span className="flex min-w-0 flex-wrap items-center gap-1.5">
           <OverflowText
             ariaLabel={item.title}
@@ -216,9 +281,11 @@ function EventRow({
 
 function EventDrawer({
   item,
+  modelStart,
   onClose,
 }: {
   item: EventStoryItem | undefined;
+  modelStart: StudioDetailEvent | undefined;
   onClose: () => void;
 }) {
   return (
@@ -244,13 +311,7 @@ function EventDrawer({
     >
       {item && (
         <>
-          <p className="rounded-md border bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
-            This is the individual <code>{item.event.type}</code> telemetry
-            fact. Related lifecycle events remain separate so emission order and
-            ingest timing stay observable.
-          </p>
-
-          <dl className="mt-4 divide-y">
+          <dl className="divide-y">
             <KeyValue label="Event type">
               <span className="font-mono">{item.event.type}</span>
             </KeyValue>
@@ -288,7 +349,7 @@ function EventDrawer({
               </KeyValue>
             )}
             {item.event.type === "generation.completed" && (
-              <GenerationDetails event={item.event} />
+              <GenerationDetails event={item.event} modelStart={modelStart} />
             )}
             <KeyValue label="Workflow">{item.event.workflowId}</KeyValue>
             <KeyValue label="Node">
@@ -335,7 +396,13 @@ function EventDrawer({
   );
 }
 
-function GenerationDetails({ event }: { event: StudioDetailEvent }) {
+function GenerationDetails({
+  event,
+  modelStart,
+}: {
+  event: StudioDetailEvent;
+  modelStart: StudioDetailEvent | undefined;
+}) {
   const usage = asRecord(event.payload.usage);
   const metadata = asRecord(event.payload.providerMetadata);
   const reasoning = asRecord(metadata.reasoning);
@@ -344,11 +411,15 @@ function GenerationDetails({ event }: { event: StudioDetailEvent }) {
     asString(asRecord(event.payload.finishReason).unified);
   const tokens = numberValue(usage.total);
   const ttft = numberValue(event.payload.ttftMs);
+  const linked = asRecord(modelStart?.payload.attributes);
   return (
     <>
       <KeyValue label="Provider / model">
-        {asString(event.payload.provider) ?? "Unknown"} /{" "}
-        {asString(event.payload.model) ?? "Unknown"}
+        {asString(event.payload.provider) ??
+          asString(linked.providerId) ??
+          "Unknown"}{" "}
+        /{" "}
+        {asString(event.payload.model) ?? asString(linked.modelId) ?? "Unknown"}
       </KeyValue>
       {asString(metadata.api) && (
         <KeyValue label="API">{asString(metadata.api)}</KeyValue>
@@ -379,7 +450,9 @@ function GenerationDetails({ event }: { event: StudioDetailEvent }) {
       <KeyValue label="TTFT">
         <span className="font-mono">
           {ttft === null
-            ? "Not captured or not applicable"
+            ? asRecord(event.payload.finishReason).unified === "tool-calls"
+              ? "No text (tool call)"
+              : "No text observed or non-streaming"
             : formatDurationMs(ttft)}
         </span>
       </KeyValue>
@@ -395,7 +468,7 @@ function GenerationDetails({ event }: { event: StudioDetailEvent }) {
   );
 }
 
-function eventAppearance(item: EventStoryItem): {
+function eventAppearance(item: Pick<EventStoryItem, "category" | "state">): {
   icon: LucideIcon;
   iconColor: string;
   border: string;
@@ -443,22 +516,6 @@ function EventBadge({
         "inline-flex shrink-0 items-center rounded-full border px-1.5 py-0.5 text-[8px] font-medium leading-none",
         className,
       )}
-    >
-      {children}
-    </span>
-  );
-}
-
-function SummaryBadge({
-  children,
-  className,
-}: {
-  children: React.ReactNode;
-  className?: string;
-}) {
-  return (
-    <span
-      className={cn("rounded-full border bg-background px-2 py-1", className)}
     >
       {children}
     </span>

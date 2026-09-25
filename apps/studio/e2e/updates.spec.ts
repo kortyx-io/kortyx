@@ -73,8 +73,9 @@ test("checks a release, saves a schedule, and reports a failed update", async ({
   await expect(
     updates.getByRole("link", { name: "Release notes" }),
   ).toHaveAttribute("href", /studio-v0.3.0$/);
-  await updates.getByRole("combobox").selectOption("4");
-  await expect(updates.getByRole("combobox")).toHaveValue("4");
+  await updates.getByRole("combobox").click();
+  await page.getByRole("option", { name: "04:00 UTC" }).click();
+  await expect(updates.getByRole("combobox")).toHaveText("04:00 UTC");
   await automatic.check();
   await expect(automatic).toBeChecked();
   await updates.getByRole("button", { name: "Update to v0.3.0" }).click();

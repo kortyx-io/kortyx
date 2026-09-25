@@ -70,7 +70,7 @@ export function DetailTabs({
             type="button"
             onClick={() => changeTab(tab.id)}
             className={cn(
-              "border-b-2 px-2 py-3 text-xs font-medium transition-colors",
+              "shrink-0 whitespace-nowrap border-b-2 px-2 py-2.5 text-xs font-medium transition-colors",
               tab.id === selected?.id
                 ? "border-foreground text-foreground"
                 : "border-transparent text-muted-foreground hover:text-foreground",

@@ -114,8 +114,9 @@ test.describe("Studio time ranges and workflow cohorts", () => {
     const version = page.getByRole("combobox", {
       name: "Workflow version",
     });
-    await expect(range).toHaveValue("All time");
-    await version.selectOption("1.0.0-e2e");
+    await expect(range).toHaveText("All time");
+    await version.click();
+    await page.getByRole("option", { name: "1.0.0-e2e" }).click();
     await expect(page).toHaveURL(/version=1\.0\.0-e2e/);
 
     const allTimeRuns = page.getByRole("link", { name: "View runs" });
@@ -126,7 +127,8 @@ test.describe("Studio time ranges and workflow cohorts", () => {
       ),
     );
 
-    await range.selectOption("7 days");
+    await range.click();
+    await page.getByRole("option", { name: "7 days" }).click();
     await expect(page).toHaveURL(/range=7\+days/);
     await expect(allTimeRuns).toHaveAttribute(
       "href",
@@ -134,9 +136,9 @@ test.describe("Studio time ranges and workflow cohorts", () => {
     );
 
     await page.goBack();
-    await expect(range).toHaveValue("All time");
+    await expect(range).toHaveText("All time");
     await page.goForward();
-    await expect(range).toHaveValue("7 days");
+    await expect(range).toHaveText("7 days");
   });
 
   test("explains node states and keeps inspector sections in one column", async ({
@@ -190,12 +192,12 @@ test.describe("Studio time ranges and workflow cohorts", () => {
     );
 
     const range = page.getByRole("combobox", { name: "Time range" });
-    await expect(range).toHaveValue("Custom range");
+    await expect(range).toHaveText("Custom range");
     await expect(
       page.getByRole("button", { name: "Jul 20, 2026 – Jul 26, 2026" }),
     ).toBeVisible();
     await page.reload();
-    await expect(range).toHaveValue("Custom range");
+    await expect(range).toHaveText("Custom range");
     await expect(page.getByRole("link", { name: "View runs" })).toHaveAttribute(
       "href",
       new RegExp(

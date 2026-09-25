@@ -375,7 +375,12 @@ function DetailDrawerSurface({
           (!entered || closing) && "translate-x-[calc(100%_+_1rem)]",
         )}
       >
-        <header className="flex h-14 shrink-0 items-center gap-3 border-b px-4">
+        <header
+          className={cn(
+            "flex h-14 shrink-0 items-center gap-3 border-b px-4",
+            expandedView && "h-0 overflow-hidden border-0 p-0",
+          )}
+        >
           {layer.isTop && !isMobile && !expandedView && (
             <Button
               type="button"

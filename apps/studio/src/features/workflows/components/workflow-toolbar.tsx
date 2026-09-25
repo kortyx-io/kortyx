@@ -2,6 +2,13 @@ import type { StudioTimeRange } from "@kortyx/telemetry-contracts";
 import { PanelLeft, PanelRight, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
@@ -125,20 +132,29 @@ export function WorkflowToolbar({
             startedBefore={startedBefore}
             onChange={onTimeRangeChange}
           />
-          <select
-            aria-label="Workflow version"
-            className="hidden h-8 rounded-md border bg-background px-2 text-xs sm:block"
-            value={version}
-            onChange={(event) => onVersionChange(event.target.value)}
+          <Select
+            value={version || "__all__"}
+            onValueChange={(value) =>
+              onVersionChange(value === "__all__" ? "" : value)
+            }
             disabled={!selectedWorkflow}
           >
-            <option value="">All versions</option>
-            {selectedWorkflow?.versions.map((version) => (
-              <option key={version} value={version}>
-                {version}
-              </option>
-            ))}
-          </select>
+            <SelectTrigger
+              size="sm"
+              aria-label="Workflow version"
+              className="hidden text-xs sm:flex"
+            >
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="__all__">All versions</SelectItem>
+              {selectedWorkflow?.versions.map((version) => (
+                <SelectItem key={version} value={version}>
+                  {version}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           <div className="flex rounded-md border p-0.5">
             {(["system", "health"] as const).map((item) => (
               <Tooltip key={item}>

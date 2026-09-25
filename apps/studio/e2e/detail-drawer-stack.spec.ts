@@ -351,7 +351,7 @@ test.describe("Studio detail drawer stack", () => {
     await page.getByRole("button", { name: /^Events \d+$/ }).click();
     await expect(page).toHaveURL(/tab=events/);
     await expect(
-      drawer(page, runPath).getByText("Chronological event stream"),
+      drawer(page, runPath).getByText("Events", { exact: true }),
     ).toBeVisible();
     await expect(inspector(page)).toHaveCount(0);
     await expectClosedState(inspectorExit);

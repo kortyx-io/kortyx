@@ -16,6 +16,13 @@ import { DataTableColumnHeader } from "@/components/data-table/data-table-column
 import { useDataTable } from "@/components/data-table/data-table-context";
 import type { DataTablePagination } from "@/components/data-table/types";
 import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 
 type DataTableProps<T, S extends string> = {
@@ -291,24 +298,31 @@ function DataTablePaginationFooter({
           : "No results"}
       </span>
       <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
-        <label className="flex items-center gap-2 whitespace-nowrap">
-          Rows per page
-          <select
-            aria-label="Rows per page"
-            value={pageSize}
-            onChange={(event) => {
+        <div className="flex items-center gap-2 whitespace-nowrap">
+          <span>Rows per page</span>
+          <Select
+            value={String(pageSize)}
+            onValueChange={(value) => {
               onBeforeChange();
-              onPageSizeChange(Number(event.target.value));
+              onPageSizeChange(Number(value));
             }}
-            className="h-8 w-14 rounded-md border bg-background px-2 text-xs text-foreground outline-none focus:ring-2 focus:ring-ring/50 sm:w-auto"
           >
-            {pageSizes.map((size) => (
-              <option key={size} value={size}>
-                {size}
-              </option>
-            ))}
-          </select>
-        </label>
+            <SelectTrigger
+              size="sm"
+              aria-label="Rows per page"
+              className="w-16 text-xs"
+            >
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {pageSizes.map((size) => (
+                <SelectItem key={size} value={String(size)}>
+                  {size}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
         <Button
           variant="outline"
           size="sm"

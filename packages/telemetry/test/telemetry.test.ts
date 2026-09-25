@@ -360,6 +360,36 @@ describe("createKortyxTelemetryAdapter", () => {
     expect(adapter.getPermanentDeliveryFailureCount()).toBe(1);
   });
 
+  it("keeps interrupt facts when an older API rejects workflow.suspended", async () => {
+    const accepted: string[] = [];
+    const adapter = createKortyxTelemetryAdapter({
+      endpoint: "https://telemetry.example",
+      apiKey: "key",
+      environment: "test",
+      service: { name: "app" },
+      flushIntervalMs: 60_000,
+      fetch: async (_url, init) => {
+        const body = JSON.parse(String(init?.body)) as {
+          events: Array<{ eventId: string; type: string }>;
+        };
+        if (body.events.some((item) => item.type === "workflow.suspended"))
+          return new Response("unsupported event type", { status: 400 });
+        accepted.push(...body.events.map((item) => item.eventId));
+        return new Response("{}", { status: 200 });
+      },
+    });
+    await adapter.reporter?.emit([
+      event("provider-ended"),
+      { ...event("old-server-unsupported"), type: "workflow.suspended" },
+      { ...event("interrupt-created"), type: "interrupt.created" },
+    ]);
+
+    await adapter.flush();
+
+    expect(accepted).toEqual(["provider-ended", "interrupt-created"]);
+    expect(adapter.getPermanentDeliveryFailureCount()).toBe(1);
+  });
+
   it("keeps target workflow correlation isolated after a workflow transition", async () => {
     const batches: EventBatch[] = [];
     const adapter = createKortyxTelemetryAdapter({

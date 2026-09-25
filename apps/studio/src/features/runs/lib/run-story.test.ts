@@ -359,6 +359,68 @@ it("labels failed provider generations as failures rather than completed answers
   });
 });
 
+it("explains missing text TTFT for a completed tool-call response", () => {
+  const start = detailEvent(
+    "model-start",
+    "span.started",
+    0,
+    {
+      name: "runReasonEngine",
+      attributes: { providerId: "openai", stream: true },
+    },
+    { spanId: "model" },
+  );
+  const end = detailEvent(
+    "model-end",
+    "span.ended",
+    100,
+    { name: "runReasonEngine", durationMs: 100 },
+    { spanId: "model" },
+  );
+  const generation = detailEvent(
+    "generation",
+    "generation.completed",
+    100,
+    {
+      provider: "openai",
+      model: "gpt-5.4-mini",
+      durationMs: 100,
+      finishReason: { unified: "tool-calls" },
+    },
+    { spanId: "model" },
+  );
+  expect(buildTraceStory([start, end, generation])[0]?.description).toContain(
+    "tool call · no text TTFT",
+  );
+});
+
+it("marks unterminated spans as incomplete after the run finishes", () => {
+  const start = detailEvent(
+    "orphan-start",
+    "span.started",
+    0,
+    { name: "kortyx.node" },
+    { spanId: "orphan", nodeId: "run-sift-loop" },
+  );
+  expect(buildTraceStory([start], true)[0]?.status).toBe("incomplete");
+});
+
+it("does not describe an incomplete model call as still waiting for text", () => {
+  const start = detailEvent(
+    "model-start",
+    "span.started",
+    0,
+    {
+      name: "runReasonEngine",
+      attributes: { providerId: "openai", stream: true },
+    },
+    { spanId: "model" },
+  );
+  expect(buildTraceStory([start], true)[0]?.description).toBe(
+    "openai provider call · completion not captured",
+  );
+});
+
 it("inspects failed model spans instead of generation completion metadata", () => {
   const start = detailEvent(
     "model-start",

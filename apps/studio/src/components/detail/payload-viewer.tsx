@@ -12,7 +12,7 @@ import {
   TextWrap,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
-import { chromeLight, ObjectInspector } from "react-inspector";
+import { chromeLight, ObjectInspector, ObjectLabel } from "react-inspector";
 import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { stringify as stringifyYaml } from "yaml";
@@ -26,6 +26,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
+import { parseJsonDocument } from "./payload-presentation";
 
 type ViewMode = "pretty" | "json" | "yaml" | "markdown" | "text";
 type CopyStatus = "idle" | "copied" | "failed";
@@ -45,32 +46,42 @@ const VIEW_MODES: Array<{
 export function PayloadViewer({
   value,
   defaultMode = "pretty",
+  defaultClean = true,
+  expandAll = false,
   className,
 }: {
   value: unknown;
   defaultMode?: ViewMode;
+  defaultClean?: boolean;
+  expandAll?: boolean;
   className?: string;
 }) {
   const [mode, setMode] = useState<ViewMode>(defaultMode);
-  const [clean, setClean] = useState(true);
+  const [clean, setClean] = useState(defaultClean);
   const [wrap, setWrap] = useState(true);
   const [copyStatus, setCopyStatus] = useState<CopyStatus>("idle");
   const activeMode =
     VIEW_MODES.find((item) => item.id === mode) ?? VIEW_MODES[0];
   const ActiveModeIcon = activeMode.icon;
-  const cleaned = useMemo(() => cleanPayload(value), [value]);
-  const displayedValue = clean ? cleaned.value : value;
+  const parsedValue = useMemo(() => parseJsonDocument(value), [value]);
+  const cleaned = useMemo(() => cleanPayload(parsedValue), [parsedValue]);
+  const displayedValue = clean ? cleaned.value : parsedValue;
+  const expandLevel = useMemo(
+    () => (expandAll ? inspectorDepth(displayedValue) : 1),
+    [displayedValue, expandAll],
+  );
   const serialized = useMemo(
     () => serializePayload(displayedValue),
     [displayedValue],
   );
+  const exactText = typeof value === "string" ? value : serialized.text;
   const copyValue =
     mode === "yaml"
       ? serialized.yaml
       : mode === "markdown"
         ? serialized.markdown
         : mode === "text"
-          ? serialized.text
+          ? exactText
           : serialized.json;
 
   useEffect(() => {
@@ -222,11 +233,43 @@ export function PayloadViewer({
               "min-w-max p-3 [&_*]:max-w-full",
               wrap &&
                 "min-w-0 whitespace-pre-wrap break-words [overflow-wrap:anywhere]",
+              displayedValue !== null &&
+                typeof displayedValue === "object" &&
+                "[&>ol>li>div]:hidden [&>ol>li>ol]:!pl-0",
             )}
           >
             <ObjectInspector
               data={displayedValue}
-              expandLevel={2}
+              expandLevel={expandLevel}
+              nodeRenderer={({
+                depth,
+                name,
+                data,
+                isNonenumerable,
+              }: {
+                depth: number;
+                name: string | number | undefined;
+                data: unknown;
+                isNonenumerable?: boolean;
+              }) =>
+                depth === 0 ? (
+                  <span className="font-mono text-muted-foreground">
+                    {typeof data === "string"
+                      ? data
+                      : Array.isArray(data)
+                        ? `Array(${data.length})`
+                        : data !== null && typeof data === "object"
+                          ? "{}"
+                          : String(data)}
+                  </span>
+                ) : (
+                  <ObjectLabel
+                    name={name}
+                    data={data}
+                    isNonenumerable={isNonenumerable}
+                  />
+                )
+              }
               theme={inspectorTheme as never}
             />
           </div>
@@ -238,7 +281,7 @@ export function PayloadViewer({
           <CodeView code={serialized.yaml} language="yaml" wrap={wrap} />
         )}
         {mode === "text" && (
-          <CodeView code={serialized.text} language="plain" wrap={wrap} />
+          <CodeView code={exactText} language="plain" wrap={wrap} />
         )}
         {mode === "markdown" && (
           <div
@@ -259,6 +302,17 @@ export function PayloadViewer({
       </div>
     </section>
   );
+}
+
+function inspectorDepth(value: unknown, seen = new WeakSet<object>()): number {
+  if (value === null || typeof value !== "object" || seen.has(value)) return 0;
+  seen.add(value);
+  let depth = 1;
+  for (const child of Object.values(value)) {
+    depth = Math.max(depth, 1 + inspectorDepth(child, seen));
+  }
+  seen.delete(value);
+  return depth;
 }
 
 function CodeView({

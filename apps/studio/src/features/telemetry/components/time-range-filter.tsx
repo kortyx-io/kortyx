@@ -15,6 +15,13 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 
 export type TimeRangeValue = {
@@ -79,11 +86,10 @@ export function TimeRangeFilter({
   return (
     <div className={cn("space-y-2", !compact && "px-2")}>
       <div className={cn("flex gap-2", !compact && "flex-col")}>
-        <select
-          aria-label="Time range"
+        <Select
           value={open ? "Custom range" : range}
-          onChange={(event) => {
-            const nextRange = event.target.value as StudioTimeRange;
+          onValueChange={(value) => {
+            const nextRange = value as StudioTimeRange;
             if (nextRange === "Custom range") {
               const now = new Date();
               const nextDraft =
@@ -103,17 +109,21 @@ export function TimeRangeFilter({
               startedBefore: "",
             });
           }}
-          className={cn(
-            "h-9 rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-ring/50",
-            compact ? "w-[128px]" : "w-full",
-          )}
         >
-          {STUDIO_TIME_RANGES.map((item) => (
-            <option key={item} value={item}>
-              {item}
-            </option>
-          ))}
-        </select>
+          <SelectTrigger
+            aria-label="Time range"
+            className={compact ? "w-[128px]" : "w-full"}
+          >
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {STUDIO_TIME_RANGES.map((item) => (
+              <SelectItem key={item} value={item}>
+                {item}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
         {(range === "Custom range" || open) && (
           <Popover open={open} onOpenChange={setOpen}>
             <PopoverTrigger asChild>
