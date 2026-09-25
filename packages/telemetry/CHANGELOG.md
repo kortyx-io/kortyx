@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.10.0](https://github.com/kortyx-io/kortyx/compare/telemetry-v0.9.0...telemetry-v0.10.0) (2026-09-25)
+
+
+### Features
+
+* **studio:** improve run inspection and telemetry resilience ([#244](https://github.com/kortyx-io/kortyx/issues/244)) ([f03dfdc](https://github.com/kortyx-io/kortyx/commit/f03dfdcb32dee26023c0f4ea1af8708da623673a))
+
 ## [0.9.0](https://github.com/kortyx-io/kortyx/compare/telemetry-v0.8.2...telemetry-v0.9.0) (2026-09-22)
 
 
