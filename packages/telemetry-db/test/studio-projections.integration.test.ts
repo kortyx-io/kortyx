@@ -5,7 +5,10 @@ import type {
   StudioInterrupt,
   StudioRun,
 } from "@kortyx/telemetry-contracts";
-import { StudioChangeSchema } from "@kortyx/telemetry-contracts";
+import {
+  StudioChangeSchema,
+  TelemetryEventBatchSchema,
+} from "@kortyx/telemetry-contracts";
 import { eq, sql } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { createTelemetryDbClient, type TelemetryDbClient } from "../src/client";
@@ -606,7 +609,7 @@ integration("Studio SQL projections", () => {
     const accepted = await ingestTelemetryEvents(client.db, {
       organizationId: organizationA,
       projectId: projectA,
-      events: facts,
+      events: TelemetryEventBatchSchema.parse({ events: facts }).events,
     });
     const interrupts = await listStudioInterrupts(client.db, {
       organizationId: organizationA,
