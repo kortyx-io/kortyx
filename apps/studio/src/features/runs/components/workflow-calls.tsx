@@ -17,6 +17,13 @@ import { parseAsString } from "nuqs";
 import { useMemo, useState } from "react";
 import { DetailLink } from "@/components/detail/detail-link";
 import { KeyValue, StatusPill } from "@/components/detail/detail-primitives";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { pendingCallInterrupt } from "@/features/runs/lib/call-interrupt";
 import { formatDurationMs } from "@/lib/format";
 import { useStudioQueryState } from "@/lib/nuqs";
@@ -193,30 +200,38 @@ export function WorkflowCalls({ detail }: { detail: StudioRunDetailResponse }) {
             continues after each result returns
           </p>
         </div>
-        <label className="flex items-center gap-2 text-xs">
+        <div className="flex items-center gap-2 text-xs">
           <GitBranch className="size-3.5" />
-          Branch
-          <select
-            aria-label="Execution branch"
-            className="max-w-48 rounded border bg-background px-2 py-1"
+          <span>Branch</span>
+          <Select
             value={currentBranch}
-            onChange={(event) => {
-              void setBranch(event.target.value, { shallow: true });
+            disabled={branches.length === 0}
+            onValueChange={(value) => {
+              void setBranch(value, { shallow: true });
               void setSelection(null, { shallow: true });
             }}
           >
-            {branches.map((id, index) => (
-              <option key={id} value={id}>
-                {index === 0
-                  ? visible.some((call) => call.inherited)
-                    ? "Fork"
-                    : "Original"
-                  : `Restored ${index}`}{" "}
-                · {id.slice(0, 8)}
-              </option>
-            ))}
-          </select>
-        </label>
+            <SelectTrigger
+              size="sm"
+              aria-label="Execution branch"
+              className="max-w-48 text-xs"
+            >
+              <SelectValue placeholder="No branches" />
+            </SelectTrigger>
+            <SelectContent>
+              {branches.map((id, index) => (
+                <SelectItem key={id} value={id}>
+                  {index === 0
+                    ? visible.some((call) => call.inherited)
+                      ? "Fork"
+                      : "Original"
+                    : `Restored ${index}`}{" "}
+                  · {id.slice(0, 8)}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
       </div>
       <div
         className={cn(

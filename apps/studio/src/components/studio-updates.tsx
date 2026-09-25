@@ -11,6 +11,13 @@ import {
 import { ArrowUpCircle, Loader2, RefreshCw } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 const UPDATE_HOURS = Array.from({ length: 24 }, (_, hour) => hour);
 
@@ -185,27 +192,30 @@ export function StudioUpdates({
             />
             Install updates automatically
           </label>
-          <label className="flex items-center gap-2 text-sm">
-            Daily at
-            <select
-              aria-label="Automatic update hour (UTC)"
-              className="rounded-md border bg-background px-2 py-1.5"
-              value={status.settings.hourUtc}
+          <div className="flex items-center gap-2 text-sm">
+            <span>Daily at</span>
+            <Select
+              value={String(status.settings.hourUtc)}
               disabled={pending || active}
-              onChange={(event) =>
+              onValueChange={(value) =>
                 void changeSettings({
                   ...status.settings,
-                  hourUtc: Number(event.target.value),
+                  hourUtc: Number(value),
                 })
               }
             >
-              {UPDATE_HOURS.map((hour) => (
-                <option key={hour} value={hour}>
-                  {String(hour).padStart(2, "0")}:00 UTC
-                </option>
-              ))}
-            </select>
-          </label>
+              <SelectTrigger aria-label="Automatic update hour (UTC)">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {UPDATE_HOURS.map((hour) => (
+                  <SelectItem key={hour} value={String(hour)}>
+                    {String(hour).padStart(2, "0")}:00 UTC
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         </div>
       )}
       <p className="mt-4 text-xs leading-5 text-muted-foreground">

@@ -4,6 +4,13 @@ import type { StudioDetailEvent } from "@kortyx/telemetry-contracts";
 import { useMemo, useState } from "react";
 import { PayloadViewer } from "@/components/detail/payload-viewer";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   buildModelExchanges,
   buildModelOperationEntries,
   buildModelOperations,
@@ -70,41 +77,53 @@ export function RunModelIO({ events }: { events: StudioDetailEvent[] }) {
             onChange={(event) => setSearch(event.target.value)}
             className="col-span-2 h-8 min-w-0 rounded-md border bg-background px-2 text-xs outline-none focus-visible:ring-2 focus-visible:ring-ring @2xl:col-span-1"
           />
-          <select
-            aria-label="Filter direct model text emission"
-            value={emitted}
-            onChange={(event) => setEmitted(event.target.value)}
-            className="h-8 min-w-0 rounded-md border bg-background px-2 text-xs"
-          >
-            <option value="all">Any model text</option>
-            <option value="true">Model text forwarded</option>
-            <option value="false">Model text held</option>
-            <option value="null">Model text unknown</option>
-          </select>
-          <select
-            aria-label="Filter model streaming"
-            value={streamed}
-            onChange={(event) => setStreamed(event.target.value)}
-            className="h-8 min-w-0 rounded-md border bg-background px-2 text-xs"
-          >
-            <option value="all">Any provider mode</option>
-            <option value="true">Provider streamed</option>
-            <option value="false">Provider buffered</option>
-            <option value="null">Provider mode unknown</option>
-          </select>
-          <select
-            aria-label="Filter output format"
-            value={format}
-            onChange={(event) => setFormat(event.target.value)}
-            className="col-span-2 h-8 min-w-0 rounded-md border bg-background px-2 text-xs @2xl:col-span-1"
-          >
-            <option value="all">Any output</option>
-            <option value="structured">Structured</option>
-            <option value="text-delta">Text delta</option>
-            <option value="text">Text</option>
-            <option value="tool-calls">Tool calls</option>
-            <option value="unknown">Unknown</option>
-          </select>
+          <Select value={emitted} onValueChange={setEmitted}>
+            <SelectTrigger
+              size="sm"
+              aria-label="Filter direct model text emission"
+              className="min-w-0 text-xs"
+            >
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Any model text</SelectItem>
+              <SelectItem value="true">Model text forwarded</SelectItem>
+              <SelectItem value="false">Model text held</SelectItem>
+              <SelectItem value="null">Model text unknown</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select value={streamed} onValueChange={setStreamed}>
+            <SelectTrigger
+              size="sm"
+              aria-label="Filter model streaming"
+              className="min-w-0 text-xs"
+            >
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Any provider mode</SelectItem>
+              <SelectItem value="true">Provider streamed</SelectItem>
+              <SelectItem value="false">Provider buffered</SelectItem>
+              <SelectItem value="null">Provider mode unknown</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select value={format} onValueChange={setFormat}>
+            <SelectTrigger
+              size="sm"
+              aria-label="Filter output format"
+              className="col-span-2 min-w-0 text-xs @2xl:col-span-1"
+            >
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Any output</SelectItem>
+              <SelectItem value="structured">Structured</SelectItem>
+              <SelectItem value="text-delta">Text delta</SelectItem>
+              <SelectItem value="text">Text</SelectItem>
+              <SelectItem value="tool-calls">Tool calls</SelectItem>
+              <SelectItem value="unknown">Unknown</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
         <p className="mt-2 text-[11px] leading-4 text-muted-foreground">
           Model text reflects useReason({"{ emit }"}). Activity, tool events,

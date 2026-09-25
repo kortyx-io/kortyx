@@ -21,6 +21,13 @@ import { KeyValue, StatusPill } from "@/components/detail/detail-primitives";
 import { PayloadViewer } from "@/components/detail/payload-viewer";
 import { OverflowText } from "@/components/ui/overflow-tooltip";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   asRecord,
   asString,
   buildEventStory,
@@ -114,33 +121,46 @@ export function RunEvents({
               onChange={(event) => setSearch(event.target.value)}
               className="col-span-2 h-7 min-w-0 rounded-md border bg-background px-2 text-xs outline-none focus-visible:ring-2 focus-visible:ring-ring @3xl:col-span-1"
             />
-            <select
-              aria-label="Filter event category"
-              value={category}
-              onChange={(event) => setCategory(event.target.value)}
-              className="h-7 w-full rounded-md border bg-background px-1.5 text-xs @3xl:w-28"
-            >
-              <option value="all">All categories</option>
-              {[...new Set(items.map((item) => item.category))].map((value) => (
-                <option key={value} value={value}>
-                  {items.find((item) => item.category === value)?.categoryLabel}
-                </option>
-              ))}
-            </select>
-            <select
-              aria-label="Filter event status"
-              value={state}
-              onChange={(event) => setState(event.target.value)}
-              className="h-7 w-full rounded-md border bg-background px-1.5 text-xs @3xl:w-36"
-            >
-              <option value="all">All statuses</option>
-              <option value="errors">Errors &amp; failures</option>
-              {[...new Set(items.map((item) => item.state))].map((value) => (
-                <option key={value} value={value}>
-                  {items.find((item) => item.state === value)?.stateLabel}
-                </option>
-              ))}
-            </select>
+            <Select value={category} onValueChange={setCategory}>
+              <SelectTrigger
+                size="sm"
+                aria-label="Filter event category"
+                className="h-7 w-full text-xs @3xl:w-28"
+              >
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All categories</SelectItem>
+                {[...new Set(items.map((item) => item.category))].map(
+                  (value) => (
+                    <SelectItem key={value} value={value}>
+                      {
+                        items.find((item) => item.category === value)
+                          ?.categoryLabel
+                      }
+                    </SelectItem>
+                  ),
+                )}
+              </SelectContent>
+            </Select>
+            <Select value={state} onValueChange={setState}>
+              <SelectTrigger
+                size="sm"
+                aria-label="Filter event status"
+                className="h-7 w-full text-xs @3xl:w-36"
+              >
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All statuses</SelectItem>
+                <SelectItem value="errors">Errors &amp; failures</SelectItem>
+                {[...new Set(items.map((item) => item.state))].map((value) => (
+                  <SelectItem key={value} value={value}>
+                    {items.find((item) => item.state === value)?.stateLabel}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
         </header>
 
