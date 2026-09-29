@@ -95,6 +95,18 @@ describe("output contracts", () => {
     const { result } = await running;
     expect(invoke).toHaveBeenCalledTimes(2);
     expect(stream).toHaveBeenCalledTimes(1);
+    const continuationMessages = (
+      invoke.mock.calls[1] as unknown as [{ role: string; content: string }[]]
+    )[0];
+    expect(continuationMessages).toContainEqual(
+      expect.objectContaining({
+        role: "tool",
+        content: JSON.stringify({
+          emitted: true,
+          data: { summary: "Hello", accounts: ["A", "B"] },
+        }),
+      }),
+    );
     const events = emitted.filter(
       (entry) =>
         entry.event === "text-delta" || entry.event === "structured_data",
@@ -291,6 +303,64 @@ describe("output contracts", () => {
     ).toEqual(["text-delta", "text-delta", "final"]);
   });
 
+  it("invalidates partial fields when streamed output fails final validation", async () => {
+    const liveReturn = defineOutputContract({
+      description: "Return a live analysis.",
+      schemaId: "acme.live-analysis",
+      schemaVersion: "1",
+      schema: z.object({ summary: z.string(), score: z.number() }),
+      stream: { fields: { summary: "text-delta" } },
+    });
+    const { modelRef } = createProvider({
+      invokeResponses: [
+        {
+          content: "",
+          toolCalls: [
+            {
+              id: "bad-live-return",
+              name: "kortyx_stream_return__completed",
+              input: { instruction: "Summarize the account." },
+            },
+          ],
+        },
+      ],
+      streamResponses: [
+        '{"summary":"Draft"}',
+        { type: "finish", finishReason: { unified: "stop" } },
+      ],
+    });
+    const { node, emitted } = createNode();
+    await expect(
+      runWithHookContext({ node, state: createState() }, () =>
+        useReason({
+          model: modelRef,
+          input: "Analyze",
+          outputs: { return: { completed: liveReturn } },
+          toolExecution: { maxSteps: 2 },
+        }),
+      ),
+    ).rejects.toThrow();
+    const partial = emitted.find(
+      (entry) =>
+        entry.event === "structured_data" &&
+        (entry.payload as { kind: string }).kind === "text-delta",
+    );
+    expect(partial).toBeTruthy();
+    expect(
+      emitted.filter(
+        (entry) =>
+          entry.event === "structured_data" &&
+          (entry.payload as { kind: string }).kind === "final",
+      ),
+    ).toEqual([]);
+    expect(emitted.at(-1)).toEqual({
+      event: "structured_data_invalidated",
+      payload: expect.objectContaining({
+        streamId: (partial?.payload as { streamId: string }).streamId,
+      }),
+    });
+  });
+
   it("preserves emitted outputs across a human interrupt and resumes to a return", async () => {
     const approval = defineInterruptContract({
       description: "Ask which account to use.",
@@ -420,6 +490,30 @@ describe("output contracts", () => {
     expect(
       emitted.filter((entry) => entry.event === "structured_data"),
     ).toEqual([]);
+  });
+
+  it("rejects provider-native output schemas with an actionable migration error", async () => {
+    const nativeSchema = Object.assign(z.object({ answer: z.string() }), {
+      "~kortyx": { nativeOutput: true as const },
+    });
+    const native = defineOutputContract({
+      description: "Return a native decision.",
+      schemaId: "acme.native-decision",
+      schemaVersion: "1",
+      schema: nativeSchema,
+    });
+    const { modelRef, invoke } = createProvider();
+    const { node } = createNode();
+    await expect(
+      runWithHookContext({ node, state: createState() }, () =>
+        useReason({
+          model: modelRef,
+          input: "Decide",
+          outputs: { return: { native } },
+        }),
+      ),
+    ).rejects.toThrow("provider-native output schema");
+    expect(invoke).not.toHaveBeenCalled();
   });
 
   it("shares the validated stream payload with deterministic useStructuredData", async () => {

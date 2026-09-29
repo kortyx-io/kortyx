@@ -306,15 +306,15 @@ result.returned;
 useStructuredData({ contract: accountCard, data: { title: "Matches", accounts: ["A"] } });
 ```
 
-When the model selects `accountCard`, Kortyx makes a separate streamed JSON model pass. `title` and `accounts` updates reach the client as tokens arrive; the full object is validated before the final chunk and before it enters `result.emissions`. The model then continues and may stream more assistant text. The extra pass counts toward `toolExecution.maxSteps` and model usage. A streamed `return` contract works the same way and then ends the call. For a contract without `stream`, its complete tool arguments are validated and emitted after the tool call finishes.
+When the model selects `accountCard`, Kortyx makes a separate streamed JSON model pass. `title` and `accounts` updates reach the client as tokens arrive; the full object is validated before the final chunk and before it enters `result.emissions`. The validated value is returned to the model as the control-tool result, so it can continue with text that matches the published card. The extra pass and tool result count toward `toolExecution.maxSteps`, model usage, and later context. A streamed `return` contract works the same way and then ends the call. For a contract without `stream`, its complete tool arguments are validated and emitted after the tool call finishes.
 
 > **Good to know:** Live text around output contracts requires a provider model that supports streaming alongside tools. The streamed structured pass itself uses text streaming. Providers without tool streaming can still select contracts, but the surrounding assistant text arrives after each tool-enabled model pass completes.
 
-> **Good to know:** The model chooses when to call an output contract. If an application must emit a value at a precise point, call `useStructuredData({ contract, data })` from the node. Partial chunks are provisional; consumers should treat the validated `final` chunk as the source of truth.
+> **Good to know:** The model chooses when to call an output contract. If an application must emit a value at a precise point, call `useStructuredData({ contract, data })` from the node. Partial chunks are provisional; clients discard them if generation or final validation fails, and treat a validated `final` chunk as the source of truth.
 
 ### Deprecated: single JSON output schema
 
-`outputSchema` and `structured` remain supported for existing calls, including their incremental field streaming. Use output contracts for model-selected values interleaved with assistant text.
+`useReason({ outputSchema, structured })` and `result.output` remain supported for existing calls, including incremental field streaming, but are deprecated and scheduled for removal in the next major version. New tool-capable model integrations should use output contracts. TypeSafe Jev is a temporary exception: its native decision API cannot call tools, so keep its current `jevOutputSchema(...)` path until a non-tool replacement is available.
 
 ### Example: stream an email draft as JSON
 

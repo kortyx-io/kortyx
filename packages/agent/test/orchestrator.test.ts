@@ -239,6 +239,10 @@ describe("orchestrateGraphStream", () => {
         path: "name",
         value: "Ada",
       });
+      emit("structured_data_invalidated", {
+        node: "writer",
+        streamId: "structured-1",
+      });
       emit("structured_data", {
         node: "writer",
         dataType: "profile",
@@ -396,6 +400,10 @@ describe("orchestrateGraphStream", () => {
       id: "value",
       path: "name",
       value: "Ada",
+    });
+    expect(chunks).toContainEqual({
+      type: "structured-data-invalidated",
+      streamId: "structured-1",
     });
     expect(chunks).toContainEqual(
       expect.objectContaining({

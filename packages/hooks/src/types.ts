@@ -244,9 +244,9 @@ export type UseReasonArgs<
   stream?: boolean | undefined;
   id?: string | undefined;
   telemetry?: KortyxTraceMetadata | undefined;
-  /** @deprecated Use `outputs.return` with `defineOutputContract`. */
+  /** @deprecated Removed in the next major. Use `outputs.return` with `defineOutputContract`. */
   outputSchema?: SchemaLike<TOutput> | undefined;
-  /** @deprecated Use output contracts for model-selected structured emissions. */
+  /** @deprecated Removed in the next major. Use output contracts for model-selected structured emissions. */
   structured?: UseReasonStructuredConfig | undefined;
   outputs?: UseReasonOutputsConfig<TEmit, TReturn> | undefined;
   /** @deprecated Use `interrupts`. Removed in the next major release. */
@@ -284,7 +284,7 @@ export type UseReasonResult<
   finishReason?: KortyxFinishReason;
   providerMetadata?: KortyxProviderMetadata;
   warnings?: KortyxWarning[];
-  /** @deprecated Use `returned` from an output contract. */
+  /** @deprecated Removed in the next major. Use `returned` from an output contract. */
   output?: TOutput;
   emissions?: OutputContractEntry<TEmit>[];
   returned?: OutputContractEntry<TReturn>;

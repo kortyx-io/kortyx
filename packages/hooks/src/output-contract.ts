@@ -16,7 +16,7 @@ export const warnLegacyReasonOutput = (): void => {
   if (legacyOutputWarningEmitted) return;
   legacyOutputWarningEmitted = true;
   process.emitWarning(
-    "useReason({ outputSchema, structured }) is deprecated. Define reusable contracts with defineOutputContract() and pass them through useReason({ outputs }). See docs/internal/next-major-removals.md.",
+    "useReason({ outputSchema, structured }) and result.output are deprecated and will be removed in the next major release. Define reusable contracts with defineOutputContract() and pass them through useReason({ outputs }). See docs/internal/next-major-removals.md.",
     { code: "KORTYX_USE_REASON_OUTPUT_DEPRECATED", type: "DeprecationWarning" },
   );
 };
@@ -96,6 +96,10 @@ export const normalizeReasonOutputs = (
     )
       throw new Error(`Invalid useReason output contract name "${name}".`);
     defineOutputContract(contract);
+    if (contract.schema["~kortyx"]?.nativeOutput === true)
+      throw new Error(
+        `useReason output contract "${name}" uses a provider-native output schema that cannot be selected through tools. Continue using outputSchema for this provider until a non-tool contract path is available.`,
+      );
     if (
       contract.stream &&
       outputControlToolName(

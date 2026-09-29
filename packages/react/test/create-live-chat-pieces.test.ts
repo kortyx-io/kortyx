@@ -100,6 +100,43 @@ describe("createLiveChatPieces", () => {
     ]);
   });
 
+  it("removes a failed provisional output from live and saved pieces", () => {
+    const createId = createIdFactory();
+    const server = createFinalizedChatMessageAccumulator("turn-failed-output");
+    const structured = createStructuredStreamAccumulator();
+    const client = createLiveChatPieces({
+      createId,
+      turnId: "turn-failed-output",
+      onChange: () => {},
+      structuredStreams: {
+        applyStreamChunk: (chunk) => {
+          const state = structured.applyStreamChunk(chunk);
+          return state
+            ? { id: createId(), streamId: state.streamId, state }
+            : undefined;
+        },
+      },
+      toHumanInputPiece: () => createHumanInputPiece(),
+    });
+    const chunks: StreamChunk[] = [
+      {
+        type: "structured-data",
+        streamId: "draft-1",
+        dataType: "acme.card",
+        kind: "text-delta",
+        path: "summary",
+        delta: "Draft",
+      },
+      { type: "structured-data-invalidated", streamId: "draft-1" },
+    ];
+    for (const chunk of chunks) {
+      server.apply(chunk);
+      client.processChunk(chunk);
+    }
+    expect(client.getPieces()).toEqual([]);
+    expect(server.message().contentPieces).toEqual([]);
+  });
+
   it("uses the same persisted piece shape and IDs as the server collector", () => {
     const createId = createIdFactory();
     const server = createFinalizedChatMessageAccumulator("turn-1");

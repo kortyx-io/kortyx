@@ -37,6 +37,7 @@ export const TELEMETRY_EVENT_TYPES = [
   "tool.suspended",
   "response.completed",
   "output.emitted",
+  "output.invalidated",
   "interrupt.created",
   "interrupt.resolved",
   "interrupt.expired",

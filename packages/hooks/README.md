@@ -45,7 +45,9 @@ Contracts with `stream.fields` start a separate streamed JSON pass and publish
 partial `set`, `append`, or `text-delta` updates before the validated `final`
 value. `useStructuredData({ contract, data })` uses the same stream contract for
 application-authored values. The older `outputSchema` and `structured` options
-remain available during migration and are deprecated.
+and `result.output` remain available during migration, but are deprecated and
+scheduled for removal in the next major release. TypeSafe Jev's provider-native
+decision schema is a temporary exception until a non-tool replacement ships.
 
 ## Runtime Resume Behavior
 

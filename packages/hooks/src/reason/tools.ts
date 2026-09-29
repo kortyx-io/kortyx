@@ -688,84 +688,105 @@ export const runReasonToolLoop = async <
             resolved.contract.schema,
             undefined,
           );
-          const outputStep = await reasonEngine(
-            {
-              ...useReasonArgs,
-              tools: [],
-              ...(inferred.responseFormat
-                ? { responseFormat: inferred.responseFormat }
-                : {}),
-              messages: [
-                ...messages,
-                {
-                  role: "tool",
-                  toolCallId: call.id,
-                  name: call.name,
-                  content: "Generating the requested structured output.",
-                },
-                {
-                  role: "user",
-                  content: withOutputGuardrails(
-                    instruction,
-                    resolved.contract.schema,
-                  ),
-                },
-              ],
-              emit: false,
-              stream,
-              ...(emit && stream
-                ? {
-                    onTextChunk: createStructuredOutputStreamer(
-                      { structured },
-                      id,
-                      streamId,
+          try {
+            const outputStep = await reasonEngine(
+              {
+                ...useReasonArgs,
+                tools: [],
+                ...(inferred.responseFormat
+                  ? { responseFormat: inferred.responseFormat }
+                  : {}),
+                messages: [
+                  ...messages,
+                  {
+                    role: "tool",
+                    toolCallId: call.id,
+                    name: call.name,
+                    content: "Generating the requested structured output.",
+                  },
+                  {
+                    role: "user",
+                    content: withOutputGuardrails(
+                      instruction,
+                      resolved.contract.schema,
                     ),
-                  }
-                : {}),
-            },
-            { ...(id ? { id } : {}), opId },
-          );
-          if (outputStep.toolCalls?.length)
-            throw new Error(
-              `Provider requested a tool during streamed output contract "${resolved.name}".`,
+                  },
+                ],
+                emit: false,
+                stream,
+                ...(emit && stream
+                  ? {
+                      onTextChunk: createStructuredOutputStreamer(
+                        { structured },
+                        id,
+                        streamId,
+                      ),
+                    }
+                  : {}),
+              },
+              { ...(id ? { id } : {}), opId },
             );
-          aggregatedUsage = mergeUsage(aggregatedUsage, outputStep.usage);
-          accumulateTokenUsage(outputStep.usage);
-          aggregatedWarnings = mergeWarnings(
-            aggregatedWarnings,
-            mergeWarnings(inferred.warnings, outputStep.warnings),
-          );
-          aggregatedProviderMetadata = mergeProviderMetadata(
-            aggregatedProviderMetadata,
-            outputStep.providerMetadata,
-          );
-          finalFinishReason = outputStep.finishReason;
-          finalRaw = outputStep.raw;
-          data = parseReasonOutputWithSchema({
-            text: outputStep.text,
-            schema: resolved.contract.schema,
-            ...(outputStep.finishReason
-              ? { finishReason: outputStep.finishReason }
-              : {}),
-            ...(aggregatedUsage ? { usage: aggregatedUsage } : {}),
-            label: `useReason output contract "${resolved.name}"`,
-          });
-          steps.push({
-            stepIndex: stepIndex + 1,
-            kind: "output",
-            text: outputStep.text,
-            toolCalls: [],
-            toolResults: [],
-            ...(outputStep.usage ? { usage: outputStep.usage } : {}),
-            ...(outputStep.finishReason
-              ? { finishReason: outputStep.finishReason }
-              : {}),
-            ...(outputStep.providerMetadata
-              ? { providerMetadata: outputStep.providerMetadata }
-              : {}),
-            ...(outputStep.warnings ? { warnings: outputStep.warnings } : {}),
-          });
-          stepIndex += 1;
+            if (outputStep.toolCalls?.length)
+              throw new Error(
+                `Provider requested a tool during streamed output contract "${resolved.name}".`,
+              );
+            aggregatedUsage = mergeUsage(aggregatedUsage, outputStep.usage);
+            accumulateTokenUsage(outputStep.usage);
+            aggregatedWarnings = mergeWarnings(
+              aggregatedWarnings,
+              mergeWarnings(inferred.warnings, outputStep.warnings),
+            );
+            aggregatedProviderMetadata = mergeProviderMetadata(
+              aggregatedProviderMetadata,
+              outputStep.providerMetadata,
+            );
+            finalFinishReason = outputStep.finishReason;
+            finalRaw = outputStep.raw;
+            data = parseReasonOutputWithSchema({
+              text: outputStep.text,
+              schema: resolved.contract.schema,
+              ...(outputStep.finishReason
+                ? { finishReason: outputStep.finishReason }
+                : {}),
+              ...(aggregatedUsage ? { usage: aggregatedUsage } : {}),
+              label: `useReason output contract "${resolved.name}"`,
+            });
+            steps.push({
+              stepIndex: stepIndex + 1,
+              kind: "output",
+              text: outputStep.text,
+              toolCalls: [],
+              toolResults: [],
+              ...(outputStep.usage ? { usage: outputStep.usage } : {}),
+              ...(outputStep.finishReason
+                ? { finishReason: outputStep.finishReason }
+                : {}),
+              ...(outputStep.providerMetadata
+                ? { providerMetadata: outputStep.providerMetadata }
+                : {}),
+              ...(outputStep.warnings ? { warnings: outputStep.warnings } : {}),
+            });
+            stepIndex += 1;
+          } catch (error) {
+            traceSpan?.addEvent?.("useReason.output.invalidated", {
+              contract: resolved.name,
+              kind: resolved.kind,
+              schemaId: resolved.contract.schemaId,
+              schemaVersion: resolved.contract.schemaVersion,
+              streamId,
+            });
+            if (emit) {
+              try {
+                ctx.node.emit("structured_data_invalidated", {
+                  node: ctx.node.graph.node,
+                  streamId,
+                });
+              } catch {
+                // Reporting must not replace the generation or validation error.
+              }
+            }
+            throw error;
+          }
         } else {
           data = parseWithSchema(
             resolved.contract.schema,
@@ -803,7 +824,7 @@ export const runReasonToolLoop = async <
           save();
           break;
         }
-        const result = normalizeToolResult(call, { emitted: true });
+        const result = normalizeToolResult(call, { emitted: true, data });
         toolResults.push(result);
         messages.push({
           role: "tool",

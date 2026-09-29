@@ -2468,7 +2468,7 @@ describe("useChat", () => {
     await act(async () => {
       await result.current.send("hello");
     });
-    expect(result.current.messages.at(-1)?.contentPieces ?? []).toHaveLength(1);
+    expect(result.current.messages.at(-1)?.contentPieces ?? []).toHaveLength(0);
 
     await act(async () => {
       await expect(result.current.rollbackTo("cp-0")).resolves.toMatchObject({

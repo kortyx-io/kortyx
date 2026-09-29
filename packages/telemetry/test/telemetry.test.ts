@@ -66,6 +66,13 @@ describe("createKortyxTelemetryAdapter", () => {
             schemaVersion: "1",
             data: { secret: "private-value" },
           });
+          span.addEvent?.("useReason.output.invalidated", {
+            contract: "accountCard",
+            kind: "emit",
+            schemaId: "acme.account-card",
+            schemaVersion: "1",
+            streamId: "draft-1",
+          });
         },
       );
       await adapter.flush();
@@ -81,6 +88,15 @@ describe("createKortyxTelemetryAdapter", () => {
       );
       expect(events.some((event) => event.type.startsWith("tool."))).toBe(
         false,
+      );
+      expect(events).toContainEqual(
+        expect.objectContaining({
+          type: "output.invalidated",
+          payload: expect.objectContaining({
+            contract: "accountCard",
+            streamId: "draft-1",
+          }),
+        }),
       );
     }
   });

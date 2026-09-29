@@ -162,6 +162,8 @@ function eventTitle(
       ? `Returned ${contract}`
       : `Emitted ${contract}`;
   }
+  if (event.type === "output.invalidated")
+    return `Invalidated ${asString(event.payload.contract) ?? "structured value"}`;
   if (event.type === "response.completed") return "Client response completed";
   if (event.type === "interrupt.created")
     return asString(event.payload.contract)
@@ -257,7 +259,7 @@ function eventContext(event: StudioDetailEvent): string {
     if (contract) parts.unshift(`contract ${contract}`);
     if (schemaId) parts.push(schemaId);
   }
-  if (event.type === "output.emitted") {
+  if (event.type === "output.emitted" || event.type === "output.invalidated") {
     const schemaId = asString(event.payload.schemaId);
     if (schemaId) parts.push(schemaId);
   }
@@ -275,7 +277,8 @@ function eventContext(event: StudioDetailEvent): string {
 function eventCategory(event: StudioDetailEvent): EventCategory {
   if (event.type === "error.reported") return "error";
   if (event.type === "generation.completed") return "model";
-  if (event.type === "output.emitted") return "output";
+  if (event.type === "output.emitted" || event.type === "output.invalidated")
+    return "output";
   if (event.type.startsWith("tool.")) return "tool";
   if (event.type.startsWith("interrupt.")) return "interrupt";
   if (event.type.startsWith("session.")) return "session";

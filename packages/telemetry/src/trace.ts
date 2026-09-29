@@ -244,7 +244,9 @@ export const createTraceAdapter = (args: {
                 ? "tool.failed"
                 : name === "useReason.output.emitted"
                   ? "output.emitted"
-                  : undefined;
+                  : name === "useReason.output.invalidated"
+                    ? "output.invalidated"
+                    : undefined;
         if (!type) return;
         const payload =
           type === "output.emitted"

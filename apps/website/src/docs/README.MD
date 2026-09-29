@@ -72,6 +72,7 @@ When removing a docs page:
 3. Expand migration guides for major-version upgrades and breaking changes.
 4. Keep OpenTelemetry as the backend-neutral observability contract and maintain focused exporter recipes for supported backends such as Langfuse.
 5. Keep the output-contract example in the Hooks guide and the realtime partial-chunk semantics in the Stream Protocol reference aligned with provider capabilities and `@kortyx/react` rendering.
+6. Add a non-tool typed decision path for TypeSafe Jev before removing deprecated `useReason({ outputSchema, structured })` in the next major version; migrate the provider guide and examples with it.
 
 ## Skill Parity Coverage
 

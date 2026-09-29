@@ -1066,6 +1066,13 @@ export async function orchestrateGraphStream({
       });
       return;
     }
+    if (event === "structured_data_invalidated") {
+      const streamId = (payload as { streamId?: unknown })?.streamId;
+      if (typeof streamId !== "string" || !streamId) return;
+      structuredStreamIds.delete(streamId);
+      write({ type: "structured-data-invalidated", streamId });
+      return;
+    }
     // legacy 'human_required' removed — dynamic interrupts are used instead
     if (event === "transition") {
       // 1) surface to the client (useful for dev tools)
