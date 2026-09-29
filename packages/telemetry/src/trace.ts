@@ -16,7 +16,12 @@ const providerPricing = (
   metadata: ReasonTraceSpanEndArgs["providerMetadata"],
 ): Record<string, unknown> | undefined => {
   if (metadata?.providerId !== "openrouter") return undefined;
-  const cost = metadata.cost;
+  const details = metadata.costDetails;
+  const upstreamCost =
+    details && typeof details === "object" && !Array.isArray(details)
+      ? (details as Record<string, unknown>).upstreamInferenceCost
+      : undefined;
+  const cost = metadata.isByok === true ? upstreamCost : metadata.cost;
   if (typeof cost !== "number" || !Number.isFinite(cost) || cost < 0)
     return undefined;
   return {

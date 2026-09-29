@@ -96,7 +96,9 @@ describe("createKortyxTelemetryAdapter", () => {
               usage: { input: 1, output: 2, total: 3 },
               providerMetadata: {
                 providerId: "openrouter",
-                cost: 0.001234,
+                cost: 0,
+                isByok: true,
+                costDetails: { upstreamInferenceCost: 0.001234 },
               },
             });
           },
