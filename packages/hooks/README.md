@@ -24,6 +24,7 @@ npm install @kortyx/hooks
 - `useReason(...)` for model calls, optional schema-constrained interrupt flow, and structured output.
 - `useInterrupt(...)` for explicit human-in-the-loop pauses.
 - `useStructuredData(...)` for UI-friendly structured stream events.
+- `defineOutputContract(...)` for reusable model-selected and application-authored structured values.
 - `useRuntimeContext(...)` for request context made available to node execution.
 - `useNodeState(...)` / `useWorkflowState(...)` for stateful node logic.
 
@@ -37,6 +38,14 @@ human turns.
 The singular `useReason({ interrupt })` option and `result.interruptResponse`
 are deprecated and will be removed in the next major release. Migrate to
 `interrupts.contracts` and `result.interruptHistory`.
+
+Pass output contracts through `useReason({ outputs: { emit, return } })` to let
+the model emit values between text segments or choose a typed terminal result.
+Contracts with `stream.fields` start a separate streamed JSON pass and publish
+partial `set`, `append`, or `text-delta` updates before the validated `final`
+value. `useStructuredData({ contract, data })` uses the same stream contract for
+application-authored values. The older `outputSchema` and `structured` options
+remain available during migration and are deprecated.
 
 ## Runtime Resume Behavior
 

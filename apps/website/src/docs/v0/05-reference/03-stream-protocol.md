@@ -153,6 +153,8 @@ Tool chunks are emitted only when the call opts in with `toolExecution.emit`. To
 
 ### Structured chunk shape
 
+Output contracts selected by `useReason({ outputs })` use these same chunks. A contract with `stream.fields` emits provisional `set`, `append`, or `text-delta` chunks while its dedicated JSON model pass is streaming, followed by a validated `final` chunk. All chunks for one emission share a `streamId`; a later emission uses a different one. Text before and after the emission uses distinct `segmentId` values, so `@kortyx/react` preserves the order of text and structured pieces. The dedicated JSON pass consumes a model step. Contracts without `stream.fields` emit only the final chunk after their tool call finishes.
+
 Example incremental chunk:
 
 ```json

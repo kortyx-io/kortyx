@@ -163,8 +163,9 @@ Think about structured streaming as a second channel beside normal assistant tex
 
 In practice:
 
-- use `useReason({ structured })` when the model owns the object
-- use `useStructuredData(...)` when your node logic owns the updates
+- use `useReason({ outputs })` when the model chooses which contract to emit
+- use `useStructuredData({ contract, ... })` when your node logic owns the updates
+- existing `useReason({ outputSchema, structured })` calls still work, but are deprecated
 
 ## `useReason(...)`
 
@@ -219,6 +220,101 @@ return {
 ```
 
 > **Good to know:** Return `data` for values later nodes need. Return `ui.message` only for assistant text the client should receive as a final message chunk.
+
+### Model-selected output contracts
+
+Define reusable schemas when the model should choose which structured values to show during a response and which result ends the call. `emit` contracts can appear between text segments and can be used more than once. If `return` contracts are present, the model must choose exactly one to finish.
+
+```ts
+import { defineOutputContract, useReason, useStructuredData } from "kortyx";
+import { z } from "zod";
+
+const accountCard = defineOutputContract({
+  description: "Show matching accounts to the user.",
+  schemaId: "acme.account-card",
+  schemaVersion: "1",
+  schema: z.object({ title: z.string(), accounts: z.array(z.string()) }),
+  stream: { fields: { title: "text-delta", accounts: "append" } },
+});
+const completed = defineOutputContract({
+  description: "Return the completed account analysis.",
+  schemaId: "acme.account-analysis",
+  schemaVersion: "1",
+  schema: z.object({ summary: z.string() }),
+});
+const rejected = defineOutputContract({
+  description: "Return why the analysis cannot be completed.",
+  schemaId: "acme.account-rejection",
+  schemaVersion: "1",
+  schema: z.object({ reason: z.string() }),
+});
+
+const result = await useReason({
+  model,
+  input: "Find this account and analyze it.",
+  outputs: {
+    emit: { accountCard },
+    return: { completed, rejected },
+    maxEmissions: 4,
+  },
+  toolExecution: { maxSteps: 8 },
+});
+
+result.emissions; // Validated account cards, in order.
+result.returned; // { contract: "completed", data } or { contract: "rejected", data }.
+
+// Application-authored values use the same contract and stream protocol.
+useStructuredData({ contract: accountCard, data: { title: "Matches", accounts: ["A"] } });
+```
+```js
+import { defineOutputContract, useReason, useStructuredData } from "kortyx";
+import { z } from "zod";
+
+const accountCard = defineOutputContract({
+  description: "Show matching accounts to the user.",
+  schemaId: "acme.account-card",
+  schemaVersion: "1",
+  schema: z.object({ title: z.string(), accounts: z.array(z.string()) }),
+  stream: { fields: { title: "text-delta", accounts: "append" } },
+});
+const completed = defineOutputContract({
+  description: "Return the completed account analysis.",
+  schemaId: "acme.account-analysis",
+  schemaVersion: "1",
+  schema: z.object({ summary: z.string() }),
+});
+const rejected = defineOutputContract({
+  description: "Return why the analysis cannot be completed.",
+  schemaId: "acme.account-rejection",
+  schemaVersion: "1",
+  schema: z.object({ reason: z.string() }),
+});
+
+const result = await useReason({
+  model,
+  input: "Find this account and analyze it.",
+  outputs: {
+    emit: { accountCard },
+    return: { completed, rejected },
+    maxEmissions: 4,
+  },
+  toolExecution: { maxSteps: 8 },
+});
+
+result.emissions;
+result.returned;
+useStructuredData({ contract: accountCard, data: { title: "Matches", accounts: ["A"] } });
+```
+
+When the model selects `accountCard`, Kortyx makes a separate streamed JSON model pass. `title` and `accounts` updates reach the client as tokens arrive; the full object is validated before the final chunk and before it enters `result.emissions`. The model then continues and may stream more assistant text. The extra pass counts toward `toolExecution.maxSteps` and model usage. A streamed `return` contract works the same way and then ends the call. For a contract without `stream`, its complete tool arguments are validated and emitted after the tool call finishes.
+
+> **Good to know:** Live text around output contracts requires a provider model that supports streaming alongside tools. The streamed structured pass itself uses text streaming. Providers without tool streaming can still select contracts, but the surrounding assistant text arrives after each tool-enabled model pass completes.
+
+> **Good to know:** The model chooses when to call an output contract. If an application must emit a value at a precise point, call `useStructuredData({ contract, data })` from the node. Partial chunks are provisional; consumers should treat the validated `final` chunk as the source of truth.
+
+### Deprecated: single JSON output schema
+
+`outputSchema` and `structured` remain supported for existing calls, including their incremental field streaming. Use output contracts for model-selected values interleaved with assistant text.
 
 ### Example: stream an email draft as JSON
 

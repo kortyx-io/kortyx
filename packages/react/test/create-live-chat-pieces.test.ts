@@ -36,6 +36,70 @@ const createHumanInputPiece = (): HumanInputPiece => ({
 });
 
 describe("createLiveChatPieces", () => {
+  it("preserves text around distinct contract outputs in live and saved messages", () => {
+    const createId = createIdFactory();
+    const server = createFinalizedChatMessageAccumulator("turn-output");
+    const structured =
+      createStructuredStreamAccumulator<Record<string, unknown>>();
+    const client = createLiveChatPieces({
+      createId,
+      turnId: "turn-output",
+      onChange: () => {},
+      structuredStreams: {
+        applyStreamChunk: (chunk) => {
+          const state = structured.applyStreamChunk(chunk);
+          return state
+            ? { id: createId(), streamId: state.streamId, state }
+            : undefined;
+        },
+      },
+      toHumanInputPiece: () => createHumanInputPiece(),
+    });
+    const chunks: StreamChunk[] = [
+      {
+        type: "text-delta",
+        node: "writer",
+        opId: "reason-1",
+        segmentId: "step-0",
+        delta: "First",
+      },
+      {
+        type: "structured-data",
+        streamId: "reason-1:emit:card:0",
+        dataType: "acme.card",
+        schemaId: "acme.card",
+        kind: "final",
+        data: { name: "A" },
+      },
+      {
+        type: "text-delta",
+        node: "writer",
+        opId: "reason-1",
+        segmentId: "step-1",
+        delta: "Second",
+      },
+      {
+        type: "structured-data",
+        streamId: "reason-1:return:completed:return",
+        dataType: "acme.result",
+        schemaId: "acme.result",
+        kind: "final",
+        data: { summary: "Done" },
+      },
+    ];
+    for (const chunk of chunks) {
+      server.apply(chunk);
+      client.processChunk(chunk);
+    }
+    expect(client.getPieces()).toEqual(server.message().contentPieces);
+    expect(client.getPieces().map((piece) => piece.type)).toEqual([
+      "text",
+      "structured",
+      "text",
+      "structured",
+    ]);
+  });
+
   it("uses the same persisted piece shape and IDs as the server collector", () => {
     const createId = createIdFactory();
     const server = createFinalizedChatMessageAccumulator("turn-1");

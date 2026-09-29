@@ -49,6 +49,7 @@ Plus types like `GraphState`, `NodeResult`, `WorkflowDefinition`, `WorkflowId`.
 ```ts
 export {
   createWorkflowHooks,
+  defineOutputContract,
   parallel,
   ParallelError,
   reportError,
@@ -65,6 +66,7 @@ export {
 ```js
 export {
   createWorkflowHooks,
+  defineOutputContract,
   parallel,
   ParallelError,
   reportError,
@@ -80,6 +82,8 @@ export {
 ```
 
 `useTool({tool, input, id?, abortSignal?})` executes a shared tool immediately and returns its inferred result. It creates observations without adding a model call or MCP transport. `UseToolArgs`, `KortyxExecutableTool`, `ToolOutcomes`, `ToolOutcomeDescriptor`, `ToolTelemetry` and `ToolErrorDetails` are exported types. See [Hooks](../02-core-concepts/07-hooks.md).
+
+`defineOutputContract({ description, schemaId, schemaVersion, schema, stream? })` creates a reusable typed output contract. Pass named contracts to `useReason({ outputs: { emit, return } })` or use one directly with `useStructuredData({ contract, data })`. See [Hooks](../02-core-concepts/07-hooks.md#model-selected-output-contracts) and [Stream Protocol](03-stream-protocol.md).
 
 `reportError(error, {severity?, metadata?, tags?})` records a handled error on the active workflow span without stopping execution. Thrown errors are recorded automatically and retain their ordinary retry/failure behavior. `ReportErrorOptions` is exported for wrappers and custom hooks.
 

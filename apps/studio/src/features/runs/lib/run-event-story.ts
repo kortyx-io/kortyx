@@ -156,6 +156,12 @@ function eventTitle(
         ? `${tool} fault`
         : `${tool} succeeded`;
   if (event.type === "tool.failed") return `${tool} tool failed`;
+  if (event.type === "output.emitted") {
+    const contract = asString(event.payload.contract) ?? "structured value";
+    return event.payload.kind === "return"
+      ? `Returned ${contract}`
+      : `Emitted ${contract}`;
+  }
   if (event.type === "response.completed") return "Client response completed";
   if (event.type === "interrupt.created")
     return asString(event.payload.contract)
@@ -251,6 +257,10 @@ function eventContext(event: StudioDetailEvent): string {
     if (contract) parts.unshift(`contract ${contract}`);
     if (schemaId) parts.push(schemaId);
   }
+  if (event.type === "output.emitted") {
+    const schemaId = asString(event.payload.schemaId);
+    if (schemaId) parts.push(schemaId);
+  }
   if (event.payload.name === "runReasonEngine") {
     const provider = asString(attributes.providerId);
     const model = asString(attributes.modelId);
@@ -265,6 +275,7 @@ function eventContext(event: StudioDetailEvent): string {
 function eventCategory(event: StudioDetailEvent): EventCategory {
   if (event.type === "error.reported") return "error";
   if (event.type === "generation.completed") return "model";
+  if (event.type === "output.emitted") return "output";
   if (event.type.startsWith("tool.")) return "tool";
   if (event.type.startsWith("interrupt.")) return "interrupt";
   if (event.type.startsWith("session.")) return "session";
@@ -369,6 +380,7 @@ export type EventCategory =
   | "run"
   | "node"
   | "model"
+  | "output"
   | "tool"
   | "interrupt"
   | "session"
@@ -411,6 +423,7 @@ const CATEGORY_LABELS: Record<EventCategory, string> = {
   run: "Run",
   node: "Node",
   model: "Model",
+  output: "Output",
   tool: "Tool",
   interrupt: "Interrupt",
   session: "Session",

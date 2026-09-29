@@ -44,6 +44,19 @@ await useReason({
 });
 ```
 
+## `useReason` single JSON output API
+
+Deprecated when model-selected output contracts were introduced.
+
+- [ ] Remove `UseReasonArgs.outputSchema`, `UseReasonArgs.structured`, and `UseReasonResult.output` after the migration window.
+- [ ] Remove `KORTYX_USE_REASON_OUTPUT_DEPRECATED` and the legacy JSON prompt, parser, and structured streaming compatibility path once no callers remain.
+- [ ] Keep the `structured-data` wire protocol and `useStructuredData`; output contracts use both.
+- [ ] Update the Hooks and Stream Protocol guides and retain compile-time tests for the replacement.
+
+Replacement: `defineOutputContract(...)` with `useReason({ outputs: { emit, return } })`. For realtime partial fields, define `stream.fields` on the contract. The model first selects that contract through a control tool, then Kortyx performs a separate streamed JSON pass and emits partial chunks before `final`. For deterministic output, call `useStructuredData({ contract, data })`.
+
+Runtime warning: `KORTYX_USE_REASON_OUTPUT_DEPRECATED`.
+
 ## Process for adding entries
 
 Every future entry must name the public surface, replacement, first deprecated

@@ -34,6 +34,57 @@ const event = (eventId: string) => ({
 });
 
 describe("createKortyxTelemetryAdapter", () => {
+  it("records output contracts separately from tools and gates their values by capture policy", async () => {
+    for (const captureContent of [false, true]) {
+      const requests: EventBatch[] = [];
+      const adapter = createKortyxTelemetryAdapter({
+        endpoint: "https://telemetry.example",
+        apiKey: "ktyx_test_key_secret",
+        environment: "test",
+        service: { name: "telemetry-test" },
+        captureContent,
+        flushIntervalMs: 60_000,
+        fetch: async (_url, init) => {
+          requests.push({ body: JSON.parse(String(init?.body)) });
+          return new Response("{}", { status: 200 });
+        },
+      });
+      await adapter.trace?.withSpan?.(
+        {
+          name: "useReason",
+          attributes: {
+            runId: "run_1",
+            workflowId: "workflow",
+            nodeId: "answer",
+          },
+        },
+        async (span) => {
+          span.addEvent?.("useReason.output.emitted", {
+            contract: "accountCard",
+            kind: "emit",
+            schemaId: "acme.account-card",
+            schemaVersion: "1",
+            data: { secret: "private-value" },
+          });
+        },
+      );
+      await adapter.flush();
+      const events = requests.flatMap(({ body }) => body.events);
+      const output = events.find((event) => event.type === "output.emitted");
+      expect(output?.payload).toMatchObject({
+        contract: "accountCard",
+        kind: "emit",
+        schemaId: "acme.account-card",
+      });
+      expect(output?.payload.data).toEqual(
+        captureContent ? { secret: "private-value" } : undefined,
+      );
+      expect(events.some((event) => event.type.startsWith("tool."))).toBe(
+        false,
+      );
+    }
+  });
+
   it("registers topology once and batches correlated span, generation, and tool facts", async () => {
     const requests: Array<{ url: string; body: unknown }> = [];
     const adapter = createKortyxTelemetryAdapter({
