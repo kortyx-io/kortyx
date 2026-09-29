@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.23.10](https://github.com/kortyx-io/kortyx/compare/example-nextjs-chat-api-route-v0.23.9...example-nextjs-chat-api-route-v0.23.10) (2026-09-29)
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/telemetry bumped to 0.10.1
+
 ## [0.23.9](https://github.com/kortyx-io/kortyx/compare/example-nextjs-chat-api-route-v0.23.8...example-nextjs-chat-api-route-v0.23.9) (2026-09-25)
 
 
