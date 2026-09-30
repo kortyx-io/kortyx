@@ -242,15 +242,35 @@ export const createTraceAdapter = (args: {
               ? "tool.completed"
               : name === "useReason.tool-call.error"
                 ? "tool.failed"
-                : undefined;
+                : name === "useReason.output.emitted"
+                  ? "output.emitted"
+                  : name === "useReason.output.invalidated"
+                    ? "output.invalidated"
+                    : undefined;
         if (!type) return;
+        const payload =
+          type === "output.emitted"
+            ? {
+                ...Object.fromEntries(
+                  Object.entries(eventAttributes).filter(
+                    ([key]) => key !== "data",
+                  ),
+                ),
+                ...(args.eventMapper.shouldCapture(
+                  startArgs.telemetry?.captureContent ?? args.captureContent,
+                  "output",
+                ) && "data" in eventAttributes
+                  ? { data: eventAttributes.data }
+                  : {}),
+              }
+            : eventAttributes;
         args.enqueue(
           args.eventMapper.createEvent({
             type,
             correlation,
             span,
             ...(parent ? { parentSpanId: parent.spanId } : {}),
-            payload: eventAttributes,
+            payload,
           }),
         );
       },

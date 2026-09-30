@@ -124,6 +124,24 @@ describe("useStructuredStreams", () => {
     });
   });
 
+  it("drops a provisional stream on an invalidation chunk", () => {
+    const { result } = renderHook(() => useStructuredStreams());
+    act(() => {
+      result.current.applyStreamChunk(
+        structuredChunk({ kind: "text-delta", path: "body", delta: "Draft" }),
+      );
+    });
+    expect(result.current.items).toHaveLength(1);
+    act(() => {
+      result.current.applyStreamChunk({
+        type: "structured-data-invalidated",
+        streamId: "stream-1",
+      });
+    });
+    expect(result.current.items).toEqual([]);
+    expect(result.current.byStreamId).toEqual({});
+  });
+
   it("ignores non-structured chunks", () => {
     const { result } = renderHook(() => useStructuredStreams());
 

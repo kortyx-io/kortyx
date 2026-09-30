@@ -620,7 +620,7 @@ export function useChat<TContext = DefaultChatContext>(
         }
 
         if (chunk.type === "structured-data-invalidated") {
-          deleteStructuredStream(chunk.streamId);
+          pieces.processChunk(chunk);
           return;
         }
 

@@ -153,6 +153,8 @@ Tool chunks are emitted only when the call opts in with `toolExecution.emit`. To
 
 ### Structured chunk shape
 
+Output contracts selected by `useReason({ outputs })` use these same chunks. A contract with `stream.fields` emits provisional `set`, `append`, or `text-delta` chunks while its dedicated JSON model pass is streaming, followed by a validated `final` chunk. All chunks for one emission share a `streamId`; a later emission uses a different one. Text before and after the emission uses distinct `segmentId` values, so `@kortyx/react` preserves the order of text and structured pieces. The dedicated JSON pass consumes a model step. Contracts without `stream.fields` emit only the final chunk after their tool call finishes.
+
 Example incremental chunk:
 
 ```json
@@ -269,15 +271,17 @@ Rollback can discard structured streams that were produced after the restored ch
 }
 ```
 
-Clients that render structured data outside chat bubbles should remove or mark stale any local state keyed by `streamId`.
+Clients that render structured data outside chat bubbles should remove or mark stale any local state keyed by `streamId`. `useStructuredStreams().applyStreamChunk` and `useChat(...)` handle invalidation automatically.
+
+A streamed output contract also sends `structured-data-invalidated` without `checkpointId` if its provisional fields were shown but generation or final validation fails. Clients should remove that `streamId` immediately; a final validated chunk will not follow. The `checkpointId` field is present only for rollback invalidations.
 
 Producer expectations:
 
 - emit chunks for a given `streamId` in order
-- use non-empty dot-separated paths or single-segment `*` patterns in `useReason(... structured.fields ...)`
+- use non-empty dot-separated paths or single-segment `*` patterns in output-contract `stream.fields` (the deprecated `structured.fields` path also supports them)
 - do not rely on partial chunks being validated against the final output schema
 
-> **Good to know:** `useReason(...)` validates the final object with `outputSchema`, but incremental structured chunks are enforced only at the path and operation level. Manual `useStructuredData(...)` calls can add optional schema checks for `data`, `value`, or appended items.
+> **Good to know:** `useReason(...)` validates the final object against its output contract (or deprecated `outputSchema`), but incremental structured chunks are enforced only at the path and operation level. Manual `useStructuredData(...)` calls can add optional schema checks for `data`, `value`, or appended items.
 
 ### Recommended React helper
 

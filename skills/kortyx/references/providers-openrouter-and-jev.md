@@ -8,7 +8,7 @@ Claude/OpenAI/Gemini model through OpenRouter, or uses TypeSafe Jev.
 - For ordinary chat models, use `openrouter(modelId)` exactly like other Kortyx
   provider selectors and pass the ref to `useReason(...)`.
 - For TypeSafe Jev, still use `openrouter(modelId)` with `useReason(...)`, but
-  define the native questions with `jevOutputSchema(...)`.
+  define the native questions with `jevOutputSchema(...)`. This currently uses the deprecated `outputSchema` path because Jev cannot call output-contract tools; keep it until a non-tool replacement ships.
 - Do not invent or call an `openrouter.decide(...)` API. It is not part of the
   public provider contract.
 - Do not treat OpenRouter access as proof that every routed model supports every
@@ -69,8 +69,7 @@ Studio. Use `raw` only for provider-specific diagnostics.
 
 ## TypeSafe Jev
 
-Jev is a System One decision model, not a text generator. Keep the normal
-`useReason(...)` invocation shape and use the helper as `outputSchema`:
+Jev is a System One decision model, not a text generator. Its native decision path cannot call tools, so the new model-selected output contracts do not apply. Keep the normal `useReason(...)` invocation shape and use the helper as `outputSchema` during the deprecation window:
 
 ```ts
 import { jevOutputSchema, openrouter } from "@kortyx/openrouter";

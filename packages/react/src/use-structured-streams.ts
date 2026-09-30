@@ -71,8 +71,24 @@ export function useStructuredStreams<TData = unknown>(
     [],
   );
 
+  const deleteStream = useCallback(
+    (streamId: string): boolean => {
+      const deleted = accumulatorRef.current.delete(streamId);
+      if (!deleted) return false;
+      setNextItems(
+        itemsRef.current.filter((item) => item.streamId !== streamId),
+      );
+      return true;
+    },
+    [setNextItems],
+  );
+
   const applyStreamChunk = useCallback(
     (chunk: StreamChunk): StructuredStreamItem<TData> | undefined => {
+      if (chunk.type === "structured-data-invalidated") {
+        deleteStream(chunk.streamId);
+        return undefined;
+      }
       const nextState = accumulatorRef.current.applyStreamChunk(chunk);
       if (!nextState) return undefined;
 
@@ -104,7 +120,7 @@ export function useStructuredStreams<TData = unknown>(
       setNextItems(nextItems);
       return nextItem;
     },
-    [createId, setNextItems],
+    [createId, deleteStream, setNextItems],
   );
 
   const clear = useCallback(() => {
@@ -115,18 +131,6 @@ export function useStructuredStreams<TData = unknown>(
   const get = useCallback((streamId: string) => {
     return itemsRef.current.find((item) => item.streamId === streamId);
   }, []);
-
-  const deleteStream = useCallback(
-    (streamId: string): boolean => {
-      const deleted = accumulatorRef.current.delete(streamId);
-      if (!deleted) return false;
-      setNextItems(
-        itemsRef.current.filter((item) => item.streamId !== streamId),
-      );
-      return true;
-    },
-    [setNextItems],
-  );
 
   const byStreamId = useMemo(
     () =>
