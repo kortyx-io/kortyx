@@ -243,6 +243,14 @@ describe("orchestrateGraphStream", () => {
         node: "writer",
         streamId: "structured-1",
       });
+      emit("structured_data_invalidated", {
+        node: "writer",
+        streamId: "",
+      });
+      emit("structured_data_invalidated", {
+        node: "writer",
+        streamId: 123,
+      });
       emit("structured_data", {
         node: "writer",
         dataType: "profile",

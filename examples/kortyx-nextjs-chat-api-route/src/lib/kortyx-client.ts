@@ -17,6 +17,7 @@ import {
   limitStepWorkflow,
 } from "@/workflows/limit-demo.workflow";
 import { mcpLoremDemoWorkflow } from "@/workflows/mcp-lorem-demo.workflow";
+import { outputContractDemoWorkflow } from "@/workflows/output-contract-demo.workflow";
 import {
   companyResearchWorkflow,
   parallelDemoWorkflow,
@@ -50,6 +51,7 @@ export const agent = createAgent({
     interruptSequentialDemoWorkflow,
     interruptTextResumeRegressionWorkflow,
     mcpLoremDemoWorkflow,
+    outputContractDemoWorkflow,
     reasonInterruptStructuredWorkflow,
     reasonStructuredMultiStreamWorkflow,
     reasonStructuredStreamWorkflow,

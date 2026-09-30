@@ -79,6 +79,30 @@ Use workflow override `interrupt-text-resume-regression` to verify that a resolv
 
 The second message in step 5 must start a fresh run. It must not be sent with the resolved interrupt's previous resume token.
 
+## Realtime output-contract demo
+
+Set the chat UI's workflow override to `output-contract-demo` and send a rollout
+request. The node uses `defineOutputContract` with `useReason({ outputs })` to
+stream two cards while the model reasons, emit text between them, and finish
+with a streamed terminal recommendation. Partial `structured-data` field
+updates appear before final validation; the final chunks and output-contract
+events are visible in Studio when telemetry is configured.
+
+For a deterministic local end-to-end test without model credentials, start the
+example with `KORTYX_OUTPUT_CONTRACT_FIXTURE=1`. The fixture yields delayed
+tokens so partial updates can be observed in real time. Omit that variable to
+use Gemini via the usual Google API key. With the fixture enabled, send
+`/invalid` to see a partial card invalidated after final schema validation
+fails; the run is marked failed in Studio.
+
+To inspect telemetry in Studio, run `pnpm dev` at the repository root to start
+the local API and Studio, then start this example in another terminal with
+`KORTYX_OUTPUT_CONTRACT_FIXTURE=1`, `KORTYX_TELEMETRY_API_URL` pointing at the
+local API, and `KORTYX_TELEMETRY_API_KEY` set to that API's local telemetry key.
+Open Studio's Runs page and select the `output-contract-demo` execution. Its
+Events tab records each validated emission or invalidation; the example chat's
+Debug panel shows the earlier field-level stream chunks.
+
 ## Reason + interrupt demo notes
 
 Use workflow override `reason-interrupt-structured` to test `useReason` with:
