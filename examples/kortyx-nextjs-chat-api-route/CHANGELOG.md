@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.24.0](https://github.com/kortyx-io/kortyx/compare/example-nextjs-chat-api-route-v0.23.10...example-nextjs-chat-api-route-v0.24.0) (2026-09-30)
+
+
+### Features
+
+* **hooks:** add realtime model-selected output contracts ([#249](https://github.com/kortyx-io/kortyx/issues/249)) ([ac52b47](https://github.com/kortyx-io/kortyx/commit/ac52b47151b64ce5be6ce6c7fd42d34a0fa8a76d))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/react bumped to 0.8.0
+    * kortyx bumped to 0.26.0
+    * @kortyx/telemetry bumped to 0.11.0
+
 ## [0.23.10](https://github.com/kortyx-io/kortyx/compare/example-nextjs-chat-api-route-v0.23.9...example-nextjs-chat-api-route-v0.23.10) (2026-09-29)
 
 

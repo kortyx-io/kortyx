@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.11.0](https://github.com/kortyx-io/kortyx/compare/studio-v0.10.1...studio-v0.11.0) (2026-09-30)
+
+
+### Features
+
+* **hooks:** add realtime model-selected output contracts ([#249](https://github.com/kortyx-io/kortyx/issues/249)) ([ac52b47](https://github.com/kortyx-io/kortyx/commit/ac52b47151b64ce5be6ce6c7fd42d34a0fa8a76d))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/telemetry-contracts bumped to 0.12.0
+  * devDependencies
+    * @kortyx/agent bumped to 0.28.0
+    * @kortyx/telemetry bumped to 0.11.0
+    * kortyx bumped to 0.26.0
+
 ## [0.10.1](https://github.com/kortyx-io/kortyx/compare/studio-v0.10.0...studio-v0.10.1) (2026-09-29)
 
 
