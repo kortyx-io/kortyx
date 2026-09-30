@@ -1,5 +1,12 @@
 # @chatbot-core/types
 
+## [0.15.0](https://github.com/kortyx-io/kortyx/compare/stream-v0.14.0...stream-v0.15.0) (2026-09-30)
+
+
+### Features
+
+* **hooks:** add realtime model-selected output contracts ([#249](https://github.com/kortyx-io/kortyx/issues/249)) ([ac52b47](https://github.com/kortyx-io/kortyx/commit/ac52b47151b64ce5be6ce6c7fd42d34a0fa8a76d))
+
 ## [0.14.0](https://github.com/kortyx-io/kortyx/compare/stream-v0.13.2...stream-v0.14.0) (2026-09-23)
 
 

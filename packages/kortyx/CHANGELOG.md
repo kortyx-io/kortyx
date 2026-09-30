@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.26.0](https://github.com/kortyx-io/kortyx/compare/kortyx-v0.25.0...kortyx-v0.26.0) (2026-09-30)
+
+
+### Features
+
+* **hooks:** add realtime model-selected output contracts ([#249](https://github.com/kortyx-io/kortyx/issues/249)) ([ac52b47](https://github.com/kortyx-io/kortyx/commit/ac52b47151b64ce5be6ce6c7fd42d34a0fa8a76d))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/agent bumped to 0.28.0
+    * @kortyx/cli bumped to 0.11.4
+    * @kortyx/hooks bumped to 0.30.0
+    * @kortyx/runtime bumped to 0.21.4
+    * @kortyx/stream bumped to 0.15.0
+
 ## [0.25.0](https://github.com/kortyx-io/kortyx/compare/kortyx-v0.24.2...kortyx-v0.25.0) (2026-09-23)
 
 
