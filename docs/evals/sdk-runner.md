@@ -5,9 +5,10 @@ instance. A case sends messages, assesses the visible answer or interrupt,
 resumes expected interrupts, and grades each criterion using a separate judge.
 It executes real workflows, tools, and application logic.
 
-This first slice is the SDK runner. It exposes serializable suites, a manifest,
-progress events, and results for a later Studio integration. It does not yet
-register HTTP routes, persist eval records, or add an eval screen to Studio.
+The SDK exposes serializable suites, a manifest, progress events, and results.
+Mount `createEvalRouteHandler` in the consumer app to let Studio execute suites
+and persist their observations and grades. See [Studio execution](./studio-execution.md)
+for the endpoint, database migration, and local Docker configuration.
 
 ## Smallest configuration
 
