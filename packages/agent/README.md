@@ -22,6 +22,8 @@ npm install @kortyx/agent
 ## Key APIs
 
 - `createAgent(...)`
+- `createEvals(...)`
+- `createEvalJudge(...)`
 - `createChatRouteHandler(...)`
 - `handleChatRequestBody(...)`
 - `parseChatRequestBody(...)`
@@ -59,6 +61,7 @@ export const handleChat = createChatRouteHandler({ agent });
 
 ## Documentation
 
+- [Conversation evals: SDK runner](https://github.com/kortyx-io/kortyx/blob/main/docs/evals/sdk-runner.md)
 - [Main package README](https://github.com/kortyx-io/kortyx/tree/main/packages/kortyx)
 - [Documentation](https://kortyx.io/docs)
 - [Package overview](https://kortyx.io/docs/reference/package-overview)

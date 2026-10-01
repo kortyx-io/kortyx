@@ -19,6 +19,7 @@ Use `kortyx` as the main package. It re-exports the public server/runtime APIs f
 - **Streaming-first UX:** emit text, message, lifecycle, interrupt, and structured-data chunks over SSE.
 - **Framework adapters:** run in Next.js API routes, server actions, custom HTTP handlers, or lower-level runtimes.
 - **Operational visibility:** send structural telemetry to the self-hosted Kortyx Studio preview for runs, sessions, workflows, interrupts, timing, token usage, and cost review.
+- **Conversation evals:** run serializable scenarios against your agent, resume expected human interrupts, and grade visible outcomes with a separate model. See the [SDK eval runner](./docs/evals/sdk-runner.md).
 
 ## Install
 

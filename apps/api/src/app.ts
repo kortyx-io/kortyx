@@ -3,11 +3,13 @@ import { OpenAPIHono } from "@hono/zod-openapi";
 import { STUDIO_API_PROTOCOL_VERSION } from "@kortyx/telemetry-contracts";
 import type { TelemetryDb } from "@kortyx/telemetry-db";
 import { apiErrorHandler } from "./errors";
+import type { EvalTarget } from "./evals/targets";
 import { apiKeyAuth } from "./middleware/api-key-auth";
 import {
   createNoopStudioChangeBus,
   type StudioChangeBus,
 } from "./realtime/studio-change-bus";
+import { registerEvalRoutes } from "./routes/evals";
 import { registerHealthRoutes } from "./routes/health";
 import {
   registerStudioReviewRoutes,
@@ -21,6 +23,7 @@ import type { ApiEnv } from "./types";
 
 export type CreateApiAppOptions = {
   db: TelemetryDb;
+  evalTargets?: readonly EvalTarget[];
   apiKeyPepper: string;
   studioChangeBus?: StudioChangeBus;
   readiness?: () => Promise<void>;
@@ -84,6 +87,7 @@ export const createApiApp = (options: CreateApiAppOptions) => {
     }),
   );
   registerStudioRoutes(app);
+  registerEvalRoutes(app, options.evalTargets ?? []);
   registerStudioReviewRoutes(app);
   registerStudioChangeRoutes(
     app,

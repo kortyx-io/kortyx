@@ -35,6 +35,10 @@
     "./browser": {
       "types": "./dist/browser.d.ts",
       "default": "./dist/browser.js"
+    },
+    "./evals": {
+      "types": "./dist/evals.d.ts",
+      "default": "./dist/evals.js"
     }
   },
   "files": [

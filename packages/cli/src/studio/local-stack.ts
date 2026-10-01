@@ -218,9 +218,21 @@ export const startStudio = async (
       environment.KORTYX_STUDIO_IMAGE_REF ??
         `${environment.KORTYX_STUDIO_IMAGE ?? "ghcr.io/kortyx-io/kortyx-studio"}:${config.imageTag}`,
     );
-    await runtime.run("docker", ["pull", apiImage], { inherit: true });
-    if (studioImage !== apiImage)
-      await runtime.run("docker", ["pull", studioImage], { inherit: true });
+    const pullPolicy = process.env.KORTYX_STUDIO_PULL_POLICY ?? "always";
+    for (const image of new Set([apiImage, studioImage])) {
+      if (pullPolicy === "never") continue;
+      if (pullPolicy === "missing") {
+        try {
+          await runtime.run("docker", ["image", "inspect", image], {
+            inherit: false,
+          });
+          continue;
+        } catch {
+          // A missing local image still needs pulling.
+        }
+      }
+      await runtime.run("docker", ["pull", image], { inherit: true });
+    }
     const capability = await runtime.run(
       "docker",
       [

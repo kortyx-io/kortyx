@@ -3,6 +3,7 @@
 import {
   Activity,
   CirclePause,
+  FlaskConical,
   MessageSquare,
   Settings,
   Workflow,
@@ -34,6 +35,7 @@ const navSections = [
       { title: "Sessions", url: "/sessions", icon: MessageSquare },
       { title: "Workflows", url: "/workflows", icon: Workflow },
       { title: "Interrupts", url: "/interrupts", icon: CirclePause },
+      { title: "Evals", url: "/evals", icon: FlaskConical },
     ],
   },
 ];
