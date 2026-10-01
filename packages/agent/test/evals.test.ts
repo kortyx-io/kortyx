@@ -865,7 +865,16 @@ describe("provider-backed grading", () => {
       input: { message: "Give all salaries" },
       observation,
       reference: jobs,
-      conversation: [],
+      conversation: [
+        {
+          index: 0,
+          input: { message: "List jobs" },
+          expectation: { type: "answer" },
+          observation,
+          status: "passed",
+          criteria: [],
+        },
+      ],
       signal: new AbortController().signal,
     });
     expect(verdict.passed).toBe(false);

@@ -44,6 +44,86 @@ const request = (body = {}, authorization = `Bearer ${key}`) =>
     }),
   });
 describe("consumer eval transport", () => {
+  it("validates transport configuration and rejects malformed requests before execution", async () => {
+    const run = vi.fn();
+    const evals = { describe: () => manifest, run };
+    expect(() =>
+      createEvalRouteHandler({ evals, serviceKey: "short" }),
+    ).toThrow("32 characters");
+    for (const limits of [
+      { maxCases: 0 },
+      { maxCases: 1.5 },
+      { maxActiveRuns: 0 },
+      { maxActiveRuns: NaN },
+    ])
+      expect(() =>
+        createEvalRouteHandler({ evals, serviceKey: key, ...limits }),
+      ).toThrow("positive integers");
+    const handler = createEvalRouteHandler({ evals, serviceKey: key });
+    expect((await handler(new Request("http://localhost/evals"))).status).toBe(
+      401,
+    );
+    expect(
+      (
+        await handler(
+          new Request("http://localhost/evals", {
+            method: "DELETE",
+            headers: { authorization: `Bearer ${key}` },
+          }),
+        )
+      ).status,
+    ).toBe(405);
+    for (const contentType of [undefined, "text/plain"])
+      expect(
+        (
+          await handler(
+            new Request("http://localhost/evals", {
+              method: "POST",
+              headers: {
+                authorization: `Bearer ${key}`,
+                ...(contentType ? { "content-type": contentType } : {}),
+              },
+            }),
+          )
+        ).status,
+      ).toBe(415);
+    for (const body of ["not JSON", JSON.stringify({ suiteId: suite.id })])
+      expect(
+        (
+          await handler(
+            new Request("http://localhost/evals", {
+              method: "POST",
+              headers: {
+                authorization: `Bearer ${key}`,
+                "content-type": "application/json",
+              },
+              body,
+            }),
+          )
+        ).status,
+      ).toBe(400);
+    expect(
+      (
+        await handler(
+          new Request("http://localhost/evals", {
+            method: "POST",
+            headers: {
+              authorization: `Bearer ${key}`,
+              "content-type": "application/json",
+            },
+            body: " ".repeat(16385),
+          }),
+        )
+      ).status,
+    ).toBe(413);
+    expect((await handler(request({ suiteId: "missing" }))).status).toBe(400);
+    expect(
+      (await handler(new Request(request(), { signal: AbortSignal.abort() })))
+        .status,
+    ).toBe(409);
+    expect(run).not.toHaveBeenCalled();
+  });
+
   it("requires authorization before exposing a manifest or invoking the runner", async () => {
     const run = vi.fn();
     const handler = createEvalRouteHandler({
@@ -95,7 +175,7 @@ describe("consumer eval transport", () => {
         },
       },
     });
-    const wire = (await (await handler(request())).text())
+    const wire = (await (await handler(request({ caseIds: ["one"] }))).text())
       .trim()
       .split("\n")
       .map((line) => JSON.parse(line));

@@ -5,7 +5,7 @@ function canonical(value: unknown): string {
   if (Array.isArray(value)) return `[${value.map(canonical).join(",")}]`;
   if (value !== null && typeof value === "object")
     return `{${Object.entries(value)
-      .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
+      .sort(([a], [b]) => (a < b ? -1 : 1))
       .map(([key, child]) => `${JSON.stringify(key)}:${canonical(child)}`)
       .join(",")}}`;
   return JSON.stringify(value);

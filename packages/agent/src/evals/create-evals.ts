@@ -19,6 +19,7 @@ import type {
   EvalContext,
   EvalExecution,
   EvalHandlerRef,
+  EvalInterrupt,
   EvalIssue,
   EvalJson,
   EvalPhase,
@@ -246,15 +247,14 @@ export function createEvals<
         let phase: EvalPhase = "params";
         let context: EvalContext<Params, Prepared> | undefined;
         let continuation: unknown;
-        let setupCompleted = false;
         let activeStep: EvalStepResult | undefined;
         let activeStepReported = false;
         const history: ChatMessage[] = [];
         const call = async (
+          readyContext: EvalContext<Params, Prepared>,
           command: EvalCommand,
           activeSignal: AbortSignal,
         ): Promise<EvalExecution> => {
-          if (!context) throw new Error("Setup is incomplete.");
           const run = (overrides?: {
             context?: Record<string, unknown>;
             messages?: ChatMessage[];
@@ -272,7 +272,7 @@ export function createEvals<
             });
           const execution = options.execute
             ? await options.execute({
-                ...context,
+                ...readyContext,
                 signal: activeSignal,
                 command,
                 continuation,
@@ -320,25 +320,24 @@ export function createEvals<
             ? await options.setup(base)
             : (undefined as Prepared);
           context = { ...base, prepared };
-          setupCompleted = true;
           signal.throwIfAborted();
           for (const [index, step] of item.steps.entries()) {
             activeStep = undefined;
             activeStepReported = false;
             signal.throwIfAborted();
-            let command: EvalCommand;
+            let command: Exclude<EvalCommand, { type: "cancel" }>;
             if (step.message !== undefined)
               command = { type: "message", message: step.message };
             else {
               phase = "responder";
-              const interrupt =
-                attemptResult.steps.at(-1)?.observation.interrupt;
-              if (!interrupt || continuation === undefined)
-                throw new Error("No waiting interrupt.");
+              // Suite ordering and the previous successful observation guarantee
+              // a waiting interrupt; call() already validates its continuation.
+              const interrupt = attemptResult.steps.at(-1)?.observation
+                .interrupt as EvalInterrupt;
               let response = step.resume;
               if (handlerRef(response)) {
-                const responder = responders[response.using];
-                if (!responder) throw new Error("Missing responder.");
+                // Handler names were validated against this private registry.
+                const responder = responders[response.using]!;
                 if (
                   typeof responder !== "function" &&
                   (responder.schemaId !== interrupt.schemaId ||
@@ -367,16 +366,11 @@ export function createEvals<
             }
             signal.throwIfAborted();
             phase = "execute";
-            const { observation } = await call(command, signal);
+            const { observation } = await call(context, command, signal);
             const input =
               command.type === "message"
                 ? { message: command.message }
-                : {
-                    resume:
-                      command.type === "resume"
-                        ? command.response
-                        : ({ type: "cancel" } as const),
-                  };
+                : { resume: command.response };
             const evaluated: EvalStepResult = {
               index,
               input,
@@ -418,7 +412,7 @@ export function createEvals<
               if (reference !== undefined) {
                 evaluated.reference = handlerRef(reference)
                   ? z.json().parse(
-                      await references[reference.using]?.({
+                      await references[reference.using]!({
                         ...context,
                         observation: clone(observation),
                         ...(reference.params !== undefined
@@ -438,7 +432,7 @@ export function createEvals<
                     ? { id: String(criterionIndex), text: value }
                     : value;
                 const verdict = EvalVerdictSchema.parse(
-                  await options.judge?.grade({
+                  await options.judge!.grade({
                     criterion,
                     input: clone(input),
                     observation: clone(observation),
@@ -471,9 +465,7 @@ export function createEvals<
                 content:
                   command.type === "message"
                     ? command.message
-                    : JSON.stringify(
-                        command.type === "resume" ? command.response : {},
-                      ),
+                    : JSON.stringify(command.response),
               },
               { role: "assistant", content: observation.text },
             );
@@ -504,7 +496,7 @@ export function createEvals<
           }
         } finally {
           clearTimeout(timer);
-          if (setupCompleted && context) {
+          if (context) {
             const cleanup = new AbortController();
             const cleanupTimer = setTimeout(
               () => cleanup.abort(),
@@ -514,6 +506,7 @@ export function createEvals<
               if (continuation !== undefined) {
                 try {
                   const cancelled = await call(
+                    context,
                     { type: "cancel" },
                     cleanup.signal,
                   );
@@ -559,9 +552,8 @@ export function createEvals<
         Array.from({ length: Math.min(concurrency, total) }, async () => {
           while (cursor < total) {
             const index = cursor++;
-            const item = selected[Math.floor(index / repetitions)];
-            if (!item)
-              throw new EvalConfigurationError("Invalid case selection.");
+            // Positive repetitions and cursor < total guarantee this index.
+            const item = selected[Math.floor(index / repetitions)]!;
             completed[index] = await attempt(item, (index % repetitions) + 1);
           }
         }),
