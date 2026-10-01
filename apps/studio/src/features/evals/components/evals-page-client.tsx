@@ -212,7 +212,23 @@ export function EvalsPageClient({
         request("targets"),
         request("runs"),
       ]);
-      setTargets(EvalTargetsResponseSchema.parse(next));
+      const refreshed = EvalTargetsResponseSchema.parse(next);
+      const nextTarget =
+        refreshed.targets.find((item) => item.id === targetId) ??
+        refreshed.targets[0];
+      const nextSuite =
+        nextTarget?.manifest?.suites.find((item) => item.id === suiteId) ??
+        nextTarget?.manifest?.suites[0];
+      setTargets(refreshed);
+      setTargetId(nextTarget?.id ?? "");
+      setSuiteId(nextSuite?.id ?? "");
+      setCaseIds((current) =>
+        nextTarget?.id === targetId && nextSuite?.id === suiteId
+          ? current.filter((id) =>
+              nextSuite.cases.some((item) => item.id === id),
+            )
+          : [],
+      );
       setHistory(EvalHistorySchema.parse(list));
       if (selectedId) await selectRun(selectedId);
     } catch (cause) {
@@ -284,6 +300,7 @@ export function EvalsPageClient({
                 <label className="block text-sm">
                   Application
                   <select
+                    disabled={working}
                     aria-label="Application"
                     className="mt-1 w-full rounded border bg-background p-2"
                     value={targetId}
@@ -309,6 +326,7 @@ export function EvalsPageClient({
                 <label className="block text-sm">
                   Suite
                   <select
+                    disabled={working}
                     aria-label="Suite"
                     className="mt-1 w-full rounded border bg-background p-2"
                     value={suiteId}
