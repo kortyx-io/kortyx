@@ -123,7 +123,13 @@ export function registerEvalRoutes(
       suiteId: suite.id,
       suiteRevision: request.suiteRevision,
       suite: suite as EvalSuite,
-      request: { suiteId: request.suiteId, suiteRevision: request.suiteRevision, repetitions: request.repetitions, concurrency: request.concurrency, ...(request.caseIds ? { caseIds: request.caseIds } : {}) },
+      request: {
+        suiteId: request.suiteId,
+        suiteRevision: request.suiteRevision,
+        repetitions: request.repetitions,
+        concurrency: request.concurrency,
+        ...(request.caseIds ? { caseIds: request.caseIds } : {}),
+      },
       requestedBy: auth.keyId,
     });
     return c.json({ id: run.id }, 202);

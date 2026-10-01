@@ -159,14 +159,12 @@ export async function appendEvalProgress(
       .for("update")
       .limit(1);
     if (!run) throw new Error("Eval executor lost its lease.");
-    await tx
-      .insert(evalRunEvents)
-      .values({
-        runId: id,
-        organizationId: run.organizationId,
-        projectId: run.projectId,
-        event,
-      });
+    await tx.insert(evalRunEvents).values({
+      runId: id,
+      organizationId: run.organizationId,
+      projectId: run.projectId,
+      event,
+    });
   });
 }
 export async function finishEvalRun(
