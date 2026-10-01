@@ -56,6 +56,10 @@ export function createEvalWorker(
           value.environment === run.environment,
       );
       if (!target) throw new Error("Target no longer configured.");
+      const executionSignal = AbortSignal.any([
+        controller.signal,
+        AbortSignal.timeout(30 * 60_000),
+      ]);
       const response = await fetch(target.url, {
         method: "POST",
         headers: {
@@ -63,10 +67,7 @@ export function createEvalWorker(
           "content-type": "application/json",
         },
         body: JSON.stringify(run.request),
-        signal: AbortSignal.any([
-          controller.signal,
-          AbortSignal.timeout(30 * 60_000),
-        ]),
+        signal: executionSignal,
         redirect: "error",
       });
       if (
@@ -78,7 +79,7 @@ export function createEvalWorker(
       )
         throw new Error("Consumer rejected execution.");
       let result: EvalRunResult | undefined;
-      for await (const event of readEvalWire(response.body)) {
+      for await (const event of readEvalWire(response.body, executionSignal)) {
         if (result) throw new Error("Consumer emitted data after completion.");
         if (event.type === "error")
           throw new Error("Consumer eval runner failed.");

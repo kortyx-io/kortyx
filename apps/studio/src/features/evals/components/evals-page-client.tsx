@@ -496,7 +496,15 @@ export function EvalsPageClient({
                     ) ? (
                       <Status value={item.status} />
                     ) : (
-                      <Status value="running" />
+                      <Status
+                        value={
+                          busy(detail.status)
+                            ? "running"
+                            : detail.status === "cancelled"
+                              ? "cancelled"
+                              : "error"
+                        }
+                      />
                     )}
                   </div>
                   {item.steps.map((step) => (

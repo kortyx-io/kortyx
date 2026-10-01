@@ -80,14 +80,23 @@ export async function fetchEvalManifest(
   }
   return EvalManifestSchema.parse(JSON.parse(text));
 }
-export async function* readEvalWire(body: ReadableStream<Uint8Array>) {
+export async function* readEvalWire(
+  body: ReadableStream<Uint8Array>,
+  signal?: AbortSignal,
+) {
   const reader = body.getReader();
   const decoder = new TextDecoder();
+  const abort = () => {
+    void reader.cancel().catch(() => {});
+  };
+  signal?.addEventListener("abort", abort, { once: true });
   let buffer = "";
   let total = 0;
   try {
     for (;;) {
+      signal?.throwIfAborted();
       const part = await reader.read();
+      signal?.throwIfAborted();
       if (part.done) break;
       total += part.value.byteLength;
       if (total > 32_000_000) throw new Error("Eval response is too large.");
@@ -100,9 +109,11 @@ export async function* readEvalWire(body: ReadableStream<Uint8Array>) {
         newline = buffer.indexOf("\n");
       }
     }
+    signal?.throwIfAborted();
     buffer += decoder.decode();
     if (buffer.trim()) yield EvalWireEventSchema.parse(JSON.parse(buffer));
   } finally {
+    signal?.removeEventListener("abort", abort);
     await reader.cancel().catch(() => {});
     reader.releaseLock();
   }

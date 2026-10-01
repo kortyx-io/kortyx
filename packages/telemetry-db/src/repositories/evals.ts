@@ -176,9 +176,10 @@ export async function finishEvalRun(
   await db
     .update(evalRuns)
     .set({
-      status:
-        outcome.result?.status ?? (outcome.cancelled ? "cancelled" : "error"),
-      result: outcome.result ?? null,
+      status: sql`CASE WHEN ${evalRuns.cancelRequestedAt} IS NOT NULL THEN 'cancelled' ELSE ${outcome.result?.status ?? (outcome.cancelled ? "cancelled" : "error")} END`,
+      result: outcome.result
+        ? sql`CASE WHEN ${evalRuns.cancelRequestedAt} IS NOT NULL THEN NULL ELSE ${JSON.stringify(outcome.result)}::jsonb END`
+        : null,
       error: outcome.error ?? null,
       endedAt: new Date(),
       updatedAt: new Date(),

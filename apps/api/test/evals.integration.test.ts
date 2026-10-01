@@ -256,6 +256,39 @@ describe.skipIf(!url)(
         ),
       ).toBe(true);
     }, 15_000);
+    it("a cancellation saved before final persistence wins the completion race", async () => {
+      const targetId = randomUUID();
+      const run = await enqueue(targetId);
+      await claimEvalRun(client.db, "race-owner", [{ ...scope, id: targetId }]);
+      await requestEvalCancellation(client.db, scope, run.id);
+      await finishEvalRun(client.db, run.id, "race-owner", {
+        result: {
+          id: randomUUID(),
+          suiteId: suite.id,
+          suiteRevision: request.suiteRevision,
+          suite,
+          startedAt: new Date().toISOString(),
+          durationMs: 1,
+          status: "passed",
+          counts: { passed: 1, failed: 0, error: 0, cancelled: 0 },
+          cases: [
+            {
+              caseId: "pick",
+              repetition: 1,
+              sessionId: "race",
+              durationMs: 1,
+              status: "passed",
+              steps: [],
+              errors: [],
+            },
+          ],
+          errors: [],
+        },
+      });
+      const saved = await getEvalRun(client.db, scope, run.id);
+      expect(saved.status).toBe("cancelled");
+      expect(saved.result).toBeNull();
+    });
     it("signals a running consumer on cancellation and saves a cancelled execution", async () => {
       const key = "local-eval-test-service-key-with-32-characters";
       let executing = false;

@@ -74,7 +74,8 @@ A consumer disconnect, timeout, or worker crash is an execution error rather tha
 a failed behavioral grade. An expired lease is marked unknown/error and is never
 automatically retried: replaying application workflows can repeat side effects.
 Operators should inspect consumer execution before explicitly starting another run.
-Cancellation signals the consumer; custom setup, tools and cleanup must honor the
+Cancellation wins the final-storage race when its request is already saved.
+The worker actively closes an aborted response reader to signal the consumer; custom setup, tools and cleanup must honor the
 signal. A worker shutdown does not promise rollback or prove remote cleanup.
 
 This slice supports suites authored in app code or JSON, sequential interactions,
