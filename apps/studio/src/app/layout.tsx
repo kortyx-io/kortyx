@@ -65,12 +65,14 @@ export default async function RootLayout({
   runDrawer,
   sessionDrawer,
   evalCaseDrawer,
+  evalSuiteDrawer,
 }: Readonly<{
   children: React.ReactNode;
   interruptDrawer: React.ReactNode;
   runDrawer: React.ReactNode;
   sessionDrawer: React.ReactNode;
   evalCaseDrawer: React.ReactNode;
+  evalSuiteDrawer: React.ReactNode;
 }>) {
   const cookieStore = await cookies();
   const theme = parseThemePreference(
@@ -107,6 +109,9 @@ export default async function RootLayout({
             <SidebarLayout
               detailSlots={
                 <DetailDrawerHost>
+                  <DetailSlotPresence dismissPath="/evals/suites">
+                    {evalSuiteDrawer}
+                  </DetailSlotPresence>
                   <DetailSlotPresence dismissPath="/evals/cases">
                     {evalCaseDrawer}
                   </DetailSlotPresence>

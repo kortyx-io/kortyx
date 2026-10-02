@@ -41,6 +41,7 @@ const DETAIL_BASE_PATHS = [
   "/runs",
   "/interrupts",
   "/evals/cases",
+  "/evals/suites",
 ] as const;
 
 type DetailStackContextValue = {

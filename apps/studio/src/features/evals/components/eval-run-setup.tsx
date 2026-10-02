@@ -14,7 +14,13 @@ import { EvalDisclosure } from "./eval-disclosure";
 import { EvalDropdown } from "./eval-dropdown";
 import { EvalSuiteDefinition } from "./eval-suite-definition";
 
-export function EvalRunSetup({ targets }: { targets: EvalTargets }) {
+export function EvalRunSetup({
+  targets,
+  matchPath,
+}: {
+  targets: EvalTargets;
+  matchPath: string;
+}) {
   const { query, setQuery, target, suite, close } = useEvalSetup(targets);
   const [working, setWorking] = useState(false);
   const [error, setError] = useState("");
@@ -68,7 +74,7 @@ export function EvalRunSetup({ targets }: { targets: EvalTargets }) {
   };
   return (
     <DetailInspectorDrawer
-      open={query.launch && pathname.startsWith("/evals/")}
+      open={query.launch && pathname === matchPath}
       onClose={close}
       title="Run an eval suite"
       description="Execute conversations with the application’s test setup."

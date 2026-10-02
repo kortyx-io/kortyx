@@ -22,6 +22,8 @@ import {
   DataTableColumnsMenu,
   DataTableProvider,
 } from "@/components/data-table";
+import { DetailLink } from "@/components/detail/detail-link";
+import { usePrepareDetailNavigation } from "@/components/detail/detail-stack";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useListTablePreferences } from "@/features/telemetry/hooks/use-list-table-preferences";
@@ -165,8 +167,15 @@ export function EvalsPageClient({
     };
   }, [activeHistory]);
   const startSetup = (row?: SuiteRow) => open(row?.target.id, row?.suite.id);
-  const chooseSuite = (row: SuiteRow) =>
-    navigate(evalSuiteHref(row.target.id, row.suite.id));
+  const prepareDetailNavigation = usePrepareDetailNavigation();
+  const chooseSuite = (row: SuiteRow) => {
+    const href = evalNavigationHref(
+      evalSuiteHref(row.target.id, row.suite.id),
+      searchParams,
+    );
+    prepareDetailNavigation?.(href);
+    router.push(href);
+  };
   const suiteRows = targets.targets.flatMap(
     (target) =>
       target.manifest?.suites.map((suite) => ({
@@ -339,11 +348,18 @@ export function EvalsPageClient({
             variant="ghost"
             size="xs"
             className="max-w-full justify-start px-0 hover:bg-transparent"
-            onClick={() => chooseSuite(r)}
+            asChild
           >
-            <span className="truncate">
-              {r.suite.name ?? displayName(r.suite.id)}
-            </span>
+            <DetailLink
+              href={evalNavigationHref(
+                evalSuiteHref(r.target.id, r.suite.id),
+                searchParams,
+              )}
+            >
+              <span className="truncate">
+                {r.suite.name ?? displayName(r.suite.id)}
+              </span>
+            </DetailLink>
           </Button>
           <p className="truncate font-mono text-[10px] text-muted-foreground">
             {r.suite.id}
@@ -617,7 +633,7 @@ export function EvalsPageClient({
           </DataTableProvider>
         )}
       </div>
-      <EvalRunSetup targets={targets} />
+      <EvalRunSetup targets={targets} matchPath={`/evals/${view}`} />
     </div>
   );
 }
