@@ -24,8 +24,8 @@ import {
   progressCounts,
 } from "../lib/presentation";
 import type { EvalDetail } from "../schema";
-import { EvalPayloadViewer } from "./eval-payload-viewer";
 import { EvalStatus } from "./eval-status";
+import { EvalSuiteDefinition } from "./eval-suite-definition";
 
 export function EvalRunDetail({
   run,
@@ -282,7 +282,10 @@ export function EvalRunDetail({
               label: "Suite definition",
               content: (
                 <div className="p-4 @lg:p-6">
-                  <EvalPayloadViewer scope="run-definition" value={run.suite} />
+                  <EvalSuiteDefinition
+                    scope="run-definition"
+                    suite={run.suite}
+                  />
                 </div>
               ),
             },

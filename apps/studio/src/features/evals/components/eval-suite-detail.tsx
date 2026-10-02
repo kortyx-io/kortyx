@@ -4,7 +4,7 @@ import { ArrowLeft, Play } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { displayName } from "../lib/presentation";
 import type { EvalTargets } from "../schema";
-import { EvalPayloadViewer } from "./eval-payload-viewer";
+import { EvalSuiteDefinition } from "./eval-suite-definition";
 
 export function EvalSuiteDetail({
   suite,
@@ -43,41 +43,7 @@ export function EvalSuiteDetail({
           {target.name} · {target.environment} · {suite.cases.length}{" "}
           conversations
         </p>
-        {suite.cases.map((c) => (
-          <section key={c.id} className="space-y-3 border-t pt-4">
-            <h3 className="text-sm font-semibold">
-              {c.name ?? displayName(c.id)}
-            </h3>
-            {c.steps.map((step, index) => (
-              <div key={`${c.id}:${index}`} className="rounded-lg border p-3">
-                <p className="mb-2 text-xs font-medium text-muted-foreground">
-                  Step {index + 1} ·{" "}
-                  {"message" in step ? "User message" : "Test responder"}
-                </p>
-                {"message" in step ? (
-                  <p className="break-words text-sm">{step.message}</p>
-                ) : (
-                  <EvalPayloadViewer
-                    scope={`suite-${c.id}-${index}`}
-                    value={step.resume}
-                  />
-                )}
-                <p className="mt-3 text-xs text-muted-foreground">
-                  Expected {step.expect.type}
-                  {step.expect.schemaId ? ` · ${step.expect.schemaId}` : ""}
-                </p>
-                {step.expect.criteria?.map((criterion, i) => (
-                  <p
-                    key={`${i}:${typeof criterion === "string" ? criterion : criterion.id}`}
-                    className="mt-2 text-xs"
-                  >
-                    {typeof criterion === "string" ? criterion : criterion.text}
-                  </p>
-                ))}
-              </div>
-            ))}
-          </section>
-        ))}
+        <EvalSuiteDefinition suite={suite} scope="suite-definition" />
       </div>
     </div>
   );

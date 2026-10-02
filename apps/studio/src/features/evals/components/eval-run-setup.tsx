@@ -12,7 +12,7 @@ import { displayName } from "../lib/presentation";
 import type { EvalTargets } from "../schema";
 import { EvalDisclosure } from "./eval-disclosure";
 import { EvalDropdown } from "./eval-dropdown";
-import { EvalPayloadViewer } from "./eval-payload-viewer";
+import { EvalSuiteDefinition } from "./eval-suite-definition";
 
 export function EvalRunSetup({ targets }: { targets: EvalTargets }) {
   const { query, setQuery, target, suite, close } = useEvalSetup(targets);
@@ -182,7 +182,7 @@ export function EvalRunSetup({ targets }: { targets: EvalTargets }) {
             scope="launch-definition"
             label="Review conversation definitions"
           >
-            <EvalPayloadViewer scope="launch-definition" value={suite} />
+            <EvalSuiteDefinition scope="launch-definition" suite={suite} />
           </EvalDisclosure>
         ) : null}
         {!targets.canRun ? (
