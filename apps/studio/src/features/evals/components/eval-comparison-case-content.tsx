@@ -48,13 +48,15 @@ function Attempts({
           }}
         />
       </div>
-      {row.steps.map((step) => (
-        <EvalConversationStep
-          key={step.index}
-          step={step}
-          scope={`${side}-${row.key}`}
-        />
-      ))}
+      <div className="min-w-0">
+        {row.steps.map((step) => (
+          <EvalConversationStep
+            key={step.index}
+            step={step}
+            scope={`${side}-${row.key}`}
+          />
+        ))}
+      </div>
       {row.errors.map((error, index) => (
         <p
           key={`${index}:${error.code}`}
@@ -77,11 +79,17 @@ export function EvalComparisonCaseContent({
   candidate: EvalDetail;
 }) {
   const side = (kind: "baseline" | "candidate") => (
-    <section className="min-w-0 space-y-3">
-      <h3 className="text-xs font-semibold">
-        {kind === "baseline" ? "Baseline" : "Candidate"} ·{" "}
-        {formatDateTime((kind === "baseline" ? baseline : candidate).createdAt)}
-      </h3>
+    <section className="min-w-0 space-y-4 py-6 first:pt-0 last:pb-0 @3xl:py-0 @3xl:px-5 @3xl:first:pl-0 @3xl:last:pr-0">
+      <div className="space-y-1">
+        <h3 className="text-base font-semibold">
+          {kind === "baseline" ? "Baseline" : "Candidate"}
+        </h3>
+        <p className="text-xs text-muted-foreground">
+          {formatDateTime(
+            (kind === "baseline" ? baseline : candidate).createdAt,
+          )}
+        </p>
+      </div>
       <Attempts
         key={`${kind}:${kind === "baseline" ? baseline.id : candidate.id}:${row.id}`}
         side={kind}
@@ -92,6 +100,12 @@ export function EvalComparisonCaseContent({
   return (
     <div className="flex h-full min-h-0 flex-col">
       <div className="shrink-0 space-y-2 border-b px-4 py-3">
+        <p
+          className="break-all font-mono text-xs text-muted-foreground"
+          translate="no"
+        >
+          {row.id}
+        </p>
         <StatusPill
           tone={
             row.change === "improved"
@@ -120,7 +134,7 @@ export function EvalComparisonCaseContent({
               label: "Both runs",
               content: (
                 <div className="@container p-4">
-                  <div className="grid min-w-0 gap-6 @3xl:grid-cols-2">
+                  <div className="grid min-w-0 divide-y-2 divide-foreground/20 @3xl:grid-cols-2 @3xl:divide-x @3xl:divide-y-0">
                     {side("baseline")}
                     {side("candidate")}
                   </div>

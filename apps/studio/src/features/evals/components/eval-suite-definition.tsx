@@ -91,10 +91,10 @@ function StepDefinition({
   const message = "message" in step;
   const Icon = message ? MessageSquare : Reply;
   return (
-    <li className="min-w-0 space-y-3 border-t py-4 first:border-t-0 first:pt-0 last:pb-0">
-      <div className="flex min-w-0 flex-wrap items-center justify-between gap-x-4 gap-y-2">
-        <h5 className="flex min-w-0 items-center gap-2 text-xs font-medium">
-          <span className="font-mono text-muted-foreground">
+    <li className="min-w-0 space-y-4 border-t border-foreground/10 py-5 first:border-t-0 first:pt-0 last:pb-0">
+      <div className="flex min-w-0 flex-wrap items-center justify-between gap-x-4 gap-y-2 bg-muted/30 px-3 py-2">
+        <h5 className="flex min-w-0 items-center gap-2 text-sm font-medium">
+          <span className="font-mono text-xs text-muted-foreground">
             Step {index + 1}
           </span>
           <Icon
@@ -141,7 +141,7 @@ function StepDefinition({
             {step.expect.criteria.map((criterion, i) => (
               <li
                 key={typeof criterion === "string" ? i : criterion.id}
-                className="whitespace-pre-wrap break-words text-xs leading-relaxed"
+                className="whitespace-pre-wrap break-words text-sm leading-relaxed text-foreground/80"
               >
                 {typeof criterion === "string" ? criterion : criterion.text}
               </li>
@@ -220,11 +220,14 @@ function ConversationDefinition({
   const open = state[groupKey] || legacyKeys.some((key) => state[key]);
   const name = c.name ?? displayName(c.id);
   return (
-    <section aria-label={name} className="min-w-0 space-y-4 border-t pt-5">
+    <section
+      aria-label={name}
+      className="min-w-0 space-y-5 border-t-2 border-foreground/20 pt-5"
+    >
       <div className="space-y-2">
         <div className="flex min-w-0 items-start justify-between gap-3">
-          <h4 className="flex min-w-0 flex-1 items-start gap-2.5 text-sm font-semibold">
-            <span className="shrink-0 pt-0.5 font-mono text-[11px] font-normal text-muted-foreground">
+          <h4 className="flex min-w-0 flex-1 items-start gap-2.5 text-base font-semibold leading-snug">
+            <span className="shrink-0 pt-0.5 font-mono text-xs font-normal text-muted-foreground">
               {String(index + 1).padStart(2, "0")}
             </span>
             <span className="min-w-0 break-words text-pretty">{name}</span>
@@ -252,7 +255,13 @@ function ConversationDefinition({
             </Button>
           ) : null}
         </div>
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-muted-foreground">
+        <p
+          className="break-all font-mono text-xs text-muted-foreground"
+          translate="no"
+        >
+          {c.id}
+        </p>
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
           <span>
             {c.steps.length} {c.steps.length === 1 ? "step" : "steps"}
           </span>
@@ -277,7 +286,10 @@ function ConversationDefinition({
         ))}
       </ol>
       {open ? (
-        <div id={groupId} className="min-w-0 space-y-4 border-t pt-4">
+        <div
+          id={groupId}
+          className="min-w-0 space-y-5 border-t border-foreground/10 pt-5"
+        >
           {details.map((detail) => (
             <div key={detail.id} className="min-w-0 space-y-2">
               <h5 className="text-xs font-medium text-muted-foreground">
@@ -306,7 +318,7 @@ export function EvalSuiteDefinition({
     0,
   );
   return (
-    <div className="min-w-0 space-y-6">
+    <div className="min-w-0 space-y-8">
       <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
         <h3 className="text-sm font-semibold">Conversation plan</h3>
         <p className="text-xs text-muted-foreground">

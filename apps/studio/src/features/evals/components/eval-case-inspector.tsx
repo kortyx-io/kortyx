@@ -31,11 +31,11 @@ function StepEvaluation({
   scope: string;
 }) {
   return (
-    <section className="min-w-0 space-y-3 border-b pb-5 last:border-b-0">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-xs font-semibold">
+    <section className="min-w-0 space-y-4 border-t border-foreground/15 pt-5 first:border-t-0 first:pt-0">
+      <div className="flex flex-wrap items-center justify-between gap-2 bg-muted/30 px-3 py-2">
+        <h4 className="text-sm font-semibold">
           Step {step.index + 1} evaluation
-        </p>
+        </h4>
         <EvalStatus status={step.status} />
       </div>
       <p className="text-xs text-muted-foreground">
@@ -46,17 +46,28 @@ function StepEvaluation({
           {step.reason}
         </p>
       ) : null}
-      {step.criteria.map((criterion) => (
-        <div key={criterion.id} className="min-w-0 space-y-2 border-l-2 pl-3">
-          <div className="flex flex-wrap items-start gap-2">
+      {step.criteria.map((criterion, index) => (
+        <div
+          key={criterion.id}
+          className="min-w-0 space-y-3 border-t border-foreground/10 pt-3"
+        >
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p className="text-xs font-medium text-muted-foreground">
+              Pass criterion{step.criteria.length > 1 ? ` ${index + 1}` : ""}
+            </p>
             <EvalStatus status={criterion.passed ? "passed" : "failed"} />
-            <p className="min-w-0 flex-1 break-words text-xs font-medium">
-              {criterion.text}
+          </div>
+          <p className="break-words text-sm leading-relaxed text-foreground/80">
+            {criterion.text}
+          </p>
+          <div className="space-y-1.5">
+            <p className="text-xs font-medium text-muted-foreground">
+              Assessment
+            </p>
+            <p className="break-words text-sm leading-relaxed">
+              {criterion.reason}
             </p>
           </div>
-          <p className="break-words text-xs leading-relaxed">
-            {criterion.reason}
-          </p>
           {criterion.evidence.length ? (
             <EvalDisclosure
               scope={`${scope}-evidence-${criterion.id}`}
@@ -65,7 +76,7 @@ function StepEvaluation({
               {criterion.evidence.map((text, index) => (
                 <blockquote
                   key={`${index}:${text}`}
-                  className="mt-2 break-words border-l pl-3 text-xs text-muted-foreground"
+                  className="mt-2 break-words border-l pl-3 text-xs leading-relaxed text-muted-foreground"
                 >
                   {text}
                 </blockquote>
@@ -80,7 +91,7 @@ function StepEvaluation({
             href={`/runs/${encodeURIComponent(step.observation.runId)}`}
           >
             Inspect workflow
-            <ArrowUpRight />
+            <ArrowUpRight aria-hidden="true" />
           </DetailLink>
         </Button>
       ) : null}
@@ -90,7 +101,7 @@ function StepEvaluation({
 function StepDebug({ step, scope }: { step: EvalStepResult; scope: string }) {
   const interrupt = step.observation.interrupt;
   return (
-    <section className="min-w-0 space-y-3 border-b pb-5 last:border-b-0">
+    <section className="min-w-0 space-y-4 border-t border-foreground/15 pt-5 first:border-t-0 first:pt-0">
       <p className="text-xs font-medium text-muted-foreground">
         Step {step.index + 1} conversation
       </p>
@@ -98,12 +109,12 @@ function StepDebug({ step, scope }: { step: EvalStepResult; scope: string }) {
         <p className="mb-2 flex items-center gap-2 text-xs font-medium text-muted-foreground">
           {"message" in step.input ? (
             <>
-              <MessageSquare className="size-3.5" />
+              <MessageSquare className="size-3.5" aria-hidden="true" />
               User message
             </>
           ) : (
             <>
-              <Reply className="size-3.5" />
+              <Reply className="size-3.5" aria-hidden="true" />
               Test responder
             </>
           )}
@@ -202,7 +213,7 @@ export function EvalConversationStep({
 }) {
   const key = `${scope}-${step.index}`;
   return (
-    <div className="space-y-4">
+    <div className="min-w-0 space-y-4 border-t border-foreground/15 py-5 first:border-t-0 first:pt-0 last:pb-0">
       <StepEvaluation step={step} scope={key} />
       <EvalDisclosure scope={`${key}-debug`} label="Conversation and debugging">
         <StepDebug step={step} scope={key} />
@@ -213,6 +224,12 @@ export function EvalConversationStep({
 export function EvalCaseContent({ row }: { row: CaseRow }) {
   return (
     <div className="data-table-body-scroll h-full min-h-0 space-y-5 overflow-y-auto p-4">
+      <p
+        className="break-all font-mono text-xs text-muted-foreground"
+        translate="no"
+      >
+        {row.caseId}
+      </p>
       <div className="flex items-center justify-between gap-2">
         <p className="text-xs text-muted-foreground">
           Attempt {row.repetition}
