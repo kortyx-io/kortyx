@@ -17,6 +17,7 @@ export function EvalDropdown({
   onChange,
   disabled,
   className,
+  triggerLabel,
 }: {
   label: string;
   value: string;
@@ -24,6 +25,7 @@ export function EvalDropdown({
   onChange: (value: string) => void;
   disabled?: boolean;
   className?: string;
+  triggerLabel?: string;
 }) {
   const selected = options.find((item) => item.value === value);
   return (
@@ -38,7 +40,7 @@ export function EvalDropdown({
           className={cn("h-8 max-w-full justify-between text-xs", className)}
         >
           <span className="truncate">
-            {selected?.label ?? `Choose ${label.toLowerCase()}`}
+            {triggerLabel ?? selected?.label ?? `Choose ${label.toLowerCase()}`}
           </span>
           <ChevronDown
             aria-hidden="true"

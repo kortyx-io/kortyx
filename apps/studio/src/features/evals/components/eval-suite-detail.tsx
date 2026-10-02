@@ -1,9 +1,10 @@
 "use client";
 import type { EvalSuite } from "@kortyx/agent/evals";
-import { ArrowLeft, Play } from "lucide-react";
+import { Play } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { displayName } from "../lib/presentation";
 import type { EvalTargets } from "../schema";
+import { EvalDetailHeader } from "./eval-detail-header";
 import { EvalSuiteDefinition } from "./eval-suite-definition";
 
 export function EvalSuiteDetail({
@@ -21,28 +22,23 @@ export function EvalSuiteDetail({
 }) {
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <div className="flex items-center justify-between border-b p-3">
-        <Button variant="ghost" size="xs" onClick={onBack}>
-          <ArrowLeft />
-          Suites
-        </Button>
-        <Button
-          size="sm"
-          disabled={!canRun || Boolean(target.error)}
-          onClick={onRun}
-        >
-          <Play />
-          Run suite
-        </Button>
-      </div>
+      <EvalDetailHeader
+        title={suite.name ?? displayName(suite.id)}
+        description={`${target.name} · ${target.environment} · ${suite.cases.length} conversations`}
+        backLabel="Suites"
+        onBack={onBack}
+        actions={
+          <Button
+            size="sm"
+            disabled={!canRun || Boolean(target.error)}
+            onClick={onRun}
+          >
+            <Play />
+            Run suite
+          </Button>
+        }
+      />
       <div className="min-h-0 flex-1 space-y-5 overflow-auto p-5">
-        <h2 className="text-lg font-semibold">
-          {suite.name ?? displayName(suite.id)}
-        </h2>
-        <p className="text-xs text-muted-foreground">
-          {target.name} · {target.environment} · {suite.cases.length}{" "}
-          conversations
-        </p>
         <EvalSuiteDefinition suite={suite} scope="suite-definition" />
       </div>
     </div>

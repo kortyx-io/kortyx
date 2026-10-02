@@ -1,5 +1,30 @@
 export const evalCaseHref = (run: string, caseId: string, repetition: number) =>
   `/evals/cases/${encodeURIComponent(run)}/${encodeURIComponent(caseId)}/${repetition}`;
+export const evalComparisonCaseHref = (
+  run: string,
+  caseId: string,
+  baseline: string,
+) =>
+  `/evals/cases/${encodeURIComponent(run)}/${encodeURIComponent(caseId)}/compare?baseline=${encodeURIComponent(baseline)}`;
+
+/** Upgrade the old inline case selection to the shareable comparison detail. */
+export function comparisonSelectionHref(
+  run: string,
+  params: Record<string, string | string[] | undefined>,
+) {
+  if (typeof params.case !== "string" || typeof params.baseline !== "string")
+    return null;
+  const [path] = evalComparisonCaseHref(
+    run,
+    params.case,
+    params.baseline,
+  ).split("?", 1);
+  const next = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    if (key !== "case" && typeof value === "string") next.set(key, value);
+  }
+  return `${path}?${next}`;
+}
 export const evalRunHref = (id: string) =>
   `/evals/runs/${encodeURIComponent(id)}`;
 export const evalSuiteHref = (target: string, suite: string) =>

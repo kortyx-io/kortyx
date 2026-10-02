@@ -1,5 +1,5 @@
 "use client";
-import { ArrowLeft, GitCompareArrows, Square } from "lucide-react";
+import { GitCompareArrows, Square } from "lucide-react";
 import { parseAsStringLiteral } from "nuqs";
 import {
   DataTable,
@@ -7,11 +7,7 @@ import {
   DataTableColumnsMenu,
   DataTableProvider,
 } from "@/components/data-table";
-import {
-  DetailHeader,
-  KeyValue,
-  Metric,
-} from "@/components/detail/detail-primitives";
+import { KeyValue } from "@/components/detail/detail-primitives";
 import { DetailTabs } from "@/components/detail/detail-tabs";
 import { Button } from "@/components/ui/button";
 import { formatDateTime, formatDurationMs } from "@/lib/format";
@@ -24,6 +20,7 @@ import {
   progressCounts,
 } from "../lib/presentation";
 import type { EvalDetail } from "../schema";
+import { EvalDetailHeader, EvalSummaryMetric } from "./eval-detail-header";
 import { EvalStatus } from "./eval-status";
 import { EvalSuiteDefinition } from "./eval-suite-definition";
 
@@ -112,53 +109,49 @@ export function EvalRunDetail({
   ];
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b px-4 py-2">
-        <Button variant="ghost" size="xs" onClick={onBack}>
-          <ArrowLeft />
-          Run history
-        </Button>
-        <div className="flex gap-2">
-          <Button
-            variant="outline"
-            size="xs"
-            onClick={onCompare}
-            disabled={!canCompare || isActive(run.status)}
-          >
-            <GitCompareArrows />
-            Compare
-          </Button>
-          {isActive(run.status) && canRun ? (
+      <EvalDetailHeader
+        title={run.suite.name ?? displayName(run.suiteId)}
+        description={`${run.targetName} · ${run.environment} · ${formatDateTime(run.createdAt)}`}
+        backLabel="Run history"
+        onBack={onBack}
+        actions={
+          <>
+            <EvalStatus status={run.status} />
             <Button
               variant="outline"
               size="xs"
-              onClick={onCancel}
-              disabled={cancelling || Boolean(run.cancelRequestedAt)}
+              onClick={onCompare}
+              disabled={!canCompare || isActive(run.status)}
             >
-              <Square />
-              {run.cancelRequestedAt ? "Cancelling…" : "Cancel run"}
+              <GitCompareArrows />
+              Compare
             </Button>
-          ) : null}
-        </div>
-      </div>
-      <DetailHeader
-        eyebrow="Eval run"
-        title={run.suite.name ?? displayName(run.suiteId)}
-        status={<EvalStatus status={run.status} />}
-        description={`${run.targetName} · ${run.environment} · ${formatDateTime(run.createdAt)}`}
-        metrics={
-          <>
-            <Metric
-              label="Completed"
-              value={`${counts.completed} / ${counts.total}`}
-            />
-            <Metric label="Passed" value={counts.passed} />
-            <Metric label="Failed" value={counts.failed} />
-            <Metric label="Errors" value={counts.error} />
-            <Metric label="Cancelled" value={counts.cancelled} />
+            {isActive(run.status) && canRun ? (
+              <Button
+                variant="outline"
+                size="xs"
+                onClick={onCancel}
+                disabled={cancelling || Boolean(run.cancelRequestedAt)}
+              >
+                <Square />
+                {run.cancelRequestedAt ? "Cancelling…" : "Cancel run"}
+              </Button>
+            ) : null}
           </>
         }
-        alert={
-          run.error ? (
+      >
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 rounded-md border bg-muted/20 px-3 py-2">
+          <EvalSummaryMetric
+            label="Completed"
+            value={`${counts.completed} / ${counts.total}`}
+          />
+          <EvalSummaryMetric label="Passed" value={counts.passed} />
+          <EvalSummaryMetric label="Failed" value={counts.failed} />
+          <EvalSummaryMetric label="Errors" value={counts.error} />
+          <EvalSummaryMetric label="Cancelled" value={counts.cancelled} />
+        </div>
+        <div className="empty:hidden [&:not(:empty)]:mt-2">
+          {run.error ? (
             <p
               role="alert"
               className="rounded-md border border-red-500/25 bg-red-500/5 p-2 text-xs text-red-700 dark:text-red-400"
@@ -170,9 +163,9 @@ export function EvalRunDetail({
               Cancellation requested. Waiting for the application to finish
               cleanup.
             </p>
-          ) : undefined
-        }
-      />
+          ) : null}
+        </div>
+      </EvalDetailHeader>
       <div className="min-h-0 flex-1">
         <DetailTabs
           queryKey="evalTab"

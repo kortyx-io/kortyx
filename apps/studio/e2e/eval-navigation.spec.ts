@@ -5,6 +5,7 @@ import { DRAWER_FIXTURE } from "./support/telemetry-fixture";
 const runPath = `/evals/runs/${EVAL_FIXTURE.candidate}`;
 const comparePath = `${runPath}/compare?baseline=${EVAL_FIXTURE.baseline}`;
 const casePath = `/evals/cases/${EVAL_FIXTURE.candidate}/${EVAL_FIXTURE.caseId}/1`;
+const comparisonCasePath = `/evals/cases/${EVAL_FIXTURE.candidate}/${EVAL_FIXTURE.caseId}/compare`;
 const workflowPath = `/runs/${DRAWER_FIXTURE.runId}`;
 test.describe("Eval route and drawer navigation", () => {
   test("opens Runs by default, reaches Suites, and restores history navigation", async ({
@@ -59,13 +60,19 @@ test.describe("Eval route and drawer navigation", () => {
   }) => {
     await page.goto(comparePath);
     await page
-      .getByRole("button", { name: "Ambiguous role", exact: true })
+      .getByRole("link", { name: "Ambiguous role", exact: true })
       .click();
-    await expect(page).toHaveURL(/case=ambiguity/);
-    const comparison = page.getByRole("heading", {
+    await expect(page).toHaveURL(
+      new RegExp(`${comparisonCasePath}.*baseline=`),
+    );
+    const comparisonDrawer = page.locator(
+      `[data-detail-drawer="${comparisonCasePath}"]`,
+    );
+    const comparison = comparisonDrawer.getByRole("heading", {
       name: "Ambiguous role",
       exact: true,
     });
+    await expect(comparisonDrawer).toBeVisible();
     const node = await comparison.elementHandle();
     await page.getByRole("link", { name: "Inspect workflow" }).last().click();
     const drawer = page.locator(`[data-detail-drawer="${workflowPath}"]`);
@@ -73,19 +80,25 @@ test.describe("Eval route and drawer navigation", () => {
       drawer.getByRole("button", { name: "Overview", exact: true }),
     ).toBeVisible();
     expect(await node?.evaluate((el) => el.isConnected)).toBe(true);
-    await expect(page).toHaveURL(/baseline=.*case=ambiguity/);
+    await expect(page).toHaveURL(/baseline=/);
+    await expect(page.getByRole("dialog")).toHaveCount(2);
     await drawer
       .getByRole("button", { name: "Close detail", exact: true })
       .click();
     await expect(drawer).toHaveCount(0);
-    await expect(page).toHaveURL(
-      new RegExp(`/evals/runs/${EVAL_FIXTURE.candidate}/compare`),
-    );
+    await expect(page).toHaveURL(new RegExp(comparisonCasePath));
     await expect(comparison).toBeVisible();
     await page.goForward();
     await expect(drawer).toHaveCount(1);
     await page.goBack();
     await expect(comparison).toBeVisible();
+    await comparisonDrawer
+      .getByRole("button", { name: "Close detail", exact: true })
+      .click();
+    await expect(comparisonDrawer).toHaveCount(0);
+    await expect(page).toHaveURL(
+      new RegExp(`/evals/runs/${EVAL_FIXTURE.candidate}/compare`),
+    );
   });
   test("restores the selected case after workflow inspection and reopen", async ({
     page,
@@ -123,7 +136,7 @@ test.describe("Eval route and drawer navigation", () => {
       page.getByRole("button", { name: "Improved", exact: true }),
     ).toHaveClass(/secondary/);
     await page
-      .getByRole("button", { name: "Ambiguous role", exact: true })
+      .getByRole("link", { name: "Ambiguous role", exact: true })
       .click();
     await page
       .getByRole("button", { name: "Candidate attempt", exact: true })

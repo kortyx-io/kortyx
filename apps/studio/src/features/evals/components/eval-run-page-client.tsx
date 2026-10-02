@@ -16,7 +16,6 @@ import {
 import { isActive } from "../lib/presentation";
 import type { EvalDetail, EvalHistory, EvalTargets } from "../schema";
 import { EvalComparison } from "./eval-comparison";
-import { EvalNavigation } from "./eval-navigation";
 import { EvalRunDetail } from "./eval-run-detail";
 export function EvalRunPageClient({
   id,
@@ -66,9 +65,6 @@ export function EvalRunPageClient({
       description="Conversation outcomes and evidence"
     >
       <div className="flex h-full min-h-0 flex-col">
-        <div className="shrink-0 px-4 pt-3">
-          <EvalNavigation active="runs" />
-        </div>
         {error || current.error ? (
           <p
             role="alert"

@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { evalSetupParsers } from "../hooks/use-eval-setup";
 import {
+  comparisonSelectionHref,
   evalCaseHref,
   evalCompareHref,
+  evalComparisonCaseHref,
   evalNavigationHref,
   evalRunHref,
   evalSuiteHref,
@@ -34,6 +36,9 @@ describe("eval navigation", () => {
     );
   });
   it("encodes entity identities as individual route segments", () => {
+    expect(evalComparisonCaseHref("a/b", "case/a", "b/c")).toBe(
+      "/evals/cases/a%2Fb/case%2Fa/compare?baseline=b%2Fc",
+    );
     expect(evalCaseHref("run", "case/a", 2)).toBe(
       "/evals/cases/run/case%2Fa/2",
     );
@@ -44,6 +49,22 @@ describe("eval navigation", () => {
     expect(evalCompareHref("a", "b/c")).toBe(
       "/evals/runs/a/compare?baseline=b%2Fc",
     );
+  });
+  it("upgrades inline comparison selections while retaining baseline and filters", () => {
+    expect(
+      comparisonSelectionHref("candidate", {
+        baseline: "base",
+        case: "case/a",
+        change: "incomplete",
+        candidateAttempt: "1",
+      }),
+    ).toBe(
+      "/evals/cases/candidate/case%2Fa/compare?baseline=base&change=incomplete&candidateAttempt=1",
+    );
+    expect(
+      comparisonSelectionHref("candidate", { baseline: "base" }),
+    ).toBeNull();
+    expect(comparisonSelectionHref("candidate", { case: "job" })).toBeNull();
   });
   it("carries list filters while dropping stale detail and launch state", () => {
     const href = evalNavigationHref(
