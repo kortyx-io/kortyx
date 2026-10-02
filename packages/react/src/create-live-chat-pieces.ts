@@ -190,6 +190,16 @@ export function createLiveChatPieces<
       return true;
     }
 
+    if (chunk.type === "structured-data-invalidated") {
+      args.structuredStreams.applyStreamChunk(chunk);
+      const index = findPieceIndex(`structured:${chunk.streamId}`);
+      if (index >= 0) {
+        keyedPieces.splice(index, 1);
+        emit();
+      }
+      return true;
+    }
+
     if (chunk.type === "interrupt") {
       pushPiece(args.toHumanInputPiece(chunk));
       return true;

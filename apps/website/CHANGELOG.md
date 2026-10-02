@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.41.0](https://github.com/kortyx-io/kortyx/compare/website-v0.40.0...website-v0.41.0) (2026-09-30)
+
+
+### Features
+
+* **hooks:** add realtime model-selected output contracts ([#249](https://github.com/kortyx-io/kortyx/issues/249)) ([ac52b47](https://github.com/kortyx-io/kortyx/commit/ac52b47151b64ce5be6ce6c7fd42d34a0fa8a76d))
+
 ## [0.40.0](https://github.com/kortyx-io/kortyx/compare/website-v0.39.0...website-v0.40.0) (2026-09-23)
 
 

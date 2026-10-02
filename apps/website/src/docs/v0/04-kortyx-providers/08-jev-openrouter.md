@@ -12,7 +12,16 @@ scores, and yes/no probabilities rather than generated prose.
 
 Jev still uses the normal Kortyx model and hook shape:
 
+> **Good to know:** This Jev example uses the deprecated `outputSchema` path because System One cannot call tools, which the new model-selected output contracts require. Keep this path for Jev during the current major version; a non-tool replacement is required before the legacy fields are removed in the next major.
+
 ```ts
+const result = await useReason({
+  model: openrouter("typesafe/jev-1.13"),
+  input: ticket,
+  outputSchema: TicketDecision,
+});
+```
+```js
 const result = await useReason({
   model: openrouter("typesafe/jev-1.13"),
   input: ticket,
@@ -27,11 +36,18 @@ define it with `jevOutputSchema(...)` instead of a general-purpose Zod object.
 
 Jev support is included in `@kortyx/openrouter`:
 
-```bash
+```bash tabs="jev-install" tab="pnpm"
 pnpm add @kortyx/openrouter
+```
+```bash tabs="jev-install" tab="npm"
+npm install @kortyx/openrouter
 ```
 
 ```ts
+import { jevOutputSchema, openrouter } from "@kortyx/openrouter";
+import { useReason } from "kortyx";
+```
+```js
 import { jevOutputSchema, openrouter } from "@kortyx/openrouter";
 import { useReason } from "kortyx";
 ```
@@ -42,6 +58,35 @@ as other OpenRouter models.
 ## 2. Define native Jev questions
 
 ```ts
+const TicketDecision = jevOutputSchema({
+  queue: {
+    type: "choice",
+    instructions: "Which team should handle this ticket?",
+    criteria: {
+      billing: "Invoices, charges, and refunds",
+      technical: "Bugs, outages, and login failures",
+    },
+  },
+  urgency: {
+    type: "score",
+    instructions: "How urgent is this ticket?",
+    criteria: [
+      "Can wait",
+      "Important but work can continue",
+      "Customer is blocked",
+    ],
+  },
+  needsHuman: {
+    type: "noul",
+    instructions: "Does this require a human response?",
+    criteria: {
+      true: "A person must respond or make a judgment",
+      false: "Documentation or an automated answer is sufficient",
+    },
+  },
+});
+```
+```js
 const TicketDecision = jevOutputSchema({
   queue: {
     type: "choice",
@@ -89,6 +134,18 @@ result.output?.queue; // "billing" | "technical"
 result.output?.urgency; // number from 0 to 2, including fractional values
 result.output?.needsHuman; // probability from 0 to 1
 ```
+```js
+const result = await useReason({
+  id: "triage-ticket",
+  model: openrouter("typesafe/jev-1.13"),
+  input: ticket,
+  outputSchema: TicketDecision,
+});
+
+result.output?.queue;
+result.output?.urgency;
+result.output?.needsHuman;
+```
 
 There is no separate `openrouter.decide(...)` API. Jev is selected through the
 same `openrouter(modelId)` helper used for chat models, and it participates in
@@ -109,6 +166,10 @@ threshold based on the cost of false positives and false negatives:
 const HUMAN_THRESHOLD = 0.8;
 const needsHuman = (result.output?.needsHuman ?? 0) >= HUMAN_THRESHOLD;
 ```
+```js
+const HUMAN_THRESHOLD = 0.8;
+const needsHuman = (result.output?.needsHuman ?? 0) >= HUMAN_THRESHOLD;
+```
 
 ## 5. Native details and normalized result fields
 
@@ -116,6 +177,13 @@ The simplified typed decision lives in `result.output`. Additional native
 details remain available for decisions that need uncertainty handling:
 
 ```ts
+result.output;
+result.usage;
+result.providerMetadata?.cost;
+result.providerMetadata?.answers;
+result.raw;
+```
+```js
 result.output;
 result.usage;
 result.providerMetadata?.cost;
@@ -150,6 +218,14 @@ await useReason({
   outputSchema: TicketDecision,
 });
 ```
+```js
+// The helper provides the native wire contract.
+await useReason({
+  model: openrouter("typesafe/jev-1.13"),
+  input: ticket,
+  outputSchema: TicketDecision,
+});
+```
 
 Chat-only controls such as `temperature`, `maxOutputTokens`, `stopSequences`,
 and reasoning settings are not sent to System One. Kortyx reports them through
@@ -174,6 +250,20 @@ These OpenRouter-native controls are forwarded to System One when provided:
 - `user`
 
 ```ts
+const result = await useReason({
+  model: openrouter("typesafe/jev-1.13"),
+  input: ticket,
+  outputSchema: TicketDecision,
+  providerOptions: {
+    openrouter: {
+      sessionId: ticketId,
+      user: accountId,
+      provider: { zdr: true },
+    },
+  },
+});
+```
+```js
 const result = await useReason({
   model: openrouter("typesafe/jev-1.13"),
   input: ticket,

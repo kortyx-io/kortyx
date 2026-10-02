@@ -2,11 +2,14 @@ import type { InterruptInput, InterruptResult } from "@kortyx/core";
 import { getHookContext } from "./context";
 import { awaitInterruptInternal } from "./interrupt";
 import { defineInterruptContract } from "./interrupt-contract";
+import { defineOutputContract } from "./output-contract";
 import { useReason as useReasonInternal } from "./reason/use-reason";
 import { emitStructuredData } from "./structured";
 import type {
   InterruptContractMap,
+  OutputContractMap,
   UseContractInterruptArgs,
+  UseContractStructuredDataArgs,
   UseInterruptArgs,
   UseReasonArgs,
   UseReasonResult,
@@ -14,19 +17,24 @@ import type {
 } from "./types";
 import { parseWithSchema } from "./validation";
 
-export { defineInterruptContract };
+export { defineInterruptContract, defineOutputContract };
 
 export type {
   InterruptContract,
   InterruptContractMap,
   InterruptHistoryEntry,
+  OutputContract,
+  OutputContractEntry,
+  OutputContractMap,
   SchemaLike,
   StructuredDataKind,
   UseContractInterruptArgs,
+  UseContractStructuredDataArgs,
   UseInterruptArgs,
   UseReasonArgs,
   UseReasonInterruptConfig,
   UseReasonInterruptsConfig,
+  UseReasonOutputsConfig,
   UseReasonResult,
   UseReasonStep,
   UseReasonStructuredConfig,
@@ -40,9 +48,66 @@ export type {
 
 type StateSetter<T> = (next: T | ((prev: T) => T)) => void;
 
+export function useStructuredData<TData>(
+  args: UseContractStructuredDataArgs<TData>,
+): void;
 export function useStructuredData<TData = unknown>(
   args: UseStructuredDataArgs<TData>,
+): void;
+export function useStructuredData<TData>(
+  args: UseStructuredDataArgs<TData> | UseContractStructuredDataArgs<TData>,
 ): void {
+  if ("contract" in args) {
+    const contract = defineOutputContract(args.contract);
+    const base = {
+      dataType: contract.schemaId,
+      schemaId: contract.schemaId,
+      schemaVersion: contract.schemaVersion,
+      ...(args.id ? { id: args.id } : {}),
+      ...(args.streamId ? { streamId: args.streamId } : {}),
+    };
+    if (
+      args.kind === "set" ||
+      args.kind === "append" ||
+      args.kind === "text-delta"
+    ) {
+      if (contract.stream?.fields[args.path] !== args.kind)
+        throw new Error(
+          `Output contract does not allow ${args.kind} at "${args.path}".`,
+        );
+      if (args.kind === "set")
+        emitStructuredData({
+          ...base,
+          kind: "set",
+          path: args.path,
+          value: args.value,
+          ...(args.valueSchema ? { valueSchema: args.valueSchema } : {}),
+        });
+      else if (args.kind === "append")
+        emitStructuredData({
+          ...base,
+          kind: "append",
+          path: args.path,
+          items: args.items,
+          ...(args.itemSchema ? { itemSchema: args.itemSchema } : {}),
+        });
+      else
+        emitStructuredData({
+          ...base,
+          kind: "text-delta",
+          path: args.path,
+          delta: args.delta,
+        });
+      return;
+    }
+    emitStructuredData({
+      ...base,
+      kind: "final",
+      data: args.data,
+      dataSchema: contract.schema,
+    });
+    return;
+  }
   emitStructuredData(args);
 }
 
@@ -51,9 +116,11 @@ export function useReason<
   TRequest extends InterruptInput = InterruptInput,
   TResponse = InterruptResult,
   TContracts extends InterruptContractMap = InterruptContractMap,
+  TEmit extends OutputContractMap = OutputContractMap,
+  TReturn extends OutputContractMap = OutputContractMap,
 >(
-  args: UseReasonArgs<TOutput, TRequest, TResponse, TContracts>,
-): Promise<UseReasonResult<TOutput, TResponse, TContracts>> {
+  args: UseReasonArgs<TOutput, TRequest, TResponse, TContracts, TEmit, TReturn>,
+): Promise<UseReasonResult<TOutput, TResponse, TContracts, TEmit, TReturn>> {
   return useReasonInternal(args);
 }
 

@@ -44,6 +44,21 @@ await useReason({
 });
 ```
 
+## `useReason` single JSON output API
+
+Deprecated when model-selected output contracts were introduced. Remove this legacy API in the next major version, after its published callers and provider-native exceptions have a supported migration path.
+
+- [ ] Remove `UseReasonArgs.outputSchema`, `UseReasonArgs.structured`, and `UseReasonResult.output` in the next major version.
+- [ ] Replace TypeSafe Jev's native `jevOutputSchema(...)` use of `outputSchema` before removal. Jev cannot call tools, so it cannot use model-selected `outputs` directly; preserve its typed decision result through a non-tool public API and test it.
+- [ ] Migrate published examples, docs, and `skills/kortyx` references that still demonstrate the legacy fields; retain a compile-time test proving the removed fields fail.
+- [ ] Remove `KORTYX_USE_REASON_OUTPUT_DEPRECATED` and the legacy JSON prompt, parser, and structured streaming compatibility path once no callers remain.
+- [ ] Keep the `structured-data` wire protocol and `useStructuredData`; output contracts use both.
+- [ ] Update the Hooks and Stream Protocol guides and retain compile-time tests for the replacement.
+
+Replacement: `defineOutputContract(...)` with `useReason({ outputs: { emit, return } })`. For realtime partial fields, define `stream.fields` on the contract. The model first selects that contract through a control tool, then Kortyx performs a separate streamed JSON pass and emits partial chunks before `final`. For deterministic output, call `useStructuredData({ contract, data })`.
+
+Runtime warning: `KORTYX_USE_REASON_OUTPUT_DEPRECATED`.
+
 ## Process for adding entries
 
 Every future entry must name the public surface, replacement, first deprecated

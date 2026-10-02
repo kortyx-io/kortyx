@@ -59,7 +59,7 @@ Hooks:
 - `references/hooks-child-workflows.md`: typed child calls, `parallel` groups, approval timing, output contracts, interrupt/replay safety, fork/rollback, and migration from handoffs.
 - `references/hooks-use-reason.md`: model calls, provider imports/options, local and MCP-derived tools, plural model-driven interrupts, schema output, and text streaming.
 - `references/hooks-interrupts-and-state.md`: human-in-the-loop flows, resume, replay, and persistence implications.
-- `references/hooks-structured-streaming.md`: choosing `useReason({ structured })` vs `useStructuredData(...)`.
+- `references/hooks-structured-streaming.md`: choosing model-selected output contracts vs application-authored `useStructuredData(...)`.
 - `references/hooks-runtime-context.md`: passing request context safely from route/client to nodes.
 
 React client:
@@ -91,7 +91,8 @@ React client:
   user's language unless they request another language. Preserve code, schema
   fields, identifiers, and quoted source text rather than translating them
   implicitly.
-- `useReason({ outputSchema, structured.fields })` already streams known structured fields as `structured-data` chunks; do not confuse those with raw model JSON `text-delta` chunks.
+- Define model-selected values with `defineOutputContract(...)` and `useReason({ outputs })`. Contract `stream.fields` produces realtime `structured-data` partials; keep raw model JSON out of user-facing text.
+- `useReason({ outputSchema, structured })` and `result.output` are deprecated for removal in the next major. Use them only while migrating an existing caller or with a provider-native output model that cannot call tools, such as TypeSafe Jev; see the provider-specific reference.
 - `useReason({ tools })` accepts `KortyxExecutableTool[]`: directly imported local tools, request-bound tools, and MCP-derived tools from `createMCPClient(...).tools()`. `useReason` closes owned request-scoped resources by default.
 - Tools and model-driven human input share the same durable `useReason` loop. Define one or more contracts with `defineInterruptContract`, pass them under `interrupts.contracts`, choose `mode`, bound human turns with `maxRequests`, and read `result.interruptHistory`.
 - The singular `useReason({ interrupt })` option and `result.interruptResponse` are deprecated and removed in the next major; do not use them in new code.

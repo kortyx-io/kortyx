@@ -21,7 +21,7 @@ export const StreamChunkSchema = z.union([
   z.object({
     type: z.literal("structured-data-invalidated"),
     streamId: z.string(),
-    checkpointId: z.string(),
+    checkpointId: z.string().optional(),
   }),
   z.object({
     type: z.literal("trace"),

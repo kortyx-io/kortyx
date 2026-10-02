@@ -576,6 +576,13 @@ const CATEGORY_APPEARANCE: Record<
     badge:
       "border-violet-500/20 bg-violet-500/8 text-violet-700 dark:text-violet-400",
   },
+  output: {
+    icon: Braces,
+    iconColor: "text-emerald-600 dark:text-emerald-400",
+    border: "border-emerald-500/25",
+    badge:
+      "border-emerald-500/20 bg-emerald-500/8 text-emerald-700 dark:text-emerald-400",
+  },
   tool: {
     icon: Wrench,
     iconColor: "text-blue-600 dark:text-blue-400",
