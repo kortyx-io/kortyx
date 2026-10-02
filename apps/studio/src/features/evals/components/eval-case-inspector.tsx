@@ -1,36 +1,99 @@
 "use client";
 import type { EvalStepResult } from "@kortyx/agent/evals";
-import { ArrowUpRight, ChevronDown, MessageSquare, Reply } from "lucide-react";
-import Link from "next/link";
-import { DetailInspectorDrawer } from "@/components/detail/detail-inspector";
-import { PayloadViewer } from "@/components/detail/payload-viewer";
+import { ArrowUpRight, MessageSquare, Reply } from "lucide-react";
+import { DetailLink } from "@/components/detail/detail-link";
 import { Button } from "@/components/ui/button";
 import type { CaseRow } from "../lib/presentation";
+import { EvalDisclosure } from "./eval-disclosure";
+import { EvalPayloadViewer } from "./eval-payload-viewer";
 import { EvalStatus } from "./eval-status";
 
-function PayloadSection({ label, value }: { label: string; value: unknown }) {
+function PayloadSection({
+  label,
+  value,
+  scope,
+}: {
+  label: string;
+  value: unknown;
+  scope: string;
+}) {
   return (
-    <details className="group mt-3 min-w-0">
-      <summary className="flex items-center gap-2 text-xs text-muted-foreground">
-        <ChevronDown className="size-3 transition-transform group-open:rotate-180" />
-        {label}
-      </summary>
-      <div className="mt-2">
-        <PayloadViewer value={value} defaultClean={false} />
-      </div>
-    </details>
+    <EvalDisclosure scope={scope} label={label}>
+      <EvalPayloadViewer scope={scope} value={value} />
+    </EvalDisclosure>
   );
 }
-export function EvalConversationStep({ step }: { step: EvalStepResult }) {
-  const interrupt = step.observation.interrupt;
+function StepEvaluation({
+  step,
+  scope,
+}: {
+  step: EvalStepResult;
+  scope: string;
+}) {
   return (
     <section className="min-w-0 space-y-3 border-b pb-5 last:border-b-0">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-          Step {step.index + 1}
-        </span>
+        <p className="text-xs font-semibold">
+          Step {step.index + 1} evaluation
+        </p>
         <EvalStatus status={step.status} />
       </div>
+      <p className="text-xs text-muted-foreground">
+        Expected {step.expectation.type} · Observed {step.observation.type}
+      </p>
+      {step.reason ? (
+        <p className="break-words text-xs text-red-700 dark:text-red-400">
+          {step.reason}
+        </p>
+      ) : null}
+      {step.criteria.map((criterion) => (
+        <div key={criterion.id} className="min-w-0 space-y-2 border-l-2 pl-3">
+          <div className="flex flex-wrap items-start gap-2">
+            <EvalStatus status={criterion.passed ? "passed" : "failed"} />
+            <p className="min-w-0 flex-1 break-words text-xs font-medium">
+              {criterion.text}
+            </p>
+          </div>
+          <p className="break-words text-xs leading-relaxed">
+            {criterion.reason}
+          </p>
+          {criterion.evidence.length ? (
+            <EvalDisclosure
+              scope={`${scope}-evidence-${criterion.id}`}
+              label={`Supporting evidence (${criterion.evidence.length})`}
+            >
+              {criterion.evidence.map((text, index) => (
+                <blockquote
+                  key={`${index}:${text}`}
+                  className="mt-2 break-words border-l pl-3 text-xs text-muted-foreground"
+                >
+                  {text}
+                </blockquote>
+              ))}
+            </EvalDisclosure>
+          ) : null}
+        </div>
+      ))}
+      {step.observation.runId ? (
+        <Button variant="outline" size="xs" asChild>
+          <DetailLink
+            href={`/runs/${encodeURIComponent(step.observation.runId)}`}
+          >
+            Inspect workflow
+            <ArrowUpRight />
+          </DetailLink>
+        </Button>
+      ) : null}
+    </section>
+  );
+}
+function StepDebug({ step, scope }: { step: EvalStepResult; scope: string }) {
+  const interrupt = step.observation.interrupt;
+  return (
+    <section className="min-w-0 space-y-3 border-b pb-5 last:border-b-0">
+      <p className="text-xs font-medium text-muted-foreground">
+        Step {step.index + 1} conversation
+      </p>
       <div className="rounded-lg border bg-muted/20 p-3">
         <p className="mb-2 flex items-center gap-2 text-xs font-medium text-muted-foreground">
           {"message" in step.input ? (
@@ -50,25 +113,30 @@ export function EvalConversationStep({ step }: { step: EvalStepResult }) {
             {step.input.message}
           </p>
         ) : (
-          <PayloadViewer value={step.input.resume} defaultClean={false} />
+          <EvalPayloadViewer
+            scope={`${scope}-resume`}
+            value={step.input.resume}
+          />
         )}
       </div>
-      <div className="min-w-0 rounded-lg border p-3">
-        <p className="mb-2 text-xs font-medium text-muted-foreground">
+      <div className="min-w-0 space-y-3 rounded-lg border p-3">
+        <p className="text-xs font-medium text-muted-foreground">
           {interrupt ? "Agent requested input" : "Agent answer"}
         </p>
         {step.observation.text ? (
-          <PayloadViewer value={step.observation.text} defaultMode="markdown" />
+          <EvalPayloadViewer
+            scope={`${scope}-answer`}
+            value={step.observation.text}
+            defaultMode="markdown"
+          />
         ) : null}
         {interrupt ? (
-          <div className="min-w-0 space-y-3">
+          <>
             <p className="break-words text-sm font-medium">
               {interrupt.question ?? "Structured input requested"}
             </p>
             <p className="break-words font-mono text-[11px] text-muted-foreground">
-              {interrupt.schemaId
-                ? `${interrupt.schemaId}${interrupt.schemaVersion ? ` v${interrupt.schemaVersion}` : ""}`
-                : interrupt.kind}
+              {interrupt.schemaId ?? interrupt.kind}
             </p>
             {interrupt.options.length ? (
               <ul className="space-y-2">
@@ -88,10 +156,17 @@ export function EvalConversationStep({ step }: { step: EvalStepResult }) {
               </ul>
             ) : null}
             {interrupt.request !== undefined ? (
-              <PayloadViewer value={interrupt.request} defaultClean={false} />
+              <EvalPayloadViewer
+                scope={`${scope}-request`}
+                value={interrupt.request}
+              />
             ) : null}
-            <PayloadSection label="Interrupt details" value={interrupt} />
-          </div>
+            <PayloadSection
+              scope={`${scope}-interrupt`}
+              label="Interrupt details"
+              value={interrupt}
+            />
+          </>
         ) : null}
         {!step.observation.text && !interrupt ? (
           <p className="text-xs text-muted-foreground">
@@ -102,95 +177,56 @@ export function EvalConversationStep({ step }: { step: EvalStepResult }) {
         ) : null}
         {step.observation.structured.length ? (
           <PayloadSection
+            scope={`${scope}-structured`}
             label="Structured output"
             value={step.observation.structured}
           />
         ) : null}
       </div>
-      <div className="min-w-0 space-y-3">
-        <p className="text-xs font-medium">Evaluation</p>
-        <p className="text-xs text-muted-foreground">
-          Expected {step.expectation.type} · Observed {step.observation.type}
-        </p>
-        {step.reason ? (
-          <p className="break-words text-xs text-red-700 dark:text-red-400">
-            {step.reason}
-          </p>
-        ) : null}
-        {step.criteria.map((criterion) => (
-          <div key={criterion.id} className="min-w-0 border-l-2 pl-3">
-            <div className="flex flex-wrap items-start gap-2">
-              <EvalStatus status={criterion.passed ? "passed" : "failed"} />
-              <p className="min-w-0 flex-1 break-words text-xs font-medium">
-                {criterion.text}
-              </p>
-            </div>
-            <p className="mt-2 break-words text-xs leading-relaxed">
-              {criterion.reason}
-            </p>
-            {criterion.evidence.length ? (
-              <details className="group mt-3">
-                <summary className="flex items-center gap-2 text-xs text-muted-foreground">
-                  <ChevronDown className="size-3 transition-transform group-open:rotate-180" />
-                  Supporting evidence ({criterion.evidence.length})
-                </summary>
-                {criterion.evidence.map((text, index) => (
-                  <blockquote
-                    key={`${index}:${text}`}
-                    className="mt-2 break-words border-l pl-3 text-xs text-muted-foreground"
-                  >
-                    {text}
-                  </blockquote>
-                ))}
-              </details>
-            ) : null}
-          </div>
-        ))}
-        {step.reference !== undefined ? (
-          <PayloadSection label="Reference facts" value={step.reference} />
-        ) : null}
-      </div>
-      {step.observation.runId ? (
-        <Button variant="outline" size="xs" asChild>
-          <Link href={`/runs/${encodeURIComponent(step.observation.runId)}`}>
-            Inspect workflow
-            <ArrowUpRight />
-          </Link>
-        </Button>
+      {step.reference !== undefined ? (
+        <PayloadSection
+          scope={`${scope}-reference`}
+          label="Reference facts"
+          value={step.reference}
+        />
       ) : null}
     </section>
   );
 }
-export function EvalCaseInspector({
-  row,
-  onClose,
+export function EvalConversationStep({
+  step,
+  scope,
 }: {
-  row: CaseRow | null;
-  onClose: () => void;
+  step: EvalStepResult;
+  scope: string;
 }) {
+  const key = `${scope}-${step.index}`;
   return (
-    <DetailInspectorDrawer
-      open={Boolean(row)}
-      onClose={onClose}
-      title={row?.name ?? "Conversation"}
-      description={`Attempt ${row?.repetition ?? 1} · Conversation and grading evidence`}
-      badges={row ? <EvalStatus status={row.status} /> : null}
-      closeLabel="Close case inspector"
-      bodyClassName="p-4 space-y-5"
-    >
-      {row?.steps.map((step) => (
-        <EvalConversationStep key={step.index} step={step} />
-      ))}
-      {row && !row.steps.length ? (
-        <p className="p-6 text-center text-sm text-muted-foreground">
-          {row.status === "queued"
-            ? "This attempt has not started."
-            : row.status === "running"
-              ? "Waiting for the first recorded step."
-              : "No conversation steps were recorded."}
+    <div className="space-y-4">
+      <StepEvaluation step={step} scope={key} />
+      <EvalDisclosure scope={`${key}-debug`} label="Conversation and debugging">
+        <StepDebug step={step} scope={key} />
+      </EvalDisclosure>
+    </div>
+  );
+}
+export function EvalCaseContent({ row }: { row: CaseRow }) {
+  return (
+    <div className="data-table-body-scroll h-full min-h-0 space-y-5 overflow-y-auto p-4">
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-xs text-muted-foreground">
+          Attempt {row.repetition}
         </p>
-      ) : null}
-      {row?.errors.map((issue, index) => (
+        <EvalStatus status={row.status} />
+      </div>
+      {row.steps.map((step) => (
+        <StepEvaluation
+          key={step.index}
+          step={step}
+          scope={`${row.key}-${step.index}`}
+        />
+      ))}
+      {row.errors.map((issue, index) => (
         <p
           role="alert"
           key={`${index}:${issue.code}`}
@@ -199,6 +235,28 @@ export function EvalCaseInspector({
           {issue.phase}: {issue.message}
         </p>
       ))}
-    </DetailInspectorDrawer>
+      {row.steps.length ? (
+        <EvalDisclosure
+          scope={`${row.key}-debug`}
+          label="Conversation and debugging"
+        >
+          {row.steps.map((step) => (
+            <StepDebug
+              key={step.index}
+              step={step}
+              scope={`${row.key}-${step.index}`}
+            />
+          ))}
+        </EvalDisclosure>
+      ) : (
+        <p className="p-6 text-center text-sm text-muted-foreground">
+          {row.status === "queued"
+            ? "This attempt has not started."
+            : row.status === "running"
+              ? "Waiting for the first recorded step."
+              : "No conversation steps were recorded."}
+        </p>
+      )}
+    </div>
   );
 }

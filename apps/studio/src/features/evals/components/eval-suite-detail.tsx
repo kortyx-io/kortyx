@@ -1,10 +1,10 @@
 "use client";
 import type { EvalSuite } from "@kortyx/agent/evals";
 import { ArrowLeft, Play } from "lucide-react";
-import { PayloadViewer } from "@/components/detail/payload-viewer";
 import { Button } from "@/components/ui/button";
 import { displayName } from "../lib/presentation";
 import type { EvalTargets } from "../schema";
+import { EvalPayloadViewer } from "./eval-payload-viewer";
 
 export function EvalSuiteDetail({
   suite,
@@ -57,7 +57,10 @@ export function EvalSuiteDetail({
                 {"message" in step ? (
                   <p className="break-words text-sm">{step.message}</p>
                 ) : (
-                  <PayloadViewer value={step.resume} defaultClean={false} />
+                  <EvalPayloadViewer
+                    scope={`suite-${c.id}-${index}`}
+                    value={step.resume}
+                  />
                 )}
                 <p className="mt-3 text-xs text-muted-foreground">
                   Expected {step.expect.type}

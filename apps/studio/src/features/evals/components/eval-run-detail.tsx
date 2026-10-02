@@ -1,6 +1,6 @@
 "use client";
 import { ArrowLeft, GitCompareArrows, Square } from "lucide-react";
-import { useState } from "react";
+import { parseAsStringLiteral } from "nuqs";
 import {
   DataTable,
   type DataTableColumn,
@@ -13,9 +13,9 @@ import {
   Metric,
 } from "@/components/detail/detail-primitives";
 import { DetailTabs } from "@/components/detail/detail-tabs";
-import { PayloadViewer } from "@/components/detail/payload-viewer";
 import { Button } from "@/components/ui/button";
 import { formatDateTime, formatDurationMs } from "@/lib/format";
+import { useStudioQueryState } from "@/lib/nuqs";
 import {
   type CaseRow,
   caseRows,
@@ -24,12 +24,11 @@ import {
   progressCounts,
 } from "../lib/presentation";
 import type { EvalDetail } from "../schema";
-import { EvalCaseInspector } from "./eval-case-inspector";
+import { EvalPayloadViewer } from "./eval-payload-viewer";
 import { EvalStatus } from "./eval-status";
 
 export function EvalRunDetail({
   run,
-  caseKey,
   onCaseChange,
   onBack,
   onCancel,
@@ -39,7 +38,6 @@ export function EvalRunDetail({
   onCompare,
 }: {
   run: EvalDetail;
-  caseKey: string | null;
   onCaseChange: (key: string | null) => void;
   onBack: () => void;
   onCancel: () => void;
@@ -50,8 +48,12 @@ export function EvalRunDetail({
 }) {
   const rows = caseRows(run);
   const counts = progressCounts(rows);
-  const [filter, setFilter] = useState("all");
-  const selected = rows.find((item) => item.key === caseKey) ?? null;
+  const [filter, setFilter] = useStudioQueryState(
+    "outcome",
+    parseAsStringLiteral(["all", "failed", "error", "passed"] as const)
+      .withDefault("all")
+      .withOptions({ shallow: true }),
+  );
   const columns: DataTableColumn<CaseRow>[] = [
     {
       key: "case",
@@ -200,7 +202,15 @@ export function EvalRunDetail({
                               key={value}
                               variant={filter === value ? "secondary" : "ghost"}
                               size="xs"
-                              onClick={() => setFilter(value)}
+                              onClick={() => {
+                                void setFilter(
+                                  value as
+                                    | "all"
+                                    | "failed"
+                                    | "error"
+                                    | "passed",
+                                );
+                              }}
                             >
                               {value === "all"
                                 ? "All attempts"
@@ -272,14 +282,13 @@ export function EvalRunDetail({
               label: "Suite definition",
               content: (
                 <div className="p-4 @lg:p-6">
-                  <PayloadViewer value={run.suite} defaultClean={false} />
+                  <EvalPayloadViewer scope="run-definition" value={run.suite} />
                 </div>
               ),
             },
           ]}
         />
       </div>
-      <EvalCaseInspector row={selected} onClose={() => onCaseChange(null)} />
     </div>
   );
 }

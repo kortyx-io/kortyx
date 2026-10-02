@@ -21,7 +21,7 @@ export function useEvalRun(
     }
     const controller = new AbortController();
     let timer: ReturnType<typeof setTimeout> | undefined;
-    setLoading(true);
+    setLoading(detail?.id !== id);
     setError(null);
     const poll = async () => {
       try {

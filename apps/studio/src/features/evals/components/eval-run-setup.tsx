@@ -1,61 +1,58 @@
 "use client";
-import type { EvalSuite } from "@kortyx/agent/evals";
 import { Play } from "lucide-react";
-import { useEffect, useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useState } from "react";
 import { DetailInspectorDrawer } from "@/components/detail/detail-inspector";
-import { PayloadViewer } from "@/components/detail/payload-viewer";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { evalRequest } from "../api/client";
+import { useEvalSetup } from "../hooks/use-eval-setup";
+import { evalNavigationHref, evalRunHref } from "../lib/navigation";
 import { displayName } from "../lib/presentation";
 import type { EvalTargets } from "../schema";
+import { EvalDisclosure } from "./eval-disclosure";
+import { EvalDropdown } from "./eval-dropdown";
+import { EvalPayloadViewer } from "./eval-payload-viewer";
 
-export function EvalRunSetup({
-  targets,
-  selection,
-  onClose,
-  onRun,
-  working,
-  error,
-}: {
-  targets: EvalTargets;
-  selection: { targetId: string; suiteId: string } | null;
-  onClose: () => void;
-  onRun: (
-    targetId: string,
-    suite: EvalSuite,
-    caseIds: string[],
-    repetitions: number,
-  ) => Promise<void>;
-  working: boolean;
-  error?: string;
-}) {
-  const [targetId, setTargetId] = useState("");
-  const [suiteId, setSuiteId] = useState("");
-  const [caseIds, setCaseIds] = useState<string[]>([]);
-  const [repetitions, setRepetitions] = useState("1");
-  useEffect(() => {
-    if (!selection) return;
-    setTargetId(selection.targetId);
-    setSuiteId(selection.suiteId);
-    const suite = targets.targets
-      .find((t) => t.id === selection.targetId)
-      ?.manifest?.suites.find((s) => s.id === selection.suiteId);
-    setCaseIds(suite?.cases.map((c) => c.id) ?? []);
-    setRepetitions("1");
-  }, [selection, targets]);
-  const target = targets.targets.find((t) => t.id === targetId);
-  const suite = target?.manifest?.suites.find((s) => s.id === suiteId);
-  const attempts = Number(repetitions);
-  const allowedIds = caseIds.filter((id) =>
-    suite?.cases.some((c) => c.id === id),
-  );
+export function EvalRunSetup({ targets }: { targets: EvalTargets }) {
+  const { query, setQuery, target, suite, close } = useEvalSetup(targets);
+  const [working, setWorking] = useState(false);
+  const [error, setError] = useState("");
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const targetId = query.launchApplication;
+  const suiteId = query.launchSuite;
+  const attempts = Number(query.launchAttempts);
+  const allowedIds = (
+    query.launchCases ??
+    suite?.cases.map((c) => c.id) ??
+    []
+  ).filter((id) => suite?.cases.some((c) => c.id === id));
+  const onRun = async () => {
+    if (!suite || !target) return;
+    setWorking(true);
+    setError("");
+    try {
+      const run = await evalRequest("runs", {
+        targetId,
+        suiteId,
+        suiteRevision: target.revisions[suiteId],
+        caseIds: allowedIds,
+        repetitions: attempts,
+        concurrency: 1,
+      });
+      router.push(evalNavigationHref(evalRunHref(run.id), searchParams));
+    } catch (cause) {
+      setError(
+        cause instanceof Error
+          ? cause.message
+          : "Could not start this eval run.",
+      );
+    } finally {
+      setWorking(false);
+    }
+  };
   const valid =
     Number.isInteger(attempts) &&
     attempts >= 1 &&
@@ -63,17 +60,16 @@ export function EvalRunSetup({
     allowedIds.length > 0 &&
     allowedIds.length * attempts <= 200;
   const chooseSuite = (id: string, application = target) => {
-    setSuiteId(id);
-    setCaseIds(
-      application?.manifest?.suites
-        .find((s) => s.id === id)
-        ?.cases.map((c) => c.id) ?? [],
-    );
+    void setQuery({
+      launchSuite: id,
+      launchApplication: application?.id ?? "",
+      launchCases: null,
+    });
   };
   return (
     <DetailInspectorDrawer
-      open={Boolean(selection)}
-      onClose={onClose}
+      open={query.launch && pathname.startsWith("/evals/")}
+      onClose={close}
       title="Run an eval suite"
       description="Execute conversations with the application’s test setup."
       closeLabel="Close run setup"
@@ -89,29 +85,21 @@ export function EvalRunSetup({
           </p>
         ) : null}
         <div className="space-y-2">
-          <label htmlFor="eval-application" className="text-xs font-medium">
-            Application
-          </label>
-          <Select
+          <p className="text-xs font-medium">Application</p>
+          <EvalDropdown
+            label="Application"
             value={targetId}
             disabled={working}
-            onValueChange={(id) => {
+            className="w-full"
+            options={targets.targets.map((t) => ({
+              value: t.id,
+              label: `${t.name} · ${t.environment}`,
+            }))}
+            onChange={(id) => {
               const next = targets.targets.find((t) => t.id === id);
-              setTargetId(id);
               chooseSuite(next?.manifest?.suites[0]?.id ?? "", next);
             }}
-          >
-            <SelectTrigger id="eval-application" className="w-full">
-              <SelectValue placeholder="Select an application" />
-            </SelectTrigger>
-            <SelectContent>
-              {targets.targets.map((t) => (
-                <SelectItem key={t.id} value={t.id}>
-                  {t.name} · {t.environment}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          />
         </div>
         {target?.error ? (
           <p role="alert" className="text-xs text-red-700 dark:text-red-400">
@@ -119,25 +107,20 @@ export function EvalRunSetup({
           </p>
         ) : null}
         <div className="space-y-2">
-          <label htmlFor="eval-suite" className="text-xs font-medium">
-            Suite
-          </label>
-          <Select
+          <p className="text-xs font-medium">Suite</p>
+          <EvalDropdown
+            label="Suite"
             value={suiteId}
             disabled={working}
-            onValueChange={(id) => chooseSuite(id)}
-          >
-            <SelectTrigger id="eval-suite" className="w-full">
-              <SelectValue placeholder="Select a suite" />
-            </SelectTrigger>
-            <SelectContent>
-              {target?.manifest?.suites.map((s) => (
-                <SelectItem key={s.id} value={s.id}>
-                  {s.name ?? displayName(s.id)}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+            className="w-full"
+            options={
+              target?.manifest?.suites.map((s) => ({
+                value: s.id,
+                label: s.name ?? displayName(s.id),
+              })) ?? []
+            }
+            onChange={(id) => chooseSuite(id)}
+          />
         </div>
         <fieldset disabled={working} className="space-y-2">
           <legend className="mb-2 text-xs font-medium">
@@ -152,13 +135,13 @@ export function EvalRunSetup({
                 type="checkbox"
                 className="mt-0.5 accent-foreground"
                 checked={allowedIds.includes(c.id)}
-                onChange={(event) =>
-                  setCaseIds((current) =>
-                    event.target.checked
-                      ? [...current, c.id]
-                      : current.filter((id) => id !== c.id),
-                  )
-                }
+                onChange={(event) => {
+                  void setQuery({
+                    launchCases: event.target.checked
+                      ? [...allowedIds, c.id]
+                      : allowedIds.filter((id) => id !== c.id),
+                  });
+                }}
               />
               <span className="min-w-0">
                 <span className="block break-words text-sm">
@@ -183,9 +166,11 @@ export function EvalRunSetup({
             type="number"
             min={1}
             max={20}
-            value={repetitions}
+            value={query.launchAttempts}
             disabled={working}
-            onChange={(e) => setRepetitions(e.target.value)}
+            onChange={(e) => {
+              void setQuery({ launchAttempts: e.target.value });
+            }}
           />
           <p className="text-xs text-muted-foreground">
             Each attempt runs in an independent session. Between 1 and 20
@@ -193,14 +178,12 @@ export function EvalRunSetup({
           </p>
         </div>
         {suite ? (
-          <details>
-            <summary className="text-xs text-muted-foreground">
-              Review conversation definitions
-            </summary>
-            <div className="mt-3">
-              <PayloadViewer value={suite} defaultClean={false} />
-            </div>
-          </details>
+          <EvalDisclosure
+            scope="launch-definition"
+            label="Review conversation definitions"
+          >
+            <EvalPayloadViewer scope="launch-definition" value={suite} />
+          </EvalDisclosure>
         ) : null}
         {!targets.canRun ? (
           <p className="text-xs text-muted-foreground">
@@ -225,7 +208,7 @@ export function EvalRunSetup({
             working
           }
           onClick={() => {
-            if (suite) void onRun(targetId, suite, allowedIds, attempts);
+            void onRun();
           }}
         >
           <Play />

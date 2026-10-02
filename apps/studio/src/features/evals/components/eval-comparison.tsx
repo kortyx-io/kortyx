@@ -1,6 +1,6 @@
 "use client";
-import { ArrowLeft, ChevronDown } from "lucide-react";
-import { useState } from "react";
+import { ArrowLeft } from "lucide-react";
+import { parseAsInteger, parseAsString } from "nuqs";
 import {
   DataTable,
   type DataTableColumn,
@@ -9,14 +9,8 @@ import {
 } from "@/components/data-table";
 import { DetailHeader, Metric } from "@/components/detail/detail-primitives";
 import { Button } from "@/components/ui/button";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { formatDateTime } from "@/lib/format";
+import { useStudioQueryState, useStudioQueryStates } from "@/lib/nuqs";
 import {
   type CaseRow,
   type ComparisonRow,
@@ -26,10 +20,21 @@ import {
 } from "../lib/presentation";
 import type { EvalDetail, EvalHistory } from "../schema";
 import { EvalConversationStep } from "./eval-case-inspector";
+import { EvalDisclosure } from "./eval-disclosure";
+import { EvalDropdown } from "./eval-dropdown";
 import { EvalStatus } from "./eval-status";
 
-function Attempts({ rows }: { rows: CaseRow[] }) {
-  const [attempt, setAttempt] = useState(0);
+function Attempts({
+  rows,
+  side,
+}: {
+  rows: CaseRow[];
+  side: "baseline" | "candidate";
+}) {
+  const [attempt, setAttempt] = useStudioQueryState(
+    `${side}Attempt`,
+    parseAsInteger.withDefault(0).withOptions({ shallow: true }),
+  );
   const row = rows[attempt] ?? rows[0];
   if (!row)
     return (
@@ -41,24 +46,24 @@ function Attempts({ rows }: { rows: CaseRow[] }) {
     <div className="min-w-0 space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <EvalStatus status={row.status} />
-        <Select
+        <EvalDropdown
+          label={`${side === "baseline" ? "Baseline" : "Candidate"} attempt`}
           value={String(attempt)}
-          onValueChange={(value) => setAttempt(Number(value))}
-        >
-          <SelectTrigger aria-label="Comparison attempt" className="w-32">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {rows.map((r, index) => (
-              <SelectItem key={r.key} value={String(index)}>
-                Attempt {r.repetition}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+          options={rows.map((r, index) => ({
+            value: String(index),
+            label: `Attempt ${r.repetition}`,
+          }))}
+          onChange={(value) => {
+            void setAttempt(Number(value));
+          }}
+        />
       </div>
       {row.steps.map((step) => (
-        <EvalConversationStep key={step.index} step={step} />
+        <EvalConversationStep
+          key={step.index}
+          step={step}
+          scope={`${side}-${row.key}`}
+        />
       ))}
       {row.errors.map((error, index) => (
         <p
@@ -84,17 +89,38 @@ export function EvalComparison({
   candidate: EvalDetail;
   baseline: EvalDetail | null;
   history: EvalHistory;
-  baselineId: string;
+  baselineId: string | null;
   onBaselineChange: (id: string) => void;
   onBack: () => void;
   loading: boolean;
   error: string | null;
 }) {
-  const [selected, setSelected] = useState<string | null>(null);
-  const [filter, setFilter] = useState("all");
+  const [query, setQuery] = useStudioQueryStates(
+    {
+      case: parseAsString,
+      change: parseAsString.withDefault("all"),
+      baselineAttempt: parseAsInteger.withDefault(0),
+      candidateAttempt: parseAsInteger.withDefault(0),
+    },
+    { shallow: true },
+  );
+  const selected = query.case;
+  const filter = query.change;
+  const setSelected = (value: string | null) => {
+    void setQuery({
+      case: value,
+      baselineAttempt: null,
+      candidateAttempt: null,
+    });
+  };
+  const setFilter = (value: string) => {
+    void setQuery({ change: value });
+  };
   const rows = baseline ? compareRuns(baseline, candidate) : [];
   const selectedRow = rows.find((r) => r.id === selected);
-  const choices = history.runs.filter((r) => r.id !== candidate.id);
+  const choices = history.runs.filter(
+    (r) => r.id !== candidate.id && !["queued", "running"].includes(r.status),
+  );
   const columns: DataTableColumn<ComparisonRow>[] = [
     {
       key: "case",
@@ -196,35 +222,25 @@ export function EvalComparison({
           <label htmlFor="eval-baseline" className="text-xs font-medium">
             Baseline
           </label>
-          <Select
-            value={baselineId}
-            onValueChange={(id) => {
+          <EvalDropdown
+            label="Baseline"
+            value={baselineId ?? ""}
+            className="w-full max-w-md"
+            options={choices.map((run) => ({
+              value: run.id,
+              label: `${run.suiteName ?? displayName(run.suiteId)} · ${formatDateTime(run.createdAt)} · ${run.status}`,
+            }))}
+            onChange={(id) => {
               setSelected(null);
               onBaselineChange(id);
             }}
-          >
-            <SelectTrigger id="eval-baseline" className="h-8 w-full max-w-md">
-              <SelectValue placeholder="Choose a saved run" />
-            </SelectTrigger>
-            <SelectContent>
-              {choices.map((run) => (
-                <SelectItem key={run.id} value={run.id}>
-                  {run.suiteName ?? displayName(run.suiteId)} ·{" "}
-                  {formatDateTime(run.createdAt)} · {run.status}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          />
         </div>
         <p className="text-xs text-muted-foreground">
           Exploratory comparison: actor, data snapshot, and prompt versions were
           not recorded.
         </p>
-        <details className="text-xs text-muted-foreground">
-          <summary className="flex items-center gap-1">
-            <ChevronDown className="size-3" />
-            Comparison context
-          </summary>
+        <EvalDisclosure scope="comparison-context" label="Comparison context">
           <p className="mt-2 leading-relaxed">
             Changes reflect recorded pass rates. Actor identity, a fixed data
             snapshot, and application prompt versions were not recorded for
@@ -240,7 +256,7 @@ export function EvalComparison({
               {candidate.result?.judge?.version ?? "Not recorded"}.
             </p>
           ) : null}
-        </details>
+        </EvalDisclosure>
       </div>
       {error ? (
         <p
@@ -269,6 +285,7 @@ export function EvalComparison({
               </h4>
               <Attempts
                 key={`a:${baselineId}:${selectedRow.id}`}
+                side="baseline"
                 rows={selectedRow.baseline}
               />
             </section>
@@ -278,6 +295,7 @@ export function EvalComparison({
               </h4>
               <Attempts
                 key={`b:${candidate.id}:${selectedRow.id}`}
+                side="candidate"
                 rows={selectedRow.candidate}
               />
             </section>
