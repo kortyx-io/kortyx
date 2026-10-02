@@ -252,8 +252,8 @@ VPN/private-network requirements remain in effect.
 
 ```bash
 kortyx studio evals suites list --connection staging --json
-kortyx studio evals suites get role-ambiguity --target hiring --connection staging --include-content --json
-kortyx studio evals runs start role-ambiguity --target hiring --connection staging --json
+kortyx studio evals suites get product-ambiguity --target catalog --connection staging --include-content --json
+kortyx studio evals runs start product-ambiguity --target catalog --connection staging --json
 kortyx studio evals runs list --connection staging --json
 kortyx studio evals runs get <eval-run-uuid-or-studio-url> --connection staging --json
 kortyx studio evals runs cancel <eval-run-uuid-or-studio-url> --connection staging --json

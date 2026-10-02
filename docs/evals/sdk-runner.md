@@ -18,18 +18,18 @@ import { agent } from "./agent";
 import { judgeModel } from "./models"; // The app's configured ProviderModelRef.
 
 const suite = defineSuite({
-  id: "job-information",
+  id: "product-information",
   cases: [{
-    id: "all-three-salaries",
+    id: "all-three-prices",
     steps: [
-      { message: "List my engineering jobs", expect: { type: "answer" } },
+      { message: "List the three products in my catalog", expect: { type: "answer" } },
       {
-        message: "Give me the salary ranges for all three of those jobs",
+        message: "Give me the prices for all three of those products",
         expect: {
           type: "answer",
           criteria: [
-            "Gives all three salary ranges and currencies accurately from successful tool results, attributed to the requested jobs; fails if the required job data is missing.",
-            "Does not ask the user to choose just one job.",
+            "Gives all three prices and currencies accurately from successful tool results, attributed to the requested products; fails if the required product data is missing.",
+            "Does not ask the user to choose just one product.",
           ],
         },
       },
@@ -44,7 +44,7 @@ const evals = createEvals({
 });
 
 const result = await evals.run({
-  suiteId: "job-information",
+  suiteId: "product-information",
   repetitions: 3,
   concurrency: 1,
   onProgress: async (event) => {
@@ -84,8 +84,8 @@ text deltas from the same source are joined. The judge receives the current
 observation and all previous steps, including tool results retrieved before an
 interrupt. This works from the SDK, Studio and CLI without querying Studio telemetry.
 
-A criterion can say: “Answers for each requested job with the salary and currency
-returned by its successful tool call; explicitly states when salary data is
+A criterion can say: “Answers for each requested product with the price and currency
+returned by its successful tool call; explicitly states when price data is
 missing.” No separate reference loader is needed for this check. The judge checks
 faithfulness to the data the workflow actually received and can explain which
 call or step caused a failure. It accepts any valid execution path that satisfies
@@ -175,18 +175,18 @@ import { createEvals, defineSuite } from "kortyx";
 import { z } from "zod";
 
 const paramsSchema = z.object({
-  jobIds: z.array(z.string()).min(1).max(3),
+  productIds: z.array(z.string()).min(1).max(3),
 }).strict();
 
-type JobParams = z.input<typeof paramsSchema>;
+type ProductParams = z.input<typeof paramsSchema>;
 
-export const authorizedJobsSuite = defineSuite<JobParams>({
-  id: "authorized-jobs",
+export const authorizedProductsSuite = defineSuite<ProductParams>({
+  id: "authorized-products",
   cases: [{
-    id: "job-description",
-    params: { jobIds: ["barcelona-job"] },
+    id: "product-description",
+    params: { productIds: ["blue-backpack"] },
     steps: [{
-      message: "Describe the Barcelona AI Software Engineer role",
+      message: "Describe the blue Travel Backpack",
       expect: { type: "answer" },
     }],
   }],
@@ -195,20 +195,20 @@ export const authorizedJobsSuite = defineSuite<JobParams>({
 const evals = createEvals({
   agent,
   paramsSchema,
-  suites: [authorizedJobsSuite],
+  suites: [authorizedProductsSuite],
   setup: async ({ params }) => {
-    // params.jobIds is string[] here and in the suite definition above.
-    return loadJobReferences(params.jobIds);
+    // params.productIds is string[] here and in the suite definition above.
+    return loadProductReferences(params.productIds);
   },
 });
 ```
 
 Missing required parameters, misspelled fields, and incompatible values such as
-`jobIds: [123]` are TypeScript errors. Constraints such as minimum array length
+`productIds: [123]` are TypeScript errors. Constraints such as minimum array length
 are checked at runtime. Derive `TParams` using `z.input<typeof paramsSchema>`
 so defaults and transforms are applied once by the runner before `setup` receives
 the schema's output type. The suite remains plain data. You can also use
-`satisfies EvalSuite<JobParams>` without the helper. Without a type argument,
+`satisfies EvalSuite<ProductParams>` without the helper. Without a type argument,
 `defineSuite` checks the standard suite structure.
 
 ## App-owned permissions, fixtures, and human responses
@@ -223,32 +223,32 @@ import { z } from "zod";
 import { createEvals, createEvalJudge, defineSuite } from "kortyx";
 
 const paramsSchema = z.object({
-  actor: z.enum(["recruiter"]),
-  fixture: z.enum(["two-engineering-roles"]),
+  actor: z.enum(["catalog-reader"]),
+  fixture: z.enum(["two-backpack-colors"]),
 }).strict();
 
 const suite = defineSuite<z.input<typeof paramsSchema>>({
-  id: "role-ambiguity",
+  id: "product-ambiguity",
   cases: [{
-    id: "choose-barcelona",
-    params: { actor: "recruiter", fixture: "two-engineering-roles" },
+    id: "choose-blue",
+    params: { actor: "catalog-reader", fixture: "two-backpack-colors" },
     steps: [
       {
-        message: "Bring me the AI Software Engineer role",
+        message: "Tell me about the Travel Backpack",
         expect: {
           type: "interrupt",
-          schemaId: "app.role-picker",
+          schemaId: "app.product-picker",
           schemaVersion: "1",
-          reference: { using: "candidates" },
-          criteria: ["Offers the Barcelona and Paris roles as distinct choices."],
+          reference: { using: "availableProducts" },
+          criteria: ["Offers the blue and black backpacks as distinct choices."],
         },
       },
       {
-        resume: { using: "chooseBarcelona" },
+        resume: { using: "chooseBlue" },
         expect: {
           type: "answer",
-          reference: { using: "selectedRole" },
-          criteria: ["Describes the selected Barcelona role accurately."],
+          reference: { using: "selectedProduct" },
+          criteria: ["Describes the selected blue backpack accurately."],
         },
       },
     ],
@@ -261,10 +261,10 @@ const evals = createEvals({
   judge: createEvalJudge({ model: judgeModel }),
   paramsSchema,
   setup: async ({ params, sessionId, signal }) => {
-    // These helpers belong to your application, including Auth0 login/token
-    // acquisition, fixture isolation, and the actor's actual permissions.
+    // These helpers belong to your application: identity-provider login,
+    // fixture isolation, and the actor's actual permissions.
     const accessToken = await obtainTestUserToken(params.actor, signal);
-    const fixture = await prepareRoleFixture(params.fixture, sessionId, signal);
+    const fixture = await prepareProductFixture(params.fixture, sessionId, signal);
     return { accessToken, fixture };
   },
   execute: async ({ prepared, run }) => {
@@ -277,27 +277,27 @@ const evals = createEvals({
     });
   },
   responders: {
-    chooseBarcelona: {
-      schemaId: "app.role-picker",
+    chooseBlue: {
+      schemaId: "app.product-picker",
       schemaVersion: "1",
       respond: ({ prepared }) => ({
         type: "value",
-        value: { type: "select", roleId: prepared.fixture.barcelona.id },
+        value: { type: "select", productId: prepared.fixture.blue.id },
       }),
     },
   },
   references: {
-    candidates: ({ prepared }) => prepared.fixture.roles,
-    selectedRole: ({ prepared }) => prepared.fixture.barcelona,
+    availableProducts: ({ prepared }) => prepared.fixture.products,
+    selectedProduct: ({ prepared }) => prepared.fixture.blue,
   },
   teardown: async ({ prepared, signal }) => {
-    await removeRoleFixture(prepared.fixture, signal);
+    await removeProductFixture(prepared.fixture, signal);
   },
 });
 ```
 
-An Auth0 token alone does not configure permissions inside Kortyx. The app must
-pass it through its existing authorization path. With no `execute`, the runner
+An identity-provider token alone does not configure permissions inside Kortyx.
+The app must pass it through its existing authorization path. With no `execute`, the runner
 calls `agent.streamChat` directly without injecting setup state or headers.
 `run({ context })` consumes that same native stream; it adds the current command
 and handles native resume metadata. It does not call an HTTP endpoint.

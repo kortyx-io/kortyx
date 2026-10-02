@@ -45,18 +45,18 @@ import { agent } from "./agent";
 import { judgeModel } from "./models"; // The app's configured ProviderModelRef.
 
 const suite = defineSuite({
-  id: "job-information",
+  id: "product-information",
   cases: [{
-    id: "all-three-salaries",
+    id: "all-three-prices",
     steps: [
-      { message: "List my engineering jobs", expect: { type: "answer" } },
+      { message: "List the three products in my catalog", expect: { type: "answer" } },
       {
-        message: "Give me the salary ranges for all three of those jobs",
+        message: "Give me the prices for all three of those products",
         expect: {
           type: "answer",
           criteria: [
-            "Gives all three salary ranges and currencies accurately from successful tool results, attributed to the requested jobs; fails if the required job data is missing.",
-            "Does not ask the user to choose just one job.",
+            "Gives all three prices and currencies accurately from successful tool results, attributed to the requested products; fails if the required product data is missing.",
+            "Does not ask the user to choose just one product.",
           ],
         },
       },
@@ -71,7 +71,7 @@ const evals = createEvals({
 });
 
 const result = await evals.run({
-  suiteId: "job-information",
+  suiteId: "product-information",
   repetitions: 3,
   concurrency: 1,
   onProgress: async (event) => {
@@ -112,8 +112,8 @@ text deltas from the same source are joined. The judge receives the current
 observation and all previous steps, including tool results retrieved before an
 interrupt. This works from the SDK, Studio and CLI without querying Studio telemetry.
 
-A criterion can say: “Answers for each requested job with the salary and currency
-returned by its successful tool call; explicitly states when salary data is
+A criterion can say: “Answers for each requested product with the price and currency
+returned by its successful tool call; explicitly states when price data is
 missing.” No separate reference loader is needed for this check. The judge checks
 faithfulness to the data the workflow actually received and can explain which
 call or step caused a failure. It accepts any valid execution path that satisfies
@@ -170,7 +170,7 @@ import { createEvalJudge } from "kortyx";
 
 const judge = createEvalJudge({
   model: openrouter("openai/gpt-4o"),
-  id: "job-information-judge",
+  id: "product-information-judge",
   version: "1",
 });
 ```
@@ -222,30 +222,30 @@ results as evidence.
 ```ts
 import { createEvals, defineSuite } from "kortyx";
 
-export const roleSuite = defineSuite({
-  id: "role-ambiguity",
-  name: "Role information",
+export const productSuite = defineSuite({
+  id: "product-ambiguity",
+  name: "Product information",
   cases: [{
-    id: "choose-barcelona",
-    name: "Clarify an ambiguous role, then describe it",
+    id: "choose-blue",
+    name: "Clarify an ambiguous product, then describe it",
     steps: [
       {
-        message: "Bring me the AI Software Engineer role",
+        message: "Tell me about the Travel Backpack",
         expect: {
           type: "interrupt",
-          schemaId: "app.role-picker",
+          schemaId: "app.product-picker",
           schemaVersion: "1",
           criteria: [
-            "Offers both the Barcelona and Paris roles returned by successful tool calls as distinct choices, without selecting one on the user's behalf.",
+            "Offers both the blue and black backpacks returned by successful tool calls as distinct choices, without selecting one on the user's behalf.",
           ],
         },
       },
       {
-        resume: { using: "chooseBarcelona" },
+        resume: { using: "chooseBlue" },
         expect: {
           type: "answer",
           criteria: [
-            "Describes the selected Barcelona role faithfully using its successful tool result.",
+            "Describes the selected blue backpack faithfully using its successful tool result.",
           ],
         },
       },
@@ -255,7 +255,7 @@ export const roleSuite = defineSuite({
 
 const evals = createEvals({
   agent,
-  suites: [roleSuite],
+  suites: [productSuite],
   setup: async ({ signal }) => {
     // App-owned helper: obtains the configured test actor's credentials.
     const accessToken = await obtainTestUserToken(signal);
@@ -267,12 +267,12 @@ const evals = createEvals({
     return withAuthorizedAgentRequest(prepared.accessToken, () => run());
   },
   responders: {
-    chooseBarcelona: {
-      schemaId: "app.role-picker",
+    chooseBlue: {
+      schemaId: "app.product-picker",
       schemaVersion: "1",
       // App-owned helper: reads the actual emitted picker request and returns
       // { type: "value", value: <your contract's validated selection> }.
-      respond: ({ interrupt }) => selectRoleByCity(interrupt, "Barcelona"),
+      respond: ({ interrupt }) => selectProductByColor(interrupt, "blue"),
     },
   },
 });
@@ -292,8 +292,8 @@ app's normal execution boundary, including its permission and request context.
 Reuse the same application helper that your chat/API route uses so the eval does
 not bypass caller restrictions.
 
-An Auth0 token alone does not configure permissions inside Kortyx. The app must
-pass it through its existing authorization path. With no `execute`, the runner
+An identity-provider token alone does not configure permissions inside Kortyx.
+The app must pass it through its existing authorization path. With no `execute`, the runner
 calls `agent.streamChat` directly without injecting setup state or headers.
 `run({ context })` consumes that same native stream; it adds the current command
 and handles native resume metadata. It does not call an HTTP endpoint.
@@ -397,18 +397,18 @@ import { createEvals, defineSuite } from "kortyx";
 import { z } from "zod";
 
 const paramsSchema = z.object({
-  jobIds: z.array(z.string()).min(1).max(3),
+  productIds: z.array(z.string()).min(1).max(3),
 }).strict();
 
-type JobParams = z.input<typeof paramsSchema>;
+type ProductParams = z.input<typeof paramsSchema>;
 
-export const authorizedJobsSuite = defineSuite<JobParams>({
-  id: "authorized-jobs",
+export const authorizedProductsSuite = defineSuite<ProductParams>({
+  id: "authorized-products",
   cases: [{
-    id: "job-description",
-    params: { jobIds: ["barcelona-job"] },
+    id: "product-description",
+    params: { productIds: ["blue-backpack"] },
     steps: [{
-      message: "Describe the Barcelona AI Software Engineer role",
+      message: "Describe the blue Travel Backpack",
       expect: { type: "answer" },
     }],
   }],
@@ -417,20 +417,20 @@ export const authorizedJobsSuite = defineSuite<JobParams>({
 const evals = createEvals({
   agent,
   paramsSchema,
-  suites: [authorizedJobsSuite],
+  suites: [authorizedProductsSuite],
   setup: async ({ params }) => {
-    // params.jobIds is string[] here and in the suite definition above.
-    return prepareJobFixture(params.jobIds);
+    // params.productIds is string[] here and in the suite definition above.
+    return prepareProductFixture(params.productIds);
   },
 });
 ```
 
 Missing required parameters, misspelled fields, and incompatible values such as
-`jobIds: [123]` are TypeScript errors. Constraints such as minimum array length
+`productIds: [123]` are TypeScript errors. Constraints such as minimum array length
 are checked at runtime. Derive `TParams` using `z.input<typeof paramsSchema>`
 so defaults and transforms are applied once by the runner before `setup` receives
 the schema's output type. The suite remains plain data. You can also use
-`satisfies EvalSuite<JobParams>` without the helper. Without a type argument,
+`satisfies EvalSuite<ProductParams>` without the helper. Without a type argument,
 `defineSuite` checks the standard suite structure.
 
 The parameters above belong to `suite.cases[].params`. They are neither workflow

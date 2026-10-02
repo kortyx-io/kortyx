@@ -37,8 +37,8 @@ Set `KORTYX_EVAL_TARGETS_FILE` to a secret-manager supplied JSON file:
 ```json
 [
   {
-    "id": "hiring",
-    "name": "Hiring agent",
+    "id": "catalog",
+    "name": "Catalog agent",
     "organizationId": "YOUR-ORGANIZATION-UUID",
     "projectId": "YOUR-PROJECT-UUID",
     "environment": "development",

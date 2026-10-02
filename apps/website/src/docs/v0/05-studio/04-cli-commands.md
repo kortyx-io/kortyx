@@ -219,10 +219,10 @@ The application's eval service key stays on the Studio API server.
 
 ```sh
 pnpm exec kortyx studio evals suites list --connection staging --json
-pnpm exec kortyx studio evals suites get role-ambiguity \
-  --connection staging --target hiring --include-content --json
-pnpm exec kortyx studio evals runs start role-ambiguity \
-  --connection staging --target hiring --case choose-barcelona \
+pnpm exec kortyx studio evals suites get product-ambiguity \
+  --connection staging --target catalog --include-content --json
+pnpm exec kortyx studio evals runs start product-ambiguity \
+  --connection staging --target catalog --case choose-blue \
   --repetitions 3 --concurrency 1 --json
 ```
 
@@ -287,8 +287,8 @@ existing deployment and readiness check, enqueue a suite:
   env:
     KORTYX_DEPLOY_EVAL_KEY: ${{ secrets.KORTYX_DEPLOY_EVAL_KEY }}
   run: >-
-    pnpm exec kortyx studio evals runs start role-ambiguity
-    --target hiring --environment staging
+    pnpm exec kortyx studio evals runs start product-ambiguity
+    --target catalog --environment staging
     --api-url https://api.example.com
     --api-key-env KORTYX_DEPLOY_EVAL_KEY
     --json
