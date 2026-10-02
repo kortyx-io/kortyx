@@ -18,7 +18,7 @@ export const EvalTargetsResponseSchema = z.object({
     }),
   ),
 });
-const summary = z.object({
+export const EvalRunSummarySchema = z.object({
   id: z.uuid(),
   targetId: z.string(),
   targetName: z.string(),
@@ -38,10 +38,29 @@ const summary = z.object({
   endedAt: z.string().nullable(),
   error: z.string().nullable(),
   cancelRequestedAt: z.string().nullable(),
+  counts: z
+    .object({
+      passed: z.number(),
+      failed: z.number(),
+      error: z.number(),
+      cancelled: z.number(),
+    })
+    .nullable()
+    .optional(),
+  suiteName: z.string().nullable().optional(),
 });
-export const EvalHistorySchema = z.object({ runs: z.array(summary) });
+export const EvalHistorySchema = z.object({
+  runs: z.array(EvalRunSummarySchema),
+});
 export const EvalDetailSchema = z.object({
-  run: summary.extend({
+  run: EvalRunSummarySchema.extend({
+    request: z
+      .object({
+        caseIds: z.array(z.string()).optional(),
+        repetitions: z.number().int().positive(),
+        concurrency: z.number().optional(),
+      })
+      .optional(),
     suite: EvalSuiteSchema,
     result: EvalRunResultSchema.nullable(),
     events: z.array(z.object({ id: z.number(), event: EvalProgressSchema })),
@@ -50,3 +69,5 @@ export const EvalDetailSchema = z.object({
 export type EvalTargets = z.infer<typeof EvalTargetsResponseSchema>;
 export type EvalHistory = z.infer<typeof EvalHistorySchema>;
 export type EvalDetail = z.infer<typeof EvalDetailSchema>["run"];
+
+export type EvalRunSummary = z.infer<typeof EvalRunSummarySchema>;

@@ -29,6 +29,10 @@ export const listEvalRuns = (db: TelemetryDb, scope: Scope) =>
       environment: evalRuns.environment,
       suiteId: evalRuns.suiteId,
       suiteRevision: evalRuns.suiteRevision,
+      suiteName: sql<string | null>`${evalRuns.suite} ->> 'name'`,
+      counts: sql<
+        EvalRunResult["counts"] | null
+      >`${evalRuns.result} -> 'counts'`,
       status: evalRuns.status,
       createdAt: evalRuns.createdAt,
       startedAt: evalRuns.startedAt,
