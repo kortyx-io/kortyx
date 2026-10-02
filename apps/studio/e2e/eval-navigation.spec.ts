@@ -35,6 +35,7 @@ test.describe("Eval route and drawer navigation", () => {
     await expect(page).toHaveURL(/case=ambiguity%3A1/);
     await page.reload();
     const inspector = page.locator("main").last();
+    await expect(page.getByRole("dialog")).toHaveCount(0);
     await expect(inspector.getByText("Step 1 evaluation")).toBeVisible();
     await expect(
       inspector.getByRole("button", {
@@ -46,6 +47,7 @@ test.describe("Eval route and drawer navigation", () => {
       .getByRole("button", { name: "Conversation and debugging", exact: true })
       .click();
     await expect(page).toHaveURL(/expand\./);
+    await expect(page.getByRole("dialog")).toHaveCount(0);
     await inspector
       .getByRole("link", { name: "Eval run", exact: true })
       .click();

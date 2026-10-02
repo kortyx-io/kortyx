@@ -25,6 +25,31 @@ Created agent methods:
 
 - `agent.streamChat(messages, options?)` → `AsyncIterable<StreamChunk>`
 
+## Conversation evals
+
+```ts
+import {
+  createEvals,
+  createEvalJudge,
+  createEvalRouteHandler,
+  parseEvalSuite,
+  getEvalSuiteRevision,
+  type EvalSuite,
+  type EvalJudge,
+} from "kortyx";
+```
+
+`createEvals({ agent, suites, setup?, execute?, responders?, references?, judge?,
+teardown?, paramsSchema?, defaults? })` returns `run`, `listSuites` and `describe`.
+It runs sequential conversational cases through the existing agent, including
+expected interrupt/resume steps. `createEvalJudge({ model, id?, version? })`
+grades each criterion. `createEvalRouteHandler({ evals, serviceKey, ...limits })`
+mounts an authenticated GET manifest and POST NDJSON execution endpoint.
+
+Suite and wire schemas are browser-safe from `@kortyx/agent/evals`; execution
+helpers belong in server code. See [Conversation Evals](../03-guides/10-conversation-evals.md)
+for typed app setup, a complete example, lifecycle limits and observable scope.
+
 ## Core workflow/state contracts
 
 ```ts

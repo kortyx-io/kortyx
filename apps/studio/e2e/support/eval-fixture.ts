@@ -1,3 +1,5 @@
+import { getEvalSuiteRevision } from "@kortyx/agent";
+import { EvalRunResultSchema, EvalSuiteSchema } from "@kortyx/agent/evals";
 import postgres from "postgres";
 import { DRAWER_FIXTURE } from "./telemetry-fixture";
 export const EVAL_FIXTURE = {
@@ -26,7 +28,8 @@ export async function seedEvalFixture() {
     const [scope] =
       await sql`select organization_id,project_id,environment from studio_runs where run_id=${DRAWER_FIXTURE.runId} limit 1`;
     if (!scope) throw new Error("Seed drawer fixture before eval fixture.");
-    const suite = {
+    const message = "Find the AI Software Engineer role";
+    const suite = EvalSuiteSchema.parse({
       id: EVAL_FIXTURE.suiteId,
       name: "E2E job conversations",
       cases: [
@@ -35,7 +38,7 @@ export async function seedEvalFixture() {
           name: "Ambiguous role",
           steps: [
             {
-              message: "Find the AI Software Engineer role",
+              message,
               expect: {
                 type: "answer",
                 criteria: [
@@ -49,16 +52,17 @@ export async function seedEvalFixture() {
           ],
         },
       ],
-    };
+    });
+    const suiteRevision = getEvalSuiteRevision(suite);
     for (const [id, status] of [
       [EVAL_FIXTURE.baseline, "failed"],
       [EVAL_FIXTURE.candidate, "passed"],
     ] as const) {
       const createdAt = "2026-10-01T00:00:00.000Z";
-      const result = {
+      const result = EvalRunResultSchema.parse({
         id,
         suiteId: suite.id,
-        suiteRevision: "fixture-1",
+        suiteRevision,
         suite,
         judge: { id: "fixture-judge", version: "1" },
         startedAt: createdAt,
@@ -82,7 +86,7 @@ export async function seedEvalFixture() {
             steps: [
               {
                 index: 0,
-                input: { message: suite.cases[0].steps[0].message },
+                input: { message },
                 expectation: suite.cases[0].steps[0].expect,
                 observation: {
                   type: "answer",
@@ -107,8 +111,8 @@ export async function seedEvalFixture() {
             ],
           },
         ],
-      };
-      await sql`insert into eval_runs (id,organization_id,project_id,environment,target_id,target_name,suite_id,suite_revision,suite,request,status,result,requested_by,created_at,started_at,ended_at) values (${id},${scope.organization_id},${scope.project_id},${scope.environment},'e2e-ktx25-eval','E2E eval application',${suite.id},'fixture-1',${sql.json(suite)},${sql.json({ repetitions: 1, caseIds: [EVAL_FIXTURE.caseId] })},${status},${sql.json(result)},'e2e',${createdAt},${createdAt},${createdAt})`;
+      });
+      await sql`insert into eval_runs (id,organization_id,project_id,environment,target_id,target_name,suite_id,suite_revision,suite,request,status,result,requested_by,created_at,started_at,ended_at) values (${id},${scope.organization_id},${scope.project_id},${scope.environment},'e2e-ktx25-eval','E2E eval application',${suite.id},${suiteRevision},${sql.json(suite)},${sql.json({ repetitions: 1, caseIds: [EVAL_FIXTURE.caseId] })},${status},${sql.json(result)},'e2e',${createdAt},${createdAt},${createdAt})`;
     }
   } finally {
     await sql.end();

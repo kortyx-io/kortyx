@@ -108,7 +108,10 @@ export function createEvalRouteHandler({
       return Response.json({ error: "Request cancelled." }, { status: 409 });
     active++;
     const controller = new AbortController();
-    const signal = AbortSignal.any([request.signal, controller.signal]);
+    const requestSignal = request.signal;
+    const abortRequest = () => controller.abort();
+    requestSignal.addEventListener("abort", abortRequest, { once: true });
+    const signal = controller.signal;
     const encoder = new TextEncoder();
     const stream = new ReadableStream<Uint8Array>({
       start(output) {
@@ -131,6 +134,7 @@ export function createEvalRouteHandler({
             () => send({ type: "error", message: "Eval runner failed." }),
           )
           .finally(() => {
+            requestSignal.removeEventListener("abort", abortRequest);
             active--;
             if (!controller.signal.aborted) output.close();
           });

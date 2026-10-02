@@ -29,6 +29,7 @@ export function createEvalWorker(
     const controller = new AbortController();
     active = controller;
     let userCancelled = false;
+    const deadline = setTimeout(() => controller.abort(), 30 * 60_000);
     let heartbeatBusy = false;
     const timer = setInterval(() => {
       if (heartbeatBusy) return;
@@ -56,10 +57,7 @@ export function createEvalWorker(
           value.environment === run.environment,
       );
       if (!target) throw new Error("Target no longer configured.");
-      const executionSignal = AbortSignal.any([
-        controller.signal,
-        AbortSignal.timeout(30 * 60_000),
-      ]);
+      const executionSignal = controller.signal;
       const response = await fetch(target.url, {
         method: "POST",
         headers: {
@@ -144,6 +142,7 @@ export function createEvalWorker(
           : "Eval execution disconnected or failed. Inspect the consumer before starting a new run.",
       });
     } finally {
+      clearTimeout(deadline);
       clearInterval(timer);
       active = undefined;
     }

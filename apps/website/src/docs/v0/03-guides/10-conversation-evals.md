@@ -1,3 +1,10 @@
+---
+id: v0-conversation-evals
+title: "Evaluate Agent Conversations"
+description: "Test real workflows with scripted conversations, human interrupts, app-owned permissions, and LLM grading."
+keywords: [kortyx, evals, evaluation, workflow, interrupts, testing]
+sidebar_label: "Conversation Evals"
+---
 # Conversation evals in the consumer application
 
 `createEvals` runs scripted conversations against an existing `createAgent`
@@ -7,7 +14,7 @@ It executes real workflows, tools, and application logic.
 
 The SDK exposes serializable suites, a manifest, progress events, and results.
 Mount `createEvalRouteHandler` in the consumer app to let Studio execute suites
-and persist their observations and grades. See [Studio execution](./studio-execution.md)
+and persist their observations and grades. See [Studio execution](../05-studio/11-evals.md)
 for the endpoint, database migration, and local Docker configuration.
 
 ## Smallest configuration
@@ -233,6 +240,5 @@ mark the run as a reporting error without skipping case cleanup.
 `evals.listSuites()` returns editable copies. `evals.describe()` returns schema
 version 1, suites, named handlers, optional parameter JSON Schema, and judge
 identity. Neither invokes setup. `createEvalRouteHandler` exposes this manifest
-and runs to the Studio control plane. See [Studio execution](studio-execution.md)
-for authenticated transport, persistent runs, and local Docker setup. Saved-run
-comparisons are available in Studio. Prompt version pinning remains subsequent work.
+and runs to the Studio control plane. See [Studio execution](../05-studio/11-evals.md)
+for authenticated transport, persistent runs, and local Docker setup. Saved-run comparisons are available in Studio. Prompt version pinning remains subsequent work.

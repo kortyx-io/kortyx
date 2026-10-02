@@ -248,6 +248,33 @@ profile referencing that project's read key—even if the deployment URL is the
 same. Account login and remote project/key administration are not implemented.
 VPN/private-network requirements remain in effect.
 
+## Eval suites and CI
+
+```bash
+kortyx studio evals suites list --connection staging --json
+kortyx studio evals suites get role-ambiguity --target hiring --connection staging --include-content --json
+kortyx studio evals runs start role-ambiguity --target hiring --connection staging --json
+kortyx studio evals runs list --connection staging --json
+kortyx studio evals runs get <eval-run-uuid-or-studio-url> --connection staging --json
+kortyx studio evals runs cancel <eval-run-uuid-or-studio-url> --connection staging --json
+```
+
+Eval commands reuse project connections and the Studio API. Discovery and reads
+need `studio:read`; start/cancel also require `eval:run`. The application's eval
+service key remains on the API server. Starting discovers the current revision,
+enqueues once and returns the run ID immediately, without waiting for a grade.
+Use `--case` repeatedly, `--repetitions` (1–20), `--concurrency` (1–4), and
+`--environment` to select execution; total attempts are capped at 100.
+
+Default detail exposes statuses, counts and criterion verdicts. Full definitions,
+observations and reasons require `--include-content`; credentials remain redacted.
+History is the latest 100 project records. Cancellation is cooperative. The CLI
+does not retry a POST automatically or treat an accepted request as a passing eval.
+
+See [CLI and post-deployment CI](https://github.com/kortyx-io/kortyx/blob/main/docs/evals/cli-and-ci.md)
+for a `continue-on-error` CI step that enqueues a suite after deployment and
+returns immediately, plus target configuration, permissions and output contracts.
+
 ## Push workflow topology to Studio
 
 Kortyx Studio should receive workflow topology as a build/deploy artifact, not only as best-effort runtime telemetry. Use `topology push` in local dev, release CI, or deployment pipelines:

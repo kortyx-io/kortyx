@@ -17,6 +17,11 @@ import {
   type EvalJudge,
   type EvalSuite,
 } from "../src/evals/index";
+import {
+  StudioEvalDetailSchema,
+  StudioEvalHistorySchema,
+  StudioEvalTargetsResponseSchema,
+} from "../src/evals/studio-contracts";
 import type { ChatMessage } from "../src/types/chat-message";
 
 function required<T>(value: T | undefined): T {
@@ -30,6 +35,64 @@ const jobs = [
   { id: "paris", city: "Paris", salary: "EUR 90,000–110,000" },
   { id: "madrid", city: "Madrid", salary: "EUR 80,000–100,000" },
 ];
+
+it("round-trips SDK results through shared Studio/CLI contracts and rejects invalid stored revisions", async () => {
+  const suite: EvalSuite = {
+    id: "jobs",
+    cases: [
+      {
+        id: "list",
+        steps: [{ message: "list jobs", expect: { type: "answer" } }],
+      },
+    ],
+  };
+  const evals = createEvals({ agent: jobAgent(), suites: [suite] });
+  const result = await evals.run({ suiteId: suite.id });
+  const run = {
+    id: result.id,
+    targetId: "hiring",
+    targetName: "Hiring",
+    environment: "development",
+    suiteId: suite.id,
+    suiteRevision: result.suiteRevision,
+    status: result.status,
+    createdAt: result.startedAt,
+    startedAt: result.startedAt,
+    endedAt: result.startedAt,
+    error: null,
+    cancelRequestedAt: null,
+    counts: result.counts,
+    suite,
+    result,
+    events: [],
+  };
+  expect(
+    StudioEvalHistorySchema.parse({ runs: [run] }).runs[0]?.counts?.passed,
+  ).toBe(1);
+  expect(
+    StudioEvalDetailSchema.parse({ run }).run.result?.cases[0]?.status,
+  ).toBe("passed");
+  expect(
+    StudioEvalTargetsResponseSchema.parse({
+      canRun: true,
+      targets: [
+        {
+          id: "hiring",
+          name: "Hiring",
+          environment: "development",
+          error: null,
+          manifest: evals.describe(),
+          revisions: { jobs: result.suiteRevision },
+        },
+      ],
+    }).targets[0]?.manifest?.suites[0]?.id,
+  ).toBe("jobs");
+  expect(
+    StudioEvalDetailSchema.safeParse({
+      run: { ...run, result: { ...result, suiteRevision: "fixture-1" } },
+    }).success,
+  ).toBe(false);
+});
 const picker = defineInterruptContract({
   schemaId: "wolly.job-picker",
   schemaVersion: "1",

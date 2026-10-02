@@ -216,4 +216,32 @@ describe("consumer eval transport", () => {
     await vi.waitFor(() => expect(settled).toBe(true));
     expect(signal!.aborted).toBe(true);
   });
+  it("forwards the HTTP Request abort to a running executor and frees its active slot", async () => {
+    const controller = new AbortController();
+    let settled = false;
+    const handler = createEvalRouteHandler({
+      serviceKey: key,
+      evals: {
+        describe: () => manifest,
+        run: async (options) => {
+          if (!settled) {
+            await new Promise<void>((resolve) =>
+              options.signal?.addEventListener("abort", () => resolve(), {
+                once: true,
+              }),
+            );
+            settled = true;
+          }
+          return result();
+        },
+      },
+    });
+    const first = await handler(
+      new Request(request(), { signal: controller.signal }),
+    );
+    controller.abort();
+    await vi.waitFor(() => expect(settled).toBe(true));
+    await first.body!.cancel();
+    expect((await handler(request())).status).toBe(200);
+  });
 });

@@ -1,3 +1,10 @@
+---
+id: v0-studio-evals
+title: "Run Eval Suites in Studio"
+description: "Run workflow conversation suites, inspect grades and compare saved results using existing Studio credentials."
+keywords: [kortyx, studio, evals, suites, comparison, cli, ci]
+sidebar_label: "Evals"
+---
 # Run consumer evals from Studio
 
 Studio can discover registered suites, select cases and repetitions, enqueue a run,
@@ -90,23 +97,63 @@ and an executor protocol for simultaneous interrupts or durable background work
 remain subsequent work. Prompt changes can be checked by rerunning the same
 suite against the changed consumer; prompt/version pinning is not implemented.
 
-Use the [CLI commands and post-deployment CI example](./cli-and-ci.md) to discover,
+Use the [CLI commands and post-deployment CI example](./04-cli-commands.md#eval-suites-and-post-deployment-ci) to discover,
 start, inspect and cancel runs from the same Studio API.
 
-## Verification
 
-SDK runner and transport tests exercise interrupt/resume, cleanup, mismatch/error
-classification, private context isolation, authorization, stale revisions and limits.
-API persistence integration tests use a dedicated loopback database, apply the full
-migration chain, and verify exclusive claims, tenant isolation, queued cancellation,
-expired leases without replay, a complete HTTP interrupt/resume run, and active
-cancellation that signals a running consumer.
+## Use the interface
 
-```sh
-docker run -d --name kortyx-evals-disposable-tests \
-  -p 127.0.0.1:7543:5432 -e POSTGRES_PASSWORD=local-eval-test \
-  -e POSTGRES_DB=kortyx_evals_test postgres:17-alpine
-TEST_EVAL_DATABASE_URL=postgres://postgres:local-eval-test@127.0.0.1:7543/kortyx_evals_test \
-  pnpm --filter @kortyx/api exec vitest run test/evals.integration.test.ts
-# Remove the disposable container after verification.
+Open **Evals → Suites** to browse the applications and cases registered by your
+consumer. Select a suite to inspect its definition in a drawer, or open it as a
+full page. Choose cases, repetitions and concurrency, then start the run.
+
+**Evals → Runs** lists saved runs. A run shows live progress and final case
+outcomes. Open a case to read evaluation reasons first, then expand conversation
+and debugging details. **Inspect workflow** opens the existing workflow drawer
+on top; closing it returns to the case. Page URLs, filters and selections survive
+reloads and browser Back/Forward.
+
+Use **Compare** on a saved run and select a baseline from the same target/suite.
+The comparison shows improved, regressed, unchanged, incomplete and context-changed
+cases. Each case exposes candidate and baseline attempts and their grades.
+Comparisons do not prove a prompt caused an improvement when data or actor
+context is missing or changed.
+
+## Container configuration
+
+Mount the private target file on every Studio API replica and set the variable
+on the API service, using the container path. The browser Studio service does
+not need the file or application service key. For Docker Compose:
+
+```yaml
+services:
+  api:
+    environment:
+      KORTYX_EVAL_TARGETS_FILE: /run/secrets/kortyx-eval-targets.json
+    volumes:
+      - ./eval-targets.json:/run/secrets/kortyx-eval-targets.json:ro
+  db-init:
+    environment:
+      KORTYX_STUDIO_ENABLE_EVALS: "1"
 ```
+
+Use this as a deployment override alongside the normal Compose file. For a
+CLI-managed local installation, keep it outside generated state and apply it
+when starting/recreating services: `studio start` regenerates its base Compose
+file. Retain the existing environment file and project name, and rerun
+`db-init` to update the existing Studio key scopes before recreating the API.
+
+The bootstrap output provides the organization and project IDs for target
+registration. Add an allowed project environment before using it in a target.
+A container cannot reach a host application at `localhost`; Docker Desktop
+typically uses `host.docker.internal`, or use an application on the same Docker
+network. Local HTTP targets need `allowInsecureHttp: true`; remote targets use HTTPS.
+
+Targets are loaded when the API starts. Restart the API after changing the
+target file. Missing targets leave Suites empty; an unreachable endpoint shows
+the target unavailable. Run controls require `eval:run` on the existing key.
+Read-only keys can still inspect saved results. An endpoint's service key is a
+separate credential from the Studio key; neither contains the test user's token.
+
+See [Conversation Evals](../03-guides/10-conversation-evals.md) for suite design,
+typed setup/responders, Auth0 integration and grading boundaries.

@@ -1,9 +1,11 @@
 import { execFile } from "node:child_process";
 import { randomUUID } from "node:crypto";
+import { once } from "node:events";
 import { createServer } from "node:http";
 import { resolve } from "node:path";
 import { Readable } from "node:stream";
 import { promisify } from "node:util";
+import { serve } from "@hono/node-server";
 import {
   createEvalRouteHandler,
   createEvals,
@@ -13,6 +15,7 @@ import {
 import {
   appendEvalProgress,
   claimEvalRun,
+  createTelemetryApiKey,
   createTelemetryDbClient,
   enqueueEvalRun,
   ensureLocalDevelopmentProject,
@@ -22,6 +25,7 @@ import {
   requestEvalCancellation,
 } from "@kortyx/telemetry-db";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+import { createApiApp } from "../src/app";
 import { createEvalWorker } from "../src/evals/worker";
 
 const url = process.env.TEST_EVAL_DATABASE_URL;
@@ -146,7 +150,7 @@ describe.skipIf(!url)(
       expect(saved.status).toBe("error");
       expect(saved.error).toContain("may have continued");
     });
-    it("executes an interrupt/resume over HTTP and persists observations and grading across worker restart", async () => {
+    it("starts through the authenticated CLI, executes interrupt/resume over HTTP, and reads persisted grades across worker restart", async () => {
       const key = "local-eval-test-service-key-with-32-characters";
       const evals = createEvals({
         agent: { streamChat: vi.fn() },
@@ -219,10 +223,68 @@ describe.skipIf(!url)(
         url: `http://127.0.0.1:${address.port}/evals`,
         allowInsecureHttp: true,
       };
-      const run = await enqueue(target.id);
+      const pepper = "cli-integration-test-pepper";
+      const { apiKey } = await createTelemetryApiKey(client.db, {
+        ...scope,
+        name: "Eval CLI test",
+        scopes: ["studio:read", "eval:run"],
+        pepper,
+      });
+      const api = createApiApp({
+        db: client.db,
+        apiKeyPepper: pepper,
+        evalTargets: [target],
+      });
+      const apiServer = serve({
+        fetch: api.fetch,
+        hostname: "127.0.0.1",
+        port: 0,
+      });
+      await once(apiServer, "listening");
+      const apiAddress = apiServer.address();
+      if (!apiAddress || typeof apiAddress === "string")
+        throw new Error("No API test listener");
+      const runCli = async (...args: string[]) => {
+        const output = await promisify(execFile)(
+          process.execPath,
+          [
+            resolve("node_modules/tsx/dist/cli.mjs"),
+            resolve("../../packages/cli/src/index.ts"),
+            "studio",
+            "evals",
+            ...args,
+            "--api-url",
+            `http://127.0.0.1:${apiAddress.port}`,
+            "--api-key-env",
+            "KORTYX_INTEGRATION_EVAL_KEY",
+            "--config-home",
+            `/tmp/kortyx-eval-cli-${target.id}`,
+            "--home",
+            `/tmp/kortyx-eval-cli-${target.id}`,
+            "--json",
+          ],
+          {
+            env: {
+              ...process.env,
+              KORTYX_CONNECTION: "",
+              KORTYX_INTEGRATION_EVAL_KEY: apiKey,
+            },
+            timeout: 10_000,
+          },
+        );
+        return JSON.parse(output.stdout);
+      };
+      let run: { id: string };
       const worker = createEvalWorker(client.db, [target]);
-      worker.start();
       try {
+        const discovery = await runCli("suites", "list");
+        expect(discovery.canRun).toBe(true);
+        expect(discovery.targets[0].suites[0].id).toBe(suite.id);
+        run = await runCli("runs", "start", suite.id, "--target", target.id);
+        expect((await getEvalRun(client.db, scope, run.id)).status).toBe(
+          "queued",
+        );
+        worker.start();
         await vi.waitFor(
           async () =>
             expect((await getEvalRun(client.db, scope, run.id)).status).toBe(
@@ -230,8 +292,29 @@ describe.skipIf(!url)(
             ),
           { timeout: 10_000 },
         );
+        const cliDetail = await runCli("runs", "get", run.id);
+        expect(cliDetail.run.status).toBe("passed");
+        expect(cliDetail.run.caseResults[0].steps[1].criteria[0].passed).toBe(
+          true,
+        );
+        expect(JSON.stringify(cliDetail)).not.toContain(
+          "Paris job description",
+        );
+        await worker.stop();
+        const queued = await runCli(
+          "runs",
+          "start",
+          suite.id,
+          "--target",
+          target.id,
+        );
+        await runCli("runs", "cancel", queued.id);
+        expect((await getEvalRun(client.db, scope, queued.id)).status).toBe(
+          "cancelled",
+        );
       } finally {
         await worker.stop();
+        await new Promise<void>((resolve) => apiServer.close(() => resolve()));
         await new Promise<void>((resolve) => server.close(() => resolve()));
       }
       const replacement = createEvalWorker(client.db, [target]);
@@ -255,7 +338,7 @@ describe.skipIf(!url)(
           (item) => item.id === run.id && item.status === "passed",
         ),
       ).toBe(true);
-    }, 15_000);
+    }, 30_000);
     it("a cancellation saved before final persistence wins the completion race", async () => {
       const targetId = randomUUID();
       const run = await enqueue(targetId);

@@ -51,6 +51,7 @@ Do not start newer application images against an older schema. Database downgrad
 | `KORTYX_API_KEY_PEPPER` | Yes in production | Independent high-entropy HMAC key for API-key verification |
 | `API_HOST` | No | Listen address; container default is `0.0.0.0` |
 | `API_PORT` | No | Container port; default is `6400` |
+| `KORTYX_EVAL_TARGETS_FILE` | With eval targets | API-server path to a private JSON file of fixed application eval URLs, project scopes and service keys |
 
 ## Database bootstrap variables
 
@@ -59,6 +60,7 @@ Do not start newer application images against an older schema. Database downgrad
 | `KORTYX_TELEMETRY_API_KEY` | Yes | Project-scoped `telemetry:write` credential for SDK producers |
 | `KORTYX_STUDIO_API_KEY` | Yes | Project-scoped `studio:read` credential used by Studio |
 | `KORTYX_STUDIO_ENABLE_REVIEWS` | No | Bootstrap-job opt-in: `1` grants `studio:write` as well as `studio:read` to the configured Studio key; default `0` keeps it read-only |
+| `KORTYX_STUDIO_ENABLE_EVALS` | No | Bootstrap-job opt-in: `1` grants `eval:run` to the configured Studio key; keep it set on subsequent bootstrap runs |
 
 Raw keys are used to create or replace their verifier records. They are not written to bootstrap logs.
 
@@ -80,6 +82,10 @@ they do not imply individual Cloud Studio accounts.
 | `PORT` | No | Container port; default is `6300` |
 
 The Studio read key is consumed by the Next.js server and must never be sent to the browser. The telemetry write key belongs only in server-side SDK producers.
+
+The same Studio key can execute suites when it also has `eval:run`. This does
+not require a new user-authentication mechanism. See [Evals](./11-evals.md) for
+consumer endpoint registration, target-file mounts and execution behavior.
 
 ## Health and shutdown
 
