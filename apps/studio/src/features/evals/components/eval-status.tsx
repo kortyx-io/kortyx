@@ -33,6 +33,11 @@ export function EvalStatus({ status }: { status: string }) {
       className: "text-blue-700 dark:text-blue-400",
       animate: true,
     },
+    ungraded: {
+      label: "Awaiting evaluation",
+      icon: Clock3,
+      className: neutral,
+    },
     cancelled: { label: "Cancelled", icon: CirclePause, className: neutral },
     "not-run": { label: "Not run", icon: Circle, className: neutral },
   };

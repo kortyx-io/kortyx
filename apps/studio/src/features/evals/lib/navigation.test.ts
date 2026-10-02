@@ -87,11 +87,37 @@ describe("eval navigation", () => {
     });
   });
   it("distinguishes default case selection from an explicitly empty selection", () => {
-    expect(evalSetupParsers.launchCases.parse("")).toEqual([]);
-    expect(evalSetupParsers.launchCases.parse("case-a,case-b")).toEqual([
+    expect(evalSetupParsers.launchCases.parse("[]")).toEqual([]);
+    expect(evalSetupParsers.launchCases.parse('["case-a","case-b"]')).toEqual([
       "case-a",
       "case-b",
     ]);
-    expect(evalSetupParsers.launchCases.serialize([])).toBe("");
+    expect(evalSetupParsers.launchCases.serialize([])).toBe("[]");
   });
+});
+
+it("round-trips opaque launch case IDs without interpreting commas or percent escapes", () => {
+  const cases = [
+    "role,city=Paris",
+    "role%3A%25",
+    "role/path?city=Paris#choice",
+    "rôle café + Paris",
+  ];
+  const serialized = evalSetupParsers.launchCases.serialize(cases);
+  expect(serialized).not.toBe("");
+  expect(
+    evalSetupParsers.launchCases.parse(
+      new URLSearchParams({ launchCases: serialized }).get("launchCases")!,
+    ),
+  ).toEqual(cases);
+  expect(evalSetupParsers.launchCases.serialize([])).toBe("[]");
+});
+it.each([
+  "null",
+  "{}",
+  '["valid",1]',
+  '"role"',
+  "not-json",
+])("rejects malformed launch case selection %s", (value) => {
+  expect(evalSetupParsers.launchCases.parse(value)).toBeNull();
 });

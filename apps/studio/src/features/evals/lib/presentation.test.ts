@@ -86,6 +86,49 @@ describe("eval result presentation", () => {
       completed: 0,
     });
   });
+  it("keeps captured cases awaiting evaluation, replaces step grades, and resolves interrupted grading", () => {
+    const data = run();
+    data.request = { repetitions: 1, caseIds: ["ambiguity"] };
+    const completed = finished("passed").result!.cases[0]!;
+    const captured = structuredClone(completed);
+    captured.status = "ungraded";
+    captured.steps[0]!.status = "ungraded";
+    data.events = [
+      { id: 1, event: { type: "case-completed", result: captured } },
+    ];
+    expect(caseRows(data)[0]?.status).toBe("ungraded");
+    expect(progressCounts(caseRows(data))).toMatchObject({
+      passed: 0,
+      completed: 0,
+    });
+    data.events.push({
+      id: 2,
+      event: {
+        type: "step-completed",
+        caseId: "ambiguity",
+        repetition: 1,
+        step: completed.steps[0]!,
+      },
+    });
+    expect(caseRows(data)[0]?.steps[0]?.status).toBe("passed");
+    expect(captured.steps[0]?.status).toBe("ungraded");
+    data.events.push({
+      id: 3,
+      event: { type: "case-completed", result: completed },
+    });
+    expect(progressCounts(caseRows(data))).toMatchObject({
+      passed: 1,
+      completed: 1,
+    });
+    data.events = [
+      { id: 1, event: { type: "case-completed", result: captured } },
+    ];
+    data.status = "cancelled";
+    expect(caseRows(data)[0]?.status).toBe("cancelled");
+    expect(caseRows(data)[0]?.steps[0]?.status).toBe("cancelled");
+    data.status = "error";
+    expect(caseRows(data)[0]?.status).toBe("error");
+  });
   it("preserves completed evidence while marking started cancellation separately from unstarted attempts", () => {
     const data = run();
     data.status = "cancelled";

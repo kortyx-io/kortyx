@@ -1,5 +1,6 @@
 import { z } from "zod";
 import {
+  EvalJudgeIdentitySchema,
   EvalManifestSchema,
   EvalProgressSchema,
   EvalRunResultSchema,
@@ -7,6 +8,7 @@ import {
 } from "./contracts";
 export const StudioEvalTargetsResponseSchema = z.object({
   canRun: z.boolean(),
+  studioJudge: EvalJudgeIdentitySchema.nullable().optional(),
   targets: z.array(
     z.object({
       id: z.string(),
@@ -57,6 +59,8 @@ export const StudioEvalDetailSchema = z.object({
     request: z
       .object({
         caseIds: z.array(z.string()).optional(),
+        grading: z.enum(["app", "studio"]).optional(),
+        judge: EvalJudgeIdentitySchema.optional(),
         repetitions: z.number().int().positive(),
         concurrency: z.number().optional(),
       })

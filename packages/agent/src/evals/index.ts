@@ -1,5 +1,6 @@
 export {
   EvalConfigurationError,
+  EvalJudgeIdentitySchema,
   type EvalManifest,
   EvalManifestSchema,
   EvalProgressSchema,
@@ -10,11 +11,16 @@ export {
   type EvalWireEvent,
   EvalWireEventSchema,
   parseEvalSuite,
+  StudioEvalJudgeRequestSchema,
+  StudioEvalJudgeResponseSchema,
+  StudioEvalStartRequestSchema,
 } from "./contracts";
 export { createEvals } from "./create-evals";
+export { defineSuite } from "./define-suite";
 export { createEvalJudge } from "./judge";
 export { getEvalSuiteRevision } from "./revision";
 export { createEvalRouteHandler, type EvalRunner } from "./route-handler";
+export { createStudioEvalJudge } from "./studio-judge";
 export type {
   CreateEvalsOptions,
   EvalCase,
@@ -25,6 +31,7 @@ export type {
   EvalCriterionResult,
   EvalDefaults,
   EvalExecution,
+  EvalExecutionStatus,
   EvalExpectation,
   EvalGradeInput,
   EvalHandlerRef,
@@ -32,6 +39,7 @@ export type {
   EvalIssue,
   EvalJson,
   EvalJudge,
+  EvalJudgeIdentity,
   EvalJudgeOptions,
   EvalObservation,
   EvalPhase,
@@ -45,4 +53,5 @@ export type {
   EvalStepResult,
   EvalSuite,
   EvalVerdict,
+  StudioEvalJudgeOptions,
 } from "./types";

@@ -5,6 +5,7 @@ import {
 } from "./contracts";
 import { getEvalSuiteRevision } from "./revision";
 import type {
+  EvalJudgeIdentity,
   EvalProgress,
   EvalRunOptions,
   EvalRunResult,
@@ -12,7 +13,12 @@ import type {
 } from "./types";
 
 export type EvalRunner = {
-  describe: () => { schemaVersion: 1; suites: readonly EvalSuite[] };
+  describe: () => {
+    schemaVersion: 1;
+    suites: readonly EvalSuite[];
+    studioJudging?: true;
+    judge?: EvalJudgeIdentity;
+  };
   run: (args: EvalRunOptions) => Promise<EvalRunResult>;
 };
 
@@ -99,6 +105,23 @@ export function createEvalRouteHandler({
         { error: "Too many case repetitions." },
         { status: 400 },
       );
+    if (body.grading === "studio" && !manifest.studioJudging)
+      return Response.json(
+        { error: "Consumer does not support Studio judging." },
+        { status: 409 },
+      );
+    if (
+      body.grading !== "studio" &&
+      body.judge &&
+      (!manifest.judge ||
+        body.judge.id !== manifest.judge.id ||
+        body.judge.version !== manifest.judge.version ||
+        body.judge.location !== manifest.judge.location)
+    )
+      return Response.json(
+        { error: "App judge changed. Refresh before running." },
+        { status: 409 },
+      );
     if (active >= maxActiveRuns)
       return Response.json(
         { error: "Eval executor is busy." },
@@ -122,6 +145,8 @@ export function createEvalRouteHandler({
         void evals
           .run({
             suiteId: body.suiteId,
+            ...(body.grading ? { grading: body.grading } : {}),
+            ...(body.judge ? { judgeIdentity: body.judge } : {}),
             repetitions: body.repetitions,
             concurrency: body.concurrency,
             signal,

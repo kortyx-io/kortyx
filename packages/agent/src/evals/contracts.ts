@@ -86,6 +86,7 @@ export const EvalObservationSchema = z
     type: z.enum(["answer", "interrupt", "error", "cancelled"]),
     text: z.string(),
     structured: z.array(z.json()),
+    events: z.array(z.json()).optional(),
     runId: z.string().optional(),
     checkpointId: z.string().optional(),
     interrupt: z
@@ -118,7 +119,7 @@ export const EvalObservationSchema = z
       });
   });
 
-const status = z.enum(["passed", "failed", "error", "cancelled"]);
+const status = z.enum(["passed", "failed", "error", "cancelled", "ungraded"]);
 const issue = z
   .object({
     phase: z.enum([
@@ -163,7 +164,33 @@ export const EvalCaseResultSchema = z
     errors: z.array(issue),
   })
   .strict();
-const judge = z.object({ id, version: id }).strict();
+export const EvalJudgeIdentitySchema = z
+  .object({
+    id,
+    version: id,
+    location: z.enum(["app", "studio"]).optional(),
+  })
+  .strict();
+const judge = EvalJudgeIdentitySchema;
+export const StudioEvalJudgeRequestSchema = z
+  .object({
+    environment: id,
+    judge: EvalJudgeIdentitySchema,
+    criterion: z
+      .object({ id, text: z.string().trim().min(1).max(16_384) })
+      .strict(),
+    input: EvalStepResultSchema.shape.input,
+    observation: EvalObservationSchema,
+    reference: z.json().optional(),
+    conversation: z.array(EvalStepResultSchema).max(100),
+  })
+  .strict();
+export const StudioEvalJudgeResponseSchema = z
+  .object({
+    judge: EvalJudgeIdentitySchema,
+    verdict: EvalVerdictSchema,
+  })
+  .strict();
 export const EvalRunResultSchema = z
   .object({
     id: z.uuid(),
@@ -180,6 +207,7 @@ export const EvalRunResultSchema = z
         failed: z.number().int().nonnegative(),
         error: z.number().int().nonnegative(),
         cancelled: z.number().int().nonnegative(),
+        ungraded: z.number().int().nonnegative().optional(),
       })
       .strict(),
     cases: z.array(EvalCaseResultSchema),
@@ -189,6 +217,7 @@ export const EvalRunResultSchema = z
 export const EvalManifestSchema = z
   .object({
     schemaVersion: z.literal(1),
+    studioJudging: z.literal(true).optional(),
     suites: z.array(EvalSuiteSchema),
     responders: z.array(
       z
@@ -229,11 +258,20 @@ export const EvalRemoteRunRequestSchema = z
   .object({
     suiteId: id,
     suiteRevision: z.string().regex(/^[a-f0-9]{64}$/),
+    grading: z.enum(["app", "studio"]).optional(),
+    judge: EvalJudgeIdentitySchema.optional(),
     caseIds: z.array(id).min(1).max(100).optional(),
     repetitions: z.number().int().min(1).max(20).default(1),
     concurrency: z.number().int().min(1).max(4).default(1),
   })
   .strict();
+export const StudioEvalStartRequestSchema = EvalRemoteRunRequestSchema.omit({
+  grading: true,
+  judge: true,
+}).extend({
+  targetId: z.string().min(1).max(128),
+  judge: z.enum(["studio", "app"]).default("studio"),
+});
 export const EvalWireEventSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("progress"), event: EvalProgressSchema }).strict(),
   z.object({ type: z.literal("result"), result: EvalRunResultSchema }).strict(),

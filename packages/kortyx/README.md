@@ -188,7 +188,7 @@ GOOGLE_API_KEY=your_key_here pnpm dev
 | Area | Exports |
 | --- | --- |
 | Agent | `createAgent`, `createChatRouteHandler`, `streamChatFromRoute` |
-| Evals | `createEvals`, `createEvalJudge`, `EvalSuiteSchema`, `parseEvalSuite` |
+| Evals | `createEvals`, `defineSuite`, `createEvalJudge`, `createStudioEvalJudge`, `EvalSuiteSchema`, `parseEvalSuite` |
 | Workflows | `defineWorkflow`, `loadWorkflow`, `validateWorkflow` |
 | Hooks | `useReason`, `useInterrupt`, `useStructuredData`, `useNodeState`, `useWorkflowState`, `useRuntimeContext` |
 | Runtime | workflow registries, node registry, in-memory/Redis framework adapters |

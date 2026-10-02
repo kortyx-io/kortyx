@@ -168,6 +168,12 @@ jobs:
               shard: "",
               spec: detail-drawer-stack.spec.ts,
             }
+          - {
+              label: "production eval navigation",
+              suite: production,
+              shard: "",
+              spec: eval-navigation.spec.ts,
+            }
     runs-on: ubuntu-latest
     timeout-minutes: 20
     services:

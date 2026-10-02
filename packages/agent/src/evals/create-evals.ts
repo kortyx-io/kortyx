@@ -18,6 +18,7 @@ import type {
   EvalCommand,
   EvalContext,
   EvalExecution,
+  EvalExecutionStatus,
   EvalHandlerRef,
   EvalInterrupt,
   EvalIssue,
@@ -26,7 +27,6 @@ import type {
   EvalProgress,
   EvalRunOptions,
   EvalRunResult,
-  EvalStatus,
   EvalStepResult,
   EvalSuite,
 } from "./types";
@@ -69,16 +69,18 @@ const failure = (phase: EvalPhase, code = "EVAL_HOOK_FAILED"): EvalIssue => ({
   message: phases[phase],
 });
 const statusFor = (
-  counts: Record<EvalStatus, number>,
+  counts: EvalRunResult["counts"],
   errors: readonly EvalIssue[],
-): EvalStatus =>
+): EvalExecutionStatus =>
   errors.length || counts.error
     ? "error"
     : counts.cancelled
       ? "cancelled"
       : counts.failed
         ? "failed"
-        : "passed";
+        : counts.ungraded
+          ? "ungraded"
+          : "passed";
 
 /** Run serializable conversations against the same agent used by the application. */
 export function createEvals<
@@ -114,10 +116,6 @@ export function createEvals<
           throw new EvalConfigurationError(
             `Unknown reference: ${step.expect.reference.using}`,
           );
-        if (step.expect.criteria?.length && !options.judge)
-          throw new EvalConfigurationError(
-            "Cases with criteria require a configured judge.",
-          );
       }
   if (
     options.judge &&
@@ -144,6 +142,7 @@ export function createEvals<
     describe() {
       return {
         schemaVersion: 1 as const,
+        studioJudging: true as const,
         suites: clone(suites),
         responders: Object.entries(responders).map(([name, value]) => ({
           name,
@@ -165,7 +164,15 @@ export function createEvals<
             }
           : {}),
         ...(options.judge
-          ? { judge: { id: options.judge.id, version: options.judge.version } }
+          ? {
+              judge: {
+                id: options.judge.id,
+                version: options.judge.version,
+                ...(options.judge.location
+                  ? { location: options.judge.location }
+                  : {}),
+              },
+            }
           : {}),
       };
     },
@@ -195,14 +202,45 @@ export function createEvals<
       );
       if (!Number.isSafeInteger(selected.length * repetitions))
         throw new EvalConfigurationError("Too many case repetitions.");
+      const studioGrading = args.grading === "studio";
+      if (
+        !studioGrading &&
+        !options.judge &&
+        selected.some((item) =>
+          item.steps.some((step) => step.expect.criteria?.length),
+        )
+      )
+        throw new EvalConfigurationError(
+          "Local runs with criteria require a judge. Run from Studio or provide a code judge.",
+        );
+      const selectedJudge = studioGrading ? args.judgeIdentity : options.judge;
+      if (
+        !studioGrading &&
+        args.judgeIdentity &&
+        (!options.judge ||
+          args.judgeIdentity.id !== options.judge.id ||
+          args.judgeIdentity.version !== options.judge.version ||
+          args.judgeIdentity.location !== options.judge.location)
+      )
+        throw new EvalConfigurationError(
+          "App judge changed. Refresh before running.",
+        );
       const start = Date.now();
       const result: EvalRunResult = {
         id: randomUUID(),
         suiteId: suite.id,
         suiteRevision: getEvalSuiteRevision(suite),
         suite: clone(suite),
-        ...(options.judge
-          ? { judge: { id: options.judge.id, version: options.judge.version } }
+        ...(selectedJudge
+          ? {
+              judge: {
+                id: selectedJudge.id,
+                version: selectedJudge.version,
+                ...(selectedJudge.location
+                  ? { location: selectedJudge.location }
+                  : {}),
+              },
+            }
           : {}),
         startedAt: new Date(start).toISOString(),
         durationMs: 0,
@@ -423,8 +461,13 @@ export function createEvals<
                   : clone(reference);
               }
               phase = "grading";
-              for (const [criterionIndex, value] of (
-                step.expect.criteria ?? []
+              if (studioGrading && step.expect.criteria?.length) {
+                evaluated.status = "ungraded";
+                attemptResult.status = "ungraded";
+              }
+              for (const [criterionIndex, value] of (studioGrading
+                ? []
+                : (step.expect.criteria ?? [])
               ).entries()) {
                 signal.throwIfAborted();
                 const criterion =
@@ -559,7 +602,8 @@ export function createEvals<
         }),
       );
       result.cases = completed;
-      for (const item of completed) result.counts[item.status]++;
+      for (const item of completed)
+        result.counts[item.status] = (result.counts[item.status] ?? 0) + 1;
       result.status = statusFor(result.counts, result.errors);
       result.durationMs = Date.now() - start;
       return result;

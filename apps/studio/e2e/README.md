@@ -118,3 +118,36 @@ locally with:
 KORTYX_E2E_PRODUCTION=1 pnpm --filter kortyx-studio exec dotenv -e ../../.env -- \
   playwright test internal-linking.spec.ts detail-drawer-stack.spec.ts
 ```
+
+## Eval execution and navigation regressions
+
+`support/eval-plan.ts` defines fixed conversational cases including a two-step
+human choice, mixed repeated attempts, and colon, slash, percent and Unicode IDs.
+`support/eval-fixture.ts` stores historical results under the reserved target
+`e2e-ktx25-eval`; teardown removes this target's historical and newly launched
+runs only. Historical rows model saved verdicts, not model correctness.
+
+`support/eval-consumer.ts` is a loopback-only consumer with a synthetic service
+key. Suite discovery and launches cross the real SDK HTTP handler, authenticated
+Studio proxy, API worker and database. Its deterministic executor and judge keep
+browser tests independent of provider availability; real model and account
+permissions require separate application smoke tests.
+
+The eval tests must catch:
+
+- suite drawers losing their filtered list, expanded bounds or URL state;
+- launch setup losing selected judging mode or launching unselected cases;
+- nested workflow dismissal closing both the workflow and eval case;
+- Back/Forward resurrecting a closed ancestor or allowing a stale exit to win;
+- changing a baseline reusing the previous baseline's case evidence;
+- repeated attempt selection showing the wrong verdict after reload;
+- opaque suite/case identifiers being decoded twice or split as query syntax;
+- full-page tabs opening intercepting drawers on query-only navigation;
+- modified workflow clicks navigating the original tab;
+- dropdown Escape propagating to the surrounding comparison drawer;
+- narrow viewports overflowing or obscuring multi-step definitions.
+
+CI runs `eval-navigation.spec.ts` in development shards and as a dedicated
+production partition. The eval database integration preflight additionally
+checks persisted judge selection, stale suite rejection and running-consumer
+cancellation against a fresh disposable database.

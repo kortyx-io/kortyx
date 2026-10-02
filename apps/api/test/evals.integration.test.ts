@@ -9,6 +9,7 @@ import { serve } from "@hono/node-server";
 import {
   createEvalRouteHandler,
   createEvals,
+  type EvalGradeInput,
   type EvalSuite,
   getEvalSuiteRevision,
 } from "@kortyx/agent";
@@ -25,7 +26,9 @@ import {
   requestEvalCancellation,
 } from "@kortyx/telemetry-db";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+import { z } from "zod";
 import { createApiApp } from "../src/app";
+import type { EvalTarget } from "../src/evals/targets";
 import { createEvalWorker } from "../src/evals/worker";
 
 const url = process.env.TEST_EVAL_DATABASE_URL;
@@ -280,7 +283,15 @@ describe.skipIf(!url)(
         const discovery = await runCli("suites", "list");
         expect(discovery.canRun).toBe(true);
         expect(discovery.targets[0].suites[0].id).toBe(suite.id);
-        run = await runCli("runs", "start", suite.id, "--target", target.id);
+        run = await runCli(
+          "runs",
+          "start",
+          suite.id,
+          "--target",
+          target.id,
+          "--judge",
+          "app",
+        );
         expect((await getEvalRun(client.db, scope, run.id)).status).toBe(
           "queued",
         );
@@ -307,6 +318,8 @@ describe.skipIf(!url)(
           suite.id,
           "--target",
           target.id,
+          "--judge",
+          "app",
         );
         await runCli("runs", "cancel", queued.id);
         expect((await getEvalRun(client.db, scope, queued.id)).status).toBe(
@@ -339,6 +352,166 @@ describe.skipIf(!url)(
         ),
       ).toBe(true);
     }, 30_000);
+    it.each([
+      false,
+      true,
+    ])("Studio selects its judge, persists captured grades and bypasses a code judge (available: %s)", async (withCodeJudge) => {
+      const pepper = "studio-judge-integration-pepper";
+      const { apiKey } = await createTelemetryApiKey(client.db, {
+        ...scope,
+        name: "Studio judge test",
+        scopes: ["studio:read", "eval:run"],
+        pepper,
+      });
+      const grade = vi.fn(async (_input: EvalGradeInput) => ({
+        passed: false,
+        reason: "Answer changed the salary returned by the tool.",
+        evidence: ["Paris: EUR 90,000", "Paris: EUR 99,000"],
+      }));
+      const targets: EvalTarget[] = [];
+      const api = createApiApp({
+        db: client.db,
+        apiKeyPepper: pepper,
+        evalTargets: targets,
+        evalJudge: { id: "studio/test", version: "1", grade },
+      });
+      const apiServer = serve({
+        fetch: api.fetch,
+        hostname: "127.0.0.1",
+        port: 0,
+      });
+      await once(apiServer, "listening");
+      const address = apiServer.address();
+      if (!address || typeof address === "string")
+        throw new Error("No Studio API listener");
+      let consumer: ReturnType<typeof serve> | undefined;
+      let worker: ReturnType<typeof createEvalWorker> | undefined;
+      try {
+        const codeGrade = vi.fn(() => ({
+          passed: true,
+          reason: "Code would pass",
+          evidence: [],
+        }));
+        const evals = createEvals({
+          agent: { streamChat: vi.fn() },
+          suites: [suite],
+          ...(withCodeJudge
+            ? { judge: { id: "app/test", version: "1", grade: codeGrade } }
+            : {}),
+          execute: ({ command }) =>
+            command.type === "message"
+              ? {
+                  continuation: { requestId: "choose" },
+                  observation: {
+                    type: "interrupt",
+                    text: "Choose",
+                    structured: [],
+                    events: [
+                      {
+                        type: "tool-call-result",
+                        tool: "read_job",
+                        toolCallId: "read-1",
+                        content: "Paris: EUR 90,000",
+                      },
+                    ],
+                    interrupt: {
+                      requestId: "choose",
+                      kind: "custom",
+                      schemaId: "job-picker",
+                      schemaVersion: "1",
+                      options: [],
+                      request: { cities: ["Paris", "Barcelona"] },
+                    },
+                  },
+                }
+              : {
+                  observation: {
+                    type: "answer",
+                    text: "Paris: EUR 99,000",
+                    structured: [],
+                  },
+                },
+        });
+        const serviceKey = "studio-judge-consumer-key-at-least-32-characters";
+        consumer = serve({
+          fetch: createEvalRouteHandler({ evals, serviceKey }),
+          hostname: "127.0.0.1",
+          port: 0,
+        });
+        await once(consumer, "listening");
+        const listener = consumer.address();
+        if (!listener || typeof listener === "string")
+          throw new Error("No consumer listener");
+        const target = {
+          ...scope,
+          id: randomUUID(),
+          name: "Remote judge test",
+          environment: "development",
+          serviceKey,
+          url: `http://127.0.0.1:${listener.port}`,
+          allowInsecureHttp: true,
+        };
+        targets.push(target);
+        const response = await api.request("/v1/studio/evals/runs", {
+          method: "POST",
+          headers: {
+            authorization: `Bearer ${apiKey}`,
+            "content-type": "application/json",
+          },
+          body: JSON.stringify({ ...request, targetId: target.id }),
+        });
+        expect(response.status).toBe(202);
+        const { id } = z.object({ id: z.uuid() }).parse(await response.json());
+        worker = createEvalWorker(client.db, targets, {
+          id: "studio/test",
+          version: "1",
+          grade,
+        });
+        worker.start();
+        await vi.waitFor(
+          async () =>
+            expect((await getEvalRun(client.db, scope, id)).status).toBe(
+              "failed",
+            ),
+          { timeout: 10_000 },
+        );
+        const saved = await getEvalRun(client.db, scope, id);
+        expect(saved.result?.judge).toEqual({
+          id: "studio/test",
+          version: "1",
+          location: "studio",
+        });
+        expect(saved.result?.counts.failed).toBe(1);
+        expect(saved.result?.cases[0]?.steps[1]?.criteria[0]?.reason).toContain(
+          "salary",
+        );
+        expect(grade).toHaveBeenCalledOnce();
+        expect(codeGrade).not.toHaveBeenCalled();
+        expect(saved.request.grading).toBe("studio");
+        expect(saved.request.judge).toEqual(saved.result?.judge);
+        expect(
+          saved.events.some(
+            ({ event }) =>
+              event.type === "step-completed" &&
+              event.step.status === "ungraded",
+          ),
+        ).toBe(true);
+        const graded = grade.mock.calls[0]?.[0] as unknown as {
+          conversation: { observation: { events: unknown[] } }[];
+        };
+        expect(graded.conversation[0]?.observation.events).toEqual(
+          saved.result?.cases[0]?.steps[0]?.observation.events,
+        );
+        expect(JSON.stringify(saved)).not.toContain(apiKey);
+      } finally {
+        await worker?.stop();
+        if (consumer)
+          await new Promise<void>((resolve) =>
+            consumer?.close(() => resolve()),
+          );
+        await new Promise<void>((resolve) => apiServer.close(() => resolve()));
+      }
+    }, 20_000);
     it("a cancellation saved before final persistence wins the completion race", async () => {
       const targetId = randomUUID();
       const run = await enqueue(targetId);
@@ -450,7 +623,9 @@ describe.skipIf(!url)(
             ),
           { timeout: 10_000 },
         );
-        await vi.waitFor(() => expect(consumerAborted).toBe(true));
+        await vi.waitFor(() => expect(consumerAborted).toBe(true), {
+          timeout: 5_000,
+        });
       } finally {
         await worker.stop();
         server.closeAllConnections();

@@ -29,11 +29,14 @@ export type {
   EvalStepResult,
   EvalSuite,
   EvalVerdict,
+  StudioEvalJudgeOptions,
 } from "@kortyx/agent";
 export {
   createEvalJudge,
   createEvalRouteHandler,
   createEvals,
+  createStudioEvalJudge,
+  defineSuite,
   EvalConfigurationError,
   EvalSuiteSchema,
   getEvalSuiteRevision,

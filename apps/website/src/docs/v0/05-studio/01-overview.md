@@ -9,7 +9,9 @@ sidebar_label: "Studio Overview"
 
 Kortyx Studio is the self-hosted observability interface for applications built with the Kortyx SDK. It turns telemetry from your server-side agents into a readable history of sessions, runs, workflow transitions, model calls, interrupts, timing, token usage, and cost.
 
-Studio observes your application; it does not execute its workflows. Your Kortyx agents continue to run if Studio is unavailable.
+Your application server executes its workflows. Studio observes ordinary runs
+and can optionally trigger registered eval suites through a dedicated application
+endpoint. Your Kortyx agents continue to run if Studio is unavailable.
 
 > **Start here:** If your Kortyx application already runs locally, follow [Run Studio Locally](./02-run-locally.md). You can see a first run in about five minutes.
 
@@ -73,3 +75,19 @@ On **Workflows**, the CLI discovers resolvable `useWorkflow` calls from node and
 Run `kortyx topology push --entry src/lib/agent.ts --dry-run --json` to inspect discovered calls, then publish without `--dry-run`. Unresolvable targets produce CLI warnings and rely on runtime observations.
 
 Input and returned data require explicit telemetry content capture. Child payloads over the capture limit are omitted with a marker. Older SDKs retain their generic trace view; an ended attempt span alone cannot establish that a child returned.
+
+## Evaluate workflow behavior
+
+**Evals** is a separate area for scripted use-case tests. Register suites on your
+existing agent with `createEvals`, expose the authenticated eval endpoint, and
+configure an application target on the Studio API. Studio can start a suite, save
+its progress, grade captured answers and interrupts, and compare saved runs.
+
+The judge can use emitted tool results and previous conversation steps. This
+requires `toolExecution.emit: true` for tool evidence. Choose Studio judging with
+a backend model, or select a code judge registered by the application. Ordinary
+production sessions are observed without being automatically scored.
+
+Start with [Conversation Evals](../03-guides/10-conversation-evals.md), then follow
+[Run Eval Suites in Studio](./11-evals.md). The [CLI](./04-cli-commands.md#eval-suites-and-post-deployment-ci)
+can also enqueue a suite after deployment without waiting for grades or blocking CI.

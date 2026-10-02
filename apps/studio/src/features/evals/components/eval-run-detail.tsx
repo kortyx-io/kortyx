@@ -45,6 +45,7 @@ export function EvalRunDetail({
 }) {
   const rows = caseRows(run);
   const counts = progressCounts(rows);
+  const judge = run.result?.judge ?? run.request?.judge;
   const [filter, setFilter] = useStudioQueryState(
     "outcome",
     parseAsStringLiteral(["all", "failed", "error", "passed"] as const)
@@ -235,9 +236,14 @@ export function EvalRunDetail({
                     <KeyValue label="Suite revision">
                       {run.suiteRevision}
                     </KeyValue>
+                    <KeyValue label="Judge location">
+                      {run.request?.grading ??
+                        judge?.location ??
+                        "Not recorded"}
+                    </KeyValue>
                     <KeyValue label="Grader">
-                      {run.result?.judge
-                        ? `${run.result.judge.id} · ${run.result.judge.version}`
+                      {judge
+                        ? `${judge.id} · ${judge.version}`
                         : "Not recorded"}
                     </KeyValue>
                     <KeyValue label="Attempts per case">

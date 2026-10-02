@@ -1,8 +1,8 @@
 import type { OpenAPIHono } from "@hono/zod-openapi";
-import { getEvalSuiteRevision } from "@kortyx/agent";
+import { type EvalJudge, getEvalSuiteRevision } from "@kortyx/agent";
 import {
-  EvalRemoteRunRequestSchema,
   type EvalSuite,
+  StudioEvalStartRequestSchema,
 } from "@kortyx/agent/evals";
 import {
   enqueueEvalRun,
@@ -21,8 +21,10 @@ import type { ApiEnv } from "../types";
 export function registerEvalRoutes(
   app: OpenAPIHono<ApiEnv>,
   targets: readonly EvalTarget[],
+  studioJudge?: EvalJudge,
 ) {
-  app.use("/v1/studio/evals/*", bodyLimit({ maxSize: 16_384 }));
+  app.use("/v1/studio/evals/runs", bodyLimit({ maxSize: 16_384 }));
+  app.use("/v1/studio/evals/runs/*", bodyLimit({ maxSize: 16_384 }));
   app.get("/v1/studio/evals/targets", async (c) => {
     const auth = c.get("auth");
     const available = targets.filter(
@@ -61,7 +63,17 @@ export function registerEvalRoutes(
         }
       }),
     );
-    return c.json({ targets: items, canRun: auth.scopes.includes("eval:run") });
+    return c.json({
+      targets: items,
+      canRun: auth.scopes.includes("eval:run"),
+      studioJudge: studioJudge
+        ? {
+            id: studioJudge.id,
+            version: studioJudge.version,
+            location: "studio",
+          }
+        : null,
+    });
   });
   app.get("/v1/studio/evals/runs", async (c) =>
     c.json({ runs: await listEvalRuns(c.get("db"), c.get("auth")) }),
@@ -79,9 +91,9 @@ export function registerEvalRoutes(
       throw new TelemetryForbiddenError(
         "Eval execution requires eval:run scope.",
       );
-    const parsed = EvalRemoteRunRequestSchema.extend({
-      targetId: z.string().min(1).max(128),
-    }).safeParse(await c.req.json().catch(() => null));
+    const parsed = StudioEvalStartRequestSchema.safeParse(
+      await c.req.json().catch(() => null),
+    );
     if (!parsed.success) return c.json({ error: "Invalid eval request." }, 400);
     const { targetId, ...request } = parsed.data;
     const target = targets.find(
@@ -114,6 +126,32 @@ export function registerEvalRoutes(
         100
     )
       return c.json({ error: "Invalid or oversized case selection." }, 400);
+    const selectedJudge =
+      request.judge === "studio"
+        ? studioJudge && {
+            id: studioJudge.id,
+            version: studioJudge.version,
+            location: "studio" as const,
+          }
+        : manifest.judge;
+    if (request.judge === "studio" && !manifest.studioJudging)
+      return c.json(
+        {
+          error:
+            "Update the consumer SDK to support Studio judging, or select App judge.",
+        },
+        409,
+      );
+    if (!selectedJudge)
+      return c.json(
+        {
+          error:
+            request.judge === "studio"
+              ? "Studio judge is not configured. Configure a judge model and provider key on the Studio backend."
+              : "This application has no code judge configured.",
+        },
+        503,
+      );
     const run = await enqueueEvalRun(c.get("db"), {
       organizationId: auth.organizationId,
       projectId: auth.projectId,
@@ -124,6 +162,14 @@ export function registerEvalRoutes(
       suiteRevision: request.suiteRevision,
       suite: suite as EvalSuite,
       request: {
+        grading: request.judge,
+        judge: {
+          id: selectedJudge.id,
+          version: selectedJudge.version,
+          ...(selectedJudge.location
+            ? { location: selectedJudge.location }
+            : {}),
+        },
         suiteId: request.suiteId,
         suiteRevision: request.suiteRevision,
         repetitions: request.repetitions,

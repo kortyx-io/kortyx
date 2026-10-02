@@ -74,7 +74,7 @@ export async function proxyEvalRequest(request: Request, parts: string[]) {
         response.status === 403
           ? "This Studio key cannot run evals."
           : response.status === 409
-            ? "Suite changed. Refresh before running."
+            ? "Eval configuration changed. Refresh before running."
             : "Eval request failed. Check the consumer connection.";
       return Response.json({ error: message }, { status: response.status });
     }

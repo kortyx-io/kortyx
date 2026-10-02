@@ -17,6 +17,7 @@ type EvalOptions = ConnectionOptions & {
   json?: boolean;
   includeContent?: boolean;
   target?: string;
+  judge?: "studio" | "app";
   environment?: string;
   case?: string[];
   repetitions: number;
@@ -117,7 +118,13 @@ export function registerStudioEvalCommands(
         (!options.target || target.id === options.target) &&
         (!environment || target.environment === environment),
     );
-    return { connection, client, targets, canRun: data.canRun };
+    return {
+      connection,
+      client,
+      targets,
+      canRun: data.canRun,
+      studioJudge: data.studioJudge ?? null,
+    };
   };
   const selectionOptions = (command: Command) =>
     common(command)
@@ -131,16 +138,20 @@ export function registerStudioEvalCommands(
       .command("list")
       .description("List targets, suites, revisions and case IDs."),
   ).action(async (options: EvalOptions) => {
-    const { connection, targets, canRun } = await discover(options);
+    const { connection, targets, canRun, studioJudge } =
+      await discover(options);
     print(
       {
         connection: connection.name,
         canRun,
+        studioJudge,
         targets: targets.map((target) => ({
           id: target.id,
           name: target.name,
           environment: target.environment,
           available: target.manifest !== null,
+          appJudge: target.manifest?.judge ?? null,
+          studioJudging: Boolean(target.manifest?.studioJudging),
           suites:
             target.manifest?.suites.map((suite) => ({
               id: suite.id,
@@ -216,6 +227,16 @@ export function registerStudioEvalCommands(
       1,
     )
     .option("--concurrency <count>", "Parallel attempts (1–4).", integer(4), 1)
+    .option(
+      "--judge <location>",
+      "Judge selection: studio (default) or app.",
+      (value: string) => {
+        if (value !== "studio" && value !== "app")
+          throw new InvalidArgumentError("Expected studio or app.");
+        return value;
+      },
+      "studio",
+    )
     .action(async (suiteId: string, options: EvalOptions) => {
       const { connection, client, target, suite, canRun } = await select(
         suiteId,
@@ -238,6 +259,7 @@ export function registerStudioEvalCommands(
         );
       const run = await client.start({
         targetId: target.id,
+        judge: options.judge ?? "studio",
         suiteId,
         suiteRevision: target.revisions[suiteId] ?? "",
         repetitions: options.repetitions,

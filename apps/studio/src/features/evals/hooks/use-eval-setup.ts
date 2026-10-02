@@ -1,12 +1,19 @@
 "use client";
-import { parseAsArrayOf, parseAsBoolean, parseAsString } from "nuqs";
+import {
+  parseAsBoolean,
+  parseAsJson,
+  parseAsString,
+  parseAsStringLiteral,
+} from "nuqs";
+import { z } from "zod";
 import { useStudioQueryStates } from "@/lib/nuqs";
 import type { EvalTargets } from "../schema";
 export const evalSetupParsers = {
   launch: parseAsBoolean.withDefault(false),
+  launchJudge: parseAsStringLiteral(["studio", "app"]).withDefault("studio"),
   launchApplication: parseAsString.withDefault(""),
   launchSuite: parseAsString.withDefault(""),
-  launchCases: parseAsArrayOf(parseAsString),
+  launchCases: parseAsJson(z.array(z.string())),
   launchAttempts: parseAsString.withDefault("1"),
   launchDefinition: parseAsBoolean.withDefault(false),
 };
@@ -39,6 +46,7 @@ export function useEvalSetup(targets: EvalTargets) {
         launchCases: null,
         launchAttempts: "1",
         launchDefinition: null,
+        launchJudge: null,
       });
     },
     close: () => {
@@ -49,6 +57,7 @@ export function useEvalSetup(targets: EvalTargets) {
         launchCases: null,
         launchAttempts: null,
         launchDefinition: null,
+        launchJudge: null,
       });
     },
   };

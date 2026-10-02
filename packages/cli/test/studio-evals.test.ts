@@ -243,6 +243,7 @@ describe("Studio eval CLI", () => {
     });
     expect(JSON.parse(String(request.mock.calls[1]?.[1]?.body))).toEqual({
       targetId: "hiring",
+      judge: "studio",
       suiteId: "jobs",
       suiteRevision: revision,
       caseIds: ["ambiguity"],
@@ -265,12 +266,34 @@ describe("Studio eval CLI", () => {
     await command.run(["runs", "start", "jobs", ...args]);
     expect(JSON.parse(String(request.mock.calls[1]?.[1]?.body))).toEqual({
       targetId: "hiring",
+      judge: "studio",
       suiteId: "jobs",
       suiteRevision: revision,
       repetitions: 1,
       concurrency: 1,
     });
     expect(JSON.parse(command.output[0] ?? "").studioUrl).toBeNull();
+  });
+  it("lets CI explicitly choose the code judge and rejects invalid selections before networking", async () => {
+    const args = await configured(null, null);
+    const request = mockFetch();
+    const command = cli(request);
+    await command.run(["runs", "start", "jobs", "--judge", "app", ...args]);
+    expect(JSON.parse(String(request.mock.calls[1]?.[1]?.body)).judge).toBe(
+      "app",
+    );
+    const invalidRequest = mockFetch();
+    await expect(
+      cli(invalidRequest).run([
+        "runs",
+        "start",
+        "jobs",
+        "--judge",
+        "unknown",
+        ...args,
+      ]),
+    ).rejects.toThrow("Expected studio or app");
+    expect(invalidRequest).not.toHaveBeenCalled();
   });
   it("filters discovery explicitly and requires an unambiguous target", async () => {
     const args = await configured();

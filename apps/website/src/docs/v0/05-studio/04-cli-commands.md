@@ -254,6 +254,10 @@ or second run is performed automatically. Refresh discovery and retry explicitly
 
 ### Inspect and cancel
 
+Runs started through the CLI default to the configured Studio judge. Add
+`--judge app` to use the consumer's code judge. The API records the selected judge
+and its version; missing configuration fails before enqueuing, without fallback.
+
 ```sh
 pnpm exec kortyx studio evals runs list --connection staging --json
 pnpm exec kortyx studio evals runs get RUN_UUID --connection staging --json

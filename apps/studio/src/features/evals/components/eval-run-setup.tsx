@@ -35,13 +35,30 @@ export function EvalRunSetup({
     suite?.cases.map((c) => c.id) ??
     []
   ).filter((id) => suite?.cases.some((c) => c.id === id));
+  const appJudge = target?.manifest?.judge;
+  const studioSupported = Boolean(target?.manifest?.studioJudging);
+  const judgeAvailable =
+    query.launchJudge === "studio"
+      ? studioSupported && Boolean(targets.studioJudge)
+      : Boolean(appJudge);
+  const judgeHelp =
+    query.launchJudge === "app"
+      ? appJudge
+        ? `${appJudge.id} · ${appJudge.version}`
+        : "This application has no code judge configured."
+      : !targets.studioJudge
+        ? "Studio judge is not configured. Configure a model on the Studio backend, or choose an available App judge."
+        : !studioSupported
+          ? "Update the application’s SDK to support Studio judging, or choose App judge."
+          : `${targets.studioJudge.id} · ${targets.studioJudge.version}`;
   const onRun = async () => {
-    if (!suite || !target) return;
+    if (!suite || !target || !judgeAvailable) return;
     setWorking(true);
     setError("");
     try {
       const run = await evalRequest("runs", {
         targetId,
+        judge: query.launchJudge,
         suiteId,
         suiteRevision: target.revisions[suiteId],
         caseIds: allowedIds,
@@ -64,7 +81,7 @@ export function EvalRunSetup({
     attempts >= 1 &&
     attempts <= 20 &&
     allowedIds.length > 0 &&
-    allowedIds.length * attempts <= 200;
+    allowedIds.length * attempts <= 100;
   const chooseSuite = (id: string, application = target) => {
     void setQuery({
       launchSuite: id,
@@ -128,6 +145,30 @@ export function EvalRunSetup({
             onChange={(id) => chooseSuite(id)}
           />
         </div>
+        <div className="space-y-2">
+          <p className="text-xs font-medium">Judge</p>
+          <EvalDropdown
+            label="Judge"
+            value={query.launchJudge}
+            disabled={working}
+            className="w-full"
+            options={[
+              {
+                value: "studio",
+                label: "Studio judge",
+                disabled: !targets.studioJudge || !studioSupported,
+              },
+              { value: "app", label: "App judge", disabled: !appJudge },
+            ]}
+            onChange={(value) => {
+              if (value === "studio" || value === "app")
+                void setQuery({ launchJudge: value });
+            }}
+          />
+          <p className="break-words text-xs text-muted-foreground">
+            {judgeHelp}
+          </p>
+        </div>
         <fieldset disabled={working} className="space-y-2">
           <legend className="mb-2 text-xs font-medium">
             Conversations · {allowedIds.length} selected
@@ -180,7 +221,7 @@ export function EvalRunSetup({
           />
           <p className="text-xs text-muted-foreground">
             Each attempt runs in an independent session. Between 1 and 20
-            attempts, up to 200 total.
+            attempts, up to 100 total.
           </p>
         </div>
         {suite ? (
@@ -208,6 +249,7 @@ export function EvalRunSetup({
         <Button
           disabled={
             !targets.canRun ||
+            !judgeAvailable ||
             !suite ||
             Boolean(target?.error) ||
             !valid ||

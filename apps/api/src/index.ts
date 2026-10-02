@@ -2,6 +2,7 @@ import { serve } from "@hono/node-server";
 import { createTelemetryDbClient } from "@kortyx/telemetry-db";
 import { createApiApp } from "./app";
 import { loadApiConfig } from "./config";
+import { loadStudioEvalJudge } from "./evals/judge";
 import { loadEvalTargets } from "./evals/targets";
 import { createEvalWorker } from "./evals/worker";
 import { createPostgresStudioChangeBus } from "./realtime/studio-change-bus";
@@ -12,12 +13,14 @@ const dbClient = createTelemetryDbClient(config.databaseUrl);
 const studioChangeBus = createPostgresStudioChangeBus(dbClient.sql);
 await studioChangeBus.start();
 const evalTargets = loadEvalTargets();
-const evalWorker = createEvalWorker(dbClient.db, evalTargets);
+const evalJudge = loadStudioEvalJudge();
+const evalWorker = createEvalWorker(dbClient.db, evalTargets, evalJudge);
 evalWorker.start();
 let acceptingTraffic = true;
 const app = createApiApp({
   db: dbClient.db,
   evalTargets,
+  ...(evalJudge ? { evalJudge } : {}),
   apiKeyPepper: config.apiKeyPepper,
   studioChangeBus,
   readiness: async () => {

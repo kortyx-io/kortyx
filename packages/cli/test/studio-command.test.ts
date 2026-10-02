@@ -128,6 +128,29 @@ describe("Studio CLI arguments", () => {
 });
 
 describe("Studio CLI lifecycle", () => {
+  it("preserves judge credentials in private state and passes them only to the API container", async () => {
+    const home = await createHome();
+    await initialize(home);
+    const environment = await readStudioEnvironment(home);
+    await writeStudioEnvironment(home, {
+      ...environment,
+      KORTYX_EVAL_JUDGE_MODEL: "test-model",
+      KORTYX_EVAL_JUDGE_API_KEY: "private-test-provider-key",
+    });
+    const runtime = createRuntime();
+    await runStudioCommand(["start", "--home", home], runtime);
+    const saved = await readStudioEnvironment(home);
+    expect(saved.KORTYX_EVAL_JUDGE_API_KEY).toBe("private-test-provider-key");
+    expect((await stat(join(home, ".env"))).mode & 0o777).toBe(0o600);
+    const compose = await readFile(join(home, "compose.yml"), "utf8");
+    expect(compose.split("  api:")[1]?.split("  studio:")[0]).toContain(
+      "KORTYX_EVAL_JUDGE_API_KEY:",
+    );
+    expect(compose.split("  studio:")[1]).not.toContain(
+      "KORTYX_EVAL_JUDGE_API_KEY:",
+    );
+    expect(runtime.logs.join("\n")).not.toContain("private-test-provider-key");
+  });
   it("includes a private updater only when the published image supports it", async () => {
     const home = await createHome();
     await runStudioCommand(

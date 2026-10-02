@@ -52,13 +52,19 @@ export function caseRows(run: EvalDetail): CaseRow[] {
       });
     if (event.type === "step-completed") {
       const item = rows.get(`${event.caseId}:${event.repetition}`);
-      if (item && !item.steps.some((step) => step.index === event.step.index))
-        item.steps.push(event.step);
+      if (item) {
+        const index = item.steps.findIndex(
+          (step) => step.index === event.step.index,
+        );
+        if (index === -1) item.steps.push(event.step);
+        else item.steps[index] = event.step;
+      }
     }
     if (event.type === "case-completed")
       rows.set(`${event.result.caseId}:${event.result.repetition}`, {
         ...row(event.result.caseId, event.result.repetition),
         ...event.result,
+        steps: [...event.result.steps],
         key: `${event.result.caseId}:${event.result.repetition}`,
       });
   }
@@ -68,7 +74,20 @@ export function caseRows(run: EvalDetail): CaseRow[] {
       ...item,
       key: `${item.caseId}:${item.repetition}`,
     });
-  return [...rows.values()];
+  return [...rows.values()].map((item) => {
+    if (isActive(run.status)) return item;
+    const status =
+      run.status === "cancelled" ? ("cancelled" as const) : ("error" as const);
+    return {
+      ...item,
+      status: item.status === "ungraded" ? status : item.status,
+      steps: item.steps.map((step) =>
+        step.status === "ungraded"
+          ? { ...step, status, reason: "Evaluation did not complete." }
+          : step,
+      ),
+    };
+  });
 }
 export function progressCounts(rows: CaseRow[]) {
   return {
@@ -77,7 +96,7 @@ export function progressCounts(rows: CaseRow[]) {
     error: rows.filter((r) => r.status === "error").length,
     cancelled: rows.filter((r) => r.status === "cancelled").length,
     completed: rows.filter(
-      (r) => !["running", "queued", "not-run"].includes(r.status),
+      (r) => !["running", "queued", "ungraded", "not-run"].includes(r.status),
     ).length,
     total: rows.length,
   };

@@ -23,7 +23,9 @@ npm install @kortyx/agent
 
 - `createAgent(...)`
 - `createEvals(...)`
+- `defineSuite(...)`
 - `createEvalJudge(...)`
+- `createStudioEvalJudge(...)`
 - `createChatRouteHandler(...)`
 - `handleChatRequestBody(...)`
 - `parseChatRequestBody(...)`
@@ -58,6 +60,19 @@ const agent = createAgent({
 
 export const handleChat = createChatRouteHandler({ agent });
 ```
+
+## Tool evidence in evals
+
+Enable `toolExecution: { emit: true }` on workflow `useReason` calls when eval
+criteria rely on tool activity or retrieved facts. `createEvals` captures those
+existing stream events and supplies them, along with the answer and previous
+conversation steps, to the judge. See the conversation eval guide below for
+examples and the capture boundary.
+
+Use `createEvalJudge({ model })` to grade in the app, or
+`await createStudioEvalJudge({ url, apiKey, environment })` to use the Studio
+backend's configured judge. Both fit the same `createEvals({ ..., judge })`
+slot. Provider credentials stay where the judge runs.
 
 ## Documentation
 

@@ -1,6 +1,8 @@
 import { randomUUID } from "node:crypto";
+import { isDeepStrictEqual } from "node:util";
 import { getEvalSuiteRevision } from "@kortyx/agent";
 import type {
+  EvalJudge,
   EvalProgress,
   EvalRunResult,
   EvalSuite,
@@ -12,11 +14,13 @@ import {
   heartbeatEvalRun,
   type TelemetryDb,
 } from "@kortyx/telemetry-db";
+import { gradeEvalExecution } from "./grade-execution";
 import { type EvalTarget, readEvalWire } from "./targets";
 
 export function createEvalWorker(
   db: TelemetryDb,
   targets: readonly EvalTarget[],
+  studioJudge?: EvalJudge,
 ) {
   const owner = randomUUID();
   let stopped = false;
@@ -29,6 +33,8 @@ export function createEvalWorker(
     const controller = new AbortController();
     active = controller;
     let userCancelled = false;
+    let failureMessage =
+      "Eval execution disconnected or failed. Inspect the consumer before starting a new run.";
     const deadline = setTimeout(() => controller.abort(), 30 * 60_000);
     let heartbeatBusy = false;
     const timer = setInterval(() => {
@@ -57,6 +63,19 @@ export function createEvalWorker(
           value.environment === run.environment,
       );
       if (!target) throw new Error("Target no longer configured.");
+      const studioGrading = run.request.grading === "studio";
+      if (
+        studioGrading &&
+        (!studioJudge ||
+          !run.request.judge ||
+          run.request.judge.id !== studioJudge.id ||
+          run.request.judge.version !== studioJudge.version ||
+          run.request.judge.location !== "studio")
+      ) {
+        failureMessage =
+          "Studio judge changed or is unavailable. Refresh and start a new run.";
+        throw new Error(failureMessage);
+      }
       const executionSignal = controller.signal;
       const response = await fetch(target.url, {
         method: "POST",
@@ -114,8 +133,46 @@ export function createEvalWorker(
         )
       )
         throw new Error("Incomplete case results.");
-      const counts = { passed: 0, failed: 0, error: 0, cancelled: 0 };
-      for (const item of result.cases) counts[item.status]++;
+      for (const item of result.cases) {
+        const definition = run.suite.cases.find(
+          (value) => value.id === item.caseId,
+        );
+        if (
+          !definition ||
+          item.steps.length > definition.steps.length ||
+          ((item.status === "passed" || item.status === "ungraded") &&
+            item.steps.length !== definition.steps.length)
+        )
+          throw new Error("Incomplete scenario execution.");
+        for (const [index, step] of item.steps.entries()) {
+          const expectedStep = definition.steps[index];
+          if (
+            !expectedStep ||
+            step.index !== index ||
+            !isDeepStrictEqual(step.expectation, expectedStep.expect)
+          )
+            throw new Error("Consumer changed the scenario expectations.");
+          if (!studioGrading && step.status === "ungraded")
+            throw new Error("App judge left a step ungraded.");
+          if (step.status === "ungraded" && !step.expectation.criteria?.length)
+            throw new Error("Unexpected ungraded step.");
+          if (
+            !studioGrading &&
+            step.status === "passed" &&
+            step.criteria.length !== (step.expectation.criteria?.length ?? 0)
+          )
+            throw new Error("App judge returned incomplete criterion results.");
+        }
+      }
+      const capturedResult = result;
+      const counts: EvalRunResult["counts"] = {
+        passed: 0,
+        failed: 0,
+        error: 0,
+        cancelled: 0,
+      };
+      for (const item of result.cases)
+        counts[item.status] = (counts[item.status] ?? 0) + 1;
       const status =
         result.errors.length || counts.error
           ? "error"
@@ -123,23 +180,50 @@ export function createEvalWorker(
             ? "cancelled"
             : counts.failed
               ? "failed"
-              : "passed";
+              : counts.ungraded
+                ? "ungraded"
+                : "passed";
       if (
         result.status !== status ||
         Object.keys(counts).some(
           (key) =>
             counts[key as keyof typeof counts] !==
-            result.counts[key as keyof typeof counts],
+            (capturedResult.counts[key as keyof typeof counts] ?? 0),
         )
       )
         throw new Error("Inconsistent eval verdicts.");
+      if (
+        run.request.judge &&
+        (result.judge?.id !== run.request.judge.id ||
+          result.judge?.version !== run.request.judge.version ||
+          result.judge?.location !== run.request.judge.location)
+      )
+        throw new Error("Consumer changed the selected judge.");
+      if (studioGrading) {
+        for (const item of result.cases)
+          for (const step of item.steps) {
+            if (
+              step.criteria.length ||
+              (step.status === "passed" && step.expectation.criteria?.length)
+            )
+              throw new Error("Consumer did not defer judging to Studio.");
+          }
+        result = await gradeEvalExecution(
+          result,
+          studioJudge!,
+          executionSignal,
+          (event) => appendEvalProgress(db, run.id, owner, event),
+        );
+      } else if (counts.ungraded)
+        throw new Error("App judge did not finish grading.");
+      executionSignal.throwIfAborted();
       await finishEvalRun(db, run.id, owner, { result });
     } catch {
       await finishEvalRun(db, run.id, owner, {
         cancelled: userCancelled,
         error: userCancelled
           ? "Cancellation requested. Consumer cleanup was signalled."
-          : "Eval execution disconnected or failed. Inspect the consumer before starting a new run.",
+          : failureMessage,
       });
     } finally {
       clearTimeout(deadline);

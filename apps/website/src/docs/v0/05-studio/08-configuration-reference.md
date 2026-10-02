@@ -51,7 +51,44 @@ Do not start newer application images against an older schema. Database downgrad
 | `KORTYX_API_KEY_PEPPER` | Yes in production | Independent high-entropy HMAC key for API-key verification |
 | `API_HOST` | No | Listen address; container default is `0.0.0.0` |
 | `API_PORT` | No | Container port; default is `6400` |
-| `KORTYX_EVAL_TARGETS_FILE` | With eval targets | API-server path to a private JSON file of fixed application eval URLs, project scopes and service keys |
+| `KORTYX_EVAL_TARGETS_FILE` | With file-based eval targets | API-server path to a private JSON array of application target definitions; unset by default |
+| `KORTYX_EVAL_TARGETS` | Alternative to a target file | Inline JSON array with the same target shape; defaults to `[]`; ignored when a target file path is set |
+
+The target file takes precedence over inline JSON. An unreadable or invalid file
+fails API startup; it does not fall back to inline targets. Both forms contain
+application service keys. Target IDs must be unique. Configure these variables
+on the API, and mount the file there if using containers. See
+[application registration](./11-evals.md#register-applications-on-the-studio-api-server)
+for the target fields and the separate organization/project/environment scope.
+
+### Optional Studio judge variables
+
+Set these on the **API service**, not the browser Studio service. Leaving the
+model unset disables Studio judging; an available App judge can still be selected.
+
+| Variable | Required | Purpose |
+| --- | --- | --- |
+| `KORTYX_EVAL_JUDGE_MODEL` | To enable Studio judging | Provider model ID; use a provider-prefixed slug for OpenRouter |
+| `KORTYX_EVAL_JUDGE_API_KEY` | With judge model | Server-owned provider credential |
+| `KORTYX_EVAL_JUDGE_API` | No | `responses` (default) or `chat-completions` |
+| `KORTYX_EVAL_JUDGE_BASE_URL` | No | HTTPS provider base URL; defaults to OpenAI |
+| `KORTYX_EVAL_JUDGE_ID` | No | Saved judge identity; defaults to `studio/openai/<model>`; set an explicit ID for custom endpoints |
+| `KORTYX_EVAL_JUDGE_VERSION` | No | Saved rubric identity; defaults to `kortyx-rubric-v3` |
+
+For OpenRouter, set `BASE_URL=https://openrouter.ai/api/v1`,
+`API=chat-completions`, the model slug and its API key. See
+[Studio judge configuration](./11-evals.md#studio-judge-configuration) for complete
+examples and structured-output requirements. Restart the API after configuration
+changes. The judge ID/version is saved for comparison, not a snapshot of the
+provider's underlying weights or deployment.
+
+Judge strings are trimmed; an empty model disables Studio judging. With a model
+set, a missing/empty provider key fails API startup. Invalid API mode or a
+non-HTTPS custom base URL also fails startup. `responses` uses `/responses`;
+`chat-completions` uses `/chat/completions`. Supply the provider's base URL,
+not its full operation path. The backend does not infer the API mode from the
+hostname. Change the judge ID/version when deliberately changing your evaluator
+so saved comparisons can distinguish the new configuration.
 
 ## Database bootstrap variables
 
@@ -60,7 +97,12 @@ Do not start newer application images against an older schema. Database downgrad
 | `KORTYX_TELEMETRY_API_KEY` | Yes | Project-scoped `telemetry:write` credential for SDK producers |
 | `KORTYX_STUDIO_API_KEY` | Yes | Project-scoped `studio:read` credential used by Studio |
 | `KORTYX_STUDIO_ENABLE_REVIEWS` | No | Bootstrap-job opt-in: `1` grants `studio:write` as well as `studio:read` to the configured Studio key; default `0` keeps it read-only |
-| `KORTYX_STUDIO_ENABLE_EVALS` | No | Bootstrap-job opt-in: `1` grants `eval:run` to the configured Studio key; keep it set on subsequent bootstrap runs |
+| `KORTYX_STUDIO_ENABLE_EVALS` | No | Defaults to `0`; exactly `1` grants `eval:run` to the configured Studio key during bootstrap; keep it set on subsequent bootstrap runs |
+
+Setting `KORTYX_STUDIO_ENABLE_EVALS` only on the API or browser service does not
+change permissions. Rerun the database bootstrap with that variable and the
+same configured Studio key. A later bootstrap without the opt-in removes its
+eval execution scope. It does not register targets or configure a judge.
 
 Raw keys are used to create or replace their verifier records. They are not written to bootstrap logs.
 
@@ -86,6 +128,55 @@ The Studio read key is consumed by the Next.js server and must never be sent to 
 The same Studio key can execute suites when it also has `eval:run`. This does
 not require a new user-authentication mechanism. See [Evals](./11-evals.md) for
 consumer endpoint registration, target-file mounts and execution behavior.
+
+## Consumer application and CLI configuration
+
+`createEvals` and `createEvalRouteHandler` do not read environment variables
+automatically. Your app chooses its server configuration and passes the values
+into these functions. These are example application settings, not mandatory
+Kortyx variable names:
+
+| Application setting | Where it is used | Behavior |
+| --- | --- | --- |
+| `EVAL_SERVICE_KEY` | `createEvalRouteHandler({ serviceKey })` | App-owned secret of at least 32 characters; must match the Studio target's `serviceKey` |
+| Test actor token, username/password, or identity configuration | App-owned setup/execute helpers | Bind the normal app permissions and accessible data; never publish credentials in suite params |
+| App judge's provider variables, such as `OPENROUTER_API_KEY` | The app's configured Kortyx provider | Needed only when using that code judge/provider; independent of `KORTYX_EVAL_JUDGE_API_KEY` on Studio |
+
+An app may gate endpoint registration behind its own feature flag. Kortyx has no
+universal `EVAL_ENABLED` flag and does not acquire test-user tokens. If test-user
+credentials expire, update or reacquire them through app-owned setup. Studio does
+not refresh them. Judge-provider variables do not configure the model used by
+the workflow being evaluated.
+
+| CLI variable | Default / meaning |
+| --- | --- |
+| `KORTYX_STUDIO_HOME` | Local state directory; defaults to `~/.kortyx/studio`; overridden by `--home` |
+| `KORTYX_CONFIG_HOME` | Connection profile directory; defaults to `~/.kortyx`; overridden by `--config-home` |
+| `KORTYX_CONNECTION` | Connection profile selection; an explicit `--connection` wins, followed by the saved default and then `local` |
+| Any key variable named by `--api-key-env`, such as `KORTYX_DEPLOY_EVAL_KEY` | Your chosen variable holds the project Studio key; this example name has no special built-in behavior |
+
+CLI profiles store the variable name and URLs, not the raw remote key. The CLI
+passes run selection to Studio; provider and actor credentials stay on their
+respective servers. See [CLI commands](./04-cli-commands.md#eval-suites-and-post-deployment-ci)
+for connection registration and post-deployment execution.
+
+## Applying eval configuration changes
+
+| Change | Apply it to |
+| --- | --- |
+| Target file, inline targets or Studio judge variables | Restart/recreate every Studio API replica with the updated environment/mount |
+| `KORTYX_STUDIO_ENABLE_EVALS` | Rerun database bootstrap with the current Studio key and opt-in; maintain it on later bootstraps |
+| Studio API URL/project key or Basic Auth settings | Restart/recreate the Studio server; key rotation also needs matching bootstrap verifiers |
+| Actor credentials, eval service key or code judge | Restart/reconfigure the consumer app; service-key changes also need the matching Studio target update |
+| CLI connection/key variables | Supply them to the invoking shell or CI job; no Studio restart is needed for CLI profile edits |
+
+The CLI-generated Compose stack forwards judge settings to the API and eval
+bootstrap opt-in to the database job. Store them in the existing private Studio
+home `.env`; `studio start --home <path>` preserves them. Target file mounts and
+API target variables still need a deployment override: adding a host variable
+alone does not mount a file or forward it into a container. For repository or
+operator-managed Compose, explicitly set the bootstrap opt-in on `db-init` as
+shown in [container configuration](./11-evals.md#container-configuration).
 
 ## Health and shutdown
 

@@ -788,7 +788,7 @@ describe("eval execution ownership and failure reporting", () => {
 });
 
 describe("serializable suite validation", () => {
-  it("rejects functions, missing registered behavior, missing judges and invalid ordering", () => {
+  it("rejects functions, missing registered behavior and invalid ordering", () => {
     expect(() =>
       createEvals({
         agent: unusedAgent,
@@ -812,9 +812,6 @@ describe("serializable suite validation", () => {
     expect(() =>
       createEvals({ agent: unusedAgent, suites: [ambiguity], judge }),
     ).toThrow("Unknown responder");
-    expect(() =>
-      createEvals({ agent: unusedAgent, suites: [answerSuite] }),
-    ).toThrow("configured judge");
     expect(() =>
       createEvals({
         agent: unusedAgent,

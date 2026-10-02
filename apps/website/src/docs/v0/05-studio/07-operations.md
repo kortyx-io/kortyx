@@ -18,7 +18,7 @@ The default local installation lives under `~/.kortyx/studio`:
 | `.env` | Generated credentials and secrets |
 | `config.json` | Selected image tag, ports, username, and Compose project |
 | `compose.yml` | Generated local stack definition |
-| Docker PostgreSQL volume | Runs, sessions, telemetry, projections, and key verifier records |
+| Docker PostgreSQL volume | Runs, sessions, telemetry, projections, eval suite snapshots/results, and key verifier records |
 
 Protect the directory and database backups as secrets. A useful recovery set contains both the database and the matching credentials, especially the API-key pepper.
 
@@ -118,6 +118,26 @@ npx kortyx studio logs --no-follow
 | `Invalid telemetry API key` | Confirm the SDK uses the current Project write key and matching installation |
 | Studio reports an invalid service key | Confirm Studio and bootstrap use the same Studio read key and pepper |
 | Migration fails | Preserve the database, collect logs, and restore the pre-upgrade backup if needed |
+
+### Eval discovery, execution and judging
+
+| Symptom | What to check |
+| --- | --- |
+| Suites list is empty | Register targets in `KORTYX_EVAL_TARGETS_FILE`, mount it on the API, restart the API and check the selected project/environment |
+| Application is unavailable | API-to-consumer reachability, the mounted URL and matching eval service key; use `host.docker.internal` for a host app from Docker Desktop |
+| Run controls are disabled | Existing Studio key needs `eval:run`; rerun bootstrap with `KORTYX_STUDIO_ENABLE_EVALS=1` and the same stored key |
+| Studio judge is unavailable | Configure model and provider key on the API; restart it, or explicitly select an available App judge |
+| OpenRouter judge returns errors | Use Chat Completions mode, the correct base URL/model slug/key and a provider route supporting structured outputs |
+| Answer lacks verifiable tool evidence | Enable `toolExecution.emit: true` on relevant `useReason` calls; capture events in a custom executor |
+| A removed test application remains in the filter | Historical runs retain its target ID/name; removing configuration does not delete saved history |
+| Run remains awaiting evaluation | Inspect worker/provider errors; execution completion and semantic grading are separate phases |
+| Comparison is not comparable | Inspect missing attempts, changed case/judge/input/reference, and provider or execution errors before interpreting a score delta |
+
+Use `kortyx studio evals runs get <id> --include-content --json` to inspect captured
+evidence and grades. This includes application content. Worker crashes and expired
+leases do not automatically retry application workflows. Review possible side
+effects before starting another run. See [Evals](./11-evals.md) for the execution
+lifecycle, model settings and target configuration.
 
 ### After credential rotation
 

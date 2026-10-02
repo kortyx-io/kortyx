@@ -5,6 +5,7 @@ import {
 import type { AgentProcessOptions } from "../chat/create-agent";
 import type { ChatResponseFinalized } from "../chat/lifecycle";
 import type { ChatMessage } from "../types/chat-message";
+import { captureEvalEvent, toEvalJson } from "./stream-evidence";
 import type {
   CreateEvalsOptions,
   EvalCommand,
@@ -13,10 +14,9 @@ import type {
   EvalObservation,
 } from "./types";
 
+export { toEvalJson } from "./stream-evidence";
+
 type Pending = Extract<StreamChunk, { type: "interrupt" }>;
-export function toEvalJson(value: unknown): EvalJson {
-  return JSON.parse(JSON.stringify(value)) as EvalJson;
-}
 
 export async function executeEvalChat(args: {
   agent: CreateEvalsOptions["agent"];
@@ -87,6 +87,8 @@ export async function executeEvalChat(args: {
   let completion: Promise<void> | undefined;
   let finalized: ChatResponseFinalized | undefined;
   const interrupts = new Map<string, Pending>();
+  const events: EvalJson[] = [];
+  let previousChunk: StreamChunk | undefined;
   let error = false;
   let cancelled = false;
   let sawDone = false;
@@ -110,6 +112,26 @@ export async function executeEvalChat(args: {
   try {
     for await (const chunk of await args.agent.streamChat(messages, options)) {
       accumulator.apply(chunk);
+      const event = captureEvalEvent(chunk);
+      if (event !== undefined) {
+        // Preserve interleaving and text segment boundaries while avoiding one
+        // judge record per streamed token.
+        if (
+          chunk.type === "text-delta" &&
+          previousChunk?.type === "text-delta" &&
+          chunk.node === previousChunk.node &&
+          chunk.id === previousChunk.id &&
+          chunk.opId === previousChunk.opId &&
+          chunk.segmentId === previousChunk.segmentId
+        ) {
+          const previous = events.at(-1) as Record<string, EvalJson>;
+          events[events.length - 1] = {
+            ...previous,
+            delta: String(previous.delta) + chunk.delta,
+          };
+        } else events.push(event);
+      }
+      previousChunk = chunk;
       if (chunk.type === "interrupt") interrupts.set(chunk.requestId, chunk);
       if (chunk.type === "error") error = true;
       if (chunk.type === "cancelled") cancelled = true;
@@ -151,6 +173,7 @@ export async function executeEvalChat(args: {
     structured: message.contentPieces
       .filter((item) => item.type === "structured")
       .map((item) => toEvalJson(item.data)),
+    events,
     ...(observedRunId ? { runId: observedRunId } : {}),
     ...(message.checkpointId ? { checkpointId: message.checkpointId } : {}),
     ...(type === "interrupt" && piece?.type === "interrupt"

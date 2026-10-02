@@ -1,15 +1,13 @@
 import {
-  EvalRemoteRunRequestSchema,
   StudioEvalDetailSchema,
   StudioEvalHistorySchema,
+  StudioEvalStartRequestSchema,
   StudioEvalTargetsResponseSchema,
 } from "@kortyx/agent/evals";
 import { z } from "zod";
 import { StudioApiTransport, StudioReadError } from "./read-client";
 
-const StartRequestSchema = EvalRemoteRunRequestSchema.extend({
-  targetId: z.string().min(1).max(128),
-});
+const StartRequestSchema = StudioEvalStartRequestSchema;
 export type StartEvalRequest = z.input<typeof StartRequestSchema>;
 
 export const parseEvalRunTarget = (input: string) => {

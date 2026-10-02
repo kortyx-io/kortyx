@@ -24,17 +24,17 @@ export type EvalStep = (
   | { message: string; resume?: never }
   | { resume: ResumeResponse | EvalHandlerRef; message?: never }
 ) & { expect: EvalExpectation };
-export type EvalCase = {
+export type EvalCase<Params = EvalJson> = {
   id: string;
   name?: string;
-  params?: EvalJson;
+  params?: Params;
   workflowId?: string;
   steps: readonly EvalStep[];
 };
-export type EvalSuite = {
+export type EvalSuite<Params = EvalJson> = {
   id: string;
   name?: string;
-  cases: readonly EvalCase[];
+  cases: readonly EvalCase<Params>[];
 };
 export type EvalInterrupt = {
   requestId: string;
@@ -45,11 +45,13 @@ export type EvalInterrupt = {
   options: readonly { id: string; label: string; description?: string }[];
   request?: EvalJson;
 };
-/** Only caller-visible data. Private setup state and continuation handles are excluded. */
+/** Public output and emitted execution evidence; private runtime state is excluded. */
 export type EvalObservation = {
   type: "answer" | "interrupt" | "error" | "cancelled";
   text: string;
   structured: readonly EvalJson[];
+  /** Ordered public stream events. Adjacent text deltas from the same source are joined. */
+  events?: readonly EvalJson[];
   interrupt?: EvalInterrupt;
   runId?: string;
   checkpointId?: string;
@@ -64,6 +66,13 @@ export type EvalExecution = {
   continuation?: unknown;
 };
 export type EvalStatus = "passed" | "failed" | "error" | "cancelled";
+/** Execution can finish before Studio has evaluated its semantic criteria. */
+export type EvalExecutionStatus = EvalStatus | "ungraded";
+export type EvalJudgeIdentity = {
+  id: string;
+  version: string;
+  location?: "app" | "studio" | undefined;
+};
 export type EvalPhase =
   | "params"
   | "setup"
@@ -86,7 +95,7 @@ export type EvalStepResult = {
   expectation: EvalExpectation;
   observation: EvalObservation;
   reference?: EvalJson;
-  status: EvalStatus;
+  status: EvalExecutionStatus;
   reason?: string;
   criteria: EvalCriterionResult[];
 };
@@ -94,7 +103,7 @@ export type EvalCaseResult = {
   caseId: string;
   repetition: number;
   sessionId: string;
-  status: EvalStatus;
+  status: EvalExecutionStatus;
   durationMs: number;
   steps: EvalStepResult[];
   errors: EvalIssue[];
@@ -104,11 +113,11 @@ export type EvalRunResult = {
   suiteId: string;
   suiteRevision: string;
   suite: EvalSuite;
-  judge?: { id: string; version: string };
+  judge?: EvalJudgeIdentity;
   startedAt: string;
   durationMs: number;
-  status: EvalStatus;
-  counts: Record<EvalStatus, number>;
+  status: EvalExecutionStatus;
+  counts: Record<EvalStatus, number> & { ungraded?: number };
   cases: EvalCaseResult[];
   errors: EvalIssue[];
 };
@@ -123,12 +132,22 @@ export type EvalGradeInput = {
 export type EvalJudge = {
   id: string;
   version: string;
+  location?: "app" | "studio";
   grade: (input: EvalGradeInput) => Promise<EvalVerdict> | EvalVerdict;
 };
 export type EvalJudgeOptions = {
   model: ProviderModelRef;
   id?: string;
   version?: string;
+};
+export type StudioEvalJudgeOptions = {
+  /** Studio API origin, not the browser Studio URL. */
+  url: string;
+  apiKey: string;
+  environment: string;
+  allowInsecureHttp?: boolean;
+  /** Optional deadline for initial judge discovery. */
+  signal?: AbortSignal;
 };
 export type EvalSetupContext<Params> = {
   suiteId: string;
@@ -214,6 +233,10 @@ export type EvalProgress =
     }
   | { type: "case-completed"; result: EvalCaseResult };
 export type EvalRunOptions = {
+  /** Studio captures execution without invoking the code judge. Local runs default to app. */
+  grading?: "app" | "studio";
+  /** Selected identity pinned by the Studio server when enqueuing a run. */
+  judgeIdentity?: EvalJudgeIdentity;
   suiteId: string;
   caseIds?: readonly string[];
   repetitions?: number;

@@ -31,7 +31,9 @@ Created agent methods:
 import {
   createEvals,
   createEvalJudge,
+  createStudioEvalJudge,
   createEvalRouteHandler,
+  defineSuite,
   parseEvalSuite,
   getEvalSuiteRevision,
   type EvalSuite,
@@ -43,7 +45,13 @@ import {
 teardown?, paramsSchema?, defaults? })` returns `run`, `listSuites` and `describe`.
 It runs sequential conversational cases through the existing agent, including
 expected interrupt/resume steps. `createEvalJudge({ model, id?, version? })`
-grades each criterion. `createEvalRouteHandler({ evals, serviceKey, ...limits })`
+grades each criterion using a configured provider. `judge` is optional for
+Studio-triggered execution: Studio selects its backend judge or the app's code
+judge per run. Direct SDK runs with semantic criteria require a code judge.
+`defineSuite({ id, cases })` checks the authoring shape without adding runtime
+behavior. `createStudioEvalJudge({ url, apiKey, environment })` asynchronously
+discovers a Studio-hosted judge for explicit use from server code.
+`createEvalRouteHandler({ evals, serviceKey, ...limits })`
 mounts an authenticated GET manifest and POST NDJSON execution endpoint.
 
 Suite and wire schemas are browser-safe from `@kortyx/agent/evals`; execution

@@ -21,7 +21,7 @@ export function EvalDropdown({
 }: {
   label: string;
   value: string;
-  options: { value: string; label: string }[];
+  options: { value: string; label: string; disabled?: boolean }[];
   onChange: (value: string) => void;
   disabled?: boolean;
   className?: string;
@@ -50,6 +50,8 @@ export function EvalDropdown({
       </DropdownMenuTrigger>
       <DropdownMenuContent
         align="start"
+        onEscapeKeyDown={(event) => event.stopPropagation()}
+        onKeyDown={(event) => event.stopPropagation()}
         className="max-h-80 max-w-[min(32rem,calc(100vw-2rem))] min-w-(--radix-dropdown-menu-trigger-width) overflow-y-auto"
       >
         <DropdownMenuRadioGroup
@@ -58,7 +60,11 @@ export function EvalDropdown({
           onValueChange={onChange}
         >
           {options.map((item) => (
-            <DropdownMenuRadioItem key={item.value} value={item.value}>
+            <DropdownMenuRadioItem
+              key={item.value}
+              value={item.value}
+              disabled={item.disabled}
+            >
               <span className="break-words">{item.label}</span>
             </DropdownMenuRadioItem>
           ))}

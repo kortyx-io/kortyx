@@ -4,6 +4,7 @@ import { DetailDrawer } from "@/components/detail/detail-drawer";
 import { DetailLink } from "@/components/detail/detail-link";
 import { DetailPage } from "@/components/detail/detail-page";
 import { Button } from "@/components/ui/button";
+import { studioRouteId } from "@/lib/studio-routes";
 import { readEvalDetail } from "../api/server";
 import { evalCompareHref, evalComparisonCaseHref } from "../lib/navigation";
 import { compareRuns } from "../lib/presentation";
@@ -18,10 +19,9 @@ export async function EvalComparisonCasePage({
   searchParams: Promise<{ baseline?: string }>;
   drawer?: boolean;
 }) {
-  const [{ evalRunId, caseId }, { baseline: baselineId }] = await Promise.all([
-    params,
-    searchParams,
-  ]);
+  const [{ evalRunId, caseId: encodedCaseId }, { baseline: baselineId }] =
+    await Promise.all([params, searchParams]);
+  const caseId = studioRouteId(encodedCaseId);
   if (!baselineId) notFound();
   const [candidate, baseline] = await Promise.all([
     readEvalDetail(evalRunId),

@@ -11,7 +11,7 @@ import { createEvals, createEvalJudge, createEvalRouteHandler } from "kortyx";
 const evals = createEvals({
   agent,
   suites,
-  setup,       // authenticate the test actor and prepare independent reference facts
+  setup,       // optional: authenticate the test actor or prepare fixtures
   execute,     // bind the app's normal permission/tool context, then await run()
   responders,  // typed app handlers referenced by JSON resume steps
   references,
@@ -58,6 +58,82 @@ existing server-side Studio key; it does not require a new login system.
 For the local Docker bootstrap, opt in with `KORTYX_STUDIO_ENABLE_EVALS=1` and rerun
 bootstrap with the same stored Studio key. Execution is disabled by default.
 
+## Studio judge configuration
+
+Studio-triggered runs default to **Studio judge**. Configure its model and provider
+key on the Studio **API backend**. A code judge provided to `createEvals` makes
+**App judge** available as an explicit selection; Studio still defaults to its own
+judge. If hosted judging is not configured, the run drawer explains what is missing
+and allows selecting an available App judge. It never silently changes selection.
+
+The app executes the complete scripted scenario and resolves interrupts. With
+Studio judging, it returns captured evidence awaiting evaluation, then the Studio
+worker grades that evidence and stores the final results. App judging runs inside
+the app at each step. The browser never calls a model directly. The app needs no
+Studio grading key or model configuration for the hosted path.
+
+Enable the backend judge on the **API service**:
+
+```dotenv
+KORTYX_EVAL_JUDGE_MODEL=gpt-5.4-mini
+KORTYX_EVAL_JUDGE_API_KEY=<server-owned provider key>
+# Optional overrides:
+# KORTYX_EVAL_JUDGE_ID=studio/my-judge
+# KORTYX_EVAL_JUDGE_VERSION=kortyx-rubric-v3
+# KORTYX_EVAL_JUDGE_API=responses
+# KORTYX_EVAL_JUDGE_BASE_URL=https://api.openai.com/v1
+```
+
+The default server adapter uses Kortyx's OpenAI provider and its Responses API.
+Set `KORTYX_EVAL_JUDGE_API=chat-completions` for compatible Chat Completions
+endpoints. A custom HTTPS endpoint must support the selected API and structured
+JSON verdicts.
+Custom API hosts can instead inject any `EvalJudge` through
+`createApiApp({ ..., evalJudge })`, including a judge built with another Kortyx
+provider. Leaving the model unset disables hosted judging; app-side judging and
+ordinary Studio execution remain available.
+
+For OpenRouter, use its model slug and server-side API key:
+
+```dotenv
+KORTYX_EVAL_JUDGE_BASE_URL=https://openrouter.ai/api/v1
+KORTYX_EVAL_JUDGE_API=chat-completions
+KORTYX_EVAL_JUDGE_MODEL=openai/gpt-4o
+KORTYX_EVAL_JUDGE_API_KEY=<OpenRouter API key>
+KORTYX_EVAL_JUDGE_ID=studio/openrouter/openai/gpt-4o
+```
+
+Choose a model/provider combination that supports [structured outputs](https://openrouter.ai/docs/guides/features/structured-outputs).
+This integration uses OpenRouter's compatible HTTP contract; a live OpenRouter
+account is needed to verify the configured model and provider route.
+
+Docker Compose and CLI-generated Studio stacks pass these variables only to the
+API container. For a CLI-managed stack, add them to the existing owner-only
+`<studio-home>/.env` and restart with `kortyx studio start --home <studio-home>`.
+CLI startup preserves these private settings. For other deployments, use the
+API service's normal secret configuration. Provider credentials are never
+returned by judge discovery or included in run results.
+
+The browser and CLI use the existing project key with `studio:read` and `eval:run`
+to enqueue runs. The app's eval service key stays in server target configuration.
+Project and environment access is enforced on the Studio API. Provider credentials
+are never sent to the app or browser.
+
+Suite discovery advertises a code judge when one is configured and the consumer's
+Studio judging capability. The run drawer stores its selection in the URL. The API
+pins the selected judge identity in the saved request; the worker rejects a changed
+Studio judge before starting the app. The consumer similarly rejects a changed
+code judge. Missing configuration, provider failures and malformed verdicts produce
+errors instead of passing scores. Captured cases display **Awaiting evaluation**
+until Studio has graded them. Cancellation covers execution and grading.
+
+The optional `/v1/studio/evals/judge` endpoint remains available for explicit
+`createStudioEvalJudge` calls from code. It authenticates each request using a
+project Studio key, checks its environment, pins identity and bounds input size,
+concurrency and grading deadlines. Ordinary Studio runs grade within the worker
+and do not call this endpoint. Saved-run regrading and editable evaluator libraries
+are not included in this release.
+
 ## Persistence and execution lifecycle
 
 Apply `packages/telemetry-db/drizzle/0005_eval_runs.sql` through the regular
@@ -65,7 +141,8 @@ migration runner before starting the updated API. Each queued record stores its
 suite and revision, selection, target and environment. PostgreSQL row locking
 allows a worker replica to claim a record once. A lease and heartbeat track active
 execution. Progress is saved incrementally; the final result contains public
-observations, expected behavior, independent references, grader version, reasons,
+observations (including emitted execution events), expected behavior, optional
+references, grader version, reasons,
 and evidence. The UI polls saved records, so a browser reload does not terminate
 the run. Caller-visible observations may contain business data and require the
 same access and retention policy as ordinary Studio session data.
@@ -84,7 +161,10 @@ Comparison describes observed differences. Missing actor/data/prompt identity
 is shown as incomplete context; it does not establish why an outcome changed.
 
 This release supports suites authored in app code or JSON, sequential interactions,
-and LLM grading of public answers and interrupt requests. Studio suite editing,
+and LLM grading of public answers, interrupt requests and emitted tool evidence.
+Tool-based grading requires `toolExecution.emit: true` in the workflow. The judge
+uses the existing stream, including results from earlier steps before a resume.
+See the conversation eval guide for the capture boundary. Studio suite editing,
 prompt-variant injection, scheduled runs, cost summaries, retention controls,
 and an executor protocol for simultaneous interrupts or durable background work
 remain subsequent work. Prompt changes can be checked by rerunning the same
