@@ -1,7 +1,10 @@
 "use client";
 import type { EvalSuite } from "@kortyx/agent/evals";
-import { CircleDashed, MessageSquare, Reply, Workflow } from "lucide-react";
+import { ChevronDown, MessageSquare, Reply, Workflow } from "lucide-react";
+import { parseAsBoolean } from "nuqs";
 import { StatusPill } from "@/components/detail/detail-primitives";
+import { Button } from "@/components/ui/button";
+import { useStudioQueryStates } from "@/lib/nuqs";
 import { displayName } from "../lib/presentation";
 import { EvalDisclosure } from "./eval-disclosure";
 import { EvalPayloadViewer } from "./eval-payload-viewer";
@@ -17,26 +20,18 @@ function ResponseDefinition({
   if ("using" in response)
     return (
       <div className="space-y-2">
-        <p className="text-sm">
+        <p className="break-words text-sm">
           Use responder{" "}
-          <code className="rounded bg-muted px-1.5 py-0.5 text-xs">
+          <code
+            translate="no"
+            className="rounded bg-muted px-1.5 py-0.5 text-xs"
+          >
             {response.using}
           </code>
         </p>
         <p className="text-xs text-muted-foreground">
           The application prepares the response when this step runs.
         </p>
-        {response.params !== undefined ? (
-          <EvalDisclosure
-            scope={`${scope}-responder`}
-            label="Responder parameters"
-          >
-            <EvalPayloadViewer
-              scope={`${scope}-responder`}
-              value={response.params}
-            />
-          </EvalDisclosure>
-        ) : null}
       </div>
     );
   switch (response.type) {
@@ -96,94 +91,207 @@ function StepDefinition({
   const message = "message" in step;
   const Icon = message ? MessageSquare : Reply;
   return (
-    <li className="relative min-w-0 pb-5 last:pb-0">
-      <span className="absolute -left-3.5 top-0 flex size-7 items-center justify-center rounded-full border bg-background font-mono text-[11px] text-muted-foreground">
-        {index + 1}
-      </span>
-      <div className="min-w-0 space-y-3 pl-7">
-        <div className="flex min-h-7 items-center gap-2 text-xs font-medium">
-          <Icon className="size-3.5 text-muted-foreground" aria-hidden="true" />
+    <li className="min-w-0 space-y-3 border-t py-4 first:border-t-0 first:pt-0 last:pb-0">
+      <div className="flex min-w-0 flex-wrap items-center justify-between gap-x-4 gap-y-2">
+        <h5 className="flex min-w-0 items-center gap-2 text-xs font-medium">
+          <span className="font-mono text-muted-foreground">
+            Step {index + 1}
+          </span>
+          <Icon
+            className="size-3.5 shrink-0 text-muted-foreground"
+            aria-hidden="true"
+          />
           {message ? "User message" : "Respond to human input"}
-        </div>
-        <div className="grid min-w-0 overflow-hidden rounded-lg border @xl:grid-cols-2">
-          <div className="min-w-0 space-y-3 bg-muted/15 p-4">
-            {message ? (
-              <p className="whitespace-pre-wrap break-words text-sm leading-relaxed">
-                {step.message}
-              </p>
-            ) : (
-              <ResponseDefinition response={step.resume} scope={scope} />
-            )}
-          </div>
-          <div className="min-w-0 space-y-3 border-t p-4 @xl:border-l @xl:border-t-0">
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
-                Expect
-              </span>
-              <StatusPill
-                tone={step.expect.type === "interrupt" ? "warning" : "neutral"}
-              >
-                {step.expect.type === "interrupt"
-                  ? "Human input requested"
-                  : "Agent answer"}
-              </StatusPill>
-            </div>
-            {step.expect.schemaId ? (
-              <p className="break-words text-xs text-muted-foreground">
-                Choice / input component{" "}
-                <code className="font-mono text-foreground">
-                  {step.expect.schemaId}
-                  {step.expect.schemaVersion
-                    ? ` · v${step.expect.schemaVersion}`
-                    : ""}
-                </code>
-              </p>
-            ) : null}
-            {step.expect.criteria?.length ? (
-              <div className="space-y-2">
-                <p className="text-xs font-medium">Pass criteria</p>
-                <ul className="space-y-3">
-                  {step.expect.criteria.map((criterion, i) => (
-                    <li
-                      key={typeof criterion === "string" ? i : criterion.id}
-                      className="flex items-start gap-2"
-                    >
-                      <CircleDashed
-                        className="mt-0.5 size-3.5 shrink-0 text-muted-foreground"
-                        aria-hidden="true"
-                      />
-                      <p className="min-w-0 whitespace-pre-wrap break-words text-xs leading-relaxed">
-                        {typeof criterion === "string"
-                          ? criterion
-                          : criterion.text}
-                      </p>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ) : (
-              <p className="text-xs text-muted-foreground">
-                Checks the expected response type. No additional grading
-                criteria.
-              </p>
-            )}
-            {step.expect.reference !== undefined ? (
-              <EvalDisclosure
-                scope={`${scope}-reference`}
-                label="Reference facts"
-              >
-                <EvalPayloadViewer
-                  scope={`${scope}-reference`}
-                  value={step.expect.reference}
-                />
-              </EvalDisclosure>
-            ) : null}
-          </div>
+        </h5>
+        <div className="flex items-center gap-2 text-xs">
+          <span className="text-muted-foreground">Expects</span>
+          <StatusPill
+            tone={step.expect.type === "interrupt" ? "warning" : "neutral"}
+          >
+            {step.expect.type === "interrupt"
+              ? "Human input requested"
+              : "Agent answer"}
+          </StatusPill>
         </div>
       </div>
+      {message ? (
+        <p className="whitespace-pre-wrap break-words text-sm leading-relaxed">
+          {step.message || "Empty user message"}
+        </p>
+      ) : (
+        <ResponseDefinition response={step.resume} scope={scope} />
+      )}
+      {step.expect.schemaId ? (
+        <p className="break-words text-xs text-muted-foreground">
+          Choice / input component{" "}
+          <code translate="no" className="font-mono text-foreground">
+            {step.expect.schemaId}
+            {step.expect.schemaVersion
+              ? ` · v${step.expect.schemaVersion}`
+              : ""}
+          </code>
+        </p>
+      ) : null}
+      {step.expect.criteria?.length ? (
+        <div className="space-y-2">
+          <p className="text-xs font-medium text-muted-foreground">
+            Pass criteria
+          </p>
+          <ul className="list-disc space-y-2 pl-4 marker:text-muted-foreground">
+            {step.expect.criteria.map((criterion, i) => (
+              <li
+                key={typeof criterion === "string" ? i : criterion.id}
+                className="whitespace-pre-wrap break-words text-xs leading-relaxed"
+              >
+                {typeof criterion === "string" ? criterion : criterion.text}
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : (
+        <p className="text-xs text-muted-foreground">
+          Checks the expected response type. No additional grading criteria.
+        </p>
+      )}
     </li>
   );
 }
+
+type DefinitionDetail = {
+  id: string;
+  label: string;
+  value: unknown;
+};
+function conversationDetails(
+  c: EvalSuite["cases"][number],
+  scope: string,
+): DefinitionDetail[] {
+  const details: DefinitionDetail[] = [];
+  if (c.params !== undefined)
+    details.push({
+      id: `${scope}-${c.id}-data`,
+      label: "Test data and setup parameters",
+      value: c.params,
+    });
+  for (const [i, step] of c.steps.entries()) {
+    if (step.expect.reference !== undefined)
+      details.push({
+        id: `${scope}-${c.id}-${i}-reference`,
+        label: `Step ${i + 1} reference facts`,
+        value: step.expect.reference,
+      });
+    if (
+      "resume" in step &&
+      step.resume &&
+      "using" in step.resume &&
+      step.resume.params !== undefined
+    )
+      details.push({
+        id: `${scope}-${c.id}-${i}-responder`,
+        label: `Step ${i + 1} responder parameters`,
+        value: step.resume.params,
+      });
+  }
+  return details;
+}
+function ConversationDefinition({
+  conversation: c,
+  index,
+  scope,
+}: {
+  conversation: EvalSuite["cases"][number];
+  index: number;
+  scope: string;
+}) {
+  const details = conversationDetails(c, scope);
+  const groupId = `${scope}-${c.id}-details`;
+  const groupKey = `expand.${groupId}`;
+  const legacyKeys = details.map((detail) => `expand.${detail.id}`);
+  const [state, setState] = useStudioQueryStates(
+    Object.fromEntries(
+      [groupKey, ...legacyKeys].map((key) => [
+        key,
+        parseAsBoolean.withDefault(false),
+      ]),
+    ),
+    { shallow: true },
+  );
+  // Existing links to individual reference facts open the grouped disclosure.
+  const open = state[groupKey] || legacyKeys.some((key) => state[key]);
+  const name = c.name ?? displayName(c.id);
+  return (
+    <section aria-label={name} className="min-w-0 space-y-4 border-t pt-5">
+      <div className="space-y-2">
+        <div className="flex min-w-0 items-start justify-between gap-3">
+          <h4 className="flex min-w-0 flex-1 items-start gap-2.5 text-sm font-semibold">
+            <span className="shrink-0 pt-0.5 font-mono text-[11px] font-normal text-muted-foreground">
+              {String(index + 1).padStart(2, "0")}
+            </span>
+            <span className="min-w-0 break-words text-pretty">{name}</span>
+          </h4>
+          {details.length ? (
+            <Button
+              variant="ghost"
+              size="xs"
+              aria-label={`Details for ${name}`}
+              aria-expanded={open}
+              aria-controls={groupId}
+              className="shrink-0 text-muted-foreground"
+              onClick={() => {
+                void setState({
+                  ...Object.fromEntries(legacyKeys.map((key) => [key, null])),
+                  [groupKey]: !open,
+                });
+              }}
+            >
+              Details
+              <ChevronDown
+                aria-hidden="true"
+                className={`transition-transform motion-reduce:transition-none ${open ? "rotate-180" : ""}`}
+              />
+            </Button>
+          ) : null}
+        </div>
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-muted-foreground">
+          <span>
+            {c.steps.length} {c.steps.length === 1 ? "step" : "steps"}
+          </span>
+          {c.workflowId ? (
+            <span className="inline-flex min-w-0 items-center gap-1.5">
+              <Workflow className="size-3 shrink-0" aria-hidden="true" />
+              <code translate="no" className="break-all">
+                {c.workflowId}
+              </code>
+            </span>
+          ) : null}
+        </div>
+      </div>
+      <ol className="min-w-0">
+        {c.steps.map((step, i) => (
+          <StepDefinition
+            key={`${c.id}:${i}`}
+            step={step}
+            index={i}
+            scope={`${scope}-${c.id}-${i}`}
+          />
+        ))}
+      </ol>
+      {open ? (
+        <div id={groupId} className="min-w-0 space-y-4 border-t pt-4">
+          {details.map((detail) => (
+            <div key={detail.id} className="min-w-0 space-y-2">
+              <h5 className="text-xs font-medium text-muted-foreground">
+                {detail.label}
+              </h5>
+              <EvalPayloadViewer scope={detail.id} value={detail.value} />
+            </div>
+          ))}
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
 export function EvalSuiteDefinition({
   suite,
   scope,
@@ -198,87 +306,28 @@ export function EvalSuiteDefinition({
     0,
   );
   return (
-    <div className="@container min-w-0 space-y-6">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h3 className="text-sm font-semibold">Conversation plan</h3>
-          <p className="mt-1 text-xs text-muted-foreground">
-            Inputs, expected behavior, and grading criteria for each
-            conversation.
-          </p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <StatusPill>
-            {suite.cases.length}{" "}
-            {suite.cases.length === 1 ? "conversation" : "conversations"}
-          </StatusPill>
-          <StatusPill>
-            {stepCount} {stepCount === 1 ? "step" : "steps"}
-          </StatusPill>
-          {interruptCount ? (
-            <StatusPill tone="warning">
-              {interruptCount}{" "}
-              {interruptCount === 1 ? "human interrupt" : "human interrupts"}
-            </StatusPill>
-          ) : null}
-        </div>
+    <div className="min-w-0 space-y-6">
+      <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+        <h3 className="text-sm font-semibold">Conversation plan</h3>
+        <p className="text-xs text-muted-foreground">
+          {suite.cases.length}{" "}
+          {suite.cases.length === 1 ? "conversation" : "conversations"}
+          {" · "}
+          {stepCount} {stepCount === 1 ? "step" : "steps"}
+          {interruptCount
+            ? ` · ${interruptCount} ${interruptCount === 1 ? "human interrupt" : "human interrupts"}`
+            : ""}
+        </p>
       </div>
       {suite.cases.map((c, index) => (
-        <section
+        <ConversationDefinition
           key={c.id}
-          aria-label={c.name ?? displayName(c.id)}
-          className="min-w-0 overflow-hidden rounded-xl border bg-background"
-        >
-          <div className="space-y-3 border-b bg-muted/10 px-4 py-4 @lg:px-5">
-            <div className="flex items-start gap-3">
-              <span className="pt-0.5 font-mono text-[11px] text-muted-foreground">
-                {String(index + 1).padStart(2, "0")}
-              </span>
-              <div className="min-w-0 flex-1">
-                <h4 className="break-words text-sm font-semibold">
-                  {c.name ?? displayName(c.id)}
-                </h4>
-                <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-muted-foreground">
-                  <span>
-                    {c.steps.length} {c.steps.length === 1 ? "step" : "steps"}
-                  </span>
-                  {c.workflowId ? (
-                    <span className="inline-flex min-w-0 items-center gap-1.5">
-                      <Workflow
-                        className="size-3 shrink-0"
-                        aria-hidden="true"
-                      />
-                      <code className="break-all">{c.workflowId}</code>
-                    </span>
-                  ) : null}
-                </div>
-              </div>
-            </div>
-            {c.params !== undefined ? (
-              <EvalDisclosure
-                scope={`${scope}-${c.id}-data`}
-                label="Test data and setup parameters"
-              >
-                <EvalPayloadViewer
-                  scope={`${scope}-${c.id}-data`}
-                  value={c.params}
-                />
-              </EvalDisclosure>
-            ) : null}
-          </div>
-          <ol className="my-4 mr-4 ml-7 border-l border-border/70 @lg:my-5 @lg:mr-5 @lg:ml-8">
-            {c.steps.map((step, i) => (
-              <StepDefinition
-                key={`${c.id}:${i}`}
-                step={step}
-                index={i}
-                scope={`${scope}-${c.id}-${i}`}
-              />
-            ))}
-          </ol>
-        </section>
+          conversation={c}
+          index={index}
+          scope={scope}
+        />
       ))}
-      <div className="border-t pt-5">
+      <div className="border-t pt-4">
         <EvalDisclosure scope={`${scope}-raw`} label="Raw suite definition">
           <EvalPayloadViewer
             scope={`${scope}-raw`}
