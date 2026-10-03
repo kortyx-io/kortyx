@@ -86,3 +86,12 @@ slot. Provider credentials stay where the judge runs.
 ## License
 
 Apache-2.0. See [LICENSE](https://github.com/kortyx-io/kortyx/blob/main/LICENSE).
+
+## Conversation eval outputs
+
+A step can require multiple completed structured output contracts with
+`expect.outputs: [{ schemaId: "app.product-list" }, { schemaId: "app.product-summary", schemaVersion: "1" }]`.
+Versions are optional. These deterministic checks run before semantic criteria
+and only match finalized visible outputs from the current step. See the
+[conversation eval guide](https://kortyx.io/docs/guides/conversation-evals) for
+SDK setup, Studio execution and custom executor requirements.

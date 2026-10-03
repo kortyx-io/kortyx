@@ -14,6 +14,9 @@ const expectation = z
     type: z.enum(["answer", "interrupt"]),
     schemaId: id.optional(),
     schemaVersion: id.optional(),
+    outputs: z
+      .array(z.object({ schemaId: id, schemaVersion: id.optional() }).strict())
+      .optional(),
     criteria: z
       .array(
         z.union([

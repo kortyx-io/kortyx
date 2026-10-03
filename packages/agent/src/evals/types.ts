@@ -13,10 +13,16 @@ export type EvalJson =
   | { readonly [key: string]: EvalJson };
 export type EvalHandlerRef = { using: string; params?: EvalJson };
 export type EvalCriterion = string | { id: string; text: string };
+export type EvalOutputExpectation = {
+  schemaId: string;
+  schemaVersion?: string;
+};
 export type EvalExpectation = {
   type: "answer" | "interrupt";
   schemaId?: string;
   schemaVersion?: string;
+  /** Required completed structured output contracts in this step; other outputs are allowed. */
+  outputs?: readonly EvalOutputExpectation[];
   criteria?: readonly EvalCriterion[];
   reference?: EvalJson;
 };

@@ -42,6 +42,7 @@ export type {
   EvalJudgeIdentity,
   EvalJudgeOptions,
   EvalObservation,
+  EvalOutputExpectation,
   EvalPhase,
   EvalProgress,
   EvalResponder,

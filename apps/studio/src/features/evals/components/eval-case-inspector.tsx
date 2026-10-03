@@ -5,6 +5,7 @@ import { DetailLink } from "@/components/detail/detail-link";
 import { Button } from "@/components/ui/button";
 import type { CaseRow } from "../lib/presentation";
 import { EvalDisclosure } from "./eval-disclosure";
+import { EvalOutputRequirements } from "./eval-output-requirements";
 import { EvalPayloadViewer } from "./eval-payload-viewer";
 import { EvalStatus } from "./eval-status";
 
@@ -41,6 +42,7 @@ function StepEvaluation({
       <p className="text-xs text-muted-foreground">
         Expected {step.expectation.type} · Observed {step.observation.type}
       </p>
+      <EvalOutputRequirements outputs={step.expectation.outputs} />
       {step.reason ? (
         <p className="break-words text-xs text-red-700 dark:text-red-400">
           {step.reason}

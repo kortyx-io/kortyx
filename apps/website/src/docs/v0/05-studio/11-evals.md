@@ -293,3 +293,16 @@ separate credential from the Studio key; neither contains the test user's token.
 
 See [Conversation Evals](../03-guides/10-conversation-evals.md) for suite design,
 typed setup/responders, Auth0 integration and grading boundaries.
+
+## Required structured responses
+
+Conversation steps can declare `expect.outputs` as an array of required output
+contracts. Studio displays each ID and either the exact required version or
+“Any version” in the suite definition and case evaluation. The consumer checks
+that every contract has a completed visible output before either judge runs.
+Partial streams, invalidated outputs and outputs from previous steps do not
+satisfy the requirement. Missing contracts fail the step with an explicit reason.
+Open the conversation debugging section to inspect the recorded envelopes.
+Use pass criteria to assess payload meaning; the output requirements check
+contract presence. See [the conversation guide](../03-guides/10-conversation-evals.md#required-structured-outputs)
+for suite authoring and custom executor support.

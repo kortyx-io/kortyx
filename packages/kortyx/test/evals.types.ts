@@ -1,5 +1,36 @@
-import type { Agent, EvalSuite, ProviderModelRef } from "../src";
+import type {
+  Agent,
+  EvalOutputExpectation,
+  EvalSuite,
+  ProviderModelRef,
+} from "../src";
 import { createEvalJudge, createEvals } from "../src";
+
+const outputRequirements: EvalOutputExpectation[] = [
+  { schemaId: "app.product-list" },
+  { schemaId: "app.product-summary", schemaVersion: "1" },
+];
+const structuredSuite: EvalSuite = {
+  id: "catalog",
+  cases: [
+    {
+      id: "products",
+      steps: [
+        {
+          message: "Show products",
+          expect: { type: "answer", outputs: outputRequirements },
+        },
+      ],
+    },
+  ],
+};
+void structuredSuite;
+const invalidOutput: EvalOutputExpectation = {
+  schemaId: "app.product-list",
+  // @ts-expect-error Output contract versions are strings.
+  schemaVersion: 1,
+};
+void invalidOutput;
 
 // Compile against the facade and the built agent declarations, as consumers do.
 export function configureEvals(agent: Agent, model: ProviderModelRef) {

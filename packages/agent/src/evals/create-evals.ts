@@ -9,6 +9,7 @@ import {
   EvalVerdictSchema,
   parseEvalSuite,
 } from "./contracts";
+import { missingOutputReason } from "./output-expectations";
 import { getEvalSuiteRevision } from "./revision";
 import { executeEvalChat } from "./stream";
 import type {
@@ -445,50 +446,59 @@ export function createEvals<
               evaluated.reason =
                 "The observed interaction did not match the expected answer or interrupt contract.";
             } else {
-              phase = "reference";
-              const reference = step.expect.reference;
-              if (reference !== undefined) {
-                evaluated.reference = handlerRef(reference)
-                  ? z.json().parse(
-                      await references[reference.using]!({
-                        ...context,
-                        observation: clone(observation),
-                        ...(reference.params !== undefined
-                          ? { args: reference.params }
-                          : {}),
-                      }),
-                    )
-                  : clone(reference);
-              }
-              phase = "grading";
-              if (studioGrading && step.expect.criteria?.length) {
-                evaluated.status = "ungraded";
-                attemptResult.status = "ungraded";
-              }
-              for (const [criterionIndex, value] of (studioGrading
-                ? []
-                : (step.expect.criteria ?? [])
-              ).entries()) {
-                signal.throwIfAborted();
-                const criterion =
-                  typeof value === "string"
-                    ? { id: String(criterionIndex), text: value }
-                    : value;
-                const verdict = EvalVerdictSchema.parse(
-                  await options.judge!.grade({
-                    criterion,
-                    input: clone(input),
-                    observation: clone(observation),
-                    conversation: clone(attemptResult.steps.slice(0, -1)),
-                    signal,
-                    ...(evaluated.reference !== undefined
-                      ? { reference: clone(evaluated.reference) }
-                      : {}),
-                  }),
-                );
-                signal.throwIfAborted();
-                evaluated.criteria.push({ ...criterion, ...verdict });
-                if (!verdict.passed) evaluated.status = "failed";
+              const outputReason = missingOutputReason(
+                step.expect.outputs,
+                observation,
+              );
+              if (outputReason) {
+                evaluated.status = "failed";
+                evaluated.reason = outputReason;
+              } else {
+                phase = "reference";
+                const reference = step.expect.reference;
+                if (reference !== undefined) {
+                  evaluated.reference = handlerRef(reference)
+                    ? z.json().parse(
+                        await references[reference.using]!({
+                          ...context,
+                          observation: clone(observation),
+                          ...(reference.params !== undefined
+                            ? { args: reference.params }
+                            : {}),
+                        }),
+                      )
+                    : clone(reference);
+                }
+                phase = "grading";
+                if (studioGrading && step.expect.criteria?.length) {
+                  evaluated.status = "ungraded";
+                  attemptResult.status = "ungraded";
+                }
+                for (const [criterionIndex, value] of (studioGrading
+                  ? []
+                  : (step.expect.criteria ?? [])
+                ).entries()) {
+                  signal.throwIfAborted();
+                  const criterion =
+                    typeof value === "string"
+                      ? { id: String(criterionIndex), text: value }
+                      : value;
+                  const verdict = EvalVerdictSchema.parse(
+                    await options.judge!.grade({
+                      criterion,
+                      input: clone(input),
+                      observation: clone(observation),
+                      conversation: clone(attemptResult.steps.slice(0, -1)),
+                      signal,
+                      ...(evaluated.reference !== undefined
+                        ? { reference: clone(evaluated.reference) }
+                        : {}),
+                    }),
+                  );
+                  signal.throwIfAborted();
+                  evaluated.criteria.push({ ...criterion, ...verdict });
+                  if (!verdict.passed) evaluated.status = "failed";
+                }
               }
             }
             await emit({

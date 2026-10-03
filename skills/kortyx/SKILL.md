@@ -132,3 +132,9 @@ React client:
 - Sensitive auth context is derived on the server.
 - Studio integrations, when requested, publish the real workflow catalog and verify a real run separately.
 - Eval integrations exercise the app's real permission path, expected interrupts and tool evidence; verify the selected judge and saved results. Keep deterministic runtime contracts in SDK integration tests and semantic behavior in eval criteria.
+
+For required structured responses, use `expect.outputs: [{ schemaId, schemaVersion? }]`.
+Every listed contract must be complete in the current step. An omitted version accepts
+any version. Use criteria for payload meaning; do not treat partial, invalidated or
+previous-turn outputs as success. See `references/conversation-evals.md` for the
+SDK, Studio and custom executor shape.

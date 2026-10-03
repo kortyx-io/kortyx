@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { useStudioQueryStates } from "@/lib/nuqs";
 import { displayName } from "../lib/presentation";
 import { EvalDisclosure } from "./eval-disclosure";
+import { EvalOutputRequirements } from "./eval-output-requirements";
 import { EvalPayloadViewer } from "./eval-payload-viewer";
 
 type SuiteStep = EvalSuite["cases"][number]["steps"][number];
@@ -132,6 +133,7 @@ function StepDefinition({
           </code>
         </p>
       ) : null}
+      <EvalOutputRequirements outputs={step.expect.outputs} />
       {step.expect.criteria?.length ? (
         <div className="space-y-2">
           <p className="text-xs font-medium text-muted-foreground">
@@ -150,7 +152,9 @@ function StepDefinition({
         </div>
       ) : (
         <p className="text-xs text-muted-foreground">
-          Checks the expected response type. No additional grading criteria.
+          {step.expect.outputs?.length
+            ? "Checks the response type and required structured outputs. No LLM grading criteria."
+            : "Checks the expected response type. No additional grading criteria."}
         </p>
       )}
     </li>

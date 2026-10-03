@@ -190,3 +190,14 @@ TEST_EVAL_DATABASE_URL=postgres://postgres:local-eval-test@127.0.0.1:7543/kortyx
   pnpm --filter @kortyx/api exec vitest run test/evals.integration.test.ts
 # Remove the disposable container after verification.
 ```
+
+## Structured output requirements
+
+Studio shows `expect.outputs` in each conversation step and saved case evaluation.
+The consumer checks every required completed contract before app or Studio semantic
+grading. An omitted `schemaVersion` means any version; a supplied version must
+match exactly. Missing contracts have a failed step with a reason identifying
+the missing ID/version. Their partial stream and other finalized outputs remain
+available for debugging. Payload meaning is assessed by the configured criteria.
+See [the SDK guide](./sdk-runner.md#required-structured-outputs) for authoring,
+custom executor envelopes and interrupt boundaries.

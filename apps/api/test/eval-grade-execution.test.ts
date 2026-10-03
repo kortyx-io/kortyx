@@ -42,6 +42,77 @@ const judge: EvalJudge = {
     evidence: ["90000 versus 99000"],
   }),
 };
+it("Studio cannot turn a missing output into a pass and still grades content after successful contract checks", async () => {
+  const output = {
+    schemaId: "app.product-list",
+    status: "done",
+    data: { products: [{ price: 99 }] },
+  };
+  const execution = await createEvals({
+    agent: { streamChat: vi.fn() },
+    suites: [
+      {
+        id: "catalog",
+        cases: [
+          {
+            id: "missing",
+            steps: [
+              {
+                message: "Show products",
+                expect: {
+                  type: "answer",
+                  outputs: [{ schemaId: "app.receipt" }],
+                  criteria: ["Correct prices"],
+                },
+              },
+            ],
+          },
+          {
+            id: "wrong-content",
+            steps: [
+              {
+                message: "Show products",
+                expect: {
+                  type: "answer",
+                  outputs: [{ schemaId: "app.product-list" }],
+                  criteria: ["Correct prices"],
+                },
+              },
+            ],
+          },
+        ],
+      },
+    ],
+    execute: () => ({
+      observation: { type: "answer", text: "", structured: [output] },
+    }),
+  }).run({ suiteId: "catalog", grading: "studio" });
+  const grade = vi.fn((input: Parameters<EvalJudge["grade"]>[0]) => {
+    expect(input.observation.structured).toEqual([output]);
+    expect(input.observation.text).toBe("");
+    return {
+      passed: false,
+      reason: "Wrong price",
+      evidence: ["99 instead of 80"],
+    };
+  });
+  const original = structuredClone(execution);
+  const result = await gradeEvalExecution(
+    execution,
+    { ...judge, grade },
+    new AbortController().signal,
+    async () => {},
+  );
+  expect(grade).toHaveBeenCalledOnce();
+  expect(execution).toEqual(original);
+  expect(result.status).toBe("failed");
+  expect(result.counts.failed).toBe(2);
+  expect(result.cases[0]?.steps[0]?.reason).toContain(
+    "app.receipt (any version)",
+  );
+  expect(result.cases[0]?.steps[0]?.criteria).toEqual([]);
+  expect(result.cases[1]?.steps[0]?.criteria[0]?.reason).toBe("Wrong price");
+});
 it("grades every captured step and stores failed criteria with evidence without mutating captured execution", async () => {
   const execution = await capture();
   const grade = vi.fn(judge.grade);

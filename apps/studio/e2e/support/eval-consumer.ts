@@ -6,6 +6,7 @@ import { createServer } from "node:http";
 import { Readable } from "node:stream";
 import { createEvalRouteHandler, createEvals } from "@kortyx/agent";
 import postgres from "postgres";
+import { createOutputAgent, OUTPUT_SUITE } from "./eval-output-plan";
 import { EVAL_FIXTURE, EVAL_OPAQUE_SUITE, EVAL_SUITE } from "./eval-plan";
 
 async function main() {
@@ -36,13 +37,10 @@ async function main() {
     { mode: 0o600 },
   );
   const evals = createEvals({
-    agent: {
-      streamChat: () => {
-        throw new Error("The E2E fixture must use its deterministic executor");
-      },
-    },
-    suites: [EVAL_SUITE, EVAL_OPAQUE_SUITE],
-    execute: ({ command, case: item }) => {
+    agent: createOutputAgent(),
+    suites: [EVAL_SUITE, EVAL_OPAQUE_SUITE, OUTPUT_SUITE],
+    execute: ({ command, case: item, suiteId, run }) => {
+      if (suiteId === OUTPUT_SUITE.id) return run();
       if (item.id === "human-choice" && command.type === "message")
         return {
           continuation: {},

@@ -86,10 +86,67 @@ This example grades answers against the workflow's emitted tool results, so it
 needs no separate reference loader. Enable tool emission as shown below. Stable
 fixtures make behavior changes meaningful; changing live data can change the
 expected answer. An unexpected picker fails before calling the judge. Every
-configured criterion must pass. Without criteria, only the interaction type and
-optional interrupt schema are checked. Reference facts are optional; add them
+configured criterion must pass. Without criteria, only the interaction type, optional interrupt schema and
+any required structured outputs are checked. Reference facts are optional; add them
 only when the scenario needs an independent expected result beyond the tool
 evidence.
+
+## Required structured outputs
+
+Declare visible output contracts on the step that must produce them:
+
+```ts
+const suite = defineSuite({
+  id: "catalog-output",
+  cases: [{
+    id: "list-and-summary",
+    steps: [{
+      message: "Show the blue backpacks with prices and a short summary",
+      expect: {
+        type: "answer",
+        outputs: [
+          { schemaId: "app.product-list" },
+          { schemaId: "app.product-summary", schemaVersion: "1" },
+        ],
+        criteria: ["Prices match successful tool results for the requested products."],
+      },
+    }],
+  }],
+});
+```
+
+Every listed contract must have a completed visible output in that step.
+`schemaVersion` is optional: omitting it accepts any version; setting it requires
+an exact match. Multiple outputs can appear in one assistant response. Extra
+outputs are allowed, and this array does not assert their count or order.
+The registered workflow's output contract validates the payload; eval criteria
+judge its meaning and faithfulness to emitted tool results.
+
+The runner checks the current finalized `observation.structured` envelopes before
+calling either an app or Studio judge. Partial outputs, invalidated outputs,
+outputs from earlier steps, tool results and IDs embedded inside a payload do not
+satisfy a requirement. A missing contract fails the case with the missing ID and
+version in the reason, skips semantic judging for that step and stops subsequent
+steps. Cleanup still runs. Output-only expectations need no LLM judge in local
+SDK runs; Studio runs still use its explicit judge selection flow.
+
+Requirements appear in Studio's conversation plan and case evaluation, and are
+saved with the run's suite snapshot. The same JSON shape works for a suite
+authored in Studio, SDK execution and CLI-triggered runs.
+
+`outputs` can also accompany an interrupt expectation when the workflow must
+show data before requesting a response. The top-level `schemaId` and
+`schemaVersion` on an interrupt expectation describe its single pending request;
+`outputs` describes completed visible outputs. Use another step to resume it.
+The default executor supports sequential interrupts, not simultaneous pending
+requests.
+
+A custom executor must put the current step's finalized public envelopes in
+`observation.structured`, for example
+`{ schemaId: "app.product-list", schemaVersion: "2", status: "done", data: { products: [] } }`.
+Return partials with `status: "streaming"`, and remove invalidated entries.
+Do not copy earlier turns or tool results into this array. The native executor
+performs this accumulation automatically from `agent.streamChat`.
 
 ## Execution evidence from existing tool outputs
 
