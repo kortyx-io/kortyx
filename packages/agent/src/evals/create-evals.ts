@@ -497,9 +497,16 @@ export function createEvals<
                     typeof value === "string"
                       ? { id: String(criterionIndex), text: value }
                       : value;
+                  evaluated.judgeCalls = (evaluated.judgeCalls ?? 0) + 1;
                   const verdict = EvalVerdictSchema.parse(
                     await options.judge!.grade({
                       criterion,
+                      onUsage: (usage) => {
+                        if (!signal.aborted) {
+                          evaluated.judgeUsage ??= [];
+                          evaluated.judgeUsage.push(clone(usage));
+                        }
+                      },
                       input: clone(input),
                       observation: clone(observation),
                       conversation: clone(attemptResult.steps.slice(0, -1)),

@@ -139,6 +139,45 @@ const issue = z
     message: z.string(),
   })
   .strict();
+/** Billing evidence only: no prompts, provider raw responses, or credentials. */
+export const EvalJudgeUsageSchema = z
+  .object({
+    provider: z.string().min(1),
+    model: z.string().min(1),
+    occurredAt: z.iso.datetime(),
+    usage: z
+      .object({
+        input: z.number().finite().nonnegative().optional(),
+        output: z.number().finite().nonnegative().optional(),
+        total: z.number().finite().nonnegative().optional(),
+        reasoning: z.number().finite().nonnegative().optional(),
+        cacheRead: z.number().finite().nonnegative().optional(),
+        cacheWrite: z.number().finite().nonnegative().optional(),
+        cacheWrite1h: z.number().finite().nonnegative().optional(),
+        outputIncludesReasoning: z.boolean().optional(),
+        inputIncludesCacheRead: z.boolean().optional(),
+        inputIncludesCacheWrite: z.boolean().optional(),
+      })
+      .strict()
+      .optional(),
+    pricingContext: z
+      .object({
+        serviceTier: z.string().min(1).max(100).optional(),
+        inferenceGeo: z.string().min(1).max(100).optional(),
+        speed: z.string().min(1).max(100).optional(),
+      })
+      .strict()
+      .optional(),
+    pricing: z
+      .object({
+        source: z.literal("provider"),
+        currency: z.literal("USD"),
+        actualCostMicros: z.number().int().nonnegative().safe(),
+      })
+      .strict()
+      .optional(),
+  })
+  .strict();
 export const EvalStepResultSchema = z
   .object({
     index: z.number().int().nonnegative(),
@@ -151,6 +190,8 @@ export const EvalStepResultSchema = z
     reference: z.json().optional(),
     status,
     reason: z.string().optional(),
+    judgeCalls: z.number().int().nonnegative().optional(),
+    judgeUsage: z.array(EvalJudgeUsageSchema).optional(),
     criteria: z.array(
       EvalVerdictSchema.extend({ id: z.string(), text: z.string() }),
     ),
@@ -192,6 +233,7 @@ export const StudioEvalJudgeResponseSchema = z
   .object({
     judge: EvalJudgeIdentitySchema,
     verdict: EvalVerdictSchema,
+    usage: z.array(EvalJudgeUsageSchema).optional(),
   })
   .strict();
 export const EvalRunResultSchema = z

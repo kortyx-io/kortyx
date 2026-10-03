@@ -31,6 +31,7 @@ RUN chmod 0755 /usr/local/bin/kortyx-studio-db \
   && pnpm --filter @kortyx/telemetry-contracts build \
   && pnpm exec turbo run build --filter=@kortyx/agent... \
   && pnpm --filter @kortyx/openai build \
+  && pnpm --filter @kortyx/openrouter build \
   && pnpm --filter @kortyx/telemetry-db build \
   && pnpm --filter @kortyx/api build
 

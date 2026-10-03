@@ -8,7 +8,7 @@ import { studioRouteId } from "@/lib/studio-routes";
 import { readEvalDetail } from "../api/server";
 import { evalCaseHref, evalRunHref } from "../lib/navigation";
 import { caseRows } from "../lib/presentation";
-import { EvalCaseContent } from "./eval-case-inspector";
+import { EvalLiveCaseContent } from "./eval-live-case-content";
 import { EvalStatus } from "./eval-status";
 export async function EvalCasePage({
   params,
@@ -31,7 +31,11 @@ export async function EvalCasePage({
       title={row.name}
       description={`Attempt ${row.repetition} · Evaluation results`}
     >
-      <EvalCaseContent row={row} />
+      <EvalLiveCaseContent
+        run={run}
+        caseId={caseId}
+        repetition={Number(repetition)}
+      />
     </DetailDrawer>
   ) : (
     <DetailPage title={row.name} description="Evaluation results">
@@ -48,7 +52,11 @@ export async function EvalCasePage({
           description={`Attempt ${row.repetition} · ${run.suite.name ?? run.suiteId}`}
         />
         <div className="min-h-0 flex-1">
-          <EvalCaseContent row={row} />
+          <EvalLiveCaseContent
+            run={run}
+            caseId={caseId}
+            repetition={Number(repetition)}
+          />
         </div>
       </div>
     </DetailPage>

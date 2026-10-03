@@ -548,6 +548,7 @@ export const StudioPricingStatusSchema = z.enum([
 export const StudioPricingSourceSchema =
   TelemetryPricingSourceSchema.nullable();
 export const StudioChangeResourceSchema = z.enum([
+  "evals",
   "workflows",
   "runs",
   "sessions",

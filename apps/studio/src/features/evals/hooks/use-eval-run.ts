@@ -1,6 +1,8 @@
-import { useEffect, useState } from "react";
+import { parseAsBoolean } from "nuqs";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useLiveRefresh } from "@/features/telemetry/hooks/use-live-refresh";
+import { useStudioQueryState } from "@/lib/nuqs";
 import { evalRequest } from "../api/client";
-import { isActive } from "../lib/presentation";
 import { type EvalDetail, EvalDetailSchema } from "../schema";
 
 export function useEvalRun(
@@ -8,51 +10,64 @@ export function useEvalRun(
   initial: EvalDetail | null,
   refresh: number,
 ) {
+  const [enabled] = useStudioQueryState(
+    "live",
+    parseAsBoolean.withDefault(true).withOptions({ shallow: true }),
+  );
   const [detail, setDetail] = useState(initial);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(Boolean(id && initial?.id !== id));
-  // biome-ignore lint/correctness/useExhaustiveDependencies: the refresh counter explicitly requests a new read.
-  useEffect(() => {
-    if (!id) {
-      setDetail(null);
-      setLoading(false);
-      setError(null);
-      return;
-    }
+  const request = useRef<AbortController | null>(null);
+  const currentId = useRef(id);
+  currentId.current = id;
+  const read = useCallback(async () => {
+    if (!id) return;
+    request.current?.abort();
     const controller = new AbortController();
-    let timer: ReturnType<typeof setTimeout> | undefined;
-    setLoading(detail?.id !== id);
+    request.current = controller;
+    try {
+      const next = EvalDetailSchema.parse(
+        await evalRequest(
+          `runs/${encodeURIComponent(id)}`,
+          undefined,
+          controller.signal,
+        ),
+      ).run;
+      if (controller.signal.aborted || currentId.current !== id) return;
+      setDetail(next);
+      setError(null);
+    } catch (cause) {
+      if (controller.signal.aborted || currentId.current !== id) return;
+      setError(
+        cause instanceof Error
+          ? cause.message
+          : "Could not load this eval run.",
+      );
+    } finally {
+      if (!controller.signal.aborted && currentId.current === id)
+        setLoading(false);
+    }
+  }, [id]);
+  const live = useLiveRefresh({
+    enabled: Boolean(id) && enabled,
+    resource: "evals",
+    relatedResources: ["runs"],
+    refresh: read,
+  });
+  // biome-ignore lint/correctness/useExhaustiveDependencies: refresh explicitly requests another read.
+  useEffect(() => {
+    setLoading(Boolean(id && detail?.id !== id));
     setError(null);
-    const poll = async () => {
-      try {
-        const next = EvalDetailSchema.parse(
-          await evalRequest(
-            `runs/${encodeURIComponent(id)}`,
-            undefined,
-            controller.signal,
-          ),
-        ).run;
-        if (controller.signal.aborted) return;
-        setDetail(next);
-        setError(null);
-        setLoading(false);
-        if (isActive(next.status)) timer = setTimeout(poll, 1500);
-      } catch (cause) {
-        if (controller.signal.aborted) return;
-        setError(
-          cause instanceof Error
-            ? cause.message
-            : "Could not load this eval run.",
-        );
-        setLoading(false);
-        timer = setTimeout(poll, 4000);
-      }
-    };
-    void poll();
+    if (!id) setDetail(null);
+    void read();
     return () => {
-      controller.abort();
-      if (timer) clearTimeout(timer);
+      request.current?.abort();
     };
-  }, [id, refresh]);
-  return { detail: detail?.id === id ? detail : null, error, loading };
+  }, [id, refresh, read]);
+  return {
+    detail: detail?.id === id ? detail : null,
+    error,
+    loading,
+    liveStatus: live.status,
+  };
 }

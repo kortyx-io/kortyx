@@ -1,6 +1,7 @@
 export {
   EvalConfigurationError,
   EvalJudgeIdentitySchema,
+  EvalJudgeUsageSchema,
   type EvalManifest,
   EvalManifestSchema,
   EvalProgressSchema,
@@ -41,6 +42,7 @@ export type {
   EvalJudge,
   EvalJudgeIdentity,
   EvalJudgeOptions,
+  EvalJudgeUsage,
   EvalObservation,
   EvalOutputExpectation,
   EvalPhase,

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { EvalVerdictSchema } from "./contracts";
+import { EvalJudgeUsageSchema, EvalVerdictSchema } from "./contracts";
 import type { EvalJudge, EvalJudgeOptions } from "./types";
 
 /** A separate model call: the evaluated agent never grades itself inside its workflow. */
@@ -19,6 +19,7 @@ export function createEvalJudge({
       reference,
       conversation,
       signal,
+      onUsage,
     }) {
       signal.throwIfAborted();
       const judge = model.provider.getModel(model.modelId, {
@@ -53,6 +54,76 @@ export function createEvalJudge({
           }),
         },
       ]);
+      if (onUsage && !signal.aborted) {
+        // Retain charges even when the generated verdict is malformed. Never persist raw metadata.
+        const numericKeys = [
+          "input",
+          "output",
+          "total",
+          "reasoning",
+          "cacheRead",
+          "cacheWrite",
+          "cacheWrite1h",
+        ];
+        const booleanKeys = [
+          "outputIncludesReasoning",
+          "inputIncludesCacheRead",
+          "inputIncludesCacheWrite",
+        ];
+        const usage =
+          result.usage &&
+          Object.fromEntries(
+            Object.entries(result.usage).filter(([key, value]) =>
+              numericKeys.includes(key)
+                ? typeof value === "number" &&
+                  Number.isFinite(value) &&
+                  value >= 0
+                : booleanKeys.includes(key) && typeof value === "boolean",
+            ),
+          );
+        const metadata = result.providerMetadata;
+        const pricingContext =
+          metadata &&
+          Object.fromEntries(
+            ["serviceTier", "inferenceGeo", "speed"].flatMap((key) =>
+              typeof metadata[key] === "string" &&
+              metadata[key].length > 0 &&
+              metadata[key].length <= 100
+                ? [[key, metadata[key]]]
+                : [],
+            ),
+          );
+        const upstream = metadata?.costDetails as
+          | { upstreamInferenceCost?: unknown }
+          | undefined;
+        const cost =
+          metadata?.isByok === true
+            ? upstream?.upstreamInferenceCost
+            : metadata?.cost;
+        const record = EvalJudgeUsageSchema.parse({
+          provider: model.provider.id,
+          model: model.modelId,
+          occurredAt: new Date().toISOString(),
+          ...(usage ? { usage } : {}),
+          ...(pricingContext && Object.keys(pricingContext).length
+            ? { pricingContext }
+            : {}),
+          ...(model.provider.id === "openrouter" &&
+          typeof cost === "number" &&
+          Number.isFinite(cost) &&
+          cost >= 0 &&
+          Number.isSafeInteger(Math.round(cost * 1_000_000))
+            ? {
+                pricing: {
+                  source: "provider",
+                  currency: "USD",
+                  actualCostMicros: Math.round(cost * 1_000_000),
+                },
+              }
+            : {}),
+        });
+        onUsage(record);
+      }
       signal.throwIfAborted();
       if (result.finishReason && result.finishReason.unified !== "stop")
         throw new Error("Judge did not finish its verdict.");

@@ -1,6 +1,7 @@
 "use client";
 import { GitCompareArrows, Square } from "lucide-react";
 import { parseAsStringLiteral } from "nuqs";
+import type { ReactNode } from "react";
 import {
   DataTable,
   type DataTableColumn,
@@ -20,12 +21,14 @@ import {
   progressCounts,
 } from "../lib/presentation";
 import type { EvalDetail } from "../schema";
+import { EvalCost, EvalCostBreakdown } from "./eval-cost";
 import { EvalDetailHeader, EvalSummaryMetric } from "./eval-detail-header";
 import { EvalStatus } from "./eval-status";
 import { EvalSuiteDefinition } from "./eval-suite-definition";
 
 export function EvalRunDetail({
   run,
+  liveControl,
   onCaseChange,
   onBack,
   onCancel,
@@ -35,6 +38,7 @@ export function EvalRunDetail({
   onCompare,
 }: {
   run: EvalDetail;
+  liveControl?: ReactNode;
   onCaseChange: (key: string | null) => void;
   onBack: () => void;
   onCancel: () => void;
@@ -98,6 +102,12 @@ export function EvalRunDetail({
       ),
     },
     {
+      key: "cost",
+      label: "Cost",
+      defaultWidth: 110,
+      render: (item) => <EvalCost costs={item.costs} />,
+    },
+    {
       key: "duration",
       label: "Duration",
       defaultWidth: 100,
@@ -117,6 +127,7 @@ export function EvalRunDetail({
         onBack={onBack}
         actions={
           <>
+            {liveControl}
             <EvalStatus status={run.status} />
             <Button
               variant="outline"
@@ -150,6 +161,10 @@ export function EvalRunDetail({
           <EvalSummaryMetric label="Failed" value={counts.failed} />
           <EvalSummaryMetric label="Errors" value={counts.error} />
           <EvalSummaryMetric label="Cancelled" value={counts.cancelled} />
+          <span className="flex items-center gap-2 text-xs">
+            <EvalCost costs={run.costs} />
+            <span className="text-muted-foreground">Cost</span>
+          </span>
         </div>
         <div className="empty:hidden [&:not(:empty)]:mt-2">
           {run.error ? (
@@ -229,6 +244,7 @@ export function EvalRunDetail({
               label: "Configuration",
               content: (
                 <div className="p-4 @lg:p-6">
+                  <EvalCostBreakdown costs={run.costs} />
                   <dl>
                     <KeyValue label="Run ID">{run.id}</KeyValue>
                     <KeyValue label="Application">{run.targetName}</KeyValue>

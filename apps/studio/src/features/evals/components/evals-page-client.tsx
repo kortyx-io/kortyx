@@ -11,11 +11,12 @@ import {
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   parseAsArrayOf,
+  parseAsBoolean,
   parseAsInteger,
   parseAsString,
   parseAsStringLiteral,
 } from "nuqs";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import {
   DataTable,
   type DataTableColumn,
@@ -26,7 +27,9 @@ import { DetailLink } from "@/components/detail/detail-link";
 import { usePrepareDetailNavigation } from "@/components/detail/detail-stack";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { LiveRefreshButton } from "@/features/telemetry/components/live-refresh-button";
 import { useListTablePreferences } from "@/features/telemetry/hooks/use-list-table-preferences";
+import { useLiveRefresh } from "@/features/telemetry/hooks/use-live-refresh";
 import type { ListTablePreferences } from "@/features/telemetry/lib/table-preferences";
 import { formatDateTime, formatDurationMs } from "@/lib/format";
 import { useStudioQueryStates } from "@/lib/nuqs";
@@ -46,6 +49,7 @@ import {
   type EvalTargets,
   EvalTargetsResponseSchema,
 } from "../schema";
+import { EvalCost } from "./eval-cost";
 import { EvalDropdown } from "./eval-dropdown";
 import { EvalNavigation } from "./eval-navigation";
 import { EvalRunSetup } from "./eval-run-setup";
@@ -65,6 +69,7 @@ const defaults: ListTablePreferences<Sort, unknown> = {
   views: [],
 };
 const parsers = {
+  live: parseAsBoolean.withDefault(true),
   selected: parseAsArrayOf(parseAsString).withDefault([]),
   q: parseAsString.withDefault(""),
   application: parseAsString.withDefault("all"),
@@ -146,26 +151,15 @@ export function EvalsPageClient({
     }
     setRefreshing(false);
   };
-  const activeHistory = history.runs.some((r) => isActive(r.status));
-  useEffect(() => {
-    if (!activeHistory) return;
-    const controller = new AbortController();
-    const timer = setInterval(() => {
-      void evalRequest("runs", undefined, controller.signal)
-        .then((value) => {
-          if (!controller.signal.aborted)
-            setHistory(EvalHistorySchema.parse(value));
-        })
-        .catch(() => {
-          if (!controller.signal.aborted)
-            setError("Live history connection lost. Refresh to reconnect.");
-        });
-    }, 2500);
-    return () => {
-      controller.abort();
-      clearInterval(timer);
-    };
-  }, [activeHistory]);
+  const live = useLiveRefresh({
+    enabled: query.live,
+    resource: "evals",
+    relatedResources: ["runs"],
+    refresh: async () => {
+      const value = await evalRequest("runs");
+      setHistory(EvalHistorySchema.parse(value));
+    },
+  });
   const startSetup = (row?: SuiteRow) => open(row?.target.id, row?.suite.id);
   const prepareDetailNavigation = usePrepareDetailNavigation();
   const chooseSuite = (row: SuiteRow) => {
@@ -325,6 +319,12 @@ export function EvalsPageClient({
       ),
     },
     {
+      key: "cost",
+      label: "Cost",
+      defaultWidth: 110,
+      render: (r) => <EvalCost costs={r.costs} />,
+    },
+    {
       key: "duration",
       label: "Duration",
       defaultWidth: 100,
@@ -442,6 +442,11 @@ export function EvalsPageClient({
               Compare 2 runs
             </Button>
           ) : null}
+          <LiveRefreshButton
+            enabled={query.live}
+            status={live.status}
+            onToggle={() => update({ live: !query.live })}
+          />
           <Button
             variant="outline"
             size="icon-sm"

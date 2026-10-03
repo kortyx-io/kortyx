@@ -1,5 +1,6 @@
 import { createEvalJudge, type EvalJudge } from "@kortyx/agent";
 import { createOpenAI } from "@kortyx/openai";
+import { createOpenRouter } from "@kortyx/openrouter";
 
 /** Optional server-owned judge. No provider key is returned to consumers or browsers. */
 export function loadStudioEvalJudge(
@@ -20,14 +21,23 @@ export function loadStudioEvalJudge(
     throw new Error(
       "KORTYX_EVAL_JUDGE_API must be responses or chat-completions.",
     );
-  const provider = createOpenAI({
-    apiKey,
-    api,
-    ...(baseUrl ? { baseUrl } : {}),
-  });
+  const provider =
+    baseUrl &&
+    new URL(baseUrl).hostname === "openrouter.ai" &&
+    api === "chat-completions"
+      ? createOpenRouter({
+          apiKey,
+          baseUrl,
+          fetch: (input, init) => globalThis.fetch(input, init),
+        })
+      : createOpenAI({
+          apiKey,
+          api,
+          ...(baseUrl ? { baseUrl } : {}),
+        });
   const judge = createEvalJudge({
     model: provider(model),
-    id: env.KORTYX_EVAL_JUDGE_ID?.trim() || `studio/openai/${model}`,
+    id: env.KORTYX_EVAL_JUDGE_ID?.trim() || `studio/${provider.id}/${model}`,
     ...(env.KORTYX_EVAL_JUDGE_VERSION?.trim()
       ? { version: env.KORTYX_EVAL_JUDGE_VERSION.trim() }
       : {}),

@@ -368,3 +368,33 @@ the application, continues to follow its existing settings.
 - `packages/cli/src/evals/reporter.ts`: terminal progress, verdicts, criteria/evidence and summaries.
 - `packages/cli/src/index.ts`: module loader, environment loading and command registration.
 - `packages/cli/test/local-evals.test.ts`: real SDK runs, reporting, filtering, missing judges, cancellation and process cleanup.
+
+## Eval run costs
+
+Run history and each run's case table show model costs. The run summary and
+case inspector provide a **Workflow / Judge / Total** breakdown. Workflow cost
+uses recorded generation telemetry for the attempt's session in the same project
+and environment, including child workflows, retries and resumed turns. Enable
+normal agent telemetry to record these calls. `toolExecution.emit: true` supplies
+tool evidence to the judge; it does not itself enable billing telemetry.
+
+`createEvalJudge` captures provider usage separately from the generated verdict.
+Both app-owned and Studio-owned judges report it, including a paid call whose
+verdict fails validation. OpenRouter reports actual charges; BYOK uses upstream
+inference cost when supplied. Other model usage uses Studio's effective model
+rate cards. These calculated charges are marked **estimated** in the tooltip.
+No extra cost-related environment variable is required. Custom judges may report
+usage through `EvalGradeInput.onUsage`; without it their cost remains unknown.
+
+A `+` after a displayed amount means a known subtotal, with more cost possible.
+A dash means unavailable, including absent telemetry or prices. Running or
+unfinished attempts stay partial; currencies are combined only when compatible.
+Historical workflow costs can be recovered from existing telemetry, but historical
+judge charges without recorded usage cannot be recovered. Costs cover recorded
+model calls, excluding infrastructure and external tool fees. They are not an
+independent reconciliation of a provider invoice. Cancellation can leave billing
+evidence incomplete when a remote call finishes after the executor disconnects.
+
+Local `kortyx evals run --entry …` still executes without Studio and does not save
+a Studio record. Use the registered Studio execution endpoint to save runs and
+view their combined costs in Studio.

@@ -140,6 +140,43 @@ it("honors cancellation before sending any grading request", async () => {
   expect(request).toHaveBeenCalledOnce();
 });
 
+it("forwards hosted billing only after validating the pinned identity, with or without a usage observer", async () => {
+  const usage = [
+    {
+      provider: "openrouter",
+      model: "test/model",
+      occurredAt: new Date().toISOString(),
+      pricing: { source: "provider", currency: "USD", actualCostMicros: 350 },
+    },
+  ];
+  let changed = false;
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async (_url: unknown, init?: RequestInit) =>
+      Response.json(
+        init?.method === "POST"
+          ? {
+              judge: changed ? { ...identity, version: "changed" } : identity,
+              verdict,
+              usage,
+            }
+          : identity,
+      ),
+    ),
+  );
+  const judge = await createStudioEvalJudge(options);
+  const onUsage = vi.fn();
+  expect(await judge.grade({ ...input(), onUsage })).toEqual(verdict);
+  expect(onUsage).toHaveBeenCalledExactlyOnceWith(usage[0]);
+  expect(await judge.grade(input())).toEqual(verdict);
+  changed = true;
+  onUsage.mockClear();
+  await expect(judge.grade({ ...input(), onUsage })).rejects.toThrow(
+    "identity changed",
+  );
+  expect(onUsage).not.toHaveBeenCalled();
+});
+
 it("cancels a stalled grading body when the case is aborted", async () => {
   let cancelled = false;
   const request = vi.fn(async (_url: unknown, init?: RequestInit) =>

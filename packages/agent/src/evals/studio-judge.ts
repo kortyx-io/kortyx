@@ -121,6 +121,7 @@ export async function createStudioEvalJudge(
         throw new Error(
           "Studio judge identity changed. Refresh before running.",
         );
+      for (const usage of response.usage ?? []) input.onUsage?.(usage);
       return response.verdict;
     },
   };

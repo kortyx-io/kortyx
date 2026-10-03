@@ -146,8 +146,9 @@ KORTYX_EVAL_JUDGE_ID=studio/openrouter/openai/gpt-4o
 ```
 
 Choose a model/provider combination that supports [structured outputs](https://openrouter.ai/docs/guides/features/structured-outputs).
-This integration uses OpenRouter's compatible HTTP contract; a live OpenRouter
-account is needed to verify the configured model and provider route.
+The OpenRouter chat endpoint uses Kortyx's native OpenRouter provider, including
+its reported billing usage. A live OpenRouter account is needed to verify the
+configured model and provider route.
 
 Docker Compose and CLI-generated Studio stacks pass these variables only to the
 API container. For a CLI-managed stack, add them to the existing owner-only
@@ -176,6 +177,36 @@ concurrency and grading deadlines. Ordinary Studio runs grade within the worker
 and do not call this endpoint. Saved-run regrading and editable evaluator libraries
 are not included in this release.
 
+## Eval run costs
+
+Run history and each run's case table show model costs. The run summary and
+case inspector provide a **Workflow / Judge / Total** breakdown. Workflow cost
+uses recorded generation telemetry for the attempt's session in the same project
+and environment, including child workflows, retries and resumed turns. Enable
+normal agent telemetry to record these calls. `toolExecution.emit: true` supplies
+tool evidence to the judge; it does not itself enable billing telemetry.
+
+`createEvalJudge` captures provider usage separately from the generated verdict.
+Both app-owned and Studio-owned judges report it, including a paid call whose
+verdict fails validation. OpenRouter reports actual charges; BYOK uses upstream
+inference cost when supplied. Other model usage uses Studio's effective model
+rate cards. These calculated charges are marked **estimated** in the tooltip.
+No extra cost-related environment variable is required. Custom judges may report
+usage through `EvalGradeInput.onUsage`; without it their cost remains unknown.
+
+A `+` after a displayed amount means a known subtotal, with more cost possible.
+A dash means unavailable, including absent telemetry or prices. Running or
+unfinished attempts stay partial; currencies are combined only when compatible.
+Historical workflow costs can be recovered from existing telemetry, but historical
+judge charges without recorded usage cannot be recovered. Costs cover recorded
+model calls, excluding infrastructure and external tool fees. They are not an
+independent reconciliation of a provider invoice. Cancellation can leave billing
+evidence incomplete when a remote call finishes after the executor disconnects.
+
+Local `kortyx evals run --entry …` still executes without Studio and does not save
+a Studio record. Use the registered Studio execution endpoint to save runs and
+view their combined costs in Studio.
+
 ## Persistence and execution lifecycle
 
 Apply `packages/telemetry-db/drizzle/0005_eval_runs.sql` through the regular
@@ -185,9 +216,15 @@ allows a worker replica to claim a record once. A lease and heartbeat track acti
 execution. Progress is saved incrementally; the final result contains public
 observations (including emitted execution events), expected behavior, optional
 references, grader version, reasons,
-and evidence. The UI polls saved records, so a browser reload does not terminate
-the run. Caller-visible observations may contain business data and require the
-same access and retention policy as ordinary Studio session data.
+and evidence. Studio receives scoped SSE change notifications backed by PostgreSQL
+`LISTEN`/`NOTIFY`, then reads the saved result. Runs, case drawers and history
+update on changes; completed runs also receive late workflow billing updates.
+Live mode is on by default for eval views and can be paused with `?live=false`.
+The connection pauses while the tab is hidden or offline, reconciles on reconnect,
+and uses a 30–60 second refresh fallback during an outage. There is no periodic
+polling while connected. A browser reload does not terminate the run.
+Caller-visible observations may contain business data and require the same access
+and retention policy as ordinary Studio session data.
 
 A consumer disconnect, timeout, or worker crash is an execution error rather than
 a failed behavioral grade. An expired lease is marked unknown/error and is never
@@ -207,7 +244,7 @@ and LLM grading of public answers, interrupt requests and emitted tool evidence.
 Tool-based grading requires `toolExecution.emit: true` in the workflow. The judge
 uses the existing stream, including results from earlier steps before a resume.
 See the conversation eval guide for the capture boundary. Studio suite editing,
-prompt-variant injection, scheduled runs, cost summaries, retention controls,
+prompt-variant injection, scheduled runs, retention controls,
 and an executor protocol for simultaneous interrupts or durable background work
 remain subsequent work. Prompt changes can be checked by rerunning the same
 suite against the changed consumer; prompt/version pinning is not implemented.

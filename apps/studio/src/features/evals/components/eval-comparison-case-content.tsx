@@ -11,6 +11,7 @@ import {
 } from "../lib/presentation";
 import type { EvalDetail } from "../schema";
 import { EvalConversationStep } from "./eval-case-inspector";
+import { EvalCostBreakdown } from "./eval-cost";
 import { EvalDropdown } from "./eval-dropdown";
 import { EvalStatus } from "./eval-status";
 
@@ -48,6 +49,7 @@ function Attempts({
           }}
         />
       </div>
+      <EvalCostBreakdown costs={row.costs} />
       <div className="min-w-0">
         {row.steps.map((step) => (
           <EvalConversationStep

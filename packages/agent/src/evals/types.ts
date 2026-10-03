@@ -3,6 +3,7 @@ import type { z } from "zod";
 import type { Agent } from "../chat/create-agent";
 import type { ResumeResponse } from "../execution/types";
 import type { ChatMessage } from "../types/chat-message";
+import type { EvalJudgeUsageSchema } from "./contracts";
 
 export type EvalJson =
   | null
@@ -95,7 +96,10 @@ export type EvalVerdict = {
   evidence: readonly string[];
 };
 export type EvalCriterionResult = EvalVerdict & { id: string; text: string };
+export type EvalJudgeUsage = z.infer<typeof EvalJudgeUsageSchema>;
 export type EvalStepResult = {
+  judgeCalls?: number;
+  judgeUsage?: EvalJudgeUsage[];
   index: number;
   input: { message: string } | { resume: ResumeResponse };
   expectation: EvalExpectation;
@@ -128,6 +132,8 @@ export type EvalRunResult = {
   errors: EvalIssue[];
 };
 export type EvalGradeInput = {
+  /** Trusted provider billing evidence, independent of the generated verdict. */
+  onUsage?: (usage: EvalJudgeUsage) => void;
   criterion: { id: string; text: string };
   input: EvalStepResult["input"];
   observation: EvalObservation;

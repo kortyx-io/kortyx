@@ -139,3 +139,5 @@ Every listed contract must be complete in the current step. An omitted version a
 any version. Use criteria for payload meaning; do not treat partial, invalidated or
 previous-turn outputs as success. See `references/conversation-evals.md` for the
 SDK, Studio and custom executor shape.
+
+Eval run history and case drawers use scoped SSE updates. Costs separate workflow telemetry and judge usage, show partial/unknown values honestly, and reuse Studio model pricing. See `references/studio-evals-and-ci.md` for billing boundaries and live-mode behavior.

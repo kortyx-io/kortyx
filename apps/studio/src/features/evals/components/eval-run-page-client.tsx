@@ -1,9 +1,10 @@
 "use client";
 import { useRouter, useSearchParams } from "next/navigation";
-import { parseAsString } from "nuqs";
+import { parseAsBoolean, parseAsString } from "nuqs";
 import { useState } from "react";
 import { DetailPage } from "@/components/detail/detail-page";
 import { Button } from "@/components/ui/button";
+import { LiveRefreshButton } from "@/features/telemetry/components/live-refresh-button";
 import { detailNavigationHref, useStudioQueryStates } from "@/lib/nuqs";
 import { evalRequest } from "../api/client";
 import { useEvalRun } from "../hooks/use-eval-run";
@@ -35,7 +36,11 @@ export function EvalRunPageClient({
   const router = useRouter();
   const search = useSearchParams();
   const [query, setQuery] = useStudioQueryStates(
-    { case: parseAsString, baseline: parseAsString },
+    {
+      case: parseAsString,
+      baseline: parseAsString,
+      live: parseAsBoolean.withDefault(true),
+    },
     { shallow: true },
   );
   const [refresh, setRefresh] = useState(0);
@@ -91,6 +96,15 @@ export function EvalRunPageClient({
             ) : (
               <EvalRunDetail
                 run={current.detail}
+                liveControl={
+                  <LiveRefreshButton
+                    enabled={query.live}
+                    status={current.liveStatus}
+                    onToggle={() => {
+                      void setQuery({ live: !query.live });
+                    }}
+                  />
+                }
                 onCaseChange={(key) => {
                   if (!key) return;
                   const separator = key.lastIndexOf(":");

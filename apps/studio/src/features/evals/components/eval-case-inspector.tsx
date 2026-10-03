@@ -4,6 +4,7 @@ import { ArrowUpRight, MessageSquare, Reply } from "lucide-react";
 import { DetailLink } from "@/components/detail/detail-link";
 import { Button } from "@/components/ui/button";
 import type { CaseRow } from "../lib/presentation";
+import { EvalCostBreakdown } from "./eval-cost";
 import { EvalDisclosure } from "./eval-disclosure";
 import { EvalOutputRequirements } from "./eval-output-requirements";
 import { EvalPayloadViewer } from "./eval-payload-viewer";
@@ -238,6 +239,7 @@ export function EvalCaseContent({ row }: { row: CaseRow }) {
         </p>
         <EvalStatus status={row.status} />
       </div>
+      <EvalCostBreakdown costs={row.costs} />
       {row.steps.map((step) => (
         <StepEvaluation
           key={step.index}

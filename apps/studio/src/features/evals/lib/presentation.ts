@@ -1,7 +1,8 @@
-import type { EvalStepResult } from "@kortyx/agent/evals";
+import type { EvalCosts, EvalStepResult } from "@kortyx/agent/evals";
 import type { EvalDetail } from "../schema";
 
 export type CaseRow = {
+  costs?: EvalCosts;
   key: string;
   caseId: string;
   name: string;
@@ -74,7 +75,8 @@ export function caseRows(run: EvalDetail): CaseRow[] {
       ...item,
       key: `${item.caseId}:${item.repetition}`,
     });
-  return [...rows.values()].map((item) => {
+  return [...rows.values()].map((original) => {
+    const item = { ...original, costs: run.caseCosts?.[original.key] };
     if (isActive(run.status)) return item;
     const status =
       run.status === "cancelled" ? ("cancelled" as const) : ("error" as const);

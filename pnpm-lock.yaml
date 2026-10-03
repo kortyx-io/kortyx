@@ -151,6 +151,9 @@ importers:
       '@kortyx/openai':
         specifier: workspace:*
         version: link:../../providers/openai
+      '@kortyx/openrouter':
+        specifier: workspace:*
+        version: link:../../providers/openrouter
       '@kortyx/telemetry-contracts':
         specifier: workspace:*
         version: link:../../packages/telemetry-contracts
@@ -10494,7 +10497,7 @@ snapshots:
       obug: 2.1.1
       std-env: 4.0.0
       tinyrainbow: 3.1.0
-      vitest: 4.1.5(@opentelemetry/api@1.9.0)(@types/node@20.19.17)(@vitest/coverage-v8@4.1.5)(jsdom@29.1.1)(vite@8.0.10(@types/node@20.19.17)(esbuild@0.28.1)(jiti@2.6.1)(terser@5.46.0)(tsx@4.22.5)(yaml@2.8.3))
+      vitest: 4.1.5(@opentelemetry/api@1.9.0)(@types/node@20.19.17)(@vitest/coverage-v8@4.1.5)(jsdom@29.1.1)(vite@8.0.10(@types/node@20.19.17)(esbuild@0.27.7)(jiti@2.6.1)(terser@5.46.0)(tsx@4.22.5)(yaml@2.8.3))
 
   '@vitest/expect@4.1.5':
     dependencies:

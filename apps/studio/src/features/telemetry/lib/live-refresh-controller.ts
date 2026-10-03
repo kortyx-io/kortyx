@@ -23,7 +23,8 @@ type LiveEventSource = {
 type Timer = ReturnType<typeof setTimeout>;
 
 export type LiveRefreshControllerOptions = {
-  resource: "runs" | "sessions" | "interrupts";
+  resource: "runs" | "sessions" | "interrupts" | "evals";
+  relatedResources?: readonly ("runs" | "sessions" | "interrupts" | "evals")[];
   refresh: () => Promise<void>;
   onSnapshot: (snapshot: LiveRefreshSnapshot) => void;
   createEventSource?: (url: string) => LiveEventSource;
@@ -132,18 +133,19 @@ export const createLiveRefreshController = (
     }, delay);
   };
 
-  const connect = (refreshOnOpen = false) => {
+  const connect = () => {
     if (!enabled || !available || disposed || source) return;
     publish({ status: openedOnce ? "reconnecting" : "connecting" });
     const nextSource = createEventSource(
-      `/api/studio/changes?resources=${options.resource}`,
+      `/api/studio/changes?resources=${[options.resource, ...(options.relatedResources ?? [])].join(",")}`,
     );
     source = nextSource;
     nextSource.onopen = () => {
       if (source !== nextSource) return;
       clearScheduledWork();
       publish({ status: "live" });
-      if (refreshOnOpen) requestRefresh();
+      // Reconcile the gap between the initial read and opening the subscription.
+      requestRefresh();
       openedOnce = true;
     };
     nextSource.onerror = () => {
@@ -153,7 +155,7 @@ export const createLiveRefreshController = (
       scheduleFallback();
       reconnectTimer = setTimer(() => {
         reconnectTimer = undefined;
-        connect(true);
+        connect();
       }, reconnectDelayMs);
     };
     nextSource.addEventListener("change", () => requestRefresh());

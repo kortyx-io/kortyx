@@ -16,6 +16,7 @@ export type {
   EvalJson,
   EvalJudge,
   EvalJudgeOptions,
+  EvalJudgeUsage,
   EvalObservation,
   EvalOutputExpectation,
   EvalPhase,

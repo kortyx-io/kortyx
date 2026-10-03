@@ -212,8 +212,15 @@ it("uses an OpenRouter-compatible chat endpoint and validates its structured ver
     Response.json({
       id: "synthetic-openrouter-response",
       object: "chat.completion",
+      system_fingerprint: null,
       created: 0,
       model: "openai/gpt-4o",
+      usage: {
+        prompt_tokens: 20,
+        completion_tokens: 10,
+        total_tokens: 30,
+        cost: 0.001,
+      },
       choices: [
         {
           index: 0,
@@ -241,14 +248,18 @@ it("uses an OpenRouter-compatible chat endpoint and validates its structured ver
     }),
   ).toEqual(verdict);
   expect(fetch).toHaveBeenCalledOnce();
-  const [url, init] = fetch.mock.calls[0] as unknown as [string, RequestInit];
-  expect(url).toBe("https://openrouter.ai/api/v1/chat/completions");
-  expect(JSON.parse(String(init.body))).toMatchObject({
+  const [input, init] = fetch.mock.calls[0] as unknown as [
+    Request | string,
+    RequestInit,
+  ];
+  const sent = input instanceof Request ? input : new Request(input, init);
+  expect(sent.url).toBe("https://openrouter.ai/api/v1/chat/completions");
+  expect(JSON.parse(await sent.text())).toMatchObject({
     model: "openai/gpt-4o",
     stream: false,
     response_format: {
       type: "json_schema",
-      json_schema: { name: "eval_verdict", strict: true },
+      json_schema: { name: "eval_verdict" },
     },
   });
   expect(JSON.stringify(loaded)).not.toContain("PRIVATE_OPENROUTER_KEY");

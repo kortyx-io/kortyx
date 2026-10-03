@@ -101,6 +101,128 @@ describe.skipIf(!url)(
         request,
         requestedBy: "test-key",
       });
+    it("persists judge billing, scopes workflow costs by environment and session, and rolls up live progress", async () => {
+      const targetId = randomUUID();
+      const billingSuite: EvalSuite = {
+        id: "billing",
+        cases: [
+          {
+            id: "product",
+            steps: [
+              {
+                message: "Product price?",
+                expect: { type: "answer", criteria: ["Accurate price"] },
+              },
+            ],
+          },
+        ],
+      };
+      const revision = getEvalSuiteRevision(billingSuite);
+      const queued = await enqueueEvalRun(client.db, {
+        ...scope,
+        environment: "development",
+        targetId,
+        targetName: "Billing test",
+        suiteId: billingSuite.id,
+        suiteRevision: revision,
+        suite: billingSuite,
+        request: {
+          ...request,
+          suiteId: billingSuite.id,
+          suiteRevision: revision,
+        },
+        requestedBy: "test",
+      });
+      await claimEvalRun(client.db, "billing-owner", [
+        { ...scope, id: targetId },
+      ]);
+      const result = await createEvals({
+        agent: { streamChat: vi.fn() },
+        suites: [billingSuite],
+        execute: () => ({
+          observation: { type: "answer", text: "$10", structured: [] },
+        }),
+        judge: {
+          id: "billing-test",
+          version: "1",
+          grade: ({ onUsage }) => {
+            onUsage?.({
+              provider: "openrouter",
+              model: "test",
+              occurredAt: new Date().toISOString(),
+              pricing: {
+                source: "provider",
+                currency: "USD",
+                actualCostMicros: 300,
+              },
+            });
+            return { passed: true, reason: "Accurate", evidence: ["$10"] };
+          },
+        },
+      }).run({
+        suiteId: "billing",
+        onProgress: (event) =>
+          appendEvalProgress(client.db, queued.id, "billing-owner", event),
+      });
+      const sessionId = result.cases[0]?.sessionId;
+      const active = await getEvalRun(client.db, scope, queued.id);
+      expect(active.costs?.total).toMatchObject({
+        amount: 0.0003,
+        status: "partial",
+      });
+      for (const [environment, session, amount] of [
+        ["development", sessionId, 1200],
+        ["production", sessionId, 900000],
+        ["development", "other-session", 900000],
+      ] as const) {
+        await client.sql`insert into telemetry_events (organization_id,project_id,event_id,schema_version,type,occurred_at,environment,service_name,run_id,session_id,workflow_id,payload) values (${scope.organizationId},${scope.projectId},${randomUUID()},1,'generation.completed',now(),${environment},'billing-test',${randomUUID()},${session ?? "missing"},'catalog',${JSON.stringify({ pricing: { source: "provider", currency: "USD", actualCostMicros: amount } })}::jsonb)`;
+      }
+      await finishEvalRun(client.db, queued.id, "billing-owner", { result });
+      const saved = await getEvalRun(client.db, scope, queued.id);
+      expect(saved.costs?.total).toMatchObject({
+        amount: 0.0015,
+        status: "complete",
+        calls: 2,
+      });
+      expect(saved.caseCosts?.["product:1"]?.workflow.amount).toBe(0.0012);
+      expect(
+        (await listEvalRuns(client.db, scope)).find((r) => r.id === queued.id)
+          ?.costs?.total.amount,
+      ).toBe(0.0015);
+    });
+    it("notifies eval changes only after their transaction commits", async () => {
+      const changes: string[] = [];
+      const listener = await client.sql.listen(
+        "kortyx_studio_changes",
+        (payload) => changes.push(payload),
+      );
+      try {
+        await expect(
+          client.db.transaction(async (tx) => {
+            await enqueueEvalRun(tx, {
+              ...scope,
+              environment: "development",
+              targetId: randomUUID(),
+              targetName: "Rolled back",
+              suiteId: suite.id,
+              suiteRevision: request.suiteRevision,
+              suite,
+              request,
+              requestedBy: "test",
+            });
+            throw new Error("Rollback");
+          }),
+        ).rejects.toThrow("Rollback");
+        await enqueue(randomUUID());
+        await vi.waitFor(() => expect(changes).toHaveLength(1));
+        expect(JSON.parse(changes[0] ?? "{}")).toMatchObject({
+          ...scope,
+          resources: ["evals"],
+        });
+      } finally {
+        await listener.unlisten();
+      }
+    });
     it("claims a queued run once across replicas and isolates reads and cancellation by project", async () => {
       const targetId = randomUUID();
       const run = await enqueue(targetId);

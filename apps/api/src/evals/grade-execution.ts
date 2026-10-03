@@ -63,11 +63,18 @@ export async function gradeEvalExecution(
             typeof value === "string"
               ? { id: String(index), text: value }
               : value;
+          step.judgeCalls = (step.judgeCalls ?? 0) + 1;
           const verdict = EvalVerdictSchema.parse(
             await awaitVerdict(
               () =>
                 judge.grade({
                   criterion,
+                  onUsage: (usage) => {
+                    if (!deadline.aborted) {
+                      step.judgeUsage ??= [];
+                      step.judgeUsage.push(structuredClone(usage));
+                    }
+                  },
                   input: structuredClone(step.input),
                   observation: structuredClone(step.observation),
                   conversation: structuredClone(

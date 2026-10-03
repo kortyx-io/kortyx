@@ -10,9 +10,13 @@ import {
 export const useLiveRefresh = ({
   enabled,
   resource,
+  relatedResources,
+  refresh: refreshData,
 }: {
   enabled: boolean;
-  resource: "runs" | "sessions" | "interrupts";
+  resource: "runs" | "sessions" | "interrupts" | "evals";
+  relatedResources?: readonly ("runs" | "sessions" | "interrupts" | "evals")[];
+  refresh?: () => Promise<void>;
 }) => {
   const router = useRouter();
   const [transitioning, startTransition] = useTransition();
@@ -53,7 +57,8 @@ export const useLiveRefresh = ({
   }, [transitioning]);
 
   const refreshRef = useRef(refresh);
-  refreshRef.current = refresh;
+  refreshRef.current = refreshData ?? refresh;
+  const relatedKey = relatedResources?.join(",") ?? "";
   const controllerRef = useRef<
     ReturnType<typeof createLiveRefreshController> | undefined
   >(undefined);
@@ -61,6 +66,9 @@ export const useLiveRefresh = ({
   useEffect(() => {
     const controller = createLiveRefreshController({
       resource,
+      relatedResources: relatedKey
+        ? (relatedKey.split(",") as NonNullable<typeof relatedResources>)
+        : [],
       refresh: () => refreshRef.current(),
       onSnapshot: setSnapshot,
     });
@@ -82,7 +90,7 @@ export const useLiveRefresh = ({
       controller.dispose();
       controllerRef.current = undefined;
     };
-  }, [resource]);
+  }, [resource, relatedKey]);
 
   useEffect(() => {
     controllerRef.current?.setEnabled(enabled);

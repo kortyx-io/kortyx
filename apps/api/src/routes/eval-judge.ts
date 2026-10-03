@@ -78,11 +78,20 @@ export function registerEvalJudgeRoutes(
       ]);
       signal.throwIfAborted();
       const { environment: _environment, judge: _judge, ...grade } = input.data;
+      const usage: import("@kortyx/agent/evals").EvalJudgeUsage[] = [];
       const verdict = EvalVerdictSchema.parse(
-        await judge.grade({ ...grade, signal } as EvalGradeInput),
+        await judge.grade({
+          ...grade,
+          signal,
+          onUsage: (record) => usage.push(record),
+        } as EvalGradeInput),
       );
       signal.throwIfAborted();
-      return c.json({ judge: identity, verdict });
+      return c.json({
+        judge: identity,
+        verdict,
+        ...(usage.length ? { usage } : {}),
+      });
     } catch {
       // Provider errors can contain credentials and transport details.
       return c.json(

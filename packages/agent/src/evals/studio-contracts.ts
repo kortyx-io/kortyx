@@ -20,6 +20,21 @@ export const StudioEvalTargetsResponseSchema = z.object({
     }),
   ),
 });
+export const EvalCostAmountSchema = z.object({
+  amount: z.number().finite().nonnegative().nullable(),
+  currency: z.string().nullable(),
+  status: z.enum(["complete", "partial", "unavailable"]),
+  calls: z.number().int().nonnegative(),
+  unpricedCalls: z.number().int().nonnegative(),
+  estimated: z.boolean(),
+});
+export const EvalCostsSchema = z.object({
+  workflow: EvalCostAmountSchema,
+  judge: EvalCostAmountSchema,
+  total: EvalCostAmountSchema,
+});
+export type EvalCosts = z.infer<typeof EvalCostsSchema>;
+export type EvalCostAmount = z.infer<typeof EvalCostAmountSchema>;
 export const StudioEvalRunSummarySchema = z.object({
   id: z.uuid(),
   targetId: z.string(),
@@ -40,6 +55,7 @@ export const StudioEvalRunSummarySchema = z.object({
   endedAt: z.string().nullable(),
   error: z.string().nullable(),
   cancelRequestedAt: z.string().nullable(),
+  costs: EvalCostsSchema.optional(),
   counts: z
     .object({
       passed: z.number(),
@@ -56,6 +72,7 @@ export const StudioEvalHistorySchema = z.object({
 });
 export const StudioEvalDetailSchema = z.object({
   run: StudioEvalRunSummarySchema.extend({
+    caseCosts: z.record(z.string(), EvalCostsSchema).optional(),
     request: z
       .object({
         caseIds: z.array(z.string()).optional(),

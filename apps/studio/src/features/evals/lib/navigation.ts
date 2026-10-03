@@ -71,6 +71,7 @@ export function evalNavigationHref(
   const previous = new URLSearchParams(current.toString());
   const next = new URLSearchParams();
   for (const key of [
+    "live",
     "q",
     "application",
     "status",
