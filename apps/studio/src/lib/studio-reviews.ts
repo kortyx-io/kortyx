@@ -1,33 +1,17 @@
-import { createHash, timingSafeEqual } from "node:crypto";
+import "server-only";
 import {
   ClearScoreResponseSchema,
   StudioReviewRequestSchema,
   StudioScoreResponseSchema,
 } from "@kortyx/telemetry-contracts";
-import { getStudioAuthConfig } from "./studio-auth";
-
-function authenticated(request: Request): boolean {
-  const config = getStudioAuthConfig();
-  if (config.mode === "none") return true;
-  if (config.mode !== "basic" || !config.username || !config.password)
-    return false;
-  const expected = `Basic ${Buffer.from(`${config.username}:${config.password}`).toString("base64")}`;
-  const hash = (text: string) => createHash("sha256").update(text).digest();
-  return timingSafeEqual(
-    hash(expected),
-    hash(request.headers.get("authorization") ?? ""),
-  );
-}
+import { studioEdition } from "@/edition";
 
 export async function studioReviewRequest(
   request: Request,
   runId: string,
 ): Promise<Response> {
-  if (!authenticated(request))
-    return Response.json(
-      { error: "Studio authentication required." },
-      { status: 401 },
-    );
+  const denial = await studioEdition.authorize(request);
+  if (denial) return denial;
   let sameOrigin = false;
   try {
     sameOrigin =
@@ -44,8 +28,8 @@ export async function studioReviewRequest(
   if (request.method !== "POST" && request.method !== "DELETE")
     return Response.json({ error: "Unsupported method." }, { status: 405 });
   const apiUrl = process.env.KORTYX_API_URL;
-  const apiKey = process.env.KORTYX_STUDIO_API_KEY;
-  if (!apiUrl || !apiKey)
+  const credential = await studioEdition.getApiCredential(request);
+  if (!apiUrl || !credential)
     return Response.json(
       { error: "Studio API is not configured." },
       { status: 503 },
@@ -75,7 +59,7 @@ export async function studioReviewRequest(
       {
         method: request.method,
         headers: {
-          authorization: `Bearer ${apiKey}`,
+          authorization: credential.authorization,
           "content-type": "application/json",
         },
         ...(body === undefined ? {} : { body }),

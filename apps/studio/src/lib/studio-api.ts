@@ -13,6 +13,7 @@ import {
   StudioSessionsResponseSchema,
   StudioWorkflowsResponseSchema,
 } from "@kortyx/telemetry-contracts";
+import { studioEdition } from "@/edition";
 import { type Interrupt, InterruptSchema } from "@/features/interrupts/schema";
 import { type Run, RunSchema } from "@/features/runs/schema";
 import { type Session, SessionSchema } from "@/features/sessions/schema";
@@ -23,7 +24,6 @@ import {
 import { formatRelativeTime } from "@/lib/format";
 
 const apiUrl = process.env.KORTYX_API_URL;
-const apiKey = process.env.KORTYX_STUDIO_API_KEY;
 
 export type StudioApiError = {
   code?: string | undefined;
@@ -63,12 +63,14 @@ const fetchJson = async <T>(
   path: string,
   parse: (value: unknown) => T,
 ): Promise<StudioRepoResult<T>> => {
-  if (!apiUrl || !apiKey) {
+  const credential = await studioEdition.getApiCredential();
+  if (!apiUrl || !credential) {
     return {
       data: null,
       error: {
         type: "not_configured",
-        message: "KORTYX_API_URL and KORTYX_STUDIO_API_KEY are required.",
+        message:
+          "KORTYX_API_URL and authenticated Studio API credentials are required.",
       },
     };
   }
@@ -76,7 +78,7 @@ const fetchJson = async <T>(
   try {
     const response = await fetch(endpoint(path), {
       headers: {
-        authorization: `Bearer ${apiKey}`,
+        authorization: credential.authorization,
         accept: "application/json",
         "x-kortyx-studio-api-version": STUDIO_API_PROTOCOL_VERSION,
       },
