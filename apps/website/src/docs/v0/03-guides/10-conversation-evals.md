@@ -241,6 +241,25 @@ A direct local run with semantic criteria and no code judge fails before setup o
 execution. Construction and suite discovery still work without a judge. Runs
 with no semantic criteria can execute locally using only interaction checks.
 
+### Local terminal runner
+
+Export your `createEvals` instance as `evals` (or default) from a dedicated module.
+Run it directly without Studio:
+
+```sh
+pnpm exec kortyx evals run --entry ./src/evals/index.ts
+pnpm exec kortyx evals run --entry ./src/evals/index.ts --suite product-ambiguity --json
+```
+
+Add `"eval": "kortyx evals run --entry ./src/evals/index.ts"` to `package.json`
+for `pnpm eval`. The terminal report shows live progress, case verdicts, timings,
+and failed criteria with reasons/evidence. `--json` emits full SDK results for
+automation. All passes exit `0`, failures/errors exit `1`, cancellation exits `130`.
+Your existing setup, executor, responders, cleanup and code judge are reused.
+No Studio model or execution credentials are needed. See
+[CLI commands](../05-studio/04-cli-commands.md) for filters, environment loading and
+report options.
+
 When **Studio judge** is selected, the SDK bypasses the code judge, executes the
 scripted conversation, resolves declared interrupts and runs cleanup. Interaction
 mismatches and execution errors still stop the case. Successfully executed steps

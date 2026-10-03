@@ -6,7 +6,7 @@ import {
   rm,
   writeFile,
 } from "node:fs/promises";
-import Module from "node:module";
+import Module, { createRequire } from "node:module";
 import { tmpdir } from "node:os";
 import { delimiter, dirname, isAbsolute, join, resolve } from "node:path";
 import {
@@ -23,8 +23,11 @@ import {
   EnsureWorkflowTopologyResponseSchema,
 } from "@kortyx/telemetry-contracts";
 import { Command, CommanderError } from "commander";
-import { require as tsxRequire } from "tsx/cjs/api";
+import { register as registerTsx } from "tsx/cjs/api";
+import { register as registerTsxEsm } from "tsx/esm/api";
+import ts from "typescript";
 import { createConnectionsCommand } from "./connections-command";
+import { createLocalEvalsCommand } from "./evals/command";
 import { createStudioCommand } from "./studio/command";
 import { StudioReadError } from "./studio/read-client";
 import { discoverWorkflowCalls } from "./workflow-calls";
@@ -98,7 +101,7 @@ const readPackageName = async (cwd: string): Promise<string | undefined> => {
 };
 
 const loadEnvFiles = async (cwd: string): Promise<void> => {
-  for (const filename of [".env", ".env.local"]) {
+  for (const filename of [".env.local", ".env"]) {
     const path = join(cwd, filename);
     let raw: string;
     try {
@@ -211,22 +214,41 @@ const createFrameworkMarkerStubs = async (): Promise<{
   };
 };
 
-const importEntry = async (entry: string): Promise<Record<string, unknown>> => {
+const openEntry = async (entry: string) => {
   const stubs = await createFrameworkMarkerStubs();
   let unregisterPaths: (() => void) | undefined;
+  let unregisterEsm: (() => Promise<void>) | undefined;
+  // Share the ordinary module cache with lazy runtime imports and hook context.
+  const unregisterTsx = registerTsx();
+  const release = async () => {
+    unregisterPaths?.();
+    unregisterTsx();
+    await unregisterEsm?.();
+    await stubs.cleanup();
+  };
   try {
     const tsconfig = await findNearestFile(dirname(entry), "tsconfig.json");
+    unregisterEsm = registerTsxEsm(tsconfig ? { tsconfig } : {});
     unregisterPaths = tsconfig
       ? await registerTsconfigPaths(tsconfig)
       : undefined;
-    const module = tsxRequire(entry, join(dirname(entry), "kortyx-cli.cjs"));
+    const module = createRequire(join(dirname(entry), "kortyx-cli.cjs"))(entry);
     if (!isRecord(module)) {
       throw new Error(`Entry module did not export an object: ${entry}`);
     }
-    return module;
+    return { module, release };
+  } catch (error) {
+    await release();
+    throw error;
+  }
+};
+
+const importEntry = async (entry: string): Promise<Record<string, unknown>> => {
+  const loaded = await openEntry(entry);
+  try {
+    return loaded.module;
   } finally {
-    unregisterPaths?.();
-    await stubs.cleanup();
+    await loaded.release();
   }
 };
 
@@ -251,7 +273,13 @@ const findNearestFile = async (
 const registerTsconfigPaths = async (
   tsconfigPath: string,
 ): Promise<() => void> => {
-  const raw = JSON.parse(await readFile(tsconfigPath, "utf8")) as unknown;
+  const parsed = ts.parseConfigFileTextToJson(
+    tsconfigPath,
+    await readFile(tsconfigPath, "utf8"),
+  );
+  if (parsed.error)
+    throw new Error(`Invalid TypeScript configuration: ${tsconfigPath}`);
+  const raw: unknown = parsed.config;
   if (!isRecord(raw)) return () => undefined;
   const compilerOptions = isRecord(raw.compilerOptions)
     ? raw.compilerOptions
@@ -550,6 +578,21 @@ const createCliProgram = (): Command => {
 
   program.addCommand(createStudioCommand());
   program.addCommand(createConnectionsCommand());
+  let releaseEvalEntry: (() => Promise<void>) | undefined;
+  program.addCommand(
+    createLocalEvalsCommand({
+      load: async (entry) => {
+        await loadEnvFiles(process.cwd());
+        const loaded = await openEntry(entry);
+        releaseEvalEntry = loaded.release;
+        return loaded.module;
+      },
+      release: async () => {
+        await releaseEvalEntry?.();
+        releaseEvalEntry = undefined;
+      },
+    }),
+  );
 
   const topology = program
     .command("topology")

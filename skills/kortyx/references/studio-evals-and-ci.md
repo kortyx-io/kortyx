@@ -269,3 +269,69 @@ See the public [Studio eval guide](https://kortyx.io/docs/studio/evals) and
 [configuration reference](https://kortyx.io/docs/studio/configuration-reference)
 for the deployed version. This release does not add suite authoring, historical
 session grading, saved-run regrading or prompt-version pinning in the browser.
+
+## Run locally without Studio
+
+Export the existing `createEvals` instance as `evals` (or the default export) from
+an application module such as `src/evals/index.ts`. Use a dedicated eval module
+that initializes the agent and suites without starting your HTTP server.
+TypeScript and JavaScript entries use the CLI's existing module loader and nearest
+`tsconfig.json` path aliases. The loader stays active for lazy workflow imports
+until execution finishes. Keep initialization synchronous; do asynchronous
+identity setup inside `createEvals.setup`.
+
+Add a script to your application's `package.json`:
+
+```json
+{
+  "scripts": {
+    "eval": "kortyx evals run --entry ./src/evals/index.ts"
+  }
+}
+```
+
+```sh
+pnpm eval
+pnpm eval --suite product-ambiguity --case choose-blue --repetitions 3
+pnpm exec kortyx evals list --entry ./src/evals/index.ts
+pnpm eval --suite product-ambiguity --concurrency 2 --json > eval-results.json
+```
+
+The command calls the exported instance's `run()` directly. Your existing setup,
+permission binding, custom executor, interrupt responders, cleanup and code judge
+all run in the application process. No Studio, consumer HTTP endpoint, target
+configuration or Studio key is required. Semantic criteria require a code judge;
+interaction and structured-output checks alone require no judge. Workflow models,
+tools and authentication still need their usual application configuration.
+
+The CLI loads `.env.local` and `.env` from the current working directory before
+importing the entry; existing shell variables take precedence. Run the script from
+the application directory. Model credentials remain application-owned, for example
+`OPENROUTER_API_KEY` for an OpenRouter app judge. Studio's judge settings are not
+used by this command.
+
+Omitting `--suite` runs all configured suites in definition order. `--case` accepts
+space-separated case IDs and requires `--suite`. `--repetitions` and `--concurrency`
+override the SDK's run settings; omitted flags preserve them. `--export NAME`
+selects another named instance instead of `evals`/default.
+
+Interactive terminals show colored case verdicts, live progress, durations,
+failed steps and criteria with judge reasons/evidence, then a count summary.
+Piped output is plain text; `--no-color` or `NO_COLOR` disables color/live progress.
+`--json` replaces the report with one JSON object containing `schemaVersion: 1`, `status`, aggregated
+`counts`, and full SDK `runs` (including observations). Keep application logs off
+stdout when consuming JSON. Configuration/import failures use stderr.
+
+Exit status is `0` when all selected suites pass, `1` for failed/errored runs or
+configuration errors, and `130` for cancellation. Ctrl+C forwards an abort signal,
+allows SDK cleanup and stops later suites. Cancellation remains cooperative: app
+code must honor its signal. Results are returned in the terminal/JSON; this local
+command does not save eval records to Studio. Agent telemetry, if configured by
+the application, continues to follow its existing settings.
+
+## Local runner source references
+
+- `packages/cli/src/evals/command.ts`: discovery, selection, SDK execution, cancellation and exit codes.
+- `packages/cli/src/evals/reporter.ts`: terminal progress, verdicts, criteria/evidence and summaries.
+- `packages/cli/src/index.ts`: module loader, environment loading and command registration.
+- `packages/cli/test/local-evals.test.ts`: real SDK runs, reporting, filtering, missing judges, cancellation and process cleanup.

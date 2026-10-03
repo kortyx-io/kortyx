@@ -61,7 +61,8 @@ Evals:
 - `references/studio-evals-and-ci.md`: registering consumer targets, enabling
   execution scopes, configuring Studio/OpenRouter judges, environment variables,
   Docker networking, saved results/comparisons, CLI commands, and post-deployment
-  CI. Read this when wiring or operating Studio-triggered evals.
+  CI, plus local `kortyx evals run` and terminal/JSON reporting without Studio.
+  Read this when wiring or operating eval execution.
 
 Hooks:
 
