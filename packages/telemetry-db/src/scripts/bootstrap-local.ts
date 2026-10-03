@@ -61,10 +61,13 @@ const main = async (): Promise<void> => {
       organizationId: project.organizationId,
       projectId: project.projectId,
       name: "Local Studio key",
-      scopes:
-        process.env.KORTYX_STUDIO_ENABLE_REVIEWS === "1"
-          ? ["studio:read", "studio:write"]
-          : ["studio:read"],
+      scopes: [
+        "studio:read",
+        ...(process.env.KORTYX_STUDIO_ENABLE_REVIEWS === "1"
+          ? ["studio:write"]
+          : []),
+        ...(process.env.KORTYX_STUDIO_ENABLE_EVALS === "1" ? ["eval:run"] : []),
+      ],
     });
 
     console.log("Kortyx telemetry local project bootstrapped.");

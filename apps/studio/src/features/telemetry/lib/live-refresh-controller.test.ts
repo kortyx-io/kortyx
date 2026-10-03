@@ -140,3 +140,79 @@ describe("live refresh controller", () => {
     controller.dispose();
   });
 });
+
+describe("eval notification lifecycle", () => {
+  it("subscribes to eval progress and workflow billing, catches the initial subscription gap, and never polls while connected", async () => {
+    vi.useFakeTimers();
+    const factory = sourceFactory();
+    const refresh = vi.fn(async () => undefined);
+    const controller = createLiveRefreshController({
+      resource: "evals",
+      relatedResources: ["runs"],
+      refresh,
+      onSnapshot: () => undefined,
+      createEventSource: factory.create,
+    });
+    controller.setEnabled(true);
+    await vi.advanceTimersByTimeAsync(0);
+    expect(refresh).toHaveBeenCalledTimes(1);
+    expect(factory.create).toHaveBeenCalledWith(
+      "/api/studio/changes?resources=evals,runs",
+    );
+    factory.sources[0]?.onopen?.();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(refresh).toHaveBeenCalledTimes(2);
+    await vi.advanceTimersByTimeAsync(120_000);
+    expect(refresh).toHaveBeenCalledTimes(2);
+    factory.sources[0]?.change?.();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(refresh).toHaveBeenCalledTimes(3);
+    controller.dispose();
+  });
+  it("reconciles missed progress after reconnect, with bounded fallback only during an outage", async () => {
+    vi.useFakeTimers();
+    const factory = sourceFactory();
+    const refresh = vi.fn(async () => undefined);
+    const controller = createLiveRefreshController({
+      resource: "evals",
+      refresh,
+      onSnapshot: () => undefined,
+      createEventSource: factory.create,
+      random: () => 0,
+    });
+    controller.setEnabled(true);
+    factory.sources[0]?.onopen?.();
+    await vi.advanceTimersByTimeAsync(0);
+    refresh.mockClear();
+    factory.sources[0]?.onerror?.();
+    await vi.advanceTimersByTimeAsync(30_000);
+    expect(refresh).toHaveBeenCalledTimes(1);
+    factory.sources[1]?.onopen?.();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(refresh).toHaveBeenCalledTimes(2);
+    await vi.advanceTimersByTimeAsync(120_000);
+    expect(refresh).toHaveBeenCalledTimes(2);
+    controller.dispose();
+  });
+  it("does not refresh or reopen subscriptions after an eval drawer unmounts", async () => {
+    vi.useFakeTimers();
+    const factory = sourceFactory();
+    const refresh = vi.fn(async () => undefined);
+    const controller = createLiveRefreshController({
+      resource: "evals",
+      refresh,
+      onSnapshot: () => undefined,
+      createEventSource: factory.create,
+    });
+    controller.setEnabled(true);
+    factory.sources[0]?.onopen?.();
+    await vi.advanceTimersByTimeAsync(0);
+    controller.dispose();
+    refresh.mockClear();
+    factory.sources[0]?.change?.();
+    factory.sources[0]?.onerror?.();
+    await vi.advanceTimersByTimeAsync(120_000);
+    expect(refresh).not.toHaveBeenCalled();
+    expect(factory.create).toHaveBeenCalledTimes(1);
+  });
+});

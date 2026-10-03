@@ -36,7 +36,13 @@ export type { DetailLayerRegistration } from "@/components/detail/detail-stack-s
 
 const DETAIL_HISTORY_KEY = "__kortyxDetailStack";
 
-const DETAIL_BASE_PATHS = ["/sessions", "/runs", "/interrupts"] as const;
+const DETAIL_BASE_PATHS = [
+  "/sessions",
+  "/runs",
+  "/interrupts",
+  "/evals/cases",
+  "/evals/suites",
+] as const;
 
 type DetailStackContextValue = {
   beginClose: (id: string) => void;
@@ -376,6 +382,8 @@ export function DetailStackProvider({ children }: { children: ReactNode }) {
         type="button"
         data-detail-backdrop
         aria-label="Close detail"
+        aria-hidden={!backdropVisible}
+        disabled={!backdropVisible}
         tabIndex={-1}
         onClick={() => {
           if (backdropLayer?.splitOpen) {

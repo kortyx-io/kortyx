@@ -4,7 +4,6 @@ import { cookies } from "next/headers";
 import { NuqsAdapter } from "nuqs/adapters/next/app";
 import { DetailDrawerHost } from "@/components/detail/detail-drawer";
 import { DetailSlotPresence } from "@/components/detail/detail-slot-presence";
-import { DetailStackProvider } from "@/components/detail/detail-stack";
 import { SidebarLayout } from "@/components/layouts/sidebar-layout";
 import { ThemeProvider } from "@/components/theme-toggle";
 import {
@@ -65,11 +64,15 @@ export default async function RootLayout({
   interruptDrawer,
   runDrawer,
   sessionDrawer,
+  evalCaseDrawer,
+  evalSuiteDrawer,
 }: Readonly<{
   children: React.ReactNode;
   interruptDrawer: React.ReactNode;
   runDrawer: React.ReactNode;
   sessionDrawer: React.ReactNode;
+  evalCaseDrawer: React.ReactNode;
+  evalSuiteDrawer: React.ReactNode;
 }>) {
   const cookieStore = await cookies();
   const theme = parseThemePreference(
@@ -105,19 +108,23 @@ export default async function RootLayout({
           <NuqsAdapter>
             <SidebarLayout
               detailSlots={
-                <DetailStackProvider>
-                  <DetailDrawerHost>
-                    <DetailSlotPresence dismissPath="/sessions">
-                      {sessionDrawer}
-                    </DetailSlotPresence>
-                    <DetailSlotPresence dismissPath="/runs">
-                      {runDrawer}
-                    </DetailSlotPresence>
-                    <DetailSlotPresence dismissPath="/interrupts">
-                      {interruptDrawer}
-                    </DetailSlotPresence>
-                  </DetailDrawerHost>
-                </DetailStackProvider>
+                <DetailDrawerHost>
+                  <DetailSlotPresence dismissPath="/evals/suites">
+                    {evalSuiteDrawer}
+                  </DetailSlotPresence>
+                  <DetailSlotPresence dismissPath="/evals/cases">
+                    {evalCaseDrawer}
+                  </DetailSlotPresence>
+                  <DetailSlotPresence dismissPath="/sessions">
+                    {sessionDrawer}
+                  </DetailSlotPresence>
+                  <DetailSlotPresence dismissPath="/runs">
+                    {runDrawer}
+                  </DetailSlotPresence>
+                  <DetailSlotPresence dismissPath="/interrupts">
+                    {interruptDrawer}
+                  </DetailSlotPresence>
+                </DetailDrawerHost>
               }
             >
               {children}

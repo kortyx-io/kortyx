@@ -1,7 +1,14 @@
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { defineConfig, devices } from "@playwright/test";
 
 const studioUrl = process.env.KORTYX_E2E_STUDIO_URL ?? "http://localhost:6300";
 const apiUrl = process.env.KORTYX_API_URL ?? "http://localhost:6400";
+const consumerPort = process.env.KORTYX_E2E_CONSUMER_PORT ?? "6501";
+const targetsFile = join(
+  tmpdir(),
+  `kortyx-e2e-eval-targets-${new URL(apiUrl).port}.json`,
+);
 const production = process.env.KORTYX_E2E_PRODUCTION === "1";
 const shardedCi = process.env.KORTYX_E2E_SHARDED_CI === "1";
 
@@ -38,8 +45,22 @@ export default defineConfig({
   },
   webServer: [
     {
+      name: "Eval test consumer",
+      command: "pnpm exec tsx e2e/support/eval-consumer.ts",
+      url: `http://127.0.0.1:${consumerPort}/health`,
+      reuseExistingServer: false,
+      env: {
+        KORTYX_E2E_TARGETS_FILE: targetsFile,
+        KORTYX_E2E_CONSUMER_PORT: consumerPort,
+      },
+      timeout: 30_000,
+      stdout: "ignore",
+      stderr: "pipe",
+    },
+    {
       name: "Kortyx API",
       command: "pnpm --dir ../.. dev:api",
+      env: { KORTYX_EVAL_TARGETS_FILE: targetsFile },
       url: `${apiUrl.replace(/\/$/, "")}/health`,
       reuseExistingServer: !process.env.CI,
       timeout: 120_000,

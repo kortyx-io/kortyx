@@ -55,8 +55,8 @@ export const normalizeConnectionUrl = (input: string): string => {
   return url.toString().replace(/\/+$/, "");
 };
 
-/** Intentionally restricted to the Studio read API: no arbitrary requests or writes. */
-export class StudioReadClient {
+/** Shared bounded transport. Subclasses expose only explicitly supported operations. */
+export class StudioApiTransport {
   readonly apiUrl: string;
   compatibility: StudioCompatibility = {
     protocolVersion: null,
@@ -76,34 +76,27 @@ export class StudioReadClient {
     }
   }
 
-  async get<T>(
+  protected async requestJson<T>(
+    method: "GET" | "POST",
     path: string,
     schema: z.ZodType<T>,
     query: Record<string, string> = {},
+    body?: unknown,
   ): Promise<T> {
-    if (
-      !/^\/v1\/studio\/(?:context|catalogs|workflows|(?:runs|sessions|interrupts)(?:\/[^/?#]+)?)$/.test(
-        path,
-      ) ||
-      /(?:^|\/)(?:\.|\.\.|%2e(?:%2e)?)(?:\/|$)/i.test(path)
-    ) {
-      throw new StudioReadError(
-        "invalid_endpoint",
-        "Only supported Studio read endpoints are allowed.",
-      );
-    }
     const url = new URL(`${this.apiUrl}${path}`);
     for (const [key, value] of Object.entries(query))
       url.searchParams.set(key, value);
     let response: Response;
     try {
       response = await this.request(url, {
-        method: "GET",
+        method,
         headers: {
           authorization: `Bearer ${this.apiKey}`,
           accept: "application/json",
           "x-kortyx-studio-api-version": STUDIO_API_PROTOCOL_VERSION,
+          ...(body === undefined ? {} : { "content-type": "application/json" }),
         },
+        ...(body === undefined ? {} : { body: JSON.stringify(body) }),
         redirect: "error",
         signal: AbortSignal.timeout(15_000),
       });
@@ -136,7 +129,7 @@ export class StudioReadClient {
         response.status === 401
           ? "Invalid, expired, or revoked Studio read key."
           : response.status === 403
-            ? "The API key lacks studio:read permission."
+            ? "The API key lacks studio:read or the operation's required permission (eval:run for execution)."
             : response.status === 404
               ? "Entity not found in this connection's project. Check the URL and selected connection."
               : `Studio API returned HTTP ${response.status}.`;
@@ -198,5 +191,27 @@ export class StudioReadClient {
       );
     }
     return result.data;
+  }
+}
+
+/** Intentionally restricted to the Studio read API: no arbitrary requests or writes. */
+export class StudioReadClient extends StudioApiTransport {
+  async get<T>(
+    path: string,
+    schema: z.ZodType<T>,
+    query: Record<string, string> = {},
+  ): Promise<T> {
+    if (
+      !/^\/v1\/studio\/(?:context|catalogs|workflows|(?:runs|sessions|interrupts)(?:\/[^/?#]+)?)$/.test(
+        path,
+      ) ||
+      /(?:^|\/)(?:\.|\.\.|%2e(?:%2e)?)(?:\/|$)/i.test(path)
+    ) {
+      throw new StudioReadError(
+        "invalid_endpoint",
+        "Only supported Studio read endpoints are allowed.",
+      );
+    }
+    return this.requestJson("GET", path, schema, query);
   }
 }

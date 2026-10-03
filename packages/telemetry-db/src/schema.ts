@@ -738,6 +738,97 @@ export const telemetryEvents = pgTable(
   ],
 );
 
+export const evalRuns = pgTable(
+  "eval_runs",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organizationId: uuid("organization_id").notNull(),
+    projectId: uuid("project_id").notNull(),
+    environment: text("environment").notNull(),
+    targetId: text("target_id").notNull(),
+    targetName: text("target_name").notNull(),
+    suiteId: text("suite_id").notNull(),
+    suiteRevision: text("suite_revision").notNull(),
+    suite: jsonb("suite")
+      .$type<import("@kortyx/agent/evals").EvalSuite>()
+      .notNull(),
+    request: jsonb("request")
+      .$type<import("@kortyx/agent/evals").EvalRemoteRunRequest>()
+      .notNull(),
+    status: text("status")
+      .$type<
+        "queued" | "running" | "passed" | "failed" | "error" | "cancelled"
+      >()
+      .notNull()
+      .default("queued"),
+    result:
+      jsonb("result").$type<import("@kortyx/agent/evals").EvalRunResult>(),
+    error: text("error"),
+    requestedBy: text("requested_by").notNull(),
+    cancelRequestedAt: timestampWithTimezone("cancel_requested_at"),
+    leaseOwner: text("lease_owner"),
+    leaseExpiresAt: timestampWithTimezone("lease_expires_at"),
+    createdAt: timestampWithTimezone("created_at").notNull().defaultNow(),
+    startedAt: timestampWithTimezone("started_at"),
+    endedAt: timestampWithTimezone("ended_at"),
+    updatedAt: timestampWithTimezone("updated_at").notNull().defaultNow(),
+  },
+  (table) => [
+    foreignKey({
+      columns: [table.organizationId, table.projectId],
+      foreignColumns: [projects.organizationId, projects.id],
+      name: "eval_runs_project_tenant_fk",
+    }).onDelete("cascade"),
+    uniqueIndex("eval_runs_scope_id_unique").on(
+      table.organizationId,
+      table.projectId,
+      table.id,
+    ),
+    index("eval_runs_scope_created_idx").on(
+      table.organizationId,
+      table.projectId,
+      table.createdAt,
+    ),
+    index("eval_runs_queue_idx").on(table.status, table.createdAt),
+    check(
+      "eval_runs_status_check",
+      sql`${table.status} in ('queued', 'running', 'passed', 'failed', 'error', 'cancelled')`,
+    ),
+  ],
+);
+export const evalRunEvents = pgTable(
+  "eval_run_events",
+  {
+    id: bigint("id", { mode: "number" })
+      .primaryKey()
+      .generatedAlwaysAsIdentity(),
+    organizationId: uuid("organization_id").notNull(),
+    projectId: uuid("project_id").notNull(),
+    runId: uuid("run_id").notNull(),
+    event: jsonb("event")
+      .$type<import("@kortyx/agent/evals").EvalProgress>()
+      .notNull(),
+    createdAt: timestampWithTimezone("created_at").notNull().defaultNow(),
+  },
+  (table) => [
+    foreignKey({
+      columns: [table.organizationId, table.projectId, table.runId],
+      foreignColumns: [
+        evalRuns.organizationId,
+        evalRuns.projectId,
+        evalRuns.id,
+      ],
+      name: "eval_run_events_tenant_fk",
+    }).onDelete("cascade"),
+    index("eval_run_events_run_idx").on(
+      table.organizationId,
+      table.projectId,
+      table.runId,
+      table.id,
+    ),
+  ],
+);
+
 export type Organization = typeof organizations.$inferSelect;
 export type User = typeof users.$inferSelect;
 export type AuthAccount = typeof authAccounts.$inferSelect;

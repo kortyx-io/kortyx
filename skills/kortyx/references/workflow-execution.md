@@ -74,6 +74,13 @@ Test observable conversation behavior in addition to graph/unit correctness. Use
 deterministic provider/tool fixtures for CI and a small live-model evaluation set
 for prompt/model changes.
 
+For the built-in suite runner, read [conversation evals](conversation-evals.md).
+It wraps the existing agent with `createEvals`, records public execution evidence,
+and supports scripted sequential interrupts. Its default executor consumes
+`agent.streamChat`; adapt a typed execution API with app-owned `execute` when
+needed. Keep replay, persistence, duplicate resume and execution-limit contracts
+in deterministic integration tests rather than relying on an LLM judge.
+
 Cover at least:
 
 - a direct answer that does not call tools or interrupt unnecessarily

@@ -38,7 +38,15 @@
         "KORTYX_NEXTJS_CHAT_PORT",
         "KORTYX_CANVAS_PORT",
         "NEXT_PUBLIC_KORTYX_API_URL",
-        "GOOGLE_API_KEY"
+        "GOOGLE_API_KEY",
+        "KORTYX_EVAL_TARGETS_FILE",
+        "KORTYX_EVAL_TARGETS",
+        "KORTYX_EVAL_JUDGE_MODEL",
+        "KORTYX_EVAL_JUDGE_API_KEY",
+        "KORTYX_EVAL_JUDGE_BASE_URL",
+        "KORTYX_EVAL_JUDGE_API",
+        "KORTYX_EVAL_JUDGE_ID",
+        "KORTYX_EVAL_JUDGE_VERSION"
       ]
     },
     "lint": {

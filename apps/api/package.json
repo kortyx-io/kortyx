@@ -23,7 +23,10 @@
     "@kortyx/telemetry-contracts": "workspace:*",
     "@kortyx/telemetry-db": "workspace:*",
     "hono": "^4.12.9",
-    "zod": "catalog:"
+    "zod": "catalog:",
+    "@kortyx/agent": "workspace:*",
+    "@kortyx/openai": "workspace:*",
+    "@kortyx/openrouter": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "catalog:",

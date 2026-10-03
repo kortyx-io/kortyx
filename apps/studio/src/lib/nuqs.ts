@@ -28,8 +28,8 @@ export const useStudioQueryStates = ((parsers: any, options?: any) => {
 export const useStudioQueryState = ((key: any, parser?: any, options?: any) => {
   const [, startTransition] = useTransition();
   return useQueryState(key, {
-    ...parser,
     ...DEFAULTS,
+    ...parser,
     startTransition,
     ...options,
   });

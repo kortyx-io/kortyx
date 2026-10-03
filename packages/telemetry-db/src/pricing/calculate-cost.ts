@@ -8,6 +8,11 @@ import {
 } from "@kortyx/telemetry-contracts";
 import type { ModelRateCard, TelemetryEventRecord } from "../schema";
 
+type GenerationCostEvent = Pick<
+  TelemetryEventRecord,
+  "type" | "occurredAt" | "payload"
+>;
+
 export type CalculatedCost = {
   costMicros: number | null;
   cost: number | null;
@@ -168,7 +173,7 @@ const costFromUnitPrices = (
   return total;
 };
 
-const openRouterReportedCost = (event: TelemetryEventRecord): number | null => {
+const openRouterReportedCost = (event: GenerationCostEvent): number | null => {
   if (event.payload.provider !== "openrouter") return null;
   const metadata = isRecord(event.payload.providerMetadata)
     ? event.payload.providerMetadata
@@ -187,7 +192,7 @@ const openRouterReportedCost = (event: TelemetryEventRecord): number | null => {
   return cost !== null && cost >= 0 ? cost : null;
 };
 
-const openRouterIsByok = (event: TelemetryEventRecord): boolean => {
+const openRouterIsByok = (event: GenerationCostEvent): boolean => {
   if (event.payload.provider !== "openrouter") return false;
   const metadata = isRecord(event.payload.providerMetadata)
     ? event.payload.providerMetadata
@@ -198,7 +203,7 @@ const openRouterIsByok = (event: TelemetryEventRecord): boolean => {
 };
 
 const findRateCard = (
-  event: TelemetryEventRecord,
+  event: GenerationCostEvent,
   rateCards: ModelRateCard[],
 ): ModelRateCard | undefined => {
   const provider = asString(event.payload.provider);
@@ -295,7 +300,7 @@ const findRateCard = (
 };
 
 export const calculateGenerationCost = (
-  event: TelemetryEventRecord,
+  event: GenerationCostEvent,
   rateCards: ModelRateCard[],
 ): CalculatedCost => {
   if (event.type !== "generation.completed") return EMPTY_UNKNOWN;

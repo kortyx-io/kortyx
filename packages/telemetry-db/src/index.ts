@@ -25,6 +25,16 @@ export {
   upsertTelemetryApiKey,
 } from "./repositories/api-keys";
 export {
+  appendEvalProgress,
+  claimEvalRun,
+  enqueueEvalRun,
+  finishEvalRun,
+  getEvalRun,
+  heartbeatEvalRun,
+  listEvalRuns,
+  requestEvalCancellation,
+} from "./repositories/evals";
+export {
   listApplicableModelRateCards,
   seedDefaultModelRateCards,
 } from "./repositories/model-rate-cards";

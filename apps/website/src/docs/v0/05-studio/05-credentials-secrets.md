@@ -15,13 +15,21 @@ Studio separates human sign-in, SDK ingestion, internal reads, database access, 
 | --- | --- | --- | --- |
 | Basic Auth username/password | Human browser | No | Existing browser sign-in stops working |
 | Telemetry write key | Server-side Kortyx SDK producer | No | Producers using the old key receive `401` |
-| Studio read key | Studio server | No | Studio cannot load data until updated |
+| Studio project key | Studio server or CLI | No | Reads and authorized eval controls fail until updated |
+| Application eval service key | Studio API target configuration and consumer endpoint | No | Target discovery/execution fails until both ends agree |
+| Judge provider key | Studio API or app-side judge | No | Semantic grading fails until updated |
 | API-key pepper | Telemetry API and database job | No | Changing it invalidates every API key |
 | PostgreSQL credentials | API and database job | Provider-managed | Database and workloads must rotate together |
 
 Kortyx stores the API key identifier, a one-way HMAC verifier, Project ownership, scopes, expiry, revocation state, and usage metadata. The complete `ktyx_...` value belongs only in the secret store used by its consumer.
 
 > **Why both a database record and a secret manager?** The secret manager protects the raw credential. PostgreSQL holds the verifier and authorization policy needed to check that credential without retaining a reusable key.
+
+The Studio project key needs `studio:read` for discovery/history and `eval:run`
+for suite execution/cancellation. It is separate from the application's eval
+service key. Test-user tokens and credentials remain in the consumer application,
+which owns their acquisition and normal permission enforcement. They are not
+Studio project credentials. See [Evals](./11-evals.md#credentials-have-separate-jobs).
 
 ## Local credentials
 

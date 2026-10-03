@@ -1,6 +1,6 @@
 ---
 name: kortyx
-description: Use when building, reviewing, documenting, testing, or architecting apps with Kortyx. Covers providers, useReason/useTool tools, model-driven interrupts, supervisor and specialist composition, child workflows, execution limits, typed failures, runtime persistence, server-owned chat transcripts, Studio debugging, React chat hydration, and streamed UI behavior.
+description: Use when building, reviewing, documenting, testing, or architecting apps with Kortyx. Covers providers, useReason/useTool tools, model-driven interrupts, supervisor and specialist composition, child workflows, execution limits, typed failures, runtime persistence, server-owned chat transcripts, conversation evals, Studio execution and debugging, React chat hydration, and streamed UI behavior.
 ---
 
 # Kortyx
@@ -52,6 +52,18 @@ Studio:
 - `references/studio-local-development.md`: starting Studio locally, connecting server-side SDK telemetry, publishing a workflow catalog, and verifying the first real run.
 - `references/studio-agent-debugging.md`: analyzing Studio run/session/interrupt URLs through the read-only CLI, connection selection, branch-aware evidence, and capture limitations.
 
+Evals:
+
+- `references/conversation-evals.md`: authoring `defineSuite` cases, initializing
+  `createEvals` around an existing agent, reusing application authentication,
+  scripted interrupt responses, emitted tool evidence, local judges, and mounting
+  the consumer endpoint. Read this before implementing an eval integration.
+- `references/studio-evals-and-ci.md`: registering consumer targets, enabling
+  execution scopes, configuring Studio/OpenRouter judges, environment variables,
+  Docker networking, saved results/comparisons, CLI commands, and post-deployment
+  CI, plus local `kortyx evals run` and terminal/JSON reporting without Studio.
+  Read this when wiring or operating eval execution.
+
 Hooks:
 
 - `references/hooks-use-tool.md`: the complete executable-tool contract, direct/model execution choice, safe failures, denial classification, abort/cleanup ownership, telemetry, replay, and Studio discovery.
@@ -85,7 +97,8 @@ React client:
 - Choose runtime persistence explicitly: memory for local/single-process use, Redis for shared TTL-oriented runtime state, PostgreSQL for authoritative durable history, or PostgreSQL plus Redis for durable storage with a payload cache. This storage is separate from the app database.
 - Keep OpenTelemetry tracing server-side and use generic Kortyx telemetry metadata.
 - Treat OpenTelemetry as the Kortyx observability contract. Keep backend exporters such as Langfuse app-owned.
-- Treat Studio as an observer: publish declared topology with `kortyx topology push`, and verify run telemetry with a real application request instead of a synthetic workflow.
+- For observability, publish declared topology with `kortyx topology push`, and verify run telemetry with a real application request instead of a synthetic workflow. Evals additionally let Studio initiate an application-owned suite; the consumer still executes the workflows and authorization logic.
+- Reuse an existing `createAgent` instance with `createEvals`; keep suites as plain data and credentials in app-owned `setup`/`execute`. Enable `toolExecution.emit: true` when criteria depend on tool results. Studio selects its own judge by default; an app judge is an explicit alternative, with no silent fallback.
 - Keep Studio API keys and all `KORTYX_TELEMETRY_*` configuration server-side.
 - Write user-facing answers, interrupt questions, and safe error messages in the
   user's language unless they request another language. Preserve code, schema
@@ -119,3 +132,12 @@ React client:
   trusted server/observability paths.
 - Sensitive auth context is derived on the server.
 - Studio integrations, when requested, publish the real workflow catalog and verify a real run separately.
+- Eval integrations exercise the app's real permission path, expected interrupts and tool evidence; verify the selected judge and saved results. Keep deterministic runtime contracts in SDK integration tests and semantic behavior in eval criteria.
+
+For required structured responses, use `expect.outputs: [{ schemaId, schemaVersion? }]`.
+Every listed contract must be complete in the current step. An omitted version accepts
+any version. Use criteria for payload meaning; do not treat partial, invalidated or
+previous-turn outputs as success. See `references/conversation-evals.md` for the
+SDK, Studio and custom executor shape.
+
+Eval run history and case drawers use scoped SSE updates. Costs separate workflow telemetry and judge usage, show partial/unknown values honestly, and reuse Studio model pricing. See `references/studio-evals-and-ci.md` for billing boundaries and live-mode behavior.

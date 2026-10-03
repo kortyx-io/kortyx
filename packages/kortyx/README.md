@@ -188,6 +188,7 @@ GOOGLE_API_KEY=your_key_here pnpm dev
 | Area | Exports |
 | --- | --- |
 | Agent | `createAgent`, `createChatRouteHandler`, `streamChatFromRoute` |
+| Evals | `createEvals`, `defineSuite`, `createEvalJudge`, `createStudioEvalJudge`, `EvalSuiteSchema`, `parseEvalSuite` |
 | Workflows | `defineWorkflow`, `loadWorkflow`, `validateWorkflow` |
 | Hooks | `useReason`, `useInterrupt`, `useStructuredData`, `useNodeState`, `useWorkflowState`, `useRuntimeContext` |
 | Runtime | workflow registries, node registry, in-memory/Redis framework adapters |
@@ -209,6 +210,7 @@ Install only the provider integrations your app needs.
 
 ## Documentation
 
+- [Conversation evals: SDK runner](https://github.com/kortyx-io/kortyx/blob/main/docs/evals/sdk-runner.md)
 - [Monorepo](https://github.com/kortyx-io/kortyx)
 - [Documentation](https://kortyx.io/docs)
 - [Package overview](https://kortyx.io/docs/reference/package-overview)

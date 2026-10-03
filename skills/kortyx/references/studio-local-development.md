@@ -5,10 +5,15 @@ SDK application, publish its workflow catalog, or diagnose why Studio is empty.
 
 ## Mental Model
 
-- Studio observes Kortyx applications; it does not execute their workflows.
+- Studio observes Kortyx applications. Its optional Evals control plane can ask
+  a consumer endpoint to execute a suite; workflows still run in the application.
 - The local CLI starts Studio, the telemetry API, and PostgreSQL in Docker.
 - **Workflows** shows the declared catalog. **Runs** shows actual executions.
 - Publishing a catalog must not create a fake workflow or run.
+
+For suite execution, application service keys, judge models and eval scopes,
+read [Studio evals and CI](studio-evals-and-ci.md). Telemetry configuration and
+catalog publication alone do not enable eval execution.
 
 ## Consumer Project Flow
 

@@ -1,13 +1,17 @@
 import { swaggerUI } from "@hono/swagger-ui";
 import { OpenAPIHono } from "@hono/zod-openapi";
+import type { EvalJudge } from "@kortyx/agent";
 import { STUDIO_API_PROTOCOL_VERSION } from "@kortyx/telemetry-contracts";
 import type { TelemetryDb } from "@kortyx/telemetry-db";
 import { apiErrorHandler } from "./errors";
+import type { EvalTarget } from "./evals/targets";
 import { apiKeyAuth } from "./middleware/api-key-auth";
 import {
   createNoopStudioChangeBus,
   type StudioChangeBus,
 } from "./realtime/studio-change-bus";
+import { registerEvalJudgeRoutes } from "./routes/eval-judge";
+import { registerEvalRoutes } from "./routes/evals";
 import { registerHealthRoutes } from "./routes/health";
 import {
   registerStudioReviewRoutes,
@@ -21,6 +25,8 @@ import type { ApiEnv } from "./types";
 
 export type CreateApiAppOptions = {
   db: TelemetryDb;
+  evalTargets?: readonly EvalTarget[];
+  evalJudge?: EvalJudge;
   apiKeyPepper: string;
   studioChangeBus?: StudioChangeBus;
   readiness?: () => Promise<void>;
@@ -84,6 +90,8 @@ export const createApiApp = (options: CreateApiAppOptions) => {
     }),
   );
   registerStudioRoutes(app);
+  registerEvalRoutes(app, options.evalTargets ?? [], options.evalJudge);
+  registerEvalJudgeRoutes(app, options.evalJudge);
   registerStudioReviewRoutes(app);
   registerStudioChangeRoutes(
     app,

@@ -43,23 +43,47 @@ const VIEW_MODES: Array<{
   { id: "text", label: "Text", icon: AlignLeft },
 ];
 
+export type PayloadPresentation = {
+  mode: ViewMode;
+  clean: boolean;
+  wrap: boolean;
+};
 export function PayloadViewer({
   value,
   defaultMode = "pretty",
   defaultClean = true,
   expandAll = false,
   className,
+  presentation,
+  onPresentationChange,
 }: {
+  presentation?: PayloadPresentation;
+  onPresentationChange?: (patch: Partial<PayloadPresentation>) => void;
   value: unknown;
   defaultMode?: ViewMode;
   defaultClean?: boolean;
   expandAll?: boolean;
   className?: string;
 }) {
-  const [mode, setMode] = useState<ViewMode>(defaultMode);
-  const [clean, setClean] = useState(defaultClean);
-  const [wrap, setWrap] = useState(true);
+  const [localMode, setMode] = useState<ViewMode>(defaultMode);
+  const [localClean, setClean] = useState(defaultClean);
+  const [localWrap, setWrap] = useState(true);
   const [copyStatus, setCopyStatus] = useState<CopyStatus>("idle");
+  const { mode, clean, wrap } = presentation ?? {
+    mode: localMode,
+    clean: localClean,
+    wrap: localWrap,
+  };
+  const changeMode = (mode: ViewMode) =>
+    onPresentationChange ? onPresentationChange({ mode }) : setMode(mode);
+  const changeClean = () =>
+    onPresentationChange
+      ? onPresentationChange({ clean: !clean })
+      : setClean((current) => !current);
+  const changeWrap = () =>
+    onPresentationChange
+      ? onPresentationChange({ wrap: !wrap })
+      : setWrap((current) => !current);
   const activeMode =
     VIEW_MODES.find((item) => item.id === mode) ?? VIEW_MODES[0];
   const ActiveModeIcon = activeMode.icon;
@@ -67,7 +91,7 @@ export function PayloadViewer({
   const cleaned = useMemo(() => cleanPayload(parsedValue), [parsedValue]);
   const displayedValue = clean ? cleaned.value : parsedValue;
   const expandLevel = useMemo(
-    () => (expandAll ? inspectorDepth(displayedValue) : 1),
+    () => (expandAll ? inspectorDepth(displayedValue) : 3),
     [displayedValue, expandAll],
   );
   const serialized = useMemo(
@@ -139,7 +163,7 @@ export function PayloadViewer({
             <DropdownMenuRadioGroup
               value={mode}
               onValueChange={(value) => {
-                if (isViewMode(value)) setMode(value);
+                if (isViewMode(value)) changeMode(value);
               }}
             >
               {VIEW_MODES.map((item) => {
@@ -165,7 +189,7 @@ export function PayloadViewer({
             }
             aria-pressed={clean}
             title={clean ? "Show raw payload" : "Hide empty payload values"}
-            onClick={() => setClean((current) => !current)}
+            onClick={changeClean}
             className={cn(clean && "bg-background shadow-xs")}
           >
             <Sparkles />
@@ -183,7 +207,7 @@ export function PayloadViewer({
             aria-label={wrap ? "Disable text wrapping" : "Enable text wrapping"}
             aria-pressed={wrap}
             title={wrap ? "Disable text wrapping" : "Enable text wrapping"}
-            onClick={() => setWrap((current) => !current)}
+            onClick={changeWrap}
             className={cn(wrap && "bg-background shadow-xs")}
           >
             <TextWrap />

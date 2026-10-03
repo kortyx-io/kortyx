@@ -25,6 +25,7 @@ RUN --mount=type=cache,id=pnpm-studio,target=/pnpm/store pnpm config set store-d
 COPY --from=pruner /repo/out/full/ ./
 COPY --from=pruner /repo/tsconfig.base.json /repo/tsconfig.lib.json ./
 RUN pnpm --filter @kortyx/telemetry-contracts build \
+  && pnpm exec turbo run build --filter=kortyx-studio^... \
   && pnpm --filter kortyx-studio build
 
 EXPOSE 6300

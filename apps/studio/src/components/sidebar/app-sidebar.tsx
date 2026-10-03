@@ -3,6 +3,7 @@
 import {
   Activity,
   CirclePause,
+  FlaskConical,
   MessageSquare,
   Settings,
   Workflow,
@@ -35,6 +36,10 @@ const navSections = [
       { title: "Workflows", url: "/workflows", icon: Workflow },
       { title: "Interrupts", url: "/interrupts", icon: CirclePause },
     ],
+  },
+  {
+    title: "Evaluate",
+    items: [{ title: "Evals", url: "/evals/runs", icon: FlaskConical }],
   },
 ];
 
@@ -104,7 +109,9 @@ export function AppSidebar({
                       tooltip={item.title}
                       isActive={
                         pathname === item.url ||
-                        pathname.startsWith(`${item.url}/`)
+                        pathname.startsWith(`${item.url}/`) ||
+                        (item.title === "Evals" &&
+                          pathname.startsWith("/evals/"))
                       }
                     >
                       <Link href={item.url}>
