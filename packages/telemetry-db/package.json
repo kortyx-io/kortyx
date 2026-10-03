@@ -23,7 +23,7 @@
   "scripts": {
     "build": "tsup",
     "db:generate": "drizzle-kit generate",
-    "db:check": "tsx src/scripts/check-migrations.ts && drizzle-kit check",
+    "db:check": "drizzle-kit check",
     "db:migrate": "tsx src/scripts/migrate.ts",
     "db:prepare-drizzle": "tsx src/scripts/prepare-drizzle.ts",
     "db:migrate-deployment": "tsx src/scripts/migrate-for-deployment.ts",

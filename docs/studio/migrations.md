@@ -61,7 +61,7 @@ pnpm --filter @kortyx/telemetry-db db:migrate
 The preparation script distinguishes three states:
 
 - Fresh: no baseline or legacy ledger is created.
-- Already native: validate native history and skip all legacy inspection.
+- Already native: skip all legacy inspection and leave history to Drizzle.
 - Legacy: validate the known ledger/schema and atomically record its applied
   prefix in Drizzle's journal, without replaying SQL.
 
@@ -76,19 +76,23 @@ between the two steps. Standalone preparation and native migration are
 separate processes; stop old migration jobs before that explicit handoff.
 After adoption, do not run the old filename-based executor again.
 
-Drizzle owns all product SQL execution and native journal writes. The shared
-connection utility provides deployment locking; the native runner validates
-applied history. Only the optional preparation module handles legacy adoption.
+Drizzle owns product SQL execution, migration selection, transactions and its
+native journal. The small shared connection utility provides deployment locking
+and cleanup. There is no custom journal parser, applied-history validator or
+Git-based migration checker. Only the optional preparation module handles legacy
+adoption; its six-file manifest and catalog fingerprints are fixed cutover data,
+not a framework to extend for future migrations.
 The installed
 stable Drizzle toolchain does not offer the native `pull --init` baseline
 command shown in the release-candidate documentation. Adopting a verified
 legacy prefix therefore needs a one-time metadata bridge, not another SQL
 executor.
 
-The installed native migrator checks the latest applied timestamp. It does
-not validate the entire applied checksum prefix or acquire a deployment lock.
-Kortyx validates both hashes and timestamps before allowing native migration,
-rejecting modified, missing, reordered or unknown applied history.
+The installed native migrator uses the latest applied timestamp to select
+pending migrations. It does not reject edits to every already-applied checksum.
+We accept that native behavior rather than maintaining a second implementation.
+Review and tests must enforce append-only migration changes; do not interpret a
+successful native migration command as proof that history was never edited.
 
 The six legacy journal timestamps are frozen increasing ordering keys, not
 historical release dates. New timestamps and snapshots come from Drizzle Kit.
@@ -130,13 +134,13 @@ does not silently special-case them.
 
 ## Validation and failure handling
 
-Public CI runs `db:check` before database migration and telemetry regressions.
-With `TURBO_SCM_BASE` set, that check also compares SQL and metadata with the
-base commit and rejects edits to released artifacts. No new paid runner or
-private-repository CI suite is needed.
+Public CI runs `db:check` (Drizzle Kit's native `check` command) before database
+migration and telemetry regressions. It checks generated migration consistency,
+not whether SQL was edited relative to a released Git commit. No custom checker,
+new paid runner or private-repository CI suite is needed.
 
 ```bash
-TURBO_SCM_BASE=origin/main pnpm --filter @kortyx/telemetry-db db:check
+pnpm --filter @kortyx/telemetry-db db:check
 # DATABASE_URL must point to a disposable test instance; the test user needs CREATEDB.
 pnpm --filter @kortyx/telemetry-db test:integration:ha
 ```
@@ -146,9 +150,10 @@ the known legacy prefixes with seeded customer data, physical table identity,
 fresh installation, reruns, concurrent jobs, compatibility with the old
 advisory lock, native rollback/retry, preparation interrupted before native
 execution, untouched legacy archives, native-only execution without a legacy
-manifest, and rejection of unknown or edited history. Frozen cutover fixtures remain valid
-as new migrations are appended. Current schema/snapshot generation is checked
-separately.
+manifest, and rejection of invalid legacy baselines. Frozen cutover fixtures
+remain valid as new migrations are appended. Current schema/snapshot generation
+is checked separately. Tests for the removed custom history guards are not part
+of the native contract.
 
 If legacy schema validation fails, adoption stops before writing a baseline
 or changing product DDL. Keep the old application running, retain both

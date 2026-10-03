@@ -10,10 +10,6 @@ import {
   LEGACY_SCHEMA_FINGERPRINTS,
 } from "../src/scripts/legacy-migrations";
 import { migrateForDeployment } from "../src/scripts/migrate-for-deployment";
-import {
-  type JournalEntry,
-  readHistory,
-} from "../src/scripts/migration-history";
 import { migrateDatabase } from "../src/scripts/migration-runner";
 import { legacySchemaFingerprint } from "../src/scripts/migration-schema";
 
@@ -152,7 +148,15 @@ async function withFutureMigrations(
     await cp(migrationsDir, folder, { recursive: true });
     const journal = JSON.parse(
       await readFile(path.join(folder, "meta/_journal.json"), "utf8"),
-    ) as { entries: JournalEntry[] };
+    ) as {
+      entries: {
+        idx: number;
+        version: string;
+        when: number;
+        tag: string;
+        breakpoints: boolean;
+      }[];
+    };
     const append = async (source: string) => {
       const idx = journal.entries.length;
       const tag = `${String(idx).padStart(4, "0")}_test`;
@@ -216,8 +220,10 @@ integration("native Drizzle migration cutover", () => {
   });
 
   it("matches snapshot column, foreign-key, check and index names to the deployed catalog", async () => {
-    const history = await readHistory(productionDir);
-    const latest = history.entries.at(-1);
+    const journal = JSON.parse(
+      await readFile(path.join(productionDir, "meta/_journal.json"), "utf8"),
+    ) as { entries: { idx: number }[] };
+    const latest = journal.entries.at(-1);
     if (!latest) throw new Error("Missing native history.");
     const snapshot = JSON.parse(
       await readFile(
@@ -630,24 +636,6 @@ integration("native Drizzle migration cutover", () => {
         (await sql`SELECT to_regclass('telemetry_scores') AS relation`)[0]
           ?.relation,
       ).toBeNull();
-    });
-  });
-
-  it("refuses changed, missing, or newer native history", async () => {
-    await withFutureMigrations(async (folder, append) => {
-      const file = await append("CREATE TABLE future_history (id integer);");
-      await withDatabase(async (sql, url) => {
-        await migrate(url, folder);
-        await seed(sql, 6);
-        const before = await customerRows(sql, 6);
-        await writeFile(file, "CREATE TABLE future_history (id bigint);");
-        await expect(migrate(url, folder)).rejects.toThrow("differs");
-        await expect(migrate(url)).rejects.toThrow("differs"); // Older release.
-        await writeFile(file, "CREATE TABLE future_history (id integer);");
-        await sql`DELETE FROM drizzle.__drizzle_migrations WHERE created_at = 1700000000001`;
-        await expect(migrate(url, folder)).rejects.toThrow("differs");
-        expect(await customerRows(sql, 6)).toEqual(before);
-      });
     });
   });
 

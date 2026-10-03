@@ -1,4 +1,5 @@
 import path from "node:path";
+import { readMigrationFiles } from "drizzle-orm/migrator";
 import type postgres from "postgres";
 import {
   LEGACY_SCHEMA_FINGERPRINTS,
@@ -7,14 +8,8 @@ import {
 } from "./legacy-migrations";
 import {
   type MigrateDatabaseOptions,
-  readAppliedHistory,
   withMigrationConnection,
 } from "./migration-connection";
-import {
-  type MigrationHistory,
-  readHistory,
-  validateAppliedHistory,
-} from "./migration-history";
 import { LEGACY_TABLES, legacySchemaFingerprint } from "./migration-schema";
 
 export type PreparationResult = "fresh" | "native" | "prepared";
@@ -25,13 +20,17 @@ export type PreparationResult = "fresh" | "native" | "prepared";
  */
 export async function prepareLegacyDatabase(
   sql: postgres.Sql,
-  history: MigrationHistory,
+  migrationsDir: string,
   log: (message: string) => void = console.log,
 ): Promise<PreparationResult> {
-  const applied = await readAppliedHistory(sql);
-  validateAppliedHistory(applied, history);
   // Once adopted, only native history is authoritative. Do not inspect old ledgers.
-  if (applied.length > 0) return "native";
+  const [nativeTable] =
+    await sql`SELECT to_regclass('drizzle.__drizzle_migrations') AS relation`;
+  if (nativeTable?.relation) {
+    const [native] =
+      await sql`SELECT EXISTS(SELECT 1 FROM drizzle.__drizzle_migrations) AS applied`;
+    if (native?.applied) return "native";
+  }
 
   const [table] =
     await sql`SELECT to_regclass('public.kortyx_schema_migrations') AS relation`;
@@ -53,7 +52,8 @@ export async function prepareLegacyDatabase(
     { id: string }[]
   >`SELECT id FROM public.kortyx_schema_migrations`;
   const prefix = legacyPrefix(rows.map(({ id }) => id));
-  validateLegacyHistory(history);
+  const migrations = readMigrationFiles({ migrationsFolder: migrationsDir });
+  validateLegacyHistory(migrations);
   const fingerprint = await legacySchemaFingerprint(sql);
   if (fingerprint !== LEGACY_SCHEMA_FINGERPRINTS[prefix]) {
     throw new Error(
@@ -69,7 +69,7 @@ export async function prepareLegacyDatabase(
     await tx`CREATE TABLE IF NOT EXISTS drizzle.__drizzle_migrations (
       id SERIAL PRIMARY KEY, hash text NOT NULL, created_at bigint
     )`;
-    for (const migration of history.migrations.slice(0, prefix)) {
+    for (const migration of migrations.slice(0, prefix)) {
       await tx`INSERT INTO drizzle.__drizzle_migrations (hash, created_at)
         VALUES (${migration.hash}, ${migration.folderMillis})`;
     }
@@ -86,8 +86,7 @@ export async function prepareDatabaseForDrizzle({
   migrationsDir = path.resolve(process.cwd(), "drizzle"),
   log = console.log,
 }: MigrateDatabaseOptions): Promise<PreparationResult> {
-  const history = await readHistory(migrationsDir);
   return withMigrationConnection(databaseUrl, (sql) =>
-    prepareLegacyDatabase(sql, history, log),
+    prepareLegacyDatabase(sql, migrationsDir, log),
   );
 }

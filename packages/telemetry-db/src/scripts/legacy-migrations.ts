@@ -1,4 +1,4 @@
-import type { MigrationHistory } from "./migration-history";
+import type { MigrationMeta } from "drizzle-orm/migrator";
 
 /** Released SQL is immutable. Timestamps are fixed ordering keys, not release dates. */
 export const LEGACY_MIGRATIONS = [
@@ -34,15 +34,11 @@ export const LEGACY_MIGRATIONS = [
   },
 ] as const;
 
-/** Only compatibility preparation and CI depend on the frozen pre-Drizzle history. */
-export function validateLegacyHistory({
-  entries,
-  migrations,
-}: MigrationHistory): void {
+/** Frozen one-time compatibility data; not used by native migration or CI. */
+export function validateLegacyHistory(migrations: MigrationMeta[]): void {
   for (const [idx, legacy] of LEGACY_MIGRATIONS.entries()) {
     if (
-      entries[idx]?.tag !== legacy.tag ||
-      entries[idx]?.when !== legacy.when ||
+      migrations[idx]?.folderMillis !== legacy.when ||
       migrations[idx]?.hash !== legacy.hash
     ) {
       throw new Error(

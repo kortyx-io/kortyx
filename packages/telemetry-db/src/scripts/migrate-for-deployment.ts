@@ -4,7 +4,6 @@ import {
   type MigrateDatabaseOptions,
   withMigrationConnection,
 } from "./migration-connection";
-import { readHistory } from "./migration-history";
 import { applyNativeMigrations } from "./migration-runner";
 
 /** Deployment orchestration, not a migration engine: optional prepare, then native. */
@@ -13,10 +12,9 @@ export async function migrateForDeployment({
   migrationsDir = path.resolve(process.cwd(), "drizzle"),
   log = console.log,
 }: MigrateDatabaseOptions): Promise<void> {
-  const history = await readHistory(migrationsDir);
   await withMigrationConnection(databaseUrl, async (sql) => {
-    await prepareLegacyDatabase(sql, history, log);
-    await applyNativeMigrations(sql, history, migrationsDir, log);
+    await prepareLegacyDatabase(sql, migrationsDir, log);
+    await applyNativeMigrations(sql, migrationsDir, log);
   });
 }
 

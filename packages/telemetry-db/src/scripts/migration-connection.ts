@@ -31,13 +31,3 @@ export async function withMigrationConnection<Result>(
     }
   }
 }
-
-export async function readAppliedHistory(sql: postgres.Sql) {
-  const [table] =
-    await sql`SELECT to_regclass('drizzle.__drizzle_migrations') AS relation`;
-  return table?.relation
-    ? sql<{ hash: string; created_at: string }[]>`
-        SELECT hash, created_at FROM drizzle.__drizzle_migrations ORDER BY created_at, id
-      `
-    : [];
-}
