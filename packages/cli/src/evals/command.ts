@@ -8,7 +8,7 @@ import { Command, InvalidArgumentError } from "commander";
 import { createEvalTerminalReporter } from "./reporter";
 
 type Runtime = {
-  load: (path: string) => Promise<Record<string, unknown>>;
+  load: (path: string, envFiles?: string[]) => Promise<Record<string, unknown>>;
   write?: (text: string) => void;
   release?: () => void | Promise<void>;
   color?: boolean;
@@ -18,6 +18,7 @@ type Runtime = {
 };
 type Options = {
   entry: string;
+  env?: string[];
   export?: string;
   suite?: string;
   case?: string[];
@@ -60,6 +61,7 @@ export function createLocalEvalsCommand(runtime: Runtime) {
   const load = async (options: Options) => {
     const module = await runtime.load(
       resolve(runtime.cwd ?? process.cwd(), options.entry),
+      options.env,
     );
     const selected = options.export
       ? module[options.export]
@@ -91,6 +93,12 @@ export function createLocalEvalsCommand(runtime: Runtime) {
         "Module exporting your createEvals instance (TypeScript or JavaScript).",
       )
       .option("--export <name>", "Named export; defaults to evals or default.")
+      .option(
+        "--env <path>",
+        "Load an env file before the entry; repeat for overlays. Replaces automatic env loading.",
+        (value: string, previous: string[]) => [...previous, value],
+        [],
+      )
       .option(
         "--json",
         "Print machine-readable JSON instead of the terminal report.",

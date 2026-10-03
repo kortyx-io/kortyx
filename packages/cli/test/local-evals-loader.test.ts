@@ -106,6 +106,54 @@ it("the real CLI loads TypeScript/path aliases/env files and reports SDK results
     expect(
       JSON.parse(shell.stdout).runs[0].cases[0].steps[0].observation.text,
     ).toBe("shell");
+    await writeFile(
+      resolve(directory, "selected.env"),
+      "EVAL_FIXTURE_VALUE=explicit\n",
+    );
+    await writeFile(
+      resolve(directory, "overlay.env"),
+      "EVAL_FIXTURE_VALUE=overlay\n",
+    );
+    const explicit = await run(
+      "--suite",
+      "catalog",
+      "--case",
+      "visible",
+      "--json",
+      "--env",
+      "selected.env",
+      "--env",
+      "overlay.env",
+    );
+    expect(
+      JSON.parse(explicit.stdout).runs[0].cases[0].steps[0].observation.text,
+    ).toBe("overlay");
+    await expect(run("--env", "missing.env")).rejects.toMatchObject({
+      code: 1,
+      stderr: expect.stringContaining(
+        "Configured eval environment file is unavailable",
+      ),
+    });
+    await writeFile(
+      resolve(directory, "private.env"),
+      "EVAL_FIXTURE_VALUE=profile\n",
+      { mode: 0o600 },
+    );
+    await writeFile(
+      resolve(directory, ".env.evals.json"),
+      JSON.stringify({ envFiles: ["private.env"] }),
+      { mode: 0o600 },
+    );
+    const remembered = await run(
+      "--suite",
+      "catalog",
+      "--case",
+      "visible",
+      "--json",
+    );
+    expect(
+      JSON.parse(remembered.stdout).runs[0].cases[0].steps[0].observation.text,
+    ).toBe("profile");
     await expect(run()).rejects.toMatchObject({
       code: 1,
       stdout: expect.stringContaining("app.receipt (any version)"),

@@ -257,6 +257,8 @@ Implementation paths in a matching Kortyx source checkout:
 - `packages/agent/src/evals/studio-judge.ts`: direct SDK backend-judge adapter.
 - `packages/cli/src/studio/eval-command.ts`, `eval-client.ts`, `compose.ts`:
   command flags, transport and container env forwarding.
+- `packages/cli/src/evals/command.ts`, `environment.ts`, `reporter.ts`:
+  local entry execution, env-file/profile loading and live terminal reporting.
 - `apps/studio/src/features/evals/`: UI, API proxy, launch state and comparisons.
 - `apps/api/test/evals.integration.test.ts`: CLI → API → worker → SDK consumer,
   persistence, scope isolation and cancellation regressions.
@@ -304,11 +306,36 @@ configuration or Studio key is required. Semantic criteria require a code judge;
 interaction and structured-output checks alone require no judge. Workflow models,
 tools and authentication still need their usual application configuration.
 
-The CLI loads `.env.local` and `.env` from the current working directory before
-importing the entry; existing shell variables take precedence. Run the script from
-the application directory. Model credentials remain application-owned, for example
-`OPENROUTER_API_KEY` for an OpenRouter app judge. Studio's judge settings are not
-used by this command.
+The CLI loads `.env` then overlays `.env.local` before importing the entry.
+In a monorepo it loads defaults from the Git or pnpm workspace root down to the
+app directory, with nearer files taking precedence. Existing shell variables
+always win.
+To select other files, repeat `--env`; later files override earlier ones:
+
+```sh
+pnpm eval --env /private/development.env --env /private/eval.env
+```
+
+For a one-line package script without repeated flags, remember paths in a
+**gitignored** `.env.evals.json` in the app or workspace root:
+
+```json
+{
+  "envFiles": ["/private/development.env", "/private/eval.env"]
+}
+```
+
+Keep the profile and referenced files owner-only (`chmod 600`). Relative paths
+in the profile resolve from its directory. The nearest profile replaces default
+env loading; discovery stops at a Git or pnpm workspace boundary. Explicit
+`--env` flags replace both the profile and defaults, and resolve from the
+invocation directory. Missing configured files fail before loading the app;
+credentials are never printed. The CLI handles loading directly, so no launcher
+script or shell exports are required. Package scripts in monorepos can forward
+with `pnpm --filter my-agent eval`.
+
+Model credentials remain application-owned, for example `OPENROUTER_API_KEY`
+for an OpenRouter app judge. Studio's judge settings are not used by this command.
 
 Omitting `--suite` runs all configured suites in definition order. `--case` accepts
 space-separated case IDs and requires `--suite`. `--repetitions` and `--concurrency`

@@ -88,10 +88,24 @@ afterEach(() => {
   process.exitCode = 0;
 });
 
+it("passes repeated environment files in order for both run and list", async () => {
+  const h = harness();
+  await h.run("--env", "first.env", "--env", "second.env");
+  expect(h.load).toHaveBeenLastCalledWith("/app/evals.ts", [
+    "first.env",
+    "second.env",
+  ]);
+  await h.program.parseAsync(
+    ["evals", "list", "--entry", "evals.ts", "--env", "catalog.env"],
+    { from: "user" },
+  );
+  expect(h.load).toHaveBeenLastCalledWith("/app/evals.ts", ["catalog.env"]);
+});
+
 it("runs a real SDK instance locally, emits a readable report and needs no Studio or model for output checks", async () => {
   const h = harness();
   await h.run();
-  expect(h.load).toHaveBeenCalledWith("/app/evals.ts");
+  expect(h.load).toHaveBeenCalledWith("/app/evals.ts", []);
   expect(h.output()).toContain("◆ Kortyx Evals · Product catalog");
   expect(h.output()).toContain("✓ Show products [products] #1");
   expect(h.output()).toContain("1 passed · 0 failed");
@@ -349,7 +363,7 @@ it("uses the real process defaults, disables color through environment, and unre
   const baseline = process.listenerCount("SIGINT");
   const command = createLocalEvalsCommand({ load });
   await command.parseAsync(["run", "--entry", "evals.ts"], { from: "user" });
-  expect(load).toHaveBeenCalledWith(`${process.cwd()}/evals.ts`);
+  expect(load).toHaveBeenCalledWith(`${process.cwd()}/evals.ts`, []);
   expect(write.mock.calls.map((call) => call[0]).join("")).not.toContain(
     "\u001b",
   );

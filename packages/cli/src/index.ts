@@ -28,6 +28,7 @@ import { register as registerTsxEsm } from "tsx/esm/api";
 import ts from "typescript";
 import { createConnectionsCommand } from "./connections-command";
 import { createLocalEvalsCommand } from "./evals/command";
+import { loadEvalEnvironment } from "./evals/environment";
 import { createStudioCommand } from "./studio/command";
 import { StudioReadError } from "./studio/read-client";
 import { discoverWorkflowCalls } from "./workflow-calls";
@@ -581,8 +582,11 @@ const createCliProgram = (): Command => {
   let releaseEvalEntry: (() => Promise<void>) | undefined;
   program.addCommand(
     createLocalEvalsCommand({
-      load: async (entry) => {
-        await loadEnvFiles(process.cwd());
+      load: async (entry, envFiles) => {
+        Object.assign(
+          process.env,
+          await loadEvalEnvironment(process.cwd(), envFiles),
+        );
         const loaded = await openEntry(entry);
         releaseEvalEntry = loaded.release;
         return loaded.module;
