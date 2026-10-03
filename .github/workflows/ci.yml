@@ -172,7 +172,7 @@ jobs:
               label: "production eval navigation",
               suite: production,
               shard: "",
-              spec: eval-navigation.spec.ts,
+              spec: 'eval-(navigation|structured-outputs)\.spec\.ts',
             }
     runs-on: ubuntu-latest
     timeout-minutes: 20
