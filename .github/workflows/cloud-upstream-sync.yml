@@ -3,6 +3,8 @@ name: Sync public changes to Cloud
 on:
   push:
     branches: [main]
+  repository_dispatch:
+    types: [cloud-main-updated]
   workflow_dispatch:
   schedule:
     - cron: "17 * * * *"
@@ -16,7 +18,10 @@ concurrency:
 
 jobs:
   sync:
-    if: github.repository == 'kortyx-io/kortyx'
+    if: >-
+      github.repository == 'kortyx-io/kortyx' &&
+      (github.event_name != 'repository_dispatch' ||
+       github.actor == 'kortyx-release-bot[bot]')
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
