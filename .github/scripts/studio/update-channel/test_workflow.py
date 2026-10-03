@@ -9,6 +9,14 @@ RECOVERY_WORKFLOW = (
 
 
 class StudioReleaseWorkflowTests(unittest.TestCase):
+    def test_production_promotion_requires_clean_install_and_real_upgrade_smoke(self):
+        workflow = WORKFLOW.read_text()
+        smoke = WORKFLOW.parents[1] / "scripts" / "studio" / "smoke-install.sh"
+        self.assertIn("      - smoke\n", workflow.split("  promote:\n", 1)[1])
+        self.assertIn("platform: linux/amd64", workflow)
+        self.assertIn("platform: linux/arm64", workflow)
+        self.assertIn('STUDIO_SMOKE_CLI="$cli" bash "$(dirname "$0")/smoke-upgrade.sh"', smoke.read_text())
+
     def test_update_publication_receives_deployment_strategy(self):
         workflow = WORKFLOW.read_text()
         publish_step = workflow.split(

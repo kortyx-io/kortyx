@@ -14,7 +14,7 @@ EOF
 }
 
 run_migrate() {
-  pnpm --filter @kortyx/telemetry-db db:migrate-deployment
+  pnpm --filter @kortyx/telemetry-db db:migrate
 }
 
 run_bootstrap() {

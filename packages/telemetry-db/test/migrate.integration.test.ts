@@ -523,6 +523,32 @@ integration("native Drizzle migration cutover", () => {
     });
   });
 
+  it("the package command used by old installers automatically adopts a legacy database", async () => {
+    await withDatabase(async (sql, url) => {
+      await installLegacy(sql, 4);
+      await seed(sql, 4);
+      const before = await customerRows(sql, 4);
+      const ledger = [
+        ...(await sql`SELECT * FROM public.kortyx_schema_migrations ORDER BY id`),
+      ];
+      const run = () =>
+        execFileSync("pnpm", ["db:migrate"], {
+          cwd: path.dirname(productionDir),
+          env: { ...process.env, DATABASE_URL: url },
+          encoding: "utf8",
+        });
+      expect(run()).toContain("Prepared 4 legacy migrations");
+      expect(run()).not.toContain("Prepared");
+      expect(await customerRows(sql, 4)).toEqual(before);
+      expect([
+        ...(await sql`SELECT * FROM public.kortyx_schema_migrations ORDER BY id`),
+      ]).toEqual(ledger);
+      expect(
+        (await sql`SELECT to_regclass('eval_runs') AS relation`)[0]?.relation,
+      ).toBe("eval_runs");
+    });
+  }, 30000);
+
   it("does not guess a legacy baseline when using the native command directly", async () => {
     await withDatabase(async (sql, url) => {
       await installLegacy(sql, 4);

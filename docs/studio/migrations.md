@@ -46,7 +46,7 @@ The native executor has no legacy detection, schema-fingerprint validation,
 baseline writing or legacy-ledger maintenance. Its normal command is:
 
 ```bash
-pnpm --filter @kortyx/telemetry-db db:migrate
+pnpm --filter @kortyx/telemetry-db db:migrate-native
 ```
 
 The separate compatibility script only prepares metadata; it does not execute
@@ -55,7 +55,7 @@ migration:
 
 ```bash
 pnpm --filter @kortyx/telemetry-db db:prepare-drizzle
-pnpm --filter @kortyx/telemetry-db db:migrate
+pnpm --filter @kortyx/telemetry-db db:migrate-native
 ```
 
 The preparation script distinguishes three states:
@@ -70,11 +70,19 @@ idempotent and the old ledger is neither modified nor dropped. Fresh native
 installations never get an old ledger at all.
 
 The existing `kortyx-studio-db migrate` and `migrate-and-bootstrap` commands use
-`db:migrate-deployment`: optional preparation followed by native execution
+`db:migrate`: optional preparation followed by native execution
 under **one shared database lock**, so an old migration job cannot interleave
 between the two steps. Standalone preparation and native migration are
 separate processes; stop old migration jobs before that explicit handoff.
 After adoption, do not run the old filename-based executor again.
+
+The `db:migrate` package command keeps the existing deployment meaning: it must
+work for fresh and previously installed databases. Older published installers
+and saved Compose files call this package command directly instead of the
+`kortyx-studio-db` entrypoint. They therefore receive preparation automatically
+when using the new API image; users do not need to rewrite their saved Compose
+files or update their CLI first. `db:migrate-native` is the explicit native-only
+command, not the default deployment path.
 
 Drizzle owns product SQL execution, migration selection, transactions and its
 native journal. The small shared connection utility provides deployment locking
@@ -133,6 +141,11 @@ operations require a separately designed operational procedure; this runner
 does not silently special-case them.
 
 ## Validation and failure handling
+
+The cutover's production-image install and upgrade results are recorded in
+[installation verification](./migration-cutover-verification.md). The existing
+AMD64/ARM64 release smoke jobs test both a clean install and an upgrade from the
+previous stable images before production promotion.
 
 Public CI runs `db:check` (Drizzle Kit's native `check` command) before database
 migration and telemetry regressions. It checks generated migration consistency,
