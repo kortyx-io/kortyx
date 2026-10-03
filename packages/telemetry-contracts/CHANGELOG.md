@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.13.0](https://github.com/kortyx-io/kortyx/compare/telemetry-contracts-v0.12.0...telemetry-contracts-v0.13.0) (2026-10-03)
+
+
+### Features
+
+* **evals:** run conversation suites from Studio and CLI ([#251](https://github.com/kortyx-io/kortyx/issues/251)) ([e653c91](https://github.com/kortyx-io/kortyx/commit/e653c9188d2fad4da0c75e79d090a8dedb639b92))
+
 ## [0.12.0](https://github.com/kortyx-io/kortyx/compare/telemetry-contracts-v0.11.1...telemetry-contracts-v0.12.0) (2026-09-30)
 
 
