@@ -37,6 +37,7 @@ runs:
       if: inputs.suite == 'integration'
       run: |-
         if jq -e '.packages.items | map(.name) | any(. == "@kortyx/telemetry-db")' "$RUNNER_TEMP/kortyx-affected.json" >/dev/null; then
+          pnpm --filter @kortyx/telemetry-db db:check
           pnpm --filter @kortyx/telemetry-db db:migrate
           pnpm --filter @kortyx/telemetry-db test
         else

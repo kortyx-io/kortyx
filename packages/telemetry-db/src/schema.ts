@@ -56,9 +56,7 @@ export const authAccounts = pgTable(
   "auth_accounts",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    userId: uuid("user_id")
-      .notNull()
-      .references(() => users.id, { onDelete: "cascade" }),
+    userId: uuid("user_id").notNull(),
     provider: text("provider").notNull(),
     providerAccountId: text("provider_account_id").notNull(),
     email: text("email"),
@@ -67,6 +65,11 @@ export const authAccounts = pgTable(
     updatedAt: timestampWithTimezone("updated_at").notNull().defaultNow(),
   },
   (table) => [
+    foreignKey({
+      columns: [table.userId],
+      foreignColumns: [users.id],
+      name: "auth_accounts_user_id_fkey",
+    }).onDelete("cascade"),
     index("auth_accounts_user_id_idx").on(table.userId),
     index("auth_accounts_provider_email_idx").on(table.provider, table.email),
     uniqueIndex("auth_accounts_provider_account_unique").on(
@@ -80,17 +83,23 @@ export const organizationMemberships = pgTable(
   "organization_memberships",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    organizationId: uuid("organization_id")
-      .notNull()
-      .references(() => organizations.id, { onDelete: "cascade" }),
-    userId: uuid("user_id")
-      .notNull()
-      .references(() => users.id, { onDelete: "cascade" }),
+    organizationId: uuid("organization_id").notNull(),
+    userId: uuid("user_id").notNull(),
     role: text("role").notNull(),
     createdAt: timestampWithTimezone("created_at").notNull().defaultNow(),
     updatedAt: timestampWithTimezone("updated_at").notNull().defaultNow(),
   },
   (table) => [
+    foreignKey({
+      columns: [table.organizationId],
+      foreignColumns: [organizations.id],
+      name: "organization_memberships_organization_id_fkey",
+    }).onDelete("cascade"),
+    foreignKey({
+      columns: [table.userId],
+      foreignColumns: [users.id],
+      name: "organization_memberships_user_id_fkey",
+    }).onDelete("cascade"),
     check(
       "organization_memberships_role_check",
       sql`${table.role} in ('owner', 'admin', 'member', 'viewer')`,
@@ -114,18 +123,12 @@ export const organizationInvitations = pgTable(
   "organization_invitations",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    organizationId: uuid("organization_id")
-      .notNull()
-      .references(() => organizations.id, { onDelete: "cascade" }),
+    organizationId: uuid("organization_id").notNull(),
     email: text("email").notNull(),
     role: text("role").notNull(),
     tokenHash: text("token_hash").notNull(),
-    invitedByUserId: uuid("invited_by_user_id").references(() => users.id, {
-      onDelete: "set null",
-    }),
-    acceptedByUserId: uuid("accepted_by_user_id").references(() => users.id, {
-      onDelete: "set null",
-    }),
+    invitedByUserId: uuid("invited_by_user_id"),
+    acceptedByUserId: uuid("accepted_by_user_id"),
     expiresAt: timestampWithTimezone("expires_at").notNull(),
     acceptedAt: timestampWithTimezone("accepted_at"),
     revokedAt: timestampWithTimezone("revoked_at"),
@@ -133,6 +136,21 @@ export const organizationInvitations = pgTable(
     updatedAt: timestampWithTimezone("updated_at").notNull().defaultNow(),
   },
   (table) => [
+    foreignKey({
+      columns: [table.organizationId],
+      foreignColumns: [organizations.id],
+      name: "organization_invitations_organization_id_fkey",
+    }).onDelete("cascade"),
+    foreignKey({
+      columns: [table.invitedByUserId],
+      foreignColumns: [users.id],
+      name: "organization_invitations_invited_by_user_id_fkey",
+    }).onDelete("set null"),
+    foreignKey({
+      columns: [table.acceptedByUserId],
+      foreignColumns: [users.id],
+      name: "organization_invitations_accepted_by_user_id_fkey",
+    }).onDelete("set null"),
     check(
       "organization_invitations_role_check",
       sql`${table.role} in ('owner', 'admin', 'member', 'viewer')`,
@@ -158,14 +176,17 @@ export const projects = pgTable(
   "projects",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    organizationId: uuid("organization_id")
-      .notNull()
-      .references(() => organizations.id, { onDelete: "cascade" }),
+    organizationId: uuid("organization_id").notNull(),
     name: text("name").notNull(),
     createdAt: timestampWithTimezone("created_at").notNull().defaultNow(),
     updatedAt: timestampWithTimezone("updated_at").notNull().defaultNow(),
   },
   (table) => [
+    foreignKey({
+      columns: [table.organizationId],
+      foreignColumns: [organizations.id],
+      name: "projects_organization_id_fkey",
+    }).onDelete("cascade"),
     index("projects_organization_id_idx").on(table.organizationId),
     uniqueIndex("projects_organization_id_id_unique").on(
       table.organizationId,
@@ -437,6 +458,21 @@ export const studioRuns = pgTable(
       table.projectId,
       table.sessionId,
     ),
+    index("studio_runs_workflow_ids_gin_idx").using("gin", table.workflowIds),
+    index("studio_runs_workflow_versions_gin_idx").using(
+      "gin",
+      table.workflowVersions,
+    ),
+    index("studio_runs_transition_ids_gin_idx").using(
+      "gin",
+      table.transitionIds,
+    ),
+    index("studio_runs_path_gin_idx").using("gin", table.path),
+    index("studio_runs_models_gin_idx").using("gin", table.models),
+    index("studio_runs_search_text_trgm_idx").using(
+      "gin",
+      table.searchText.op("gin_trgm_ops"),
+    ),
   ],
 );
 
@@ -570,6 +606,17 @@ export const studioSessions = pgTable(
       table.environment,
       table.lastActivityAt,
     ),
+    index("studio_sessions_workflow_ids_gin_idx").using(
+      "gin",
+      table.workflowIds,
+    ),
+    index("studio_sessions_providers_gin_idx").using("gin", table.providers),
+    index("studio_sessions_models_gin_idx").using("gin", table.models),
+    index("studio_sessions_tags_gin_idx").using("gin", table.tags),
+    index("studio_sessions_search_text_trgm_idx").using(
+      "gin",
+      table.searchText.op("gin_trgm_ops"),
+    ),
   ],
 );
 
@@ -638,6 +685,10 @@ export const studioInterrupts = pgTable(
       table.organizationId,
       table.projectId,
       table.runId,
+    ),
+    index("studio_interrupts_search_text_trgm_idx").using(
+      "gin",
+      table.searchText.op("gin_trgm_ops"),
     ),
   ],
 );

@@ -23,6 +23,7 @@
   "scripts": {
     "build": "tsup",
     "db:generate": "drizzle-kit generate",
+    "db:check": "tsx src/scripts/check-migrations.ts && drizzle-kit check",
     "db:migrate": "tsx src/scripts/migrate.ts",
     "db:bootstrap": "tsx src/scripts/bootstrap-local.ts",
     "db:backfill-studio": "tsx src/scripts/backfill-studio-projections.ts",
