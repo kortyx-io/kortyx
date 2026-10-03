@@ -4,10 +4,12 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import postgres from "postgres";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { prepareDatabaseForDrizzle } from "../src/scripts/legacy-drizzle-preparation";
 import {
   LEGACY_MIGRATIONS,
   LEGACY_SCHEMA_FINGERPRINTS,
 } from "../src/scripts/legacy-migrations";
+import { migrateForDeployment } from "../src/scripts/migrate-for-deployment";
 import {
   type JournalEntry,
   readHistory,
@@ -37,7 +39,8 @@ async function withDatabase(
     await admin.unsafe(`CREATE DATABASE "${name}" TEMPLATE template0`);
     created = true;
     sql = postgres(url.toString(), { max: 1, onnotice: () => undefined });
-    await sql`SET search_path TO public, pg_catalog`;
+    // Match released installations: pg_catalog is implicit and searched first.
+    await sql`SET search_path TO public`;
     await run(sql, url.toString());
   } finally {
     await sql?.end({ timeout: 5 });
@@ -47,6 +50,20 @@ async function withDatabase(
 }
 
 const migrate = (url: string, folder = migrationsDir) =>
+  migrateForDeployment({
+    databaseUrl: url,
+    migrationsDir: folder,
+    log: () => undefined,
+  });
+
+const prepare = (url: string, folder = migrationsDir) =>
+  prepareDatabaseForDrizzle({
+    databaseUrl: url,
+    migrationsDir: folder,
+    log: () => undefined,
+  });
+
+const native = (url: string, folder = migrationsDir) =>
   migrateDatabase({
     databaseUrl: url,
     migrationsDir: folder,
@@ -278,13 +295,7 @@ integration("native Drizzle migration cutover", () => {
       ).toEqual(LEGACY_MIGRATIONS.map(({ hash, when }) => ({ hash, when })));
       const ledger =
         await sql`SELECT * FROM public.kortyx_schema_migrations ORDER BY id`;
-      expect(ledger).toHaveLength(6);
-      for (const row of oldLedger)
-        expect(ledger.find((current) => current.id === row.id)).toEqual(row);
-      // The released filename-based runner would now skip all six old SQL files.
-      expect(ledger.map(({ id }) => id)).toEqual(
-        LEGACY_MIGRATIONS.map(({ tag }) => `${tag}.sql`),
-      );
+      expect([...ledger]).toEqual(oldLedger);
     });
   }, 30000);
 
@@ -294,6 +305,11 @@ integration("native Drizzle migration cutover", () => {
       expect(await legacySchemaFingerprint(sql)).toBe(
         LEGACY_SCHEMA_FINGERPRINTS[6],
       );
+      expect(
+        (
+          await sql`SELECT to_regclass('public.kortyx_schema_migrations') AS relation`
+        )[0]?.relation,
+      ).toBeNull();
     });
   });
 
@@ -381,22 +397,208 @@ integration("native Drizzle migration cutover", () => {
     });
   });
 
-  it("recovers bookkeeping interrupted after native commit", async () => {
+  it("prepares an old database once, without applying product SQL or maintaining its old ledger", async () => {
     await withDatabase(async (sql, url) => {
-      await migrate(url);
-      await sql`DELETE FROM public.kortyx_schema_migrations WHERE id IN ('0004_telemetry_scores.sql', '0005_eval_runs.sql')`;
-      await migrate(url);
+      await installLegacy(sql, 4);
+      await seed(sql, 4);
+      const before = await customerRows(sql, 4);
+      const ledger = [
+        ...(await sql`SELECT * FROM public.kortyx_schema_migrations ORDER BY id`),
+      ];
+      expect(await prepare(url)).toBe("prepared");
+      expect(await prepare(url)).toBe("native");
+      expect(await legacySchemaFingerprint(sql)).toBe(
+        LEGACY_SCHEMA_FINGERPRINTS[4],
+      );
+      expect(
+        (
+          await sql`SELECT count(*)::int AS count FROM drizzle.__drizzle_migrations`
+        )[0]?.count,
+      ).toBe(4);
+      expect(
+        (await sql`SELECT to_regclass('telemetry_scores') AS relation`)[0]
+          ?.relation,
+      ).toBeNull();
+      expect(await customerRows(sql, 4)).toEqual(before);
+      expect([
+        ...(await sql`SELECT * FROM public.kortyx_schema_migrations ORDER BY id`),
+      ]).toEqual(ledger);
+      await native(url);
+      await native(url);
+      expect(await customerRows(sql, 4)).toEqual(before);
+      expect(await legacySchemaFingerprint(sql)).toBe(
+        LEGACY_SCHEMA_FINGERPRINTS[6],
+      );
+      expect([
+        ...(await sql`SELECT * FROM public.kortyx_schema_migrations ORDER BY id`),
+      ]).toEqual(ledger);
+    });
+  });
+
+  it("preparation is a read-only no-op on a fresh database", async () => {
+    await withDatabase(async (sql, url) => {
+      expect(await prepare(url)).toBe("fresh");
+      expect(await prepare(url)).toBe("fresh");
+      expect(
+        (
+          await sql`SELECT to_regclass('drizzle.__drizzle_migrations') AS native,
+        to_regclass('public.kortyx_schema_migrations') AS legacy`
+        )[0],
+      ).toEqual({ native: null, legacy: null });
+      await native(url);
+      expect(
+        (
+          await sql`SELECT to_regclass('public.kortyx_schema_migrations') AS legacy`
+        )[0]?.legacy,
+      ).toBeNull();
+    });
+  });
+
+  it("the standalone CLI adopts an installation created with the released default search_path", async () => {
+    await withDatabase(async (sql, url) => {
+      await sql`SET search_path TO "$user", public`;
+      await installLegacy(sql, 4);
+      await seed(sql, 4);
+      const before = await customerRows(sql, 4);
+      const output = execFileSync(
+        "pnpm",
+        ["exec", "tsx", "src/scripts/prepare-drizzle.ts"],
+        {
+          cwd: path.dirname(productionDir),
+          env: { ...process.env, DATABASE_URL: url },
+          encoding: "utf8",
+        },
+      );
+      expect(output).toContain("Drizzle preparation: prepared");
+      expect(
+        (
+          await sql`SELECT count(*)::int AS count FROM drizzle.__drizzle_migrations`
+        )[0]?.count,
+      ).toBe(4);
       expect(
         (
           await sql`SELECT count(*)::int AS count FROM public.kortyx_schema_migrations`
         )[0]?.count,
-      ).toBe(6);
+      ).toBe(4);
+      expect(
+        (await sql`SELECT to_regclass('telemetry_scores') AS relation`)[0]
+          ?.relation,
+      ).toBeNull();
+      expect(await customerRows(sql, 4)).toEqual(before);
+    });
+  }, 30000);
+
+  it("already-native databases ignore stale legacy metadata and never recreate it", async () => {
+    await withDatabase(async (sql, url) => {
+      await installLegacy(sql, 4);
+      await migrate(url);
+      await seed(sql, 6);
+      const before = await customerRows(sql, 6);
+      // A malformed archive must not influence the native execution path.
+      await sql`INSERT INTO public.kortyx_schema_migrations (id) VALUES ('9999_obsolete.sql')`;
+      const ledger = [
+        ...(await sql`SELECT * FROM public.kortyx_schema_migrations ORDER BY id`),
+      ];
+      expect(await prepare(url)).toBe("native");
+      await native(url);
+      await migrate(url);
+      expect([
+        ...(await sql`SELECT * FROM public.kortyx_schema_migrations ORDER BY id`),
+      ]).toEqual(ledger);
+      await sql`DROP TABLE public.kortyx_schema_migrations`;
+      expect(await prepare(url)).toBe("native");
+      await migrate(url);
+      expect(
+        (
+          await sql`SELECT to_regclass('public.kortyx_schema_migrations') AS relation`
+        )[0]?.relation,
+      ).toBeNull();
+      expect(await customerRows(sql, 6)).toEqual(before);
+    });
+  });
+
+  it("does not guess a legacy baseline when using the native command directly", async () => {
+    await withDatabase(async (sql, url) => {
+      await installLegacy(sql, 4);
+      await seed(sql, 4);
+      const before = await customerRows(sql, 4);
+      await expect(native(url)).rejects.toThrow();
+      expect(await customerRows(sql, 4)).toEqual(before);
+      expect(
+        (
+          await sql`SELECT count(*)::int AS count FROM drizzle.__drizzle_migrations`
+        )[0]?.count,
+      ).toBe(0);
+      expect(await prepare(url)).toBe("prepared");
+      await native(url);
+      expect(await customerRows(sql, 4)).toEqual(before);
+    });
+  });
+
+  it("serializes standalone preparation with automatic deployment adoption", async () => {
+    await withDatabase(async (sql, url) => {
+      await installLegacy(sql, 4);
+      await Promise.all([
+        prepare(url),
+        migrate(url),
+        prepare(url),
+        migrate(url),
+      ]);
       expect(
         (
           await sql`SELECT count(*)::int AS count FROM drizzle.__drizzle_migrations`
         )[0]?.count,
       ).toBe(6);
+      expect(
+        (
+          await sql`SELECT count(*)::int AS count FROM public.kortyx_schema_migrations`
+        )[0]?.count,
+      ).toBe(4);
     });
+  });
+
+  it("native execution accepts ordinary Drizzle history without the legacy manifest", async () => {
+    const folder = await mkdtemp(path.join(tmpdir(), "kortyx-native-only-"));
+    try {
+      await mkdir(path.join(folder, "meta"));
+      await writeFile(
+        path.join(folder, "0000_native_only.sql"),
+        "CREATE TABLE native_only (id integer PRIMARY KEY);",
+      );
+      await writeFile(
+        path.join(folder, "meta/_journal.json"),
+        JSON.stringify({
+          version: "7",
+          dialect: "postgresql",
+          entries: [
+            {
+              idx: 0,
+              version: "7",
+              when: 1700000000000,
+              tag: "0000_native_only",
+              breakpoints: true,
+            },
+          ],
+        }),
+      );
+      await withDatabase(async (sql, url) => {
+        await native(url, folder);
+        await native(url, folder);
+        expect(
+          (
+            await sql`SELECT count(*)::int AS count FROM drizzle.__drizzle_migrations`
+          )[0]?.count,
+        ).toBe(1);
+        expect(
+          (
+            await sql`SELECT to_regclass('native_only') AS relation,
+          to_regclass('public.kortyx_schema_migrations') AS legacy`
+          )[0],
+        ).toEqual({ relation: "native_only", legacy: null });
+      });
+    } finally {
+      await rm(folder, { recursive: true, force: true });
+    }
   });
 
   it.each([
@@ -473,3 +675,5 @@ integration("native Drizzle migration cutover", () => {
     });
   });
 });
+
+import { execFileSync } from "node:child_process";

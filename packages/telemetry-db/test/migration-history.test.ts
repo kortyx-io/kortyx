@@ -4,9 +4,12 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { checkReleasedHistory } from "../src/scripts/check-migrations";
-import { LEGACY_MIGRATIONS } from "../src/scripts/legacy-migrations";
 import {
+  LEGACY_MIGRATIONS,
   legacyPrefix,
+  validateLegacyHistory,
+} from "../src/scripts/legacy-migrations";
+import {
   readHistory,
   validateAppliedHistory,
 } from "../src/scripts/migration-history";
@@ -41,7 +44,6 @@ describe("Drizzle history guards", () => {
   });
 
   it.each([
-    "edit",
     "orphan",
     "reorder",
     "backdate",
@@ -50,11 +52,6 @@ describe("Drizzle history guards", () => {
     await withCopy(async (folder) => {
       const journalPath = path.join(folder, "meta/_journal.json");
       const journal = JSON.parse(await readFile(journalPath, "utf8"));
-      if (kind === "edit")
-        await writeFile(
-          path.join(folder, "0000_initial_telemetry.sql"),
-          "SELECT 1;",
-        );
       if (kind === "orphan")
         await writeFile(path.join(folder, "9999_orphan.sql"), "SELECT 1;");
       if (kind === "reorder") journal.entries.reverse();
@@ -84,6 +81,19 @@ describe("Drizzle history guards", () => {
         "0000_initial_telemetry.sql",
       ]),
     ).toThrow("Unknown");
+  });
+
+  it("compatibility preparation and CI reject edited released SQL", async () => {
+    await withCopy(async (folder) => {
+      await writeFile(
+        path.join(folder, "0000_initial_telemetry.sql"),
+        "SELECT 1;",
+      );
+      const history = await readHistory(folder);
+      expect(() => validateLegacyHistory(history)).toThrow(
+        "Released migration",
+      );
+    });
   });
 
   it("rejects changed checksums, gaps, unknown newer history and changed timestamps", async () => {

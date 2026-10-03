@@ -1,7 +1,6 @@
 import { readdir, readFile } from "node:fs/promises";
 import path from "node:path";
 import { type MigrationMeta, readMigrationFiles } from "drizzle-orm/migrator";
-import { LEGACY_MIGRATIONS } from "./legacy-migrations";
 
 export type JournalEntry = {
   idx: number;
@@ -60,38 +59,7 @@ export async function readHistory(
     );
   }
   const migrations = readMigrationFiles({ migrationsFolder: migrationsDir });
-  for (const [idx, legacy] of LEGACY_MIGRATIONS.entries()) {
-    if (
-      entries[idx]?.tag !== legacy.tag ||
-      entries[idx]?.when !== legacy.when ||
-      migrations[idx]?.hash !== legacy.hash
-    ) {
-      throw new Error(
-        `Released migration ${legacy.tag}.sql was changed or removed. Append a new migration instead.`,
-      );
-    }
-  }
   return { entries, migrations };
-}
-
-export function legacyPrefix(ids: string[]): number {
-  const known = new Set<string>(
-    LEGACY_MIGRATIONS.map(({ tag }) => `${tag}.sql`),
-  );
-  const applied = new Set(ids);
-  if (ids.length !== applied.size || ids.some((id) => !known.has(id))) {
-    throw new Error(
-      "Unknown legacy migration history. Restore the matching release; do not reset the database.",
-    );
-  }
-  for (const [idx, migration] of LEGACY_MIGRATIONS.entries()) {
-    if (applied.has(`${migration.tag}.sql`) !== idx < applied.size) {
-      throw new Error(
-        "Legacy migration history has a gap. Refusing to guess a baseline.",
-      );
-    }
-  }
-  return applied.size;
 }
 
 export function validateAppliedHistory(

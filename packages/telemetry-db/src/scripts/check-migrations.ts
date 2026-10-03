@@ -2,6 +2,7 @@ import { execFileSync } from "node:child_process";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { isDeepStrictEqual } from "node:util";
+import { validateLegacyHistory } from "./legacy-migrations";
 import { readHistory } from "./migration-history";
 
 const migrationPath = "packages/telemetry-db/drizzle";
@@ -54,7 +55,7 @@ export async function checkReleasedHistory(repoRoot: string, baseRef: string) {
 
 async function main() {
   const folder = path.resolve(process.cwd(), "drizzle");
-  await readHistory(folder);
+  validateLegacyHistory(await readHistory(folder));
   const base = process.env.TURBO_SCM_BASE;
   if (base)
     await checkReleasedHistory(path.resolve(process.cwd(), "../.."), base);

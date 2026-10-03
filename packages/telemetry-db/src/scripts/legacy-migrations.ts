@@ -1,3 +1,5 @@
+import type { MigrationHistory } from "./migration-history";
+
 /** Released SQL is immutable. Timestamps are fixed ordering keys, not release dates. */
 export const LEGACY_MIGRATIONS = [
   {
@@ -31,6 +33,44 @@ export const LEGACY_MIGRATIONS = [
     hash: "b3d963beb92a94cfdc7c320bcf8bf3060db9714387c9a66a381230bf35e332c1",
   },
 ] as const;
+
+/** Only compatibility preparation and CI depend on the frozen pre-Drizzle history. */
+export function validateLegacyHistory({
+  entries,
+  migrations,
+}: MigrationHistory): void {
+  for (const [idx, legacy] of LEGACY_MIGRATIONS.entries()) {
+    if (
+      entries[idx]?.tag !== legacy.tag ||
+      entries[idx]?.when !== legacy.when ||
+      migrations[idx]?.hash !== legacy.hash
+    ) {
+      throw new Error(
+        `Released migration ${legacy.tag}.sql was changed or removed. Append a new migration instead.`,
+      );
+    }
+  }
+}
+
+export function legacyPrefix(ids: string[]): number {
+  const known = new Set<string>(
+    LEGACY_MIGRATIONS.map(({ tag }) => `${tag}.sql`),
+  );
+  const applied = new Set(ids);
+  if (ids.length !== applied.size || ids.some((id) => !known.has(id))) {
+    throw new Error(
+      "Unknown legacy migration history. Restore the matching release; do not reset the database.",
+    );
+  }
+  for (const [idx, migration] of LEGACY_MIGRATIONS.entries()) {
+    if (applied.has(`${migration.tag}.sql`) !== idx < applied.size) {
+      throw new Error(
+        "Legacy migration history has a gap. Refusing to guess a baseline.",
+      );
+    }
+  }
+  return applied.size;
+}
 
 /** Catalog fingerprints for exact legacy prefixes, including interrupted upgrades. */
 export const LEGACY_SCHEMA_FINGERPRINTS = [
