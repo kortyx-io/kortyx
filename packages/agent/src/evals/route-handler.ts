@@ -165,6 +165,8 @@ export function createEvalRouteHandler({
           });
       },
       cancel() {
+        // Retain the Request: Node weakly follows its internal abort controller.
+        request.signal.removeEventListener("abort", abortRequest);
         controller.abort();
       },
     });

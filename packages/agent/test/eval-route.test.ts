@@ -1,4 +1,7 @@
 import { randomUUID } from "node:crypto";
+import { setImmediate as nextTurn } from "node:timers/promises";
+import { setFlagsFromString } from "node:v8";
+import { runInNewContext } from "node:vm";
 import { describe, expect, it, vi } from "vitest";
 import {
   createEvalRouteHandler,
@@ -244,4 +247,42 @@ describe("consumer eval transport", () => {
     await first.body!.cancel();
     expect((await handler(request())).status).toBe(200);
   });
+});
+
+it("retains the incoming Request abort controller through garbage collection while a streamed eval waits", async () => {
+  // Node's Request follows the supplied signal through a WeakRef to its controller.
+  // A signal-only closure does not keep that controller alive.
+  setFlagsFromString("--expose-gc");
+  const collect = runInNewContext("gc") as () => void;
+  setFlagsFromString("--no-expose-gc");
+  const controller = new AbortController();
+  let settled = false;
+  const handler = createEvalRouteHandler({
+    serviceKey: key,
+    evals: {
+      describe: () => manifest,
+      run: async (options) => {
+        await new Promise<void>((resolve) =>
+          options.signal?.addEventListener("abort", () => resolve(), {
+            once: true,
+          }),
+        );
+        settled = true;
+        return result();
+      },
+    },
+  });
+  const response = await handler(
+    new Request(request(), { signal: controller.signal }),
+  );
+  try {
+    for (let attempt = 0; attempt < 5; attempt++) {
+      await nextTurn();
+      collect();
+    }
+    controller.abort();
+    await vi.waitFor(() => expect(settled).toBe(true), { timeout: 1000 });
+  } finally {
+    await response.body!.cancel();
+  }
 });
