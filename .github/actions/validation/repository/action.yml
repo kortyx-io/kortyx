@@ -84,7 +84,7 @@ runs:
       run: |-
         python3 -m unittest discover -s ./.github/automation/.github/scripts/studio/update-channel -v
         python3 -m unittest discover -s ./.github/automation/.github/scripts/tests -v
-        node --test ./.github/automation/.github/scripts/tests/website.test.cjs
+        node --test ./.github/automation/.github/scripts/tests/*.test.cjs
       shell: bash
     - name: Lint
       if: inputs.suite == 'static'

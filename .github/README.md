@@ -128,7 +128,7 @@ image build contexts even for older release candidates.
 ```sh
 python3 -m unittest discover -s .github/scripts/studio/update-channel -v
 python3 -m unittest discover -s .github/scripts/tests -v
-node --test .github/scripts/tests/website.test.cjs
+node --test .github/scripts/tests/*.test.cjs
 ```
 
 Run `actionlint` for workflow syntax and `bash -n` for shell syntax. Production
