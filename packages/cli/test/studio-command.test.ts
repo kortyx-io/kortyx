@@ -239,6 +239,11 @@ describe("Studio CLI lifecycle", () => {
     );
     const composeVariable = "$";
     expect(compose).toContain("ghcr.io/kortyx-io/kortyx-api");
+    // This stable deployment command also works in old API images. New images
+    // route it through optional legacy preparation before native Drizzle.
+    expect(compose).toContain("@kortyx/telemetry-db db:migrate &&");
+    expect(compose).not.toContain("db:migrate-native");
+    expect(compose).toContain("condition: service_completed_successfully");
     expect(compose).toContain("http://localhost:6400/ready");
     expect(compose).toContain(
       `"127.0.0.1:${composeVariable}{API_PORT:-6400}:6400"`,

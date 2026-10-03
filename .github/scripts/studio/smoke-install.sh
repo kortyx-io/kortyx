@@ -149,3 +149,6 @@ KORTYX_SMOKE_ID="${ARCH_ID}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}" \
 KORTYX_SMOKE_API_PORT=26400 \
 KORTYX_SMOKE_STUDIO_PORT=26300 \
   ./scripts/smoke-studio-external-postgres.sh
+
+# Reuse this release's existing AMD64/ARM64 jobs; no additional runner suite.
+STUDIO_SMOKE_CLI="$cli" bash "$(dirname "$0")/smoke-upgrade.sh"

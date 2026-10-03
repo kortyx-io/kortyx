@@ -1,0 +1,48 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1700000000000,
+      "tag": "0000_initial_telemetry",
+      "breakpoints": false
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1700000000001,
+      "tag": "0001_workflow_transitions",
+      "breakpoints": false
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1700000000002,
+      "tag": "0002_studio_projections",
+      "breakpoints": false
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1700000000003,
+      "tag": "0003_interrupt_expiry_index",
+      "breakpoints": false
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1700000000004,
+      "tag": "0004_telemetry_scores",
+      "breakpoints": false
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1700000000005,
+      "tag": "0005_eval_runs",
+      "breakpoints": false
+    }
+  ]
+}

@@ -83,6 +83,10 @@ advisory lock for the complete migration set, so accidentally concurrent jobs
 serialize instead of racing. The lock is a safety net; keep one job as the
 normal orchestration model.
 
+Product SQL is executed by Drizzle's native migrator. Existing filename-based
+ledgers are adopted automatically without replaying applied SQL. See the
+[migration contract](./migrations.md) for upgrade checks and failure handling.
+
 Do not start new application images until this job succeeds. Database downgrade
 is unsupported, so take a provider snapshot or verified backup before changing
 the schema.
