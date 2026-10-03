@@ -1,0 +1,54 @@
+name: Sync public changes to Cloud
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+  schedule:
+    - cron: "17 * * * *"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cloud-upstream-sync
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    if: github.repository == 'kortyx-io/kortyx'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Create Cloud-scoped GitHub App token
+        id: token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1
+        with:
+          app-id: ${{ secrets.GH_APP_ID }}
+          private-key: ${{ secrets.GH_APP_PRIVATE_KEY }}
+          owner: kortyx-io
+          repositories: kortyx-cloud
+          permission-contents: write
+          permission-pull-requests: write
+          permission-workflows: write
+
+      - name: Check out private synchronization implementation
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          repository: kortyx-io/kortyx-cloud
+          ref: main
+          token: ${{ steps.token.outputs.token }}
+          fetch-depth: 0
+
+      - name: Set up Node
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+        with:
+          node-version: "22"
+
+      - name: Synchronize public main
+        env:
+          GH_TOKEN: ${{ steps.token.outputs.token }}
+        run: |
+          git config user.name 'kortyx-release-bot[bot]'
+          git config user.email 'kortyx-release-bot[bot]@users.noreply.github.com'
+          node ee-tools/upstream-sync/sync.mjs
