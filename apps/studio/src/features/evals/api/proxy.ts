@@ -1,28 +1,9 @@
-import { createHash, timingSafeEqual } from "node:crypto";
-import { getStudioAuthConfig } from "@/lib/studio-auth";
+import "server-only";
+import { studioEdition } from "@/edition";
 
 export async function proxyEvalRequest(request: Request, parts: string[]) {
-  const auth = getStudioAuthConfig();
-  if (auth.mode !== "none") {
-    if (auth.mode !== "basic" || !auth.username || !auth.password)
-      return Response.json(
-        { error: "Studio authentication required." },
-        { status: 401 },
-      );
-    const digest = (text: string) => createHash("sha256").update(text).digest();
-    if (
-      !timingSafeEqual(
-        digest(
-          `Basic ${Buffer.from(`${auth.username}:${auth.password}`).toString("base64")}`,
-        ),
-        digest(request.headers.get("authorization") ?? ""),
-      )
-    )
-      return Response.json(
-        { error: "Studio authentication required." },
-        { status: 401 },
-      );
-  }
+  const denial = await studioEdition.authorize(request);
+  if (denial) return denial;
   const path = parts.join("/");
   if (!/^(targets|runs(?:\/[a-f0-9-]{36}(?:\/cancel)?)?)$/.test(path))
     return Response.json({ error: "Unknown eval route." }, { status: 404 });
@@ -45,8 +26,8 @@ export async function proxyEvalRequest(request: Request, parts: string[]) {
   if (!write && request.method !== "GET")
     return Response.json({ error: "Unsupported method." }, { status: 405 });
   const url = process.env.KORTYX_API_URL;
-  const key = process.env.KORTYX_STUDIO_API_KEY;
-  if (!url || !key)
+  const credential = await studioEdition.getApiCredential(request);
+  if (!url || !credential)
     return Response.json(
       { error: "Studio API is not configured." },
       { status: 503 },
@@ -60,7 +41,7 @@ export async function proxyEvalRequest(request: Request, parts: string[]) {
       {
         method: request.method,
         headers: {
-          authorization: `Bearer ${key}`,
+          authorization: credential.authorization,
           "content-type": "application/json",
         },
         ...(body ? { body } : {}),

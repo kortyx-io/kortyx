@@ -2,6 +2,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { POST } from "../app/api/studio/runs/[runId]/review/route";
 import { studioReviewRequest } from "./studio-reviews";
 
+vi.mock("server-only", () => ({}));
+
 const auth = `Basic ${Buffer.from("admin:password").toString("base64")}`;
 const score = {
   id: "00000000-0000-4000-8000-000000000001",
