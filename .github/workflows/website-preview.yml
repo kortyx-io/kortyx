@@ -23,7 +23,7 @@ env:
 jobs:
   detect-website-changes:
     name: Detect website changes
-    if: github.event.action != 'closed' && github.event.pull_request.head.repo.full_name == github.repository
+    if: github.event.action != 'closed' && github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.user.login != 'dependabot[bot]'
     runs-on: ubuntu-latest
     permissions:
       pull-requests: read
@@ -103,7 +103,7 @@ jobs:
           script: return await require('./.github/automation/.github/scripts/website/preview-comment.cjs')({ github, context, core });
   remove-preview:
     name: Remove preview
-    if: github.event.action == 'closed' && github.event.pull_request.head.repo.full_name == github.repository
+    if: github.event.action == 'closed' && github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.user.login != 'dependabot[bot]'
     runs-on: ubuntu-latest
     permissions:
       contents: read
