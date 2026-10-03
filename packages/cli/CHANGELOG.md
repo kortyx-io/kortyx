@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.12.0](https://github.com/kortyx-io/kortyx/compare/cli-v0.11.4...cli-v0.12.0) (2026-10-03)
+
+
+### Features
+
+* **evals:** run conversation suites from Studio and CLI ([#251](https://github.com/kortyx-io/kortyx/issues/251)) ([e653c91](https://github.com/kortyx-io/kortyx/commit/e653c9188d2fad4da0c75e79d090a8dedb639b92))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/agent bumped to 0.29.0
+    * @kortyx/telemetry-contracts bumped to 0.13.0
+
 ## [0.11.4](https://github.com/kortyx-io/kortyx/compare/cli-v0.11.3...cli-v0.11.4) (2026-09-30)
 
 

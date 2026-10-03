@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.29.0](https://github.com/kortyx-io/kortyx/compare/agent-v0.28.0...agent-v0.29.0) (2026-10-03)
+
+
+### Features
+
+* **evals:** run conversation suites from Studio and CLI ([#251](https://github.com/kortyx-io/kortyx/issues/251)) ([e653c91](https://github.com/kortyx-io/kortyx/commit/e653c9188d2fad4da0c75e79d090a8dedb639b92))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/runtime bumped to 0.21.5
+  * devDependencies
+    * @kortyx/hooks bumped to 0.30.1
+
 ## [0.28.0](https://github.com/kortyx-io/kortyx/compare/agent-v0.27.0...agent-v0.28.0) (2026-09-30)
 
 
