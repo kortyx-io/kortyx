@@ -1,6 +1,8 @@
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { proxyEvalRequest } from "./proxy";
 
+vi.mock("server-only", () => ({}));
+
 afterEach(() => {
   vi.unstubAllGlobals();
   vi.unstubAllEnvs();

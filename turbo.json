@@ -11,7 +11,7 @@
         "!.next/dev/**",
         "out/**"
       ],
-      "env": []
+      "env": ["KORTYX_STUDIO_TSCONFIG"]
     },
     "dev": {
       "cache": false,
@@ -21,6 +21,7 @@
       "env": [
         "WEBSITE_PORT",
         "STUDIO_PORT",
+        "KORTYX_STUDIO_TSCONFIG",
         "API_PORT",
         "DATABASE_URL",
         "KORTYX_API_KEY_PEPPER",
@@ -54,6 +55,7 @@
     },
     "type-check": {
       "dependsOn": ["^build", "^type-check"],
+      "env": ["KORTYX_STUDIO_TSCONFIG"],
       "outputs": []
     },
     "test": {
