@@ -6,7 +6,7 @@ import type {
   EvalRunResult,
   EvalStepResult,
 } from "@kortyx/agent/evals";
-import { and, eq, inArray, or } from "drizzle-orm";
+import { and, asc, eq, inArray, or } from "drizzle-orm";
 import type { TelemetryDb } from "../client";
 import {
   type CalculatedCost,
@@ -195,6 +195,7 @@ export async function loadEvalCosts(
             ),
           ),
         )
+        .orderBy(asc(evalRunEvents.id))
     : [];
   const rows = sources.map((source) => ({
     source,

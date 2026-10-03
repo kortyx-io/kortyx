@@ -39,6 +39,7 @@ test("receives external eval progress and late billing in a case drawer without 
   );
   const id = randomUUID();
   const session = `e2e-ktx25-eval-cost-${id}`;
+  const fullPage = await page.context().newPage();
   const step: EvalStepResult = {
     index: 0,
     input: { message: "Read product A" },
@@ -88,6 +89,13 @@ test("receives external eval progress and late billing in a case drawer without 
       .getByRole("button", { name: "Conversation and debugging", exact: true })
       .click();
     const url = page.url();
+    await fullPage.goto(casePath);
+    const caseHeader = fullPage.locator(
+      '[data-responsive-surface="detail-header"]',
+    );
+    await expect(
+      caseHeader.getByText("Running", { exact: true }),
+    ).toBeVisible();
     await sql`insert into telemetry_events (organization_id,project_id,event_id,schema_version,type,occurred_at,environment,service_name,run_id,session_id,workflow_id,payload) values (${scope.organization_id},${scope.project_id},${randomUUID()},1,'generation.completed',now(),'development','e2e',${session},${session},'catalog',${sql.json({ pricing: { source: "provider", currency: "USD", actualCostMicros: 1200 } })})`;
     await change("runs");
     await expect(
@@ -148,6 +156,13 @@ test("receives external eval progress and late billing in a case drawer without 
     await expect(
       caseDrawer.getByText("Accurate", { exact: true }),
     ).toBeVisible();
+    await expect(caseHeader.getByText("Passed", { exact: true })).toBeVisible();
+    await expect(
+      fullPage.getByRole("button", {
+        name: "Total cost: $0.0015",
+        exact: true,
+      }),
+    ).toBeVisible();
     await expect(page).toHaveURL(url);
     await expect(
       caseDrawer.getByRole("button", {
@@ -176,6 +191,7 @@ test("receives external eval progress and late billing in a case drawer without 
       page.getByRole("button", { name: /Live refresh: Live updates are off/ }),
     ).toHaveAttribute("aria-pressed", "false");
   } finally {
+    await fullPage.close();
     await sql`delete from eval_runs where id=${id}`;
     await sql`delete from telemetry_events where session_id=${session}`;
     await sql.end();

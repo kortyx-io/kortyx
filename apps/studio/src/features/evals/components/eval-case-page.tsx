@@ -2,14 +2,12 @@ import { notFound } from "next/navigation";
 import { DetailDrawer } from "@/components/detail/detail-drawer";
 import { DetailLink } from "@/components/detail/detail-link";
 import { DetailPage } from "@/components/detail/detail-page";
-import { DetailHeader } from "@/components/detail/detail-primitives";
 import { Button } from "@/components/ui/button";
 import { studioRouteId } from "@/lib/studio-routes";
 import { readEvalDetail } from "../api/server";
 import { evalCaseHref, evalRunHref } from "../lib/navigation";
 import { caseRows } from "../lib/presentation";
 import { EvalLiveCaseContent } from "./eval-live-case-content";
-import { EvalStatus } from "./eval-status";
 export async function EvalCasePage({
   params,
   drawer = false,
@@ -45,17 +43,12 @@ export async function EvalCasePage({
             <DetailLink href={evalRunHref(evalRunId)}>Eval run</DetailLink>
           </Button>
         </div>
-        <DetailHeader
-          status={<EvalStatus status={row.status} />}
-          eyebrow="Case evaluation"
-          title={row.name}
-          description={`Attempt ${row.repetition} · ${run.suite.name ?? run.suiteId}`}
-        />
         <div className="min-h-0 flex-1">
           <EvalLiveCaseContent
             run={run}
             caseId={caseId}
             repetition={Number(repetition)}
+            fullPage
           />
         </div>
       </div>
