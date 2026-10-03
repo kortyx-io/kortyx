@@ -5,19 +5,15 @@ import { expect, it } from "vitest";
 import { createStudioConfig } from "./next.config";
 
 const studio = fileURLToPath(new URL(".", import.meta.url));
-const fixture = fileURLToPath(
-  new URL("../../tsconfig.studio-auth-fixture.json", import.meta.url),
-);
+const fixture = fileURLToPath(new URL("./tsconfig.json", import.meta.url));
 
 it("does not change ordinary OSS build configuration", () => {
   expect(createStudioConfig(studio, "")).toEqual({});
 });
-it("selects a root config through native Next TypeScript configuration", () => {
-  for (const path of [fixture, "../../tsconfig.studio-auth-fixture.json"]) {
+it("selects an app-local config through native Next TypeScript configuration", () => {
+  for (const path of [fixture, "tsconfig.json"]) {
     const config = createStudioConfig(studio, path);
-    expect(config.typescript?.tsconfigPath).toBe(
-      "../../tsconfig.studio-auth-fixture.json",
-    );
+    expect(config.typescript?.tsconfigPath).toBe("tsconfig.json");
     expect(config.outputFileTracingRoot).toBe(config.turbopack?.root);
     expect(config.turbopack?.resolveAlias).toBeUndefined();
     expect(config.webpack).toBeUndefined();

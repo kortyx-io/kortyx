@@ -1,5 +1,5 @@
 {
-  "extends": "../../tsconfig.studio-auth-fixture.json",
+  "extends": "../../apps/studio/tsconfig.json",
   "compilerOptions": {
     "paths": {
       "@/*": ["../../apps/studio/src/*"],

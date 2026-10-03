@@ -1,7 +1,10 @@
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
+import { randomUUID } from "node:crypto";
+import { rmSync, writeFileSync } from "node:fs";
 import { createServer } from "node:http";
 import { createRequire } from "node:module";
+import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const studio = fileURLToPath(new URL("../../apps/studio/", import.meta.url));
@@ -9,10 +12,31 @@ const require = createRequire(
   new URL("../../apps/studio/package.json", import.meta.url),
 );
 const next = require.resolve("next/dist/bin/next");
+// Exercise the private profile's app-local placement without checking it into OSS.
+const profileName = `tsconfig.studio-test-${randomUUID()}.json`;
+const profile = join(studio, profileName);
+writeFileSync(
+  profile,
+  JSON.stringify({
+    extends: "./tsconfig.json",
+    compilerOptions: {
+      paths: {
+        "@/*": ["./src/*"],
+        "@studio/auth": ["../../test/studio/auth-fixture.ts"],
+        "@studio/auth-contracts": ["./src/auth/contracts.ts"],
+      },
+    },
+  }),
+  { flag: "wx" },
+);
+process.on("exit", () => {
+  rmSync(profile, { force: true });
+  rmSync(profile.replace(/\.json$/, ".tsbuildinfo"), { force: true });
+});
 const env = {
   ...process.env,
   KORTYX_STUDIO_AUTH_MODE: "cloud",
-  KORTYX_STUDIO_TSCONFIG: "../../tsconfig.studio-auth-fixture.json",
+  KORTYX_STUDIO_TSCONFIG: profileName,
   KORTYX_STUDIO_API_KEY: "auth-test-must-not-use-this-key",
 };
 const exited = (child) =>
@@ -54,7 +78,7 @@ async function typeCheck(config, valid) {
 await typeCheck("../../test/studio/tsconfig.invalid-auth.json", false);
 await typeCheck(env.KORTYX_STUDIO_TSCONFIG, true);
 console.log(
-  "Selected root tsconfig checks the valid adapter and rejects the invalid adapter.",
+  "Selected app-local tsconfig checks the valid adapter and rejects the invalid adapter.",
 );
 if (process.argv.includes("--typecheck-only")) process.exit(0);
 
