@@ -440,3 +440,16 @@ version 1, suites, named handlers, optional parameter JSON Schema, and judge
 identity. Neither invokes setup. `createEvalRouteHandler` exposes this manifest
 and runs to the Studio control plane. See [Studio execution](./studio-execution.md)
 for authenticated transport, persistent runs, and local Docker setup. Saved-run comparisons are available in Studio. Prompt version pinning remains subsequent work.
+
+### Live progress events
+
+With `includeActivity: true`, `onProgress` receives `run-started` with the
+selected case IDs and actual
+repetitions/concurrency, then `case-started`, `case-progress`, `step-completed`
+and `case-completed`. Phase updates carry the case ID, repetition, phase and
+optional zero-based step index. They contain no prepared identity or credentials.
+Consumers should switch on the event type; phase updates are activity, not verdicts.
+The terminal reporter uses these events to show real progress while model calls
+are still running. The CLI enables activity events automatically. Default SDK
+and HTTP transport progress retains the existing case/step event sequence, so
+older Studio servers remain compatible with an updated application SDK.

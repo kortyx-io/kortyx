@@ -239,6 +239,23 @@ export const EvalManifestSchema = z
 export const EvalProgressSchema = z.discriminatedUnion("type", [
   z
     .object({
+      type: z.literal("run-started"),
+      caseIds: z.array(id).min(1),
+      repetitions: z.number().int().positive(),
+      concurrency: z.number().int().positive(),
+    })
+    .strict(),
+  z
+    .object({
+      type: z.literal("case-progress"),
+      caseId: id,
+      repetition: z.number().int().positive(),
+      phase: issue.shape.phase,
+      stepIndex: z.number().int().nonnegative().optional(),
+    })
+    .strict(),
+  z
+    .object({
       type: z.literal("case-started"),
       caseId: id,
       repetition: z.number().int().positive(),

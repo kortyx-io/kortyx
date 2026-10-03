@@ -44,8 +44,7 @@ const isRunner = (value: unknown): value is EvalRunner =>
   typeof value.describe === "function";
 
 export function createLocalEvalsCommand(runtime: Runtime) {
-  const write =
-    runtime.write ?? ((value: string) => process.stdout.write(value));
+  const write = runtime.write ?? process.stdout.write.bind(process.stdout);
   const exitCode =
     runtime.setExitCode ??
     ((value: number) => {
@@ -139,7 +138,8 @@ export function createLocalEvalsCommand(runtime: Runtime) {
       integer,
     )
     .option("--no-color", "Disable terminal colors and live progress.")
-    .action((options: Options) =>
+    .option("--color", "Force terminal colors and live progress.")
+    .action((options: Options, command: Command) =>
       withRunner(options, async ({ runner, suites }) => {
         const selected = options.suite
           ? suites.filter((suite) => suite.id === options.suite)
@@ -167,10 +167,30 @@ export function createLocalEvalsCommand(runtime: Runtime) {
             };
           })
         )(() => controller.abort());
-        const reporter = createEvalTerminalReporter(
-          write,
-          color && options.color && !options.json,
-        );
+        const interactive =
+          options.color &&
+          !options.json &&
+          (color || command.getOptionValueSource("color") === "cli");
+        const reporter = createEvalTerminalReporter(write, interactive);
+        // Application warnings/logs must not corrupt the live dashboard.
+        const restoreOutput: Array<() => void> = [];
+        if (!runtime.write && interactive) {
+          for (const stream of [process.stdout, process.stderr]) {
+            const original = stream.write;
+            const wrapped = new Proxy(original, {
+              apply(target, receiver, args) {
+                reporter.pause();
+                const written = Reflect.apply(target, receiver, args);
+                if (String(args[0]).endsWith("\n")) reporter.resume();
+                return written;
+              },
+            });
+            stream.write = wrapped;
+            restoreOutput.push(() => {
+              if (stream.write === wrapped) stream.write = original;
+            });
+          }
+        }
         const runs: EvalRunResult[] = [];
         try {
           for (const suite of selected) {
@@ -179,6 +199,7 @@ export function createLocalEvalsCommand(runtime: Runtime) {
             const result = await runner.run({
               suiteId: suite.id,
               signal: controller.signal,
+              includeActivity: !options.json,
               ...(options.case ? { caseIds: options.case } : {}),
               ...(options.repetitions !== undefined
                 ? { repetitions: options.repetitions }
@@ -217,6 +238,7 @@ export function createLocalEvalsCommand(runtime: Runtime) {
           exitCode(cancelled ? 130 : passed ? 0 : 1);
         } finally {
           reporter.close();
+          for (const restore of restoreOutput) restore();
           removeInterrupt();
         }
       }),

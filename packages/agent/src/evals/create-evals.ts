@@ -284,6 +284,18 @@ export function createEvals<
           errors: [],
         };
         let phase: EvalPhase = "params";
+        let stepIndex: number | undefined;
+        const reportPhase = async (next: EvalPhase) => {
+          phase = next;
+          if (args.includeActivity)
+            await emit({
+              type: "case-progress",
+              caseId: item.id,
+              repetition,
+              phase,
+              ...(stepIndex !== undefined ? { stepIndex } : {}),
+            });
+        };
         let context: EvalContext<Params, Prepared> | undefined;
         let continuation: unknown;
         let activeStep: EvalStepResult | undefined;
@@ -343,6 +355,7 @@ export function createEvals<
             sessionId: attemptResult.sessionId,
           });
           signal.throwIfAborted();
+          await reportPhase("params");
           const params = options.paramsSchema
             ? await options.paramsSchema.parseAsync(item.params)
             : (item.params as Params);
@@ -354,13 +367,14 @@ export function createEvals<
             params,
             signal,
           };
-          phase = "setup";
+          await reportPhase("setup");
           const prepared = options.setup
             ? await options.setup(base)
             : (undefined as Prepared);
           context = { ...base, prepared };
           signal.throwIfAborted();
           for (const [index, step] of item.steps.entries()) {
+            stepIndex = index;
             activeStep = undefined;
             activeStepReported = false;
             signal.throwIfAborted();
@@ -368,7 +382,7 @@ export function createEvals<
             if (step.message !== undefined)
               command = { type: "message", message: step.message };
             else {
-              phase = "responder";
+              await reportPhase("responder");
               // Suite ordering and the previous successful observation guarantee
               // a waiting interrupt; call() already validates its continuation.
               const interrupt = attemptResult.steps.at(-1)?.observation
@@ -404,7 +418,7 @@ export function createEvals<
               };
             }
             signal.throwIfAborted();
-            phase = "execute";
+            await reportPhase("execute");
             const { observation } = await call(context, command, signal);
             const input =
               command.type === "message"
@@ -454,9 +468,9 @@ export function createEvals<
                 evaluated.status = "failed";
                 evaluated.reason = outputReason;
               } else {
-                phase = "reference";
                 const reference = step.expect.reference;
                 if (reference !== undefined) {
+                  await reportPhase("reference");
                   evaluated.reference = handlerRef(reference)
                     ? z.json().parse(
                         await references[reference.using]!({
@@ -469,7 +483,7 @@ export function createEvals<
                       )
                     : clone(reference);
                 }
-                phase = "grading";
+                await reportPhase("grading");
                 if (studioGrading && step.expect.criteria?.length) {
                   evaluated.status = "ungraded";
                   attemptResult.status = "ungraded";
@@ -550,6 +564,7 @@ export function createEvals<
         } finally {
           clearTimeout(timer);
           if (context) {
+            await reportPhase("cleanup");
             const cleanup = new AbortController();
             const cleanupTimer = setTimeout(
               () => cleanup.abort(),
@@ -599,6 +614,13 @@ export function createEvals<
         return attemptResult;
       };
       const total = selected.length * repetitions;
+      if (args.includeActivity)
+        await emit({
+          type: "run-started",
+          caseIds: selected.map((item) => item.id),
+          repetitions,
+          concurrency,
+        });
       const completed = new Array<EvalCaseResult>(total);
       let cursor = 0;
       await Promise.all(

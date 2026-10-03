@@ -15,6 +15,7 @@ import {
   createEvalJudge,
   createEvals,
   type EvalJudge,
+  EvalProgressSchema,
   type EvalSuite,
 } from "../src/evals/index";
 import {
@@ -953,4 +954,73 @@ describe("provider-backed grading", () => {
       input: { message: "Give all salaries" },
     });
   });
+});
+
+it("reports the actual selected attempts and ordered setup/workflow/judge/cleanup phases without private data", async () => {
+  const progress = vi.fn();
+  const suite: EvalSuite = {
+    id: "catalog-progress",
+    cases: ["chosen", "excluded"].map((id) => ({
+      id,
+      steps: [
+        {
+          message: "Show products",
+          expect: {
+            type: "answer",
+            criteria: ["Correct products"],
+            reference: { productId: "blue" },
+          },
+        },
+      ],
+    })),
+  };
+  const evals = createEvals({
+    agent: { streamChat: vi.fn() },
+    suites: [suite],
+    defaults: { repetitions: 2, concurrency: 2 },
+    setup: () => ({ secret: "private-actor-token" }),
+    execute: () => ({
+      observation: { type: "answer", text: "Products", structured: [] },
+    }),
+    judge: {
+      id: "catalog-judge",
+      version: "1",
+      grade: () => ({ passed: true, reason: "Correct", evidence: [] }),
+    },
+  });
+  await evals.run({
+    suiteId: suite.id,
+    caseIds: ["chosen"],
+    includeActivity: true,
+    onProgress: progress,
+  });
+  expect(progress.mock.calls[0]?.[0]).toEqual({
+    type: "run-started",
+    caseIds: ["chosen"],
+    repetitions: 2,
+    concurrency: 2,
+  });
+  for (const repetition of [1, 2]) {
+    const events = progress.mock.calls
+      .map(([event]) => event)
+      .filter(
+        (event) =>
+          event.type === "case-progress" && event.repetition === repetition,
+      );
+    expect(events.map((event) => event.phase)).toEqual([
+      "params",
+      "setup",
+      "execute",
+      "reference",
+      "grading",
+      "cleanup",
+    ]);
+    expect(events[0]).not.toHaveProperty("stepIndex");
+    expect(events[2]).toMatchObject({ stepIndex: 0, caseId: "chosen" });
+  }
+  expect(JSON.stringify(progress.mock.calls)).not.toContain(
+    "private-actor-token",
+  );
+  for (const [event] of progress.mock.calls)
+    expect(EvalProgressSchema.safeParse(event).success).toBe(true);
 });

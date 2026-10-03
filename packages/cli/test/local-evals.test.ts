@@ -106,7 +106,7 @@ it("a missing contract fails with a useful reason and a failing exit code", asyn
   expect(h.output()).toContain("app.product-list (any version)");
   expect(h.output()).toContain("Expected answer · observed answer");
   expect(h.output()).toContain("RUN");
-  expect(h.output()).toContain("\u001b[2K");
+  expect(h.output()).toContain("\u001b[0J");
   expect(h.setExitCode).toHaveBeenCalledWith(1);
 });
 it("preserves SDK defaults unless overridden, filters cases, and emits pure JSON with full saved results", async () => {
@@ -542,4 +542,116 @@ it("releases the imported entry when discovery or selection fails", async () => 
     "Unknown eval suite",
   );
   expect(selection.release).toHaveBeenCalledOnce();
+});
+
+it("explicit --color enables the live reporter, --no-color wins, and JSON stays clean", async () => {
+  vi.stubEnv("NO_COLOR", "1");
+  const colored = harness(instance(), false);
+  await colored.run("--color");
+  expect(colored.output()).toContain("SUITE PASSED");
+  expect(colored.output()).toContain("\u001b");
+  const plain = harness(instance(), false);
+  await plain.run("--color", "--no-color");
+  expect(plain.output()).not.toContain("\u001b");
+  const json = harness(instance(), false);
+  await json.run("--color", "--json");
+  expect(JSON.parse(json.output()).status).toBe("passed");
+  expect(json.output()).not.toContain("\u001b");
+});
+
+it("preserves application stdout/stderr during live rendering and restores both write methods", async () => {
+  const output = vi.spyOn(process.stdout, "write").mockReturnValue(true);
+  const errors = vi.spyOn(process.stderr, "write").mockReturnValue(true);
+  const originalOutput = process.stdout.write;
+  const originalErrors = process.stderr.write;
+  const evals = createEvals({
+    agent: { streamChat: vi.fn() },
+    suites: [suite],
+    execute: () => {
+      process.stdout.write("App partial ");
+      process.stdout.write(Buffer.from("continued\n"));
+      process.stderr.write("App warning\n");
+      return {
+        observation: {
+          type: "answer",
+          text: "",
+          structured: [
+            { schemaId: "app.product-list", status: "done", data: [] },
+          ],
+        },
+      };
+    },
+  });
+  await createLocalEvalsCommand({ load: async () => ({ evals }) }).parseAsync(
+    ["run", "--entry", "evals.ts", "--color"],
+    { from: "user" },
+  );
+  const text = output.mock.calls.map((call) => String(call[0])).join("");
+  expect(text).toContain("App partial continued\n");
+  expect(errors.mock.calls.map((call) => String(call[0])).join("")).toContain(
+    "App warning",
+  );
+  expect(process.stdout.write).toBe(originalOutput);
+  expect(process.stderr.write).toBe(originalErrors);
+});
+
+it("restores live output hooks and timers when an application runner throws", async () => {
+  const output = vi.spyOn(process.stdout, "write").mockReturnValue(true);
+  const errors = vi.spyOn(process.stderr, "write").mockReturnValue(true);
+  const originalOutput = process.stdout.write;
+  const originalErrors = process.stderr.write;
+  const command = createLocalEvalsCommand({
+    load: async () => ({
+      evals: {
+        describe: () => ({ suites: [suite] }),
+        run: async () => {
+          throw new Error("Application failure");
+        },
+      },
+    }),
+  });
+  await expect(
+    command.parseAsync(["run", "--entry", "evals.ts", "--color"], {
+      from: "user",
+    }),
+  ).rejects.toThrow("Application failure");
+  expect(process.stdout.write).toBe(originalOutput);
+  expect(process.stderr.write).toBe(originalErrors);
+  expect(output).toHaveBeenCalled();
+  expect(errors).not.toHaveBeenCalled();
+});
+
+it("does not overwrite an application's deliberate stderr replacement when restoring terminal output", async () => {
+  vi.spyOn(process.stdout, "write").mockReturnValue(true);
+  const original = process.stderr.write;
+  const replacement = vi.fn(() => true);
+  try {
+    const evals = createEvals({
+      agent: { streamChat: vi.fn() },
+      suites: [suite],
+      execute: () => {
+        process.stderr.write = replacement;
+        process.stderr.write("Application redirected its logger\n");
+        return {
+          observation: {
+            type: "answer",
+            text: "",
+            structured: [
+              { schemaId: "app.product-list", status: "done", data: [] },
+            ],
+          },
+        };
+      },
+    });
+    await createLocalEvalsCommand({ load: async () => ({ evals }) }).parseAsync(
+      ["run", "--entry", "evals.ts", "--color"],
+      { from: "user" },
+    );
+    expect(process.stderr.write).toBe(replacement);
+    expect(replacement).toHaveBeenCalledWith(
+      "Application redirected its logger\n",
+    );
+  } finally {
+    process.stderr.write = original;
+  }
 });

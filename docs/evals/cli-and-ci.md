@@ -47,9 +47,15 @@ space-separated case IDs and requires `--suite`. `--repetitions` and `--concurre
 override the SDK's run settings; omitted flags preserve them. `--export NAME`
 selects another named instance instead of `evals`/default.
 
-Interactive terminals show colored case verdicts, live progress, durations,
-failed steps and criteria with judge reasons/evidence, then a count summary.
-Piped output is plain text; `--no-color` or `NO_COLOR` disables color/live progress.
+Interactive terminals show an animated suite progress bar, one live row per active
+attempt, elapsed time, and the actual setup, workflow, interrupt-response, judging
+and cleanup phases. Every completed step and case gets its own result, followed
+by a colored suite verdict and counts. Long calls keep animating; concurrent
+attempts remain distinct. The bar measures completed attempts, not estimated model
+completion. Application logs/warnings are preserved above the live display.
+Piped output is plain text with per-case start and step results; `--no-color` or
+`NO_COLOR` disables color/live progress. Explicit `--color` forces the interactive
+report, including when `NO_COLOR` is set. `--json` always disables the terminal UI.
 `--json` replaces the report with one JSON object containing `schemaVersion: 1`, `status`, aggregated
 `counts`, and full SDK `runs` (including observations). Keep application logs off
 stdout when consuming JSON. Configuration/import failures use stderr.

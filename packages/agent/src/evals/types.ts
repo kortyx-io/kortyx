@@ -226,6 +226,19 @@ export type CreateEvalsOptions<
 };
 export type EvalProgress =
   | {
+      type: "run-started";
+      caseIds: string[];
+      repetitions: number;
+      concurrency: number;
+    }
+  | {
+      type: "case-progress";
+      caseId: string;
+      repetition: number;
+      phase: EvalPhase;
+      stepIndex?: number;
+    }
+  | {
       type: "case-started";
       caseId: string;
       repetition: number;
@@ -249,4 +262,6 @@ export type EvalRunOptions = {
   concurrency?: number;
   signal?: AbortSignal;
   onProgress?: (event: EvalProgress) => void | Promise<void>;
+  /** Include live run totals and case phases; off for legacy progress consumers. */
+  includeActivity?: boolean;
 };
