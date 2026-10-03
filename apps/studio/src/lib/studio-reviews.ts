@@ -4,13 +4,13 @@ import {
   StudioReviewRequestSchema,
   StudioScoreResponseSchema,
 } from "@kortyx/telemetry-contracts";
-import { studioEdition } from "@/edition";
+import { studioAuth } from "@studio/auth";
 
 export async function studioReviewRequest(
   request: Request,
   runId: string,
 ): Promise<Response> {
-  const denial = await studioEdition.authorize(request);
+  const denial = await studioAuth.authorize(request);
   if (denial) return denial;
   let sameOrigin = false;
   try {
@@ -28,7 +28,7 @@ export async function studioReviewRequest(
   if (request.method !== "POST" && request.method !== "DELETE")
     return Response.json({ error: "Unsupported method." }, { status: 405 });
   const apiUrl = process.env.KORTYX_API_URL;
-  const credential = await studioEdition.getApiCredential(request);
+  const credential = await studioAuth.getApiCredential(request);
   if (!apiUrl || !credential)
     return Response.json(
       { error: "Studio API is not configured." },

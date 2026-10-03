@@ -1,8 +1,8 @@
+import { studioAuth } from "@studio/auth";
 import { type NextRequest, NextResponse } from "next/server";
-import { studioEdition } from "@/edition";
 
 export async function proxy(request: NextRequest): Promise<Response> {
-  return (await studioEdition.authorize(request)) ?? NextResponse.next();
+  return (await studioAuth.authorize(request)) ?? NextResponse.next();
 }
 
 export const config = {

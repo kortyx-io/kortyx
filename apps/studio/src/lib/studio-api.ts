@@ -13,7 +13,7 @@ import {
   StudioSessionsResponseSchema,
   StudioWorkflowsResponseSchema,
 } from "@kortyx/telemetry-contracts";
-import { studioEdition } from "@/edition";
+import { studioAuth } from "@studio/auth";
 import { type Interrupt, InterruptSchema } from "@/features/interrupts/schema";
 import { type Run, RunSchema } from "@/features/runs/schema";
 import { type Session, SessionSchema } from "@/features/sessions/schema";
@@ -63,7 +63,7 @@ const fetchJson = async <T>(
   path: string,
   parse: (value: unknown) => T,
 ): Promise<StudioRepoResult<T>> => {
-  const credential = await studioEdition.getApiCredential();
+  const credential = await studioAuth.getApiCredential();
   if (!apiUrl || !credential) {
     return {
       data: null,

@@ -1,35 +1,30 @@
 import { realpathSync, statSync } from "node:fs";
-import { isAbsolute, relative, resolve, sep } from "node:path";
+import { relative, resolve, sep } from "node:path";
 import type { NextConfig } from "next";
 
-export function createStudioEditionConfig(
+export function createStudioConfig(
   studioDirectory = process.cwd(),
-  editionModule = process.env.KORTYX_STUDIO_EDITION_MODULE,
+  tsconfigPath = process.env.KORTYX_STUDIO_TSCONFIG,
 ): NextConfig {
-  if (!editionModule) return {};
-  if (!isAbsolute(editionModule))
-    throw new Error(
-      "KORTYX_STUDIO_EDITION_MODULE must be an absolute server-module path.",
-    );
+  if (!tsconfigPath) return {};
   const workspace = realpathSync(resolve(studioDirectory, "../.."));
-  const module = realpathSync(editionModule);
-  if (!statSync(module).isFile() || !module.startsWith(`${workspace}${sep}`)) {
-    throw new Error("Studio edition must be a file inside the same workspace.");
+  const configFile = realpathSync(resolve(studioDirectory, tsconfigPath));
+  if (
+    !statSync(configFile).isFile() ||
+    !configFile.startsWith(`${workspace}${sep}`)
+  ) {
+    throw new Error(
+      "Studio tsconfig must be a file inside the same workspace.",
+    );
   }
   return {
+    // Next and tsc use the same native paths mappings. No second bundler alias.
+    typescript: {
+      tsconfigPath: relative(studioDirectory, configFile).split(sep).join("/"),
+    },
     outputFileTracingRoot: workspace,
-    turbopack: {
-      root: workspace,
-      resolveAlias: {
-        // Alias targets are relative to the Next app, not turbopack.root.
-        "@/edition": `./${relative(realpathSync(studioDirectory), module).split(sep).join("/")}`,
-      },
-    },
-    webpack(config) {
-      config.resolve.alias = { ...config.resolve.alias, "@/edition$": module };
-      return config;
-    },
+    turbopack: { root: workspace },
   };
 }
 
-export default createStudioEditionConfig();
+export default createStudioConfig();

@@ -1,5 +1,5 @@
+import { studioAuth } from "@studio/auth";
 import { NextResponse } from "next/server";
-import { studioEdition } from "@/edition";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -7,9 +7,9 @@ export const runtime = "nodejs";
 const apiUrl = process.env.KORTYX_API_URL;
 
 export async function GET(request: Request): Promise<Response> {
-  const denial = await studioEdition.authorize(request);
+  const denial = await studioAuth.authorize(request);
   if (denial) return denial;
-  const credential = await studioEdition.getApiCredential(request);
+  const credential = await studioAuth.getApiCredential(request);
   if (!apiUrl || !credential) {
     return NextResponse.json(
       {

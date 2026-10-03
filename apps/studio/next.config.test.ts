@@ -1,29 +1,46 @@
+import { mkdtempSync, rmSync, symlinkSync } from "node:fs";
+import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { expect, it } from "vitest";
-import { createStudioEditionConfig } from "./next.config";
+import { createStudioConfig } from "./next.config";
 
 const studio = fileURLToPath(new URL(".", import.meta.url));
 const fixture = fileURLToPath(
-  new URL("../../test/studio/edition-fixture.ts", import.meta.url),
+  new URL("../../tsconfig.studio-auth-fixture.json", import.meta.url),
 );
 
 it("does not change ordinary OSS build configuration", () => {
-  expect(createStudioEditionConfig(studio, "")).toEqual({});
+  expect(createStudioConfig(studio, "")).toEqual({});
 });
-it("selects a local compiled edition consistently for Turbopack and webpack", () => {
-  const config = createStudioEditionConfig(studio, fixture);
-  expect(config.turbopack?.resolveAlias?.["@/edition"]).toBe(
-    "./../../test/studio/edition-fixture.ts",
-  );
-  expect(config.outputFileTracingRoot).toBe(config.turbopack?.root);
+it("selects a root config through native Next TypeScript configuration", () => {
+  for (const path of [fixture, "../../tsconfig.studio-auth-fixture.json"]) {
+    const config = createStudioConfig(studio, path);
+    expect(config.typescript?.tsconfigPath).toBe(
+      "../../tsconfig.studio-auth-fixture.json",
+    );
+    expect(config.outputFileTracingRoot).toBe(config.turbopack?.root);
+    expect(config.turbopack?.resolveAlias).toBeUndefined();
+    expect(config.webpack).toBeUndefined();
+  }
 });
-it("rejects relative, missing, directory, and outside-workspace modules instead of falling back", () => {
+it("rejects missing, directory, and outside-workspace configs", () => {
   for (const path of [
-    "./private.ts",
+    "./missing.json",
     `${studio}/missing.ts`,
     studio,
     "/etc/hosts",
   ]) {
-    expect(() => createStudioEditionConfig(studio, path)).toThrow();
+    expect(() => createStudioConfig(studio, path)).toThrow();
+  }
+});
+
+it("rejects an in-workspace symlink to an outside config", () => {
+  const directory = mkdtempSync(join(studio, ".auth-config-test-"));
+  try {
+    const link = join(directory, "tsconfig.json");
+    symlinkSync("/etc/hosts", link);
+    expect(() => createStudioConfig(studio, link)).toThrow("same workspace");
+  } finally {
+    rmSync(directory, { recursive: true });
   }
 });

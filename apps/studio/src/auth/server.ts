@@ -1,10 +1,10 @@
 import "server-only";
 import { createHash, timingSafeEqual } from "node:crypto";
-import type { StudioEdition } from "./lib/edition-contracts";
-import { getStudioAuthConfig } from "./lib/studio-auth";
+import { getStudioAuthConfig } from "../lib/studio-auth";
+import type { StudioAuthAdapter } from "./contracts";
 
-/** Default OSS edition. A managed build replaces this module, not the Studio app. */
-export const studioEdition: StudioEdition = {
+/** Default OSS auth adapter. A selected tsconfig replaces this module, not the app. */
+export const studioAuth: StudioAuthAdapter = {
   async authorize(request) {
     const config = getStudioAuthConfig();
     if (config.mode === "none") return null;
@@ -45,7 +45,7 @@ export const studioEdition: StudioEdition = {
   },
   async getApiCredential() {
     const config = getStudioAuthConfig();
-    // Never fall back to a shared API key when a managed edition is missing.
+    // Never fall back to a shared API key when the Cloud auth adapter is missing.
     if (config.mode === "cloud" || config.mode === "invalid") return null;
     const key = process.env.KORTYX_STUDIO_API_KEY;
     return key ? { authorization: `Bearer ${key}` } : null;

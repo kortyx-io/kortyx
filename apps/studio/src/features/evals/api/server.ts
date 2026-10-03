@@ -1,6 +1,6 @@
 import "server-only";
+import { studioAuth } from "@studio/auth";
 import type { z } from "zod";
-import { studioEdition } from "@/edition";
 import {
   EvalDetailSchema,
   EvalHistorySchema,
@@ -9,7 +9,7 @@ import {
 
 async function read<T>(path: string, schema: z.ZodType<T>): Promise<T> {
   const url = process.env.KORTYX_API_URL;
-  const credential = await studioEdition.getApiCredential();
+  const credential = await studioAuth.getApiCredential();
   if (!url || !credential) throw new Error("Studio API is not configured.");
   const response = await fetch(
     `${url.replace(/\/$/, "")}/v1/studio/evals/${path}`,

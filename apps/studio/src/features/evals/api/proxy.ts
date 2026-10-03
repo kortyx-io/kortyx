@@ -1,8 +1,8 @@
 import "server-only";
-import { studioEdition } from "@/edition";
+import { studioAuth } from "@studio/auth";
 
 export async function proxyEvalRequest(request: Request, parts: string[]) {
-  const denial = await studioEdition.authorize(request);
+  const denial = await studioAuth.authorize(request);
   if (denial) return denial;
   const path = parts.join("/");
   if (!/^(targets|runs(?:\/[a-f0-9-]{36}(?:\/cancel)?)?)$/.test(path))
@@ -26,7 +26,7 @@ export async function proxyEvalRequest(request: Request, parts: string[]) {
   if (!write && request.method !== "GET")
     return Response.json({ error: "Unsupported method." }, { status: 405 });
   const url = process.env.KORTYX_API_URL;
-  const credential = await studioEdition.getApiCredential(request);
+  const credential = await studioAuth.getApiCredential(request);
   if (!url || !credential)
     return Response.json(
       { error: "Studio API is not configured." },

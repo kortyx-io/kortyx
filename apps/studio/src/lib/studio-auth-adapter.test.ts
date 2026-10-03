@@ -1,23 +1,23 @@
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 
-const edition = vi.hoisted(() => ({
+const auth = vi.hoisted(() => ({
   authorize: vi.fn(),
   getApiCredential: vi.fn(),
   handleAuthRequest: vi.fn(),
 }));
-vi.mock("@/edition", () => ({ studioEdition: edition }));
+vi.mock("@studio/auth", () => ({ studioAuth: auth }));
 vi.mock("server-only", () => ({}));
 beforeEach(() => {
   vi.resetModules();
   vi.stubEnv("KORTYX_API_URL", "https://api.test");
   vi.stubEnv("KORTYX_STUDIO_API_KEY", "never-fall-back-to-this-key");
-  edition.authorize.mockReset().mockResolvedValue(null);
-  edition.getApiCredential
+  auth.authorize.mockReset().mockResolvedValue(null);
+  auth.getApiCredential
     .mockReset()
     .mockImplementation(async (request?: Request) => ({
       authorization: `Bearer ${request?.headers.get("x-test-session") ?? "server-session-a"}`,
     }));
-  edition.handleAuthRequest
+  auth.handleAuthRequest
     .mockReset()
     .mockResolvedValue(Response.json({ flow: "handled" }));
 });
@@ -46,7 +46,7 @@ it("SSR reads resolve a fresh session credential on each call", async () => {
   vi.stubGlobal("fetch", fetcher);
   const { getStudioRunDetail } = await import("./studio-api");
   await getStudioRunDetail("one");
-  edition.getApiCredential.mockResolvedValue({
+  auth.getApiCredential.mockResolvedValue({
     authorization: "Bearer server-session-b",
   });
   await getStudioRunDetail("two");
@@ -88,7 +88,7 @@ it("realtime reads authenticate directly and use request-scoped credentials", as
   ).toEqual(["Bearer stream-a", "Bearer stream-b"]);
 });
 
-it("server-side eval reads use the edition rather than the environment key", async () => {
+it("server-side eval reads use the auth adapter rather than the environment key", async () => {
   const fetcher = vi
     .fn()
     .mockImplementation(async () => Response.json({}, { status: 404 }));
@@ -103,7 +103,7 @@ it("server-side eval reads use the edition rather than the environment key", asy
 });
 
 it("no session credential never falls back to the global key", async () => {
-  edition.getApiCredential.mockResolvedValue(null);
+  auth.getApiCredential.mockResolvedValue(null);
   const fetcher = vi.fn();
   vi.stubGlobal("fetch", fetcher);
   const { getStudioRunDetail } = await import("./studio-api");
@@ -122,7 +122,7 @@ it("no session credential never falls back to the global key", async () => {
 });
 
 it("denied browser requests never reach credential resolution or the API", async () => {
-  edition.authorize.mockImplementation(
+  auth.authorize.mockImplementation(
     async () => new Response("Denied", { status: 401 }),
   );
   const fetcher = vi.fn();
@@ -137,7 +137,7 @@ it("denied browser requests never reach credential resolution or the API", async
     (await proxyEvalRequest(request("none", "POST"), ["runs"])).status,
   ).toBe(401);
   expect((await GET(request("none"))).status).toBe(401);
-  expect(edition.getApiCredential).not.toHaveBeenCalled();
+  expect(auth.getApiCredential).not.toHaveBeenCalled();
   expect(fetcher).not.toHaveBeenCalled();
 });
 
@@ -149,7 +149,7 @@ it("auth handlers delegate GET and POST with their original request", async () =
   });
   await handlers.GET(login);
   await handlers.POST(logout);
-  expect(edition.handleAuthRequest.mock.calls.map((call) => call[0])).toEqual([
+  expect(auth.handleAuthRequest.mock.calls.map((call) => call[0])).toEqual([
     login,
     logout,
   ]);

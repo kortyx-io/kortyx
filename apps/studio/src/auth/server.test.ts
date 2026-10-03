@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { studioEdition } from "./edition";
-import { proxy } from "./proxy";
+import { proxy } from "../proxy";
+import { studioAuth } from "./server";
 
 vi.mock("server-only", () => ({}));
 beforeEach(() => {
@@ -12,16 +12,14 @@ beforeEach(() => {
 });
 afterEach(() => vi.unstubAllEnvs());
 
-it("preserves Basic Auth for the self-hosted edition", async () => {
-  const denied = await studioEdition.authorize(
-    new Request("https://studio.test"),
-  );
+it("preserves Basic Auth for the self-hosted auth adapter", async () => {
+  const denied = await studioAuth.authorize(new Request("https://studio.test"));
   expect(denied?.status).toBe(401);
   expect(denied?.headers.get("WWW-Authenticate")).toContain(
     'Basic realm="Kortyx Studio"',
   );
   expect(
-    await studioEdition.authorize(
+    await studioAuth.authorize(
       new Request("https://studio.test", {
         headers: {
           authorization: `Basic ${Buffer.from("admin:password").toString("base64")}`,
@@ -31,7 +29,7 @@ it("preserves Basic Auth for the self-hosted edition", async () => {
   ).toBeNull();
 });
 
-it("keeps development access explicit and proxy delegates to the edition", async () => {
+it("keeps development access explicit and proxy delegates to the auth adapter", async () => {
   vi.stubEnv("KORTYX_STUDIO_AUTH_MODE", "none");
   expect(
     (await proxy(new NextRequest("https://studio.test"))).headers.get(
@@ -48,7 +46,7 @@ it.each([
   expect((await proxy(new NextRequest("https://studio.test"))).status).toBe(
     500,
   );
-  expect(await studioEdition.getApiCredential()).toBeNull();
+  expect(await studioAuth.getApiCredential()).toBeNull();
 });
 
 it("misconfigured production Basic Auth cannot silently allow requests", async () => {
@@ -56,26 +54,26 @@ it("misconfigured production Basic Auth cannot silently allow requests", async (
   vi.stubEnv("KORTYX_STUDIO_AUTH_MODE", "");
   vi.stubEnv("KORTYX_STUDIO_BASIC_AUTH_PASSWORD", "");
   expect(
-    (await studioEdition.authorize(new Request("https://studio.test")))?.status,
+    (await studioAuth.authorize(new Request("https://studio.test")))?.status,
   ).toBe(500);
 });
 
 it("resolves credentials at invocation time rather than retaining a module-global key", async () => {
-  expect(await studioEdition.getApiCredential()).toEqual({
+  expect(await studioAuth.getApiCredential()).toEqual({
     authorization: "Bearer shared-oss-key",
   });
   vi.stubEnv("KORTYX_STUDIO_API_KEY", "rotated-key");
-  expect(await studioEdition.getApiCredential()).toEqual({
+  expect(await studioAuth.getApiCredential()).toEqual({
     authorization: "Bearer rotated-key",
   });
   vi.stubEnv("KORTYX_STUDIO_API_KEY", "");
-  expect(await studioEdition.getApiCredential()).toBeNull();
+  expect(await studioAuth.getApiCredential()).toBeNull();
 });
 
 it("does not implement managed auth routes in the OSS default", async () => {
   expect(
     (
-      await studioEdition.handleAuthRequest(
+      await studioAuth.handleAuthRequest(
         new Request("https://studio.test/auth/login"),
       )
     ).status,

@@ -1,0 +1,10 @@
+{
+  "extends": "../../tsconfig.studio-auth-fixture.json",
+  "compilerOptions": {
+    "paths": {
+      "@/*": ["../../apps/studio/src/*"],
+      "@studio/auth": ["./auth-invalid.ts"],
+      "@studio/auth-contracts": ["../../apps/studio/src/auth/contracts.ts"]
+    }
+  }
+}
