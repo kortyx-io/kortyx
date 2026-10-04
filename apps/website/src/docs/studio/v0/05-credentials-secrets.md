@@ -4,6 +4,7 @@ title: "Kortyx Studio Credentials and Secrets"
 description: "Understand Studio credential roles, safe storage, local rotation, and remote deployment practices."
 keywords: [kortyx, studio, credentials, secrets, api-key, rotation]
 sidebar_label: "Credentials and Secrets"
+section: "deployment"
 ---
 # Kortyx Studio Credentials and Secrets
 

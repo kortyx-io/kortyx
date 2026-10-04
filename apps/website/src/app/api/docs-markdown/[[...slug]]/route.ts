@@ -1,4 +1,4 @@
-import { resolveDocsRoute } from "@/lib/docs";
+import { resolveDocsRoute, rewriteMarkdownHref } from "@/lib/docs";
 
 type DocsMarkdownRouteParams = {
   slug?: string[];
@@ -34,7 +34,21 @@ export async function GET(
     return permanentRedirect(`${resolved.canonicalPath}.md`);
   }
 
-  return new Response(resolved.doc.content, {
+  let inCodeFence = false;
+  const markdown = resolved.doc.content
+    .split("\n")
+    .map((line) => {
+      if (/^\s*(```|~~~)/.test(line)) inCodeFence = !inCodeFence;
+      if (inCodeFence) return line;
+      return line.replace(
+        /(\]\()([^\s)]+)(\))/g,
+        (_match, start: string, href: string, end: string) =>
+          `${start}${rewriteMarkdownHref({ href, version: resolved.requestedVersion, currentRelativeFile: resolved.doc.relativeFile, versionDocs: resolved.versionDocs })}${end}`,
+      );
+    })
+    .join("\n");
+
+  return new Response(markdown, {
     status: 200,
     headers: {
       "Content-Type": "text/markdown; charset=utf-8",

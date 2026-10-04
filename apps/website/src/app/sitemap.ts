@@ -35,7 +35,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     priority: 1,
   });
 
-  for (const pathname of ["/product", "/examples", "/open-source"]) {
+  for (const pathname of ["/product", "/examples", "/open-source", "/docs"]) {
     entries.set(pathname, {
       url: toAbsoluteUrl(pathname),
       changeFrequency: "weekly",
@@ -61,19 +61,19 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
           ? toValidDate(
               (
                 await getDocLastUpdatedMeta(
-                  `${resolved.doc.version}/${resolved.doc.relativeFile}`,
+                  `${resolved.doc.product}/${resolved.doc.version}/${resolved.doc.relativeFile}`,
                 )
               ).updatedAt,
             )
           : getLatestDate(
               await Promise.all(
                 resolved.versionDocs.docs
-                  .filter((doc) => doc.slugSegments[0] === resolved.sectionSlug)
+                  .filter((doc) => doc.sectionSlug === resolved.sectionSlug)
                   .map(async (doc) =>
                     toValidDate(
                       (
                         await getDocLastUpdatedMeta(
-                          `${doc.version}/${doc.relativeFile}`,
+                          `${doc.product}/${doc.version}/${doc.relativeFile}`,
                         )
                       ).updatedAt,
                     ),

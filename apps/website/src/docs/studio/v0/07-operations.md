@@ -4,6 +4,7 @@ title: "Operate and Troubleshoot Kortyx Studio"
 description: "Back up, restore, upgrade, reset, secure, and troubleshoot a self-hosted Kortyx Studio installation."
 keywords: [kortyx, studio, operations, backup, restore, upgrade, troubleshooting]
 sidebar_label: "Operations and Troubleshooting"
+section: "operations"
 ---
 # Operate and Troubleshoot Kortyx Studio
 

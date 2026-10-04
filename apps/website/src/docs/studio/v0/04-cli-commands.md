@@ -4,6 +4,7 @@ title: "Kortyx Studio CLI Commands"
 description: "Manage local Studio, inspect workflow runs, and execute conversation eval suites through project connections."
 keywords: [kortyx, studio, cli, commands, docker, credentials]
 sidebar_label: "CLI Commands"
+section: "reference"
 ---
 # Kortyx Studio CLI Commands
 

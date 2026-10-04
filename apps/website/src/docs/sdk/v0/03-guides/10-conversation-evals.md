@@ -14,7 +14,7 @@ It executes real workflows, tools, and application logic.
 
 The SDK exposes serializable suites, a manifest, progress events, and results.
 Mount `createEvalRouteHandler` in the consumer app to let Studio execute suites
-and persist their observations and grades. See [Studio execution](../05-studio/11-evals.md)
+and persist their observations and grades. See [Studio execution](../../../studio/v0/11-evals.md)
 for the endpoint, database migration, and local Docker configuration.
 
 ## What an eval tests
@@ -257,7 +257,7 @@ and failed criteria with reasons/evidence. `--json` emits full SDK results for
 automation. All passes exit `0`, failures/errors exit `1`, cancellation exits `130`.
 Your existing setup, executor, responders, cleanup and code judge are reused.
 No Studio model or execution credentials are needed. See
-[CLI commands](../05-studio/04-cli-commands.md) for filters, environment loading and
+[CLI commands](../../../studio/v0/04-cli-commands.md) for filters, environment loading and
 report options.
 
 When **Studio judge** is selected, the SDK bypasses the code judge, executes the
@@ -455,7 +455,7 @@ mark the run as a reporting error without skipping case cleanup.
 `evals.listSuites()` returns editable copies. `evals.describe()` returns schema
 version 1, suites, named handlers, optional parameter JSON Schema, and judge
 identity. Neither invokes setup. `createEvalRouteHandler` exposes this manifest
-and runs to the Studio control plane. See [Studio execution](../05-studio/11-evals.md)
+and runs to the Studio control plane. See [Studio execution](../../../studio/v0/11-evals.md)
 for authenticated transport, persistent runs, and local Docker setup. Saved-run comparisons are available in Studio. Prompt version pinning remains subsequent work.
 
 ## Optional typed case parameters

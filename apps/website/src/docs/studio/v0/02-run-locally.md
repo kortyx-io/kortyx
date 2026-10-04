@@ -4,6 +4,7 @@ title: "Run Kortyx Studio Locally"
 description: "Start Kortyx Studio with Docker, connect a Kortyx application, and inspect its first run."
 keywords: [kortyx, studio, docker, local, quickstart, telemetry]
 sidebar_label: "Run Studio Locally"
+section: "getting-started"
 ---
 # Run Kortyx Studio Locally
 

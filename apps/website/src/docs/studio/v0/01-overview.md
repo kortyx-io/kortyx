@@ -4,6 +4,7 @@ title: "Kortyx Studio Overview"
 description: "Understand what Kortyx Studio observes, how it relates to the SDK runtime, and which setup path to follow."
 keywords: [kortyx, studio, observability, telemetry, self-hosted, runs]
 sidebar_label: "Studio Overview"
+section: "getting-started"
 ---
 # Kortyx Studio Overview
 
@@ -64,7 +65,7 @@ Prompt, input, and output content is excluded by default. The SDK application de
 
 ## Child workflow visibility
 
-The SDK's [child workflow API](../03-guides/06-child-workflows.md) is visible in the **Execution** tab of a run. Expand calls beneath their calling node, inspect captured input and returned data, and follow nested nodes and generations. The lifecycle distinguishes waiting, resuming, returning, failure, and cached reuse.
+The SDK's [child workflow API](../../sdk/v0/03-guides/06-child-workflows.md) is visible in the **Execution** tab of a run. Expand calls beneath their calling node, inspect captured input and returned data, and follow nested nodes and generations. The lifecycle distinguishes waiting, resuming, returning, failure, and cached reuse.
 
 **Runs** defaults to root executions. Enable **Include child workflows** to search and filter individual child calls. Opening a child row selects that call inside its parent execution; it does not create an independent runtime run. Session counts continue to count roots.
 
@@ -88,6 +89,6 @@ requires `toolExecution.emit: true` for tool evidence. Choose Studio judging wit
 a backend model, or select a code judge registered by the application. Ordinary
 production sessions are observed without being automatically scored.
 
-Start with [Conversation Evals](../03-guides/10-conversation-evals.md), then follow
+Start with [Conversation Evals](../../sdk/v0/03-guides/10-conversation-evals.md), then follow
 [Run Eval Suites in Studio](./11-evals.md). The [CLI](./04-cli-commands.md#eval-suites-and-post-deployment-ci)
 can also enqueue a suite after deployment without waiting for grades or blocking CI.

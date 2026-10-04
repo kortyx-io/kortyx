@@ -78,13 +78,13 @@ When removing a docs page:
 
 Recent docs now cover the main `skills/kortyx` application guidance:
 
-- node input/params/data flow: `v0/02-core-concepts/03-nodes.md`
-- runtime request context: `v0/02-core-concepts/08-runtime-context.md`
-- server/client folder boundaries: `v0/03-guides/01-project-structure.md`
-- React frontend + Node backend architecture: `v0/03-guides/03-react-node-backend.md`
-- streamed React rendering: `v0/03-guides/04-render-streamed-chat.md`
-- `useReason({ emit: true })` vs `ui.message`: `v0/02-core-concepts/07-hooks.md`
-- interrupt replay safety: `v0/03-guides/02-interrupts-and-resume.md`
+- node input/params/data flow: `sdk/v0/02-core-concepts/03-nodes.md`
+- runtime request context: `sdk/v0/02-core-concepts/08-runtime-context.md`
+- server/client folder boundaries: `sdk/v0/03-guides/01-project-structure.md`
+- React frontend + Node backend architecture: `sdk/v0/03-guides/03-react-node-backend.md`
+- streamed React rendering: `sdk/v0/03-guides/04-render-streamed-chat.md`
+- `useReason({ emit: true })` vs `ui.message`: `sdk/v0/02-core-concepts/07-hooks.md`
+- interrupt replay safety: `sdk/v0/03-guides/02-interrupts-and-resume.md`
 
 ## Suggested KPI targets
 

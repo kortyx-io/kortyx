@@ -215,7 +215,7 @@ Use this entry for client-only bundles where you want to avoid Node-only runtime
 - `createChatRouteHandler({ agent, onExecution?, disconnect?, onTurnAccepted?, onResponseFinalized?, onLifecycleError? })`: connect host lifetime and optional app-owned transcript persistence. Hooks require `sessionId` and `clientTurnId`; `disconnect: "continue"` requires `onExecution`.
 - `createCheckpointRouteHandler({ agent, onForked?, onRolledBack?, onLifecycleError? })`: report successful runtime fork and rollback facts so the app can update its transcript. The hooks do not make runtime and app writes atomic.
 
-Existing useInterrupt and agent.resume APIs remain unchanged. See the [complete guide](/docs/guides/background-continuation) for ordering, checkpoints, scope authorization, parallel branches, and Studio's optional read-only role.
+Existing useInterrupt and agent.resume APIs remain unchanged. See the [complete guide](../03-guides/08-background-continuation.md) for ordering, checkpoints, scope authorization, parallel branches, and Studio's optional read-only role.
 For the server-owned transcript callback contract, see
 [Server-Owned Chat Transcripts](../03-guides/09-server-owned-chat-transcripts.md).
 

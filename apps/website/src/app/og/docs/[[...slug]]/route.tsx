@@ -16,7 +16,7 @@ function normalizeImageSlug(slug: string[] | undefined): string[] {
 }
 
 function getSectionDocs(docs: DocRecord[], sectionSlug: string): DocRecord[] {
-  return docs.filter((entry) => entry.slugSegments[0] === sectionSlug);
+  return docs.filter((entry) => entry.sectionSlug === sectionSlug);
 }
 
 function getSectionDescription(
@@ -71,7 +71,7 @@ export async function GET(
 
     return new ImageResponse(
       <KortyxOgCard
-        eyebrow="Kortyx Docs"
+        eyebrow={`${resolved.product.label} Docs`}
         title={sectionTitle}
         description={getSectionDescription(sectionTitle, sectionDocs)}
         logoSrc={logoSrc}
@@ -82,7 +82,7 @@ export async function GET(
 
   const sectionTitle =
     resolved.versionDocs.sections.find(
-      (entry) => entry.slug === resolved.doc.slugSegments[0],
+      (entry) => entry.slug === resolved.doc.sectionSlug,
     )?.label ?? "Kortyx Docs";
 
   return new ImageResponse(

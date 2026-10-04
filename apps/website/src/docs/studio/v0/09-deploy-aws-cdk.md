@@ -4,6 +4,7 @@ title: "Deploy Kortyx Studio on AWS with CDK"
 description: "Deploy Kortyx Studio privately on ECS Fargate with RDS, Secrets Manager, an internal load balancer, and the Kortyx AWS CDK construct."
 keywords: [kortyx, studio, aws, cdk, ecs, fargate, rds, self-hosted]
 sidebar_label: "Deploy on AWS with CDK"
+section: "deployment"
 ---
 # Deploy Kortyx Studio on AWS with CDK
 

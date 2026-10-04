@@ -3,7 +3,7 @@ import path from "node:path";
 import matter from "gray-matter";
 import { cache } from "react";
 import { extractToc } from "../utils/extract-toc";
-import { docsConfig } from "./config";
+import { type DocsProduct, docsConfig, getDocsProduct } from "./config";
 
 export type DocFrontmatter = {
   id: string;
@@ -14,6 +14,8 @@ export type DocFrontmatter = {
 };
 
 export type DocRecord = {
+  product: string;
+  sectionSlug: string;
   version: string;
   slugSegments: string[];
   slug: string;
@@ -30,6 +32,9 @@ type DocsSearchSection = {
 };
 
 export type DocsSearchEntry = {
+  product: string;
+  productLabel: string;
+  isLatest: boolean;
   href: string;
   title: string;
   description: string;
@@ -83,6 +88,9 @@ export type SectionMeta = {
 };
 
 type VersionDocs = {
+  product: DocsProduct;
+  root: string;
+  linkedDocsBySourceFile: Map<string, DocRecord>;
   version: string;
   docs: DocRecord[];
   docsBySlug: Map<string, DocRecord>;
@@ -92,12 +100,11 @@ type VersionDocs = {
 };
 
 type DocsStore = {
-  versions: string[];
-  latestVersion: string;
-  byVersion: Map<string, VersionDocs>;
+  byProduct: Map<string, Map<string, VersionDocs>>;
 };
 
 type RouteResolutionBase = {
+  product: DocsProduct;
   requestedVersion: string;
   explicitVersion: boolean;
   versionDocs: VersionDocs;
@@ -253,14 +260,36 @@ async function readSectionMetadata(versionDir: string): Promise<SectionMeta[]> {
     sections.push({ slug, position, label, collapsed });
   }
 
+  // Flat document URLs may still be organized into several sidebar sections.
+  try {
+    const metadata = JSON.parse(
+      await readFile(path.join(versionDir, "metadata.json"), "utf8"),
+    ) as {
+      sections?: Array<{
+        slug: string;
+        label: string;
+        position: number;
+        collapsed?: boolean;
+      }>;
+    };
+    for (const section of metadata.sections ?? []) {
+      sections.push({ ...section, collapsed: section.collapsed ?? false });
+    }
+  } catch {
+    // Version-level navigation metadata is optional.
+  }
+
   sections.sort(
     (a, b) => a.position - b.position || a.label.localeCompare(b.label),
   );
   return sections;
 }
 
-async function readVersionDocs(version: string): Promise<VersionDocs> {
-  const versionDir = path.join(docsConfig.docsRoot, version);
+async function readVersionDocs(
+  product: DocsProduct,
+  version: string,
+): Promise<VersionDocs> {
+  const versionDir = path.join(docsConfig.docsRoot, product.id, version);
   const markdownFiles = await walkMarkdownFiles(versionDir);
 
   const docs: DocRecord[] = [];
@@ -300,6 +329,11 @@ async function readVersionDocs(version: string): Promise<VersionDocs> {
     );
 
     const doc: DocRecord = {
+      product: product.id,
+      sectionSlug:
+        typeof parsed.data.section === "string"
+          ? parsed.data.section
+          : (slugSegments[0] ?? "__root__"),
       version,
       slugSegments,
       slug,
@@ -322,6 +356,9 @@ async function readVersionDocs(version: string): Promise<VersionDocs> {
   const sections = await readSectionMetadata(versionDir);
 
   return {
+    product,
+    root: versionDir,
+    linkedDocsBySourceFile: new Map(),
     version,
     docs,
     docsBySlug,
@@ -332,118 +369,111 @@ async function readVersionDocs(version: string): Promise<VersionDocs> {
 }
 
 const getDocsStore = cache(async (): Promise<DocsStore> => {
-  const byVersion = new Map<string, VersionDocs>();
-  for (const version of docsConfig.versions) {
-    byVersion.set(version, await readVersionDocs(version));
+  const byProduct = new Map<string, Map<string, VersionDocs>>();
+  const linkedDocsBySourceFile = new Map<string, DocRecord>();
+  for (const product of docsConfig.products) {
+    const versions = new Map<string, VersionDocs>();
+    for (const version of product.versions) {
+      const versionDocs = await readVersionDocs(product, version);
+      versionDocs.linkedDocsBySourceFile = linkedDocsBySourceFile;
+      versions.set(version, versionDocs);
+      for (const doc of versionDocs.docs)
+        linkedDocsBySourceFile.set(doc.sourceFile, doc);
+    }
+    byProduct.set(product.id, versions);
   }
-  return {
-    versions: [...docsConfig.versions],
-    latestVersion: docsConfig.latestVersion,
-    byVersion,
-  };
+  return { byProduct };
 });
 
 function toDocsPath(segments: string[]): string {
-  if (segments.length === 0) return "/docs";
-  return `/docs/${segments.join("/")}`;
+  return segments.length === 0 ? "/docs" : `/docs/${segments.join("/")}`;
 }
 
 function normalizeSlugPath(input: string): string {
   return input.replace(/^\/+|\/+$/g, "");
 }
 
-function resolveLegacyDocSlug(version: string, slug: string): string {
-  const redirects = docsConfig.legacyRedirects[version];
-  if (!redirects) return normalizeSlugPath(slug);
-
+function resolveLegacyDocSlug(
+  product: DocsProduct,
+  version: string,
+  slug: string,
+): string {
+  const redirects = product.legacyRedirects[version] ?? {};
   let current = normalizeSlugPath(slug);
   const seen = new Set<string>();
-
   while (redirects[current] && !seen.has(current)) {
     seen.add(current);
     current = normalizeSlugPath(redirects[current] ?? "");
   }
-
   return current;
-}
-
-export async function getDocsVersions(): Promise<string[]> {
-  const store = await getDocsStore();
-  return store.versions;
-}
-
-export async function getLatestDocsVersion(): Promise<string> {
-  const store = await getDocsStore();
-  return store.latestVersion;
 }
 
 export async function resolveDocsRoute(
   routeSegments: string[],
 ): Promise<RouteResolution | null> {
+  if (routeSegments.length === 0) return null;
   const store = await getDocsStore();
-  const [first, ...rest] = routeSegments;
+  let [first, ...segments] = routeSegments;
+  let product = getDocsProduct(first ?? "");
+  let explicitVersion = false;
+  let requestedVersion: string;
 
-  const explicitVersion =
-    typeof first === "string" && store.versions.includes(first);
-  const requestedVersion =
-    explicitVersion && typeof first === "string" ? first : store.latestVersion;
-  const requestedDocSlug = (explicitVersion ? rest : routeSegments).join("/");
-  const docSlug = resolveLegacyDocSlug(requestedVersion, requestedDocSlug);
-  const docSlugSegments = docSlug ? docSlug.split("/").filter(Boolean) : [];
+  if (product) {
+    explicitVersion = product.versions.includes(segments[0] ?? "");
+    requestedVersion = explicitVersion
+      ? (segments.shift() as string)
+      : product.latestVersion;
+  } else {
+    // Preserve the original /docs/* and /docs/vN/* links.
+    product = getDocsProduct("sdk");
+    if (!product) return null;
+    explicitVersion = product.versions.includes(first ?? "");
+    requestedVersion = explicitVersion
+      ? (first as string)
+      : product.latestVersion;
+    if (!explicitVersion) segments = routeSegments;
+    if (segments[0] === "studio") {
+      product = getDocsProduct("studio");
+      if (!product) return null;
+      segments = segments.slice(1);
+      if (!explicitVersion) requestedVersion = product.latestVersion;
+    }
+  }
 
-  const versionDocs = store.byVersion.get(requestedVersion);
+  const versionDocs = store.byProduct.get(product.id)?.get(requestedVersion);
   if (!versionDocs) return null;
+  const requestedSlug = segments.join("/");
+  const docSlug = resolveLegacyDocSlug(
+    product,
+    requestedVersion,
+    requestedSlug || product.overview,
+  );
+  const doc = versionDocs.docsBySlug.get(docSlug);
+  const section = versionDocs.sections.find((entry) => entry.slug === docSlug);
+  if (
+    !doc &&
+    (!section ||
+      !versionDocs.docs.some((entry) => entry.sectionSlug === section.slug))
+  )
+    return null;
 
-  let doc = versionDocs.docsBySlug.get(docSlug);
-  if (!doc && docSlugSegments.length === 0) {
-    doc = versionDocs.docs[0];
-  }
-  if (doc) {
-    const canonicalSegments =
-      requestedVersion === store.latestVersion
-        ? doc.slugSegments
-        : [requestedVersion, ...doc.slugSegments];
-    const canonicalPath = toDocsPath(canonicalSegments);
-    const requestedPath = toDocsPath(routeSegments);
-    const redirectTo = requestedPath === canonicalPath ? null : canonicalPath;
-
-    return {
-      routeKind: "doc",
-      requestedVersion,
-      explicitVersion,
-      versionDocs,
-      doc,
-      canonicalPath,
-      redirectTo,
-    };
-  }
-
-  if (docSlugSegments.length !== 1) return null;
-  const sectionSlug = docSlugSegments[0];
-  if (!sectionSlug) return null;
-
-  const sectionDocs = versionDocs.docs
-    .filter((entry) => entry.slugSegments[0] === sectionSlug)
-    .sort((a, b) => a.relativeFile.localeCompare(b.relativeFile));
-  if (sectionDocs.length === 0) return null;
-
-  const canonicalSegments =
-    requestedVersion === store.latestVersion
-      ? [sectionSlug]
-      : [requestedVersion, sectionSlug];
-  const canonicalPath = toDocsPath(canonicalSegments);
-  const requestedPath = toDocsPath(routeSegments);
-  const redirectTo = requestedPath === canonicalPath ? null : canonicalPath;
-
-  return {
-    routeKind: "section",
+  const canonicalPath = buildDocHref(
+    product.id,
+    requestedVersion,
+    doc ? doc.slugSegments : [docSlug],
+  );
+  const base = {
+    product,
     requestedVersion,
     explicitVersion,
     versionDocs,
-    sectionSlug,
     canonicalPath,
-    redirectTo,
+    redirectTo:
+      toDocsPath(routeSegments) === canonicalPath ? null : canonicalPath,
   };
+  return doc
+    ? { ...base, routeKind: "doc", doc }
+    : { ...base, routeKind: "section", sectionSlug: docSlug };
 }
 
 export type SidebarItem = {
@@ -462,197 +492,147 @@ export type SidebarSection = {
 };
 
 export async function getVersionSidebar(
+  product: string,
   version: string,
 ): Promise<SidebarSection[]> {
-  const store = await getDocsStore();
-  const versionDocs = store.byVersion.get(version);
+  const versionDocs = (await getDocsStore()).byProduct
+    .get(product)
+    ?.get(version);
   if (!versionDocs) return [];
-
-  const bySection = new Map<string, DocRecord[]>();
-  for (const doc of versionDocs.docs) {
-    const sectionSlug = doc.slugSegments[0] ?? "__root__";
-    const existing = bySection.get(sectionSlug) ?? [];
-    existing.push(doc);
-    bySection.set(sectionSlug, existing);
-  }
-
-  const sectionList: SidebarSection[] = [];
-  const rootDocs = (bySection.get("__root__") ?? []).sort((a, b) =>
-    a.relativeFile.localeCompare(b.relativeFile),
-  );
-
-  if (rootDocs.length > 0) {
-    sectionList.push({
+  const sections = [...versionDocs.sections];
+  if (versionDocs.docs.some((doc) => doc.sectionSlug === "__root__")) {
+    sections.unshift({
       slug: "__root__",
       label: "Overview",
-      href: buildDocHref(version, []),
+      position: 0,
       collapsed: false,
-      items: rootDocs.map((doc) => ({
-        href: buildDocHref(doc.version, doc.slugSegments),
-        title: doc.frontmatter.sidebarLabel,
-        slug: doc.slug,
-        description: doc.frontmatter.description,
-      })),
     });
   }
-
-  for (const sectionMeta of versionDocs.sections) {
-    const sectionDocs = (bySection.get(sectionMeta.slug) ?? []).sort((a, b) =>
-      a.relativeFile.localeCompare(b.relativeFile),
+  return sections.flatMap((section) => {
+    const docs = versionDocs.docs.filter(
+      (doc) => doc.sectionSlug === section.slug,
     );
-    if (sectionDocs.length === 0) continue;
-
-    sectionList.push({
-      slug: sectionMeta.slug,
-      label: sectionMeta.label,
-      href: buildDocHref(version, [sectionMeta.slug]),
-      collapsed: sectionMeta.collapsed,
-      items: sectionDocs.map((doc) => ({
-        href: buildDocHref(doc.version, doc.slugSegments),
-        title: doc.frontmatter.sidebarLabel,
-        slug: doc.slug,
-        description: doc.frontmatter.description,
-      })),
-    });
-  }
-
-  return sectionList;
+    if (docs.length === 0) return [];
+    return [
+      {
+        slug: section.slug,
+        label: section.label,
+        href: buildDocHref(
+          product,
+          version,
+          section.slug === "__root__" ? [] : [section.slug],
+        ),
+        collapsed: section.collapsed,
+        items: docs.map((doc) => ({
+          href: buildDocHref(product, version, doc.slugSegments),
+          title: doc.frontmatter.sidebarLabel,
+          slug: doc.slug,
+          description: doc.frontmatter.description,
+        })),
+      },
+    ];
+  });
 }
 
 export async function getDocByVersionAndSlug(
+  product: string,
   version: string,
   slug: string,
 ): Promise<DocRecord | null> {
-  const store = await getDocsStore();
-  const versionDocs = store.byVersion.get(version);
-  if (!versionDocs) return null;
-  return versionDocs.docsBySlug.get(slug) ?? null;
+  return (
+    (await getDocsStore()).byProduct
+      .get(product)
+      ?.get(version)
+      ?.docsBySlug.get(slug) ?? null
+  );
 }
 
-export function buildDocHref(version: string, slugSegments: string[]): string {
-  if (version === docsConfig.latestVersion) {
-    return toDocsPath(slugSegments);
-  }
-  return toDocsPath([version, ...slugSegments]);
+export function buildDocHref(
+  productId: string,
+  version: string,
+  slugSegments: string[],
+): string {
+  const product = getDocsProduct(productId);
+  if (!product) throw new Error(`Unknown docs product: ${productId}`);
+  return toDocsPath([
+    productId,
+    ...(version === product.latestVersion ? [] : [version]),
+    ...slugSegments,
+  ]);
 }
 
 export async function getDocsSearchIndex(): Promise<DocsSearchEntry[]> {
-  const store = await getDocsStore();
   const entries: DocsSearchEntry[] = [];
-
-  for (const version of store.versions) {
-    const versionDocs = store.byVersion.get(version);
-    if (!versionDocs) continue;
-
-    for (const doc of versionDocs.docs) {
-      const href = buildDocHref(doc.version, doc.slugSegments);
-      const sectionSlug = doc.slugSegments[0] ?? null;
-      const section =
-        versionDocs.sections.find((item) => item.slug === sectionSlug)?.label ??
-        null;
-
-      entries.push({
-        href,
-        title: doc.frontmatter.title,
-        description: doc.frontmatter.description,
-        keywords: doc.frontmatter.keywords,
-        version: doc.version,
-        section,
-        content: doc.content,
-      });
-
-      for (const searchSection of getDocsSearchSections(doc.content)) {
-        entries.push({
-          href: `${href}#${searchSection.id}`,
-          title: searchSection.text,
-          description: doc.frontmatter.title,
+  for (const versions of (await getDocsStore()).byProduct.values()) {
+    for (const versionDocs of versions.values()) {
+      const { product, version } = versionDocs;
+      for (const doc of versionDocs.docs) {
+        const href = buildDocHref(product.id, version, doc.slugSegments);
+        const base = {
+          product: product.id,
+          productLabel: product.label,
+          isLatest: version === product.latestVersion,
           keywords: doc.frontmatter.keywords,
-          version: doc.version,
-          section: doc.frontmatter.title,
-          content: searchSection.content,
+          version,
+        };
+        entries.push({
+          ...base,
+          href,
+          title: doc.frontmatter.title,
+          description: doc.frontmatter.description,
+          section:
+            versionDocs.sections.find(
+              (section) => section.slug === doc.sectionSlug,
+            )?.label ?? null,
+          content: doc.content,
         });
+        for (const section of getDocsSearchSections(doc.content)) {
+          entries.push({
+            ...base,
+            href: `${href}#${section.id}`,
+            title: section.text,
+            description: doc.frontmatter.title,
+            section: doc.frontmatter.title,
+            content: section.content,
+          });
+        }
       }
     }
   }
-
   return entries;
 }
 
 export async function generateDocsStaticParams(): Promise<
   Array<{ slug: string[] }>
 > {
-  const store = await getDocsStore();
-  const unique = new Map<string, string[]>();
-
-  for (const version of store.versions) {
-    const versionDocs = store.byVersion.get(version);
-    if (!versionDocs) continue;
-
-    for (const doc of versionDocs.docs) {
-      const canonicalSegments =
-        version === store.latestVersion
-          ? doc.slugSegments
-          : [version, ...doc.slugSegments];
-      unique.set(canonicalSegments.join("/"), canonicalSegments);
-
-      // Keep explicit-latest URLs valid so they can redirect to canonical /docs/*.
-      if (version === store.latestVersion) {
-        const explicitLatestSegments = [version, ...doc.slugSegments];
-        unique.set(explicitLatestSegments.join("/"), explicitLatestSegments);
-      }
-    }
-
-    const rootSegments = version === store.latestVersion ? [] : [version];
-    unique.set(rootSegments.join("/"), rootSegments);
-
-    if (version === store.latestVersion) {
-      unique.set(version, [version]);
-    }
-
-    const sectionSlugs = new Set(
-      versionDocs.docs
-        .map((doc) => doc.slugSegments[0])
-        .filter((segment): segment is string => Boolean(segment)),
-    );
-
-    for (const sectionSlug of sectionSlugs) {
-      const canonicalSectionSegments =
-        version === store.latestVersion
-          ? [sectionSlug]
-          : [version, sectionSlug];
-      unique.set(canonicalSectionSegments.join("/"), canonicalSectionSegments);
-
-      if (version === store.latestVersion) {
-        const explicitLatestSectionSegments = [version, sectionSlug];
-        unique.set(
-          explicitLatestSectionSegments.join("/"),
-          explicitLatestSectionSegments,
+  const unique = new Map<string, string[]>([["", []]]);
+  const add = (segments: string[]) => unique.set(segments.join("/"), segments);
+  for (const versions of (await getDocsStore()).byProduct.values()) {
+    for (const versionDocs of versions.values()) {
+      const { product, version } = versionDocs;
+      const slugs = new Set([
+        "",
+        ...versionDocs.docs.map((doc) => doc.slug),
+        ...versionDocs.sections.map((section) => section.slug),
+        ...Object.keys(product.legacyRedirects[version] ?? {}),
+      ]);
+      for (const slug of slugs) {
+        const segments = slug.split("/").filter(Boolean);
+        add(
+          buildDocHref(product.id, version, segments)
+            .slice("/docs/".length)
+            .split("/"),
         );
-      }
-    }
-
-    const legacyRedirects = docsConfig.legacyRedirects[version] ?? {};
-    for (const fromSlug of Object.keys(legacyRedirects)) {
-      const normalizedFrom = normalizeSlugPath(fromSlug);
-      if (!normalizedFrom) continue;
-
-      const fromSegments = normalizedFrom.split("/").filter(Boolean);
-      const canonicalLegacySegments =
-        version === store.latestVersion
-          ? fromSegments
-          : [version, ...fromSegments];
-      unique.set(canonicalLegacySegments.join("/"), canonicalLegacySegments);
-
-      if (version === store.latestVersion) {
-        const explicitLatestLegacySegments = [version, ...fromSegments];
-        unique.set(
-          explicitLatestLegacySegments.join("/"),
-          explicitLatestLegacySegments,
-        );
+        add([product.id, version, ...segments]);
+        if (product.id === "sdk") {
+          add([version, ...segments]);
+          if (version === product.latestVersion && slug) add(segments);
+        } else if (product.id === "studio") {
+          add([version, "studio", ...segments]);
+        }
       }
     }
   }
-
   return [...unique.values()].map((slug) => ({ slug }));
 }
 
@@ -663,30 +643,25 @@ export function rewriteMarkdownHref(args: {
   versionDocs: VersionDocs;
 }): string {
   const { href, version, currentRelativeFile, versionDocs } = args;
-  if (!href) return href;
-  if (
-    href.startsWith("http://") ||
-    href.startsWith("https://") ||
-    href.startsWith("mailto:") ||
-    href.startsWith("#")
-  ) {
-    return href;
-  }
-
+  if (!href || /^(https?:|mailto:|#)/.test(href)) return href;
   const [targetPath, hash] = href.split("#", 2);
-  if (!targetPath || !targetPath.endsWith(".md")) return href;
-
-  const currentDir = path.posix.dirname(currentRelativeFile);
+  if (!targetPath?.endsWith(".md")) return href;
   const normalizedTarget = path.posix.normalize(
-    path.posix.join(currentDir, targetPath),
+    path.posix.join(path.posix.dirname(currentRelativeFile), targetPath),
   );
   const targetDoc =
     versionDocs.docsByRelativeFile.get(normalizedTarget) ??
     versionDocs.docsByNormalizedRelativeFile.get(
       normalizeRelativeMdPath(normalizedTarget),
+    ) ??
+    versionDocs.linkedDocsBySourceFile.get(
+      path.resolve(versionDocs.root, normalizedTarget),
     );
   if (!targetDoc) return href;
-
-  const targetHref = buildDocHref(version, targetDoc.slugSegments);
+  const targetHref = buildDocHref(
+    targetDoc.product,
+    targetDoc.product === versionDocs.product.id ? version : targetDoc.version,
+    targetDoc.slugSegments,
+  );
   return hash ? `${targetHref}#${hash}` : targetHref;
 }

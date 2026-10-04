@@ -135,6 +135,9 @@ function toSearchResult(
   if (!document) return null;
 
   return {
+    product: document.product,
+    productLabel: document.productLabel,
+    isLatest: document.isLatest,
     href: document.href,
     title: document.title,
     description: document.description,
@@ -164,7 +167,32 @@ export function DocsSearch({ entries, className }: DocsSearchProps) {
   const pathname = usePathname();
   const inputRef = useRef<HTMLInputElement | null>(null);
   const [shortcutModifierLabel, setShortcutModifierLabel] = useState("Ctrl");
-  const searchIndex = useMemo(() => createSearchIndex(entries), [entries]);
+  const [searchAllProducts, setSearchAllProducts] = useState(false);
+  const product = pathname?.split("/")[2];
+  const versionSegment = pathname?.split("/")[3];
+  const currentEntry = entries.find((entry) => entry.product === product);
+  const selectedVersion = entries.some(
+    (entry) => entry.product === product && entry.version === versionSegment,
+  )
+    ? versionSegment
+    : null;
+  const searchIndex = useMemo(
+    () =>
+      createSearchIndex(
+        entries.filter((entry) => {
+          if (!searchAllProducts && currentEntry) {
+            return (
+              entry.product === product &&
+              (selectedVersion
+                ? entry.version === selectedVersion
+                : entry.isLatest)
+            );
+          }
+          return entry.isLatest;
+        }),
+      ),
+    [entries, product, selectedVersion, searchAllProducts, currentEntry],
+  );
   const results = searchDocs(searchIndex, deferredQuery);
   const hasQuery = normalize(query).length > 0;
 
@@ -176,6 +204,7 @@ export function DocsSearch({ entries, className }: DocsSearchProps) {
     if (!pathname) return;
     setIsOpen(false);
     setQuery("");
+    setSearchAllProducts(false);
   }, [pathname]);
 
   useEffect(() => {
@@ -201,13 +230,16 @@ export function DocsSearch({ entries, className }: DocsSearchProps) {
       <Dialog.Trigger asChild>
         <button
           type="button"
+          aria-label="Search documentation"
           className={cn(
             "flex h-9 w-full items-center gap-3 rounded-lg border border-border bg-background pl-3 pr-1 text-left text-sm text-muted-foreground transition-[border-color,box-shadow,color] hover:border-ring/60 hover:text-foreground focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/20 focus-visible:outline-none",
             className,
           )}
         >
           <SearchIcon className="size-4 shrink-0" />
-          <span className="min-w-0 flex-1 truncate">Search...</span>
+          <span className="hidden min-w-0 flex-1 truncate sm:block">
+            Search...
+          </span>
           <kbd className="hidden items-center gap-1 rounded border border-border bg-muted px-1.5 py-0.5 font-mono text-xs text-muted-foreground md:flex">
             <span
               className={cn(
@@ -228,6 +260,24 @@ export function DocsSearch({ entries, className }: DocsSearchProps) {
           <Dialog.Description className="sr-only">
             Search through Kortyx documentation pages.
           </Dialog.Description>
+          {currentEntry && (
+            <div className="flex items-center justify-between gap-3 border-b border-border px-4 py-2 text-xs text-muted-foreground">
+              <span>
+                {searchAllProducts
+                  ? "All products · Latest"
+                  : `${currentEntry.productLabel} · ${selectedVersion ?? "Latest"}`}
+              </span>
+              <button
+                type="button"
+                className="rounded px-2 py-1 text-primary hover:bg-accent"
+                onClick={() => setSearchAllProducts((previous) => !previous)}
+              >
+                {searchAllProducts
+                  ? "Search this product"
+                  : "Search all products"}
+              </button>
+            </div>
+          )}
           <div className="flex items-center gap-3 border-b border-border px-4">
             <SearchIcon className="size-5 shrink-0 text-muted-foreground" />
             <input
@@ -264,6 +314,10 @@ export function DocsSearch({ entries, className }: DocsSearchProps) {
                     <div className="flex items-center gap-2">
                       <span className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">
                         {highlightMatches(result.title, query)}
+                      </span>
+                      <span className="shrink-0 text-xs text-muted-foreground">
+                        {result.productLabel}
+                        {!result.isLatest ? ` · ${result.version}` : ""}
                       </span>
                       {result.section && (
                         <span className="shrink-0 rounded-full bg-secondary px-2 py-0.5 text-xs font-medium text-secondary-foreground">
