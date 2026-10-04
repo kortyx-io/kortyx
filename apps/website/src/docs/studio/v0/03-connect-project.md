@@ -4,6 +4,7 @@ title: "Connect Your Kortyx Project"
 description: "Configure server-side Kortyx telemetry, stable service identity, and deliberate content capture for Studio."
 keywords: [kortyx, studio, telemetry, project, sdk, content-capture]
 sidebar_label: "Connect Your Project"
+section: "getting-started"
 ---
 # Connect Your Kortyx Project
 
@@ -218,7 +219,7 @@ Studio observes interrupt lifecycle events; your application still presents the 
 - A late response cannot resume the expired run, although application fallback may handle it as a new run.
 - A dynamic picker may correctly report zero embedded options because the client resolves choices from its own data source.
 
-For runtime behavior and replay-safe side effects, read [Interrupts and Resume](../03-guides/02-interrupts-and-resume.md).
+For runtime behavior and replay-safe side effects, read [Interrupts and Resume](../../sdk/v0/03-guides/02-interrupts-and-resume.md).
 
 ## Verify the connection
 

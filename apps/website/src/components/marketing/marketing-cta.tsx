@@ -19,7 +19,7 @@ export function MarketingCta({
           </p>
           <div className="mt-9 flex flex-col items-center justify-center gap-3 sm:flex-row">
             <Link
-              href="/docs/getting-started/quickstart-nextjs"
+              href="/docs/sdk/getting-started/quickstart-nextjs"
               className="group inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-white px-5 text-sm font-semibold text-[#09090d] transition-transform hover:-translate-y-0.5"
             >
               Open the quickstart

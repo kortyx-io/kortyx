@@ -4,6 +4,7 @@ title: "Kortyx Studio Configuration Reference"
 description: "Reference the deployment components, environment variables, startup order, health checks, and supported self-hosted boundary."
 keywords: [kortyx, studio, configuration, environment, containers, reference]
 sidebar_label: "Configuration Reference"
+section: "reference"
 ---
 # Kortyx Studio Configuration Reference
 

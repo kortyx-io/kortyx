@@ -11,7 +11,9 @@ This section tracks upgrade guidance and behavior changes across versions.
 
 ## Current policy
 
-- Within the same major version, docs are updated in place.
+- Within the same SDK major version, docs are updated in place.
+- The latest SDK docs use `/docs/sdk/...`. Previous majors remain available at `/docs/sdk/vN/...`.
+- Studio has its own documentation and version history at `/docs/studio`.
 - New major versions should include dedicated upgrade notes and breaking-change guidance.
 
 ## What to check before upgrading

@@ -1,0 +1,10 @@
+{
+  "label": "v0",
+  "sections": [
+    { "slug": "getting-started", "label": "Getting Started", "position": 1 },
+    { "slug": "guides", "label": "Guides", "position": 2 },
+    { "slug": "deployment", "label": "Deployment", "position": 3 },
+    { "slug": "operations", "label": "Operations", "position": 4 },
+    { "slug": "reference", "label": "Reference", "position": 5 }
+  ]
+}

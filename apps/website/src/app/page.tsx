@@ -311,7 +311,7 @@ export default function Home() {
 
               <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row xl:justify-start">
                 <Link
-                  href="/docs/getting-started/quickstart-nextjs"
+                  href="/docs/sdk/getting-started/quickstart-nextjs"
                   className="group inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-white px-5 text-sm font-semibold text-[#09090d] shadow-[0_10px_40px_rgba(0,0,0,0.28)] transition-transform hover:-translate-y-0.5"
                 >
                   Build your first workflow
@@ -589,7 +589,7 @@ export default function Home() {
               </h2>
             </div>
             <Link
-              href="/docs/start-here"
+              href="/docs/sdk/start-here"
               className="group inline-flex min-h-9 shrink-0 items-center gap-2 text-sm font-medium text-white/52 hover:text-white"
             >
               Read the framework docs
@@ -640,7 +640,7 @@ export default function Home() {
               structured data, interrupts, and errors.
             </p>
             <Link
-              href="/docs/getting-started/quickstart-nextjs"
+              href="/docs/sdk/getting-started/quickstart-nextjs"
               className="group mt-8 inline-flex min-h-9 items-center gap-2 text-sm font-medium text-white/72 hover:text-white"
             >
               Follow the Next.js quickstart

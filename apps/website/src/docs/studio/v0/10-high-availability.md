@@ -4,6 +4,7 @@ title: "Run Kortyx Studio with Multiple Replicas"
 description: "Deploy highly available Kortyx Studio replicas with serialized migrations, readiness, graceful draining, and safe rolling updates."
 keywords: [kortyx, studio, high availability, replicas, rolling deployment, ecs, kubernetes, cloud run]
 sidebar_label: "High Availability"
+section: "deployment"
 ---
 # Run Kortyx Studio with Multiple Replicas
 

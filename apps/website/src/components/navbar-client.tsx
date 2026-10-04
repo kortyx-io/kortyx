@@ -122,7 +122,7 @@ export function NavbarClient({ className, searchIndex }: NavbarClientProps) {
             {isDocs ? (
               <DocsSearch
                 entries={searchIndex}
-                className="hidden w-48 sm:flex lg:w-64"
+                className="w-9 sm:w-48 lg:w-64"
               />
             ) : null}
 
@@ -157,7 +157,7 @@ export function NavbarClient({ className, searchIndex }: NavbarClientProps) {
                   "bg-white text-[#09090d] shadow-[0_0_0_1px_rgba(255,255,255,0.15),0_8px_28px_rgba(0,0,0,0.25)] hover:bg-white/90",
               )}
             >
-              <Link href="/docs/getting-started/quickstart-nextjs">
+              <Link href="/docs/sdk/getting-started/quickstart-nextjs">
                 Start building
                 <ArrowUpRight className="size-3.5" />
               </Link>

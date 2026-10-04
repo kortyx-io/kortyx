@@ -4,6 +4,7 @@ title: "Run Eval Suites in Studio"
 description: "Run workflow conversation suites, inspect grades and compare saved results using existing Studio credentials."
 keywords: [kortyx, studio, evals, suites, comparison, cli, ci]
 sidebar_label: "Evals"
+section: "guides"
 ---
 # Run consumer evals from Studio
 
@@ -328,7 +329,7 @@ the target unavailable. Run controls require `eval:run` on the existing key.
 Read-only keys can still inspect saved results. An endpoint's service key is a
 separate credential from the Studio key; neither contains the test user's token.
 
-See [Conversation Evals](../03-guides/10-conversation-evals.md) for suite design,
+See [Conversation Evals](../../sdk/v0/03-guides/10-conversation-evals.md) for suite design,
 typed setup/responders, Auth0 integration and grading boundaries.
 
 ## Required structured responses
@@ -341,5 +342,5 @@ Partial streams, invalidated outputs and outputs from previous steps do not
 satisfy the requirement. Missing contracts fail the step with an explicit reason.
 Open the conversation debugging section to inspect the recorded envelopes.
 Use pass criteria to assess payload meaning; the output requirements check
-contract presence. See [the conversation guide](../03-guides/10-conversation-evals.md#required-structured-outputs)
+contract presence. See [the conversation guide](../../sdk/v0/03-guides/10-conversation-evals.md#required-structured-outputs)
 for suite authoring and custom executor support.

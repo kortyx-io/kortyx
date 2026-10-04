@@ -261,4 +261,4 @@ The Canvas example uses this API for creation, brief queries, updates, and saves
 
 ## Inspect calls in Studio
 
-See the [Studio overview](../05-studio/01-overview.md#child-workflow-visibility) for the child execution tree, child rows, and observed call links.
+See the [Studio overview](../../../studio/v0/01-overview.md#child-workflow-visibility) for the child execution tree, child rows, and observed call links.

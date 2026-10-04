@@ -277,7 +277,7 @@ Apache-2.0. See [LICENSE](https://github.com/kortyx-io/kortyx/blob/main/LICENSE)
 
 ## Error handling
 
-Use `serializeFailure` for safe structured diagnostics and `DomainError` for explicitly approved domain details that must survive child checkpoint restore. Cancellation, execution limits and human interrupts remain control flow. Applications own retry and schema correction policy. See the [error handling guide](../../apps/website/src/docs/v0/03-guides/08-error-handling.md).
+Use `serializeFailure` for safe structured diagnostics and `DomainError` for explicitly approved domain details that must survive child checkpoint restore. Cancellation, execution limits and human interrupts remain control flow. Applications own retry and schema correction policy. See the [error handling guide](../../apps/website/src/docs/sdk/v0/03-guides/08-error-handling.md).
 
 Throw ordinary `Error` instances when a workflow cannot continue; configured tracing records them automatically before the run fails. Use `reportError(error, {severity?, metadata?, tags?})` only for handled errors when application code deliberately continues with a fallback. Reporting is best-effort observation and never changes workflow control flow.
 

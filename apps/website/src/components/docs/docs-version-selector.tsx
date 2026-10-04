@@ -39,17 +39,15 @@ export function DocsVersionSelector(props: DocsVersionSelectorProps) {
       <DropdownMenuTrigger asChild>
         <Button
           variant="ghost"
-          className="h-auto w-full cursor-pointer justify-between rounded-md px-2 py-2"
+          className="h-auto w-full cursor-pointer justify-between rounded-lg border border-border px-3 py-3"
         >
           <span className="flex items-center gap-2">
             <span className="rounded-md border border-primary/40 bg-primary/10 p-2 text-primary">
               <TagIcon className="h-5 w-5" />
             </span>
             <span className="text-left">
-              <span className="block text-md font-semibold text-foreground">
-                {title}
-              </span>
-              <span className="block text-sm text-muted-foreground">
+              <span className="block text-base font-semibold">{title}</span>
+              <span className="block text-xs text-muted-foreground">
                 {subtitle}
               </span>
             </span>
@@ -60,7 +58,7 @@ export function DocsVersionSelector(props: DocsVersionSelectorProps) {
 
       <DropdownMenuContent
         align="start"
-        className="docs-sidebar-scroll w-(--radix-dropdown-menu-trigger-width) min-w-0 p-0"
+        className="docs-sidebar-scroll w-(--radix-dropdown-menu-trigger-width) min-w-0 space-y-1"
       >
         {options.map((option) => {
           const active = option.version === selectedVersion;
@@ -69,7 +67,7 @@ export function DocsVersionSelector(props: DocsVersionSelectorProps) {
               <Link
                 href={option.href}
                 className={cn(
-                  "flex cursor-pointer items-center justify-between rounded-md px-2 py-2",
+                  "flex cursor-pointer items-center justify-between rounded-md px-2 py-3",
                   active ? "bg-accent" : "",
                 )}
               >
@@ -85,10 +83,10 @@ export function DocsVersionSelector(props: DocsVersionSelectorProps) {
                     <TagIcon className="h-4 w-4" />
                   </span>
                   <span className="text-left">
-                    <span className="block text-base font-medium text-foreground">
+                    <span className="block text-sm font-semibold">
                       {option.label}
                     </span>
-                    <span className="block text-sm text-muted-foreground">
+                    <span className="mt-1 block text-xs leading-5 text-muted-foreground">
                       {option.subtitle}
                     </span>
                   </span>

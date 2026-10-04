@@ -129,7 +129,7 @@ export default function ExamplesPage() {
               issues the refund.
             </p>
             <Link
-              href="/docs/guides/interrupts-and-resume"
+              href="/docs/sdk/guides/interrupts-and-resume"
               className="group mt-9 inline-flex h-12 items-center gap-2 rounded-full bg-white px-6 text-sm font-semibold text-[#08080c]"
             >
               Read interrupts and resume

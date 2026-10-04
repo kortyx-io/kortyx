@@ -159,9 +159,9 @@ for presenting the request and sending the resume response.
   never sent as telemetry.
 
 For implementation details, read
-[Interrupts and Resume](../../apps/website/src/docs/v0/03-guides/02-interrupts-and-resume.md)
+[Interrupts and Resume](../../apps/website/src/docs/sdk/v0/03-guides/02-interrupts-and-resume.md)
 and
-[Runtime Persistence Adapters](../../apps/website/src/docs/v0/04-production/02-framework-adapters.md).
+[Runtime Persistence Adapters](../../apps/website/src/docs/sdk/v0/04-production/02-framework-adapters.md).
 Use Redis in production when paused runs must survive application restarts or
 multiple instances.
 

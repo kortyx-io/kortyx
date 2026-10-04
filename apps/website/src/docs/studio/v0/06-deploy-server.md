@@ -4,6 +4,7 @@ title: "Deploy Kortyx Studio on a Server"
 description: "Deploy Kortyx Studio with external PostgreSQL, injected secrets, pinned images, HTTPS, and a portable container contract."
 keywords: [kortyx, studio, deploy, docker, postgres, self-hosted]
 sidebar_label: "Deploy on a Server"
+section: "deployment"
 ---
 # Deploy Kortyx Studio on a Server
 

@@ -137,7 +137,7 @@ export default function ProductPage() {
             </p>
             <div className="mt-9 flex flex-col gap-3 sm:flex-row">
               <Link
-                href="/docs/getting-started/quickstart-nextjs"
+                href="/docs/sdk/getting-started/quickstart-nextjs"
                 className="group inline-flex h-12 items-center justify-center gap-2 rounded-full bg-white px-6 text-sm font-semibold text-[#08080c]"
               >
                 Build the quickstart

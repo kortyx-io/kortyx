@@ -124,7 +124,7 @@ export default function OpenSourcePage() {
                 <Github className="size-4" /> View source
               </a>
               <Link
-                href="/docs/getting-started/installation"
+                href="/docs/sdk/getting-started/installation"
                 className="inline-flex h-12 items-center justify-center rounded-lg border border-[#a89cff]/20 bg-[#a89cff]/5 px-5 text-sm text-[#dcd7ff]"
               >
                 Installation guide

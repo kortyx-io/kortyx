@@ -28,16 +28,39 @@ The build script generates docs last-updated metadata before running `next build
 ## Content
 
 - `src/app`: Next.js app routes and shell.
-- `src/docs/v0`: versioned markdown docs.
+- `src/docs/sdk/v0`: SDK markdown docs.
+- `src/docs/studio/v0`: Studio markdown docs.
 - `src/components`: shared UI components.
 - `scripts/generate-docs-last-updated.mjs`: docs metadata generation.
 
 ## Documentation Entry Points
 
-- [Start here](./src/docs/v0/00-start-here/README.md)
-- [Installation](./src/docs/v0/01-getting-started/01-installation.md)
-- [Quickstart: Next.js API Route](./src/docs/v0/01-getting-started/02-quickstart-nextjs.md)
-- [Package overview](./src/docs/v0/05-reference/01-package-overview.md)
+- [SDK start here](./src/docs/sdk/v0/00-start-here/README.md)
+- [Installation](./src/docs/sdk/v0/01-getting-started/01-installation.md)
+- [Quickstart: Next.js API Route](./src/docs/sdk/v0/01-getting-started/02-quickstart-nextjs.md)
+- [Package overview](./src/docs/sdk/v0/05-reference/01-package-overview.md)
+- [Studio overview](./src/docs/studio/v0/01-overview.md)
+
+## Products and Versions
+
+`/docs` is the product landing page. The product registry in
+`src/lib/docs/config.ts` controls the product selector, landing cards, versions,
+and overview page. Products have independent release histories.
+
+Latest docs use `/docs/sdk/...` and `/docs/studio/...`; previous majors use
+`/docs/<product>/vN/...`. Explicit latest-version URLs redirect to unversioned
+canonical URLs. Original `/docs/...` SDK links and version-first URLs remain
+valid through permanent redirects.
+
+To release a new major, preserve the previous version folder, create the new one,
+add it to that product's `versions`, and change its `latestVersion`. To add a
+product such as UI or Cloud, add its registry entry and content under
+`src/docs/<product>/<version>`.
+
+Folder metadata groups SDK pages in the sidebar. Studio uses flat page URLs:
+its version-level `metadata.json` declares sidebar sections, and each page's
+`section` frontmatter assigns it to a group. Relative Markdown links can cross
+product folders and are resolved to the target product's canonical URL.
 
 ## Checks
 

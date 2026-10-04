@@ -10,6 +10,10 @@ import {
 } from "@/components/ui/collapsible";
 import type { SidebarSection } from "@/lib/docs";
 import { cn } from "@/lib/utils/cn";
+import {
+  DocsProductSelector,
+  type ProductTarget,
+} from "./docs-product-selector";
 import { DocsVersionSelector } from "./docs-version-selector";
 
 type VersionTarget = {
@@ -21,6 +25,8 @@ type VersionTarget = {
 };
 
 type DocsSidebarProps = {
+  selectedProduct: string;
+  productTargets: ProductTarget[];
   sidebar: SidebarSection[];
   currentSectionSlug: string | null;
   currentDocSlug: string | null;
@@ -35,15 +41,17 @@ export function DocsSidebarContent(props: DocsSidebarProps) {
     currentDocSlug,
     versionTargets,
     selectedVersion,
+    selectedProduct,
+    productTargets,
   } = props;
   const navRef = useRef<HTMLElement | null>(null);
   const scrollStorageKey = useMemo(
-    () => `docs-sidebar-scroll:${selectedVersion}`,
-    [selectedVersion],
+    () => `docs-sidebar-scroll:${selectedProduct}:${selectedVersion}`,
+    [selectedProduct, selectedVersion],
   );
   const collapseStorageKey = useMemo(
-    () => `docs-sidebar-collapsed:${selectedVersion}`,
-    [selectedVersion],
+    () => `docs-sidebar-collapsed:${selectedProduct}:${selectedVersion}`,
+    [selectedProduct, selectedVersion],
   );
   const defaultOpenSections = useMemo(() => {
     const defaults: Record<string, boolean> = {};
@@ -105,10 +113,16 @@ export function DocsSidebarContent(props: DocsSidebarProps) {
 
   return (
     <div className="flex h-full flex-col overflow-hidden">
-      <DocsVersionSelector
-        options={versionTargets}
-        selectedVersion={selectedVersion}
+      <DocsProductSelector
+        options={productTargets}
+        selectedProduct={selectedProduct}
       />
+      <div className="mt-3">
+        <DocsVersionSelector
+          options={versionTargets}
+          selectedVersion={selectedVersion}
+        />
+      </div>
 
       <nav
         ref={navRef}
