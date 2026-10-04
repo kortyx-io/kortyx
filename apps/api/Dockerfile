@@ -1,11 +1,15 @@
 # syntax=docker/dockerfile:1.7
 
-FROM docker:28-cli AS docker-cli
+FROM docker:29-cli AS docker-cli
 
 FROM node:22-bookworm-slim AS base
 ENV PNPM_HOME="/pnpm"
 ENV PATH="$PNPM_HOME:$PATH"
-RUN corepack enable && corepack prepare pnpm@10.0.0 --activate
+RUN apt-get update \
+  && apt-get upgrade -y \
+  && rm -rf /var/lib/apt/lists/* \
+  && corepack enable \
+  && corepack prepare pnpm@10.24.0 --activate
 
 FROM base AS pruner
 WORKDIR /repo
@@ -36,4 +40,5 @@ RUN chmod 0755 /usr/local/bin/kortyx-studio-db \
   && pnpm --filter @kortyx/api build
 
 EXPOSE 6400
+USER node
 CMD ["node", "apps/api/dist/index.js"]

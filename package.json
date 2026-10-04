@@ -24,7 +24,7 @@
     "type": "git",
     "url": "https://github.com/kortyx-io/kortyx"
   },
-  "packageManager": "pnpm@10.0.0+sha512.b8fef5494bd3fe4cbd4edabd0745df2ee5be3e4b0b8b08fa643aa3e4c6702ccc0f00d68fa8a8c9858a735a0032485a44990ed2810526c875e416f001b17df12b",
+  "packageManager": "pnpm@10.24.0+sha512.01ff8ae71b4419903b65c60fb2dc9d34cf8bb6e06d03bde112ef38f7a34d6904c424ba66bea5cdcf12890230bf39f9580473140ed9c946fef328b6e5238a345a",
   "workspaces": [
     "apps/*",
     "examples/*",
@@ -53,6 +53,7 @@
     "test:telemetry-db:integration": "dotenv -e .env -- pnpm --filter @kortyx/telemetry-db test:integration",
     "coverage": "turbo run coverage",
     "test:coverage": "pnpm coverage",
+    "audit:prod": "pnpm audit --prod --audit-level low",
     "type-check": "turbo type-check",
     "type-check:watch": "turbo type-check --watch",
     "start": "turbo start",
@@ -91,13 +92,30 @@
   "pnpm": {
     "overrides": {
       "ajv": "8.18.0",
-      "langsmith": "0.5.19",
+      "@ai-sdk/provider-utils": "3.0.28",
+      "@babel/core": "7.29.6",
+      "@hono/node-server": "1.19.15",
+      "baseline-browser-mapping": "2.11.27",
+      "body-parser": "2.3.0",
+      "browserslist": "4.29.3",
+      "dompurify": "3.4.16",
+      "fast-uri": "3.1.8",
+      "hono": "4.13.12",
+      "ip-address": "10.7.3",
+      "js-yaml@3.14.2": "3.15.2",
+      "js-yaml@4.1.1": "4.3.2",
+      "langsmith": "0.6.0",
+      "nanoid@3.3.11": "3.3.19",
       "picomatch@^2.0.0": "2.3.2",
-      "postcss": "8.5.10",
+      "postcss": "8.5.28",
+      "qs": "6.16.0",
       "rollup": "4.59.0",
+      "sharp": "0.35.4",
       "terser-webpack-plugin": "5.4.0",
+      "undici": "7.29.1",
       "uuid": "14.0.0",
-      "vite": "8.0.10",
+      "vite": "8.3.2",
+      "ws": "8.22.0",
       "yaml": "2.8.3"
     }
   }
