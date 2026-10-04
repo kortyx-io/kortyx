@@ -14,11 +14,14 @@ export function SiteNavbarClient({
 }) {
   const pathname = usePathname();
   const isDocs = pathname === "/docs" || pathname?.startsWith("/docs/");
+  const isNestedDocs = pathname?.startsWith("/docs/") ?? false;
 
   return (
     <Navbar
-      maxWidth={isDocs ? 1400 : undefined}
-      containerClassName={isDocs ? "mx-auto w-full px-4 sm:px-6" : undefined}
+      maxWidth={isNestedDocs ? 1400 : undefined}
+      containerClassName={
+        isNestedDocs ? "mx-auto w-full px-4 sm:px-6" : undefined
+      }
       search={
         isDocs ? (
           <DocsSearch

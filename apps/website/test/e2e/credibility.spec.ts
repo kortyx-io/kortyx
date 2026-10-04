@@ -74,16 +74,7 @@ test("one navbar frame supports docs slots and client-side navigation", async ({
   await expect(page).toHaveURL(/\/docs$/);
   await expect(header).toHaveCount(1);
   expect(await getFrame()).toEqual(commonFrame);
-  const docsContainer = await getContainer();
-  expect(docsContainer.width).toBe(
-    Math.min(page.viewportSize()?.width ?? 0, 1400),
-  );
-  expect(docsContainer.padding).toBe(mobile ? "16px" : "24px");
-  const announcementBounds = await header
-    .locator(":scope > a > span")
-    .boundingBox();
-  expect(announcementBounds?.width).toBe(docsContainer.width);
-  expect(announcementBounds?.x).toBe(docsContainer.left);
+  expect(await getContainer()).toEqual(marketingContainer);
   await expect(
     header.getByRole("button", { name: "Search documentation" }),
   ).toHaveCount(1);
@@ -102,6 +93,16 @@ test("one navbar frame supports docs slots and client-side navigation", async ({
   await search.getByRole("link").first().click();
   await expect(page).toHaveURL(/\/docs\/[^/]+\//);
   await expect(search).toHaveCount(0);
+  const docsContainer = await getContainer();
+  expect(docsContainer.width).toBe(
+    Math.min(page.viewportSize()?.width ?? 0, 1400),
+  );
+  expect(docsContainer.padding).toBe(mobile ? "16px" : "24px");
+  const announcementBounds = await header
+    .locator(":scope > a > span")
+    .boundingBox();
+  expect(announcementBounds?.width).toBe(docsContainer.width);
+  expect(announcementBounds?.x).toBe(docsContainer.left);
   await expect(
     header.locator('a[href="/docs"][aria-current="true"]'),
   ).toHaveCount(2);
