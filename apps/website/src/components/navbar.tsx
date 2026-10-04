@@ -4,12 +4,16 @@ import { ArrowRight, ArrowUpRight, Github, Menu } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { type ReactNode, useEffect, useRef } from "react";
+import { type CSSProperties, type ReactNode, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils/cn";
 
 export type NavbarProps = {
   className?: string;
+  /** Constrain both the main row and the default announcement container. */
+  maxWidth?: CSSProperties["maxWidth"];
+  /** Replace the default container spacing when a page has a different grid. */
+  containerClassName?: string;
   /** Replace the default announcement, or pass null to hide it. */
   announcement?: ReactNode;
   /** A search trigger or another control before the common actions. */
@@ -27,13 +31,22 @@ const navigationLinks = [
   { href: "/docs", label: "Docs" },
 ];
 
-function StudioAnnouncement() {
+function StudioAnnouncement({
+  maxWidth,
+  containerClassName,
+}: Pick<NavbarProps, "maxWidth" | "containerClassName">) {
   return (
     <Link
       href="/docs/studio/run-locally"
       className="group block min-h-9 border-b border-violet-300/10 bg-[linear-gradient(90deg,#151026,#101321,#101026)] text-[10px] text-white/60 transition-colors hover:text-white"
     >
-      <span className="marketing-container flex min-h-9 items-center justify-start gap-2 py-1.5 text-left">
+      <span
+        className={cn(
+          "flex min-h-9 items-center justify-start gap-2 py-1.5 text-left",
+          containerClassName,
+        )}
+        style={{ maxWidth }}
+      >
         <span className="rounded-full border border-violet-300/20 bg-violet-300/8 px-1.5 py-0.5 font-mono text-[10px] tracking-[0.08em] text-violet-200 uppercase">
           Studio preview
         </span>
@@ -53,7 +66,14 @@ function StudioAnnouncement() {
 
 export function Navbar({
   className,
-  announcement = <StudioAnnouncement />,
+  maxWidth,
+  containerClassName = "marketing-container",
+  announcement = (
+    <StudioAnnouncement
+      maxWidth={maxWidth}
+      containerClassName={containerClassName}
+    />
+  ),
   search,
   actions,
   mobileContent,
@@ -71,7 +91,10 @@ export function Navbar({
     <header className={cn("sticky top-0 z-50", className)}>
       {announcement}
       <div className="border-b border-white/8 bg-[#08080c] text-white">
-        <div className="marketing-container flex min-h-16 items-center gap-4">
+        <div
+          className={cn("flex min-h-16 items-center gap-4", containerClassName)}
+          style={{ maxWidth }}
+        >
           <Link
             href="/"
             className="group flex min-h-10 shrink-0 items-center gap-2.5 text-sm font-semibold tracking-[-0.01em] text-white hover:text-white/75"

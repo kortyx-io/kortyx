@@ -58,6 +58,22 @@ describe("shared Navbar", () => {
   });
 
   it.each([
+    1400,
+    "90rem",
+  ])("applies custom max width %s to the main row and announcement", (maxWidth) => {
+    const html = renderToStaticMarkup(
+      createElement(Navbar, {
+        maxWidth,
+        containerClassName: "mx-auto w-full px-4 sm:px-6",
+      }),
+    );
+    const width = typeof maxWidth === "number" ? `${maxWidth}px` : maxWidth;
+    expect(html.split(`style="max-width:${width}"`)).toHaveLength(3);
+    expect(html.split("mx-auto w-full px-4 sm:px-6")).toHaveLength(3);
+    expect(html).not.toContain("marketing-container");
+  });
+
+  it.each([
     ["/docs", "page"],
     ["/docs/studio/run-locally", "true"],
     ["/docs/sdk/v0/getting-started/installation", "true"],

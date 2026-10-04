@@ -20,6 +20,8 @@ const trustRoutes = [
 test("one navbar frame supports docs slots and client-side navigation", async ({
   page,
 }) => {
+  const mobile = (page.viewportSize()?.width ?? 0) < 1024;
+  if (!mobile) await page.setViewportSize({ width: 1440, height: 900 });
   await page.emulateMedia({ colorScheme: "light" });
   await page.goto("/cookies");
   await acknowledgeStorageNotice(page);
@@ -39,11 +41,24 @@ test("one navbar frame supports docs slots and client-side navigation", async ({
     });
   const commonFrame = await getFrame();
   expect(commonFrame.background).toBe("rgb(8, 8, 12)");
+  const getContainer = () =>
+    frame.locator(":scope > div").evaluate((element) => {
+      const styles = getComputedStyle(element);
+      const bounds = element.getBoundingClientRect();
+      return {
+        width: bounds.width,
+        left: bounds.left,
+        padding: styles.paddingLeft,
+      };
+    });
+  const marketingContainer = await getContainer();
+  expect(marketingContainer.width).toBe(
+    Math.min(page.viewportSize()?.width ?? 0, 1280),
+  );
   await expect(
     header.getByRole("button", { name: "Search documentation" }),
   ).toHaveCount(0);
 
-  const mobile = (page.viewportSize()?.width ?? 0) < 1024;
   const navigate = async (name: string) => {
     if (mobile) await header.locator("summary").click();
     await header
@@ -59,6 +74,16 @@ test("one navbar frame supports docs slots and client-side navigation", async ({
   await expect(page).toHaveURL(/\/docs$/);
   await expect(header).toHaveCount(1);
   expect(await getFrame()).toEqual(commonFrame);
+  const docsContainer = await getContainer();
+  expect(docsContainer.width).toBe(
+    Math.min(page.viewportSize()?.width ?? 0, 1400),
+  );
+  expect(docsContainer.padding).toBe(mobile ? "16px" : "24px");
+  const announcementBounds = await header
+    .locator(":scope > a > span")
+    .boundingBox();
+  expect(announcementBounds?.width).toBe(docsContainer.width);
+  expect(announcementBounds?.x).toBe(docsContainer.left);
   await expect(
     header.getByRole("button", { name: "Search documentation" }),
   ).toHaveCount(1);
@@ -90,6 +115,7 @@ test("one navbar frame supports docs slots and client-side navigation", async ({
   expect(await getFrame()).toEqual(commonFrame);
   await header.getByRole("button", { name: "Switch to light mode" }).click();
   await expect(page.locator("html")).not.toHaveClass(/(^|\s)dark(\s|$)/);
+  expect(await getContainer()).toEqual(docsContainer);
 
   if (mobile) {
     const summary = header.locator("summary");
@@ -107,6 +133,7 @@ test("one navbar frame supports docs slots and client-side navigation", async ({
   await navigate("Product");
   await expect(page).toHaveURL(/\/product$/);
   expect(await getFrame()).toEqual(commonFrame);
+  expect(await getContainer()).toEqual(marketingContainer);
   await expect(
     header.getByRole("button", { name: "Search documentation" }),
   ).toHaveCount(0);

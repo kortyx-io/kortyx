@@ -17,6 +17,8 @@ export function SiteNavbarClient({
 
   return (
     <Navbar
+      maxWidth={isDocs ? 1400 : undefined}
+      containerClassName={isDocs ? "mx-auto w-full px-4 sm:px-6" : undefined}
       search={
         isDocs ? (
           <DocsSearch
