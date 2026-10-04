@@ -17,6 +17,112 @@ const trustRoutes = [
   "cookies",
 ];
 
+test("one navbar frame supports docs slots and client-side navigation", async ({
+  page,
+}) => {
+  await page.emulateMedia({ colorScheme: "light" });
+  await page.goto("/cookies");
+  await acknowledgeStorageNotice(page);
+  const header = page.locator("header");
+  await expect(header).toHaveCount(1);
+  const frame = header.locator(":scope > div");
+  const getFrame = () =>
+    frame.evaluate((element) => {
+      const styles = getComputedStyle(element);
+      const bounds = element.getBoundingClientRect();
+      return {
+        background: styles.backgroundColor,
+        color: styles.color,
+        height: bounds.height,
+        width: bounds.width,
+      };
+    });
+  const commonFrame = await getFrame();
+  expect(commonFrame.background).toBe("rgb(8, 8, 12)");
+  await expect(
+    header.getByRole("button", { name: "Search documentation" }),
+  ).toHaveCount(0);
+
+  const mobile = (page.viewportSize()?.width ?? 0) < 1024;
+  const navigate = async (name: string) => {
+    if (mobile) await header.locator("summary").click();
+    await header
+      .getByRole("navigation", {
+        name: mobile ? "Mobile navigation" : "Main navigation",
+        exact: true,
+      })
+      .getByRole("link", { name, exact: true })
+      .click();
+  };
+
+  await navigate("Docs");
+  await expect(page).toHaveURL(/\/docs$/);
+  await expect(header).toHaveCount(1);
+  expect(await getFrame()).toEqual(commonFrame);
+  await expect(
+    header.getByRole("button", { name: "Search documentation" }),
+  ).toHaveCount(1);
+  await expect(
+    header.locator('a[href="/docs"][aria-current="page"]'),
+  ).toHaveCount(2);
+  if (mobile)
+    await expect(header.locator("details")).not.toHaveAttribute("open");
+
+  await page.keyboard.press("Control+k");
+  const search = page.getByRole("dialog", { name: "Search docs", exact: true });
+  await expect(search).toHaveCount(1);
+  await expect(search).toBeVisible();
+  await search.getByRole("searchbox").fill("run locally");
+  await expect(search.getByRole("link").first()).toBeVisible();
+  await search.getByRole("link").first().click();
+  await expect(page).toHaveURL(/\/docs\/[^/]+\//);
+  await expect(search).toHaveCount(0);
+  await expect(
+    header.locator('a[href="/docs"][aria-current="true"]'),
+  ).toHaveCount(2);
+  await header.getByRole("button", { name: "Search documentation" }).click();
+  await expect(search).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(search).toHaveCount(0);
+
+  await header.getByRole("button", { name: "Switch to dark mode" }).click();
+  await expect(page.locator("html")).toHaveClass(/(^|\s)dark(\s|$)/);
+  expect(await getFrame()).toEqual(commonFrame);
+  await header.getByRole("button", { name: "Switch to light mode" }).click();
+  await expect(page.locator("html")).not.toHaveClass(/(^|\s)dark(\s|$)/);
+
+  if (mobile) {
+    const summary = header.locator("summary");
+    await summary.click();
+    await expect(header.locator("details")).toHaveAttribute("open");
+    await header
+      .getByRole("navigation", { name: "Mobile navigation", exact: true })
+      .getByRole("link", { name: "Docs", exact: true })
+      .focus();
+    await page.keyboard.press("Escape");
+    await expect(header.locator("details")).not.toHaveAttribute("open");
+    await expect(summary).toBeFocused();
+  }
+
+  await navigate("Product");
+  await expect(page).toHaveURL(/\/product$/);
+  expect(await getFrame()).toEqual(commonFrame);
+  await expect(
+    header.getByRole("button", { name: "Search documentation" }),
+  ).toHaveCount(0);
+  await expect(
+    header.getByRole("button", { name: /Switch to .* mode/ }),
+  ).toHaveCount(0);
+  await expect(
+    header.locator('a[href="/product"][aria-current="page"]'),
+  ).toHaveCount(2);
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= innerWidth,
+    ),
+  ).toBe(true);
+});
+
 test("external links open safely in a new tab while site navigation stays in place", async ({
   page,
   context,

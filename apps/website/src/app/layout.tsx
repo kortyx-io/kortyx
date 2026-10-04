@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
-import { Navbar } from "@/components/navbar";
+import { SiteNavbar } from "@/components/site-navbar";
 import { siteConfig } from "@/lib/site";
 import "./globals.css";
 import { Providers } from "./providers";
@@ -101,7 +101,7 @@ export default function RootLayout({
           suppressHydrationWarning
         />
         <Providers>
-          <Navbar />
+          <SiteNavbar />
           {children}
         </Providers>
       </body>
