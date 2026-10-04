@@ -23,7 +23,7 @@
     "@hono/zod-openapi": "^1.1.6",
     "@kortyx/telemetry-contracts": "workspace:*",
     "@kortyx/telemetry-db": "workspace:*",
-    "hono": "^4.12.9",
+    "hono": "^4.13.7",
     "zod": "catalog:",
     "@kortyx/agent": "workspace:*",
     "@kortyx/openai": "workspace:*",
