@@ -59,26 +59,17 @@
     "@kortyx/telemetry": "workspace:*"
   },
   "devDependencies": {
-    "@babel/core": "^7.23.0",
-    "@babel/preset-env": "^7.23.0",
-    "@babel/preset-react": "^7.23.0",
-    "@babel/preset-typescript": "^7.23.0",
     "@tailwindcss/postcss": "catalog:",
     "@types/node": "catalog:",
     "@types/react": "catalog:",
     "@types/react-dom": "catalog:",
     "autoprefixer": "^10.4.0",
-    "babel-loader": "^9.1.0",
-    "css-loader": "^6.8.0",
     "dotenv": "^17.2.1",
     "postcss": "^8.5.8",
-    "postcss-loader": "^7.3.0",
     "tailwindcss": "catalog:",
     "tw-animate-css": "catalog:",
     "typescript": "catalog:",
-    "vitest": "catalog:",
-    "webpack": "^5.105.4",
-    "webpack-cli": "^5.1.0"
+    "vitest": "catalog:"
   },
   "homepage": "https://kortyx.io/",
   "bugs": {
