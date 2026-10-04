@@ -5,6 +5,7 @@ import {
   type StructuredStreamState,
 } from "@kortyx/stream/browser";
 import { useCallback, useMemo, useRef, useState } from "react";
+import { createSecureId } from "./create-secure-id";
 
 export type StructuredStreamItem<TData = unknown> = {
   id: string;
@@ -28,20 +29,10 @@ export type UseStructuredStreamsResult<TData = unknown> = {
   delete: (streamId: string) => boolean;
 };
 
-const defaultCreateId = () => {
-  try {
-    if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
-      return crypto.randomUUID();
-    }
-  } catch {}
-
-  return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
-};
-
 export function useStructuredStreams<TData = unknown>(
   options?: UseStructuredStreamsOptions<TData> | undefined,
 ): UseStructuredStreamsResult<TData> {
-  const createId = useRef(options?.createId ?? defaultCreateId).current;
+  const createId = useRef(options?.createId ?? createSecureId).current;
   const initialChunks = useRef(options?.initialChunks ?? []).current;
   const accumulatorRef = useRef(
     createStructuredStreamAccumulator<TData>(initialChunks),

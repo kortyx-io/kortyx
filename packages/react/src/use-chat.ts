@@ -16,21 +16,13 @@ import type {
 } from "./chat-transport";
 import type { ChatMsg, ContentPiece, HumanInputPiece } from "./chat-types";
 import { createLiveChatPieces } from "./create-live-chat-pieces";
+import { createSecureId } from "./create-secure-id";
 import {
   toHumanInputPiece as defaultToHumanInputPiece,
   type ToHumanInputPiece,
 } from "./to-human-input-piece";
 import { useChatStreamDebug } from "./use-chat-stream-debug";
 import { useStructuredStreams } from "./use-structured-streams";
-
-const defaultCreateId = () => {
-  try {
-    if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
-      return crypto.randomUUID();
-    }
-  } catch {}
-  return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
-};
 
 type DefaultChatContext = Record<string, unknown>;
 
@@ -296,7 +288,7 @@ export function useChat<TContext = DefaultChatContext>(
   );
   const requestContext =
     options.context ?? ({} as unknown as NonNullable<TContext>);
-  const createId = useRef(options.createId ?? defaultCreateId).current;
+  const createId = useRef(options.createId ?? createSecureId).current;
 
   const [messages, setMessages] = useState<ChatMsg[]>([]);
   const [isStreaming, setIsStreaming] = useState(false);

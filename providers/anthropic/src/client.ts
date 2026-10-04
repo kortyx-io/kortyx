@@ -1,5 +1,5 @@
 import { assertProviderResponse } from "@kortyx/core/errors";
-import { readSseEvents } from "@kortyx/providers";
+import { readSseEvents, trimTrailingSlashes } from "@kortyx/providers";
 import { ProviderConfigurationError, ProviderRequestError } from "./errors";
 import type {
   AnthropicClient,
@@ -73,7 +73,7 @@ const resolveFetch = (
 export const createAnthropicClient = (
   config: AnthropicClientConfig,
 ): AnthropicClient => {
-  const baseUrl = (config.baseUrl ?? DEFAULT_BASE_URL).replace(/\/+$/, "");
+  const baseUrl = trimTrailingSlashes(config.baseUrl ?? DEFAULT_BASE_URL);
   const fetchImpl = resolveFetch(config.fetch);
   const headers = createHeaders(config);
 
