@@ -71,7 +71,8 @@ export const metadata: Metadata = {
 
 const themeScript = `
   (function(){
-    var s=localStorage.getItem('theme');
+    var s=null;
+    try { s=localStorage.getItem('theme'); } catch (_) {}
     var d=window.matchMedia('(prefers-color-scheme: dark)').matches;
     if(s==='dark'||(!s&&d))document.documentElement.classList.add('dark');
     else document.documentElement.classList.remove('dark');
@@ -88,6 +89,12 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
+        <a
+          href="#main-content"
+          className="sr-only z-[100] rounded-lg bg-white px-5 py-3 text-sm font-semibold text-black focus:not-sr-only focus:fixed focus:top-3 focus:left-3"
+        >
+          Skip to content
+        </a>
         <script
           // biome-ignore lint/security/noDangerouslySetInnerHtml: Theme state must be set before paint to prevent flashes
           dangerouslySetInnerHTML={{ __html: themeScript }}

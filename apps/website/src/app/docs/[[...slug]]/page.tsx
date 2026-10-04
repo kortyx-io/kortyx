@@ -9,6 +9,7 @@ import { DocsProductIndex } from "@/components/docs/docs-product-index";
 import { DocsRightRail } from "@/components/docs/docs-right-rail";
 import { DocsSectionGrid } from "@/components/docs/docs-section-grid";
 import { DocsSidebar } from "@/components/docs/docs-sidebar";
+import { DocsTrustFooter } from "@/components/docs/docs-trust-footer";
 import {
   buildDocHref,
   type DocRecord,
@@ -612,7 +613,7 @@ export default async function DocsPage({
           productTargets={productTargets}
         />
 
-        <main className="min-w-0 py-8">
+        <main id="main-content" tabIndex={-1} className="min-w-0 py-8">
           <div className="mb-8 flex max-w-3xl flex-wrap items-center justify-between gap-3 border-b border-border pb-4">
             <div className="flex items-center gap-3">
               <DocsMobileSidebar
@@ -658,6 +659,7 @@ export default async function DocsPage({
               items={sectionItems}
             />
           )}
+          <DocsTrustFooter />
         </main>
 
         {isDocRoute && currentDoc ? (

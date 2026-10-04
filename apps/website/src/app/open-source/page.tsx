@@ -12,8 +12,8 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { FlowLine } from "@/components/marketing/flow-line";
 import { MarketingCta } from "@/components/marketing/marketing-cta";
-import { MarketingFooter } from "@/components/marketing/marketing-footer";
 import { MarketingPageJsonLd } from "@/components/marketing/marketing-page-json-ld";
+import { MarketingShell } from "@/components/marketing/marketing-shell";
 import { Reveal, Stagger, StaggerItem } from "@/components/marketing/reveal";
 import { createMarketingMetadata } from "@/lib/metadata";
 
@@ -92,7 +92,7 @@ function TerminalHero() {
 
 export default function OpenSourcePage() {
   return (
-    <main className="marketing-page min-h-screen overflow-hidden bg-[#08080c] text-white">
+    <MarketingShell className="marketing-page min-h-screen overflow-hidden bg-[#08080c] text-white">
       <MarketingPageJsonLd
         name={pageTitle}
         description={pageDescription}
@@ -332,7 +332,6 @@ export default function OpenSourcePage() {
         title="Install Kortyx without creating a cloud account."
         description="The quickstart runs the workflow inside your application with your model keys and database."
       />
-      <MarketingFooter />
-    </main>
+    </MarketingShell>
   );
 }

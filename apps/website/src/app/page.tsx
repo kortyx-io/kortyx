@@ -23,7 +23,7 @@ import Link from "next/link";
 import { AgentRuntimeDemo } from "@/components/marketing/agent-runtime-demo";
 import { FlowLine } from "@/components/marketing/flow-line";
 import { MarketingCta } from "@/components/marketing/marketing-cta";
-import { MarketingFooter } from "@/components/marketing/marketing-footer";
+import { MarketingShell } from "@/components/marketing/marketing-shell";
 import { Reveal, Stagger, StaggerItem } from "@/components/marketing/reveal";
 import { siteConfig } from "@/lib/site";
 import { cn } from "@/lib/utils/cn";
@@ -283,7 +283,7 @@ function ProductJsonLd() {
 
 export default function Home() {
   return (
-    <main className="marketing-page min-h-screen overflow-hidden bg-[#08080c] text-white">
+    <MarketingShell className="marketing-page min-h-screen overflow-hidden bg-[#08080c] text-white">
       <ProductJsonLd />
       <section className="marketing-grid relative isolate border-b border-white/8">
         <div className="marketing-orb marketing-orb-one" />
@@ -812,7 +812,6 @@ export default function Home() {
       </section>
 
       <MarketingCta />
-      <MarketingFooter />
-    </main>
+    </MarketingShell>
   );
 }

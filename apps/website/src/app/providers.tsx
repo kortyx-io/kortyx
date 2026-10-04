@@ -1,6 +1,7 @@
 "use client";
 
 import { ProgressProvider } from "@bprogress/next/app";
+import { WebsiteConsent } from "@/components/consent/website-consent";
 
 export function Providers({
   children,
@@ -14,7 +15,7 @@ export function Providers({
       startPosition={0.12}
       options={{ showSpinner: false, trickleSpeed: 180 }}
     >
-      {children}
+      <WebsiteConsent>{children}</WebsiteConsent>
     </ProgressProvider>
   );
 }

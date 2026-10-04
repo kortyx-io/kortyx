@@ -9,7 +9,12 @@ const STORAGE_KEY = "theme";
 
 function getInitialTheme(): "light" | "dark" {
   if (typeof window === "undefined") return "light";
-  const stored = localStorage.getItem(STORAGE_KEY) as "light" | "dark" | null;
+  let stored: string | null = null;
+  try {
+    stored = localStorage.getItem(STORAGE_KEY);
+  } catch {
+    // The system theme remains available when browser storage is blocked.
+  }
   if (stored === "dark" || stored === "light") return stored;
   return window.matchMedia("(prefers-color-scheme: dark)").matches
     ? "dark"
@@ -20,7 +25,11 @@ function applyTheme(theme: "light" | "dark") {
   const root = document.documentElement;
   if (theme === "dark") root.classList.add("dark");
   else root.classList.remove("dark");
-  localStorage.setItem(STORAGE_KEY, theme);
+  try {
+    localStorage.setItem(STORAGE_KEY, theme);
+  } catch {
+    // A blocked preference store must not prevent changing the current theme.
+  }
 }
 
 export function ThemeToggle({
