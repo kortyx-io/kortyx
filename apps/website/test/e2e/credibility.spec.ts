@@ -17,6 +17,66 @@ const trustRoutes = [
   "cookies",
 ];
 
+test("external links open safely in a new tab while site navigation stays in place", async ({
+  page,
+  context,
+}) => {
+  await page.goto("/");
+  await acknowledgeStorageNotice(page);
+
+  for (const route of [
+    "",
+    "product",
+    "examples",
+    "open-source",
+    ...trustRoutes,
+    "docs",
+    "docs/studio/run-locally",
+  ]) {
+    await page.goto(`/${route}`);
+    const violations = await page.locator("a[href]").evaluateAll((links) =>
+      links.flatMap((element) => {
+        const link = element as HTMLAnchorElement;
+        const href = link.getAttribute("href") ?? "";
+        const url = new URL(href, "https://kortyx.io");
+        const external =
+          ["http:", "https:"].includes(url.protocol) &&
+          url.origin !== "https://kortyx.io";
+        const valid = external
+          ? link.target === "_blank" &&
+            link.relList.contains("noopener") &&
+            link.relList.contains("noreferrer")
+          : link.target !== "_blank";
+        return valid ? [] : [href];
+      }),
+    );
+    expect(violations, `Link policy on /${route}`).toEqual([]);
+  }
+
+  await expect(page.locator('a[href="http://localhost:6300"]')).toHaveAttribute(
+    "target",
+    "_blank",
+  );
+
+  // Verify real new-tab behavior without contacting the external service.
+  await context.route("https://github.com/kortyx-io/kortyx/releases", (route) =>
+    route.fulfill({ contentType: "text/html", body: "<h1>Releases</h1>" }),
+  );
+  await page.goto("/cookies");
+  const originalUrl = page.url();
+  const popupPromise = page.waitForEvent("popup");
+  await page
+    .getByRole("contentinfo")
+    .getByRole("link", { name: "Releases" })
+    .click();
+  const popup = await popupPromise;
+  await popup.waitForLoadState();
+  expect(popup.url()).toBe("https://github.com/kortyx-io/kortyx/releases");
+  expect(await popup.evaluate(() => window.opener)).toBeNull();
+  expect(page.url()).toBe(originalUrl);
+  await popup.close();
+});
+
 test("trust pages are navigable and identify drafts accurately", async ({
   page,
 }) => {

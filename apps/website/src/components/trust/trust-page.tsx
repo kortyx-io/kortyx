@@ -7,6 +7,7 @@ import {
   getLegalDocumentRelease,
   isLegalDocumentSlug,
 } from "@/lib/legal-documents";
+import { externalLinkProps } from "@/lib/links";
 import {
   cloudAvailability,
   getTrustPage,
@@ -151,6 +152,7 @@ export function TrustPage({ slug }: { slug: TrustPageSlug }) {
                 <Link
                   key={card.title}
                   href={card.href}
+                  {...externalLinkProps(card.href)}
                   className="group rounded-2xl border border-white/15 bg-white/3 p-6 hover:border-[#a89cff]/50 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#a89cff]"
                 >
                   <p className="font-mono text-[11px] tracking-wider text-[#c9c1ff] uppercase">
@@ -216,6 +218,7 @@ export function TrustPage({ slug }: { slug: TrustPageSlug }) {
                       <Link
                         key={link.href}
                         href={link.href}
+                        {...externalLinkProps(link.href)}
                         className={linkClass}
                       >
                         {link.label}

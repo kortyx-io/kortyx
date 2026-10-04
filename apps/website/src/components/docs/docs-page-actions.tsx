@@ -50,7 +50,7 @@ function ActionItem(props: ActionItemProps) {
         <a
           href={href}
           target="_blank"
-          rel="noreferrer"
+          rel="noopener noreferrer"
           className="flex cursor-pointer items-start gap-3 rounded-md px-3 py-2"
         >
           <span className="mt-1 text-muted-foreground">{icon}</span>

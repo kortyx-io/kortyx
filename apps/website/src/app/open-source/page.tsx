@@ -118,7 +118,7 @@ export default function OpenSourcePage() {
               <a
                 href="https://github.com/kortyx-io/kortyx"
                 target="_blank"
-                rel="noreferrer"
+                rel="noopener noreferrer"
                 className="group inline-flex h-12 items-center justify-center gap-2 rounded-lg bg-[#a89cff] px-5 text-sm font-semibold text-[#08080c]"
               >
                 <Github className="size-4" /> View source
@@ -287,7 +287,7 @@ export default function OpenSourcePage() {
           <a
             href="https://github.com/kortyx-io/kortyx"
             target="_blank"
-            rel="noreferrer"
+            rel="noopener noreferrer"
             className="group flex min-h-72 flex-col justify-between rounded-[28px] border border-[#111426]/12 bg-white p-8 transition-transform hover:-translate-y-1 sm:p-10"
           >
             <Code2 className="size-7 text-[#6044d8]" />

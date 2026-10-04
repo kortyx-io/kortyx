@@ -355,7 +355,7 @@ export default function ExamplesPage() {
           <a
             href="https://github.com/kortyx-io/kortyx/tree/main/examples/kortyx-canvas"
             target="_blank"
-            rel="noreferrer"
+            rel="noopener noreferrer"
             className="group inline-flex h-12 shrink-0 items-center justify-center gap-2 rounded-full bg-white px-6 text-sm font-semibold text-[#111426]"
           >
             Browse Canvas source

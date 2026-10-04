@@ -1,6 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { PrivacySettings } from "@/components/consent/privacy-settings";
+import { externalLinkProps } from "@/lib/links";
 
 const footerGroups = [
   {
@@ -68,7 +69,11 @@ export function MarketingFooter() {
               <ul>
                 {group.links.map(([label, href]) => (
                   <li key={label}>
-                    <Link href={href} className={footerLinkClass}>
+                    <Link
+                      href={href}
+                      {...externalLinkProps(href)}
+                      className={footerLinkClass}
+                    >
                       {label}
                     </Link>
                   </li>

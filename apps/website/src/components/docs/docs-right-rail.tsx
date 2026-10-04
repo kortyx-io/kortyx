@@ -32,7 +32,7 @@ export function DocsRightRail(props: DocsRightRailProps) {
             <a
               href={editOnGithubHref}
               target="_blank"
-              rel="noreferrer"
+              rel="noopener noreferrer"
               className="inline-flex min-h-8 cursor-pointer items-center gap-2 text-sm text-muted-foreground hover:text-primary dark:hover:text-blue-200"
             >
               Edit this page on GitHub

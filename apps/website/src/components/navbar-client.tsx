@@ -139,7 +139,7 @@ export function NavbarClient({ className, searchIndex }: NavbarClientProps) {
               <a
                 href="https://github.com/kortyx-io/kortyx"
                 target="_blank"
-                rel="noreferrer"
+                rel="noopener noreferrer"
               >
                 <Github className="size-[18px]" />
                 <span className="sr-only">Open Kortyx on GitHub</span>
