@@ -7,6 +7,7 @@ on:
 
 permissions:
   contents: read
+  security-events: write
 
 concurrency:
   group: ci-${{ github.event.pull_request.number || github.ref }}
@@ -30,12 +31,12 @@ jobs:
     outputs:
       studio: ${{ steps.affected.outputs.studio }}
     steps:
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           fetch-depth: 0
           filter: blob:none
       - name: Checkout workflow modules
-        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           ref: ${{ github.workflow_sha }}
           path: .github/automation
@@ -61,19 +62,19 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        suite: [coverage, integration, build-typecheck, static]
+        suite: [coverage, integration, build-typecheck, static, security]
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 25
     env:
       TURBO_SCM_BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
       TURBO_SCM_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
     steps:
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           fetch-depth: 0
           filter: blob:none
       - name: Checkout workflow modules
-        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           ref: ${{ github.workflow_sha }}
           path: .github/automation
@@ -84,16 +85,73 @@ jobs:
         with:
           suite: ${{ matrix.suite }}
 
+  container_security:
+    name: Container security (${{ matrix.image }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - image: api
+            dockerfile: apps/api/Dockerfile
+          - image: studio
+            dockerfile: apps/studio/Dockerfile
+          - image: website
+            dockerfile: apps/website/Dockerfile
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - name: Build scan target
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          file: ${{ matrix.dockerfile }}
+          load: true
+          push: false
+          tags: kortyx-${{ matrix.image }}:security-scan
+          cache-from: type=gha,scope=security-${{ matrix.image }}
+          cache-to: type=gha,mode=max,scope=security-${{ matrix.image }}
+      - name: Scan image
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          scan-type: image
+          image-ref: kortyx-${{ matrix.image }}:security-scan
+          vuln-type: os,library
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          # Node packages are gated by pnpm audit. Exclude package-manager and
+          # application trees here so this job owns base-image and native-tool
+          # findings without reporting the same dependency twice.
+          skip-dirs: /app/node_modules,/root/.cache/node/corepack,/usr/local/lib/node_modules/npm
+          exit-code: 1
+          hide-progress: true
+
+  container_security_gate:
+    name: Container security
+    needs: container_security
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require every image scan
+        env:
+          RESULT: ${{ needs.container_security.result }}
+        run: test "$RESULT" = success
+
   validate_repository:
     name: Validate repository
-    needs: repository_suite
+    needs: [repository_suite, container_security_gate]
     if: always()
     runs-on: ubuntu-latest
     steps:
       - name: Require every repository suite
         env:
-          RESULT: ${{ needs.repository_suite.result }}
-        run: test "$RESULT" = success
+          REPOSITORY_RESULT: ${{ needs.repository_suite.result }}
+          CONTAINER_RESULT: ${{ needs.container_security_gate.result }}
+        run: |
+          test "$REPOSITORY_RESULT" = success
+          test "$CONTAINER_RESULT" = success
 
   typecheck_lint:
     needs: validate_repository
@@ -121,9 +179,9 @@ jobs:
         ports: ["6543:5432"]
         options: --health-cmd "pg_isready -U kortyx -d kortyx" --health-interval 2s --health-timeout 5s --health-retries 30
     steps:
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       - name: Checkout workflow modules
-        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           ref: ${{ github.workflow_sha }}
           path: .github/automation
@@ -186,9 +244,9 @@ jobs:
         ports: ["6543:5432"]
         options: --health-cmd "pg_isready -U kortyx -d kortyx" --health-interval 2s --health-timeout 5s --health-retries 30
     steps:
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       - name: Checkout workflow modules
-        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           ref: ${{ github.workflow_sha }}
           path: .github/automation
@@ -206,9 +264,9 @@ jobs:
     if: needs.changes.outputs.studio == 'true' && !cancelled()
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       - name: Checkout workflow modules
-        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           ref: ${{ github.workflow_sha }}
           path: .github/automation
