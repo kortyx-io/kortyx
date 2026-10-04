@@ -18,6 +18,8 @@ Instead, use GitHub Security Advisories for this repository.
   a workflow artifact.
 - CodeQL scans JavaScript and TypeScript changes, and release container images
   are scanned independently before they are eligible for promotion.
+- Non-applicable CodeQL findings require a narrow, reviewable entry in the
+  [code scanning decision register](docs/security/code-scanning-decisions.md).
 - Dependabot version updates run weekly for npm and GitHub Actions. Dependabot
   security updates, secret scanning, and push protection must remain enabled in
   the repository security settings.

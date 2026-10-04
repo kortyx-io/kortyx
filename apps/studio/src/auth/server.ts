@@ -1,5 +1,5 @@
 import "server-only";
-import { createHash, timingSafeEqual } from "node:crypto";
+import { constantTimeEqual } from "../lib/constant-time-equal";
 import { getStudioAuthConfig } from "../lib/studio-auth";
 import type { StudioAuthAdapter } from "./contracts";
 
@@ -27,14 +27,7 @@ export const studioAuth: StudioAuthAdapter = {
       );
     }
     const expected = `Basic ${Buffer.from(`${config.username}:${config.password}`).toString("base64")}`;
-    const digest = (value: string) =>
-      createHash("sha256").update(value).digest();
-    if (
-      timingSafeEqual(
-        digest(expected),
-        digest(request.headers.get("authorization") ?? ""),
-      )
-    )
+    if (constantTimeEqual(expected, request.headers.get("authorization") ?? ""))
       return null;
     return new Response("Authentication required.", {
       status: 401,

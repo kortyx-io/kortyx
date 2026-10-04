@@ -64,10 +64,17 @@ export const ChatSessionsContext = createContext<ChatSessionsValue | null>(
 );
 
 function generateChatId(): string {
-  if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
-    return crypto.randomUUID();
+  const cryptoApi = globalThis.crypto;
+  if (!cryptoApi) {
+    throw new Error("Chat session IDs require the Web Crypto API.");
   }
-  return `chat-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  if (typeof cryptoApi.randomUUID === "function") {
+    return cryptoApi.randomUUID();
+  }
+  const bytes = cryptoApi.getRandomValues(new Uint8Array(16));
+  return Array.from(bytes, (value) => value.toString(16).padStart(2, "0")).join(
+    "",
+  );
 }
 
 function readStoredSessions(): ChatSession[] {

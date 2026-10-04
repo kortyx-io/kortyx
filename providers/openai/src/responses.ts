@@ -8,6 +8,7 @@ import type {
   KortyxWarning,
   ModelOptions,
 } from "@kortyx/providers";
+import { trimTrailingSlashes } from "@kortyx/providers";
 import { assertOk, readSseEvents } from "./client";
 import {
   ProviderConfigurationError,
@@ -348,7 +349,7 @@ export function createResponsesModel(
   const post = async (messages: KortyxPromptMessage[], stream: boolean) => {
     const body = createResponsesRequest(modelId, messages, options, stream);
     const response = await (settings.fetch ?? globalThis.fetch)(
-      `${(settings.baseUrl ?? "https://api.openai.com/v1").replace(/\/+$/, "")}/responses`,
+      `${trimTrailingSlashes(settings.baseUrl ?? "https://api.openai.com/v1")}/responses`,
       {
         method: "POST",
         headers: {
