@@ -11,7 +11,6 @@ import { externalLinkProps } from "@/lib/links";
 import {
   cloudAvailability,
   getTrustPage,
-  legalPublicationReady,
   providerIdentity,
   type TrustPageSlug,
   trustContentUpdated,
@@ -133,19 +132,6 @@ export function TrustPage({ slug }: { slug: TrustPageSlug }) {
         </aside>
 
         <article className="min-w-0 max-w-4xl">
-          {page.isLegal && !legalPublicationReady ? (
-            <div
-              role="note"
-              className="mb-10 rounded-xl border border-[#eac47c]/30 bg-[#eac47c]/8 p-5 text-sm leading-6 text-[#f2dba9]"
-            >
-              <p className="font-semibold">Draft for review</p>
-              <p className="mt-2">
-                Publication review covers verified operator details, private
-                contact information, and deployment-specific data practices.
-              </p>
-            </div>
-          ) : null}
-
           {page.cards ? (
             <div className="mb-12 grid gap-4 sm:grid-cols-2">
               {page.cards.map((card) => (

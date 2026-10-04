@@ -86,7 +86,7 @@ test("trust pages are navigable and identify drafts accurately", async ({
     expect(response?.status()).toBe(200);
     await expect(page.locator("h1")).toBeVisible();
     await expect(page.locator("body")).not.toContainText(
-      /in formation|company incorporation/i,
+      /in formation|company incorporation|draft for review|publication review covers/i,
     );
     await expect(page.locator('header a[href="/security"]')).toHaveCount(0);
     await expect(
@@ -105,7 +105,7 @@ test("trust pages are navigable and identify drafts accurately", async ({
       ),
     ).toBe(true);
     if (["privacy", "terms", "legal", "cookies"].includes(route)) {
-      await expect(page.getByRole("note")).toContainText("Draft for review");
+      await expect(page.getByRole("note")).toHaveCount(0);
       await expect(page.locator('meta[name="robots"]')).toHaveAttribute(
         "content",
         /noindex/,
