@@ -9,6 +9,7 @@ export {
   TelemetryDbError,
   TelemetryForbiddenError,
   TelemetryNotFoundError,
+  TelemetryValidationError,
 } from "./errors";
 export { DEFAULT_MODEL_RATE_CARDS } from "./pricing/default-rates";
 export type {

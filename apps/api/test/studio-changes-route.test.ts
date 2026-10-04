@@ -16,13 +16,15 @@ describe("Studio change stream", () => {
     const app = new OpenAPIHono<ApiEnv>();
     const bus = createInMemoryStudioChangeBus();
     app.use("*", async (c, next) => {
-      c.set("auth", {
+      c.set("principal", {
+        kind: "api-key",
         keyId: "key-1",
         organizationId: "org-1",
         projectId: "project-1",
         mode: "test",
         scopes: ["studio:read"],
       });
+      c.set("revalidateStreamAccess", async () => {});
       await next();
     });
     registerStudioChangeRoutes(app, bus);

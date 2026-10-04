@@ -16,6 +16,21 @@ const connectedContext: StudioContextResponse = {
 const text = (value: StudioShellContext): string => JSON.stringify(value);
 
 describe("buildStudioShellContext", () => {
+  it("accepts human-authenticated context without inventing API-key metadata", () => {
+    const context = buildStudioShellContext({
+      authMode: "cloud",
+      studioVersion: "1.2.3",
+      apiUrlConfigured: true,
+      studioApiKeyConfigured: false,
+      context: { data: { ...connectedContext, apiKey: null }, error: null },
+    });
+    expect(context.connection).toMatchObject({
+      status: "connected",
+      keyMode: null,
+      scopes: [],
+    });
+    expect(context.identity.access).toBe("Managed authentication");
+  });
   it("presents authenticated project context without key identifiers or secrets", () => {
     const context = buildStudioShellContext({
       authMode: "basic",

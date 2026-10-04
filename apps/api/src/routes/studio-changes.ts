@@ -16,7 +16,7 @@ const changesRoute = createRoute({
       resources: z.string().optional(),
     }),
   },
-  security: [{ TelemetryApiKey: [] }],
+  security: [{ TelemetryApiKey: [] }, { StudioAccessToken: [] }],
   responses: {
     200: {
       description: "A project-scoped stream of Studio resource invalidations.",
@@ -27,10 +27,10 @@ const changesRoute = createRoute({
       },
     },
     401: {
-      description: "Missing or invalid API key.",
+      description: "Missing or invalid Studio credentials.",
     },
     403: {
-      description: "API key lacks Studio read permission.",
+      description: "Caller lacks Studio read permission or project access.",
     },
   },
 });
@@ -63,7 +63,7 @@ export const registerStudioChangeRoutes = (
   bus: StudioChangeBus,
 ): void => {
   app.openapi(changesRoute, (c) => {
-    const auth = c.get("auth");
+    const auth = c.get("principal");
     const requestedResources = parseRequestedResources(
       c.req.valid("query").resources,
     );
@@ -81,8 +81,12 @@ export const registerStudioChangeRoutes = (
 
       const push = (change: StudioChange) => {
         const relevant =
-          !requestedResources ||
-          change.resources.some((resource) => requestedResources.has(resource));
+          change.organizationId === auth.organizationId &&
+          change.projectId === auth.projectId &&
+          (!requestedResources ||
+            change.resources.some((resource) =>
+              requestedResources.has(resource),
+            ));
         if (!relevant) return;
         if (wake) {
           const resolve = wake;
@@ -140,6 +144,13 @@ export const registerStudioChangeRoutes = (
         while (!aborted) {
           const change = await next();
           if (change === "aborted") break;
+          // Recheck expiry/revocation and permissions before delivering each event or heartbeat.
+          // This does not open a tenant DB transaction for the lifetime of the stream.
+          try {
+            await c.get("revalidateStreamAccess")();
+          } catch {
+            break;
+          }
           if (change === "heartbeat") {
             await stream.writeSSE({
               event: "heartbeat",

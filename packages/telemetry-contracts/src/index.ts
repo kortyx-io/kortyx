@@ -877,7 +877,8 @@ export const StudioContextResponseSchema = z
         mode: z.enum(["test", "live"]),
         scopes: z.array(z.string()),
       })
-      .strip(),
+      .strip()
+      .nullable(),
     api: z
       .object({
         status: z.literal("ok"),

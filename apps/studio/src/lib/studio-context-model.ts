@@ -108,8 +108,8 @@ export const buildStudioShellContext = (
         detail: "Authenticated project context is available.",
         apiService: input.context.data.api.service,
         apiVersion: input.context.data.api.version,
-        keyMode: input.context.data.apiKey.mode,
-        scopes: input.context.data.apiKey.scopes,
+        keyMode: input.context.data.apiKey?.mode ?? null,
+        scopes: input.context.data.apiKey?.scopes ?? [],
       },
       configuration,
     };

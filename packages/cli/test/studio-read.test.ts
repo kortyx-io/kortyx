@@ -809,6 +809,29 @@ describe("connection profiles", () => {
     ).rejects.toThrow("lacks studio:read");
     expect((await readConnections(path)).profiles).toEqual([]);
   });
+  it("rejects human context for an API-key connection without crashing or saving it", async () => {
+    const path = await home();
+    vi.stubEnv("KORTYX_TEST_READ_KEY", key);
+    await expect(
+      createConnectionsCommand(
+        () => {},
+        mockFetch({ ...context, apiKey: null }),
+      ).parseAsync(
+        [
+          "add",
+          "staging",
+          "--api-url",
+          "https://api.example.test",
+          "--api-key-env",
+          "KORTYX_TEST_READ_KEY",
+          "--config-home",
+          path,
+        ],
+        { from: "user" },
+      ),
+    ).rejects.toThrow("lacks studio:read");
+    expect((await readConnections(path)).profiles).toEqual([]);
+  });
   it("reuses managed local keys and follows local credential rotation without profile secret copies", async () => {
     const path = await home();
     const runtime: StudioRuntime = {

@@ -8,13 +8,14 @@
   "main": "dist/index.js",
   "scripts": {
     "build": "tsup",
-    "dev": "tsx watch src/index.ts",
+    "dev": "node scripts/run.mjs dev",
     "smoke:telemetry": "tsx scripts/smoke-telemetry.ts",
     "start": "node dist/index.js",
     "lint": "biome check src test",
-    "test": "vitest run && pnpm -s type-check",
+    "test": "node --test scripts/profile.test.mjs && vitest run && pnpm -s type-check",
+    "test:security-adapter": "node ../../test/api/security-build.mjs",
     "test:integration:ha": "vitest run test/ha.integration.test.ts",
-    "type-check": "tsc --noEmit -p tsconfig.json"
+    "type-check": "node scripts/run.mjs type-check"
   },
   "dependencies": {
     "@hono/node-server": "^1.19.11",

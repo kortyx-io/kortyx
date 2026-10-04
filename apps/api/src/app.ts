@@ -1,11 +1,17 @@
+import { createApiAuth } from "@api/auth";
+import { createApiAuthorization } from "@api/authorization";
+import { createApiTenantDatabase } from "@api/tenant-database";
 import { swaggerUI } from "@hono/swagger-ui";
 import { OpenAPIHono } from "@hono/zod-openapi";
 import type { EvalJudge } from "@kortyx/agent";
 import { STUDIO_API_PROTOCOL_VERSION } from "@kortyx/telemetry-contracts";
 import type { TelemetryDb } from "@kortyx/telemetry-db";
+import type { ApiAuthAdapter, ApiDeployment } from "./auth/contracts";
+import type { ApiAuthorizationAdapter } from "./authorization/contracts";
+import type { ApiTenantDatabaseAdapter } from "./database/contracts";
 import { apiErrorHandler } from "./errors";
 import type { EvalTarget } from "./evals/targets";
-import { apiKeyAuth } from "./middleware/api-key-auth";
+import { apiSecurity } from "./middleware/security";
 import {
   createNoopStudioChangeBus,
   type StudioChangeBus,
@@ -30,9 +36,25 @@ export type CreateApiAppOptions = {
   apiKeyPepper: string;
   studioChangeBus?: StudioChangeBus;
   readiness?: () => Promise<void>;
+  deployment?: ApiDeployment;
+  authentication?: ApiAuthAdapter;
+  authorization?: ApiAuthorizationAdapter;
+  tenantDatabase?: ApiTenantDatabaseAdapter;
 };
 
 export const createApiApp = (options: CreateApiAppOptions) => {
+  const adapterOptions = {
+    db: options.db,
+    apiKeyPepper: options.apiKeyPepper,
+    deployment: options.deployment ?? ("self-hosted" as const),
+  };
+  const security = {
+    authentication: options.authentication ?? createApiAuth(adapterOptions),
+    authorization:
+      options.authorization ?? createApiAuthorization(adapterOptions),
+    tenantDatabase:
+      options.tenantDatabase ?? createApiTenantDatabase(adapterOptions),
+  };
   const app = new OpenAPIHono<ApiEnv>({
     defaultHook: (result, c) => {
       if (result.success) return;
@@ -53,11 +75,19 @@ export const createApiApp = (options: CreateApiAppOptions) => {
     scheme: "bearer",
     bearerFormat: "ktyx_test_<keyId>_<secret>",
   });
+  app.openAPIRegistry.registerComponent(
+    "securitySchemes",
+    "StudioAccessToken",
+    {
+      type: "http",
+      scheme: "bearer",
+      bearerFormat: "access token",
+    },
+  );
 
   app.use("*", async (c, next) => {
     const requestId = c.req.header("x-request-id") ?? crypto.randomUUID();
     c.set("requestId", requestId);
-    c.set("db", options.db);
     c.header("x-request-id", requestId);
     c.header("x-kortyx-studio-api-version", STUDIO_API_PROTOCOL_VERSION);
     c.header(
@@ -73,9 +103,10 @@ export const createApiApp = (options: CreateApiAppOptions) => {
 
   app.use(
     "/v1/telemetry/*",
-    apiKeyAuth({
-      pepper: options.apiKeyPepper,
-      requiredScope: "telemetry:write",
+    apiSecurity({
+      ...security,
+      surface: "telemetry",
+      action: "telemetry:write",
     }),
   );
   registerWorkflowRevisionRoutes(app);
@@ -84,9 +115,10 @@ export const createApiApp = (options: CreateApiAppOptions) => {
 
   app.use(
     "/v1/studio/*",
-    apiKeyAuth({
-      pepper: options.apiKeyPepper,
-      requiredScope: "studio:read",
+    apiSecurity({
+      ...security,
+      surface: "studio",
+      action: "studio:read",
     }),
   );
   registerStudioRoutes(app);
