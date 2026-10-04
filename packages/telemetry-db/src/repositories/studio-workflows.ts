@@ -10,6 +10,7 @@ import {
 } from "@kortyx/telemetry-contracts";
 import { and, desc, eq, gte, inArray, lte, type SQL, sql } from "drizzle-orm";
 import type { TelemetryDb } from "../client";
+import { TelemetryValidationError } from "../errors";
 import {
   studioRuns,
   type TelemetryEventRecord,
@@ -293,11 +294,14 @@ export const listStudioWorkflows = async (
 ): Promise<StudioWorkflowsResponse> => {
   const now = input.now ?? new Date();
   const resolution = resolveStudioTimeRange(input.query, now);
-  if ("error" in resolution) throw new Error(resolution.error);
+  if ("error" in resolution)
+    throw new TelemetryValidationError(resolution.error);
   const workflowId = input.query.workflow?.trim() || null;
   const version = input.query.version?.trim() || null;
   if (version && !workflowId) {
-    throw new Error("A workflow is required when filtering by version.");
+    throw new TelemetryValidationError(
+      "A workflow is required when filtering by version.",
+    );
   }
   const runConditions: Array<SQL | undefined> = [
     eq(studioRuns.organizationId, input.organizationId),
@@ -348,7 +352,7 @@ export const listStudioWorkflows = async (
         revision.declaredVersion === version,
     )
   ) {
-    throw new Error(
+    throw new TelemetryValidationError(
       `Workflow "${workflowId}" does not have version "${version}".`,
     );
   }

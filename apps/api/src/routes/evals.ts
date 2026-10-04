@@ -10,12 +10,16 @@ import {
   getEvalRun,
   listEvalRuns,
   requestEvalCancellation,
-  TelemetryForbiddenError,
   TelemetryNotFoundError,
 } from "@kortyx/telemetry-db";
 import { bodyLimit } from "hono/body-limit";
 import { z } from "zod";
 import { type EvalTarget, fetchEvalManifest } from "../evals/targets";
+import {
+  canApiAction,
+  principalActorId,
+  requireApiAction,
+} from "../middleware/security";
 import type { ApiEnv } from "../types";
 
 export function registerEvalRoutes(
@@ -26,7 +30,7 @@ export function registerEvalRoutes(
   app.use("/v1/studio/evals/runs", bodyLimit({ maxSize: 16_384 }));
   app.use("/v1/studio/evals/runs/*", bodyLimit({ maxSize: 16_384 }));
   app.get("/v1/studio/evals/targets", async (c) => {
-    const auth = c.get("auth");
+    const auth = c.get("principal");
     const available = targets.filter(
       (target) =>
         target.organizationId === auth.organizationId &&
@@ -40,7 +44,9 @@ export function registerEvalRoutes(
           environment: target.environment,
         };
         try {
-          await ensureProjectEnvironmentAllowed(c.get("db"), target);
+          await c.get("withTenantDatabase")((db) =>
+            ensureProjectEnvironmentAllowed(db, target),
+          );
           const manifest = await fetchEvalManifest(target);
           return {
             ...base,
@@ -65,7 +71,7 @@ export function registerEvalRoutes(
     );
     return c.json({
       targets: items,
-      canRun: auth.scopes.includes("eval:run"),
+      canRun: await canApiAction(c, "eval:run"),
       studioJudge: studioJudge
         ? {
             id: studioJudge.id,
@@ -76,21 +82,24 @@ export function registerEvalRoutes(
     });
   });
   app.get("/v1/studio/evals/runs", async (c) =>
-    c.json({ runs: await listEvalRuns(c.get("db"), c.get("auth")) }),
+    c.json({
+      runs: await c.get("withTenantDatabase")((db) =>
+        listEvalRuns(db, c.get("principal")),
+      ),
+    }),
   );
   app.get("/v1/studio/evals/runs/:id", async (c) => {
     const id = z.uuid().safeParse(c.req.param("id"));
     if (!id.success) return c.json({ error: "Invalid eval ID." }, 400);
     return c.json({
-      run: await getEvalRun(c.get("db"), c.get("auth"), id.data),
+      run: await c.get("withTenantDatabase")((db) =>
+        getEvalRun(db, c.get("principal"), id.data),
+      ),
     });
   });
   app.post("/v1/studio/evals/runs", async (c) => {
-    const auth = c.get("auth");
-    if (!auth.scopes.includes("eval:run"))
-      throw new TelemetryForbiddenError(
-        "Eval execution requires eval:run scope.",
-      );
+    const auth = c.get("principal");
+    await requireApiAction(c, "eval:run");
     const parsed = StudioEvalStartRequestSchema.safeParse(
       await c.req.json().catch(() => null),
     );
@@ -103,7 +112,9 @@ export function registerEvalRoutes(
         value.projectId === auth.projectId,
     );
     if (!target) throw new TelemetryNotFoundError("Eval target not found.");
-    await ensureProjectEnvironmentAllowed(c.get("db"), target);
+    await c.get("withTenantDatabase")((db) =>
+      ensureProjectEnvironmentAllowed(db, target),
+    );
     let manifest: Awaited<ReturnType<typeof fetchEvalManifest>>;
     try {
       manifest = await fetchEvalManifest(target);
@@ -152,43 +163,45 @@ export function registerEvalRoutes(
         },
         503,
       );
-    const run = await enqueueEvalRun(c.get("db"), {
-      organizationId: auth.organizationId,
-      projectId: auth.projectId,
-      environment: target.environment,
-      targetId,
-      targetName: target.name,
-      suiteId: suite.id,
-      suiteRevision: request.suiteRevision,
-      suite: suite as EvalSuite,
-      request: {
-        grading: request.judge,
-        judge: {
-          id: selectedJudge.id,
-          version: selectedJudge.version,
-          ...(selectedJudge.location
-            ? { location: selectedJudge.location }
-            : {}),
-        },
-        suiteId: request.suiteId,
+    const run = await c.get("withTenantDatabase")((db) =>
+      enqueueEvalRun(db, {
+        organizationId: auth.organizationId,
+        projectId: auth.projectId,
+        environment: target.environment,
+        targetId,
+        targetName: target.name,
+        suiteId: suite.id,
         suiteRevision: request.suiteRevision,
-        repetitions: request.repetitions,
-        concurrency: request.concurrency,
-        ...(request.caseIds ? { caseIds: request.caseIds } : {}),
-      },
-      requestedBy: auth.keyId,
-    });
+        suite: suite as EvalSuite,
+        request: {
+          grading: request.judge,
+          judge: {
+            id: selectedJudge.id,
+            version: selectedJudge.version,
+            ...(selectedJudge.location
+              ? { location: selectedJudge.location }
+              : {}),
+          },
+          suiteId: request.suiteId,
+          suiteRevision: request.suiteRevision,
+          repetitions: request.repetitions,
+          concurrency: request.concurrency,
+          ...(request.caseIds ? { caseIds: request.caseIds } : {}),
+        },
+        requestedBy:
+          auth.kind === "api-key" ? auth.keyId : principalActorId(auth),
+      }),
+    );
     return c.json({ id: run.id }, 202);
   });
   app.post("/v1/studio/evals/runs/:id/cancel", async (c) => {
-    const auth = c.get("auth");
-    if (!auth.scopes.includes("eval:run"))
-      throw new TelemetryForbiddenError(
-        "Eval cancellation requires eval:run scope.",
-      );
+    const auth = c.get("principal");
+    await requireApiAction(c, "eval:run");
     const id = z.uuid().safeParse(c.req.param("id"));
     if (!id.success) return c.json({ error: "Invalid eval ID." }, 400);
-    await requestEvalCancellation(c.get("db"), auth, id.data);
+    await c.get("withTenantDatabase")((db) =>
+      requestEvalCancellation(db, auth, id.data),
+    );
     return c.json({ ok: true });
   });
 }

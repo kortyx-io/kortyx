@@ -11,7 +11,7 @@
         "!.next/dev/**",
         "out/**"
       ],
-      "env": ["KORTYX_STUDIO_TSCONFIG"]
+      "env": ["KORTYX_STUDIO_TSCONFIG", "KORTYX_API_TSCONFIG"]
     },
     "dev": {
       "cache": false,
@@ -22,6 +22,8 @@
         "WEBSITE_PORT",
         "STUDIO_PORT",
         "KORTYX_STUDIO_TSCONFIG",
+        "KORTYX_API_TSCONFIG",
+        "KORTYX_API_DEPLOYMENT",
         "API_PORT",
         "DATABASE_URL",
         "KORTYX_API_KEY_PEPPER",
@@ -55,7 +57,7 @@
     },
     "type-check": {
       "dependsOn": ["^build", "^type-check"],
-      "env": ["KORTYX_STUDIO_TSCONFIG"],
+      "env": ["KORTYX_STUDIO_TSCONFIG", "KORTYX_API_TSCONFIG"],
       "outputs": []
     },
     "test": {

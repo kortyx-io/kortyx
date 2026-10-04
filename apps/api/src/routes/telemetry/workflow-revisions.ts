@@ -51,12 +51,14 @@ export const registerWorkflowRevisionRoutes = (
 ): void => {
   app.openapi(route, async (c) => {
     const body = c.req.valid("json");
-    const auth = c.get("auth");
-    const response = await ensureWorkflowRevision(c.get("db"), {
-      organizationId: auth.organizationId,
-      projectId: auth.projectId,
-      request: body,
-    });
+    const auth = c.get("principal");
+    const response = await c.get("withTenantDatabase")((db) =>
+      ensureWorkflowRevision(db, {
+        organizationId: auth.organizationId,
+        projectId: auth.projectId,
+        request: body,
+      }),
+    );
 
     return c.json(response, 200);
   });

@@ -11,23 +11,35 @@ import { shutdownApiRuntime } from "./shutdown";
 const config = loadApiConfig();
 const dbClient = createTelemetryDbClient(config.databaseUrl);
 const studioChangeBus = createPostgresStudioChangeBus(dbClient.sql);
-await studioChangeBus.start();
 const evalTargets = loadEvalTargets();
 const evalJudge = loadStudioEvalJudge();
-const evalWorker = createEvalWorker(dbClient.db, evalTargets, evalJudge);
-evalWorker.start();
 let acceptingTraffic = true;
 const app = createApiApp({
   db: dbClient.db,
   evalTargets,
   ...(evalJudge ? { evalJudge } : {}),
   apiKeyPepper: config.apiKeyPepper,
+  deployment: config.deployment,
   studioChangeBus,
   readiness: async () => {
     if (!acceptingTraffic) throw new Error("API is draining.");
     await dbClient.sql`SELECT 1`;
   },
 });
+
+// The OSS worker claims jobs across projects. Cloud must provide a scoped worker
+// lifecycle separately; do not silently run this worker with the tenant runtime role.
+if (config.deployment === "cloud" && evalTargets.length > 0) {
+  throw new Error(
+    "Cloud eval targets require a tenant-scoped worker lifecycle.",
+  );
+}
+const evalWorker =
+  config.deployment === "self-hosted"
+    ? createEvalWorker(dbClient.db, evalTargets, evalJudge)
+    : undefined;
+await studioChangeBus.start();
+evalWorker?.start();
 
 const server = serve({
   fetch: app.fetch,
@@ -42,8 +54,7 @@ const closeGracefully = (signal: string): Promise<void> => {
   if (shutdown) return shutdown;
   console.log(`Received ${signal}; closing Kortyx API.`);
   acceptingTraffic = false;
-  shutdown = evalWorker
-    .stop()
+  shutdown = (evalWorker?.stop() ?? Promise.resolve())
     .then(() =>
       shutdownApiRuntime({
         markNotReady: () => {

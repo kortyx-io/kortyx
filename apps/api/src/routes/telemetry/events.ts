@@ -64,23 +64,27 @@ export const registerTelemetryEventRoutes = (
 ): void => {
   app.openapi(eventsRoute, async (c) => {
     const body = c.req.valid("json");
-    const auth = c.get("auth");
-    const response = await ingestTelemetryEvents(c.get("db"), {
-      organizationId: auth.organizationId,
-      projectId: auth.projectId,
-      events: body.events,
-    });
+    const auth = c.get("principal");
+    const response = await c.get("withTenantDatabase")((db) =>
+      ingestTelemetryEvents(db, {
+        organizationId: auth.organizationId,
+        projectId: auth.projectId,
+        events: body.events,
+      }),
+    );
 
     return c.json(response, 200);
   });
   app.openapi(eventsBatchRoute, async (c) => {
     const body = c.req.valid("json");
-    const auth = c.get("auth");
-    const response = await ingestTelemetryEvents(c.get("db"), {
-      organizationId: auth.organizationId,
-      projectId: auth.projectId,
-      events: body.events,
-    });
+    const auth = c.get("principal");
+    const response = await c.get("withTenantDatabase")((db) =>
+      ingestTelemetryEvents(db, {
+        organizationId: auth.organizationId,
+        projectId: auth.projectId,
+        events: body.events,
+      }),
+    );
 
     return c.json(response, 200);
   });

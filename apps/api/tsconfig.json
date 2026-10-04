@@ -3,7 +3,15 @@
   "compilerOptions": {
     "outDir": "./dist",
     "rootDir": ".",
-    "types": ["node", "vitest"]
+    "types": ["node", "vitest"],
+    "paths": {
+      "@api/auth": ["./src/auth/server.ts"],
+      "@api/auth-contracts": ["./src/auth/contracts.ts"],
+      "@api/authorization": ["./src/authorization/server.ts"],
+      "@api/authorization-contracts": ["./src/authorization/contracts.ts"],
+      "@api/tenant-database": ["./src/database/server.ts"],
+      "@api/tenant-database-contracts": ["./src/database/contracts.ts"]
+    }
   },
   "include": ["src/**/*", "test/**/*"]
 }

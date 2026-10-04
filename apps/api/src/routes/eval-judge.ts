@@ -4,12 +4,10 @@ import {
   EvalVerdictSchema,
   StudioEvalJudgeRequestSchema,
 } from "@kortyx/agent/evals";
-import {
-  ensureProjectEnvironmentAllowed,
-  TelemetryForbiddenError,
-} from "@kortyx/telemetry-db";
+import { ensureProjectEnvironmentAllowed } from "@kortyx/telemetry-db";
 import { bodyLimit } from "hono/body-limit";
 import { z } from "zod";
+import { requireApiAction } from "../middleware/security";
 import type { ApiEnv } from "../types";
 
 export function registerEvalJudgeRoutes(
@@ -23,10 +21,7 @@ export function registerEvalJudgeRoutes(
   let active = 0;
   app.use(path, bodyLimit({ maxSize: 2_000_000 }));
   app.use(path, async (c, next) => {
-    if (!c.get("auth").scopes.includes("eval:run"))
-      throw new TelemetryForbiddenError(
-        "Studio judging requires eval:run scope.",
-      );
+    await requireApiAction(c, "eval:run");
     await next();
   });
   app.get(path, async (c) => {
@@ -38,10 +33,12 @@ export function registerEvalJudgeRoutes(
       .safeParse(c.req.query("environment"));
     if (!environment.success)
       return c.json({ error: "An eval environment is required." }, 400);
-    await ensureProjectEnvironmentAllowed(c.get("db"), {
-      ...c.get("auth"),
-      environment: environment.data,
-    });
+    await c.get("withTenantDatabase")((db) =>
+      ensureProjectEnvironmentAllowed(db, {
+        ...c.get("principal"),
+        environment: environment.data,
+      }),
+    );
     if (!identity)
       return c.json({ error: "Studio judge is not configured." }, 503);
     return c.json(identity);
@@ -54,10 +51,12 @@ export function registerEvalJudgeRoutes(
       }),
     );
     if (!input.success) return c.json({ error: "Invalid judge request." }, 400);
-    await ensureProjectEnvironmentAllowed(c.get("db"), {
-      ...c.get("auth"),
-      environment: input.data.environment,
-    });
+    await c.get("withTenantDatabase")((db) =>
+      ensureProjectEnvironmentAllowed(db, {
+        ...c.get("principal"),
+        environment: input.data.environment,
+      }),
+    );
     if (!judge || !identity)
       return c.json({ error: "Studio judge is not configured." }, 503);
     if (

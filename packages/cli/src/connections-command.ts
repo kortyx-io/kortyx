@@ -127,7 +127,7 @@ export const createConnectionsCommand = (
         "/v1/studio/context",
         StudioContextResponseSchema,
       );
-      if (!context.apiKey.scopes.includes("studio:read"))
+      if (!context.apiKey?.scopes.includes("studio:read"))
         throw new StudioReadError(
           "missing_scope",
           "The API key lacks studio:read permission.",

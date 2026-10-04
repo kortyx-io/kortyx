@@ -65,6 +65,17 @@ runs:
           echo "Skipping unaffected Studio unit regressions."
         fi
       shell: bash
+    - name: API security extension regressions
+      if: inputs.suite == 'integration'
+      run: |-
+        if jq -e '.packages.items | map(.name) | any(. == "@kortyx/api")' "$RUNNER_TEMP/kortyx-affected.json" >/dev/null; then
+          DATABASE_URL="$KORTYX_TEST_POSTGRES_URL" pnpm --filter @kortyx/telemetry-db db:migrate
+          DATABASE_URL="$KORTYX_TEST_POSTGRES_URL" pnpm --filter @kortyx/api test
+          pnpm --filter @kortyx/api test:security-adapter
+        else
+          echo "Skipping unaffected API security regressions."
+        fi
+      shell: bash
     - name: Example workflow and error regressions
       if: inputs.suite == 'integration'
       run: |-

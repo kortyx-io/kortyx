@@ -13,6 +13,12 @@ export class TelemetryAuthError extends TelemetryDbError {
   }
 }
 
+export class TelemetryValidationError extends TelemetryDbError {
+  constructor(message: string) {
+    super(message, "TELEMETRY_VALIDATION_ERROR");
+  }
+}
+
 export class TelemetryForbiddenError extends TelemetryDbError {
   constructor(message: string) {
     super(message, "TELEMETRY_FORBIDDEN");

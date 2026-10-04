@@ -1,0 +1,25 @@
+import type { CreateApiAuth } from "@api/auth-contracts";
+import {
+  authenticateTelemetryApiKey,
+  TelemetryAuthError,
+} from "@kortyx/telemetry-db";
+
+export const createApiAuth: CreateApiAuth = (options) => {
+  if (options.deployment !== "self-hosted") {
+    throw new Error("Cloud API requires an authentication adapter.");
+  }
+  return {
+    async authenticate(request) {
+      const token = /^Bearer ([^\s]+)$/i.exec(
+        request.headers.get("authorization") ?? "",
+      )?.[1];
+      if (!token)
+        throw new TelemetryAuthError("Missing Authorization bearer token.");
+      const identity = await authenticateTelemetryApiKey(options.db, {
+        apiKey: token,
+        pepper: options.apiKeyPepper,
+      });
+      return { ...identity, kind: "api-key" };
+    },
+  };
+};
