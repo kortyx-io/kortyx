@@ -103,9 +103,9 @@ runs:
       if: inputs.suite == 'static'
       run: pnpm lint
       shell: bash
-    - name: Audit production dependencies
+    - name: Audit all dependencies
       if: inputs.suite == 'security'
-      run: pnpm audit:prod
+      run: pnpm audit:deps
       shell: bash
     - name: Initialize CodeQL
       if: inputs.suite == 'security'

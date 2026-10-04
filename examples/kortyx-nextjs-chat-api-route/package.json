@@ -74,7 +74,6 @@
     "postcss": "^8.5.8",
     "postcss-loader": "^7.3.0",
     "tailwindcss": "catalog:",
-    "ts-loader": "^9.5.0",
     "tw-animate-css": "catalog:",
     "typescript": "catalog:",
     "vitest": "catalog:",
