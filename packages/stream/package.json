@@ -50,7 +50,6 @@
     "@kortyx/core": "workspace:*"
   },
   "devDependencies": {
-    "concurrently": "^9.2.0",
     "turbo": "catalog:",
     "typescript": "catalog:",
     "tsup": "catalog:",
