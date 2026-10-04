@@ -1,0 +1,5 @@
+Contact: https://github.com/kortyx-io/kortyx/security/advisories/new
+Expires: 2027-04-04T00:00:00Z
+Preferred-Languages: en
+Canonical: https://kortyx.io/.well-known/security.txt
+Policy: https://github.com/kortyx-io/kortyx/security/policy

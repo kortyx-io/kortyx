@@ -1,0 +1,185 @@
+import { expect, test } from "@playwright/test";
+
+const trustRoutes = [
+  "about",
+  "contact",
+  "security",
+  "privacy",
+  "terms",
+  "legal",
+  "cookies",
+];
+
+test("trust pages are navigable and identify drafts accurately", async ({
+  page,
+}) => {
+  for (const route of trustRoutes) {
+    const response = await page.goto(`/${route}`);
+    expect(response?.status()).toBe(200);
+    await expect(page.locator("h1")).toBeVisible();
+    await expect(
+      page
+        .getByRole("navigation", { name: "Company and trust" })
+        .locator('a[aria-current="page"]'),
+    ).toHaveCount(1);
+    await expect(
+      page
+        .getByRole("contentinfo")
+        .getByRole("button", { name: "Privacy settings" }),
+    ).toBeVisible();
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= window.innerWidth,
+      ),
+    ).toBe(true);
+    if (["privacy", "terms", "legal", "cookies"].includes(route)) {
+      await expect(page.getByRole("note")).toContainText("Draft for review");
+      await expect(page.locator('meta[name="robots"]')).toHaveAttribute(
+        "content",
+        /noindex/,
+      );
+      await expect(page.getByText(/Document version:.*-draft/)).toBeVisible();
+    }
+  }
+  expect((await page.goto("/not-a-real-trust-page"))?.status()).toBe(404);
+});
+
+test("privacy dialog works without optional tracking or backend requests", async ({
+  page,
+  context,
+}) => {
+  const pageErrors: string[] = [];
+  const externalRequests: string[] = [];
+  page.on("pageerror", (error) => pageErrors.push(error.message));
+  page.on("request", (request) => {
+    if (!request.url().startsWith("http://127.0.0.1:4317/"))
+      externalRequests.push(request.url());
+  });
+  await page.goto("/cookies");
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await page
+    .getByRole("contentinfo")
+    .getByRole("button", { name: "Privacy settings" })
+    .click();
+  const dialog = page.getByRole("dialog");
+  await expect(dialog).toBeVisible();
+  await expect(dialog).toContainText("Privacy settings");
+  await expect(dialog).toContainText("no optional analytics or advertising");
+  await expect(
+    dialog.getByText("Necessary storage", { exact: true }),
+  ).toBeVisible();
+  await expect(
+    dialog.getByRole("link", { name: /^Privacy Policy/ }),
+  ).toHaveAttribute("href", "/privacy");
+  await expect(dialog.getByRole("link", { name: /^Privacy Policy/ })).toHaveCSS(
+    "color",
+    "rgb(168, 156, 255)",
+  );
+  await expect(
+    dialog.getByRole("link", { name: "Cookie Policy", exact: true }),
+  ).toHaveAttribute("href", "/cookies");
+  await expect(
+    dialog.getByRole("button", { name: /Accept All|Reject All/ }),
+  ).toHaveCount(0);
+
+  await dialog
+    .getByRole("button", { name: "Save preferences", exact: true })
+    .click();
+  await expect(dialog).toHaveCount(0);
+  const cookies = await context.cookies();
+  expect(cookies.map((cookie) => cookie.name)).toEqual(["kortyx_privacy"]);
+  expect(cookies[0].sameSite).toBe("Lax");
+  expect(cookies[0].expires - Date.now() / 1000).toBeLessThanOrEqual(
+    180 * 86400 + 10,
+  );
+  expect(await page.evaluate(() => Object.keys(localStorage))).toEqual([
+    "kortyx_privacy",
+  ]);
+
+  await page.reload();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  const trigger = page
+    .getByRole("contentinfo")
+    .getByRole("button", { name: "Privacy settings" });
+  await trigger.click();
+  await expect(page.getByRole("dialog")).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await expect(trigger).toBeFocused();
+  expect(pageErrors).toEqual([]);
+  expect(externalRequests).toEqual([]);
+});
+
+test("documentation keeps legal controls and keyboard skip navigation available", async ({
+  page,
+}) => {
+  await page.goto("/docs");
+  await expect(
+    page.getByRole("button", { name: "Privacy settings", exact: true }),
+  ).toBeVisible();
+  await page.goto("/docs/getting-started/installation");
+  const footer = page.getByRole("navigation", {
+    name: "Website legal and trust information",
+  });
+  await expect(
+    footer.getByRole("link", { name: "Privacy", exact: true }),
+  ).toHaveAttribute("href", "/privacy");
+  await footer.getByRole("button", { name: "Privacy settings" }).click();
+  await expect(page.getByRole("dialog")).toBeVisible();
+  await page.keyboard.press("Escape");
+
+  await page.goto("/security");
+  await page.keyboard.press("Tab");
+  await expect(
+    page.getByRole("link", { name: "Skip to content" }),
+  ).toBeFocused();
+  await page.keyboard.press("Enter");
+  await expect(page.locator("#main-content")).toBeFocused();
+});
+
+test("sitemap includes public trust pages but excludes draft notices", async ({
+  request,
+}) => {
+  const response = await request.get("/sitemap.xml");
+  expect(response.status()).toBe(200);
+  const xml = await response.text();
+  for (const route of ["about", "contact", "security"])
+    expect(xml).toContain(`https://kortyx.io/${route}</loc>`);
+  for (const route of ["privacy", "terms", "legal", "cookies"])
+    expect(xml).not.toContain(`https://kortyx.io/${route}</loc>`);
+});
+
+test("privacy controls remain usable when browser storage is blocked", async ({
+  page,
+}) => {
+  const errors: string[] = [];
+  page.on("pageerror", (error) => errors.push(error.message));
+  await page.addInitScript(() => {
+    Object.defineProperty(window, "localStorage", {
+      get() {
+        throw new DOMException("Storage blocked", "SecurityError");
+      },
+    });
+  });
+  await page.goto("/docs/getting-started/installation");
+  await page
+    .getByRole("button", { name: "Privacy settings", exact: true })
+    .click();
+  await expect(page.getByRole("dialog")).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  expect(errors).toEqual([]);
+});
+
+test("security reporting and basic browser protections are discoverable", async ({
+  request,
+}) => {
+  const response = await request.get("/security");
+  expect(response.headers()["x-content-type-options"]).toBe("nosniff");
+  expect(response.headers()["x-frame-options"]).toBe("DENY");
+  const securityTxt = await request.get("/.well-known/security.txt");
+  expect(securityTxt.status()).toBe(200);
+  expect(await securityTxt.text()).toContain(
+    "Contact: https://github.com/kortyx-io/kortyx/security/advisories/new",
+  );
+});

@@ -19,10 +19,12 @@
     "start": "next start",
     "lint": "biome check .",
     "test": "vitest run",
-    "type-check": "tsc --noEmit -p tsconfig.test.json"
+    "type-check": "tsc --noEmit -p tsconfig.test.json",
+    "test:e2e": "pnpm build && playwright test"
   },
   "dependencies": {
     "@bprogress/next": "^3.2.12",
+    "@c15t/nextjs": "2.3.0",
     "@radix-ui/react-dialog": "catalog:",
     "class-variance-authority": "catalog:",
     "clsx": "catalog:",
@@ -42,6 +44,7 @@
     "tailwind-merge": "catalog:"
   },
   "devDependencies": {
+    "@playwright/test": "1.62.0",
     "@tailwindcss/postcss": "catalog:",
     "@types/node": "catalog:",
     "@types/react": "catalog:",
@@ -49,7 +52,8 @@
     "@types/react-syntax-highlighter": "^15.5.13",
     "tailwindcss": "catalog:",
     "tw-animate-css": "catalog:",
-    "typescript": "catalog:"
+    "typescript": "catalog:",
+    "vitest": "catalog:"
   },
   "homepage": "https://kortyx.io/",
   "bugs": {

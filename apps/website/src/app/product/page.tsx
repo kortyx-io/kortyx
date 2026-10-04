@@ -13,8 +13,8 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { FlowLine } from "@/components/marketing/flow-line";
 import { MarketingCta } from "@/components/marketing/marketing-cta";
-import { MarketingFooter } from "@/components/marketing/marketing-footer";
 import { MarketingPageJsonLd } from "@/components/marketing/marketing-page-json-ld";
+import { MarketingShell } from "@/components/marketing/marketing-shell";
 import { Reveal, Stagger, StaggerItem } from "@/components/marketing/reveal";
 import { createMarketingMetadata } from "@/lib/metadata";
 
@@ -114,7 +114,7 @@ function ProductCode() {
 
 export default function ProductPage() {
   return (
-    <main className="marketing-page min-h-screen overflow-hidden bg-[#f4f3f8] text-[#111426]">
+    <MarketingShell className="marketing-page min-h-screen overflow-hidden bg-[#f4f3f8] text-[#111426]">
       <MarketingPageJsonLd
         name={pageTitle}
         description={pageDescription}
@@ -307,7 +307,6 @@ export default function ProductPage() {
       </section>
 
       <MarketingCta />
-      <MarketingFooter />
-    </main>
+    </MarketingShell>
   );
 }

@@ -1,11 +1,16 @@
 import { ArrowRight, Code2, PanelsTopLeft } from "lucide-react";
 import Link from "next/link";
+import { DocsTrustFooter } from "@/components/docs/docs-trust-footer";
 import { buildDocHref } from "@/lib/docs";
 import { docsConfig } from "@/lib/docs/config";
 
 export function DocsProductIndex() {
   return (
-    <main className="mx-auto w-full max-w-5xl px-4 py-12 sm:px-6 sm:py-20">
+    <main
+      id="main-content"
+      tabIndex={-1}
+      className="mx-auto w-full max-w-5xl px-4 py-12 sm:px-6 sm:py-20"
+    >
       <p className="mb-3 text-sm font-medium text-primary">
         Kortyx documentation
       </p>
@@ -42,6 +47,7 @@ export function DocsProductIndex() {
           );
         })}
       </div>
+      <DocsTrustFooter />
     </main>
   );
 }
