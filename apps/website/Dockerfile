@@ -3,7 +3,7 @@
 FROM node:22-alpine AS base
 ENV PNPM_HOME="/pnpm"
 ENV PATH="${PNPM_HOME}:${PATH}"
-RUN corepack enable
+RUN apk upgrade --no-cache && corepack enable
 
 FROM base AS pruner
 WORKDIR /repo
@@ -25,7 +25,9 @@ ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV PORT=3000
 ENV HOSTNAME=0.0.0.0
-RUN addgroup -S nodejs && adduser -S nextjs -G nodejs
+RUN apk upgrade --no-cache \
+  && addgroup -S nodejs \
+  && adduser -S nextjs -G nodejs
 
 WORKDIR /app
 COPY --from=installer --chown=nextjs:nodejs /repo/apps/website/.next/standalone ./

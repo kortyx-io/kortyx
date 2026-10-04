@@ -201,6 +201,8 @@ export class StudioUpdater {
         "--rm",
         "--name",
         await this.workerName(id),
+        "--user",
+        "0:0",
         "--network",
         "none",
         "--mount",

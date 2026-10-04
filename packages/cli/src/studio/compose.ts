@@ -100,6 +100,9 @@ services:
     image: \${KORTYX_API_IMAGE_REF:-\${KORTYX_API_IMAGE:-ghcr.io/kortyx-io/kortyx-api}:\${KORTYX_STUDIO_IMAGE_TAG:-latest}}
     pull_policy: \${KORTYX_STUDIO_PULL_POLICY:-always}
     restart: unless-stopped
+    # The updater alone needs root for the host Docker socket and ownership-safe
+    # writes to the bind-mounted Studio state directory.
+    user: "0:0"
     command: ["node", "apps/api/dist/updater.js", "serve", "\${KORTYX_STUDIO_STATE_DIR}"]
     volumes:
       - type: bind
