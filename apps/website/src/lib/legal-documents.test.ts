@@ -6,9 +6,19 @@ import {
   isLegalDocumentSlug,
   legalDocuments,
 } from "./legal-documents";
-import { getTrustPage, isTrustPageSlug, trustPageSlugs } from "./trust";
+import {
+  getTrustPage,
+  isTrustPageSlug,
+  trustPageSlugs,
+  trustPages,
+} from "./trust";
 
 describe("version-ready legal documents", () => {
+  it("focuses public trust copy on supported capabilities and clear scope", () => {
+    expect(JSON.stringify(trustPages)).not.toMatch(
+      /we do not currently claim|in formation|incorporation|SOC 2|ISO 27001|guaranteed uptime/i,
+    );
+  });
   it("has a unique stable ID and explicit draft version for every legal text", () => {
     const documents = Object.values(legalDocuments);
     expect(new Set(documents.map((doc) => doc.id)).size).toBe(documents.length);

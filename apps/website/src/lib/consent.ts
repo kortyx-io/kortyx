@@ -14,9 +14,14 @@ export const websiteConsentOptions = {
         id: "kortyx-website-necessary-only",
         match: { isDefault: true },
         consent: { model: "opt-in", expiryDays: 180 },
-        // Keep the preference dialog usable without prompting on first visit.
+        // Show a first-visit storage notice, without implying optional tracking.
         ui: {
-          mode: "none",
+          mode: "banner",
+          banner: {
+            allowedActions: ["accept", "customize"],
+            primaryActions: ["accept"],
+            layout: ["customize", "accept"],
+          },
           dialog: { allowedActions: ["customize"], layout: ["customize"] },
         },
       },
@@ -37,17 +42,27 @@ export const websiteConsentOptions = {
     detectBrowserLanguage: false,
     messages: {
       en: {
+        cookieBanner: {
+          title: "Cookies & privacy",
+          description:
+            "Kortyx uses only necessary cookies and local storage to remember your privacy choices and selected theme. Review the details or acknowledge this notice.",
+        },
         consentManagerDialog: {
           title: "Privacy settings",
           description:
-            "This website has no optional analytics or advertising scripts. Preferences stay in your browser; they are not Cloud terms acceptance records.",
+            "Manage the necessary cookies and local storage used for your privacy choices and selected theme. These preferences stay in your browser.",
         },
-        common: { save: "Save preferences", close: "Close privacy settings" },
+        common: {
+          acceptAll: "Got it",
+          customize: "Privacy settings",
+          save: "Save preferences",
+          close: "Close privacy settings",
+        },
         consentTypes: {
           necessary: {
             title: "Necessary storage",
             description:
-              "Browser-local storage remembers your privacy choices. Your chosen theme is stored separately. No optional tracking categories are enabled.",
+              "Always active. The preference cookie expires after 180 days. Local storage keeps your preferences and selected theme until you clear site storage in your browser.",
           },
         },
       },
@@ -66,5 +81,10 @@ export const websiteConsentOptions = {
       textMuted: "#b8b5c9",
     },
     typography: { fontFamily: "var(--font-geist-sans), sans-serif" },
+    slots: {
+      buttonPrimary: { style: { minHeight: "44px", paddingInline: "16px" } },
+      buttonSecondary: { style: { minHeight: "44px", paddingInline: "16px" } },
+      consentDialogTitle: { style: { fontSize: "18px", lineHeight: "26px" } },
+    },
   },
 } satisfies ComponentProps<typeof ConsentManagerProvider>["options"];

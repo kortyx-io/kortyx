@@ -1,7 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
 import { PrivacySettings } from "@/components/consent/privacy-settings";
-import { providerIdentity } from "@/lib/trust";
 
 const footerGroups = [
   {
@@ -55,9 +54,6 @@ export function MarketingFooter() {
           <p className="mt-4 max-w-sm text-sm leading-6 text-[#b8b5c9]">
             TypeScript workflows, persisted runs, human approval, and React
             state for agent applications.
-          </p>
-          <p className="mt-4 text-xs text-[#b8b5c9]">
-            Company incorporation: {providerIdentity.incorporationStatus}
           </p>
         </div>
         <nav

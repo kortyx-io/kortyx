@@ -24,28 +24,12 @@ const linkClass =
 function OperatorDetails() {
   const details = [
     ["Product brand", providerIdentity.brand],
-    ["Company incorporation", providerIdentity.incorporationStatus],
-    [
-      "Current operator",
-      providerIdentity.operatorName ?? "Awaiting confirmation",
-    ],
-    [
-      "Business contact address",
-      providerIdentity.contactAddress ?? "Awaiting confirmation",
-    ],
-    [
-      "Private contact email",
-      providerIdentity.contactEmail ?? "Awaiting confirmation",
-    ],
-    [
-      "Registration number",
-      providerIdentity.registrationNumber ?? "Not issued / not represented",
-    ],
-    [
-      "Tax number",
-      providerIdentity.taxNumber ?? "Not issued / not represented",
-    ],
-  ];
+    ["Current operator", providerIdentity.operatorName],
+    ["Business contact address", providerIdentity.contactAddress],
+    ["Private contact email", providerIdentity.contactEmail],
+    ["Registration number", providerIdentity.registrationNumber],
+    ["Tax number", providerIdentity.taxNumber],
+  ].filter(([, value]) => Boolean(value));
 
   return (
     <dl className="mt-6 divide-y divide-white/12 rounded-xl border border-white/15 px-5">
@@ -124,9 +108,6 @@ export function TrustPage({ slug }: { slug: TrustPageSlug }) {
               />
               Cloud · {cloudAvailability.toLowerCase()}
             </span>
-            <span>
-              Company · {providerIdentity.incorporationStatus.toLowerCase()}
-            </span>
           </div>
         </div>
       </section>
@@ -156,14 +137,10 @@ export function TrustPage({ slug }: { slug: TrustPageSlug }) {
               role="note"
               className="mb-10 rounded-xl border border-[#eac47c]/30 bg-[#eac47c]/8 p-5 text-sm leading-6 text-[#f2dba9]"
             >
-              <p className="font-semibold">
-                Draft for review · not a completed legal notice
-              </p>
+              <p className="font-semibold">Draft for review</p>
               <p className="mt-2">
-                Current operator details, private contact information, and
-                deployment-specific data practices must be confirmed before
-                publication. Incorporation status does not replace the current
-                operator’s identity.
+                Publication review covers verified operator details, private
+                contact information, and deployment-specific data practices.
               </p>
             </div>
           ) : null}
@@ -256,7 +233,7 @@ export function TrustPage({ slug }: { slug: TrustPageSlug }) {
               <time dateTime={trustContentUpdated}>4 October 2026</time>
             </p>
             {release ? (
-              <p>Document version: {release.version} · Not yet effective</p>
+              <p>Document version: {release.version} · Draft release</p>
             ) : null}
           </div>
         </article>

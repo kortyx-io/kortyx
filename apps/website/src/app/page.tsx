@@ -203,7 +203,7 @@ const faqs = [
   {
     question: "Do I need Kortyx Studio or Cloud?",
     answer:
-      "No. The framework works without either. Self-hosted Studio is an optional preview for inspecting runs and sessions. Managed Cloud is in development.",
+      "The framework runs directly in your application. Self-hosted Studio is an optional preview for inspecting runs and sessions. Managed Cloud is in development.",
   },
   {
     question: "Can I add Kortyx to an existing Next.js or Node application?",
@@ -691,15 +691,15 @@ export default function Home() {
                 Your agent runs in your application.
               </h2>
               <p className="mt-6 text-base leading-7 text-white/42">
-                The framework does not require Studio or a managed control
-                plane. Add visibility when you want it, and keep the execution
-                path under your control.
+                Run the framework directly in your application. Add Studio for
+                visibility when you want it, and keep the execution path under
+                your control.
               </p>
               <div className="mt-8 space-y-3">
                 {[
                   "Provider credentials stay server-side",
                   "Prompt, input, and output telemetry is off by default",
-                  "OpenTelemetry works without Kortyx Studio",
+                  "OpenTelemetry exports to your chosen backend",
                 ].map((item) => (
                   <div
                     key={item}

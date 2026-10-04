@@ -132,8 +132,8 @@ export default function ProductPage() {
             </h1>
             <p className="marketing-lede mt-7 text-white/56">
               Stream typed output, pause for human input, resume from a
-              checkpoint, and keep session history without writing a second
-              state model for React.
+              checkpoint, and keep session history with a shared state model for
+              your server and React.
             </p>
             <div className="mt-9 flex flex-col gap-3 sm:flex-row">
               <Link

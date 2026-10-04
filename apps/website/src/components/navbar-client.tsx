@@ -20,7 +20,6 @@ const marketingLinks = [
   { href: "/product", label: "Product" },
   { href: "/examples", label: "Examples" },
   { href: "/open-source", label: "Open source" },
-  { href: "/security", label: "Security" },
   { href: "/docs", label: "Docs" },
 ];
 

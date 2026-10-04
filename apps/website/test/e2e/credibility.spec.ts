@@ -1,4 +1,11 @@
-import { expect, test } from "@playwright/test";
+import { expect, type Page, test } from "@playwright/test";
+
+async function acknowledgeStorageNotice(page: Page) {
+  const banner = page.getByTestId("consent-banner-root");
+  await expect(banner).toBeVisible();
+  await banner.getByRole("button", { name: "Got it", exact: true }).click();
+  await expect(banner).toHaveCount(0);
+}
 
 const trustRoutes = [
   "about",
@@ -15,8 +22,13 @@ test("trust pages are navigable and identify drafts accurately", async ({
 }) => {
   for (const route of trustRoutes) {
     const response = await page.goto(`/${route}`);
+    if (route === "about") await acknowledgeStorageNotice(page);
     expect(response?.status()).toBe(200);
     await expect(page.locator("h1")).toBeVisible();
+    await expect(page.locator("body")).not.toContainText(
+      /in formation|company incorporation/i,
+    );
+    await expect(page.locator('header a[href="/security"]')).toHaveCount(0);
     await expect(
       page
         .getByRole("navigation", { name: "Company and trust" })
@@ -56,15 +68,35 @@ test("privacy dialog works without optional tracking or backend requests", async
       externalRequests.push(request.url());
   });
   await page.goto("/cookies");
-  await expect(page.getByRole("dialog")).toHaveCount(0);
-  await page
-    .getByRole("contentinfo")
-    .getByRole("button", { name: "Privacy settings" })
-    .click();
-  const dialog = page.getByRole("dialog");
+  const banner = page.getByTestId("consent-banner-root");
+  await expect(banner).toBeVisible();
+  await expect(banner).toContainText(
+    "only necessary cookies and local storage",
+  );
+  expect(await context.cookies()).toEqual([]);
+  expect(await page.evaluate(() => Object.keys(localStorage))).toEqual([]);
+  await expect(banner.getByRole("button", { name: "Got it" })).toBeVisible();
+  await banner.getByRole("button", { name: "Privacy settings" }).click();
+  const dialog = page.getByRole("dialog", { name: "Privacy settings" });
   await expect(dialog).toBeVisible();
+  await expect(dialog).toHaveAttribute("aria-modal", "true");
+  await expect(dialog).toHaveAttribute(
+    "aria-describedby",
+    "kortyx-privacy-description",
+  );
   await expect(dialog).toContainText("Privacy settings");
-  await expect(dialog).toContainText("no optional analytics or advertising");
+  await expect(dialog).toContainText("These preferences stay in your browser");
+  await expect(
+    dialog.getByRole("button", { name: "Close privacy settings" }),
+  ).toBeVisible();
+  for (let i = 0; i < 8; i++) {
+    await page.keyboard.press("Tab");
+    expect(
+      await dialog.evaluate((element) =>
+        element.contains(document.activeElement),
+      ),
+    ).toBe(true);
+  }
   await expect(
     dialog.getByText("Necessary storage", { exact: true }),
   ).toBeVisible();
@@ -106,14 +138,48 @@ test("privacy dialog works without optional tracking or backend requests", async
   await page.keyboard.press("Escape");
   await expect(page.getByRole("dialog")).toHaveCount(0);
   await expect(trigger).toBeFocused();
+  await trigger.click();
+  await page
+    .getByRole("dialog", { name: "Privacy settings" })
+    .getByRole("button", { name: "Close privacy settings" })
+    .click();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await expect(trigger).toBeFocused();
   expect(pageErrors).toEqual([]);
   expect(externalRequests).toEqual([]);
+});
+
+test("first-visit notice dismisses persistently without optional tracking", async ({
+  page,
+  context,
+}) => {
+  await page.goto("/security");
+  expect(
+    await page.evaluate(() => getComputedStyle(document.body).overflow),
+  ).not.toBe("hidden");
+  await page
+    .getByRole("banner")
+    .getByRole("link", { name: "Kortyx", exact: true })
+    .click();
+  await expect(page).toHaveURL(/4317\/$/);
+  expect(await context.cookies()).toEqual([]);
+  await acknowledgeStorageNotice(page);
+  await page.reload();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  expect((await context.cookies()).map((cookie) => cookie.name)).toEqual([
+    "kortyx_privacy",
+  ]);
+  await context.clearCookies();
+  await page.evaluate(() => localStorage.clear());
+  await page.reload();
+  await expect(page.getByTestId("consent-banner-root")).toBeVisible();
 });
 
 test("documentation keeps legal controls and keyboard skip navigation available", async ({
   page,
 }) => {
   await page.goto("/docs");
+  await acknowledgeStorageNotice(page);
   await expect(
     page.getByRole("button", { name: "Privacy settings", exact: true }),
   ).toBeVisible();

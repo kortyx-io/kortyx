@@ -19,7 +19,7 @@ import { createMarketingMetadata } from "@/lib/metadata";
 
 const pageTitle = "Open-source TypeScript Agent Framework";
 const pageDescription =
-  "Run Kortyx on your infrastructure with an Apache-2.0 framework, optional self-hosted Studio, and no required cloud execution path.";
+  "Run Kortyx on your infrastructure with an Apache-2.0 framework, React integration, and optional self-hosted Studio.";
 
 export const metadata: Metadata = createMarketingMetadata({
   title: pageTitle,
@@ -80,7 +80,7 @@ function TerminalHero() {
         </div>
         <FlowLine tone="green" className="h-3 w-full" />
         <div className="border-t border-[#a89cff]/10 pt-6">
-          <p className="text-[#a89cff]/58"># no cloud account required</p>
+          <p className="text-[#a89cff]/58"># run on your infrastructure</p>
           <p className="mt-2 text-white/78">
             Your server · your database · your keys
           </p>
@@ -110,9 +110,9 @@ export default function OpenSourcePage() {
               Run Kortyx inside your own application.
             </h1>
             <p className="marketing-lede mt-7 text-white/50">
-              The agent runtime does not require a Kortyx account or hosted
-              control plane. Model keys, workflow execution, and product data
-              stay in your application.
+              The agent runtime runs directly in your application. You manage
+              model keys, workflow execution, and product data on your
+              infrastructure.
             </p>
             <div className="mt-9 flex flex-col gap-3 sm:flex-row">
               <a
@@ -146,9 +146,8 @@ export default function OpenSourcePage() {
                 Install the runtime first. Add React or telemetry when needed.
               </h2>
               <p className="mt-6 text-base leading-7 text-[#111426]/56">
-                Begin with the runtime and one model provider. React and
-                telemetry are separate packages because not every deployment
-                needs the same shape.
+                Begin with the runtime and one model provider. Add the React and
+                telemetry packages that fit your deployment.
               </p>
             </div>
             <Stagger className="border-y border-[#111426]/14">
@@ -213,7 +212,7 @@ export default function OpenSourcePage() {
                 "03",
                 "Cloud",
                 "In development",
-                "Not announced",
+                "Managed offering",
                 "Cloud is in development as a managed way to operate Studio.",
               ],
             ].map(
@@ -259,7 +258,7 @@ export default function OpenSourcePage() {
               Execution boundary
             </p>
             <h2 className="marketing-section-title mt-5">
-              The open-source runtime does not depend on Kortyx Cloud.
+              The open-source runtime runs on your infrastructure.
             </h2>
           </div>
           <Stagger className="grid gap-px overflow-hidden rounded-2xl bg-[#111426]/16 sm:grid-cols-2">
@@ -329,7 +328,7 @@ export default function OpenSourcePage() {
       </section>
 
       <MarketingCta
-        title="Install Kortyx without creating a cloud account."
+        title="Build with Kortyx on your infrastructure."
         description="The quickstart runs the workflow inside your application with your model keys and database."
       />
     </MarketingShell>
