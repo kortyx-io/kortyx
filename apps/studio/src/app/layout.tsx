@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { cookies } from "next/headers";
+import Script from "next/script";
 import { NuqsAdapter } from "nuqs/adapters/next/app";
 import { DetailDrawerHost } from "@/components/detail/detail-drawer";
 import { DetailSlotPresence } from "@/components/detail/detail-slot-presence";
@@ -93,11 +94,12 @@ export default async function RootLayout({
       suppressHydrationWarning
     >
       <head>
-        <script
+        <Script
           id="theme-initializer"
-          // The server handles known themes. This pre-paint fallback migrates
+          strategy="beforeInteractive"
+          // The server handles known themes. This before-hydration fallback migrates
           // legacy localStorage and resolves the OS preference for "system".
-          // biome-ignore lint/security/noDangerouslySetInnerHtml: Static, non-user-authored bootstrap must run before first paint.
+          // biome-ignore lint/security/noDangerouslySetInnerHtml: Static, non-user-authored bootstrap runs through Next's native script loader.
           dangerouslySetInnerHTML={{ __html: themeInitializer }}
         />
       </head>
