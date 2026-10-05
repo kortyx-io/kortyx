@@ -19,6 +19,7 @@
       }
     ],
     "paths": {
+      "@studio/styles": ["./src/app/globals.css"],
       "@/*": ["./src/*"],
       "@studio/auth": ["./src/auth/server.ts"],
       "@studio/auth-contracts": ["./src/auth/contracts.ts"],
