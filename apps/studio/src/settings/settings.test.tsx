@@ -57,6 +57,9 @@ it("keeps OSS settings in a flat section layout without an overall header", asyn
   expect(resolve).toHaveBeenCalledWith(context);
   expect(html).not.toContain("Local configuration");
   expect(html).not.toContain("<h1");
+  expect(html).toContain(
+    'class="h-full overflow-hidden rounded-xl border bg-background shadow-sm"',
+  );
 });
 it("contributes to the same page without losing shared cards", async () => {
   resolve.mockResolvedValue({

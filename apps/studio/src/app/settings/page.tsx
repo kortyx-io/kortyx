@@ -169,7 +169,7 @@ export default async function SettingsPage() {
 
   return (
     <div
-      className="h-full overflow-hidden bg-background"
+      className="h-full overflow-hidden rounded-xl border bg-background shadow-sm"
       data-settings-ready="true"
     >
       <SettingsNavigation>

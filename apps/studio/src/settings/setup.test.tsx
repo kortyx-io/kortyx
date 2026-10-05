@@ -1,5 +1,6 @@
 import { expect, it, vi } from "vitest";
 import { buildStudioShellContext } from "../lib/studio-context-model";
+
 vi.mock("server-only", () => ({}));
 it("keeps OSS first-use guidance on empty resources, not above Settings", async () => {
   const { studioSettings } = await import("./server");

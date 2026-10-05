@@ -1,7 +1,6 @@
 "use client";
 
-import { parseAsString, useQueryState } from "nuqs";
-import { Children, isValidElement, type ReactNode } from "react";
+import type { StudioSettingsGroup } from "@studio/settings-contracts";
 import {
   Building2,
   Cable,
@@ -15,7 +14,8 @@ import {
   UserRound,
   Users,
 } from "lucide-react";
-import type { StudioSettingsGroup } from "@studio/settings-contracts";
+import { parseAsString, useQueryState } from "nuqs";
+import { Children, isValidElement, type ReactNode } from "react";
 import { cn } from "@/lib/utils";
 
 export interface SettingsPanelProps {
