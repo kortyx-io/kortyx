@@ -1,9 +1,9 @@
 "use client";
 
 import { ChevronRight } from "lucide-react";
-import Link from "next/link";
-import { usePathname, useSearchParams } from "next/navigation";
 import type { ReactNode } from "react";
+import Link from "@/components/scoped-link";
+import { usePathname, useSearchParams } from "@/lib/scoped-navigation";
 
 const labels: Record<string, string> = {
   runs: "Runs",

@@ -1,6 +1,5 @@
 "use client";
 import { Info } from "lucide-react";
-import { useRouter, useSearchParams } from "next/navigation";
 import { parseAsBoolean, parseAsString } from "nuqs";
 import {
   DataTable,
@@ -18,6 +17,7 @@ import {
 } from "@/components/ui/popover";
 import { formatDateTime } from "@/lib/format";
 import { detailNavigationHref, useStudioQueryStates } from "@/lib/nuqs";
+import { useRouter, useSearchParams } from "@/lib/scoped-navigation";
 import { evalComparisonCaseHref } from "../lib/navigation";
 import {
   type ComparisonRow,

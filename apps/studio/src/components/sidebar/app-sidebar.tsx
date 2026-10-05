@@ -10,8 +10,7 @@ import {
   Workflow,
 } from "lucide-react";
 import Image from "next/image";
-import Link from "next/link";
-import { usePathname, useSearchParams } from "next/navigation";
+import Link from "@/components/scoped-link";
 import {
   Sidebar,
   SidebarContent,
@@ -25,6 +24,7 @@ import {
   SidebarMenuItem,
   SidebarRail,
 } from "@/components/ui/sidebar";
+import { usePathname, useSearchParams } from "@/lib/scoped-navigation";
 import type { StudioShellContext } from "@/lib/studio-context-model";
 import { NavUser } from "./nav-user";
 

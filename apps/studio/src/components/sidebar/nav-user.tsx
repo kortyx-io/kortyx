@@ -10,7 +10,7 @@ import {
   Settings,
   UserRound,
 } from "lucide-react";
-import Link from "next/link";
+import Link from "@/components/scoped-link";
 
 import { ThemeMenuSub } from "@/components/theme-toggle";
 import {

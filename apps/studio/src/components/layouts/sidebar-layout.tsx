@@ -2,6 +2,7 @@ import { studioShell } from "@studio/shell";
 import { cookies } from "next/headers";
 import { DetailStackProvider } from "@/components/detail/detail-stack";
 import { AppSidebar } from "@/components/sidebar/app-sidebar";
+import { StudioRouteProvider } from "@/components/studio-route-provider";
 import { Separator } from "@/components/ui/separator";
 import {
   SidebarInset,
@@ -26,28 +27,30 @@ export async function SidebarLayout({
   const shell = await studioShell.resolve(studioContext);
 
   return (
-    <SidebarProvider defaultOpen={defaultOpen}>
-      <DetailStackProvider>
-        <AppSidebar studioContext={studioContext} shell={shell} />
-        <SidebarInset className="h-svh overflow-hidden bg-sidebar">
-          <header className="flex h-12 shrink-0 items-center gap-2 px-4">
-            <SidebarTrigger className="-ml-1" />
-            <Separator
-              orientation="vertical"
-              className="mr-2 h-6! self-center"
-            />
-            <WorkspaceNavigation
-              projectSwitcher={shell.projectSwitcher}
-              organizationSwitcher={shell.organizationSwitcher}
-              environmentSwitcher={shell.environmentSwitcher}
-            />
-          </header>
-          <main className="min-h-0 flex-1 overflow-hidden pr-4 pb-4">
-            {children}
-          </main>
-        </SidebarInset>
-        {detailSlots}
-      </DetailStackProvider>
-    </SidebarProvider>
+    <StudioRouteProvider scope={shell.routeScope}>
+      <SidebarProvider defaultOpen={defaultOpen}>
+        <DetailStackProvider>
+          <AppSidebar studioContext={studioContext} shell={shell} />
+          <SidebarInset className="h-svh overflow-hidden bg-sidebar">
+            <header className="flex h-12 shrink-0 items-center gap-2 px-4">
+              <SidebarTrigger className="-ml-1" />
+              <Separator
+                orientation="vertical"
+                className="mr-2 h-6! self-center"
+              />
+              <WorkspaceNavigation
+                projectSwitcher={shell.projectSwitcher}
+                organizationSwitcher={shell.organizationSwitcher}
+                environmentSwitcher={shell.environmentSwitcher}
+              />
+            </header>
+            <main className="min-h-0 flex-1 overflow-hidden pr-4 pb-4">
+              {children}
+            </main>
+          </SidebarInset>
+          {detailSlots}
+        </DetailStackProvider>
+      </SidebarProvider>
+    </StudioRouteProvider>
   );
 }

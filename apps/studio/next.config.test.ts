@@ -7,8 +7,10 @@ import { createStudioConfig } from "./next.config";
 const studio = fileURLToPath(new URL(".", import.meta.url));
 const fixture = fileURLToPath(new URL("./tsconfig.json", import.meta.url));
 
-it("does not change ordinary OSS build configuration", () => {
-  expect(createStudioConfig(studio, "")).toEqual({});
+it("keeps OSS aliases unchanged and disables stale authorization during HMR", () => {
+  expect(createStudioConfig(studio, "")).toEqual({
+    experimental: { serverComponentsHmrCache: false },
+  });
 });
 it("selects an app-local config through native Next TypeScript configuration", () => {
   for (const path of [fixture, "tsconfig.json"]) {

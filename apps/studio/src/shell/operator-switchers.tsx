@@ -1,4 +1,5 @@
 "use client";
+
 import { ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -9,6 +10,7 @@ import {
   DropdownMenuRadioItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { studioFetch } from "@/lib/studio-fetch";
 
 export function OperatorScopeSwitcher({
   kind,
@@ -41,7 +43,7 @@ export function OperatorScopeSwitcher({
         <DropdownMenuRadioGroup
           value={selected}
           onValueChange={async (value) => {
-            const response = await fetch("/auth/operator-scope", {
+            const response = await studioFetch("/auth/operator-scope", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({ kind, value }),

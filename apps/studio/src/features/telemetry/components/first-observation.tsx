@@ -1,8 +1,8 @@
 "use client";
 
 import { Check, Copy, RadioTower } from "lucide-react";
-import Link from "next/link";
 import { useState } from "react";
+import Link from "@/components/scoped-link";
 import { Button } from "@/components/ui/button";
 
 export type ObservationResource =
@@ -76,14 +76,14 @@ export function FirstObservation({
             </p>
             <Button asChild variant="outline">
               <Link
-                href={`/settings?section=${resource === "evals" ? "evaluations" : "connection"}`}
+                href={`/settings/${resource === "evals" ? "evaluations" : "connection"}`}
               >
                 Open {resource === "evals" ? "evaluation" : "connection"}{" "}
                 settings
               </Link>
             </Button>
             <Button asChild variant="ghost">
-              <Link href="/settings?section=api-keys">Manage API keys</Link>
+              <Link href="/settings/api-keys">Manage API keys</Link>
             </Button>
           </li>
           <li className="space-y-3">

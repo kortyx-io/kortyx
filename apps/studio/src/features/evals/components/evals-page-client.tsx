@@ -8,7 +8,6 @@ import {
   Search,
   X,
 } from "lucide-react";
-import { useRouter, useSearchParams } from "next/navigation";
 import {
   parseAsArrayOf,
   parseAsBoolean,
@@ -33,6 +32,7 @@ import { useLiveRefresh } from "@/features/telemetry/hooks/use-live-refresh";
 import type { ListTablePreferences } from "@/features/telemetry/lib/table-preferences";
 import { formatDateTime, formatDurationMs } from "@/lib/format";
 import { useStudioQueryStates } from "@/lib/nuqs";
+import { useRouter, useSearchParams } from "@/lib/scoped-navigation";
 import { evalRequest } from "../api/client";
 import { useEvalSetup } from "../hooks/use-eval-setup";
 import {

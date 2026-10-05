@@ -1,11 +1,11 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import {
   createLiveRefreshController,
   type LiveRefreshSnapshot,
 } from "@/features/telemetry/lib/live-refresh-controller";
+import { useRouter } from "@/lib/scoped-navigation";
 
 export const useLiveRefresh = ({
   enabled,

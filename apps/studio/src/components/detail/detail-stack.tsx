@@ -1,6 +1,5 @@
 "use client";
 
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   createContext,
   type ReactNode,
@@ -30,6 +29,11 @@ import {
 import { useSidebar } from "@/components/ui/sidebar";
 import { detailNavigationHref } from "@/lib/nuqs";
 import { detailDrawerZIndex } from "@/lib/overlay-layers";
+import {
+  usePathname,
+  useRouter,
+  useSearchParams,
+} from "@/lib/scoped-navigation";
 import { cn } from "@/lib/utils";
 
 export type { DetailLayerRegistration } from "@/components/detail/detail-stack-state";

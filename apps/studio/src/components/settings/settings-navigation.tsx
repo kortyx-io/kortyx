@@ -14,8 +14,6 @@ import {
   UserRound,
   Users,
 } from "lucide-react";
-import Link from "next/link";
-import { usePathname } from "next/navigation";
 import {
   Children,
   isValidElement,
@@ -23,6 +21,8 @@ import {
   useEffect,
   useState,
 } from "react";
+import Link from "@/components/scoped-link";
+import { usePathname } from "@/lib/scoped-navigation";
 import { cn } from "@/lib/utils";
 
 export interface SettingsPanelProps {
