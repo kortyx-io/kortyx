@@ -20,6 +20,7 @@ const context = buildStudioShellContext({
   apiUrlConfigured: true,
   studioApiKeyConfigured: true,
   context: {
+    data: null,
     error: { type: "not_configured", message: "Test configuration missing" },
   },
 });
