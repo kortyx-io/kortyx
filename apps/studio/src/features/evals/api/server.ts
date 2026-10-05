@@ -14,7 +14,12 @@ async function read<T>(path: string, schema: z.ZodType<T>): Promise<T> {
   const response = await fetch(
     `${url.replace(/\/$/, "")}/v1/studio/evals/${path}`,
     {
-      headers: { authorization: credential.authorization },
+      headers: {
+        authorization: credential.authorization,
+        ...(credential.projectId
+          ? { "x-kortyx-project-id": credential.projectId }
+          : {}),
+      },
       cache: "no-store",
       signal: AbortSignal.timeout(20_000),
     },

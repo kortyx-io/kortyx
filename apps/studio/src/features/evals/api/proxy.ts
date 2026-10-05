@@ -42,6 +42,9 @@ export async function proxyEvalRequest(request: Request, parts: string[]) {
         method: request.method,
         headers: {
           authorization: credential.authorization,
+          ...(credential.projectId
+            ? { "x-kortyx-project-id": credential.projectId }
+            : {}),
           "content-type": "application/json",
         },
         ...(body ? { body } : {}),
