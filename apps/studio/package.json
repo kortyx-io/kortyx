@@ -42,7 +42,7 @@
   "devDependencies": {
     "@kortyx/agent": "workspace:*",
     "@kortyx/telemetry": "workspace:*",
-    "@playwright/test": "^1.62.0",
+    "@playwright/test": "^1.63.0",
     "@tailwindcss/postcss": "catalog:",
     "@types/node": "catalog:",
     "@types/react": "catalog:",
