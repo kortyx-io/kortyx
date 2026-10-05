@@ -9,6 +9,12 @@ import {
   resolveConnection,
 } from "../connections";
 import { parseEvalRunTarget, StudioEvalClient } from "./eval-client";
+import {
+  buildEvalDoctorReport,
+  type EvalDoctorReport,
+  evalDoctorFailure,
+  formatEvalDoctorReport,
+} from "./eval-doctor";
 import { StudioReadError } from "./read-client";
 import { formatReadOutput, sanitizeStudioData } from "./read-output";
 import { defaultStudioHome } from "./state";
@@ -133,6 +139,41 @@ export function registerStudioEvalCommands(
         "--environment <name>",
         "Filter targets; defaults to the connection environment.",
       );
+  selectionOptions(
+    evals
+      .command("doctor")
+      .description(
+        "Check deployment wiring without starting workflows or model calls.",
+      ),
+  )
+    .option("--suite <id>", "Check that a specific suite is registered.")
+    .option(
+      "--judge <location>",
+      "Judge to check: studio (default) or app.",
+      (value: string) => {
+        if (value !== "studio" && value !== "app")
+          throw new InvalidArgumentError("Expected studio or app.");
+        return value;
+      },
+      "studio",
+    )
+    .action(async (options: EvalOptions & { suite?: string }) => {
+      let report: EvalDoctorReport;
+      try {
+        const { connection, client } = await clientFor(options);
+        report = buildEvalDoctorReport(await client.targets(), {
+          ...options,
+          environment: options.environment ?? connection.environment,
+          judge: options.judge ?? "studio",
+        });
+      } catch (error) {
+        report = evalDoctorFailure(error);
+      }
+      log(
+        options.json ? JSON.stringify(report) : formatEvalDoctorReport(report),
+      );
+      if (report.status === "failed") process.exitCode = 1;
+    });
   selectionOptions(
     suites
       .command("list")

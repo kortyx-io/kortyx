@@ -402,6 +402,26 @@ describe.skipIf(!url)(
       let run: { id: string };
       const worker = createEvalWorker(client.db, [target]);
       try {
+        const doctor = await runCli(
+          "doctor",
+          "--target",
+          target.id,
+          "--suite",
+          suite.id,
+          "--judge",
+          "app",
+        );
+        expect(doctor.status).toBe("passed");
+        expect(
+          doctor.checks.every(
+            (check: { status: string }) => check.status === "passed",
+          ),
+        ).toBe(true);
+        expect(await listEvalRuns(client.db, scope)).not.toEqual(
+          expect.arrayContaining([
+            expect.objectContaining({ targetId: target.id }),
+          ]),
+        );
         const discovery = await runCli("suites", "list");
         expect(discovery.canRun).toBe(true);
         expect(discovery.targets[0].suites[0].id).toBe(suite.id);

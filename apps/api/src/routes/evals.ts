@@ -10,11 +10,16 @@ import {
   getEvalRun,
   listEvalRuns,
   requestEvalCancellation,
+  TelemetryForbiddenError,
   TelemetryNotFoundError,
 } from "@kortyx/telemetry-db";
 import { bodyLimit } from "hono/body-limit";
 import { z } from "zod";
-import { type EvalTarget, fetchEvalManifest } from "../evals/targets";
+import {
+  EvalDiscoveryError,
+  type EvalTarget,
+  fetchEvalManifest,
+} from "../evals/targets";
 import {
   canApiAction,
   principalActorId,
@@ -47,6 +52,21 @@ export function registerEvalRoutes(
           await c.get("withTenantDatabase")((db) =>
             ensureProjectEnvironmentAllowed(db, target),
           );
+        } catch (error) {
+          return {
+            ...base,
+            manifest: null,
+            revisions: {},
+            error: "Consumer eval environment is unavailable.",
+            diagnostic: {
+              code:
+                error instanceof TelemetryForbiddenError
+                  ? "environment_forbidden"
+                  : "environment_unavailable",
+            },
+          };
+        }
+        try {
           const manifest = await fetchEvalManifest(target);
           return {
             ...base,
@@ -58,13 +78,16 @@ export function registerEvalRoutes(
               ]),
             ),
             error: null,
+            diagnostic: null,
           };
-        } catch {
+        } catch (error) {
           return {
             ...base,
             manifest: null,
             revisions: {},
             error: "Consumer eval endpoint is unavailable or incompatible.",
+            diagnostic:
+              error instanceof EvalDiscoveryError ? error.diagnostic : null,
           };
         }
       }),

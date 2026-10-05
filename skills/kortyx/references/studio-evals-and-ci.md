@@ -4,6 +4,26 @@ Use this reference to register an application's eval endpoint, configure judging
 run suites from Studio/CLI, or enqueue a post-deployment suite. First wire the
 consumer as described in [conversation evals](conversation-evals.md).
 
+For first-time integration or deployment, start with
+[eval-onboarding.md](eval-onboarding.md). It covers both the consumer and Studio;
+configuring only Studio does not mount or enable the consumer route.
+
+## Diagnose deployment wiring
+
+```sh
+kortyx studio evals doctor --connection staging --target catalog --suite catalog-smoke
+kortyx studio evals doctor --connection staging --target catalog --judge app --json
+```
+
+This performs discovery GET only, with safe failure categories and actionable
+remedies. It checks scopes, target selection/environment, authenticated manifest,
+suite registration and advertised judge compatibility. It starts no workflows,
+model calls or saved runs; a consumer GET wrapper may perform app-owned auth.
+Exit 0 means configuration checks passed; exit 1 means at least one failed.
+The connection's environment filter applies unless overridden. The consumer must
+still complete a real suite to establish actor/tool/provider access and persistence.
+An older API may supply only a generic unavailable result; doctor says so.
+
 ## Who does what
 
 Studio browser/CLI → Studio API → leased worker → authenticated consumer eval

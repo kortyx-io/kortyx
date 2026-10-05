@@ -111,7 +111,7 @@ describe("product documentation routes", () => {
       "Operations",
       "Reference",
     ]);
-    expect(studio.flatMap((section) => section.items)).toHaveLength(11);
+    expect(studio.flatMap((section) => section.items)).toHaveLength(12);
     expect(
       studio.find((section) => section.slug === "deployment")?.items,
     ).toHaveLength(4);

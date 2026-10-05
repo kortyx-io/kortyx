@@ -54,6 +54,9 @@ Studio:
 
 Evals:
 
+- `references/eval-onboarding.md`: the complete first-integration/deployment path,
+  configuration ownership, doctor diagnostics and evidence required before calling
+  setup complete. Read this first for a new eval integration or deployment.
 - `references/conversation-evals.md`: authoring `defineSuite` cases, initializing
   `createEvals` around an existing agent, reusing application authentication,
   scripted interrupt responses, emitted tool evidence, local judges, and mounting
@@ -132,7 +135,7 @@ React client:
   trusted server/observability paths.
 - Sensitive auth context is derived on the server.
 - Studio integrations, when requested, publish the real workflow catalog and verify a real run separately.
-- Eval integrations exercise the app's real permission path, expected interrupts and tool evidence; verify the selected judge and saved results. Keep deterministic runtime contracts in SDK integration tests and semantic behavior in eval criteria.
+- Eval integrations exercise the app's real permission path, expected interrupts and tool evidence; verify the selected judge and saved results. Keep deterministic runtime contracts in SDK integration tests and semantic behavior in eval criteria. A healthy Studio deployment or queued run is insufficient: confirm consumer discovery and a completed representative run through the actual application path.
 
 For required structured responses, use `expect.outputs: [{ schemaId, schemaVersion? }]`.
 Every listed contract must be complete in the current step. An omitted version accepts

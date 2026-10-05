@@ -7,6 +7,9 @@ sidebar_label: "Conversation Evals"
 ---
 # Conversation evals in the consumer application
 
+New to eval setup? Follow [Run Your First Workflow Eval](../../../studio/v0/12-first-eval.md)
+for a complete application-to-Studio recipe and deployment checks.
+
 `createEvals` runs scripted conversations against an existing `createAgent`
 instance. A case sends messages, assesses the visible answer or interrupt,
 resumes expected interrupts, and grades each criterion using a separate judge.
