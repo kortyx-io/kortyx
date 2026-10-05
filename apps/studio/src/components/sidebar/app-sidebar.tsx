@@ -60,18 +60,21 @@ export function AppSidebar({
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton size="lg" asChild tooltip="Kortyx Studio">
-              <Link href="/">
-                <div className="flex aspect-square size-8 shrink-0 items-center justify-center overflow-hidden rounded-lg">
+              <Link href="/" className="group gap-2.5 tracking-[-0.01em]">
+                <span className="grid size-8 shrink-0 place-items-center rounded-lg border border-border bg-white shadow-sm transition-transform group-hover:-rotate-3">
                   <Image
-                    src="/favicon.ico"
-                    alt="Kortyx"
-                    className="size-8"
-                    width={32}
-                    height={32}
+                    src="/logo.png"
+                    alt=""
+                    width={24}
+                    height={24}
+                    preload
                   />
-                </div>
+                </span>
                 <div className="grid flex-1 gap-0.5 text-left leading-none group-data-[collapsible=icon]:hidden">
-                  <span className="truncate font-semibold" title="Kortyx">
+                  <span
+                    className="truncate text-[15px] font-semibold"
+                    title="Kortyx"
+                  >
                     Kortyx
                   </span>
                   <span
