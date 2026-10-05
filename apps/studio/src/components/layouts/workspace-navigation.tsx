@@ -1,9 +1,18 @@
 "use client";
 
-import { ChevronRight } from "lucide-react";
+import { ChevronDown, ChevronRight } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import type { ReactNode } from "react";
+import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 const labels: Record<string, string> = {
   runs: "Runs",
@@ -21,10 +30,12 @@ export function WorkspaceNavigation({
   project,
   environments,
   projectSwitcher,
+  organizationSwitcher,
 }: {
   project: string;
   environments: string[];
   projectSwitcher?: ReactNode;
+  organizationSwitcher?: ReactNode;
 }) {
   const pathname = usePathname();
   const params = useSearchParams();
@@ -35,8 +46,17 @@ export function WorkspaceNavigation({
   return (
     <nav
       aria-label="Workspace navigation"
-      className="flex min-w-0 flex-1 items-center gap-2 overflow-hidden text-sm"
+      className="flex min-w-0 flex-1 items-center gap-2 overflow-x-auto text-sm"
     >
+      {organizationSwitcher && (
+        <>
+          {organizationSwitcher}
+          <ChevronRight
+            className="size-3.5 shrink-0 text-muted-foreground"
+            aria-hidden="true"
+          />
+        </>
+      )}
       {projectSwitcher ?? (
         <span
           className="max-w-44 shrink-0 truncate font-medium"
@@ -45,41 +65,64 @@ export function WorkspaceNavigation({
           {project}
         </span>
       )}
-      {scoped && (
+      {environments.length > 0 && (
         <>
           <ChevronRight
             className="size-3.5 shrink-0 text-muted-foreground"
             aria-hidden="true"
           />
-          <select
-            aria-label="Telemetry environment"
-            className="max-w-40 shrink-0 truncate rounded-md border-0 bg-transparent px-2 py-1 text-sm"
-            value={environment}
-            onChange={(event) => {
-              // Scope changes discard detail IDs and resource-specific filters.
-              const next = new URLSearchParams();
-              if (event.target.value !== "All environments")
-                next.set("env", event.target.value);
-              router.push(
-                `/${segments[0] === "evals" ? "evals/runs" : segments[0] || "runs"}${next.size ? `?${next}` : ""}`,
-              );
-            }}
-          >
-            <option>All environments</option>
-            {Array.from(
-              new Set([
-                ...environments,
-                ...(environment !== "All environments" ? [environment] : []),
-              ]),
-            ).map((value) => (
-              <option key={value}>{value}</option>
-            ))}
-          </select>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="ghost"
+                size="sm"
+                aria-label="Telemetry environment"
+                className="max-w-44 shrink-0 font-normal"
+              >
+                <span className="truncate">{environment}</span>
+                <ChevronDown className="size-3.5" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start">
+              <DropdownMenuLabel>Environments</DropdownMenuLabel>
+              <DropdownMenuRadioGroup
+                value={environment}
+                onValueChange={(value) => {
+                  // Scope changes discard detail IDs and resource-specific filters.
+                  const next = new URLSearchParams(
+                    scoped ? undefined : params.toString(),
+                  );
+                  next.delete("env");
+                  if (value !== "All environments") next.set("env", value);
+                  router.push(
+                    `/${segments[0] === "evals" ? "evals/runs" : segments[0] || "runs"}${next.size ? `?${next}` : ""}`,
+                  );
+                }}
+              >
+                <DropdownMenuRadioItem value="All environments">
+                  All environments
+                </DropdownMenuRadioItem>
+                {Array.from(
+                  new Set([
+                    ...environments,
+                    ...(environment !== "All environments"
+                      ? [environment]
+                      : []),
+                  ]),
+                ).map((value) => (
+                  <DropdownMenuRadioItem key={value} value={value}>
+                    {value}
+                  </DropdownMenuRadioItem>
+                ))}
+              </DropdownMenuRadioGroup>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </>
       )}
-      <span className="mx-1 text-muted-foreground" aria-hidden="true">
-        /
-      </span>
+      <ChevronRight
+        className="size-3.5 shrink-0 text-muted-foreground"
+        aria-hidden="true"
+      />
       <ol className="flex min-w-0 items-center gap-2 overflow-hidden">
         {segments.map((segment, index) => {
           const last = index === segments.length - 1;

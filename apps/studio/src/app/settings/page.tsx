@@ -169,67 +169,59 @@ export default async function SettingsPage() {
 
   return (
     <div
-      className="h-full overflow-y-auto rounded-xl border bg-background"
+      className="h-full overflow-hidden bg-background"
       data-settings-ready="true"
     >
-      <header className="border-b px-5 py-5 sm:px-7 sm:py-6">
-        <p className="text-xs font-medium tracking-[0.18em] text-muted-foreground uppercase">
-          {settings.label ?? "Local configuration"}
-        </p>
-        <h1 className="mt-2 text-2xl font-semibold tracking-tight">Settings</h1>
-        <p className="mt-1 max-w-2xl text-sm leading-6 text-muted-foreground">
-          {settings.description ??
-            "Understand this Studio instance, its telemetry connection, and the display preferences that apply in this browser."}
-        </p>
-      </header>
-
-      {settings.onboarding && (
-        <div className="p-4 pb-0 sm:p-6 sm:pb-0">{settings.onboarding}</div>
-      )}
       <SettingsNavigation>
-        <SettingsPanel id="general" label="General">
-          {settings.scope === undefined ? (
-            <ScopeCard context={context} />
-          ) : (
-            settings.scope
-          )}
-        </SettingsPanel>
-        <SettingsPanel id="connection" label="Connection">
-          {settings.connection === undefined ? (
-            <ConnectionCard context={context} />
-          ) : (
-            settings.connection
-          )}
-        </SettingsPanel>
-        <SettingsPanel id="access" label="Access">
-          {settings.access === undefined ? (
-            <SettingsCard
-              icon={ShieldCheck}
-              title="Access"
-              description="Human access to this Studio instance is separate from its telemetry API key."
-            >
-              <dl>
-                <DefinitionRow
-                  label="Studio mode"
-                  value={context.identity.name}
-                />
-                <DefinitionRow
-                  label="Authentication"
-                  value={context.identity.access}
-                />
-              </dl>
-              <p className="mt-4 rounded-lg border bg-muted/30 p-3 text-xs leading-5 text-muted-foreground">
-                HTTP Basic Auth is managed by the browser and reverse proxy.
-                Studio does not present a fake account or logout action. Clear
-                the browser’s site credentials to end a Basic Auth session.
-              </p>
-            </SettingsCard>
-          ) : (
-            settings.access
-          )}
-        </SettingsPanel>
+        {settings.scope !== null && (
+          <SettingsPanel id="general" label="General">
+            {settings.scope === undefined ? (
+              <ScopeCard context={context} />
+            ) : (
+              settings.scope
+            )}
+          </SettingsPanel>
+        )}
+        {settings.connection !== null && (
+          <SettingsPanel id="connection" label="Connection">
+            {settings.connection === undefined ? (
+              <ConnectionCard context={context} />
+            ) : (
+              settings.connection
+            )}
+          </SettingsPanel>
+        )}
+        {settings.access !== null && (
+          <SettingsPanel id="access" label="Access">
+            {settings.access === undefined ? (
+              <SettingsCard
+                icon={ShieldCheck}
+                title="Access"
+                description="Human access to this Studio instance is separate from its telemetry API key."
+              >
+                <dl>
+                  <DefinitionRow
+                    label="Studio mode"
+                    value={context.identity.name}
+                  />
+                  <DefinitionRow
+                    label="Authentication"
+                    value={context.identity.access}
+                  />
+                </dl>
+                <p className="mt-4 rounded-lg border bg-muted/30 p-3 text-xs leading-5 text-muted-foreground">
+                  HTTP Basic Auth is managed by the browser and reverse proxy.
+                  Studio does not present a fake account or logout action. Clear
+                  the browser’s site credentials to end a Basic Auth session.
+                </p>
+              </SettingsCard>
+            ) : (
+              settings.access
+            )}
+          </SettingsPanel>
+        )}
         {settings.sections && (
-          <SettingsPanel id="api-keys" label="API keys">
+          <SettingsPanel id="api-keys" label="API keys" group="Project">
             {settings.sections}
           </SettingsPanel>
         )}
@@ -238,25 +230,26 @@ export default async function SettingsPage() {
             key={category.id}
             id={category.id}
             label={category.label}
+            group={category.group ?? "Project"}
           >
             {category.content}
           </SettingsPanel>
         ))}
-        <SettingsPanel id="privacy" label="Telemetry & privacy">
+        <SettingsPanel id="privacy" label="Telemetry & privacy" group="Project">
           <SettingsCard
             icon={KeyRound}
             title="Telemetry & privacy"
             description="Payload capture is decided by the producing Kortyx SDK, not enabled from Studio."
           >
             <div className="space-y-3 text-sm leading-6">
-              <div className="rounded-lg border bg-muted/30 p-3">
+              <div className="border-b pb-4">
                 <p className="font-medium">Structural telemetry is available</p>
                 <p className="mt-1 text-xs leading-5 text-muted-foreground">
                   Run, span, workflow, timing, usage, and interrupt structure
                   can be observed without prompt or response content.
                 </p>
               </div>
-              <div className="rounded-lg border bg-muted/30 p-3">
+              <div className="pt-2">
                 <p className="font-medium">Content is excluded by default</p>
                 <p className="mt-1 text-xs leading-5 text-muted-foreground">
                   Prompt and output content is captured only when the producer
@@ -266,7 +259,7 @@ export default async function SettingsPage() {
             </div>
           </SettingsCard>
         </SettingsPanel>
-        <SettingsPanel id="appearance" label="Appearance">
+        <SettingsPanel id="appearance" label="Appearance" group="Personal">
           <SettingsCard
             icon={Palette}
             title="Appearance"
@@ -274,7 +267,7 @@ export default async function SettingsPage() {
             className="xl:col-span-2"
           >
             <ThemePreferenceControl />
-            <div className="mt-5 flex items-start gap-3 rounded-lg border bg-muted/30 p-3">
+            <div className="mt-8 flex items-start gap-3 border-t pt-5">
               <Clock3
                 className="mt-0.5 size-4 shrink-0 text-muted-foreground"
                 aria-hidden="true"
@@ -289,7 +282,7 @@ export default async function SettingsPage() {
             </div>
           </SettingsCard>
         </SettingsPanel>
-        <SettingsPanel id="about" label="About">
+        <SettingsPanel id="about" label="About" group="Personal">
           {settings.updates === undefined ? (
             <StudioUpdates installedVersion={context.identity.version} />
           ) : (

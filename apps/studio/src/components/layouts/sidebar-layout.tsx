@@ -40,6 +40,7 @@ export async function SidebarLayout({
               project={studioContext.scope.project}
               environments={studioContext.scope.telemetryEnvironments}
               projectSwitcher={shell.projectSwitcher}
+              organizationSwitcher={shell.organizationSwitcher}
             />
           </header>
           <main className="min-h-0 flex-1 overflow-hidden pr-4 pb-4">

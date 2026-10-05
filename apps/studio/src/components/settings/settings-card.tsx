@@ -16,18 +16,13 @@ export function SettingsCard({
   className?: string;
 }) {
   return (
-    <section
-      className={cn(
-        "min-w-0 rounded-xl border bg-card/30 p-5 shadow-xs",
-        className,
-      )}
-    >
-      <div className="mb-5 flex items-start gap-3">
-        <div className="flex size-9 shrink-0 items-center justify-center rounded-lg border bg-background">
-          <Icon className="size-4" aria-hidden="true" />
-        </div>
+    <section className={cn("min-w-0", className)}>
+      <div className="mb-6 border-b pb-5">
         <div className="min-w-0">
-          <h2 className="font-semibold">{title}</h2>
+          <h2 className="flex items-center gap-2 text-xl font-semibold">
+            <Icon className="size-4 text-muted-foreground" aria-hidden="true" />
+            {title}
+          </h2>
           <p className="mt-0.5 text-sm leading-5 text-muted-foreground">
             {description}
           </p>

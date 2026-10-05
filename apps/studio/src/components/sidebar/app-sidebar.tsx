@@ -53,49 +53,38 @@ export function AppSidebar({
 }) {
   const pathname = usePathname();
   const environment = useSearchParams().get("env");
-  const environmentLabel =
-    studioContext.scope.telemetryEnvironments.length === 1
-      ? studioContext.scope.telemetryEnvironments[0]
-      : studioContext.scope.telemetryEnvironments.length > 1
-        ? `${studioContext.scope.telemetryEnvironments.length} telemetry environments`
-        : "No telemetry environments";
 
   return (
     <Sidebar collapsible="icon">
       <SidebarHeader>
-        {shell.organizationSwitcher ?? (
-          <SidebarMenu>
-            <SidebarMenuItem>
-              <SidebarMenuButton size="lg" asChild tooltip="Kortyx Studio">
-                <Link href="/settings">
-                  <div className="flex aspect-square size-8 shrink-0 items-center justify-center overflow-hidden rounded-lg">
-                    <Image
-                      src="/favicon.ico"
-                      alt="Kortyx"
-                      className="size-8"
-                      width={32}
-                      height={32}
-                    />
-                  </div>
-                  <div className="grid flex-1 gap-0.5 text-left leading-none group-data-[collapsible=icon]:hidden">
-                    <span
-                      className="truncate font-semibold"
-                      title="Kortyx Studio"
-                    >
-                      Kortyx Studio
-                    </span>
-                    <span
-                      className="truncate text-xs text-muted-foreground"
-                      title={environmentLabel}
-                    >
-                      {environmentLabel}
-                    </span>
-                  </div>
-                </Link>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-          </SidebarMenu>
-        )}
+        <SidebarMenu>
+          <SidebarMenuItem>
+            <SidebarMenuButton size="lg" asChild tooltip="Kortyx Studio">
+              <Link href="/">
+                <div className="flex aspect-square size-8 shrink-0 items-center justify-center overflow-hidden rounded-lg">
+                  <Image
+                    src="/favicon.ico"
+                    alt="Kortyx"
+                    className="size-8"
+                    width={32}
+                    height={32}
+                  />
+                </div>
+                <div className="grid flex-1 gap-0.5 text-left leading-none group-data-[collapsible=icon]:hidden">
+                  <span className="truncate font-semibold" title="Kortyx">
+                    Kortyx
+                  </span>
+                  <span
+                    className="truncate text-xs text-muted-foreground"
+                    title={`v${studioContext.identity.version}`}
+                  >
+                    v{studioContext.identity.version}
+                  </span>
+                </div>
+              </Link>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+        </SidebarMenu>
       </SidebarHeader>
 
       <SidebarContent>

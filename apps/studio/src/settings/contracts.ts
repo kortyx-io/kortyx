@@ -1,6 +1,12 @@
 import type { ReactNode } from "react";
 import type { StudioShellContext } from "../lib/studio-context-model";
 
+export type StudioSettingsGroup =
+  | "Personal"
+  | "Organization"
+  | "Project"
+  | "Installation";
+
 /** Server-rendered contributions to the existing Settings page, not replacement pages. */
 export interface StudioSettingsContribution {
   /** Setup is UI state only; it never grants API access. */
@@ -15,7 +21,12 @@ export interface StudioSettingsContribution {
   access?: ReactNode;
   sections?: ReactNode;
   /** Edition-specific categories in the shared Settings navigation. */
-  categories?: Array<{ id: string; label: string; content: ReactNode }>;
+  categories?: Array<{
+    id: string;
+    label: string;
+    group?: StudioSettingsGroup;
+    content: ReactNode;
+  }>;
 }
 
 export interface StudioSettingsAdapter {

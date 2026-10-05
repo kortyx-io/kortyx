@@ -43,11 +43,9 @@ const render = async () => {
   const { default: Page } = await import("../app/settings/page");
   return renderToStaticMarkup(await Page());
 };
-it("keeps the existing OSS Settings cards and appearance", async () => {
+it("keeps OSS settings in a flat section layout without an overall header", async () => {
   const html = await render();
   for (const text of [
-    "Settings",
-    "Local configuration",
     "Local scope",
     "Connection",
     "Access",
@@ -57,6 +55,8 @@ it("keeps the existing OSS Settings cards and appearance", async () => {
   ])
     expect(html).toContain(text);
   expect(resolve).toHaveBeenCalledWith(context);
+  expect(html).not.toContain("Local configuration");
+  expect(html).not.toContain("<h1");
 });
 it("contributes to the same page without losing shared cards", async () => {
   resolve.mockResolvedValue({
@@ -68,8 +68,6 @@ it("contributes to the same page without losing shared cards", async () => {
   });
   const html = await render();
   for (const text of [
-    "Settings",
-    "Cloud workspace",
     "Organization controls",
     "Signed-in account",
     "API keys",
@@ -80,6 +78,7 @@ it("contributes to the same page without losing shared cards", async () => {
     expect(html).toContain(text);
   expect(html).not.toContain("Local scope");
   expect(html).not.toContain("HTTP Basic Auth");
+  expect(html).not.toContain("Cloud workspace");
 });
 it("does not fall back to local settings after an adapter authorization failure", async () => {
   resolve.mockRejectedValue(new Error("Denied"));

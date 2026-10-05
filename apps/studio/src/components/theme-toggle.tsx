@@ -1,6 +1,6 @@
 "use client";
 
-import { Monitor, Moon, Sun } from "lucide-react";
+import { Check, Monitor, Moon, Sun } from "lucide-react";
 import {
   createContext,
   type ReactNode,
@@ -161,7 +161,7 @@ export function ThemePreferenceControl() {
   const { theme, setTheme } = useTheme();
 
   return (
-    <fieldset className="grid gap-2 sm:grid-cols-3">
+    <fieldset className="grid gap-4 sm:grid-cols-3">
       <legend className="sr-only">Theme preference</legend>
       {THEME_OPTIONS.map((option) => {
         const Icon = option.icon;
@@ -173,22 +173,95 @@ export function ThemePreferenceControl() {
             aria-pressed={selected}
             onClick={() => setTheme(option.value)}
             className={cn(
-              "flex min-w-0 items-start gap-3 rounded-lg border p-3 text-left transition-colors",
+              "min-w-0 overflow-hidden rounded-xl border text-left transition-colors focus-visible:outline-2 focus-visible:outline-offset-2",
               selected
                 ? "border-foreground/30 bg-accent text-accent-foreground"
                 : "bg-background hover:bg-accent/60",
             )}
           >
-            <Icon className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
-            <span className="min-w-0">
-              <span className="block text-sm font-medium">{option.label}</span>
-              <span className="mt-0.5 block text-xs leading-4 text-muted-foreground">
-                {option.description}
+            <div className="p-4" aria-hidden="true">
+              <ThemePreview mode={option.value} />
+            </div>
+            <span className="flex items-center gap-2 border-t px-4 py-3">
+              <span
+                className={cn(
+                  "flex size-4 shrink-0 items-center justify-center rounded-full border",
+                  selected &&
+                    "border-primary bg-primary text-primary-foreground",
+                )}
+              >
+                {selected && <Check className="size-3" />}
+              </span>
+              <Icon className="size-4 shrink-0" aria-hidden="true" />
+              <span className="text-sm font-medium">
+                {option.value === "system"
+                  ? "System preference"
+                  : `${option.label} mode`}
               </span>
             </span>
           </button>
         );
       })}
     </fieldset>
+  );
+}
+
+function ThemePreview({ mode }: { mode: ThemePreference }) {
+  const preview = (dark: boolean) => (
+    <div
+      className={cn(
+        "absolute inset-0 flex",
+        dark ? "bg-slate-950" : "bg-slate-50",
+      )}
+    >
+      <div
+        className={cn(
+          "w-1/4 border-r p-2",
+          dark ? "border-slate-700 bg-slate-800" : "border-slate-200 bg-white",
+        )}
+      >
+        {[0, 1, 2, 3].map((i) => (
+          <div
+            key={i}
+            className={cn(
+              "mt-2 h-1.5 rounded",
+              dark ? "bg-slate-600" : "bg-slate-200",
+            )}
+          />
+        ))}
+      </div>
+      <div className="flex-1 p-3">
+        <div
+          className={cn(
+            "mb-2 h-2 w-2/3 rounded",
+            dark ? "bg-slate-600" : "bg-slate-200",
+          )}
+        />
+        <div className="grid grid-cols-2 gap-2">
+          {[0, 1, 2, 3].map((i) => (
+            <div
+              key={i}
+              className={cn(
+                "h-7 rounded",
+                dark ? "bg-slate-700" : "bg-slate-200/70",
+              )}
+            />
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+  return (
+    <div className="relative h-28 overflow-hidden rounded-md border">
+      {preview(mode === "dark")}
+      {mode === "system" && (
+        <div
+          className="absolute inset-0"
+          style={{ clipPath: "inset(0 0 0 50%)" }}
+        >
+          {preview(true)}
+        </div>
+      )}
+    </div>
   );
 }

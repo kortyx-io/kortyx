@@ -1,21 +1,46 @@
 import "server-only";
-import { cookies } from "next/headers";
 import { createElement } from "react";
 import type { StudioSettingsAdapter } from "./contracts";
 import {
   OperatorEvaluationSettings,
   OperatorKeySettings,
 } from "./operator-settings";
-import { LocalStudioSetup } from "./setup";
-import { LOCAL_SETUP_COOKIE } from "./setup-state";
 
 /** Self-hosted Studio retains its existing local configuration cards. */
 export const studioSettings: StudioSettingsAdapter = {
   async resolve(context) {
-    const setupRequired =
-      (await cookies()).get(LOCAL_SETUP_COOKIE)?.value !== "1";
     return {
       categories: [
+        {
+          id: "environments",
+          label: "Environments",
+          group: "Project",
+          content: createElement(
+            "section",
+            null,
+            createElement(
+              "h2",
+              { className: "mb-5 border-b pb-5 text-xl font-semibold" },
+              "Environments",
+            ),
+            createElement(
+              "p",
+              { className: "mb-5 text-sm text-muted-foreground" },
+              "Allowed telemetry environments for this operator-managed project. Environment changes are deployment configuration, not team administration.",
+            ),
+            createElement(
+              "ul",
+              { className: "divide-y text-sm" },
+              ...context.scope.telemetryEnvironments.map((name) =>
+                createElement(
+                  "li",
+                  { key: name, className: "py-3 font-mono" },
+                  name,
+                ),
+              ),
+            ),
+          ),
+        },
         {
           id: "api-keys",
           label: "API keys",
@@ -27,12 +52,7 @@ export const studioSettings: StudioSettingsAdapter = {
           content: createElement(OperatorEvaluationSettings),
         },
       ],
-      setupRequired,
-      onboarding: setupRequired
-        ? createElement(LocalStudioSetup, {
-            connected: context.connection.status === "connected",
-          })
-        : null,
+      setupRequired: false,
     };
   },
 };
