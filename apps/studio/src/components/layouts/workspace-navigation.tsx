@@ -17,6 +17,21 @@ const labels: Record<string, string> = {
   settings: "Settings",
 };
 
+const settingsLabels: Record<string, string> = {
+  general: "General",
+  project: "General",
+  account: "Account",
+  appearance: "Appearance",
+  about: "About",
+  members: "Members",
+  "api-keys": "API keys",
+  environments: "Environments",
+  connection: "Connection",
+  evaluations: "Evaluations",
+  privacy: "Telemetry & privacy",
+  access: "Access",
+};
+
 /** Editions supply authorized scope selectors; a single OSS scope needs none. */
 export function WorkspaceNavigation({
   projectSwitcher,
@@ -54,7 +69,10 @@ export function WorkspaceNavigation({
       <ol className="flex min-w-0 items-center gap-2 overflow-hidden">
         {segments.map((segment, index) => {
           const last = index === segments.length - 1;
-          const text = labels[segment] ?? decodeURIComponent(segment);
+          const text =
+            (segments[0] === "settings" && index === 1
+              ? settingsLabels[segment]
+              : labels[segment]) ?? decodeURIComponent(segment);
           const path = `/${segments.slice(0, index + 1).join("/")}`;
           const href = `${path}${environment && !environmentSwitcher ? `?env=${encodeURIComponent(environment)}` : ""}`;
           return (
@@ -72,7 +90,7 @@ export function WorkspaceNavigation({
               ) : (
                 <Link
                   href={href}
-                  className="truncate text-muted-foreground hover:text-foreground"
+                  className="truncate text-foreground transition-colors hover:text-muted-foreground"
                   title={text}
                 >
                   {text}
