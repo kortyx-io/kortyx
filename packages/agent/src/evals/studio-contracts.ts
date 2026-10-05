@@ -15,6 +15,22 @@ export const StudioEvalTargetsResponseSchema = z.object({
       name: z.string(),
       environment: z.string(),
       error: z.string().nullable(),
+      // Safe discovery diagnostics; optional for compatibility with older APIs.
+      diagnostic: z
+        .object({
+          code: z.enum([
+            "environment_forbidden",
+            "environment_unavailable",
+            "endpoint_not_found",
+            "endpoint_unauthorized",
+            "endpoint_http_error",
+            "endpoint_unreachable",
+            "manifest_invalid",
+          ]),
+          httpStatus: z.number().int().min(100).max(599).optional(),
+        })
+        .nullable()
+        .optional(),
       manifest: EvalManifestSchema.nullable(),
       revisions: z.record(z.string(), z.string()),
     }),

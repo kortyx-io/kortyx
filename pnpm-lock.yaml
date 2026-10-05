@@ -506,6 +506,34 @@ importers:
         specifier: 'catalog:'
         version: 4.1.11(@opentelemetry/api@1.9.0)(@types/node@20.19.17)(@vitest/coverage-v8@4.1.11)(jsdom@29.1.1)(vite@8.3.2(@types/node@20.19.17)(esbuild@0.28.1)(jiti@2.6.1)(terser@5.46.0)(tsx@4.22.5)(yaml@2.8.3))
 
+  examples/kortyx-eval-endpoint:
+    dependencies:
+      '@hono/node-server':
+        specifier: 1.19.15
+        version: 1.19.15(hono@4.13.12)
+      '@kortyx/openrouter':
+        specifier: workspace:*
+        version: link:../../providers/openrouter
+      hono:
+        specifier: 4.13.12
+        version: 4.13.12
+      kortyx:
+        specifier: workspace:*
+        version: link:../../packages/kortyx
+    devDependencies:
+      '@types/node':
+        specifier: 'catalog:'
+        version: 20.19.17
+      tsx:
+        specifier: ^4.21.0
+        version: 4.22.5
+      typescript:
+        specifier: 'catalog:'
+        version: 5.9.3
+      vitest:
+        specifier: 'catalog:'
+        version: 4.1.11(@opentelemetry/api@1.9.0)(@types/node@20.19.17)(@vitest/coverage-v8@4.1.11)(jsdom@29.1.1)(vite@8.3.2(@types/node@20.19.17)(esbuild@0.28.1)(jiti@2.6.1)(terser@5.46.0)(tsx@4.22.5)(yaml@2.8.3))
+
   examples/kortyx-nextjs-chat-api-route:
     dependencies:
       '@kortyx/anthropic':

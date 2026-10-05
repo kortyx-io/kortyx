@@ -8,6 +8,10 @@ section: "guides"
 ---
 # Run consumer evals from Studio
 
+For a new integration, follow [Run Your First Workflow Eval](./12-first-eval.md)
+from application wiring through deployment diagnostics and a completed run.
+This page covers the detailed execution, judging and storage behavior.
+
 Studio can discover registered suites, select cases and repetitions, enqueue a run,
 observe each completed interaction, cancel execution, and reload saved results.
 The consumer app executes its own agent. Studio does not obtain end-user tokens,

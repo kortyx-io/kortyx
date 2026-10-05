@@ -1,5 +1,9 @@
 import { readFileSync } from "node:fs";
-import { EvalManifestSchema, EvalWireEventSchema } from "@kortyx/agent/evals";
+import {
+  EvalManifestSchema,
+  EvalWireEventSchema,
+  type StudioEvalTargets,
+} from "@kortyx/agent/evals";
 import { z } from "zod";
 
 const targetSchema = z
@@ -31,6 +35,16 @@ const targetSchema = z
       });
   });
 export type EvalTarget = z.infer<typeof targetSchema>;
+type Diagnostic = NonNullable<
+  StudioEvalTargets["targets"][number]["diagnostic"]
+>;
+export class EvalDiscoveryError extends Error {
+  constructor(public readonly diagnostic: Diagnostic) {
+    // Do not expose URLs, credentials, response bodies or validation details.
+    super("Consumer eval endpoint is unavailable or incompatible.");
+    this.name = "EvalDiscoveryError";
+  }
+}
 export function loadEvalTargets(): EvalTarget[] {
   const source = process.env.KORTYX_EVAL_TARGETS_FILE;
   try {
@@ -54,13 +68,30 @@ export async function fetchEvalManifest(
   target: EvalTarget,
   signal = AbortSignal.timeout(15_000),
 ) {
-  const response = await fetch(target.url, {
-    headers: { authorization: `Bearer ${target.serviceKey}` },
-    redirect: "error",
-    signal,
-  });
-  if (!response.ok) throw new Error("Consumer eval endpoint is unavailable.");
-  if (!response.body) throw new Error("Missing eval manifest.");
+  let response: Response;
+  try {
+    response = await fetch(target.url, {
+      headers: { authorization: `Bearer ${target.serviceKey}` },
+      redirect: "error",
+      signal,
+    });
+  } catch {
+    throw new EvalDiscoveryError({ code: "endpoint_unreachable" });
+  }
+  if (!response.ok) {
+    await response.body?.cancel().catch(() => {});
+    throw new EvalDiscoveryError({
+      code:
+        response.status === 404
+          ? "endpoint_not_found"
+          : response.status === 401 || response.status === 403
+            ? "endpoint_unauthorized"
+            : "endpoint_http_error",
+      httpStatus: response.status,
+    });
+  }
+  if (!response.body)
+    throw new EvalDiscoveryError({ code: "manifest_invalid" });
   const reader = response.body.getReader();
   const decoder = new TextDecoder();
   let text = "";
@@ -70,15 +101,23 @@ export async function fetchEvalManifest(
       const part = await reader.read();
       if (part.done) break;
       size += part.value.byteLength;
-      if (size > 2_000_000) throw new Error("Eval manifest is too large.");
+      if (size > 2_000_000)
+        throw new EvalDiscoveryError({ code: "manifest_invalid" });
       text += decoder.decode(part.value, { stream: true });
     }
     text += decoder.decode();
+  } catch (error) {
+    if (error instanceof EvalDiscoveryError) throw error;
+    throw new EvalDiscoveryError({ code: "endpoint_unreachable" });
   } finally {
     await reader.cancel().catch(() => {});
     reader.releaseLock();
   }
-  return EvalManifestSchema.parse(JSON.parse(text));
+  try {
+    return EvalManifestSchema.parse(JSON.parse(text));
+  } catch {
+    throw new EvalDiscoveryError({ code: "manifest_invalid" });
+  }
 }
 export async function* readEvalWire(
   body: ReadableStream<Uint8Array>,

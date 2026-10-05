@@ -447,3 +447,17 @@ Studio draws discovered call/return links before traffic exists. The **Observed 
 `kortyx topology push` discovers shared tool definitions attached via `useTool({tool, input})` and `useReason({tools})` through local imports, custom hooks, and statically bound factories. Discovery does not execute nodes, tool factories or MCP discovery. The configured entry is still imported to obtain the workflow registry.
 
 Published node capabilities contain names, descriptions, calling mode, safe input-field summaries and discovery freshness. Dynamic attachments produce an unresolved warning rather than an empty-tools claim. Studio merges real observed tools and shows execution outcomes/durations separately from cached reuse. `--dry-run --json` exposes the discovered attachments and status without publishing.
+
+## Diagnose eval setup
+
+```sh
+kortyx studio evals doctor --connection staging --target catalog --suite catalog-smoke
+```
+
+Checks Studio access, execution permission, target/environment, authenticated
+consumer manifest/suites and advertised judge compatibility. Discovery GET only;
+no workflows, model calls or saved runs are started. Consumer GET wrappers may
+authenticate a test actor. Failures include actionable remedies. Use `--judge app`
+for a code judge or `--json` for a versioned report; failures exit 1. A successful
+check still needs a representative run to verify tool/provider access and saved
+results. See the [first eval guide](https://kortyx.io/docs/studio/first-eval).
