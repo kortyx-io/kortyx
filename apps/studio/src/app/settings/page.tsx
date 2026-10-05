@@ -12,7 +12,7 @@ import {
   Server,
   ShieldCheck,
 } from "lucide-react";
-import { notFound, redirect } from "next/navigation";
+import { notFound } from "next/navigation";
 import {
   DefinitionRow,
   SettingsCard,
@@ -24,6 +24,7 @@ import {
 import { StudioUpdates } from "@/components/studio-updates";
 import { ThemePreferenceControl } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
+import { scopedRedirect } from "@/lib/scoped-redirect";
 import { getStudioShellContext } from "@/lib/studio-context";
 import type {
   StudioConnectionStatus,
@@ -176,7 +177,7 @@ export default async function SettingsPage({
     searchParams ?? Promise.resolve({ section: undefined }),
   ]);
   if (!section && query.section && /^[a-z-]+$/.test(query.section))
-    redirect(`/settings/${query.section}`);
+    await scopedRedirect(`/settings/${query.section}`);
   const context = await getStudioShellContext();
   const settings = await studioSettings.resolve(context);
   const available = [
