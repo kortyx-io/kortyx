@@ -6,7 +6,9 @@ export function createStudioConfig(
   studioDirectory = process.cwd(),
   tsconfigPath = process.env.KORTYX_STUDIO_TSCONFIG,
 ): NextConfig {
-  if (!tsconfigPath) return {};
+  // Live authorization must not reuse provider responses across development HMR.
+  const experimental = { serverComponentsHmrCache: false };
+  if (!tsconfigPath) return { experimental };
   const workspace = realpathSync(resolve(studioDirectory, "../.."));
   const configFile = realpathSync(resolve(studioDirectory, tsconfigPath));
   if (
@@ -18,6 +20,7 @@ export function createStudioConfig(
     );
   }
   return {
+    experimental,
     // Next and tsc use the same native paths mappings. No second bundler alias.
     typescript: {
       tsconfigPath: relative(studioDirectory, configFile).split(sep).join("/"),
