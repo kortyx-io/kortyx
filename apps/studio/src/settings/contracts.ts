@@ -3,6 +3,9 @@ import type { StudioShellContext } from "../lib/studio-context-model";
 
 /** Server-rendered contributions to the existing Settings page, not replacement pages. */
 export interface StudioSettingsContribution {
+  /** Setup is UI state only; it never grants API access. */
+  setupRequired?: boolean;
+  onboarding?: ReactNode;
   label?: string;
   description?: string;
   /** Undefined retains the OSS card; null explicitly omits it. */
