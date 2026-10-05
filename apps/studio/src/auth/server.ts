@@ -11,11 +11,40 @@ import {
 } from "../shell/operator-scopes";
 import type { StudioAuthAdapter } from "./contracts";
 
+async function initializeOperatorScope(request: Request) {
+  const url = new URL(request.url);
+  if (
+    request.method !== "GET" ||
+    url.pathname.startsWith("/auth/") ||
+    url.pathname.startsWith("/api/") ||
+    !request.headers.get("accept")?.includes("text/html")
+  )
+    return null;
+  const scope = await getOperatorScopes();
+  const jar = await cookies();
+  if (
+    !scope?.environment ||
+    (jar.get(OPERATOR_ENVIRONMENT_COOKIE)?.value === scope.environment &&
+      jar.get(OPERATOR_PROJECT_COOKIE)?.value === scope.selected.id)
+  )
+    return null;
+  const response = NextResponse.redirect(url);
+  const options = {
+    httpOnly: true,
+    sameSite: "strict" as const,
+    secure: url.protocol === "https:",
+    path: "/",
+  };
+  response.cookies.set(OPERATOR_ENVIRONMENT_COOKIE, scope.environment, options);
+  response.cookies.set(OPERATOR_PROJECT_COOKIE, scope.selected.id, options);
+  return response;
+}
+
 /** Default OSS auth adapter. A selected tsconfig replaces this module, not the app. */
 export const studioAuth: StudioAuthAdapter = {
   async authorize(request) {
     const config = getStudioAuthConfig();
-    if (config.mode === "none") return null;
+    if (config.mode === "none") return initializeOperatorScope(request);
     if (config.mode === "cloud") {
       return new Response(
         "Cloud Studio auth mode is not available in this build.",
@@ -38,41 +67,7 @@ export const studioAuth: StudioAuthAdapter = {
     if (
       constantTimeEqual(expected, request.headers.get("authorization") ?? "")
     ) {
-      const url = new URL(request.url);
-      if (
-        request.method === "GET" &&
-        !url.pathname.startsWith("/auth/") &&
-        !url.pathname.startsWith("/api/") &&
-        request.headers.get("accept")?.includes("text/html")
-      ) {
-        const scope = await getOperatorScopes();
-        const jar = await cookies();
-        if (
-          scope?.environment &&
-          (jar.get(OPERATOR_ENVIRONMENT_COOKIE)?.value !== scope.environment ||
-            jar.get(OPERATOR_PROJECT_COOKIE)?.value !== scope.selected.id)
-        ) {
-          const response = NextResponse.redirect(url);
-          const options = {
-            httpOnly: true,
-            sameSite: "strict" as const,
-            secure: url.protocol === "https:",
-            path: "/",
-          };
-          response.cookies.set(
-            OPERATOR_ENVIRONMENT_COOKIE,
-            scope.environment,
-            options,
-          );
-          response.cookies.set(
-            OPERATOR_PROJECT_COOKIE,
-            scope.selected.id,
-            options,
-          );
-          return response;
-        }
-      }
-      return null;
+      return initializeOperatorScope(request);
     }
     return new Response("Authentication required.", {
       status: 401,
@@ -109,7 +104,9 @@ export const studioAuth: StudioAuthAdapter = {
         request.headers.get("content-type") !== "application/json"
       )
         return Response.json({ error: "Request denied." }, { status: 403 });
-      const body = await request.json();
+      const body = await request.json().catch(() => null);
+      if (!body || typeof body !== "object")
+        return Response.json({ error: "Invalid request." }, { status: 400 });
       const scope = await getOperatorScopes();
       const valid =
         scope &&

@@ -116,7 +116,12 @@ export async function requestEvalCancellation(
           eq(evalRuns.status, "queued"),
         ),
       );
-    await notifyStudioChange(tx, { ...scope, resources: ["evals"] });
+    await notifyStudioChange(tx, {
+      organizationId: scope.organizationId,
+      projectId: scope.projectId,
+      ...(scope.environment ? { environment: scope.environment } : {}),
+      resources: ["evals"],
+    });
   });
 }
 export async function claimEvalRun(
