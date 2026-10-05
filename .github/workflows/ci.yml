@@ -110,13 +110,11 @@ jobs:
           file: ${{ matrix.dockerfile }}
           load: true
           push: false
-          # RUN apt-get/apk updates do not invalidate a cached layer. Refresh
-          # OS packages for each scan while retaining application build caches.
+          # Scan a fresh complete image: downstream stage caches can otherwise
+          # restore an old OS package inventory even after rerunning base updates.
           pull: true
-          no-cache-filters: base
+          no-cache: true
           tags: kortyx-${{ matrix.image }}:security-scan
-          cache-from: type=gha,scope=security-${{ matrix.image }}
-          cache-to: type=gha,mode=max,scope=security-${{ matrix.image }}
       - name: Scan image
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
