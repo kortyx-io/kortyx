@@ -16,7 +16,13 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Children, isValidElement, type ReactNode } from "react";
+import {
+  Children,
+  isValidElement,
+  type ReactNode,
+  useEffect,
+  useState,
+} from "react";
 import { cn } from "@/lib/utils";
 
 export interface SettingsPanelProps {
@@ -30,6 +36,8 @@ export function SettingsPanel({ children }: SettingsPanelProps) {
 }
 
 export function SettingsNavigation({ children }: { children: ReactNode }) {
+  const [hydrated, setHydrated] = useState(false);
+  useEffect(() => setHydrated(true), []);
   const selected = usePathname().split("/")[2] ?? "general";
   const panels = Children.toArray(children).filter((child) =>
     isValidElement<SettingsPanelProps>(child),
@@ -99,7 +107,13 @@ export function SettingsNavigation({ children }: { children: ReactNode }) {
         aria-label={active?.props.label}
         className="min-w-0 space-y-8 overflow-y-auto p-5 md:p-8"
       >
-        {active}
+        <fieldset
+          className="contents"
+          disabled={!hydrated}
+          data-settings-hydrated={hydrated}
+        >
+          {active}
+        </fieldset>
       </section>
     </div>
   );

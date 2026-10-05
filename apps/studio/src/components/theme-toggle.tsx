@@ -46,7 +46,11 @@ function applyTheme(theme: ThemePreference) {
   root.dataset.themeResolved = dark ? "dark" : "light";
   writeThemeCookie(THEME_PREFERENCE_COOKIE, theme);
   writeThemeCookie(THEME_RESOLVED_COOKIE, dark ? "dark" : "light");
-  localStorage.removeItem("theme");
+  try {
+    localStorage.removeItem("theme");
+  } catch {
+    /* Cookies remain the source of truth when storage is blocked. */
+  }
 }
 
 const ThemeContext = createContext<ThemeContextValue | null>(null);
@@ -63,7 +67,12 @@ export function ThemeProvider({
   useLayoutEffect(() => {
     // Cookies drive SSR. Resolve a first-visit OS preference and migrate the
     // old localStorage value through React, without rendering a script element.
-    const legacy = localStorage.getItem("theme");
+    let legacy: string | null = null;
+    try {
+      legacy = localStorage.getItem("theme");
+    } catch {
+      /* Storage may be blocked. */
+    }
     const hasPreference = document.cookie
       .split("; ")
       .some((cookie) => cookie.startsWith(`${THEME_PREFERENCE_COOKIE}=`));

@@ -132,7 +132,17 @@ async function customerRows(sql: postgres.Sql, prefix: number) {
       // OIDs prove adoption did not drop/recreate already-deployed tables.
       oid: (await sql`SELECT to_regclass(${`public.${table}`})::oid AS oid`)[0]
         ?.oid,
-      rows: [...(await sql.unsafe(`SELECT * FROM "${table}" ORDER BY id`))],
+      rows: [...(await sql.unsafe(`SELECT * FROM "${table}" ORDER BY id`))].map(
+        (row) => {
+          // A later native migration may add nullable columns; compare the
+          // original legacy data rather than treating additive schema as data loss.
+          if (table === "api_keys" && prefix <= 6) {
+            const { environment_id: _newColumn, ...legacy } = row;
+            return legacy;
+          }
+          return row;
+        },
+      ),
     })),
   );
 }

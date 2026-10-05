@@ -126,6 +126,7 @@ export const apiSecurity =
         fresh.organizationId !== principal.organizationId ||
         fresh.projectId !== principal.projectId ||
         fresh.environmentId !== principal.environmentId ||
+        fresh.environment !== principal.environment ||
         (await options.authorization.allows(fresh, options.action)) !== true
       ) {
         throw new TelemetryForbiddenError(
