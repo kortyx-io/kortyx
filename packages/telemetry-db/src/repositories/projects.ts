@@ -2,6 +2,7 @@ import { and, asc, eq, isNull } from "drizzle-orm";
 import type { TelemetryDb } from "../client";
 import { TelemetryForbiddenError, TelemetryNotFoundError } from "../errors";
 import { organizations, projectEnvironments, projects } from "../schema";
+import { hasProjectTelemetryScope } from "../scope-policy";
 
 export type StudioProjectContext = {
   organizationName: string;
@@ -55,6 +56,22 @@ export const ensureProjectEnvironmentAllowed = async (
   db: TelemetryDb,
   input: { organizationId: string; projectId: string; environment: string },
 ): Promise<void> => {
+  if (hasProjectTelemetryScope(db)) {
+    // Labels remain historical telemetry metadata. Project is the isolation
+    // unit; the edition's native transaction and RLS still authorize access.
+    const [project] = await db
+      .select({ id: projects.id })
+      .from(projects)
+      .where(
+        and(
+          eq(projects.organizationId, input.organizationId),
+          eq(projects.id, input.projectId),
+        ),
+      )
+      .limit(1);
+    if (!project) throw new TelemetryForbiddenError("Project unavailable.");
+    return;
+  }
   const [environment] = await db
     .select({ id: projectEnvironments.id })
     .from(projectEnvironments)

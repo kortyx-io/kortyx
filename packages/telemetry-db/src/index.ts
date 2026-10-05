@@ -88,3 +88,4 @@ export {
   findWorkflowRevisionByTopology,
   findWorkflowRevisionForProject,
 } from "./repositories/workflow-revisions";
+export { withProjectTelemetryScope } from "./scope-policy";
