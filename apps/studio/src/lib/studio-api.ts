@@ -79,6 +79,9 @@ const fetchJson = async <T>(
     const response = await fetch(endpoint(path), {
       headers: {
         authorization: credential.authorization,
+        ...(credential.projectId
+          ? { "x-kortyx-project-id": credential.projectId }
+          : {}),
         accept: "application/json",
         "x-kortyx-studio-api-version": STUDIO_API_PROTOCOL_VERSION,
       },

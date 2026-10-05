@@ -14,6 +14,18 @@ vi.mock("@/components/studio-updates", () => ({
 vi.mock("@/components/theme-toggle", () => ({
   ThemePreferenceControl: () => <div>Theme preference</div>,
 }));
+vi.mock("@/components/settings/settings-navigation", () => ({
+  SettingsNavigation: ({ children }: { children: React.ReactNode }) => (
+    <div>{children}</div>
+  ),
+  SettingsPanel: ({
+    children,
+    label,
+  }: {
+    children: React.ReactNode;
+    label: string;
+  }) => <section aria-label={label}>{children}</section>,
+}));
 const context = buildStudioShellContext({
   authMode: "none",
   studioVersion: "test",

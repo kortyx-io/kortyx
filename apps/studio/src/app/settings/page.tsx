@@ -16,6 +16,10 @@ import {
   DefinitionRow,
   SettingsCard,
 } from "@/components/settings/settings-card";
+import {
+  SettingsNavigation,
+  SettingsPanel,
+} from "@/components/settings/settings-navigation";
 import { StudioUpdates } from "@/components/studio-updates";
 import { ThemePreferenceControl } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
@@ -179,121 +183,148 @@ export default async function SettingsPage() {
         </p>
       </header>
 
-      <div className="grid gap-4 p-4 sm:p-6 xl:grid-cols-2">
-        {settings.onboarding}
-        {settings.updates === undefined ? (
-          <StudioUpdates installedVersion={context.identity.version} />
-        ) : (
-          settings.updates
+      {settings.onboarding && (
+        <div className="p-4 pb-0 sm:p-6 sm:pb-0">{settings.onboarding}</div>
+      )}
+      <SettingsNavigation>
+        <SettingsPanel id="general" label="General">
+          {settings.scope === undefined ? (
+            <ScopeCard context={context} />
+          ) : (
+            settings.scope
+          )}
+        </SettingsPanel>
+        <SettingsPanel id="connection" label="Connection">
+          {settings.connection === undefined ? (
+            <ConnectionCard context={context} />
+          ) : (
+            settings.connection
+          )}
+        </SettingsPanel>
+        <SettingsPanel id="access" label="Access">
+          {settings.access === undefined ? (
+            <SettingsCard
+              icon={ShieldCheck}
+              title="Access"
+              description="Human access to this Studio instance is separate from its telemetry API key."
+            >
+              <dl>
+                <DefinitionRow
+                  label="Studio mode"
+                  value={context.identity.name}
+                />
+                <DefinitionRow
+                  label="Authentication"
+                  value={context.identity.access}
+                />
+              </dl>
+              <p className="mt-4 rounded-lg border bg-muted/30 p-3 text-xs leading-5 text-muted-foreground">
+                HTTP Basic Auth is managed by the browser and reverse proxy.
+                Studio does not present a fake account or logout action. Clear
+                the browser’s site credentials to end a Basic Auth session.
+              </p>
+            </SettingsCard>
+          ) : (
+            settings.access
+          )}
+        </SettingsPanel>
+        {settings.sections && (
+          <SettingsPanel id="api-keys" label="API keys">
+            {settings.sections}
+          </SettingsPanel>
         )}
-        {settings.scope === undefined ? (
-          <ScopeCard context={context} />
-        ) : (
-          settings.scope
-        )}
-        {settings.connection === undefined ? (
-          <ConnectionCard context={context} />
-        ) : (
-          settings.connection
-        )}
-
-        {settings.access === undefined ? (
-          <SettingsCard
-            icon={ShieldCheck}
-            title="Access"
-            description="Human access to this Studio instance is separate from its telemetry API key."
+        {settings.categories?.map((category) => (
+          <SettingsPanel
+            key={category.id}
+            id={category.id}
+            label={category.label}
           >
-            <dl>
-              <DefinitionRow
-                label="Studio mode"
-                value={context.identity.name}
-              />
-              <DefinitionRow
-                label="Authentication"
-                value={context.identity.access}
-              />
-            </dl>
-            <p className="mt-4 rounded-lg border bg-muted/30 p-3 text-xs leading-5 text-muted-foreground">
-              HTTP Basic Auth is managed by the browser and reverse proxy.
-              Studio does not present a fake account or logout action. Clear the
-              browser’s site credentials to end a Basic Auth session.
-            </p>
+            {category.content}
+          </SettingsPanel>
+        ))}
+        <SettingsPanel id="privacy" label="Telemetry & privacy">
+          <SettingsCard
+            icon={KeyRound}
+            title="Telemetry & privacy"
+            description="Payload capture is decided by the producing Kortyx SDK, not enabled from Studio."
+          >
+            <div className="space-y-3 text-sm leading-6">
+              <div className="rounded-lg border bg-muted/30 p-3">
+                <p className="font-medium">Structural telemetry is available</p>
+                <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                  Run, span, workflow, timing, usage, and interrupt structure
+                  can be observed without prompt or response content.
+                </p>
+              </div>
+              <div className="rounded-lg border bg-muted/30 p-3">
+                <p className="font-medium">Content is excluded by default</p>
+                <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                  Prompt and output content is captured only when the producer
+                  explicitly opts in. Studio never turns content capture on.
+                </p>
+              </div>
+            </div>
           </SettingsCard>
-        ) : (
-          settings.access
-        )}
-        {settings.sections}
-
-        <SettingsCard
-          icon={KeyRound}
-          title="Telemetry & privacy"
-          description="Payload capture is decided by the producing Kortyx SDK, not enabled from Studio."
-        >
-          <div className="space-y-3 text-sm leading-6">
-            <div className="rounded-lg border bg-muted/30 p-3">
-              <p className="font-medium">Structural telemetry is available</p>
-              <p className="mt-1 text-xs leading-5 text-muted-foreground">
-                Run, span, workflow, timing, usage, and interrupt structure can
-                be observed without prompt or response content.
-              </p>
-            </div>
-            <div className="rounded-lg border bg-muted/30 p-3">
-              <p className="font-medium">Content is excluded by default</p>
-              <p className="mt-1 text-xs leading-5 text-muted-foreground">
-                Prompt and output content is captured only when the producer
-                explicitly opts in. Studio never turns content capture on.
-              </p>
-            </div>
-          </div>
-        </SettingsCard>
-
-        <SettingsCard
-          icon={Palette}
-          title="Appearance"
-          description="Theme changes persist in cookies and are applied by the server on the next load."
-          className="xl:col-span-2"
-        >
-          <ThemePreferenceControl />
-          <div className="mt-5 flex items-start gap-3 rounded-lg border bg-muted/30 p-3">
-            <Clock3
-              className="mt-0.5 size-4 shrink-0 text-muted-foreground"
-              aria-hidden="true"
-            />
-            <div>
-              <p className="text-sm font-medium">UTC timestamps</p>
-              <p className="mt-1 text-xs leading-5 text-muted-foreground">
-                Studio renders telemetry timestamps and custom-range day
-                boundaries in UTC so shared investigations stay reproducible.
-              </p>
-            </div>
-          </div>
-        </SettingsCard>
-
-        <SettingsCard
-          icon={Server}
-          title="About"
-          description="Build and source information for this Studio instance."
-          className="xl:col-span-2"
-        >
-          <div className="grid items-end gap-4 md:grid-cols-[1fr_auto]">
-            <dl>
-              <DefinitionRow
-                label="Studio version"
-                value={`v${context.identity.version}`}
-                mono
+        </SettingsPanel>
+        <SettingsPanel id="appearance" label="Appearance">
+          <SettingsCard
+            icon={Palette}
+            title="Appearance"
+            description="Theme changes persist in cookies and are applied by the server on the next load."
+            className="xl:col-span-2"
+          >
+            <ThemePreferenceControl />
+            <div className="mt-5 flex items-start gap-3 rounded-lg border bg-muted/30 p-3">
+              <Clock3
+                className="mt-0.5 size-4 shrink-0 text-muted-foreground"
+                aria-hidden="true"
               />
-              <DefinitionRow label="License" value="Elastic License 2.0" />
-            </dl>
-            <Button variant="outline" asChild>
-              <a href="https://kortyx.io/docs" target="_blank" rel="noreferrer">
-                <BookOpen />
-                Documentation
-                <ExternalLink className="size-3.5" />
-              </a>
-            </Button>
-          </div>
-        </SettingsCard>
-      </div>
+              <div>
+                <p className="text-sm font-medium">UTC timestamps</p>
+                <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                  Studio renders telemetry timestamps and custom-range day
+                  boundaries in UTC so shared investigations stay reproducible.
+                </p>
+              </div>
+            </div>
+          </SettingsCard>
+        </SettingsPanel>
+        <SettingsPanel id="about" label="About">
+          {settings.updates === undefined ? (
+            <StudioUpdates installedVersion={context.identity.version} />
+          ) : (
+            settings.updates
+          )}
+          <SettingsCard
+            icon={Server}
+            title="About"
+            description="Build and source information for this Studio instance."
+            className="xl:col-span-2"
+          >
+            <div className="grid items-end gap-4 md:grid-cols-[1fr_auto]">
+              <dl>
+                <DefinitionRow
+                  label="Studio version"
+                  value={`v${context.identity.version}`}
+                  mono
+                />
+                <DefinitionRow label="License" value="Elastic License 2.0" />
+              </dl>
+              <Button variant="outline" asChild>
+                <a
+                  href="https://kortyx.io/docs"
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  <BookOpen />
+                  Documentation
+                  <ExternalLink className="size-3.5" />
+                </a>
+              </Button>
+            </div>
+          </SettingsCard>
+        </SettingsPanel>
+      </SettingsNavigation>
     </div>
   );
 }

@@ -14,6 +14,8 @@ export interface StudioSettingsContribution {
   connection?: ReactNode;
   access?: ReactNode;
   sections?: ReactNode;
+  /** Edition-specific categories in the shared Settings navigation. */
+  categories?: Array<{ id: string; label: string; content: ReactNode }>;
 }
 
 export interface StudioSettingsAdapter {

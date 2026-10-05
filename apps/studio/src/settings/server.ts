@@ -2,6 +2,10 @@ import "server-only";
 import { cookies } from "next/headers";
 import { createElement } from "react";
 import type { StudioSettingsAdapter } from "./contracts";
+import {
+  OperatorEvaluationSettings,
+  OperatorKeySettings,
+} from "./operator-settings";
 import { LocalStudioSetup } from "./setup";
 import { LOCAL_SETUP_COOKIE } from "./setup-state";
 
@@ -11,6 +15,18 @@ export const studioSettings: StudioSettingsAdapter = {
     const setupRequired =
       (await cookies()).get(LOCAL_SETUP_COOKIE)?.value !== "1";
     return {
+      categories: [
+        {
+          id: "api-keys",
+          label: "API keys",
+          content: createElement(OperatorKeySettings),
+        },
+        {
+          id: "evaluations",
+          label: "Evaluations",
+          content: createElement(OperatorEvaluationSettings),
+        },
+      ],
       setupRequired,
       onboarding: setupRequired
         ? createElement(LocalStudioSetup, {

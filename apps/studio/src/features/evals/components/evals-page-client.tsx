@@ -527,37 +527,43 @@ export function EvalsPageClient({
       ) : null}
     </div>
   );
-  const empty = (
-    <div className="flex min-h-72 flex-col items-center justify-center p-8 text-center">
-      <FlaskConical className="mb-3 size-7 text-muted-foreground" />
-      <h2 className="font-medium">
-        {filtered
-          ? "No evals match these filters"
-          : view === "runs"
-            ? "No eval runs yet"
-            : "No suites available"}
-      </h2>
-      <p className="mt-1 max-w-sm text-sm text-muted-foreground">
-        {filtered
-          ? "Change your search or clear the filters."
-          : view === "runs"
-            ? "Run a conversation suite to record outcomes and grading evidence."
-            : targets.targets.length
-              ? "Reconnect the application and refresh to discover its registered suites."
-              : "Connect an application eval endpoint in your Studio API configuration."}
-      </p>
-      {filtered ? (
-        <Button
-          variant="outline"
-          size="sm"
-          className="mt-4"
-          onClick={clearFilters}
-        >
-          Clear filters
-        </Button>
-      ) : null}
-    </div>
-  );
+  const empty =
+    !error &&
+    !filtered &&
+    targets.targets.length === 0 &&
+    history.runs.length === 0 ? (
+      <FirstObservation resource="evals" />
+    ) : (
+      <div className="flex min-h-72 flex-col items-center justify-center p-8 text-center">
+        <FlaskConical className="mb-3 size-7 text-muted-foreground" />
+        <h2 className="font-medium">
+          {filtered
+            ? "No evals match these filters"
+            : view === "runs"
+              ? "No eval runs yet"
+              : "No suites available"}
+        </h2>
+        <p className="mt-1 max-w-sm text-sm text-muted-foreground">
+          {filtered
+            ? "Change your search or clear the filters."
+            : view === "runs"
+              ? "Run a conversation suite to record outcomes and grading evidence."
+              : targets.targets.length
+                ? "Reconnect the application and refresh to discover its registered suites."
+                : "Connect an application eval endpoint in your Studio API configuration."}
+        </p>
+        {filtered ? (
+          <Button
+            variant="outline"
+            size="sm"
+            className="mt-4"
+            onClick={clearFilters}
+          >
+            Clear filters
+          </Button>
+        ) : null}
+      </div>
+    );
   const pageSize = [10, 20, 50, 100].includes(query.pageSize)
     ? query.pageSize
     : 20;
@@ -642,3 +648,5 @@ export function EvalsPageClient({
     </div>
   );
 }
+
+import { FirstObservation } from "@/features/telemetry/components/first-observation";

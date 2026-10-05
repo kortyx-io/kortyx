@@ -36,6 +36,13 @@ export default async function SessionsPage({
     );
   }
 
+  if (
+    !sessionsResult.data.totalCount &&
+    isFirstUseQuery(query) &&
+    (await hasNoObservations("sessions", query.env))
+  )
+    return <FirstObservation resource="sessions" />;
+
   return (
     <SessionsPageClient
       sessions={sessionsResult.data.items}
@@ -45,3 +52,9 @@ export default async function SessionsPage({
     />
   );
 }
+
+import { FirstObservation } from "@/features/telemetry/components/first-observation";
+import {
+  hasNoObservations,
+  isFirstUseQuery,
+} from "@/features/telemetry/first-use";
