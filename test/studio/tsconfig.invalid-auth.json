@@ -4,7 +4,11 @@
     "paths": {
       "@/*": ["../../apps/studio/src/*"],
       "@studio/auth": ["./auth-invalid.ts"],
-      "@studio/auth-contracts": ["../../apps/studio/src/auth/contracts.ts"]
+      "@studio/auth-contracts": ["../../apps/studio/src/auth/contracts.ts"],
+      "@studio/settings": ["../../apps/studio/src/settings/server.ts"],
+      "@studio/settings-contracts": [
+        "../../apps/studio/src/settings/contracts.ts"
+      ]
     }
   }
 }

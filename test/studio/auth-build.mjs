@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { randomUUID } from "node:crypto";
-import { rmSync, writeFileSync } from "node:fs";
+import { readFileSync, rmSync, writeFileSync } from "node:fs";
 import { createServer } from "node:http";
 import { createRequire } from "node:module";
 import { join } from "node:path";
@@ -21,7 +21,8 @@ writeFileSync(
     extends: "./tsconfig.json",
     compilerOptions: {
       paths: {
-        "@/*": ["./src/*"],
+        ...JSON.parse(readFileSync(join(studio, "tsconfig.json"), "utf8"))
+          .compilerOptions.paths,
         "@studio/auth": ["../../test/studio/auth-fixture.ts"],
         "@studio/auth-contracts": ["./src/auth/contracts.ts"],
       },
