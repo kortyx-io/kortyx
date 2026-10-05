@@ -39,12 +39,12 @@
     "type-check": "tsc --noEmit -p tsconfig.test.json"
   },
   "peerDependencies": {
-    "aws-cdk-lib": "^2.269.0",
+    "aws-cdk-lib": "^2.272.0",
     "constructs": "^10.5.0"
   },
   "devDependencies": {
     "@vitest/coverage-v8": "catalog:",
-    "aws-cdk-lib": "^2.269.0",
+    "aws-cdk-lib": "^2.272.0",
     "constructs": "^10.5.0",
     "tsup": "catalog:",
     "turbo": "catalog:",
