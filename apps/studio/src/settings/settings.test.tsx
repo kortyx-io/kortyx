@@ -60,6 +60,8 @@ it("keeps OSS settings in a flat section layout without an overall header", asyn
   expect(html).toContain(
     'class="h-full overflow-hidden rounded-xl border bg-background shadow-sm"',
   );
+  expect(html).toContain('href="https://kortyx.io/docs"');
+  expect(html).not.toContain("md:grid-cols-[1fr_auto]");
 });
 it("contributes to the same page without losing shared cards", async () => {
   resolve.mockResolvedValue({

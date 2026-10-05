@@ -318,7 +318,7 @@ export default async function SettingsPage({
             description="Build and source information for this Studio instance."
             className="xl:col-span-2"
           >
-            <div className="grid items-end gap-4 md:grid-cols-[1fr_auto]">
+            <div className="space-y-5">
               <dl>
                 <DefinitionRow
                   label="Studio version"
@@ -327,17 +327,19 @@ export default async function SettingsPage({
                 />
                 <DefinitionRow label="License" value="Elastic License 2.0" />
               </dl>
-              <Button variant="outline" asChild>
-                <a
-                  href="https://kortyx.io/docs"
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  <BookOpen />
-                  Documentation
-                  <ExternalLink className="size-3.5" />
-                </a>
-              </Button>
+              <div>
+                <Button variant="outline" asChild>
+                  <a
+                    href="https://kortyx.io/docs"
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    <BookOpen />
+                    Documentation
+                    <ExternalLink className="size-3.5" />
+                  </a>
+                </Button>
+              </div>
             </div>
           </SettingsCard>
         </SettingsPanel>
