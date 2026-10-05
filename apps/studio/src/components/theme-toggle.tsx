@@ -6,6 +6,7 @@ import {
   type ReactNode,
   useContext,
   useEffect,
+  useLayoutEffect,
   useState,
 } from "react";
 import {
@@ -59,16 +60,20 @@ export function ThemeProvider({
 }) {
   const [theme, setThemeState] = useState(initialTheme);
 
-  useEffect(() => {
-    const bootstrappedTheme = document.documentElement.dataset.themePreference;
-    if (
-      bootstrappedTheme === "light" ||
-      bootstrappedTheme === "dark" ||
-      bootstrappedTheme === "system"
-    ) {
-      setThemeState(bootstrappedTheme);
-    }
-  }, []);
+  useLayoutEffect(() => {
+    // Cookies drive SSR. Resolve a first-visit OS preference and migrate the
+    // old localStorage value through React, without rendering a script element.
+    const legacy = localStorage.getItem("theme");
+    const hasPreference = document.cookie
+      .split("; ")
+      .some((cookie) => cookie.startsWith(`${THEME_PREFERENCE_COOKIE}=`));
+    const next =
+      !hasPreference && (legacy === "light" || legacy === "dark")
+        ? legacy
+        : initialTheme;
+    setThemeState(next);
+    applyTheme(next);
+  }, [initialTheme]);
 
   useEffect(() => {
     if (theme !== "system") return;

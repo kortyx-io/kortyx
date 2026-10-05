@@ -561,6 +561,7 @@ export const StudioChangeSchema = z
     emittedAt: z.string().datetime({ offset: true }),
     organizationId: z.string().min(1),
     projectId: z.string().min(1),
+    environment: z.string().min(1).optional(),
     resources: z.array(StudioChangeResourceSchema).min(1),
   })
   .strict();

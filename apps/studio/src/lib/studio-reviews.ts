@@ -60,8 +60,14 @@ export async function studioReviewRequest(
         method: request.method,
         headers: {
           authorization: credential.authorization,
+          ...(credential.environment
+            ? { "x-kortyx-environment": credential.environment }
+            : {}),
           ...(credential.projectId
             ? { "x-kortyx-project-id": credential.projectId }
+            : {}),
+          ...(credential.environmentId
+            ? { "x-kortyx-environment-id": credential.environmentId }
             : {}),
           "content-type": "application/json",
         },

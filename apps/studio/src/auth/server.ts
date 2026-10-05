@@ -1,6 +1,14 @@
 import "server-only";
+import { cookies } from "next/headers";
+import { NextResponse } from "next/server";
 import { constantTimeEqual } from "../lib/constant-time-equal";
 import { getStudioAuthConfig } from "../lib/studio-auth";
+import {
+  getOperatorScopes,
+  OPERATOR_ENVIRONMENT_COOKIE,
+  OPERATOR_PROJECT_COOKIE,
+  operatorKeys,
+} from "../shell/operator-scopes";
 import type { StudioAuthAdapter } from "./contracts";
 
 /** Default OSS auth adapter. A selected tsconfig replaces this module, not the app. */
@@ -27,8 +35,45 @@ export const studioAuth: StudioAuthAdapter = {
       );
     }
     const expected = `Basic ${Buffer.from(`${config.username}:${config.password}`).toString("base64")}`;
-    if (constantTimeEqual(expected, request.headers.get("authorization") ?? ""))
+    if (
+      constantTimeEqual(expected, request.headers.get("authorization") ?? "")
+    ) {
+      const url = new URL(request.url);
+      if (
+        request.method === "GET" &&
+        !url.pathname.startsWith("/auth/") &&
+        !url.pathname.startsWith("/api/") &&
+        request.headers.get("accept")?.includes("text/html")
+      ) {
+        const scope = await getOperatorScopes();
+        const jar = await cookies();
+        if (
+          scope?.environment &&
+          (jar.get(OPERATOR_ENVIRONMENT_COOKIE)?.value !== scope.environment ||
+            jar.get(OPERATOR_PROJECT_COOKIE)?.value !== scope.selected.id)
+        ) {
+          const response = NextResponse.redirect(url);
+          const options = {
+            httpOnly: true,
+            sameSite: "strict" as const,
+            secure: url.protocol === "https:",
+            path: "/",
+          };
+          response.cookies.set(
+            OPERATOR_ENVIRONMENT_COOKIE,
+            scope.environment,
+            options,
+          );
+          response.cookies.set(
+            OPERATOR_PROJECT_COOKIE,
+            scope.selected.id,
+            options,
+          );
+          return response;
+        }
+      }
       return null;
+    }
     return new Response("Authentication required.", {
       status: 401,
       headers: {
@@ -40,10 +85,58 @@ export const studioAuth: StudioAuthAdapter = {
     const config = getStudioAuthConfig();
     // Never fall back to a shared API key when the Cloud auth adapter is missing.
     if (config.mode === "cloud" || config.mode === "invalid") return null;
-    const key = process.env.KORTYX_STUDIO_API_KEY;
-    return key ? { authorization: `Bearer ${key}` } : null;
+    const keys = operatorKeys();
+    if (!keys.length) return null;
+    const jar = await cookies();
+    const index = jar.get(OPERATOR_PROJECT_COOKIE)?.value ?? "0";
+    const key = keys[Number(index)] ?? keys[0];
+    if (!key) return null;
+    const environment =
+      jar.get(OPERATOR_ENVIRONMENT_COOKIE)?.value ??
+      process.env.KORTYX_STUDIO_ENVIRONMENT;
+    return {
+      authorization: `Bearer ${key}`,
+      ...(environment ? { environment } : {}),
+    };
   },
-  async handleAuthRequest() {
+  async handleAuthRequest(request) {
+    if (
+      new URL(request.url).pathname === "/auth/operator-scope" &&
+      request.method === "POST"
+    ) {
+      if (
+        request.headers.get("origin") !== new URL(request.url).origin ||
+        request.headers.get("content-type") !== "application/json"
+      )
+        return Response.json({ error: "Request denied." }, { status: 403 });
+      const body = await request.json();
+      const scope = await getOperatorScopes();
+      const valid =
+        scope &&
+        typeof body.value === "string" &&
+        (body.kind === "project"
+          ? scope.scopes.some((row) => row.id === body.value)
+          : body.kind === "environment" &&
+            scope.selected.context.environments.includes(body.value));
+      if (!valid)
+        return Response.json({ error: "Scope unavailable." }, { status: 403 });
+      const response = NextResponse.json({ ok: true });
+      response.cookies.set(
+        body.kind === "project"
+          ? OPERATOR_PROJECT_COOKIE
+          : OPERATOR_ENVIRONMENT_COOKIE,
+        body.value,
+        {
+          httpOnly: true,
+          sameSite: "strict",
+          secure: new URL(request.url).protocol === "https:",
+          path: "/",
+        },
+      );
+      if (body.kind === "project")
+        response.cookies.delete(OPERATOR_ENVIRONMENT_COOKIE);
+      return response;
+    }
     return Response.json({ error: "Not found." }, { status: 404 });
   },
 };

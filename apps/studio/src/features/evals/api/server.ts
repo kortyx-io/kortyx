@@ -16,6 +16,12 @@ async function read<T>(path: string, schema: z.ZodType<T>): Promise<T> {
     {
       headers: {
         authorization: credential.authorization,
+        ...(credential.environment
+          ? { "x-kortyx-environment": credential.environment }
+          : {}),
+        ...(credential.environmentId
+          ? { "x-kortyx-environment-id": credential.environmentId }
+          : {}),
         ...(credential.projectId
           ? { "x-kortyx-project-id": credential.projectId }
           : {}),

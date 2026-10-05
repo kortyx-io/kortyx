@@ -37,10 +37,9 @@ export async function SidebarLayout({
               className="mr-2 h-6! self-center"
             />
             <WorkspaceNavigation
-              project={studioContext.scope.project}
-              environments={studioContext.scope.telemetryEnvironments}
               projectSwitcher={shell.projectSwitcher}
               organizationSwitcher={shell.organizationSwitcher}
+              environmentSwitcher={shell.environmentSwitcher}
             />
           </header>
           <main className="min-h-0 flex-1 overflow-hidden pr-4 pb-4">

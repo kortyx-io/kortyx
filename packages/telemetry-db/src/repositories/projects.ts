@@ -1,4 +1,4 @@
-import { and, asc, eq } from "drizzle-orm";
+import { and, asc, eq, isNull } from "drizzle-orm";
 import type { TelemetryDb } from "../client";
 import { TelemetryForbiddenError, TelemetryNotFoundError } from "../errors";
 import { organizations, projectEnvironments, projects } from "../schema";
@@ -40,6 +40,7 @@ export const getStudioProjectContext = async (
       and(
         eq(projectEnvironments.organizationId, input.organizationId),
         eq(projectEnvironments.projectId, input.projectId),
+        isNull(projectEnvironments.archivedAt),
       ),
     )
     .orderBy(asc(projectEnvironments.name));
@@ -62,6 +63,7 @@ export const ensureProjectEnvironmentAllowed = async (
         eq(projectEnvironments.organizationId, input.organizationId),
         eq(projectEnvironments.projectId, input.projectId),
         eq(projectEnvironments.name, input.environment),
+        isNull(projectEnvironments.archivedAt),
       ),
     )
     .limit(1);

@@ -1,4 +1,3 @@
-import Script from "next/script";
 import { expect, it, vi } from "vitest";
 
 vi.mock("next/font/google", () => ({
@@ -17,7 +16,7 @@ vi.mock("@/components/detail/detail-drawer", () => ({
 vi.mock("@/components/detail/detail-slot-presence", () => ({
   DetailSlotPresence: () => null,
 }));
-it("loads the theme bootstrap with the native beforeInteractive script strategy", async () => {
+it("renders saved theme state without a theme script element", async () => {
   const { default: RootLayout } = await import("./layout");
   const root = await RootLayout({
     children: null,
@@ -27,17 +26,6 @@ it("loads the theme bootstrap with the native beforeInteractive script strategy"
     evalCaseDrawer: null,
     evalSuiteDrawer: null,
   });
-  const [head] = root.props.children;
-  const initializer = head.props.children;
-  expect(initializer.type).toBe(Script);
-  expect(initializer.props).toMatchObject({
-    id: "theme-initializer",
-    strategy: "beforeInteractive",
-  });
-  expect(initializer.props.dangerouslySetInnerHTML.__html).toContain(
-    'window.matchMedia("(prefers-color-scheme: dark)")',
-  );
-  expect(initializer.props.dangerouslySetInnerHTML.__html).toContain(
-    'localStorage.removeItem("theme")',
-  );
+  expect(root.props["data-theme-preference"]).toBe("system");
+  expect(root.props.children.type).toBe("body");
 });

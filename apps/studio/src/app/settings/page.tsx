@@ -12,6 +12,7 @@ import {
   Server,
   ShieldCheck,
 } from "lucide-react";
+import { notFound, redirect } from "next/navigation";
 import {
   DefinitionRow,
   SettingsCard,
@@ -163,9 +164,32 @@ function ConnectionCard({ context }: { context: StudioShellContext }) {
   );
 }
 
-export default async function SettingsPage() {
+export default async function SettingsPage({
+  params,
+  searchParams,
+}: {
+  params?: Promise<{ section?: string }>;
+  searchParams?: Promise<{ section?: string }>;
+} = {}) {
+  const [{ section }, query] = await Promise.all([
+    params ?? Promise.resolve({ section: undefined }),
+    searchParams ?? Promise.resolve({ section: undefined }),
+  ]);
+  if (!section && query.section && /^[a-z-]+$/.test(query.section))
+    redirect(`/settings/${query.section}`);
   const context = await getStudioShellContext();
   const settings = await studioSettings.resolve(context);
+  const available = [
+    "privacy",
+    "appearance",
+    "about",
+    ...(settings.categories?.map((c) => c.id) ?? []),
+    ...(settings.scope !== null ? ["general"] : []),
+    ...(settings.connection !== null ? ["connection"] : []),
+    ...(settings.access !== null ? ["access"] : []),
+    ...(settings.sections ? ["api-keys"] : []),
+  ];
+  if (section && !available.includes(section)) notFound();
 
   return (
     <div

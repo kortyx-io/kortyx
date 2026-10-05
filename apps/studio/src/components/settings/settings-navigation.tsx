@@ -14,7 +14,8 @@ import {
   UserRound,
   Users,
 } from "lucide-react";
-import { parseAsString, useQueryState } from "nuqs";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { Children, isValidElement, type ReactNode } from "react";
 import { cn } from "@/lib/utils";
 
@@ -29,10 +30,7 @@ export function SettingsPanel({ children }: SettingsPanelProps) {
 }
 
 export function SettingsNavigation({ children }: { children: ReactNode }) {
-  const [selected, setSelected] = useQueryState(
-    "section",
-    parseAsString.withDefault("general"),
-  );
+  const selected = usePathname().split("/")[2] ?? "general";
   const panels = Children.toArray(children).filter((child) =>
     isValidElement<SettingsPanelProps>(child),
   );
@@ -62,7 +60,7 @@ export function SettingsNavigation({ children }: { children: ReactNode }) {
     <div className="grid h-full min-w-0 grid-rows-[auto_minmax(0,1fr)] md:grid-cols-[13rem_minmax(0,1fr)] md:grid-rows-1">
       <nav
         aria-label="Settings sections"
-        className="flex gap-3 overflow-x-auto border-b px-3 py-5 md:flex-col md:gap-6 md:overflow-y-auto md:border-r md:border-b-0"
+        className="flex gap-3 overflow-x-auto border-b px-3 py-5 md:flex-col md:gap-6 md:overflow-y-auto md:border-r md:border-b-0 md:py-8"
       >
         {groups.map((group) => {
           const items = panels.filter(
@@ -78,11 +76,10 @@ export function SettingsNavigation({ children }: { children: ReactNode }) {
                 const Icon =
                   icons[panel.props.id as keyof typeof icons] ?? Settings;
                 return (
-                  <button
-                    type="button"
+                  <Link
                     key={panel.props.id}
                     aria-current={active === panel ? "page" : undefined}
-                    onClick={() => void setSelected(panel.props.id)}
+                    href={`/settings/${panel.props.id}`}
                     className={cn(
                       "flex w-full shrink-0 items-center gap-2.5 rounded-md px-3 py-2 text-left text-sm text-muted-foreground hover:bg-muted hover:text-foreground",
                       active === panel &&
@@ -91,7 +88,7 @@ export function SettingsNavigation({ children }: { children: ReactNode }) {
                   >
                     <Icon className="size-4 shrink-0" aria-hidden="true" />
                     {panel.props.label}
-                  </button>
+                  </Link>
                 );
               })}
             </div>

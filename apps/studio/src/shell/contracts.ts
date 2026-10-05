@@ -5,6 +5,7 @@ import type { StudioShellContext } from "../lib/studio-context-model";
 export interface StudioShellContribution {
   organizationSwitcher?: ReactNode;
   projectSwitcher?: ReactNode;
+  environmentSwitcher?: ReactNode;
   account?: {
     name: string;
     email: string;
