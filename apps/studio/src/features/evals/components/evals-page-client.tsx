@@ -72,6 +72,7 @@ const parsers = {
   live: parseAsBoolean.withDefault(true),
   selected: parseAsArrayOf(parseAsString).withDefault([]),
   q: parseAsString.withDefault(""),
+  env: parseAsString.withDefault("All environments"),
   application: parseAsString.withDefault("all"),
   status: parseAsString.withDefault("all"),
   sort: parseAsStringLiteral([
@@ -188,6 +189,7 @@ export function EvalsPageClient({
   const needle = query.q.toLowerCase();
   const runs = history.runs.filter(
     (r) =>
+      (query.env === "All environments" || query.env === r.environment) &&
       (query.application === "all" || query.application === r.targetId) &&
       (query.status === "all" || query.status === r.status) &&
       `${r.suiteName ?? ""} ${r.suiteId} ${r.targetName} ${r.environment} ${r.id}`
@@ -196,6 +198,8 @@ export function EvalsPageClient({
   );
   const suites = suiteRows.filter(
     (r) =>
+      (query.env === "All environments" ||
+        query.env === r.target.environment) &&
       (query.application === "all" || query.application === r.target.id) &&
       `${r.suite.name ?? ""} ${r.suite.id} ${r.target.name}`
         .toLowerCase()
@@ -215,9 +219,18 @@ export function EvalsPageClient({
     (a.suite.name ?? a.suite.id).localeCompare(b.suite.name ?? b.suite.id),
   );
   const clearFilters = () =>
-    update({ q: "", status: "all", application: "all", cursor: 0 });
+    update({
+      q: "",
+      env: "All environments",
+      status: "all",
+      application: "all",
+      cursor: 0,
+    });
   const filtered = Boolean(
-    query.q || query.status !== "all" || query.application !== "all",
+    query.q ||
+      query.env !== "All environments" ||
+      query.status !== "all" ||
+      query.application !== "all",
   );
   const chooseRun = (id: string) => navigate(evalRunHref(id));
   const runColumns: DataTableColumn<EvalRunSummary, Sort>[] = [
