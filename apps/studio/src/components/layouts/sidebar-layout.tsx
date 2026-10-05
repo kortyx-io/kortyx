@@ -44,7 +44,7 @@ export async function SidebarLayout({
                 environmentSwitcher={shell.environmentSwitcher}
               />
             </header>
-            <main className="min-h-0 flex-1 overflow-hidden pr-4 pb-4">
+            <main className="min-h-0 flex-1 overflow-hidden pr-1 pb-1">
               {children}
             </main>
           </SidebarInset>
