@@ -53,7 +53,7 @@ export function FirstObservation({
   const prompt = `Add Kortyx ${resource === "evals" ? "conversation evaluations" : "observability"} to this application using the existing Kortyx SDK and the current official documentation at https://kortyx.io/docs. ${item.instruction} Read API credentials from the server environment; never embed secrets in browser code or prompts. Preserve default payload privacy. Verify the integration by running a minimal example and checking ${resource} in Studio.`;
   return (
     <div className="h-full overflow-y-auto rounded-xl border bg-background p-6 sm:p-10">
-      <div className="mx-auto max-w-3xl space-y-8">
+      <div className="max-w-3xl space-y-8">
         <header className="space-y-3">
           <p className="inline-flex items-center gap-2 rounded-md bg-amber-500/10 px-3 py-1 text-xs text-amber-700 dark:text-amber-400">
             <RadioTower className="size-3.5" />
