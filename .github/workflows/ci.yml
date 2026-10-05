@@ -110,6 +110,10 @@ jobs:
           file: ${{ matrix.dockerfile }}
           load: true
           push: false
+          # RUN apt-get/apk updates do not invalidate a cached layer. Refresh
+          # OS packages for each scan while retaining application build caches.
+          pull: true
+          no-cache-filters: base
           tags: kortyx-${{ matrix.image }}:security-scan
           cache-from: type=gha,scope=security-${{ matrix.image }}
           cache-to: type=gha,mode=max,scope=security-${{ matrix.image }}
