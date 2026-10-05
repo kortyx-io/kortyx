@@ -3,6 +3,8 @@ import { configDefaults, defineConfig } from "vitest/config";
 export default defineConfig({
   resolve: {
     alias: {
+      "@studio/styles": new URL("./src/app/globals.css", import.meta.url)
+        .pathname,
       "@studio/settings": new URL("./src/settings/server.ts", import.meta.url)
         .pathname,
       "@studio/settings-contracts": new URL(
