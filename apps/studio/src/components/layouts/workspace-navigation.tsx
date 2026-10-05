@@ -65,60 +65,56 @@ export function WorkspaceNavigation({
           {project}
         </span>
       )}
-      {environments.length > 0 && (
-        <>
-          <ChevronRight
-            className="size-3.5 shrink-0 text-muted-foreground"
-            aria-hidden="true"
-          />
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                variant="ghost"
-                size="sm"
-                aria-label="Telemetry environment"
-                className="max-w-44 shrink-0 font-normal"
-              >
-                <span className="truncate">{environment}</span>
-                <ChevronDown className="size-3.5" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="start">
-              <DropdownMenuLabel>Environments</DropdownMenuLabel>
-              <DropdownMenuRadioGroup
-                value={environment}
-                onValueChange={(value) => {
-                  // Scope changes discard detail IDs and resource-specific filters.
-                  const next = new URLSearchParams(
-                    scoped ? undefined : params.toString(),
-                  );
-                  next.delete("env");
-                  if (value !== "All environments") next.set("env", value);
-                  router.push(
-                    `/${segments[0] === "evals" ? "evals/runs" : segments[0] || "runs"}${next.size ? `?${next}` : ""}`,
-                  );
-                }}
-              >
-                <DropdownMenuRadioItem value="All environments">
-                  All environments
+      <>
+        <ChevronRight
+          className="size-3.5 shrink-0 text-muted-foreground"
+          aria-hidden="true"
+        />
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              variant="ghost"
+              size="sm"
+              aria-label="Telemetry environment"
+              className="max-w-44 shrink-0 font-normal"
+            >
+              <span className="truncate">{environment}</span>
+              <ChevronDown className="size-3.5" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start">
+            <DropdownMenuLabel>Environments</DropdownMenuLabel>
+            <DropdownMenuRadioGroup
+              value={environment}
+              onValueChange={(value) => {
+                // Scope changes discard detail IDs and resource-specific filters.
+                const next = new URLSearchParams(
+                  scoped ? undefined : params.toString(),
+                );
+                next.delete("env");
+                if (value !== "All environments") next.set("env", value);
+                router.push(
+                  `/${segments[0] === "evals" ? "evals/runs" : segments[0] || "runs"}${next.size ? `?${next}` : ""}`,
+                );
+              }}
+            >
+              <DropdownMenuRadioItem value="All environments">
+                All environments
+              </DropdownMenuRadioItem>
+              {Array.from(
+                new Set([
+                  ...environments,
+                  ...(environment !== "All environments" ? [environment] : []),
+                ]),
+              ).map((value) => (
+                <DropdownMenuRadioItem key={value} value={value}>
+                  {value}
                 </DropdownMenuRadioItem>
-                {Array.from(
-                  new Set([
-                    ...environments,
-                    ...(environment !== "All environments"
-                      ? [environment]
-                      : []),
-                  ]),
-                ).map((value) => (
-                  <DropdownMenuRadioItem key={value} value={value}>
-                    {value}
-                  </DropdownMenuRadioItem>
-                ))}
-              </DropdownMenuRadioGroup>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </>
-      )}
+              ))}
+            </DropdownMenuRadioGroup>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </>
       <ChevronRight
         className="size-3.5 shrink-0 text-muted-foreground"
         aria-hidden="true"
