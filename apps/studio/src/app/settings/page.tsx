@@ -1,3 +1,4 @@
+import { studioSettings } from "@studio/settings";
 import {
   BookOpen,
   CheckCircle2,
@@ -11,7 +12,10 @@ import {
   Server,
   ShieldCheck,
 } from "lucide-react";
-import type { ReactNode } from "react";
+import {
+  DefinitionRow,
+  SettingsCard,
+} from "@/components/settings/settings-card";
 import { StudioUpdates } from "@/components/studio-updates";
 import { ThemePreferenceControl } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
@@ -47,66 +51,6 @@ const connectionStyle: Record<
     icon: CircleAlert,
   },
 };
-
-function SettingsCard({
-  icon: Icon,
-  title,
-  description,
-  children,
-  className,
-}: {
-  icon: typeof Server;
-  title: string;
-  description: string;
-  children: ReactNode;
-  className?: string;
-}) {
-  return (
-    <section
-      className={cn(
-        "min-w-0 rounded-xl border bg-card/30 p-5 shadow-xs",
-        className,
-      )}
-    >
-      <div className="mb-5 flex items-start gap-3">
-        <div className="flex size-9 shrink-0 items-center justify-center rounded-lg border bg-background">
-          <Icon className="size-4" aria-hidden="true" />
-        </div>
-        <div className="min-w-0">
-          <h2 className="font-semibold">{title}</h2>
-          <p className="mt-0.5 text-sm leading-5 text-muted-foreground">
-            {description}
-          </p>
-        </div>
-      </div>
-      {children}
-    </section>
-  );
-}
-
-function DefinitionRow({
-  label,
-  value,
-  mono = false,
-}: {
-  label: string;
-  value: ReactNode;
-  mono?: boolean;
-}) {
-  return (
-    <div className="grid gap-1 border-b py-3 first:pt-0 last:border-b-0 last:pb-0 sm:grid-cols-[minmax(8rem,0.6fr)_minmax(0,1fr)] sm:gap-4">
-      <dt className="text-sm text-muted-foreground">{label}</dt>
-      <dd
-        className={cn(
-          "min-w-0 break-words text-sm sm:text-right",
-          mono && "font-mono text-xs",
-        )}
-      >
-        {value}
-      </dd>
-    </div>
-  );
-}
 
 function ScopeCard({ context }: { context: StudioShellContext }) {
   return (
@@ -217,6 +161,7 @@ function ConnectionCard({ context }: { context: StudioShellContext }) {
 
 export default async function SettingsPage() {
   const context = await getStudioShellContext();
+  const settings = await studioSettings.resolve(context);
 
   return (
     <div
@@ -225,38 +170,58 @@ export default async function SettingsPage() {
     >
       <header className="border-b px-5 py-5 sm:px-7 sm:py-6">
         <p className="text-xs font-medium tracking-[0.18em] text-muted-foreground uppercase">
-          Local configuration
+          {settings.label ?? "Local configuration"}
         </p>
         <h1 className="mt-2 text-2xl font-semibold tracking-tight">Settings</h1>
         <p className="mt-1 max-w-2xl text-sm leading-6 text-muted-foreground">
-          Understand this Studio instance, its telemetry connection, and the
-          display preferences that apply in this browser.
+          {settings.description ??
+            "Understand this Studio instance, its telemetry connection, and the display preferences that apply in this browser."}
         </p>
       </header>
 
       <div className="grid gap-4 p-4 sm:p-6 xl:grid-cols-2">
-        <StudioUpdates installedVersion={context.identity.version} />
-        <ScopeCard context={context} />
-        <ConnectionCard context={context} />
+        {settings.updates === undefined ? (
+          <StudioUpdates installedVersion={context.identity.version} />
+        ) : (
+          settings.updates
+        )}
+        {settings.scope === undefined ? (
+          <ScopeCard context={context} />
+        ) : (
+          settings.scope
+        )}
+        {settings.connection === undefined ? (
+          <ConnectionCard context={context} />
+        ) : (
+          settings.connection
+        )}
 
-        <SettingsCard
-          icon={ShieldCheck}
-          title="Access"
-          description="Human access to this Studio instance is separate from its telemetry API key."
-        >
-          <dl>
-            <DefinitionRow label="Studio mode" value={context.identity.name} />
-            <DefinitionRow
-              label="Authentication"
-              value={context.identity.access}
-            />
-          </dl>
-          <p className="mt-4 rounded-lg border bg-muted/30 p-3 text-xs leading-5 text-muted-foreground">
-            HTTP Basic Auth is managed by the browser and reverse proxy. Studio
-            does not present a fake account or logout action. Clear the
-            browser’s site credentials to end a Basic Auth session.
-          </p>
-        </SettingsCard>
+        {settings.access === undefined ? (
+          <SettingsCard
+            icon={ShieldCheck}
+            title="Access"
+            description="Human access to this Studio instance is separate from its telemetry API key."
+          >
+            <dl>
+              <DefinitionRow
+                label="Studio mode"
+                value={context.identity.name}
+              />
+              <DefinitionRow
+                label="Authentication"
+                value={context.identity.access}
+              />
+            </dl>
+            <p className="mt-4 rounded-lg border bg-muted/30 p-3 text-xs leading-5 text-muted-foreground">
+              HTTP Basic Auth is managed by the browser and reverse proxy.
+              Studio does not present a fake account or logout action. Clear the
+              browser’s site credentials to end a Basic Auth session.
+            </p>
+          </SettingsCard>
+        ) : (
+          settings.access
+        )}
+        {settings.sections}
 
         <SettingsCard
           icon={KeyRound}

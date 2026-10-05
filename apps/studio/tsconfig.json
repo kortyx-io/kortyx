@@ -19,9 +19,12 @@
       }
     ],
     "paths": {
+      "@studio/styles": ["./src/app/globals.css"],
       "@/*": ["./src/*"],
       "@studio/auth": ["./src/auth/server.ts"],
-      "@studio/auth-contracts": ["./src/auth/contracts.ts"]
+      "@studio/auth-contracts": ["./src/auth/contracts.ts"],
+      "@studio/settings": ["./src/settings/server.ts"],
+      "@studio/settings-contracts": ["./src/settings/contracts.ts"]
     }
   },
   "include": [

@@ -13,7 +13,7 @@ import {
   THEME_PREFERENCE_COOKIE,
   THEME_RESOLVED_COOKIE,
 } from "@/lib/theme";
-import "./globals.css";
+import "@studio/styles";
 
 const themeInitializer = `(() => {
   try {
