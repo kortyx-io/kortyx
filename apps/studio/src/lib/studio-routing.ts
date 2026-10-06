@@ -22,7 +22,11 @@ export function studioHref(href: string, scope?: StudioRouteScope): string {
       return `${prefix}${path === "/" ? "/runs" : "/settings/general"}${suffix}`;
     if (path === "/settings/project")
       return `${prefix}/settings/general${suffix}`;
-    if (/^\/settings\/(api-keys|connection|evaluations|privacy)$/.test(path))
+    if (
+      /^\/settings\/(api-keys|connection|evaluations|providers|privacy)$/.test(
+        path,
+      )
+    )
       return `${prefix}${path}${suffix}`;
     if (/^\/(runs|sessions|workflows|interrupts|evals)(\/|$)/.test(path))
       return `${prefix}${path}${suffix}`;

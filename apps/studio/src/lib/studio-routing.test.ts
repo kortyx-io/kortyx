@@ -24,6 +24,9 @@ it("keeps project links, detail routes and settings in explicit scope", () => {
   expect(studioHref("/settings/project", scope)).toBe(
     `/projects/${scope.projectPublicId}/settings/general`,
   );
+  expect(studioHref("/settings/providers", scope)).toBe(
+    `/projects/${scope.projectPublicId}/settings/providers`,
+  );
   expect(studioHref("/settings/members", scope)).toBe(
     `/organizations/${scope.organizationPublicId}/settings/members`,
   );
