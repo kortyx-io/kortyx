@@ -130,7 +130,7 @@ export function FirstObservation({
             <h2 className="font-medium">3. Run your application</h2>
             <p className="text-sm text-muted-foreground">
               Return here and refresh after the application sends data. Your
-              selected project and environment determine what you see.
+              selected project determines what you see.
             </p>
           </li>
         </ol>
