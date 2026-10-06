@@ -5,21 +5,29 @@ test.describe("Studio settings and shell identity", () => {
   test("shows real project context and only supported identity-menu actions", async ({
     page,
   }) => {
-    await page.goto("/settings");
+    await page.goto("/settings/general");
 
     await expect(page.locator('[data-settings-ready="true"]')).toBeVisible();
     await expect(
-      page.getByRole("heading", { name: "Settings", exact: true }),
+      page.getByRole("heading", { name: "Local scope", exact: true }),
     ).toBeVisible();
     await expect(page.getByText("Local installation")).toBeVisible();
     await expect(
       page.getByText("Default Project", { exact: true }).first(),
     ).toBeVisible();
+    await page.getByRole("link", { name: "Connection", exact: true }).click();
+    await expect(page).toHaveURL(/\/settings\/connection$/);
     await expect(page.getByText("studio:read")).toBeVisible();
     await expect(page.getByText("Configured · ••••••••")).toBeVisible();
     await expect(page.locator("body")).not.toContainText("ktyx_");
 
-    await page.getByRole("button", { name: /Open Studio menu\./ }).click();
+    await expect(page.locator("[data-settings-hydrated]")).toHaveAttribute(
+      "data-settings-hydrated",
+      "true",
+    );
+    await page
+      .getByRole("button", { name: "Open Studio menu", exact: true })
+      .click();
     await expect(
       page.getByRole("menuitem", { name: "Settings" }),
     ).toBeVisible();
@@ -46,7 +54,7 @@ test.describe("Studio settings and shell identity", () => {
   test("persists theme preference for server-rendered reloads", async ({
     page,
   }) => {
-    await page.goto("/settings");
+    await page.goto("/settings/appearance");
 
     const light = page.getByRole("button", { name: /Light/ });
     await light.click();
