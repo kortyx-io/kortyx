@@ -68,25 +68,6 @@ function ScopeCard({ context }: { context: StudioShellContext }) {
       <dl>
         <DefinitionRow label="Scope" value={context.scope.label} />
         <DefinitionRow label="Project" value={context.scope.project} />
-        <DefinitionRow
-          label="Telemetry environments"
-          value={
-            context.scope.telemetryEnvironments.length ? (
-              <span className="flex flex-wrap gap-1.5 sm:justify-end">
-                {context.scope.telemetryEnvironments.map((environment) => (
-                  <span
-                    key={environment}
-                    className="rounded-md border bg-background px-2 py-1 font-mono text-xs"
-                  >
-                    {environment}
-                  </span>
-                ))}
-              </span>
-            ) : (
-              "Unavailable"
-            )
-          }
-        />
       </dl>
     </SettingsCard>
   );
@@ -181,7 +162,7 @@ export default async function SettingsPage({
   const context = await getStudioShellContext();
   const settings = await studioSettings.resolve(context);
   const available = [
-    "privacy",
+    ...(settings.privacy !== false ? ["privacy"] : []),
     "appearance",
     "about",
     ...(settings.categories?.map((c) => c.id) ?? []),
@@ -260,30 +241,38 @@ export default async function SettingsPage({
             {category.content}
           </SettingsPanel>
         ))}
-        <SettingsPanel id="privacy" label="Telemetry & privacy" group="Project">
-          <SettingsCard
-            icon={KeyRound}
-            title="Telemetry & privacy"
-            description="Payload capture is decided by the producing Kortyx SDK, not enabled from Studio."
+        {settings.privacy !== false && (
+          <SettingsPanel
+            id="privacy"
+            label="Telemetry & privacy"
+            group="Project"
           >
-            <div className="space-y-3 text-sm leading-6">
-              <div className="border-b pb-4">
-                <p className="font-medium">Structural telemetry is available</p>
-                <p className="mt-1 text-xs leading-5 text-muted-foreground">
-                  Run, span, workflow, timing, usage, and interrupt structure
-                  can be observed without prompt or response content.
-                </p>
+            <SettingsCard
+              icon={KeyRound}
+              title="Telemetry & privacy"
+              description="Payload capture is decided by the producing Kortyx SDK, not enabled from Studio."
+            >
+              <div className="space-y-3 text-sm leading-6">
+                <div className="border-b pb-4">
+                  <p className="font-medium">
+                    Structural telemetry is available
+                  </p>
+                  <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                    Run, span, workflow, timing, usage, and interrupt structure
+                    can be observed without prompt or response content.
+                  </p>
+                </div>
+                <div className="pt-2">
+                  <p className="font-medium">Content is excluded by default</p>
+                  <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                    Prompt and output content is captured only when the producer
+                    explicitly opts in. Studio never turns content capture on.
+                  </p>
+                </div>
               </div>
-              <div className="pt-2">
-                <p className="font-medium">Content is excluded by default</p>
-                <p className="mt-1 text-xs leading-5 text-muted-foreground">
-                  Prompt and output content is captured only when the producer
-                  explicitly opts in. Studio never turns content capture on.
-                </p>
-              </div>
-            </div>
-          </SettingsCard>
-        </SettingsPanel>
+            </SettingsCard>
+          </SettingsPanel>
+        )}
         <SettingsPanel id="appearance" label="Appearance" group="Personal">
           <SettingsCard
             icon={Palette}

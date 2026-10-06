@@ -13,11 +13,9 @@ import {
 import { studioFetch } from "@/lib/studio-fetch";
 
 export function OperatorScopeSwitcher({
-  kind,
   selected,
   options,
 }: {
-  kind: "project" | "environment";
   selected: string;
   options: Array<{ id: string; name: string }>;
 }) {
@@ -27,7 +25,7 @@ export function OperatorScopeSwitcher({
         <Button
           variant="ghost"
           size="sm"
-          aria-label={kind === "project" ? "Project" : "Telemetry environment"}
+          aria-label="Project"
           className="max-w-44 shrink-0 font-normal"
         >
           <span className="truncate">
@@ -37,16 +35,14 @@ export function OperatorScopeSwitcher({
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start">
-        <DropdownMenuLabel>
-          {kind === "project" ? "Projects" : "Environments"}
-        </DropdownMenuLabel>
+        <DropdownMenuLabel>Projects</DropdownMenuLabel>
         <DropdownMenuRadioGroup
           value={selected}
           onValueChange={async (value) => {
             const response = await studioFetch("/auth/operator-scope", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ kind, value }),
+              body: JSON.stringify({ kind: "project", value }),
             });
             if (response.ok) window.location.assign("/runs");
           }}

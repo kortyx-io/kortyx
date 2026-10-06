@@ -28,6 +28,7 @@ const settingsLabels: Record<string, string> = {
   environments: "Environments",
   connection: "Connection",
   evaluations: "Evaluations",
+  providers: "Providers",
   privacy: "Telemetry & privacy",
   access: "Access",
 };

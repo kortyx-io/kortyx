@@ -7,7 +7,6 @@ import { cookies } from "next/headers";
 import { cache } from "react";
 
 export const OPERATOR_PROJECT_COOKIE = "studio_project";
-export const OPERATOR_ENVIRONMENT_COOKIE = "studio_environment";
 export function operatorKeys(): string[] {
   const raw = process.env.KORTYX_STUDIO_PROJECT_KEYS;
   const keys: unknown = raw
@@ -54,13 +53,5 @@ export const getOperatorScopes = cache(async () => {
       (scope) => scope.id === jar.get(OPERATOR_PROJECT_COOKIE)?.value,
     ) ?? scopes[0];
   if (!selected) return null;
-  const names = selected.context.environments;
-  const requested = jar.get(OPERATOR_ENVIRONMENT_COOKIE)?.value;
-  const environment =
-    requested && names.includes(requested)
-      ? requested
-      : names.includes("default")
-        ? "default"
-        : names[0];
-  return { scopes, selected, environment };
+  return { scopes, selected };
 });

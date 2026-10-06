@@ -18,7 +18,6 @@ it("keeps OSS first-use guidance on empty resources, not above Settings", async 
   expect(result.setupRequired).toBe(false);
   expect(result.onboarding).toBeUndefined();
   expect(result.categories?.map((item) => item.id)).toEqual([
-    "environments",
     "api-keys",
     "evaluations",
   ]);

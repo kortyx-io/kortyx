@@ -13,26 +13,12 @@ export const studioShell: StudioShellAdapter = {
       id: row.id,
       name: row.context.project.name,
     }));
-    const environments = scope.selected.context.environments.map((name) => ({
-      id: name,
-      name,
-    }));
     return {
       ...(projects.length > 1
         ? {
             projectSwitcher: createElement(OperatorScopeSwitcher, {
-              kind: "project",
               selected: scope.selected.id,
               options: projects,
-            }),
-          }
-        : {}),
-      ...(environments.length > 1 && scope.environment
-        ? {
-            environmentSwitcher: createElement(OperatorScopeSwitcher, {
-              kind: "environment",
-              selected: scope.environment,
-              options: environments,
             }),
           }
         : {}),

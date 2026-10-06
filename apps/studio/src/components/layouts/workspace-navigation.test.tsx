@@ -21,6 +21,7 @@ it.each([
   ["members", "Members"],
   ["api-keys", "API keys"],
   ["environments", "Environments"],
+  ["providers", "Providers"],
   ["connection", "Connection"],
   ["evaluations", "Evaluations"],
   ["privacy", "Telemetry &amp; privacy"],

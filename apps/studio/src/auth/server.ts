@@ -5,11 +5,14 @@ import { constantTimeEqual } from "../lib/constant-time-equal";
 import { getStudioAuthConfig } from "../lib/studio-auth";
 import {
   getOperatorScopes,
-  OPERATOR_ENVIRONMENT_COOKIE,
   OPERATOR_PROJECT_COOKIE,
   operatorKeys,
 } from "../shell/operator-scopes";
 import type { StudioAuthAdapter } from "./contracts";
+
+// Clear selections made by the old environment selector, but never use them
+// as hidden request filters. Explicit deployment configuration stays server-owned.
+const LEGACY_ENVIRONMENT_COOKIE = "studio_environment";
 
 async function initializeOperatorScope(request: Request) {
   const url = new URL(request.url);
@@ -23,8 +26,8 @@ async function initializeOperatorScope(request: Request) {
   const scope = await getOperatorScopes();
   const jar = await cookies();
   if (
-    !scope?.environment ||
-    (jar.get(OPERATOR_ENVIRONMENT_COOKIE)?.value === scope.environment &&
+    !scope ||
+    (!jar.get(LEGACY_ENVIRONMENT_COOKIE) &&
       jar.get(OPERATOR_PROJECT_COOKIE)?.value === scope.selected.id)
   )
     return null;
@@ -35,7 +38,7 @@ async function initializeOperatorScope(request: Request) {
     secure: url.protocol === "https:",
     path: "/",
   };
-  response.cookies.set(OPERATOR_ENVIRONMENT_COOKIE, scope.environment, options);
+  response.cookies.delete(LEGACY_ENVIRONMENT_COOKIE);
   response.cookies.set(OPERATOR_PROJECT_COOKIE, scope.selected.id, options);
   return response;
 }
@@ -86,9 +89,7 @@ export const studioAuth: StudioAuthAdapter = {
     const index = jar.get(OPERATOR_PROJECT_COOKIE)?.value ?? "0";
     const key = keys[Number(index)] ?? keys[0];
     if (!key) return null;
-    const environment =
-      jar.get(OPERATOR_ENVIRONMENT_COOKIE)?.value ??
-      process.env.KORTYX_STUDIO_ENVIRONMENT;
+    const environment = process.env.KORTYX_STUDIO_ENVIRONMENT;
     return {
       authorization: `Bearer ${key}`,
       ...(environment ? { environment } : {}),
@@ -111,27 +112,18 @@ export const studioAuth: StudioAuthAdapter = {
       const valid =
         scope &&
         typeof body.value === "string" &&
-        (body.kind === "project"
-          ? scope.scopes.some((row) => row.id === body.value)
-          : body.kind === "environment" &&
-            scope.selected.context.environments.includes(body.value));
+        body.kind === "project" &&
+        scope.scopes.some((row) => row.id === body.value);
       if (!valid)
         return Response.json({ error: "Scope unavailable." }, { status: 403 });
       const response = NextResponse.json({ ok: true });
-      response.cookies.set(
-        body.kind === "project"
-          ? OPERATOR_PROJECT_COOKIE
-          : OPERATOR_ENVIRONMENT_COOKIE,
-        body.value,
-        {
-          httpOnly: true,
-          sameSite: "strict",
-          secure: new URL(request.url).protocol === "https:",
-          path: "/",
-        },
-      );
-      if (body.kind === "project")
-        response.cookies.delete(OPERATOR_ENVIRONMENT_COOKIE);
+      response.cookies.set(OPERATOR_PROJECT_COOKIE, body.value, {
+        httpOnly: true,
+        sameSite: "strict",
+        secure: new URL(request.url).protocol === "https:",
+        path: "/",
+      });
+      response.cookies.delete(LEGACY_ENVIRONMENT_COOKIE);
       return response;
     }
     return Response.json({ error: "Not found." }, { status: 404 });

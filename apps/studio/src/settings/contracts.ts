@@ -19,6 +19,8 @@ export interface StudioSettingsContribution {
   updates?: ReactNode;
   connection?: ReactNode;
   access?: ReactNode;
+  /** Omit informational SDK privacy guidance when it is not an edition setting. */
+  privacy?: false;
   sections?: ReactNode;
   /** Edition-specific categories in the shared Settings navigation. */
   categories?: Array<{
