@@ -8,7 +8,6 @@ import {
   Search,
   X,
 } from "lucide-react";
-import { useRouter, useSearchParams } from "next/navigation";
 import {
   parseAsArrayOf,
   parseAsBoolean,
@@ -33,6 +32,7 @@ import { useLiveRefresh } from "@/features/telemetry/hooks/use-live-refresh";
 import type { ListTablePreferences } from "@/features/telemetry/lib/table-preferences";
 import { formatDateTime, formatDurationMs } from "@/lib/format";
 import { useStudioQueryStates } from "@/lib/nuqs";
+import { useRouter, useSearchParams } from "@/lib/scoped-navigation";
 import { evalRequest } from "../api/client";
 import { useEvalSetup } from "../hooks/use-eval-setup";
 import {
@@ -72,6 +72,7 @@ const parsers = {
   live: parseAsBoolean.withDefault(true),
   selected: parseAsArrayOf(parseAsString).withDefault([]),
   q: parseAsString.withDefault(""),
+  env: parseAsString.withDefault("All environments"),
   application: parseAsString.withDefault("all"),
   status: parseAsString.withDefault("all"),
   sort: parseAsStringLiteral([
@@ -188,6 +189,7 @@ export function EvalsPageClient({
   const needle = query.q.toLowerCase();
   const runs = history.runs.filter(
     (r) =>
+      (query.env === "All environments" || query.env === r.environment) &&
       (query.application === "all" || query.application === r.targetId) &&
       (query.status === "all" || query.status === r.status) &&
       `${r.suiteName ?? ""} ${r.suiteId} ${r.targetName} ${r.environment} ${r.id}`
@@ -196,6 +198,8 @@ export function EvalsPageClient({
   );
   const suites = suiteRows.filter(
     (r) =>
+      (query.env === "All environments" ||
+        query.env === r.target.environment) &&
       (query.application === "all" || query.application === r.target.id) &&
       `${r.suite.name ?? ""} ${r.suite.id} ${r.target.name}`
         .toLowerCase()
@@ -215,9 +219,18 @@ export function EvalsPageClient({
     (a.suite.name ?? a.suite.id).localeCompare(b.suite.name ?? b.suite.id),
   );
   const clearFilters = () =>
-    update({ q: "", status: "all", application: "all", cursor: 0 });
+    update({
+      q: "",
+      env: "All environments",
+      status: "all",
+      application: "all",
+      cursor: 0,
+    });
   const filtered = Boolean(
-    query.q || query.status !== "all" || query.application !== "all",
+    query.q ||
+      query.env !== "All environments" ||
+      query.status !== "all" ||
+      query.application !== "all",
   );
   const chooseRun = (id: string) => navigate(evalRunHref(id));
   const runColumns: DataTableColumn<EvalRunSummary, Sort>[] = [
@@ -527,37 +540,43 @@ export function EvalsPageClient({
       ) : null}
     </div>
   );
-  const empty = (
-    <div className="flex min-h-72 flex-col items-center justify-center p-8 text-center">
-      <FlaskConical className="mb-3 size-7 text-muted-foreground" />
-      <h2 className="font-medium">
-        {filtered
-          ? "No evals match these filters"
-          : view === "runs"
-            ? "No eval runs yet"
-            : "No suites available"}
-      </h2>
-      <p className="mt-1 max-w-sm text-sm text-muted-foreground">
-        {filtered
-          ? "Change your search or clear the filters."
-          : view === "runs"
-            ? "Run a conversation suite to record outcomes and grading evidence."
-            : targets.targets.length
-              ? "Reconnect the application and refresh to discover its registered suites."
-              : "Connect an application eval endpoint in your Studio API configuration."}
-      </p>
-      {filtered ? (
-        <Button
-          variant="outline"
-          size="sm"
-          className="mt-4"
-          onClick={clearFilters}
-        >
-          Clear filters
-        </Button>
-      ) : null}
-    </div>
-  );
+  const empty =
+    !error &&
+    !filtered &&
+    targets.targets.length === 0 &&
+    history.runs.length === 0 ? (
+      <FirstObservation resource="evals" />
+    ) : (
+      <div className="flex min-h-72 flex-col items-center justify-center p-8 text-center">
+        <FlaskConical className="mb-3 size-7 text-muted-foreground" />
+        <h2 className="font-medium">
+          {filtered
+            ? "No evals match these filters"
+            : view === "runs"
+              ? "No eval runs yet"
+              : "No suites available"}
+        </h2>
+        <p className="mt-1 max-w-sm text-sm text-muted-foreground">
+          {filtered
+            ? "Change your search or clear the filters."
+            : view === "runs"
+              ? "Run a conversation suite to record outcomes and grading evidence."
+              : targets.targets.length
+                ? "Reconnect the application and refresh to discover its registered suites."
+                : "Connect an application eval endpoint in your Studio API configuration."}
+        </p>
+        {filtered ? (
+          <Button
+            variant="outline"
+            size="sm"
+            className="mt-4"
+            onClick={clearFilters}
+          >
+            Clear filters
+          </Button>
+        ) : null}
+      </div>
+    );
   const pageSize = [10, 20, 50, 100].includes(query.pageSize)
     ? query.pageSize
     : 20;
@@ -642,3 +661,5 @@ export function EvalsPageClient({
     </div>
   );
 }
+
+import { FirstObservation } from "@/features/telemetry/components/first-observation";

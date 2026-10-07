@@ -1,4 +1,4 @@
-import Link from "next/link";
+import Link from "@/components/scoped-link";
 import { formatDurationMs } from "@/lib/format";
 import type { WorkflowSelection } from "../lib/view-state";
 import type { WorkflowSystem } from "../schema";

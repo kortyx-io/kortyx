@@ -14,6 +14,18 @@ vi.mock("@/components/studio-updates", () => ({
 vi.mock("@/components/theme-toggle", () => ({
   ThemePreferenceControl: () => <div>Theme preference</div>,
 }));
+vi.mock("@/components/settings/settings-navigation", () => ({
+  SettingsNavigation: ({ children }: { children: React.ReactNode }) => (
+    <div>{children}</div>
+  ),
+  SettingsPanel: ({
+    children,
+    label,
+  }: {
+    children: React.ReactNode;
+    label: string;
+  }) => <section aria-label={label}>{children}</section>,
+}));
 const context = buildStudioShellContext({
   authMode: "none",
   studioVersion: "test",
@@ -31,11 +43,9 @@ const render = async () => {
   const { default: Page } = await import("../app/settings/page");
   return renderToStaticMarkup(await Page());
 };
-it("keeps the existing OSS Settings cards and appearance", async () => {
+it("keeps OSS settings in a flat section layout without an overall header", async () => {
   const html = await render();
   for (const text of [
-    "Settings",
-    "Local configuration",
     "Local scope",
     "Connection",
     "Access",
@@ -45,6 +55,13 @@ it("keeps the existing OSS Settings cards and appearance", async () => {
   ])
     expect(html).toContain(text);
   expect(resolve).toHaveBeenCalledWith(context);
+  expect(html).not.toContain("Local configuration");
+  expect(html).not.toContain("<h1");
+  expect(html).toContain(
+    'class="h-full overflow-hidden rounded-xl border bg-background shadow-sm"',
+  );
+  expect(html).toContain('href="https://kortyx.io/docs"');
+  expect(html).not.toContain("md:grid-cols-[1fr_auto]");
 });
 it("contributes to the same page without losing shared cards", async () => {
   resolve.mockResolvedValue({
@@ -56,8 +73,6 @@ it("contributes to the same page without losing shared cards", async () => {
   });
   const html = await render();
   for (const text of [
-    "Settings",
-    "Cloud workspace",
     "Organization controls",
     "Signed-in account",
     "API keys",
@@ -68,6 +83,7 @@ it("contributes to the same page without losing shared cards", async () => {
     expect(html).toContain(text);
   expect(html).not.toContain("Local scope");
   expect(html).not.toContain("HTTP Basic Auth");
+  expect(html).not.toContain("Cloud workspace");
 });
 it("does not fall back to local settings after an adapter authorization failure", async () => {
   resolve.mockRejectedValue(new Error("Denied"));

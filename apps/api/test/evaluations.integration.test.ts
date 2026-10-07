@@ -18,15 +18,18 @@ import {
   createTelemetryDbClient,
   ensureLocalDevelopmentProject,
   getEvaluation,
+  listEvaluations,
 } from "@kortyx/telemetry-db";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 import { createApiApp } from "../src/app";
+import { fetchEvalManifest } from "../src/evals/targets";
 import { createEvalWorker } from "../src/evals/worker";
 
 const url = process.env.TEST_EVAL_DATABASE_URL;
 describe.skipIf(!url)("grouped evaluations on disposable PostgreSQL", () => {
   const client = createTelemetryDbClient(url!);
+  const cancelHook = vi.fn(async () => {});
   const suites: EvalSuite[] = ["pass", "fail"].map((id) => ({
     id,
     name: `${id} suite`,
@@ -132,7 +135,11 @@ describe.skipIf(!url)("grouped evaluations on disposable PostgreSQL", () => {
     api = createApiApp({
       db: client.db,
       apiKeyPepper: "fixture",
-      evalTargets: [target],
+      evalTargetAdapter: {
+        list: async () => [target],
+        manifest: fetchEvalManifest,
+        cancel: cancelHook,
+      },
       authentication: {
         authenticate: async () => ({
           ...scope,
@@ -195,6 +202,14 @@ describe.skipIf(!url)("grouped evaluations on disposable PostgreSQL", () => {
     expect(saved.totalAttempts).toBe(2);
     expect(saved.judge?.id).toBe("fixture");
     expect(saved.status).toBe("queued");
+    await expect(
+      getEvaluation(client.db, { ...scope, environment: "staging" }, saved.id),
+    ).rejects.toThrow("not found");
+    const scoped = await listEvaluations(client.db, {
+      ...scope,
+      environment: "staging",
+    });
+    expect(scoped.some((run) => run.targetId === target.id)).toBe(false);
     expect((await start(input)).status).toBe(200);
     expect((await start({ ...input, name: "changed" })).status).toBe(409);
     expect(
@@ -298,5 +313,10 @@ describe.skipIf(!url)("grouped evaluations on disposable PostgreSQL", () => {
     expect(saved.status).toBe("cancelled");
     expect(saved.cancelRequestedAt).not.toBeNull();
     expect(saved.completedSuites).toBe(2);
+    expect(cancelHook).toHaveBeenCalledTimes(1);
+    expect(cancelHook).toHaveBeenCalledWith(
+      expect.objectContaining(scope),
+      before.suites[1]!.id,
+    );
   });
 });

@@ -1,10 +1,14 @@
 "use client";
 import { Play } from "lucide-react";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useRef, useState } from "react";
 import { DetailInspectorDrawer } from "@/components/detail/detail-inspector";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import {
+  usePathname,
+  useRouter,
+  useSearchParams,
+} from "@/lib/scoped-navigation";
 import { evalRequest } from "../api/client";
 import { useEvalSetup } from "../hooks/use-eval-setup";
 import { evalNavigationHref } from "../lib/navigation";

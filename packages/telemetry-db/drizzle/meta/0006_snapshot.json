@@ -1,5 +1,5 @@
 {
-  "id": "635b1399-cdc5-42ff-a129-09911d71ca55",
+  "id": "deadcdab-eb5f-472b-8013-a89d4090ae2c",
   "prevId": "34305c96-1371-4b3e-9e55-9f6d41b5c857",
   "version": "7",
   "dialect": "postgresql",
@@ -25,6 +25,12 @@
           "type": "uuid",
           "primaryKey": false,
           "notNull": true
+        },
+        "environment_id": {
+          "name": "environment_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
         },
         "mode": {
           "name": "mode",
@@ -129,6 +135,15 @@
           "columnsFrom": ["organization_id", "project_id"],
           "columnsTo": ["organization_id", "id"],
           "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "api_keys_environment_tenant_fk": {
+          "name": "api_keys_environment_tenant_fk",
+          "tableFrom": "api_keys",
+          "tableTo": "project_environments",
+          "columnsFrom": ["organization_id", "project_id", "environment_id"],
+          "columnsTo": ["organization_id", "project_id", "id"],
+          "onDelete": "no action",
           "onUpdate": "no action"
         }
       },
@@ -379,12 +394,6 @@
       "name": "eval_runs",
       "schema": "",
       "columns": {
-        "evaluation_id": {
-          "name": "evaluation_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        },
         "id": {
           "name": "id",
           "type": "uuid",
@@ -517,42 +526,6 @@
         }
       },
       "indexes": {
-        "eval_runs_evaluation_idx": {
-          "name": "eval_runs_evaluation_idx",
-          "columns": [
-            {
-              "expression": "evaluation_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "eval_runs_evaluation_suite_unique": {
-          "name": "eval_runs_evaluation_suite_unique",
-          "columns": [
-            {
-              "expression": "evaluation_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "suite_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": true,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
         "eval_runs_scope_id_unique": {
           "name": "eval_runs_scope_id_unique",
           "columns": [
@@ -638,15 +611,6 @@
           "columnsTo": ["organization_id", "id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
-        },
-        "eval_runs_evaluation_tenant_fk": {
-          "name": "eval_runs_evaluation_tenant_fk",
-          "tableFrom": "eval_runs",
-          "tableTo": "evaluation_runs",
-          "columnsFrom": ["organization_id", "project_id", "evaluation_id"],
-          "columnsTo": ["organization_id", "project_id", "id"],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
@@ -658,191 +622,6 @@
           "value": "\"eval_runs\".\"status\" in ('queued', 'running', 'passed', 'failed', 'error', 'cancelled')"
         }
       },
-      "isRLSEnabled": false
-    },
-    "public.evaluation_runs": {
-      "name": "evaluation_runs",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true,
-          "default": "gen_random_uuid()"
-        },
-        "organization_id": {
-          "name": "organization_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "project_id": {
-          "name": "project_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "environment": {
-          "name": "environment",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "target_id": {
-          "name": "target_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "target_name": {
-          "name": "target_name",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "name": {
-          "name": "name",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "request": {
-          "name": "request",
-          "type": "jsonb",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "request_hash": {
-          "name": "request_hash",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "idempotency_key": {
-          "name": "idempotency_key",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "requested_by": {
-          "name": "requested_by",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "cancel_requested_at": {
-          "name": "cancel_requested_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {
-        "evaluation_runs_scope_id_unique": {
-          "name": "evaluation_runs_scope_id_unique",
-          "columns": [
-            {
-              "expression": "organization_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "project_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": true,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "evaluation_runs_idempotency_unique": {
-          "name": "evaluation_runs_idempotency_unique",
-          "columns": [
-            {
-              "expression": "organization_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "project_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "idempotency_key",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": true,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "evaluation_runs_scope_created_idx": {
-          "name": "evaluation_runs_scope_created_idx",
-          "columns": [
-            {
-              "expression": "organization_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "project_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "created_at",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {
-        "evaluation_runs_project_tenant_fk": {
-          "name": "evaluation_runs_project_tenant_fk",
-          "tableFrom": "evaluation_runs",
-          "tableTo": "projects",
-          "columnsFrom": ["organization_id", "project_id"],
-          "columnsTo": ["organization_id", "id"],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
       "isRLSEnabled": false
     },
     "public.model_rate_cards": {
@@ -1549,6 +1328,18 @@
           "primaryKey": false,
           "notNull": true
         },
+        "display_name": {
+          "name": "display_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "archived_at": {
+          "name": "archived_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
         "created_at": {
           "name": "created_at",
           "type": "timestamp with time zone",
@@ -1596,6 +1387,33 @@
             },
             {
               "expression": "name",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "project_environments_scope_id_unique": {
+          "name": "project_environments_scope_id_unique",
+          "columns": [
+            {
+              "expression": "organization_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "project_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -1891,6 +1709,12 @@
             },
             {
               "expression": "project_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "environment",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -2276,6 +2100,12 @@
             },
             {
               "expression": "project_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "environment",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -2722,6 +2552,12 @@
               "nulls": "last"
             },
             {
+              "expression": "environment",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
               "expression": "session_id",
               "isExpression": false,
               "asc": true,
@@ -3100,6 +2936,12 @@
               "nulls": "last"
             },
             {
+              "expression": "environment",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
               "expression": "event_id",
               "isExpression": false,
               "asc": true,
@@ -3459,6 +3301,12 @@
               "nulls": "last"
             },
             {
+              "expression": "environment",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
               "expression": "run_id",
               "isExpression": false,
               "asc": true,
@@ -3533,8 +3381,18 @@
           "name": "telemetry_scores_run_tenant_fk",
           "tableFrom": "telemetry_scores",
           "tableTo": "studio_runs",
-          "columnsFrom": ["organization_id", "project_id", "run_id"],
-          "columnsTo": ["organization_id", "project_id", "run_id"],
+          "columnsFrom": [
+            "organization_id",
+            "project_id",
+            "environment",
+            "run_id"
+          ],
+          "columnsTo": [
+            "organization_id",
+            "project_id",
+            "environment",
+            "run_id"
+          ],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }

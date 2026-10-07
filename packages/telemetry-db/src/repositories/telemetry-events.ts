@@ -147,6 +147,7 @@ export const ingestTelemetryEvents = async (
       .values(values)
       .onConflictDoNothing()
       .returning({
+        environment: telemetryEvents.environment,
         eventId: telemetryEvents.eventId,
         runId: telemetryEvents.runId,
         sessionId: telemetryEvents.sessionId,
@@ -166,11 +167,13 @@ export const ingestTelemetryEvents = async (
       if (rows.some((row) => row.type.startsWith("interrupt."))) {
         resources.add("interrupts");
       }
-      await notifyStudioChange(transaction as TelemetryDb, {
-        organizationId: input.organizationId,
-        projectId: input.projectId,
-        resources: [...resources],
-      });
+      for (const environment of unique(rows.map((row) => row.environment)))
+        await notifyStudioChange(transaction as TelemetryDb, {
+          organizationId: input.organizationId,
+          projectId: input.projectId,
+          environment,
+          resources: [...resources],
+        });
     }
     return rows;
   });

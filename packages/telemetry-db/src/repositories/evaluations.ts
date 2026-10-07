@@ -13,7 +13,11 @@ import { getEvalRun } from "./evals";
 import { ensureProjectEnvironmentAllowed } from "./projects";
 import { notifyStudioChange } from "./studio-changes";
 
-type Scope = { organizationId: string; projectId: string };
+type Scope = {
+  organizationId: string;
+  projectId: string;
+  environment?: string | undefined;
+};
 type Parent = Pick<
   typeof evaluationRuns.$inferSelect,
   | "id"
@@ -30,11 +34,15 @@ const parentScope = (scope: Scope) =>
   and(
     eq(evaluationRuns.organizationId, scope.organizationId),
     eq(evaluationRuns.projectId, scope.projectId),
+    scope.environment
+      ? eq(evaluationRuns.environment, scope.environment)
+      : undefined,
   );
 const childScope = (scope: Scope) =>
   and(
     eq(evalRuns.organizationId, scope.organizationId),
     eq(evalRuns.projectId, scope.projectId),
+    scope.environment ? eq(evalRuns.environment, scope.environment) : undefined,
   );
 const active = (status: string) => status === "queued" || status === "running";
 const date = (value: Date | null) => value?.toISOString() ?? null;
@@ -95,7 +103,10 @@ export async function enqueueEvaluation(
         input.idempotencyKey,
         input.requestHash,
       );
-      if (!existing) throw new Error("Evaluation run was not saved.");
+      if (!existing)
+        throw new TelemetryValidationError(
+          "Idempotency key already belongs to another evaluation request.",
+        );
       return existing;
     }
     await tx
@@ -392,6 +403,10 @@ export async function cancelEvaluation(
           inArray(evalRuns.status, ["queued", "running"]),
         ),
       );
-    await notifyStudioChange(tx, { ...scope, resources: ["evals"] });
+    await notifyStudioChange(tx, {
+      ...scope,
+      environment: parent.environment,
+      resources: ["evals"],
+    });
   });
 }

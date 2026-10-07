@@ -1,6 +1,6 @@
-import { redirect } from "next/navigation";
 import { EvalRunPage } from "@/features/evals/components/eval-run-page";
 import { comparisonSelectionHref } from "@/features/evals/lib/navigation";
+import { scopedRedirect } from "@/lib/scoped-redirect";
 export default async function Page({
   params,
   searchParams,
@@ -10,7 +10,7 @@ export default async function Page({
 }) {
   const [{ evalRunId }, query] = await Promise.all([params, searchParams]);
   const selected = comparisonSelectionHref(evalRunId, query);
-  if (selected) redirect(selected);
+  if (selected) await scopedRedirect(selected);
   const baseline =
     typeof query.baseline === "string" ? query.baseline : undefined;
   return <EvalRunPage id={evalRunId} mode="compare" baselineId={baseline} />;

@@ -13,6 +13,7 @@ export const notifyStudioChange = async (
   input: {
     organizationId: string;
     projectId: string;
+    environment?: string;
     resources: readonly StudioChangeResource[];
   },
 ): Promise<StudioChange> => {
@@ -22,6 +23,7 @@ export const notifyStudioChange = async (
     emittedAt: new Date().toISOString(),
     organizationId: input.organizationId,
     projectId: input.projectId,
+    ...(input.environment ? { environment: input.environment } : {}),
     resources: [...new Set(input.resources)].sort(),
   };
 

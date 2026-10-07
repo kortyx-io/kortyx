@@ -4,7 +4,6 @@ import {
   type StudioEvaluationDetail,
   StudioEvaluationDetailSchema,
 } from "@kortyx/agent/evals";
-import { useRouter, useSearchParams } from "next/navigation";
 import { parseAsBoolean } from "nuqs";
 import { useCallback, useEffect, useState } from "react";
 import {
@@ -18,6 +17,7 @@ import { LiveRefreshButton } from "@/features/telemetry/components/live-refresh-
 import { useLiveRefresh } from "@/features/telemetry/hooks/use-live-refresh";
 import { formatDateTime, formatDurationMs } from "@/lib/format";
 import { useStudioQueryStates } from "@/lib/nuqs";
+import { useRouter, useSearchParams } from "@/lib/scoped-navigation";
 import { evalRequest } from "../api/client";
 import { evalNavigationHref, evalRunHref } from "../lib/navigation";
 import { isActive } from "../lib/presentation";

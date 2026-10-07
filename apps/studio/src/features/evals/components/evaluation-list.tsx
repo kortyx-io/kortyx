@@ -5,7 +5,6 @@ import {
   type StudioEvaluationSummary,
 } from "@kortyx/agent/evals";
 import { Play, RefreshCw } from "lucide-react";
-import { useRouter, useSearchParams } from "next/navigation";
 import {
   parseAsBoolean,
   parseAsInteger,
@@ -24,6 +23,7 @@ import { LiveRefreshButton } from "@/features/telemetry/components/live-refresh-
 import { useLiveRefresh } from "@/features/telemetry/hooks/use-live-refresh";
 import { formatDateTime, formatDurationMs } from "@/lib/format";
 import { useStudioQueryStates } from "@/lib/nuqs";
+import { useRouter, useSearchParams } from "@/lib/scoped-navigation";
 import { evalRequest } from "../api/client";
 import { useEvalSetup } from "../hooks/use-eval-setup";
 import { evalNavigationHref, evalRunHref } from "../lib/navigation";

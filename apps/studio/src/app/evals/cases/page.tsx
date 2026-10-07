@@ -1,4 +1,4 @@
-import { redirect } from "next/navigation";
-export default function Page() {
-  redirect("/evals/runs");
+import { scopedRedirect } from "@/lib/scoped-redirect";
+export default async function Page() {
+  await scopedRedirect("/evals/runs");
 }

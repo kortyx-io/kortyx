@@ -1,8 +1,8 @@
 import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
-import { eq } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 import type { TelemetryDb } from "../client";
 import { TelemetryAuthError, TelemetryForbiddenError } from "../errors";
-import { apiKeys } from "../schema";
+import { apiKeys, projectEnvironments } from "../schema";
 
 export type ApiKeyMode = "test" | "live";
 
@@ -10,6 +10,8 @@ export type AuthenticatedTelemetryProject = {
   keyId: string;
   organizationId: string;
   projectId: string;
+  environmentId?: string;
+  environment?: string;
   mode: ApiKeyMode;
   scopes: string[];
 };
@@ -17,6 +19,7 @@ export type AuthenticatedTelemetryProject = {
 export type CreateTelemetryApiKeyInput = {
   organizationId: string;
   projectId: string;
+  environmentId?: string;
   name: string;
   mode?: ApiKeyMode;
   scopes?: string[];
@@ -77,6 +80,7 @@ export const createTelemetryApiKey = async (
     id: keyId,
     organizationId: input.organizationId,
     projectId: input.projectId,
+    environmentId: input.environmentId,
     mode,
     name: input.name,
     secretHash: hashTelemetryApiKeySecret(secret, input.pepper),
@@ -104,6 +108,7 @@ export const upsertTelemetryApiKey = async (
       id: parsed.keyId,
       organizationId: input.organizationId,
       projectId: input.projectId,
+      environmentId: input.environmentId,
       mode: parsed.mode,
       name: input.name,
       secretHash: hashTelemetryApiKeySecret(parsed.secret, input.pepper),
@@ -117,6 +122,7 @@ export const upsertTelemetryApiKey = async (
       set: {
         organizationId: input.organizationId,
         projectId: input.projectId,
+        environmentId: input.environmentId ?? null,
         mode: parsed.mode,
         name: input.name,
         secretHash: hashTelemetryApiKeySecret(parsed.secret, input.pepper),
@@ -154,6 +160,24 @@ export const authenticateTelemetryApiKey = async (
   }
   if (record.mode !== parsed.mode) throw new TelemetryAuthError();
 
+  let environment: string | undefined;
+  if (record.environmentId) {
+    const [bound] = await db
+      .select({ name: projectEnvironments.name })
+      .from(projectEnvironments)
+      .where(
+        and(
+          eq(projectEnvironments.id, record.environmentId),
+          eq(projectEnvironments.organizationId, record.organizationId),
+          eq(projectEnvironments.projectId, record.projectId),
+          isNull(projectEnvironments.archivedAt),
+        ),
+      )
+      .limit(1);
+    if (!bound) throw new TelemetryAuthError();
+    environment = bound.name;
+  }
+
   const hash = hashTelemetryApiKeySecret(parsed.secret, input.pepper);
   if (!safeEqual(hash, record.secretHash)) throw new TelemetryAuthError();
 
@@ -175,5 +199,8 @@ export const authenticateTelemetryApiKey = async (
     projectId: record.projectId,
     mode: parsed.mode,
     scopes,
+    ...(record.environmentId && environment
+      ? { environmentId: record.environmentId, environment }
+      : {}),
   };
 };

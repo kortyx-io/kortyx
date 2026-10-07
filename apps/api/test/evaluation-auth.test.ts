@@ -2,10 +2,22 @@ import type { TelemetryDb } from "@kortyx/telemetry-db";
 import { describe, expect, it, vi } from "vitest";
 import { createApiApp } from "../src/app";
 
-function reader() {
+function reader(execute = false, environment?: string) {
   const work = vi.fn();
   const app = createApiApp({
     db: {} as TelemetryDb,
+    evalTargets: [
+      {
+        id: "app",
+        name: "App",
+        organizationId: "org",
+        projectId: "project",
+        environment: "staging",
+        url: "https://example.test/evals",
+        serviceKey: "fixture-only-key-at-least-32-characters",
+        allowInsecureHttp: false,
+      },
+    ],
     apiKeyPepper: "test",
     authentication: {
       authenticate: async () => ({
@@ -15,10 +27,11 @@ function reader() {
         organizationId: "org",
         projectId: "project",
         scopes: ["studio:read"],
+        ...(environment ? { environment } : {}),
       }),
     },
     authorization: {
-      allows: async (_principal, action) => action === "studio:read",
+      allows: async (_principal, action) => execute || action === "studio:read",
     },
     tenantDatabase: { withPrincipal: work },
   });
@@ -39,6 +52,20 @@ describe("grouped evaluation authorization", () => {
         })
       ).status,
     ).toBe(403);
+    expect(work).not.toHaveBeenCalled();
+  });
+  it("rejects a target outside the credential's verified environment before touching tenant data", async () => {
+    const { app, work } = reader(true, "development");
+    const response = await app.request("/v1/studio/evals/evaluations", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        targetId: "app",
+        selection: "all",
+        suites: [{ suiteId: "smoke", suiteRevision: "a".repeat(64) }],
+      }),
+    });
+    expect(response.status).toBe(403);
     expect(work).not.toHaveBeenCalled();
   });
   it("rejects invalid result IDs without querying tenant data", async () => {

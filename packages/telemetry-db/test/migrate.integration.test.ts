@@ -2,8 +2,14 @@ import { randomUUID } from "node:crypto";
 import { cp, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
+import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import {
+  authenticateTelemetryApiKey,
+  hashTelemetryApiKeySecret,
+} from "../src/repositories/api-keys";
+import { ingestTelemetryEvents } from "../src/repositories/telemetry-events";
 import { prepareDatabaseForDrizzle } from "../src/scripts/legacy-drizzle-preparation";
 import {
   LEGACY_MIGRATIONS,
@@ -132,7 +138,17 @@ async function customerRows(sql: postgres.Sql, prefix: number) {
       // OIDs prove adoption did not drop/recreate already-deployed tables.
       oid: (await sql`SELECT to_regclass(${`public.${table}`})::oid AS oid`)[0]
         ?.oid,
-      rows: [...(await sql.unsafe(`SELECT * FROM "${table}" ORDER BY id`))],
+      rows: [...(await sql.unsafe(`SELECT * FROM "${table}" ORDER BY id`))].map(
+        (row) => {
+          // A later native migration may add nullable columns; compare the
+          // original legacy data rather than treating additive schema as data loss.
+          if (table === "api_keys" && prefix <= 6) {
+            const { environment_id: _newColumn, ...legacy } = row;
+            return legacy;
+          }
+          return row;
+        },
+      ),
     })),
   );
 }
@@ -318,6 +334,68 @@ integration("native Drizzle migration cutover", () => {
       ).toBeNull();
     });
   });
+
+  it.each([
+    "legacy",
+    "native",
+  ])("upgrades populated released %s history to the latest schema and keeps existing SDK keys usable", async (history) => {
+    await withDatabase(async (sql, url) => {
+      if (history === "legacy") await installLegacy(sql, 6);
+      else await native(url);
+      await seed(sql, 6);
+      await sql`insert into project_environments(organization_id,project_id,name) values('10000000-0000-0000-0000-000000000001','20000000-0000-0000-0000-000000000001','production'),('10000000-0000-0000-0000-000000000001','20000000-0000-0000-0000-000000000001','staging')`;
+      const pepper = "upgrade-test-only";
+      const secret = "existing-installation-secret";
+      await sql`update api_keys set secret_hash=${hashTelemetryApiKeySecret(secret, pepper)},scopes='["telemetry:write","studio:read"]' where id='existing-key-id'`;
+      const before = await customerRows(sql, 6);
+      await migrate(url, productionDir);
+      await migrate(url, productionDir);
+      expect(await customerRows(sql, 6)).toEqual(before);
+      expect(
+        (
+          await sql`select environment_id from api_keys where id='existing-key-id'`
+        )[0]?.environment_id,
+      ).toBeNull();
+      const db = drizzle(sql);
+      const auth = await authenticateTelemetryApiKey(db, {
+        apiKey: `ktyx_live_existing-key-id_${secret}`,
+        pepper,
+        requiredScope: "telemetry:write",
+      });
+      expect(auth.environmentId).toBeUndefined();
+      for (const environment of ["production", "staging"]) {
+        const event = {
+          schemaVersion: 1 as const,
+          eventId: `after-upgrade-${environment}`,
+          type: "run.started" as const,
+          occurredAt: new Date().toISOString(),
+          environment,
+          service: { name: "existing-sdk" },
+          correlation: {
+            runId: "same-run-id",
+            workflowId: "existing-workflow",
+          },
+          payload: {},
+        };
+        expect(
+          await ingestTelemetryEvents(db, { ...auth, events: [event] }),
+        ).toMatchObject({ inserted: 1 });
+        expect(
+          await ingestTelemetryEvents(db, { ...auth, events: [event] }),
+        ).toMatchObject({ inserted: 0, duplicates: 1 });
+      }
+      expect(
+        await sql`select environment from studio_runs where run_id='same-run-id' order by environment`,
+      ).toEqual([{ environment: "production" }, { environment: "staging" }]);
+      await sql`update api_keys set revoked_at=now() where id='existing-key-id'`;
+      await expect(
+        authenticateTelemetryApiKey(db, {
+          apiKey: `ktyx_live_existing-key-id_${secret}`,
+          pepper,
+        }),
+      ).rejects.toThrow();
+    });
+  }, 30000);
 
   it("serializes concurrent runners, including a pending native migration", async () => {
     await withFutureMigrations(async (folder, append) => {

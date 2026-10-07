@@ -9,7 +9,7 @@ export const createApiAuth: CreateApiAuth = (options) => {
     throw new Error("Cloud API requires an authentication adapter.");
   }
   return {
-    async authenticate(request) {
+    async authenticate(request, surface) {
       const token = /^Bearer ([^\s]+)$/i.exec(
         request.headers.get("authorization") ?? "",
       )?.[1];
@@ -19,7 +19,21 @@ export const createApiAuth: CreateApiAuth = (options) => {
         apiKey: token,
         pepper: options.apiKeyPepper,
       });
-      return { ...identity, kind: "api-key" };
+      const environment =
+        surface === "studio"
+          ? request.headers.get("x-kortyx-environment")
+          : null;
+      if (
+        environment &&
+        identity.environment &&
+        environment !== identity.environment
+      )
+        throw new TelemetryAuthError("Environment mismatch.");
+      return {
+        ...identity,
+        kind: "api-key",
+        ...(environment && !identity.environment ? { environment } : {}),
+      };
     },
   };
 };

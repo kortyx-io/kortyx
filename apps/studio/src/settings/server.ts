@@ -1,22 +1,28 @@
 import "server-only";
-import { cookies } from "next/headers";
 import { createElement } from "react";
 import type { StudioSettingsAdapter } from "./contracts";
-import { LocalStudioSetup } from "./setup";
-import { LOCAL_SETUP_COOKIE } from "./setup-state";
+import {
+  OperatorEvaluationSettings,
+  OperatorKeySettings,
+} from "./operator-settings";
 
 /** Self-hosted Studio retains its existing local configuration cards. */
 export const studioSettings: StudioSettingsAdapter = {
-  async resolve(context) {
-    const setupRequired =
-      (await cookies()).get(LOCAL_SETUP_COOKIE)?.value !== "1";
+  async resolve() {
     return {
-      setupRequired,
-      onboarding: setupRequired
-        ? createElement(LocalStudioSetup, {
-            connected: context.connection.status === "connected",
-          })
-        : null,
+      categories: [
+        {
+          id: "api-keys",
+          label: "API keys",
+          content: createElement(OperatorKeySettings),
+        },
+        {
+          id: "evaluations",
+          label: "Evaluations",
+          content: createElement(OperatorEvaluationSettings),
+        },
+      ],
+      setupRequired: false,
     };
   },
 };

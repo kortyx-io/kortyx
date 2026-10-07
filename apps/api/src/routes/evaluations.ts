@@ -17,14 +17,20 @@ import {
 } from "@kortyx/telemetry-db";
 import { bodyLimit } from "hono/body-limit";
 import { z } from "zod";
+import type { EvalTargetAdapter } from "../evals/contracts";
 import { type EvalTarget, fetchEvalManifest } from "../evals/targets";
-import { principalActorId, requireApiAction } from "../middleware/security";
+import {
+  principalActorId,
+  requireApiAction,
+  requirePrincipalEnvironment,
+} from "../middleware/security";
 import type { ApiEnv } from "../types";
 
 export function registerEvaluationRoutes(
   app: OpenAPIHono<ApiEnv>,
   targets: readonly EvalTarget[],
   studioJudge?: EvalJudge,
+  adapter?: EvalTargetAdapter,
 ) {
   const path = "/v1/studio/evals/evaluations";
   app.use(path, bodyLimit({ maxSize: 16_384 }));
@@ -63,13 +69,14 @@ export function registerEvaluationRoutes(
       return c.json({ error: "Invalid evaluation request." }, 400);
     const request = parsed.data;
     const auth = c.get("principal");
-    const target = targets.find(
+    const target = (adapter ? await adapter.list(auth) : targets).find(
       (target) =>
         target.id === request.targetId &&
         target.organizationId === auth.organizationId &&
         target.projectId === auth.projectId,
     );
     if (!target) throw new TelemetryNotFoundError("Eval target not found.");
+    requirePrincipalEnvironment(auth, [target.environment]);
     await c.get("withTenantDatabase")((db) =>
       ensureProjectEnvironmentAllowed(db, target),
     );
@@ -88,7 +95,9 @@ export function registerEvaluationRoutes(
       }
       let manifest: Awaited<ReturnType<typeof fetchEvalManifest>>;
       try {
-        manifest = await fetchEvalManifest(target);
+        manifest = await (adapter
+          ? adapter.manifest(target)
+          : fetchEvalManifest(target));
       } catch {
         return c.json({ error: "Consumer eval endpoint is unavailable." }, 503);
       }
@@ -237,9 +246,23 @@ export function registerEvaluationRoutes(
     await requireApiAction(c, "eval:run");
     const id = z.uuid().safeParse(c.req.param("id"));
     if (!id.success) return c.json({ error: "Invalid evaluation ID." }, 400);
+    const auth = c.get("principal");
+    const children = adapter?.cancel
+      ? (
+          await c.get("withTenantDatabase")((db) =>
+            getEvaluation(db, auth, id.data),
+          )
+        ).suites
+      : [];
     await c.get("withTenantDatabase")((db) =>
       cancelEvaluation(db, c.get("principal"), id.data),
     );
+    if (adapter?.cancel)
+      await Promise.all(
+        children
+          .filter((run) => run.status === "queued" || run.status === "running")
+          .map((run) => adapter.cancel!(auth, run.id)),
+      );
     return c.json({ ok: true });
   });
 }

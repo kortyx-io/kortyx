@@ -4,6 +4,9 @@ import { proxy } from "../proxy";
 import { studioAuth } from "./server";
 
 vi.mock("server-only", () => ({}));
+vi.mock("next/headers", () => ({
+  cookies: async () => ({ get: () => undefined }),
+}));
 beforeEach(() => {
   vi.stubEnv("KORTYX_STUDIO_AUTH_MODE", "basic");
   vi.stubEnv("KORTYX_STUDIO_BASIC_AUTH_USERNAME", "admin");

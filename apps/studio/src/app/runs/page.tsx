@@ -34,6 +34,13 @@ export default async function RunsPage({
     );
   }
 
+  if (
+    !runsResult.data.totalCount &&
+    isFirstUseQuery(query) &&
+    (await hasNoObservations("runs", query.env))
+  )
+    return <FirstObservation resource="runs" />;
+
   return (
     <RunsPageClient
       runs={runsResult.data.items}
@@ -43,3 +50,9 @@ export default async function RunsPage({
     />
   );
 }
+
+import { FirstObservation } from "@/features/telemetry/components/first-observation";
+import {
+  hasNoObservations,
+  isFirstUseQuery,
+} from "@/features/telemetry/first-use";

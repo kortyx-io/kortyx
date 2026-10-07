@@ -524,5 +524,5 @@ The grouped API is `/v1/studio/evals/evaluations`: POST creates a selection, GET
 lists grouped/legacy history; `/:id` returns summary and suites, `/:id/results`
 returns detailed results, and POST `/:id/cancel` cancels remaining work. Existing
 `/v1/studio/evals/runs` endpoints continue to serve individual suite executions.
-Apply migration `0006_evaluation_runs` before deploying the new API. Browser and
+Apply migration `0007_evaluation_runs` before deploying the new API. Browser and
 CLI grouped operations require a compatible Studio/API release.

@@ -15,6 +15,11 @@ test.describe("Eval route and drawer navigation", () => {
   }) => {
     await page.goto("/evals");
     await expect(page).toHaveURL(/\/evals\/runs$/);
+    // A cold development server can finish the redirect route's Fast Refresh
+    // after the next client navigation and restore its newer router tree over
+    // a browser Back. Restore the canonical entry first so this assertion
+    // exercises persisted Runs -> Suites history in both dev and production.
+    await page.reload();
     await page
       .getByRole("navigation", { name: "Eval navigation" })
       .getByRole("link", { name: "Suites", exact: true })
