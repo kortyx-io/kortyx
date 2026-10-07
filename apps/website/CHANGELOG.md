@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.43.0](https://github.com/kortyx-io/kortyx/compare/website-v0.42.0...website-v0.43.0) (2026-10-07)
+
+
+### Features
+
+* **evals:** diagnose setup and guide first workflow runs ([#275](https://github.com/kortyx-io/kortyx/issues/275)) ([01dbf80](https://github.com/kortyx-io/kortyx/commit/01dbf803e65eec03187de9eaa316e4294f4f8dc5))
+* **studio:** unify extensible workspace shell and scoped settings ([#280](https://github.com/kortyx-io/kortyx/issues/280)) ([cf51257](https://github.com/kortyx-io/kortyx/commit/cf5125765317f67aa27e1dd2f8130315e9632390))
+* **website:** separate SDK and Studio documentation ([#262](https://github.com/kortyx-io/kortyx/issues/262)) ([7518ddc](https://github.com/kortyx-io/kortyx/commit/7518ddc0494503ed4fb393b20dc7b37240a27fcc))
+
+
+### Bug Fixes
+
+* **security:** remediate production dependency risks ([#267](https://github.com/kortyx-io/kortyx/issues/267)) ([319daa1](https://github.com/kortyx-io/kortyx/commit/319daa1716a8684c332842bc6b6e9bb9474219e7))
+
 ## [0.42.0](https://github.com/kortyx-io/kortyx/compare/website-v0.41.0...website-v0.42.0) (2026-10-03)
 
 
