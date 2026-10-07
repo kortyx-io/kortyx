@@ -670,6 +670,76 @@ describe("Studio eval CLI", () => {
     ).rejects.toThrow("HTTP 409");
     expect(request).toHaveBeenCalledTimes(2);
   });
+  it("covers invalid command selections and propagates grouped endpoint failures", async () => {
+    const args = await configured();
+    await expect(
+      cli(mockFetch([target, { ...target, id: "other" }])).run([
+        "suites",
+        "get",
+        "jobs",
+        ...args,
+      ]),
+    ).rejects.toThrow("multiple targets");
+    await expect(
+      cli(mockFetch()).run(["runs", "start", ...args]),
+    ).rejects.toThrow("Choose --all or unique suite IDs");
+    await expect(
+      cli(mockFetch()).run([
+        "runs",
+        "start",
+        "jobs",
+        "--source",
+        "unknown",
+        ...args,
+      ]),
+    ).rejects.toThrow("manual, deployment, schedule or ci");
+
+    const startFailure = mockFetch()
+      .mockImplementationOnce(
+        async () =>
+          new Response(JSON.stringify({ canRun: true, targets: [target] })),
+      )
+      .mockImplementationOnce(
+        async () => new Response(JSON.stringify({ id }), { status: 202 }),
+      )
+      .mockImplementationOnce(
+        async () => new Response("unavailable", { status: 503 }),
+      );
+    await expect(
+      cli(startFailure).run(["runs", "start", "jobs", "--wait", ...args]),
+    ).rejects.toThrow("HTTP 503");
+    expect(process.exitCode).toBe(2);
+
+    const readFailure = vi.fn<typeof fetch>(
+      async () => new Response("unavailable", { status: 503 }),
+    );
+    await expect(
+      cli(readFailure).run(["runs", "get", id, ...args]),
+    ).rejects.toThrow("HTTP 503");
+  });
+  it("falls back to legacy cancellation only when the grouped run is absent", async () => {
+    const args = await configured();
+    const request = vi.fn<typeof fetch>(async (url) =>
+      String(url).includes("/evaluations/")
+        ? new Response("missing", { status: 404 })
+        : new Response(JSON.stringify({ ok: true })),
+    );
+    const command = cli(request);
+    await command.run(["runs", "cancel", id, ...args, "--json"]);
+    expect(request).toHaveBeenCalledTimes(2);
+    expect(String(request.mock.calls[1]?.[0])).toContain(
+      `/v1/studio/evals/runs/${id}/cancel`,
+    );
+    expect(JSON.parse(command.output[0] ?? "")).toMatchObject({ id, ok: true });
+
+    const failure = vi.fn<typeof fetch>(
+      async () => new Response("unavailable", { status: 503 }),
+    );
+    await expect(
+      cli(failure).run(["runs", "cancel", id, ...args]),
+    ).rejects.toThrow("HTTP 503");
+    expect(failure).toHaveBeenCalledTimes(1);
+  });
 });
 describe("eval endpoint validation", () => {
   it.each([
@@ -703,5 +773,32 @@ describe("eval endpoint validation", () => {
     expect(() => client.run("../runs")).toThrow("UUID");
     expect(() => client.cancel("../runs")).toThrow("UUID");
     expect(request).not.toHaveBeenCalled();
+  });
+  it("validates grouped IDs and exercises the legacy client endpoints", async () => {
+    const request = mockFetch();
+    const client = new StudioEvalClient(
+      "https://api.example.test",
+      key,
+      request,
+    );
+    expect(() =>
+      client.startEvaluation({
+        targetId: "hiring",
+        selection: "selected",
+        suites: [],
+      }),
+    ).toThrow("Invalid evaluation selection");
+    expect(() => client.evaluation("../evaluations")).toThrow(
+      "evaluation UUID",
+    );
+    await expect(client.runs()).resolves.toMatchObject({ runs: [summary] });
+    await expect(
+      client.start({
+        targetId: "hiring",
+        suiteId: "jobs",
+        suiteRevision: revision,
+      }),
+    ).resolves.toEqual({ id });
+    await expect(client.cancel(id)).resolves.toEqual({ ok: true });
   });
 });
