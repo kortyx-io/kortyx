@@ -246,7 +246,7 @@ export function EvaluationDetail({
                   value={run.counts.cancelled}
                 />
               </div>
-              <div className="mt-2 flex flex-wrap gap-x-5 gap-y-1 text-xs text-muted-foreground">
+              <div className="mt-2 flex flex-wrap gap-x-5 gap-y-1 pb-2 text-xs text-muted-foreground">
                 <span>
                   {run.selection === "all" ? "All suites" : "Selected suites"}
                 </span>
