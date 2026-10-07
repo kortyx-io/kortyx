@@ -27,6 +27,8 @@ export interface StudioSettingsContribution {
     id: string;
     label: string;
     group?: StudioSettingsGroup;
+    /** UI rollout only; adapters remain responsible for authorization. */
+    availability?: "soon";
     content: ReactNode;
   }>;
 }

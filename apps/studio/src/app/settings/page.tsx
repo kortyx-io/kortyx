@@ -237,6 +237,7 @@ export default async function SettingsPage({
             id={category.id}
             label={category.label}
             group={category.group ?? "Project"}
+            availability={category.availability}
           >
             {category.content}
           </SettingsPanel>

@@ -31,6 +31,7 @@ export interface SettingsPanelProps {
   label: string;
   children: ReactNode;
   group?: StudioSettingsGroup;
+  availability?: "soon";
 }
 export function SettingsPanel({ children }: SettingsPanelProps) {
   return <>{children}</>;
@@ -85,6 +86,24 @@ export function SettingsNavigation({ children }: { children: ReactNode }) {
               {items.map((panel) => {
                 const Icon =
                   icons[panel.props.id as keyof typeof icons] ?? Settings;
+                if (panel.props.availability === "soon")
+                  return (
+                    <div
+                      key={panel.props.id}
+                      aria-disabled="true"
+                      title="Coming soon"
+                      className="flex w-full items-center gap-2.5 rounded-md px-3 py-2 text-sm text-muted-foreground"
+                    >
+                      <Icon
+                        className="size-4 shrink-0 opacity-50"
+                        aria-hidden="true"
+                      />
+                      <span className="opacity-50">{panel.props.label}</span>
+                      <span className="ml-auto rounded-md border px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+                        Soon
+                      </span>
+                    </div>
+                  );
                 return (
                   <Link
                     key={panel.props.id}
