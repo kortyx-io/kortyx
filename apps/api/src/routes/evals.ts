@@ -27,6 +27,7 @@ import {
   requireApiAction,
 } from "../middleware/security";
 import type { ApiEnv } from "../types";
+import { registerEvaluationRoutes } from "./evaluations";
 
 export function registerEvalRoutes(
   app: OpenAPIHono<ApiEnv>,
@@ -34,6 +35,7 @@ export function registerEvalRoutes(
   studioJudge?: EvalJudge,
   adapter?: EvalTargetAdapter,
 ) {
+  registerEvaluationRoutes(app, targets, studioJudge, adapter);
   const manifestFor = adapter
     ? (target: EvalTarget) => adapter.manifest(target)
     : fetchEvalManifest;

@@ -53,6 +53,7 @@ export type EvalCosts = z.infer<typeof EvalCostsSchema>;
 export type EvalCostAmount = z.infer<typeof EvalCostAmountSchema>;
 export const StudioEvalRunSummarySchema = z.object({
   id: z.uuid(),
+  evaluationId: z.uuid().nullable().optional(),
   targetId: z.string(),
   targetName: z.string(),
   environment: z.string(),
@@ -82,6 +83,9 @@ export const StudioEvalRunSummarySchema = z.object({
     .nullable()
     .optional(),
   suiteName: z.string().nullable().optional(),
+  totalAttempts: z.number().int().nonnegative().optional(),
+  completedAttempts: z.number().int().nonnegative().optional(),
+  phase: z.string().optional(),
 });
 export const StudioEvalHistorySchema = z.object({
   runs: z.array(StudioEvalRunSummarySchema),

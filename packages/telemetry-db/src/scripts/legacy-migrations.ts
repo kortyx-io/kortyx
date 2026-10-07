@@ -78,3 +78,39 @@ export const LEGACY_SCHEMA_FINGERPRINTS = [
   "cd8a754001c351925dbdd70e412d76b113cb7f67e0d6433717cc41c798ad70a0",
   "4847e55f88b80309717e5c1d1c208c0d02f70c5c892c217aa81e7b29d84db190",
 ] as const;
+
+/**
+ * Exact catalog variants produced by released legacy migrations.
+ *
+ * Early installations created workflow_revisions without workflow_transitions
+ * in 0000, then appended it in 0001. Later release artifacts included the
+ * column in 0000 and made 0001 a no-op. PostgreSQL preserves that physical
+ * column order, so the logically equivalent catalogs have distinct hashes.
+ */
+export const LEGACY_SCHEMA_FINGERPRINT_VARIANTS = [
+  [LEGACY_SCHEMA_FINGERPRINTS[0]],
+  [
+    LEGACY_SCHEMA_FINGERPRINTS[1],
+    "fd9bba40950398f852d8a5e66950367e66931ba63f79689e0078bcac199df984",
+  ],
+  [
+    LEGACY_SCHEMA_FINGERPRINTS[2],
+    "b21b0b6d7df2514750088552426d815972645f9285924c898cf1ef83ac2c8c5a",
+  ],
+  [
+    LEGACY_SCHEMA_FINGERPRINTS[3],
+    "2a9ad75dcd054a96df6494248e6fae8323ea488812e5f518c5d98dc15c7ab8a6",
+  ],
+  [
+    LEGACY_SCHEMA_FINGERPRINTS[4],
+    "1be531a2e790dc8b04043286265d25ea14c8de2abb1114131905b468c1461d9c",
+  ],
+  [
+    LEGACY_SCHEMA_FINGERPRINTS[5],
+    "50d2b4ff05a81e4075560d4d4dad28a393f935ea359a772c3df04c7f815fc128",
+  ],
+  [
+    LEGACY_SCHEMA_FINGERPRINTS[6],
+    "a8b374bdb0e9fadee7ff5ecd77f828e9709162e193e01199fb54ec8a98fbf0cb",
+  ],
+] as const;

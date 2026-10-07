@@ -22,6 +22,7 @@ import {
   ensureLocalDevelopmentProject,
   finishEvalRun,
   getEvalRun,
+  getEvaluation,
   listEvalRuns,
   requestEvalCancellation,
 } from "@kortyx/telemetry-db";
@@ -434,22 +435,22 @@ describe.skipIf(!url)(
           "--judge",
           "app",
         );
-        expect((await getEvalRun(client.db, scope, run.id)).status).toBe(
+        expect((await getEvaluation(client.db, scope, run.id)).status).toBe(
           "queued",
         );
         worker.start();
         await vi.waitFor(
           async () =>
-            expect((await getEvalRun(client.db, scope, run.id)).status).toBe(
+            expect((await getEvaluation(client.db, scope, run.id)).status).toBe(
               "passed",
             ),
           { timeout: 10_000 },
         );
         const cliDetail = await runCli("runs", "get", run.id);
         expect(cliDetail.run.status).toBe("passed");
-        expect(cliDetail.run.caseResults[0].steps[1].criteria[0].passed).toBe(
-          true,
-        );
+        expect(
+          cliDetail.run.suites[0].caseResults[0].steps[1].criteria[0].passed,
+        ).toBe(true);
         expect(JSON.stringify(cliDetail)).not.toContain(
           "Paris job description",
         );
@@ -464,7 +465,7 @@ describe.skipIf(!url)(
           "app",
         );
         await runCli("runs", "cancel", queued.id);
-        expect((await getEvalRun(client.db, scope, queued.id)).status).toBe(
+        expect((await getEvaluation(client.db, scope, queued.id)).status).toBe(
           "cancelled",
         );
       } finally {
@@ -475,7 +476,8 @@ describe.skipIf(!url)(
       const replacement = createEvalWorker(client.db, [target]);
       replacement.start();
       await replacement.stop();
-      const saved = await getEvalRun(client.db, scope, run.id);
+      const parent = await getEvaluation(client.db, scope, run.id);
+      const saved = await getEvalRun(client.db, scope, parent.suites[0]!.id);
       expect(
         saved.result?.cases[0]?.steps.map((step) => step.observation.type),
       ).toEqual(["interrupt", "answer"]);
@@ -490,7 +492,7 @@ describe.skipIf(!url)(
       ]);
       expect(
         (await listEvalRuns(client.db, scope)).some(
-          (item) => item.id === run.id && item.status === "passed",
+          (item) => item.id === saved.id && item.status === "passed",
         ),
       ).toBe(true);
     }, 30_000);

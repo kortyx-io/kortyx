@@ -475,7 +475,7 @@ export function EvalsPageClient({
             onClick={() => startSetup()}
           >
             <Play />
-            Run suite
+            Run evaluations
           </Button>
         </div>
       </div>

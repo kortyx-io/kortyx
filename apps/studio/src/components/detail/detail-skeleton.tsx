@@ -34,7 +34,7 @@ function DetailSkeletonFrame({ floating }: { floating: boolean }) {
       aria-label="Loading details"
       className={
         floating
-          ? "fixed top-12 right-4 bottom-4 z-50 flex w-[min(32rem,calc(100vw-2rem))] flex-col overflow-hidden rounded-xl border bg-background shadow-2xl"
+          ? "fixed top-12 right-1 bottom-1 z-50 flex w-[min(32rem,calc(100vw-2rem))] flex-col overflow-hidden rounded-xl border bg-background shadow-2xl"
           : "flex h-full min-h-0 w-full flex-col overflow-hidden rounded-xl border bg-background shadow-sm"
       }
     >

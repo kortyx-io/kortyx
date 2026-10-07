@@ -13,6 +13,7 @@ import { ingestTelemetryEvents } from "../src/repositories/telemetry-events";
 import { prepareDatabaseForDrizzle } from "../src/scripts/legacy-drizzle-preparation";
 import {
   LEGACY_MIGRATIONS,
+  LEGACY_SCHEMA_FINGERPRINT_VARIANTS,
   LEGACY_SCHEMA_FINGERPRINTS,
 } from "../src/scripts/legacy-migrations";
 import { migrateForDeployment } from "../src/scripts/migrate-for-deployment";
@@ -86,6 +87,25 @@ async function installLegacy(sql: postgres.Sql, count: number) {
   }
 }
 
+async function installHistoricalLegacy(sql: postgres.Sql, count: number) {
+  await sql`CREATE TABLE public.kortyx_schema_migrations (
+    id text PRIMARY KEY, applied_at timestamptz DEFAULT now() NOT NULL
+  )`;
+  for (const [index, { tag }] of LEGACY_MIGRATIONS.slice(0, count).entries()) {
+    await sql.begin(async (tx) => {
+      let source = await readFile(
+        path.join(migrationsDir, `${tag}.sql`),
+        "utf8",
+      );
+      if (index === 0) {
+        source = source.replace(/^.*"workflow_transitions".*\n/m, "");
+      }
+      await tx.unsafe(source);
+      await tx`INSERT INTO public.kortyx_schema_migrations (id) VALUES (${`${tag}.sql`})`;
+    });
+  }
+}
+
 async function seed(sql: postgres.Sql, prefix: number) {
   if (!prefix) return;
   await sql`INSERT INTO organizations (id, name) VALUES ('10000000-0000-0000-0000-000000000001', 'existing customer')`;
@@ -144,6 +164,10 @@ async function customerRows(sql: postgres.Sql, prefix: number) {
           // original legacy data rather than treating additive schema as data loss.
           if (table === "api_keys" && prefix <= 6) {
             const { environment_id: _newColumn, ...legacy } = row;
+            return legacy;
+          }
+          if (table === "eval_runs" && prefix <= 6) {
+            const { evaluation_id: _newColumn, ...legacy } = row;
             return legacy;
           }
           return row;
@@ -318,6 +342,36 @@ integration("native Drizzle migration cutover", () => {
       const ledger =
         await sql`SELECT * FROM public.kortyx_schema_migrations ORDER BY id`;
       expect([...ledger]).toEqual(oldLedger);
+    });
+  }, 30000);
+
+  it.each([
+    1, 2, 3, 4, 5, 6,
+  ])("upgrades historical legacy prefix %i without changing customer rows", async (prefix) => {
+    await withDatabase(async (sql, url) => {
+      await installHistoricalLegacy(sql, prefix);
+      await seed(sql, prefix);
+      expect(await legacySchemaFingerprint(sql)).toBe(
+        LEGACY_SCHEMA_FINGERPRINT_VARIANTS[prefix]?.[1],
+      );
+      const before = await customerRows(sql, prefix);
+      const oldLedger = [
+        ...(await sql`SELECT * FROM public.kortyx_schema_migrations ORDER BY id`),
+      ];
+      await migrate(url);
+      await migrate(url);
+      expect(await customerRows(sql, prefix)).toEqual(before);
+      expect(LEGACY_SCHEMA_FINGERPRINT_VARIANTS[6]).toContain(
+        await legacySchemaFingerprint(sql),
+      );
+      const native =
+        await sql`SELECT hash, created_at FROM drizzle.__drizzle_migrations ORDER BY created_at`;
+      expect(
+        native.map((row) => ({ hash: row.hash, when: Number(row.created_at) })),
+      ).toEqual(LEGACY_MIGRATIONS.map(({ hash, when }) => ({ hash, when })));
+      expect([
+        ...(await sql`SELECT * FROM public.kortyx_schema_migrations ORDER BY id`),
+      ]).toEqual(oldLedger);
     });
   }, 30000);
 

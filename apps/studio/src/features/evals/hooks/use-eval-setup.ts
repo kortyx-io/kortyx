@@ -10,27 +10,44 @@ import { useStudioQueryStates } from "@/lib/nuqs";
 import type { EvalTargets } from "../schema";
 export const evalSetupParsers = {
   launch: parseAsBoolean.withDefault(false),
-  launchJudge: parseAsStringLiteral(["studio", "app"]).withDefault("studio"),
+  launchJudge: parseAsStringLiteral(["studio", "app"]),
   launchApplication: parseAsString.withDefault(""),
   launchSuite: parseAsString.withDefault(""),
+  launchScope: parseAsStringLiteral(["all", "selected"]).withDefault("all"),
+  launchSuites: parseAsJson(z.array(z.string())),
+  launchConcurrency: parseAsString.withDefault("1"),
   launchCases: parseAsJson(z.array(z.string())),
+  launchSuiteCases: parseAsJson(
+    z.array(z.object({ suiteId: z.string(), caseIds: z.array(z.string()) })),
+  ),
+  launchExpandedSuites: parseAsJson(z.array(z.string())),
   launchAttempts: parseAsString.withDefault("1"),
-  launchDefinition: parseAsBoolean.withDefault(false),
 };
 export function useEvalSetup(targets: EvalTargets) {
   const [query, setQuery] = useStudioQueryStates(evalSetupParsers, {
     shallow: true,
-    urlKeys: { launchDefinition: "expand.launch-definition" },
   });
   const target = targets.targets.find((t) => t.id === query.launchApplication);
-  const suite = target?.manifest?.suites.find(
-    (s) => s.id === query.launchSuite,
+  const studioAvailable = Boolean(
+    target?.manifest?.studioJudging && targets.studioJudge,
   );
+  const appJudge = target?.manifest?.judge;
+  const judge =
+    query.launchJudge ?? (studioAvailable ? "studio" : appJudge ? "app" : null);
+  const selected =
+    query.launchSuites ?? (query.launchSuite ? [query.launchSuite] : []);
+  const suite =
+    query.launchScope === "selected" && selected.length === 1
+      ? target?.manifest?.suites.find((s) => s.id === selected[0])
+      : undefined;
   return {
     query,
     setQuery,
     target,
     suite,
+    judge,
+    studioAvailable,
+    appJudge,
     open: (targetId?: string, suiteId?: string) => {
       const target =
         targets.targets.find((t) => t.id === targetId) ??
@@ -42,10 +59,15 @@ export function useEvalSetup(targets: EvalTargets) {
       void setQuery({
         launch: true,
         launchApplication: target?.id ?? "",
-        launchSuite: suite?.id ?? "",
+        launchSuite: suiteId ? (suite?.id ?? "") : "",
+        launchScope: suiteId ? "selected" : "all",
+        launchSuites: suiteId && suite ? [suite.id] : null,
+        launchConcurrency: "1",
         launchCases: null,
+        launchSuiteCases: null,
+        launchExpandedSuites: suiteId && suite ? [suite.id] : null,
         launchAttempts: "1",
-        launchDefinition: null,
+
         launchJudge: null,
       });
     },
@@ -54,9 +76,14 @@ export function useEvalSetup(targets: EvalTargets) {
         launch: null,
         launchApplication: null,
         launchSuite: null,
+        launchScope: null,
+        launchSuites: null,
+        launchConcurrency: null,
         launchCases: null,
+        launchSuiteCases: null,
+        launchExpandedSuites: null,
         launchAttempts: null,
-        launchDefinition: null,
+
         launchJudge: null,
       });
     },

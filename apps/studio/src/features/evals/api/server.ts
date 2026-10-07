@@ -1,4 +1,8 @@
 import "server-only";
+import {
+  StudioEvaluationDetailSchema,
+  StudioEvaluationHistorySchema,
+} from "@kortyx/agent/evals";
 import { studioAuth } from "@studio/auth";
 import type { z } from "zod";
 import {
@@ -40,3 +44,8 @@ export const readEvalTargets = () => read("targets", EvalTargetsResponseSchema);
 export const readEvalHistory = () => read("runs", EvalHistorySchema);
 export const readEvalDetail = (id: string) =>
   read(`runs/${encodeURIComponent(id)}`, EvalDetailSchema);
+
+export const readEvaluationHistory = () =>
+  read("evaluations", StudioEvaluationHistorySchema);
+export const readEvaluationDetail = (id: string) =>
+  read(`evaluations/${encodeURIComponent(id)}`, StudioEvaluationDetailSchema);

@@ -115,7 +115,13 @@ export function EvalRunPageClient({
                     ),
                   );
                 }}
-                onBack={() => navigate("/evals/runs")}
+                onBack={() =>
+                  navigate(
+                    current.detail?.evaluationId
+                      ? `/evals/evaluations/${current.detail.evaluationId}`
+                      : "/evals/runs",
+                  )
+                }
                 canRun={targets.canRun}
                 canCompare={history.runs.some(
                   (r) => r.id !== id && !isActive(r.status),
