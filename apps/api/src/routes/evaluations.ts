@@ -131,14 +131,6 @@ export function registerEvaluationRoutes(
           },
           409,
         );
-      if (
-        selected.length > 1 &&
-        selected.some(({ selection }) => selection.caseIds !== undefined)
-      )
-        return c.json(
-          { error: "Case selection requires exactly one suite." },
-          400,
-        );
       let attempts = 0;
       for (const { selection, suite } of selected) {
         const ids = selection.caseIds ?? suite!.cases.map((item) => item.id);

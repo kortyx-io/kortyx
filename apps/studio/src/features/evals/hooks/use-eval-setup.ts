@@ -10,13 +10,17 @@ import { useStudioQueryStates } from "@/lib/nuqs";
 import type { EvalTargets } from "../schema";
 export const evalSetupParsers = {
   launch: parseAsBoolean.withDefault(false),
-  launchJudge: parseAsStringLiteral(["studio", "app"]).withDefault("studio"),
+  launchJudge: parseAsStringLiteral(["studio", "app"]),
   launchApplication: parseAsString.withDefault(""),
   launchSuite: parseAsString.withDefault(""),
   launchScope: parseAsStringLiteral(["all", "selected"]).withDefault("all"),
   launchSuites: parseAsJson(z.array(z.string())),
   launchConcurrency: parseAsString.withDefault("1"),
   launchCases: parseAsJson(z.array(z.string())),
+  launchSuiteCases: parseAsJson(
+    z.array(z.object({ suiteId: z.string(), caseIds: z.array(z.string()) })),
+  ),
+  launchExpandedSuites: parseAsJson(z.array(z.string())),
   launchAttempts: parseAsString.withDefault("1"),
 };
 export function useEvalSetup(targets: EvalTargets) {
@@ -24,6 +28,12 @@ export function useEvalSetup(targets: EvalTargets) {
     shallow: true,
   });
   const target = targets.targets.find((t) => t.id === query.launchApplication);
+  const studioAvailable = Boolean(
+    target?.manifest?.studioJudging && targets.studioJudge,
+  );
+  const appJudge = target?.manifest?.judge;
+  const judge =
+    query.launchJudge ?? (studioAvailable ? "studio" : appJudge ? "app" : null);
   const selected =
     query.launchSuites ?? (query.launchSuite ? [query.launchSuite] : []);
   const suite =
@@ -35,6 +45,9 @@ export function useEvalSetup(targets: EvalTargets) {
     setQuery,
     target,
     suite,
+    judge,
+    studioAvailable,
+    appJudge,
     open: (targetId?: string, suiteId?: string) => {
       const target =
         targets.targets.find((t) => t.id === targetId) ??
@@ -51,6 +64,8 @@ export function useEvalSetup(targets: EvalTargets) {
         launchSuites: suiteId && suite ? [suite.id] : null,
         launchConcurrency: "1",
         launchCases: null,
+        launchSuiteCases: null,
+        launchExpandedSuites: suiteId && suite ? [suite.id] : null,
         launchAttempts: "1",
 
         launchJudge: null,
@@ -65,6 +80,8 @@ export function useEvalSetup(targets: EvalTargets) {
         launchSuites: null,
         launchConcurrency: null,
         launchCases: null,
+        launchSuiteCases: null,
+        launchExpandedSuites: null,
         launchAttempts: null,
 
         launchJudge: null,

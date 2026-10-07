@@ -429,9 +429,12 @@ assessment/trace evidence. Older suite runs remain visible with their original
 links. Suites remains the definition/history view.
 
 The **Run evaluations** drawer offers All suites or Selected suites. Launching
-from a suite page preselects that suite. Case selection is available only when
-exactly one suite is selected; multiple suites execute every case. Judge,
-repetitions (1–20), and concurrent attempts per suite (1–4) apply to the selection.
+from a suite page preselects and expands that suite. Expand any selected suite to
+choose its conversations independently. Suite checkboxes select or clear every
+conversation and show a mixed state for partial selections. Selections and
+expanded suites survive reloads and browser history. The default judge is Studio
+when available, otherwise App; unavailable judges remain disabled with a reason.
+Repetitions (1–20) and concurrent attempts per suite (1–4) apply to the selection.
 Each suite is limited to 100 attempts; one evaluation is limited to 1,000 attempts.
 Missing App judge configuration is explained beside the disabled option.
 

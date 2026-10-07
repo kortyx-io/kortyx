@@ -283,6 +283,7 @@ export function EvaluationDetail({
             <div className="min-h-0 flex-1">
               <DataTableProvider columns={columns}>
                 <DataTable
+                  className="rounded-none border-0 shadow-none"
                   data={run.suites}
                   getRowKey={(suite) => suite.id}
                   onRowClick={(suite) => navigate(evalRunHref(suite.id))}

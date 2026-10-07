@@ -308,38 +308,54 @@ test.describe("Eval drawer hardening", () => {
       .click();
     await expect(
       launch
-        .getByRole("group", { name: "Conversations", exact: true })
+        .getByRole("group", {
+          name: `Conversations in ${EVAL_SUITE.name}`,
+          exact: true,
+        })
         .getByRole("checkbox"),
     ).toHaveCount(EVAL_SUITE.cases.length);
     for (const [index, checkbox] of (
       await launch
-        .getByRole("group", { name: "Conversations", exact: true })
+        .getByRole("group", {
+          name: `Conversations in ${EVAL_SUITE.name}`,
+          exact: true,
+        })
         .getByRole("checkbox")
         .all()
     ).entries()) {
-      await checkbox.uncheck();
+      await checkbox.click();
       await expect(
-        launch.getByText(
-          `Conversations · ${EVAL_SUITE.cases.length - 1 - index} selected`,
-          {
-            exact: true,
-          },
-        ),
+        launch
+          .getByRole("group", { name: EVAL_SUITE.name!, exact: true })
+          .getByText(
+            ` ${EVAL_SUITE.cases.length - 1 - index} of ${EVAL_SUITE.cases.length} conversations selected`.trim(),
+            {
+              exact: true,
+            },
+          ),
       ).toBeVisible();
     }
     await expect(
       launch.getByRole("button", { name: "Run evaluations", exact: true }),
     ).toBeDisabled();
     await expect(page).toHaveURL(
-      (url) => url.searchParams.get("launchCases") === "[]",
+      (url) => url.searchParams.get("launchSuites") === "[]",
     );
     await page.reload();
     await expect(
-      launch.getByText("Conversations · 0 selected", { exact: true }),
+      launch
+        .getByRole("group", { name: EVAL_SUITE.name!, exact: true })
+        .getByText(`0 of ${EVAL_SUITE.cases.length} conversations selected`, {
+          exact: true,
+        }),
     ).toBeVisible();
     await launch.getByRole("checkbox", { name: /Ambiguous role/ }).check();
     await expect(
-      launch.getByText("Conversations · 1 selected", { exact: true }),
+      launch
+        .getByRole("group", { name: EVAL_SUITE.name!, exact: true })
+        .getByText(`1 of ${EVAL_SUITE.cases.length} conversations selected`, {
+          exact: true,
+        }),
     ).toBeVisible();
     await launch
       .getByRole("button", { name: "Run evaluations", exact: true })

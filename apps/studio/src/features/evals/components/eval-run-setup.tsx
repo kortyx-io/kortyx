@@ -12,9 +12,9 @@ import {
 import { evalRequest } from "../api/client";
 import { useEvalSetup } from "../hooks/use-eval-setup";
 import { evalNavigationHref } from "../lib/navigation";
-import { displayName } from "../lib/presentation";
 import type { EvalTargets } from "../schema";
 import { EvalDropdown } from "./eval-dropdown";
+import { EvalSuiteSelection } from "./eval-suite-selection";
 
 export function EvalRunSetup({
   targets,
@@ -23,7 +23,16 @@ export function EvalRunSetup({
   targets: EvalTargets;
   matchPath: string;
 }) {
-  const { query, setQuery, target, suite, close } = useEvalSetup(targets);
+  const {
+    query,
+    setQuery,
+    target,
+    suite,
+    judge,
+    studioAvailable,
+    appJudge,
+    close,
+  } = useEvalSetup(targets);
   const [working, setWorking] = useState(false);
   const [error, setError] = useState("");
   const launch = useRef<{ body: string; key: string } | null>(null);
@@ -34,28 +43,48 @@ export function EvalRunSetup({
   const available = target?.manifest?.suites ?? [];
   const selectedIds =
     query.launchSuites ?? (query.launchSuite ? [query.launchSuite] : []);
-  const selected = all
-    ? available
-    : available.filter((suite) => selectedIds.includes(suite.id));
-  const cases = suite
-    ? (query.launchCases ?? suite.cases.map((item) => item.id)).filter((id) =>
-        suite.cases.some((item) => item.id === id),
-      )
-    : [];
+  const casesFor = (item: (typeof available)[number]) => {
+    if (all) return item.cases.map((conversation) => conversation.id);
+    if (!selectedIds.includes(item.id)) return [];
+    const ids =
+      query.launchSuiteCases?.find((selection) => selection.suiteId === item.id)
+        ?.caseIds ??
+      (suite?.id === item.id ? query.launchCases : null) ??
+      item.cases.map((conversation) => conversation.id);
+    return ids.filter((id) =>
+      item.cases.some((conversation) => conversation.id === id),
+    );
+  };
+  const selected = available.filter((item) => casesFor(item).length > 0);
+  const expanded = query.launchExpandedSuites ?? [];
+  const setSuiteCases = (suiteId: string, caseIds: string[]) => {
+    const selections = available
+      .map((item) => ({
+        suite: item,
+        caseIds: item.id === suiteId ? caseIds : casesFor(item),
+      }))
+      .filter((item) => item.caseIds.length > 0);
+    const partial = selections
+      .filter((item) => item.caseIds.length !== item.suite.cases.length)
+      .map((item) => ({ suiteId: item.suite.id, caseIds: item.caseIds }));
+    void setQuery({
+      launchSuite: "",
+      launchSuites: selections.map((item) => item.suite.id),
+      launchCases: null,
+      launchSuiteCases: partial.length ? partial : null,
+    });
+  };
   const attempts = Number(query.launchAttempts);
   const concurrency = Number(query.launchConcurrency);
-  const count = selected.reduce(
-    (sum, item) =>
-      sum + (suite?.id === item.id ? cases.length : item.cases.length),
-    0,
-  );
+  const count = selected.reduce((sum, item) => sum + casesFor(item).length, 0);
   const total = count * attempts;
-  const appJudge = target?.manifest?.judge;
-  const studioAvailable = Boolean(
-    target?.manifest?.studioJudging && targets.studioJudge,
-  );
   const judgeAvailable =
-    query.launchJudge === "app" ? Boolean(appJudge) : studioAvailable;
+    judge === "app" ? Boolean(appJudge) : judge === "studio" && studioAvailable;
+  const studioUnavailableReason = !targets.studioJudge
+    ? "No Studio judge is configured on this backend."
+    : !target?.manifest?.studioJudging
+      ? "This application's SDK does not support Studio judging."
+      : undefined;
   const valid =
     selected.length > 0 &&
     Number.isInteger(attempts) &&
@@ -66,13 +95,9 @@ export function EvalRunSetup({
     concurrency <= 4 &&
     count > 0 &&
     total <= 1000 &&
-    selected.every(
-      (item) =>
-        (suite?.id === item.id ? cases.length : item.cases.length) * attempts <=
-        100,
-    );
+    selected.every((item) => casesFor(item).length * attempts <= 100);
   const onRun = async () => {
-    if (!target || !valid || !judgeAvailable || working) return;
+    if (!target || !judge || !valid || !judgeAvailable || working) return;
     setWorking(true);
     setError("");
     const body = {
@@ -81,9 +106,9 @@ export function EvalRunSetup({
       suites: selected.map((item) => ({
         suiteId: item.id,
         suiteRevision: target.revisions[item.id],
-        ...(suite?.id === item.id ? { caseIds: cases } : {}),
+        ...(!all ? { caseIds: casesFor(item) } : {}),
       })),
-      judge: query.launchJudge,
+      judge,
       repetitions: attempts,
       concurrency,
       metadata: { source: "manual" },
@@ -144,6 +169,9 @@ export function EvalRunSetup({
                 launchSuite: "",
                 launchSuites: null,
                 launchCases: null,
+                launchSuiteCases: null,
+                launchExpandedSuites: null,
+                launchJudge: null,
               });
             }}
           />
@@ -159,7 +187,7 @@ export function EvalRunSetup({
                   value={value}
                   checked={query.launchScope === value}
                   onChange={() => {
-                    void setQuery({ launchScope: value, launchCases: null });
+                    void setQuery({ launchScope: value });
                   }}
                 />
                 {value === "all"
@@ -170,33 +198,21 @@ export function EvalRunSetup({
           </div>
           {!all ? (
             available.map((item) => (
-              <label
+              <EvalSuiteSelection
                 key={item.id}
-                className="flex items-start gap-3 rounded-md border p-3"
-              >
-                <input
-                  type="checkbox"
-                  className="mt-0.5 accent-foreground"
-                  checked={selectedIds.includes(item.id)}
-                  onChange={(event) => {
-                    void setQuery({
-                      launchSuite: "",
-                      launchSuites: event.target.checked
-                        ? [...selectedIds, item.id]
-                        : selectedIds.filter((id) => id !== item.id),
-                      launchCases: null,
-                    });
-                  }}
-                />
-                <span>
-                  <span className="block text-sm">
-                    {item.name ?? displayName(item.id)}
-                  </span>
-                  <span className="text-xs text-muted-foreground">
-                    {item.cases.length} conversations
-                  </span>
-                </span>
-              </label>
+                suite={item}
+                selected={casesFor(item)}
+                expanded={expanded.includes(item.id)}
+                disabled={working}
+                onExpand={() => {
+                  void setQuery({
+                    launchExpandedSuites: expanded.includes(item.id)
+                      ? expanded.filter((id) => id !== item.id)
+                      : [...expanded, item.id],
+                  });
+                }}
+                onChange={(ids) => setSuiteCases(item.id, ids)}
+              />
             ))
           ) : (
             <p className="text-xs text-muted-foreground">
@@ -208,7 +224,7 @@ export function EvalRunSetup({
           <p className="text-xs font-medium">Judge</p>
           <EvalDropdown
             label="Judge"
-            value={query.launchJudge}
+            value={judge ?? ""}
             disabled={working}
             className="w-full"
             options={[
@@ -216,9 +232,7 @@ export function EvalRunSetup({
                 value: "studio",
                 label: "Studio judge",
                 disabled: !studioAvailable,
-                description: !studioAvailable
-                  ? "Studio judge unavailable. Configure the Studio backend and a compatible application SDK."
-                  : undefined,
+                description: studioUnavailableReason,
               },
               {
                 value: "app",
@@ -235,48 +249,17 @@ export function EvalRunSetup({
             }}
           />
           <p className="break-words text-xs text-muted-foreground">
-            {query.launchJudge === "app"
+            {judge === "app"
               ? appJudge
                 ? `${appJudge.id} · ${appJudge.version}`
                 : "No App judge configured by this application."
-              : studioAvailable
-                ? `${targets.studioJudge?.id} · ${targets.studioJudge?.version}`
-                : "Studio judge is unavailable."}
+              : judge === "studio"
+                ? studioAvailable
+                  ? `${targets.studioJudge?.id} · ${targets.studioJudge?.version}`
+                  : studioUnavailableReason
+                : "No judge is available for this application environment."}
           </p>
         </div>
-        {suite ? (
-          <fieldset
-            aria-label="Conversations"
-            disabled={working}
-            className="space-y-2"
-          >
-            <legend className="mb-2 text-xs font-medium">
-              Conversations · {cases.length} selected
-            </legend>
-            {suite.cases.map((item) => (
-              <label
-                key={item.id}
-                className="flex items-start gap-3 rounded-md border p-3"
-              >
-                <input
-                  type="checkbox"
-                  className="mt-0.5 accent-foreground"
-                  checked={cases.includes(item.id)}
-                  onChange={(event) => {
-                    void setQuery({
-                      launchCases: event.target.checked
-                        ? [...cases, item.id]
-                        : cases.filter((id) => id !== item.id),
-                    });
-                  }}
-                />
-                <span className="text-sm">
-                  {item.name ?? displayName(item.id)}
-                </span>
-              </label>
-            ))}
-          </fieldset>
-        ) : null}
         <div className="grid grid-cols-2 gap-3">
           <div className="space-y-2">
             <label htmlFor="eval-repetitions" className="text-xs font-medium">

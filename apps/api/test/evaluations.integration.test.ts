@@ -319,4 +319,45 @@ describe.skipIf(!url)("grouped evaluations on disposable PostgreSQL", () => {
       before.suites[1]!.id,
     );
   });
+  it("accepts independent conversation selections across multiple suites", async () => {
+    const response = await start(
+      request({
+        selection: "selected",
+        suites: suites.map((suite) => ({
+          suiteId: suite.id,
+          suiteRevision: getEvalSuiteRevision(suite),
+          caseIds: ["answer"],
+        })),
+      }),
+    );
+    expect(response.status).toBe(202);
+    const { id } = z.object({ id: z.uuid() }).parse(await response.json());
+    const saved = await getEvaluation(client.db, scope, id);
+    expect(saved.suiteCount).toBe(2);
+    expect(saved.totalAttempts).toBe(2);
+    const subsetWorker = createEvalWorker(client.db, [target]);
+    subsetWorker.start();
+    try {
+      await vi.waitFor(
+        async () => {
+          expect(
+            (await getEvaluation(client.db, scope, id)).completedAttempts,
+          ).toBe(2);
+        },
+        { timeout: 10000 },
+      );
+    } finally {
+      await subsetWorker.stop();
+    }
+    const results = StudioEvaluationResultsSchema.parse(
+      await (
+        await api.request(`/v1/studio/evals/evaluations/${id}/results`)
+      ).json(),
+    ).run;
+    expect(
+      results.suites.map((suite) =>
+        suite.result?.cases.map((item) => item.caseId),
+      ),
+    ).toEqual([["answer"], ["answer"]]);
+  });
 });
