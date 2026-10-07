@@ -10,6 +10,7 @@ import type { ApiAuthAdapter, ApiDeployment } from "./auth/contracts";
 import type { ApiAuthorizationAdapter } from "./authorization/contracts";
 import type { ApiTenantDatabaseAdapter } from "./database/contracts";
 import { apiErrorHandler } from "./errors";
+import type { EvalTargetAdapter } from "./evals/contracts";
 import type { EvalTarget } from "./evals/targets";
 import { apiSecurity } from "./middleware/security";
 import {
@@ -32,6 +33,7 @@ import type { ApiEnv } from "./types";
 export type CreateApiAppOptions = {
   db: TelemetryDb;
   evalTargets?: readonly EvalTarget[];
+  evalTargetAdapter?: EvalTargetAdapter;
   evalJudge?: EvalJudge;
   apiKeyPepper: string;
   studioChangeBus?: StudioChangeBus;
@@ -122,7 +124,12 @@ export const createApiApp = (options: CreateApiAppOptions) => {
     }),
   );
   registerStudioRoutes(app);
-  registerEvalRoutes(app, options.evalTargets ?? [], options.evalJudge);
+  registerEvalRoutes(
+    app,
+    options.evalTargets ?? [],
+    options.evalJudge,
+    options.evalTargetAdapter,
+  );
   registerEvalJudgeRoutes(app, options.evalJudge);
   registerStudioReviewRoutes(app);
   registerStudioChangeRoutes(

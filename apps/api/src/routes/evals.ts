@@ -15,6 +15,7 @@ import {
 } from "@kortyx/telemetry-db";
 import { bodyLimit } from "hono/body-limit";
 import { z } from "zod";
+import type { EvalTargetAdapter } from "../evals/contracts";
 import {
   EvalDiscoveryError,
   type EvalTarget,
@@ -31,12 +32,16 @@ export function registerEvalRoutes(
   app: OpenAPIHono<ApiEnv>,
   targets: readonly EvalTarget[],
   studioJudge?: EvalJudge,
+  adapter?: EvalTargetAdapter,
 ) {
+  const manifestFor = adapter
+    ? (target: EvalTarget) => adapter.manifest(target)
+    : fetchEvalManifest;
   app.use("/v1/studio/evals/runs", bodyLimit({ maxSize: 16_384 }));
   app.use("/v1/studio/evals/runs/*", bodyLimit({ maxSize: 16_384 }));
   app.get("/v1/studio/evals/targets", async (c) => {
     const auth = c.get("principal");
-    const available = targets.filter(
+    const available = (adapter ? await adapter.list(auth) : targets).filter(
       (target) =>
         target.organizationId === auth.organizationId &&
         target.projectId === auth.projectId,
@@ -67,7 +72,7 @@ export function registerEvalRoutes(
           };
         }
         try {
-          const manifest = await fetchEvalManifest(target);
+          const manifest = await manifestFor(target);
           return {
             ...base,
             manifest,
@@ -128,7 +133,7 @@ export function registerEvalRoutes(
     );
     if (!parsed.success) return c.json({ error: "Invalid eval request." }, 400);
     const { targetId, ...request } = parsed.data;
-    const target = targets.find(
+    const target = (adapter ? await adapter.list(auth) : targets).find(
       (value) =>
         value.id === targetId &&
         value.organizationId === auth.organizationId &&
@@ -140,7 +145,7 @@ export function registerEvalRoutes(
     );
     let manifest: Awaited<ReturnType<typeof fetchEvalManifest>>;
     try {
-      manifest = await fetchEvalManifest(target);
+      manifest = await manifestFor(target);
     } catch {
       return c.json({ error: "Consumer eval endpoint is unavailable." }, 503);
     }
@@ -222,9 +227,11 @@ export function registerEvalRoutes(
     await requireApiAction(c, "eval:run");
     const id = z.uuid().safeParse(c.req.param("id"));
     if (!id.success) return c.json({ error: "Invalid eval ID." }, 400);
-    await c.get("withTenantDatabase")((db) =>
-      requestEvalCancellation(db, auth, id.data),
-    );
+    if (adapter?.cancel) await adapter.cancel(auth, id.data);
+    else
+      await c.get("withTenantDatabase")((db) =>
+        requestEvalCancellation(db, auth, id.data),
+      );
     return c.json({ ok: true });
   });
 }
