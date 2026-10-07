@@ -18,6 +18,7 @@ vi.mock("@/components/detail/detail-slot-presence", () => ({
 }));
 it("renders saved theme state without a theme script element", async () => {
   const { default: RootLayout } = await import("./layout");
+  const { Providers } = await import("./providers");
   const root = await RootLayout({
     children: null,
     interruptDrawer: null,
@@ -28,4 +29,5 @@ it("renders saved theme state without a theme script element", async () => {
   });
   expect(root.props["data-theme-preference"]).toBe("system");
   expect(root.props.children.type).toBe("body");
+  expect(root.props.children.props.children.type).toBe(Providers);
 });
