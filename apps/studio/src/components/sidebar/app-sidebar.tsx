@@ -99,6 +99,7 @@ export function AppSidebar({
                 {section.items.map((item) => (
                   <SidebarMenuItem key={item.title}>
                     <SidebarMenuButton
+                      className="text-xs"
                       asChild
                       tooltip={item.title}
                       isActive={
@@ -131,6 +132,7 @@ export function AppSidebar({
             <SidebarMenu>
               <SidebarMenuItem>
                 <SidebarMenuButton
+                  className="text-xs"
                   asChild
                   tooltip="Settings"
                   isActive={

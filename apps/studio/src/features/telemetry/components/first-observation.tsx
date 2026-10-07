@@ -60,9 +60,7 @@ export function FirstObservation({
             Waiting for first{" "}
             {resource === "evals" ? "evaluation" : "observation"}
           </p>
-          <h1 className="text-2xl font-semibold tracking-tight">
-            {item.title}
-          </h1>
+          <h1 className="text-xl font-semibold tracking-tight">{item.title}</h1>
           <p className="text-sm leading-6 text-muted-foreground">
             {item.instruction}
           </p>
