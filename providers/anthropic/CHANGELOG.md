@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.4.5](https://github.com/kortyx-io/kortyx/compare/anthropic-v0.4.4...anthropic-v0.4.5) (2026-10-07)
+
+
+### Bug Fixes
+
+* **security:** remediate CodeQL findings ([#273](https://github.com/kortyx-io/kortyx/issues/273)) ([55bc484](https://github.com/kortyx-io/kortyx/commit/55bc48426b72c0d370fe830f64db5bc1249bb861))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/providers bumped to 0.8.4
+
 ## [0.4.4](https://github.com/kortyx-io/kortyx/compare/anthropic-v0.4.3...anthropic-v0.4.4) (2026-09-22)
 
 

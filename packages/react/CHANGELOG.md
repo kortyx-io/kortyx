@@ -1,5 +1,19 @@
 # @kortyx/react
 
+## [0.8.1](https://github.com/kortyx-io/kortyx/compare/react-v0.8.0...react-v0.8.1) (2026-10-07)
+
+
+### Bug Fixes
+
+* **security:** remediate CodeQL findings ([#273](https://github.com/kortyx-io/kortyx/issues/273)) ([55bc484](https://github.com/kortyx-io/kortyx/commit/55bc48426b72c0d370fe830f64db5bc1249bb861))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/stream bumped to 0.15.1
+
 ## [0.8.0](https://github.com/kortyx-io/kortyx/compare/react-v0.7.0...react-v0.8.0) (2026-09-30)
 
 

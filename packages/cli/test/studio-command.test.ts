@@ -160,6 +160,7 @@ describe("Studio CLI lifecycle", () => {
     const compose = await readFile(join(home, "compose.yml"), "utf8");
     expect(compose).toContain("  updater:");
     expect(compose).toContain("/var/run/docker.sock:/var/run/docker.sock");
+    expect(compose.split("  updater:")[1]).toContain('user: "0:0"');
     expect(compose.split("  updater:")[1]).not.toContain("ports:");
     const env = await readStudioEnvironment(home);
     expect(env.KORTYX_STUDIO_STATE_DIR).toBe(home);
@@ -244,6 +245,12 @@ describe("Studio CLI lifecycle", () => {
     expect(compose).toContain("@kortyx/telemetry-db db:migrate &&");
     expect(compose).not.toContain("db:migrate-native");
     expect(compose).toContain("condition: service_completed_successfully");
+    expect(compose.split("  db-init:")[1]?.split("  api:")[0]).toContain(
+      'user: "1000:1000"',
+    );
+    expect(compose.split("  api:")[1]?.split("  studio:")[0]).toContain(
+      'user: "1000:1000"',
+    );
     expect(compose).toContain("http://localhost:6400/ready");
     expect(compose).toContain(
       `"127.0.0.1:${composeVariable}{API_PORT:-6400}:6400"`,

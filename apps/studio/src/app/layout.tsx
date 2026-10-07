@@ -14,6 +14,7 @@ import {
   THEME_RESOLVED_COOKIE,
 } from "@/lib/theme";
 import "@studio/styles";
+import { Providers } from "./providers";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -66,33 +67,35 @@ export default async function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        <ThemeProvider initialTheme={theme}>
-          <NuqsAdapter>
-            <SidebarLayout
-              detailSlots={
-                <DetailDrawerHost>
-                  <DetailSlotPresence dismissPath="/evals/suites">
-                    {evalSuiteDrawer}
-                  </DetailSlotPresence>
-                  <DetailSlotPresence dismissPath="/evals/cases">
-                    {evalCaseDrawer}
-                  </DetailSlotPresence>
-                  <DetailSlotPresence dismissPath="/sessions">
-                    {sessionDrawer}
-                  </DetailSlotPresence>
-                  <DetailSlotPresence dismissPath="/runs">
-                    {runDrawer}
-                  </DetailSlotPresence>
-                  <DetailSlotPresence dismissPath="/interrupts">
-                    {interruptDrawer}
-                  </DetailSlotPresence>
-                </DetailDrawerHost>
-              }
-            >
-              {children}
-            </SidebarLayout>
-          </NuqsAdapter>
-        </ThemeProvider>
+        <Providers>
+          <ThemeProvider initialTheme={theme}>
+            <NuqsAdapter>
+              <SidebarLayout
+                detailSlots={
+                  <DetailDrawerHost>
+                    <DetailSlotPresence dismissPath="/evals/suites">
+                      {evalSuiteDrawer}
+                    </DetailSlotPresence>
+                    <DetailSlotPresence dismissPath="/evals/cases">
+                      {evalCaseDrawer}
+                    </DetailSlotPresence>
+                    <DetailSlotPresence dismissPath="/sessions">
+                      {sessionDrawer}
+                    </DetailSlotPresence>
+                    <DetailSlotPresence dismissPath="/runs">
+                      {runDrawer}
+                    </DetailSlotPresence>
+                    <DetailSlotPresence dismissPath="/interrupts">
+                      {interruptDrawer}
+                    </DetailSlotPresence>
+                  </DetailDrawerHost>
+                }
+              >
+                {children}
+              </SidebarLayout>
+            </NuqsAdapter>
+          </ThemeProvider>
+        </Providers>
       </body>
     </html>
   );

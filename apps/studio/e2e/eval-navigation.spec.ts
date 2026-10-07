@@ -20,6 +20,7 @@ test.describe("Eval route and drawer navigation", () => {
     // a browser Back. Restore the canonical entry first so this assertion
     // exercises persisted Runs -> Suites history in both dev and production.
     await page.reload();
+    await expect(page.locator('[data-table-ready="true"]')).toBeVisible();
     await page
       .getByRole("navigation", { name: "Eval navigation" })
       .getByRole("link", { name: "Suites", exact: true })
@@ -29,6 +30,9 @@ test.describe("Eval route and drawer navigation", () => {
     await expect(
       page.getByRole("link", { name: "Suites", exact: true }),
     ).toHaveAttribute("aria-current", "page");
+    // aria-current is server-rendered. Wait for the list to hydrate before
+    // traversing history so the stale development router cannot replay Suites.
+    await expect(page.locator('[data-table-ready="true"]')).toBeVisible();
     await page.goBack();
     await expect(page).toHaveURL(/\/evals\/runs$/);
   });

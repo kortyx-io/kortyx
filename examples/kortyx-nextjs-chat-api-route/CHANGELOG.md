@@ -1,5 +1,26 @@
 # Changelog
 
+## [0.24.2](https://github.com/kortyx-io/kortyx/compare/example-nextjs-chat-api-route-v0.24.1...example-nextjs-chat-api-route-v0.24.2) (2026-10-07)
+
+
+### Bug Fixes
+
+* **deps:** remediate dependency security alerts ([#271](https://github.com/kortyx-io/kortyx/issues/271)) ([0d87ae8](https://github.com/kortyx-io/kortyx/commit/0d87ae8a4dfd54b616d4ebbf222f3bf3f37cc26c))
+* **deps:** remove obsolete vulnerable toolchains ([#272](https://github.com/kortyx-io/kortyx/issues/272)) ([af3a67f](https://github.com/kortyx-io/kortyx/commit/af3a67f98af4d493e9b6c60c06b25f9d7d1a46a6))
+* **security:** remediate CodeQL findings ([#273](https://github.com/kortyx-io/kortyx/issues/273)) ([55bc484](https://github.com/kortyx-io/kortyx/commit/55bc48426b72c0d370fe830f64db5bc1249bb861))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/anthropic bumped to 0.4.5
+    * @kortyx/google bumped to 0.6.5
+    * @kortyx/openai bumped to 0.5.5
+    * @kortyx/react bumped to 0.8.1
+    * kortyx bumped to 0.28.0
+    * @kortyx/telemetry bumped to 0.11.2
+
 ## [0.24.1](https://github.com/kortyx-io/kortyx/compare/example-nextjs-chat-api-route-v0.24.0...example-nextjs-chat-api-route-v0.24.1) (2026-10-03)
 
 

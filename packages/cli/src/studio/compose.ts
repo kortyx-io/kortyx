@@ -28,6 +28,7 @@ services:
   db-init:
     image: \${KORTYX_API_IMAGE_REF:-\${KORTYX_API_IMAGE:-ghcr.io/kortyx-io/kortyx-api}:\${KORTYX_STUDIO_IMAGE_TAG:-latest}}
     pull_policy: \${KORTYX_STUDIO_PULL_POLICY:-always}
+    user: "1000:1000"
     environment:
       <<: [*api-env, *bootstrap-keys]
     command: >
@@ -41,6 +42,7 @@ services:
   api:
     image: \${KORTYX_API_IMAGE_REF:-\${KORTYX_API_IMAGE:-ghcr.io/kortyx-io/kortyx-api}:\${KORTYX_STUDIO_IMAGE_TAG:-latest}}
     pull_policy: \${KORTYX_STUDIO_PULL_POLICY:-always}
+    user: "1000:1000"
     environment:
       <<: *api-env
       NODE_ENV: production
