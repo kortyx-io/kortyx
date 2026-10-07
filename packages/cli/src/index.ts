@@ -658,7 +658,7 @@ const main = async (): Promise<void> => {
           ? JSON.stringify(error.toJSON())
           : `[${error.code}] ${error.message}`,
       );
-      process.exitCode = 1;
+      process.exitCode ??= 1;
       return;
     }
     const failure = serializeFailure(error);

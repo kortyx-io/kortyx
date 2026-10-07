@@ -26,12 +26,14 @@ import {
   requireApiAction,
 } from "../middleware/security";
 import type { ApiEnv } from "../types";
+import { registerEvaluationRoutes } from "./evaluations";
 
 export function registerEvalRoutes(
   app: OpenAPIHono<ApiEnv>,
   targets: readonly EvalTarget[],
   studioJudge?: EvalJudge,
 ) {
+  registerEvaluationRoutes(app, targets, studioJudge);
   app.use("/v1/studio/evals/runs", bodyLimit({ maxSize: 16_384 }));
   app.use("/v1/studio/evals/runs/*", bodyLimit({ maxSize: 16_384 }));
   app.get("/v1/studio/evals/targets", async (c) => {

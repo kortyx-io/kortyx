@@ -64,3 +64,29 @@ it("allows only the fixed eval paths", async () => {
   expect((await proxyEvalRequest(request(), ["..", "admin"])).status).toBe(404);
   expect(fetch).not.toHaveBeenCalled();
 });
+
+it("forwards grouped run launch, results and cancellation through the same authenticated proxy", async () => {
+  const fetch = vi
+    .fn()
+    .mockImplementation(async () => Response.json({ ok: true }));
+  vi.stubGlobal("fetch", fetch);
+  const id = "11111111-1111-4111-8111-111111111111";
+  for (const parts of [
+    ["evaluations"],
+    ["evaluations", id, "cancel"],
+    ["evaluations", id, "results"],
+  ]) {
+    const req =
+      parts.at(-1) === "results"
+        ? new Request("http://localhost:7340/api/studio/evals/evaluations")
+        : request();
+    expect((await proxyEvalRequest(req, parts)).status).toBe(200);
+    expect(fetch.mock.calls.at(-1)?.[0]).toBe(
+      `http://api:6400/v1/studio/evals/${parts.join("/")}`,
+    );
+  }
+  expect(
+    (await proxyEvalRequest(request("https://other.example"), ["evaluations"]))
+      .status,
+  ).toBe(403);
+});

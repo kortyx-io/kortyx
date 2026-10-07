@@ -18,6 +18,7 @@ export {
 } from "./contracts";
 export { createEvals } from "./create-evals";
 export { defineSuite } from "./define-suite";
+export * from "./evaluation-contracts";
 export { createEvalJudge } from "./judge";
 export { getEvalSuiteRevision } from "./revision";
 export { createEvalRouteHandler, type EvalRunner } from "./route-handler";

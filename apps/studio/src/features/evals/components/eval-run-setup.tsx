@@ -1,18 +1,16 @@
 "use client";
 import { Play } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { DetailInspectorDrawer } from "@/components/detail/detail-inspector";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { evalRequest } from "../api/client";
 import { useEvalSetup } from "../hooks/use-eval-setup";
-import { evalNavigationHref, evalRunHref } from "../lib/navigation";
+import { evalNavigationHref } from "../lib/navigation";
 import { displayName } from "../lib/presentation";
 import type { EvalTargets } from "../schema";
-import { EvalDisclosure } from "./eval-disclosure";
 import { EvalDropdown } from "./eval-dropdown";
-import { EvalSuiteDefinition } from "./eval-suite-definition";
 
 export function EvalRunSetup({
   targets,
@@ -24,127 +22,184 @@ export function EvalRunSetup({
   const { query, setQuery, target, suite, close } = useEvalSetup(targets);
   const [working, setWorking] = useState(false);
   const [error, setError] = useState("");
+  const launch = useRef<{ body: string; key: string } | null>(null);
   const router = useRouter();
   const pathname = usePathname();
-  const searchParams = useSearchParams();
-  const targetId = query.launchApplication;
-  const suiteId = query.launchSuite;
+  const search = useSearchParams();
+  const all = query.launchScope === "all";
+  const available = target?.manifest?.suites ?? [];
+  const selectedIds =
+    query.launchSuites ?? (query.launchSuite ? [query.launchSuite] : []);
+  const selected = all
+    ? available
+    : available.filter((suite) => selectedIds.includes(suite.id));
+  const cases = suite
+    ? (query.launchCases ?? suite.cases.map((item) => item.id)).filter((id) =>
+        suite.cases.some((item) => item.id === id),
+      )
+    : [];
   const attempts = Number(query.launchAttempts);
-  const allowedIds = (
-    query.launchCases ??
-    suite?.cases.map((c) => c.id) ??
-    []
-  ).filter((id) => suite?.cases.some((c) => c.id === id));
+  const concurrency = Number(query.launchConcurrency);
+  const count = selected.reduce(
+    (sum, item) =>
+      sum + (suite?.id === item.id ? cases.length : item.cases.length),
+    0,
+  );
+  const total = count * attempts;
   const appJudge = target?.manifest?.judge;
-  const studioSupported = Boolean(target?.manifest?.studioJudging);
+  const studioAvailable = Boolean(
+    target?.manifest?.studioJudging && targets.studioJudge,
+  );
   const judgeAvailable =
-    query.launchJudge === "studio"
-      ? studioSupported && Boolean(targets.studioJudge)
-      : Boolean(appJudge);
-  const judgeHelp =
-    query.launchJudge === "app"
-      ? appJudge
-        ? `${appJudge.id} · ${appJudge.version}`
-        : "This application has no code judge configured."
-      : !targets.studioJudge
-        ? "Studio judge is not configured. Configure a model on the Studio backend, or choose an available App judge."
-        : !studioSupported
-          ? "Update the application’s SDK to support Studio judging, or choose App judge."
-          : `${targets.studioJudge.id} · ${targets.studioJudge.version}`;
+    query.launchJudge === "app" ? Boolean(appJudge) : studioAvailable;
+  const valid =
+    selected.length > 0 &&
+    Number.isInteger(attempts) &&
+    attempts >= 1 &&
+    attempts <= 20 &&
+    Number.isInteger(concurrency) &&
+    concurrency >= 1 &&
+    concurrency <= 4 &&
+    count > 0 &&
+    total <= 1000 &&
+    selected.every(
+      (item) =>
+        (suite?.id === item.id ? cases.length : item.cases.length) * attempts <=
+        100,
+    );
   const onRun = async () => {
-    if (!suite || !target || !judgeAvailable) return;
+    if (!target || !valid || !judgeAvailable || working) return;
     setWorking(true);
     setError("");
+    const body = {
+      targetId: target.id,
+      selection: query.launchScope,
+      suites: selected.map((item) => ({
+        suiteId: item.id,
+        suiteRevision: target.revisions[item.id],
+        ...(suite?.id === item.id ? { caseIds: cases } : {}),
+      })),
+      judge: query.launchJudge,
+      repetitions: attempts,
+      concurrency,
+      metadata: { source: "manual" },
+    };
+    const serialized = JSON.stringify(body);
+    if (launch.current?.body !== serialized)
+      launch.current = { body: serialized, key: crypto.randomUUID() };
     try {
-      const run = await evalRequest("runs", {
-        targetId,
-        judge: query.launchJudge,
-        suiteId,
-        suiteRevision: target.revisions[suiteId],
-        caseIds: allowedIds,
-        repetitions: attempts,
-        concurrency: 1,
+      const run = await evalRequest("evaluations", {
+        ...body,
+        idempotencyKey: launch.current.key,
       });
-      router.push(evalNavigationHref(evalRunHref(run.id), searchParams));
+      router.push(evalNavigationHref(`/evals/evaluations/${run.id}`, search));
     } catch (cause) {
       setError(
-        cause instanceof Error
-          ? cause.message
-          : "Could not start this eval run.",
+        cause instanceof Error ? cause.message : "Could not start evaluations.",
       );
     } finally {
       setWorking(false);
     }
   };
-  const valid =
-    Number.isInteger(attempts) &&
-    attempts >= 1 &&
-    attempts <= 20 &&
-    allowedIds.length > 0 &&
-    allowedIds.length * attempts <= 100;
-  const chooseSuite = (id: string, application = target) => {
-    void setQuery({
-      launchSuite: id,
-      launchApplication: application?.id ?? "",
-      launchCases: null,
-    });
-  };
   return (
     <DetailInspectorDrawer
       open={query.launch && pathname === matchPath}
-      onClose={close}
-      title="Run an eval suite"
-      description="Execute conversations with the application’s test setup."
+      onClose={() => {
+        launch.current = null;
+        close();
+      }}
+      title="Run evaluations"
+      description="Run all or selected suites against one application environment."
       closeLabel="Close run setup"
       bodyClassName="flex flex-col overflow-hidden p-0"
     >
       <div className="min-h-0 flex-1 space-y-5 overflow-auto p-5">
-        {error ? (
+        {error || target?.error ? (
           <p
             role="alert"
             className="rounded-md border border-red-500/25 bg-red-500/5 p-3 text-xs text-red-700 dark:text-red-400"
           >
-            {error}
+            {error || target?.error}
           </p>
         ) : null}
         <div className="space-y-2">
-          <p className="text-xs font-medium">Application</p>
+          <p className="text-xs font-medium">Application · Environment</p>
           <EvalDropdown
             label="Application"
-            value={targetId}
+            value={target?.id ?? ""}
             disabled={working}
             className="w-full"
-            options={targets.targets.map((t) => ({
-              value: t.id,
-              label: `${t.name} · ${t.environment}`,
+            options={targets.targets.map((item) => ({
+              value: item.id,
+              label: `${item.name} · ${item.environment}`,
             }))}
             onChange={(id) => {
-              const next = targets.targets.find((t) => t.id === id);
-              chooseSuite(next?.manifest?.suites[0]?.id ?? "", next);
+              void setQuery({
+                launchApplication: id,
+                launchScope: "all",
+                launchSuite: "",
+                launchSuites: null,
+                launchCases: null,
+              });
             }}
           />
         </div>
-        {target?.error ? (
-          <p role="alert" className="text-xs text-red-700 dark:text-red-400">
-            {target.error}
-          </p>
-        ) : null}
-        <div className="space-y-2">
-          <p className="text-xs font-medium">Suite</p>
-          <EvalDropdown
-            label="Suite"
-            value={suiteId}
-            disabled={working}
-            className="w-full"
-            options={
-              target?.manifest?.suites.map((s) => ({
-                value: s.id,
-                label: s.name ?? displayName(s.id),
-              })) ?? []
-            }
-            onChange={(id) => chooseSuite(id)}
-          />
-        </div>
+        <fieldset disabled={working} className="space-y-2">
+          <legend className="mb-2 text-xs font-medium">Suites</legend>
+          <div className="flex gap-4 text-sm">
+            {(["all", "selected"] as const).map((value) => (
+              <label key={value} className="flex items-center gap-2">
+                <input
+                  type="radio"
+                  name="eval-scope"
+                  value={value}
+                  checked={query.launchScope === value}
+                  onChange={() => {
+                    void setQuery({ launchScope: value, launchCases: null });
+                  }}
+                />
+                {value === "all"
+                  ? `All suites (${available.length})`
+                  : "Selected suites"}
+              </label>
+            ))}
+          </div>
+          {!all ? (
+            available.map((item) => (
+              <label
+                key={item.id}
+                className="flex items-start gap-3 rounded-md border p-3"
+              >
+                <input
+                  type="checkbox"
+                  className="mt-0.5 accent-foreground"
+                  checked={selectedIds.includes(item.id)}
+                  onChange={(event) => {
+                    void setQuery({
+                      launchSuite: "",
+                      launchSuites: event.target.checked
+                        ? [...selectedIds, item.id]
+                        : selectedIds.filter((id) => id !== item.id),
+                      launchCases: null,
+                    });
+                  }}
+                />
+                <span>
+                  <span className="block text-sm">
+                    {item.name ?? displayName(item.id)}
+                  </span>
+                  <span className="text-xs text-muted-foreground">
+                    {item.cases.length} conversations
+                  </span>
+                </span>
+              </label>
+            ))
+          ) : (
+            <p className="text-xs text-muted-foreground">
+              Every registered suite runs all its conversations.
+            </p>
+          )}
+        </fieldset>
         <div className="space-y-2">
           <p className="text-xs font-medium">Judge</p>
           <EvalDropdown
@@ -156,111 +211,128 @@ export function EvalRunSetup({
               {
                 value: "studio",
                 label: "Studio judge",
-                disabled: !targets.studioJudge || !studioSupported,
+                disabled: !studioAvailable,
+                description: !studioAvailable
+                  ? "Studio judge unavailable. Configure the Studio backend and a compatible application SDK."
+                  : undefined,
               },
-              { value: "app", label: "App judge", disabled: !appJudge },
+              {
+                value: "app",
+                label: "App judge",
+                disabled: !appJudge,
+                description: !appJudge
+                  ? "No App judge configured by this application."
+                  : undefined,
+              },
             ]}
             onChange={(value) => {
-              if (value === "studio" || value === "app")
+              if (value === "app" || value === "studio")
                 void setQuery({ launchJudge: value });
             }}
           />
           <p className="break-words text-xs text-muted-foreground">
-            {judgeHelp}
-          </p>
-        </div>
-        <fieldset disabled={working} className="space-y-2">
-          <legend className="mb-2 text-xs font-medium">
-            Conversations · {allowedIds.length} selected
-          </legend>
-          {suite?.cases.map((c) => (
-            <label
-              key={c.id}
-              className="flex items-start gap-3 rounded-md border p-3"
-            >
-              <input
-                type="checkbox"
-                className="mt-0.5 accent-foreground"
-                checked={allowedIds.includes(c.id)}
-                onChange={(event) => {
-                  void setQuery({
-                    launchCases: event.target.checked
-                      ? [...allowedIds, c.id]
-                      : allowedIds.filter((id) => id !== c.id),
-                  });
-                }}
-              />
-              <span className="min-w-0">
-                <span className="block break-words text-sm">
-                  {c.name ?? displayName(c.id)}
-                </span>
-                <span className="text-xs text-muted-foreground">
-                  {c.steps.length} {c.steps.length === 1 ? "step" : "steps"} ·{" "}
-                  {c.steps.some((step) => step.expect.type === "interrupt")
-                    ? "Includes human input"
-                    : "Answer evaluation"}
-                </span>
-              </span>
-            </label>
-          ))}
-        </fieldset>
-        <div className="space-y-2">
-          <label htmlFor="eval-repetitions" className="text-xs font-medium">
-            Attempts per conversation
-          </label>
-          <Input
-            id="eval-repetitions"
-            type="number"
-            min={1}
-            max={20}
-            value={query.launchAttempts}
-            disabled={working}
-            onChange={(e) => {
-              void setQuery({ launchAttempts: e.target.value });
-            }}
-          />
-          <p className="text-xs text-muted-foreground">
-            Each attempt runs in an independent session. Between 1 and 20
-            attempts, up to 100 total.
+            {query.launchJudge === "app"
+              ? appJudge
+                ? `${appJudge.id} · ${appJudge.version}`
+                : "No App judge configured by this application."
+              : studioAvailable
+                ? `${targets.studioJudge?.id} · ${targets.studioJudge?.version}`
+                : "Studio judge is unavailable."}
           </p>
         </div>
         {suite ? (
-          <EvalDisclosure
-            scope="launch-definition"
-            label="Review conversation definitions"
+          <fieldset
+            aria-label="Conversations"
+            disabled={working}
+            className="space-y-2"
           >
-            <EvalSuiteDefinition scope="launch-definition" suite={suite} />
-          </EvalDisclosure>
+            <legend className="mb-2 text-xs font-medium">
+              Conversations · {cases.length} selected
+            </legend>
+            {suite.cases.map((item) => (
+              <label
+                key={item.id}
+                className="flex items-start gap-3 rounded-md border p-3"
+              >
+                <input
+                  type="checkbox"
+                  className="mt-0.5 accent-foreground"
+                  checked={cases.includes(item.id)}
+                  onChange={(event) => {
+                    void setQuery({
+                      launchCases: event.target.checked
+                        ? [...cases, item.id]
+                        : cases.filter((id) => id !== item.id),
+                    });
+                  }}
+                />
+                <span className="text-sm">
+                  {item.name ?? displayName(item.id)}
+                </span>
+              </label>
+            ))}
+          </fieldset>
+        ) : null}
+        <div className="grid grid-cols-2 gap-3">
+          <div className="space-y-2">
+            <label htmlFor="eval-repetitions" className="text-xs font-medium">
+              Attempts per conversation
+            </label>
+            <Input
+              id="eval-repetitions"
+              type="number"
+              min={1}
+              max={20}
+              value={query.launchAttempts}
+              disabled={working}
+              onChange={(e) => {
+                void setQuery({ launchAttempts: e.target.value });
+              }}
+            />
+          </div>
+          <div className="space-y-2">
+            <label htmlFor="eval-concurrency" className="text-xs font-medium">
+              Concurrent attempts per suite
+            </label>
+            <Input
+              id="eval-concurrency"
+              type="number"
+              min={1}
+              max={4}
+              value={query.launchConcurrency}
+              disabled={working}
+              onChange={(e) => {
+                void setQuery({ launchConcurrency: e.target.value });
+              }}
+            />
+          </div>
+        </div>
+        <p className="text-xs text-muted-foreground">
+          Each attempt uses an independent session. Up to 100 attempts per suite
+          and 1,000 per evaluation.
+        </p>
+        {!valid && selected.length > 0 ? (
+          <output className="block text-xs text-muted-foreground">
+            Select at least one conversation and use the attempt limits above.
+          </output>
         ) : null}
         {!targets.canRun ? (
           <p className="text-xs text-muted-foreground">
-            This Studio connection can inspect results. Execution requires
-            eval:run permission.
+            Execution requires eval:run permission.
           </p>
         ) : null}
       </div>
       <div className="flex flex-wrap items-center justify-between gap-3 border-t p-5">
         <p className="text-xs text-muted-foreground">
-          {allowedIds.length}{" "}
-          {allowedIds.length === 1 ? "conversation" : "conversations"} ·{" "}
-          {valid ? allowedIds.length * attempts : "—"}{" "}
-          {valid && allowedIds.length * attempts === 1 ? "attempt" : "attempts"}
+          {selected.length} suites · {count} conversations ·{" "}
+          {Number.isFinite(total) ? total : "—"} attempts
         </p>
         <Button
-          disabled={
-            !targets.canRun ||
-            !judgeAvailable ||
-            !suite ||
-            Boolean(target?.error) ||
-            !valid ||
-            working
-          }
-          onClick={() => {
-            void onRun();
-          }}
+          disabled={working || !targets.canRun || !valid || !judgeAvailable}
+          onClick={() => void onRun()}
         >
-          <Play />
-          {working ? "Starting…" : "Run suite"}
+          <Play className="mr-2 size-3.5" />
+          {working ? "Starting…" : "Run evaluations"}
         </Button>
       </div>
     </DetailInspectorDrawer>

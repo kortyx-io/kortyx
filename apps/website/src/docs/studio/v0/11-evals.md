@@ -348,3 +348,111 @@ Open the conversation debugging section to inspect the recorded envelopes.
 Use pass criteria to assess payload meaning; the output requirements check
 contract presence. See [the conversation guide](../../sdk/v0/03-guides/10-conversation-evals.md#required-structured-outputs)
 for suite authoring and custom executor support.
+
+
+## Grouped evaluation runs
+
+The default Runs list shows one evaluation per trigger. A parent evaluation owns
+one or more suite executions for a single application/environment. Open a row to
+see every suite and its live progress, then open a suite to inspect cases and
+assessment/trace evidence. Older suite runs remain visible with their original
+links. Suites remains the definition/history view.
+
+The **Run evaluations** drawer offers All suites or Selected suites. Launching
+from a suite page preselects that suite. Case selection is available only when
+exactly one suite is selected; multiple suites execute every case. Judge,
+repetitions (1–20), and concurrent attempts per suite (1–4) apply to the selection.
+Each suite is limited to 100 attempts; one evaluation is limited to 1,000 attempts.
+Missing App judge configuration is explained beside the disabled option.
+
+The Studio API snapshots all selected suite revisions and the judge before
+atomically saving the parent and suite jobs. Existing leased workers execute the
+suite jobs; suite-level concurrency does not promise parallel suite scheduling.
+Cancelling the parent cancels queued suites and requests cooperative cancellation
+of running suites. Finished suites remain available; cancellation never rolls
+back tool side effects. A run remains Running until every suite is terminal.
+Execution/grading errors, behavioral failures, and cancellation stay distinct.
+
+```sh
+# Enqueue all deployed suites and return a parent ID and Studio link.
+kortyx studio evals runs start --all --connection staging --target catalog --json
+
+# Run selected suites, wait, and return machine-readable final results.
+kortyx studio evals runs start --suite catalog-smoke --suite product-ambiguity \
+  --connection staging --target catalog --wait --timeout 1800 --json
+
+# Read grouped history and results. Existing suite-run IDs/URLs remain readable.
+kortyx studio evals runs list --connection staging --json
+kortyx studio evals runs get EVALUATION_UUID --connection staging --json
+kortyx studio evals runs get EVALUATION_UUID --connection staging --include-content --json
+kortyx studio evals runs wait EVALUATION_UUID --connection staging --timeout 1800 --json
+kortyx studio evals runs cancel EVALUATION_UUID --connection staging --json
+```
+
+`get` returns aggregate counts and per-suite case/criterion pass-fail outcomes.
+`--include-content` additionally returns definitions, observations, reasons and
+execution evidence with best-effort credential redaction. A positional suite ID
+is still accepted by `runs start`, and now creates a single-suite parent.
+`wait` supports grouped evaluation IDs; use `get` to inspect legacy suite runs.
+
+`--wait` and `runs wait` exit 0 for Passed, 1 for failed criteria, 2 for execution,
+grading, or waiting errors, and 130 for cancellation. A wait timeout does not
+cancel the evaluation. Without `--wait`, success only means the run was accepted.
+The CLI does not automatically retry POSTs. Use `--idempotency-key` to reuse an
+identical request after a trigger retry; reusing the key with changed selection,
+revisions, execution settings or metadata returns a conflict. Run creation is
+atomic, so failed validation never leaves a partial selection queued.
+
+## Deployment and scheduled CI examples
+
+Kortyx has no native cron scheduler. CI can invoke the same CLI after a successful
+deployment/readiness check, or on a schedule. Pin a compatible CLI in the lockfile,
+provide a Studio project key with `studio:read`, `eval:run`, and environment access,
+and ensure the CI runner can reach the Studio API.
+
+Example post-deployment job step (after readiness):
+
+```yaml
+- name: Evaluate deployed application
+  continue-on-error: true # Report results initially; remove when trusted as a release gate.
+  env:
+    KORTYX_DEPLOY_EVAL_KEY: ${{ secrets.KORTYX_DEPLOY_EVAL_KEY }}
+  shell: bash
+  run: |
+    set +e
+    pnpm exec kortyx studio evals runs start --all \
+      --target catalog --environment staging --judge studio \
+      --api-url https://api.example.com --api-key-env KORTYX_DEPLOY_EVAL_KEY \
+      --source deployment --commit "$GITHUB_SHA" \
+      --deployment-url "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" \
+      --idempotency-key "deploy-$GITHUB_RUN_ID" --wait --timeout 1800 --json > eval-results.json
+    eval_exit=$?
+    if jq -e '.run' eval-results.json >/dev/null 2>&1; then
+      jq -r '"Evaluation: \(.run.name) — \(.run.status)\nSuites: \(.run.completedSuites)/\(.run.suiteCount)\nPassed: \(.run.counts.passed), failed: \(.run.counts.failed), errors: \(.run.counts.error)"' eval-results.json >> "$GITHUB_STEP_SUMMARY"
+      jq -r '"[Open evaluation](https://studio.example.com/evals/evaluations/\(.run.id))"' eval-results.json >> "$GITHUB_STEP_SUMMARY"
+    fi
+    exit "$eval_exit"
+```
+
+For nightly checks, invoke that CLI step in a workflow with these triggers and
+change `--source deployment` to `--source schedule`:
+
+```yaml
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 2 * * *' # UTC
+```
+
+A trigger owns frequency and idempotency. `--commit` must identify the application
+actually deployed; in a scheduled workflow, discover that commit from your
+application's version endpoint instead of assuming the checked-out CI commit is
+running on the server. An evaluation pins suite and judge definitions, but does
+not freeze the deployment or external data while execution is in progress.
+
+The grouped API is `/v1/studio/evals/evaluations`: POST creates a selection, GET
+lists grouped/legacy history; `/:id` returns summary and suites, `/:id/results`
+returns detailed results, and POST `/:id/cancel` cancels remaining work. Existing
+`/v1/studio/evals/runs` endpoints continue to serve individual suite executions.
+Apply migration `0006_evaluation_runs` before deploying the new API. Browser and
+CLI grouped operations require a compatible Studio/API release.

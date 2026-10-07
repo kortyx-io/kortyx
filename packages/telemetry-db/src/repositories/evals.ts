@@ -30,6 +30,7 @@ export const listEvalRuns = async (db: TelemetryDb, scope: Scope) => {
     .select({
       result: evalRuns.result,
       id: evalRuns.id,
+      evaluationId: evalRuns.evaluationId,
       targetId: evalRuns.targetId,
       targetName: evalRuns.targetName,
       environment: evalRuns.environment,

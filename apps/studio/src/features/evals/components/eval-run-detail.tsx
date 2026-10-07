@@ -123,7 +123,7 @@ export function EvalRunDetail({
       <EvalDetailHeader
         title={run.suite.name ?? displayName(run.suiteId)}
         description={`${run.targetName} · ${run.environment} · ${formatDateTime(run.createdAt)}`}
-        backLabel="Run history"
+        backLabel={run.evaluationId ? "Evaluation run" : "Run history"}
         onBack={onBack}
         actions={
           <>

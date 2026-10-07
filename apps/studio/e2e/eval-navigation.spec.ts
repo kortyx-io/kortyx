@@ -168,7 +168,7 @@ test.describe("Eval drawer hardening", () => {
     const suite = surface(page, suitePath);
     await expect(
       suite.getByRole("heading", { name: "Conversation plan" }),
-    ).toBeVisible();
+    ).toBeVisible({ timeout: 15000 });
     await expect(page.getByRole("dialog")).toHaveCount(1);
     const list = await page
       .locator('[data-table-ready="true"]')
@@ -246,36 +246,35 @@ test.describe("Eval drawer hardening", () => {
     ).toBeVisible();
   });
 
-  test("launch from suite drawer restores review and app judge through URL history", async ({
+  test("launch from suite drawer restores selection and app judge through URL history", async ({
     page,
   }) => {
     await openSuite(page);
     const suite = surface(page, suitePath);
     await suite.getByRole("button", { name: "Run suite", exact: true }).click();
-    const launch = page.getByRole("dialog", { name: "Run an eval suite" });
+    const launch = page.getByRole("dialog", { name: "Run evaluations" });
     await expect(launch).toBeVisible();
     await launch.getByRole("button", { name: "Judge", exact: true }).click();
     await page
       .getByRole("menuitemradio", { name: "App judge", exact: true })
       .click();
-    await launch
-      .getByRole("button", {
-        name: "Review conversation definitions",
-        exact: true,
-      })
-      .click();
-    await expect(page).toHaveURL(/launchJudge=app/);
-    await expect(page).toHaveURL(/expand\.launch-definition=true/);
-    await page.reload();
     await expect(
-      page.getByRole("dialog", { name: "Run an eval suite" }),
-    ).toBeVisible();
-    await expect(
-      page.getByRole("button", {
+      launch.getByRole("button", {
         name: "Review conversation definitions",
         exact: true,
       }),
-    ).toHaveAttribute("aria-expanded", "true");
+    ).toHaveCount(0);
+    await expect(page).toHaveURL(/launchJudge=app/);
+    await page.reload();
+    await expect(
+      page.getByRole("dialog", { name: "Run evaluations" }),
+    ).toBeVisible();
+    await expect(
+      launch.getByRole("button", { name: "Judge", exact: true }),
+    ).toContainText("App judge");
+    await expect(
+      launch.getByRole("radio", { name: "Selected suites", exact: true }),
+    ).toBeChecked();
     await page
       .getByRole("button", { name: "Close run setup", exact: true })
       .click();
@@ -286,7 +285,7 @@ test.describe("Eval drawer hardening", () => {
     );
     await page.goBack();
     await expect(
-      page.getByRole("dialog", { name: "Run an eval suite" }),
+      page.getByRole("dialog", { name: "Run evaluations" }),
     ).toBeVisible();
   });
 
@@ -297,16 +296,21 @@ test.describe("Eval drawer hardening", () => {
     await surface(page, suitePath)
       .getByRole("button", { name: "Run suite", exact: true })
       .click();
-    const launch = page.getByRole("dialog", { name: "Run an eval suite" });
+    const launch = page.getByRole("dialog", { name: "Run evaluations" });
     await launch.getByRole("button", { name: "Judge", exact: true }).click();
     await page
       .getByRole("menuitemradio", { name: "App judge", exact: true })
       .click();
-    await expect(launch.getByRole("checkbox")).toHaveCount(
-      EVAL_SUITE.cases.length,
-    );
+    await expect(
+      launch
+        .getByRole("group", { name: "Conversations", exact: true })
+        .getByRole("checkbox"),
+    ).toHaveCount(EVAL_SUITE.cases.length);
     for (const [index, checkbox] of (
-      await launch.getByRole("checkbox").all()
+      await launch
+        .getByRole("group", { name: "Conversations", exact: true })
+        .getByRole("checkbox")
+        .all()
     ).entries()) {
       await checkbox.uncheck();
       await expect(
@@ -319,7 +323,7 @@ test.describe("Eval drawer hardening", () => {
       ).toBeVisible();
     }
     await expect(
-      launch.getByRole("button", { name: "Run suite", exact: true }),
+      launch.getByRole("button", { name: "Run evaluations", exact: true }),
     ).toBeDisabled();
     await expect(page).toHaveURL(
       (url) => url.searchParams.get("launchCases") === "[]",
@@ -333,11 +337,14 @@ test.describe("Eval drawer hardening", () => {
       launch.getByText("Conversations · 1 selected", { exact: true }),
     ).toBeVisible();
     await launch
-      .getByRole("button", { name: "Run suite", exact: true })
+      .getByRole("button", { name: "Run evaluations", exact: true })
       .click();
     await expect(page).toHaveURL((url) =>
-      /^\/evals\/runs\/[0-9a-f-]+$/.test(url.pathname),
+      /^\/evals\/evaluations\/[0-9a-f-]+$/.test(url.pathname),
     );
+    await page
+      .getByRole("button", { name: EVAL_SUITE.name!, exact: true })
+      .click();
     await expect(
       page.getByRole("button", { name: "Ambiguous role", exact: true }),
     ).toBeVisible();
