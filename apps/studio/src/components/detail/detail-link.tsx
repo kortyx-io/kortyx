@@ -1,10 +1,10 @@
 "use client";
 
-import Link from "next/link";
-import { useSearchParams } from "next/navigation";
 import type { ComponentProps } from "react";
 import { usePrepareDetailNavigation } from "@/components/detail/detail-stack";
+import Link from "@/components/scoped-link";
 import { detailNavigationHref } from "@/lib/nuqs";
+import { useSearchParams } from "@/lib/scoped-navigation";
 
 export function DetailLink({
   href,

@@ -1,9 +1,9 @@
 "use client";
 
-import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { DetailDrawer } from "@/components/detail/detail-drawer";
 import { DetailSkeleton } from "@/components/detail/detail-skeleton";
+import { usePathname } from "@/lib/scoped-navigation";
 
 export function DetailDrawerLoading({
   basePath,

@@ -472,7 +472,7 @@ test.describe("Studio detail drawer stack", () => {
         page.getByRole("heading", { name: directRoute.title }),
       ).toBeVisible();
       await expect(
-        page.getByText(directRoute.entityId, { exact: true }),
+        page.getByRole("heading", { name: directRoute.entityId, exact: true }),
       ).toBeVisible();
       await expect(page.locator("[data-detail-drawer]")).toHaveCount(0);
       await expect(backdrop(page)).toHaveCSS("pointer-events", "none");

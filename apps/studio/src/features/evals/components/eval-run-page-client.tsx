@@ -1,11 +1,11 @@
 "use client";
-import { useRouter, useSearchParams } from "next/navigation";
 import { parseAsBoolean, parseAsString } from "nuqs";
 import { useState } from "react";
 import { DetailPage } from "@/components/detail/detail-page";
 import { Button } from "@/components/ui/button";
 import { LiveRefreshButton } from "@/features/telemetry/components/live-refresh-button";
 import { detailNavigationHref, useStudioQueryStates } from "@/lib/nuqs";
+import { useRouter, useSearchParams } from "@/lib/scoped-navigation";
 import { evalRequest } from "../api/client";
 import { useEvalRun } from "../hooks/use-eval-run";
 import {

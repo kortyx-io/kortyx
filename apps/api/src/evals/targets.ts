@@ -67,14 +67,17 @@ export function loadEvalTargets(): EvalTarget[] {
 export async function fetchEvalManifest(
   target: EvalTarget,
   signal = AbortSignal.timeout(15_000),
+  request?: (target: EvalTarget, signal: AbortSignal) => Promise<Response>,
 ) {
   let response: Response;
   try {
-    response = await fetch(target.url, {
-      headers: { authorization: `Bearer ${target.serviceKey}` },
-      redirect: "error",
-      signal,
-    });
+    response = request
+      ? await request(target, signal)
+      : await fetch(target.url, {
+          headers: { authorization: `Bearer ${target.serviceKey}` },
+          redirect: "error",
+          signal,
+        });
   } catch {
     throw new EvalDiscoveryError({ code: "endpoint_unreachable" });
   }

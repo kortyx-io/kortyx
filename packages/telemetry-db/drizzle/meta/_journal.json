@@ -43,6 +43,13 @@
       "when": 1700000000005,
       "tag": "0005_eval_runs",
       "breakpoints": false
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1791232608158,
+      "tag": "0006_environment_key_scopes",
+      "breakpoints": true
     }
   ]
 }

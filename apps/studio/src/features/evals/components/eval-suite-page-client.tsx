@@ -1,8 +1,8 @@
 "use client";
 import type { EvalSuite } from "@kortyx/agent/evals";
-import { useRouter, useSearchParams } from "next/navigation";
 import { DetailDrawer } from "@/components/detail/detail-drawer";
 import { DetailPage } from "@/components/detail/detail-page";
+import { useRouter, useSearchParams } from "@/lib/scoped-navigation";
 import { useEvalSetup } from "../hooks/use-eval-setup";
 import { evalNavigationHref, evalSuiteHref } from "../lib/navigation";
 import type { EvalTargets } from "../schema";

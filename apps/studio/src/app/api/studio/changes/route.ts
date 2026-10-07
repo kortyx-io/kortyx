@@ -33,6 +33,15 @@ export async function GET(request: Request): Promise<Response> {
       headers: {
         accept: "text/event-stream",
         authorization: credential.authorization,
+        ...(credential.environment
+          ? { "x-kortyx-environment": credential.environment }
+          : {}),
+        ...(credential.projectId
+          ? { "x-kortyx-project-id": credential.projectId }
+          : {}),
+        ...(credential.environmentId
+          ? { "x-kortyx-environment-id": credential.environmentId }
+          : {}),
       },
       cache: "no-store",
       signal: request.signal,

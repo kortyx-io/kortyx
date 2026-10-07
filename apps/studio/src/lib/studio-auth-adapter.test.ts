@@ -121,6 +121,38 @@ it("no session credential never falls back to the global key", async () => {
   expect(fetcher).not.toHaveBeenCalled();
 });
 
+it("all forwarding paths use the adapter-selected project, not a browser header", async () => {
+  auth.getApiCredential.mockResolvedValue({
+    authorization: "Bearer selected-session",
+    projectId: "server-selected-project",
+  });
+  const fetcher = vi
+    .fn()
+    .mockImplementation(async () => Response.json({}, { status: 404 }));
+  vi.stubGlobal("fetch", fetcher);
+  const input = request("user");
+  input.headers.set("x-kortyx-project-id", "untrusted-browser-project");
+  const { getStudioRunDetail } = await import("./studio-api");
+  const { studioReviewRequest } = await import("./studio-reviews");
+  const { proxyEvalRequest } = await import("../features/evals/api/proxy");
+  const { readEvalTargets } = await import("../features/evals/api/server");
+  const { GET } = await import("../app/api/studio/changes/route");
+  await getStudioRunDetail("one");
+  const review = request("user", "DELETE");
+  review.headers.set("x-kortyx-project-id", "untrusted-browser-project");
+  await studioReviewRequest(review, "one");
+  await proxyEvalRequest(input, ["targets"]);
+  await expect(readEvalTargets()).rejects.toThrow(
+    "Eval service is unavailable",
+  );
+  await GET(input);
+  expect(fetcher).toHaveBeenCalledTimes(5);
+  for (const [, init] of fetcher.mock.calls) {
+    expect(init.headers["x-kortyx-project-id"]).toBe("server-selected-project");
+    expect(init.headers.authorization).toBe("Bearer selected-session");
+  }
+});
+
 it("denied browser requests never reach credential resolution or the API", async () => {
   auth.authorize.mockImplementation(
     async () => new Response("Denied", { status: 401 }),

@@ -206,6 +206,8 @@ export const projectEnvironments = pgTable(
     organizationId: uuid("organization_id").notNull(),
     projectId: uuid("project_id").notNull(),
     name: text("name").notNull(),
+    displayName: text("display_name"),
+    archivedAt: timestampWithTimezone("archived_at"),
     createdAt: timestampWithTimezone("created_at").notNull().defaultNow(),
   },
   (table) => [
@@ -223,6 +225,11 @@ export const projectEnvironments = pgTable(
       table.projectId,
       table.name,
     ),
+    uniqueIndex("project_environments_scope_id_unique").on(
+      table.organizationId,
+      table.projectId,
+      table.id,
+    ),
   ],
 );
 
@@ -232,6 +239,8 @@ export const apiKeys = pgTable(
     id: text("id").primaryKey(),
     organizationId: uuid("organization_id").notNull(),
     projectId: uuid("project_id").notNull(),
+    // Optional for existing operator-managed installations; Cloud requires a binding.
+    environmentId: uuid("environment_id"),
     mode: text("mode").notNull(),
     name: text("name").notNull(),
     secretHash: text("secret_hash").notNull(),
@@ -250,6 +259,15 @@ export const apiKeys = pgTable(
     }).onDelete("cascade"),
     index("api_keys_org_project_idx").on(table.organizationId, table.projectId),
     index("api_keys_enabled_idx").on(table.enabled),
+    foreignKey({
+      columns: [table.organizationId, table.projectId, table.environmentId],
+      foreignColumns: [
+        projectEnvironments.organizationId,
+        projectEnvironments.projectId,
+        projectEnvironments.id,
+      ],
+      name: "api_keys_environment_tenant_fk",
+    }),
   ],
 );
 
@@ -433,6 +451,7 @@ export const studioRuns = pgTable(
     uniqueIndex("studio_runs_org_project_run_unique").on(
       table.organizationId,
       table.projectId,
+      table.environment,
       table.runId,
     ),
     index("studio_runs_scope_started_idx").on(
@@ -499,10 +518,16 @@ export const telemetryScores = pgTable(
   },
   (table) => [
     foreignKey({
-      columns: [table.organizationId, table.projectId, table.runId],
+      columns: [
+        table.organizationId,
+        table.projectId,
+        table.environment,
+        table.runId,
+      ],
       foreignColumns: [
         studioRuns.organizationId,
         studioRuns.projectId,
+        studioRuns.environment,
         studioRuns.runId,
       ],
       name: "telemetry_scores_run_tenant_fk",
@@ -510,6 +535,7 @@ export const telemetryScores = pgTable(
     uniqueIndex("telemetry_scores_actor_target_name_unique").on(
       table.organizationId,
       table.projectId,
+      table.environment,
       table.runId,
       table.source,
       table.actorId,
@@ -586,6 +612,7 @@ export const studioSessions = pgTable(
     uniqueIndex("studio_sessions_org_project_session_unique").on(
       table.organizationId,
       table.projectId,
+      table.environment,
       table.sessionId,
     ),
     index("studio_sessions_scope_activity_idx").on(
@@ -655,6 +682,7 @@ export const studioInterrupts = pgTable(
     uniqueIndex("studio_interrupts_org_project_interrupt_unique").on(
       table.organizationId,
       table.projectId,
+      table.environment,
       table.interruptId,
     ),
     index("studio_interrupts_scope_created_idx").on(
@@ -746,6 +774,7 @@ export const telemetryEvents = pgTable(
     uniqueIndex("telemetry_events_org_project_event_id_unique").on(
       table.organizationId,
       table.projectId,
+      table.environment,
       table.eventId,
     ),
     index("telemetry_events_org_project_occurred_at_idx").on(

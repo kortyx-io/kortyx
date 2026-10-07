@@ -1,5 +1,6 @@
 "use client";
 
+import type { StudioShellContribution } from "@studio/shell-contracts";
 import {
   Activity,
   CirclePause,
@@ -9,8 +10,7 @@ import {
   Workflow,
 } from "lucide-react";
 import Image from "next/image";
-import Link from "next/link";
-import { usePathname } from "next/navigation";
+import Link from "@/components/scoped-link";
 import {
   Sidebar,
   SidebarContent,
@@ -24,6 +24,7 @@ import {
   SidebarMenuItem,
   SidebarRail,
 } from "@/components/ui/sidebar";
+import { usePathname, useSearchParams } from "@/lib/scoped-navigation";
 import type { StudioShellContext } from "@/lib/studio-context-model";
 import { NavUser } from "./nav-user";
 
@@ -45,49 +46,42 @@ const navSections = [
 
 export function AppSidebar({
   studioContext,
+  shell,
 }: {
   studioContext: StudioShellContext;
+  shell: StudioShellContribution;
 }) {
   const pathname = usePathname();
-  const environmentLabel =
-    studioContext.scope.telemetryEnvironments.length === 1
-      ? studioContext.scope.telemetryEnvironments[0]
-      : studioContext.scope.telemetryEnvironments.length > 1
-        ? `${studioContext.scope.telemetryEnvironments.length} telemetry environments`
-        : "No telemetry environments";
+  const environment = useSearchParams().get("env");
 
   return (
     <Sidebar collapsible="icon">
       <SidebarHeader>
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton
-              size="lg"
-              asChild
-              tooltip={studioContext.scope.project}
-            >
-              <Link href="/settings">
-                <div className="flex aspect-square size-8 shrink-0 items-center justify-center overflow-hidden rounded-lg">
+            <SidebarMenuButton size="lg" asChild tooltip="Kortyx Studio">
+              <Link href="/" className="group gap-2.5 tracking-[-0.01em]">
+                <span className="grid size-8 shrink-0 place-items-center rounded-lg border border-border bg-white shadow-sm transition-transform group-hover:-rotate-3">
                   <Image
-                    src="/favicon.ico"
-                    alt="Kortyx"
-                    className="size-8"
-                    width={32}
-                    height={32}
+                    src="/logo.png"
+                    alt=""
+                    width={24}
+                    height={24}
+                    preload
                   />
-                </div>
+                </span>
                 <div className="grid flex-1 gap-0.5 text-left leading-none group-data-[collapsible=icon]:hidden">
                   <span
-                    className="truncate font-semibold"
-                    title={studioContext.scope.project}
+                    className="truncate text-[15px] font-semibold"
+                    title="Kortyx"
                   >
-                    {studioContext.scope.project}
+                    Kortyx
                   </span>
                   <span
                     className="truncate text-xs text-muted-foreground"
-                    title={environmentLabel}
+                    title={`v${studioContext.identity.version}`}
                   >
-                    {environmentLabel}
+                    v{studioContext.identity.version}
                   </span>
                 </div>
               </Link>
@@ -105,6 +99,7 @@ export function AppSidebar({
                 {section.items.map((item) => (
                   <SidebarMenuItem key={item.title}>
                     <SidebarMenuButton
+                      className="text-xs"
                       asChild
                       tooltip={item.title}
                       isActive={
@@ -114,7 +109,13 @@ export function AppSidebar({
                           pathname.startsWith("/evals/"))
                       }
                     >
-                      <Link href={item.url}>
+                      <Link
+                        href={
+                          environment
+                            ? `${item.url}?env=${encodeURIComponent(environment)}`
+                            : item.url
+                        }
+                      >
                         <item.icon />
                         <span>{item.title}</span>
                       </Link>
@@ -131,6 +132,7 @@ export function AppSidebar({
             <SidebarMenu>
               <SidebarMenuItem>
                 <SidebarMenuButton
+                  className="text-xs"
                   asChild
                   tooltip="Settings"
                   isActive={
@@ -150,7 +152,7 @@ export function AppSidebar({
       </SidebarContent>
 
       <SidebarFooter className="pb-4">
-        <NavUser studioContext={studioContext} />
+        <NavUser studioContext={studioContext} account={shell.account} />
       </SidebarFooter>
       <SidebarRail className="mt-12 mb-4" />
     </Sidebar>

@@ -25,8 +25,8 @@ const target: EvalTarget = {
   allowInsecureHttp: false,
 };
 const manifest = {
-  schemaVersion: 1,
-  studioJudging: true,
+  schemaVersion: 1 as const,
+  studioJudging: true as const,
   suites: [],
   responders: [],
   references: [],
@@ -60,6 +60,41 @@ const api = (targets: EvalTarget[] = [target]) =>
   });
 
 describe("safe consumer discovery diagnostics", () => {
+  it("uses request-local adapter discovery, filters foreign scope and never leaks credentials", async () => {
+    const list = vi.fn(async () => [
+      target,
+      { ...target, id: "foreign", projectId: "other-project" },
+    ]);
+    const discover = vi.fn(async () => manifest);
+    const app = createApiApp({
+      db: {} as TelemetryDb,
+      apiKeyPepper: "test",
+      evalTargetAdapter: { list, manifest: discover },
+      authentication: {
+        authenticate: async () => ({
+          kind: "human",
+          userId: "user-a",
+          organizationId: "org-a",
+          projectId: "project-a",
+          permissions: ["studio:view"],
+        }),
+      },
+      authorization: { allows: async () => true },
+      tenantDatabase: {
+        withPrincipal: async (_principal, work) => work({} as TelemetryDb),
+      },
+    });
+    const response = await app.request("/v1/studio/evals/targets");
+    expect(response.status).toBe(200);
+    const text = await response.text();
+    expect(JSON.parse(text).targets).toHaveLength(1);
+    expect(list).toHaveBeenCalledWith(
+      expect.objectContaining({ userId: "user-a", projectId: "project-a" }),
+    );
+    expect(discover).toHaveBeenCalledOnce();
+    expect(text).not.toContain(target.serviceKey);
+    expect(text).not.toContain(target.url);
+  });
   it.each([
     404, 401, 403, 500, 502,
   ])("classifies HTTP %s, cancels its body and hides private response content", async (status) => {

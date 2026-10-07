@@ -3,6 +3,9 @@ import { POST } from "../app/api/studio/runs/[runId]/review/route";
 import { studioReviewRequest } from "./studio-reviews";
 
 vi.mock("server-only", () => ({}));
+vi.mock("next/headers", () => ({
+  cookies: async () => ({ get: () => undefined }),
+}));
 
 const auth = `Basic ${Buffer.from("admin:password").toString("base64")}`;
 const score = {

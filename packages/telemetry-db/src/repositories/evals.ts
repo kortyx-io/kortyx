@@ -7,11 +7,16 @@ import { loadEvalCosts } from "./eval-costs";
 import { ensureProjectEnvironmentAllowed } from "./projects";
 import { notifyStudioChange } from "./studio-changes";
 
-type Scope = { organizationId: string; projectId: string };
+type Scope = {
+  organizationId: string;
+  projectId: string;
+  environment?: string | undefined;
+};
 const scopeWhere = (scope: Scope) =>
   and(
     eq(evalRuns.organizationId, scope.organizationId),
     eq(evalRuns.projectId, scope.projectId),
+    scope.environment ? eq(evalRuns.environment, scope.environment) : undefined,
   );
 export async function enqueueEvalRun(
   db: TelemetryDb,
@@ -111,7 +116,12 @@ export async function requestEvalCancellation(
           eq(evalRuns.status, "queued"),
         ),
       );
-    await notifyStudioChange(tx, { ...scope, resources: ["evals"] });
+    await notifyStudioChange(tx, {
+      organizationId: scope.organizationId,
+      projectId: scope.projectId,
+      ...(scope.environment ? { environment: scope.environment } : {}),
+      resources: ["evals"],
+    });
   });
 }
 export async function claimEvalRun(

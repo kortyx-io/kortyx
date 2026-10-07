@@ -18,6 +18,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { studioFetch } from "@/lib/studio-fetch";
 
 const UPDATE_HOURS = Array.from({ length: 24 }, (_, hour) => hour);
 
@@ -41,7 +42,7 @@ export function StudioUpdates({
       mutating.current = true;
     }
     try {
-      const response = await fetch(
+      const response = await studioFetch(
         "/api/studio/updates",
         data
           ? {
