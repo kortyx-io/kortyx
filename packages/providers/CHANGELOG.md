@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.8.4](https://github.com/kortyx-io/kortyx/compare/providers-v0.8.3...providers-v0.8.4) (2026-10-07)
+
+
+### Bug Fixes
+
+* **security:** remediate CodeQL findings ([#273](https://github.com/kortyx-io/kortyx/issues/273)) ([55bc484](https://github.com/kortyx-io/kortyx/commit/55bc48426b72c0d370fe830f64db5bc1249bb861))
+
 ## [0.8.3](https://github.com/kortyx-io/kortyx/compare/providers-v0.8.2...providers-v0.8.3) (2026-09-22)
 
 

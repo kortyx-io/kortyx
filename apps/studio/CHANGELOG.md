@@ -1,5 +1,34 @@
 # Changelog
 
+## [0.13.0](https://github.com/kortyx-io/kortyx/compare/studio-v0.12.0...studio-v0.13.0) (2026-10-07)
+
+
+### Features
+
+* **api:** add typed security and tenant database extensions ([#260](https://github.com/kortyx-io/kortyx/issues/260)) ([47e4928](https://github.com/kortyx-io/kortyx/commit/47e49286f12e4470b3a327e609a65c99678b359f))
+* **studio:** add typed auth adapter and native build profiles ([#257](https://github.com/kortyx-io/kortyx/issues/257)) ([817c137](https://github.com/kortyx-io/kortyx/commit/817c137f955d1f17101c49386b9ba156f9157294))
+* **studio:** add typed contributions to existing Settings ([#277](https://github.com/kortyx-io/kortyx/issues/277)) ([152ddbf](https://github.com/kortyx-io/kortyx/commit/152ddbf623bc911348dd97f588132285667f3dab))
+* **studio:** guide first-time setup inside Settings ([#279](https://github.com/kortyx-io/kortyx/issues/279)) ([85bdb52](https://github.com/kortyx-io/kortyx/commit/85bdb5224071ebc81bf12acff99ae19322f329b3))
+* **studio:** unify extensible workspace shell and scoped settings ([#280](https://github.com/kortyx-io/kortyx/issues/280)) ([cf51257](https://github.com/kortyx-io/kortyx/commit/cf5125765317f67aa27e1dd2f8130315e9632390))
+
+
+### Bug Fixes
+
+* **security:** remediate CodeQL findings ([#273](https://github.com/kortyx-io/kortyx/issues/273)) ([55bc484](https://github.com/kortyx-io/kortyx/commit/55bc48426b72c0d370fe830f64db5bc1249bb861))
+* **security:** remediate production dependency risks ([#267](https://github.com/kortyx-io/kortyx/issues/267)) ([319daa1](https://github.com/kortyx-io/kortyx/commit/319daa1716a8684c332842bc6b6e9bb9474219e7))
+* **studio:** stabilize feedback badge hydration ([#261](https://github.com/kortyx-io/kortyx/issues/261)) ([50461c2](https://github.com/kortyx-io/kortyx/commit/50461c29656e1b3eecfe40b96479b072eca97d85))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/telemetry-contracts bumped to 0.14.0
+  * devDependencies
+    * @kortyx/agent bumped to 0.30.0
+    * @kortyx/telemetry bumped to 0.11.2
+    * kortyx bumped to 0.28.0
+
 ## [0.12.0](https://github.com/kortyx-io/kortyx/compare/studio-v0.11.0...studio-v0.12.0) (2026-10-03)
 
 

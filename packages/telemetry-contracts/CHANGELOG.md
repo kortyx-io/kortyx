@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.14.0](https://github.com/kortyx-io/kortyx/compare/telemetry-contracts-v0.13.0...telemetry-contracts-v0.14.0) (2026-10-07)
+
+
+### Features
+
+* **api:** add typed security and tenant database extensions ([#260](https://github.com/kortyx-io/kortyx/issues/260)) ([47e4928](https://github.com/kortyx-io/kortyx/commit/47e49286f12e4470b3a327e609a65c99678b359f))
+* **studio:** unify extensible workspace shell and scoped settings ([#280](https://github.com/kortyx-io/kortyx/issues/280)) ([cf51257](https://github.com/kortyx-io/kortyx/commit/cf5125765317f67aa27e1dd2f8130315e9632390))
+
 ## [0.13.0](https://github.com/kortyx-io/kortyx/compare/telemetry-contracts-v0.12.0...telemetry-contracts-v0.13.0) (2026-10-03)
 
 

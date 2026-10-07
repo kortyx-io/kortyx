@@ -1,5 +1,12 @@
 # @chatbot-core/types
 
+## [0.15.1](https://github.com/kortyx-io/kortyx/compare/stream-v0.15.0...stream-v0.15.1) (2026-10-07)
+
+
+### Bug Fixes
+
+* **deps:** remediate dependency security alerts ([#271](https://github.com/kortyx-io/kortyx/issues/271)) ([0d87ae8](https://github.com/kortyx-io/kortyx/commit/0d87ae8a4dfd54b616d4ebbf222f3bf3f37cc26c))
+
 ## [0.15.0](https://github.com/kortyx-io/kortyx/compare/stream-v0.14.0...stream-v0.15.0) (2026-09-30)
 
 

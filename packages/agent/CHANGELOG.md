@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.30.0](https://github.com/kortyx-io/kortyx/compare/agent-v0.29.0...agent-v0.30.0) (2026-10-07)
+
+
+### Features
+
+* **evals:** diagnose setup and guide first workflow runs ([#275](https://github.com/kortyx-io/kortyx/issues/275)) ([01dbf80](https://github.com/kortyx-io/kortyx/commit/01dbf803e65eec03187de9eaa316e4294f4f8dc5))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/providers bumped to 0.8.4
+    * @kortyx/runtime bumped to 0.21.6
+    * @kortyx/stream bumped to 0.15.1
+  * devDependencies
+    * @kortyx/hooks bumped to 0.30.2
+    * @kortyx/openai bumped to 0.5.5
+
 ## [0.29.0](https://github.com/kortyx-io/kortyx/compare/agent-v0.28.0...agent-v0.29.0) (2026-10-03)
 
 
