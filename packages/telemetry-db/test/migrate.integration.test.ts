@@ -146,6 +146,10 @@ async function customerRows(sql: postgres.Sql, prefix: number) {
             const { environment_id: _newColumn, ...legacy } = row;
             return legacy;
           }
+          if (table === "eval_runs" && prefix <= 6) {
+            const { evaluation_id: _newColumn, ...legacy } = row;
+            return legacy;
+          }
           return row;
         },
       ),

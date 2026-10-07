@@ -15,6 +15,17 @@ describe("grouped evaluation request contract", () => {
       metadata: { source: "manual" },
     });
   });
+  it("accepts credential-free HTTP(S) deployment metadata", () => {
+    expect(
+      StudioEvaluationStartRequestSchema.parse({
+        ...request,
+        metadata: { deploymentUrl: "https://example.com/deployments/123" },
+      }).metadata,
+    ).toEqual({
+      source: "manual",
+      deploymentUrl: "https://example.com/deployments/123",
+    });
+  });
   it.each([
     "invalid",
     "javascript:alert(1)",
