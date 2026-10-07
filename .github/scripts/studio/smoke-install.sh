@@ -40,8 +40,9 @@ cli="$clean_dir/node_modules/.bin/kortyx"
 "$cli" --help
 
 test "$(docker run --rm "$api_ref" node -p 'process.arch')" = "$EXPECTED_NODE_ARCH"
-docker run --rm --network none "$api_ref" \
-  pnpm --filter @kortyx/api exec vitest run test/studio-updater-ownership.test.ts
+test "$(docker run --rm "$api_ref" node -p 'process.getuid()')" = 1000
+docker run --rm --network none --user 0:0 --entrypoint pnpm "$api_ref" \
+  --filter @kortyx/api exec vitest run test/studio-updater-ownership.test.ts
 test "$(docker run --rm "$studio_ref" node -p 'process.arch')" = "$EXPECTED_NODE_ARCH"
 test "$(docker run --rm "$studio_ref" node -p 'require("/app/apps/studio/package.json").version')" = "$VERSION"
 
