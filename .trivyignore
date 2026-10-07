@@ -1,0 +1,3 @@
+# The API entrypoint drops ordinary commands to node. The root image default is
+# required only to bridge updater commands from saved protocol-1 Compose files.
+AVD-DS-0002
