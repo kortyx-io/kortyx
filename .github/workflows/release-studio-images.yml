@@ -25,6 +25,7 @@ on:
           - rolling
 
 permissions:
+  actions: read
   contents: read
   packages: write
   id-token: write
@@ -66,6 +67,11 @@ jobs:
         env:
           RELEASE_TAG: ${{ inputs.release_tag }}
         run: bash ./.github/automation/.github/scripts/studio/validate-release.sh
+      - name: Require successful CI for the release commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_COMMIT: ${{ steps.version.outputs.commit }}
+        run: bash ./.github/automation/.github/scripts/release/require-ci.sh
       - name: Select published CLI installer version
         id: installer
         run: echo "version=$(node -p 'require(\"./packages/kortyx/package.json\").version')" >> "$GITHUB_OUTPUT"
@@ -255,10 +261,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
-      contents: read
+      contents: write
       packages: write
     environment:
-      name: studio-production-auto
+      name: studio-production
       url: https://github.com/kortyx-io/kortyx/pkgs/container/kortyx-studio
     steps:
       - name: Checkout
@@ -322,3 +328,8 @@ jobs:
           API_DIGEST: ${{ needs.verify-staging.outputs.api_digest }}
           STUDIO_DIGEST: ${{ needs.verify-staging.outputs.studio_digest }}
           DEPLOYMENT_STRATEGY: ${{ inputs.deployment_strategy }}
+      - name: Publish the verified GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.release_tag }}
+        run: gh release edit "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --draft=false --prerelease=false --latest=false

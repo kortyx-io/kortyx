@@ -34,6 +34,7 @@ concurrency:
   cancel-in-progress: false
 
 permissions:
+  actions: read
   contents: read
 
 jobs:
@@ -53,6 +54,10 @@ jobs:
         with:
           fetch-depth: 0
           ref: ${{ inputs.release_commit || github.event.workflow_run.head_sha || github.event.repository.default_branch }}
+      - name: Require successful CI for the selected commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: bash .github/scripts/release/require-ci.sh
       - name: Describe release commit
         id: release
         env:
@@ -130,7 +135,8 @@ jobs:
     if: contains(fromJSON(needs.prepare.outputs.paths), 'apps/studio')
     uses: ./.github/workflows/release-studio-images.yml
     permissions:
-      contents: read
+      actions: read
+      contents: write
       packages: write
       id-token: write
       attestations: write

@@ -1,4 +1,8 @@
 import unittest
+import json
+import os
+import subprocess
+import tempfile
 from pathlib import Path
 
 
@@ -24,7 +28,7 @@ class StudioReleaseWorkflowTests(unittest.TestCase):
         )[1].split("\n      - name:", 1)[0]
 
         self.assertIn(
-            "          DEPLOYMENT_STRATEGY: ${{ inputs.deployment_strategy }}\n",
+            "          DEPLOYMENT_STRATEGY: ${{ inputs.deployment_strategy }}",
             publish_step,
         )
 
@@ -38,6 +42,45 @@ class StudioReleaseWorkflowTests(unittest.TestCase):
             "          DEPLOYMENT_STRATEGY: ${{ inputs.deployment_strategy }}\n",
             workflow,
         )
+
+
+class ReleaseCiGateTests(unittest.TestCase):
+    def test_release_requires_latest_successful_default_branch_push_ci(self):
+        script = WORKFLOW.parents[1] / "scripts/release/require-ci.sh"
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            gh = root / "gh"
+            gh.write_text('#!/bin/sh\nprintf "%s" "$TEST_RUNS"\n')
+            gh.chmod(0o755)
+            git = root / "git"
+            git.write_text('#!/bin/sh\nprintf "%s" "tested-commit"\n')
+            git.chmod(0o755)
+            cases = [
+                ([], False),
+                ([{"status": "completed", "conclusion": "failure", "headBranch": "main"}], False),
+                ([{"status": "in_progress", "conclusion": "", "headBranch": "main"}], False),
+                ([{"status": "completed", "conclusion": "success", "headBranch": "feature"}], False),
+                ([{"status": "completed", "conclusion": "success", "headBranch": "main"}], True),
+                ([{"status": "completed", "conclusion": "failure", "headBranch": "main"},
+                  {"status": "completed", "conclusion": "success", "headBranch": "main"}], False),
+            ]
+            for runs, allowed in cases:
+                with self.subTest(runs=runs):
+                    result = subprocess.run(["bash", str(script)], capture_output=True, text=True,
+                        env={**os.environ, "PATH": directory + os.pathsep + os.environ["PATH"],
+                             "GITHUB_REPOSITORY": "kortyx-io/kortyx", "TEST_RUNS": json.dumps(runs)})
+                    self.assertEqual(result.returncode == 0, allowed, result.stderr)
+
+    def test_studio_stays_draft_until_verified_publication(self):
+        config = json.loads((WORKFLOW.parents[1] / "release-please/config.json").read_text())
+        self.assertTrue(config["packages"]["apps/studio"]["draft"])
+        self.assertTrue(config["packages"]["apps/studio"]["force-tag-creation"])
+        for path in [WORKFLOW, RECOVERY_WORKFLOW]:
+            workflow = path.read_text()
+            self.assertIn("require-ci.sh", workflow)
+            self.assertIn("name: studio-production\n", workflow)
+            publication = "Publish the recovered release" if path == RECOVERY_WORKFLOW else "Publish the completed release"
+            self.assertLess(workflow.index(publication), workflow.index("--draft=false"))
 
 
 if __name__ == "__main__":

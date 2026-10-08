@@ -7,6 +7,7 @@ from pathlib import Path
 import re
 import time
 import urllib.request
+import uuid
 
 MAX_MANIFEST_BYTES = 16_384
 PUBLIC_ORIGIN = "https://updates.kortyx.io"
@@ -120,11 +121,43 @@ def verify_public(expected, *, attempts=36, delay=10):
     raise RuntimeError("R2 was published but public CDN verification failed; inspect DNS/cache and rerun")
 
 
+def check_access(client, bucket):
+    """Exercise the same conditional writes as publication before promoting images."""
+    read_object(client, bucket, "studio/stable.json")
+    key = f"studio/preflight/{uuid.uuid4().hex}.json"
+    body = b'{"preflight":true}\n'
+    client.put_object(Bucket=bucket, Key=key, Body=body,
+                      ContentType="application/json", CacheControl="no-store", IfNoneMatch="*")
+    try:
+        result = client.get_object(Bucket=bucket, Key=key)
+        with result["Body"] as response:
+            if response.read(MAX_MANIFEST_BYTES + 1) != body:
+                raise ValueError("R2 preflight read-back failed")
+    finally:
+        client.delete_object(Bucket=bucket, Key=key)
+
+
+def failure_message(error):
+    # Never include SDK messages, request URLs, headers, or credentials.
+    response = getattr(error, "response", {})
+    code = response.get("Error", {}).get("Code", "")
+    safe_codes = {"AccessDenied", "InvalidAccessKeyId", "SignatureDoesNotMatch",
+                  "NoSuchBucket", "NoSuchKey", "PreconditionFailed", "ConditionalRequestConflict",
+                  "InternalError", "ServiceUnavailable", "SlowDown", "ExpiredToken", "InvalidToken"}
+    detail = f", code={code}" if code in safe_codes else ""
+    http_status = status(error)
+    if type(http_status) is int and 100 <= http_status <= 599:
+        detail += f", HTTP={http_status}"
+    return f"Release publication failed ({type(error).__name__}{detail}). Check R2 access, existing manifests, and CDN configuration."
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("manifest", type=Path)
+    parser.add_argument("manifest", type=Path, nargs="?")
+    parser.add_argument("--check-access", action="store_true")
     args = parser.parse_args()
-    manifest = decode(args.manifest.read_bytes())
+    if not args.check_access and args.manifest is None:
+        parser.error("manifest is required for publication")
     import boto3
     from botocore.config import Config
 
@@ -139,6 +172,11 @@ def main():
         config=Config(connect_timeout=10, read_timeout=15, retries={"mode": "standard", "max_attempts": 3},
                       request_checksum_calculation="when_required", response_checksum_validation="when_required"),
     )
+    if args.check_access:
+        check_access(client, bucket)
+        print("Verified R2 conditional write, read, and delete access")
+        return
+    manifest = decode(args.manifest.read_bytes())
     current = publish(client, bucket, manifest)
     verify_public(current)
     print(f'Verified Studio stable channel: v{current["version"]}')
@@ -149,5 +187,5 @@ if __name__ == "__main__":
         main()
     except Exception as error:
         # SDK exceptions can include request details; keep credentials out of CI logs.
-        print(f"Release publication failed ({type(error).__name__}). Check R2 access, existing manifests, and CDN configuration.")
+        print(failure_message(error))
         raise SystemExit(1) from None

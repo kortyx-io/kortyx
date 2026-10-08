@@ -3,7 +3,7 @@ import io
 import json
 import unittest
 from unittest.mock import patch
-from publish import decode, publish, validate, verify_public
+from publish import check_access, decode, failure_message, publish, validate, verify_public
 
 
 def manifest(version="0.3.0", digest="a", strategy="recreate"):
@@ -30,6 +30,9 @@ class MemoryR2:
         value = self.objects[Key]
         return {"Body": io.BytesIO(value), "ETag": hashlib.sha256(value).hexdigest()}
 
+    def delete_object(self, Bucket, Key):
+        del self.objects[Key]
+
     def put_object(self, **request):
         key = request["Key"]
         if self.before_put:
@@ -44,6 +47,32 @@ class MemoryR2:
 
 
 class PublishTest(unittest.TestCase):
+    def test_preflight_exercises_storage_without_changing_stable(self):
+        client = MemoryR2()
+        publish(client, "updates", manifest())
+        original = dict(client.objects)
+        check_access(client, "updates")
+        self.assertEqual(client.objects, original)
+        self.assertTrue(client.writes[-1]["Key"].startswith("studio/preflight/"))
+        self.assertEqual(client.writes[-1]["IfNoneMatch"], "*")
+
+    def test_preflight_rejects_invalid_credentials_before_promotion(self):
+        client = MemoryR2()
+        client.before_put = lambda _: self.fail("write must not follow failed read")
+        def fail_read(**_):
+            raise StorageError("AccessDenied", 403)
+        client.get_object = fail_read
+        with self.assertRaises(StorageError):
+            check_access(client, "updates")
+        self.assertFalse(client.writes)
+
+    def test_sdk_diagnostics_only_include_allowlisted_code_and_status(self):
+        error = StorageError("AccessDenied", 403)
+        error.response["Error"]["Message"] = "secret-access-key"
+        self.assertIn("code=AccessDenied, HTTP=403", failure_message(error))
+        self.assertNotIn("secret-access-key", failure_message(error))
+        self.assertNotIn("secret-code", failure_message(StorageError("secret-code", 403)))
+
     def test_uploads_history_before_channel_and_is_idempotent(self):
         client = MemoryR2()
         self.assertEqual(publish(client, "updates", manifest()), manifest())
