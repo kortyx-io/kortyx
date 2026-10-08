@@ -19,6 +19,8 @@ export async function SidebarLayout({
   children: React.ReactNode;
   detailSlots?: React.ReactNode;
 }) {
+  const entry = await studioShell.entryLayout?.(children);
+  if (entry) return entry;
   const [cookieStore, studioContext] = await Promise.all([
     cookies(),
     getStudioShellContext(),

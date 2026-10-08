@@ -17,5 +17,7 @@ export interface StudioShellContribution {
 }
 
 export interface StudioShellAdapter {
+  /** Optional request-local entry flow, inside the shared Studio root/theme. */
+  entryLayout?(children: ReactNode): Promise<ReactNode | null>;
   resolve(context: StudioShellContext): Promise<StudioShellContribution>;
 }

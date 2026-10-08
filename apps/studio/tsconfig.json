@@ -20,6 +20,7 @@
     ],
     "paths": {
       "@studio/styles": ["./src/app/globals.css"],
+      "@studio/onboarding": ["./src/onboarding/server.tsx"],
       "@/*": ["./src/*"],
       "@studio/auth": ["./src/auth/server.ts"],
       "@studio/auth-contracts": ["./src/auth/contracts.ts"],
