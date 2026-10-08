@@ -21,7 +21,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { LiveRefreshButton } from "@/features/telemetry/components/live-refresh-button";
 import { useLiveRefresh } from "@/features/telemetry/hooks/use-live-refresh";
-import { formatDateTime, formatDurationMs } from "@/lib/format";
+import { formatDateTime } from "@/lib/format";
 import { useStudioQueryStates } from "@/lib/nuqs";
 import { useRouter, useSearchParams } from "@/lib/scoped-navigation";
 import { evalRequest } from "../api/client";
@@ -30,6 +30,7 @@ import { evalNavigationHref, evalRunHref } from "../lib/navigation";
 import type { EvalTargets } from "../schema";
 import { EvalCost } from "./eval-cost";
 import { EvalDropdown } from "./eval-dropdown";
+import { EvalDuration } from "./eval-duration";
 import { EvalNavigation } from "./eval-navigation";
 import { EvalRunSetup } from "./eval-run-setup";
 import { EvalStatus } from "./eval-status";
@@ -235,11 +236,7 @@ export function EvaluationList({
       defaultWidth: 100,
       render: (run) => (
         <span className="font-mono text-xs">
-          {run.startedAt && run.endedAt
-            ? formatDurationMs(
-                Date.parse(run.endedAt) - Date.parse(run.startedAt),
-              )
-            : "—"}
+          <EvalDuration run={run} />
         </span>
       ),
     },

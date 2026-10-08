@@ -4,6 +4,7 @@ import {
   StudioEvalJudgeRequestSchema,
   StudioEvalJudgeResponseSchema,
 } from "./contracts";
+import { compactEvalObservation } from "./evidence";
 import type { EvalJudge, StudioEvalJudgeOptions } from "./types";
 
 async function readJson(
@@ -89,9 +90,14 @@ export async function createStudioEvalJudge(
         judge: identity,
         criterion: input.criterion,
         input: input.input,
-        observation: input.observation,
+        observation: compactEvalObservation(input.observation),
         reference: input.reference,
-        conversation: input.conversation,
+        conversation: input.conversation.map(
+          ({ evidence: _evidence, ...step }) => ({
+            ...step,
+            observation: compactEvalObservation(step.observation),
+          }),
+        ),
       });
       const signal = AbortSignal.any([
         input.signal,

@@ -65,7 +65,7 @@ the data deliberately available to the test actor.
 
 ## Required structured outputs
 
-Declare visible output contracts on the step that must produce them:
+Declare required completed output contracts on the step that must produce them:
 
 ```ts
 const suite = defineSuite({
@@ -137,9 +137,9 @@ const result = await useReason({
 The runner captures the existing public stream directly. Each step records ordered
 `observation.events`: tool names, call IDs, arguments, results and errors, alongside
 text, structured output, interrupt requests and workflow transitions. Adjacent
-text deltas from the same source are joined. The judge receives the current
-observation and all previous steps, including tool results retrieved before an
-interrupt. This works from the SDK, Studio and CLI without querying Studio telemetry.
+text deltas from the same source are joined in the saved observation. The judge
+receives compact, selected evidence from the current step and, by default, earlier
+steps in the same case, including tool results retrieved before an interrupt. This works from the SDK, Studio and CLI without querying Studio telemetry.
 
 A criterion can say: “Answers for each requested product with the price and currency
 returned by its successful tool call; explicitly states when price data is
@@ -158,6 +158,26 @@ executor must populate `observation.events` itself when it wants execution evide
 Only emit tool arguments and results suitable for the judge and stored eval records;
 they may contain application data, and arbitrary tool payloads are not automatically
 redacted.
+
+## Judge criteria and evidence selection
+
+Write criteria that identify the output type and fields to evaluate, what the app
+renders as messages/prose/cards, and what remains progress-only or internal.
+The stream cannot establish frontend visibility. Each criterion is graded
+separately, so include necessary presentation rules in each one. Use reference
+facts or retained successful tool results for grounding, and UI tests for actual
+rendering.
+
+Judges always receive compact evidence. Set `createEvals.defaults.evidence` and
+field-by-field `suite.evidence` overrides: `history` is boolean; `events` accepts
+`false`, typed event names, or a named predicate; `outputs` accepts `false`, output
+selectors, or a named predicate. `history: false` excludes earlier case steps from
+the judge only. `{ history: false, events: false, outputs: false }` selects final
+text without prior observations; input, references, and interrupt details remain.
+Full captures remain in Studio, and deterministic contract checks are unaffected.
+
+See the [judge-writing example and complete evidence configuration](../../apps/website/src/docs/sdk/v0/03-guides/10-conversation-evals.md#write-criteria-for-the-evidence-your-app-produces)
+for presentation contracts, defaults, overrides, and custom filters.
 
 ## Choose where judging runs
 

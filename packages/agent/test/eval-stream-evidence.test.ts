@@ -127,9 +127,7 @@ it.each([
     ]);
     expect(JSON.stringify(tools[1])).toContain("EUR 100,000");
   } else expect(tools).toEqual([]);
-  expect(JSON.stringify(grade.mock.calls[0]?.[0].observation.events)).toBe(
-    JSON.stringify(events),
-  );
+  expect(grade.mock.calls[0]?.[0].observation.events).toEqual(tools);
   expect(result.cases[0]?.steps[0]?.observation.text).toBe(
     "Barcelona: EUR 100,000",
   );
@@ -299,7 +297,7 @@ it("retains ordered evidence across a native resume without copying private tran
   ]);
   const payload = JSON.parse(invoke.mock.calls[0]?.[0]?.[1]?.content ?? "null");
   expect(payload.conversation[0].observation.events[1]).toEqual(first[1]);
-  expect(payload.observation.events).toEqual(events);
+  expect(payload.observation.events).toEqual([second[4]]);
   expect(
     JSON.stringify([result, progress.mock.calls, invoke.mock.calls]),
   ).not.toContain(privateValue);

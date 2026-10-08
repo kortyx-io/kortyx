@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { EvalEvidencePolicySchema } from "./evidence-policy";
 import type { EvalSuite } from "./types";
 
 const id = z.string().trim().min(1).max(256);
@@ -46,6 +47,7 @@ const expectation = z
   });
 export const EvalSuiteSchema = z
   .object({
+    evidence: EvalEvidencePolicySchema.optional(),
     id,
     name: z.string().optional(),
     cases: z
@@ -180,6 +182,14 @@ export const EvalJudgeUsageSchema = z
   .strict();
 export const EvalStepResultSchema = z
   .object({
+    evidence: z
+      .object({
+        version: z.literal("compact-v1"),
+        history: z.boolean(),
+        observation: EvalObservationSchema,
+      })
+      .strict()
+      .optional(),
     index: z.number().int().nonnegative(),
     input: z.union([
       z.object({ message: z.string() }).strict(),
