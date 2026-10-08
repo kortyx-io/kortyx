@@ -74,7 +74,7 @@ when the scenario's available data deliberately contains it.
 
 ## Required structured outputs
 
-Declare visible output contracts on the step that must produce them:
+Declare required completed output contracts on the step that must produce them:
 
 ```ts
 const suite = defineSuite({
@@ -213,11 +213,13 @@ const result = await useReason({
 ```
 
 Tool emission defaults to off; the eval runner cannot enable it for the app.
-The judge receives the criterion, current input/observation, optional reference
-and previous completed steps. `observation.events` records ordered public stream
-evidence: emitted tool names/arguments/results/errors, text, structured output,
-interrupts and workflow transitions. Earlier tool evidence remains available
-after resume. Enable emission wherever a criterion needs retrieved facts.
+The saved `observation.events` records ordered public stream evidence, including
+emitted tool names/arguments/results/errors, text, structured output, interrupts
+and workflow transitions. The judge receives the criterion, current input and
+compact selected observation, optional reference, and (by default) earlier case
+steps. Streaming noise and routine transitions are removed from judge input.
+Earlier tool evidence remains available after resume when history is enabled.
+Enable emission wherever a criterion needs retrieved facts.
 
 Use criteria that say what must be grounded in successful tool results and what
 to do when evidence is missing. Tool results establish what the workflow received,
@@ -375,21 +377,12 @@ behavioral suite. Inspect saved observations and judge identity, not just the
 overall green status. Account/data isolation and external side effects remain
 application responsibilities.
 
-## Judge evidence selection
+## Judge criteria and evidence selection
 
-Evidence is compact by default: streaming updates and redundant final copies are
-not judge input. Full observations stay in Studio. Set `defaults.evidence` in
-`createEvals` and override fields through `suite.evidence`:
-
-- `history: false` excludes prior case steps from judging only (default true).
-- `events: false` excludes execution events; a typed event-name array selects them.
-- `outputs: [{ dataType: "app.answer" }]` selects structured outputs. Selectors also
-  accept `schemaId` and `schemaVersion`; `false` excludes structured outputs.
-- Custom selections use `{ using: "filter-name", params?: ... }`, with synchronous
-  boolean predicates registered under `evidenceFilters.events` or
-  `evidenceFilters.outputs` in the app. Predicates operate after compaction.
-
-Criteria should name the relevant output types and fields, not assume every
-structured field is rendered. Judge evidence is not proof of frontend visibility.
-Do not filter out the supporting facts a criterion needs. The SDK records the
-selected per-step evidence for Studio replay without running application callbacks.
+Read [eval-criteria-and-evidence.md](eval-criteria-and-evidence.md) for complete
+examples of application presentation rules, independent criteria, text-only
+judging, suite/default overrides, and named predicates. Judges receive compact
+execution evidence, not a rendering of the frontend. Describe which fields the
+app displays as messages or prose and which stay internal in every relevant
+criterion. Configure selection with `defaults.evidence` and `suite.evidence`;
+full observations remain in Studio.

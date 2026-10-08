@@ -126,7 +126,7 @@ KORTYX_EVAL_JUDGE_MODEL=gpt-5.4-mini
 KORTYX_EVAL_JUDGE_API_KEY=<server-owned provider key>
 # Optional overrides:
 # KORTYX_EVAL_JUDGE_ID=studio/my-judge
-# KORTYX_EVAL_JUDGE_VERSION=kortyx-rubric-v3
+# KORTYX_EVAL_JUDGE_VERSION=kortyx-rubric-v4
 # KORTYX_EVAL_JUDGE_API=responses
 # KORTYX_EVAL_JUDGE_BASE_URL=https://api.openai.com/v1
 ```
@@ -181,6 +181,23 @@ project Studio key, checks its environment, pins identity and bounds input size,
 concurrency and grading deadlines. Ordinary Studio runs grade within the worker
 and do not call this endpoint. Saved-run regrading and editable evaluator libraries
 are not included in this release.
+
+## Judge criteria and evidence
+
+Configure what the judge receives in the application: `createEvals.defaults.evidence`
+provides defaults, and `suite.evidence` overrides individual fields. Studio uses
+the saved selected evidence for grading; full observations remain available for
+debugging. These are SDK configuration options, not switches in the run drawer.
+
+The judge sees compact execution evidence as well as answer content. Criteria
+must explain which structured fields the frontend shows as messages, prose, or
+cards and which are progress-only or internal. Each criterion is graded separately.
+An emitted output does not prove it was displayed in the browser.
+
+See [writing criteria](../../sdk/v0/03-guides/10-conversation-evals.md#write-criteria-for-the-evidence-your-app-produces)
+and [evidence defaults, overrides, and filters](../../sdk/v0/03-guides/10-conversation-evals.md#compact-judge-evidence)
+for examples, including disabling history/events/outputs for text-only checks.
+Keep any supporting tool results or reference facts required by the criterion.
 
 ## Eval run costs
 
