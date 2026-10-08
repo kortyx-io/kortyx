@@ -16,6 +16,7 @@ import {
 } from "@kortyx/agent";
 import type { WorkflowDefinition } from "@kortyx/core";
 import { KortyxError, serializeFailure } from "@kortyx/core/errors";
+import { PromptError } from "@kortyx/prompts";
 import {
   type EnsureWorkflowTopologyRequest,
   EnsureWorkflowTopologyRequestSchema,
@@ -26,6 +27,7 @@ import { Command, CommanderError } from "commander";
 import { register as registerTsx } from "tsx/cjs/api";
 import { register as registerTsxEsm } from "tsx/esm/api";
 import ts from "typescript";
+import { ZodError } from "zod";
 import { createConnectionsCommand } from "./connections-command";
 import { createLocalEvalsCommand } from "./evals/command";
 import { loadEvalEnvironment } from "./evals/environment";
@@ -652,6 +654,29 @@ const main = async (): Promise<void> => {
     await program.parseAsync(process.argv);
   } catch (error) {
     if (error instanceof CommanderError && error.exitCode === 0) return;
+    if (error instanceof PromptError || error instanceof ZodError) {
+      console.error(
+        process.argv.includes("--json")
+          ? JSON.stringify({
+              schemaVersion: 1,
+              error: {
+                code:
+                  error instanceof PromptError
+                    ? error.code
+                    : "validation_error",
+                message:
+                  error instanceof PromptError
+                    ? error.message
+                    : "Invalid prompt command input.",
+              },
+            })
+          : error instanceof PromptError
+            ? `[${error.code}] ${error.message}`
+            : "Invalid prompt command input.",
+      );
+      process.exitCode = 1;
+      return;
+    }
     if (error instanceof StudioReadError) {
       console.error(
         process.argv.includes("--json")

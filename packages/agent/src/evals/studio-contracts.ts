@@ -1,3 +1,4 @@
+import { PromptSnapshotSchema } from "@kortyx/prompts";
 import { z } from "zod";
 import {
   EvalJudgeIdentitySchema,
@@ -96,6 +97,8 @@ export const StudioEvalDetailSchema = z.object({
         judge: EvalJudgeIdentitySchema.optional(),
         repetitions: z.number().int().positive(),
         concurrency: z.number().optional(),
+        promptSnapshot: PromptSnapshotSchema.optional(),
+        promptGroupName: z.string().optional(),
       })
       .optional(),
     suite: EvalSuiteSchema,

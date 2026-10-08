@@ -31,6 +31,7 @@ type HookStatePatchedError = {
 };
 
 export type HookNodeRuntimeContext = {
+  prompts?: import("@kortyx/prompts").PromptExecution | undefined;
   completeResponse?:
     | ((
         options: import("./complete-response").CompleteResponseOptions,

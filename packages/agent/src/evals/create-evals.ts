@@ -144,6 +144,9 @@ export function createEvals<
       return {
         schemaVersion: 1 as const,
         studioJudging: true as const,
+        ...(options.agent.describePromptContracts
+          ? { promptContracts: options.agent.describePromptContracts() }
+          : {}),
         suites: clone(suites),
         responders: Object.entries(responders).map(([name, value]) => ({
           name,
@@ -312,6 +315,9 @@ export function createEvals<
           }) =>
             executeEvalChat({
               agent: options.agent,
+              ...(args.promptSnapshot
+                ? { promptSnapshot: args.promptSnapshot }
+                : {}),
               command,
               continuation,
               history: clone(history),

@@ -5,6 +5,10 @@ export type ApiAction =
   | "telemetry:write"
   | "studio:read"
   | "studio:write"
+  | "prompt:serve"
+  | "prompt:promote"
+  | "prompt:review"
+  | "prompt:settings"
   | "eval:run";
 
 export interface ApiAuthorizationAdapter {

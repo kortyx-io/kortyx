@@ -132,27 +132,46 @@ const normalizeToolResult = (
 const createInitialMessages = (args: {
   system?: string | undefined;
   input: string;
+  messages?: KortyxPromptMessage[] | undefined;
+  inputOverride?: boolean;
   interruptInstructions?: string | undefined;
   outputInstructions?: string | undefined;
-}): KortyxPromptMessage[] => [
-  ...(typeof args.system === "string" ||
-  args.interruptInstructions ||
-  args.outputInstructions
-    ? [
-        {
-          role: "system" as const,
-          content: [
-            args.system,
-            args.interruptInstructions,
-            args.outputInstructions,
-          ]
-            .filter((value): value is string => Boolean(value))
-            .join("\n\n"),
-        },
-      ]
-    : []),
-  { role: "user" as const, content: String(args.input ?? "") },
-];
+}): KortyxPromptMessage[] => {
+  if (args.messages) {
+    const ordered = args.messages.map((message) => ({ ...message }));
+    const lastUser = ordered.reduce(
+      (last, message, position) => (message.role === "user" ? position : last),
+      -1,
+    );
+    if (args.inputOverride && lastUser >= 0)
+      ordered[lastUser] = { ...ordered[lastUser]!, content: args.input };
+    const instructions = [args.interruptInstructions, args.outputInstructions]
+      .filter(Boolean)
+      .join("\n\n");
+    if (instructions)
+      ordered.unshift({ role: "system", content: instructions });
+    return ordered;
+  }
+  return [
+    ...(typeof args.system === "string" ||
+    args.interruptInstructions ||
+    args.outputInstructions
+      ? [
+          {
+            role: "system" as const,
+            content: [
+              args.system,
+              args.interruptInstructions,
+              args.outputInstructions,
+            ]
+              .filter((value): value is string => Boolean(value))
+              .join("\n\n"),
+          },
+        ]
+      : []),
+    { role: "user" as const, content: String(args.input ?? "") },
+  ];
+};
 
 export const runReasonToolLoop = async <
   TOutput,
@@ -346,6 +365,8 @@ export const runReasonToolLoop = async <
   const messages =
     checkpoint?.messages ??
     createInitialMessages({
+      messages: useReasonArgs.messages,
+      inputOverride: Boolean(useReasonArgs.outputSchema),
       system: useReasonArgs.system,
       input: useReasonArgs.outputSchema
         ? withOutputGuardrails(useReasonArgs.input, useReasonArgs.outputSchema)

@@ -59,7 +59,7 @@ const withQuery = (
   return search ? `${path}?${search}` : path;
 };
 
-const fetchJson = async <T>(
+export const fetchJson = async <T>(
   path: string,
   parse: (value: unknown) => T,
 ): Promise<StudioRepoResult<T>> => {

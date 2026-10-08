@@ -173,6 +173,9 @@ importers:
       '@kortyx/openrouter':
         specifier: workspace:*
         version: link:../../providers/openrouter
+      '@kortyx/prompts':
+        specifier: workspace:*
+        version: link:../../packages/prompts
       '@kortyx/telemetry-contracts':
         specifier: workspace:*
         version: link:../../packages/telemetry-contracts
@@ -219,6 +222,9 @@ importers:
       '@dnd-kit/sortable':
         specifier: ^10.0.0
         version: 10.0.0(@dnd-kit/core@6.3.1(react-dom@19.2.1(react@19.2.1))(react@19.2.1))(react@19.2.1)
+      '@kortyx/prompts':
+        specifier: workspace:*
+        version: link:../../packages/prompts
       '@kortyx/telemetry-contracts':
         specifier: workspace:*
         version: link:../../packages/telemetry-contracts
@@ -234,6 +240,9 @@ importers:
       date-fns:
         specifier: ^4.4.0
         version: 4.4.0
+      diff:
+        specifier: ^9.0.0
+        version: 9.0.0
       lucide-react:
         specifier: 'catalog:'
         version: 0.556.0(react@19.2.1)
@@ -766,11 +775,51 @@ importers:
         specifier: 'catalog:'
         version: 4.1.11(@opentelemetry/api@1.9.0)(@types/node@20.19.17)(@vitest/coverage-v8@4.1.11)(jsdom@29.1.1)(vite@8.3.2(@types/node@20.19.17)(esbuild@0.28.1)(jiti@2.6.1)(terser@5.46.0)(tsx@4.22.5)(yaml@2.8.3))
 
+  examples/kortyx-prompts:
+    dependencies:
+      '@hono/node-server':
+        specifier: 1.19.15
+        version: 1.19.15(hono@4.13.12)
+      '@kortyx/openrouter':
+        specifier: workspace:*
+        version: link:../../providers/openrouter
+      '@kortyx/providers':
+        specifier: workspace:*
+        version: link:../../packages/providers
+      '@kortyx/telemetry':
+        specifier: workspace:*
+        version: link:../../packages/telemetry
+      hono:
+        specifier: 4.13.12
+        version: 4.13.12
+      kortyx:
+        specifier: workspace:*
+        version: link:../../packages/kortyx
+      zod:
+        specifier: 'catalog:'
+        version: 4.4.3
+    devDependencies:
+      '@types/node':
+        specifier: 'catalog:'
+        version: 20.19.17
+      tsx:
+        specifier: ^4.21.0
+        version: 4.22.5
+      typescript:
+        specifier: 'catalog:'
+        version: 5.9.3
+      vitest:
+        specifier: 'catalog:'
+        version: 4.1.11(@opentelemetry/api@1.9.0)(@types/node@20.19.17)(@vitest/coverage-v8@4.1.11)(jsdom@29.1.1)(vite@8.3.2(@types/node@20.19.17)(esbuild@0.28.1)(jiti@2.6.1)(terser@5.46.0)(tsx@4.22.5)(yaml@2.8.3))
+
   packages/agent:
     dependencies:
       '@kortyx/core':
         specifier: workspace:*
         version: link:../core
+      '@kortyx/prompts':
+        specifier: workspace:*
+        version: link:../prompts
       '@kortyx/providers':
         specifier: workspace:*
         version: link:../providers
@@ -850,12 +899,18 @@ importers:
       '@kortyx/core':
         specifier: workspace:*
         version: link:../core
+      '@kortyx/prompts':
+        specifier: workspace:*
+        version: link:../prompts
       '@kortyx/telemetry-contracts':
         specifier: workspace:*
         version: link:../telemetry-contracts
       commander:
         specifier: ^14.0.3
         version: 14.0.3
+      diff:
+        specifier: ^9.0.0
+        version: 9.0.0
       execa:
         specifier: ^9.6.1
         version: 9.6.1
@@ -912,6 +967,9 @@ importers:
       '@kortyx/core':
         specifier: workspace:*
         version: link:../core
+      '@kortyx/prompts':
+        specifier: workspace:*
+        version: link:../prompts
       '@kortyx/providers':
         specifier: workspace:*
         version: link:../providers
@@ -955,6 +1013,9 @@ importers:
       '@kortyx/mcp':
         specifier: workspace:*
         version: link:../mcp
+      '@kortyx/prompts':
+        specifier: workspace:*
+        version: link:../prompts
       '@kortyx/providers':
         specifier: workspace:*
         version: link:../providers
@@ -1024,6 +1085,31 @@ importers:
       turbo:
         specifier: 'catalog:'
         version: 2.9.14
+      typescript:
+        specifier: 'catalog:'
+        version: 5.9.3
+      vitest:
+        specifier: 'catalog:'
+        version: 4.1.11(@opentelemetry/api@1.9.0)(@types/node@20.19.17)(@vitest/coverage-v8@4.1.11)(jsdom@29.1.1)(vite@8.3.2(@types/node@20.19.17)(esbuild@0.28.1)(jiti@2.6.1)(terser@5.46.0)(tsx@4.22.5)(yaml@2.8.3))
+
+  packages/prompts:
+    dependencies:
+      ajv:
+        specifier: 8.18.0
+        version: 8.18.0
+      zod:
+        specifier: 'catalog:'
+        version: 4.4.3
+    devDependencies:
+      '@types/node':
+        specifier: 'catalog:'
+        version: 20.19.17
+      '@vitest/coverage-v8':
+        specifier: 'catalog:'
+        version: 4.1.11(vitest@4.1.11)
+      tsup:
+        specifier: 'catalog:'
+        version: 8.5.1(jiti@2.6.1)(postcss@8.5.28)(tsx@4.22.5)(typescript@5.9.3)(yaml@2.8.3)
       typescript:
         specifier: 'catalog:'
         version: 5.9.3
@@ -1101,6 +1187,9 @@ importers:
       '@kortyx/hooks':
         specifier: workspace:*
         version: link:../hooks
+      '@kortyx/prompts':
+        specifier: workspace:*
+        version: link:../prompts
       '@kortyx/providers':
         specifier: workspace:*
         version: link:../providers
@@ -1196,6 +1285,9 @@ importers:
 
   packages/telemetry-contracts:
     dependencies:
+      '@kortyx/prompts':
+        specifier: workspace:*
+        version: link:../prompts
       zod:
         specifier: 'catalog:'
         version: 4.4.3
@@ -1218,6 +1310,9 @@ importers:
       '@kortyx/agent':
         specifier: workspace:*
         version: link:../agent
+      '@kortyx/prompts':
+        specifier: workspace:*
+        version: link:../prompts
       '@kortyx/telemetry-contracts':
         specifier: workspace:*
         version: link:../telemetry-contracts
@@ -4475,6 +4570,10 @@ packages:
   devlop@1.1.0:
     resolution: {integrity: sha512-RWmIqhcFf1lRYBvNmr7qTNuyCt/7/ns2jbpp1+PalgE/rDQcBT0fioSMUpJ93irlUhC5hrg4cYqe6U+0ImW0rA==}
 
+  diff@9.0.0:
+    resolution: {integrity: sha512-svtcdpS8CgJyqAjEQIXdb3OjhFVVYjzGAPO8WGCmRbrml64SPw/jJD4GoE98aR7r25A0XcgrK3F02yw9R/vhQw==}
+    engines: {node: '>=0.3.1'}
+
   dom-accessibility-api@0.5.16:
     resolution: {integrity: sha512-X7BJ2yElsnOJ30pZF4uIIDfBEVgF4XEBxL9Bxhy6dnrm5hkzqmsWHGTiHqRiITNhMyFLyAiWndIJP7Z1NTteDg==}
 
@@ -5687,10 +5786,6 @@ packages:
   picocolors@1.1.1:
     resolution: {integrity: sha512-xceH2snhtb5M9liqDsmEw56le376mTZkEX/jEb/RxNFyegNul7eNslCXP9FDj/Lcu0X8KEyMceP2ntpaHrDEVA==}
 
-  picomatch@4.0.4:
-    resolution: {integrity: sha512-QP88BAKvMam/3NxH6vj2o21R6MjxZUAd6nlwAS/pnGvN9IVLocLHxGYIzFhg6fUQ+5th6P4dv4eW9jX3DSIj7A==}
-    engines: {node: '>=12'}
-
   picomatch@4.0.7:
     resolution: {integrity: sha512-qcJu88Q2IWqJsDD529JKMdwGm/dvInW4HvQnRwiH9JtihJvzGOscDtHE3x1pBKeUOTysQ8kVmLnJ2kJu7yhcGA==}
     engines: {node: '>=12'}
@@ -6172,10 +6267,6 @@ packages:
   tinyexec@1.0.4:
     resolution: {integrity: sha512-u9r3uZC0bdpGOXtlxUIdwf9pkmvhqJdrVCH9fapQtgy/OeTTMZ1nqH7agtvEfmGui6e1XxjcdrlxvxJvc3sMqw==}
     engines: {node: '>=18'}
-
-  tinyglobby@0.2.16:
-    resolution: {integrity: sha512-pn99VhoACYR8nFHhxqix+uvsbXineAasWm5ojXoN8xEwK5Kd3/TrhNn1wByuD52UxWRLy8pu+kRMniEi6Eq9Zg==}
-    engines: {node: '>=12.0.0'}
 
   tinyglobby@0.2.17:
     resolution: {integrity: sha512-wXR/dYpcqKmfWpEdZjiKJOwCNFndD0DMnrW/cYjVGttEkBfVgcLFHoNrlj47mjOVic9yyNu65alsgF4NQyTa2g==}
@@ -9111,6 +9202,8 @@ snapshots:
     dependencies:
       dequal: 2.0.3
 
+  diff@9.0.0: {}
+
   dom-accessibility-api@0.5.16: {}
 
   dompurify@3.4.16:
@@ -9391,10 +9484,6 @@ snapshots:
   fault@1.0.4:
     dependencies:
       format: 0.2.2
-
-  fdir@6.5.0(picomatch@4.0.4):
-    optionalDependencies:
-      picomatch: 4.0.4
 
   fdir@6.5.0(picomatch@4.0.7):
     optionalDependencies:
@@ -10473,8 +10562,6 @@ snapshots:
 
   picocolors@1.1.1: {}
 
-  picomatch@4.0.4: {}
-
   picomatch@4.0.7: {}
 
   pirates@4.0.7: {}
@@ -11065,7 +11152,7 @@ snapshots:
       lines-and-columns: 1.2.4
       mz: 2.7.0
       pirates: 4.0.7
-      tinyglobby: 0.2.16
+      tinyglobby: 0.2.17
       ts-interface-checker: 0.1.13
 
   supports-color@7.2.0:
@@ -11107,11 +11194,6 @@ snapshots:
   tinyexec@0.3.2: {}
 
   tinyexec@1.0.4: {}
-
-  tinyglobby@0.2.16:
-    dependencies:
-      fdir: 6.5.0(picomatch@4.0.4)
-      picomatch: 4.0.4
 
   tinyglobby@0.2.17:
     dependencies:
@@ -11163,7 +11245,7 @@ snapshots:
       source-map: 0.7.6
       sucrase: 3.35.1
       tinyexec: 0.3.2
-      tinyglobby: 0.2.16
+      tinyglobby: 0.2.17
       tree-kill: 1.2.2
     optionalDependencies:
       postcss: 8.5.28

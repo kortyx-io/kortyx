@@ -4,12 +4,14 @@ import {
   type EvalSuite,
   StudioEvalStartRequestSchema,
 } from "@kortyx/agent/evals";
+import { PromptError, validatePromptValue } from "@kortyx/prompts";
 import {
   enqueueEvalRun,
   ensureProjectEnvironmentAllowed,
   getEvalRun,
   listEvalRuns,
   requestEvalCancellation,
+  resolvePrompts,
   TelemetryForbiddenError,
   TelemetryNotFoundError,
 } from "@kortyx/telemetry-db";
@@ -191,6 +193,41 @@ export function registerEvalRoutes(
         },
         503,
       );
+    const contracts = manifest.promptContracts ?? [];
+    if (request.promptSelection && !contracts.length)
+      throw new PromptError(
+        "PROMPT_EVAL_UNSUPPORTED",
+        "This application does not support Studio prompts.",
+        409,
+      );
+    let promptGroupName: string | undefined;
+    const promptSnapshot = contracts.length
+      ? await c.get("withTenantDatabase")((db) =>
+          resolvePrompts(db, auth, {
+            ids: contracts.map((contract) => contract.id),
+            environment: target.environment,
+            selection: request.promptSelection ?? { type: "production" },
+            onGroupName: (name) => {
+              promptGroupName = name;
+            },
+          }),
+        )
+      : undefined;
+    if (promptSnapshot)
+      for (const contract of contracts) {
+        const version = promptSnapshot.versions[contract.id];
+        if (!version || version.content.format !== contract.format)
+          throw new PromptError(
+            "PROMPT_CONTRACT_MISMATCH",
+            `Prompt ${contract.id} format differs from this application.`,
+            409,
+          );
+        validatePromptValue(
+          contract.configSchema,
+          version.content.config,
+          `${contract.id} application configuration`,
+        );
+      }
     const run = await c.get("withTenantDatabase")((db) =>
       enqueueEvalRun(db, {
         organizationId: auth.organizationId,
@@ -202,6 +239,8 @@ export function registerEvalRoutes(
         suiteRevision: request.suiteRevision,
         suite: suite as EvalSuite,
         request: {
+          ...(promptSnapshot ? { promptSnapshot } : {}),
+          ...(promptGroupName ? { promptGroupName } : {}),
           grading: request.judge,
           judge: {
             id: selectedJudge.id,

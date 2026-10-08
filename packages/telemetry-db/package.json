@@ -42,7 +42,8 @@
     "@kortyx/telemetry-contracts": "workspace:*",
     "drizzle-orm": "^0.45.1",
     "postgres": "^3.4.7",
-    "@kortyx/agent": "workspace:*"
+    "@kortyx/agent": "workspace:*",
+    "@kortyx/prompts": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "catalog:",

@@ -54,6 +54,7 @@ export type EvalInterrupt = {
 };
 /** Public output and emitted execution evidence; private runtime state is excluded. */
 export type EvalObservation = {
+  promptUsage?: import("@kortyx/prompts").PromptUsageReceipt[];
   type: "answer" | "interrupt" | "error" | "cancelled";
   text: string;
   structured: readonly EvalJson[];
@@ -199,7 +200,7 @@ export type CreateEvalsOptions<
   Params = EvalJson | undefined,
   Prepared = undefined,
 > = {
-  agent: Pick<Agent, "streamChat">;
+  agent: Pick<Agent, "streamChat" | "describePromptContracts">;
   suites: readonly EvalSuite[];
   paramsSchema?: z.ZodType<Params>;
   setup?: (input: EvalSetupContext<Params>) => Prepared | Promise<Prepared>;
@@ -258,6 +259,7 @@ export type EvalProgress =
     }
   | { type: "case-completed"; result: EvalCaseResult };
 export type EvalRunOptions = {
+  promptSnapshot?: import("@kortyx/prompts").PromptSnapshot;
   /** Studio captures execution without invoking the code judge. Local runs default to app. */
   grading?: "app" | "studio";
   /** Selected identity pinned by the Studio server when enqueuing a run. */

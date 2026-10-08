@@ -28,7 +28,9 @@ export function studioHref(href: string, scope?: StudioRouteScope): string {
       )
     )
       return `${prefix}${path}${suffix}`;
-    if (/^\/(runs|sessions|workflows|interrupts|evals)(\/|$)/.test(path))
+    if (
+      /^\/(runs|sessions|workflows|interrupts|evals|prompts)(\/|$)/.test(path)
+    )
       return `${prefix}${path}${suffix}`;
   }
   return href;

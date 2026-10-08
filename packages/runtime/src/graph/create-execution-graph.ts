@@ -75,6 +75,7 @@ interface HookPatchError {
 }
 
 export interface ExecutionRuntimeConfig {
+  prompts?: import("@kortyx/prompts").PromptExecution | undefined;
   executionRunId?: string | undefined;
   executionBranchId?: string | undefined;
   prepareChildTelemetry?:
@@ -403,7 +404,7 @@ export async function createExecutionGraph(
               : state;
           const activeTrace = traceAdapter();
           const hookContext = {
-            node: hookNodeContext,
+            node: { ...hookNodeContext, prompts: config.prompts },
             state: attemptState,
             reasonTrace: activeTrace,
           };

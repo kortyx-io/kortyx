@@ -180,6 +180,15 @@ export const createEventMapper = (args: {
               ? { version: telemetry.prompt.version }
               : {}),
             ...(telemetry.prompt.type ? { type: telemetry.prompt.type } : {}),
+            ...(telemetry.prompt.metadata &&
+            typeof telemetry.prompt.metadata === "object" &&
+            !Array.isArray(telemetry.prompt.metadata)
+              ? {
+                  metadata: safeTelemetryMetadata(
+                    telemetry.prompt.metadata as Record<string, unknown>,
+                  ),
+                }
+              : {}),
             ...(telemetry.prompt.source
               ? { source: telemetry.prompt.source }
               : {}),

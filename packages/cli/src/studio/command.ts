@@ -17,6 +17,7 @@ import {
   startStudio,
   stopStudio,
 } from "./local-stack";
+import { registerStudioPromptCommands } from "./prompt-command";
 import { registerStudioReadCommands } from "./read-command";
 import { defaultStudioRuntime } from "./runtime";
 import { defaultStudioHome, requireStudioConfig } from "./state";
@@ -205,6 +206,11 @@ export const createStudioCommand = (
     runtime.request,
   );
   registerStudioEvalCommands(
+    studio,
+    (message) => runtime.log(message),
+    runtime.request,
+  );
+  registerStudioPromptCommands(
     studio,
     (message) => runtime.log(message),
     runtime.request,

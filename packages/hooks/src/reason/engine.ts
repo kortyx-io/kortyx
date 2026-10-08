@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { combineAbortSignals, throwIfExecutionAborted } from "@kortyx/core";
+import { isPromptUsageMetadata } from "@kortyx/prompts";
 import type {
   KortyxPromptMessage,
   KortyxReasoningOptions,
@@ -52,6 +53,10 @@ export async function reasonEngine(
   );
   throwIfExecutionAborted(abortSignal);
   ctx.node.consumeExecution?.("maxModelPasses");
+  const prompt = args.telemetry?.prompt;
+  const identity = prompt?.metadata;
+  if (isPromptUsageMetadata(identity))
+    ctx.node.prompts?.recordUsage({ ...identity, model: args.model.modelId });
 
   try {
     return await runReasonEngine({
@@ -66,7 +71,19 @@ export async function reasonEngine(
       responseFormat: args.responseFormat,
       providerOptions: args.providerOptions,
       tools: args.tools,
-      messages: args.messages,
+      messages:
+        args.messages && inputOverride !== undefined
+          ? args.messages.map((message, index) =>
+              index ===
+              args.messages!.reduce(
+                (last, item, position) =>
+                  item.role === "user" ? position : last,
+                -1,
+              )
+                ? { ...message, content: inputOverride }
+                : message,
+            )
+          : args.messages,
       defaultTemperature: ctx.node.config?.model?.temperature,
       stream: args.stream,
       emit: args.emit,

@@ -56,7 +56,8 @@
     "@kortyx/utils": "workspace:*",
     "@langchain/core": "catalog:",
     "@langchain/langgraph": "catalog:",
-    "zod": "catalog:"
+    "zod": "catalog:",
+    "@kortyx/prompts": "workspace:*"
   },
   "devDependencies": {
     "@kortyx/hooks": "workspace:*",

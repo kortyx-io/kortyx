@@ -1,9 +1,17 @@
 "use client";
+import {
+  type PromptDetail,
+  PromptDetailSchema,
+  type PromptLibrary,
+  PromptLibrarySchema,
+  type PromptSelection,
+} from "@kortyx/telemetry-contracts";
 import { Play } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { DetailInspectorDrawer } from "@/components/detail/detail-inspector";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { promptRequest } from "@/features/prompts/api/client";
 import {
   usePathname,
   useRouter,
@@ -28,6 +36,48 @@ export function EvalRunSetup({
   const { query, setQuery, target, suite, close } = useEvalSetup(targets);
   const [working, setWorking] = useState(false);
   const [error, setError] = useState("");
+  const [prompts, setPrompts] = useState<PromptLibrary | null>(null),
+    [promptDetail, setPromptDetail] = useState<PromptDetail | null>(null),
+    [promptSearch, setPromptSearch] = useState("");
+  useEffect(() => {
+    if (!query.launch || !target?.manifest?.promptContracts?.length) return;
+    const controller = new AbortController();
+    const timer = window.setTimeout(() => {
+      void promptRequest(
+        `library?${new URLSearchParams({ search: promptSearch })}`,
+        undefined,
+        controller.signal,
+      )
+        .then((value) => setPrompts(PromptLibrarySchema.parse(value)))
+        .catch((cause) => {
+          if (!controller.signal.aborted)
+            setError(
+              cause instanceof Error
+                ? cause.message
+                : "Prompt library unavailable.",
+            );
+        });
+    }, 150);
+    return () => {
+      controller.abort();
+      clearTimeout(timer);
+    };
+  }, [query.launch, target?.manifest?.promptContracts?.length, promptSearch]);
+  useEffect(() => {
+    setPromptDetail(null);
+    if (query.launchPrompts !== "single" || !query.launchPrompt) return;
+    const controller = new AbortController();
+    void promptRequest(
+      `assets/${query.launchPrompt}${query.launchVersion ? `?version=${query.launchVersion}` : ""}`,
+      undefined,
+      controller.signal,
+    )
+      .then((value) => setPromptDetail(PromptDetailSchema.parse(value)))
+      .catch((cause) => {
+        if (!controller.signal.aborted) setError(String(cause));
+      });
+    return () => controller.abort();
+  }, [query.launchPrompts, query.launchPrompt, query.launchVersion]);
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -61,6 +111,20 @@ export function EvalRunSetup({
     setError("");
     try {
       const run = await evalRequest("runs", {
+        ...(target.manifest?.promptContracts?.length
+          ? {
+              promptSelection:
+                query.launchPrompts === "single"
+                  ? {
+                      type: "single",
+                      id: query.launchPrompt,
+                      version: Number(query.launchVersion),
+                    }
+                  : query.launchPrompts === "group"
+                    ? { type: "group", groupId: query.launchGroup }
+                    : { type: "production" },
+            }
+          : {}),
         targetId,
         judge: query.launchJudge,
         suiteId,
@@ -81,6 +145,42 @@ export function EvalRunSetup({
     }
   };
   const valid =
+    (query.launchPrompts === "production" ||
+      (Boolean(target?.manifest?.promptContracts?.length) &&
+        ((query.launchPrompts === "single" &&
+          Boolean(query.launchPrompt) &&
+          Number.isInteger(Number(query.launchVersion)) &&
+          Number(query.launchVersion) > 0 &&
+          Boolean(
+            promptDetail?.versions.some(
+              (version) => version.version === Number(query.launchVersion),
+            ),
+          ) &&
+          Boolean(
+            target?.manifest?.promptContracts?.some(
+              (contract) => contract.id === promptDetail?.asset.key,
+            ),
+          )) ||
+          (query.launchPrompts === "group" &&
+            Boolean(
+              prompts?.groups.some(
+                (group) =>
+                  group.id === query.launchGroup &&
+                  group.members.length &&
+                  group.members.every(
+                    (member) =>
+                      !member.archived &&
+                      target?.manifest?.promptContracts?.some(
+                        (contract) =>
+                          contract.id ===
+                          (member.key ??
+                            prompts.assets.find(
+                              (asset) => asset.id === member.promptId,
+                            )?.key),
+                      ),
+                  ),
+              ),
+            ))))) &&
     Number.isInteger(attempts) &&
     attempts >= 1 &&
     attempts <= 20 &&
@@ -103,6 +203,146 @@ export function EvalRunSetup({
       bodyClassName="flex flex-col overflow-hidden p-0"
     >
       <div className="min-h-0 flex-1 space-y-5 overflow-auto p-5">
+        {target?.manifest?.promptContracts?.length ? (
+          <div className="space-y-3 rounded-lg border p-3">
+            <div className="space-y-1">
+              <p className="text-xs font-medium">Prompt versions</p>
+              <p className="text-[11px] text-muted-foreground">
+                Freeze the assigned prompts in {target.environment}, with
+                optional candidate overrides.
+              </p>
+            </div>
+            <EvalDropdown
+              label="Prompt source"
+              className="w-full"
+              value={query.launchPrompts}
+              options={[
+                { value: "production", label: "Production prompts" },
+                { value: "single", label: "Single prompt version" },
+                { value: "group", label: "Test group" },
+              ]}
+              disabled={working}
+              onChange={(value) =>
+                void setQuery({
+                  launchPrompts: value as PromptSelection["type"],
+                })
+              }
+            />
+            {query.launchPrompts === "single" && (
+              <>
+                <Input
+                  aria-label="Search registered prompts"
+                  placeholder="Search prompt names or keys…"
+                  value={promptSearch}
+                  onChange={(event) => setPromptSearch(event.target.value)}
+                />
+                <EvalDropdown
+                  label="Prompt"
+                  triggerLabel={promptDetail?.asset.name}
+                  className="w-full"
+                  value={query.launchPrompt}
+                  disabled={working}
+                  options={(prompts?.assets ?? [])
+                    .filter((asset) =>
+                      target.manifest?.promptContracts?.some(
+                        (contract) => contract.id === asset.key,
+                      ),
+                    )
+                    .map((asset) => ({ value: asset.id, label: asset.name }))}
+                  onChange={(id) =>
+                    void setQuery({
+                      launchPrompt: id,
+                      launchVersion: String(
+                        prompts?.assets.find((asset) => asset.id === id)
+                          ?.latestVersion ?? "",
+                      ),
+                    })
+                  }
+                />
+                <EvalDropdown
+                  label="Prompt version"
+                  className="w-full"
+                  disabled={working || !promptDetail}
+                  value={query.launchVersion}
+                  options={(promptDetail?.versions ?? []).map((version) => ({
+                    value: String(version.version),
+                    label: `v${version.version} · ${version.note}`,
+                  }))}
+                  onChange={(version) =>
+                    void setQuery({ launchVersion: version })
+                  }
+                />
+                {promptDetail?.versionsNextCursor && (
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    disabled={working}
+                    onClick={async () => {
+                      try {
+                        const next = PromptDetailSchema.parse(
+                          await promptRequest(
+                            `assets/${query.launchPrompt}?versionsCursor=${promptDetail.versionsNextCursor}`,
+                          ),
+                        );
+                        setPromptDetail({
+                          ...next,
+                          versions: [
+                            ...promptDetail.versions,
+                            ...next.versions.filter(
+                              (version) =>
+                                !promptDetail.versions.some(
+                                  (item) => item.version === version.version,
+                                ),
+                            ),
+                          ],
+                        });
+                      } catch (cause) {
+                        setError(String(cause));
+                      }
+                    }}
+                  >
+                    Load older versions
+                  </Button>
+                )}
+              </>
+            )}
+            {query.launchPrompts === "group" && (
+              <>
+                <EvalDropdown
+                  label="Test group"
+                  className="w-full"
+                  value={query.launchGroup}
+                  disabled={working}
+                  options={(prompts?.groups ?? []).map((group) => ({
+                    value: group.id,
+                    label: `${group.name} · ${group.members.length} prompts`,
+                    disabled:
+                      !group.members.length ||
+                      group.members.some(
+                        (member) =>
+                          member.archived ||
+                          !target.manifest?.promptContracts?.some(
+                            (contract) =>
+                              contract.id ===
+                              (member.key ??
+                                prompts?.assets.find(
+                                  (asset) => asset.id === member.promptId,
+                                )?.key),
+                          ),
+                      ),
+                  }))}
+                  onChange={(groupId) =>
+                    void setQuery({ launchGroup: groupId })
+                  }
+                />
+                <p className="text-[11px] text-muted-foreground">
+                  Groups select candidate versions for this launch. The suite
+                  remains independent.
+                </p>
+              </>
+            )}
+          </div>
+        ) : null}
         {error ? (
           <p
             role="alert"
