@@ -119,6 +119,11 @@
     "examples/kortyx-nextjs-chat-server-action": {
       "package-name": "@kortyx/example-nextjs-chat-server-action",
       "component": "example-nextjs-chat-server-action"
+    },
+    "packages/prompts": {
+      "package-name": "@kortyx/prompts",
+      "component": "prompts",
+      "initial-version": "0.1.0"
     }
   }
 }
