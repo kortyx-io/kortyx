@@ -183,7 +183,35 @@ test.describe("Prompt detail drawers", () => {
       .filter({ hasText: /^E2E prompt drawer/ })
       .filter({ hasText: "v1" });
     await expect(option).toBeVisible();
+    const includedDraft = page.waitForResponse((response) => {
+      if (
+        !response.url().endsWith("/api/studio/prompts/actions") ||
+        response.request().method() !== "POST"
+      )
+        return false;
+      const body = response.request().postDataJSON();
+      return (
+        body.action === "draft" &&
+        body.content.dependencies.some(
+          (dep: { id: string }) => dep.id === fixtureKey,
+        )
+      );
+    });
     await option.click();
+    await includedDraft;
+    await expect(
+      page.getByText("Editing a draft · Draft saved", { exact: true }),
+    ).toBeVisible();
+    await system.press("ControlOrMeta+a");
+    await system.press("Backspace");
+    await expect(system.locator("[data-prompt-reference]")).toHaveCount(0);
+    await system.press("ControlOrMeta+z");
+    await expect(system.locator("[data-prompt-reference]")).toHaveText(
+      "#E2E prompt drawer@v1",
+    );
+    await system.press("ControlOrMeta+Shift+z");
+    await expect(system.locator("[data-prompt-reference]")).toHaveCount(0);
+    await system.press("ControlOrMeta+z");
     await expect(system.locator("[data-prompt-reference]")).toHaveText(
       "#E2E prompt drawer@v1",
     );
@@ -200,6 +228,9 @@ test.describe("Prompt detail drawers", () => {
       .getByRole("button", { name: "Accept & save version", exact: true })
       .click();
     await expect(page.getByRole("dialog")).toHaveCount(0);
+    await expect(
+      page.getByRole("button", { name: "Edit as draft", exact: true }),
+    ).toBeVisible();
     await expect(
       page.getByLabel("System Message").locator("[data-prompt-reference]"),
     ).toHaveText("#E2E prompt drawer@v1");

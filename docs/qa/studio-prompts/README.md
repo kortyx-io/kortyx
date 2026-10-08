@@ -100,10 +100,10 @@ and one selected case through the CLI, with exact parent/child receipts and
 attached evaluations/runs visible on both prompts. The Studio run drawer also
 launched the composed candidate successfully, with 2/2 passing attempts.
 
-All 31 drawer/prompt browser checks and five responsive checks (each including
-fixture setup/cleanup) passed in production and development. The native prompt
-suite contributes twelve scenarios. A development responsive locator now
-asserts one displayed surface while Next briefly retains hidden streamed markup.
+The final combined drawer, prompt and responsive run passed all 35 checks in
+production and development (33 scenarios plus fixture setup/cleanup). The native
+prompt suite contributes twelve scenarios. Responsive locators assert displayed
+surfaces while Next briefly retains hidden streamed markup.
 Repository type checking passed all 51 tasks; prompt coverage passed its gates
 with 19 tests. Studio's 244 unit tests and the production build passed.
 
@@ -120,7 +120,6 @@ and mobile, then restored the browser viewport.
 
 ![Completed evaluation of the composed prompt in the example application](composed-example-evaluation.png)
 
-
 ### First-frame drawer keyboard regression
 
 Stress tests reproduced an intermittent Escape failure while revisiting
@@ -130,3 +129,15 @@ in the same commit as the active surface. A new browser regression dispatches
 Escape from the transition's DOM mutation microtask; it failed before the fix
 and passed three consecutive development runs afterward. The existing native
 Escape, nested inspector, menu and TipTap picker scenarios remain in the suite.
+
+The CI shard also exercised Escape before Next had committed the new pathname.
+Dismissal now waits for that route commit; newer navigation or browser history
+cancels it. The first-frame and responsive checks passed three repeated
+development runs. Responsive assertions target displayed content while retaining
+all geometry checks, avoiding Next's transient hidden streamed copies.
+
+Native undo/redo restores exact version/hash attributes on prompt mention nodes
+and reconciles the dependency manifest. The regression deletes an included
+prompt, undoes/redoes the deletion, then saves and verifies its immutable pin.
+The final production build, Studio type check, repository lint, whitespace check
+and all 244 Studio unit tests passed after these fixes.

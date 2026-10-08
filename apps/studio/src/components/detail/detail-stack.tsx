@@ -82,6 +82,7 @@ export function DetailStackProvider({ children }: { children: ReactNode }) {
   const historyTraversalRef = useRef<(() => boolean) | null>(null);
   const nestedCloseHandlersRef = useRef(new Map<string, () => void>());
   const timersRef = useRef(new Map<string, number>());
+  const pendingCloseRef = useRef<string | null>(null);
 
   const saveCurrentStack = useCallback(() => {
     if (historyTraversalRef.current) return;
@@ -127,6 +128,7 @@ export function DetailStackProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const cancelPendingNavigation = useCallback(() => {
+    pendingCloseRef.current = null;
     for (const key of timersRef.current.keys()) {
       if (key.startsWith("navigate")) clearTimer(key);
     }
@@ -219,6 +221,14 @@ export function DetailStackProvider({ children }: { children: ReactNode }) {
     (id: string) => {
       const target = layers.find((layer) => layer.id === id);
       if (!target) return;
+      // A retained surface can become topmost before Next commits its route.
+      // Closing against the old pathname would finish traversal immediately,
+      // then let the pending navigation open the supposedly dismissed drawer.
+      if (pathname !== target.matchPath) {
+        pendingCloseRef.current = id;
+        return;
+      }
+      pendingCloseRef.current = null;
       saveCurrentStack();
       beginClose(id);
       scheduleNavigation(`navigate:${id}`, () => {
@@ -232,14 +242,27 @@ export function DetailStackProvider({ children }: { children: ReactNode }) {
       beginClose,
       layers,
       navigateBackUntil,
+      pathname,
       saveCurrentStack,
       scheduleNavigation,
       searchParams,
     ],
   );
 
+  useEffect(() => {
+    const id = pendingCloseRef.current;
+    if (
+      id &&
+      layers.some((layer) => layer.id === id && layer.matchPath === pathname)
+    ) {
+      pendingCloseRef.current = null;
+      closeTop(id);
+    }
+  }, [closeTop, layers, pathname]);
+
   const closeAbove = useCallback(
     (id: string) => {
+      pendingCloseRef.current = null;
       const index = layers.findIndex((layer) => layer.id === id);
       if (index < 0 || index === layers.length - 1) return;
       const target = layers[index];
@@ -267,6 +290,7 @@ export function DetailStackProvider({ children }: { children: ReactNode }) {
   );
 
   const closeAll = useCallback(() => {
+    pendingCloseRef.current = null;
     const bottom = layers[0];
     if (!bottom) return;
     saveCurrentStack();

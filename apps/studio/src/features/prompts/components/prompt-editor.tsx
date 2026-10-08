@@ -169,6 +169,7 @@ function documentFor(
             id,
             label: names[id] ?? id,
             version: dependencies.find((dep) => dep.id === id)?.version ?? "?",
+            hash: dependencies.find((dep) => dep.id === id)?.hash ?? null,
           },
         });
         position = match.index! + match[0].length;
@@ -190,6 +191,7 @@ export function PromptEditor({
   disabled,
   onChange,
   onInclude,
+  onValidityChange,
 }: {
   id: string;
   label: string;
@@ -199,12 +201,14 @@ export function PromptEditor({
   names: Record<string, string>;
   ownKey?: string;
   disabled: boolean;
-  onChange: (text: string) => void;
+  onChange: (text: string, references: PromptContent["dependencies"]) => void;
+  onValidityChange?: (valid: boolean) => void;
   onInclude: (version: StoredVersion) => void;
 }) {
   const callbacks = useRef({
     onChange,
     onInclude,
+    onValidityChange,
     dependencies,
     names,
     ownKey,
@@ -213,6 +217,7 @@ export function PromptEditor({
   callbacks.current = {
     onChange,
     onInclude,
+    onValidityChange,
     dependencies,
     names,
     ownKey,
@@ -243,7 +248,11 @@ export function PromptEditor({
       TemplateVariables,
       Mention.extend<MentionOptions<Choice, Choice>>({
         addAttributes() {
-          return { ...this.parent?.(), version: { default: null } };
+          return {
+            ...this.parent?.(),
+            version: { default: null },
+            hash: { default: null },
+          };
         },
       }).configure({
         deleteTriggerWithBackspace: true,
@@ -343,6 +352,7 @@ export function PromptEditor({
                       id: props.id,
                       label: props.label,
                       version: props.version,
+                      hash: props.stored.hash,
                     },
                   },
                   { type: "text", text: " " },
@@ -421,7 +431,45 @@ export function PromptEditor({
       },
     },
     onUpdate({ editor }) {
-      callbacks.current.onChange(editor.getText({ blockSeparator: "\n" }));
+      try {
+        // Native undo/redo restores node attributes as well as text. Keep the
+        // exact dependency pin with the mention instead of losing it on delete.
+        const references = new Map<
+          string,
+          PromptContent["dependencies"][number]
+        >();
+        editor.state.doc.descendants((node) => {
+          if (node.type.name !== "mention") return;
+          const { id, version, hash } = node.attrs;
+          if (
+            typeof id !== "string" ||
+            typeof version !== "number" ||
+            typeof hash !== "string"
+          )
+            throw new Error("Choose a saved version for each included prompt.");
+          const existing = references.get(id);
+          if (
+            existing &&
+            (existing.version !== version || existing.hash !== hash)
+          )
+            throw new Error(
+              "An included prompt must use the same version throughout this message.",
+            );
+          references.set(id, { id, version, hash });
+        });
+        callbacks.current.onChange(editor.getText({ blockSeparator: "\n" }), [
+          ...references.values(),
+        ]);
+        setError("");
+        callbacks.current.onValidityChange?.(true);
+      } catch (cause) {
+        setError(
+          cause instanceof Error
+            ? cause.message
+            : "Could not update included prompts.",
+        );
+        callbacks.current.onValidityChange?.(false);
+      }
     },
   });
   useEffect(() => {

@@ -232,7 +232,8 @@ export function PromptFields({
             ownKey={ownKey}
             disabled={disabled}
             onInclude={include}
-            onChange={(text) => {
+            onValidityChange={(valid) => validity(`message-${index}`, valid)}
+            onChange={(text, references) => {
               const previous = current.current;
               const messages = previous.messages.map((item, position) =>
                 position === index ? { ...item, content: text } : item,
@@ -241,13 +242,36 @@ export function PromptFields({
                 (key) =>
                   !promptReferences({ ...previous, messages }).includes(key),
               );
-              update({
-                ...previous,
-                messages,
-                dependencies: previous.dependencies.filter(
-                  (dep) => !removed.includes(dep.id),
-                ),
-              });
+              let dependencies = previous.dependencies.filter(
+                (dep) => !removed.includes(dep.id),
+              );
+              for (const reference of references) {
+                const existing = dependencies.find(
+                  (dep) => dep.id === reference.id,
+                );
+                const inAnotherMessage = messages.some(
+                  (item, position) =>
+                    position !== index &&
+                    promptReferences({
+                      ...previous,
+                      messages: [item],
+                    }).includes(reference.id),
+                );
+                if (
+                  existing &&
+                  inAnotherMessage &&
+                  (existing.version !== reference.version ||
+                    existing.hash !== reference.hash)
+                )
+                  throw new Error(
+                    "This prompt is included at another version in a different message.",
+                  );
+                dependencies = [
+                  ...dependencies.filter((dep) => dep.id !== reference.id),
+                  reference,
+                ];
+              }
+              update({ ...previous, messages, dependencies });
             }}
           />
         </div>

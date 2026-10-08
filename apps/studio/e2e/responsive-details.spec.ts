@@ -25,7 +25,9 @@ test.describe("Responsive detail surfaces", () => {
       surface.getByRole("heading", { name: "Instrumentation" }).locator(".."),
     );
     await expectNoHorizontalOverflow(
-      page.locator('[data-responsive-surface="detail-header"]'),
+      page
+        .locator('[data-responsive-surface="detail-header"]')
+        .filter({ visible: true }),
     );
 
     await page.setViewportSize({ width: 1_440, height: 900 });
@@ -41,9 +43,9 @@ test.describe("Responsive detail surfaces", () => {
     await page.setViewportSize({ width: 760, height: 900 });
     await page.goto(interruptPath);
 
-    const decision = page.locator(
-      '[data-responsive-surface="interrupt-decision"]',
-    );
+    const decision = page
+      .locator('[data-responsive-surface="interrupt-decision"]')
+      .filter({ visible: true });
     // Wait for the streamed detail subtree to settle before measuring it.
     await expect(decision).toHaveCount(1);
     await expect(decision).toBeVisible();
@@ -51,7 +53,9 @@ test.describe("Responsive detail surfaces", () => {
     await expectStacked(decision.locator("section"), decision.locator("aside"));
 
     await page.goto(`${runPath}?tab=summary`);
-    const summary = page.locator('[data-responsive-surface="run-summary"]');
+    const summary = page
+      .locator('[data-responsive-surface="run-summary"]')
+      .filter({ visible: true });
     await expect(summary).toHaveCount(1);
     await expect(summary).toBeVisible();
     await expectNoHorizontalOverflow(summary);
@@ -67,7 +71,10 @@ test.describe("Responsive detail surfaces", () => {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto(`${interruptPath}?interruptTab=payload`);
 
-    const viewer = page.locator("[data-payload-viewer]").first();
+    const viewer = page
+      .locator("[data-payload-viewer]")
+      .filter({ visible: true })
+      .first();
     const toolbar = viewer.locator(
       '[data-responsive-surface="payload-toolbar"]',
     );
