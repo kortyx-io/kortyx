@@ -78,7 +78,7 @@ class ReleaseCiGateTests(unittest.TestCase):
         for path in [WORKFLOW, RECOVERY_WORKFLOW]:
             workflow = path.read_text()
             self.assertIn("require-ci.sh", workflow)
-            self.assertIn("name: studio-production\n", workflow)
+            self.assertIn("name: studio-production-auto\n", workflow)
             publication = "Publish the recovered release" if path == RECOVERY_WORKFLOW else "Publish the completed release"
             self.assertLess(workflow.index(publication), workflow.index("--draft=false"))
 

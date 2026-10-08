@@ -40,11 +40,11 @@ env:
 
 jobs:
   recover:
-    name: Approve and republish update manifest
+    name: Republish update manifest
     runs-on: ubuntu-latest
     timeout-minutes: 15
     environment:
-      name: studio-production
+      name: studio-production-auto
       url: https://updates.kortyx.io/studio/stable.json
     steps:
       - name: Checkout publisher from main
