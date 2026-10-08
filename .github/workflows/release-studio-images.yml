@@ -264,7 +264,7 @@ jobs:
       contents: write
       packages: write
     environment:
-      name: studio-production
+      name: studio-production-auto
       url: https://github.com/kortyx-io/kortyx/pkgs/container/kortyx-studio
     steps:
       - name: Checkout

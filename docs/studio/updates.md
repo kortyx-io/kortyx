@@ -134,7 +134,7 @@ Configure these repository variables:
 - `STUDIO_UPDATES_R2_ACCOUNT_ID`: the Cloudflare account ID.
 - `STUDIO_UPDATES_R2_BUCKET`: `kortyx-updates`.
 
-Configure these secrets on the `studio-production` GitHub environment:
+Configure these secrets on the `studio-production-auto` GitHub environment:
 
 - `STUDIO_UPDATES_R2_ACCESS_KEY_ID`
 - `STUDIO_UPDATES_R2_SECRET_ACCESS_KEY`
@@ -167,9 +167,13 @@ both architectures pass clean-install and upgrade smoke tests, production image
 digests are verified, and the public update channel is verified. A failed build or
 publication leaves the release draft and keeps the previous stable channel intact.
 
-Automatic promotion and manual recovery both use the `studio-production`
-environment and its R2 credentials. Its production approval gate applies to both
-paths. Publication checks conditional write, read-back, and delete permissions
+Automatic promotion and manual recovery both use the `studio-production-auto`
+environment and its R2 credentials. Configure this environment with protected-branch
+restrictions and no required reviewers or wait timer, so publication continues
+automatically after validation. Recovery still requires an explicit workflow dispatch,
+but no additional approval. GitHub environment protection rules are repository settings,
+not workflow YAML. The legacy `studio-production` environment is no longer used by
+these workflows. Publication checks conditional write, read-back, and delete permissions
 with a temporary `studio/preflight/` object before promoting images. R2 credentials
 must permit these operations in the update bucket. Failures log only an allowlisted
 SDK error code and HTTP status, never raw SDK request details.
