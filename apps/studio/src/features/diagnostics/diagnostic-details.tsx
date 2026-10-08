@@ -204,7 +204,7 @@ export function DiagnosticDetails({
         </div>
         <aside
           aria-label="Diagnostic context"
-          className="hidden min-h-0 min-w-0 overflow-auto border-l bg-muted/10 @4xl:block"
+          className="data-table-body-scroll hidden min-h-0 min-w-0 overflow-auto border-l bg-muted/10 @4xl:block"
         >
           <DiagnosticContext diagnostic={diagnostic} runHref={runHref} />
         </aside>

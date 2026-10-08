@@ -63,7 +63,7 @@ export function DetailTabs({
 
   return (
     <div className="@container flex h-full min-h-0 flex-col">
-      <div className="z-10 flex shrink-0 gap-1 overflow-x-auto border-b bg-background px-3 @lg:px-6">
+      <div className="data-table-header-scroll z-10 flex shrink-0 gap-1 overflow-x-auto border-b bg-background px-3 @lg:px-6">
         {tabs.map((tab) => (
           <button
             key={tab.id}
@@ -95,7 +95,7 @@ export function DetailTabs({
             role="tabpanel"
             aria-hidden={tab.id !== selected?.id}
             className={cn(
-              "h-full min-h-0 overflow-auto",
+              "data-table-body-scroll h-full min-h-0 overflow-auto",
               tab.id !== selected?.id && "hidden",
             )}
           >
