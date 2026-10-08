@@ -1,10 +1,17 @@
 "use client";
 import type { PromptContent } from "@kortyx/prompts";
-import { PromptContentSchema, validatePromptContent } from "@kortyx/prompts";
+import {
+  canonicalPromptJson,
+  PromptContentSchema,
+  promptReferences,
+  validatePromptContent,
+} from "@kortyx/prompts";
+import type { PromptDetail, PromptLibrary } from "@kortyx/telemetry-contracts";
 import { Plus, Trash2 } from "lucide-react";
-import { useEffect, useId, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { EvalDropdown } from "@/features/evals/components/eval-dropdown";
+import { PromptEditor } from "./prompt-editor";
 
 export const editorClass =
   "min-h-32 w-full resize-y rounded-md border bg-background px-3 py-2 font-mono text-xs leading-6 outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/40 disabled:opacity-60";
@@ -26,6 +33,15 @@ export function JsonField({
   const id = useId(),
     [text, setText] = useState(JSON.stringify(value, null, 2)),
     [error, setError] = useState("");
+  const accepted = useRef(canonicalPromptJson(value));
+  useEffect(() => {
+    const next = canonicalPromptJson(value);
+    if (accepted.current !== next) {
+      accepted.current = next;
+      setText(JSON.stringify(value, null, 2));
+      setError("");
+    }
+  }, [value]);
   return (
     <div className="space-y-2">
       <label htmlFor={id} className="text-xs font-medium">
@@ -47,6 +63,7 @@ export function JsonField({
             const parsed: unknown = JSON.parse(event.target.value);
             if (!parsed || typeof parsed !== "object" || Array.isArray(parsed))
               throw new Error();
+            accepted.current = canonicalPromptJson(parsed);
             setError("");
             onValidityChange?.(true);
             onChange(parsed as Record<string, unknown>);
@@ -66,16 +83,81 @@ export function JsonField({
 }
 export function PromptFields({
   value,
+  library,
+  ownKey,
   onChange,
   disabled = false,
   onValidityChange,
 }: {
   value: PromptContent;
+  library?: PromptLibrary;
+  ownKey?: string;
   onChange: (value: PromptContent) => void;
   disabled?: boolean;
   onValidityChange?: (valid: boolean) => void;
 }) {
   const id = useId();
+  const current = useRef(value);
+  current.current = value;
+  const update = (next: PromptContent) => {
+    current.current = next;
+    onChange(next);
+  };
+  const names = Object.fromEntries(
+    (library?.assets ?? []).map((asset) => [asset.key, asset.name]),
+  );
+  const include = (version: PromptDetail["versions"][number]) => {
+    const value = current.current;
+    const existing = value.dependencies.find((dep) => dep.id === version.id);
+    if (
+      existing &&
+      (existing.version !== version.version || existing.hash !== version.hash)
+    )
+      throw new Error(
+        "This prompt is already included at another version. Remove that reference before choosing a different version.",
+      );
+    const properties = {
+      ...((value.variablesSchema.properties as Record<
+        string,
+        PromptContent["config"][string]
+      >) ?? {}),
+    };
+    for (const [key, schema] of Object.entries(
+      (version.content.variablesSchema.properties as Record<
+        string,
+        PromptContent["config"][string]
+      >) ?? {},
+    )) {
+      if (
+        properties[key] &&
+        canonicalPromptJson(properties[key]) !== canonicalPromptJson(schema)
+      )
+        throw new Error(
+          `Template input ${key} has a different contract in this prompt.`,
+        );
+      properties[key] = schema;
+    }
+    const required = [
+      ...new Set([
+        ...((value.variablesSchema.required as string[]) ?? []),
+        ...((version.content.variablesSchema.required as string[]) ?? []),
+      ]),
+    ];
+    update({
+      ...value,
+      variablesSchema: {
+        ...value.variablesSchema,
+        properties,
+        ...(required.length ? { required } : {}),
+      },
+      dependencies: existing
+        ? value.dependencies
+        : [
+            ...value.dependencies,
+            { id: version.id, version: version.version, hash: version.hash },
+          ],
+    });
+  };
   const [invalid, setInvalid] = useState<string[]>([]);
   const validity = (field: string, valid: boolean) =>
     setInvalid((current) =>
@@ -91,51 +173,6 @@ export function PromptFields({
   );
   return (
     <div className="space-y-6">
-      <div className="space-y-2">
-        <p className="text-xs font-medium">Message format</p>
-        {disabled ? (
-          <p className="inline-flex rounded-md border bg-muted/30 px-3 py-2 text-xs">
-            {value.format === "system-user"
-              ? "System + user"
-              : "Ordered chat messages"}
-          </p>
-        ) : (
-          <EvalDropdown
-            label="Message format"
-            value={value.format}
-            disabled={disabled}
-            options={[
-              { value: "system-user", label: "System + user" },
-              { value: "chat", label: "Ordered chat messages" },
-            ]}
-            onChange={(format) =>
-              onChange({
-                ...value,
-                format: format as PromptContent["format"],
-                messages:
-                  format === "system-user"
-                    ? [
-                        {
-                          role: "system",
-                          content:
-                            value.messages.find(
-                              (message) => message.role === "system",
-                            )?.content ?? "",
-                        },
-                        {
-                          role: "user",
-                          content:
-                            value.messages.find(
-                              (message) => message.role === "user",
-                            )?.content ?? "",
-                        },
-                      ]
-                    : value.messages,
-              })
-            }
-          />
-        )}
-      </div>
       {value.messages.map((message, index) => (
         <div key={`${index}:${message.role}`} className="space-y-2">
           <div className="flex items-center justify-between gap-2">
@@ -145,7 +182,7 @@ export function PromptFields({
             >
               {message.role} message {value.format === "chat" ? index + 1 : ""}
             </label>
-            {value.format === "chat" && (
+            {value.format === "chat" && !disabled && (
               <div className="flex items-center gap-1">
                 <EvalDropdown
                   label={`Message ${index + 1} role`}
@@ -185,26 +222,37 @@ export function PromptFields({
               </div>
             )}
           </div>
-          <textarea
+          <PromptEditor
             id={`${id}-message-${index}`}
-            readOnly={disabled}
-            spellCheck={false}
-            className={editorClass}
+            label={`${message.role[0]!.toUpperCase()}${message.role.slice(1)} Message${value.format === "chat" ? ` ${index + 1}` : ""}`}
             value={message.content}
-            onChange={(event) =>
-              onChange({
-                ...value,
-                messages: value.messages.map((item, position) =>
-                  position === index
-                    ? { ...item, content: event.target.value }
-                    : item,
+            role={message.role}
+            dependencies={value.dependencies}
+            names={names}
+            ownKey={ownKey}
+            disabled={disabled}
+            onInclude={include}
+            onChange={(text) => {
+              const previous = current.current;
+              const messages = previous.messages.map((item, position) =>
+                position === index ? { ...item, content: text } : item,
+              );
+              const removed = promptReferences(previous).filter(
+                (key) =>
+                  !promptReferences({ ...previous, messages }).includes(key),
+              );
+              update({
+                ...previous,
+                messages,
+                dependencies: previous.dependencies.filter(
+                  (dep) => !removed.includes(dep.id),
                 ),
-              })
-            }
+              });
+            }}
           />
         </div>
       ))}
-      {value.format === "chat" && (
+      {!disabled && (
         <Button
           variant="outline"
           size="sm"
@@ -212,6 +260,7 @@ export function PromptFields({
           onClick={() =>
             onChange({
               ...value,
+              format: "chat",
               messages: [...value.messages, { role: "user", content: "" }],
             })
           }

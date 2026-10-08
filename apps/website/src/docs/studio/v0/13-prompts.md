@@ -12,8 +12,9 @@ Open **Prompts → Library** to create prompts. Each prompt has a stable key, a 
 name, immutable versions, a shared draft, and separate environment assignments.
 Renaming or moving a prompt never changes the key used by your application.
 
-Choose **System + user** for two messages, or **Ordered chat messages** for a
-conversation with system, user, and assistant messages. Declare template inputs
+The editor shows system and user messages directly. **Add message** adds another
+message with an explicit role for conversation examples. Messages are sent in the
+order shown; additional messages require a `chat` application contract. Declare template inputs
 in the input JSON Schema and reference them with `{{message}}` or dotted paths
 such as `{{customer.name}}`. The application supplies these values at runtime.
 
@@ -21,6 +22,30 @@ such as `{{customer.name}}`. The application supplies these values at runtime.
 alias or temperature. These values are validated against the configuration schema
 and the application's registered contract. Configuration is never substituted
 into messages. Keep credentials in the application's secret store.
+
+## Include another prompt
+
+Type `#` or choose **Include prompt** inside a message. Search by name or key;
+append `@v9` to select an exact version or `@Latest` to select the newest saved
+version. The violet reference chip shows the selected name and exact version.
+Latest is resolved when selected, so the saved parent retains the version reviewed
+and tested even after the included prompt changes.
+
+An inclusion brings the matching message text: a system field includes system
+messages, and a user field includes user messages. Multiple matching messages
+join with a blank line. References can be nested. The editor imports input
+declarations; your application contract and runtime values must include those
+inputs. Configuration stays with the parent prompt.
+
+The immutable dependency manifest records every selected key, version, and hash.
+Serving and evals expand from the same frozen snapshot, and included prompts have
+actual-use receipts and linked model runs. Missing versions, conflicting pins,
+cycles, incompatible message roles, and oversized expansions are rejected.
+Export/import and CLI migration include the dependency closure and rewrite
+reference keys when renaming prompts at the destination.
+
+Template inputs such as `{{message}}` are blue; prompt inclusions are violet.
+The editor preserves plain prompt text and line breaks when pasting or saving.
 
 ## Review and save
 

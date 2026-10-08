@@ -78,3 +78,12 @@ and application when the mapping is already controlled by your automation.
 
 CLI failures use nonzero exit codes. `--json` reports versioned errors, including
 prompt conflict codes, without reflecting arbitrary remote response bodies.
+
+## Editing inclusions with the CLI
+
+Studio references appear in executable JSON as `[[prompt:stable/key]]`. Each key
+needs an exact `{ id, version, hash }` entry in `content.dependencies`; use
+`prompts get` to read the child version and its hash. Keep inherited input
+declarations in the parent's `variablesSchema`, review the diff, then update and
+test the parent. Copy/export includes nested dependencies. Destination rename
+mappings rewrite both the manifest and inline tokens before recomputing hashes.

@@ -842,7 +842,7 @@ export function PromptDetailView({
           </aside>
           <main className="min-h-0 min-w-0 flex-1 overflow-y-auto p-5">
             {query.tab === "content" ? (
-              <div className="mx-auto max-w-3xl space-y-5">
+              <div className="w-full space-y-5">
                 {query.edit && (
                   <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border bg-muted/30 px-3 py-2">
                     <p className="text-xs">Editing a draft · {autosave}</p>
@@ -862,6 +862,8 @@ export function PromptDetailView({
                   </div>
                 )}
                 <PromptFields
+                  library={library}
+                  ownKey={detail.asset.key}
                   key={`${detail.asset.id}:${selected.version}:${query.edit}`}
                   value={query.edit ? content : selected.content}
                   onChange={setContent}

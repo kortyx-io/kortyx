@@ -74,13 +74,25 @@ describe("prompt eval execution", () => {
       source: "local",
       resolvedAt: new Date().toISOString(),
     };
+    const included: PromptContent = {
+      ...content,
+      config: { modelName: "fast" },
+      messages: [
+        { role: "system", content: "Candidate instructions" },
+        content.messages[1]!,
+      ],
+    };
+    const includedHash = await promptHash(included);
     const candidate = {
       ...content,
       messages: [
-        { role: "system" as const, content: "Candidate instructions" },
+        { role: "system" as const, content: "[[prompt:shared/instructions]]" },
         { role: "user" as const, content: "{{message}}" },
       ],
     };
+    candidate.dependencies = [
+      { id: "shared/instructions", version: 9, hash: includedHash },
+    ];
     const evaluation: PromptSnapshot = {
       ...baseline,
       source: "eval",
@@ -91,6 +103,12 @@ describe("prompt eval execution", () => {
           version: 2,
           hash: await promptHash(candidate),
           content: candidate,
+        },
+        "shared/instructions": {
+          id: "shared/instructions",
+          version: 9,
+          hash: includedHash,
+          content: included,
         },
       },
     };
@@ -177,6 +195,11 @@ describe("prompt eval execution", () => {
         id: "classify",
         version: 2,
         hash: evaluation.versions.classify?.hash,
+      }),
+      expect.objectContaining({
+        id: "shared/instructions",
+        version: 9,
+        hash: includedHash,
       }),
     ]);
     const baselineRun = await evals.run({ suiteId: "smoke" });

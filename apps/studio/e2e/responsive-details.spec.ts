@@ -12,9 +12,12 @@ test.describe("Responsive detail surfaces", () => {
     await page.setViewportSize({ width: 760, height: 900 });
     await page.goto(`${sessionPath}?sessionTab=metadata`);
 
-    const surface = page.locator(
-      '[data-responsive-surface="session-metadata"]',
-    );
+    // Next may briefly retain hidden streamed markup alongside the live page.
+    // Verify the one displayed surface, including its responsive geometry.
+    const surface = page
+      .locator('[data-responsive-surface="session-metadata"]')
+      .filter({ visible: true });
+    await expect(surface).toHaveCount(1);
     await expect(surface).toBeVisible();
     await expectNoHorizontalOverflow(surface);
     await expectStacked(

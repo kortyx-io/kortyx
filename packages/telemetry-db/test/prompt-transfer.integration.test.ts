@@ -1,5 +1,9 @@
 import { randomUUID } from "node:crypto";
-import { type PromptContent, promptHash } from "@kortyx/prompts";
+import {
+  expandPromptMessages,
+  type PromptContent,
+  promptHash,
+} from "@kortyx/prompts";
 import { eq } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
 import { createTelemetryDbClient } from "../src/client";
@@ -68,6 +72,10 @@ describe.skipIf(!sourceUrl || !destinationUrl)(
           categoryId: null,
           content: {
             ...body,
+            messages: [
+              { role: "system", content: "Before [[prompt:fragment]] After" },
+              body.messages[1]!,
+            ],
             dependencies: [
               { id: "fragment", version: 1, hash: await promptHash(body) },
             ],
@@ -82,6 +90,10 @@ describe.skipIf(!sourceUrl || !destinationUrl)(
           "fragment",
           "main",
         ]);
+        expect(
+          bundle.prompts.find((item) => item.key === "main")?.versions[0]
+            ?.content.messages[0]?.content,
+        ).toContain("[[prompt:fragment]]");
         const plan = await planPromptTransfer(destination.db, dst, "importer", {
           bundle,
           conflicts: "error",
@@ -107,6 +119,19 @@ describe.skipIf(!sourceUrl || !destinationUrl)(
         ).toEqual(applied);
         const main = await getPrompt(destination.db, dst, "main");
         expect(main.asset.assignments).toEqual([]);
+        expect(main.versions[0]?.content.messages[0]?.content).toBe(
+          "Before [[prompt:shared/fragment]] After",
+        );
+        const fragment = await getPrompt(
+          destination.db,
+          dst,
+          "shared/fragment",
+        );
+        expect(
+          expandPromptMessages(main.versions[0]!, {
+            "shared/fragment": fragment.versions[0]!,
+          }).messages[0]?.content,
+        ).toBe("Before Answer After");
         expect(main.versions[0]?.origin?.hash).toBe(
           bundle.prompts.find((item) => item.key === "main")?.versions[0]?.hash,
         );

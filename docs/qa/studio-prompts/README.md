@@ -72,3 +72,50 @@ Manually reviewed the final production UI on desktop, 768×1024 tablet and 390×
 ### Mobile save review
 
 ![Save review with required note and visible action buttons](mobile-save-review.jpg)
+
+
+### Prompt editor and composition follow-up
+
+Replaced message textareas with TipTap's native plain-text document, Mention and
+Suggestion extensions. System and user fields occupy the available width; the
+redundant message-format selector is removed. Template inputs are blue and
+included prompt chips are violet. Additional chat messages remain available
+through the message controls.
+
+Verified exact-version selection and Latest through keyboard and mouse,
+including picker dismissal without closing the prompt drawer. Latest pins the
+selected saved version. Saved content persists stable-key tokens and exact
+version/hash dependencies, rather than editable display names. Recursive
+expansion preserves message roles and the parent's configuration. Invalid input
+contracts, missing roles, cycles and oversized expansion are rejected.
+
+The SDK compilation tests, real workflow evaluation test and PostgreSQL
+integration checks verify expanded instructions, immutable dependency pins, and
+parent/child usage receipts. Manual CLI create/read/export and independent
+source-to-destination plan/apply/read-back verified renamed inline tokens and
+dependency manifests; retrying the plan produced no duplicate versions. The
+destination SDK resolved the rewritten parent and expanded the renamed child.
+A separately registered example using the composed prompt passed a full suite
+and one selected case through the CLI, with exact parent/child receipts and
+attached evaluations/runs visible on both prompts. The Studio run drawer also
+launched the composed candidate successfully, with 2/2 passing attempts.
+
+All 31 drawer/prompt browser checks and five responsive checks (each including
+fixture setup/cleanup) passed in production and development. The native prompt
+suite contributes twelve scenarios. A development responsive locator now
+asserts one displayed surface while Next briefly retains hidden streamed markup.
+Repository type checking passed all 51 tasks; prompt coverage passed its gates
+with 19 tests. Studio's 244 unit tests and the production build passed.
+
+Inspected the production editor and native inclusion menu on desktop, tablet
+and mobile, then restored the browser viewport.
+
+![Full-width native prompt editor](desktop-tiptap-editor.png)
+
+![Native prompt and version picker](desktop-prompt-inclusion-picker.png)
+
+![Tablet prompt editor](tablet-tiptap-editor.png)
+
+![Mobile prompt editor](mobile-tiptap-editor.png)
+
+![Completed evaluation of the composed prompt in the example application](composed-example-evaluation.png)

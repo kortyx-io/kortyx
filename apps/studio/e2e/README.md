@@ -31,8 +31,9 @@ ingestion keeps Studio projections, API contracts, and detail routes in the
 test boundary.
 
 `prompt-drawers.spec.ts` creates a category, two immutable prompt versions and
-one test group through the authenticated prompts API. It cleans up only its
-reserved `e2e-prompt-drawers/classify` asset and `E2E prompt drawers` category /
+one test group through the authenticated prompts API. Independent composition
+fixtures exercise exact version selection, Latest, and SDK serving. It cleans up
+only its reserved `e2e-prompt-drawers/*` assets and `E2E prompt drawers` category /
 `E2E prompt drawer group` selection. Bootstrap the local test key with
 `KORTYX_STUDIO_ENABLE_PROMPTS=1` to enable those fixture mutations.
 
@@ -116,7 +117,10 @@ Prompt regressions additionally cover container-sized history menus, full-width
 editors inside narrow drawers, a flat library table, action inspector
 Back/Forward, repeated dismissal, reserved inspector space, category list
 restoration, Groups → Group → Prompt ancestors and Escape/typeahead isolation
-for menus and version comparison dialogs.
+for menus and version comparison dialogs. Native TipTap regressions cover blue
+template inputs, exact-version and Latest inclusions, save-review persistence,
+conflicting child versions, picker Escape isolation, and expansion through the
+actual Studio SDK source. Composition fixtures remain independent for CI shards.
 
 ## Development and production checks
 

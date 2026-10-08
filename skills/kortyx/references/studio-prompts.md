@@ -50,3 +50,13 @@ For reproducible integration verification, use `examples/kortyx-prompts`' actual
 SDK workflow and authenticated consumer endpoint. Its fixture provider verifies
 transport and version selection. Use configured real providers for semantic
 quality evaluation; do not claim a deterministic fixture proves model quality.
+
+Inline inclusions persist as `[[prompt:stable/key]]`, with the referenced key,
+exact version and hash in `content.dependencies`. They include matching-role
+message text and inherit input contracts; retain the parent configuration. The
+Studio `#` picker resolves Latest to an exact pin before save. Declare inherited
+inputs in the parent application interface and pass their values to `usePrompt`.
+Do not flatten messages, remove the manifest or insert display names into stable
+references when editing through the CLI. Export/copy preserves the closure and
+rewrites reference tokens for renamed destination keys. Actual-use receipts also
+identify included versions during evaluations.

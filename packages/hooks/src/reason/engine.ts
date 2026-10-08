@@ -55,8 +55,17 @@ export async function reasonEngine(
   ctx.node.consumeExecution?.("maxModelPasses");
   const prompt = args.telemetry?.prompt;
   const identity = prompt?.metadata;
-  if (isPromptUsageMetadata(identity))
-    ctx.node.prompts?.recordUsage({ ...identity, model: args.model.modelId });
+  if (isPromptUsageMetadata(identity)) {
+    const { dependencies, ...parent } = identity;
+    ctx.node.prompts?.recordUsage({ ...parent, model: args.model.modelId });
+    for (const dependency of dependencies ?? [])
+      ctx.node.prompts?.recordUsage({
+        ...dependency,
+        environment: identity.environment,
+        snapshotRevision: identity.snapshotRevision,
+        model: args.model.modelId,
+      });
+  }
 
   try {
     return await runReasonEngine({

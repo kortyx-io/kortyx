@@ -234,11 +234,17 @@ export function createPrompts(options: {
               `No version resolved for ${ref.id}.`,
               404,
             );
-          return compilePrompt(ref, selected, args.variables, {
-            source: selectedSnapshot.source,
-            environment: selectedSnapshot.environment,
-            snapshotRevision: selectedSnapshot.revision,
-          });
+          return compilePrompt(
+            ref,
+            selected,
+            args.variables,
+            {
+              source: selectedSnapshot.source,
+              environment: selectedSnapshot.environment,
+              snapshotRevision: selectedSnapshot.revision,
+            },
+            selectedSnapshot.versions,
+          );
         },
       };
     },

@@ -1,8 +1,11 @@
 import {
   canonicalPromptJson,
+  expandPromptMessages,
   type PromptContent,
   PromptError,
   promptHash,
+  promptReferencePattern,
+  promptReferenceToken,
   validatePromptContent,
 } from "@kortyx/prompts";
 import {
@@ -281,6 +284,40 @@ async function prepare(
         );
       dependencies.push({ id: dep.key, version: dep.version, hash: dep.hash });
     }
+    const closure: Record<string, typeof source.version> = {};
+    const collect = (selected: typeof source.version) => {
+      const previous = closure[selected.id];
+      if (previous) {
+        if (
+          previous.version !== selected.version ||
+          previous.hash !== selected.hash
+        )
+          throw new PromptError(
+            "PROMPT_DEPENDENCY_CONFLICT",
+            `Conflicting dependency versions for ${selected.id}.`,
+          );
+        return;
+      }
+      closure[selected.id] = selected;
+      for (const dependency of selected.content.dependencies) {
+        const child = all.find(
+          (item) =>
+            item.asset.key === dependency.id &&
+            item.version.version === dependency.version,
+        );
+        if (!child)
+          throw new PromptError(
+            "PROMPT_TRANSFER_DEPENDENCY",
+            `Missing ${dependency.id}.`,
+          );
+        collect(child.version);
+      }
+    };
+    collect(source.version);
+    validatePromptContent({
+      ...source.version.content,
+      messages: expandPromptMessages(source.version, closure).messages,
+    });
     const destinationKey = request.rename[key] ?? key,
       destination = assets.find((item) => item.key === destinationKey);
     if (destination?.archived)
@@ -299,7 +336,17 @@ async function prepare(
       };
       heads.push(head);
     }
-    const content = { ...source.version.content, dependencies },
+    const content = {
+        ...source.version.content,
+        dependencies,
+        messages: source.version.content.messages.map((message) => ({
+          ...message,
+          content: message.content.replace(
+            promptReferencePattern,
+            (_, id: string) => promptReferenceToken(request.rename[id] ?? id),
+          ),
+        })),
+      },
       hash = await promptHash(content);
     const identical = destination
       ? existingVersions.find(

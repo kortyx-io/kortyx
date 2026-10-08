@@ -6,6 +6,7 @@ import {
   PromptError,
   type PromptVersion,
 } from "./contracts";
+import { expandPromptMessages } from "./references";
 
 const ajv = new Ajv2020({
   strict: false,
@@ -35,6 +36,9 @@ export function promptUsageMetadata(
     hash: prompt.ref.hash,
     environment: prompt.ref.environment,
     snapshotRevision: prompt.ref.snapshotRevision,
+    ...(prompt.dependencies?.length
+      ? { dependencies: prompt.dependencies }
+      : {}),
   });
   usageMetadata.add(metadata);
   return metadata;
@@ -45,6 +49,7 @@ export function isPromptUsageMetadata(value: unknown): value is {
   hash: string;
   environment: string;
   snapshotRevision: string;
+  dependencies?: { id: string; version: number; hash: string }[];
 } {
   return Boolean(
     value && typeof value === "object" && usageMetadata.has(value),
@@ -153,6 +158,7 @@ export type CompiledPrompt<Config = unknown> = Readonly<{
   user?: string | undefined;
   messages: { role: "system" | "user" | "assistant"; content: string }[];
   config: Config;
+  dependencies?: { id: string; version: number; hash: string }[];
   ref: {
     id: string;
     version: number;
@@ -167,6 +173,7 @@ export function compilePrompt<Inputs, Config>(
   version: PromptVersion,
   variables: Inputs,
   identity: { source: string; environment: string; snapshotRevision: string },
+  versions?: Readonly<Record<string, PromptVersion>>,
 ): CompiledPrompt<Config> {
   if (version.id !== ref.id || version.content.format !== ref.format)
     throw new PromptError(
@@ -185,7 +192,26 @@ export function compilePrompt<Inputs, Config>(
     "Configuration",
   );
   const config = ref.config.parse(structuredClone(version.content.config));
-  const messages = version.content.messages.map((message) => ({
+  const expanded = expandPromptMessages(version, versions);
+  if (expanded.used.length)
+    validatePromptContent({ ...version.content, messages: expanded.messages });
+  for (const child of expanded.used) {
+    const properties = child.content.variablesSchema.properties;
+    const childValues =
+      properties && typeof properties === "object" && !Array.isArray(properties)
+        ? Object.fromEntries(
+            Object.keys(properties)
+              .filter((key) => Object.hasOwn(values as object, key))
+              .map((key) => [key, (values as Record<string, unknown>)[key]]),
+          )
+        : values;
+    validatePromptValue(
+      child.content.variablesSchema,
+      childValues,
+      `Inputs for ${child.id}`,
+    );
+  }
+  const messages = expanded.messages.map((message) => ({
     role: message.role,
     content: message.content.replace(placeholder, (_, path: string) => {
       let value: unknown = values;
@@ -214,6 +240,15 @@ export function compilePrompt<Inputs, Config>(
     format: ref.format,
     messages,
     config,
+    ...(expanded.used.length
+      ? {
+          dependencies: expanded.used.map(({ id, version, hash }) => ({
+            id,
+            version,
+            hash,
+          })),
+        }
+      : {}),
     ...(ref.format === "system-user"
       ? { system: messages[0]?.content, user: messages[1]?.content }
       : {}),

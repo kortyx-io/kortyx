@@ -1,5 +1,10 @@
 import { randomUUID } from "node:crypto";
-import { promptHash } from "@kortyx/prompts";
+import {
+  createPrompts,
+  definePrompt,
+  promptHash,
+  studioPromptSource,
+} from "@kortyx/prompts";
 import {
   type APIRequestContext,
   expect,
@@ -8,8 +13,12 @@ import {
   test,
 } from "@playwright/test";
 import postgres from "postgres";
+import { z } from "zod";
 
 const fixtureKey = "e2e-prompt-drawers/classify";
+const compositionKey = "e2e-prompt-drawers/composition";
+const compositionName = "E2E prompt composition";
+
 const fixtureName = "E2E prompt drawer";
 const categoryName = "E2E prompt drawers";
 const groupName = "E2E prompt drawer group";
@@ -57,6 +66,9 @@ async function cleanup() {
   );
   try {
     await sql`delete from prompt_groups where name=${groupName}`;
+    await sql`delete from prompt_assets where key=${`${compositionKey}-latest`}`;
+    await sql`delete from prompt_assets where key=${`${compositionKey}-conflict`}`;
+    await sql`delete from prompt_assets where key=${compositionKey}`;
     await sql`delete from prompt_assets where key=${fixtureKey}`;
     await sql`delete from prompt_categories where name=${categoryName}`;
   } finally {
@@ -71,7 +83,7 @@ async function openPrompt(page: Page, category = false) {
     "data-entry-motion",
     "preserve",
   );
-  await expect(promptDrawer(page).getByLabel("System Message")).toHaveValue(
+  await expect(promptDrawer(page).getByLabel("System Message")).toHaveText(
     "Classify requests as support or sales. Pricing requests are sales.",
   );
 }
@@ -139,6 +151,185 @@ test.describe("Prompt detail drawers", () => {
   });
   test.afterAll(cleanup);
 
+  test("highlights inputs and saves an included version using the native prompt picker", async ({
+    page,
+    request,
+  }) => {
+    const compositionId = (
+      await action(request, {
+        action: "create",
+        key: compositionKey,
+        name: compositionName,
+        categoryId,
+        content,
+        note: "Composition fixture",
+      })
+    ).id;
+    await page.goto(`/prompts/${compositionId}`);
+    await expect(
+      page.getByLabel("User Message").locator("[data-template-variable]"),
+    ).toHaveText("{{message}}");
+    await expect(page.getByText("Message format", { exact: true })).toHaveCount(
+      0,
+    );
+    await page
+      .getByRole("button", { name: "Edit as draft", exact: true })
+      .click();
+    const system = page.getByLabel("System Message");
+    await system.fill("Before ");
+    await system.pressSequentially("#E2E prompt drawer@v1");
+    const option = page
+      .getByRole("option")
+      .filter({ hasText: /^E2E prompt drawer/ })
+      .filter({ hasText: "v1" });
+    await expect(option).toBeVisible();
+    await option.click();
+    await expect(system.locator("[data-prompt-reference]")).toHaveText(
+      "#E2E prompt drawer@v1",
+    );
+    await page
+      .getByRole("button", { name: "Save version", exact: true })
+      .click();
+    await expect(page.getByRole("dialog")).toContainText(
+      "[[prompt:e2e-prompt-drawers/classify]]",
+    );
+    await page
+      .getByLabel("Change note", { exact: false })
+      .fill("Include the original classifier instructions");
+    await page
+      .getByRole("button", { name: "Accept & save version", exact: true })
+      .click();
+    await expect(page.getByRole("dialog")).toHaveCount(0);
+    await expect(
+      page.getByLabel("System Message").locator("[data-prompt-reference]"),
+    ).toHaveText("#E2E prompt drawer@v1");
+    const response = await request.get(
+      `${apiUrl}/v1/studio/prompts/assets/${compositionId}`,
+      {
+        headers: {
+          authorization: `Bearer ${process.env.KORTYX_STUDIO_API_KEY}`,
+        },
+      },
+    );
+    expect(response.ok()).toBe(true);
+    const detail = await response.json();
+    expect(detail.versions[0].content.messages[0].content).toBe(
+      "Before [[prompt:e2e-prompt-drawers/classify]] ",
+    );
+    expect(detail.versions[0].content.dependencies[0]).toMatchObject({
+      id: fixtureKey,
+      version: 1,
+      hash: await promptHash(content),
+    });
+  });
+
+  test("isolates picker Escape and rejects conflicting Latest references", async ({
+    page,
+    request,
+  }) => {
+    const { id: conflictId } = await action(request, {
+      action: "create",
+      key: `${compositionKey}-conflict`,
+      name: "E2E conflicting references",
+      categoryId,
+      content: {
+        ...content,
+        messages: [
+          { role: "system", content: `[[prompt:${fixtureKey}]]` },
+          content.messages[1],
+        ],
+        dependencies: [
+          { id: fixtureKey, version: 1, hash: await promptHash(content) },
+        ],
+      },
+      note: "Pinned to v1",
+    });
+    await page.goto(`/prompts/${conflictId}?edit=true`);
+    const user = page.getByLabel("User Message");
+    await user.fill("");
+    await user.pressSequentially("#E2E prompt drawer@Latest");
+    await expect(
+      page.getByRole("listbox", { name: "Include a prompt" }),
+    ).toBeVisible();
+    await user.press("Escape");
+    await expect(page.getByRole("listbox")).toHaveCount(0);
+    await expect(
+      page.getByRole("button", { name: "Close editor", exact: true }),
+    ).toBeVisible();
+    // A parent cannot contain conflicting pins of one child. Use the already
+    // pinned v1 for this parent; Latest is offered as v2 and is rejected safely.
+    await user.press("ControlOrMeta+a");
+    await user.press("Backspace");
+    await expect(user).toHaveText("");
+    await user.pressSequentially("#E2E prompt drawer@Latest");
+    await page.getByRole("option").filter({ hasText: "Latest · v2" }).click();
+    await expect(
+      page.getByRole("alert").filter({ hasText: "already included" }),
+    ).toContainText("already included at another version");
+    await expect(user.locator("[data-prompt-reference]")).toHaveCount(0);
+  });
+
+  test("pins Latest and serves the included text through the SDK", async ({
+    page,
+    request,
+  }) => {
+    const key = `${compositionKey}-latest`;
+    const result = await action(request, {
+      action: "create",
+      key,
+      name: "E2E latest composition",
+      categoryId,
+      content,
+      note: "Latest composition fixture",
+    });
+    await page.goto(`/prompts/${result.id}?edit=true`);
+    const system = page.getByLabel("System Message");
+    await system.fill("");
+    await system.pressSequentially("#E2E prompt drawer@Latest");
+    await page.getByRole("option").filter({ hasText: "Latest · v2" }).click();
+    await expect(system.locator("[data-prompt-reference]")).toHaveText(
+      "#E2E prompt drawer@v2",
+    );
+    await page
+      .getByRole("button", { name: "Save version", exact: true })
+      .click();
+    await page
+      .getByLabel("Change note", { exact: false })
+      .fill("Pin the latest classifier instructions");
+    await page
+      .getByRole("button", { name: "Accept & save version", exact: true })
+      .click();
+    await expect(page.getByRole("dialog")).toHaveCount(0);
+    const source = studioPromptSource({
+      apiUrl,
+      apiKey:
+        process.env.KORTYX_TELEMETRY_API_KEY ??
+        "ktyx_test_localtelemetry_oss-demo-telemetry-secret-change-me",
+      environment: "production",
+    });
+    const snapshot = await source.resolve([key], {
+      environment: "production",
+      versions: { [key]: 2 },
+    });
+    const ref = definePrompt({
+      id: key,
+      format: "system-user",
+      variables: z.object({ message: z.string() }),
+      config: z.object({}),
+    });
+    const compiled = await createPrompts({ definitions: [ref], source })
+      .start()
+      .resolve(ref, { variables: { message: "hello" }, stored: snapshot });
+    expect(compiled.system).toBe(
+      "Classify requests as support or sales. Pricing requests are sales. ",
+    );
+    expect(compiled.user).toBe("hello");
+    expect(compiled.dependencies?.[0]).toMatchObject({
+      id: fixtureKey,
+      version: 2,
+    });
+  });
+
   test("uses a compact history menu in a narrow drawer on a wide screen", async ({
     page,
   }) => {
@@ -150,7 +341,7 @@ test.describe("Prompt detail drawers", () => {
       page.getByRole("menuitemradio", { name: /v2/ }),
     ).toHaveAttribute("aria-checked", "true");
     await page.getByRole("menuitemradio", { name: /v1/ }).click();
-    await expect(surface.getByLabel("System Message")).toHaveValue(
+    await expect(surface.getByLabel("System Message")).toHaveText(
       content.messages[0].content,
     );
     await expect
@@ -279,7 +470,7 @@ test.describe("Prompt detail drawers", () => {
       promptDrawer(page).getByRole("button", { name: "Version history · v2" }),
     ).toBeVisible();
     await page.goForward();
-    await expect(promptDrawer(page).getByLabel("System Message")).toHaveValue(
+    await expect(promptDrawer(page).getByLabel("System Message")).toHaveText(
       content.messages[0].content,
     );
   });

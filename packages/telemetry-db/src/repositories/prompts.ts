@@ -1,4 +1,5 @@
 import {
+  expandPromptMessages,
   type PromptContent,
   PromptError,
   type PromptSnapshot,
@@ -438,7 +439,7 @@ export async function getPrompt(
         .where(
           and(
             where(telemetryEvents, scope),
-            sql`${telemetryEvents.payload} -> 'prompt' ->> 'name' = ${asset.key}`,
+            sql`(${telemetryEvents.payload} -> 'prompt' ->> 'name' = ${asset.key} OR jsonb_path_exists(${telemetryEvents.payload}, '$.prompt.metadata.dependencies[*] ? (@.id == $key)', jsonb_build_object('key', ${asset.key}::text)))`,
             sql`${telemetryEvents.type} = 'generation.completed'`,
           ),
         )
@@ -523,15 +524,33 @@ export async function getPrompt(
     usage: usage.map((event) => {
       const payload = event.payload as Record<string, unknown>;
       const prompt = payload.prompt as
-        | { version?: number; source?: string; metadata?: { hash?: string } }
+        | {
+            version?: number;
+            source?: string;
+            metadata?: {
+              hash?: string;
+              dependencies?: { id: string; version: number; hash: string }[];
+            };
+          }
         | undefined;
+      const dependencies = prompt?.metadata?.dependencies;
+      const included = Array.isArray(dependencies)
+        ? dependencies.find(
+            (item) =>
+              item &&
+              typeof item === "object" &&
+              item.id === asset.key &&
+              Number.isInteger(item.version) &&
+              typeof item.hash === "string",
+          )
+        : undefined;
       return {
         eventId: event.eventId,
         runId: event.runId,
         sessionId: event.sessionId,
         nodeId: event.nodeId,
-        version: prompt?.version ?? 0,
-        hash: prompt?.metadata?.hash ?? null,
+        version: included?.version ?? prompt?.version ?? 0,
+        hash: included?.hash ?? prompt?.metadata?.hash ?? null,
         source: prompt?.source ?? null,
         model: typeof payload.model === "string" ? payload.model : null,
         environment: event.environment,
@@ -692,6 +711,10 @@ async function validateDependencies(
     source: "local",
     resolvedAt: new Date().toISOString(),
     versions,
+  });
+  validatePromptContent({
+    ...content,
+    messages: expandPromptMessages(versions[key]!, versions).messages,
   });
 }
 

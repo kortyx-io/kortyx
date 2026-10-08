@@ -67,3 +67,17 @@ Local bootstrap and CLI Compose enable the prompt capability and permission scop
 Regression coverage includes role-preserving compilation, typed variables/configuration, hash/dependency checks, private resume/fork snapshots, strict eval overrides, actual usage, content-capture separation, tenant/environment/permission isolation, stale suite promotion rejection, immutable version/draft CAS, atomic bulk changes, category cycle/rehome behavior, group preservation, and independently authenticated PostgreSQL transfer/retry/hash verification.
 
 The reproducible example supplies a deterministic model and app judge for transport/protocol E2E, with optional explicitly configured provider models. Deterministic checks establish integration behavior; they do not measure a live model's semantic quality. Manual Studio testing exercises save diff, individual/group suite launch, production assignment, attached evidence, categories, bulk moves and actual CLI-bundle import. Responsive review checks the real production React UI at desktop, tablet and mobile sizes in both themes, including header wrapping, modal/drawer actions and document overflow.
+
+## Prompt editor and inclusions
+
+The message editor uses TipTap with native Mention/Suggestion and popup mounting,
+plain text serialization, undo/redo and a small template-variable decoration.
+Content uses the full available width. System/user messages are visible directly;
+the format selector is removed. Add message exposes roles and conversation order.
+Blue placeholders remain dynamic code inputs; violet prompt mentions persist
+stable-key tokens backed by exact dependency versions/hashes. Latest resolves
+before saving so comparisons, evals and serving remain reproducible. Inclusions
+expand matching roles and import input declarations; configuration stays with
+the parent. Nested expansion rejects cycles, conflicting/missing pins, missing
+roles and messages exceeding 200,000 characters. Included versions appear in
+actual eval receipts and linked runs. Migration rewrites renamed reference keys.

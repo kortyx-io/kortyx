@@ -508,7 +508,7 @@ export function PromptLibraryView({
               {selected.length > 0 && library && (
                 <PromptBulkActions
                   selected={selected}
-                  library={library}
+                  library={library ?? undefined}
                   onClear={() => setSelected([])}
                   onDone={async () => {
                     await refresh();
@@ -765,6 +765,7 @@ export function PromptLibraryView({
             </p>
           </div>
           <PromptFields
+            library={library ?? undefined}
             key={String(creating)}
             value={content}
             onChange={setContent}

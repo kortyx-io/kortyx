@@ -98,3 +98,14 @@ The runnable [`examples/kortyx-prompts`](https://github.com/kortyx-io/kortyx/tre
 includes the complete server, model registry, telemetry, and authenticated eval
 endpoint. See [Version and test prompts](../../../studio/v0/13-prompts.md) and
 [CLI migration](../../../studio/v0/14-prompt-migration.md).
+
+## Included prompts
+
+Studio's `#` picker includes another prompt's matching-role message and pins its
+exact saved version. Latest selects the newest saved version when inserted.
+`usePrompt` expands nested references from the same frozen snapshot before
+filling template inputs; `useReason` reports both the parent and included versions
+as actual prompt usage. Add inherited inputs to your `definePrompt` schema and
+supply their values as usual. The parent's configuration controls your application.
+Changing a child does not change a saved parent's executable content. Save and
+evaluate a new parent version to adopt a newer child.
