@@ -45,7 +45,7 @@ function StepEvaluation({
       </p>
       <EvalOutputRequirements outputs={step.expectation.outputs} />
       {step.reason ? (
-        <p className="break-words text-xs text-red-700 dark:text-red-400">
+        <p className="whitespace-pre-wrap break-words [overflow-wrap:anywhere] text-xs text-red-700 dark:text-red-400">
           {step.reason}
         </p>
       ) : null}
@@ -60,14 +60,14 @@ function StepEvaluation({
             </p>
             <EvalStatus status={criterion.passed ? "passed" : "failed"} />
           </div>
-          <p className="break-words text-sm leading-relaxed text-foreground/80">
+          <p className="whitespace-pre-wrap break-words [overflow-wrap:anywhere] text-sm leading-relaxed text-foreground/80">
             {criterion.text}
           </p>
           <div className="space-y-1.5">
             <p className="text-xs font-medium text-muted-foreground">
               Assessment
             </p>
-            <p className="break-words text-sm leading-relaxed">
+            <p className="whitespace-pre-wrap break-words [overflow-wrap:anywhere] text-sm leading-relaxed">
               {criterion.reason}
             </p>
           </div>
@@ -79,7 +79,7 @@ function StepEvaluation({
               {criterion.evidence.map((text, index) => (
                 <blockquote
                   key={`${index}:${text}`}
-                  className="mt-2 break-words border-l pl-3 text-xs leading-relaxed text-muted-foreground"
+                  className="mt-2 whitespace-pre-wrap break-words [overflow-wrap:anywhere] border-l pl-3 text-xs leading-relaxed text-muted-foreground"
                 >
                   {text}
                 </blockquote>
@@ -123,7 +123,7 @@ function StepDebug({ step, scope }: { step: EvalStepResult; scope: string }) {
           )}
         </p>
         {"message" in step.input ? (
-          <p className="whitespace-pre-wrap break-words text-sm">
+          <p className="whitespace-pre-wrap break-words [overflow-wrap:anywhere] text-sm">
             {step.input.message}
           </p>
         ) : (
@@ -146,7 +146,7 @@ function StepDebug({ step, scope }: { step: EvalStepResult; scope: string }) {
         ) : null}
         {interrupt ? (
           <>
-            <p className="break-words text-sm font-medium">
+            <p className="whitespace-pre-wrap break-words [overflow-wrap:anywhere] text-sm font-medium">
               {interrupt.question ?? "Structured input requested"}
             </p>
             <p className="break-words font-mono text-[11px] text-muted-foreground">
@@ -159,9 +159,11 @@ function StepDebug({ step, scope }: { step: EvalStepResult; scope: string }) {
                     key={option.id}
                     className="rounded-md border bg-muted/10 px-3 py-2"
                   >
-                    <p className="break-words text-sm">{option.label}</p>
+                    <p className="whitespace-pre-wrap break-words [overflow-wrap:anywhere] text-sm">
+                      {option.label}
+                    </p>
                     {option.description ? (
-                      <p className="break-words text-xs text-muted-foreground">
+                      <p className="whitespace-pre-wrap break-words [overflow-wrap:anywhere] text-xs text-muted-foreground">
                         {option.description}
                       </p>
                     ) : null}

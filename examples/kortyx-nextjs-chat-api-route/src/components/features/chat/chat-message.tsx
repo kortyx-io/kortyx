@@ -490,7 +490,9 @@ function HumanInputBox({
 
   return (
     <div className="my-3 overflow-hidden">
-      {piece.question}
+      <p className="whitespace-pre-wrap break-words [overflow-wrap:anywhere]">
+        {piece.question}
+      </p>
 
       <div className="flex flex-col max-w-sm gap-2 py-3">
         {piece.options.map((opt) =>
@@ -511,7 +513,7 @@ function HumanInputBox({
                   );
                 }}
               />
-              <div className="text-sm leading-snug">
+              <div className="min-w-0 whitespace-pre-wrap break-words [overflow-wrap:anywhere] text-sm leading-snug">
                 <div className="font-medium">{opt.label}</div>
                 {opt.description && (
                   <div className="text-xs text-slate-500 dark:text-slate-400">
@@ -526,7 +528,7 @@ function HumanInputBox({
               size="sm"
               variant="outline"
               disabled={chatIsStreaming || !onRespondToHumanInput}
-              className="justify-start h-auto px-4 py-2 text-left whitespace-normal"
+              className="justify-start h-auto px-4 py-2 text-left whitespace-pre-wrap break-words [overflow-wrap:anywhere]"
               onClick={() =>
                 (async () => {
                   await onRespondToHumanInput?.({
