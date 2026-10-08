@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.4.6](https://github.com/kortyx-io/kortyx/compare/anthropic-v0.4.5...anthropic-v0.4.6) (2026-10-08)
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/providers bumped to 0.9.0
+    * @kortyx/core bumped to 0.12.0
+
 ## [0.4.5](https://github.com/kortyx-io/kortyx/compare/anthropic-v0.4.4...anthropic-v0.4.5) (2026-10-07)
 
 

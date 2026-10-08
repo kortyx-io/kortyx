@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.31.0](https://github.com/kortyx-io/kortyx/compare/hooks-v0.30.2...hooks-v0.31.0) (2026-10-08)
+
+
+### Features
+
+* **telemetry:** preserve complete private error diagnostics ([#290](https://github.com/kortyx-io/kortyx/issues/290)) ([e1c5a88](https://github.com/kortyx-io/kortyx/commit/e1c5a88c494016fd84a1af40579412fcfde31271))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/core bumped to 0.12.0
+    * @kortyx/providers bumped to 0.9.0
+    * @kortyx/telemetry-contracts bumped to 0.15.0
+
 ## [0.30.2](https://github.com/kortyx-io/kortyx/compare/hooks-v0.30.1...hooks-v0.30.2) (2026-10-07)
 
 

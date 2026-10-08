@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.24.4](https://github.com/kortyx-io/kortyx/compare/example-nextjs-chat-api-route-v0.24.3...example-nextjs-chat-api-route-v0.24.4) (2026-10-08)
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/anthropic bumped to 0.4.6
+    * @kortyx/google bumped to 0.6.6
+    * @kortyx/openai bumped to 0.5.6
+    * @kortyx/react bumped to 0.8.2
+    * kortyx bumped to 0.28.2
+    * @kortyx/telemetry bumped to 0.12.0
+
 ## [0.24.3](https://github.com/kortyx-io/kortyx/compare/example-nextjs-chat-api-route-v0.24.2...example-nextjs-chat-api-route-v0.24.3) (2026-10-07)
 
 
