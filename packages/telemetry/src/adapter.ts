@@ -4,6 +4,7 @@ import type {
   KortyxTelemetryEvent,
 } from "@kortyx/hooks";
 import { createDelivery, TelemetryHttpError } from "./delivery";
+import { createDiagnosticDelivery } from "./diagnostics";
 import { createEventMapper } from "./event-mapper";
 import { createTopologyResolver } from "./topology";
 import { createTraceAdapter } from "./trace";
@@ -65,12 +66,14 @@ export function createKortyxTelemetryAdapter(
       await send("/v1/telemetry/events:batch", { events });
     },
   });
+  const diagnostics = createDiagnosticDelivery(options);
   const eventMapper = createEventMapper({
     environment: options.environment,
     service: options.service,
     ...(options.metadata ? { metadata: options.metadata } : {}),
     ...(options.tags ? { tags: options.tags } : {}),
     createId,
+    captureDiagnostic: diagnostics.capture,
     ...(options.error ? { error: options.error } : {}),
   });
   const topology = createTopologyResolver({
@@ -108,7 +111,13 @@ export function createKortyxTelemetryAdapter(
       : {}),
     ...(options.metadata ? { metadata: options.metadata } : {}),
     ...(options.tags ? { tags: options.tags } : {}),
-    flush: delivery.flush,
+    flush: async () => {
+      await delivery.flush();
+      await diagnostics.flush();
+    },
+    flushDiagnostics: diagnostics.flushWithDeadline,
+    getDiagnosticDeliveryState: diagnostics.getState,
+    getDroppedDiagnosticCount: diagnostics.getDroppedCount,
     getDroppedEventCount: delivery.getDroppedEventCount,
     getPermanentDeliveryFailureCount: delivery.getPermanentDeliveryFailureCount,
   };

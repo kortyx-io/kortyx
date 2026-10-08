@@ -57,6 +57,13 @@
       "when": 1791388607631,
       "tag": "0007_evaluation_runs",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1791451993857,
+      "tag": "0008_error_diagnostics",
+      "breakpoints": true
     }
   ]
 }

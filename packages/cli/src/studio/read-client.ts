@@ -129,7 +129,7 @@ export class StudioApiTransport {
         response.status === 401
           ? "Invalid, expired, or revoked Studio read key."
           : response.status === 403
-            ? "The API key lacks studio:read or the operation's required permission (eval:run for execution)."
+            ? "The API key lacks studio:read or the operation's required permission (diagnostics:read for diagnostics; eval:run for execution)."
             : response.status === 404
               ? "Entity not found in this connection's project. Check the URL and selected connection."
               : `Studio API returned HTTP ${response.status}.`;
@@ -202,7 +202,7 @@ export class StudioReadClient extends StudioApiTransport {
     query: Record<string, string> = {},
   ): Promise<T> {
     if (
-      !/^\/v1\/studio\/(?:context|catalogs|workflows|(?:runs|sessions|interrupts)(?:\/[^/?#]+)?)$/.test(
+      !/^\/v1\/studio\/(?:context|catalogs|workflows|(?:runs|sessions|interrupts)(?:\/[^/?#]+)?|diagnostics\/[a-f0-9-]{36})$/.test(
         path,
       ) ||
       /(?:^|\/)(?:\.|\.\.|%2e(?:%2e)?)(?:\/|$)/i.test(path)

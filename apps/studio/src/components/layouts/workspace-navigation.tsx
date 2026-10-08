@@ -15,6 +15,7 @@ const labels: Record<string, string> = {
   cases: "Cases",
   compare: "Compare",
   settings: "Settings",
+  diagnostics: "Error diagnostic",
 };
 
 const settingsLabels: Record<string, string> = {
@@ -95,8 +96,12 @@ export function WorkspaceNavigation({
                   aria-hidden="true"
                 />
               )}
-              {last ? (
-                <span aria-current="page" className="truncate" title={text}>
+              {last || segments[0] === "diagnostics" ? (
+                <span
+                  aria-current={last ? "page" : undefined}
+                  className="truncate"
+                  title={text}
+                >
                   {text}
                 </span>
               ) : (

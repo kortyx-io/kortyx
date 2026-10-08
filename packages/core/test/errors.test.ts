@@ -22,12 +22,14 @@ import {
 describe("failure contracts", () => {
   it("propagates cancellation while reading an HTTP error body", async () => {
     const abort = new DOMException("aborted", "AbortError");
-    const response = new Response(null, { status: 503 });
-    Object.defineProperty(response, "json", {
-      value: async () => {
-        throw abort;
-      },
-    });
+    const response = new Response(
+      new ReadableStream({
+        pull(controller) {
+          controller.error(abort);
+        },
+      }),
+      { status: 503 },
+    );
     await expect(
       assertProviderResponse("openai", response, "invoke"),
     ).rejects.toBe(abort);
@@ -475,5 +477,89 @@ describe("failure contracts", () => {
       cancelled,
     );
     expect(() => serializeFailure(cancelled)).toThrow(cancelled);
+  });
+});
+
+describe("private provider response evidence", () => {
+  it.each([
+    "openai",
+    "openrouter",
+    "anthropic",
+    "gemini",
+  ])("retains %s rejection evidence without exposing it in public serialization", async (provider) => {
+    const body = JSON.stringify({
+      error: { message: "invalid request", code: "invalid_api_key" },
+      metadata: { raw: "PRIVATE_PROVIDER_BODY" },
+      large: "X".repeat(60000),
+    });
+    let failure: unknown;
+    try {
+      await assertProviderResponse(
+        provider,
+        new Response(body, {
+          status: 400,
+          headers: { "x-request-id": "rejection-123" },
+        }),
+        "invoke",
+      );
+    } catch (error) {
+      failure = error;
+    }
+    expect(errorProperty(failure, "providerResponse")).toMatchObject({
+      status: 400,
+      body,
+      headers: { "x-request-id": "rejection-123" },
+    });
+    expect(JSON.stringify(serializeFailure(failure))).not.toContain(
+      "PRIVATE_PROVIDER_BODY",
+    );
+    expect(JSON.stringify(failure)).not.toContain("PRIVATE_PROVIDER_BODY");
+  });
+  it.each([
+    "provider returned text",
+    "{malformed",
+  ])("preserves non-JSON rejection bodies: %s", async (body) => {
+    let failure: unknown;
+    try {
+      await assertProviderResponse(
+        "openai",
+        new Response(body, { status: 400 }),
+        "stream",
+      );
+    } catch (error) {
+      failure = error;
+    }
+    expect(errorProperty(failure, "providerResponse")).toMatchObject({ body });
+  });
+  it("keeps a captured body prefix and records a failed response stream", async () => {
+    let reads = 0;
+    const body = new ReadableStream({
+      pull(controller) {
+        if (reads++ === 0)
+          controller.enqueue(
+            new TextEncoder().encode("retained rejection prefix"),
+          );
+        else controller.error(new Error("socket lost"));
+      },
+    });
+    let failure: unknown;
+    try {
+      await assertProviderResponse(
+        "openai",
+        new Response(body, { status: 400 }),
+        "stream",
+      );
+    } catch (error) {
+      failure = error;
+    }
+    expect(errorProperty(failure, "providerResponse")).toMatchObject({
+      body: "retained rejection prefix",
+    });
+    expect(errorProperty(failure, "diagnosticOmissions")).toEqual([
+      {
+        path: "#/data/providerResponse/body",
+        reason: "provider_body_read_failed",
+      },
+    ]);
   });
 });

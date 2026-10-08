@@ -26,6 +26,13 @@ export {
   upsertTelemetryApiKey,
 } from "./repositories/api-keys";
 export {
+  beginErrorDiagnostic,
+  completeErrorDiagnostic,
+  expireErrorDiagnostics,
+  getErrorDiagnostic,
+  putErrorDiagnosticPart,
+} from "./repositories/error-diagnostics";
+export {
   appendEvalProgress,
   claimEvalRun,
   enqueueEvalRun,

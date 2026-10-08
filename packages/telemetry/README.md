@@ -48,8 +48,9 @@ available without enabling content capture.
 
 Delivery is best-effort and at-least-once while the process remains alive. The
 adapter batches events, retries transient failures, and exposes `flush()` for
-controlled shutdown. It has no durable outbox; applications that need durable
-delivery must own that outbox themselves. Telemetry failures never fail a
+controlled shutdown. Ordinary events have no durable outbox; applications that
+need durable event delivery must own that outbox themselves. Complete diagnostics
+have a separate opt-in upload queue and optional Node spool. Telemetry failures never fail a
 workflow execution.
 
 `interrupt.expired` is intentionally API-derived from the durable `expiresAt`
@@ -67,3 +68,17 @@ values and resume capability tokens are never included in interrupt telemetry.
 `run.cancelled` records aborted active executions. Custom HTTP routes must forward
 `request.signal`; `createChatRouteHandler` forwards it automatically. Cancelling a
 `toSSE` response body also cancels its active execution source.
+
+## Complete error diagnostics
+
+Set `diagnostics: { enabled: true }` on `createKortyxTelemetryAdapter` after
+upgrading the API/Studio and granting `diagnostics:read` to the Studio reader.
+Native capture retains large messages/stacks, causes, aggregate members, custom
+fields, and private provider response evidence with credential redaction. Run
+errors link to one diagnostic; native upload parts do not become timeline events.
+
+Studio and `kortyx studio diagnostics get|download` retrieve complete content
+without application chunk reconstruction. Capture and delivery limits are explicit,
+and `flushDiagnostics(timeoutMs)` reports pending and dropped delivery. See the
+[deployment and usage guide](../../docs/complete-error-diagnostics.md) for limits,
+permissions, spool/retention operations, privacy policy, and rollout instructions.

@@ -1,4 +1,5 @@
 import type {
+  DiagnosticManifest,
   EnsureWorkflowTopologyRequest,
   KortyxTelemetryEvent,
   StudioInterrupt,
@@ -983,3 +984,92 @@ export type StudioRunProjection = typeof studioRuns.$inferSelect;
 export type StudioSessionProjection = typeof studioSessions.$inferSelect;
 export type StudioInterruptProjection = typeof studioInterrupts.$inferSelect;
 export type TelemetryEventRecord = typeof telemetryEvents.$inferSelect;
+
+/** Private diagnostics are loaded independently of the bounded event/read models. */
+export const errorDiagnostics = pgTable(
+  "error_diagnostics",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organizationId: uuid("organization_id").notNull(),
+    projectId: uuid("project_id").notNull(),
+    diagnosticId: uuid("diagnostic_id").notNull(),
+    environment: text("environment").notNull(),
+    manifest: jsonb("manifest").$type<DiagnosticManifest>().notNull(),
+    content: text("content"),
+    state: text("state").notNull().default("pending"),
+    createdAt: timestampWithTimezone("created_at").notNull().defaultNow(),
+    expiresAt: timestampWithTimezone("expires_at").notNull(),
+  },
+  (table) => [
+    foreignKey({
+      columns: [table.organizationId, table.projectId],
+      foreignColumns: [projects.organizationId, projects.id],
+      name: "error_diagnostics_project_tenant_fk",
+    }).onDelete("cascade"),
+    uniqueIndex("error_diagnostics_scope_identity_unique").on(
+      table.organizationId,
+      table.projectId,
+      table.environment,
+      table.diagnosticId,
+    ),
+    uniqueIndex("error_diagnostics_scope_id_unique").on(
+      table.organizationId,
+      table.projectId,
+      table.id,
+    ),
+    index("error_diagnostics_expiry_idx").on(table.expiresAt),
+  ],
+);
+export const errorDiagnosticParts = pgTable(
+  "error_diagnostic_parts",
+  {
+    organizationId: uuid("organization_id").notNull(),
+    projectId: uuid("project_id").notNull(),
+    diagnosticRecordId: uuid("diagnostic_record_id").notNull(),
+    index: integer("part_index").notNull(),
+    data: text("data").notNull(),
+  },
+  (table) => [
+    foreignKey({
+      columns: [
+        table.organizationId,
+        table.projectId,
+        table.diagnosticRecordId,
+      ],
+      foreignColumns: [
+        errorDiagnostics.organizationId,
+        errorDiagnostics.projectId,
+        errorDiagnostics.id,
+      ],
+      name: "error_diagnostic_parts_tenant_fk",
+    }).onDelete("cascade"),
+    uniqueIndex("error_diagnostic_parts_identity_unique").on(
+      table.diagnosticRecordId,
+      table.index,
+    ),
+  ],
+);
+export const diagnosticAccess = pgTable(
+  "diagnostic_access",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organizationId: uuid("organization_id").notNull(),
+    projectId: uuid("project_id").notNull(),
+    diagnosticId: uuid("diagnostic_id").notNull(),
+    actor: text("actor").notNull(),
+    action: text("action").notNull(),
+    occurredAt: timestampWithTimezone("occurred_at").notNull().defaultNow(),
+  },
+  (table) => [
+    foreignKey({
+      columns: [table.organizationId, table.projectId],
+      foreignColumns: [projects.organizationId, projects.id],
+      name: "diagnostic_access_project_tenant_fk",
+    }).onDelete("cascade"),
+    index("diagnostic_access_scope_idx").on(
+      table.organizationId,
+      table.projectId,
+      table.occurredAt,
+    ),
+  ],
+);

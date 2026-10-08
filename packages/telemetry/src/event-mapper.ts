@@ -14,6 +14,11 @@ import {
   exceptionDiagnostics,
   safeTelemetryMetadata,
 } from "@kortyx/hooks/internal";
+import { summarizeDiagnostic } from "@kortyx/telemetry-contracts";
+import type {
+  createDiagnosticDelivery,
+  DiagnosticCaptureContext,
+} from "./diagnostics";
 import type { ActiveSpan, SpanContext } from "./types";
 
 const stringValue = (value: unknown): string | undefined =>
@@ -30,6 +35,7 @@ const shouldCapture = (
 const asErrorPayload = (
   error: unknown,
   project?: import("@kortyx/hooks").KortyxTraceErrorProjection,
+  captured?: ReturnType<ReturnType<typeof createDiagnosticDelivery>["capture"]>,
 ): Record<string, unknown> => {
   if (isControlFlowError(error))
     return {
@@ -39,13 +45,22 @@ const asErrorPayload = (
       controlFlow: true,
     };
   const failure = serializeFailure(error);
-  const diagnostic = exceptionDiagnostics(error, project);
+  const diagnostic = captured
+    ? captured.details
+    : exceptionDiagnostics(error, project);
+  const summary = diagnostic ? summarizeDiagnostic(diagnostic) : null;
+  const reference = captured
+    ? Object.fromEntries(
+        Object.entries(captured).filter(([key]) => key !== "details"),
+      )
+    : {};
   return {
     ...failure,
-    name: diagnostic?.type ?? "Error",
-    message: diagnostic?.message ?? failure.message,
-    ...(diagnostic?.stack ? { stack: diagnostic.stack } : {}),
-    ...(diagnostic?.cause ? { cause: diagnostic.cause } : {}),
+    name: summary?.type ?? "Error",
+    message: summary?.message ?? failure.message,
+    ...(summary?.stack ? { stack: summary.stack } : {}),
+    ...(summary?.cause ? { cause: summary.cause } : {}),
+    ...reference,
   };
 };
 
@@ -96,6 +111,7 @@ export const createEventMapper = (args: {
   tags?: string[] | undefined;
   createId: () => string;
   error?: import("@kortyx/hooks").KortyxTraceErrorProjection;
+  captureDiagnostic?: ReturnType<typeof createDiagnosticDelivery>["capture"];
 }) => {
   const createEvent = (input: {
     type: KortyxTelemetryEventType;
@@ -189,7 +205,12 @@ export const createEventMapper = (args: {
   });
 
   return {
-    asErrorPayload: (error: unknown) => asErrorPayload(error, args.error),
+    asErrorPayload: (error: unknown, context?: DiagnosticCaptureContext) =>
+      asErrorPayload(
+        error,
+        context?.project ?? args.error,
+        context ? args.captureDiagnostic?.(error, context) : undefined,
+      ),
     correlationFrom,
     createEvent,
     shouldCapture,

@@ -569,8 +569,43 @@ export async function assertProviderResponse(
   if (response.ok) return;
   let message = `HTTP ${response.status}`;
   let providerCode: unknown;
+  let responseBody = "";
+  let bodyLimited = false;
+  let bodyUnreadable = false;
   try {
-    const payload: unknown = await response.json();
+    const reader = response.body?.getReader();
+    const chunks: Uint8Array[] = [];
+    let capturedBytes = 0;
+    const bodyLimit = 8 * 1024 * 1024;
+    if (reader) {
+      try {
+        while (true) {
+          const part = await reader.read();
+          if (part.done) break;
+          const remaining = bodyLimit - capturedBytes;
+          chunks.push(part.value.subarray(0, remaining));
+          capturedBytes += Math.min(part.value.length, remaining);
+          if (part.value.length > remaining) {
+            bodyLimited = true;
+            await reader.cancel();
+            break;
+          }
+        }
+      } catch (error) {
+        if (isControlFlowError(error)) throw error;
+        bodyUnreadable = true;
+      } finally {
+        reader.releaseLock();
+      }
+    }
+    const bytes = new Uint8Array(capturedBytes);
+    let offset = 0;
+    for (const chunk of chunks) {
+      bytes.set(chunk, offset);
+      offset += chunk.length;
+    }
+    responseBody = new TextDecoder().decode(bytes);
+    const payload: unknown = JSON.parse(responseBody);
     const detail = errorProperty(payload, "error");
     const candidate =
       errorProperty(payload, "message") ??
@@ -585,6 +620,25 @@ export async function assertProviderResponse(
     /* Status remains authoritative when the body is unreadable. */
   }
   const failure = providerHttpError(provider, response, action, message);
+  Object.defineProperty(failure, "providerResponse", {
+    value: {
+      status: response.status,
+      statusText: response.statusText,
+      headers: Object.fromEntries(response.headers),
+      body: responseBody,
+    },
+  });
+  if (bodyLimited || bodyUnreadable)
+    Object.defineProperty(failure, "diagnosticOmissions", {
+      value: [
+        {
+          path: "#/data/providerResponse/body",
+          reason: bodyLimited
+            ? "provider_body_limit"
+            : "provider_body_read_failed",
+        },
+      ],
+    });
   if (
     [
       "insufficient_quota",

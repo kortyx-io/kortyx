@@ -4,6 +4,7 @@ import type { ApiAdapterOptions, ApiPrincipal } from "../auth/contracts";
 export type ApiAction =
   | "telemetry:write"
   | "studio:read"
+  | "diagnostics:read"
   | "studio:write"
   | "eval:run";
 

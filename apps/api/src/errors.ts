@@ -2,6 +2,7 @@ import {
   TelemetryAuthError,
   TelemetryForbiddenError,
   TelemetryNotFoundError,
+  TelemetryValidationError,
 } from "@kortyx/telemetry-db";
 import type { ErrorHandler } from "hono";
 import { HTTPException } from "hono/http-exception";
@@ -28,6 +29,17 @@ export const apiErrorHandler: ErrorHandler<ApiEnv> = (error, c) => {
     return c.json(
       { error: error.code, message: error.message, requestId },
       404,
+    );
+  }
+
+  if (error instanceof TelemetryValidationError) {
+    return c.json(
+      {
+        error: error.code,
+        message: "Telemetry request is invalid.",
+        requestId,
+      },
+      400,
     );
   }
 
