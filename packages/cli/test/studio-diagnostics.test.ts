@@ -69,6 +69,26 @@ const args = (action: string) => [
   "--json",
 ];
 describe("native CLI diagnostics", () => {
+  it("requires a valid diagnostic ID and an explicit environment", async () => {
+    const invalidId = args("get");
+    invalidId[3] = "not-a-diagnostic-id";
+    await expect(
+      command(value, vi.fn()).parseAsync(invalidId, { from: "user" }),
+    ).rejects.toMatchObject({ code: "invalid_diagnostic_id" });
+    const missingEnvironment = args("get");
+    missingEnvironment.splice(4, 2);
+    await expect(
+      command(value, vi.fn()).parseAsync(missingEnvironment, { from: "user" }),
+    ).rejects.toMatchObject({ code: "environment_required" });
+  });
+  it("downloads the complete verified JSON to stdout when no file is requested", async () => {
+    const log = vi.fn();
+    await command(value, log).parseAsync(args("download"), { from: "user" });
+    expect(log).toHaveBeenCalledExactlyOnceWith(bytes);
+    expect(
+      JSON.parse(log.mock.calls[0]?.[0] ?? "{}").data.responseBody,
+    ).toHaveLength(60000);
+  });
   it("keeps get bounded and correlated", async () => {
     const log = vi.fn();
     await command(value, log).parseAsync(args("get"), { from: "user" });
@@ -115,6 +135,12 @@ describe("native CLI diagnostics", () => {
     await expect(
       command(
         { ...value, contentChecksum: "0".repeat(64) },
+        vi.fn(),
+      ).parseAsync(args("download"), { from: "user" }),
+    ).rejects.toMatchObject({ code: "diagnostic_integrity_failed" });
+    await expect(
+      command(
+        { ...value, contentByteLength: value.contentByteLength + 1 },
         vi.fn(),
       ).parseAsync(args("download"), { from: "user" }),
     ).rejects.toMatchObject({ code: "diagnostic_integrity_failed" });
