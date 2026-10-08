@@ -56,6 +56,7 @@ export function PayloadViewer({
   className,
   presentation,
   onPresentationChange,
+  stringPreviewLength,
 }: {
   presentation?: PayloadPresentation;
   onPresentationChange?: (patch: Partial<PayloadPresentation>) => void;
@@ -63,6 +64,8 @@ export function PayloadViewer({
   defaultMode?: ViewMode;
   defaultClean?: boolean;
   expandAll?: boolean;
+  /** Bound strings in Pretty only; JSON, other representations, and copy stay complete. */
+  stringPreviewLength?: number;
   className?: string;
 }) {
   const [localMode, setMode] = useState<ViewMode>(defaultMode);
@@ -289,7 +292,13 @@ export function PayloadViewer({
                 ) : (
                   <ObjectLabel
                     name={name}
-                    data={data}
+                    data={
+                      stringPreviewLength !== undefined &&
+                      typeof data === "string" &&
+                      data.length > stringPreviewLength
+                        ? `${data.slice(0, stringPreviewLength)}… (${data.length.toLocaleString("en-US")} characters; view JSON for the full value)`
+                        : data
+                    }
                     isNonenumerable={isNonenumerable}
                   />
                 )

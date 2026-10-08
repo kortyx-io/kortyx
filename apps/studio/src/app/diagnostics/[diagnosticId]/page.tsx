@@ -1,3 +1,4 @@
+import { DetailPage } from "@/components/detail/detail-page";
 import { DiagnosticDetails } from "@/features/diagnostics/diagnostic-details";
 import { StudioDataError } from "@/features/telemetry/components/studio-data-error";
 import { getStudioDiagnostic } from "@/lib/studio-api";
@@ -18,5 +19,12 @@ export default async function DiagnosticPage({
     return (
       <StudioDataError title="Diagnostic unavailable" error={result.error} />
     );
-  return <DiagnosticDetails diagnostic={result.data} />;
+  return (
+    <DetailPage
+      title="Error diagnostic"
+      description="Inspect the exception, provider response, and capture details"
+    >
+      <DiagnosticDetails diagnostic={result.data} />
+    </DetailPage>
+  );
 }
