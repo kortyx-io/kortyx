@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.32.0](https://github.com/kortyx-io/kortyx/compare/hooks-v0.31.0...hooks-v0.32.0) (2026-10-08)
+
+
+### Features
+
+* **hooks:** support mixed tools outputs and interrupts ([#297](https://github.com/kortyx-io/kortyx/issues/297)) ([0aa4aa6](https://github.com/kortyx-io/kortyx/commit/0aa4aa6b08cd2ef44f603b8dbe8e35b30c54cbdc))
+
 ## [0.31.0](https://github.com/kortyx-io/kortyx/compare/hooks-v0.30.2...hooks-v0.31.0) (2026-10-08)
 
 

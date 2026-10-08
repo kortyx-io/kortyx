@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.46.0](https://github.com/kortyx-io/kortyx/compare/website-v0.45.0...website-v0.46.0) (2026-10-08)
+
+
+### Features
+
+* **hooks:** support mixed tools outputs and interrupts ([#297](https://github.com/kortyx-io/kortyx/issues/297)) ([0aa4aa6](https://github.com/kortyx-io/kortyx/commit/0aa4aa6b08cd2ef44f603b8dbe8e35b30c54cbdc))
+
 ## [0.45.0](https://github.com/kortyx-io/kortyx/compare/website-v0.44.0...website-v0.45.0) (2026-10-08)
 
 
