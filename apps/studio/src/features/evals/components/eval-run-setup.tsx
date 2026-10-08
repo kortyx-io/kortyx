@@ -408,6 +408,10 @@ export function EvalRunSetup({
             onChange={(id) => {
               void setQuery({
                 launchApplication: id,
+                launchPrompts: null,
+                launchPrompt: null,
+                launchVersion: null,
+                launchGroup: null,
                 launchScope: "all",
                 launchSuite: "",
                 launchSuites: null,

@@ -35,12 +35,7 @@ COPY --from=pruner /repo/tsconfig.base.json /repo/tsconfig.lib.json ./
 COPY apps/api/docker/entrypoint.sh /usr/local/bin/kortyx-api-entrypoint
 COPY apps/api/docker/kortyx-studio-db /usr/local/bin/kortyx-studio-db
 RUN chmod 0755 /usr/local/bin/kortyx-api-entrypoint /usr/local/bin/kortyx-studio-db \
-  && pnpm --filter @kortyx/telemetry-contracts build \
-  && pnpm exec turbo run build --filter=@kortyx/agent... \
-  && pnpm --filter @kortyx/openai build \
-  && pnpm --filter @kortyx/openrouter build \
-  && pnpm --filter @kortyx/telemetry-db build \
-  && pnpm --filter @kortyx/api build
+  && pnpm exec turbo run build --filter=@kortyx/api...
 
 EXPOSE 6400
 ENTRYPOINT ["kortyx-api-entrypoint"]
