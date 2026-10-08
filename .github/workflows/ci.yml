@@ -226,7 +226,7 @@ jobs:
               label: "production drawer stack",
               suite: production,
               shard: "",
-              spec: detail-drawer-stack.spec.ts,
+              spec: '(detail-drawer-stack|prompt-drawers)\.spec\.ts',
             }
           - {
               label: "production eval navigation",

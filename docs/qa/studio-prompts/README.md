@@ -33,6 +33,26 @@ The example uses a deterministic provider and app judge for these integration ch
 
 Inspected the real React UI in light and dark themes at 1440×1000, 768×1024 and 390×844. Checked library/category navigation, detail headers, history menus, comparison and save-review dialogs, group/eval/import drawers and promotion controls. Fixed narrow-header wrapping, diff footer wrapping and read-only format contrast. Tablet and mobile document widths matched their viewports; wide tables scroll inside their containers. Restored the original theme and viewport after testing.
 
+### Drawer and table follow-up
+
+Replaced the history sidebar with a version dropdown whenever the prompt's available content width is below 896px, including small drawers on wide screens. Wide prompt views retain the sidebar. Removed the prompt table's redundant bordered, rounded shell.
+
+Reproduced and fixed nested editors covering parent content, menu typeahead expanding a route drawer, Escape dismissing both a menu/dialog and its parent, and loss of the Groups list ancestor when opening Group → Prompt. Prompt and group action panels now participate in browser Back/Forward; category list history correctly closes and restores prompt drawers.
+
+The production build passed **31 browser checks** spanning the existing drawer-stack and responsive suites plus nine new prompt regressions and fixture setup/cleanup. The prompt suite also passed all **11 development checks** including setup/cleanup. Studio's **244 unit tests**, type checking and the production build passed after these changes. The new prompt regressions run in both development and production CI jobs.
+
+Manually reviewed the final production UI on desktop, 768×1024 tablet and 390×844 mobile. Confirmed full-width message fields beside the compact selector, wrapped change notes inside its menu, and space reserved beside desktop inspectors. Temporary viewport overrides were reset after review.
+
+![Flat prompt library table](desktop-library-flat.png)
+
+![Compact history menu in a desktop drawer](desktop-history-menu.png)
+
+![Prompt content alongside its nested inspector](desktop-inspector-spacing.png)
+
+![Tablet prompt content using the compact history selector](tablet-history-content.png)
+
+![Mobile version history menu](mobile-history-menu.png)
+
 ### Desktop version comparison
 
 ![Aligned messages and configuration differences](desktop-diff.jpg)

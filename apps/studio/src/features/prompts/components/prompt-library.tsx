@@ -521,6 +521,7 @@ export function PromptLibraryView({
           <div className="min-h-0 flex-1 overflow-hidden">
             <DataTableProvider columns={columns}>
               <DataTable
+                className="rounded-none border-0 shadow-none"
                 data={assets}
                 getRowKey={(asset) => asset.id}
                 emptyState={

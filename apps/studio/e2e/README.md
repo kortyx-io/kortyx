@@ -30,6 +30,12 @@ Never replace the fixture with hard-coded local database rows. Going through
 ingestion keeps Studio projections, API contracts, and detail routes in the
 test boundary.
 
+`prompt-drawers.spec.ts` creates a category, two immutable prompt versions and
+one test group through the authenticated prompts API. It cleans up only its
+reserved `e2e-prompt-drawers/classify` asset and `E2E prompt drawers` category /
+`E2E prompt drawer group` selection. Bootstrap the local test key with
+`KORTYX_STUDIO_ENABLE_PROMPTS=1` to enable those fixture mutations.
+
 ## Stable assertions
 
 - `data-row-key` identifies a shared table row without depending on column
@@ -105,6 +111,12 @@ response after Presence has already removed the closing surface.
 
 If a failure reveals a new regression class, add the scenario here and to the
 relevant hardening ticket before changing the implementation.
+
+Prompt regressions additionally cover container-sized history menus, full-width
+editors inside narrow drawers, a flat library table, action inspector
+Back/Forward, repeated dismissal, reserved inspector space, category list
+restoration, Groups → Group → Prompt ancestors and Escape/typeahead isolation
+for menus and version comparison dialogs.
 
 ## Development and production checks
 

@@ -271,10 +271,19 @@ function DetailDrawerSurface({
   useEffect(() => {
     if (!active || !layer.isTop) return;
     const onKeyDown = (event: KeyboardEvent) => {
-      if (nestedInspector.nestedOpen) return;
+      const target = event.target as HTMLElement | null;
+      // Portalled menus and dialogs own their keyboard dismissal and typeahead.
+      // Their first Escape must not also close the surrounding route drawer.
+      if (
+        event.defaultPrevented ||
+        nestedInspector.nestedOpen ||
+        target?.closest(
+          '[role="menu"], [role="listbox"], [data-slot="dialog-content"], [data-slot="popover-content"], [data-slot="sheet-content"]',
+        )
+      )
+        return;
       if (event.key === "Escape") closeDrawer();
       if (event.key.toLowerCase() === "e" && !event.metaKey && !event.ctrlKey) {
-        const target = event.target as HTMLElement | null;
         if (
           !expandedView &&
           !target?.matches("input, textarea, select, [contenteditable=true]")

@@ -1,9 +1,5 @@
 "use client";
-import {
-  canonicalPromptJson,
-  type PromptContent,
-  promptHash,
-} from "@kortyx/prompts";
+import { type PromptContent, promptHash } from "@kortyx/prompts";
 import {
   type PromptDetail,
   PromptDetailSchema,
@@ -31,7 +27,13 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
   DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
@@ -45,6 +47,7 @@ import { promptRequest } from "../api/client";
 import { categoryPath, downloadJson } from "../lib/presentation";
 import { PromptDiff } from "./prompt-diff";
 import { editorClass, PromptFields, validateEditor } from "./prompt-fields";
+import { PromptWorkspace } from "./prompt-workspace";
 
 type Version = PromptDetail["versions"][number];
 type Panel = {
@@ -76,6 +79,16 @@ export function PromptDetailView({
       v: parseAsInteger,
       edit: parseAsBoolean.withDefault(false),
       history: parseAsBoolean.withDefault(true),
+      promptAction: parseAsStringLiteral([
+        "group",
+        "promote",
+        "code",
+        "review",
+        "move",
+        "rename",
+        "policy",
+      ]),
+      promptActionVersion: parseAsInteger,
     },
     { shallow: true },
   );
@@ -97,8 +110,20 @@ export function PromptDetailView({
     hash?: string;
     idempotencyKey?: string;
   } | null>(null);
-  const [panel, setPanel] = useState<Panel | null>(null),
-    [note, setNote] = useState(""),
+  const panelVersion =
+    detail.versions.find(
+      (version) => version.version === query.promptActionVersion,
+    ) ?? selected;
+  const panel: Panel | null = query.promptAction
+    ? { type: query.promptAction, version: panelVersion }
+    : null;
+  const setPanel = (next: Panel | null) => {
+    void setQuery({
+      promptAction: next?.type ?? null,
+      promptActionVersion: next?.version.version ?? null,
+    });
+  };
+  const [note, setNote] = useState(""),
     [groupId, setGroupId] = useState(""),
     [groupName, setGroupName] = useState(""),
     [environment, setEnvironment] = useState(
@@ -343,6 +368,109 @@ export function PromptDetailView({
   const evidence = detail.evidence.filter(
     (item) => item.version === selected.version,
   );
+  const selectVersion = (version: number) => {
+    void setQuery({
+      v: version,
+      edit: false,
+      promptAction: null,
+      promptActionVersion: null,
+    });
+  };
+  const loadOlderVersions = async () => {
+    setWorking(true);
+    try {
+      const older = PromptDetailSchema.parse(
+        await promptRequest(
+          `assets/${detail.asset.id}?versionsCursor=${detail.versionsNextCursor}`,
+        ),
+      );
+      setDetail((current) => ({
+        ...current,
+        versions: [
+          ...current.versions,
+          ...older.versions.filter(
+            (version) =>
+              !current.versions.some(
+                (item) => item.version === version.version,
+              ),
+          ),
+        ].sort((a, b) => b.version - a.version),
+        versionsNextCursor: older.versionsNextCursor,
+      }));
+    } catch (cause) {
+      setError(String(cause));
+    } finally {
+      setWorking(false);
+    }
+  };
+  const versionActions = (version: Version) => (
+    <>
+      <DropdownMenuItem
+        disabled={detail.versions.length < 2}
+        onSelect={() =>
+          setCompare({
+            before:
+              detail.versions.find((item) => item.version < version.version) ??
+              detail.versions.at(-1)!,
+            after: version,
+            save: false,
+          })
+        }
+      >
+        Compare versions
+      </DropdownMenuItem>
+      <DropdownMenuItem
+        disabled={!permissions.edit || query.edit}
+        onSelect={() => startEdit(version)}
+      >
+        Edit as draft
+      </DropdownMenuItem>
+      <DropdownMenuItem
+        disabled={!targets.canRun || !applicable || query.edit}
+        onSelect={() => test(version)}
+      >
+        Test this version
+      </DropdownMenuItem>
+      <DropdownMenuItem
+        disabled={!permissions.edit}
+        onSelect={() => showPanel("group", version)}
+      >
+        Add to test group
+      </DropdownMenuItem>
+      <DropdownMenuItem
+        disabled={!permissions.promote}
+        onSelect={() => showPanel("promote", version)}
+      >
+        Promote / roll back…
+      </DropdownMenuItem>
+      <DropdownMenuItem
+        disabled={!permissions.review}
+        onSelect={() => showPanel("review", version)}
+      >
+        Review this version
+      </DropdownMenuItem>
+      <DropdownMenuItem onSelect={() => showPanel("code", version)}>
+        Pinned code helper
+      </DropdownMenuItem>
+      <DropdownMenuItem
+        onSelect={() => {
+          void promptRequest("export", {
+            keys: [detail.asset.key],
+            versions: { [detail.asset.key]: version.version },
+          })
+            .then((bundle) =>
+              downloadJson(
+                `${detail.asset.key.replaceAll("/", "-")}-v${version.version}.json`,
+                bundle,
+              ),
+            )
+            .catch((cause) => setError(String(cause)));
+        }}
+      >
+        Export version
+      </DropdownMenuItem>
+    </>
+  );
   const view = (
     <div className="flex h-full min-h-0 flex-col">
       <header className="flex flex-wrap items-start justify-between gap-3 border-b px-5 py-4">
@@ -542,7 +670,13 @@ export function PromptDetailView({
             key={tab}
             aria-current={query.tab === tab ? "page" : undefined}
             className={`min-h-11 border-b-2 px-1 text-xs capitalize ${query.tab === tab ? "border-foreground font-medium" : "border-transparent text-muted-foreground hover:text-foreground"}`}
-            onClick={() => void setQuery({ tab: tab as typeof query.tab })}
+            onClick={() =>
+              void setQuery({
+                tab: tab as typeof query.tab,
+                promptAction: null,
+                promptActionVersion: null,
+              })
+            }
           >
             {tab}
             {tab === "evals"
@@ -553,344 +687,320 @@ export function PromptDetailView({
           </button>
         ))}
       </nav>
-      <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
-        <aside
-          className={`${query.history ? "lg:w-56" : "lg:w-12"} shrink-0 border-b lg:border-r lg:border-b-0`}
-        >
-          <Button
-            size="sm"
-            variant="ghost"
-            className="m-2 flex max-w-full items-center gap-2"
-            aria-expanded={query.history}
-            onClick={() => void setQuery({ history: !query.history })}
-          >
-            <ChevronDown
-              className={`size-3.5 transition-transform ${query.history ? "" : "-rotate-90"}`}
-            />
-            <span className={query.history ? "" : "lg:sr-only"}>
-              Version history
-            </span>
-          </Button>
-          {query.history && (
-            <div className="max-h-48 space-y-1 overflow-y-auto px-2 pb-2 lg:max-h-[calc(100dvh-22rem)]">
-              {detail.versions.map((version) => (
-                <div
-                  key={version.version}
-                  className={`flex items-start gap-1 rounded-md ${selected.version === version.version ? "bg-muted" : "hover:bg-muted/50"}`}
-                >
-                  <button
-                    type="button"
-                    className="min-w-0 flex-1 space-y-1 px-2 py-3 text-left"
+      <PromptWorkspace>
+        <div className="shrink-0 border-b px-5 py-2 @4xl/prompt-detail:hidden">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button size="sm" variant="outline" className="max-w-full gap-2">
+                Version history
+                <span className="text-muted-foreground">
+                  · v{selected.version}
+                </span>
+                <ChevronDown className="size-3.5" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent
+              align="start"
+              className="w-80 max-w-[calc(100vw-2rem)]"
+            >
+              <DropdownMenuLabel>Version history</DropdownMenuLabel>
+              <DropdownMenuRadioGroup
+                value={String(selected.version)}
+                onValueChange={(value) => selectVersion(Number(value))}
+              >
+                {detail.versions.map((version) => (
+                  <DropdownMenuRadioItem
+                    key={version.version}
+                    value={String(version.version)}
                     disabled={query.edit}
-                    onClick={async () => {
-                      if (query.edit && fieldsValid) {
-                        queue.current = validateEditor(content);
-                        await flush();
-                      }
-                      void setQuery({ v: version.version, edit: false });
-                    }}
+                    className="items-start py-2"
                   >
-                    <span className="flex items-center justify-between gap-2 text-xs font-medium">
-                      <span>v{version.version}</span>
-                      {detail.asset.assignments.some(
-                        (item) => item.version === version.version,
-                      ) && (
-                        <span className="text-[10px] text-emerald-700 dark:text-emerald-400">
-                          Assigned
-                        </span>
-                      )}
+                    <span className="min-w-0 flex-1 space-y-1">
+                      <span className="flex items-center justify-between gap-2 text-xs font-medium">
+                        <span>v{version.version}</span>
+                        {detail.asset.assignments.some(
+                          (item) => item.version === version.version,
+                        ) && (
+                          <span className="text-[10px] text-emerald-700 dark:text-emerald-400">
+                            Assigned
+                          </span>
+                        )}
+                      </span>
+                      <span className="block text-[11px] text-muted-foreground">
+                        {version.note}
+                      </span>
+                      <span className="block text-[10px] text-muted-foreground">
+                        {new Date(version.createdAt).toLocaleDateString()}
+                      </span>
                     </span>
-                    <span
-                      className="block truncate text-[11px] text-muted-foreground"
-                      title={version.note}
-                    >
-                      {version.note}
-                    </span>
-                    <span className="block text-[10px] text-muted-foreground">
-                      {new Date(version.createdAt).toLocaleDateString()}
-                    </span>
-                  </button>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        className="mt-1 size-8 shrink-0"
-                        aria-label={`Version ${version.version} actions`}
-                      >
-                        <MoreHorizontal className="size-3.5" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem
-                        disabled={detail.versions.length < 2}
-                        onSelect={() =>
-                          setCompare({
-                            before:
-                              detail.versions.find(
-                                (item) => item.version < version.version,
-                              ) ?? detail.versions.at(-1)!,
-                            after: version,
-                            save: false,
-                          })
-                        }
-                      >
-                        Compare versions
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        disabled={!permissions.edit || query.edit}
-                        onSelect={() => startEdit(version)}
-                      >
-                        Edit as draft
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        disabled={!targets.canRun || !applicable || query.edit}
-                        onSelect={() => test(version)}
-                      >
-                        Test this version
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        disabled={!permissions.edit}
-                        onSelect={() => showPanel("group", version)}
-                      >
-                        Add to test group
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        disabled={!permissions.promote}
-                        onSelect={() => showPanel("promote", version)}
-                      >
-                        Promote / roll back…
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        disabled={!permissions.review}
-                        onSelect={() => showPanel("review", version)}
-                      >
-                        Review this version
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        onSelect={() => showPanel("code", version)}
-                      >
-                        Pinned code helper
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        onSelect={() => {
-                          void promptRequest("export", {
-                            keys: [detail.asset.key],
-                            versions: { [detail.asset.key]: version.version },
-                          })
-                            .then((bundle) =>
-                              downloadJson(
-                                `${detail.asset.key.replaceAll("/", "-")}-v${version.version}.json`,
-                                bundle,
-                              ),
-                            )
-                            .catch((cause) => setError(String(cause)));
-                        }}
-                      >
-                        Export version
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </div>
-              ))}
+                  </DropdownMenuRadioItem>
+                ))}
+              </DropdownMenuRadioGroup>
               {detail.versionsNextCursor && (
-                <Button
-                  size="sm"
-                  variant="ghost"
+                <DropdownMenuItem
                   disabled={working}
-                  onClick={async () => {
-                    setWorking(true);
-                    try {
-                      const older = PromptDetailSchema.parse(
-                        await promptRequest(
-                          `assets/${detail.asset.id}?versionsCursor=${detail.versionsNextCursor}`,
-                        ),
-                      );
-                      setDetail((current) => ({
-                        ...current,
-                        versions: [
-                          ...current.versions,
-                          ...older.versions.filter(
-                            (version) =>
-                              !current.versions.some(
-                                (item) => item.version === version.version,
-                              ),
-                          ),
-                        ].sort((a, b) => b.version - a.version),
-                        versionsNextCursor: older.versionsNextCursor,
-                      }));
-                    } catch (cause) {
-                      setError(String(cause));
-                    } finally {
-                      setWorking(false);
-                    }
+                  onSelect={(event) => {
+                    event.preventDefault();
+                    void loadOlderVersions();
                   }}
                 >
                   Load older versions
-                </Button>
+                </DropdownMenuItem>
               )}
-            </div>
-          )}
-        </aside>
-        <main className="min-h-0 min-w-0 flex-1 overflow-y-auto p-5">
-          {query.tab === "content" ? (
-            <div className="mx-auto max-w-3xl space-y-5">
-              {query.edit && (
-                <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border bg-muted/30 px-3 py-2">
-                  <p className="text-xs">Editing a draft · {autosave}</p>
+              <DropdownMenuSeparator />
+              <DropdownMenuSub>
+                <DropdownMenuSubTrigger>
+                  v{selected.version} actions
+                </DropdownMenuSubTrigger>
+                <DropdownMenuSubContent>
+                  {versionActions(selected)}
+                </DropdownMenuSubContent>
+              </DropdownMenuSub>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+        <div className="flex min-h-0 flex-1">
+          <aside
+            className={`${query.history ? "w-56" : "w-12"} hidden shrink-0 border-r @4xl/prompt-detail:block`}
+          >
+            <Button
+              size="sm"
+              variant="ghost"
+              className="m-2 flex max-w-full items-center gap-2"
+              aria-expanded={query.history}
+              onClick={() => void setQuery({ history: !query.history })}
+            >
+              <ChevronDown
+                className={`size-3.5 transition-transform ${query.history ? "" : "-rotate-90"}`}
+              />
+              <span className={query.history ? "" : "sr-only"}>
+                Version history
+              </span>
+            </Button>
+            {query.history && (
+              <div className="max-h-[calc(100dvh-22rem)] space-y-1 overflow-y-auto px-2 pb-2">
+                {detail.versions.map((version) => (
+                  <div
+                    key={version.version}
+                    className={`flex items-start gap-1 rounded-md ${selected.version === version.version ? "bg-muted" : "hover:bg-muted/50"}`}
+                  >
+                    <button
+                      type="button"
+                      className="min-w-0 flex-1 space-y-1 px-2 py-3 text-left"
+                      disabled={query.edit}
+                      onClick={() => selectVersion(version.version)}
+                    >
+                      <span className="flex items-center justify-between gap-2 text-xs font-medium">
+                        <span>v{version.version}</span>
+                        {detail.asset.assignments.some(
+                          (item) => item.version === version.version,
+                        ) && (
+                          <span className="text-[10px] text-emerald-700 dark:text-emerald-400">
+                            Assigned
+                          </span>
+                        )}
+                      </span>
+                      <span
+                        className="block truncate text-[11px] text-muted-foreground"
+                        title={version.note}
+                      >
+                        {version.note}
+                      </span>
+                      <span className="block text-[10px] text-muted-foreground">
+                        {new Date(version.createdAt).toLocaleDateString()}
+                      </span>
+                    </button>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className="mt-1 size-8 shrink-0"
+                          aria-label={`Version ${version.version} actions`}
+                        >
+                          <MoreHorizontal className="size-3.5" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        {versionActions(version)}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
+                ))}
+                {detail.versionsNextCursor && (
                   <Button
                     size="sm"
                     variant="ghost"
-                    onClick={async () => {
-                      if (fieldsValid) {
-                        queue.current = validateEditor(content);
-                        await flush();
-                      }
-                      void setQuery({ edit: false });
-                    }}
+                    disabled={working}
+                    onClick={() => void loadOlderVersions()}
                   >
-                    Close editor
+                    Load older versions
+                  </Button>
+                )}
+              </div>
+            )}
+          </aside>
+          <main className="min-h-0 min-w-0 flex-1 overflow-y-auto p-5">
+            {query.tab === "content" ? (
+              <div className="mx-auto max-w-3xl space-y-5">
+                {query.edit && (
+                  <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border bg-muted/30 px-3 py-2">
+                    <p className="text-xs">Editing a draft · {autosave}</p>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={async () => {
+                        if (fieldsValid) {
+                          queue.current = validateEditor(content);
+                          await flush();
+                        }
+                        void setQuery({ edit: false });
+                      }}
+                    >
+                      Close editor
+                    </Button>
+                  </div>
+                )}
+                <PromptFields
+                  key={`${detail.asset.id}:${selected.version}:${query.edit}`}
+                  value={query.edit ? content : selected.content}
+                  onChange={setContent}
+                  onValidityChange={setFieldsValid}
+                  disabled={!query.edit || Boolean(compare) || working}
+                />
+              </div>
+            ) : query.tab === "evals" ? (
+              <div className="space-y-3">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <h2 className="text-xs font-semibold">
+                    Evaluations for v{selected.version}
+                  </h2>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={!targets.canRun || !applicable}
+                    onClick={() => test(selected)}
+                  >
+                    Run a suite
                   </Button>
                 </div>
-              )}
-              <PromptFields
-                key={`${detail.asset.id}:${selected.version}:${query.edit}`}
-                value={query.edit ? content : selected.content}
-                onChange={setContent}
-                onValidityChange={setFieldsValid}
-                disabled={!query.edit || Boolean(compare) || working}
-              />
-            </div>
-          ) : query.tab === "evals" ? (
-            <div className="space-y-3">
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <h2 className="text-xs font-semibold">
-                  Evaluations for v{selected.version}
-                </h2>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  disabled={!targets.canRun || !applicable}
-                  onClick={() => test(selected)}
-                >
-                  Run a suite
-                </Button>
-              </div>
-              {evidence.length ? (
-                evidence.map((item) => (
-                  <div
-                    key={item.runId}
-                    className="flex flex-wrap items-center justify-between gap-3 rounded-lg border p-4"
-                  >
-                    <div className="min-w-0 space-y-1">
-                      <DetailLink
-                        href={`/evals/runs/${item.runId}`}
-                        className="text-xs font-medium hover:underline"
-                      >
-                        {item.suiteId}
-                      </DetailLink>
-                      <p className="text-[11px] text-muted-foreground">
-                        {item.targetId} ·{" "}
-                        {item.fullSuite ? "Full suite" : "Selected tests"}
-                        {item.groupName ? ` · ${item.groupName}` : ""}
-                      </p>
-                      <p className="text-[11px] text-muted-foreground">
-                        {item.companions.length
-                          ? `Tested with ${item.companions.map((companion) => `${companion.key}@${companion.version}`).join(", ")}`
-                          : "No companion prompts"}
-                      </p>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-xs capitalize">{item.status}</p>
-                      <p
-                        className={`mt-1 text-[11px] ${item.usage === "verified" ? "text-emerald-700 dark:text-emerald-400" : "text-muted-foreground"}`}
-                      >
-                        {item.usage === "verified"
-                          ? "Usage verified"
-                          : item.usage === "not-used"
-                            ? "Prompt was not called"
-                            : item.usage}
-                      </p>
-                    </div>
-                  </div>
-                ))
-              ) : (
-                <Empty
-                  text="No evaluations for this version yet."
-                  help="Test this version directly, or add it to a test group."
-                />
-              )}
-            </div>
-          ) : query.tab === "runs" ? (
-            <div className="space-y-3">
-              <h2 className="text-xs font-semibold">
-                Observed usage for v{selected.version}
-              </h2>
-              <p className="text-xs text-muted-foreground">
-                An assignment is live immediately. Runs show when an application
-                actually adopts it.
-              </p>
-              {detail.usage.filter((item) => item.version === selected.version)
-                .length ? (
-                detail.usage
-                  .filter((item) => item.version === selected.version)
-                  .map((item) => (
+                {evidence.length ? (
+                  evidence.map((item) => (
                     <div
-                      key={item.eventId}
+                      key={item.runId}
                       className="flex flex-wrap items-center justify-between gap-3 rounded-lg border p-4"
                     >
-                      <div className="min-w-0">
+                      <div className="min-w-0 space-y-1">
                         <DetailLink
-                          href={`/runs/${encodeURIComponent(item.runId ?? "")}`}
-                          className="block truncate font-mono text-xs hover:underline"
+                          href={`/evals/runs/${item.runId}`}
+                          className="text-xs font-medium hover:underline"
                         >
-                          {item.runId}
+                          {item.suiteId}
                         </DetailLink>
-                        <p className="mt-1 text-[11px] text-muted-foreground">
-                          {item.environment} ·{" "}
-                          {item.model ?? "Model not reported"} ·{" "}
-                          {item.source ?? "Source not reported"}
+                        <p className="text-[11px] text-muted-foreground">
+                          {item.targetId} ·{" "}
+                          {item.fullSuite ? "Full suite" : "Selected tests"}
+                          {item.groupName ? ` · ${item.groupName}` : ""}
+                        </p>
+                        <p className="text-[11px] text-muted-foreground">
+                          {item.companions.length
+                            ? `Tested with ${item.companions.map((companion) => `${companion.key}@${companion.version}`).join(", ")}`
+                            : "No companion prompts"}
                         </p>
                       </div>
-                      <p className="text-[11px] text-muted-foreground">
-                        {new Date(item.occurredAt).toLocaleString()}
-                      </p>
+                      <div className="text-right">
+                        <p className="text-xs capitalize">{item.status}</p>
+                        <p
+                          className={`mt-1 text-[11px] ${item.usage === "verified" ? "text-emerald-700 dark:text-emerald-400" : "text-muted-foreground"}`}
+                        >
+                          {item.usage === "verified"
+                            ? "Usage verified"
+                            : item.usage === "not-used"
+                              ? "Prompt was not called"
+                              : item.usage}
+                        </p>
+                      </div>
                     </div>
                   ))
-              ) : (
-                <Empty
-                  text="No runs have reported this version."
-                  help="Connect usePrompt and useReason to capture prompt provenance automatically."
-                />
-              )}
-            </div>
-          ) : (
-            <div className="space-y-3">
-              <h2 className="text-xs font-semibold">Activity</h2>
-              {detail.activity.map((item) => (
-                <div key={item.id} className="rounded-lg border p-4">
-                  <div className="flex flex-wrap justify-between gap-2">
-                    <p className="text-xs font-medium capitalize">
-                      {item.action}
+                ) : (
+                  <Empty
+                    text="No evaluations for this version yet."
+                    help="Test this version directly, or add it to a test group."
+                  />
+                )}
+              </div>
+            ) : query.tab === "runs" ? (
+              <div className="space-y-3">
+                <h2 className="text-xs font-semibold">
+                  Observed usage for v{selected.version}
+                </h2>
+                <p className="text-xs text-muted-foreground">
+                  An assignment is live immediately. Runs show when an
+                  application actually adopts it.
+                </p>
+                {detail.usage.filter(
+                  (item) => item.version === selected.version,
+                ).length ? (
+                  detail.usage
+                    .filter((item) => item.version === selected.version)
+                    .map((item) => (
+                      <div
+                        key={item.eventId}
+                        className="flex flex-wrap items-center justify-between gap-3 rounded-lg border p-4"
+                      >
+                        <div className="min-w-0">
+                          <DetailLink
+                            href={`/runs/${encodeURIComponent(item.runId ?? "")}`}
+                            className="block truncate font-mono text-xs hover:underline"
+                          >
+                            {item.runId}
+                          </DetailLink>
+                          <p className="mt-1 text-[11px] text-muted-foreground">
+                            {item.environment} ·{" "}
+                            {item.model ?? "Model not reported"} ·{" "}
+                            {item.source ?? "Source not reported"}
+                          </p>
+                        </div>
+                        <p className="text-[11px] text-muted-foreground">
+                          {new Date(item.occurredAt).toLocaleString()}
+                        </p>
+                      </div>
+                    ))
+                ) : (
+                  <Empty
+                    text="No runs have reported this version."
+                    help="Connect usePrompt and useReason to capture prompt provenance automatically."
+                  />
+                )}
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <h2 className="text-xs font-semibold">Activity</h2>
+                {detail.activity.map((item) => (
+                  <div key={item.id} className="rounded-lg border p-4">
+                    <div className="flex flex-wrap justify-between gap-2">
+                      <p className="text-xs font-medium capitalize">
+                        {item.action}
+                      </p>
+                      <time className="text-[11px] text-muted-foreground">
+                        {new Date(item.createdAt).toLocaleString()}
+                      </time>
+                    </div>
+                    <p className="mt-1 break-all font-mono text-[11px] text-muted-foreground">
+                      {item.actor}
                     </p>
-                    <time className="text-[11px] text-muted-foreground">
-                      {new Date(item.createdAt).toLocaleString()}
-                    </time>
+                    {typeof item.details.exceptionReason === "string" && (
+                      <p className="mt-2 text-xs">
+                        Exception: {item.details.exceptionReason}
+                      </p>
+                    )}
                   </div>
-                  <p className="mt-1 break-all font-mono text-[11px] text-muted-foreground">
-                    {item.actor}
-                  </p>
-                  {typeof item.details.exceptionReason === "string" && (
-                    <p className="mt-2 text-xs">
-                      Exception: {item.details.exceptionReason}
-                    </p>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
-        </main>
-      </div>
+                ))}
+              </div>
+            )}
+          </main>
+        </div>
+      </PromptWorkspace>
       <EvalRunSetup targets={targets} matchPath={path} />
       {compare && (
         <PromptDiff

@@ -7,6 +7,7 @@ import {
   PromptLibrarySchema,
 } from "@kortyx/telemetry-contracts";
 import { MoreHorizontal, Play, Plus, Trash2, Users } from "lucide-react";
+import { parseAsString, parseAsStringLiteral } from "nuqs";
 import { useEffect, useState } from "react";
 import { DetailDrawer } from "@/components/detail/detail-drawer";
 import { DetailInspectorDrawer } from "@/components/detail/detail-inspector";
@@ -31,8 +32,10 @@ import { EvalDropdown } from "@/features/evals/components/eval-dropdown";
 import { EvalRunSetup } from "@/features/evals/components/eval-run-setup";
 import { useEvalSetup } from "@/features/evals/hooks/use-eval-setup";
 import type { EvalTargets } from "@/features/evals/schema";
+import { useStudioQueryStates } from "@/lib/nuqs";
 import { useRouter } from "@/lib/scoped-navigation";
 import { promptRequest } from "../api/client";
+import { PromptWorkspace } from "./prompt-workspace";
 
 export function PromptGroupsView({
   initial,
@@ -49,8 +52,6 @@ export function PromptGroupsView({
     [library, setLibrary] = useState(initial),
     [error, setError] = useState(""),
     [working, setWorking] = useState(false),
-    [form, setForm] = useState<"create" | "rename" | "member" | null>(null),
-    [editing, setEditing] = useState<PromptGroup | null>(null),
     [deleting, setDeleting] = useState<PromptGroup | null>(null),
     [name, setName] = useState(""),
     [promptId, setPromptId] = useState(""),
@@ -59,6 +60,25 @@ export function PromptGroupsView({
     [replace, setReplace] = useState(false),
     [search, setSearch] = useState(""),
     [matches, setMatches] = useState(initial.assets);
+  const [query, setQuery] = useStudioQueryStates(
+    {
+      groupAction: parseAsStringLiteral(["create", "rename", "member"]),
+      groupEditId: parseAsString,
+    },
+    { shallow: true },
+  );
+  const form = query.groupAction;
+  const editing =
+    library.groups.find((item) => item.id === query.groupEditId) ?? null;
+  const setForm = (next: typeof form) => {
+    void setQuery({
+      groupAction: next,
+      ...(next === null ? { groupEditId: null } : {}),
+    });
+  };
+  const setEditing = (next: PromptGroup | null) => {
+    void setQuery({ groupEditId: next?.id ?? null });
+  };
   const group = library.groups.find((item) => item.id === groupId),
     path = groupId ? `/prompts/groups/${groupId}` : "/prompts/groups";
   const { open } = useEvalSetup(targets);
@@ -238,110 +258,113 @@ export function PromptGroupsView({
           {error}
         </p>
       )}
-      <div className="min-h-0 flex-1 overflow-y-auto p-5">
-        {group ? (
-          <div className="space-y-3">
-            {group.members.map((member) => {
-              const asset = library.assets.find(
-                (asset) => asset.id === member.promptId,
-              );
-              return (
-                <div
-                  key={member.promptId}
-                  className="flex items-center justify-between gap-3 rounded-lg border px-4 py-3"
-                >
-                  <div className="min-w-0">
-                    <DetailLink
-                      href={`/prompts/${member.promptId}?v=${member.version}`}
-                      className="block truncate text-xs font-medium hover:underline"
+      <PromptWorkspace>
+        <div className="min-h-0 flex-1 overflow-y-auto p-5">
+          {group ? (
+            <div className="space-y-3">
+              {group.members.map((member) => {
+                const asset = library.assets.find(
+                  (asset) => asset.id === member.promptId,
+                );
+                return (
+                  <div
+                    key={member.promptId}
+                    className="flex items-center justify-between gap-3 rounded-lg border px-4 py-3"
+                  >
+                    <div className="min-w-0">
+                      <DetailLink
+                        href={`/prompts/${member.promptId}?v=${member.version}`}
+                        className="block truncate text-xs font-medium hover:underline"
+                      >
+                        {member.name ?? asset?.name ?? "Unavailable prompt"}
+                      </DetailLink>
+                      <p className="mt-1 truncate font-mono text-[11px] text-muted-foreground">
+                        {member.key ?? asset?.key ?? member.promptId}
+                      </p>
+                    </div>
+                    <span className="shrink-0 font-mono text-xs">
+                      v{member.version}
+                    </span>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      disabled={working || !library.permissions.edit}
+                      aria-label={`Remove ${asset?.name ?? member.promptId} from group`}
+                      onClick={() =>
+                        void act({
+                          action: "group-update",
+                          id: group.id,
+                          expectedRevision: group.revision,
+                          members: group.members.filter(
+                            (item) => item.promptId !== member.promptId,
+                          ),
+                        })
+                      }
                     >
-                      {member.name ?? asset?.name ?? "Unavailable prompt"}
-                    </DetailLink>
-                    <p className="mt-1 truncate font-mono text-[11px] text-muted-foreground">
-                      {member.key ?? asset?.key ?? member.promptId}
-                    </p>
+                      <Trash2 className="size-3.5" />
+                    </Button>
                   </div>
-                  <span className="shrink-0 font-mono text-xs">
-                    v{member.version}
-                  </span>
-                  <Button
-                    size="icon"
-                    variant="ghost"
-                    disabled={working || !library.permissions.edit}
-                    aria-label={`Remove ${asset?.name ?? member.promptId} from group`}
-                    onClick={() =>
-                      void act({
-                        action: "group-update",
-                        id: group.id,
-                        expectedRevision: group.revision,
-                        members: group.members.filter(
-                          (item) => item.promptId !== member.promptId,
-                        ),
-                      })
-                    }
-                  >
-                    <Trash2 className="size-3.5" />
-                  </Button>
-                </div>
-              );
-            })}
-            <Button
-              size="sm"
-              variant="outline"
-              disabled={!library.permissions.edit}
-              onClick={() => {
-                setEditing(group);
-                setForm("member");
-                setPromptId("");
-                setVersion("");
-                setReplace(false);
-              }}
-            >
-              <Plus className="size-3.5" />
-              Add prompt version
-            </Button>
-            <p className="text-xs text-muted-foreground">
-              Choose a suite when you run the group. Editing or deleting this
-              selection does not change previous evaluations.
-            </p>
-          </div>
-        ) : (
-          <div className="overflow-hidden rounded-lg border">
-            <div className="grid grid-cols-[minmax(0,1fr)_5rem_2.5rem] gap-3 border-b bg-muted/20 px-4 py-3 text-[11px] font-medium text-muted-foreground">
-              <span>Group</span>
-              <span>Prompts</span>
-              <span className="sr-only">Actions</span>
+                );
+              })}
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={!library.permissions.edit}
+                onClick={() => {
+                  setEditing(group);
+                  setForm("member");
+                  setPromptId("");
+                  setVersion("");
+                  setReplace(false);
+                }}
+              >
+                <Plus className="size-3.5" />
+                Add prompt version
+              </Button>
+              <p className="text-xs text-muted-foreground">
+                Choose a suite when you run the group. Editing or deleting this
+                selection does not change previous evaluations.
+              </p>
             </div>
-            {library.groups.length ? (
-              library.groups.map((group) => (
-                <div
-                  key={group.id}
-                  className="grid grid-cols-[minmax(0,1fr)_5rem_2.5rem] items-center gap-3 border-b px-4 py-3 last:border-0"
-                >
-                  <DetailLink
-                    href={`/prompts/groups/${group.id}`}
-                    className="truncate text-xs font-medium hover:underline"
-                  >
-                    {group.name}
-                  </DetailLink>
-                  <span className="text-xs text-muted-foreground">
-                    {group.members.length}
-                  </span>
-                  {actions(group)}
-                </div>
-              ))
-            ) : (
-              <div className="space-y-3 px-4 py-12 text-center">
-                <Users className="mx-auto size-7 text-muted-foreground/50" />
-                <p className="text-xs font-medium">No test groups yet</p>
-                <p className="text-xs text-muted-foreground">
-                  Group candidate versions when a workflow uses several prompts.
-                </p>
+          ) : (
+            <div className="overflow-hidden rounded-lg border">
+              <div className="grid grid-cols-[minmax(0,1fr)_5rem_2.5rem] gap-3 border-b bg-muted/20 px-4 py-3 text-[11px] font-medium text-muted-foreground">
+                <span>Group</span>
+                <span>Prompts</span>
+                <span className="sr-only">Actions</span>
               </div>
-            )}
-          </div>
-        )}
-      </div>
+              {library.groups.length ? (
+                library.groups.map((group) => (
+                  <div
+                    key={group.id}
+                    className="grid grid-cols-[minmax(0,1fr)_5rem_2.5rem] items-center gap-3 border-b px-4 py-3 last:border-0"
+                  >
+                    <DetailLink
+                      href={`/prompts/groups/${group.id}`}
+                      className="truncate text-xs font-medium hover:underline"
+                    >
+                      {group.name}
+                    </DetailLink>
+                    <span className="text-xs text-muted-foreground">
+                      {group.members.length}
+                    </span>
+                    {actions(group)}
+                  </div>
+                ))
+              ) : (
+                <div className="space-y-3 px-4 py-12 text-center">
+                  <Users className="mx-auto size-7 text-muted-foreground/50" />
+                  <p className="text-xs font-medium">No test groups yet</p>
+                  <p className="text-xs text-muted-foreground">
+                    Group candidate versions when a workflow uses several
+                    prompts.
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      </PromptWorkspace>
       <EvalRunSetup targets={targets} matchPath={path} />
       <DetailInspectorDrawer
         open={Boolean(form)}

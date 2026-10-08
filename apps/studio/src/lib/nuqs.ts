@@ -46,6 +46,12 @@ const detailUiParamKeys = [
   "detailView",
   "call",
   "branch",
+  "v",
+  "edit",
+  "promptAction",
+  "promptActionVersion",
+  "groupAction",
+  "groupEditId",
 ] as const;
 
 /**

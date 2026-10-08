@@ -46,7 +46,14 @@ const DETAIL_BASE_PATHS = [
   "/interrupts",
   "/evals/cases",
   "/evals/suites",
+  "/prompts",
 ] as const;
+
+function detailBasePathsFor(pathname: string): readonly string[] {
+  return /^\/prompts\/categories\/[^/]+$/.test(pathname)
+    ? [...DETAIL_BASE_PATHS, pathname]
+    : DETAIL_BASE_PATHS;
+}
 
 type DetailStackContextValue = {
   beginClose: (id: string) => void;
@@ -81,7 +88,7 @@ export function DetailStackProvider({ children }: { children: ReactNode }) {
     const path = window.location.pathname;
     const target = layers.find((layer) => layer.matchPath === path);
     if (target?.closing) return;
-    const isList = DETAIL_BASE_PATHS.some((base) => base === path);
+    const isList = detailBasePathsFor(path).includes(path);
     if (!target && !isList && layers.length > 0) return;
     // Metadata-only writes bypass Next/Nuqs wrappers, which can reset a
     // queued query selection even when the URL has not changed.
@@ -295,7 +302,11 @@ export function DetailStackProvider({ children }: { children: ReactNode }) {
       // the requested query and browser Back/Forward entries stay intact.
       historyTargetPathRef.current = pathname;
       setLayers((current) =>
-        syncDetailLayersToHistoryPath(current, pathname, DETAIL_BASE_PATHS),
+        syncDetailLayersToHistoryPath(
+          current,
+          pathname,
+          detailBasePathsFor(pathname),
+        ),
       );
     },
     [cancelPendingNavigation, layers, saveCurrentStack],
@@ -335,7 +346,7 @@ export function DetailStackProvider({ children }: { children: ReactNode }) {
           : syncDetailLayersToHistoryPath(
               current,
               window.location.pathname,
-              DETAIL_BASE_PATHS,
+              detailBasePathsFor(window.location.pathname),
             ),
       );
     };
@@ -434,7 +445,7 @@ export function useDetailStackSlotState(dismissPath: string, pathname: string) {
           stack.layers,
           dismissPath,
           pathname,
-          DETAIL_BASE_PATHS,
+          detailBasePathsFor(pathname),
         )
       : null,
     registered: layer !== undefined,
