@@ -89,10 +89,17 @@ prompts and exact dependencies remain part of that snapshot.
 **Evals** on a prompt shows the saved run, selected version, full-suite status, and
 actual-use verification. A selection alone is not proof: `useReason({ prompt })`
 records the version and hash actually passed to the model. Unused or mismatched
-versions cannot satisfy a promotion policy. **Runs** shows model calls linked by
-key, version, hash, environment, and source. Captured message content follows the
+versions cannot satisfy a promotion policy. **Runs** shows executions that reported
+this version, with model-call provenance linked by key, version, hash, environment,
+and source. Captured message content follows the
 application's existing telemetry capture policy; configuration and runtime inputs
 are not added to identity metadata.
+
+Both tabs use the standard Runs and Evals tables, filling the available tab area.
+Search, status filters, sorting, column controls, and pagination work within the
+selected version. Version history stays in a dropdown to leave room for the table.
+Multiple calls in one execution produce one run row; suites launched together
+produce one evaluation row, retaining their prompt-usage evidence.
 
 Promotion policies can require a passing full suite, specific application/suite
 selections, and independent human reviews. Evidence must come from the destination

@@ -242,6 +242,28 @@ describe.skipIf(!url)("prompt serving authorization", () => {
         true,
       );
       expect(unchanged.suites).toEqual(evaluation.suites);
+      const tableRequest = (version: string, key = studioKey) =>
+        evalApp.request(
+          `/v1/studio/prompts/assets/${created.id}/tables?version=${version}`,
+          {
+            headers: { authorization: `Bearer ${key}` },
+          },
+        );
+      const attached = await tableRequest("1");
+      expect(attached.status).toBe(200);
+      const tableRows = (await attached.json()) as {
+        runs: unknown[];
+        evaluations: { id: string; suiteCount: number }[];
+      };
+      expect(tableRows.runs).toEqual([]);
+      expect(tableRows.evaluations).toHaveLength(1);
+      expect(tableRows.evaluations[0]).toMatchObject({
+        id: evaluationId,
+        suiteCount: 2,
+      });
+      expect((await tableRequest("2")).status).toBe(404);
+      expect((await tableRequest("0")).status).toBe(400);
+      expect((await tableRequest("1", apiKey)).status).toBe(403);
       manifest.promptContracts = [];
       const unsupported = await send({
         ...launch,

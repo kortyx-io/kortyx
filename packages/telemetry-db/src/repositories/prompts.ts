@@ -611,6 +611,7 @@ export async function promptEvidence(
     return [
       {
         runId: run.id,
+        evaluationId: run.evaluationId,
         environment: run.environment,
         targetId: run.targetId,
         suiteId: run.suiteId,

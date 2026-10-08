@@ -14,6 +14,8 @@ import {
 } from "@playwright/test";
 import postgres from "postgres";
 import { z } from "zod";
+import { EVAL_FIXTURE } from "./support/eval-plan";
+import { DRAWER_FIXTURE } from "./support/telemetry-fixture";
 
 const fixtureKey = "e2e-prompt-drawers/classify";
 const compositionKey = "e2e-prompt-drawers/composition";
@@ -103,6 +105,26 @@ async function noOverflow(locator: Locator) {
     .toBeLessThanOrEqual(1);
 }
 
+async function expectFilledTable(table: Locator) {
+  await expect
+    .poll(() =>
+      table.evaluate((element) => {
+        const bounds = element.getBoundingClientRect();
+        const area = element.parentElement!.getBoundingClientRect();
+        const footer = element
+          .querySelector('[aria-label="Next page"]')!
+          .closest(".border-t")!
+          .getBoundingClientRect();
+        return Math.max(
+          Math.abs(bounds.width - area.width),
+          Math.abs(bounds.height - area.height),
+          Math.abs(footer.bottom - bounds.bottom),
+        );
+      }),
+    )
+    .toBeLessThanOrEqual(2);
+}
+
 test.describe("Prompt detail drawers", () => {
   test.beforeAll(async ({ request }) => {
     await cleanup();
@@ -150,6 +172,130 @@ test.describe("Prompt detail drawers", () => {
     });
   });
   test.afterAll(cleanup);
+
+  test("fills prompt tabs with canonical run and evaluation tables and preserves nested navigation", async ({
+    page,
+    request,
+  }) => {
+    const sql = postgres(
+      process.env.DATABASE_URL ??
+        "postgres://kortyx:kortyx@127.0.0.1:6543/kortyx",
+      { max: 1 },
+    );
+    const events =
+      await sql`select id, payload from telemetry_events where run_id=${DRAWER_FIXTURE.runId} and type='generation.completed'`;
+    const [evaluation] =
+      await sql`select request from eval_runs where id=${EVAL_FIXTURE.candidate}`;
+    const duplicateId = randomUUID();
+    try {
+      const response = await request.get(
+        `${apiUrl}/v1/studio/prompts/assets/${id}`,
+        {
+          headers: {
+            authorization: `Bearer ${process.env.KORTYX_STUDIO_API_KEY ?? "ktyx_test_localstudio_oss-demo-studio-secret-change-me"}`,
+          },
+        },
+      );
+      const version = (await response.json()).versions.find(
+        (item: { version: number }) => item.version === 2,
+      );
+      await sql`update telemetry_events set payload=jsonb_set(payload, '{prompt}', ${sql.json({ name: fixtureKey, version: 2, source: "studio", metadata: { hash: version.hash } })}) where run_id=${DRAWER_FIXTURE.runId} and type='generation.completed'`;
+      // Two generation receipts from one execution must produce one run row.
+      await sql`insert into telemetry_events select (jsonb_populate_record(null::telemetry_events, to_jsonb(original) || jsonb_build_object('id', ${duplicateId}::text, 'event_id', ${`e2e-prompt-receipt-${duplicateId}`}::text))).* from telemetry_events original where original.id=${events[0]!.id}`;
+      await sql`update eval_runs set request=jsonb_set(request, '{promptSnapshot}', ${sql.json({ schemaVersion: 1, environment: "development", source: "eval", revision: "table-fixture", versions: { [fixtureKey]: version } })}) where id=${EVAL_FIXTURE.candidate}`;
+      await page.setViewportSize({ width: 1440, height: 1000 });
+      await openPrompt(page);
+      await promptDrawer(page)
+        .getByRole("button", { name: /^Runs \d+$/i })
+        .click();
+      const runs = page.locator('[data-prompt-table="runs"]');
+      await expect(
+        runs.locator(`[data-row-key="${DRAWER_FIXTURE.runId}"]`),
+      ).toBeVisible();
+      await expect(runs.locator("tbody tr")).toHaveCount(1);
+      await expect(
+        runs.getByRole("columnheader", { name: /^Workflows / }),
+      ).toBeVisible();
+      await expect(runs).toContainText(DRAWER_FIXTURE.workflowId);
+      await expect(runs).toContainText("Showing 1–1 of 1");
+      await expectFilledTable(runs);
+      await runs
+        .locator(`[data-row-key="${DRAWER_FIXTURE.runId}"]`)
+        .locator("td")
+        .first()
+        .click();
+      const runDrawer = page.locator(
+        `[data-detail-drawer="/runs/${DRAWER_FIXTURE.runId}"]`,
+      );
+      await expect(runDrawer).toHaveAttribute("data-state", "open");
+      await expect(
+        runDrawer.getByRole("button", { name: "Overview", exact: true }),
+      ).toBeVisible();
+      await page.keyboard.press("Escape");
+      await expect(promptDrawer(page)).toHaveAttribute("data-state", "open");
+      await expect(runs.locator("tbody tr")).toHaveCount(1);
+      await promptDrawer(page)
+        .getByRole("button", { name: /^Evals \d+$/i })
+        .click();
+      const evals = page.locator('[data-prompt-table="evals"]');
+      await expect(
+        evals.locator(`[data-row-key="${EVAL_FIXTURE.candidate}"]`),
+      ).toBeVisible();
+      await expect(
+        evals.getByRole("columnheader", { name: /^Evaluation run / }),
+      ).toBeVisible();
+      await expect(
+        evals.getByRole("columnheader", { name: /^Progress / }),
+      ).toBeVisible();
+      await expectFilledTable(evals);
+      await evals
+        .locator(`[data-row-key="${EVAL_FIXTURE.candidate}"]`)
+        .locator("td")
+        .nth(1)
+        .click();
+      await expect(page).toHaveURL(
+        new RegExp(`/evals/runs/${EVAL_FIXTURE.candidate}`),
+      );
+    } finally {
+      await sql`delete from telemetry_events where id=${duplicateId}`;
+      for (const event of events)
+        await sql`update telemetry_events set payload=${sql.json(event.payload)} where id=${event.id}`;
+      if (evaluation)
+        await sql`update eval_runs set request=${sql.json(evaluation.request)} where id=${EVAL_FIXTURE.candidate}`;
+      await sql.end();
+    }
+  });
+
+  test("keeps empty version tables full height on desktop, tablet and mobile", async ({
+    page,
+  }) => {
+    for (const width of [1440, 768, 390]) {
+      await page.setViewportSize({ width, height: 900 });
+      for (const kind of ["runs", "evals"]) {
+        await page.goto(`/prompts/${id}?v=1&tab=${kind}`);
+        const table = page
+          .locator(`[data-prompt-table="${kind}"]`)
+          .filter({ visible: true });
+        await expect(
+          table.getByText(
+            kind === "runs"
+              ? "No runs have reported this version."
+              : "No evaluations for this version yet.",
+            { exact: true },
+          ),
+        ).toBeVisible();
+        await expect(table.locator("tbody tr")).toHaveCount(0);
+        await expectFilledTable(table);
+        await noOverflow(table);
+        await expect(
+          page.getByRole("button", {
+            name: "Version history · v1",
+            exact: true,
+          }),
+        ).toBeVisible();
+      }
+    }
+  });
 
   test("highlights inputs and saves an included version using the native prompt picker", async ({
     page,

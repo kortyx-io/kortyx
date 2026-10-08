@@ -5,7 +5,7 @@ export async function proxyPromptRequest(request: Request, parts: string[]) {
   if (denial) return denial;
   const path = parts.join("/");
   if (
-    !/^(library|actions|export|assets\/[a-f0-9-]{36}|transfers\/plan|transfers\/[a-f0-9-]{36}\/apply)$/.test(
+    !/^(library|actions|export|assets\/[a-f0-9-]{36}(\/tables)?|transfers\/plan|transfers\/[a-f0-9-]{36}\/apply)$/.test(
       path,
     )
   )

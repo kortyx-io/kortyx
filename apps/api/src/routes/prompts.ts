@@ -1,8 +1,12 @@
 import { createRoute, type OpenAPIHono, z } from "@hono/zod-openapi";
 import { getEvalSuiteRevision } from "@kortyx/agent";
-import type { EvalSuite } from "@kortyx/agent/evals";
+import {
+  type EvalSuite,
+  StudioEvaluationSummarySchema,
+} from "@kortyx/agent/evals";
 import {
   PromptContentSchema,
+  PromptError,
   PromptKeySchema,
   PromptSnapshotSchema,
   PromptVersionSchema,
@@ -13,12 +17,15 @@ import {
   PromptMutationSchema,
   PromptStoredVersionSchema,
   PromptTransferRequestSchema,
+  StudioRunSchema,
 } from "@kortyx/telemetry-contracts";
 import {
   applyPromptTransfer,
   exportPrompts,
   getPrompt,
+  listEvaluations,
   listPrompts,
+  listStudioRuns,
   mutatePrompt,
   planPromptTransfer,
   resolvePrompts,
@@ -199,6 +206,31 @@ const mutate = createRoute({
   },
 });
 
+const tables = createRoute({
+  method: "get",
+  path: "/v1/studio/prompts/assets/{id}/tables",
+  security: readSecurity,
+  request: {
+    params: z.object({ id: z.uuid() }),
+    query: z.object({ version: z.coerce.number().int().positive() }),
+  },
+  responses: {
+    200: {
+      description:
+        "Canonical run and evaluation rows attached to one prompt version.",
+      content: {
+        "application/json": {
+          schema: z.object({
+            runs: z.array(StudioRunSchema),
+            evaluations: z.array(StudioEvaluationSummarySchema),
+          }),
+        },
+      },
+    },
+    ...errors,
+  },
+});
+
 export function registerPromptRoutes(
   app: OpenAPIHono<ApiEnv>,
   targets: readonly EvalTarget[] = [],
@@ -333,6 +365,47 @@ export function registerPromptRoutes(
       200,
     ),
   );
+  app.openapi(tables, async (c) => {
+    const scope = c.get("principal");
+    const version = c.req.valid("query").version;
+    const data = await c.get("withTenantDatabase")(async (db) => {
+      const prompt = await getPrompt(db, scope, c.req.valid("param").id);
+      if (version > prompt.asset.latestVersion)
+        throw new PromptError(
+          "PROMPT_NOT_FOUND",
+          "Prompt version not found.",
+          404,
+        );
+      const runIds = [
+        ...new Set(
+          prompt.usage
+            .filter((item) => item.version === version)
+            .map((item) => item.runId),
+        ),
+      ];
+      const suiteRunIds = prompt.evidence
+        .filter((item) => item.version === version)
+        .map((item) => item.runId);
+      const [runs, evaluations] = await Promise.all([
+        listStudioRuns(db, {
+          ...scope,
+          runIds,
+          query: {
+            range: "All time",
+            includeChildren: "true",
+            pageSize: "100",
+            ...(scope.environment ? { env: scope.environment } : {}),
+          },
+        }),
+        listEvaluations(db, scope, { suiteRunIds }),
+      ]);
+      return {
+        runs: runs.items,
+        evaluations: StudioEvaluationSummarySchema.array().parse(evaluations),
+      };
+    });
+    return c.json(data, 200);
+  });
   app.openapi(mutate, async (c) => {
     const body = PromptMutationSchema.parse(c.req.valid("json")),
       principal = c.get("principal");

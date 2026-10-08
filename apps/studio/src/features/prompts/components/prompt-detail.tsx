@@ -20,7 +20,6 @@ import { parseAsBoolean, parseAsInteger, parseAsStringLiteral } from "nuqs";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { DetailDrawer } from "@/components/detail/detail-drawer";
 import { DetailInspectorDrawer } from "@/components/detail/detail-inspector";
-import { DetailLink } from "@/components/detail/detail-link";
 import { DetailPage } from "@/components/detail/detail-page";
 import { Button } from "@/components/ui/button";
 import {
@@ -47,6 +46,7 @@ import { promptRequest } from "../api/client";
 import { categoryPath, downloadJson } from "../lib/presentation";
 import { PromptDiff } from "./prompt-diff";
 import { editorClass, PromptFields, validateEditor } from "./prompt-fields";
+import { PromptTables } from "./prompt-tables";
 import { PromptWorkspace } from "./prompt-workspace";
 
 type Version = PromptDetail["versions"][number];
@@ -680,15 +680,17 @@ export function PromptDetailView({
           >
             {tab}
             {tab === "evals"
-              ? ` ${evidence.length}`
+              ? ` ${new Set(evidence.map((item) => item.evaluationId ?? item.runId)).size}`
               : tab === "runs"
-                ? ` ${detail.usage.filter((item) => item.version === selected.version).length}`
+                ? ` ${new Set(detail.usage.filter((item) => item.version === selected.version).map((item) => item.runId)).size}`
                 : ""}
           </button>
         ))}
       </nav>
       <PromptWorkspace>
-        <div className="shrink-0 border-b px-5 py-2 @4xl/prompt-detail:hidden">
+        <div
+          className={`shrink-0 border-b px-5 py-2 ${query.tab === "runs" || query.tab === "evals" ? "" : "@4xl/prompt-detail:hidden"}`}
+        >
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button size="sm" variant="outline" className="max-w-full gap-2">
@@ -761,7 +763,7 @@ export function PromptDetailView({
         </div>
         <div className="flex min-h-0 flex-1">
           <aside
-            className={`${query.history ? "w-56" : "w-12"} hidden shrink-0 border-r @4xl/prompt-detail:block`}
+            className={`${query.history ? "w-56" : "w-12"} hidden shrink-0 border-r ${query.tab === "runs" || query.tab === "evals" ? "" : "@4xl/prompt-detail:block"}`}
           >
             <Button
               size="sm"
@@ -840,7 +842,9 @@ export function PromptDetailView({
               </div>
             )}
           </aside>
-          <main className="min-h-0 min-w-0 flex-1 overflow-y-auto p-5">
+          <main
+            className={`min-h-0 min-w-0 flex-1 ${query.tab === "runs" || query.tab === "evals" ? "overflow-hidden" : "overflow-y-auto p-5"}`}
+          >
             {query.tab === "content" ? (
               <div className="w-full space-y-5">
                 {query.edit && (
@@ -871,110 +875,16 @@ export function PromptDetailView({
                   disabled={!query.edit || Boolean(compare) || working}
                 />
               </div>
-            ) : query.tab === "evals" ? (
-              <div className="space-y-3">
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <h2 className="text-xs font-semibold">
-                    Evaluations for v{selected.version}
-                  </h2>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    disabled={!targets.canRun || !applicable}
-                    onClick={() => test(selected)}
-                  >
-                    Run a suite
-                  </Button>
-                </div>
-                {evidence.length ? (
-                  evidence.map((item) => (
-                    <div
-                      key={item.runId}
-                      className="flex flex-wrap items-center justify-between gap-3 rounded-lg border p-4"
-                    >
-                      <div className="min-w-0 space-y-1">
-                        <DetailLink
-                          href={`/evals/runs/${item.runId}`}
-                          className="text-xs font-medium hover:underline"
-                        >
-                          {item.suiteId}
-                        </DetailLink>
-                        <p className="text-[11px] text-muted-foreground">
-                          {item.targetId} ·{" "}
-                          {item.fullSuite ? "Full suite" : "Selected tests"}
-                          {item.groupName ? ` · ${item.groupName}` : ""}
-                        </p>
-                        <p className="text-[11px] text-muted-foreground">
-                          {item.companions.length
-                            ? `Tested with ${item.companions.map((companion) => `${companion.key}@${companion.version}`).join(", ")}`
-                            : "No companion prompts"}
-                        </p>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-xs capitalize">{item.status}</p>
-                        <p
-                          className={`mt-1 text-[11px] ${item.usage === "verified" ? "text-emerald-700 dark:text-emerald-400" : "text-muted-foreground"}`}
-                        >
-                          {item.usage === "verified"
-                            ? "Usage verified"
-                            : item.usage === "not-used"
-                              ? "Prompt was not called"
-                              : item.usage}
-                        </p>
-                      </div>
-                    </div>
-                  ))
-                ) : (
-                  <Empty
-                    text="No evaluations for this version yet."
-                    help="Test this version directly, or add it to a test group."
-                  />
-                )}
-              </div>
-            ) : query.tab === "runs" ? (
-              <div className="space-y-3">
-                <h2 className="text-xs font-semibold">
-                  Observed usage for v{selected.version}
-                </h2>
-                <p className="text-xs text-muted-foreground">
-                  An assignment is live immediately. Runs show when an
-                  application actually adopts it.
-                </p>
-                {detail.usage.filter(
-                  (item) => item.version === selected.version,
-                ).length ? (
-                  detail.usage
-                    .filter((item) => item.version === selected.version)
-                    .map((item) => (
-                      <div
-                        key={item.eventId}
-                        className="flex flex-wrap items-center justify-between gap-3 rounded-lg border p-4"
-                      >
-                        <div className="min-w-0">
-                          <DetailLink
-                            href={`/runs/${encodeURIComponent(item.runId ?? "")}`}
-                            className="block truncate font-mono text-xs hover:underline"
-                          >
-                            {item.runId}
-                          </DetailLink>
-                          <p className="mt-1 text-[11px] text-muted-foreground">
-                            {item.environment} ·{" "}
-                            {item.model ?? "Model not reported"} ·{" "}
-                            {item.source ?? "Source not reported"}
-                          </p>
-                        </div>
-                        <p className="text-[11px] text-muted-foreground">
-                          {new Date(item.occurredAt).toLocaleString()}
-                        </p>
-                      </div>
-                    ))
-                ) : (
-                  <Empty
-                    text="No runs have reported this version."
-                    help="Connect usePrompt and useReason to capture prompt provenance automatically."
-                  />
-                )}
-              </div>
+            ) : query.tab === "evals" || query.tab === "runs" ? (
+              <PromptTables
+                key={`${detail.asset.id}:${selected.version}:${query.tab}`}
+                id={detail.asset.id}
+                version={selected.version}
+                kind={query.tab}
+                evidence={evidence}
+                canTest={targets.canRun && Boolean(applicable)}
+                onTest={() => test(selected)}
+              />
             ) : (
               <div className="space-y-3">
                 <h2 className="text-xs font-semibold">Activity</h2>
@@ -1448,14 +1358,6 @@ export function PromptDetailView({
     <DetailPage title={detail.asset.name} description={detail.asset.key}>
       {view}
     </DetailPage>
-  );
-}
-function Empty({ text, help }: { text: string; help: string }) {
-  return (
-    <div className="rounded-lg border border-dashed px-5 py-12 text-center">
-      <p className="text-xs font-medium">{text}</p>
-      <p className="mt-2 text-xs text-muted-foreground">{help}</p>
-    </div>
   );
 }
 function PolicyEditor({

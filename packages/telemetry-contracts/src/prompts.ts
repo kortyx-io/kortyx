@@ -89,6 +89,7 @@ export const PromptPolicySchema = z.object({
 export const PromptEvidenceSchema = z.object({
   environment: z.string(),
   runId: z.string(),
+  evaluationId: z.string().nullable().optional(),
   targetId: z.string(),
   suiteId: z.string(),
   suiteRevision: z.string().optional(),

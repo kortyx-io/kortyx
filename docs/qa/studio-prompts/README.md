@@ -141,3 +141,38 @@ and reconciles the dependency manifest. The regression deletes an included
 prompt, undoes/redoes the deletion, then saves and verifies its immutable pin.
 The final production build, Studio type check, repository lint, whitespace check
 and all 244 Studio unit tests passed after these fixes.
+
+### Full-area Runs and Evals tables
+
+Prompt Runs and Evals tabs reuse the canonical run mapping and evaluation
+columns. Version history stays in a compact dropdown on these tabs; the flat
+table fills the available width and height, including its empty state, with
+pagination anchored at the bottom. Search, status filtering, sorting, column
+controls and row navigation use the platform components. Table query state is
+isolated from the destination detail's query state.
+
+Runs are deduplicated by execution ID; multiple generation receipts produce one
+row. Multi-suite launches appear as one evaluation row with canonical progress,
+results, application, trigger, cost and duration. Prompt usage remains visible
+and includes suite selection, test groups and companion versions in its details.
+The scoped API returns canonical rows for the selected version, preserving
+legacy suite links and enforcing project/environment permissions.
+
+New regressions exercise actual populated database rows, duplicate receipts,
+Run drawer nesting/restoration, eval navigation, and full-area empty tables at
+1440px, 768px and 390px. API integration checks cover evaluation grouping,
+empty run selection, invalid versions and serve-only authorization.
+
+![Prompt Runs table](desktop-prompt-runs-table.png)
+
+![Prompt Evals table](desktop-prompt-evals-table.png)
+
+![Mobile Prompt Evals table](mobile-prompt-evals-table.png)
+
+Final validation after this change: **41 browser checks passed in development
+and 41 in production** (39 scenarios plus fixture setup/cleanup), including
+all evaluation launch, drawer-stack, prompt and responsive scenarios. All
+**244 Studio unit tests**, the PostgreSQL-backed prompt API integration test,
+**51/51 root typecheck tasks**, repository lint, API build and production
+Studio build passed. The local API was restored to the example application
+targets after the fixture-based checks.

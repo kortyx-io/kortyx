@@ -36,6 +36,8 @@ type DataTableProps<T, S extends string> = {
   onSetSortDirection?: (key: S, direction: "asc" | "desc") => void;
   onClearSort?: () => void;
   emptyState?: ReactNode;
+  /** Optional layout for empty content inside the table's scrolling area. */
+  emptyStateClassName?: string;
   pagination?: DataTablePagination;
   /** Toolbar/header region rendered above the grid (filters, search, etc.). */
   header?: ReactNode;
@@ -57,6 +59,7 @@ export function DataTable<T, S extends string>({
   onSetSortDirection,
   onClearSort,
   emptyState,
+  emptyStateClassName,
   pagination,
   header,
   scrollRestoreKey,
@@ -255,7 +258,11 @@ export function DataTable<T, S extends string>({
               </tbody>
             </table>
           </div>
-          {isEmpty && <div className="sticky left-0 w-full">{emptyState}</div>}
+          {isEmpty && (
+            <div className={cn("sticky left-0 w-full", emptyStateClassName)}>
+              {emptyState}
+            </div>
+          )}
         </div>
       </div>
       {pagination && (
