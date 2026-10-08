@@ -58,7 +58,7 @@ Portable bundles contain templates, configuration/contracts, exact dependency cl
 
 ## Storage and deployment
 
-Migration `0007_prompt_management.sql` adds tenant-scoped categories, assets/drafts/versions, assignments, groups/members, reviews, policies, audit activity and transfer plans. Existing eval requests store frozen snapshots and existing generation events carry prompt provenance. Project-level locking makes serving snapshots consistent with mutations and prevents partial category/group/transfer updates. Existing telemetry cleanup does not delete prompt assets.
+Migration `0008_prompt_management.sql` adds tenant-scoped categories, assets/drafts/versions, assignments, groups/members, reviews, policies, audit activity and transfer plans. Existing eval requests store frozen snapshots and existing generation events carry prompt provenance. Project-level locking makes serving snapshots consistent with mutations and prevents partial category/group/transfer updates. Existing telemetry cleanup does not delete prompt assets.
 
 Local bootstrap and CLI Compose enable the prompt capability and permission scopes. Studio uses its existing server credential and same-origin proxy with bounded bodies, route allowlisting and project/environment context. SDK serving has a separate narrow permission. Cloud adapters supply the same permission and target interfaces. Imports remain candidates and require destination validation before serving.
 

@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.14.0](https://github.com/kortyx-io/kortyx/compare/studio-v0.13.0...studio-v0.14.0) (2026-10-07)
+
+
+### Features
+
+* **evals:** group suite runs and expose CLI results ([#284](https://github.com/kortyx-io/kortyx/issues/284)) ([146fd71](https://github.com/kortyx-io/kortyx/commit/146fd71a88587e5591dd0511a4c0cb57969f9d07))
+* **studio:** add route progress indicator ([#285](https://github.com/kortyx-io/kortyx/issues/285)) ([1142f3d](https://github.com/kortyx-io/kortyx/commit/1142f3d451dd5f819c6c1017449fb5330be878be))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * devDependencies
+    * @kortyx/agent bumped to 0.31.0
+    * kortyx bumped to 0.28.1
+
 ## [0.13.0](https://github.com/kortyx-io/kortyx/compare/studio-v0.12.0...studio-v0.13.0) (2026-10-07)
 
 

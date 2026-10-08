@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.44.0](https://github.com/kortyx-io/kortyx/compare/website-v0.43.0...website-v0.44.0) (2026-10-07)
+
+
+### Features
+
+* **evals:** group suite runs and expose CLI results ([#284](https://github.com/kortyx-io/kortyx/issues/284)) ([146fd71](https://github.com/kortyx-io/kortyx/commit/146fd71a88587e5591dd0511a4c0cb57969f9d07))
+
 ## [0.43.0](https://github.com/kortyx-io/kortyx/compare/website-v0.42.0...website-v0.43.0) (2026-10-07)
 
 

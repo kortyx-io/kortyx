@@ -47,3 +47,11 @@ it("does not relabel dynamic identifiers as settings sections", () => {
   const html = renderToStaticMarkup(<WorkspaceNavigation />);
   expect(html).toContain('title="members">members</span>');
 });
+
+it("links an evaluation run breadcrumb to the grouped Runs list", () => {
+  route.pathname = "/evals/evaluations/11111111-1111-4111-8111-111111111111";
+  const html = renderToStaticMarkup(<WorkspaceNavigation />);
+  expect(html).toContain('href="/evals/runs"');
+  expect(html).toContain('title="Evaluation run">Evaluation run</span>');
+  expect(html).not.toContain('href="/evals/evaluations"');
+});

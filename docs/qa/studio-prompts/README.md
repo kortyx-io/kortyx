@@ -8,9 +8,9 @@ Verified against the production Studio build on 2026-10-08. All data shown is a 
 - Root `pnpm type-check`: 51 successful tasks.
 - Root `pnpm coverage`: 39 successful tasks; existing coverage gates preserved.
 - Root `pnpm lint`, dependency audit and `git diff --check`: passed.
-- Studio: 242 tests passed, plus production/development auth-adapter smoke checks.
-- API: 97 tests passed (11 unrelated optional tests skipped), plus real production/development security-adapter checks.
-- Telemetry database: 189 tests passed against PostgreSQL, including fresh migration, tenant isolation, immutable versions, category/group mutations, promotion evidence and independent destination transfer.
+- Studio: 244 tests passed, plus production/development auth-adapter smoke checks.
+- API: 114 tests passed (2 unrelated optional tests skipped), plus real production/development security-adapter checks.
+- Telemetry database: 198 tests passed against PostgreSQL, including fresh migration, tenant isolation, immutable versions, category/group mutations, promotion evidence and independent destination transfer.
 - Website: 20 tests passed and 418 documentation routes built.
 - Example application: authenticated transport tests passed against both source and destination deployments.
 - Kortyx skill: metadata validation passed.
@@ -18,6 +18,8 @@ Verified against the production Studio build on 2026-10-08. All data shown is a 
 ## Manual application and CLI checks
 
 Ran two independent PostgreSQL/API deployments and two copies of the runnable prompt example. Created a system/user prompt, reviewed and saved a candidate with changed instructions and configuration, launched a complete suite from a test group, and launched one selected case directly against the candidate without a group. Attached evaluations correctly distinguished complete and selected tests and verified actual prompt usage.
+
+After integrating the latest multi-suite evaluation flow, repeated the individual-case and full-suite group launches successfully. Regression checks confirm every child suite shares the same frozen baseline and retries retain it after group changes.
 
 Promoted the tested candidate through Studio. A new application request resolved its exact version/hash from production, recorded generation provenance and kept the private prompt snapshot out of the public response.
 
@@ -42,6 +44,10 @@ Inspected the real React UI in light and dark themes at 1440×1000, 768×1024 an
 ### Mobile attached evaluations
 
 ![Individual and full-suite evidence on mobile](mobile-evidence.jpg)
+
+### Mobile individual-case launch
+
+![Candidate prompt and individual case selection](mobile-eval-launch.jpg)
 
 ### Mobile save review
 

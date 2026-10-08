@@ -2,7 +2,7 @@ import path from "node:path";
 import { readMigrationFiles } from "drizzle-orm/migrator";
 import type postgres from "postgres";
 import {
-  LEGACY_SCHEMA_FINGERPRINTS,
+  LEGACY_SCHEMA_FINGERPRINT_VARIANTS,
   legacyPrefix,
   validateLegacyHistory,
 } from "./legacy-migrations";
@@ -55,7 +55,11 @@ export async function prepareLegacyDatabase(
   const migrations = readMigrationFiles({ migrationsFolder: migrationsDir });
   validateLegacyHistory(migrations);
   const fingerprint = await legacySchemaFingerprint(sql);
-  if (fingerprint !== LEGACY_SCHEMA_FINGERPRINTS[prefix]) {
+  if (
+    !LEGACY_SCHEMA_FINGERPRINT_VARIANTS[prefix]?.some(
+      (candidate) => candidate === fingerprint,
+    )
+  ) {
     throw new Error(
       "Studio schema does not match its legacy ledger. Preparation stopped without writing a baseline or changing product DDL. Back up the database and inspect schema drift; do not delete migration history.",
     );

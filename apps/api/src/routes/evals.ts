@@ -4,20 +4,19 @@ import {
   type EvalSuite,
   StudioEvalStartRequestSchema,
 } from "@kortyx/agent/evals";
-import { PromptError, validatePromptValue } from "@kortyx/prompts";
 import {
   enqueueEvalRun,
   ensureProjectEnvironmentAllowed,
   getEvalRun,
   listEvalRuns,
   requestEvalCancellation,
-  resolvePrompts,
   TelemetryForbiddenError,
   TelemetryNotFoundError,
 } from "@kortyx/telemetry-db";
 import { bodyLimit } from "hono/body-limit";
 import { z } from "zod";
 import type { EvalTargetAdapter } from "../evals/contracts";
+import { freezeEvalPrompts } from "../evals/prompts";
 import {
   EvalDiscoveryError,
   type EvalTarget,
@@ -29,6 +28,7 @@ import {
   requireApiAction,
 } from "../middleware/security";
 import type { ApiEnv } from "../types";
+import { registerEvaluationRoutes } from "./evaluations";
 
 export function registerEvalRoutes(
   app: OpenAPIHono<ApiEnv>,
@@ -36,6 +36,7 @@ export function registerEvalRoutes(
   studioJudge?: EvalJudge,
   adapter?: EvalTargetAdapter,
 ) {
+  registerEvaluationRoutes(app, targets, studioJudge, adapter);
   const manifestFor = adapter
     ? (target: EvalTarget) => adapter.manifest(target)
     : fetchEvalManifest;
@@ -193,41 +194,13 @@ export function registerEvalRoutes(
         },
         503,
       );
-    const contracts = manifest.promptContracts ?? [];
-    if (request.promptSelection && !contracts.length)
-      throw new PromptError(
-        "PROMPT_EVAL_UNSUPPORTED",
-        "This application does not support Studio prompts.",
-        409,
-      );
-    let promptGroupName: string | undefined;
-    const promptSnapshot = contracts.length
-      ? await c.get("withTenantDatabase")((db) =>
-          resolvePrompts(db, auth, {
-            ids: contracts.map((contract) => contract.id),
-            environment: target.environment,
-            selection: request.promptSelection ?? { type: "production" },
-            onGroupName: (name) => {
-              promptGroupName = name;
-            },
-          }),
-        )
-      : undefined;
-    if (promptSnapshot)
-      for (const contract of contracts) {
-        const version = promptSnapshot.versions[contract.id];
-        if (!version || version.content.format !== contract.format)
-          throw new PromptError(
-            "PROMPT_CONTRACT_MISMATCH",
-            `Prompt ${contract.id} format differs from this application.`,
-            409,
-          );
-        validatePromptValue(
-          contract.configSchema,
-          version.content.config,
-          `${contract.id} application configuration`,
-        );
-      }
+    const { promptSnapshot, promptGroupName } = await freezeEvalPrompts(
+      c.get("withTenantDatabase"),
+      auth,
+      target.environment,
+      manifest.promptContracts,
+      request.promptSelection,
+    );
     const run = await c.get("withTenantDatabase")((db) =>
       enqueueEvalRun(db, {
         organizationId: auth.organizationId,

@@ -26,12 +26,20 @@ test("native workflow outputs are checked, persisted and inspectable through sui
   await expect(requirements.first()).toContainText("app.product-summary");
   await expect(requirements.first()).toContainText("v1");
   await suite.getByRole("button", { name: "Run suite", exact: true }).click();
-  const launch = page.getByRole("dialog", { name: "Run an eval suite" });
+  const launch = page.getByRole("dialog", { name: "Run evaluations" });
   await launch.getByRole("button", { name: "Judge", exact: true }).click();
   await page
     .getByRole("menuitemradio", { name: "App judge", exact: true })
     .click();
-  await launch.getByRole("button", { name: "Run suite", exact: true }).click();
+  await launch
+    .getByRole("button", { name: "Run evaluations", exact: true })
+    .click();
+  await expect(page).toHaveURL((url) =>
+    /^\/evals\/evaluations\/[0-9a-f-]+$/.test(url.pathname),
+  );
+  await page
+    .getByRole("button", { name: OUTPUT_SUITE.name!, exact: true })
+    .click();
   await expect(page).toHaveURL((url) =>
     /^\/evals\/runs\/[0-9a-f-]+$/.test(url.pathname),
   );

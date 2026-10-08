@@ -1,8 +1,36 @@
 import { cookies } from "next/headers";
 import { parseListTablePreferences } from "@/features/telemetry/lib/table-preferences";
-import { readEvalHistory, readEvalTargets } from "../api/server";
+import {
+  readEvalHistory,
+  readEvalTargets,
+  readEvaluationHistory,
+} from "../api/server";
 import { EvalsPageClient } from "./evals-page-client";
+import { EvaluationList } from "./evaluation-list";
 export async function EvalsListPage({ view }: { view: "runs" | "suites" }) {
+  if (view === "runs") {
+    const [targets, history] = await Promise.allSettled([
+      readEvalTargets(),
+      readEvaluationHistory(),
+    ]);
+    return (
+      <EvaluationList
+        initialTargets={
+          targets.status === "fulfilled"
+            ? targets.value
+            : { targets: [], canRun: false }
+        }
+        initialHistory={
+          history.status === "fulfilled" ? history.value.runs : []
+        }
+        initialError={
+          targets.status === "rejected" || history.status === "rejected"
+            ? "Some evaluation data is unavailable. Check the API version and refresh."
+            : ""
+        }
+      />
+    );
+  }
   const [targets, history, cookieStore] = await Promise.allSettled([
     readEvalTargets(),
     readEvalHistory(),

@@ -818,9 +818,53 @@ export const telemetryEvents = pgTable(
   ],
 );
 
+export const evaluationRuns = pgTable(
+  "evaluation_runs",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organizationId: uuid("organization_id").notNull(),
+    projectId: uuid("project_id").notNull(),
+    environment: text("environment").notNull(),
+    targetId: text("target_id").notNull(),
+    targetName: text("target_name").notNull(),
+    name: text("name").notNull(),
+    request: jsonb("request")
+      .$type<import("@kortyx/agent/evals").StudioEvaluationStartRequest>()
+      .notNull(),
+    requestHash: text("request_hash").notNull(),
+    idempotencyKey: text("idempotency_key"),
+    requestedBy: text("requested_by").notNull(),
+    cancelRequestedAt: timestampWithTimezone("cancel_requested_at"),
+    createdAt: timestampWithTimezone("created_at").notNull().defaultNow(),
+  },
+  (table) => [
+    foreignKey({
+      columns: [table.organizationId, table.projectId],
+      foreignColumns: [projects.organizationId, projects.id],
+      name: "evaluation_runs_project_tenant_fk",
+    }).onDelete("cascade"),
+    uniqueIndex("evaluation_runs_scope_id_unique").on(
+      table.organizationId,
+      table.projectId,
+      table.id,
+    ),
+    uniqueIndex("evaluation_runs_idempotency_unique").on(
+      table.organizationId,
+      table.projectId,
+      table.idempotencyKey,
+    ),
+    index("evaluation_runs_scope_created_idx").on(
+      table.organizationId,
+      table.projectId,
+      table.createdAt,
+    ),
+  ],
+);
+
 export const evalRuns = pgTable(
   "eval_runs",
   {
+    evaluationId: uuid("evaluation_id"),
     id: uuid("id").primaryKey().defaultRandom(),
     organizationId: uuid("organization_id").notNull(),
     projectId: uuid("project_id").notNull(),
@@ -859,6 +903,20 @@ export const evalRuns = pgTable(
       foreignColumns: [projects.organizationId, projects.id],
       name: "eval_runs_project_tenant_fk",
     }).onDelete("cascade"),
+    foreignKey({
+      columns: [table.organizationId, table.projectId, table.evaluationId],
+      foreignColumns: [
+        evaluationRuns.organizationId,
+        evaluationRuns.projectId,
+        evaluationRuns.id,
+      ],
+      name: "eval_runs_evaluation_tenant_fk",
+    }).onDelete("cascade"),
+    index("eval_runs_evaluation_idx").on(table.evaluationId),
+    uniqueIndex("eval_runs_evaluation_suite_unique").on(
+      table.evaluationId,
+      table.suiteId,
+    ),
     uniqueIndex("eval_runs_scope_id_unique").on(
       table.organizationId,
       table.projectId,

@@ -36,6 +36,14 @@ export {
   requestEvalCancellation,
 } from "./repositories/evals";
 export {
+  cancelEvaluation,
+  enqueueEvaluation,
+  evaluationRequestHash,
+  findIdempotentEvaluation,
+  getEvaluation,
+  listEvaluations,
+} from "./repositories/evaluations";
+export {
   listApplicableModelRateCards,
   seedDefaultModelRateCards,
 } from "./repositories/model-rate-cards";

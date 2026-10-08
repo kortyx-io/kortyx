@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.31.0](https://github.com/kortyx-io/kortyx/compare/agent-v0.30.0...agent-v0.31.0) (2026-10-07)
+
+
+### Features
+
+* **evals:** group suite runs and expose CLI results ([#284](https://github.com/kortyx-io/kortyx/issues/284)) ([146fd71](https://github.com/kortyx-io/kortyx/commit/146fd71a88587e5591dd0511a4c0cb57969f9d07))
+
 ## [0.30.0](https://github.com/kortyx-io/kortyx/compare/agent-v0.29.0...agent-v0.30.0) (2026-10-07)
 
 

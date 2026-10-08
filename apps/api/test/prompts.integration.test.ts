@@ -1,7 +1,10 @@
 import { randomUUID } from "node:crypto";
+import { getEvalSuiteRevision } from "@kortyx/agent";
+import type { EvalManifest, EvalSuite } from "@kortyx/agent/evals";
 import {
   createTelemetryApiKey,
   createTelemetryDbClient,
+  getEvaluation,
   mutatePrompt,
 } from "@kortyx/telemetry-db";
 import {
@@ -119,6 +122,135 @@ describe.skipIf(!url)("prompt serving authorization", () => {
           })
         ).status,
       ).toBe(403);
+
+      const group = await mutatePrompt(client.db, scope, "author", {
+        action: "group-create",
+        name: "Shared baseline",
+        members: [{ promptId: created.id as string, version: 1 }],
+      });
+      const suites: EvalManifest["suites"] = ["first", "second"].map((id) => ({
+        id,
+        cases: [
+          {
+            id: "case",
+            steps: [{ message: "Hello", expect: { type: "answer" } }],
+          },
+        ],
+      }));
+      const manifest: EvalManifest = {
+        schemaVersion: 1,
+        suites,
+        responders: [],
+        references: [],
+        judge: { id: "fixture", version: "1", location: "app" },
+        promptContracts: [
+          {
+            id: "classify",
+            format: "system-user",
+            variablesSchema: { type: "object" },
+            configSchema: { type: "object" },
+          },
+        ],
+      };
+      const target = {
+        ...scope,
+        id: "prompt-app",
+        name: "Prompt app",
+        environment: "production",
+        url: "https://example.com/evals",
+        serviceKey: "fixture",
+        allowInsecureHttp: false,
+      };
+      const evalApp = createApiApp({
+        db: client.db,
+        apiKeyPepper: "test",
+        evalTargetAdapter: {
+          list: async () => [target],
+          manifest: async () => manifest,
+        },
+      });
+      const { apiKey: studioKey } = await createTelemetryApiKey(client.db, {
+        ...scope,
+        environmentId: environment!.id,
+        pepper: "test",
+        name: "Eval runner",
+        mode: "test",
+        scopes: ["studio:read", "eval:run"],
+      });
+      const launch = {
+        targetId: target.id,
+        selection: "all",
+        judge: "app",
+        suites: suites.map((suite) => ({
+          suiteId: suite.id,
+          suiteRevision: getEvalSuiteRevision(suite as EvalSuite),
+        })),
+        promptSelection: { type: "group", groupId: group.id },
+        idempotencyKey: randomUUID(),
+      };
+      const send = (body: unknown, key = studioKey) =>
+        evalApp.request("/v1/studio/evals/evaluations", {
+          method: "POST",
+          headers: {
+            authorization: `Bearer ${key}`,
+            "content-type": "application/json",
+          },
+          body: JSON.stringify(body),
+        });
+      expect((await send(launch, apiKey)).status).toBe(403);
+      const queued = await send(launch);
+      expect(queued.status).toBe(202);
+      const { id: evaluationId } = (await queued.json()) as { id: string };
+      const evaluation = await getEvaluation(
+        client.db,
+        scope,
+        evaluationId,
+        true,
+      );
+      expect(evaluation.suites).toHaveLength(2);
+      const snapshots = evaluation.suites.map(
+        (suite) =>
+          (
+            suite as {
+              request: { promptSnapshot: unknown; promptGroupName: string };
+            }
+          ).request,
+      );
+      expect(snapshots[0]?.promptSnapshot).toMatchObject({
+        source: "eval",
+        versions: { classify: { version: 1 } },
+      });
+      expect(snapshots[1]?.promptSnapshot).toEqual(
+        snapshots[0]?.promptSnapshot,
+      );
+      expect(
+        snapshots.every((item) => item.promptGroupName === "Shared baseline"),
+      ).toBe(true);
+      await mutatePrompt(client.db, scope, "author", {
+        action: "group-update",
+        id: group.id as string,
+        expectedRevision: 1,
+        members: [],
+      });
+      const retry = await send(launch);
+      expect(retry.status).toBe(200);
+      expect(await retry.json()).toEqual({ id: evaluationId });
+      const unchanged = await getEvaluation(
+        client.db,
+        scope,
+        evaluationId,
+        true,
+      );
+      expect(unchanged.suites).toEqual(evaluation.suites);
+      manifest.promptContracts = [];
+      const unsupported = await send({
+        ...launch,
+        idempotencyKey: randomUUID(),
+      });
+      expect(unsupported.status).toBe(409);
+      expect(await unsupported.json()).toMatchObject({
+        error: "PROMPT_EVAL_UNSUPPORTED",
+      });
     } finally {
       await client.sql`delete from organizations where id = ${org.id}::uuid`;
       await client.close();

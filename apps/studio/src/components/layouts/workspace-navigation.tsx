@@ -47,6 +47,8 @@ export function WorkspaceNavigation({
   const params = useSearchParams();
   const segments = pathname.split("/").filter(Boolean);
   const environment = params.get("env");
+  const evaluationRun =
+    segments[0] === "evals" && segments[1] === "evaluations";
   return (
     <nav
       aria-label="Workspace navigation"
@@ -71,10 +73,19 @@ export function WorkspaceNavigation({
         {segments.map((segment, index) => {
           const last = index === segments.length - 1;
           const text =
+            (evaluationRun && index === 1
+              ? "Runs"
+              : evaluationRun && index === 2
+                ? "Evaluation run"
+                : undefined) ??
             (segments[0] === "settings" && index === 1
               ? settingsLabels[segment]
-              : labels[segment]) ?? decodeURIComponent(segment);
-          const path = `/${segments.slice(0, index + 1).join("/")}`;
+              : labels[segment]) ??
+            decodeURIComponent(segment);
+          const path =
+            evaluationRun && index === 1
+              ? "/evals/runs"
+              : `/${segments.slice(0, index + 1).join("/")}`;
           const href = `${path}${environment && !environmentSwitcher ? `?env=${encodeURIComponent(environment)}` : ""}`;
           return (
             <li key={path} className="flex min-w-0 items-center gap-2">

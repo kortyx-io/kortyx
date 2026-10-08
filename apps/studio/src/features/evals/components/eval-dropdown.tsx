@@ -21,7 +21,12 @@ export function EvalDropdown({
 }: {
   label: string;
   value: string;
-  options: { value: string; label: string; disabled?: boolean }[];
+  options: {
+    value: string;
+    label: string;
+    disabled?: boolean;
+    description?: string;
+  }[];
   onChange: (value: string) => void;
   disabled?: boolean;
   className?: string;
@@ -65,7 +70,14 @@ export function EvalDropdown({
               value={item.value}
               disabled={item.disabled}
             >
-              <span className="break-words">{item.label}</span>
+              <span className="break-words">
+                {item.label}
+                {item.description ? (
+                  <span className="mt-1 block text-[11px] font-normal text-muted-foreground">
+                    {item.description}
+                  </span>
+                ) : null}
+              </span>
             </DropdownMenuRadioItem>
           ))}
         </DropdownMenuRadioGroup>
