@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.16.0](https://github.com/kortyx-io/kortyx/compare/studio-v0.15.0...studio-v0.16.0) (2026-10-08)
+
+
+### Features
+
+* **evals:** compact judge evidence and add suite selection ([#293](https://github.com/kortyx-io/kortyx/issues/293)) ([9754f7c](https://github.com/kortyx-io/kortyx/commit/9754f7cacc61b5945a254ccaa66e17b1b5c8d13f))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * devDependencies
+    * @kortyx/agent bumped to 0.32.0
+    * kortyx bumped to 0.29.0
+
 ## [0.15.0](https://github.com/kortyx-io/kortyx/compare/studio-v0.14.0...studio-v0.15.0) (2026-10-08)
 
 

@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.45.0](https://github.com/kortyx-io/kortyx/compare/website-v0.44.0...website-v0.45.0) (2026-10-08)
+
+
+### Features
+
+* **evals:** compact judge evidence and add suite selection ([#293](https://github.com/kortyx-io/kortyx/issues/293)) ([9754f7c](https://github.com/kortyx-io/kortyx/commit/9754f7cacc61b5945a254ccaa66e17b1b5c8d13f))
+
 ## [0.44.0](https://github.com/kortyx-io/kortyx/compare/website-v0.43.0...website-v0.44.0) (2026-10-07)
 
 

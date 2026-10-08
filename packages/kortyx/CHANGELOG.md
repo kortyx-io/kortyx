@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.29.0](https://github.com/kortyx-io/kortyx/compare/kortyx-v0.28.2...kortyx-v0.29.0) (2026-10-08)
+
+
+### Features
+
+* **evals:** compact judge evidence and add suite selection ([#293](https://github.com/kortyx-io/kortyx/issues/293)) ([9754f7c](https://github.com/kortyx-io/kortyx/commit/9754f7cacc61b5945a254ccaa66e17b1b5c8d13f))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/agent bumped to 0.32.0
+    * @kortyx/cli bumped to 0.15.1
+
 ## [0.28.2](https://github.com/kortyx-io/kortyx/compare/kortyx-v0.28.1...kortyx-v0.28.2) (2026-10-08)
 
 
