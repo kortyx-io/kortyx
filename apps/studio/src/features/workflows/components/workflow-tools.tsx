@@ -96,7 +96,9 @@ export function WorkflowTools({
             </summary>
             <div className="mt-2 space-y-2 text-[11px]">
               {tool.description && (
-                <p className="text-muted-foreground">{tool.description}</p>
+                <p className="whitespace-pre-wrap break-words [overflow-wrap:anywhere] text-muted-foreground">
+                  {tool.description}
+                </p>
               )}
               <button
                 type="button"

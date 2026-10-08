@@ -61,7 +61,7 @@ export default function ResumePage() {
       <section className="mt-9 rounded-xl border border-slate-700 p-6">
         {pending ? (
           <>
-            <h2 className="text-lg font-medium">
+            <h2 className="whitespace-pre-wrap break-words [overflow-wrap:anywhere] text-lg font-medium">
               {pending.interrupt.input.question}
             </h2>
             <p className="mt-3 font-mono text-xs text-slate-500">
