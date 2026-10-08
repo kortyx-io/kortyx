@@ -30,7 +30,7 @@ import { LiveRefreshButton } from "@/features/telemetry/components/live-refresh-
 import { useListTablePreferences } from "@/features/telemetry/hooks/use-list-table-preferences";
 import { useLiveRefresh } from "@/features/telemetry/hooks/use-live-refresh";
 import type { ListTablePreferences } from "@/features/telemetry/lib/table-preferences";
-import { formatDateTime, formatDurationMs } from "@/lib/format";
+import { formatDateTime } from "@/lib/format";
 import { useStudioQueryStates } from "@/lib/nuqs";
 import { useRouter, useSearchParams } from "@/lib/scoped-navigation";
 import { evalRequest } from "../api/client";
@@ -51,6 +51,7 @@ import {
 } from "../schema";
 import { EvalCost } from "./eval-cost";
 import { EvalDropdown } from "./eval-dropdown";
+import { EvalDuration } from "./eval-duration";
 import { EvalNavigation } from "./eval-navigation";
 import { EvalRunSetup } from "./eval-run-setup";
 import { EvalStatus } from "./eval-status";
@@ -343,9 +344,7 @@ export function EvalsPageClient({
       defaultWidth: 100,
       render: (r) => (
         <span className="font-mono text-xs">
-          {r.startedAt && r.endedAt
-            ? formatDurationMs(Date.parse(r.endedAt) - Date.parse(r.startedAt))
-            : "—"}
+          <EvalDuration run={r} />
         </span>
       ),
     },

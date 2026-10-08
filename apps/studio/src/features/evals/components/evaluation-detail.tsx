@@ -15,7 +15,7 @@ import { DetailPage } from "@/components/detail/detail-page";
 import { Button } from "@/components/ui/button";
 import { LiveRefreshButton } from "@/features/telemetry/components/live-refresh-button";
 import { useLiveRefresh } from "@/features/telemetry/hooks/use-live-refresh";
-import { formatDateTime, formatDurationMs } from "@/lib/format";
+import { formatDateTime } from "@/lib/format";
 import { useStudioQueryStates } from "@/lib/nuqs";
 import { useRouter, useSearchParams } from "@/lib/scoped-navigation";
 import { evalRequest } from "../api/client";
@@ -23,6 +23,7 @@ import { evalNavigationHref, evalRunHref } from "../lib/navigation";
 import { isActive } from "../lib/presentation";
 import { EvalCost, EvalCostBreakdown } from "./eval-cost";
 import { EvalDetailHeader, EvalSummaryMetric } from "./eval-detail-header";
+import { EvalDuration } from "./eval-duration";
 import { EvalStatus } from "./eval-status";
 
 export function EvaluationDetail({
@@ -165,11 +166,7 @@ export function EvaluationDetail({
       defaultWidth: 110,
       render: (suite) => (
         <span className="text-xs">
-          {suite.startedAt && suite.endedAt
-            ? formatDurationMs(
-                Date.parse(suite.endedAt) - Date.parse(suite.startedAt),
-              )
-            : "—"}
+          <EvalDuration run={suite} />
         </span>
       ),
     },
@@ -251,12 +248,9 @@ export function EvaluationDetail({
                   {run.selection === "all" ? "All suites" : "Selected suites"}
                 </span>
                 <span>Created {formatDateTime(run.createdAt)}</span>
-                {run.startedAt && run.endedAt ? (
+                {run.startedAt ? (
                   <span>
-                    Duration{" "}
-                    {formatDurationMs(
-                      Date.parse(run.endedAt) - Date.parse(run.startedAt),
-                    )}
+                    Duration <EvalDuration run={run} />
                   </span>
                 ) : null}
                 {run.metadata.commit ? (
