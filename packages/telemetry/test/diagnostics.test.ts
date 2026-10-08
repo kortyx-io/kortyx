@@ -163,4 +163,40 @@ describe("native diagnostic transport", () => {
     expect(fetch).toHaveBeenCalledTimes(1);
     expect(adapter.getDiagnosticDeliveryState(id)).toBe("pending");
   });
+
+  it("never restores another credential, environment or endpoint's spool", async () => {
+    const directory = await mkdtemp(join(tmpdir(), "kortyx-diagnostic-scope-"));
+    try {
+      const first = createKortyxTelemetryAdapter({
+        ...options,
+        diagnostics: { enabled: true, spoolDirectory: directory },
+        fetch: async () => new Response(null, { status: 503 }),
+      });
+      first.trace?.reportError?.(new Error("scoped provider response"));
+      await first.flushDiagnostics();
+      const [originalNamespace] = await readdir(directory);
+      for (const scope of [
+        { apiKey: "another-key" },
+        { environment: "another-environment" },
+        { endpoint: "https://another-telemetry.example" },
+      ]) {
+        const fetch = vi.fn(async () => Response.json({ state: "available" }));
+        const other = createKortyxTelemetryAdapter({
+          ...options,
+          ...scope,
+          diagnostics: { enabled: true, spoolDirectory: directory },
+          fetch,
+        });
+        expect(await other.flushDiagnostics()).toMatchObject({ pending: 0 });
+        expect(fetch).not.toHaveBeenCalled();
+      }
+      expect(await readdir(directory)).toHaveLength(4);
+      expect(await readdir(join(directory, originalNamespace!))).toHaveLength(
+        1,
+      );
+      expect((await readdir(directory)).join()).not.toContain(options.apiKey);
+    } finally {
+      await rm(directory, { recursive: true, force: true });
+    }
+  });
 });

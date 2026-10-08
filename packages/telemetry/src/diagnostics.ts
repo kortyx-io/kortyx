@@ -1,4 +1,4 @@
-import { createHash, randomUUID } from "node:crypto";
+import { createHash, randomUUID, scryptSync } from "node:crypto";
 import {
   mkdir,
   readdir,
@@ -60,12 +60,13 @@ export function createDiagnosticDelivery(
   const spool = options.diagnostics?.spoolDirectory
     ? join(
         options.diagnostics.spoolDirectory,
-        createHash("sha256")
-          .update(
-            `${options.endpoint}\n${options.environment}\n${options.apiKey}`,
-          )
-          .digest("hex")
-          .slice(0, 24),
+        // A stable credential-scoped namespace without storing the API key or
+        // a fast credential hash on disk. Only derived when spooling is enabled.
+        scryptSync(
+          options.apiKey,
+          JSON.stringify([options.endpoint, options.environment]),
+          24,
+        ).toString("hex"),
       )
     : undefined;
   const state = (id: string, value: DiagnosticDeliveryState) => {

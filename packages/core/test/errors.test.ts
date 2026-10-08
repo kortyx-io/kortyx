@@ -481,6 +481,38 @@ describe("failure contracts", () => {
 });
 
 describe("private provider response evidence", () => {
+  it("bounds oversized provider bodies, cancels the stream and marks the omitted remainder", async () => {
+    const limit = 8 * 1024 * 1024;
+    let cancelled = false;
+    const response = new Response(
+      new ReadableStream({
+        start(controller) {
+          controller.enqueue(new TextEncoder().encode("X".repeat(limit + 1)));
+        },
+        cancel() {
+          cancelled = true;
+        },
+      }),
+      { status: 400 },
+    );
+    let failure: unknown;
+    try {
+      await assertProviderResponse("openai", response, "invoke");
+    } catch (error) {
+      failure = error;
+    }
+    expect(cancelled).toBe(true);
+    expect(errorProperty(failure, "providerResponse")).toMatchObject({
+      status: 400,
+      body: "X".repeat(limit),
+    });
+    expect(errorProperty(failure, "diagnosticOmissions")).toEqual([
+      { path: "#/data/providerResponse/body", reason: "provider_body_limit" },
+    ]);
+    expect(JSON.stringify(serializeFailure(failure))).not.toContain(
+      "X".repeat(100),
+    );
+  });
   it.each([
     "openai",
     "openrouter",
