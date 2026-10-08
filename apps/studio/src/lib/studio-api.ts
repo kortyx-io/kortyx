@@ -1,6 +1,7 @@
 import "server-only";
 
 import {
+  DiagnosticResponseSchema,
   STUDIO_API_PROTOCOL_VERSION,
   StudioCatalogsResponseSchema,
   StudioContextResponseSchema,
@@ -467,4 +468,15 @@ export const getStudioWorkflows = async (
 export const getStudioCatalogs = async () =>
   fetchJson("/v1/studio/catalogs", (value) =>
     StudioCatalogsResponseSchema.parse(value),
+  );
+
+export const getStudioDiagnostic = (
+  diagnosticId: string,
+  environment: string,
+) =>
+  fetchJson(
+    withQuery(`/v1/studio/diagnostics/${encodeURIComponent(diagnosticId)}`, {
+      env: environment,
+    }),
+    (value) => DiagnosticResponseSchema.parse(value),
   );

@@ -8,6 +8,7 @@ import type {
 import {
   exceptionDiagnostics,
   safeTelemetryMetadata,
+  summarizeDiagnostic,
 } from "@kortyx/hooks/internal";
 import { context, type Span, SpanKind, trace } from "@opentelemetry/api";
 import {
@@ -102,7 +103,8 @@ export function createOpenTelemetryTraceAdapter(
       try {
         const span = activeSpans.getStore() ?? trace.getActiveSpan();
         if (!span) return;
-        const diagnostic = exceptionDiagnostics(error, options.error);
+        const captured = exceptionDiagnostics(error, options.error);
+        const diagnostic = captured ? summarizeDiagnostic(captured) : null;
         if (!diagnostic) return;
         span.recordException({
           name: diagnostic.type ?? "Error",

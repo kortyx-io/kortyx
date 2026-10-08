@@ -18,6 +18,9 @@ it("leaves OSS, auth and external destinations unchanged", () => {
   expect(studioHref("/auth/logout", scope)).toBe("/auth/logout");
 });
 it("keeps project links, detail routes and settings in explicit scope", () => {
+  expect(studioHref("/diagnostics/diagnostic-a?env=staging", scope)).toBe(
+    `/projects/${scope.projectPublicId}/diagnostics/diagnostic-a?env=staging`,
+  );
   expect(studioHref("/runs/run-a?range=24h#details", scope)).toBe(
     `/projects/${scope.projectPublicId}/runs/run-a?range=24h#details`,
   );

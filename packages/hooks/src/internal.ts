@@ -1,3 +1,5 @@
+export { summarizeDiagnostic } from "@kortyx/telemetry-contracts";
+export { captureDiagnosticContent } from "./diagnostic-capture";
 export {
   errorDiagnostics,
   exceptionDiagnostics,

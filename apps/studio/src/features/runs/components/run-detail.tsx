@@ -52,7 +52,7 @@ export function RunDetail({ detail }: { detail: StudioRunDetailResponse }) {
       : undefined;
 
   return (
-    <div className="flex h-full min-h-0 flex-col">
+    <div className="flex h-full min-h-0 min-w-0 flex-col">
       <DetailHeader
         eyebrow="Run"
         title={run.id}
@@ -117,9 +117,14 @@ export function RunDetail({ detail }: { detail: StudioRunDetailResponse }) {
         }
         alert={
           failure ? (
-            <div className="rounded-md border border-red-500/25 bg-red-500/5 px-3 py-2 text-xs text-red-700 dark:text-red-400">
-              <span className="font-medium">Latest error: </span>
-              {errorText(failure.payload)}
+            <div
+              data-responsive-surface="run-error-summary"
+              className="min-w-0 rounded-md border border-red-500/25 bg-red-500/5 px-3 py-2 text-xs text-red-700 dark:text-red-400"
+            >
+              <p className="line-clamp-3 [overflow-wrap:anywhere]">
+                <span className="font-medium">Latest error: </span>
+                {errorText(failure.payload)}
+              </p>
             </div>
           ) : run.status === "interrupted" ? (
             <div className="rounded-md border border-amber-500/25 bg-amber-500/5 px-3 py-2 text-xs text-amber-700 dark:text-amber-400">
