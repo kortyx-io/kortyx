@@ -126,33 +126,35 @@ export function DetailInspectorDrawer({
         style={{ zIndex: inspectorLayers.surface }}
         className="top-12 right-1 bottom-1 left-4 h-auto w-auto gap-0 rounded-xl border p-0 data-[state=closed]:[animation-fill-mode:forwards] sm:left-auto sm:w-[30rem] sm:max-w-none"
       >
-        <SheetHeader className="h-14 shrink-0 justify-center gap-0.5 border-b px-4 py-0">
-          <div className="flex min-w-0 items-center gap-2">
-            <SheetTitle
-              aria-label={retained.title}
-              className="min-w-0 flex-1 text-sm"
-            >
-              <OverflowText ariaLabel={retained.title}>
-                {retained.title}
-              </OverflowText>
-            </SheetTitle>
-            {retained.badges}
-            <SheetClose asChild>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon-sm"
-                aria-label={closeLabel}
+        <SheetHeader className="h-14 shrink-0 flex-row items-center gap-3 border-b px-4 py-0">
+          <div className="min-w-0 flex-1">
+            <div className="flex min-w-0 items-center gap-2">
+              <SheetTitle
+                aria-label={retained.title}
+                className="min-w-0 flex-1 text-sm"
               >
-                <X />
-              </Button>
-            </SheetClose>
+                <OverflowText ariaLabel={retained.title}>
+                  {retained.title}
+                </OverflowText>
+              </SheetTitle>
+              {retained.badges}
+            </div>
+            <SheetDescription className="min-w-0 text-xs">
+              <OverflowText ariaLabel={retained.description}>
+                {retained.description}
+              </OverflowText>
+            </SheetDescription>
           </div>
-          <SheetDescription className="min-w-0 text-xs">
-            <OverflowText ariaLabel={retained.description}>
-              {retained.description}
-            </OverflowText>
-          </SheetDescription>
+          <SheetClose asChild>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-sm"
+              aria-label={closeLabel}
+            >
+              <X />
+            </Button>
+          </SheetClose>
         </SheetHeader>
         <div
           className={cn(

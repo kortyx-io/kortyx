@@ -125,6 +125,23 @@ async function expectFilledTable(table: Locator) {
     .toBeLessThanOrEqual(2);
 }
 
+async function expectCenteredInspectorClose(page: Page) {
+  const header = inspector(page).locator('[data-slot="sheet-header"]');
+  await noOverflow(header);
+  await expect
+    .poll(async () => {
+      const bounds = await header.boundingBox();
+      const close = await header
+        .getByRole("button", { name: "Close prompt action" })
+        .boundingBox();
+      if (!bounds || !close) return Number.POSITIVE_INFINITY;
+      return Math.abs(
+        close.y + close.height / 2 - (bounds.y + bounds.height / 2),
+      );
+    })
+    .toBeLessThanOrEqual(1);
+}
+
 test.describe("Prompt detail drawers", () => {
   test.beforeAll(async ({ request }) => {
     await cleanup();
@@ -576,6 +593,7 @@ test.describe("Prompt detail drawers", () => {
     for (let iteration = 0; iteration < 3; iteration++) {
       await renameInspector(page);
       await expect(inspector(page)).toHaveCount(1);
+      await expectCenteredInspectorClose(page);
       await expect
         .poll(async () => {
           const field = await promptDrawer(page)
@@ -600,6 +618,16 @@ test.describe("Prompt detail drawers", () => {
       expect(await surfaceNode?.evaluate((node) => node.isConnected)).toBe(
         true,
       );
+    }
+    for (const width of [768, 390]) {
+      await page.setViewportSize({ width, height: 900 });
+      await renameInspector(page);
+      await expectCenteredInspectorClose(page);
+      await inspector(page)
+        .getByRole("button", { name: "Close prompt action" })
+        .click();
+      await expect(inspector(page)).toHaveCount(0);
+      await expect(promptDrawer(page)).toHaveAttribute("data-state", "open");
     }
   });
 

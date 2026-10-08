@@ -176,3 +176,22 @@ all evaluation launch, drawer-stack, prompt and responsive scenarios. All
 **51/51 root typecheck tasks**, repository lint, API build and production
 Studio build passed. The local API was restored to the example application
 targets after the fixture-based checks.
+
+### Inspector close-button alignment
+
+The shared inspector header now centers its close button beside the complete
+title/subtitle block, matching the main detail drawer. It retains the native
+button, accessible label and dismissal behavior. The geometry regression
+reproduced a 9.5px upward offset in the previous production build and now
+checks alignment, header overflow and repeated dismissal at desktop, tablet
+and mobile widths. The production promotion panel was visually reviewed at
+1440px and 390px.
+
+![Desktop promotion header](desktop-promotion-header.png)
+
+![Mobile promotion header](mobile-promotion-header.png)
+
+After the header fix, **37 drawer/prompt/responsive browser checks passed
+in development and 37 in production**. Studio typecheck, repository lint
+and the production Studio build also passed. The regression fails against
+the previous production header and passes with the shared alignment fix.
