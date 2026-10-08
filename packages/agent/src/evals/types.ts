@@ -4,6 +4,7 @@ import type { Agent } from "../chat/create-agent";
 import type { ResumeResponse } from "../execution/types";
 import type { ChatMessage } from "../types/chat-message";
 import type { EvalJudgeUsageSchema } from "./contracts";
+import type { EVAL_EVIDENCE_EVENT_TYPES } from "./evidence-policy";
 
 export type EvalJson =
   | null
@@ -38,10 +39,41 @@ export type EvalCase<Params = EvalJson> = {
   workflowId?: string;
   steps: readonly EvalStep[];
 };
+/** Serializable selection; custom predicates are registered on createEvals. */
+export type EvalEvidencePolicy = {
+  history?: boolean;
+  events?: false | readonly EvalEvidenceEventType[] | EvalHandlerRef;
+  outputs?: false | readonly EvalOutputSelector[] | EvalHandlerRef;
+};
+export type EvalEvidenceEventType = (typeof EVAL_EVIDENCE_EVENT_TYPES)[number];
+/** Sanitized public event. structured-data events have kind=final. */
+export type EvalEvidenceEvent = {
+  readonly type: EvalEvidenceEventType;
+  readonly [key: string]: EvalJson;
+};
+/** Match every supplied field; dataType or schemaId is required at runtime. */
+export type EvalOutputSelector = {
+  readonly dataType?: string;
+  readonly schemaId?: string;
+  readonly schemaVersion?: string;
+};
+export type EvalEvidenceFilters = {
+  events?: Record<
+    string,
+    (event: EvalEvidenceEvent, params?: EvalJson) => boolean
+  >;
+  outputs?: Record<string, (output: EvalJson, params?: EvalJson) => boolean>;
+};
+export type EvalJudgeEvidence = {
+  version: "compact-v1";
+  history: boolean;
+  observation: EvalObservation;
+};
 export type EvalSuite<Params = EvalJson> = {
   id: string;
   name?: string;
   cases: readonly EvalCase<Params>[];
+  evidence?: EvalEvidencePolicy;
 };
 export type EvalInterrupt = {
   requestId: string;
@@ -98,6 +130,8 @@ export type EvalVerdict = {
 export type EvalCriterionResult = EvalVerdict & { id: string; text: string };
 export type EvalJudgeUsage = z.infer<typeof EvalJudgeUsageSchema>;
 export type EvalStepResult = {
+  /** Exact compact observation selected by the app; full observation remains unchanged. */
+  evidence?: EvalJudgeEvidence;
   judgeCalls?: number;
   judgeUsage?: EvalJudgeUsage[];
   index: number;
@@ -190,6 +224,7 @@ export type EvalResponder<Params, Prepared> =
       ) => ResumeResponse | Promise<ResumeResponse>;
     };
 export type EvalDefaults = {
+  evidence?: EvalEvidencePolicy;
   repetitions?: number;
   concurrency?: number;
   caseTimeoutMs?: number;
@@ -228,6 +263,7 @@ export type CreateEvalsOptions<
     ) => EvalJson | Promise<EvalJson>
   >;
   judge?: EvalJudge;
+  evidenceFilters?: EvalEvidenceFilters;
   defaults?: EvalDefaults;
 };
 export type EvalProgress =

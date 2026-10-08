@@ -168,9 +168,10 @@ const result = await useReason({
 The runner captures the existing public stream directly. Each step records ordered
 `observation.events`: tool names, call IDs, arguments, results and errors, alongside
 text, structured output, interrupt requests and workflow transitions. Adjacent
-text deltas from the same source are joined. The judge receives the current
-observation and all previous steps, including tool results retrieved before an
-interrupt. This works from the SDK, Studio and CLI without querying Studio telemetry.
+text deltas from the same source are joined in the saved observation. Judges receive
+compact evidence from the current and, by default, earlier steps in the same case,
+including tool results retrieved before an interrupt. This works from the SDK,
+Studio and CLI without querying Studio telemetry.
 
 A criterion can say: “Answers for each requested product with the price and currency
 returned by its successful tool call; explicitly states when price data is
@@ -189,6 +190,112 @@ executor must populate `observation.events` itself when it wants execution evide
 Only emit tool arguments and results suitable for the judge and stored eval records;
 they may contain application data, and arbitrary tool payloads are not automatically
 redacted.
+
+## Compact judge evidence
+
+Judging always removes intermediate structured patches/deltas, text streaming
+boundaries/deltas, routine status updates, transitions, and redundant message/done
+events. Final text and structured output remain available. An exact structured
+final already present in the current output is sent once; historical finals and
+invalidation events remain ordered so withdrawn output cannot become the answer.
+Tool starts, results and errors retain their original order and call identifiers,
+including parallel or unfinished calls. Tool payloads are never summarized or
+truncated. Errors, interrupts, cancellation and execution limits are retained.
+Partial structured snapshots retain their `streaming` status and are not treated
+as completed outputs.
+
+Configure selection under `createEvals.defaults.evidence`; each suite's `evidence`
+overrides individual fields. No compact/full preset is needed:
+
+```ts
+const evals = createEvals({
+  agent,
+  judge: createEvalJudge({ model: judgeModel }),
+  defaults: {
+    evidence: { history: true }, // Default; only earlier steps in this case.
+  },
+  suites: [{
+    id: "answer-quality",
+    evidence: {
+      history: false,
+      events: false,
+      outputs: [{ dataType: "app.answer", schemaVersion: "1" }],
+    },
+    cases: [{
+      id: "paris",
+      steps: [{
+        message: "What is France's capital?",
+        expect: {
+          type: "answer",
+          criteria: ["The text field of app.answer correctly names the capital."],
+          reference: { capital: "Paris" },
+        },
+      }],
+    }],
+  }],
+});
+```
+
+- Omit `events` to retain useful compact events; use `false` or a typed array such
+  as `["tool-call-start", "tool-call-result", "tool-call-error"]` to select them.
+- Omit `outputs` to retain structured outputs; use `false` or an array of selectors
+  by `dataType` and/or `schemaId`, optionally `schemaVersion`. Every supplied field
+  in a selector must match; any matching selector includes the output.
+- `events: false` never removes final text, structured outputs, or interrupt data.
+  `outputs: false` removes structured output evidence, including copies in events,
+  but preserves final text and interrupts. It does not redact tool results.
+- `history: false` changes only judge context, never the agent's conversation.
+  When enabled, the same selection applies to current and earlier observations.
+
+For custom predicates, register synchronous boolean filters in the app and refer
+to them by name. This keeps suites JSON-serializable:
+
+```ts
+createEvals({
+  agent,
+  judge: createEvalJudge({ model: judgeModel }),
+  suites,
+  defaults: {
+    evidence: { events: { using: "catalog-tools" } },
+  },
+  evidenceFilters: {
+    events: {
+      "catalog-tools": (event) => event.tool === "read_product",
+    },
+    outputs: {
+      "answer-only": (output) =>
+        output !== null && typeof output === "object" &&
+        !Array.isArray(output) && "dataType" in output &&
+        output.dataType === "app.answer",
+    },
+  },
+});
+```
+
+Suites can select `outputs: { using: "answer-only" }`. A filter reference may
+include JSON `params`, passed as the predicate's second argument. Predicates
+receive isolated copies of already compacted evidence and must be pure and
+synchronous. Unknown registrations fail during setup; predicate failures become
+grading errors. Streaming events cannot be restored through a custom predicate.
+
+The complete `step.observation` stays in saved results and Studio. Each successfully
+prepared step also records `step.evidence`: the selected compact observation,
+history setting, and compaction version. Studio judges replay that snapshot without
+executing application filters. Effective defaults are included in discovered suite
+definitions and their revision; version named filters when their behavior changes.
+Filtering does not affect deterministic `expect.outputs` or interrupt checks.
+
+Criteria define **what to judge**, selection defines **what evidence is supplied**.
+Name the relevant structured type and fields in criteria, and distinguish answer
+fields from progress commentary or internal plans. Emitted structured data does
+not establish frontend visibility; application UI tests verify rendering. The
+judge reports insufficient evidence when required fields or supporting facts are
+missing, rather than guessing. Filtering an event does not prove an action never
+occurred. Keep the evidence required by your criteria.
+
+The built-in judge's default rubric version is `kortyx-rubric-v4`. Compaction and
+selection can change verdicts; compare representative cases when upgrading. Update
+the SDK, Studio backend, and CLI together before using the new evidence fields.
 
 ## Choose where judging runs
 

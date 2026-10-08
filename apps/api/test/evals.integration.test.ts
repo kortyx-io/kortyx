@@ -539,6 +539,12 @@ describe.skipIf(!url)(
         const evals = createEvals({
           agent: { streamChat: vi.fn() },
           suites: [suite],
+          defaults: { evidence: { events: { using: "tool-results" } } },
+          evidenceFilters: {
+            events: {
+              "tool-results": (event) => event.type === "tool-call-result",
+            },
+          },
           ...(withCodeJudge
             ? { judge: { id: "app/test", version: "1", grade: codeGrade } }
             : {}),
@@ -551,6 +557,7 @@ describe.skipIf(!url)(
                     text: "Choose",
                     structured: [],
                     events: [
+                      { type: "status", message: "Searching" },
                       {
                         type: "tool-call-result",
                         tool: "read_job",
@@ -602,7 +609,11 @@ describe.skipIf(!url)(
             authorization: `Bearer ${apiKey}`,
             "content-type": "application/json",
           },
-          body: JSON.stringify({ ...request, targetId: target.id }),
+          body: JSON.stringify({
+            ...request,
+            suiteRevision: getEvalSuiteRevision(evals.listSuites()[0]!),
+            targetId: target.id,
+          }),
         });
         expect(response.status).toBe(202);
         const { id } = z.object({ id: z.uuid() }).parse(await response.json());
@@ -644,8 +655,15 @@ describe.skipIf(!url)(
           conversation: { observation: { events: unknown[] } }[];
         };
         expect(graded.conversation[0]?.observation.events).toEqual(
-          saved.result?.cases[0]?.steps[0]?.observation.events,
+          saved.result?.cases[0]?.steps[0]?.evidence?.observation.events,
         );
+        expect(
+          saved.result?.cases[0]?.steps[0]?.observation.events,
+        ).toHaveLength(2);
+        expect(graded.conversation[0]?.observation.events).toHaveLength(1);
+        expect(saved.result?.suite.evidence).toEqual({
+          events: { using: "tool-results" },
+        });
         expect(JSON.stringify(saved)).not.toContain(apiKey);
       } finally {
         await worker?.stop();

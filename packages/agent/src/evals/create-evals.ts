@@ -9,6 +9,12 @@ import {
   EvalVerdictSchema,
   parseEvalSuite,
 } from "./contracts";
+import {
+  createEvalJudgeEvidence,
+  getEvalGradeEvidence,
+  validateEvidenceFilters,
+} from "./evidence";
+import { EvalEvidencePolicySchema } from "./evidence-policy";
 import { missingOutputReason } from "./output-expectations";
 import { getEvalSuiteRevision } from "./revision";
 import { executeEvalChat } from "./stream";
@@ -18,6 +24,7 @@ import type {
   EvalCaseResult,
   EvalCommand,
   EvalContext,
+  EvalEvidencePolicy,
   EvalExecution,
   EvalExecutionStatus,
   EvalHandlerRef,
@@ -88,7 +95,25 @@ export function createEvals<
   Params = EvalJson | undefined,
   Prepared = undefined,
 >(options: CreateEvalsOptions<Params, Prepared>) {
-  const suites = options.suites.map((suite) => freeze(parseEvalSuite(suite)));
+  const defaultEvidence = EvalEvidencePolicySchema.parse(
+    options.defaults?.evidence ?? {},
+  ) as EvalEvidencePolicy;
+  const evidenceFilters = {
+    events: { ...options.evidenceFilters?.events },
+    outputs: { ...options.evidenceFilters?.outputs },
+  };
+  validateEvidenceFilters(defaultEvidence, evidenceFilters);
+  const suites = options.suites.map((suite) => {
+    const parsed = parseEvalSuite(suite);
+    const evidence = { ...defaultEvidence, ...parsed.evidence };
+    validateEvidenceFilters(evidence, evidenceFilters);
+    return freeze(
+      parseEvalSuite({
+        ...parsed,
+        ...(Object.keys(evidence).length ? { evidence } : {}),
+      }),
+    );
+  });
   if (
     !suites.length ||
     new Set(suites.map((suite) => suite.id)).size !== suites.length
@@ -484,6 +509,11 @@ export function createEvals<
                     : clone(reference);
                 }
                 await reportPhase("grading");
+                evaluated.evidence = createEvalJudgeEvidence(
+                  observation,
+                  suite.evidence,
+                  evidenceFilters,
+                );
                 if (studioGrading && step.expect.criteria?.length) {
                   evaluated.status = "ungraded";
                   attemptResult.status = "ungraded";
@@ -508,8 +538,10 @@ export function createEvals<
                         }
                       },
                       input: clone(input),
-                      observation: clone(observation),
-                      conversation: clone(attemptResult.steps.slice(0, -1)),
+                      ...getEvalGradeEvidence(
+                        evaluated,
+                        attemptResult.steps.slice(0, -1),
+                      ),
                       signal,
                       ...(evaluated.reference !== undefined
                         ? { reference: clone(evaluated.reference) }

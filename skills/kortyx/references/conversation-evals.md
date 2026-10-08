@@ -374,3 +374,22 @@ and restricted account through the real app before treating it as a useful
 behavioral suite. Inspect saved observations and judge identity, not just the
 overall green status. Account/data isolation and external side effects remain
 application responsibilities.
+
+## Judge evidence selection
+
+Evidence is compact by default: streaming updates and redundant final copies are
+not judge input. Full observations stay in Studio. Set `defaults.evidence` in
+`createEvals` and override fields through `suite.evidence`:
+
+- `history: false` excludes prior case steps from judging only (default true).
+- `events: false` excludes execution events; a typed event-name array selects them.
+- `outputs: [{ dataType: "app.answer" }]` selects structured outputs. Selectors also
+  accept `schemaId` and `schemaVersion`; `false` excludes structured outputs.
+- Custom selections use `{ using: "filter-name", params?: ... }`, with synchronous
+  boolean predicates registered under `evidenceFilters.events` or
+  `evidenceFilters.outputs` in the app. Predicates operate after compaction.
+
+Criteria should name the relevant output types and fields, not assume every
+structured field is rendered. Judge evidence is not proof of frontend visibility.
+Do not filter out the supporting facts a criterion needs. The SDK records the
+selected per-step evidence for Studio replay without running application callbacks.
