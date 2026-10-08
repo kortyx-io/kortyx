@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.9.0](https://github.com/kortyx-io/kortyx/compare/providers-v0.8.4...providers-v0.9.0) (2026-10-08)
+
+
+### Features
+
+* **telemetry:** preserve complete private error diagnostics ([#290](https://github.com/kortyx-io/kortyx/issues/290)) ([e1c5a88](https://github.com/kortyx-io/kortyx/commit/e1c5a88c494016fd84a1af40579412fcfde31271))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/core bumped to 0.12.0
+
 ## [0.8.4](https://github.com/kortyx-io/kortyx/compare/providers-v0.8.3...providers-v0.8.4) (2026-10-07)
 
 

@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.31.1](https://github.com/kortyx-io/kortyx/compare/agent-v0.31.0...agent-v0.31.1) (2026-10-08)
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/core bumped to 0.12.0
+    * @kortyx/providers bumped to 0.9.0
+    * @kortyx/runtime bumped to 0.21.7
+    * @kortyx/stream bumped to 0.15.2
+    * @kortyx/utils bumped to 0.3.4
+  * devDependencies
+    * @kortyx/hooks bumped to 0.31.0
+    * @kortyx/openai bumped to 0.5.6
+
 ## [0.31.0](https://github.com/kortyx-io/kortyx/compare/agent-v0.30.0...agent-v0.31.0) (2026-10-07)
 
 

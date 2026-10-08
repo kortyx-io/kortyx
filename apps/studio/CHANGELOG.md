@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.15.0](https://github.com/kortyx-io/kortyx/compare/studio-v0.14.0...studio-v0.15.0) (2026-10-08)
+
+
+### Features
+
+* **telemetry:** preserve complete private error diagnostics ([#290](https://github.com/kortyx-io/kortyx/issues/290)) ([e1c5a88](https://github.com/kortyx-io/kortyx/commit/e1c5a88c494016fd84a1af40579412fcfde31271))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/telemetry-contracts bumped to 0.15.0
+  * devDependencies
+    * @kortyx/agent bumped to 0.31.1
+    * @kortyx/telemetry bumped to 0.12.0
+    * kortyx bumped to 0.28.2
+
 ## [0.14.0](https://github.com/kortyx-io/kortyx/compare/studio-v0.13.0...studio-v0.14.0) (2026-10-07)
 
 
