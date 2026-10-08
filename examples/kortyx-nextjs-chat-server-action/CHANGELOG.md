@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.14.19](https://github.com/kortyx-io/kortyx/compare/example-nextjs-chat-server-action-v0.14.18...example-nextjs-chat-server-action-v0.14.19) (2026-10-08)
+
+
+### Bug Fixes
+
+* **ui:** preserve multiline prompt formatting ([#296](https://github.com/kortyx-io/kortyx/issues/296)) ([9f4af86](https://github.com/kortyx-io/kortyx/commit/9f4af8676c10a19f5dc5661fed00d3130276284c))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * kortyx bumped to 0.29.1
+
 ## [0.14.18](https://github.com/kortyx-io/kortyx/compare/example-nextjs-chat-server-action-v0.14.17...example-nextjs-chat-server-action-v0.14.18) (2026-10-08)
 
 

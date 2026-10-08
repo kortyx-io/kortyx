@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.33.0](https://github.com/kortyx-io/kortyx/compare/agent-v0.32.0...agent-v0.33.0) (2026-10-08)
+
+
+### Features
+
+* **hooks:** support mixed tools outputs and interrupts ([#297](https://github.com/kortyx-io/kortyx/issues/297)) ([0aa4aa6](https://github.com/kortyx-io/kortyx/commit/0aa4aa6b08cd2ef44f603b8dbe8e35b30c54cbdc))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/runtime bumped to 0.22.0
+  * devDependencies
+    * @kortyx/hooks bumped to 0.32.0
+
 ## [0.32.0](https://github.com/kortyx-io/kortyx/compare/agent-v0.31.1...agent-v0.32.0) (2026-10-08)
 
 

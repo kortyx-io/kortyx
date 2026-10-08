@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.8.9](https://github.com/kortyx-io/kortyx/compare/example-canvas-v0.8.8...example-canvas-v0.8.9) (2026-10-08)
+
+
+### Bug Fixes
+
+* **ui:** preserve multiline prompt formatting ([#296](https://github.com/kortyx-io/kortyx/issues/296)) ([9f4af86](https://github.com/kortyx-io/kortyx/commit/9f4af8676c10a19f5dc5661fed00d3130276284c))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/telemetry bumped to 0.12.1
+    * kortyx bumped to 0.29.1
+  * devDependencies
+    * @kortyx/cli bumped to 0.15.2
+
 ## [0.8.8](https://github.com/kortyx-io/kortyx/compare/example-canvas-v0.8.7...example-canvas-v0.8.8) (2026-10-08)
 
 

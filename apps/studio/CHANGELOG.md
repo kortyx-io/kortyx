@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.16.1](https://github.com/kortyx-io/kortyx/compare/studio-v0.16.0...studio-v0.16.1) (2026-10-08)
+
+
+### Bug Fixes
+
+* **ui:** preserve multiline prompt formatting ([#296](https://github.com/kortyx-io/kortyx/issues/296)) ([9f4af86](https://github.com/kortyx-io/kortyx/commit/9f4af8676c10a19f5dc5661fed00d3130276284c))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * devDependencies
+    * @kortyx/agent bumped to 0.33.0
+    * @kortyx/telemetry bumped to 0.12.1
+    * kortyx bumped to 0.29.1
+
 ## [0.16.0](https://github.com/kortyx-io/kortyx/compare/studio-v0.15.0...studio-v0.16.0) (2026-10-08)
 
 
