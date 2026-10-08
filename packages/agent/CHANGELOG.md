@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.32.0](https://github.com/kortyx-io/kortyx/compare/agent-v0.31.1...agent-v0.32.0) (2026-10-08)
+
+
+### Features
+
+* **evals:** compact judge evidence and add suite selection ([#293](https://github.com/kortyx-io/kortyx/issues/293)) ([9754f7c](https://github.com/kortyx-io/kortyx/commit/9754f7cacc61b5945a254ccaa66e17b1b5c8d13f))
+
 ## [0.31.1](https://github.com/kortyx-io/kortyx/compare/agent-v0.31.0...agent-v0.31.1) (2026-10-08)
 
 
