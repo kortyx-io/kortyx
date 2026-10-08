@@ -219,6 +219,44 @@ test.describe("Studio detail drawer stack", () => {
     });
   }
 
+  test("handles Escape in the first frame of a revisited Run", async ({
+    page,
+  }) => {
+    await openRunsList(page);
+    await clickTableRow(runTableRow(page));
+    const run = drawer(page, runPath);
+    await expect(run).toHaveAttribute("data-state", "open");
+    await run.getByRole("link", { name: /^Session / }).click();
+    const session = drawer(page, sessionPath);
+    await expect(session).toHaveAttribute("data-state", "open");
+    await session.getByRole("button", { name: /^Runs \d+$/ }).click();
+    const link = session.getByRole("tabpanel").locator(`a[href^="${runPath}"]`);
+    await expect(link).toBeVisible();
+    // Fire during the DOM commit's microtask, before passive React effects.
+    // The newly active Run must own Escape, rather than the departing Session.
+    await page.evaluate((path) => {
+      const departing = document.querySelector(
+        `[data-detail-drawer="${path}"]`,
+      );
+      if (!departing) throw new Error("Session drawer is missing");
+      const observer = new MutationObserver(() => {
+        if (departing.getAttribute("data-state") !== "closed") return;
+        observer.disconnect();
+        document.body.dispatchEvent(
+          new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
+        );
+      });
+      observer.observe(departing, {
+        attributes: true,
+        attributeFilter: ["data-state"],
+      });
+    }, sessionPath);
+    await link.click();
+    await expect(session).toHaveAttribute("data-state", "open");
+    await expect(page).toHaveURL(new RegExp(`${escapeRegExp(sessionPath)}\\?`));
+    await expect(run).toHaveAttribute("data-state", "open");
+  });
+
   test("stacks Session, Run, and Trace while the shared backdrop peels one level at a time", async ({
     page,
   }) => {

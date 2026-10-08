@@ -87,6 +87,8 @@ response after Presence has already removed the closing surface.
 - a list row opens a full route or skips its entry motion;
 - the first Session → Run navigation replaces the stack with a standalone
   route after loading (production link prefetching);
+- Escape in the commit that changes the top drawer is lost before passive
+  keyboard effects install, or is handled by the departing drawer;
 - Browser Back removes a drawer before its exit state is observable;
 - the backdrop disappears between layers or closes more than one layer;
 - the backdrop sits above ancestor drawers and blocks their visible slivers;

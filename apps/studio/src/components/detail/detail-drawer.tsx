@@ -268,7 +268,9 @@ function DetailDrawerSurface({
     layer.closeTop();
   }, [closing, layer]);
 
-  useEffect(() => {
+  // Keyboard ownership must be ready in the same commit as the active
+  // surface. Passive effects leave a gap when an ancestor becomes topmost.
+  useLayoutEffect(() => {
     if (!active || !layer.isTop) return;
     const onKeyDown = (event: KeyboardEvent) => {
       const target = event.target as HTMLElement | null;

@@ -119,3 +119,14 @@ and mobile, then restored the browser viewport.
 ![Mobile prompt editor](mobile-tiptap-editor.png)
 
 ![Completed evaluation of the composed prompt in the example application](composed-example-evaluation.png)
+
+
+### First-frame drawer keyboard regression
+
+Stress tests reproduced an intermittent Escape failure while revisiting
+Run → Session → Run. Instrumentation showed the key reached the window without
+a drawer listener installed. Keyboard ownership now updates in a layout effect,
+in the same commit as the active surface. A new browser regression dispatches
+Escape from the transition's DOM mutation microtask; it failed before the fix
+and passed three consecutive development runs afterward. The existing native
+Escape, nested inspector, menu and TipTap picker scenarios remain in the suite.
