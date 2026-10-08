@@ -102,7 +102,9 @@
     },
     "apps/studio": {
       "package-name": "kortyx-studio",
-      "component": "studio"
+      "component": "studio",
+      "draft": true,
+      "force-tag-creation": true
     },
     "apps/website": {
       "package-name": "kortyx-website",

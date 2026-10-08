@@ -57,3 +57,13 @@ runs:
         PUBLISHER_ROOT: ${{ inputs.publisher-root }}
         ACTION_PATH: ${{ github.action_path }}
       run: bash "$ACTION_PATH/publish.sh"
+    - name: Verify R2 publication access before promotion
+      if: inputs.operation == 'prepare'
+      shell: bash
+      env:
+        STUDIO_UPDATES_R2_ACCOUNT_ID: ${{ inputs.account-id }}
+        STUDIO_UPDATES_R2_BUCKET: ${{ inputs.bucket }}
+        STUDIO_UPDATES_R2_ACCESS_KEY_ID: ${{ inputs.access-key-id }}
+        STUDIO_UPDATES_R2_SECRET_ACCESS_KEY: ${{ inputs.secret-access-key }}
+        PUBLISHER_ROOT: ${{ inputs.publisher-root }}
+      run: python "$PUBLISHER_ROOT/.github/scripts/studio/update-channel/publish.py" --check-access

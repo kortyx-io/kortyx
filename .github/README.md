@@ -111,9 +111,11 @@ image build contexts even for older release candidates.
 - Studio release tag/package/manifest agreement, main ancestry, immutable version
   checks, native amd64/arm64 smoke tests, credential rotation, persistence,
   backup/restore, external PostgreSQL, and updater ownership checks are retained.
-- Production Studio promotion uses the automatic `studio-production-auto`
-  environment and promotes the exact tested digests. The publisher dependencies are prepared before
-  promotion; update CDN publication follows verified image promotion. Recovery
+- Production Studio promotion and recovery share the approved `studio-production`
+  environment and its R2 credentials. Publication preparation exercises R2 access
+  before promoting the exact tested digests. CDN publication follows verified image
+  promotion; the Studio GitHub release remains draft until CDN verification passes.
+  All release entry points require successful push CI for the exact commit. Recovery
   verifies the supplied production digests and both architectures before publication.
 - The existing R2 publisher retains idempotency, concurrent-update protection,
   release-history-before-channel ordering, and public CDN verification.

@@ -158,3 +158,25 @@ idempotent and refuses a changed digest for an existing release version.
 Installer protocol 1 updates the standard bundled-Postgres Compose installation.
 Releases requiring a different Compose topology must use a new installer protocol
 and a documented manual installer upgrade; they must not silently reuse protocol 1.
+
+## Release completion and recovery
+
+Studio tags and draft GitHub releases are created before image publication. A tag
+alone does not mean the release is available. The release becomes public only after
+both architectures pass clean-install and upgrade smoke tests, production image
+digests are verified, and the public update channel is verified. A failed build or
+publication leaves the release draft and keeps the previous stable channel intact.
+
+Automatic promotion and manual recovery both use the `studio-production`
+environment and its R2 credentials. Its production approval gate applies to both
+paths. Publication checks conditional write, read-back, and delete permissions
+with a temporary `studio/preflight/` object before promoting images. R2 credentials
+must permit these operations in the update bucket. Failures log only an allowlisted
+SDK error code and HTTP status, never raw SDK request details.
+
+All release entry points, including manual dispatch and recovery, require the latest
+push CI run for the exact release commit on the default branch to have passed.
+Recovery validates the existing production image digests and republishes the
+manifest without rebuilding or replacing immutable release images. Publishing the
+GitHub release is the final step, so rerunning recovery can finish a release whose
+CDN publication succeeded but whose GitHub publication failed.
