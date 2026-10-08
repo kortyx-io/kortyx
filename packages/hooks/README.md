@@ -49,6 +49,31 @@ and `result.output` remain available during migration, but are deprecated and
 scheduled for removal in the next major release. TypeSafe Jev's provider-native
 decision schema is a temporary exception until a non-tool replacement ships.
 
+## Mixed tools, outputs, and interrupts
+
+A model turn may request multiple domain tools, `emit` outputs, and interrupt
+contracts together. They run in the requested order, so an emitted card can
+appear before a question about it. Each interrupt pauses the remaining calls;
+resume reuses completed tool results, emissions, and human responses. Tool
+approval still applies, and `interrupts.maxRequests` and `outputs.maxEmissions`
+still bound their respective calls.
+
+A terminal `return` runs after every other call in that turn, regardless of its
+position. When an output follows domain or interrupt results from the same turn,
+Kortyx generates its value in a separate schema-constrained model pass using
+those results, rather than publishing the original draft. Streamed contracts use
+their normal streamed generation pass; other contracts use a buffered pass.
+These passes, including failed attempts, consume `toolExecution.maxSteps` across
+resume. Budget exhaustion throws a `ProviderRequestError` with code
+`REASON_OUTPUT_BUDGET_EXHAUSTED` and guidance to increase `maxSteps`.
+
+There is one terminal `result.returned` value. If the model requests multiple
+returns, each receives an error result asking the model to select one. Other
+calls proceed normally, and completed calls are not replayed for correction.
+Correction consumes the remaining `maxSteps`; exhaustion throws a typed
+`REASON_OUTPUT_CONTRACT_CORRECTION_EXHAUSTED` failure. Multiple `emit` outputs
+are supported without this restriction.
+
 ## Runtime Resume Behavior
 
 On resume, the node function is replayed from the top.

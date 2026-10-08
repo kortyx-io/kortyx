@@ -486,7 +486,29 @@ function HumanInputBox({
     return null;
   }
 
-  const isMulti = piece.kind === "multi-choice" || piece.multiple;
+  // Named interrupt contracts keep their application payload in `request`.
+  // This example supports their choice-shaped payloads alongside native choices.
+  const request =
+    piece.kind === "custom" &&
+    piece.request &&
+    typeof piece.request === "object"
+      ? (piece.request as Record<string, unknown>)
+      : undefined;
+  const options = Array.isArray(request?.options)
+    ? request.options.filter(
+        (
+          option,
+        ): option is { id: string; label: string; description?: string } =>
+          Boolean(option) &&
+          typeof option === "object" &&
+          typeof option.id === "string" &&
+          typeof option.label === "string",
+      )
+    : piece.options;
+  const isMulti =
+    piece.kind === "multi-choice" ||
+    piece.multiple ||
+    request?.kind === "multi-choice";
 
   return (
     <div className="my-3 overflow-hidden">
@@ -495,7 +517,7 @@ function HumanInputBox({
       </p>
 
       <div className="flex flex-col max-w-sm gap-2 py-3">
-        {piece.options.map((opt) =>
+        {options.map((opt) =>
           isMulti ? (
             <label
               key={opt.id}

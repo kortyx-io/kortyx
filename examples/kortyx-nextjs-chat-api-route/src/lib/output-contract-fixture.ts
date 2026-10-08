@@ -13,13 +13,17 @@ const responseFor = (messages: KortyxPromptMessage[]): KortyxInvokeResult => {
     (message) =>
       message.role === "user" && message.content.includes("/invalid"),
   );
-  const pending =
-    messages.at(-2)?.role === "tool" &&
-    messages
-      .at(-2)
-      ?.content.startsWith("Generating the requested structured output.")
-      ? messages.at(-2)
-      : undefined;
+  const generation = messages
+    .at(-1)
+    ?.content.match(/Generate output contract "([^"]+)"/);
+  const pending = generation
+    ? {
+        name:
+          generation[1] === "completed"
+            ? "kortyx_stream_return__completed"
+            : "kortyx_stream_emit__card",
+      }
+    : undefined;
   if (pending) {
     const content =
       invalidDraft && pending.name === "kortyx_stream_emit__card"
