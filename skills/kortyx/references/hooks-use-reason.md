@@ -261,6 +261,33 @@ result.returned; // discriminated completed/rejected result
 
 The model selects a control tool. For a streamed contract, Kortyx makes a separate streamed JSON pass: partial fields reach the client before the pass completes, the final object is validated, then an `emit` contract returns control to the model for more text or tools. The extra pass counts toward usage and `toolExecution.maxSteps`. Live surrounding text requires provider tool-streaming support. Failed streamed output invalidates its provisional field chunks.
 
+### Mixing calls in one model turn
+
+Multiple domain tools, emitted output contracts, and interrupt contracts may
+share a turn. Kortyx processes them in the requested order, pausing at each
+interrupt and reusing completed calls on resume. A terminal return runs last,
+even when it appears first in the provider response. This lets the model show
+cards before asking for a choice while ensuring the final answer waits for all
+outstanding tools and human responses.
+
+An output after domain or interrupt results in the same turn is generated from
+those results in a separate schema-constrained pass. Streamed outputs use their
+normal streamed pass; non-streamed drafts are regenerated in a buffered pass.
+Each generation attempt consumes `toolExecution.maxSteps`, including failed
+attempts across checkpoint resume. `REASON_OUTPUT_BUDGET_EXHAUSTED` is a typed
+`ProviderRequestError` with guidance to increase that budget. Approval,
+`interrupts.maxRequests`, and `outputs.maxEmissions` continue to apply.
+
+Multiple emissions are allowed, but `result.returned` remains one terminal
+value. Conflicting return calls receive error results asking the model to select
+one, within the remaining `maxSteps`. Completed tools, interrupts, and emissions
+are preserved. Exhaustion yields the typed
+`REASON_OUTPUT_CONTRACT_CORRECTION_EXHAUSTED` failure.
+
+Tool arguments and interrupt requests in a turn were authored together. If a
+later tool's arguments or a later question depend on a result that is not yet
+known, let the model request that call in a subsequent turn.
+
 ## Deprecated Single-JSON Output And Structured Streaming
 
 `useReason({ outputSchema, structured })` and `result.output` remain available for existing calls, including partial fields, but are deprecated and scheduled for removal in the next major. Migrate tool-capable chat models to output contracts. Provider-native decision models such as TypeSafe Jev need a non-tool replacement before removal.

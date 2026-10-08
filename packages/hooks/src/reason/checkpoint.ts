@@ -22,6 +22,7 @@ export type ReasonInterruptCheckpoint = {
 export type ReasonCompletedCheckpoint = {
   status: "completed";
   result: UseReasonResult<unknown, unknown>;
+  resolvedInterrupts?: InterruptInput[];
 };
 
 export const resolveReasonCheckpointKey = (args: {
@@ -76,6 +77,9 @@ export const readReasonCompletedCheckpoint = (
   return {
     status: "completed",
     result: value.result as UseReasonResult<unknown, unknown>,
+    ...(Array.isArray(value.resolvedInterrupts)
+      ? { resolvedInterrupts: value.resolvedInterrupts as InterruptInput[] }
+      : {}),
   };
 };
 

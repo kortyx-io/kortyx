@@ -277,6 +277,14 @@ export async function createExecutionGraph(
         graph: { name: workflowName, node: nodeId },
         config: nodeConfig,
         emit: emitRuntimeEvent,
+        replayInterrupt: (request: InterruptInput): void => {
+          throwIfExecutionAborted(execution.abortSignal);
+          // Both LangGraph and the parallel coordinator consume responses by
+          // position. Durable hooks skip completed work, but must still advance
+          // those response slots before asking their next question.
+          if (awaitInput) awaitInput(request);
+          else interrupt(request);
+        },
         awaitInterrupt: (
           interruptConfig: InterruptInput,
         ): InterruptResumeValue => {

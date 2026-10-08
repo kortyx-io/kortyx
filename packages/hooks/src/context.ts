@@ -49,6 +49,8 @@ export type HookNodeRuntimeContext = {
   config: NodeConfig;
   emit: (event: string, payload: unknown) => void;
   awaitInterrupt: (args: InterruptInput) => InterruptResumeValue;
+  /** Consume an already-resolved engine interrupt when a durable hook skips it. */
+  replayInterrupt?: ((args: InterruptInput) => void) | undefined;
   callWorkflow?: WorkflowCallService;
   workflowCallTelemetry?: KortyxTelemetryConfig | undefined;
 };
