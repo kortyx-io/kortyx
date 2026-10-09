@@ -35,7 +35,10 @@ module.exports = async ({ github, context, core }) => {
     );
     return { updated: true, pullNumber: pull.number };
   } catch (error) {
-    if (error.status === 422 && /not behind/i.test(error.message)) {
+    if (
+      error.status === 422 &&
+      /not behind|no new commits on the base branch/i.test(error.message)
+    ) {
       core.info(`Pull request #${pull.number} is already up to date.`);
       return { updated: false, pullNumber: pull.number };
     }
