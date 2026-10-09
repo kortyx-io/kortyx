@@ -255,7 +255,7 @@ setup/cleanup).
 ### Prompt actions and drawer polish (2026-10-09)
 
 Each prompt row now has an unpinned actions menu and centered selection checkbox.
-On narrow screens, a compact left rail opens the category tree in a platform sheet.
+On narrow screens, a compact left rail opens the category tree inside the library body, below its header.
 Category navigation, Escape dismissal, focus return and opening the category modal
 are covered at tablet and mobile widths.
 The sidebar reads **Prompt Management → Prompts**. Detail headers use two compact
@@ -284,5 +284,7 @@ an immediate reload.
 ![Archive confirmation](prompt-archive-confirmation.png)
 
 ![Mobile action modal](mobile-prompt-action.png)
+
+![Category sidebar anchored to the library body](category-sidebar.png)
 
 ![Mobile category sidebar](mobile-category-sidebar.png)

@@ -19,7 +19,8 @@ import {
   Users,
 } from "lucide-react";
 import { parseAsArrayOf, parseAsString, parseAsStringLiteral } from "nuqs";
-import { useEffect, useState } from "react";
+import { Collapsible } from "radix-ui";
+import { useEffect, useRef, useState } from "react";
 import {
   DataTable,
   type DataTableColumn,
@@ -37,12 +38,6 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
-import {
-  Sheet,
-  SheetContent,
-  SheetTitle,
-  SheetTrigger,
-} from "@/components/ui/sheet";
 import { EvalDropdown } from "@/features/evals/components/eval-dropdown";
 import { useStudioQueryStates } from "@/lib/nuqs";
 import { useRouter } from "@/lib/scoped-navigation";
@@ -73,6 +68,11 @@ export function PromptLibraryView({
   categoryId?: string;
 }) {
   const [categoriesOpen, setCategoriesOpen] = useState(false);
+  const categoryTrigger = useRef<HTMLButtonElement>(null);
+  const closeCategories = () => {
+    setCategoriesOpen(false);
+    categoryTrigger.current?.focus();
+  };
   const router = useRouter(),
     [library, setLibrary] = useState(initial),
     [error, setError] = useState(initialError),
@@ -462,29 +462,53 @@ export function PromptLibraryView({
           </Button>
         </div>
       )}
-      <div className="flex min-h-0 flex-1">
-        <div className="shrink-0 border-r p-1.5 xl:hidden">
-          <Sheet open={categoriesOpen} onOpenChange={setCategoriesOpen}>
-            <SheetTrigger asChild>
-              <Button
-                size="icon"
-                variant="ghost"
-                aria-label="Open categories"
-                title="Categories"
-              >
-                <PanelLeft className="size-4" />
-              </Button>
-            </SheetTrigger>
-            <SheetContent
-              side="left"
-              className="w-72 max-w-[85vw] gap-0 overflow-y-auto p-3 pt-12"
-              aria-describedby={undefined}
+      <div
+        className="relative isolate flex min-h-0 flex-1"
+        data-prompt-library-body
+      >
+        {categoriesOpen && (
+          <button
+            type="button"
+            aria-label="Close categories"
+            tabIndex={-1}
+            className="absolute inset-0 z-10 bg-background/40 xl:hidden"
+            onClick={closeCategories}
+          />
+        )}
+        <Collapsible.Root
+          open={categoriesOpen}
+          onOpenChange={setCategoriesOpen}
+          className="w-11 shrink-0 border-r px-1.5 py-3 xl:hidden"
+          onKeyDown={(event) => {
+            if (event.key === "Escape" && categoriesOpen) {
+              event.preventDefault();
+              event.stopPropagation();
+              closeCategories();
+            }
+          }}
+        >
+          <Collapsible.Trigger asChild>
+            <Button
+              ref={categoryTrigger}
+              size="icon"
+              variant="ghost"
+              className="relative z-30"
+              aria-label={
+                categoriesOpen ? "Collapse categories" : "Open categories"
+              }
+              title={categoriesOpen ? "Collapse categories" : "Categories"}
             >
-              <SheetTitle className="sr-only">Prompt categories</SheetTitle>
-              {categoryNavigation}
-            </SheetContent>
-          </Sheet>
-        </div>
+              <PanelLeft className="size-4" />
+            </Button>
+          </Collapsible.Trigger>
+          <Collapsible.Content
+            role="navigation"
+            aria-label="Prompt categories"
+            className="absolute inset-y-0 left-0 z-20 w-64 max-w-[calc(100%-3rem)] overflow-y-auto border-r bg-background p-3 shadow-lg [&>div:first-child]:pl-8"
+          >
+            {categoryNavigation}
+          </Collapsible.Content>
+        </Collapsible.Root>
         <aside className="hidden w-56 shrink-0 overflow-y-auto border-r p-3 xl:block">
           {categoryNavigation}
         </aside>

@@ -573,20 +573,26 @@ test.describe("Prompt detail drawers", () => {
         exact: true,
       });
       await trigger.click();
-      const categories = page.getByRole("dialog", {
+      const categories = page.getByRole("navigation", {
         name: "Prompt categories",
         exact: true,
       });
       await expect(categories).toBeVisible();
-      await expect
-        .poll(async () => (await categories.boundingBox())?.x)
-        .toBe(0);
       const bounds = await categories.boundingBox();
+      const body = await page
+        .locator("[data-prompt-library-body]")
+        .boundingBox();
+      expect(bounds!.x).toBe(body!.x);
+      expect(bounds!.y).toBe(body!.y);
+      expect(bounds!.height).toBe(body!.height);
+      expect(bounds!.y).toBeGreaterThan(0);
       expect(bounds!.width).toBeLessThan(width);
       await expect(
         categories.getByRole("link", { name: categoryName, exact: true }),
       ).toBeVisible();
-      await page.keyboard.press("Escape");
+      await page
+        .getByRole("button", { name: "Collapse categories", exact: true })
+        .press("Escape");
       await expect(categories).toHaveCount(0);
       await expect(trigger).toBeFocused();
       await trigger.click();

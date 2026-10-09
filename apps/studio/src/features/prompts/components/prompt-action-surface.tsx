@@ -66,6 +66,10 @@ export function PromptActionSurface({
           // Radix restores focus after unmount. Do not steal it from a menu or
           // another control the user has already opened in that frame.
           event.preventDefault();
+          // A newly mounted menu may not have received autofocus yet. Restoring
+          // the old trigger in that gap dismisses the menu as an outside focus.
+          if (document.querySelector('[role="menu"][data-state="open"]'))
+            return;
           const active = document.activeElement;
           if (active === document.body || content.current?.contains(active)) {
             if (returnFocus.current?.isConnected) returnFocus.current.focus();
