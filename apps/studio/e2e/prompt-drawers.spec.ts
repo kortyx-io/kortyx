@@ -578,11 +578,13 @@ test.describe("Prompt detail drawers", () => {
         exact: true,
       });
       await expect(categories).toBeVisible();
-      const bounds = await categories.boundingBox();
       const body = await page
         .locator("[data-prompt-library-body]")
         .boundingBox();
-      expect(bounds!.x).toBe(body!.x);
+      await expect
+        .poll(async () => (await categories.boundingBox())?.x)
+        .toBe(body!.x);
+      const bounds = await categories.boundingBox();
       expect(bounds!.y).toBe(body!.y);
       expect(bounds!.height).toBe(body!.height);
       expect(bounds!.y).toBeGreaterThan(0);
@@ -627,6 +629,13 @@ test.describe("Prompt detail drawers", () => {
       await expect(create).toHaveCount(0);
       await page.goto("/prompts");
     }
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await page
+      .getByRole("button", { name: "Open categories", exact: true })
+      .click();
+    await expect(
+      page.getByRole("navigation", { name: "Prompt categories" }),
+    ).toHaveCSS("animation-name", "none");
   });
 
   test("edits highlighted JSON with native history, formatting and validation", async ({

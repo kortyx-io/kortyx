@@ -463,7 +463,7 @@ export function PromptLibraryView({
         </div>
       )}
       <div
-        className="relative isolate flex min-h-0 flex-1"
+        className="relative isolate flex min-h-0 flex-1 overflow-hidden"
         data-prompt-library-body
       >
         {categoriesOpen && (
@@ -508,7 +508,7 @@ export function PromptLibraryView({
           <Collapsible.Content
             role="navigation"
             aria-label="Prompt categories"
-            className="absolute inset-y-0 left-0 z-20 w-64 max-w-[calc(100%-3rem)] overflow-y-auto border-r bg-background p-3 shadow-lg [&>div:first-child]:pl-8"
+            className="absolute inset-y-0 left-0 z-20 w-64 max-w-[calc(100%-3rem)] overflow-y-auto border-r bg-background p-3 shadow-lg data-[state=open]:animate-in data-[state=open]:slide-in-from-left-full data-[state=open]:duration-200 data-[state=open]:ease-out data-[state=closed]:animate-out data-[state=closed]:slide-out-to-left-full data-[state=closed]:duration-200 data-[state=closed]:ease-in motion-reduce:animate-none! [&>div:first-child]:pl-8"
           >
             {categoryNavigation}
           </Collapsible.Content>
