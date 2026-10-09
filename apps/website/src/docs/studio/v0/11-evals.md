@@ -381,7 +381,7 @@ choose its conversations independently. Suite checkboxes select or clear every
 conversation and show a mixed state for partial selections. Selections and
 expanded suites survive reloads and browser history. The default judge is Studio
 when available, otherwise App; unavailable judges remain disabled with a reason.
-Repetitions (1–20) and concurrent attempts per suite (1–4) apply to the selection.
+Repetitions (1–20) and concurrent attempts per suite (1–20) apply to the selection.
 Each suite is limited to 100 attempts; one evaluation is limited to 1,000 attempts.
 Missing App judge configuration is explained beside the disabled option.
 

@@ -359,7 +359,12 @@ export function registerStudioEvalCommands(
       integer(20),
       1,
     )
-    .option("--concurrency <count>", "Parallel attempts (1–4).", integer(4), 1)
+    .option(
+      "--concurrency <count>",
+      "Parallel attempts (1–20).",
+      integer(20),
+      1,
+    )
     .option(
       "--judge <location>",
       "Judge selection: studio (default) or app.",
