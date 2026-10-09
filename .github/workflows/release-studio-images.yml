@@ -3,6 +3,14 @@ name: Release / Studio Images
 on:
   workflow_call:
     inputs:
+      api_digest:
+        description: Staged API index built alongside npm publication
+        type: string
+        default: ""
+      studio_digest:
+        description: Staged Studio index built alongside npm publication
+        type: string
+        default: ""
       release_tag:
         required: true
         type: string
@@ -68,6 +76,15 @@ jobs:
         env:
           RELEASE_TAG: ${{ inputs.release_tag }}
         run: bash ./.github/automation/.github/scripts/studio/validate-release.sh
+      - name: Validate supplied staging indexes
+        env:
+          API_DIGEST: ${{ inputs.api_digest }}
+          STUDIO_DIGEST: ${{ inputs.studio_digest }}
+        run: |
+          if [ -n "$API_DIGEST$STUDIO_DIGEST" ]; then
+            [[ "$API_DIGEST" =~ ^sha256:[a-f0-9]{64}$ ]]
+            [[ "$STUDIO_DIGEST" =~ ^sha256:[a-f0-9]{64}$ ]]
+          fi
       - name: Require successful CI for the release commit
         env:
           GH_TOKEN: ${{ github.token }}
@@ -84,105 +101,28 @@ jobs:
       - name: Select published CLI installer version
         id: installer
         run: echo "version=$(node -p 'require(\"./packages/kortyx/package.json\").version')" >> "$GITHUB_OUTPUT"
-  publish-api:
-    name: Publish API staging image
+  build:
+    name: Build staging images for standalone recovery
     needs: prepare
-    runs-on: ubuntu-latest
-    timeout-minutes: 90
-    outputs:
-      digest: ${{ steps.image.outputs.digest }}
-    steps:
-      - name: Checkout
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-        with:
-          ref: ${{ needs.prepare.outputs.commit }}
-      - name: Checkout workflow modules
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-        with:
-          ref: ${{ github.workflow_sha }}
-          path: .github/automation
-          sparse-checkout: |
-            .github
-            apps/api/Dockerfile
-          sparse-checkout-cone-mode: false
-          persist-credentials: false
-      - name: Setup container registry
-        uses: ./.github/automation/.github/actions/setup/container-registry
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-          qemu: "true"
-      - name: Refuse to overwrite a production version
-        env:
-          VERSION: ${{ needs.prepare.outputs.version }}
-        run: bash ./.github/automation/.github/scripts/studio/refuse-overwrite.sh
-      - name: Build and push API staging image
-        id: image
-        uses: ./.github/automation/.github/actions/containers/build-push
-        with:
-          context: .
-          file: .github/automation/apps/api/Dockerfile
-          platforms: linux/amd64,linux/arm64
-          tags: |
-            ${{ env.REGISTRY }}/${{ env.API_IMAGE_NAME }}:staging-latest
-            ${{ env.REGISTRY }}/${{ env.API_IMAGE_NAME }}:staging-v${{ needs.prepare.outputs.version }}
-          cache-scope: kortyx-api-image
-          subject-name: ${{ env.REGISTRY }}/${{ env.API_IMAGE_NAME }}
-
-  publish-studio:
-    name: Publish Studio staging image
-    needs: prepare
-    runs-on: ubuntu-latest
-    timeout-minutes: 90
-    outputs:
-      digest: ${{ steps.image.outputs.digest }}
-    steps:
-      - name: Checkout
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-        with:
-          ref: ${{ needs.prepare.outputs.commit }}
-      - name: Checkout workflow modules
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-        with:
-          ref: ${{ github.workflow_sha }}
-          path: .github/automation
-          sparse-checkout: |
-            .github
-            apps/studio/Dockerfile
-          sparse-checkout-cone-mode: false
-          persist-credentials: false
-      - name: Setup container registry
-        uses: ./.github/automation/.github/actions/setup/container-registry
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-          qemu: "true"
-      - name: Refuse to overwrite a production version
-        env:
-          VERSION: ${{ needs.prepare.outputs.version }}
-        run: bash ./.github/automation/.github/scripts/studio/refuse-overwrite.sh
-      - name: Build and push Studio staging image
-        id: image
-        uses: ./.github/automation/.github/actions/containers/build-push
-        with:
-          context: .
-          file: .github/automation/apps/studio/Dockerfile
-          platforms: linux/amd64,linux/arm64
-          tags: |
-            ${{ env.REGISTRY }}/${{ env.STUDIO_IMAGE_NAME }}:staging-latest
-            ${{ env.REGISTRY }}/${{ env.STUDIO_IMAGE_NAME }}:staging-v${{ needs.prepare.outputs.version }}
-          cache-scope: kortyx-studio-image
-          subject-name: ${{ env.REGISTRY }}/${{ env.STUDIO_IMAGE_NAME }}
+    if: inputs.api_digest == '' && inputs.studio_digest == ''
+    uses: ./.github/workflows/build-studio-images.yml
+    with:
+      commit: ${{ needs.prepare.outputs.commit }}
+      version: ${{ needs.prepare.outputs.version }}
+    secrets: inherit
 
   verify-staging:
     name: Verify staging image indexes
-    needs: [prepare, publish-api, publish-studio]
+    needs: [prepare, build]
+    # A skipped build is expected only when the orchestrator supplied both indexes.
+    if: >-
+      always() && !cancelled() && needs.prepare.result == 'success' &&
+      (needs.build.result == 'success' ||
+       (needs.build.result == 'skipped' && inputs.api_digest != '' && inputs.studio_digest != ''))
     runs-on: ubuntu-latest
     outputs:
-      api_digest: ${{ needs.publish-api.outputs.digest }}
-      studio_digest: ${{ needs.publish-studio.outputs.digest }}
+      api_digest: ${{ inputs.api_digest || needs.build.outputs.api_digest }}
+      studio_digest: ${{ inputs.studio_digest || needs.build.outputs.studio_digest }}
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
@@ -205,8 +145,8 @@ jobs:
       - name: Verify staging indexes and digests
         env:
           VERSION: ${{ needs.prepare.outputs.version }}
-          API_DIGEST: ${{ needs.publish-api.outputs.digest }}
-          STUDIO_DIGEST: ${{ needs.publish-studio.outputs.digest }}
+          API_DIGEST: ${{ inputs.api_digest || needs.build.outputs.api_digest }}
+          STUDIO_DIGEST: ${{ inputs.studio_digest || needs.build.outputs.studio_digest }}
           IMAGE_TAG_PREFIX: staging-v
         run: bash ./.github/automation/.github/scripts/studio/verify-images.sh
   smoke:
@@ -214,6 +154,9 @@ jobs:
     needs:
       - prepare
       - verify-staging
+    # Explicit success requirements allow an orchestrator-supplied build to skip
+    # the recovery branch without skipping these mandatory tests transitively.
+    if: ${{ !cancelled() && needs.prepare.result == 'success' && needs.verify-staging.result == 'success' }}
     strategy:
       fail-fast: false
       matrix:
@@ -267,6 +210,7 @@ jobs:
       - prepare
       - verify-staging
       - smoke
+    if: ${{ !cancelled() && needs.prepare.result == 'success' && needs.verify-staging.result == 'success' && needs.smoke.result == 'success' }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
