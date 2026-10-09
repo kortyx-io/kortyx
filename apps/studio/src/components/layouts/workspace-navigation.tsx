@@ -16,6 +16,7 @@ const labels: Record<string, string> = {
   cases: "Cases",
   compare: "Compare",
   settings: "Settings",
+  onboarding: "Get started",
   diagnostics: "Error diagnostic",
   prompts: "Prompts",
   groups: "Test groups",
