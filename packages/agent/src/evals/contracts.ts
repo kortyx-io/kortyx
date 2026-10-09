@@ -207,10 +207,15 @@ export const EvalStepResultSchema = z
     ),
   })
   .strict();
+const runtimeExecution = z
+  .object({ sessionId: z.string().min(1), runId: z.string().min(1) })
+  .strict();
 export const EvalCaseResultSchema = z
   .object({
     caseId: id,
     repetition: z.number().int().positive(),
+    attemptId: z.uuid().optional(),
+    runtimeExecutions: z.array(runtimeExecution).optional(),
     sessionId: z.string(),
     status,
     durationMs: z.number().nonnegative(),
@@ -292,6 +297,15 @@ export const EvalManifestSchema = z
 export const EvalProgressSchema = z.discriminatedUnion("type", [
   z
     .object({
+      type: z.literal("case-runtime-associated"),
+      caseId: id,
+      repetition: z.number().int().positive(),
+      attemptId: z.uuid(),
+      execution: runtimeExecution,
+    })
+    .strict(),
+  z
+    .object({
       type: z.literal("run-started"),
       caseIds: z.array(id).min(1),
       repetitions: z.number().int().positive(),
@@ -310,6 +324,7 @@ export const EvalProgressSchema = z.discriminatedUnion("type", [
   z
     .object({
       type: z.literal("case-started"),
+      attemptId: z.uuid().optional(),
       caseId: id,
       repetition: z.number().int().positive(),
       sessionId: z.string(),

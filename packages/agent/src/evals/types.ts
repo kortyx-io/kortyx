@@ -143,7 +143,11 @@ export type EvalStepResult = {
   reason?: string;
   criteria: EvalCriterionResult[];
 };
+export type EvalRuntimeExecution = { sessionId: string; runId: string };
 export type EvalCaseResult = {
+  /** SDK-owned identity and execution associations for automatic cost attribution. */
+  attemptId?: string;
+  runtimeExecutions?: EvalRuntimeExecution[];
   caseId: string;
   repetition: number;
   sessionId: string;
@@ -281,7 +285,15 @@ export type EvalProgress =
       stepIndex?: number;
     }
   | {
+      type: "case-runtime-associated";
+      caseId: string;
+      repetition: number;
+      attemptId: string;
+      execution: EvalRuntimeExecution;
+    }
+  | {
       type: "case-started";
+      attemptId?: string;
       caseId: string;
       repetition: number;
       sessionId: string;

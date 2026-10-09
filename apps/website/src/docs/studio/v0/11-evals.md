@@ -203,10 +203,23 @@ Keep any supporting tool results or reference facts required by the criterion.
 
 Run history and each run's case table show model costs. The run summary and
 case inspector provide a **Workflow / Judge / Total** breakdown. Workflow cost
-uses recorded generation telemetry for the attempt's session in the same project
-and environment, including child workflows, retries and resumed turns. Enable
+automatically follows native Kortyx executions across all runtime sessions used
+within an attempt, including setup, cleanup, child workflows, retries and resumed
+turns. `defineSuite` and existing execution hooks need no changes. An application
+can update a record in session A and verify it in a fresh session B; both sessions
+stay independent and their recorded generations count once for the attempt.
+The attempt keeps its own identity, and unrelated work in a reused session is
+excluded. Project and environment boundaries still apply. Enable
 normal agent telemetry to record these calls. `toolExecution.emit: true` supplies
 tool evidence to the judge; it does not itself enable billing telemetry.
+
+Upgrade Studio before upgrading the consumer's agent and telemetry SDKs together:
+progress and saved results now carry optional attempt identities and runtime
+execution associations. Older saved results retain session-based attribution.
+Attribution is automatic within the consumer process; custom executors that call
+another service do not propagate it across HTTP or queue boundaries. Such calls
+remain unavailable unless that integration carries attribution. An associated
+execution with no recorded generation keeps the subtotal partial or unavailable.
 
 `createEvalJudge` captures provider usage separately from the generated verdict.
 Both app-owned and Studio-owned judges report it, including a paid call whose

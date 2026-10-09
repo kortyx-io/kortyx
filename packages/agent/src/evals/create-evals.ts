@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { withEvalAttribution } from "@kortyx/core/eval-attribution";
 import { z } from "zod";
 import type { ResumeResponse } from "../execution/types";
 import type { ChatMessage } from "../types/chat-message";
@@ -35,6 +36,7 @@ import type {
   EvalProgress,
   EvalRunOptions,
   EvalRunResult,
+  EvalRuntimeExecution,
   EvalStepResult,
   EvalSuite,
 } from "./types";
@@ -288,7 +290,9 @@ export function createEvals<
       const emit = async (event: EvalProgress) => {
         if (!args.onProgress || !reporting) return;
         try {
-          await args.onProgress(clone(event));
+          await withEvalAttribution(undefined, () =>
+            args.onProgress!(clone(event)),
+          );
         } catch {
           reporting = false;
           result.errors.push(failure("reporting"));
@@ -308,171 +312,272 @@ export function createEvals<
         const signal = args.signal
           ? AbortSignal.any([args.signal, controller.signal])
           : controller.signal;
+        const attemptId = randomUUID();
+        const runtimeExecutions: EvalRuntimeExecution[] = [];
         const attemptResult: EvalCaseResult = {
           caseId: item.id,
           repetition,
+          attemptId,
+          runtimeExecutions,
           sessionId: `eval-${randomUUID()}`,
           status: "passed",
           durationMs: 0,
           steps: [],
           errors: [],
         };
-        let phase: EvalPhase = "params";
-        let stepIndex: number | undefined;
-        const reportPhase = async (next: EvalPhase) => {
-          phase = next;
-          if (args.includeActivity)
-            await emit({
-              type: "case-progress",
-              caseId: item.id,
-              repetition,
-              phase,
-              ...(stepIndex !== undefined ? { stepIndex } : {}),
-            });
-        };
-        let context: EvalContext<Params, Prepared> | undefined;
-        let continuation: unknown;
-        let activeStep: EvalStepResult | undefined;
-        let activeStepReported = false;
-        const history: ChatMessage[] = [];
-        const call = async (
-          readyContext: EvalContext<Params, Prepared>,
-          command: EvalCommand,
-          activeSignal: AbortSignal,
-        ): Promise<EvalExecution> => {
-          const run = (overrides?: {
-            context?: Record<string, unknown>;
-            messages?: ChatMessage[];
-          }) =>
-            executeEvalChat({
-              agent: options.agent,
-              command,
-              continuation,
-              history: clone(history),
-              sessionId: attemptResult.sessionId,
-              clientTurnId: randomUUID(),
-              signal: activeSignal,
-              ...(item.workflowId ? { workflowId: item.workflowId } : {}),
-              ...overrides,
-            });
-          const execution = options.execute
-            ? await options.execute({
-                ...readyContext,
-                signal: activeSignal,
+        let associationProgress = Promise.resolve();
+        let acceptingExecutions = true;
+        const executeAttempt = async () => {
+          let phase: EvalPhase = "params";
+          let stepIndex: number | undefined;
+          const reportPhase = async (next: EvalPhase) => {
+            phase = next;
+            if (args.includeActivity)
+              await emit({
+                type: "case-progress",
+                caseId: item.id,
+                repetition,
+                phase,
+                ...(stepIndex !== undefined ? { stepIndex } : {}),
+              });
+          };
+          let context: EvalContext<Params, Prepared> | undefined;
+          let continuation: unknown;
+          let activeStep: EvalStepResult | undefined;
+          let activeStepReported = false;
+          const history: ChatMessage[] = [];
+          const call = async (
+            readyContext: EvalContext<Params, Prepared>,
+            command: EvalCommand,
+            activeSignal: AbortSignal,
+          ): Promise<EvalExecution> => {
+            const run = (overrides?: {
+              context?: Record<string, unknown>;
+              messages?: ChatMessage[];
+            }) =>
+              executeEvalChat({
+                agent: options.agent,
                 command,
                 continuation,
                 history: clone(history),
-                run,
-              })
-            : await run();
-          continuation = execution.continuation;
-          const observation = EvalObservationSchema.parse(
-            execution.observation,
-          ) as EvalExecution["observation"];
-          if (
-            observation.type === "interrupt" &&
-            execution.continuation === undefined
-          )
-            throw new Error(
-              "A waiting interrupt requires a private continuation.",
-            );
-          return {
-            observation,
-            ...(continuation !== undefined ? { continuation } : {}),
-          };
-        };
-        try {
-          await emit({
-            type: "case-started",
-            caseId: item.id,
-            repetition,
-            sessionId: attemptResult.sessionId,
-          });
-          signal.throwIfAborted();
-          await reportPhase("params");
-          const params = options.paramsSchema
-            ? await options.paramsSchema.parseAsync(item.params)
-            : (item.params as Params);
-          const base = {
-            suiteId: suite.id,
-            case: item,
-            repetition,
-            sessionId: attemptResult.sessionId,
-            params,
-            signal,
-          };
-          await reportPhase("setup");
-          const prepared = options.setup
-            ? await options.setup(base)
-            : (undefined as Prepared);
-          context = { ...base, prepared };
-          signal.throwIfAborted();
-          for (const [index, step] of item.steps.entries()) {
-            stepIndex = index;
-            activeStep = undefined;
-            activeStepReported = false;
-            signal.throwIfAborted();
-            let command: Exclude<EvalCommand, { type: "cancel" }>;
-            if (step.message !== undefined)
-              command = { type: "message", message: step.message };
-            else {
-              await reportPhase("responder");
-              // Suite ordering and the previous successful observation guarantee
-              // a waiting interrupt; call() already validates its continuation.
-              const interrupt = attemptResult.steps.at(-1)?.observation
-                .interrupt as EvalInterrupt;
-              let response = step.resume;
-              if (handlerRef(response)) {
-                // Handler names were validated against this private registry.
-                const responder = responders[response.using]!;
-                if (
-                  typeof responder !== "function" &&
-                  (responder.schemaId !== interrupt.schemaId ||
-                    (responder.schemaVersion &&
-                      responder.schemaVersion !== interrupt.schemaVersion))
-                )
-                  throw new Error("Incompatible responder.");
-                response = await (typeof responder === "function"
-                  ? responder
-                  : responder.respond)({
-                  ...context,
-                  interrupt: clone(interrupt),
-                  ...(response.params !== undefined
-                    ? { args: response.params }
-                    : {}),
-                });
-              }
-              command = {
-                type: "resume",
-                // z.json() is inferred as optional under the package's relaxed
-                // declaration build. Runtime validation still requires value.
-                response: EvalResumeResponseSchema.parse(
-                  response,
-                ) as ResumeResponse,
-              };
-            }
-            signal.throwIfAborted();
-            await reportPhase("execute");
-            const { observation } = await call(context, command, signal);
-            const input =
-              command.type === "message"
-                ? { message: command.message }
-                : { resume: command.response };
-            const evaluated: EvalStepResult = {
-              index,
-              input,
-              expectation: clone(step.expect),
+                sessionId: attemptResult.sessionId,
+                clientTurnId: randomUUID(),
+                signal: activeSignal,
+                ...(item.workflowId ? { workflowId: item.workflowId } : {}),
+                ...overrides,
+              });
+            const execution = options.execute
+              ? await options.execute({
+                  ...readyContext,
+                  signal: activeSignal,
+                  command,
+                  continuation,
+                  history: clone(history),
+                  run,
+                })
+              : await run();
+            continuation = execution.continuation;
+            const observation = EvalObservationSchema.parse(
+              execution.observation,
+            ) as EvalExecution["observation"];
+            if (
+              observation.type === "interrupt" &&
+              execution.continuation === undefined
+            )
+              throw new Error(
+                "A waiting interrupt requires a private continuation.",
+              );
+            return {
               observation,
-              status: "passed",
-              criteria: [],
+              ...(continuation !== undefined ? { continuation } : {}),
             };
-            attemptResult.steps.push(evaluated);
-            activeStep = evaluated;
+          };
+          try {
+            await emit({
+              type: "case-started",
+              attemptId,
+              caseId: item.id,
+              repetition,
+              sessionId: attemptResult.sessionId,
+            });
             signal.throwIfAborted();
-            if (observation.type === "error") throw new Error("Agent failed.");
-            if (observation.type === "cancelled") {
-              evaluated.status = "cancelled";
-              attemptResult.status = "cancelled";
+            await reportPhase("params");
+            const params = options.paramsSchema
+              ? await options.paramsSchema.parseAsync(item.params)
+              : (item.params as Params);
+            const base = {
+              suiteId: suite.id,
+              case: item,
+              repetition,
+              sessionId: attemptResult.sessionId,
+              params,
+              signal,
+            };
+            await reportPhase("setup");
+            const prepared = options.setup
+              ? await options.setup(base)
+              : (undefined as Prepared);
+            context = { ...base, prepared };
+            signal.throwIfAborted();
+            for (const [index, step] of item.steps.entries()) {
+              stepIndex = index;
+              activeStep = undefined;
+              activeStepReported = false;
+              signal.throwIfAborted();
+              let command: Exclude<EvalCommand, { type: "cancel" }>;
+              if (step.message !== undefined)
+                command = { type: "message", message: step.message };
+              else {
+                await reportPhase("responder");
+                // Suite ordering and the previous successful observation guarantee
+                // a waiting interrupt; call() already validates its continuation.
+                const interrupt = attemptResult.steps.at(-1)?.observation
+                  .interrupt as EvalInterrupt;
+                let response = step.resume;
+                if (handlerRef(response)) {
+                  // Handler names were validated against this private registry.
+                  const responder = responders[response.using]!;
+                  if (
+                    typeof responder !== "function" &&
+                    (responder.schemaId !== interrupt.schemaId ||
+                      (responder.schemaVersion &&
+                        responder.schemaVersion !== interrupt.schemaVersion))
+                  )
+                    throw new Error("Incompatible responder.");
+                  response = await (typeof responder === "function"
+                    ? responder
+                    : responder.respond)({
+                    ...context,
+                    interrupt: clone(interrupt),
+                    ...(response.params !== undefined
+                      ? { args: response.params }
+                      : {}),
+                  });
+                }
+                command = {
+                  type: "resume",
+                  // z.json() is inferred as optional under the package's relaxed
+                  // declaration build. Runtime validation still requires value.
+                  response: EvalResumeResponseSchema.parse(
+                    response,
+                  ) as ResumeResponse,
+                };
+              }
+              signal.throwIfAborted();
+              await reportPhase("execute");
+              const { observation } = await call(context, command, signal);
+              const input =
+                command.type === "message"
+                  ? { message: command.message }
+                  : { resume: command.response };
+              const evaluated: EvalStepResult = {
+                index,
+                input,
+                expectation: clone(step.expect),
+                observation,
+                status: "passed",
+                criteria: [],
+              };
+              attemptResult.steps.push(evaluated);
+              activeStep = evaluated;
+              signal.throwIfAborted();
+              if (observation.type === "error")
+                throw new Error("Agent failed.");
+              if (observation.type === "cancelled") {
+                evaluated.status = "cancelled";
+                attemptResult.status = "cancelled";
+                await emit({
+                  type: "step-completed",
+                  caseId: item.id,
+                  repetition,
+                  step: evaluated,
+                });
+                activeStepReported = true;
+                break;
+              }
+              if (
+                observation.type !== step.expect.type ||
+                (step.expect.schemaId &&
+                  step.expect.schemaId !== observation.interrupt?.schemaId) ||
+                (step.expect.schemaVersion &&
+                  step.expect.schemaVersion !==
+                    observation.interrupt?.schemaVersion)
+              ) {
+                evaluated.status = "failed";
+                evaluated.reason =
+                  "The observed interaction did not match the expected answer or interrupt contract.";
+              } else {
+                const outputReason = missingOutputReason(
+                  step.expect.outputs,
+                  observation,
+                );
+                if (outputReason) {
+                  evaluated.status = "failed";
+                  evaluated.reason = outputReason;
+                } else {
+                  const reference = step.expect.reference;
+                  if (reference !== undefined) {
+                    await reportPhase("reference");
+                    evaluated.reference = handlerRef(reference)
+                      ? z.json().parse(
+                          await references[reference.using]!({
+                            ...context,
+                            observation: clone(observation),
+                            ...(reference.params !== undefined
+                              ? { args: reference.params }
+                              : {}),
+                          }),
+                        )
+                      : clone(reference);
+                  }
+                  await reportPhase("grading");
+                  evaluated.evidence = createEvalJudgeEvidence(
+                    observation,
+                    suite.evidence,
+                    evidenceFilters,
+                  );
+                  if (studioGrading && step.expect.criteria?.length) {
+                    evaluated.status = "ungraded";
+                    attemptResult.status = "ungraded";
+                  }
+                  for (const [criterionIndex, value] of (studioGrading
+                    ? []
+                    : (step.expect.criteria ?? [])
+                  ).entries()) {
+                    signal.throwIfAborted();
+                    const criterion =
+                      typeof value === "string"
+                        ? { id: String(criterionIndex), text: value }
+                        : value;
+                    evaluated.judgeCalls = (evaluated.judgeCalls ?? 0) + 1;
+                    const verdict = EvalVerdictSchema.parse(
+                      await withEvalAttribution(undefined, () =>
+                        options.judge!.grade({
+                          criterion,
+                          onUsage: (usage) => {
+                            if (!signal.aborted) {
+                              evaluated.judgeUsage ??= [];
+                              evaluated.judgeUsage.push(clone(usage));
+                            }
+                          },
+                          input: clone(input),
+                          ...getEvalGradeEvidence(
+                            evaluated,
+                            attemptResult.steps.slice(0, -1),
+                          ),
+                          signal,
+                          ...(evaluated.reference !== undefined
+                            ? { reference: clone(evaluated.reference) }
+                            : {}),
+                        }),
+                      ),
+                    );
+                    signal.throwIfAborted();
+                    evaluated.criteria.push({ ...criterion, ...verdict });
+                    if (!verdict.passed) evaluated.status = "failed";
+                  }
+                }
+              }
               await emit({
                 type: "step-completed",
                 caseId: item.id,
@@ -480,186 +585,128 @@ export function createEvals<
                 step: evaluated,
               });
               activeStepReported = true;
-              break;
-            }
-            if (
-              observation.type !== step.expect.type ||
-              (step.expect.schemaId &&
-                step.expect.schemaId !== observation.interrupt?.schemaId) ||
-              (step.expect.schemaVersion &&
-                step.expect.schemaVersion !==
-                  observation.interrupt?.schemaVersion)
-            ) {
-              evaluated.status = "failed";
-              evaluated.reason =
-                "The observed interaction did not match the expected answer or interrupt contract.";
-            } else {
-              const outputReason = missingOutputReason(
-                step.expect.outputs,
-                observation,
-              );
-              if (outputReason) {
-                evaluated.status = "failed";
-                evaluated.reason = outputReason;
-              } else {
-                const reference = step.expect.reference;
-                if (reference !== undefined) {
-                  await reportPhase("reference");
-                  evaluated.reference = handlerRef(reference)
-                    ? z.json().parse(
-                        await references[reference.using]!({
-                          ...context,
-                          observation: clone(observation),
-                          ...(reference.params !== undefined
-                            ? { args: reference.params }
-                            : {}),
-                        }),
-                      )
-                    : clone(reference);
-                }
-                await reportPhase("grading");
-                evaluated.evidence = createEvalJudgeEvidence(
-                  observation,
-                  suite.evidence,
-                  evidenceFilters,
-                );
-                if (studioGrading && step.expect.criteria?.length) {
-                  evaluated.status = "ungraded";
-                  attemptResult.status = "ungraded";
-                }
-                for (const [criterionIndex, value] of (studioGrading
-                  ? []
-                  : (step.expect.criteria ?? [])
-                ).entries()) {
-                  signal.throwIfAborted();
-                  const criterion =
-                    typeof value === "string"
-                      ? { id: String(criterionIndex), text: value }
-                      : value;
-                  evaluated.judgeCalls = (evaluated.judgeCalls ?? 0) + 1;
-                  const verdict = EvalVerdictSchema.parse(
-                    await options.judge!.grade({
-                      criterion,
-                      onUsage: (usage) => {
-                        if (!signal.aborted) {
-                          evaluated.judgeUsage ??= [];
-                          evaluated.judgeUsage.push(clone(usage));
-                        }
-                      },
-                      input: clone(input),
-                      ...getEvalGradeEvidence(
-                        evaluated,
-                        attemptResult.steps.slice(0, -1),
-                      ),
-                      signal,
-                      ...(evaluated.reference !== undefined
-                        ? { reference: clone(evaluated.reference) }
-                        : {}),
-                    }),
-                  );
-                  signal.throwIfAborted();
-                  evaluated.criteria.push({ ...criterion, ...verdict });
-                  if (!verdict.passed) evaluated.status = "failed";
-                }
+              if (evaluated.status === "failed") {
+                attemptResult.status = "failed";
+                break;
               }
+              history.push(
+                {
+                  role: "user",
+                  content:
+                    command.type === "message"
+                      ? command.message
+                      : JSON.stringify(command.response),
+                },
+                { role: "assistant", content: observation.text },
+              );
             }
-            await emit({
-              type: "step-completed",
-              caseId: item.id,
-              repetition,
-              step: evaluated,
-            });
-            activeStepReported = true;
-            if (evaluated.status === "failed") {
-              attemptResult.status = "failed";
-              break;
+          } catch {
+            if (signal.aborted) {
+              attemptResult.status = timedOut ? "error" : "cancelled";
+              if (timedOut)
+                attemptResult.errors.push({
+                  phase,
+                  code: "EVAL_TIMEOUT",
+                  message: "Case exceeded its configured time limit.",
+                });
+            } else {
+              attemptResult.status = "error";
+              attemptResult.errors.push(failure(phase));
             }
-            history.push(
-              {
-                role: "user",
-                content:
-                  command.type === "message"
-                    ? command.message
-                    : JSON.stringify(command.response),
-              },
-              { role: "assistant", content: observation.text },
-            );
-          }
-        } catch {
-          if (signal.aborted) {
-            attemptResult.status = timedOut ? "error" : "cancelled";
-            if (timedOut)
-              attemptResult.errors.push({
-                phase,
-                code: "EVAL_TIMEOUT",
-                message: "Case exceeded its configured time limit.",
+            if (activeStep && !activeStepReported) {
+              activeStep.status = attemptResult.status;
+              activeStep.reason =
+                attemptResult.errors.at(-1)?.message ?? "Case was cancelled.";
+              await emit({
+                type: "step-completed",
+                caseId: item.id,
+                repetition,
+                step: activeStep,
               });
-          } else {
-            attemptResult.status = "error";
-            attemptResult.errors.push(failure(phase));
-          }
-          if (activeStep && !activeStepReported) {
-            activeStep.status = attemptResult.status;
-            activeStep.reason =
-              attemptResult.errors.at(-1)?.message ?? "Case was cancelled.";
-            await emit({
-              type: "step-completed",
-              caseId: item.id,
-              repetition,
-              step: activeStep,
-            });
-          }
-        } finally {
-          clearTimeout(timer);
-          if (context) {
-            await reportPhase("cleanup");
-            const cleanup = new AbortController();
-            const cleanupTimer = setTimeout(
-              () => cleanup.abort(),
-              defaults.cleanupTimeoutMs,
-            );
-            try {
-              if (continuation !== undefined) {
-                try {
-                  const cancelled = await call(
-                    context,
-                    { type: "cancel" },
-                    cleanup.signal,
-                  );
-                  if (
-                    cancelled.observation.type === "error" ||
-                    cancelled.continuation !== undefined
-                  )
+            }
+          } finally {
+            clearTimeout(timer);
+            if (context) {
+              await reportPhase("cleanup");
+              const cleanup = new AbortController();
+              const cleanupTimer = setTimeout(
+                () => cleanup.abort(),
+                defaults.cleanupTimeoutMs,
+              );
+              try {
+                if (continuation !== undefined) {
+                  try {
+                    const cancelled = await call(
+                      context,
+                      { type: "cancel" },
+                      cleanup.signal,
+                    );
+                    if (
+                      cancelled.observation.type === "error" ||
+                      cancelled.continuation !== undefined
+                    )
+                      attemptResult.errors.push(
+                        failure("cleanup", "EVAL_INTERRUPT_CLEANUP_FAILED"),
+                      );
+                    cleanup.signal.throwIfAborted();
+                  } catch {
                     attemptResult.errors.push(
                       failure("cleanup", "EVAL_INTERRUPT_CLEANUP_FAILED"),
                     );
+                  }
+                }
+                try {
+                  await options.teardown?.({
+                    ...context,
+                    signal: cleanup.signal,
+                    result: clone(attemptResult),
+                  });
                   cleanup.signal.throwIfAborted();
                 } catch {
-                  attemptResult.errors.push(
-                    failure("cleanup", "EVAL_INTERRUPT_CLEANUP_FAILED"),
-                  );
+                  attemptResult.errors.push(failure("cleanup"));
                 }
+              } finally {
+                clearTimeout(cleanupTimer);
               }
-              try {
-                await options.teardown?.({
-                  ...context,
-                  signal: cleanup.signal,
-                  result: clone(attemptResult),
-                });
-                cleanup.signal.throwIfAborted();
-              } catch {
-                attemptResult.errors.push(failure("cleanup"));
-              }
-            } finally {
-              clearTimeout(cleanupTimer);
+              if (
+                attemptResult.errors.some((error) => error.phase === "cleanup")
+              )
+                attemptResult.status = "error";
             }
-            if (attemptResult.errors.some((error) => error.phase === "cleanup"))
-              attemptResult.status = "error";
+            attemptResult.durationMs = Date.now() - started;
           }
-          attemptResult.durationMs = Date.now() - started;
-        }
-        await emit({ type: "case-completed", result: attemptResult });
-        return attemptResult;
+          acceptingExecutions = false;
+          await associationProgress;
+          await emit({ type: "case-completed", result: attemptResult });
+          return attemptResult;
+        };
+        return withEvalAttribution(
+          {
+            attemptId,
+            onExecution: (execution) => {
+              if (
+                !acceptingExecutions ||
+                runtimeExecutions.some(
+                  (entry) =>
+                    entry.runId === execution.runId &&
+                    entry.sessionId === execution.sessionId,
+                )
+              )
+                return;
+              runtimeExecutions.push(execution);
+              associationProgress = associationProgress.then(() =>
+                emit({
+                  type: "case-runtime-associated",
+                  caseId: item.id,
+                  repetition,
+                  attemptId,
+                  execution,
+                }),
+              );
+            },
+          },
+          executeAttempt,
+        );
       };
       const total = args.attempt ? 1 : selected.length * repetitions;
       if (args.includeActivity)
