@@ -35,7 +35,9 @@ also spent 3m 52s downloading 21.5 MB of OS packages from an Ubuntu mirror.
   digest. Verify the installed Playwright version and browser executable before
   testing. Use the PostgreSQL service hostname inside the container network.
   Update the image version/digest with the Playwright lockfile entry. Keep the
-  same tests, shards, single worker per shard and retry policy.
+  same tests, shards, single worker per shard and retry policy. Changes to the
+  browser workflow and setup actions also trigger browser coverage, even when
+  Turbo reports no affected applications.
 
 The goal is a roughly 15–20 minute release phase. This is an estimate based on
 removing emulation and overlapping independent work, not a measured guarantee.

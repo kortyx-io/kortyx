@@ -51,7 +51,9 @@ jobs:
           TURBO_SCM_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
         run: |
           pnpm turbo ls --affected --output=json > "$RUNNER_TEMP/affected.json"
-          if jq -e '.packages.items | map(.name) | any(. == "kortyx-studio" or . == "@kortyx/api" or . == "@kortyx/telemetry-db" or . == "@kortyx/telemetry-contracts")' "$RUNNER_TEMP/affected.json" >/dev/null; then
+          git diff --name-only "$TURBO_SCM_BASE" "$TURBO_SCM_HEAD" > "$RUNNER_TEMP/ci-changed-paths.txt"
+          if grep -Eq '^\.github/(workflows/ci\.yml$|actions/(setup/node|validation/studio-e2e)/)' "$RUNNER_TEMP/ci-changed-paths.txt" ||
+             jq -e '.packages.items | map(.name) | any(. == "kortyx-studio" or . == "@kortyx/api" or . == "@kortyx/telemetry-db" or . == "@kortyx/telemetry-contracts")' "$RUNNER_TEMP/affected.json" >/dev/null; then
             echo "studio=true" >> "$GITHUB_OUTPUT"
           else
             echo "studio=false" >> "$GITHUB_OUTPUT"
