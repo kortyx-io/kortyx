@@ -13,11 +13,12 @@ import {
   Folder,
   FolderPlus,
   MoreHorizontal,
+  PanelLeft,
   Plus,
   Search,
   Users,
 } from "lucide-react";
-import { parseAsArrayOf, parseAsString } from "nuqs";
+import { parseAsArrayOf, parseAsString, parseAsStringLiteral } from "nuqs";
 import { useEffect, useState } from "react";
 import {
   DataTable,
@@ -36,11 +37,23 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
+import {
+  Sheet,
+  SheetContent,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/ui/sheet";
 import { EvalDropdown } from "@/features/evals/components/eval-dropdown";
 import { useStudioQueryStates } from "@/lib/nuqs";
 import { useRouter } from "@/lib/scoped-navigation";
 import { promptRequest } from "../api/client";
 import { categoryPath, initialPrompt } from "../lib/presentation";
+import { PromptActionSurface } from "./prompt-action-surface";
+import {
+  assetActions,
+  PromptAssetActionDialog,
+  PromptAssetMenu,
+} from "./prompt-asset-actions";
 import { PromptBulkActions } from "./prompt-bulk-actions";
 import { PromptDiff } from "./prompt-diff";
 import { PromptFields, validateEditor } from "./prompt-fields";
@@ -59,12 +72,15 @@ export function PromptLibraryView({
   initialError?: string;
   categoryId?: string;
 }) {
+  const [categoriesOpen, setCategoriesOpen] = useState(false);
   const router = useRouter(),
     [library, setLibrary] = useState(initial),
     [error, setError] = useState(initialError),
     [working, setWorking] = useState(false);
   const [query, setQuery] = useStudioQueryStates(
     {
+      assetAction: parseAsStringLiteral(assetActions),
+      actionAsset: parseAsString,
       q: parseAsString.withDefault(""),
       cursor: parseAsString.withDefault("0"),
       archived: parseAsString.withDefault("false"),
@@ -138,6 +154,7 @@ export function PromptLibraryView({
     }
   };
   const categoryForm = (action: CategoryAction) => {
+    setCategoriesOpen(false);
     setName(
       action.type === "create"
         ? action.category
@@ -152,7 +169,7 @@ export function PromptLibraryView({
     setCategoryAction(action);
   };
   const categoryActions = (category: PromptCategory) => (
-    <DropdownMenu>
+    <DropdownMenu modal={false}>
       <DropdownMenuTrigger asChild>
         <Button
           size="icon"
@@ -225,6 +242,7 @@ export function PromptLibraryView({
                   ))}
               </Button>
               <Link
+                onClick={() => setCategoriesOpen(false)}
                 title={categoryPath(categories, category.id)}
                 href={`/prompts/categories/${category.id}`}
                 className="flex min-w-0 flex-1 items-center gap-2 py-2 text-xs"
@@ -239,14 +257,17 @@ export function PromptLibraryView({
         );
       });
   const assets = library?.assets ?? [];
+  const actionAsset = assets.find((asset) => asset.id === query.actionAsset);
   const columns: DataTableColumn<PromptLibrary["assets"][number]>[] = [
     {
       key: "selection",
       label: "Select",
       defaultWidth: 64,
+      cellClassName: "text-center",
       render: (asset) => (
         <input
           type="checkbox"
+          className="block mx-auto"
           aria-label={`Select ${asset.name}`}
           checked={selected.some((item) => item.id === asset.id)}
           disabled={
@@ -326,7 +347,59 @@ export function PromptLibraryView({
         </span>
       ),
     },
+    {
+      key: "actions",
+      label: "Actions",
+      defaultWidth: 80,
+      cellClassName: "text-center",
+      render: (asset) =>
+        permissions && (
+          <PromptAssetMenu
+            asset={asset}
+            permissions={permissions}
+            label={`Actions for ${asset.name}`}
+            onAction={(action) =>
+              void setQuery({ assetAction: action, actionAsset: asset.id })
+            }
+          />
+        ),
+    },
   ];
+  const categoryNavigation = (
+    <>
+      <div className="mb-3 flex items-center justify-between">
+        <h2 className="px-2 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+          Categories
+        </h2>
+        <Button
+          size="icon"
+          variant="ghost"
+          aria-label="New category"
+          disabled={!permissions?.edit}
+          onClick={() => categoryForm({ type: "create" })}
+        >
+          <FolderPlus className="size-3.5" />
+        </Button>
+      </div>
+      <Link
+        onClick={() => setCategoriesOpen(false)}
+        href="/prompts"
+        className={`mb-1 flex items-center gap-2 rounded-md px-3 py-2 text-xs ${!categoryId ? "bg-muted font-medium" : "hover:bg-muted/50"}`}
+      >
+        <FileText className="size-3.5" />
+        All prompts
+      </Link>
+      <Link
+        onClick={() => setCategoriesOpen(false)}
+        href="/prompts/categories/root"
+        className="mb-1 flex items-center gap-2 rounded-md px-3 py-2 text-xs hover:bg-muted/50"
+      >
+        <Folder className="size-3.5" />
+        Root
+      </Link>
+      {tree(null)}
+    </>
+  );
   return (
     <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-xl border bg-background shadow-sm">
       <header className="flex flex-wrap items-center justify-between gap-3 border-b px-5 py-4">
@@ -390,36 +463,30 @@ export function PromptLibraryView({
         </div>
       )}
       <div className="flex min-h-0 flex-1">
-        <aside className="hidden w-56 shrink-0 overflow-y-auto border-r p-3 xl:block">
-          <div className="mb-3 flex items-center justify-between">
-            <h2 className="px-2 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-              Categories
-            </h2>
-            <Button
-              size="icon"
-              variant="ghost"
-              aria-label="New category"
-              disabled={!permissions?.edit}
-              onClick={() => categoryForm({ type: "create" })}
+        <div className="shrink-0 border-r p-1.5 xl:hidden">
+          <Sheet open={categoriesOpen} onOpenChange={setCategoriesOpen}>
+            <SheetTrigger asChild>
+              <Button
+                size="icon"
+                variant="ghost"
+                aria-label="Open categories"
+                title="Categories"
+              >
+                <PanelLeft className="size-4" />
+              </Button>
+            </SheetTrigger>
+            <SheetContent
+              side="left"
+              className="w-72 max-w-[85vw] gap-0 overflow-y-auto p-3 pt-12"
+              aria-describedby={undefined}
             >
-              <FolderPlus className="size-3.5" />
-            </Button>
-          </div>
-          <Link
-            href="/prompts"
-            className={`mb-1 flex items-center gap-2 rounded-md px-3 py-2 text-xs ${!categoryId ? "bg-muted font-medium" : "hover:bg-muted/50"}`}
-          >
-            <FileText className="size-3.5" />
-            All prompts
-          </Link>
-          <Link
-            href="/prompts/categories/root"
-            className="mb-1 flex items-center gap-2 rounded-md px-3 py-2 text-xs hover:bg-muted/50"
-          >
-            <Folder className="size-3.5" />
-            Root
-          </Link>
-          {tree(null)}
+              <SheetTitle className="sr-only">Prompt categories</SheetTitle>
+              {categoryNavigation}
+            </SheetContent>
+          </Sheet>
+        </div>
+        <aside className="hidden w-56 shrink-0 overflow-y-auto border-r p-3 xl:block">
+          {categoryNavigation}
         </aside>
         <section className="flex min-w-0 flex-1 flex-col">
           <div className="flex flex-wrap items-center gap-3 border-b px-4 py-3">
@@ -434,40 +501,6 @@ export function PromptLibraryView({
                   void setQuery({ q: event.target.value, cursor: "0" })
                 }
               />
-            </div>
-            <div className="flex min-w-0 items-center gap-1 xl:hidden">
-              <EvalDropdown
-                label="Category"
-                value={categoryId ?? "all"}
-                options={[
-                  { value: "all", label: "All prompts" },
-                  { value: "root", label: "Root" },
-                  ...categories.map((category) => ({
-                    value: category.id,
-                    label: categoryPath(categories, category.id),
-                  })),
-                ]}
-                onChange={(id) =>
-                  router.push(
-                    id === "all" ? "/prompts" : `/prompts/categories/${id}`,
-                  )
-                }
-              />
-              <Button
-                size="icon"
-                variant="ghost"
-                aria-label="New category"
-                disabled={!permissions?.edit}
-                onClick={() => categoryForm({ type: "create" })}
-              >
-                <FolderPlus className="size-4" />
-              </Button>
-              {categoryId &&
-              categories.find((category) => category.id === categoryId)
-                ? categoryActions(
-                    categories.find((category) => category.id === categoryId)!,
-                  )
-                : null}
             </div>
             <p className="text-xs text-muted-foreground">
               {library?.totalCount ?? 0} prompts {loading ? "· Loading…" : ""}
@@ -581,12 +614,27 @@ export function PromptLibraryView({
           </footer>
         </section>
       </div>
+      {library && actionAsset && query.assetAction && (
+        <PromptAssetActionDialog
+          key={`${actionAsset.id}-${query.assetAction}`}
+          action={query.assetAction}
+          asset={actionAsset}
+          library={library}
+          onClose={() =>
+            void setQuery({ assetAction: null, actionAsset: null })
+          }
+          onDone={refresh}
+        />
+      )}
       <PromptImport
         open={importing}
         onClose={() => setImporting(false)}
         onDone={refresh}
       />
-      <DetailInspectorDrawer
+      <PromptActionSurface
+        modal
+        confirmation={categoryAction?.type === "delete"}
+        busy={working}
         open={Boolean(categoryAction)}
         onClose={() => {
           if (!working) setCategoryAction(null);
@@ -605,9 +653,33 @@ export function PromptLibraryView({
             ? "Move all prompts in this category and its subcategories to a destination."
             : "Categories organize your prompt library."
         }
+        actions={
+          <Button
+            size="sm"
+            type="submit"
+            form="prompt-category-form"
+            variant={
+              categoryAction?.type === "delete" ? "destructive" : "default"
+            }
+            disabled={
+              working ||
+              (categoryAction?.type === "delete" ||
+              categoryAction?.type === "move"
+                ? !destination
+                : !name.trim())
+            }
+          >
+            {working
+              ? "Saving…"
+              : categoryAction?.type === "delete"
+                ? "Move prompts & delete"
+                : "Save category"}
+          </Button>
+        }
         closeLabel="Close category editor"
       >
         <form
+          id="prompt-category-form"
           className="space-y-5 p-5"
           onSubmit={(event) => {
             event.preventDefault();
@@ -694,35 +766,8 @@ export function PromptLibraryView({
               />
             </div>
           )}
-          <div className="flex justify-end gap-2">
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              disabled={working}
-              onClick={() => setCategoryAction(null)}
-            >
-              Cancel
-            </Button>
-            <Button
-              size="sm"
-              disabled={
-                working ||
-                (categoryAction?.type === "delete" ||
-                categoryAction?.type === "move"
-                  ? !destination
-                  : !name.trim())
-              }
-            >
-              {working
-                ? "Saving…"
-                : categoryAction?.type === "delete"
-                  ? "Move prompts & delete"
-                  : "Save category"}
-            </Button>
-          </div>
         </form>
-      </DetailInspectorDrawer>
+      </PromptActionSurface>
       <DetailInspectorDrawer
         open={creating}
         onClose={() => {

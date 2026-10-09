@@ -13,9 +13,7 @@ import {
 } from "@kortyx/telemetry-contracts";
 import {
   ArrowLeft,
-  Check,
   ChevronDown,
-  Code,
   MoreHorizontal,
   Play,
   Save,
@@ -54,6 +52,13 @@ import { useStudioQueryStates } from "@/lib/nuqs";
 import { useRouter } from "@/lib/scoped-navigation";
 import { promptRequest } from "../api/client";
 import { categoryPath, downloadJson } from "../lib/presentation";
+import {
+  type AssetAction,
+  assetActions,
+  PromptAssetActionDialog,
+  PromptAssetMenu,
+} from "./prompt-asset-actions";
+import { PromptConfirmation } from "./prompt-confirmation";
 import { PromptDiff } from "./prompt-diff";
 import { editorClass, PromptFields, validateEditor } from "./prompt-fields";
 import { PromptTables } from "./prompt-tables";
@@ -61,7 +66,16 @@ import { PromptWorkspace } from "./prompt-workspace";
 
 type Version = PromptDetail["versions"][number];
 type Panel = {
-  type: "group" | "promote" | "code" | "review" | "move" | "rename" | "policy";
+  type:
+    | "group"
+    | "promote"
+    | "code"
+    | "review"
+    | "move"
+    | "rename"
+    | "policy"
+    | "archive"
+    | "restore";
   version: Version;
 };
 export function PromptDetailView({
@@ -97,6 +111,8 @@ export function PromptDetailView({
         "move",
         "rename",
         "policy",
+        "archive",
+        "restore",
       ]),
       promptActionVersion: parseAsInteger,
     },
@@ -111,6 +127,12 @@ export function PromptDetailView({
     [error, setError] = useState(""),
     [readError, setReadError] = useState(""),
     [working, setWorking] = useState(false),
+    [confirmation, setConfirmation] = useState<{
+      title: string;
+      description: string;
+      label: string;
+      mutation: PromptMutation;
+    } | null>(null),
     [confirmDiscard, setConfirmDiscard] = useState(false),
     [fieldsValid, setFieldsValid] = useState(true),
     [autosave, setAutosave] = useState("Draft saved");
@@ -142,11 +164,8 @@ export function PromptDetailView({
         ? "production"
         : (initialLibrary.environments[0] ?? "production"),
     ),
-    [destination, setDestination] = useState("root"),
-    [assetName, setAssetName] = useState(detail.asset.name),
     [exception, setException] = useState(false),
-    [replace, setReplace] = useState(false),
-    [copied, setCopied] = useState(false);
+    [replace, setReplace] = useState(false);
   const draftRevision = useRef(detail.draftRevision),
     queue = useRef<PromptContent | null>(null),
     pending = useRef<Promise<void> | null>(null),
@@ -379,10 +398,12 @@ export function PromptDetailView({
       await promptRequest("actions", mutation);
       await refresh();
       setPanel(null);
+      return true;
     } catch (cause) {
       setError(
         cause instanceof Error ? cause.message : "Prompt action failed.",
       );
+      return false;
     } finally {
       setWorking(false);
     }
@@ -394,9 +415,6 @@ export function PromptDetailView({
     setGroupName("");
     setException(false);
     setReplace(false);
-    setCopied(false);
-    setAssetName(detail.asset.name);
-    setDestination(detail.asset.categoryId ?? "root");
     setPanel({ type, version });
   };
   const test = (version: Version) =>
@@ -405,8 +423,6 @@ export function PromptDetailView({
       id: detail.asset.id,
       version: version.version,
     });
-  const codeVersion = panel?.version ?? selected;
-  const code = `import { createPrompts, definePrompt, studioPromptSource, usePrompt, useReason } from "kortyx";\nimport { z } from "zod";\n\nconst promptRef = definePrompt({\n  id: ${JSON.stringify(detail.asset.key)},\n  format: ${JSON.stringify(codeVersion.content.format)},\n  variables: z.fromJSONSchema(${JSON.stringify(codeVersion.content.variablesSchema, null, 2)}),\n  config: z.fromJSONSchema(${JSON.stringify(codeVersion.content.configSchema, null, 2)}),\n});\n\nconst prompts = createPrompts({\n  definitions: [promptRef],\n  source: studioPromptSource({\n    apiUrl: process.env.KORTYX_API_URL!,\n    apiKey: process.env.KORTYX_PROMPTS_API_KEY!,\n    environment: "production",\n  }),\n});\n// Pass prompts to createAgent({ ...yourAgentOptions, prompts }).\n\n// Inside a workflow node:\nconst prompt = await usePrompt(promptRef, {\n  variables: input, // validated against the template input contract\n  version: ${codeVersion.version}, // omit to use the environment assignment\n});\n\nawait useReason({\n  prompt, // preserves system + user, or the complete ordered chat\n  model: myModel, // optionally map prompt.config.modelName to your model registry\n});`;
 
   const destinationPolicy = detail.policies.find(
     (policy) => policy.environment === environment,
@@ -549,10 +565,13 @@ export function PromptDetailView({
   );
   const view = (
     <div className="flex h-full min-h-0 flex-col">
-      <header className="flex flex-wrap items-start justify-between gap-3 border-b px-5 py-4">
-        <div className="flex w-full min-w-0 flex-none items-start gap-3 sm:w-auto sm:min-w-48 sm:flex-1">
+      <header
+        data-prompt-header
+        className="flex shrink-0 flex-wrap items-center justify-between gap-x-4 gap-y-2 border-b px-4 py-3"
+      >
+        <div className="flex min-w-0 basis-64 grow items-center gap-2">
           <Button
-            size="icon"
+            size="icon-sm"
             variant="ghost"
             className="shrink-0"
             aria-label="Back to prompt library"
@@ -568,21 +587,34 @@ export function PromptDetailView({
             >
               {detail.asset.name}
             </h1>
-            <p
-              hidden={drawer}
-              className="mt-1 truncate font-mono text-[11px] text-muted-foreground"
-            >
-              {detail.asset.key}
-            </p>
-            <p className="mt-1 text-[11px] text-muted-foreground">
-              {categoryPath(library.categories, detail.asset.categoryId)} · v
-              {selected.version}
-              {detail.asset.assignments.some(
-                (item) => item.version === selected.version,
-              )
-                ? " · Assigned"
-                : " · Candidate"}
-            </p>
+            <div className="mt-0.5 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-muted-foreground">
+              {!drawer && (
+                <span
+                  className="max-w-full truncate font-mono"
+                  title={detail.asset.key}
+                >
+                  {detail.asset.key}
+                </span>
+              )}
+              {!drawer && <span aria-hidden="true">·</span>}
+              <span
+                className="truncate"
+                title={categoryPath(
+                  library.categories,
+                  detail.asset.categoryId,
+                )}
+              >
+                {categoryPath(library.categories, detail.asset.categoryId)}
+              </span>
+              <span className="shrink-0">
+                · v{selected.version} ·{" "}
+                {detail.asset.assignments.some(
+                  (item) => item.version === selected.version,
+                )
+                  ? "Assigned"
+                  : "Candidate"}
+              </span>
+            </div>
           </div>
         </div>
         <div className="flex max-w-full flex-wrap items-center gap-2 sm:justify-end">
@@ -653,52 +685,12 @@ export function PromptDetailView({
               Edit
             </Button>
           )}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button size="icon" variant="ghost" aria-label="Prompt actions">
-                <MoreHorizontal className="size-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem onSelect={() => showPanel("code", selected)}>
-                Code helper
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                disabled={!permissions.edit}
-                onSelect={() => showPanel("rename", selected)}
-              >
-                Rename prompt
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                disabled={!permissions.edit}
-                onSelect={() => showPanel("move", selected)}
-              >
-                Move to category
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                disabled={!permissions.settings}
-                onSelect={() => showPanel("policy", selected)}
-              >
-                Promotion policy
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem
-                disabled={
-                  !permissions.edit || detail.asset.assignments.length > 0
-                }
-                onSelect={() =>
-                  void act({
-                    action: "update",
-                    id: detail.asset.id,
-                    expectedRevision: detail.asset.revision,
-                    archived: !detail.asset.archived,
-                  })
-                }
-              >
-                {detail.asset.archived ? "Restore prompt" : "Archive prompt"}
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          <PromptAssetMenu
+            asset={detail.asset}
+            permissions={permissions}
+            onAction={(action) => showPanel(action, selected)}
+            onPolicy={() => showPanel("policy", selected)}
+          />
         </div>
       </header>
       {(error || readError) && !panel && (
@@ -776,10 +768,8 @@ export function PromptDetailView({
         ))}
       </nav>
       <PromptWorkspace>
-        <div
-          className={`shrink-0 border-b px-5 py-2 ${query.tab === "runs" || query.tab === "evals" ? "" : "@4xl/prompt-detail:hidden"}`}
-        >
-          <DropdownMenu>
+        <div className="shrink-0 border-b px-5 py-2 @4xl/prompt-detail:hidden">
+          <DropdownMenu modal={false}>
             <DropdownMenuTrigger asChild>
               <Button size="sm" variant="outline" className="max-w-full gap-2">
                 Version history
@@ -851,7 +841,7 @@ export function PromptDetailView({
         </div>
         <div className="flex min-h-0 flex-1">
           <aside
-            className={`${query.history ? "w-56" : "w-12"} hidden shrink-0 border-r ${query.tab === "runs" || query.tab === "evals" ? "" : "@4xl/prompt-detail:block"}`}
+            className={`${query.history ? "w-56" : "w-12"} hidden shrink-0 border-r @4xl/prompt-detail:block`}
           >
             <Button
               size="sm"
@@ -900,7 +890,7 @@ export function PromptDetailView({
                         {new Date(version.createdAt).toLocaleDateString()}
                       </span>
                     </button>
-                    <DropdownMenu>
+                    <DropdownMenu modal={false}>
                       <DropdownMenuTrigger asChild>
                         <Button
                           size="icon"
@@ -989,6 +979,21 @@ export function PromptDetailView({
         </div>
       </PromptWorkspace>
       <EvalRunSetup targets={targets} matchPath={path} />
+      {confirmation && (
+        <PromptConfirmation
+          title={confirmation.title}
+          description={confirmation.description}
+          label={confirmation.label}
+          busy={working}
+          error={error}
+          onClose={() => setConfirmation(null)}
+          onConfirm={() => {
+            void act(confirmation.mutation).then((ok) => {
+              if (ok) setConfirmation(null);
+            });
+          }}
+        />
+      )}
       <Dialog
         open={confirmDiscard}
         onOpenChange={(open) => {
@@ -1099,10 +1104,10 @@ export function PromptDetailView({
                 note: changeNote,
                 idempotencyKey: compare.idempotencyKey,
               });
-              setCompare(null);
               const next = await refresh();
               setContent(structuredClone(next.versions[0]!.content));
-              void setQuery({ edit: false, v: next.asset.latestVersion });
+              await setQuery({ edit: false, v: next.asset.latestVersion });
+              setCompare(null);
             } catch (cause) {
               setError(
                 cause instanceof Error
@@ -1116,8 +1121,21 @@ export function PromptDetailView({
           }}
         />
       )}
+      {panel && assetActions.includes(panel.type as AssetAction) && (
+        <PromptAssetActionDialog
+          key={`${panel.type}-${panel.version.version}`}
+          action={panel.type as AssetAction}
+          asset={detail.asset}
+          library={library}
+          version={panel.version}
+          onClose={() => setPanel(null)}
+          onDone={refresh}
+        />
+      )}
       <DetailInspectorDrawer
-        open={Boolean(panel)}
+        open={Boolean(
+          panel && !assetActions.includes(panel.type as AssetAction),
+        )}
         onClose={() => {
           if (!working) setPanel(null);
         }}
@@ -1145,32 +1163,7 @@ export function PromptDetailView({
               {error}
             </p>
           )}
-          {panel?.type === "code" ? (
-            <>
-              <p className="text-xs text-muted-foreground">
-                Register this reference with createPrompts. The messages and
-                configuration come from Studio.
-              </p>
-              <pre className="overflow-auto rounded-lg border bg-muted/30 p-4 text-[11px] leading-6">
-                {code}
-              </pre>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={async () => {
-                  await navigator.clipboard.writeText(code);
-                  setCopied(true);
-                }}
-              >
-                {copied ? (
-                  <Check className="size-3.5" />
-                ) : (
-                  <Code className="size-3.5" />
-                )}
-                {copied ? "Copied" : "Copy code"}
-              </Button>
-            </>
-          ) : panel?.type === "group" ? (
+          {panel?.type === "group" ? (
             <>
               <EvalDropdown
                 label="Test group"
@@ -1273,65 +1266,21 @@ export function PromptDetailView({
                 Add version to group
               </Button>
             </>
-          ) : panel?.type === "move" ? (
-            <>
-              <EvalDropdown
-                label="Destination category"
-                value={destination}
-                className="w-full"
-                options={[
-                  { value: "root", label: "Root" },
-                  ...library.categories.map((category) => ({
-                    value: category.id,
-                    label: categoryPath(library.categories, category.id),
-                  })),
-                ]}
-                onChange={setDestination}
-              />
-              <Button
-                size="sm"
-                disabled={working}
-                onClick={() =>
-                  void act({
-                    action: "update",
-                    id: detail.asset.id,
-                    expectedRevision: detail.asset.revision,
-                    categoryId: destination === "root" ? null : destination,
-                  })
-                }
-              >
-                Move prompt
-              </Button>
-            </>
-          ) : panel?.type === "rename" ? (
-            <>
-              <Input
-                aria-label="Prompt name"
-                value={assetName}
-                onChange={(event) => setAssetName(event.target.value)}
-              />
-              <Button
-                size="sm"
-                disabled={working || !assetName.trim()}
-                onClick={() =>
-                  void act({
-                    action: "update",
-                    id: detail.asset.id,
-                    expectedRevision: detail.asset.revision,
-                    name: assetName,
-                  })
-                }
-              >
-                Rename prompt
-              </Button>
-            </>
           ) : panel?.type === "policy" ? (
             <PolicyEditor
               detail={detail}
               working={working}
               targets={targets}
               environments={library.environments ?? ["production"]}
-              onSave={(policy) => void act({ action: "policy", policy })}
+              onSave={(policy) => {
+                setError("");
+                setConfirmation({
+                  title: "Save promotion policy?",
+                  description: `${policy.environment}: ${policy.requireTest ? "passing evaluations required" : "evaluations not required"}; ${policy.requiredReviews} independent reviews; ${policy.allowException ? "audited exceptions allowed" : "exceptions disabled"}; ${policy.requiredSuites.length} required suites. This changes the promotion requirements for this environment.`,
+                  label: "Confirm policy",
+                  mutation: { action: "policy", policy },
+                });
+              }}
             />
           ) : (
             <>
@@ -1425,7 +1374,7 @@ export function PromptDetailView({
                 }
                 onClick={() => {
                   if (!panel) return;
-                  void act(
+                  const mutation: PromptMutation =
                     panel.type === "review"
                       ? {
                           action: "review",
@@ -1449,8 +1398,21 @@ export function PromptDetailView({
                               (item) => item.environment === environment,
                             )?.version ?? 0),
                           ...(exception ? { exceptionReason: note } : {}),
-                        },
-                  );
+                        };
+                  if (mutation.action === "review") void act(mutation);
+                  else {
+                    setError("");
+                    setConfirmation({
+                      title: mutation.rollback
+                        ? "Roll back prompt?"
+                        : "Promote prompt?",
+                      description: `Assign ${detail.asset.name} v${mutation.version} to ${environment}? New prompt resolutions will use this version.${exception ? ` Policy exception: ${note}` : ""}`,
+                      label: mutation.rollback
+                        ? "Confirm rollback"
+                        : "Confirm promotion",
+                      mutation,
+                    });
+                  }
                 }}
               >
                 {working

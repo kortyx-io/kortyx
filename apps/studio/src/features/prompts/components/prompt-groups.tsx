@@ -15,12 +15,6 @@ import { DetailLink } from "@/components/detail/detail-link";
 import { DetailPage } from "@/components/detail/detail-page";
 import { Button } from "@/components/ui/button";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -35,6 +29,7 @@ import type { EvalTargets } from "@/features/evals/schema";
 import { useStudioQueryStates } from "@/lib/nuqs";
 import { useRouter } from "@/lib/scoped-navigation";
 import { promptRequest } from "../api/client";
+import { PromptConfirmation } from "./prompt-confirmation";
 import { PromptWorkspace } from "./prompt-workspace";
 
 export function PromptGroupsView({
@@ -52,6 +47,11 @@ export function PromptGroupsView({
     [library, setLibrary] = useState(initial),
     [error, setError] = useState(""),
     [working, setWorking] = useState(false),
+    [removing, setRemoving] = useState<{
+      group: PromptGroup;
+      promptId: string;
+      name: string;
+    } | null>(null),
     [deleting, setDeleting] = useState<PromptGroup | null>(null),
     [name, setName] = useState(""),
     [promptId, setPromptId] = useState(""),
@@ -158,7 +158,7 @@ export function PromptGroupsView({
       open(target.id, undefined, { type: "group", groupId: group.id });
   };
   const actions = (group: PromptGroup) => (
-    <DropdownMenu>
+    <DropdownMenu modal={false}>
       <DropdownMenuTrigger asChild>
         <Button
           size="icon"
@@ -290,16 +290,14 @@ export function PromptGroupsView({
                       variant="ghost"
                       disabled={working || !library.permissions.edit}
                       aria-label={`Remove ${asset?.name ?? member.promptId} from group`}
-                      onClick={() =>
-                        void act({
-                          action: "group-update",
-                          id: group.id,
-                          expectedRevision: group.revision,
-                          members: group.members.filter(
-                            (item) => item.promptId !== member.promptId,
-                          ),
-                        })
-                      }
+                      onClick={() => {
+                        setError("");
+                        setRemoving({
+                          group,
+                          promptId: member.promptId,
+                          name: member.name ?? asset?.name ?? member.promptId,
+                        });
+                      }}
                     >
                       <Trash2 className="size-3.5" />
                     </Button>
@@ -521,48 +519,49 @@ export function PromptGroupsView({
           )}
         </div>
       </DetailInspectorDrawer>
-      <Dialog
-        open={Boolean(deleting)}
-        onOpenChange={(open) => {
-          if (!open && !working) setDeleting(null);
-        }}
-      >
-        <DialogContent>
-          <DialogTitle className="pr-8 text-sm font-semibold">
-            Delete {deleting?.name}?
-          </DialogTitle>
-          <DialogDescription className="text-xs">
-            Prompts and their versions are preserved. Historical evals keep
-            their original selection.
-          </DialogDescription>
-          <div className="flex justify-end gap-2">
-            <Button
-              size="sm"
-              variant="outline"
-              disabled={working}
-              onClick={() => setDeleting(null)}
-            >
-              Cancel
-            </Button>
-            <Button
-              size="sm"
-              disabled={working}
-              onClick={async () => {
-                if (!deleting) return;
-                const removed = await act({
-                  action: "group-delete",
-                  id: deleting.id,
-                  expectedRevision: deleting.revision,
-                });
-                if (removed && groupId === deleting.id)
-                  router.push("/prompts/groups");
-              }}
-            >
-              Delete group
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
+      {removing && (
+        <PromptConfirmation
+          title="Remove prompt from group?"
+          description={`Remove ${removing.name} from ${removing.group.name}? The prompt, its versions and historical evaluations will be preserved.`}
+          label="Remove from group"
+          busy={working}
+          error={error}
+          destructive
+          onClose={() => setRemoving(null)}
+          onConfirm={() => {
+            void act({
+              action: "group-update",
+              id: removing.group.id,
+              expectedRevision: removing.group.revision,
+              members: removing.group.members.filter(
+                (item) => item.promptId !== removing.promptId,
+              ),
+            }).then((ok) => {
+              if (ok) setRemoving(null);
+            });
+          }}
+        />
+      )}
+      {deleting && (
+        <PromptConfirmation
+          title={`Delete ${deleting.name}?`}
+          description="Prompts and their versions are preserved. Historical evals keep their original selection."
+          label="Delete group"
+          destructive
+          busy={working}
+          error={error}
+          onClose={() => setDeleting(null)}
+          onConfirm={async () => {
+            const removed = await act({
+              action: "group-delete",
+              id: deleting.id,
+              expectedRevision: deleting.revision,
+            });
+            if (removed && groupId === deleting.id)
+              router.push("/prompts/groups");
+          }}
+        />
+      )}
     </div>
   );
   return drawer ? (

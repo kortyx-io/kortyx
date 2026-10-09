@@ -44,8 +44,8 @@ const navSections = [
     items: [{ title: "Evals", url: "/evals/runs", icon: FlaskConical }],
   },
   {
-    title: "Prompts",
-    items: [{ title: "Library", url: "/prompts", icon: FileText }],
+    title: "Prompt Management",
+    items: [{ title: "Prompts", url: "/prompts", icon: FileText }],
   },
 ];
 

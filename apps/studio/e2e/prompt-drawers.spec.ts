@@ -72,7 +72,9 @@ async function cleanup() {
     await sql`delete from prompt_assets where key=${`${compositionKey}-conflict`}`;
     await sql`delete from prompt_assets where key=${compositionKey}`;
     await sql`delete from prompt_assets where key=${`${compositionKey}-json`}`;
+    await sql`delete from prompt_assets where key=${`${compositionKey}-actions`}`;
     await sql`delete from prompt_assets where key=${fixtureKey}`;
+    await sql`delete from prompt_categories where name=${`${categoryName} disposable`}`;
     await sql`delete from prompt_categories where name=${categoryName}`;
   } finally {
     await sql.end();
@@ -90,15 +92,17 @@ async function openPrompt(page: Page, category = false) {
     "Classify requests as support or sales. Pricing requests are sales.",
   );
 }
-async function renameInspector(page: Page) {
+async function policyInspector(page: Page) {
   await promptDrawer(page)
     .getByRole("button", { name: "Prompt actions", exact: true })
     .click();
   await page
-    .getByRole("menuitem", { name: "Rename prompt", exact: true })
+    .getByRole("menuitem", { name: "Promotion policy", exact: true })
     .click();
   await expect(inspector(page)).toHaveAttribute("data-state", "open");
-  await expect(inspector(page).getByLabel("Prompt name")).toBeVisible();
+  await expect(
+    inspector(page).getByRole("button", { name: "Save policy" }),
+  ).toBeVisible();
 }
 async function noOverflow(locator: Locator) {
   await expect
@@ -190,6 +194,425 @@ test.describe("Prompt detail drawers", () => {
     });
   });
   test.afterAll(cleanup);
+
+  test("opens one continuous prompt drawer from the library without a floating loading frame", async ({
+    page,
+  }) => {
+    await page.goto("/prompts");
+    await expect(
+      page.getByRole("link", { name: fixtureName, exact: true }),
+    ).toBeVisible();
+    const table = await page
+      .locator('[data-table-ready="true"]')
+      .elementHandle();
+    const audit = await page.evaluateHandle(() => {
+      const result = { added: 0, removed: 0, floating: 0 };
+      const count = (node: Node, selector: string) =>
+        node instanceof Element
+          ? Number(node.matches(selector)) +
+            node.querySelectorAll(selector).length
+          : 0;
+      new MutationObserver((records) => {
+        for (const record of records) {
+          for (const node of record.addedNodes) {
+            result.added += count(node, "[data-detail-drawer]");
+            result.floating += count(
+              node,
+              'output[aria-label="Loading details"]',
+            );
+          }
+          for (const node of record.removedNodes)
+            result.removed += count(node, "[data-detail-drawer]");
+        }
+      }).observe(document.body, { childList: true, subtree: true });
+      return result;
+    });
+    for (let iteration = 0; iteration < 2; iteration++) {
+      await page.getByRole("link", { name: fixtureName, exact: true }).click();
+      await expect(
+        promptDrawer(page).getByLabel("System Message"),
+      ).toBeVisible();
+      await expect(promptDrawer(page)).toHaveAttribute(
+        "data-entry-motion",
+        "preserve",
+      );
+      expect(await table?.evaluate((node) => node.isConnected)).toBe(true);
+      expect(await audit.jsonValue()).toEqual({
+        added: iteration + 1,
+        removed: iteration,
+        floating: 0,
+      });
+      await promptDrawer(page)
+        .getByRole("button", { name: "Close detail" })
+        .click();
+      await expect(promptDrawer(page)).toHaveCount(0);
+    }
+  });
+
+  test("offers row actions in dialogs and confirms archive and restore before mutating", async ({
+    page,
+    request,
+  }) => {
+    const created = await action(request, {
+      action: "create",
+      key: `${compositionKey}-actions`,
+      name: "E2E row actions",
+      categoryId,
+      content,
+      note: "Actions fixture",
+    });
+    await page.goto(`/prompts?q=${compositionKey}-actions`);
+    const row = page
+      .getByRole("row")
+      .filter({ hasText: `${compositionKey}-actions` });
+    const menu = async (name: string) => {
+      await row.getByRole("button", { name: /^Actions for/ }).click();
+      await page.getByRole("menuitem", { name, exact: true }).click();
+    };
+    const checkbox = row.getByRole("checkbox");
+    const geometry = await checkbox.evaluate((el) => {
+      const cell = el.closest("td")!.getBoundingClientRect(),
+        bounds = el.getBoundingClientRect();
+      return Math.abs(bounds.x + bounds.width / 2 - cell.x - cell.width / 2);
+    });
+    expect(geometry).toBeLessThan(1);
+    await row.hover();
+    const cells = row.getByRole("cell");
+    await expect(cells.last()).not.toHaveCSS("position", "sticky");
+    await expect(cells.last()).toHaveCSS(
+      "background-color",
+      await cells.nth(1).evaluate((el) => getComputedStyle(el).backgroundColor),
+    );
+    await menu("Rename prompt");
+    let dialog = page.getByRole("dialog", {
+      name: "Rename prompt",
+      exact: true,
+    });
+    await expect(inspector(page)).toHaveCount(0);
+    await dialog.getByLabel("Prompt name").fill("E2E renamed prompt");
+    await dialog
+      .getByRole("button", { name: "Rename prompt", exact: true })
+      .click();
+    await expect(row).toContainText("E2E renamed prompt");
+    await menu("Move to category");
+    dialog = page.getByRole("dialog", { name: "Move prompt", exact: true });
+    await dialog.getByRole("button", { name: "Destination category" }).click();
+    await page
+      .getByRole("menuitemradio", { name: "Root", exact: true })
+      .click();
+    await dialog
+      .getByRole("button", { name: "Move prompt", exact: true })
+      .click();
+    await expect(row).toContainText("Root");
+    await menu("Code helper");
+    dialog = page.getByRole("dialog", { name: "Use this prompt", exact: true });
+    await expect(dialog).toContainText(`id: "${compositionKey}-actions"`);
+    for (const width of [1440, 768, 390]) {
+      await page.setViewportSize({ width, height: 900 });
+      await noOverflow(dialog);
+    }
+    await page.keyboard.press("Escape");
+    await expect(dialog).toHaveCount(0);
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await menu("Archive prompt");
+    dialog = page.getByRole("dialog", { name: "Archive prompt?", exact: true });
+    await expect(
+      dialog.getByRole("button", { name: "Cancel", exact: true }),
+    ).toBeFocused();
+    await dialog.getByRole("button", { name: "Cancel", exact: true }).click();
+    await expect(dialog).toHaveCount(0);
+    await expect(row).toBeVisible();
+    await menu("Archive prompt");
+    await dialog
+      .getByRole("button", { name: "Archive prompt", exact: true })
+      .click();
+    await expect(row).toHaveCount(0);
+    await page.goto(`/prompts?q=${compositionKey}-actions&archived=true`);
+    await menu("Restore prompt");
+    dialog = page.getByRole("dialog", { name: "Restore prompt?", exact: true });
+    await expect(dialog).toContainText("does not assign a version");
+    await page.keyboard.press("Escape");
+    await expect(row).toBeVisible();
+    await menu("Restore prompt");
+    await dialog
+      .getByRole("button", { name: "Restore prompt", exact: true })
+      .click();
+    await expect(row).toHaveCount(0);
+    await page.goto(`/prompts/${created.id}`);
+    await page
+      .getByRole("button", { name: "Prompt actions", exact: true })
+      .click();
+    await page
+      .getByRole("menuitem", { name: "Rename prompt", exact: true })
+      .click();
+    await expect(
+      page.getByRole("dialog", { name: "Rename prompt", exact: true }),
+    ).toBeVisible();
+    await page.goBack();
+    await expect(page.getByRole("dialog")).toHaveCount(0);
+    await page.goForward();
+    await expect(
+      page.getByRole("dialog", { name: "Rename prompt", exact: true }),
+    ).toBeVisible();
+  });
+
+  test("keeps the header compact and history consistent across tabs", async ({
+    page,
+  }) => {
+    await page.goto(`/prompts/${id}`);
+    const header = page.locator("[data-prompt-header]");
+    expect((await header.boundingBox())!.height).toBeLessThanOrEqual(76);
+    for (const name of ["Content", "Runs 0", "Evals 0", "Activity"]) {
+      await page
+        .getByRole("button", { name: new RegExp(`^${name}$`, "i") })
+        .click();
+      await expect(page.locator("aside")).toBeVisible();
+      await expect(
+        page.getByRole("button", { name: "Version history · v2", exact: true }),
+      ).toBeHidden();
+    }
+    await page.setViewportSize({ width: 390, height: 844 });
+    await expect(
+      page.getByRole("button", { name: "Version history · v2", exact: true }),
+    ).toBeVisible();
+    await noOverflow(header);
+    await expect(
+      page.getByRole("button", { name: "Edit", exact: true }),
+    ).toBeVisible();
+  });
+
+  test("confirms group removal, policy changes and promotion without accidental writes", async ({
+    page,
+  }) => {
+    const mutations: string[] = [];
+    page.on("request", (request) => {
+      if (
+        request.url().includes("/api/studio/prompts/actions") &&
+        request.method() === "POST"
+      )
+        mutations.push(request.postDataJSON().action);
+    });
+    await page.goto(`/prompts/groups/${groupId}`);
+    await page
+      .getByRole("button", {
+        name: `Remove ${fixtureName} from group`,
+        exact: true,
+      })
+      .click();
+    let confirmation = page.getByRole("dialog", {
+      name: "Remove prompt from group?",
+      exact: true,
+    });
+    await confirmation
+      .getByRole("button", { name: "Cancel", exact: true })
+      .click();
+    await expect(
+      page.getByRole("link", { name: fixtureName, exact: true }),
+    ).toBeVisible();
+    expect(mutations).toEqual([]);
+    await page.goto(`/prompts/${id}`);
+    await page
+      .getByRole("button", { name: "Prompt actions", exact: true })
+      .click();
+    await page
+      .getByRole("menuitem", { name: "Promotion policy", exact: true })
+      .click();
+    await inspector(page)
+      .getByRole("button", { name: "Save policy", exact: true })
+      .click();
+    confirmation = page.getByRole("dialog", {
+      name: "Save promotion policy?",
+      exact: true,
+    });
+    await expect(confirmation).toContainText("promotion requirements");
+    await page.keyboard.press("Escape");
+    await expect(inspector(page)).toBeVisible();
+    expect(mutations).toEqual([]);
+    await inspector(page)
+      .getByRole("button", { name: "Close prompt action", exact: true })
+      .click();
+    await page
+      .getByRole("button", { name: "Version 2 actions", exact: true })
+      .click();
+    await page
+      .getByRole("menuitem", { name: "Promote / roll back…", exact: true })
+      .click();
+    await inspector(page)
+      .getByRole("button", { name: "Promote v2", exact: true })
+      .click();
+    confirmation = page.getByRole("dialog", {
+      name: "Promote prompt?",
+      exact: true,
+    });
+    await expect(confirmation).toContainText("v2 to production");
+    await confirmation
+      .getByRole("button", { name: "Cancel", exact: true })
+      .click();
+    expect(mutations).toEqual([]);
+    await inspector(page)
+      .getByRole("button", { name: "Promote v2", exact: true })
+      .click();
+    // Preserve the confirmation and the action panel after server rejection.
+    await page.route("**/api/studio/prompts/actions", (route) =>
+      route.fulfill({
+        status: 409,
+        contentType: "application/json",
+        body: JSON.stringify({
+          message: "Assignment changed. Review the latest version.",
+        }),
+      }),
+    );
+    await confirmation
+      .getByRole("button", { name: "Confirm promotion", exact: true })
+      .click();
+    await expect(confirmation.getByRole("alert")).toContainText(
+      "Assignment changed",
+    );
+    await expect(inspector(page)).toBeVisible();
+  });
+
+  test("confirms bulk archive and restore and requires a category deletion destination", async ({
+    page,
+    request,
+  }) => {
+    await page.goto(`/prompts?q=${fixtureKey}`);
+    await page
+      .getByRole("checkbox", { name: `Select ${fixtureName}`, exact: true })
+      .check();
+    await page
+      .getByRole("button", { name: "1 selected · Actions", exact: true })
+      .click();
+    await page
+      .getByRole("menuitem", { name: "Archive selected prompts…", exact: true })
+      .click();
+    let dialog = page.getByRole("dialog", {
+      name: "Archive selected prompts?",
+      exact: true,
+    });
+    await dialog.getByRole("button", { name: "Cancel", exact: true }).click();
+    await expect(dialog).toHaveCount(0);
+    await expect(
+      page.getByRole("link", { name: fixtureName, exact: true }),
+    ).toBeVisible();
+    await page
+      .getByRole("button", { name: "1 selected · Actions", exact: true })
+      .click();
+    await page
+      .getByRole("menuitem", { name: "Archive selected prompts…", exact: true })
+      .click();
+    await dialog
+      .getByRole("button", { name: "Archive prompts", exact: true })
+      .click();
+    await expect(
+      page.getByRole("link", { name: fixtureName, exact: true }),
+    ).toHaveCount(0);
+    await page.goto(`/prompts?q=${fixtureKey}&archived=true`);
+    await page
+      .getByRole("checkbox", { name: `Select ${fixtureName}`, exact: true })
+      .check();
+    await page
+      .getByRole("button", { name: "1 selected · Actions", exact: true })
+      .click();
+    await page
+      .getByRole("menuitem", { name: "Restore selected prompts…", exact: true })
+      .click();
+    dialog = page.getByRole("dialog", {
+      name: "Restore selected prompts?",
+      exact: true,
+    });
+    await dialog
+      .getByRole("button", { name: "Restore prompts", exact: true })
+      .click();
+    await expect(
+      page.getByRole("link", { name: fixtureName, exact: true }),
+    ).toHaveCount(0);
+    await action(request, {
+      action: "category-create",
+      path: `${categoryName} disposable`,
+    });
+    await page.goto("/prompts");
+    await page
+      .getByRole("button", {
+        name: `${categoryName} disposable category actions`,
+        exact: true,
+      })
+      .click();
+    await page
+      .getByRole("menuitem", { name: "Delete category…", exact: true })
+      .click();
+    dialog = page.getByRole("dialog", { name: "Delete category", exact: true });
+    await expect(
+      dialog.getByRole("button", {
+        name: "Move prompts & delete",
+        exact: true,
+      }),
+    ).toBeDisabled();
+    await dialog
+      .getByRole("button", { name: "Destination category", exact: true })
+      .click();
+    await page
+      .getByRole("menuitemradio", { name: "Root", exact: true })
+      .click();
+    await dialog
+      .getByRole("button", { name: "Move prompts & delete", exact: true })
+      .click();
+    await expect(
+      page.getByRole("link", {
+        name: `${categoryName} disposable`,
+        exact: true,
+      }),
+    ).toHaveCount(0);
+  });
+
+  test("opens categories from the left on narrow screens", async ({ page }) => {
+    await page.goto("/prompts");
+    for (const width of [768, 390]) {
+      await page.setViewportSize({ width, height: 900 });
+      const trigger = page.getByRole("button", {
+        name: "Open categories",
+        exact: true,
+      });
+      await trigger.click();
+      const categories = page.getByRole("dialog", {
+        name: "Prompt categories",
+        exact: true,
+      });
+      await expect(categories).toBeVisible();
+      await expect
+        .poll(async () => (await categories.boundingBox())?.x)
+        .toBe(0);
+      const bounds = await categories.boundingBox();
+      expect(bounds!.width).toBeLessThan(width);
+      await expect(
+        categories.getByRole("link", { name: categoryName, exact: true }),
+      ).toBeVisible();
+      await page.keyboard.press("Escape");
+      await expect(categories).toHaveCount(0);
+      await expect(trigger).toBeFocused();
+      await trigger.click();
+      await categories
+        .getByRole("link", { name: categoryName, exact: true })
+        .click();
+      await expect(page).toHaveURL(
+        new RegExp(`/prompts/categories/${categoryId}$`),
+      );
+      await expect(categories).toHaveCount(0);
+      await page
+        .getByRole("button", { name: "Open categories", exact: true })
+        .click();
+      await categories
+        .getByRole("button", { name: "New category", exact: true })
+        .click();
+      const create = page.getByRole("dialog", {
+        name: "New category",
+        exact: true,
+      });
+      await expect(create).toBeVisible();
+      await create.getByRole("button", { name: "Cancel", exact: true }).click();
+      await expect(create).toHaveCount(0);
+      await page.goto("/prompts");
+    }
+  });
 
   test("edits highlighted JSON with native history, formatting and validation", async ({
     page,
@@ -285,6 +708,7 @@ test.describe("Prompt detail drawers", () => {
     await expect
       .poll(async () => JSON.parse(await config.innerText()))
       .toEqual(candidate);
+    await expect(page).toHaveURL(/\?v=2$/);
     await page.reload();
     await expect
       .poll(async () => JSON.parse(await config.innerText()))
@@ -534,7 +958,7 @@ test.describe("Prompt detail drawers", () => {
         await noOverflow(table);
         await expect(
           page.getByRole("button", {
-            name: "Version history · v1",
+            name: width === 1440 ? "Version history" : "Version history · v1",
             exact: true,
           }),
         ).toBeVisible();
@@ -817,7 +1241,7 @@ test.describe("Prompt detail drawers", () => {
     await openPrompt(page);
     const surfaceNode = await promptDrawer(page).elementHandle();
     for (let iteration = 0; iteration < 3; iteration++) {
-      await renameInspector(page);
+      await policyInspector(page);
       await expect(inspector(page)).toHaveCount(1);
       await expectCenteredInspectorClose(page);
       await expect
@@ -847,7 +1271,7 @@ test.describe("Prompt detail drawers", () => {
     }
     for (const width of [768, 390]) {
       await page.setViewportSize({ width, height: 900 });
-      await renameInspector(page);
+      await policyInspector(page);
       await expectCenteredInspectorClose(page);
       await inspector(page)
         .getByRole("button", { name: "Close prompt action" })
@@ -861,8 +1285,8 @@ test.describe("Prompt detail drawers", () => {
     page,
   }) => {
     await openPrompt(page);
-    await renameInspector(page);
-    await expect(page).toHaveURL(/promptAction=rename/);
+    await policyInspector(page);
+    await expect(page).toHaveURL(/promptAction=policy/);
     await page.goBack();
     await expect(inspector(page)).toHaveCount(0);
     await expect(promptDrawer(page)).toHaveAttribute("data-state", "open");
@@ -883,7 +1307,7 @@ test.describe("Prompt detail drawers", () => {
       .getByRole("button", { name: "Version history · v2" })
       .click();
     await page.getByRole("menuitemradio", { name: /v1/ }).click();
-    await renameInspector(page);
+    await policyInspector(page);
     await inspector(page)
       .getByRole("button", { name: "Close prompt action" })
       .click();

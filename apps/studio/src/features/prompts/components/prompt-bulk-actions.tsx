@@ -1,7 +1,7 @@
 "use client";
 import type { PromptLibrary } from "@kortyx/telemetry-contracts";
+import { parseAsStringLiteral } from "nuqs";
 import { useState } from "react";
-import { DetailInspectorDrawer } from "@/components/detail/detail-inspector";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -11,8 +11,10 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { EvalDropdown } from "@/features/evals/components/eval-dropdown";
+import { useStudioQueryStates } from "@/lib/nuqs";
 import { promptRequest } from "../api/client";
 import { categoryPath, downloadJson } from "../lib/presentation";
+import { PromptActionSurface } from "./prompt-action-surface";
 
 type Asset = PromptLibrary["assets"][number];
 export function PromptBulkActions({
@@ -26,9 +28,21 @@ export function PromptBulkActions({
   onDone: () => Promise<void>;
   onClear: () => void;
 }) {
-  const [action, setAction] = useState<"move" | "group" | "archive" | null>(
-    null,
+  const [query, setQuery] = useStudioQueryStates(
+    {
+      bulkPromptAction: parseAsStringLiteral([
+        "move",
+        "group",
+        "archive",
+        "restore",
+      ]),
+    },
+    { shallow: true },
   );
+  const action = query.bulkPromptAction;
+  const setAction = (value: typeof action) => {
+    void setQuery({ bulkPromptAction: value });
+  };
   const [destination, setDestination] = useState("root"),
     [groupId, setGroupId] = useState(""),
     [name, setName] = useState(""),
@@ -85,7 +99,7 @@ export function PromptBulkActions({
           })),
           ...(action === "move"
             ? { categoryId: destination === "root" ? null : destination }
-            : { archived: true }),
+            : { archived: action === "archive" }),
         });
       await onDone();
       setAction(null);
@@ -97,7 +111,7 @@ export function PromptBulkActions({
   };
   return (
     <>
-      <DropdownMenu>
+      <DropdownMenu modal={false}>
         <DropdownMenuTrigger asChild>
           <Button size="sm" variant="outline">
             {selected.length} selected · Actions
@@ -153,6 +167,15 @@ export function PromptBulkActions({
           >
             Archive selected prompts…
           </DropdownMenuItem>
+          <DropdownMenuItem
+            disabled={
+              !library.permissions.edit ||
+              selected.some((asset) => !asset.archived)
+            }
+            onSelect={() => begin("restore")}
+          >
+            Restore selected prompts…
+          </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
       <Button size="sm" variant="ghost" disabled={working} onClick={onClear}>
@@ -163,7 +186,10 @@ export function PromptBulkActions({
           {error}
         </p>
       )}
-      <DetailInspectorDrawer
+      <PromptActionSurface
+        modal={action !== "group"}
+        confirmation={action === "archive" || action === "restore"}
+        busy={working}
         open={Boolean(action)}
         onClose={() => {
           if (!working) setAction(null);
@@ -173,9 +199,34 @@ export function PromptBulkActions({
             ? "Move selected prompts"
             : action === "group"
               ? "Add versions to test group"
-              : "Archive selected prompts"
+              : action === "restore"
+                ? "Restore selected prompts?"
+                : "Archive selected prompts?"
         }
         description={`${selected.length} selected prompts. Their versions and historical evidence are preserved.`}
+        actions={
+          <Button
+            size="sm"
+            variant={action === "archive" ? "destructive" : "default"}
+            disabled={
+              working ||
+              (action === "group" &&
+                ((!groupId && !name.trim()) ||
+                  (Boolean(conflicts) && !replace)))
+            }
+            onClick={() => void apply()}
+          >
+            {working
+              ? "Saving…"
+              : action === "move"
+                ? "Move prompts"
+                : action === "group"
+                  ? "Add versions"
+                  : action === "restore"
+                    ? "Restore prompts"
+                    : "Archive prompts"}
+          </Button>
+        }
         closeLabel="Close bulk prompt action"
       >
         <div className="space-y-5 p-5">
@@ -252,30 +303,13 @@ export function PromptBulkActions({
             </>
           ) : (
             <p className="text-xs text-muted-foreground">
-              Archived prompts leave the active library and can be restored
-              later.
+              {action === "restore"
+                ? "These prompts will return to the active library. No versions will be assigned to an environment."
+                : "These prompts will leave the active library and can be restored later."}
             </p>
           )}
-          <Button
-            size="sm"
-            disabled={
-              working ||
-              (action === "group" &&
-                ((!groupId && !name.trim()) ||
-                  (Boolean(conflicts) && !replace)))
-            }
-            onClick={() => void apply()}
-          >
-            {working
-              ? "Saving…"
-              : action === "move"
-                ? "Move prompts"
-                : action === "group"
-                  ? "Add versions"
-                  : "Archive prompts"}
-          </Button>
         </div>
-      </DetailInspectorDrawer>
+      </PromptActionSurface>
     </>
   );
 }

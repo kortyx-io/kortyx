@@ -25,6 +25,9 @@ describe("detailNavigationHref", () => {
       edit: "true",
       promptAction: "rename",
       promptActionVersion: "2",
+      assetAction: "rename",
+      actionAsset: "prompt-1",
+      bulkPromptAction: "archive",
       groupAction: "member",
       groupEditId: "group-1",
     });

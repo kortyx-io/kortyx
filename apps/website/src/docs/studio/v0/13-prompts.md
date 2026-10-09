@@ -8,9 +8,14 @@ section: "guides"
 ---
 # Version and test prompts
 
-Open **Prompts → Library** to create prompts. Each prompt has a stable key, a display
+Open **Prompt Management → Prompts** to create prompts. Each prompt has a stable key, a display
 name, immutable versions, a shared draft, and separate environment assignments.
 Renaming or moving a prompt never changes the key used by your application.
+
+Each library row has an actions menu at the right edge, including rename, move,
+code helper, promotion policy and archive/restore. Rename, move and code helper
+open in modals. Archive and restore require confirmation, including bulk actions;
+restoring preserves versions without assigning them to an environment.
 
 The editor shows system and user messages directly. **Add message** adds another
 message with an explicit role for conversation examples. Messages are sent in the
@@ -75,7 +80,9 @@ key does not create another version.
 
 ## Categories and test groups
 
-Categories organize the library. **New category** accepts paths such as
+Categories organize the library. On smaller screens, use the categories control
+on the left to open the category tree. Selecting a category closes the panel.
+**New category** accepts paths such as
 `Canvas/Testing`, creating Testing under Canvas. Parents collapse independently.
 Category actions rename, move, or delete the category. Deleting a category requires
 choosing Root or a surviving category for every prompt in its subtree.
@@ -83,7 +90,8 @@ choosing Root or a surviving category for every prompt in its subtree.
 **Test groups** are secondary collections of exact prompt versions. Open Groups,
 name a group, and add versions from the prompt history or group drawer. A group
 contains one version per prompt; replacing that selection requires an explicit
-choice. Deleting a group preserves prompts, versions, and saved eval evidence.
+choice. Removing a prompt from a group and deleting a group require confirmation.
+Both preserve prompts, versions, and saved eval evidence.
 
 A group does not own or save a suite. **Run suite** opens the normal eval drawer,
 where you choose an application, suite, individual test checkboxes, judge, and
@@ -109,9 +117,13 @@ are not added to identity metadata.
 
 Both tabs use the standard Runs and Evals tables, filling the available tab area.
 Search, status filters, sorting, column controls, and pagination work within the
-selected version. Version history stays in a dropdown to leave room for the table.
+selected version. All tabs share the same version history: a collapsible sidebar
+on wide surfaces and a dropdown in narrow drawers or mobile layouts.
 Multiple calls in one execution produce one run row; suites launched together
 produce one evaluation row, retaining their prompt-usage evidence.
+
+Promotion and rollback require confirmation of the exact version and destination.
+Policy changes also show their requirements for confirmation before applying.
 
 Promotion policies can require a passing full suite, specific application/suite
 selections, and independent human reviews. Evidence must come from the destination

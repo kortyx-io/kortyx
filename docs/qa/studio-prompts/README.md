@@ -250,3 +250,39 @@ setup/cleanup).
 ![Light JSON configuration editor](light-json-editor.png)
 
 ![Mobile JSON configuration editor](mobile-json-editor.png)
+
+
+### Prompt actions and drawer polish (2026-10-09)
+
+Each prompt row now has an unpinned actions menu and centered selection checkbox.
+On narrow screens, a compact left rail opens the category tree in a platform sheet.
+Category navigation, Escape dismissal, focus return and opening the category modal
+are covered at tablet and mobile widths.
+The sidebar reads **Prompt Management → Prompts**. Detail headers use two compact
+lines, and every tab shares the same container-responsive version history.
+Rename, move and code helper use platform dialogs, from either a row or a detail.
+Archive/restore (including bulk actions), group removal/deletion, category deletion,
+promotion/rollback and policy changes require explicit confirmation. Category deletion
+still requires selecting a surviving destination. Escape/Cancel preserve data;
+server rejection remains visible in the dialog. Confirmation defaults to Cancel.
+
+Prompt loading routes now use the same hosted drawer as resolved content. The
+new browser regression fails against the prior production build because it detects
+an extra floating loading frame; it passes with the shared lifecycle. Coverage
+checks one mounted surface, retained library, close/reopen, browser history,
+modal lifecycle, blocked accidental writes, table geometry and responsive layouts.
+Action menus avoid the modal-menu/dialog pointer-lock race. Version saving waits
+for its URL update before closing the diff, preserving the selected version on
+an immediate reload.
+
+![Compact header and navigation](compact-prompt-header.png)
+
+![Prompt row actions](prompt-row-actions.png)
+
+![Rename modal](prompt-rename-modal.png)
+
+![Archive confirmation](prompt-archive-confirmation.png)
+
+![Mobile action modal](mobile-prompt-action.png)
+
+![Mobile category sidebar](mobile-category-sidebar.png)
