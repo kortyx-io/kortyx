@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.29.3](https://github.com/kortyx-io/kortyx/compare/kortyx-v0.29.2...kortyx-v0.29.3) (2026-10-09)
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/agent bumped to 0.35.0
+    * @kortyx/cli bumped to 0.17.0
+    * @kortyx/core bumped to 0.13.0
+    * @kortyx/hooks bumped to 0.32.1
+    * @kortyx/mcp bumped to 0.2.10
+    * @kortyx/providers bumped to 0.9.1
+    * @kortyx/runtime bumped to 0.22.1
+    * @kortyx/stream bumped to 0.15.3
+    * @kortyx/utils bumped to 0.3.5
+
 ## [0.29.2](https://github.com/kortyx-io/kortyx/compare/kortyx-v0.29.1...kortyx-v0.29.2) (2026-10-09)
 
 

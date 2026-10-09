@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.6.7](https://github.com/kortyx-io/kortyx/compare/google-v0.6.6...google-v0.6.7) (2026-10-09)
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/providers bumped to 0.9.1
+    * @kortyx/core bumped to 0.13.0
+
 ## [0.6.6](https://github.com/kortyx-io/kortyx/compare/google-v0.6.5...google-v0.6.6) (2026-10-08)
 
 

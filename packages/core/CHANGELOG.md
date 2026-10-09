@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.13.0](https://github.com/kortyx-io/kortyx/compare/core-v0.12.0...core-v0.13.0) (2026-10-09)
+
+
+### Features
+
+* **evals:** share concurrency and attribute multi-session costs ([#304](https://github.com/kortyx-io/kortyx/issues/304)) ([dd5e242](https://github.com/kortyx-io/kortyx/commit/dd5e242ae08affbb015201bb57c4714709756cf2))
+
 ## [0.12.0](https://github.com/kortyx-io/kortyx/compare/core-v0.11.0...core-v0.12.0) (2026-10-08)
 
 

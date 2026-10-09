@@ -1,5 +1,26 @@
 # Changelog
 
+## [0.35.0](https://github.com/kortyx-io/kortyx/compare/agent-v0.34.0...agent-v0.35.0) (2026-10-09)
+
+
+### Features
+
+* **evals:** share concurrency and attribute multi-session costs ([#304](https://github.com/kortyx-io/kortyx/issues/304)) ([dd5e242](https://github.com/kortyx-io/kortyx/commit/dd5e242ae08affbb015201bb57c4714709756cf2))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/core bumped to 0.13.0
+    * @kortyx/providers bumped to 0.9.1
+    * @kortyx/runtime bumped to 0.22.1
+    * @kortyx/stream bumped to 0.15.3
+    * @kortyx/utils bumped to 0.3.5
+  * devDependencies
+    * @kortyx/hooks bumped to 0.32.1
+    * @kortyx/openai bumped to 0.5.7
+
 ## [0.34.0](https://github.com/kortyx-io/kortyx/compare/agent-v0.33.0...agent-v0.34.0) (2026-10-09)
 
 

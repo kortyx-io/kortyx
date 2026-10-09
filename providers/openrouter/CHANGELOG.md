@@ -1,5 +1,15 @@
 # @kortyx/openrouter
 
+## [0.2.4](https://github.com/kortyx-io/kortyx/compare/openrouter-v0.2.3...openrouter-v0.2.4) (2026-10-09)
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/core bumped to 0.13.0
+    * @kortyx/providers bumped to 0.9.1
+
 ## [0.2.3](https://github.com/kortyx-io/kortyx/compare/openrouter-v0.2.2...openrouter-v0.2.3) (2026-10-08)
 
 
