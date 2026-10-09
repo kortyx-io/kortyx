@@ -480,7 +480,11 @@ export function PromptLibraryView({
           onOpenChange={setCategoriesOpen}
           className="w-11 shrink-0 border-r px-1.5 py-3 xl:hidden"
           onKeyDown={(event) => {
-            if (event.key === "Escape" && categoriesOpen) {
+            if (
+              event.key === "Escape" &&
+              categoriesOpen &&
+              event.currentTarget.contains(event.target as Node)
+            ) {
               event.preventDefault();
               event.stopPropagation();
               closeCategories();

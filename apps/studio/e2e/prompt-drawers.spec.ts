@@ -590,6 +590,15 @@ test.describe("Prompt detail drawers", () => {
       await expect(
         categories.getByRole("link", { name: categoryName, exact: true }),
       ).toBeVisible();
+      await categories
+        .getByRole("button", {
+          name: `${categoryName} category actions`,
+          exact: true,
+        })
+        .click();
+      await page.getByRole("menu").press("Escape");
+      await expect(page.getByRole("menu")).toHaveCount(0);
+      await expect(categories).toBeVisible();
       await page
         .getByRole("button", { name: "Collapse categories", exact: true })
         .press("Escape");
