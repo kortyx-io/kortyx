@@ -15,8 +15,10 @@ import {
   StudioEvaluationResultsSchema,
 } from "@kortyx/agent/evals";
 import {
+  claimEvalRuns,
   createTelemetryDbClient,
   ensureLocalDevelopmentProject,
+  finishEvalRun,
   getEvaluation,
   listEvaluations,
 } from "@kortyx/telemetry-db";
@@ -30,6 +32,9 @@ const url = process.env.TEST_EVAL_DATABASE_URL;
 describe.skipIf(!url)("grouped evaluations on disposable PostgreSQL", () => {
   const client = createTelemetryDbClient(url!);
   const cancelHook = vi.fn(async () => {});
+  let executionBarrier: Promise<void> | undefined;
+  let legacyConsumer = false;
+  const startedSuites = new Set<string>();
   const suites: EvalSuite[] = ["pass", "fail"].map((id) => ({
     id,
     name: `${id} suite`,
@@ -82,13 +87,17 @@ describe.skipIf(!url)("grouped evaluations on disposable PostgreSQL", () => {
     const evals = createEvals({
       agent: {} as never,
       suites,
-      execute: async ({ command }) => ({
-        observation: {
-          type: "answer",
-          text: command.type === "message" ? command.message : "resumed",
-          structured: [],
-        },
-      }),
+      execute: async ({ command, suiteId }) => {
+        startedSuites.add(suiteId);
+        await executionBarrier;
+        return {
+          observation: {
+            type: "answer",
+            text: command.type === "message" ? command.message : "resumed",
+            structured: [],
+          },
+        };
+      },
       judge: {
         id: "fixture",
         version: "1",
@@ -137,7 +146,12 @@ describe.skipIf(!url)("grouped evaluations on disposable PostgreSQL", () => {
       apiKeyPepper: "fixture",
       evalTargetAdapter: {
         list: async () => [target],
-        manifest: fetchEvalManifest,
+        manifest: async (target) => {
+          const manifest = await fetchEvalManifest(target);
+          if (!legacyConsumer) return manifest;
+          const { attemptScheduling: _, ...legacy } = manifest;
+          return legacy;
+        },
         cancel: cancelHook,
       },
       authentication: {
@@ -318,6 +332,73 @@ describe.skipIf(!url)("grouped evaluations on disposable PostgreSQL", () => {
       expect.objectContaining(scope),
       before.suites[1]!.id,
     );
+  });
+  it("exposes overlapping unfinished suites through Studio while two workers race", async () => {
+    let release!: () => void;
+    executionBarrier = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    startedSuites.clear();
+    const response = await start(request({ concurrency: 2 }));
+    const { id } = z.object({ id: z.uuid() }).parse(await response.json());
+    const workers = [
+      createEvalWorker(client.db, [target]),
+      createEvalWorker(client.db, [target]),
+    ];
+    for (const worker of workers) worker.start();
+    try {
+      await vi.waitFor(() => expect(startedSuites.size).toBe(2), {
+        timeout: 5000,
+      });
+      const live = StudioEvaluationDetailSchema.parse(
+        await (await api.request(`/v1/studio/evals/evaluations/${id}`)).json(),
+      ).run;
+      expect(live.suites.every((suite) => suite.status === "running")).toBe(
+        true,
+      );
+      expect(live.completedAttempts).toBe(0);
+      release();
+      await vi.waitFor(
+        async () =>
+          expect(
+            (await getEvaluation(client.db, scope, id)).completedAttempts,
+          ).toBe(2),
+        { timeout: 5000 },
+      );
+    } finally {
+      release();
+      executionBarrier = undefined;
+      await Promise.all(workers.map((worker) => worker.stop()));
+    }
+  });
+  it("rejects multi-suite launches on older consumers before enqueueing execution", async () => {
+    legacyConsumer = true;
+    try {
+      const before = (await listEvaluations(client.db, scope)).length;
+      const response = await start(request({ concurrency: 20 }));
+      expect(response.status).toBe(409);
+      expect(await response.json()).toEqual({
+        error:
+          "Update the consumer SDK to support evaluation-wide concurrency.",
+      });
+      expect((await listEvaluations(client.db, scope)).length).toBe(before);
+    } finally {
+      legacyConsumer = false;
+    }
+  });
+  it("claims sibling suites atomically so racing workers cannot multiply the attempt budget", async () => {
+    const response = await start(request({ concurrency: 20 }));
+    const { id } = z.object({ id: z.uuid() }).parse(await response.json());
+    const claims = await Promise.all([
+      claimEvalRuns(client.db, "shared-owner-a", [target]),
+      claimEvalRuns(client.db, "shared-owner-b", [target]),
+    ]);
+    expect(claims.map((runs) => runs.length).sort()).toEqual([0, 2]);
+    const winner = claims[0]!.length ? 0 : 1;
+    const owner = winner === 0 ? "shared-owner-a" : "shared-owner-b";
+    expect(claims[winner]!.every((run) => run.evaluationId === id)).toBe(true);
+    for (const run of claims[winner]!)
+      await finishEvalRun(client.db, run.id, owner, { cancelled: true });
   });
   it("accepts independent conversation selections across multiple suites", async () => {
     const response = await start(

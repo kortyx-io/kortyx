@@ -175,6 +175,8 @@ export function createEvalTerminalReporter(
       }
     },
     progress(event: EvalProgress) {
+      // Billing associations do not change terminal attempt progress.
+      if (event.type === "case-runtime-associated") return;
       if (event.type === "run-started") {
         total = event.caseIds.length * event.repetitions;
         line(

@@ -9,11 +9,13 @@ import type {
 } from "@kortyx/agent/evals";
 import {
   appendEvalProgress,
-  claimEvalRun,
+  type claimEvalRun,
+  claimEvalRuns,
   finishEvalRun,
   heartbeatEvalRun,
   type TelemetryDb,
 } from "@kortyx/telemetry-db";
+import { type AttemptExecution, executeEvaluation } from "./execute-evaluation";
 import { gradeEvalExecution } from "./grade-execution";
 import { type EvalTarget, readEvalWire } from "./targets";
 
@@ -22,7 +24,8 @@ export type EvalWorkerRun = NonNullable<
 >;
 /** A restricted durable queue can replace the self-hosted database operations. */
 export interface EvalJobStore {
-  claim(owner: string): Promise<EvalWorkerRun | undefined>;
+  /** Return all siblings atomically for an evaluation, or a legacy standalone run. */
+  claim(owner: string): Promise<EvalWorkerRun | EvalWorkerRun[] | undefined>;
   heartbeat(
     id: string,
     owner: string,
@@ -53,7 +56,10 @@ export function createEvalWorker(
   options: EvalWorkerOptions = {},
 ) {
   const store: EvalJobStore = options.store ?? {
-    claim: (owner) => claimEvalRun(db, owner, targets),
+    claim: async (owner) => {
+      const runs = await claimEvalRuns(db, owner, targets);
+      return runs.length ? runs : undefined;
+    },
     heartbeat: (id, owner) => heartbeatEvalRun(db, id, owner),
     progress: (id, owner, event) => appendEvalProgress(db, id, owner, event),
     finish: (id, owner, outcome) => finishEvalRun(db, id, owner, outcome),
@@ -61,20 +67,23 @@ export function createEvalWorker(
   const owner = randomUUID();
   let stopped = false;
   let loop: Promise<void> | undefined;
-  let active: AbortController | undefined;
+  const active = new Set<AbortController>();
   const pause = () => new Promise<void>((resolve) => setTimeout(resolve, 500));
   async function execute(
     run: NonNullable<Awaited<ReturnType<typeof claimEvalRun>>>,
+    scheduled?: Parameters<AttemptExecution>[1],
   ) {
     const controller = new AbortController();
-    active = controller;
+    active.add(controller);
+    const finish =
+      scheduled?.finish ?? ((outcome) => store.finish(run.id, owner, outcome));
     let userCancelled = false;
     let failureMessage =
       "Eval execution disconnected or failed. Inspect the consumer before starting a new run.";
     const deadline = setTimeout(() => controller.abort(), 30 * 60_000);
     let heartbeatBusy = false;
     const timer = setInterval(() => {
-      if (heartbeatBusy) return;
+      if (scheduled || heartbeatBusy) return;
       heartbeatBusy = true;
       void store
         .heartbeat(run.id, owner)
@@ -115,7 +124,9 @@ export function createEvalWorker(
           "Studio judge changed or is unavailable. Refresh and start a new run.";
         throw new Error(failureMessage);
       }
-      const executionSignal = controller.signal;
+      const executionSignal = scheduled
+        ? AbortSignal.any([controller.signal, scheduled.signal])
+        : controller.signal;
       const response = options.request
         ? await options.request(
             target,
@@ -148,9 +159,19 @@ export function createEvalWorker(
         if (result) throw new Error("Consumer emitted data after completion.");
         if (event.type === "error")
           throw new Error("Consumer eval runner failed.");
-        if (event.type === "progress")
-          await store.progress(run.id, owner, event.event as EvalProgress);
-        else result = event.result as EvalRunResult;
+        if (event.type === "progress") {
+          const progress = event.event;
+          if (run.request.attempt && progress.type !== "run-started") {
+            const identity =
+              progress.type === "case-completed" ? progress.result : progress;
+            if (
+              identity.caseId !== run.request.attempt.caseId ||
+              identity.repetition !== run.request.attempt.repetition
+            )
+              throw new Error("Consumer emitted progress for another attempt.");
+          }
+          await store.progress(run.id, owner, progress as EvalProgress);
+        } else result = event.result as EvalRunResult;
       }
       if (
         !result ||
@@ -162,12 +183,14 @@ export function createEvalWorker(
       const expectedIds =
         run.request.caseIds ?? run.suite.cases.map((item) => item.id);
       const expected = new Set(
-        expectedIds.flatMap((id) =>
-          Array.from(
-            { length: run.request.repetitions },
-            (_, i) => `${id}:${i + 1}`,
-          ),
-        ),
+        run.request.attempt
+          ? [`${run.request.attempt.caseId}:${run.request.attempt.repetition}`]
+          : expectedIds.flatMap((id) =>
+              Array.from(
+                { length: run.request.repetitions },
+                (_, i) => `${id}:${i + 1}`,
+              ),
+            ),
       );
       if (
         result.cases.length !== expected.size ||
@@ -261,9 +284,9 @@ export function createEvalWorker(
       } else if (counts.ungraded)
         throw new Error("App judge did not finish grading.");
       executionSignal.throwIfAborted();
-      await store.finish(run.id, owner, { result });
+      await finish({ result });
     } catch {
-      await store.finish(run.id, owner, {
+      await finish({
         cancelled: userCancelled,
         error: userCancelled
           ? "Cancellation requested. Consumer cleanup was signalled."
@@ -272,7 +295,7 @@ export function createEvalWorker(
     } finally {
       clearTimeout(deadline);
       clearInterval(timer);
-      active = undefined;
+      active.delete(controller);
     }
   }
   return {
@@ -282,8 +305,25 @@ export function createEvalWorker(
         while (!stopped) {
           try {
             const run = await store.claim(owner);
-            if (run) await execute(run);
-            else await pause();
+            if (Array.isArray(run) && run.length > 1) {
+              const controller = new AbortController();
+              active.add(controller);
+              try {
+                await executeEvaluation(
+                  run,
+                  owner,
+                  store,
+                  controller.signal,
+                  execute,
+                );
+              } finally {
+                active.delete(controller);
+              }
+            } else if (run) {
+              const single = Array.isArray(run) ? run[0] : run;
+              if (single) await execute(single);
+              else await pause();
+            } else await pause();
           } catch {
             if (!stopped) await pause();
           }
@@ -292,7 +332,7 @@ export function createEvalWorker(
     },
     async stop() {
       stopped = true;
-      active?.abort();
+      for (const controller of active) controller.abort();
       await loop;
     },
   };
