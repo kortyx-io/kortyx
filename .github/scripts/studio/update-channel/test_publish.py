@@ -73,6 +73,18 @@ class PublishTest(unittest.TestCase):
         self.assertNotIn("secret-access-key", failure_message(error))
         self.assertNotIn("secret-code", failure_message(StorageError("secret-code", 403)))
 
+    def test_auth_failure_identifies_operation_and_repair_without_leaking_details(self):
+        error = StorageError("Unauthorized", 401)
+        error.operation_name = "GetObject"
+        error.response["Error"]["Message"] = "secret-credential"
+        message = failure_message(error)
+        self.assertIn("operation=GetObject", message)
+        self.assertIn("studio-production-auto", message)
+        self.assertIn("expiry, IP restrictions", message)
+        self.assertNotIn("secret-credential", message)
+        error.operation_name = "secret-operation"
+        self.assertNotIn("secret-operation", failure_message(error))
+
     def test_uploads_history_before_channel_and_is_idempotent(self):
         client = MemoryR2()
         self.assertEqual(publish(client, "updates", manifest()), manifest())
