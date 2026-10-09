@@ -439,24 +439,48 @@ test.describe("Prompt detail drawers", () => {
     await page
       .getByRole("menuitem", { name: "Make this live", exact: true })
       .click();
-    await page
-      .getByRole("dialog", { name: "Promote version", exact: true })
-      .getByRole("button", { name: "Promote v2", exact: true })
-      .click();
-    confirmation = page.getByRole("dialog", {
-      name: "Promote prompt?",
+    const promotion = page.getByRole("dialog", {
+      name: "Promote version",
       exact: true,
     });
-    await expect(confirmation).toContainText("v2 live");
-    await confirmation
+    await expect(page.getByRole("dialog")).toHaveCount(1);
+    await expect(
+      promotion.getByRole("button", { name: "Cancel", exact: true }),
+    ).toBeFocused();
+    await expect(promotion).toContainText("A passing full suite is required");
+    await expect(
+      promotion.getByRole("button", { name: "Promote v2", exact: true }),
+    ).toBeDisabled();
+    await promotion
       .getByRole("button", { name: "Cancel", exact: true })
       .click();
+    await expect(promotion).toHaveCount(0);
     expect(mutations).toEqual([]);
     await page
-      .getByRole("dialog", { name: "Promote version", exact: true })
-      .getByRole("button", { name: "Promote v2", exact: true })
+      .getByRole("button", { name: "Version 2 actions", exact: true })
       .click();
-    // Preserve the confirmation and the action panel after server rejection.
+    await page
+      .getByRole("menuitem", { name: "Make this live", exact: true })
+      .click();
+    await promotion
+      .getByRole("checkbox", { name: "Request an audited policy exception" })
+      .check();
+    await promotion
+      .getByLabel("Exception reason", { exact: true })
+      .fill("Test");
+    await expect(promotion).toContainText(
+      "At least 10 characters required (4/10)",
+    );
+    await expect(
+      promotion.getByRole("button", { name: "Promote v2", exact: true }),
+    ).toBeDisabled();
+    await promotion
+      .getByLabel("Exception reason", { exact: true })
+      .fill("Reviewed bootstrap release");
+    await expect(
+      promotion.getByRole("button", { name: "Promote v2", exact: true }),
+    ).toBeEnabled();
+    // A server conflict stays in the one promotion dialog, without losing the reason.
     await page.route("**/api/studio/prompts/actions", (route) =>
       route.fulfill({
         status: 409,
@@ -466,17 +490,21 @@ test.describe("Prompt detail drawers", () => {
         }),
       }),
     );
-    await confirmation
-      .getByRole("button", { name: "Confirm promotion", exact: true })
+    await promotion
+      .getByRole("button", { name: "Promote v2", exact: true })
       .click();
-    await expect(confirmation.getByRole("alert")).toContainText(
+    await expect(promotion.getByRole("alert")).toContainText(
       "Assignment changed",
     );
+    await expect(page.getByRole("dialog")).toHaveCount(1);
     await expect(
-      page.locator("[role=dialog]").filter({
-        hasText: "Applications using live will receive this version.",
-      }),
-    ).toBeVisible();
+      promotion.getByLabel("Exception reason", { exact: true }),
+    ).toHaveValue("Reviewed bootstrap release");
+    expect(mutations).toEqual(["promote"]);
+    await promotion
+      .getByLabel("Exception reason", { exact: true })
+      .fill("Updated bootstrap release");
+    await expect(promotion.getByRole("alert")).toHaveCount(0);
   });
 
   test("confirms bulk archive and restore and requires a category deletion destination", async ({
@@ -1586,16 +1614,6 @@ test.describe("Prompt detail drawers", () => {
         await modal
           .getByRole("button", {
             name: `${rollback ? "Roll back to" : "Promote"} v${version}`,
-            exact: true,
-          })
-          .click();
-        await page
-          .getByRole("dialog", {
-            name: rollback ? "Roll back prompt?" : "Promote prompt?",
-            exact: true,
-          })
-          .getByRole("button", {
-            name: rollback ? "Confirm rollback" : "Confirm promotion",
             exact: true,
           })
           .click();

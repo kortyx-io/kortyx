@@ -348,3 +348,31 @@ The focused inspector-history rerun passed in both development and production
 CLI rejection when a tag assignment omits its version; the added test verifies
 rejection before any request. Full CLI coverage now passes with 259 tests and
 100% line coverage, preserving the existing gate.
+
+
+### Single promotion confirmation (2026-10-09)
+
+Promotion and rollback now submit directly from their existing release modal.
+The redundant second confirmation is removed. Cancel receives initial focus;
+closing the modal does not write. Unmet evaluation/review requirements appear
+before submission, and the action remains disabled until they are satisfied or
+a permitted exception includes a reason of at least 10 characters. The exception
+field exposes this minimum and its current length, and editing clears stale
+server errors. Server rejections remain in this one dialog with the reason intact.
+The project policy and API enforcement are unchanged.
+
+The cancellation regression also reproduced the version menu closing immediately
+after reopening. Version menus now finish their dismissal before handing focus
+to a dialog, matching the existing prompt asset actions.
+
+Reviewed the actual modal at 1440×1000 and 390×844, including short/valid reasons
+and a visible footer. Restored the viewport and canceled without changing the
+user's live assignment. Development promotion/cancellation/conflict/rollback
+checks passed (four including setup/cleanup). Studio's 252 unit tests, typecheck,
+production build, lint and whitespace checks passed.
+
+![Single promotion modal](single-promotion-modal.png)
+
+![Mobile exception validation](mobile-promotion-validation.png)
+
+The final production prompt/drawer/responsive suite passed **48/48 checks**.

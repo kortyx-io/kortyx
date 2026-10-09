@@ -125,8 +125,9 @@ produce one evaluation row, retaining their prompt-usage evidence.
 **Make this live** is the first action in each version menu. It opens a modal
 labelled **Promote version** for a newer version or **Roll back version** for an
 older version, relative to the current live version. Review the exact version,
-readiness checks, and confirmation before applying. No environment selector is
-needed: live belongs to this prompt in this project.
+readiness checks, and release impact, then confirm with **Promote** or **Roll back**
+in that same modal. There is no second confirmation dialog or environment selector:
+live belongs to this prompt in this project.
 
 Saving a candidate never moves live. Rolling back moves live to an older immutable
 version; **Newest version** still shows the most recently saved version. New
@@ -145,8 +146,9 @@ Promotion policies can require a passing full suite, specific application/suite
 selections, and independent human reviews. Evidence must use the exact version
 and its companion versions must still match current live versions. Policies apply
 to this project. API-key reviews are audited but do not count as independent human
-reviews. When allowed by policy, an explicit exception requires a reason and is
-recorded in Activity. Test a candidate before the first promotion, or use that
+reviews. The modal explains unmet requirements before submission. When allowed
+by policy, an explicit exception requires a reason of at least 10 characters and
+is recorded in Activity. Test a candidate before the first promotion, or use that
 reviewed exception path to bootstrap live. Policy changes require confirmation.
 
 ## Connect an application

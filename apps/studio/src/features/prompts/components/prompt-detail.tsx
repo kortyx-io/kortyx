@@ -425,10 +425,9 @@ export function PromptDetailView({
 
   const destinationPolicy = detail.policies[0];
   const live = detail.asset.assignments.find((item) => item.tag === "live");
-  const rollback =
-    confirmation?.mutation.action === "promote"
-      ? confirmation.mutation.rollback
-      : Boolean(live && panel && panel.version.version < live.version);
+  const rollback = Boolean(
+    live && panel && panel.version.version < live.version,
+  );
   const eligible = detail.evidence.filter(
     (item) =>
       item.version === panel?.version.version &&
@@ -456,6 +455,14 @@ export function PromptDetailView({
           item.targetId === suite.targetId && item.suiteId === suite.suiteId,
       ),
   );
+  const promotionBlocked =
+    ((destinationPolicy?.requireTest ?? true) && !eligible.length) ||
+    missingSuites.length > 0 ||
+    independentReviews < (destinationPolicy?.requiredReviews ?? 0);
+  const validException =
+    exception &&
+    destinationPolicy?.allowException !== false &&
+    note.trim().length >= 10;
   const evidence = detail.evidence.filter(
     (item) => item.version === selected.version,
   );
@@ -620,7 +627,9 @@ export function PromptDetailView({
         disabled={
           working ||
           (panel?.type === "review" && !note.trim()) ||
-          (exception && note.trim().length < 10)
+          (panel?.type === "promote" &&
+            ((exception && !validException) ||
+              (promotionBlocked && !validException)))
         }
         onClick={() => {
           if (!panel) return;
@@ -646,20 +655,7 @@ export function PromptDetailView({
                     )?.version ?? 0),
                   ...(exception ? { exceptionReason: note } : {}),
                 };
-          if (mutation.action === "review") void act(mutation);
-          else {
-            setError("");
-            setConfirmation({
-              title: mutation.rollback
-                ? "Roll back prompt?"
-                : "Promote prompt?",
-              description: `Assign ${detail.asset.name} v${mutation.version} live? New prompt resolutions will use this version.${exception ? ` Policy exception: ${note}` : ""}`,
-              label: mutation.rollback
-                ? "Confirm rollback"
-                : "Confirm promotion",
-              mutation,
-            });
-          }
+          void act(mutation);
         }}
       >
         {working
@@ -891,7 +887,7 @@ export function PromptDetailView({
             </DropdownMenuTrigger>
             <DropdownMenuContent
               align="start"
-              className="w-80 max-w-[calc(100vw-2rem)]"
+              className="w-80 max-w-[calc(100vw-2rem)] data-[state=closed]:animate-none!"
             >
               <DropdownMenuLabel>Version history</DropdownMenuLabel>
               <DropdownMenuRadioGroup
@@ -1042,7 +1038,10 @@ export function PromptDetailView({
                           <MoreHorizontal className="size-3.5" />
                         </Button>
                       </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
+                      <DropdownMenuContent
+                        align="end"
+                        className="data-[state=closed]:animate-none!"
+                      >
                         {versionActions(version)}
                       </DropdownMenuContent>
                     </DropdownMenu>
@@ -1275,6 +1274,7 @@ export function PromptDetailView({
       )}
       <PromptActionSurface
         modal={panel?.type === "promote" || panel?.type === "tags"}
+        confirmation={panel?.type === "promote"}
         busy={working}
         actions={
           panel?.type === "promote"
@@ -1507,9 +1507,12 @@ export function PromptDetailView({
                   <div className="space-y-2 rounded-lg border bg-muted/20 p-3 text-xs">
                     <p className="font-medium">Promotion readiness</p>
                     <p>
-                      {eligible.length
-                        ? `${eligible.length} passing full suite${eligible.length === 1 ? "" : "s"} with verified usage`
-                        : "No eligible passing full suite"}
+                      {destinationPolicy?.requireTest === false &&
+                      !missingSuites.length
+                        ? "Passing evaluations are optional under this project's policy."
+                        : eligible.length
+                          ? `${eligible.length} passing full suite${eligible.length === 1 ? "" : "s"} with verified usage`
+                          : "A passing full suite is required before making this version live."}
                     </p>
                     {missingSuites.length > 0 && (
                       <p className="text-destructive">
@@ -1533,12 +1536,22 @@ export function PromptDetailView({
                       as supporting evidence.
                     </p>
                   </div>
+                  {promotionBlocked && (
+                    <p className="text-xs text-muted-foreground">
+                      {destinationPolicy?.allowException === false
+                        ? "Complete the requirements above before promoting. Policy exceptions are disabled for this project."
+                        : "Complete the requirements above, or provide an exception reason to make this version live without meeting them. The reason is saved in the activity log."}
+                    </p>
+                  )}
                   <label className="flex items-start gap-2 text-xs">
                     <input
                       type="checkbox"
                       checked={exception}
                       disabled={destinationPolicy?.allowException === false}
-                      onChange={(event) => setException(event.target.checked)}
+                      onChange={(event) => {
+                        setException(event.target.checked);
+                        setError("");
+                      }}
                     />
                     Request an audited policy exception
                   </label>
@@ -1558,8 +1571,28 @@ export function PromptDetailView({
                     id="prompt-action-note"
                     className={`${editorClass} min-h-24 font-sans`}
                     value={note}
-                    onChange={(event) => setNote(event.target.value)}
+                    aria-describedby={
+                      exception ? "prompt-exception-help" : undefined
+                    }
+                    aria-invalid={
+                      exception && note.length > 0 && note.trim().length < 10
+                        ? true
+                        : undefined
+                    }
+                    onChange={(event) => {
+                      setNote(event.target.value);
+                      setError("");
+                    }}
                   />
+                  {exception && (
+                    <p
+                      id="prompt-exception-help"
+                      className="text-xs text-muted-foreground"
+                    >
+                      Explain why you are bypassing the policy. At least 10
+                      characters required ({note.trim().length}/10).
+                    </p>
+                  )}
                 </div>
               )}
               {panel?.type === "review" && releaseAction}
