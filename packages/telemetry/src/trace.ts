@@ -1,5 +1,6 @@
 import { AsyncLocalStorage } from "node:async_hooks";
 import { isSuspensionControlFlowError } from "@kortyx/core/errors";
+import { getEvalAttemptId } from "@kortyx/core/eval-attribution";
 import type {
   KortyxTelemetryConfig,
   KortyxTelemetryEvent,
@@ -43,6 +44,7 @@ export const createTraceAdapter = (args: {
   const createSpan = (
     startArgs: ReasonTraceSpanStartArgs,
   ): { span: ReasonTraceSpan; active?: ActiveSpan | undefined } => {
+    const evalAttemptId = getEvalAttemptId();
     const parent = activeSpans.getStore();
     const span: SpanContext = {
       traceId: parent?.traceId ?? args.createId(),
@@ -166,6 +168,7 @@ export const createTraceAdapter = (args: {
           span,
           ...(parent ? { parentSpanId: parent.spanId } : {}),
           payload: {
+            ...(evalAttemptId ? { evalAttemptId } : {}),
             outcome: failed ? "failed" : "completed",
             provider:
               args.eventMapper.stringValue(attributes.providerId) ?? "unknown",

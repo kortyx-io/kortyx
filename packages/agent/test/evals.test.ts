@@ -233,7 +233,9 @@ describe("eval conversations through real agent streams", () => {
     });
     expect(progress.mock.calls.map(([event]) => event.type)).toEqual([
       "case-started",
+      "case-runtime-associated",
       "step-completed",
+      "case-runtime-associated",
       "step-completed",
       "case-completed",
     ]);
@@ -420,6 +422,11 @@ describe("eval conversations through real agent streams", () => {
       suites: [suite],
     }).run({ suiteId: suite.id });
     expect(result.status).toBe("passed");
+    // Resumed turns and child workflows retain one associated root execution.
+    expect(result.cases[0]?.runtimeExecutions).toHaveLength(1);
+    expect(result.cases[0]?.runtimeExecutions?.[0]?.sessionId).toBe(
+      result.cases[0]?.sessionId,
+    );
     expect(result.cases[0]?.steps[2]?.observation).toMatchObject({
       text: "Hiring: review",
       structured: [

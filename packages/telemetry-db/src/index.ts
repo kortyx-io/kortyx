@@ -35,6 +35,7 @@ export {
 export {
   appendEvalProgress,
   claimEvalRun,
+  claimEvalRuns,
   enqueueEvalRun,
   finishEvalRun,
   getEvalRun,

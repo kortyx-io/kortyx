@@ -207,10 +207,15 @@ export const EvalStepResultSchema = z
     ),
   })
   .strict();
+const runtimeExecution = z
+  .object({ sessionId: z.string().min(1), runId: z.string().min(1) })
+  .strict();
 export const EvalCaseResultSchema = z
   .object({
     caseId: id,
     repetition: z.number().int().positive(),
+    attemptId: z.uuid().optional(),
+    runtimeExecutions: z.array(runtimeExecution).optional(),
     sessionId: z.string(),
     status,
     durationMs: z.number().nonnegative(),
@@ -273,6 +278,7 @@ export const EvalManifestSchema = z
   .object({
     schemaVersion: z.literal(1),
     studioJudging: z.literal(true).optional(),
+    attemptScheduling: z.literal(true).optional(),
     suites: z.array(EvalSuiteSchema),
     responders: z.array(
       z
@@ -289,6 +295,15 @@ export const EvalManifestSchema = z
   })
   .strict();
 export const EvalProgressSchema = z.discriminatedUnion("type", [
+  z
+    .object({
+      type: z.literal("case-runtime-associated"),
+      caseId: id,
+      repetition: z.number().int().positive(),
+      attemptId: z.uuid(),
+      execution: runtimeExecution,
+    })
+    .strict(),
   z
     .object({
       type: z.literal("run-started"),
@@ -309,6 +324,7 @@ export const EvalProgressSchema = z.discriminatedUnion("type", [
   z
     .object({
       type: z.literal("case-started"),
+      attemptId: z.uuid().optional(),
       caseId: id,
       repetition: z.number().int().positive(),
       sessionId: z.string(),
@@ -335,11 +351,20 @@ export const EvalRemoteRunRequestSchema = z
     caseIds: z.array(id).min(1).max(100).optional(),
     repetitions: z.number().int().min(1).max(20).default(1),
     concurrency: z.number().int().min(1).max(20).default(1),
+    attempt: z
+      .object({
+        caseId: id,
+        repetition: z.number().int().min(1).max(20),
+        evaluationId: z.uuid(),
+      })
+      .strict()
+      .optional(),
   })
   .strict();
 export const StudioEvalStartRequestSchema = EvalRemoteRunRequestSchema.omit({
   grading: true,
   judge: true,
+  attempt: true,
 }).extend({
   targetId: z.string().min(1).max(128),
   judge: z.enum(["studio", "app"]).default("studio"),

@@ -59,6 +59,7 @@ export type {
   EvalResponder,
   EvalRunOptions,
   EvalRunResult,
+  EvalRuntimeExecution,
   EvalSetupContext,
   EvalStatus,
   EvalStep,

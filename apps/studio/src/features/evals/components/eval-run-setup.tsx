@@ -279,7 +279,7 @@ export function EvalRunSetup({
           </div>
           <div className="space-y-2">
             <label htmlFor="eval-concurrency" className="text-xs font-medium">
-              Concurrent attempts per suite
+              Concurrent attempts across suites
             </label>
             <Input
               id="eval-concurrency"
