@@ -190,6 +190,133 @@ test.describe("Prompt detail drawers", () => {
   });
   test.afterAll(cleanup);
 
+  test("cancels clean drafts directly and confirms dirty or invalid changes", async ({
+    page,
+    request,
+  }) => {
+    await openPrompt(page);
+    const drawer = promptDrawer(page);
+    await drawer.getByRole("button", { name: "Edit", exact: true }).click();
+    await drawer.getByRole("button", { name: "Cancel", exact: true }).click();
+    await expect(
+      page.getByRole("dialog", { name: "Discard changes?" }),
+    ).toHaveCount(0);
+    await expect(
+      drawer.getByRole("button", { name: "Edit", exact: true }),
+    ).toBeVisible();
+
+    await drawer.getByRole("button", { name: "Edit", exact: true }).click();
+    await drawer
+      .getByLabel("System Message")
+      .fill("Temporary draft to discard");
+    await drawer.getByRole("button", { name: "Cancel", exact: true }).click();
+    const confirmation = page.getByRole("dialog", { name: "Discard changes?" });
+    await expect(confirmation).toBeVisible();
+    await expect(
+      confirmation.getByRole("button", { name: "Keep editing" }),
+    ).toBeFocused();
+    await confirmation.getByRole("button", { name: "Keep editing" }).click();
+    await expect(drawer.getByLabel("System Message")).toHaveText(
+      "Temporary draft to discard",
+    );
+    await drawer.getByRole("button", { name: "Cancel", exact: true }).click();
+    await page.keyboard.press("Escape");
+    await expect(confirmation).toHaveCount(0);
+    await expect(drawer).toBeVisible();
+    // Invalid JSON lives inside the field, so it must count as dirty too.
+    await drawer.getByLabel("Configuration", { exact: true }).fill("{");
+    await expect(
+      drawer.getByRole("button", { name: "Save version" }),
+    ).toBeDisabled();
+    await drawer.getByRole("button", { name: "Cancel", exact: true }).click();
+    await confirmation
+      .getByRole("button", { name: "Discard changes", exact: true })
+      .click();
+    await expect(confirmation).toHaveCount(0);
+    await expect(
+      drawer.getByRole("button", { name: "Edit", exact: true }),
+    ).toBeVisible();
+    const response = await request.get(
+      `${apiUrl}/v1/studio/prompts/assets/${id}`,
+      {
+        headers: {
+          authorization: `Bearer ${process.env.KORTYX_STUDIO_API_KEY}`,
+        },
+      },
+    );
+    const saved = await response.json();
+    expect(saved.draft).toBeNull();
+    expect(saved.versions).toHaveLength(2);
+    await drawer.getByRole("button", { name: "Edit", exact: true }).click();
+    await expect(drawer.getByLabel("System Message")).toHaveText(
+      "Classify requests as support or sales. Pricing requests are sales.",
+    );
+    await expect(
+      drawer.getByLabel("Configuration", { exact: true }),
+    ).toHaveValue("{}");
+    // Invalid-only changes cannot bypass confirmation when content is unchanged.
+    await drawer.getByLabel("Configuration", { exact: true }).fill("{");
+    await drawer.getByRole("button", { name: "Cancel", exact: true }).click();
+    await expect(confirmation).toBeVisible();
+    await confirmation
+      .getByRole("button", { name: "Discard changes", exact: true })
+      .click();
+    await expect(confirmation).toHaveCount(0);
+  });
+
+  test("waits for an in-flight autosave before discarding and does not recreate the draft", async ({
+    page,
+    request,
+  }) => {
+    await openPrompt(page);
+    const drawer = promptDrawer(page);
+    await drawer.getByRole("button", { name: "Edit", exact: true }).click();
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    let saving = false;
+    await page.route("**/api/studio/prompts/actions", async (route) => {
+      if (route.request().postDataJSON()?.action !== "draft")
+        return route.continue();
+      const response = await route.fetch();
+      saving = true;
+      await gate;
+      await route.fulfill({ response });
+    });
+    await drawer
+      .getByLabel("System Message")
+      .fill("In-flight draft to discard");
+    await expect.poll(() => saving).toBe(true);
+    await drawer.getByRole("button", { name: "Cancel", exact: true }).click();
+    const confirmation = page.getByRole("dialog", { name: "Discard changes?" });
+    await confirmation
+      .getByRole("button", { name: "Discard changes", exact: true })
+      .click();
+    await expect(
+      confirmation.getByRole("button", { name: "Discarding…" }),
+    ).toBeDisabled();
+    release();
+    await expect(confirmation).toHaveCount(0);
+    await expect(
+      drawer.getByRole("button", { name: "Edit", exact: true }),
+    ).toBeVisible();
+    await page.reload();
+    // A direct reload opens the routed page rather than an intercepted drawer.
+    await expect(
+      page.getByRole("button", { name: "Edit", exact: true }),
+    ).toBeVisible();
+    const response = await request.get(
+      `${apiUrl}/v1/studio/prompts/assets/${id}`,
+      {
+        headers: {
+          authorization: `Bearer ${process.env.KORTYX_STUDIO_API_KEY}`,
+        },
+      },
+    );
+    expect((await response.json()).draft).toBeNull();
+  });
+
   test("fills prompt tabs with canonical run and evaluation tables and preserves nested navigation", async ({
     page,
     request,
@@ -335,9 +462,7 @@ test.describe("Prompt detail drawers", () => {
     await expect(page.getByText("Message format", { exact: true })).toHaveCount(
       0,
     );
-    await page
-      .getByRole("button", { name: "Edit as draft", exact: true })
-      .click();
+    await page.getByRole("button", { name: "Edit", exact: true }).click();
     const system = page.getByLabel("System Message");
     await system.fill("Before ");
     await system.pressSequentially("#E2E prompt drawer@v1");
@@ -392,7 +517,7 @@ test.describe("Prompt detail drawers", () => {
       .click();
     await expect(page.getByRole("dialog")).toHaveCount(0);
     await expect(
-      page.getByRole("button", { name: "Edit as draft", exact: true }),
+      page.getByRole("button", { name: "Edit", exact: true }),
     ).toBeVisible();
     await expect(
       page.getByLabel("System Message").locator("[data-prompt-reference]"),
@@ -448,7 +573,7 @@ test.describe("Prompt detail drawers", () => {
     await user.press("Escape");
     await expect(page.getByRole("listbox")).toHaveCount(0);
     await expect(
-      page.getByRole("button", { name: "Close editor", exact: true }),
+      page.getByRole("button", { name: "Cancel", exact: true }),
     ).toBeVisible();
     // A parent cannot contain conflicting pins of one child. Use the already
     // pinned v1 for this parent; Latest is offered as v2 and is rejected safely.

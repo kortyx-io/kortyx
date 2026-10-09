@@ -868,6 +868,24 @@ export async function mutatePrompt(
       });
       return { id: asset.id, version: 1 };
     }
+    if (input.action === "discard-draft") {
+      const asset = await findAsset(tx, scope, input.id);
+      checkRevision(asset.draftRevision, input.expectedRevision);
+      if (!asset.draft)
+        return { id: asset.id, draftRevision: asset.draftRevision };
+      const draftRevision = asset.draftRevision + 1;
+      await tx
+        .update(promptAssets)
+        .set({
+          draft: null,
+          draftBase: null,
+          draftRevision,
+          updatedAt: new Date(),
+        })
+        .where(eq(promptAssets.id, asset.id));
+      await audit(asset.id, { draftRevision });
+      return { id: asset.id, draftRevision };
+    }
     if (
       input.action === "draft" ||
       input.action === "save" ||

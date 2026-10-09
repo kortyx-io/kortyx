@@ -139,6 +139,7 @@ describe.skipIf(!url)("prompt serving authorization", () => {
       }));
       const manifest: EvalManifest = {
         schemaVersion: 1,
+        attemptScheduling: true,
         suites,
         responders: [],
         references: [],

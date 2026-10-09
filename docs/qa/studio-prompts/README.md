@@ -195,3 +195,32 @@ After the header fix, **37 drawer/prompt/responsive browser checks passed
 in development and 37 in production**. Studio typecheck, repository lint
 and the production Studio build also passed. The regression fails against
 the previous production header and passes with the shared alignment fix.
+
+### Cancel editing (2026-10-09)
+
+The editor now exposes **Cancel** beside **Save version**, and the entry action
+is simply **Edit** in both the header and version menu. Cancel closes an unchanged
+draft directly. Changed or invalid fields open the platform confirmation dialog
+with **Keep editing** focused by default and an explicit **Discard changes**
+action. Escape dismisses the confirmation while preserving the editor.
+
+Confirmed discard clears the shared autosaved draft without creating a version
+or changing assignments. It waits for an in-flight autosave, cancels queued saves,
+and uses a revision check to preserve another editor's newer draft. Database
+regressions cover stale discard, tenant isolation, stale autosave after discard,
+and repeated clean cancellation. Browser regressions cover clean/dirty/invalid
+fields, keeping edits, Escape, reload and the delayed-autosave race.
+
+Reviewed the live UI at 1440×1000 and 390×844. The unavailable Test version action
+is hidden during editing so the mobile action row remains compact.
+
+![Desktop cancel confirmation](desktop-cancel-confirmation.png)
+
+![Mobile cancel confirmation](mobile-cancel-confirmation.png)
+
+Integrated current main's diagnostics and eval attempt scheduling. The prompt
+migration now follows diagnostics as `0009_prompt_management.sql`; fresh native
+migration and Drizzle schema comparison pass. Root typecheck (51 tasks), repository
+lint, the API/SDK and production Studio builds, 252 Studio unit tests, prompt API
+and database integration, and 17 eval execution integration tests passed. The CLI
+loader regression passed independently after an initial resource-contention timeout.

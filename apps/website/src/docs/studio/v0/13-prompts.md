@@ -49,11 +49,17 @@ The editor preserves plain prompt text and line breaks when pasting or saving.
 
 ## Review and save
 
-**Edit as draft** autosaves valid changes. **Save version** opens the same diff
+**Edit** autosaves valid changes. **Save version** opens the same diff
 dialog used by **Compare**: removed content is red, added content is green, and
 desktop views align both versions. Narrow screens use a unified diff. Choose any
 two versions when comparing; saving compares the reviewed candidate with the
 current head and requires a change note.
+
+**Cancel** returns to the saved version. If you changed any fields, confirm
+**Discard changes** to remove the shared autosaved draft, or **Keep editing** to
+continue. Cancelling an unchanged draft closes the editor immediately. Discarding
+does not create a version or change environment assignments, and cannot erase a
+newer draft saved by another editor.
 
 Messages, configuration, format, contracts, and exact dependencies contribute to
 the executable hash. A note-only change cannot create another executable version.

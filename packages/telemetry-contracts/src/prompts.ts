@@ -191,6 +191,13 @@ export const PromptMutationSchema = z.discriminatedUnion("action", [
     .strict(),
   z
     .object({
+      action: z.literal("discard-draft"),
+      id: z.uuid(),
+      expectedRevision: revision,
+    })
+    .strict(),
+  z
+    .object({
       action: z.literal("save"),
       id: z.uuid(),
       content: PromptContentSchema,

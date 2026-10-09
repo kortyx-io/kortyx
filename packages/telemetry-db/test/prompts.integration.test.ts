@@ -88,6 +88,44 @@ describe.skipIf(!url)("project prompt management", () => {
           expectedRevision: 0,
         }),
       ).rejects.toMatchObject({ status: 409 });
+      await expect(
+        mutate({ action: "discard-draft", id, expectedRevision: 0 }),
+      ).rejects.toMatchObject({ status: 409 });
+      expect((await getPrompt(client.db, scope, id)).draft).toEqual(content);
+      await expect(
+        mutatePrompt(
+          client.db,
+          { ...scope, projectId: other.id },
+          "studio-key:test",
+          {
+            action: "discard-draft",
+            id,
+            expectedRevision: 1,
+          },
+        ),
+      ).rejects.toMatchObject({ status: 404 });
+      expect(
+        await mutate({ action: "discard-draft", id, expectedRevision: 1 }),
+      ).toEqual({ id, draftRevision: 2 });
+      const discarded = await getPrompt(client.db, scope, id);
+      expect(discarded.draft).toBeNull();
+      expect(discarded.draftBase).toBeNull();
+      expect(discarded.versions).toHaveLength(1);
+      expect(discarded.versions[0]?.content).toEqual(content);
+      expect(discarded.asset.assignments).toEqual([]);
+      await expect(
+        mutate({
+          action: "draft",
+          id,
+          content,
+          baseVersion: 1,
+          expectedRevision: 1,
+        }),
+      ).rejects.toMatchObject({ status: 409 });
+      // Repeated clean cancellation does not advance the draft revision.
+      expect(
+        await mutate({ action: "discard-draft", id, expectedRevision: 2 }),
+      ).toEqual({ id, draftRevision: 2 });
       const candidate = { ...content, config: { modelName: "accurate" } },
         hash = await promptHash(candidate),
         idempotencyKey = randomUUID();

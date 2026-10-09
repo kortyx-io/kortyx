@@ -1,5 +1,9 @@
 "use client";
-import { type PromptContent, promptHash } from "@kortyx/prompts";
+import {
+  canonicalPromptJson,
+  type PromptContent,
+  promptHash,
+} from "@kortyx/prompts";
 import {
   type PromptDetail,
   PromptDetailSchema,
@@ -22,6 +26,12 @@ import { DetailDrawer } from "@/components/detail/detail-drawer";
 import { DetailInspectorDrawer } from "@/components/detail/detail-inspector";
 import { DetailPage } from "@/components/detail/detail-page";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -101,6 +111,7 @@ export function PromptDetailView({
     [error, setError] = useState(""),
     [readError, setReadError] = useState(""),
     [working, setWorking] = useState(false),
+    [confirmDiscard, setConfirmDiscard] = useState(false),
     [fieldsValid, setFieldsValid] = useState(true),
     [autosave, setAutosave] = useState("Draft saved");
   const [compare, setCompare] = useState<{
@@ -140,6 +151,7 @@ export function PromptDetailView({
     queue = useRef<PromptContent | null>(null),
     pending = useRef<Promise<void> | null>(null),
     conflicted = useRef(false),
+    discarding = useRef(false),
     editorVersion = useRef<number | null>(query.edit ? selected.version : null);
   const path = `/prompts/${detail.asset.id}`,
     permissions = library.permissions;
@@ -158,6 +170,7 @@ export function PromptDetailView({
         controller.signal,
       )
         .then((value) => {
+          if (controller.signal.aborted) return;
           const next = PromptDetailSchema.parse(value);
           setReadError("");
           draftRevision.current = next.draftRevision;
@@ -213,7 +226,7 @@ export function PromptDetailView({
   const flush = useCallback(() => {
     if (pending.current) return pending.current;
     pending.current = (async () => {
-      while (queue.current && !conflicted.current) {
+      while (queue.current && !conflicted.current && !discarding.current) {
         const next = queue.current;
         queue.current = null;
         setAutosave("Saving draft…");
@@ -248,10 +261,13 @@ export function PromptDetailView({
       !fieldsValid ||
       !permissions.edit ||
       conflicted.current ||
+      working ||
+      confirmDiscard ||
       compare
     )
       return;
     const timer = window.setTimeout(() => {
+      if (discarding.current) return;
       try {
         queue.current = validateEditor(content);
         void flush();
@@ -260,7 +276,16 @@ export function PromptDetailView({
       }
     }, 700);
     return () => clearTimeout(timer);
-  }, [content, fieldsValid, query.edit, compare, permissions.edit, flush]);
+  }, [
+    content,
+    fieldsValid,
+    query.edit,
+    compare,
+    permissions.edit,
+    flush,
+    working,
+    confirmDiscard,
+  ]);
   useEffect(() => {
     if (!query.edit) {
       editorVersion.current = null;
@@ -294,7 +319,58 @@ export function PromptDetailView({
       ),
     );
     setError("");
+    setFieldsValid(true);
     void setQuery({ edit: true, tab: "content", v: version.version });
+  };
+  const discardDraft = async () => {
+    if (discarding.current) return;
+    discarding.current = true;
+    queue.current = null;
+    setWorking(true);
+    setError("");
+    try {
+      // Let our in-flight autosave finish before discarding its revision. A
+      // concurrent editor's newer revision must still fail the server CAS.
+      await pending.current;
+      const result = (await promptRequest("actions", {
+        action: "discard-draft",
+        id: detail.asset.id,
+        expectedRevision: draftRevision.current,
+      })) as { draftRevision: number };
+      draftRevision.current = result.draftRevision;
+      setDetail((current) => ({
+        ...current,
+        draft: null,
+        draftBase: null,
+        draftRevision: result.draftRevision,
+      }));
+      setContent(structuredClone(selected.content));
+      setFieldsValid(true);
+      conflicted.current = false;
+      setAutosave("Draft saved");
+      await setQuery({ edit: false });
+      setConfirmDiscard(false);
+    } catch (cause) {
+      setError(
+        cause instanceof Error
+          ? cause.message
+          : "Could not discard the draft. Your changes are retained.",
+      );
+    } finally {
+      discarding.current = false;
+      setWorking(false);
+    }
+  };
+  const cancelEdit = () => {
+    if (
+      !fieldsValid ||
+      canonicalPromptJson(content) !== canonicalPromptJson(selected.content)
+    ) {
+      setError("");
+      setConfirmDiscard(true);
+    } else {
+      void discardDraft();
+    }
   };
   const act = async (mutation: PromptMutation) => {
     setWorking(true);
@@ -423,7 +499,7 @@ export function PromptDetailView({
         disabled={!permissions.edit || query.edit}
         onSelect={() => startEdit(version)}
       >
-        Edit as draft
+        Edit
       </DropdownMenuItem>
       <DropdownMenuItem
         disabled={!targets.canRun || !applicable || query.edit}
@@ -510,59 +586,71 @@ export function PromptDetailView({
           </div>
         </div>
         <div className="flex max-w-full flex-wrap items-center gap-2 sm:justify-end">
-          <Button
-            size="sm"
-            variant="outline"
-            disabled={!targets.canRun || !applicable || query.edit}
-            onClick={() => test(selected)}
-          >
-            <Play className="size-3.5" />
-            Test version
-          </Button>
-          {query.edit ? (
+          {!query.edit && (
             <Button
               size="sm"
-              disabled={
-                working ||
-                !fieldsValid ||
-                Boolean(compare) ||
-                conflicted.current
-              }
-              onClick={async () => {
-                try {
-                  const reviewed = structuredClone(validateEditor(content));
-                  queue.current = reviewed;
-                  await flush();
-                  if (conflicted.current) return;
-                  setCompare({
-                    before: detail.versions[0]!,
-                    after: {
-                      content: reviewed,
-                      version: detail.asset.latestVersion + 1,
-                    },
-                    save: true,
-                    hash: await promptHash(reviewed),
-                    idempotencyKey: crypto.randomUUID(),
-                  });
-                } catch (cause) {
-                  setError(
-                    cause instanceof Error
-                      ? cause.message
-                      : "Check prompt fields.",
-                  );
-                }
-              }}
+              variant="outline"
+              disabled={!targets.canRun || !applicable}
+              onClick={() => test(selected)}
             >
-              <Save className="size-3.5" />
-              Save version
+              <Play className="size-3.5" />
+              Test version
             </Button>
+          )}
+          {query.edit ? (
+            <>
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={working || Boolean(compare)}
+                onClick={cancelEdit}
+              >
+                Cancel
+              </Button>
+              <Button
+                size="sm"
+                disabled={
+                  working ||
+                  !fieldsValid ||
+                  Boolean(compare) ||
+                  conflicted.current
+                }
+                onClick={async () => {
+                  try {
+                    const reviewed = structuredClone(validateEditor(content));
+                    queue.current = reviewed;
+                    await flush();
+                    if (conflicted.current) return;
+                    setCompare({
+                      before: detail.versions[0]!,
+                      after: {
+                        content: reviewed,
+                        version: detail.asset.latestVersion + 1,
+                      },
+                      save: true,
+                      hash: await promptHash(reviewed),
+                      idempotencyKey: crypto.randomUUID(),
+                    });
+                  } catch (cause) {
+                    setError(
+                      cause instanceof Error
+                        ? cause.message
+                        : "Check prompt fields.",
+                    );
+                  }
+                }}
+              >
+                <Save className="size-3.5" />
+                Save version
+              </Button>
+            </>
           ) : (
             <Button
               size="sm"
               disabled={!permissions.edit || detail.asset.archived}
               onClick={() => startEdit(selected)}
             >
-              Edit as draft
+              Edit
             </Button>
           )}
           <DropdownMenu>
@@ -850,19 +938,6 @@ export function PromptDetailView({
                 {query.edit && (
                   <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border bg-muted/30 px-3 py-2">
                     <p className="text-xs">Editing a draft · {autosave}</p>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={async () => {
-                        if (fieldsValid) {
-                          queue.current = validateEditor(content);
-                          await flush();
-                        }
-                        void setQuery({ edit: false });
-                      }}
-                    >
-                      Close editor
-                    </Button>
                   </div>
                 )}
                 <PromptFields
@@ -914,6 +989,51 @@ export function PromptDetailView({
         </div>
       </PromptWorkspace>
       <EvalRunSetup targets={targets} matchPath={path} />
+      <Dialog
+        open={confirmDiscard}
+        onOpenChange={(open) => {
+          if (!discarding.current) setConfirmDiscard(open);
+        }}
+      >
+        <DialogContent
+          onEscapeKeyDown={(event) => {
+            event.stopPropagation();
+            if (discarding.current) event.preventDefault();
+          }}
+          onInteractOutside={(event) => {
+            if (discarding.current) event.preventDefault();
+          }}
+        >
+          <DialogTitle className="pr-6 text-base font-semibold">
+            Discard changes?
+          </DialogTitle>
+          <DialogDescription className="text-sm text-muted-foreground">
+            Your changes, including the autosaved draft, will be lost. You’ll
+            return to saved version v{selected.version}. This cannot be undone.
+          </DialogDescription>
+          {error && (
+            <p role="alert" className="text-sm text-destructive">
+              {error}
+            </p>
+          )}
+          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+            <Button
+              variant="outline"
+              disabled={working}
+              onClick={() => setConfirmDiscard(false)}
+            >
+              Keep editing
+            </Button>
+            <Button
+              variant="destructive"
+              disabled={working}
+              onClick={() => void discardDraft()}
+            >
+              {working ? "Discarding…" : "Discard changes"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
       {compare && (
         <PromptDiff
           before={compare.before.content}
