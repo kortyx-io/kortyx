@@ -38,13 +38,12 @@ jobs:
       fail-fast: false
       matrix:
         image: [api, studio]
+        arch: [amd64, arm64]
         include:
           - arch: amd64
             runner: ubuntu-24.04
           - arch: arm64
             runner: ubuntu-24.04-arm
-        # Expand each image across native runners; no QEMU compilation.
-        arch: [amd64, arm64]
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 45
     steps:
@@ -97,6 +96,9 @@ jobs:
           name: studio-digest-${{ matrix.image }}-${{ matrix.arch }}
           path: ${{ runner.temp }}/digests/
           if-no-files-found: error
+          # Reruns replace only this platform's artifact; failed-job recovery can
+          # still use successful siblings from an earlier attempt of this run.
+          overwrite: true
           retention-days: 1
 
   merge:

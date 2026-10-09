@@ -61,6 +61,7 @@ class StudioReleaseWorkflowTests(unittest.TestCase):
         self.assertNotIn('qemu: "true"', workflow)
         self.assertIn("cache-scope: kortyx-${{ matrix.image }}-image-${{ matrix.arch }}", workflow)
         self.assertIn("push-by-digest=true", workflow)
+        self.assertIn("overwrite: true", workflow)
         self.assertIn("needs: build", workflow)
         self.assertIn("verify-images.sh", workflow)
         self.assertIn("Attest API index", workflow)
