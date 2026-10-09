@@ -45,6 +45,22 @@ Measure the next real release; runner queue times, cold caches and npm propagati
 remain variable. Compare both elapsed time and total runner usage. Additional
 parallel jobs can increase peak concurrency even when overall work decreases.
 
+## npm processing window
+
+The first Studio 0.18.0 release attempt demonstrated another source of delay:
+all four native images finished in at most 3m 44s, but npm accepted
+`@kortyx/runtime@0.22.1` at 11:44:12 UTC and had not exposed it when registry
+verification timed out at 11:54:53 UTC. The other 19 published packages verified.
+See [the release run](https://github.com/kortyx-io/kortyx/actions/runs/37924985937).
+
+[npm's publish-time scanning announcement](https://github.blog/changelog/2026-07-28-npm-publish-time-malware-scanning-and-dual-use-metadata/)
+documents typical delays around five minutes, sometimes 15 minutes or more.
+Registry verification therefore allows 30 minutes, with a 45-minute parent job
+limit for both stable and canary publication. It exits as soon as all exact
+versions and dist-tags are visible; it does not add a fixed delay, weaken the
+publication gate, or retry uploads while processing is pending. A timeout still
+fails the release and requires checking npm processing status before recovery.
+
 ## Documentation and reported experience
 
 - [Docker: multi-platform builds](https://docs.docker.com/build/building/multi-platform/)
