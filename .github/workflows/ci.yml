@@ -235,6 +235,13 @@ jobs:
               spec: 'eval-(navigation|structured-outputs|live-costs)\.spec\.ts',
             }
     runs-on: ubuntu-latest
+    # Keep aligned with the locked @playwright/test version; the action verifies it.
+    container:
+      image: mcr.microsoft.com/playwright:v1.62.0-noble@sha256:baed2032d533817f3dbe6425de795788430ba345e819a1201337009ba17c9d07
+      options: --ipc=host
+    env:
+      DATABASE_URL: postgres://kortyx:kortyx@postgres:5432/kortyx
+      PLAYWRIGHT_IMAGE_VERSION: "1.62.0"
     timeout-minutes: 20
     services:
       postgres:

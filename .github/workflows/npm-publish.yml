@@ -154,17 +154,31 @@ jobs:
           registry-url: https://registry.npmjs.org
       - name: Build release package graph
         env:
-          TURBO_SCM_BASE: ${{ needs.prepare.outputs.commit }}^1
-          TURBO_SCM_HEAD: ${{ needs.prepare.outputs.commit }}
-        run: pnpm turbo run build --affected
+          RELEASE_COMMIT: ${{ needs.prepare.outputs.commit }}
+        run: node ./.github/automation/.github/actions/release/npm-publish/publish.mjs --build-only
       - name: Publish packages and wait for npm
         uses: ./.github/automation/.github/actions/release/npm-publish
         with:
           commit: ${{ needs.prepare.outputs.commit }}
 
+  studio_images:
+    name: Build Studio images
+    needs: [prepare, tags]
+    if: contains(fromJSON(needs.prepare.outputs.paths), 'apps/studio')
+    uses: ./.github/workflows/build-studio-images.yml
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+      attestations: write
+    with:
+      commit: ${{ needs.prepare.outputs.commit }}
+      version: ${{ needs.prepare.outputs.studio_version }}
+    secrets: inherit
+
   studio:
     name: Release Studio
-    needs: [prepare, publish]
+    needs: [prepare, publish, studio_images]
     if: contains(fromJSON(needs.prepare.outputs.paths), 'apps/studio')
     uses: ./.github/workflows/release-studio-images.yml
     permissions:
@@ -175,6 +189,8 @@ jobs:
       attestations: write
     with:
       release_tag: studio-v${{ needs.prepare.outputs.studio_version }}
+      api_digest: ${{ needs.studio_images.outputs.api_digest }}
+      studio_digest: ${{ needs.studio_images.outputs.studio_digest }}
       deployment_strategy: recreate
     secrets: inherit
 

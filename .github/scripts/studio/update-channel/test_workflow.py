@@ -34,10 +34,37 @@ class StudioReleaseWorkflowTests(unittest.TestCase):
         self.assertIn("needs: [prepare, tags]", publication)
 
     def test_standalone_image_release_checks_storage_before_builds(self):
-        prepare = WORKFLOW.read_text().split("  prepare:\n", 1)[1].split("  publish-api:\n", 1)[0]
+        prepare = WORKFLOW.read_text().split("  prepare:\n", 1)[1].split("  build:\n", 1)[0]
         self.assertIn("environment: studio-production-auto", prepare)
         self.assertIn("operation: prepare", prepare)
         self.assertIn("Verify publication access before building images", prepare)
+
+    def test_images_overlap_npm_but_smoke_and_promotion_wait_for_publication(self):
+        workflow = (WORKFLOW.parent / "npm-publish.yml").read_text()
+        images = workflow.split("  studio_images:\n", 1)[1].split("  studio:\n", 1)[0]
+        self.assertIn("needs: [prepare, tags]", images)
+        release = workflow.split("  studio:\n", 1)[1].split("  website:\n", 1)[0]
+        self.assertIn("needs: [prepare, publish, studio_images]", release)
+        self.assertIn("needs.studio_images.outputs.api_digest", release)
+        self.assertIn("needs.studio_images.outputs.studio_digest", release)
+        recovery = WORKFLOW.read_text()
+        self.assertIn("inputs.api_digest == '' && inputs.studio_digest == ''", recovery)
+        self.assertIn("needs.prepare.result == 'success'", recovery)
+        self.assertIn("needs.build.result == 'success'", recovery)
+        self.assertIn("needs.build.result == 'skipped' && inputs.api_digest != '' && inputs.studio_digest != ''", recovery)
+
+    def test_native_builds_keep_separate_caches_and_verify_merged_indexes(self):
+        workflow = (WORKFLOW.parent / "build-studio-images.yml").read_text()
+        self.assertIn("runner: ubuntu-24.04-arm", workflow)
+        self.assertIn("runner: ubuntu-24.04\n", workflow)
+        self.assertIn("platforms: linux/${{ matrix.arch }}", workflow)
+        self.assertNotIn('qemu: "true"', workflow)
+        self.assertIn("cache-scope: kortyx-${{ matrix.image }}-image-${{ matrix.arch }}", workflow)
+        self.assertIn("push-by-digest=true", workflow)
+        self.assertIn("needs: build", workflow)
+        self.assertIn("verify-images.sh", workflow)
+        self.assertIn("Attest API index", workflow)
+        self.assertIn("Attest Studio index", workflow)
 
     def test_smoke_validates_external_sdk_manifest_in_release_image(self):
         smoke = (WORKFLOW.parents[1] / "scripts/studio/smoke-install.sh").read_text()
