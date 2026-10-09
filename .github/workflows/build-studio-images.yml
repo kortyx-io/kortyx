@@ -1,0 +1,156 @@
+name: Release / Build Studio Images
+
+on:
+  workflow_call:
+    inputs:
+      commit:
+        description: Exact CI-tested release commit
+        required: true
+        type: string
+      version:
+        required: true
+        type: string
+    outputs:
+      api_digest:
+        value: ${{ jobs.merge.outputs.api_digest }}
+      studio_digest:
+        value: ${{ jobs.merge.outputs.studio_digest }}
+
+permissions:
+  contents: read
+  packages: write
+  id-token: write
+  attestations: write
+
+concurrency:
+  group: studio-image-builds
+  cancel-in-progress: false
+
+env:
+  REGISTRY: ghcr.io
+  API_IMAGE_NAME: kortyx-io/kortyx-api
+  STUDIO_IMAGE_NAME: kortyx-io/kortyx-studio
+
+jobs:
+  build:
+    name: Build ${{ matrix.image }} (${{ matrix.arch }})
+    strategy:
+      fail-fast: false
+      matrix:
+        image: [api, studio]
+        arch: [amd64, arm64]
+        include:
+          - arch: amd64
+            runner: ubuntu-24.04
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ inputs.commit }}
+      - name: Checkout workflow modules
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.workflow_sha }}
+          path: .github/automation
+          sparse-checkout: |
+            .github
+            apps/api/Dockerfile
+            apps/studio/Dockerfile
+          sparse-checkout-cone-mode: false
+          persist-credentials: false
+      - name: Setup container registry
+        uses: ./.github/automation/.github/actions/setup/container-registry
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+          qemu: "false"
+      - name: Refuse to overwrite a production version
+        env:
+          VERSION: ${{ inputs.version }}
+        run: bash ./.github/automation/.github/scripts/studio/refuse-overwrite.sh
+      - name: Build and push native image by digest
+        id: image
+        uses: ./.github/automation/.github/actions/containers/build-push
+        with:
+          file: .github/automation/apps/${{ matrix.image }}/Dockerfile
+          platforms: linux/${{ matrix.arch }}
+          tags: ghcr.io/kortyx-io/kortyx-${{ matrix.image }}
+          outputs: type=image,push-by-digest=true,name-canonical=true,push=true
+          cache-scope: kortyx-${{ matrix.image }}-image-${{ matrix.arch }}
+          subject-name: ghcr.io/kortyx-io/kortyx-${{ matrix.image }}
+      - name: Record platform digest
+        env:
+          IMAGE: ${{ matrix.image }}
+          ARCH: ${{ matrix.arch }}
+          DIGEST: ${{ steps.image.outputs.digest }}
+        run: |
+          [[ "$DIGEST" =~ ^sha256:[a-f0-9]{64}$ ]]
+          mkdir -p "$RUNNER_TEMP/digests/$IMAGE"
+          printf '%s\n' "$DIGEST" > "$RUNNER_TEMP/digests/$IMAGE/$ARCH"
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: studio-digest-${{ matrix.image }}-${{ matrix.arch }}
+          path: ${{ runner.temp }}/digests/
+          if-no-files-found: error
+          # Reruns replace only this platform's artifact; failed-job recovery can
+          # still use successful siblings from an earlier attempt of this run.
+          overwrite: true
+          retention-days: 1
+
+  merge:
+    name: Assemble and verify staging indexes
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      api_digest: ${{ steps.merge.outputs.api_digest }}
+      studio_digest: ${{ steps.merge.outputs.studio_digest }}
+    steps:
+      - name: Checkout workflow modules
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.workflow_sha }}
+          path: .github/automation
+          sparse-checkout: .github
+          persist-credentials: false
+      - name: Setup container registry
+        uses: ./.github/automation/.github/actions/setup/container-registry
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+          qemu: "false"
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          pattern: studio-digest-*
+          path: ${{ runner.temp }}/digests
+          merge-multiple: true
+      - name: Assemble indexes from this run's platform digests
+        id: merge
+        env:
+          VERSION: ${{ inputs.version }}
+          DIGEST_DIR: ${{ runner.temp }}/digests
+        run: bash ./.github/automation/.github/scripts/studio/merge-native-images.sh
+      - name: Verify both architectures and index digests
+        env:
+          VERSION: ${{ inputs.version }}
+          API_DIGEST: ${{ steps.merge.outputs.api_digest }}
+          STUDIO_DIGEST: ${{ steps.merge.outputs.studio_digest }}
+          IMAGE_TAG_PREFIX: staging-v
+        run: bash ./.github/automation/.github/scripts/studio/verify-images.sh
+      - name: Attest API index
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6
+        with:
+          subject-name: ghcr.io/kortyx-io/kortyx-api
+          subject-digest: ${{ steps.merge.outputs.api_digest }}
+          push-to-registry: true
+      - name: Attest Studio index
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6
+        with:
+          subject-name: ghcr.io/kortyx-io/kortyx-studio
+          subject-digest: ${{ steps.merge.outputs.studio_digest }}
+          push-to-registry: true

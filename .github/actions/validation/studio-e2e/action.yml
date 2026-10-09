@@ -44,8 +44,20 @@ runs:
         pnpm --filter @kortyx/telemetry-db exec tsx -e 'import postgres from "postgres"; const sql = postgres("postgres://kortyx:kortyx@127.0.0.1:6543/kortyx"); sql.unsafe("CREATE DATABASE kortyx_evals_test").then(() => sql.end());'
         TEST_EVAL_DATABASE_URL=postgres://kortyx:kortyx@127.0.0.1:6543/kortyx_evals_test pnpm --filter @kortyx/api exec vitest run --fileParallelism false test/evals.integration.test.ts test/evaluations.integration.test.ts
       shell: bash
+    - name: Verify preinstalled Chromium matches Playwright
+      if: inputs.suite != 'preflight' && env.PLAYWRIGHT_IMAGE_VERSION != ''
+      run: |
+        pnpm --filter kortyx-studio exec node -e '
+          const assert = require("node:assert/strict");
+          const { existsSync } = require("node:fs");
+          const { chromium } = require("@playwright/test");
+          assert.equal(require("@playwright/test/package.json").version, process.env.PLAYWRIGHT_IMAGE_VERSION,
+            "Update the CI Playwright container alongside the lockfile");
+          assert.ok(existsSync(chromium.executablePath()), "Preinstalled Chromium is missing");
+        '
+      shell: bash
     - name: Install Chromium
-      if: inputs.suite != 'preflight'
+      if: inputs.suite != 'preflight' && env.PLAYWRIGHT_IMAGE_VERSION == ''
       run: pnpm --filter kortyx-studio exec playwright install --with-deps chromium
       shell: bash
     - name: Build Studio runtime dependencies
