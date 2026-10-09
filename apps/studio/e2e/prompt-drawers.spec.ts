@@ -362,6 +362,7 @@ test.describe("Prompt detail drawers", () => {
   }) => {
     await page.goto(`/prompts/${id}`);
     const header = page.locator("[data-prompt-header]");
+    await expect(header).toBeVisible();
     expect((await header.boundingBox())!.height).toBeLessThanOrEqual(76);
     for (const name of ["Content", "Runs 0", "Evals 0", "Activity"]) {
       await page
@@ -580,7 +581,7 @@ test.describe("Prompt detail drawers", () => {
       });
       await expect(categories).toBeVisible();
       const body = await page
-        .locator("[data-prompt-library-body]")
+        .locator("[data-prompt-library-body]:visible")
         .boundingBox();
       await expect
         .poll(async () => (await categories.boundingBox())?.x)
