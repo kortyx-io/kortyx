@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.48.0](https://github.com/kortyx-io/kortyx/compare/website-v0.47.0...website-v0.48.0) (2026-10-09)
+
+
+### Features
+
+* **evals:** share concurrency and attribute multi-session costs ([#304](https://github.com/kortyx-io/kortyx/issues/304)) ([dd5e242](https://github.com/kortyx-io/kortyx/commit/dd5e242ae08affbb015201bb57c4714709756cf2))
+
 ## [0.47.0](https://github.com/kortyx-io/kortyx/compare/website-v0.46.0...website-v0.47.0) (2026-10-09)
 
 

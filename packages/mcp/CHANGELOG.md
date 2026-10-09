@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.2.10](https://github.com/kortyx-io/kortyx/compare/mcp-v0.2.9...mcp-v0.2.10) (2026-10-09)
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/providers bumped to 0.9.1
+
 ## [0.2.9](https://github.com/kortyx-io/kortyx/compare/mcp-v0.2.8...mcp-v0.2.9) (2026-10-08)
 
 

@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.32.1](https://github.com/kortyx-io/kortyx/compare/hooks-v0.32.0...hooks-v0.32.1) (2026-10-09)
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/core bumped to 0.13.0
+    * @kortyx/providers bumped to 0.9.1
+
 ## [0.32.0](https://github.com/kortyx-io/kortyx/compare/hooks-v0.31.0...hooks-v0.32.0) (2026-10-08)
 
 

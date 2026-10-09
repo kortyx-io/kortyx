@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.18.0](https://github.com/kortyx-io/kortyx/compare/studio-v0.17.0...studio-v0.18.0) (2026-10-09)
+
+
+### Features
+
+* **evals:** share concurrency and attribute multi-session costs ([#304](https://github.com/kortyx-io/kortyx/issues/304)) ([dd5e242](https://github.com/kortyx-io/kortyx/commit/dd5e242ae08affbb015201bb57c4714709756cf2))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * devDependencies
+    * @kortyx/agent bumped to 0.35.0
+    * @kortyx/telemetry bumped to 0.13.0
+    * kortyx bumped to 0.29.3
+
 ## [0.17.0](https://github.com/kortyx-io/kortyx/compare/studio-v0.16.1...studio-v0.17.0) (2026-10-09)
 
 

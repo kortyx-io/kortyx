@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.13.0](https://github.com/kortyx-io/kortyx/compare/telemetry-v0.12.1...telemetry-v0.13.0) (2026-10-09)
+
+
+### Features
+
+* **evals:** share concurrency and attribute multi-session costs ([#304](https://github.com/kortyx-io/kortyx/issues/304)) ([dd5e242](https://github.com/kortyx-io/kortyx/commit/dd5e242ae08affbb015201bb57c4714709756cf2))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/hooks bumped to 0.32.1
+    * @kortyx/core bumped to 0.13.0
+
 ## [0.12.1](https://github.com/kortyx-io/kortyx/compare/telemetry-v0.12.0...telemetry-v0.12.1) (2026-10-08)
 
 
