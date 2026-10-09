@@ -169,6 +169,7 @@ export function createEvals<
       return {
         schemaVersion: 1 as const,
         studioJudging: true as const,
+        attemptScheduling: true as const,
         suites: clone(suites),
         responders: Object.entries(responders).map(([name, value]) => ({
           name,
@@ -228,6 +229,14 @@ export function createEvals<
       );
       if (!Number.isSafeInteger(selected.length * repetitions))
         throw new EvalConfigurationError("Too many case repetitions.");
+      if (
+        args.attempt &&
+        (!selected.some((item) => item.id === args.attempt?.caseId) ||
+          !Number.isSafeInteger(args.attempt.repetition) ||
+          args.attempt.repetition < 1 ||
+          args.attempt.repetition > repetitions)
+      )
+        throw new EvalConfigurationError("Invalid scheduled attempt.");
       const studioGrading = args.grading === "studio";
       if (
         !studioGrading &&
@@ -652,7 +661,7 @@ export function createEvals<
         await emit({ type: "case-completed", result: attemptResult });
         return attemptResult;
       };
-      const total = selected.length * repetitions;
+      const total = args.attempt ? 1 : selected.length * repetitions;
       if (args.includeActivity)
         await emit({
           type: "run-started",
@@ -667,8 +676,13 @@ export function createEvals<
           while (cursor < total) {
             const index = cursor++;
             // Positive repetitions and cursor < total guarantee this index.
-            const item = selected[Math.floor(index / repetitions)]!;
-            completed[index] = await attempt(item, (index % repetitions) + 1);
+            const item = args.attempt
+              ? selected.find((item) => item.id === args.attempt?.caseId)!
+              : selected[Math.floor(index / repetitions)]!;
+            completed[index] = await attempt(
+              item,
+              args.attempt?.repetition ?? (index % repetitions) + 1,
+            );
           }
         }),
       );

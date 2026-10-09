@@ -71,7 +71,7 @@ for (const scope of ["all", "selected"] as const) {
       .getByRole("menuitemradio", { name: "App judge", exact: true })
       .click();
     const concurrency = drawer.getByRole("spinbutton", {
-      name: "Concurrent attempts per suite",
+      name: "Concurrent attempts across suites",
     });
     await expect(concurrency).toHaveAttribute("max", "20");
     await concurrency.fill("21");

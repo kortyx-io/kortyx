@@ -299,6 +299,8 @@ export type EvalRunOptions = {
   /** Selected identity pinned by the Studio server when enqueuing a run. */
   judgeIdentity?: EvalJudgeIdentity;
   suiteId: string;
+  /** Execute one scheduled attempt, preserving its original repetition identity. */
+  attempt?: { caseId: string; repetition: number };
   caseIds?: readonly string[];
   repetitions?: number;
   concurrency?: number;

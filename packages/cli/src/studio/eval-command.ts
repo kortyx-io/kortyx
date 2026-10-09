@@ -361,7 +361,7 @@ export function registerStudioEvalCommands(
     )
     .option(
       "--concurrency <count>",
-      "Parallel attempts (1–20).",
+      "Parallel attempts across the evaluation (1–20).",
       integer(20),
       1,
     )

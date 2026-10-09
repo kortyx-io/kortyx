@@ -273,6 +273,7 @@ export const EvalManifestSchema = z
   .object({
     schemaVersion: z.literal(1),
     studioJudging: z.literal(true).optional(),
+    attemptScheduling: z.literal(true).optional(),
     suites: z.array(EvalSuiteSchema),
     responders: z.array(
       z
@@ -335,11 +336,20 @@ export const EvalRemoteRunRequestSchema = z
     caseIds: z.array(id).min(1).max(100).optional(),
     repetitions: z.number().int().min(1).max(20).default(1),
     concurrency: z.number().int().min(1).max(20).default(1),
+    attempt: z
+      .object({
+        caseId: id,
+        repetition: z.number().int().min(1).max(20),
+        evaluationId: z.uuid(),
+      })
+      .strict()
+      .optional(),
   })
   .strict();
 export const StudioEvalStartRequestSchema = EvalRemoteRunRequestSchema.omit({
   grading: true,
   judge: true,
+  attempt: true,
 }).extend({
   targetId: z.string().min(1).max(128),
   judge: z.enum(["studio", "app"]).default("studio"),

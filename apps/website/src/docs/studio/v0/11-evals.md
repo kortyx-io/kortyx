@@ -381,15 +381,22 @@ choose its conversations independently. Suite checkboxes select or clear every
 conversation and show a mixed state for partial selections. Selections and
 expanded suites survive reloads and browser history. The default judge is Studio
 when available, otherwise App; unavailable judges remain disabled with a reason.
-Repetitions (1–20) and concurrent attempts per suite (1–20) apply to the selection.
+Repetitions (1–20) and concurrent attempts across the evaluation (1–20) apply to the selection.
 Each suite is limited to 100 attempts; one evaluation is limited to 1,000 attempts.
 Missing App judge configuration is explained beside the disabled option.
 
 The Studio API snapshots all selected suite revisions and the judge before
-atomically saving the parent and suite jobs. Existing leased workers execute the
-suite jobs; suite-level concurrency does not promise parallel suite scheduling.
+atomically saving the parent and suite jobs. A worker claims all suite jobs together and schedules attempts round-robin across
+suites, sharing the configured concurrency budget. A slot includes setup, execution,
+cleanup, and grading. Consumer apps must use an SDK that advertises attempt scheduling;
+older endpoints receive an upgrade message before a multi-suite run is queued.
+Custom worker stores must return all sibling suite leases together from `claim`;
+independent single-suite claims cannot enforce an evaluation-wide budget.
 Cancelling the parent cancels queued suites and requests cooperative cancellation
-of running suites. Finished suites remain available; cancellation never rolls
+of running suites. Cancelling one child suite stops its queued attempts and drains
+its active attempts through cleanup while other suites continue. A lost lease or
+uncertain transport outcome stops new dispatch without replaying attempts.
+Finished suites remain available; cancellation never rolls
 back tool side effects. A run remains Running until every suite is terminal.
 Execution/grading errors, behavioral failures, and cancellation stay distinct.
 
