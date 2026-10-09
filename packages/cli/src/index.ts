@@ -31,6 +31,7 @@ import { createLocalEvalsCommand } from "./evals/command";
 import { loadEvalEnvironment } from "./evals/environment";
 import { createStudioCommand } from "./studio/command";
 import { StudioReadError } from "./studio/read-client";
+import { summarizeDiscovery } from "./topology-summary";
 import { discoverWorkflowCalls } from "./workflow-calls";
 
 type CliOptions = {
@@ -41,6 +42,7 @@ type CliOptions = {
   environment?: string | undefined;
   serviceName?: string | undefined;
   deploymentRef?: string | undefined;
+  failOnUnresolvedCalls?: boolean;
   dryRun: boolean;
   json: boolean;
   cwd: string;
@@ -59,6 +61,7 @@ type TopologyPushCommandOptions = {
   environment?: string;
   serviceName?: string;
   deploymentRef?: string;
+  failOnUnresolvedCalls?: boolean;
   dryRun?: boolean;
   json?: boolean;
 };
@@ -464,11 +467,24 @@ const pushSnapshot = async (
   return EnsureWorkflowTopologyResponseSchema.parse(await response.json());
 };
 
-const printResults = (results: PushResult[], options: CliOptions): void => {
+const printResults = (
+  results: PushResult[],
+  options: CliOptions,
+  discovered: ReturnType<typeof discoverWorkflowCalls>,
+): void => {
+  const discovery = summarizeDiscovery(discovered);
+  const publication = {
+    status: options.dryRun ? "dry-run" : "accepted",
+    workflowCount: results.length,
+  };
   if (options.json) {
     console.log(
       JSON.stringify(
         {
+          publication,
+          discovery,
+          diagnostics: discovered.diagnostics,
+          warnings: discovered.warnings,
           workflows: results.map(({ snapshot, response }) => ({
             workflowId: snapshot.workflow.id,
             declaredVersion: snapshot.workflow.declaredVersion,
@@ -492,7 +508,12 @@ const printResults = (results: PushResult[], options: CliOptions): void => {
   }
 
   const verb = options.dryRun ? "Projected" : "Pushed";
-  console.log(`${verb} ${results.length} workflow topology snapshot(s).`);
+  console.log(
+    `${verb} ${results.length} workflow topology snapshot(s).${options.dryRun ? "" : " Publication accepted."}`,
+  );
+  console.log(
+    `Child-call discovery ${discovery.status}: ${discovery.resolvedLinkCount} declared links; ${discovery.unresolvedCallCount} unresolved call sites; ${discovery.exemptCallCount} exempt dynamic call sites; ${discovery.gapCount} discovery gaps.${discovery.status === "complete" ? "" : " Topology is incomplete."}`,
+  );
   for (const { snapshot, response } of results) {
     const revision = response
       ? ` revision=${response.workflowRevisionId} created=${response.created}`
@@ -530,8 +551,32 @@ const runTopologyPush = async (rawOptions: CliOptions): Promise<void> => {
     service,
   });
   const discovered = discoverWorkflowCalls(options.entry, snapshots);
-  for (const warning of discovered.warnings)
-    console.error(`Topology: ${warning}`);
+  if (!options.json) {
+    for (const warning of discovered.warnings)
+      console.error(`Topology: ${warning}`);
+  }
+  const discovery = summarizeDiscovery(discovered);
+  if (
+    options.failOnUnresolvedCalls &&
+    (discovery.unresolvedCallCount > 0 || discovery.gapCount > 0)
+  ) {
+    if (options.json)
+      console.log(
+        JSON.stringify(
+          {
+            publication: { status: "blocked", workflowCount: 0 },
+            discovery,
+            diagnostics: discovered.diagnostics,
+            warnings: discovered.warnings,
+          },
+          null,
+          2,
+        ),
+      );
+    throw new Error(
+      "KTX_TOPOLOGY_INCOMPLETE: Publication blocked before upload: unresolved child calls or discovery gaps. Use a reasoned exemption for intentional dynamic calls.",
+    );
+  }
   for (const snapshot of snapshots) {
     const calls = discovered.calls.get(snapshot.workflow.id);
     if (calls) snapshot.workflow.calls = calls;
@@ -564,7 +609,7 @@ const runTopologyPush = async (rawOptions: CliOptions): Promise<void> => {
     results.push({ snapshot, ...(response ? { response } : {}) });
   }
 
-  printResults(results, options);
+  printResults(results, options, discovered);
 };
 
 const createCliProgram = (): Command => {
@@ -621,6 +666,11 @@ const createCliProgram = (): Command => {
     .option("--service-name <name>", "Telemetry service name.")
     .option("--deployment-ref <ref>", "Deployment reference.")
     .option("--dry-run", "Print topology without publishing.", false)
+    .option(
+      "--fail-on-unresolved-calls",
+      "Reject unresolved child calls or discovery gaps before publishing.",
+      false,
+    )
     .option("--json", "Print machine-readable JSON.", false)
     .action(async (options: TopologyPushCommandOptions) => {
       const cliOptions: CliOptions = {
@@ -631,6 +681,7 @@ const createCliProgram = (): Command => {
         environment: options.environment,
         serviceName: options.serviceName,
         deploymentRef: options.deploymentRef,
+        failOnUnresolvedCalls: options.failOnUnresolvedCalls ?? false,
         dryRun: options.dryRun ?? false,
         json: options.json ?? false,
         cwd: process.cwd(),

@@ -438,6 +438,25 @@ Apache-2.0. See [LICENSE](https://github.com/kortyx-io/kortyx/blob/main/LICENSE)
 
 `--dry-run --json` includes the discovered `calls` for each workflow. Unresolvable dynamic targets, ambiguous workflow definitions, or unavailable source produce warnings; runtime observations can supply those relationships later. Publish from application source, rather than a minified bundle, for reliable discovery.
 
+Publication acceptance and child-call discovery are reported separately. The summary counts published workflows, resolved declared links, unresolved call sites, exempt dynamic call sites, and discovery gaps. Incomplete discovery means declared links are omitted from Studio; observed runs may add them later. `--json` includes `publication`, `discovery`, `diagnostics`, and `warnings` alongside the existing workflows.
+
+Diagnostics distinguish `KTX_TOPOLOGY_UNRESOLVED_TARGET` from `KTX_TOPOLOGY_UNREGISTERED_TARGET` (an ID outside the publication set). They include the workflow/node, target expression, call location, and available TypeScript import-resolution evidence, including export conditions and missing paths. A missing type export can prevent static discovery even when its runtime export works.
+
+Use strict validation in CI:
+
+```bash
+kortyx topology push --entry src/lib/agent.ts --fail-on-unresolved-calls
+```
+
+Strict mode exits nonzero **before uploading any snapshots** when non-exempt calls are unresolved or unregistered, or source discovery has gaps. It also works with `--dry-run`. Intentional dynamic calls can carry a reasoned exemption immediately above the call:
+
+```ts
+// kortyx-dynamic-call: specialist selected from the request at runtime
+await useWorkflow({ workflow: input.specialistWorkflowId, input: {} });
+```
+
+Exemptions remain visible in diagnostics and counts; discovery still reports incomplete topology. Empty reasons, unregistered literal IDs, and imports with module-resolution failures cannot be exempted. For calls inside custom hooks, put the comment above the child call inside the hook. Exemption comments must survive compilation when publishing from built JavaScript.
+
 Calls are supplemental source-derived catalog metadata on the existing executable topology revision. Republishing replaces this metadata (including removed calls); runtime registration omits it and preserves the published relationships. Call metadata does not change the runtime topology hash.
 
 Studio draws discovered call/return links before traffic exists. The **Observed calls** overlay adds recorded metrics and dynamic targets without duplicating discovered edges. Calls remain distinct from `transitionTo` handoffs.
