@@ -266,6 +266,11 @@ describe("Studio prompt CLI", () => {
         "Audited bootstrap",
       ]);
     }
+    const requestsBeforeInvalidTag = request.mock.calls.length;
+    await expect(
+      execute(["tag", "classify", "staging", "--expected-revision", "0"]),
+    ).rejects.toThrow("--version is required when assigning a tag.");
+    expect(request).toHaveBeenCalledTimes(requestsBeforeInvalidTag);
     await execute([
       "tag",
       "classify",

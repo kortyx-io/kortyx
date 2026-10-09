@@ -1287,7 +1287,7 @@ test.describe("Prompt detail drawers", () => {
         .toBeLessThanOrEqual(0);
       await expect(
         promptDrawer(page).getByRole("button", {
-          name: "Version history · v2",
+          name: /^Version history(?: · v2)?$/,
         }),
       ).toBeVisible();
       if (iteration === 1) await page.keyboard.press("Escape");

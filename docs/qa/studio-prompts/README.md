@@ -316,8 +316,11 @@ at desktop widths; narrow surfaces retain an accessible version picker. Reviewed
 the actual UI at 1440×1000 and 390×844 and restored the browser viewport.
 
 Final production drawer/prompt/responsive E2E: **48/48 passed**. Development had
-47 passing checks and one outdated restore-copy assertion; after correcting that
-assertion, the six-check focused rerun passed. New regressions cover expanded
+47 passing checks and one outdated restore-copy assertion; its six-check focused
+rerun passed. A subsequent full development run caught an older inspector test
+requiring a dropdown where the retained sidebar is now visible. Its assertion now
+accepts the responsive history control while retaining spacing and repeated-close
+checks; both inspector-history scenarios passed in a focused rerun. New regressions cover expanded
 history and the complete tag → promote → rollback → untag lifecycle, including
 SDK resolution and isolation of manual tags from live.
 
@@ -339,3 +342,9 @@ The example uses a deterministic provider to verify integration behavior.
 ![Promotion modal with no environment selector](promote-live-modal.png)
 
 ![Mobile promotion modal](mobile-promote-live-modal.png)
+
+The focused inspector-history rerun passed in both development and production
+(four checks each including fixture setup/cleanup). CI identified an uncovered
+CLI rejection when a tag assignment omits its version; the added test verifies
+rejection before any request. Full CLI coverage now passes with 259 tests and
+100% line coverage, preserving the existing gate.
