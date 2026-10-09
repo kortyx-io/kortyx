@@ -71,6 +71,7 @@ async function cleanup() {
     await sql`delete from prompt_assets where key=${`${compositionKey}-latest`}`;
     await sql`delete from prompt_assets where key=${`${compositionKey}-conflict`}`;
     await sql`delete from prompt_assets where key=${compositionKey}`;
+    await sql`delete from prompt_assets where key=${`${compositionKey}-json`}`;
     await sql`delete from prompt_assets where key=${fixtureKey}`;
     await sql`delete from prompt_categories where name=${categoryName}`;
   } finally {
@@ -190,6 +191,106 @@ test.describe("Prompt detail drawers", () => {
   });
   test.afterAll(cleanup);
 
+  test("edits highlighted JSON with native history, formatting and validation", async ({
+    page,
+    request,
+  }) => {
+    const initialConfig = {
+      modelName: "fast",
+      temperature: 0,
+      enabled: true,
+      fallback: null,
+    };
+    const created = await action(request, {
+      action: "create",
+      key: `${compositionKey}-json`,
+      name: "E2E JSON editor",
+      categoryId,
+      content: { ...content, config: initialConfig },
+      note: "JSON editor fixture",
+    });
+    await page.goto(`/prompts/${created.id}`);
+    const config = page.getByRole("textbox", {
+      name: "Configuration",
+      exact: true,
+    });
+    await expect(config).toHaveAttribute("aria-readonly", "true");
+    const keyColor = await config
+      .getByText('"modelName"', { exact: true })
+      .evaluate((el) => getComputedStyle(el).color);
+    const stringColor = await config
+      .getByText('"fast"', { exact: true })
+      .evaluate((el) => getComputedStyle(el).color);
+    const numberColor = await config
+      .getByText("0", { exact: true })
+      .evaluate((el) => getComputedStyle(el).color);
+    expect(new Set([keyColor, stringColor, numberColor]).size).toBe(3);
+    await page.getByRole("button", { name: "Edit", exact: true }).click();
+    await expect(config).toHaveAttribute("contenteditable", "true");
+    const candidate = {
+      ...initialConfig,
+      modelName: "accurate",
+      temperature: 0.3,
+    };
+    const compact = JSON.stringify(candidate);
+    await config.fill(compact);
+    await page
+      .getByRole("button", { name: "Format Configuration", exact: true })
+      .click();
+    await expect(config.locator(".cm-line")).toHaveCount(6);
+    await config.press("ControlOrMeta+z");
+    await expect(config).toHaveText(compact);
+    await config.press("ControlOrMeta+Shift+z");
+    await expect(config.locator(".cm-line")).toHaveCount(6);
+    // Tab must leave the code field instead of trapping keyboard form navigation.
+    await config.press("Tab");
+    await expect(
+      page
+        .locator("summary")
+        .filter({ hasText: "Contracts & template inputs" }),
+    ).toBeFocused();
+    await config.fill('{"modelName": invalid}');
+    await expect(config).toHaveAttribute("aria-invalid", "true");
+    await expect(config.locator(".cm-lintPoint-error")).toHaveCount(1);
+    await expect(
+      page.getByRole("button", { name: "Save version", exact: true }),
+    ).toBeDisabled();
+    await expect(
+      page.getByRole("button", { name: "Format Configuration", exact: true }),
+    ).toBeDisabled();
+    await config.fill(compact);
+    await expect(config).toHaveAttribute("aria-invalid", "false");
+    await page
+      .getByText("Contracts & template inputs", { exact: true })
+      .click();
+    await expect(
+      page.getByRole("textbox", { name: "Template input schema", exact: true }),
+    ).toHaveClass(/cm-content/);
+    await expect(
+      page.getByRole("textbox", { name: "Configuration schema", exact: true }),
+    ).toHaveClass(/cm-content/);
+    for (const width of [1440, 768, 390]) {
+      await page.setViewportSize({ width, height: 900 });
+      await noOverflow(page.locator('[data-json-editor="true"]').first());
+    }
+    await page
+      .getByRole("button", { name: "Save version", exact: true })
+      .click();
+    await page.getByLabel("Change note").fill("Try the accurate model");
+    await page
+      .getByRole("button", { name: "Accept & save version", exact: true })
+      .click();
+    await expect(page.getByRole("dialog")).toHaveCount(0);
+    await expect(config).toHaveAttribute("aria-readonly", "true");
+    await expect
+      .poll(async () => JSON.parse(await config.innerText()))
+      .toEqual(candidate);
+    await page.reload();
+    await expect
+      .poll(async () => JSON.parse(await config.innerText()))
+      .toEqual(candidate);
+  });
+
   test("cancels clean drafts directly and confirms dirty or invalid changes", async ({
     page,
     request,
@@ -253,7 +354,7 @@ test.describe("Prompt detail drawers", () => {
     );
     await expect(
       drawer.getByLabel("Configuration", { exact: true }),
-    ).toHaveValue("{}");
+    ).toHaveText("{}");
     // Invalid-only changes cannot bypass confirmation when content is unchanged.
     await drawer.getByLabel("Configuration", { exact: true }).fill("{");
     await drawer.getByRole("button", { name: "Cancel", exact: true }).click();

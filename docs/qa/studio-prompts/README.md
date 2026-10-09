@@ -224,3 +224,29 @@ migration and Drizzle schema comparison pass. Root typecheck (51 tasks), reposit
 lint, the API/SDK and production Studio builds, 252 Studio unit tests, prompt API
 and database integration, and 17 eval execution integration tests passed. The CLI
 loader regression passed independently after an initial resource-contention timeout.
+
+### JSON configuration editors (2026-10-09)
+
+Configuration, template input schema and configuration schema now use CodeMirror's
+native JSON language and editor extensions. Keys, strings, numbers and literals
+have distinct colors in both themes. Line numbers, folding, bracket matching,
+indentation, native undo/redo and parse-error markers remain available without
+changing stored JSON. Format applies two-space indentation; invalid objects block
+saving, and Tab retains normal form navigation. Read-only versions retain colors.
+
+The browser regression checks distinct token colors, formatting and undo/redo,
+keyboard exit, invalid-input feedback, all three JSON fields, width containment at
+1440/768/390px, and a save/reload round trip preserving value types. Both Cancel
+regressions pass with CodeMirror, including invalid JSON and an in-flight autosave.
+Manually reviewed light/dark desktop and mobile layouts and saved the disposable
+QA prompt through the diff dialog. The production build, Studio typecheck, all
+252 Studio unit tests, repository lint and production dependency audit pass.
+The final production drawer/prompt/responsive run passed **40 checks**; the
+development prompt/responsive run passed **22 checks** (including fixture
+setup/cleanup).
+
+![JSON configuration editor](desktop-json-editor.png)
+
+![Light JSON configuration editor](light-json-editor.png)
+
+![Mobile JSON configuration editor](mobile-json-editor.png)

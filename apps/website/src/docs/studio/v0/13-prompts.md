@@ -23,6 +23,12 @@ alias or temperature. These values are validated against the configuration schem
 and the application's registered contract. Configuration is never substituted
 into messages. Keep credentials in the application's secret store.
 
+Configuration and both schemas use a JSON code editor with syntax highlighting,
+line numbers, folding, bracket matching, automatic indentation and error markers.
+**Format** applies two-space indentation without changing values. Undo and redo
+work inside each editor; Tab moves to the next field. Invalid JSON stays visible
+for correction and blocks saving. Saved versions keep syntax coloring in read-only mode.
+
 ## Include another prompt
 
 Type `#` or choose **Include prompt** inside a message. Search by name or key;

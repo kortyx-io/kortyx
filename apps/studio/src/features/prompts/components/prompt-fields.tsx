@@ -10,6 +10,7 @@ import type { PromptDetail, PromptLibrary } from "@kortyx/telemetry-contracts";
 import { Plus, Trash2 } from "lucide-react";
 import { useEffect, useId, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { JsonCodeEditor } from "@/components/ui/json-code-editor";
 import { EvalDropdown } from "@/features/evals/components/eval-dropdown";
 import { PromptEditor } from "./prompt-editor";
 
@@ -40,41 +41,69 @@ export function JsonField({
       accepted.current = next;
       setText(JSON.stringify(value, null, 2));
       setError("");
+      onValidityChange?.(true);
     }
-  }, [value]);
+  }, [value, onValidityChange]);
+  const change = (next: string) => {
+    setText(next);
+    try {
+      const parsed: unknown = JSON.parse(next);
+      if (!parsed || typeof parsed !== "object" || Array.isArray(parsed))
+        throw new Error();
+      accepted.current = canonicalPromptJson(parsed);
+      setError("");
+      onValidityChange?.(true);
+      onChange(parsed as Record<string, unknown>);
+    } catch {
+      setError("Enter a valid JSON object before saving.");
+      onValidityChange?.(false);
+    }
+  };
   return (
     <div className="space-y-2">
-      <label htmlFor={id} className="text-xs font-medium">
+      <p id={`${id}-label`} className="text-xs font-medium">
         {label}
-      </label>
+      </p>
       {description && (
-        <p className="text-xs text-muted-foreground">{description}</p>
+        <p id={`${id}-description`} className="text-xs text-muted-foreground">
+          {description}
+        </p>
       )}
-      <textarea
-        id={id}
-        spellCheck={false}
-        readOnly={disabled}
-        className={editorClass}
-        value={text}
-        aria-invalid={Boolean(error)}
-        onChange={(event) => {
-          setText(event.target.value);
-          try {
-            const parsed: unknown = JSON.parse(event.target.value);
-            if (!parsed || typeof parsed !== "object" || Array.isArray(parsed))
-              throw new Error();
-            accepted.current = canonicalPromptJson(parsed);
-            setError("");
-            onValidityChange?.(true);
-            onChange(parsed as Record<string, unknown>);
-          } catch {
-            setError("Enter a valid JSON object before saving.");
-            onValidityChange?.(false);
+      <div
+        className={`min-w-0 overflow-hidden rounded-md border bg-background focus-within:border-ring focus-within:ring-2 focus-within:ring-ring/40 ${error ? "border-destructive" : ""}`}
+      >
+        <div className="flex h-9 items-center justify-between border-b bg-muted/30 px-3">
+          <span className="font-mono text-[11px] text-muted-foreground">
+            JSON
+          </span>
+          {!disabled && (
+            <Button
+              size="xs"
+              variant="ghost"
+              aria-label={`Format ${label}`}
+              disabled={Boolean(error)}
+              onClick={() => setText(JSON.stringify(JSON.parse(text), null, 2))}
+            >
+              Format
+            </Button>
+          )}
+        </div>
+        <JsonCodeEditor
+          id={id}
+          labelId={`${id}-label`}
+          descriptionId={
+            [description && `${id}-description`, error && `${id}-error`]
+              .filter(Boolean)
+              .join(" ") || undefined
           }
-        }}
-      />
+          readOnly={disabled}
+          value={text}
+          invalid={Boolean(error)}
+          onChange={change}
+        />
+      </div>
       {error && (
-        <p role="alert" className="text-xs text-destructive">
+        <p id={`${id}-error`} role="alert" className="text-xs text-destructive">
           {error}
         </p>
       )}
