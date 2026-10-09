@@ -389,6 +389,11 @@ test.describe("Eval drawer hardening", () => {
     await expect(
       page.getByText("fixture-judge · 1", { exact: true }),
     ).toBeVisible();
+    // nuqs updates the visible tab before its batched URL write completes.
+    // Reload only after the state being tested is actually in the URL.
+    await expect(page).toHaveURL(
+      (url) => url.searchParams.get("evalTab") === "context",
+    );
     await page.reload();
     await expect(
       page.getByText("fixture-judge · 1", { exact: true }),
