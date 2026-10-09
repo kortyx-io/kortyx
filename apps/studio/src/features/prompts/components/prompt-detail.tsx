@@ -116,7 +116,8 @@ export function PromptDetailView({
       ]),
       promptActionVersion: parseAsInteger,
     },
-    { shallow: true },
+    // Client-only panels must not replay an older transition after dismissal.
+    { shallow: true, startTransition: undefined },
   );
   const selected =
     detail.versions.find((version) => version.version === query.v) ??

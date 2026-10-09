@@ -271,7 +271,11 @@ new browser regression fails against the prior production build because it detec
 an extra floating loading frame; it passes with the shared lifecycle. Coverage
 checks one mounted surface, retained library, close/reopen, browser history,
 modal lifecycle, blocked accidental writes, table geometry and responsive layouts.
-Action menus avoid the modal-menu/dialog pointer-lock race. Version saving waits
+Action menus avoid the modal-menu/dialog pointer-lock race. Menus that launch
+dialogs unmount immediately on selection, so their outgoing interaction layer
+cannot dismiss a menu reopened quickly after Cancel or Escape. Client-only
+prompt query state updates synchronously, preventing an older transition from
+briefly reopening the dismissed dialog and stealing focus from the new menu. Version saving waits
 for its URL update before closing the diff, preserving the selected version on
 an immediate reload.
 

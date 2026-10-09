@@ -86,7 +86,8 @@ export function PromptLibraryView({
       archived: parseAsString.withDefault("false"),
       collapsed: parseAsArrayOf(parseAsString).withDefault([]),
     },
-    { shallow: true },
+    // Client-only panels must not replay an older transition after dismissal.
+    { shallow: true, startTransition: undefined },
   );
   const [categoryAction, setCategoryAction] = useState<CategoryAction | null>(
       null,
@@ -181,7 +182,10 @@ export function PromptLibraryView({
           <MoreHorizontal className="size-4" />
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end">
+      <DropdownMenuContent
+        align="end"
+        className="data-[state=closed]:animate-none!"
+      >
         <DropdownMenuItem
           onSelect={() => categoryForm({ type: "create", category })}
         >

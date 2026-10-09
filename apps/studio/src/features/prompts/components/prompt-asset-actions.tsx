@@ -51,7 +51,10 @@ export function PromptAssetMenu({
           <MoreHorizontal className="size-4" />
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end">
+      <DropdownMenuContent
+        align="end"
+        className="data-[state=closed]:animate-none!"
+      >
         <DropdownMenuItem onSelect={() => onAction("code")}>
           Code helper
         </DropdownMenuItem>

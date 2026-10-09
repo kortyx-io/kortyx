@@ -37,7 +37,8 @@ export function PromptBulkActions({
         "restore",
       ]),
     },
-    { shallow: true },
+    // Client-only panels must not replay an older transition after dismissal.
+    { shallow: true, startTransition: undefined },
   );
   const action = query.bulkPromptAction;
   const setAction = (value: typeof action) => {
@@ -117,7 +118,10 @@ export function PromptBulkActions({
             {selected.length} selected · Actions
           </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="end">
+        <DropdownMenuContent
+          align="end"
+          className="data-[state=closed]:animate-none!"
+        >
           <DropdownMenuItem
             disabled={!library.permissions.edit}
             onSelect={() => begin("move")}

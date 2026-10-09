@@ -332,6 +332,7 @@ test.describe("Prompt detail drawers", () => {
     dialog = page.getByRole("dialog", { name: "Restore prompt?", exact: true });
     await expect(dialog).toContainText("does not assign a version");
     await page.keyboard.press("Escape");
+    await expect(dialog).toHaveCount(0);
     await expect(row).toBeVisible();
     await menu("Restore prompt");
     await dialog
