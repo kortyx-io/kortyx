@@ -25,7 +25,7 @@ export async function freezeEvalPrompts(
         resolvePrompts(db, scope, {
           ids: contracts.map((contract) => contract.id),
           environment,
-          selection: selection ?? { type: "production" },
+          selection: selection ?? { type: "live" },
           onGroupName: (name) => {
             promptGroupName = name;
           },

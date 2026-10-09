@@ -63,13 +63,13 @@ their exact hashes before reporting `verification: "destination-read-back"`.
 Copying never changes live assignments and never moves source keys, traces, eval
 results, or review approvals. Source identity and immutable version/hash provenance
 are retained. Run the imported version against the destination application's suite,
-then explicitly promote it under destination policy:
+then explicitly promote it under project promotion policy:
 
 ```sh
 kortyx studio prompts test canvas/classify-intent --connection production \
   --version DESTINATION_VERSION --target support-app --suite regression --json
 kortyx studio prompts promote canvas/classify-intent --connection production \
-  --version DESTINATION_VERSION --environment production --expected-revision 0 --json
+  --version DESTINATION_VERSION --expected-revision 0 --json
 ```
 
 For disconnected deployments, use `export <key...> --file bundle.json` and
@@ -87,3 +87,19 @@ needs an exact `{ id, version, hash }` entry in `content.dependencies`; use
 declarations in the parent's `variablesSchema`, review the diff, then update and
 test the parent. Copy/export includes nested dependencies. Destination rename
 mappings rewrite both the manifest and inline tokens before recomputing hashes.
+
+## Manage release tags from the CLI
+
+Promotion updates only `live`; saving a new version and editing other tags do not:
+
+```bash
+kortyx studio prompts promote canvas/classify-intent --version 9 --expected-revision 2
+kortyx studio prompts tag canvas/classify-intent staging --version 10 --expected-revision 0
+kortyx studio prompts untag canvas/classify-intent staging --expected-revision 1
+kortyx studio prompts rollback canvas/classify-intent --version 7 --expected-revision 3
+```
+
+Read current tag revisions with `prompts get KEY --json`. Revision 0 creates a new
+tag; moving or removing one requires its current revision. `live` is reserved for
+promotion/rollback. Copying between connections imports immutable candidates and
+never copies or moves release tags automatically.

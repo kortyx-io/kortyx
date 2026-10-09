@@ -6,7 +6,7 @@ installed exports and `kortyx studio prompts --help` before using this release.
 Use `definePrompt({ id, format, variables: z.object(...), config: z.object(...) })`
 to declare the application's contract. Register references in
 `createPrompts({ definitions, source: studioPromptSource({ apiUrl, apiKey,
-environment, projectId? }) })`, then pass `prompts` to `createAgent`.
+tag?: "live", projectId? }) })`, then pass `prompts` to `createAgent`.
 Inside nodes, call `usePrompt(ref, { variables, version? })` and
 `useReason({ prompt, model, ...reasonOptions })`. A system-user prompt brings both
 roles; chat prompts preserve all ordered messages. Do not also supply
@@ -27,7 +27,7 @@ Categories organize the library. Test groups select exact versions for a suite
 launch; they do not contain a suite, route production traffic, or require SDK
 group definitions. Use the existing eval drawer for all or selected cases.
 Actual `useReason({ prompt })` calls provide version/hash receipts. Check saved
-verified evidence, destination environment and companion assignments before
+verified evidence and current live companion versions before
 promotion. A queued run or a requested candidate alone is insufficient.
 
 For CLI authoring: get the executable JSON with `prompts get KEY --file FILE`,
@@ -60,3 +60,13 @@ Do not flatten messages, remove the manifest or insert display names into stable
 references when editing through the CLI. Export/copy preserves the closure and
 rewrites reference tokens for renamed destination keys. Actual-use receipts also
 identify included versions during evaluations.
+
+`live` is reserved for promotion and rollback; it is not the newest saved version.
+Saving candidates never changes live. Optional tags such as staging/development
+are manual aliases, independent of promotion and actual application environments.
+Use `prompts tag KEY TAG --version N --expected-revision R` and `prompts untag KEY
+TAG --expected-revision R`. Read tag revisions before edits; 0 creates a new tag.
+`prompts promote` and `rollback` no longer accept a destination environment.
+The source defaults to live; `studioPromptSource({ ..., tag: "staging" })` selects
+an optional tag. Missing tags fail without falling back to live. Keep any API-key
+execution environment scope separate from prompt release selection.

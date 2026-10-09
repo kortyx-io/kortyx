@@ -21,7 +21,6 @@ import {
 import { parseAsBoolean, parseAsInteger, parseAsStringLiteral } from "nuqs";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { DetailDrawer } from "@/components/detail/detail-drawer";
-import { DetailInspectorDrawer } from "@/components/detail/detail-inspector";
 import { DetailPage } from "@/components/detail/detail-page";
 import { Button } from "@/components/ui/button";
 import {
@@ -52,6 +51,7 @@ import { useStudioQueryStates } from "@/lib/nuqs";
 import { useRouter } from "@/lib/scoped-navigation";
 import { promptRequest } from "../api/client";
 import { categoryPath, downloadJson } from "../lib/presentation";
+import { PromptActionSurface } from "./prompt-action-surface";
 import {
   type AssetAction,
   assetActions,
@@ -67,6 +67,7 @@ import { PromptWorkspace } from "./prompt-workspace";
 type Version = PromptDetail["versions"][number];
 type Panel = {
   type:
+    | "tags"
     | "group"
     | "promote"
     | "code"
@@ -104,6 +105,7 @@ export function PromptDetailView({
       edit: parseAsBoolean.withDefault(false),
       history: parseAsBoolean.withDefault(true),
       promptAction: parseAsStringLiteral([
+        "tags",
         "group",
         "promote",
         "code",
@@ -160,11 +162,7 @@ export function PromptDetailView({
   const [note, setNote] = useState(""),
     [groupId, setGroupId] = useState(""),
     [groupName, setGroupName] = useState(""),
-    [environment, setEnvironment] = useState(
-      initialLibrary.environments?.includes("production") !== false
-        ? "production"
-        : (initialLibrary.environments[0] ?? "production"),
-    ),
+    [tagName, setTagName] = useState(""),
     [exception, setException] = useState(false),
     [replace, setReplace] = useState(false);
   const draftRevision = useRef(detail.draftRevision),
@@ -425,20 +423,21 @@ export function PromptDetailView({
       version: version.version,
     });
 
-  const destinationPolicy = detail.policies.find(
-    (policy) => policy.environment === environment,
-  );
+  const destinationPolicy = detail.policies[0];
+  const live = detail.asset.assignments.find((item) => item.tag === "live");
+  const rollback =
+    confirmation?.mutation.action === "promote"
+      ? confirmation.mutation.rollback
+      : Boolean(live && panel && panel.version.version < live.version);
   const eligible = detail.evidence.filter(
     (item) =>
       item.version === panel?.version.version &&
-      item.environment === environment &&
       item.fullSuite &&
       item.status === "passed" &&
       item.usage === "verified" &&
-      targets.targets.find(
-        (target) =>
-          target.id === item.targetId && target.environment === environment,
-      )?.revisions[item.suiteId] === item.suiteRevision,
+      targets.targets.find((target) => target.id === item.targetId)?.revisions[
+        item.suiteId
+      ] === item.suiteRevision,
   );
   const independentReviews = new Set(
     (detail.reviews ?? [])
@@ -446,7 +445,6 @@ export function PromptDetailView({
         (review) =>
           review.version === panel?.version.version &&
           review.hash === panel?.version.hash &&
-          review.environment === environment &&
           review.independent,
       )
       .map((review) => review.reviewer),
@@ -499,6 +497,17 @@ export function PromptDetailView({
   const versionActions = (version: Version) => (
     <>
       <DropdownMenuItem
+        disabled={
+          !permissions.promote ||
+          detail.asset.archived ||
+          live?.version === version.version
+        }
+        onSelect={() => showPanel("promote", version)}
+      >
+        Make this live
+      </DropdownMenuItem>
+      <DropdownMenuSeparator />
+      <DropdownMenuItem
         disabled={detail.versions.length < 2}
         onSelect={() =>
           setCompare({
@@ -531,10 +540,13 @@ export function PromptDetailView({
         Add to test group
       </DropdownMenuItem>
       <DropdownMenuItem
-        disabled={!permissions.promote}
-        onSelect={() => showPanel("promote", version)}
+        disabled={!permissions.edit || detail.asset.archived}
+        onSelect={() => {
+          setTagName("");
+          showPanel("tags", version);
+        }}
       >
-        Promote / roll back…
+        Manage tags
       </DropdownMenuItem>
       <DropdownMenuItem
         disabled={!permissions.review}
@@ -564,6 +576,99 @@ export function PromptDetailView({
       </DropdownMenuItem>
     </>
   );
+  const tagAction =
+    panel?.type === "tags" ? (
+      <Button
+        size="sm"
+        disabled={
+          working ||
+          !/^[a-z0-9][a-z0-9_-]{0,63}$/.test(tagName) ||
+          tagName === "live" ||
+          detail.asset.assignments.some(
+            (item) =>
+              item.tag === tagName && item.version === panel.version.version,
+          )
+        }
+        onClick={() => {
+          const existing = detail.asset.assignments.find(
+            (item) => item.tag === tagName,
+          );
+          const mutation: PromptMutation = {
+            action: "tag-set",
+            id: detail.asset.id,
+            tag: tagName,
+            version: panel.version.version,
+            expectedRevision: existing?.revision ?? 0,
+          };
+          if (existing)
+            setConfirmation({
+              title: "Move tag?",
+              description: `Move ${tagName} from v${existing.version} to v${panel.version.version}? Applications requesting this tag will receive the new version. Live stays unchanged.`,
+              label: "Move tag",
+              mutation,
+            });
+          else void act(mutation);
+        }}
+      >
+        Assign tag
+      </Button>
+    ) : null;
+  const releaseAction =
+    panel?.type === "promote" || panel?.type === "review" ? (
+      <Button
+        size="sm"
+        disabled={
+          working ||
+          (panel?.type === "review" && !note.trim()) ||
+          (exception && note.trim().length < 10)
+        }
+        onClick={() => {
+          if (!panel) return;
+          const mutation: PromptMutation =
+            panel.type === "review"
+              ? {
+                  action: "review",
+                  id: detail.asset.id,
+                  version: panel.version.version,
+                  note,
+                }
+              : {
+                  action: "promote",
+                  id: detail.asset.id,
+                  version: panel.version.version,
+                  expectedRevision:
+                    detail.asset.assignments.find((item) => item.tag === "live")
+                      ?.revision ?? 0,
+                  rollback:
+                    panel.version.version <
+                    (detail.asset.assignments.find(
+                      (item) => item.tag === "live",
+                    )?.version ?? 0),
+                  ...(exception ? { exceptionReason: note } : {}),
+                };
+          if (mutation.action === "review") void act(mutation);
+          else {
+            setError("");
+            setConfirmation({
+              title: mutation.rollback
+                ? "Roll back prompt?"
+                : "Promote prompt?",
+              description: `Assign ${detail.asset.name} v${mutation.version} live? New prompt resolutions will use this version.${exception ? ` Policy exception: ${note}` : ""}`,
+              label: mutation.rollback
+                ? "Confirm rollback"
+                : "Confirm promotion",
+              mutation,
+            });
+          }
+        }}
+      >
+        {working
+          ? "Saving…"
+          : panel?.type === "review"
+            ? "Submit review"
+            : `${rollback ? "Roll back to" : "Promote"} v${panel?.version.version}`}
+      </Button>
+    ) : null;
   const view = (
     <div className="flex h-full min-h-0 flex-col">
       <header
@@ -610,9 +715,10 @@ export function PromptDetailView({
               <span className="shrink-0">
                 · v{selected.version} ·{" "}
                 {detail.asset.assignments.some(
-                  (item) => item.version === selected.version,
+                  (item) =>
+                    item.tag === "live" && item.version === selected.version,
                 )
-                  ? "Assigned"
+                  ? "Live"
                   : "Candidate"}
               </span>
             </div>
@@ -769,7 +875,10 @@ export function PromptDetailView({
         ))}
       </nav>
       <PromptWorkspace>
-        <div className="shrink-0 border-b px-5 py-2 @4xl/prompt-detail:hidden">
+        <div
+          data-prompt-version-picker
+          className="shrink-0 border-b px-5 py-2 @2xl/prompt-detail:hidden"
+        >
           <DropdownMenu modal={false}>
             <DropdownMenuTrigger asChild>
               <Button size="sm" variant="outline" className="max-w-full gap-2">
@@ -800,10 +909,12 @@ export function PromptDetailView({
                       <span className="flex items-center justify-between gap-2 text-xs font-medium">
                         <span>v{version.version}</span>
                         {detail.asset.assignments.some(
-                          (item) => item.version === version.version,
+                          (item) =>
+                            item.tag === "live" &&
+                            item.version === version.version,
                         ) && (
                           <span className="text-[10px] text-emerald-700 dark:text-emerald-400">
-                            Assigned
+                            Live
                           </span>
                         )}
                       </span>
@@ -840,9 +951,10 @@ export function PromptDetailView({
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
-        <div className="flex min-h-0 flex-1">
+        <div className="flex min-h-0 min-w-0 flex-1">
           <aside
-            className={`${query.history ? "w-56" : "w-12"} hidden shrink-0 border-r @4xl/prompt-detail:block`}
+            data-prompt-version-history
+            className={`${query.history ? "w-56" : "w-12"} hidden shrink-0 border-r @2xl/prompt-detail:block`}
           >
             <Button
               size="sm"
@@ -874,13 +986,41 @@ export function PromptDetailView({
                       <span className="flex items-center justify-between gap-2 text-xs font-medium">
                         <span>v{version.version}</span>
                         {detail.asset.assignments.some(
-                          (item) => item.version === version.version,
+                          (item) =>
+                            item.tag === "live" &&
+                            item.version === version.version,
                         ) && (
                           <span className="text-[10px] text-emerald-700 dark:text-emerald-400">
-                            Assigned
+                            Live
                           </span>
                         )}
                       </span>
+                      {detail.asset.assignments.some(
+                        (item) =>
+                          item.version === version.version &&
+                          item.tag !== "live",
+                      ) && (
+                        <span
+                          className="block truncate text-[10px] text-sky-700 dark:text-sky-400"
+                          title={detail.asset.assignments
+                            .filter(
+                              (item) =>
+                                item.version === version.version &&
+                                item.tag !== "live",
+                            )
+                            .map((item) => item.tag)
+                            .join(", ")}
+                        >
+                          {detail.asset.assignments
+                            .filter(
+                              (item) =>
+                                item.version === version.version &&
+                                item.tag !== "live",
+                            )
+                            .map((item) => item.tag)
+                            .join(" · ")}
+                        </span>
+                      )}
                       <span
                         className="block truncate text-[11px] text-muted-foreground"
                         title={version.note}
@@ -1133,7 +1273,16 @@ export function PromptDetailView({
           onDone={refresh}
         />
       )}
-      <DetailInspectorDrawer
+      <PromptActionSurface
+        modal={panel?.type === "promote" || panel?.type === "tags"}
+        busy={working}
+        actions={
+          panel?.type === "promote"
+            ? releaseAction
+            : panel?.type === "tags"
+              ? tagAction
+              : undefined
+        }
         open={Boolean(
           panel && !assetActions.includes(panel.type as AssetAction),
         )}
@@ -1141,19 +1290,23 @@ export function PromptDetailView({
           if (!working) setPanel(null);
         }}
         title={
-          panel?.type === "group"
-            ? "Add to test group"
-            : panel?.type === "promote"
-              ? "Promote version"
-              : panel?.type === "review"
-                ? "Review version"
-                : panel?.type === "move"
-                  ? "Move prompt"
-                  : panel?.type === "rename"
-                    ? "Rename prompt"
-                    : panel?.type === "policy"
-                      ? "Promotion policy"
-                      : "Use this prompt"
+          panel?.type === "tags"
+            ? "Manage tags"
+            : panel?.type === "group"
+              ? "Add to test group"
+              : panel?.type === "promote"
+                ? rollback
+                  ? "Roll back version"
+                  : "Promote version"
+                : panel?.type === "review"
+                  ? "Review version"
+                  : panel?.type === "move"
+                    ? "Move prompt"
+                    : panel?.type === "rename"
+                      ? "Rename prompt"
+                      : panel?.type === "policy"
+                        ? "Promotion policy"
+                        : "Use this prompt"
         }
         description={`v${panel?.version.version ?? selected.version} · ${detail.asset.key}`}
         closeLabel="Close prompt action"
@@ -1164,7 +1317,65 @@ export function PromptDetailView({
               {error}
             </p>
           )}
-          {panel?.type === "group" ? (
+          {panel?.type === "tags" ? (
+            <div className="space-y-4">
+              <p className="text-xs text-muted-foreground">
+                Tags point to a version without making it live. Use names such
+                as staging or development for your own release workflow.
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {detail.asset.assignments
+                  .filter((item) => item.version === panel.version.version)
+                  .map((item) => (
+                    <span
+                      key={item.tag}
+                      className="inline-flex items-center gap-2 rounded-md border bg-muted/40 px-2 py-1 text-xs"
+                    >
+                      {item.tag}
+                      {item.tag !== "live" && (
+                        <button
+                          type="button"
+                          aria-label={`Remove tag ${item.tag}`}
+                          disabled={working}
+                          className="text-muted-foreground hover:text-foreground"
+                          onClick={() =>
+                            setConfirmation({
+                              title: "Remove tag?",
+                              description: `Applications requesting ${item.tag} will no longer resolve this prompt. The version and live tag stay unchanged.`,
+                              label: "Remove tag",
+                              mutation: {
+                                action: "tag-remove",
+                                id: detail.asset.id,
+                                tag: item.tag,
+                                expectedRevision: item.revision,
+                              },
+                            })
+                          }
+                        >
+                          ×
+                        </button>
+                      )}
+                    </span>
+                  ))}
+              </div>
+              <label
+                htmlFor="prompt-tag-name"
+                className="block space-y-2 text-xs font-medium"
+              >
+                <span>Tag name</span>
+                <Input
+                  id="prompt-tag-name"
+                  placeholder="staging"
+                  value={tagName}
+                  onChange={(event) => setTagName(event.target.value)}
+                />
+              </label>
+              <p className="text-xs text-muted-foreground">
+                Lowercase letters, numbers, hyphens, and underscores. The live
+                tag is managed through promotion.
+              </p>
+            </div>
+          ) : panel?.type === "group" ? (
             <>
               <EvalDropdown
                 label="Test group"
@@ -1272,12 +1483,11 @@ export function PromptDetailView({
               detail={detail}
               working={working}
               targets={targets}
-              environments={library.environments ?? ["production"]}
               onSave={(policy) => {
                 setError("");
                 setConfirmation({
                   title: "Save promotion policy?",
-                  description: `${policy.environment}: ${policy.requireTest ? "passing evaluations required" : "evaluations not required"}; ${policy.requiredReviews} independent reviews; ${policy.allowException ? "audited exceptions allowed" : "exceptions disabled"}; ${policy.requiredSuites.length} required suites. This changes the promotion requirements for this environment.`,
+                  description: `${policy.requireTest ? "passing evaluations required" : "evaluations not required"}; ${policy.requiredReviews} independent reviews; ${policy.allowException ? "audited exceptions allowed" : "exceptions disabled"}; ${policy.requiredSuites.length} required suites. This changes the promotion requirements for this project.`,
                   label: "Confirm policy",
                   mutation: { action: "policy", policy },
                 });
@@ -1285,34 +1495,21 @@ export function PromptDetailView({
             />
           ) : (
             <>
-              <div className="space-y-2">
-                <label
-                  htmlFor="prompt-target-environment"
-                  className="text-xs font-medium"
-                >
-                  Destination environment
-                </label>
-                <EvalDropdown
-                  label="Destination environment"
-                  className="w-full"
-                  value={environment}
-                  options={(library.environments ?? ["production"]).map(
-                    (value) => ({ value, label: value }),
-                  )}
-                  onChange={(value) => {
-                    setEnvironment(value);
-                    setException(false);
-                  }}
-                />
-              </div>
               {panel?.type === "promote" && (
                 <>
+                  <p className="text-xs text-muted-foreground">
+                    {live
+                      ? `Live will move from v${live.version} to v${panel.version.version}.`
+                      : `v${panel.version.version} will be the first live version.`}{" "}
+                    Applications using live will receive this version. Optional
+                    tags stay unchanged.
+                  </p>
                   <div className="space-y-2 rounded-lg border bg-muted/20 p-3 text-xs">
                     <p className="font-medium">Promotion readiness</p>
                     <p>
                       {eligible.length
                         ? `${eligible.length} passing full suite${eligible.length === 1 ? "" : "s"} with verified usage`
-                        : "No eligible passing full suite in this environment"}
+                        : "No eligible passing full suite"}
                     </p>
                     {missingSuites.length > 0 && (
                       <p className="text-destructive">
@@ -1327,13 +1524,13 @@ export function PromptDetailView({
                         {destinationPolicy?.requiredReviews} independent human
                         review
                         {destinationPolicy?.requiredReviews === 1 ? "" : "s"}{" "}
-                        required for this version and environment.
+                        required for this version.
                       </p>
                     )}
                     <p className="text-muted-foreground">
-                      Evaluations must use this exact version with the
-                      environment’s current companion prompts. Individual tests
-                      remain available as supporting evidence.
+                      Evaluations must use this exact version with the current
+                      live companion prompts. Individual tests remain available
+                      as supporting evidence.
                     </p>
                   </div>
                   <label className="flex items-start gap-2 text-xs">
@@ -1365,67 +1562,11 @@ export function PromptDetailView({
                   />
                 </div>
               )}
-              <Button
-                size="sm"
-                disabled={
-                  working ||
-                  !environment.trim() ||
-                  (panel?.type === "review" && !note.trim()) ||
-                  (exception && note.trim().length < 10)
-                }
-                onClick={() => {
-                  if (!panel) return;
-                  const mutation: PromptMutation =
-                    panel.type === "review"
-                      ? {
-                          action: "review",
-                          id: detail.asset.id,
-                          version: panel.version.version,
-                          environment,
-                          note,
-                        }
-                      : {
-                          action: "promote",
-                          id: detail.asset.id,
-                          version: panel.version.version,
-                          environment,
-                          expectedRevision:
-                            detail.asset.assignments.find(
-                              (item) => item.environment === environment,
-                            )?.revision ?? 0,
-                          rollback:
-                            panel.version.version <
-                            (detail.asset.assignments.find(
-                              (item) => item.environment === environment,
-                            )?.version ?? 0),
-                          ...(exception ? { exceptionReason: note } : {}),
-                        };
-                  if (mutation.action === "review") void act(mutation);
-                  else {
-                    setError("");
-                    setConfirmation({
-                      title: mutation.rollback
-                        ? "Roll back prompt?"
-                        : "Promote prompt?",
-                      description: `Assign ${detail.asset.name} v${mutation.version} to ${environment}? New prompt resolutions will use this version.${exception ? ` Policy exception: ${note}` : ""}`,
-                      label: mutation.rollback
-                        ? "Confirm rollback"
-                        : "Confirm promotion",
-                      mutation,
-                    });
-                  }
-                }}
-              >
-                {working
-                  ? "Saving…"
-                  : panel?.type === "review"
-                    ? "Submit review"
-                    : `Promote v${panel?.version.version}`}
-              </Button>
+              {panel?.type === "review" && releaseAction}
             </>
           )}
         </div>
-      </DetailInspectorDrawer>
+      </PromptActionSurface>
     </div>
   );
   return drawer ? (
@@ -1447,23 +1588,14 @@ function PolicyEditor({
   detail,
   working,
   targets,
-  environments,
   onSave,
 }: {
   detail: PromptDetail;
   working: boolean;
   targets: EvalTargets;
-  environments: string[];
   onSave: (policy: PromptDetail["policies"][number]) => void;
 }) {
-  const [environment, setEnvironment] = useState(
-      environments.includes("production")
-        ? "production"
-        : (environments[0] ?? "production"),
-    ),
-    existing = detail.policies.find(
-      (policy) => policy.environment === environment,
-    );
+  const existing = detail.policies[0];
   const [requireTest, setRequireTest] = useState(existing?.requireTest ?? true),
     [requiredReviews, setRequiredReviews] = useState(
       String(existing?.requiredReviews ?? 0),
@@ -1474,27 +1606,6 @@ function PolicyEditor({
     [suites, setSuites] = useState(existing?.requiredSuites ?? []);
   return (
     <div className="space-y-4">
-      <div className="space-y-2">
-        <label htmlFor="policy-environment" className="text-xs font-medium">
-          Environment
-        </label>
-        <EvalDropdown
-          label="Policy environment"
-          className="w-full"
-          value={environment}
-          options={environments.map((value) => ({ value, label: value }))}
-          onChange={(value) => {
-            setEnvironment(value);
-            const policy = detail.policies.find(
-              (item) => item.environment === value,
-            );
-            setRequireTest(policy?.requireTest ?? true);
-            setRequiredReviews(String(policy?.requiredReviews ?? 0));
-            setAllowException(policy?.allowException ?? true);
-            setSuites(policy?.requiredSuites ?? []);
-          }}
-        />
-      </div>
       <label className="flex items-center gap-2 text-xs">
         <input
           type="checkbox"
@@ -1527,7 +1638,8 @@ function PolicyEditor({
       <div className="space-y-2">
         <p className="text-xs font-medium">Required suites</p>
         <p className="text-[11px] text-muted-foreground">
-          All selected suites must pass in the destination environment.
+          All selected suites must pass using this version and the current live
+          companion prompts.
         </p>
         <div className="max-h-64 space-y-2 overflow-auto rounded-md border p-3">
           {suites
@@ -1535,7 +1647,6 @@ function PolicyEditor({
               (item) =>
                 !targets.targets.some(
                   (target) =>
-                    target.environment === environment &&
                     target.id === item.targetId &&
                     target.manifest?.suites.some(
                       (suite) => suite.id === item.suiteId,
@@ -1568,52 +1679,48 @@ function PolicyEditor({
                 </span>
               </label>
             ))}
-          {targets.targets
-            .filter((target) => target.environment === environment)
-            .flatMap((target) =>
-              (target.manifest?.suites ?? []).map((suite) => {
-                const checked = suites.some(
-                  (item) =>
-                    item.targetId === target.id && item.suiteId === suite.id,
-                );
-                return (
-                  <label
-                    key={`${target.id}:${suite.id}`}
-                    className="flex items-start gap-2 text-xs"
-                  >
-                    <input
-                      type="checkbox"
-                      checked={checked}
-                      disabled={working}
-                      onChange={() =>
-                        setSuites((current) =>
-                          checked
-                            ? current.filter(
-                                (item) =>
-                                  item.targetId !== target.id ||
-                                  item.suiteId !== suite.id,
-                              )
-                            : [
-                                ...current,
-                                { targetId: target.id, suiteId: suite.id },
-                              ],
-                        )
-                      }
-                    />
-                    <span>
-                      {suite.id}
-                      <span className="block text-[11px] text-muted-foreground">
-                        {target.name ?? target.id} · {target.environment}
-                      </span>
+          {targets.targets.flatMap((target) =>
+            (target.manifest?.suites ?? []).map((suite) => {
+              const checked = suites.some(
+                (item) =>
+                  item.targetId === target.id && item.suiteId === suite.id,
+              );
+              return (
+                <label
+                  key={`${target.id}:${suite.id}`}
+                  className="flex items-start gap-2 text-xs"
+                >
+                  <input
+                    type="checkbox"
+                    checked={checked}
+                    disabled={working}
+                    onChange={() =>
+                      setSuites((current) =>
+                        checked
+                          ? current.filter(
+                              (item) =>
+                                item.targetId !== target.id ||
+                                item.suiteId !== suite.id,
+                            )
+                          : [
+                              ...current,
+                              { targetId: target.id, suiteId: suite.id },
+                            ],
+                      )
+                    }
+                  />
+                  <span>
+                    {suite.id}
+                    <span className="block text-[11px] text-muted-foreground">
+                      {target.name ?? target.id} · {target.environment}
                     </span>
-                  </label>
-                );
-              }),
-            )}
+                  </span>
+                </label>
+              );
+            }),
+          )}
           {!targets.targets.some(
-            (target) =>
-              target.environment === environment &&
-              target.manifest?.suites.length,
+            (target) => target.manifest?.suites.length,
           ) && (
             <p className="text-xs text-muted-foreground">
               Connect an application to choose required suites.
@@ -1625,13 +1732,11 @@ function PolicyEditor({
         size="sm"
         disabled={
           working ||
-          !environment.trim() ||
           !/^\d+$/.test(requiredReviews) ||
           Number(requiredReviews) > 10
         }
         onClick={() =>
           onSave({
-            environment,
             revision: existing?.revision ?? 0,
             requireTest,
             requiredReviews: Number(requiredReviews),

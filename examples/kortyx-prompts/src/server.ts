@@ -74,6 +74,7 @@ const agent = createAgent({
       apiUrl: process.env.KORTYX_API_URL ?? "http://localhost:6400",
       apiKey: process.env.KORTYX_PROMPTS_API_KEY ?? "",
       environment,
+      tag: process.env.KORTYX_PROMPT_TAG ?? "live",
     }),
   }),
   defaultWorkflowId: "intent",

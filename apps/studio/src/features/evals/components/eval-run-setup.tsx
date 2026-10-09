@@ -136,7 +136,7 @@ export function EvalRunSetup({
       ? "This application's SDK does not support Studio judging."
       : undefined;
   const promptValid =
-    query.launchPrompts === "production" ||
+    query.launchPrompts === "live" ||
     (Boolean(target?.manifest?.promptContracts?.length) &&
       ((query.launchPrompts === "single" &&
         Boolean(query.launchPrompt) &&
@@ -211,7 +211,7 @@ export function EvalRunSetup({
                   }
                 : query.launchPrompts === "group"
                   ? { type: "group", groupId: query.launchGroup }
-                  : { type: "production" },
+                  : { type: "live" },
           }
         : {}),
     };
@@ -260,7 +260,7 @@ export function EvalRunSetup({
               className="w-full"
               value={query.launchPrompts}
               options={[
-                { value: "production", label: "Production prompts" },
+                { value: "live", label: "Live prompts" },
                 { value: "single", label: "Single prompt version" },
                 { value: "group", label: "Test group" },
               ]}

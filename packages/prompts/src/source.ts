@@ -2,16 +2,19 @@ import { type CompiledPrompt, compilePrompt, type PromptRef } from "./compiler";
 import {
   PromptError,
   type PromptSnapshot,
+  PromptTagSchema,
   verifyPromptSnapshot,
 } from "./contracts";
 
 export interface PromptSource {
   readonly environment?: string;
+  readonly tag?: string;
   readonly identity: string;
   resolve(
     ids: readonly string[],
     options: {
       environment: string;
+      tag?: string;
       versions?: Record<string, number>;
       signal?: AbortSignal;
     },
@@ -60,6 +63,7 @@ export function createPrompts(options: {
   cache?: PromptCache;
 }): PromptManager {
   const ids = options.definitions.map((ref) => ref.id),
+    tag = PromptTagSchema.parse(options.source.tag ?? "live"),
     environment =
       options.environment ?? options.source.environment ?? "production";
   if (
@@ -81,23 +85,28 @@ export function createPrompts(options: {
       "Registered prompt IDs must be unique.",
     );
   let lastGood: PromptSnapshot | undefined;
-  const cacheKey = `${options.source.identity}:${environment}:${JSON.stringify([...ids].sort())}`;
+  const cacheKey = `${options.source.identity}:${environment}:${tag}:${JSON.stringify([...ids].sort())}`;
   const fresh = async (signal?: AbortSignal) => {
     const pending = options.source
-      .resolve(ids, { environment, ...(signal ? { signal } : {}) })
+      .resolve(ids, { environment, tag, ...(signal ? { signal } : {}) })
       .then(verifyPromptSnapshot)
       .then(async (value) => {
         for (const id of ids)
           if (!value.versions[id])
             throw new PromptError(
               "PROMPT_NOT_ASSIGNED",
-              `No ${environment} assignment for ${id}.`,
+              `No ${tag} tag for ${id}.`,
               404,
             );
         if (value.environment !== environment)
           throw new PromptError(
             "PROMPT_ENVIRONMENT_MISMATCH",
             "Source returned a different environment.",
+          );
+        if ((value.tag ?? "live") !== tag)
+          throw new PromptError(
+            "PROMPT_TAG_MISMATCH",
+            "Source returned a different prompt tag.",
           );
         lastGood = value;
         await options.cache?.set(cacheKey, value);
@@ -118,6 +127,7 @@ export function createPrompts(options: {
       if (
         !cached ||
         cached.environment !== environment ||
+        (cached.tag ?? "live") !== tag ||
         Date.parse(cached.resolvedAt) > Date.now() + 30_000 ||
         Date.now() - Date.parse(cached.resolvedAt) >
           (options.maxStaleMs ?? 300_000)
@@ -181,6 +191,7 @@ export function createPrompts(options: {
                 : options.source
                     .resolve([id], {
                       environment,
+                      tag,
                       versions: { [id]: version },
                       ...(start.signal ? { signal: start.signal } : {}),
                     })
@@ -253,6 +264,8 @@ export function createPrompts(options: {
 export function studioPromptSource(options: {
   apiUrl: string;
   apiKey: string;
+  /** Version tag to serve. Promotion updates live; other tags are managed manually. */
+  tag?: string;
   environment?: string;
   projectId?: string;
   environmentId?: string;
@@ -272,6 +285,7 @@ export function studioPromptSource(options: {
     crypto.randomUUID();
   return {
     identity: `${url.origin}${url.pathname}:${options.projectId ?? ""}:${publicKeyId}:${options.environmentId ?? ""}`,
+    tag: PromptTagSchema.parse(options.tag ?? "live"),
     ...(options.environment ? { environment: options.environment } : {}),
     async resolve(ids, args) {
       for (let attempt = 0; ; attempt++) {
@@ -298,6 +312,7 @@ export function studioPromptSource(options: {
               body: JSON.stringify({
                 schemaVersion: 1,
                 ids,
+                tag: options.tag ?? args.tag ?? "live",
                 environment: options.environment ?? args.environment,
                 ...(args.versions ? { versions: args.versions } : {}),
               }),
@@ -363,6 +378,7 @@ export function localPromptSource(snapshot: PromptSnapshot): PromptSource {
   return {
     identity: `local:${snapshot.revision}`,
     environment: snapshot.environment,
+    tag: snapshot.tag ?? "live",
     async resolve(ids, args) {
       const verified = await verifyPromptSnapshot(snapshot);
       if (args.environment !== verified.environment)

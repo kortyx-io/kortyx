@@ -182,7 +182,6 @@ describe.skipIf(!url)("project prompt management", () => {
           action: "promote",
           id,
           version: 2,
-          environment: "production",
           expectedRevision: 0,
           rollback: false,
         }),
@@ -270,7 +269,6 @@ describe.skipIf(!url)("project prompt management", () => {
             action: "promote",
             id,
             version: 2,
-            environment: "production",
             expectedRevision: 0,
             rollback: false,
           },
@@ -286,7 +284,6 @@ describe.skipIf(!url)("project prompt management", () => {
         action: "promote",
         id,
         version: 1,
-        environment: "production",
         expectedRevision: 0,
         rollback: false,
         exceptionReason: "Bootstrap initial assignment",
@@ -304,12 +301,80 @@ describe.skipIf(!url)("project prompt management", () => {
           action: "promote",
           id,
           version: 2,
-          environment: "production",
           expectedRevision: 0,
           rollback: false,
           exceptionReason: "Stale assignment override",
         }),
       ).rejects.toMatchObject({ status: 409 });
+      // Saving v2 did not publish it. Tags are independent of live promotion,
+      // can be served under any authorized execution environment, and use CAS.
+      await mutate({
+        action: "tag-set",
+        id,
+        tag: "staging",
+        version: 2,
+        expectedRevision: 0,
+      });
+      const resolveTag = (tag?: string) =>
+        resolvePrompts(client.db, scope, {
+          ids: ["classify"],
+          environment: "production",
+          ...(tag ? { tag } : {}),
+        });
+      expect((await resolveTag()).versions.classify?.version).toBe(1);
+      expect((await resolveTag("staging")).versions.classify?.version).toBe(2);
+      await expect(
+        mutate({
+          action: "tag-set",
+          id,
+          tag: "live",
+          version: 2,
+          expectedRevision: 1,
+        }),
+      ).rejects.toThrow();
+      await expect(
+        mutate({ action: "tag-remove", id, tag: "live", expectedRevision: 1 }),
+      ).rejects.toThrow();
+      await expect(
+        mutate({
+          action: "tag-set",
+          id,
+          tag: "staging",
+          version: 1,
+          expectedRevision: 0,
+        }),
+      ).rejects.toMatchObject({ code: "PROMPT_REVISION_CONFLICT" });
+      await mutate({
+        action: "promote",
+        id,
+        version: 2,
+        expectedRevision: 1,
+        rollback: false,
+        exceptionReason: "Explicit test promotion exception",
+      });
+      await mutate({
+        action: "promote",
+        id,
+        version: 1,
+        expectedRevision: 2,
+        rollback: true,
+        exceptionReason: "Explicit test rollback exception",
+      });
+      expect((await resolveTag()).versions.classify?.version).toBe(1);
+      expect((await getPrompt(client.db, scope, id)).asset.latestVersion).toBe(
+        2,
+      );
+      expect((await resolveTag("staging")).versions.classify?.version).toBe(2);
+      await mutate({
+        action: "tag-remove",
+        id,
+        tag: "staging",
+        expectedRevision: 1,
+      });
+      await expect(resolveTag("staging")).rejects.toMatchObject({
+        code: "PROMPT_NOT_ASSIGNED",
+      });
+      expect((await resolveTag()).versions.classify?.version).toBe(1);
       await expect(
         mutate({
           action: "category-update",

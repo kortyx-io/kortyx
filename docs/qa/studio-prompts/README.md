@@ -292,3 +292,50 @@ an immediate reload.
 ![Category sidebar anchored to the library body](category-sidebar.png)
 
 ![Mobile category sidebar](mobile-category-sidebar.png)
+
+
+### Live versions, manual tags and expanded history (2026-10-09)
+
+Prompt releases now use a reserved **live** tag. Saving a candidate leaves it
+unchanged; promotion and rollback move it to the chosen immutable version.
+Optional tags are assigned and removed independently, allowing applications to
+choose their own staging/development conventions. The SDK defaults to live and
+supports an explicit tag; execution environments still enforce authentication
+and telemetry scope. Migration `0010_prompt_live_tags.sql` preserves existing
+named assignments, seeds live from production and audits consolidated policies.
+
+**Make this live** is first in each version menu. Its platform modal says
+**Promote version** or **Roll back version** according to the current live
+version, with no environment selector. Tag reassignment/removal requires
+confirmation. The CLI supports tag/untag with revision checks; transfer imports
+remain candidates without copying release pointers.
+
+Reproduced version history disappearing when an inspector reduced an expanded
+page's available width. The sidebar now remains visible beside the inspector
+at desktop widths; narrow surfaces retain an accessible version picker. Reviewed
+the actual UI at 1440×1000 and 390×844 and restored the browser viewport.
+
+Final production drawer/prompt/responsive E2E: **48/48 passed**. Development had
+47 passing checks and one outdated restore-copy assertion; after correcting that
+assertion, the six-check focused rerun passed. New regressions cover expanded
+history and the complete tag → promote → rollback → untag lifecycle, including
+SDK resolution and isolation of manual tags from live.
+
+Studio **252 tests**, SDK **20 tests**, focused CLI **5 tests**, API prompt and
+OpenAPI checks, PostgreSQL prompt integration and independent destination
+transfer passed. Affected-package type checking passed **34 tasks**; Studio
+production build, API/CLI/dependency builds, repository lint, Drizzle schema
+check and whitespace validation passed. Fresh native migrations passed.
+
+A real built-CLI smoke test created a disposable prompt, assigned staging,
+promoted live, removed staging and read back the unchanged live pointer. The
+restarted example app served v2 with its exact version/hash in generation
+telemetry. A fresh CLI candidate evaluation (`6d0881e7-ddc8-433f-939a-992b26a68521`)
+passed both cases of `intent-regression` against v2 with a frozen live baseline.
+The example uses a deterministic provider to verify integration behavior.
+
+![Expanded version history alongside an inspector](expanded-history-inspector.png)
+
+![Promotion modal with no environment selector](promote-live-modal.png)
+
+![Mobile promotion modal](mobile-promote-live-modal.png)

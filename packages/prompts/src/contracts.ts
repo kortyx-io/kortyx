@@ -6,6 +6,12 @@ export const PromptKeySchema = z
   .min(1)
   .max(200)
   .regex(/^[a-zA-Z0-9][a-zA-Z0-9_./-]*$/);
+export const PromptTagSchema = z
+  .string()
+  .trim()
+  .min(1)
+  .max(64)
+  .regex(/^[a-z0-9][a-z0-9_-]*$/);
 export const PromptMessageSchema = z
   .object({
     role: z.enum(["system", "user", "assistant"]),
@@ -57,6 +63,7 @@ export const PromptSnapshotSchema = z
   .object({
     schemaVersion: z.literal(PROMPT_PROTOCOL_VERSION),
     environment: z.string().min(1).max(128),
+    tag: PromptTagSchema.optional(),
     revision: z.string().min(1),
     versions: z.record(z.string(), PromptVersionSchema),
     source: z.enum(["studio", "local", "cache", "fallback", "eval"]),

@@ -330,7 +330,7 @@ test.describe("Prompt detail drawers", () => {
     await page.goto(`/prompts?q=${compositionKey}-actions&archived=true`);
     await menu("Restore prompt");
     dialog = page.getByRole("dialog", { name: "Restore prompt?", exact: true });
-    await expect(dialog).toContainText("does not assign a version");
+    await expect(dialog).toContainText("does not make a version live");
     await page.keyboard.press("Escape");
     await expect(dialog).toHaveCount(0);
     await expect(row).toBeVisible();
@@ -437,21 +437,23 @@ test.describe("Prompt detail drawers", () => {
       .getByRole("button", { name: "Version 2 actions", exact: true })
       .click();
     await page
-      .getByRole("menuitem", { name: "Promote / roll back…", exact: true })
+      .getByRole("menuitem", { name: "Make this live", exact: true })
       .click();
-    await inspector(page)
+    await page
+      .getByRole("dialog", { name: "Promote version", exact: true })
       .getByRole("button", { name: "Promote v2", exact: true })
       .click();
     confirmation = page.getByRole("dialog", {
       name: "Promote prompt?",
       exact: true,
     });
-    await expect(confirmation).toContainText("v2 to production");
+    await expect(confirmation).toContainText("v2 live");
     await confirmation
       .getByRole("button", { name: "Cancel", exact: true })
       .click();
     expect(mutations).toEqual([]);
-    await inspector(page)
+    await page
+      .getByRole("dialog", { name: "Promote version", exact: true })
       .getByRole("button", { name: "Promote v2", exact: true })
       .click();
     // Preserve the confirmation and the action panel after server rejection.
@@ -470,7 +472,11 @@ test.describe("Prompt detail drawers", () => {
     await expect(confirmation.getByRole("alert")).toContainText(
       "Assignment changed",
     );
-    await expect(inspector(page)).toBeVisible();
+    await expect(
+      page.locator("[role=dialog]").filter({
+        hasText: "Applications using live will receive this version.",
+      }),
+    ).toBeVisible();
   });
 
   test("confirms bulk archive and restore and requires a category deletion destination", async ({
@@ -1460,5 +1466,182 @@ test.describe("Prompt detail drawers", () => {
     await page.keyboard.press("Escape");
     await expect(comparison).toHaveCount(0);
     await expect(promptDrawer(page)).toHaveAttribute("data-state", "open");
+  });
+  test("keeps history visible while opening inspectors from an expanded prompt page", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 1440, height: 1000 });
+    await page.goto(`/prompts/${id}?detailView=expanded&v=2`);
+    const history = page.locator("[data-prompt-version-history]");
+    await expect(history).toBeVisible();
+    await page
+      .getByRole("button", { name: "Prompt actions", exact: true })
+      .click();
+    await page
+      .getByRole("menuitem", { name: "Promotion policy", exact: true })
+      .click();
+    await expect(inspector(page)).toBeVisible();
+    await expect(history).toBeVisible();
+    await expect(
+      history.getByRole("button", { name: "Version 2 actions", exact: true }),
+    ).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(inspector(page)).toHaveCount(0);
+    await expect(history).toBeVisible();
+    await expect(page).toHaveURL(/v=2/);
+    await page.setViewportSize({ width: 1024, height: 800 });
+    await page
+      .getByRole("button", { name: "Prompt actions", exact: true })
+      .click();
+    await page
+      .getByRole("menuitem", { name: "Promotion policy", exact: true })
+      .click();
+    await expect(page.locator("[data-prompt-version-picker]")).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(inspector(page)).toHaveCount(0);
+  });
+
+  test("promotes and rolls back live in a modal independently of manual tags", async ({
+    page,
+    request,
+  }) => {
+    const key = `${fixtureKey}-tags-${randomUUID()}`;
+    const created = await action(request, {
+      action: "create",
+      key,
+      name: "E2E live tags",
+      categoryId,
+      content,
+      note: "Initial",
+    });
+    const candidate = { ...content, config: { mode: "candidate" } };
+    try {
+      await action(request, {
+        action: "save",
+        id: created.id,
+        content: candidate,
+        baseVersion: 1,
+        expectedHash: await promptHash(candidate),
+        note: "Candidate",
+        idempotencyKey: randomUUID(),
+      });
+      await page.setViewportSize({ width: 1440, height: 1000 });
+      await page.goto(`/prompts/${created.id}?v=2`);
+      const versionMenu = async (version: number) => {
+        await page
+          .getByRole("button", {
+            name: `Version ${version} actions`,
+            exact: true,
+          })
+          .click();
+        await expect(page.getByRole("menuitem").first()).toHaveText(
+          "Make this live",
+        );
+      };
+      await versionMenu(2);
+      await page
+        .getByRole("menuitem", { name: "Manage tags", exact: true })
+        .click();
+      const tags = page.getByRole("dialog", {
+        name: "Manage tags",
+        exact: true,
+      });
+      await tags.getByLabel("Tag name", { exact: true }).fill("staging");
+      await tags
+        .getByRole("button", { name: "Assign tag", exact: true })
+        .click();
+      await expect(page.getByRole("dialog")).toHaveCount(0);
+      const source = studioPromptSource({
+        apiUrl,
+        apiKey: process.env.KORTYX_TELEMETRY_API_KEY!,
+        tag: "staging",
+      });
+      expect(
+        (await source.resolve([key], { environment: "production" })).versions[
+          key
+        ]?.version,
+      ).toBe(2);
+      const makeLive = async (version: number, rollback: boolean) => {
+        await versionMenu(version);
+        await page
+          .getByRole("menuitem", { name: "Make this live", exact: true })
+          .click();
+        const modal = page.getByRole("dialog", {
+          name: rollback ? "Roll back version" : "Promote version",
+          exact: true,
+        });
+        await expect(modal).toBeVisible();
+        await expect(modal.locator("[data-detail-inspector]")).toHaveCount(0);
+        await expect(
+          modal.getByText("Destination environment", { exact: true }),
+        ).toHaveCount(0);
+        await modal
+          .getByRole("checkbox", {
+            name: "Request an audited policy exception",
+          })
+          .check();
+        await modal
+          .getByLabel("Exception reason", { exact: true })
+          .fill("Disposable end-to-end release verification");
+        await modal
+          .getByRole("button", {
+            name: `${rollback ? "Roll back to" : "Promote"} v${version}`,
+            exact: true,
+          })
+          .click();
+        await page
+          .getByRole("dialog", {
+            name: rollback ? "Roll back prompt?" : "Promote prompt?",
+            exact: true,
+          })
+          .getByRole("button", {
+            name: rollback ? "Confirm rollback" : "Confirm promotion",
+            exact: true,
+          })
+          .click();
+        await expect(page.getByRole("dialog")).toHaveCount(0);
+      };
+      await makeLive(2, false);
+      await makeLive(1, true);
+      const liveSource = studioPromptSource({
+        apiUrl,
+        apiKey: process.env.KORTYX_TELEMETRY_API_KEY!,
+      });
+      expect(
+        (await liveSource.resolve([key], { environment: "production" }))
+          .versions[key]?.version,
+      ).toBe(1);
+      expect(
+        (await source.resolve([key], { environment: "production" })).versions[
+          key
+        ]?.version,
+      ).toBe(2);
+      await versionMenu(2);
+      await page
+        .getByRole("menuitem", { name: "Manage tags", exact: true })
+        .click();
+      await tags
+        .getByRole("button", { name: "Remove tag staging", exact: true })
+        .click();
+      await page
+        .getByRole("dialog", { name: "Remove tag?", exact: true })
+        .getByRole("button", { name: "Remove tag", exact: true })
+        .click();
+      await expect(page.getByRole("dialog")).toHaveCount(0);
+      await expect(
+        source.resolve([key], { environment: "production" }),
+      ).rejects.toMatchObject({ status: 404 });
+      expect(
+        (await liveSource.resolve([key], { environment: "production" }))
+          .versions[key]?.version,
+      ).toBe(1);
+    } finally {
+      const sql = postgres(process.env.DATABASE_URL!, { max: 1 });
+      try {
+        await sql`delete from prompt_assets where key=${key}`;
+      } finally {
+        await sql.end();
+      }
+    }
   });
 });

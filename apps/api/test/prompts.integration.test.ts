@@ -74,7 +74,6 @@ describe.skipIf(!url)("prompt serving authorization", () => {
         action: "promote",
         id: created.id as string,
         version: 1,
-        environment: "production",
         expectedRevision: 0,
         rollback: false,
         exceptionReason: "Disposable bootstrap assignment",

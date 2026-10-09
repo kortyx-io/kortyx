@@ -28,7 +28,7 @@ type Options = ConnectionOptions & {
   category?: string;
   note?: string;
   version?: number;
-  environment?: string;
+  tag?: string;
   expectedRevision?: number;
   idempotencyKey?: string;
   from?: string;
@@ -301,20 +301,65 @@ export function registerStudioPromptCommands(
       options,
     );
   });
+  for (const remove of [false, true])
+    common(
+      root
+        .command(`${remove ? "untag" : "tag"} <key> <tag>`)
+        .description(
+          remove
+            ? "Remove a manually assigned tag; live is reserved."
+            : "Assign a tag to an exact version without promoting it; live is reserved.",
+        )
+        .option(
+          "--version <number>",
+          "Exact version (required when assigning).",
+          positive,
+        )
+        .requiredOption(
+          "--expected-revision <number>",
+          "Current tag revision; 0 for a new tag.",
+          Number,
+        ),
+    ).action(async (key: string, tag: string, options: Options) => {
+      if (!remove && !options.version)
+        throw new Error("--version is required when assigning a tag.");
+      const { client } = await clientFor(options);
+      const detail = await client.get(key);
+      print(
+        await client.mutate(
+          remove
+            ? {
+                action: "tag-remove",
+                id: detail.asset.id,
+                tag,
+                expectedRevision: options.expectedRevision!,
+              }
+            : {
+                action: "tag-set",
+                id: detail.asset.id,
+                tag,
+                version: options.version!,
+                expectedRevision: options.expectedRevision!,
+              },
+        ),
+        options,
+      );
+    });
   for (const rollback of [false, true])
     common(
       root
         .command(`${rollback ? "rollback" : "promote"} <key>`)
-        .description("Assign an exact version after destination policy checks.")
+        .description(
+          "Make an exact version live after promotion policy checks.",
+        )
         .requiredOption(
           "--version <number>",
           "Exact immutable version.",
           positive,
         )
-        .requiredOption("--environment <name>", "Destination environment.")
         .requiredOption(
           "--expected-revision <number>",
-          "Current assignment revision; 0 if unassigned.",
+          "Current live tag revision; 0 if not yet promoted.",
           Number,
         )
         .option("--exception-reason <text>", "Audited policy exception."),
@@ -327,7 +372,6 @@ export function registerStudioPromptCommands(
             action: "promote",
             id: detail.asset.id,
             version: options.version!,
-            environment: options.environment!,
             expectedRevision: options.expectedRevision!,
             rollback,
             ...(options.exceptionReason

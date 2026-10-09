@@ -9,9 +9,9 @@ export function PromptWorkspace({ children }: { children: ReactNode }) {
     !detailSurface.isMobile;
   return (
     <div
-      className={`min-h-0 flex-1 transition-[padding] duration-300 ease-in-out ${split ? "lg:pr-[30rem]" : ""}`}
+      className={`min-h-0 min-w-0 flex-1 transition-[padding] duration-300 ease-in-out ${split ? "lg:pr-[30rem]" : ""}`}
     >
-      <div className="@container/prompt-detail flex h-full min-h-0 flex-col">
+      <div className="@container/prompt-detail flex h-full min-h-0 min-w-0 flex-col">
         {children}
       </div>
     </div>

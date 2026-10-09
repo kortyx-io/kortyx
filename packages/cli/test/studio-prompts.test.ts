@@ -252,8 +252,6 @@ describe("Studio prompt CLI", () => {
         "classify",
         "--version",
         "1",
-        "--environment",
-        "production",
         "--expected-revision",
         "0",
       ]);
@@ -262,14 +260,22 @@ describe("Studio prompt CLI", () => {
         "classify",
         "--version",
         "1",
-        "--environment",
-        "production",
         "--expected-revision",
         "1",
         "--exception-reason",
         "Audited bootstrap",
       ]);
     }
+    await execute([
+      "tag",
+      "classify",
+      "staging",
+      "--version",
+      "1",
+      "--expected-revision",
+      "0",
+    ]);
+    await execute(["untag", "classify", "staging", "--expected-revision", "1"]);
     for (const action of ["archive", "restore"])
       await execute([action, "classify", "--expected-revision", "1"]);
     await execute([

@@ -104,6 +104,12 @@ const serve = createRoute({
             .object({
               schemaVersion: z.literal(1),
               environment: z.string().min(1).max(128),
+              tag: z
+                .string()
+                .min(1)
+                .max(64)
+                .regex(/^[a-z0-9][a-z0-9_-]*$/)
+                .default("live"),
               ids: z
                 .array(PromptKeySchema)
                 .max(100)
@@ -310,6 +316,7 @@ export function registerPromptRoutes(
       resolvePrompts(db, principal, {
         ids: body.ids,
         environment: body.environment,
+        tag: body.tag,
         ...(body.versions ? { versions: body.versions } : {}),
       }),
     );
@@ -341,11 +348,6 @@ export function registerPromptRoutes(
     return c.json(
       {
         ...data,
-        environments: principal.environment
-          ? data.environments.filter(
-              (environment) => environment === principal.environment,
-            )
-          : data.environments,
         permissions: { edit, promote, review, settings },
       },
       200,
@@ -419,10 +421,6 @@ export function registerPromptRoutes(
             ? "prompt:settings"
             : "studio:write",
     );
-    if ("environment" in body)
-      requirePrincipalEnvironment(principal, [body.environment]);
-    if (body.action === "policy")
-      requirePrincipalEnvironment(principal, [body.policy.environment]);
     const suiteRevisions: Record<string, string> = {};
     if (body.action === "promote") {
       const available = (
@@ -431,7 +429,8 @@ export function registerPromptRoutes(
         (target) =>
           target.organizationId === principal.organizationId &&
           target.projectId === principal.projectId &&
-          target.environment === body.environment,
+          (!principal.environment ||
+            target.environment === principal.environment),
       );
       await Promise.all(
         available.map(async (target) => {

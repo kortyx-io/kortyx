@@ -35,7 +35,7 @@ const prompts = createPrompts({
   source: studioPromptSource({
     apiUrl: process.env.KORTYX_API_URL!,
     apiKey: process.env.KORTYX_PROMPTS_API_KEY!,
-    environment: "production",
+    tag: "live", // default; use an optional tag such as "staging" if desired
     // projectId: "...", // optional explicit cloud project
   }),
 });
@@ -51,6 +51,17 @@ const result = await useReason({
   temperature: prompt.config.temperature,
 });
 ```
+
+The source defaults to the promoted `live` version of each registered prompt.
+Set `tag: "staging"` (or another manually assigned tag) to implement your own
+release workflow. Tags do not depend on deployment environment names. Every
+registered prompt must have the requested tag; a missing tag fails instead of
+silently falling back to live. Saving versions does not move live, and promotion
+or rollback does not change optional tags.
+
+If your serving key is scoped to an application environment, supply the matching
+`environment`/`environmentId` as authentication and execution context. This scope
+is separate from the tag that selects prompt versions.
 
 A system-user version contains exactly one system message followed by one user
 message. `useReason({ prompt })` preserves both. With `format: "chat"`, it preserves
@@ -77,7 +88,7 @@ Serving defaults to fail closed. `fallback: "last-known-good"` on `createPrompts
 allows a previously verified snapshot during transient failures, bounded by
 `maxStaleMs` (default five minutes). Optional `cache` implements asynchronous
 `get(key)`/`set(key, snapshot)` for durable storage. Keys include API source,
-credential identity/project, and environment. Authorization, contract, hash, and
+credential identity/project, execution environment, and selected tag. Authorization, contract, hash, and
 dependency failures do not silently fall back. Serving requests have bounded
 timeouts and retries. Keep serving credentials server-side with `prompt:serve`.
 

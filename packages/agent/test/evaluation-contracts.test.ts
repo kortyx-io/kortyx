@@ -51,7 +51,7 @@ describe("grouped evaluation request contract", () => {
   });
   it("accepts Studio-only prompt selections and rejects malformed overrides", () => {
     for (const promptSelection of [
-      { type: "production" },
+      { type: "live" },
       { type: "single", id: "intent", version: 2 },
       { type: "group", groupId: "8b12e125-f3a2-48ce-a4a9-1d74283cd91b" },
     ])

@@ -1102,7 +1102,7 @@ export const promptAssignments = pgTable(
     id: uuid("id").primaryKey().defaultRandom(),
     ...promptScopeColumns(),
     promptId: uuid("prompt_id").notNull(),
-    environment: text("environment").notNull(),
+    tag: text("tag").notNull(),
     version: integer("version").notNull(),
     revision: integer("revision").notNull().default(1),
     updatedAt: timestampWithTimezone("updated_at").notNull().defaultNow(),
@@ -1123,11 +1123,11 @@ export const promptAssignments = pgTable(
       ],
       name: "prompt_assignments_version_fk",
     }).onDelete("cascade"),
-    uniqueIndex("prompt_assignments_prompt_env_unique").on(
+    uniqueIndex("prompt_assignments_prompt_tag_unique").on(
       table.organizationId,
       table.projectId,
       table.promptId,
-      table.environment,
+      table.tag,
     ),
   ],
 );
@@ -1162,7 +1162,6 @@ export const promptPolicies = pgTable(
   {
     id: uuid("id").primaryKey().defaultRandom(),
     ...promptScopeColumns(),
-    environment: text("environment").notNull(),
     revision: integer("revision").notNull().default(1),
     requireTest: boolean("require_test").notNull().default(true),
     requiredSuites: jsonb("required_suites")
@@ -1178,10 +1177,9 @@ export const promptPolicies = pgTable(
       foreignColumns: [projects.organizationId, projects.id],
       name: "prompt_policies_project_fk",
     }).onDelete("cascade"),
-    uniqueIndex("prompt_policies_env_unique").on(
+    uniqueIndex("prompt_policies_project_unique").on(
       table.organizationId,
       table.projectId,
-      table.environment,
     ),
   ],
 );
@@ -1193,7 +1191,6 @@ export const promptReviews = pgTable(
     promptId: uuid("prompt_id").notNull(),
     version: integer("version").notNull(),
     hash: text("hash").notNull(),
-    environment: text("environment").notNull(),
     reviewer: text("reviewer").notNull(),
     note: text("note").notNull(),
     createdAt: timestampWithTimezone("created_at").notNull().defaultNow(),
@@ -1219,7 +1216,6 @@ export const promptReviews = pgTable(
       table.projectId,
       table.promptId,
       table.version,
-      table.environment,
       table.reviewer,
     ),
   ],

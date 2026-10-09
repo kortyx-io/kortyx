@@ -1,6 +1,7 @@
 import {
   PromptContentSchema,
   PromptKeySchema,
+  PromptTagSchema,
   PromptVersionSchema,
 } from "@kortyx/prompts";
 import { z } from "zod";
@@ -32,7 +33,7 @@ export const PromptGroupSchema = z.object({
   updatedAt: z.string(),
 });
 export const PromptAssignmentSchema = z.object({
-  environment: name,
+  tag: PromptTagSchema,
   version,
   revision,
   updatedAt: z.string(),
@@ -52,7 +53,6 @@ export const PromptLibrarySchema = z.object({
   schemaVersion: z.literal(1),
   assets: z.array(PromptAssetSchema),
   categories: z.array(PromptCategorySchema),
-  environments: z.array(z.string()).optional(),
   groups: z.array(PromptGroupSchema),
   totalCount: z.number().int().nonnegative(),
   nextCursor: z.string().nullable(),
@@ -79,7 +79,6 @@ export const PromptStoredVersionSchema = PromptVersionSchema.extend({
     .nullable(),
 });
 export const PromptPolicySchema = z.object({
-  environment: name,
   revision,
   requireTest: z.boolean(),
   requiredSuites: z.array(z.object({ targetId: name, suiteId: name })).max(100),
@@ -144,7 +143,6 @@ export const PromptDetailSchema = z.object({
       z.object({
         version,
         hash: z.string(),
-        environment: z.string(),
         independent: z.boolean(),
         reviewer: z.string(),
         note: z.string(),
@@ -154,6 +152,30 @@ export const PromptDetailSchema = z.object({
     .optional(),
 });
 export const PromptMutationSchema = z.discriminatedUnion("action", [
+  z
+    .object({
+      action: z.literal("tag-set"),
+      id: z.uuid(),
+      tag: PromptTagSchema.refine(
+        (tag) => tag !== "live",
+        "Use promotion to update live.",
+      ),
+      version,
+      expectedRevision: revision,
+    })
+    .strict(),
+  z
+    .object({
+      action: z.literal("tag-remove"),
+      id: z.uuid(),
+      tag: PromptTagSchema.refine(
+        (tag) => tag !== "live",
+        "The live tag cannot be removed manually.",
+      ),
+      expectedRevision: revision,
+    })
+    .strict(),
+
   z
     .object({
       action: z.literal("bulk-update"),
@@ -275,7 +297,6 @@ export const PromptMutationSchema = z.discriminatedUnion("action", [
       action: z.literal("promote"),
       id: z.uuid(),
       version,
-      environment: name,
       expectedRevision: revision,
       exceptionReason: z.string().trim().min(10).max(2000).optional(),
       rollback: z.boolean().default(false),
@@ -286,7 +307,6 @@ export const PromptMutationSchema = z.discriminatedUnion("action", [
       action: z.literal("review"),
       id: z.uuid(),
       version,
-      environment: name,
       note: z.string().trim().min(1).max(2000),
     })
     .strict(),
@@ -302,7 +322,7 @@ export type PromptGroup = z.infer<typeof PromptGroupSchema>;
 export type PromptEvidence = z.infer<typeof PromptEvidenceSchema>;
 
 export const PromptSelectionSchema = z.discriminatedUnion("type", [
-  z.object({ type: z.literal("production") }).strict(),
+  z.object({ type: z.literal("live") }).strict(),
   z
     .object({
       type: z.literal("single"),

@@ -479,7 +479,7 @@ npx kortyx studio prompts test canvas/classify-intent --connection staging \
 ```
 
 Use `list` and `versions` with `--cursor` to continue through large libraries.
-`diff`, `promote`, `rollback`, `archive`, `restore`, and `action` support reviewed
+`diff`, `promote`, `rollback`, `tag`, `untag`, `archive`, `restore`, and `action` support reviewed
 prompt lifecycle changes. Run `kortyx studio prompts --help` for all commands.
 
 Migration works between independent OSS deployments and cloud project
@@ -496,6 +496,19 @@ Apply verifies every resulting immutable hash by reading it back from the
 destination. Reapplying the same plan is safe. Conflicts require explicit
 `--append` or `--rename old/key=new/key`; changed destination heads require a
 new plan. Migration preserves exact dependencies and source provenance, and
-leaves production assignments unchanged. Evaluate and promote in the destination
+leaves live and optional tags unchanged. Evaluate and promote in the destination
 before serving migrated content. Credentials, traces, reviews, and evaluation
 results are never included in bundles.
+
+Promotion and rollback update the reserved `live` tag. Optional tags are manual
+version aliases, independent of promotion and deployment environments:
+
+```bash
+npx kortyx studio prompts promote canvas/classify-intent --connection staging --version 2 --expected-revision 0
+npx kortyx studio prompts tag canvas/classify-intent development --connection staging --version 3 --expected-revision 0
+npx kortyx studio prompts untag canvas/classify-intent development --connection staging --expected-revision 1
+```
+
+Read current tag revisions with `get`; use 0 only for a new tag. Saving a candidate
+does not move live. The SDK defaults to live and supports `studioPromptSource({
+..., tag: "development" })` to request a manual tag.

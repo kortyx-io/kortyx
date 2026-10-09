@@ -286,7 +286,7 @@ export function PromptAssetActionDialog({
           <p className="text-sm text-muted-foreground">
             {action === "archive"
               ? "This prompt will leave the active library. Its versions, runs and evaluations are preserved, and you can restore it later."
-              : "This prompt will return to the active library. Its versions are preserved. Restoring does not assign a version to an environment."}
+              : "This prompt will return to the active library. Its versions are preserved. Restoring does not make a version live or assign tags."}
           </p>
         )}
       </div>

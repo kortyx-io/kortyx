@@ -265,6 +265,35 @@ describe("versioned prompt contracts", () => {
       execution.pin("classify", 1, await snapshot()),
     ).rejects.toMatchObject({ code: "PROMPT_EVAL_PIN_CONFLICT" });
   });
+  it("serves live by default and scopes custom tag caches independently", async () => {
+    const cacheKeys: string[] = [];
+    for (const tag of [undefined, "staging"]) {
+      const source = studioPromptSource({
+        apiUrl: "https://studio.example",
+        apiKey: "ktyx_test_tags_same-key",
+        environment: "staging",
+        ...(tag ? { tag } : {}),
+        fetch: async (_url, init) => {
+          const body = JSON.parse(String(init?.body));
+          expect(body.tag).toBe(tag ?? "live");
+          expect(body.environment).toBe("staging");
+          return Response.json({ ...(await snapshot()), tag: body.tag });
+        },
+      });
+      const manager = createPrompts({
+        definitions: [reference],
+        source,
+        cache: {
+          get: async () => undefined,
+          set: async (key) => {
+            cacheKeys.push(key);
+          },
+        },
+      });
+      expect((await manager.start().snapshot()).tag).toBe(tag ?? "live");
+    }
+    expect(new Set(cacheKeys).size).toBe(2);
+  });
   it("bounds stale fallback and refuses fallback after authorization revocation", async () => {
     let mode: "ok" | "offline" | "revoked" = "ok";
     const source = studioPromptSource({

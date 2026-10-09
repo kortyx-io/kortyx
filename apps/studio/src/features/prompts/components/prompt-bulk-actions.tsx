@@ -308,7 +308,7 @@ export function PromptBulkActions({
           ) : (
             <p className="text-xs text-muted-foreground">
               {action === "restore"
-                ? "These prompts will return to the active library. No versions will be assigned to an environment."
+                ? "These prompts will return to the active library. Live and optional tags stay unchanged."
                 : "These prompts will leave the active library and can be restored later."}
             </p>
           )}

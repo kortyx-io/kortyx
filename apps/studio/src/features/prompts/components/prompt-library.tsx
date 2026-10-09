@@ -317,25 +317,23 @@ export function PromptLibraryView({
       ),
     },
     {
-      key: "production",
-      label: "Production",
+      key: "live",
+      label: "Live",
       defaultWidth: 125,
       render: (asset) => {
-        const live = asset.assignments.find(
-          (item) => item.environment === "production",
-        );
+        const live = asset.assignments.find((item) => item.tag === "live");
         return (
           <span
             className={`text-xs ${live ? "text-emerald-700 dark:text-emerald-400" : "text-muted-foreground"}`}
           >
-            {live ? `v${live.version}` : "Unassigned"}
+            {live ? `v${live.version}` : "Not live"}
           </span>
         );
       },
     },
     {
       key: "latest",
-      label: "Latest version",
+      label: "Newest version",
       defaultWidth: 110,
       render: (asset) => (
         <span className="font-mono text-xs">v{asset.latestVersion}</span>

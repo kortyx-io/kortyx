@@ -159,7 +159,7 @@ export function PromptImport({
                 Source: {bundle?.origin.apiUrl} · {bundle?.origin.projectId}
               </p>
               <p className="text-muted-foreground">
-                Production assignments stay unchanged. Plan expires{" "}
+                Live and optional tags stay unchanged. Plan expires{" "}
                 {new Date(plan.expiresAt).toLocaleString()}.
               </p>
             </div>

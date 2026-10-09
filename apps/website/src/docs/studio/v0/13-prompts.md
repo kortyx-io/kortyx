@@ -9,13 +9,13 @@ section: "guides"
 # Version and test prompts
 
 Open **Prompt Management → Prompts** to create prompts. Each prompt has a stable key, a display
-name, immutable versions, a shared draft, and separate environment assignments.
+name, immutable versions, a shared draft, and a promoted `live` version, and optional version tags.
 Renaming or moving a prompt never changes the key used by your application.
 
 Each library row has an actions menu at the right edge, including rename, move,
 code helper, promotion policy and archive/restore. Rename, move and code helper
 open in modals. Archive and restore require confirmation, including bulk actions;
-restoring preserves versions without assigning them to an environment.
+restoring preserves versions without making them live or assigning tags.
 
 The editor shows system and user messages directly. **Add message** adds another
 message with an explicit role for conversation examples. Messages are sent in the
@@ -69,7 +69,7 @@ current head and requires a change note.
 **Cancel** returns to the saved version. If you changed any fields, confirm
 **Discard changes** to remove the shared autosaved draft, or **Keep editing** to
 continue. Cancelling an unchanged draft closes the editor immediately. Discarding
-does not create a version or change environment assignments, and cannot erase a
+does not create a version or change live or optional tags, and cannot erase a
 newer draft saved by another editor.
 
 Messages, configuration, format, contracts, and exact dependencies contribute to
@@ -95,7 +95,7 @@ Both preserve prompts, versions, and saved eval evidence.
 
 A group does not own or save a suite. **Run suite** opens the normal eval drawer,
 where you choose an application, suite, individual test checkboxes, judge, and
-attempts. The optional prompt selection chooses environment assignments, one
+attempts. The optional prompt selection chooses live versions, one
 candidate version, or a test group for this launch. You can test a single candidate
 without creating a group.
 
@@ -122,21 +122,32 @@ on wide surfaces and a dropdown in narrow drawers or mobile layouts.
 Multiple calls in one execution produce one run row; suites launched together
 produce one evaluation row, retaining their prompt-usage evidence.
 
-Promotion and rollback require confirmation of the exact version and destination.
-Policy changes also show their requirements for confirmation before applying.
+**Make this live** is the first action in each version menu. It opens a modal
+labelled **Promote version** for a newer version or **Roll back version** for an
+older version, relative to the current live version. Review the exact version,
+readiness checks, and confirmation before applying. No environment selector is
+needed: live belongs to this prompt in this project.
+
+Saving a candidate never moves live. Rolling back moves live to an older immutable
+version; **Newest version** still shows the most recently saved version. New
+executions resolve live by default, while executions holding a snapshot retain it.
+
+**Manage tags** adds or removes optional version tags such as `staging` or
+`development`. Each tag points to one version of a prompt. Moving or removing an
+existing tag requires confirmation because applications may request it. Tags do
+not promote a version, and promotion never moves optional tags. The reserved
+`live` tag can only move through promotion or rollback. Tag names use lowercase
+letters, numbers, hyphens and underscores, up to 64 characters. Tags are scoped
+to the project and do not create application environments or copy prompts between
+projects or deployments.
 
 Promotion policies can require a passing full suite, specific application/suite
-selections, and independent human reviews. Evidence must come from the destination
-environment and its companion versions must still match that environment's
-assignments. API-key reviews are audited but do not count as independent human
+selections, and independent human reviews. Evidence must use the exact version
+and its companion versions must still match current live versions. Policies apply
+to this project. API-key reviews are audited but do not count as independent human
 reviews. When allowed by policy, an explicit exception requires a reason and is
-recorded in Activity. Bootstrap an initial assignment through that reviewed
-exception path, or first test a candidate in the destination environment.
-
-**Promote** assigns an exact version using the current assignment revision.
-**Rollback** assigns an earlier immutable version through the same policy checks.
-The assignment changes immediately; executions already holding a snapshot retain
-it, and new executions resolve the new assignment. The Runs tab shows adoption.
+recorded in Activity. Test a candidate before the first promotion, or use that
+reviewed exception path to bootstrap live. Policy changes require confirmation.
 
 ## Connect an application
 
@@ -161,11 +172,11 @@ prompts remain protected from archive.
 conflict handling, destination keys, category paths, and optional test groups,
 then review the source-to-destination version mapping and hashes. Apply saves
 candidate versions and reads each hash back. Save the plan to retry through the
-CLI after a lost response. Import never changes environment assignments.
+CLI after a lost response. Import never changes live or optional tags.
 Bundles support up to 200 immutable versions and a 20 MiB transfer request;
 individual prompt mutations are limited to 1 MiB.
 
-Promotion checks the current application suite revision as well as destination
-environment, exact prompt usage, companion versions, required suites, and reviews.
+Promotion checks the current application suite revision as well as
+exact prompt usage, companion versions, required suites, and reviews.
 A previous pass from an older suite definition is historical evidence and does
 not satisfy the current promotion gate.

@@ -23,11 +23,9 @@ export const evalSetupParsers = {
   ),
   launchExpandedSuites: parseAsJson(z.array(z.string())),
   launchAttempts: parseAsString.withDefault("1"),
-  launchPrompts: parseAsStringLiteral([
-    "production",
-    "single",
-    "group",
-  ]).withDefault("production"),
+  launchPrompts: parseAsStringLiteral(["live", "single", "group"]).withDefault(
+    "live",
+  ),
   launchPrompt: parseAsString.withDefault(""),
   launchVersion: parseAsString.withDefault(""),
   launchGroup: parseAsString.withDefault(""),

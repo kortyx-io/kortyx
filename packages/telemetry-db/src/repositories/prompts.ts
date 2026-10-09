@@ -17,7 +17,6 @@ import type { AnyPgColumn } from "drizzle-orm/pg-core";
 import type { TelemetryDb } from "../client";
 import {
   evalRuns,
-  projectEnvironments,
   projects,
   promptActivity,
   promptAssets,
@@ -72,7 +71,7 @@ const assetView = (
   assignments: assignments
     .filter((item) => item.promptId === asset.id)
     .map((item) => ({
-      environment: item.environment,
+      tag: item.tag,
       version: item.version,
       revision: item.revision,
       updatedAt: item.updatedAt.toISOString(),
@@ -149,13 +148,6 @@ export async function listPrompts(
     : [];
   return {
     schemaVersion: 1 as const,
-    environments: (
-      await db
-        .select({ name: projectEnvironments.name })
-        .from(projectEnvironments)
-        .where(where(projectEnvironments, scope))
-        .orderBy(asc(projectEnvironments.name))
-    ).map((item) => item.name),
     assets: assets.map((asset) => assetView(asset, assignments)),
     categories: categories.map(({ id, name, parentId, revision }) => ({
       id,
@@ -251,6 +243,7 @@ export async function resolvePrompts(
   options: {
     ids: string[];
     environment: string;
+    tag?: string;
     versions?: Record<string, number>;
     selection?: PromptSelection;
     onGroupName?: (name: string) => void;
@@ -334,7 +327,7 @@ export async function resolvePrompts(
             and(
               where(promptAssignments, scope),
               eq(promptAssignments.promptId, asset.id),
-              eq(promptAssignments.environment, options.environment),
+              eq(promptAssignments.tag, options.tag ?? "live"),
             ),
           )
           .limit(1);
@@ -343,7 +336,7 @@ export async function resolvePrompts(
       if (!selected)
         throw new PromptError(
           "PROMPT_NOT_ASSIGNED",
-          `No ${options.environment} assignment for ${key}.`,
+          `No ${options.tag ?? "live"} tag for ${key}. Promote a version or assign this tag first.`,
           404,
         );
       const version = await findVersion(tx, scope, asset.id, selected);
@@ -366,6 +359,7 @@ export async function resolvePrompts(
     return verifyPromptSnapshot({
       schemaVersion: 1,
       environment: options.environment,
+      tag: options.tag ?? "live",
       revision: await promptHash({
         format: "chat",
         messages: [
@@ -469,7 +463,6 @@ export async function getPrompt(
     reviews: reviews.map((review) => ({
       version: review.version,
       hash: review.hash,
-      environment: review.environment,
       reviewer: review.reviewer,
       note: review.note,
       createdAt: review.createdAt.toISOString(),
@@ -498,14 +491,12 @@ export async function getPrompt(
     })),
     policies: policies.map(
       ({
-        environment,
         revision,
         requireTest,
         requiredSuites,
         requiredReviews,
         allowException,
       }) => ({
-        environment,
         revision,
         requireTest,
         requiredSuites,
@@ -581,7 +572,7 @@ export async function promptEvidence(
   const assignments = await db
     .select({
       key: promptAssets.key,
-      environment: promptAssignments.environment,
+      tag: promptAssignments.tag,
       version: promptAssignments.version,
     })
     .from(promptAssignments)
@@ -638,7 +629,7 @@ export async function promptEvidence(
                     assignments.some(
                       (assignment) =>
                         assignment.key === companion.key &&
-                        assignment.environment === run.environment &&
+                        assignment.tag === "live" &&
                         assignment.version === companion.version,
                     ),
                   )
@@ -748,11 +739,6 @@ export async function mutatePrompt(
 ): Promise<Record<string, unknown>> {
   const input = PromptMutationSchema.parse(raw);
   if ("content" in input) validatePromptContent(input.content);
-  if ("environment" in input)
-    await ensureProjectEnvironmentAllowed(db, {
-      ...scope,
-      environment: input.environment,
-    });
   return db.transaction(async (tx) => {
     await lockProject(tx, scope, "update");
     if (input.action === "bulk-update") {
@@ -1231,6 +1217,59 @@ export async function mutatePrompt(
       await audit(null, { groupId: input.id, groupName: group.name });
       return { id: input.id };
     }
+    if (input.action === "tag-set" || input.action === "tag-remove") {
+      const asset = await findAsset(tx, scope, input.id);
+      if (asset.archived)
+        throw new PromptError(
+          "PROMPT_ARCHIVED",
+          "Restore this prompt before editing tags.",
+          409,
+        );
+      const criteria = and(
+        where(promptAssignments, scope),
+        eq(promptAssignments.promptId, asset.id),
+        eq(promptAssignments.tag, input.tag),
+      );
+      const [existing] = await tx
+        .select()
+        .from(promptAssignments)
+        .where(criteria)
+        .limit(1);
+      checkRevision(existing?.revision ?? 0, input.expectedRevision);
+      if (input.action === "tag-remove") {
+        await tx.delete(promptAssignments).where(criteria);
+      } else {
+        await findVersion(tx, scope, asset.id, input.version);
+        await tx
+          .insert(promptAssignments)
+          .values({
+            ...scope,
+            promptId: asset.id,
+            tag: input.tag,
+            version: input.version,
+            revision: (existing?.revision ?? 0) + 1,
+          })
+          .onConflictDoUpdate({
+            target: [
+              promptAssignments.organizationId,
+              promptAssignments.projectId,
+              promptAssignments.promptId,
+              promptAssignments.tag,
+            ],
+            set: {
+              version: input.version,
+              revision: (existing?.revision ?? 0) + 1,
+              updatedAt: new Date(),
+            },
+          });
+      }
+      await audit(asset.id, {
+        tag: input.tag,
+        previousVersion: existing?.version,
+        ...(input.action === "tag-set" ? { version: input.version } : {}),
+      });
+      return { id: asset.id };
+    }
     if (input.action === "review") {
       const asset = await findAsset(tx, scope, input.id),
         version = await findVersion(tx, scope, asset.id, input.version);
@@ -1241,7 +1280,6 @@ export async function mutatePrompt(
           promptId: asset.id,
           version: input.version,
           hash: version.hash,
-          environment: input.environment,
           reviewer: actor,
           note: input.note,
         })
@@ -1251,32 +1289,21 @@ export async function mutatePrompt(
             promptReviews.projectId,
             promptReviews.promptId,
             promptReviews.version,
-            promptReviews.environment,
             promptReviews.reviewer,
           ],
           set: { note: input.note, createdAt: new Date() },
         });
       await audit(asset.id, {
         version: input.version,
-        environment: input.environment,
         note: input.note,
       });
       return { id: asset.id };
     }
     if (input.action === "policy") {
-      await ensureProjectEnvironmentAllowed(tx, {
-        ...scope,
-        environment: input.policy.environment,
-      });
       const [policy] = await tx
         .select()
         .from(promptPolicies)
-        .where(
-          and(
-            where(promptPolicies, scope),
-            eq(promptPolicies.environment, input.policy.environment),
-          ),
-        )
+        .where(and(where(promptPolicies, scope)))
         .limit(1);
       checkRevision(policy?.revision ?? 0, input.policy.revision);
       await tx
@@ -1287,15 +1314,11 @@ export async function mutatePrompt(
           revision: (policy?.revision ?? 0) + 1,
         })
         .onConflictDoUpdate({
-          target: [
-            promptPolicies.organizationId,
-            promptPolicies.projectId,
-            promptPolicies.environment,
-          ],
+          target: [promptPolicies.organizationId, promptPolicies.projectId],
           set: { ...input.policy, revision: (policy?.revision ?? 0) + 1 },
         });
       await audit(null, { policy: input.policy });
-      return { environment: input.policy.environment };
+      return { revision: (policy?.revision ?? 0) + 1 };
     }
     const asset = await findAsset(tx, scope, input.id),
       version = await findVersion(tx, scope, asset.id, input.version);
@@ -1312,7 +1335,7 @@ export async function mutatePrompt(
         and(
           where(promptAssignments, scope),
           eq(promptAssignments.promptId, asset.id),
-          eq(promptAssignments.environment, input.environment),
+          eq(promptAssignments.tag, "live"),
         ),
       )
       .limit(1);
@@ -1320,12 +1343,7 @@ export async function mutatePrompt(
     const [savedPolicy] = await tx
       .select()
       .from(promptPolicies)
-      .where(
-        and(
-          where(promptPolicies, scope),
-          eq(promptPolicies.environment, input.environment),
-        ),
-      )
+      .where(and(where(promptPolicies, scope)))
       .limit(1);
     const policy = savedPolicy ?? {
       requireTest: true,
@@ -1344,13 +1362,12 @@ export async function mutatePrompt(
         .where(
           and(
             where(promptAssignments, scope),
-            eq(promptAssignments.environment, input.environment),
+            eq(promptAssignments.tag, "live"),
           ),
         );
     const eligible = evidence.filter(
       (item) =>
         item.version === input.version &&
-        item.environment === input.environment &&
         item.status === "passed" &&
         item.fullSuite &&
         item.usage === "verified" &&
@@ -1375,14 +1392,11 @@ export async function mutatePrompt(
           eq(promptReviews.promptId, asset.id),
           eq(promptReviews.version, input.version),
           eq(promptReviews.hash, version.hash),
-          eq(promptReviews.environment, input.environment),
         ),
       );
     const failures = [
       ...(policy.requireTest && !eligible.length
-        ? [
-            "A complete passing destination evaluation with verified usage is required.",
-          ]
+        ? ["A complete passing evaluation with verified usage is required."]
         : []),
       ...policy.requiredSuites
         .filter(
@@ -1416,7 +1430,7 @@ export async function mutatePrompt(
       .values({
         ...scope,
         promptId: asset.id,
-        environment: input.environment,
+        tag: "live",
         version: input.version,
         revision,
       })
@@ -1425,14 +1439,14 @@ export async function mutatePrompt(
           promptAssignments.organizationId,
           promptAssignments.projectId,
           promptAssignments.promptId,
-          promptAssignments.environment,
+          promptAssignments.tag,
         ],
         set: { version: input.version, revision, updatedAt: new Date() },
       });
     await audit(asset.id, {
       version: input.version,
       previousVersion: assignment?.version,
-      environment: input.environment,
+      tag: "live",
       revision,
       rollback: input.rollback,
       exceptionReason: input.exceptionReason,

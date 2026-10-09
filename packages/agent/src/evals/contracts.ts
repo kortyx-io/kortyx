@@ -399,7 +399,7 @@ export const StudioEvalStartRequestSchema = EvalRemoteRunRequestSchema.omit({
 }).extend({
   promptSelection: z
     .discriminatedUnion("type", [
-      z.object({ type: z.literal("production") }).strict(),
+      z.object({ type: z.literal("live") }).strict(),
       z
         .object({
           type: z.literal("single"),

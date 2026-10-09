@@ -16,7 +16,7 @@ Run `pnpm --filter @kortyx/example-prompts start`. Register the server's
 binding the same project and environment. Use explicit local HTTP opt-in.
 
 The example exposes `intent-regression`, with support and sales cases and an app
-judge. Test the candidate from Studio before assigning it. Once assigned,
+judge. Test the candidate from Studio before making it live. Once promoted,
 `POST /api/chat` with `{ "message": "Help me reset my password" }` resolves the
 live prompt and sends generation identity to Studio. The example chat route is
 local demonstration code; production applications retain their own authentication.
@@ -25,3 +25,8 @@ By default the fixture provider returns deterministic labels to test the complet
 integration without paid credentials. To evaluate real model behavior, set
 `OPENROUTER_API_KEY`, `WORKFLOW_MODEL`, optional `ACCURATE_MODEL`, and
 `APP_JUDGE_MODEL`. Configuration aliases map to that registry in application code.
+
+The promoted `live` version is the default. Set `KORTYX_PROMPT_TAG=staging` to
+resolve a manually assigned staging tag instead. Tags are independent of the
+`KORTYX_ENVIRONMENT` used by telemetry and serving-key authorization. Saving a
+candidate or editing an optional tag never moves live.
