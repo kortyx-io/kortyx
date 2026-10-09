@@ -107,10 +107,16 @@ image build contexts even for older release candidates.
   existing versions, and retains provenance and the npm environment gate. The
   publication step receives the actual SHA recorded after checkout.
 - The release orchestrator calls Studio only when `apps/studio` changed and only
-  after npm registry verification. Manual dispatch remains available for recovery.
+  after npm registry verification. When Studio changes, an R2 read/write/delete
+  preflight gates tags and npm publication, so known-invalid storage credentials
+  cannot publish a newer SDK first. Standalone Studio releases repeat the preflight
+  before building images. Manual dispatch remains available for recovery.
 - Studio release tag/package/manifest agreement, main ancestry, immutable version
   checks, native amd64/arm64 smoke tests, credential rotation, persistence,
   backup/restore, external PostgreSQL, and updater ownership checks are retained.
+  Each architecture also generates an authenticated eval manifest with `evidence`
+  using the independently installed npm SDK and passes it through the API image's
+  discovery parser. This catches SDK/image contract drift before promotion.
 - Production Studio promotion and recovery share the `studio-production-auto`
   environment and its R2 credentials, with protected-branch restrictions and no
   reviewer approval or wait timer. Publication preparation exercises R2 access
@@ -125,6 +131,25 @@ image build contexts even for older release candidates.
   staging immediately. Release Please commits skip that standalone deployment;
   website releases rebuild the exact release commit, stage it, then promote its
   recorded digest to versioned and `latest` production tags.
+
+## Recovering a blocked Studio publication
+
+HTTP 401/403 from the R2 publisher is an authorization failure, not a flaky smoke
+check. Inspect the operation reported in the error and verify the bucket-scoped
+R2 S3 key pair in `studio-production-auto`, including token status, expiry, IP
+restrictions and account/bucket scope. Do not put the DNS administration token in
+these secrets. Validate replacement credentials with `publish.py --check-access`
+before storing them; never print credential values.
+
+After repairing access, rerun only failed jobs in the original release run. This
+reuses the tested image digests. If production images already exist but CDN
+publication did not finish, use `release-studio-recover.yml` with their recorded
+index digests. Do not rebuild and overwrite an existing production version. Verify
+both the public stable manifest and the GitHub release's published status.
+
+The preflight catches an existing storage outage before npm publishes, but npm,
+GHCR and R2 are separate services: a later outage can still leave a partial release
+requiring recovery. Do not treat npm success alone as completion of a Studio release.
 
 ## Local helper checks
 

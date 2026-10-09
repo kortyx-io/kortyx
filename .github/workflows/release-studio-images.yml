@@ -43,6 +43,7 @@ env:
 jobs:
   prepare:
     name: Validate release
+    environment: studio-production-auto
     runs-on: ubuntu-latest
     timeout-minutes: 5
     outputs:
@@ -72,6 +73,14 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           RELEASE_COMMIT: ${{ steps.version.outputs.commit }}
         run: bash ./.github/automation/.github/scripts/release/require-ci.sh
+      - name: Verify publication access before building images
+        uses: ./.github/automation/.github/actions/release/studio-update
+        with:
+          operation: prepare
+          account-id: ${{ vars.STUDIO_UPDATES_R2_ACCOUNT_ID }}
+          bucket: ${{ vars.STUDIO_UPDATES_R2_BUCKET }}
+          access-key-id: ${{ secrets.STUDIO_UPDATES_R2_ACCESS_KEY_ID }}
+          secret-access-key: ${{ secrets.STUDIO_UPDATES_R2_SECRET_ACCESS_KEY }}
       - name: Select published CLI installer version
         id: installer
         run: echo "version=$(node -p 'require(\"./packages/kortyx/package.json\").version')" >> "$GITHUB_OUTPUT"

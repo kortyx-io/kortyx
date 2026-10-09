@@ -71,9 +71,35 @@ jobs:
           RELEASE_COMMIT: ${{ inputs.release_commit || github.event.workflow_run.head_sha || github.sha }}
         run: node .github/scripts/release/describe-release.mjs
 
+  publication_preflight:
+    name: Verify Studio publication access before releasing packages
+    needs: prepare
+    if: needs.prepare.outputs.release == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    environment: studio-production-auto
+    steps:
+      - name: Checkout trusted workflow modules
+        if: contains(fromJSON(needs.prepare.outputs.paths), 'apps/studio')
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.workflow_sha }}
+          path: .github/automation
+          sparse-checkout: .github
+          persist-credentials: false
+      - name: Verify R2 publication access
+        if: contains(fromJSON(needs.prepare.outputs.paths), 'apps/studio')
+        uses: ./.github/automation/.github/actions/release/studio-update
+        with:
+          operation: prepare
+          account-id: ${{ vars.STUDIO_UPDATES_R2_ACCOUNT_ID }}
+          bucket: ${{ vars.STUDIO_UPDATES_R2_BUCKET }}
+          access-key-id: ${{ secrets.STUDIO_UPDATES_R2_ACCESS_KEY_ID }}
+          secret-access-key: ${{ secrets.STUDIO_UPDATES_R2_SECRET_ACCESS_KEY }}
+
   tags:
     name: Create GitHub releases and tags
-    needs: prepare
+    needs: [prepare, publication_preflight]
     if: needs.prepare.outputs.release == 'true'
     runs-on: ubuntu-latest
     permissions:

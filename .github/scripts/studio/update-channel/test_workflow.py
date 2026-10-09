@@ -21,6 +21,30 @@ class StudioReleaseWorkflowTests(unittest.TestCase):
         self.assertIn("platform: linux/arm64", workflow)
         self.assertIn('STUDIO_SMOKE_CLI="$cli" bash "$(dirname "$0")/smoke-upgrade.sh"', smoke.read_text())
 
+    def test_storage_preflight_blocks_tags_and_npm_before_studio_publication(self):
+        workflow = (WORKFLOW.parent / "npm-publish.yml").read_text()
+        preflight = workflow.split("  publication_preflight:\n", 1)[1].split("  tags:\n", 1)[0]
+        self.assertIn("environment: studio-production-auto", preflight)
+        self.assertIn("operation: prepare", preflight)
+        self.assertIn("needs.prepare.outputs.release == 'true'", preflight)
+        self.assertIn("contains(fromJSON(needs.prepare.outputs.paths), 'apps/studio')", preflight)
+        tags = workflow.split("  tags:\n", 1)[1].split("  publish:\n", 1)[0]
+        self.assertIn("needs: [prepare, publication_preflight]", tags)
+        publication = workflow.split("  publish:\n", 1)[1].split("  studio:\n", 1)[0]
+        self.assertIn("needs: [prepare, tags]", publication)
+
+    def test_standalone_image_release_checks_storage_before_builds(self):
+        prepare = WORKFLOW.read_text().split("  prepare:\n", 1)[1].split("  publish-api:\n", 1)[0]
+        self.assertIn("environment: studio-production-auto", prepare)
+        self.assertIn("operation: prepare", prepare)
+        self.assertIn("Verify publication access before building images", prepare)
+
+    def test_smoke_validates_external_sdk_manifest_in_release_image(self):
+        smoke = (WORKFLOW.parents[1] / "scripts/studio/smoke-install.sh").read_text()
+        self.assertIn('"kortyx@${KORTYX_VERSION}"', smoke)
+        self.assertIn('generate-eval-manifest.mjs" "$clean_dir"', smoke)
+        self.assertIn('"$api_ref" --filter @kortyx/api exec tsx /tmp/validate-eval-manifest.mjs', smoke)
+
     def test_update_publication_receives_deployment_strategy(self):
         workflow = WORKFLOW.read_text()
         publish_step = workflow.split(

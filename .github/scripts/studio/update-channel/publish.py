@@ -143,12 +143,22 @@ def failure_message(error):
     code = response.get("Error", {}).get("Code", "")
     safe_codes = {"AccessDenied", "InvalidAccessKeyId", "SignatureDoesNotMatch",
                   "NoSuchBucket", "NoSuchKey", "PreconditionFailed", "ConditionalRequestConflict",
-                  "InternalError", "ServiceUnavailable", "SlowDown", "ExpiredToken", "InvalidToken"}
+                  "InternalError", "ServiceUnavailable", "SlowDown", "ExpiredToken", "InvalidToken",
+                  "Unauthorized", "10000", "10002"}
     detail = f", code={code}" if code in safe_codes else ""
     http_status = status(error)
     if type(http_status) is int and 100 <= http_status <= 599:
         detail += f", HTTP={http_status}"
-    return f"Release publication failed ({type(error).__name__}{detail}). Check R2 access, existing manifests, and CDN configuration."
+    operation = getattr(error, "operation_name", "")
+    if operation in {"GetObject", "PutObject", "DeleteObject", "HeadBucket", "HeadObject"}:
+        detail += f", operation={operation}"
+    guidance = "Check R2 access, existing manifests, and CDN configuration."
+    if http_status in (401, 403):
+        guidance = ("R2 rejected the publisher credentials or permissions. Check the token's "
+                    "status, expiry, IP restrictions, account and bucket scope, and the two "
+                    "STUDIO_UPDATES_R2 secrets in the studio-production-auto environment. "
+                    "Rerunning unchanged credentials will not repair an authorization failure.")
+    return f"Release publication failed ({type(error).__name__}{detail}). {guidance}"
 
 
 def main():
