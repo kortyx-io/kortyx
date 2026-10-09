@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.34.0](https://github.com/kortyx-io/kortyx/compare/agent-v0.33.0...agent-v0.34.0) (2026-10-09)
+
+
+### Features
+
+* **evals:** raise concurrency limit to 20 ([#300](https://github.com/kortyx-io/kortyx/issues/300)) ([0ed3151](https://github.com/kortyx-io/kortyx/commit/0ed3151e2984551d84113091594a0b8f9267289a))
+
 ## [0.33.0](https://github.com/kortyx-io/kortyx/compare/agent-v0.32.0...agent-v0.33.0) (2026-10-08)
 
 

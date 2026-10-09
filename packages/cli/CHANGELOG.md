@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.16.0](https://github.com/kortyx-io/kortyx/compare/cli-v0.15.2...cli-v0.16.0) (2026-10-09)
+
+
+### Features
+
+* **evals:** raise concurrency limit to 20 ([#300](https://github.com/kortyx-io/kortyx/issues/300)) ([0ed3151](https://github.com/kortyx-io/kortyx/commit/0ed3151e2984551d84113091594a0b8f9267289a))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/agent bumped to 0.34.0
+
 ## [0.15.2](https://github.com/kortyx-io/kortyx/compare/cli-v0.15.1...cli-v0.15.2) (2026-10-08)
 
 
