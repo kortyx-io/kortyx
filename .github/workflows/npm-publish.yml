@@ -130,7 +130,7 @@ jobs:
     needs: [prepare, tags]
     if: needs.prepare.outputs.release == 'true'
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 45
     environment: NPM Package Publishing
     permissions:
       contents: read
@@ -309,7 +309,7 @@ jobs:
     needs: [canary-resolve, canary-build]
     if: inputs.dry_run == false && needs.canary-build.outputs.has_packages == 'true'
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 45
     environment: NPM Package Publishing
     permissions:
       contents: read
