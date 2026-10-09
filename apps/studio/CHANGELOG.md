@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.17.0](https://github.com/kortyx-io/kortyx/compare/studio-v0.16.1...studio-v0.17.0) (2026-10-09)
+
+
+### Features
+
+* **evals:** raise concurrency limit to 20 ([#300](https://github.com/kortyx-io/kortyx/issues/300)) ([0ed3151](https://github.com/kortyx-io/kortyx/commit/0ed3151e2984551d84113091594a0b8f9267289a))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * devDependencies
+    * @kortyx/agent bumped to 0.34.0
+    * kortyx bumped to 0.29.2
+
 ## [0.16.1](https://github.com/kortyx-io/kortyx/compare/studio-v0.16.0...studio-v0.16.1) (2026-10-08)
 
 
