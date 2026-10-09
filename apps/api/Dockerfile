@@ -2,6 +2,20 @@
 
 FROM docker:29-cli AS docker-cli
 
+# Compose v5.6.0's upstream binary still embeds Go 1.26.8. Rebuild the same
+# immutable source with the security-patched toolchain for both release platforms.
+FROM --platform=$BUILDPLATFORM golang:1.26.9-bookworm AS compose-build
+ARG TARGETOS
+ARG TARGETARCH
+WORKDIR /src
+ADD https://github.com/docker/compose.git#42f48072bbf92ee9b0e43f9fdf2008d03546e7ca /src
+RUN --mount=type=cache,target=/go/pkg/mod \
+    --mount=type=cache,target=/root/.cache/go-build \
+    CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build \
+      -mod=readonly -trimpath -tags=e2e \
+      -ldflags="-s -w -X github.com/docker/compose/v5/internal.Version=v5.6.0" \
+      -o /out/docker-compose ./cmd
+
 FROM node:22-bookworm-slim AS base
 ENV PNPM_HOME="/pnpm"
 ENV PATH="$PNPM_HOME:$PATH"
@@ -26,7 +40,8 @@ LABEL org.opencontainers.image.documentation="https://github.com/kortyx-io/korty
 
 WORKDIR /app
 COPY --from=docker-cli /usr/local/bin/docker /usr/local/bin/docker
-COPY --from=docker-cli /usr/local/libexec/docker/cli-plugins/docker-compose /usr/local/libexec/docker/cli-plugins/docker-compose
+COPY --from=compose-build /out/docker-compose /usr/local/libexec/docker/cli-plugins/docker-compose
+COPY --from=compose-build /src/LICENSE /usr/share/doc/docker-compose/LICENSE
 COPY --from=pruner /repo/out/json/ ./
 COPY --from=pruner /repo/out/pnpm-lock.yaml ./pnpm-lock.yaml
 RUN --mount=type=cache,id=pnpm-api,target=/pnpm/store pnpm config set store-dir /pnpm/store && pnpm install --frozen-lockfile
