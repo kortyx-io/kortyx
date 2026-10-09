@@ -1,6 +1,10 @@
 import type { InterruptInput, InterruptResult } from "@kortyx/core";
 import { combineAbortSignals, throwIfExecutionAborted } from "@kortyx/core";
-import { isControlFlowError, serializeFailure } from "@kortyx/core/errors";
+import {
+  isControlFlowError,
+  ProviderRequestError,
+  serializeFailure,
+} from "@kortyx/core/errors";
 import type {
   KortyxExecutableTool,
   KortyxFinishReason,
@@ -376,7 +380,7 @@ export const runReasonToolLoop = async <
             interruptInstructions: [
               "Human-input rules:",
               "- The kortyx_request_input__* tools pause this reasoning operation and return the validated human response as a normal tool result.",
-              "- Call at most one human-input tool in a model turn, and do not combine it with other tool calls in that turn.",
+              "- You may combine human-input tools with domain tools and output controls. Tools, emitted outputs, and human-input requests run in their requested order. Terminal output publishes last using the completed results.",
               interruptConfig.mode === "required"
                 ? "- You must call at least one human-input tool before returning the final answer."
                 : "- Human input is optional; call a human-input tool only when the request cannot be completed safely without it.",
@@ -390,7 +394,7 @@ export const runReasonToolLoop = async <
               "- The kortyx_emit__* tools publish validated structured output and return an acknowledgement. You may continue with text or more tools afterward.",
               "- The kortyx_return__* tools publish a validated result and end this reasoning operation. If return tools are available, call exactly one before finishing.",
               "- For contracts with realtime streaming, use kortyx_stream_emit__* or kortyx_stream_return__*. These start a separate streamed JSON generation; its fields become visible as tokens arrive.",
-              "- Call a structured output control tool alone in its model turn.",
+              "- You may combine multiple emit controls, domain tools, and human-input requests in one turn. Tools, emitted outputs, and human-input requests run in their requested order; the terminal return runs last. Outputs after domain tools or human input are regenerated using their completed results. Request at most one terminal return per turn.",
             ].join("\n"),
           }
         : {}),
@@ -427,6 +431,19 @@ export const runReasonToolLoop = async <
   );
   let pending = checkpoint?.pending;
   let pendingStepIndex = checkpoint?.pendingStepIndex;
+  let outputContractCorrections = checkpoint?.outputContractCorrections ?? 0;
+  const correctionExhausted = () => {
+    const message = `useReason could not complete output-contract correction within toolExecution.maxSteps (${maxSteps}). Select exactly one terminal return contract; multiple emit contracts are allowed. Increase maxSteps to allow correction and output generation.`;
+    return new ProviderRequestError(message, {
+      code: "REASON_OUTPUT_CONTRACT_CORRECTION_EXHAUSTED",
+      operation: "useReason",
+      safeMessage: message,
+      retryable: false,
+      details: { maxSteps, outputContractCorrections },
+    });
+  };
+  const resolvedInterrupts = checkpoint?.resolvedInterrupts ?? [];
+  for (const request of resolvedInterrupts) ctx.node.replayInterrupt?.(request);
   const approvedCalls = checkpoint?.approvedCalls ?? [];
   const interruptHistory = (checkpoint?.interruptHistory ?? []) as Array<
     InterruptHistoryEntry<TContracts>
@@ -443,8 +460,10 @@ export const runReasonToolLoop = async <
       messages,
       steps,
       approvedCalls,
+      resolvedInterrupts,
       interruptHistory,
       emissions,
+      outputContractCorrections,
       ...(returned ? { returned } : {}),
       finalizing,
       ...(pending ? { pending } : {}),
@@ -453,6 +472,11 @@ export const runReasonToolLoop = async <
         : {}),
     } satisfies ToolLoopCheckpoint;
     ctx.stateDirty = true;
+  };
+
+  const rememberInterrupt = (request: InterruptInput) => {
+    resolvedInterrupts.push(request);
+    save();
   };
 
   const emitToolEvent = (
@@ -473,7 +497,7 @@ export const runReasonToolLoop = async <
         ? (pendingStepIndex ?? steps.length - 1)
         : steps.length;
       stepIndex < maxSteps;
-      stepIndex += 1
+      stepIndex = steps.length
     ) {
       throwIfExecutionAborted(abortSignal);
       traceSpan?.addEvent?.("useReason.tool-step.start", {
@@ -650,305 +674,343 @@ export const runReasonToolLoop = async <
       const outputCalls = toolCalls.filter((call) =>
         outputByToolName.has(call.name),
       );
-      if (outputCalls.length > 0) {
-        if (toolCalls.length !== 1)
-          throw new Error(
-            "A useReason output contract call must be the only tool call in its model turn.",
-          );
-        const call = outputCalls[0];
-        if (!call) throw new Error("Missing useReason output control call.");
-        const resolved = outputByToolName.get(call.name);
-        if (!resolved)
-          throw new Error(
-            `Unknown useReason output contract tool "${call.name}".`,
-          );
-        if (toolResults.some((result) => result.toolCallId === call.id)) {
-          pending = undefined;
-          pendingStepIndex = undefined;
-          save();
-          continue;
+      const returnCalls = outputCalls.filter(
+        (call) => outputByToolName.get(call.name)?.kind === "return",
+      );
+      if (returnCalls.length > 1) {
+        // The public result has one terminal value. Ask the model to select it
+        // without replaying completed domain tools, interrupts, or emissions.
+        let corrected = false;
+        for (const call of returnCalls) {
+          if (toolResults.some((result) => result.toolCallId === call.id))
+            continue;
+          const result: KortyxToolResult = {
+            toolCallId: call.id,
+            name: call.name,
+            isError: true,
+            content:
+              "MULTIPLE_TERMINAL_OUTPUTS: No terminal output was published. Select exactly one return contract using the tool and human-input results. Do not repeat completed calls. Multiple emit contracts are allowed.",
+          };
+          toolResults.push(result);
+          messages.push({ role: "tool", ...result });
+          corrected = true;
         }
-        if (
-          resolved.kind === "emit" &&
-          emissions.length >= (useReasonArgs.outputs?.maxEmissions ?? 16)
-        )
-          throw new Error(
-            `useReason reached outputs.maxEmissions (${useReasonArgs.outputs?.maxEmissions ?? 16}).`,
+        if (corrected) outputContractCorrections += 1;
+        save();
+      }
+      // Preserve requested order for tools, emissions, and interrupts. A
+      // terminal return is a completion barrier and must run after all of them.
+      const orderedCalls = [
+        ...toolCalls.filter(
+          (call) => outputByToolName.get(call.name)?.kind !== "return",
+        ),
+        ...returnCalls,
+      ];
+      for (const toolCall of orderedCalls) {
+        throwIfExecutionAborted(abortSignal);
+        if (outputByToolName.has(toolCall.name)) {
+          const call = toolCall;
+          const hasEvidenceCalls = toolResults.some(
+            (result) => !outputByToolName.has(result.name),
           );
-        let data: unknown;
-        if (resolved.stream) {
-          if (!stream)
+          const resolved = outputByToolName.get(call.name);
+          if (!resolved)
             throw new Error(
-              `useReason streaming output contract "${resolved.name}" requires stream: true.`,
+              `Unknown useReason output contract tool "${call.name}".`,
             );
-          if (stepIndex + 1 >= maxSteps)
-            throw new Error(
-              `useReason output streaming requires another model pass within maxSteps (${maxSteps}).`,
-            );
-          const instruction =
-            call.input &&
-            typeof call.input === "object" &&
-            !Array.isArray(call.input)
-              ? (call.input as Record<string, unknown>).instruction
-              : undefined;
+          if (toolResults.some((result) => result.toolCallId === call.id)) {
+            if (resolved.kind === "return" && returned) completed = true;
+            continue;
+          }
           if (
-            typeof instruction !== "string" ||
-            instruction.trim().length === 0
+            resolved.kind === "emit" &&
+            emissions.length >= (useReasonArgs.outputs?.maxEmissions ?? 16)
           )
             throw new Error(
-              `useReason streaming output contract "${resolved.name}" requires an instruction.`,
+              `useReason reached outputs.maxEmissions (${useReasonArgs.outputs?.maxEmissions ?? 16}).`,
             );
-          const streamId = `${opId}:${resolved.kind}:${resolved.name}:${resolved.kind === "emit" ? emissions.length : "return"}`;
-          const structured = {
-            dataType: resolved.contract.schemaId,
-            schemaId: resolved.contract.schemaId,
-            schemaVersion: resolved.contract.schemaVersion,
-            fields: resolved.contract.stream?.fields,
-          };
-          const inferred = inferOutputFormat(
-            resolved.contract.schema,
-            undefined,
-          );
-          try {
-            const outputStep = await reasonEngine(
-              {
-                ...useReasonArgs,
-                tools: [],
-                ...(inferred.responseFormat
-                  ? { responseFormat: inferred.responseFormat }
-                  : {}),
-                messages: [
-                  ...messages,
-                  {
-                    role: "tool",
-                    toolCallId: call.id,
-                    name: call.name,
-                    content: "Generating the requested structured output.",
-                  },
-                  {
-                    role: "user",
-                    content: withOutputGuardrails(
-                      instruction,
-                      resolved.contract.schema,
-                    ),
-                  },
-                ],
-                emit: false,
-                stream,
-                ...(emit && stream
-                  ? {
-                      onTextChunk: createStructuredOutputStreamer(
-                        { structured },
-                        id,
-                        streamId,
-                      ),
-                    }
-                  : {}),
-              },
-              { ...(id ? { id } : {}), opId },
-            );
-            if (outputStep.toolCalls?.length)
+          let data: unknown;
+          if (resolved.stream || hasEvidenceCalls) {
+            if (resolved.stream && !stream)
               throw new Error(
-                `Provider requested a tool during streamed output contract "${resolved.name}".`,
+                `useReason streaming output contract "${resolved.name}" requires stream: true.`,
               );
-            aggregatedUsage = mergeUsage(aggregatedUsage, outputStep.usage);
-            accumulateTokenUsage(outputStep.usage);
-            aggregatedWarnings = mergeWarnings(
-              aggregatedWarnings,
-              mergeWarnings(inferred.warnings, outputStep.warnings),
-            );
-            aggregatedProviderMetadata = mergeProviderMetadata(
-              aggregatedProviderMetadata,
-              outputStep.providerMetadata,
-            );
-            finalFinishReason = outputStep.finishReason;
-            finalRaw = outputStep.raw;
-            data = parseReasonOutputWithSchema({
-              text: outputStep.text,
-              schema: resolved.contract.schema,
-              ...(outputStep.finishReason
-                ? { finishReason: outputStep.finishReason }
-                : {}),
-              ...(aggregatedUsage ? { usage: aggregatedUsage } : {}),
-              label: `useReason output contract "${resolved.name}"`,
-            });
-            steps.push({
-              stepIndex: stepIndex + 1,
-              kind: "output",
-              text: outputStep.text,
-              toolCalls: [],
-              toolResults: [],
-              ...(outputStep.usage ? { usage: outputStep.usage } : {}),
-              ...(outputStep.finishReason
-                ? { finishReason: outputStep.finishReason }
-                : {}),
-              ...(outputStep.providerMetadata
-                ? { providerMetadata: outputStep.providerMetadata }
-                : {}),
-              ...(outputStep.warnings ? { warnings: outputStep.warnings } : {}),
-            });
-            stepIndex += 1;
-          } catch (error) {
-            traceSpan?.addEvent?.("useReason.output.invalidated", {
-              contract: resolved.name,
-              kind: resolved.kind,
+            if (steps.length >= maxSteps) {
+              const message = `useReason output generation requires another model pass within toolExecution.maxSteps (${maxSteps}). Increase maxSteps to allow outputs to use completed tool and interrupt results.`;
+              throw new ProviderRequestError(message, {
+                code: "REASON_OUTPUT_BUDGET_EXHAUSTED",
+                operation: "useReason",
+                safeMessage: message,
+                retryable: false,
+                details: { maxSteps, modelPasses: steps.length },
+              });
+            }
+            const streamInstruction =
+              call.input &&
+              typeof call.input === "object" &&
+              !Array.isArray(call.input)
+                ? (call.input as Record<string, unknown>).instruction
+                : undefined;
+            if (
+              resolved.stream &&
+              (typeof streamInstruction !== "string" ||
+                streamInstruction.trim().length === 0)
+            )
+              throw new Error(
+                `useReason streaming output contract "${resolved.name}" requires an instruction.`,
+              );
+            const instruction = [
+              `Generate output contract "${resolved.name}": ${resolved.contract.description}`,
+              "Use the completed tool and human-input results. Do not assume results for pending calls.",
+              resolved.stream
+                ? String(streamInstruction)
+                : `Regenerate this original draft, which was written before those results were available: ${JSON.stringify(call.input)}`,
+            ].join("\n\n");
+            const streamId = `${opId}:${resolved.kind}:${resolved.name}:${resolved.kind === "emit" ? emissions.length : "return"}`;
+            const structured = {
+              dataType: resolved.contract.schemaId,
               schemaId: resolved.contract.schemaId,
               schemaVersion: resolved.contract.schemaVersion,
-              streamId,
-            });
-            if (emit) {
-              try {
-                ctx.node.emit("structured_data_invalidated", {
-                  node: ctx.node.graph.node,
-                  streamId,
-                });
-              } catch {
-                // Reporting must not replace the generation or validation error.
+              fields: resolved.contract.stream?.fields,
+            };
+            const inferred = inferOutputFormat(
+              resolved.contract.schema,
+              undefined,
+            );
+            const outputRecord: UseReasonStep = {
+              stepIndex: steps.length,
+              kind: "output",
+              text: "",
+              toolCalls: [],
+              toolResults: [],
+            };
+            steps.push(outputRecord);
+            save();
+            try {
+              const outputStep = await reasonEngine(
+                {
+                  ...useReasonArgs,
+                  tools: [],
+                  ...(inferred.responseFormat
+                    ? { responseFormat: inferred.responseFormat }
+                    : {}),
+                  messages: [
+                    ...messages,
+                    ...toolCalls
+                      .filter(
+                        (pendingCall) =>
+                          !toolResults.some(
+                            (result) => result.toolCallId === pendingCall.id,
+                          ),
+                      )
+                      .map(
+                        (pendingCall): KortyxPromptMessage => ({
+                          role: "tool",
+                          toolCallId: pendingCall.id,
+                          name: pendingCall.name,
+                          content:
+                            "This call has not completed yet. Use only completed results; do not assume a result for this pending call.",
+                        }),
+                      ),
+                    {
+                      role: "user",
+                      content: withOutputGuardrails(
+                        instruction,
+                        resolved.contract.schema,
+                      ),
+                    },
+                  ],
+                  emit: false,
+                  stream: resolved.stream && stream,
+                  ...(emit && resolved.stream && stream
+                    ? {
+                        onTextChunk: createStructuredOutputStreamer(
+                          { structured },
+                          id,
+                          streamId,
+                        ),
+                      }
+                    : {}),
+                },
+                { ...(id ? { id } : {}), opId },
+              );
+              if (outputStep.toolCalls?.length)
+                throw new Error(
+                  `Provider requested a tool during streamed output contract "${resolved.name}".`,
+                );
+              aggregatedUsage = mergeUsage(aggregatedUsage, outputStep.usage);
+              accumulateTokenUsage(outputStep.usage);
+              aggregatedWarnings = mergeWarnings(
+                aggregatedWarnings,
+                mergeWarnings(inferred.warnings, outputStep.warnings),
+              );
+              aggregatedProviderMetadata = mergeProviderMetadata(
+                aggregatedProviderMetadata,
+                outputStep.providerMetadata,
+              );
+              finalFinishReason = outputStep.finishReason;
+              finalRaw = outputStep.raw;
+              Object.assign(outputRecord, {
+                stepIndex: outputRecord.stepIndex,
+                kind: "output",
+                text: outputStep.text,
+                toolCalls: [],
+                toolResults: [],
+                ...(outputStep.usage ? { usage: outputStep.usage } : {}),
+                ...(outputStep.finishReason
+                  ? { finishReason: outputStep.finishReason }
+                  : {}),
+                ...(outputStep.providerMetadata
+                  ? { providerMetadata: outputStep.providerMetadata }
+                  : {}),
+                ...(outputStep.warnings
+                  ? { warnings: outputStep.warnings }
+                  : {}),
+              });
+              save();
+              data = parseReasonOutputWithSchema({
+                text: outputStep.text,
+                schema: resolved.contract.schema,
+                ...(outputStep.finishReason
+                  ? { finishReason: outputStep.finishReason }
+                  : {}),
+                ...(aggregatedUsage ? { usage: aggregatedUsage } : {}),
+                label: `useReason output contract "${resolved.name}"`,
+              });
+            } catch (error) {
+              traceSpan?.addEvent?.("useReason.output.invalidated", {
+                contract: resolved.name,
+                kind: resolved.kind,
+                schemaId: resolved.contract.schemaId,
+                schemaVersion: resolved.contract.schemaVersion,
+                streamId,
+              });
+              if (emit && resolved.stream) {
+                try {
+                  ctx.node.emit("structured_data_invalidated", {
+                    node: ctx.node.graph.node,
+                    streamId,
+                  });
+                } catch {
+                  // Reporting must not replace the generation or validation error.
+                }
               }
+              throw error;
             }
-            throw error;
+          } else {
+            data = parseWithSchema(
+              resolved.contract.schema,
+              call.input,
+              `useReason output contract "${resolved.name}"`,
+            );
           }
-        } else {
-          data = parseWithSchema(
-            resolved.contract.schema,
-            call.input,
-            `useReason output contract "${resolved.name}"`,
-          );
-        }
-        const entry = { contract: resolved.name, data };
-        const emissionIndex = emissions.length;
-        if (resolved.kind === "emit")
-          emissions.push(entry as OutputContractEntry<TEmit>);
-        else returned = entry as OutputContractEntry<TReturn>;
-        if (emit)
-          emitStructuredData({
-            kind: "final",
-            data,
-            dataType: resolved.contract.schemaId,
+          const entry = { contract: resolved.name, data };
+          const emissionIndex = emissions.length;
+          if (resolved.kind === "emit")
+            emissions.push(entry as OutputContractEntry<TEmit>);
+          else returned = entry as OutputContractEntry<TReturn>;
+          if (emit)
+            emitStructuredData({
+              kind: "final",
+              data,
+              dataType: resolved.contract.schemaId,
+              schemaId: resolved.contract.schemaId,
+              schemaVersion: resolved.contract.schemaVersion,
+              streamId: `${opId}:${resolved.kind}:${resolved.name}:${resolved.kind === "emit" ? emissionIndex : "return"}`,
+              ...(id ? { id } : {}),
+            });
+          traceSpan?.addEvent?.("useReason.output.emitted", {
+            contract: resolved.name,
+            kind: resolved.kind,
             schemaId: resolved.contract.schemaId,
             schemaVersion: resolved.contract.schemaVersion,
-            streamId: `${opId}:${resolved.kind}:${resolved.name}:${resolved.kind === "emit" ? emissionIndex : "return"}`,
-            ...(id ? { id } : {}),
+            emissionIndex,
+            data,
           });
-        traceSpan?.addEvent?.("useReason.output.emitted", {
-          contract: resolved.name,
-          kind: resolved.kind,
-          schemaId: resolved.contract.schemaId,
-          schemaVersion: resolved.contract.schemaVersion,
-          emissionIndex,
-          data,
-        });
-        if (resolved.kind === "return") {
-          pending = undefined;
-          pendingStepIndex = undefined;
-          completed = true;
-          save();
-          break;
-        }
-        const result = normalizeToolResult(call, { emitted: true, data });
-        toolResults.push(result);
-        messages.push({
-          role: "tool",
-          content: result.content,
-          toolCallId: result.toolCallId,
-          name: result.name,
-        });
-        pending = undefined;
-        pendingStepIndex = undefined;
-        save();
-        continue;
-      }
-
-      const interruptCalls = toolCalls.filter((call) =>
-        interruptByToolName.has(call.name),
-      );
-      if (interruptCalls.length > 0) {
-        if (toolCalls.length !== 1)
-          throw new Error(
-            "A useReason interrupt contract call must be the only tool call in its model turn.",
-          );
-        const interruptCall = interruptCalls[0];
-        if (!interruptCall)
-          throw new Error("Missing useReason interrupt control call.");
-        if (interruptHistory.length >= (interruptConfig?.maxRequests ?? 1))
-          throw new Error(
-            `useReason reached interrupts.maxRequests (${interruptConfig?.maxRequests ?? 1}).`,
-          );
-        const resolved = interruptByToolName.get(interruptCall.name);
-        if (!resolved)
-          throw new Error(
-            `Unknown useReason interrupt contract tool "${interruptCall.name}".`,
-          );
-        if (
-          toolResults.some((result) => result.toolCallId === interruptCall.id)
-        ) {
-          pending = undefined;
-          pendingStepIndex = undefined;
+          const result = normalizeToolResult(call, { emitted: true, data });
+          toolResults.push(result);
+          messages.push({
+            role: "tool",
+            content: result.content,
+            toolCallId: result.toolCallId,
+            name: result.name,
+          });
+          if (resolved.kind === "return") completed = true;
           save();
           continue;
         }
-        const request = parseWithSchema(
-          resolved.contract.requestSchema,
-          interruptCall.input,
-          `useReason interrupt contract "${resolved.name}" request`,
-        );
-        traceSpan?.addEvent?.("useReason.interrupt.requested", {
-          checkpointKey,
-          contract: resolved.name,
-          interruptIndex: interruptHistory.length,
-        });
-        const question =
-          request &&
-          typeof request === "object" &&
-          !Array.isArray(request) &&
-          typeof (request as Record<string, unknown>).question === "string"
-            ? String((request as Record<string, unknown>).question)
-            : undefined;
-        const response = await awaitInterruptInternal({
-          request: {
-            kind: "custom",
-            request,
+        if (interruptByToolName.has(toolCall.name)) {
+          const resolved = interruptByToolName.get(toolCall.name);
+          if (!resolved)
+            throw new Error(
+              `Unknown useReason interrupt contract tool "${toolCall.name}".`,
+            );
+          if (toolResults.some((result) => result.toolCallId === toolCall.id)) {
+            continue;
+          }
+          if (interruptHistory.length >= (interruptConfig?.maxRequests ?? 1))
+            throw new Error(
+              `useReason reached interrupts.maxRequests (${interruptConfig?.maxRequests ?? 1}).`,
+            );
+          const request = parseWithSchema(
+            resolved.contract.requestSchema,
+            toolCall.input,
+            `useReason interrupt contract "${resolved.name}" request`,
+          );
+          traceSpan?.addEvent?.("useReason.interrupt.requested", {
+            checkpointKey,
             contract: resolved.name,
-            ...(question ? { question } : {}),
-            schemaId: resolved.contract.schemaId,
-            schemaVersion: resolved.contract.schemaVersion,
-          },
-          responseSchema: resolved.contract.responseSchema,
-          id: `${id ?? "reason"}:${resolved.name}:${interruptHistory.length + 1}`,
-          meta: {
-            __kortyxReason: {
-              opId,
-              stepIndex,
-              interruptIndex: interruptHistory.length,
+            interruptIndex: interruptHistory.length,
+          });
+          const question =
+            request &&
+            typeof request === "object" &&
+            !Array.isArray(request) &&
+            typeof (request as Record<string, unknown>).question === "string"
+              ? String((request as Record<string, unknown>).question)
+              : undefined;
+          const response = await awaitInterruptInternal({
+            onResolved: rememberInterrupt,
+            request: {
+              kind: "custom",
+              request,
               contract: resolved.name,
+              ...(question ? { question } : {}),
+              schemaId: resolved.contract.schemaId,
+              schemaVersion: resolved.contract.schemaVersion,
             },
-          },
-        });
-        const result = normalizeToolResult(interruptCall, response);
-        toolResults.push(result);
-        messages.push({
-          role: "tool",
-          content: result.content,
-          toolCallId: result.toolCallId,
-          name: result.name,
-        });
-        interruptHistory.push({
-          contract: resolved.name,
-          request,
-          response,
-        } as InterruptHistoryEntry<TContracts>);
-        traceSpan?.addEvent?.("useReason.interrupt.resolved", {
-          checkpointKey,
-          contract: resolved.name,
-          interruptIndex: interruptHistory.length - 1,
-        });
-        pending = undefined;
-        pendingStepIndex = undefined;
-        save();
-        continue;
-      }
-
-      for (const toolCall of toolCalls) {
+            responseSchema: resolved.contract.responseSchema,
+            id: `${id ?? "reason"}:${resolved.name}:${interruptHistory.length + 1}`,
+            meta: {
+              __kortyxReason: {
+                opId,
+                stepIndex,
+                interruptIndex: interruptHistory.length,
+                contract: resolved.name,
+              },
+            },
+          });
+          const result = normalizeToolResult(toolCall, response);
+          toolResults.push(result);
+          messages.push({
+            role: "tool",
+            content: result.content,
+            toolCallId: result.toolCallId,
+            name: result.name,
+          });
+          interruptHistory.push({
+            contract: resolved.name,
+            request,
+            response,
+          } as InterruptHistoryEntry<TContracts>);
+          traceSpan?.addEvent?.("useReason.interrupt.resolved", {
+            checkpointKey,
+            contract: resolved.name,
+            interruptIndex: interruptHistory.length - 1,
+          });
+          save();
+          continue;
+        }
         if (toolResults.some((result) => result.toolCallId === toolCall.id)) {
           await replayToolObservations(
             steps[stepIndex]?.toolObservations?.filter(
@@ -998,6 +1060,7 @@ export const runReasonToolLoop = async <
             "waiting",
           );
           const approval = await awaitInterruptInternal({
+            onResolved: rememberInterrupt,
             id: `tool:${toolCall.id}`,
             request: {
               kind: "choice",
@@ -1121,26 +1184,27 @@ export const runReasonToolLoop = async <
             });
           }
         }
-        const completed = toolResults.at(-1);
-        if (completed)
+        const completedToolResult = toolResults.at(-1);
+        if (completedToolResult)
           messages.push({
             role: "tool",
-            content: completed.content,
-            toolCallId: completed.toolCallId,
-            name: completed.name,
-            ...(completed.isError !== undefined
-              ? { isError: completed.isError }
+            content: completedToolResult.content,
+            toolCallId: completedToolResult.toolCallId,
+            name: completedToolResult.name,
+            ...(completedToolResult.isError !== undefined
+              ? { isError: completedToolResult.isError }
               : {}),
           });
         save();
       }
-
       pending = undefined;
       pendingStepIndex = undefined;
       save();
+      if (completed) break;
     }
 
     if (!completed) {
+      if (outputContractCorrections > 0) throw correctionExhausted();
       throw new Error(
         `useReason tool loop reached maxSteps (${maxSteps}) before producing a final response.`,
       );
@@ -1232,7 +1296,11 @@ export const runReasonToolLoop = async <
       },
     });
 
-    ctx.currentNodeState.byKey[checkpointKey] = { status: "completed", result };
+    ctx.currentNodeState.byKey[checkpointKey] = {
+      status: "completed",
+      result,
+      resolvedInterrupts,
+    };
     ctx.stateDirty = true;
     return result;
   } catch (error) {
@@ -1258,6 +1326,7 @@ interface ToolLoopCheckpoint {
   pending?: RunReasonEngineResult;
   pendingStepIndex?: number;
   approvedCalls: string[];
+  resolvedInterrupts?: InterruptInput[];
   interruptHistory?: Array<{
     contract: string;
     request: unknown;
@@ -1266,4 +1335,5 @@ interface ToolLoopCheckpoint {
   emissions?: Array<{ contract: string; data: unknown }>;
   returned?: { contract: string; data: unknown };
   finalizing?: boolean;
+  outputContractCorrections?: number;
 }

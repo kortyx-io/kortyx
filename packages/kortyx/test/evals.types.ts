@@ -88,3 +88,34 @@ export function configureEvals(agent: Agent, model: ProviderModelRef) {
     },
   });
 }
+
+// Evidence configuration is available from the public facade with typed event names.
+export function configureEvidence(agent: Agent, model: ProviderModelRef) {
+  return createEvals({
+    agent,
+    judge: createEvalJudge({ model }),
+    defaults: { evidence: { history: true, events: ["tool-call-result"] } },
+    evidenceFilters: {
+      events: {
+        reads: (event) =>
+          event.type === "tool-call-result" && event.tool === "read",
+      },
+    },
+    suites: [
+      {
+        ...structuredSuite,
+        evidence: {
+          history: false,
+          events: { using: "reads" },
+          outputs: [{ schemaId: "app.product-list" }],
+        },
+      },
+    ],
+  });
+}
+const badEvidence: EvalSuite = {
+  ...structuredSuite,
+  // @ts-expect-error Streaming deltas are not selectable judge evidence.
+  evidence: { events: ["text-delta"] },
+};
+void badEvidence;

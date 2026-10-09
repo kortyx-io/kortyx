@@ -354,7 +354,7 @@ Eval commands reuse project connections and the Studio API. Discovery and reads
 need `studio:read`; start/cancel also require `eval:run`. The application's eval
 service key remains on the API server. Starting discovers the current revision,
 enqueues once and returns the run ID immediately, without waiting for a grade.
-Use `--case` repeatedly, `--repetitions` (1–20), `--concurrency` (1–4), and
+Use `--case` repeatedly, `--repetitions` (1–20), `--concurrency` (1–20), and
 `--environment` to select execution; total attempts are capped at 100.
 
 Default detail exposes statuses, counts and criterion verdicts. Full definitions,

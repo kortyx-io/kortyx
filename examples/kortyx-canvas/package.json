@@ -1,6 +1,6 @@
 {
   "name": "@kortyx/example-canvas",
-  "version": "0.8.6",
+  "version": "0.8.11",
   "private": true,
   "description": "Kortyx example: canvas agent app.",
   "keywords": [

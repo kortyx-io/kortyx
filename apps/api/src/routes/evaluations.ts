@@ -102,6 +102,14 @@ export function registerEvaluationRoutes(
       } catch {
         return c.json({ error: "Consumer eval endpoint is unavailable." }, 503);
       }
+      if (request.suites.length > 1 && !manifest.attemptScheduling)
+        return c.json(
+          {
+            error:
+              "Update the consumer SDK to support evaluation-wide concurrency.",
+          },
+          409,
+        );
       const selected = request.suites.map((selection) => ({
         selection,
         suite: manifest.suites.find((suite) => suite.id === selection.suiteId),

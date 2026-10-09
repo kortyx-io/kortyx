@@ -127,7 +127,7 @@ KORTYX_EVAL_JUDGE_BASE_URL=https://openrouter.ai/api/v1
 KORTYX_EVAL_JUDGE_API=chat-completions
 KORTYX_EVAL_JUDGE_ID=studio/openrouter/openai/gpt-4o
 # Optional; default is the current Kortyx grading rubric version:
-# KORTYX_EVAL_JUDGE_VERSION=kortyx-rubric-v3
+# KORTYX_EVAL_JUDGE_VERSION=kortyx-rubric-v4
 ```
 
 Use a model/provider route supporting structured JSON verdicts. Other compatible
@@ -149,7 +149,7 @@ the private override above.
 | `KORTYX_EVAL_JUDGE_BASE_URL` | Studio API | Optional HTTPS provider origin/path; defaults to the OpenAI provider endpoint |
 | `KORTYX_EVAL_JUDGE_API` | Studio API | `responses` (default) or `chat-completions` |
 | `KORTYX_EVAL_JUDGE_ID` | Studio API | Optional identity; defaults to `studio/openai/<model>` even for compatible endpoints, so set an explicit ID for a custom provider |
-| `KORTYX_EVAL_JUDGE_VERSION` | Studio API | Optional rubric version; current default `kortyx-rubric-v3`; update when grading semantics change |
+| `KORTYX_EVAL_JUDGE_VERSION` | Studio API | Optional rubric version; current default `kortyx-rubric-v4`; update when grading semantics change |
 | `KORTYX_STUDIO_ENABLE_EVALS` | Database bootstrap job | Exactly `1` grants execution scope to the local Studio key; defaults off |
 | `DATABASE_URL` | Studio API/bootstrap | Existing Studio PostgreSQL connection, separate from the app's domain DB |
 | `KORTYX_API_KEY_PEPPER` | Studio API/bootstrap | Existing API key verification secret; preserve across bootstrap/restarts |
@@ -221,7 +221,7 @@ kortyx studio evals runs cancel RUN_UUID --connection staging --json
 Local CLI stacks use `--connection local` and managed keys. Connection profiles
 store key variable names, not raw remote keys. `--judge app` selects the code
 judge. Repeat `--case` to select several; omit it for the full suite. The queued
-API caps repetitions at 20, concurrency at 4, attempts per suite at 100 and total attempts at 1,000.
+API caps repetitions at 20, concurrency at 20, attempts per suite at 100 and total attempts at 1,000.
 Enqueue returns immediately with a run ID, `queued` status and `studioUrl`; a
 successful command means accepted, not passed. Do not retry POSTs automatically.
 Cancellation is cooperative and does not roll back domain side effects.
@@ -434,15 +434,22 @@ choose its conversations independently. Suite checkboxes select or clear every
 conversation and show a mixed state for partial selections. Selections and
 expanded suites survive reloads and browser history. The default judge is Studio
 when available, otherwise App; unavailable judges remain disabled with a reason.
-Repetitions (1–20) and concurrent attempts per suite (1–4) apply to the selection.
+Repetitions (1–20) and concurrent attempts across the evaluation (1–20) apply to the selection.
 Each suite is limited to 100 attempts; one evaluation is limited to 1,000 attempts.
 Missing App judge configuration is explained beside the disabled option.
 
 The Studio API snapshots all selected suite revisions and the judge before
-atomically saving the parent and suite jobs. Existing leased workers execute the
-suite jobs; suite-level concurrency does not promise parallel suite scheduling.
+atomically saving the parent and suite jobs. A worker claims all suite jobs together and schedules attempts round-robin across
+suites, sharing the configured concurrency budget. A slot includes setup, execution,
+cleanup, and grading. Consumer apps must use an SDK that advertises attempt scheduling;
+older endpoints receive an upgrade message before a multi-suite run is queued.
+Custom worker stores must return all sibling suite leases together from `claim`;
+independent single-suite claims cannot enforce an evaluation-wide budget.
 Cancelling the parent cancels queued suites and requests cooperative cancellation
-of running suites. Finished suites remain available; cancellation never rolls
+of running suites. Cancelling one child suite stops its queued attempts and drains
+its active attempts through cleanup while other suites continue. A lost lease or
+uncertain transport outcome stops new dispatch without replaying attempts.
+Finished suites remain available; cancellation never rolls
 back tool side effects. A run remains Running until every suite is terminal.
 Execution/grading errors, behavioral failures, and cancellation stay distinct.
 
@@ -529,3 +536,5 @@ returns detailed results, and POST `/:id/cancel` cancels remaining work. Existin
 `/v1/studio/evals/runs` endpoints continue to serve individual suite executions.
 Apply migration `0007_evaluation_runs` before deploying the new API. Browser and
 CLI grouped operations require a compatible Studio/API release.
+
+For frontend-aware criteria and evidence controls, read [eval-criteria-and-evidence.md](eval-criteria-and-evidence.md). Configure selection in the app; Studio replays selected evidence and retains full observations for debugging.

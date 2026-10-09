@@ -23,6 +23,7 @@ export type EvalRunner = {
       format: "system-user" | "chat";
       configSchema: Record<string, unknown>;
     }[];
+    attemptScheduling?: true;
     judge?: EvalJudgeIdentity;
   };
   run: (args: EvalRunOptions) => Promise<EvalRunResult>;
@@ -56,6 +57,10 @@ export function createEvalRouteHandler({
   const digest = (value: string) => createHash("sha256").update(value).digest();
   const expected = digest(`Bearer ${serviceKey}`);
   let active = 0;
+  const evaluations = new Map<
+    string,
+    { active: number; concurrency: number }
+  >();
   return async (request: Request): Promise<Response> => {
     if (
       !timingSafeEqual(
@@ -150,14 +155,42 @@ export function createEvalRouteHandler({
         { error: "App judge changed. Refresh before running." },
         { status: 409 },
       );
-    if (active >= maxActiveRuns)
+    if (
+      body.attempt &&
+      (!manifest.attemptScheduling ||
+        !suite.cases.some((item) => item.id === body.attempt?.caseId) ||
+        (body.caseIds && !body.caseIds.includes(body.attempt.caseId)) ||
+        body.attempt.repetition > body.repetitions)
+    )
+      return Response.json(
+        { error: "Unsupported or invalid scheduled attempt." },
+        { status: 409 },
+      );
+    const group = body.attempt && evaluations.get(body.attempt.evaluationId);
+    if (
+      group &&
+      (group.concurrency !== body.concurrency ||
+        group.active >= group.concurrency)
+    )
+      return Response.json(
+        { error: "Evaluation concurrency exhausted or changed." },
+        { status: 429 },
+      );
+    if (!group && active >= maxActiveRuns)
       return Response.json(
         { error: "Eval executor is busy." },
         { status: 429 },
       );
     if (request.signal.aborted)
       return Response.json({ error: "Request cancelled." }, { status: 409 });
-    active++;
+    if (body.attempt) {
+      const state = group ?? { active: 0, concurrency: body.concurrency };
+      if (!group) {
+        active++;
+        evaluations.set(body.attempt.evaluationId, state);
+      }
+      state.active++;
+    } else active++;
     const controller = new AbortController();
     const requestSignal = request.signal;
     const abortRequest = () => controller.abort();
@@ -176,6 +209,7 @@ export function createEvalRouteHandler({
             ...(body.promptSnapshot
               ? { promptSnapshot: body.promptSnapshot }
               : {}),
+            ...(body.attempt ? { attempt: body.attempt } : {}),
             ...(body.grading ? { grading: body.grading } : {}),
             ...(body.judge ? { judgeIdentity: body.judge } : {}),
             repetitions: body.repetitions,
@@ -191,7 +225,14 @@ export function createEvalRouteHandler({
           )
           .finally(() => {
             requestSignal.removeEventListener("abort", abortRequest);
-            active--;
+            if (body.attempt) {
+              const state = evaluations.get(body.attempt.evaluationId)!;
+              state.active--;
+              if (!state.active) {
+                evaluations.delete(body.attempt.evaluationId);
+                active--;
+              }
+            } else active--;
             if (!controller.signal.aborted) output.close();
           });
       },

@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.15.0](https://github.com/kortyx-io/kortyx/compare/telemetry-contracts-v0.14.0...telemetry-contracts-v0.15.0) (2026-10-08)
+
+
+### Features
+
+* **telemetry:** preserve complete private error diagnostics ([#290](https://github.com/kortyx-io/kortyx/issues/290)) ([e1c5a88](https://github.com/kortyx-io/kortyx/commit/e1c5a88c494016fd84a1af40579412fcfde31271))
+
 ## [0.14.0](https://github.com/kortyx-io/kortyx/compare/telemetry-contracts-v0.13.0...telemetry-contracts-v0.14.0) (2026-10-07)
 
 

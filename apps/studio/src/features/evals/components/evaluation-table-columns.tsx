@@ -1,8 +1,9 @@
 import type { StudioEvaluationSummary } from "@kortyx/agent/evals";
 import type { DataTableColumn } from "@/components/data-table";
 import { Button } from "@/components/ui/button";
-import { formatDateTime, formatDurationMs } from "@/lib/format";
+import { formatDateTime } from "@/lib/format";
 import { EvalCost } from "./eval-cost";
+import { EvalDuration } from "./eval-duration";
 import { EvalStatus } from "./eval-status";
 export type EvaluationSort = "name" | "created" | "status";
 export function createEvaluationColumns(
@@ -118,11 +119,7 @@ export function createEvaluationColumns(
       defaultWidth: 100,
       render: (run) => (
         <span className="font-mono text-xs">
-          {run.startedAt && run.endedAt
-            ? formatDurationMs(
-                Date.parse(run.endedAt) - Date.parse(run.startedAt),
-              )
-            : "—"}
+          <EvalDuration run={run} />
         </span>
       ),
     },

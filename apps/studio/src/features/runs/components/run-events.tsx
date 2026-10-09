@@ -19,6 +19,7 @@ import { Fragment, useMemo, useState } from "react";
 import { DetailInspectorDrawer } from "@/components/detail/detail-inspector";
 import { KeyValue, StatusPill } from "@/components/detail/detail-primitives";
 import { PayloadViewer } from "@/components/detail/payload-viewer";
+import Link from "@/components/scoped-link";
 import { OverflowText } from "@/components/ui/overflow-tooltip";
 import {
   Select,
@@ -288,6 +289,10 @@ function EventDrawer({
   modelStart: StudioDetailEvent | undefined;
   onClose: () => void;
 }) {
+  const diagnosticId = item
+    ? (asString(asRecord(item.event.payload.error).diagnosticId) ??
+      asString(item.event.payload.diagnosticId))
+    : undefined;
   return (
     <DetailInspectorDrawer
       open={Boolean(item)}
@@ -312,6 +317,17 @@ function EventDrawer({
       {item && (
         <>
           <dl className="divide-y">
+            {diagnosticId && (
+              <KeyValue label="Full diagnostic">
+                <Link
+                  prefetch={false}
+                  className="text-primary hover:underline"
+                  href={`/diagnostics/${encodeURIComponent(diagnosticId)}?env=${encodeURIComponent(item.event.environment)}`}
+                >
+                  View diagnostic
+                </Link>
+              </KeyValue>
+            )}
             <KeyValue label="Event type">
               <span className="font-mono">{item.event.type}</span>
             </KeyValue>

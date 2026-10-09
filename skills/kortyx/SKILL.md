@@ -63,6 +63,7 @@ Evals:
   `createEvals` around an existing agent, reusing application authentication,
   scripted interrupt responses, emitted tool evidence, local judges, and mounting
   the consumer endpoint. Read this before implementing an eval integration.
+- [references/eval-criteria-and-evidence.md](references/eval-criteria-and-evidence.md): writing independent judge criteria, describing frontend-visible versus internal fields, and configuring compact evidence, history, output selection, and custom filters. Read when authoring or tuning judging.
 - `references/studio-evals-and-ci.md`: registering consumer targets, enabling
   execution scopes, configuring Studio/OpenRouter judges, environment variables,
   Docker networking, saved results/comparisons, CLI commands, and post-deployment
@@ -104,6 +105,7 @@ React client:
 - Treat OpenTelemetry as the Kortyx observability contract. Keep backend exporters such as Langfuse app-owned.
 - For observability, publish declared topology with `kortyx topology push`, and verify run telemetry with a real application request instead of a synthetic workflow. Evals additionally let Studio initiate an application-owned suite; the consumer still executes the workflows and authorization logic.
 - Reuse an existing `createAgent` instance with `createEvals`; keep suites as plain data and credentials in app-owned `setup`/`execute`. Enable `toolExecution.emit: true` when criteria depend on tool results. Studio selects its own judge by default; an app judge is an explicit alternative, with no silent fallback.
+- Eval criteria must identify assessed fields and application presentation rules; execution evidence does not prove frontend visibility. Repeat necessary context in each criterion because they are graded separately. See `references/eval-criteria-and-evidence.md`.
 - Keep Studio API keys and all `KORTYX_TELEMETRY_*` configuration server-side.
 - Write user-facing answers, interrupt questions, and safe error messages in the
   user's language unless they request another language. Preserve code, schema

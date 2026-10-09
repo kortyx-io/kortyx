@@ -1,5 +1,68 @@
 # Changelog
 
+## [0.17.0](https://github.com/kortyx-io/kortyx/compare/cli-v0.16.0...cli-v0.17.0) (2026-10-09)
+
+
+### Features
+
+* **evals:** share concurrency and attribute multi-session costs ([#304](https://github.com/kortyx-io/kortyx/issues/304)) ([dd5e242](https://github.com/kortyx-io/kortyx/commit/dd5e242ae08affbb015201bb57c4714709756cf2))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/agent bumped to 0.35.0
+    * @kortyx/core bumped to 0.13.0
+
+## [0.16.0](https://github.com/kortyx-io/kortyx/compare/cli-v0.15.2...cli-v0.16.0) (2026-10-09)
+
+
+### Features
+
+* **evals:** raise concurrency limit to 20 ([#300](https://github.com/kortyx-io/kortyx/issues/300)) ([0ed3151](https://github.com/kortyx-io/kortyx/commit/0ed3151e2984551d84113091594a0b8f9267289a))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/agent bumped to 0.34.0
+
+## [0.15.2](https://github.com/kortyx-io/kortyx/compare/cli-v0.15.1...cli-v0.15.2) (2026-10-08)
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/agent bumped to 0.33.0
+
+## [0.15.1](https://github.com/kortyx-io/kortyx/compare/cli-v0.15.0...cli-v0.15.1) (2026-10-08)
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/agent bumped to 0.32.0
+
+## [0.15.0](https://github.com/kortyx-io/kortyx/compare/cli-v0.14.0...cli-v0.15.0) (2026-10-08)
+
+
+### Features
+
+* **telemetry:** preserve complete private error diagnostics ([#290](https://github.com/kortyx-io/kortyx/issues/290)) ([e1c5a88](https://github.com/kortyx-io/kortyx/commit/e1c5a88c494016fd84a1af40579412fcfde31271))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/agent bumped to 0.31.1
+    * @kortyx/core bumped to 0.12.0
+    * @kortyx/telemetry-contracts bumped to 0.15.0
+
 ## [0.14.0](https://github.com/kortyx-io/kortyx/compare/cli-v0.13.0...cli-v0.14.0) (2026-10-07)
 
 

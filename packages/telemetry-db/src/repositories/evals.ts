@@ -125,17 +125,27 @@ export async function requestEvalCancellation(
     });
   });
 }
-export async function claimEvalRun(
+async function claimRuns(
   db: TelemetryDb,
   owner: string,
   targets: readonly (Scope & { id: string })[],
+  grouped: boolean,
 ) {
   return db.transaction(async (tx) => {
+    // Serialize the short claim transaction, including sibling selection. A
+    // second worker must never take a sibling with its own concurrency budget.
+    await tx.execute(
+      sql`SELECT pg_advisory_xact_lock(hashtext('kortyx:eval-claim'))`,
+    );
     // A lost lease means execution status is unknown. Never replay tool calls.
     const expired = await tx.execute(
-      sql`UPDATE eval_runs SET status = 'error', ended_at = now(), updated_at = now(), error = 'Executor disconnected; execution may have continued. Run again explicitly after inspection.' WHERE status = 'running' AND lease_expires_at < now() RETURNING organization_id, project_id`,
+      sql`UPDATE eval_runs SET status = 'error', ended_at = now(), updated_at = now(), error = 'Executor disconnected; execution may have continued. Run again explicitly after inspection.' WHERE status = 'running' AND lease_expires_at < now() RETURNING organization_id, project_id, evaluation_id`,
     );
     for (const row of expired) {
+      if (typeof row.evaluation_id === "string")
+        await tx.execute(
+          sql`UPDATE eval_runs SET status = 'error', ended_at = now(), updated_at = now(), error = 'Evaluation executor disconnected; inspect before running again.' WHERE evaluation_id = ${row.evaluation_id} AND status = 'queued'`,
+        );
       if (
         typeof row.organization_id === "string" &&
         typeof row.project_id === "string"
@@ -146,7 +156,7 @@ export async function claimEvalRun(
           resources: ["evals"],
         });
     }
-    if (!targets.length) return undefined;
+    if (!targets.length) return [];
     const permitted = sql.join(
       targets.map(
         (target) =>
@@ -155,19 +165,56 @@ export async function claimEvalRun(
       sql` OR `,
     );
     const claimed = await tx.execute(
-      sql`UPDATE eval_runs SET status = 'running', started_at = now(), updated_at = now(), lease_owner = ${owner}, lease_expires_at = now() + interval '30 seconds' WHERE id = (SELECT id FROM eval_runs WHERE status = 'queued' AND cancel_requested_at IS NULL AND (${permitted}) ORDER BY created_at FOR UPDATE SKIP LOCKED LIMIT 1) RETURNING id`,
+      sql`UPDATE eval_runs SET status = 'running', started_at = now(), updated_at = now(), lease_owner = ${owner}, lease_expires_at = now() + interval '30 seconds' WHERE id = (SELECT id FROM eval_runs WHERE status = 'queued' AND cancel_requested_at IS NULL AND (${permitted}) AND (evaluation_id IS NULL OR NOT EXISTS (SELECT 1 FROM eval_runs sibling WHERE sibling.evaluation_id = eval_runs.evaluation_id AND sibling.status = 'running')) ORDER BY created_at, id FOR UPDATE SKIP LOCKED LIMIT 1) RETURNING id`,
     );
     const id = claimed[0]?.id;
-    if (typeof id !== "string") return undefined;
+    if (typeof id !== "string") return [];
     const [run] = await tx
       .select()
       .from(evalRuns)
       .where(eq(evalRuns.id, id))
       .limit(1);
-    if (run) await notifyStudioChange(tx, { ...run, resources: ["evals"] });
-    return run;
+    if (!run) return [];
+    const siblings =
+      grouped && run.evaluationId
+        ? await tx
+            .update(evalRuns)
+            .set({
+              status: "running",
+              startedAt: new Date(),
+              updatedAt: new Date(),
+              leaseOwner: owner,
+              leaseExpiresAt: new Date(Date.now() + 30_000),
+            })
+            .where(
+              and(
+                eq(evalRuns.evaluationId, run.evaluationId),
+                eq(evalRuns.organizationId, run.organizationId),
+                eq(evalRuns.projectId, run.projectId),
+                eq(evalRuns.targetId, run.targetId),
+                eq(evalRuns.environment, run.environment),
+                eq(evalRuns.status, "queued"),
+                sql`${evalRuns.cancelRequestedAt} IS NULL`,
+              ),
+            )
+            .returning()
+        : [];
+    await notifyStudioChange(tx, { ...run, resources: ["evals"] });
+    return [run, ...siblings];
   });
 }
+/** Claim the entire evaluation under one owner and one attempt budget. */
+export const claimEvalRuns = (
+  db: TelemetryDb,
+  owner: string,
+  targets: readonly (Scope & { id: string })[],
+) => claimRuns(db, owner, targets, true);
+/** Legacy single-suite claim, mutually exclusive with grouped workers. */
+export const claimEvalRun = async (
+  db: TelemetryDb,
+  owner: string,
+  targets: readonly (Scope & { id: string })[],
+) => (await claimRuns(db, owner, targets, false))[0];
 export async function heartbeatEvalRun(
   db: TelemetryDb,
   id: string,

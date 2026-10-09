@@ -112,7 +112,9 @@ export default function BackgroundPage() {
             key={item.id}
             className="space-y-3 rounded border border-slate-600 p-4"
           >
-            <p className="font-medium">{item.input.question}</p>
+            <p className="whitespace-pre-wrap break-words [overflow-wrap:anywhere] font-medium">
+              {item.input.question}
+            </p>
             <p className="break-all text-xs text-slate-400">
               Interrupt: {item.id}
               <br />

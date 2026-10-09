@@ -224,3 +224,27 @@ it("uses a cancelled suite verdict and yellow cancellation counts instead of a s
   expect(strip(h.output())).toContain("2 cancelled");
   expect(strip(h.output())).not.toContain("SUITE PASSED");
 });
+
+it.each([
+  true,
+  false,
+])("keeps an attempt running when billing sessions are associated (color: %s)", (color) => {
+  const h = harness(color);
+  h.reporter.progress(runStart);
+  h.reporter.progress(start("products"));
+  const before = h.output();
+  h.reporter.progress({
+    type: "case-runtime-associated",
+    caseId: "products",
+    repetition: 1,
+    attemptId: "attempt",
+    execution: { sessionId: "fresh-session", runId: "runtime-run" },
+  });
+  expect(h.output()).toBe(before);
+  if (color) {
+    h.reporter.resume();
+    expect(strip(h.output())).toContain("1 running · 3 queued");
+    expect(strip(h.output())).toContain("0/4 · 0%");
+  }
+  h.reporter.close();
+});

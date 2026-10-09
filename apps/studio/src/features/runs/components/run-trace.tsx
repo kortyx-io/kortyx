@@ -21,6 +21,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { DetailInspectorDrawer } from "@/components/detail/detail-inspector";
 import { KeyValue, StatusPill } from "@/components/detail/detail-primitives";
 import { PayloadViewer } from "@/components/detail/payload-viewer";
+import Link from "@/components/scoped-link";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { OverflowText } from "@/components/ui/overflow-tooltip";
 import {
@@ -575,6 +576,18 @@ function TraceInspector({
         </p>
       )}
       <dl className="mt-4 divide-y">
+        {typeof (error?.diagnosticId ?? event.payload.diagnosticId) ===
+          "string" && (
+          <KeyValue label="Full diagnostic">
+            <Link
+              prefetch={false}
+              className="text-primary hover:underline"
+              href={`/diagnostics/${encodeURIComponent(String(error?.diagnosticId ?? event.payload.diagnosticId))}?env=${encodeURIComponent(event.environment)}`}
+            >
+              View diagnostic
+            </Link>
+          </KeyValue>
+        )}
         {typeof errorType === "string" && (
           <KeyValue label="Error type">
             <code>{errorType}</code>

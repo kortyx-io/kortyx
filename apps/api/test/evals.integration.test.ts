@@ -165,6 +165,11 @@ describe.skipIf(!url)(
         onProgress: (event) =>
           appendEvalProgress(client.db, queued.id, "billing-owner", event),
       });
+      // Historical consumers had no attempt identity or execution associations.
+      for (const item of result.cases) {
+        delete item.attemptId;
+        delete item.runtimeExecutions;
+      }
       const sessionId = result.cases[0]?.sessionId;
       const active = await getEvalRun(client.db, scope, queued.id);
       expect(active.costs?.total).toMatchObject({
@@ -190,6 +195,153 @@ describe.skipIf(!url)(
         (await listEvalRuns(client.db, scope)).find((r) => r.id === queued.id)
           ?.costs?.total.amount,
       ).toBe(0.0015);
+    });
+    it("attributes live and saved multi-session costs without crossing attempts, projects, environments or reused sessions", async () => {
+      const targetId = randomUUID();
+      const billingSuite: EvalSuite = {
+        id: "multi-session",
+        cases: [
+          {
+            id: "record",
+            steps: [{ message: "update and read", expect: { type: "answer" } }],
+          },
+        ],
+      };
+      const revision = getEvalSuiteRevision(billingSuite);
+      const queued = await enqueueEvalRun(client.db, {
+        ...scope,
+        environment: "development",
+        targetId,
+        targetName: "Multi-session",
+        suiteId: billingSuite.id,
+        suiteRevision: revision,
+        suite: billingSuite,
+        request: {
+          ...request,
+          suiteId: billingSuite.id,
+          suiteRevision: revision,
+          repetitions: 2,
+          concurrency: 2,
+        },
+        requestedBy: "test",
+      });
+      await claimEvalRun(client.db, "multi-session-owner", [
+        { ...scope, id: targetId },
+      ]);
+      const result = await createEvals({
+        agent: { streamChat: vi.fn() },
+        suites: [billingSuite],
+        execute: () => ({
+          observation: { type: "answer", text: "saved", structured: [] },
+        }),
+      }).run({ suiteId: billingSuite.id, repetitions: 2, concurrency: 2 });
+      const first = result.cases[0]!;
+      const second = result.cases[1]!;
+      // These are the strict wire associations emitted automatically by native SDK execution.
+      first.runtimeExecutions = [
+        { sessionId: "shared-A", runId: randomUUID() },
+        { sessionId: "fresh-B", runId: randomUUID() },
+      ];
+      second.runtimeExecutions = [
+        { sessionId: "shared-A", runId: first.runtimeExecutions[0]!.runId },
+      ];
+      const progress = (event: Parameters<typeof appendEvalProgress>[3]) =>
+        appendEvalProgress(client.db, queued.id, "multi-session-owner", event);
+      for (const item of result.cases) {
+        await progress({
+          type: "case-started",
+          caseId: item.caseId,
+          repetition: item.repetition,
+          sessionId: item.sessionId,
+          attemptId: item.attemptId!,
+        });
+        for (const execution of item.runtimeExecutions ?? []) {
+          const event = {
+            type: "case-runtime-associated" as const,
+            caseId: item.caseId,
+            repetition: item.repetition,
+            attemptId: item.attemptId!,
+            execution,
+          };
+          await progress(event);
+          await progress(event); // Retried delivery does not duplicate the association.
+        }
+      }
+      const otherProject = randomUUID();
+      await client.sql`insert into projects (id,organization_id,name) values (${otherProject},${scope.organizationId},${otherProject})`;
+      const insert = async (
+        item: typeof first,
+        index: number,
+        micros: number,
+        environment = "development",
+        projectId = scope.projectId,
+        attemptId: string | undefined = item.attemptId,
+      ) => {
+        const execution = item.runtimeExecutions![index]!;
+        const eventId = randomUUID();
+        const payload = JSON.stringify({
+          ...(attemptId ? { evalAttemptId: attemptId } : {}),
+          pricing: {
+            source: "provider",
+            currency: "USD",
+            actualCostMicros: micros,
+          },
+        });
+        // Telemetry ingestion's event identity constraint makes replay idempotent.
+        for (let retry = 0; retry < 2; retry++)
+          await client.sql`insert into telemetry_events (organization_id,project_id,event_id,schema_version,type,occurred_at,environment,service_name,run_id,session_id,workflow_id,payload) values (${scope.organizationId},${projectId},${eventId},1,'generation.completed',now(),${environment},'billing-test',${execution.runId},${execution.sessionId},'record',${payload}::jsonb) on conflict do nothing`;
+      };
+      await insert(first, 0, 1000);
+      await insert(second, 0, 7000);
+      await insert(first, 0, 900000, "production");
+      await insert(first, 0, 900000, "development", otherProject);
+      await insert(
+        first,
+        0,
+        900000,
+        "development",
+        scope.projectId,
+        "unrelated-attempt",
+      );
+      await insert(first, 0, 900000, "development", scope.projectId, "");
+      const active = await getEvalRun(client.db, scope, queued.id);
+      expect(active.caseCosts?.["record:1"]?.workflow).toMatchObject({
+        amount: 0.001,
+        calls: 1,
+        status: "partial",
+        unpricedCalls: 1,
+      });
+      expect(active.caseCosts?.["record:2"]?.workflow.amount).toBe(0.007);
+      await finishEvalRun(client.db, queued.id, "multi-session-owner", {
+        result,
+      });
+      expect(
+        (await getEvalRun(client.db, scope, queued.id)).costs?.workflow.status,
+      ).toBe("partial");
+      // Billing arriving after completion updates saved results without rerunning the eval.
+      await insert(first, 1, 2000);
+      await insert(first, 1, 3000); // Additional child/retry generation, same execution.
+      const saved = await getEvalRun(client.db, scope, queued.id);
+      expect(saved.caseCosts?.["record:1"]?.workflow).toMatchObject({
+        amount: 0.006,
+        calls: 3,
+        status: "complete",
+      });
+      expect(saved.caseCosts?.["record:2"]?.workflow).toMatchObject({
+        amount: 0.007,
+        calls: 1,
+        status: "complete",
+      });
+      expect(saved.costs?.total).toMatchObject({
+        amount: 0.013,
+        calls: 4,
+        status: "complete",
+      });
+      expect(
+        (await listEvalRuns(client.db, scope)).find(
+          (run) => run.id === queued.id,
+        )?.costs?.total.amount,
+      ).toBe(0.013);
     });
     it("notifies eval changes only after their transaction commits", async () => {
       const changes: string[] = [];
@@ -539,6 +691,12 @@ describe.skipIf(!url)(
         const evals = createEvals({
           agent: { streamChat: vi.fn() },
           suites: [suite],
+          defaults: { evidence: { events: { using: "tool-results" } } },
+          evidenceFilters: {
+            events: {
+              "tool-results": (event) => event.type === "tool-call-result",
+            },
+          },
           ...(withCodeJudge
             ? { judge: { id: "app/test", version: "1", grade: codeGrade } }
             : {}),
@@ -551,6 +709,7 @@ describe.skipIf(!url)(
                     text: "Choose",
                     structured: [],
                     events: [
+                      { type: "status", message: "Searching" },
                       {
                         type: "tool-call-result",
                         tool: "read_job",
@@ -602,7 +761,11 @@ describe.skipIf(!url)(
             authorization: `Bearer ${apiKey}`,
             "content-type": "application/json",
           },
-          body: JSON.stringify({ ...request, targetId: target.id }),
+          body: JSON.stringify({
+            ...request,
+            suiteRevision: getEvalSuiteRevision(evals.listSuites()[0]!),
+            targetId: target.id,
+          }),
         });
         expect(response.status).toBe(202);
         const { id } = z.object({ id: z.uuid() }).parse(await response.json());
@@ -644,8 +807,15 @@ describe.skipIf(!url)(
           conversation: { observation: { events: unknown[] } }[];
         };
         expect(graded.conversation[0]?.observation.events).toEqual(
-          saved.result?.cases[0]?.steps[0]?.observation.events,
+          saved.result?.cases[0]?.steps[0]?.evidence?.observation.events,
         );
+        expect(
+          saved.result?.cases[0]?.steps[0]?.observation.events,
+        ).toHaveLength(2);
+        expect(graded.conversation[0]?.observation.events).toHaveLength(1);
+        expect(saved.result?.suite.evidence).toEqual({
+          events: { using: "tool-results" },
+        });
         expect(JSON.stringify(saved)).not.toContain(apiKey);
       } finally {
         await worker?.stop();

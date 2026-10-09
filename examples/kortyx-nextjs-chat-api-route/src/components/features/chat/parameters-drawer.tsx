@@ -51,8 +51,9 @@ export function ParametersDrawer({
                 <code>reason-structured-stream</code> or{" "}
                 <code>reason-structured-multi-stream</code> or{" "}
                 <code>reason-structured-wildcard-stream</code> or{" "}
-                <code>output-contract-demo</code>). Leave empty to use the
-                default workflow.
+                <code>output-contract-demo</code> or{" "}
+                <code>mixed-control-demo</code>). Leave empty to use the default
+                workflow.
               </p>
             </div>
             <Input

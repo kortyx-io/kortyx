@@ -1,6 +1,9 @@
 import { isControlFlowError, serializeFailure } from "@kortyx/core/errors";
 import type { ReasonTraceSpan, ReasonTraceSpanEndArgs } from "@kortyx/hooks";
-import { exceptionDiagnostics } from "@kortyx/hooks/internal";
+import {
+  exceptionDiagnostics,
+  summarizeDiagnostic,
+} from "@kortyx/hooks/internal";
 import { type Span, SpanStatusCode } from "@opentelemetry/api";
 import {
   applyAttributeMapping,
@@ -73,7 +76,8 @@ export const createSpanWrapper = (
         return;
       }
       const failure = serializeFailure(error);
-      const diagnostic = exceptionDiagnostics(error, options.error);
+      const captured = exceptionDiagnostics(error, options.error);
+      const diagnostic = captured ? summarizeDiagnostic(captured) : null;
       const message = diagnostic?.message ?? failure.message;
       span.recordException({
         name: diagnostic?.type ?? failure.code,
@@ -85,7 +89,9 @@ export const createSpanWrapper = (
         const attributes = spanErrorAttributes(error, args, {
           type: diagnostic?.type,
           message: diagnostic?.message,
-          cause: diagnostic?.cause,
+          cause: diagnostic?.cause as
+            | import("@kortyx/hooks").KortyxErrorDetails
+            | undefined,
         });
         span.setAttributes(
           toAttributes(

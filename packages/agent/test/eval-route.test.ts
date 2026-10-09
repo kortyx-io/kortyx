@@ -298,6 +298,23 @@ describe("consumer eval transport", () => {
       "PRIVATE-TOKEN",
     );
   });
+  it("accepts up to 20 concurrent attempts and rejects invalid concurrency before execution", async () => {
+    const run = vi.fn(async () => result());
+    const handler = createEvalRouteHandler({
+      serviceKey: key,
+      evals: { describe: () => manifest, run },
+    });
+    for (const concurrency of [0, 21, 1.5]) {
+      expect((await handler(request({ concurrency }))).status).toBe(400);
+    }
+    expect(run).not.toHaveBeenCalled();
+    const response = await handler(request({ concurrency: 20 }));
+    expect(response.status).toBe(200);
+    await response.text();
+    expect(run).toHaveBeenCalledWith(
+      expect.objectContaining({ concurrency: 20 }),
+    );
+  });
   it("enforces active-run limits and signals cleanup when the stream reader disconnects", async () => {
     let signal: AbortSignal | undefined;
     let settled = false;
@@ -386,5 +403,110 @@ it("retains the incoming Request abort controller through garbage collection whi
     await vi.waitFor(() => expect(settled).toBe(true), { timeout: 1000 });
   } finally {
     await response.body!.cancel();
+  }
+});
+
+it("admits bounded scheduled attempts from the same evaluation without admitting unrelated runs", async () => {
+  let release!: () => void;
+  const gate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  const run = vi.fn(async () => {
+    await gate;
+    return result();
+  });
+  const handler = createEvalRouteHandler({
+    serviceKey: key,
+    evals: { describe: () => ({ ...manifest, attemptScheduling: true }), run },
+  });
+  const evaluationId = randomUUID();
+  const body = {
+    concurrency: 2,
+    attempt: { evaluationId, caseId: "one", repetition: 1 },
+  };
+  const first = await handler(request(body));
+  const second = await handler(request(body));
+  try {
+    expect(first.status).toBe(200);
+    expect(second.status).toBe(200);
+    expect((await handler(request(body))).status).toBe(429);
+    expect((await handler(request({ ...body, concurrency: 3 }))).status).toBe(
+      429,
+    );
+    expect((await handler(request())).status).toBe(429);
+    expect(run).toHaveBeenCalledTimes(2);
+  } finally {
+    release();
+    await Promise.all([first.text(), second.text()]);
+  }
+  expect((await handler(request())).status).toBe(200);
+});
+
+it("rejects unsupported or invalid scheduled attempts before running", async () => {
+  const run = vi.fn();
+  for (const attemptScheduling of [undefined, true] as const) {
+    const handler = createEvalRouteHandler({
+      serviceKey: key,
+      evals: {
+        describe: () => ({
+          ...manifest,
+          ...(attemptScheduling ? { attemptScheduling } : {}),
+        }),
+        run,
+      },
+    });
+    expect(
+      (
+        await handler(
+          request({
+            caseIds: [],
+            attempt: {
+              evaluationId: randomUUID(),
+              caseId: "one",
+              repetition: 1,
+            },
+          }),
+        )
+      ).status,
+    ).toBe(400);
+    for (const attempt of [
+      { evaluationId: randomUUID(), caseId: "missing", repetition: 1 },
+      { evaluationId: randomUUID(), caseId: "one", repetition: 2 },
+      ...(!attemptScheduling
+        ? [{ evaluationId: randomUUID(), caseId: "one", repetition: 1 }]
+        : []),
+    ])
+      expect((await handler(request({ attempt }))).status).toBe(409);
+  }
+  expect(run).not.toHaveBeenCalled();
+});
+
+it("rejects scheduled attempts excluded by the selected cases", async () => {
+  const expanded = {
+    ...suite,
+    cases: [...suite.cases, { ...suite.cases[0]!, id: "two" }],
+  };
+  const run = vi.fn(async () => result());
+  const handler = createEvalRouteHandler({
+    serviceKey: key,
+    evals: {
+      describe: () => ({
+        ...manifest,
+        suites: [expanded],
+        attemptScheduling: true,
+      }),
+      run,
+    },
+  });
+  for (const caseIds of [["one"], ["one", "two"]]) {
+    const response = await handler(
+      request({
+        suiteRevision: getEvalSuiteRevision(expanded),
+        caseIds,
+        attempt: { evaluationId: randomUUID(), caseId: "two", repetition: 1 },
+      }),
+    );
+    if (caseIds.length === 1) expect(response.status).toBe(409);
+    else await response.body?.cancel();
   }
 });

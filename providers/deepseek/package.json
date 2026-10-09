@@ -1,6 +1,6 @@
 {
   "name": "@kortyx/deepseek",
-  "version": "0.4.5",
+  "version": "0.4.7",
   "private": false,
   "description": "DeepSeek provider integration for Kortyx.",
   "keywords": [

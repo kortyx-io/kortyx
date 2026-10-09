@@ -9,7 +9,9 @@ export const awaitInterruptInternal = <
   TRequest extends InterruptInput = InterruptInput,
   TResponse = InterruptResult,
 >(
-  args: UseInterruptArgs<TRequest, TResponse>,
+  args: UseInterruptArgs<TRequest, TResponse> & {
+    onResolved?: ((request: InterruptInput) => void) | undefined;
+  },
 ): Promise<TResponse> => {
   const ctx = getHookContext();
   throwIfExecutionAborted(ctx.node.abortSignal);
@@ -56,5 +58,12 @@ export const awaitInterruptInternal = <
     "useInterrupt response",
   );
 
+  if (args.onResolved) {
+    // The resume patch includes this journal; retaining it would recursively
+    // embed all earlier checkpoints inside each subsequent interrupt.
+    const { __kortyxResumeStatePatch: _patch, ...meta } =
+      enrichedRequest.meta ?? {};
+    args.onResolved({ ...enrichedRequest, meta });
+  }
   return Promise.resolve(response);
 };

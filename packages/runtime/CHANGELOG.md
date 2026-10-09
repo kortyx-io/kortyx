@@ -1,5 +1,45 @@
 # Changelog
 
+## [0.22.1](https://github.com/kortyx-io/kortyx/compare/runtime-v0.22.0...runtime-v0.22.1) (2026-10-09)
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/stream bumped to 0.15.3
+    * @kortyx/core bumped to 0.13.0
+    * @kortyx/hooks bumped to 0.32.1
+    * @kortyx/providers bumped to 0.9.1
+    * @kortyx/utils bumped to 0.3.5
+
+## [0.22.0](https://github.com/kortyx-io/kortyx/compare/runtime-v0.21.7...runtime-v0.22.0) (2026-10-08)
+
+
+### Features
+
+* **hooks:** support mixed tools outputs and interrupts ([#297](https://github.com/kortyx-io/kortyx/issues/297)) ([0aa4aa6](https://github.com/kortyx-io/kortyx/commit/0aa4aa6b08cd2ef44f603b8dbe8e35b30c54cbdc))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/hooks bumped to 0.32.0
+
+## [0.21.7](https://github.com/kortyx-io/kortyx/compare/runtime-v0.21.6...runtime-v0.21.7) (2026-10-08)
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/stream bumped to 0.15.2
+    * @kortyx/core bumped to 0.12.0
+    * @kortyx/hooks bumped to 0.31.0
+    * @kortyx/providers bumped to 0.9.0
+    * @kortyx/utils bumped to 0.3.4
+
 ## [0.21.6](https://github.com/kortyx-io/kortyx/compare/runtime-v0.21.5...runtime-v0.21.6) (2026-10-07)
 
 

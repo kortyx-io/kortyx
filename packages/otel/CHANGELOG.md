@@ -1,5 +1,39 @@
 # Changelog
 
+## [0.8.2](https://github.com/kortyx-io/kortyx/compare/otel-v0.8.1...otel-v0.8.2) (2026-10-09)
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/hooks bumped to 0.32.1
+    * @kortyx/core bumped to 0.13.0
+
+## [0.8.1](https://github.com/kortyx-io/kortyx/compare/otel-v0.8.0...otel-v0.8.1) (2026-10-08)
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/hooks bumped to 0.32.0
+
+## [0.8.0](https://github.com/kortyx-io/kortyx/compare/otel-v0.7.6...otel-v0.8.0) (2026-10-08)
+
+
+### Features
+
+* **telemetry:** preserve complete private error diagnostics ([#290](https://github.com/kortyx-io/kortyx/issues/290)) ([e1c5a88](https://github.com/kortyx-io/kortyx/commit/e1c5a88c494016fd84a1af40579412fcfde31271))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/hooks bumped to 0.31.0
+    * @kortyx/core bumped to 0.12.0
+
 ## [0.7.6](https://github.com/kortyx-io/kortyx/compare/otel-v0.7.5...otel-v0.7.6) (2026-10-07)
 
 

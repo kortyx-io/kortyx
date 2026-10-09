@@ -15,6 +15,7 @@ import type {
 } from "@kortyx/telemetry-contracts";
 
 export type KortyxErrorDetails = {
+  [key: string]: unknown;
   type?: string | undefined;
   message: string;
   stack?: string | undefined;
@@ -26,6 +27,11 @@ export type KortyxTraceErrorProjection = (
 ) => KortyxErrorDetails | null;
 
 export type ReportErrorOptions = {
+  correlation?:
+    | import("@kortyx/telemetry-contracts").DiagnosticManifest["correlation"]
+    | undefined;
+  mechanism?: "report" | "tool" | undefined;
+  error?: KortyxTraceErrorProjection | undefined;
   severity?: "warning" | "error" | undefined;
   metadata?: Record<string, unknown> | undefined;
   tags?: string[] | undefined;
@@ -93,7 +99,7 @@ export interface ReasonTraceAdapter {
       }
     | undefined;
   /** Records a handled error without changing workflow control flow. */
-  reportError?: (error: unknown, options?: ReportErrorOptions) => void;
+  reportError?: (error: unknown, options?: ReportErrorOptions) => string | void;
 }
 
 export type KortyxTraceAdapter = ReasonTraceAdapter;

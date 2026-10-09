@@ -20,6 +20,7 @@ export const ToolObservationSchema = z.object({
     .optional(),
   errorType: z.string().max(256).optional(),
   errorMessage: z.string().max(8192).optional(),
+  diagnosticId: z.string().uuid().optional(),
   durationMs: z.number().finite().nonnegative().optional(),
   workflowId: z.string().optional(),
   nodeId: z.string().optional(),

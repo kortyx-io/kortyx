@@ -103,6 +103,31 @@ Open Studio's Runs page and select the `output-contract-demo` execution. Its
 Events tab records each validated emission or invalidation; the example chat's
 Debug panel shows the earlier field-level stream chunks.
 
+## Mixed tools, outputs, and interrupts
+
+Set **Parameters → Workflow override** to `mixed-control-demo`.
+
+- Send `/fixture` for a deterministic browser test with no model credentials.
+- Send `/openai` for a live `gpt-4.1-mini` run (`OPENAI_API_KEY`).
+- Send any other request for a live Gemini run using the normal Google key.
+
+The fixture requests seven calls in one turn: a terminal output, an evidence
+lookup, a streamed card, a local counter update, a rollout question, another
+streamed card, and a notification question. The terminal call is intentionally
+first to verify it is published last. Live models are asked for the same mix;
+the final verification panel shows the actual calls in each model turn.
+
+Choose **Defer rollout**, then **Keep quiet**. Verify that the final answer
+contains the evidence code from the first card and records `defer, silent` as
+two distinct decisions. The verification panel must report one read, one local
+write, and two cards. The counter is node state; this example never writes to
+an external system. Cards before a question remain visible while paused, and
+completed tools and outputs are reused on resume.
+
+Send `/fixture /budget` in a fresh chat to verify an actionable
+`REASON_OUTPUT_BUDGET_EXHAUSTED` error without a terminal answer. Output generation
+and correction share `toolExecution.maxSteps` with the tool-selection passes.
+
 ## Reason + interrupt demo notes
 
 Use workflow override `reason-interrupt-structured` to test `useReason` with:

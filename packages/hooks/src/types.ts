@@ -217,6 +217,7 @@ export type UseReasonInterruptConfig<
 };
 
 export type UseReasonToolExecution = {
+  /** Model-pass budget, including output generation and correction across resume. */
   maxSteps?: number | undefined;
   approval?: boolean | Record<string, boolean> | undefined;
   emit?: boolean | Record<string, boolean> | undefined;

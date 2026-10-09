@@ -1,5 +1,6 @@
 import { PromptSnapshotSchema } from "@kortyx/prompts";
 import { z } from "zod";
+import { EvalEvidencePolicySchema } from "./evidence-policy";
 import type { EvalSuite } from "./types";
 
 const id = z.string().trim().min(1).max(256);
@@ -47,6 +48,7 @@ const expectation = z
   });
 export const EvalSuiteSchema = z
   .object({
+    evidence: EvalEvidencePolicySchema.optional(),
     id,
     name: z.string().optional(),
     cases: z
@@ -195,6 +197,14 @@ export const EvalJudgeUsageSchema = z
   .strict();
 export const EvalStepResultSchema = z
   .object({
+    evidence: z
+      .object({
+        version: z.literal("compact-v1"),
+        history: z.boolean(),
+        observation: EvalObservationSchema,
+      })
+      .strict()
+      .optional(),
     index: z.number().int().nonnegative(),
     input: z.union([
       z.object({ message: z.string() }).strict(),
@@ -212,10 +222,15 @@ export const EvalStepResultSchema = z
     ),
   })
   .strict();
+const runtimeExecution = z
+  .object({ sessionId: z.string().min(1), runId: z.string().min(1) })
+  .strict();
 export const EvalCaseResultSchema = z
   .object({
     caseId: id,
     repetition: z.number().int().positive(),
+    attemptId: z.uuid().optional(),
+    runtimeExecutions: z.array(runtimeExecution).optional(),
     sessionId: z.string(),
     status,
     durationMs: z.number().nonnegative(),
@@ -290,6 +305,7 @@ export const EvalManifestSchema = z
           .strict(),
       )
       .optional(),
+    attemptScheduling: z.literal(true).optional(),
     suites: z.array(EvalSuiteSchema),
     responders: z.array(
       z
@@ -306,6 +322,15 @@ export const EvalManifestSchema = z
   })
   .strict();
 export const EvalProgressSchema = z.discriminatedUnion("type", [
+  z
+    .object({
+      type: z.literal("case-runtime-associated"),
+      caseId: id,
+      repetition: z.number().int().positive(),
+      attemptId: z.uuid(),
+      execution: runtimeExecution,
+    })
+    .strict(),
   z
     .object({
       type: z.literal("run-started"),
@@ -326,6 +351,7 @@ export const EvalProgressSchema = z.discriminatedUnion("type", [
   z
     .object({
       type: z.literal("case-started"),
+      attemptId: z.uuid().optional(),
       caseId: id,
       repetition: z.number().int().positive(),
       sessionId: z.string(),
@@ -353,7 +379,15 @@ export const EvalRemoteRunRequestSchema = z
     judge: EvalJudgeIdentitySchema.optional(),
     caseIds: z.array(id).min(1).max(100).optional(),
     repetitions: z.number().int().min(1).max(20).default(1),
-    concurrency: z.number().int().min(1).max(4).default(1),
+    concurrency: z.number().int().min(1).max(20).default(1),
+    attempt: z
+      .object({
+        caseId: id,
+        repetition: z.number().int().min(1).max(20),
+        evaluationId: z.uuid(),
+      })
+      .strict()
+      .optional(),
   })
   .strict();
 export const StudioEvalStartRequestSchema = EvalRemoteRunRequestSchema.omit({
@@ -361,6 +395,7 @@ export const StudioEvalStartRequestSchema = EvalRemoteRunRequestSchema.omit({
   judge: true,
   promptSnapshot: true,
   promptGroupName: true,
+  attempt: true,
 }).extend({
   promptSelection: z
     .discriminatedUnion("type", [

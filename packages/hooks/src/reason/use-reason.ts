@@ -190,6 +190,8 @@ async function runReason<
   const existingCompleted = readReasonCompletedCheckpoint(checkpointValue);
 
   if (existingCompleted) {
+    for (const request of existingCompleted.resolvedInterrupts ?? [])
+      ctx.node.replayInterrupt?.(request);
     await replayToolObservations(
       existingCompleted.result.steps?.flatMap(
         (step) => step.toolObservations ?? [],

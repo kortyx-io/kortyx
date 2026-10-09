@@ -46,19 +46,24 @@ test("does nothing when there is no open Release Please pull request", async () 
   assert.deepEqual(mock.requests, []);
 });
 
-test("accepts an already current Release Please pull request", async () => {
-  const error = new Error("Pull Request is not behind the base branch");
-  error.status = 422;
-  const mock = api({
-    pulls: [{ number: 252, head: { sha: "release-sha" } }],
-    requestError: error,
-  });
+for (const message of [
+  "Pull Request is not behind the base branch",
+  "There are no new commits on the base branch.",
+]) {
+  test(`accepts an already current Release Please pull request: ${message}`, async () => {
+    const error = new Error(message);
+    error.status = 422;
+    const mock = api({
+      pulls: [{ number: 252, head: { sha: "release-sha" } }],
+      requestError: error,
+    });
 
-  assert.deepEqual(await updateReleasePrBranch({ ...mock, context }), {
-    updated: false,
-    pullNumber: 252,
+    assert.deepEqual(await updateReleasePrBranch({ ...mock, context }), {
+      updated: false,
+      pullNumber: 252,
+    });
   });
-});
+}
 
 test("does not hide update failures", async () => {
   const error = new Error("Merge conflict");

@@ -306,11 +306,40 @@ result.returned;
 useStructuredData({ contract: accountCard, data: { title: "Matches", accounts: ["A"] } });
 ```
 
-When the model selects `accountCard`, Kortyx makes a separate streamed JSON model pass. `title` and `accounts` updates reach the client as tokens arrive; the full object is validated before the final chunk and before it enters `result.emissions`. The validated value is returned to the model as the control-tool result, so it can continue with text that matches the published card. The extra pass and tool result count toward `toolExecution.maxSteps`, model usage, and later context. A streamed `return` contract works the same way and then ends the call. For a contract without `stream`, its complete tool arguments are validated and emitted after the tool call finishes.
+When the model selects `accountCard`, Kortyx makes a separate streamed JSON model pass. `title` and `accounts` updates reach the client as tokens arrive; the full object is validated before the final chunk and before it enters `result.emissions`. The validated value is returned to the model as the control-tool result, so it can continue with text that matches the published card. The extra pass and tool result count toward `toolExecution.maxSteps`, model usage, and later context. A streamed `return` contract works the same way and then ends the call. For a contract without `stream`, its complete tool arguments are validated and emitted after the tool call finishes, unless earlier calls in the same turn supplied new evidence; mixed-turn regeneration is described below.
 
 > **Good to know:** Live text around output contracts requires a provider model that supports streaming alongside tools. The streamed structured pass itself uses text streaming. Providers without tool streaming can still select contracts, but the surrounding assistant text arrives after each tool-enabled model pass completes.
 
 > **Good to know:** The model chooses when to call an output contract. If an application must emit a value at a precise point, call `useStructuredData({ contract, data })` from the node. Partial chunks are provisional; clients discard them if generation or final validation fails, and treat a validated `final` chunk as the source of truth.
+
+### Mixed tool, output, and interrupt calls
+
+A model turn can contain multiple domain tools, emitted outputs, and interrupt
+contracts. Kortyx processes them in their requested order. For example, a card
+can be emitted before an interrupt asks the user to choose from it. Each
+interrupt pauses the remaining calls; checkpoint resume reuses completed tools,
+emissions, and human responses. Tool approval, `interrupts.maxRequests`, and
+`outputs.maxEmissions` still apply.
+
+A terminal return is processed last, even when the provider lists it first.
+When an output follows domain or interrupt results from that same turn, Kortyx
+regenerates it using those results in a separate schema-constrained model pass.
+Streamed contracts use their normal streamed pass; non-streamed contracts use a
+buffered pass. The original draft is not published as the final answer before
+the evidence is available. If later tool arguments or questions depend on an
+unknown result, request those calls in a subsequent model turn.
+
+All generation attempts count toward `toolExecution.maxSteps`, including failed
+attempts across resume. If there is no pass left for output generation,
+`useReason` throws a `ProviderRequestError` with code
+`REASON_OUTPUT_BUDGET_EXHAUSTED` and guidance to increase `maxSteps`.
+
+`result.returned` holds one terminal value. Multiple `emit` calls are supported;
+if the model requests conflicting terminal returns, Kortyx supplies an error
+result for each and asks the model to select one. Correction uses the remaining
+`maxSteps`, preserving completed tools, interrupts, and emissions. If correction
+is exhausted, the typed failure code is
+`REASON_OUTPUT_CONTRACT_CORRECTION_EXHAUSTED`.
 
 ### Deprecated: single JSON output schema
 

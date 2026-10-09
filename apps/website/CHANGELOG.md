@@ -1,5 +1,33 @@
 # Changelog
 
+## [0.48.0](https://github.com/kortyx-io/kortyx/compare/website-v0.47.0...website-v0.48.0) (2026-10-09)
+
+
+### Features
+
+* **evals:** share concurrency and attribute multi-session costs ([#304](https://github.com/kortyx-io/kortyx/issues/304)) ([dd5e242](https://github.com/kortyx-io/kortyx/commit/dd5e242ae08affbb015201bb57c4714709756cf2))
+
+## [0.47.0](https://github.com/kortyx-io/kortyx/compare/website-v0.46.0...website-v0.47.0) (2026-10-09)
+
+
+### Features
+
+* **evals:** raise concurrency limit to 20 ([#300](https://github.com/kortyx-io/kortyx/issues/300)) ([0ed3151](https://github.com/kortyx-io/kortyx/commit/0ed3151e2984551d84113091594a0b8f9267289a))
+
+## [0.46.0](https://github.com/kortyx-io/kortyx/compare/website-v0.45.0...website-v0.46.0) (2026-10-08)
+
+
+### Features
+
+* **hooks:** support mixed tools outputs and interrupts ([#297](https://github.com/kortyx-io/kortyx/issues/297)) ([0aa4aa6](https://github.com/kortyx-io/kortyx/commit/0aa4aa6b08cd2ef44f603b8dbe8e35b30c54cbdc))
+
+## [0.45.0](https://github.com/kortyx-io/kortyx/compare/website-v0.44.0...website-v0.45.0) (2026-10-08)
+
+
+### Features
+
+* **evals:** compact judge evidence and add suite selection ([#293](https://github.com/kortyx-io/kortyx/issues/293)) ([9754f7c](https://github.com/kortyx-io/kortyx/commit/9754f7cacc61b5945a254ccaa66e17b1b5c8d13f))
+
 ## [0.44.0](https://github.com/kortyx-io/kortyx/compare/website-v0.43.0...website-v0.44.0) (2026-10-07)
 
 

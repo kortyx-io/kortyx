@@ -38,7 +38,7 @@ function ResponseDefinition({
   switch (response.type) {
     case "text":
       return (
-        <p className="whitespace-pre-wrap break-words text-sm leading-relaxed">
+        <p className="whitespace-pre-wrap break-words [overflow-wrap:anywhere] text-sm leading-relaxed">
           {response.text || "Empty text response"}
         </p>
       );
@@ -116,7 +116,7 @@ function StepDefinition({
         </div>
       </div>
       {message ? (
-        <p className="whitespace-pre-wrap break-words text-sm leading-relaxed">
+        <p className="whitespace-pre-wrap break-words [overflow-wrap:anywhere] text-sm leading-relaxed">
           {step.message || "Empty user message"}
         </p>
       ) : (
@@ -143,7 +143,7 @@ function StepDefinition({
             {step.expect.criteria.map((criterion, i) => (
               <li
                 key={typeof criterion === "string" ? i : criterion.id}
-                className="whitespace-pre-wrap break-words text-sm leading-relaxed text-foreground/80"
+                className="whitespace-pre-wrap break-words [overflow-wrap:anywhere] text-sm leading-relaxed text-foreground/80"
               >
                 {typeof criterion === "string" ? criterion : criterion.text}
               </li>

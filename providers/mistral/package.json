@@ -1,6 +1,6 @@
 {
   "name": "@kortyx/mistral",
-  "version": "0.4.5",
+  "version": "0.4.7",
   "private": false,
   "description": "Mistral provider integration for Kortyx.",
   "keywords": [

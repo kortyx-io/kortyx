@@ -1,6 +1,6 @@
 {
   "name": "@kortyx/core",
-  "version": "0.11.0",
+  "version": "0.13.0",
   "private": false,
   "description": "Core primitives and shared types for the Kortyx framework.",
   "keywords": [
@@ -28,6 +28,10 @@
     "./errors": {
       "types": "./dist/errors.d.ts",
       "default": "./dist/errors.js"
+    },
+    "./eval-attribution": {
+      "types": "./dist/eval-attribution.d.ts",
+      "default": "./dist/eval-attribution.js"
     }
   },
   "files": [

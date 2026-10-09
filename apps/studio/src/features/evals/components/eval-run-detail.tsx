@@ -24,6 +24,7 @@ import {
 import type { EvalDetail } from "../schema";
 import { EvalCost, EvalCostBreakdown } from "./eval-cost";
 import { EvalDetailHeader, EvalSummaryMetric } from "./eval-detail-header";
+import { EvalDuration } from "./eval-duration";
 import { EvalStatus } from "./eval-status";
 import { EvalSuiteDefinition } from "./eval-suite-definition";
 
@@ -157,6 +158,10 @@ export function EvalRunDetail({
           <EvalSummaryMetric
             label="Completed"
             value={`${counts.completed} / ${counts.total}`}
+          />
+          <EvalSummaryMetric
+            label="Duration"
+            value={<EvalDuration run={run} />}
           />
           <EvalSummaryMetric label="Passed" value={counts.passed} />
           <EvalSummaryMetric label="Failed" value={counts.failed} />

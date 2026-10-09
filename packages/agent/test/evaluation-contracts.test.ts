@@ -15,6 +15,17 @@ describe("grouped evaluation request contract", () => {
       metadata: { source: "manual" },
     });
   });
+  it.each([
+    [20, true],
+    [21, false],
+    [0, false],
+    [1.5, false],
+  ])("validates concurrency %s with success=%s", (concurrency, success) => {
+    expect(
+      StudioEvaluationStartRequestSchema.safeParse({ ...request, concurrency })
+        .success,
+    ).toBe(success);
+  });
   it("accepts credential-free HTTP(S) deployment metadata", () => {
     expect(
       StudioEvaluationStartRequestSchema.parse({

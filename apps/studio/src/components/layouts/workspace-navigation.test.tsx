@@ -55,3 +55,10 @@ it("links an evaluation run breadcrumb to the grouped Runs list", () => {
   expect(html).toContain('title="Evaluation run">Evaluation run</span>');
   expect(html).not.toContain('href="/evals/evaluations"');
 });
+
+it("does not link a private diagnostic breadcrumb to a nonexistent inbox", () => {
+  route.pathname = "/diagnostics/11111111-1111-4111-8111-111111111111";
+  const html = renderToStaticMarkup(<WorkspaceNavigation />);
+  expect(html).toContain("Error diagnostic");
+  expect(html).not.toContain('href="/diagnostics"');
+});

@@ -76,6 +76,9 @@ const main = async (): Promise<void> => {
               "prompt:settings",
             ]
           : []),
+        ...(process.env.KORTYX_STUDIO_ENABLE_DIAGNOSTICS === "1"
+          ? ["diagnostics:read"]
+          : []),
         ...(process.env.KORTYX_STUDIO_ENABLE_REVIEWS === "1"
           ? ["studio:write"]
           : []),

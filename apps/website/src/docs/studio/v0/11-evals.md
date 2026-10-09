@@ -126,7 +126,7 @@ KORTYX_EVAL_JUDGE_MODEL=gpt-5.4-mini
 KORTYX_EVAL_JUDGE_API_KEY=<server-owned provider key>
 # Optional overrides:
 # KORTYX_EVAL_JUDGE_ID=studio/my-judge
-# KORTYX_EVAL_JUDGE_VERSION=kortyx-rubric-v3
+# KORTYX_EVAL_JUDGE_VERSION=kortyx-rubric-v4
 # KORTYX_EVAL_JUDGE_API=responses
 # KORTYX_EVAL_JUDGE_BASE_URL=https://api.openai.com/v1
 ```
@@ -182,14 +182,44 @@ concurrency and grading deadlines. Ordinary Studio runs grade within the worker
 and do not call this endpoint. Saved-run regrading and editable evaluator libraries
 are not included in this release.
 
+## Judge criteria and evidence
+
+Configure what the judge receives in the application: `createEvals.defaults.evidence`
+provides defaults, and `suite.evidence` overrides individual fields. Studio uses
+the saved selected evidence for grading; full observations remain available for
+debugging. These are SDK configuration options, not switches in the run drawer.
+
+The judge sees compact execution evidence as well as answer content. Criteria
+must explain which structured fields the frontend shows as messages, prose, or
+cards and which are progress-only or internal. Each criterion is graded separately.
+An emitted output does not prove it was displayed in the browser.
+
+See [writing criteria](../../sdk/v0/03-guides/10-conversation-evals.md#write-criteria-for-the-evidence-your-app-produces)
+and [evidence defaults, overrides, and filters](../../sdk/v0/03-guides/10-conversation-evals.md#compact-judge-evidence)
+for examples, including disabling history/events/outputs for text-only checks.
+Keep any supporting tool results or reference facts required by the criterion.
+
 ## Eval run costs
 
 Run history and each run's case table show model costs. The run summary and
 case inspector provide a **Workflow / Judge / Total** breakdown. Workflow cost
-uses recorded generation telemetry for the attempt's session in the same project
-and environment, including child workflows, retries and resumed turns. Enable
+automatically follows native Kortyx executions across all runtime sessions used
+within an attempt, including setup, cleanup, child workflows, retries and resumed
+turns. `defineSuite` and existing execution hooks need no changes. An application
+can update a record in session A and verify it in a fresh session B; both sessions
+stay independent and their recorded generations count once for the attempt.
+The attempt keeps its own identity, and unrelated work in a reused session is
+excluded. Project and environment boundaries still apply. Enable
 normal agent telemetry to record these calls. `toolExecution.emit: true` supplies
 tool evidence to the judge; it does not itself enable billing telemetry.
+
+Upgrade Studio before upgrading the consumer's agent and telemetry SDKs together:
+progress and saved results now carry optional attempt identities and runtime
+execution associations. Older saved results retain session-based attribution.
+Attribution is automatic within the consumer process; custom executors that call
+another service do not propagate it across HTTP or queue boundaries. Such calls
+remain unavailable unless that integration carries attribution. An associated
+execution with no recorded generation keeps the subtotal partial or unavailable.
 
 `createEvalJudge` captures provider usage separately from the generated verdict.
 Both app-owned and Studio-owned judges report it, including a paid call whose
@@ -364,15 +394,22 @@ choose its conversations independently. Suite checkboxes select or clear every
 conversation and show a mixed state for partial selections. Selections and
 expanded suites survive reloads and browser history. The default judge is Studio
 when available, otherwise App; unavailable judges remain disabled with a reason.
-Repetitions (1–20) and concurrent attempts per suite (1–4) apply to the selection.
+Repetitions (1–20) and concurrent attempts across the evaluation (1–20) apply to the selection.
 Each suite is limited to 100 attempts; one evaluation is limited to 1,000 attempts.
 Missing App judge configuration is explained beside the disabled option.
 
 The Studio API snapshots all selected suite revisions and the judge before
-atomically saving the parent and suite jobs. Existing leased workers execute the
-suite jobs; suite-level concurrency does not promise parallel suite scheduling.
+atomically saving the parent and suite jobs. A worker claims all suite jobs together and schedules attempts round-robin across
+suites, sharing the configured concurrency budget. A slot includes setup, execution,
+cleanup, and grading. Consumer apps must use an SDK that advertises attempt scheduling;
+older endpoints receive an upgrade message before a multi-suite run is queued.
+Custom worker stores must return all sibling suite leases together from `claim`;
+independent single-suite claims cannot enforce an evaluation-wide budget.
 Cancelling the parent cancels queued suites and requests cooperative cancellation
-of running suites. Finished suites remain available; cancellation never rolls
+of running suites. Cancelling one child suite stops its queued attempts and drains
+its active attempts through cleanup while other suites continue. A lost lease or
+uncertain transport outcome stops new dispatch without replaying attempts.
+Finished suites remain available; cancellation never rolls
 back tool side effects. A run remains Running until every suite is terminal.
 Execution/grading errors, behavioral failures, and cancellation stay distinct.
 

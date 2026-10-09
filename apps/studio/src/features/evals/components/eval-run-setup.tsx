@@ -180,7 +180,7 @@ export function EvalRunSetup({
     attempts <= 20 &&
     Number.isInteger(concurrency) &&
     concurrency >= 1 &&
-    concurrency <= 4 &&
+    concurrency <= 20 &&
     count > 0 &&
     total <= 1000 &&
     selected.every((item) => casesFor(item).length * attempts <= 100);
@@ -526,13 +526,13 @@ export function EvalRunSetup({
           </div>
           <div className="space-y-2">
             <label htmlFor="eval-concurrency" className="text-xs font-medium">
-              Concurrent attempts per suite
+              Concurrent attempts across suites
             </label>
             <Input
               id="eval-concurrency"
               type="number"
               min={1}
-              max={4}
+              max={20}
               value={query.launchConcurrency}
               disabled={working}
               onChange={(e) => {

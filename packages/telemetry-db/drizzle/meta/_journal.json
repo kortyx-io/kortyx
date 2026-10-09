@@ -61,8 +61,15 @@
     {
       "idx": 8,
       "version": "7",
-      "when": 1791419282756,
-      "tag": "0008_prompt_management",
+      "when": 1791451993857,
+      "tag": "0008_error_diagnostics",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1791451993858,
+      "tag": "0009_prompt_management",
       "breakpoints": true
     }
   ]

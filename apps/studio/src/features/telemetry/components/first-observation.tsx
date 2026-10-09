@@ -91,7 +91,9 @@ export function FirstObservation({
               secret.
             </p>
             <div className="space-y-3 rounded-lg border bg-muted/20 p-4">
-              <p className="font-mono text-xs leading-6">{prompt}</p>
+              <p className="whitespace-pre-wrap break-words [overflow-wrap:anywhere] font-mono text-xs leading-6">
+                {prompt}
+              </p>
               <Button
                 size="sm"
                 variant="outline"

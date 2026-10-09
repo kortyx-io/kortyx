@@ -17,6 +17,7 @@ import {
   createNoopStudioChangeBus,
   type StudioChangeBus,
 } from "./realtime/studio-change-bus";
+import { registerDiagnosticRoutes } from "./routes/diagnostics";
 import { registerEvalJudgeRoutes } from "./routes/eval-judge";
 import { registerEvalRoutes } from "./routes/evals";
 import { registerHealthRoutes } from "./routes/health";
@@ -134,6 +135,7 @@ export const createApiApp = (options: CreateApiAppOptions) => {
     options.evalTargets ?? [],
     options.evalTargetAdapter,
   );
+  registerDiagnosticRoutes(app);
   registerEvalRoutes(
     app,
     options.evalTargets ?? [],

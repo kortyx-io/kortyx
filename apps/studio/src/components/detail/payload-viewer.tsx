@@ -56,6 +56,7 @@ export function PayloadViewer({
   className,
   presentation,
   onPresentationChange,
+  stringPreviewLength,
 }: {
   presentation?: PayloadPresentation;
   onPresentationChange?: (patch: Partial<PayloadPresentation>) => void;
@@ -63,6 +64,8 @@ export function PayloadViewer({
   defaultMode?: ViewMode;
   defaultClean?: boolean;
   expandAll?: boolean;
+  /** Bound strings in Pretty only; JSON, other representations, and copy stay complete. */
+  stringPreviewLength?: number;
   className?: string;
 }) {
   const [localMode, setMode] = useState<ViewMode>(defaultMode);
@@ -254,7 +257,7 @@ export function PayloadViewer({
         {mode === "pretty" && (
           <div
             className={cn(
-              "min-w-max p-3 [&_*]:max-w-full",
+              "min-w-max whitespace-pre p-3 [&_*]:max-w-full",
               wrap &&
                 "min-w-0 whitespace-pre-wrap break-words [overflow-wrap:anywhere]",
               displayedValue !== null &&
@@ -289,7 +292,13 @@ export function PayloadViewer({
                 ) : (
                   <ObjectLabel
                     name={name}
-                    data={data}
+                    data={
+                      stringPreviewLength !== undefined &&
+                      typeof data === "string" &&
+                      data.length > stringPreviewLength
+                        ? `${data.slice(0, stringPreviewLength)}… (${data.length.toLocaleString("en-US")} characters; view JSON for the full value)`
+                        : data
+                    }
                     isNonenumerable={isNonenumerable}
                   />
                 )
@@ -311,7 +320,8 @@ export function PayloadViewer({
           <div
             className={cn(
               "min-w-max p-4",
-              wrap && "min-w-0 [overflow-wrap:anywhere]",
+              wrap &&
+                "min-w-0 [overflow-wrap:anywhere] [&_pre]:whitespace-pre-wrap",
             )}
           >
             <ReactMarkdown
@@ -524,13 +534,16 @@ const markdownComponents: Components = {
     <h3 className="mt-3 mb-1.5 text-sm font-semibold" {...props} />
   ),
   p: ({ node: _node, ...props }) => (
-    <p className="my-2 text-xs leading-6" {...props} />
+    <p className="my-2 whitespace-pre-wrap text-xs leading-6" {...props} />
   ),
   ul: ({ node: _node, ...props }) => (
     <ul className="my-2 list-disc space-y-1 pl-5 text-xs" {...props} />
   ),
   ol: ({ node: _node, ...props }) => (
     <ol className="my-2 list-decimal space-y-1 pl-5 text-xs" {...props} />
+  ),
+  li: ({ node: _node, ...props }) => (
+    <li className="whitespace-pre-wrap" {...props} />
   ),
   blockquote: ({ node: _node, ...props }) => (
     <blockquote

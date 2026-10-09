@@ -70,6 +70,15 @@ for (const scope of ["all", "selected"] as const) {
     await page
       .getByRole("menuitemradio", { name: "App judge", exact: true })
       .click();
+    const concurrency = drawer.getByRole("spinbutton", {
+      name: "Concurrent attempts across suites",
+    });
+    await expect(concurrency).toHaveAttribute("max", "20");
+    await concurrency.fill("21");
+    await expect(
+      drawer.getByRole("button", { name: "Run evaluations", exact: true }),
+    ).toBeDisabled();
+    await concurrency.fill("20");
     await drawer
       .getByRole("button", { name: "Run evaluations", exact: true })
       .click();

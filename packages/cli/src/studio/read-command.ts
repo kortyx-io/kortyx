@@ -1,4 +1,7 @@
+import { createHash } from "node:crypto";
+import { writeFile } from "node:fs/promises";
 import {
+  DiagnosticResponseSchema,
   projectWorkflowCalls,
   resolveStudioTimeRange,
   StudioCatalogsResponseSchema,
@@ -134,6 +137,90 @@ export const registerStudioReadCommands = (
       ),
     };
   };
+  const diagnostics = studio
+    .command("diagnostics")
+    .description("Inspect or download a retained private error diagnostic.");
+  for (const action of ["get", "download"] as const) {
+    common(
+      diagnostics
+        .command(action)
+        .argument("<diagnostic-id>")
+        .option(
+          "--environment <name>",
+          "Diagnostic environment (or connection default).",
+        )
+        .option(
+          "--output <path>",
+          "Write a diagnostic JSON file without overwriting an existing file.",
+        ),
+    ).action(async (id: string, options: ReadOptions & { output?: string }) => {
+      if (!/^[a-f0-9-]{36}$/i.test(id))
+        throw new StudioReadError(
+          "invalid_diagnostic_id",
+          "Expected a diagnostic UUID.",
+        );
+      const { connection, client } = await clientFor(options);
+      const environment = options.environment ?? connection.environment;
+      if (!environment)
+        throw new StudioReadError(
+          "environment_required",
+          "Provide --environment for diagnostic retrieval.",
+        );
+      const value = await client.get(
+        `/v1/studio/diagnostics/${id}`,
+        DiagnosticResponseSchema,
+        {
+          env: environment,
+          ...(action === "download" ? { download: "1" } : {}),
+        },
+      );
+      if (action === "get") {
+        const { content, ...summary } = value;
+        print(
+          {
+            ...summary,
+            capture: {
+              status: content?.capture.status ?? value.manifest.captureStatus,
+              omissions: content?.capture.omissions.length ?? 0,
+              redactions: content?.capture.redactions.length ?? 0,
+            },
+            ...(options.includeContent ? { content } : {}),
+            note: "Private diagnostic access requires diagnostics:read. Use download for the complete redacted artifact.",
+          },
+          options,
+        );
+        return;
+      }
+      if (value.state !== "available" || !value.content)
+        throw new StudioReadError(
+          "diagnostic_incomplete",
+          `Diagnostic is ${value.state}; received ${value.receivedParts} of ${value.manifest.partCount} parts.`,
+        );
+      const bytes = JSON.stringify(value.content);
+      if (
+        createHash("sha256").update(bytes).digest("hex") !==
+          value.contentChecksum ||
+        Buffer.byteLength(bytes) !== value.contentByteLength
+      )
+        throw new StudioReadError(
+          "diagnostic_integrity_failed",
+          "Diagnostic download failed integrity verification.",
+        );
+      if (options.output) {
+        await writeFile(options.output, bytes, { flag: "wx", mode: 0o600 });
+        print(
+          {
+            diagnosticId: id,
+            state: value.state,
+            file: options.output,
+            bytes: value.contentByteLength,
+            checksum: value.contentChecksum,
+          },
+          options,
+        );
+      } else log(bytes);
+    });
+  }
   const inspect = async (
     input: string,
     options: DetailOptions,

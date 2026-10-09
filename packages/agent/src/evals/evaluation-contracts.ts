@@ -52,7 +52,7 @@ export const StudioEvaluationStartRequestSchema = z
       .max(100),
     judge: z.enum(["studio", "app"]).default("studio"),
     repetitions: z.number().int().min(1).max(20).default(1),
-    concurrency: z.number().int().min(1).max(4).default(1),
+    concurrency: z.number().int().min(1).max(20).default(1),
     metadata: EvaluationMetadataSchema.default({ source: "manual" }),
     idempotencyKey: z.string().trim().min(1).max(200).optional(),
   })
