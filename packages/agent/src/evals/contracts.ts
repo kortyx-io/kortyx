@@ -334,7 +334,7 @@ export const EvalRemoteRunRequestSchema = z
     judge: EvalJudgeIdentitySchema.optional(),
     caseIds: z.array(id).min(1).max(100).optional(),
     repetitions: z.number().int().min(1).max(20).default(1),
-    concurrency: z.number().int().min(1).max(4).default(1),
+    concurrency: z.number().int().min(1).max(20).default(1),
   })
   .strict();
 export const StudioEvalStartRequestSchema = EvalRemoteRunRequestSchema.omit({

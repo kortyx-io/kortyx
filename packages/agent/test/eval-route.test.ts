@@ -196,6 +196,23 @@ describe("consumer eval transport", () => {
       "PRIVATE-TOKEN",
     );
   });
+  it("accepts up to 20 concurrent attempts and rejects invalid concurrency before execution", async () => {
+    const run = vi.fn(async () => result());
+    const handler = createEvalRouteHandler({
+      serviceKey: key,
+      evals: { describe: () => manifest, run },
+    });
+    for (const concurrency of [0, 21, 1.5]) {
+      expect((await handler(request({ concurrency }))).status).toBe(400);
+    }
+    expect(run).not.toHaveBeenCalled();
+    const response = await handler(request({ concurrency: 20 }));
+    expect(response.status).toBe(200);
+    await response.text();
+    expect(run).toHaveBeenCalledWith(
+      expect.objectContaining({ concurrency: 20 }),
+    );
+  });
   it("enforces active-run limits and signals cleanup when the stream reader disconnects", async () => {
     let signal: AbortSignal | undefined;
     let settled = false;

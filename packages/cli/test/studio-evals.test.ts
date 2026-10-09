@@ -266,7 +266,7 @@ describe("Studio eval CLI", () => {
       "--repetitions",
       "3",
       "--concurrency",
-      "2",
+      "20",
       "--json",
     ]);
     expect(request).toHaveBeenCalledTimes(2);
@@ -284,7 +284,7 @@ describe("Studio eval CLI", () => {
       ],
       metadata: { source: "manual" },
       repetitions: 3,
-      concurrency: 2,
+      concurrency: 20,
     });
     expect(JSON.parse(command.output[0] ?? "")).toEqual({
       schemaVersion: 1,
@@ -404,6 +404,20 @@ describe("Studio eval CLI", () => {
         "20",
       ]),
     ).rejects.toThrow("100 attempts per suite");
+    for (const value of ["0", "21", "1.5", "no"]) {
+      const request = mockFetch();
+      await expect(
+        cli(request).run([
+          "runs",
+          "start",
+          "jobs",
+          ...args,
+          "--concurrency",
+          value,
+        ]),
+      ).rejects.toThrow("Expected an integer between 1 and 20");
+      expect(request).not.toHaveBeenCalled();
+    }
     for (const value of ["0", "21", "1.5", "no"])
       await expect(
         cli(mockFetch()).run([

@@ -629,7 +629,10 @@ describe("eval execution ownership and failure reporting", () => {
     expect(result.cases[0]?.steps[0]?.criteria).toHaveLength(2);
   });
 
-  it("isolates repetitions, bounds concurrency, and cleans up each prepared actor", async () => {
+  it.each([
+    2, 20,
+  ])("isolates repetitions, bounds concurrency at %i, and cleans up each prepared actor", async (concurrency) => {
+    const repetitions = concurrency + 3;
     const sessions = new Set<string>();
     let active = 0;
     let peak = 0;
@@ -652,17 +655,17 @@ describe("eval execution ownership and failure reporting", () => {
         return { observation };
       },
       teardown,
-    }).run({ suiteId: answerSuite.id, repetitions: 5, concurrency: 2 });
+    }).run({ suiteId: answerSuite.id, repetitions, concurrency });
     expect(result.counts).toEqual({
-      passed: 5,
+      passed: repetitions,
       failed: 0,
       error: 0,
       cancelled: 0,
     });
-    expect(sessions.size).toBe(5);
-    expect(peak).toBe(2);
+    expect(sessions.size).toBe(repetitions);
+    expect(peak).toBe(concurrency);
     expect(active).toBe(0);
-    expect(teardown).toHaveBeenCalledTimes(5);
+    expect(teardown).toHaveBeenCalledTimes(repetitions);
   });
 
   it.each([
