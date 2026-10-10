@@ -6,7 +6,6 @@ import {
 } from "@kortyx/telemetry-contracts";
 import { MoreHorizontal } from "lucide-react";
 import { useEffect, useState } from "react";
-import { DetailLink } from "@/components/detail/detail-link";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -21,6 +20,7 @@ import { promptRequest } from "../api/client";
 import { promptCode } from "../lib/code-helper";
 import { categoryPath, downloadJson } from "../lib/presentation";
 import { PromptActionSurface } from "./prompt-action-surface";
+import { PromptPolicyDialog } from "./prompt-policy-dialog";
 
 type Asset = PromptLibrary["assets"][number];
 export const assetActions = [
@@ -29,19 +29,18 @@ export const assetActions = [
   "code",
   "archive",
   "restore",
+  "policy",
 ] as const;
 export type AssetAction = (typeof assetActions)[number];
 export function PromptAssetMenu({
   asset,
   permissions,
   onAction,
-  onPolicy,
   label = "Prompt actions",
 }: {
   asset: Asset;
   permissions: PromptLibrary["permissions"];
   onAction: (action: AssetAction) => void;
-  onPolicy?: () => void;
   label?: string;
 }) {
   return (
@@ -70,20 +69,12 @@ export function PromptAssetMenu({
         >
           Move to category
         </DropdownMenuItem>
-        {onPolicy ? (
-          <DropdownMenuItem
-            disabled={!permissions.settings}
-            onSelect={onPolicy}
-          >
-            Promotion policy
-          </DropdownMenuItem>
-        ) : (
-          <DropdownMenuItem disabled={!permissions.settings} asChild>
-            <DetailLink href={`/prompts/${asset.id}?promptAction=policy`}>
-              Promotion policy
-            </DetailLink>
-          </DropdownMenuItem>
-        )}
+        <DropdownMenuItem
+          disabled={!permissions.settings}
+          onSelect={() => onAction("policy")}
+        >
+          Promotion policy
+        </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem
           disabled={
@@ -99,21 +90,28 @@ export function PromptAssetMenu({
   );
 }
 
-export function PromptAssetActionDialog({
-  action,
-  asset,
-  library,
-  version,
-  onClose,
-  onDone,
-}: {
+export function PromptAssetActionDialog(props: PromptAssetActionDialogProps) {
+  if (props.action === "policy") return <PromptPolicyDialog {...props} />;
+  return <PromptAssetActionContent {...props} />;
+}
+
+type PromptAssetActionDialogProps = {
   action: AssetAction;
   asset: Asset;
   library: PromptLibrary;
   version?: PromptDetail["versions"][number];
   onClose: () => void;
   onDone: () => Promise<unknown>;
-}) {
+};
+
+function PromptAssetActionContent({
+  action,
+  asset,
+  library,
+  version,
+  onClose,
+  onDone,
+}: PromptAssetActionDialogProps) {
   const [name, setName] = useState(asset.name),
     [destination, setDestination] = useState(asset.categoryId ?? "root"),
     [working, setWorking] = useState(false),

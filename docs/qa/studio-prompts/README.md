@@ -376,3 +376,47 @@ production build, lint and whitespace checks passed.
 ![Mobile exception validation](mobile-promotion-validation.png)
 
 The final production prompt/drawer/responsive suite passed **48/48 checks**.
+
+
+### Prompt-specific policy modal (2026-10-10)
+
+Promotion policies now belong to a prompt and apply to all of its versions.
+Reads, updates, optimistic revisions, promotion enforcement and audit records
+use the prompt ID within the authenticated project. Migration
+`0011_prompt_scoped_policies.sql` copies the previous project policy to each
+existing prompt, preserving effective requirements and revisions. Original rows
+are retained in migration audit records, including projects without prompts.
+New prompts receive the standard defaults.
+
+Policy actions from the library open one platform modal without opening a prompt
+drawer or navigating away from the list. Detail actions use the same modal.
+Save policy is the one explicit submission; Cancel/Escape does not write.
+The modal stays mounted through loading so keyboard focus returns to its trigger.
+Existing review inspectors continue to cover drawer layout, history and keyboard
+ownership regressions.
+
+Database regression checks cover independent reads/writes, promotion checks,
+new-prompt defaults, stale revisions, cross-project rejection and audit isolation.
+The migration regression verifies preserved settings, native replay and cascading
+cleanup. API tests cover required IDs, permissions, missing prompts and conflicts.
+Vitest uses the native PromptError module so API error classification matches the
+production build. All of these focused checks pass, as do 252 Studio unit tests,
+affected-package typechecks, the production build and Drizzle consistency check.
+
+Browser coverage saves different policies for two disposable prompts and verifies
+both persist independently. It also checks table navigation, Back/Forward,
+cancellation and 768/390px modal geometry. Manual desktop/mobile review at
+1440×1000 and 390×844 confirms the footer fits; opening from a detail drawer and
+pressing Escape preserves that drawer. User prompt settings were not changed by
+manual testing; the migration preserved their effective policies.
+
+![Prompt policy modal from the library](prompt-policy-modal.png)
+
+![Mobile prompt policy modal](mobile-prompt-policy-modal.png)
+
+Production drawer/prompt/responsive validation passed 48 checks; one prompt
+composition fixture request failed with `ECONNRESET` before UI interaction.
+The final production rebuild and focused rerun passed all six checks, covering
+that composition case, policy independence, trigger focus restoration from the
+list and drawer, cancellation, promotion and rollback. API unit checks also
+passed (97 tests; database-dependent suites are run separately as noted above).

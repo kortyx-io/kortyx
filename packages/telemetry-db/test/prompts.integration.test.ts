@@ -441,4 +441,108 @@ describe.skipIf(!url)("project prompt management", () => {
       await client.close();
     }
   }, 30_000);
+  it("isolates policy reads, updates, audit and promotion enforcement by prompt", async () => {
+    const client = createTelemetryDbClient(url!);
+    const [org] = await client.db
+      .insert(organizations)
+      .values({ name: `prompt-policy-${randomUUID()}` })
+      .returning();
+    if (!org) throw new Error("Missing organization");
+    try {
+      const [project, other] = await client.db
+        .insert(projects)
+        .values([
+          { organizationId: org.id, name: "source" },
+          { organizationId: org.id, name: "other" },
+        ])
+        .returning();
+      if (!project || !other) throw new Error("Missing projects");
+      const scope = { organizationId: org.id, projectId: project.id };
+      const mutate = (input: Parameters<typeof mutatePrompt>[3]) =>
+        mutatePrompt(client.db, scope, "studio-key:test", input);
+      const create = async (key: string) =>
+        (
+          await mutate({
+            action: "create",
+            key,
+            name: key,
+            categoryId: null,
+            content,
+            note: "Initial",
+          })
+        ).id as string;
+      const first = await create("first");
+      const second = await create("second");
+      const permissive = {
+        revision: 0,
+        requireTest: false,
+        requiredReviews: 0,
+        requiredSuites: [],
+        allowException: false,
+      };
+      await mutate({ action: "policy", id: first, policy: permissive });
+      const firstDetail = await getPrompt(client.db, scope, first);
+      expect(firstDetail.policies).toEqual([{ ...permissive, revision: 1 }]);
+      expect(firstDetail.activity).toContainEqual(
+        expect.objectContaining({ action: "policy" }),
+      );
+      expect((await getPrompt(client.db, scope, second)).policies).toEqual([]);
+      expect(
+        (await getPrompt(client.db, scope, second)).activity.some(
+          (item) => item.action === "policy",
+        ),
+      ).toBe(false);
+      await expect(
+        mutate({ action: "policy", id: first, policy: permissive }),
+      ).rejects.toMatchObject({ status: 409 });
+      await expect(
+        mutatePrompt(
+          client.db,
+          { ...scope, projectId: other.id },
+          "studio-key:test",
+          {
+            action: "policy",
+            id: first,
+            policy: { ...permissive, revision: 1 },
+          },
+        ),
+      ).rejects.toMatchObject({ status: 404 });
+      const promote = (id: string) =>
+        mutate({
+          action: "promote",
+          id,
+          version: 1,
+          expectedRevision: 0,
+          rollback: false,
+        });
+      await expect(promote(first)).resolves.toMatchObject({ revision: 1 });
+      await expect(promote(second)).rejects.toMatchObject({
+        code: "PROMPT_PROMOTION_BLOCKED",
+      });
+      await mutate({
+        action: "policy",
+        id: second,
+        policy: { ...permissive, requireTest: true, requiredReviews: 1 },
+      });
+      expect((await getPrompt(client.db, scope, first)).policies).toEqual(
+        firstDetail.policies,
+      );
+      await mutate({
+        action: "policy",
+        id: first,
+        policy: { ...permissive, revision: 1, requiredReviews: 2 },
+      });
+      expect(
+        (await getPrompt(client.db, scope, second)).policies[0],
+      ).toMatchObject({ revision: 1, requireTest: true, requiredReviews: 1 });
+      const third = await create("third");
+      expect((await getPrompt(client.db, scope, third)).policies).toEqual([]);
+      await expect(promote(third)).rejects.toMatchObject({
+        code: "PROMPT_PROMOTION_BLOCKED",
+      });
+    } finally {
+      await client.db.delete(organizations).where(eq(organizations.id, org.id));
+      await client.close();
+    }
+  });
 });

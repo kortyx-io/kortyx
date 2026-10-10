@@ -34,7 +34,7 @@ For CLI authoring: get the executable JSON with `prompts get KEY --file FILE`,
 modify it, validate, review the candidate hash, then use `prompts update KEY
 --file FILE --base-version N --expected-hash HASH --note NOTE
 --idempotency-key UUID`. Read `diff`, `versions`, and saved eval results.
-`action FILE` applies the validated category/group/review/policy contract.
+`action FILE` applies the validated category/group/review/policy contract. A policy mutation requires the prompt `id`; it applies to all versions of that prompt only.
 
 For separate deployments or cloud projects, use independent named connections
 with key environment variables and optional project IDs. `prompts copy KEY

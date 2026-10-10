@@ -792,7 +792,6 @@ export function PromptDetailView({
             asset={detail.asset}
             permissions={permissions}
             onAction={(action) => showPanel(action, selected)}
-            onPolicy={() => showPanel("policy", selected)}
           />
         </div>
       </header>
@@ -1478,21 +1477,6 @@ export function PromptDetailView({
                 Add version to group
               </Button>
             </>
-          ) : panel?.type === "policy" ? (
-            <PolicyEditor
-              detail={detail}
-              working={working}
-              targets={targets}
-              onSave={(policy) => {
-                setError("");
-                setConfirmation({
-                  title: "Save promotion policy?",
-                  description: `${policy.requireTest ? "passing evaluations required" : "evaluations not required"}; ${policy.requiredReviews} independent reviews; ${policy.allowException ? "audited exceptions allowed" : "exceptions disabled"}; ${policy.requiredSuites.length} required suites. This changes the promotion requirements for this project.`,
-                  label: "Confirm policy",
-                  mutation: { action: "policy", policy },
-                });
-              }}
-            />
           ) : (
             <>
               {panel?.type === "promote" && (
@@ -1509,7 +1493,7 @@ export function PromptDetailView({
                     <p>
                       {destinationPolicy?.requireTest === false &&
                       !missingSuites.length
-                        ? "Passing evaluations are optional under this project's policy."
+                        ? "Passing evaluations are optional under this prompt's policy."
                         : eligible.length
                           ? `${eligible.length} passing full suite${eligible.length === 1 ? "" : "s"} with verified usage`
                           : "A passing full suite is required before making this version live."}
@@ -1539,7 +1523,7 @@ export function PromptDetailView({
                   {promotionBlocked && (
                     <p className="text-xs text-muted-foreground">
                       {destinationPolicy?.allowException === false
-                        ? "Complete the requirements above before promoting. Policy exceptions are disabled for this project."
+                        ? "Complete the requirements above before promoting. Policy exceptions are disabled for this prompt."
                         : "Complete the requirements above, or provide an exception reason to make this version live without meeting them. The reason is saved in the activity log."}
                     </p>
                   )}
@@ -1615,171 +1599,5 @@ export function PromptDetailView({
     <DetailPage title={detail.asset.name} description={detail.asset.key}>
       {view}
     </DetailPage>
-  );
-}
-function PolicyEditor({
-  detail,
-  working,
-  targets,
-  onSave,
-}: {
-  detail: PromptDetail;
-  working: boolean;
-  targets: EvalTargets;
-  onSave: (policy: PromptDetail["policies"][number]) => void;
-}) {
-  const existing = detail.policies[0];
-  const [requireTest, setRequireTest] = useState(existing?.requireTest ?? true),
-    [requiredReviews, setRequiredReviews] = useState(
-      String(existing?.requiredReviews ?? 0),
-    ),
-    [allowException, setAllowException] = useState(
-      existing?.allowException ?? true,
-    ),
-    [suites, setSuites] = useState(existing?.requiredSuites ?? []);
-  return (
-    <div className="space-y-4">
-      <label className="flex items-center gap-2 text-xs">
-        <input
-          type="checkbox"
-          checked={requireTest}
-          onChange={(event) => setRequireTest(event.target.checked)}
-        />
-        Require a passing full suite with verified prompt usage
-      </label>
-      <div className="space-y-2">
-        <label htmlFor="policy-reviews" className="text-xs font-medium">
-          Independent human reviews
-        </label>
-        <Input
-          id="policy-reviews"
-          type="number"
-          min={0}
-          max={10}
-          value={requiredReviews}
-          onChange={(event) => setRequiredReviews(event.target.value)}
-        />
-      </div>
-      <label className="flex items-center gap-2 text-xs">
-        <input
-          type="checkbox"
-          checked={allowException}
-          onChange={(event) => setAllowException(event.target.checked)}
-        />
-        Allow explicit, audited exceptions
-      </label>
-      <div className="space-y-2">
-        <p className="text-xs font-medium">Required suites</p>
-        <p className="text-[11px] text-muted-foreground">
-          All selected suites must pass using this version and the current live
-          companion prompts.
-        </p>
-        <div className="max-h-64 space-y-2 overflow-auto rounded-md border p-3">
-          {suites
-            .filter(
-              (item) =>
-                !targets.targets.some(
-                  (target) =>
-                    target.id === item.targetId &&
-                    target.manifest?.suites.some(
-                      (suite) => suite.id === item.suiteId,
-                    ),
-                ),
-            )
-            .map((item) => (
-              <label
-                key={`${item.targetId}:${item.suiteId}`}
-                className="flex items-start gap-2 text-xs"
-              >
-                <input
-                  type="checkbox"
-                  checked
-                  onChange={() =>
-                    setSuites((current) =>
-                      current.filter(
-                        (suite) =>
-                          suite.targetId !== item.targetId ||
-                          suite.suiteId !== item.suiteId,
-                      ),
-                    )
-                  }
-                />
-                <span>
-                  {item.suiteId}
-                  <span className="block text-muted-foreground">
-                    {item.targetId} · Currently unavailable; uncheck to remove
-                  </span>
-                </span>
-              </label>
-            ))}
-          {targets.targets.flatMap((target) =>
-            (target.manifest?.suites ?? []).map((suite) => {
-              const checked = suites.some(
-                (item) =>
-                  item.targetId === target.id && item.suiteId === suite.id,
-              );
-              return (
-                <label
-                  key={`${target.id}:${suite.id}`}
-                  className="flex items-start gap-2 text-xs"
-                >
-                  <input
-                    type="checkbox"
-                    checked={checked}
-                    disabled={working}
-                    onChange={() =>
-                      setSuites((current) =>
-                        checked
-                          ? current.filter(
-                              (item) =>
-                                item.targetId !== target.id ||
-                                item.suiteId !== suite.id,
-                            )
-                          : [
-                              ...current,
-                              { targetId: target.id, suiteId: suite.id },
-                            ],
-                      )
-                    }
-                  />
-                  <span>
-                    {suite.id}
-                    <span className="block text-[11px] text-muted-foreground">
-                      {target.name ?? target.id} · {target.environment}
-                    </span>
-                  </span>
-                </label>
-              );
-            }),
-          )}
-          {!targets.targets.some(
-            (target) => target.manifest?.suites.length,
-          ) && (
-            <p className="text-xs text-muted-foreground">
-              Connect an application to choose required suites.
-            </p>
-          )}
-        </div>
-      </div>
-      <Button
-        size="sm"
-        disabled={
-          working ||
-          !/^\d+$/.test(requiredReviews) ||
-          Number(requiredReviews) > 10
-        }
-        onClick={() =>
-          onSave({
-            revision: existing?.revision ?? 0,
-            requireTest,
-            requiredReviews: Number(requiredReviews),
-            allowException,
-            requiredSuites: suites,
-          })
-        }
-      >
-        Save policy
-      </Button>
-    </div>
   );
 }

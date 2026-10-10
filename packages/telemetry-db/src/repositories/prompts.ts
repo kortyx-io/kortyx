@@ -415,7 +415,15 @@ export async function getPrompt(
             eq(promptAssignments.promptId, asset.id),
           ),
         ),
-      db.select().from(promptPolicies).where(where(promptPolicies, scope)),
+      db
+        .select()
+        .from(promptPolicies)
+        .where(
+          and(
+            where(promptPolicies, scope),
+            eq(promptPolicies.promptId, asset.id),
+          ),
+        ),
       db
         .select()
         .from(promptActivity)
@@ -1300,10 +1308,16 @@ export async function mutatePrompt(
       return { id: asset.id };
     }
     if (input.action === "policy") {
+      const asset = await findAsset(tx, scope, input.id);
       const [policy] = await tx
         .select()
         .from(promptPolicies)
-        .where(and(where(promptPolicies, scope)))
+        .where(
+          and(
+            where(promptPolicies, scope),
+            eq(promptPolicies.promptId, asset.id),
+          ),
+        )
         .limit(1);
       checkRevision(policy?.revision ?? 0, input.policy.revision);
       await tx
@@ -1311,13 +1325,18 @@ export async function mutatePrompt(
         .values({
           ...scope,
           ...input.policy,
+          promptId: asset.id,
           revision: (policy?.revision ?? 0) + 1,
         })
         .onConflictDoUpdate({
-          target: [promptPolicies.organizationId, promptPolicies.projectId],
+          target: [
+            promptPolicies.organizationId,
+            promptPolicies.projectId,
+            promptPolicies.promptId,
+          ],
           set: { ...input.policy, revision: (policy?.revision ?? 0) + 1 },
         });
-      await audit(null, { policy: input.policy });
+      await audit(asset.id, { policy: input.policy });
       return { revision: (policy?.revision ?? 0) + 1 };
     }
     const asset = await findAsset(tx, scope, input.id),
@@ -1343,7 +1362,12 @@ export async function mutatePrompt(
     const [savedPolicy] = await tx
       .select()
       .from(promptPolicies)
-      .where(and(where(promptPolicies, scope)))
+      .where(
+        and(
+          where(promptPolicies, scope),
+          eq(promptPolicies.promptId, asset.id),
+        ),
+      )
       .limit(1);
     const policy = savedPolicy ?? {
       requireTest: true,

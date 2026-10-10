@@ -78,6 +78,13 @@
       "when": 1791555209210,
       "tag": "0010_prompt_live_tags",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1791626679265,
+      "tag": "0011_prompt_scoped_policies",
+      "breakpoints": true
     }
   ]
 }

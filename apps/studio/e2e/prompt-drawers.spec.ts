@@ -92,18 +92,34 @@ async function openPrompt(page: Page, category = false) {
     "Classify requests as support or sales. Pricing requests are sales.",
   );
 }
-async function policyInspector(page: Page) {
-  await promptDrawer(page)
-    .getByRole("button", { name: "Prompt actions", exact: true })
-    .click();
+async function reviewInspector(page: Page) {
+  const version = new URL(page.url()).searchParams.get("v") ?? "2";
+  const button = page.getByRole("button", {
+    name: `Version ${version} actions`,
+    exact: true,
+  });
+  if (await button.isVisible()) await button.click();
+  else {
+    await page
+      .getByRole("button", {
+        name: `Version history · v${version}`,
+        exact: true,
+      })
+      .click();
+    await page
+      .getByRole("menuitem", { name: `v${version} actions`, exact: true })
+      .hover();
+  }
   await page
-    .getByRole("menuitem", { name: "Promotion policy", exact: true })
+    .getByRole("menuitem", { name: "Review this version", exact: true })
     .click();
   await expect(inspector(page)).toHaveAttribute("data-state", "open");
   await expect(
-    inspector(page).getByRole("button", { name: "Save policy" }),
+    inspector(page).getByRole("button", { name: "Submit review", exact: true }),
   ).toBeVisible();
 }
+const policyModal = (page: Page) =>
+  page.getByRole("dialog", { name: "Promotion policy", exact: true });
 async function noOverflow(locator: Locator) {
   await expect
     .poll(() => locator.evaluate((el) => el.scrollWidth - el.clientWidth))
@@ -401,7 +417,7 @@ test.describe("Prompt detail drawers", () => {
         exact: true,
       })
       .click();
-    let confirmation = page.getByRole("dialog", {
+    const confirmation = page.getByRole("dialog", {
       name: "Remove prompt from group?",
       exact: true,
     });
@@ -419,20 +435,14 @@ test.describe("Prompt detail drawers", () => {
     await page
       .getByRole("menuitem", { name: "Promotion policy", exact: true })
       .click();
-    await inspector(page)
-      .getByRole("button", { name: "Save policy", exact: true })
-      .click();
-    confirmation = page.getByRole("dialog", {
-      name: "Save promotion policy?",
-      exact: true,
-    });
-    await expect(confirmation).toContainText("promotion requirements");
+    await expect(policyModal(page)).toContainText(
+      "Other prompts keep their own policies.",
+    );
+    await policyModal(page).getByLabel("Independent human reviews").fill("2");
     await page.keyboard.press("Escape");
-    await expect(inspector(page)).toBeVisible();
+    await expect(policyModal(page)).toHaveCount(0);
+    await expect(inspector(page)).toHaveCount(0);
     expect(mutations).toEqual([]);
-    await inspector(page)
-      .getByRole("button", { name: "Close prompt action", exact: true })
-      .click();
     await page
       .getByRole("button", { name: "Version 2 actions", exact: true })
       .click();
@@ -1301,7 +1311,7 @@ test.describe("Prompt detail drawers", () => {
     await openPrompt(page);
     const surfaceNode = await promptDrawer(page).elementHandle();
     for (let iteration = 0; iteration < 3; iteration++) {
-      await policyInspector(page);
+      await reviewInspector(page);
       await expect(inspector(page)).toHaveCount(1);
       await expectCenteredInspectorClose(page);
       await expect
@@ -1331,7 +1341,7 @@ test.describe("Prompt detail drawers", () => {
     }
     for (const width of [768, 390]) {
       await page.setViewportSize({ width, height: 900 });
-      await policyInspector(page);
+      await reviewInspector(page);
       await expectCenteredInspectorClose(page);
       await inspector(page)
         .getByRole("button", { name: "Close prompt action" })
@@ -1345,8 +1355,8 @@ test.describe("Prompt detail drawers", () => {
     page,
   }) => {
     await openPrompt(page);
-    await policyInspector(page);
-    await expect(page).toHaveURL(/promptAction=policy/);
+    await reviewInspector(page);
+    await expect(page).toHaveURL(/promptAction=review/);
     await page.goBack();
     await expect(inspector(page)).toHaveCount(0);
     await expect(promptDrawer(page)).toHaveAttribute("data-state", "open");
@@ -1367,7 +1377,7 @@ test.describe("Prompt detail drawers", () => {
       .getByRole("button", { name: "Version history · v2" })
       .click();
     await page.getByRole("menuitemradio", { name: /v1/ }).click();
-    await policyInspector(page);
+    await reviewInspector(page);
     await inspector(page)
       .getByRole("button", { name: "Close prompt action" })
       .click();
@@ -1502,12 +1512,7 @@ test.describe("Prompt detail drawers", () => {
     await page.goto(`/prompts/${id}?detailView=expanded&v=2`);
     const history = page.locator("[data-prompt-version-history]");
     await expect(history).toBeVisible();
-    await page
-      .getByRole("button", { name: "Prompt actions", exact: true })
-      .click();
-    await page
-      .getByRole("menuitem", { name: "Promotion policy", exact: true })
-      .click();
+    await reviewInspector(page);
     await expect(inspector(page)).toBeVisible();
     await expect(history).toBeVisible();
     await expect(
@@ -1518,15 +1523,176 @@ test.describe("Prompt detail drawers", () => {
     await expect(history).toBeVisible();
     await expect(page).toHaveURL(/v=2/);
     await page.setViewportSize({ width: 1024, height: 800 });
-    await page
-      .getByRole("button", { name: "Prompt actions", exact: true })
-      .click();
-    await page
-      .getByRole("menuitem", { name: "Promotion policy", exact: true })
-      .click();
+    await reviewInspector(page);
     await expect(page.locator("[data-prompt-version-picker]")).toBeVisible();
     await page.keyboard.press("Escape");
     await expect(inspector(page)).toHaveCount(0);
+  });
+
+  test("saves promotion policies independently for each prompt", async ({
+    page,
+    request,
+  }) => {
+    const created: string[] = [];
+    const openPolicy = async (promptId: string) => {
+      await page.goto(`/prompts/${promptId}`);
+      await page
+        .getByRole("button", { name: "Prompt actions", exact: true })
+        .click();
+      await page
+        .getByRole("menuitem", { name: "Promotion policy", exact: true })
+        .click();
+      await expect(policyModal(page)).toBeVisible();
+      await expect(policyModal(page)).toContainText(
+        "Other prompts keep their own policies.",
+      );
+    };
+    const save = async () => {
+      await policyModal(page)
+        .getByRole("button", { name: "Save policy", exact: true })
+        .click();
+      await expect(policyModal(page)).toHaveCount(0);
+    };
+    try {
+      for (const name of [
+        "First independent policy",
+        "Second independent policy",
+      ]) {
+        const result = await action(request, {
+          action: "create",
+          key: `${fixtureKey}-policy-${randomUUID()}`,
+          name,
+          categoryId,
+          content,
+          note: "Initial",
+        });
+        created.push(result.id);
+      }
+      const first = created[0]!,
+        second = created[1]!;
+      await page.goto("/prompts");
+      await page
+        .getByRole("button", {
+          name: "Actions for First independent policy",
+          exact: true,
+        })
+        .click();
+      await page
+        .getByRole("menuitem", { name: "Promotion policy", exact: true })
+        .click();
+      await expect(policyModal(page)).toContainText(
+        "Other prompts keep their own policies.",
+      );
+      await expect(page.locator("[data-detail-drawer]")).toHaveCount(0);
+      await expect(inspector(page)).toHaveCount(0);
+      expect(new URL(page.url()).pathname).toBe("/prompts");
+      await policyModal(page)
+        .getByRole("button", { name: "Cancel", exact: true })
+        .click();
+      await expect(
+        page.getByRole("button", {
+          name: "Actions for First independent policy",
+          exact: true,
+        }),
+      ).toBeFocused();
+      await page
+        .getByRole("button", {
+          name: "Actions for First independent policy",
+          exact: true,
+        })
+        .click();
+      await page
+        .getByRole("menuitem", { name: "Promotion policy", exact: true })
+        .click();
+      await expect(policyModal(page)).toBeVisible();
+      await page.goBack();
+      await expect(policyModal(page)).toHaveCount(0);
+      await page.goForward();
+      await expect(policyModal(page)).toBeVisible();
+      for (const width of [768, 390]) {
+        await page.setViewportSize({ width, height: 800 });
+        await noOverflow(policyModal(page));
+        const box = await policyModal(page).boundingBox();
+        expect(box!.x).toBeGreaterThanOrEqual(0);
+        expect(box!.x + box!.width).toBeLessThanOrEqual(width);
+        await expect(
+          policyModal(page).getByRole("button", {
+            name: "Save policy",
+            exact: true,
+          }),
+        ).toBeInViewport();
+      }
+      await page.setViewportSize({ width: 1440, height: 1000 });
+      await policyModal(page)
+        .getByLabel("Require a passing full suite with verified prompt usage")
+        .uncheck();
+      await policyModal(page).getByLabel("Independent human reviews").fill("2");
+      await policyModal(page)
+        .getByLabel("Allow explicit, audited exceptions")
+        .uncheck();
+      await save();
+      await openPolicy(second);
+      await expect(
+        policyModal(page).getByLabel(
+          "Require a passing full suite with verified prompt usage",
+        ),
+      ).toBeChecked();
+      await expect(
+        policyModal(page).getByLabel("Independent human reviews"),
+      ).toHaveValue("0");
+      await expect(
+        policyModal(page).getByLabel("Allow explicit, audited exceptions"),
+      ).toBeChecked();
+      await policyModal(page).getByLabel("Independent human reviews").fill("1");
+      await save();
+      await openPolicy(first);
+      await expect(
+        policyModal(page).getByLabel(
+          "Require a passing full suite with verified prompt usage",
+        ),
+      ).not.toBeChecked();
+      await expect(
+        policyModal(page).getByLabel("Independent human reviews"),
+      ).toHaveValue("2");
+      await expect(
+        policyModal(page).getByLabel("Allow explicit, audited exceptions"),
+      ).not.toBeChecked();
+      await policyModal(page)
+        .getByRole("button", { name: "Cancel", exact: true })
+        .click();
+      await page.getByRole("button", { name: /^activity$/i }).click();
+      await expect(page.getByText("policy", { exact: true })).toBeVisible();
+      await page.goto("/prompts");
+      await page
+        .getByRole("link", { name: "First independent policy", exact: true })
+        .click();
+      const drawer = page.locator(`[data-detail-drawer="/prompts/${first}"]`);
+      await expect(drawer).toBeVisible();
+      await drawer
+        .getByRole("button", { name: "Prompt actions", exact: true })
+        .click();
+      await page
+        .getByRole("menuitem", { name: "Promotion policy", exact: true })
+        .click();
+      await expect(
+        policyModal(page).getByLabel("Independent human reviews"),
+      ).toHaveValue("2");
+      await expect(inspector(page)).toHaveCount(0);
+      await page.keyboard.press("Escape");
+      await expect(policyModal(page)).toHaveCount(0);
+      await expect(drawer).toHaveAttribute("data-state", "open");
+      await expect(
+        drawer.getByRole("button", { name: "Prompt actions", exact: true }),
+      ).toBeFocused();
+    } finally {
+      const sql = postgres(process.env.DATABASE_URL!, { max: 1 });
+      try {
+        for (const promptId of created)
+          await sql`DELETE FROM prompt_assets WHERE id=${promptId}`;
+      } finally {
+        await sql.end();
+      }
+    }
   });
 
   test("promotes and rolls back live in a modal independently of manual tags", async ({

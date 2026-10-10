@@ -259,6 +259,64 @@ integration("native Drizzle migration cutover", () => {
       await rm(migrationsDir, { recursive: true, force: true });
   });
 
+  it("copies project promotion policies to independent prompt policies without changing requirements", async () => {
+    const folder = await mkdtemp(
+      path.join(tmpdir(), "kortyx-policy-migration-"),
+    );
+    try {
+      await cp(productionDir, folder, { recursive: true });
+      const journalPath = path.join(folder, "meta/_journal.json");
+      const journal = JSON.parse(await readFile(journalPath, "utf8"));
+      journal.entries = journal.entries.filter(
+        (entry: { idx: number }) => entry.idx <= 10,
+      );
+      await writeFile(journalPath, JSON.stringify(journal));
+      await withDatabase(async (sql, url) => {
+        await native(url, folder);
+        const org = randomUUID(),
+          project = randomUUID(),
+          emptyProject = randomUUID();
+        const first = randomUUID(),
+          second = randomUUID();
+        await sql`INSERT INTO organizations (id, name) VALUES (${org}, 'Policy migration')`;
+        await sql`INSERT INTO projects (id, organization_id, name) VALUES (${project}, ${org}, 'Existing'), (${emptyProject}, ${org}, 'Empty')`;
+        await sql`INSERT INTO prompt_assets (id, organization_id, project_id, key, name) VALUES (${first}, ${org}, ${project}, 'first', 'First'), (${second}, ${org}, ${project}, 'second', 'Second')`;
+        const suites = [{ targetId: "app", suiteId: "regression" }];
+        await sql`INSERT INTO prompt_policies (organization_id, project_id, revision, require_test, required_suites, required_reviews, allow_exception) VALUES (${org}, ${project}, 7, false, ${sql.json(suites)}, 2, false), (${org}, ${emptyProject}, 3, true, '[]', 0, true)`;
+        await native(url, productionDir);
+        const policies =
+          await sql`SELECT prompt_id, revision, require_test, required_suites, required_reviews, allow_exception FROM prompt_policies ORDER BY prompt_id`;
+        expect(policies).toHaveLength(2);
+        expect(policies.map((row) => row.prompt_id).sort()).toEqual(
+          [first, second].sort(),
+        );
+        for (const policy of policies)
+          expect(policy).toMatchObject({
+            revision: 7,
+            require_test: false,
+            required_suites: suites,
+            required_reviews: 2,
+            allow_exception: false,
+          });
+        expect(
+          await sql`SELECT id FROM prompt_activity WHERE action = 'migrate-prompt-policy-scope'`,
+        ).toHaveLength(2);
+        await sql`UPDATE prompt_policies SET require_test = true, revision = 8 WHERE prompt_id = ${first}`;
+        expect(
+          (
+            await sql`SELECT require_test, revision FROM prompt_policies WHERE prompt_id = ${second}`
+          )[0],
+        ).toEqual({ require_test: false, revision: 7 });
+        await native(url, productionDir);
+        expect(await sql`SELECT id FROM prompt_policies`).toHaveLength(2);
+        await sql`DELETE FROM prompt_assets WHERE id = ${first}`;
+        expect(await sql`SELECT id FROM prompt_policies`).toHaveLength(1);
+      });
+    } finally {
+      await rm(folder, { recursive: true, force: true });
+    }
+  }, 30_000);
+
   it("matches snapshot column, foreign-key, check and index names to the deployed catalog", async () => {
     const journal = JSON.parse(
       await readFile(path.join(productionDir, "meta/_journal.json"), "utf8"),

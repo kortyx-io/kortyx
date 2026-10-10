@@ -1162,6 +1162,7 @@ export const promptPolicies = pgTable(
   {
     id: uuid("id").primaryKey().defaultRandom(),
     ...promptScopeColumns(),
+    promptId: uuid("prompt_id").notNull(),
     revision: integer("revision").notNull().default(1),
     requireTest: boolean("require_test").notNull().default(true),
     requiredSuites: jsonb("required_suites")
@@ -1173,13 +1174,18 @@ export const promptPolicies = pgTable(
   },
   (table) => [
     foreignKey({
-      columns: [table.organizationId, table.projectId],
-      foreignColumns: [projects.organizationId, projects.id],
-      name: "prompt_policies_project_fk",
+      columns: [table.organizationId, table.projectId, table.promptId],
+      foreignColumns: [
+        promptAssets.organizationId,
+        promptAssets.projectId,
+        promptAssets.id,
+      ],
+      name: "prompt_policies_asset_fk",
     }).onDelete("cascade"),
-    uniqueIndex("prompt_policies_project_unique").on(
+    uniqueIndex("prompt_policies_prompt_unique").on(
       table.organizationId,
       table.projectId,
+      table.promptId,
     ),
   ],
 );

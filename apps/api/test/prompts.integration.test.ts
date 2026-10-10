@@ -122,6 +122,53 @@ describe.skipIf(!url)("prompt serving authorization", () => {
         ).status,
       ).toBe(403);
 
+      const { apiKey: policyKey } = await createTelemetryApiKey(client.db, {
+        ...scope,
+        pepper: "test",
+        name: "Prompt policy editor",
+        mode: "test",
+        scopes: ["prompt:settings", "studio:read"],
+      });
+      const policy = {
+        revision: 0,
+        requireTest: true,
+        requiredSuites: [],
+        requiredReviews: 0,
+        allowException: true,
+      };
+      const updatePolicy = (body: unknown, key = policyKey) =>
+        app.request("/v1/studio/prompts/actions", {
+          method: "POST",
+          headers: {
+            authorization: `Bearer ${key}`,
+            "content-type": "application/json",
+          },
+          body: JSON.stringify(body),
+        });
+      expect((await updatePolicy({ action: "policy", policy })).status).toBe(
+        400,
+      );
+      expect(
+        (
+          await updatePolicy(
+            { action: "policy", id: created.id, policy },
+            apiKey,
+          )
+        ).status,
+      ).toBe(403);
+      expect(
+        (await updatePolicy({ action: "policy", id: randomUUID(), policy }))
+          .status,
+      ).toBe(404);
+      expect(
+        (await updatePolicy({ action: "policy", id: created.id, policy }))
+          .status,
+      ).toBe(200);
+      expect(
+        (await updatePolicy({ action: "policy", id: created.id, policy }))
+          .status,
+      ).toBe(409);
+
       const group = await mutatePrompt(client.db, scope, "author", {
         action: "group-create",
         name: "Shared baseline",

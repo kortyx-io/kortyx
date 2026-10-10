@@ -144,12 +144,15 @@ projects or deployments.
 
 Promotion policies can require a passing full suite, specific application/suite
 selections, and independent human reviews. Evidence must use the exact version
-and its companion versions must still match current live versions. Policies apply
-to this project. API-key reviews are audited but do not count as independent human
-reviews. The modal explains unmet requirements before submission. When allowed
+and its companion versions must still match current live versions. Each policy
+applies to all versions of one prompt; changing it does not affect other prompts.
+API-key reviews are audited but do not count as independent human reviews. The modal explains unmet requirements before submission. When allowed
 by policy, an explicit exception requires a reason of at least 10 characters and
 is recorded in Activity. Test a candidate before the first promotion, or use that
-reviewed exception path to bootstrap live. Policy changes require confirmation.
+reviewed exception path to bootstrap live. Open **Promotion policy** from a prompt’s
+row actions or detail actions. It opens one modal; the table action keeps you on
+the list. **Save policy** confirms the changes and records them in that prompt’s
+Activity. Cancel closes the modal without saving.
 
 ## Connect an application
 

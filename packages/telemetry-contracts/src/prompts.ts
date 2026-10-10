@@ -311,7 +311,11 @@ export const PromptMutationSchema = z.discriminatedUnion("action", [
     })
     .strict(),
   z
-    .object({ action: z.literal("policy"), policy: PromptPolicySchema })
+    .object({
+      action: z.literal("policy"),
+      id: z.uuid(),
+      policy: PromptPolicySchema,
+    })
     .strict(),
 ]);
 export type PromptLibrary = z.infer<typeof PromptLibrarySchema>;
