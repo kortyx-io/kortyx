@@ -1165,6 +1165,7 @@ export const promptPolicies = pgTable(
     promptId: uuid("prompt_id").notNull(),
     revision: integer("revision").notNull().default(1),
     requireTest: boolean("require_test").notNull().default(true),
+    requireChangeNote: boolean("require_change_note").notNull().default(false),
     requiredSuites: jsonb("required_suites")
       .$type<{ targetId: string; suiteId: string }[]>()
       .notNull()

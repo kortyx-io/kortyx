@@ -29,6 +29,7 @@ export function PromptDiff({
   beforeLabel,
   afterLabel,
   saving,
+  requireChangeNote = false,
   working,
   onClose,
   onAccept,
@@ -39,6 +40,7 @@ export function PromptDiff({
   beforeLabel: string;
   afterLabel: string;
   saving?: boolean;
+  requireChangeNote?: boolean;
   working?: boolean;
   onClose: () => void;
   onAccept?: (note: string) => void;
@@ -175,7 +177,9 @@ export function PromptDiff({
           <div className="shrink-0 space-y-2 border-t p-4">
             <label htmlFor="prompt-change-note" className="text-xs font-medium">
               Change note{" "}
-              <span className="text-muted-foreground">required</span>
+              <span className="text-muted-foreground">
+                {requireChangeNote ? "required" : "optional"}
+              </span>
             </label>
             <textarea
               id="prompt-change-note"
@@ -204,7 +208,9 @@ export function PromptDiff({
             {saving && (
               <Button
                 size="sm"
-                disabled={working || !note.trim() || unchanged}
+                disabled={
+                  working || (requireChangeNote && !note.trim()) || unchanged
+                }
                 onClick={() => onAccept?.(note.trim())}
               >
                 {working ? "Saving…" : "Accept & save version"}

@@ -85,6 +85,13 @@
       "when": 1791626679265,
       "tag": "0011_prompt_scoped_policies",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1791634349131,
+      "tag": "0012_prompt_change_notes",
+      "breakpoints": true
     }
   ]
 }

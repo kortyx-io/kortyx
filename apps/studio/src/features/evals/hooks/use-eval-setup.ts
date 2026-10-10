@@ -88,7 +88,7 @@ export function useEvalSetup(targets: EvalTargets) {
       });
     },
     close: () => {
-      void setQuery({
+      return setQuery({
         launch: null,
         launchApplication: null,
         launchSuite: null,

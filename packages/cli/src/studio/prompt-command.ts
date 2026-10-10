@@ -224,7 +224,7 @@ export function registerStudioPromptCommands(
       .command("create <key>")
       .requiredOption("--file <path>", "Executable prompt JSON.")
       .requiredOption("--name <text>", "Display name.")
-      .requiredOption("--note <text>", "Initial version note.")
+      .option("--note <text>", "Initial version note.", "")
       .option("--category <uuid>", "Category; omit for Root.")
       .option(
         "--idempotency-key <uuid>",
@@ -251,7 +251,11 @@ export function registerStudioPromptCommands(
       .alias("edit")
       .description("Save a new immutable version from a reviewed file.")
       .requiredOption("--file <path>", "Executable prompt JSON.")
-      .requiredOption("--note <text>", "Change note.")
+      .option(
+        "--note <text>",
+        "Change note (required when the prompt policy requires it).",
+        "",
+      )
       .requiredOption(
         "--base-version <number>",
         "Reviewed current head.",

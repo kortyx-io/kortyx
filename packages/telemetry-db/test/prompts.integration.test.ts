@@ -286,7 +286,7 @@ describe.skipIf(!url)("project prompt management", () => {
         version: 1,
         expectedRevision: 0,
         rollback: false,
-        exceptionReason: "Bootstrap initial assignment",
+        exceptionReason: "QA",
       });
       expect(
         (
@@ -441,6 +441,82 @@ describe.skipIf(!url)("project prompt management", () => {
       await client.close();
     }
   }, 30_000);
+  it("requires change notes only for future saves of the configured prompt", async () => {
+    const client = createTelemetryDbClient(url!);
+    const [org] = await client.db
+      .insert(organizations)
+      .values({ name: `prompt-notes-${randomUUID()}` })
+      .returning();
+    try {
+      const [project] = await client.db
+        .insert(projects)
+        .values({ organizationId: org!.id, name: "notes" })
+        .returning();
+      const scope = { organizationId: org!.id, projectId: project!.id };
+      const mutate = (input: Parameters<typeof mutatePrompt>[3]) =>
+        mutatePrompt(client.db, scope, "studio-key:test", input);
+      const first = (
+        await mutate({ action: "create", key: "first", name: "First", content })
+      ).id as string;
+      const second = (
+        await mutate({
+          action: "create",
+          key: "second",
+          name: "Second",
+          content,
+        })
+      ).id as string;
+      const save = async (id: string, baseVersion: number, note?: string) => {
+        const next = { ...content, config: { iteration: baseVersion } };
+        return mutate({
+          action: "save",
+          id,
+          baseVersion,
+          content: next,
+          expectedHash: await promptHash(next),
+          idempotencyKey: randomUUID(),
+          note,
+        });
+      };
+      await save(first, 1);
+      const policy = {
+        revision: 0,
+        requireTest: false,
+        requireChangeNote: true,
+        requiredReviews: 0,
+        requiredSuites: [],
+        allowException: true,
+      };
+      await mutate({ action: "policy", id: first, policy });
+      await expect(save(first, 2, "   ")).rejects.toMatchObject({
+        code: "PROMPT_CHANGE_NOTE_REQUIRED",
+      });
+      expect(
+        (await getPrompt(client.db, scope, first)).asset.latestVersion,
+      ).toBe(2);
+      await save(second, 1);
+      await save(first, 2, "Explain the configuration change");
+      await mutate({
+        action: "policy",
+        id: first,
+        policy: { ...policy, revision: 1, requireChangeNote: false },
+      });
+      await save(first, 3);
+      const detail = await getPrompt(client.db, scope, first);
+      expect(detail.versions.map((version) => version.note)).toEqual([
+        "",
+        "Explain the configuration change",
+        "",
+        "",
+      ]);
+    } finally {
+      await client.db
+        .delete(organizations)
+        .where(eq(organizations.id, org!.id));
+      await client.close();
+    }
+  });
+
   it("isolates policy reads, updates, audit and promotion enforcement by prompt", async () => {
     const client = createTelemetryDbClient(url!);
     const [org] = await client.db
@@ -475,6 +551,7 @@ describe.skipIf(!url)("project prompt management", () => {
       const second = await create("second");
       const permissive = {
         revision: 0,
+        requireChangeNote: false,
         requireTest: false,
         requiredReviews: 0,
         requiredSuites: [],

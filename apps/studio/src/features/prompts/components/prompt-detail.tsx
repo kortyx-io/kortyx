@@ -467,7 +467,7 @@ export function PromptDetailView({
   const validException =
     exception &&
     destinationPolicy?.allowException !== false &&
-    note.trim().length >= 10;
+    note.trim().length > 0;
   const evidence = detail.evidence.filter(
     (item) => item.version === selected.version,
   );
@@ -1241,7 +1241,14 @@ export function PromptDetailView({
           </main>
         </div>
       </PromptWorkspace>
-      <EvalRunSetup targets={targets} matchPath={path} />
+      <EvalRunSetup
+        targets={targets}
+        matchPath={path}
+        onStarted={async () => {
+          await setQuery({ tab: "evals" });
+          await refreshPromptData();
+        }}
+      />
       {confirmation && (
         <PromptConfirmation
           title={confirmation.title}
@@ -1313,6 +1320,7 @@ export function PromptDetailView({
               : `v${compare.after.version}`
           }
           saving={compare.save}
+          requireChangeNote={destinationPolicy?.requireChangeNote ?? false}
           working={working}
           selectors={
             !compare.save ? (
@@ -1649,6 +1657,31 @@ export function PromptDetailView({
                       live companion prompts. Individual tests remain available
                       as supporting evidence.
                     </p>
+                    {((destinationPolicy?.requireTest !== false &&
+                      !eligible.length) ||
+                      missingSuites.length > 0) && (
+                      <div className="space-y-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          disabled={!targets.canRun || !applicable}
+                          onClick={() => {
+                            const version = panel.version;
+                            setPanel(null);
+                            test(version);
+                          }}
+                        >
+                          <Play className="size-3.5" />
+                          Test this version
+                        </Button>
+                        {!applicable && (
+                          <p className="text-muted-foreground">
+                            Connect an application that uses this prompt to run
+                            evaluations.
+                          </p>
+                        )}
+                      </div>
+                    )}
                   </div>
                   {promotionBlocked && (
                     <p className="text-xs text-muted-foreground">
@@ -1696,7 +1729,7 @@ export function PromptDetailView({
                       exception ? "prompt-exception-help" : undefined
                     }
                     aria-invalid={
-                      exception && note.length > 0 && note.trim().length < 10
+                      exception && note.length > 0 && !note.trim()
                         ? true
                         : undefined
                     }
@@ -1710,8 +1743,8 @@ export function PromptDetailView({
                       id="prompt-exception-help"
                       className="text-xs text-muted-foreground"
                     >
-                      Explain why you are bypassing the policy. At least 10
-                      characters required ({note.trim().length}/10).
+                      Explain why you are making this version live without
+                      meeting the policy.
                     </p>
                   )}
                 </div>

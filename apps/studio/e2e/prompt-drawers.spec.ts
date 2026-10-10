@@ -297,6 +297,105 @@ test.describe("Prompt detail drawers", () => {
   });
   test.afterAll(cleanup);
 
+  test("keeps prompt evaluation launches on the selected version without reloading", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 1440, height: 1000 });
+    await page.route("**/api/studio/evals/evaluations", async (route) => {
+      expect(route.request().method()).toBe("POST");
+      await route.fulfill({ json: { id: randomUUID() } });
+    });
+    await page.goto(
+      `/prompts/${id}?detailView=expanded&v=2&launch=true&launchApplication=${EVAL_FIXTURE.targetId}`,
+    );
+    const launch = page.locator("[data-detail-inspector]");
+    await expect(
+      launch.getByRole("button", { name: "Run evaluations", exact: true }),
+    ).toBeEnabled();
+    const stable = await monitorPromptSurface(page, [
+      "[data-prompt-header]",
+      "[data-prompt-version-history]",
+    ]);
+    await launch
+      .getByRole("button", { name: "Run evaluations", exact: true })
+      .click();
+    await expect(launch).toHaveCount(0);
+    await expect(page).toHaveURL(
+      new RegExp(`/prompts/${id}\\?detailView=expanded&v=2&tab=evals$`),
+    );
+    await expect(
+      page.getByRole("heading", { name: "Evaluations for v2" }),
+    ).toBeVisible();
+    await stable();
+  });
+
+  test("allows optional change notes and enforces the prompt policy in the save dialog", async ({
+    page,
+    request,
+  }) => {
+    const created = await action(request, {
+      action: "create",
+      key: `${fixtureKey}-notes-${randomUUID()}`,
+      name: "Change note policy",
+      content,
+    });
+    try {
+      await page.goto(`/prompts/${created.id}?detailView=expanded`);
+      await page
+        .getByRole("button", { name: "New version", exact: true })
+        .click();
+      await page
+        .getByLabel("System Message")
+        .filter({ visible: true })
+        .fill("Classify the message carefully.");
+      await page
+        .getByRole("button", { name: "Save version", exact: true })
+        .click();
+      const diff = page.getByRole("dialog", { name: "Review & save version" });
+      await expect(diff.getByLabel("Change note optional")).toBeVisible();
+      await expect(
+        diff.getByRole("button", { name: "Accept & save version" }),
+      ).toBeEnabled();
+      await diff.getByRole("button", { name: "Accept & save version" }).click();
+      await expect(diff).toHaveCount(0);
+      await page
+        .getByRole("button", { name: "Prompt actions", exact: true })
+        .click();
+      await page
+        .getByRole("menuitem", { name: "Promotion policy", exact: true })
+        .click();
+      await policyModal(page)
+        .getByLabel("Require a change note when saving a new version")
+        .check();
+      await policyModal(page)
+        .getByRole("button", { name: "Save policy", exact: true })
+        .click();
+      await expect(policyModal(page)).toHaveCount(0);
+      await page
+        .getByRole("button", { name: "New version", exact: true })
+        .click();
+      await page
+        .getByLabel("System Message")
+        .filter({ visible: true })
+        .fill("Classify the message with extra care.");
+      await page
+        .getByRole("button", { name: "Save version", exact: true })
+        .click();
+      await expect(
+        diff.getByRole("button", { name: "Accept & save version" }),
+      ).toBeDisabled();
+      await diff
+        .getByLabel("Change note required")
+        .fill("Clarify instructions");
+      await diff.getByRole("button", { name: "Accept & save version" }).click();
+      await expect(diff).toHaveCount(0);
+    } finally {
+      const sql = postgres(process.env.DATABASE_URL!, { max: 1 });
+      await sql`delete from prompt_assets where id=${created.id}`;
+      await sql.end();
+    }
+  });
+
   test("opens one continuous prompt drawer from the library without a floating loading frame", async ({
     page,
   }) => {
@@ -1024,9 +1123,11 @@ test.describe("Prompt detail drawers", () => {
     await promotion
       .getByLabel("Exception reason", { exact: true })
       .fill("Test");
-    await expect(promotion).toContainText(
-      "At least 10 characters required (4/10)",
-    );
+    await expect(promotion).not.toContainText("At least 10 characters");
+    await expect(
+      promotion.getByRole("button", { name: "Promote v2", exact: true }),
+    ).toBeEnabled();
+    await promotion.getByLabel("Exception reason", { exact: true }).fill("   ");
     await expect(
       promotion.getByRole("button", { name: "Promote v2", exact: true }),
     ).toBeDisabled();

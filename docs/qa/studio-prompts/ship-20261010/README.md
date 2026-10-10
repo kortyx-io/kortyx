@@ -29,3 +29,15 @@ Used `examples/kortyx-prompts/src/server.ts` with a temporary QA prompt key and 
 - Changed TypeScript files: Biome and whitespace checks passed.
 - Example TypeScript: passed. Its two opt-in transport tests were skipped by the default invocation; the real application/browser flow above exercised the transport directly.
 - Patched Compose stage: built and executable; final API image vulnerability scan remains enforced in CI.
+
+
+## Follow-up: notes and prompt-local evaluation launch
+
+- Change notes are optional by default. A prompt-specific policy can require them for future saves. Enforcement is shared by Studio, API and CLI; existing versions remain immutable. Migration `0012_prompt_change_notes.sql` adds the setting, defaulting to false.
+- Launching from a prompt closes setup and selects that prompt's Evals tab, preserving its version and expanded/drawer presentation. Ordinary eval-page launches still navigate to the evaluation run.
+- Unmet evaluation requirements in the promotion modal offer **Test this version**, preselecting the exact candidate. Exception reasons require non-whitespace content with no arbitrary character minimum.
+- Manual browser verification saved QA v4 without a note, opened its promotion modal, launched the preselected candidate suite, and remained on `/prompts/393613f1-0ab7-47fc-8da9-c497b5afa086?v=4&tab=evals`. The suite passed 2/2 with verified usage; live remained v2.
+- Focused browser regressions: 5 passed including setup/cleanup; assert no route requests or disappearing prompt surfaces after launch, optional/required note behavior, and short/blank exception validation.
+- Database/policy plus fresh migration tests: 38 passed. Studio unit tests: 255 passed. CLI prompt tests: 5 passed.
+
+![Evaluation stays attached to the prompt](prompt-local-evaluation.png)

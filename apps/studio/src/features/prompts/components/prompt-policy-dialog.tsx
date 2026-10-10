@@ -29,6 +29,7 @@ export function PromptPolicyDialog({
   }>();
   const [error, setError] = useState("");
   const [working, setWorking] = useState(false);
+  const [requireChangeNote, setRequireChangeNote] = useState(false);
   const [requireTest, setRequireTest] = useState(true);
   const [requiredReviews, setRequiredReviews] = useState("0");
   const [allowException, setAllowException] = useState(true);
@@ -49,6 +50,7 @@ export function PromptPolicyDialog({
         };
         const existing = loaded.detail.policies[0];
         setRequireTest(existing?.requireTest ?? true);
+        setRequireChangeNote(existing?.requireChangeNote ?? false);
         setRequiredReviews(String(existing?.requiredReviews ?? 0));
         setAllowException(existing?.allowException ?? true);
         setSuites(existing?.requiredSuites ?? []);
@@ -136,6 +138,7 @@ export function PromptPolicyDialog({
             void save({
               revision: data.detail.policies[0]?.revision ?? 0,
               requireTest,
+              requireChangeNote,
               requiredReviews: Number(requiredReviews),
               allowException,
               requiredSuites: suites,
@@ -152,6 +155,14 @@ export function PromptPolicyDialog({
               Applies to all versions of {asset.name}. Other prompts keep their
               own policies.
             </p>
+            <label className="flex items-center gap-2 text-xs">
+              <input
+                type="checkbox"
+                checked={requireChangeNote}
+                onChange={(event) => setRequireChangeNote(event.target.checked)}
+              />
+              Require a change note when saving a new version
+            </label>
             <label className="flex items-center gap-2 text-xs">
               <input
                 type="checkbox"

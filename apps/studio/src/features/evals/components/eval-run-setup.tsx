@@ -27,9 +27,11 @@ import { EvalSuiteSelection } from "./eval-suite-selection";
 export function EvalRunSetup({
   targets,
   matchPath,
+  onStarted,
 }: {
   targets: EvalTargets;
   matchPath: string;
+  onStarted?: () => void | Promise<void>;
 }) {
   const {
     query,
@@ -223,7 +225,13 @@ export function EvalRunSetup({
         ...body,
         idempotencyKey: launch.current.key,
       });
-      router.push(evalNavigationHref(`/evals/evaluations/${run.id}`, search));
+      if (onStarted) {
+        launch.current = null;
+        await close();
+        await onStarted();
+      } else {
+        router.push(evalNavigationHref(`/evals/evaluations/${run.id}`, search));
+      }
     } catch (cause) {
       setError(
         cause instanceof Error ? cause.message : "Could not start evaluations.",

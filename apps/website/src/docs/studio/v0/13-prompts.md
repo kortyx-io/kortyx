@@ -71,7 +71,10 @@ in the mounted editor while browsing versions and tabs.
 
 **Save version** opens the same diff dialog used by **Compare**: removed content
 is red, added content is green, and desktop views align both versions. The diff
-compares the draft against its recorded base version and requires a change note.
+compares the draft against its recorded base version. Change notes are optional by
+default. Enable **Require a change note when saving a new version** in that
+prompt’s promotion policy to require them in Studio, the API and CLI. This applies
+to future saves and does not change existing versions.
 Accepting creates a new immutable version and removes the draft entry. A changed
 base or draft revision causes a conflict instead of silently replacing content.
 
@@ -168,7 +171,7 @@ selections, and independent human reviews. Evidence must use the exact version
 and its companion versions must still match current live versions. Each policy
 applies to all versions of one prompt; changing it does not affect other prompts.
 API-key reviews are audited but do not count as independent human reviews. The modal explains unmet requirements before submission. When allowed
-by policy, an explicit exception requires a reason of at least 10 characters and
+by policy, an explicit exception requires a non-blank reason and
 is recorded in Activity. Test a candidate before the first promotion, or use that
 reviewed exception path to bootstrap live. Open **Promotion policy** from a prompt’s
 row actions or detail actions. It opens one modal; the table action keeps you on

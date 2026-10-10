@@ -245,6 +245,19 @@ describe("Studio prompt CLI", () => {
         hash,
         ...retry,
       ]);
+    await execute([
+      "edit",
+      "classify",
+      "--file",
+      file,
+      "--base-version",
+      "1",
+      "--expected-hash",
+      hash,
+    ]);
+    expect(
+      JSON.parse(String(request.mock.calls.at(-1)?.[1]?.body)),
+    ).toMatchObject({ action: "save", note: "" });
     await execute(["action", actionFile]);
     for (const action of ["promote", "rollback"]) {
       await execute([

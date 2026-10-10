@@ -81,6 +81,7 @@ export const PromptStoredVersionSchema = PromptVersionSchema.extend({
 export const PromptPolicySchema = z.object({
   revision,
   requireTest: z.boolean(),
+  requireChangeNote: z.boolean().default(false),
   requiredSuites: z.array(z.object({ targetId: name, suiteId: name })).max(100),
   requiredReviews: z.number().int().min(0).max(10),
   allowException: z.boolean(),
@@ -198,7 +199,7 @@ export const PromptMutationSchema = z.discriminatedUnion("action", [
       name,
       categoryId: z.uuid().nullable().default(null),
       content: PromptContentSchema,
-      note: z.string().trim().min(1).max(2000),
+      note: z.string().trim().max(2000).default(""),
       idempotencyKey: z.uuid().optional(),
     })
     .strict(),
@@ -226,7 +227,7 @@ export const PromptMutationSchema = z.discriminatedUnion("action", [
       baseVersion: version,
       expectedHash: z.string().regex(/^[a-f0-9]{64}$/),
       expectedDraftRevision: revision.optional(),
-      note: z.string().trim().min(1).max(2000),
+      note: z.string().trim().max(2000).default(""),
       idempotencyKey: z.uuid(),
     })
     .strict(),
@@ -298,7 +299,7 @@ export const PromptMutationSchema = z.discriminatedUnion("action", [
       id: z.uuid(),
       version,
       expectedRevision: revision,
-      exceptionReason: z.string().trim().min(10).max(2000).optional(),
+      exceptionReason: z.string().trim().min(1).max(2000).optional(),
       rollback: z.boolean().default(false),
     })
     .strict(),
@@ -320,7 +321,7 @@ export const PromptMutationSchema = z.discriminatedUnion("action", [
 ]);
 export type PromptLibrary = z.infer<typeof PromptLibrarySchema>;
 export type PromptDetail = z.infer<typeof PromptDetailSchema>;
-export type PromptMutation = z.infer<typeof PromptMutationSchema>;
+export type PromptMutation = z.input<typeof PromptMutationSchema>;
 export type PromptCategory = z.infer<typeof PromptCategorySchema>;
 export type PromptGroup = z.infer<typeof PromptGroupSchema>;
 export type PromptEvidence = z.infer<typeof PromptEvidenceSchema>;

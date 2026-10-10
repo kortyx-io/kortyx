@@ -501,12 +501,14 @@ export async function getPrompt(
       ({
         revision,
         requireTest,
+        requireChangeNote,
         requiredSuites,
         requiredReviews,
         allowException,
       }) => ({
         revision,
         requireTest,
+        requireChangeNote,
         requiredSuites,
         requiredReviews,
         allowException,
@@ -971,6 +973,22 @@ export async function mutatePrompt(
           .where(eq(promptAssets.id, asset.id));
         return { id: asset.id, draftRevision: asset.draftRevision + 1 };
       }
+      const [savePolicy] = await tx
+        .select({ requireChangeNote: promptPolicies.requireChangeNote })
+        .from(promptPolicies)
+        .where(
+          and(
+            where(promptPolicies, scope),
+            eq(promptPolicies.promptId, asset.id),
+          ),
+        )
+        .limit(1);
+      if (savePolicy?.requireChangeNote && !input.note.trim())
+        throw new PromptError(
+          "PROMPT_CHANGE_NOTE_REQUIRED",
+          "This prompt's policy requires a change note when saving a version.",
+          400,
+        );
       if (input.expectedDraftRevision !== undefined)
         checkRevision(asset.draftRevision, input.expectedDraftRevision);
       const base = await findVersion(tx, scope, asset.id, input.baseVersion),
