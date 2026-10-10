@@ -118,7 +118,12 @@ const evals = createEvals({
           steps: [
             {
               message: "Help me reset my password",
-              expect: { type: "answer", criteria: ["Returns support"] },
+              expect: {
+                type: "answer",
+                criteria: [
+                  'The response classifies the user intent with only the label "support" (case-insensitive). No explanation or supporting data is needed.',
+                ],
+              },
             },
           ],
         },
@@ -128,7 +133,12 @@ const evals = createEvals({
           steps: [
             {
               message: "I want to buy a subscription",
-              expect: { type: "answer", criteria: ["Returns sales"] },
+              expect: {
+                type: "answer",
+                criteria: [
+                  'The response classifies the user intent with only the label "sales" (case-insensitive). No explanation or supporting data is needed.',
+                ],
+              },
             },
           ],
         },
@@ -143,7 +153,7 @@ const evals = createEvals({
         location: "app",
         grade: ({ criterion, observation }) => ({
           passed:
-            observation.text.trim() ===
+            observation.text.trim().toLowerCase() ===
             (criterion.text.includes("sales") ? "sales" : "support"),
           reason: "Compared the response with the fixture label.",
           evidence: [observation.text],

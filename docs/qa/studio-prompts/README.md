@@ -1,6 +1,6 @@
 # Studio prompts verification
 
-Latest: [2026-10-10 manual browser E2E and release readiness](manual-20261010/README.md).
+Latest: [2026-10-10 CI fixes and real-model smoke](ship-20261010/README.md). Full preceding [manual browser E2E](manual-20261010/README.md).
 
 Verified against the production Studio build on 2026-10-08. All data shown is a local test fixture.
 

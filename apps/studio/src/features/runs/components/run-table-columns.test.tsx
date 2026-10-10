@@ -26,6 +26,18 @@ afterEach(() => {
 });
 
 describe("run table columns", () => {
+  it("reports captured token totals without inventing a usage breakdown", () => {
+    const tokens = createRunColumns({
+      now: 0,
+      onToggleStatus: vi.fn(),
+      onCopy: vi.fn(),
+    }).find((column) => column.key === "tokens");
+
+    expect(tokens?.cellTitle?.({ ...runningRun, tokens: 38 })).toBe("Total 38");
+    expect(tokens?.cellTitle?.({ ...runningRun, tokens: 0 })).toBe("Total 0");
+    expect(tokens?.cellTitle?.(runningRun)).toBeUndefined();
+  });
+
   it("derives active duration from the supplied render clock", () => {
     vi.spyOn(Date, "now").mockReturnValue(
       Date.parse("2026-07-26T12:00:00.000Z"),

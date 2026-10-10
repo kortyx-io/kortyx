@@ -1,5 +1,6 @@
 // biome-ignore-all lint/correctness/useHookAtTopLevel: Server workflow hooks in isolated E2E fixtures.
 
+import { randomUUID } from "node:crypto";
 import { projectWorkflowTopology } from "@kortyx/agent";
 import { createKortyxTelemetryAdapter } from "@kortyx/telemetry";
 import { expect, test } from "@playwright/test";
@@ -13,7 +14,9 @@ import {
 } from "kortyx";
 import { z } from "zod";
 
-const workflowId = "e2e-use-tool-workflow";
+// A retry runs beforeAll in a new worker. Its executions must not join the
+// previous attempt's workflow cohort (or another local run of this file).
+const workflowId = `e2e-use-tool-workflow-${randomUUID()}`;
 const apiUrl = process.env.KORTYX_API_URL ?? "http://localhost:6400";
 const apiKey =
   process.env.KORTYX_TELEMETRY_API_KEY ??
@@ -252,9 +255,11 @@ test("discovers tools in workflow search, inspects capabilities, and drills into
   await page
     .locator(`[data-row-key="${runId}"]`)
     .click({ position: { x: 8, y: 8 } });
-  await expect(page.locator("[data-detail-drawer]").last()).toContainText(
-    "completed",
-  );
+  const drawer = page.locator(`[data-detail-drawer="/runs/${runId}"]`);
+  // This shard can be the first to compile the intercepted Run route in dev.
+  // Wait for that route's surface, then assert its contents at the normal limit.
+  await expect(drawer).toBeVisible({ timeout: 15_000 });
+  await expect(drawer).toContainText("completed");
   await expect(
     page.getByText("No model requests", { exact: true }),
   ).toBeVisible();

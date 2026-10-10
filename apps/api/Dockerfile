@@ -3,7 +3,8 @@
 FROM docker:29-cli AS docker-cli
 
 # Compose v5.6.0's upstream binary still embeds Go 1.26.8. Rebuild the same
-# immutable source with the security-patched toolchain for both release platforms.
+# immutable source with the security-patched toolchain and x/net dependency for
+# both release platforms. Upstream v5.6.0 still pins vulnerable x/net v0.58.0.
 FROM --platform=$BUILDPLATFORM golang:1.26.9-bookworm AS compose-build
 ARG TARGETOS
 ARG TARGETARCH
@@ -11,7 +12,9 @@ WORKDIR /src
 ADD https://github.com/docker/compose.git#42f48072bbf92ee9b0e43f9fdf2008d03546e7ca /src
 RUN --mount=type=cache,target=/go/pkg/mod \
     --mount=type=cache,target=/root/.cache/go-build \
-    CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build \
+    go get golang.org/x/net@v0.60.0 \
+    && go mod verify \
+    && CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build \
       -mod=readonly -trimpath -tags=e2e \
       -ldflags="-s -w -X github.com/docker/compose/v5/internal.Version=v5.6.0" \
       -o /out/docker-compose ./cmd

@@ -2,6 +2,8 @@
 
 ## Verdict
 
+Follow-up: [CI fixes and real-model smoke](../ship-20261010/README.md). The findings below describe the earlier pass.
+
 The prompt-management flows tested below pass after two editor fixes. **The PR is not ready to ship while the existing CI failures remain unresolved.** At the start of this pass, PR #288 at `35342a9f` had a failing tool-observability browser test and API container security scan. These are separate from the prompt regressions exercised here.
 
 - [Tool-observability failure](https://github.com/kortyx-io/kortyx/actions/runs/38046849061/job/114198115923): the first attempt did not open its expected Run drawer; the retry accumulated two tool denials where the fixture expected one. This needs investigation, not an assumption that it is harmless flakiness.
