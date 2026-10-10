@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.20.0](https://github.com/kortyx-io/kortyx/compare/studio-v0.19.0...studio-v0.20.0) (2026-10-10)
+
+
+### Features
+
+* **studio:** support onboarding within the shared shell ([#307](https://github.com/kortyx-io/kortyx/issues/307)) ([0537791](https://github.com/kortyx-io/kortyx/commit/053779143946bbffc50205dee3e3ea57acc29d2a))
+
 ## [0.19.0](https://github.com/kortyx-io/kortyx/compare/studio-v0.18.0...studio-v0.19.0) (2026-10-10)
 
 
