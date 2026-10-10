@@ -28,7 +28,7 @@ runs:
     - name: Migrate and bootstrap database
       run: |
         pnpm db:migrate
-        KORTYX_STUDIO_ENABLE_EVALS=1 KORTYX_STUDIO_ENABLE_PROMPTS=1 pnpm db:bootstrap
+        KORTYX_STUDIO_ENABLE_EVALS=1 pnpm db:bootstrap
       shell: bash
     - name: Run high-availability and feedback API regressions
       if: inputs.suite == 'preflight'

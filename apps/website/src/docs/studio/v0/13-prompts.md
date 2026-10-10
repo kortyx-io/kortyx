@@ -183,8 +183,11 @@ Activity. Cancel closes the modal without saving.
 Follow [Studio prompt SDK integration](../../sdk/v0/03-guides/27-studio-prompts.md).
 The prompt's **Code helper** includes its real contracts and version pin. Use a
 server-side key with `prompt:serve`; editing and promotion use separate Studio
-permissions. Local Studio bootstrap enables prompt management with
-`KORTYX_STUDIO_ENABLE_PROMPTS=1`. Eval execution additionally needs
+permissions. Prompt management is enabled by default in local Studio bootstrap;
+no extra flag is needed. Set `KORTYX_STUDIO_ENABLE_PROMPTS=0` to opt out of
+granting prompt permissions to the local keys. Existing installations should
+rerun bootstrap with their existing keys to apply these permissions.
+Eval execution additionally needs
 `KORTYX_STUDIO_ENABLE_EVALS=1` and a registered consumer target.
 
 See [Migrate prompts between deployments](./14-prompt-migration.md) for CLI

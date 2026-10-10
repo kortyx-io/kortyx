@@ -10,6 +10,7 @@ const databaseUrl = process.env.DATABASE_URL;
 const pepper = process.env.KORTYX_API_KEY_PEPPER ?? "dev-insecure-pepper";
 const telemetryApiKey = process.env.KORTYX_TELEMETRY_API_KEY;
 const studioApiKey = process.env.KORTYX_STUDIO_API_KEY;
+const promptsEnabled = process.env.KORTYX_STUDIO_ENABLE_PROMPTS !== "0";
 
 const ensureApiKey = async (
   client: ReturnType<typeof createTelemetryDbClient>,
@@ -54,12 +55,7 @@ const main = async (): Promise<void> => {
       organizationId: project.organizationId,
       projectId: project.projectId,
       name: "Local SDK telemetry key",
-      scopes: [
-        "telemetry:write",
-        ...(process.env.KORTYX_STUDIO_ENABLE_PROMPTS === "1"
-          ? ["prompt:serve"]
-          : []),
-      ],
+      scopes: ["telemetry:write", ...(promptsEnabled ? ["prompt:serve"] : [])],
     });
     const studioKey = await ensureApiKey(client, {
       apiKey: studioApiKey,
@@ -68,7 +64,7 @@ const main = async (): Promise<void> => {
       name: "Local Studio key",
       scopes: [
         "studio:read",
-        ...(process.env.KORTYX_STUDIO_ENABLE_PROMPTS === "1"
+        ...(promptsEnabled
           ? [
               "studio:write",
               "prompt:promote",
