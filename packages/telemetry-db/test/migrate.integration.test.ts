@@ -259,6 +259,61 @@ integration("native Drizzle migration cutover", () => {
       await rm(migrationsDir, { recursive: true, force: true });
   });
 
+  it("upgrades the pre-prompt schema without changing existing evaluations or diagnostics", async () => {
+    const folder = await mkdtemp(path.join(tmpdir(), "kortyx-pre-prompt-"));
+    try {
+      await cp(productionDir, folder, { recursive: true });
+      const journalPath = path.join(folder, "meta/_journal.json");
+      const journal = JSON.parse(await readFile(journalPath, "utf8"));
+      journal.entries = journal.entries.filter(
+        (entry: { idx: number }) => entry.idx <= 8,
+      );
+      await writeFile(journalPath, JSON.stringify(journal));
+      await withDatabase(async (sql, url) => {
+        await native(url, folder);
+        await seed(sql, 6);
+        const org = "10000000-0000-0000-0000-000000000001";
+        const project = "20000000-0000-0000-0000-000000000001";
+        const evaluation = randomUUID();
+        const diagnostic = randomUUID();
+        const record = randomUUID();
+        await sql`INSERT INTO evaluation_runs (id, organization_id, project_id, environment, target_id, target_name, name, request, request_hash, requested_by)
+          VALUES (${evaluation}, ${org}, ${project}, 'production', 'existing-target', 'Existing app', 'Existing evaluation', '{}', 'existing-hash', 'existing-user')`;
+        await sql`UPDATE eval_runs SET evaluation_id = ${evaluation}`;
+        await sql`INSERT INTO error_diagnostics (id, organization_id, project_id, diagnostic_id, environment, manifest, content, state, expires_at)
+          VALUES (${record}, ${org}, ${project}, ${diagnostic}, 'production', '{"preserve":true}', 'existing diagnostic', 'complete', now() + interval '7 days')`;
+        await sql`INSERT INTO error_diagnostic_parts (organization_id, project_id, diagnostic_record_id, part_index, data)
+          VALUES (${org}, ${project}, ${record}, 0, 'existing part')`;
+        await sql`INSERT INTO diagnostic_access (organization_id, project_id, diagnostic_id, actor, action)
+          VALUES (${org}, ${project}, ${diagnostic}, 'existing-user', 'read')`;
+        const rows = async () => ({
+          customer: await customerRows(sql, 6),
+          evaluations: await sql`SELECT * FROM evaluation_runs ORDER BY id`,
+          diagnostics: await sql`SELECT * FROM error_diagnostics ORDER BY id`,
+          parts:
+            await sql`SELECT * FROM error_diagnostic_parts ORDER BY part_index`,
+          access: await sql`SELECT * FROM diagnostic_access ORDER BY id`,
+        });
+        const before = await rows();
+        await migrate(url, productionDir);
+        expect(await rows()).toEqual(before);
+        await migrate(url, productionDir);
+        expect(await rows()).toEqual(before);
+        expect(
+          (await sql`SELECT to_regclass('public.prompt_assets') AS relation`)[0]
+            ?.relation,
+        ).toBe("prompt_assets");
+        expect(
+          (
+            await sql`SELECT count(*)::int AS count FROM drizzle.__drizzle_migrations`
+          )[0]?.count,
+        ).toBe(13);
+      });
+    } finally {
+      await rm(folder, { recursive: true, force: true });
+    }
+  }, 30_000);
+
   it("copies project promotion policies to independent prompt policies without changing requirements", async () => {
     const folder = await mkdtemp(
       path.join(tmpdir(), "kortyx-policy-migration-"),
