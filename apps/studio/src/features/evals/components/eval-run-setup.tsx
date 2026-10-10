@@ -254,13 +254,42 @@ export function EvalRunSetup({
       bodyClassName="flex flex-col overflow-hidden p-0"
     >
       <div className="min-h-0 flex-1 space-y-5 overflow-auto p-5">
+        <div className="space-y-2">
+          <p className="text-xs font-medium">Application · Environment</p>
+          <EvalDropdown
+            label="Application"
+            value={target?.id ?? ""}
+            disabled={working}
+            className="w-full"
+            options={targets.targets.map((item) => ({
+              value: item.id,
+              label: `${item.name} · ${item.environment}`,
+            }))}
+            onChange={(id) => {
+              void setQuery({
+                launchApplication: id,
+                launchPrompts: null,
+                launchPrompt: null,
+                launchVersion: null,
+                launchGroup: null,
+                launchScope: "all",
+                launchSuite: "",
+                launchSuites: null,
+                launchCases: null,
+                launchSuiteCases: null,
+                launchExpandedSuites: null,
+                launchJudge: null,
+              });
+            }}
+          />
+        </div>
         {target?.manifest?.promptContracts?.length ? (
           <div className="space-y-3 rounded-lg border p-3">
             <div className="space-y-1">
               <p className="text-xs font-medium">Prompt versions</p>
               <p className="text-[11px] text-muted-foreground">
-                Freeze the assigned prompts in {target.environment}, with
-                optional candidate overrides.
+                Freeze live prompt versions for {target.name}, with optional
+                candidate overrides.
               </p>
             </div>
             <EvalDropdown
@@ -281,14 +310,18 @@ export function EvalRunSetup({
             />
             {query.launchPrompts === "single" && (
               <>
-                <Input
-                  aria-label="Search registered prompts"
-                  placeholder="Search prompt names or keys…"
-                  value={promptSearch}
-                  onChange={(event) => setPromptSearch(event.target.value)}
-                />
+                <p className="text-[11px] text-muted-foreground">
+                  Only prompts registered by {target.name} are shown. To test
+                  another prompt, choose an application that uses it above.
+                </p>
                 <EvalDropdown
                   label="Prompt"
+                  search={{
+                    label: "Search registered prompts",
+                    placeholder: "Search prompt names or keys…",
+                    value: promptSearch,
+                    onChange: setPromptSearch,
+                  }}
                   triggerLabel={promptDetail?.asset.name}
                   className="w-full"
                   value={query.launchPrompt}
@@ -317,7 +350,7 @@ export function EvalRunSetup({
                   value={query.launchVersion}
                   options={(promptDetail?.versions ?? []).map((version) => ({
                     value: String(version.version),
-                    label: `v${version.version} · ${version.note}`,
+                    label: `v${version.version}${version.note ? ` · ${version.note}` : ""}`,
                   }))}
                   onChange={(version) =>
                     void setQuery({ launchVersion: version })
@@ -402,35 +435,6 @@ export function EvalRunSetup({
             {error || target?.error}
           </p>
         ) : null}
-        <div className="space-y-2">
-          <p className="text-xs font-medium">Application · Environment</p>
-          <EvalDropdown
-            label="Application"
-            value={target?.id ?? ""}
-            disabled={working}
-            className="w-full"
-            options={targets.targets.map((item) => ({
-              value: item.id,
-              label: `${item.name} · ${item.environment}`,
-            }))}
-            onChange={(id) => {
-              void setQuery({
-                launchApplication: id,
-                launchPrompts: null,
-                launchPrompt: null,
-                launchVersion: null,
-                launchGroup: null,
-                launchScope: "all",
-                launchSuite: "",
-                launchSuites: null,
-                launchCases: null,
-                launchSuiteCases: null,
-                launchExpandedSuites: null,
-                launchJudge: null,
-              });
-            }}
-          />
-        </div>
         <fieldset disabled={working} className="space-y-2">
           <legend className="mb-2 text-xs font-medium">Suites</legend>
           <div className="flex gap-4 text-sm">

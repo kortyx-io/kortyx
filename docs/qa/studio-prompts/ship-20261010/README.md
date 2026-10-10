@@ -41,3 +41,16 @@ Used `examples/kortyx-prompts/src/server.ts` with a temporary QA prompt key and 
 - Database/policy plus fresh migration tests: 38 passed. Studio unit tests: 255 passed. CLI prompt tests: 5 passed.
 
 ![Evaluation stays attached to the prompt](prompt-local-evaluation.png)
+
+
+## Follow-up: promotion help and evaluation picker
+
+- Promotion readiness has a keyboard-accessible help icon on the right. Its tooltip explains the prompt-specific policy; clicking opens that prompt’s policy modal without stacking dialogs or reloading the prompt.
+- Application · Environment precedes Prompt versions. The drawer explains that only prompts registered by the selected application can affect its evaluation.
+- Prompt search lives inside the picker. Manual browser checks covered an empty result, search recovery, Arrow Down / Enter selection, and Escape closing only the menu.
+- Long option labels truncate on one line at the trigger width and expose their full text with native `title` attributes. Versions without notes show only their version number.
+- Focused promotion/navigation browser regressions: 4 passed, including setup/cleanup. Studio TypeScript passed.
+
+![Promotion policy help](promotion-settings-help.png)
+
+![Application first and compact version options](eval-picker-layout.png)

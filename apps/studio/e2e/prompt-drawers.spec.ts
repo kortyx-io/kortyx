@@ -1103,6 +1103,30 @@ test.describe("Prompt detail drawers", () => {
       promotion.getByRole("button", { name: "Cancel", exact: true }),
     ).toBeFocused();
     await expect(promotion).toContainText("A passing full suite is required");
+    const settings = promotion.getByRole("button", {
+      name: "Open prompt promotion settings",
+      exact: true,
+    });
+    await settings.hover();
+    await expect(page.getByRole("tooltip")).toContainText(
+      "These requirements come from this prompt’s promotion settings.",
+    );
+    const stable = await monitorPromptSurface(page, ["[data-prompt-header]"]);
+    await settings.click();
+    await expect(promotion).toHaveCount(0);
+    await expect(page.getByRole("dialog")).toHaveCount(1);
+    await expect(policyModal(page)).toContainText(fixtureKey);
+    await stable();
+    await policyModal(page)
+      .getByRole("button", { name: "Cancel", exact: true })
+      .click();
+    expect(mutations).toEqual([]);
+    await page
+      .getByRole("button", { name: "Version 2 actions", exact: true })
+      .click();
+    await page
+      .getByRole("menuitem", { name: "Make this live", exact: true })
+      .click();
     await expect(
       promotion.getByRole("button", { name: "Promote v2", exact: true }),
     ).toBeDisabled();

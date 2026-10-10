@@ -6,7 +6,14 @@ import {
   type PromptLibrary,
   type PromptMutation,
 } from "@kortyx/telemetry-contracts";
-import { ChevronDown, MoreHorizontal, Play, Plus, Save } from "lucide-react";
+import {
+  ChevronDown,
+  CircleHelp,
+  MoreHorizontal,
+  Play,
+  Plus,
+  Save,
+} from "lucide-react";
 import { parseAsBoolean, parseAsInteger, parseAsStringLiteral } from "nuqs";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { DetailDrawer } from "@/components/detail/detail-drawer";
@@ -32,6 +39,11 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { EvalDropdown } from "@/features/evals/components/eval-dropdown";
 import { EvalRunSetup } from "@/features/evals/components/eval-run-setup";
 import { useEvalSetup } from "@/features/evals/hooks/use-eval-setup";
@@ -1627,7 +1639,34 @@ export function PromptDetailView({
                     tags stay unchanged.
                   </p>
                   <div className="space-y-2 rounded-lg border bg-muted/20 p-3 text-xs">
-                    <p className="font-medium">Promotion readiness</p>
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="font-medium">Promotion readiness</p>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="size-6 text-muted-foreground"
+                            aria-label="Open prompt promotion settings"
+                            aria-disabled={!library.permissions.settings}
+                            onClick={() => {
+                              if (library.permissions.settings)
+                                showPanel("policy", panel.version);
+                            }}
+                          >
+                            <CircleHelp className="size-4" />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent className="max-w-72" side="top">
+                          These requirements come from this prompt’s promotion
+                          settings.{" "}
+                          {library.permissions.settings
+                            ? "Click to review or change them."
+                            : "Ask a project administrator to change them."}
+                        </TooltipContent>
+                      </Tooltip>
+                    </div>
                     <p>
                       {destinationPolicy?.requireTest === false &&
                       !missingSuites.length
