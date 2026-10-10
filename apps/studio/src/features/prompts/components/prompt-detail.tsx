@@ -1,9 +1,5 @@
 "use client";
-import {
-  canonicalPromptJson,
-  type PromptContent,
-  promptHash,
-} from "@kortyx/prompts";
+import { type PromptContent, promptHash } from "@kortyx/prompts";
 import {
   type PromptDetail,
   PromptDetailSchema,
@@ -11,7 +7,7 @@ import {
   PromptLibrarySchema,
   type PromptMutation,
 } from "@kortyx/telemetry-contracts";
-import { ChevronDown, MoreHorizontal, Play, Save } from "lucide-react";
+import { ChevronDown, MoreHorizontal, Play, Plus, Save } from "lucide-react";
 import { parseAsBoolean, parseAsInteger, parseAsStringLiteral } from "nuqs";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { DetailDrawer } from "@/components/detail/detail-drawer";
@@ -124,7 +120,7 @@ export function PromptDetailView({
     detail.versions.find((version) => version.version === query.v) ??
     detail.versions[0]!;
   const [content, setContent] = useState<PromptContent>(
-      structuredClone(detail.draft ?? selected.content),
+      structuredClone(detail.draft ?? detail.versions[0]!.content),
     ),
     [error, setError] = useState(""),
     [readError, setReadError] = useState(""),
@@ -169,7 +165,15 @@ export function PromptDetailView({
     pending = useRef<Promise<void> | null>(null),
     conflicted = useRef(false),
     discarding = useRef(false),
-    editorVersion = useRef<number | null>(query.edit ? selected.version : null);
+    draftLoaded = useRef(Boolean(initial.draft)),
+    draftBase = useRef(initial.draftBase ?? initial.asset.latestVersion);
+  const hasDraft = draftLoaded.current || Boolean(detail.draft);
+  useEffect(() => {
+    // History can revisit the old draft URL after saving or deleting it.
+    // That URL must not resurrect a draft from stale local content.
+    if (query.edit && !hasDraft)
+      void setQuery({ edit: false }, { history: "replace" });
+  }, [query.edit, hasDraft, setQuery]);
   const path = `/prompts/${detail.asset.id}`,
     permissions = library.permissions;
   const inspectedVersion =
@@ -177,7 +181,7 @@ export function PromptDetailView({
       ? panel.version.version
       : query.v;
   useEffect(() => {
-    if (query.edit) return;
+    if (query.edit || working) return;
     const controller = new AbortController();
     const read = () => {
       if (document.visibilityState !== "visible") return;
@@ -190,7 +194,7 @@ export function PromptDetailView({
           if (controller.signal.aborted) return;
           const next = PromptDetailSchema.parse(value);
           setReadError("");
-          draftRevision.current = next.draftRevision;
+          if (!draftLoaded.current) draftRevision.current = next.draftRevision;
           setDetail((current) => ({
             ...next,
             versions: [
@@ -223,7 +227,7 @@ export function PromptDetailView({
       clearInterval(timer);
       window.removeEventListener("focus", read);
     };
-  }, [initial.asset.id, query.edit, inspectedVersion]);
+  }, [initial.asset.id, query.edit, inspectedVersion, working]);
   const { open: openEval } = useEvalSetup(targets);
   const applicable = targets.targets.find((target) =>
     target.manifest?.promptContracts?.some(
@@ -236,7 +240,7 @@ export function PromptDetailView({
         `assets/${detail.asset.id}${version ? `?version=${version}` : ""}`,
       ),
     );
-    draftRevision.current = next.draftRevision;
+    if (!draftLoaded.current) draftRevision.current = next.draftRevision;
     setDetail(next);
     setLibrary(PromptLibrarySchema.parse(await promptRequest("library")));
     if (refreshRoute) router.refresh();
@@ -254,10 +258,16 @@ export function PromptDetailView({
             action: "draft",
             id: detail.asset.id,
             content: next,
-            baseVersion: detail.asset.latestVersion,
+            baseVersion: draftBase.current,
             expectedRevision: draftRevision.current,
           })) as { draftRevision: number };
           draftRevision.current = result.draftRevision;
+          setDetail((current) => ({
+            ...current,
+            draft: next,
+            draftBase: draftBase.current,
+            draftRevision: result.draftRevision,
+          }));
           setAutosave("Draft saved");
         } catch (cause) {
           conflicted.current = true;
@@ -273,10 +283,27 @@ export function PromptDetailView({
       pending.current = null;
     });
     return pending.current;
-  }, [detail.asset.id, detail.asset.latestVersion]);
+  }, [detail.asset.id]);
+  // Flush the last valid change when the detail is closed or its route unmounts.
+  useEffect(
+    () => () => {
+      if (!discarding.current && queue.current) void flush();
+    },
+    [flush],
+  );
+  const updateDraft = (next: PromptContent) => {
+    setContent(next);
+    try {
+      queue.current = structuredClone(validateEditor(next));
+      setAutosave("Unsaved changes");
+    } catch {
+      setAutosave("Check prompt fields");
+    }
+  };
   useEffect(() => {
     if (
       !query.edit ||
+      !hasDraft ||
       !fieldsValid ||
       !permissions.edit ||
       conflicted.current ||
@@ -299,47 +326,58 @@ export function PromptDetailView({
     content,
     fieldsValid,
     query.edit,
+    hasDraft,
     compare,
     permissions.edit,
     flush,
     working,
     confirmDiscard,
   ]);
-  useEffect(() => {
-    if (!query.edit) {
-      editorVersion.current = null;
+  const openDraft = async () => {
+    if (working) return;
+    if (draftLoaded.current) {
+      await setQuery({
+        edit: true,
+        tab: "content",
+        v: draftBase.current,
+        promptAction: null,
+        promptActionVersion: null,
+      });
       return;
     }
-    if (editorVersion.current === selected.version) return;
-    editorVersion.current = selected.version;
-    setContent(
-      structuredClone(
-        detail.draftBase === selected.version && detail.draft
-          ? detail.draft
-          : selected.content,
-      ),
-    );
-    setFieldsValid(true);
-  }, [
-    query.edit,
-    selected.version,
-    selected.content,
-    detail.draftBase,
-    detail.draft,
-  ]);
-  const startEdit = (version: Version) => {
-    editorVersion.current = version.version;
-    conflicted.current = false;
-    setContent(
-      structuredClone(
-        version.version === detail.draftBase && detail.draft
-          ? detail.draft
-          : version.content,
-      ),
-    );
+    setWorking(true);
     setError("");
-    setFieldsValid(true);
-    void setQuery({ edit: true, tab: "content", v: version.version });
+    try {
+      if (!draftLoaded.current) {
+        const next = await refresh(undefined, false);
+        const latest = next.versions.find(
+          (item) => item.version === next.asset.latestVersion,
+        )!;
+        const value = structuredClone(next.draft ?? latest.content);
+        draftBase.current = next.draftBase ?? latest.version;
+        draftLoaded.current = true;
+        setContent(value);
+        setFieldsValid(true);
+        conflicted.current = false;
+        if (!next.draft) {
+          queue.current = value;
+          await flush();
+        }
+      }
+      await setQuery({
+        edit: true,
+        tab: "content",
+        v: draftBase.current,
+        promptAction: null,
+        promptActionVersion: null,
+      });
+    } catch (cause) {
+      setError(
+        cause instanceof Error ? cause.message : "Could not open the draft.",
+      );
+    } finally {
+      setWorking(false);
+    }
   };
   const discardDraft = async () => {
     if (discarding.current) return;
@@ -363,6 +401,7 @@ export function PromptDetailView({
         draftBase: null,
         draftRevision: result.draftRevision,
       }));
+      draftLoaded.current = false;
       setContent(structuredClone(selected.content));
       setFieldsValid(true);
       conflicted.current = false;
@@ -378,17 +417,6 @@ export function PromptDetailView({
     } finally {
       discarding.current = false;
       setWorking(false);
-    }
-  };
-  const cancelEdit = () => {
-    if (
-      !fieldsValid ||
-      canonicalPromptJson(content) !== canonicalPromptJson(selected.content)
-    ) {
-      setError("");
-      setConfirmDiscard(true);
-    } else {
-      void discardDraft();
     }
   };
   const act = async (mutation: PromptMutation) => {
@@ -485,8 +513,9 @@ export function PromptDetailView({
   const evidence = detail.evidence.filter(
     (item) => item.version === selected.version,
   );
-  const selectVersion = (version: number) => {
-    void setQuery({
+  const selectVersion = async (version: number) => {
+    if (queue.current) await flush();
+    await setQuery({
       v: version,
       edit: false,
       promptAction: null,
@@ -546,12 +575,6 @@ export function PromptDetailView({
         }
       >
         Compare versions
-      </DropdownMenuItem>
-      <DropdownMenuItem
-        disabled={!permissions.edit || query.edit}
-        onSelect={() => startEdit(version)}
-      >
-        Edit
       </DropdownMenuItem>
       <DropdownMenuItem
         disabled={!targets.canRun || !applicable || query.edit}
@@ -690,7 +713,8 @@ export function PromptDetailView({
         title={detail.asset.name}
         promptKey={detail.asset.key}
         category={categoryPath(library.categories, detail.asset.categoryId)}
-        version={selected.version}
+        version={query.edit ? draftBase.current : selected.version}
+        draft={query.edit}
         live={detail.asset.assignments.some(
           (item) => item.tag === "live" && item.version === selected.version,
         )}
@@ -713,15 +737,6 @@ export function PromptDetailView({
             <>
               <Button
                 size="sm"
-                variant="outline"
-                className="hidden @2xl/prompt-surface:inline-flex"
-                disabled={working || Boolean(compare)}
-                onClick={cancelEdit}
-              >
-                Cancel
-              </Button>
-              <Button
-                size="sm"
                 aria-label="Save version"
                 disabled={
                   working ||
@@ -735,11 +750,26 @@ export function PromptDetailView({
                     queue.current = reviewed;
                     await flush();
                     if (conflicted.current) return;
+                    const base =
+                      detail.versions.find(
+                        (version) => version.version === draftBase.current,
+                      ) ??
+                      PromptDetailSchema.parse(
+                        await promptRequest(
+                          `assets/${detail.asset.id}?version=${draftBase.current}`,
+                        ),
+                      ).versions.find(
+                        (version) => version.version === draftBase.current,
+                      );
+                    if (!base)
+                      throw new Error(
+                        "The draft’s base version could not be loaded. Your draft is retained.",
+                      );
                     setCompare({
-                      before: detail.versions[0]!,
+                      before: base,
                       after: {
                         content: reviewed,
-                        version: detail.asset.latestVersion + 1,
+                        version: draftBase.current + 1,
                       },
                       save: true,
                       hash: await promptHash(reviewed),
@@ -764,10 +794,17 @@ export function PromptDetailView({
           ) : (
             <Button
               size="sm"
-              disabled={!permissions.edit || detail.asset.archived}
-              onClick={() => startEdit(selected)}
+              disabled={!permissions.edit || detail.asset.archived || working}
+              aria-label={hasDraft ? "Open draft" : "New version"}
+              onClick={() => void openDraft()}
             >
-              Edit
+              {!hasDraft && <Plus className="size-3.5" />}
+              <span className="hidden @lg/prompt-surface:inline">
+                {hasDraft ? "Open draft" : "New version"}
+              </span>
+              <span className="@lg/prompt-surface:hidden">
+                {hasDraft ? "Draft" : "New"}
+              </span>
             </Button>
           )}
           <PromptAssetMenu
@@ -775,24 +812,30 @@ export function PromptDetailView({
             permissions={permissions}
             onAction={(action) => showPanel(action, selected)}
             leadingActions={
-              <PromptHeaderOverflow>
-                {query.edit ? (
+              <>
+                {hasDraft && (
                   <DropdownMenuItem
                     disabled={working || Boolean(compare)}
-                    onSelect={cancelEdit}
+                    onSelect={() => {
+                      setError("");
+                      setConfirmDiscard(true);
+                    }}
                   >
-                    Cancel editing
-                  </DropdownMenuItem>
-                ) : (
-                  <DropdownMenuItem
-                    disabled={!targets.canRun || !applicable}
-                    onSelect={() => test(selected)}
-                  >
-                    Test version
+                    Delete draft
                   </DropdownMenuItem>
                 )}
-                <DropdownMenuSeparator />
-              </PromptHeaderOverflow>
+                {!query.edit && (
+                  <PromptHeaderOverflow>
+                    <DropdownMenuItem
+                      disabled={!targets.canRun || !applicable}
+                      onSelect={() => test(selected)}
+                    >
+                      Test version
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                  </PromptHeaderOverflow>
+                )}
+              </>
             }
           />
         </div>
@@ -812,7 +855,9 @@ export function PromptDetailView({
                 onClick={async () => {
                   setWorking(true);
                   try {
-                    await refresh();
+                    const next = await refresh(undefined, false);
+                    draftRevision.current = next.draftRevision;
+                    draftBase.current = next.asset.latestVersion;
                     conflicted.current = false;
                     queue.current = null;
                     setError("");
@@ -859,13 +904,15 @@ export function PromptDetailView({
                 key={tab}
                 aria-current={query.tab === tab ? "page" : undefined}
                 className={`min-h-11 shrink-0 whitespace-nowrap border-b-2 px-0.5 text-xs capitalize @sm/prompt-detail:px-1 ${query.tab === tab ? "border-foreground font-medium" : "border-transparent text-muted-foreground hover:text-foreground"}`}
-                onClick={() =>
+                onClick={async () => {
+                  if (queue.current) await flush();
                   void setQuery({
+                    edit: tab === "content" ? query.edit : false,
                     tab: tab as typeof query.tab,
                     promptAction: null,
                     promptActionVersion: null,
-                  })
-                }
+                  });
+                }}
               >
                 {tab}
                 {tab === "evals"
@@ -888,12 +935,12 @@ export function PromptDetailView({
                   size="sm"
                   variant="ghost"
                   className="max-w-full gap-1.5 px-2"
-                  aria-label={`Version history · v${selected.version}`}
+                  aria-label={`Version history · ${query.edit ? "Draft" : `v${selected.version}`}`}
                 >
                   <span className="hidden @xl/prompt-detail:inline">
                     Version history ·
                   </span>
-                  <span>v{selected.version}</span>
+                  <span>{query.edit ? "Draft" : `v${selected.version}`}</span>
                   <ChevronDown className="size-3.5" />
                 </Button>
               </DropdownMenuTrigger>
@@ -903,14 +950,27 @@ export function PromptDetailView({
               >
                 <DropdownMenuLabel>Version history</DropdownMenuLabel>
                 <DropdownMenuRadioGroup
-                  value={String(selected.version)}
-                  onValueChange={(value) => selectVersion(Number(value))}
+                  value={query.edit ? "draft" : String(selected.version)}
+                  onValueChange={(value) =>
+                    value === "draft"
+                      ? void openDraft()
+                      : void selectVersion(Number(value))
+                  }
                 >
+                  {hasDraft && (
+                    <DropdownMenuRadioItem value="draft" className="py-2">
+                      <span className="flex w-full items-center justify-between gap-2">
+                        <span>Based on v{draftBase.current}</span>
+                        <span className="rounded bg-amber-500/10 px-1.5 py-0.5 text-xs text-amber-700 dark:text-amber-400">
+                          Draft
+                        </span>
+                      </span>
+                    </DropdownMenuRadioItem>
+                  )}
                   {detail.versions.map((version) => (
                     <DropdownMenuRadioItem
                       key={version.version}
                       value={String(version.version)}
-                      disabled={query.edit}
                       className="items-start py-2"
                     >
                       <span className="min-w-0 flex-1 space-y-1">
@@ -981,15 +1041,27 @@ export function PromptDetailView({
             </Button>
             {query.history && (
               <div className="max-h-[calc(100dvh-22rem)] space-y-1 overflow-y-auto px-2 pb-2">
+                {hasDraft && (
+                  <button
+                    type="button"
+                    aria-label="Open draft in history"
+                    onClick={() => void openDraft()}
+                    className={`flex w-full items-center justify-between gap-2 rounded-md px-2 py-3 text-left text-xs ${query.edit ? "bg-muted" : "hover:bg-muted/50"}`}
+                  >
+                    <span>Based on v{draftBase.current}</span>
+                    <span className="rounded bg-amber-500/10 px-1.5 py-0.5 text-amber-700 dark:text-amber-400">
+                      Draft
+                    </span>
+                  </button>
+                )}
                 {detail.versions.map((version) => (
                   <div
                     key={version.version}
-                    className={`flex items-start gap-1 rounded-md ${selected.version === version.version ? "bg-muted" : "hover:bg-muted/50"}`}
+                    className={`flex items-start gap-1 rounded-md ${!query.edit && selected.version === version.version ? "bg-muted" : "hover:bg-muted/50"}`}
                   >
                     <button
                       type="button"
                       className="min-w-0 flex-1 space-y-1 px-2 py-3 text-left"
-                      disabled={query.edit}
                       onClick={() => selectVersion(version.version)}
                     >
                       <span className="flex items-center justify-between gap-2 text-xs font-medium">
@@ -1076,23 +1148,40 @@ export function PromptDetailView({
           <main
             className={`min-h-0 min-w-0 flex-1 ${query.tab === "runs" || query.tab === "evals" ? "overflow-hidden" : "overflow-y-auto p-5"}`}
           >
-            {query.tab === "content" ? (
-              <div className="w-full space-y-5">
-                {query.edit && (
-                  <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border bg-muted/30 px-3 py-2">
-                    <p className="text-xs">Editing a draft · {autosave}</p>
-                  </div>
-                )}
+            {hasDraft && (
+              <div
+                hidden={!query.edit || query.tab !== "content"}
+                className="w-full space-y-5"
+              >
+                <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border bg-muted/30 px-3 py-2">
+                  <p className="text-xs">
+                    <span className="mr-2 rounded bg-amber-500/10 px-1.5 py-0.5 text-amber-700 dark:text-amber-400">
+                      Draft
+                    </span>
+                    Based on v{draftBase.current} · {autosave}
+                  </p>
+                </div>
                 <PromptFields
                   library={library}
                   ownKey={detail.asset.key}
-                  key={`${detail.asset.id}:${selected.version}:${query.edit}`}
-                  value={query.edit ? content : selected.content}
-                  onChange={setContent}
+                  value={content}
+                  onChange={updateDraft}
                   onValidityChange={setFieldsValid}
-                  disabled={!query.edit || Boolean(compare) || working}
+                  disabled={Boolean(compare) || working}
                 />
               </div>
+            )}
+            {query.tab === "content" ? (
+              !query.edit && (
+                <PromptFields
+                  library={library}
+                  ownKey={detail.asset.key}
+                  key={`${detail.asset.id}:${selected.version}`}
+                  value={selected.content}
+                  onChange={() => {}}
+                  disabled
+                />
+              )
             ) : query.tab === "evals" || query.tab === "runs" ? (
               <PromptTables
                 key={`${detail.asset.id}:${selected.version}:${query.tab}`}
@@ -1221,11 +1310,11 @@ export function PromptDetailView({
           }}
         >
           <DialogTitle className="pr-6 text-base font-semibold">
-            Discard changes?
+            Delete draft?
           </DialogTitle>
           <DialogDescription className="text-sm text-muted-foreground">
-            Your changes, including the autosaved draft, will be lost. You’ll
-            return to saved version v{selected.version}. This cannot be undone.
+            The draft and its unsaved changes will be deleted. Saved versions
+            stay unchanged. This cannot be undone.
           </DialogDescription>
           {error && (
             <p role="alert" className="text-sm text-destructive">
@@ -1238,14 +1327,14 @@ export function PromptDetailView({
               disabled={working}
               onClick={() => setConfirmDiscard(false)}
             >
-              Keep editing
+              Keep draft
             </Button>
             <Button
               variant="destructive"
               disabled={working}
               onClick={() => void discardDraft()}
             >
-              {working ? "Discarding…" : "Discard changes"}
+              {working ? "Deleting…" : "Delete draft"}
             </Button>
           </div>
         </DialogContent>
@@ -1309,13 +1398,15 @@ export function PromptDetailView({
                 action: "save",
                 id: detail.asset.id,
                 content: compare.after.content,
-                baseVersion: detail.asset.latestVersion,
+                baseVersion: compare.before.version,
                 expectedDraftRevision: draftRevision.current,
                 expectedHash: compare.hash,
                 note: changeNote,
                 idempotencyKey: compare.idempotencyKey,
               });
-              const next = await refresh();
+              draftLoaded.current = false;
+              queue.current = null;
+              const next = await refresh(undefined, false);
               setContent(structuredClone(next.versions[0]!.content));
               await setQuery({ edit: false, v: next.asset.latestVersion });
               setCompare(null);

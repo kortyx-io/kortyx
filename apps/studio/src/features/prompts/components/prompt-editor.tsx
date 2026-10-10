@@ -473,7 +473,8 @@ export function PromptEditor({
     },
   });
   useEffect(() => {
-    editor?.setEditable(!disabled);
+    // Switching between viewing and editing is not a content change.
+    editor?.setEditable(!disabled, false);
     editor?.view.dom.setAttribute("aria-readonly", String(disabled));
   }, [editor, disabled]);
   useEffect(() => {

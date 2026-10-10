@@ -11,13 +11,16 @@ import {
 } from "@/components/ui/dialog";
 import { editorClass } from "./prompt-fields";
 
+const stableJson = (value: unknown) =>
+  JSON.stringify(JSON.parse(canonicalPromptJson(value)), null, 2);
+
 function readable(content: PromptContent) {
   return (
     `FORMAT\n${content.format}\n\n` +
     content.messages
       .map((message) => `${message.role.toUpperCase()}\n${message.content}`)
       .join("\n\n") +
-    `\n\nCONFIGURATION\n${JSON.stringify(content.config, null, 2)}\n\nINPUT SCHEMA\n${JSON.stringify(content.variablesSchema, null, 2)}\n\nCONFIGURATION SCHEMA\n${JSON.stringify(content.configSchema, null, 2)}\n\nDEPENDENCIES\n${JSON.stringify(content.dependencies, null, 2)}`
+    `\n\nCONFIGURATION\n${stableJson(content.config)}\n\nINPUT SCHEMA\n${stableJson(content.variablesSchema)}\n\nCONFIGURATION SCHEMA\n${stableJson(content.configSchema)}\n\nDEPENDENCIES\n${stableJson(content.dependencies)}`
   );
 }
 export function PromptDiff({
@@ -120,6 +123,7 @@ export function PromptDiff({
               return (
                 <div key={index} className="grid grid-cols-1 sm:grid-cols-2">
                   <div
+                    data-diff-change={row.changed ? "removed" : "unchanged"}
                     className={`min-w-0 whitespace-pre-wrap break-words border-r px-4 py-1 ${row.changed && row.left !== null ? "bg-red-500/10 text-red-800 dark:text-red-300" : row.changed ? "hidden bg-muted/30 sm:block" : "text-muted-foreground"}`}
                   >
                     <span aria-hidden="true" className="mr-2 opacity-60">
@@ -141,6 +145,7 @@ export function PromptDiff({
                       : row.left}
                   </div>
                   <div
+                    data-diff-change={row.changed ? "added" : "unchanged"}
                     className={`min-w-0 whitespace-pre-wrap break-words px-4 py-1 ${!row.changed ? "hidden sm:block text-muted-foreground" : row.right !== null ? "bg-emerald-500/10 text-emerald-800 dark:text-emerald-300" : "hidden bg-muted/30 sm:block"}`}
                   >
                     <span aria-hidden="true" className="mr-2 opacity-60">

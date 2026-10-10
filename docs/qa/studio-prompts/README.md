@@ -479,3 +479,43 @@ broad prompt run passed 29 checks; its new review test reloaded before nuqs
 committed the closing URL. After explicitly awaiting that URL change, the focused
 production review run passed all three checks (including setup and cleanup).
 Desktop and mobile screenshots were inspected; mobile tabs stay on one line.
+
+
+### New versions and persistent drafts (2026-10-10)
+
+Saved versions are read-only. **+ New version** fetches and clones the newest
+saved content, including configuration, schemas and dependencies, even when an
+older version is selected. **Open draft** resumes an existing draft. The Draft
+entry stays in version history until saved or explicitly deleted; the compact
+history menu exposes the same entry. Navigation among versions and tabs keeps
+the editor mounted, including invalid JSON text. Valid changes flush before
+version navigation and when closing the prompt. **Delete draft** always requires
+confirmation and retains the revision check against concurrent changes.
+
+Save review compares against the draft's recorded base, and the same base,
+content hash and draft revision are submitted when creating the immutable
+version. JSON key order is canonicalized for the diff, avoiding false changes
+from formatting. TipTap read-only changes no longer emit content-change events.
+Browser Back after saving cannot recreate a draft through a stale edit URL.
+
+The new regression starts on v1 without configuration, creates a draft from v2
+with configuration, navigates through both versions and Reviews, leaves and
+reopens the prompt, exercises the mobile history picker, then saves v3. It checks
+the exact diff, submitted configuration, persisted configuration, unchanged v1
+and removed draft. Existing clean, dirty, invalid and in-flight draft deletion
+checks now exercise the new workflow.
+
+![Draft in mobile version history](mobile-persistent-draft.png)
+
+![Exact draft diff with unchanged configuration](draft-config-diff.png)
+
+![New immutable version after saving](saved-draft-version.png)
+
+Validation: 252 Studio unit tests, typecheck, production build and whitespace
+checks pass; lint has no errors (existing warnings remain). The production
+prompt suite passed 30 checks; its new regression initially exercised
+CodeMirror's native wrap-selection shortcut by entering a lone brace. With an
+explicit incomplete JSON object instead, the focused production regression
+passed all three checks (including setup/cleanup). The complete new-version
+flow, invalid JSON retention, navigation, exact diff and persisted configuration
+are verified. Desktop/mobile screenshots above were inspected.

@@ -73,6 +73,7 @@ async function cleanup() {
     await sql`delete from prompt_assets where key=${compositionKey}`;
     await sql`delete from prompt_assets where key=${`${compositionKey}-json`}`;
     await sql`delete from prompt_assets where key=${`${compositionKey}-actions`}`;
+    await sql`delete from prompt_assets where key=${`${compositionKey}-draft`}`;
     await sql`delete from prompt_assets where key=${fixtureKey}`;
     await sql`delete from prompt_categories where name=${`${categoryName} disposable`}`;
     await sql`delete from prompt_categories where name=${categoryName}`;
@@ -88,21 +89,19 @@ async function openPrompt(page: Page, category = false) {
     "data-entry-motion",
     "preserve",
   );
-  await expect(promptDrawer(page).getByLabel("System Message")).toHaveText(
+  await expect(
+    promptDrawer(page).getByLabel("System Message").filter({ visible: true }),
+  ).toHaveText(
     "Classify requests as support or sales. Pricing requests are sales.",
   );
 }
-async function cancelPromptEdit(page: Page, surface: Locator) {
-  const button = surface.getByRole("button", { name: "Cancel", exact: true });
-  if (await button.isVisible()) await button.click();
-  else {
-    await surface
-      .getByRole("button", { name: "Prompt actions", exact: true })
-      .click();
-    await page
-      .getByRole("menuitem", { name: "Cancel editing", exact: true })
-      .click();
-  }
+async function requestDeleteDraft(page: Page, surface: Locator) {
+  await surface
+    .getByRole("button", { name: "Prompt actions", exact: true })
+    .click();
+  await page
+    .getByRole("menuitem", { name: "Delete draft", exact: true })
+    .click();
 }
 async function groupInspector(page: Page) {
   const version = new URL(page.url()).searchParams.get("v") ?? "2";
@@ -258,7 +257,9 @@ test.describe("Prompt detail drawers", () => {
     for (let iteration = 0; iteration < 2; iteration++) {
       await page.getByRole("link", { name: fixtureName, exact: true }).click();
       await expect(
-        promptDrawer(page).getByLabel("System Message"),
+        promptDrawer(page)
+          .getByLabel("System Message")
+          .filter({ visible: true }),
       ).toBeVisible();
       await expect(promptDrawer(page)).toHaveAttribute(
         "data-entry-motion",
@@ -457,14 +458,20 @@ test.describe("Prompt detail drawers", () => {
     await noOverflow(tabs);
     expect((await header.boundingBox())!.height).toBe(64);
     expect((await tabs.boundingBox())!.height).toBeLessThanOrEqual(45);
-    await surface.getByRole("button", { name: "Edit", exact: true }).click();
+    await surface
+      .getByRole("button", { name: "New version", exact: true })
+      .click();
     await expect(
       header.getByRole("button", { name: "Save version", exact: true }),
     ).toBeVisible();
     await noOverflow(header);
-    await cancelPromptEdit(page, surface);
+    await requestDeleteDraft(page, surface);
+    await page
+      .getByRole("dialog", { name: "Delete draft?" })
+      .getByRole("button", { name: "Delete draft", exact: true })
+      .click();
     await expect(
-      header.getByRole("button", { name: "Edit", exact: true }),
+      header.getByRole("button", { name: "New version", exact: true }),
     ).toBeVisible();
   });
 
@@ -490,7 +497,7 @@ test.describe("Prompt detail drawers", () => {
     ).toBeVisible();
     await noOverflow(header);
     await expect(
-      page.getByRole("button", { name: "Edit", exact: true }),
+      page.getByRole("button", { name: "New version", exact: true }),
     ).toBeVisible();
   });
 
@@ -907,7 +914,9 @@ test.describe("Prompt detail drawers", () => {
       .getByText("0", { exact: true })
       .evaluate((el) => getComputedStyle(el).color);
     expect(new Set([keyColor, stringColor, numberColor]).size).toBe(3);
-    await page.getByRole("button", { name: "Edit", exact: true }).click();
+    await page
+      .getByRole("button", { name: "New version", exact: true })
+      .click();
     await expect(config).toHaveAttribute("contenteditable", "true");
     const candidate = {
       ...initialConfig,
@@ -974,51 +983,249 @@ test.describe("Prompt detail drawers", () => {
       .toEqual(candidate);
   });
 
-  test("cancels clean drafts directly and confirms dirty or invalid changes", async ({
+  test("creates a persistent draft from newest content, browses versions, and saves the exact diff", async ({
+    page,
+    request,
+  }) => {
+    const draftId = (
+      await action(request, {
+        action: "create",
+        key: `${compositionKey}-draft`,
+        name: "E2E persistent draft",
+        content,
+        note: "No configuration in v1",
+      })
+    ).id;
+    const latestContent = {
+      ...content,
+      config: { modelName: "accurate", temperature: 0.3, enabled: true },
+    };
+    await action(request, {
+      action: "save",
+      id: draftId,
+      content: latestContent,
+      baseVersion: 1,
+      expectedHash: await promptHash(latestContent),
+      note: "Add configuration in v2",
+      idempotencyKey: randomUUID(),
+    });
+    await page.goto(`/prompts/${draftId}?v=1`);
+    const config = page
+      .getByLabel("Configuration", { exact: true })
+      .filter({ visible: true });
+    const system = page.getByLabel("System Message").filter({ visible: true });
+    await expect(config).toHaveText("{}");
+    await page
+      .getByRole("button", { name: "Version 1 actions", exact: true })
+      .click();
+    await expect(
+      page.getByRole("menuitem", { name: "Edit", exact: true }),
+    ).toHaveCount(0);
+    await page.keyboard.press("Escape");
+    await page
+      .getByRole("button", { name: "New version", exact: true })
+      .click();
+    await expect(config).toContainText('"modelName": "accurate"');
+    await expect(
+      page.getByRole("button", { name: "Open draft in history" }),
+    ).toBeVisible();
+    await system.fill(
+      "Keep the latest configuration and improve classification.",
+    );
+    // Navigate immediately, before the normal autosave debounce.
+    await page
+      .getByRole("button", { name: /v1 No configuration in v1/ })
+      .click();
+    await expect(config).toHaveText("{}");
+    await expect(system).toHaveAttribute("contenteditable", "false");
+    await page.getByRole("button", { name: "Open draft in history" }).click();
+    await expect(system).toHaveText(
+      "Keep the latest configuration and improve classification.",
+    );
+    await expect(config).toContainText('"modelName": "accurate"');
+    // Invalid editor text must survive visiting another immutable version too.
+    await expect(config).toHaveAttribute("contenteditable", "true");
+    await config.fill('{"unfinished":');
+    await expect(config).toHaveText('{"unfinished":');
+    await page
+      .getByRole("button", { name: /v2 Add configuration in v2/ })
+      .click();
+    await page.getByRole("button", { name: "Open draft in history" }).click();
+    await expect(config).toHaveText('{"unfinished":');
+    await expect(
+      page.getByRole("button", { name: "Save version", exact: true }),
+    ).toBeDisabled();
+    await config.fill(JSON.stringify(latestContent.config));
+    await page.getByRole("button", { name: /^reviews 0$/i }).click();
+    await expect(
+      page.getByRole("region", { name: "Reviews for v2" }),
+    ).toBeVisible();
+    await page.getByRole("button", { name: "Open draft in history" }).click();
+    // Leaving the prompt immediately must flush valid changes.
+    await system.fill(
+      "Persist across navigation without losing configuration.",
+    );
+    await page.getByRole("button", { name: "Back to prompt library" }).click();
+    await expect(page).toHaveURL(/\/prompts$/);
+    await page
+      .getByRole("link", { name: "E2E persistent draft", exact: true })
+      .click();
+    const surface = page.locator(`[data-detail-drawer="/prompts/${draftId}"]`);
+    await surface
+      .getByRole("button", { name: "Open draft", exact: true })
+      .click();
+    await expect(system).toHaveText(
+      "Persist across navigation without losing configuration.",
+    );
+    await expect(config).toContainText('"modelName": "accurate"');
+    await page.setViewportSize({ width: 390, height: 844 });
+    await surface
+      .getByRole("button", { name: "Version history · Draft", exact: true })
+      .click();
+    await page.getByRole("menuitemradio", { name: /v1/ }).click();
+    await expect(config).toHaveText("{}");
+    await surface
+      .getByRole("button", { name: "Version history · v1", exact: true })
+      .click();
+    await page
+      .getByRole("menuitemradio", { name: /Based on v2.*Draft/ })
+      .click();
+    await expect(system).toHaveText(
+      "Persist across navigation without losing configuration.",
+    );
+    await page.screenshot({
+      path: "../../docs/qa/studio-prompts/mobile-persistent-draft.png",
+    });
+    await surface
+      .getByRole("button", { name: "Save version", exact: true })
+      .click();
+    const diff = page.getByRole("dialog", { name: "Review & save version" });
+    await expect(diff).toContainText("v2");
+    await expect(diff).toContainText("Draft → v3");
+    await expect(
+      diff
+        .locator('[data-diff-change="removed"], [data-diff-change="added"]')
+        .filter({ hasText: /modelName|temperature|enabled/ }),
+    ).toHaveCount(0);
+    await page.setViewportSize({ width: 1440, height: 1000 });
+    await page.screenshot({
+      path: "../../docs/qa/studio-prompts/draft-config-diff.png",
+    });
+    // Capture the submitted candidate as well as reading back its persisted config.
+    let savedContent: unknown;
+    page.on("request", (req) => {
+      if (
+        req.method() === "POST" &&
+        req.url().endsWith("/api/studio/prompts/actions") &&
+        req.postDataJSON()?.action === "save"
+      )
+        savedContent = req.postDataJSON().content;
+    });
+    await diff
+      .getByLabel("Change note", { exact: false })
+      .fill("Preserve config while refining system message");
+    await diff
+      .getByRole("button", { name: "Accept & save version", exact: true })
+      .click();
+    await expect(diff).toHaveCount(0);
+    expect(savedContent).toMatchObject({ config: latestContent.config });
+    await expect(
+      surface.getByRole("button", { name: "New version", exact: true }),
+    ).toBeVisible();
+    await expect(page).not.toHaveURL(/edit=true/);
+    await page.reload();
+    await expect(config).toContainText('"modelName": "accurate"');
+    const response = await request.get(
+      `${apiUrl}/v1/studio/prompts/assets/${draftId}`,
+      {
+        headers: {
+          authorization: `Bearer ${process.env.KORTYX_STUDIO_API_KEY}`,
+        },
+      },
+    );
+    const result = await response.json();
+    expect(result.draft).toBeNull();
+    expect(
+      result.versions.find((v: { version: number }) => v.version === 3).content
+        .config,
+    ).toEqual(latestContent.config);
+    expect(
+      result.versions.find((v: { version: number }) => v.version === 1).content
+        .config,
+    ).toEqual({});
+    await page.setViewportSize({ width: 1440, height: 1000 });
+    await page.screenshot({
+      path: "../../docs/qa/studio-prompts/saved-draft-version.png",
+    });
+    await page.goBack();
+    await expect(
+      page.getByRole("button", { name: "Save version", exact: true }),
+    ).toHaveCount(0);
+    await expect(
+      page.getByRole("button", { name: "New version", exact: true }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "Open draft in history" }),
+    ).toHaveCount(0);
+  });
+
+  test("confirms deletion of clean, dirty and invalid drafts", async ({
     page,
     request,
   }) => {
     await openPrompt(page);
     const drawer = promptDrawer(page);
-    await drawer.getByRole("button", { name: "Edit", exact: true }).click();
-    await cancelPromptEdit(page, drawer);
+    await drawer
+      .getByRole("button", { name: "New version", exact: true })
+      .click();
+    await requestDeleteDraft(page, drawer);
+    await page
+      .getByRole("dialog", { name: "Delete draft?" })
+      .getByRole("button", { name: "Delete draft", exact: true })
+      .click();
     await expect(
-      page.getByRole("dialog", { name: "Discard changes?" }),
+      page.getByRole("dialog", { name: "Delete draft?" }),
     ).toHaveCount(0);
     await expect(
-      drawer.getByRole("button", { name: "Edit", exact: true }),
+      drawer.getByRole("button", { name: "New version", exact: true }),
     ).toBeVisible();
 
-    await drawer.getByRole("button", { name: "Edit", exact: true }).click();
+    await drawer
+      .getByRole("button", { name: "New version", exact: true })
+      .click();
     await drawer
       .getByLabel("System Message")
+      .filter({ visible: true })
       .fill("Temporary draft to discard");
-    await cancelPromptEdit(page, drawer);
-    const confirmation = page.getByRole("dialog", { name: "Discard changes?" });
+    await requestDeleteDraft(page, drawer);
+    const confirmation = page.getByRole("dialog", { name: "Delete draft?" });
     await expect(confirmation).toBeVisible();
     await expect(
-      confirmation.getByRole("button", { name: "Keep editing" }),
+      confirmation.getByRole("button", { name: "Keep draft" }),
     ).toBeFocused();
-    await confirmation.getByRole("button", { name: "Keep editing" }).click();
-    await expect(drawer.getByLabel("System Message")).toHaveText(
-      "Temporary draft to discard",
-    );
-    await cancelPromptEdit(page, drawer);
+    await confirmation.getByRole("button", { name: "Keep draft" }).click();
+    await expect(
+      drawer.getByLabel("System Message").filter({ visible: true }),
+    ).toHaveText("Temporary draft to discard");
+    await requestDeleteDraft(page, drawer);
     await page.keyboard.press("Escape");
     await expect(confirmation).toHaveCount(0);
     await expect(drawer).toBeVisible();
     // Invalid JSON lives inside the field, so it must count as dirty too.
-    await drawer.getByLabel("Configuration", { exact: true }).fill("{");
+    await drawer
+      .getByLabel("Configuration", { exact: true })
+      .filter({ visible: true })
+      .fill("{");
     await expect(
       drawer.getByRole("button", { name: "Save version" }),
     ).toBeDisabled();
-    await cancelPromptEdit(page, drawer);
+    await requestDeleteDraft(page, drawer);
     await confirmation
-      .getByRole("button", { name: "Discard changes", exact: true })
+      .getByRole("button", { name: "Delete draft", exact: true })
       .click();
     await expect(confirmation).toHaveCount(0);
     await expect(
-      drawer.getByRole("button", { name: "Edit", exact: true }),
+      drawer.getByRole("button", { name: "New version", exact: true }),
     ).toBeVisible();
     const response = await request.get(
       `${apiUrl}/v1/studio/prompts/assets/${id}`,
@@ -1031,19 +1238,28 @@ test.describe("Prompt detail drawers", () => {
     const saved = await response.json();
     expect(saved.draft).toBeNull();
     expect(saved.versions).toHaveLength(2);
-    await drawer.getByRole("button", { name: "Edit", exact: true }).click();
-    await expect(drawer.getByLabel("System Message")).toHaveText(
+    await drawer
+      .getByRole("button", { name: "New version", exact: true })
+      .click();
+    await expect(
+      drawer.getByLabel("System Message").filter({ visible: true }),
+    ).toHaveText(
       "Classify requests as support or sales. Pricing requests are sales.",
     );
     await expect(
-      drawer.getByLabel("Configuration", { exact: true }),
+      drawer
+        .getByLabel("Configuration", { exact: true })
+        .filter({ visible: true }),
     ).toHaveText("{}");
     // Invalid-only changes cannot bypass confirmation when content is unchanged.
-    await drawer.getByLabel("Configuration", { exact: true }).fill("{");
-    await cancelPromptEdit(page, drawer);
+    await drawer
+      .getByLabel("Configuration", { exact: true })
+      .filter({ visible: true })
+      .fill("{");
+    await requestDeleteDraft(page, drawer);
     await expect(confirmation).toBeVisible();
     await confirmation
-      .getByRole("button", { name: "Discard changes", exact: true })
+      .getByRole("button", { name: "Delete draft", exact: true })
       .click();
     await expect(confirmation).toHaveCount(0);
   });
@@ -1054,7 +1270,12 @@ test.describe("Prompt detail drawers", () => {
   }) => {
     await openPrompt(page);
     const drawer = promptDrawer(page);
-    await drawer.getByRole("button", { name: "Edit", exact: true }).click();
+    await drawer
+      .getByRole("button", { name: "New version", exact: true })
+      .click();
+    await expect(
+      drawer.getByRole("button", { name: "Save version", exact: true }),
+    ).toBeEnabled();
     let release!: () => void;
     const gate = new Promise<void>((resolve) => {
       release = resolve;
@@ -1070,25 +1291,27 @@ test.describe("Prompt detail drawers", () => {
     });
     await drawer
       .getByLabel("System Message")
+      .filter({ visible: true })
       .fill("In-flight draft to discard");
     await expect.poll(() => saving).toBe(true);
-    await cancelPromptEdit(page, drawer);
-    const confirmation = page.getByRole("dialog", { name: "Discard changes?" });
+    await requestDeleteDraft(page, drawer);
+    const confirmation = page.getByRole("dialog", { name: "Delete draft?" });
     await confirmation
-      .getByRole("button", { name: "Discard changes", exact: true })
+      .getByRole("button", { name: "Delete draft", exact: true })
       .click();
     await expect(
-      confirmation.getByRole("button", { name: "Discarding…" }),
+      confirmation.getByRole("button", { name: "Deleting…" }),
     ).toBeDisabled();
     release();
     await expect(confirmation).toHaveCount(0);
     await expect(
-      drawer.getByRole("button", { name: "Edit", exact: true }),
+      drawer.getByRole("button", { name: "New version", exact: true }),
     ).toBeVisible();
+    await expect(page).not.toHaveURL(/edit=true/);
     await page.reload();
     // A direct reload opens the routed page rather than an intercepted drawer.
     await expect(
-      page.getByRole("button", { name: "Edit", exact: true }),
+      page.getByRole("button", { name: "New version", exact: true }),
     ).toBeVisible();
     const response = await request.get(
       `${apiUrl}/v1/studio/prompts/assets/${id}`,
@@ -1241,13 +1464,18 @@ test.describe("Prompt detail drawers", () => {
     ).id;
     await page.goto(`/prompts/${compositionId}`);
     await expect(
-      page.getByLabel("User Message").locator("[data-template-variable]"),
+      page
+        .getByLabel("User Message")
+        .filter({ visible: true })
+        .locator("[data-template-variable]"),
     ).toHaveText("{{message}}");
     await expect(page.getByText("Message format", { exact: true })).toHaveCount(
       0,
     );
-    await page.getByRole("button", { name: "Edit", exact: true }).click();
-    const system = page.getByLabel("System Message");
+    await page
+      .getByRole("button", { name: "New version", exact: true })
+      .click();
+    const system = page.getByLabel("System Message").filter({ visible: true });
     await system.fill("Before ");
     await system.pressSequentially("#E2E prompt drawer@v1");
     const option = page
@@ -1271,9 +1499,7 @@ test.describe("Prompt detail drawers", () => {
     });
     await option.click();
     await includedDraft;
-    await expect(
-      page.getByText("Editing a draft · Draft saved", { exact: true }),
-    ).toBeVisible();
+    await expect(page.getByText(/Based on v1 · Draft saved/)).toBeVisible();
     await system.press("ControlOrMeta+a");
     await system.press("Backspace");
     await expect(system.locator("[data-prompt-reference]")).toHaveCount(0);
@@ -1301,10 +1527,13 @@ test.describe("Prompt detail drawers", () => {
       .click();
     await expect(page.getByRole("dialog")).toHaveCount(0);
     await expect(
-      page.getByRole("button", { name: "Edit", exact: true }),
+      page.getByRole("button", { name: "New version", exact: true }),
     ).toBeVisible();
     await expect(
-      page.getByLabel("System Message").locator("[data-prompt-reference]"),
+      page
+        .getByLabel("System Message")
+        .filter({ visible: true })
+        .locator("[data-prompt-reference]"),
     ).toHaveText("#E2E prompt drawer@v1");
     const response = await request.get(
       `${apiUrl}/v1/studio/prompts/assets/${compositionId}`,
@@ -1347,8 +1576,11 @@ test.describe("Prompt detail drawers", () => {
       },
       note: "Pinned to v1",
     });
-    await page.goto(`/prompts/${conflictId}?edit=true`);
-    const user = page.getByLabel("User Message");
+    await page.goto(`/prompts/${conflictId}`);
+    await page
+      .getByRole("button", { name: "New version", exact: true })
+      .click();
+    const user = page.getByLabel("User Message").filter({ visible: true });
     await user.fill("");
     await user.pressSequentially("#E2E prompt drawer@Latest");
     await expect(
@@ -1357,7 +1589,7 @@ test.describe("Prompt detail drawers", () => {
     await user.press("Escape");
     await expect(page.getByRole("listbox")).toHaveCount(0);
     await expect(
-      page.getByRole("button", { name: "Cancel", exact: true }),
+      page.getByRole("button", { name: "Save version", exact: true }),
     ).toBeVisible();
     // A parent cannot contain conflicting pins of one child. Use the already
     // pinned v1 for this parent; Latest is offered as v2 and is rejected safely.
@@ -1385,8 +1617,11 @@ test.describe("Prompt detail drawers", () => {
       content,
       note: "Latest composition fixture",
     });
-    await page.goto(`/prompts/${result.id}?edit=true`);
-    const system = page.getByLabel("System Message");
+    await page.goto(`/prompts/${result.id}`);
+    await page
+      .getByRole("button", { name: "New version", exact: true })
+      .click();
+    const system = page.getByLabel("System Message").filter({ visible: true });
     await system.fill("");
     await system.pressSequentially("#E2E prompt drawer@Latest");
     await page.getByRole("option").filter({ hasText: "Latest · v2" }).click();
@@ -1444,12 +1679,15 @@ test.describe("Prompt detail drawers", () => {
       page.getByRole("menuitemradio", { name: /v2/ }),
     ).toHaveAttribute("aria-checked", "true");
     await page.getByRole("menuitemradio", { name: /v1/ }).click();
-    await expect(surface.getByLabel("System Message")).toHaveText(
-      content.messages[0].content,
-    );
+    await expect(
+      surface.getByLabel("System Message").filter({ visible: true }),
+    ).toHaveText(content.messages[0].content);
     await expect
       .poll(async () => {
-        const field = await surface.getByLabel("System Message").boundingBox();
+        const field = await surface
+          .getByLabel("System Message")
+          .filter({ visible: true })
+          .boundingBox();
         const drawer = await surface.boundingBox();
         return (drawer?.width ?? 0) - (field?.width ?? 0);
       })
@@ -1507,6 +1745,7 @@ test.describe("Prompt detail drawers", () => {
         .poll(async () => {
           const field = await promptDrawer(page)
             .getByLabel("System Message")
+            .filter({ visible: true })
             .boundingBox();
           const nested = await inspector(page).boundingBox();
           return (field?.x ?? 0) + (field?.width ?? 0) - (nested?.x ?? 0);
@@ -1584,9 +1823,9 @@ test.describe("Prompt detail drawers", () => {
       promptDrawer(page).getByRole("button", { name: "Version history · v2" }),
     ).toBeVisible();
     await page.goForward();
-    await expect(promptDrawer(page).getByLabel("System Message")).toHaveText(
-      content.messages[0].content,
-    );
+    await expect(
+      promptDrawer(page).getByLabel("System Message").filter({ visible: true }),
+    ).toHaveText(content.messages[0].content);
   });
 
   test("keeps group ancestors when opening a prompt and peels one drawer at a time", async ({

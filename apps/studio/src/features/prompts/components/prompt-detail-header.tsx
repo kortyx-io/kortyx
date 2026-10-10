@@ -26,6 +26,7 @@ export function PromptDetailHeader({
   category,
   version,
   live,
+  draft = false,
   onBack,
   children,
 }: {
@@ -34,6 +35,7 @@ export function PromptDetailHeader({
   category?: string;
   version?: number;
   live?: boolean;
+  draft?: boolean;
   onBack?: () => void;
   children?: ReactNode;
 }) {
@@ -89,7 +91,9 @@ export function PromptDetailHeader({
             </span>
             {version !== undefined && (
               <span className="shrink-0">
-                · v{version} · {live ? "Live" : "Candidate"}
+                {draft
+                  ? `· Based on v${version} · Draft`
+                  : `· v${version} · ${live ? "Live" : "Candidate"}`}
               </span>
             )}
           </div>
