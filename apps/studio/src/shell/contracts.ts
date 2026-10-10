@@ -18,4 +18,6 @@ export interface StudioShellContribution {
 
 export interface StudioShellAdapter {
   resolve(context: StudioShellContext): Promise<StudioShellContribution>;
+  /** Optional edition onboarding, rendered inside the existing Studio layout. */
+  onboardingPage?(): Promise<ReactNode>;
 }

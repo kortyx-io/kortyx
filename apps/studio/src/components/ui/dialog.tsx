@@ -15,12 +15,17 @@ export const DialogClose = Primitive.Close;
 export function DialogContent({
   children,
   className,
+  showCloseButton = true,
+  overlayClassName,
   ...props
-}: ComponentProps<typeof Primitive.Content>) {
+}: ComponentProps<typeof Primitive.Content> & {
+  showCloseButton?: boolean;
+  overlayClassName?: string;
+}) {
   return (
     <Primitive.Portal>
       <Primitive.Overlay
-        className="fixed inset-0 bg-black/50"
+        className={cn("fixed inset-0 bg-black/50", overlayClassName)}
         style={{ zIndex: OVERLAY_LAYERS.modalBackdrop }}
       />
       <Primitive.Content
@@ -32,12 +37,14 @@ export function DialogContent({
         style={{ zIndex: OVERLAY_LAYERS.modalSurface }}
       >
         {children}
-        <Primitive.Close
-          aria-label="Close dialog"
-          className="absolute top-4 right-4 rounded-sm p-1 text-muted-foreground hover:text-foreground focus-visible:outline-2"
-        >
-          <X className="size-4" />
-        </Primitive.Close>
+        {showCloseButton && (
+          <Primitive.Close
+            aria-label="Close dialog"
+            className="absolute top-4 right-4 rounded-sm p-1 text-muted-foreground hover:text-foreground focus-visible:outline-2"
+          >
+            <X className="size-4" />
+          </Primitive.Close>
+        )}
       </Primitive.Content>
     </Primitive.Portal>
   );
