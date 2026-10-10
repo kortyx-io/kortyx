@@ -4,7 +4,6 @@ import {
   type PromptDetail,
   PromptDetailSchema,
   type PromptLibrary,
-  PromptLibrarySchema,
   type PromptMutation,
 } from "@kortyx/telemetry-contracts";
 import { ChevronDown, MoreHorizontal, Play, Plus, Save } from "lucide-react";
@@ -40,6 +39,11 @@ import type { EvalTargets } from "@/features/evals/schema";
 import { useStudioQueryStates } from "@/lib/nuqs";
 import { useRouter } from "@/lib/scoped-navigation";
 import { promptRequest } from "../api/client";
+import {
+  usePromptDetail,
+  usePromptLibrary,
+  useRefreshPromptData,
+} from "../hooks/use-prompt-data";
 import { categoryPath, downloadJson } from "../lib/presentation";
 import { PromptActionSurface } from "./prompt-action-surface";
 import {
@@ -84,9 +88,8 @@ export function PromptDetailView({
   targets: EvalTargets;
   drawer?: boolean;
 }) {
-  const router = useRouter(),
-    [detail, setDetail] = useState(initial),
-    [library, setLibrary] = useState(initialLibrary);
+  const router = useRouter();
+  const [working, setWorking] = useState(false);
   const [query, setQuery] = useStudioQueryStates(
     {
       tab: parseAsStringLiteral([
@@ -116,6 +119,19 @@ export function PromptDetailView({
     // Client-only panels must not replay an older transition after dismissal.
     { shallow: true, startTransition: undefined },
   );
+  const inspectedVersion =
+    query.promptAction === "promote" || query.promptAction === "review"
+      ? (query.promptActionVersion ?? query.v)
+      : query.v;
+  const {
+    detail,
+    setDetail,
+    refresh: refreshDetail,
+    error: detailError,
+  } = usePromptDetail(initial, inspectedVersion, query.edit || working);
+  const { data: library = initialLibrary } = usePromptLibrary(initialLibrary);
+  const refreshPromptData = useRefreshPromptData();
+  const readError = detailError?.message ?? "";
   const selected =
     detail.versions.find((version) => version.version === query.v) ??
     detail.versions[0]!;
@@ -123,8 +139,6 @@ export function PromptDetailView({
       structuredClone(detail.draft ?? detail.versions[0]!.content),
     ),
     [error, setError] = useState(""),
-    [readError, setReadError] = useState(""),
-    [working, setWorking] = useState(false),
     [confirmation, setConfirmation] = useState<{
       title: string;
       description: string;
@@ -176,74 +190,21 @@ export function PromptDetailView({
   }, [query.edit, hasDraft, setQuery]);
   const path = `/prompts/${detail.asset.id}`,
     permissions = library.permissions;
-  const inspectedVersion =
-    panel && (panel.type === "promote" || panel.type === "review")
-      ? panel.version.version
-      : query.v;
   useEffect(() => {
-    if (query.edit || working) return;
-    const controller = new AbortController();
-    const read = () => {
-      if (document.visibilityState !== "visible") return;
-      void promptRequest(
-        `assets/${initial.asset.id}${inspectedVersion ? `?version=${inspectedVersion}` : ""}`,
-        undefined,
-        controller.signal,
-      )
-        .then((value) => {
-          if (controller.signal.aborted) return;
-          const next = PromptDetailSchema.parse(value);
-          setReadError("");
-          if (!draftLoaded.current) draftRevision.current = next.draftRevision;
-          setDetail((current) => ({
-            ...next,
-            versions: [
-              ...next.versions,
-              ...current.versions.filter(
-                (version) =>
-                  !next.versions.some(
-                    (item) => item.version === version.version,
-                  ),
-              ),
-            ].sort((a, b) => b.version - a.version),
-            versionsNextCursor:
-              current.versions.length > 100
-                ? current.versionsNextCursor
-                : next.versionsNextCursor,
-          }));
-        })
-        .catch((cause) => {
-          if (!controller.signal.aborted)
-            setReadError(
-              cause instanceof Error ? cause.message : "Prompt unavailable.",
-            );
-        });
-    };
-    read();
-    const timer = window.setInterval(read, 5000);
-    window.addEventListener("focus", read);
-    return () => {
-      controller.abort();
-      clearInterval(timer);
-      window.removeEventListener("focus", read);
-    };
-  }, [initial.asset.id, query.edit, inspectedVersion, working]);
+    if (!draftLoaded.current) draftRevision.current = detail.draftRevision;
+  }, [detail.draftRevision]);
   const { open: openEval } = useEvalSetup(targets);
   const applicable = targets.targets.find((target) =>
     target.manifest?.promptContracts?.some(
       (contract) => contract.id === detail.asset.key,
     ),
   );
-  const refresh = async (version?: number, refreshRoute = true) => {
-    const next = PromptDetailSchema.parse(
-      await promptRequest(
-        `assets/${detail.asset.id}${version ? `?version=${version}` : ""}`,
-      ),
-    );
+  const refresh = async (version?: number) => {
+    const [next] = await Promise.all([
+      refreshDetail(version),
+      refreshPromptData(),
+    ]);
     if (!draftLoaded.current) draftRevision.current = next.draftRevision;
-    setDetail(next);
-    setLibrary(PromptLibrarySchema.parse(await promptRequest("library")));
-    if (refreshRoute) router.refresh();
     return next;
   };
   const flush = useCallback(() => {
@@ -283,7 +244,7 @@ export function PromptDetailView({
       pending.current = null;
     });
     return pending.current;
-  }, [detail.asset.id]);
+  }, [detail.asset.id, setDetail]);
   // Flush the last valid change when the detail is closed or its route unmounts.
   useEffect(
     () => () => {
@@ -349,7 +310,7 @@ export function PromptDetailView({
     setError("");
     try {
       if (!draftLoaded.current) {
-        const next = await refresh(undefined, false);
+        const next = await refresh();
         const latest = next.versions.find(
           (item) => item.version === next.asset.latestVersion,
         )!;
@@ -426,9 +387,6 @@ export function PromptDetailView({
       await promptRequest("actions", mutation);
       await refresh(
         mutation.action === "review" ? mutation.version : undefined,
-        // Review notes do not change the library. A route refresh would replace
-        // the intercepted drawer while its modal is being dismissed.
-        mutation.action !== "review",
       );
       if (mutation.action === "review") {
         await setQuery({
@@ -855,7 +813,7 @@ export function PromptDetailView({
                 onClick={async () => {
                   setWorking(true);
                   try {
-                    const next = await refresh(undefined, false);
+                    const next = await refresh();
                     draftRevision.current = next.draftRevision;
                     draftBase.current = next.asset.latestVersion;
                     conflicted.current = false;
@@ -1406,7 +1364,7 @@ export function PromptDetailView({
               });
               draftLoaded.current = false;
               queue.current = null;
-              const next = await refresh(undefined, false);
+              const next = await refresh();
               setContent(structuredClone(next.versions[0]!.content));
               await setQuery({ edit: false, v: next.asset.latestVersion });
               setCompare(null);

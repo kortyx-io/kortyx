@@ -68,12 +68,14 @@ async function cleanup() {
   );
   try {
     await sql`delete from prompt_groups where name=${groupName}`;
+    await sql`delete from prompt_groups where name in (${`${groupName} continuity`}, ${`${groupName} continuity renamed`})`;
     await sql`delete from prompt_assets where key=${`${compositionKey}-latest`}`;
     await sql`delete from prompt_assets where key=${`${compositionKey}-conflict`}`;
     await sql`delete from prompt_assets where key=${compositionKey}`;
     await sql`delete from prompt_assets where key=${`${compositionKey}-json`}`;
     await sql`delete from prompt_assets where key=${`${compositionKey}-actions`}`;
     await sql`delete from prompt_assets where key=${`${compositionKey}-draft`}`;
+    await sql`delete from prompt_assets where key=${`${compositionKey}-continuity`}`;
     await sql`delete from prompt_assets where key=${fixtureKey}`;
     await sql`delete from prompt_categories where name=${`${categoryName} disposable`}`;
     await sql`delete from prompt_categories where name=${categoryName}`;
@@ -135,6 +137,79 @@ async function noOverflow(locator: Locator) {
   await expect
     .poll(() => locator.evaluate((el) => el.scrollWidth - el.clientWidth))
     .toBeLessThanOrEqual(1);
+}
+
+// Observe every animation frame and removal, not just the final settled UI.
+async function monitorPromptSurface(page: Page, selectors: string[]) {
+  await page.evaluate((selectors) => {
+    const nodes = selectors.map((selector) => {
+      const node = document.querySelector(selector);
+      if (!(node instanceof HTMLElement))
+        throw new Error(`Missing ${selector}`);
+      return node;
+    });
+    const failures: string[] = [];
+    const observer = new MutationObserver((records) => {
+      for (const record of records)
+        for (const removed of record.removedNodes)
+          if (nodes.some((node) => removed === node || removed.contains(node)))
+            failures.push("Mounted surface removed");
+    });
+    observer.observe(document.body, { childList: true, subtree: true });
+    let frame = 0;
+    const sample = () => {
+      if (
+        nodes.some(
+          (node) =>
+            !node.isConnected ||
+            node.getBoundingClientRect().height === 0 ||
+            getComputedStyle(node).visibility === "hidden",
+        )
+      )
+        failures.push("Surface disappeared for a frame");
+      frame = requestAnimationFrame(sample);
+    };
+    sample();
+    Object.assign(window, {
+      promptContinuity: {
+        failures,
+        stop: () => {
+          observer.disconnect();
+          cancelAnimationFrame(frame);
+        },
+      },
+    });
+  }, selectors);
+  const routeRequests: string[] = [];
+  const requestListener = (request: import("@playwright/test").Request) => {
+    if (
+      request.isNavigationRequest() ||
+      (request.headers().rsc === "1" &&
+        request.headers()["next-router-prefetch"] !== "1" &&
+        request.headers().purpose !== "prefetch")
+    )
+      routeRequests.push(request.url());
+  };
+  page.on("request", requestListener);
+  return async () => {
+    // Cover a delayed refresh/exit animation after the success modal closes.
+    await page.waitForTimeout(400);
+    const failures = await page.evaluate(() => {
+      const monitor = (
+        window as unknown as {
+          promptContinuity: { failures: string[]; stop: () => void };
+        }
+      ).promptContinuity;
+      monitor.stop();
+      return monitor.failures;
+    });
+    page.off("request", requestListener);
+    expect(failures).toEqual([]);
+    expect(
+      routeRequests,
+      "Saving should not request a new route payload",
+    ).toEqual([]);
+  };
 }
 
 async function expectFilledTable(table: Locator) {
@@ -593,6 +668,281 @@ test.describe("Prompt detail drawers", () => {
     await page.screenshot({
       path: "../../docs/qa/studio-prompts/saved-version-reviews.png",
     });
+  });
+
+  test("saves and makes versions live without remounting the drawer or library", async ({
+    page,
+    request,
+  }) => {
+    const name = "E2E continuous prompt";
+    const promptId = (
+      await action(request, {
+        action: "create",
+        key: `${compositionKey}-continuity`,
+        name,
+        content,
+        note: "Initial continuity fixture",
+      })
+    ).id;
+    await page.goto("/prompts");
+    await expect(page.locator('[data-table-ready="true"]')).toBeVisible();
+    await page.getByRole("link", { name, exact: true }).click();
+    const surface = page.locator(`[data-detail-drawer="/prompts/${promptId}"]`);
+    await expect(surface.locator("[data-prompt-header]")).toBeVisible();
+    // Keep an actual delayed response in flight: the existing surface must
+    // remain mounted throughout server work, modal dismissal and revalidation.
+    let rejectNextSave = false;
+    await page.route("**/api/studio/prompts/actions", async (route) => {
+      if (rejectNextSave) {
+        rejectNextSave = false;
+        await route.fulfill({
+          status: 409,
+          contentType: "application/json",
+          body: JSON.stringify({ message: "Concurrent update; try again." }),
+        });
+        return;
+      }
+      const response = await route.fetch();
+      await new Promise((resolve) => setTimeout(resolve, 150));
+      await route.fulfill({ response });
+    });
+    const selectors = [
+      `[data-detail-drawer="/prompts/${promptId}"]`,
+      `[data-detail-drawer="/prompts/${promptId}"] [data-prompt-header]`,
+      '[data-table-ready="true"]',
+    ];
+    const actions = surface.getByRole("button", {
+      name: "Prompt actions",
+      exact: true,
+    });
+    await actions.click();
+    await page
+      .getByRole("menuitem", { name: "Rename prompt", exact: true })
+      .click();
+    const rename = page.getByRole("dialog", {
+      name: "Rename prompt",
+      exact: true,
+    });
+    await rename.getByRole("textbox").fill(`${name} renamed`);
+    let assertStable = await monitorPromptSurface(page, selectors);
+    await rename
+      .getByRole("button", { name: "Rename prompt", exact: true })
+      .click();
+    await expect(rename).toHaveCount(0);
+    await expect(
+      surface.getByRole("heading", { name: `${name} renamed`, exact: true }),
+    ).toBeVisible();
+    await assertStable();
+    await actions.click();
+    await page
+      .getByRole("menuitem", { name: "Promotion policy", exact: true })
+      .click();
+    await policyModal(page)
+      .getByLabel("Require a passing full suite with verified prompt usage")
+      .uncheck();
+    assertStable = await monitorPromptSurface(page, selectors);
+    await policyModal(page)
+      .getByRole("button", { name: "Save policy", exact: true })
+      .click();
+    await expect(policyModal(page)).toHaveCount(0);
+    await assertStable();
+    await surface
+      .getByRole("button", { name: "New version", exact: true })
+      .click();
+    await surface
+      .getByLabel("System Message")
+      .filter({ visible: true })
+      .fill("Updated classification without reloads.");
+    await surface
+      .getByRole("button", { name: "Save version", exact: true })
+      .click();
+    const diff = page.getByRole("dialog", { name: "Review & save version" });
+    await diff
+      .getByLabel("Change note")
+      .fill("Verify uninterrupted version save");
+    assertStable = await monitorPromptSurface(page, selectors);
+    await diff
+      .getByRole("button", { name: "Accept & save version", exact: true })
+      .click();
+    await expect(diff).toHaveCount(0);
+    await expect(
+      surface.getByRole("button", { name: "New version", exact: true }),
+    ).toBeVisible();
+    await assertStable();
+    await surface.getByRole("button", { name: "Version history · v2" }).click();
+    await page
+      .getByRole("menuitem", { name: "v2 actions", exact: true })
+      .hover();
+    await page
+      .getByRole("menuitem", { name: "Make this live", exact: true })
+      .click();
+    const promotion = page.getByRole("dialog", {
+      name: "Promote version",
+      exact: true,
+    });
+    assertStable = await monitorPromptSurface(page, selectors);
+    await promotion
+      .getByRole("button", { name: "Promote v2", exact: true })
+      .click();
+    await expect(promotion).toHaveCount(0);
+    await expect(surface.locator("[data-prompt-header]")).toContainText("Live");
+    await assertStable();
+    await page.screenshot({
+      path: "../../docs/qa/studio-prompts/continuous-promotion.png",
+    });
+    await surface
+      .getByRole("button", { name: "Close detail", exact: true })
+      .click();
+    await expect(surface).toHaveCount(0);
+    const row = page.getByRole("row").filter({
+      has: page.getByRole("link", { name: `${name} renamed`, exact: true }),
+    });
+    await expect(row).toContainText("v2");
+    await expect(row).not.toContainText("Not live");
+    // Row actions must update in place as well, without opening a detail route.
+    await row
+      .getByRole("button", { name: `Actions for ${name} renamed`, exact: true })
+      .click();
+    await page
+      .getByRole("menuitem", { name: "Rename prompt", exact: true })
+      .click();
+    await rename.getByRole("textbox").fill(name);
+    assertStable = await monitorPromptSurface(page, [
+      '[data-table-ready="true"]',
+    ]);
+    rejectNextSave = true;
+    await rename
+      .getByRole("button", { name: "Rename prompt", exact: true })
+      .click();
+    await expect(rename.getByRole("alert")).toContainText("Concurrent update");
+    await expect(rename.getByRole("textbox")).toHaveValue(name);
+    await rename
+      .getByRole("button", { name: "Rename prompt", exact: true })
+      .click();
+    await expect(rename).toHaveCount(0);
+    await expect(page.getByRole("link", { name, exact: true })).toBeVisible();
+    await assertStable();
+  });
+
+  test("keeps loaded older history while the prompt revalidates in place", async ({
+    page,
+  }) => {
+    let reads = 0;
+    let template: Record<string, unknown> | undefined;
+    await page.route(`**/api/studio/prompts/assets/${id}*`, async (route) => {
+      const response = await route.fetch();
+      const data = await response.json();
+      template ??= data.versions[0];
+      const older = new URL(route.request().url()).searchParams.has(
+        "versionsCursor",
+      );
+      if (!older) reads++;
+      const versions = Array.from({ length: older ? 4 : 100 }, (_, index) => ({
+        ...template,
+        version: (older ? 4 : 104) - index,
+        note: `History v${(older ? 4 : 104) - index}`,
+      }));
+      await route.fulfill({
+        json: {
+          ...data,
+          asset: {
+            ...data.asset,
+            latestVersion: 104,
+            name: `History read ${reads}`,
+          },
+          versions,
+          versionsNextCursor: older ? null : "5",
+        },
+      });
+    });
+    await page.goto(`/prompts/${id}`);
+    const history = page.locator("[data-prompt-version-history]");
+    await expect(
+      history.getByRole("button", { name: "Version 104 actions", exact: true }),
+    ).toBeAttached();
+    await history
+      .getByRole("button", { name: "Load older versions", exact: true })
+      .click();
+    await expect(
+      history.getByRole("button", { name: "Version 1 actions", exact: true }),
+    ).toBeAttached();
+    await expect(
+      history.getByRole("button", { name: "Version 3 actions", exact: true }),
+    ).toBeAttached();
+    await expect(
+      history.getByRole("button", { name: "Load older versions", exact: true }),
+    ).toHaveCount(0);
+    const before = reads;
+    await expect.poll(() => reads, { timeout: 10000 }).toBeGreaterThan(before);
+    await expect(
+      page.locator("[data-prompt-header]").getByRole("heading", {
+        name: `History read ${before + 1}`,
+        exact: true,
+      }),
+    ).toBeVisible();
+    await expect(
+      history.getByRole("button", { name: "Version 1 actions", exact: true }),
+    ).toBeAttached();
+    await expect(
+      history.getByRole("button", { name: "Load older versions", exact: true }),
+    ).toHaveCount(0);
+  });
+
+  test("saves groups without refreshing their drawer or the parent library", async ({
+    page,
+  }) => {
+    await page.goto("/prompts");
+    await expect(page.locator('[data-table-ready="true"]')).toBeVisible();
+    await page.getByRole("link", { name: /^Test groups/ }).click();
+    const groups = page.locator('[data-detail-drawer="/prompts/groups"]');
+    await groups
+      .getByRole("button", { name: "New group", exact: true })
+      .click();
+    await inspector(page)
+      .getByLabel("Group name")
+      .fill(`${groupName} continuity`);
+    let assertStable = await monitorPromptSurface(page, [
+      '[data-detail-drawer="/prompts/groups"]',
+      '[data-table-ready="true"]',
+    ]);
+    await inspector(page)
+      .getByRole("button", { name: "Save group", exact: true })
+      .click();
+    await expect(inspector(page)).toHaveCount(0);
+    await expect(
+      groups.getByRole("link", {
+        name: `${groupName} continuity`,
+        exact: true,
+      }),
+    ).toBeVisible();
+    await assertStable();
+    await groups
+      .getByRole("button", {
+        name: `${groupName} continuity group actions`,
+        exact: true,
+      })
+      .click();
+    await page
+      .getByRole("menuitem", { name: "Rename group", exact: true })
+      .click();
+    await inspector(page)
+      .getByLabel("Group name")
+      .fill(`${groupName} continuity renamed`);
+    assertStable = await monitorPromptSurface(page, [
+      '[data-detail-drawer="/prompts/groups"]',
+      '[data-table-ready="true"]',
+    ]);
+    await inspector(page)
+      .getByRole("button", { name: "Save group", exact: true })
+      .click();
+    await expect(inspector(page)).toHaveCount(0);
+    await expect(
+      groups.getByRole("link", {
+        name: `${groupName} continuity renamed`,
+        exact: true,
+      }),
+    ).toBeVisible();
+    await assertStable();
   });
 
   test("confirms group removal, policy changes and promotion without accidental writes", async ({

@@ -1,10 +1,9 @@
 "use client";
 import type { PromptContent } from "@kortyx/prompts";
-import {
-  type PromptCategory,
-  type PromptLibrary,
-  PromptLibrarySchema,
-  type PromptMutation,
+import type {
+  PromptCategory,
+  PromptLibrary,
+  PromptMutation,
 } from "@kortyx/telemetry-contracts";
 import {
   ChevronDown,
@@ -20,7 +19,7 @@ import {
 } from "lucide-react";
 import { parseAsArrayOf, parseAsString, parseAsStringLiteral } from "nuqs";
 import { Collapsible } from "radix-ui";
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import {
   DataTable,
   type DataTableColumn,
@@ -42,6 +41,10 @@ import { EvalDropdown } from "@/features/evals/components/eval-dropdown";
 import { useStudioQueryStates } from "@/lib/nuqs";
 import { useRouter } from "@/lib/scoped-navigation";
 import { promptRequest } from "../api/client";
+import {
+  usePromptLibrary,
+  useRefreshPromptData,
+} from "../hooks/use-prompt-data";
 import { categoryPath, initialPrompt } from "../lib/presentation";
 import { PromptActionSurface } from "./prompt-action-surface";
 import {
@@ -74,7 +77,6 @@ export function PromptLibraryView({
     categoryTrigger.current?.focus();
   };
   const router = useRouter(),
-    [library, setLibrary] = useState(initial),
     [error, setError] = useState(initialError),
     [working, setWorking] = useState(false);
   const [query, setQuery] = useStudioQueryStates(
@@ -104,41 +106,18 @@ export function PromptLibraryView({
     [fieldsValid, setFieldsValid] = useState(true);
   const [selected, setSelected] = useState<PromptLibrary["assets"]>([]),
     [importing, setImporting] = useState(false);
+  const libraryPath = `library?${new URLSearchParams({ search: query.q, cursor: query.cursor, archived: query.archived, ...(categoryId ? { categoryId } : {}) })}`;
+  const {
+    data: library,
+    error: readError,
+    isLoading: loading,
+  } = usePromptLibrary(initial, libraryPath);
+  const refreshPromptData = useRefreshPromptData();
+  const refresh = async () => {
+    await refreshPromptData();
+  };
   const categories = library?.categories ?? [],
     permissions = library?.permissions;
-  const libraryPath = `library?${new URLSearchParams({ search: query.q, cursor: query.cursor, archived: query.archived, ...(categoryId ? { categoryId } : {}) })}`;
-  const [loading, setLoading] = useState(false);
-  useEffect(() => {
-    const controller = new AbortController();
-    setLoading(true);
-    const timer = window.setTimeout(() => {
-      void promptRequest(libraryPath, undefined, controller.signal)
-        .then((value) => {
-          setLibrary(PromptLibrarySchema.parse(value));
-          setError("");
-        })
-        .catch((cause) => {
-          if (!controller.signal.aborted)
-            setError(
-              cause instanceof Error
-                ? cause.message
-                : "Prompt library unavailable.",
-            );
-        })
-        .finally(() => {
-          if (!controller.signal.aborted) setLoading(false);
-        });
-    }, 150);
-    return () => {
-      clearTimeout(timer);
-      controller.abort();
-    };
-  }, [libraryPath]);
-  const refresh = async () => {
-    const next = PromptLibrarySchema.parse(await promptRequest(libraryPath));
-    setLibrary(next);
-    router.refresh();
-  };
   const run = async (mutation: PromptMutation) => {
     setWorking(true);
     setError("");
@@ -446,12 +425,12 @@ export function PromptLibraryView({
           </Button>
         </div>
       </header>
-      {error && !categoryAction && !creating && (
+      {(error || readError) && !categoryAction && !creating && (
         <div
           role="alert"
           className="flex flex-wrap items-center justify-between gap-2 border-b bg-destructive/5 px-5 py-3 text-xs text-destructive"
         >
-          <span>{error}</span>
+          <span>{error || readError?.message}</span>
           <Button
             size="sm"
             variant="outline"
@@ -742,9 +721,9 @@ export function PromptLibraryView({
             void run(action);
           }}
         >
-          {error && (
+          {(error || readError) && (
             <p role="alert" className="text-xs text-destructive">
-              {error}
+              {error || readError?.message}
             </p>
           )}
           {categoryAction?.type === "create" ||
@@ -809,9 +788,9 @@ export function PromptLibraryView({
         bodyClassName="flex flex-col overflow-hidden p-0"
       >
         <div className="min-h-0 flex-1 space-y-5 overflow-y-auto p-5">
-          {error && (
+          {(error || readError) && (
             <p role="alert" className="text-xs text-destructive">
-              {error}
+              {error || readError?.message}
             </p>
           )}
           <div className="space-y-2">

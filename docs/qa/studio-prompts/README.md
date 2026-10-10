@@ -519,3 +519,38 @@ explicit incomplete JSON object instead, the focused production regression
 passed all three checks (including setup/cleanup). The complete new-version
 flow, invalid JSON retention, navigation, exact diff and persisted configuration
 are verified. Desktop/mobile screenshots above were inspected.
+
+
+### Saves and promotion without route refreshes (2026-10-10)
+
+Prompt mutations used to fetch fresh data and then call `router.refresh()`,
+requesting another RSC route payload while their modal or inspector closed.
+The new continuity regression reproduces that behavior against the prior
+production build.
+
+Initial page reads remain in async server components through the existing
+Result-returning API functions. Feature-local SWR queries retain those initial
+snapshots and own subsequent revalidation, deduplication and shared library
+updates. Query keys include project scope and library filters; cached reads
+carry their originating scope even if the browser has navigated elsewhere.
+The backend remains the authorization boundary. No prompt mutation refreshes
+the route. Draft editor state and revision checks remain local and separate
+from the server snapshots.
+
+Browser tests observe every animation frame and DOM removal during delayed
+rename, policy, version-save and live-promotion responses. They assert the same
+drawer, header and underlying table remain mounted and visible, with no new
+navigation/RSC requests (normal link prefetch is excluded). They also verify
+that the library shows the new name/live version without a reload, a failed
+rename keeps the entered value for retry, and group creation/rename preserve
+both the group drawer and its parent library.
+
+![Promotion updates the existing drawer](continuous-promotion.png)
+
+Validation: all 54 production prompt, drawer-stack and responsive checks pass.
+The final pagination follow-up preserves loaded immutable history during
+background revalidation; continuity and draft-persistence checks were rerun
+against that production build. Studio's 252 existing unit tests plus two new
+scope regressions pass, as do the production build, typecheck and whitespace
+checks. Lint has no errors (existing warnings remain). Studio on port 6341
+remains available.

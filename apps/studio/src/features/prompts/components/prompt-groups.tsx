@@ -29,6 +29,10 @@ import type { EvalTargets } from "@/features/evals/schema";
 import { useStudioQueryStates } from "@/lib/nuqs";
 import { useRouter } from "@/lib/scoped-navigation";
 import { promptRequest } from "../api/client";
+import {
+  usePromptLibrary,
+  useRefreshPromptData,
+} from "../hooks/use-prompt-data";
 import { PromptConfirmation } from "./prompt-confirmation";
 import { PromptWorkspace } from "./prompt-workspace";
 
@@ -44,7 +48,6 @@ export function PromptGroupsView({
   drawer?: boolean;
 }) {
   const router = useRouter(),
-    [library, setLibrary] = useState(initial),
     [error, setError] = useState(""),
     [working, setWorking] = useState(false),
     [removing, setRemoving] = useState<{
@@ -60,6 +63,9 @@ export function PromptGroupsView({
     [replace, setReplace] = useState(false),
     [search, setSearch] = useState(""),
     [matches, setMatches] = useState(initial.assets);
+  const { data: library = initial, error: readError } =
+    usePromptLibrary(initial);
+  const refreshPromptData = useRefreshPromptData();
   const [query, setQuery] = useStudioQueryStates(
     {
       groupAction: parseAsStringLiteral(["create", "rename", "member"]),
@@ -98,8 +104,7 @@ export function PromptGroupsView({
     return () => controller.abort();
   }, [promptId]);
   const refresh = async () => {
-    setLibrary(PromptLibrarySchema.parse(await promptRequest("library")));
-    router.refresh();
+    await refreshPromptData();
   };
   const act = async (body: unknown) => {
     setWorking(true);
@@ -250,12 +255,12 @@ export function PromptGroupsView({
           </Button>
         )}
       </header>
-      {error && (
+      {(error || readError) && (
         <p
           role="alert"
           className="border-b bg-destructive/5 px-5 py-3 text-xs text-destructive"
         >
-          {error}
+          {error || readError?.message}
         </p>
       )}
       <PromptWorkspace>
@@ -380,9 +385,9 @@ export function PromptGroupsView({
         closeLabel="Close group editor"
       >
         <div className="space-y-5 p-5">
-          {error && (
+          {(error || readError) && (
             <p role="alert" className="text-xs text-destructive">
-              {error}
+              {error || readError?.message}
             </p>
           )}
           {form === "member" ? (
