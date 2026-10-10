@@ -1234,6 +1234,11 @@ test.describe("Prompt detail drawers", () => {
     page,
     request,
   }) => {
+    const errors: string[] = [];
+    page.on("pageerror", (error) => errors.push(error.message));
+    page.on("console", (message) => {
+      if (message.type() === "error") errors.push(message.text());
+    });
     const initialConfig = {
       modelName: "fast",
       temperature: 0,
@@ -1331,12 +1336,18 @@ test.describe("Prompt detail drawers", () => {
     await expect
       .poll(async () => JSON.parse(await config.innerText()))
       .toEqual(candidate);
+    expect(errors).toEqual([]);
   });
 
   test("creates a persistent draft from newest content, browses versions, and saves the exact diff", async ({
     page,
     request,
   }) => {
+    const errors: string[] = [];
+    page.on("pageerror", (error) => errors.push(error.message));
+    page.on("console", (message) => {
+      if (message.type() === "error") errors.push(message.text());
+    });
     const draftId = (
       await action(request, {
         action: "create",
@@ -1507,6 +1518,7 @@ test.describe("Prompt detail drawers", () => {
     await page.screenshot({
       path: "../../docs/qa/studio-prompts/saved-draft-version.png",
     });
+    expect(errors).toEqual([]);
     await page.goBack();
     await expect(
       page.getByRole("button", { name: "Save version", exact: true }),
@@ -1566,6 +1578,9 @@ test.describe("Prompt detail drawers", () => {
       .getByLabel("Configuration", { exact: true })
       .filter({ visible: true })
       .fill("{");
+    await expect(drawer.getByRole("status")).toHaveText(
+      "Invalid fields · changes are not saved",
+    );
     await expect(
       drawer.getByRole("button", { name: "Save version" }),
     ).toBeDisabled();

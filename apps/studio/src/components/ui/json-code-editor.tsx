@@ -18,7 +18,7 @@ import {
   syntaxHighlighting,
 } from "@codemirror/language";
 import { linter } from "@codemirror/lint";
-import { Compartment, EditorState } from "@codemirror/state";
+import { Annotation, Compartment, EditorState } from "@codemirror/state";
 import {
   drawSelection,
   EditorView,
@@ -39,6 +39,7 @@ const highlighting = HighlightStyle.define([
   { tag: [tags.bool, tags.null], color: "var(--json-literal)" },
   { tag: [tags.bracket, tags.separator], color: "var(--muted-foreground)" },
 ]);
+const externalValue = Annotation.define<boolean>();
 const theme = EditorView.theme({
   "&": {
     color: "var(--foreground)",
@@ -156,7 +157,16 @@ export function JsonCodeEditor(props: Props) {
           theme,
           options.current.of(configuration(current.current)),
           EditorView.updateListener.of((update) => {
-            if (update.docChanged)
+            // Controlled value replacements are already owned by React. Echoing
+            // them as edits can race another field's update and reset its value.
+            if (
+              update.docChanged &&
+              update.transactions.some(
+                (transaction) =>
+                  transaction.docChanged &&
+                  !transaction.annotation(externalValue),
+              )
+            )
               current.current.onChange(update.state.doc.toString());
           }),
         ],
@@ -192,7 +202,7 @@ export function JsonCodeEditor(props: Props) {
     if (view && view.state.doc.toString() !== props.value)
       view.dispatch({
         changes: { from: 0, to: view.state.doc.length, insert: props.value },
-        annotations: isolateHistory.of("full"),
+        annotations: [isolateHistory.of("full"), externalValue.of(true)],
       });
   }, [props.value]);
   return <div ref={host} className={styles.root} data-json-editor="true" />;

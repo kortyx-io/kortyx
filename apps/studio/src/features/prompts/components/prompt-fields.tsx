@@ -191,7 +191,9 @@ export function PromptFields({
   const validity = (field: string, valid: boolean) =>
     setInvalid((current) =>
       valid
-        ? current.filter((item) => item !== field)
+        ? current.includes(field)
+          ? current.filter((item) => item !== field)
+          : current
         : current.includes(field)
           ? current
           : [...current, field],

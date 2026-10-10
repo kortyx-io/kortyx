@@ -1116,7 +1116,12 @@ export function PromptDetailView({
                     <span className="mr-2 rounded bg-amber-500/10 px-1.5 py-0.5 text-amber-700 dark:text-amber-400">
                       Draft
                     </span>
-                    Based on v{draftBase.current} · {autosave}
+                    Based on v{draftBase.current} ·{" "}
+                    <output>
+                      {fieldsValid
+                        ? autosave
+                        : "Invalid fields · changes are not saved"}
+                    </output>
                   </p>
                 </div>
                 <PromptFields
