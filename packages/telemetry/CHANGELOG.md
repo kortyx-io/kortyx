@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.14.0](https://github.com/kortyx-io/kortyx/compare/telemetry-v0.13.0...telemetry-v0.14.0) (2026-10-10)
+
+
+### Features
+
+* version, evaluate, serve and migrate Studio prompts ([#288](https://github.com/kortyx-io/kortyx/issues/288)) ([0802f8b](https://github.com/kortyx-io/kortyx/commit/0802f8b91c4a541d176dd8a75c659063e2c28c8c))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/hooks bumped to 0.33.0
+    * @kortyx/telemetry-contracts bumped to 0.16.0
+
 ## [0.13.0](https://github.com/kortyx-io/kortyx/compare/telemetry-v0.12.1...telemetry-v0.13.0) (2026-10-09)
 
 

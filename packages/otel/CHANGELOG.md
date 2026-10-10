@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.9.0](https://github.com/kortyx-io/kortyx/compare/otel-v0.8.2...otel-v0.9.0) (2026-10-10)
+
+
+### Features
+
+* version, evaluate, serve and migrate Studio prompts ([#288](https://github.com/kortyx-io/kortyx/issues/288)) ([0802f8b](https://github.com/kortyx-io/kortyx/commit/0802f8b91c4a541d176dd8a75c659063e2c28c8c))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/hooks bumped to 0.33.0
+
 ## [0.8.2](https://github.com/kortyx-io/kortyx/compare/otel-v0.8.1...otel-v0.8.2) (2026-10-09)
 
 
