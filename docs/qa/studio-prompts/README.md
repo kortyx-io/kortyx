@@ -453,3 +453,29 @@ content or release settings were changed during manual review.
 ![Expanded prompt without drawer shadow](unified-expanded-header.png)
 
 ![Mobile prompt header and content](mobile-unified-drawer-header.png)
+
+### Saved version reviews (2026-10-10)
+
+The version review form is a platform modal, with Cancel and Submit review in
+its footer. Reviews are visible in a dedicated Reviews tab for the selected
+version, including reviewer, timestamp, multiline note and independent-review
+status. The tab includes an empty state and a direct review action. Submitting
+opens the reviewed version’s tab without refreshing away its intercepted drawer.
+Re-submitting by the same reviewer updates the existing note.
+
+Browser coverage checks modal dismissal, required note, persistence after reload,
+version isolation, updates without duplication, preserved drawer presentation,
+and the mobile modal footer. Existing inspector-navigation regressions now use
+the test-group inspector, since reviewing no longer opens an inspector.
+
+![Saved reviews for a version](saved-version-reviews.png)
+
+![Review modal](review-modal.png)
+
+![Mobile review modal](mobile-review-modal.png)
+
+Validation: production build, typecheck, lint and whitespace checks pass. The
+broad prompt run passed 29 checks; its new review test reloaded before nuqs
+committed the closing URL. After explicitly awaiting that URL change, the focused
+production review run passed all three checks (including setup and cleanup).
+Desktop and mobile screenshots were inspected; mobile tabs stay on one line.

@@ -78,6 +78,17 @@ Concurrent changes to the head, draft, or assignment are rejected; your local dr
 remains available for recovery. Retrying an accepted save with the same idempotency
 key does not create another version.
 
+## Version reviews
+
+Open a prompt, select a version, and choose **Reviews** to see its saved notes,
+reviewers, timestamps, and independent-review status. **Review this version**
+opens a modal from the tab or the version menu. After submitting, Studio opens
+that version’s Reviews tab. Submitting another review as the same reviewer
+updates the existing note for that version. Reviews of other versions stay separate.
+
+Independent human reviews can satisfy promotion requirements. Notes from the
+version’s author or an API key remain visible but do not count as independent.
+
 ## Categories and test groups
 
 Categories organize the library. On smaller screens, use the categories control

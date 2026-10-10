@@ -97,6 +97,7 @@ export function PromptDetailView({
         "content",
         "evals",
         "runs",
+        "reviews",
         "activity",
       ]).withDefault("content"),
       v: parseAsInteger,
@@ -229,14 +230,16 @@ export function PromptDetailView({
       (contract) => contract.id === detail.asset.key,
     ),
   );
-  const refresh = async () => {
+  const refresh = async (version?: number, refreshRoute = true) => {
     const next = PromptDetailSchema.parse(
-      await promptRequest(`assets/${detail.asset.id}`),
+      await promptRequest(
+        `assets/${detail.asset.id}${version ? `?version=${version}` : ""}`,
+      ),
     );
     draftRevision.current = next.draftRevision;
     setDetail(next);
     setLibrary(PromptLibrarySchema.parse(await promptRequest("library")));
-    router.refresh();
+    if (refreshRoute) router.refresh();
     return next;
   };
   const flush = useCallback(() => {
@@ -393,8 +396,22 @@ export function PromptDetailView({
     setError("");
     try {
       await promptRequest("actions", mutation);
-      await refresh();
-      setPanel(null);
+      await refresh(
+        mutation.action === "review" ? mutation.version : undefined,
+        // Review notes do not change the library. A route refresh would replace
+        // the intercepted drawer while its modal is being dismissed.
+        mutation.action !== "review",
+      );
+      if (mutation.action === "review") {
+        await setQuery({
+          tab: "reviews",
+          v: mutation.version,
+          promptAction: null,
+          promptActionVersion: null,
+        });
+      } else {
+        setPanel(null);
+      }
       return true;
     } catch (cause) {
       setError(
@@ -435,6 +452,10 @@ export function PromptDetailView({
       targets.targets.find((target) => target.id === item.targetId)?.revisions[
         item.suiteId
       ] === item.suiteRevision,
+  );
+  const selectedReviews = (detail.reviews ?? []).filter(
+    (review) =>
+      review.version === selected.version && review.hash === selected.hash,
   );
   const independentReviews = new Set(
     (detail.reviews ?? [])
@@ -829,15 +850,15 @@ export function PromptDetailView({
           className="flex shrink-0 items-center gap-2 border-b px-3"
         >
           <nav
-            className="flex min-w-0 flex-1 items-center gap-3 overflow-x-auto"
+            className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto @sm/prompt-detail:gap-3"
             aria-label="Prompt detail tabs"
           >
-            {["content", "evals", "runs", "activity"].map((tab) => (
+            {["content", "evals", "runs", "reviews", "activity"].map((tab) => (
               <button
                 type="button"
                 key={tab}
                 aria-current={query.tab === tab ? "page" : undefined}
-                className={`min-h-11 border-b-2 px-1 text-xs capitalize ${query.tab === tab ? "border-foreground font-medium" : "border-transparent text-muted-foreground hover:text-foreground"}`}
+                className={`min-h-11 shrink-0 whitespace-nowrap border-b-2 px-0.5 text-xs capitalize @sm/prompt-detail:px-1 ${query.tab === tab ? "border-foreground font-medium" : "border-transparent text-muted-foreground hover:text-foreground"}`}
                 onClick={() =>
                   void setQuery({
                     tab: tab as typeof query.tab,
@@ -851,7 +872,9 @@ export function PromptDetailView({
                   ? ` ${new Set(evidence.map((item) => item.evaluationId ?? item.runId)).size}`
                   : tab === "runs"
                     ? ` ${new Set(detail.usage.filter((item) => item.version === selected.version).map((item) => item.runId)).size}`
-                    : ""}
+                    : tab === "reviews"
+                      ? ` ${selectedReviews.length}`
+                      : ""}
               </button>
             ))}
           </nav>
@@ -867,7 +890,7 @@ export function PromptDetailView({
                   className="max-w-full gap-1.5 px-2"
                   aria-label={`Version history · v${selected.version}`}
                 >
-                  <span className="hidden @lg/prompt-detail:inline">
+                  <span className="hidden @xl/prompt-detail:inline">
                     Version history ·
                   </span>
                   <span>v{selected.version}</span>
@@ -1080,6 +1103,64 @@ export function PromptDetailView({
                 canTest={targets.canRun && Boolean(applicable)}
                 onTest={() => test(selected)}
               />
+            ) : query.tab === "reviews" ? (
+              <section
+                aria-label={`Reviews for v${selected.version}`}
+                className="space-y-4"
+              >
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div className="space-y-1">
+                    <h2 className="text-sm font-semibold">
+                      Reviews for v{selected.version}
+                    </h2>
+                    <p className="text-xs text-muted-foreground">
+                      Saved notes for this version. Independent human reviews
+                      count toward its promotion policy.
+                    </p>
+                  </div>
+                  <Button
+                    size="sm"
+                    disabled={!permissions.review}
+                    onClick={() => showPanel("review", selected)}
+                  >
+                    Review this version
+                  </Button>
+                </div>
+                {selectedReviews.length === 0 ? (
+                  <p className="py-8 text-center text-sm text-muted-foreground">
+                    No reviews yet for v{selected.version}.
+                  </p>
+                ) : (
+                  selectedReviews.map((review) => (
+                    <article
+                      key={`${review.version}:${review.reviewer}`}
+                      className="space-y-3 rounded-lg border p-4"
+                    >
+                      <div className="flex flex-wrap items-start justify-between gap-2">
+                        <div className="min-w-0 space-y-1">
+                          <p className="break-all text-xs font-medium">
+                            {review.reviewer}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {review.independent
+                              ? "Independent human review"
+                              : "Does not count toward independent reviews"}
+                          </p>
+                        </div>
+                        <time
+                          dateTime={review.createdAt}
+                          className="text-xs text-muted-foreground"
+                        >
+                          {new Date(review.createdAt).toLocaleString()}
+                        </time>
+                      </div>
+                      <p className="whitespace-pre-wrap break-words text-sm">
+                        {review.note}
+                      </p>
+                    </article>
+                  ))
+                )}
+              </section>
             ) : (
               <div className="space-y-3">
                 <h2 className="text-xs font-semibold">Activity</h2>
@@ -1263,11 +1344,15 @@ export function PromptDetailView({
         />
       )}
       <PromptActionSurface
-        modal={panel?.type === "promote" || panel?.type === "tags"}
+        modal={
+          panel?.type === "promote" ||
+          panel?.type === "tags" ||
+          panel?.type === "review"
+        }
         confirmation={panel?.type === "promote"}
         busy={working}
         actions={
-          panel?.type === "promote"
+          panel?.type === "promote" || panel?.type === "review"
             ? releaseAction
             : panel?.type === "tags"
               ? tagAction
@@ -1532,6 +1617,13 @@ export function PromptDetailView({
                   </label>
                 </>
               )}
+              {panel?.type === "review" && (
+                <p className="text-xs text-muted-foreground">
+                  Your review is saved to v{panel.version.version} and appears
+                  in its Reviews tab. Submitting again updates your existing
+                  review for this version.
+                </p>
+              )}
               {(panel?.type === "review" || exception) && (
                 <div className="space-y-2">
                   <label
@@ -1570,7 +1662,6 @@ export function PromptDetailView({
                   )}
                 </div>
               )}
-              {panel?.type === "review" && releaseAction}
             </>
           )}
         </div>

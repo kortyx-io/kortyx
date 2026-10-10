@@ -104,7 +104,7 @@ async function cancelPromptEdit(page: Page, surface: Locator) {
       .click();
   }
 }
-async function reviewInspector(page: Page) {
+async function groupInspector(page: Page) {
   const version = new URL(page.url()).searchParams.get("v") ?? "2";
   const button = page.getByRole("button", {
     name: `Version ${version} actions`,
@@ -123,11 +123,11 @@ async function reviewInspector(page: Page) {
       .hover();
   }
   await page
-    .getByRole("menuitem", { name: "Review this version", exact: true })
+    .getByRole("menuitem", { name: "Add to test group", exact: true })
     .click();
   await expect(inspector(page)).toHaveAttribute("data-state", "open");
   await expect(
-    inspector(page).getByRole("button", { name: "Submit review", exact: true }),
+    inspector(page).getByLabel("Or create a group", { exact: true }),
   ).toBeVisible();
 }
 const policyModal = (page: Page) =>
@@ -492,6 +492,100 @@ test.describe("Prompt detail drawers", () => {
     await expect(
       page.getByRole("button", { name: "Edit", exact: true }),
     ).toBeVisible();
+  });
+
+  test("saves version reviews in a modal and makes them discoverable after reload", async ({
+    page,
+  }) => {
+    await openPrompt(page);
+    const surface = promptDrawer(page);
+    await surface.getByRole("button", { name: /^reviews 0$/i }).click();
+    await expect(
+      surface.getByRole("region", { name: "Reviews for v2" }),
+    ).toContainText("No reviews yet");
+    await surface
+      .getByRole("button", { name: "Review this version", exact: true })
+      .click();
+    const modal = page.getByRole("dialog", {
+      name: "Review version",
+      exact: true,
+    });
+    await expect(modal).toBeVisible();
+    await expect(inspector(page)).toHaveCount(0);
+    await expect(
+      modal.getByRole("button", { name: "Submit review" }),
+    ).toBeDisabled();
+    await modal
+      .getByLabel("Review note", { exact: true })
+      .fill("Unsaved review");
+    await page.keyboard.press("Escape");
+    await expect(modal).toHaveCount(0);
+    await expect(surface).toBeVisible();
+    await expect(
+      surface.getByRole("button", { name: /^reviews 0$/i }),
+    ).toBeVisible();
+    await surface
+      .getByRole("button", { name: "Review this version", exact: true })
+      .click();
+    await modal
+      .getByLabel("Review note", { exact: true })
+      .fill("Checked pricing examples.\nReady for evaluation.");
+    await modal.getByRole("button", { name: "Submit review" }).click();
+    await expect(modal).toHaveCount(0);
+    await expect(
+      surface.getByRole("button", { name: /^reviews 1$/i }),
+    ).toHaveAttribute("aria-current", "page");
+    const reviews = page.getByRole("region", { name: "Reviews for v2" });
+    await expect(reviews).toContainText("Checked pricing examples.");
+    await expect(reviews.locator("article time")).toHaveAttribute(
+      "datetime",
+      /T/,
+    );
+    await expect(reviews).toContainText(
+      "Does not count toward independent reviews",
+    );
+    await expect(page).not.toHaveURL(/promptAction=/);
+    await page.reload();
+    await expect(reviews).toContainText("Ready for evaluation.");
+    // Older versions must fetch and retain their own reviews, not the newest version's.
+    await page.goto(`/prompts/${id}?v=1&tab=reviews`);
+    const older = page.getByRole("region", { name: "Reviews for v1" });
+    await expect(older).toContainText("No reviews yet");
+    await older.getByRole("button", { name: "Review this version" }).click();
+    await modal
+      .getByLabel("Review note", { exact: true })
+      .fill("Reviewed the initial version.");
+    await modal.getByRole("button", { name: "Submit review" }).click();
+    await expect(older).toContainText("Reviewed the initial version.");
+    await expect(older).not.toContainText("Checked pricing examples.");
+    await older.getByRole("button", { name: "Review this version" }).click();
+    await modal
+      .getByLabel("Review note", { exact: true })
+      .fill("Updated initial version review.");
+    await modal.getByRole("button", { name: "Submit review" }).click();
+    await expect(older.locator("article")).toHaveCount(1);
+    await expect(older).toContainText("Updated initial version review.");
+    await expect(page).not.toHaveURL(/promptAction=/);
+    await page.reload();
+    await expect(older).toContainText("Updated initial version review.");
+    await page.setViewportSize({ width: 390, height: 844 });
+    await older.getByRole("button", { name: "Review this version" }).click();
+    await noOverflow(modal);
+    await expect(
+      modal.getByRole("button", { name: "Submit review" }),
+    ).toBeVisible();
+    await page.screenshot({
+      path: "../../docs/qa/studio-prompts/mobile-review-modal.png",
+    });
+    await modal.getByRole("button", { name: "Cancel", exact: true }).click();
+    await noOverflow(older);
+    await page.setViewportSize({ width: 1440, height: 1000 });
+    await page.goto(`/prompts/${id}?v=2&tab=reviews`);
+    await expect(reviews).toContainText("Checked pricing examples.");
+    await expect(reviews).not.toContainText("Updated initial version review.");
+    await page.screenshot({
+      path: "../../docs/qa/studio-prompts/saved-version-reviews.png",
+    });
   });
 
   test("confirms group removal, policy changes and promotion without accidental writes", async ({
@@ -1406,7 +1500,7 @@ test.describe("Prompt detail drawers", () => {
     await openPrompt(page);
     const surfaceNode = await promptDrawer(page).elementHandle();
     for (let iteration = 0; iteration < 3; iteration++) {
-      await reviewInspector(page);
+      await groupInspector(page);
       await expect(inspector(page)).toHaveCount(1);
       await expectCenteredInspectorClose(page);
       await expect
@@ -1436,7 +1530,7 @@ test.describe("Prompt detail drawers", () => {
     }
     for (const width of [768, 390]) {
       await page.setViewportSize({ width, height: 900 });
-      await reviewInspector(page);
+      await groupInspector(page);
       await expectCenteredInspectorClose(page);
       await inspector(page)
         .getByRole("button", { name: "Close prompt action" })
@@ -1450,8 +1544,8 @@ test.describe("Prompt detail drawers", () => {
     page,
   }) => {
     await openPrompt(page);
-    await reviewInspector(page);
-    await expect(page).toHaveURL(/promptAction=review/);
+    await groupInspector(page);
+    await expect(page).toHaveURL(/promptAction=group/);
     await page.goBack();
     await expect(inspector(page)).toHaveCount(0);
     await expect(promptDrawer(page)).toHaveAttribute("data-state", "open");
@@ -1472,7 +1566,7 @@ test.describe("Prompt detail drawers", () => {
       .getByRole("button", { name: "Version history · v2" })
       .click();
     await page.getByRole("menuitemradio", { name: /v1/ }).click();
-    await reviewInspector(page);
+    await groupInspector(page);
     await inspector(page)
       .getByRole("button", { name: "Close prompt action" })
       .click();
@@ -1607,7 +1701,7 @@ test.describe("Prompt detail drawers", () => {
     await page.goto(`/prompts/${id}?detailView=expanded&v=2`);
     const history = page.locator("[data-prompt-version-history]");
     await expect(history).toBeVisible();
-    await reviewInspector(page);
+    await groupInspector(page);
     await expect(inspector(page)).toBeVisible();
     await expect(history).toBeVisible();
     await expect(
@@ -1618,7 +1712,7 @@ test.describe("Prompt detail drawers", () => {
     await expect(history).toBeVisible();
     await expect(page).toHaveURL(/v=2/);
     await page.setViewportSize({ width: 1024, height: 800 });
-    await reviewInspector(page);
+    await groupInspector(page);
     await expect(page.locator("[data-prompt-version-picker]")).toBeVisible();
     await page.keyboard.press("Escape");
     await expect(inspector(page)).toHaveCount(0);

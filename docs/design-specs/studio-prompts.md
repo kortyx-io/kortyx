@@ -15,7 +15,7 @@ A prompt version contains ordered role messages, an input schema, saved configur
 
 Editing autosaves a shared draft with optimistic concurrency. Saving always opens the same diff modal used for version comparisons: aligned red/green line and word differences on desktop, stacked differences on mobile, and a required change note. The acceptance binds the reviewed content hash, current head, draft revision and retry key. Concurrent edits keep the local draft available for recovery/export. Version history is immutable; editing a historical version creates a new candidate.
 
-Historical version menus offer compare, edit, test, group membership, review, promote/rollback, code helper and portable export. Detail tabs expose attached evaluations, actual generation runs, and audit activity for the selected version. Tests are evidence only after the application reports the exact version/hash, environment and frozen snapshot revision. Partial suites remain useful results but cannot satisfy complete-suite promotion requirements.
+Historical version menus offer compare, edit, test, group membership, review, promote/rollback, code helper and portable export. Detail tabs expose attached evaluations, actual generation runs, saved reviews, and audit activity for the selected version. Tests are evidence only after the application reports the exact version/hash, environment and frozen snapshot revision. Partial suites remain useful results but cannot satisfy complete-suite promotion requirements.
 
 Categories use stable UUIDs, hierarchical slash-path creation, collapsible parents and rename/move/delete actions. Reparenting preserves prompt keys and moves a complete subtree. Cycles, duplicate sibling names and excessive depth are rejected. Deleting a category requires a destination outside the deleted subtree for all affected prompts. Deleting a test group preserves its prompts and historical evaluations. Bulk category/archive mutations are atomic and check every asset revision; assigned prompts cannot be archived.
 
@@ -84,3 +84,5 @@ expand matching roles and import input declarations; configuration stays with
 the parent. Nested expansion rejects cycles, conflicting/missing pins, missing
 roles and messages exceeding 200,000 characters. Included versions appear in
 actual eval receipts and linked runs. Migration rewrites renamed reference keys.
+
+Reviews use a platform modal and a dedicated version-scoped Reviews tab with count, reviewer, timestamp, note and independence status. Successful submission opens the reviewed version’s tab; re-submitting updates that reviewer’s note without duplicating it.
