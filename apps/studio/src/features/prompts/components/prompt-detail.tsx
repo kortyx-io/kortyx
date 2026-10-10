@@ -1712,16 +1712,22 @@ export function PromptDetailView({
                       Evaluations must use this exact version with the current
                       live companion prompts. Individual tests remain available
                       as supporting evidence.
+                      {library.permissions.settings && (
+                        <>
+                          {" "}
+                          Review{" "}
+                          <button
+                            type="button"
+                            aria-label="Promotion settings"
+                            className="underline underline-offset-4 hover:text-foreground focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                            onClick={() => showPanel("policy", panel.version)}
+                          >
+                            promotion settings
+                          </button>
+                          .
+                        </>
+                      )}
                     </p>
-                    {library.permissions.settings && (
-                      <button
-                        type="button"
-                        className="text-xs underline underline-offset-4 hover:text-foreground focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                        onClick={() => showPanel("policy", panel.version)}
-                      >
-                        Promotion settings
-                      </button>
-                    )}
                     {((destinationPolicy?.requireTest !== false &&
                       !eligible.length) ||
                       missingSuites.length > 0) && (
