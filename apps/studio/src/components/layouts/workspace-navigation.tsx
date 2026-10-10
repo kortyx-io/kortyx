@@ -4,6 +4,7 @@ import { ChevronRight } from "lucide-react";
 import type { ReactNode } from "react";
 import Link from "@/components/scoped-link";
 import { usePathname, useSearchParams } from "@/lib/scoped-navigation";
+import { useWorkspaceLabels } from "./workspace-labels";
 
 const labels: Record<string, string> = {
   runs: "Runs",
@@ -16,6 +17,9 @@ const labels: Record<string, string> = {
   compare: "Compare",
   settings: "Settings",
   diagnostics: "Error diagnostic",
+  prompts: "Prompts",
+  groups: "Test groups",
+  categories: "Categories",
 };
 
 const settingsLabels: Record<string, string> = {
@@ -46,6 +50,7 @@ export function WorkspaceNavigation({
 }) {
   const pathname = usePathname();
   const params = useSearchParams();
+  const workspaceLabels = useWorkspaceLabels();
   const segments = pathname.split("/").filter(Boolean);
   const environment = params.get("env");
   const evaluationRun =
@@ -73,20 +78,23 @@ export function WorkspaceNavigation({
       <ol className="flex min-w-0 items-center gap-2 overflow-hidden">
         {segments.map((segment, index) => {
           const last = index === segments.length - 1;
-          const text =
-            (evaluationRun && index === 1
-              ? "Runs"
-              : evaluationRun && index === 2
-                ? "Evaluation run"
-                : undefined) ??
-            (segments[0] === "settings" && index === 1
-              ? settingsLabels[segment]
-              : labels[segment]) ??
-            decodeURIComponent(segment);
           const path =
             evaluationRun && index === 1
               ? "/evals/runs"
               : `/${segments.slice(0, index + 1).join("/")}`;
+          const text =
+            workspaceLabels?.[path]?.title ??
+            (evaluationRun && index === 1
+              ? "Runs"
+              : evaluationRun && index === 2
+                ? "Evaluation run"
+                : segments[0] === "prompts" && index === 1 && !labels[segment]
+                  ? "Prompt"
+                  : undefined) ??
+            (segments[0] === "settings" && index === 1
+              ? settingsLabels[segment]
+              : labels[segment]) ??
+            decodeURIComponent(segment);
           const href = `${path}${environment && !environmentSwitcher ? `?env=${encodeURIComponent(environment)}` : ""}`;
           return (
             <li key={path} className="flex min-w-0 items-center gap-2">

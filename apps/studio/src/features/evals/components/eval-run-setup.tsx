@@ -253,7 +253,7 @@ export function EvalRunSetup({
       closeLabel="Close run setup"
       bodyClassName="flex flex-col overflow-hidden p-0"
     >
-      <div className="min-h-0 flex-1 space-y-5 overflow-auto p-5">
+      <div className="min-h-0 flex-1 space-y-5 overflow-auto overscroll-contain p-5 [scrollbar-width:thin]">
         <div className="space-y-2">
           <p className="text-xs font-medium">Application · Environment</p>
           <EvalDropdown

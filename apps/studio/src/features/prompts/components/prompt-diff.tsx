@@ -109,7 +109,7 @@ export function PromptDiff({
             {selectors}
           </div>
         )}
-        <div className="min-h-0 flex-1 overflow-auto">
+        <div className="min-h-0 flex-1 overflow-auto overscroll-contain [scrollbar-width:thin]">
           <div className="sticky top-0 z-10 grid grid-cols-2 border-b bg-background text-xs font-medium">
             <div className="min-w-0 truncate border-r px-4 py-3">
               {beforeLabel}

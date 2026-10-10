@@ -198,7 +198,7 @@ export function PromptPolicyDialog({
                 All selected suites must pass using the version being promoted
                 and the current live companion prompts.
               </p>
-              <div className="max-h-64 space-y-2 overflow-auto rounded-md border p-3">
+              <div className="max-h-64 space-y-2 overflow-auto rounded-md border p-3 [scrollbar-width:thin]">
                 {suites
                   .filter(
                     (item) =>

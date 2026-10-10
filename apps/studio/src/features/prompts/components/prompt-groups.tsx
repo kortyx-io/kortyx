@@ -264,7 +264,7 @@ export function PromptGroupsView({
         </p>
       )}
       <PromptWorkspace>
-        <div className="min-h-0 flex-1 overflow-y-auto p-5">
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-5 [scrollbar-width:thin]">
           {group ? (
             <div className="space-y-3">
               {group.members.map((member) => {

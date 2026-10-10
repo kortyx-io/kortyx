@@ -926,6 +926,7 @@ test.describe("Prompt detail drawers", () => {
   test("keeps loaded older history while the prompt revalidates in place", async ({
     page,
   }) => {
+    await page.setViewportSize({ width: 1440, height: 700 });
     let reads = 0;
     let template: Record<string, unknown> | undefined;
     await page.route(`**/api/studio/prompts/assets/${id}*`, async (route) => {
@@ -959,6 +960,31 @@ test.describe("Prompt detail drawers", () => {
     await expect(
       history.getByRole("button", { name: "Version 104 actions", exact: true }),
     ).toBeAttached();
+    const viewport = history.locator('[data-slot="scroll-area-viewport"]');
+    await expect
+      .poll(() =>
+        viewport.evaluate((element) => {
+          const aside = element.closest("aside")!.getBoundingClientRect();
+          return Math.abs(
+            element.getBoundingClientRect().bottom - aside.bottom,
+          );
+        }),
+      )
+      .toBeLessThanOrEqual(1);
+    const historyHeader = await history
+      .getByRole("button", { name: "Version history", exact: true })
+      .boundingBox();
+    const bounds = (await viewport.boundingBox())!;
+    await page.mouse.move(bounds.x + bounds.width / 2, bounds.y + 30);
+    await page.mouse.wheel(0, 20000);
+    await expect(
+      history.getByRole("button", { name: "Load older versions", exact: true }),
+    ).toBeInViewport();
+    expect(
+      await history
+        .getByRole("button", { name: "Version history", exact: true })
+        .boundingBox(),
+    ).toEqual(historyHeader);
     await history
       .getByRole("button", { name: "Load older versions", exact: true })
       .click();
@@ -979,6 +1005,11 @@ test.describe("Prompt detail drawers", () => {
         exact: true,
       }),
     ).toBeVisible();
+    const breadcrumb = page.getByRole("navigation", {
+      name: "Workspace navigation",
+    });
+    await expect(breadcrumb).toContainText(`History read ${before + 1}`);
+    await expect(breadcrumb).not.toContainText(id);
     await expect(
       history.getByRole("button", { name: "Version 1 actions", exact: true }),
     ).toBeAttached();
@@ -1104,13 +1135,19 @@ test.describe("Prompt detail drawers", () => {
     ).toBeFocused();
     await expect(promotion).toContainText("A passing full suite is required");
     const settings = promotion.getByRole("button", {
-      name: "Open prompt promotion settings",
+      name: "Promotion settings",
       exact: true,
     });
-    await settings.hover();
+    const help = promotion.getByLabel("About promotion readiness", {
+      exact: true,
+    });
+    await help.hover();
     await expect(page.getByRole("tooltip")).toContainText(
       "These requirements come from this prompt’s promotion settings.",
     );
+    await help.click();
+    await expect(promotion).toBeVisible();
+    await expect(policyModal(page)).toHaveCount(0);
     const stable = await monitorPromptSurface(page, ["[data-prompt-header]"]);
     await settings.click();
     await expect(promotion).toHaveCount(0);

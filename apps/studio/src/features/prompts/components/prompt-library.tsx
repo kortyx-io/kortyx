@@ -37,6 +37,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { EvalDropdown } from "@/features/evals/components/eval-dropdown";
 import { useStudioQueryStates } from "@/lib/nuqs";
 import { useRouter } from "@/lib/scoped-navigation";
@@ -488,13 +489,27 @@ export function PromptLibraryView({
           <Collapsible.Content
             role="navigation"
             aria-label="Prompt categories"
-            className="absolute inset-y-0 left-0 z-20 w-64 max-w-[calc(100%-3rem)] overflow-y-auto border-r bg-background p-3 shadow-lg data-[state=open]:animate-in data-[state=open]:slide-in-from-left-full data-[state=open]:duration-200 data-[state=open]:ease-out data-[state=closed]:animate-out data-[state=closed]:slide-out-to-left-full data-[state=closed]:duration-200 data-[state=closed]:ease-in motion-reduce:animate-none! [&>div:first-child]:pl-8"
+            className="absolute inset-y-0 left-0 z-20 w-64 max-w-[calc(100%-3rem)] overflow-hidden border-r bg-background shadow-lg data-[state=open]:animate-in data-[state=open]:slide-in-from-left-full data-[state=open]:duration-200 data-[state=open]:ease-out data-[state=closed]:animate-out data-[state=closed]:slide-out-to-left-full data-[state=closed]:duration-200 data-[state=closed]:ease-in motion-reduce:animate-none!"
           >
-            {categoryNavigation}
+            <ScrollArea
+              type="auto"
+              className="h-full"
+              viewportClassName="overscroll-contain"
+            >
+              <div className="p-3 [&>div:first-child]:pl-8">
+                {categoryNavigation}
+              </div>
+            </ScrollArea>
           </Collapsible.Content>
         </Collapsible.Root>
-        <aside className="hidden w-56 shrink-0 overflow-y-auto border-r p-3 xl:block">
-          {categoryNavigation}
+        <aside className="hidden min-h-0 w-56 shrink-0 overflow-hidden border-r xl:block">
+          <ScrollArea
+            type="auto"
+            className="h-full"
+            viewportClassName="overscroll-contain"
+          >
+            <div className="p-3">{categoryNavigation}</div>
+          </ScrollArea>
         </aside>
         <section className="flex min-w-0 flex-1 flex-col">
           <div className="flex flex-wrap items-center gap-3 border-b px-4 py-3">
@@ -786,7 +801,7 @@ export function PromptLibraryView({
         closeLabel="Close new prompt"
         bodyClassName="flex flex-col overflow-hidden p-0"
       >
-        <div className="min-h-0 flex-1 space-y-5 overflow-y-auto p-5">
+        <div className="min-h-0 flex-1 space-y-5 overflow-y-auto overscroll-contain p-5 [scrollbar-width:thin]">
           {(error || readError) && (
             <p role="alert" className="text-xs text-destructive">
               {error || readError?.message}

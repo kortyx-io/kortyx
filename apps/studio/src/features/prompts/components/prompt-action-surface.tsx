@@ -76,7 +76,7 @@ export function PromptActionSurface({
           }
         }}
       >
-        <div className="space-y-1 border-b px-5 py-4 pr-12">
+        <div className="shrink-0 space-y-1 border-b px-5 py-4 pr-12">
           <DialogTitle className="text-sm font-semibold">
             {props.title}
           </DialogTitle>
@@ -84,8 +84,10 @@ export function PromptActionSurface({
             {props.description}
           </DialogDescription>
         </div>
-        <div className="min-h-0 overflow-y-auto">{props.children}</div>
-        <div className="flex flex-wrap justify-end gap-2 border-t px-5 py-3">
+        <div className="min-h-0 overflow-y-auto overscroll-contain [scrollbar-width:thin]">
+          {props.children}
+        </div>
+        <div className="flex shrink-0 flex-wrap justify-end gap-2 border-t px-5 py-3">
           <Button
             ref={cancel}
             data-action-cancel

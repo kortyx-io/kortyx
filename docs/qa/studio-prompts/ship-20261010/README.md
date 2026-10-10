@@ -45,7 +45,7 @@ Used `examples/kortyx-prompts/src/server.ts` with a temporary QA prompt key and 
 
 ## Follow-up: promotion help and evaluation picker
 
-- Promotion readiness has a keyboard-accessible help icon on the right. Its tooltip explains the prompt-specific policy; clicking opens that prompt’s policy modal without stacking dialogs or reloading the prompt.
+- Promotion readiness has a keyboard-accessible help icon on the right. Its tooltip explains the prompt-specific policy with natural, full-width text wrapping. The icon has no navigation action; a separate Promotion settings link opens that prompt’s policy modal without stacking dialogs or reloading the prompt.
 - Application · Environment precedes Prompt versions. The drawer explains that only prompts registered by the selected application can affect its evaluation.
 - Prompt search lives inside the picker. Manual browser checks covered an empty result, search recovery, Arrow Down / Enter selection, and Escape closing only the menu.
 - Long option labels truncate on one line at the trigger width and expose their full text with native `title` attributes. Versions without notes show only their version number.
@@ -58,3 +58,16 @@ Used `examples/kortyx-prompts/src/server.ts` with a temporary QA prompt key and 
 - Live now uses a green chip with a green status dot in both history layouts, the prompt header, library and tag management. Optional tags use softer neutral chips, including compact history. Browser appearance and Studio typecheck verified.
 
 ![Live and optional tag chips](prompt-live-tags.png)
+
+
+## Follow-up: scrolling and navigation titles
+
+- Version history fills its available sidebar height instead of using an arbitrary viewport offset, with an independent platform scrollbar and a fixed history toggle. Prompt content and desktop/compact category trees also use bounded platform scroll areas.
+- Long action modals keep their headers and footers fixed while the body scrolls. Evaluation/group/create drawers, comparison content and policy suite lists retain bounded scrolling with thin scrollbars; outer scroll regions contain wheel overscroll.
+- Manual wheel checks on the eight-version Classify intent prompt reached v1 and the bottom of prompt content independently at 1440×700. A 1440×450 policy modal reached its last suite while Save/Cancel and its header stayed visible.
+- The workspace breadcrumb uses the prompt title from the mounted detail data and follows revalidation/renames without another request. Unknown titles initially say Prompt rather than displaying the UUID. The version menu now says Code helper.
+- Responsive drawer/table/history/category/policy regressions: 9 passed including setup/cleanup. Follow-up continuity/history/help checks: 5 passed including setup/cleanup. The 104-version regression verifies wheel scrolling to pagination, full-height history and breadcrumb updates. Navigation unit tests: 18 passed. Studio typecheck passed.
+
+![Independent prompt scroll regions and named breadcrumb](prompt-scroll-regions.png)
+
+![Policy content remains reachable in a short window](policy-short-viewport.png)

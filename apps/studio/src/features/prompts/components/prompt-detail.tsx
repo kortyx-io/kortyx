@@ -18,6 +18,7 @@ import { parseAsBoolean, parseAsInteger, parseAsStringLiteral } from "nuqs";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { DetailDrawer } from "@/components/detail/detail-drawer";
 import { DetailPage } from "@/components/detail/detail-page";
+import { useWorkspaceLabel } from "@/components/layouts/workspace-labels";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -39,6 +40,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Tooltip,
   TooltipContent,
@@ -142,6 +144,7 @@ export function PromptDetailView({
     refresh: refreshDetail,
     error: detailError,
   } = usePromptDetail(initial, inspectedVersion, query.edit || working);
+  useWorkspaceLabel(`/prompts/${detail.asset.id}`, detail.asset.name);
   const { data: library = initialLibrary } = usePromptLibrary(initialLibrary);
   const refreshPromptData = useRefreshPromptData();
   const readError = detailError?.message ?? "";
@@ -575,7 +578,7 @@ export function PromptDetailView({
         Review this version
       </DropdownMenuItem>
       <DropdownMenuItem onSelect={() => showPanel("code", version)}>
-        Pinned code helper
+        Code helper
       </DropdownMenuItem>
       <DropdownMenuItem
         onSelect={() => {
@@ -1010,12 +1013,12 @@ export function PromptDetailView({
         <div className="flex min-h-0 min-w-0 flex-1">
           <aside
             data-prompt-version-history
-            className={`${query.history ? "w-56" : "w-12"} hidden shrink-0 border-r @2xl/prompt-detail:block`}
+            className={`${query.history ? "w-56" : "w-12"} hidden min-h-0 shrink-0 flex-col border-r @2xl/prompt-detail:flex`}
           >
             <Button
               size="sm"
               variant="ghost"
-              className="m-2 flex max-w-full items-center gap-2"
+              className="m-2 flex max-w-full shrink-0 items-center gap-2 self-start"
               aria-expanded={query.history}
               onClick={() => void setQuery({ history: !query.history })}
             >
@@ -1027,233 +1030,251 @@ export function PromptDetailView({
               </span>
             </Button>
             {query.history && (
-              <div className="max-h-[calc(100dvh-22rem)] space-y-1 overflow-y-auto px-2 pb-2">
-                {hasDraft && (
-                  <button
-                    type="button"
-                    aria-label="Open draft in history"
-                    onClick={() => void openDraft()}
-                    className={`flex w-full items-center justify-between gap-2 rounded-md px-2 py-3 text-left text-xs ${query.edit ? "bg-muted" : "hover:bg-muted/50"}`}
-                  >
-                    <span>Based on v{draftBase.current}</span>
-                    <span className="rounded bg-amber-500/10 px-1.5 py-0.5 text-amber-700 dark:text-amber-400">
-                      Draft
-                    </span>
-                  </button>
-                )}
-                {detail.versions.map((version) => (
-                  <div
-                    key={version.version}
-                    className={`flex items-start gap-1 rounded-md ${!query.edit && selected.version === version.version ? "bg-muted" : "hover:bg-muted/50"}`}
-                  >
+              <ScrollArea
+                type="auto"
+                className="min-h-0 flex-1"
+                viewportClassName="overscroll-contain"
+              >
+                <div className="space-y-1 px-2 pb-2">
+                  {hasDraft && (
                     <button
                       type="button"
-                      className="min-w-0 flex-1 space-y-1 px-2 py-3 text-left"
-                      onClick={() => selectVersion(version.version)}
+                      aria-label="Open draft in history"
+                      onClick={() => void openDraft()}
+                      className={`flex w-full items-center justify-between gap-2 rounded-md px-2 py-3 text-left text-xs ${query.edit ? "bg-muted" : "hover:bg-muted/50"}`}
                     >
-                      <span className="flex items-center justify-between gap-2 text-xs font-medium">
-                        <span>v{version.version}</span>
-                        {detail.asset.assignments.some(
-                          (item) =>
-                            item.tag === "live" &&
-                            item.version === version.version,
-                        ) && <PromptLiveBadge />}
-                      </span>
-                      {detail.asset.assignments.some(
-                        (item) =>
-                          item.version === version.version &&
-                          item.tag !== "live",
-                      ) && (
-                        <span className="flex flex-wrap gap-1">
-                          {detail.asset.assignments
-                            .filter(
-                              (item) =>
-                                item.version === version.version &&
-                                item.tag !== "live",
-                            )
-                            .map((item) => (
-                              <PromptTagBadge key={item.tag} tag={item.tag} />
-                            ))}
-                        </span>
-                      )}
-                      <span
-                        className="block truncate text-[11px] text-muted-foreground"
-                        title={version.note}
-                      >
-                        {version.note}
-                      </span>
-                      <span className="block text-[10px] text-muted-foreground">
-                        {new Date(version.createdAt).toLocaleDateString()}
+                      <span>Based on v{draftBase.current}</span>
+                      <span className="rounded bg-amber-500/10 px-1.5 py-0.5 text-amber-700 dark:text-amber-400">
+                        Draft
                       </span>
                     </button>
-                    <DropdownMenu modal={false}>
-                      <DropdownMenuTrigger asChild>
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          className="mt-1 size-8 shrink-0"
-                          aria-label={`Version ${version.version} actions`}
-                        >
-                          <MoreHorizontal className="size-3.5" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent
-                        align="end"
-                        className="data-[state=closed]:animate-none!"
+                  )}
+                  {detail.versions.map((version) => (
+                    <div
+                      key={version.version}
+                      className={`flex items-start gap-1 rounded-md ${!query.edit && selected.version === version.version ? "bg-muted" : "hover:bg-muted/50"}`}
+                    >
+                      <button
+                        type="button"
+                        className="min-w-0 flex-1 space-y-1 px-2 py-3 text-left"
+                        onClick={() => selectVersion(version.version)}
                       >
-                        {versionActions(version)}
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </div>
-                ))}
-                {detail.versionsNextCursor && (
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    disabled={working}
-                    onClick={() => void loadOlderVersions()}
-                  >
-                    Load older versions
-                  </Button>
-                )}
-              </div>
+                        <span className="flex items-center justify-between gap-2 text-xs font-medium">
+                          <span>v{version.version}</span>
+                          {detail.asset.assignments.some(
+                            (item) =>
+                              item.tag === "live" &&
+                              item.version === version.version,
+                          ) && <PromptLiveBadge />}
+                        </span>
+                        {detail.asset.assignments.some(
+                          (item) =>
+                            item.version === version.version &&
+                            item.tag !== "live",
+                        ) && (
+                          <span className="flex flex-wrap gap-1">
+                            {detail.asset.assignments
+                              .filter(
+                                (item) =>
+                                  item.version === version.version &&
+                                  item.tag !== "live",
+                              )
+                              .map((item) => (
+                                <PromptTagBadge key={item.tag} tag={item.tag} />
+                              ))}
+                          </span>
+                        )}
+                        <span
+                          className="block truncate text-[11px] text-muted-foreground"
+                          title={version.note}
+                        >
+                          {version.note}
+                        </span>
+                        <span className="block text-[10px] text-muted-foreground">
+                          {new Date(version.createdAt).toLocaleDateString()}
+                        </span>
+                      </button>
+                      <DropdownMenu modal={false}>
+                        <DropdownMenuTrigger asChild>
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="mt-1 size-8 shrink-0"
+                            aria-label={`Version ${version.version} actions`}
+                          >
+                            <MoreHorizontal className="size-3.5" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent
+                          align="end"
+                          className="data-[state=closed]:animate-none!"
+                        >
+                          {versionActions(version)}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
+                  ))}
+                  {detail.versionsNextCursor && (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      disabled={working}
+                      onClick={() => void loadOlderVersions()}
+                    >
+                      Load older versions
+                    </Button>
+                  )}
+                </div>
+              </ScrollArea>
             )}
           </aside>
-          <main
-            className={`min-h-0 min-w-0 flex-1 ${query.tab === "runs" || query.tab === "evals" ? "overflow-hidden" : "overflow-y-auto p-5"}`}
-          >
-            {hasDraft && (
+          <main className="min-h-0 min-w-0 flex-1 overflow-hidden">
+            <ScrollArea
+              type="auto"
+              className="h-full"
+              viewportClassName="overscroll-contain"
+            >
               <div
-                hidden={!query.edit || query.tab !== "content"}
-                className="w-full space-y-5"
+                className={
+                  query.tab === "runs" || query.tab === "evals"
+                    ? "h-full"
+                    : "min-h-full p-5"
+                }
               >
-                <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border bg-muted/30 px-3 py-2">
-                  <p className="text-xs">
-                    <span className="mr-2 rounded bg-amber-500/10 px-1.5 py-0.5 text-amber-700 dark:text-amber-400">
-                      Draft
-                    </span>
-                    Based on v{draftBase.current} ·{" "}
-                    <output>
-                      {fieldsValid
-                        ? autosave
-                        : "Invalid fields · changes are not saved"}
-                    </output>
-                  </p>
-                </div>
-                <PromptFields
-                  library={library}
-                  ownKey={detail.asset.key}
-                  value={content}
-                  onChange={updateDraft}
-                  onValidityChange={setFieldsValid}
-                  disabled={Boolean(compare) || working}
-                />
-              </div>
-            )}
-            {query.tab === "content" ? (
-              !query.edit && (
-                <PromptFields
-                  library={library}
-                  ownKey={detail.asset.key}
-                  key={`${detail.asset.id}:${selected.version}`}
-                  value={selected.content}
-                  onChange={() => {}}
-                  disabled
-                />
-              )
-            ) : query.tab === "evals" || query.tab === "runs" ? (
-              <PromptTables
-                key={`${detail.asset.id}:${selected.version}:${query.tab}`}
-                id={detail.asset.id}
-                version={selected.version}
-                kind={query.tab}
-                evidence={evidence}
-                canTest={targets.canRun && Boolean(applicable)}
-                onTest={() => test(selected)}
-              />
-            ) : query.tab === "reviews" ? (
-              <section
-                aria-label={`Reviews for v${selected.version}`}
-                className="space-y-4"
-              >
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <div className="space-y-1">
-                    <h2 className="text-sm font-semibold">
-                      Reviews for v{selected.version}
-                    </h2>
-                    <p className="text-xs text-muted-foreground">
-                      Saved notes for this version. Independent human reviews
-                      count toward its promotion policy.
-                    </p>
-                  </div>
-                  <Button
-                    size="sm"
-                    disabled={!permissions.review}
-                    onClick={() => showPanel("review", selected)}
+                {hasDraft && (
+                  <div
+                    hidden={!query.edit || query.tab !== "content"}
+                    className="w-full space-y-5"
                   >
-                    Review this version
-                  </Button>
-                </div>
-                {selectedReviews.length === 0 ? (
-                  <p className="py-8 text-center text-sm text-muted-foreground">
-                    No reviews yet for v{selected.version}.
-                  </p>
-                ) : (
-                  selectedReviews.map((review) => (
-                    <article
-                      key={`${review.version}:${review.reviewer}`}
-                      className="space-y-3 rounded-lg border p-4"
-                    >
-                      <div className="flex flex-wrap items-start justify-between gap-2">
-                        <div className="min-w-0 space-y-1">
-                          <p className="break-all text-xs font-medium">
-                            {review.reviewer}
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            {review.independent
-                              ? "Independent human review"
-                              : "Does not count toward independent reviews"}
-                          </p>
-                        </div>
-                        <time
-                          dateTime={review.createdAt}
-                          className="text-xs text-muted-foreground"
-                        >
-                          {new Date(review.createdAt).toLocaleString()}
-                        </time>
-                      </div>
-                      <p className="whitespace-pre-wrap break-words text-sm">
-                        {review.note}
+                    <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border bg-muted/30 px-3 py-2">
+                      <p className="text-xs">
+                        <span className="mr-2 rounded bg-amber-500/10 px-1.5 py-0.5 text-amber-700 dark:text-amber-400">
+                          Draft
+                        </span>
+                        Based on v{draftBase.current} ·{" "}
+                        <output>
+                          {fieldsValid
+                            ? autosave
+                            : "Invalid fields · changes are not saved"}
+                        </output>
                       </p>
-                    </article>
-                  ))
-                )}
-              </section>
-            ) : (
-              <div className="space-y-3">
-                <h2 className="text-xs font-semibold">Activity</h2>
-                {detail.activity.map((item) => (
-                  <div key={item.id} className="rounded-lg border p-4">
-                    <div className="flex flex-wrap justify-between gap-2">
-                      <p className="text-xs font-medium capitalize">
-                        {item.action}
-                      </p>
-                      <time className="text-[11px] text-muted-foreground">
-                        {new Date(item.createdAt).toLocaleString()}
-                      </time>
                     </div>
-                    <p className="mt-1 break-all font-mono text-[11px] text-muted-foreground">
-                      {item.actor}
-                    </p>
-                    {typeof item.details.exceptionReason === "string" && (
-                      <p className="mt-2 text-xs">
-                        Exception: {item.details.exceptionReason}
-                      </p>
-                    )}
+                    <PromptFields
+                      library={library}
+                      ownKey={detail.asset.key}
+                      value={content}
+                      onChange={updateDraft}
+                      onValidityChange={setFieldsValid}
+                      disabled={Boolean(compare) || working}
+                    />
                   </div>
-                ))}
+                )}
+                {query.tab === "content" ? (
+                  !query.edit && (
+                    <PromptFields
+                      library={library}
+                      ownKey={detail.asset.key}
+                      key={`${detail.asset.id}:${selected.version}`}
+                      value={selected.content}
+                      onChange={() => {}}
+                      disabled
+                    />
+                  )
+                ) : query.tab === "evals" || query.tab === "runs" ? (
+                  <PromptTables
+                    key={`${detail.asset.id}:${selected.version}:${query.tab}`}
+                    id={detail.asset.id}
+                    version={selected.version}
+                    kind={query.tab}
+                    evidence={evidence}
+                    canTest={targets.canRun && Boolean(applicable)}
+                    onTest={() => test(selected)}
+                  />
+                ) : query.tab === "reviews" ? (
+                  <section
+                    aria-label={`Reviews for v${selected.version}`}
+                    className="space-y-4"
+                  >
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <div className="space-y-1">
+                        <h2 className="text-sm font-semibold">
+                          Reviews for v{selected.version}
+                        </h2>
+                        <p className="text-xs text-muted-foreground">
+                          Saved notes for this version. Independent human
+                          reviews count toward its promotion policy.
+                        </p>
+                      </div>
+                      <Button
+                        size="sm"
+                        disabled={!permissions.review}
+                        onClick={() => showPanel("review", selected)}
+                      >
+                        Review this version
+                      </Button>
+                    </div>
+                    {selectedReviews.length === 0 ? (
+                      <p className="py-8 text-center text-sm text-muted-foreground">
+                        No reviews yet for v{selected.version}.
+                      </p>
+                    ) : (
+                      selectedReviews.map((review) => (
+                        <article
+                          key={`${review.version}:${review.reviewer}`}
+                          className="space-y-3 rounded-lg border p-4"
+                        >
+                          <div className="flex flex-wrap items-start justify-between gap-2">
+                            <div className="min-w-0 space-y-1">
+                              <p className="break-all text-xs font-medium">
+                                {review.reviewer}
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                {review.independent
+                                  ? "Independent human review"
+                                  : "Does not count toward independent reviews"}
+                              </p>
+                            </div>
+                            <time
+                              dateTime={review.createdAt}
+                              className="text-xs text-muted-foreground"
+                            >
+                              {new Date(review.createdAt).toLocaleString()}
+                            </time>
+                          </div>
+                          <p className="whitespace-pre-wrap break-words text-sm">
+                            {review.note}
+                          </p>
+                        </article>
+                      ))
+                    )}
+                  </section>
+                ) : (
+                  <div className="space-y-3">
+                    <h2 className="text-xs font-semibold">Activity</h2>
+                    {detail.activity.map((item) => (
+                      <div key={item.id} className="rounded-lg border p-4">
+                        <div className="flex flex-wrap justify-between gap-2">
+                          <p className="text-xs font-medium capitalize">
+                            {item.action}
+                          </p>
+                          <time className="text-[11px] text-muted-foreground">
+                            {new Date(item.createdAt).toLocaleString()}
+                          </time>
+                        </div>
+                        <p className="mt-1 break-all font-mono text-[11px] text-muted-foreground">
+                          {item.actor}
+                        </p>
+                        {typeof item.details.exceptionReason === "string" && (
+                          <p className="mt-2 text-xs">
+                            Exception: {item.details.exceptionReason}
+                          </p>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
-            )}
+            </ScrollArea>
           </main>
         </div>
       </PromptWorkspace>
@@ -1645,27 +1666,21 @@ export function PromptDetailView({
                       <p className="font-medium">Promotion readiness</p>
                       <Tooltip>
                         <TooltipTrigger asChild>
-                          <Button
+                          <button
                             type="button"
-                            variant="ghost"
-                            size="icon"
-                            className="size-6 text-muted-foreground"
-                            aria-label="Open prompt promotion settings"
-                            aria-disabled={!library.permissions.settings}
-                            onClick={() => {
-                              if (library.permissions.settings)
-                                showPanel("policy", panel.version);
-                            }}
+                            aria-label="About promotion readiness"
+                            className="inline-flex size-6 cursor-help items-center justify-center rounded-sm text-muted-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring"
                           >
                             <CircleHelp className="size-4" />
-                          </Button>
+                          </button>
                         </TooltipTrigger>
-                        <TooltipContent className="max-w-72" side="top">
+                        <TooltipContent
+                          className="max-w-72 text-wrap text-left"
+                          side="top"
+                        >
                           These requirements come from this prompt’s promotion
-                          settings.{" "}
-                          {library.permissions.settings
-                            ? "Click to review or change them."
-                            : "Ask a project administrator to change them."}
+                          settings. Review the promotion settings to see which
+                          checks are required before making a version live.
                         </TooltipContent>
                       </Tooltip>
                     </div>
@@ -1698,6 +1713,15 @@ export function PromptDetailView({
                       live companion prompts. Individual tests remain available
                       as supporting evidence.
                     </p>
+                    {library.permissions.settings && (
+                      <button
+                        type="button"
+                        className="text-xs underline underline-offset-4 hover:text-foreground focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        onClick={() => showPanel("policy", panel.version)}
+                      >
+                        Promotion settings
+                      </button>
+                    )}
                     {((destinationPolicy?.requireTest !== false &&
                       !eligible.length) ||
                       missingSuites.length > 0) && (
