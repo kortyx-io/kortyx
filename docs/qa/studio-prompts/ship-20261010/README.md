@@ -54,3 +54,7 @@ Used `examples/kortyx-prompts/src/server.ts` with a temporary QA prompt key and 
 ![Promotion policy help](promotion-settings-help.png)
 
 ![Application first and compact version options](eval-picker-layout.png)
+
+- Live now uses a green chip with a green status dot in both history layouts, the prompt header, library and tag management. Optional tags use softer neutral chips, including compact history. Browser appearance and Studio typecheck verified.
+
+![Live and optional tag chips](prompt-live-tags.png)

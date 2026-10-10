@@ -10,6 +10,7 @@ import {
 } from "react";
 import { useDetailDrawer } from "@/components/detail/detail-drawer";
 import { Button } from "@/components/ui/button";
+import { PromptLiveBadge } from "./prompt-badges";
 
 const OverflowContext = createContext(true);
 
@@ -90,10 +91,11 @@ export function PromptDetailHeader({
               · {category}
             </span>
             {version !== undefined && (
-              <span className="shrink-0">
+              <span className="flex shrink-0 items-center gap-1.5">
                 {draft
                   ? `· Based on v${version} · Draft`
-                  : `· v${version} · ${live ? "Live" : "Candidate"}`}
+                  : `· v${version}${live ? "" : " · Candidate"}`}
+                {!draft && live && <PromptLiveBadge />}
               </span>
             )}
           </div>

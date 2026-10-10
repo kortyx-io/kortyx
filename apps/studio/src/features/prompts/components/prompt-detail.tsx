@@ -64,6 +64,7 @@ import {
   PromptAssetActionDialog,
   PromptAssetMenu,
 } from "./prompt-asset-actions";
+import { PromptLiveBadge, PromptTagBadge } from "./prompt-badges";
 import { PromptConfirmation } from "./prompt-confirmation";
 import {
   PromptDetailHeader,
@@ -950,13 +951,29 @@ export function PromptDetailView({
                             (item) =>
                               item.tag === "live" &&
                               item.version === version.version,
-                          ) && (
-                            <span className="text-[10px] text-emerald-700 dark:text-emerald-400">
-                              Live
-                            </span>
-                          )}
+                          ) && <PromptLiveBadge />}
                         </span>
-                        <span className="block text-[11px] text-muted-foreground">
+                        {detail.asset.assignments.some(
+                          (item) =>
+                            item.version === version.version &&
+                            item.tag !== "live",
+                        ) && (
+                          <span className="flex flex-wrap gap-1">
+                            {detail.asset.assignments
+                              .filter(
+                                (item) =>
+                                  item.version === version.version &&
+                                  item.tag !== "live",
+                              )
+                              .map((item) => (
+                                <PromptTagBadge key={item.tag} tag={item.tag} />
+                              ))}
+                          </span>
+                        )}
+                        <span
+                          className="block truncate text-[11px] text-muted-foreground"
+                          title={version.note}
+                        >
                           {version.note}
                         </span>
                         <span className="block text-[10px] text-muted-foreground">
@@ -1040,36 +1057,23 @@ export function PromptDetailView({
                           (item) =>
                             item.tag === "live" &&
                             item.version === version.version,
-                        ) && (
-                          <span className="text-[10px] text-emerald-700 dark:text-emerald-400">
-                            Live
-                          </span>
-                        )}
+                        ) && <PromptLiveBadge />}
                       </span>
                       {detail.asset.assignments.some(
                         (item) =>
                           item.version === version.version &&
                           item.tag !== "live",
                       ) && (
-                        <span
-                          className="block truncate text-[10px] text-sky-700 dark:text-sky-400"
-                          title={detail.asset.assignments
-                            .filter(
-                              (item) =>
-                                item.version === version.version &&
-                                item.tag !== "live",
-                            )
-                            .map((item) => item.tag)
-                            .join(", ")}
-                        >
+                        <span className="flex flex-wrap gap-1">
                           {detail.asset.assignments
                             .filter(
                               (item) =>
                                 item.version === version.version &&
                                 item.tag !== "live",
                             )
-                            .map((item) => item.tag)
-                            .join(" · ")}
+                            .map((item) => (
+                              <PromptTagBadge key={item.tag} tag={item.tag} />
+                            ))}
                         </span>
                       )}
                       <span
@@ -1475,13 +1479,11 @@ export function PromptDetailView({
               <div className="flex flex-wrap gap-2">
                 {detail.asset.assignments
                   .filter((item) => item.version === panel.version.version)
-                  .map((item) => (
-                    <span
-                      key={item.tag}
-                      className="inline-flex items-center gap-2 rounded-md border bg-muted/40 px-2 py-1 text-xs"
-                    >
-                      {item.tag}
-                      {item.tag !== "live" && (
+                  .map((item) =>
+                    item.tag === "live" ? (
+                      <PromptLiveBadge key={item.tag} />
+                    ) : (
+                      <PromptTagBadge key={item.tag} tag={item.tag}>
                         <button
                           type="button"
                           aria-label={`Remove tag ${item.tag}`}
@@ -1503,9 +1505,9 @@ export function PromptDetailView({
                         >
                           ×
                         </button>
-                      )}
-                    </span>
-                  ))}
+                      </PromptTagBadge>
+                    ),
+                  )}
               </div>
               <label
                 htmlFor="prompt-tag-name"

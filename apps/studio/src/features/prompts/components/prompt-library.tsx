@@ -52,6 +52,7 @@ import {
   PromptAssetActionDialog,
   PromptAssetMenu,
 } from "./prompt-asset-actions";
+import { PromptLiveBadge } from "./prompt-badges";
 import { PromptBulkActions } from "./prompt-bulk-actions";
 import { PromptDiff } from "./prompt-diff";
 import { PromptFields, validateEditor } from "./prompt-fields";
@@ -301,12 +302,10 @@ export function PromptLibraryView({
       defaultWidth: 125,
       render: (asset) => {
         const live = asset.assignments.find((item) => item.tag === "live");
-        return (
-          <span
-            className={`text-xs ${live ? "text-emerald-700 dark:text-emerald-400" : "text-muted-foreground"}`}
-          >
-            {live ? `v${live.version}` : "Not live"}
-          </span>
+        return live ? (
+          <PromptLiveBadge version={live.version} />
+        ) : (
+          <span className="text-xs text-muted-foreground">Not live</span>
         );
       },
     },
