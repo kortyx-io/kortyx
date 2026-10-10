@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.30.0](https://github.com/kortyx-io/kortyx/compare/kortyx-v0.29.3...kortyx-v0.30.0) (2026-10-10)
+
+
+### Features
+
+* version, evaluate, serve and migrate Studio prompts ([#288](https://github.com/kortyx-io/kortyx/issues/288)) ([0802f8b](https://github.com/kortyx-io/kortyx/commit/0802f8b91c4a541d176dd8a75c659063e2c28c8c))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/agent bumped to 0.36.0
+    * @kortyx/cli bumped to 0.18.0
+    * @kortyx/hooks bumped to 0.33.0
+    * @kortyx/runtime bumped to 0.23.0
+    * @kortyx/prompts bumped to 0.1.0
+
 ## [0.29.3](https://github.com/kortyx-io/kortyx/compare/kortyx-v0.29.2...kortyx-v0.29.3) (2026-10-09)
 
 

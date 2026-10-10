@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.49.0](https://github.com/kortyx-io/kortyx/compare/website-v0.48.0...website-v0.49.0) (2026-10-10)
+
+
+### Features
+
+* version, evaluate, serve and migrate Studio prompts ([#288](https://github.com/kortyx-io/kortyx/issues/288)) ([0802f8b](https://github.com/kortyx-io/kortyx/commit/0802f8b91c4a541d176dd8a75c659063e2c28c8c))
+
 ## [0.48.0](https://github.com/kortyx-io/kortyx/compare/website-v0.47.0...website-v0.48.0) (2026-10-09)
 
 

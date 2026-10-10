@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.16.0](https://github.com/kortyx-io/kortyx/compare/telemetry-contracts-v0.15.0...telemetry-contracts-v0.16.0) (2026-10-10)
+
+
+### Features
+
+* version, evaluate, serve and migrate Studio prompts ([#288](https://github.com/kortyx-io/kortyx/issues/288)) ([0802f8b](https://github.com/kortyx-io/kortyx/commit/0802f8b91c4a541d176dd8a75c659063e2c28c8c))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/prompts bumped to 0.1.0
+
 ## [0.15.0](https://github.com/kortyx-io/kortyx/compare/telemetry-contracts-v0.14.0...telemetry-contracts-v0.15.0) (2026-10-08)
 
 
