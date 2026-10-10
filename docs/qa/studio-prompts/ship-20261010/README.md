@@ -19,8 +19,6 @@ Used `examples/kortyx-prompts/src/server.ts` with a temporary QA prompt key and 
 4. After clarifying the criteria, evaluation **`19a3d9b5-392b-4e5f-b9ed-47d2140e5348`** completed **2/2 passed, zero failures/errors**, in 6.44 seconds. Workflow cost was $0.000014; judge cost $0.000279; total $0.000293.
 5. Suite run **`2fd8603b-44f6-4107-a2b4-af3b5d10f31f`** showed both cases passing. The sales case's model assessment explicitly confirmed the label. The prompt's v3 Evals tab attached both real-model results with **Usage verified**. Candidate v3 includes a pinned prompt dependency, so this also exercised real-model composition and provenance.
 
-![Real-model suite passed](real-model-suite.png)
-
 ## Local checks
 
 - Studio unit suite: **255 passed** across 46 files.
@@ -29,7 +27,6 @@ Used `examples/kortyx-prompts/src/server.ts` with a temporary QA prompt key and 
 - Changed TypeScript files: Biome and whitespace checks passed.
 - Example TypeScript: passed. Its two opt-in transport tests were skipped by the default invocation; the real application/browser flow above exercised the transport directly.
 - Patched Compose stage: built and executable; final API image vulnerability scan remains enforced in CI.
-
 
 ## Follow-up: notes and prompt-local evaluation launch
 
@@ -40,9 +37,6 @@ Used `examples/kortyx-prompts/src/server.ts` with a temporary QA prompt key and 
 - Focused browser regressions: 5 passed including setup/cleanup; assert no route requests or disappearing prompt surfaces after launch, optional/required note behavior, and short/blank exception validation.
 - Database/policy plus fresh migration tests: 38 passed. Studio unit tests: 255 passed. CLI prompt tests: 5 passed.
 
-![Evaluation stays attached to the prompt](prompt-local-evaluation.png)
-
-
 ## Follow-up: promotion help and evaluation picker
 
 - Promotion readiness has a keyboard-accessible help icon on the right. Its tooltip explains the prompt-specific policy with natural, full-width text wrapping. The icon has no navigation action; a separate Promotion settings link opens that prompt’s policy modal without stacking dialogs or reloading the prompt.
@@ -51,14 +45,7 @@ Used `examples/kortyx-prompts/src/server.ts` with a temporary QA prompt key and 
 - Long option labels truncate on one line at the trigger width and expose their full text with native `title` attributes. Versions without notes show only their version number.
 - Focused promotion/navigation browser regressions: 4 passed, including setup/cleanup. Studio TypeScript passed.
 
-![Promotion policy help](promotion-settings-help.png)
-
-![Application first and compact version options](eval-picker-layout.png)
-
 - Live now uses a green chip with a green status dot in both history layouts, the prompt header, library and tag management. Optional tags use softer neutral chips, including compact history. Browser appearance and Studio typecheck verified.
-
-![Live and optional tag chips](prompt-live-tags.png)
-
 
 ## Follow-up: scrolling and navigation titles
 
@@ -67,7 +54,3 @@ Used `examples/kortyx-prompts/src/server.ts` with a temporary QA prompt key and 
 - Manual wheel checks on the eight-version Classify intent prompt reached v1 and the bottom of prompt content independently at 1440×700. A 1440×450 policy modal reached its last suite while Save/Cancel and its header stayed visible.
 - The workspace breadcrumb uses the prompt title from the mounted detail data and follows revalidation/renames without another request. Unknown titles initially say Prompt rather than displaying the UUID. The version menu now says Code helper.
 - Responsive drawer/table/history/category/policy regressions: 9 passed including setup/cleanup. Follow-up continuity/history/help checks: 5 passed including setup/cleanup. The 104-version regression verifies wheel scrolling to pagination, full-height history and breadcrumb updates. Navigation unit tests: 18 passed. Studio typecheck passed.
-
-![Independent prompt scroll regions and named breadcrumb](prompt-scroll-regions.png)
-
-![Policy content remains reachable in a short window](policy-short-viewport.png)

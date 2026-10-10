@@ -73,13 +73,3 @@ The original Studio remains running on 6341. The QA examples and data remain ava
 | Two-call fixture mismatch | `afd46d4b-ff58-4c92-a7a9-6fb34b25c423` — 0/2 passed, expected fixture mismatch |
 | Two-prompt full suite | `df4da6c2-9d4b-4b69-8c9d-634f2031f810` — 2/2 passed |
 | Ordinary live request | `run-b8b694a4-a8d4-49c9-959f-d685121fd2c5` — sales |
-
-## Screenshots
-
-![Verified usage on the companion prompt](companion-evaluations.jpg)
-
-![Exact configuration diff after navigation, invalid input, format and undo](json-editor-diff.jpg)
-
-![Mobile prompt controls](mobile-prompt.jpg)
-
-Additional captures: [full suite](multi-prompt-suite.jpg), [review](review.jpg), [promotion](promoted.jpg), [live run](live-runs.jpg), [composition diff](composition-diff.jpg), [rollback](rollback.jpg), [verified import](import-verified.jpg), [mobile categories](mobile-categories.jpg), [tablet drawer](tablet-drawer.jpg), [invalid draft](invalid-draft.jpg), [light desktop](light-desktop.jpg), [saved configuration](saved-configuration.jpg).

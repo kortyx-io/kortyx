@@ -1,5 +1,9 @@
 # Studio prompts verification
 
+QA screenshots are generated artifacts, not visual regression baselines. They are
+kept outside version control. Automated captures use Playwright’s ignored
+`apps/studio/test-results/` directory; CI retains failure artifacts.
+
 Latest: [2026-10-10 CI fixes and real-model smoke](ship-20261010/README.md). Full preceding [manual browser E2E](manual-20261010/README.md).
 
 Verified against the production Studio build on 2026-10-08. All data shown is a local test fixture.
@@ -45,37 +49,6 @@ The production build passed **31 browser checks** spanning the existing drawer-s
 
 Manually reviewed the final production UI on desktop, 768×1024 tablet and 390×844 mobile. Confirmed full-width message fields beside the compact selector, wrapped change notes inside its menu, and space reserved beside desktop inspectors. Temporary viewport overrides were reset after review.
 
-![Flat prompt library table](desktop-library-flat.png)
-
-![Compact history menu in a desktop drawer](desktop-history-menu.png)
-
-![Prompt content alongside its nested inspector](desktop-inspector-spacing.png)
-
-![Tablet prompt content using the compact history selector](tablet-history-content.png)
-
-![Mobile version history menu](mobile-history-menu.png)
-
-### Desktop version comparison
-
-![Aligned messages and configuration differences](desktop-diff.jpg)
-
-### Tablet prompt content
-
-![Tablet prompt content and version history](tablet-content.jpg)
-
-### Mobile attached evaluations
-
-![Individual and full-suite evidence on mobile](mobile-evidence.jpg)
-
-### Mobile individual-case launch
-
-![Candidate prompt and individual case selection](mobile-eval-launch.jpg)
-
-### Mobile save review
-
-![Save review with required note and visible action buttons](mobile-save-review.jpg)
-
-
 ### Prompt editor and composition follow-up
 
 Replaced message textareas with TipTap's native plain-text document, Mention and
@@ -111,16 +84,6 @@ with 19 tests. Studio's 244 unit tests and the production build passed.
 
 Inspected the production editor and native inclusion menu on desktop, tablet
 and mobile, then restored the browser viewport.
-
-![Full-width native prompt editor](desktop-tiptap-editor.png)
-
-![Native prompt and version picker](desktop-prompt-inclusion-picker.png)
-
-![Tablet prompt editor](tablet-tiptap-editor.png)
-
-![Mobile prompt editor](mobile-tiptap-editor.png)
-
-![Completed evaluation of the composed prompt in the example application](composed-example-evaluation.png)
 
 ### First-frame drawer keyboard regression
 
@@ -165,12 +128,6 @@ Run drawer nesting/restoration, eval navigation, and full-area empty tables at
 1440px, 768px and 390px. API integration checks cover evaluation grouping,
 empty run selection, invalid versions and serve-only authorization.
 
-![Prompt Runs table](desktop-prompt-runs-table.png)
-
-![Prompt Evals table](desktop-prompt-evals-table.png)
-
-![Mobile Prompt Evals table](mobile-prompt-evals-table.png)
-
 Final validation after this change: **41 browser checks passed in development
 and 41 in production** (39 scenarios plus fixture setup/cleanup), including
 all evaluation launch, drawer-stack, prompt and responsive scenarios. All
@@ -188,10 +145,6 @@ reproduced a 9.5px upward offset in the previous production build and now
 checks alignment, header overflow and repeated dismissal at desktop, tablet
 and mobile widths. The production promotion panel was visually reviewed at
 1440px and 390px.
-
-![Desktop promotion header](desktop-promotion-header.png)
-
-![Mobile promotion header](mobile-promotion-header.png)
 
 After the header fix, **37 drawer/prompt/responsive browser checks passed
 in development and 37 in production**. Studio typecheck, repository lint
@@ -215,10 +168,6 @@ fields, keeping edits, Escape, reload and the delayed-autosave race.
 
 Reviewed the live UI at 1440×1000 and 390×844. The unavailable Test version action
 is hidden during editing so the mobile action row remains compact.
-
-![Desktop cancel confirmation](desktop-cancel-confirmation.png)
-
-![Mobile cancel confirmation](mobile-cancel-confirmation.png)
 
 Integrated current main's diagnostics and eval attempt scheduling. The prompt
 migration now follows diagnostics as `0009_prompt_management.sql`; fresh native
@@ -247,13 +196,6 @@ The final production drawer/prompt/responsive run passed **40 checks**; the
 development prompt/responsive run passed **22 checks** (including fixture
 setup/cleanup).
 
-![JSON configuration editor](desktop-json-editor.png)
-
-![Light JSON configuration editor](light-json-editor.png)
-
-![Mobile JSON configuration editor](mobile-json-editor.png)
-
-
 ### Prompt actions and drawer polish (2026-10-09)
 
 Each prompt row now has an unpinned actions menu and centered selection checkbox.
@@ -280,21 +222,6 @@ prompt query state updates synchronously, preventing an older transition from
 briefly reopening the dismissed dialog and stealing focus from the new menu. Version saving waits
 for its URL update before closing the diff, preserving the selected version on
 an immediate reload.
-
-![Compact header and navigation](compact-prompt-header.png)
-
-![Prompt row actions](prompt-row-actions.png)
-
-![Rename modal](prompt-rename-modal.png)
-
-![Archive confirmation](prompt-archive-confirmation.png)
-
-![Mobile action modal](mobile-prompt-action.png)
-
-![Category sidebar anchored to the library body](category-sidebar.png)
-
-![Mobile category sidebar](mobile-category-sidebar.png)
-
 
 ### Live versions, manual tags and expanded history (2026-10-09)
 
@@ -339,18 +266,11 @@ telemetry. A fresh CLI candidate evaluation (`6d0881e7-ddc8-433f-939a-992b26a685
 passed both cases of `intent-regression` against v2 with a frozen live baseline.
 The example uses a deterministic provider to verify integration behavior.
 
-![Expanded version history alongside an inspector](expanded-history-inspector.png)
-
-![Promotion modal with no environment selector](promote-live-modal.png)
-
-![Mobile promotion modal](mobile-promote-live-modal.png)
-
 The focused inspector-history rerun passed in both development and production
 (four checks each including fixture setup/cleanup). CI identified an uncovered
 CLI rejection when a tag assignment omits its version; the added test verifies
 rejection before any request. Full CLI coverage now passes with 259 tests and
 100% line coverage, preserving the existing gate.
-
 
 ### Single promotion confirmation (2026-10-09)
 
@@ -373,12 +293,7 @@ user's live assignment. Development promotion/cancellation/conflict/rollback
 checks passed (four including setup/cleanup). Studio's 252 unit tests, typecheck,
 production build, lint and whitespace checks passed.
 
-![Single promotion modal](single-promotion-modal.png)
-
-![Mobile exception validation](mobile-promotion-validation.png)
-
 The final production prompt/drawer/responsive suite passed **48/48 checks**.
-
 
 ### Prompt-specific policy modal (2026-10-10)
 
@@ -412,17 +327,12 @@ cancellation and 768/390px modal geometry. Manual desktop/mobile review at
 pressing Escape preserves that drawer. User prompt settings were not changed by
 manual testing; the migration preserved their effective policies.
 
-![Prompt policy modal from the library](prompt-policy-modal.png)
-
-![Mobile prompt policy modal](mobile-prompt-policy-modal.png)
-
 Production drawer/prompt/responsive validation passed 48 checks; one prompt
 composition fixture request failed with `ECONNRESET` before UI interaction.
 The final production rebuild and focused rerun passed all six checks, covering
 that composition case, policy independence, trigger focus restoration from the
 list and drawer, cancellation, promotion and rollback. API unit checks also
 passed (97 tests; database-dependent suites are run separately as noted above).
-
 
 ### Unified prompt drawer header (2026-10-10)
 
@@ -450,12 +360,6 @@ production drawer-stack, prompt and responsive E2E run passed all 50 checks
 covers 1440×1000 desktop and 390×844 mobile, then restores the viewport. No prompt
 content or release settings were changed during manual review.
 
-![Compact drawer with inline version history](unified-drawer-header.png)
-
-![Expanded prompt without drawer shadow](unified-expanded-header.png)
-
-![Mobile prompt header and content](mobile-unified-drawer-header.png)
-
 ### Saved version reviews (2026-10-10)
 
 The version review form is a platform modal, with Cancel and Submit review in
@@ -470,18 +374,11 @@ version isolation, updates without duplication, preserved drawer presentation,
 and the mobile modal footer. Existing inspector-navigation regressions now use
 the test-group inspector, since reviewing no longer opens an inspector.
 
-![Saved reviews for a version](saved-version-reviews.png)
-
-![Review modal](review-modal.png)
-
-![Mobile review modal](mobile-review-modal.png)
-
 Validation: production build, typecheck, lint and whitespace checks pass. The
 broad prompt run passed 29 checks; its new review test reloaded before nuqs
 committed the closing URL. After explicitly awaiting that URL change, the focused
 production review run passed all three checks (including setup and cleanup).
 Desktop and mobile screenshots were inspected; mobile tabs stay on one line.
-
 
 ### New versions and persistent drafts (2026-10-10)
 
@@ -507,12 +404,6 @@ the exact diff, submitted configuration, persisted configuration, unchanged v1
 and removed draft. Existing clean, dirty, invalid and in-flight draft deletion
 checks now exercise the new workflow.
 
-![Draft in mobile version history](mobile-persistent-draft.png)
-
-![Exact draft diff with unchanged configuration](draft-config-diff.png)
-
-![New immutable version after saving](saved-draft-version.png)
-
 Validation: 252 Studio unit tests, typecheck, production build and whitespace
 checks pass; lint has no errors (existing warnings remain). The production
 prompt suite passed 30 checks; its new regression initially exercised
@@ -520,8 +411,7 @@ CodeMirror's native wrap-selection shortcut by entering a lone brace. With an
 explicit incomplete JSON object instead, the focused production regression
 passed all three checks (including setup/cleanup). The complete new-version
 flow, invalid JSON retention, navigation, exact diff and persisted configuration
-are verified. Desktop/mobile screenshots above were inspected.
-
+are verified. Desktop/mobile screenshots were inspected.
 
 ### Saves and promotion without route refreshes (2026-10-10)
 
@@ -546,8 +436,6 @@ navigation/RSC requests (normal link prefetch is excluded). They also verify
 that the library shows the new name/live version without a reload, a failed
 rename keeps the entered value for retry, and group creation/rename preserve
 both the group drawer and its parent library.
-
-![Promotion updates the existing drawer](continuous-promotion.png)
 
 Validation: all 54 production prompt, drawer-stack and responsive checks pass.
 The final pagination follow-up preserves loaded immutable history during

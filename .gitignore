@@ -70,3 +70,8 @@ AGENTS.md
 
 # Workflow modules checked out separately from release candidates
 .github/automation/
+
+# Local prompt QA captures (reports stay tracked)
+/docs/qa/studio-prompts/**/*.png
+/docs/qa/studio-prompts/**/*.jpg
+/docs/qa/studio-prompts/**/*.jpeg

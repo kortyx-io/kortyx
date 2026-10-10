@@ -756,7 +756,7 @@ test.describe("Prompt detail drawers", () => {
       modal.getByRole("button", { name: "Submit review" }),
     ).toBeVisible();
     await page.screenshot({
-      path: "../../docs/qa/studio-prompts/mobile-review-modal.png",
+      path: test.info().outputPath("mobile-review-modal.png"),
     });
     await modal.getByRole("button", { name: "Cancel", exact: true }).click();
     await noOverflow(older);
@@ -765,7 +765,7 @@ test.describe("Prompt detail drawers", () => {
     await expect(reviews).toContainText("Checked pricing examples.");
     await expect(reviews).not.toContainText("Updated initial version review.");
     await page.screenshot({
-      path: "../../docs/qa/studio-prompts/saved-version-reviews.png",
+      path: test.info().outputPath("saved-version-reviews.png"),
     });
   });
 
@@ -887,7 +887,7 @@ test.describe("Prompt detail drawers", () => {
     await expect(surface.locator("[data-prompt-header]")).toContainText("Live");
     await assertStable();
     await page.screenshot({
-      path: "../../docs/qa/studio-prompts/continuous-promotion.png",
+      path: test.info().outputPath("continuous-promotion.png"),
     });
     await surface
       .getByRole("button", { name: "Close detail", exact: true })
@@ -1617,7 +1617,7 @@ test.describe("Prompt detail drawers", () => {
       "Persist across navigation without losing configuration.",
     );
     await page.screenshot({
-      path: "../../docs/qa/studio-prompts/mobile-persistent-draft.png",
+      path: test.info().outputPath("mobile-persistent-draft.png"),
     });
     await surface
       .getByRole("button", { name: "Save version", exact: true })
@@ -1632,7 +1632,7 @@ test.describe("Prompt detail drawers", () => {
     ).toHaveCount(0);
     await page.setViewportSize({ width: 1440, height: 1000 });
     await page.screenshot({
-      path: "../../docs/qa/studio-prompts/draft-config-diff.png",
+      path: test.info().outputPath("draft-config-diff.png"),
     });
     // Capture the submitted candidate as well as reading back its persisted config.
     let savedContent: unknown;
@@ -1678,7 +1678,7 @@ test.describe("Prompt detail drawers", () => {
     ).toEqual({});
     await page.setViewportSize({ width: 1440, height: 1000 });
     await page.screenshot({
-      path: "../../docs/qa/studio-prompts/saved-draft-version.png",
+      path: test.info().outputPath("saved-draft-version.png"),
     });
     expect(errors).toEqual([]);
     await page.goBack();
