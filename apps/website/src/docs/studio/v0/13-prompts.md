@@ -118,7 +118,10 @@ are not added to identity metadata.
 Both tabs use the standard Runs and Evals tables, filling the available tab area.
 Search, status filters, sorting, column controls, and pagination work within the
 selected version. All tabs share the same version history: a collapsible sidebar
-on wide surfaces and a dropdown in narrow drawers or mobile layouts.
+on wide surfaces and a dropdown beside the tabs in narrow drawers or mobile
+layouts. Drawer and expanded views share one compact header. Expand changes to
+Back in expanded view; secondary actions move into the prompt menu when space
+is limited.
 Multiple calls in one execution produce one run row; suites launched together
 produce one evaluation row, retaining their prompt-usage evidence.
 

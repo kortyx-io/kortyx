@@ -92,6 +92,18 @@ async function openPrompt(page: Page, category = false) {
     "Classify requests as support or sales. Pricing requests are sales.",
   );
 }
+async function cancelPromptEdit(page: Page, surface: Locator) {
+  const button = surface.getByRole("button", { name: "Cancel", exact: true });
+  if (await button.isVisible()) await button.click();
+  else {
+    await surface
+      .getByRole("button", { name: "Prompt actions", exact: true })
+      .click();
+    await page
+      .getByRole("menuitem", { name: "Cancel editing", exact: true })
+      .click();
+  }
+}
 async function reviewInspector(page: Page) {
   const version = new URL(page.url()).searchParams.get("v") ?? "2";
   const button = page.getByRole("button", {
@@ -370,6 +382,89 @@ test.describe("Prompt detail drawers", () => {
     await page.goForward();
     await expect(
       page.getByRole("dialog", { name: "Rename prompt", exact: true }),
+    ).toBeVisible();
+  });
+
+  test("keeps one compact header through drawer expansion with inline history and overflow actions", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 1440, height: 1000 });
+    await openPrompt(page);
+    const surface = promptDrawer(page);
+    const header = surface.locator("[data-prompt-header]");
+    const tabs = surface.locator("[data-prompt-tabs-row]");
+    const picker = tabs.getByRole("button", {
+      name: "Version history · v2",
+      exact: true,
+    });
+    const node = await header.elementHandle();
+    await expect(surface.locator("header")).toHaveCount(1);
+    await expect(picker).toBeVisible();
+    expect((await header.boundingBox())!.height).toBe(64);
+    expect((await tabs.boundingBox())!.height).toBeLessThanOrEqual(45);
+    const menu = header.getByRole("button", {
+      name: "Prompt actions",
+      exact: true,
+    });
+    const close = header.getByRole("button", {
+      name: "Close detail",
+      exact: true,
+    });
+    expect((await menu.boundingBox())!.x).toBeLessThan(
+      (await close.boundingBox())!.x,
+    );
+    await expect(
+      header.getByRole("button", { name: "Test version", exact: true }),
+    ).toBeHidden();
+    await menu.click();
+    await expect(
+      page.getByRole("menuitem", { name: "Test version", exact: true }),
+    ).toBeVisible();
+    await page.keyboard.press("Escape");
+    await header
+      .getByRole("button", { name: "Expand detail", exact: true })
+      .click();
+    await expect(surface).toHaveAttribute("data-detail-expanded", "true");
+    await expect(surface).toHaveCSS("box-shadow", "none");
+    await expect(
+      header.getByRole("button", {
+        name: "Back to prompt library",
+        exact: true,
+      }),
+    ).toBeVisible();
+    await expect(
+      header.getByRole("button", { name: "Expand detail", exact: true }),
+    ).toHaveCount(0);
+    await expect(
+      header.getByRole("button", { name: "Test version", exact: true }),
+    ).toBeVisible();
+    expect(await node?.evaluate((element) => element.isConnected)).toBe(true);
+    expect((await header.boundingBox())!.height).toBe(64);
+    await menu.click();
+    await expect(
+      page.getByRole("menuitem", { name: "Test version", exact: true }),
+    ).toHaveCount(0);
+    await page.keyboard.press("Escape");
+    await header
+      .getByRole("button", { name: "Back to prompt library", exact: true })
+      .click();
+    await expect(surface).toHaveCount(0);
+    await expect(page).toHaveURL(/\/prompts$/);
+    await page.setViewportSize({ width: 390, height: 844 });
+    await openPrompt(page);
+    await expect(picker).toBeVisible();
+    await noOverflow(header);
+    await noOverflow(tabs);
+    expect((await header.boundingBox())!.height).toBe(64);
+    expect((await tabs.boundingBox())!.height).toBeLessThanOrEqual(45);
+    await surface.getByRole("button", { name: "Edit", exact: true }).click();
+    await expect(
+      header.getByRole("button", { name: "Save version", exact: true }),
+    ).toBeVisible();
+    await noOverflow(header);
+    await cancelPromptEdit(page, surface);
+    await expect(
+      header.getByRole("button", { name: "Edit", exact: true }),
     ).toBeVisible();
   });
 
@@ -792,7 +887,7 @@ test.describe("Prompt detail drawers", () => {
     await openPrompt(page);
     const drawer = promptDrawer(page);
     await drawer.getByRole("button", { name: "Edit", exact: true }).click();
-    await drawer.getByRole("button", { name: "Cancel", exact: true }).click();
+    await cancelPromptEdit(page, drawer);
     await expect(
       page.getByRole("dialog", { name: "Discard changes?" }),
     ).toHaveCount(0);
@@ -804,7 +899,7 @@ test.describe("Prompt detail drawers", () => {
     await drawer
       .getByLabel("System Message")
       .fill("Temporary draft to discard");
-    await drawer.getByRole("button", { name: "Cancel", exact: true }).click();
+    await cancelPromptEdit(page, drawer);
     const confirmation = page.getByRole("dialog", { name: "Discard changes?" });
     await expect(confirmation).toBeVisible();
     await expect(
@@ -814,7 +909,7 @@ test.describe("Prompt detail drawers", () => {
     await expect(drawer.getByLabel("System Message")).toHaveText(
       "Temporary draft to discard",
     );
-    await drawer.getByRole("button", { name: "Cancel", exact: true }).click();
+    await cancelPromptEdit(page, drawer);
     await page.keyboard.press("Escape");
     await expect(confirmation).toHaveCount(0);
     await expect(drawer).toBeVisible();
@@ -823,7 +918,7 @@ test.describe("Prompt detail drawers", () => {
     await expect(
       drawer.getByRole("button", { name: "Save version" }),
     ).toBeDisabled();
-    await drawer.getByRole("button", { name: "Cancel", exact: true }).click();
+    await cancelPromptEdit(page, drawer);
     await confirmation
       .getByRole("button", { name: "Discard changes", exact: true })
       .click();
@@ -851,7 +946,7 @@ test.describe("Prompt detail drawers", () => {
     ).toHaveText("{}");
     // Invalid-only changes cannot bypass confirmation when content is unchanged.
     await drawer.getByLabel("Configuration", { exact: true }).fill("{");
-    await drawer.getByRole("button", { name: "Cancel", exact: true }).click();
+    await cancelPromptEdit(page, drawer);
     await expect(confirmation).toBeVisible();
     await confirmation
       .getByRole("button", { name: "Discard changes", exact: true })
@@ -883,7 +978,7 @@ test.describe("Prompt detail drawers", () => {
       .getByLabel("System Message")
       .fill("In-flight draft to discard");
     await expect.poll(() => saving).toBe(true);
-    await drawer.getByRole("button", { name: "Cancel", exact: true }).click();
+    await cancelPromptEdit(page, drawer);
     const confirmation = page.getByRole("dialog", { name: "Discard changes?" });
     await confirmation
       .getByRole("button", { name: "Discard changes", exact: true })

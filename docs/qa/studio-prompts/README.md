@@ -420,3 +420,36 @@ The final production rebuild and focused rerun passed all six checks, covering
 that composition case, policy independence, trigger focus restoration from the
 list and drawer, cancellation, promotion and rollback. API unit checks also
 passed (97 tests; database-dependent suites are run separately as noted above).
+
+
+### Unified prompt drawer header (2026-10-10)
+
+Prompt details use the same 64px header in drawers, expanded drawers and direct
+routes. The drawer shell supports an owned header so prompt details no longer
+stack a generic title bar above a separate action bar. Loading uses the same
+header height and controls. The leading Expand control becomes Back after
+expansion; drawer actions sit immediately before Close. Narrow containers move
+Test version and Cancel editing into the existing action menu. Edit/Save remain
+visible, and saving keeps its full accessible label when its text shortens.
+
+The history picker shares the 45px tabs row on narrow surfaces. Wide surfaces
+retain the history sidebar. The responsive breakpoint uses the prompt body’s
+width, including space reserved for inspectors. Expanded platform drawers remove
+their shadow as well as their backdrop; nested expanded Session/Run ancestors
+are covered too.
+
+Added browser regression coverage verifies one mounted header through expansion,
+header/tab geometry, action ordering, overflow access, mobile editing/cancel,
+Back navigation, and exact absence of expanded drawer shadows. Existing dirty
+and in-flight draft cancellation tests now exercise the overflow action. Studio’s
+252 unit tests, typecheck, production build and lint checks pass. The final
+production drawer-stack, prompt and responsive E2E run passed all 50 checks
+(2.8 minutes). Manual review
+covers 1440×1000 desktop and 390×844 mobile, then restores the viewport. No prompt
+content or release settings were changed during manual review.
+
+![Compact drawer with inline version history](unified-drawer-header.png)
+
+![Expanded prompt without drawer shadow](unified-expanded-header.png)
+
+![Mobile prompt header and content](mobile-unified-drawer-header.png)

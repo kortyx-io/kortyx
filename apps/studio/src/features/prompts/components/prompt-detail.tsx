@@ -11,13 +11,7 @@ import {
   PromptLibrarySchema,
   type PromptMutation,
 } from "@kortyx/telemetry-contracts";
-import {
-  ArrowLeft,
-  ChevronDown,
-  MoreHorizontal,
-  Play,
-  Save,
-} from "lucide-react";
+import { ChevronDown, MoreHorizontal, Play, Save } from "lucide-react";
 import { parseAsBoolean, parseAsInteger, parseAsStringLiteral } from "nuqs";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { DetailDrawer } from "@/components/detail/detail-drawer";
@@ -59,6 +53,10 @@ import {
   PromptAssetMenu,
 } from "./prompt-asset-actions";
 import { PromptConfirmation } from "./prompt-confirmation";
+import {
+  PromptDetailHeader,
+  PromptHeaderOverflow,
+} from "./prompt-detail-header";
 import { PromptDiff } from "./prompt-diff";
 import { editorClass, PromptFields, validateEditor } from "./prompt-fields";
 import { PromptTables } from "./prompt-tables";
@@ -666,65 +664,23 @@ export function PromptDetailView({
       </Button>
     ) : null;
   const view = (
-    <div className="flex h-full min-h-0 flex-col">
-      <header
-        data-prompt-header
-        className="flex shrink-0 flex-wrap items-center justify-between gap-x-4 gap-y-2 border-b px-4 py-3"
+    <div className="@container/prompt-surface flex h-full min-h-0 flex-col">
+      <PromptDetailHeader
+        title={detail.asset.name}
+        promptKey={detail.asset.key}
+        category={categoryPath(library.categories, detail.asset.categoryId)}
+        version={selected.version}
+        live={detail.asset.assignments.some(
+          (item) => item.tag === "live" && item.version === selected.version,
+        )}
+        onBack={() => router.push("/prompts")}
       >
-        <div className="flex min-w-0 basis-64 grow items-center gap-2">
-          <Button
-            size="icon-sm"
-            variant="ghost"
-            className="shrink-0"
-            aria-label="Back to prompt library"
-            onClick={() => router.push("/prompts")}
-          >
-            <ArrowLeft className="size-4" />
-          </Button>
-          <div className="min-w-0">
-            <h1
-              hidden={drawer}
-              className="truncate text-sm font-semibold"
-              title={detail.asset.name}
-            >
-              {detail.asset.name}
-            </h1>
-            <div className="mt-0.5 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-muted-foreground">
-              {!drawer && (
-                <span
-                  className="max-w-full truncate font-mono"
-                  title={detail.asset.key}
-                >
-                  {detail.asset.key}
-                </span>
-              )}
-              {!drawer && <span aria-hidden="true">·</span>}
-              <span
-                className="truncate"
-                title={categoryPath(
-                  library.categories,
-                  detail.asset.categoryId,
-                )}
-              >
-                {categoryPath(library.categories, detail.asset.categoryId)}
-              </span>
-              <span className="shrink-0">
-                · v{selected.version} ·{" "}
-                {detail.asset.assignments.some(
-                  (item) =>
-                    item.tag === "live" && item.version === selected.version,
-                )
-                  ? "Live"
-                  : "Candidate"}
-              </span>
-            </div>
-          </div>
-        </div>
-        <div className="flex max-w-full flex-wrap items-center gap-2 sm:justify-end">
+        <div className="flex shrink-0 items-center gap-1.5">
           {!query.edit && (
             <Button
               size="sm"
               variant="outline"
+              className="hidden @2xl/prompt-surface:inline-flex"
               disabled={!targets.canRun || !applicable}
               onClick={() => test(selected)}
             >
@@ -737,6 +693,7 @@ export function PromptDetailView({
               <Button
                 size="sm"
                 variant="outline"
+                className="hidden @2xl/prompt-surface:inline-flex"
                 disabled={working || Boolean(compare)}
                 onClick={cancelEdit}
               >
@@ -744,6 +701,7 @@ export function PromptDetailView({
               </Button>
               <Button
                 size="sm"
+                aria-label="Save version"
                 disabled={
                   working ||
                   !fieldsValid ||
@@ -775,8 +733,11 @@ export function PromptDetailView({
                   }
                 }}
               >
-                <Save className="size-3.5" />
-                Save version
+                <Save className="hidden size-3.5 @lg/prompt-surface:block" />
+                <span className="@lg/prompt-surface:hidden">Save</span>
+                <span className="hidden @lg/prompt-surface:inline">
+                  Save version
+                </span>
               </Button>
             </>
           ) : (
@@ -792,9 +753,29 @@ export function PromptDetailView({
             asset={detail.asset}
             permissions={permissions}
             onAction={(action) => showPanel(action, selected)}
+            leadingActions={
+              <PromptHeaderOverflow>
+                {query.edit ? (
+                  <DropdownMenuItem
+                    disabled={working || Boolean(compare)}
+                    onSelect={cancelEdit}
+                  >
+                    Cancel editing
+                  </DropdownMenuItem>
+                ) : (
+                  <DropdownMenuItem
+                    disabled={!targets.canRun || !applicable}
+                    onSelect={() => test(selected)}
+                  >
+                    Test version
+                  </DropdownMenuItem>
+                )}
+                <DropdownMenuSeparator />
+              </PromptHeaderOverflow>
+            }
           />
         </div>
-      </header>
+      </PromptDetailHeader>
       {(error || readError) && !panel && (
         <div
           role="alert"
@@ -842,109 +823,119 @@ export function PromptDetailView({
           )}
         </div>
       )}
-      <nav
-        className="flex shrink-0 gap-5 overflow-x-auto border-b px-5"
-        aria-label="Prompt detail tabs"
-      >
-        {["content", "evals", "runs", "activity"].map((tab) => (
-          <button
-            type="button"
-            key={tab}
-            aria-current={query.tab === tab ? "page" : undefined}
-            className={`min-h-11 border-b-2 px-1 text-xs capitalize ${query.tab === tab ? "border-foreground font-medium" : "border-transparent text-muted-foreground hover:text-foreground"}`}
-            onClick={() =>
-              void setQuery({
-                tab: tab as typeof query.tab,
-                promptAction: null,
-                promptActionVersion: null,
-              })
-            }
-          >
-            {tab}
-            {tab === "evals"
-              ? ` ${new Set(evidence.map((item) => item.evaluationId ?? item.runId)).size}`
-              : tab === "runs"
-                ? ` ${new Set(detail.usage.filter((item) => item.version === selected.version).map((item) => item.runId)).size}`
-                : ""}
-          </button>
-        ))}
-      </nav>
       <PromptWorkspace>
         <div
-          data-prompt-version-picker
-          className="shrink-0 border-b px-5 py-2 @2xl/prompt-detail:hidden"
+          data-prompt-tabs-row
+          className="flex shrink-0 items-center gap-2 border-b px-3"
         >
-          <DropdownMenu modal={false}>
-            <DropdownMenuTrigger asChild>
-              <Button size="sm" variant="outline" className="max-w-full gap-2">
-                Version history
-                <span className="text-muted-foreground">
-                  · v{selected.version}
-                </span>
-                <ChevronDown className="size-3.5" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent
-              align="start"
-              className="w-80 max-w-[calc(100vw-2rem)] data-[state=closed]:animate-none!"
-            >
-              <DropdownMenuLabel>Version history</DropdownMenuLabel>
-              <DropdownMenuRadioGroup
-                value={String(selected.version)}
-                onValueChange={(value) => selectVersion(Number(value))}
+          <nav
+            className="flex min-w-0 flex-1 items-center gap-3 overflow-x-auto"
+            aria-label="Prompt detail tabs"
+          >
+            {["content", "evals", "runs", "activity"].map((tab) => (
+              <button
+                type="button"
+                key={tab}
+                aria-current={query.tab === tab ? "page" : undefined}
+                className={`min-h-11 border-b-2 px-1 text-xs capitalize ${query.tab === tab ? "border-foreground font-medium" : "border-transparent text-muted-foreground hover:text-foreground"}`}
+                onClick={() =>
+                  void setQuery({
+                    tab: tab as typeof query.tab,
+                    promptAction: null,
+                    promptActionVersion: null,
+                  })
+                }
               >
-                {detail.versions.map((version) => (
-                  <DropdownMenuRadioItem
-                    key={version.version}
-                    value={String(version.version)}
-                    disabled={query.edit}
-                    className="items-start py-2"
-                  >
-                    <span className="min-w-0 flex-1 space-y-1">
-                      <span className="flex items-center justify-between gap-2 text-xs font-medium">
-                        <span>v{version.version}</span>
-                        {detail.asset.assignments.some(
-                          (item) =>
-                            item.tag === "live" &&
-                            item.version === version.version,
-                        ) && (
-                          <span className="text-[10px] text-emerald-700 dark:text-emerald-400">
-                            Live
-                          </span>
-                        )}
-                      </span>
-                      <span className="block text-[11px] text-muted-foreground">
-                        {version.note}
-                      </span>
-                      <span className="block text-[10px] text-muted-foreground">
-                        {new Date(version.createdAt).toLocaleDateString()}
-                      </span>
-                    </span>
-                  </DropdownMenuRadioItem>
-                ))}
-              </DropdownMenuRadioGroup>
-              {detail.versionsNextCursor && (
-                <DropdownMenuItem
-                  disabled={working}
-                  onSelect={(event) => {
-                    event.preventDefault();
-                    void loadOlderVersions();
-                  }}
+                {tab}
+                {tab === "evals"
+                  ? ` ${new Set(evidence.map((item) => item.evaluationId ?? item.runId)).size}`
+                  : tab === "runs"
+                    ? ` ${new Set(detail.usage.filter((item) => item.version === selected.version).map((item) => item.runId)).size}`
+                    : ""}
+              </button>
+            ))}
+          </nav>
+          <div
+            data-prompt-version-picker
+            className="shrink-0 @2xl/prompt-detail:hidden"
+          >
+            <DropdownMenu modal={false}>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="max-w-full gap-1.5 px-2"
+                  aria-label={`Version history · v${selected.version}`}
                 >
-                  Load older versions
-                </DropdownMenuItem>
-              )}
-              <DropdownMenuSeparator />
-              <DropdownMenuSub>
-                <DropdownMenuSubTrigger>
-                  v{selected.version} actions
-                </DropdownMenuSubTrigger>
-                <DropdownMenuSubContent>
-                  {versionActions(selected)}
-                </DropdownMenuSubContent>
-              </DropdownMenuSub>
-            </DropdownMenuContent>
-          </DropdownMenu>
+                  <span className="hidden @lg/prompt-detail:inline">
+                    Version history ·
+                  </span>
+                  <span>v{selected.version}</span>
+                  <ChevronDown className="size-3.5" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent
+                align="start"
+                className="w-80 max-w-[calc(100vw-2rem)] data-[state=closed]:animate-none!"
+              >
+                <DropdownMenuLabel>Version history</DropdownMenuLabel>
+                <DropdownMenuRadioGroup
+                  value={String(selected.version)}
+                  onValueChange={(value) => selectVersion(Number(value))}
+                >
+                  {detail.versions.map((version) => (
+                    <DropdownMenuRadioItem
+                      key={version.version}
+                      value={String(version.version)}
+                      disabled={query.edit}
+                      className="items-start py-2"
+                    >
+                      <span className="min-w-0 flex-1 space-y-1">
+                        <span className="flex items-center justify-between gap-2 text-xs font-medium">
+                          <span>v{version.version}</span>
+                          {detail.asset.assignments.some(
+                            (item) =>
+                              item.tag === "live" &&
+                              item.version === version.version,
+                          ) && (
+                            <span className="text-[10px] text-emerald-700 dark:text-emerald-400">
+                              Live
+                            </span>
+                          )}
+                        </span>
+                        <span className="block text-[11px] text-muted-foreground">
+                          {version.note}
+                        </span>
+                        <span className="block text-[10px] text-muted-foreground">
+                          {new Date(version.createdAt).toLocaleDateString()}
+                        </span>
+                      </span>
+                    </DropdownMenuRadioItem>
+                  ))}
+                </DropdownMenuRadioGroup>
+                {detail.versionsNextCursor && (
+                  <DropdownMenuItem
+                    disabled={working}
+                    onSelect={(event) => {
+                      event.preventDefault();
+                      void loadOlderVersions();
+                    }}
+                  >
+                    Load older versions
+                  </DropdownMenuItem>
+                )}
+                <DropdownMenuSeparator />
+                <DropdownMenuSub>
+                  <DropdownMenuSubTrigger>
+                    v{selected.version} actions
+                  </DropdownMenuSubTrigger>
+                  <DropdownMenuSubContent>
+                    {versionActions(selected)}
+                  </DropdownMenuSubContent>
+                </DropdownMenuSub>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
         </div>
         <div className="flex min-h-0 min-w-0 flex-1">
           <aside
@@ -1588,6 +1579,7 @@ export function PromptDetailView({
   );
   return drawer ? (
     <DetailDrawer
+      customHeader
       matchPath={path}
       dismissPath="/prompts"
       title={detail.asset.name}

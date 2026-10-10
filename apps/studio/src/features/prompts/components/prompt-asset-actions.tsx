@@ -5,7 +5,7 @@ import {
   type PromptLibrary,
 } from "@kortyx/telemetry-contracts";
 import { MoreHorizontal } from "lucide-react";
-import { useEffect, useState } from "react";
+import { type ReactNode, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -36,11 +36,13 @@ export function PromptAssetMenu({
   asset,
   permissions,
   onAction,
+  leadingActions,
   label = "Prompt actions",
 }: {
   asset: Asset;
   permissions: PromptLibrary["permissions"];
   onAction: (action: AssetAction) => void;
+  leadingActions?: ReactNode;
   label?: string;
 }) {
   return (
@@ -54,6 +56,7 @@ export function PromptAssetMenu({
         align="end"
         className="data-[state=closed]:animate-none!"
       >
+        {leadingActions}
         <DropdownMenuItem onSelect={() => onAction("code")}>
           Code helper
         </DropdownMenuItem>

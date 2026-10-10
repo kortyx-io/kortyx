@@ -24,6 +24,13 @@ import { OVERLAY_LAYERS } from "@/lib/overlay-layers";
 import { cn } from "@/lib/utils";
 
 type DetailDrawerContextValue = {
+  navigation?: {
+    expanded: boolean;
+    canExpand: boolean;
+    isTop: boolean;
+    close: () => void;
+    expand: () => void;
+  };
   closing: boolean;
   isMobile: boolean;
   layerZIndex: number;
@@ -54,6 +61,7 @@ const detailViewParsers = {
 };
 
 type DetailDrawerRegistration = {
+  customHeader?: boolean;
   children: ReactNode;
   description: string;
   dismissPath: string;
@@ -189,6 +197,7 @@ export function DetailSurfaceProvider({ children }: { children: ReactNode }) {
 }
 
 export function DetailDrawer({
+  customHeader = false,
   matchPath,
   dismissPath,
   title,
@@ -200,6 +209,7 @@ export function DetailDrawer({
   title: string;
   description: string;
   children: ReactNode;
+  customHeader?: boolean;
 }) {
   const host = useContext(DetailDrawerHostContext);
   const slotMotion = useDetailSlotMotion();
@@ -210,6 +220,7 @@ export function DetailDrawer({
   useLayoutEffect(
     () =>
       host.register({
+        customHeader,
         children,
         description,
         dismissPath,
@@ -219,6 +230,7 @@ export function DetailDrawer({
         title,
       }),
     [
+      customHeader,
       children,
       description,
       dismissPath,
@@ -234,6 +246,7 @@ export function DetailDrawer({
 }
 
 function DetailDrawerSurface({
+  customHeader,
   active,
   matchPath,
   dismissPath,
@@ -376,69 +389,89 @@ function DetailDrawerSurface({
         data-state={closing ? "closed" : "open"}
         role="dialog"
         aria-modal={layer.isTop && !expandedView && !nestedInspector.nestedOpen}
-        aria-labelledby={titleId}
+        aria-labelledby={customHeader ? undefined : titleId}
+        aria-label={customHeader ? title : undefined}
+        data-detail-expanded={expandedView}
         onPointerDownCapture={() => {
           if (!layer.isTop) layer.closeAbove();
         }}
         style={{ left, zIndex: layer.zIndex }}
         className={cn(
-          "fixed top-12 right-1 bottom-1 flex min-w-0 flex-col overflow-hidden rounded-xl border bg-background shadow-2xl transition-[left,translate] duration-300 ease-in-out",
+          "fixed top-12 right-1 bottom-1 flex min-w-0 flex-col overflow-hidden rounded-xl border bg-background transition-[left,translate] duration-300 ease-in-out",
+          expandedView ? "[box-shadow:none]" : "shadow-2xl",
           (!entered || closing) && "translate-x-[calc(100%_+_1rem)]",
         )}
       >
-        <header
-          className={cn(
-            "flex h-14 shrink-0 items-center gap-3 border-b px-4",
-            expandedView && "h-0 overflow-hidden border-0 p-0",
-          )}
-        >
-          {layer.isTop && !isMobile && !expandedView && (
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon-sm"
-              aria-label="Expand detail"
-              onClick={() => {
-                layer.expand();
-                void setDetailView(
-                  { detailView: "expanded" },
-                  { history: "replace" },
-                );
-              }}
-            >
-              <Maximize2 />
-            </Button>
-          )}
-          <div className="min-w-0 flex-1">
-            <h1
-              id={titleId}
-              tabIndex={-1}
-              aria-label={title}
-              className="min-w-0 text-sm font-semibold outline-none"
-            >
-              <OverflowText ariaLabel={title}>{title}</OverflowText>
-            </h1>
-            <p className="min-w-0 text-xs text-muted-foreground">
-              <OverflowText ariaLabel={description}>{description}</OverflowText>
-            </p>
-          </div>
-          {layer.isTop && !expandedView && (
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon-sm"
-              aria-label="Close detail"
-              onClick={closeDrawer}
-            >
-              <X />
-            </Button>
-          )}
-        </header>
+        {!customHeader && (
+          <header
+            className={cn(
+              "flex h-14 shrink-0 items-center gap-3 border-b px-4",
+              expandedView && "h-0 overflow-hidden border-0 p-0",
+            )}
+          >
+            {layer.isTop && !isMobile && !expandedView && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                aria-label="Expand detail"
+                onClick={() => {
+                  layer.expand();
+                  void setDetailView(
+                    { detailView: "expanded" },
+                    { history: "replace" },
+                  );
+                }}
+              >
+                <Maximize2 />
+              </Button>
+            )}
+            <div className="min-w-0 flex-1">
+              <h1
+                id={titleId}
+                tabIndex={-1}
+                aria-label={title}
+                className="min-w-0 text-sm font-semibold outline-none"
+              >
+                <OverflowText ariaLabel={title}>{title}</OverflowText>
+              </h1>
+              <p className="min-w-0 text-xs text-muted-foreground">
+                <OverflowText ariaLabel={description}>
+                  {description}
+                </OverflowText>
+              </p>
+            </div>
+            {layer.isTop && !expandedView && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                aria-label="Close detail"
+                onClick={closeDrawer}
+              >
+                <X />
+              </Button>
+            )}
+          </header>
+        )}
         <DetailDrawerContext.Provider
           value={{
             closing,
             isMobile,
             layerZIndex: layer.zIndex,
+            navigation: {
+              expanded: expandedView,
+              canExpand: !isMobile && !expandedView,
+              isTop: layer.isTop,
+              close: closeDrawer,
+              expand: () => {
+                layer.expand();
+                void setDetailView(
+                  { detailView: "expanded" },
+                  { history: "replace" },
+                );
+              },
+            },
             presentation: "drawer",
             supportsSplitInspector: true,
             ...nestedInspector,

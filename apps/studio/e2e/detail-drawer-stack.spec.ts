@@ -460,6 +460,7 @@ test.describe("Studio detail drawer stack", () => {
     await expect(backdrop(page)).toHaveCSS("opacity", "0");
     await expect(backdrop(page)).toHaveCSS("pointer-events", "none");
     await expectDrawerAtRouteBounds(page, drawer(page, runPath));
+    await expect(drawer(page, runPath)).toHaveCSS("box-shadow", "none");
 
     await page.locator('a[href="/runs"]').first().click();
     await expect(page).toHaveURL(/\/runs(?:\?|$)/);
@@ -474,6 +475,7 @@ test.describe("Studio detail drawer stack", () => {
       .click();
     await expect(page).toHaveURL(/detailView=expanded/);
 
+    await expect(drawer(page, sessionPath)).toHaveCSS("box-shadow", "none");
     await page.getByRole("button", { name: /^Runs \d+$/ }).click();
     await page.getByRole("tabpanel").locator(`a[href^="${runPath}"]`).click();
     await expect(drawer(page, runPath)).toHaveAttribute("data-state", "open");
@@ -482,6 +484,7 @@ test.describe("Studio detail drawer stack", () => {
       .click();
 
     await expectDrawerAtRouteBounds(page, drawer(page, runPath));
+    await expect(drawer(page, runPath)).toHaveCSS("box-shadow", "none");
     await expect(backdrop(page)).toHaveCSS("pointer-events", "none");
   });
 
