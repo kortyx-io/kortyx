@@ -1,6 +1,6 @@
 ---
 name: kortyx
-description: Use when building, reviewing, documenting, testing, or architecting apps with Kortyx. Covers providers, useReason/useTool tools, model-driven interrupts, supervisor and specialist composition, child workflows, execution limits, typed failures, runtime persistence, server-owned chat transcripts, conversation evals, Studio execution and debugging, React chat hydration, and streamed UI behavior.
+description: Use when building, reviewing, documenting, testing, or architecting apps with Kortyx. Covers providers, useReason/useTool tools, model-driven interrupts, supervisor and specialist composition, child workflows, execution limits, typed failures, runtime persistence, server-owned chat transcripts, conversation evals, versioned Studio prompts and migration, Studio execution and debugging, React chat hydration, and streamed UI behavior.
 ---
 
 # Kortyx
@@ -48,6 +48,8 @@ Architecture:
 - `references/observability-langfuse.md`: app-owned Langfuse export, Kortyx attribute mapping, Next.js flush lifecycle, optional prompt linking, and client feedback scores.
 
 Studio:
+
+- `references/studio-prompts.md`: typed prompt references, role-preserving serving, saved configuration, candidate/group eval launches, provenance, promotion policy, and cross-deployment CLI migration.
 
 - `references/studio-local-development.md`: starting Studio locally, connecting server-side SDK telemetry, publishing a workflow catalog, and verifying the first real run.
 - `references/studio-agent-debugging.md`: analyzing Studio run/session/interrupt URLs through the read-only CLI, connection selection, branch-aware evidence, and capture limitations.

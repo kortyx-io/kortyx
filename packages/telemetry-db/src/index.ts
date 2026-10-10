@@ -62,6 +62,19 @@ export {
   getStudioProjectContext,
 } from "./repositories/projects";
 export {
+  applyPromptTransfer,
+  exportPrompts,
+  planPromptTransfer,
+} from "./repositories/prompt-transfer";
+export {
+  getPrompt,
+  listPrompts,
+  mutatePrompt,
+  type PromptScope,
+  promptEvidence,
+  resolvePrompts,
+} from "./repositories/prompts";
+export {
   clearRunScore,
   listRunScores,
   upsertRunScore,

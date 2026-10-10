@@ -62,3 +62,11 @@ it("does not link a private diagnostic breadcrumb to a nonexistent inbox", () =>
   expect(html).toContain("Error diagnostic");
   expect(html).not.toContain('href="/diagnostics"');
 });
+
+it("uses a prompt label until the detail title is available instead of exposing its id", () => {
+  route.pathname = "/prompts/11111111-1111-4111-8111-111111111111";
+  const html = renderToStaticMarkup(<WorkspaceNavigation />);
+  expect(html).toContain('title="Prompts"');
+  expect(html).toContain('title="Prompt">Prompt</span>');
+  expect(html).not.toContain("11111111-1111-4111-8111-111111111111");
+});

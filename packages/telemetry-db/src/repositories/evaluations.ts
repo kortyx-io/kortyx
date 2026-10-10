@@ -260,11 +260,34 @@ async function loadChildren(db: TelemetryDb, scope: Scope, ids: string[]) {
   );
   return { children, events: eventMap, costs };
 }
-export async function listEvaluations(db: TelemetryDb, scope: Scope) {
+export async function listEvaluations(
+  db: TelemetryDb,
+  scope: Scope,
+  options: { suiteRunIds?: readonly string[] } = {},
+) {
+  if (options.suiteRunIds?.length === 0) return [];
   const parents = await db
     .select()
     .from(evaluationRuns)
-    .where(parentScope(scope))
+    .where(
+      and(
+        parentScope(scope),
+        options.suiteRunIds
+          ? inArray(
+              evaluationRuns.id,
+              db
+                .select({ id: evalRuns.evaluationId })
+                .from(evalRuns)
+                .where(
+                  and(
+                    childScope(scope),
+                    inArray(evalRuns.id, [...options.suiteRunIds]),
+                  ),
+                ),
+            )
+          : undefined,
+      ),
+    )
     .orderBy(desc(evaluationRuns.createdAt))
     .limit(100);
   const data = await loadChildren(
@@ -284,7 +307,15 @@ export async function listEvaluations(db: TelemetryDb, scope: Scope) {
   const legacy = await db
     .select()
     .from(evalRuns)
-    .where(and(childScope(scope), isNull(evalRuns.evaluationId)))
+    .where(
+      and(
+        childScope(scope),
+        isNull(evalRuns.evaluationId),
+        options.suiteRunIds
+          ? inArray(evalRuns.id, [...options.suiteRunIds])
+          : undefined,
+      ),
+    )
     .orderBy(desc(evalRuns.createdAt))
     .limit(100);
   const legacyCosts = await loadEvalCosts(db, scope, legacy);

@@ -21,6 +21,7 @@ import { registerDiagnosticRoutes } from "./routes/diagnostics";
 import { registerEvalJudgeRoutes } from "./routes/eval-judge";
 import { registerEvalRoutes } from "./routes/evals";
 import { registerHealthRoutes } from "./routes/health";
+import { registerPromptRoutes } from "./routes/prompts";
 import {
   registerStudioReviewRoutes,
   registerUserFeedbackRoutes,
@@ -125,6 +126,15 @@ export const createApiApp = (options: CreateApiAppOptions) => {
     }),
   );
   registerStudioRoutes(app);
+  app.use(
+    "/v1/prompts/*",
+    apiSecurity({ ...security, surface: "telemetry", action: "prompt:serve" }),
+  );
+  registerPromptRoutes(
+    app,
+    options.evalTargets ?? [],
+    options.evalTargetAdapter,
+  );
   registerDiagnosticRoutes(app);
   registerEvalRoutes(
     app,

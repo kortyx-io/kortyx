@@ -219,6 +219,44 @@ test.describe("Studio detail drawer stack", () => {
     });
   }
 
+  test("handles Escape in the first frame of a revisited Run", async ({
+    page,
+  }) => {
+    await openRunsList(page);
+    await clickTableRow(runTableRow(page));
+    const run = drawer(page, runPath);
+    await expect(run).toHaveAttribute("data-state", "open");
+    await run.getByRole("link", { name: /^Session / }).click();
+    const session = drawer(page, sessionPath);
+    await expect(session).toHaveAttribute("data-state", "open");
+    await session.getByRole("button", { name: /^Runs \d+$/ }).click();
+    const link = session.getByRole("tabpanel").locator(`a[href^="${runPath}"]`);
+    await expect(link).toBeVisible();
+    // Fire during the DOM commit's microtask, before passive React effects.
+    // The newly active Run must own Escape, rather than the departing Session.
+    await page.evaluate((path) => {
+      const departing = document.querySelector(
+        `[data-detail-drawer="${path}"]`,
+      );
+      if (!departing) throw new Error("Session drawer is missing");
+      const observer = new MutationObserver(() => {
+        if (departing.getAttribute("data-state") !== "closed") return;
+        observer.disconnect();
+        document.body.dispatchEvent(
+          new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
+        );
+      });
+      observer.observe(departing, {
+        attributes: true,
+        attributeFilter: ["data-state"],
+      });
+    }, sessionPath);
+    await link.click();
+    await expect(session).toHaveAttribute("data-state", "open");
+    await expect(page).toHaveURL(new RegExp(`${escapeRegExp(sessionPath)}\\?`));
+    await expect(run).toHaveAttribute("data-state", "open");
+  });
+
   test("stacks Session, Run, and Trace while the shared backdrop peels one level at a time", async ({
     page,
   }) => {
@@ -422,6 +460,7 @@ test.describe("Studio detail drawer stack", () => {
     await expect(backdrop(page)).toHaveCSS("opacity", "0");
     await expect(backdrop(page)).toHaveCSS("pointer-events", "none");
     await expectDrawerAtRouteBounds(page, drawer(page, runPath));
+    await expect(drawer(page, runPath)).toHaveCSS("box-shadow", "none");
 
     await page.locator('a[href="/runs"]').first().click();
     await expect(page).toHaveURL(/\/runs(?:\?|$)/);
@@ -436,6 +475,7 @@ test.describe("Studio detail drawer stack", () => {
       .click();
     await expect(page).toHaveURL(/detailView=expanded/);
 
+    await expect(drawer(page, sessionPath)).toHaveCSS("box-shadow", "none");
     await page.getByRole("button", { name: /^Runs \d+$/ }).click();
     await page.getByRole("tabpanel").locator(`a[href^="${runPath}"]`).click();
     await expect(drawer(page, runPath)).toHaveAttribute("data-state", "open");
@@ -444,6 +484,7 @@ test.describe("Studio detail drawer stack", () => {
       .click();
 
     await expectDrawerAtRouteBounds(page, drawer(page, runPath));
+    await expect(drawer(page, runPath)).toHaveCSS("box-shadow", "none");
     await expect(backdrop(page)).toHaveCSS("pointer-events", "none");
   });
 

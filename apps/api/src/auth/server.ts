@@ -2,6 +2,7 @@ import type { CreateApiAuth } from "@api/auth-contracts";
 import {
   authenticateTelemetryApiKey,
   TelemetryAuthError,
+  TelemetryForbiddenError,
 } from "@kortyx/telemetry-db";
 
 export const createApiAuth: CreateApiAuth = (options) => {
@@ -19,6 +20,11 @@ export const createApiAuth: CreateApiAuth = (options) => {
         apiKey: token,
         pepper: options.apiKeyPepper,
       });
+      const projectId = request.headers.get("x-kortyx-project-id");
+      if (projectId && projectId !== identity.projectId)
+        throw new TelemetryForbiddenError(
+          "Selected project does not match the authorized scope.",
+        );
       const environment =
         surface === "studio"
           ? request.headers.get("x-kortyx-environment")

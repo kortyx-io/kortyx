@@ -1,4 +1,5 @@
 import { createHash, timingSafeEqual } from "node:crypto";
+import { validatePromptValue, verifyPromptSnapshot } from "@kortyx/prompts";
 import {
   EvalConfigurationError,
   EvalRemoteRunRequestSchema,
@@ -17,6 +18,11 @@ export type EvalRunner = {
     schemaVersion: 1;
     suites: readonly EvalSuite[];
     studioJudging?: true;
+    promptContracts?: {
+      id: string;
+      format: "system-user" | "chat";
+      configSchema: Record<string, unknown>;
+    }[];
     attemptScheduling?: true;
     judge?: EvalJudgeIdentity;
   };
@@ -78,7 +84,7 @@ export function createEvalRouteHandler({
     let body: ReturnType<typeof EvalRemoteRunRequestSchema.parse>;
     try {
       const text = await request.text();
-      if (text.length > 16_384)
+      if (text.length > 1_048_576)
         return Response.json({ error: "Request too large." }, { status: 413 });
       body = EvalRemoteRunRequestSchema.parse(JSON.parse(text));
     } catch {
@@ -88,6 +94,28 @@ export function createEvalRouteHandler({
       );
     }
     const suite = manifest.suites.find((item) => item.id === body.suiteId);
+    if (body.promptSnapshot) {
+      try {
+        const snapshot = await verifyPromptSnapshot(body.promptSnapshot);
+        if (snapshot.source !== "eval" || !manifest.promptContracts?.length)
+          throw new Error("Unsupported prompt evaluation.");
+        for (const contract of manifest.promptContracts) {
+          const version = snapshot.versions[contract.id];
+          if (!version || version.content.format !== contract.format)
+            throw new Error("Prompt contract mismatch.");
+          validatePromptValue(
+            contract.configSchema,
+            version.content.config,
+            "Application configuration",
+          );
+        }
+      } catch {
+        return Response.json(
+          { error: "Prompt snapshot does not match the application contract." },
+          { status: 409 },
+        );
+      }
+    }
     if (
       !suite ||
       body.caseIds?.some((id) => !suite.cases.some((item) => item.id === id)) ||
@@ -178,6 +206,9 @@ export function createEvalRouteHandler({
         void evals
           .run({
             suiteId: body.suiteId,
+            ...(body.promptSnapshot
+              ? { promptSnapshot: body.promptSnapshot }
+              : {}),
             ...(body.attempt ? { attempt: body.attempt } : {}),
             ...(body.grading ? { grading: body.grading } : {}),
             ...(body.judge ? { judgeIdentity: body.judge } : {}),

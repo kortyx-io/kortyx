@@ -16,6 +16,7 @@ import {
 import { bodyLimit } from "hono/body-limit";
 import { z } from "zod";
 import type { EvalTargetAdapter } from "../evals/contracts";
+import { freezeEvalPrompts } from "../evals/prompts";
 import {
   EvalDiscoveryError,
   type EvalTarget,
@@ -193,6 +194,13 @@ export function registerEvalRoutes(
         },
         503,
       );
+    const { promptSnapshot, promptGroupName } = await freezeEvalPrompts(
+      c.get("withTenantDatabase"),
+      auth,
+      target.environment,
+      manifest.promptContracts,
+      request.promptSelection,
+    );
     const run = await c.get("withTenantDatabase")((db) =>
       enqueueEvalRun(db, {
         organizationId: auth.organizationId,
@@ -204,6 +212,8 @@ export function registerEvalRoutes(
         suiteRevision: request.suiteRevision,
         suite: suite as EvalSuite,
         request: {
+          ...(promptSnapshot ? { promptSnapshot } : {}),
+          ...(promptGroupName ? { promptGroupName } : {}),
           grading: request.judge,
           judge: {
             id: selectedJudge.id,

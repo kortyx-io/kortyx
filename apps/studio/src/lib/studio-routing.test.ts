@@ -39,6 +39,12 @@ it("keeps project links, detail routes and settings in explicit scope", () => {
   expect(studioPathname(studioHref("/evals/runs/a", scope))).toBe(
     "/evals/runs/a",
   );
+  expect(studioPathname(studioHref("/prompts/groups/a", scope))).toBe(
+    "/prompts/groups/a",
+  );
+  expect(studioHref("/prompts/a?v=2", scope)).toBe(
+    "/projects/prj_0123456789abcdef01234567/prompts/a?v=2",
+  );
   expect(studioHref(studioHref("/runs", scope), scope)).toBe(
     studioHref("/runs", scope),
   );

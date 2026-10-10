@@ -38,6 +38,9 @@ export default async function RootLayout({
   sessionDrawer,
   evalCaseDrawer,
   evalSuiteDrawer,
+  promptDrawer,
+  promptGroupDrawer,
+  promptGroupsDrawer,
 }: Readonly<{
   children: React.ReactNode;
   interruptDrawer: React.ReactNode;
@@ -45,6 +48,9 @@ export default async function RootLayout({
   sessionDrawer: React.ReactNode;
   evalCaseDrawer: React.ReactNode;
   evalSuiteDrawer: React.ReactNode;
+  promptDrawer: React.ReactNode;
+  promptGroupDrawer: React.ReactNode;
+  promptGroupsDrawer: React.ReactNode;
 }>) {
   const cookieStore = await cookies();
   const theme = parseThemePreference(
@@ -73,6 +79,15 @@ export default async function RootLayout({
               <SidebarLayout
                 detailSlots={
                   <DetailDrawerHost>
+                    <DetailSlotPresence dismissPath="/prompts">
+                      {promptDrawer}
+                    </DetailSlotPresence>
+                    <DetailSlotPresence dismissPath="/prompts">
+                      {promptGroupsDrawer}
+                    </DetailSlotPresence>
+                    <DetailSlotPresence dismissPath="/prompts/groups">
+                      {promptGroupDrawer}
+                    </DetailSlotPresence>
                     <DetailSlotPresence dismissPath="/evals/suites">
                       {evalSuiteDrawer}
                     </DetailSlotPresence>

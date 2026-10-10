@@ -8,6 +8,7 @@ import {
   DataTableColumnsMenu,
   DataTableProvider,
 } from "@/components/data-table";
+import { DetailLink } from "@/components/detail/detail-link";
 import { KeyValue } from "@/components/detail/detail-primitives";
 import { DetailTabs } from "@/components/detail/detail-tabs";
 import { Button } from "@/components/ui/button";
@@ -283,7 +284,40 @@ export function EvalRunDetail({
                     <KeyValue label="Actor / data snapshot">
                       Not recorded. Reference facts are available per step.
                     </KeyValue>
-                    <KeyValue label="Prompt version">Not recorded</KeyValue>
+                    <KeyValue label="Prompt versions">
+                      {run.request?.promptSnapshot ? (
+                        <div className="space-y-2">
+                          {Object.values(
+                            run.request.promptSnapshot.versions,
+                          ).map((version) => (
+                            <div key={version.id}>
+                              <DetailLink
+                                href={`/prompts/by-key/${version.id.split("/").map(encodeURIComponent).join("/")}?v=${version.version}`}
+                                className="font-mono text-xs text-primary hover:underline"
+                              >
+                                {version.id} · v{version.version}
+                              </DetailLink>
+                              <p
+                                className="max-w-md truncate font-mono text-[10px] text-muted-foreground"
+                                title={version.hash}
+                              >
+                                {version.hash}
+                              </p>
+                            </div>
+                          ))}
+                          <p className="text-xs text-muted-foreground">
+                            Frozen {run.request.promptSnapshot.environment}{" "}
+                            snapshot
+                            {run.request.promptGroupName
+                              ? ` · ${run.request.promptGroupName}`
+                              : ""}
+                            . Actual usage is recorded with each test result.
+                          </p>
+                        </div>
+                      ) : (
+                        "Not recorded"
+                      )}
+                    </KeyValue>
                   </dl>
                   {run.result?.errors.map((issue, index) => (
                     <p

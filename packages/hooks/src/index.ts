@@ -42,6 +42,7 @@ export {
   useWorkflowState,
 } from "./hooks";
 export { ParallelError, parallel } from "./parallel";
+export type { UseReasonPromptArgs } from "./reason/prompt";
 export { reportError } from "./report-error";
 export type { UseToolArgs } from "./tool";
 export { useTool } from "./tool";
@@ -67,6 +68,7 @@ export type {
   ReasonTraceSpanStartArgs,
   ReportErrorOptions,
 } from "./tracing";
+export { usePrompt } from "./use-prompt";
 export type { WorkflowCallOutcome, WorkflowCallService } from "./workflow";
 export {
   createWorkflowHooks,

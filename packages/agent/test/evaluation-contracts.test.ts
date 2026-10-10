@@ -49,6 +49,25 @@ describe("grouped evaluation request contract", () => {
       }).success,
     ).toBe(false);
   });
+  it("accepts Studio-only prompt selections and rejects malformed overrides", () => {
+    for (const promptSelection of [
+      { type: "live" },
+      { type: "single", id: "intent", version: 2 },
+      { type: "group", groupId: "8b12e125-f3a2-48ce-a4a9-1d74283cd91b" },
+    ])
+      expect(
+        StudioEvaluationStartRequestSchema.parse({
+          ...request,
+          promptSelection,
+        }).promptSelection,
+      ).toEqual(promptSelection);
+    expect(
+      StudioEvaluationStartRequestSchema.safeParse({
+        ...request,
+        promptSelection: { type: "single", id: "intent", version: 0 },
+      }).success,
+    ).toBe(false);
+  });
   it("rejects empty selections and accidental unknown fields", () => {
     expect(
       StudioEvaluationStartRequestSchema.safeParse({ ...request, suites: [] })

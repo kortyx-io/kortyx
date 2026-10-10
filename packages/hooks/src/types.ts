@@ -232,6 +232,7 @@ export type UseReasonArgs<
   TReturn extends OutputContractMap = OutputContractMap,
 > = {
   model: ProviderModelRef;
+  messages?: import("@kortyx/providers").KortyxPromptMessage[] | undefined;
   input: string;
   system?: string | undefined;
   temperature?: number | undefined;

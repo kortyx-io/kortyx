@@ -29,7 +29,7 @@ export function studioHref(href: string, scope?: StudioRouteScope): string {
     )
       return `${prefix}${path}${suffix}`;
     if (
-      /^\/(runs|sessions|workflows|interrupts|evals|diagnostics)(\/|$)/.test(
+      /^\/(runs|sessions|workflows|interrupts|evals|prompts|diagnostics)(\/|$)/.test(
         path,
       )
     )

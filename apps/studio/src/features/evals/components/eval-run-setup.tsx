@@ -1,9 +1,17 @@
 "use client";
+import {
+  type PromptDetail,
+  PromptDetailSchema,
+  type PromptLibrary,
+  PromptLibrarySchema,
+  type PromptSelection,
+} from "@kortyx/telemetry-contracts";
 import { Play } from "lucide-react";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { DetailInspectorDrawer } from "@/components/detail/detail-inspector";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { promptRequest } from "@/features/prompts/api/client";
 import {
   usePathname,
   useRouter,
@@ -19,9 +27,11 @@ import { EvalSuiteSelection } from "./eval-suite-selection";
 export function EvalRunSetup({
   targets,
   matchPath,
+  onStarted,
 }: {
   targets: EvalTargets;
   matchPath: string;
+  onStarted?: () => void | Promise<void>;
 }) {
   const {
     query,
@@ -36,6 +46,48 @@ export function EvalRunSetup({
   const [working, setWorking] = useState(false);
   const [error, setError] = useState("");
   const launch = useRef<{ body: string; key: string } | null>(null);
+  const [prompts, setPrompts] = useState<PromptLibrary | null>(null),
+    [promptDetail, setPromptDetail] = useState<PromptDetail | null>(null),
+    [promptSearch, setPromptSearch] = useState("");
+  useEffect(() => {
+    if (!query.launch || !target?.manifest?.promptContracts?.length) return;
+    const controller = new AbortController();
+    const timer = window.setTimeout(() => {
+      void promptRequest(
+        `library?${new URLSearchParams({ search: promptSearch })}`,
+        undefined,
+        controller.signal,
+      )
+        .then((value) => setPrompts(PromptLibrarySchema.parse(value)))
+        .catch((cause) => {
+          if (!controller.signal.aborted)
+            setError(
+              cause instanceof Error
+                ? cause.message
+                : "Prompt library unavailable.",
+            );
+        });
+    }, 150);
+    return () => {
+      controller.abort();
+      clearTimeout(timer);
+    };
+  }, [query.launch, target?.manifest?.promptContracts?.length, promptSearch]);
+  useEffect(() => {
+    setPromptDetail(null);
+    if (query.launchPrompts !== "single" || !query.launchPrompt) return;
+    const controller = new AbortController();
+    void promptRequest(
+      `assets/${query.launchPrompt}${query.launchVersion ? `?version=${query.launchVersion}` : ""}`,
+      undefined,
+      controller.signal,
+    )
+      .then((value) => setPromptDetail(PromptDetailSchema.parse(value)))
+      .catch((cause) => {
+        if (!controller.signal.aborted) setError(String(cause));
+      });
+    return () => controller.abort();
+  }, [query.launchPrompts, query.launchPrompt, query.launchVersion]);
   const router = useRouter();
   const pathname = usePathname();
   const search = useSearchParams();
@@ -85,7 +137,45 @@ export function EvalRunSetup({
     : !target?.manifest?.studioJudging
       ? "This application's SDK does not support Studio judging."
       : undefined;
+  const promptValid =
+    query.launchPrompts === "live" ||
+    (Boolean(target?.manifest?.promptContracts?.length) &&
+      ((query.launchPrompts === "single" &&
+        Boolean(query.launchPrompt) &&
+        Number.isInteger(Number(query.launchVersion)) &&
+        Number(query.launchVersion) > 0 &&
+        Boolean(
+          promptDetail?.versions.some(
+            (version) => version.version === Number(query.launchVersion),
+          ),
+        ) &&
+        Boolean(
+          target?.manifest?.promptContracts?.some(
+            (contract) => contract.id === promptDetail?.asset.key,
+          ),
+        )) ||
+        (query.launchPrompts === "group" &&
+          Boolean(
+            prompts?.groups.some(
+              (group) =>
+                group.id === query.launchGroup &&
+                group.members.length &&
+                group.members.every(
+                  (member) =>
+                    !member.archived &&
+                    target?.manifest?.promptContracts?.some(
+                      (contract) =>
+                        contract.id ===
+                        (member.key ??
+                          prompts.assets.find(
+                            (asset) => asset.id === member.promptId,
+                          )?.key),
+                    ),
+                ),
+            ),
+          ))));
   const valid =
+    promptValid &&
     selected.length > 0 &&
     Number.isInteger(attempts) &&
     attempts >= 1 &&
@@ -112,6 +202,20 @@ export function EvalRunSetup({
       repetitions: attempts,
       concurrency,
       metadata: { source: "manual" },
+      ...(target.manifest?.promptContracts?.length
+        ? {
+            promptSelection:
+              query.launchPrompts === "single"
+                ? {
+                    type: "single",
+                    id: query.launchPrompt,
+                    version: Number(query.launchVersion),
+                  }
+                : query.launchPrompts === "group"
+                  ? { type: "group", groupId: query.launchGroup }
+                  : { type: "live" },
+          }
+        : {}),
     };
     const serialized = JSON.stringify(body);
     if (launch.current?.body !== serialized)
@@ -121,7 +225,13 @@ export function EvalRunSetup({
         ...body,
         idempotencyKey: launch.current.key,
       });
-      router.push(evalNavigationHref(`/evals/evaluations/${run.id}`, search));
+      if (onStarted) {
+        launch.current = null;
+        await close();
+        await onStarted();
+      } else {
+        router.push(evalNavigationHref(`/evals/evaluations/${run.id}`, search));
+      }
     } catch (cause) {
       setError(
         cause instanceof Error ? cause.message : "Could not start evaluations.",
@@ -130,6 +240,7 @@ export function EvalRunSetup({
       setWorking(false);
     }
   };
+
   return (
     <DetailInspectorDrawer
       open={query.launch && pathname === matchPath}
@@ -142,15 +253,7 @@ export function EvalRunSetup({
       closeLabel="Close run setup"
       bodyClassName="flex flex-col overflow-hidden p-0"
     >
-      <div className="min-h-0 flex-1 space-y-5 overflow-auto p-5">
-        {error || target?.error ? (
-          <p
-            role="alert"
-            className="rounded-md border border-red-500/25 bg-red-500/5 p-3 text-xs text-red-700 dark:text-red-400"
-          >
-            {error || target?.error}
-          </p>
-        ) : null}
+      <div className="min-h-0 flex-1 space-y-5 overflow-auto overscroll-contain p-5 [scrollbar-width:thin]">
         <div className="space-y-2">
           <p className="text-xs font-medium">Application · Environment</p>
           <EvalDropdown
@@ -165,6 +268,10 @@ export function EvalRunSetup({
             onChange={(id) => {
               void setQuery({
                 launchApplication: id,
+                launchPrompts: null,
+                launchPrompt: null,
+                launchVersion: null,
+                launchGroup: null,
                 launchScope: "all",
                 launchSuite: "",
                 launchSuites: null,
@@ -176,6 +283,158 @@ export function EvalRunSetup({
             }}
           />
         </div>
+        {target?.manifest?.promptContracts?.length ? (
+          <div className="space-y-3 rounded-lg border p-3">
+            <div className="space-y-1">
+              <p className="text-xs font-medium">Prompt versions</p>
+              <p className="text-[11px] text-muted-foreground">
+                Freeze live prompt versions for {target.name}, with optional
+                candidate overrides.
+              </p>
+            </div>
+            <EvalDropdown
+              label="Prompt source"
+              className="w-full"
+              value={query.launchPrompts}
+              options={[
+                { value: "live", label: "Live prompts" },
+                { value: "single", label: "Single prompt version" },
+                { value: "group", label: "Test group" },
+              ]}
+              disabled={working}
+              onChange={(value) =>
+                void setQuery({
+                  launchPrompts: value as PromptSelection["type"],
+                })
+              }
+            />
+            {query.launchPrompts === "single" && (
+              <>
+                <p className="text-[11px] text-muted-foreground">
+                  Only prompts registered by {target.name} are shown. To test
+                  another prompt, choose an application that uses it above.
+                </p>
+                <EvalDropdown
+                  label="Prompt"
+                  search={{
+                    label: "Search registered prompts",
+                    placeholder: "Search prompt names or keys…",
+                    value: promptSearch,
+                    onChange: setPromptSearch,
+                  }}
+                  triggerLabel={promptDetail?.asset.name}
+                  className="w-full"
+                  value={query.launchPrompt}
+                  disabled={working}
+                  options={(prompts?.assets ?? [])
+                    .filter((asset) =>
+                      target.manifest?.promptContracts?.some(
+                        (contract) => contract.id === asset.key,
+                      ),
+                    )
+                    .map((asset) => ({ value: asset.id, label: asset.name }))}
+                  onChange={(id) =>
+                    void setQuery({
+                      launchPrompt: id,
+                      launchVersion: String(
+                        prompts?.assets.find((asset) => asset.id === id)
+                          ?.latestVersion ?? "",
+                      ),
+                    })
+                  }
+                />
+                <EvalDropdown
+                  label="Prompt version"
+                  className="w-full"
+                  disabled={working || !promptDetail}
+                  value={query.launchVersion}
+                  options={(promptDetail?.versions ?? []).map((version) => ({
+                    value: String(version.version),
+                    label: `v${version.version}${version.note ? ` · ${version.note}` : ""}`,
+                  }))}
+                  onChange={(version) =>
+                    void setQuery({ launchVersion: version })
+                  }
+                />
+                {promptDetail?.versionsNextCursor && (
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    disabled={working}
+                    onClick={async () => {
+                      try {
+                        const next = PromptDetailSchema.parse(
+                          await promptRequest(
+                            `assets/${query.launchPrompt}?versionsCursor=${promptDetail.versionsNextCursor}`,
+                          ),
+                        );
+                        setPromptDetail({
+                          ...next,
+                          versions: [
+                            ...promptDetail.versions,
+                            ...next.versions.filter(
+                              (version) =>
+                                !promptDetail.versions.some(
+                                  (item) => item.version === version.version,
+                                ),
+                            ),
+                          ],
+                        });
+                      } catch (cause) {
+                        setError(String(cause));
+                      }
+                    }}
+                  >
+                    Load older versions
+                  </Button>
+                )}
+              </>
+            )}
+            {query.launchPrompts === "group" && (
+              <>
+                <EvalDropdown
+                  label="Test group"
+                  className="w-full"
+                  value={query.launchGroup}
+                  disabled={working}
+                  options={(prompts?.groups ?? []).map((group) => ({
+                    value: group.id,
+                    label: `${group.name} · ${group.members.length} prompts`,
+                    disabled:
+                      !group.members.length ||
+                      group.members.some(
+                        (member) =>
+                          member.archived ||
+                          !target.manifest?.promptContracts?.some(
+                            (contract) =>
+                              contract.id ===
+                              (member.key ??
+                                prompts?.assets.find(
+                                  (asset) => asset.id === member.promptId,
+                                )?.key),
+                          ),
+                      ),
+                  }))}
+                  onChange={(groupId) =>
+                    void setQuery({ launchGroup: groupId })
+                  }
+                />
+                <p className="text-[11px] text-muted-foreground">
+                  Groups select candidate versions for this launch. The suite
+                  remains independent.
+                </p>
+              </>
+            )}
+          </div>
+        ) : null}
+        {error || target?.error ? (
+          <p
+            role="alert"
+            className="rounded-md border border-red-500/25 bg-red-500/5 p-3 text-xs text-red-700 dark:text-red-400"
+          >
+            {error || target?.error}
+          </p>
+        ) : null}
         <fieldset disabled={working} className="space-y-2">
           <legend className="mb-2 text-xs font-medium">Suites</legend>
           <div className="flex gap-4 text-sm">
@@ -300,7 +559,9 @@ export function EvalRunSetup({
         </p>
         {!valid && selected.length > 0 ? (
           <output className="block text-xs text-muted-foreground">
-            Select at least one conversation and use the attempt limits above.
+            {!promptValid
+              ? "Choose a compatible prompt version or test group."
+              : "Select at least one conversation and use the attempt limits above."}
           </output>
         ) : null}
         {!targets.canRun ? (

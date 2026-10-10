@@ -968,6 +968,311 @@ export const evalRunEvents = pgTable(
   ],
 );
 
+const promptScopeColumns = () => ({
+  organizationId: uuid("organization_id").notNull(),
+  projectId: uuid("project_id").notNull(),
+});
+export const promptCategories = pgTable(
+  "prompt_categories",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    ...promptScopeColumns(),
+    parentId: uuid("parent_id"),
+    name: text("name").notNull(),
+    revision: integer("revision").notNull().default(1),
+    createdAt: timestampWithTimezone("created_at").notNull().defaultNow(),
+  },
+  (table) => [
+    foreignKey({
+      columns: [table.organizationId, table.projectId],
+      foreignColumns: [projects.organizationId, projects.id],
+      name: "prompt_categories_project_fk",
+    }).onDelete("cascade"),
+    uniqueIndex("prompt_categories_scope_id_unique").on(
+      table.organizationId,
+      table.projectId,
+      table.id,
+    ),
+    uniqueIndex("prompt_categories_sibling_unique").on(
+      table.organizationId,
+      table.projectId,
+      sql`coalesce(${table.parentId}::text, '')`,
+      table.name,
+    ),
+  ],
+);
+export const promptAssets = pgTable(
+  "prompt_assets",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    ...promptScopeColumns(),
+    key: text("key").notNull(),
+    name: text("name").notNull(),
+    categoryId: uuid("category_id"),
+    latestVersion: integer("latest_version").notNull().default(0),
+    revision: integer("revision").notNull().default(1),
+    archived: boolean("archived").notNull().default(false),
+    draft: jsonb("draft").$type<import("@kortyx/prompts").PromptContent>(),
+    draftBase: integer("draft_base"),
+    draftRevision: integer("draft_revision").notNull().default(0),
+    createdAt: timestampWithTimezone("created_at").notNull().defaultNow(),
+    updatedAt: timestampWithTimezone("updated_at").notNull().defaultNow(),
+  },
+  (table) => [
+    foreignKey({
+      columns: [table.organizationId, table.projectId],
+      foreignColumns: [projects.organizationId, projects.id],
+      name: "prompt_assets_project_fk",
+    }).onDelete("cascade"),
+    foreignKey({
+      columns: [table.organizationId, table.projectId, table.categoryId],
+      foreignColumns: [
+        promptCategories.organizationId,
+        promptCategories.projectId,
+        promptCategories.id,
+      ],
+      name: "prompt_assets_category_fk",
+    }),
+    uniqueIndex("prompt_assets_scope_id_unique").on(
+      table.organizationId,
+      table.projectId,
+      table.id,
+    ),
+    uniqueIndex("prompt_assets_key_unique").on(
+      table.organizationId,
+      table.projectId,
+      table.key,
+    ),
+    index("prompt_assets_category_idx").on(
+      table.organizationId,
+      table.projectId,
+      table.categoryId,
+    ),
+  ],
+);
+export const promptVersions = pgTable(
+  "prompt_versions",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    ...promptScopeColumns(),
+    promptId: uuid("prompt_id").notNull(),
+    version: integer("version").notNull(),
+    content: jsonb("content")
+      .$type<import("@kortyx/prompts").PromptContent>()
+      .notNull(),
+    hash: text("hash").notNull(),
+    note: text("note").notNull(),
+    author: text("author").notNull(),
+    origin: jsonb("origin").$type<{
+      apiUrl: string;
+      projectId: string;
+      key: string;
+      version: number;
+      hash: string;
+    }>(),
+    createdAt: timestampWithTimezone("created_at").notNull().defaultNow(),
+  },
+  (table) => [
+    foreignKey({
+      columns: [table.organizationId, table.projectId, table.promptId],
+      foreignColumns: [
+        promptAssets.organizationId,
+        promptAssets.projectId,
+        promptAssets.id,
+      ],
+      name: "prompt_versions_asset_fk",
+    }).onDelete("cascade"),
+    uniqueIndex("prompt_versions_scope_version_unique").on(
+      table.organizationId,
+      table.projectId,
+      table.promptId,
+      table.version,
+    ),
+    index("prompt_versions_hash_idx").on(
+      table.organizationId,
+      table.projectId,
+      table.promptId,
+      table.hash,
+    ),
+  ],
+);
+export const promptAssignments = pgTable(
+  "prompt_assignments",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    ...promptScopeColumns(),
+    promptId: uuid("prompt_id").notNull(),
+    tag: text("tag").notNull(),
+    version: integer("version").notNull(),
+    revision: integer("revision").notNull().default(1),
+    updatedAt: timestampWithTimezone("updated_at").notNull().defaultNow(),
+  },
+  (table) => [
+    foreignKey({
+      columns: [
+        table.organizationId,
+        table.projectId,
+        table.promptId,
+        table.version,
+      ],
+      foreignColumns: [
+        promptVersions.organizationId,
+        promptVersions.projectId,
+        promptVersions.promptId,
+        promptVersions.version,
+      ],
+      name: "prompt_assignments_version_fk",
+    }).onDelete("cascade"),
+    uniqueIndex("prompt_assignments_prompt_tag_unique").on(
+      table.organizationId,
+      table.projectId,
+      table.promptId,
+      table.tag,
+    ),
+  ],
+);
+export const promptGroups = pgTable(
+  "prompt_groups",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    ...promptScopeColumns(),
+    name: text("name").notNull(),
+    revision: integer("revision").notNull().default(1),
+    members: jsonb("members")
+      .$type<{ promptId: string; version: number }[]>()
+      .notNull()
+      .default([]),
+    updatedAt: timestampWithTimezone("updated_at").notNull().defaultNow(),
+  },
+  (table) => [
+    foreignKey({
+      columns: [table.organizationId, table.projectId],
+      foreignColumns: [projects.organizationId, projects.id],
+      name: "prompt_groups_project_fk",
+    }).onDelete("cascade"),
+    uniqueIndex("prompt_groups_name_unique").on(
+      table.organizationId,
+      table.projectId,
+      table.name,
+    ),
+  ],
+);
+export const promptPolicies = pgTable(
+  "prompt_policies",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    ...promptScopeColumns(),
+    promptId: uuid("prompt_id").notNull(),
+    revision: integer("revision").notNull().default(1),
+    requireTest: boolean("require_test").notNull().default(true),
+    requireChangeNote: boolean("require_change_note").notNull().default(false),
+    requiredSuites: jsonb("required_suites")
+      .$type<{ targetId: string; suiteId: string }[]>()
+      .notNull()
+      .default([]),
+    requiredReviews: integer("required_reviews").notNull().default(0),
+    allowException: boolean("allow_exception").notNull().default(true),
+  },
+  (table) => [
+    foreignKey({
+      columns: [table.organizationId, table.projectId, table.promptId],
+      foreignColumns: [
+        promptAssets.organizationId,
+        promptAssets.projectId,
+        promptAssets.id,
+      ],
+      name: "prompt_policies_asset_fk",
+    }).onDelete("cascade"),
+    uniqueIndex("prompt_policies_prompt_unique").on(
+      table.organizationId,
+      table.projectId,
+      table.promptId,
+    ),
+  ],
+);
+export const promptReviews = pgTable(
+  "prompt_reviews",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    ...promptScopeColumns(),
+    promptId: uuid("prompt_id").notNull(),
+    version: integer("version").notNull(),
+    hash: text("hash").notNull(),
+    reviewer: text("reviewer").notNull(),
+    note: text("note").notNull(),
+    createdAt: timestampWithTimezone("created_at").notNull().defaultNow(),
+  },
+  (table) => [
+    foreignKey({
+      columns: [
+        table.organizationId,
+        table.projectId,
+        table.promptId,
+        table.version,
+      ],
+      foreignColumns: [
+        promptVersions.organizationId,
+        promptVersions.projectId,
+        promptVersions.promptId,
+        promptVersions.version,
+      ],
+      name: "prompt_reviews_version_fk",
+    }).onDelete("cascade"),
+    uniqueIndex("prompt_reviews_actor_unique").on(
+      table.organizationId,
+      table.projectId,
+      table.promptId,
+      table.version,
+      table.reviewer,
+    ),
+  ],
+);
+export const promptActivity = pgTable(
+  "prompt_activity",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    ...promptScopeColumns(),
+    promptId: uuid("prompt_id"),
+    action: text("action").notNull(),
+    actor: text("actor").notNull(),
+    details: jsonb("details").$type<Record<string, unknown>>().notNull(),
+    createdAt: timestampWithTimezone("created_at").notNull().defaultNow(),
+  },
+  (table) => [
+    foreignKey({
+      columns: [table.organizationId, table.projectId],
+      foreignColumns: [projects.organizationId, projects.id],
+      name: "prompt_activity_project_fk",
+    }).onDelete("cascade"),
+    index("prompt_activity_asset_idx").on(
+      table.organizationId,
+      table.projectId,
+      table.promptId,
+      table.createdAt,
+    ),
+  ],
+);
+export const promptTransferPlans = pgTable(
+  "prompt_transfer_plans",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    ...promptScopeColumns(),
+    actor: text("actor").notNull(),
+    bundleHash: text("bundle_hash").notNull(),
+    plan: jsonb("plan").$type<Record<string, unknown>>().notNull(),
+    result: jsonb("result").$type<Record<string, unknown>>(),
+    createdAt: timestampWithTimezone("created_at").notNull().defaultNow(),
+    expiresAt: timestampWithTimezone("expires_at").notNull(),
+  },
+  (table) => [
+    foreignKey({
+      columns: [table.organizationId, table.projectId],
+      foreignColumns: [projects.organizationId, projects.id],
+      name: "prompt_transfer_project_fk",
+    }).onDelete("cascade"),
+  ],
+);
+
 export type Organization = typeof organizations.$inferSelect;
 export type User = typeof users.$inferSelect;
 export type AuthAccount = typeof authAccounts.$inferSelect;

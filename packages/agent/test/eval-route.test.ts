@@ -2,6 +2,11 @@ import { randomUUID } from "node:crypto";
 import { setImmediate as nextTurn } from "node:timers/promises";
 import { setFlagsFromString } from "node:v8";
 import { runInNewContext } from "node:vm";
+import {
+  type PromptContent,
+  type PromptSnapshot,
+  promptHash,
+} from "@kortyx/prompts";
 import { describe, expect, it, vi } from "vitest";
 import {
   createEvalRouteHandler,
@@ -47,6 +52,103 @@ const request = (body = {}, authorization = `Bearer ${key}`) =>
     }),
   });
 describe("consumer eval transport", () => {
+  it("validates every pinned prompt against the app contract before starting an eval", async () => {
+    const content: PromptContent = {
+      format: "system-user",
+      messages: [
+        { role: "system", content: "Classify" },
+        { role: "user", content: "{{message}}" },
+      ],
+      variablesSchema: { type: "object" },
+      configSchema: { type: "object" },
+      config: { modelName: "fast" },
+      dependencies: [],
+    };
+    const snapshot: PromptSnapshot = {
+      schemaVersion: 1,
+      environment: "production",
+      revision: "candidate",
+      source: "eval",
+      resolvedAt: new Date().toISOString(),
+      versions: {
+        classify: {
+          id: "classify",
+          version: 1,
+          hash: await promptHash(content),
+          content,
+        },
+      },
+    };
+    const contract = {
+      id: "classify",
+      format: "system-user" as const,
+      variablesSchema: { type: "object" },
+      configSchema: {
+        type: "object",
+        properties: { modelName: { const: "fast" } },
+        required: ["modelName"],
+      },
+    };
+    const run = vi.fn(async () => result());
+    const handler = createEvalRouteHandler({
+      evals: {
+        describe: () => ({ ...manifest, promptContracts: [contract] }),
+        run,
+      },
+      serviceKey: key,
+    });
+    const wrongConfig = { ...content, config: { modelName: "unregistered" } };
+    const wrongFormat = { ...content, format: "chat" as const };
+    const changed = async (candidate: PromptContent) => ({
+      ...snapshot,
+      versions: {
+        classify: {
+          id: "classify",
+          version: 1,
+          hash: await promptHash(candidate),
+          content: candidate,
+        },
+      },
+    });
+    for (const invalid of [
+      { ...snapshot, source: "local" },
+      { ...snapshot, versions: {} },
+      await changed(wrongConfig),
+      await changed(wrongFormat),
+      {
+        ...snapshot,
+        versions: {
+          classify: { ...snapshot.versions.classify, hash: "a".repeat(64) },
+        },
+      },
+    ])
+      expect((await handler(request({ promptSnapshot: invalid }))).status).toBe(
+        409,
+      );
+    for (const unsupported of [
+      manifest,
+      { ...manifest, promptContracts: [] },
+    ]) {
+      const unsupportedHandler = createEvalRouteHandler({
+        evals: { describe: () => unsupported, run },
+        serviceKey: key,
+      });
+      expect(
+        (await unsupportedHandler(request({ promptSnapshot: snapshot })))
+          .status,
+      ).toBe(409);
+    }
+    expect(run).not.toHaveBeenCalled();
+    const response = await handler(request({ promptSnapshot: snapshot }));
+    expect(response.status).toBe(200);
+    expect(JSON.parse(await response.text())).toMatchObject({
+      type: "result",
+      result: { status: "passed" },
+    });
+    expect(run).toHaveBeenCalledWith(
+      expect.objectContaining({ promptSnapshot: snapshot }),
+    );
+  });
   it("validates transport configuration and rejects malformed requests before execution", async () => {
     const run = vi.fn();
     const evals = { describe: () => manifest, run };
@@ -114,7 +216,7 @@ describe("consumer eval transport", () => {
               authorization: `Bearer ${key}`,
               "content-type": "application/json",
             },
-            body: " ".repeat(16385),
+            body: " ".repeat(1_048_577),
           }),
         )
       ).status,

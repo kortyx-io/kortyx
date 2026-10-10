@@ -4,6 +4,7 @@ import type { StudioShellContribution } from "@studio/shell-contracts";
 import {
   Activity,
   CirclePause,
+  FileText,
   FlaskConical,
   MessageSquare,
   Settings,
@@ -41,6 +42,10 @@ const navSections = [
   {
     title: "Evaluate",
     items: [{ title: "Evals", url: "/evals/runs", icon: FlaskConical }],
+  },
+  {
+    title: "Prompt Management",
+    items: [{ title: "Prompts", url: "/prompts", icon: FileText }],
   },
 ];
 

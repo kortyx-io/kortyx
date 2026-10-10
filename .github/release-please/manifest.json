@@ -25,5 +25,6 @@
   "apps/website": "0.48.0",
   "examples/kortyx-nextjs-chat-api-route": "0.25.2",
   "examples/kortyx-canvas": "0.8.11",
-  "examples/kortyx-nextjs-chat-server-action": "0.14.21"
+  "examples/kortyx-nextjs-chat-server-action": "0.14.21",
+  "packages/prompts": "0.0.0"
 }

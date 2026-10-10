@@ -98,7 +98,7 @@ export const createTraceAdapter = (args: {
         ...currentAttributes,
         ...(endArgs?.attributes ?? {}),
       };
-      const telemetry = endArgs?.telemetry ?? startArgs.telemetry;
+      const telemetry = { ...startArgs.telemetry, ...endArgs?.telemetry };
       const durationMs = Date.now() - startedAt;
       if (isTool) {
         const payload = ToolObservationSchema.parse(endAttributes);
@@ -168,6 +168,18 @@ export const createTraceAdapter = (args: {
           span,
           ...(parent ? { parentSpanId: parent.spanId } : {}),
           payload: {
+            ...args.eventMapper.telemetryPayload(telemetry),
+            captured:
+              args.eventMapper.shouldCapture(
+                startArgs.telemetry?.captureContent ?? args.captureContent,
+                "input",
+              ) ||
+              args.eventMapper.shouldCapture(
+                endArgs?.telemetry?.captureContent ??
+                  startArgs.telemetry?.captureContent ??
+                  args.captureContent,
+                "output",
+              ),
             ...(evalAttemptId ? { evalAttemptId } : {}),
             outcome: failed ? "failed" : "completed",
             provider:

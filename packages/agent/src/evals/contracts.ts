@@ -1,3 +1,4 @@
+import { PromptSnapshotSchema } from "@kortyx/prompts";
 import { z } from "zod";
 import { EvalEvidencePolicySchema } from "./evidence-policy";
 import type { EvalSuite } from "./types";
@@ -88,6 +89,20 @@ export const EvalVerdictSchema = z
   .strict();
 export const EvalObservationSchema = z
   .object({
+    promptUsage: z
+      .array(
+        z
+          .object({
+            id: z.string(),
+            version: z.number().int().positive(),
+            hash: z.string().regex(/^[a-f0-9]{64}$/),
+            environment: z.string(),
+            snapshotRevision: z.string(),
+            model: z.string().optional(),
+          })
+          .strict(),
+      )
+      .optional(),
     type: z.enum(["answer", "interrupt", "error", "cancelled"]),
     text: z.string(),
     structured: z.array(z.json()),
@@ -278,6 +293,18 @@ export const EvalManifestSchema = z
   .object({
     schemaVersion: z.literal(1),
     studioJudging: z.literal(true).optional(),
+    promptContracts: z
+      .array(
+        z
+          .object({
+            id: z.string(),
+            format: z.enum(["system-user", "chat"]),
+            variablesSchema: z.record(z.string(), z.unknown()),
+            configSchema: z.record(z.string(), z.unknown()),
+          })
+          .strict(),
+      )
+      .optional(),
     attemptScheduling: z.literal(true).optional(),
     suites: z.array(EvalSuiteSchema),
     responders: z.array(
@@ -344,6 +371,8 @@ export const EvalProgressSchema = z.discriminatedUnion("type", [
 ]);
 export const EvalRemoteRunRequestSchema = z
   .object({
+    promptSnapshot: PromptSnapshotSchema.optional(),
+    promptGroupName: z.string().optional(),
     suiteId: id,
     suiteRevision: z.string().regex(/^[a-f0-9]{64}$/),
     grading: z.enum(["app", "studio"]).optional(),
@@ -364,8 +393,23 @@ export const EvalRemoteRunRequestSchema = z
 export const StudioEvalStartRequestSchema = EvalRemoteRunRequestSchema.omit({
   grading: true,
   judge: true,
+  promptSnapshot: true,
+  promptGroupName: true,
   attempt: true,
 }).extend({
+  promptSelection: z
+    .discriminatedUnion("type", [
+      z.object({ type: z.literal("live") }).strict(),
+      z
+        .object({
+          type: z.literal("single"),
+          id: z.string(),
+          version: z.number().int().positive(),
+        })
+        .strict(),
+      z.object({ type: z.literal("group"), groupId: z.uuid() }).strict(),
+    ])
+    .optional(),
   targetId: z.string().min(1).max(128),
   judge: z.enum(["studio", "app"]).default("studio"),
 });

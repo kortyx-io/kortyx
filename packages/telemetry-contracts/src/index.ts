@@ -944,6 +944,7 @@ export type StudioCatalogsResponse = z.infer<
 >;
 export type StudioContextResponse = z.infer<typeof StudioContextResponseSchema>;
 
+export * from "./prompts";
 export * from "./studio-updates";
 export {
   projectWorkflowCalls,

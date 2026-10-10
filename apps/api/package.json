@@ -27,7 +27,8 @@
     "zod": "catalog:",
     "@kortyx/agent": "workspace:*",
     "@kortyx/openai": "workspace:*",
-    "@kortyx/openrouter": "workspace:*"
+    "@kortyx/openrouter": "workspace:*",
+    "@kortyx/prompts": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "catalog:",

@@ -63,7 +63,8 @@
     "@kortyx/providers": "workspace:*",
     "@kortyx/runtime": "workspace:*",
     "@kortyx/stream": "workspace:*",
-    "@kortyx/utils": "workspace:*"
+    "@kortyx/utils": "workspace:*",
+    "@kortyx/prompts": "workspace:*"
   },
   "devDependencies": {
     "turbo": "catalog:",

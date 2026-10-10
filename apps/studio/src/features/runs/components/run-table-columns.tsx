@@ -331,8 +331,8 @@ export function createRunColumns({
       defaultWidth: 98,
       cellClassName: "font-mono text-xs tabular-nums",
       cellTitle: (run) =>
-        run.tokens
-          ? `Total ${formatCount(run.tokens, { compact: false })} · Input ${formatCount(Math.round(run.tokens * 0.48), { compact: false })} · Output ${formatCount(Math.round(run.tokens * 0.36), { compact: false })} · Reasoning ${formatCount(Math.round(run.tokens * 0.11), { compact: false })} · Cache read ${formatCount(Math.round(run.tokens * 0.05), { compact: false })}`
+        run.tokens !== undefined
+          ? `Total ${formatCount(run.tokens, { compact: false })}`
           : undefined,
       render: (run) => <TruncatedText>{formatCount(run.tokens)}</TruncatedText>,
     },

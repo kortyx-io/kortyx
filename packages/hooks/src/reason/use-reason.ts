@@ -1,5 +1,6 @@
 import type { InterruptInput, InterruptResult } from "@kortyx/core";
 import { combineAbortSignals, throwIfExecutionAborted } from "@kortyx/core";
+import type { CompiledPrompt } from "@kortyx/prompts";
 import type {
   KortyxFinishReason,
   KortyxProviderMetadata,
@@ -42,6 +43,7 @@ import {
   parseInterruptFirstPassResult,
   parseReasonOutputWithSchema,
 } from "./parsing";
+import { normalizePromptReasonArgs } from "./prompt";
 import {
   defaultContinuationInput,
   defaultInterruptFirstPassInput,
@@ -594,8 +596,16 @@ export async function useReason<
   TEmit extends OutputContractMap = OutputContractMap,
   TReturn extends OutputContractMap = OutputContractMap,
 >(
-  args: UseReasonArgs<TOutput, TRequest, TResponse, TContracts, TEmit, TReturn>,
+  request:
+    | UseReasonArgs<TOutput, TRequest, TResponse, TContracts, TEmit, TReturn>
+    | (Omit<
+        UseReasonArgs<TOutput, TRequest, TResponse, TContracts, TEmit, TReturn>,
+        "input" | "system" | "messages"
+      > & { prompt: CompiledPrompt; input?: never; system?: never }),
 ): Promise<UseReasonResult<TOutput, TResponse, TContracts, TEmit, TReturn>> {
+  const args = normalizePromptReasonArgs(
+    request as UseReasonArgs | import("./prompt").UseReasonPromptArgs,
+  ) as UseReasonArgs<TOutput, TRequest, TResponse, TContracts, TEmit, TReturn>;
   try {
     return await runReason(args);
   } finally {

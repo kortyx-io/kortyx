@@ -1,5 +1,8 @@
 import { z } from "zod";
-import { EvalJudgeIdentitySchema } from "./contracts";
+import {
+  EvalJudgeIdentitySchema,
+  StudioEvalStartRequestSchema,
+} from "./contracts";
 import {
   EvalCostsSchema,
   StudioEvalDetailSchema,
@@ -33,6 +36,7 @@ export const StudioEvaluationStartRequestSchema = z
   .object({
     targetId: z.string().trim().min(1),
     name: z.string().trim().min(1).max(200).optional(),
+    promptSelection: StudioEvalStartRequestSchema.shape.promptSelection,
     selection: z.enum(["all", "selected"]),
     suites: z
       .array(

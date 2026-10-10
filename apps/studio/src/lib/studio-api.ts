@@ -16,13 +16,13 @@ import {
 } from "@kortyx/telemetry-contracts";
 import { studioAuth } from "@studio/auth";
 import { type Interrupt, InterruptSchema } from "@/features/interrupts/schema";
+import { mapStudioRun } from "@/features/runs/lib/map-studio-run";
 import { type Run, RunSchema } from "@/features/runs/schema";
 import { type Session, SessionSchema } from "@/features/sessions/schema";
 import {
   type WorkflowSystem,
   WorkflowSystemSchema,
 } from "@/features/workflows/schema";
-import { formatRelativeTime } from "@/lib/format";
 
 const apiUrl = process.env.KORTYX_API_URL;
 
@@ -60,7 +60,7 @@ const withQuery = (
   return search ? `${path}?${search}` : path;
 };
 
-const fetchJson = async <T>(
+export const fetchJson = async <T>(
   path: string,
   parse: (value: unknown) => T,
 ): Promise<StudioRepoResult<T>> => {
@@ -188,53 +188,7 @@ export const getStudioRuns = async (
   try {
     return {
       data: {
-        items: RunSchema.array().parse(
-          response.data.runs.map((run) => ({
-            id: run.id,
-            feedback: run.feedback,
-            parentRunId: run.parentRunId,
-            parentWorkflowId: run.parentWorkflowId,
-            invocationId: run.invocationId,
-            branchId: run.branchId,
-            callId: run.callId,
-            status: run.status,
-            started: formatRelativeTime(run.startedAt),
-            startedAt: run.startedAt,
-            workflow: run.workflowId,
-            workflowIds: run.workflowIds,
-            workflowRefs: run.workflowRefs.map((ref) => ({
-              workflowId: ref.workflowId,
-              workflowRevisionId: optional(ref.workflowRevisionId),
-              declaredVersion: optional(ref.declaredVersion),
-            })),
-            version: displayVersion(run.declaredVersion),
-            transitionIds: run.transitionIds,
-            path: run.path.length ? run.path : [run.workflowId],
-            session: displayText(run.sessionId),
-            model: displayText(run.model, "unknown"),
-            ...(run.models.length > 1 ? { models: run.models.length - 1 } : {}),
-            duration: durationSeconds(run.durationMs) ?? 0,
-            ...(run.tokens !== null ? { tokens: run.tokens } : {}),
-            ...(run.cost !== null ? { cost: run.cost } : {}),
-            result: displayText(run.result, run.pricingStatus),
-            provider: displayText(run.provider, "unknown"),
-            environment: run.environment,
-            user: displayText(run.userId),
-            tenant: displayText(run.tenantId),
-            hasTool: run.hasTool,
-            ...(run.hasRetry ? { hasRetry: true } : {}),
-            ...(run.interruptNodeId
-              ? { interruptNode: run.interruptNodeId }
-              : {}),
-            ...(run.interruptId ? { interruptId: run.interruptId } : {}),
-            ...(run.interruptStatus
-              ? { interruptStatus: run.interruptStatus }
-              : {}),
-            ...(run.interruptExpiresAt
-              ? { interruptExpiresAt: run.interruptExpiresAt }
-              : {}),
-          })),
-        ),
+        items: RunSchema.array().parse(response.data.runs.map(mapStudioRun)),
         totalCount: response.data.totalCount,
       },
       error: null,

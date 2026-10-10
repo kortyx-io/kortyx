@@ -1,4 +1,5 @@
 "use client";
+import type { PromptSelection } from "@kortyx/telemetry-contracts";
 import {
   parseAsBoolean,
   parseAsJson,
@@ -22,6 +23,12 @@ export const evalSetupParsers = {
   ),
   launchExpandedSuites: parseAsJson(z.array(z.string())),
   launchAttempts: parseAsString.withDefault("1"),
+  launchPrompts: parseAsStringLiteral(["live", "single", "group"]).withDefault(
+    "live",
+  ),
+  launchPrompt: parseAsString.withDefault(""),
+  launchVersion: parseAsString.withDefault(""),
+  launchGroup: parseAsString.withDefault(""),
 };
 export function useEvalSetup(targets: EvalTargets) {
   const [query, setQuery] = useStudioQueryStates(evalSetupParsers, {
@@ -48,7 +55,11 @@ export function useEvalSetup(targets: EvalTargets) {
     judge,
     studioAvailable,
     appJudge,
-    open: (targetId?: string, suiteId?: string) => {
+    open: (
+      targetId?: string,
+      suiteId?: string,
+      selection?: PromptSelection,
+    ) => {
       const target =
         targets.targets.find((t) => t.id === targetId) ??
         targets.targets.find((t) => t.manifest?.suites.length) ??
@@ -69,10 +80,15 @@ export function useEvalSetup(targets: EvalTargets) {
         launchAttempts: "1",
 
         launchJudge: null,
+        launchPrompts: selection?.type ?? null,
+        launchPrompt: selection?.type === "single" ? selection.id : null,
+        launchVersion:
+          selection?.type === "single" ? String(selection.version) : null,
+        launchGroup: selection?.type === "group" ? selection.groupId : null,
       });
     },
     close: () => {
-      void setQuery({
+      return setQuery({
         launch: null,
         launchApplication: null,
         launchSuite: null,
@@ -85,6 +101,10 @@ export function useEvalSetup(targets: EvalTargets) {
         launchAttempts: null,
 
         launchJudge: null,
+        launchPrompts: null,
+        launchPrompt: null,
+        launchVersion: null,
+        launchGroup: null,
       });
     },
   };

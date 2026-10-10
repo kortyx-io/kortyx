@@ -18,6 +18,7 @@ import {
 import { bodyLimit } from "hono/body-limit";
 import { z } from "zod";
 import type { EvalTargetAdapter } from "../evals/contracts";
+import { freezeEvalPrompts } from "../evals/prompts";
 import { type EvalTarget, fetchEvalManifest } from "../evals/targets";
 import {
   principalActorId,
@@ -186,6 +187,13 @@ export function registerEvaluationRoutes(
           },
           503,
         );
+      const { promptSnapshot, promptGroupName } = await freezeEvalPrompts(
+        c.get("withTenantDatabase"),
+        auth,
+        target.environment,
+        manifest.promptContracts,
+        request.promptSelection,
+      );
       const requestedBy =
         auth.kind === "api-key" ? auth.keyId : principalActorId(auth);
       const scope = {
@@ -220,6 +228,8 @@ export function registerEvaluationRoutes(
             suiteRevision: selection.suiteRevision,
             suite: suite as EvalSuite,
             request: {
+              ...(promptSnapshot ? { promptSnapshot } : {}),
+              ...(promptGroupName ? { promptGroupName } : {}),
               suiteId: suite!.id,
               suiteRevision: selection.suiteRevision,
               grading: request.judge,

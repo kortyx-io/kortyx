@@ -64,6 +64,34 @@
       "when": 1791451993857,
       "tag": "0008_error_diagnostics",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1791451993858,
+      "tag": "0009_prompt_management",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1791555209210,
+      "tag": "0010_prompt_live_tags",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1791626679265,
+      "tag": "0011_prompt_scoped_policies",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1791634349131,
+      "tag": "0012_prompt_change_notes",
+      "breakpoints": true
     }
   ]
 }

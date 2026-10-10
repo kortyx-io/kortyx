@@ -26,6 +26,9 @@ it("renders saved theme state without a theme script element", async () => {
     sessionDrawer: null,
     evalCaseDrawer: null,
     evalSuiteDrawer: null,
+    promptDrawer: null,
+    promptGroupDrawer: null,
+    promptGroupsDrawer: null,
   });
   expect(root.props["data-theme-preference"]).toBe("system");
   expect(root.props.children.type).toBe("body");

@@ -18,6 +18,7 @@ const ProfileSchema = z
     apiKeyEnv: z.string().regex(/^[A-Za-z_][A-Za-z0-9_]*$/),
     environment: z.string().min(1).optional(),
     project: z.string(),
+    projectId: z.string().min(1).optional(),
     organization: z.string(),
   })
   .strict();
@@ -53,6 +54,7 @@ export type ConnectionOptions = {
   home?: string | undefined;
 };
 export type ResolvedConnection = {
+  projectId?: string | undefined;
   name: string;
   apiUrl: string;
   studioUrl?: string | undefined;
@@ -202,6 +204,7 @@ export const resolveConnection = async (
     apiUrl: profile.apiUrl,
     studioUrl: profile.studioUrl,
     environment: profile.environment,
+    projectId: profile.projectId,
     apiKey: readKeyEnv(profile.apiKeyEnv),
   };
 };

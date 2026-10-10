@@ -21,6 +21,15 @@ describe("detailNavigationHref", () => {
       trace: "event-1",
       event: "event-2",
       detailView: "expanded",
+      v: "3",
+      edit: "true",
+      promptAction: "rename",
+      promptActionVersion: "2",
+      assetAction: "rename",
+      actionAsset: "prompt-1",
+      bulkPromptAction: "archive",
+      groupAction: "member",
+      groupEditId: "group-1",
     });
 
     expect(detailNavigationHref("/runs/run-2", params)).toBe(

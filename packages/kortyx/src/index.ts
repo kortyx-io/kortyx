@@ -138,6 +138,7 @@ export type {
   UseReasonInterruptConfig,
   UseReasonInterruptsConfig,
   UseReasonOutputsConfig,
+  UseReasonPromptArgs,
   UseReasonResult,
   UseReasonStep,
   UseReasonToolExecution,
@@ -156,6 +157,7 @@ export {
   useAbortSignal,
   useInterrupt,
   useNodeState,
+  usePrompt,
   useReason,
   useRuntimeContext,
   useStructuredData,
@@ -171,6 +173,21 @@ export type {
   McpTransportConfig,
 } from "@kortyx/mcp";
 export { createMCPClient } from "@kortyx/mcp";
+export type {
+  CompiledPrompt,
+  PromptCache,
+  PromptManager,
+  PromptRef,
+  PromptSnapshot,
+  PromptSource,
+} from "@kortyx/prompts";
+export {
+  createPrompts,
+  definePrompt,
+  localPromptSource,
+  PromptError,
+  studioPromptSource,
+} from "@kortyx/prompts";
 export * from "@kortyx/providers";
 export type {
   CreateCachingFrameworkAdapterOptions,

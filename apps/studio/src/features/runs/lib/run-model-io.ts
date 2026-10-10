@@ -1,6 +1,7 @@
 import type { StudioDetailEvent } from "@kortyx/telemetry-contracts";
 
 export type ModelExchange = {
+  prompt?: { key: string; version: number; hash: string; environment: string };
   id: string;
   opId: string | null;
   reasonId: string | null;
@@ -304,7 +305,28 @@ export function buildModelExchanges(
         Object.hasOwn(reasonEnd.payload, "output") &&
         isStructured,
     );
+    const prompt = record(
+      generation?.payload.prompt ??
+        start.payload.prompt ??
+        reason?.payload.prompt,
+    );
+    const promptMetadata = record(prompt.metadata);
     return {
+      ...(typeof prompt.name === "string" &&
+      typeof prompt.version === "number" &&
+      typeof promptMetadata.hash === "string"
+        ? {
+            prompt: {
+              key: prompt.name,
+              version: prompt.version,
+              hash: promptMetadata.hash,
+              environment: string(
+                promptMetadata.environment,
+                "Unknown environment",
+              ),
+            },
+          }
+        : {}),
       id: start.spanId ?? start.id,
       opId: string(reasonAttributes.opId ?? attributes.opId, "") || null,
       reasonId: string(reasonAttributes.id ?? attributes.id, "") || null,
