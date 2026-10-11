@@ -4,6 +4,23 @@ Use this reference when adding or reviewing Kortyx tracing in an app.
 
 ## Placement
 
+The Node SDK's default-on maintainer usage aggregates are independent of customer
+tracing. They use Kortyx's EU PostHog project and public capture key, so consumers
+need no personal API token. Set `KORTYX_USAGE_TELEMETRY_DISABLED=1` (or `true`)
+before app startup to disable collection, identity creation and delivery.
+`KORTYX_USAGE_TELEMETRY_DEBUG=1` prints approved aggregates locally without sending
+requests or creating identities. Node tests default off; browser-only SDK imports
+do not collect automatically. CI alone does not disable the Node integration.
+
+Usage records exclude customer content, arbitrary resource names, customer IDs,
+credentials and raw error messages/stacks. They carry a pseudonymous random
+installation UUID; do not describe them as legally anonymous. Delivery is bounded
+and best effort, so missing usage records do not prove an operation never ran.
+Destination overrides are `KORTYX_USAGE_TELEMETRY_POSTHOG_HOST`,
+`KORTYX_USAGE_TELEMETRY_POSTHOG_KEY` (public capture key only), and
+`KORTYX_USAGE_TELEMETRY_ENDPOINT` for a compatible collector. These controls do not
+disable Studio traces or OpenTelemetry exports.
+
 - Configure the OpenTelemetry SDK/exporter in server bootstrap code before `createAgent(...)`.
 - Keep tracing server-side. React clients should pass identifiers such as `sessionId`; provider calls and token usage are emitted by server runtime code.
 - Use `@kortyx/otel` for the adapter and keep exporter/backend setup app-owned.

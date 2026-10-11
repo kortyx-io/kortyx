@@ -170,6 +170,18 @@ export function PromptLibraryView({
       <DropdownMenuContent
         align="end"
         className="data-[state=closed]:animate-none!"
+        onCloseAutoFocus={(event) => {
+          const trigger = categoryTrigger.current;
+          // A rapid second Escape can close the sidebar before the menu's
+          // deferred focus restoration. Its original trigger is then hidden.
+          if (
+            trigger?.getClientRects().length &&
+            trigger.getAttribute("aria-expanded") === "false"
+          ) {
+            event.preventDefault();
+            trigger.focus();
+          }
+        }}
       >
         <DropdownMenuItem
           onSelect={() => categoryForm({ type: "create", category })}
