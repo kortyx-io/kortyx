@@ -24,6 +24,8 @@ For each area in the PR template, choose one status:
 Pending work is not Complete. An unrun check is not a passing check. Record
 pending CI and skipped checks in Validation, with the reason and remaining
 uncertainty. Update the assessment when the scope or implementation changes.
+While drafting or awaiting checks, leave affected rows Pending with an explanation.
+Resolve all Pending rows before merge.
 
 A reviewer must explicitly accept a deferral before merge. Do not defer work
 required for the advertised behavior, contract compatibility, authorization,

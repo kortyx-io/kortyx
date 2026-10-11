@@ -4,8 +4,8 @@
 
 ## Definition of Done
 
-<!-- Follow docs/internal/definition-of-done.md. Replace Pending in every row
-with Complete, Not applicable, or Deferred. Complete needs evidence; Not
+<!-- Follow docs/internal/definition-of-done.md. Before merge, replace Pending in
+every row with Complete, Not applicable, or Deferred. Complete needs evidence; Not
 applicable needs a reason; Deferred needs an issue, owner, limitation, and safe
 release boundary accepted by a reviewer. Do not remove rows or mark pending
 checks as passing. Scale the evidence to the change. -->
