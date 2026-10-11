@@ -194,45 +194,49 @@ export function TrustPage({
 
       <div className="marketing-container grid gap-12 py-12 lg:grid-cols-[13rem_minmax(0,1fr)] lg:gap-16 lg:py-16">
         <aside>
-          <nav
-            aria-label="Company and trust"
-            className="grid grid-cols-2 gap-1 sm:grid-cols-3 lg:sticky lg:top-32 lg:grid-cols-1"
-          >
-            {trustPageSlugs.map((item) => (
-              <Link
-                key={item}
-                href={`/${item}`}
-                aria-current={
-                  !cloudDocument && slug === item ? "page" : undefined
-                }
-                className={`inline-flex min-h-11 items-center rounded-lg px-3 text-sm focus-visible:outline-2 focus-visible:outline-[#a89cff] ${!cloudDocument && slug === item ? "bg-[#a89cff]/12 text-[#ded8ff]" : "text-[#b8b5c9] hover:bg-white/5 hover:text-white"}`}
-              >
-                {trustPages[item].label}
-              </Link>
-            ))}
-          </nav>
-          <nav
-            aria-label="Cloud legal documents"
-            className="mt-6 grid grid-cols-2 gap-1 lg:grid-cols-1"
-          >
-            {cloudLegalSlugs.map((item) => (
-              <Link
-                key={item}
-                href={`/cloud/${item}`}
-                aria-current={cloudDocument?.slug === item ? "page" : undefined}
-                className={`inline-flex min-h-11 items-center rounded-lg px-3 text-sm focus-visible:outline-2 focus-visible:outline-[#a89cff] ${cloudDocument?.slug === item ? "bg-[#a89cff]/12 text-[#ded8ff]" : "text-[#b8b5c9] hover:bg-white/5 hover:text-white"}`}
-              >
-                {
+          <div className="lg:sticky lg:top-32 lg:max-h-[calc(100dvh-9rem)] lg:overflow-y-auto lg:overscroll-contain">
+            <nav
+              aria-label="Company and trust"
+              className="grid grid-cols-2 gap-1 sm:grid-cols-3 lg:grid-cols-1"
+            >
+              {trustPageSlugs.map((item) => (
+                <Link
+                  key={item}
+                  href={`/${item}`}
+                  aria-current={
+                    !cloudDocument && slug === item ? "page" : undefined
+                  }
+                  className={`inline-flex min-h-11 items-center rounded-lg px-3 text-sm focus-visible:outline-2 focus-visible:outline-[#a89cff] ${!cloudDocument && slug === item ? "bg-[#a89cff]/12 text-[#ded8ff]" : "text-[#b8b5c9] hover:bg-white/5 hover:text-white"}`}
+                >
+                  {trustPages[item].label}
+                </Link>
+              ))}
+            </nav>
+            <nav
+              aria-label="Cloud legal documents"
+              className="mt-6 grid grid-cols-2 gap-1 lg:grid-cols-1"
+            >
+              {cloudLegalSlugs.map((item) => (
+                <Link
+                  key={item}
+                  href={`/cloud/${item}`}
+                  aria-current={
+                    cloudDocument?.slug === item ? "page" : undefined
+                  }
+                  className={`inline-flex min-h-11 items-center rounded-lg px-3 text-sm focus-visible:outline-2 focus-visible:outline-[#a89cff] ${cloudDocument?.slug === item ? "bg-[#a89cff]/12 text-[#ded8ff]" : "text-[#b8b5c9] hover:bg-white/5 hover:text-white"}`}
+                >
                   {
-                    terms: "Cloud Terms",
-                    privacy: "Cloud Privacy",
-                    dpa: "Cloud DPA",
-                    subprocessors: "Subprocessors",
-                  }[item]
-                }
-              </Link>
-            ))}
-          </nav>
+                    {
+                      terms: "Cloud Terms",
+                      privacy: "Cloud Privacy",
+                      dpa: "Cloud DPA",
+                      subprocessors: "Subprocessors",
+                    }[item]
+                  }
+                </Link>
+              ))}
+            </nav>
+          </div>
         </aside>
 
         <article className="min-w-0 max-w-4xl">
