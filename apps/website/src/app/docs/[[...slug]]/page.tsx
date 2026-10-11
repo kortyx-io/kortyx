@@ -659,7 +659,6 @@ export default async function DocsPage({
               items={sectionItems}
             />
           )}
-          <DocsTrustFooter />
         </main>
 
         {isDocRoute && currentDoc ? (
@@ -670,6 +669,7 @@ export default async function DocsPage({
           />
         ) : null}
       </div>
+      <DocsTrustFooter />
     </div>
   );
 }

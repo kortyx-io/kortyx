@@ -383,8 +383,41 @@ test("documentation keeps legal controls and keyboard skip navigation available"
     page.getByRole("button", { name: "Privacy settings", exact: true }),
   ).toBeVisible();
   await page.goto("/docs/getting-started/installation");
+  const docsFooter = page.locator("footer");
+  await expect(docsFooter).toHaveCount(1);
+  await expect(page.locator("#main-content footer")).toHaveCount(0);
+  const contentBounds = await page.locator("#main-content").boundingBox();
+  const footerBounds = await docsFooter.boundingBox();
+  expect(contentBounds).not.toBeNull();
+  expect(footerBounds).not.toBeNull();
+  if (contentBounds && footerBounds) {
+    expect(footerBounds.x).toBe(0);
+    expect(footerBounds.width).toBe(await page.evaluate(() => innerWidth));
+    expect(footerBounds.y).toBeGreaterThanOrEqual(
+      contentBounds.y + contentBounds.height - 1,
+    );
+    await page.mouse.move(contentBounds.x + contentBounds.width / 2, 300);
+    await page.mouse.wheel(0, 700);
+    await expect.poll(() => page.evaluate(() => scrollY)).toBeGreaterThan(0);
+  }
+  expect(await docsFooter.evaluate((el) => getComputedStyle(el).position)).toBe(
+    "static",
+  );
+  await docsFooter.scrollIntoViewIfNeeded();
+  await expect(docsFooter).toBeInViewport();
+  await expect(docsFooter).toContainText("Framework Apache-2.0 · Studio ELv2");
+  for (const name of ["Build", "Kortyx", "Legal"]) {
+    await expect(
+      docsFooter.getByText(name, { exact: true }).last(),
+    ).toBeVisible();
+  }
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= innerWidth,
+    ),
+  ).toBe(true);
   const footer = page.getByRole("navigation", {
-    name: "Website legal and trust information",
+    name: "Footer navigation",
   });
   await expect(
     footer.getByRole("link", { name: "Privacy", exact: true }),
