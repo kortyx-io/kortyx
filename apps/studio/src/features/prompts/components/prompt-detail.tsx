@@ -477,7 +477,7 @@ export function PromptDetailView({
       ),
   );
   const promotionBlocked =
-    ((destinationPolicy?.requireTest ?? true) && !eligible.length) ||
+    ((destinationPolicy?.requireTest ?? false) && !eligible.length) ||
     missingSuites.length > 0 ||
     independentReviews < (destinationPolicy?.requiredReviews ?? 0);
   const validException =
@@ -1685,8 +1685,7 @@ export function PromptDetailView({
                       </Tooltip>
                     </div>
                     <p>
-                      {destinationPolicy?.requireTest === false &&
-                      !missingSuites.length
+                      {!destinationPolicy?.requireTest && !missingSuites.length
                         ? "Passing evaluations are optional under this prompt's policy."
                         : eligible.length
                           ? `${eligible.length} passing full suite${eligible.length === 1 ? "" : "s"} with verified usage`

@@ -1388,7 +1388,7 @@ export async function mutatePrompt(
       )
       .limit(1);
     const policy = savedPolicy ?? {
-      requireTest: true,
+      requireTest: false,
       requiredSuites: [],
       requiredReviews: 0,
       allowException: true,

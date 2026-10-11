@@ -30,7 +30,7 @@ export function PromptPolicyDialog({
   const [error, setError] = useState("");
   const [working, setWorking] = useState(false);
   const [requireChangeNote, setRequireChangeNote] = useState(false);
-  const [requireTest, setRequireTest] = useState(true);
+  const [requireTest, setRequireTest] = useState(false);
   const [requiredReviews, setRequiredReviews] = useState("0");
   const [allowException, setAllowException] = useState(true);
   const [suites, setSuites] = useState<
@@ -49,7 +49,7 @@ export function PromptPolicyDialog({
           targets: StudioEvalTargetsResponseSchema.parse(targets),
         };
         const existing = loaded.detail.policies[0];
-        setRequireTest(existing?.requireTest ?? true);
+        setRequireTest(existing?.requireTest ?? false);
         setRequireChangeNote(existing?.requireChangeNote ?? false);
         setRequiredReviews(String(existing?.requiredReviews ?? 0));
         setAllowException(existing?.allowException ?? true);
