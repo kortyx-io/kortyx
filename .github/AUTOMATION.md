@@ -88,6 +88,14 @@ that do not affect Studio or its API/database dependencies skip this matrix.
 
 ## Workflow code versus release code
 
+Stable release selection and npm publication share one commit classifier. It
+recognizes the conventional Release Please squash/rebase title, plus GitHub's
+default two-parent merge from `kortyx-io/release-please--branches--main` when the
+second parent is itself release-titled. Ordinary feature merges are not releases.
+Selection runs from the trusted workflow revision, so manual stable recovery can
+classify an older release commit after an automation fix. Recovery still requires
+successful main push CI for that exact commit; no tag or publication gate is bypassed.
+
 Jobs check out automation separately at `.github/automation`, pinned to
 `github.workflow_sha`, with checkout credentials disabled. Local actions and helper
 scripts are loaded from that checkout. The root checkout remains the source code

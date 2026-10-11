@@ -137,7 +137,7 @@ if "inspect" in args:
         self.assertNotEqual(result.returncode, 0)
         self.assertFalse(any("create" in call for call in self.calls()))
 
-    def npm_fixture(self, subject="chore: release main", managed=True, changed=True):
+    def npm_fixture(self, subject="chore: release main", managed=True, changed=True, merge_subject=None):
         for directory in ["packages/a", "packages/b", "providers", ".github/release-please"]:
             (self.root / directory).mkdir(parents=True, exist_ok=True)
         config = {"packages": {"packages/a": {"package-name": "@test/a"}}
@@ -156,10 +156,15 @@ if "inspect" in args:
         git("config", "user.name", "Test")
         git("add", ".")
         git("commit", "-qm", "Initial packages")
+        initial = git("rev-parse", "HEAD")
         if changed:
             package("a", "1.1.0")
         git("add", ".")
         git("commit", "--allow-empty", "-qm", subject)
+        if merge_subject:
+            release_head = git("rev-parse", "HEAD")
+            git("checkout", "--detach", initial)
+            git("merge", "--no-ff", "-m", merge_subject, release_head)
         self.env["RELEASE_COMMIT"] = git("rev-parse", "HEAD")
         test = self
         class RegistryHandler(BaseHTTPRequestHandler):
@@ -242,6 +247,32 @@ with open(os.environ["TEST_LOG"], "a") as f: f.write(json.dumps({"args":sys.argv
         self.assertEqual(self.calls(), [{"cwd": str(self.root),
                          "args": ["exec", "turbo", "run", "build", "--filter=@test/a..."]}])
         self.assertEqual(self.registry_reads, 0)
+
+    def test_release_please_merge_is_selected_by_description_and_publisher(self):
+        self.npm_fixture(merge_subject="Merge pull request #309 from kortyx-io/release-please--branches--main")
+        result = subprocess.run(["node", str(GITHUB / "scripts/release/describe-release.mjs")],
+                                cwd=self.root, env=self.env, text=True, capture_output=True)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(json.loads(result.stdout)["release"], "true")
+        self.assertEqual(json.loads(result.stdout)["paths"], '["packages/a"]')
+        result = self.run_npm("--build-only")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(self.calls()[0]["args"], ["exec", "turbo", "run", "build", "--filter=@test/a..."])
+
+    def test_feature_merge_is_not_a_release_even_with_a_release_titled_parent(self):
+        self.npm_fixture(merge_subject="Merge pull request #309 from kortyx-io/codex/feature")
+        self.assertEqual(self.run_npm("--build-only").returncode, 0)
+        self.assertEqual(self.calls(), [])
+
+    def test_release_branch_merge_requires_a_release_titled_parent(self):
+        self.npm_fixture(subject="fix: change a package", merge_subject="Merge pull request #309 from kortyx-io/release-please--branches--main")
+        self.assertEqual(self.run_npm("--build-only").returncode, 0)
+        self.assertEqual(self.calls(), [])
+
+    def test_merge_shaped_title_on_single_parent_does_not_authorize_release(self):
+        self.npm_fixture(subject="Merge pull request #309 from kortyx-io/release-please--branches--main")
+        self.assertEqual(self.run_npm("--build-only").returncode, 0)
+        self.assertEqual(self.calls(), [])
 
     def test_npm_build_does_not_build_everything_for_empty_release(self):
         self.npm_fixture(changed=False)

@@ -69,7 +69,7 @@ jobs:
         id: release
         env:
           RELEASE_COMMIT: ${{ inputs.release_commit || github.event.workflow_run.head_sha || github.sha }}
-        run: node .github/scripts/release/describe-release.mjs
+        run: node ./.github/automation/.github/scripts/release/describe-release.mjs
 
   publication_preflight:
     name: Verify Studio publication access before releasing packages
