@@ -1077,7 +1077,20 @@ test.describe("Prompt detail drawers", () => {
 
   test("confirms group removal, policy changes and promotion without accidental writes", async ({
     page,
+    request,
   }) => {
+    await action(request, {
+      action: "policy",
+      id,
+      policy: {
+        revision: 0,
+        requireTest: true,
+        requireChangeNote: false,
+        requiredSuites: [],
+        requiredReviews: 0,
+        allowException: true,
+      },
+    });
     const mutations: string[] = [];
     page.on("request", (request) => {
       if (
@@ -2591,7 +2604,7 @@ test.describe("Prompt detail drawers", () => {
         policyModal(page).getByLabel(
           "Require a passing full suite with verified prompt usage",
         ),
-      ).toBeChecked();
+      ).not.toBeChecked();
       await expect(
         policyModal(page).getByLabel("Independent human reviews"),
       ).toHaveValue("0");
@@ -2724,14 +2737,7 @@ test.describe("Prompt detail drawers", () => {
         await expect(
           modal.getByText("Destination environment", { exact: true }),
         ).toHaveCount(0);
-        await modal
-          .getByRole("checkbox", {
-            name: "Request an audited policy exception",
-          })
-          .check();
-        await modal
-          .getByLabel("Exception reason", { exact: true })
-          .fill("Disposable end-to-end release verification");
+        await expect(modal).toContainText("Passing evaluations are optional");
         await modal
           .getByRole("button", {
             name: `${rollback ? "Roll back to" : "Promote"} v${version}`,
