@@ -344,3 +344,80 @@ it("does not publish a late judge result after cancellation", async () => {
   expect(progress).not.toHaveBeenCalled();
   expect(execution.cases[0]?.steps[0]?.criteria).toEqual([]);
 });
+
+it.each([
+  true,
+  false,
+])("replays application-selected evidence in Studio with history=%s and preserves full captures", async (history) => {
+  const output = {
+    streamId: "answer",
+    dataType: "app.answer",
+    status: "done",
+    data: { text: "Paris" },
+  };
+  const raw = {
+    type: "answer" as const,
+    text: "Paris",
+    structured: [
+      output,
+      { dataType: "app.plan", data: { text: "INTERNAL PLAN" } },
+    ],
+    events: [
+      { type: "tool-call-result", tool: "read", content: "Paris" },
+      { type: "structured-data", kind: "text-delta", delta: "STREAMING NOISE" },
+    ],
+  };
+  const execution = await createEvals({
+    agent: { streamChat: vi.fn() },
+    suites: [
+      {
+        ...suite,
+        evidence: { history, outputs: [{ dataType: "app.answer" }] },
+      },
+    ],
+    defaults: { evidence: { events: { using: "no-tools" } } },
+    evidenceFilters: { events: { "no-tools": () => false } },
+    execute: () => ({ observation: raw }),
+  }).run({ suiteId: suite.id, grading: "studio" });
+  const grade = vi.fn((input: Parameters<EvalJudge["grade"]>[0]) => {
+    expect(input.observation).toEqual({
+      ...raw,
+      structured: [output],
+      events: [],
+    });
+    expect(input.conversation).toHaveLength(
+      history &&
+        "message" in input.input &&
+        input.input.message === "Explain it"
+        ? 1
+        : 0,
+    );
+    for (const previous of input.conversation) {
+      expect(previous.observation).toEqual({
+        ...raw,
+        structured: [output],
+        events: [],
+      });
+      expect(previous).not.toHaveProperty("evidence");
+    }
+    return {
+      passed: true,
+      reason: "Matches selected output",
+      evidence: ["Paris"],
+    };
+  });
+  const original = structuredClone(execution);
+  const result = await gradeEvalExecution(
+    JSON.parse(JSON.stringify(execution)),
+    { ...judge, grade },
+    new AbortController().signal,
+    async () => {},
+  );
+  expect(grade).toHaveBeenCalledTimes(2);
+  expect(result.status).toBe("passed");
+  expect(execution).toEqual(original);
+  expect(result.cases[0]?.steps[0]?.observation).toEqual(raw);
+  expect(result.cases[0]?.steps[0]?.evidence).toEqual(
+    execution.cases[0]?.steps[0]?.evidence,
+  );
+});

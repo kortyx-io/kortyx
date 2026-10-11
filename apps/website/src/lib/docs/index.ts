@@ -1,9 +1,9 @@
 import { readdir, readFile } from "node:fs/promises";
 import path from "node:path";
-import matter from "gray-matter";
 import { cache } from "react";
 import { extractToc } from "../utils/extract-toc";
 import { type DocsProduct, docsConfig, getDocsProduct } from "./config";
+import { parseMarkdownFrontmatter } from "./frontmatter";
 
 export type DocFrontmatter = {
   id: string;
@@ -321,7 +321,7 @@ async function readVersionDocs(
     }
 
     const rawFile = await readFile(filePath, "utf8");
-    const parsed = matter(rawFile);
+    const parsed = parseMarkdownFrontmatter(rawFile);
     const frontmatter = parseFrontmatter(
       version,
       slugSegments,

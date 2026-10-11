@@ -4,6 +4,7 @@ import {
   TelemetryEventBatchSchema,
 } from "@kortyx/telemetry-contracts";
 import { ingestTelemetryEvents } from "@kortyx/telemetry-db";
+import { requirePrincipalEnvironment } from "../../middleware/security";
 import type { ApiEnv } from "../../types";
 
 const ErrorResponseSchema = z.object({
@@ -65,6 +66,10 @@ export const registerTelemetryEventRoutes = (
   app.openapi(eventsRoute, async (c) => {
     const body = c.req.valid("json");
     const auth = c.get("principal");
+    requirePrincipalEnvironment(
+      auth,
+      body.events.map((event) => event.environment),
+    );
     const response = await c.get("withTenantDatabase")((db) =>
       ingestTelemetryEvents(db, {
         organizationId: auth.organizationId,
@@ -78,6 +83,10 @@ export const registerTelemetryEventRoutes = (
   app.openapi(eventsBatchRoute, async (c) => {
     const body = c.req.valid("json");
     const auth = c.get("principal");
+    requirePrincipalEnvironment(
+      auth,
+      body.events.map((event) => event.environment),
+    );
     const response = await c.get("withTenantDatabase")((db) =>
       ingestTelemetryEvents(db, {
         organizationId: auth.organizationId,

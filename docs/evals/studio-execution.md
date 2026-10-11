@@ -79,7 +79,7 @@ KORTYX_EVAL_JUDGE_MODEL=gpt-5.4-mini
 KORTYX_EVAL_JUDGE_API_KEY=<server-owned provider key>
 # Optional overrides:
 # KORTYX_EVAL_JUDGE_ID=studio/my-judge
-# KORTYX_EVAL_JUDGE_VERSION=kortyx-rubric-v3
+# KORTYX_EVAL_JUDGE_VERSION=kortyx-rubric-v4
 # KORTYX_EVAL_JUDGE_API=responses
 # KORTYX_EVAL_JUDGE_BASE_URL=https://api.openai.com/v1
 ```

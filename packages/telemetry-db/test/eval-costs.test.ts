@@ -184,3 +184,37 @@ describe("eval billing evidence", () => {
     });
   });
 });
+
+it("counts independent associated executions exactly once and preserves missing execution billing", () => {
+  const attempt = {
+    sessionId: "eval-session",
+    attemptId: "attempt",
+    runtimeExecutions: [
+      { sessionId: "A", runId: "update" },
+      { sessionId: "B", runId: "read" },
+    ],
+    steps: [],
+    finished: true,
+  };
+  const update = {
+    ...generation("update", 1000),
+    sessionId: "A",
+    runId: "update",
+    payload: {
+      ...generation("update", 1000).payload,
+      evalAttemptId: "attempt",
+    },
+  };
+  const read = {
+    ...generation("read", 2000),
+    sessionId: "B",
+    runId: "read",
+    payload: { ...generation("read", 2000).payload, evalAttemptId: "attempt" },
+  };
+  expect(
+    calculateEvalAttemptCosts(attempt, [update], []).workflow,
+  ).toMatchObject({ amount: 0.001, status: "partial", unpricedCalls: 1 });
+  expect(
+    calculateEvalAttemptCosts(attempt, [update, read, read], []).workflow,
+  ).toMatchObject({ amount: 0.003, status: "complete", calls: 2 });
+});

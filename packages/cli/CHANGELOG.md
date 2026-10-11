@@ -1,5 +1,121 @@
 # Changelog
 
+## [0.18.0](https://github.com/kortyx-io/kortyx/compare/cli-v0.17.0...cli-v0.18.0) (2026-10-10)
+
+
+### Features
+
+* version, evaluate, serve and migrate Studio prompts ([#288](https://github.com/kortyx-io/kortyx/issues/288)) ([0802f8b](https://github.com/kortyx-io/kortyx/commit/0802f8b91c4a541d176dd8a75c659063e2c28c8c))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/agent bumped to 0.36.0
+    * @kortyx/prompts bumped to 0.1.0
+    * @kortyx/telemetry-contracts bumped to 0.16.0
+
+## [0.17.0](https://github.com/kortyx-io/kortyx/compare/cli-v0.16.0...cli-v0.17.0) (2026-10-09)
+
+
+### Features
+
+* **evals:** share concurrency and attribute multi-session costs ([#304](https://github.com/kortyx-io/kortyx/issues/304)) ([dd5e242](https://github.com/kortyx-io/kortyx/commit/dd5e242ae08affbb015201bb57c4714709756cf2))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/agent bumped to 0.35.0
+    * @kortyx/core bumped to 0.13.0
+
+## [0.16.0](https://github.com/kortyx-io/kortyx/compare/cli-v0.15.2...cli-v0.16.0) (2026-10-09)
+
+
+### Features
+
+* **evals:** raise concurrency limit to 20 ([#300](https://github.com/kortyx-io/kortyx/issues/300)) ([0ed3151](https://github.com/kortyx-io/kortyx/commit/0ed3151e2984551d84113091594a0b8f9267289a))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/agent bumped to 0.34.0
+
+## [0.15.2](https://github.com/kortyx-io/kortyx/compare/cli-v0.15.1...cli-v0.15.2) (2026-10-08)
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/agent bumped to 0.33.0
+
+## [0.15.1](https://github.com/kortyx-io/kortyx/compare/cli-v0.15.0...cli-v0.15.1) (2026-10-08)
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/agent bumped to 0.32.0
+
+## [0.15.0](https://github.com/kortyx-io/kortyx/compare/cli-v0.14.0...cli-v0.15.0) (2026-10-08)
+
+
+### Features
+
+* **telemetry:** preserve complete private error diagnostics ([#290](https://github.com/kortyx-io/kortyx/issues/290)) ([e1c5a88](https://github.com/kortyx-io/kortyx/commit/e1c5a88c494016fd84a1af40579412fcfde31271))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/agent bumped to 0.31.1
+    * @kortyx/core bumped to 0.12.0
+    * @kortyx/telemetry-contracts bumped to 0.15.0
+
+## [0.14.0](https://github.com/kortyx-io/kortyx/compare/cli-v0.13.0...cli-v0.14.0) (2026-10-07)
+
+
+### Features
+
+* **evals:** group suite runs and expose CLI results ([#284](https://github.com/kortyx-io/kortyx/issues/284)) ([146fd71](https://github.com/kortyx-io/kortyx/commit/146fd71a88587e5591dd0511a4c0cb57969f9d07))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/agent bumped to 0.31.0
+
+## [0.13.0](https://github.com/kortyx-io/kortyx/compare/cli-v0.12.0...cli-v0.13.0) (2026-10-07)
+
+
+### Features
+
+* **api:** add typed security and tenant database extensions ([#260](https://github.com/kortyx-io/kortyx/issues/260)) ([47e4928](https://github.com/kortyx-io/kortyx/commit/47e49286f12e4470b3a327e609a65c99678b359f))
+* **evals:** diagnose setup and guide first workflow runs ([#275](https://github.com/kortyx-io/kortyx/issues/275)) ([01dbf80](https://github.com/kortyx-io/kortyx/commit/01dbf803e65eec03187de9eaa316e4294f4f8dc5))
+
+
+### Bug Fixes
+
+* **security:** remediate production dependency risks ([#267](https://github.com/kortyx-io/kortyx/issues/267)) ([319daa1](https://github.com/kortyx-io/kortyx/commit/319daa1716a8684c332842bc6b6e9bb9474219e7))
+* **studio:** adopt native Drizzle migrations safely ([98238a7](https://github.com/kortyx-io/kortyx/commit/98238a770a900017dd4956f1afc56fddba21d371))
+* **studio:** preserve legacy updater access ([#283](https://github.com/kortyx-io/kortyx/issues/283)) ([fb733d8](https://github.com/kortyx-io/kortyx/commit/fb733d848ac7b6e42851de810aa2f039abb535b2))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/agent bumped to 0.30.0
+    * @kortyx/telemetry-contracts bumped to 0.14.0
+
 ## [0.12.0](https://github.com/kortyx-io/kortyx/compare/cli-v0.11.4...cli-v0.12.0) (2026-10-03)
 
 

@@ -1,6 +1,5 @@
 "use client";
 
-import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { DataTable, DataTableProvider } from "@/components/data-table";
 import { createInterruptColumns } from "@/features/interrupts/components/interrupt-table-columns";
@@ -22,6 +21,7 @@ import { useListTablePreferences } from "@/features/telemetry/hooks/use-list-tab
 import { useLiveRefresh } from "@/features/telemetry/hooks/use-live-refresh";
 import type { ListTablePreferences } from "@/features/telemetry/lib/table-preferences";
 import { detailNavigationHref } from "@/lib/nuqs";
+import { useRouter, useSearchParams } from "@/lib/scoped-navigation";
 import { studioDetailHref } from "@/lib/studio-routes";
 import { cn } from "@/lib/utils";
 

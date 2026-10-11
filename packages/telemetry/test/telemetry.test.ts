@@ -75,8 +75,34 @@ describe("createKortyxTelemetryAdapter", () => {
           });
         },
       );
+      await adapter.trace?.withSpan?.(
+        {
+          name: "runReasonEngine",
+          attributes: {
+            runId: "run_1",
+            workflowId: "workflow",
+            nodeId: "answer",
+          },
+          telemetry: {
+            prompt: { name: "classify", version: 1 },
+            input: "private prompt input",
+          },
+        },
+        async (span) => {
+          span.end?.({ telemetry: { output: "private prompt output" } });
+        },
+      );
       await adapter.flush();
       const events = requests.flatMap(({ body }) => body.events);
+      expect(
+        events.find((event) => event.type === "generation.completed")?.payload,
+      ).toMatchObject({
+        prompt: { name: "classify", version: 1 },
+        captured: captureContent,
+      });
+      expect(JSON.stringify(events).includes("private prompt input")).toBe(
+        captureContent,
+      );
       const output = events.find((event) => event.type === "output.emitted");
       expect(output?.payload).toMatchObject({
         contract: "accountCard",

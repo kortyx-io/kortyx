@@ -1,6 +1,6 @@
 {
   "name": "kortyx-website",
-  "version": "0.42.0",
+  "version": "0.49.0",
   "private": true,
   "description": "Documentation and product website for Kortyx.",
   "keywords": [
@@ -30,7 +30,6 @@
     "clsx": "catalog:",
     "framer-motion": "^12.23.19",
     "github-slugger": "^2.0.0",
-    "gray-matter": "^4.0.3",
     "jose": "^6.2.3",
     "lucide-react": "catalog:",
     "minisearch": "^7.2.0",
@@ -41,7 +40,8 @@
     "react-markdown": "catalog:",
     "react-syntax-highlighter": "^16.1.0",
     "remark-gfm": "catalog:",
-    "tailwind-merge": "catalog:"
+    "tailwind-merge": "catalog:",
+    "yaml": "2.8.3"
   },
   "devDependencies": {
     "@playwright/test": "1.62.0",

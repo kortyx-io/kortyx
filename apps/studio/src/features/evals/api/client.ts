@@ -1,9 +1,10 @@
+import { studioFetch } from "@/lib/studio-fetch";
 export async function evalRequest(
   path: string,
   body?: unknown,
   signal?: AbortSignal,
 ) {
-  const response = await fetch(`/api/studio/evals/${path}`, {
+  const response = await studioFetch(`/api/studio/evals/${path}`, {
     ...(body === undefined
       ? {}
       : {

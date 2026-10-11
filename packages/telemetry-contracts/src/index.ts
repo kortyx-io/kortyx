@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { FeedbackSummarySchema, StudioScoreSchema } from "./scores";
 
+export * from "./diagnostics";
 export * from "./scores";
 
 /** Studio read API compatibility changes only when the wire protocol breaks. */
@@ -561,6 +562,7 @@ export const StudioChangeSchema = z
     emittedAt: z.string().datetime({ offset: true }),
     organizationId: z.string().min(1),
     projectId: z.string().min(1),
+    environment: z.string().min(1).optional(),
     resources: z.array(StudioChangeResourceSchema).min(1),
   })
   .strict();
@@ -942,6 +944,7 @@ export type StudioCatalogsResponse = z.infer<
 >;
 export type StudioContextResponse = z.infer<typeof StudioContextResponseSchema>;
 
+export * from "./prompts";
 export * from "./studio-updates";
 export {
   projectWorkflowCalls,

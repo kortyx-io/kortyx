@@ -4,7 +4,7 @@ import type {
   EvalRunResult,
   EvalVerdict,
 } from "@kortyx/agent/evals";
-import { EvalVerdictSchema } from "@kortyx/agent/evals";
+import { EvalVerdictSchema, getEvalGradeEvidence } from "@kortyx/agent/evals";
 
 // Custom judges receive the abort signal, but the worker also stops waiting if
 // their implementation ignores it. Late completion is consumed and discarded.
@@ -76,8 +76,8 @@ export async function gradeEvalExecution(
                     }
                   },
                   input: structuredClone(step.input),
-                  observation: structuredClone(step.observation),
-                  conversation: structuredClone(
+                  ...getEvalGradeEvidence(
+                    step,
                     item.steps.filter((prior) => prior.index < step.index),
                   ),
                   ...(step.reference !== undefined

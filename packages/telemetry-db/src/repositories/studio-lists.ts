@@ -369,9 +369,11 @@ export const listStudioRuns = async (
     organizationId: string;
     projectId: string;
     query: StudioListQuery;
+    runIds?: readonly string[];
   },
 ): Promise<StudioListPage<StudioRun>> => {
   const { query } = input;
+  if (input.runIds?.length === 0) return { items: [], totalCount: 0 };
   const statuses = queryValues(query.status);
   const providers = queryValues(query.provider);
   const minimumCost = queryNumber(query.minCost);
@@ -389,6 +391,7 @@ export const listStudioRuns = async (
       ${query.feedback === "positive" ? sql`and feedback.value = '1'::jsonb` : query.feedback === "negative" ? sql`and feedback.value = '0'::jsonb` : sql``}
   )`;
   const conditions = [
+    input.runIds ? inArray(studioRuns.runId, [...input.runIds]) : undefined,
     query.feedback === "unrated"
       ? sql`not ${feedbackExists}`
       : query.feedback

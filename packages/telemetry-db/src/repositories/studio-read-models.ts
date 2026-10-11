@@ -1373,6 +1373,7 @@ export const getStudioReadModels = async (
   input: {
     organizationId: string;
     projectId: string;
+    environment?: string | undefined;
     limit?: number | undefined;
   },
 ): Promise<StudioReadModels> => {
@@ -1385,6 +1386,9 @@ export const getStudioReadModels = async (
         and(
           eq(telemetryEvents.organizationId, input.organizationId),
           eq(telemetryEvents.projectId, input.projectId),
+          input.environment
+            ? eq(telemetryEvents.environment, input.environment)
+            : undefined,
         ),
       )
       .orderBy(desc(telemetryEvents.occurredAt))
@@ -1396,6 +1400,9 @@ export const getStudioReadModels = async (
         and(
           eq(workflowRevisions.organizationId, input.organizationId),
           eq(workflowRevisions.projectId, input.projectId),
+          input.environment
+            ? eq(workflowRevisions.environment, input.environment)
+            : undefined,
         ),
       )
       .orderBy(desc(workflowRevisions.createdAt)),
@@ -1425,7 +1432,11 @@ export const getStudioReadModels = async (
 
 const loadScopedStudioModels = async (
   db: TelemetryDb,
-  input: { organizationId: string; projectId: string },
+  input: {
+    organizationId: string;
+    projectId: string;
+    environment?: string | undefined;
+  },
   eventPredicate: SQL,
 ): Promise<StudioReadModels> => {
   const [events, revisions, rates] = await Promise.all([
@@ -1437,6 +1448,9 @@ const loadScopedStudioModels = async (
           eq(telemetryEvents.organizationId, input.organizationId),
           eq(telemetryEvents.projectId, input.projectId),
           eventPredicate,
+          input.environment
+            ? eq(telemetryEvents.environment, input.environment)
+            : undefined,
         ),
       )
       .orderBy(telemetryEvents.occurredAt),
@@ -1447,6 +1461,9 @@ const loadScopedStudioModels = async (
         and(
           eq(workflowRevisions.organizationId, input.organizationId),
           eq(workflowRevisions.projectId, input.projectId),
+          input.environment
+            ? eq(workflowRevisions.environment, input.environment)
+            : undefined,
         ),
       )
       .orderBy(desc(workflowRevisions.createdAt)),
@@ -1471,7 +1488,12 @@ const loadScopedStudioModels = async (
 
 export const getStudioRunReadModel = async (
   db: TelemetryDb,
-  input: { organizationId: string; projectId: string; runId: string },
+  input: {
+    organizationId: string;
+    projectId: string;
+    runId: string;
+    environment?: string | undefined;
+  },
 ): Promise<StudioReadModels> => {
   const runScope = await db
     .select({ sessionId: telemetryEvents.sessionId })
@@ -1481,6 +1503,9 @@ export const getStudioRunReadModel = async (
         eq(telemetryEvents.organizationId, input.organizationId),
         eq(telemetryEvents.projectId, input.projectId),
         eq(telemetryEvents.runId, input.runId),
+        input.environment
+          ? eq(telemetryEvents.environment, input.environment)
+          : undefined,
       ),
     )
     .limit(1);
@@ -1496,7 +1521,12 @@ export const getStudioRunReadModel = async (
 
 export const getStudioSessionReadModel = (
   db: TelemetryDb,
-  input: { organizationId: string; projectId: string; sessionId: string },
+  input: {
+    organizationId: string;
+    projectId: string;
+    sessionId: string;
+    environment?: string | undefined;
+  },
 ) =>
   loadScopedStudioModels(
     db,
@@ -1506,7 +1536,12 @@ export const getStudioSessionReadModel = (
 
 export const getStudioInterruptReadModel = async (
   db: TelemetryDb,
-  input: { organizationId: string; projectId: string; interruptId: string },
+  input: {
+    organizationId: string;
+    projectId: string;
+    interruptId: string;
+    environment?: string | undefined;
+  },
 ): Promise<StudioReadModels> => {
   const interruptRows = await db
     .select({ runId: telemetryEvents.runId })
@@ -1516,6 +1551,9 @@ export const getStudioInterruptReadModel = async (
         eq(telemetryEvents.organizationId, input.organizationId),
         eq(telemetryEvents.projectId, input.projectId),
         sql`${telemetryEvents.payload} ->> 'interruptId' = ${input.interruptId}`,
+        input.environment
+          ? eq(telemetryEvents.environment, input.environment)
+          : undefined,
       ),
     )
     .limit(1);

@@ -214,7 +214,7 @@ describe("useStructuredStreams", () => {
     expect(result.current.items[1]?.id).toBe("piece-2");
   });
 
-  it("falls back to a non-crypto id generator when crypto is unavailable", () => {
+  it("uses an explicit id generator when Web Crypto is unavailable", () => {
     const originalCrypto = (globalThis as { crypto?: Crypto }).crypto;
     Object.defineProperty(globalThis, "crypto", {
       configurable: true,
@@ -224,6 +224,7 @@ describe("useStructuredStreams", () => {
     try {
       const { result } = renderHook(() =>
         useStructuredStreams<Record<string, unknown>>({
+          createId: () => "test-piece-id",
           initialChunks: [
             structuredChunk({
               streamId: "seed-1",
@@ -236,8 +237,7 @@ describe("useStructuredStreams", () => {
       );
 
       expect(result.current.items).toHaveLength(1);
-      expect(typeof result.current.items[0]?.id).toBe("string");
-      expect(result.current.items[0]?.id.length).toBeGreaterThan(0);
+      expect(result.current.items[0]?.id).toBe("test-piece-id");
     } finally {
       Object.defineProperty(globalThis, "crypto", {
         configurable: true,

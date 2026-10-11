@@ -1,6 +1,5 @@
 "use client";
 
-import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { DataTable, DataTableProvider } from "@/components/data-table";
 import { effectiveInterruptStatus } from "@/features/interrupts/lib/interrupt-presentation";
@@ -18,6 +17,7 @@ import {
 import type { Run } from "@/features/runs/schema";
 import { useLiveRefresh } from "@/features/telemetry/hooks/use-live-refresh";
 import { detailNavigationHref } from "@/lib/nuqs";
+import { useRouter, useSearchParams } from "@/lib/scoped-navigation";
 import { studioDetailHref } from "@/lib/studio-routes";
 import { cn } from "@/lib/utils";
 

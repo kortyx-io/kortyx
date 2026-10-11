@@ -1,6 +1,5 @@
 "use client";
 
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   createContext,
   type ReactNode,
@@ -30,6 +29,11 @@ import {
 import { useSidebar } from "@/components/ui/sidebar";
 import { detailNavigationHref } from "@/lib/nuqs";
 import { detailDrawerZIndex } from "@/lib/overlay-layers";
+import {
+  usePathname,
+  useRouter,
+  useSearchParams,
+} from "@/lib/scoped-navigation";
 import { cn } from "@/lib/utils";
 
 export type { DetailLayerRegistration } from "@/components/detail/detail-stack-state";
@@ -42,7 +46,14 @@ const DETAIL_BASE_PATHS = [
   "/interrupts",
   "/evals/cases",
   "/evals/suites",
+  "/prompts",
 ] as const;
+
+function detailBasePathsFor(pathname: string): readonly string[] {
+  return /^\/prompts\/categories\/[^/]+$/.test(pathname)
+    ? [...DETAIL_BASE_PATHS, pathname]
+    : DETAIL_BASE_PATHS;
+}
 
 type DetailStackContextValue = {
   beginClose: (id: string) => void;
@@ -71,13 +82,14 @@ export function DetailStackProvider({ children }: { children: ReactNode }) {
   const historyTraversalRef = useRef<(() => boolean) | null>(null);
   const nestedCloseHandlersRef = useRef(new Map<string, () => void>());
   const timersRef = useRef(new Map<string, number>());
+  const pendingCloseRef = useRef<string | null>(null);
 
   const saveCurrentStack = useCallback(() => {
     if (historyTraversalRef.current) return;
     const path = window.location.pathname;
     const target = layers.find((layer) => layer.matchPath === path);
     if (target?.closing) return;
-    const isList = DETAIL_BASE_PATHS.some((base) => base === path);
+    const isList = detailBasePathsFor(path).includes(path);
     if (!target && !isList && layers.length > 0) return;
     // Metadata-only writes bypass Next/Nuqs wrappers, which can reset a
     // queued query selection even when the URL has not changed.
@@ -116,6 +128,7 @@ export function DetailStackProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const cancelPendingNavigation = useCallback(() => {
+    pendingCloseRef.current = null;
     for (const key of timersRef.current.keys()) {
       if (key.startsWith("navigate")) clearTimer(key);
     }
@@ -208,6 +221,14 @@ export function DetailStackProvider({ children }: { children: ReactNode }) {
     (id: string) => {
       const target = layers.find((layer) => layer.id === id);
       if (!target) return;
+      // A retained surface can become topmost before Next commits its route.
+      // Closing against the old pathname would finish traversal immediately,
+      // then let the pending navigation open the supposedly dismissed drawer.
+      if (pathname !== target.matchPath) {
+        pendingCloseRef.current = id;
+        return;
+      }
+      pendingCloseRef.current = null;
       saveCurrentStack();
       beginClose(id);
       scheduleNavigation(`navigate:${id}`, () => {
@@ -221,14 +242,27 @@ export function DetailStackProvider({ children }: { children: ReactNode }) {
       beginClose,
       layers,
       navigateBackUntil,
+      pathname,
       saveCurrentStack,
       scheduleNavigation,
       searchParams,
     ],
   );
 
+  useEffect(() => {
+    const id = pendingCloseRef.current;
+    if (
+      id &&
+      layers.some((layer) => layer.id === id && layer.matchPath === pathname)
+    ) {
+      pendingCloseRef.current = null;
+      closeTop(id);
+    }
+  }, [closeTop, layers, pathname]);
+
   const closeAbove = useCallback(
     (id: string) => {
+      pendingCloseRef.current = null;
       const index = layers.findIndex((layer) => layer.id === id);
       if (index < 0 || index === layers.length - 1) return;
       const target = layers[index];
@@ -256,6 +290,7 @@ export function DetailStackProvider({ children }: { children: ReactNode }) {
   );
 
   const closeAll = useCallback(() => {
+    pendingCloseRef.current = null;
     const bottom = layers[0];
     if (!bottom) return;
     saveCurrentStack();
@@ -291,7 +326,11 @@ export function DetailStackProvider({ children }: { children: ReactNode }) {
       // the requested query and browser Back/Forward entries stay intact.
       historyTargetPathRef.current = pathname;
       setLayers((current) =>
-        syncDetailLayersToHistoryPath(current, pathname, DETAIL_BASE_PATHS),
+        syncDetailLayersToHistoryPath(
+          current,
+          pathname,
+          detailBasePathsFor(pathname),
+        ),
       );
     },
     [cancelPendingNavigation, layers, saveCurrentStack],
@@ -331,7 +370,7 @@ export function DetailStackProvider({ children }: { children: ReactNode }) {
           : syncDetailLayersToHistoryPath(
               current,
               window.location.pathname,
-              DETAIL_BASE_PATHS,
+              detailBasePathsFor(window.location.pathname),
             ),
       );
     };
@@ -430,7 +469,7 @@ export function useDetailStackSlotState(dismissPath: string, pathname: string) {
           stack.layers,
           dismissPath,
           pathname,
-          DETAIL_BASE_PATHS,
+          detailBasePathsFor(pathname),
         )
       : null,
     registered: layer !== undefined,

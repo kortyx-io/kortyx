@@ -196,9 +196,9 @@ if "inspect" in args:
 with open(os.environ["TEST_LOG"], "a") as f: f.write(json.dumps({"args":sys.argv[1:],"cwd":os.getcwd()}) + "\\n")
 ''')
 
-    def run_npm(self, **env):
+    def run_npm(self, *args, **env):
         self.registry_exists = env.pop("NPM_EXISTS", "0") == "1"
-        return subprocess.run(["node", str(NPM)], cwd=self.root, env={**self.env, **env},
+        return subprocess.run(["node", str(NPM), *args], cwd=self.root, env={**self.env, **env},
                               text=True, capture_output=True)
 
     def test_npm_verifier_retries_stale_registry_metadata(self):
@@ -234,6 +234,26 @@ with open(os.environ["TEST_LOG"], "a") as f: f.write(json.dumps({"args":sys.argv
                           "args": ["publish", "--provenance", "--access", "public", "--tag", "latest", "--no-git-checks"]}])
         self.assertEqual(self.github_output.read_text(),
                          'packages=[{"name":"@test/a","version":"1.1.0"}]\n')
+
+    def test_npm_build_uses_publication_selection_without_registry_or_publish(self):
+        self.npm_fixture()
+        result = self.run_npm("--build-only")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(self.calls(), [{"cwd": str(self.root),
+                         "args": ["exec", "turbo", "run", "build", "--filter=@test/a..."]}])
+        self.assertEqual(self.registry_reads, 0)
+
+    def test_npm_build_does_not_build_everything_for_empty_release(self):
+        self.npm_fixture(changed=False)
+        result = self.run_npm("--build-only")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(self.calls(), [])
+
+    def test_npm_build_refuses_unmanaged_packages(self):
+        self.npm_fixture(managed=False)
+        result = self.run_npm("--build-only")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(self.calls(), [])
 
     def test_npm_skips_versions_already_published(self):
         self.npm_fixture()

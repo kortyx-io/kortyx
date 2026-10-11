@@ -1,4 +1,4 @@
-import Link from "next/link";
+import Link from "@/components/scoped-link";
 export function EvalNavigation({ active }: { active: "runs" | "suites" }) {
   return (
     <nav aria-label="Eval navigation" className="flex gap-5 border-b">

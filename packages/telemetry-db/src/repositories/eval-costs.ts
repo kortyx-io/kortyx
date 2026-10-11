@@ -6,7 +6,7 @@ import type {
   EvalRunResult,
   EvalStepResult,
 } from "@kortyx/agent/evals";
-import { and, asc, eq, inArray, or } from "drizzle-orm";
+import { and, asc, eq, inArray, or, sql } from "drizzle-orm";
 import type { TelemetryDb } from "../client";
 import {
   type CalculatedCost,
@@ -29,6 +29,8 @@ type Source = {
   events?: { event: EvalProgress }[];
 };
 type Attempt = {
+  attemptId?: string | undefined;
+  runtimeExecutions?: { sessionId: string; runId: string }[] | undefined;
   sessionId: string;
   steps: EvalStepResult[];
   finished: boolean;
@@ -107,7 +109,21 @@ export function calculateEvalAttemptCosts(
   ];
   const workflow = summarize(
     generations.map((e) => calculateGenerationCost(e, rates)),
-    generations.length ? 0 : 1,
+    attempt.attemptId
+      ? Math.max(
+          attempt.runtimeExecutions?.length ? 0 : 1,
+          (attempt.runtimeExecutions ?? []).filter(
+            (execution) =>
+              !generations.some(
+                (event) =>
+                  event.runId === execution.runId &&
+                  event.sessionId === execution.sessionId,
+              ),
+          ).length,
+        )
+      : generations.length
+        ? 0
+        : 1,
     attempt.finished,
   );
   const judgePrices: CalculatedCost[] = [];
@@ -150,6 +166,8 @@ function attempts(source: Source): Map<string, Attempt> {
   const put = (item: EvalCaseResult) =>
     rows.set(`${item.caseId}:${item.repetition}`, {
       sessionId: item.sessionId,
+      attemptId: item.attemptId,
+      runtimeExecutions: item.runtimeExecutions,
       steps: item.steps,
       finished: item.status !== "ungraded",
     });
@@ -157,9 +175,25 @@ function attempts(source: Source): Map<string, Attempt> {
     if (event.type === "case-started")
       rows.set(`${event.caseId}:${event.repetition}`, {
         sessionId: event.sessionId,
+        attemptId: event.attemptId,
+        runtimeExecutions: [],
         steps: [],
         finished: false,
       });
+    if (event.type === "case-runtime-associated") {
+      const item = rows.get(`${event.caseId}:${event.repetition}`);
+      if (
+        item?.attemptId === event.attemptId &&
+        !item.runtimeExecutions?.some(
+          (execution) =>
+            execution.runId === event.execution.runId &&
+            execution.sessionId === event.execution.sessionId,
+        )
+      ) {
+        item.runtimeExecutions ??= [];
+        item.runtimeExecutions.push(event.execution);
+      }
+    }
     if (event.type === "step-completed") {
       const item = rows.get(`${event.caseId}:${event.repetition}`);
       if (item) {
@@ -173,6 +207,23 @@ function attempts(source: Source): Map<string, Attempt> {
   }
   for (const item of source.result?.cases ?? []) put(item);
   return rows;
+}
+/** New SDK attempts never fall back to session-wide billing. Historical attempts
+ * retain their original session lookup. A reused session/run cannot transfer costs. */
+export function matchesEvalAttempt(
+  attempt: Attempt,
+  event: TelemetryEventRecord,
+): boolean {
+  return attempt.attemptId
+    ? event.payload.evalAttemptId === attempt.attemptId &&
+        Boolean(
+          attempt.runtimeExecutions?.some(
+            (execution) =>
+              execution.runId === event.runId &&
+              execution.sessionId === event.sessionId,
+          ),
+        )
+    : !event.payload.evalAttemptId && event.sessionId === attempt.sessionId;
 }
 /** Scope and environment are checked before matching per-attempt session identities. */
 export async function loadEvalCosts(
@@ -205,15 +256,20 @@ export async function loadEvalCosts(
     }),
   }));
   const matches = rows.flatMap(({ source, attempts }) =>
-    [...attempts.values()].map((a) => ({
-      sessionId: a.sessionId,
-      environment: source.environment,
-    })),
+    [...attempts.values()].flatMap((a) =>
+      (a.attemptId
+        ? (a.runtimeExecutions ?? [])
+        : [{ sessionId: a.sessionId }]
+      ).map((execution) => ({
+        sessionId: execution.sessionId,
+        runId: "runId" in execution ? execution.runId : undefined,
+        attemptId: a.attemptId,
+        environment: source.environment,
+      })),
+    ),
   );
   const filters = [
-    ...new Map(
-      matches.map((m) => [`${m.environment}:${m.sessionId}`, m]),
-    ).values(),
+    ...new Map(matches.map((m) => [JSON.stringify(m), m])).values(),
   ];
   const [rates, events] = await Promise.all([
     listApplicableModelRateCards(db, scope),
@@ -231,6 +287,10 @@ export async function loadEvalCosts(
                   and(
                     eq(telemetryEvents.environment, m.environment),
                     eq(telemetryEvents.sessionId, m.sessionId),
+                    m.runId ? eq(telemetryEvents.runId, m.runId) : undefined,
+                    m.attemptId
+                      ? sql`${telemetryEvents.payload}->>'evalAttemptId' = ${m.attemptId}`
+                      : undefined,
                   ),
                 ),
               ),
@@ -248,7 +308,7 @@ export async function loadEvalCosts(
             events.filter(
               (e) =>
                 e.environment === source.environment &&
-                e.sessionId === attempt.sessionId,
+                matchesEvalAttempt(attempt, e),
             ),
             rates,
           ),

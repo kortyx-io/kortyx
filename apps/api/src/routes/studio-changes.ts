@@ -83,6 +83,7 @@ export const registerStudioChangeRoutes = (
         const relevant =
           change.organizationId === auth.organizationId &&
           change.projectId === auth.projectId &&
+          (!auth.environment || change.environment === auth.environment) &&
           (!requestedResources ||
             change.resources.some((resource) =>
               requestedResources.has(resource),

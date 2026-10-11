@@ -13,6 +13,10 @@ export function defineKortyxVitestConfig(config: UserConfig = {}) {
     defineConfig({
       resolve: {
         alias: {
+          "@kortyx/core/eval-attribution": resolve(
+            __dirname,
+            "packages/core/src/eval-attribution.ts",
+          ),
           "@kortyx/core/errors": resolve(
             __dirname,
             "packages/core/src/errors.ts",

@@ -30,6 +30,14 @@ Never replace the fixture with hard-coded local database rows. Going through
 ingestion keeps Studio projections, API contracts, and detail routes in the
 test boundary.
 
+`prompt-drawers.spec.ts` creates a category, two immutable prompt versions and
+one test group through the authenticated prompts API. Independent composition
+fixtures exercise exact version selection, Latest, and SDK serving. It cleans up
+only its reserved `e2e-prompt-drawers/*` assets and `E2E prompt drawers` category /
+`E2E prompt drawer group` selection. Local bootstrap grants the prompt permissions
+needed for these fixture mutations by default; do not opt out with
+`KORTYX_STUDIO_ENABLE_PROMPTS=0` for this suite.
+
 ## Stable assertions
 
 - `data-row-key` identifies a shared table row without depending on column
@@ -80,6 +88,8 @@ response after Presence has already removed the closing surface.
 - a list row opens a full route or skips its entry motion;
 - the first Session → Run navigation replaces the stack with a standalone
   route after loading (production link prefetching);
+- Escape in the commit that changes the top drawer is lost before passive
+  keyboard effects install, or is handled by the departing drawer;
 - Browser Back removes a drawer before its exit state is observable;
 - the backdrop disappears between layers or closes more than one layer;
 - the backdrop sits above ancestor drawers and blocks their visible slivers;
@@ -105,6 +115,15 @@ response after Presence has already removed the closing surface.
 
 If a failure reveals a new regression class, add the scenario here and to the
 relevant hardening ticket before changing the implementation.
+
+Prompt regressions additionally cover container-sized history menus, full-width
+editors inside narrow drawers, a flat library table, action inspector
+Back/Forward, repeated dismissal, reserved inspector space, category list
+restoration, Groups → Group → Prompt ancestors and Escape/typeahead isolation
+for menus and version comparison dialogs. Native TipTap regressions cover blue
+template inputs, exact-version and Latest inclusions, save-review persistence,
+conflicting child versions, picker Escape isolation, and expansion through the
+actual Studio SDK source. Composition fixtures remain independent for CI shards.
 
 ## Development and production checks
 

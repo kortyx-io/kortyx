@@ -51,6 +51,13 @@ KORTYX_STUDIO_PULL_POLICY=never "$STUDIO_SMOKE_CLI" studio start \
   --home "$studio_home" --project-name "$project" --image-tag "$previous_alias" \
   --api-port "${KORTYX_UPGRADE_SMOKE_API_PORT:-36400}" \
   --studio-port "${KORTYX_UPGRADE_SMOKE_STUDIO_PORT:-36300}" > "$state_dir/previous-start.log" 2>&1
+# Protocol 1 preserves the generated Compose file. Exercise the oldest supported
+# shape, before per-service users were added, so a new image cannot strand the
+# updater without Docker-socket access after an otherwise successful upgrade.
+sed -e '/^    user: "1000:1000"$/d' -e '/^    user: "0:0"$/d' \
+  "$studio_home/compose.yml" > "$state_dir/legacy-compose.yml"
+chmod 0600 "$state_dir/legacy-compose.yml"
+mv "$state_dir/legacy-compose.yml" "$studio_home/compose.yml"
 run_id="upgrade-smoke-${VERSION}-${ARCH_ID}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
 docker run --rm --network "${project}_default" --env-file "$studio_home/.env" \
   -e KORTYX_API_URL=http://api:6400 -e KORTYX_SMOKE_RUN_ID="$run_id" \
@@ -77,6 +84,17 @@ cp "$studio_home/compose.yml" "$state_dir/before-compose.yml"
 sed "s/^KORTYX_STUDIO_IMAGE_TAG=.*/KORTYX_STUDIO_IMAGE_TAG=staging-v${VERSION}/" \
   "$state_dir/before.env" > "$studio_home/.env"
 compose up -d --pull never --wait --wait-timeout 180
+process_uid() {
+  compose exec -T "$1" node -e '
+    const status = require("node:fs").readFileSync("/proc/1/status", "utf8");
+    process.stdout.write(/^Uid:\s+(\d+)/m.exec(status)[1]);
+  '
+}
+test "$(process_uid api)" = 1000
+test "$(process_uid updater)" = 0
+test "$(compose exec -T updater docker compose --env-file "$studio_home/.env" \
+  -f "$studio_home/compose.yml" exec -T studio node -p \
+  'require("/app/apps/studio/package.json").version')" = "$VERSION"
 snapshot > "$state_dir/after.json"
 cmp "$state_dir/before.json" "$state_dir/after.json"
 cmp "$state_dir/before-compose.yml" "$studio_home/compose.yml"

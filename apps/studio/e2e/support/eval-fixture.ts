@@ -15,6 +15,7 @@ const database = () =>
 export async function cleanupEvalFixture() {
   const sql = database();
   try {
+    await sql`delete from evaluation_runs where target_id = 'e2e-ktx25-eval'`;
     await sql`delete from eval_runs where target_id = 'e2e-ktx25-eval'`;
   } finally {
     await sql.end();

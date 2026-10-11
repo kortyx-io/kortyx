@@ -1,10 +1,16 @@
 import {
+  type PromptSnapshot,
+  type PromptUsageReceipt,
+  verifyPromptSnapshot,
+} from "@kortyx/prompts";
+import {
   createFinalizedChatMessageAccumulator,
   type StreamChunk,
 } from "@kortyx/stream";
 import type { AgentProcessOptions } from "../chat/create-agent";
 import type { ChatResponseFinalized } from "../chat/lifecycle";
 import type { ChatMessage } from "../types/chat-message";
+import { promptEvaluationContext } from "./prompt-context";
 import { captureEvalEvent, toEvalJson } from "./stream-evidence";
 import type {
   CreateEvalsOptions,
@@ -20,6 +26,7 @@ type Pending = Extract<StreamChunk, { type: "interrupt" }>;
 
 export async function executeEvalChat(args: {
   agent: CreateEvalsOptions["agent"];
+  promptSnapshot?: PromptSnapshot;
   command: EvalCommand;
   continuation?: unknown;
   history: readonly ChatMessage[];
@@ -30,6 +37,17 @@ export async function executeEvalChat(args: {
   context?: Record<string, unknown>;
   messages?: ChatMessage[];
 }): Promise<EvalExecution> {
+  if (args.promptSnapshot) {
+    const snapshot = await verifyPromptSnapshot(args.promptSnapshot);
+    const receipts: PromptUsageReceipt[] = [];
+    const { promptSnapshot: _, ...executionArgs } = args;
+    const result = await promptEvaluationContext.run(
+      { snapshot, onUsage: (receipt) => receipts.push(receipt) },
+      () => executeEvalChat(executionArgs),
+    );
+    result.observation.promptUsage = receipts;
+    return result;
+  }
   const waiting = args.continuation as Pending[] | undefined;
   // Cancel every observed request, even when the conversation cannot represent
   // parallel human interactions. Their tokens stay inside this executor.

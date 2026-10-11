@@ -308,7 +308,11 @@ export const registerStudioRoutes = (app: OpenAPIHono<ApiEnv>): void => {
   });
   app.openapi(runsRoute, async (c) => {
     const auth = c.get("principal");
-    const query = c.req.valid("query");
+    const validatedQuery = c.req.valid("query");
+    const query = {
+      ...validatedQuery,
+      ...(auth.environment ? { env: auth.environment } : {}),
+    };
     const timeRange = resolveStudioTimeRange(query);
     if ("error" in timeRange) {
       return c.json(
@@ -318,8 +322,7 @@ export const registerStudioRoutes = (app: OpenAPIHono<ApiEnv>): void => {
     }
     const page = await c.get("withTenantDatabase")((db) =>
       listStudioRuns(db, {
-        organizationId: auth.organizationId,
-        projectId: auth.projectId,
+        ...auth,
         query,
       }),
     );
@@ -333,8 +336,7 @@ export const registerStudioRoutes = (app: OpenAPIHono<ApiEnv>): void => {
     }
     const models = await c.get("withTenantDatabase")((db) =>
       getStudioRunReadModel(db, {
-        organizationId: auth.organizationId,
-        projectId: auth.projectId,
+        ...auth,
         runId,
       }),
     );
@@ -351,8 +353,7 @@ export const registerStudioRoutes = (app: OpenAPIHono<ApiEnv>): void => {
     );
     const scores = await c.get("withTenantDatabase")((db) =>
       listRunScores(db, {
-        organizationId: auth.organizationId,
-        projectId: auth.projectId,
+        ...auth,
         runIds: [runId],
       }),
     );
@@ -382,7 +383,11 @@ export const registerStudioRoutes = (app: OpenAPIHono<ApiEnv>): void => {
   });
   app.openapi(sessionsRoute, async (c) => {
     const auth = c.get("principal");
-    const query = c.req.valid("query");
+    const validatedQuery = c.req.valid("query");
+    const query = {
+      ...validatedQuery,
+      ...(auth.environment ? { env: auth.environment } : {}),
+    };
     const timeRange = resolveStudioTimeRange(query);
     if ("error" in timeRange) {
       return c.json(
@@ -392,8 +397,7 @@ export const registerStudioRoutes = (app: OpenAPIHono<ApiEnv>): void => {
     }
     const page = await c.get("withTenantDatabase")((db) =>
       listStudioSessions(db, {
-        organizationId: auth.organizationId,
-        projectId: auth.projectId,
+        ...auth,
         query,
       }),
     );
@@ -407,8 +411,7 @@ export const registerStudioRoutes = (app: OpenAPIHono<ApiEnv>): void => {
     }
     const models = await c.get("withTenantDatabase")((db) =>
       getStudioSessionReadModel(db, {
-        organizationId: auth.organizationId,
-        projectId: auth.projectId,
+        ...auth,
         sessionId,
       }),
     );
@@ -444,7 +447,11 @@ export const registerStudioRoutes = (app: OpenAPIHono<ApiEnv>): void => {
   });
   app.openapi(interruptsRoute, async (c) => {
     const auth = c.get("principal");
-    const query = c.req.valid("query");
+    const validatedQuery = c.req.valid("query");
+    const query = {
+      ...validatedQuery,
+      ...(auth.environment ? { env: auth.environment } : {}),
+    };
     const timeRange = resolveStudioTimeRange(query);
     if ("error" in timeRange) {
       return c.json(
@@ -454,8 +461,7 @@ export const registerStudioRoutes = (app: OpenAPIHono<ApiEnv>): void => {
     }
     const page = await c.get("withTenantDatabase")((db) =>
       listStudioInterrupts(db, {
-        organizationId: auth.organizationId,
-        projectId: auth.projectId,
+        ...auth,
         query,
       }),
     );
@@ -483,8 +489,7 @@ export const registerStudioRoutes = (app: OpenAPIHono<ApiEnv>): void => {
     }
     const models = await c.get("withTenantDatabase")((db) =>
       getStudioInterruptReadModel(db, {
-        organizationId: auth.organizationId,
-        projectId: auth.projectId,
+        ...auth,
         interruptId,
       }),
     );
@@ -520,7 +525,11 @@ export const registerStudioRoutes = (app: OpenAPIHono<ApiEnv>): void => {
   });
   app.openapi(workflowsRoute, async (c) => {
     const auth = c.get("principal");
-    const query = c.req.valid("query");
+    const validatedQuery = c.req.valid("query");
+    const query = {
+      ...validatedQuery,
+      ...(auth.environment ? { env: auth.environment } : {}),
+    };
     const timeRange = resolveStudioTimeRange(query);
     if ("error" in timeRange) {
       return c.json(

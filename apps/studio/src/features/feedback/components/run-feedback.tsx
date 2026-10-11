@@ -7,7 +7,6 @@ import {
   StudioScoreResponseSchema,
 } from "@kortyx/telemetry-contracts";
 import { ChevronDown } from "lucide-react";
-import { useRouter } from "next/navigation";
 import { useEffect, useId, useState } from "react";
 import { DetailLink } from "@/components/detail/detail-link";
 import { Button } from "@/components/ui/button";
@@ -19,6 +18,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { formatDateTime } from "@/lib/format";
+import { useRouter } from "@/lib/scoped-navigation";
+import { studioFetch } from "@/lib/studio-fetch";
 import { studioDetailHref } from "@/lib/studio-routes";
 import { FeedbackBadge } from "./feedback-badge";
 
@@ -118,7 +119,7 @@ export function RunFeedback({ detail }: { detail: StudioRunDetailResponse }) {
     setError(null);
     setNotice("");
     try {
-      const response = await fetch(
+      const response = await studioFetch(
         `/api/studio/runs/${encodeURIComponent(detail.run.id)}/review`,
         {
           method,

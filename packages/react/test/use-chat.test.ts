@@ -1732,7 +1732,7 @@ describe("useChat", () => {
     expect(result.current.messages).toEqual([]);
   });
 
-  it("falls back to a non-crypto id generator when crypto is unavailable", async () => {
+  it("uses an explicit id generator when Web Crypto is unavailable", async () => {
     const originalCrypto = (globalThis as { crypto?: Crypto }).crypto;
     Object.defineProperty(globalThis, "crypto", {
       configurable: true,
@@ -1749,7 +1749,14 @@ describe("useChat", () => {
 
     try {
       const { result } = renderHook(() =>
-        useChat({ transport, storage: memory.storage }),
+        useChat({
+          transport,
+          storage: memory.storage,
+          createId: (() => {
+            let next = 0;
+            return () => `test-id-${++next}`;
+          })(),
+        }),
       );
       await flushEffects();
 
@@ -1758,7 +1765,7 @@ describe("useChat", () => {
       });
 
       expect(result.current.messages).toHaveLength(2);
-      expect(typeof result.current.messages[0]?.id).toBe("string");
+      expect(result.current.messages[0]?.id).toBe("test-id-1");
     } finally {
       Object.defineProperty(globalThis, "crypto", {
         configurable: true,

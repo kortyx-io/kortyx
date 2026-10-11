@@ -1,0 +1,1 @@
+ALTER TABLE "prompt_policies" ADD COLUMN "require_change_note" boolean DEFAULT false NOT NULL;

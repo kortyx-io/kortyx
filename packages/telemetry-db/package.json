@@ -30,6 +30,7 @@
     "db:bootstrap": "tsx src/scripts/bootstrap-local.ts",
     "db:backfill-studio": "tsx src/scripts/backfill-studio-projections.ts",
     "db:seed-rates": "tsx src/scripts/seed-model-rates.ts",
+    "db:prune-diagnostics": "tsx src/scripts/prune-diagnostics.ts",
     "db:studio": "drizzle-kit studio",
     "dev": "tsc --watch",
     "lint": "biome check src test drizzle.config.ts",
@@ -42,11 +43,12 @@
     "@kortyx/telemetry-contracts": "workspace:*",
     "drizzle-orm": "^0.45.1",
     "postgres": "^3.4.7",
-    "@kortyx/agent": "workspace:*"
+    "@kortyx/agent": "workspace:*",
+    "@kortyx/prompts": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "catalog:",
-    "drizzle-kit": "^0.31.10",
+    "drizzle-kit": "^0.31.11",
     "tsup": "catalog:",
     "tsx": "^4.21.0",
     "turbo": "catalog:",

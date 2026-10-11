@@ -18,6 +18,9 @@ export {
 } from "./contracts";
 export { createEvals } from "./create-evals";
 export { defineSuite } from "./define-suite";
+export * from "./evaluation-contracts";
+export { getEvalGradeEvidence } from "./evidence";
+export { EvalEvidencePolicySchema } from "./evidence-policy";
 export { createEvalJudge } from "./judge";
 export { getEvalSuiteRevision } from "./revision";
 export { createEvalRouteHandler, type EvalRunner } from "./route-handler";
@@ -31,6 +34,10 @@ export type {
   EvalCriterion,
   EvalCriterionResult,
   EvalDefaults,
+  EvalEvidenceEvent,
+  EvalEvidenceEventType,
+  EvalEvidenceFilters,
+  EvalEvidencePolicy,
   EvalExecution,
   EvalExecutionStatus,
   EvalExpectation,
@@ -40,16 +47,19 @@ export type {
   EvalIssue,
   EvalJson,
   EvalJudge,
+  EvalJudgeEvidence,
   EvalJudgeIdentity,
   EvalJudgeOptions,
   EvalJudgeUsage,
   EvalObservation,
   EvalOutputExpectation,
+  EvalOutputSelector,
   EvalPhase,
   EvalProgress,
   EvalResponder,
   EvalRunOptions,
   EvalRunResult,
+  EvalRuntimeExecution,
   EvalSetupContext,
   EvalStatus,
   EvalStep,

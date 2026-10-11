@@ -1,4 +1,8 @@
 import "server-only";
+import {
+  StudioEvaluationDetailSchema,
+  StudioEvaluationHistorySchema,
+} from "@kortyx/agent/evals";
 import { studioAuth } from "@studio/auth";
 import type { z } from "zod";
 import {
@@ -14,7 +18,18 @@ async function read<T>(path: string, schema: z.ZodType<T>): Promise<T> {
   const response = await fetch(
     `${url.replace(/\/$/, "")}/v1/studio/evals/${path}`,
     {
-      headers: { authorization: credential.authorization },
+      headers: {
+        authorization: credential.authorization,
+        ...(credential.environment
+          ? { "x-kortyx-environment": credential.environment }
+          : {}),
+        ...(credential.environmentId
+          ? { "x-kortyx-environment-id": credential.environmentId }
+          : {}),
+        ...(credential.projectId
+          ? { "x-kortyx-project-id": credential.projectId }
+          : {}),
+      },
       cache: "no-store",
       signal: AbortSignal.timeout(20_000),
     },
@@ -29,3 +44,8 @@ export const readEvalTargets = () => read("targets", EvalTargetsResponseSchema);
 export const readEvalHistory = () => read("runs", EvalHistorySchema);
 export const readEvalDetail = (id: string) =>
   read(`runs/${encodeURIComponent(id)}`, EvalDetailSchema);
+
+export const readEvaluationHistory = () =>
+  read("evaluations", StudioEvaluationHistorySchema);
+export const readEvaluationDetail = (id: string) =>
+  read(`evaluations/${encodeURIComponent(id)}`, StudioEvaluationDetailSchema);

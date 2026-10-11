@@ -1,0 +1,27 @@
+import "server-only";
+import { createElement } from "react";
+import type { StudioShellAdapter } from "./contracts";
+import { getOperatorScopes } from "./operator-scopes";
+import { OperatorScopeSwitcher } from "./operator-switchers";
+
+/** An operator-managed installation has no managed user or team account. */
+export const studioShell: StudioShellAdapter = {
+  async resolve() {
+    const scope = await getOperatorScopes();
+    if (!scope) return {};
+    const projects = scope.scopes.map((row) => ({
+      id: row.id,
+      name: row.context.project.name,
+    }));
+    return {
+      ...(projects.length > 1
+        ? {
+            projectSwitcher: createElement(OperatorScopeSwitcher, {
+              selected: scope.selected.id,
+              options: projects,
+            }),
+          }
+        : {}),
+    };
+  },
+};

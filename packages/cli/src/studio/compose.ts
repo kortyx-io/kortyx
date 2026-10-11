@@ -7,8 +7,10 @@ x-api-env: &api-env
 x-bootstrap-keys: &bootstrap-keys
   KORTYX_TELEMETRY_API_KEY: \${KORTYX_TELEMETRY_API_KEY}
   KORTYX_STUDIO_API_KEY: \${KORTYX_STUDIO_API_KEY}
+  KORTYX_STUDIO_ENABLE_DIAGNOSTICS: \${KORTYX_STUDIO_ENABLE_DIAGNOSTICS:-0}
   KORTYX_STUDIO_ENABLE_EVALS: \${KORTYX_STUDIO_ENABLE_EVALS:-0}
   KORTYX_STUDIO_ENABLE_REVIEWS: \${KORTYX_STUDIO_ENABLE_REVIEWS:-0}
+  KORTYX_STUDIO_ENABLE_PROMPTS: \${KORTYX_STUDIO_ENABLE_PROMPTS:-1}
 
 services:
   postgres:
@@ -28,6 +30,7 @@ services:
   db-init:
     image: \${KORTYX_API_IMAGE_REF:-\${KORTYX_API_IMAGE:-ghcr.io/kortyx-io/kortyx-api}:\${KORTYX_STUDIO_IMAGE_TAG:-latest}}
     pull_policy: \${KORTYX_STUDIO_PULL_POLICY:-always}
+    user: "1000:1000"
     environment:
       <<: [*api-env, *bootstrap-keys]
     command: >
@@ -41,6 +44,7 @@ services:
   api:
     image: \${KORTYX_API_IMAGE_REF:-\${KORTYX_API_IMAGE:-ghcr.io/kortyx-io/kortyx-api}:\${KORTYX_STUDIO_IMAGE_TAG:-latest}}
     pull_policy: \${KORTYX_STUDIO_PULL_POLICY:-always}
+    user: "1000:1000"
     environment:
       <<: *api-env
       NODE_ENV: production
@@ -100,6 +104,9 @@ services:
     image: \${KORTYX_API_IMAGE_REF:-\${KORTYX_API_IMAGE:-ghcr.io/kortyx-io/kortyx-api}:\${KORTYX_STUDIO_IMAGE_TAG:-latest}}
     pull_policy: \${KORTYX_STUDIO_PULL_POLICY:-always}
     restart: unless-stopped
+    # The updater alone needs root for the host Docker socket and ownership-safe
+    # writes to the bind-mounted Studio state directory.
+    user: "0:0"
     command: ["node", "apps/api/dist/updater.js", "serve", "\${KORTYX_STUDIO_STATE_DIR}"]
     volumes:
       - type: bind

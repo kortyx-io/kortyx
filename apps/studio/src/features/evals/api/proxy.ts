@@ -5,7 +5,11 @@ export async function proxyEvalRequest(request: Request, parts: string[]) {
   const denial = await studioAuth.authorize(request);
   if (denial) return denial;
   const path = parts.join("/");
-  if (!/^(targets|runs(?:\/[a-f0-9-]{36}(?:\/cancel)?)?)$/.test(path))
+  if (
+    !/^(targets|evaluations(?:\/[a-f0-9-]{36}(?:\/(?:cancel|results))?)?|runs(?:\/[a-f0-9-]{36}(?:\/cancel)?)?)$/.test(
+      path,
+    )
+  )
     return Response.json({ error: "Unknown eval route." }, { status: 404 });
   const write = request.method === "POST";
   if (write) {
@@ -42,6 +46,15 @@ export async function proxyEvalRequest(request: Request, parts: string[]) {
         method: request.method,
         headers: {
           authorization: credential.authorization,
+          ...(credential.environment
+            ? { "x-kortyx-environment": credential.environment }
+            : {}),
+          ...(credential.projectId
+            ? { "x-kortyx-project-id": credential.projectId }
+            : {}),
+          ...(credential.environmentId
+            ? { "x-kortyx-environment-id": credential.environmentId }
+            : {}),
           "content-type": "application/json",
         },
         ...(body ? { body } : {}),

@@ -407,7 +407,9 @@ function PickerShell({
   return (
     <div className="flex max-w-[85%] flex-col gap-2">
       {question ? (
-        <p className="text-sm leading-relaxed text-foreground">{question}</p>
+        <p className="whitespace-pre-wrap break-words [overflow-wrap:anywhere] text-sm leading-relaxed text-foreground">
+          {question}
+        </p>
       ) : null}
       {children}
     </div>

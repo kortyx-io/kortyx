@@ -2,6 +2,7 @@
 
 import type { StudioDetailEvent } from "@kortyx/telemetry-contracts";
 import { useMemo, useState } from "react";
+import { DetailLink } from "@/components/detail/detail-link";
 import { PayloadViewer } from "@/components/detail/payload-viewer";
 import {
   Select,
@@ -216,6 +217,20 @@ function ModelOperationCard({
         )}
       </summary>
       <div className="border-t px-3 py-2 text-xs text-muted-foreground">
+        {first?.prompt && (
+          <p className="mb-2">
+            <DetailLink
+              className="font-mono text-primary hover:underline"
+              href={`/prompts/by-key/${first.prompt.key.split("/").map(encodeURIComponent).join("/")}?v=${first.prompt.version}`}
+            >
+              {first.prompt.key} · v{first.prompt.version}
+            </DetailLink>
+            <span className="ml-2">{first.prompt.environment}</span>
+            <span className="ml-2 font-mono" title={first.prompt.hash}>
+              {first.prompt.hash.slice(0, 10)}
+            </span>
+          </p>
+        )}
         {first?.provider} · {first && formatDateTime(first.occurredAt)} ·{" "}
         {operation.workflowId}
         {operation.attempts.length > 1 && (

@@ -1,5 +1,115 @@
 # Changelog
 
+## [0.36.0](https://github.com/kortyx-io/kortyx/compare/agent-v0.35.0...agent-v0.36.0) (2026-10-10)
+
+
+### Features
+
+* version, evaluate, serve and migrate Studio prompts ([#288](https://github.com/kortyx-io/kortyx/issues/288)) ([0802f8b](https://github.com/kortyx-io/kortyx/commit/0802f8b91c4a541d176dd8a75c659063e2c28c8c))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/runtime bumped to 0.23.0
+    * @kortyx/prompts bumped to 0.1.0
+  * devDependencies
+    * @kortyx/hooks bumped to 0.33.0
+
+## [0.35.0](https://github.com/kortyx-io/kortyx/compare/agent-v0.34.0...agent-v0.35.0) (2026-10-09)
+
+
+### Features
+
+* **evals:** share concurrency and attribute multi-session costs ([#304](https://github.com/kortyx-io/kortyx/issues/304)) ([dd5e242](https://github.com/kortyx-io/kortyx/commit/dd5e242ae08affbb015201bb57c4714709756cf2))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/core bumped to 0.13.0
+    * @kortyx/providers bumped to 0.9.1
+    * @kortyx/runtime bumped to 0.22.1
+    * @kortyx/stream bumped to 0.15.3
+    * @kortyx/utils bumped to 0.3.5
+  * devDependencies
+    * @kortyx/hooks bumped to 0.32.1
+    * @kortyx/openai bumped to 0.5.7
+
+## [0.34.0](https://github.com/kortyx-io/kortyx/compare/agent-v0.33.0...agent-v0.34.0) (2026-10-09)
+
+
+### Features
+
+* **evals:** raise concurrency limit to 20 ([#300](https://github.com/kortyx-io/kortyx/issues/300)) ([0ed3151](https://github.com/kortyx-io/kortyx/commit/0ed3151e2984551d84113091594a0b8f9267289a))
+
+## [0.33.0](https://github.com/kortyx-io/kortyx/compare/agent-v0.32.0...agent-v0.33.0) (2026-10-08)
+
+
+### Features
+
+* **hooks:** support mixed tools outputs and interrupts ([#297](https://github.com/kortyx-io/kortyx/issues/297)) ([0aa4aa6](https://github.com/kortyx-io/kortyx/commit/0aa4aa6b08cd2ef44f603b8dbe8e35b30c54cbdc))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/runtime bumped to 0.22.0
+  * devDependencies
+    * @kortyx/hooks bumped to 0.32.0
+
+## [0.32.0](https://github.com/kortyx-io/kortyx/compare/agent-v0.31.1...agent-v0.32.0) (2026-10-08)
+
+
+### Features
+
+* **evals:** compact judge evidence and add suite selection ([#293](https://github.com/kortyx-io/kortyx/issues/293)) ([9754f7c](https://github.com/kortyx-io/kortyx/commit/9754f7cacc61b5945a254ccaa66e17b1b5c8d13f))
+
+## [0.31.1](https://github.com/kortyx-io/kortyx/compare/agent-v0.31.0...agent-v0.31.1) (2026-10-08)
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/core bumped to 0.12.0
+    * @kortyx/providers bumped to 0.9.0
+    * @kortyx/runtime bumped to 0.21.7
+    * @kortyx/stream bumped to 0.15.2
+    * @kortyx/utils bumped to 0.3.4
+  * devDependencies
+    * @kortyx/hooks bumped to 0.31.0
+    * @kortyx/openai bumped to 0.5.6
+
+## [0.31.0](https://github.com/kortyx-io/kortyx/compare/agent-v0.30.0...agent-v0.31.0) (2026-10-07)
+
+
+### Features
+
+* **evals:** group suite runs and expose CLI results ([#284](https://github.com/kortyx-io/kortyx/issues/284)) ([146fd71](https://github.com/kortyx-io/kortyx/commit/146fd71a88587e5591dd0511a4c0cb57969f9d07))
+
+## [0.30.0](https://github.com/kortyx-io/kortyx/compare/agent-v0.29.0...agent-v0.30.0) (2026-10-07)
+
+
+### Features
+
+* **evals:** diagnose setup and guide first workflow runs ([#275](https://github.com/kortyx-io/kortyx/issues/275)) ([01dbf80](https://github.com/kortyx-io/kortyx/commit/01dbf803e65eec03187de9eaa316e4294f4f8dc5))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/providers bumped to 0.8.4
+    * @kortyx/runtime bumped to 0.21.6
+    * @kortyx/stream bumped to 0.15.1
+  * devDependencies
+    * @kortyx/hooks bumped to 0.30.2
+    * @kortyx/openai bumped to 0.5.5
+
 ## [0.29.0](https://github.com/kortyx-io/kortyx/compare/agent-v0.28.0...agent-v0.29.0) (2026-10-03)
 
 

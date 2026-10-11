@@ -124,10 +124,42 @@ function captureToolError(
       typeof error.content === "string"
         ? { name: "ToolError", message: error.content }
         : error;
+    let projected = false;
+    let projection: import("./tracing").KortyxErrorDetails | null | undefined;
+    let projectionFailure: unknown;
+    let projectionFailed = false;
+    const project = policy?.error
+      ? (original: unknown) => {
+          if (!projected) {
+            projected = true;
+            try {
+              projection = policy.error?.(original);
+            } catch (error) {
+              projectionFailure = error;
+              projectionFailed = true;
+            }
+          }
+          if (projectionFailed) throw projectionFailure;
+          return projection ?? null;
+        }
+      : undefined;
     Object.assign(
       observation,
-      errorDiagnostics(policy?.error ? error : reported, policy?.error),
+      errorDiagnostics(policy?.error ? error : reported, project),
     );
+    const diagnosticId = getHookContext().reasonTrace?.reportError?.(
+      policy?.error ? error : reported,
+      {
+        mechanism: "tool",
+        ...(project ? { error: project } : {}),
+        correlation: {
+          toolCallId: observation.toolCallId,
+          attemptId: observation.attemptId,
+        },
+      },
+    );
+    if (typeof diagnosticId === "string")
+      observation.diagnosticId = diagnosticId;
   } catch {
     // An application's projection or an exception getter cannot change execution.
   }

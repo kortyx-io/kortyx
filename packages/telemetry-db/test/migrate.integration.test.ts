@@ -2,11 +2,18 @@ import { randomUUID } from "node:crypto";
 import { cp, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
+import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import {
+  authenticateTelemetryApiKey,
+  hashTelemetryApiKeySecret,
+} from "../src/repositories/api-keys";
+import { ingestTelemetryEvents } from "../src/repositories/telemetry-events";
 import { prepareDatabaseForDrizzle } from "../src/scripts/legacy-drizzle-preparation";
 import {
   LEGACY_MIGRATIONS,
+  LEGACY_SCHEMA_FINGERPRINT_VARIANTS,
   LEGACY_SCHEMA_FINGERPRINTS,
 } from "../src/scripts/legacy-migrations";
 import { migrateForDeployment } from "../src/scripts/migrate-for-deployment";
@@ -80,6 +87,25 @@ async function installLegacy(sql: postgres.Sql, count: number) {
   }
 }
 
+async function installHistoricalLegacy(sql: postgres.Sql, count: number) {
+  await sql`CREATE TABLE public.kortyx_schema_migrations (
+    id text PRIMARY KEY, applied_at timestamptz DEFAULT now() NOT NULL
+  )`;
+  for (const [index, { tag }] of LEGACY_MIGRATIONS.slice(0, count).entries()) {
+    await sql.begin(async (tx) => {
+      let source = await readFile(
+        path.join(migrationsDir, `${tag}.sql`),
+        "utf8",
+      );
+      if (index === 0) {
+        source = source.replace(/^.*"workflow_transitions".*\n/m, "");
+      }
+      await tx.unsafe(source);
+      await tx`INSERT INTO public.kortyx_schema_migrations (id) VALUES (${`${tag}.sql`})`;
+    });
+  }
+}
+
 async function seed(sql: postgres.Sql, prefix: number) {
   if (!prefix) return;
   await sql`INSERT INTO organizations (id, name) VALUES ('10000000-0000-0000-0000-000000000001', 'existing customer')`;
@@ -132,7 +158,21 @@ async function customerRows(sql: postgres.Sql, prefix: number) {
       // OIDs prove adoption did not drop/recreate already-deployed tables.
       oid: (await sql`SELECT to_regclass(${`public.${table}`})::oid AS oid`)[0]
         ?.oid,
-      rows: [...(await sql.unsafe(`SELECT * FROM "${table}" ORDER BY id`))],
+      rows: [...(await sql.unsafe(`SELECT * FROM "${table}" ORDER BY id`))].map(
+        (row) => {
+          // A later native migration may add nullable columns; compare the
+          // original legacy data rather than treating additive schema as data loss.
+          if (table === "api_keys" && prefix <= 6) {
+            const { environment_id: _newColumn, ...legacy } = row;
+            return legacy;
+          }
+          if (table === "eval_runs" && prefix <= 6) {
+            const { evaluation_id: _newColumn, ...legacy } = row;
+            return legacy;
+          }
+          return row;
+        },
+      ),
     })),
   );
 }
@@ -218,6 +258,119 @@ integration("native Drizzle migration cutover", () => {
     if (migrationsDir !== productionDir)
       await rm(migrationsDir, { recursive: true, force: true });
   });
+
+  it("upgrades the pre-prompt schema without changing existing evaluations or diagnostics", async () => {
+    const folder = await mkdtemp(path.join(tmpdir(), "kortyx-pre-prompt-"));
+    try {
+      await cp(productionDir, folder, { recursive: true });
+      const journalPath = path.join(folder, "meta/_journal.json");
+      const journal = JSON.parse(await readFile(journalPath, "utf8"));
+      journal.entries = journal.entries.filter(
+        (entry: { idx: number }) => entry.idx <= 8,
+      );
+      await writeFile(journalPath, JSON.stringify(journal));
+      await withDatabase(async (sql, url) => {
+        await native(url, folder);
+        await seed(sql, 6);
+        const org = "10000000-0000-0000-0000-000000000001";
+        const project = "20000000-0000-0000-0000-000000000001";
+        const evaluation = randomUUID();
+        const diagnostic = randomUUID();
+        const record = randomUUID();
+        await sql`INSERT INTO evaluation_runs (id, organization_id, project_id, environment, target_id, target_name, name, request, request_hash, requested_by)
+          VALUES (${evaluation}, ${org}, ${project}, 'production', 'existing-target', 'Existing app', 'Existing evaluation', '{}', 'existing-hash', 'existing-user')`;
+        await sql`UPDATE eval_runs SET evaluation_id = ${evaluation}`;
+        await sql`INSERT INTO error_diagnostics (id, organization_id, project_id, diagnostic_id, environment, manifest, content, state, expires_at)
+          VALUES (${record}, ${org}, ${project}, ${diagnostic}, 'production', '{"preserve":true}', 'existing diagnostic', 'complete', now() + interval '7 days')`;
+        await sql`INSERT INTO error_diagnostic_parts (organization_id, project_id, diagnostic_record_id, part_index, data)
+          VALUES (${org}, ${project}, ${record}, 0, 'existing part')`;
+        await sql`INSERT INTO diagnostic_access (organization_id, project_id, diagnostic_id, actor, action)
+          VALUES (${org}, ${project}, ${diagnostic}, 'existing-user', 'read')`;
+        const rows = async () => ({
+          customer: await customerRows(sql, 6),
+          evaluations: await sql`SELECT * FROM evaluation_runs ORDER BY id`,
+          diagnostics: await sql`SELECT * FROM error_diagnostics ORDER BY id`,
+          parts:
+            await sql`SELECT * FROM error_diagnostic_parts ORDER BY part_index`,
+          access: await sql`SELECT * FROM diagnostic_access ORDER BY id`,
+        });
+        const before = await rows();
+        await migrate(url, productionDir);
+        expect(await rows()).toEqual(before);
+        await migrate(url, productionDir);
+        expect(await rows()).toEqual(before);
+        expect(
+          (await sql`SELECT to_regclass('public.prompt_assets') AS relation`)[0]
+            ?.relation,
+        ).toBe("prompt_assets");
+        expect(
+          (
+            await sql`SELECT count(*)::int AS count FROM drizzle.__drizzle_migrations`
+          )[0]?.count,
+        ).toBe(13);
+      });
+    } finally {
+      await rm(folder, { recursive: true, force: true });
+    }
+  }, 30_000);
+
+  it("copies project promotion policies to independent prompt policies without changing requirements", async () => {
+    const folder = await mkdtemp(
+      path.join(tmpdir(), "kortyx-policy-migration-"),
+    );
+    try {
+      await cp(productionDir, folder, { recursive: true });
+      const journalPath = path.join(folder, "meta/_journal.json");
+      const journal = JSON.parse(await readFile(journalPath, "utf8"));
+      journal.entries = journal.entries.filter(
+        (entry: { idx: number }) => entry.idx <= 10,
+      );
+      await writeFile(journalPath, JSON.stringify(journal));
+      await withDatabase(async (sql, url) => {
+        await native(url, folder);
+        const org = randomUUID(),
+          project = randomUUID(),
+          emptyProject = randomUUID();
+        const first = randomUUID(),
+          second = randomUUID();
+        await sql`INSERT INTO organizations (id, name) VALUES (${org}, 'Policy migration')`;
+        await sql`INSERT INTO projects (id, organization_id, name) VALUES (${project}, ${org}, 'Existing'), (${emptyProject}, ${org}, 'Empty')`;
+        await sql`INSERT INTO prompt_assets (id, organization_id, project_id, key, name) VALUES (${first}, ${org}, ${project}, 'first', 'First'), (${second}, ${org}, ${project}, 'second', 'Second')`;
+        const suites = [{ targetId: "app", suiteId: "regression" }];
+        await sql`INSERT INTO prompt_policies (organization_id, project_id, revision, require_test, required_suites, required_reviews, allow_exception) VALUES (${org}, ${project}, 7, false, ${sql.json(suites)}, 2, false), (${org}, ${emptyProject}, 3, true, '[]', 0, true)`;
+        await native(url, productionDir);
+        const policies =
+          await sql`SELECT prompt_id, revision, require_test, required_suites, required_reviews, allow_exception FROM prompt_policies ORDER BY prompt_id`;
+        expect(policies).toHaveLength(2);
+        expect(policies.map((row) => row.prompt_id).sort()).toEqual(
+          [first, second].sort(),
+        );
+        for (const policy of policies)
+          expect(policy).toMatchObject({
+            revision: 7,
+            require_test: false,
+            required_suites: suites,
+            required_reviews: 2,
+            allow_exception: false,
+          });
+        expect(
+          await sql`SELECT id FROM prompt_activity WHERE action = 'migrate-prompt-policy-scope'`,
+        ).toHaveLength(2);
+        await sql`UPDATE prompt_policies SET require_test = true, revision = 8 WHERE prompt_id = ${first}`;
+        expect(
+          (
+            await sql`SELECT require_test, revision FROM prompt_policies WHERE prompt_id = ${second}`
+          )[0],
+        ).toEqual({ require_test: false, revision: 7 });
+        await native(url, productionDir);
+        expect(await sql`SELECT id FROM prompt_policies`).toHaveLength(2);
+        await sql`DELETE FROM prompt_assets WHERE id = ${first}`;
+        expect(await sql`SELECT id FROM prompt_policies`).toHaveLength(1);
+      });
+    } finally {
+      await rm(folder, { recursive: true, force: true });
+    }
+  }, 30_000);
 
   it("matches snapshot column, foreign-key, check and index names to the deployed catalog", async () => {
     const journal = JSON.parse(
@@ -305,6 +458,36 @@ integration("native Drizzle migration cutover", () => {
     });
   }, 30000);
 
+  it.each([
+    1, 2, 3, 4, 5, 6,
+  ])("upgrades historical legacy prefix %i without changing customer rows", async (prefix) => {
+    await withDatabase(async (sql, url) => {
+      await installHistoricalLegacy(sql, prefix);
+      await seed(sql, prefix);
+      expect(await legacySchemaFingerprint(sql)).toBe(
+        LEGACY_SCHEMA_FINGERPRINT_VARIANTS[prefix]?.[1],
+      );
+      const before = await customerRows(sql, prefix);
+      const oldLedger = [
+        ...(await sql`SELECT * FROM public.kortyx_schema_migrations ORDER BY id`),
+      ];
+      await migrate(url);
+      await migrate(url);
+      expect(await customerRows(sql, prefix)).toEqual(before);
+      expect(LEGACY_SCHEMA_FINGERPRINT_VARIANTS[6]).toContain(
+        await legacySchemaFingerprint(sql),
+      );
+      const native =
+        await sql`SELECT hash, created_at FROM drizzle.__drizzle_migrations ORDER BY created_at`;
+      expect(
+        native.map((row) => ({ hash: row.hash, when: Number(row.created_at) })),
+      ).toEqual(LEGACY_MIGRATIONS.map(({ hash, when }) => ({ hash, when })));
+      expect([
+        ...(await sql`SELECT * FROM public.kortyx_schema_migrations ORDER BY id`),
+      ]).toEqual(oldLedger);
+    });
+  }, 30000);
+
   it("installs a fresh database with no legacy ledger", async () => {
     await withDatabase(async (sql, url) => {
       await migrate(url);
@@ -318,6 +501,68 @@ integration("native Drizzle migration cutover", () => {
       ).toBeNull();
     });
   });
+
+  it.each([
+    "legacy",
+    "native",
+  ])("upgrades populated released %s history to the latest schema and keeps existing SDK keys usable", async (history) => {
+    await withDatabase(async (sql, url) => {
+      if (history === "legacy") await installLegacy(sql, 6);
+      else await native(url);
+      await seed(sql, 6);
+      await sql`insert into project_environments(organization_id,project_id,name) values('10000000-0000-0000-0000-000000000001','20000000-0000-0000-0000-000000000001','production'),('10000000-0000-0000-0000-000000000001','20000000-0000-0000-0000-000000000001','staging')`;
+      const pepper = "upgrade-test-only";
+      const secret = "existing-installation-secret";
+      await sql`update api_keys set secret_hash=${hashTelemetryApiKeySecret(secret, pepper)},scopes='["telemetry:write","studio:read"]' where id='existing-key-id'`;
+      const before = await customerRows(sql, 6);
+      await migrate(url, productionDir);
+      await migrate(url, productionDir);
+      expect(await customerRows(sql, 6)).toEqual(before);
+      expect(
+        (
+          await sql`select environment_id from api_keys where id='existing-key-id'`
+        )[0]?.environment_id,
+      ).toBeNull();
+      const db = drizzle(sql);
+      const auth = await authenticateTelemetryApiKey(db, {
+        apiKey: `ktyx_live_existing-key-id_${secret}`,
+        pepper,
+        requiredScope: "telemetry:write",
+      });
+      expect(auth.environmentId).toBeUndefined();
+      for (const environment of ["production", "staging"]) {
+        const event = {
+          schemaVersion: 1 as const,
+          eventId: `after-upgrade-${environment}`,
+          type: "run.started" as const,
+          occurredAt: new Date().toISOString(),
+          environment,
+          service: { name: "existing-sdk" },
+          correlation: {
+            runId: "same-run-id",
+            workflowId: "existing-workflow",
+          },
+          payload: {},
+        };
+        expect(
+          await ingestTelemetryEvents(db, { ...auth, events: [event] }),
+        ).toMatchObject({ inserted: 1 });
+        expect(
+          await ingestTelemetryEvents(db, { ...auth, events: [event] }),
+        ).toMatchObject({ inserted: 0, duplicates: 1 });
+      }
+      expect(
+        await sql`select environment from studio_runs where run_id='same-run-id' order by environment`,
+      ).toEqual([{ environment: "production" }, { environment: "staging" }]);
+      await sql`update api_keys set revoked_at=now() where id='existing-key-id'`;
+      await expect(
+        authenticateTelemetryApiKey(db, {
+          apiKey: `ktyx_live_existing-key-id_${secret}`,
+          pepper,
+        }),
+      ).rejects.toThrow();
+    });
+  }, 30000);
 
   it("serializes concurrent runners, including a pending native migration", async () => {
     await withFutureMigrations(async (folder, append) => {

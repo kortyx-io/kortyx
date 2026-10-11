@@ -27,6 +27,7 @@ import {
 } from "@kortyx/runtime";
 import type { StreamChunk } from "@kortyx/stream";
 import { z } from "zod";
+import { promptEvaluationContext } from "../evals/prompt-context";
 import { executeWorkflow, resumeWorkflow } from "../execution/execute";
 import type {
   ExecutableWorkflow,
@@ -68,6 +69,7 @@ export interface AgentProjectTopologyOptions {
 }
 
 export interface CreateAgentArgs {
+  prompts?: import("@kortyx/prompts").PromptManager | undefined;
   limits?: ExecutionLimits | undefined;
   getProvider?: GetProviderFn | undefined;
   workflows?: WorkflowDefinition[];
@@ -79,6 +81,12 @@ export interface CreateAgentArgs {
 }
 
 export interface Agent extends ReturnType<typeof createInterruptDiscovery> {
+  describePromptContracts?: () => {
+    id: string;
+    format: "system-user" | "chat";
+    variablesSchema: Record<string, unknown>;
+    configSchema: Record<string, unknown>;
+  }[];
   execute<W extends ExecutableWorkflow>(
     args: ExecuteOptions<W>,
   ): Promise<ExecutionResult<z.output<W["outputSchema"]>>>;
@@ -155,6 +163,7 @@ const createAgentArgsBaseSchema = z
     defaultWorkflowId: z.string().optional(),
     frameworkAdapter: z.unknown().optional(),
     telemetry: z.unknown().optional(),
+    prompts: z.unknown().optional(),
   })
   .strict();
 
@@ -270,6 +279,7 @@ export function createAgent(args: CreateAgentArgs): Agent {
     defaultWorkflowId,
     frameworkAdapter,
     telemetry,
+    prompts,
   } = parsedArgs;
 
   const resolvedDefaultWorkflowId = defaultWorkflowId;
@@ -324,6 +334,9 @@ export function createAgent(args: CreateAgentArgs): Agent {
     options?: AgentProcessOptions,
   ): Promise<AsyncIterable<StreamChunk>> => {
     const parsedOptions = parseAgentProcessOptions(options);
+    const promptEvaluation = promptEvaluationContext.getStore();
+    if (promptEvaluation && !prompts)
+      throw new Error("This application has no prompt manager configured.");
 
     const registry = await registryPromise;
     if (!registry) {
@@ -372,6 +385,21 @@ export function createAgent(args: CreateAgentArgs): Agent {
           : {}),
         ...(runtimeOptions?.context ? { context: runtimeOptions.context } : {}),
         ...(telemetry ? { telemetry } : {}),
+        ...(prompts
+          ? {
+              prompts: prompts.start({
+                ...(runtimeOptions?.abortSignal
+                  ? { signal: runtimeOptions.abortSignal }
+                  : {}),
+                ...(promptEvaluation
+                  ? {
+                      snapshot: promptEvaluation.snapshot,
+                      onUsage: promptEvaluation.onUsage,
+                    }
+                  : {}),
+              }),
+            }
+          : {}),
       }),
     });
   };
@@ -511,6 +539,7 @@ export function createAgent(args: CreateAgentArgs): Agent {
       frameworkAdapter: resolvedFrameworkAdapter,
       getProvider: resolvedGetProvider,
       telemetry,
+      prompts,
       knownWorkflowIds: (await registeredWorkflowsPromise)?.map(
         (workflow) => workflow.id,
       ),
@@ -527,6 +556,13 @@ export function createAgent(args: CreateAgentArgs): Agent {
     resume,
     projectTopology,
     streamChat,
+    describePromptContracts: () =>
+      (prompts?.definitions ?? []).map((ref) => ({
+        id: ref.id,
+        format: ref.format,
+        variablesSchema: z.toJSONSchema(ref.variables, { io: "input" }),
+        configSchema: z.toJSONSchema(ref.config, { io: "input" }),
+      })),
     listCheckpoints,
     getCheckpoint,
     rollbackTo,

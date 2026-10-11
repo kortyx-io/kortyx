@@ -151,6 +151,25 @@ setPackagesOutput(
   releasePackages.map(({ name, version }) => ({ name, version })),
 );
 
+// Use exactly the publication selection, including its dependency build graph.
+// Do not rebuild downstream applications and examples during SDK publication.
+if (process.argv.includes("--build-only")) {
+  if (releasePackages.length > 0) {
+    execFileSync(
+      "pnpm",
+      [
+        "exec",
+        "turbo",
+        "run",
+        "build",
+        ...releasePackages.map((p) => `--filter=${p.name}...`),
+      ],
+      { stdio: "inherit" },
+    );
+  }
+  process.exit(0);
+}
+
 const tag = "latest";
 for (const p of releasePackages) {
   const full = `${p.name}@${p.version}`;

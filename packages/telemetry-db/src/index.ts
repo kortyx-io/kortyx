@@ -26,8 +26,16 @@ export {
   upsertTelemetryApiKey,
 } from "./repositories/api-keys";
 export {
+  beginErrorDiagnostic,
+  completeErrorDiagnostic,
+  expireErrorDiagnostics,
+  getErrorDiagnostic,
+  putErrorDiagnosticPart,
+} from "./repositories/error-diagnostics";
+export {
   appendEvalProgress,
   claimEvalRun,
+  claimEvalRuns,
   enqueueEvalRun,
   finishEvalRun,
   getEvalRun,
@@ -35,6 +43,14 @@ export {
   listEvalRuns,
   requestEvalCancellation,
 } from "./repositories/evals";
+export {
+  cancelEvaluation,
+  enqueueEvaluation,
+  evaluationRequestHash,
+  findIdempotentEvaluation,
+  getEvaluation,
+  listEvaluations,
+} from "./repositories/evaluations";
 export {
   listApplicableModelRateCards,
   seedDefaultModelRateCards,
@@ -45,6 +61,19 @@ export {
   ensureProjectEnvironmentAllowed,
   getStudioProjectContext,
 } from "./repositories/projects";
+export {
+  applyPromptTransfer,
+  exportPrompts,
+  planPromptTransfer,
+} from "./repositories/prompt-transfer";
+export {
+  getPrompt,
+  listPrompts,
+  mutatePrompt,
+  type PromptScope,
+  promptEvidence,
+  resolvePrompts,
+} from "./repositories/prompts";
 export {
   clearRunScore,
   listRunScores,
@@ -88,3 +117,4 @@ export {
   findWorkflowRevisionByTopology,
   findWorkflowRevisionForProject,
 } from "./repositories/workflow-revisions";
+export { withProjectTelemetryScope } from "./scope-policy";

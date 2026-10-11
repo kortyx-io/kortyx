@@ -132,7 +132,7 @@ flags with `--connection` or `KORTYX_CONNECTION`.
 The connection environment filters discovery and history by default. Override it
 with `--environment`. If a suite exists on multiple targets, select `--target`.
 Repeat `--case` for multiple cases; omit it to run every case. The limits are
-20 repetitions, concurrency 4, and 100 total attempts per queued run.
+20 repetitions, concurrency 20, and 100 total attempts per queued run.
 
 Start discovers the current suite revision and enqueues one request. It returns
 immediately with `schemaVersion: 1`, `id`, `status: "queued"`, and `studioUrl`

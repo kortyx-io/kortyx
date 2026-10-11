@@ -1,14 +1,32 @@
+import { PromptError } from "@kortyx/prompts";
 import {
   TelemetryAuthError,
   TelemetryForbiddenError,
   TelemetryNotFoundError,
+  TelemetryValidationError,
 } from "@kortyx/telemetry-db";
 import type { ErrorHandler } from "hono";
 import { HTTPException } from "hono/http-exception";
+import { ZodError } from "zod";
 import type { ApiEnv } from "./types";
 
 export const apiErrorHandler: ErrorHandler<ApiEnv> = (error, c) => {
   const requestId = c.get("requestId");
+  if (error instanceof PromptError)
+    return c.json(
+      { error: error.code, message: error.message, requestId },
+      error.status as 400 | 403 | 404 | 409 | 500,
+    );
+  if (error instanceof ZodError)
+    return c.json(
+      {
+        error: "VALIDATION_ERROR",
+        message: "Request validation failed.",
+        details: error.flatten(),
+        requestId,
+      },
+      400,
+    );
 
   if (error instanceof TelemetryAuthError) {
     return c.json(
@@ -28,6 +46,17 @@ export const apiErrorHandler: ErrorHandler<ApiEnv> = (error, c) => {
     return c.json(
       { error: error.code, message: error.message, requestId },
       404,
+    );
+  }
+
+  if (error instanceof TelemetryValidationError) {
+    return c.json(
+      {
+        error: error.code,
+        message: "Telemetry request is invalid.",
+        requestId,
+      },
+      400,
     );
   }
 

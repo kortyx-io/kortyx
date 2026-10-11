@@ -452,3 +452,41 @@ describe("native stream failure boundaries", () => {
     expect(streamChat).toHaveBeenCalledTimes(2);
   });
 });
+
+it("executes only a scheduled attempt with its original case and repetition identity", async () => {
+  const setup = vi.fn(() => undefined);
+  const evals = createEvals({
+    ...base,
+    setup,
+    suites: [
+      { ...suite, cases: [suite.cases[0]!, { ...suite.cases[0]!, id: "two" }] },
+    ],
+  });
+  for (const attempt of [
+    { caseId: "missing", repetition: 1 },
+    { caseId: "two", repetition: 0 },
+    { caseId: "two", repetition: 1.5 },
+    { caseId: "two", repetition: 4 },
+  ])
+    await expect(
+      evals.run({ suiteId: suite.id, repetitions: 3, attempt }),
+    ).rejects.toThrow("Invalid scheduled attempt");
+  const result = await evals.run({
+    suiteId: suite.id,
+    repetitions: 3,
+    attempt: { caseId: "two", repetition: 2 },
+  });
+  expect(result.cases).toHaveLength(1);
+  expect(result.cases[0]).toMatchObject({
+    caseId: "two",
+    repetition: 2,
+    status: "passed",
+  });
+  expect(setup).toHaveBeenCalledOnce();
+  expect(setup).toHaveBeenCalledWith(
+    expect.objectContaining({
+      repetition: 2,
+      case: expect.objectContaining({ id: "two" }),
+    }),
+  );
+});

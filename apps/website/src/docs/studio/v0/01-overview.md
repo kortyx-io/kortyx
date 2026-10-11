@@ -89,6 +89,7 @@ requires `toolExecution.emit: true` for tool evidence. Choose Studio judging wit
 a backend model, or select a code judge registered by the application. Ordinary
 production sessions are observed without being automatically scored.
 
-Start with [Conversation Evals](../../sdk/v0/03-guides/10-conversation-evals.md), then follow
-[Run Eval Suites in Studio](./11-evals.md). The [CLI](./04-cli-commands.md#eval-suites-and-post-deployment-ci)
+Start with [Run Your First Workflow Eval](./12-first-eval.md) for application wiring,
+deployment configuration and verification. See [Conversation Evals](../../sdk/v0/03-guides/10-conversation-evals.md)
+and [Run Eval Suites in Studio](./11-evals.md) for the detailed contracts. The [CLI](./04-cli-commands.md#eval-suites-and-post-deployment-ci)
 can also enqueue a suite after deployment without waiting for grades or blocking CI.

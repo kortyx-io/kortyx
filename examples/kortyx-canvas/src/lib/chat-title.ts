@@ -4,16 +4,26 @@ export const GENERATED_CHAT_TITLE_MAX_WORDS = 3;
 const WRAPPING_QUOTES_RE = /^["'`“”‘’]+|["'`“”‘’]+$/g;
 const TITLE_PREFIX_RE = /^(chat|session|title)\s*:\s*/i;
 const MARKDOWN_PREFIX_RE = /^(#{1,6}\s*|[-*]\s+)/;
-const MARKDOWN_WRAPPER_RE = /^(\*\*|__|\*|_)+|(\*\*|__|\*|_)+$/g;
+
+function stripMarkdownWrappers(value: string): string {
+  let start = 0;
+  let end = value.length;
+  while (start < end && (value[start] === "*" || value[start] === "_")) {
+    start += 1;
+  }
+  while (end > start && (value[end - 1] === "*" || value[end - 1] === "_")) {
+    end -= 1;
+  }
+  return value.slice(start, end);
+}
 
 export function stripChatTitlePresentationNoise(value: string): string {
-  return value
+  let title = value
     .replace(/\s+/g, " ")
     .replace(MARKDOWN_PREFIX_RE, "")
-    .replace(WRAPPING_QUOTES_RE, "")
-    .replace(MARKDOWN_WRAPPER_RE, "")
-    .replace(TITLE_PREFIX_RE, "")
-    .replace(MARKDOWN_WRAPPER_RE, "")
+    .replace(WRAPPING_QUOTES_RE, "");
+  title = stripMarkdownWrappers(title).replace(TITLE_PREFIX_RE, "");
+  return stripMarkdownWrappers(title)
     .trim()
     .replace(/[.!?:;,]+$/g, "")
     .replace(WRAPPING_QUOTES_RE, "")

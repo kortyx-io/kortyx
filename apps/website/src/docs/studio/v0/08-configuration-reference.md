@@ -74,7 +74,7 @@ model unset disables Studio judging; an available App judge can still be selecte
 | `KORTYX_EVAL_JUDGE_API` | No | `responses` (default) or `chat-completions` |
 | `KORTYX_EVAL_JUDGE_BASE_URL` | No | HTTPS provider base URL; defaults to OpenAI |
 | `KORTYX_EVAL_JUDGE_ID` | No | Saved judge identity; defaults to `studio/openai/<model>`; set an explicit ID for custom endpoints |
-| `KORTYX_EVAL_JUDGE_VERSION` | No | Saved rubric identity; defaults to `kortyx-rubric-v3` |
+| `KORTYX_EVAL_JUDGE_VERSION` | No | Saved rubric identity; defaults to `kortyx-rubric-v4` |
 
 For OpenRouter, set `BASE_URL=https://openrouter.ai/api/v1`,
 `API=chat-completions`, the model slug and its API key. See

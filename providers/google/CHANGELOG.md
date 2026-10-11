@@ -1,5 +1,39 @@
 # Changelog
 
+## [0.6.7](https://github.com/kortyx-io/kortyx/compare/google-v0.6.6...google-v0.6.7) (2026-10-09)
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/providers bumped to 0.9.1
+    * @kortyx/core bumped to 0.13.0
+
+## [0.6.6](https://github.com/kortyx-io/kortyx/compare/google-v0.6.5...google-v0.6.6) (2026-10-08)
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/providers bumped to 0.9.0
+    * @kortyx/core bumped to 0.12.0
+
+## [0.6.5](https://github.com/kortyx-io/kortyx/compare/google-v0.6.4...google-v0.6.5) (2026-10-07)
+
+
+### Bug Fixes
+
+* **security:** remediate CodeQL findings ([#273](https://github.com/kortyx-io/kortyx/issues/273)) ([55bc484](https://github.com/kortyx-io/kortyx/commit/55bc48426b72c0d370fe830f64db5bc1249bb861))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/providers bumped to 0.8.4
+
 ## [0.6.4](https://github.com/kortyx-io/kortyx/compare/google-v0.6.3...google-v0.6.4) (2026-09-22)
 
 

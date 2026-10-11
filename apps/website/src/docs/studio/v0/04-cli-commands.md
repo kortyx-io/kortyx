@@ -216,6 +216,27 @@ Your connection key needs `studio:read` for discovery and result inspection, plu
 `eval:run` for starting and cancelling. The SDK telemetry write key cannot run evals.
 The application's eval service key stays on the Studio API server.
 
+### Diagnose deployment wiring
+
+```sh
+kortyx studio evals doctor --connection staging --target catalog --suite catalog-smoke
+kortyx studio evals doctor --connection staging --target catalog --judge app --json
+```
+
+Doctor checks read/execution scopes, matching targets/environment, authenticated
+consumer manifest/suites and configured judge compatibility. It uses discovery
+GET only; it starts no workflows, model calls or saved runs. Consumer discovery
+wrappers may perform their own authentication. It gives safe failure categories
+and remedies; older APIs may return only generic unavailable diagnostics.
+
+`--target`, `--environment`, `--suite` and `--judge` narrow the checks. Connection
+environment defaults apply. Use `--api-url` and `--api-key-env` instead of
+`--connection` for direct access. `--json` prints one report with `schemaVersion: 1`,
+`status` and `checks`; exit 0 means setup checks passed, exit 1 means a failure.
+Each check has `id`, `status` (`passed`, `failed` or `skipped`), `message` and optional
+`remedy`. Provider credentials, test-user tool permissions and worker execution
+still need a real run. Follow [the complete setup recipe](./12-first-eval.md).
+
 ### Run locally without Studio
 
 Export the existing `createEvals` instance as `evals` (or the default export) from
@@ -335,7 +356,7 @@ flags with `--connection` or `KORTYX_CONNECTION`.
 The connection environment filters discovery and history by default. Override it
 with `--environment`. If a suite exists on multiple targets, select `--target`.
 Repeat `--case` for multiple cases; omit it to run every case. The limits are
-20 repetitions, concurrency 4, and 100 total attempts per queued run.
+20 repetitions, concurrency 20, and 100 total attempts per queued run.
 
 Start discovers the current suite revision and enqueues one request. It returns
 immediately with `schemaVersion: 1`, `id`, `status: "queued"`, and `studioUrl`

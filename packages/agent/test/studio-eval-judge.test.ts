@@ -310,3 +310,40 @@ it("discards body cancellation errors while aborting a stalled judge", async () 
   controller.abort();
   await expect(pending).rejects.toMatchObject({ name: "AbortError" });
 });
+
+it("compacts direct HTTP judging and removes nested snapshots from previous steps", async () => {
+  const request = vi.fn(async (_url: unknown, init?: RequestInit) =>
+    Response.json(
+      init?.method === "POST" ? { judge: identity, verdict } : identity,
+    ),
+  );
+  vi.stubGlobal("fetch", request);
+  const judge = await createStudioEvalJudge(options);
+  const noisy = {
+    ...observation,
+    events: [
+      ...observation.events,
+      { type: "structured-data", kind: "text-delta", delta: "NOISE" },
+    ],
+  };
+  await judge.grade({
+    ...input(),
+    observation: noisy,
+    conversation: [
+      {
+        index: 0,
+        input: { message: "Earlier salary?" },
+        expectation: { type: "answer" },
+        observation: noisy,
+        status: "passed",
+        criteria: [],
+        evidence: { version: "compact-v1", history: true, observation: noisy },
+      },
+    ],
+  });
+  const payload = JSON.parse(String(request.mock.calls[1]?.[1]?.body));
+  expect(payload.observation).toEqual(observation);
+  expect(payload.conversation[0].observation).toEqual(observation);
+  expect(payload.conversation[0]).not.toHaveProperty("evidence");
+  expect(JSON.stringify(payload)).not.toContain("NOISE");
+});

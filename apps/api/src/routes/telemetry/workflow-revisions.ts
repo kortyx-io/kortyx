@@ -4,6 +4,7 @@ import {
   EnsureWorkflowTopologyResponseSchema,
 } from "@kortyx/telemetry-contracts";
 import { ensureWorkflowRevision } from "@kortyx/telemetry-db";
+import { requirePrincipalEnvironment } from "../../middleware/security";
 import type { ApiEnv } from "../../types";
 
 const ErrorResponseSchema = z.object({
@@ -52,6 +53,7 @@ export const registerWorkflowRevisionRoutes = (
   app.openapi(route, async (c) => {
     const body = c.req.valid("json");
     const auth = c.get("principal");
+    requirePrincipalEnvironment(auth, [body.environment]);
     const response = await c.get("withTenantDatabase")((db) =>
       ensureWorkflowRevision(db, {
         organizationId: auth.organizationId,

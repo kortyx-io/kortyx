@@ -1,3 +1,4 @@
+import { PromptSnapshotSchema } from "@kortyx/prompts";
 import { z } from "zod";
 import {
   EvalJudgeIdentitySchema,
@@ -15,6 +16,22 @@ export const StudioEvalTargetsResponseSchema = z.object({
       name: z.string(),
       environment: z.string(),
       error: z.string().nullable(),
+      // Safe discovery diagnostics; optional for compatibility with older APIs.
+      diagnostic: z
+        .object({
+          code: z.enum([
+            "environment_forbidden",
+            "environment_unavailable",
+            "endpoint_not_found",
+            "endpoint_unauthorized",
+            "endpoint_http_error",
+            "endpoint_unreachable",
+            "manifest_invalid",
+          ]),
+          httpStatus: z.number().int().min(100).max(599).optional(),
+        })
+        .nullable()
+        .optional(),
       manifest: EvalManifestSchema.nullable(),
       revisions: z.record(z.string(), z.string()),
     }),
@@ -37,6 +54,7 @@ export type EvalCosts = z.infer<typeof EvalCostsSchema>;
 export type EvalCostAmount = z.infer<typeof EvalCostAmountSchema>;
 export const StudioEvalRunSummarySchema = z.object({
   id: z.uuid(),
+  evaluationId: z.uuid().nullable().optional(),
   targetId: z.string(),
   targetName: z.string(),
   environment: z.string(),
@@ -66,6 +84,9 @@ export const StudioEvalRunSummarySchema = z.object({
     .nullable()
     .optional(),
   suiteName: z.string().nullable().optional(),
+  totalAttempts: z.number().int().nonnegative().optional(),
+  completedAttempts: z.number().int().nonnegative().optional(),
+  phase: z.string().optional(),
 });
 export const StudioEvalHistorySchema = z.object({
   runs: z.array(StudioEvalRunSummarySchema),
@@ -80,6 +101,8 @@ export const StudioEvalDetailSchema = z.object({
         judge: EvalJudgeIdentitySchema.optional(),
         repetitions: z.number().int().positive(),
         concurrency: z.number().optional(),
+        promptSnapshot: PromptSnapshotSchema.optional(),
+        promptGroupName: z.string().optional(),
       })
       .optional(),
     suite: EvalSuiteSchema,

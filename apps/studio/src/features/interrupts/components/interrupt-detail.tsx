@@ -167,7 +167,7 @@ function Decision({ detail }: { detail: StudioInterruptDetailResponse }) {
             {interrupt.contract ? "Contract request" : "Decision requested"}
           </p>
           <div className="mt-3 rounded-lg border bg-muted/15 p-5">
-            <p className="text-base font-medium leading-relaxed">
+            <p className="whitespace-pre-wrap break-words [overflow-wrap:anywhere] text-base font-medium leading-relaxed">
               {interrupt.question ?? "Request content was not captured"}
             </p>
             <div className="mt-4 flex flex-wrap gap-2">
@@ -218,7 +218,7 @@ function Decision({ detail }: { detail: StudioInterruptDetailResponse }) {
                   {interrupt.responseValue !== null ? (
                     <PayloadViewer value={interrupt.responseValue} />
                   ) : (
-                    <p className="text-sm">
+                    <p className="whitespace-pre-wrap break-words [overflow-wrap:anywhere] text-sm">
                       {interrupt.response ?? "An empty response was submitted"}
                     </p>
                   )}
@@ -344,7 +344,7 @@ function InterruptRequestDetails({
           className="min-w-0 rounded-md border bg-background/60 px-3 py-2"
         >
           <div className="flex min-w-0 items-baseline justify-between gap-3">
-            <span className="min-w-0 break-words text-sm font-medium">
+            <span className="min-w-0 whitespace-pre-wrap break-words [overflow-wrap:anywhere] text-sm font-medium">
               {option.label}
             </span>
             <code className="max-w-[45%] truncate text-[10px] text-muted-foreground">
@@ -352,7 +352,7 @@ function InterruptRequestDetails({
             </code>
           </div>
           {option.description && (
-            <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+            <p className="mt-1 whitespace-pre-wrap break-words [overflow-wrap:anywhere] text-xs leading-relaxed text-muted-foreground">
               {option.description}
             </p>
           )}

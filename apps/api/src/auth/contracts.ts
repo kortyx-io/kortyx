@@ -7,6 +7,9 @@ export type ApiSurface = "studio" | "telemetry";
 export type ApiProjectScope = Readonly<{
   organizationId: string;
   projectId: string;
+  /** Cloud requires a verified active environment. OSS can retain operator-scoped keys. */
+  environmentId?: string;
+  environment?: string;
 }>;
 
 export type ApiKeyPrincipal = ApiProjectScope &

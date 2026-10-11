@@ -1,0 +1,27 @@
+{
+  "name": "@kortyx/example-eval-endpoint",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Runnable catalog workflow eval endpoint for Studio onboarding.",
+  "scripts": {
+    "start": "node --env-file=.env --import tsx src/server.ts",
+    "eval": "kortyx evals run --entry src/evals.ts",
+    "build": "tsc --noEmit",
+    "type-check": "tsc --noEmit",
+    "lint": "biome check .",
+    "test": "vitest run && pnpm -s type-check"
+  },
+  "dependencies": {
+    "@hono/node-server": "^1.19.15",
+    "@kortyx/openrouter": "workspace:*",
+    "hono": "^4.13.12",
+    "kortyx": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "tsx": "^4.21.0",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}

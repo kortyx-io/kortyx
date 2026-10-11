@@ -1,5 +1,71 @@
 # Changelog
 
+## [0.23.0](https://github.com/kortyx-io/kortyx/compare/runtime-v0.22.1...runtime-v0.23.0) (2026-10-10)
+
+
+### Features
+
+* version, evaluate, serve and migrate Studio prompts ([#288](https://github.com/kortyx-io/kortyx/issues/288)) ([0802f8b](https://github.com/kortyx-io/kortyx/commit/0802f8b91c4a541d176dd8a75c659063e2c28c8c))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/hooks bumped to 0.33.0
+    * @kortyx/prompts bumped to 0.1.0
+
+## [0.22.1](https://github.com/kortyx-io/kortyx/compare/runtime-v0.22.0...runtime-v0.22.1) (2026-10-09)
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/stream bumped to 0.15.3
+    * @kortyx/core bumped to 0.13.0
+    * @kortyx/hooks bumped to 0.32.1
+    * @kortyx/providers bumped to 0.9.1
+    * @kortyx/utils bumped to 0.3.5
+
+## [0.22.0](https://github.com/kortyx-io/kortyx/compare/runtime-v0.21.7...runtime-v0.22.0) (2026-10-08)
+
+
+### Features
+
+* **hooks:** support mixed tools outputs and interrupts ([#297](https://github.com/kortyx-io/kortyx/issues/297)) ([0aa4aa6](https://github.com/kortyx-io/kortyx/commit/0aa4aa6b08cd2ef44f603b8dbe8e35b30c54cbdc))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/hooks bumped to 0.32.0
+
+## [0.21.7](https://github.com/kortyx-io/kortyx/compare/runtime-v0.21.6...runtime-v0.21.7) (2026-10-08)
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/stream bumped to 0.15.2
+    * @kortyx/core bumped to 0.12.0
+    * @kortyx/hooks bumped to 0.31.0
+    * @kortyx/providers bumped to 0.9.0
+    * @kortyx/utils bumped to 0.3.4
+
+## [0.21.6](https://github.com/kortyx-io/kortyx/compare/runtime-v0.21.5...runtime-v0.21.6) (2026-10-07)
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/stream bumped to 0.15.1
+    * @kortyx/hooks bumped to 0.30.2
+    * @kortyx/providers bumped to 0.8.4
+
 ## [0.21.5](https://github.com/kortyx-io/kortyx/compare/runtime-v0.21.4...runtime-v0.21.5) (2026-10-03)
 
 

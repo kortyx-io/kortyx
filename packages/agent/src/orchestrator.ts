@@ -238,6 +238,20 @@ export async function orchestrateGraphStream({
     if (isRecord(chunk) && chunk.type === "done" && isGraphState(chunk.data)) {
       const { __kortyxParallelGraph: _journal, ...runtime } = chunk.data
         .runtime as Record<string, unknown>;
+      if (
+        isRecord(runtime.__kortyx) &&
+        isRecord(runtime.__kortyx.workflowState)
+      ) {
+        runtime.__kortyx = {
+          ...runtime.__kortyx,
+          workflowState: Object.fromEntries(
+            Object.entries(runtime.__kortyx.workflowState).filter(
+              ([key]) =>
+                key !== "__promptSnapshot" && !key.startsWith("__promptPin:"),
+            ),
+          ),
+        };
+      }
       chunk = { ...chunk, data: { ...chunk.data, runtime } };
     }
     if (emitOutput && !response.closed) {

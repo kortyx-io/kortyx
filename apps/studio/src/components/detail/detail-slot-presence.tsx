@@ -1,6 +1,5 @@
 "use client";
 
-import { usePathname } from "next/navigation";
 import {
   createContext,
   type ReactNode,
@@ -12,6 +11,7 @@ import {
 } from "react";
 import { DETAIL_MOTION_DURATION_MS } from "@/components/detail/detail-motion";
 import { useDetailStackSlotState } from "@/components/detail/detail-stack";
+import { usePathname } from "@/lib/scoped-navigation";
 
 type DetailSlotMotionValue = {
   active: boolean;

@@ -8,6 +8,10 @@ section: "guides"
 ---
 # Run consumer evals from Studio
 
+For a new integration, follow [Run Your First Workflow Eval](./12-first-eval.md)
+from application wiring through deployment diagnostics and a completed run.
+This page covers the detailed execution, judging and storage behavior.
+
 Studio can discover registered suites, select cases and repetitions, enqueue a run,
 observe each completed interaction, cancel execution, and reload saved results.
 The consumer app executes its own agent. Studio does not obtain end-user tokens,
@@ -122,7 +126,7 @@ KORTYX_EVAL_JUDGE_MODEL=gpt-5.4-mini
 KORTYX_EVAL_JUDGE_API_KEY=<server-owned provider key>
 # Optional overrides:
 # KORTYX_EVAL_JUDGE_ID=studio/my-judge
-# KORTYX_EVAL_JUDGE_VERSION=kortyx-rubric-v3
+# KORTYX_EVAL_JUDGE_VERSION=kortyx-rubric-v4
 # KORTYX_EVAL_JUDGE_API=responses
 # KORTYX_EVAL_JUDGE_BASE_URL=https://api.openai.com/v1
 ```
@@ -178,14 +182,44 @@ concurrency and grading deadlines. Ordinary Studio runs grade within the worker
 and do not call this endpoint. Saved-run regrading and editable evaluator libraries
 are not included in this release.
 
+## Judge criteria and evidence
+
+Configure what the judge receives in the application: `createEvals.defaults.evidence`
+provides defaults, and `suite.evidence` overrides individual fields. Studio uses
+the saved selected evidence for grading; full observations remain available for
+debugging. These are SDK configuration options, not switches in the run drawer.
+
+The judge sees compact execution evidence as well as answer content. Criteria
+must explain which structured fields the frontend shows as messages, prose, or
+cards and which are progress-only or internal. Each criterion is graded separately.
+An emitted output does not prove it was displayed in the browser.
+
+See [writing criteria](../../sdk/v0/03-guides/10-conversation-evals.md#write-criteria-for-the-evidence-your-app-produces)
+and [evidence defaults, overrides, and filters](../../sdk/v0/03-guides/10-conversation-evals.md#compact-judge-evidence)
+for examples, including disabling history/events/outputs for text-only checks.
+Keep any supporting tool results or reference facts required by the criterion.
+
 ## Eval run costs
 
 Run history and each run's case table show model costs. The run summary and
 case inspector provide a **Workflow / Judge / Total** breakdown. Workflow cost
-uses recorded generation telemetry for the attempt's session in the same project
-and environment, including child workflows, retries and resumed turns. Enable
+automatically follows native Kortyx executions across all runtime sessions used
+within an attempt, including setup, cleanup, child workflows, retries and resumed
+turns. `defineSuite` and existing execution hooks need no changes. An application
+can update a record in session A and verify it in a fresh session B; both sessions
+stay independent and their recorded generations count once for the attempt.
+The attempt keeps its own identity, and unrelated work in a reused session is
+excluded. Project and environment boundaries still apply. Enable
 normal agent telemetry to record these calls. `toolExecution.emit: true` supplies
 tool evidence to the judge; it does not itself enable billing telemetry.
+
+Upgrade Studio before upgrading the consumer's agent and telemetry SDKs together:
+progress and saved results now carry optional attempt identities and runtime
+execution associations. Older saved results retain session-based attribution.
+Attribution is automatic within the consumer process; custom executors that call
+another service do not propagate it across HTTP or queue boundaries. Such calls
+remain unavailable unless that integration carries attribution. An associated
+execution with no recorded generation keeps the subtotal partial or unavailable.
 
 `createEvalJudge` captures provider usage separately from the generated verdict.
 Both app-owned and Studio-owned judges report it, including a paid call whose
@@ -344,3 +378,121 @@ Open the conversation debugging section to inspect the recorded envelopes.
 Use pass criteria to assess payload meaning; the output requirements check
 contract presence. See [the conversation guide](../../sdk/v0/03-guides/10-conversation-evals.md#required-structured-outputs)
 for suite authoring and custom executor support.
+
+
+## Grouped evaluation runs
+
+The default Runs list shows one evaluation per trigger. A parent evaluation owns
+one or more suite executions for a single application/environment. Open a row to
+see every suite and its live progress, then open a suite to inspect cases and
+assessment/trace evidence. Older suite runs remain visible with their original
+links. Suites remains the definition/history view.
+
+The **Run evaluations** drawer offers All suites or Selected suites. Launching
+from a suite page preselects and expands that suite. Expand any selected suite to
+choose its conversations independently. Suite checkboxes select or clear every
+conversation and show a mixed state for partial selections. Selections and
+expanded suites survive reloads and browser history. The default judge is Studio
+when available, otherwise App; unavailable judges remain disabled with a reason.
+Repetitions (1–20) and concurrent attempts across the evaluation (1–20) apply to the selection.
+Each suite is limited to 100 attempts; one evaluation is limited to 1,000 attempts.
+Missing App judge configuration is explained beside the disabled option.
+
+The Studio API snapshots all selected suite revisions and the judge before
+atomically saving the parent and suite jobs. A worker claims all suite jobs together and schedules attempts round-robin across
+suites, sharing the configured concurrency budget. A slot includes setup, execution,
+cleanup, and grading. Consumer apps must use an SDK that advertises attempt scheduling;
+older endpoints receive an upgrade message before a multi-suite run is queued.
+Custom worker stores must return all sibling suite leases together from `claim`;
+independent single-suite claims cannot enforce an evaluation-wide budget.
+Cancelling the parent cancels queued suites and requests cooperative cancellation
+of running suites. Cancelling one child suite stops its queued attempts and drains
+its active attempts through cleanup while other suites continue. A lost lease or
+uncertain transport outcome stops new dispatch without replaying attempts.
+Finished suites remain available; cancellation never rolls
+back tool side effects. A run remains Running until every suite is terminal.
+Execution/grading errors, behavioral failures, and cancellation stay distinct.
+
+```sh
+# Enqueue all deployed suites and return a parent ID and Studio link.
+kortyx studio evals runs start --all --connection staging --target catalog --json
+
+# Run selected suites, wait, and return machine-readable final results.
+kortyx studio evals runs start --suite catalog-smoke --suite product-ambiguity \
+  --connection staging --target catalog --wait --timeout 1800 --json
+
+# Read grouped history and results. Existing suite-run IDs/URLs remain readable.
+kortyx studio evals runs list --connection staging --json
+kortyx studio evals runs get EVALUATION_UUID --connection staging --json
+kortyx studio evals runs get EVALUATION_UUID --connection staging --include-content --json
+kortyx studio evals runs wait EVALUATION_UUID --connection staging --timeout 1800 --json
+kortyx studio evals runs cancel EVALUATION_UUID --connection staging --json
+```
+
+`get` returns aggregate counts and per-suite case/criterion pass-fail outcomes.
+`--include-content` additionally returns definitions, observations, reasons and
+execution evidence with best-effort credential redaction. A positional suite ID
+is still accepted by `runs start`, and now creates a single-suite parent.
+`wait` supports grouped evaluation IDs; use `get` to inspect legacy suite runs.
+
+`--wait` and `runs wait` exit 0 for Passed, 1 for failed criteria, 2 for execution,
+grading, or waiting errors, and 130 for cancellation. A wait timeout does not
+cancel the evaluation. Without `--wait`, success only means the run was accepted.
+The CLI does not automatically retry POSTs. Use `--idempotency-key` to reuse an
+identical request after a trigger retry; reusing the key with changed selection,
+revisions, execution settings or metadata returns a conflict. Run creation is
+atomic, so failed validation never leaves a partial selection queued.
+
+## Deployment and scheduled CI examples
+
+Kortyx has no native cron scheduler. CI can invoke the same CLI after a successful
+deployment/readiness check, or on a schedule. Pin a compatible CLI in the lockfile,
+provide a Studio project key with `studio:read`, `eval:run`, and environment access,
+and ensure the CI runner can reach the Studio API.
+
+Example post-deployment job step (after readiness):
+
+```yaml
+- name: Evaluate deployed application
+  continue-on-error: true # Report results initially; remove when trusted as a release gate.
+  env:
+    KORTYX_DEPLOY_EVAL_KEY: ${{ secrets.KORTYX_DEPLOY_EVAL_KEY }}
+  shell: bash
+  run: |
+    set +e
+    pnpm exec kortyx studio evals runs start --all \
+      --target catalog --environment staging --judge studio \
+      --api-url https://api.example.com --api-key-env KORTYX_DEPLOY_EVAL_KEY \
+      --source deployment --commit "$GITHUB_SHA" \
+      --deployment-url "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" \
+      --idempotency-key "deploy-$GITHUB_RUN_ID" --wait --timeout 1800 --json > eval-results.json
+    eval_exit=$?
+    if jq -e '.run' eval-results.json >/dev/null 2>&1; then
+      jq -r '"Evaluation: \(.run.name) — \(.run.status)\nSuites: \(.run.completedSuites)/\(.run.suiteCount)\nPassed: \(.run.counts.passed), failed: \(.run.counts.failed), errors: \(.run.counts.error)"' eval-results.json >> "$GITHUB_STEP_SUMMARY"
+      jq -r '"[Open evaluation](https://studio.example.com/evals/evaluations/\(.run.id))"' eval-results.json >> "$GITHUB_STEP_SUMMARY"
+    fi
+    exit "$eval_exit"
+```
+
+For nightly checks, invoke that CLI step in a workflow with these triggers and
+change `--source deployment` to `--source schedule`:
+
+```yaml
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 2 * * *' # UTC
+```
+
+A trigger owns frequency and idempotency. `--commit` must identify the application
+actually deployed; in a scheduled workflow, discover that commit from your
+application's version endpoint instead of assuming the checked-out CI commit is
+running on the server. An evaluation pins suite and judge definitions, but does
+not freeze the deployment or external data while execution is in progress.
+
+The grouped API is `/v1/studio/evals/evaluations`: POST creates a selection, GET
+lists grouped/legacy history; `/:id` returns summary and suites, `/:id/results`
+returns detailed results, and POST `/:id/cancel` cancels remaining work. Existing
+`/v1/studio/evals/runs` endpoints continue to serve individual suite executions.
+Apply migration `0007_evaluation_runs` before deploying the new API. Browser and
+CLI grouped operations require a compatible Studio/API release.

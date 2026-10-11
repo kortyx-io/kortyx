@@ -1,5 +1,39 @@
 # Changelog
 
+## [0.4.7](https://github.com/kortyx-io/kortyx/compare/deepseek-v0.4.6...deepseek-v0.4.7) (2026-10-09)
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/providers bumped to 0.9.1
+    * @kortyx/core bumped to 0.13.0
+
+## [0.4.6](https://github.com/kortyx-io/kortyx/compare/deepseek-v0.4.5...deepseek-v0.4.6) (2026-10-08)
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/providers bumped to 0.9.0
+    * @kortyx/core bumped to 0.12.0
+
+## [0.4.5](https://github.com/kortyx-io/kortyx/compare/deepseek-v0.4.4...deepseek-v0.4.5) (2026-10-07)
+
+
+### Bug Fixes
+
+* **security:** remediate CodeQL findings ([#273](https://github.com/kortyx-io/kortyx/issues/273)) ([55bc484](https://github.com/kortyx-io/kortyx/commit/55bc48426b72c0d370fe830f64db5bc1249bb861))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/providers bumped to 0.8.4
+
 ## [0.4.4](https://github.com/kortyx-io/kortyx/compare/deepseek-v0.4.3...deepseek-v0.4.4) (2026-09-22)
 
 

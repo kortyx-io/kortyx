@@ -1,5 +1,124 @@
 # Changelog
 
+## [0.30.0](https://github.com/kortyx-io/kortyx/compare/kortyx-v0.29.3...kortyx-v0.30.0) (2026-10-10)
+
+
+### Features
+
+* version, evaluate, serve and migrate Studio prompts ([#288](https://github.com/kortyx-io/kortyx/issues/288)) ([0802f8b](https://github.com/kortyx-io/kortyx/commit/0802f8b91c4a541d176dd8a75c659063e2c28c8c))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/agent bumped to 0.36.0
+    * @kortyx/cli bumped to 0.18.0
+    * @kortyx/hooks bumped to 0.33.0
+    * @kortyx/runtime bumped to 0.23.0
+    * @kortyx/prompts bumped to 0.1.0
+
+## [0.29.3](https://github.com/kortyx-io/kortyx/compare/kortyx-v0.29.2...kortyx-v0.29.3) (2026-10-09)
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/agent bumped to 0.35.0
+    * @kortyx/cli bumped to 0.17.0
+    * @kortyx/core bumped to 0.13.0
+    * @kortyx/hooks bumped to 0.32.1
+    * @kortyx/mcp bumped to 0.2.10
+    * @kortyx/providers bumped to 0.9.1
+    * @kortyx/runtime bumped to 0.22.1
+    * @kortyx/stream bumped to 0.15.3
+    * @kortyx/utils bumped to 0.3.5
+
+## [0.29.2](https://github.com/kortyx-io/kortyx/compare/kortyx-v0.29.1...kortyx-v0.29.2) (2026-10-09)
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/agent bumped to 0.34.0
+    * @kortyx/cli bumped to 0.16.0
+
+## [0.29.1](https://github.com/kortyx-io/kortyx/compare/kortyx-v0.29.0...kortyx-v0.29.1) (2026-10-08)
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/agent bumped to 0.33.0
+    * @kortyx/cli bumped to 0.15.2
+    * @kortyx/hooks bumped to 0.32.0
+    * @kortyx/runtime bumped to 0.22.0
+
+## [0.29.0](https://github.com/kortyx-io/kortyx/compare/kortyx-v0.28.2...kortyx-v0.29.0) (2026-10-08)
+
+
+### Features
+
+* **evals:** compact judge evidence and add suite selection ([#293](https://github.com/kortyx-io/kortyx/issues/293)) ([9754f7c](https://github.com/kortyx-io/kortyx/commit/9754f7cacc61b5945a254ccaa66e17b1b5c8d13f))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/agent bumped to 0.32.0
+    * @kortyx/cli bumped to 0.15.1
+
+## [0.28.2](https://github.com/kortyx-io/kortyx/compare/kortyx-v0.28.1...kortyx-v0.28.2) (2026-10-08)
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/agent bumped to 0.31.1
+    * @kortyx/cli bumped to 0.15.0
+    * @kortyx/core bumped to 0.12.0
+    * @kortyx/hooks bumped to 0.31.0
+    * @kortyx/mcp bumped to 0.2.9
+    * @kortyx/providers bumped to 0.9.0
+    * @kortyx/runtime bumped to 0.21.7
+    * @kortyx/stream bumped to 0.15.2
+    * @kortyx/utils bumped to 0.3.4
+
+## [0.28.1](https://github.com/kortyx-io/kortyx/compare/kortyx-v0.28.0...kortyx-v0.28.1) (2026-10-07)
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/agent bumped to 0.31.0
+    * @kortyx/cli bumped to 0.14.0
+
+## [0.28.0](https://github.com/kortyx-io/kortyx/compare/kortyx-v0.27.0...kortyx-v0.28.0) (2026-10-07)
+
+
+### Features
+
+* **website:** separate SDK and Studio documentation ([#262](https://github.com/kortyx-io/kortyx/issues/262)) ([7518ddc](https://github.com/kortyx-io/kortyx/commit/7518ddc0494503ed4fb393b20dc7b37240a27fcc))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/agent bumped to 0.30.0
+    * @kortyx/cli bumped to 0.13.0
+    * @kortyx/hooks bumped to 0.30.2
+    * @kortyx/mcp bumped to 0.2.8
+    * @kortyx/providers bumped to 0.8.4
+    * @kortyx/runtime bumped to 0.21.6
+    * @kortyx/stream bumped to 0.15.1
+
 ## [0.27.0](https://github.com/kortyx-io/kortyx/compare/kortyx-v0.26.0...kortyx-v0.27.0) (2026-10-03)
 
 

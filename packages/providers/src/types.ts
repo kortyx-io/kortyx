@@ -160,6 +160,7 @@ export interface ToolOutcomes<TResult = unknown> {
   classifyError?(error: unknown): ToolOutcomeDescriptor;
 }
 export interface ToolErrorDetails {
+  [key: string]: unknown;
   type?: string | undefined;
   message: string;
 }
@@ -168,6 +169,7 @@ export interface ToolTelemetry {
   error?(error: unknown): ToolErrorDetails | null;
 }
 export interface ToolObservation {
+  diagnosticId?: string | undefined;
   workflowId?: string | undefined;
   nodeId?: string | undefined;
   workflowRevisionId?: string | undefined;
