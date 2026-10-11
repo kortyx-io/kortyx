@@ -27,6 +27,7 @@ import {
 } from "@/components/data-table";
 import { DetailInspectorDrawer } from "@/components/detail/detail-inspector";
 import { DetailLink } from "@/components/detail/detail-link";
+import { usePrepareDetailNavigation } from "@/components/detail/detail-stack";
 import Link from "@/components/scoped-link";
 import { Button } from "@/components/ui/button";
 import {
@@ -46,6 +47,7 @@ import {
   usePromptLibrary,
   useRefreshPromptData,
 } from "../hooks/use-prompt-data";
+import { promptKeyError } from "../lib/key-validation";
 import { promptLibraryQuery } from "../lib/library-query";
 import { categoryPath, initialPrompt } from "../lib/presentation";
 import { PromptActionSurface } from "./prompt-action-surface";
@@ -111,6 +113,8 @@ export function PromptLibraryView({
     [fieldsValid, setFieldsValid] = useState(true);
   const [selected, setSelected] = useState<PromptLibrary["assets"]>([]),
     [importing, setImporting] = useState(false);
+  const keyError = promptKeyError(key);
+  const prepareDetailNavigation = usePrepareDetailNavigation();
   const libraryPath = `library?${promptLibraryQuery({ q: query.q, cursor: query.cursor, archived: query.archived }, categoryId)}`;
   const {
     data: library,
@@ -843,9 +847,17 @@ export function PromptLibraryView({
               placeholder="canvas/classify-intent"
               value={key}
               onChange={(event) => setKey(event.target.value)}
+              aria-invalid={key.length > 0 && keyError !== null}
+              aria-describedby="new-prompt-key-help"
             />
-            <p className="text-xs text-muted-foreground">
-              Keys stay stable when you rename or move a prompt.
+            <p
+              id="new-prompt-key-help"
+              className={`text-xs ${key.length > 0 && keyError ? "text-destructive" : "text-muted-foreground"}`}
+              aria-live="polite"
+            >
+              {key.length > 0 && keyError
+                ? keyError
+                : "Keys stay stable when you rename or move a prompt."}
             </p>
           </div>
           <PromptFields
@@ -867,7 +879,7 @@ export function PromptLibraryView({
           <Button
             size="sm"
             disabled={
-              working || !fieldsValid || !promptName.trim() || !key.trim()
+              working || !fieldsValid || !promptName.trim() || keyError !== null
             }
             onClick={() => {
               try {
@@ -905,6 +917,7 @@ export function PromptLibraryView({
             setWorking(true);
             setError("");
             try {
+              if (keyError) throw new Error(keyError);
               const result = (await promptRequest("actions", {
                 action: "create",
                 key,
@@ -915,9 +928,10 @@ export function PromptLibraryView({
                 note,
                 idempotencyKey: crypto.randomUUID(),
               })) as { id: string };
+              await refresh();
               setReview(null);
               setCreating(false);
-              await refresh();
+              prepareDetailNavigation?.(`/prompts/${result.id}`);
               router.push(`/prompts/${result.id}`);
             } catch (cause) {
               setError(

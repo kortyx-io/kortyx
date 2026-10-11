@@ -11,6 +11,10 @@ import useSWR, { useSWRConfig } from "swr";
 import { useStudioRouteScope } from "@/components/studio-route-provider";
 import { studioHref } from "@/lib/studio-routing";
 import { promptRequest } from "../api/client";
+import {
+  promptLibraryCacheEntries,
+  promptLibraryCacheKey,
+} from "../lib/library-cache";
 
 type PromptKey = readonly ["prompts", string, string];
 
@@ -19,16 +23,30 @@ function usePromptScope() {
   return studioHref("/prompts", scope);
 }
 
-/** Revalidate mounted prompt surfaces without replacing their routes or drawers. */
+/** Refresh visited lists as well as mounted details without replacing drawers. */
 export function useRefreshPromptData() {
   const scope = usePromptScope();
-  const { mutate } = useSWRConfig();
+  const { cache, mutate } = useSWRConfig();
   return useCallback(
     () =>
-      mutate(
-        (key) => Array.isArray(key) && key[0] === "prompts" && key[1] === scope,
-      ),
-    [mutate, scope],
+      Promise.all([
+        // SWR's no-data mutate only revalidates mounted hooks. A previously
+        // visited list has no fetcher while unmounted, so populate it explicitly
+        // before returning through a cached Next route.
+        ...promptLibraryCacheEntries(cache.keys(), scope).map(({ key, path }) =>
+          mutate(key, readLibrary(["prompts", scope, path]), {
+            revalidate: false,
+            // The write already succeeded. Report a read failure through SWR,
+            // not as a failed creation that invites an accidental retry.
+            throwOnError: false,
+          }),
+        ),
+        mutate(
+          (key) =>
+            Array.isArray(key) && key[0] === "prompts" && key[1] === scope,
+        ),
+      ]),
+    [cache, mutate, scope],
   );
 }
 
@@ -48,8 +66,8 @@ export function usePromptLibrary(
 ) {
   const scope = usePromptScope();
   return useSWR<PromptLibrary, Error>(
-    ["prompts", scope, path] as const,
-    readLibrary,
+    promptLibraryCacheKey(scope, path),
+    () => readLibrary(["prompts", scope, path]),
     {
       fallbackData: path === initialPath ? (initial ?? undefined) : undefined,
       keepPreviousData: true,

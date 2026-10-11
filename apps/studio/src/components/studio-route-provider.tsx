@@ -11,5 +11,14 @@ export function StudioRouteProvider({
   scope?: StudioRouteScope | undefined;
   children: ReactNode;
 }) {
-  return <RouteScope.Provider value={scope}>{children}</RouteScope.Provider>;
+  // Retained drawers and keepPreviousData belong to one workspace. Never carry
+  // them into another project while its server/client data is still arriving.
+  return (
+    <RouteScope.Provider
+      key={`${scope?.organizationPublicId ?? ""}:${scope?.projectPublicId ?? ""}`}
+      value={scope}
+    >
+      {children}
+    </RouteScope.Provider>
+  );
 }
