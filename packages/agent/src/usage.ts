@@ -3,12 +3,7 @@ import { getUsageTelemetry } from "@kortyx/usage-telemetry/node";
 import packageJson from "../package.json";
 
 const client = () => getUsageTelemetry("agent", packageJson.version);
-export const usage: Pick<
-  UsageTelemetry,
-  "start" | "feature" | "measure" | "flush"
-> = {
+export const usage: Pick<UsageTelemetry, "start" | "measure"> = {
   start: (...args) => client().start(...args),
-  feature: (...args) => client().feature(...args),
   measure: (...args) => client().measure(...args),
-  flush: () => client().flush(),
 };

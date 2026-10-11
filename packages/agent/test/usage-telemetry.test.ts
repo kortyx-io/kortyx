@@ -1,6 +1,7 @@
 // biome-ignore-all lint/correctness/useHookAtTopLevel: Kortyx server hooks run within workflow nodes.
 import { defineWorkflow, type NodeResult } from "@kortyx/core";
 import { completeResponse } from "@kortyx/hooks";
+import type { FrameworkAdapter } from "@kortyx/runtime";
 import { collectStream } from "@kortyx/stream";
 import {
   createUsageTelemetry,
@@ -36,6 +37,35 @@ const workflow = (run: () => Promise<NodeResult>) =>
       ["run", "__end__"],
     ],
   });
+it("preserves agent creation when optional telemetry metadata throws", async () => {
+  const adapter = Object.defineProperty({}, "kind", {
+    get() {
+      throw new Error("private-metadata-error");
+    },
+  }) as FrameworkAdapter;
+  const agent = createAgent({
+    frameworkAdapter: adapter,
+    workflows: [workflow(async () => ({ data: { answer: "private-output" } }))],
+  });
+  expect(
+    (
+      await agent.execute({
+        workflow: "private-workflow-name",
+        input: "private-input",
+      })
+    ).status,
+  ).toBe("completed");
+  await telemetry.flush();
+  expect(records).toEqual(
+    expect.arrayContaining([
+      expect.objectContaining({
+        operation: "sdk.initialize",
+        outcome: "success",
+      }),
+    ]),
+  );
+  expect(JSON.stringify(records)).not.toContain("private-");
+});
 it("records direct execution success and validation failure without workflow or input content", async () => {
   const agent = createAgent({
     workflows: [workflow(async () => ({ data: { answer: "private-output" } }))],
