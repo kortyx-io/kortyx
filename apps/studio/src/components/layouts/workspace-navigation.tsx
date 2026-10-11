@@ -30,6 +30,7 @@ const settingsLabels: Record<string, string> = {
   appearance: "Appearance",
   about: "About",
   members: "Members",
+  projects: "Projects",
   "api-keys": "API keys",
   environments: "Environments",
   connection: "Connection",

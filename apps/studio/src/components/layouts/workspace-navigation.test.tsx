@@ -19,6 +19,7 @@ it.each([
   ["appearance", "Appearance"],
   ["about", "About"],
   ["members", "Members"],
+  ["projects", "Projects"],
   ["api-keys", "API keys"],
   ["environments", "Environments"],
   ["providers", "Providers"],
