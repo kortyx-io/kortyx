@@ -177,6 +177,18 @@ describe.skipIf(!url)("project prompt management", () => {
       });
       expect(evaluated.source).toBe("eval");
       expect(evaluated.versions.classify?.version).toBe(2);
+      await mutate({
+        action: "policy",
+        id,
+        policy: {
+          revision: 0,
+          requireChangeNote: false,
+          requireTest: true,
+          requiredSuites: [],
+          requiredReviews: 0,
+          allowException: true,
+        },
+      });
       await expect(
         mutate({
           action: "promote",
@@ -593,14 +605,22 @@ describe.skipIf(!url)("project prompt management", () => {
           rollback: false,
         });
       await expect(promote(first)).resolves.toMatchObject({ revision: 1 });
-      await expect(promote(second)).rejects.toMatchObject({
-        code: "PROMPT_PROMOTION_BLOCKED",
-      });
+      // A new prompt can go live without a connected consumer or evaluation.
+      await expect(promote(second)).resolves.toMatchObject({ revision: 1 });
       await mutate({
         action: "policy",
         id: second,
         policy: { ...permissive, requireTest: true, requiredReviews: 1 },
       });
+      await expect(
+        mutate({
+          action: "promote",
+          id: second,
+          version: 1,
+          expectedRevision: 1,
+          rollback: false,
+        }),
+      ).rejects.toMatchObject({ code: "PROMPT_PROMOTION_BLOCKED" });
       expect((await getPrompt(client.db, scope, first)).policies).toEqual(
         firstDetail.policies,
       );
@@ -614,9 +634,7 @@ describe.skipIf(!url)("project prompt management", () => {
       ).toMatchObject({ revision: 1, requireTest: true, requiredReviews: 1 });
       const third = await create("third");
       expect((await getPrompt(client.db, scope, third)).policies).toEqual([]);
-      await expect(promote(third)).rejects.toMatchObject({
-        code: "PROMPT_PROMOTION_BLOCKED",
-      });
+      await expect(promote(third)).resolves.toMatchObject({ revision: 1 });
     } finally {
       await client.db.delete(organizations).where(eq(organizations.id, org.id));
       await client.close();
