@@ -44,13 +44,14 @@ const readDetail = async ([, scope, path]: PromptKey) =>
 export function usePromptLibrary(
   initial: PromptLibrary | null,
   path = "library",
+  initialPath = path,
 ) {
   const scope = usePromptScope();
   return useSWR<PromptLibrary, Error>(
     ["prompts", scope, path] as const,
     readLibrary,
     {
-      fallbackData: initial ?? undefined,
+      fallbackData: path === initialPath ? (initial ?? undefined) : undefined,
       keepPreviousData: true,
       // Server-rendered data gives the first paint; revalidation also covers
       // revisiting a cached RSC route after a mutation in another prompt surface.

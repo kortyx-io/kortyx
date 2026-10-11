@@ -1,12 +1,19 @@
 import { notFound } from "next/navigation";
 import { readPromptLibrary } from "../api/server";
+import {
+  type PromptLibrarySearch,
+  promptLibraryQuery,
+} from "../lib/library-query";
 import { PromptLibraryView } from "./prompt-library";
 export async function PromptLibraryPage({
   categoryId,
+  searchParams,
 }: {
   categoryId?: string;
+  searchParams?: PromptLibrarySearch;
 }) {
-  const result = await readPromptLibrary();
+  const query = promptLibraryQuery(searchParams, categoryId);
+  const result = await readPromptLibrary(query);
   if (
     result.data &&
     categoryId &&
@@ -17,6 +24,7 @@ export async function PromptLibraryPage({
   return (
     <PromptLibraryView
       initial={result.data}
+      initialPath={`library?${query}`}
       initialError={result.error?.message ?? ""}
       {...(categoryId ? { categoryId } : {})}
     />

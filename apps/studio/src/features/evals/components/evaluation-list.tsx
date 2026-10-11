@@ -15,6 +15,7 @@ import { useState } from "react";
 import { DataTable, DataTableProvider } from "@/components/data-table";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { FirstObservation } from "@/features/telemetry/components/first-observation";
 import { LiveRefreshButton } from "@/features/telemetry/components/live-refresh-button";
 import { useLiveRefresh } from "@/features/telemetry/hooks/use-live-refresh";
 import { useStudioQueryStates } from "@/lib/nuqs";
@@ -200,6 +201,8 @@ export function EvaluationList({
       </div>
     </div>
   );
+  if (!error && targets.targets.length === 0 && runs.length === 0)
+    return <FirstObservation resource="evals" />;
   return (
     <div className="flex h-full min-h-0 flex-col gap-2">
       {error ? (
