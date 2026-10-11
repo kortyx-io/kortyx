@@ -1,6 +1,7 @@
 import { execFileSync } from "node:child_process";
 import { appendFileSync, readdirSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
+import { isReleaseCommit } from "../../../scripts/release/is-release-commit.mjs";
 import { packageMetadata } from "./registry.mjs";
 
 const root = process.cwd();
@@ -22,7 +23,7 @@ const releaseSubject = execFileSync(
   ["show", "-s", "--format=%s", releaseCommit],
   { encoding: "utf8" },
 ).trim();
-if (!releaseSubject.startsWith("chore: release")) {
+if (!isReleaseCommit(releaseCommit)) {
   setPackagesOutput([]);
   console.log(
     "Nothing to publish: selected commit is not a release commit " +

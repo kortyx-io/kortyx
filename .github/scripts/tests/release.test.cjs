@@ -1,6 +1,19 @@
 const assert = require("node:assert/strict");
+const { readFileSync } = require("node:fs");
+const { join } = require("node:path");
 const test = require("node:test");
 const updateReleasePrBranch = require("../release/update-release-pr-branch.cjs");
+
+test("release recovery describes old commits using the trusted workflow classifier", () => {
+  const workflow = readFileSync(
+    join(__dirname, "../../workflows/npm-publish.yml"),
+    "utf8",
+  );
+  assert.match(
+    workflow,
+    /run: node \.\/\.github\/automation\/\.github\/scripts\/release\/describe-release\.mjs/,
+  );
+});
 
 const context = {
   ref: "refs/heads/main",

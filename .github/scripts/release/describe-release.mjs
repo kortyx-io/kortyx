@@ -1,15 +1,13 @@
 import { execFileSync } from "node:child_process";
 import { appendFileSync, readFileSync } from "node:fs";
 import { join } from "node:path";
+import { isReleaseCommit } from "./is-release-commit.mjs";
 
 const commit = execFileSync(
   "git",
   ["rev-parse", "--verify", `${process.env.RELEASE_COMMIT}^{commit}`],
   { encoding: "utf8" },
 ).trim();
-const subject = execFileSync("git", ["show", "-s", "--format=%s", commit], {
-  encoding: "utf8",
-}).trim();
 const config = JSON.parse(
   readFileSync(".github/release-please/config.json", "utf8"),
 );
@@ -23,7 +21,7 @@ const changed = new Set(
 const paths = Object.keys(config.packages || {}).filter((path) =>
   changed.has(`${path}/package.json`),
 );
-const release = subject.startsWith("chore: release") && paths.length > 0;
+const release = isReleaseCommit(commit) && paths.length > 0;
 const versionAt = (path) =>
   paths.includes(path)
     ? JSON.parse(readFileSync(join(path, "package.json"), "utf8")).version
