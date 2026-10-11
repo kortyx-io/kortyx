@@ -57,6 +57,7 @@ export function SettingsNavigation({ children }: { children: ReactNode }) {
     account: UserRound,
     members: Users,
     project: Building2,
+    projects: Building2,
     environments: Globe,
     connection: Cable,
     "api-keys": KeyRound,

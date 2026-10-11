@@ -46,6 +46,7 @@ import {
   usePromptLibrary,
   useRefreshPromptData,
 } from "../hooks/use-prompt-data";
+import { promptLibraryQuery } from "../lib/library-query";
 import { categoryPath, initialPrompt } from "../lib/presentation";
 import { PromptActionSurface } from "./prompt-action-surface";
 import {
@@ -65,10 +66,12 @@ type CategoryAction = {
 };
 export function PromptLibraryView({
   initial,
+  initialPath,
   initialError = "",
   categoryId,
 }: {
   initial: PromptLibrary | null;
+  initialPath?: string;
   initialError?: string;
   categoryId?: string;
 }) {
@@ -108,12 +111,13 @@ export function PromptLibraryView({
     [fieldsValid, setFieldsValid] = useState(true);
   const [selected, setSelected] = useState<PromptLibrary["assets"]>([]),
     [importing, setImporting] = useState(false);
-  const libraryPath = `library?${new URLSearchParams({ search: query.q, cursor: query.cursor, archived: query.archived, ...(categoryId ? { categoryId } : {}) })}`;
+  const libraryPath = `library?${promptLibraryQuery({ q: query.q, cursor: query.cursor, archived: query.archived }, categoryId)}`;
   const {
     data: library,
     error: readError,
-    isLoading: loading,
-  } = usePromptLibrary(initial, libraryPath);
+    isLoading,
+  } = usePromptLibrary(initial, libraryPath, initialPath);
+  const loading = isLoading && !library;
   const refreshPromptData = useRefreshPromptData();
   const refresh = async () => {
     await refreshPromptData();

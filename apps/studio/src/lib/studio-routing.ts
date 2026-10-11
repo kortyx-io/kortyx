@@ -13,7 +13,7 @@ export function studioHref(href: string, scope?: StudioRouteScope): string {
   const suffix = split < 0 ? "" : href.slice(split);
   if (
     scope.organizationPublicId &&
-    /^\/settings\/(general|members)$/.test(path)
+    /^\/settings\/(general|members|projects)$/.test(path)
   )
     return `/organizations/${scope.organizationPublicId}${path}${suffix}`;
   if (scope.projectPublicId) {
@@ -45,7 +45,7 @@ export function studioPathname(pathname: string): string {
       ? "/settings/project"
       : (project[1] ?? pathname);
   const organization = pathname.match(
-    /^\/organizations\/org_[0-9a-f]{24}(\/settings\/(?:general|members))$/,
+    /^\/organizations\/org_[0-9a-f]{24}(\/settings\/(?:general|members|projects))$/,
   );
   return organization?.[1] ?? pathname;
 }

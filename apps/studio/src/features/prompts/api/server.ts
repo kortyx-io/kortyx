@@ -4,8 +4,10 @@ import {
   PromptLibrarySchema,
 } from "@kortyx/telemetry-contracts";
 import { fetchJson } from "@/lib/studio-api";
-export const readPromptLibrary = () =>
-  fetchJson("/v1/studio/prompts", (value) => PromptLibrarySchema.parse(value));
+export const readPromptLibrary = (query = "") =>
+  fetchJson(`/v1/studio/prompts${query ? `?${query}` : ""}`, (value) =>
+    PromptLibrarySchema.parse(value),
+  );
 export const readPromptDetail = (id: string, byKey = false) =>
   fetchJson(
     `/v1/studio/prompts/assets/${encodeURIComponent(id)}${byKey ? "?lookup=key" : ""}`,
