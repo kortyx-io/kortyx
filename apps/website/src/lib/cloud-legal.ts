@@ -2,13 +2,17 @@ import { createHash } from "node:crypto";
 import dpa1 from "@/legal/cloud/dpa.2026-10-08.staging.1.json";
 import dpa2 from "@/legal/cloud/dpa.2026-10-08.staging.2.json";
 import dpa3 from "@/legal/cloud/dpa.2026-10-10.staging.3.json";
+import dpa5 from "@/legal/cloud/dpa.2026-10-11.5.json";
 import dpa4 from "@/legal/cloud/dpa.2026-10-11.staging.4.json";
 import legacyReleases from "@/legal/cloud/legacy-releases.json";
+import privacy5 from "@/legal/cloud/privacy.2026-10-11.5.json";
 import privacy4 from "@/legal/cloud/privacy.2026-10-11.staging.4.json";
+import subprocessors5 from "@/legal/cloud/subprocessors.2026-10-11.5.json";
 import subprocessors4 from "@/legal/cloud/subprocessors.2026-10-11.staging.4.json";
 import terms1 from "@/legal/cloud/terms.2026-10-08.staging.1.json";
 import terms2 from "@/legal/cloud/terms.2026-10-08.staging.2.json";
 import terms3 from "@/legal/cloud/terms.2026-10-10.staging.3.json";
+import terms5 from "@/legal/cloud/terms.2026-10-11.5.json";
 import terms4 from "@/legal/cloud/terms.2026-10-11.staging.4.json";
 import { siteConfig } from "./site";
 
@@ -39,8 +43,12 @@ const documents: CloudLegalDocument[] = [
   dpa3,
   dpa4,
   subprocessors4,
+  terms5,
+  privacy5,
+  dpa5,
+  subprocessors5,
 ];
-export const currentCloudLegalVersion = "2026-10-11.staging.4";
+export const currentCloudLegalVersion = "2026-10-11.5";
 export const cloudLegalHashContract = "kortyx-cloud-json-sha256-v1";
 export function isCloudLegalSlug(value: string): value is CloudLegalSlug {
   return cloudLegalSlugs.some((slug) => slug === value);
@@ -95,7 +103,9 @@ export function getCloudLegalManifest() {
         document.slug === "terms" ? "terms_and_conditions_staging_beta" : null,
       version: document.version,
       effectiveDate: document.effectiveDate,
-      effectiveDateScope: "staging-draft-only",
+      effectiveDateScope: document.version.includes("staging")
+        ? "staging-draft-only"
+        : "candidate-publication-only",
       draft: document.draft,
       productionApproved: false,
       acceptanceRequired: document.slug === "terms",

@@ -20,9 +20,7 @@ test("Cloud drafts, exact archives and current links remain readable on every vi
     const path = new URL(release.versionUrl).pathname;
     expect((await page.goto(path))?.status()).toBe(200);
     await expect(page.locator("h1")).toBeVisible();
-    await expect(page.locator("article")).toContainText(
-      "Not production-approved",
-    );
+    expect(release.productionApproved).toBe(false);
     await expect(page.locator('link[rel="canonical"]')).toHaveAttribute(
       "href",
       release.versionUrl,
@@ -67,7 +65,7 @@ test("Cloud drafts, exact archives and current links remain readable on every vi
       });
     }
     await page
-      .getByRole("link", { name: "Current website draft", exact: true })
+      .getByRole("link", { name: "Current version", exact: true })
       .click();
     await expect(page).toHaveURL(new RegExp(`/cloud/${release.slug}$`));
     await expect(

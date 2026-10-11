@@ -19,14 +19,14 @@ describe("version-ready legal documents", () => {
       /we do not currently claim|in formation|incorporation|SOC 2|ISO 27001|guaranteed uptime/i,
     );
   });
-  it("has a unique stable ID and explicit draft version for every legal text", () => {
+  it("has a unique stable ID and publication version for every legal text", () => {
     const documents = Object.values(legalDocuments);
     expect(new Set(documents.map((doc) => doc.id)).size).toBe(documents.length);
     for (const [slug, definition] of Object.entries(legalDocuments)) {
       expect(getTrustPage(slug as keyof typeof legalDocuments).isLegal).toBe(
         true,
       );
-      expect(definition.version).toMatch(/\d{4}-\d{2}-\d{2}\.\d+-draft$/);
+      expect(definition.version).toMatch(/^\d{4}-\d{2}-\d{2}\.\d+$/);
     }
   });
 

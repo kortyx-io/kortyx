@@ -211,7 +211,7 @@ test("external links open safely in a new tab while site navigation stays in pla
   await popup.close();
 });
 
-test("trust pages are navigable and identify drafts accurately", async ({
+test("trust pages are navigable with consistent legal document information", async ({
   page,
 }) => {
   for (const route of trustRoutes) {
@@ -244,7 +244,12 @@ test("trust pages are navigable and identify drafts accurately", async ({
         "content",
         /noindex/,
       );
-      await expect(page.getByText(/Document version:.*-draft/)).toBeVisible();
+      await expect(page.locator("article footer")).toContainText(
+        "Current version",
+      );
+      await expect(page.locator("article footer summary")).toHaveText(
+        "Version history & verification",
+      );
     }
   }
   expect((await page.goto("/not-a-real-trust-page"))?.status()).toBe(404);

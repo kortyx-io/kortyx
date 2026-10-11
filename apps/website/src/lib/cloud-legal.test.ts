@@ -85,6 +85,11 @@ describe("immutable Cloud publication contract", () => {
       const document = documentFor(slug);
       expect(document.version).toBe(currentCloudLegalVersion);
       expect(document.draft).toBe(true);
+      expect(
+        document.sections
+          .map((section) => `${section.title} ${section.text}`)
+          .join(" "),
+      ).not.toMatch(/\bdraft\b|\bstaging\b/i);
       expect(JSON.stringify(document)).not.toMatch(
         /Hetzner|Nuremberg|Coolify|Resend|restore points|consent database/i,
       );
@@ -142,6 +147,11 @@ describe("immutable Cloud publication contract", () => {
         `https://kortyx.io/cloud/${release.slug}`,
       );
       expect(release.productionApproved).toBe(false);
+      expect(release.effectiveDateScope).toBe(
+        release.version.includes("staging")
+          ? "staging-draft-only"
+          : "candidate-publication-only",
+      );
       expect(release.acceptanceRequired).toBe(release.slug === "terms");
       expect(release.c15tType).toBe(
         release.slug === "terms" ? "terms_and_conditions_staging_beta" : null,

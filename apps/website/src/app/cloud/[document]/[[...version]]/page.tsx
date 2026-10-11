@@ -32,7 +32,7 @@ export async function generateMetadata(props: Props): Promise<Metadata> {
   return {
     title: `${document.title} · ${document.version}`,
     description:
-      "Kortyx Cloud staging draft. Not production-approved. Exact versioned document; viewing does not record acceptance.",
+      "Legal information for hosted Kortyx Cloud. View this document and its publication history.",
     alternates: {
       canonical: version?.length ? urls.versionUrl : urls.canonicalUrl,
     },

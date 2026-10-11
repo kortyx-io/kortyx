@@ -3,6 +3,11 @@ import Link from "next/link";
 import { PrivacySettings } from "@/components/consent/privacy-settings";
 import { MarketingShell } from "@/components/marketing/marketing-shell";
 import {
+  DocumentContents,
+  LegalDocumentFooter,
+  LegalDocumentHeader,
+} from "@/components/trust/legal-document-layout";
+import {
   type CloudLegalDocument,
   cloudLegalSlugs,
   cloudLegalUrls,
@@ -146,7 +151,14 @@ export function TrustPage({
         label: cloudDocument.title,
         eyebrow: "Kortyx Cloud · Legal documents",
         description:
-          "Staging draft · Not production-approved. These documents concern hosted Kortyx Cloud. The OSS SDK and self-hosted Studio have separate licenses and operator responsibilities.",
+          {
+            terms: "The terms that govern your use of hosted Kortyx Cloud.",
+            privacy:
+              "How Kortyx Cloud handles account information and application data.",
+            dpa: "The framework for processing customer personal data in Kortyx Cloud.",
+            subprocessors:
+              "Information about service providers supporting Kortyx Cloud.",
+          }[cloudDocument.slug] ?? "Legal information for hosted Kortyx Cloud.",
         isLegal: true,
         cards: undefined,
         sections: cloudDocument.sections.map((section, index) => ({
@@ -162,35 +174,81 @@ export function TrustPage({
       ? getLegalDocumentRelease(slug, websiteVersion)
       : null;
   const page = release ? { ...basePage, ...release.content } : basePage;
+  const legalScope = cloudDocument ? "Kortyx Cloud" : "Kortyx website";
+  const updatedAt =
+    cloudDocument?.effectiveDate ?? release?.updatedAt ?? trustContentUpdated;
+
+  const publication = cloudDocument
+    ? {
+        version: cloudDocument.version,
+        currentUrl: `/cloud/${cloudDocument.slug}`,
+        versionUrl: `/cloud/${cloudDocument.slug}/${cloudDocument.version}`,
+        contentUrl: cloudLegalUrls(cloudDocument.slug, cloudDocument.version)
+          .contentUrl,
+        hash: hashCloudLegalDocument(cloudDocument),
+        history: getCloudLegalDocuments()
+          .filter((doc) => doc.slug === cloudDocument.slug)
+          .map((doc) => ({
+            version: doc.version,
+            url: `/cloud/${doc.slug}/${doc.version}`,
+            date: doc.effectiveDate,
+          }))
+          .reverse(),
+      }
+    : release
+      ? {
+          version: release.version,
+          currentUrl: `/${slug}`,
+          versionUrl: `/${slug}/${release.version}`,
+          hash: release.hash,
+          history: getWebsiteLegalReleases()
+            .filter((item) => item.id === release.id)
+            .map((item) => ({
+              version: item.version,
+              url: `/${slug}/${item.version}`,
+              date: item.updatedAt,
+            }))
+            .reverse(),
+        }
+      : null;
 
   return (
     <MarketingShell className="marketing-page min-h-screen bg-[#08080c] text-white">
-      <section className="border-b border-white/12 bg-[radial-gradient(ellipse_at_80%_0%,rgba(143,128,255,0.14),transparent_65%)]">
-        <div className="marketing-container py-16 sm:py-24">
-          <p className="font-mono text-xs tracking-[0.14em] text-[#c9c1ff] uppercase">
-            {page.eyebrow}
-          </p>
-          <h1 className="mt-6 max-w-4xl text-4xl leading-[1.12] font-semibold tracking-[-0.04em] sm:text-6xl">
-            {page.title}
-          </h1>
-          <p className="mt-6 max-w-3xl text-lg leading-8 text-[#c9c6d6]">
-            {page.description}
-          </p>
-          <div className="mt-8 flex flex-wrap items-center gap-x-6 gap-y-3 text-xs text-[#b8b5c9]">
-            <span className="inline-flex items-center gap-2">
-              <Check className="size-4 text-[#78e0bd]" aria-hidden="true" />
-              Framework available
-            </span>
-            <span className="inline-flex items-center gap-2">
-              <CircleDashed
-                className="size-4 text-[#c9c1ff]"
-                aria-hidden="true"
-              />
-              Cloud · {cloudAvailability.toLowerCase()}
-            </span>
+      {page.isLegal ? (
+        <LegalDocumentHeader
+          title={page.title}
+          description={page.description}
+          scope={legalScope}
+          updatedAt={updatedAt}
+        />
+      ) : (
+        <section className="border-b border-white/12 bg-[radial-gradient(ellipse_at_80%_0%,rgba(143,128,255,0.14),transparent_65%)]">
+          <div className="marketing-container py-16 sm:py-24">
+            <p className="font-mono text-xs tracking-[0.14em] text-[#c9c1ff] uppercase">
+              {page.eyebrow}
+            </p>
+            <h1 className="mt-6 max-w-4xl text-4xl leading-[1.12] font-semibold tracking-[-0.04em] sm:text-6xl">
+              {page.title}
+            </h1>
+            <p className="mt-6 max-w-3xl text-lg leading-8 text-[#c9c6d6]">
+              {page.description}
+            </p>
+            <div className="mt-8 flex flex-wrap items-center gap-x-6 gap-y-3 text-xs text-[#b8b5c9]">
+              <span className="inline-flex items-center gap-2">
+                <Check className="size-4 text-[#78e0bd]" aria-hidden="true" />
+                Framework available
+              </span>
+              <span className="inline-flex items-center gap-2">
+                <CircleDashed
+                  className="size-4 text-[#c9c1ff]"
+                  aria-hidden="true"
+                />
+                Cloud · {cloudAvailability.toLowerCase()}
+              </span>
+            </div>
           </div>
-        </div>
-      </section>
+        </section>
+      )}
 
       <div className="marketing-container grid gap-12 py-12 lg:grid-cols-[13rem_minmax(0,1fr)] lg:gap-16 lg:py-16">
         <aside>
@@ -267,20 +325,7 @@ export function TrustPage({
             </div>
           ) : null}
 
-          <nav
-            aria-label="On this page"
-            className="mb-10 flex flex-wrap gap-x-5 gap-y-2 border-y border-white/12 py-4"
-          >
-            {page.sections.map((section) => (
-              <Link
-                key={section.id}
-                href={`#${section.id}`}
-                className={linkClass}
-              >
-                {section.title}
-              </Link>
-            ))}
-          </nav>
+          <DocumentContents sections={page.sections} />
 
           <div className="space-y-12">
             {page.sections.map((section) => (
@@ -340,101 +385,18 @@ export function TrustPage({
               </section>
             ))}
           </div>
-          <div className="mt-12 border-t border-white/12 pt-6 text-xs leading-6 text-[#b8b5c9]">
-            {cloudDocument ? (
-              <>
-                <p>
-                  Document version: {cloudDocument.version} · Staging draft ·
-                  Not production-approved
-                </p>
-                <p>
-                  Staging draft date:{" "}
-                  <time dateTime={cloudDocument.effectiveDate}>
-                    {cloudDocument.effectiveDate.slice(0, 10)}
-                  </time>
-                  . Publication on this website does not activate Cloud
-                  acceptance.
-                </p>
-                <p>
-                  Viewing a document is not acceptance. Website cookie
-                  preferences, Cloud Terms acceptance, optional onboarding
-                  answers and marketing choices are separate.
-                </p>
-                <div className="mt-4 flex flex-wrap gap-x-6 gap-y-2">
-                  <Link
-                    className={linkClass}
-                    href={`/cloud/${cloudDocument.slug}`}
-                  >
-                    Current website draft
-                  </Link>
-                  <Link
-                    className={linkClass}
-                    href={`/cloud/${cloudDocument.slug}/${cloudDocument.version}`}
-                  >
-                    Permanent version link
-                  </Link>
-                  <a
-                    className={linkClass}
-                    href={
-                      cloudLegalUrls(cloudDocument.slug, cloudDocument.version)
-                        .contentUrl
-                    }
-                  >
-                    Document JSON
-                  </a>
-                </div>
-                <p className="mt-4 break-all font-mono">
-                  SHA-256: {hashCloudLegalDocument(cloudDocument)}
-                </p>
-                <nav
-                  aria-label="Document history"
-                  className="mt-6 flex flex-wrap gap-x-5 gap-y-2"
-                >
-                  {getCloudLegalDocuments()
-                    .filter((doc) => doc.slug === cloudDocument.slug)
-                    .map((doc) => (
-                      <Link
-                        className={linkClass}
-                        key={doc.version}
-                        href={`/cloud/${doc.slug}/${doc.version}`}
-                      >
-                        {doc.version}
-                      </Link>
-                    ))}
-                </nav>
-              </>
-            ) : (
-              <>
-                <p>
-                  {page.isLegal ? "Draft revision" : "Last updated"}:{" "}
-                  <time dateTime={release?.updatedAt ?? trustContentUpdated}>
-                    {release?.updatedAt ?? trustContentUpdated}
-                  </time>
-                </p>
-                {release ? (
-                  <div>
-                    <p>Document version: {release.version} · Draft release</p>
-                    <nav
-                      aria-label="Document history"
-                      className="mt-3 flex flex-wrap gap-x-5 gap-y-2"
-                    >
-                      {getWebsiteLegalReleases()
-                        .filter((item) => item.id === release.id)
-                        .map((item) => (
-                          <Link
-                            key={item.version}
-                            className={linkClass}
-                            href={`/${slug}/${item.version}`}
-                          >
-                            {item.version}
-                          </Link>
-                        ))}
-                    </nav>
-                  </div>
-                ) : null}
-              </>
-            )}
-          </div>
+          {publication ? (
+            <LegalDocumentFooter
+              scope={legalScope}
+              updatedAt={updatedAt}
+              {...publication}
+            />
+          ) : (
+            <p className="mt-12 border-t border-white/12 pt-6 text-xs text-[#b8b5c9]">
+              Last updated:{" "}
+              <time dateTime={trustContentUpdated}>{trustContentUpdated}</time>
+            </p>
+          )}
         </article>
       </div>
     </MarketingShell>

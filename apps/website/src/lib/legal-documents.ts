@@ -10,22 +10,22 @@ export const legalDocuments = {
   privacy: {
     id: "kortyx.website.privacy",
     type: "privacy_policy",
-    version: "2026-10-11.3-draft",
+    version: "2026-10-11.4",
   },
   terms: {
     id: "kortyx.website.terms",
     type: "terms_and_conditions",
-    version: "2026-10-11.3-draft",
+    version: "2026-10-11.4",
   },
   legal: {
     id: "kortyx.website.legal",
     type: "legal_notice",
-    version: "2026-10-11.3-draft",
+    version: "2026-10-11.4",
   },
   cookies: {
     id: "kortyx.website.cookies",
     type: "cookie_policy",
-    version: "2026-10-11.3-draft",
+    version: "2026-10-11.4",
   },
 } as const;
 

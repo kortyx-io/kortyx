@@ -203,19 +203,19 @@ export const trustPages = {
     ],
   },
   privacy: {
-    title: "Privacy, explained for this website.",
+    title: "Website Privacy Notice",
     label: "Privacy",
     eyebrow: "Website privacy notice",
     isLegal: true,
     description:
-      "A draft notice covering this website’s browser preferences, technical delivery, external links, and privacy rights.",
+      "How this website handles browser preferences, technical request data, and your privacy rights.",
     sections: [
       {
         id: "scope",
         title: "Scope & controller",
         paragraphs: [
-          "This draft covers kortyx.io and its documentation. Cloud data processing and self-hosted deployments have their own service-specific scope.",
-          "Kortyx is the product brand. The operator name supplied is Kortyx S.L.; registration is not verified. Contact address and private contact email must be confirmed before this becomes a published privacy notice.",
+          "This notice covers kortyx.io and its documentation. Cloud data processing and self-hosted deployments have their own service-specific scope.",
+          "Kortyx S.L. is the website operator. A business contact address and private privacy-request channel have not yet been published. Available operator information is listed in the legal notice.",
         ],
         links: [{ label: "Operator information", href: "/legal#operator" }],
       },
@@ -242,7 +242,7 @@ export const trustPages = {
         title: "Your privacy rights",
         paragraphs: [
           "Depending on applicable law and the processing involved, you may have rights to access, correct or delete personal data, restrict or object to processing, and receive portable data. Where processing relies on consent, you can withdraw it at any time; processing carried out lawfully before withdrawal retains its lawful status.",
-          "You may also complain to the competent data-protection authority. Privacy requests belong in a verified private contact channel. Confirm that route as part of this notice’s publication review.",
+          "You may also complain to the competent data-protection authority. A private privacy-request channel has not yet been published. Do not post personal or confidential information in public issues or discussions.",
         ],
         links: [
           { label: "Contact information", href: "/contact#private-contact" },
@@ -262,19 +262,19 @@ export const trustPages = {
     ],
   },
   terms: {
-    title: "Clear terms. Clear product boundaries.",
+    title: "Website Terms of Use",
     label: "Website Terms",
     eyebrow: "Website terms",
     isLegal: true,
     description:
-      "Draft terms for this informational website. Software licenses and future Cloud service agreements are separate.",
+      "Terms for using the Kortyx website and documentation. Software licenses and Cloud service agreements are separate.",
     sections: [
       {
         id: "scope",
         title: "Website scope",
         paragraphs: [
-          "These draft terms concern access to product information and documentation on kortyx.io. Cloud subscriptions, support commitments, and data-processing arrangements will be governed by separate service agreements.",
-          "The current website operator must be identified and these terms reviewed before publication.",
+          "These Terms concern access to product information and documentation on kortyx.io, operated by Kortyx S.L. Cloud subscriptions, support commitments, and data-processing arrangements are governed by separate service agreements.",
+          "Operator information and available contact routes are listed in the legal notice and contact page.",
         ],
         links: [{ label: "Legal information", href: "/legal" }],
       },
@@ -309,32 +309,32 @@ export const trustPages = {
         id: "cloud-terms",
         title: "Cloud terms & updates",
         paragraphs: [
-          "Cloud service terms are available as versioned staging drafts at kortyx.io/cloud/terms; production publication requires operator and legal review. Account-level acceptance will identify the exact version accepted, the authenticated accepting user, and the acceptance time.",
+          "Cloud service terms are available at kortyx.io/cloud/terms. Account-level acceptance identifies the exact version accepted, the authenticated accepting user, and the acceptance time. Publishing a version on the website does not activate an acceptance requirement in Cloud.",
           "Website privacy settings manage browser preferences. Cloud service-term acceptance will take place in its own authenticated account flow.",
         ],
       },
     ],
   },
   legal: {
-    title: "Who is behind the website.",
+    title: "Legal Notice",
     label: "Legal",
     eyebrow: "Legal & operator information",
     isLegal: true,
     description:
-      "Kortyx is the product brand. Current operator details require confirmation before publication.",
+      "Operator information, legal documents, and software licensing for Kortyx.",
     sections: [
       {
         id: "operator",
         title: "Operator information",
         paragraphs: [
-          "Publish this legal notice with the verified identity of the current website operator, business contact address, and private contact email. Include applicable registration and tax details once verified.",
+          "The website is operated by Kortyx S.L. A business contact address, private contact email, and registration and tax identifiers have not yet been published. Available contact routes are listed on the contact page.",
         ],
       },
       {
         id: "documents",
         title: "Website documents",
         paragraphs: [
-          "The privacy notice explains website data practices; the cookies page inventories browser storage; website terms concern the informational site. Cloud service terms, privacy, DPA and subprocessors are available as versioned staging drafts, awaiting production legal review.",
+          "The privacy notice explains website data practices; the cookies page inventories browser storage; website terms concern the informational site. Cloud service terms, privacy, DPA and subprocessors cover the hosted service separately. Each legal document has a permanent version link and a preserved publication history.",
         ],
         links: [
           { label: "Privacy notice", href: "/privacy" },
@@ -364,12 +364,12 @@ export const trustPages = {
     ],
   },
   cookies: {
-    title: "Your browser. Your preferences.",
+    title: "Cookie & Browser Storage Policy",
     label: "Cookies & Storage",
     eyebrow: "Cookies & browser storage",
     isLegal: true,
     description:
-      "This draft inventory explains the necessary browser-local storage used for privacy preferences and your selected theme.",
+      "The browser storage used to remember your privacy preferences and selected theme, and how to manage it.",
     sections: [
       {
         id: "current-use",
