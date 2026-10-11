@@ -23,6 +23,11 @@ pnpm test
 - **Formatting/linting:** Biome (`pnpm lint`, `pnpm format`)
 - **Commits:** Conventional Commits (enforced via commitlint)
 
+For workflow layout, CI suites, publishing, and recovery, see
+[CI and release automation](.github/AUTOMATION.md). Keep this guide named
+AUTOMATION.md: GitHub gives a README in `.github` precedence over the root
+product README on the repository homepage.
+
 ## Pull requests
 
 - Read the [Definition of Done](docs/internal/definition-of-done.md) before
