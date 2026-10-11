@@ -34,6 +34,7 @@ import {
   useRouter,
   useSearchParams,
 } from "@/lib/scoped-navigation";
+import { studioPathname } from "@/lib/studio-routing";
 import { cn } from "@/lib/utils";
 
 export type { DetailLayerRegistration } from "@/components/detail/detail-stack-state";
@@ -86,7 +87,8 @@ export function DetailStackProvider({ children }: { children: ReactNode }) {
 
   const saveCurrentStack = useCallback(() => {
     if (historyTraversalRef.current) return;
-    const path = window.location.pathname;
+    const browserPath = window.location.pathname;
+    const path = studioPathname(browserPath);
     const target = layers.find((layer) => layer.matchPath === path);
     if (target?.closing) return;
     const isList = detailBasePathsFor(path).includes(path);
@@ -98,7 +100,9 @@ export function DetailStackProvider({ children }: { children: ReactNode }) {
       {
         ...window.history.state,
         [DETAIL_HISTORY_KEY]: {
-          pathname: path,
+          // Keep the scope in persisted history; another project's identical
+          // detail path must never restore this snapshot.
+          pathname: browserPath,
           layers: isList
             ? []
             : layers
@@ -113,7 +117,7 @@ export function DetailStackProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     // Do not overwrite a restored entry before Next commits its route tree.
     if (
-      pathname === window.location.pathname &&
+      pathname === studioPathname(window.location.pathname) &&
       searchParams.toString() ===
         new URLSearchParams(window.location.search).toString()
     )
@@ -233,7 +237,7 @@ export function DetailStackProvider({ children }: { children: ReactNode }) {
       beginClose(id);
       scheduleNavigation(`navigate:${id}`, () => {
         navigateBackUntil(
-          () => window.location.pathname !== target.matchPath,
+          () => studioPathname(window.location.pathname) !== target.matchPath,
           detailNavigationHref(target.dismissPath, searchParams),
         );
       });
@@ -275,7 +279,7 @@ export function DetailStackProvider({ children }: { children: ReactNode }) {
           href = `${href}${separator}detailView=expanded`;
         }
         navigateBackUntil(
-          () => window.location.pathname === target.matchPath,
+          () => studioPathname(window.location.pathname) === target.matchPath,
           href,
         );
       });
@@ -298,7 +302,7 @@ export function DetailStackProvider({ children }: { children: ReactNode }) {
     scheduleNavigation("navigate:all", () => {
       const detailPaths = new Set(layers.map((layer) => layer.matchPath));
       navigateBackUntil(
-        () => !detailPaths.has(window.location.pathname),
+        () => !detailPaths.has(studioPathname(window.location.pathname)),
         detailNavigationHref(bottom.dismissPath, searchParams),
       );
     });
@@ -314,7 +318,7 @@ export function DetailStackProvider({ children }: { children: ReactNode }) {
     (href: string) => {
       cancelPendingNavigation();
       saveCurrentStack();
-      const pathname = href.split("?", 1)[0] ?? href;
+      const pathname = studioPathname(href.split("?", 1)[0] ?? href);
       // Exiting layers remain mounted for their animation. Revisiting one is
       // a new child navigation, not a jump to a retained ancestor.
       if (
@@ -356,7 +360,8 @@ export function DetailStackProvider({ children }: { children: ReactNode }) {
       if (reachedTraversalTarget && !reachedTraversalTarget()) return;
       if (!reachedTraversalTarget) cancelPendingNavigation();
       historyTraversalRef.current = null;
-      historyTargetPathRef.current = window.location.pathname;
+      const path = studioPathname(window.location.pathname);
+      historyTargetPathRef.current = path;
       const snapshot = readDetailHistorySnapshot(
         window.history.state?.[DETAIL_HISTORY_KEY],
         window.location.pathname,
@@ -369,8 +374,8 @@ export function DetailStackProvider({ children }: { children: ReactNode }) {
           ? restoreDetailLayersFromHistory(current, snapshot.layers)
           : syncDetailLayersToHistoryPath(
               current,
-              window.location.pathname,
-              detailBasePathsFor(window.location.pathname),
+              path,
+              detailBasePathsFor(path),
             ),
       );
     };

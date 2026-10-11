@@ -250,6 +250,83 @@ async function expectCenteredInspectorClose(page: Page) {
 }
 
 test.describe("Prompt detail drawers", () => {
+  test("validates a new key inline and keeps a created prompt visible after closing, revisiting and reopening", async ({
+    page,
+  }) => {
+    const key = `e2e-created/${randomUUID()}`;
+    const name = `Created prompt ${randomUUID()}`;
+    const sql = postgres(
+      process.env.DATABASE_URL ??
+        "postgres://kortyx:kortyx@127.0.0.1:6543/kortyx",
+      { max: 1 },
+    );
+    try {
+      await page.goto("/prompts");
+      await page.getByRole("link", { name: "Root", exact: true }).click();
+      await expect(page).toHaveURL(/\/prompts\/categories\/root$/);
+      await page
+        .getByRole("button", { name: "New prompt", exact: true })
+        .click();
+      const form = page.getByRole("dialog", {
+        name: "New prompt",
+        exact: true,
+      });
+      await form.getByLabel("Name", { exact: true }).fill(name);
+      await form
+        .getByLabel("System Message", { exact: true })
+        .fill("Synthetic navigation regression.");
+      const input = form.getByLabel("Key", { exact: true });
+      for (const invalid of ["with space", "trailing ", "/bad-start"]) {
+        await input.fill(invalid);
+        await expect(input).toHaveAttribute("aria-invalid", "true");
+        await expect(form.getByText(/no spaces/)).toBeVisible();
+        await expect(
+          form.getByRole("button", { name: "Review version", exact: true }),
+        ).toBeDisabled();
+      }
+      await input.fill(key);
+      await expect(input).toHaveAttribute("aria-invalid", "false");
+      await form
+        .getByRole("button", { name: "Review version", exact: true })
+        .click();
+      await page
+        .getByRole("button", { name: "Accept & save version", exact: true })
+        .click();
+      const detail = page.getByRole("dialog", { name, exact: true });
+      await expect(detail).toBeVisible();
+      await expect(
+        detail.getByLabel("System Message", { exact: true }),
+      ).toContainText("Synthetic navigation regression.");
+      await detail
+        .getByRole("button", { name: "Close detail", exact: true })
+        .click();
+      await expect(page).toHaveURL(/\/prompts\/categories\/root$/);
+      await expect(detail).toHaveCount(0);
+      const row = page.getByRole("link", { name, exact: true });
+      await expect(row).toBeVisible();
+      await row.click();
+      await expect(detail).toBeVisible();
+      await detail
+        .getByRole("button", { name: "Close detail", exact: true })
+        .click();
+      await expect(detail).toHaveCount(0);
+      // Cached All prompts was unmounted when the mutation happened in Root.
+      // Hold client revalidation so stale-first-then-pop-in cannot pass.
+      await page.route("**/api/studio/prompts/library*", (route) =>
+        route.abort(),
+      );
+      await page
+        .getByRole("link", { name: "All prompts", exact: true })
+        .click();
+      await expect(row).toBeVisible();
+      await page.getByRole("link", { name: "Root", exact: true }).click();
+      await expect(row).toBeVisible();
+    } finally {
+      await sql`delete from prompt_assets where key=${key}`;
+      await sql.end();
+    }
+  });
+
   test.beforeAll(async ({ request }) => {
     await cleanup();
     categoryId = (
