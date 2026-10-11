@@ -54,16 +54,16 @@ The complete pins, including website drafts and DPA histories, are in `src/legal
 
 The clean wording is a new release; `2026-10-11.staging.4` remains immutable and available. Website notices likewise use a new `2026-10-11.4` release rather than editing previous snapshots. No historical identifier, payload or acceptance hash is renamed.
 
-| Document (`2026-10-11.5`) | SHA-256 |
-| --- | --- |
-| terms | `b9cc830615e3b6c7d87872a24b3b72b4b9c77db94702d923457791da6b6e5640` |
-| privacy | `28cb11a00de205686b7380fe914f9090522e09f9771b63a17e8235c359c210c9` |
-| dpa | `6cb6b331e6f082f468498db3db4ac07bf7444422790ee5b75162931a4915bc6d` |
-| subprocessors | `9f422965ae883205fec783d905b05e862df4d61f71d5b3c812b014e01011d8a2` |
+| Document | Version | SHA-256 |
+| --- | --- | --- |
+| terms | `2026-10-11.6` | `7b8bea0abcabbdc158bec1f17fde45e2850264a671a255ae0b71d7730c88b021` |
+| privacy | `2026-10-11.5` | `28cb11a00de205686b7380fe914f9090522e09f9771b63a17e8235c359c210c9` |
+| dpa | `2026-10-11.5` | `6cb6b331e6f082f468498db3db4ac07bf7444422790ee5b75162931a4915bc6d` |
+| subprocessors | `2026-10-11.5` | `9f422965ae883205fec783d905b05e862df4d61f71d5b3c812b014e01011d8a2` |
 
 ## Terms changes and publicity
 
-The new Terms retain organization-authorized name/logo publicity, revocable permission, brand guidelines, no implied endorsement, separate written approval for testimonials/case studies, no marketing-email consent, and the existing 10-business-day removal commitment. They remove the unavailable Organization Settings promise. Publicity correspondence uses the existing public GitHub Discussions channel, verified enabled for the repository; only an organization's public name/listing URL should be posted there, never personal or confidential information. This is not a private legal/privacy request channel.
+Terms candidate `2026-10-11.6` describes organization-authorized name/logo use, revocable permission, brand guidelines, no implied endorsement and separate written approval for testimonials/case studies. It does not confer marketing-email consent. It replaces only the publicity paragraph from candidate `.5`, without advertising the removed Organization Settings UI or a public support workflow. Previously accepted rights, including the removal commitment in older Terms, remain unaffected. The `.5` and all accepted archives stay byte-for-byte unchanged. This candidate is not activated or production-approved.
 
 The old Terms' Organization Settings text remains visible at its permanent URL as part of the exact accepted record. The new Terms also simplify the beta deletion mechanism wording without changing its recovery window or purge behavior. No settings UI is restored, no marketing permission is inferred from optional survey answers, and no existing acceptance evidence is rewritten.
 
@@ -125,8 +125,3 @@ Cloud resolves the active Terms version server-side, links its exact website URL
 Website privacy preferences need a separate backend-backed c15t integration before claiming durable records or coordinated policy renewal. c15t documents [hosted versus offline mode](https://c15t.com/docs/shared/concepts/client-modes): offline storage does not provide durable server-side records. In this context hosted mode can use the existing self-hosted backend; it does not require the managed c15t service. Website anonymous subjects and Cloud account subjects need explicitly designed identity and tenant scopes. Do not infer account identity from browser cookies or copy consent across products.
 
 Configure renewal per document/purpose: activating new contractual Terms may require explicit reacceptance; changing optional cookie/marketing purposes may require renewed choices and pre-consent blocking. Updating a Privacy Notice, correcting typography, or publishing a DPA must not automatically turn a notice into contractual acceptance or execute an agreement. Keep website storage acknowledgement, Cloud Terms, optional onboarding answers and marketing choices independent. No renewal or real-user acceptance is performed here.
-
-
-### Publicity wording correction
-
-Terms candidate `2026-10-11.6` replaces only the publicity paragraph from candidate `.5`. It describes organization name/logo use without advertising the removed settings UI or a public support workflow. Permission remains revocable and previously accepted rights remain unaffected. The `.5` and all accepted archives stay byte-for-byte unchanged. This new candidate is not activated or production-approved. Terms SHA-256: `7b8bea0abcabbdc158bec1f17fde45e2850264a671a255ae0b71d7730c88b021`. Other Cloud documents remain at `2026-10-11.5`.
