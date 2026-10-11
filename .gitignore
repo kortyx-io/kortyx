@@ -67,6 +67,7 @@ next-env.d.ts
 
 # LLMs
 AGENTS.md
+!/AGENTS.md
 
 # Workflow modules checked out separately from release candidates
 .github/automation/
