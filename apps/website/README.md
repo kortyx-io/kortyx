@@ -62,6 +62,10 @@ its version-level `metadata.json` declares sidebar sections, and each page's
 `section` frontmatter assigns it to a group. Relative Markdown links can cross
 product folders and are resolved to the target product's canonical URL.
 
+## Cloud legal documents
+
+See [the publication and private-Cloud integration contract](./docs/cloud-legal-contract.md) for exact URLs, release hashes, activation boundaries, immutable history and outstanding operator/legal facts. Website publication does not activate Cloud acceptance.
+
 ## Checks
 
 ```bash

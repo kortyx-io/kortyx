@@ -20,7 +20,8 @@
     "lint": "biome check .",
     "test": "vitest run",
     "type-check": "tsc --noEmit -p tsconfig.test.json",
-    "test:e2e": "pnpm build && playwright test"
+    "test:e2e": "pnpm build && playwright test",
+    "coverage": "vitest run --coverage"
   },
   "dependencies": {
     "@bprogress/next": "^3.2.12",

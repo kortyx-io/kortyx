@@ -3,11 +3,20 @@ import Link from "next/link";
 import { PrivacySettings } from "@/components/consent/privacy-settings";
 import { MarketingShell } from "@/components/marketing/marketing-shell";
 import {
+  type CloudLegalDocument,
+  cloudLegalSlugs,
+  cloudLegalUrls,
+  getCloudLegalDocuments,
+  hashCloudLegalDocument,
+} from "@/lib/cloud-legal";
+import {
   browserStorageInventory,
   getLegalDocumentRelease,
+  getWebsiteLegalReleases,
   isLegalDocumentSlug,
 } from "@/lib/legal-documents";
 import { externalLinkProps } from "@/lib/links";
+import { siteConfig } from "@/lib/site";
 import {
   cloudAvailability,
   getTrustPage,
@@ -21,14 +30,25 @@ import {
 const linkClass =
   "inline-flex min-h-11 items-center gap-2 text-sm font-medium text-[#d3cbff] underline decoration-[#a89cff]/40 underline-offset-4 hover:text-white focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#a89cff]";
 
-function OperatorDetails() {
+function OperatorDetails({
+  operator = providerIdentity,
+}: {
+  operator?: {
+    brand: string;
+    operatorName: string | null;
+    contactAddress: string | null;
+    contactEmail: string | null;
+    registrationNumber: string | null;
+    taxNumber: string | null;
+  };
+}) {
   const details = [
-    ["Product brand", providerIdentity.brand],
-    ["Current operator", providerIdentity.operatorName],
-    ["Business contact address", providerIdentity.contactAddress],
-    ["Private contact email", providerIdentity.contactEmail],
-    ["Registration number", providerIdentity.registrationNumber],
-    ["Tax number", providerIdentity.taxNumber],
+    ["Product brand", operator.brand],
+    ["Current operator", operator.operatorName],
+    ["Business contact address", operator.contactAddress],
+    ["Private contact email", operator.contactEmail],
+    ["Registration number", operator.registrationNumber],
+    ["Tax number", operator.taxNumber],
   ].filter(([, value]) => Boolean(value));
 
   return (
@@ -43,7 +63,16 @@ function OperatorDetails() {
   );
 }
 
-function StorageInventory() {
+function StorageInventory({
+  inventory = browserStorageInventory,
+}: {
+  inventory?: readonly {
+    key: string;
+    mechanism: string;
+    purpose: string;
+    duration: string;
+  }[];
+}) {
   return (
     <div className="mt-6 overflow-x-auto rounded-xl border border-white/15">
       <table className="w-full min-w-[35rem] text-left text-sm">
@@ -60,7 +89,7 @@ function StorageInventory() {
           </tr>
         </thead>
         <tbody className="divide-y divide-white/12 text-[#c9c6d6]">
-          {browserStorageInventory.map((item) => (
+          {inventory.map((item) => (
             <tr key={item.key}>
               <th scope="row" className="px-5 py-4 font-normal">
                 <code>{item.key}</code>
@@ -77,11 +106,62 @@ function StorageInventory() {
   );
 }
 
-export function TrustPage({ slug }: { slug: TrustPageSlug }) {
-  const page = getTrustPage(slug);
-  const release = isLegalDocumentSlug(slug)
-    ? getLegalDocumentRelease(slug)
-    : null;
+function DocumentText({ text }: { text: string }) {
+  return (
+    <>
+      {text.split(/(https:\/\/[^\s;]+[^\s;.,)])/g).map((part, index) =>
+        part.startsWith("https://") ? (
+          <a
+            key={`${index}-${part}`}
+            href={
+              part.startsWith(`${siteConfig.url}/`)
+                ? part.slice(siteConfig.url.length)
+                : part
+            }
+            {...externalLinkProps(part)}
+            className="text-[#d3cbff] underline underline-offset-4 break-words"
+          >
+            {part}
+          </a>
+        ) : (
+          part
+        ),
+      )}
+    </>
+  );
+}
+
+export function TrustPage({
+  slug,
+  cloudDocument,
+  websiteVersion,
+}: {
+  slug: TrustPageSlug;
+  cloudDocument?: CloudLegalDocument;
+  websiteVersion?: string;
+}) {
+  const basePage = cloudDocument
+    ? {
+        title: cloudDocument.title,
+        label: cloudDocument.title,
+        eyebrow: "Kortyx Cloud · Legal documents",
+        description:
+          "Staging draft · Not production-approved. These documents concern hosted Kortyx Cloud. The OSS SDK and self-hosted Studio have separate licenses and operator responsibilities.",
+        isLegal: true,
+        cards: undefined,
+        sections: cloudDocument.sections.map((section, index) => ({
+          id: `section-${index + 1}`,
+          title: section.title,
+          paragraphs: [section.text],
+          links: undefined,
+        })),
+      }
+    : getTrustPage(slug);
+  const release =
+    !cloudDocument && isLegalDocumentSlug(slug)
+      ? getLegalDocumentRelease(slug, websiteVersion)
+      : null;
+  const page = release ? { ...basePage, ...release.content } : basePage;
 
   return (
     <MarketingShell className="marketing-page min-h-screen bg-[#08080c] text-white">
@@ -122,10 +202,34 @@ export function TrustPage({ slug }: { slug: TrustPageSlug }) {
               <Link
                 key={item}
                 href={`/${item}`}
-                aria-current={slug === item ? "page" : undefined}
-                className={`inline-flex min-h-11 items-center rounded-lg px-3 text-sm focus-visible:outline-2 focus-visible:outline-[#a89cff] ${slug === item ? "bg-[#a89cff]/12 text-[#ded8ff]" : "text-[#b8b5c9] hover:bg-white/5 hover:text-white"}`}
+                aria-current={
+                  !cloudDocument && slug === item ? "page" : undefined
+                }
+                className={`inline-flex min-h-11 items-center rounded-lg px-3 text-sm focus-visible:outline-2 focus-visible:outline-[#a89cff] ${!cloudDocument && slug === item ? "bg-[#a89cff]/12 text-[#ded8ff]" : "text-[#b8b5c9] hover:bg-white/5 hover:text-white"}`}
               >
                 {trustPages[item].label}
+              </Link>
+            ))}
+          </nav>
+          <nav
+            aria-label="Cloud legal documents"
+            className="mt-6 grid grid-cols-2 gap-1 lg:grid-cols-1"
+          >
+            {cloudLegalSlugs.map((item) => (
+              <Link
+                key={item}
+                href={`/cloud/${item}`}
+                aria-current={cloudDocument?.slug === item ? "page" : undefined}
+                className={`inline-flex min-h-11 items-center rounded-lg px-3 text-sm focus-visible:outline-2 focus-visible:outline-[#a89cff] ${cloudDocument?.slug === item ? "bg-[#a89cff]/12 text-[#ded8ff]" : "text-[#b8b5c9] hover:bg-white/5 hover:text-white"}`}
+              >
+                {
+                  {
+                    terms: "Cloud Terms",
+                    privacy: "Cloud Privacy",
+                    dpa: "Cloud DPA",
+                    subprocessors: "Subprocessors",
+                  }[item]
+                }
               </Link>
             ))}
           </nav>
@@ -186,14 +290,30 @@ export function TrustPage({ slug }: { slug: TrustPageSlug }) {
                 </h2>
                 <div className="mt-5 space-y-4 text-base leading-8 text-[#c9c6d6]">
                   {section.paragraphs.map((paragraph) => (
-                    <p key={paragraph}>{paragraph}</p>
+                    <p
+                      key={paragraph}
+                      data-legal-text={
+                        cloudDocument || release ? true : undefined
+                      }
+                    >
+                      {cloudDocument ? (
+                        <DocumentText text={paragraph} />
+                      ) : (
+                        paragraph
+                      )}
+                    </p>
                   ))}
                 </div>
                 {slug === "legal" && section.id === "operator" ? (
-                  <OperatorDetails />
+                  <OperatorDetails operator={release?.content.operator} />
                 ) : null}
                 {slug === "cookies" && section.id === "current-use" ? (
-                  <StorageInventory />
+                  <StorageInventory
+                    inventory={
+                      release?.content.storageInventory ??
+                      browserStorageInventory
+                    }
+                  />
                 ) : null}
                 {slug === "cookies" && section.id === "controls" ? (
                   <PrivacySettings className={`${linkClass} mt-4`} />
@@ -217,13 +337,99 @@ export function TrustPage({ slug }: { slug: TrustPageSlug }) {
             ))}
           </div>
           <div className="mt-12 border-t border-white/12 pt-6 text-xs leading-6 text-[#b8b5c9]">
-            <p>
-              {page.isLegal ? "Draft revision" : "Last updated"}:{" "}
-              <time dateTime={trustContentUpdated}>4 October 2026</time>
-            </p>
-            {release ? (
-              <p>Document version: {release.version} · Draft release</p>
-            ) : null}
+            {cloudDocument ? (
+              <>
+                <p>
+                  Document version: {cloudDocument.version} · Staging draft ·
+                  Not production-approved
+                </p>
+                <p>
+                  Staging draft date:{" "}
+                  <time dateTime={cloudDocument.effectiveDate}>
+                    {cloudDocument.effectiveDate.slice(0, 10)}
+                  </time>
+                  . Publication on this website does not activate Cloud
+                  acceptance.
+                </p>
+                <p>
+                  Viewing a document is not acceptance. Website cookie
+                  preferences, Cloud Terms acceptance, optional onboarding
+                  answers and marketing choices are separate.
+                </p>
+                <div className="mt-4 flex flex-wrap gap-x-6 gap-y-2">
+                  <Link
+                    className={linkClass}
+                    href={`/cloud/${cloudDocument.slug}`}
+                  >
+                    Current website draft
+                  </Link>
+                  <Link
+                    className={linkClass}
+                    href={`/cloud/${cloudDocument.slug}/${cloudDocument.version}`}
+                  >
+                    Permanent version link
+                  </Link>
+                  <a
+                    className={linkClass}
+                    href={
+                      cloudLegalUrls(cloudDocument.slug, cloudDocument.version)
+                        .contentUrl
+                    }
+                  >
+                    Document JSON
+                  </a>
+                </div>
+                <p className="mt-4 break-all font-mono">
+                  SHA-256: {hashCloudLegalDocument(cloudDocument)}
+                </p>
+                <nav
+                  aria-label="Document history"
+                  className="mt-6 flex flex-wrap gap-x-5 gap-y-2"
+                >
+                  {getCloudLegalDocuments()
+                    .filter((doc) => doc.slug === cloudDocument.slug)
+                    .map((doc) => (
+                      <Link
+                        className={linkClass}
+                        key={doc.version}
+                        href={`/cloud/${doc.slug}/${doc.version}`}
+                      >
+                        {doc.version}
+                      </Link>
+                    ))}
+                </nav>
+              </>
+            ) : (
+              <>
+                <p>
+                  {page.isLegal ? "Draft revision" : "Last updated"}:{" "}
+                  <time dateTime={release?.updatedAt ?? trustContentUpdated}>
+                    {release?.updatedAt ?? trustContentUpdated}
+                  </time>
+                </p>
+                {release ? (
+                  <div>
+                    <p>Document version: {release.version} · Draft release</p>
+                    <nav
+                      aria-label="Document history"
+                      className="mt-3 flex flex-wrap gap-x-5 gap-y-2"
+                    >
+                      {getWebsiteLegalReleases()
+                        .filter((item) => item.id === release.id)
+                        .map((item) => (
+                          <Link
+                            key={item.version}
+                            className={linkClass}
+                            href={`/${slug}/${item.version}`}
+                          >
+                            {item.version}
+                          </Link>
+                        ))}
+                    </nav>
+                  </div>
+                ) : null}
+              </>
+            )}
           </div>
         </article>
       </div>

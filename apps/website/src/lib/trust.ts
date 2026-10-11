@@ -1,8 +1,7 @@
-// Confirm these details and review the notices before publishing this foundation.
-// A proposed company name is not the identity of the current website operator.
+// Operator name supplied by the user; registration and remaining facts unverified.
 export const providerIdentity = {
   brand: "Kortyx",
-  operatorName: null,
+  operatorName: "Kortyx S.L.",
   contactAddress: null,
   contactEmail: null,
   registrationNumber: null,
@@ -10,7 +9,7 @@ export const providerIdentity = {
 } as const;
 
 export const legalPublicationReady = false;
-export const trustContentUpdated = "2026-10-04";
+export const trustContentUpdated = "2026-10-11";
 export const cloudAvailability = "In development";
 
 type TrustSection = {
@@ -216,7 +215,7 @@ export const trustPages = {
         title: "Scope & controller",
         paragraphs: [
           "This draft covers kortyx.io and its documentation. Cloud data processing and self-hosted deployments have their own service-specific scope.",
-          "Kortyx is the product brand. The current controller’s identity, contact address, and private contact email must be confirmed before this becomes a published privacy notice.",
+          "Kortyx is the product brand. The operator name supplied is Kortyx S.L.; registration is not verified. Contact address and private contact email must be confirmed before this becomes a published privacy notice.",
         ],
         links: [{ label: "Operator information", href: "/legal#operator" }],
       },
@@ -308,9 +307,9 @@ export const trustPages = {
       },
       {
         id: "cloud-terms",
-        title: "Future Cloud terms & updates",
+        title: "Cloud terms & updates",
         paragraphs: [
-          "Cloud service terms will be published separately before the hosted service opens. Account-level acceptance will identify the exact version accepted, the authenticated accepting user, and the acceptance time.",
+          "Cloud service terms are available as versioned staging drafts at kortyx.io/cloud/terms; production publication requires operator and legal review. Account-level acceptance will identify the exact version accepted, the authenticated accepting user, and the acceptance time.",
           "Website privacy settings manage browser preferences. Cloud service-term acceptance will take place in its own authenticated account flow.",
         ],
       },
@@ -335,11 +334,15 @@ export const trustPages = {
         id: "documents",
         title: "Website documents",
         paragraphs: [
-          "The privacy notice explains website data practices; the cookies page inventories browser storage; website terms concern the informational site. Cloud service terms and a Cloud data-processing agreement will be separate launch documents.",
+          "The privacy notice explains website data practices; the cookies page inventories browser storage; website terms concern the informational site. Cloud service terms, privacy, DPA and subprocessors are available as versioned staging drafts, awaiting production legal review.",
         ],
         links: [
           { label: "Privacy notice", href: "/privacy" },
           { label: "Website terms", href: "/terms" },
+          { label: "Cloud Terms", href: "/cloud/terms" },
+          { label: "Cloud Privacy", href: "/cloud/privacy" },
+          { label: "Cloud DPA", href: "/cloud/dpa" },
+          { label: "Subprocessors", href: "/cloud/subprocessors" },
           { label: "Cookies & storage", href: "/cookies" },
         ],
       },

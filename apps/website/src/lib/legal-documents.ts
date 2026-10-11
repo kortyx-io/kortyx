@@ -1,10 +1,5 @@
 import { createHash } from "node:crypto";
-import {
-  getTrustPage,
-  legalPublicationReady,
-  providerIdentity,
-  trustContentUpdated,
-} from "./trust";
+import releases from "@/legal/website/releases.json";
 
 // Document publishing belongs to Kortyx, not the browser consent store. These
 // stable IDs and release fields can later feed c15t's documentSnapshotToken flow.
@@ -15,22 +10,22 @@ export const legalDocuments = {
   privacy: {
     id: "kortyx.website.privacy",
     type: "privacy_policy",
-    version: "2026-10-04.2-draft",
+    version: "2026-10-11.3-draft",
   },
   terms: {
     id: "kortyx.website.terms",
     type: "terms_and_conditions",
-    version: "2026-10-04.2-draft",
+    version: "2026-10-11.3-draft",
   },
   legal: {
     id: "kortyx.website.legal",
     type: "legal_notice",
-    version: "2026-10-04.2-draft",
+    version: "2026-10-11.3-draft",
   },
   cookies: {
     id: "kortyx.website.cookies",
     type: "cookie_policy",
-    version: "2026-10-04.2-draft",
+    version: "2026-10-11.3-draft",
   },
 } as const;
 
@@ -67,26 +62,16 @@ export function hashLegalDocumentContent(content: unknown): string {
     .digest("hex");
 }
 
-export function getLegalDocumentRelease(slug: LegalDocumentSlug) {
-  const page = getTrustPage(slug);
-  const content = {
-    title: page.title,
-    description: page.description,
-    sections: page.sections,
-    operator: providerIdentity,
-    storageInventory: slug === "cookies" ? browserStorageInventory : null,
-  };
-
-  return {
-    ...legalDocuments[slug],
-    pathname: `/${slug}`,
-    status: legalPublicationReady ? "published" : "draft",
-    effectiveDate: null,
-    updatedAt: trustContentUpdated,
-    hash: hashLegalDocumentContent(content),
-    content,
-    // These website notices are informational. Do not manufacture an
-    // "accept privacy policy" requirement or treat cookie choices as a contract.
-    acceptanceRequired: false,
-  } as const;
+export function getLegalDocumentRelease(
+  slug: LegalDocumentSlug,
+  version: string = legalDocuments[slug].version,
+) {
+  const release = releases.find(
+    (item) => item.id === legalDocuments[slug].id && item.version === version,
+  );
+  if (!release) throw new Error("Unknown website legal release");
+  return structuredClone(release);
+}
+export function getWebsiteLegalReleases() {
+  return structuredClone(releases);
 }

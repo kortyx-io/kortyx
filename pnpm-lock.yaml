@@ -466,7 +466,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: 'catalog:'
-        version: 4.1.5(@opentelemetry/api@1.9.0)(@types/node@20.19.17)(@vitest/coverage-v8@4.1.5)(jsdom@29.1.1)(vite@8.0.10(@types/node@20.19.17)(esbuild@0.28.1)(jiti@2.6.1)(terser@5.46.0)(tsx@4.22.5)(yaml@2.8.3))
+        version: 4.1.11(@opentelemetry/api@1.9.0)(@types/node@20.19.17)(@vitest/coverage-v8@4.1.11)(jsdom@29.1.1)(vite@8.3.2(@types/node@20.19.17)(esbuild@0.28.1)(jiti@2.6.1)(terser@5.46.0)(tsx@4.22.5)(yaml@2.8.3))
 
   examples/kortyx-canvas:
     dependencies:
@@ -7139,12 +7139,12 @@ snapshots:
     dependencies:
       css-tree: 3.2.1
 
-  '@c15t/nextjs@2.3.0(@types/react@19.2.7)(immer@11.1.15)(next@16.2.4(@opentelemetry/api@1.9.0)(@playwright/test@1.62.0)(react-dom@19.2.1(react@19.2.1))(react@19.2.1))(react-dom@19.2.1(react@19.2.1))(react@19.2.1)(typescript@5.9.3)(use-sync-external-store@1.6.0(react@19.2.1))':
+  '@c15t/nextjs@2.3.0(@types/react@19.2.7)(immer@11.1.15)(next@16.3.8(@opentelemetry/api@1.9.0)(@playwright/test@1.62.0)(@types/node@20.19.17)(react-dom@19.2.1(react@19.2.1))(react@19.2.1))(react-dom@19.2.1(react@19.2.1))(react@19.2.1)(typescript@5.9.3)(use-sync-external-store@1.6.0(react@19.2.1))':
     dependencies:
       '@c15t/react': 2.3.0(@types/react@19.2.7)(immer@11.1.15)(react-dom@19.2.1(react@19.2.1))(react@19.2.1)(typescript@5.9.3)(use-sync-external-store@1.6.0(react@19.2.1))
       '@c15t/translations': 2.3.0
       c15t: 2.3.0(@types/react@19.2.7)(immer@11.1.15)(react@19.2.1)(typescript@5.9.3)(use-sync-external-store@1.6.0(react@19.2.1))
-      next: 16.2.4(@babel/core@7.28.5)(@opentelemetry/api@1.9.0)(@playwright/test@1.62.0)(react-dom@19.2.1(react@19.2.1))(react@19.2.1)
+      next: 16.3.8(@opentelemetry/api@1.9.0)(@playwright/test@1.62.0)(@types/node@20.19.17)(react-dom@19.2.1(react@19.2.1))(react@19.2.1)
       react: 19.2.1
       react-dom: 19.2.1(react@19.2.1)
     transitivePeerDependencies:

@@ -62,7 +62,7 @@ describe("version-ready legal documents", () => {
       );
       expect(release.status).toBe("draft");
       expect(release.effectiveDate).toBeNull();
-      expect(release.content.operator.operatorName).toBeNull();
+      expect(release.content.operator.operatorName).toBe("Kortyx S.L.");
       expect(release.acceptanceRequired).toBe(false);
     }
   });

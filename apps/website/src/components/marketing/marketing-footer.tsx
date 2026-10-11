@@ -29,6 +29,10 @@ const footerGroups = [
     links: [
       ["Privacy", "/privacy"],
       ["Website Terms", "/terms"],
+      ["Cloud Terms", "/cloud/terms"],
+      ["Cloud Privacy", "/cloud/privacy"],
+      ["Cloud DPA", "/cloud/dpa"],
+      ["Subprocessors", "/cloud/subprocessors"],
       ["Cookies & Storage", "/cookies"],
       ["Legal information", "/legal"],
     ],

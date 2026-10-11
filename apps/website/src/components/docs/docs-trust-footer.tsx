@@ -16,6 +16,10 @@ export function DocsTrustFooter() {
           ["Security & Data", "/security"],
           ["Privacy", "/privacy"],
           ["Website Terms", "/terms"],
+          ["Cloud Terms", "/cloud/terms"],
+          ["Cloud Privacy", "/cloud/privacy"],
+          ["Cloud DPA", "/cloud/dpa"],
+          ["Subprocessors", "/cloud/subprocessors"],
           ["Legal", "/legal"],
           ["Cookies & Storage", "/cookies"],
         ].map(([label, href]) => (
