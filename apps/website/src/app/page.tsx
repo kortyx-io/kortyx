@@ -23,7 +23,7 @@ import Link from "next/link";
 import { AgentRuntimeDemo } from "@/components/marketing/agent-runtime-demo";
 import { FlowLine } from "@/components/marketing/flow-line";
 import { MarketingCta } from "@/components/marketing/marketing-cta";
-import { MarketingFooter } from "@/components/marketing/marketing-footer";
+import { MarketingShell } from "@/components/marketing/marketing-shell";
 import { Reveal, Stagger, StaggerItem } from "@/components/marketing/reveal";
 import { siteConfig } from "@/lib/site";
 import { cn } from "@/lib/utils/cn";
@@ -203,7 +203,7 @@ const faqs = [
   {
     question: "Do I need Kortyx Studio or Cloud?",
     answer:
-      "No. The framework works without either. Self-hosted Studio is an optional preview for inspecting runs and sessions. Managed Cloud is in development.",
+      "The framework runs directly in your application. Self-hosted Studio is an optional preview for inspecting runs and sessions. Managed Cloud is in development.",
   },
   {
     question: "Can I add Kortyx to an existing Next.js or Node application?",
@@ -283,7 +283,7 @@ function ProductJsonLd() {
 
 export default function Home() {
   return (
-    <main className="marketing-page min-h-screen overflow-hidden bg-[#08080c] text-white">
+    <MarketingShell className="marketing-page min-h-screen overflow-hidden bg-[#08080c] text-white">
       <ProductJsonLd />
       <section className="marketing-grid relative isolate border-b border-white/8">
         <div className="marketing-orb marketing-orb-one" />
@@ -320,7 +320,7 @@ export default function Home() {
                 <a
                   href="https://github.com/kortyx-io/kortyx"
                   target="_blank"
-                  rel="noreferrer"
+                  rel="noopener noreferrer"
                   className="inline-flex h-12 items-center justify-center gap-2 rounded-xl border border-white/12 bg-white/[0.035] px-5 text-sm font-medium text-white/75 transition-colors hover:border-white/22 hover:bg-white/[0.065] hover:text-white"
                 >
                   <Github className="size-4" />
@@ -691,15 +691,15 @@ export default function Home() {
                 Your agent runs in your application.
               </h2>
               <p className="mt-6 text-base leading-7 text-white/42">
-                The framework does not require Studio or a managed control
-                plane. Add visibility when you want it, and keep the execution
-                path under your control.
+                Run the framework directly in your application. Add Studio for
+                visibility when you want it, and keep the execution path under
+                your control.
               </p>
               <div className="mt-8 space-y-3">
                 {[
                   "Provider credentials stay server-side",
                   "Prompt, input, and output telemetry is off by default",
-                  "OpenTelemetry works without Kortyx Studio",
+                  "OpenTelemetry exports to your chosen backend",
                 ].map((item) => (
                   <div
                     key={item}
@@ -812,7 +812,6 @@ export default function Home() {
       </section>
 
       <MarketingCta />
-      <MarketingFooter />
-    </main>
+    </MarketingShell>
   );
 }

@@ -1,0 +1,86 @@
+[
+  {
+    "slug": "terms",
+    "version": "2026-10-08.staging.1",
+    "effectiveDate": "2026-10-08T00:00:00.000Z",
+    "hash": "68e811c6e077fdc9b88d7800fee689232c02de702d0ac272fb50ce06ceb7ff2f",
+    "available": true
+  },
+  {
+    "slug": "privacy",
+    "version": "2026-10-08.staging.1",
+    "effectiveDate": "2026-10-08T00:00:00.000Z",
+    "hash": "b2c8532c9897e5e6b13e8c3b7dfc5da63b4819296e92d2c76d5d07810df4bc97",
+    "available": false
+  },
+  {
+    "slug": "dpa",
+    "version": "2026-10-08.staging.1",
+    "effectiveDate": "2026-10-08T00:00:00.000Z",
+    "hash": "82b34409b721e693cbd271b91b264f4c265caae52b6133a0ae7dd27cf08893b8",
+    "available": true
+  },
+  {
+    "slug": "subprocessors",
+    "version": "2026-10-08.staging.1",
+    "effectiveDate": "2026-10-08T00:00:00.000Z",
+    "hash": "d8bc03f416bdd99d5d9aea6c65fa39bdd67f193c727d857d5a89ad67bc695426",
+    "available": false
+  },
+  {
+    "slug": "terms",
+    "version": "2026-10-08.staging.2",
+    "effectiveDate": "2026-10-08T00:00:00.000Z",
+    "hash": "28c49c165e90d89fe212589c3fb2f07ab0ce212a2e2fd68766b94f9a191634c8",
+    "available": true
+  },
+  {
+    "slug": "privacy",
+    "version": "2026-10-08.staging.2",
+    "effectiveDate": "2026-10-08T00:00:00.000Z",
+    "hash": "cd87335f8a806b33d3a2f77bab956033446482ddf025235aee1f1221fb199f73",
+    "available": false
+  },
+  {
+    "slug": "dpa",
+    "version": "2026-10-08.staging.2",
+    "effectiveDate": "2026-10-08T00:00:00.000Z",
+    "hash": "b1da28c5576912a28c1a92c0505522532b8099d757f2da3d4b12b9d694ac44b4",
+    "available": true
+  },
+  {
+    "slug": "subprocessors",
+    "version": "2026-10-08.staging.2",
+    "effectiveDate": "2026-10-08T00:00:00.000Z",
+    "hash": "f0de0c4b90d78dfa78b1da34e16a26c513e358b3cdd53c30a4cd0c45fbc7ae26",
+    "available": false
+  },
+  {
+    "slug": "terms",
+    "version": "2026-10-10.staging.3",
+    "effectiveDate": "2026-10-10T00:00:00.000Z",
+    "hash": "68a63d9d15c2a7b90a057f1b4dc4580f6f04d5cd94af179feb4e13c9a5139ce8",
+    "available": true
+  },
+  {
+    "slug": "privacy",
+    "version": "2026-10-10.staging.3",
+    "effectiveDate": "2026-10-10T00:00:00.000Z",
+    "hash": "717ef90c5b70afd9553579a705076cde9c1f54e069cf846ed254dd6d19ef68e7",
+    "available": false
+  },
+  {
+    "slug": "dpa",
+    "version": "2026-10-10.staging.3",
+    "effectiveDate": "2026-10-10T00:00:00.000Z",
+    "hash": "a5cb772f86e77c45fa0d52b74e3b72c3da90eda7923aa2c5ad5f15b3490d0400",
+    "available": true
+  },
+  {
+    "slug": "subprocessors",
+    "version": "2026-10-10.staging.3",
+    "effectiveDate": "2026-10-10T00:00:00.000Z",
+    "hash": "f10a08fa3b2646318b727efbad84a98588411e3d662fec4f0e004f15c10f7da1",
+    "available": false
+  }
+]

@@ -62,6 +62,12 @@ its version-level `metadata.json` declares sidebar sections, and each page's
 `section` frontmatter assigns it to a group. Relative Markdown links can cross
 product folders and are resolved to the target product's canonical URL.
 
+## Cloud legal documents
+
+See [the publication and private-Cloud integration contract](./docs/cloud-legal-contract.md) for exact URLs, release hashes, activation boundaries, immutable history and outstanding operator/legal facts. Website publication does not activate Cloud acceptance.
+
+Document text currently comes from immutable repository releases. c15t records Cloud acceptance; it is not currently serving the website's text. The contract describes migration to one shared publication service and a future authenticated editor, with c15t snapshot-bound acceptance and separately configured website/Cloud renewal flows.
+
 ## Checks
 
 ```bash
@@ -72,3 +78,8 @@ pnpm --filter kortyx-website lint
 ## License
 
 Apache-2.0. See [LICENSE](https://github.com/kortyx-io/kortyx/blob/main/LICENSE).
+
+
+### Legal publication feed
+
+Legal pages can read the environment-specific publication registry at request time. Configure server-only `WEBSITE_LEGAL_ENVIRONMENT`, `WEBSITE_LEGAL_SERVICE_URL` and `WEBSITE_LEGAL_SERVICE_KEY`; staging and PR previews use staging, production uses production. With no settings, local development uses checked-in archives. Configured feeds fail closed on outage, wrong environment or integrity failure. See [the document contract](docs/cloud-legal-contract.md) for exact URLs, formats, hashes, migration order and Cloud integration boundaries. Website navigation never records acceptance.

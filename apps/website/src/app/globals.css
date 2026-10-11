@@ -1,7 +1,16 @@
 @import "tailwindcss";
 @import "tw-animate-css";
+@import "@c15t/nextjs/styles.css";
 
 @custom-variant dark (&:is(.dark *));
+
+/* c15t's legal-link defaults do not inherit its theme palette. */
+.c15t-dark {
+  --legal-links-color: var(--c15t-primary);
+  --legal-links-focus-color: var(--c15t-primary);
+  --legal-links-focus-color-dark: var(--c15t-primary);
+  --legal-links-text-decoration: underline;
+}
 
 @theme inline {
   --color-background: var(--background);

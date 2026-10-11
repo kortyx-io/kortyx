@@ -12,8 +12,8 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { FlowLine } from "@/components/marketing/flow-line";
 import { MarketingCta } from "@/components/marketing/marketing-cta";
-import { MarketingFooter } from "@/components/marketing/marketing-footer";
 import { MarketingPageJsonLd } from "@/components/marketing/marketing-page-json-ld";
+import { MarketingShell } from "@/components/marketing/marketing-shell";
 import { Reveal, Stagger, StaggerItem } from "@/components/marketing/reveal";
 import { createMarketingMetadata } from "@/lib/metadata";
 
@@ -107,7 +107,7 @@ function ExampleCode() {
 
 export default function ExamplesPage() {
   return (
-    <main className="marketing-page min-h-screen overflow-hidden bg-[#f4f3f8] text-[#111426]">
+    <MarketingShell className="marketing-page min-h-screen overflow-hidden bg-[#f4f3f8] text-[#111426]">
       <MarketingPageJsonLd
         name={pageTitle}
         description={pageDescription}
@@ -355,7 +355,7 @@ export default function ExamplesPage() {
           <a
             href="https://github.com/kortyx-io/kortyx/tree/main/examples/kortyx-canvas"
             target="_blank"
-            rel="noreferrer"
+            rel="noopener noreferrer"
             className="group inline-flex h-12 shrink-0 items-center justify-center gap-2 rounded-full bg-white px-6 text-sm font-semibold text-[#111426]"
           >
             Browse Canvas source
@@ -368,7 +368,6 @@ export default function ExamplesPage() {
         title="Replace the refund policy with one of your own."
         description="Connect your services to the same workflow, interrupt, and resume APIs used in this example."
       />
-      <MarketingFooter />
-    </main>
+    </MarketingShell>
   );
 }

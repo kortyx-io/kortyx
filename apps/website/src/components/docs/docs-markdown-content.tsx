@@ -12,6 +12,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { rewriteMarkdownHref } from "@/lib/docs";
+import { externalLinkProps } from "@/lib/links";
 import { cn } from "@/lib/utils/cn";
 import { extractCodeFileLabel } from "@/lib/utils/extract-code-file-label";
 import { extractCodeTabLabel } from "@/lib/utils/extract-code-tab-label";
@@ -152,6 +153,7 @@ export function DocsMarkdownContent(props: DocsMarkdownContentProps) {
             <a
               {...props}
               href={rewritten}
+              {...externalLinkProps(rewritten)}
               className="font-medium text-primary underline underline-offset-2 dark:text-blue-300 dark:hover:text-blue-200"
             />
           );
