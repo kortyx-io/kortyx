@@ -1,9 +1,10 @@
 "use client";
 
 import { Check, Copy, RadioTower } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "@/components/scoped-link";
 import { Button } from "@/components/ui/button";
+import { studioFeature } from "@/usage/client";
 
 export type ObservationResource =
   | "runs"
@@ -47,6 +48,12 @@ export function FirstObservation({
 }: {
   resource: ObservationResource;
 }) {
+  const observed = useRef(false);
+  useEffect(() => {
+    if (observed.current) return;
+    observed.current = true;
+    studioFeature("studio.connection", { resource, action: "first_use" });
+  }, [resource]);
   const [copied, setCopied] = useState(false);
   const [copyError, setCopyError] = useState(false);
   const item = guidance[resource];
@@ -100,6 +107,10 @@ export function FirstObservation({
                 onClick={async () => {
                   try {
                     await navigator.clipboard.writeText(prompt);
+                    studioFeature("studio.connection", {
+                      resource,
+                      action: "copy",
+                    });
                     setCopied(true);
                     setCopyError(false);
                   } catch {

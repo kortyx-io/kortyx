@@ -3,7 +3,7 @@ import {
   PromptKeySchema,
   PromptTagSchema,
   PromptVersionSchema,
-} from "@kortyx/prompts";
+} from "@kortyx/prompts/browser";
 import { z } from "zod";
 
 const name = z.string().trim().min(1).max(200);

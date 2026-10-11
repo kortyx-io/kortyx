@@ -1,5 +1,7 @@
 import { expect, it, vi } from "vitest";
 
+vi.mock("server-only", () => ({}));
+
 vi.mock("next/font/google", () => ({
   Geist: () => ({ variable: "sans" }),
   Geist_Mono: () => ({ variable: "mono" }),
@@ -32,5 +34,8 @@ it("renders saved theme state without a theme script element", async () => {
   });
   expect(root.props["data-theme-preference"]).toBe("system");
   expect(root.props.children.type).toBe("body");
-  expect(root.props.children.props.children.type).toBe(Providers);
+  expect(root.props.children.props.children.props.children.type).toBe(
+    Providers,
+  );
+  expect(root.props.children.props.children.props.config.enabled).toBe(false);
 });

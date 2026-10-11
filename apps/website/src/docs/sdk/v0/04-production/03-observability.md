@@ -20,6 +20,44 @@ Use this when you want to inspect:
 
 Kortyx does not configure your collector or tracing backend. Your app owns the OpenTelemetry SDK/exporter setup.
 
+## Maintainer usage telemetry
+
+The Node SDK also sends bounded usage aggregates to Kortyx's EU PostHog project
+by default, without requiring your own PostHog account or API key. This helps
+Kortyx maintainers measure feature adoption, operation outcomes and latency.
+It is independent of the customer tracing configuration described below.
+
+Approved records contain fixed operation names, outcomes, release versions and
+bounded dimensions such as provider family. They exclude prompts, messages,
+inputs/outputs, workflow/node/tool names, customer IDs, credentials, raw exception
+messages and stacks. A random installation UUID is stored at
+`~/.config/kortyx/usage-id`, with a process-only fallback when storage is
+unavailable. This identifier is pseudonymous; network infrastructure still sees
+the request's source IP.
+
+Disable collection and delivery before starting your application:
+
+```bash
+KORTYX_USAGE_TELEMETRY_DISABLED=1 pnpm start
+```
+
+`true` also disables collection. `KORTYX_USAGE_TELEMETRY_DEBUG=1` prints approved
+aggregates locally without sending requests or creating an installation identity.
+The default Node integration is disabled under `NODE_ENV=test`; browser-only SDK
+imports do not collect automatically. Other runtime modes, including CI, do not
+implicitly opt out.
+
+Delivery aggregates over 60-second windows, buffers at most 64 groups per
+component and sends at most 120 groups per hour per component/process. Delivery
+is best effort with a two-second timeout and no retries. Short-lived or terminated
+processes can lose records; analytics failure preserves SDK results.
+
+Maintainers can change the destination using
+`KORTYX_USAGE_TELEMETRY_POSTHOG_HOST`, `KORTYX_USAGE_TELEMETRY_POSTHOG_KEY` (a public
+capture key), or `KORTYX_USAGE_TELEMETRY_ENDPOINT` for a compatible collector.
+See the [usage telemetry package reference](https://github.com/kortyx-io/kortyx/tree/main/packages/usage-telemetry)
+for the complete controls, approved catalog and delivery contract.
+
 ## Install
 
 ```bash tabs="otel-install" tab="pnpm"

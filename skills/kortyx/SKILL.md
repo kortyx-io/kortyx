@@ -44,7 +44,7 @@ Architecture:
 - `references/architecture-react-node.md`: separate React frontend plus Node backend.
 - `references/architecture-runtime-persistence.md`: memory, Redis, PostgreSQL, PostgreSQL-plus-Redis, and app DB boundaries.
 - `references/session-checkpoints-rollback-fork.md`: adding checkpoint, rollback, fork, regenerate, undo, and structured-data cleanup features to apps built with Kortyx.
-- `references/observability-otel.md`: backend-neutral server-side OpenTelemetry tracing, prompt metadata, tags, and trace ids on the React client.
+- `references/observability-otel.md`: backend-neutral server-side OpenTelemetry tracing, prompt metadata, tags, trace ids on the React client, and separate maintainer usage telemetry controls.
 - `references/observability-langfuse.md`: app-owned Langfuse export, Kortyx attribute mapping, Next.js flush lifecycle, optional prompt linking, and client feedback scores.
 
 Studio:

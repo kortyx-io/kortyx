@@ -5,6 +5,7 @@ import {
   PromptTagSchema,
   verifyPromptSnapshot,
 } from "./contracts";
+import { usage } from "./usage";
 
 export interface PromptSource {
   readonly environment?: string;
@@ -218,44 +219,52 @@ export function createPrompts(options: {
           start.onUsage?.(usage);
         },
         async resolve(ref, args) {
-          if (!ids.includes(ref.id))
-            throw new PromptError(
-              "PROMPT_NOT_REGISTERED",
-              `Register ${ref.id} with createPrompts.`,
-            );
-          const resolved = await snapshot(args.stored);
-          let selectedSnapshot = resolved;
-          let selected = resolved.versions[ref.id];
-          if (
-            args.version !== undefined &&
-            selected?.version !== args.version
-          ) {
-            const pinned = await pin(ref.id, args.version, args.pin);
-            selectedSnapshot = pinned;
-            selected = pinned.versions[ref.id];
-            if (selected?.version !== args.version)
+          const scope = usage.start("sdk.prompt.resolve");
+          try {
+            if (!ids.includes(ref.id))
               throw new PromptError(
-                "PROMPT_PIN_MISMATCH",
-                `Source returned a different version of ${ref.id}.`,
+                "PROMPT_NOT_REGISTERED",
+                `Register ${ref.id} with createPrompts.`,
               );
-          }
-          if (!selected)
-            throw new PromptError(
-              "PROMPT_NOT_ASSIGNED",
-              `No version resolved for ${ref.id}.`,
-              404,
+            const resolved = await snapshot(args.stored);
+            let selectedSnapshot = resolved;
+            let selected = resolved.versions[ref.id];
+            if (
+              args.version !== undefined &&
+              selected?.version !== args.version
+            ) {
+              const pinned = await pin(ref.id, args.version, args.pin);
+              selectedSnapshot = pinned;
+              selected = pinned.versions[ref.id];
+              if (selected?.version !== args.version)
+                throw new PromptError(
+                  "PROMPT_PIN_MISMATCH",
+                  `Source returned a different version of ${ref.id}.`,
+                );
+            }
+            if (!selected)
+              throw new PromptError(
+                "PROMPT_NOT_ASSIGNED",
+                `No version resolved for ${ref.id}.`,
+                404,
+              );
+            const compiled = compilePrompt(
+              ref,
+              selected,
+              args.variables,
+              {
+                source: selectedSnapshot.source,
+                environment: selectedSnapshot.environment,
+                snapshotRevision: selectedSnapshot.revision,
+              },
+              selectedSnapshot.versions,
             );
-          return compilePrompt(
-            ref,
-            selected,
-            args.variables,
-            {
-              source: selectedSnapshot.source,
-              environment: selectedSnapshot.environment,
-              snapshotRevision: selectedSnapshot.revision,
-            },
-            selectedSnapshot.versions,
-          );
+            scope.end("success", { source: selectedSnapshot.source });
+            return compiled;
+          } catch (error) {
+            scope.fail(error);
+            throw error;
+          }
         },
       };
     },

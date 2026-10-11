@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { getHookContext, snapshotHookState } from "./context";
+import { usage } from "./usage";
 
 export type CompleteResponseOptions = {
   message?: string | undefined;
@@ -14,7 +15,7 @@ const optionsSchema = z
   .strict();
 
 /** Finish client delivery, leaving the node and workflow execution running. */
-export async function completeResponse(
+async function completeResponseInternal(
   options: CompleteResponseOptions = {},
 ): Promise<void> {
   const ctx = getHookContext();
@@ -25,4 +26,12 @@ export async function completeResponse(
     );
   }
   await ctx.node.completeResponse(parsed, snapshotHookState());
+}
+
+export function completeResponse(
+  options: CompleteResponseOptions = {},
+): Promise<void> {
+  return usage.measure("sdk.complete_response", () =>
+    completeResponseInternal(options),
+  );
 }

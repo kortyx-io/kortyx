@@ -43,6 +43,7 @@ import {
 import { formatDateTime, formatDurationMs } from "@/lib/format";
 import { useStudioQueryStates } from "@/lib/nuqs";
 import { cn } from "@/lib/utils";
+import { studioFeature } from "@/usage/client";
 
 export { isControlFlowInterrupt } from "@/features/runs/lib/run-trace-story";
 
@@ -109,6 +110,11 @@ export function RunTrace({
   }, [autoFocusId, setTraceQuery, traceId]);
 
   const selectItem = (itemId: string) => {
+    studioFeature("studio.inspect", {
+      resource: "runs",
+      tab: "trace",
+      action: "inspect",
+    });
     setAutoFocusId(undefined);
     void setTraceQuery({
       trace: itemId,

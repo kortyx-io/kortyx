@@ -28,7 +28,8 @@
     "@kortyx/agent": "workspace:*",
     "@kortyx/openai": "workspace:*",
     "@kortyx/openrouter": "workspace:*",
-    "@kortyx/prompts": "workspace:*"
+    "@kortyx/prompts": "workspace:*",
+    "@kortyx/usage-telemetry": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "catalog:",

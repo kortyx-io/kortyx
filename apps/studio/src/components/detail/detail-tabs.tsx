@@ -1,11 +1,12 @@
 "use client";
-
+import { usePathname } from "next/navigation";
 import { parseAsString } from "nuqs";
 import { type ReactNode, useEffect, useRef, useState } from "react";
 import { useDetailDrawer } from "@/components/detail/detail-drawer";
 import { DETAIL_MOTION_DURATION_MS } from "@/components/detail/detail-motion";
 import { useStudioQueryState } from "@/lib/nuqs";
 import { cn } from "@/lib/utils";
+import { studioFeature, usageSurface } from "@/usage/client";
 
 export type DetailTab = {
   id: string;
@@ -20,6 +21,7 @@ export function DetailTabs({
   tabs: DetailTab[];
   queryKey?: string;
 }) {
+  const pathname = usePathname();
   const initialTab = tabs[0]?.id ?? "";
   const [requestedTab, setRequestedTab] = useStudioQueryState(
     queryKey,
@@ -41,6 +43,11 @@ export function DetailTabs({
 
   const changeTab = (nextId: string) => {
     if (nextId === selected?.id) return;
+    studioFeature("studio.inspect", {
+      surface: usageSurface(pathname),
+      tab: nextId,
+      action: "select",
+    });
     if (detailDrawer.nestedOpen) {
       setLeavingTabId(selected?.id ?? null);
       if (releaseTimerRef.current !== null) {

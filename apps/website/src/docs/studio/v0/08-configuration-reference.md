@@ -132,6 +132,43 @@ consumer endpoint registration, target-file mounts and execution behavior.
 
 ## Consumer application and CLI configuration
 
+### Maintainer usage telemetry
+
+OSS Studio browser/server/API operations and CLI setup send bounded usage
+aggregates to Kortyx's EU PostHog project by default. These measure product
+adoption, outcomes and latency separately from customer execution data stored in
+your Studio database. No consumer PostHog account or personal API token is needed.
+There is no autocapture, session replay or global exception collection.
+
+| Variable | Effect |
+| --- | --- |
+| `KORTYX_USAGE_TELEMETRY_DISABLED=1` | Disables collection, identity creation and delivery; `true` is also accepted |
+| `KORTYX_USAGE_TELEMETRY_DEBUG=1` | Prints approved aggregates locally without creating identities or sending requests |
+| `KORTYX_USAGE_TELEMETRY_POSTHOG_HOST` | Overrides the default `https://eu.i.posthog.com` ingestion host |
+| `KORTYX_USAGE_TELEMETRY_POSTHOG_KEY` | Overrides the public capture key; never use a personal API token |
+| `KORTYX_USAGE_TELEMETRY_ENDPOINT` | Uses a compatible collector instead of direct PostHog delivery |
+
+Set controls on both API and Studio containers, and on the CLI process when
+running setup. CLI-generated Compose forwards these controls to its services.
+Restart containers after changes. Studio supplies public browser configuration
+from its server environment; no `NEXT_PUBLIC_` variables are needed.
+
+Records allow fixed operations, outcomes and bounded dimensions. They exclude
+customer content, resource names, URLs, customer IDs, credentials, raw error
+messages and stacks. Node clients lazily store a pseudonymous random UUID at
+`~/.config/kortyx/usage-id`, falling back to a process UUID. The browser stores a
+separate UUID in local storage at `kortyx.usage.id`, with an in-memory fallback.
+Deleting the corresponding value and restarting/reloading resets that identity.
+Network infrastructure still sees the request's source IP.
+
+Delivery aggregates over 60-second windows, buffers at most 64 groups per client
+and sends at most 120 groups per hour per component/process. Delivery is best
+effort, with a two-second timeout and no retries; offline or terminated clients
+can lose records. See the [usage telemetry package reference](https://github.com/kortyx-io/kortyx/tree/main/packages/usage-telemetry)
+for the complete controls and scope of the first instrumentation slice.
+
+### Application eval settings
+
 `createEvals` and `createEvalRouteHandler` do not read environment variables
 automatically. Your app chooses its server configuration and passes the values
 into these functions. These are example application settings, not mandatory
