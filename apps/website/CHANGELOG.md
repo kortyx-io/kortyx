@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.50.0](https://github.com/kortyx-io/kortyx/compare/website-v0.49.0...website-v0.50.0) (2026-10-11)
+
+
+### Features
+
+* add shared SDK and Studio usage telemetry ([#313](https://github.com/kortyx-io/kortyx/issues/313)) ([7d5f0c0](https://github.com/kortyx-io/kortyx/commit/7d5f0c005bd7721dc6a529554e75c14573d76a0f))
+* **website:** add versioned Cloud legal documents ([dba9a1f](https://github.com/kortyx-io/kortyx/commit/dba9a1f3dbd251efa6d95928e2afe63e713c0c4d))
+* **website:** establish credibility and consent foundation ([9b20074](https://github.com/kortyx-io/kortyx/commit/9b20074a1fdb7cdb5d28b91452bd8d42ca2bafcf))
+* **website:** read immutable legal releases from environment feeds ([1054800](https://github.com/kortyx-io/kortyx/commit/105480066b5826627df6227e01fbe6432f942e1a))
+
+
+### Bug Fixes
+
+* **website:** keep trust menus together while scrolling ([8c19061](https://github.com/kortyx-io/kortyx/commit/8c19061f07c37944db398f096bf4ea130a854981))
+* **website:** order mixed legacy legal revisions consistently ([aee8520](https://github.com/kortyx-io/kortyx/commit/aee8520c70601a57b8daae27f60c8a0e2fb7c1ad))
+* **website:** reconcile credibility branch with current main ([60199f9](https://github.com/kortyx-io/kortyx/commit/60199f992242eb7c409a95bc7a6898d31bac601d))
+* **website:** share full-width footer across docs pages ([fed5162](https://github.com/kortyx-io/kortyx/commit/fed51626cabd7375540ab67c64175337a195d7dd))
+* **website:** standardize legal document presentation ([07c3d71](https://github.com/kortyx-io/kortyx/commit/07c3d7107f333c56729a7498044c71a1475c3f9d))
+
 ## [0.49.0](https://github.com/kortyx-io/kortyx/compare/website-v0.48.0...website-v0.49.0) (2026-10-10)
 
 

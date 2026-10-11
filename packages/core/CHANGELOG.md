@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.13.1](https://github.com/kortyx-io/kortyx/compare/core-v0.13.0...core-v0.13.1) (2026-10-11)
+
+
+### Bug Fixes
+
+* **website:** reconcile credibility branch with current main ([60199f9](https://github.com/kortyx-io/kortyx/commit/60199f992242eb7c409a95bc7a6898d31bac601d))
+
 ## [0.13.0](https://github.com/kortyx-io/kortyx/compare/core-v0.12.0...core-v0.13.0) (2026-10-09)
 
 

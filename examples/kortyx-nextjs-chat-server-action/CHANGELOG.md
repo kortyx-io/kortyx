@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.14.23](https://github.com/kortyx-io/kortyx/compare/example-nextjs-chat-server-action-v0.14.22...example-nextjs-chat-server-action-v0.14.23) (2026-10-11)
+
+
+### Bug Fixes
+
+* **website:** reconcile credibility branch with current main ([60199f9](https://github.com/kortyx-io/kortyx/commit/60199f992242eb7c409a95bc7a6898d31bac601d))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/google bumped to 0.6.8
+    * @kortyx/react bumped to 0.8.4
+    * kortyx bumped to 0.30.1
+
 ## [0.14.22](https://github.com/kortyx-io/kortyx/compare/example-nextjs-chat-server-action-v0.14.21...example-nextjs-chat-server-action-v0.14.22) (2026-10-10)
 
 

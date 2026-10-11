@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.3.6](https://github.com/kortyx-io/kortyx/compare/utils-v0.3.5...utils-v0.3.6) (2026-10-11)
+
+
+### Bug Fixes
+
+* **website:** reconcile credibility branch with current main ([60199f9](https://github.com/kortyx-io/kortyx/commit/60199f992242eb7c409a95bc7a6898d31bac601d))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/core bumped to 0.13.1
+
 ## [0.3.5](https://github.com/kortyx-io/kortyx/compare/utils-v0.3.4...utils-v0.3.5) (2026-10-09)
 
 

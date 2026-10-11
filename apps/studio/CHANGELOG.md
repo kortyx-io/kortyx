@@ -1,5 +1,36 @@
 # Changelog
 
+## [0.20.0](https://github.com/kortyx-io/kortyx/compare/studio-v0.19.0...studio-v0.20.0) (2026-10-11)
+
+
+### Features
+
+* add shared SDK and Studio usage telemetry ([#313](https://github.com/kortyx-io/kortyx/issues/313)) ([7d5f0c0](https://github.com/kortyx-io/kortyx/commit/7d5f0c005bd7721dc6a529554e75c14573d76a0f))
+* **studio:** support onboarding within the shared shell ([#307](https://github.com/kortyx-io/kortyx/issues/307)) ([0537791](https://github.com/kortyx-io/kortyx/commit/053779143946bbffc50205dee3e3ea57acc29d2a))
+
+
+### Bug Fixes
+
+* **prompts:** make promotion requirements opt-in ([#312](https://github.com/kortyx-io/kortyx/issues/312)) ([9f6f696](https://github.com/kortyx-io/kortyx/commit/9f6f696152d24f722ed36ef22331a6061e36cff2))
+* **studio:** improve prompt loading and eval empty states ([#310](https://github.com/kortyx-io/kortyx/issues/310)) ([5bc4d95](https://github.com/kortyx-io/kortyx/commit/5bc4d952419be949760798d814bc82f4fc2a2ac5))
+* **studio:** label organization Projects breadcrumbs ([#311](https://github.com/kortyx-io/kortyx/issues/311)) ([2970550](https://github.com/kortyx-io/kortyx/commit/297055097c09126f63f07ea0fbe384a494c3ebe0))
+* **studio:** repair prompt navigation and mutation cache freshness ([4f5b40d](https://github.com/kortyx-io/kortyx/commit/4f5b40dcce9e174694e05ee6507cd3c457bba78d))
+* **studio:** repair prompt navigation, list freshness and key validation ([f0354aa](https://github.com/kortyx-io/kortyx/commit/f0354aa4127ede62b22a5235fe01857e6fe3f9f7))
+* **website:** reconcile credibility branch with current main ([60199f9](https://github.com/kortyx-io/kortyx/commit/60199f992242eb7c409a95bc7a6898d31bac601d))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/prompts bumped to 0.2.0
+    * @kortyx/telemetry-contracts bumped to 0.17.0
+    * @kortyx/usage-telemetry bumped to 0.2.0
+  * devDependencies
+    * @kortyx/agent bumped to 0.37.0
+    * @kortyx/telemetry bumped to 0.15.0
+    * kortyx bumped to 0.30.1
+
 ## [0.19.0](https://github.com/kortyx-io/kortyx/compare/studio-v0.18.0...studio-v0.19.0) (2026-10-10)
 
 
