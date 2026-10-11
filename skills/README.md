@@ -14,14 +14,28 @@ Keep `SKILL.md` short. Put detailed hook, architecture, backend, and React rules
 
 ## Installing in agents
 
-Use these files as the canonical source, then copy or symlink them into the tool-specific location:
+This repository already exposes `skills/kortyx` through the relative symbolic
+link `.agents/skills/kortyx`. The [shared agent directory](../.agents/README.md)
+and its tool-specific aliases make the same skill available without copying its
+contents. Maintain this portable skill here; maintain repository development
+skills under `.agents/skills`.
 
-- Codex personal skill: `~/.codex/skills/kortyx/SKILL.md`
+For use in another application, copy or symlink the `kortyx` folder into its
+agent's skill location:
+
+- Codex project skill: `.agents/skills/kortyx/SKILL.md`
+- Codex personal skill: `~/.agents/skills/kortyx/SKILL.md`
 - Claude Code project skill: `.claude/skills/kortyx/SKILL.md`
 - Claude Code personal skill: `~/.claude/skills/kortyx/SKILL.md`
-- Cursor stable project context: use `.cursor/rules/kortyx-skills.mdc` to point Cursor at this skill.
+- Gemini CLI project skill: `.agents/skills/kortyx/SKILL.md` or `.gemini/skills/kortyx/SKILL.md`
+- OpenCode project skill: `.agents/skills/kortyx/SKILL.md` or `.opencode/skills/kortyx/SKILL.md`
+- GitHub Copilot project skill: `.agents/skills/kortyx/SKILL.md` or `.github/skills/kortyx/SKILL.md`
+- Cursor project rule: `.cursor/rules/kortyx-skills.mdc` points at this skill;
+  its canonical file in this repository is `.agents/rules/kortyx-skills.mdc`.
 
-Cursor may also expose Skills in some builds, but project rules under `.cursor/rules` are the stable documented mechanism.
+See the shared directory's linked official documentation for skill discovery
+paths. Sharing directories does not convert one tool's rule or configuration
+format into another tool's format.
 
 ## License
 

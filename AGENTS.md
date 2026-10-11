@@ -1,5 +1,14 @@
 # Repository agent instructions
 
+## Shared agent files
+
+[.agents](.agents/README.md) is the canonical directory for repository skills and
+agent resources. The tool-specific directories are relative symbolic links to it;
+edit shared files under `.agents` rather than creating tool-specific copies.
+Root CLAUDE.md and GEMINI.md link to this file so repository policy stays shared.
+The portable Kortyx skill remains authored under `skills/kortyx` and is exposed
+through `.agents/skills/kortyx` without duplication.
+
 ## Definition of Done
 
 Read [docs/internal/definition-of-done.md](docs/internal/definition-of-done.md)

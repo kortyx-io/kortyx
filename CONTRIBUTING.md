@@ -52,3 +52,15 @@ Repository agents also follow [AGENTS.md](AGENTS.md). The PR template records th
 assessment; passing CI supports that assessment but does not replace review of
 applicability, documentation accuracy, or the supported user journey.
 
+## Shared agent resources
+
+Repository skills and agent resources live in [.agents](.agents/README.md).
+`.cursor`, `.claude`, `.codex`, `.gemini`, `.opencode`, `.windsurf`, and `.devin`
+are relative symbolic links to that directory. GitHub Copilot's `.github/skills`
+links to `.agents/skills`; root CLAUDE.md and GEMINI.md link to AGENTS.md.
+
+Edit the canonical files rather than adding copies under each tool's directory.
+The portable application skill remains in `skills/kortyx`, exposed through
+`.agents/skills/kortyx`. Preserve symbolic links in your checkout and keep local
+credentials and generated agent state out of tracked shared files.
+

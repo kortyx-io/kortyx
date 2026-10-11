@@ -58,7 +58,10 @@ next-env.d.ts
 *.tsbuildinfo
 **/*.tsbuildinfo
 
-# Cursor configuration with sensitive data
+# Local agent configuration with sensitive data (including legacy Cursor paths)
+.agents/general.mdc
+.agents/mcp.json
+.agents/settings.local.json
 .cursor/general.mdc
 .cursor/mcp.json
 
