@@ -343,3 +343,7 @@ Kortyx uses a mixed licensing model:
 
 See [LICENSES.md](./LICENSES.md) for the repository-wide boundaries and the
 applicable license texts.
+
+## Maintainer usage telemetry
+
+The SDK and OSS Studio send bounded feature usage and operation outcomes to Kortyx's EU PostHog project by default. No prompts, inputs/outputs, customer IDs, names, URLs, raw errors or credentials are included. Set `KORTYX_USAGE_TELEMETRY_DISABLED=1` to disable collection or `KORTYX_USAGE_TELEMETRY_DEBUG=1` to inspect approved records locally without sending them. This is separate from customer observability. See [usage telemetry controls, identity and collection scope](./packages/usage-telemetry/README.md).

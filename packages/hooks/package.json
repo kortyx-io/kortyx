@@ -50,7 +50,8 @@
     "@kortyx/providers": "workspace:*",
     "@kortyx/telemetry-contracts": "workspace:*",
     "zod": "catalog:",
-    "@kortyx/prompts": "workspace:*"
+    "@kortyx/prompts": "workspace:*",
+    "@kortyx/usage-telemetry": "workspace:*"
   },
   "devDependencies": {
     "turbo": "catalog:",

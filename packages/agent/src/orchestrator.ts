@@ -46,6 +46,7 @@ import {
   shouldCaptureTelemetryContent,
 } from "./telemetry/events";
 import { prepareWorkflowTelemetry } from "./telemetry/topology";
+import { usage } from "./usage";
 
 export type SelectWorkflowFn = (
   workflowId: string,
@@ -201,6 +202,13 @@ export async function orchestrateGraphStream({
   frameworkAdapter,
   executionLeaseRelease,
 }: OrchestrateArgs): Promise<NodeJS.ReadableStream> {
+  let usageLimitReached = false;
+  const executionUsage = usage.start("sdk.execution", {
+    continue_on_disconnect: continueOnDisconnect,
+  });
+  const responseUsage = emitOutput
+    ? usage.start("sdk.response", { phase: "delivery" })
+    : { end() {}, fail(_error: unknown) {} };
   const out = new PassThrough({ objectMode: true });
   const visibleMessage =
     emitOutput &&
@@ -220,6 +228,13 @@ export async function orchestrateGraphStream({
     )
       return;
     responseFinalized = true;
+    responseUsage.end(
+      status === "completed"
+        ? "success"
+        : status === "interrupted"
+          ? "suspended"
+          : status,
+    );
     try {
       await onResponseFinalized({
         sessionId,
@@ -278,6 +293,7 @@ export async function orchestrateGraphStream({
       ? AbortSignal.any([executionSignal, leaseAbort.signal])
       : leaseAbort.signal,
     onClosed: () => {
+      responseUsage.end();
       out.write({ type: "done" });
       out.end();
     },
@@ -1746,6 +1762,7 @@ export async function orchestrateGraphStream({
         return;
       }
       if (isExecutionLimitReached(err)) {
+        usageLimitReached = true;
         try {
           const snapshot =
             frameworkAdapter &&
@@ -1896,6 +1913,22 @@ export async function orchestrateGraphStream({
             ? "interrupted"
             : "completed",
       );
+      if (outcomeError) executionUsage.fail(outcomeError);
+      else
+        executionUsage.end(
+          usageLimitReached
+            ? "limit_reached"
+            : pendingRecordToken || outcomeState.awaitingHumanInput
+              ? "suspended"
+              : "success",
+        );
+      if (outcomeError) responseUsage.fail(outcomeError);
+      else
+        responseUsage.end(
+          pendingRecordToken || outcomeState.awaitingHumanInput
+            ? "suspended"
+            : "success",
+        );
       onOutcome?.({
         state: outcomeState,
         pending: pendingRecordToken

@@ -1,4 +1,4 @@
-import { PromptSnapshotSchema } from "@kortyx/prompts";
+import { PromptSnapshotSchema } from "@kortyx/prompts/browser";
 import { z } from "zod";
 import { EvalEvidencePolicySchema } from "./evidence-policy";
 import type { EvalSuite } from "./types";

@@ -1,5 +1,8 @@
 "use client";
-import { canonicalPromptJson, type PromptContent } from "@kortyx/prompts";
+import {
+  canonicalPromptJson,
+  type PromptContent,
+} from "@kortyx/prompts/browser";
 import { diffLines, diffWordsWithSpace } from "diff";
 import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";

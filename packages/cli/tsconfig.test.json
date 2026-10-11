@@ -11,6 +11,6 @@
     "sourceMap": false,
     "incremental": false
   },
-  "include": ["src/**/*", "test/**/*"],
+  "include": ["src/**/*", "test/**/*", "package.json"],
   "exclude": ["node_modules", "dist", "coverage"]
 }

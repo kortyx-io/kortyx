@@ -84,6 +84,17 @@ For fork/rollback testing, compare `(runId, branchId, invocationId)`, not invoca
 
 ## Troubleshooting Order
 
+OSS Studio also collects maintainer usage aggregates by default, independently of
+customer traces. To opt out, set `KORTYX_USAGE_TELEMETRY_DISABLED=1` (or `true`) on
+the CLI process and both API/Studio services. CLI-generated Compose forwards this
+control; restart containers after changing their environment. Studio's server
+passes public configuration to the browser, so no `NEXT_PUBLIC_` variable is
+needed. `KORTYX_USAGE_TELEMETRY_DEBUG=1` previews approved aggregates locally
+without requests or identity creation. See
+[observability-otel.md](observability-otel.md#placement) for the data boundary and
+destination controls; do not confuse the public PostHog capture key with secret
+Studio read/write credentials.
+
 1. Run `npx kortyx studio status`.
 2. Run `npx kortyx studio logs --no-follow`.
 3. Reprint credentials and compare the API URL/key with the server process.

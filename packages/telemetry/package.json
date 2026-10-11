@@ -27,7 +27,8 @@
   "dependencies": {
     "@kortyx/hooks": "workspace:*",
     "@kortyx/telemetry-contracts": "workspace:*",
-    "@kortyx/core": "workspace:*"
+    "@kortyx/core": "workspace:*",
+    "@kortyx/usage-telemetry": "workspace:*"
   },
   "devDependencies": {
     "tsup": "catalog:",

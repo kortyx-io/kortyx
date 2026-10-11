@@ -6,6 +6,8 @@ import { OpenAPIHono } from "@hono/zod-openapi";
 import type { EvalJudge } from "@kortyx/agent";
 import { STUDIO_API_PROTOCOL_VERSION } from "@kortyx/telemetry-contracts";
 import type { TelemetryDb } from "@kortyx/telemetry-db";
+import type { UsageTelemetry } from "@kortyx/usage-telemetry";
+import { getUsageTelemetry } from "@kortyx/usage-telemetry/node";
 import type { ApiAuthAdapter, ApiDeployment } from "./auth/contracts";
 import type { ApiAuthorizationAdapter } from "./authorization/contracts";
 import type { ApiTenantDatabaseAdapter } from "./database/contracts";
@@ -34,6 +36,7 @@ import type { ApiEnv } from "./types";
 
 export type CreateApiAppOptions = {
   db: TelemetryDb;
+  usage?: UsageTelemetry;
   evalTargets?: readonly EvalTarget[];
   evalTargetAdapter?: EvalTargetAdapter;
   evalJudge?: EvalJudge;
@@ -102,6 +105,30 @@ export const createApiApp = (options: CreateApiAppOptions) => {
   });
 
   app.onError(apiErrorHandler);
+  const usage =
+    options.usage ?? getUsageTelemetry("api", "0.1.0", "oss_studio");
+  app.use("/v1/*", async (c, next) => {
+    const segment = c.req.path.split("/")[2];
+    const operation =
+      segment === "telemetry"
+        ? "studio.ingest"
+        : segment === "prompts"
+          ? "studio.prompt"
+          : "studio.read";
+    const scope = usage.start(operation, {
+      origin: "server",
+      resource: c.req.path.split("/")[3],
+    });
+    try {
+      await next();
+      scope.end(c.res.status >= 400 ? "failed" : "success", {
+        http_status: c.res.status >= 400 ? String(c.res.status) : undefined,
+      });
+    } catch (error) {
+      scope.fail(error);
+      throw error;
+    }
+  });
 
   registerHealthRoutes(app, options.readiness ?? (() => Promise.resolve()));
 

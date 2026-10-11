@@ -12,6 +12,15 @@ x-bootstrap-keys: &bootstrap-keys
   KORTYX_STUDIO_ENABLE_REVIEWS: \${KORTYX_STUDIO_ENABLE_REVIEWS:-0}
   KORTYX_STUDIO_ENABLE_PROMPTS: \${KORTYX_STUDIO_ENABLE_PROMPTS:-1}
 
+x-usage-env: &usage-env
+  KORTYX_USAGE_TELEMETRY_DISABLED: \${KORTYX_USAGE_TELEMETRY_DISABLED:-0}
+  KORTYX_USAGE_TELEMETRY_DEBUG: \${KORTYX_USAGE_TELEMETRY_DEBUG:-0}
+  KORTYX_USAGE_TELEMETRY_ENDPOINT: \${KORTYX_USAGE_TELEMETRY_ENDPOINT:-}
+  KORTYX_USAGE_TELEMETRY_POSTHOG_KEY: \${KORTYX_USAGE_TELEMETRY_POSTHOG_KEY:-}
+  KORTYX_USAGE_TELEMETRY_POSTHOG_HOST: \${KORTYX_USAGE_TELEMETRY_POSTHOG_HOST:-}
+  KORTYX_USAGE_TELEMETRY_ENVIRONMENT: \${KORTYX_USAGE_TELEMETRY_ENVIRONMENT:-production}
+  KORTYX_USAGE_TELEMETRY_ID: \${KORTYX_USAGE_TELEMETRY_ID:-}
+
 services:
   postgres:
     image: postgres:17-alpine
@@ -46,7 +55,7 @@ services:
     pull_policy: \${KORTYX_STUDIO_PULL_POLICY:-always}
     user: "1000:1000"
     environment:
-      <<: *api-env
+      <<: [*api-env, *usage-env]
       NODE_ENV: production
       API_HOST: 0.0.0.0
       API_PORT: 6400
@@ -76,6 +85,7 @@ services:
     image: \${KORTYX_STUDIO_IMAGE_REF:-\${KORTYX_STUDIO_IMAGE:-ghcr.io/kortyx-io/kortyx-studio}:\${KORTYX_STUDIO_IMAGE_TAG:-latest}}
     pull_policy: \${KORTYX_STUDIO_PULL_POLICY:-always}
     environment:
+      <<: *usage-env
       NODE_ENV: production
       PORT: 6300
       KORTYX_API_URL: http://api:6400
@@ -107,6 +117,8 @@ services:
     # The updater alone needs root for the host Docker socket and ownership-safe
     # writes to the bind-mounted Studio state directory.
     user: "0:0"
+    environment:
+      <<: *usage-env
     command: ["node", "apps/api/dist/updater.js", "serve", "\${KORTYX_STUDIO_STATE_DIR}"]
     volumes:
       - type: bind

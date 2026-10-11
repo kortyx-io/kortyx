@@ -12,5 +12,5 @@
       "path": "../providers"
     }
   ],
-  "include": ["src/**/*"]
+  "include": ["src/**/*", "package.json"]
 }

@@ -42,7 +42,8 @@
   },
   "dependencies": {
     "@kortyx/providers": "workspace:*",
-    "@modelcontextprotocol/sdk": "catalog:"
+    "@modelcontextprotocol/sdk": "catalog:",
+    "@kortyx/usage-telemetry": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "catalog:",

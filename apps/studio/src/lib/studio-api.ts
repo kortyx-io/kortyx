@@ -1,3 +1,4 @@
+import { studioUsage } from "@studio/usage";
 import "server-only";
 
 import {
@@ -64,8 +65,13 @@ export const fetchJson = async <T>(
   path: string,
   parse: (value: unknown) => T,
 ): Promise<StudioRepoResult<T>> => {
+  const usageScope = studioUsage.server.start("studio.read", {
+    resource: path.split("/")[3]?.split("?")[0],
+    origin: "server",
+  });
   const credential = await studioAuth.getApiCredential();
   if (!apiUrl || !credential) {
+    usageScope.end("failed", { phase: "configuration" });
     return {
       data: null,
       error: {
@@ -96,6 +102,10 @@ export const fetchJson = async <T>(
     });
 
     if (!response.ok) {
+      usageScope.end("failed", {
+        phase: "http",
+        http_status: String(response.status),
+      });
       let code: string | undefined;
       let requestId: string | undefined;
       let message = `Kortyx Studio API request failed: ${response.status}`;
@@ -127,8 +137,36 @@ export const fetchJson = async <T>(
     }
 
     try {
-      return { data: parse(await response.json()), error: null };
+      const data = parse(await response.json());
+      usageScope.end();
+      // This is a successful data read, independent of customer run outcomes.
+      const resource = path.split("/")[3]?.split("?")[0];
+      try {
+        const totalCount =
+          data && Object.getOwnPropertyDescriptor(data, "totalCount")?.value;
+        const workflows =
+          data && Object.getOwnPropertyDescriptor(data, "workflows")?.value;
+        if (
+          (typeof totalCount === "number" && totalCount > 0) ||
+          (Array.isArray(workflows) && workflows.length > 0)
+        ) {
+          studioUsage.server.feature("studio.connection", {
+            resource,
+            action: "observed",
+            origin: "server",
+          });
+        }
+      } catch {
+        /* An optional observation fact cannot change a read result. */
+      }
+      if (path === "/v1/studio/context")
+        studioUsage.server.feature("studio.connection", {
+          action: "view",
+          origin: "server",
+        });
+      return { data, error: null };
     } catch (error) {
+      usageScope.end("failed", { phase: "parse" });
       return {
         data: null,
         error: {
@@ -141,6 +179,7 @@ export const fetchJson = async <T>(
       };
     }
   } catch (error) {
+    usageScope.end("failed", { phase: "network" });
     return {
       data: null,
       error: {

@@ -3,6 +3,7 @@ import {
   STUDIO_API_PROTOCOL_VERSION,
   StudioContextResponseSchema,
 } from "@kortyx/telemetry-contracts";
+import { studioUsage as usage } from "../usage";
 import { studioComposeFile } from "./compose";
 import { StudioReadClient, StudioReadError } from "./read-client";
 import {
@@ -201,7 +202,7 @@ export const rotateStudioCredentials = async (
   await printStudioConnection(home, config, runtime);
 };
 
-export const startStudio = async (
+const startStudioInternal = async (
   options: StudioStartOptions,
   runtime: StudioRuntime,
 ): Promise<void> => {
@@ -370,4 +371,25 @@ export const resetStudio = async (
   runtime.log(
     'Kortyx Studio data was deleted. Credentials were preserved; run "kortyx studio start" to create a fresh database.',
   );
+};
+
+export const startStudio = async (
+  options: StudioStartOptions,
+  runtime: StudioRuntime,
+): Promise<void> => {
+  const scope = usage.start("studio.setup", { origin: "cli" });
+  try {
+    await startStudioInternal(options, runtime);
+    scope.end();
+  } catch (error) {
+    scope.fail(error);
+    throw error;
+  } finally {
+    // The setup command exits immediately; flush after recording its outcome.
+    try {
+      await usage.flush();
+    } catch {
+      /* Preserve the command result. */
+    }
+  }
 };
