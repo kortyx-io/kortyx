@@ -159,12 +159,24 @@ export function createLegalFeed(
     if (historicalHash && historicalHash !== entry.hash)
       throw new Error("Historical document changed");
     const history = entries
+      .slice()
+      .sort((a, b) => {
+        const date = Date.parse(b.effectiveDate) - Date.parse(a.effectiveDate);
+        if (date) return date;
+        // Legacy staging and newer publication names share dates. Sort their
+        // numeric revision suffix rather than putting "staging" after .5/.6.
+        const revision = (value: string) =>
+          Number(value.match(/\.(\d+)(?:-draft)?$/)?.[1] ?? 0);
+        return (
+          revision(b.version) - revision(a.version) ||
+          b.version.localeCompare(a.version)
+        );
+      })
       .map((item) => ({
         version: item.version,
         date: item.effectiveDate,
         url: `${pathFor(product, slug)}/${item.version}`,
-      }))
-      .reverse();
+      }));
     if (entry.contentFormat === "website-content-v1") {
       if (
         product !== "website" ||
