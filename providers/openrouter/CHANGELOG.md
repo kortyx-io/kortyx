@@ -1,5 +1,20 @@
 # @kortyx/openrouter
 
+## [0.2.5](https://github.com/kortyx-io/kortyx/compare/openrouter-v0.2.4...openrouter-v0.2.5) (2026-10-11)
+
+
+### Bug Fixes
+
+* **website:** reconcile credibility branch with current main ([60199f9](https://github.com/kortyx-io/kortyx/commit/60199f992242eb7c409a95bc7a6898d31bac601d))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/core bumped to 0.13.1
+    * @kortyx/providers bumped to 0.9.2
+
 ## [0.2.4](https://github.com/kortyx-io/kortyx/compare/openrouter-v0.2.3...openrouter-v0.2.4) (2026-10-09)
 
 

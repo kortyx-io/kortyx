@@ -1,5 +1,28 @@
 # Changelog
 
+## [0.19.0](https://github.com/kortyx-io/kortyx/compare/cli-v0.18.0...cli-v0.19.0) (2026-10-11)
+
+
+### Features
+
+* add shared SDK and Studio usage telemetry ([#313](https://github.com/kortyx-io/kortyx/issues/313)) ([7d5f0c0](https://github.com/kortyx-io/kortyx/commit/7d5f0c005bd7721dc6a529554e75c14573d76a0f))
+
+
+### Bug Fixes
+
+* **website:** reconcile credibility branch with current main ([60199f9](https://github.com/kortyx-io/kortyx/commit/60199f992242eb7c409a95bc7a6898d31bac601d))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/agent bumped to 0.37.0
+    * @kortyx/core bumped to 0.13.1
+    * @kortyx/prompts bumped to 0.2.0
+    * @kortyx/telemetry-contracts bumped to 0.17.0
+    * @kortyx/usage-telemetry bumped to 0.2.0
+
 ## [0.18.0](https://github.com/kortyx-io/kortyx/compare/cli-v0.17.0...cli-v0.18.0) (2026-10-10)
 
 

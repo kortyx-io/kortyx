@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.25.4](https://github.com/kortyx-io/kortyx/compare/example-nextjs-chat-api-route-v0.25.3...example-nextjs-chat-api-route-v0.25.4) (2026-10-11)
+
+
+### Bug Fixes
+
+* **website:** reconcile credibility branch with current main ([60199f9](https://github.com/kortyx-io/kortyx/commit/60199f992242eb7c409a95bc7a6898d31bac601d))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/anthropic bumped to 0.4.8
+    * @kortyx/google bumped to 0.6.8
+    * @kortyx/openai bumped to 0.5.8
+    * @kortyx/react bumped to 0.8.4
+    * kortyx bumped to 0.30.1
+    * @kortyx/telemetry bumped to 0.15.0
+
 ## [0.25.3](https://github.com/kortyx-io/kortyx/compare/example-nextjs-chat-api-route-v0.25.2...example-nextjs-chat-api-route-v0.25.3) (2026-10-10)
 
 

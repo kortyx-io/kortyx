@@ -1,5 +1,33 @@
 # Changelog
 
+## [0.37.0](https://github.com/kortyx-io/kortyx/compare/agent-v0.36.0...agent-v0.37.0) (2026-10-11)
+
+
+### Features
+
+* add shared SDK and Studio usage telemetry ([#313](https://github.com/kortyx-io/kortyx/issues/313)) ([7d5f0c0](https://github.com/kortyx-io/kortyx/commit/7d5f0c005bd7721dc6a529554e75c14573d76a0f))
+
+
+### Bug Fixes
+
+* **website:** reconcile credibility branch with current main ([60199f9](https://github.com/kortyx-io/kortyx/commit/60199f992242eb7c409a95bc7a6898d31bac601d))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/core bumped to 0.13.1
+    * @kortyx/providers bumped to 0.9.2
+    * @kortyx/runtime bumped to 0.23.1
+    * @kortyx/stream bumped to 0.15.4
+    * @kortyx/utils bumped to 0.3.6
+    * @kortyx/prompts bumped to 0.2.0
+    * @kortyx/usage-telemetry bumped to 0.2.0
+  * devDependencies
+    * @kortyx/hooks bumped to 0.34.0
+    * @kortyx/openai bumped to 0.5.8
+
 ## [0.36.0](https://github.com/kortyx-io/kortyx/compare/agent-v0.35.0...agent-v0.36.0) (2026-10-10)
 
 

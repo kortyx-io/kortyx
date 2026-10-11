@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.23.1](https://github.com/kortyx-io/kortyx/compare/runtime-v0.23.0...runtime-v0.23.1) (2026-10-11)
+
+
+### Bug Fixes
+
+* **website:** reconcile credibility branch with current main ([60199f9](https://github.com/kortyx-io/kortyx/commit/60199f992242eb7c409a95bc7a6898d31bac601d))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/stream bumped to 0.15.4
+    * @kortyx/core bumped to 0.13.1
+    * @kortyx/hooks bumped to 0.34.0
+    * @kortyx/providers bumped to 0.9.2
+    * @kortyx/utils bumped to 0.3.6
+    * @kortyx/prompts bumped to 0.2.0
+
 ## [0.23.0](https://github.com/kortyx-io/kortyx/compare/runtime-v0.22.1...runtime-v0.23.0) (2026-10-10)
 
 

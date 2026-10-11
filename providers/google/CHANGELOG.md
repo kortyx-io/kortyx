@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.6.8](https://github.com/kortyx-io/kortyx/compare/google-v0.6.7...google-v0.6.8) (2026-10-11)
+
+
+### Bug Fixes
+
+* **website:** reconcile credibility branch with current main ([60199f9](https://github.com/kortyx-io/kortyx/commit/60199f992242eb7c409a95bc7a6898d31bac601d))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/providers bumped to 0.9.2
+    * @kortyx/core bumped to 0.13.1
+
 ## [0.6.7](https://github.com/kortyx-io/kortyx/compare/google-v0.6.6...google-v0.6.7) (2026-10-09)
 
 

@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.8.13](https://github.com/kortyx-io/kortyx/compare/example-canvas-v0.8.12...example-canvas-v0.8.13) (2026-10-11)
+
+
+### Bug Fixes
+
+* **website:** reconcile credibility branch with current main ([60199f9](https://github.com/kortyx-io/kortyx/commit/60199f992242eb7c409a95bc7a6898d31bac601d))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/google bumped to 0.6.8
+    * @kortyx/react bumped to 0.8.4
+    * @kortyx/telemetry bumped to 0.15.0
+    * kortyx bumped to 0.30.1
+  * devDependencies
+    * @kortyx/cli bumped to 0.19.0
+
 ## [0.8.12](https://github.com/kortyx-io/kortyx/compare/example-canvas-v0.8.11...example-canvas-v0.8.12) (2026-10-10)
 
 
