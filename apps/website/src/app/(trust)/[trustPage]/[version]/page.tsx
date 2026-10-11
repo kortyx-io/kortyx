@@ -1,12 +1,11 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { TrustPage } from "@/components/trust/trust-page";
-import {
-  getLegalDocumentRelease,
-  getWebsiteLegalReleases,
-  isLegalDocumentSlug,
-} from "@/lib/legal-documents";
-export const dynamicParams = false;
+import { getWebsiteLegalReleases } from "@/lib/legal-documents";
+import { getPublishedLegal } from "@/lib/legal-feed";
+import { isTrustPageSlug } from "@/lib/trust";
+export const dynamic = "force-dynamic";
+export const dynamicParams = true;
 export function generateStaticParams() {
   return getWebsiteLegalReleases().map((release) => ({
     trustPage: release.pathname.slice(1),
@@ -16,28 +15,29 @@ export function generateStaticParams() {
 type Props = { params: Promise<{ trustPage: string; version: string }> };
 async function resolve(props: Props) {
   const { trustPage, version } = await props.params;
-  if (!isLegalDocumentSlug(trustPage)) notFound();
-  if (
-    !getWebsiteLegalReleases().some(
-      (item) => item.pathname === `/${trustPage}` && item.version === version,
-    )
-  )
-    notFound();
-  return {
-    trustPage,
-    version,
-    release: getLegalDocumentRelease(trustPage, version),
-  };
+  const published = await getPublishedLegal("website", trustPage, version);
+  if (!published) notFound();
+  return { trustPage, version, published };
 }
 export async function generateMetadata(props: Props): Promise<Metadata> {
-  const { trustPage, version, release } = await resolve(props);
+  const { trustPage, version, published } = await resolve(props);
   return {
-    title: `${release.content.title} · ${version}`,
+    title: `${published.entry.title} · ${version}`,
     alternates: { canonical: `/${trustPage}/${version}` },
     robots: { index: false, follow: true },
   };
 }
 export default async function Page(props: Props) {
-  const { trustPage, version } = await resolve(props);
-  return <TrustPage slug={trustPage} websiteVersion={version} />;
+  const { trustPage, version, published } = await resolve(props);
+  return (
+    <TrustPage
+      slug={isTrustPageSlug(trustPage) ? trustPage : "legal"}
+      websiteVersion={version}
+      documentProduct="website"
+      cloudDocument={published.document}
+      websiteRelease={published.websiteRelease}
+      contentFormat={published.entry.contentFormat}
+      publicationHistory={published.history}
+    />
+  );
 }

@@ -4,11 +4,11 @@ import { TrustPage } from "@/components/trust/trust-page";
 import {
   cloudLegalSlugs,
   cloudLegalUrls,
-  getCloudLegalDocument,
   getCloudLegalDocuments,
-  isCloudLegalSlug,
 } from "@/lib/cloud-legal";
-export const dynamicParams = false;
+import { getPublishedLegal } from "@/lib/legal-feed";
+export const dynamic = "force-dynamic";
+export const dynamicParams = true;
 export function generateStaticParams() {
   return [
     ...cloudLegalSlugs.map((document) => ({ document, version: [] })),
@@ -21,10 +21,10 @@ export function generateStaticParams() {
 type Props = { params: Promise<{ document: string; version?: string[] }> };
 async function resolveDocument({ params }: Props) {
   const { document: slug, version } = await params;
-  if (!isCloudLegalSlug(slug) || (version?.length ?? 0) > 1) notFound();
-  const document = getCloudLegalDocument(slug, version?.[0]);
-  if (!document) notFound();
-  return { document, version };
+  if ((version?.length ?? 0) > 1) notFound();
+  const published = await getPublishedLegal("cloud", slug, version?.[0]);
+  if (!published?.document) notFound();
+  return { document: published.document, version, published };
 }
 export async function generateMetadata(props: Props): Promise<Metadata> {
   const { document, version } = await resolveDocument(props);
@@ -40,6 +40,13 @@ export async function generateMetadata(props: Props): Promise<Metadata> {
   };
 }
 export default async function Page(props: Props) {
-  const { document } = await resolveDocument(props);
-  return <TrustPage slug="terms" cloudDocument={document} />;
+  const { document, published } = await resolveDocument(props);
+  return (
+    <TrustPage
+      slug="terms"
+      cloudDocument={document}
+      contentFormat={published.entry.contentFormat}
+      publicationHistory={published.history}
+    />
+  );
 }

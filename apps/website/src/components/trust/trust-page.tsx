@@ -1,5 +1,7 @@
 import { ArrowUpRight, Check, CircleDashed } from "lucide-react";
 import Link from "next/link";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { PrivacySettings } from "@/components/consent/privacy-settings";
 import { MarketingShell } from "@/components/marketing/marketing-shell";
 import {
@@ -10,7 +12,6 @@ import {
 import {
   type CloudLegalDocument,
   cloudLegalSlugs,
-  cloudLegalUrls,
   getCloudLegalDocuments,
   hashCloudLegalDocument,
 } from "@/lib/cloud-legal";
@@ -20,6 +21,7 @@ import {
   getWebsiteLegalReleases,
   isLegalDocumentSlug,
 } from "@/lib/legal-documents";
+import type { WebsiteRelease } from "@/lib/legal-feed";
 import { externalLinkProps } from "@/lib/links";
 import { siteConfig } from "@/lib/site";
 import {
@@ -140,25 +142,36 @@ export function TrustPage({
   slug,
   cloudDocument,
   websiteVersion,
+  websiteRelease,
+  documentProduct = "cloud",
+  contentFormat = "plain-text-v1",
+  publicationHistory,
 }: {
   slug: TrustPageSlug;
   cloudDocument?: CloudLegalDocument;
   websiteVersion?: string;
+  websiteRelease?: WebsiteRelease;
+  documentProduct?: "cloud" | "website";
+  contentFormat?: "plain-text-v1" | "markdown-v1" | "website-content-v1";
+  publicationHistory?: { version: string; date: string; url: string }[];
 }) {
   const basePage = cloudDocument
     ? {
         title: cloudDocument.title,
         label: cloudDocument.title,
-        eyebrow: "Kortyx Cloud · Legal documents",
+        eyebrow: `${documentProduct === "cloud" ? "Kortyx Cloud" : "Kortyx website"} · Legal documents`,
         description:
-          {
-            terms: "The terms that govern your use of hosted Kortyx Cloud.",
-            privacy:
-              "How Kortyx Cloud handles account information and application data.",
-            dpa: "The framework for processing customer personal data in Kortyx Cloud.",
-            subprocessors:
-              "Information about service providers supporting Kortyx Cloud.",
-          }[cloudDocument.slug] ?? "Legal information for hosted Kortyx Cloud.",
+          documentProduct === "website"
+            ? "Legal information for the Kortyx website."
+            : ({
+                terms: "The terms that govern your use of hosted Kortyx Cloud.",
+                privacy:
+                  "How Kortyx Cloud handles account information and application data.",
+                dpa: "The framework for processing customer personal data in Kortyx Cloud.",
+                subprocessors:
+                  "Information about service providers supporting Kortyx Cloud.",
+              }[cloudDocument.slug] ??
+              "Legal information for hosted Kortyx Cloud."),
         isLegal: true,
         cards: undefined,
         sections: cloudDocument.sections.map((section, index) => ({
@@ -170,45 +183,53 @@ export function TrustPage({
       }
     : getTrustPage(slug);
   const release =
-    !cloudDocument && isLegalDocumentSlug(slug)
+    websiteRelease ??
+    (!cloudDocument && isLegalDocumentSlug(slug)
       ? getLegalDocumentRelease(slug, websiteVersion)
-      : null;
+      : null);
   const page = release ? { ...basePage, ...release.content } : basePage;
-  const legalScope = cloudDocument ? "Kortyx Cloud" : "Kortyx website";
+  const legalScope =
+    cloudDocument && documentProduct === "cloud"
+      ? "Kortyx Cloud"
+      : "Kortyx website";
   const updatedAt =
     cloudDocument?.effectiveDate ?? release?.updatedAt ?? trustContentUpdated;
 
   const publication = cloudDocument
     ? {
         version: cloudDocument.version,
-        currentUrl: `/cloud/${cloudDocument.slug}`,
-        versionUrl: `/cloud/${cloudDocument.slug}/${cloudDocument.version}`,
-        contentUrl: cloudLegalUrls(cloudDocument.slug, cloudDocument.version)
-          .contentUrl,
+        currentUrl: `${documentProduct === "cloud" ? "/cloud" : ""}/${cloudDocument.slug}`,
+        versionUrl: `${documentProduct === "cloud" ? "/cloud" : ""}/${cloudDocument.slug}/${cloudDocument.version}`,
+        contentUrl: `/legal/${documentProduct}/${cloudDocument.slug}/${cloudDocument.version}.json`,
         hash: hashCloudLegalDocument(cloudDocument),
-        history: getCloudLegalDocuments()
-          .filter((doc) => doc.slug === cloudDocument.slug)
-          .map((doc) => ({
-            version: doc.version,
-            url: `/cloud/${doc.slug}/${doc.version}`,
-            date: doc.effectiveDate,
-          }))
-          .reverse(),
+        history:
+          publicationHistory ??
+          getCloudLegalDocuments()
+            .filter((doc) => doc.slug === cloudDocument.slug)
+            .map((doc) => ({
+              version: doc.version,
+              url: `/cloud/${doc.slug}/${doc.version}`,
+              date: doc.effectiveDate,
+            }))
+            .reverse(),
       }
     : release
       ? {
           version: release.version,
           currentUrl: `/${slug}`,
           versionUrl: `/${slug}/${release.version}`,
+          contentUrl: `/legal/website/${slug}/${release.version}.json`,
           hash: release.hash,
-          history: getWebsiteLegalReleases()
-            .filter((item) => item.id === release.id)
-            .map((item) => ({
-              version: item.version,
-              url: `/${slug}/${item.version}`,
-              date: item.updatedAt,
-            }))
-            .reverse(),
+          history:
+            publicationHistory ??
+            getWebsiteLegalReleases()
+              .filter((item) => item.id === release.id)
+              .map((item) => ({
+                version: item.version,
+                url: `/${slug}/${item.version}`,
+                date: item.updatedAt,
+              }))
+              .reverse(),
         }
       : null;
 
@@ -262,9 +283,12 @@ export function TrustPage({
                   key={item}
                   href={`/${item}`}
                   aria-current={
-                    !cloudDocument && slug === item ? "page" : undefined
+                    (!cloudDocument || documentProduct === "website") &&
+                    slug === item
+                      ? "page"
+                      : undefined
                   }
-                  className={`inline-flex min-h-11 items-center rounded-lg px-3 text-sm focus-visible:outline-2 focus-visible:outline-[#a89cff] ${!cloudDocument && slug === item ? "bg-[#a89cff]/12 text-[#ded8ff]" : "text-[#b8b5c9] hover:bg-white/5 hover:text-white"}`}
+                  className={`inline-flex min-h-11 items-center rounded-lg px-3 text-sm focus-visible:outline-2 focus-visible:outline-[#a89cff] ${(!cloudDocument || documentProduct === "website") && slug === item ? "bg-[#a89cff]/12 text-[#ded8ff]" : "text-[#b8b5c9] hover:bg-white/5 hover:text-white"}`}
                 >
                   {trustPages[item].label}
                 </Link>
@@ -279,9 +303,11 @@ export function TrustPage({
                   key={item}
                   href={`/cloud/${item}`}
                   aria-current={
-                    cloudDocument?.slug === item ? "page" : undefined
+                    documentProduct === "cloud" && cloudDocument?.slug === item
+                      ? "page"
+                      : undefined
                   }
-                  className={`inline-flex min-h-11 items-center rounded-lg px-3 text-sm focus-visible:outline-2 focus-visible:outline-[#a89cff] ${cloudDocument?.slug === item ? "bg-[#a89cff]/12 text-[#ded8ff]" : "text-[#b8b5c9] hover:bg-white/5 hover:text-white"}`}
+                  className={`inline-flex min-h-11 items-center rounded-lg px-3 text-sm focus-visible:outline-2 focus-visible:outline-[#a89cff] ${documentProduct === "cloud" && cloudDocument?.slug === item ? "bg-[#a89cff]/12 text-[#ded8ff]" : "text-[#b8b5c9] hover:bg-white/5 hover:text-white"}`}
                 >
                   {
                     {
@@ -338,20 +364,43 @@ export function TrustPage({
                   {section.title}
                 </h2>
                 <div className="mt-5 space-y-4 text-base leading-8 text-[#c9c6d6]">
-                  {section.paragraphs.map((paragraph) => (
-                    <p
-                      key={paragraph}
-                      data-legal-text={
-                        cloudDocument || release ? true : undefined
-                      }
-                    >
-                      {cloudDocument ? (
-                        <DocumentText text={paragraph} />
-                      ) : (
-                        paragraph
-                      )}
-                    </p>
-                  ))}
+                  {section.paragraphs.map((paragraph) =>
+                    contentFormat === "markdown-v1" ? (
+                      <div
+                        key={paragraph}
+                        data-legal-text
+                        className="space-y-4 [&_h3]:text-xl [&_h3]:font-semibold [&_h4]:font-semibold [&_ul]:list-disc [&_ul]:pl-6 [&_ol]:list-decimal [&_ol]:pl-6 [&_li]:my-2 [&_a]:text-[#d2caff] [&_a]:underline [&_blockquote]:border-l-2 [&_blockquote]:border-white/20 [&_blockquote]:pl-4 [&_pre]:overflow-x-auto [&_pre]:rounded-lg [&_pre]:bg-white/5 [&_pre]:p-4 [&_table]:block [&_table]:overflow-x-auto [&_td]:border [&_td]:border-white/15 [&_td]:p-2 [&_th]:border [&_th]:border-white/15 [&_th]:p-2"
+                      >
+                        <ReactMarkdown
+                          remarkPlugins={[remarkGfm]}
+                          skipHtml
+                          disallowedElements={["img"]}
+                          components={{
+                            a: ({ href, children }) => (
+                              <a href={href} {...externalLinkProps(href ?? "")}>
+                                {children}
+                              </a>
+                            ),
+                          }}
+                        >
+                          {paragraph}
+                        </ReactMarkdown>
+                      </div>
+                    ) : (
+                      <p
+                        key={paragraph}
+                        data-legal-text={
+                          cloudDocument || release ? true : undefined
+                        }
+                      >
+                        {cloudDocument ? (
+                          <DocumentText text={paragraph} />
+                        ) : (
+                          paragraph
+                        )}
+                      </p>
+                    ),
+                  )}
                 </div>
                 {slug === "legal" && section.id === "operator" ? (
                   <OperatorDetails operator={release?.content.operator} />

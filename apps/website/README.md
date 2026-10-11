@@ -78,3 +78,8 @@ pnpm --filter kortyx-website lint
 ## License
 
 Apache-2.0. See [LICENSE](https://github.com/kortyx-io/kortyx/blob/main/LICENSE).
+
+
+### Legal publication feed
+
+Legal pages can read the environment-specific publication registry at request time. Configure server-only `WEBSITE_LEGAL_ENVIRONMENT`, `WEBSITE_LEGAL_SERVICE_URL` and `WEBSITE_LEGAL_SERVICE_KEY`; staging and PR previews use staging, production uses production. With no settings, local development uses checked-in archives. Configured feeds fail closed on outage, wrong environment or integrity failure. See [the document contract](docs/cloud-legal-contract.md) for exact URLs, formats, hashes, migration order and Cloud integration boundaries. Website navigation never records acceptance.

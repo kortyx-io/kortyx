@@ -1,10 +1,7 @@
-import {
-  getCloudLegalDocument,
-  getCloudLegalDocuments,
-  serializeCloudLegalDocument,
-} from "@/lib/cloud-legal";
-export const dynamic = "force-static";
-export const dynamicParams = false;
+import { getCloudLegalDocuments } from "@/lib/cloud-legal";
+import { getPublishedLegal } from "@/lib/legal-feed";
+export const dynamic = "force-dynamic";
+export const dynamicParams = true;
 export function generateStaticParams() {
   return getCloudLegalDocuments().map(({ slug, version }) => ({
     document: slug,
@@ -17,13 +14,16 @@ export async function GET(
 ) {
   const { document: slug, release } = await params;
   const document = release.endsWith(".json")
-    ? getCloudLegalDocument(slug, release.slice(0, -5))
+    ? await getPublishedLegal("cloud", slug, release.slice(0, -5))
     : undefined;
   if (!document) return new Response("Not found", { status: 404 });
-  return new Response(serializeCloudLegalDocument(document), {
+  return new Response(document.bytes, {
     headers: {
       "Content-Type": "application/json; charset=utf-8",
       "X-Robots-Tag": "noindex",
+      "X-Content-SHA256": document.entry.hash,
+      "X-Legal-Content-Format": document.entry.contentFormat,
+      "X-Legal-Hash-Contract": "kortyx-cloud-json-sha256-v1",
       "Cache-Control": "public, max-age=31536000, immutable",
     },
   });

@@ -9,7 +9,7 @@ import legacy from "@/legal/cloud/legacy-releases.json";
 import hashes from "@/legal/release-hashes.json";
 import {
   cloudLegalSlugs,
-  currentCloudLegalVersion,
+  currentCloudLegalVersions,
   getCloudLegalDocument,
   getCloudLegalDocuments,
   getCloudLegalManifest,
@@ -70,8 +70,11 @@ describe("immutable Cloud publication contract", () => {
     );
     expect(JSON.stringify(current)).not.toContain("Organization Settings");
     expect(JSON.stringify(current)).toContain("revocable permission");
-    expect(JSON.stringify(current)).toContain("within 10 business days");
+    expect(JSON.stringify(historical)).toContain("10 business days");
     expect(JSON.stringify(current)).toContain(
+      "Rights granted under previously accepted Terms remain unaffected",
+    );
+    expect(JSON.stringify(current)).not.toContain(
       "https://github.com/kortyx-io/kortyx/discussions",
     );
     expect(JSON.stringify(current)).toContain("not consent to marketing email");
@@ -83,7 +86,7 @@ describe("immutable Cloud publication contract", () => {
   it("provides all current drafts without privately sourced infrastructure disclosures", () => {
     for (const slug of cloudLegalSlugs) {
       const document = documentFor(slug);
-      expect(document.version).toBe(currentCloudLegalVersion);
+      expect(document.version).toBe(currentCloudLegalVersions[slug]);
       expect(document.draft).toBe(true);
       expect(
         document.sections
@@ -134,7 +137,7 @@ describe("immutable Cloud publication contract", () => {
     expect(isCloudLegalSlug("__proto__")).toBe(false);
   });
   it("advertises canonical and permanent URLs without manufacturing acceptance", async () => {
-    const manifest = await getManifest().json();
+    const manifest = await (await getManifest()).json();
     expect(manifest).toEqual(getCloudLegalManifest());
     for (const release of manifest.releases) {
       expect(release.versionUrl).toBe(

@@ -1,6 +1,6 @@
 # Cloud legal publication and private integration handoff
 
-This public PR implements document hosting, archives, navigation and deterministic release metadata. It does **not** implement or activate Cloud acceptance. The current publication candidates are not production-approved; the DPA is not executed. The reader-facing layout is polished, while approval status remains explicit in the manifest and expandable verification details. The supplied operator name is **Kortyx S.L.** Registration is not verified. No Cloud-owned source or infrastructure configuration is included here.
+This public PR implements document hosting, archives, navigation, deterministic release metadata and an environment-bound server-side publication feed. It does **not** implement or activate Cloud acceptance. The current publication candidates are not production-approved; the DPA is not executed. The reader-facing layout is polished, while approval status remains explicit in the manifest and expandable verification details. The supplied operator name is **Kortyx S.L.** Registration is not verified. No Cloud-owned source or infrastructure configuration is included here.
 
 ## URLs and release selection
 
@@ -8,7 +8,7 @@ Origin: `https://kortyx.io`. Preview: `https://pr-266.kortyx.dev` after its depl
 
 | Document / identifier | Convenient website URL | Permanent candidate URL |
 | --- | --- | --- |
-| Cloud Terms / `kortyx.cloud.terms` | `/cloud/terms` | `/cloud/terms/2026-10-11.5` |
+| Cloud Terms / `kortyx.cloud.terms` | `/cloud/terms` | `/cloud/terms/2026-10-11.6` |
 | Cloud Privacy / `kortyx.cloud.privacy` | `/cloud/privacy` | `/cloud/privacy/2026-10-11.5` |
 | DPA / `kortyx.cloud.dpa` | `/cloud/dpa` | `/cloud/dpa/2026-10-11.5` |
 | Subprocessors / `kortyx.cloud.subprocessors` | `/cloud/subprocessors` | `/cloud/subprocessors/2026-10-11.5` |
@@ -104,10 +104,29 @@ The future editor should support edit → review → publish → separately acti
 
 The public website becomes a read-only renderer/cache of that service's published releases. Use the same current/permanent/JSON URL contract already established here. Verify stored metadata and hashes when importing or resolving content; retain immutable archives and avoid an outage switching a version or returning current text at a historical URL. Private signing keys, admin writes, c15t tenants and acceptance evidence stay outside the public website code and public content API.
 
-Current pages enumerate known versions at build time with `dynamicParams: false`. When the shared service is implemented, replace file lookup and build-only enumeration with a server-side published-version resolver and bounded caching. A newly published version should then become readable without a website code deployment; unpublished/unknown versions must still return 404. Current URLs revalidate the publication pointer, while permanent URLs resolve immutable bytes. This dynamic resolver is a follow-up, not a capability claimed by the present static-file implementation.
+Pages resolve published versions at request time. New versions from the configured service become readable without a website deployment. Unknown/unpublished versions return 404; malformed, cross-environment, unavailable or hash-mismatched feeds fail closed instead of returning current or other-environment text. Existing checked-in historical hash pins are also verified.
+
+Runtime configuration (server-only; never use `NEXT_PUBLIC_`):
+
+- `WEBSITE_LEGAL_ENVIRONMENT`: `staging` for staging and every PR preview; `production` for the production website.
+- `WEBSITE_LEGAL_SERVICE_URL`: trusted deployment-local publication endpoint ending in `/api/legal`.
+- `WEBSITE_LEGAL_SERVICE_KEY`: a read-only feed credential, separate for each environment. Configure preview runtime values as well as ordinary runtime values.
+
+The service must return `X-Kortyx-Consent-Tenant: kortyx-cloud-<environment>` and the routes/contracts exercised by `src/lib/legal-feed.test.ts`. Redirects are refused. Credentials stay server-side. With no feed configuration, local development uses the checked-in immutable archives; partial configuration fails rather than silently falling back. Deployed targets must configure all three settings and verify `/legal/manifest.json` reports the intended environment.
+
+`/legal/manifest.json` lists public Cloud and website releases, current pointers, immutable content formats, approval status and hashes. `/legal/cloud/manifest.json` retains the Cloud-specific contract. Cloud pages use `/cloud/<slug>[/<version>]` and JSON `/legal/cloud/<slug>/<version>.json`; website notices use `/<slug>[/<version>]` and JSON `/legal/website/<slug>/<version>.json`. Historical version routes never redirect to the current pointer.
+
+For original website notices, `website-content-v1` / `kortyx-website-content-sha256-v1` hash the exact original compact content-object bytes. They are not converted to the Cloud envelope. New rich text uses the existing Cloud hash envelope with immutable `markdown-v1` metadata. Rendering supports headings, emphasis, lists, tables and safe links without raw HTML or embedded images. Plain archive text stays literal. Every content JSON response supplies `X-Content-SHA256`, `X-Legal-Content-Format` and `X-Legal-Hash-Contract`.
+
+Roll out the registry first, import and verify the existing archives, then enable website feed configuration. Verify current and historical URLs and compare raw response SHA-256 before Cloud switches its links. A release can be published publicly without activating an acceptance requirement. Turning off the feed returns the build's original archives and hides later service-only releases; therefore restoration of the service is preferred to disabling it after new publications.
 
 Cloud resolves the active Terms version server-side, links its exact website URL and uses its signed snapshot for explicit acceptance. Any required reacceptance is an authenticated, version-bound action; prior evidence is retained. Keep product enforcement authoritative and keep essential account/deletion controls accessible as specified by the existing contract.
 
 Website privacy preferences need a separate backend-backed c15t integration before claiming durable records or coordinated policy renewal. c15t documents [hosted versus offline mode](https://c15t.com/docs/shared/concepts/client-modes): offline storage does not provide durable server-side records. In this context hosted mode can use the existing self-hosted backend; it does not require the managed c15t service. Website anonymous subjects and Cloud account subjects need explicitly designed identity and tenant scopes. Do not infer account identity from browser cookies or copy consent across products.
 
 Configure renewal per document/purpose: activating new contractual Terms may require explicit reacceptance; changing optional cookie/marketing purposes may require renewed choices and pre-consent blocking. Updating a Privacy Notice, correcting typography, or publishing a DPA must not automatically turn a notice into contractual acceptance or execute an agreement. Keep website storage acknowledgement, Cloud Terms, optional onboarding answers and marketing choices independent. No renewal or real-user acceptance is performed here.
+
+
+### Publicity wording correction
+
+Terms candidate `2026-10-11.6` replaces only the publicity paragraph from candidate `.5`. It describes organization name/logo use without advertising the removed settings UI or a public support workflow. Permission remains revocable and previously accepted rights remain unaffected. The `.5` and all accepted archives stay byte-for-byte unchanged. This new candidate is not activated or production-approved. Terms SHA-256: `7b8bea0abcabbdc158bec1f17fde45e2850264a671a255ae0b71d7730c88b021`. Other Cloud documents remain at `2026-10-11.5`.

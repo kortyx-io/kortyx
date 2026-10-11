@@ -13,6 +13,7 @@ import terms1 from "@/legal/cloud/terms.2026-10-08.staging.1.json";
 import terms2 from "@/legal/cloud/terms.2026-10-08.staging.2.json";
 import terms3 from "@/legal/cloud/terms.2026-10-10.staging.3.json";
 import terms5 from "@/legal/cloud/terms.2026-10-11.5.json";
+import terms6 from "@/legal/cloud/terms.2026-10-11.6.json";
 import terms4 from "@/legal/cloud/terms.2026-10-11.staging.4.json";
 import { siteConfig } from "./site";
 
@@ -47,8 +48,15 @@ const documents: CloudLegalDocument[] = [
   privacy5,
   dpa5,
   subprocessors5,
+  terms6,
 ];
 export const currentCloudLegalVersion = "2026-10-11.5";
+export const currentCloudLegalVersions: Record<CloudLegalSlug, string> = {
+  terms: "2026-10-11.6",
+  privacy: currentCloudLegalVersion,
+  dpa: currentCloudLegalVersion,
+  subprocessors: currentCloudLegalVersion,
+};
 export const cloudLegalHashContract = "kortyx-cloud-json-sha256-v1";
 export function isCloudLegalSlug(value: string): value is CloudLegalSlug {
   return cloudLegalSlugs.some((slug) => slug === value);
@@ -63,16 +71,20 @@ export function hashCloudLegalDocument(document: CloudLegalDocument): string {
     .update(serializeCloudLegalDocument(document), "utf8")
     .digest("hex");
 }
-export function cloudLegalUrls(slug: string, version: string) {
+export function cloudLegalUrls(
+  slug: string,
+  version: string,
+  origin = siteConfig.url,
+) {
   return {
-    canonicalUrl: `${siteConfig.url}/cloud/${slug}`,
-    versionUrl: `${siteConfig.url}/cloud/${slug}/${version}`,
-    contentUrl: `${siteConfig.url}/legal/cloud/${slug}/${version}.json`,
+    canonicalUrl: `${origin}/cloud/${slug}`,
+    versionUrl: `${origin}/cloud/${slug}/${version}`,
+    contentUrl: `${origin}/legal/cloud/${slug}/${version}.json`,
   };
 }
 export function getCloudLegalDocument(
   slug: string,
-  version = currentCloudLegalVersion,
+  version = currentCloudLegalVersions[slug as CloudLegalSlug],
 ) {
   return structuredClone(
     documents.find((doc) => doc.slug === slug && doc.version === version),
@@ -89,6 +101,12 @@ export function getCloudLegalManifest() {
     manifestUrl: `${siteConfig.url}/legal/cloud/manifest.json`,
     // Website preview selection is not a c15t policy activation.
     currentWebsiteVersion: currentCloudLegalVersion,
+    currentVersions: Object.fromEntries(
+      Object.entries(currentCloudLegalVersions).map(([slug, version]) => [
+        `kortyx.cloud.${slug}`,
+        version,
+      ]),
+    ),
     cloudActivation: "pending-private-cloud-change",
     releases: documents.map((document) => ({
       id: `kortyx.cloud.${document.slug}`,
