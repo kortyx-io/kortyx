@@ -55,7 +55,8 @@
     "swr": "^2.5.1",
     "tailwind-merge": "catalog:",
     "yaml": "2.8.3",
-    "zod": "^4.3.6"
+    "zod": "^4.3.6",
+    "@kortyx/usage-telemetry": "workspace:*"
   },
   "devDependencies": {
     "@kortyx/agent": "workspace:*",

@@ -19,3 +19,7 @@ dependency manifest and the same immutable snapshot. Included inputs must be
 declared by the parent interface; parent configuration remains authoritative.
 Nested references are bounded and record exact dependency provenance. Studio's
 TipTap picker displays `#Name@vN`; selecting Latest creates an exact pin.
+
+### Browser schemas and compilation
+
+Import portable schemas, references, hashes and compilation helpers from `@kortyx/prompts/browser` in browser code and shared wire contracts. The root entry includes runtime prompt resolution and Node maintainer usage instrumentation. Its portable APIs remain available to browser bundlers, where automatic Node collection is disabled.

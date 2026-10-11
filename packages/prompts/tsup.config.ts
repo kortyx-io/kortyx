@@ -1,6 +1,6 @@
 import { defineConfig } from "tsup";
 export default defineConfig({
-  entry: ["src/index.ts"],
+  entry: ["src/index.ts", "src/browser.ts"],
   format: ["cjs"],
   dts: true,
   tsconfig: "tsconfig.build.json",

@@ -1,3 +1,4 @@
+import { studioFeature, studioOperation } from "@/usage/client";
 export type LiveRefreshStatus =
   | "off"
   | "connecting"
@@ -102,11 +103,19 @@ export const createLiveRefreshController = (
       refreshTrailingForced ||= force;
       return;
     }
+    const refreshUsage = studioOperation("studio.live", {
+      resource: options.resource,
+      action: force ? "manual_refresh" : "refresh",
+      origin: force ? "foreground" : "background",
+    });
     refreshActive = true;
     publish({ refreshing: true });
     void options
       .refresh()
-      .catch(() => undefined)
+      .then(
+        () => refreshUsage.end(),
+        (error) => refreshUsage.fail(error),
+      )
       .finally(() => {
         refreshActive = false;
         publish({ refreshing: false });
@@ -142,6 +151,11 @@ export const createLiveRefreshController = (
     source = nextSource;
     nextSource.onopen = () => {
       if (source !== nextSource) return;
+      studioFeature("studio.live", {
+        resource: options.resource,
+        status: "live",
+        origin: "background",
+      });
       clearScheduledWork();
       publish({ status: "live" });
       // Reconcile the gap between the initial read and opening the subscription.
@@ -150,6 +164,11 @@ export const createLiveRefreshController = (
     };
     nextSource.onerror = () => {
       if (source !== nextSource) return;
+      studioFeature("studio.live", {
+        resource: options.resource,
+        status: "reconnecting",
+        origin: "background",
+      });
       closeSource();
       publish({ status: "reconnecting" });
       scheduleFallback();

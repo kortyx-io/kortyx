@@ -1,3 +1,4 @@
+import { studioUsage } from "@studio/usage";
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { cookies } from "next/headers";
@@ -13,6 +14,7 @@ import {
   THEME_PREFERENCE_COOKIE,
   THEME_RESOLVED_COOKIE,
 } from "@/lib/theme";
+import { UsageProvider } from "@/usage/provider";
 import "@studio/styles";
 import { Providers } from "./providers";
 
@@ -73,44 +75,46 @@ export default async function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        <Providers>
-          <ThemeProvider initialTheme={theme}>
-            <NuqsAdapter>
-              <SidebarLayout
-                detailSlots={
-                  <DetailDrawerHost>
-                    <DetailSlotPresence dismissPath="/prompts">
-                      {promptDrawer}
-                    </DetailSlotPresence>
-                    <DetailSlotPresence dismissPath="/prompts">
-                      {promptGroupsDrawer}
-                    </DetailSlotPresence>
-                    <DetailSlotPresence dismissPath="/prompts/groups">
-                      {promptGroupDrawer}
-                    </DetailSlotPresence>
-                    <DetailSlotPresence dismissPath="/evals/suites">
-                      {evalSuiteDrawer}
-                    </DetailSlotPresence>
-                    <DetailSlotPresence dismissPath="/evals/cases">
-                      {evalCaseDrawer}
-                    </DetailSlotPresence>
-                    <DetailSlotPresence dismissPath="/sessions">
-                      {sessionDrawer}
-                    </DetailSlotPresence>
-                    <DetailSlotPresence dismissPath="/runs">
-                      {runDrawer}
-                    </DetailSlotPresence>
-                    <DetailSlotPresence dismissPath="/interrupts">
-                      {interruptDrawer}
-                    </DetailSlotPresence>
-                  </DetailDrawerHost>
-                }
-              >
-                {children}
-              </SidebarLayout>
-            </NuqsAdapter>
-          </ThemeProvider>
-        </Providers>
+        <UsageProvider config={studioUsage.browserConfig()}>
+          <Providers>
+            <ThemeProvider initialTheme={theme}>
+              <NuqsAdapter>
+                <SidebarLayout
+                  detailSlots={
+                    <DetailDrawerHost>
+                      <DetailSlotPresence dismissPath="/prompts">
+                        {promptDrawer}
+                      </DetailSlotPresence>
+                      <DetailSlotPresence dismissPath="/prompts">
+                        {promptGroupsDrawer}
+                      </DetailSlotPresence>
+                      <DetailSlotPresence dismissPath="/prompts/groups">
+                        {promptGroupDrawer}
+                      </DetailSlotPresence>
+                      <DetailSlotPresence dismissPath="/evals/suites">
+                        {evalSuiteDrawer}
+                      </DetailSlotPresence>
+                      <DetailSlotPresence dismissPath="/evals/cases">
+                        {evalCaseDrawer}
+                      </DetailSlotPresence>
+                      <DetailSlotPresence dismissPath="/sessions">
+                        {sessionDrawer}
+                      </DetailSlotPresence>
+                      <DetailSlotPresence dismissPath="/runs">
+                        {runDrawer}
+                      </DetailSlotPresence>
+                      <DetailSlotPresence dismissPath="/interrupts">
+                        {interruptDrawer}
+                      </DetailSlotPresence>
+                    </DetailDrawerHost>
+                  }
+                >
+                  {children}
+                </SidebarLayout>
+              </NuqsAdapter>
+            </ThemeProvider>
+          </Providers>
+        </UsageProvider>
       </body>
     </html>
   );

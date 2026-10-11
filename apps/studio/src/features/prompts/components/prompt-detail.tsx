@@ -1,5 +1,5 @@
 "use client";
-import { type PromptContent, promptHash } from "@kortyx/prompts";
+import { type PromptContent, promptHash } from "@kortyx/prompts/browser";
 import {
   type PromptDetail,
   PromptDetailSchema,

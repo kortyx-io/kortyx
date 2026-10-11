@@ -52,7 +52,8 @@
     "execa": "^9.6.1",
     "tsx": "^4.21.0",
     "typescript": "catalog:",
-    "zod": "catalog:"
+    "zod": "catalog:",
+    "@kortyx/usage-telemetry": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "catalog:",

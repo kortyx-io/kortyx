@@ -1,8 +1,10 @@
 import { randomUUID } from "node:crypto";
 import { withEvalAttribution } from "@kortyx/core/eval-attribution";
+import { scale } from "@kortyx/usage-telemetry";
 import { z } from "zod";
 import type { ResumeResponse } from "../execution/types";
 import type { ChatMessage } from "../types/chat-message";
+import { usage } from "../usage";
 import {
   EvalConfigurationError,
   EvalObservationSchema,
@@ -265,6 +267,9 @@ export function createEvals<
         throw new EvalConfigurationError(
           "App judge changed. Refresh before running.",
         );
+      const evalUsage = usage.start("sdk.eval", {
+        scale: scale(selected.length * repetitions),
+      });
       const start = Date.now();
       const result: EvalRunResult = {
         id: randomUUID(),
@@ -744,6 +749,15 @@ export function createEvals<
         result.counts[item.status] = (result.counts[item.status] ?? 0) + 1;
       result.status = statusFor(result.counts, result.errors);
       result.durationMs = Date.now() - start;
+      evalUsage.end(
+        result.status === "passed"
+          ? "success"
+          : result.status === "failed"
+            ? "quality_failed"
+            : result.status === "error"
+              ? "failed"
+              : result.status,
+      );
       return result;
     },
   };

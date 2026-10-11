@@ -14,6 +14,7 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 env:
+  KORTYX_USAGE_TELEMETRY_DISABLED: "1"
   DATABASE_URL: postgres://kortyx:kortyx@localhost:6543/kortyx
   API_HOST: 127.0.0.1
   API_PORT: 6400

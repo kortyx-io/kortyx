@@ -4,7 +4,7 @@ import {
   type PromptContent,
   promptReferencePattern,
   promptReferenceToken,
-} from "@kortyx/prompts";
+} from "@kortyx/prompts/browser";
 import {
   PromptDetailSchema,
   PromptLibrarySchema,

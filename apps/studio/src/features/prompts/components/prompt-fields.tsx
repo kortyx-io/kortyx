@@ -1,11 +1,11 @@
 "use client";
-import type { PromptContent } from "@kortyx/prompts";
+import type { PromptContent } from "@kortyx/prompts/browser";
 import {
   canonicalPromptJson,
   PromptContentSchema,
   promptReferences,
   validatePromptContent,
-} from "@kortyx/prompts";
+} from "@kortyx/prompts/browser";
 import type { PromptDetail, PromptLibrary } from "@kortyx/telemetry-contracts";
 import { Plus, Trash2 } from "lucide-react";
 import { useEffect, useId, useRef, useState } from "react";

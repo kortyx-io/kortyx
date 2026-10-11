@@ -1,5 +1,5 @@
 "use client";
-import type { PromptContent } from "@kortyx/prompts";
+import type { PromptContent } from "@kortyx/prompts/browser";
 import type {
   PromptCategory,
   PromptLibrary,
