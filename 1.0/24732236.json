@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 1,
+  "version": "1.0",
+  "sha256": "82d661e5d9db2de309782ea842b7797f86c0c9ad0e36e27dd65378cc610a6bdb",
+  "user": {
+    "id": 24732236,
+    "login": "NEDDL"
+  },
+  "statement": "I have read and agree to the Kortyx Contributor License Agreement version 1.0 (SHA-256: 82d661e5d9db2de309782ea842b7797f86c0c9ad0e36e27dd65378cc610a6bdb). I am signing for myself and confirm that I have authority to grant the rights described in this agreement.",
+  "commentId": 6132222627,
+  "commentUrl": "https://github.com/kortyx-io/kortyx/pull/281#issuecomment-6132222627",
+  "acceptedAt": "2026-10-12T20:39:21Z",
+  "repository": "kortyx-io/kortyx",
+  "pullRequest": 281,
+  "agreementCommit": "4e50a964f36983c02a52d7f676f5192b6332628d",
+  "agreementUrl": "https://github.com/kortyx-io/kortyx/blob/4e50a964f36983c02a52d7f676f5192b6332628d/.github/cla/1.0.md",
+  "recordedByRun": "https://github.com/kortyx-io/kortyx/actions/runs/38305632471"
+}
