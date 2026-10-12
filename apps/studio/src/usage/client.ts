@@ -7,6 +7,7 @@ import {
   type UsageOperation,
   type UsageTelemetry,
 } from "@kortyx/usage-telemetry";
+import { studioPathname } from "@/lib/studio-routing";
 import type { StudioUsageConfig } from "./contracts";
 
 let client: UsageTelemetry | undefined;
@@ -84,7 +85,8 @@ export function flushStudioUsage() {
   return client?.flush() ?? Promise.resolve();
 }
 export function usageSurface(path: string): string {
-  const first = path.split("/").filter(Boolean)[0];
+  const normalized = studioPathname(path);
+  const first = normalized.split("/").filter(Boolean)[0];
   return [
     "runs",
     "sessions",
@@ -95,7 +97,7 @@ export function usageSurface(path: string): string {
     "settings",
   ].includes(first ?? "")
     ? (first ?? "other")
-    : path === "/"
+    : normalized === "/"
       ? "home"
       : "other";
 }

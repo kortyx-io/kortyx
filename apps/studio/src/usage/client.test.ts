@@ -90,3 +90,27 @@ it("normalizes routes without emitting paths or customer identifiers", async () 
   expect(usageSurface("/runs/private-id")).toBe("runs");
   expect(usageSurface("/private-prefix/private-id")).toBe("other");
 });
+
+it("classifies scoped navigation without retaining project or organization identifiers", async () => {
+  const { usageSurface } = await import("./client");
+  const project = "prj_0123456789abcdef01234567";
+  const organization = "org_0123456789abcdef01234567";
+  for (const surface of [
+    "runs",
+    "sessions",
+    "prompts",
+    "evals",
+    "workflows",
+    "interrupts",
+  ])
+    expect(
+      usageSurface(`/projects/${project}/${surface}/private-resource`),
+    ).toBe(surface);
+  expect(usageSurface(`/projects/${project}/settings/general`)).toBe(
+    "settings",
+  );
+  expect(usageSurface(`/organizations/${organization}/settings/members`)).toBe(
+    "settings",
+  );
+  expect(usageSurface("/projects/unrecognized-id/runs")).toBe("other");
+});
