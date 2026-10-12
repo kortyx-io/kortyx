@@ -264,7 +264,7 @@ async function run({ github, context, core, root, config }) {
       passed
         ? "All identified contributors have the required agreement on record."
         : "A contribution agreement is required before this pull request can merge.",
-      `Read [CLA version ${config.version}](${agreementUrl}). You retain copyright; the agreement grants commercial, Cloud, sublicensing, and future relicensing rights to Mustafa Sait Önal, operating as Kortyx.`,
+      `Read [CLA version ${config.version}](${agreementUrl}). You retain copyright; the agreement grants commercial, Cloud, sublicensing, and future relicensing rights to Kortyx.`,
       missing.length
         ? `Waiting for: ${missing.map((person) => `@${person.login}`).join(", ")}.`
         : "",
