@@ -1,0 +1,32 @@
+name: CLA / Validation
+
+on:
+  pull_request:
+    paths:
+      - '.github/cla/**'
+      - '.github/scripts/cla/**'
+      - '.github/scripts/tests/cla.test.cjs'
+      - '.github/workflows/cla*.yml'
+      - 'CLA.md'
+  push:
+    branches: [main]
+    paths:
+      - '.github/cla/**'
+      - '.github/scripts/cla/**'
+      - '.github/scripts/tests/cla.test.cjs'
+      - '.github/workflows/cla*.yml'
+      - 'CLA.md'
+
+permissions:
+  contents: read
+
+jobs:
+  validation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - name: Exercise agreement, attribution and ledger regressions
+        run: node --test .github/scripts/tests/cla.test.cjs

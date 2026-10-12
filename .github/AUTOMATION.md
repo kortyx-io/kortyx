@@ -26,6 +26,8 @@ workflows in `workflows/shared/`.
 
 | File | Actions display name | Trigger |
 | --- | --- | --- |
+| `cla-validation.yml` | CLA / Validation | Changes to the agreement or its automation |
+| `cla.yml` | CLA | PRs targeting main, new PR comments, or manual recheck |
 | `ci.yml` | CI | Pull requests and pushes to main |
 | `release-prepare.yml` | Release / Prepare PR | Every push to main, or manual |
 | `npm-publish.yml` | Release / Orchestrate | Successful main CI, manual stable recovery, or a manually selected PR canary |
@@ -170,3 +172,9 @@ node --test .github/scripts/tests/*.test.cjs
 Run `actionlint` for workflow syntax and `bash -n` for shell syntax. Production
 publication is verified through its gated workflow, not by executing publish or
 deployment commands locally.
+
+## Contributor agreements
+
+The [CLA operations guide](cla/OPERATIONS.md) describes signing, the separate
+public ledger, required merge status, identity failures, bot exceptions, and
+version upgrades. This workflow never checks out or executes pull request code.
