@@ -2,6 +2,14 @@
 
 Thanks for taking the time to contribute!
 
+## Contributor agreement
+
+Read the [Contributor License Agreement](CLA.md) before submitting a pull
+request. Each contributor signs the exact version using the statement posted by
+the CLA check. The agreement permits commercial Cloud use and future relicensing;
+you retain your copyright. Employer-owned contributions require the necessary
+authority. Current [component licenses](LICENSES.md) remain unchanged.
+
 ## Development setup
 
 ```bash

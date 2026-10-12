@@ -20,3 +20,10 @@ hosted service. This summary does not replace the license terms.
 
 For a plain-language explanation of ELv2's three limitations, see
 [Elastic's ELv2 FAQ](https://www.elastic.co/licensing/elastic-license/faq).
+
+## Contributions
+
+The [Contributor License Agreement](CLA.md) grants Kortyx additional rights in
+covered contributions, including commercial hosted use and future relicensing.
+It does not change the licenses above for existing recipients, grant rights in
+uncovered third-party material, or retroactively cover historical contributions.

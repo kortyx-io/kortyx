@@ -1,0 +1,20 @@
+{
+  "version": "1.0",
+  "document": ".github/cla/1.0.md",
+  "sha256": "82d661e5d9db2de309782ea842b7797f86c0c9ad0e36e27dd65378cc610a6bdb",
+  "ledgerBranch": "cla-signatures",
+  "automationAccounts": [
+    {
+      "login": "kortyx-release-bot[bot]",
+      "id": 260042200
+    },
+    {
+      "login": "dependabot[bot]",
+      "id": 49699333
+    },
+    {
+      "login": "github-actions[bot]",
+      "id": 41898282
+    }
+  ]
+}
