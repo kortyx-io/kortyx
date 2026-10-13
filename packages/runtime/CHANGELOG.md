@@ -5,6 +5,10 @@
 - Add bounded, idempotent queued eval execution with shared consumer capacity,
   event replay, explicit cancellation and optional PostgreSQL recovery.
 
+- Add opt-in, output-schema-typed workflow `reduce` callbacks. Preserve default
+  deep merge; support replacement, accumulation and deletion across nodes, chat,
+  child outputs, deterministic parallel joins and checkpoint resume. Surface
+  callback exceptions as `WORKFLOW_REDUCER_FAILED` without exposing raw values.
 
 ## [0.23.2](https://github.com/kortyx-io/kortyx/compare/runtime-v0.23.1...runtime-v0.23.2) (2026-10-13)
 

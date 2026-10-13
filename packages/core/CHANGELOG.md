@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+- Add opt-in, output-schema-typed workflow `reduce` callbacks. Preserve default
+  deep merge; support replacement, accumulation and deletion across nodes, chat,
+  child outputs, deterministic parallel joins and checkpoint resume. Surface
+  callback exceptions as `WORKFLOW_REDUCER_FAILED` without exposing raw values.
+
 ## [0.13.1](https://github.com/kortyx-io/kortyx/compare/core-v0.13.0...core-v0.13.1) (2026-10-11)
 
 

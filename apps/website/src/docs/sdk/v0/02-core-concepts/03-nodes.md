@@ -262,6 +262,11 @@ Kortyx merges returned `data` into workflow state before the next node runs:
 - arrays are overwritten, not concatenated
 - if the previous `input` was not an object, it is preserved as `rawInput`
 
+These defaults remain unchanged, including for union-valued fields. A workflow
+can override individual top-level fields with
+[opt-in `reduce` callbacks](./01-define-workflows.md#opt-in-data-reducers) for
+replacement, accumulation or deletion; nodes keep the same return shape.
+
 After the `classifyNode` return above, the next node receives:
 
 ```ts
