@@ -2,6 +2,14 @@
 
 ## Layout
 
+Preview removal retries transient controller/network failures up to five times
+with bounded request timeouts. Only HTTP 200 or 404 confirms cleanup; permission
+denials and exhausted retries fail the job and do not mark the preview removed.
+After restoring controller health, rerun the failed cleanup job. A controller
+HTTP 500 can indicate host/database disk exhaustion, not an absent preview.
+Kortyx Infra owns scoped unused-preview image reclamation and capacity alerts;
+the public workflow never receives host/operator credentials or prunes volumes.
+
 - `workflows/`: runnable entry points. Keep triggers, permissions, runners, services,
   timeouts, concurrency, matrices, dependencies, and environment approvals here.
 - `actions/setup/`: shared Node/pnpm, Redis, PostgreSQL, and registry setup.
