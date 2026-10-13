@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.16.0](https://github.com/kortyx-io/kortyx/compare/telemetry-v0.15.1...telemetry-v0.16.0) (2026-10-13)
+
+
+### Features
+
+* **studio:** enable OSS capabilities by default ([#336](https://github.com/kortyx-io/kortyx/issues/336)) ([7e55ba5](https://github.com/kortyx-io/kortyx/commit/7e55ba55c5a5a488b4284ae79b57b23ca6b6b494))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/hooks bumped to 0.34.2
+    * @kortyx/telemetry-contracts bumped to 0.17.2
+    * @kortyx/core bumped to 0.14.0
+    * @kortyx/usage-telemetry bumped to 0.3.0
+
 ## [0.15.1](https://github.com/kortyx-io/kortyx/compare/telemetry-v0.15.0...telemetry-v0.15.1) (2026-10-13)
 
 
