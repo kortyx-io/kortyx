@@ -1,5 +1,14 @@
 # @kortyx/openrouter
 
+## Unreleased
+
+### Bug Fixes
+
+- Report confirmed parameter-routing 404s as `PROVIDER_PARAMETER_UNSUPPORTED`,
+  including requested parameter names and effective `requireParameters`, while
+  preserving private SDK causes. Keep request controls and retry behavior intact.
+
+
 ## [0.2.5](https://github.com/kortyx-io/kortyx/compare/openrouter-v0.2.4...openrouter-v0.2.5) (2026-10-11)
 
 

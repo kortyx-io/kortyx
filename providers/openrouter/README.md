@@ -38,6 +38,20 @@ OpenRouter-specific request controls belong under
 `provider.requireParameters` when a request uses function tools or a native
 JSON schema, unless the caller explicitly chooses another value.
 
+This is an all-parameter requirement: optional controls such as `temperature`
+must also be supported by the selected endpoint. If OpenRouter rejects parameter
+routing, Kortyx reports `PROVIDER_PARAMETER_UNSUPPORTED` with the requested
+parameter names and the effective `requireParameters` value. The original SDK
+error remains available as the exception cause; prompts, parameter values and
+account routing details are excluded from the public failure descriptor.
+
+Remove unsupported optional controls or choose a compatible model/provider
+route. Kortyx does not remove parameters or retry a modified request. Explicitly
+setting `providerOptions.openrouter.provider.requireParameters: false` allows
+OpenRouter to ignore unsupported parameters, including tools/schema controls;
+use that override only when your application accepts that behavior. Unrelated
+404s retain the general provider request error.
+
 ```ts
 const model = openrouter("anthropic/claude-sonnet-4.6", {
   providerOptions: {
