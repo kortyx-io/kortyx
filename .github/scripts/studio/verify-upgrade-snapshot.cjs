@@ -2,7 +2,14 @@ const assert = require("node:assert/strict");
 const { readFileSync } = require("node:fs");
 const { parseEnv } = require("node:util");
 
-function verifyUpgrade(before, after, env) {
+function verifyUpgrade(before, after, env, version) {
+  assert.match(
+    version ?? "",
+    /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/,
+    "Missing or invalid target Studio version",
+  );
+  const [major, minor] = version.split(".").map(Number);
+  const nativeCapabilities = major > 0 || minor >= 21;
   // Keep customer rows, physical table identities and credential identities/hashes
   // byte-for-byte stable. Scope evolution is checked separately, never ignored.
   const { key_scopes: oldScopes, ...oldData } = before;
@@ -39,9 +46,12 @@ function verifyUpgrade(before, after, env) {
     Object.hasOwn(oldScopes, telemetry) && Object.hasOwn(oldScopes, studio),
     "Managed fixture keys are missing",
   );
-  const prompts = env.KORTYX_STUDIO_ENABLE_PROMPTS !== "0";
+  const prompts =
+    nativeCapabilities || env.KORTYX_STUDIO_ENABLE_PROMPTS !== "0";
   // Prompt management (#288) intentionally expands only the two installer-owned
-  // bootstrap keys. All other keys retain exactly their previous scopes.
+  // bootstrap keys. Studio 0.21 also enables diagnostics:read and makes prompts
+  // unconditional (#336). Older release recovery must retain its old contract.
+  // All other keys retain exactly their previous scopes.
   for (const [id, scopes] of Object.entries(oldScopes)) {
     const additions = !prompts
       ? []
@@ -55,6 +65,7 @@ function verifyUpgrade(before, after, env) {
               "prompt:settings",
             ]
           : [];
+    if (nativeCapabilities && id === studio) additions.push("diagnostics:read");
     assert.deepEqual(
       [...new Set(newScopes[id])].sort(),
       [...new Set([...scopes, ...additions])].sort(),
@@ -70,9 +81,10 @@ if (require.main === module) {
       JSON.parse(readFileSync(process.argv[2], "utf8")),
       JSON.parse(readFileSync(process.argv[3], "utf8")),
       parseEnv(readFileSync(process.argv[4], "utf8")),
+      process.argv[5],
     );
     console.log(
-      "Verified unchanged customer data and credential identities, with only expected managed prompt scopes added.",
+      "Verified unchanged customer data and credential identities, with only versioned managed capability scopes added.",
     );
   } catch (error) {
     // Do not serialize snapshots or credential environment contents into CI logs.

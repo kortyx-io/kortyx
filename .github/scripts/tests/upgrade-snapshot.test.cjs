@@ -2,7 +2,11 @@ const assert = require("node:assert/strict");
 const { readFileSync } = require("node:fs");
 const { join } = require("node:path");
 const test = require("node:test");
-const { verifyUpgrade } = require("../studio/verify-upgrade-snapshot.cjs");
+const {
+  verifyUpgrade: verifySnapshot,
+} = require("../studio/verify-upgrade-snapshot.cjs");
+const verifyUpgrade = (before, after, env, version = "0.20.1") =>
+  verifySnapshot(before, after, env, version);
 
 test("manual recovery can reuse both staging digests without bypassing native smoke", () => {
   const workflow = readFileSync(
@@ -65,6 +69,39 @@ test("accepts only the documented managed-key scope expansion", () =>
   verifyUpgrade(before(), after(), env));
 test("already-upgraded managed keys retain their exact scopes", () =>
   verifyUpgrade(after(), after(), env));
+test("0.21 requires only the managed Studio diagnostics grant, including with legacy flags", () => {
+  const data = after();
+  data.key_scopes.studio.push("diagnostics:read");
+  verifyUpgrade(after(), data, env, "0.21.0");
+  verifyUpgrade(
+    before(),
+    data,
+    { ...env, KORTYX_STUDIO_ENABLE_PROMPTS: "0" },
+    "0.21.0",
+  );
+  verifyUpgrade(data, data, env, "0.21.0");
+  assert.throws(() => verifyUpgrade(after(), after(), env, "0.21.0"));
+  assert.throws(() => verifyUpgrade(after(), data, env, "0.20.1"));
+  for (const id of ["sdk", "custom"]) {
+    const widened = structuredClone(data);
+    widened.key_scopes[id].push("diagnostics:read");
+    assert.throws(() => verifyUpgrade(after(), widened, env, "0.21.0"));
+  }
+  const widened = structuredClone(data);
+  widened.key_scopes.studio.push("admin:all");
+  assert.throws(() => verifyUpgrade(after(), widened, env, "0.21.0"));
+});
+test("target release version is required and validated", () => {
+  for (const version of [
+    undefined,
+    "",
+    "v0.21.0",
+    "0.21.0-dev",
+    "0.21",
+    "00.21.0",
+  ])
+    assert.throws(() => verifySnapshot(before(), after(), env, version));
+});
 test("scope order and duplicate grants do not change effective permissions", () => {
   const data = after();
   data.key_scopes.studio.reverse().push("studio:write");
