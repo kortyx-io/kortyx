@@ -48,7 +48,7 @@ export function EvalFailure({
         </p>
       ) : null}
       {issue.failure ? (
-        <EvalDisclosure scope={`${scope}-failure`} label="Safe failure details">
+        <EvalDisclosure scope={`${scope}-failure`} label="Failure details">
           <EvalPayloadViewer
             scope={`${scope}-failure-payload`}
             value={issue.failure}
