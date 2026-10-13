@@ -32,6 +32,7 @@ on:
 concurrency:
   group: ${{ github.event_name == 'workflow_dispatch' && inputs.operation == 'canary' && format('npm-canary-pr-{0}', inputs.pr_number) || 'release-orchestrator' }}
   cancel-in-progress: false
+  queue: max
 
 permissions:
   actions: read

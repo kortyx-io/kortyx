@@ -10,7 +10,8 @@ permissions:
   security-events: write
 
 concurrency:
-  group: ci-${{ github.event.pull_request.number || github.ref }}
+  # PR updates supersede old checks; every merged SHA keeps its release gate.
+  group: ci-${{ github.event.pull_request.number || github.sha }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 env:

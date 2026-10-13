@@ -4,6 +4,39 @@ const { join } = require("node:path");
 const test = require("node:test");
 const updateReleasePrBranch = require("../release/update-release-pr-branch.cjs");
 
+test("release workflows retain queued releases instead of replacing them", () => {
+  for (const file of [
+    "npm-publish.yml",
+    "build-studio-images.yml",
+    "release-studio-images.yml",
+    "release-studio-recover.yml",
+    "website-promote.yml",
+  ]) {
+    const workflow = readFileSync(
+      join(__dirname, "../../workflows", file),
+      "utf8",
+    );
+    const concurrency = workflow.split("\nconcurrency:\n")[1].split("\n\n")[0];
+    assert.match(concurrency, /cancel-in-progress: false/, file);
+    assert.match(concurrency, /queue: max/, file);
+  }
+});
+
+test("merged commit CI cannot be replaced by another commit's pending checks", () => {
+  const workflow = readFileSync(
+    join(__dirname, "../../workflows/ci.yml"),
+    "utf8",
+  );
+  assert.match(
+    workflow,
+    /group: ci-\$\{\{ github.event.pull_request.number \|\| github.sha \}\}/,
+  );
+  assert.match(
+    workflow,
+    /cancel-in-progress: \$\{\{ github.event_name == 'pull_request' \}\}/,
+  );
+});
+
 test("release recovery describes old commits using the trusted workflow classifier", () => {
   const workflow = readFileSync(
     join(__dirname, "../../workflows/npm-publish.yml"),

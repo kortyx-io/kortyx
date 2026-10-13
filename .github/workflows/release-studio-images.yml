@@ -50,6 +50,7 @@ permissions:
 concurrency:
   group: studio-oss-release
   cancel-in-progress: false
+  queue: max
 
 env:
   REGISTRY: ghcr.io

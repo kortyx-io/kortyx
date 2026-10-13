@@ -150,6 +150,17 @@ image build contexts even for older release candidates.
 
 ## Recovering a blocked release queue
 
+It is supported to merge a new release PR while a previous release is publishing.
+Publication workflows use native GitHub concurrency with `queue: max` and
+`cancel-in-progress: false`: an active release is not interrupted, and waiting
+releases are not replaced by subsequent CI completions. GitHub accepts up to 100
+pending runs per group; queue order follows arrival, not semantic version order.
+Every merged SHA retains its own CI run; PR updates still cancel superseded checks.
+All exact-commit and native image gates still apply to each queued release. The
+Studio CDN publisher independently uses version comparison and conditional writes
+so a late older retry cannot lower the stable update channel. A rerun recovers the
+same version; merging the next release PR publishes a new version.
+
 A merged Release Please PR is not a completed release. If its exact-commit push
 CI fails, Release / Orchestrate fails visibly before tags, packages or deployments.
 Release / Prepare PR also checks merged `autorelease: pending` PRs: it reports
