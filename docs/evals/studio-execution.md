@@ -239,3 +239,16 @@ the missing ID/version. Their partial stream and other finalized outputs remain
 available for debugging. Payload meaning is assessed by the configured criteria.
 See [the SDK guide](./sdk-runner.md#required-structured-outputs) for authoring,
 custom executor envelopes and interrupt boundaries.
+
+## Inspecting eval failures
+
+Open an eval run, select a case attempt, then choose **View diagnostic** on its
+error card. The card shows the phase and declared-safe domain code/message.
+Conversation debugging retains native execution and handled tool-error evidence.
+A postcondition verdict appears separately and can be Failed while the
+conversation passed; a reset fault remains Error. Comparisons retain both verdicts.
+Full diagnostics use the existing authenticated, project-scoped read/download
+path. Missing references are explicitly identified; old results still load.
+
+See [consumer migration](./error-contract-migration.md) for capture prerequisites,
+upgrade order, deadlines and the distinction between verification and teardown.

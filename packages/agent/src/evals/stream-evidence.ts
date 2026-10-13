@@ -1,3 +1,4 @@
+import { serializeFailure } from "@kortyx/core/errors";
 import type { StreamChunk } from "@kortyx/stream";
 import type { EvalJson } from "./types";
 
@@ -38,6 +39,8 @@ export function captureEvalEvent(chunk: StreamChunk): EvalJson | undefined {
         tool: chunk.tool,
         toolCallId: chunk.toolCallId,
         message: chunk.message,
+        ...(chunk.failure ? { failure: serializeFailure(chunk.failure) } : {}),
+        ...(chunk.diagnosticId ? { diagnosticId: chunk.diagnosticId } : {}),
       });
     case "tool-result":
       return toEvalJson({
@@ -117,7 +120,14 @@ export function captureEvalEvent(chunk: StreamChunk): EvalJson | undefined {
     case "transition":
       return { type: chunk.type, transitionTo: chunk.transitionTo };
     case "error":
-      return { type: chunk.type, message: chunk.message };
+      return toEvalJson({
+        type: chunk.type,
+        message: chunk.failure
+          ? serializeFailure(chunk.failure).message
+          : chunk.message,
+        ...(chunk.failure ? { failure: serializeFailure(chunk.failure) } : {}),
+        ...(chunk.diagnosticId ? { diagnosticId: chunk.diagnosticId } : {}),
+      });
     case "cancelled":
       return toEvalJson({
         type: chunk.type,

@@ -2,6 +2,7 @@ import type { InterruptInput, InterruptResult } from "@kortyx/core";
 import { combineAbortSignals, throwIfExecutionAborted } from "@kortyx/core";
 import {
   isControlFlowError,
+  KortyxError,
   ProviderRequestError,
   serializeFailure,
 } from "@kortyx/core/errors";
@@ -366,6 +367,23 @@ export const runReasonToolLoop = async <
   let finalizing = checkpoint?.finalizing ?? false;
   let completed = false;
   const maxSteps = Math.max(1, useReasonArgs.toolExecution?.maxSteps ?? 3);
+  const missingReturnCorrections =
+    useReasonArgs.toolExecution?.missingReturnCorrections ?? 0;
+  if (
+    !Number.isSafeInteger(missingReturnCorrections) ||
+    missingReturnCorrections < 0
+  )
+    throw new KortyxError(
+      "INVALID_REASON_CORRECTION_POLICY",
+      "Invalid missing return correction budget.",
+      {
+        category: "configuration",
+        retryable: false,
+        safeMessage:
+          "toolExecution.missingReturnCorrections must be a nonnegative safe integer.",
+      },
+    );
+  let missingReturnAttempts = checkpoint?.missingReturnAttempts ?? 0;
   const messages =
     checkpoint?.messages ??
     createInitialMessages({
@@ -434,13 +452,17 @@ export const runReasonToolLoop = async <
   let outputContractCorrections = checkpoint?.outputContractCorrections ?? 0;
   const correctionExhausted = () => {
     const message = `useReason could not complete output-contract correction within toolExecution.maxSteps (${maxSteps}). Select exactly one terminal return contract; multiple emit contracts are allowed. Increase maxSteps to allow correction and output generation.`;
-    return new ProviderRequestError(message, {
-      code: "REASON_OUTPUT_CONTRACT_CORRECTION_EXHAUSTED",
-      operation: "useReason",
-      safeMessage: message,
-      retryable: false,
-      details: { maxSteps, outputContractCorrections },
-    });
+    return new KortyxError(
+      "REASON_OUTPUT_CONTRACT_CORRECTION_EXHAUSTED",
+      message,
+      {
+        category: "validation",
+        operation: "useReason",
+        safeMessage: message,
+        retryable: false,
+        details: { maxSteps, outputContractCorrections },
+      },
+    );
   };
   const resolvedInterrupts = checkpoint?.resolvedInterrupts ?? [];
   for (const request of resolvedInterrupts) ctx.node.replayInterrupt?.(request);
@@ -464,6 +486,7 @@ export const runReasonToolLoop = async <
       interruptHistory,
       emissions,
       outputContractCorrections,
+      missingReturnAttempts,
       ...(returned ? { returned } : {}),
       finalizing,
       ...(pending ? { pending } : {}),
@@ -524,7 +547,11 @@ export const runReasonToolLoop = async <
         (await reasonEngine(
           {
             ...useReasonArgs,
-            tools: finalizing ? [] : toolDefinitions,
+            tools: finalizing
+              ? []
+              : missingReturnAttempts > 0
+                ? outputDefinitions
+                : toolDefinitions,
             ...(separateOutput && !finalizing
               ? { responseFormat: { type: "text" as const } }
               : {}),
@@ -559,6 +586,20 @@ export const runReasonToolLoop = async <
       aggregatedWarnings = mergeWarnings(aggregatedWarnings, step.warnings);
 
       const toolCalls = step.toolCalls ?? [];
+      if (
+        missingReturnAttempts > 0 &&
+        toolCalls.some((call) => !outputByToolName.has(call.name))
+      )
+        throw new KortyxError(
+          "REASON_OUTPUT_CORRECTION_TOOL_DISALLOWED",
+          "A return correction requested a non-output tool.",
+          {
+            category: "validation",
+            retryable: false,
+            safeMessage:
+              "A terminal output correction cannot rerun tools or human-input requests.",
+          },
+        );
       const ids = new Set<string>();
       for (const call of toolCalls) {
         if (
@@ -591,10 +632,34 @@ export const runReasonToolLoop = async <
         if (
           Object.keys(useReasonArgs.outputs?.return ?? {}).length > 0 &&
           !returned
-        )
-          throw new Error(
+        ) {
+          if (missingReturnAttempts < missingReturnCorrections) {
+            messages.push({ role: "assistant", content: step.text });
+            messages.push({
+              role: "user",
+              content:
+                "MISSING_TERMINAL_OUTPUT: No terminal output was published. Select exactly one configured return contract using the completed tool and human-input results. Do not repeat completed calls.",
+            });
+            missingReturnAttempts += 1;
+            outputContractCorrections += 1;
+            pending = undefined;
+            pendingStepIndex = undefined;
+            save();
+            continue;
+          }
+          throw new KortyxError(
+            "REASON_TERMINAL_OUTPUT_MISSING",
             "useReason outputs.return requires one terminal output contract call.",
+            {
+              category: "validation",
+              operation: "useReason",
+              retryable: false,
+              safeMessage:
+                "useReason outputs.return requires one terminal output contract call.",
+              details: { missingReturnAttempts },
+            },
           );
+        }
         if (
           interruptConfig?.mode === "required" &&
           interruptHistory.length === 0
@@ -1176,11 +1241,19 @@ export const runReasonToolLoop = async <
           toolResults.push(result);
           allToolResults.push(result);
           if (shouldEmitTool) {
+            const diagnosticId = steps[stepIndex]?.toolObservations
+              ?.slice()
+              .reverse()
+              .find(
+                (observation) =>
+                  observation.toolCallId === `${opId}:${toolCall.id}`,
+              )?.diagnosticId;
             emitToolEvent("tool-call-error", {
               tool: tool.name,
               toolCallId: toolCall.id,
               message: result.content,
               failure: result.failure,
+              ...(diagnosticId ? { diagnosticId } : {}),
             });
           }
         }
@@ -1336,4 +1409,5 @@ interface ToolLoopCheckpoint {
   returned?: { contract: string; data: unknown };
   finalizing?: boolean;
   outputContractCorrections?: number;
+  missingReturnAttempts?: number;
 }

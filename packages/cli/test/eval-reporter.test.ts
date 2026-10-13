@@ -248,3 +248,31 @@ it.each([
   }
   h.reporter.close();
 });
+
+it("prints postcondition evidence and declared-safe failures with native diagnostic references", async () => {
+  const { DomainError } = await import("@kortyx/core/errors");
+  const id = "cc7d61ba-aeda-4f93-9002-ef86919f4e8a";
+  const h = harness(false);
+  const result = await createEvals({
+    agent: { streamChat: vi.fn(), reportError: () => id },
+    suites: [suite],
+    execute: ({ case: item }) => {
+      if (item.id === "products")
+        throw new DomainError("REVIEW_CARD_COUNT", "Expected one pending card");
+      return {
+        observation: { type: "answer", text: "Complete", structured: [] },
+      };
+    },
+    verify: () => ({
+      passed: false,
+      reason: "Approved save is absent",
+      evidence: ["Zero approved saves"],
+    }),
+  }).run({ suiteId: suite.id });
+  h.reporter.finish(result);
+  expect(h.output()).toContain("[REVIEW_CARD_COUNT] Expected one pending card");
+  expect(h.output()).toContain(`diagnostic ${id}`);
+  expect(h.output()).toContain("verification: Approved save is absent");
+  expect(h.output()).toContain("Evidence: Zero approved saves");
+  h.reporter.close();
+});

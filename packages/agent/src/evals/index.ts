@@ -1,5 +1,6 @@
 export {
   EvalConfigurationError,
+  EvalIssueSchema,
   EvalJudgeIdentitySchema,
   EvalJudgeUsageSchema,
   type EvalManifest,
@@ -18,6 +19,7 @@ export {
 } from "./contracts";
 export { createEvals } from "./create-evals";
 export { defineSuite } from "./define-suite";
+export { createEvalIssue } from "./errors";
 export * from "./evaluation-contracts";
 export { getEvalGradeEvidence } from "./evidence";
 export { EvalEvidencePolicySchema } from "./evidence-policy";

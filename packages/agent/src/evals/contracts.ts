@@ -1,9 +1,16 @@
+import { isFailureDescriptor, serializeFailure } from "@kortyx/core/errors";
 import { PromptSnapshotSchema } from "@kortyx/prompts/browser";
 import { z } from "zod";
 import { EvalEvidencePolicySchema } from "./evidence-policy";
 import type { EvalSuite } from "./types";
 
 const id = z.string().trim().min(1).max(256);
+const failureDescriptor = z
+  .custom<import("@kortyx/core/errors").FailureDescriptor>(isFailureDescriptor)
+  .transform(
+    (value): import("@kortyx/core/errors").SerializedFailureDescriptor =>
+      JSON.parse(JSON.stringify(serializeFailure(value))),
+  );
 const handler = z.object({ using: id, params: z.json().optional() }).strict();
 export const EvalResumeResponseSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("text"), text: z.string() }).strict(),
@@ -89,6 +96,8 @@ export const EvalVerdictSchema = z
   .strict();
 export const EvalObservationSchema = z
   .object({
+    failure: failureDescriptor.optional(),
+    diagnosticId: z.uuid().optional(),
     promptUsage: z
       .array(
         z
@@ -140,8 +149,10 @@ export const EvalObservationSchema = z
   });
 
 const status = z.enum(["passed", "failed", "error", "cancelled", "ungraded"]);
-const issue = z
+export const EvalIssueSchema = z
   .object({
+    failure: failureDescriptor.optional(),
+    diagnosticId: z.uuid().optional(),
     phase: z.enum([
       "params",
       "setup",
@@ -149,6 +160,7 @@ const issue = z
       "responder",
       "reference",
       "grading",
+      "verification",
       "cleanup",
       "reporting",
     ]),
@@ -156,6 +168,7 @@ const issue = z
     message: z.string(),
   })
   .strict();
+const issue = EvalIssueSchema;
 /** Billing evidence only: no prompts, provider raw responses, or credentials. */
 export const EvalJudgeUsageSchema = z
   .object({
@@ -227,6 +240,10 @@ const runtimeExecution = z
   .strict();
 export const EvalCaseResultSchema = z
   .object({
+    verification: EvalVerdictSchema.optional(),
+    phaseDurationsMs: z
+      .partialRecord(issue.shape.phase, z.number().finite().nonnegative())
+      .optional(),
     caseId: id,
     repetition: z.number().int().positive(),
     attemptId: z.uuid().optional(),
@@ -416,7 +433,14 @@ export const StudioEvalStartRequestSchema = EvalRemoteRunRequestSchema.omit({
 export const EvalWireEventSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("progress"), event: EvalProgressSchema }).strict(),
   z.object({ type: z.literal("result"), result: EvalRunResultSchema }).strict(),
-  z.object({ type: z.literal("error"), message: z.string() }).strict(),
+  z
+    .object({
+      type: z.literal("error"),
+      message: z.string(),
+      failure: failureDescriptor.optional(),
+      diagnosticId: z.uuid().optional(),
+    })
+    .strict(),
 ]);
 export type EvalManifest = z.infer<typeof EvalManifestSchema>;
 export type EvalRemoteRunRequest = z.infer<typeof EvalRemoteRunRequestSchema>;

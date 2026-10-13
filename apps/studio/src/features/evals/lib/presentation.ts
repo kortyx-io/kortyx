@@ -1,7 +1,15 @@
-import type { EvalCosts, EvalStepResult } from "@kortyx/agent/evals";
+import type {
+  EvalCaseResult,
+  EvalCosts,
+  EvalIssue,
+  EvalStepResult,
+} from "@kortyx/agent/evals";
 import type { EvalDetail } from "../schema";
 
 export type CaseRow = {
+  environment?: string;
+  verification?: EvalCaseResult["verification"];
+  phaseDurationsMs?: EvalCaseResult["phaseDurationsMs"];
   costs?: EvalCosts;
   key: string;
   caseId: string;
@@ -12,7 +20,7 @@ export type CaseRow = {
   durationMs?: number;
   steps: EvalStepResult[];
   expectedSteps: number;
-  errors: { phase: string; code: string; message: string }[];
+  errors: EvalIssue[];
 };
 export const isActive = (status?: string) =>
   status === "queued" || status === "running";
@@ -28,6 +36,7 @@ export function caseRows(run: EvalDetail): CaseRow[] {
     request?.repetitions ??
     Math.max(1, ...(run.result?.cases.map((item) => item.repetition) ?? []));
   const row = (caseId: string, repetition: number): CaseRow => ({
+    environment: run.environment,
     key: `${caseId}:${repetition}`,
     caseId,
     name: definitions.get(caseId)?.name ?? displayName(caseId),

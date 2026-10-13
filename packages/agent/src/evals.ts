@@ -1,5 +1,6 @@
 export * from "./evals/contracts";
 export { defineSuite } from "./evals/define-suite";
+export { createEvalIssue } from "./evals/errors";
 export * from "./evals/evaluation-contracts";
 export { getEvalGradeEvidence } from "./evals/evidence";
 export { EvalEvidencePolicySchema } from "./evals/evidence-policy";

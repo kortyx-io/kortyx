@@ -1,14 +1,14 @@
 import {
   errorFromFailure,
-  type FailureDescriptor,
   isFailureDescriptor,
+  type SerializedFailureDescriptor,
   serializeFailure,
 } from "@kortyx/core/errors";
 
 export function failureChunk(error: unknown): {
   type: "error";
   message: string;
-  failure: FailureDescriptor;
+  failure: SerializedFailureDescriptor;
 } {
   const failure = serializeFailure(error);
   return { type: "error", message: failure.message, failure };

@@ -1,3 +1,4 @@
+import type { SerializedFailureDescriptor } from "@kortyx/core/errors";
 import type { ProviderModelRef } from "@kortyx/providers";
 import type { z } from "zod";
 import type { Agent } from "../chat/create-agent";
@@ -86,6 +87,9 @@ export type EvalInterrupt = {
 };
 /** Public output and emitted execution evidence; private runtime state is excluded. */
 export type EvalObservation = {
+  /** Safe terminal failure; raw exception evidence belongs in the private diagnostic. */
+  failure?: SerializedFailureDescriptor;
+  diagnosticId?: string;
   promptUsage?: import("@kortyx/prompts").PromptUsageReceipt[];
   type: "answer" | "interrupt" | "error" | "cancelled";
   text: string;
@@ -120,9 +124,16 @@ export type EvalPhase =
   | "responder"
   | "reference"
   | "grading"
+  | "verification"
   | "cleanup"
   | "reporting";
-export type EvalIssue = { phase: EvalPhase; code: string; message: string };
+export type EvalIssue = {
+  phase: EvalPhase;
+  code: string;
+  message: string;
+  failure?: SerializedFailureDescriptor;
+  diagnosticId?: string;
+};
 export type EvalVerdict = {
   passed: boolean;
   reason: string;
@@ -146,6 +157,8 @@ export type EvalStepResult = {
 };
 export type EvalRuntimeExecution = { sessionId: string; runId: string };
 export type EvalCaseResult = {
+  verification?: EvalVerdict;
+  phaseDurationsMs?: Partial<Record<EvalPhase, number>>;
   /** SDK-owned identity and execution associations for automatic cost attribution. */
   attemptId?: string;
   runtimeExecutions?: EvalRuntimeExecution[];
@@ -233,13 +246,18 @@ export type EvalDefaults = {
   repetitions?: number;
   concurrency?: number;
   caseTimeoutMs?: number;
+  /** Params/setup admission allowance, independent of the execution deadline. */
+  setupTimeoutMs?: number;
+  verificationTimeoutMs?: number;
   cleanupTimeoutMs?: number;
 };
 export type CreateEvalsOptions<
   Params = EvalJson | undefined,
   Prepared = undefined,
 > = {
-  agent: Pick<Agent, "streamChat" | "describePromptContracts">;
+  agent: Pick<Agent, "streamChat" | "describePromptContracts" | "reportError">;
+  /** Optional reporter for custom agents; defaults to the real agent's telemetry. */
+  reportError?: Agent["reportError"];
   suites: readonly EvalSuite[];
   paramsSchema?: z.ZodType<Params>;
   setup?: (input: EvalSetupContext<Params>) => Prepared | Promise<Prepared>;
@@ -257,6 +275,10 @@ export type CreateEvalsOptions<
   teardown?: (
     input: EvalContext<Params, NoInfer<Prepared>> & { result: EvalCaseResult },
   ) => void | Promise<void>;
+  /** Assert postconditions before teardown. False is Failed; thrown infrastructure faults are Error. */
+  verify?: (
+    input: EvalContext<Params, NoInfer<Prepared>> & { result: EvalCaseResult },
+  ) => EvalVerdict | Promise<EvalVerdict>;
   responders?: Record<string, EvalResponder<Params, NoInfer<Prepared>>>;
   references?: Record<
     string,

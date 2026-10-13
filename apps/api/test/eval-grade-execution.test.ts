@@ -421,3 +421,35 @@ it.each([
     execution.cases[0]?.steps[0]?.evidence,
   );
 });
+
+it("Studio grading preserves failed application postconditions after semantic criteria pass", async () => {
+  const execution = await createEvals({
+    agent: { streamChat: vi.fn() },
+    suites: [suite],
+    execute: () => ({
+      observation: { type: "answer", text: "Done", structured: [] },
+    }),
+    verify: () => ({
+      passed: false,
+      reason: "Approved save is absent",
+      evidence: ["Fixture query returned no saved record"],
+    }),
+  }).run({ suiteId: suite.id, grading: "studio" });
+  const result = await gradeEvalExecution(
+    execution,
+    {
+      ...judge,
+      grade: () => ({ passed: true, reason: "Answer matched", evidence: [] }),
+    },
+    new AbortController().signal,
+    async () => {},
+  );
+  expect(result.status).toBe("failed");
+  expect(result.cases[0]?.verification).toEqual(
+    execution.cases[0]?.verification,
+  );
+  expect(result.cases[0]?.steps.every((step) => step.status === "passed")).toBe(
+    true,
+  );
+  expect(result.cases[0]?.errors).toEqual([]);
+});

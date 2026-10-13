@@ -1,4 +1,4 @@
-import { ProviderRequestError, serializeFailure } from "@kortyx/core/errors";
+import { KortyxError, serializeFailure } from "@kortyx/core/errors";
 import type { KortyxPromptMessage, KortyxToolCall } from "@kortyx/providers";
 import { describe, expect, it, vi } from "vitest";
 import { z } from "zod";
@@ -580,7 +580,7 @@ describe("mixed tools, outputs, and interrupts", () => {
       { node, state: createState() },
       run,
     ).catch((error: Error) => error);
-    expect(error).toBeInstanceOf(ProviderRequestError);
+    expect(error).toBeInstanceOf(KortyxError);
     expect(serializeFailure(error)).toMatchObject({
       code: "REASON_OUTPUT_CONTRACT_CORRECTION_EXHAUSTED",
       retryable: false,

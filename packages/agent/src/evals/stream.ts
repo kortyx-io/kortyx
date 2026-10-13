@@ -1,3 +1,4 @@
+import { serializeFailure } from "@kortyx/core/errors";
 import {
   type PromptSnapshot,
   type PromptUsageReceipt,
@@ -108,6 +109,9 @@ export async function executeEvalChat(args: {
   const events: EvalJson[] = [];
   let previousChunk: StreamChunk | undefined;
   let error = false;
+  let terminalFailure:
+    | Pick<EvalObservation, "failure" | "diagnosticId">
+    | undefined;
   let cancelled = false;
   let sawDone = false;
   let completedWithData = false;
@@ -151,7 +155,15 @@ export async function executeEvalChat(args: {
       }
       previousChunk = chunk;
       if (chunk.type === "interrupt") interrupts.set(chunk.requestId, chunk);
-      if (chunk.type === "error") error = true;
+      if (chunk.type === "error") {
+        error = true;
+        terminalFailure = {
+          ...(chunk.failure
+            ? { failure: serializeFailure(chunk.failure) }
+            : {}),
+          ...(chunk.diagnosticId ? { diagnosticId: chunk.diagnosticId } : {}),
+        };
+      }
       if (chunk.type === "cancelled") cancelled = true;
       if (chunk.type === "trace") runId = chunk.runId;
       if (chunk.type === "done") {
@@ -186,6 +198,7 @@ export async function executeEvalChat(args: {
           ? "interrupt"
           : "answer";
   const observation: EvalObservation = {
+    ...terminalFailure,
     type,
     text: message.content,
     structured: message.contentPieces

@@ -430,10 +430,45 @@ remain distinct. A case stops after its first failed step or error. This is not
 a complete reproducibility record of model versions, prompts, app code, and
 external data; retain those deployment details in your app's run record.
 
-Raw exception messages are excluded from public results because they can
-contain credentials. Log detailed failures privately in your app's hooks or
-existing runtime diagnostics. Progress events are snapshots; listener failures
-mark the run as a reporting error without skipping case cleanup.
+Declared-safe failures retain their code, message, details and bounded causes in
+`errors[].failure`. Unknown exception details remain private. When the agent has
+native telemetry configured with `diagnostics: { enabled: true }`, hook failures
+are reported through `agent.reportError`; eval issues and native stream errors
+retain their `diagnosticId`. Studio offers **View diagnostic** beside these
+failures. A custom agent can supply `createEvals({ reportError })` with the same
+synchronous reporter contract. Exporter failures do not alter eval outcomes.
+Historical results without a diagnostic reference cannot recover discarded data.
+Progress events are snapshots; listener failures mark the run as a reporting
+error without skipping case cleanup.
+
+Use `verify({ prepared, result, signal, ...context })` for application
+postconditions, after the conversation and before teardown:
+
+```ts
+verify: async ({ prepared, signal }) => {
+  const saved = await readApprovedSave(prepared.fixtureId, signal);
+  return {
+    passed: Boolean(saved),
+    reason: saved ? "Approved save exists" : "Required approved save is absent",
+    evidence: [],
+  };
+},
+```
+
+`readApprovedSave` is an application helper. Returning `passed: false` makes the
+case **Failed**, even when conversation checks passed. Throwing or returning an
+invalid verdict makes it **Error**. Move behavioral assertions out of teardown;
+teardown remains resource reset, and a reset failure remains **Error**. A failed
+verification is stored separately from cleanup errors.
+
+`caseTimeoutMs` (default 60,000) starts after successful setup and bounds the
+conversation, responders, reference reads and grading. `setupTimeoutMs` and
+`verificationTimeoutMs` each default to the configured `caseTimeoutMs` and can be
+overridden independently. `cleanupTimeoutMs` defaults to 10,000. Queue time does
+not consume these budgets. `durationMs` includes all phases;
+`phaseDurationsMs` records elapsed setup, execute, responder, reference, grading,
+verification and cleanup time when each phase runs. These are wall-clock phases,
+not provider-only latency.
 
 ## Lifecycle limits in this slice
 
@@ -446,7 +481,7 @@ mark the run as a reporting error without skipping case cleanup.
 - Early `completeResponse`/background continuation requires a custom executor.
   The default runner awaits attached execution completion and rejects a
   response stream that does not expose a completed workflow or human pause.
-- Case and cleanup deadlines use cooperative abort signals. Arbitrary app
+- Setup, execution, verification and cleanup deadlines use cooperative abort signals. Arbitrary app
   callbacks must honor their signals; the runner cannot forcibly terminate
   JavaScript. It waits for work to settle before teardown to avoid racing
   cleanup against an execution that is still using its fixtures.

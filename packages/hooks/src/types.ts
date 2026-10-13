@@ -217,6 +217,8 @@ export type UseReasonInterruptConfig<
 };
 
 export type UseReasonToolExecution = {
+  /** Extra model corrections for a missing terminal return; defaults to zero and shares maxSteps. Completed calls are not replayed. */
+  missingReturnCorrections?: number | undefined;
   /** Model-pass budget, including output generation and correction across resume. */
   maxSteps?: number | undefined;
   approval?: boolean | Record<string, boolean> | undefined;
