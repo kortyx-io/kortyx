@@ -127,6 +127,12 @@ image build contexts even for older release candidates.
   Each architecture also generates an authenticated eval manifest with `evidence`
   using the independently installed npm SDK and passes it through the API image's
   discovery parser. This catches SDK/image contract drift before promotion.
+- The real-image upgrade check preserves customer row fingerprints, table OIDs,
+  credential hashes/identities and all custom-key scopes. Prompt management adds
+  only its explicitly listed scopes to the two installer-managed bootstrap keys;
+  this documented capability migration is asserted separately, not treated as
+  credential rotation. A second migration/restart must preserve the full resulting
+  snapshot, including scopes, exactly. Unexpected additions or removals still fail.
 - Production Studio promotion and recovery share the `studio-production-auto`
   environment and its R2 credentials, with protected-branch restrictions and no
   reviewer approval or wait timer. Publication preparation exercises R2 access
