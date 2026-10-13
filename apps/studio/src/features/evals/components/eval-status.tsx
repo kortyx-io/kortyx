@@ -26,6 +26,14 @@ export function EvalStatus({ status }: { status: string }) {
       icon: CircleAlert,
       className: "text-red-700 dark:text-red-400",
     },
+    retrying: { label: "Retrying", icon: Clock3, className: neutral },
+    reconnecting: {
+      label: "Reconnecting",
+      icon: LoaderCircle,
+      className: neutral,
+      animate: true,
+    },
+    unknown: { label: "Status unknown", icon: CircleAlert, className: neutral },
     queued: { label: "Queued", icon: Clock3, className: neutral },
     running: {
       label: "Running",

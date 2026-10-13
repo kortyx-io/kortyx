@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- Add bounded, idempotent queued eval execution with shared consumer capacity,
+  event replay, explicit cancellation and optional PostgreSQL recovery.
+
+
 ## [0.23.2](https://github.com/kortyx-io/kortyx/compare/runtime-v0.23.1...runtime-v0.23.2) (2026-10-13)
 
 

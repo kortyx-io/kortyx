@@ -341,6 +341,18 @@ export const EvalManifestSchema = z
 export const EvalProgressSchema = z.discriminatedUnion("type", [
   z
     .object({
+      type: z.literal("case-dispatch"),
+      caseId: id,
+      repetition: z.number().int().positive(),
+      status: z.enum(["queued", "retrying", "reconnecting"]),
+      retryAt: z.iso.datetime().optional(),
+      httpStatus: z.number().int().min(100).max(599).optional(),
+      executionId: z.uuid().optional(),
+      generation: z.uuid().optional(),
+    })
+    .strict(),
+  z
+    .object({
       type: z.literal("case-runtime-associated"),
       caseId: id,
       repetition: z.number().int().positive(),
@@ -431,14 +443,33 @@ export const StudioEvalStartRequestSchema = EvalRemoteRunRequestSchema.omit({
   judge: z.enum(["studio", "app"]).default("studio"),
 });
 export const EvalWireEventSchema = z.discriminatedUnion("type", [
-  z.object({ type: z.literal("progress"), event: EvalProgressSchema }).strict(),
-  z.object({ type: z.literal("result"), result: EvalRunResultSchema }).strict(),
+  z
+    .object({
+      type: z.literal("execution-status"),
+      state: z.enum(["queued", "running", "completed", "cancelled", "unknown"]),
+    })
+    .strict(),
+  z
+    .object({
+      type: z.literal("progress"),
+      event: EvalProgressSchema,
+      sequence: z.number().int().positive().optional(),
+    })
+    .strict(),
+  z
+    .object({
+      type: z.literal("result"),
+      result: EvalRunResultSchema,
+      sequence: z.number().int().positive().optional(),
+    })
+    .strict(),
   z
     .object({
       type: z.literal("error"),
       message: z.string(),
       failure: failureDescriptor.optional(),
       diagnosticId: z.uuid().optional(),
+      sequence: z.number().int().positive().optional(),
     })
     .strict(),
 ]);

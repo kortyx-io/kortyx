@@ -102,3 +102,12 @@ in Studio. Use `verify` for postconditions (false means Failed), and `teardown` 
 reset (a thrown fault means Error). Setup, execution and verification have separate
 cooperative budgets. See [eval error migration](../../docs/evals/error-contract-migration.md)
 before upgrading a mixed SDK/API/Studio deployment.
+
+## Evaluation execution recovery
+
+`createEvalRouteHandler` supports queued, idempotent execution with cursor-based
+observation and explicit cancellation. Use `createPostgresEvalExecutionStore` from
+`@kortyx/runtime` (or `kortyx`) for shared capacity and recovery across replicas.
+The default memory store only survives within its process. See
+[execution resilience](../../docs/evals/execution-resilience.md) for configuration,
+retention, legacy compatibility and upgrade order.

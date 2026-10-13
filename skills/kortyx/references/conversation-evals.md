@@ -416,3 +416,23 @@ Existing stored JSON needs no SQL migration. Native capture limits, credential
 redaction, incomplete delivery and retention remain in force. OTel alone does not
 supply the native archive. These references support a future Errors list; issue
 management is not part of this feature.
+
+## Concurrent execution recovery
+
+New Studio negotiates `jobs-v1` with `createEvalRouteHandler`, scheduling each
+case/repetition independently. Busy 429/503 admission uses bounded Retry-After
+retries; accepted jobs reconnect by event cursor without rerunning the case.
+Forward GET, POST and DELETE, including query strings and negotiation headers.
+Keep long-running execution alive independently of the observer connection.
+Explicit cancellation is cooperative and capacity remains occupied through cleanup.
+
+The default `createInMemoryEvalExecutionStore()` handles one process. For replicas,
+pass `createPostgresEvalExecutionStore({connectionString,namespace})` as
+`executionStore`, with identical service keys, suite definitions and capacity
+settings. Configure `maxActiveRuns` (1), `maxActiveAttempts` (20) and
+`maxQueuedExecutions` (1000). Call store.setup() before traffic and handler.close()
+before store.close() on shutdown. Queued jobs recover across restart; a lost running
+lease becomes Unknown and is never automatically replayed. Inspect side effects
+before explicit cancellation or a new run. Application nodes own external
+idempotency; no data reducers or node/workflow shape changes are required.
+Upgrade consumers before API/Studio; legacy consumers keep request-owned streams.

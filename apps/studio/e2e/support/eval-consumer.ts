@@ -85,11 +85,16 @@ async function main() {
       let body = "";
       for await (const part of req) body += part;
       const response = await handler(
-        new Request(`http://127.0.0.1:${port}/evals`, {
+        new Request(`http://127.0.0.1:${port}${req.url}`, {
           method: req.method,
           headers: {
             authorization: req.headers.authorization ?? "",
             "content-type": "application/json",
+            ...Object.fromEntries(
+              Object.entries(req.headers).flatMap(([name, value]) =>
+                typeof value === "string" ? [[name, value]] : [],
+              ),
+            ),
           },
           ...(req.method === "POST" ? { body } : {}),
         }),
