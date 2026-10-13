@@ -139,7 +139,7 @@ image build contexts even for older release candidates.
   credential hashes/identities and all custom-key scopes. Prompt management adds
   only its explicitly listed scopes to the two installer-managed bootstrap keys.
   Starting with Studio 0.21.0, the managed Studio key also requires
-  `diagnostics:read`, and prompt capabilities no longer depend on the legacy
+  `diagnostics:read` and `eval:run`, and native capabilities no longer depend on the legacy
   feature flag. The verifier receives the target version explicitly, so recovery
   of an older release cannot silently gain the newer grant. These documented
   capability migrations are asserted separately, not treated as

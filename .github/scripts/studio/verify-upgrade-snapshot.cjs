@@ -49,8 +49,8 @@ function verifyUpgrade(before, after, env, version) {
   const prompts =
     nativeCapabilities || env.KORTYX_STUDIO_ENABLE_PROMPTS !== "0";
   // Prompt management (#288) intentionally expands only the two installer-owned
-  // bootstrap keys. Studio 0.21 also enables diagnostics:read and makes prompts
-  // unconditional (#336). Older release recovery must retain its old contract.
+  // bootstrap keys. Studio 0.21 also enables diagnostics:read and eval:run,
+  // and makes prompts unconditional (#336). Older recovery retains its contract.
   // All other keys retain exactly their previous scopes.
   for (const [id, scopes] of Object.entries(oldScopes)) {
     const additions = !prompts
@@ -65,11 +65,18 @@ function verifyUpgrade(before, after, env, version) {
               "prompt:settings",
             ]
           : [];
-    if (nativeCapabilities && id === studio) additions.push("diagnostics:read");
+    if (nativeCapabilities && id === studio)
+      additions.push("diagnostics:read", "eval:run");
+    const actual = [...new Set(newScopes[id])].sort();
+    const expected = [...new Set([...scopes, ...additions])].sort();
+    // Permission names are safe fixture diagnostics; never serialize credential
+    // snapshots or the environment when reporting the mismatch.
+    const missing = expected.filter((scope) => !actual.includes(scope));
+    const unexpected = actual.filter((scope) => !expected.includes(scope));
     assert.deepEqual(
-      [...new Set(newScopes[id])].sort(),
-      [...new Set([...scopes, ...additions])].sort(),
-      `Unexpected scope change for upgrade fixture key ${id}`,
+      actual,
+      expected,
+      `Unexpected scope change for upgrade fixture key ${id}: missing [${missing.join(", ")}], unexpected [${unexpected.join(", ")}]`,
     );
   }
 }
