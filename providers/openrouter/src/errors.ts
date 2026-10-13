@@ -1,11 +1,30 @@
 import {
   errorProperty,
+  FAILURE_LIMITS,
   isControlFlowError,
   normalizeProviderError,
   ProviderConfigurationError,
   ProviderRequestError,
 } from "@kortyx/core/errors";
 import type { ChatRequest } from "@openrouter/sdk/models";
+
+export type OpenRouterRequestContext = {
+  requireParametersSource: "automatic" | "explicit" | "default";
+  streamStarted?: boolean;
+};
+
+// The SDK may reject a string error code before constructing a typed HTTP/SSE
+// error. Inspect its original envelope, bounding JSON parsing, and retain the cause.
+const rawEnvelope = (error: unknown): unknown => {
+  const raw = errorProperty(error, "rawValue");
+  if (typeof raw !== "string") return raw;
+  if (raw.length > FAILURE_LIMITS.bytes) return undefined;
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return undefined;
+  }
+};
 
 export {
   ProviderConfigurationError,
@@ -59,52 +78,131 @@ export const toProviderRequestError = (
   action: string,
   error: unknown,
   request?: ChatRequest,
+  context?: OpenRouterRequestContext,
 ): Error => {
   if (request && !isControlFlowError(error)) {
-    const detail = errorProperty(error, "error") ?? error;
+    const envelope = rawEnvelope(error);
+    const detail =
+      errorProperty(error, "error") ??
+      errorProperty(envelope, "error") ??
+      error;
     const metadata = errorProperty(detail, "metadata");
     const routing =
       errorProperty(metadata, "routing_funnel") ??
       errorProperty(
-        errorProperty(error, "openrouterMetadata"),
+        errorProperty(error, "openrouterMetadata") ??
+          errorProperty(error, "openrouter_metadata") ??
+          errorProperty(envelope, "openrouter_metadata"),
         "routing_funnel",
       );
     const failedRoutingStep =
       errorProperty(routing, "failed_routing_step") ??
       errorProperty(metadata, "failed_routing_step");
-    const status =
+    const rawStatus =
       errorProperty(error, "statusCode") ?? errorProperty(detail, "code");
-    const message = errorProperty(error, "message");
+    const status =
+      typeof rawStatus === "number" || typeof rawStatus === "string"
+        ? Number(rawStatus)
+        : undefined;
+    const message =
+      errorProperty(detail, "message") ?? errorProperty(error, "message");
+    const parameterFilter =
+      typeof failedRoutingStep === "string" &&
+      failedRoutingStep.trim().toLowerCase() === "filter by parameters";
+    const parameterMessage =
+      typeof message === "string" &&
+      /^no endpoints found that can handle the requested parameters\.?$/i.test(
+        message.trim(),
+      );
     if (
       status === 404 &&
-      (failedRoutingStep === "Filter by Parameters" ||
-        message ===
-          "No endpoints found that can handle the requested parameters." ||
-        message ===
-          "No endpoints found that can handle the requested parameters")
+      (parameterFilter || (failedRoutingStep === undefined && parameterMessage))
     ) {
       const requestedParameters = parameterNames(request);
       const requireParameters = request.provider?.requireParameters ?? false;
+      const requireParametersSource =
+        context?.requireParametersSource ?? "unknown";
+      const featureNames = new Set(["response_format", "tools", "tool_choice"]);
+      const featureParameters = requestedParameters.filter((name) =>
+        featureNames.has(name),
+      );
+      const otherParameters = requestedParameters.filter(
+        (name) => !featureNames.has(name),
+      );
+      const usesPreset = Boolean(
+        request.model?.includes("@preset/") ||
+          request.models?.some((model) => model.includes("@preset/")),
+      );
+      const automaticFeatures = [
+        ...(request.tools?.length ? ["tool calling"] : []),
+        ...(request.responseFormat?.type === "json_schema"
+          ? ["structured output"]
+          : []),
+      ];
+      const origin =
+        requireParametersSource === "automatic"
+          ? `enabled automatically by Kortyx for ${automaticFeatures.join(" and ")}`
+          : requireParametersSource === "explicit"
+            ? "configured explicitly by the caller"
+            : requireParametersSource === "default"
+              ? "not explicitly set; provider default"
+              : "setting origin unavailable";
       const guidance =
-        "OpenRouter found no endpoint supporting the requested parameters. Remove unsupported optional parameters or select a compatible model/provider route.";
-      const diagnostic = `${guidance} require_parameters=${requireParameters}; requested parameters: ${requestedParameters.join(", ") || "none"}.`;
-      return new ProviderRequestError(diagnostic, {
-        code: "PROVIDER_PARAMETER_UNSUPPORTED",
+        "Remove unsupported optional parameters only if your application can omit them, or select a compatible model/provider route.";
+      const override =
+        requireParametersSource === "automatic"
+          ? " To override strict parameter routing, set providerOptions.openrouter.provider.requireParameters=false; unsupported controls, including tools/structured output, may then be ignored."
+          : "";
+      const preset = usesPreset
+        ? " Preset settings may also affect routing; this list only covers parameters sent by Kortyx."
+        : "";
+      const diagnostic = `OpenRouter found no endpoint supporting the requested parameters. require_parameters=${requireParameters} (${origin}). Tool/output parameters: ${featureParameters.join(", ") || "none"}. Other requested parameters: ${otherParameters.join(", ") || "none"}. ${guidance}${override}${preset}`;
+      return new ProviderRequestError(
+        typeof message === "string" ? message : diagnostic,
+        {
+          code: "PROVIDER_PARAMETER_UNSUPPORTED",
+          source: "openrouter",
+          operation: action,
+          status: 404,
+          retryable: false,
+          safeMessage: diagnostic,
+          details: {
+            requestedParameters,
+            requireParameters,
+            requireParametersSource,
+            featureParameters,
+            otherParameters,
+            usesPreset,
+            ...(parameterFilter
+              ? { failedRoutingStep: "Filter by Parameters" }
+              : {}),
+          },
+          cause: error,
+        },
+      );
+    }
+  }
+  const name = errorProperty(error, "name");
+  const originalMessage = errorProperty(error, "message");
+  if (
+    name === "ResponseValidationError" ||
+    (context?.streamStarted &&
+      (name === "SDKValidationError" || name === "ZodError"))
+  ) {
+    return new ProviderRequestError(
+      typeof originalMessage === "string"
+        ? originalMessage
+        : "OpenRouter SDK response validation failed.",
+      {
+        code: "PROVIDER_INVALID_RESPONSE",
         source: "openrouter",
         operation: action,
-        status: 404,
         retryable: false,
-        safeMessage: diagnostic,
-        details: {
-          requestedParameters,
-          requireParameters,
-          ...(failedRoutingStep === "Filter by Parameters"
-            ? { failedRoutingStep }
-            : {}),
-        },
+        safeMessage:
+          "OpenRouter returned a response that did not match its SDK schema. Inspect the original SDK error for details.",
         cause: error,
-      });
-    }
+      },
+    );
   }
   return normalizeProviderError("openrouter", action, error);
 };

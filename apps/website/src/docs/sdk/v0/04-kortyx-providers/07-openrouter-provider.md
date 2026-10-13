@@ -146,6 +146,20 @@ When tools or a native JSON schema are present, Kortyx defaults OpenRouter's
 This prevents a route from silently selecting an endpoint that does not accept
 the required parameters.
 
+This default is unchanged. Parameter-routing errors use
+`PROVIDER_PARAMETER_UNSUPPORTED` and explain automatic versus explicit settings,
+list tool/output controls separately from other parameters, and mention the
+existing `providerOptions.openrouter.provider.requireParameters: false` override.
+That override lets unsupported tools/schema controls be ignored, so use it only
+when the application accepts that behavior. Preset settings may also affect
+routing; the diagnostic only lists parameters sent by Kortyx.
+
+The live exception retains the original provider message and SDK cause for
+debugging. Public failure descriptors contain safe guidance and parameter names,
+excluding raw values and account data. Malformed SDK responses that cannot be
+identified as parameter refusals use `PROVIDER_INVALID_RESPONSE`; the original
+SDK parsing error and partial stream usage remain available.
+
 ## 6. Structured output and tools
 
 Use the normal Kortyx APIs:

@@ -21,13 +21,14 @@ import type {
 } from "@openrouter/sdk/models";
 import { createOpenRouterClient } from "./client.js";
 import {
+  type OpenRouterRequestContext,
   ProviderConfigurationError,
   ProviderRequestError,
   requireApiKey,
   toProviderRequestError,
 } from "./errors.js";
 import { createJevModel, isJevModelId } from "./jev.js";
-import { createChatRequest } from "./messages.js";
+import { prepareChatRequest } from "./messages.js";
 import { MODELS, type ModelId, PROVIDER_ID } from "./models.js";
 import type { OpenRouterModelOptions, ProviderSettings } from "./types.js";
 
@@ -206,8 +207,14 @@ const createChatModel = (
     supportsToolStreaming: true,
     async invoke(messages: KortyxPromptMessage[]) {
       let request: ChatRequest | undefined;
+      let context: OpenRouterRequestContext | undefined;
       try {
-        request = createChatRequest(modelId, messages, options, false);
+        ({ request, context } = prepareChatRequest(
+          modelId,
+          messages,
+          options,
+          false,
+        ));
         const response = await getClient().chat(request, options.abortSignal);
         if (isAsyncIterable(response))
           throw new ProviderRequestError(
@@ -215,7 +222,7 @@ const createChatModel = (
           );
         return resultFrom(modelId, response, warnings);
       } catch (error) {
-        throw toProviderRequestError("invoke content", error, request);
+        throw toProviderRequestError("invoke content", error, request, context);
       }
     },
 
@@ -241,13 +248,20 @@ const createChatModel = (
       let lastChunk: ChatStreamChunk | undefined;
       let partialUsage: KortyxUsage | undefined;
       let request: ChatRequest | undefined;
+      let context: OpenRouterRequestContext | undefined;
       try {
-        request = createChatRequest(modelId, messages, options, true);
+        ({ request, context } = prepareChatRequest(
+          modelId,
+          messages,
+          options,
+          true,
+        ));
         const response = await getClient().chat(request, options.abortSignal);
         if (!isAsyncIterable(response))
           throw new ProviderRequestError(
             "OpenRouter unexpectedly returned a non-streaming response for a streaming request.",
           );
+        context.streamStarted = true;
 
         const calls = new Map<
           number,
@@ -263,6 +277,7 @@ const createChatModel = (
               "stream content",
               chunk.error,
               request,
+              context,
             );
           for (const choice of chunk.choices) {
             finishReason = choice.finishReason ?? finishReason;
@@ -334,7 +349,7 @@ const createChatModel = (
         yield {
           type: "error",
           error: Object.assign(
-            toProviderRequestError("stream content", error, request),
+            toProviderRequestError("stream content", error, request, context),
             {
               usage: partialUsage,
             },
