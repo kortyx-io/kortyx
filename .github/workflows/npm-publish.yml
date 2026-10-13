@@ -40,7 +40,7 @@ permissions:
 jobs:
   prepare:
     name: Select tested release
-    if: (github.event_name == 'workflow_dispatch' && inputs.operation == 'stable') || (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success')
+    if: (github.event_name == 'workflow_dispatch' && inputs.operation == 'stable') || github.event_name == 'workflow_run'
     runs-on: ubuntu-latest
     outputs:
       commit: ${{ steps.release.outputs.commit }}
@@ -61,15 +61,16 @@ jobs:
           path: .github/automation
           sparse-checkout: .github
           persist-credentials: false
-      - name: Require successful CI for the selected commit
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: bash ./.github/automation/.github/scripts/release/require-ci.sh
       - name: Describe release commit
         id: release
         env:
           RELEASE_COMMIT: ${{ inputs.release_commit || github.event.workflow_run.head_sha || github.sha }}
         run: node ./.github/automation/.github/scripts/release/describe-release.mjs
+      - name: Require successful CI for the selected commit
+        if: steps.release.outputs.release == 'true' || github.event_name == 'workflow_dispatch'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: bash ./.github/automation/.github/scripts/release/require-ci.sh
 
   publication_preflight:
     name: Verify Studio publication access before releasing packages

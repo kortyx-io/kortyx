@@ -658,13 +658,21 @@ test.describe("Prompt detail drawers", () => {
       name: "Prompt actions",
       exact: true,
     });
-    const close = header.getByRole("button", {
-      name: "Close detail",
-      exact: true,
-    });
-    expect((await menu.boundingBox())!.x).toBeLessThan(
-      (await close.boundingBox())!.x,
-    );
+    // Read both positions in one frame: separate boundingBox calls can straddle
+    // the drawer's opening animation and compare different coordinate systems.
+    await expect
+      .poll(() =>
+        header.evaluate((element) => {
+          const menu = element.querySelector('[aria-label="Prompt actions"]');
+          const close = element.querySelector('[aria-label="Close detail"]');
+          if (!menu || !close) return false;
+          return (
+            menu.getBoundingClientRect().right <=
+            close.getBoundingClientRect().left
+          );
+        }),
+      )
+      .toBe(true);
     await expect(
       header.getByRole("button", { name: "Test version", exact: true }),
     ).toBeHidden();

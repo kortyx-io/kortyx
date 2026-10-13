@@ -30,7 +30,7 @@ workflows in `workflows/shared/`.
 | `cla.yml` | CLA | PRs targeting main, new PR comments, or manual recheck |
 | `ci.yml` | CI | Pull requests and pushes to main |
 | `release-prepare.yml` | Release / Prepare PR | Every push to main, or manual |
-| `npm-publish.yml` | Release / Orchestrate | Successful main CI, manual stable recovery, or a manually selected PR canary |
+| `npm-publish.yml` | Release / Orchestrate | Completed main CI (failed release CI is reported, never published), manual stable recovery, or a manually selected PR canary |
 | `release-studio-images.yml` | Release / Studio Images | Called after npm readiness, or manual recovery with an existing tag |
 | `release-studio-recover.yml` | Release / Studio Recovery | Manual, existing tag and recorded digests |
 | `website-preview.yml` | Website / Preview | Same-repository PR changes and closure |
@@ -141,6 +141,32 @@ image build contexts even for older release candidates.
   staging immediately. Release Please commits skip that standalone deployment;
   website releases rebuild the exact release commit, stage it, then promote its
   recorded digest to versioned and `latest` production tags.
+
+## Recovering a blocked release queue
+
+A merged Release Please PR is not a completed release. If its exact-commit push
+CI fails, Release / Orchestrate fails visibly before tags, packages or deployments.
+Release / Prepare PR also checks merged `autorelease: pending` PRs: it reports
+active gates as pending work and fails with the PR, SHA and recovery links if the
+release is blocked. It never clears labels or silently substitutes newer code.
+
+Re-run failed CI jobs on the original release commit. Successful CI completion
+automatically retriggers orchestration. If needed, dispatch `npm-publish.yml` with
+`operation=stable` and `release_commit=<original SHA>`; this still requires green
+push CI for that exact SHA. Do not remove the pending label, move tags, or publish
+from a later green commit to evade a failed gate. If the original commit has a
+real defect, resolve the release plan explicitly rather than weakening its tests.
+
+Browser report downloads stay in separate artifact directories. The merge input
+contains the latest attempt per shard (including untouched shards from earlier
+attempts), with collision-free ZIP names. Earlier attempt artifacts remain
+available for diagnostics; rerunning failed jobs cannot corrupt reports by
+extracting identical filenames concurrently. Missing reports still fail the gate.
+
+After successful orchestration, Release / Prepare PR runs again automatically so
+changes queued behind the recovered release can become the next release PR.
+Publication failures remain red in the original orchestration run; rerun only
+failed jobs there to retain its immutable artifacts and completed gates.
 
 ## Recovering a blocked Studio publication
 
