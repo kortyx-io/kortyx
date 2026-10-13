@@ -5,6 +5,7 @@ import {
   KortyxError,
   ProviderRequestError,
   serializeFailure,
+  ValidationError,
 } from "@kortyx/core/errors";
 import type {
   KortyxExecutableTool,
@@ -54,6 +55,7 @@ import type {
 } from "../types";
 import { parseWithSchema } from "../validation";
 import { reasonEngine } from "./engine";
+import { interruptInputFeedback } from "./input-feedback";
 import { inferOutputFormat } from "./output-format";
 import { createStructuredOutputStreamer } from "./output-stream";
 import { parseReasonOutputWithSchema } from "./parsing";
@@ -1017,11 +1019,36 @@ export const runReasonToolLoop = async <
             throw new Error(
               `useReason reached interrupts.maxRequests (${interruptConfig?.maxRequests ?? 1}).`,
             );
-          const request = parseWithSchema(
-            resolved.contract.requestSchema,
-            toolCall.input,
-            `useReason interrupt contract "${resolved.name}" request`,
-          );
+          let request: unknown;
+          try {
+            request = parseWithSchema(
+              resolved.contract.requestSchema,
+              toolCall.input,
+              `useReason interrupt contract "${resolved.name}" request`,
+            );
+          } catch (error) {
+            if (!(error instanceof ValidationError)) throw error;
+            const result: KortyxToolResult = {
+              toolCallId: toolCall.id,
+              name: toolCall.name,
+              isError: true,
+              content: interruptInputFeedback(
+                error,
+                interruptDefinitions.find((tool) => tool.name === toolCall.name)
+                  ?.inputSchema,
+                toolCall.name,
+                interruptConfig?.mode === "required",
+              ),
+            };
+            toolResults.push(result);
+            messages.push({ role: "tool", ...result });
+            traceSpan?.addEvent?.("useReason.interrupt.invalid", {
+              checkpointKey,
+              contract: resolved.name,
+            });
+            save();
+            continue;
+          }
           traceSpan?.addEvent?.("useReason.interrupt.requested", {
             checkpointKey,
             contract: resolved.name,

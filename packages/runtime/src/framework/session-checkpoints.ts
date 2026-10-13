@@ -33,6 +33,20 @@ export type SessionCheckpointRecord = CheckpointSummary & {
   activePendingRequests: PendingRequestRecord[];
 };
 
+/** Exhaustive execution-field registry: additions to full records must be classified. */
+export const sessionCheckpointPayloadFields = Object.freeze(
+  Object.keys({
+    state: true,
+    effects: true,
+    activePendingRequests: true,
+    runId: true,
+    graphCheckpointId: true,
+  } satisfies Record<
+    Exclude<keyof SessionCheckpointRecord, keyof CheckpointSummary>,
+    true
+  >),
+);
+
 export type AppendSessionCheckpointArgs = {
   sessionId: string;
   runId: string;

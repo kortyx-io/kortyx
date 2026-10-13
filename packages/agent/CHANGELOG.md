@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Preserve completed tool results and addressed human answers across root and child execution-budget continuations. Continue renews only the saved allowance and does not answer a later review.
+
 - Add bounded, idempotent queued eval execution with shared consumer capacity,
   event replay, explicit cancellation and optional PostgreSQL recovery.
 

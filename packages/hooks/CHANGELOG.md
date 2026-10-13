@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- Return recoverable, bounded model feedback for invalid named interrupt requests. Preserve strict human responses, request quotas, approval gates, and tool-loop limits.
+- Replace child execution snapshots natively while reading legacy object and single-element array snapshots.
+
 ## [0.34.2](https://github.com/kortyx-io/kortyx/compare/hooks-v0.34.1...hooks-v0.34.2) (2026-10-13)
 
 
