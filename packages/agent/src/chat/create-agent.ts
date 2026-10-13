@@ -319,7 +319,19 @@ function createAgentInternal(args: CreateAgentArgs): Agent {
     registry?.list?.(),
   );
   void registeredWorkflowsPromise.then(
-    () => registryUsage.end(),
+    (registered) =>
+      registryUsage.end(
+        "success",
+        registered
+          ? {
+              data_reducers: registered.some((workflow) =>
+                Object.values(workflow.reduce ?? {}).some(
+                  (callback) => typeof callback === "function",
+                ),
+              ),
+            }
+          : {},
+      ),
     (error) => registryUsage.fail(error),
   );
 

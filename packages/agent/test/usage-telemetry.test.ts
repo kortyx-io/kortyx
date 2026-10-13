@@ -181,3 +181,81 @@ it("measures an unmet eval postcondition as quality failure without collecting i
   );
   expect(JSON.stringify(records)).not.toContain("private-");
 });
+
+it("measures reducer registration and typed failures without collecting field names or values", async () => {
+  const root = defineWorkflow({
+    id: "private-reducer-workflow",
+    version: "1",
+    inputSchema: z.string(),
+    outputSchema: z.object({ privateField: z.string() }),
+    reduce: {
+      privateField: () => {
+        throw new Error("private-reducer-error");
+      },
+    },
+    nodes: {
+      write: { run: () => ({ data: { privateField: "private-value" } }) },
+    },
+    edges: [
+      ["__start__", "write"],
+      ["write", "__end__"],
+    ],
+  });
+  const result = await createAgent({ workflows: [root] }).execute({
+    workflow: root,
+    input: "private-input",
+  });
+  expect(result.status).toBe("failed");
+  await telemetry.flush();
+  expect(records).toEqual(
+    expect.arrayContaining([
+      expect.objectContaining({
+        operation: "sdk.registry",
+        outcome: "success",
+        count: 1,
+        properties: { data_reducers: true },
+      }),
+      expect.objectContaining({
+        operation: "sdk.execute",
+        outcome: "failed",
+        properties: expect.objectContaining({
+          error_code: "WORKFLOW_REDUCER_FAILED",
+          error_category: "workflow",
+        }),
+      }),
+    ]),
+  );
+  expect(JSON.stringify(records)).not.toContain("private");
+});
+
+it("does not count undefined reducer entries as configured adoption", async () => {
+  const root = defineWorkflow({
+    id: "unused-reducer",
+    version: "1",
+    inputSchema: z.string(),
+    outputSchema: z.object({ answer: z.string() }),
+    reduce: { answer: undefined },
+    nodes: { write: { run: () => ({ data: { answer: "value" } }) } },
+    edges: [
+      ["__start__", "write"],
+      ["write", "__end__"],
+    ],
+  });
+  expect(
+    (
+      await createAgent({ workflows: [root] }).execute({
+        workflow: root,
+        input: "start",
+      })
+    ).status,
+  ).toBe("completed");
+  await telemetry.flush();
+  expect(records).toEqual(
+    expect.arrayContaining([
+      expect.objectContaining({
+        operation: "sdk.registry",
+        properties: { data_reducers: false },
+      }),
+    ]),
+  );
+});

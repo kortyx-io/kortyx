@@ -38,7 +38,7 @@ Architecture:
 - `references/workflow-execution.md`: typed `agent.execute` / `agent.resume`, separate HTTP entry points, outcomes, cancellation signals, shared execution limits/Continue, durable human approval, and conversational regression testing.
 
 - `references/architecture-folder-structure.md`: default layouts and responsibility boundaries.
-- `references/architecture-workflows-and-nodes.md`: defining workflows, nodes, return shapes, routing, and agent wiring.
+- `references/architecture-workflows-and-nodes.md`: defining workflows, nodes, return shapes, opt-in data reducers, routing, and agent wiring.
 - `references/architecture-supervisor-specialists.md`: coordinator-per-turn routing, returning specialist workflows, one reason/tool loop per specialist, prompt boundaries, and conversational output.
 - `references/architecture-nextjs.md`: Next.js API route vs Server Action guidance.
 - `references/architecture-react-node.md`: separate React frontend plus Node backend.

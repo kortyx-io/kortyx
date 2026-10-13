@@ -26,6 +26,7 @@ import type {
   ExecutionControl,
   ExecutionRuntimeConfig,
 } from "./create-execution-graph";
+import { copyReducedFields, hasDataReducer, mergeWorkflowData } from "./data";
 
 export type NodeExecutor = (
   state: GraphState,
@@ -58,6 +59,8 @@ type NodeRecord = {
   responses: unknown[];
   runtime: Record<string, unknown>;
   fields: Fields;
+  /** Raw writes, not reduced branch snapshots; keys survive undefined in JSON. */
+  dataUpdates?: Array<{ key: string; value?: unknown }>;
   workflowFields: Fields;
   runtimeFields: Fields;
   selected: string[];
@@ -211,7 +214,10 @@ export function addParallelGraphCoordinator(
         if (previous && previous.writer !== field.writer) {
           if (journal.nodes[previous.writer]?.ancestors.includes(field.writer))
             continue;
-          if (!journal.nodes[field.writer]?.ancestors.includes(previous.writer))
+          if (
+            !journal.nodes[field.writer]?.ancestors.includes(previous.writer) &&
+            !(property === "fields" && hasDataReducer(workflow, key))
+          )
             throw failure(
               "GRAPH_OUTPUT_CONFLICT",
               `Node '${node}' cannot combine ${property === "fields" ? "data" : property === "workflowFields" ? "workflow state" : "runtime"} field '${key}': branches '${previous.writer}' and '${field.writer}' both wrote it. Return separate fields in application logic.`,
@@ -232,6 +238,35 @@ export function addParallelGraphCoordinator(
     Object.fromEntries(
       Object.entries(fields).map(([key, field]) => [key, field.value]),
     );
+  const accumulatedData = (
+    parents: NodeRecord[],
+    fields: Fields,
+    journal: Journal,
+  ) => {
+    const data = deepMergeWithArrayOverwrite(
+      journal.initialData,
+      values(fields),
+    );
+    if (!workflow.reduce) return data;
+    const visible = new Set(
+      parents.flatMap((parent) => [parent.id, ...parent.ancestors]),
+    );
+    let reduced = journal.initialData;
+    const returned: Record<string, unknown> = {};
+    // Stable topological order; ties use workflow.nodes declaration order.
+    // A shared ancestor is folded once, regardless of how many branches inherit it.
+    for (const id of ids) {
+      if (!visible.has(id)) continue;
+      const delta = Object.fromEntries(
+        (journal.nodes[id]?.dataUpdates ?? [])
+          .filter(({ key }) => hasDataReducer(workflow, key))
+          .map(({ key, value }) => [key, value]),
+      );
+      reduced = mergeWorkflowData(reduced, delta, workflow);
+      Object.assign(returned, delta);
+    }
+    return copyReducedFields(data, reduced, returned, workflow);
+  };
   const initialWorkflowState = (journal: Journal) => {
     const internal = journal.initialRuntime.__kortyx;
     return record(internal) && record(internal.workflowState)
@@ -336,16 +371,18 @@ export function addParallelGraphCoordinator(
           node.status = "completed";
           return;
         }
-        const data = deepMergeWithArrayOverwrite(
-          journal.initialData,
-          values(node.fields),
-        );
+        const data = accumulatedData(parents, node.fields, journal);
         const nodeInput = Object.keys(node.fields).length
-          ? deepMergeWithArrayOverwrite(
-              record(journal.initialInput)
-                ? journal.initialInput
-                : { rawInput: journal.initialInput },
+          ? copyReducedFields(
+              deepMergeWithArrayOverwrite(
+                record(journal.initialInput)
+                  ? journal.initialInput
+                  : { rawInput: journal.initialInput },
+                values(node.fields),
+              ),
+              data,
               values(node.fields),
+              workflow,
             )
           : journal.initialInput;
         const workflowState = deepMergeWithArrayOverwrite(
@@ -414,6 +451,11 @@ export function addParallelGraphCoordinator(
           (updates.runtime as Record<string, unknown> | undefined) ??
           (privateState.runtime as Record<string, unknown>);
         const delta = updates.__kortyxNodeData as Record<string, unknown>;
+        if (workflow.reduce)
+          node.dataUpdates = Object.entries(delta).map(([key, value]) => ({
+            key,
+            value,
+          }));
         const updatedData = updates.data as Record<string, unknown> | undefined;
         for (const key of Object.keys(delta))
           Object.defineProperty(node.fields, key, {
@@ -559,6 +601,19 @@ export function addParallelGraphCoordinator(
       );
     }
     const end = journal.nodes.__end__ as NodeRecord;
+    const data =
+      end.status === "completed"
+        ? accumulatedData(
+            ids
+              .filter(
+                (id) =>
+                  id !== "__end__" && journal.nodes[id]?.status === "completed",
+              )
+              .map((id) => journal.nodes[id] as NodeRecord),
+            end.fields,
+            journal,
+          )
+        : {};
     return {
       runtime: {
         ...(end.status === "completed" ? values(end.runtimeFields) : {}),
@@ -567,17 +622,19 @@ export function addParallelGraphCoordinator(
       ...(end.status === "completed"
         ? {
             input: Object.keys(end.fields).length
-              ? deepMergeWithArrayOverwrite(
-                  record(journal.initialInput)
-                    ? journal.initialInput
-                    : { rawInput: journal.initialInput },
+              ? copyReducedFields(
+                  deepMergeWithArrayOverwrite(
+                    record(journal.initialInput)
+                      ? journal.initialInput
+                      : { rawInput: journal.initialInput },
+                    values(end.fields),
+                  ),
+                  data,
                   values(end.fields),
+                  workflow,
                 )
               : journal.initialInput,
-            data: deepMergeWithArrayOverwrite(
-              journal.initialData,
-              values(end.fields),
-            ),
+            data,
             conversationHistory: ids.flatMap(
               (id) => journal.nodes[id]?.history ?? [],
             ),

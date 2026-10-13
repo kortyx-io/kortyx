@@ -14,7 +14,7 @@ import {
   isExecutionLimitReached,
   throwIfExecutionAborted,
 } from "@kortyx/core";
-import { KortyxError } from "@kortyx/core/errors";
+import { KortyxError, WorkflowContractError } from "@kortyx/core/errors";
 import type { KortyxTelemetryConfig, ReasonTraceAdapter } from "@kortyx/hooks";
 import { runWithHookContext } from "@kortyx/hooks";
 import {
@@ -33,6 +33,7 @@ import type { BaseCheckpointSaver } from "@langchain/langgraph-checkpoint";
 import { getCheckpointer } from "../checkpointer";
 import { resolveNodeHandler } from "../node-loader";
 import { createWorkflowCallService } from "./call-workflow";
+import { copyReducedFields, mergeWorkflowData } from "./data";
 import {
   addParallelGraphCoordinator,
   hasParallelEdges,
@@ -101,6 +102,8 @@ export async function createExecutionGraph(
   config: ExecutionRuntimeConfig,
   execution: ExecutionControl = {},
 ) {
+  if (workflow.reduce && !workflow.outputSchema)
+    throw new WorkflowContractError("Workflow reducers require outputSchema.");
   const StateAnnotation = Annotation.Root({
     currentWorkflow: Annotation<string>,
     input: Annotation<unknown>,
@@ -115,7 +118,10 @@ export async function createExecutionGraph(
     config: Annotation<unknown>,
     transitionTo: Annotation<string | null>,
     data: Annotation<Record<string, unknown>>({
-      reducer: (l, r) => deepMergeWithArrayOverwrite(l ?? {}, r ?? {}),
+      // Reducer-enabled nodes emit complete snapshots, including removed fields.
+      // Loading a checkpoint/snapshot must never invoke application reducers.
+      reducer: (l, r) =>
+        workflow.reduce ? r : deepMergeWithArrayOverwrite(l ?? {}, r ?? {}),
       default: () => ({}),
     }),
     conversationHistory: Annotation<
@@ -570,13 +576,17 @@ export async function createExecutionGraph(
       if (res.data && typeof res.data === "object") {
         // Treat node `data` as the flowing payload between nodes.
         // Accumulate by merging into the previous input (if any).
-        updates.input = deepMergeWithArrayOverwrite(
-          toRecordInput(state.input),
-          res.data as Record<string, unknown>,
-        );
-        updates.data = deepMergeWithArrayOverwrite(
+        const data = mergeWorkflowData(
           (state.data ?? {}) as Record<string, unknown>,
           res.data as Record<string, unknown>,
+          workflow,
+        );
+        updates.data = data;
+        updates.input = copyReducedFields(
+          deepMergeWithArrayOverwrite(toRecordInput(state.input), res.data),
+          data,
+          res.data,
+          workflow,
         );
       }
       if (res.infra?.runtime && typeof res.infra.runtime === "object") {

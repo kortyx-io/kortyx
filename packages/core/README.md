@@ -49,6 +49,21 @@ export const workflow = defineWorkflow({
 });
 ```
 
+## Workflow data reducers
+
+Default node data merging is unchanged: objects deep-merge, arrays and scalars
+are overwritten, and omitted fields persist. A workflow can declare `reduce`
+callbacks typed from its `outputSchema` to replace, append or clear individual
+fields. Callbacks must be pure, deterministic and synchronous; returning
+`undefined` removes the field. Reducer failures use `WORKFLOW_REDUCER_FAILED` and
+existing output validation remains in place.
+
+See [workflow reducer contracts and examples](https://kortyx.io/docs/core-concepts/define-workflows#opt-in-data-reducers)
+for chat/resume behavior, parallel ordering and child workflow boundaries. No
+migration is required for workflows that do not opt in. Install the new
+core/runtime packages on all workers before deploying reducer-enabled definitions
+and bump the workflow version when changing callbacks.
+
 ## Documentation
 
 - [Documentation](https://kortyx.io/docs)

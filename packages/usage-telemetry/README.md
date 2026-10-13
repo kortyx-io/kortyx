@@ -59,6 +59,21 @@ The root export is browser safe. Bundlers use a browser fallback for the Node en
 
 Studio uses the `@studio/usage` server adapter and `@studio/usage-contracts` contract, following its existing edition alias pattern. An adapter owns its server client and serializable browser configuration, including an optional extended catalog. Browser configuration chooses one product. `configureStudioUsage(config, extensionClient)` also accepts a custom browser client. API embedders can pass `usage` to `createApiApp`. Never put a personal PostHog token in a browser config or transport.
 
+## Workflow reducer adoption
+
+Successful `sdk.registry` operations carry the boolean `data_reducers`: whether
+at least one registered workflow has a callback. Compare `sum(count)` with the
+flag enabled against all successful registry operations in the same release cohort
+to measure configured adoption. This counts registry resolutions, not workflow
+runs or unique workflows. Registries without a `list` method cannot establish
+adoption and omit the property. Repeated agent initialization and best-effort
+aggregation/delivery affect reach estimates as described above.
+
+Existing execution outcomes allowlist `WORKFLOW_REDUCER_FAILED` as a known error
+code for reliability measurement. Reducer field names, callbacks, schemas, values
+and raw error messages are never usage properties. Existing opt-out, bounded
+aggregation and failure-independent delivery apply unchanged.
+
 ## First slice and follow-up opportunities
 
 SDK boundaries include initialization, registry resolution, direct execution/resume, chat admission, terminal graph execution, response completion, model and tool execution, structured output, explicit response completion, prompt resolution, eval outcomes, MCP connection/discovery/close, checkpoint operations and observability export attempts. Early response completion and later graph failure are separate outcomes. An eval quality failure is distinct from an execution error.

@@ -105,6 +105,7 @@ export type {
   NodeHandler,
   NodeResult,
   RuntimeEnvelope,
+  WorkflowDataReducers,
   WorkflowDefinition,
   WorkflowId,
 } from "@kortyx/core";
