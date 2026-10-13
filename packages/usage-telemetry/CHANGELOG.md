@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.3.0](https://github.com/kortyx-io/kortyx/compare/usage-telemetry-v0.2.0...usage-telemetry-v0.3.0) (2026-10-13)
+
+
+### ⚠ BREAKING CHANGES
+
+* **runtime:** Consumer eval routes cap active attempts at 20 by default. Set maxActiveAttempts before upgrading consumers with higher concurrency. Upgrade API and Studio together for the new case-dispatch progress events.
+
+### Features
+
+* **runtime:** add opt-in workflow data reducers ([#340](https://github.com/kortyx-io/kortyx/issues/340)) ([8be2c81](https://github.com/kortyx-io/kortyx/commit/8be2c81f74c5c51ab98443144f3491d4e8d54a88))
+
 ## [0.2.0](https://github.com/kortyx-io/kortyx/compare/usage-telemetry-v0.1.0...usage-telemetry-v0.2.0) (2026-10-11)
 
 

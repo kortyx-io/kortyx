@@ -1,5 +1,25 @@
 # Changelog
 
+## [0.51.0](https://github.com/kortyx-io/kortyx/compare/website-v0.50.1...website-v0.51.0) (2026-10-13)
+
+
+### ⚠ BREAKING CHANGES
+
+* **runtime:** Consumer eval routes cap active attempts at 20 by default. Set maxActiveAttempts before upgrading consumers with higher concurrency. Upgrade API and Studio together for the new case-dispatch progress events.
+* **agent:** Consumer eval routes cap active attempts at 20 by default. Set maxActiveAttempts before upgrading consumers with higher concurrency. Upgrade API and Studio together for the new case-dispatch progress events.
+
+### Features
+
+* **agent:** make concurrent eval execution resilient ([#339](https://github.com/kortyx-io/kortyx/issues/339)) ([84d0e4f](https://github.com/kortyx-io/kortyx/commit/84d0e4fe3d35e5cf80713f7550ef2b1d83e5a2ec))
+* **runtime:** add opt-in workflow data reducers ([#340](https://github.com/kortyx-io/kortyx/issues/340)) ([8be2c81](https://github.com/kortyx-io/kortyx/commit/8be2c81f74c5c51ab98443144f3491d4e8d54a88))
+* **studio:** enable OSS capabilities by default ([#336](https://github.com/kortyx-io/kortyx/issues/336)) ([7e55ba5](https://github.com/kortyx-io/kortyx/commit/7e55ba55c5a5a488b4284ae79b57b23ca6b6b494))
+
+
+### Bug Fixes
+
+* **evals:** preserve diagnostics and separate postcondition failures ([#337](https://github.com/kortyx-io/kortyx/issues/337)) ([d4fce4e](https://github.com/kortyx-io/kortyx/commit/d4fce4e670971d3b755835fc681c8125f67a9c70))
+* **openrouter:** explain parameter routing failures ([#338](https://github.com/kortyx-io/kortyx/issues/338)) ([193a287](https://github.com/kortyx-io/kortyx/commit/193a28794b6f05626a2d69148fa8592fcd5956e9))
+
 ## [0.50.1](https://github.com/kortyx-io/kortyx/compare/website-v0.50.0...website-v0.50.1) (2026-10-13)
 
 

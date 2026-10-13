@@ -1,6 +1,6 @@
 {
   "name": "@kortyx/openrouter",
-  "version": "0.2.5",
+  "version": "0.2.6",
   "private": false,
   "description": "OpenRouter provider integration for Kortyx.",
   "keywords": [

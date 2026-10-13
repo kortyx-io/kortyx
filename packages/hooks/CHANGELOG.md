@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.34.2](https://github.com/kortyx-io/kortyx/compare/hooks-v0.34.1...hooks-v0.34.2) (2026-10-13)
+
+
+### Bug Fixes
+
+* **evals:** preserve diagnostics and separate postcondition failures ([#337](https://github.com/kortyx-io/kortyx/issues/337)) ([d4fce4e](https://github.com/kortyx-io/kortyx/commit/d4fce4e670971d3b755835fc681c8125f67a9c70))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/core bumped to 0.14.0
+    * @kortyx/providers bumped to 0.9.3
+    * @kortyx/telemetry-contracts bumped to 0.17.2
+    * @kortyx/prompts bumped to 0.2.1
+    * @kortyx/usage-telemetry bumped to 0.3.0
+
 ## [0.34.1](https://github.com/kortyx-io/kortyx/compare/hooks-v0.34.0...hooks-v0.34.1) (2026-10-13)
 
 

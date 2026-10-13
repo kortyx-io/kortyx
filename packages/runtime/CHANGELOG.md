@@ -10,6 +10,31 @@
   child outputs, deterministic parallel joins and checkpoint resume. Surface
   callback exceptions as `WORKFLOW_REDUCER_FAILED` without exposing raw values.
 
+## [0.24.0](https://github.com/kortyx-io/kortyx/compare/runtime-v0.23.2...runtime-v0.24.0) (2026-10-13)
+
+
+### ⚠ BREAKING CHANGES
+
+* **runtime:** Consumer eval routes cap active attempts at 20 by default. Set maxActiveAttempts before upgrading consumers with higher concurrency. Upgrade API and Studio together for the new case-dispatch progress events.
+* **agent:** Consumer eval routes cap active attempts at 20 by default. Set maxActiveAttempts before upgrading consumers with higher concurrency. Upgrade API and Studio together for the new case-dispatch progress events.
+
+### Features
+
+* **agent:** make concurrent eval execution resilient ([#339](https://github.com/kortyx-io/kortyx/issues/339)) ([84d0e4f](https://github.com/kortyx-io/kortyx/commit/84d0e4fe3d35e5cf80713f7550ef2b1d83e5a2ec))
+* **runtime:** add opt-in workflow data reducers ([#340](https://github.com/kortyx-io/kortyx/issues/340)) ([8be2c81](https://github.com/kortyx-io/kortyx/commit/8be2c81f74c5c51ab98443144f3491d4e8d54a88))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/stream bumped to 0.15.5
+    * @kortyx/core bumped to 0.14.0
+    * @kortyx/hooks bumped to 0.34.2
+    * @kortyx/providers bumped to 0.9.3
+    * @kortyx/utils bumped to 0.3.7
+    * @kortyx/prompts bumped to 0.2.1
+
 ## [0.23.2](https://github.com/kortyx-io/kortyx/compare/runtime-v0.23.1...runtime-v0.23.2) (2026-10-13)
 
 
