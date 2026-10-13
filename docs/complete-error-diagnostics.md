@@ -96,3 +96,10 @@ Default `get` returns metadata, correlation, and completeness without the large 
 [The manual fixture](../test/diagnostics/README.md) exercises a real HTTP 400 provider, agent/node failure, public HTTP/SSE, native upload, PostgreSQL, Studio, and CLI. Unit and integration coverage also exercises custom projections, resource omissions, accessors, cancellation, retries, spool restart recovery, tenant/environment permissions, malformed uploads, integrity, and retention.
 
 Later releases in the [research and product scope](./design-specs/error-observability.md) add deterministic recurring-error grouping, standalone error search, triage, alerting, readable source stacks, and operational health dashboards. This release supplies capture, authenticated retrieval, and explicit loss states as their foundation.
+
+Eval hook failures now use the agent's configured native diagnostic reporter and
+retain its UUID alongside the bounded safe failure. Custom eval agents can provide
+`reportError` explicitly. Native terminal and handled tool errors retain the same
+references through eval evidence. Public results still exclude unknown exception
+internals. See [eval consumer migration](./evals/error-contract-migration.md) for
+configuration, upgrade order and verification/reset semantics.

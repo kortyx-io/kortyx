@@ -137,3 +137,9 @@ Await groups sequentially within one node; children may contain nested groups.
 Native `Promise.all` calls and parallel graph edges remain unsupported.
 
 See [the execution and replay contract](../../docs/design-specs/child-workflows.md).
+
+When a required `outputs.return` is missing, `useReason` raises the typed
+`REASON_TERMINAL_OUTPUT_MISSING` validation error. Optional
+`toolExecution: { maxSteps: 4, missingReturnCorrections: 1 }` allows an output-only
+correction within the existing step budget, without replaying business tools.
+The correction budget defaults to zero.

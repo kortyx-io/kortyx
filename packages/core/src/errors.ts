@@ -41,6 +41,26 @@ export type FailureDescriptor = {
   truncated?: boolean;
 };
 
+export type FailureJsonValue =
+  | null
+  | boolean
+  | number
+  | string
+  | FailureJsonValue[]
+  | { [key: string]: FailureJsonValue };
+/** The serializer's bounded JSON-safe output, suitable for persistence and public wire contracts. */
+export type SerializedFailureDescriptor = Omit<
+  FailureDescriptor,
+  "details" | "cause" | "results"
+> & {
+  details?: Record<string, FailureJsonValue>;
+  cause?: SerializedFailureDescriptor;
+  results?: Array<{
+    status: "fulfilled" | "rejected";
+    failure?: SerializedFailureDescriptor;
+  }>;
+};
+
 export const FAILURE_LIMITS = {
   depth: 4,
   message: 1024,
@@ -82,7 +102,7 @@ const number = (value: unknown): number | undefined =>
   typeof value === "number" && Number.isFinite(value) && value >= 0
     ? value
     : undefined;
-const unknownFailure = (): FailureDescriptor => ({
+const unknownFailure = (): SerializedFailureDescriptor => ({
   version: 1,
   code: "EXECUTION_FAILED",
   category: "internal",
@@ -165,10 +185,10 @@ function copyFailure(
   value: unknown,
   depth: number,
   budget = { remaining: 128, seen: new WeakSet<object>() },
-): FailureDescriptor {
+): SerializedFailureDescriptor {
   if (!isFailureDescriptor(value)) return unknownFailure();
   const read = (key: string) => errorProperty(value, key);
-  const result: FailureDescriptor = {
+  const result: SerializedFailureDescriptor = {
     version: 1,
     code: text(read("code")) ?? "EXECUTION_FAILED",
     category: read("category") as FailureCategory,
@@ -190,7 +210,7 @@ function copyFailure(
   }
   const details = safeDetails(read("details"));
   if (details && !Array.isArray(details) && typeof details === "object")
-    result.details = details as Record<string, unknown>;
+    result.details = details as Record<string, FailureJsonValue>;
   const context = safeDetails(read("context"));
   if (context && typeof context === "object" && !Array.isArray(context))
     result.context = Object.fromEntries(
@@ -263,7 +283,7 @@ function copyFailure(
 }
 
 /** Sanitize wire/checkpoint descriptors. Unknown objects never supply public prose. */
-export function serializeFailure(error: unknown): FailureDescriptor {
+export function serializeFailure(error: unknown): SerializedFailureDescriptor {
   if (isControlFlowError(error)) throw error;
   const candidate = isFailureDescriptor(error)
     ? error
@@ -284,7 +304,7 @@ export function serializeFailure(error: unknown): FailureDescriptor {
     )
       return result;
     // Preserve aggregate membership/order while bounding each diagnostic.
-    const compact = (item: FailureDescriptor): FailureDescriptor => ({
+    const compact = (item: FailureDescriptor): SerializedFailureDescriptor => ({
       version: 1,
       code: item.code.slice(0, 64),
       category: item.category,

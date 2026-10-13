@@ -510,3 +510,34 @@ it("rejects scheduled attempts excluded by the selected cases", async () => {
     else await response.body?.cancel();
   }
 });
+
+it("consumer eval transport retains declared-safe failures and exact diagnostic references", async () => {
+  const { DomainError } = await import("@kortyx/core/errors");
+  const { EvalWireEventSchema } = await import("../src/evals/contracts");
+  const diagnosticId = randomUUID();
+  const error = Object.assign(
+    new DomainError(
+      "EVAL_ADMISSION_REJECTED",
+      "Fixture admission was rejected",
+    ),
+    { diagnosticId, responseBody: "PRIVATE_BODY" },
+  );
+  const handler = createEvalRouteHandler({
+    serviceKey: key,
+    evals: {
+      describe: () => manifest,
+      run: async () => {
+        throw error;
+      },
+    },
+  });
+  const response = await handler(request());
+  const wire = (await response.text()).trim();
+  expect(EvalWireEventSchema.parse(JSON.parse(wire))).toMatchObject({
+    type: "error",
+    diagnosticId,
+    message: "Fixture admission was rejected",
+    failure: { domainCode: "EVAL_ADMISSION_REJECTED" },
+  });
+  expect(wire).not.toContain("PRIVATE_BODY");
+});

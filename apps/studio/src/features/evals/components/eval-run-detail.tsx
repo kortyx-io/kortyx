@@ -25,6 +25,7 @@ import type { EvalDetail } from "../schema";
 import { EvalCost, EvalCostBreakdown } from "./eval-cost";
 import { EvalDetailHeader, EvalSummaryMetric } from "./eval-detail-header";
 import { EvalDuration } from "./eval-duration";
+import { EvalFailure } from "./eval-failure";
 import { EvalStatus } from "./eval-status";
 import { EvalSuiteDefinition } from "./eval-suite-definition";
 
@@ -320,13 +321,12 @@ export function EvalRunDetail({
                     </KeyValue>
                   </dl>
                   {run.result?.errors.map((issue, index) => (
-                    <p
+                    <EvalFailure
                       key={`${index}:${issue.code}`}
-                      role="alert"
-                      className="mt-3 break-words text-xs text-red-700 dark:text-red-400"
-                    >
-                      {issue.phase}: {issue.message}
-                    </p>
+                      issue={issue}
+                      environment={run.environment}
+                      scope={`run-issue-${index}`}
+                    />
                   ))}
                 </div>
               ),

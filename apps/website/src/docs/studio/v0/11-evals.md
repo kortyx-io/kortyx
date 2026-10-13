@@ -494,3 +494,18 @@ returns detailed results, and POST `/:id/cancel` cancels remaining work. Existin
 `/v1/studio/evals/runs` endpoints continue to serve individual suite executions.
 Apply migration `0007_evaluation_runs` before deploying the new API. Browser and
 CLI grouped operations require a compatible Studio/API release.
+
+## Failure evidence
+
+In a case attempt, error cards show the phase and safe failure code/message.
+Choose **View diagnostic** to inspect or download its captured private diagnostic.
+This requires native diagnostic capture and a Studio reader for the same project
+and environment. Credential redaction and explicit capture/delivery limits apply.
+A missing diagnostic reference is identified; old data cannot recover discarded
+content. Conversation debugging also retains handled tool-error references.
+
+Application postcondition verification has its own verdict: unmet behavior is
+Failed; an infrastructure or reset exception is Error. Comparison views preserve
+verification evidence alongside conversation results. Deploy matching API/Studio
+support before the SDK/CLI emitting these additive fields. No SQL migration is
+needed for the existing JSON records.

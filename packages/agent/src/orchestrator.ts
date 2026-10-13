@@ -31,6 +31,7 @@ import {
   type StreamChunk,
 } from "@kortyx/stream";
 import { Command } from "@langchain/langgraph";
+import { z } from "zod";
 import type {
   ChatResponseFinalized,
   ChatResponseStatus,
@@ -126,6 +127,9 @@ type TraceSpanLike = {
 };
 
 type TraceAdapterLike = {
+  reportError?: NonNullable<
+    import("@kortyx/hooks").ReasonTraceAdapter["reportError"]
+  >;
   startSpan?: (args: {
     name: string;
     attributes?: Record<string, unknown>;
@@ -373,6 +377,31 @@ export async function orchestrateGraphStream({
       : {},
   );
   const telemetryConfig = isRecord(config.telemetry) ? config.telemetry : {};
+  const errorChunk = (
+    error: unknown,
+    existingDiagnosticId?: unknown,
+  ): StreamChunk => {
+    const failure = serializeFailure(error);
+    let diagnosticId = existingDiagnosticId;
+    if (!diagnosticId) {
+      try {
+        diagnosticId = traceAdapter?.reportError?.(error, {
+          correlation: { runId, ...(sessionId ? { sessionId } : {}) },
+        });
+      } catch {
+        // Private diagnostic delivery cannot replace a workflow failure.
+      }
+    }
+    return {
+      type: "error",
+      message: failure.message,
+      failure,
+      ...(typeof diagnosticId === "string" &&
+      z.uuid().safeParse(diagnosticId).success
+        ? { diagnosticId }
+        : {}),
+    };
+  };
   const emitResumeFailure = (resumeError: unknown) => {
     const interruptId =
       typeof config.telemetryInterruptId === "string"
@@ -844,11 +873,12 @@ export async function orchestrateGraphStream({
       outcomeError = isFailureDescriptor(supplied)
         ? errorFromFailure(supplied)
         : new Error(msg);
-      write({
-        type: "error",
-        message: serializeFailure(outcomeError).message,
-        failure: serializeFailure(outcomeError),
-      });
+      write(
+        errorChunk(
+          outcomeError,
+          (payload as { diagnosticId?: unknown })?.diagnosticId,
+        ),
+      );
       write({ type: "done" });
       finished = true;
       out.end();
@@ -1421,11 +1451,7 @@ export async function orchestrateGraphStream({
           runTraceSpan.addEvent?.("kortyx.transition.error", {
             transitionTo,
           });
-          write({
-            type: "error",
-            message: serializeFailure(err).message,
-            failure: serializeFailure(err),
-          });
+          write(errorChunk(err));
           write({ type: "done" });
           out.end();
           return;
@@ -1888,11 +1914,7 @@ export async function orchestrateGraphStream({
       fallbackRunSpan?.fail?.(err);
       emitResumeFailure(err);
       console.error("[error:orchestrateGraphStream]", serializeFailure(err));
-      write({
-        type: "error",
-        message: serializeFailure(err).message,
-        failure: serializeFailure(err),
-      });
+      write(errorChunk(err));
       write({ type: "done" });
       finished = true;
       out.end();

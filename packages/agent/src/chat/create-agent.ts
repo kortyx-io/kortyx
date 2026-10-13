@@ -82,6 +82,10 @@ export interface CreateAgentArgs {
 }
 
 export interface Agent extends ReturnType<typeof createInterruptDiscovery> {
+  /** Report private exception evidence through the configured native telemetry adapter. */
+  reportError?: NonNullable<
+    NonNullable<ExecutionRuntimeConfig["telemetry"]>["trace"]
+  >["reportError"];
   describePromptContracts?: () => {
     id: string;
     format: "system-user" | "chat";
@@ -598,6 +602,13 @@ function createAgentInternal(args: CreateAgentArgs): Agent {
 
   return {
     ...createInterruptDiscovery(resolvedFrameworkAdapter.pendingRequests),
+    reportError: (error, options) => {
+      try {
+        return telemetry?.trace?.reportError?.(error, options);
+      } catch {
+        // Diagnostic exporter failures never change application behavior.
+      }
+    },
     execute,
     resume,
     projectTopology,

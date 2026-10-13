@@ -12,6 +12,7 @@ import {
   EvalVerdictSchema,
   parseEvalSuite,
 } from "./contracts";
+import { createEvalIssue } from "./errors";
 import {
   createEvalJudgeEvidence,
   getEvalGradeEvidence,
@@ -64,22 +65,6 @@ const handlerRef = (value: unknown): value is EvalHandlerRef =>
   !Array.isArray(value) &&
   typeof (value as { using?: unknown }).using === "string" &&
   Object.keys(value).every((key) => key === "using" || key === "params");
-const phases: Record<EvalPhase, string> = {
-  params: "Case parameters failed validation.",
-  setup: "Case setup failed.",
-  execute: "Agent execution failed or returned an invalid observation.",
-  responder:
-    "Interrupt response failed or was incompatible with the waiting contract.",
-  reference: "Reference resolution failed or returned non-JSON data.",
-  grading: "Grading failed or returned an invalid verdict.",
-  cleanup: "Case cleanup failed.",
-  reporting: "Progress reporting failed.",
-};
-const failure = (phase: EvalPhase, code = "EVAL_HOOK_FAILED"): EvalIssue => ({
-  phase,
-  code,
-  message: phases[phase],
-});
 const statusFor = (
   counts: EvalRunResult["counts"],
   errors: readonly EvalIssue[],
@@ -159,12 +144,37 @@ export function createEvals<
       options.defaults?.caseTimeoutMs ?? 60_000,
       "caseTimeoutMs",
     ),
+    setupTimeoutMs: positive(
+      options.defaults?.setupTimeoutMs ??
+        options.defaults?.caseTimeoutMs ??
+        60_000,
+      "setupTimeoutMs",
+    ),
+    verificationTimeoutMs: positive(
+      options.defaults?.verificationTimeoutMs ??
+        options.defaults?.caseTimeoutMs ??
+        60_000,
+      "verificationTimeoutMs",
+    ),
     cleanupTimeoutMs: positive(
       options.defaults?.cleanupTimeoutMs ?? 10_000,
       "cleanupTimeoutMs",
     ),
   };
 
+  const reportError =
+    options.reportError ?? options.agent.reportError?.bind(options.agent);
+  const issueFor = (
+    phase: EvalPhase,
+    error: unknown,
+    correlation?: Parameters<NonNullable<typeof reportError>>[1],
+    code?: string,
+  ) =>
+    createEvalIssue(phase, error, {
+      reportError,
+      correlation,
+      ...(code ? { code } : {}),
+    });
   return {
     listSuites(): EvalSuite[] {
       return clone(suites);
@@ -301,9 +311,9 @@ export function createEvals<
           await withEvalAttribution(undefined, () =>
             args.onProgress!(clone(event)),
           );
-        } catch {
+        } catch (error) {
           reporting = false;
-          result.errors.push(failure("reporting"));
+          result.errors.push(issueFor("reporting", error));
         }
       };
       const attempt = async (
@@ -313,10 +323,15 @@ export function createEvals<
         const started = Date.now();
         const controller = new AbortController();
         let timedOut = false;
-        const timer = setTimeout(() => {
-          timedOut = true;
-          controller.abort();
-        }, defaults.caseTimeoutMs);
+        let timer: ReturnType<typeof setTimeout>;
+        const deadline = (milliseconds: number) => {
+          clearTimeout(timer);
+          timer = setTimeout(() => {
+            timedOut = true;
+            controller.abort();
+          }, milliseconds);
+        };
+        deadline(defaults.setupTimeoutMs);
         const signal = args.signal
           ? AbortSignal.any([args.signal, controller.signal])
           : controller.signal;
@@ -332,13 +347,31 @@ export function createEvals<
           durationMs: 0,
           steps: [],
           errors: [],
+          phaseDurationsMs: {},
         };
         let associationProgress = Promise.resolve();
         let acceptingExecutions = true;
         const executeAttempt = async () => {
           let phase: EvalPhase = "params";
+          let phaseStarted = Date.now();
+          const recordPhase = () => {
+            const now = Date.now();
+            const durations = attemptResult.phaseDurationsMs!;
+            durations[phase] = (durations[phase] ?? 0) + now - phaseStarted;
+            phaseStarted = now;
+          };
+          const phaseIssue = (error: unknown, code?: string) =>
+            issueFor(
+              phase,
+              error,
+              {
+                correlation: { sessionId: attemptResult.sessionId, attemptId },
+              },
+              code,
+            );
           let stepIndex: number | undefined;
           const reportPhase = async (next: EvalPhase) => {
+            recordPhase();
             phase = next;
             if (args.includeActivity)
               await emit({
@@ -430,6 +463,7 @@ export function createEvals<
               : (undefined as Prepared);
             context = { ...base, prepared };
             signal.throwIfAborted();
+            deadline(defaults.caseTimeoutMs);
             for (const [index, step] of item.steps.entries()) {
               stepIndex = index;
               activeStep = undefined;
@@ -492,8 +526,24 @@ export function createEvals<
               attemptResult.steps.push(evaluated);
               activeStep = evaluated;
               signal.throwIfAborted();
-              if (observation.type === "error")
-                throw new Error("Agent failed.");
+              if (observation.type === "error") {
+                const issue = createEvalIssue("execute", observation.failure, {
+                  ...(observation.diagnosticId
+                    ? { diagnosticId: observation.diagnosticId }
+                    : {}),
+                });
+                attemptResult.errors.push(issue);
+                attemptResult.status = evaluated.status = "error";
+                evaluated.reason = issue.message;
+                await emit({
+                  type: "step-completed",
+                  caseId: item.id,
+                  repetition,
+                  step: evaluated,
+                });
+                activeStepReported = true;
+                break;
+              }
               if (observation.type === "cancelled") {
                 evaluated.status = "cancelled";
                 attemptResult.status = "cancelled";
@@ -611,18 +661,46 @@ export function createEvals<
                 { role: "assistant", content: observation.text },
               );
             }
-          } catch {
+            if (
+              options.verify &&
+              attemptResult.status !== "cancelled" &&
+              attemptResult.status !== "error"
+            ) {
+              stepIndex = undefined;
+              deadline(defaults.verificationTimeoutMs);
+              await reportPhase("verification");
+              const verification = EvalVerdictSchema.parse(
+                await options.verify({
+                  ...context,
+                  result: clone(attemptResult),
+                }),
+              );
+              signal.throwIfAborted();
+              attemptResult.verification = verification;
+              if (!verification.passed) attemptResult.status = "failed";
+            }
+          } catch (error) {
             if (signal.aborted) {
               attemptResult.status = timedOut ? "error" : "cancelled";
               if (timedOut)
                 attemptResult.errors.push({
-                  phase,
-                  code: "EVAL_TIMEOUT",
-                  message: "Case exceeded its configured time limit.",
+                  ...phaseIssue(error),
+                  code:
+                    phase === "params" || phase === "setup"
+                      ? "EVAL_SETUP_TIMEOUT"
+                      : phase === "verification"
+                        ? "EVAL_VERIFICATION_TIMEOUT"
+                        : "EVAL_TIMEOUT",
+                  message:
+                    phase === "params" || phase === "setup"
+                      ? "Case setup exceeded its configured time limit."
+                      : phase === "verification"
+                        ? "Case verification exceeded its configured time limit."
+                        : "Case execution exceeded its configured time limit.",
                 });
             } else {
               attemptResult.status = "error";
-              attemptResult.errors.push(failure(phase));
+              attemptResult.errors.push(phaseIssue(error));
             }
             if (activeStep && !activeStepReported) {
               activeStep.status = attemptResult.status;
@@ -657,12 +735,24 @@ export function createEvals<
                       cancelled.continuation !== undefined
                     )
                       attemptResult.errors.push(
-                        failure("cleanup", "EVAL_INTERRUPT_CLEANUP_FAILED"),
+                        createEvalIssue(
+                          "cleanup",
+                          cancelled.observation.failure,
+                          {
+                            code: "EVAL_INTERRUPT_CLEANUP_FAILED",
+                            ...(cancelled.observation.diagnosticId
+                              ? {
+                                  diagnosticId:
+                                    cancelled.observation.diagnosticId,
+                                }
+                              : {}),
+                          },
+                        ),
                       );
                     cleanup.signal.throwIfAborted();
-                  } catch {
+                  } catch (error) {
                     attemptResult.errors.push(
-                      failure("cleanup", "EVAL_INTERRUPT_CLEANUP_FAILED"),
+                      phaseIssue(error, "EVAL_INTERRUPT_CLEANUP_FAILED"),
                     );
                   }
                 }
@@ -673,8 +763,8 @@ export function createEvals<
                     result: clone(attemptResult),
                   });
                   cleanup.signal.throwIfAborted();
-                } catch {
-                  attemptResult.errors.push(failure("cleanup"));
+                } catch (error) {
+                  attemptResult.errors.push(phaseIssue(error));
                 }
               } finally {
                 clearTimeout(cleanupTimer);
@@ -684,6 +774,7 @@ export function createEvals<
               )
                 attemptResult.status = "error";
             }
+            recordPhase();
             attemptResult.durationMs = Date.now() - started;
           }
           acceptingExecutions = false;

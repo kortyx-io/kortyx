@@ -449,3 +449,18 @@ If the UI is not streaming, check both provider streaming (`stream`) and Kortyx 
 - Using structured streaming for deterministic UI updates that belong in `useStructuredData(...)`.
 
 For typed failure propagation and safe recovery policy, see [Error handling](error-handling.md).
+
+### Missing terminal return
+
+A required `outputs.return` that is absent produces the typed validation failure
+`REASON_TERMINAL_OUTPUT_MISSING`. To allow one corrective model turn:
+
+```ts
+toolExecution: { maxSteps: 4, missingReturnCorrections: 1 }
+```
+
+The default correction budget is zero. It shares the existing maxSteps ceiling
+and persists across checkpoint resume. Only output tools are offered during that
+correction; completed business tools are not replayed. A provider requesting a
+business tool during correction produces `REASON_OUTPUT_CORRECTION_TOOL_DISALLOWED`.
+Exhausted terminal-output corrections are validation errors, not provider faults.

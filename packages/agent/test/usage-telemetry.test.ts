@@ -145,3 +145,39 @@ it("records a later execution failure separately from an already completed strea
   expect(JSON.stringify(records)).not.toContain("private-");
   log.mockRestore();
 });
+
+it("measures an unmet eval postcondition as quality failure without collecting its content", async () => {
+  const { createEvals } = await import("../src/evals/index");
+  await createEvals({
+    agent: { streamChat: vi.fn() },
+    suites: [
+      {
+        id: "private-suite-name",
+        cases: [
+          {
+            id: "private-case-name",
+            steps: [{ message: "private-input", expect: { type: "answer" } }],
+          },
+        ],
+      },
+    ],
+    execute: () => ({
+      observation: { type: "answer", text: "private-output", structured: [] },
+    }),
+    verify: () => ({
+      passed: false,
+      reason: "private-postcondition",
+      evidence: ["private-evidence"],
+    }),
+  }).run({ suiteId: "private-suite-name" });
+  await telemetry.flush();
+  expect(records).toEqual(
+    expect.arrayContaining([
+      expect.objectContaining({
+        operation: "sdk.eval",
+        outcome: "quality_failed",
+      }),
+    ]),
+  );
+  expect(JSON.stringify(records)).not.toContain("private-");
+});

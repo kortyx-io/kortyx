@@ -4,7 +4,11 @@ import type {
   EvalRunResult,
   EvalVerdict,
 } from "@kortyx/agent/evals";
-import { EvalVerdictSchema, getEvalGradeEvidence } from "@kortyx/agent/evals";
+import {
+  createEvalIssue,
+  EvalVerdictSchema,
+  getEvalGradeEvidence,
+} from "@kortyx/agent/evals";
 
 // Custom judges receive the abort signal, but the worker also stops waiting if
 // their implementation ignores it. Late completion is consumed and discarded.
@@ -94,15 +98,14 @@ export async function gradeEvalExecution(
         step.status = step.criteria.some((criterion) => !criterion.passed)
           ? "failed"
           : "passed";
-      } catch {
+      } catch (error) {
         signal.throwIfAborted();
         step.status = "error";
-        step.reason = "Studio grading failed or returned an invalid verdict.";
-        item.errors.push({
-          phase: "grading",
+        const issue = createEvalIssue("grading", error, {
           code: "EVAL_GRADING_FAILED",
-          message: step.reason,
         });
+        step.reason = issue.message;
+        item.errors.push(issue);
       }
       await onProgress({
         type: "step-completed",

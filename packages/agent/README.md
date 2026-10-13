@@ -95,3 +95,10 @@ Versions are optional. These deterministic checks run before semantic criteria
 and only match finalized visible outputs from the current step. See the
 [conversation eval guide](https://kortyx.io/docs/guides/conversation-evals) for
 SDK setup, Studio execution and custom executor requirements.
+
+Eval issues preserve declared-safe failures and native diagnostic references.
+Configure native diagnostic capture on the agent to inspect original hook errors
+in Studio. Use `verify` for postconditions (false means Failed), and `teardown` for
+reset (a thrown fault means Error). Setup, execution and verification have separate
+cooperative budgets. See [eval error migration](../../docs/evals/error-contract-migration.md)
+before upgrading a mixed SDK/API/Studio deployment.

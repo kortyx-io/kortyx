@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import type { GraphState, WorkflowDefinition } from "@kortyx/core";
 import { DomainError, serializeFailure } from "@kortyx/core/errors";
 import {
@@ -2747,4 +2748,53 @@ it("aborts on lost ownership and handles release failure without hiding the outc
   } finally {
     log.mockRestore();
   }
+});
+
+describe("private diagnostic references in public workflow failures", () => {
+  it.each([
+    "existing",
+    "reported",
+    "invalid",
+    "exporter-failed",
+  ] as const)("preserves safe failure and %s diagnostic evidence", async (mode) => {
+    const diagnosticId = randomUUID();
+    const failure = new DomainError(
+      "SAFE_ASSERTION",
+      "The required result is absent",
+    ).failure;
+    const reportError = vi.fn(() => {
+      if (mode === "exporter-failed") throw new Error("exporter unavailable");
+      return mode === "invalid" ? "invalid" : diagnosticId;
+    });
+    const graph = graphWithEvents((emit) => {
+      emit("error", {
+        message: failure.message,
+        failure,
+        ...(mode === "existing" ? { diagnosticId } : {}),
+      });
+      return [];
+    });
+    const chunks = await collect(
+      await orchestrateGraphStream({
+        runId: "diagnostic-run",
+        ...(mode === "reported" ? { sessionId: "diagnostic-session" } : {}),
+        graph,
+        state: structuredClone(baseState),
+        config: { reasonTrace: { reportError } },
+        selectWorkflow: async () => ({ id: "first" }) as WorkflowDefinition,
+      }),
+    );
+    const error = chunks.find(
+      (item) => (item as { type?: string }).type === "error",
+    );
+    expect(error).toMatchObject({
+      type: "error",
+      message: failure.message,
+      failure,
+    });
+    expect((error as { diagnosticId?: string }).diagnosticId).toBe(
+      mode === "existing" || mode === "reported" ? diagnosticId : undefined,
+    );
+    expect(reportError).toHaveBeenCalledTimes(mode === "existing" ? 0 : 1);
+  });
 });

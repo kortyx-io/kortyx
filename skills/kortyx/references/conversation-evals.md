@@ -386,3 +386,33 @@ execution evidence, not a rendering of the frontend. Describe which fields the
 app displays as messages or prose and which stay internal in every relevant
 criterion. Configure selection with `defaults.evidence` and `suite.evidence`;
 full observations remain in Studio.
+
+## Failure diagnostics and postconditions
+
+Use `verify({ prepared, result, signal })` after the conversation and before
+teardown for application postconditions. Return
+`{ passed: false, reason: "Required save is absent", evidence: [] }` for unmet
+behavior (Failed); throw for infrastructure faults (Error). Keep reset in teardown;
+its errors remain Error. Verification does not overwrite earlier failed steps.
+
+Declared-safe failures retain `failure` (including domainCode) on eval issues;
+unknown error details stay private. With native telemetry configured on the agent
+and `diagnostics: { enabled: true }`, original hook exceptions are captured by
+`agent.reportError`. Issues and native error observations retain `diagnosticId`.
+Custom agents can implement that synchronous reporter or pass `reportError` to
+`createEvals`; return a native diagnostic UUID or undefined. Reporter failure must
+not affect the eval outcome. Use the same telemetry project/environment as Studio.
+Studio error cards offer View diagnostic; old results cannot recover lost content.
+Raw provider bodies and credentials do not belong in safe failure details.
+
+`caseTimeoutMs` defaults to 60,000 and starts after setup. Independent
+`setupTimeoutMs` and `verificationTimeoutMs` default to the configured case budget;
+`cleanupTimeoutMs` defaults to 10,000. Honor all signals: deadlines are cooperative,
+with cleanup after callbacks settle. Case `durationMs` includes all phases;
+`phaseDurationsMs` separates measured phase time without inventing missing timing.
+
+Upgrade API/Studio before SDK/CLI: old strict validators may reject new fields.
+Existing stored JSON needs no SQL migration. Native capture limits, credential
+redaction, incomplete delivery and retention remain in force. OTel alone does not
+supply the native archive. These references support a future Errors list; issue
+management is not part of this feature.

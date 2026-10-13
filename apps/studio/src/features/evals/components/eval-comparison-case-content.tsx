@@ -10,9 +10,10 @@ import {
   displayName,
 } from "../lib/presentation";
 import type { EvalDetail } from "../schema";
-import { EvalConversationStep } from "./eval-case-inspector";
+import { EvalConversationStep, EvalVerification } from "./eval-case-inspector";
 import { EvalCostBreakdown } from "./eval-cost";
 import { EvalDropdown } from "./eval-dropdown";
+import { EvalFailure } from "./eval-failure";
 import { EvalStatus } from "./eval-status";
 
 function Attempts({
@@ -50,22 +51,24 @@ function Attempts({
         />
       </div>
       <EvalCostBreakdown costs={row.costs} />
+      <EvalVerification verification={row.verification} />
       <div className="min-w-0">
         {row.steps.map((step) => (
           <EvalConversationStep
             key={step.index}
             step={step}
             scope={`${side}-${row.key}`}
+            environment={row.environment}
           />
         ))}
       </div>
       {row.errors.map((error, index) => (
-        <p
+        <EvalFailure
           key={`${index}:${error.code}`}
-          className="break-words text-xs text-red-700 dark:text-red-400"
-        >
-          {error.phase}: {error.message}
-        </p>
+          issue={error}
+          environment={row.environment}
+          scope={`${side}-${row.key}-issue-${index}`}
+        />
       ))}
     </div>
   );

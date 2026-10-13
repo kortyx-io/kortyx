@@ -4,6 +4,7 @@ import {
   EvalConfigurationError,
   EvalRemoteRunRequestSchema,
 } from "./contracts";
+import { createEvalIssue } from "./errors";
 import { getEvalSuiteRevision } from "./revision";
 import type {
   EvalJudgeIdentity,
@@ -221,7 +222,20 @@ export function createEvalRouteHandler({
           })
           .then(
             (result) => send({ type: "result", result }),
-            () => send({ type: "error", message: "Eval runner failed." }),
+            (error: unknown) => {
+              const issue = createEvalIssue("reporting", error);
+              send({
+                type: "error",
+                message:
+                  issue.code === "EVAL_HOOK_FAILED"
+                    ? "Eval runner failed."
+                    : issue.message,
+                failure: issue.failure,
+                ...(issue.diagnosticId
+                  ? { diagnosticId: issue.diagnosticId }
+                  : {}),
+              });
+            },
           )
           .finally(() => {
             requestSignal.removeEventListener("abort", abortRequest);
