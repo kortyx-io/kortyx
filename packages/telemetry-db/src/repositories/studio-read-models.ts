@@ -352,19 +352,40 @@ const transitionKeyFromEvent = (
   });
 };
 
-const aggregateCost = (
-  costs: Array<{
-    cost: number | null;
-    currency: string | null;
-    pricingStatus: StudioPricingStatus;
-    pricingSource: StudioPricingSource;
-  }>,
-): {
+type AggregatedCost = {
   cost: number | null;
   currency: string | null;
   pricingStatus: StudioPricingStatus;
   pricingSource: StudioPricingSource;
-} => {
+};
+
+// No model usage has a known zero cost without a pricing source or currency.
+const ZERO_MODEL_COST: AggregatedCost = {
+  cost: 0,
+  currency: null,
+  pricingStatus: "priced",
+  pricingSource: null,
+};
+
+const UNKNOWN_COST: AggregatedCost = {
+  cost: null,
+  currency: null,
+  pricingStatus: "unknown",
+  pricingSource: null,
+};
+
+const aggregateCost = (costs: AggregatedCost[]): AggregatedCost => {
+  const monetaryCosts = costs.filter(
+    (cost) =>
+      !(
+        cost.cost === 0 &&
+        cost.currency === null &&
+        cost.pricingStatus === "priced" &&
+        cost.pricingSource === null
+      ),
+  );
+  if (costs.length > 0 && monetaryCosts.length === 0) return ZERO_MODEL_COST;
+  costs = monetaryCosts;
   const priced = costs.filter(
     (cost) => cost.pricingStatus === "priced" && cost.cost !== null,
   );
@@ -418,12 +439,69 @@ const aggregateCost = (
       pricingSource: null,
     };
   }
-  return {
-    cost: null,
-    currency: null,
-    pricingStatus: "unknown",
-    pricingSource: null,
-  };
+  return UNKNOWN_COST;
+};
+
+const aggregateRunCost = (
+  events: TelemetryEventRecord[],
+  rateCards: ModelRateCard[],
+): AggregatedCost => {
+  const generations = events.filter(
+    (event) => event.type === "generation.completed",
+  );
+  const modelSpans = events.filter(
+    (event) =>
+      event.type.startsWith("span.") && spanName(event) === "runReasonEngine",
+  );
+  if (generations.length === 0) {
+    const starts = events.filter(
+      (event) => isRunSpan(event) && event.type === "span.started",
+    );
+    const terminals = events.filter(
+      (event) =>
+        isRunSpan(event) &&
+        (event.type === "span.ended" ||
+          (event.type === "span.failed" && !isSuspensionFailure(event))),
+    );
+    const hasClosedRun =
+      starts.length > 0 &&
+      terminals.length > 0 &&
+      starts.every((start) =>
+        terminals.some(
+          (terminal) =>
+            eventSpanId(start) !== null &&
+            eventSpanId(start) === eventSpanId(terminal) &&
+            terminal.occurredAt >= start.occurredAt,
+        ),
+      ) &&
+      terminals.every((terminal) =>
+        starts.some(
+          (start) =>
+            eventSpanId(start) === eventSpanId(terminal) &&
+            start.occurredAt <= terminal.occurredAt,
+        ),
+      );
+    // Absence of generation facts alone does not confirm absence of usage.
+    const hasModelActivity =
+      modelSpans.length > 0 ||
+      events.some((event) => spanName(event) === "useReason");
+    return hasClosedRun && !hasModelActivity ? ZERO_MODEL_COST : UNKNOWN_COST;
+  }
+
+  const costs: AggregatedCost[] = generations.map((event) =>
+    calculateGenerationCost(event, rateCards),
+  );
+  const generationSpanIds = new Set(generations.map(eventSpanId));
+  if (
+    modelSpans.some(
+      (event) =>
+        eventSpanId(event) === null ||
+        !generationSpanIds.has(eventSpanId(event)),
+    )
+  ) {
+    costs.push(UNKNOWN_COST);
+  }
+  return aggregateCost(costs);
 };
 
 const aggregateRunGroups = (
@@ -541,11 +619,7 @@ const aggregateRunGroups = (
           .map(modelFrom)
           .filter((value): value is string => Boolean(value)),
       );
-      const cost = aggregateCost(
-        generationEvents.map((event) =>
-          calculateGenerationCost(event, rateCards),
-        ),
-      );
+      const cost = aggregateRunCost(ordered, rateCards);
       const path = unique(
         ordered
           .filter((event) => !event.payload.invocationId)
@@ -1030,7 +1104,7 @@ const metricsForRuns = (runs: RunAggregate[]): StudioMetric => {
     p50DurationMs: percentile(durations, 0.5),
     p95DurationMs: percentile(durations, 0.95),
     averageTokens: average(tokenValues),
-    averageCost: cost.currency ? average(costValues) : null,
+    averageCost: cost.cost !== null ? average(costValues) : null,
     currency: cost.currency,
   };
 };

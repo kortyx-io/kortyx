@@ -20,6 +20,10 @@ Default rates cover global, standard, public text inference. Explicit alternativ
 
 Pricing precedence is provider/custom actual cost, supplied line items, complete supplied unit prices, then an applicable project/default card. Every positive usage item must have a matching unit price, including its label; missing prices make the generation unpriced. Runs/sessions with any missing generation costs, or mixed currencies, have null totals and an `unpriced` status instead of presenting a partial total as complete. Generation details retain available costs.
 
+A run with matching root start and terminal span records and no model activity contributes zero model cost. Its cost is `0`, its pricing status is `priced`, and its currency and pricing source are null because no pricing was needed. These zeros preserve the currency and pricing source of other priced runs in the session. A session containing only these runs also has zero model cost. Missing root lifecycle records, model spans without generation records, and generations without usage or pricing remain unknown or unpriced; an empty generation list by itself is insufficient evidence of zero usage.
+
+After deploying an aggregation fix, rebuild affected projects with the scoped `pnpm db:backfill-studio` command below so existing materialized run, session, and workflow totals reflect the new behavior. New ingestion refreshes affected sessions automatically. No schema migration or SDK upgrade is required for this correction.
+
 ## Update workflow
 
 1. Verify public model availability, aliases/snapshots, prices, caching, context thresholds, and billing modifiers against official provider documentation. Update the relevant `providers/<provider>/src/models.ts` list. Removed suggestions do not block explicit string IDs.
