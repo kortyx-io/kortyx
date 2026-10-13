@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.20.1](https://github.com/kortyx-io/kortyx/compare/studio-v0.20.0...studio-v0.20.1) (2026-10-13)
+
+
+### Bug Fixes
+
+* **studio:** show available model cost subtotals everywhere ([#335](https://github.com/kortyx-io/kortyx/issues/335)) ([d19cf5d](https://github.com/kortyx-io/kortyx/commit/d19cf5d7716a7649c738373ba2cea1ef64d532e0))
+* **telemetry:** classify scoped Studio navigation ([#329](https://github.com/kortyx-io/kortyx/issues/329)) ([f9952fe](https://github.com/kortyx-io/kortyx/commit/f9952feb7425b1896623a6c6c06bfda8ed0dd739))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/telemetry-contracts bumped to 0.17.1
+  * devDependencies
+    * @kortyx/agent bumped to 0.37.1
+    * @kortyx/telemetry bumped to 0.15.1
+    * kortyx bumped to 0.30.2
+
 ## [0.20.0](https://github.com/kortyx-io/kortyx/compare/studio-v0.19.0...studio-v0.20.0) (2026-10-11)
 
 

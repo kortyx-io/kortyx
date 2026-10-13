@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.37.1](https://github.com/kortyx-io/kortyx/compare/agent-v0.37.0...agent-v0.37.1) (2026-10-13)
+
+
+### Bug Fixes
+
+* **studio:** show available model cost subtotals everywhere ([#335](https://github.com/kortyx-io/kortyx/issues/335)) ([d19cf5d](https://github.com/kortyx-io/kortyx/commit/d19cf5d7716a7649c738373ba2cea1ef64d532e0))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/runtime bumped to 0.23.2
+  * devDependencies
+    * @kortyx/hooks bumped to 0.34.1
+
 ## [0.37.0](https://github.com/kortyx-io/kortyx/compare/agent-v0.36.0...agent-v0.37.0) (2026-10-11)
 
 
