@@ -11,7 +11,10 @@ import type {
   ChatRequestEffort,
   ReasoningDetailUnion,
 } from "@openrouter/sdk/models";
-import { ProviderConfigurationError } from "./errors.js";
+import {
+  type OpenRouterRequestContext,
+  ProviderConfigurationError,
+} from "./errors.js";
 import type { OpenRouterCallOptions } from "./types.js";
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
@@ -94,17 +97,23 @@ const toTool = (tool: KortyxToolDefinition): ChatFunctionTool => ({
   },
 });
 
-export const createChatRequest = (
+export const prepareChatRequest = (
   modelId: string,
   messages: KortyxPromptMessage[],
   options: ModelOptions,
   stream: boolean,
-): ChatRequest => {
+): { request: ChatRequest; context: OpenRouterRequestContext } => {
   const extra = getOpenRouterOptions(options);
   const needsRequiredParameters =
     Boolean(options.tools?.length) ||
     (options.responseFormat?.type === "json" &&
       options.responseFormat.schema !== undefined);
+  const requireParametersSource =
+    extra.provider?.requireParameters !== undefined
+      ? "explicit"
+      : needsRequiredParameters
+        ? "automatic"
+        : "default";
   const provider = {
     ...extra.provider,
     ...(needsRequiredParameters &&
@@ -126,7 +135,7 @@ export const createChatRequest = (
       }
     : extra.reasoning;
 
-  return {
+  const request: ChatRequest = {
     ...extra,
     model: modelId,
     messages: toMessages(messages),
@@ -160,4 +169,13 @@ export const createChatRequest = (
     ...(options.tools?.length ? { tools: options.tools.map(toTool) } : {}),
     ...(Object.keys(provider).length > 0 ? { provider } : {}),
   };
+  return { request, context: { requireParametersSource } };
 };
+
+export const createChatRequest = (
+  modelId: string,
+  messages: KortyxPromptMessage[],
+  options: ModelOptions,
+  stream: boolean,
+): ChatRequest =>
+  prepareChatRequest(modelId, messages, options, stream).request;

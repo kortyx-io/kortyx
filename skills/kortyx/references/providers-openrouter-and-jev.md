@@ -62,6 +62,28 @@ keeps OpenRouter from choosing a route that does not accept required request
 parameters. Do not maintain a second package-level capability registry; use
 OpenRouter validation/metadata and test the exact production route.
 
+This requirement applies to every supplied parameter, including sampling controls.
+Parameter-routing refusals use `PROVIDER_PARAMETER_UNSUPPORTED` with requested
+names, `requireParameters`, its source (`automatic`, `explicit`, `default`, or
+`unknown` when request context is unavailable), and separate tool/output versus
+other parameter lists. These are diagnostics, not proof of which parameter failed
+or which ones the application may omit.
+
+Keep the default. For a deliberate override, configure
+`providerOptions.openrouter.provider.requireParameters: false`; unsupported
+parameters, including tools/schema controls, may then be ignored. Kortyx does not
+remove controls or retry modified requests. If a preset alias is used, the list
+only covers parameters sent by Kortyx and may omit server-side preset settings;
+no preset/model names are added to the public error.
+
+Do not mask SDK errors. The live exception keeps the original provider message
+and SDK error as its `cause` for developer debugging. Safe public failure
+messages add actionable context without exposing prompts, values or account
+routing data. Structured parameter-filter metadata takes precedence over a narrow
+message fallback, and numeric/string 404 statuses are supported. SDK parsing
+failures without enough evidence to identify a parameter refusal use
+`PROVIDER_INVALID_RESPONSE`, preserving the original SDK cause and partial usage.
+
 Prefer normalized `text`, `output`, `usage`, `finishReason`, `warnings`, and
 `providerMetadata`. OpenRouter-reported cost is retained in
 `providerMetadata.cost` and emitted as provider-reported USD pricing for
