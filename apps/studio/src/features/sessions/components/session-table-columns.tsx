@@ -8,6 +8,7 @@ import {
   GitFork,
   LoaderCircle,
 } from "lucide-react";
+import { CostValue } from "@/components/cost-value";
 import type { DataTableColumn } from "@/components/data-table";
 import { effectiveInterruptStatus } from "@/features/interrupts/lib/interrupt-presentation";
 import type {
@@ -21,9 +22,9 @@ import {
 } from "@/features/telemetry/components/compact-status";
 import { CopyableCell } from "@/features/telemetry/components/copyable-cell";
 import { TruncatedText } from "@/features/telemetry/components/truncated-text";
+import { costDisplay } from "@/lib/cost";
 import {
   formatCount,
-  formatCurrency,
   formatDateTime,
   formatDurationSeconds,
   formatRelativeTime,
@@ -227,10 +228,8 @@ export function createSessionColumns({
       sortKey: "cost",
       defaultWidth: 100,
       cellClassName: "font-mono text-xs tabular-nums",
-      cellTitle: (session) => formatCurrency(session.cost),
-      render: (session) => (
-        <TruncatedText>{formatCurrency(session.cost)}</TruncatedText>
-      ),
+      cellTitle: (session) => costDisplay(session).note,
+      render: (session) => <CostValue value={session} />,
     },
     {
       key: "result",

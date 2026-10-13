@@ -1027,8 +1027,10 @@ describe("complete cost aggregation", () => {
     const result = createStudioReadModelsFromRecords({
       events: [
         generation("priced-one", "gpt-4.1-mini"),
+        ...closedRun("run-1"),
         ...closedRun(),
         generation("priced-two", "gpt-4.1-mini", "run-3"),
+        ...closedRun("run-3"),
       ],
       revisions: [],
       rates: DEFAULT_MODEL_RATE_CARDS as ModelRateCard[],
@@ -1072,6 +1074,7 @@ describe("complete cost aggregation", () => {
           currency: "EUR",
           actualCostMicros: 1000,
         }),
+        ...closedRun("run-1"),
         ...closedRun(),
       ],
       revisions: [],
@@ -1133,6 +1136,10 @@ describe("complete cost aggregation", () => {
     expect(result.sessions[0]).toMatchObject({
       cost: null,
       pricingStatus: "unpriced",
+      costSummary: {
+        amounts: [{ amount: 0.56, currency: "USD" }],
+        complete: false,
+      },
     });
   });
 
@@ -1157,6 +1164,10 @@ describe("complete cost aggregation", () => {
     expect(result.sessions[0]).toMatchObject({
       cost: null,
       pricingStatus: "unpriced",
+      costSummary: {
+        amounts: [{ amount: 0.56, currency: "USD" }],
+        complete: false,
+      },
     });
   });
 
@@ -1244,6 +1255,7 @@ describe("complete cost aggregation", () => {
       events: [
         generation("one", "gpt-4.1-mini"),
         generation("two", "gpt-4.1-mini"),
+        ...closedRun("run-1"),
       ],
       revisions: [],
       rates: DEFAULT_MODEL_RATE_CARDS as ModelRateCard[],
@@ -1252,6 +1264,25 @@ describe("complete cost aggregation", () => {
       cost: 1.12,
       currency: "USD",
       pricingStatus: "priced",
+    });
+  });
+
+  it("marks captured costs partial while a run is still active", () => {
+    const result = createStudioReadModelsFromRecords({
+      events: [generation("priced", "gpt-4.1-mini"), closedRun("run-1")[0]],
+      revisions: [],
+      rates: DEFAULT_MODEL_RATE_CARDS as ModelRateCard[],
+    });
+    expect(result.runs[0]).toMatchObject({
+      status: "running",
+      costSummary: {
+        amounts: [{ amount: 0.56, currency: "USD" }],
+        complete: false,
+      },
+    });
+    expect(result.sessions[0]?.costSummary).toEqual({
+      amounts: [{ amount: 0.56, currency: "USD" }],
+      complete: false,
     });
   });
 });

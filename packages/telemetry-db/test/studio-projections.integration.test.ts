@@ -658,8 +658,18 @@ integration("Studio SQL projections", () => {
       cost: missingPricing ? null : 0.25,
       currency: missingPricing ? null : "USD",
       pricingStatus: missingPricing ? "unpriced" : "priced",
+      costSummary: {
+        amounts: [{ amount: 0.25, currency: "USD" }],
+        complete: !missingPricing,
+      },
     };
     expect((await read()).items[0]).toMatchObject(expected);
+    const filtered = await listStudioSessions(client.db, {
+      organizationId: organizationA,
+      projectId: projectA,
+      query: { range: "All time", q: sessionId, minCost: "0.2" },
+    });
+    expect(filtered.items[0]).toMatchObject(expected);
     const detail = await getStudioSessionReadModel(client.db, {
       organizationId: organizationA,
       projectId: projectA,

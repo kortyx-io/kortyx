@@ -38,6 +38,17 @@ export const StudioEvalTargetsResponseSchema = z.object({
   ),
 });
 export const EvalCostAmountSchema = z.object({
+  costSummary: z
+    .object({
+      amounts: z.array(
+        z.object({
+          amount: z.number().finite().nonnegative(),
+          currency: z.string().nullable(),
+        }),
+      ),
+      complete: z.boolean(),
+    })
+    .optional(),
   amount: z.number().finite().nonnegative().nullable(),
   currency: z.string().nullable(),
   status: z.enum(["complete", "partial", "unavailable"]),

@@ -11,6 +11,7 @@ import {
 import { and, desc, eq, gte, inArray, lte, type SQL, sql } from "drizzle-orm";
 import type { TelemetryDb } from "../client";
 import { TelemetryValidationError } from "../errors";
+import { aggregateCost, averageCostSummary } from "../pricing/aggregate-cost";
 import {
   studioRuns,
   type TelemetryEventRecord,
@@ -42,10 +43,14 @@ const percentile = (values: number[], fraction: number) => {
 };
 
 const metricsForRuns = (runs: StudioRun[]): StudioMetric => {
-  const currencies = unique(
-    runs
-      .map((run) => run.currency)
-      .filter((currency): currency is string => Boolean(currency)),
+  const cost = aggregateCost(
+    runs.map((run) => ({
+      cost: run.cost ?? null,
+      currency: run.currency ?? null,
+      pricingStatus: run.pricingStatus ?? "unknown",
+      pricingSource: run.pricingSource ?? null,
+      costSummary: run.costSummary,
+    })),
   );
   const durations = runs
     .map((run) => run.durationMs)
@@ -74,8 +79,9 @@ const metricsForRuns = (runs: StudioRun[]): StudioMetric => {
     p50DurationMs: percentile(durations, 0.5),
     p95DurationMs: percentile(durations, 0.95),
     averageTokens: average(tokens),
-    averageCost: currencies.length <= 1 ? average(costs) : null,
-    currency: currencies.length === 1 ? (currencies[0] ?? null) : null,
+    averageCost: cost.cost !== null ? average(costs) : null,
+    averageCostSummary: averageCostSummary(cost.costSummary, runs.length),
+    currency: cost.currency,
   };
 };
 

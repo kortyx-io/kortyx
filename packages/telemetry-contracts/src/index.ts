@@ -566,6 +566,22 @@ export const StudioChangeSchema = z
     resources: z.array(StudioChangeResourceSchema).min(1),
   })
   .strict();
+/** Known subtotals stay separate by currency; completeness never implies conversion. */
+export const StudioCostSummarySchema = z
+  .object({
+    amounts: z.array(
+      z
+        .object({
+          amount: z.number().nonnegative(),
+          currency: z.string().nullable(),
+        })
+        .strip(),
+    ),
+    complete: z.boolean(),
+  })
+  .strip();
+export type StudioCostSummary = z.infer<typeof StudioCostSummarySchema>;
+
 export const StudioMetricSchema = z
   .object({
     runCount: z.number().int().nonnegative(),
@@ -577,6 +593,7 @@ export const StudioMetricSchema = z
     p95DurationMs: z.number().nonnegative().nullable(),
     averageTokens: z.number().nonnegative().nullable(),
     averageCost: z.number().nonnegative().nullable(),
+    averageCostSummary: StudioCostSummarySchema.optional(),
     currency: z.string().nullable(),
   })
   .strip();
@@ -615,6 +632,7 @@ export const StudioRunSchema = z
     durationMs: z.number().nonnegative().nullable(),
     tokens: z.number().int().nonnegative().nullable(),
     cost: z.number().nonnegative().nullable(),
+    costSummary: StudioCostSummarySchema.optional(),
     pricingStatus: StudioPricingStatusSchema,
     pricingSource: StudioPricingSourceSchema,
     currency: z.string().nullable(),
@@ -654,6 +672,7 @@ export const StudioSessionSchema = z
     durationMs: z.number().nonnegative().nullable(),
     tokens: z.number().int().nonnegative().nullable(),
     cost: z.number().nonnegative().nullable(),
+    costSummary: StudioCostSummarySchema.optional(),
     pricingStatus: StudioPricingStatusSchema,
     pricingSource: StudioPricingSourceSchema,
     currency: z.string().nullable(),

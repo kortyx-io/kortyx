@@ -152,6 +152,23 @@ describe("eval billing evidence", () => {
       amount: null,
       currency: null,
       status: "unavailable",
+      costSummary: {
+        amounts: [
+          { amount: 0.001, currency: "EUR" },
+          { amount: 0.00025, currency: "USD" },
+        ],
+        complete: true,
+      },
+    });
+  });
+  it("preserves mixed-currency subtotals across grouped evaluations", () => {
+    const mixed = costs([generation("euro", 1000, "EUR")]).total;
+    expect(sumEvalCosts([mixed, costs().total]).costSummary).toEqual({
+      amounts: [
+        { amount: 0.001, currency: "EUR" },
+        { amount: 0.0015, currency: "USD" },
+      ],
+      complete: true,
     });
   });
   it("sums integer micro-units so rolling up amounts does not introduce floating point artifacts", () => {

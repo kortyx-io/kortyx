@@ -46,7 +46,11 @@ const runProjectionValues = (
   endedAt: run.endedAt ? new Date(run.endedAt) : null,
   durationMs: run.durationMs,
   tokens: run.tokens,
-  cost: run.cost,
+  cost:
+    run.cost ??
+    (run.costSummary?.amounts.length === 1
+      ? (run.costSummary.amounts[0]?.amount ?? null)
+      : null),
   environment: run.environment,
   provider: run.provider,
   model: run.model,
@@ -99,7 +103,11 @@ const sessionProjectionValues = (
   lastActivityAt: new Date(session.lastActivityAt),
   durationMs: session.durationMs,
   tokens: session.tokens,
-  cost: session.cost,
+  cost:
+    session.cost ??
+    (session.costSummary?.amounts.length === 1
+      ? (session.costSummary.amounts[0]?.amount ?? null)
+      : null),
   runCount: session.runs,
   environment: session.environment,
   userId: session.userId,

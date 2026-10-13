@@ -11,6 +11,7 @@ import {
   GitFork,
   History,
 } from "lucide-react";
+import { CostValue } from "@/components/cost-value";
 import { DetailLink } from "@/components/detail/detail-link";
 import {
   DetailHeader,
@@ -21,12 +22,7 @@ import {
 import { DetailTabs } from "@/components/detail/detail-tabs";
 import { PayloadViewer } from "@/components/detail/payload-viewer";
 import { FeedbackBadge } from "@/features/feedback/components/feedback-badge";
-import {
-  formatCount,
-  formatCurrency,
-  formatDateTime,
-  formatDurationMs,
-} from "@/lib/format";
+import { formatCount, formatDateTime, formatDurationMs } from "@/lib/format";
 import { studioDetailHref } from "@/lib/studio-routes";
 
 export function SessionDetail({
@@ -86,13 +82,7 @@ export function SessionDetail({
                 fallback: "Not captured",
               })}
             />
-            <Metric
-              label="Cost"
-              value={formatCurrency(session.cost, {
-                currency: session.currency,
-                fallback: "Unknown",
-              })}
-            />
+            <Metric label="Cost" value={<CostValue value={session} />} />
           </>
         }
         alert={
@@ -216,10 +206,7 @@ function SessionActivity({
                 </span>
                 <span>{formatCount(run.tokens, { fallback: "—" })} tokens</span>
                 <span>
-                  {formatCurrency(run.cost, {
-                    currency: run.currency,
-                    fallback: "Unknown",
-                  })}
+                  <CostValue value={run} />
                 </span>
               </div>
               {lifecycle.length > 0 && (

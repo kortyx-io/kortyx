@@ -2,6 +2,7 @@ import {
   projectWorkflowCalls,
   resolveStudioInterruptStatus,
   type StudioCatalogsResponse,
+  type StudioCostSummary,
   type StudioDetailEvent,
   type StudioInterrupt,
   type StudioInterruptInteractionMode,
@@ -26,6 +27,14 @@ import {
 } from "@kortyx/telemetry-contracts";
 import { and, desc, eq, isNull, or, type SQL, sql } from "drizzle-orm";
 import type { TelemetryDb } from "../client";
+import {
+  type AggregatedCost,
+  aggregateCost,
+  averageCostSummary,
+  type Cost,
+  UNKNOWN_COST,
+  ZERO_MODEL_COST,
+} from "../pricing/aggregate-cost";
 import { calculateGenerationCost } from "../pricing/calculate-cost";
 import {
   type ModelRateCard,
@@ -62,6 +71,7 @@ type RunAggregate = {
   models: string[];
   tokens: number | null;
   cost: number | null;
+  costSummary: StudioCostSummary;
   currency: string | null;
   pricingStatus: StudioPricingStatus;
   pricingSource: StudioPricingSource;
@@ -352,96 +362,6 @@ const transitionKeyFromEvent = (
   });
 };
 
-type AggregatedCost = {
-  cost: number | null;
-  currency: string | null;
-  pricingStatus: StudioPricingStatus;
-  pricingSource: StudioPricingSource;
-};
-
-// No model usage has a known zero cost without a pricing source or currency.
-const ZERO_MODEL_COST: AggregatedCost = {
-  cost: 0,
-  currency: null,
-  pricingStatus: "priced",
-  pricingSource: null,
-};
-
-const UNKNOWN_COST: AggregatedCost = {
-  cost: null,
-  currency: null,
-  pricingStatus: "unknown",
-  pricingSource: null,
-};
-
-const aggregateCost = (costs: AggregatedCost[]): AggregatedCost => {
-  const monetaryCosts = costs.filter(
-    (cost) =>
-      !(
-        cost.cost === 0 &&
-        cost.currency === null &&
-        cost.pricingStatus === "priced" &&
-        cost.pricingSource === null
-      ),
-  );
-  if (costs.length > 0 && monetaryCosts.length === 0) return ZERO_MODEL_COST;
-  costs = monetaryCosts;
-  const priced = costs.filter(
-    (cost) => cost.pricingStatus === "priced" && cost.cost !== null,
-  );
-  if (
-    costs.some(
-      (cost) =>
-        cost.pricingStatus !== "priced" ||
-        cost.cost === null ||
-        cost.currency === null,
-    ) &&
-    priced.length > 0
-  ) {
-    return {
-      cost: null,
-      currency: null,
-      pricingStatus: "unpriced",
-      pricingSource: null,
-    };
-  }
-  if (priced.length > 0) {
-    const currencies = unique(
-      priced
-        .map((cost) => cost.currency)
-        .filter((value): value is string => Boolean(value)),
-    );
-    const sources = unique(
-      priced
-        .map((cost) => cost.pricingSource)
-        .filter((value): value is NonNullable<StudioPricingSource> =>
-          Boolean(value),
-        ),
-    );
-    return {
-      cost:
-        currencies.length === 1
-          ? priced.reduce((sum, item) => sum + (item.cost ?? 0), 0)
-          : null,
-      currency: currencies.length === 1 ? (currencies[0] ?? null) : null,
-      pricingStatus: currencies.length === 1 ? "priced" : "unpriced",
-      pricingSource:
-        currencies.length === 1 && sources.length === 1
-          ? (sources[0] ?? null)
-          : null,
-    };
-  }
-  if (costs.some((cost) => cost.pricingStatus === "unpriced")) {
-    return {
-      cost: null,
-      currency: null,
-      pricingStatus: "unpriced",
-      pricingSource: null,
-    };
-  }
-  return UNKNOWN_COST;
-};
-
 const aggregateRunCost = (
   events: TelemetryEventRecord[],
   rateCards: ModelRateCard[],
@@ -488,7 +408,7 @@ const aggregateRunCost = (
     return hasClosedRun && !hasModelActivity ? ZERO_MODEL_COST : UNKNOWN_COST;
   }
 
-  const costs: AggregatedCost[] = generations.map((event) =>
+  const costs: Cost[] = generations.map((event) =>
     calculateGenerationCost(event, rateCards),
   );
   const generationSpanIds = new Set(generations.map(eventSpanId));
@@ -619,7 +539,14 @@ const aggregateRunGroups = (
           .map(modelFrom)
           .filter((value): value is string => Boolean(value)),
       );
-      const cost = aggregateRunCost(ordered, rateCards);
+      const recordedCost = aggregateRunCost(ordered, rateCards);
+      const cost = {
+        ...recordedCost,
+        costSummary: {
+          ...recordedCost.costSummary,
+          complete: recordedCost.costSummary.complete && status !== "running",
+        },
+      };
       const path = unique(
         ordered
           .filter((event) => !event.payload.invocationId)
@@ -655,6 +582,7 @@ const aggregateRunGroups = (
         models,
         tokens: tokens > 0 ? tokens : null,
         cost: cost.cost,
+        costSummary: cost.costSummary,
         currency: cost.currency,
         pricingStatus: cost.pricingStatus,
         pricingSource: cost.pricingSource,
@@ -789,6 +717,7 @@ const runToStudioRun = (
     durationMs: run.durationMs,
     tokens: run.tokens,
     cost: run.cost,
+    costSummary: run.costSummary,
     pricingStatus: run.pricingStatus,
     pricingSource: run.pricingSource,
     currency: run.currency,
@@ -875,6 +804,7 @@ const aggregateSessions = (
         durationMs: duration > 0 ? duration : null,
         tokens: tokens > 0 ? tokens : null,
         cost: cost.cost,
+        costSummary: cost.costSummary,
         pricingStatus: cost.pricingStatus,
         pricingSource: cost.pricingSource,
         currency: cost.currency,
@@ -1105,6 +1035,7 @@ const metricsForRuns = (runs: RunAggregate[]): StudioMetric => {
     p95DurationMs: percentile(durations, 0.95),
     averageTokens: average(tokenValues),
     averageCost: cost.cost !== null ? average(costValues) : null,
+    averageCostSummary: averageCostSummary(cost.costSummary, runs.length),
     currency: cost.currency,
   };
 };

@@ -8,6 +8,7 @@ import type {
 } from "@kortyx/agent/evals";
 import { and, asc, eq, inArray, or, sql } from "drizzle-orm";
 import type { TelemetryDb } from "../client";
+import { aggregateCost, ZERO_MODEL_COST } from "../pricing/aggregate-cost";
 import {
   type CalculatedCost,
   calculateGenerationCost,
@@ -38,6 +39,20 @@ type Attempt = {
 
 /** Count each generation once across turns, retries and child workflows. */
 export function sumEvalCosts(parts: EvalCostAmount[]): EvalCostAmount {
+  const summary = aggregateCost(
+    parts.map((part) => ({
+      cost: part.amount,
+      currency: part.currency,
+      pricingStatus:
+        part.status === "complete"
+          ? "priced"
+          : part.status === "partial"
+            ? "unpriced"
+            : "unknown",
+      pricingSource: null,
+      costSummary: part.costSummary,
+    })),
+  );
   const currencies = new Set(
     parts.filter((p) => p.amount !== null).map((p) => p.currency),
   );
@@ -45,6 +60,7 @@ export function sumEvalCosts(parts: EvalCostAmount[]): EvalCostAmount {
   const compatible = currencies.size <= 1;
   const complete = parts.every((p) => p.status === "complete") && compatible;
   return {
+    costSummary: summary.costSummary,
     amount:
       known && compatible
         ? parts.reduce(
@@ -76,7 +92,14 @@ function summarize(
   const compatible = currencies.size <= 1;
   const known =
     priced.length > 0 || (prices.length === 0 && missing === 0 && finished);
+  const summary = aggregateCost(
+    prices.length ? prices : known ? [ZERO_MODEL_COST] : [],
+  );
   return {
+    costSummary: {
+      ...summary.costSummary,
+      complete: finished && unpricedCalls === 0 && summary.costSummary.complete,
+    },
     amount:
       known && compatible
         ? priced.reduce((sum, p) => sum + (p.costMicros ?? 0), 0) / 1_000_000
@@ -327,6 +350,8 @@ export async function loadEvalCosts(
       if (["queued", "running"].includes(source.status)) {
         if (workflow.amount !== null) workflow.status = "partial";
         if (judge.amount !== null) judge.status = "partial";
+        if (workflow.costSummary) workflow.costSummary.complete = false;
+        if (judge.costSummary) judge.costSummary.complete = false;
       }
       return [
         source.id,

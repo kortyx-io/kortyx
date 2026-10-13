@@ -1,3 +1,7 @@
+import {
+  StudioCostSummarySchema,
+  StudioPricingStatusSchema,
+} from "@kortyx/telemetry-contracts";
 import { z } from "zod";
 
 export const SessionStatusSchema = z.enum([
@@ -38,6 +42,9 @@ export const SessionSchema = z.object({
   duration: z.number().optional(),
   tokens: z.number().optional(),
   cost: z.number().optional(),
+  costSummary: StudioCostSummarySchema.optional(),
+  currency: z.string().nullable().optional(),
+  pricingStatus: StudioPricingStatusSchema.optional(),
   latestResult: z.string(),
   latestError: z.string().optional(),
   pendingInterrupt: z.string().optional(),
