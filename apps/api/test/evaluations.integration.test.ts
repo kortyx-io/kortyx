@@ -114,12 +114,16 @@ describe.skipIf(!url)("grouped evaluations on disposable PostgreSQL", () => {
       let body = "";
       for await (const part of req) body += part;
       const response = await handler(
-        new Request("http://localhost/evals", {
+        new Request(new URL(req.url ?? "/evals", "http://localhost"), {
           method: req.method ?? "GET",
-          headers: {
-            authorization: req.headers.authorization ?? "",
-            "content-type": "application/json",
-          },
+          headers: Object.fromEntries(
+            Object.entries(req.headers)
+              .filter(([, value]) => value !== undefined)
+              .map(([name, value]) => [
+                name,
+                Array.isArray(value) ? value.join(",") : String(value),
+              ]),
+          ),
           ...(body ? { body } : {}),
         }),
       );
