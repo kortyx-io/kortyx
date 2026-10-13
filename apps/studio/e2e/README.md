@@ -35,8 +35,8 @@ one test group through the authenticated prompts API. Independent composition
 fixtures exercise exact version selection, Latest, and SDK serving. It cleans up
 only its reserved `e2e-prompt-drawers/*` assets and `E2E prompt drawers` category /
 `E2E prompt drawer group` selection. Local bootstrap grants the prompt permissions
-needed for these fixture mutations by default; do not opt out with
-`KORTYX_STUDIO_ENABLE_PROMPTS=0` for this suite.
+needed for these fixture mutations by default. Rerun bootstrap with the existing
+keys if an older installation lacks those permissions.
 
 ## Stable assertions
 

@@ -20,16 +20,13 @@ vi.mock("../src/index", () => ({
   }),
 }));
 
-describe("local bootstrap prompt permissions", () => {
+describe("OSS bootstrap feature permissions", () => {
   beforeEach(() => {
     vi.resetModules();
     vi.clearAllMocks();
     vi.stubEnv("DATABASE_URL", "postgres://local-test");
     vi.stubEnv("KORTYX_TELEMETRY_API_KEY", "test-sdk-key");
     vi.stubEnv("KORTYX_STUDIO_API_KEY", "test-studio-key");
-    vi.stubEnv("KORTYX_STUDIO_ENABLE_DIAGNOSTICS", "0");
-    vi.stubEnv("KORTYX_STUDIO_ENABLE_REVIEWS", "0");
-    vi.stubEnv("KORTYX_STUDIO_ENABLE_EVALS", "0");
     vi.spyOn(console, "log").mockImplementation(() => {});
   });
 
@@ -40,10 +37,12 @@ describe("local bootstrap prompt permissions", () => {
 
   it.each([
     undefined,
-    "",
+    "0",
     "1",
-  ])("grants local prompt permissions with flag %s", async (flag) => {
-    vi.stubEnv("KORTYX_STUDIO_ENABLE_PROMPTS", flag);
+  ])("grants all OSS features with legacy flags %s", async (flag) => {
+    for (const feature of ["PROMPTS", "DIAGNOSTICS", "REVIEWS", "EVALS"]) {
+      vi.stubEnv(`KORTYX_STUDIO_ENABLE_${feature}`, flag);
+    }
     await import("../src/scripts/bootstrap-local");
     await vi.waitFor(() => expect(mocks.close).toHaveBeenCalledOnce());
 
@@ -66,25 +65,22 @@ describe("local bootstrap prompt permissions", () => {
           "prompt:promote",
           "prompt:review",
           "prompt:settings",
+          "diagnostics:read",
+          "eval:run",
         ],
       }),
     );
   });
 
-  it("honors an explicit opt-out", async () => {
-    vi.stubEnv("KORTYX_STUDIO_ENABLE_PROMPTS", "0");
+  it("reapplies feature permissions to stored keys on subsequent bootstraps", async () => {
     await import("../src/scripts/bootstrap-local");
     await vi.waitFor(() => expect(mocks.close).toHaveBeenCalledOnce());
-
-    expect(mocks.upsertKey).toHaveBeenNthCalledWith(
-      1,
-      {},
-      expect.objectContaining({ scopes: ["telemetry:write"] }),
-    );
-    expect(mocks.upsertKey).toHaveBeenNthCalledWith(
-      2,
-      {},
-      expect.objectContaining({ scopes: ["studio:read"] }),
+    const firstKeys = mocks.upsertKey.mock.calls.map((call) => call[1]);
+    vi.resetModules();
+    await import("../src/scripts/bootstrap-local");
+    await vi.waitFor(() => expect(mocks.close).toHaveBeenCalledTimes(2));
+    expect(mocks.upsertKey.mock.calls.slice(2).map((call) => call[1])).toEqual(
+      firstKeys,
     );
   });
 });

@@ -9,7 +9,6 @@ const options = {
   apiKey: "test-key",
   environment: "test",
   service: { name: "test" },
-  diagnostics: { enabled: true },
   flushIntervalMs: 60000,
 };
 const context = {
@@ -21,6 +20,89 @@ const context = {
   },
 };
 describe("native diagnostic transport", () => {
+  it.each([
+    undefined,
+    {},
+  ])("captures complete redacted diagnostics by default with options %j", async (diagnostics) => {
+    const requests: { url: string; body: Record<string, unknown> }[] = [];
+    const adapter = createKortyxTelemetryAdapter({
+      ...options,
+      ...(diagnostics ? { diagnostics } : {}),
+      fetch: async (url, init) => {
+        requests.push({
+          url: String(url),
+          body: JSON.parse(String(init?.body)),
+        });
+        return Response.json({ state: "available" });
+      },
+    });
+    const id = adapter.trace?.reportError?.(
+      Object.assign(new Error("provider failure"), {
+        responseBody: "X".repeat(120000),
+        apiKey: "never-send",
+      }),
+    ) as string;
+    await adapter.flushDiagnostics();
+    expect(id).toEqual(expect.any(String));
+    expect(requests[0]?.url).toBe(
+      "https://telemetry.example/v1/telemetry/diagnostics?env=test",
+    );
+    const content = JSON.parse(
+      Buffer.concat(
+        requests
+          .filter((request) => request.url.includes("/parts?"))
+          .map((request) => Buffer.from(request.body.data as string, "base64")),
+      ).toString(),
+    );
+    expect(content.data.responseBody).toHaveLength(120000);
+    expect(content.data.apiKey).toBe("[REDACTED]");
+    expect(JSON.stringify(requests)).not.toContain("never-send");
+    expect(adapter.getDiagnosticDeliveryState(id)).toBe("available");
+  });
+
+  it("honors an explicit capture opt-out while retaining bounded error events", async () => {
+    const requests: { url: string; body: Record<string, unknown> }[] = [];
+    const adapter = createKortyxTelemetryAdapter({
+      ...options,
+      diagnostics: { enabled: false },
+      fetch: async (url, init) => {
+        requests.push({
+          url: String(url),
+          body: JSON.parse(String(init?.body)),
+        });
+        return Response.json({});
+      },
+    });
+    await adapter.trace?.withSpan?.(
+      { name: "node", attributes: context.correlation },
+      async () => {
+        expect(
+          adapter.trace?.reportError?.(new Error("handled failure")),
+        ).toBeUndefined();
+      },
+    );
+    await adapter.flush();
+    expect(requests).toHaveLength(1);
+    expect(requests[0]?.url).toBe(
+      "https://telemetry.example/v1/telemetry/events:batch",
+    );
+    expect(requests[0]?.body.events).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: "error.reported",
+          payload: expect.objectContaining({
+            error: expect.objectContaining({ message: "handled failure" }),
+          }),
+        }),
+      ]),
+    );
+    expect(await adapter.flushDiagnostics()).toMatchObject({
+      pending: 0,
+      pendingBytes: 0,
+      dropped: 0,
+    });
+  });
+
   it("uploads complete projected bytes with correlation once across propagation and keeps summaries bounded", async () => {
     const requests: { url: string; body: Record<string, unknown> }[] = [];
     const projection = vi.fn(() => ({

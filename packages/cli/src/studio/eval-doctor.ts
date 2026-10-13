@@ -81,7 +81,7 @@ export function buildEvalDoctorReport(
       ...(!data.canRun
         ? {
             remedy:
-              "Grant eval:run to this project key. For local bootstrap rerun with KORTYX_STUDIO_ENABLE_EVALS=1 and the existing stored key.",
+              "Grant eval:run to this project key. For OSS Studio, rerun bootstrap with the existing stored key to apply the default feature permissions.",
           }
         : {}),
     },

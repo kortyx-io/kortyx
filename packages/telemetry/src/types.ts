@@ -11,9 +11,10 @@ export type CreateKortyxTelemetryAdapterOptions = {
   service: KortyxTelemetryService;
   /** Optional replacement or suppression of captured error diagnostics. */
   error?: import("@kortyx/hooks").KortyxTraceErrorProjection;
-  /** Opt in to complete redacted diagnostics stored by Studio's diagnostic API. */
+  /** Complete redacted diagnostics stored by Studio's diagnostic API; enabled by default. */
   diagnostics?: {
-    enabled: boolean;
+    /** Set false to disable complete diagnostic capture and uploads. */
+    enabled?: boolean;
     /** Optional secure persistent queue for Node process-restart recovery. */
     spoolDirectory?: string;
     maxQueueBytes?: number;

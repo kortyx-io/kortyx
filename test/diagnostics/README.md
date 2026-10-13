@@ -1,6 +1,6 @@
 # Native diagnostic manual end-to-end test
 
-Use a disposable local Studio PostgreSQL database. Migrate it and bootstrap a telemetry writer plus a Studio reader with `KORTYX_STUDIO_ENABLE_DIAGNOSTICS=1`. Start the API and Studio against that database, with the reader configured server-side in Studio. Do not use production or customer credentials/data for this fixture.
+Use a disposable local Studio PostgreSQL database. Migrate it and bootstrap a telemetry writer plus a Studio reader; OSS bootstrap grants diagnostic access by default. Start the API and Studio against that database, with the reader configured server-side in Studio. Do not use production or customer credentials/data for this fixture.
 
 Build the package graph first:
 

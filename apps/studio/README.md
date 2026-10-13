@@ -159,18 +159,18 @@ endpoint with `{ runId, actorId }` clears that actor's vote. Runs must already b
 ingested; a 404 can mean telemetry is still flushing. See the API's OpenAPI docs.
 
 Reviews require a server-only Studio key with **both** `studio:read` and
-`studio:write`. Existing read-only keys remain read-only. To opt the repository's
-local development key into reviews, bootstrap explicitly:
+`studio:write`. OSS bootstrap grants both scopes by default. Existing
+installations should rerun bootstrap with their stored keys:
 
 ```bash
-KORTYX_STUDIO_ENABLE_REVIEWS=1 pnpm db:bootstrap
+pnpm db:bootstrap
 ```
 
-Omitting the opt-in on a later bootstrap restores the key to read-only. For a
-remote deployment, set `KORTYX_STUDIO_ENABLE_REVIEWS=1` in the database bootstrap
-job's environment (or provision a key with both scopes). Keep the opt-in across
-later bootstraps; the Compose stacks forward it to the database job. No migration
-grants new key permissions.
+For a remote deployment, rerun its normal database bootstrap job with the same
+keys and pepper. Bootstrap also grants prompt, diagnostic and eval permissions;
+no OSS feature environment switches are required. Custom read-only keys still
+remain read-only unless explicitly reconfigured. Migrations alone do not grant
+key permissions.
 Review POST/DELETE requests go through Studio's authenticated same-origin
 bridge, never directly from the browser with the API key. The API derives
 review identity from its authenticated Studio key. Shared installations share

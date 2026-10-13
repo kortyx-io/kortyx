@@ -95,36 +95,46 @@ so saved comparisons can distinguish the new configuration.
 
 | Variable | Required | Purpose |
 | --- | --- | --- |
-| `KORTYX_TELEMETRY_API_KEY` | Yes | Project-scoped `telemetry:write` credential for SDK producers |
-| `KORTYX_STUDIO_API_KEY` | Yes | Project-scoped `studio:read` credential used by Studio |
-| `KORTYX_STUDIO_ENABLE_REVIEWS` | No | Bootstrap-job opt-in: `1` grants `studio:write` as well as `studio:read` to the configured Studio key; default `0` keeps it read-only |
-| `KORTYX_STUDIO_ENABLE_EVALS` | No | Defaults to `0`; exactly `1` grants `eval:run` to the configured Studio key during bootstrap; keep it set on subsequent bootstrap runs |
+| `KORTYX_TELEMETRY_API_KEY` | Yes | Project-scoped `telemetry:write` and `prompt:serve` credential for SDK producers |
+| `KORTYX_STUDIO_API_KEY` | Yes | Project-scoped Studio operator credential with all OSS feature permissions |
 
-Setting `KORTYX_STUDIO_ENABLE_EVALS` only on the API or browser service does not
-change permissions. Rerun the database bootstrap with that variable and the
-same configured Studio key. A later bootstrap without the opt-in removes its
-eval execution scope. It does not register targets or configure a judge.
+OSS bootstrap grants `studio:read`, `studio:write`, `diagnostics:read`, `eval:run`,
+`prompt:promote`, `prompt:review`, and `prompt:settings` to the configured Studio
+key. Prompts, reviews, diagnostic access and eval execution need no feature
+switches. Eval applications and a judge still require configuration before use.
+
+On upgrade, rerun bootstrap with the same stored keys and pepper. The former
+`KORTYX_STUDIO_ENABLE_*` switches are ignored, even when old environment files
+set them to `0`. Custom keys retain their configured scopes; API authentication,
+project/environment isolation and permission checks remain enforced.
 
 Raw keys are used to create or replace their verifier records. They are not written to bootstrap logs.
 
-Keep the review opt-in in the deployment's bootstrap environment if reviews are
-enabled. A later bootstrap without it restores the configured key to read-only.
-The CLI-generated and repository Compose stacks pass this optional variable to
-the database job. Reviews share a pseudonymous actor identity per Studio key;
-they do not imply individual Cloud Studio accounts.
+Reviews share a pseudonymous actor identity per Studio key; they do not imply
+individual Cloud Studio accounts.
+
+Complete error diagnostics are enabled by default in the native Studio SDK
+adapter. Set `diagnostics: { enabled: false }` there to disable complete capture
+and uploads. Prompt content and normal input/output capture remain opt-in.
+Configure
+`KORTYX_DIAGNOSTIC_RETENTION_DAYS` on the API for completed diagnostic retention
+(default 30 days, valid range 1–365) and `KORTYX_DIAGNOSTIC_PROJECT_BYTES` for
+the per-project diagnostic budget (default 268435456 bytes / 256 MiB). Invalid
+values fall back to those defaults. Container deployments must explicitly
+forward these API settings when overriding them.
 
 ## Studio variables
 
 | Variable | Required | Purpose |
 | --- | --- | --- |
 | `KORTYX_API_URL` | Yes | Internal telemetry API URL, such as `http://api:6400` |
-| `KORTYX_STUDIO_API_KEY` | Yes | Server-only Studio read credential |
+| `KORTYX_STUDIO_API_KEY` | Yes | Server-only Studio operator credential |
 | `KORTYX_STUDIO_AUTH_MODE` | Yes remotely | Use `basic` for the current self-hosted release |
 | `KORTYX_STUDIO_BASIC_AUTH_USERNAME` | With Basic Auth | Human sign-in username |
 | `KORTYX_STUDIO_BASIC_AUTH_PASSWORD` | With Basic Auth | Human sign-in password |
 | `PORT` | No | Container port; default is `6300` |
 
-The Studio read key is consumed by the Next.js server and must never be sent to the browser. The telemetry write key belongs only in server-side SDK producers.
+The Studio operator key is consumed by the Next.js server and must never be sent to the browser. The telemetry write key belongs only in server-side SDK producers.
 
 The same Studio key can execute suites when it also has `eval:run`. This does
 not require a new user-authentication mechanism. See [Evals](./11-evals.md) for
@@ -203,18 +213,18 @@ for connection registration and post-deployment execution.
 | Change | Apply it to |
 | --- | --- |
 | Target file, inline targets or Studio judge variables | Restart/recreate every Studio API replica with the updated environment/mount |
-| `KORTYX_STUDIO_ENABLE_EVALS` | Rerun database bootstrap with the current Studio key and opt-in; maintain it on later bootstraps |
+| Upgrade an existing OSS Studio key to default feature permissions | Rerun database bootstrap with the current stored keys and pepper |
 | Studio API URL/project key or Basic Auth settings | Restart/recreate the Studio server; key rotation also needs matching bootstrap verifiers |
 | Actor credentials, eval service key or code judge | Restart/reconfigure the consumer app; service-key changes also need the matching Studio target update |
 | CLI connection/key variables | Supply them to the invoking shell or CI job; no Studio restart is needed for CLI profile edits |
 
-The CLI-generated Compose stack forwards judge settings to the API and eval
-bootstrap opt-in to the database job. Store them in the existing private Studio
-home `.env`; `studio start --home <path>` preserves them. Target file mounts and
-API target variables still need a deployment override: adding a host variable
-alone does not mount a file or forward it into a container. For repository or
-operator-managed Compose, explicitly set the bootstrap opt-in on `db-init` as
-shown in [container configuration](./11-evals.md#container-configuration).
+The CLI-generated Compose stack forwards judge settings to the API. Store them
+in the existing private Studio home `.env`; `studio start --home <path>` preserves
+them. Target file mounts and API target variables still need a deployment
+override: adding a host variable
+alone does not mount a file or forward it into a container. See
+[container configuration](./11-evals.md#container-configuration) for the API
+target file override.
 
 ## Health and shutdown
 
