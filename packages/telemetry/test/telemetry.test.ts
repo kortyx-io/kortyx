@@ -606,7 +606,7 @@ it.each([
         }
       : {}),
     fetch: async (_url, init) => {
-      sent.push(...JSON.parse(String(init?.body)).events);
+      sent.push(...(JSON.parse(String(init?.body)).events ?? []));
       return new Response(JSON.stringify({ accepted: true }), { status: 200 });
     },
   });
@@ -646,7 +646,9 @@ it.each([
         ? "Provider connection refused"
         : mode === "replace"
           ? "Provider unavailable"
-          : "An unexpected error occurred.",
+          : mode === "throws"
+            ? "Diagnostic capture failed."
+            : "An unexpected error occurred.",
   });
   if (mode === undefined) {
     expect(failed?.payload.error).toMatchObject({
@@ -668,7 +670,7 @@ it("reports a handled error on the active span without failing it", async () => 
     service: { name: "test" },
     flushIntervalMs: 60_000,
     fetch: async (_url, init) => {
-      sent.push(...JSON.parse(String(init?.body)).events);
+      sent.push(...(JSON.parse(String(init?.body)).events ?? []));
       return new Response(JSON.stringify({ accepted: true }), { status: 200 });
     },
   });
@@ -734,7 +736,7 @@ it("ends expected suspension spans without emitting failures", async () => {
     service: { name: "test" },
     flushIntervalMs: 60_000,
     fetch: async (_url, init) => {
-      sent.push(...JSON.parse(String(init?.body)).events);
+      sent.push(...(JSON.parse(String(init?.body)).events ?? []));
       return new Response(JSON.stringify({ accepted: true }), { status: 200 });
     },
   });
@@ -771,7 +773,7 @@ it("exports failed-generation usage counts without raw usage or provider metadat
     service: { name: "test" },
     flushIntervalMs: 60000,
     fetch: async (_url, init) => {
-      sent.push(...JSON.parse(String(init?.body)).events);
+      sent.push(...(JSON.parse(String(init?.body)).events ?? []));
       return new Response(JSON.stringify({ accepted: true }), { status: 200 });
     },
   });

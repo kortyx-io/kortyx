@@ -32,7 +32,6 @@ const adapter = createKortyxTelemetryAdapter({
   apiKey: writer,
   environment: "development",
   service: { name: "diagnostic-manual-e2e" },
-  diagnostics: { enabled: true },
   flushIntervalMs: 60000,
   fetch: async (url, init) => {
     if (new URL(url).pathname === "/v1/telemetry/diagnostics")
@@ -175,7 +174,6 @@ const interrupted = createKortyxTelemetryAdapter({
   apiKey: writer,
   environment: "development",
   service: { name: "diagnostic-manual-e2e" },
-  diagnostics: { enabled: true },
   flushIntervalMs: 60000,
   fetch: async (url, init) => {
     if (

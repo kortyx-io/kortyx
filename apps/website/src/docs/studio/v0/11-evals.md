@@ -71,8 +71,9 @@ Studio API key's organization and project. Execution also requires `eval:run` an
 an allowed project environment. Reading uses the existing `studio:read` scope. The current browser proxy supports
 local `none` and deployed `basic` Studio auth modes. Suite execution uses the
 existing server-side Studio key; it does not require a new login system.
-For the local Docker bootstrap, opt in with `KORTYX_STUDIO_ENABLE_EVALS=1` and rerun
-bootstrap with the same stored Studio key. Execution is disabled by default.
+OSS bootstrap grants execution permission by default. Existing installations
+should rerun bootstrap with the same stored keys and pepper. A registered
+consumer target and a configured Studio or App judge are still required.
 
 ### Where application metadata comes from
 
@@ -340,9 +341,6 @@ services:
       KORTYX_EVAL_TARGETS_FILE: /run/secrets/kortyx-eval-targets.json
     volumes:
       - ./eval-targets.json:/run/secrets/kortyx-eval-targets.json:ro
-  db-init:
-    environment:
-      KORTYX_STUDIO_ENABLE_EVALS: "1"
 ```
 
 Use this as a deployment override alongside the normal Compose file. For a

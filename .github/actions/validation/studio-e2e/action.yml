@@ -28,7 +28,7 @@ runs:
     - name: Migrate and bootstrap database
       run: |
         pnpm db:migrate
-        KORTYX_STUDIO_ENABLE_EVALS=1 pnpm db:bootstrap
+        pnpm db:bootstrap
       shell: bash
     - name: Run high-availability and feedback API regressions
       if: inputs.suite == 'preflight'
@@ -73,8 +73,6 @@ runs:
       shell: bash
     - name: Run review-capable feedback regressions
       if: inputs.suite == 'reviews'
-      env:
-        KORTYX_STUDIO_ENABLE_REVIEWS: "1"
       run: pnpm --filter kortyx-studio exec dotenv -e ../../.env -- playwright test feedback.spec.ts
       shell: bash
     - name: Run production navigation partition

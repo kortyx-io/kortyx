@@ -71,8 +71,11 @@ values and resume capability tokens are never included in interrupt telemetry.
 
 ## Complete error diagnostics
 
-Set `diagnostics: { enabled: true }` on `createKortyxTelemetryAdapter` after
-upgrading the API/Studio and granting `diagnostics:read` to the Studio reader.
+`createKortyxTelemetryAdapter` captures complete diagnostics by default. Upgrade
+the API/Studio and run migrations before upgrading the SDK; rerun OSS bootstrap
+with the stored keys to grant diagnostic access to the Studio reader.
+Set `diagnostics: { enabled: false }` to retain bounded error events without
+capturing or uploading complete diagnostic artifacts.
 Native capture retains large messages/stacks, causes, aggregate members, custom
 fields, and private provider response evidence with credential redaction. Run
 errors link to one diagnostic; native upload parts do not become timeline events.

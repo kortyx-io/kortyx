@@ -4,13 +4,13 @@ This first error-observability release preserves private evidence independently 
 
 ## Enable capture and access
 
-Deploy API and Studio with migration `0008_error_diagnostics` before enabling SDK capture. Use the normal telemetry database migration command (`pnpm db:migrate` for repository development). Existing SDKs and public failure responses remain compatible.
+Deploy API and Studio with migration `0008_error_diagnostics` before upgrading the SDK: complete diagnostics are captured by default when using the native Studio telemetry adapter. Use the normal telemetry database migration command (`pnpm db:migrate` for repository development). Existing SDKs and public failure responses remain compatible. Set `diagnostics: { enabled: false }` on the adapter to disable complete capture and uploads while retaining bounded error events.
 
-Private diagnostic retrieval requires both `studio:read` and the new `diagnostics:read` action. A telemetry write key cannot retrieve diagnostics. In self-hosted installations, set `KORTYX_STUDIO_ENABLE_DIAGNOSTICS=1` for the bootstrap job and rerun bootstrap; this adds the permission to the configured Studio key. Setting it back to zero on a subsequent bootstrap removes that optional grant. Configure retention and storage budgets on the API server, not just Studio. CLI-generated Compose forwards the bootstrap flag; supply API budget overrides explicitly when changing the defaults.
+Private diagnostic retrieval requires both `studio:read` and `diagnostics:read`. A telemetry write key cannot retrieve diagnostics. OSS bootstrap grants all Studio feature permissions by default; rerun it with the same stored keys and pepper to upgrade existing installations. The former OSS feature environment switches are no longer read, including old values of `0`. Custom keys and Cloud adapters still enforce their configured permissions. Configure retention and storage budgets on the API server, not just Studio; supply API budget overrides explicitly when changing the defaults.
 
 Cloud editions must grant `diagnostics:read` in their authorization adapter, authorize the diagnostic page and download proxy, mount the project-scoped route, and add tenant RLS policies for `error_diagnostics`, `error_diagnostic_parts`, and `diagnostic_access`. The OSS migration does not install deployment-specific cloud policies. The shared scoped-link helper includes diagnostics, and API queries always carry organization, project, and environment scope.
 
-Opt in on the native adapter:
+Connect the native adapter; complete capture needs no additional option:
 
 ```ts
 import { createKortyxTelemetryAdapter } from "@kortyx/telemetry";
@@ -21,14 +21,13 @@ const telemetry = createKortyxTelemetryAdapter({
   environment: "staging",
   service: { name: "agents-api" },
   diagnostics: {
-    enabled: true,
     // Optional Node-only recovery of redacted uploads after a restart.
     spoolDirectory: "/var/lib/agents/diagnostic-spool",
   },
 });
 ```
 
-The adapter captures original failed-span, reported-error, and tool exceptions. `telemetry.trace.reportError(error)` returns a diagnostic ID when capture is enabled, including outside a workflow. An optional `error` projection can replace the diagnostic with a data object, return `null` to suppress it, or throw; projection failures produce an explicit failed-capture record. Every projected value still passes credential redaction and resource limits.
+The adapter captures original failed-span, reported-error, and tool exceptions. `telemetry.trace.reportError(error)` returns a diagnostic ID when capture is enabled, including outside a workflow. An optional `error` projection can replace the diagnostic with a data object, return `null` to suppress it, or throw; projection failures produce an explicit failed-capture record. Every projected value still passes credential redaction and resource limits. Prompt and normal input/output content capture remains a separate opt-in.
 
 Provide the adapter to the agent using its existing `telemetry` option. Applications should retire their custom error-chunk events after validating native capture. Existing custom chunk events stay historical events; there is no migration or decoder for application-specific chunk protocols in this release.
 

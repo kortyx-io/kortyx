@@ -41,7 +41,7 @@ type Entry = { manifest: DiagnosticManifest; content: string };
 export function createDiagnosticDelivery(
   options: CreateKortyxTelemetryAdapterOptions,
 ) {
-  const enabled = options.diagnostics?.enabled === true;
+  const enabled = options.diagnostics?.enabled !== false;
   const queue = new Map<string, Entry>();
   const states = new Map<string, DiagnosticDeliveryState>();
   type CaptureResult = {

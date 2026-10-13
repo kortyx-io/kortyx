@@ -201,9 +201,6 @@ services:
       KORTYX_EVAL_TARGETS_FILE: /run/secrets/eval-targets.json
     volumes:
       - ./private/eval-targets.json:/run/secrets/eval-targets.json:ro
-  db-init:
-    environment:
-      KORTYX_STUDIO_ENABLE_EVALS: "1"
 ```
 
 Keep the target file and env files out of Git and restrict their filesystem
@@ -250,7 +247,7 @@ See [judge selection](./11-evals.md#studio-judge-configuration).
 | Workflow model/tool settings | Application | Existing agent needs them | Follow app configuration |
 | `KORTYX_EVAL_TARGETS_FILE` and its read-only file mount | Studio API | Discovering/executing consumer suites | Restart API |
 | Target `serviceKey` | Private target file | Must match the application handler's key | Restart API; coordinate app rotation |
-| `KORTYX_STUDIO_ENABLE_EVALS=1` | Bootstrap job | Granting `eval:run` to the existing local project key | Rerun bootstrap with stored key |
+| Default OSS feature permissions | Bootstrap job | Includes `eval:run` on the configured Studio key without feature switches | Rerun bootstrap with stored keys on upgrade |
 | Existing `KORTYX_STUDIO_API_KEY` | Studio server | Browser proxy needs `studio:read` and `eval:run` | Restart Studio server if its key changes |
 | `KORTYX_EVAL_JUDGE_MODEL`, `KORTYX_EVAL_JUDGE_API_KEY` | Studio API | Selecting Studio judge | Restart API |
 | `KORTYX_EVAL_JUDGE_BASE_URL`, `KORTYX_EVAL_JUDGE_API` | Studio API | Using OpenRouter or a compatible endpoint | Restart API |

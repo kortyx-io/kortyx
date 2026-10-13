@@ -138,6 +138,8 @@ describe("eval deployment doctor", () => {
     const command = cli(request);
     await command.run();
     expect(command.output[0]).toContain("lacks eval:run");
+    expect(command.output[0]).toContain("default feature permissions");
+    expect(command.output[0]).not.toContain("KORTYX_STUDIO_ENABLE_");
     expect(command.output[0]).toContain("authenticated manifest valid");
     expect(process.exitCode).toBe(1);
     expect(request).toHaveBeenCalledTimes(1);

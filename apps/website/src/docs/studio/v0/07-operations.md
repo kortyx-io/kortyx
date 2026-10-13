@@ -132,7 +132,7 @@ It checks deployment wiring without starting a workflow or judge call. Follow
 | Consumer returns HTTP 404 | Confirm the eval handler is mounted and enabled in the deployed application; check URL/proxy routing |
 | Consumer returns HTTP 401/403 | Match the application handler and Studio target service keys; check any app-specific test-actor authentication during discovery |
 | Application is unavailable | API-to-consumer reachability, the mounted URL and matching eval service key; use `host.docker.internal` for a host app from Docker Desktop |
-| Run controls are disabled | Existing Studio key needs `eval:run`; rerun bootstrap with `KORTYX_STUDIO_ENABLE_EVALS=1` and the same stored key |
+| Run controls are disabled | Existing Studio key needs `eval:run`; rerun OSS bootstrap with the same stored key to apply default feature permissions, or provision a custom key with that scope |
 | Studio judge is unavailable | Configure model and provider key on the API; restart it, or explicitly select an available App judge |
 | OpenRouter judge returns errors | Use Chat Completions mode, the correct base URL/model slug/key and a provider route supporting structured outputs |
 | Answer lacks verifiable tool evidence | Enable `toolExecution.emit: true` on relevant `useReason` calls; capture events in a custom executor |

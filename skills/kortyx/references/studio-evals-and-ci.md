@@ -94,20 +94,22 @@ services:
 
 ## Enable project execution permission
 
-Run migrations for the compatible release, then opt in to execution when
-bootstrapping the local Studio project key. From a Kortyx source checkout:
+Run migrations for the compatible release, then bootstrap the local Studio
+project key. OSS bootstrap grants all Studio feature permissions by default.
+From a Kortyx source checkout:
 
 ```sh
 pnpm db:migrate
-KORTYX_STUDIO_ENABLE_EVALS=1 pnpm db:bootstrap
+pnpm db:bootstrap
 ```
 
-This grants `eval:run` to the existing Studio key. It is a bootstrap option,
-not an auth bypass at runtime. Reuse the stored key and pepper when rerunning;
-do not generate a different key or modify a shared environment merely to enable
-local testing. In a packaged deployment, supply the same option to its bootstrap
-job. Reading needs `studio:read`; starting/cancelling also needs `eval:run` and an
-allowed project environment. Review-write scopes are unrelated.
+This grants `eval:run` to the existing Studio key without an environment flag.
+Reuse the stored keys and pepper when rerunning; do not generate a different key
+or modify a shared environment merely to enable local testing. In a packaged
+deployment, rerun its normal bootstrap job on upgrade. Reading needs
+`studio:read`; starting/cancelling also needs `eval:run` and an allowed project
+environment. Runtime authorization checks remain enforced for custom keys and
+deployment adapters. A registered target and configured judge are still required.
 
 ## Select and configure judging
 
@@ -150,7 +152,6 @@ the private override above.
 | `KORTYX_EVAL_JUDGE_API` | Studio API | `responses` (default) or `chat-completions` |
 | `KORTYX_EVAL_JUDGE_ID` | Studio API | Optional identity; defaults to `studio/openai/<model>` even for compatible endpoints, so set an explicit ID for a custom provider |
 | `KORTYX_EVAL_JUDGE_VERSION` | Studio API | Optional rubric version; current default `kortyx-rubric-v4`; update when grading semantics change |
-| `KORTYX_STUDIO_ENABLE_EVALS` | Database bootstrap job | Exactly `1` grants execution scope to the local Studio key; defaults off |
 | `DATABASE_URL` | Studio API/bootstrap | Existing Studio PostgreSQL connection, separate from the app's domain DB |
 | `KORTYX_API_KEY_PEPPER` | Studio API/bootstrap | Existing API key verification secret; preserve across bootstrap/restarts |
 | `KORTYX_API_URL` | Studio server | Studio API URL reachable from that server/container, not the consumer endpoint |
