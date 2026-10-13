@@ -157,6 +157,12 @@ push CI for that exact SHA. Do not remove the pending label, move tags, or publi
 from a later green commit to evade a failed gate. If the original commit has a
 real defect, resolve the release plan explicitly rather than weakening its tests.
 
+Browser report downloads stay in separate artifact directories. The merge input
+contains the latest attempt per shard (including untouched shards from earlier
+attempts), with collision-free ZIP names. Earlier attempt artifacts remain
+available for diagnostics; rerunning failed jobs cannot corrupt reports by
+extracting identical filenames concurrently. Missing reports still fail the gate.
+
 After successful orchestration, Release / Prepare PR runs again automatically so
 changes queued behind the recovered release can become the next release PR.
 Publication failures remain red in the original orchestration run; rerun only

@@ -290,8 +290,10 @@ jobs:
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
         with:
           pattern: studio-playwright-blob-*
-          path: all-blob-reports
-          merge-multiple: true
+          path: downloaded-blob-reports
+          merge-multiple: false
+      - name: Select latest report per shard without filename collisions
+        run: node ./.github/automation/.github/scripts/ci/prepare-blob-reports.cjs downloaded-blob-reports all-blob-reports
       - name: Merge reports
         run: pnpm --filter kortyx-studio exec playwright merge-reports --reporter=html,github ../../all-blob-reports
       - name: Upload merged report
