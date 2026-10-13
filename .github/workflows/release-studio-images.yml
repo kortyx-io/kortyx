@@ -19,6 +19,14 @@ on:
         type: string
   workflow_dispatch:
     inputs:
+      api_digest:
+        description: Existing staging API index to reverify (supply both digests, or neither to build)
+        required: false
+        type: string
+      studio_digest:
+        description: Existing staging Studio index to reverify (supply both digests, or neither to build)
+        required: false
+        type: string
       release_tag:
         description: Existing Studio release tag to publish after npm publication (studio-vX.Y.Z)
         required: true

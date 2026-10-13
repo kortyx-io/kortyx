@@ -173,6 +173,12 @@ After successful orchestration, Release / Prepare PR runs again automatically so
 changes queued behind the recovered release can become the next release PR.
 Publication failures remain red in the original orchestration run; rerun only
 failed jobs there to retain its immutable artifacts and completed gates.
+If a reviewed smoke-test correction is needed, dispatch `release-studio-images.yml`
+from updated main with the original release tag and both recorded staging index
+digests. It revalidates the same images through exact-SHA CI, storage preflight,
+both native-platform smoke/upgrade tests and promotion; it does not rebuild them.
+The CDN-only recovery workflow is for already-promoted production images, not for
+evading a failed smoke test.
 
 ## Recovering a blocked Studio publication
 

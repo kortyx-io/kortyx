@@ -1,6 +1,34 @@
 const assert = require("node:assert/strict");
+const { readFileSync } = require("node:fs");
+const { join } = require("node:path");
 const test = require("node:test");
 const { verifyUpgrade } = require("../studio/verify-upgrade-snapshot.cjs");
+
+test("manual recovery can reuse both staging digests without bypassing native smoke", () => {
+  const workflow = readFileSync(
+    join(__dirname, "../../workflows/release-studio-images.yml"),
+    "utf8",
+  );
+  const dispatch = workflow
+    .split("  workflow_dispatch:")[1]
+    .split("permissions:")[0];
+  assert.match(dispatch, /api_digest:/);
+  assert.match(dispatch, /studio_digest:/);
+  assert.match(workflow, /needs.smoke.result == 'success'/);
+  assert.match(
+    workflow,
+    /inputs.api_digest == '' && inputs.studio_digest == ''/,
+  );
+  const smoke = readFileSync(
+    join(__dirname, "../studio/smoke-upgrade.sh"),
+    "utf8",
+  );
+  assert.match(smoke, /verify-upgrade-snapshot.cjs/);
+  assert.match(
+    smoke,
+    /cmp "\$state_dir\/after.json" "\$state_dir\/retry.json"/,
+  );
+});
 const env = {
   KORTYX_TELEMETRY_API_KEY: "ktyx_test_sdk_synthetic",
   KORTYX_STUDIO_API_KEY: "ktyx_test_studio_synthetic",
