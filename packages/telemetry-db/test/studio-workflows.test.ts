@@ -74,6 +74,39 @@ const run = (
 });
 
 describe("Studio workflow projections", () => {
+  it("keeps partial cost averages visible for workflows and nodes", () => {
+    const at = "2026-07-25T10:00:00.000Z";
+    const models = createStudioWorkflowModelsFromProjections({
+      runs: [
+        run("priced", "1", "completed", at),
+        {
+          ...run("missing", "1", "completed", at),
+          cost: null,
+          currency: null,
+          pricingStatus: "unpriced",
+          pricingSource: null,
+        },
+      ],
+      revisions: [revision("revision-1", "1", at)],
+      range: {
+        range: "All time",
+        startedAfter: null,
+        startedBefore: null,
+        workflowId: null,
+        version: null,
+      },
+    });
+    const expected = {
+      runCount: 2,
+      averageCost: null,
+      averageCostSummary: {
+        amounts: [{ amount: 0.005, currency: "USD" }],
+        complete: false,
+      },
+    };
+    expect(models.workflows[0]?.metrics).toMatchObject(expected);
+    expect(models.workflows[0]?.nodes[0]?.metrics).toMatchObject(expected);
+  });
   it("counts repeated child calls independently without borrowing parent success", () => {
     const at = "2026-07-25T10:00:00.000Z";
     const root = {

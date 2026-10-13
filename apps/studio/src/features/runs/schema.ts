@@ -1,4 +1,8 @@
-import { FeedbackSummarySchema } from "@kortyx/telemetry-contracts";
+import {
+  FeedbackSummarySchema,
+  StudioCostSummarySchema,
+  StudioPricingStatusSchema,
+} from "@kortyx/telemetry-contracts";
 import { z } from "zod";
 
 export const RunStatusSchema = z.enum([
@@ -50,6 +54,9 @@ export const RunSchema = z.object({
   duration: z.number(),
   tokens: z.number().optional(),
   cost: z.number().optional(),
+  costSummary: StudioCostSummarySchema.optional(),
+  currency: z.string().nullable().optional(),
+  pricingStatus: StudioPricingStatusSchema.optional(),
   result: z.string(),
   provider: ProviderSchema,
   environment: EnvironmentSchema,

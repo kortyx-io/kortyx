@@ -1,4 +1,5 @@
 import { CirclePause, Clock3 } from "lucide-react";
+import { CostValue } from "@/components/cost-value";
 import type { DataTableColumn } from "@/components/data-table";
 import { DetailLink } from "@/components/detail/detail-link";
 import {
@@ -16,11 +17,8 @@ import { statusMeta } from "@/features/runs/lib/constants";
 import type { Run, RunStatus, SortKey } from "@/features/runs/schema";
 import { CopyableCell } from "@/features/telemetry/components/copyable-cell";
 import { TruncatedText } from "@/features/telemetry/components/truncated-text";
-import {
-  formatCount,
-  formatCurrency,
-  formatDurationSeconds,
-} from "@/lib/format";
+import { costDisplay } from "@/lib/cost";
+import { formatCount, formatDurationSeconds } from "@/lib/format";
 import { studioDetailHref } from "@/lib/studio-routes";
 import { cn } from "@/lib/utils";
 
@@ -342,10 +340,8 @@ export function createRunColumns({
       sortKey: "cost",
       defaultWidth: 100,
       cellClassName: "font-mono text-xs tabular-nums",
-      cellTitle: (run) => formatCurrency(run.cost),
-      render: (run) => (
-        <TruncatedText>{formatCurrency(run.cost)}</TruncatedText>
-      ),
+      cellTitle: (run) => costDisplay(run).note,
+      render: (run) => <CostValue value={run} />,
     },
     {
       key: "result",

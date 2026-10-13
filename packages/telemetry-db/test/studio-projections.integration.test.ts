@@ -16,9 +16,13 @@ import { STUDIO_CHANGE_CHANNEL } from "../src/repositories/studio-changes";
 import {
   listStudioInterrupts,
   listStudioRuns,
+  listStudioSessions,
 } from "../src/repositories/studio-lists";
 import { backfillStudioProjections } from "../src/repositories/studio-projections";
-import { getStudioRunReadModel } from "../src/repositories/studio-read-models";
+import {
+  getStudioRunReadModel,
+  getStudioSessionReadModel,
+} from "../src/repositories/studio-read-models";
 import { listStudioWorkflows } from "../src/repositories/studio-workflows";
 import { ingestTelemetryEvents } from "../src/repositories/telemetry-events";
 import { ensureWorkflowRevision } from "../src/repositories/workflow-revisions";
@@ -28,6 +32,7 @@ import {
   projects,
   studioInterrupts,
   studioRuns,
+  studioSessions,
 } from "../src/schema";
 
 const databaseUrl = process.env.DATABASE_URL;
@@ -573,6 +578,124 @@ integration("Studio SQL projections", () => {
     expect(first).toEqual({ accepted: 1, inserted: 1, duplicates: 0 });
     expect(duplicate).toEqual({ accepted: 1, inserted: 0, duplicates: 1 });
     expect(projected.items.map((run) => run.id)).toEqual(["run-ingested"]);
+  });
+
+  it.each([
+    false,
+    true,
+  ])("preserves zero-usage and missing-pricing semantics in session projections (missing pricing: %s)", async (missingPricing) => {
+    const sessionId = `session-cost-${randomUUID()}`;
+    const modelRunId = `model-${sessionId}`;
+    const zeroRunId = `zero-${sessionId}`;
+    let occurredAt = Date.now();
+    const fact = (
+      runId: string,
+      type: KortyxTelemetryEvent["type"],
+      payload: Record<string, unknown>,
+      spanId = `root-${runId}`,
+    ): KortyxTelemetryEvent => ({
+      schemaVersion: 1,
+      eventId: randomUUID(),
+      occurredAt: new Date(occurredAt++).toISOString(),
+      environment: "test",
+      service: { name: "cost-regression" },
+      correlation: { runId, sessionId, workflowId: "workflow-a", spanId },
+      type,
+      payload,
+    });
+    const ingest = (events: KortyxTelemetryEvent[]) =>
+      ingestTelemetryEvents(client.db, {
+        organizationId: organizationA,
+        projectId: projectA,
+        events: TelemetryEventBatchSchema.parse({ events }).events,
+      });
+    await ingest([
+      fact(modelRunId, "span.started", { name: "kortyx.run" }),
+      fact(
+        modelRunId,
+        "generation.completed",
+        {
+          provider: "custom",
+          model: "priced-model",
+          usage: { input: 100, output: 50 },
+          pricing: {
+            source: "custom",
+            currency: "USD",
+            actualCostMicros: 250000,
+          },
+        },
+        "model-span",
+      ),
+      ...(missingPricing
+        ? [
+            fact(
+              modelRunId,
+              "generation.completed",
+              {
+                provider: "custom",
+                model: "missing-price-model",
+                usage: { input: 100, output: 50 },
+              },
+              "unpriced-span",
+            ),
+          ]
+        : []),
+      fact(modelRunId, "span.ended", { name: "kortyx.run" }),
+    ]);
+    const zeroStart = fact(zeroRunId, "span.started", { name: "kortyx.run" });
+    await ingest([zeroStart]);
+    const read = () =>
+      listStudioSessions(client.db, {
+        organizationId: organizationA,
+        projectId: projectA,
+        query: { range: "All time", q: sessionId },
+      });
+    expect((await read()).items[0]?.cost).toBeNull();
+    await ingest([fact(zeroRunId, "span.ended", { name: "kortyx.run" })]);
+    const expected = {
+      id: sessionId,
+      runs: 2,
+      cost: missingPricing ? null : 0.25,
+      currency: missingPricing ? null : "USD",
+      pricingStatus: missingPricing ? "unpriced" : "priced",
+      costSummary: {
+        amounts: [{ amount: 0.25, currency: "USD" }],
+        complete: !missingPricing,
+      },
+    };
+    expect((await read()).items[0]).toMatchObject(expected);
+    const filtered = await listStudioSessions(client.db, {
+      organizationId: organizationA,
+      projectId: projectA,
+      query: { range: "All time", q: sessionId, minCost: "0.2" },
+    });
+    expect(filtered.items[0]).toMatchObject(expected);
+    const detail = await getStudioSessionReadModel(client.db, {
+      organizationId: organizationA,
+      projectId: projectA,
+      sessionId,
+    });
+    expect(detail.sessions[0]).toMatchObject(expected);
+    expect(detail.runs.find((run) => run.id === zeroRunId)).toMatchObject({
+      cost: 0,
+      pricingStatus: "priced",
+      currency: null,
+      pricingSource: null,
+    });
+
+    // Rebuild stale materialized totals using the existing operational backfill.
+    await client.db
+      .update(studioSessions)
+      .set({
+        cost: null,
+        data: { ...detail.sessions[0], cost: null, pricingStatus: "unknown" },
+      })
+      .where(eq(studioSessions.sessionId, sessionId));
+    await backfillStudioProjections(client.db, {
+      organizationId: organizationA,
+      projectId: projectA,
+    });
+    expect((await read()).items[0]).toMatchObject(expected);
   });
 
   it("keeps a human interrupt visible when suspension and checkpoint facts share its batch", async () => {

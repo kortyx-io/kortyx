@@ -4,6 +4,7 @@ import type {
   StudioRunDetailResponse,
   StudioRunStatus,
 } from "@kortyx/telemetry-contracts";
+import { CostValue } from "@/components/cost-value";
 import { DetailLink } from "@/components/detail/detail-link";
 import {
   DetailHeader,
@@ -21,12 +22,7 @@ import {
   isControlFlowInterrupt,
   RunTrace,
 } from "@/features/runs/components/run-trace";
-import {
-  formatCount,
-  formatCurrency,
-  formatDateTime,
-  formatDurationMs,
-} from "@/lib/format";
+import { formatCount, formatDateTime, formatDurationMs } from "@/lib/format";
 import { studioDetailHref } from "@/lib/studio-routes";
 import { WorkflowCalls } from "./workflow-calls";
 
@@ -102,13 +98,7 @@ export function RunDetail({ detail }: { detail: StudioRunDetailResponse }) {
                 fallback: "Not captured",
               })}
             />
-            <Metric
-              label="Cost"
-              value={formatCurrency(run.cost, {
-                currency: run.currency,
-                fallback: "Unknown",
-              })}
-            />
+            <Metric label="Cost" value={<CostValue value={run} />} />
             <Metric
               label="Events"
               value={formatCount(events.length, { compact: false })}

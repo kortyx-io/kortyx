@@ -1,4 +1,5 @@
 import { ArrowLeft, CircleHelp, X } from "lucide-react";
+import { CostValue } from "@/components/cost-value";
 import Link from "@/components/scoped-link";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -7,7 +8,8 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { formatCount, formatCurrency, formatDurationMs } from "@/lib/format";
+import { averageCostDisplayValue } from "@/lib/cost";
+import { formatCount, formatDurationMs } from "@/lib/format";
 import { formatRate } from "../lib/format";
 import type { WorkflowSelection } from "../lib/view-state";
 import type { WorkflowSystem } from "../schema";
@@ -275,7 +277,11 @@ export function WorkflowInspector({
                     ],
                     [
                       "Cost / run",
-                      formatCurrency(selectedNode.metrics.averageCost),
+                      <CostValue
+                        key="node-cost"
+                        value={averageCostDisplayValue(selectedNode.metrics)}
+                        average
+                      />,
                     ],
                   ]}
                 />
@@ -301,7 +307,13 @@ export function WorkflowInspector({
                       ],
                       [
                         "Cost / run",
-                        formatCurrency(selectedWorkflow.metrics.averageCost),
+                        <CostValue
+                          key="workflow-cost"
+                          value={averageCostDisplayValue(
+                            selectedWorkflow.metrics,
+                          )}
+                          average
+                        />,
                       ],
                       [
                         "Interrupt rate",
@@ -365,7 +377,7 @@ export function WorkflowInspector({
   );
 }
 
-function MetricList({ items }: { items: [string, string][] }) {
+function MetricList({ items }: { items: [string, React.ReactNode][] }) {
   return (
     <dl className="divide-y rounded-md border text-xs">
       {items.map(([label, value]) => {
@@ -395,7 +407,7 @@ function MetricList({ items }: { items: [string, string][] }) {
               ) : null}
             </dt>
             <dd
-              title={value}
+              title={typeof value === "string" ? value : undefined}
               className="min-w-0 break-words text-right font-mono tabular-nums"
             >
               {value}

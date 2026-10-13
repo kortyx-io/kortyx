@@ -1,4 +1,5 @@
 import {
+  StudioCostSummarySchema,
   StudioTimeRangeContextSchema,
   StudioToolSchema,
   ToolDiscoverySchema,
@@ -23,6 +24,8 @@ export const WorkflowNodeMetricsSchema = z.object({
   p95DurationMs: z.number().optional(),
   averageTokens: z.number().optional(),
   averageCost: z.number().optional(),
+  averageCostSummary: StudioCostSummarySchema.optional(),
+  currency: z.string().nullable().optional(),
 });
 
 export const WorkflowNodeSchema = z.object({

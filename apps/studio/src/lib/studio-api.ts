@@ -289,6 +289,9 @@ export const getStudioSessions = async (
             duration: durationSeconds(session.durationMs),
             tokens: optional(session.tokens),
             cost: optional(session.cost),
+            costSummary: session.costSummary,
+            currency: session.currency,
+            pricingStatus: session.pricingStatus,
             latestResult: displayText(
               session.latestResult,
               session.pricingStatus,
@@ -401,6 +404,8 @@ export const getStudioWorkflows = async (
             p95DurationMs: optional(workflow.metrics.p95DurationMs),
             averageTokens: optional(workflow.metrics.averageTokens),
             averageCost: optional(workflow.metrics.averageCost),
+            averageCostSummary: workflow.metrics.averageCostSummary,
+            currency: workflow.metrics.currency,
           },
           nodes: workflow.nodes.map((node) => ({
             id: node.id,
@@ -421,6 +426,8 @@ export const getStudioWorkflows = async (
               p95DurationMs: optional(node.metrics.p95DurationMs),
               averageTokens: optional(node.metrics.averageTokens),
               averageCost: optional(node.metrics.averageCost),
+              averageCostSummary: node.metrics.averageCostSummary,
+              currency: node.metrics.currency,
             },
           })),
           internalEdges: workflow.internalEdges.map((edge) => ({
