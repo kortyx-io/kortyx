@@ -29,6 +29,7 @@ permissions:
 concurrency:
   group: website-production
   cancel-in-progress: false
+  queue: max
 
 env:
   REGISTRY: ghcr.io
