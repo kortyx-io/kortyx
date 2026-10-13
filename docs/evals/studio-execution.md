@@ -252,3 +252,5 @@ path. Missing references are explicitly identified; old results still load.
 
 See [consumer migration](./error-contract-migration.md) for capture prerequisites,
 upgrade order, deadlines and the distinction between verification and teardown.
+
+For shared consumer capacity, bounded retries, detached executions and replica recovery, see [execution resilience](execution-resilience.md).

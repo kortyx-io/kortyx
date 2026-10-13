@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- Add bounded, idempotent queued eval execution with shared consumer capacity,
+  event replay, explicit cancellation and optional PostgreSQL recovery.
+
+
 ## [0.37.1](https://github.com/kortyx-io/kortyx/compare/agent-v0.37.0...agent-v0.37.1) (2026-10-13)
 
 

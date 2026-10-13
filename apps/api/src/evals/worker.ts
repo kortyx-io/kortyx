@@ -2,6 +2,8 @@ import { randomUUID } from "node:crypto";
 import { isDeepStrictEqual } from "node:util";
 import { getEvalSuiteRevision } from "@kortyx/agent";
 import type {
+  EvalCaseResult,
+  EvalIssue,
   EvalJudge,
   EvalProgress,
   EvalRunResult,
@@ -12,9 +14,16 @@ import {
   type claimEvalRun,
   claimEvalRuns,
   finishEvalRun,
+  getEvalAttemptEvidence,
+  getEvalExecutionGeneration,
   heartbeatEvalRun,
   type TelemetryDb,
 } from "@kortyx/telemetry-db";
+import {
+  createEvalDispatcher,
+  EvalDispatchError,
+  evalExecutionIdentity,
+} from "./dispatch";
 import { type AttemptExecution, executeEvaluation } from "./execute-evaluation";
 import { gradeEvalExecution } from "./grade-execution";
 import { type EvalTarget, readEvalWire } from "./targets";
@@ -23,6 +32,10 @@ export type EvalWorkerRun = NonNullable<
   Awaited<ReturnType<typeof claimEvalRun>>
 >;
 /** A restricted durable queue can replace the self-hosted database operations. */
+export type EvalWorkerOutcome = Parameters<typeof finishEvalRun>[3] & {
+  issue?: EvalIssue;
+  capturedCase?: Partial<EvalCaseResult>;
+};
 export interface EvalJobStore {
   /** Return all siblings atomically for an evaluation, or a legacy standalone run. */
   claim(owner: string): Promise<EvalWorkerRun | EvalWorkerRun[] | undefined>;
@@ -31,13 +44,27 @@ export interface EvalJobStore {
     owner: string,
   ): Promise<{ cancelRequestedAt: Date | null } | undefined>;
   progress(id: string, owner: string, event: EvalProgress): Promise<void>;
-  finish(
+  /** Durable stores recover the original generation. Null fences legacy attempts. */
+  executionGeneration?(
     id: string,
     owner: string,
-    outcome: Parameters<typeof finishEvalRun>[3],
-  ): Promise<void>;
+    executionId: string,
+    caseId?: string,
+    repetition?: number,
+  ): Promise<string | null | undefined>;
+  executionEvidence?(
+    id: string,
+    owner: string,
+    caseId: string,
+    repetition: number,
+  ): Promise<Partial<EvalCaseResult> | undefined>;
+  finish(id: string, owner: string, outcome: EvalWorkerOutcome): Promise<void>;
 }
 export interface EvalWorkerOptions {
+  /** Full HTTP transport for idempotent admission, observation and explicit cancellation. */
+  fetch?: typeof fetch;
+  dispatch?: { maxRetries?: number; maxRetryWaitMs?: number };
+  maxConcurrentEvaluations?: number;
   store?: EvalJobStore;
   resolveTarget?: (run: EvalWorkerRun, owner: string) => Promise<EvalTarget>;
   /** Trusted transport injection; never selected by request payload. */
@@ -61,10 +88,32 @@ export function createEvalWorker(
       return runs.length ? runs : undefined;
     },
     heartbeat: (id, owner) => heartbeatEvalRun(db, id, owner),
+    executionEvidence: (id, owner, caseId, repetition) =>
+      getEvalAttemptEvidence(db, id, owner, caseId, repetition),
+    executionGeneration: (id, owner, executionId, caseId, repetition) =>
+      getEvalExecutionGeneration(
+        db,
+        id,
+        owner,
+        executionId,
+        caseId,
+        repetition,
+      ),
     progress: (id, owner, event) => appendEvalProgress(db, id, owner, event),
     finish: (id, owner, outcome) => finishEvalRun(db, id, owner, outcome),
   };
   const owner = randomUUID();
+  const dispatcher = createEvalDispatcher(
+    options.fetch ?? fetch,
+    options.dispatch,
+  );
+  const maxConcurrentEvaluations = options.maxConcurrentEvaluations ?? 4;
+  if (
+    !Number.isSafeInteger(maxConcurrentEvaluations) ||
+    maxConcurrentEvaluations < 1
+  )
+    throw new TypeError("maxConcurrentEvaluations must be a positive integer.");
+  const executing = new Set<Promise<void>>();
   let stopped = false;
   let loop: Promise<void> | undefined;
   const active = new Set<AbortController>();
@@ -78,6 +127,7 @@ export function createEvalWorker(
     const finish =
       scheduled?.finish ?? ((outcome) => store.finish(run.id, owner, outcome));
     let userCancelled = false;
+    let capturedCase: Partial<EvalCaseResult> | undefined;
     let failureMessage =
       "Eval execution disconnected or failed. Inspect the consumer before starting a new run.";
     const deadline = setTimeout(() => controller.abort(), 30 * 60_000);
@@ -110,7 +160,11 @@ export function createEvalWorker(
               value.projectId === run.projectId &&
               value.environment === run.environment,
           );
-      if (!target) throw new Error("Target no longer configured.");
+      if (!target)
+        throw new EvalDispatchError(
+          "EVAL_RESULT_INVALID",
+          "Target no longer configured.",
+        );
       const studioGrading = run.request.grading === "studio";
       if (
         studioGrading &&
@@ -127,23 +181,74 @@ export function createEvalWorker(
       const executionSignal = scheduled
         ? AbortSignal.any([controller.signal, scheduled.signal])
         : controller.signal;
-      const response = options.request
-        ? await options.request(
+      const body = JSON.stringify(run.request);
+      const executionId = evalExecutionIdentity(
+        run.id,
+        run.request.attempt?.caseId,
+        run.request.attempt?.repetition,
+      );
+      if (run.request.attempt)
+        capturedCase = await store.executionEvidence?.(
+          run.id,
+          owner,
+          run.request.attempt.caseId,
+          run.request.attempt.repetition,
+        );
+      const originalGeneration = await store.executionGeneration?.(
+        run.id,
+        owner,
+        executionId,
+        run.request.attempt?.caseId,
+        run.request.attempt?.repetition,
+      );
+      if (originalGeneration === null)
+        throw new EvalDispatchError(
+          "EVAL_EXECUTION_UNKNOWN",
+          "Previously dispatched legacy attempt cannot be replayed safely. Inspect before running again.",
+        );
+      const admission = options.request
+        ? undefined
+        : await dispatcher.open(
             target,
-            JSON.stringify(run.request),
+            body,
             executionSignal,
-            run.id,
-          )
-        : await fetch(target.url, {
-            method: "POST",
-            headers: {
-              authorization: `Bearer ${target.serviceKey}`,
-              "content-type": "application/json",
+            evalExecutionIdentity(
+              run.id,
+              run.request.attempt?.caseId,
+              run.request.attempt?.repetition,
+            ),
+            new Date(run.createdAt ?? Date.now()).toISOString(),
+            async (state) => {
+              const identities = run.request.attempt
+                ? [run.request.attempt]
+                : (
+                    run.request.caseIds ??
+                    run.suite.cases.map((item) => item.id)
+                  ).flatMap((caseId) =>
+                    Array.from(
+                      { length: run.request.repetitions },
+                      (_, index) => ({ caseId, repetition: index + 1 }),
+                    ),
+                  );
+              for (const identity of identities)
+                await store.progress(run.id, owner, {
+                  type: "case-dispatch",
+                  caseId: identity.caseId,
+                  repetition: identity.repetition,
+                  ...state,
+                });
             },
-            body: JSON.stringify(run.request),
-            signal: executionSignal,
-            redirect: "error",
-          });
+            () => userCancelled || Boolean(scheduled?.isCancelled?.()),
+            originalGeneration,
+          );
+      const response =
+        admission?.response ??
+        (await options.request?.(target, body, executionSignal, run.id));
+      if (!response)
+        throw new EvalDispatchError(
+          "EVAL_TRANSPORT_UNAVAILABLE",
+          "No consumer transport is available.",
+        );
       if (
         !response.ok ||
         !response.body ||
@@ -152,15 +257,36 @@ export function createEvalWorker(
           ?.startsWith("application/x-ndjson")
       ) {
         await response.body?.cancel().catch(() => {});
-        throw new Error("Consumer rejected execution.");
+        throw new EvalDispatchError(
+          "EVAL_EXECUTOR_REJECTED",
+          `Consumer rejected evaluation execution with HTTP ${response.status}.`,
+          response.status,
+        );
       }
       let result: EvalRunResult | undefined;
-      for await (const event of readEvalWire(response.body, executionSignal)) {
-        if (result) throw new Error("Consumer emitted data after completion.");
+      for await (const event of admission
+        ? dispatcher.events(admission)
+        : readEvalWire(response.body, executionSignal)) {
+        if (event.type === "execution-status") continue;
+        if (result)
+          throw new EvalDispatchError(
+            "EVAL_RESULT_INVALID",
+            "Consumer emitted data after completion.",
+          );
         if (event.type === "error")
-          throw new Error("Consumer eval runner failed.");
+          throw new EvalDispatchError(
+            event.failure?.code ?? "EVAL_CONSUMER_FAILED",
+            event.failure?.message ?? "Consumer eval runner failed.",
+            undefined,
+            {
+              ...(event.failure ? { failure: event.failure } : {}),
+              ...(event.diagnosticId
+                ? { diagnosticId: event.diagnosticId }
+                : {}),
+            },
+          );
         if (event.type === "progress") {
-          const progress = event.event;
+          const progress = event.event as EvalProgress;
           if (run.request.attempt && progress.type !== "run-started") {
             const identity =
               progress.type === "case-completed" ? progress.result : progress;
@@ -168,9 +294,37 @@ export function createEvalWorker(
               identity.caseId !== run.request.attempt.caseId ||
               identity.repetition !== run.request.attempt.repetition
             )
-              throw new Error("Consumer emitted progress for another attempt.");
+              throw new EvalDispatchError(
+                "EVAL_RESULT_INVALID",
+                "Consumer emitted progress for another attempt.",
+              );
           }
           await store.progress(run.id, owner, progress as EvalProgress);
+          if (run.request.attempt) {
+            capturedCase ??= {
+              caseId: run.request.attempt.caseId,
+              repetition: run.request.attempt.repetition,
+              sessionId: "",
+              steps: [],
+              errors: [],
+            };
+            if (progress.type === "case-started") {
+              capturedCase.sessionId = progress.sessionId;
+              if (progress.attemptId)
+                capturedCase.attemptId = progress.attemptId;
+            }
+            if (progress.type === "step-completed") {
+              capturedCase.steps ??= [];
+              const steps = capturedCase.steps;
+              const existing = steps.findIndex(
+                (step) => step.index === progress.step.index,
+              );
+              if (existing < 0) steps.push(progress.step);
+              else steps[existing] = progress.step;
+            }
+            if (progress.type === "case-completed")
+              capturedCase = progress.result;
+          }
         } else result = event.result as EvalRunResult;
       }
       if (
@@ -179,7 +333,10 @@ export function createEvalWorker(
         result.suiteRevision !== run.suiteRevision ||
         getEvalSuiteRevision(result.suite as EvalSuite) !== run.suiteRevision
       )
-        throw new Error("Missing or mismatched eval result.");
+        throw new EvalDispatchError(
+          "EVAL_RESULT_INVALID",
+          "Missing or mismatched eval result.",
+        );
       const expectedIds =
         run.request.caseIds ?? run.suite.cases.map((item) => item.id);
       const expected = new Set(
@@ -198,7 +355,10 @@ export function createEvalWorker(
           (item) => !expected.delete(`${item.caseId}:${item.repetition}`),
         )
       )
-        throw new Error("Incomplete case results.");
+        throw new EvalDispatchError(
+          "EVAL_RESULT_INVALID",
+          "Incomplete case results.",
+        );
       for (const item of result.cases) {
         const definition = run.suite.cases.find(
           (value) => value.id === item.caseId,
@@ -209,7 +369,10 @@ export function createEvalWorker(
           ((item.status === "passed" || item.status === "ungraded") &&
             item.steps.length !== definition.steps.length)
         )
-          throw new Error("Incomplete scenario execution.");
+          throw new EvalDispatchError(
+            "EVAL_RESULT_INVALID",
+            "Incomplete scenario execution.",
+          );
         for (const [index, step] of item.steps.entries()) {
           const expectedStep = definition.steps[index];
           if (
@@ -217,17 +380,29 @@ export function createEvalWorker(
             step.index !== index ||
             !isDeepStrictEqual(step.expectation, expectedStep.expect)
           )
-            throw new Error("Consumer changed the scenario expectations.");
+            throw new EvalDispatchError(
+              "EVAL_RESULT_INVALID",
+              "Consumer changed the scenario expectations.",
+            );
           if (!studioGrading && step.status === "ungraded")
-            throw new Error("App judge left a step ungraded.");
+            throw new EvalDispatchError(
+              "EVAL_RESULT_INVALID",
+              "App judge left a step ungraded.",
+            );
           if (step.status === "ungraded" && !step.expectation.criteria?.length)
-            throw new Error("Unexpected ungraded step.");
+            throw new EvalDispatchError(
+              "EVAL_RESULT_INVALID",
+              "Unexpected ungraded step.",
+            );
           if (
             !studioGrading &&
             step.status === "passed" &&
             step.criteria.length !== (step.expectation.criteria?.length ?? 0)
           )
-            throw new Error("App judge returned incomplete criterion results.");
+            throw new EvalDispatchError(
+              "EVAL_RESULT_INVALID",
+              "App judge returned incomplete criterion results.",
+            );
         }
       }
       const capturedResult = result;
@@ -257,23 +432,36 @@ export function createEvalWorker(
             (capturedResult.counts[key as keyof typeof counts] ?? 0),
         )
       )
-        throw new Error("Inconsistent eval verdicts.");
+        throw new EvalDispatchError(
+          "EVAL_RESULT_INVALID",
+          "Inconsistent eval verdicts.",
+        );
       if (
         run.request.judge &&
         (result.judge?.id !== run.request.judge.id ||
           result.judge?.version !== run.request.judge.version ||
           result.judge?.location !== run.request.judge.location)
       )
-        throw new Error("Consumer changed the selected judge.");
+        throw new EvalDispatchError(
+          "EVAL_RESULT_INVALID",
+          "Consumer changed the selected judge.",
+        );
       if (studioGrading) {
-        if (!studioJudge) throw new Error("Studio judge unavailable.");
+        if (!studioJudge)
+          throw new EvalDispatchError(
+            "EVAL_RESULT_INVALID",
+            "Studio judge unavailable.",
+          );
         for (const item of result.cases)
           for (const step of item.steps) {
             if (
               step.criteria.length ||
               (step.status === "passed" && step.expectation.criteria?.length)
             )
-              throw new Error("Consumer did not defer judging to Studio.");
+              throw new EvalDispatchError(
+                "EVAL_RESULT_INVALID",
+                "Consumer did not defer judging to Studio.",
+              );
           }
         result = await gradeEvalExecution(
           result,
@@ -282,15 +470,29 @@ export function createEvalWorker(
           (event) => store.progress(run.id, owner, event),
         );
       } else if (counts.ungraded)
-        throw new Error("App judge did not finish grading.");
+        throw new EvalDispatchError(
+          "EVAL_RESULT_INVALID",
+          "App judge did not finish grading.",
+        );
       executionSignal.throwIfAborted();
       await finish({ result });
-    } catch {
+    } catch (error) {
+      if (stopped && !userCancelled) return;
+      const known = error instanceof EvalDispatchError;
+      const message = known ? error.message : failureMessage;
+      const code = known ? error.code : "EVAL_EXECUTION_UNKNOWN";
       await finish({
-        cancelled: userCancelled,
+        issue: {
+          phase: "execute",
+          code,
+          message,
+          ...(known ? error.issue : {}),
+        },
+        ...(capturedCase ? { capturedCase } : {}),
+        cancelled: userCancelled || Boolean(scheduled?.isCancelled?.()),
         error: userCancelled
-          ? "Cancellation requested. Consumer cleanup was signalled."
-          : failureMessage,
+          ? "Cancellation requested. Inspect consumer cleanup before starting a new run."
+          : message,
       });
     } finally {
       clearTimeout(deadline);
@@ -304,30 +506,43 @@ export function createEvalWorker(
       loop ??= (async () => {
         while (!stopped) {
           try {
-            const run = await store.claim(owner);
-            if (Array.isArray(run) && run.length > 1) {
-              const controller = new AbortController();
-              active.add(controller);
-              try {
-                await executeEvaluation(
-                  run,
-                  owner,
-                  store,
-                  controller.signal,
-                  execute,
-                );
-              } finally {
-                active.delete(controller);
+            if (executing.size >= maxConcurrentEvaluations) {
+              await pause();
+              continue;
+            }
+            const claimed = await store.claim(owner);
+            if (!claimed) {
+              await pause();
+              continue;
+            }
+            const task = (async () => {
+              if (Array.isArray(claimed) && claimed[0]?.evaluationId) {
+                const controller = new AbortController();
+                active.add(controller);
+                try {
+                  await executeEvaluation(
+                    claimed,
+                    owner,
+                    store,
+                    controller.signal,
+                    execute,
+                    () => stopped,
+                  );
+                } finally {
+                  active.delete(controller);
+                }
+              } else {
+                const single = Array.isArray(claimed) ? claimed[0] : claimed;
+                if (single) await execute(single);
               }
-            } else if (run) {
-              const single = Array.isArray(run) ? run[0] : run;
-              if (single) await execute(single);
-              else await pause();
-            } else await pause();
+            })();
+            executing.add(task);
+            void task.catch(() => {}).finally(() => executing.delete(task));
           } catch {
             if (!stopped) await pause();
           }
         }
+        await Promise.allSettled(executing);
       })();
     },
     async stop() {

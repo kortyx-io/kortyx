@@ -801,3 +801,22 @@ suites can be validated with `parseEvalSuite(json)` before registration. Named
 responders and references must already exist in the app; serialized definitions
 cannot install executable callbacks. This release displays suite definitions in
 Studio; authoring or saving new suites in Studio is not implemented.
+
+## Concurrent execution recovery
+
+Studio isolates each case and repetition: a refused attempt becomes an Error while
+siblings continue, and completed evidence remains inspectable. Compatible consumers
+queue accepted jobs, deduplicate admission, honor bounded Retry-After backoff and
+let Studio reconnect by event cursor. Cancellation is explicit and cooperative;
+capacity remains occupied through cleanup. Retrying, Reconnecting and Status unknown
+are visible in case inspection. Inspect an unknown attempt before running it again.
+
+`createEvalRouteHandler` uses a memory execution store by default. For replicas and
+restart recovery, pass `createPostgresEvalExecutionStore({connectionString,namespace})`
+from `kortyx`, sharing the namespace, service key, suites and capacity settings.
+Defaults allow one evaluation group, twenty attempts and a thousand queued jobs.
+Forward GET, POST and DELETE with all headers and query parameters. Keep the host
+alive while accepted execution runs; close the handler before closing its store.
+Lost running leases are never replayed automatically; queued jobs can recover.
+External side effects still require application-owned idempotency. Upgrade SDK
+consumers first, then API and Studio together; older consumers retain legacy streams.

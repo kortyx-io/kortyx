@@ -324,7 +324,8 @@ Interactive terminals show an animated suite progress bar, one live row per acti
 attempt, elapsed time, and the actual setup, workflow, interrupt-response, judging
 and cleanup phases. Every completed step and case gets its own result, followed
 by a colored suite verdict and counts. Long calls keep animating; concurrent
-attempts remain distinct. The bar measures completed attempts, not estimated model
+attempts remain distinct. Dispatch updates show Queued, Retrying and Reconnecting
+without counting them as completed attempts. The bar measures completed attempts, not estimated model
 completion. Application logs/warnings are preserved above the live display.
 Piped output is plain text with per-case start and step results; `--no-color` or
 `NO_COLOR` disables color/live progress. Explicit `--color` forces the interactive

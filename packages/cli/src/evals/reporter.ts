@@ -187,6 +187,10 @@ export function createEvalTerminalReporter(
           ),
         );
         line();
+      } else if (event.type === "case-dispatch") {
+        line(
+          `  → ${text(names.get(event.caseId) ?? event.caseId)} [${text(event.caseId)}] #${event.repetition} ${event.status.toUpperCase()}`,
+        );
       } else if (event.type === "case-started") {
         active.set(key(event.caseId, event.repetition), {
           caseId: event.caseId,

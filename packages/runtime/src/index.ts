@@ -5,6 +5,7 @@ export {
   type CreateCachingFrameworkAdapterOptions,
   createCachingFrameworkAdapter,
 } from "./framework/caching";
+export * from "./framework/eval-executions";
 export * from "./framework/graph-snapshot";
 export type {
   PruneRuntimeOptions,
@@ -13,6 +14,7 @@ export type {
 } from "./framework/maintenance";
 export * from "./framework/pending-requests";
 export * from "./framework/postgres/adapter";
+export * from "./framework/postgres/eval-executions";
 export type { RuntimeRetentionPolicy } from "./framework/postgres/store";
 export * from "./framework/session-checkpoints";
 export * from "./graph/create-execution-graph";

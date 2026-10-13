@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Add bounded, idempotent queued eval execution with shared consumer capacity,
+  event replay, explicit cancellation and optional PostgreSQL recovery.
+
 - Add opt-in, output-schema-typed workflow `reduce` callbacks. Preserve default
   deep merge; support replacement, accumulation and deletion across nodes, chat,
   child outputs, deterministic parallel joins and checkpoint resume. Surface

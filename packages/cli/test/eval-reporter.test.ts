@@ -276,3 +276,25 @@ it("prints postcondition evidence and declared-safe failures with native diagnos
   expect(h.output()).toContain("Evidence: Zero approved saves");
   h.reporter.close();
 });
+
+it.each([
+  true,
+  false,
+])("renders dispatch states without treating them as completed attempts (color=%s)", (color) => {
+  const h = harness(color);
+  h.reporter.progress(runStart);
+  h.reporter.progress(start("products"));
+  for (const status of ["queued", "retrying", "reconnecting"] as const) {
+    h.reporter.progress({
+      type: "case-dispatch",
+      caseId: "products",
+      repetition: 1,
+      status,
+    });
+    expect(strip(h.output())).toContain(
+      `Show products [products] #1 ${status.toUpperCase()}`,
+    );
+  }
+  if (color) expect(strip(h.output())).toContain("0/4 · 0%");
+  h.reporter.close();
+});

@@ -369,11 +369,17 @@ export function EvalCaseContent({ row }: { row: CaseRow }) {
         </EvalDisclosure>
       ) : (
         <p className="p-6 text-center text-sm text-muted-foreground">
-          {row.status === "queued"
-            ? "This attempt has not started."
-            : row.status === "running"
-              ? "Waiting for the first recorded step."
-              : "No conversation steps were recorded."}
+          {row.status === "retrying"
+            ? `${row.httpStatus === 429 || row.httpStatus === 503 ? "Consumer busy." : "Consumer connection interrupted."} Retrying${row.retryAt ? ` at ${new Date(row.retryAt).toISOString().slice(11, 19)} UTC` : " shortly"}.`
+            : row.status === "reconnecting"
+              ? "Reconnecting to the accepted execution. Captured evidence is retained."
+              : row.status === "unknown"
+                ? "Execution status is unknown. Inspect the consumer before running this attempt again."
+                : row.status === "queued"
+                  ? "This attempt has not started."
+                  : row.status === "running"
+                    ? "Waiting for the first recorded step."
+                    : "No conversation steps were recorded."}
         </p>
       )}
     </div>

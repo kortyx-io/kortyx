@@ -117,3 +117,12 @@ Configure the caching helper before traffic. It returns the exact storage adapte
 Run real-service integration coverage with `KORTYX_TEST_POSTGRES_URL=... KORTYX_TEST_REDIS_URL=... pnpm --filter @kortyx/runtime test:integration:postgres`. Use a disposable test database. Redis is optional for these tests.
 
 Graph checkpoints are saved asynchronously while tokens stream; cache fills do not block authoritative reads. Cache operations default to a 25 ms budget, and cache failures bypass Redis for five seconds. Required PostgreSQL reads and durable acknowledgements still add latency. After building the SDK, compare persistence overhead using an immediate mock model with `KORTYX_TEST_POSTGRES_URL=... KORTYX_TEST_REDIS_URL=... node scripts/benchmark-runtime-persistence.cjs` from the repository root. The benchmark reports generation start, first token, and execution completion at p50/p95; use disposable services and measure production network conditions separately.
+
+## Evaluation execution recovery
+
+`createEvalRouteHandler` supports queued, idempotent execution with cursor-based
+observation and explicit cancellation. Use `createPostgresEvalExecutionStore` from
+`@kortyx/runtime` (or `kortyx`) for shared capacity and recovery across replicas.
+The default memory store only survives within its process. See
+[execution resilience](../../docs/evals/execution-resilience.md) for configuration,
+retention, legacy compatibility and upgrade order.
