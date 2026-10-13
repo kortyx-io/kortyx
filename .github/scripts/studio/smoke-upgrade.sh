@@ -73,7 +73,8 @@ snapshot() {
       'events', (SELECT md5(coalesce(jsonb_agg(to_jsonb(t) ORDER BY id)::text, '[]')) FROM telemetry_events t),
       'runs', (SELECT md5(coalesce(jsonb_agg(to_jsonb(t) ORDER BY id)::text, '[]')) FROM studio_runs t),
       'sessions', (SELECT md5(coalesce(jsonb_agg(to_jsonb(t) ORDER BY id)::text, '[]')) FROM studio_sessions t),
-      'keys', (SELECT md5(coalesce(jsonb_agg(jsonb_build_array(id, secret_hash, scopes, organization_id, project_id) ORDER BY id)::text, '[]')) FROM api_keys),
+      'keys', (SELECT md5(coalesce(jsonb_agg(jsonb_build_array(id, secret_hash, organization_id, project_id) ORDER BY id)::text, '[]')) FROM api_keys),
+      'key_scopes', (SELECT jsonb_object_agg(id, scopes) FROM api_keys),
       'oids', (SELECT jsonb_object_agg(c.relname, c.oid) FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
         WHERE n.nspname = 'public' AND c.relname IN ('organizations', 'projects', 'api_keys', 'telemetry_events', 'studio_runs', 'studio_sessions')));"
 }
@@ -96,7 +97,8 @@ test "$(compose exec -T updater docker compose --env-file "$studio_home/.env" \
   -f "$studio_home/compose.yml" exec -T studio node -p \
   'require("/app/apps/studio/package.json").version')" = "$VERSION"
 snapshot > "$state_dir/after.json"
-cmp "$state_dir/before.json" "$state_dir/after.json"
+node "$(dirname "$0")/verify-upgrade-snapshot.cjs" \
+  "$state_dir/before.json" "$state_dir/after.json" "$state_dir/before.env"
 cmp "$state_dir/before-compose.yml" "$studio_home/compose.yml"
 test "$(sed '/^KORTYX_STUDIO_IMAGE_TAG=/d' "$state_dir/before.env" | sha256sum)" = \
   "$(sed '/^KORTYX_STUDIO_IMAGE_TAG=/d' "$studio_home/.env" | sha256sum)"
@@ -104,7 +106,7 @@ compose run --rm --pull never db-init
 compose restart api studio
 compose up -d --pull never --wait --wait-timeout 180 api studio
 snapshot > "$state_dir/retry.json"
-cmp "$state_dir/before.json" "$state_dir/retry.json"
+cmp "$state_dir/after.json" "$state_dir/retry.json"
 
 docker run --rm --network "${project}_default" --env-file "$studio_home/.env" \
   -e KORTYX_EXPECTED_RUN_ID="$run_id" \

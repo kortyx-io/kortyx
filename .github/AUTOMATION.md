@@ -127,6 +127,12 @@ image build contexts even for older release candidates.
   Each architecture also generates an authenticated eval manifest with `evidence`
   using the independently installed npm SDK and passes it through the API image's
   discovery parser. This catches SDK/image contract drift before promotion.
+- The real-image upgrade check preserves customer row fingerprints, table OIDs,
+  credential hashes/identities and all custom-key scopes. Prompt management adds
+  only its explicitly listed scopes to the two installer-managed bootstrap keys;
+  this documented capability migration is asserted separately, not treated as
+  credential rotation. A second migration/restart must preserve the full resulting
+  snapshot, including scopes, exactly. Unexpected additions or removals still fail.
 - Production Studio promotion and recovery share the `studio-production-auto`
   environment and its R2 credentials, with protected-branch restrictions and no
   reviewer approval or wait timer. Publication preparation exercises R2 access
@@ -143,6 +149,17 @@ image build contexts even for older release candidates.
   recorded digest to versioned and `latest` production tags.
 
 ## Recovering a blocked release queue
+
+It is supported to merge a new release PR while a previous release is publishing.
+Publication workflows use native GitHub concurrency with `queue: max` and
+`cancel-in-progress: false`: an active release is not interrupted, and waiting
+releases are not replaced by subsequent CI completions. GitHub accepts up to 100
+pending runs per group; queue order follows arrival, not semantic version order.
+Every merged SHA retains its own CI run; PR updates still cancel superseded checks.
+All exact-commit and native image gates still apply to each queued release. The
+Studio CDN publisher independently uses version comparison and conditional writes
+so a late older retry cannot lower the stable update channel. A rerun recovers the
+same version; merging the next release PR publishes a new version.
 
 A merged Release Please PR is not a completed release. If its exact-commit push
 CI fails, Release / Orchestrate fails visibly before tags, packages or deployments.
@@ -167,6 +184,12 @@ After successful orchestration, Release / Prepare PR runs again automatically so
 changes queued behind the recovered release can become the next release PR.
 Publication failures remain red in the original orchestration run; rerun only
 failed jobs there to retain its immutable artifacts and completed gates.
+If a reviewed smoke-test correction is needed, dispatch `release-studio-images.yml`
+from updated main with the original release tag and both recorded staging index
+digests. It revalidates the same images through exact-SHA CI, storage preflight,
+both native-platform smoke/upgrade tests and promotion; it does not rebuild them.
+The CDN-only recovery workflow is for already-promoted production images, not for
+evading a failed smoke test.
 
 ## Recovering a blocked Studio publication
 

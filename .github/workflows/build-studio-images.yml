@@ -25,6 +25,7 @@ permissions:
 concurrency:
   group: studio-image-builds
   cancel-in-progress: false
+  queue: max
 
 env:
   REGISTRY: ghcr.io
