@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.17.1](https://github.com/kortyx-io/kortyx/compare/telemetry-contracts-v0.17.0...telemetry-contracts-v0.17.1) (2026-10-13)
+
+
+### Bug Fixes
+
+* **studio:** show available model cost subtotals everywhere ([#335](https://github.com/kortyx-io/kortyx/issues/335)) ([d19cf5d](https://github.com/kortyx-io/kortyx/commit/d19cf5d7716a7649c738373ba2cea1ef64d532e0))
+
 ## [0.17.0](https://github.com/kortyx-io/kortyx/compare/telemetry-contracts-v0.16.0...telemetry-contracts-v0.17.0) (2026-10-11)
 
 

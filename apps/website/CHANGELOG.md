@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.50.1](https://github.com/kortyx-io/kortyx/compare/website-v0.50.0...website-v0.50.1) (2026-10-13)
+
+
+### Bug Fixes
+
+* **website:** remove hardcoded legal review status ([#333](https://github.com/kortyx-io/kortyx/issues/333)) ([f8f2794](https://github.com/kortyx-io/kortyx/commit/f8f2794fc51a4528c0ec0ce87b6cb695f07f4f91))
+
 ## [0.50.0](https://github.com/kortyx-io/kortyx/compare/website-v0.49.0...website-v0.50.0) (2026-10-11)
 
 
