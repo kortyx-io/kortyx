@@ -38,6 +38,45 @@ OpenRouter-specific request controls belong under
 `provider.requireParameters` when a request uses function tools or a native
 JSON schema, unless the caller explicitly chooses another value.
 
+This is an all-parameter requirement: optional controls such as `temperature`
+must also be supported by the selected endpoint. The default is unchanged.
+
+Parameter-routing refusals use `PROVIDER_PARAMETER_UNSUPPORTED`. The safe failure
+explains whether `requireParameters` was enabled automatically for tools/native
+JSON schemas, explicitly configured by the caller, or left at the provider default.
+It lists tool/output parameters (`response_format`, `tools`, `tool_choice`)
+separately from other requested controls. These lists identify what was sent;
+they do not claim which parameter caused the rejection or which controls your
+application can safely omit.
+
+Remove controls your application can omit, or choose a compatible route. The
+error names this existing, explicit override when Kortyx enabled strict routing:
+
+```ts
+const model = openrouter("anthropic/claude-sonnet-4.6", {
+  providerOptions: {
+    openrouter: { provider: { requireParameters: false } },
+  },
+});
+```
+
+With that override, unsupported controls may be ignored, including tools and
+structured output. Kortyx does not remove parameters or retry a modified request.
+
+Preset aliases can add settings on OpenRouter's side. The diagnostic warns that
+its list only covers parameters sent by Kortyx; it does not fetch or change
+presets, publish customer-chosen preset/model names, or identify a requested alias
+as the resolved model.
+
+For developer debugging, the live exception preserves the original provider
+message and original SDK error as `cause`, including its status, stack and
+metadata. Public failure descriptors contain the safe explanation and allowlisted
+parameter names, excluding prompts, parameter values and account routing data.
+Numeric/string 404 codes and structured parameter-filter evidence are recognized;
+unrelated 404s retain their existing classification. If the SDK rejects a malformed
+response and no parameter refusal can be established, `PROVIDER_INVALID_RESPONSE`
+retains the SDK parsing error. Partial stream usage is preserved.
+
 ```ts
 const model = openrouter("anthropic/claude-sonnet-4.6", {
   providerOptions: {
