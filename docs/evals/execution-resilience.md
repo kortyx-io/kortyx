@@ -96,10 +96,14 @@ maintainer analytics.
 
 ## Deployment and recovery
 
-The default global attempt capacity is now 20. Before upgrading a consumer that
-previously requested higher concurrency, set `maxActiveAttempts` explicitly to an
-appropriate higher value; over-capacity requests are rejected rather than silently
-changing their concurrency.
+The existing per-evaluation concurrency ceiling remains 20. With the default one
+active evaluation group, maximum concurrency is unchanged. The new
+`maxActiveAttempts: 20` limit is shared across active groups: a consumer configured
+with `maxActiveRuns: 2` could previously run 20 attempts per group (40 combined).
+Set `maxActiveAttempts: 40` to preserve that combined capacity. Negotiated jobs
+queue when combined capacity is occupied; requests whose individual reservation
+exceeds the configured capacity are rejected rather than silently changing their
+concurrency.
 
 Upgrade consumers first, forwarding DELETE and preserving headers. Then upgrade
 API and Studio together to understand new progress events. Old Studio clients keep
