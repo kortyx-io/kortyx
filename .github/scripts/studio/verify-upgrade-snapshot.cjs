@@ -3,7 +3,11 @@ const { readFileSync } = require("node:fs");
 const { parseEnv } = require("node:util");
 
 function verifyUpgrade(before, after, env, version) {
-  assert.match(version ?? "", /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/, "Missing or invalid target Studio version");
+  assert.match(
+    version ?? "",
+    /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/,
+    "Missing or invalid target Studio version",
+  );
   const [major, minor] = version.split(".").map(Number);
   const nativeCapabilities = major > 0 || minor >= 21;
   // Keep customer rows, physical table identities and credential identities/hashes
@@ -42,7 +46,8 @@ function verifyUpgrade(before, after, env, version) {
     Object.hasOwn(oldScopes, telemetry) && Object.hasOwn(oldScopes, studio),
     "Managed fixture keys are missing",
   );
-  const prompts = nativeCapabilities || env.KORTYX_STUDIO_ENABLE_PROMPTS !== "0";
+  const prompts =
+    nativeCapabilities || env.KORTYX_STUDIO_ENABLE_PROMPTS !== "0";
   // Prompt management (#288) intentionally expands only the two installer-owned
   // bootstrap keys. Studio 0.21 also enables diagnostics:read and makes prompts
   // unconditional (#336). Older release recovery must retain its old contract.
