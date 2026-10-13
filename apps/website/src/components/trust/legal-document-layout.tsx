@@ -134,11 +134,6 @@ export function LegalDocumentFooter({
             <dd className="break-all font-mono">{version}</dd>
             <dt>Content hash</dt>
             <dd className="break-all font-mono">SHA-256 · {hash}</dd>
-            <dt>Publication status</dt>
-            <dd>
-              Legal review pending. Publication does not activate a contractual
-              acceptance requirement.
-            </dd>
           </dl>
           {contentUrl ? (
             <a className={footerLink} href={contentUrl}>

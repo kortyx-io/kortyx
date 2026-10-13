@@ -37,7 +37,7 @@ test("legal documents share a readable header, collapsible index and version foo
     await footer.locator("summary").click();
     await expect(history).toBeVisible();
     await expect(footer).toContainText("SHA-256");
-    await expect(footer).toContainText("Legal review pending");
+    await expect(footer).not.toContainText("Legal review pending");
     const permanentLink = footer.getByRole("link", {
       name: "Permanent link",
       exact: true,
