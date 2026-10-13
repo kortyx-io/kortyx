@@ -259,3 +259,30 @@ it("does not count undefined reducer entries as configured adoption", async () =
     ]),
   );
 });
+
+it("keeps registry resolution usable when optional reducer metadata throws", async () => {
+  const root = workflow(async () => ({ data: { answer: "value" } }));
+  Object.defineProperty(root, "reduce", {
+    get: () => {
+      throw new Error("private-metadata-failure");
+    },
+  });
+  const agent = createAgent({ workflows: [root] });
+  expect(
+    await agent.projectTopology?.({
+      environment: "test",
+      service: { name: "test" },
+    }),
+  ).toHaveLength(1);
+  await telemetry.flush();
+  expect(records).toEqual(
+    expect.arrayContaining([
+      expect.objectContaining({
+        operation: "sdk.registry",
+        outcome: "success",
+        properties: {},
+      }),
+    ]),
+  );
+  expect(JSON.stringify(records)).not.toContain("private-metadata-failure");
+});

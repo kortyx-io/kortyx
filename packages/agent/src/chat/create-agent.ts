@@ -319,19 +319,25 @@ function createAgentInternal(args: CreateAgentArgs): Agent {
     registry?.list?.(),
   );
   void registeredWorkflowsPromise.then(
-    (registered) =>
-      registryUsage.end(
-        "success",
-        registered
-          ? {
-              data_reducers: registered.some((workflow) =>
-                Object.values(workflow.reduce ?? {}).some(
-                  (callback) => typeof callback === "function",
+    (registered) => {
+      try {
+        registryUsage.end(
+          "success",
+          registered
+            ? {
+                data_reducers: registered.some((workflow) =>
+                  Object.values(workflow.reduce ?? {}).some(
+                    (callback) => typeof callback === "function",
+                  ),
                 ),
-              ),
-            }
-          : {},
-      ),
+              }
+            : {},
+        );
+      } catch {
+        // Optional configuration measurement must not disrupt registry resolution.
+        registryUsage.end();
+      }
+    },
     (error) => registryUsage.fail(error),
   );
 
