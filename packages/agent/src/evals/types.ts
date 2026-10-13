@@ -295,6 +295,16 @@ export type CreateEvalsOptions<
 };
 export type EvalProgress =
   | {
+      type: "case-dispatch";
+      caseId: string;
+      repetition: number;
+      status: "queued" | "retrying" | "reconnecting";
+      retryAt?: string;
+      httpStatus?: number;
+      executionId?: string;
+      generation?: string;
+    }
+  | {
       type: "run-started";
       caseIds: string[];
       repetitions: number;

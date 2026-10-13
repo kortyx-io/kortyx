@@ -205,3 +205,57 @@ describe("eval result presentation", () => {
     expect(compareRuns(finished("passed"), run())[0].change).toBe("incomplete");
   });
 });
+
+it("shows retry and reconnect states without counting an unfinished attempt as completed", () => {
+  const data = run();
+  data.events = [
+    {
+      id: 1,
+      event: {
+        type: "case-dispatch",
+        caseId: "ambiguity",
+        repetition: 1,
+        status: "retrying",
+        retryAt: "2026-10-13T12:00:02Z",
+        httpStatus: 503,
+      },
+    },
+  ];
+  expect(caseRows(data)[0]).toMatchObject({
+    status: "retrying",
+    httpStatus: 503,
+  });
+  expect(progressCounts(caseRows(data)).completed).toBe(0);
+  data.events.push({
+    id: 2,
+    event: {
+      type: "case-dispatch",
+      caseId: "ambiguity",
+      repetition: 1,
+      status: "reconnecting",
+    },
+  });
+  expect(caseRows(data)[0]?.status).toBe("reconnecting");
+  data.status = "error";
+  expect(caseRows(data)[0]?.status).toBe("unknown");
+  const final = finished("passed");
+  final.events = data.events;
+  expect(caseRows(final)[0]?.status).toBe("passed");
+});
+it("preserves captured evidence when the execution outcome is unknown", () => {
+  const data = finished("failed");
+  data.status = "error";
+  const result = data.result!;
+  result.cases[0]!.status = "error";
+  result.cases[0]!.errors = [
+    {
+      phase: "execute",
+      code: "EVAL_EXECUTION_UNKNOWN",
+      message: "Inspect before retrying.",
+    },
+  ];
+  const rows = caseRows(data);
+  expect(rows[0]?.status).toBe("unknown");
+  expect(rows[0]?.steps).toHaveLength(1);
+  expect(progressCounts(rows)).toMatchObject({ error: 1, completed: 1 });
+});

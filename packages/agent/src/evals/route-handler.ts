@@ -1,14 +1,17 @@
 import { createHash, timingSafeEqual } from "node:crypto";
 import { validatePromptValue, verifyPromptSnapshot } from "@kortyx/prompts";
 import {
+  createInMemoryEvalExecutionStore,
+  type EvalExecutionStore,
+} from "@kortyx/runtime";
+import {
   EvalConfigurationError,
   EvalRemoteRunRequestSchema,
 } from "./contracts";
-import { createEvalIssue } from "./errors";
 import { getEvalSuiteRevision } from "./revision";
+import { createEvalExecutionTransport } from "./route-executions";
 import type {
   EvalJudgeIdentity,
-  EvalProgress,
   EvalRunOptions,
   EvalRunResult,
   EvalSuite,
@@ -36,11 +39,19 @@ export function createEvalRouteHandler({
   serviceKey,
   maxCases = 100,
   maxActiveRuns = 1,
+  maxActiveAttempts = 20,
+  maxQueuedExecutions = 1000,
+  executionStore = createInMemoryEvalExecutionStore(),
+  onExecution,
 }: {
   evals: EvalRunner;
   serviceKey: string;
   maxCases?: number;
   maxActiveRuns?: number;
+  maxActiveAttempts?: number;
+  maxQueuedExecutions?: number;
+  executionStore?: EvalExecutionStore;
+  onExecution?: (completion: Promise<void>) => void;
 }) {
   if (serviceKey.length < 32)
     throw new EvalConfigurationError(
@@ -50,19 +61,27 @@ export function createEvalRouteHandler({
     !Number.isSafeInteger(maxCases) ||
     maxCases < 1 ||
     !Number.isSafeInteger(maxActiveRuns) ||
-    maxActiveRuns < 1
+    maxActiveRuns < 1 ||
+    !Number.isSafeInteger(maxActiveAttempts) ||
+    maxActiveAttempts < 1 ||
+    !Number.isSafeInteger(maxQueuedExecutions) ||
+    maxQueuedExecutions < 1 ||
+    !Number.isSafeInteger(executionStore.heartbeatIntervalMs) ||
+    executionStore.heartbeatIntervalMs < 1
   )
     throw new EvalConfigurationError(
       "Eval endpoint limits must be positive integers.",
     );
   const digest = (value: string) => createHash("sha256").update(value).digest();
   const expected = digest(`Bearer ${serviceKey}`);
-  let active = 0;
-  const evaluations = new Map<
-    string,
-    { active: number; concurrency: number }
-  >();
-  return async (request: Request): Promise<Response> => {
+  const execution = createEvalExecutionTransport({
+    evals,
+    store: executionStore,
+    scope: expected.toString("hex"),
+    limits: { maxActiveRuns, maxActiveAttempts, maxQueuedExecutions },
+    ...(onExecution ? { onExecution } : {}),
+  });
+  const handler = async (request: Request): Promise<Response> => {
     if (
       !timingSafeEqual(
         expected,
@@ -73,10 +92,15 @@ export function createEvalRouteHandler({
         { error: "Unauthorized eval request." },
         { status: 401 },
       );
+    const observed = await execution.existing(request);
+    if (observed) return observed;
     const manifest = evals.describe();
     if (request.method === "GET")
       return Response.json(manifest, {
-        headers: { "cache-control": "no-store" },
+        headers: {
+          "cache-control": "no-store",
+          ...(await execution.capabilityHeaders()),
+        },
       });
     if (request.method !== "POST")
       return Response.json({ error: "Unsupported method." }, { status: 405 });
@@ -167,101 +191,9 @@ export function createEvalRouteHandler({
         { error: "Unsupported or invalid scheduled attempt." },
         { status: 409 },
       );
-    const group = body.attempt && evaluations.get(body.attempt.evaluationId);
-    if (
-      group &&
-      (group.concurrency !== body.concurrency ||
-        group.active >= group.concurrency)
-    )
-      return Response.json(
-        { error: "Evaluation concurrency exhausted or changed." },
-        { status: 429 },
-      );
-    if (!group && active >= maxActiveRuns)
-      return Response.json(
-        { error: "Eval executor is busy." },
-        { status: 429 },
-      );
     if (request.signal.aborted)
       return Response.json({ error: "Request cancelled." }, { status: 409 });
-    if (body.attempt) {
-      const state = group ?? { active: 0, concurrency: body.concurrency };
-      if (!group) {
-        active++;
-        evaluations.set(body.attempt.evaluationId, state);
-      }
-      state.active++;
-    } else active++;
-    const controller = new AbortController();
-    const requestSignal = request.signal;
-    const abortRequest = () => controller.abort();
-    requestSignal.addEventListener("abort", abortRequest, { once: true });
-    const signal = controller.signal;
-    const encoder = new TextEncoder();
-    const stream = new ReadableStream<Uint8Array>({
-      start(output) {
-        const send = (event: unknown) => {
-          if (!signal.aborted)
-            output.enqueue(encoder.encode(`${JSON.stringify(event)}\n`));
-        };
-        void evals
-          .run({
-            suiteId: body.suiteId,
-            ...(body.promptSnapshot
-              ? { promptSnapshot: body.promptSnapshot }
-              : {}),
-            ...(body.attempt ? { attempt: body.attempt } : {}),
-            ...(body.grading ? { grading: body.grading } : {}),
-            ...(body.judge ? { judgeIdentity: body.judge } : {}),
-            repetitions: body.repetitions,
-            concurrency: body.concurrency,
-            signal,
-            ...(body.caseIds ? { caseIds: body.caseIds } : {}),
-            onProgress: (event: EvalProgress) =>
-              send({ type: "progress", event }),
-          })
-          .then(
-            (result) => send({ type: "result", result }),
-            (error: unknown) => {
-              const issue = createEvalIssue("reporting", error);
-              send({
-                type: "error",
-                message:
-                  issue.code === "EVAL_HOOK_FAILED"
-                    ? "Eval runner failed."
-                    : issue.message,
-                failure: issue.failure,
-                ...(issue.diagnosticId
-                  ? { diagnosticId: issue.diagnosticId }
-                  : {}),
-              });
-            },
-          )
-          .finally(() => {
-            requestSignal.removeEventListener("abort", abortRequest);
-            if (body.attempt) {
-              const state = evaluations.get(body.attempt.evaluationId)!;
-              state.active--;
-              if (!state.active) {
-                evaluations.delete(body.attempt.evaluationId);
-                active--;
-              }
-            } else active--;
-            if (!controller.signal.aborted) output.close();
-          });
-      },
-      cancel() {
-        // Retain the Request: Node weakly follows its internal abort controller.
-        request.signal.removeEventListener("abort", abortRequest);
-        controller.abort();
-      },
-    });
-    return new Response(stream, {
-      headers: {
-        "content-type": "application/x-ndjson",
-        "cache-control": "no-store",
-        "x-accel-buffering": "no",
-      },
-    });
+    return execution.submit(request, body);
   };
+  return Object.assign(handler, { close: execution.close });
 }

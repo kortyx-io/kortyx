@@ -473,12 +473,16 @@ describe.skipIf(!url)(
         let body = "";
         for await (const part of req) body += part;
         const response = await handler(
-          new Request("http://localhost/evals", {
+          new Request(new URL(req.url ?? "/evals", "http://localhost"), {
             method: req.method ?? "GET",
-            headers: {
-              authorization: req.headers.authorization ?? "",
-              "content-type": "application/json",
-            },
+            headers: Object.fromEntries(
+              Object.entries(req.headers)
+                .filter(([, value]) => value !== undefined)
+                .map(([name, value]) => [
+                  name,
+                  Array.isArray(value) ? value.join(",") : String(value),
+                ]),
+            ),
             ...(req.method === "POST" ? { body } : {}),
           }),
         );
@@ -637,6 +641,7 @@ describe.skipIf(!url)(
         "Paris",
       );
       expect(saved.events.map((event) => event.event.type)).toEqual([
+        "case-dispatch",
         "case-started",
         "step-completed",
         "step-completed",
@@ -895,13 +900,17 @@ describe.skipIf(!url)(
         const controller = new AbortController();
         res.once("close", () => controller.abort());
         const response = await handler(
-          new Request("http://localhost/evals", {
-            method: "POST",
-            headers: {
-              authorization: req.headers.authorization ?? "",
-              "content-type": "application/json",
-            },
-            body,
+          new Request(new URL(req.url ?? "/evals", "http://localhost"), {
+            method: req.method ?? "GET",
+            headers: Object.fromEntries(
+              Object.entries(req.headers)
+                .filter(([, value]) => value !== undefined)
+                .map(([name, value]) => [
+                  name,
+                  Array.isArray(value) ? value.join(",") : String(value),
+                ]),
+            ),
+            ...(req.method === "POST" ? { body } : {}),
             signal: controller.signal,
           }),
         );

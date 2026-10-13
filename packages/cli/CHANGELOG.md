@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- Render queued, retrying and reconnecting eval dispatch updates without treating
+  them as terminal case results.
+
 ## [0.19.1](https://github.com/kortyx-io/kortyx/compare/cli-v0.19.0...cli-v0.19.1) (2026-10-13)
 
 

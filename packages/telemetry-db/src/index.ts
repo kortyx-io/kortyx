@@ -38,6 +38,8 @@ export {
   claimEvalRuns,
   enqueueEvalRun,
   finishEvalRun,
+  getEvalAttemptEvidence,
+  getEvalExecutionGeneration,
   getEvalRun,
   heartbeatEvalRun,
   listEvalRuns,

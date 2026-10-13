@@ -295,3 +295,105 @@ export async function finishEvalRun(
     if (run) await notifyStudioChange(tx, { ...run, resources: ["evals"] });
   });
 }
+
+/** Read the original admission fence under the current worker lease. Null means
+ * legacy progress exists and its attempt must not be dispatched a second time. */
+export async function getEvalExecutionGeneration(
+  db: TelemetryDb,
+  id: string,
+  owner: string,
+  executionId: string,
+  caseId?: string,
+  repetition?: number,
+): Promise<string | null | undefined> {
+  const rows = await db
+    .select({
+      type: sql<string>`${evalRunEvents.event}->>'type'`,
+      generation: sql<string | null>`${evalRunEvents.event}->>'generation'`,
+      executionId: sql<string | null>`${evalRunEvents.event}->>'executionId'`,
+    })
+    .from(evalRunEvents)
+    .innerJoin(
+      evalRuns,
+      and(
+        eq(evalRuns.id, evalRunEvents.runId),
+        eq(evalRuns.organizationId, evalRunEvents.organizationId),
+        eq(evalRuns.projectId, evalRunEvents.projectId),
+      ),
+    )
+    .where(
+      and(
+        eq(evalRuns.id, id),
+        eq(evalRuns.leaseOwner, owner),
+        eq(evalRuns.status, "running"),
+        caseId
+          ? sql`(${evalRunEvents.event}->>'caseId'=${caseId} AND (${evalRunEvents.event}->>'repetition')::integer=${repetition} OR ${evalRunEvents.event}->'result'->>'caseId'=${caseId} AND (${evalRunEvents.event}->'result'->>'repetition')::integer=${repetition})`
+          : undefined,
+      ),
+    )
+    .orderBy(asc(evalRunEvents.id));
+  const receipt = rows.find(
+    (row) =>
+      row.type === "case-dispatch" &&
+      row.executionId === executionId &&
+      row.generation,
+  );
+  if (receipt) return receipt.generation ?? null;
+  return rows.length ? null : undefined;
+}
+
+/** Recover only the leased attempt's already persisted conversation evidence. */
+export async function getEvalAttemptEvidence(
+  db: TelemetryDb,
+  id: string,
+  owner: string,
+  caseId: string,
+  repetition: number,
+): Promise<Partial<import("@kortyx/agent/evals").EvalCaseResult> | undefined> {
+  const rows = await db
+    .select({ event: evalRunEvents.event })
+    .from(evalRunEvents)
+    .innerJoin(
+      evalRuns,
+      and(
+        eq(evalRuns.id, evalRunEvents.runId),
+        eq(evalRuns.organizationId, evalRunEvents.organizationId),
+        eq(evalRuns.projectId, evalRunEvents.projectId),
+      ),
+    )
+    .where(
+      and(
+        eq(evalRuns.id, id),
+        eq(evalRuns.leaseOwner, owner),
+        eq(evalRuns.status, "running"),
+        sql`(${evalRunEvents.event}->>'caseId'=${caseId} AND (${evalRunEvents.event}->>'repetition')::integer=${repetition} OR ${evalRunEvents.event}->'result'->>'caseId'=${caseId} AND (${evalRunEvents.event}->'result'->>'repetition')::integer=${repetition})`,
+      ),
+    )
+    .orderBy(asc(evalRunEvents.id))
+    .limit(10_000);
+  let evidence:
+    | Partial<import("@kortyx/agent/evals").EvalCaseResult>
+    | undefined;
+  for (const { event } of rows) {
+    if (event.type === "case-started")
+      evidence = {
+        ...evidence,
+        caseId,
+        repetition,
+        sessionId: event.sessionId,
+        ...(event.attemptId ? { attemptId: event.attemptId } : {}),
+        steps:
+          evidence?.sessionId === event.sessionId ? (evidence.steps ?? []) : [],
+      };
+    if (event.type === "step-completed") {
+      evidence ??= { caseId, repetition, steps: [] };
+      const steps = evidence.steps ?? [];
+      const index = steps.findIndex((step) => step.index === event.step.index);
+      if (index < 0) steps.push(event.step);
+      else steps[index] = event.step;
+      evidence.steps = steps;
+    }
+    if (event.type === "case-completed") evidence = event.result;
+  }
+  return evidence;
+}

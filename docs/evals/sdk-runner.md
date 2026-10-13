@@ -508,3 +508,5 @@ The terminal reporter uses these events to show real progress while model calls
 are still running. The CLI enables activity events automatically. Default SDK
 and HTTP transport progress retains the existing case/step event sequence, so
 older Studio servers remain compatible with an updated application SDK.
+
+For shared consumer capacity, bounded retries, detached executions and replica recovery, see [execution resilience](execution-resilience.md).

@@ -16,6 +16,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
   createEvalWorker,
   type EvalJobStore,
+  type EvalWorkerOptions,
   type EvalWorkerRun,
 } from "../src/evals/worker";
 
@@ -33,6 +34,8 @@ function fixture(
     execute?: (context: EvalContext<unknown, unknown>) => Promise<void>;
     teardown?: (context: EvalContext<unknown, unknown>) => Promise<void>;
     repetitions?: number;
+    native?: boolean;
+    intercept?: (body: Record<string, unknown>) => Response | undefined;
   } = {},
 ) {
   const suites: EvalSuite[] = counts.map((count, index) => ({
@@ -116,7 +119,7 @@ function fixture(
       if (finished.size === runs.length) done.resolve();
     }),
   };
-  const worker = createEvalWorker({} as TelemetryDb, [], undefined, {
+  const workerOptions: EvalWorkerOptions = {
     store,
     resolveTarget: async () => ({
       id: "app",
@@ -128,21 +131,46 @@ function fixture(
       serviceKey,
       allowInsecureHttp: true,
     }),
-    request: async (_target, body, signal) =>
-      handler(
-        new Request("http://localhost/evals", {
-          method: "POST",
-          body,
-          signal,
-          headers: {
-            authorization: `Bearer ${serviceKey}`,
-            "content-type": "application/json",
-          },
+    ...(options.native
+      ? {
+          fetch: (async (url, init) => {
+            if (init?.method === "POST" && options.intercept) {
+              const rejected = options.intercept(JSON.parse(String(init.body)));
+              if (rejected) return rejected;
+            }
+            return handler(new Request(url, init));
+          }) as typeof fetch,
+          dispatch: { maxRetries: 0 },
+        }
+      : {
+          request: async (
+            _target: unknown,
+            body: string,
+            signal: AbortSignal,
+          ) =>
+            handler(
+              new Request("http://localhost/evals", {
+                method: "POST",
+                body,
+                signal,
+                headers: {
+                  authorization: `Bearer ${serviceKey}`,
+                  "content-type": "application/json",
+                },
+              }),
+            ),
         }),
-      ),
-  });
+  };
+  const worker = createEvalWorker(
+    {} as TelemetryDb,
+    [],
+    undefined,
+    workerOptions,
+  );
   return {
     worker,
+    createWorker: () =>
+      createEvalWorker({} as TelemetryDb, [], undefined, workerOptions),
     store,
     runs,
     started,
@@ -160,6 +188,99 @@ function fixture(
 }
 
 describe("evaluation-wide attempt scheduling through the SDK transport", () => {
+  it("isolates a refused attempt and preserves passing siblings across and within suites", async () => {
+    const f = fixture([3, 3], 2, {
+      native: true,
+      intercept: (body) =>
+        body.suiteId === "suite-0" &&
+        (body.attempt as { caseId?: string })?.caseId === "case-0"
+          ? new Response("private upstream text", {
+              status: 503,
+              headers: { "retry-after": "0" },
+            })
+          : undefined,
+    });
+    f.worker.start();
+    try {
+      await f.done;
+      const first = f.finished.get(f.runs[0]!.id)?.result;
+      expect(first?.counts).toEqual({
+        passed: 2,
+        failed: 0,
+        error: 1,
+        cancelled: 0,
+      });
+      expect(first?.cases[0]?.errors[0]?.code).toBe("EVAL_EXECUTOR_BUSY");
+      expect(first?.cases[0]?.sessionId).toBe("");
+      expect(f.finished.get(f.runs[1]!.id)?.result?.counts.passed).toBe(3);
+      expect(JSON.stringify([...f.finished.values()])).not.toContain(
+        "private upstream",
+      );
+      expect(f.started).toHaveLength(5);
+      expect(f.cleaned).toHaveLength(5);
+    } finally {
+      await f.worker.stop();
+    }
+  });
+  it("retains evidence from a previous worker when the consumer generation changed", async () => {
+    const f = fixture([2], 1, { native: true });
+    f.store.executionGeneration = async (_id, _owner, _execution, caseId) =>
+      caseId === "case-0" ? randomUUID() : undefined;
+    f.store.executionEvidence = async (_id, _owner, caseId) =>
+      caseId === "case-0"
+        ? {
+            sessionId: "previous-real-session",
+            steps: [
+              {
+                index: 0,
+                input: { message: "hello" },
+                expectation: { type: "answer" },
+                observation: {
+                  type: "answer",
+                  text: "previously captured",
+                  structured: [],
+                },
+                status: "ungraded",
+                criteria: [],
+              },
+            ],
+          }
+        : undefined;
+    f.worker.start();
+    try {
+      await f.done;
+      const result = f.finished.get(f.runs[0]!.id)?.result;
+      expect(result?.counts).toEqual({
+        passed: 1,
+        failed: 0,
+        error: 1,
+        cancelled: 0,
+      });
+      expect(result?.cases[0]?.errors[0]?.code).toBe("EVAL_EXECUTION_UNKNOWN");
+      expect(result?.cases[0]?.sessionId).toBe("previous-real-session");
+      expect(result?.cases[0]?.steps[0]?.observation.text).toBe(
+        "previously captured",
+      );
+      expect(f.started).toHaveLength(1);
+    } finally {
+      await f.worker.stop();
+    }
+  });
+  it("dispatches one suite as independent attempts with per-repetition identities", async () => {
+    const f = fixture([3], 2, { native: true, repetitions: 2 });
+    f.worker.start();
+    try {
+      await f.done;
+      expect(f.started).toHaveLength(6);
+      expect(f.peak()).toBeLessThanOrEqual(2);
+      expect(f.finished.get(f.runs[0]!.id)?.result?.counts.passed).toBe(6);
+      expect(
+        f.progress.get(f.runs[0]!.id)?.some((e) => e.type === "case-dispatch"),
+      ).toBe(true);
+    } finally {
+      await f.worker.stop();
+    }
+  });
   it("fills 20 slots across 10 suites and 69 conversations, retaining slots through cleanup", async () => {
     const execution = deferred();
     const cleanup = deferred();
@@ -319,4 +440,41 @@ describe("evaluation-wide attempt scheduling through the SDK transport", () => {
       await f.worker.stop();
     }
   });
+});
+
+it("reattaches accepted jobs after graceful worker shutdown without rerunning the conversation", async () => {
+  const gate = deferred();
+  const f = fixture([2], 1, { native: true, execute: () => gate.promise });
+  f.store.executionGeneration = async (id, _owner, executionId) => {
+    const receipt = f.progress
+      .get(id)
+      ?.find(
+        (event) =>
+          event.type === "case-dispatch" && event.executionId === executionId,
+      );
+    return receipt?.type === "case-dispatch" ? receipt.generation : undefined;
+  };
+  f.worker.start();
+  let next: ReturnType<typeof f.createWorker> | undefined;
+  try {
+    await vi.waitFor(() => expect(f.started).toHaveLength(1));
+    await f.worker.stop();
+    expect(f.finished.size).toBe(0);
+    expect(f.active()).toBe(1);
+    vi.mocked(f.store.claim)
+      .mockReset()
+      .mockResolvedValueOnce(f.runs)
+      .mockResolvedValue(undefined);
+    next = f.createWorker();
+    next.start();
+    gate.resolve();
+    await f.done;
+    expect(f.started).toHaveLength(2);
+    expect(f.cleaned).toHaveLength(2);
+    expect(f.finished.get(f.runs[0]!.id)?.result?.counts.passed).toBe(2);
+  } finally {
+    gate.resolve();
+    await f.worker.stop();
+    await next?.stop();
+  }
 });

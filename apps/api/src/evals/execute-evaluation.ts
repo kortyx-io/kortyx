@@ -5,17 +5,22 @@ import type { EvalJobStore, EvalWorkerRun } from "./worker";
 type Outcome = Parameters<EvalJobStore["finish"]>[2];
 export type AttemptExecution = (
   run: EvalWorkerRun,
-  options: { signal: AbortSignal; finish: (outcome: Outcome) => Promise<void> },
+  options: {
+    signal: AbortSignal;
+    finish: (outcome: Outcome) => Promise<void>;
+    isCancelled?: () => boolean;
+  },
 ) => Promise<void>;
 
 /** The owner holds every suite lease; each occupied slot includes consumer cleanup
- * and Studio grading. Unknown transport outcomes stop dispatch, never replay. */
+ * and Studio grading. Attempt failures retain evidence and leave siblings running. */
 export async function executeEvaluation(
   runs: EvalWorkerRun[],
   owner: string,
   store: EvalJobStore,
   signal: AbortSignal,
   execute: AttemptExecution,
+  isDetached: () => boolean = () => false,
 ) {
   const first = runs[0]!;
   const concurrency = first.request.concurrency;
@@ -55,10 +60,11 @@ export async function executeEvaluation(
       cancelled: false,
       finished: false,
       error: undefined as string | undefined,
+      controller: new AbortController(),
     };
   });
   const finish = async (state: (typeof states)[number]) => {
-    if (state.finished) return;
+    if (state.finished || isDetached()) return;
     state.finished = true;
     if (state.cancelled || state.error || state.remaining) {
       await store.finish(state.run.id, owner, {
@@ -66,7 +72,7 @@ export async function executeEvaluation(
         error:
           state.error ??
           (state.cancelled
-            ? "Cancellation requested. Consumer cleanup was signalled."
+            ? "Cancellation requested. Inspect consumer cleanup before starting a new run."
             : "Evaluation execution interrupted. Inspect before starting a new run."),
       });
       return;
@@ -108,12 +114,17 @@ export async function executeEvaluation(
           .map(async (state) => {
             try {
               const lease = await store.heartbeat(state.run.id, owner);
-              if (state.finished) return;
-              if (!lease) controller.abort();
-              else if (lease.cancelRequestedAt) state.cancelled = true;
+              if (state.finished || isDetached()) return;
+              if (!lease) {
+                state.error =
+                  "Evaluation lease was lost; execution status is unknown.";
+                state.controller.abort("lease-lost");
+              } else if (lease.cancelRequestedAt) {
+                state.cancelled = true;
+              }
             } catch {
               state.error = "Evaluation lease could not be renewed.";
-              controller.abort();
+              state.controller.abort("lease-lost");
             }
           }),
       );
@@ -150,7 +161,7 @@ export async function executeEvaluation(
         while (!executionSignal.aborted && cursor < jobs.length) {
           const { state, index } = jobs[cursor++]!;
           try {
-            if (state.cancelled) {
+            if (state.cancelled || state.error) {
               state.remaining--;
               if (!state.remaining) await finish(state);
               continue;
@@ -167,12 +178,60 @@ export async function executeEvaluation(
                 },
               },
               {
-                signal: executionSignal,
+                signal: AbortSignal.any([
+                  executionSignal,
+                  state.controller.signal,
+                ]),
+                isCancelled: () => state.cancelled,
                 finish: async (outcome) => {
                   if (outcome.result) state.results.set(index, outcome.result);
                   else {
-                    state.error = outcome.error;
-                    controller.abort();
+                    const attempt = state.attempts[index]!;
+                    const issue = outcome.issue ?? {
+                      phase: "execute" as const,
+                      code: "EVAL_EXECUTION_UNKNOWN",
+                      message:
+                        outcome.error ?? "Attempt execution did not complete.",
+                    };
+                    const result: EvalRunResult = {
+                      id: randomUUID(),
+                      suiteId: state.run.suiteId,
+                      suiteRevision: state.run.suiteRevision,
+                      suite: state.run.suite,
+                      startedAt: startedAt.toISOString(),
+                      durationMs: Date.now() - startedAt.getTime(),
+                      status: outcome.cancelled ? "cancelled" : "error",
+                      counts: {
+                        passed: 0,
+                        failed: 0,
+                        error: outcome.cancelled ? 0 : 1,
+                        cancelled: outcome.cancelled ? 1 : 0,
+                      },
+                      ...(state.run.request.judge
+                        ? { judge: state.run.request.judge }
+                        : {}),
+                      errors: [],
+                      cases: [
+                        {
+                          ...outcome.capturedCase,
+                          caseId: attempt.caseId,
+                          repetition: attempt.repetition,
+                          sessionId: outcome.capturedCase?.sessionId ?? "",
+                          steps: outcome.capturedCase?.steps ?? [],
+                          durationMs: 0,
+                          status: outcome.cancelled ? "cancelled" : "error",
+                          errors: [
+                            ...(outcome.capturedCase?.errors ?? []),
+                            issue,
+                          ],
+                        },
+                      ],
+                    };
+                    state.results.set(index, result);
+                    await store.progress(state.run.id, owner, {
+                      type: "case-completed",
+                      result: result.cases[0]!,
+                    });
                   }
                 },
               },
@@ -180,9 +239,10 @@ export async function executeEvaluation(
             state.remaining--;
             if (!state.remaining) await finish(state);
           } catch {
+            // A reporting/storage failure is scoped to the suite whose lease owns it.
             state.error =
               "Evaluation executor failed. Inspect before starting a new run.";
-            controller.abort();
+            state.controller.abort("executor-failed");
           }
         }
       }),
