@@ -20,8 +20,11 @@ import { AsyncLocalStorageProviderSingleton } from "@langchain/core/singletons";
 import { Command } from "@langchain/langgraph";
 import {
   captureGraphSnapshot,
+  createResumeDelivery,
   type GraphSnapshotBundle,
+  prepareSuspensionSnapshot,
   restoreGraphSnapshot,
+  resumeDeliveryInput,
 } from "../framework/graph-snapshot";
 import { createInMemoryCheckpointSaver } from "../framework/in-memory-checkpointer";
 import {
@@ -75,6 +78,8 @@ export function createWorkflowCallService(
         throw new WorkflowContractError(
           `Workflow '${workflow.id}' changed since the call was suspended.`,
         );
+      if (snapshot?.limitPaused)
+        snapshot.checkpoint = prepareSuspensionSnapshot(snapshot.checkpoint);
       // The checkpoint already contains parsed input. Re-running a transform
       // during resume could change its meaning or repeat validation effects.
       const input = snapshot
@@ -82,6 +87,25 @@ export function createWorkflowCallService(
         : workflow.inputSchema.parse(args.input);
       if (!snapshot) workflowCallFingerprint(input);
       const saver = createInMemoryCheckpointSaver();
+      const response = snapshot?.limitPaused
+        ? snapshot.checkpoint.suspension?.response
+        : snapshot?.request
+          ? createResumeDelivery(
+              args.invocationId,
+              String(
+                (
+                  snapshot.request.meta?.__kortyxInterruptOccurrence as
+                    | { nodeId?: string }
+                    | undefined
+                )?.nodeId ??
+                  snapshot.checkpoint.checkpoint.channel_values.lastNode,
+              ),
+              snapshot.request,
+              args.response,
+              snapshot.checkpoint,
+            )
+          : undefined;
+      const childExecution = { ...execution, resumeDelivery: response };
       const threadId = "child";
       let request: InterruptInput | undefined;
       const invocationPath = `${config.invocationPath ?? "root"}/${encodeURIComponent(args.id)}:${args.invocationId}`;
@@ -167,7 +191,7 @@ export function createWorkflowCallService(
       const graph = await createExecutionGraph(
         workflow,
         childConfig,
-        execution,
+        childExecution,
       );
       const initial: GraphState = {
         input,
@@ -181,10 +205,12 @@ export function createWorkflowCallService(
       };
       const resumePatch = snapshot?.request?.meta?.__kortyxResumeStatePatch;
       const command = snapshot?.limitPaused
-        ? null
+        ? response
+          ? new Command({ resume: resumeDeliveryInput(response) })
+          : null
         : snapshot
           ? new Command({
-              resume: args.response,
+              resume: response ? resumeDeliveryInput(response) : args.response,
               update: {
                 config: childConfig,
                 ...(resumePatch ? { runtime: resumePatch } : {}),
@@ -205,18 +231,28 @@ export function createWorkflowCallService(
         )) as GraphState;
       } catch (error) {
         throwIfExecutionAborted(execution.abortSignal);
-        const checkpoint = await captureGraphSnapshot(saver, threadId).catch(
-          (cause) => {
-            // A failed diagnostic snapshot must not replace the child failure.
-            // Limit suspension, however, requires a recoverable checkpoint.
-            if (isExecutionLimitReached(error))
-              throw new PersistenceError(
-                "Cannot checkpoint a suspended child workflow.",
-                cause,
-              );
-            return undefined;
-          },
-        );
+        const checkpoint = await captureGraphSnapshot(
+          saver,
+          threadId,
+          undefined,
+          isExecutionLimitReached(error)
+            ? {
+                response,
+                runtimePatch: (
+                  error as { __kortyxHookStatePatch?: Record<string, unknown> }
+                ).__kortyxHookStatePatch,
+              }
+            : undefined,
+        ).catch((cause) => {
+          // A failed diagnostic snapshot must not replace the child failure.
+          // Limit suspension, however, requires a recoverable checkpoint.
+          if (isExecutionLimitReached(error))
+            throw new PersistenceError(
+              "Cannot checkpoint a suspended child workflow.",
+              cause,
+            );
+          return undefined;
+        });
         const state = checkpoint?.checkpoint.channel_values as
           | GraphState
           | undefined;

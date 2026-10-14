@@ -81,6 +81,8 @@ Choose `useReason({ interrupts })` when:
 - Ordinary tools should run before or after the human response.
 - The model should choose among multiple request/response contracts.
 
+Invalid model-authored named interrupt requests produce bounded correction feedback inside the tool loop. They do not emit a human request or use `maxRequests`, and they do not grant extra model passes. Required mode, human response validation, and approval gates stay strict. Do not catch human-validation errors and turn them into model authorization.
+
 The singular `useReason({ interrupt })` form and `interruptResponse` result are
 deprecated and removed in the next major release.
 

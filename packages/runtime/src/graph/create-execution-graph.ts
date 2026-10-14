@@ -22,7 +22,7 @@ import {
   withSafeTraceSpan,
 } from "@kortyx/hooks/internal";
 import type { GetProviderFn } from "@kortyx/providers";
-import { deepMergeWithArrayOverwrite } from "@kortyx/utils";
+import { deepMergeWithArrayOverwrite, mergeRuntimeState } from "@kortyx/utils";
 import {
   Annotation,
   interrupt,
@@ -31,6 +31,10 @@ import {
 } from "@langchain/langgraph";
 import type { BaseCheckpointSaver } from "@langchain/langgraph-checkpoint";
 import { getCheckpointer } from "../checkpointer";
+import {
+  acknowledgeResumeDelivery,
+  type ResumeDelivery,
+} from "../framework/graph-snapshot";
 import { resolveNodeHandler } from "../node-loader";
 import { createWorkflowCallService } from "./call-workflow";
 import { copyReducedFields, mergeWorkflowData } from "./data";
@@ -49,6 +53,8 @@ interface CompiledGraphBase {
 }
 
 export type ExecutionControl = {
+  /** Internal: Response delivery belongs to the current invocation, not configuration. */
+  resumeDelivery?: ResumeDelivery | undefined;
   completeResponse?:
     | ((
         options: import("@kortyx/hooks").CompleteResponseOptions,
@@ -112,7 +118,7 @@ export async function createExecutionGraph(
     lastCondition: Annotation<string>,
     lastIntent: Annotation<string>,
     runtime: Annotation<Record<string, unknown>>({
-      reducer: (l, r) => deepMergeWithArrayOverwrite(l ?? {}, r ?? {}),
+      reducer: (l, r) => mergeRuntimeState(l ?? {}, r ?? {}),
       default: () => ({}),
     }),
     config: Annotation<unknown>,
@@ -231,6 +237,7 @@ export async function createExecutionGraph(
         });
       let suspension: unknown;
       let deniedAdmission: unknown;
+      let interruptPosition = 0;
       const hookNodeContext = {
         completeResponse: runtimeConfig.workflowCallDepth
           ? undefined
@@ -291,12 +298,18 @@ export async function createExecutionGraph(
           // those response slots before asking their next question.
           if (awaitInput) awaitInput(request);
           else interrupt(request);
+          acknowledgeResumeDelivery(
+            execution.resumeDelivery,
+            nodeId,
+            interruptPosition++,
+          );
         },
         awaitInterrupt: (
           interruptConfig: InterruptInput,
         ): InterruptResumeValue => {
           throwIfExecutionAborted(execution.abortSignal);
           if (execution.budget) assertExecutionBudget(execution.budget);
+          const position = interruptPosition++;
           const { kind, question } = interruptConfig;
           const isCustom = kind === "custom";
           const isMulti =
@@ -348,8 +361,17 @@ export async function createExecutionGraph(
                   ...sharedInterruptFields,
                 };
           let resumed: unknown;
+          payload.meta = {
+            ...payload.meta,
+            __kortyxInterruptOccurrence: { nodeId, position },
+          };
           try {
             resumed = awaitInput ? awaitInput(payload) : interrupt(payload);
+            acknowledgeResumeDelivery(
+              execution.resumeDelivery,
+              nodeId,
+              position,
+            );
           } catch (error) {
             suspension = error;
             if (!awaitInput)
@@ -410,7 +432,7 @@ export async function createExecutionGraph(
             retryHookRuntime && typeof retryHookRuntime === "object"
               ? ({
                   ...state,
-                  runtime: deepMergeWithArrayOverwrite(
+                  runtime: mergeRuntimeState(
                     (state.runtime ?? {}) as Record<string, unknown>,
                     retryHookRuntime,
                   ),
@@ -500,11 +522,11 @@ export async function createExecutionGraph(
             // Preserve hook runtime state even when execution pauses via interrupt.
             // Without this merge, checkpointed hook state (e.g. useReason drafts)
             // can be lost before resume.
-            state.runtime = deepMergeWithArrayOverwrite(
+            state.runtime = mergeRuntimeState(
               (state.runtime ?? {}) as Record<string, unknown>,
               patch,
             );
-            retryHookRuntime = deepMergeWithArrayOverwrite(
+            retryHookRuntime = mergeRuntimeState(
               (retryHookRuntime ?? {}) as Record<string, unknown>,
               patch,
             );
@@ -530,7 +552,7 @@ export async function createExecutionGraph(
       if (hookRuntimeUpdates) {
         res.infra = {
           ...(res.infra ?? {}),
-          runtime: deepMergeWithArrayOverwrite(
+          runtime: mergeRuntimeState(
             ((res.infra?.runtime ?? {}) as Record<string, unknown>) || {},
             hookRuntimeUpdates,
           ),
@@ -590,7 +612,7 @@ export async function createExecutionGraph(
         );
       }
       if (res.infra?.runtime && typeof res.infra.runtime === "object") {
-        updates.runtime = deepMergeWithArrayOverwrite(
+        updates.runtime = mergeRuntimeState(
           (state.runtime ?? {}) as Record<string, unknown>,
           res.infra.runtime as Record<string, unknown>,
         );

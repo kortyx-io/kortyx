@@ -62,6 +62,7 @@ export interface CompiledGraphLike {
   execution?: {
     abortSignal?: AbortSignal | undefined;
     budget?: ExecutionBudget | undefined;
+    resumeDelivery?: import("@kortyx/runtime").ResumeDelivery | undefined;
     completeResponse?:
       | ((
           options: import("@kortyx/hooks").CompleteResponseOptions,
@@ -1792,7 +1793,15 @@ export async function orchestrateGraphStream({
         try {
           const snapshot =
             frameworkAdapter &&
-            (await captureGraphSnapshot(frameworkAdapter.checkpointer, runId));
+            (await captureGraphSnapshot(
+              frameworkAdapter.checkpointer,
+              runId,
+              undefined,
+              {
+                runtimePatch,
+                response: currentGraph.execution?.resumeDelivery,
+              },
+            ));
           throwIfExecutionAborted(abortSignal);
           if (!snapshot)
             throw new Error(

@@ -4,6 +4,7 @@ export default defineConfig({
   test: {
     include: [
       "test/postgres.integration.ts",
+      "test/checkpoint-retention.integration.ts",
       "test/eval-executions.postgres.integration.ts",
     ],
     testTimeout: 15_000,

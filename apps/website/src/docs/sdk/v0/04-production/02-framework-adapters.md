@@ -261,3 +261,11 @@ Backend data transfer is outside the adapter contract. Changing storage does not
 Approval consumption is atomic across workers, but a worker crash after consumption does not automatically retry the resume. External actions, such as payments or API writes, still need application-owned idempotency. Retention cleanup deletes Kortyx runtime records for the configured namespace; it does not undo those external actions or delete your business records.
 
 PostgreSQL durability adds database round trips; it does not promise zero added response latency. Tokens stream while the engine saves graph checkpoints asynchronously, and cache population does not delay authoritative reads. Session restoration, execution lease acquisition, and durable pause publication still require acknowledgements. Cache lookups have the configured time budget, and a Redis failure bypasses the cache for five seconds. Maintenance runs through your scheduled job. Measure time to first token and execution completion against Redis using your actual database location, workload, and concurrency.
+
+## Checkpoint listing and Redis journal expiry
+
+Session listing returns summaries without accumulating full historical states. Redis projects each record before reading the next; PostgreSQL excludes execution payload fields before transferring JSON. Memory still grows with the number of summaries, and a single very large Redis record needs sufficient heap. Full checkpoint retrieval and rollback/fork retain their full-record behavior.
+
+Redis journal writes and TTL use an isolated transaction, requiring `MULTI`, `EXEC`, `DISCARD`, `HSET`, `HSETNX`, and `PEXPIRE` in addition to the adapter's existing commands. Lua permissions are unnecessary. The built-in client supports a single Redis endpoint, including named ACL authentication; it does not implement Redis Cluster routing.
+
+Older journal hashes can have no TTL. The upgrade does not delete these automatically: audit the configured namespace and use the matching checkpoint lifetime to expire live journals, or remove only confirmed expired/orphaned state. Upgrade workers together for the versioned budget-suspension envelope; restart ambiguous legacy budget checkpoints safely.

@@ -89,7 +89,7 @@ export function createRedisSessionCheckpointStore(
   };
 
   const deleteRecord = async (
-    record: SessionCheckpointRecord,
+    record: Pick<SessionCheckpointRecord, "id" | "sessionId">,
   ): Promise<void> => {
     await Promise.all([
       store.del(byIdKey(record.id)),
@@ -104,26 +104,33 @@ export function createRedisSessionCheckpointStore(
     return raw ? (JSON.parse(raw) as SessionCheckpointRecord) : null;
   };
 
-  const sortedRecords = async (
+  const sortedRecords = async <
+    T extends { turnIndex: number; createdAt: number },
+  >(
     sessionId: string,
-  ): Promise<SessionCheckpointRecord[]> => {
-    const keys = await store.scanKeys(sessionPrefix(sessionId));
-    const records = await Promise.all(
-      keys.map(async (rawKey) => {
-        const logicalKey = rawKey.includes(sessionPrefix(sessionId))
-          ? rawKey.slice(rawKey.indexOf(sessionPrefix(sessionId)))
-          : rawKey;
-        const raw = await store.get(logicalKey);
-        return raw ? (JSON.parse(raw) as SessionCheckpointRecord) : null;
-      }),
+    project: (record: SessionCheckpointRecord) => T,
+  ): Promise<T[]> => {
+    const keys = [...new Set(await store.scanKeys(sessionPrefix(sessionId)))];
+    const records: T[] = [];
+    // Project before retaining a result; historical execution state is never
+    // accumulated by list/prune. One large record is in flight at a time.
+    for (const rawKey of keys) {
+      const logicalKey = rawKey.includes(sessionPrefix(sessionId))
+        ? rawKey.slice(rawKey.indexOf(sessionPrefix(sessionId)))
+        : rawKey;
+      const raw = await store.get(logicalKey);
+      if (raw) {
+        const record = JSON.parse(raw) as SessionCheckpointRecord | null;
+        if (record) records.push(project(record));
+      }
+    }
+    return records.sort(
+      (a, b) => a.turnIndex - b.turnIndex || a.createdAt - b.createdAt,
     );
-    return records
-      .filter((record): record is SessionCheckpointRecord => Boolean(record))
-      .sort((a, b) => a.turnIndex - b.turnIndex || a.createdAt - b.createdAt);
   };
 
   const prune = async (sessionId: string): Promise<void> => {
-    const records = await sortedRecords(sessionId);
+    const records = await sortedRecords(sessionId, toSummary);
     const overflow = Math.max(0, records.length - maxCheckpointsPerSession);
     await Promise.all(records.slice(0, overflow).map(deleteRecord));
   };
@@ -139,7 +146,7 @@ export function createRedisSessionCheckpointStore(
 
   return {
     async list(sessionId) {
-      return (await sortedRecords(sessionId)).map(toSummary);
+      return sortedRecords(sessionId, toSummary);
     },
 
     async get(id) {
@@ -195,7 +202,7 @@ export function createRedisSessionCheckpointStore(
           safeMessage: "The requested checkpoint was not found.",
         });
 
-      const records = await sortedRecords(target.sessionId);
+      const records = await sortedRecords(target.sessionId, (record) => record);
       const trailing = records.filter(
         (record) => record.turnIndex > target.turnIndex,
       );

@@ -16,12 +16,13 @@ import {
   serializeFailure,
   WorkflowContractError,
 } from "@kortyx/core/errors";
-import { deepMergeWithArrayOverwrite } from "@kortyx/utils";
+import { deepMergeWithArrayOverwrite, mergeRuntimeState } from "@kortyx/utils";
 import {
   GraphInterrupt,
   interrupt,
   isGraphInterrupt,
 } from "@langchain/langgraph";
+import { acknowledgeResumeDelivery } from "../framework/graph-snapshot";
 import type {
   ExecutionControl,
   ExecutionRuntimeConfig,
@@ -291,7 +292,10 @@ export function addParallelGraphCoordinator(
     tokenUsage: usage(journal),
   });
   const load = (state: GraphState): Journal => {
-    const saved = (state.runtime as Record<string, unknown>)[KEY];
+    const stored = (state.runtime as Record<string, unknown>)[KEY];
+    if (Array.isArray(stored) && stored.length !== 1)
+      throw new WorkflowContractError("Invalid parallel journal snapshot.");
+    const saved = Array.isArray(stored) ? stored[0] : stored;
     if (
       saved &&
       (config.resume === true ||
@@ -390,7 +394,7 @@ export function addParallelGraphCoordinator(
           values(node.workflowFields),
         );
         const ownInternal = node.runtime.__kortyx;
-        const inheritedRuntime = deepMergeWithArrayOverwrite(
+        const inheritedRuntime = mergeRuntimeState(
           journal.initialRuntime,
           values(node.runtimeFields),
         );
@@ -669,6 +673,11 @@ export function addParallelGraphCoordinator(
       throw error;
     }
     node.responses.push(response);
+    acknowledgeResumeDelivery(
+      execution.resumeDelivery,
+      id,
+      node.responses.length - 1,
+    );
     node.status = "pending";
     delete journal.waitingNode;
     return { runtime: runtimePatch(journal) };

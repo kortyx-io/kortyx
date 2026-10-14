@@ -89,6 +89,7 @@ function parseReply(
 export type RedisClient = {
   close?: () => Promise<void>;
   command: (cmd: string, args?: string[]) => Promise<RedisReply>;
+  transaction?: (commands: Array<[string, string[]]>) => Promise<RedisReply[]>;
 };
 
 export function createRedisClient(options: RedisClientOptions): RedisClient {
@@ -109,6 +110,15 @@ export function createRedisClient(options: RedisClientOptions): RedisClient {
 
   let connecting: Promise<void> | null = null;
   let ready = false;
+  let dispatch = Promise.resolve();
+  const exclusive = <T>(operation: () => Promise<T>): Promise<T> => {
+    const result = dispatch.then(operation);
+    dispatch = result.then(
+      () => {},
+      () => {},
+    );
+    return result;
+  };
 
   const drainReplies = () => {
     while (inflight.length) {
@@ -139,6 +149,7 @@ export function createRedisClient(options: RedisClientOptions): RedisClient {
       const host = u.hostname || "127.0.0.1";
       const port = u.port ? Number(u.port) : isTls ? 6380 : 6379;
       const password = u.password ? decodeURIComponent(u.password) : "";
+      const username = u.username ? decodeURIComponent(u.username) : "";
       const db =
         u.pathname && u.pathname !== "/" ? Number(u.pathname.slice(1)) : 0;
 
@@ -192,7 +203,10 @@ export function createRedisClient(options: RedisClientOptions): RedisClient {
       });
 
       if (password) {
-        const r = await send("AUTH", [password]);
+        const r = await send(
+          "AUTH",
+          username ? [username, password] : [password],
+        );
         if (typeof r === "object" && r && (r as any).type === "error") {
           throw new PersistenceError(
             `Redis AUTH failed: ${(r as any).message}`,
@@ -229,8 +243,50 @@ export function createRedisClient(options: RedisClientOptions): RedisClient {
         inflight.shift()?.reject(new Error("Redis socket closed"));
     },
     async command(cmd: string, args: string[] = []) {
-      await ensureConnected();
-      return send(cmd, args);
+      // Release dispatch after enqueueing; ordinary commands still pipeline.
+      const { reply } = await exclusive(async () => {
+        await ensureConnected();
+        return { reply: send(cmd, args) };
+      });
+      return reply;
+    },
+    async transaction(commands) {
+      return exclusive(async () => {
+        await ensureConnected();
+        const started = await send("MULTI");
+        if (started !== "OK")
+          throw new PersistenceError("Redis transaction could not start.");
+        try {
+          const queued = await Promise.all(
+            commands.map(([command, args]) => send(command, args)),
+          );
+          if (queued.some((reply) => reply !== "QUEUED")) {
+            await send("DISCARD");
+            throw new PersistenceError(
+              "Redis transaction command was rejected.",
+            );
+          }
+          const result = await send("EXEC");
+          if (!Array.isArray(result) || result.length !== commands.length)
+            throw new PersistenceError("Redis transaction did not complete.");
+          if (
+            result.some(
+              (reply) =>
+                reply !== null &&
+                typeof reply === "object" &&
+                !Array.isArray(reply) &&
+                reply.type === "error",
+            )
+          )
+            throw new PersistenceError("Redis transaction command failed.");
+          return result;
+        } catch (error) {
+          // Never reuse a connection with an unknown transaction state.
+          ready = false;
+          socket?.destroy();
+          throw error;
+        }
+      });
     },
   };
 }

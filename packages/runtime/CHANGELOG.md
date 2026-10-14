@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Replace complete runtime-owned hook records and parallel journals without changing application data deep merge or reducers.
+- Seal budget suspension state with explicit response delivery; retain unconsumed answers and prevent old commands overwriting progress on Continue. Read compatible legacy snapshots and reject ambiguous old budget commands.
+- Write Redis journals and expiry atomically without requiring Lua; project Redis and PostgreSQL history before retaining execution payloads.
+
 - Add bounded, idempotent queued eval execution with shared consumer capacity,
   event replay, explicit cancellation and optional PostgreSQL recovery.
 

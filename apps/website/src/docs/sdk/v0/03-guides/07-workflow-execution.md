@@ -295,3 +295,9 @@ child invocation, then Continue reuses the first child's result and completes.
 ## Complete a response before execution finishes
 
 See [Background Continuation](./08-background-continuation.md) for `completeResponse()`, independent execution lifetime, and discovering human requests through `agent.listInterrupts()` without Studio. A `done` chunk ends client delivery; it does not prove successful execution.
+
+### Continue and human response delivery
+
+A submitted response belongs to one interrupt occurrence. If node admission exhausts the allowance before the response is delivered, Continue retains that response for the original question. Once delivered, it remains part of that occurrence's replay history and cannot answer a later review. Completed tool results remain available without another tool execution. This applies to root workflows and nested children; external actions still require application idempotency.
+
+Budget checkpoints carry a versioned Kortyx suspension envelope. Upgrade all workers that can resume the same runs together; older workers do not understand an undelivered answer in that envelope. Ordinary legacy checkpoints and legacy object/array child snapshots and journals remain readable. An old budget checkpoint with ambiguous pending human commands must be restarted safely. Already contaminated snapshots cannot be reliably repaired by removing application-specific fields.
