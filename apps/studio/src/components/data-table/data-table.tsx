@@ -110,6 +110,16 @@ export function DataTable<T, S extends string>({
     item: T,
     event: React.MouseEvent<HTMLTableRowElement>,
   ) {
+    // Cell controls own their clicks. Bubbling into the row can navigate twice
+    // or leave the page when selecting, copying, or opening a link in a new tab.
+    if (
+      event.defaultPrevented ||
+      (event.target instanceof Element &&
+        event.target.closest(
+          'a, button, input, select, textarea, label, summary, [role="button"], [role="link"], [role="checkbox"]',
+        ))
+    )
+      return;
     if (scrollRestoreKey) {
       sessionStorage.setItem(
         scrollRestoreKey,
