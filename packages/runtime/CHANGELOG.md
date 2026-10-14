@@ -14,6 +14,21 @@
   child outputs, deterministic parallel joins and checkpoint resume. Surface
   callback exceptions as `WORKFLOW_REDUCER_FAILED` without exposing raw values.
 
+## [0.24.1](https://github.com/kortyx-io/kortyx/compare/runtime-v0.24.0...runtime-v0.24.1) (2026-10-14)
+
+
+### Bug Fixes
+
+* **runtime:** preserve interrupt state across pauses and resume ([#348](https://github.com/kortyx-io/kortyx/issues/348)) ([03b49f2](https://github.com/kortyx-io/kortyx/commit/03b49f2b8b6b44a2852d16fd4fe1b3e199316072))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/hooks bumped to 0.34.3
+    * @kortyx/utils bumped to 0.3.8
+
 ## [0.24.0](https://github.com/kortyx-io/kortyx/compare/runtime-v0.23.2...runtime-v0.24.0) (2026-10-13)
 
 

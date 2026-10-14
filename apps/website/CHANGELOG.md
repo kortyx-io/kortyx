@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.51.1](https://github.com/kortyx-io/kortyx/compare/website-v0.51.0...website-v0.51.1) (2026-10-14)
+
+
+### Bug Fixes
+
+* **runtime:** preserve interrupt state across pauses and resume ([#348](https://github.com/kortyx-io/kortyx/issues/348)) ([03b49f2](https://github.com/kortyx-io/kortyx/commit/03b49f2b8b6b44a2852d16fd4fe1b3e199316072))
+
 ## [0.51.0](https://github.com/kortyx-io/kortyx/compare/website-v0.50.1...website-v0.51.0) (2026-10-13)
 
 

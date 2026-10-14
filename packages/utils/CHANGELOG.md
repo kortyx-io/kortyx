@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.8](https://github.com/kortyx-io/kortyx/compare/utils-v0.3.7...utils-v0.3.8) (2026-10-14)
+
+
+### Bug Fixes
+
+* **runtime:** preserve interrupt state across pauses and resume ([#348](https://github.com/kortyx-io/kortyx/issues/348)) ([03b49f2](https://github.com/kortyx-io/kortyx/commit/03b49f2b8b6b44a2852d16fd4fe1b3e199316072))
+
 ## [0.3.7](https://github.com/kortyx-io/kortyx/compare/utils-v0.3.6...utils-v0.3.7) (2026-10-13)
 
 

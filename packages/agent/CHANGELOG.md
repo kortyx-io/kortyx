@@ -8,6 +8,23 @@
   event replay, explicit cancellation and optional PostgreSQL recovery.
 
 
+## [0.38.1](https://github.com/kortyx-io/kortyx/compare/agent-v0.38.0...agent-v0.38.1) (2026-10-14)
+
+
+### Bug Fixes
+
+* **runtime:** preserve interrupt state across pauses and resume ([#348](https://github.com/kortyx-io/kortyx/issues/348)) ([03b49f2](https://github.com/kortyx-io/kortyx/commit/03b49f2b8b6b44a2852d16fd4fe1b3e199316072))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/runtime bumped to 0.24.1
+    * @kortyx/utils bumped to 0.3.8
+  * devDependencies
+    * @kortyx/hooks bumped to 0.34.3
+
 ## [0.38.0](https://github.com/kortyx-io/kortyx/compare/agent-v0.37.1...agent-v0.38.0) (2026-10-13)
 
 
