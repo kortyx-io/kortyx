@@ -34,8 +34,11 @@ export function Providers({
       color="#8f80ff"
       height="3px"
       delay={0}
-      stopDelay={200}
+      stopDelay={0}
       startPosition={0.15}
+      // Next's instrumentation-client hook starts progress for all navigations.
+      // Avoid a second start from DOM clicks, including cancelled links.
+      disableAnchorClick
       style={progressStyles}
       options={{
         showSpinner: false,

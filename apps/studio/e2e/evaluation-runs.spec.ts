@@ -58,6 +58,18 @@ for (const scope of ["all", "selected"] as const) {
           exact: true,
         }),
       ).toBeVisible();
+      // Nuqs updates controls before its throttled URL write. Reload only
+      // after both selections are persisted, then verify their restoration.
+      await expect(page).toHaveURL((url) => {
+        const selected = JSON.parse(
+          url.searchParams.get("launchSuites") ?? "[]",
+        );
+        return (
+          selected.length === 2 &&
+          selected.includes(EVAL_SUITE.id) &&
+          selected.includes(EVAL_OPAQUE_SUITE.id)
+        );
+      });
       await page.reload();
       await expect(
         drawer.getByRole("checkbox", { name: /Opaque suite identifiers/ }),
