@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.21.1](https://github.com/kortyx-io/kortyx/compare/studio-v0.21.0...studio-v0.21.1) (2026-10-14)
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * devDependencies
+    * @kortyx/agent bumped to 0.38.1
+    * @kortyx/telemetry bumped to 0.16.1
+    * kortyx bumped to 0.31.1
+
 ## [0.21.0](https://github.com/kortyx-io/kortyx/compare/studio-v0.20.1...studio-v0.21.0) (2026-10-13)
 
 
