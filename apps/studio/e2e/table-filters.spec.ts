@@ -131,6 +131,12 @@ test("combines filters, restores a saved view, and keeps search outside Match an
   await page
     .getByLabel("Workflow value", { exact: true })
     .fill("no-such-workflow");
+  // Finish the combobox interaction before targeting controls outside its
+  // suggestion list, which temporarily owns screen-reader navigation.
+  await page.getByLabel("Workflow value", { exact: true }).press("Escape");
+  await expect(
+    page.getByRole("listbox", { name: "Workflow suggestions", exact: true }),
+  ).toHaveCount(0);
   await page.getByRole("checkbox", { name: "Completed", exact: true }).check();
   await expect(row).toHaveCount(0);
   await page
@@ -335,6 +341,13 @@ test("embedded table search is independent of parent search, combines with filte
   await page
     .getByLabel("Conversation value", { exact: true })
     .fill("Ambiguous");
+  await page.getByLabel("Conversation value", { exact: true }).press("Escape");
+  await expect(
+    page.getByRole("listbox", {
+      name: "Conversation suggestions",
+      exact: true,
+    }),
+  ).toHaveCount(0);
   await page
     .getByRole("button", { name: "Match any · OR", exact: true })
     .click();
