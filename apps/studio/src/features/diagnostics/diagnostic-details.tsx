@@ -62,7 +62,7 @@ export function DiagnosticDetails({
               {state === "available" ? "Available" : state}
             </StatusPill>
             {downloadable && (
-              <Button variant="outline" size="xs" asChild>
+              <Button variant="secondary" size="xs" asChild>
                 <a
                   href={`/api/studio/diagnostics/${manifest.diagnosticId}?${query}`}
                   download

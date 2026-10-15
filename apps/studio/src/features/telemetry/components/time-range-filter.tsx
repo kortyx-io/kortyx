@@ -140,10 +140,10 @@ export function TimeRangeFilter({
             <PopoverTrigger asChild>
               <Button
                 type="button"
-                variant="outline"
+                variant="secondary"
                 size={compact ? "sm" : "default"}
                 className={cn(
-                  "justify-between font-normal",
+                  "justify-between",
                   compact ? "max-w-[220px]" : "w-full",
                 )}
               >

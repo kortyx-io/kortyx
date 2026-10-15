@@ -3,6 +3,7 @@
 import { X } from "lucide-react";
 import { Dialog as Primitive } from "radix-ui";
 import type { ComponentProps } from "react";
+import { Button } from "@/components/ui/button";
 import { OVERLAY_LAYERS } from "@/lib/overlay-layers";
 import { cn } from "@/lib/utils";
 
@@ -38,11 +39,15 @@ export function DialogContent({
       >
         {children}
         {showCloseButton && (
-          <Primitive.Close
-            aria-label="Close dialog"
-            className="absolute top-4 right-4 rounded-sm p-1 text-muted-foreground hover:text-foreground focus-visible:outline-2"
-          >
-            <X className="size-4" />
+          <Primitive.Close asChild aria-label="Close dialog">
+            <Button
+              variant="ghost"
+              size="icon-xs"
+              aria-label="Close dialog"
+              className="absolute top-4 right-4"
+            >
+              <X />
+            </Button>
           </Primitive.Close>
         )}
       </Primitive.Content>

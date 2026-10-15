@@ -4,6 +4,7 @@ import { useSortable } from "@dnd-kit/sortable";
 import { ArrowDown, ArrowUp, ArrowUpDown, MoreHorizontal } from "lucide-react";
 import { useDataTable } from "@/components/data-table/data-table-context";
 import type { DataTableColumn } from "@/components/data-table/types";
+import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -109,19 +110,21 @@ export function DataTableColumnHeader<T, S extends string>({
       </div>
       <DropdownMenu open={menuOpen} onOpenChange={onMenuOpenChange}>
         <DropdownMenuTrigger asChild>
-          <button
+          <Button
+            variant="secondary"
+            size="icon-xs"
             type="button"
             aria-label={`${label} column menu`}
             className={cn(
-              "absolute top-1/2 right-1 z-20 -translate-y-1/2 rounded p-0.5",
-              "pointer-events-none bg-muted/90 opacity-0 shadow-sm backdrop-blur-sm",
-              "hover:bg-accent group-hover:pointer-events-auto group-hover:opacity-100",
+              "absolute top-1/2 right-1 z-20 -translate-y-1/2",
+              "pointer-events-none opacity-0",
+              "group-hover:pointer-events-auto group-hover:opacity-100",
               "focus:pointer-events-auto focus:opacity-100",
               menuOpen && "pointer-events-auto opacity-100",
             )}
           >
-            <MoreHorizontal className="size-3.5" />
-          </button>
+            <MoreHorizontal />
+          </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent
           align="end"

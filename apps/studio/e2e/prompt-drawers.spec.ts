@@ -1103,6 +1103,69 @@ test.describe("Prompt detail drawers", () => {
     ).toHaveCount(0);
   });
 
+  test("uses shared action button styles for prompt header links and actions", async ({
+    page,
+  }) => {
+    await page.goto("/prompts");
+    await expect(page.locator('[data-table-ready="true"]')).toBeVisible();
+    const header = page
+      .getByRole("heading", { name: "Prompts", exact: true })
+      .locator("..")
+      .locator("..");
+    const importAction = header.getByRole("button", {
+      name: "Import",
+      exact: true,
+    });
+    const groupsAction = header.getByRole("link", { name: /^Test groups/ });
+    const createAction = header.getByRole("button", {
+      name: "New prompt",
+      exact: true,
+    });
+    await expect(importAction).toHaveAttribute("data-variant", "secondary");
+    await expect(groupsAction).toHaveAttribute("data-variant", "secondary");
+    await expect(createAction).toHaveAttribute("data-variant", "primary");
+    const appearance = (element: Element) => {
+      const style = getComputedStyle(element);
+      return [
+        style.height,
+        style.borderRadius,
+        style.fontSize,
+        style.fontWeight,
+        style.backgroundColor,
+        style.borderColor,
+      ];
+    };
+    // Loading enables the actions independently; compare after their color
+    // transitions have settled rather than sampling two different frames.
+    await expect
+      .poll(async () => {
+        const [importStyle, groupsStyle] = await Promise.all([
+          importAction.evaluate(appearance),
+          groupsAction.evaluate(appearance),
+        ]);
+        return JSON.stringify(importStyle) === JSON.stringify(groupsStyle);
+      })
+      .toBe(true);
+    for (const action of [importAction, groupsAction, createAction]) {
+      await expect(action).toHaveAttribute("data-size", "sm");
+      await expect(action).toHaveCSS("height", "32px");
+    }
+    await importAction.click();
+    const importDrawer = page.getByRole("dialog", {
+      name: "Import prompts",
+      exact: true,
+    });
+    await expect(importDrawer).toBeVisible();
+    await importDrawer
+      .getByRole("button", { name: "Close prompt import", exact: true })
+      .click();
+    await expect(importDrawer).toHaveCount(0);
+    await groupsAction.press("Enter");
+    await expect(
+      page.locator('[data-detail-drawer="/prompts/groups"]'),
+    ).toHaveAttribute("data-state", "open");
+  });
+
   test("uses a flat test group list in drawers, expanded views and direct routes", async ({
     page,
   }) => {
@@ -1485,20 +1548,14 @@ test.describe("Prompt detail drawers", () => {
         .getByRole("columnheader")
         .first()
         .boundingBox();
-      expect(headerBefore!.x).toBe(bodyBefore!.x);
+      expect(headerBefore!.x - bodyBefore!.x).toBe(44);
       const toolbar = page.locator('[data-table-controls="prompts"]');
       await expect(
         toolbar.getByRole("button", { name: "Open categories", exact: true }),
-      ).toBeVisible();
+      ).toHaveCount(0);
       const triggerBounds = await trigger.boundingBox();
-      const selectionBounds = await toolbar
-        .getByRole("checkbox", { name: "Select visible prompts" })
-        .boundingBox();
-      expect(triggerBounds!.x + triggerBounds!.width).toBeLessThan(
-        selectionBounds!.x,
-      );
-      expect(triggerBounds!.y + triggerBounds!.height / 2).toBe(
-        selectionBounds!.y + selectionBounds!.height / 2,
+      expect(triggerBounds!.x + triggerBounds!.width / 2 - bodyBefore!.x).toBe(
+        21.5,
       );
       await trigger.click();
       const categories = page.getByRole("navigation", {

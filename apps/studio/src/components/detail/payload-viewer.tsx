@@ -149,14 +149,14 @@ export function PayloadViewer({
           <DropdownMenuTrigger asChild>
             <Button
               type="button"
-              variant="ghost"
+              variant="secondary"
               size="xs"
               aria-label={`Payload representation: ${activeMode.label}`}
-              className="min-w-24 max-w-full justify-start bg-background text-foreground shadow-xs hover:bg-background"
+              className="min-w-24 max-w-full justify-start"
             >
               <ActiveModeIcon />
               {activeMode.label}
-              <ChevronDown className="ml-auto text-muted-foreground" />
+              <ChevronDown className="text-muted-foreground" />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="start" className="min-w-40">
@@ -193,7 +193,6 @@ export function PayloadViewer({
             aria-pressed={clean}
             title={clean ? "Show raw payload" : "Hide empty payload values"}
             onClick={changeClean}
-            className={cn(clean && "bg-background shadow-xs")}
           >
             <Sparkles />
             {clean ? "Clean" : "Raw"}
@@ -211,7 +210,6 @@ export function PayloadViewer({
             aria-pressed={wrap}
             title={wrap ? "Disable text wrapping" : "Enable text wrapping"}
             onClick={changeWrap}
-            className={cn(wrap && "bg-background shadow-xs")}
           >
             <TextWrap />
           </Button>

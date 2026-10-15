@@ -26,12 +26,12 @@ export function OperatorScopeSwitcher({
           variant="ghost"
           size="sm"
           aria-label="Project"
-          className="max-w-44 shrink-0 font-normal"
+          className="max-w-44 shrink-0"
         >
           <span className="truncate">
             {options.find((option) => option.id === selected)?.name}
           </span>
-          <ChevronDown className="size-3.5" />
+          <ChevronDown />
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start">

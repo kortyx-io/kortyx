@@ -248,7 +248,7 @@ export function PromptFields({
                     })
                   }
                 >
-                  <Trash2 className="size-3.5" />
+                  <Trash2 />
                 </Button>
               </div>
             )}
@@ -309,7 +309,7 @@ export function PromptFields({
       ))}
       {!disabled && (
         <Button
-          variant="outline"
+          variant="secondary"
           size="sm"
           disabled={disabled || value.messages.length >= 100}
           onClick={() =>
@@ -320,7 +320,7 @@ export function PromptFields({
             })
           }
         >
-          <Plus className="size-3.5" />
+          <Plus />
           Add message
         </Button>
       )}

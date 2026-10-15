@@ -342,8 +342,8 @@ Top-level Runs, Sessions, Interrupts, Prompts and Evals lists share
 followed by the standard table toolbar. Evals Runs/Suites navigation is a compact
 segmented link group after the workspace breadcrumbs, including on detail routes;
 it preserves project routing and the selected environment without a separate tab row.
-The compact Prompts Categories button sits before Select all in the table toolbar;
-there is no empty rail beside the grid. Test groups use a flat, edge-to-edge table
+Prompts retains its centered compact Categories side rail and category drawer,
+with the full category tree beside the table on wide screens. Test groups use a flat, edge-to-edge table
 with a compact drawer header and the shared list header in expanded and direct routes.
 The drawer header contains the page action beside its expand/close controls.
 
@@ -390,3 +390,21 @@ Ship the API and shared contracts/database packages before the matching Studio
 version. No database migration is required. Legacy filter URLs are accepted and
 converted when filters are applied; the existing bounded history API remains
 available for older consumers.
+
+### Shared action buttons
+
+All Studio actions use the shared `Button` variants. `primary` is the filled
+main action (New prompt, Save, Run evaluations); `secondary` is the outlined
+supporting action (Import, Test groups, Cancel, Refresh); `ghost` is for
+low-emphasis and icon actions; `destructive` is for destructive confirmation.
+Inline text actions use the shared `link`/`inline` treatment. Navigation links,
+menu options and data-row/disclosure controls keep their control semantics.
+
+Page, drawer and table actions use `sm` (32px), forms default to 36px, compact
+actions use `xs` (24px), and large actions use `lg` (40px). Icon equivalents
+have the same heights. Action links use `Button asChild` so they retain normal
+link navigation and the same size/style as button actions. Icon sizing and
+pressed/disabled/focus states come from the primitive. Compound input buttons
+also delegate to it; feature code supplies layout, not custom button styling.
+The legacy shadcn `default`/`outline` aliases remain supported as
+`primary`/`secondary` for existing consumers.

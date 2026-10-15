@@ -230,7 +230,7 @@ export function PromptTables({
         <div className="flex items-center gap-2">
           <Button
             size="icon-sm"
-            variant="outline"
+            variant="secondary"
             aria-label={`Refresh prompt ${kind}`}
             onClick={() => setRefresh((value) => value + 1)}
           >
@@ -239,7 +239,7 @@ export function PromptTables({
           {kind === "evals" && (
             <Button
               size="sm"
-              variant="outline"
+              variant="secondary"
               disabled={!canTest}
               onClick={onTest}
             >
@@ -287,7 +287,7 @@ export function PromptTables({
       {(query.q || query.status !== "all") && (
         <Button
           size="sm"
-          variant="outline"
+          variant="secondary"
           className="mt-4"
           onClick={() => {
             void setQuery({ q: "", status: "all", cursor: 0 });

@@ -2,6 +2,7 @@
 
 import { CircleHelp } from "lucide-react";
 import type { ReactNode } from "react";
+import { Button } from "@/components/ui/button";
 import {
   Tooltip,
   TooltipContent,
@@ -21,16 +22,15 @@ export function InfoTooltip({
   return (
     <Tooltip>
       <TooltipTrigger asChild>
-        <button
+        <Button
+          variant="ghost"
+          size="icon-xs"
           type="button"
           aria-label={label}
-          className={cn(
-            "inline-flex size-4 shrink-0 cursor-help items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50",
-            className,
-          )}
+          className={cn("cursor-help", className)}
         >
-          <CircleHelp aria-hidden="true" className="size-3" />
-        </button>
+          <CircleHelp aria-hidden="true" />
+        </Button>
       </TooltipTrigger>
       <TooltipContent
         side="top"

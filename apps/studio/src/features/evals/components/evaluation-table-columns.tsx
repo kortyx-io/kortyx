@@ -33,9 +33,9 @@ export function createEvaluationColumns(
       render: (run) => (
         <div>
           <Button
-            variant="ghost"
-            size="xs"
-            className="max-w-full justify-start px-0"
+            variant="link"
+            size="inline"
+            className="max-w-full justify-start"
             onClick={() => onOpen(run)}
           >
             <span className="truncate">{run.name}</span>

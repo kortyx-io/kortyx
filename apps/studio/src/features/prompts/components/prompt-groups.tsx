@@ -179,11 +179,11 @@ export function PromptGroupsView({
     <DropdownMenu modal={false}>
       <DropdownMenuTrigger asChild>
         <Button
-          size="icon"
+          size="icon-sm"
           variant="ghost"
           aria-label={`${group.name} group actions`}
         >
-          <MoreHorizontal className="size-4" />
+          <MoreHorizontal />
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
@@ -242,7 +242,7 @@ export function PromptGroupsView({
               disabled={!targets.canRun || !compatibleTarget(group)}
               onClick={() => run(group)}
             >
-              <Play className="size-3.5" />
+              <Play />
               Run a suite
             </Button>
             {actions(group)}
@@ -256,7 +256,7 @@ export function PromptGroupsView({
               setForm("create");
             }}
           >
-            <Plus className="size-3.5" />
+            <Plus />
             New group
           </Button>
         )}
@@ -303,7 +303,7 @@ export function PromptGroupsView({
                       v{member.version}
                     </span>
                     <Button
-                      size="icon"
+                      size="icon-sm"
                       variant="ghost"
                       disabled={working || !library.permissions.edit}
                       aria-label={`Remove ${asset?.name ?? member.promptId} from group`}
@@ -316,14 +316,14 @@ export function PromptGroupsView({
                         });
                       }}
                     >
-                      <Trash2 className="size-3.5" />
+                      <Trash2 />
                     </Button>
                   </div>
                 );
               })}
               <Button
                 size="sm"
-                variant="outline"
+                variant="secondary"
                 disabled={!library.permissions.edit}
                 onClick={() => {
                   setEditing(group);
@@ -333,7 +333,7 @@ export function PromptGroupsView({
                   setReplace(false);
                 }}
               >
-                <Plus className="size-3.5" />
+                <Plus />
                 Add prompt version
               </Button>
               <p className="text-xs text-muted-foreground">

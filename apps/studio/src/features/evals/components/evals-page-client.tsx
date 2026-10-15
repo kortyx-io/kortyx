@@ -270,10 +270,10 @@ export function EvalsPageClient({
       render: (r) => (
         <div>
           <Button
-            variant="ghost"
-            size="xs"
+            variant="link"
+            size="inline"
             onClick={() => chooseRun(r.id)}
-            className="max-w-full justify-start px-0 hover:bg-transparent"
+            className="max-w-full justify-start"
           >
             <span className="truncate">
               {r.suiteName ?? displayName(r.suiteId)}
@@ -402,9 +402,9 @@ export function EvalsPageClient({
       render: (r) => (
         <div>
           <Button
-            variant="ghost"
-            size="xs"
-            className="max-w-full justify-start px-0 hover:bg-transparent"
+            variant="link"
+            size="inline"
+            className="max-w-full justify-start"
             asChild
           >
             <DetailLink
@@ -527,7 +527,7 @@ export function EvalsPageClient({
       defaultWidth: 110,
       render: (r) => (
         <Button
-          variant="outline"
+          variant="secondary"
           size="xs"
           disabled={!targets.canRun}
           onClick={(event) => {
@@ -549,7 +549,7 @@ export function EvalsPageClient({
         <>
           {selectedRuns.length === 2 && view === "runs" ? (
             <Button
-              variant="outline"
+              variant="secondary"
               size="sm"
               onClick={() =>
                 navigate(evalCompareHref(selectedRuns[1], selectedRuns[0]))
@@ -565,7 +565,7 @@ export function EvalsPageClient({
             onToggle={() => update({ live: !query.live })}
           />
           <Button
-            variant="outline"
+            variant="secondary"
             size="icon-sm"
             aria-label="Refresh evals"
             disabled={refreshing}
@@ -613,7 +613,7 @@ export function EvalsPageClient({
       </p>
       {filtered ? (
         <Button
-          variant="outline"
+          variant="secondary"
           size="sm"
           className="mt-4"
           onClick={clearFilters}

@@ -257,7 +257,7 @@ export function DataTableFilterControls<T>({
             key={match}
             className="flex-1"
             size="xs"
-            variant={draft.match === match ? "secondary" : "ghost"}
+            variant="ghost"
             aria-pressed={draft.match === match}
             onClick={() => change({ ...draft, match }, true)}
           >
@@ -329,7 +329,7 @@ export function DataTableFilterControls<T>({
         </span>
       )}
       <Button
-        variant="outline"
+        variant="secondary"
         size="icon-sm"
         aria-label="Filters"
         aria-expanded={state.open}
@@ -346,7 +346,7 @@ export function DataTableFilterControls<T>({
       <DataTableColumnsMenu />
       <DropdownMenu open={viewsOpen} onOpenChange={setViewsOpen}>
         <DropdownMenuTrigger asChild>
-          <Button aria-label="Views" variant="outline" size="icon-sm">
+          <Button aria-label="Views" variant="secondary" size="icon-sm">
             <LayoutPanelTop />
           </Button>
         </DropdownMenuTrigger>

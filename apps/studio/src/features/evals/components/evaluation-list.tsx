@@ -129,13 +129,13 @@ export function EvaluationList({
             }}
           />
           <Button
-            variant="outline"
+            variant="secondary"
             size="icon-sm"
             disabled={refreshing}
             onClick={() => void refresh()}
             aria-label="Refresh evaluations"
           >
-            <RefreshCw className="size-3.5" />
+            <RefreshCw />
           </Button>
           <Button
             size="sm"
@@ -145,7 +145,7 @@ export function EvaluationList({
             }
             onClick={() => open()}
           >
-            <Play className="mr-2 size-3.5" />
+            <Play />
             Run evaluations
           </Button>
         </>

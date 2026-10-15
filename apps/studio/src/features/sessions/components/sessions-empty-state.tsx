@@ -20,7 +20,12 @@ export function SessionsEmptyState({
           : "Sessions will appear here once Kortyx records activity."}
       </p>
       {hasFilters && (
-        <Button variant="outline" size="sm" className="mt-4" onClick={onClear}>
+        <Button
+          variant="secondary"
+          size="sm"
+          className="mt-4"
+          onClick={onClear}
+        >
           Clear filters
         </Button>
       )}

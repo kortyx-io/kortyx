@@ -1,4 +1,5 @@
 import { Clipboard } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 type CopyableCellProps = {
@@ -22,7 +23,9 @@ export function CopyableCell({
       )}
     >
       <span className="block truncate">{value}</span>
-      <button
+      <Button
+        variant="secondary"
+        size="icon-xs"
         type="button"
         aria-label={ariaLabel}
         onClick={(event) => {
@@ -30,14 +33,14 @@ export function CopyableCell({
           onCopy(value);
         }}
         className={cn(
-          "absolute top-1/2 right-0 z-10 -translate-y-1/2 rounded p-0.5",
-          "pointer-events-none bg-background/90 opacity-0 shadow-sm backdrop-blur-sm",
-          "hover:bg-accent group-hover:pointer-events-auto group-hover:opacity-100",
+          "absolute top-1/2 right-0 z-10 -translate-y-1/2",
+          "pointer-events-none opacity-0",
+          "group-hover:pointer-events-auto group-hover:opacity-100",
           "focus:pointer-events-auto focus:opacity-100",
         )}
       >
-        <Clipboard className="size-3" />
-      </button>
+        <Clipboard />
+      </Button>
     </div>
   );
 }

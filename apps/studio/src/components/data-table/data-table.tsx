@@ -535,7 +535,7 @@ function DataTablePaginationFooter({
           </Select>
         </div>
         <Button
-          variant="outline"
+          variant="secondary"
           size="sm"
           aria-label="Previous page"
           disabled={!hasPrevious}
@@ -550,7 +550,7 @@ function DataTablePaginationFooter({
           {currentPage}/{totalPages}
         </span>
         <Button
-          variant="outline"
+          variant="secondary"
           size="sm"
           aria-label="Next page"
           disabled={!hasNext}

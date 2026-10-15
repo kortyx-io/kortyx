@@ -39,7 +39,7 @@ export function ListToolbar({
             />
           )}
           <Button
-            variant="outline"
+            variant="secondary"
             size="icon-sm"
             aria-label={`Refresh ${title.toLowerCase()}`}
             onClick={onRefresh}

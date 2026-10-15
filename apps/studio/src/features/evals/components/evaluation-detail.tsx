@@ -111,9 +111,9 @@ export function EvaluationDetail({
       defaultWidth: 300,
       render: (suite) => (
         <Button
-          variant="ghost"
-          size="xs"
-          className="max-w-full justify-start px-0"
+          variant="link"
+          size="inline"
+          className="max-w-full justify-start"
           onClick={() => navigate(evalRunHref(suite.id))}
         >
           <span className="truncate">{suite.suiteName ?? suite.suiteId}</span>
@@ -269,7 +269,7 @@ export function EvaluationDetail({
                   />
                   {canRun && isActive(run.status) ? (
                     <Button
-                      variant="outline"
+                      variant="secondary"
                       size="xs"
                       disabled={cancelling || Boolean(run.cancelRequestedAt)}
                       onClick={() => void cancel()}

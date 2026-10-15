@@ -65,9 +65,9 @@ export function EvalRunDetail({
       render: (item) => (
         <div className="min-w-0">
           <Button
-            variant="ghost"
-            size="xs"
-            className="max-w-full justify-start px-0 hover:bg-transparent"
+            variant="link"
+            size="inline"
+            className="max-w-full justify-start"
             onClick={() => onCaseChange(item.key)}
           >
             <span className="truncate">{item.name}</span>
@@ -199,7 +199,7 @@ export function EvalRunDetail({
             {liveControl}
             <EvalStatus status={run.status} />
             <Button
-              variant="outline"
+              variant="secondary"
               size="xs"
               onClick={onCompare}
               disabled={!canCompare || isActive(run.status)}
@@ -209,7 +209,7 @@ export function EvalRunDetail({
             </Button>
             {isActive(run.status) && canRun ? (
               <Button
-                variant="outline"
+                variant="secondary"
                 size="xs"
                 onClick={onCancel}
                 disabled={cancelling || Boolean(run.cancelRequestedAt)}

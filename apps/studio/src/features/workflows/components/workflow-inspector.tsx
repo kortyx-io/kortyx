@@ -392,13 +392,14 @@ function MetricList({ items }: { items: [string, React.ReactNode][] }) {
               {description ? (
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <button
+                    <Button
                       type="button"
+                      variant="ghost"
+                      size="icon-xs"
                       aria-label={`Explain ${label}`}
-                      className="shrink-0 rounded-sm outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50"
                     >
-                      <CircleHelp className="size-3" />
-                    </button>
+                      <CircleHelp />
+                    </Button>
                   </TooltipTrigger>
                   <TooltipContent className="max-w-72">
                     {description}

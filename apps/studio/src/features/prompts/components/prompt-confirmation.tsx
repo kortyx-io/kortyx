@@ -32,7 +32,7 @@ export function PromptConfirmation({
       actions={
         <Button
           size="sm"
-          variant={destructive ? "destructive" : "default"}
+          variant={destructive ? "destructive" : "primary"}
           disabled={busy}
           onClick={onConfirm}
         >

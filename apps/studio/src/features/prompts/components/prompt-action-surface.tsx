@@ -92,7 +92,7 @@ export function PromptActionSurface({
             ref={cancel}
             data-action-cancel
             size="sm"
-            variant="outline"
+            variant="secondary"
             disabled={busy}
             onClick={props.onClose}
           >

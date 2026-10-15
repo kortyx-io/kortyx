@@ -149,7 +149,10 @@ export function EvalRunPageClient({
                   ? "Loading eval run…"
                   : "This eval run could not be loaded."}
               </output>
-              <Button variant="outline" onClick={() => navigate("/evals/runs")}>
+              <Button
+                variant="secondary"
+                onClick={() => navigate("/evals/runs")}
+              >
                 Run history
               </Button>
             </div>

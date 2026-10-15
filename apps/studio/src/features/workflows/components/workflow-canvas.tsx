@@ -436,11 +436,10 @@ function CanvasControl({
     <Tooltip>
       <TooltipTrigger asChild>
         <Button
-          variant="outline"
+          variant="secondary"
           size="icon-sm"
           aria-label={label}
           onClick={onClick}
-          className="bg-background"
         >
           {children}
         </Button>

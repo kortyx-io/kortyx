@@ -70,11 +70,7 @@ export function PromptDetailHeader({
             canExpand ? navigation.expand : (navigation?.close ?? onBack)
           }
         >
-          {canExpand ? (
-            <Maximize2 className="size-4" />
-          ) : (
-            <ArrowLeft className="size-4" />
-          )}
+          {canExpand ? <Maximize2 /> : <ArrowLeft />}
         </Button>
         <div className="min-w-0 flex-1">
           <h1 className="truncate text-sm font-semibold" title={title}>
@@ -109,7 +105,7 @@ export function PromptDetailHeader({
             aria-label="Close detail"
             onClick={navigation.close}
           >
-            <X className="size-4" />
+            <X />
           </Button>
         )}
       </header>

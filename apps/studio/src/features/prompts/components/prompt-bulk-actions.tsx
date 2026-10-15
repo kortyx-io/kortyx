@@ -112,7 +112,7 @@ export function PromptBulkActions({
     <>
       <DropdownMenu modal={false}>
         <DropdownMenuTrigger asChild>
-          <Button size="sm" variant="outline">
+          <Button size="sm" variant="secondary">
             {selected.length} selected · Actions
           </Button>
         </DropdownMenuTrigger>
@@ -206,7 +206,7 @@ export function PromptBulkActions({
         actions={
           <Button
             size="sm"
-            variant={action === "archive" ? "destructive" : "default"}
+            variant={action === "archive" ? "destructive" : "primary"}
             disabled={
               working ||
               (action === "group" &&

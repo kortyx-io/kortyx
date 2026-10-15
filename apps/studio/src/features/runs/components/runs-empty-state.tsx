@@ -9,7 +9,7 @@ export function RunsEmptyState({ onClear }: { onClear: () => void }) {
       <p className="mt-1 max-w-sm text-sm text-muted-foreground">
         Try changing your search or remove one of the active filters.
       </p>
-      <Button variant="outline" size="sm" className="mt-4" onClick={onClear}>
+      <Button variant="secondary" size="sm" className="mt-4" onClick={onClear}>
         Clear filters
       </Button>
     </div>

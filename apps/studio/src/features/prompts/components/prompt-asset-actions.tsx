@@ -49,7 +49,7 @@ export function PromptAssetMenu({
     <DropdownMenu modal={false}>
       <DropdownMenuTrigger asChild>
         <Button size="icon-sm" variant="ghost" aria-label={label}>
-          <MoreHorizontal className="size-4" />
+          <MoreHorizontal />
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent
@@ -179,7 +179,7 @@ function PromptAssetActionContent({
         action !== "code" && (
           <Button
             size="sm"
-            variant={action === "archive" ? "destructive" : "default"}
+            variant={action === "archive" ? "destructive" : "primary"}
             disabled={
               working ||
               !library.permissions.edit ||
@@ -248,7 +248,7 @@ function PromptAssetActionContent({
             )}
             <Button
               size="sm"
-              variant="outline"
+              variant="secondary"
               disabled={!code}
               onClick={async () => {
                 try {

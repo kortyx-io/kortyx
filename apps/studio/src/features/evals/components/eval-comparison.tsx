@@ -78,12 +78,7 @@ export function EvalComparison({
       label: "Conversation",
       defaultWidth: 320,
       render: (r) => (
-        <Button
-          variant="ghost"
-          size="xs"
-          className="max-w-full px-0 hover:bg-transparent"
-          asChild
-        >
+        <Button variant="link" size="inline" className="max-w-full" asChild>
           <DetailLink href={caseHref(r.id)}>
             <span className="truncate">{r.name}</span>
           </DetailLink>

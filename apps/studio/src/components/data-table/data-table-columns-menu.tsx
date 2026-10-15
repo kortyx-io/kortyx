@@ -66,7 +66,7 @@ export function DataTableColumnsMenu({
         <TooltipTrigger asChild>
           <DropdownMenuTrigger asChild>
             <Button
-              variant="outline"
+              variant="secondary"
               size="icon-sm"
               aria-label={label}
               className="relative"
