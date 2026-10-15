@@ -220,9 +220,11 @@ test("listed ranges preserve zero, validate bounds, and clear missing-value filt
     .fill("cost");
   await page.getByLabel("Cost minimum", { exact: true }).fill("1");
   await page.getByLabel("Cost maximum", { exact: true }).fill("0");
-  await expect(page.getByRole("alert")).toContainText(
-    "minimum must not exceed maximum",
-  );
+  await expect(
+    page
+      .getByRole("complementary", { name: "Filters", exact: true })
+      .getByRole("alert"),
+  ).toContainText("minimum must not exceed maximum");
   await page.getByLabel("Cost minimum", { exact: true }).fill("0");
   await expect
     .poll(() => new URL(page.url()).searchParams.get("tableFilters"))
