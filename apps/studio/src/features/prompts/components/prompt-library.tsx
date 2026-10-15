@@ -539,7 +539,7 @@ export function PromptLibraryView({
         <Collapsible.Root
           open={categoriesOpen}
           onOpenChange={setCategoriesOpen}
-          className="w-11 shrink-0 border-r px-1.5 py-3 xl:hidden"
+          className="flex w-11 shrink-0 flex-col items-center border-r py-2 xl:hidden"
           onKeyDown={(event) => {
             if (
               event.key === "Escape" &&
@@ -555,7 +555,7 @@ export function PromptLibraryView({
           <Collapsible.Trigger asChild>
             <Button
               ref={categoryTrigger}
-              size="icon"
+              size="icon-sm"
               variant="ghost"
               className="relative z-30"
               aria-label={
