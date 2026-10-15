@@ -522,9 +522,22 @@ export function PromptLibraryView({
           </Button>
         </div>
       )}
-      <div
+      <Collapsible.Root
+        open={categoriesOpen}
+        onOpenChange={setCategoriesOpen}
         className="relative isolate flex min-h-0 flex-1 overflow-hidden"
         data-prompt-library-body
+        onKeyDown={(event) => {
+          if (
+            event.key === "Escape" &&
+            categoriesOpen &&
+            event.currentTarget.contains(event.target as Node)
+          ) {
+            event.preventDefault();
+            event.stopPropagation();
+            closeCategories();
+          }
+        }}
       >
         {categoriesOpen && (
           <button
@@ -535,52 +548,22 @@ export function PromptLibraryView({
             onClick={closeCategories}
           />
         )}
-        <Collapsible.Root
-          open={categoriesOpen}
-          onOpenChange={setCategoriesOpen}
-          className="flex w-11 shrink-0 flex-col items-center border-r py-2 xl:hidden"
-          onKeyDown={(event) => {
-            if (
-              event.key === "Escape" &&
-              categoriesOpen &&
-              event.currentTarget.contains(event.target as Node)
-            ) {
-              event.preventDefault();
-              event.stopPropagation();
-              closeCategories();
-            }
-          }}
+        <Collapsible.Content
+          role="navigation"
+          aria-label="Prompt categories"
+          className="absolute inset-y-0 left-0 z-20 w-64 max-w-[calc(100%-3rem)] overflow-hidden border-r bg-background shadow-lg data-[state=open]:animate-in data-[state=open]:slide-in-from-left-full data-[state=open]:duration-200 data-[state=open]:ease-out data-[state=closed]:animate-out data-[state=closed]:slide-out-to-left-full data-[state=closed]:duration-200 data-[state=closed]:ease-in motion-reduce:animate-none! xl:hidden"
         >
-          <Collapsible.Trigger asChild>
-            <Button
-              ref={categoryTrigger}
-              size="icon-sm"
-              variant="ghost"
-              className="relative z-30"
-              aria-label={
-                categoriesOpen ? "Collapse categories" : "Open categories"
-              }
-              title={categoriesOpen ? "Collapse categories" : "Categories"}
-            >
-              <PanelLeft className="size-4" />
-            </Button>
-          </Collapsible.Trigger>
-          <Collapsible.Content
-            role="navigation"
-            aria-label="Prompt categories"
-            className="absolute inset-y-0 left-0 z-20 w-64 max-w-[calc(100%-3rem)] overflow-hidden border-r bg-background shadow-lg data-[state=open]:animate-in data-[state=open]:slide-in-from-left-full data-[state=open]:duration-200 data-[state=open]:ease-out data-[state=closed]:animate-out data-[state=closed]:slide-out-to-left-full data-[state=closed]:duration-200 data-[state=closed]:ease-in motion-reduce:animate-none!"
+          <ScrollArea
+            type="auto"
+            className="h-full"
+            viewportClassName="overscroll-contain"
           >
-            <ScrollArea
-              type="auto"
-              className="h-full"
-              viewportClassName="overscroll-contain"
-            >
-              <div className="p-3 [&>div:first-child]:pl-8">
-                {categoryNavigation}
-              </div>
-            </ScrollArea>
-          </Collapsible.Content>
-        </Collapsible.Root>
+            <div className="p-3 [&>div:first-child]:pl-8">
+              {categoryNavigation}
+            </div>
+          </ScrollArea>
+        </Collapsible.Content>
+
         <aside className="hidden min-h-0 w-56 shrink-0 overflow-hidden border-r xl:block">
           <ScrollArea
             type="auto"
@@ -605,6 +588,25 @@ export function PromptLibraryView({
                 }}
                 toolbarStart={
                   <>
+                    <Collapsible.Trigger asChild>
+                      <Button
+                        ref={categoryTrigger}
+                        size="icon-sm"
+                        variant="ghost"
+                        className="relative z-30 xl:hidden"
+                        aria-label={
+                          categoriesOpen
+                            ? "Collapse categories"
+                            : "Open categories"
+                        }
+                        title={
+                          categoriesOpen ? "Collapse categories" : "Categories"
+                        }
+                      >
+                        <PanelLeft className="size-4" />
+                      </Button>
+                    </Collapsible.Trigger>
+
                     <label className="flex cursor-pointer items-center gap-2 whitespace-nowrap text-xs text-muted-foreground">
                       <input
                         type="checkbox"
@@ -703,7 +705,7 @@ export function PromptLibraryView({
             </DataTableProvider>
           </div>
         </section>
-      </div>
+      </Collapsible.Root>
       {library && actionAsset && query.assetAction && (
         <PromptAssetActionDialog
           key={`${actionAsset.id}-${query.assetAction}`}

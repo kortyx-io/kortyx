@@ -1103,6 +1103,60 @@ test.describe("Prompt detail drawers", () => {
     ).toHaveCount(0);
   });
 
+  test("uses a flat test group list in drawers, expanded views and direct routes", async ({
+    page,
+  }) => {
+    await page.goto("/prompts");
+    await page.getByRole("link", { name: /^Test groups/ }).click();
+    const groups = page.locator('[data-detail-drawer="/prompts/groups"]');
+    await expect(groups).toHaveAttribute("data-state", "open");
+    const assertFlat = async (surface: Locator) => {
+      await expect(
+        surface.getByRole("heading", { name: "Test groups", exact: true }),
+      ).toHaveCount(1);
+      await expect(
+        surface.getByRole("searchbox", { name: "Search test groups" }),
+      ).toBeVisible();
+      const list = surface.locator("[data-table-ready]");
+      const inset = await surface.evaluate((element) => {
+        const frame = element
+          .querySelector("[data-table-ready]")!
+          .getBoundingClientRect();
+        const bounds = element.getBoundingClientRect();
+        return {
+          left: Math.abs(frame.x - bounds.x),
+          width: Math.abs(frame.width - bounds.width),
+        };
+      });
+      expect(inset.left).toBeLessThanOrEqual(1);
+      expect(inset.width).toBeLessThanOrEqual(2);
+      await expect(list).toHaveCSS("border-top-width", "0px");
+      await expect(list).toHaveCSS("border-radius", "0px");
+      await expect(
+        surface.getByRole("button", { name: "Next page", exact: true }),
+      ).toBeVisible();
+    };
+    await assertFlat(groups);
+    const compactTitleSize = await groups
+      .getByRole("heading", { name: "Test groups", exact: true })
+      .evaluate((element) =>
+        Number.parseFloat(getComputedStyle(element).fontSize),
+      );
+    await groups
+      .getByRole("button", { name: "Expand detail", exact: true })
+      .click();
+    await expect(groups).toHaveAttribute("data-detail-expanded", "true");
+    const expandedTitleSize = await groups
+      .getByRole("heading", { name: "Test groups", exact: true })
+      .evaluate((element) =>
+        Number.parseFloat(getComputedStyle(element).fontSize),
+      );
+    expect(expandedTitleSize).toBeGreaterThan(compactTitleSize);
+    await assertFlat(groups);
+    await page.goto("/prompts/groups");
+    await assertFlat(page.locator("main").last().locator(":scope > div"));
+  });
+
   test("saves groups without refreshing their drawer or the parent library", async ({
     page,
   }) => {
@@ -1424,6 +1478,28 @@ test.describe("Prompt detail drawers", () => {
         name: "Open categories",
         exact: true,
       });
+      const bodyBefore = await page
+        .locator("[data-prompt-library-body]")
+        .boundingBox();
+      const headerBefore = await page
+        .getByRole("columnheader")
+        .first()
+        .boundingBox();
+      expect(headerBefore!.x).toBe(bodyBefore!.x);
+      const toolbar = page.locator('[data-table-controls="prompts"]');
+      await expect(
+        toolbar.getByRole("button", { name: "Open categories", exact: true }),
+      ).toBeVisible();
+      const triggerBounds = await trigger.boundingBox();
+      const selectionBounds = await toolbar
+        .getByRole("checkbox", { name: "Select visible prompts" })
+        .boundingBox();
+      expect(triggerBounds!.x + triggerBounds!.width).toBeLessThan(
+        selectionBounds!.x,
+      );
+      expect(triggerBounds!.y + triggerBounds!.height / 2).toBe(
+        selectionBounds!.y + selectionBounds!.height / 2,
+      );
       await trigger.click();
       const categories = page.getByRole("navigation", {
         name: "Prompt categories",

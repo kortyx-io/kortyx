@@ -7,17 +7,21 @@ import {
   type PromptLibrary,
   PromptLibrarySchema,
 } from "@kortyx/telemetry-contracts";
-import { MoreHorizontal, Play, Plus, Trash2 } from "lucide-react";
+import { Maximize2, MoreHorizontal, Play, Plus, Trash2, X } from "lucide-react";
 import { parseAsString, parseAsStringLiteral } from "nuqs";
-import { useEffect, useState } from "react";
+import { type ReactNode, useEffect, useState } from "react";
 import {
   DataTable,
   type DataTableColumn,
   DataTableProvider,
 } from "@/components/data-table";
 import { columnFilter } from "@/components/data-table/filter-fields";
+import { TablePageHeader } from "@/components/data-table/table-page-header";
 import { valueColumn } from "@/components/data-table/value-column";
-import { DetailDrawer } from "@/components/detail/detail-drawer";
+import {
+  DetailDrawer,
+  useDetailDrawer,
+} from "@/components/detail/detail-drawer";
 import { DetailInspectorDrawer } from "@/components/detail/detail-inspector";
 import { DetailLink } from "@/components/detail/detail-link";
 import { DetailPage } from "@/components/detail/detail-page";
@@ -223,21 +227,14 @@ export function PromptGroupsView({
   );
   const content = (
     <div className="flex h-full min-h-0 flex-col">
-      <header className="flex flex-wrap items-center justify-between gap-3 border-b p-5">
-        <div className="min-w-0">
-          <h1
-            hidden={drawer}
-            className="truncate text-sm font-semibold"
-            title={group?.name}
-          >
-            {group?.name ?? "Test groups"}
-          </h1>
-          <p className="mt-1 text-xs text-muted-foreground">
-            {group
-              ? `${group.members.length} exact prompt versions`
-              : "Named selections of prompt versions for an eval launch."}
-          </p>
-        </div>
+      <PromptGroupHeader
+        title={group?.name ?? "Test groups"}
+        description={
+          group
+            ? `${group.members.length} exact prompt versions`
+            : "Named selections of prompt versions for an eval launch."
+        }
+      >
         {group ? (
           <div className="flex items-center gap-2">
             <Button
@@ -263,7 +260,7 @@ export function PromptGroupsView({
             New group
           </Button>
         )}
-      </header>
+      </PromptGroupHeader>
       {(error || readError) && (
         <p
           role="alert"
@@ -273,7 +270,13 @@ export function PromptGroupsView({
         </p>
       )}
       <PromptWorkspace>
-        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-5 [scrollbar-width:thin]">
+        <div
+          className={
+            group
+              ? "min-h-0 flex-1 overflow-y-auto overscroll-contain p-5 [scrollbar-width:thin]"
+              : "min-h-0 flex-1 overflow-hidden"
+          }
+        >
           {group ? (
             <div className="space-y-3">
               {group.members.map((member) => {
@@ -411,9 +414,13 @@ export function PromptGroupsView({
             >
               <DataTable
                 tableId="prompt-groups"
+                search={{
+                  label: "Search test groups",
+                  placeholder: "Search groups…",
+                }}
                 data={library.groups}
                 getRowKey={(group) => group.id}
-                className="min-h-72"
+                className="rounded-none border-0 shadow-none"
                 emptyState={
                   <p className="p-10 text-center text-xs text-muted-foreground">
                     No test groups match these filters.
@@ -627,6 +634,7 @@ export function PromptGroupsView({
   );
   return drawer ? (
     <DetailDrawer
+      customHeader
       matchPath={path}
       dismissPath={groupId ? "/prompts/groups" : "/prompts"}
       title={group?.name ?? "Test groups"}
@@ -636,10 +644,66 @@ export function PromptGroupsView({
     </DetailDrawer>
   ) : (
     <DetailPage
+      customHeader
       title={group?.name ?? "Test groups"}
       description="Candidate versions for testing"
     >
       {content}
     </DetailPage>
+  );
+}
+
+/** Keep drawer chrome compact; expanded and direct routes use the list header. */
+function PromptGroupHeader({
+  title,
+  description,
+  children,
+}: {
+  title: string;
+  description: string;
+  children: ReactNode;
+}) {
+  const { navigation } = useDetailDrawer();
+  if (navigation && !navigation.expanded) {
+    return (
+      <header className="flex h-14 shrink-0 items-center gap-3 border-b px-4">
+        {navigation.canExpand && (
+          <Button
+            size="icon-sm"
+            variant="ghost"
+            aria-label="Expand detail"
+            onClick={navigation.expand}
+          >
+            <Maximize2 />
+          </Button>
+        )}
+        <div className="min-w-0 flex-1">
+          <h1 className="truncate text-sm font-semibold" title={title}>
+            {title}
+          </h1>
+          <p className="truncate text-xs text-muted-foreground">
+            Candidate versions for testing
+          </p>
+        </div>
+        <div className="flex shrink-0 items-center gap-2">{children}</div>
+        {navigation.isTop && (
+          <Button
+            size="icon-sm"
+            variant="ghost"
+            aria-label="Close detail"
+            onClick={navigation.close}
+          >
+            <X />
+          </Button>
+        )}
+      </header>
+    );
+  }
+  return (
+    <TablePageHeader
+      title={title}
+      description={description}
+      actions={children}
+    />
   );
 }

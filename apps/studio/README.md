@@ -342,6 +342,10 @@ Top-level Runs, Sessions, Interrupts, Prompts and Evals lists share
 followed by the standard table toolbar. Evals Runs/Suites navigation is a compact
 segmented link group after the workspace breadcrumbs, including on detail routes;
 it preserves project routing and the selected environment without a separate tab row.
+The compact Prompts Categories button sits before Select all in the table toolbar;
+there is no empty rail beside the grid. Test groups use a flat, edge-to-edge table
+with a compact drawer header and the shared list header in expanded and direct routes.
+The drawer header contains the page action beside its expand/close controls.
 
 Row hover belongs to `DataTable`, including non-clickable rows. Every cell uses
 the same opaque row background so left/right pinned columns stay synchronized

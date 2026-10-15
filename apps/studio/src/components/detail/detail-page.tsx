@@ -6,23 +6,27 @@ export function DetailPage({
   title,
   description,
   children,
+  customHeader = false,
 }: {
   title: string;
   description: string;
   children: ReactNode;
+  customHeader?: boolean;
 }) {
   return (
     <div className="flex h-full min-h-0 w-full flex-col overflow-hidden rounded-xl border bg-background shadow-sm">
-      <header className="sr-only">
-        <div className="min-w-0 flex-1">
-          <h1 aria-label={title} className="min-w-0 text-sm font-semibold">
-            <OverflowText ariaLabel={title}>{title}</OverflowText>
-          </h1>
-          <p className="min-w-0 text-xs text-muted-foreground">
-            <OverflowText ariaLabel={description}>{description}</OverflowText>
-          </p>
-        </div>
-      </header>
+      {!customHeader && (
+        <header className="sr-only">
+          <div className="min-w-0 flex-1">
+            <h1 aria-label={title} className="min-w-0 text-sm font-semibold">
+              <OverflowText ariaLabel={title}>{title}</OverflowText>
+            </h1>
+            <p className="min-w-0 text-xs text-muted-foreground">
+              <OverflowText ariaLabel={description}>{description}</OverflowText>
+            </p>
+          </div>
+        </header>
+      )}
       <DetailSurfaceProvider>
         <div className="min-h-0 flex-1 overflow-hidden">{children}</div>
       </DetailSurfaceProvider>
