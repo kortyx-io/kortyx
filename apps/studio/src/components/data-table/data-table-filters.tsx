@@ -296,7 +296,7 @@ export function DataTableFilterControls<T>({
       className={
         renderControls
           ? "flex w-full min-w-0 flex-wrap items-center gap-2"
-          : "flex min-w-0 shrink-0 flex-wrap items-center gap-2 border-b bg-background px-4 py-2"
+          : "flex min-w-0 shrink-0 flex-wrap items-center gap-2 border-b bg-background px-5 py-2 pb-3"
       }
       data-table-controls={tableId}
     >
