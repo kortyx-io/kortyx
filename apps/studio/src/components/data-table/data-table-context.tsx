@@ -36,29 +36,9 @@ import {
   type DataTableColumn,
   type DataTableLayout,
 } from "@/components/data-table/types";
+import { columnLayout } from "./column-layout";
 
 type LayoutSnapshot = Partial<DataTableLayout>;
-
-function validateOrder(
-  order: string[] | undefined,
-  defaultOrder: string[],
-): string[] | undefined {
-  if (
-    order?.length === defaultOrder.length &&
-    order.every((column) => defaultOrder.includes(column))
-  ) {
-    return order;
-  }
-  return undefined;
-}
-
-function validateHidden(
-  hidden: string[] | undefined,
-  defaultOrder: string[],
-): string[] | undefined {
-  if (hidden?.every((column) => defaultOrder.includes(column))) return hidden;
-  return undefined;
-}
 
 function validatePinned(
   pinned: Partial<Record<string, ColumnPin>> | undefined,
@@ -183,10 +163,10 @@ export function DataTableProvider<T, S extends string>({
     ...initialLayout?.widths,
   }));
   const [order, setOrder] = useState<string[]>(
-    () => validateOrder(initialLayout?.order, defaultOrder) ?? defaultOrder,
+    () => columnLayout(columns, initialLayout).order,
   );
   const [hidden, setHidden] = useState<string[]>(
-    () => validateHidden(initialLayout?.hidden, defaultOrder) ?? [],
+    () => columnLayout(columns, initialLayout).hidden,
   );
   const [pinned, setPinned] = useState<Partial<Record<string, ColumnPin>>>(
     () => validatePinned(initialLayout?.pinned, defaultOrder) ?? {},
@@ -232,10 +212,9 @@ export function DataTableProvider<T, S extends string>({
       ) as LayoutSnapshot & Record<string, number>;
       const savedWidths = saved.widths ?? saved;
       setWidths((current) => ({ ...current, ...savedWidths }));
-      const order = validateOrder(saved.order, defaultOrder);
-      if (order) setOrder(order);
-      const hidden = validateHidden(saved.hidden, defaultOrder);
-      if (hidden) setHidden(hidden);
+      const migrated = columnLayout(columns, saved);
+      setOrder(migrated.order);
+      setHidden(migrated.hidden);
       const pinned = validatePinned(saved.pinned, defaultOrder);
       if (pinned) setPinned(pinned);
     } catch {
@@ -309,14 +288,14 @@ export function DataTableProvider<T, S extends string>({
   function resetLayout() {
     setOrder(defaultOrder);
     setWidths(defaultWidths);
-    setHidden([]);
+    setHidden(columnLayout(columns).hidden);
     setPinned({});
   }
 
   function applyLayout(layout: Partial<DataTableLayout>) {
     setWidths({ ...defaultWidths, ...layout.widths });
-    setOrder(validateOrder(layout.order, defaultOrder) ?? defaultOrder);
-    setHidden(validateHidden(layout.hidden, defaultOrder) ?? []);
+    setOrder(columnLayout(columns, layout).order);
+    setHidden(columnLayout(columns, layout).hidden);
     setPinned(validatePinned(layout.pinned, defaultOrder) ?? {});
   }
 

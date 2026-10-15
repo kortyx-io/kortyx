@@ -1,4 +1,5 @@
 "use client";
+
 import { GitCompareArrows, Square } from "lucide-react";
 import type { ReactNode } from "react";
 import {
@@ -7,6 +8,7 @@ import {
   DataTableProvider,
 } from "@/components/data-table";
 import { columnFilter } from "@/components/data-table/filter-fields";
+import { valueColumn } from "@/components/data-table/value-column";
 import { DetailLink } from "@/components/detail/detail-link";
 import { KeyValue } from "@/components/detail/detail-primitives";
 import { DetailTabs } from "@/components/detail/detail-tabs";
@@ -141,6 +143,49 @@ export function EvalRunDetail({
         </span>
       ),
     },
+
+    valueColumn<CaseRow>({
+      key: "sessionId",
+      label: "Session ID",
+      read: (r) => r.sessionId,
+    }),
+    valueColumn<CaseRow>({
+      key: "failure",
+      label: "Failure summary",
+      read: (r) => [
+        ...r.errors.map((error) => error.message),
+        ...r.steps
+          .filter((step) => step.status === "failed" || step.status === "error")
+          .map((step) => step.reason ?? ""),
+      ],
+    }),
+    valueColumn<CaseRow>({
+      key: "criteriaScore",
+      label: "Criteria passed (%)",
+      kind: "number",
+      read: (r) => {
+        const criteria = r.steps.flatMap((step) => step.criteria);
+        return criteria.length
+          ? (criteria.filter((item) => item.passed).length / criteria.length) *
+              100
+          : undefined;
+      },
+      format: (v) => `${Number(v).toFixed(1)}%`,
+    }),
+    valueColumn<CaseRow>({
+      key: "executionMs",
+      label: "Execution time (ms)",
+      kind: "number",
+      read: (r) => r.phaseDurationsMs?.execute,
+      format: (v) => formatDurationMs(Number(v)),
+    }),
+    valueColumn<CaseRow>({
+      key: "gradingMs",
+      label: "Judging time (ms)",
+      kind: "number",
+      read: (r) => r.phaseDurationsMs?.grading,
+      format: (v) => formatDurationMs(Number(v)),
+    }),
   ];
   return (
     <div className="flex h-full min-h-0 flex-col">
@@ -224,9 +269,9 @@ export function EvalRunDetail({
                     data={rows}
                     getRowKey={(r) => r.key}
                     onRowClick={(r) => onCaseChange(r.key)}
-                    rowClassName={(r) =>
+                    rowTone={(r) =>
                       r.status === "failed" || r.status === "error"
-                        ? "bg-red-500/[0.025]"
+                        ? "danger"
                         : undefined
                     }
                     className="rounded-none border-0 shadow-none"

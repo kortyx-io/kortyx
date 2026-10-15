@@ -1,4 +1,5 @@
 "use client";
+
 import {
   type PromptDetail,
   PromptDetailSchema,
@@ -15,6 +16,7 @@ import {
   DataTableProvider,
 } from "@/components/data-table";
 import { columnFilter } from "@/components/data-table/filter-fields";
+import { valueColumn } from "@/components/data-table/value-column";
 import { DetailDrawer } from "@/components/detail/detail-drawer";
 import { DetailInspectorDrawer } from "@/components/detail/detail-inspector";
 import { DetailLink } from "@/components/detail/detail-link";
@@ -32,6 +34,7 @@ import { EvalDropdown } from "@/features/evals/components/eval-dropdown";
 import { EvalRunSetup } from "@/features/evals/components/eval-run-setup";
 import { useEvalSetup } from "@/features/evals/hooks/use-eval-setup";
 import type { EvalTargets } from "@/features/evals/schema";
+import { formatDateTime } from "@/lib/format";
 import { useStudioQueryStates } from "@/lib/nuqs";
 import { useRouter } from "@/lib/scoped-navigation";
 import { promptRequest } from "../api/client";
@@ -372,6 +375,30 @@ export function PromptGroupsView({
                       <span className="text-xs">{group.members.length}</span>
                     ),
                   },
+
+                  valueColumn<PromptGroup>({
+                    key: "updatedAt",
+                    label: "Updated",
+                    kind: "date",
+                    read: (g) => g.updatedAt,
+                    format: (v) => formatDateTime(String(v)),
+                  }),
+                  valueColumn<PromptGroup>({
+                    key: "memberNames",
+                    label: "Included prompts",
+                    read: (g) =>
+                      g.members.map((m) => m.name ?? m.key ?? m.promptId),
+                    width: 260,
+                  }),
+                  valueColumn<PromptGroup>({
+                    key: "memberVersions",
+                    label: "Selected versions",
+                    read: (g) =>
+                      g.members.map(
+                        (m) => `${m.key ?? m.name ?? m.promptId}@v${m.version}`,
+                      ),
+                    width: 260,
+                  }),
                   {
                     key: "actions",
                     label: "Actions",

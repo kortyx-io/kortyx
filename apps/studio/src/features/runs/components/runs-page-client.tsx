@@ -156,9 +156,7 @@ export default function RunsPageClient({
           data={runsQuery.filteredRuns}
           getRowKey={(run) => run.id}
           onRowClick={openRun}
-          rowClassName={(run) =>
-            run.status === "failed" ? "bg-red-500/[0.025]" : undefined
-          }
+          rowTone={(run) => (run.status === "failed" ? "danger" : undefined)}
           sort={runsQuery.sort}
           direction={runsQuery.direction}
           onSort={runsQuery.handleSort}

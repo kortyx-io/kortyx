@@ -46,6 +46,7 @@ export const RunSchema = z.object({
   status: RunStatusSchema,
   started: z.string(),
   startedAt: z.string(),
+  endedAt: z.string().nullable().optional(),
   workflow: z.string(),
   workflowIds: z.array(z.string()).optional(),
   workflowRefs: z

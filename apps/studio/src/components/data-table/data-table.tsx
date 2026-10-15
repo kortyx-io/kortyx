@@ -49,6 +49,7 @@ type DataTableProps<T, S extends string> = {
   getRowKey: (item: T) => string;
   onRowClick?: (item: T, event: React.MouseEvent<HTMLTableRowElement>) => void;
   rowClassName?: (item: T) => string | undefined;
+  rowTone?: (item: T) => "danger" | undefined;
   sort?: S;
   direction?: "asc" | "desc";
   onSort?: (key: S) => void;
@@ -79,6 +80,7 @@ export function DataTable<T, S extends string>({
   getRowKey,
   onRowClick,
   rowClassName,
+  rowTone,
   sort,
   direction,
   onSort,
@@ -318,14 +320,23 @@ export function DataTable<T, S extends string>({
                     <tr
                       key={getRowKey(item)}
                       data-row-key={getRowKey(item)}
+                      data-row-tone={rowTone?.(item)}
+                      style={
+                        {
+                          "--table-row-base":
+                            rowTone?.(item) === "danger"
+                              ? "color-mix(in oklab, var(--destructive) 2.5%, var(--background))"
+                              : "var(--background)",
+                        } as React.CSSProperties
+                      }
                       onClick={
                         onRowClick
                           ? (event) => handleRowClick(item, event)
                           : undefined
                       }
                       className={cn(
-                        "group border-b transition-colors",
-                        onRowClick && "cursor-pointer hover:bg-muted/55",
+                        "group border-b [--table-row-bg:var(--table-row-base)] hover:[--table-row-bg:color-mix(in_oklab,var(--muted)_55%,var(--table-row-base))]",
+                        onRowClick && "cursor-pointer",
                         rowClassName?.(item),
                       )}
                     >
@@ -341,11 +352,12 @@ export function DataTable<T, S extends string>({
                             className={cn(
                               CELL_BASE,
                               definition.cellClassName,
-                              pin &&
-                                "sticky z-10 bg-background group-hover:bg-accent",
+                              "transition-colors",
+                              pin && "sticky z-10",
                               motion && !pin && "relative z-10",
                             )}
                             style={{
+                              backgroundColor: "var(--table-row-bg)",
                               ...motion?.style,
                               ...getPinnedColumnStyle(column),
                             }}

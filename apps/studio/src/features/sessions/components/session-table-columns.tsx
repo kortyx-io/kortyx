@@ -22,7 +22,10 @@ import {
 } from "@/features/telemetry/components/compact-status";
 import { CopyableCell } from "@/features/telemetry/components/copyable-cell";
 import { TruncatedText } from "@/features/telemetry/components/truncated-text";
-import { studioColumnFilters } from "@/features/telemetry/lib/column-filters";
+import {
+  studioColumnFilters,
+  studioValueColumn,
+} from "@/features/telemetry/lib/column-filters";
 import { costDisplay } from "@/lib/cost";
 import {
   formatCount,
@@ -264,5 +267,15 @@ export function createSessionColumns({
         </p>
       ),
     },
+    ...[
+      "workflowIds",
+      "activeVersion",
+      "models",
+      "providers",
+      "tags",
+      "environment",
+      "userId",
+      "tenantId",
+    ].map((key) => studioValueColumn<Session, SessionSortKey>("sessions", key)),
   ];
 }

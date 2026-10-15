@@ -25,8 +25,15 @@ import {
 } from "@/features/telemetry/components/compact-status";
 import { CopyableCell } from "@/features/telemetry/components/copyable-cell";
 import { TruncatedText } from "@/features/telemetry/components/truncated-text";
-import { studioColumnFilters } from "@/features/telemetry/lib/column-filters";
-import { formatDateTime, formatRelativeTime } from "@/lib/format";
+import {
+  studioColumnFilters,
+  studioValueColumn,
+} from "@/features/telemetry/lib/column-filters";
+import {
+  formatDateTime,
+  formatDurationSeconds,
+  formatRelativeTime,
+} from "@/lib/format";
 import { studioDetailHref } from "@/lib/studio-routes";
 import { cn } from "@/lib/utils";
 
@@ -276,5 +283,24 @@ export function createInterruptColumns({
         </DetailLink>
       ),
     },
+    studioValueColumn<Interrupt, InterruptSortKey>(
+      "interrupts",
+      "expiresAt",
+      (v) => formatDateTime(String(v)),
+    ),
+    studioValueColumn<Interrupt, InterruptSortKey>(
+      "interrupts",
+      "resolvedAt",
+      (v) => formatDateTime(String(v)),
+    ),
+    studioValueColumn<Interrupt, InterruptSortKey>("interrupts", "resolvedBy"),
+    studioValueColumn<Interrupt, InterruptSortKey>(
+      "interrupts",
+      "resolutionMs",
+      (v) => formatDurationSeconds(Number(v) / 1000),
+    ),
+    ...["environment", "userId", "tenantId"].map((key) =>
+      studioValueColumn<Interrupt, InterruptSortKey>("interrupts", key),
+    ),
   ];
 }

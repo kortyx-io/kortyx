@@ -6,6 +6,8 @@ import {
   type TableFilterDefinition,
   type TableFilters,
   TableFiltersSchema,
+  tablePassRate,
+  tableQueueMs,
   validateTableFilters,
 } from "../src/table-filters";
 
@@ -213,4 +215,13 @@ describe("table filter semantics", () => {
       ).rules.map((r) => r.field),
     ).toEqual(expect.arrayContaining(["hasError", "hasFork"]));
   });
+});
+
+it("keeps ungraded/cancelled work out of pass rates and missing starts out of queue durations", () => {
+  expect(tablePassRate({ passed: 3, failed: 1, error: 2 })).toBe(50);
+  expect(tablePassRate({ passed: 0, failed: 0, error: 0 })).toBeUndefined();
+  expect(tableQueueMs("2026-10-15T12:00:00Z", "2026-10-15T12:00:05Z")).toBe(
+    5000,
+  );
+  expect(tableQueueMs("2026-10-15T12:00:00Z", null)).toBeUndefined();
 });

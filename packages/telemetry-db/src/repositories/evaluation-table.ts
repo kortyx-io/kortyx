@@ -4,6 +4,8 @@ import {
   matchesTableFilters,
   TableFiltersSchema,
   type TableFilterValue,
+  tablePassRate,
+  tableQueueMs,
   validateTableFilters,
 } from "@kortyx/telemetry-contracts";
 import type { TelemetryDb } from "../client";
@@ -16,6 +18,14 @@ export function evaluationFilterValue(
   key: string,
 ): TableFilterValue {
   switch (key) {
+    case "judge":
+      return run.judge?.id;
+    case "judgeVersion":
+      return run.judge?.version;
+    case "passRate":
+      return tablePassRate(run.counts);
+    case "queueMs":
+      return tableQueueMs(run.createdAt, run.startedAt);
     case "name":
       return run.name;
     case "id":
@@ -166,7 +176,7 @@ export async function listEvaluationTable(
         continue;
       if (
         query.q &&
-        !`${run.name} ${run.targetName} ${run.environment} ${run.metadata.source} ${run.metadata.commit ?? ""} ${run.id}`
+        !`${run.name} ${run.targetName} ${run.environment} ${run.metadata.source} ${run.metadata.commit ?? ""} ${run.id} ${run.judge?.id ?? ""} ${run.judge?.version ?? ""}`
           .toLowerCase()
           .includes(query.q.toLowerCase())
       )

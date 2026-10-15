@@ -13,3 +13,9 @@ Limits: 32 rules, 30 values per rule, 512 characters per string, 32 KiB serializ
 filters. Dates require ISO timestamps with an offset. Unknown fields, unsupported
 operators, malformed values and reversed ranges fail validation. Legacy Studio
 query aliases remain readable through `readStudioTableFilters`.
+
+Column registries include execution identity, environment, completion timestamps,
+prompt assignments and evaluation judge metadata. `tablePassRate` returns a
+percentage of recorded passed/failed/error cases (unrun cases are excluded), or
+no value when none finished. `tableQueueMs` returns elapsed queue milliseconds
+only when a valid start timestamp is recorded.

@@ -118,8 +118,8 @@ export default function SessionsPageClient({
               router.push(href);
             }
           }}
-          rowClassName={(session) =>
-            session.status === "failed" ? "bg-red-500/[0.025]" : undefined
+          rowTone={(session) =>
+            session.status === "failed" ? "danger" : undefined
           }
           sort={query.sort}
           direction={query.dir}

@@ -200,6 +200,10 @@ export const STUDIO_TABLE_FIELDS = {
     field("callId", "Call ID"),
     field("status", "Status", "enum"),
     field("startedAt", "Started", "date"),
+    field("endedAt", "Ended", "date"),
+    ...identity,
+    field("environment", "Environment", "enum"),
+    field("pricingStatus", "Pricing status", "enum"),
     field("feedback", "Feedback", "enum"),
     field("workflowIds", "Workflow"),
     field("versions", "Version"),
@@ -219,6 +223,7 @@ export const STUDIO_TABLE_FIELDS = {
     field("id", "Session ID"),
     field("status", "Status", "enum"),
     field("lastActivityAt", "Last activity", "date"),
+    field("environment", "Environment", "enum"),
     ...identity,
     field("workflowIds", "Workflow"),
     field("activeVersion", "Version"),
@@ -243,6 +248,9 @@ export const STUDIO_TABLE_FIELDS = {
     field("id", "Interrupt ID"),
     field("status", "Status", "enum"),
     field("createdAt", "Created", "date"),
+    field("expiresAt", "Expires", "date"),
+    field("resolvedAt", "Resolved", "date"),
+    field("environment", "Environment", "enum"),
     field("age", "Age", "number", "minutes"),
     field("resolutionMs", "Resolution time", "number", "ms"),
     field("type", "Type", "enum"),
@@ -360,12 +368,19 @@ export const PROMPT_TABLE_FILTER_FIELDS: TableFilterDefinition[] = [
   field("liveVersion", "Live version", "number"),
   field("latestVersion", "Newest version", "number"),
   field("updatedAt", "Updated", "date"),
+  field("assignedTags", "Assigned tags"),
+  field("assignedVersions", "Assigned versions"),
+  field("versionsBehindLive", "Versions behind live", "number"),
 ];
 export const EVALUATION_TABLE_FILTER_FIELDS: TableFilterDefinition[] = [
   field("name", "Evaluation run"),
   field("id", "Evaluation ID"),
   field("selection", "Suite selection", "enum"),
   field("suiteCount", "Suites", "number"),
+  field("judge", "Judge"),
+  field("judgeVersion", "Judge version"),
+  field("passRate", "Pass rate (%)", "number"),
+  field("queueMs", "Queue time (ms)", "number"),
   field("status", "Status", "enum"),
   field("completedSuites", "Completed suites", "number"),
   field("completedAttempts", "Graded attempts", "number"),
@@ -383,3 +398,19 @@ export const EVALUATION_TABLE_FILTER_FIELDS: TableFilterDefinition[] = [
   field("cost", "Cost", "number"),
   field("duration", "Duration (ms)", "number"),
 ];
+
+/** Completed attempt outcomes; cancelled and unrun attempts are excluded. */
+export function tablePassRate(
+  counts: { passed: number; failed: number; error: number } | null | undefined,
+) {
+  const total = counts ? counts.passed + counts.failed + counts.error : 0;
+  return counts && total > 0 ? (counts.passed / total) * 100 : undefined;
+}
+export function tableQueueMs(
+  createdAt: string,
+  startedAt: string | null | undefined,
+) {
+  if (!startedAt) return undefined;
+  const value = Date.parse(startedAt) - Date.parse(createdAt);
+  return Number.isFinite(value) && value >= 0 ? value : undefined;
+}

@@ -1,4 +1,5 @@
 "use client";
+
 import type { PromptContent } from "@kortyx/prompts/browser";
 import type {
   PromptCategory,
@@ -25,6 +26,7 @@ import {
   DataTableProvider,
 } from "@/components/data-table";
 import { columnFilter } from "@/components/data-table/filter-fields";
+import { valueColumn } from "@/components/data-table/value-column";
 import { DetailInspectorDrawer } from "@/components/detail/detail-inspector";
 import { DetailLink } from "@/components/detail/detail-link";
 import { usePrepareDetailNavigation } from "@/components/detail/detail-stack";
@@ -385,6 +387,26 @@ export function PromptLibraryView({
         </span>
       ),
     },
+
+    valueColumn<PromptLibrary["assets"][number]>({
+      key: "assignedTags",
+      label: "Assigned tags",
+      read: (r) => r.assignments.map((a) => a.tag),
+    }),
+    valueColumn<PromptLibrary["assets"][number]>({
+      key: "assignedVersions",
+      label: "Assigned versions",
+      read: (r) => r.assignments.map((a) => `${a.tag}@v${a.version}`),
+    }),
+    valueColumn<PromptLibrary["assets"][number]>({
+      key: "versionsBehindLive",
+      label: "Versions behind live",
+      kind: "number",
+      read: (r) => {
+        const live = r.assignments.find((a) => a.tag === "live");
+        return live ? r.latestVersion - live.version : undefined;
+      },
+    }),
     {
       key: "actions",
       filter: false,

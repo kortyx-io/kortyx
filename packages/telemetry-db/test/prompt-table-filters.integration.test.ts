@@ -82,6 +82,56 @@ describe.skipIf(!process.env.DATABASE_URL)("prompt table filtering", () => {
           categoryId: null,
         }),
       ).toEqual(["Alpha", "Beta", "Literal %_ prompt"]);
+      const alpha = (await listPrompts(client.db, scope)).assets.find(
+        (row) => row.key === "alpha",
+      );
+      if (!alpha) throw new Error("Missing prompt");
+      await mutatePrompt(client.db, scope, "test", {
+        action: "tag-set",
+        id: alpha.id,
+        tag: "candidate",
+        version: 1,
+        expectedRevision: 0,
+      });
+      expect(
+        (
+          await listPrompts(client.db, scope, {
+            tableFilters: JSON.stringify({
+              match: "all",
+              rules: [
+                {
+                  field: "assignedTags",
+                  operator: "is",
+                  values: ["candidate"],
+                },
+              ],
+            }),
+          })
+        ).assets.map((row) => row.key),
+      ).toEqual(["alpha"]);
+      expect(
+        await listPromptFilterValues(client.db, {
+          ...scope,
+          field: "assignedVersions",
+          search: "candidate",
+        }),
+      ).toEqual(["candidate@v1"]);
+      expect(
+        (
+          await listPrompts(client.db, scope, {
+            tableFilters: JSON.stringify({
+              match: "all",
+              rules: [
+                {
+                  field: "versionsBehindLive",
+                  operator: "missing",
+                  values: [],
+                },
+              ],
+            }),
+          })
+        ).totalCount,
+      ).toBe(3);
       await expect(
         listPromptFilterValues(client.db, {
           ...scope,

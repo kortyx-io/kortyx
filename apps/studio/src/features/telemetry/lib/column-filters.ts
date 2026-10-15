@@ -4,9 +4,16 @@ import {
   type TableFilterValue,
 } from "@kortyx/telemetry-contracts";
 import type { DataTableFilter } from "@/components/data-table/types";
+import { valueColumn } from "@/components/data-table/value-column";
 
 const columnFields: Record<StudioTableResource, Record<string, string[]>> = {
   runs: {
+    userId: ["userId"],
+    tenantId: ["tenantId"],
+    environment: ["environment"],
+    id: ["id"],
+    endedAt: ["endedAt"],
+    pricingStatus: ["pricingStatus"],
     parent: [
       "id",
       "execution",
@@ -30,6 +37,14 @@ const columnFields: Record<StudioTableResource, Record<string, string[]>> = {
     result: ["result"],
   },
   sessions: {
+    workflowIds: ["workflowIds"],
+    activeVersion: ["activeVersion"],
+    providers: ["providers"],
+    models: ["models"],
+    tags: ["tags"],
+    environment: ["environment"],
+    userId: ["userId"],
+    tenantId: ["tenantId"],
     status: ["status"],
     activity: ["lastActivityAt"],
     session: [
@@ -55,6 +70,13 @@ const columnFields: Record<StudioTableResource, Record<string, string[]>> = {
     result: ["latestResult", "latestError", "hasError"],
   },
   interrupts: {
+    expiresAt: ["expiresAt"],
+    resolvedAt: ["resolvedAt"],
+    resolvedBy: ["resolvedBy"],
+    resolutionMs: ["resolutionMs"],
+    environment: ["environment"],
+    userId: ["userId"],
+    tenantId: ["tenantId"],
     status: ["id", "status"],
     created: ["createdAt"],
     age: ["age", "resolutionMs"],
@@ -96,6 +118,8 @@ export function studioColumnFilters<T>(
         nodeId: "node",
         activeVersion: "version",
       };
+      if (key === "activeVersion" && Object.hasOwn(row, "activeVersion"))
+        return row.activeVersion as string | null;
       if (key === "cost") {
         const summary = row.costSummary as
           | { amounts: { amount: number }[] }
@@ -160,4 +184,22 @@ export function studioColumnFilters<T>(
         | readonly TableFilterValue[];
     },
   }));
+}
+
+export function studioValueColumn<T, S extends string = never>(
+  resource: StudioTableResource,
+  key: string,
+  format?: (value: Exclude<TableFilterValue, null | undefined>) => string,
+  visible = false,
+) {
+  const filter = studioColumnFilters<T>(resource, key)[0];
+  if (!filter) throw new Error(`Missing column filter: ${resource}.${key}`);
+  return valueColumn<T, S>({
+    key,
+    label: filter.label,
+    read: filter.read,
+    filter,
+    visible,
+    ...(format ? { format } : {}),
+  });
 }

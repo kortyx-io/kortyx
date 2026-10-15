@@ -1,4 +1,5 @@
 "use client";
+
 import { Info } from "lucide-react";
 import { parseAsBoolean, parseAsString } from "nuqs";
 import {
@@ -7,6 +8,7 @@ import {
   DataTableProvider,
 } from "@/components/data-table";
 import { columnFilter } from "@/components/data-table/filter-fields";
+import { valueColumn } from "@/components/data-table/value-column";
 import { DetailLink } from "@/components/detail/detail-link";
 import { usePrepareDetailNavigation } from "@/components/detail/detail-stack";
 import { Button } from "@/components/ui/button";
@@ -18,6 +20,7 @@ import {
 import { formatDateTime } from "@/lib/format";
 import { detailNavigationHref, useStudioQueryStates } from "@/lib/nuqs";
 import { useRouter, useSearchParams } from "@/lib/scoped-navigation";
+import { comparisonMetric } from "../lib/comparison-metrics";
 import { evalComparisonCaseHref } from "../lib/navigation";
 import {
   type ComparisonRow,
@@ -141,6 +144,41 @@ export function EvalComparison({
         </span>
       ),
     },
+
+    valueColumn<ComparisonRow>({
+      key: "passRateDelta",
+      label: "Pass-rate change (pp)",
+      kind: "number",
+      read: (r) => comparisonMetric(r, "passRate"),
+      format: (v) => `${Number(v) >= 0 ? "+" : ""}${Number(v).toFixed(1)} pp`,
+    }),
+    valueColumn<ComparisonRow>({
+      key: "durationDelta",
+      label: "Mean duration change (ms)",
+      kind: "number",
+      read: (r) => comparisonMetric(r, "duration"),
+      format: (v) => `${Number(v) >= 0 ? "+" : ""}${Number(v).toFixed(0)} ms`,
+      width: 190,
+    }),
+    valueColumn<ComparisonRow>({
+      key: "costDelta",
+      label: "Mean cost change",
+      kind: "number",
+      read: (r) => comparisonMetric(r, "cost"),
+      format: (v) => `${Number(v) >= 0 ? "+" : ""}${Number(v).toFixed(6)}`,
+    }),
+    valueColumn<ComparisonRow>({
+      key: "baselineAttempts",
+      label: "Baseline attempts",
+      kind: "number",
+      read: (r) => r.baseline.length,
+    }),
+    valueColumn<ComparisonRow>({
+      key: "candidateAttempts",
+      label: "Candidate attempts",
+      kind: "number",
+      read: (r) => r.candidate.length,
+    }),
   ];
   return (
     <div className="flex h-full min-h-0 flex-col">

@@ -35,6 +35,8 @@ export type DataTableColumn<T, S extends string = never> = {
   filter: false | DataTableFilter<T> | DataTableFilter<T>[];
   /** Stable identifier, used for layout persistence and React keys. */
   key: string;
+  /** Secondary columns remain available without widening the default table. */
+  defaultHidden?: boolean;
   /** Header text (also used for aria labels and the columns menu search). */
   label: string;
   /** Set to make the column sortable; the value is passed back to `onSort`. */

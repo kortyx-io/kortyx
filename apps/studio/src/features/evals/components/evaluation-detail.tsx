@@ -1,9 +1,11 @@
 "use client";
+
 import {
   type StudioEvalRunSummary,
   type StudioEvaluationDetail,
   StudioEvaluationDetailSchema,
 } from "@kortyx/agent/evals";
+import { tablePassRate, tableQueueMs } from "@kortyx/telemetry-contracts";
 import { parseAsBoolean } from "nuqs";
 import { useCallback, useEffect, useState } from "react";
 import {
@@ -12,12 +14,13 @@ import {
   DataTableProvider,
 } from "@/components/data-table";
 import { columnFilter } from "@/components/data-table/filter-fields";
+import { valueColumn } from "@/components/data-table/value-column";
 import { DetailPage } from "@/components/detail/detail-page";
 import { Button } from "@/components/ui/button";
 import { evalDurationMs } from "@/features/evals/lib/duration";
 import { LiveRefreshButton } from "@/features/telemetry/components/live-refresh-button";
 import { useLiveRefresh } from "@/features/telemetry/hooks/use-live-refresh";
-import { formatDateTime } from "@/lib/format";
+import { formatDateTime, formatDurationMs } from "@/lib/format";
 import { useStudioQueryStates } from "@/lib/nuqs";
 import { useRouter, useSearchParams } from "@/lib/scoped-navigation";
 import { evalRequest } from "../api/client";
@@ -208,6 +211,21 @@ export function EvaluationDetail({
         </span>
       ),
     },
+
+    valueColumn<StudioEvalRunSummary>({
+      key: "passRate",
+      label: "Pass rate (%)",
+      kind: "number",
+      read: (r) => tablePassRate(r.counts),
+      format: (v) => `${Number(v).toFixed(1)}%`,
+    }),
+    valueColumn<StudioEvalRunSummary>({
+      key: "queueMs",
+      label: "Queue time (ms)",
+      kind: "number",
+      read: (r) => tableQueueMs(r.createdAt, r.startedAt),
+      format: (v) => formatDurationMs(Number(v)),
+    }),
   ];
   return (
     <DetailPage

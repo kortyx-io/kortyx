@@ -31,6 +31,7 @@ export const SessionSchema = z.object({
   workflowIds: z.array(z.string()).optional(),
   workflowCount: z.number(),
   version: z.string(),
+  activeVersion: z.string().nullable().optional(),
   user: z.string().optional(),
   tenant: z.string().optional(),
   runs: z.number(),

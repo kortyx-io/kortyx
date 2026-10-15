@@ -17,9 +17,16 @@ import { statusMeta } from "@/features/runs/lib/constants";
 import type { Run, RunStatus, SortKey } from "@/features/runs/schema";
 import { CopyableCell } from "@/features/telemetry/components/copyable-cell";
 import { TruncatedText } from "@/features/telemetry/components/truncated-text";
-import { studioColumnFilters } from "@/features/telemetry/lib/column-filters";
+import {
+  studioColumnFilters,
+  studioValueColumn,
+} from "@/features/telemetry/lib/column-filters";
 import { costDisplay } from "@/lib/cost";
-import { formatCount, formatDurationSeconds } from "@/lib/format";
+import {
+  formatCount,
+  formatDateTime,
+  formatDurationSeconds,
+} from "@/lib/format";
 import { studioDetailHref } from "@/lib/studio-routes";
 import { cn } from "@/lib/utils";
 
@@ -245,6 +252,8 @@ export function createRunColumns({
         />
       ),
     },
+    studioValueColumn<Run, SortKey>("runs", "userId", undefined, true),
+    studioValueColumn<Run, SortKey>("runs", "tenantId", undefined, true),
     {
       key: "model",
       filter: studioColumnFilters("runs", "model"),
@@ -379,5 +388,11 @@ export function createRunColumns({
         </>
       ),
     },
+    studioValueColumn<Run, SortKey>("runs", "environment"),
+    studioValueColumn<Run, SortKey>("runs", "id"),
+    studioValueColumn<Run, SortKey>("runs", "endedAt", (v) =>
+      formatDateTime(String(v)),
+    ),
+    studioValueColumn<Run, SortKey>("runs", "pricingStatus"),
   ];
 }

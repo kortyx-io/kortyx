@@ -120,8 +120,8 @@ export default function InterruptsPageClient({
               router.push(href);
             }
           }}
-          rowClassName={(interrupt) =>
-            interrupt.status === "failed" ? "bg-red-500/[0.025]" : undefined
+          rowTone={(interrupt) =>
+            interrupt.status === "failed" ? "danger" : undefined
           }
           sort={query.sort}
           direction={query.dir}

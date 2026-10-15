@@ -12,6 +12,9 @@ export const mapStudioRun = (run: StudioRun): Run =>
   RunSchema.parse({
     filterValues: {
       durationMs: run.durationMs,
+      userId: run.userId,
+      tenantId: run.tenantId,
+      endedAt: run.endedAt,
       sessionId: run.sessionId,
       provider: run.provider,
       result: run.result,
@@ -27,6 +30,7 @@ export const mapStudioRun = (run: StudioRun): Run =>
     status: run.status,
     started: formatRelativeTime(run.startedAt),
     startedAt: run.startedAt,
+    endedAt: run.endedAt,
     workflow: run.workflowId,
     workflowIds: run.workflowIds,
     workflowRefs: run.workflowRefs.map((ref) => ({

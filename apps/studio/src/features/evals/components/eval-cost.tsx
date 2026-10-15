@@ -7,15 +7,7 @@ import {
 } from "@/components/ui/tooltip";
 import { costDisplay } from "@/lib/cost";
 
-export function evalFilterCost(costs?: EvalCosts) {
-  const total = costs?.total;
-  return (
-    total?.amount ??
-    (total?.costSummary?.amounts.length === 1
-      ? total.costSummary.amounts[0]?.amount
-      : undefined)
-  );
-}
+export { evalFilterCost } from "../lib/cost";
 
 function evalCostValue(value?: EvalCostAmount) {
   return {

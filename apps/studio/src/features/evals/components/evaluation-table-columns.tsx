@@ -1,9 +1,11 @@
 import type { StudioEvaluationSummary } from "@kortyx/agent/evals";
+import { tablePassRate, tableQueueMs } from "@kortyx/telemetry-contracts";
 import type { DataTableColumn } from "@/components/data-table";
 import { columnFilter } from "@/components/data-table/filter-fields";
+import { valueColumn } from "@/components/data-table/value-column";
 import { Button } from "@/components/ui/button";
 import { evalDurationMs } from "@/features/evals/lib/duration";
-import { formatDateTime } from "@/lib/format";
+import { formatDateTime, formatDurationMs } from "@/lib/format";
 import { EvalCost, evalFilterCost } from "./eval-cost";
 import { EvalDuration } from "./eval-duration";
 import { EvalStatus } from "./eval-status";
@@ -194,5 +196,30 @@ export function createEvaluationColumns(
         </span>
       ),
     },
+
+    valueColumn<StudioEvaluationSummary, EvaluationSort>({
+      key: "judge",
+      label: "Judge",
+      read: (r) => r.judge?.id,
+    }),
+    valueColumn<StudioEvaluationSummary, EvaluationSort>({
+      key: "judgeVersion",
+      label: "Judge version",
+      read: (r) => r.judge?.version,
+    }),
+    valueColumn<StudioEvaluationSummary, EvaluationSort>({
+      key: "passRate",
+      label: "Pass rate (%)",
+      kind: "number",
+      read: (r) => tablePassRate(r.counts),
+      format: (v) => `${Number(v).toFixed(1)}%`,
+    }),
+    valueColumn<StudioEvaluationSummary, EvaluationSort>({
+      key: "queueMs",
+      label: "Queue time (ms)",
+      kind: "number",
+      read: (r) => tableQueueMs(r.createdAt, r.startedAt),
+      format: (v) => formatDurationMs(Number(v)),
+    }),
   ];
 }

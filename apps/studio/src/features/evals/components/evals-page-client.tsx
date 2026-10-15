@@ -1,5 +1,7 @@
 "use client";
+
 import type { EvalSuite } from "@kortyx/agent/evals";
+import { tablePassRate } from "@kortyx/telemetry-contracts";
 import { FlaskConical, GitCompareArrows, Play, RefreshCw } from "lucide-react";
 import {
   parseAsArrayOf,
@@ -15,6 +17,7 @@ import {
   DataTableProvider,
 } from "@/components/data-table";
 import { columnFilter } from "@/components/data-table/filter-fields";
+import { valueColumn } from "@/components/data-table/value-column";
 import { DetailLink } from "@/components/detail/detail-link";
 import { usePrepareDetailNavigation } from "@/components/detail/detail-stack";
 import { Button } from "@/components/ui/button";
@@ -23,7 +26,7 @@ import { LiveRefreshButton } from "@/features/telemetry/components/live-refresh-
 import { useListTablePreferences } from "@/features/telemetry/hooks/use-list-table-preferences";
 import { useLiveRefresh } from "@/features/telemetry/hooks/use-live-refresh";
 import type { ListTablePreferences } from "@/features/telemetry/lib/table-preferences";
-import { formatDateTime } from "@/lib/format";
+import { formatDateTime, formatDurationMs } from "@/lib/format";
 import { useStudioQueryStates } from "@/lib/nuqs";
 import { useRouter, useSearchParams } from "@/lib/scoped-navigation";
 import { evalRequest } from "../api/client";
@@ -485,6 +488,38 @@ export function EvalsPageClient({
           <span className="text-xs text-muted-foreground">Never run</span>
         ),
     },
+
+    {
+      ...valueColumn<SuiteRow>({
+        key: "latestCost",
+        label: "Latest cost",
+        kind: "number",
+        read: (r) => evalFilterCost(r.latest?.costs),
+      }),
+      render: (r: SuiteRow) => <EvalCost costs={r.latest?.costs} />,
+    },
+    valueColumn<SuiteRow>({
+      key: "latestAt",
+      label: "Latest run date",
+      kind: "date",
+      read: (r) => r.latest?.createdAt,
+      format: (v) => formatDateTime(String(v)),
+    }),
+    valueColumn<SuiteRow>({
+      key: "latestPassRate",
+      label: "Latest pass rate (%)",
+      kind: "number",
+      read: (r) => tablePassRate(r.latest?.counts),
+      format: (v) => `${Number(v).toFixed(1)}%`,
+    }),
+    valueColumn<SuiteRow>({
+      key: "latestDuration",
+      label: "Latest duration (ms)",
+      kind: "number",
+      read: (r) =>
+        r.latest ? evalDurationMs(r.latest, Date.now()) : undefined,
+      format: (v) => formatDurationMs(Number(v)),
+    }),
     {
       key: "run",
       filter: false,
@@ -651,9 +686,9 @@ export function EvalsPageClient({
               data={runs}
               getRowKey={(r) => r.id}
               onRowClick={(r) => chooseRun(r.id)}
-              rowClassName={(r) =>
+              rowTone={(r) =>
                 r.status === "failed" || r.status === "error"
-                  ? "bg-red-500/[0.025]"
+                  ? "danger"
                   : undefined
               }
               sort={query.sort}

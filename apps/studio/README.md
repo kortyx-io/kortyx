@@ -333,6 +333,20 @@ show a resettable error or an API validation error instead of being ignored.
 The request limits are 32 conditions, 30 values per condition, 512 characters per
 value, and 32 KiB of serialized conditions.
 
+Row hover belongs to `DataTable`, including non-clickable rows. Every cell uses
+the same opaque row background so left/right pinned columns stay synchronized
+and cover scrolled content. Return `"danger"` from the `rowTone` callback for
+failure tinting rather than setting separate pinned-cell backgrounds.
+
+Secondary data columns use `defaultHidden`; they remain available in Columns,
+search and filters. Saved layouts retain known column order/visibility and append
+new columns, respecting their default visibility. Runs shows User ID and Tenant
+ID by default. Other added fields include completion/environment/pricing data,
+session models/providers/tags, interrupt resolution timestamps, prompt assignments,
+and evaluation judge/pass-rate/queue/case/comparison metrics. Missing evidence is
+shown as a dash. Comparison deltas use per-attempt means and require comparable
+evidence; cost deltas also require complete costs in one shared currency.
+
 Views save conditions, column layout, search/scope, sort and page size in this
 browser. Use Views to restore, rename or delete a view, or save the current
 configuration. Up to 30 views per table are retained; existing operational-table
