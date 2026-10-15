@@ -5,6 +5,26 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { DataTable } from "./data-table";
 import { DataTableProvider } from "./data-table-context";
 
+vi.mock("./data-table-filters", () => ({
+  DataTableFilterControls: () => null,
+}));
+
+vi.mock("./use-table-filters", () => ({
+  useTableFilters: () => ({ matches: () => true }),
+}));
+vi.mock("./use-table-search", () => ({
+  useTableSearch: () => ({ value: "", managed: false }),
+}));
+vi.mock("./use-table-pagination", () => ({
+  useTablePagination: () => ({
+    cursor: 0,
+    pageSize: 20,
+    pageSizes: [10, 20, 50, 100],
+    onCursorChange: vi.fn(),
+    onPageSizeChange: vi.fn(),
+  }),
+}));
+
 let root: Root;
 let container: HTMLDivElement;
 const openRow = vi.fn();
@@ -16,6 +36,7 @@ beforeEach(async () => {
     "ResizeObserver",
     class {
       observe() {}
+      unobserve() {}
       disconnect() {}
     },
   );
@@ -30,6 +51,7 @@ beforeEach(async () => {
         columns={[
           {
             key: "name",
+            filter: false,
             label: "Name",
             defaultWidth: 300,
             render: () => (
@@ -54,6 +76,7 @@ beforeEach(async () => {
         ]}
       >
         <DataTable
+          tableId="row-click-test"
           data={[{ id: "evaluation" }]}
           getRowKey={(row) => row.id}
           onRowClick={openRow}

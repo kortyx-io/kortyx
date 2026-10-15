@@ -30,7 +30,11 @@ export async function enqueueEvalRun(
     return run;
   });
 }
-export const listEvalRuns = async (db: TelemetryDb, scope: Scope) => {
+export const listEvalRuns = async (
+  db: TelemetryDb,
+  scope: Scope,
+  latestPerSuite = false,
+) => {
   const runs = await db
     .select({
       result: evalRuns.result,
@@ -53,9 +57,16 @@ export const listEvalRuns = async (db: TelemetryDb, scope: Scope) => {
       cancelRequestedAt: evalRuns.cancelRequestedAt,
     })
     .from(evalRuns)
-    .where(scopeWhere(scope))
+    .where(
+      and(
+        scopeWhere(scope),
+        latestPerSuite
+          ? sql`${evalRuns.id} in (select distinct on (target_id, suite_id) id from eval_runs where organization_id=${scope.organizationId} and project_id=${scope.projectId} ${scope.environment ? sql`and environment=${scope.environment}` : sql``} order by target_id, suite_id, created_at desc, id desc)`
+          : undefined,
+      ),
+    )
     .orderBy(desc(evalRuns.createdAt))
-    .limit(100);
+    .limit(latestPerSuite ? 2147483647 : 100);
   const costs = await loadEvalCosts(db, scope, runs);
   return runs.map(({ result: _, ...run }) => ({
     ...run,

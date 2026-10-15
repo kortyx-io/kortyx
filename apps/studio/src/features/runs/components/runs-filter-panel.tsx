@@ -1,4 +1,9 @@
+"use client";
 import { X } from "lucide-react";
+import { useState } from "react";
+import { FilterAutocomplete } from "@/components/data-table/filter-autocomplete";
+import type { DataTableFilterPanel } from "@/components/data-table/types";
+import { useFilterValues } from "@/components/data-table/use-filter-values";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -13,18 +18,39 @@ import type { useRunsQuery } from "@/features/runs/hooks/use-runs-query";
 import { providers, statuses, statusMeta } from "@/features/runs/lib/constants";
 import { FilterCheckbox } from "@/features/telemetry/components/list-filter-panel";
 import { TimeRangeFilter } from "@/features/telemetry/components/time-range-filter";
+import { adaptQuery, changeBound, readBound } from "../lib/filter-panel-query";
+import type { Run } from "../schema";
 
 type RunsFilterPanelProps = {
   query: ReturnType<typeof useRunsQuery>;
+  panel?: DataTableFilterPanel<Run>;
   open: boolean;
   onClose: () => void;
 };
 
 export function RunsFilterPanel({
-  query,
+  query: source,
+  panel,
   open,
   onClose,
 }: RunsFilterPanelProps) {
+  const query = panel ? adaptQuery(source, panel) : source;
+  const providerSuggestions = useFilterValues("runs", "provider", "", open);
+  const providerItems = [...providers, ...providerSuggestions.values].filter(
+    (value, index, all) =>
+      all.findIndex((item) => item.toLowerCase() === value.toLowerCase()) ===
+      index,
+  );
+  const numericValue = (field: string, value: number) =>
+    panel
+      ? panel.filters.rules.some(
+          (rule) =>
+            rule.field === field &&
+            ["gte", "gt", "between", "is"].includes(rule.operator),
+        )
+        ? value
+        : ""
+      : value || "";
   const {
     includeChildren,
     selectedStatuses,
@@ -54,7 +80,7 @@ export function RunsFilterPanel({
 
   return (
     <aside
-      aria-label="Run filters"
+      aria-label="Filters"
       aria-hidden={!open}
       inert={!open}
       className="flex h-full w-72 flex-col overflow-hidden rounded-xl border bg-background shadow-sm transition-opacity duration-200 ease-[cubic-bezier(0.22,1,0.36,1)]"
@@ -106,6 +132,11 @@ export function RunsFilterPanel({
             />
           </FilterSection>
 
+          {panel && (
+            <div className="border-b py-2 [&>div>p]:hidden [&>div]:mb-0">
+              {panel.matchControl}
+            </div>
+          )}
           <FilterSection title="Run status">
             <Button
               type="button"
@@ -144,26 +175,29 @@ export function RunsFilterPanel({
               onClick={() =>
                 setParams({
                   provider:
-                    selectedProviders.length === providers.length
+                    selectedProviders.length === providerItems.length
                       ? null
-                      : [...providers],
+                      : [...providerItems],
                 })
               }
             >
-              {selectedProviders.length === providers.length
+              {selectedProviders.length === providerItems.length
                 ? "Deselect all"
                 : "Select all"}
             </Button>
-            {providers.map((item) => (
+            {providerItems.map((item) => (
               <FilterCheckbox
                 key={item}
                 label={item}
-                checked={selectedProviders.includes(item)}
+                checked={selectedProviders.some(
+                  (value) => value.toLowerCase() === item.toLowerCase(),
+                )}
                 onChange={() => toggleProvider(item)}
               />
             ))}
           </FilterSection>
 
+          {panel && panel.renderField("feedback")}
           <FilterSection title="Column values">
             <TextFilter
               id="workflow-filter"
@@ -285,7 +319,7 @@ export function RunsFilterPanel({
                 type="number"
                 min="0"
                 step="1"
-                value={minDuration || ""}
+                value={numericValue("durationMs", minDuration)}
                 onChange={(event) =>
                   setParams({
                     minDuration: event.target.value
@@ -308,7 +342,7 @@ export function RunsFilterPanel({
                 type="number"
                 min="0"
                 step="1"
-                value={minTokens || ""}
+                value={numericValue("tokens", minTokens)}
                 onChange={(event) =>
                   setParams({
                     minTokens: event.target.value
@@ -331,7 +365,7 @@ export function RunsFilterPanel({
                 type="number"
                 min="0"
                 step="0.001"
-                value={minCost || ""}
+                value={numericValue("cost", minCost)}
                 onChange={(event) =>
                   setParams({
                     minCost: event.target.value
@@ -344,6 +378,75 @@ export function RunsFilterPanel({
               />
             </label>
           </FilterSection>
+          {panel && (
+            <>
+              <FilterSection title="Maximum values">
+                {[
+                  ["durationMs", "Maximum duration", "seconds"],
+                  ["tokens", "Maximum tokens", "tokens"],
+                  ["cost", "Maximum cost", "$0.00"],
+                ].map(([key, label, placeholder]) => (
+                  <label
+                    key={key}
+                    htmlFor={`maximum-${key}`}
+                    className="mt-3 block first:mt-0 text-xs font-medium text-muted-foreground"
+                  >
+                    {label}
+                    <Input
+                      aria-label={label}
+                      id={`maximum-${key}`}
+                      className="mt-1.5"
+                      type="number"
+                      step="any"
+                      placeholder={placeholder}
+                      value={readBound(panel, key!, true) ?? ""}
+                      onChange={(event) =>
+                        changeBound(
+                          panel,
+                          key!,
+                          true,
+                          event.target.value === ""
+                            ? undefined
+                            : Number(event.target.value),
+                        )
+                      }
+                    />
+                  </label>
+                ))}
+              </FilterSection>
+              <FilterSection title="Additional columns">
+                {panel.fields
+                  .filter(
+                    (field) =>
+                      ![
+                        "status",
+                        "provider",
+                        "feedback",
+                        "workflowIds",
+                        "path",
+                        "sessionId",
+                        "models",
+                        "result",
+                        "toolName",
+                        "toolOutcome",
+                        "toolMode",
+                        "hasTool",
+                        "durationMs",
+                        "tokens",
+                        "cost",
+                      ].includes(field.key),
+                  )
+                  .map((field) => (
+                    <div key={field.key}>{panel.renderField(field.key)}</div>
+                  ))}
+              </FilterSection>
+              {panel.error && (
+                <p role="alert" className="mt-3 text-xs text-destructive">
+                  {panel.error}
+                </p>
+              )}
+            </>
+          )}
         </div>
       </ScrollArea>
 
@@ -352,8 +455,14 @@ export function RunsFilterPanel({
           variant="ghost"
           size="sm"
           className="w-full justify-start"
-          disabled={!hasActiveFilters}
-          onClick={clearFilters}
+          disabled={
+            panel
+              ? !panel.invalid &&
+                !panel.filters.rules.length &&
+                !hasActiveFilters
+              : !hasActiveFilters
+          }
+          onClick={panel?.onClear ?? clearFilters}
         >
           <X /> Clear filters
         </Button>
@@ -375,19 +484,43 @@ function TextFilter({
   onChange: (value: string) => void;
   placeholder: string;
 }) {
+  const [focused, setFocused] = useState(false);
+  const field: Record<string, string> = {
+    "workflow-filter": "workflowIds",
+    "path-filter": "path",
+    "session-filter": "sessionId",
+    "model-filter": "models",
+    "result-filter": "result",
+    "tool-name-filter": "toolName",
+  };
+  const suggestions = useFilterValues(
+    "runs",
+    field[id] ?? "id",
+    value,
+    focused,
+  );
   return (
     <label
       htmlFor={id}
+      data-filter-field={field[id]}
       className="mt-3 block first:mt-0 text-xs font-medium text-muted-foreground"
     >
       {label}
-      <Input
+      <FilterAutocomplete
         id={id}
+        label={label}
+        options={suggestions.values}
+        onFocus={() => setFocused(true)}
         value={value}
-        onChange={(event) => onChange(event.target.value)}
+        onChange={onChange}
         placeholder={placeholder}
         className="mt-1.5"
       />
+      {suggestions.unavailable && (
+        <span className="mt-1 block text-[11px]">
+          Suggestions unavailable. You can still enter a value.
+        </span>
+      )}
     </label>
   );
 }

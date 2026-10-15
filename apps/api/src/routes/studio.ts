@@ -21,6 +21,7 @@ import {
   getStudioRunReadModel,
   getStudioSessionReadModel,
   listRunScores,
+  listStudioFilterValues,
   listStudioInterrupts,
   listStudioRuns,
   listStudioSessions,
@@ -71,6 +72,7 @@ const invalidQueryResponse = {
 };
 
 const listQuerySchema = z.object({
+  tableFilters: z.string().max(32768).optional(),
   feedback: z.enum(FEEDBACK_FILTERS).optional(),
   includeChildren: z.string().optional(),
   q: z.string().optional(),
@@ -558,6 +560,39 @@ export const registerStudioRoutes = (app: OpenAPIHono<ApiEnv>): void => {
       );
     }
   });
+  app.get("/v1/studio/filter-values", async (c) => {
+    const parsed = z
+      .object({
+        resource: z.enum(["runs", "sessions", "interrupts"]),
+        field: z.string().max(80),
+        search: z.string().max(512).default(""),
+        env: z.string().optional(),
+        range: z.string().optional(),
+        startedAfter: z.string().optional(),
+        startedBefore: z.string().optional(),
+      })
+      .safeParse(c.req.query());
+    if (!parsed.success)
+      return c.json({ error: "Invalid filter values query." }, 400);
+    const query = parsed.data;
+    const time = resolveStudioTimeRange(query);
+    if (!time.ok) return c.json({ error: time.error }, 400);
+    const auth = c.get("principal");
+    const values = await c.get("withTenantDatabase")((db) =>
+      listStudioFilterValues(db, {
+        organizationId: auth.organizationId,
+        projectId: auth.projectId,
+        resource: query.resource,
+        field: query.field,
+        search: query.search,
+        environment: auth.environment ?? query.env,
+        after: time.value.startedAfter,
+        before: time.value.startedBefore,
+      }),
+    );
+    return c.json({ values });
+  });
+
   app.openapi(catalogsRoute, async (c) => {
     const auth = c.get("principal");
     const models = await c.get("withTenantDatabase")((db) =>

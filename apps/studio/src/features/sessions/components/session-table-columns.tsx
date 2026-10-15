@@ -22,6 +22,10 @@ import {
 } from "@/features/telemetry/components/compact-status";
 import { CopyableCell } from "@/features/telemetry/components/copyable-cell";
 import { TruncatedText } from "@/features/telemetry/components/truncated-text";
+import {
+  studioColumnFilters,
+  studioValueColumn,
+} from "@/features/telemetry/lib/column-filters";
 import { costDisplay } from "@/lib/cost";
 import {
   formatCount,
@@ -78,6 +82,7 @@ export function createSessionColumns({
   return [
     {
       key: "status",
+      filter: studioColumnFilters("sessions", "status"),
       label: "Status",
       sortKey: "status",
       defaultWidth: 132,
@@ -111,6 +116,7 @@ export function createSessionColumns({
     },
     {
       key: "activity",
+      filter: studioColumnFilters("sessions", "activity"),
       label: "Last activity",
       sortKey: "activity",
       defaultWidth: 118,
@@ -124,6 +130,7 @@ export function createSessionColumns({
     },
     {
       key: "session",
+      filter: studioColumnFilters("sessions", "session"),
       label: "Session",
       defaultWidth: 155,
       cellTitle: (session) => session.id,
@@ -137,6 +144,7 @@ export function createSessionColumns({
     },
     {
       key: "identity",
+      filter: studioColumnFilters("sessions", "identity"),
       label: "User / Tenant",
       defaultWidth: 160,
       render: (session) => (
@@ -150,6 +158,7 @@ export function createSessionColumns({
     },
     {
       key: "runs",
+      filter: studioColumnFilters("sessions", "runs"),
       label: "Runs",
       sortKey: "runs",
       defaultWidth: 145,
@@ -173,6 +182,7 @@ export function createSessionColumns({
     },
     {
       key: "checkpoint",
+      filter: studioColumnFilters("sessions", "checkpoint"),
       label: "Checkpoint / Branch",
       defaultWidth: 154,
       cellClassName: "text-xs text-muted-foreground",
@@ -198,6 +208,7 @@ export function createSessionColumns({
     },
     {
       key: "duration",
+      filter: studioColumnFilters("sessions", "duration"),
       label: "Duration",
       sortKey: "duration",
       defaultWidth: 108,
@@ -213,6 +224,7 @@ export function createSessionColumns({
     },
     {
       key: "tokens",
+      filter: studioColumnFilters("sessions", "tokens"),
       label: "Tokens",
       sortKey: "tokens",
       defaultWidth: 96,
@@ -224,6 +236,7 @@ export function createSessionColumns({
     },
     {
       key: "cost",
+      filter: studioColumnFilters("sessions", "cost"),
       label: "Cost",
       sortKey: "cost",
       defaultWidth: 100,
@@ -233,6 +246,7 @@ export function createSessionColumns({
     },
     {
       key: "result",
+      filter: studioColumnFilters("sessions", "result"),
       label: "Latest result",
       defaultWidth: 330,
       render: (session) => (
@@ -253,5 +267,15 @@ export function createSessionColumns({
         </p>
       ),
     },
+    ...[
+      "workflowIds",
+      "activeVersion",
+      "models",
+      "providers",
+      "tags",
+      "environment",
+      "userId",
+      "tenantId",
+    ].map((key) => studioValueColumn<Session, SessionSortKey>("sessions", key)),
   ];
 }

@@ -37,20 +37,19 @@ test("filters feedback, opens the existing drawer, and keeps human review separa
   expect(rated.ok(), await rated.text()).toBe(true);
   await page.goto(`/runs?q=${DRAWER_FIXTURE.runId}`);
   await expect(page.locator('[data-table-ready="true"]')).toBeVisible();
-  await page.getByRole("button", { name: /^User feedback:/ }).click();
-  await expect(
-    page.getByRole("menuitemradio", { name: "All feedback", exact: true }),
-  ).toHaveAttribute("aria-checked", "true");
+  await page.getByRole("button", { name: "Filters", exact: true }).click();
   await page
-    .getByRole("menuitemradio", { name: "Negative feedback", exact: true })
-    .click();
-  await expect(page).toHaveURL(/feedback=negative/);
+    .getByRole("checkbox", { name: "Feedback: negative", exact: true })
+    .check();
+  await expect
+    .poll(() => new URL(page.url()).searchParams.get("tableFilters"))
+    .toContain('"negative"');
   await expect(
     page.getByRole("link", {
       name: `View feedback for run ${DRAWER_FIXTURE.runId}`,
       exact: true,
     }),
-  ).toHaveAttribute("href", /feedback=negative/);
+  ).toHaveAttribute("href", /tableFilters=/);
   await page
     .getByRole("link", {
       name: `View feedback for run ${DRAWER_FIXTURE.runId}`,
@@ -177,39 +176,39 @@ test("renders feedback at mobile widths and shows actionable empty states", asyn
   ).toBe(true);
 });
 
-test("feedback filter uses Studio's radio menu with mobile keyboard navigation", async ({
+test("feedback filtering stays inside the shared drawer on mobile", async ({
   page,
 }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto(`/runs?q=${DRAWER_FIXTURE.runId}`);
-  const trigger = page.getByRole("button", { name: /^User feedback:/ });
-  await trigger.press("Enter");
-  const menu = page.getByRole("menu");
-  await expect(menu).toHaveAttribute("data-slot", "dropdown-menu-content");
-  const bounds = await menu.boundingBox();
-  if (!bounds) throw new Error("The feedback menu has no visible bounds.");
-  expect(bounds.x).toBeGreaterThanOrEqual(0);
-  expect(bounds.x + bounds.width).toBeLessThanOrEqual(390);
-  // Keep keyboard events on the focused item; locator.press() would refocus
-  // the menu container and reset Radix's roving focus between keystrokes.
-  await page.keyboard.press("Home");
   await expect(
-    page.getByRole("menuitemradio", { name: "All feedback", exact: true }),
-  ).toBeFocused();
-  await page.keyboard.press("ArrowDown");
-  await expect(
-    page.getByRole("menuitemradio", { name: "Positive feedback", exact: true }),
-  ).toBeFocused();
-  await page.keyboard.press("Enter");
-  await expect(trigger).toHaveText("Positive feedback");
-  await expect(menu).toBeHidden();
-  await expect(page).toHaveURL(/feedback=positive/);
-  await trigger.press("Enter");
-  await expect(
-    page.getByRole("menuitemradio", { name: "Positive feedback", exact: true }),
-  ).toHaveAttribute("aria-checked", "true");
-  await page.keyboard.press("Escape");
-  await expect(trigger).toBeFocused();
+    page.getByRole("button", { name: /^User feedback:/ }),
+  ).toHaveCount(0);
+  await page
+    .getByRole("button", { name: "Filters", exact: true })
+    .press("Enter");
+  const drawer = page.getByRole("complementary", {
+    name: "Filters",
+    exact: true,
+  });
+  await expect(drawer).toBeVisible();
+  await expect
+    .poll(async () => {
+      const bounds = await drawer.boundingBox();
+      return bounds ? bounds.x >= 0 && bounds.x + bounds.width <= 390 : false;
+    })
+    .toBe(true);
+  await page
+    .getByRole("checkbox", { name: "Feedback: positive", exact: true })
+    .check();
+  await expect
+    .poll(() => new URL(page.url()).searchParams.get("tableFilters"))
+    .toContain('"positive"');
+  await expect(drawer).toBeVisible();
+  await drawer
+    .getByRole("button", { name: "Close filters", exact: true })
+    .click();
+  await expect(drawer).toHaveCount(0);
 });
 
 for (const fixture of NAVIGATION_FIXTURES.filter((item) =>

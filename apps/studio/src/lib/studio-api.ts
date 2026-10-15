@@ -278,6 +278,7 @@ export const getStudioSessions = async (
             workflowIds: session.workflowIds,
             workflowCount: session.workflowCount,
             version: displayVersion(session.activeVersion),
+            activeVersion: session.activeVersion,
             user: optional(session.userId),
             tenant: optional(session.tenantId),
             runs: session.runs,

@@ -263,7 +263,10 @@ async function loadChildren(db: TelemetryDb, scope: Scope, ids: string[]) {
 export async function listEvaluations(
   db: TelemetryDb,
   scope: Scope,
-  options: { suiteRunIds?: readonly string[] } = {},
+  options: {
+    suiteRunIds?: readonly string[];
+    scan?: { offset: number; limit: number };
+  } = {},
 ) {
   if (options.suiteRunIds?.length === 0) return [];
   const parents = await db
@@ -288,8 +291,9 @@ export async function listEvaluations(
           : undefined,
       ),
     )
-    .orderBy(desc(evaluationRuns.createdAt))
-    .limit(100);
+    .orderBy(desc(evaluationRuns.createdAt), desc(evaluationRuns.id))
+    .limit(options.scan?.limit ?? 100)
+    .offset(options.scan?.offset ?? 0);
   const data = await loadChildren(
     db,
     scope,
@@ -316,8 +320,9 @@ export async function listEvaluations(
           : undefined,
       ),
     )
-    .orderBy(desc(evalRuns.createdAt))
-    .limit(100);
+    .orderBy(desc(evalRuns.createdAt), desc(evalRuns.id))
+    .limit(options.scan?.limit ?? 100)
+    .offset(options.scan?.offset ?? 0);
   const legacyCosts = await loadEvalCosts(db, scope, legacy);
   const old = legacy.map((child) => ({
     ...summarizeEvaluation(
@@ -343,7 +348,7 @@ export async function listEvaluations(
   }));
   return [...grouped, ...old]
     .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
-    .slice(0, 100);
+    .slice(0, options.scan ? undefined : 100);
 }
 export async function getEvaluation(
   db: TelemetryDb,

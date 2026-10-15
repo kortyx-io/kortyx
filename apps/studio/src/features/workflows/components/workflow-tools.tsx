@@ -1,4 +1,5 @@
 import Link from "@/components/scoped-link";
+import { Button } from "@/components/ui/button";
 import { formatDurationMs } from "@/lib/format";
 import type { WorkflowSelection } from "../lib/view-state";
 import type { WorkflowSystem } from "../schema";
@@ -100,9 +101,10 @@ export function WorkflowTools({
                   {tool.description}
                 </p>
               )}
-              <button
+              <Button
                 type="button"
-                className="text-primary hover:underline"
+                variant="link"
+                size="inline"
                 onClick={() =>
                   onSelect({
                     type: "node",
@@ -112,7 +114,7 @@ export function WorkflowTools({
                 }
               >
                 Node: {node.id}
-              </button>
+              </Button>
               {tool.inputFields?.length ? (
                 <ul>
                   {tool.inputFields.map((field) => (

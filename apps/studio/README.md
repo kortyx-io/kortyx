@@ -277,3 +277,134 @@ ghcr.io/kortyx-io/kortyx-studio:latest
 Release-please creates the immutable `studio-vX.Y.Z` Git tag before publication.
 Repository setup and release/recovery instructions are in the
 [Studio self-hosted release runbook](../../docs/design-specs/studio-oss-release.md).
+
+## Table filters and views
+
+Every Studio data table provides **Filters**, **Columns**, and **Views**, in that
+order. Search remains in the toolbar; field filters, feedback, time range,
+environment and archived-prompt controls live in the Filters drawer. Selection
+and action columns have no filter; composite data columns expose their individual
+facts (for example, workflow/version, model/provider and evaluation result counts).
+
+Every table renders one shared toolbar: search beside Filters, Columns and Views.
+Search stays outside Match any, so OR cannot bypass it. Server lists search before
+counting/pagination; local tables search all declared data fields, including hidden
+columns, before paging. Local detail searches use `tableSearch.<tableId>` so they
+do not replace a parent list's `q`; existing list and prompt-linked search URLs
+remain supported. Search is captured by saved views and survives refresh.
+
+The shared footer is always present: matching row count, rows per page, current
+page and Previous/Next. Local tables default to 20 rows and keep their own
+`tablePage.<tableId>` / `tablePageSize.<tableId>` URL state. Search/filter changes
+reset paging. Prompt-library pagination uses the API's bounded `limit` parameter
+(1–200; omitted callers retain the existing 100-row default); Studio offers
+10/20/50/100 and defaults to 20. Prompt selection and its batch actions live at
+the left of the toolbar; Select all shows empty, partial or checked page selection
+and toggles that page without a separate Clear selection action.
+
+The existing inline side drawer lists the available filters directly. Choose
+values without adding conditions: statuses use checkboxes, text uses autocomplete,
+and numeric/date fields show minimum/maximum inputs. Changes apply automatically
+(text and ranges wait 350 ms after typing); the drawer stays open. Runs retains
+its existing sections, inputs and Select all controls; the other table drawers
+also offer a filter search to find less common columns. Per-field options expose negative/missing-value
+matches without adding setup to ordinary filtering.
+
+Choose **Match all · AND** or **Match any · OR** for the populated fields. Multiple
+values within one condition match any of those values. Project, authorized
+environment, time range, category and search restrict the dataset independently
+of OR. Nested groups are not supported.
+
+Text supports case-insensitive Contains/Does not contain and exact matches, with
+existing-value autocomplete. Suggestions search the scoped dataset, including
+rows beyond the current page, and return up to 50 distinct values. Free text is
+still accepted when suggestions are unavailable. Numeric/date fields support
+comparisons and inclusive ranges; dates use explicit UTC timestamps. Boolean
+fields use true/false. Has a value/Has no value distinguish missing evidence from
+zero or false. Negative conditions require a recorded value. Numeric cost
+filters compare the displayed known subtotal; mixed currencies without a single
+amount are missing, rather than implicitly converted.
+
+Custom time range opens the calendar, including when no custom range has been
+applied yet. Apply range writes UTC bounds to the URL. Filter conditions also
+live in the URL (`tableFilters` for server lists, `tableFilters.<tableId>` for
+embedded tables), so refresh and Back/Forward restore them. Invalid conditions
+show a resettable error or an API validation error instead of being ignored.
+The request limits are 32 conditions, 30 values per condition, 512 characters per
+value, and 32 KiB of serialized conditions.
+
+Text filter suggestions use the shared shadcn Combobox, with keyboard navigation,
+selection styling and free-text entry. Server suggestions retain the authorized
+scope and the existing request limits.
+
+Top-level Runs, Sessions, Interrupts, Prompts and Evals lists share
+`TablePageHeader`: title/description on the left, page actions on the right,
+followed by the standard table toolbar. Evals Runs/Suites navigation is a compact
+segmented link group after the workspace breadcrumbs, including on detail routes;
+it preserves project routing and the selected environment without a separate tab row.
+Prompts retains its centered compact Categories side rail and category drawer,
+with the full category tree beside the table on wide screens. Test groups use a flat, edge-to-edge table
+with a compact drawer header and the shared list header in expanded and direct routes.
+The drawer header contains the page action beside its expand/close controls.
+
+Row hover belongs to `DataTable`, including non-clickable rows. Every cell uses
+the same opaque row background so left/right pinned columns stay synchronized
+and cover scrolled content. Return `"danger"` from the `rowTone` callback for
+failure tinting rather than setting separate pinned-cell backgrounds.
+
+All columns are visible by default, and Reset layout shows every column again.
+Saved layouts retain known column order/visibility and append new visible columns.
+Scrollbars overlay the table using the shared ScrollBar UI, without reserving a
+gutter or adding header spacing. Header/body scrolling stays synchronized during
+a held column drag. Dragged
+headers and cells share their movement, remain above pinned columns, and support
+Escape to cancel. Horizontal wheel gestures over the header scroll the body as
+the shared owner, avoiding opposing scroll updates.
+
+Runs includes User ID and Tenant ID. Other added fields include completion/environment/pricing data,
+session models/providers/tags, interrupt resolution timestamps, prompt assignments,
+and evaluation judge/pass-rate/queue/case/comparison metrics. Missing evidence is
+shown as a dash. Comparison deltas use per-attempt means and require comparable
+evidence; cost deltas also require complete costs in one shared currency.
+
+Views save conditions, column layout, search/scope, sort and page size in this
+browser. Use Views to restore, rename or delete a view, or save the current
+configuration. Up to 30 views per table are retained; existing operational-table
+cookie views are imported. Views are not synchronized between browsers.
+
+Runs, sessions, interrupts and prompt-library filters apply before server counts
+and pagination. Evaluation summaries scan history in batches before counting and
+paginating, including evaluations older than the former 100-row window. This
+computed-summary scan grows with history size. The suite catalog resolves the
+latest run per suite across history. Prompt-linked tables load all scoped linked
+runs/evaluations, then filter and paginate locally; large histories can therefore
+increase response size. There is no silent 100/200-row filter cutoff.
+
+Filter usage records each applied field/search change (debounced for typed values) and
+the allowlisted `all`/`any` choice through the shared usage helper. It measures UI
+intent, not query success;
+no condition values or view names are collected. Existing usage opt-out and
+bounded delivery behavior apply.
+
+Ship the API and shared contracts/database packages before the matching Studio
+version. No database migration is required. Legacy filter URLs are accepted and
+converted when filters are applied; the existing bounded history API remains
+available for older consumers.
+
+### Shared action buttons
+
+All Studio actions use the shared `Button` variants. `primary` is the filled
+main action (New prompt, Save, Run evaluations); `secondary` is the outlined
+supporting action (Import, Test groups, Cancel, Refresh); `ghost` is for
+low-emphasis and icon actions; `destructive` is for destructive confirmation.
+Inline text actions use the shared `link`/`inline` treatment. Navigation links,
+menu options and data-row/disclosure controls keep their control semantics.
+
+Page, drawer and table actions use `sm` (32px), forms default to 36px, compact
+actions use `xs` (24px), and large actions use `lg` (40px). Icon equivalents
+have the same heights. Action links use `Button asChild` so they retain normal
+link navigation and the same size/style as button actions. Icon sizing and
+pressed/disabled/focus states come from the primitive. Compound input buttons
+also delegate to it; feature code supplies layout, not custom button styling.
+The legacy shadcn `default`/`outline` aliases remain supported as
+`primary`/`secondary` for existing consumers.

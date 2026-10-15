@@ -4,7 +4,7 @@ import {
   StudioEvaluationHistorySchema,
 } from "@kortyx/agent/evals";
 import { studioAuth } from "@studio/auth";
-import type { z } from "zod";
+import { z } from "zod";
 import {
   EvalDetailSchema,
   EvalHistorySchema,
@@ -41,7 +41,8 @@ async function read<T>(path: string, schema: z.ZodType<T>): Promise<T> {
   return schema.parse(await response.json());
 }
 export const readEvalTargets = () => read("targets", EvalTargetsResponseSchema);
-export const readEvalHistory = () => read("runs", EvalHistorySchema);
+export const readEvalHistory = (latestPerSuite = false) =>
+  read(latestPerSuite ? "runs?latestPerSuite=true" : "runs", EvalHistorySchema);
 export const readEvalDetail = (id: string) =>
   read(`runs/${encodeURIComponent(id)}`, EvalDetailSchema);
 
@@ -49,3 +50,13 @@ export const readEvaluationHistory = () =>
   read("evaluations", StudioEvaluationHistorySchema);
 export const readEvaluationDetail = (id: string) =>
   read(`evaluations/${encodeURIComponent(id)}`, StudioEvaluationDetailSchema);
+
+export const readEvaluationTable = (
+  query: Record<string, string | string[] | undefined> = {},
+) =>
+  read(
+    `evaluations/table?${new URLSearchParams(Object.entries(query).flatMap(([key, value]) => (value === undefined ? [] : [[key, Array.isArray(value) ? value.join(",") : value]])))}`,
+    StudioEvaluationHistorySchema.extend({
+      totalCount: z.number().int().nonnegative(),
+    }),
+  );

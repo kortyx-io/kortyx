@@ -36,29 +36,9 @@ import {
   type DataTableColumn,
   type DataTableLayout,
 } from "@/components/data-table/types";
+import { columnLayout } from "./column-layout";
 
 type LayoutSnapshot = Partial<DataTableLayout>;
-
-function validateOrder(
-  order: string[] | undefined,
-  defaultOrder: string[],
-): string[] | undefined {
-  if (
-    order?.length === defaultOrder.length &&
-    order.every((column) => defaultOrder.includes(column))
-  ) {
-    return order;
-  }
-  return undefined;
-}
-
-function validateHidden(
-  hidden: string[] | undefined,
-  defaultOrder: string[],
-): string[] | undefined {
-  if (hidden?.every((column) => defaultOrder.includes(column))) return hidden;
-  return undefined;
-}
 
 function validatePinned(
   pinned: Partial<Record<string, ColumnPin>> | undefined,
@@ -183,10 +163,10 @@ export function DataTableProvider<T, S extends string>({
     ...initialLayout?.widths,
   }));
   const [order, setOrder] = useState<string[]>(
-    () => validateOrder(initialLayout?.order, defaultOrder) ?? defaultOrder,
+    () => columnLayout(columns, initialLayout).order,
   );
   const [hidden, setHidden] = useState<string[]>(
-    () => validateHidden(initialLayout?.hidden, defaultOrder) ?? [],
+    () => columnLayout(columns, initialLayout).hidden,
   );
   const [pinned, setPinned] = useState<Partial<Record<string, ColumnPin>>>(
     () => validatePinned(initialLayout?.pinned, defaultOrder) ?? {},
@@ -194,9 +174,12 @@ export function DataTableProvider<T, S extends string>({
   const [draggedColumn, setDraggedColumn] = useState<string | null>(null);
   const [dragOverColumn, setDragOverColumn] = useState<string | null>(null);
   const [dragOffset, setDragOffset] = useState(0);
+  const dragStartScrollLeft = useRef(0);
+  const pointerDragCleanup = useRef<(() => void) | null>(null);
   const [preferencesLoaded, setPreferencesLoaded] = useState(false);
   const scrollerRef = useRef<HTMLDivElement | null>(null);
   const headerScrollerRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => () => pointerDragCleanup.current?.(), []);
   const [viewportWidth, setViewportWidth] = useState(0);
   useLayoutEffect(() => {
     const viewport = scrollerRef.current;
@@ -232,10 +215,9 @@ export function DataTableProvider<T, S extends string>({
       ) as LayoutSnapshot & Record<string, number>;
       const savedWidths = saved.widths ?? saved;
       setWidths((current) => ({ ...current, ...savedWidths }));
-      const order = validateOrder(saved.order, defaultOrder);
-      if (order) setOrder(order);
-      const hidden = validateHidden(saved.hidden, defaultOrder);
-      if (hidden) setHidden(hidden);
+      const migrated = columnLayout(columns, saved);
+      setOrder(migrated.order);
+      setHidden(migrated.hidden);
       const pinned = validatePinned(saved.pinned, defaultOrder);
       if (pinned) setPinned(pinned);
     } catch {
@@ -315,8 +297,8 @@ export function DataTableProvider<T, S extends string>({
 
   function applyLayout(layout: Partial<DataTableLayout>) {
     setWidths({ ...defaultWidths, ...layout.widths });
-    setOrder(validateOrder(layout.order, defaultOrder) ?? defaultOrder);
-    setHidden(validateHidden(layout.hidden, defaultOrder) ?? []);
+    setOrder(columnLayout(columns, layout).order);
+    setHidden(columnLayout(columns, layout).hidden);
     setPinned(validatePinned(layout.pinned, defaultOrder) ?? {});
   }
 
@@ -441,15 +423,16 @@ export function DataTableProvider<T, S extends string>({
   }
 
   function getColumnCellMotion(key: string): ColumnMotion | undefined {
-    if (!draggedColumn || !dragOverColumn) return undefined;
+    if (!draggedColumn) return undefined;
+    if (key === draggedColumn) {
+      return { style: { transform: `translate3d(${dragOffset}px, 0, 0)` } };
+    }
+    if (!dragOverColumn) return undefined;
     const activeIndex = visibleColumnOrder.indexOf(draggedColumn);
     const overIndex = visibleColumnOrder.indexOf(dragOverColumn);
     const columnIndex = visibleColumnOrder.indexOf(key);
     if (activeIndex === -1 || overIndex === -1 || columnIndex === -1) {
       return undefined;
-    }
-    if (key === draggedColumn) {
-      return { style: { transform: `translate3d(${dragOffset}px, 0, 0)` } };
     }
     const shiftsLeft =
       activeIndex < overIndex &&
@@ -478,8 +461,44 @@ export function DataTableProvider<T, S extends string>({
 
   function onDragStart(event: DragStartEvent) {
     const column = event.active.id as string;
+    pointerDragCleanup.current?.();
+    pointerDragCleanup.current = null;
+    dragStartScrollLeft.current = headerScrollerRef.current?.scrollLeft ?? 0;
+    setDragOffset(0);
     setDraggedColumn(column);
     setDragOverColumn(column);
+    if (
+      "clientX" in event.activatorEvent &&
+      typeof event.activatorEvent.clientX === "number"
+    ) {
+      const startX = event.activatorEvent.clientX;
+      let pointerX = startX;
+      const startScrollLeft = dragStartScrollLeft.current;
+      const header = headerScrollerRef.current;
+      const body = scrollerRef.current;
+      const sticky = Boolean(pinned[column]);
+      // Use pointer coordinates and our own viewport once. Dnd-kit event deltas
+      // also include changing node/ancestor scroll offsets, which can compensate
+      // twice or reset when the collision target changes during a held scroll.
+      const update = () =>
+        setDragOffset(
+          pointerX -
+            startX +
+            (sticky ? 0 : (header?.scrollLeft ?? 0) - startScrollLeft),
+        );
+      const move = (moveEvent: PointerEvent) => {
+        pointerX = moveEvent.clientX;
+        update();
+      };
+      window.addEventListener("pointermove", move);
+      header?.addEventListener("scroll", update);
+      body?.addEventListener("scroll", update);
+      pointerDragCleanup.current = () => {
+        window.removeEventListener("pointermove", move);
+        header?.removeEventListener("scroll", update);
+        body?.removeEventListener("scroll", update);
+      };
+    }
   }
 
   function onDragOver(event: DragOverEvent) {
@@ -495,16 +514,25 @@ export function DataTableProvider<T, S extends string>({
   }
 
   function onDragMove(event: DragMoveEvent) {
-    setDragOffset(event.delta.x);
+    if (pointerDragCleanup.current) return;
+    // Keyboard sensor fallback; pointer drags use the shared viewport above.
+    const scrollDelta =
+      (headerScrollerRef.current?.scrollLeft ?? 0) -
+      dragStartScrollLeft.current;
+    setDragOffset(event.delta.x - scrollDelta);
   }
 
   function onDragCancel() {
+    pointerDragCleanup.current?.();
+    pointerDragCleanup.current = null;
     setDraggedColumn(null);
     setDragOverColumn(null);
     setDragOffset(0);
   }
 
   function onDragEnd(event: DragEndEvent) {
+    pointerDragCleanup.current?.();
+    pointerDragCleanup.current = null;
     setDraggedColumn(null);
     setDragOverColumn(null);
     setDragOffset(0);

@@ -143,11 +143,11 @@ export function StudioUpdates({
         </div>
         <div className="flex flex-wrap gap-2">
           <Button
-            variant="outline"
+            variant="secondary"
             disabled={!status || pending || active}
             onClick={() => void request({ action: "check" })}
           >
-            <RefreshCw className="size-4" />
+            <RefreshCw />
             Check for updates
           </Button>
           {available && (
@@ -158,9 +158,9 @@ export function StudioUpdates({
               }
             >
               {active ? (
-                <Loader2 className="size-4 animate-spin" />
+                <Loader2 className="animate-spin" />
               ) : (
-                <ArrowUpCircle className="size-4" />
+                <ArrowUpCircle />
               )}
               Update to v{available.version}
             </Button>

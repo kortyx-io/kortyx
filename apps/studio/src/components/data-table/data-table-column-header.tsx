@@ -4,6 +4,7 @@ import { useSortable } from "@dnd-kit/sortable";
 import { ArrowDown, ArrowUp, ArrowUpDown, MoreHorizontal } from "lucide-react";
 import { useDataTable } from "@/components/data-table/data-table-context";
 import type { DataTableColumn } from "@/components/data-table/types";
+import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -39,6 +40,7 @@ export function DataTableColumnHeader<T, S extends string>({
     pinned,
     isColumnDraggable,
     getPinnedColumnStyle,
+    getColumnCellMotion,
     startColumnResize,
     toggleColumnVisibility,
     resetColumnWidth,
@@ -51,32 +53,27 @@ export function DataTableColumnHeader<T, S extends string>({
   const canDrag = isColumnDraggable(key);
   const pin = pinned[key];
   const stickyStyle = getPinnedColumnStyle(key);
-  const {
-    attributes,
-    isDragging,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-  } = useSortable({ id: key, disabled: !canDrag });
+  const { attributes, isDragging, listeners, setNodeRef } = useSortable({
+    id: key,
+    disabled: !canDrag,
+  });
+  const motion = getColumnCellMotion(key);
   const SortIcon = direction === "asc" ? ArrowUp : ArrowDown;
 
   return (
     <th
       ref={setNodeRef}
       data-column={key}
+      data-column-dragging={isDragging || undefined}
       style={{
-        transform: transform
-          ? `translate3d(${transform.x}px, ${transform.y}px, 0)`
-          : undefined,
-        transition,
+        ...motion?.style,
         ...stickyStyle,
       }}
       className={cn(
-        "group relative px-3 py-3 after:pointer-events-none after:absolute after:top-2 after:right-0 after:bottom-2 after:w-px after:bg-border",
+        "group relative bg-muted px-3 py-3 after:pointer-events-none after:absolute after:top-2 after:right-0 after:bottom-2 after:w-px after:bg-border",
         isLast && "after:hidden",
         pin && "sticky z-40 bg-muted",
-        isDragging && "z-50",
+        isDragging && "z-50 shadow-lg",
         headerClassName,
       )}
       onContextMenu={(event) => {
@@ -113,19 +110,21 @@ export function DataTableColumnHeader<T, S extends string>({
       </div>
       <DropdownMenu open={menuOpen} onOpenChange={onMenuOpenChange}>
         <DropdownMenuTrigger asChild>
-          <button
+          <Button
+            variant="secondary"
+            size="icon-xs"
             type="button"
             aria-label={`${label} column menu`}
             className={cn(
-              "absolute top-1/2 right-1 z-20 -translate-y-1/2 rounded p-0.5",
-              "pointer-events-none bg-muted/90 opacity-0 shadow-sm backdrop-blur-sm",
-              "hover:bg-accent group-hover:pointer-events-auto group-hover:opacity-100",
+              "absolute top-1/2 right-1 z-20 -translate-y-1/2",
+              "pointer-events-none opacity-0",
+              "group-hover:pointer-events-auto group-hover:opacity-100",
               "focus:pointer-events-auto focus:opacity-100",
               menuOpen && "pointer-events-auto opacity-100",
             )}
           >
-            <MoreHorizontal className="size-3.5" />
-          </button>
+            <MoreHorizontal />
+          </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent
           align="end"

@@ -7,6 +7,8 @@ import {
 } from "@/components/ui/tooltip";
 import { costDisplay } from "@/lib/cost";
 
+export { evalFilterCost } from "../lib/cost";
+
 function evalCostValue(value?: EvalCostAmount) {
   return {
     cost: value?.amount,

@@ -12,6 +12,7 @@ import {
   findIdempotentEvaluation,
   getEvaluation,
   listEvaluations,
+  listEvaluationTable,
   TelemetryNotFoundError,
   TelemetryValidationError,
 } from "@kortyx/telemetry-db";
@@ -43,6 +44,35 @@ export function registerEvaluationRoutes(
       ),
     }),
   );
+  app.get(`${path}/table`, async (c) => {
+    const parsed = z
+      .object({
+        tableFilters: z.string().max(32768).optional(),
+        q: z.string().max(512).optional(),
+        status: z.string().max(80).optional(),
+        application: z.string().max(200).optional(),
+        sort: z.enum(["name", "created", "status"]).optional(),
+        dir: z.enum(["asc", "desc"]).optional(),
+        cursor: z
+          .string()
+          .regex(/^\d{1,7}$/)
+          .optional(),
+        pageSize: z
+          .string()
+          .regex(/^\d{1,3}$/)
+          .optional(),
+        field: z.string().max(80).optional(),
+        search: z.string().max(512).optional(),
+      })
+      .safeParse(c.req.query());
+    if (!parsed.success)
+      return c.json({ error: "Invalid evaluation table query." }, 400);
+    return c.json(
+      await c.get("withTenantDatabase")((db) =>
+        listEvaluationTable(db, c.get("principal"), parsed.data),
+      ),
+    );
+  });
   app.get(`${path}/:id`, async (c) => {
     const id = z.uuid().safeParse(c.req.param("id"));
     if (!id.success) return c.json({ error: "Invalid evaluation ID." }, 400);

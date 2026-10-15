@@ -1,13 +1,8 @@
 "use client";
+
 import type { EvalSuite } from "@kortyx/agent/evals";
-import {
-  FlaskConical,
-  GitCompareArrows,
-  Play,
-  RefreshCw,
-  Search,
-  X,
-} from "lucide-react";
+import { tablePassRate } from "@kortyx/telemetry-contracts";
+import { FlaskConical, GitCompareArrows, Play, RefreshCw } from "lucide-react";
 import {
   parseAsArrayOf,
   parseAsBoolean,
@@ -19,18 +14,20 @@ import { useState } from "react";
 import {
   DataTable,
   type DataTableColumn,
-  DataTableColumnsMenu,
   DataTableProvider,
 } from "@/components/data-table";
+import { columnFilter } from "@/components/data-table/filter-fields";
+import { TablePageHeader } from "@/components/data-table/table-page-header";
+import { valueColumn } from "@/components/data-table/value-column";
 import { DetailLink } from "@/components/detail/detail-link";
 import { usePrepareDetailNavigation } from "@/components/detail/detail-stack";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { evalDurationMs } from "@/features/evals/lib/duration";
 import { LiveRefreshButton } from "@/features/telemetry/components/live-refresh-button";
 import { useListTablePreferences } from "@/features/telemetry/hooks/use-list-table-preferences";
 import { useLiveRefresh } from "@/features/telemetry/hooks/use-live-refresh";
 import type { ListTablePreferences } from "@/features/telemetry/lib/table-preferences";
-import { formatDateTime } from "@/lib/format";
+import { formatDateTime, formatDurationMs } from "@/lib/format";
 import { useStudioQueryStates } from "@/lib/nuqs";
 import { useRouter, useSearchParams } from "@/lib/scoped-navigation";
 import { evalRequest } from "../api/client";
@@ -49,10 +46,8 @@ import {
   type EvalTargets,
   EvalTargetsResponseSchema,
 } from "../schema";
-import { EvalCost } from "./eval-cost";
-import { EvalDropdown } from "./eval-dropdown";
+import { EvalCost, evalFilterCost } from "./eval-cost";
 import { EvalDuration } from "./eval-duration";
-import { EvalNavigation } from "./eval-navigation";
 import { EvalRunSetup } from "./eval-run-setup";
 import { EvalStatus } from "./eval-status";
 
@@ -135,7 +130,7 @@ export function EvalsPageClient({
     setError("");
     const result = await Promise.allSettled([
       evalRequest("targets"),
-      evalRequest("runs"),
+      evalRequest(view === "suites" ? "runs?latestPerSuite=true" : "runs"),
     ]);
     try {
       if (result[0].status === "fulfilled")
@@ -158,7 +153,9 @@ export function EvalsPageClient({
     resource: "evals",
     relatedResources: ["runs"],
     refresh: async () => {
-      const value = await evalRequest("runs");
+      const value = await evalRequest(
+        view === "suites" ? "runs?latestPerSuite=true" : "runs",
+      );
       setHistory(EvalHistorySchema.parse(value));
     },
   });
@@ -183,7 +180,7 @@ export function EvalsPageClient({
         ),
       })) ?? [],
   );
-  const applications = new Map([
+  const _applications = new Map([
     ...targets.targets.map((t) => [t.id, t.name] as const),
     ...history.runs.map((r) => [r.targetId, r.targetName] as const),
   ]);
@@ -237,6 +234,7 @@ export function EvalsPageClient({
   const runColumns: DataTableColumn<EvalRunSummary, Sort>[] = [
     {
       key: "select",
+      filter: false,
       label: "Compare",
       defaultWidth: 70,
       render: (r) => (
@@ -262,16 +260,20 @@ export function EvalsPageClient({
     },
     {
       key: "suite",
+      filter: [
+        columnFilter("suite", "Suite", "text", (r) => r.suiteName ?? r.suiteId),
+        columnFilter("id", "Run ID", "text", (r) => r.id),
+      ],
       label: "Suite",
       sortKey: "name",
       defaultWidth: 260,
       render: (r) => (
         <div>
           <Button
-            variant="ghost"
-            size="xs"
+            variant="link"
+            size="inline"
             onClick={() => chooseRun(r.id)}
-            className="max-w-full justify-start px-0 hover:bg-transparent"
+            className="max-w-full justify-start"
           >
             <span className="truncate">
               {r.suiteName ?? displayName(r.suiteId)}
@@ -285,6 +287,7 @@ export function EvalsPageClient({
     },
     {
       key: "status",
+      filter: columnFilter("status", "Status", "enum", (r) => r.status),
       label: "Status",
       sortKey: "status",
       defaultWidth: 135,
@@ -292,6 +295,17 @@ export function EvalsPageClient({
     },
     {
       key: "results",
+      filter: [
+        columnFilter("passed", "Passed", "number", (r) => r.counts?.passed),
+        columnFilter("failed", "Failed", "number", (r) => r.counts?.failed),
+        columnFilter("error", "Errors", "number", (r) => r.counts?.error),
+        columnFilter(
+          "cancelled",
+          "Cancelled",
+          "number",
+          (r) => r.counts?.cancelled,
+        ),
+      ],
       label: "Results",
       defaultWidth: 165,
       render: (r) =>
@@ -310,6 +324,21 @@ export function EvalsPageClient({
     },
     {
       key: "application",
+      filter: [
+        columnFilter(
+          "applicationId",
+          "Application ID",
+          "text",
+          (r) => r.targetId,
+        ),
+        columnFilter("application", "Application", "text", (r) => r.targetName),
+        columnFilter(
+          "environment",
+          "Environment",
+          "enum",
+          (r) => r.environment,
+        ),
+      ],
       label: "Application",
       defaultWidth: 240,
       render: (r) => (
@@ -323,6 +352,7 @@ export function EvalsPageClient({
     },
     {
       key: "created",
+      filter: columnFilter("createdAt", "Created", "date", (r) => r.createdAt),
       label: "Created",
       sortKey: "created",
       defaultWidth: 195,
@@ -334,12 +364,18 @@ export function EvalsPageClient({
     },
     {
       key: "cost",
+      filter: columnFilter("cost", "Cost", "number", (r) =>
+        evalFilterCost(r.costs),
+      ),
       label: "Cost",
       defaultWidth: 110,
       render: (r) => <EvalCost costs={r.costs} />,
     },
     {
       key: "duration",
+      filter: columnFilter("duration", "Duration (ms)", "number", (r) =>
+        evalDurationMs(r, Date.now()),
+      ),
       label: "Duration",
       defaultWidth: 100,
       render: (r) => (
@@ -352,14 +388,23 @@ export function EvalsPageClient({
   const suiteColumns: DataTableColumn<SuiteRow>[] = [
     {
       key: "suite",
+      filter: [
+        columnFilter(
+          "suite",
+          "Suite",
+          "text",
+          (r) => r.suite.name ?? r.suite.id,
+        ),
+        columnFilter("suiteId", "Suite ID", "text", (r) => r.suite.id),
+      ],
       label: "Suite",
       defaultWidth: 310,
       render: (r) => (
         <div>
           <Button
-            variant="ghost"
-            size="xs"
-            className="max-w-full justify-start px-0 hover:bg-transparent"
+            variant="link"
+            size="inline"
+            className="max-w-full justify-start"
             asChild
           >
             <DetailLink
@@ -381,6 +426,26 @@ export function EvalsPageClient({
     },
     {
       key: "application",
+      filter: [
+        columnFilter(
+          "applicationId",
+          "Application ID",
+          "text",
+          (r) => r.target.id,
+        ),
+        columnFilter(
+          "application",
+          "Application",
+          "text",
+          (r) => r.target.name,
+        ),
+        columnFilter(
+          "environment",
+          "Environment",
+          "enum",
+          (r) => r.target.environment,
+        ),
+      ],
       label: "Application",
       defaultWidth: 240,
       render: (r) => (
@@ -394,6 +459,12 @@ export function EvalsPageClient({
     },
     {
       key: "cases",
+      filter: columnFilter(
+        "cases",
+        "Conversations",
+        "number",
+        (r) => r.suite.cases.length,
+      ),
       label: "Conversations",
       defaultWidth: 130,
       render: (r) => (
@@ -402,6 +473,12 @@ export function EvalsPageClient({
     },
     {
       key: "latest",
+      filter: columnFilter(
+        "latest",
+        "Latest run",
+        "enum",
+        (r) => r.latest?.status ?? "never-run",
+      ),
       label: "Latest run",
       defaultWidth: 150,
       render: (r) =>
@@ -411,13 +488,46 @@ export function EvalsPageClient({
           <span className="text-xs text-muted-foreground">Never run</span>
         ),
     },
+
+    {
+      ...valueColumn<SuiteRow>({
+        key: "latestCost",
+        label: "Latest cost",
+        kind: "number",
+        read: (r) => evalFilterCost(r.latest?.costs),
+      }),
+      render: (r: SuiteRow) => <EvalCost costs={r.latest?.costs} />,
+    },
+    valueColumn<SuiteRow>({
+      key: "latestAt",
+      label: "Latest run date",
+      kind: "date",
+      read: (r) => r.latest?.createdAt,
+      format: (v) => formatDateTime(String(v)),
+    }),
+    valueColumn<SuiteRow>({
+      key: "latestPassRate",
+      label: "Latest pass rate (%)",
+      kind: "number",
+      read: (r) => tablePassRate(r.latest?.counts),
+      format: (v) => `${Number(v).toFixed(1)}%`,
+    }),
+    valueColumn<SuiteRow>({
+      key: "latestDuration",
+      label: "Latest duration (ms)",
+      kind: "number",
+      read: (r) =>
+        r.latest ? evalDurationMs(r.latest, Date.now()) : undefined,
+      format: (v) => formatDurationMs(Number(v)),
+    }),
     {
       key: "run",
+      filter: false,
       label: "Execute",
       defaultWidth: 110,
       render: (r) => (
         <Button
-          variant="outline"
+          variant="secondary"
           size="xs"
           disabled={!targets.canRun}
           onClick={(event) => {
@@ -432,19 +542,14 @@ export function EvalsPageClient({
     },
   ];
   const header = (
-    <div className="z-20 shrink-0 border-b bg-background/95 px-5 pt-4">
-      <div className="flex flex-wrap items-center justify-between gap-3 pb-3">
-        <div>
-          <h1 className="text-xl font-semibold tracking-tight">Evals</h1>
-          <p className="mt-0.5 text-xs text-muted-foreground">
-            Conversation suites and saved evaluation results
-            {history.runs.length === 100 ? " · Latest 100 runs" : ""}
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
+    <TablePageHeader
+      title="Evals"
+      description="Conversation suites and saved evaluation results"
+      actions={
+        <>
           {selectedRuns.length === 2 && view === "runs" ? (
             <Button
-              variant="outline"
+              variant="secondary"
               size="sm"
               onClick={() =>
                 navigate(evalCompareHref(selectedRuns[1], selectedRuns[0]))
@@ -460,7 +565,7 @@ export function EvalsPageClient({
             onToggle={() => update({ live: !query.live })}
           />
           <Button
-            variant="outline"
+            variant="secondary"
             size="icon-sm"
             aria-label="Refresh evals"
             disabled={refreshing}
@@ -476,68 +581,16 @@ export function EvalsPageClient({
             <Play />
             Run evaluations
           </Button>
-        </div>
-      </div>
-      <EvalNavigation active={view} />
-      <div className="flex flex-wrap items-center gap-2 py-3">
-        <div className="relative min-w-36 flex-1">
-          <Search className="pointer-events-none absolute left-3 top-2 size-4 text-muted-foreground" />
-          <Input
-            aria-label="Search evals"
-            placeholder={
-              view === "runs"
-                ? "Search suite, application, or run ID…"
-                : "Search suites…"
-            }
-            className="h-8 pl-9"
-            value={query.q}
-            onChange={(event) => update({ q: event.target.value, cursor: 0 })}
-          />
-        </div>
-        <EvalDropdown
-          label="Filter by application"
-          value={query.application}
-          options={[
-            { value: "all", label: "All applications" },
-            ...[...applications].map(([value, label]) => ({ value, label })),
-          ]}
-          onChange={(application) => update({ application, cursor: 0 })}
-          className="w-44"
-        />
-        {view === "runs" ? (
-          <EvalDropdown
-            label="Filter by status"
-            value={query.status}
-            options={[
-              { value: "all", label: "All outcomes" },
-              ...[
-                "passed",
-                "failed",
-                "error",
-                "running",
-                "queued",
-                "cancelled",
-              ].map((value) => ({ value, label: displayName(value) })),
-            ]}
-            onChange={(status) => update({ status, cursor: 0 })}
-            className="w-32"
-          />
-        ) : null}
-        {filtered ? (
-          <Button variant="ghost" size="xs" onClick={clearFilters}>
-            <X />
-            Clear
-          </Button>
-        ) : null}
-        <DataTableColumnsMenu />
-      </div>
+        </>
+      }
+    >
       {targets.targets.some((t) => t.error) ? (
-        <p className="pb-3 text-xs text-muted-foreground">
+        <p className="mt-3 text-xs text-muted-foreground">
           {targets.targets.filter((t) => t.error).length} application connection
           unavailable. Saved results can still be inspected.
         </p>
       ) : null}
-    </div>
+    </TablePageHeader>
   );
   const empty = (
     <div className="flex min-h-72 flex-col items-center justify-center p-8 text-center">
@@ -560,7 +613,7 @@ export function EvalsPageClient({
       </p>
       {filtered ? (
         <Button
-          variant="outline"
+          variant="secondary"
           size="sm"
           className="mt-4"
           onClick={clearFilters}
@@ -615,12 +668,22 @@ export function EvalsPageClient({
             onLayoutChange={(layout) => prefs.save({ layout })}
           >
             <DataTable
+              tableId="legacy-eval-runs"
+              search={{
+                label: "Search evals",
+                placeholder:
+                  view === "runs"
+                    ? "Search suite, application, or run ID…"
+                    : "Search suites…",
+                value: query.q,
+                onChange: (q) => update({ q, cursor: 0 }),
+              }}
               data={runs}
               getRowKey={(r) => r.id}
               onRowClick={(r) => chooseRun(r.id)}
-              rowClassName={(r) =>
+              rowTone={(r) =>
                 r.status === "failed" || r.status === "error"
-                  ? "bg-red-500/[0.025]"
+                  ? "danger"
                   : undefined
               }
               sort={query.sort}
@@ -647,6 +710,13 @@ export function EvalsPageClient({
         ) : (
           <DataTableProvider columns={suiteColumns}>
             <DataTable
+              tableId="eval-suites"
+              search={{
+                label: "Search evals",
+                placeholder: "Search suites…",
+                value: query.q,
+                onChange: (q) => update({ q, cursor: 0 }),
+              }}
               data={suites}
               getRowKey={(r) => r.id}
               onRowClick={(r) => chooseSuite(r)}

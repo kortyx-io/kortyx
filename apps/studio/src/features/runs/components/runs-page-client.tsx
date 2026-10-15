@@ -5,7 +5,6 @@ import { DataTable, DataTableProvider } from "@/components/data-table";
 import { effectiveInterruptStatus } from "@/features/interrupts/lib/interrupt-presentation";
 import { createRunColumns } from "@/features/runs/components/run-table-columns";
 import { RunsEmptyState } from "@/features/runs/components/runs-empty-state";
-import { RunsFilterPanel } from "@/features/runs/components/runs-filter-panel";
 import { RunsToolbar } from "@/features/runs/components/runs-toolbar";
 import { useRunsQuery } from "@/features/runs/hooks/use-runs-query";
 import { useRunsTablePreferences } from "@/features/runs/hooks/use-runs-table-preferences";
@@ -15,11 +14,12 @@ import {
   type RunsTablePreferences,
 } from "@/features/runs/lib/table-preferences";
 import type { Run } from "@/features/runs/schema";
+import { OperationalFilterScope } from "@/features/telemetry/components/operational-filter-scope";
 import { useLiveRefresh } from "@/features/telemetry/hooks/use-live-refresh";
 import { detailNavigationHref } from "@/lib/nuqs";
 import { useRouter, useSearchParams } from "@/lib/scoped-navigation";
 import { studioDetailHref } from "@/lib/studio-routes";
-import { cn } from "@/lib/utils";
+import { RunsFilterPanel } from "./runs-filter-panel";
 
 type RunsPageClientProps = {
   runs: Run[];
@@ -132,13 +132,31 @@ export default function RunsPageClient({
     >
       <div className="flex h-full min-h-0">
         <DataTable
+          tableId="runs"
+          search={{
+            label: "Search runs",
+            placeholder: "Search runs, sessions, workflows, errors…",
+            value: runsQuery.query,
+            onChange: (value) => {
+              void runsQuery.setParams({ q: value || null, cursor: 0 });
+            },
+          }}
+          filterResource="runs"
+          filterPanel={(panel) => (
+            <RunsFilterPanel
+              query={runsQuery}
+              panel={panel}
+              open={panel.open}
+              onClose={panel.onClose}
+            />
+          )}
+          onClearLegacyFilters={runsQuery.clearFilters}
+          filterScope={<OperationalFilterScope query={runsQuery} />}
           className="min-w-0 flex-1"
           data={runsQuery.filteredRuns}
           getRowKey={(run) => run.id}
           onRowClick={openRun}
-          rowClassName={(run) =>
-            run.status === "failed" ? "bg-red-500/[0.025]" : undefined
-          }
+          rowTone={(run) => (run.status === "failed" ? "danger" : undefined)}
           sort={runsQuery.sort}
           direction={runsQuery.direction}
           onSort={runsQuery.handleSort}
@@ -146,16 +164,11 @@ export default function RunsPageClient({
           onClearSort={runsQuery.clearSort}
           header={
             <RunsToolbar
-              query={runsQuery}
               live={live}
               liveStatus={liveRefresh.status}
               refreshing={liveRefresh.refreshing}
-              filtersOpen={runsQuery.filtersOpen}
-              views={prefs.value.views}
               onToggleLive={() => runsQuery.setLive(!live)}
-              onToggleFilters={runsQuery.toggleFiltersOpen}
               onRefresh={liveRefresh.refreshNow}
-              onViewsChange={(views) => prefs.save({ views })}
             />
           }
           emptyState={<RunsEmptyState onClear={runsQuery.clearFilters} />}
@@ -171,18 +184,6 @@ export default function RunsPageClient({
               runsQuery.setParams({ cursor: null, pageSize: next }),
           }}
         />
-        <div
-          className={cn(
-            "h-full shrink-0 overflow-hidden transition-[width,margin] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)]",
-            runsQuery.filtersOpen ? "ml-2 w-72" : "ml-0 w-0",
-          )}
-        >
-          <RunsFilterPanel
-            query={runsQuery}
-            open={runsQuery.filtersOpen}
-            onClose={() => runsQuery.setFiltersOpen(false)}
-          />
-        </div>
       </div>
     </DataTableProvider>
   );

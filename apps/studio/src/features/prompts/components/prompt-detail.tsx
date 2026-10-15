@@ -698,12 +698,12 @@ export function PromptDetailView({
           {!query.edit && (
             <Button
               size="sm"
-              variant="outline"
+              variant="secondary"
               className="hidden @2xl/prompt-surface:inline-flex"
               disabled={!targets.canRun || !applicable}
               onClick={() => test(selected)}
             >
-              <Play className="size-3.5" />
+              <Play />
               Test version
             </Button>
           )}
@@ -758,7 +758,7 @@ export function PromptDetailView({
                   }
                 }}
               >
-                <Save className="hidden size-3.5 @lg/prompt-surface:block" />
+                <Save className="hidden @lg/prompt-surface:block" />
                 <span className="@lg/prompt-surface:hidden">Save</span>
                 <span className="hidden @lg/prompt-surface:inline">
                   Save version
@@ -772,7 +772,7 @@ export function PromptDetailView({
               aria-label={hasDraft ? "Open draft" : "New version"}
               onClick={() => void openDraft()}
             >
-              {!hasDraft && <Plus className="size-3.5" />}
+              {!hasDraft && <Plus />}
               <span className="hidden @lg/prompt-surface:inline">
                 {hasDraft ? "Open draft" : "New version"}
               </span>
@@ -824,7 +824,7 @@ export function PromptDetailView({
             <div className="flex flex-wrap gap-2">
               <Button
                 size="sm"
-                variant="outline"
+                variant="secondary"
                 disabled={!fieldsValid || working}
                 onClick={async () => {
                   setWorking(true);
@@ -849,7 +849,7 @@ export function PromptDetailView({
               </Button>
               <Button
                 size="sm"
-                variant="outline"
+                variant="secondary"
                 onClick={() =>
                   downloadJson(
                     `${detail.asset.key.replaceAll("/", "-")}-draft.json`,
@@ -908,14 +908,14 @@ export function PromptDetailView({
                 <Button
                   size="sm"
                   variant="ghost"
-                  className="max-w-full gap-1.5 px-2"
+                  className="max-w-full"
                   aria-label={`Version history · ${query.edit ? "Draft" : `v${selected.version}`}`}
                 >
                   <span className="hidden @xl/prompt-detail:inline">
                     Version history ·
                   </span>
                   <span>{query.edit ? "Draft" : `v${selected.version}`}</span>
-                  <ChevronDown className="size-3.5" />
+                  <ChevronDown />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent
@@ -1018,12 +1018,12 @@ export function PromptDetailView({
             <Button
               size="sm"
               variant="ghost"
-              className="m-2 flex max-w-full shrink-0 items-center gap-2 self-start"
+              className="m-2 max-w-full self-start"
               aria-expanded={query.history}
               onClick={() => void setQuery({ history: !query.history })}
             >
               <ChevronDown
-                className={`size-3.5 transition-transform ${query.history ? "" : "-rotate-90"}`}
+                className={`transition-transform ${query.history ? "" : "-rotate-90"}`}
               />
               <span className={query.history ? "" : "sr-only"}>
                 Version history
@@ -1097,12 +1097,12 @@ export function PromptDetailView({
                       <DropdownMenu modal={false}>
                         <DropdownMenuTrigger asChild>
                           <Button
-                            size="icon"
+                            size="icon-sm"
                             variant="ghost"
-                            className="mt-1 size-8 shrink-0"
+                            className="mt-1"
                             aria-label={`Version ${version.version} actions`}
                           >
-                            <MoreHorizontal className="size-3.5" />
+                            <MoreHorizontal />
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent
@@ -1330,7 +1330,7 @@ export function PromptDetailView({
           )}
           <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
             <Button
-              variant="outline"
+              variant="secondary"
               disabled={working}
               onClick={() => setConfirmDiscard(false)}
             >
@@ -1666,13 +1666,15 @@ export function PromptDetailView({
                       <p className="font-medium">Promotion readiness</p>
                       <Tooltip>
                         <TooltipTrigger asChild>
-                          <button
+                          <Button
                             type="button"
+                            variant="ghost"
+                            size="icon-xs"
                             aria-label="About promotion readiness"
-                            className="inline-flex size-6 cursor-help items-center justify-center rounded-sm text-muted-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                            className="cursor-help"
                           >
-                            <CircleHelp className="size-4" />
-                          </button>
+                            <CircleHelp />
+                          </Button>
                         </TooltipTrigger>
                         <TooltipContent
                           className="max-w-72 text-wrap text-left"
@@ -1715,14 +1717,15 @@ export function PromptDetailView({
                         <>
                           {" "}
                           Review{" "}
-                          <button
+                          <Button
                             type="button"
+                            variant="link"
+                            size="inline"
                             aria-label="Promotion settings"
-                            className="underline underline-offset-4 hover:text-foreground focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                             onClick={() => showPanel("policy", panel.version)}
                           >
                             promotion settings
-                          </button>
+                          </Button>
                           .
                         </>
                       )}
@@ -1733,7 +1736,7 @@ export function PromptDetailView({
                       <div className="space-y-2">
                         <Button
                           size="sm"
-                          variant="outline"
+                          variant="secondary"
                           disabled={!targets.canRun || !applicable}
                           onClick={() => {
                             const version = panel.version;
@@ -1741,7 +1744,7 @@ export function PromptDetailView({
                             test(version);
                           }}
                         >
-                          <Play className="size-3.5" />
+                          <Play />
                           Test this version
                         </Button>
                         {!applicable && (

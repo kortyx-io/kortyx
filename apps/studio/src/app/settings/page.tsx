@@ -319,7 +319,7 @@ export default async function SettingsPage({
                 <DefinitionRow label="License" value="Elastic License 2.0" />
               </dl>
               <div>
-                <Button variant="outline" asChild>
+                <Button variant="secondary" asChild>
                   <a
                     href="https://kortyx.io/docs"
                     target="_blank"
@@ -327,7 +327,7 @@ export default async function SettingsPage({
                   >
                     <BookOpen />
                     Documentation
-                    <ExternalLink className="size-3.5" />
+                    <ExternalLink />
                   </a>
                 </Button>
               </div>

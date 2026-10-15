@@ -16,10 +16,22 @@ it("preserves the requested category, search, archive state and page on first pa
   expect(Object.fromEntries(query)).toEqual({
     search: "a & b",
     cursor: "40",
+    limit: "20",
     archived: "true",
     categoryId: "root",
   });
   expect(promptLibraryQuery({ q: ["ambiguous", "values"] })).toBe(
     promptLibraryQuery(),
   );
+});
+
+it("bounds the page size and sends it to the API for pagination before display", () => {
+  expect(
+    new URLSearchParams(promptLibraryQuery({ pageSize: "50" })).get("limit"),
+  ).toBe("50");
+  expect(
+    new URLSearchParams(promptLibraryQuery({ pageSize: "999999" })).get(
+      "limit",
+    ),
+  ).toBe("20");
 });

@@ -243,7 +243,7 @@ function ConversationDefinition({
               aria-label={`Details for ${name}`}
               aria-expanded={open}
               aria-controls={groupId}
-              className="shrink-0 text-muted-foreground"
+              className="shrink-0"
               onClick={() => {
                 void setState({
                   ...Object.fromEntries(legacyKeys.map((key) => [key, null])),

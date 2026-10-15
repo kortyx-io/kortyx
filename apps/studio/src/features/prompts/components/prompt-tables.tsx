@@ -6,21 +6,17 @@ import {
 } from "@kortyx/agent/evals";
 import {
   type PromptDetail,
+  PromptDetailSchema,
   StudioRunSchema,
 } from "@kortyx/telemetry-contracts";
 import { RefreshCw } from "lucide-react";
 import { parseAsInteger, parseAsString, parseAsStringLiteral } from "nuqs";
 import { useEffect, useState } from "react";
 import { z } from "zod";
-import {
-  DataTable,
-  DataTableColumnsMenu,
-  DataTableProvider,
-} from "@/components/data-table";
+import { DataTable, DataTableProvider } from "@/components/data-table";
+import { columnFilter } from "@/components/data-table/filter-fields";
 import { usePrepareDetailNavigation } from "@/components/detail/detail-stack";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { EvalDropdown } from "@/features/evals/components/eval-dropdown";
 import {
   createEvaluationColumns,
   type EvaluationSort,
@@ -36,13 +32,14 @@ import { promptRequest } from "../api/client";
 const responseSchema = z.object({
   runs: z.array(StudioRunSchema),
   evaluations: z.array(StudioEvaluationSummarySchema),
+  evidence: PromptDetailSchema.shape.evidence.optional(),
 });
 
 export function PromptTables({
   id,
   version,
   kind,
-  evidence,
+  evidence: initialEvidence,
   onTest,
   canTest,
 }: {
@@ -57,6 +54,7 @@ export function PromptTables({
     runs: Run[];
     evaluations: StudioEvaluationSummary[];
   }>({ runs: [], evaluations: [] });
+  const [evidence, setEvidence] = useState(initialEvidence);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [refresh, setRefresh] = useState(0);
@@ -111,6 +109,7 @@ export function PromptTables({
           runs: data.runs.map(mapStudioRun),
           evaluations: data.evaluations,
         });
+        setEvidence(data.evidence ?? initialEvidence);
         setNow(Date.now());
         setError("");
       } catch (cause) {
@@ -155,19 +154,15 @@ export function PromptTables({
     }
   };
   const needle = query.q.toLowerCase();
-  const runs = rows.runs.filter(
-    (run) =>
-      (query.status === "all" || run.status === query.status) &&
-      `${run.id} ${run.workflow} ${run.session} ${run.model} ${run.result} ${run.environment}`
-        .toLowerCase()
-        .includes(needle),
+  const runs = rows.runs.filter((run) =>
+    `${run.id} ${run.workflow} ${run.session} ${run.model} ${run.result} ${run.environment}`
+      .toLowerCase()
+      .includes(needle),
   );
-  const evaluations = rows.evaluations.filter(
-    (run) =>
-      (query.status === "all" || run.status === query.status) &&
-      `${run.name} ${run.id} ${run.targetName} ${run.environment} ${run.metadata.source} ${run.metadata.commit ?? ""}`
-        .toLowerCase()
-        .includes(needle),
+  const evaluations = rows.evaluations.filter((run) =>
+    `${run.name} ${run.id} ${run.targetName} ${run.environment} ${run.metadata.source} ${run.metadata.commit ?? ""}`
+      .toLowerCase()
+      .includes(needle),
   );
   const direction = query.dir === "asc" ? 1 : -1;
   const runSort: SortKey = [
@@ -235,7 +230,7 @@ export function PromptTables({
         <div className="flex items-center gap-2">
           <Button
             size="icon-sm"
-            variant="outline"
+            variant="secondary"
             aria-label={`Refresh prompt ${kind}`}
             onClick={() => setRefresh((value) => value + 1)}
           >
@@ -244,7 +239,7 @@ export function PromptTables({
           {kind === "evals" && (
             <Button
               size="sm"
-              variant="outline"
+              variant="secondary"
               disabled={!canTest}
               onClick={onTest}
             >
@@ -252,43 +247,6 @@ export function PromptTables({
             </Button>
           )}
         </div>
-      </div>
-      <div className="flex flex-wrap items-center gap-2">
-        <Input
-          aria-label={`Search prompt ${kind}`}
-          placeholder={
-            kind === "runs"
-              ? "Search workflow, model or run ID…"
-              : "Search evaluation runs…"
-          }
-          className="h-8 min-w-36 flex-1 text-xs"
-          value={query.q}
-          onChange={(event) => {
-            void setQuery({ q: event.target.value, cursor: 0 });
-          }}
-        />
-        <EvalDropdown
-          label={`Prompt ${kind} status filter`}
-          value={query.status}
-          options={[
-            { value: "all", label: "All statuses" },
-            ...(kind === "runs"
-              ? [
-                  "running",
-                  "completed",
-                  "interrupted",
-                  "incomplete",
-                  "failed",
-                  "cancelled",
-                ]
-              : ["queued", "running", "passed", "failed", "error", "cancelled"]
-            ).map((value) => ({ value, label: value })),
-          ]}
-          onChange={(status) => {
-            void setQuery({ status, cursor: 0 });
-          }}
-        />
-        <DataTableColumnsMenu />
       </div>
       {error && (
         <div role="alert" className="text-xs text-red-700 dark:text-red-400">
@@ -329,7 +287,7 @@ export function PromptTables({
       {(query.q || query.status !== "all") && (
         <Button
           size="sm"
-          variant="outline"
+          variant="secondary"
           className="mt-4"
           onClick={() => {
             void setQuery({ q: "", status: "all", cursor: 0 });
@@ -352,6 +310,15 @@ export function PromptTables({
       void navigator.clipboard.writeText(text).catch(() => undefined);
     },
   });
+  for (const column of columns) {
+    if (Array.isArray(column.filter))
+      column.filter = column.filter.filter(
+        (field) =>
+          !["hasTool", "toolName", "toolOutcome", "toolMode"].includes(
+            field.key,
+          ),
+      );
+  }
   const evalColumns = [
     ...createEvaluationColumns((run) =>
       navigate(
@@ -360,6 +327,26 @@ export function PromptTables({
     ),
     {
       key: "prompt-usage",
+      filter: [
+        columnFilter(
+          "promptUsage",
+          "Prompt usage",
+          "enum",
+          (run: StudioEvaluationSummary) =>
+            evidence
+              .filter((item) => (item.evaluationId ?? item.runId) === run.id)
+              .map((item) => item.usage),
+        ),
+        columnFilter(
+          "usageSuites",
+          "Prompt usage suites",
+          "number",
+          (run: StudioEvaluationSummary) =>
+            evidence.filter(
+              (item) => (item.evaluationId ?? item.runId) === run.id,
+            ).length,
+        ),
+      ],
       label: "Prompt usage",
       defaultWidth: 200,
       render: (run: StudioEvaluationSummary) => {
@@ -411,6 +398,19 @@ export function PromptTables({
       {kind === "runs" ? (
         <DataTableProvider columns={columns}>
           <DataTable
+            tableId={`prompt-${kind}`}
+            search={{
+              label: `Search prompt ${kind}`,
+              placeholder:
+                kind === "runs"
+                  ? "Search workflow, model or run ID…"
+                  : "Search evaluation runs…",
+              queryKey: `prompt${kind}Search`,
+              value: query.q,
+              onChange: (q) => {
+                void setQuery({ q: q || null, cursor: 0 });
+              },
+            }}
             className="rounded-none border-0 shadow-none"
             data={runs}
             getRowKey={(run) => run.id}
@@ -440,6 +440,16 @@ export function PromptTables({
       ) : (
         <DataTableProvider columns={evalColumns}>
           <DataTable
+            tableId={`prompt-${kind}`}
+            search={{
+              label: `Search prompt ${kind}`,
+              placeholder: "Search evaluation runs…",
+              queryKey: `prompt${kind}Search`,
+              value: query.q,
+              onChange: (q) => {
+                void setQuery({ q: q || null, cursor: 0 });
+              },
+            }}
             className="rounded-none border-0 shadow-none"
             data={evaluations}
             getRowKey={(run) => run.id}

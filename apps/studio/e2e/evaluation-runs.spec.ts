@@ -96,6 +96,12 @@ for (const scope of ["all", "selected"] as const) {
       .click();
     await expect(page).toHaveURL(/\/evals\/evaluations\/[0-9a-f-]+$/);
     const parentPath = new URL(page.url()).pathname;
+    const tableControls = page.locator(
+      '[data-table-controls="evaluation-suites"]',
+    );
+    await expect(tableControls.getByRole("button")).toHaveCount(3);
+    await expect(tableControls.getByRole("searchbox")).toHaveCount(1);
+    await expect(page.locator("[data-table-footer]")).toHaveCount(1);
     const suiteCount = scope === "all" ? 3 : 2;
     await expect(page.locator("[data-row-key]")).toHaveCount(suiteCount);
     await expect(

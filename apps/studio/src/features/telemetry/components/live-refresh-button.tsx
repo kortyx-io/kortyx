@@ -30,7 +30,7 @@ export function LiveRefreshButton({
     <Tooltip>
       <TooltipTrigger asChild>
         <Button
-          variant={enabled ? "secondary" : "ghost"}
+          variant="ghost"
           size="sm"
           aria-label={`Live refresh: ${description}`}
           aria-pressed={enabled}

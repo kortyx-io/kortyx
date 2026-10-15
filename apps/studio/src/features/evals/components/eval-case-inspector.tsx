@@ -90,7 +90,7 @@ function StepEvaluation({
         </div>
       ))}
       {step.observation.runId ? (
-        <Button variant="outline" size="xs" asChild>
+        <Button variant="secondary" size="xs" asChild>
           <DetailLink
             href={`/runs/${encodeURIComponent(step.observation.runId)}`}
           >

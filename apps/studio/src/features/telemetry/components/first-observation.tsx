@@ -79,7 +79,7 @@ export function FirstObservation({
               Use Settings for connection details and credentials. Keep your SDK
               key in your application’s server-only environment.
             </p>
-            <Button asChild variant="outline">
+            <Button asChild variant="secondary">
               <Link
                 href={`/settings/${resource === "evals" ? "evaluations" : "connection"}`}
               >
@@ -103,7 +103,7 @@ export function FirstObservation({
               </p>
               <Button
                 size="sm"
-                variant="outline"
+                variant="secondary"
                 onClick={async () => {
                   try {
                     await navigator.clipboard.writeText(prompt);

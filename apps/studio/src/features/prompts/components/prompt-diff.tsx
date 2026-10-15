@@ -202,7 +202,7 @@ export function PromptDiff({
           <div className="ml-auto flex gap-2">
             <Button
               size="sm"
-              variant="outline"
+              variant="secondary"
               disabled={working}
               onClick={onClose}
             >

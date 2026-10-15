@@ -45,6 +45,7 @@ export {
   listEvalRuns,
   requestEvalCancellation,
 } from "./repositories/evals";
+export { listEvaluationTable } from "./repositories/evaluation-table";
 export {
   cancelEvaluation,
   enqueueEvaluation,
@@ -63,6 +64,7 @@ export {
   ensureProjectEnvironmentAllowed,
   getStudioProjectContext,
 } from "./repositories/projects";
+export { listPromptFilterValues } from "./repositories/prompt-table-filters";
 export {
   applyPromptTransfer,
   exportPrompts,
@@ -70,6 +72,7 @@ export {
 } from "./repositories/prompt-transfer";
 export {
   getPrompt,
+  getPromptTableReferences,
   listPrompts,
   mutatePrompt,
   type PromptScope,
@@ -111,6 +114,7 @@ export {
   createStudioWorkflowModelsFromProjections,
   listStudioWorkflows,
 } from "./repositories/studio-workflows";
+export { listStudioFilterValues } from "./repositories/table-filters";
 export type { IngestTelemetryEventsResult } from "./repositories/telemetry-events";
 export { ingestTelemetryEvents } from "./repositories/telemetry-events";
 export type { EnsureWorkflowRevisionResult } from "./repositories/workflow-revisions";

@@ -187,13 +187,15 @@ export function WorkflowCatalog({
         ) : (
           <div className="p-4 text-center text-xs text-muted-foreground">
             No workflows match these filters.
-            <button
+            <Button
               type="button"
-              className="ml-1 text-primary hover:underline"
+              variant="link"
+              size="inline"
+              className="ml-1"
               onClick={onClear}
             >
               Clear
-            </button>
+            </Button>
           </div>
         )}
       </ScrollArea>

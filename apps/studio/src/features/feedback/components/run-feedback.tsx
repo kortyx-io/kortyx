@@ -190,7 +190,7 @@ export function RunFeedback({ detail }: { detail: StudioRunDetailResponse }) {
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h3 className="text-sm font-semibold">Human reviews</h3>
           <Button
-            variant="outline"
+            variant="secondary"
             size="sm"
             onClick={startReview}
             disabled={!detail.canReview || pending}
@@ -229,7 +229,7 @@ export function RunFeedback({ detail }: { detail: StudioRunDetailResponse }) {
                 <Button
                   id={`${fieldId}-verdict`}
                   type="button"
-                  variant="outline"
+                  variant="secondary"
                   disabled={pending}
                   aria-labelledby={`${fieldId}-verdict-label ${fieldId}-verdict-value`}
                   className="max-w-full justify-between"
@@ -237,10 +237,7 @@ export function RunFeedback({ detail }: { detail: StudioRunDetailResponse }) {
                   <span id={`${fieldId}-verdict-value`}>
                     {verdictLabels[value]}
                   </span>
-                  <ChevronDown
-                    aria-hidden="true"
-                    className="size-4 opacity-50"
-                  />
+                  <ChevronDown aria-hidden="true" className="opacity-50" />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent
@@ -297,7 +294,7 @@ export function RunFeedback({ detail }: { detail: StudioRunDetailResponse }) {
                 <Button
                   type="button"
                   size="sm"
-                  variant="outline"
+                  variant="secondary"
                   disabled={pending}
                   onClick={() => void saveReview("DELETE")}
                 >

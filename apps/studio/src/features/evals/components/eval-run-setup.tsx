@@ -579,7 +579,7 @@ export function EvalRunSetup({
           disabled={working || !targets.canRun || !valid || !judgeAvailable}
           onClick={() => void onRun()}
         >
-          <Play className="mr-2 size-3.5" />
+          <Play />
           {working ? "Starting…" : "Run evaluations"}
         </Button>
       </div>

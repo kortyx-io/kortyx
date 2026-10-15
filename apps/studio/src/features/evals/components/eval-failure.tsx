@@ -26,7 +26,7 @@ export function EvalFailure({
           {issue.failure?.domainCode ?? issue.code}
         </p>
         {issue.diagnosticId && environment ? (
-          <Button variant="outline" size="xs" asChild>
+          <Button variant="secondary" size="xs" asChild>
             <Link
               prefetch={false}
               href={`/diagnostics/${encodeURIComponent(issue.diagnosticId)}?env=${encodeURIComponent(environment)}`}

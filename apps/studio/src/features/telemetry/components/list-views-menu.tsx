@@ -132,7 +132,7 @@ export function ListViewsMenu<Q>({
       }}
     >
       <DropdownMenuTrigger asChild>
-        <Button variant="outline" size="icon-sm" aria-label="Views">
+        <Button variant="secondary" size="icon-sm" aria-label="Views">
           <LayoutPanelTop />
         </Button>
       </DropdownMenuTrigger>
@@ -234,12 +234,14 @@ export function ListViewsMenu<Q>({
                 >
                   <Check className={cn("size-4", !active && "invisible")} />
                   <span className="min-w-0 flex-1 truncate">{view.name}</span>
-                  <button
+                  <Button
+                    variant="ghost"
+                    size="icon-xs"
                     type="button"
                     aria-label={`View options for ${view.name}`}
                     aria-expanded={optionsViewId === view.id}
                     data-view-options-trigger
-                    className="-mr-1 rounded-sm p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+                    className="-mr-1"
                     onClick={(event) => {
                       event.stopPropagation();
                       setOptionsViewId((current) =>
@@ -247,8 +249,8 @@ export function ListViewsMenu<Q>({
                       );
                     }}
                   >
-                    <Ellipsis className="size-3.5" />
-                  </button>
+                    <Ellipsis />
+                  </Button>
                   {optionsViewId === view.id && (
                     <div
                       role="menu"

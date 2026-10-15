@@ -2,6 +2,7 @@
 
 import { CircleHelp } from "lucide-react";
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
+import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import {
   Tooltip,
@@ -242,13 +243,14 @@ export default function WorkflowsPageClient({
             </label>
             <Tooltip>
               <TooltipTrigger asChild>
-                <button
+                <Button
                   type="button"
+                  variant="ghost"
+                  size="icon-xs"
                   aria-label="Explain observed calls"
-                  className="rounded-sm outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
                 >
-                  <CircleHelp className="size-3.5" />
-                </button>
+                  <CircleHelp />
+                </Button>
               </TooltipTrigger>
               <TooltipContent className="max-w-72">
                 Show real child-workflow calls recorded during runs on top of

@@ -6,7 +6,7 @@ import {
 } from "@kortyx/telemetry-contracts";
 import { format } from "date-fns";
 import { CalendarDays, ChevronDown } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { type DateRange, TZDate } from "react-day-picker";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
@@ -75,6 +75,8 @@ export function TimeRangeFilter({
   }, [range, startedAfter, startedBefore]);
   const [draft, setDraft] = useState<DateRange | undefined>(selected);
   const [open, setOpen] = useState(false);
+  const [choosingCustom, setChoosingCustom] = useState(false);
+  const pendingCustom = useRef(false);
 
   useEffect(() => setDraft(selected), [selected]);
 
@@ -87,7 +89,7 @@ export function TimeRangeFilter({
     <div className={cn("space-y-2", !compact && "px-2")}>
       <div className={cn("flex gap-2", !compact && "flex-col")}>
         <Select
-          value={open ? "Custom range" : range}
+          value={choosingCustom || open ? "Custom range" : range}
           onValueChange={(value) => {
             const nextRange = value as StudioTimeRange;
             if (nextRange === "Custom range") {
@@ -99,10 +101,12 @@ export function TimeRangeFilter({
                   to: now,
                 } satisfies DateRange);
               setDraft(nextDraft);
-              setOpen(true);
+              setChoosingCustom(true);
+              pendingCustom.current = true;
               return;
             }
             setOpen(false);
+            setChoosingCustom(false);
             onChange({
               range: nextRange,
               startedAfter: "",
@@ -116,7 +120,14 @@ export function TimeRangeFilter({
           >
             <SelectValue />
           </SelectTrigger>
-          <SelectContent>
+          <SelectContent
+            onCloseAutoFocus={(event) => {
+              if (!pendingCustom.current) return;
+              event.preventDefault();
+              pendingCustom.current = false;
+              requestAnimationFrame(() => setOpen(true));
+            }}
+          >
             {STUDIO_TIME_RANGES.map((item) => (
               <SelectItem key={item} value={item}>
                 {item}
@@ -124,15 +135,15 @@ export function TimeRangeFilter({
             ))}
           </SelectContent>
         </Select>
-        {(range === "Custom range" || open) && (
+        {(range === "Custom range" || choosingCustom || open) && (
           <Popover open={open} onOpenChange={setOpen}>
             <PopoverTrigger asChild>
               <Button
                 type="button"
-                variant="outline"
+                variant="secondary"
                 size={compact ? "sm" : "default"}
                 className={cn(
-                  "justify-between font-normal",
+                  "justify-between",
                   compact ? "max-w-[220px]" : "w-full",
                 )}
               >
@@ -168,6 +179,7 @@ export function TimeRangeFilter({
                       startedBefore: dayEndUtc(draft.to).toISOString(),
                     });
                     setOpen(false);
+                    setChoosingCustom(false);
                   }}
                 >
                   Apply range

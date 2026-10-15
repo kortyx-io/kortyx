@@ -219,6 +219,7 @@ export const publicCatalog: UsageCatalog = {
       "pending",
       "expired",
     ],
+    match: ["all", "any"],
     filter: [
       "search",
       "status",

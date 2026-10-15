@@ -6,7 +6,6 @@ import { effectiveInterruptStatus } from "@/features/interrupts/lib/interrupt-pr
 import { PAGE_SIZES } from "@/features/runs/lib/constants";
 import { createSessionColumns } from "@/features/sessions/components/session-table-columns";
 import { SessionsEmptyState } from "@/features/sessions/components/sessions-empty-state";
-import { SessionsFilterPanel } from "@/features/sessions/components/sessions-filter-panel";
 import {
   type SessionsViewQuery,
   useSessionsQuery,
@@ -17,14 +16,13 @@ import {
 } from "@/features/sessions/lib/table-preferences";
 import type { Session, SessionSortKey } from "@/features/sessions/schema";
 import { ListToolbar } from "@/features/telemetry/components/list-toolbar";
-import { ListViewsMenu } from "@/features/telemetry/components/list-views-menu";
+import { OperationalFilterScope } from "@/features/telemetry/components/operational-filter-scope";
 import { useListTablePreferences } from "@/features/telemetry/hooks/use-list-table-preferences";
 import { useLiveRefresh } from "@/features/telemetry/hooks/use-live-refresh";
 import type { ListTablePreferences } from "@/features/telemetry/lib/table-preferences";
 import { detailNavigationHref } from "@/lib/nuqs";
 import { useRouter, useSearchParams } from "@/lib/scoped-navigation";
 import { studioDetailHref } from "@/lib/studio-routes";
-import { cn } from "@/lib/utils";
 
 export default function SessionsPageClient({
   sessions,
@@ -92,6 +90,18 @@ export default function SessionsPageClient({
     >
       <div className="flex h-full min-h-0">
         <DataTable
+          tableId="sessions"
+          search={{
+            label: "Search sessions",
+            placeholder: "Search sessions, users, workflows, errors…",
+            value: query.q,
+            onChange: (value) => {
+              void query.setParams({ q: value || null, cursor: 0 });
+            },
+          }}
+          filterResource="sessions"
+          onClearLegacyFilters={query.clearFilters}
+          filterScope={<OperationalFilterScope query={query} />}
           className="min-w-0 flex-1"
           data={query.filteredSessions}
           getRowKey={(session) => session.id}
@@ -108,8 +118,8 @@ export default function SessionsPageClient({
               router.push(href);
             }
           }}
-          rowClassName={(session) =>
-            session.status === "failed" ? "bg-red-500/[0.025]" : undefined
+          rowTone={(session) =>
+            session.status === "failed" ? "danger" : undefined
           }
           sort={query.sort}
           direction={query.dir}
@@ -120,27 +130,11 @@ export default function SessionsPageClient({
             <ListToolbar
               title="Sessions"
               subtitle="Operational inbox for every session"
-              search={query.q}
-              searchPlaceholder="Search sessions, users, workflows, errors…"
-              activeFilterCount={query.activeFilterCount}
-              filtersOpen={query.filtersOpen}
               refreshing={liveRefresh.refreshing}
               live={query.live}
               liveStatus={liveRefresh.status}
-              onSearchChange={(value) => query.setParams({ q: value || null })}
-              onToggleFilters={query.toggleFiltersOpen}
-              onClearFilters={query.clearFilters}
               onToggleLive={() => query.setLive(!query.live)}
               onRefresh={liveRefresh.refreshNow}
-              views={
-                <ListViewsMenu
-                  currentQuery={query.viewQuery}
-                  standardQuery={query.standardViewQuery}
-                  views={prefs.value.views}
-                  onApplyQuery={query.applyViewQuery}
-                  onViewsChange={(views) => prefs.save({ views })}
-                />
-              }
             />
           }
           emptyState={
@@ -161,18 +155,6 @@ export default function SessionsPageClient({
               query.setParams({ cursor: null, pageSize }),
           }}
         />
-        <div
-          className={cn(
-            "h-full min-h-0 shrink-0 self-stretch overflow-hidden transition-[width,margin] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)]",
-            query.filtersOpen ? "ml-2 w-72" : "ml-0 w-0",
-          )}
-        >
-          <SessionsFilterPanel
-            query={query}
-            open={query.filtersOpen}
-            onClose={() => query.setFiltersOpen(false)}
-          />
-        </div>
       </div>
     </DataTableProvider>
   );
