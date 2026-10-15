@@ -162,16 +162,15 @@ export default function RunsPageClient({
           onSort={runsQuery.handleSort}
           onSetSortDirection={runsQuery.setSortDirection}
           onClearSort={runsQuery.clearSort}
-          header={(controls) => (
+          header={
             <RunsToolbar
-              controls={controls}
               live={live}
               liveStatus={liveRefresh.status}
               refreshing={liveRefresh.refreshing}
               onToggleLive={() => runsQuery.setLive(!live)}
               onRefresh={liveRefresh.refreshNow}
             />
-          )}
+          }
           emptyState={<RunsEmptyState onClear={runsQuery.clearFilters} />}
           scrollRestoreKey="runs-table-scroll-position"
           pagination={{

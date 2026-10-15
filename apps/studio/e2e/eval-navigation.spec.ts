@@ -21,6 +21,28 @@ test.describe("Eval route and drawer navigation", () => {
     // exercises persisted Runs -> Suites history in both dev and production.
     await page.reload();
     await expect(page.locator('[data-table-ready="true"]')).toBeVisible();
+    const sections = page.getByRole("navigation", { name: "Eval navigation" });
+    await expect(
+      page.getByRole("heading", { name: "Evals", exact: true }),
+    ).toBeVisible();
+    await expect(
+      sections.getByRole("link", { name: "Runs", exact: true }),
+    ).toHaveAttribute("aria-current", "page");
+    const sectionBox = await sections.boundingBox();
+    const breadcrumbs = await page
+      .getByRole("navigation", { name: "Workspace navigation" })
+      .boundingBox();
+    expect(
+      sectionBox &&
+        breadcrumbs &&
+        sectionBox.x > breadcrumbs.x + breadcrumbs.width,
+    ).toBeTruthy();
+    expect(sectionBox?.y).toBeLessThan(48);
+    await expect(
+      page
+        .locator("[data-table-ready]")
+        .getByRole("navigation", { name: "Eval navigation" }),
+    ).toHaveCount(0);
     await page
       .getByRole("navigation", { name: "Eval navigation" })
       .getByRole("link", { name: "Suites", exact: true })

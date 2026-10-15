@@ -128,9 +128,8 @@ export default function InterruptsPageClient({
           onSort={query.handleSort}
           onSetSortDirection={query.setSortDirection}
           onClearSort={query.clearSort}
-          header={(controls) => (
+          header={
             <ListToolbar
-              controls={controls}
               title="Interrupts"
               subtitle="Operational inbox for every human request"
               refreshing={liveRefresh.refreshing}
@@ -139,7 +138,7 @@ export default function InterruptsPageClient({
               onToggleLive={() => query.setLive(!query.live)}
               onRefresh={liveRefresh.refreshNow}
             />
-          )}
+          }
           emptyState={
             <InterruptsEmptyState
               hasFilters={query.hasActiveFilters}

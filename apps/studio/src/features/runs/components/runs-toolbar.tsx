@@ -1,12 +1,7 @@
-import { RefreshCw } from "lucide-react";
-import type { ReactNode } from "react";
-import { Button } from "@/components/ui/button";
-import { LiveRefreshButton } from "@/features/telemetry/components/live-refresh-button";
+import { ListToolbar } from "@/features/telemetry/components/list-toolbar";
 import type { LiveRefreshStatus } from "@/features/telemetry/lib/live-refresh-controller";
-import { cn } from "@/lib/utils";
 
 type RunsToolbarProps = {
-  controls?: ReactNode;
   live: boolean;
   liveStatus: LiveRefreshStatus;
   refreshing: boolean;
@@ -14,43 +9,12 @@ type RunsToolbarProps = {
   onRefresh: () => void;
 };
 
-export function RunsToolbar({
-  controls,
-  live,
-  liveStatus,
-  refreshing,
-  onToggleLive,
-  onRefresh,
-}: RunsToolbarProps) {
+export function RunsToolbar(props: RunsToolbarProps) {
   return (
-    <div className="z-20 shrink-0 border-b bg-background/95 px-5 pt-4 backdrop-blur supports-backdrop-filter:bg-background/75">
-      <div className="flex flex-wrap items-center justify-between gap-3 pb-4">
-        <div className="flex items-center gap-3">
-          <div>
-            <h1 className="text-xl font-semibold tracking-tight">Runs</h1>
-            <p className="mt-0.5 text-xs text-muted-foreground">
-              Operational inbox for every execution
-            </p>
-          </div>
-        </div>
-        <div className="flex items-center gap-1.5">
-          <LiveRefreshButton
-            enabled={live}
-            status={liveStatus}
-            onToggle={onToggleLive}
-          />
-          <Button
-            variant="outline"
-            size="icon-sm"
-            aria-label="Refresh runs"
-            onClick={onRefresh}
-          >
-            <RefreshCw className={cn(refreshing && "animate-spin")} />
-          </Button>
-        </div>
-      </div>
-
-      <div className="flex flex-wrap items-center gap-2 pb-3">{controls}</div>
-    </div>
+    <ListToolbar
+      title="Runs"
+      subtitle="Operational inbox for every execution"
+      {...props}
+    />
   );
 }

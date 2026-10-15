@@ -17,6 +17,7 @@ import {
   DataTableProvider,
 } from "@/components/data-table";
 import { columnFilter } from "@/components/data-table/filter-fields";
+import { TablePageHeader } from "@/components/data-table/table-page-header";
 import { valueColumn } from "@/components/data-table/value-column";
 import { DetailLink } from "@/components/detail/detail-link";
 import { usePrepareDetailNavigation } from "@/components/detail/detail-stack";
@@ -47,7 +48,6 @@ import {
 } from "../schema";
 import { EvalCost, evalFilterCost } from "./eval-cost";
 import { EvalDuration } from "./eval-duration";
-import { EvalNavigation } from "./eval-navigation";
 import { EvalRunSetup } from "./eval-run-setup";
 import { EvalStatus } from "./eval-status";
 
@@ -542,16 +542,11 @@ export function EvalsPageClient({
     },
   ];
   const header = (
-    <div className="z-20 shrink-0 border-b bg-background/95 px-5 pt-4">
-      <div className="flex flex-wrap items-center justify-between gap-3 pb-3">
-        <div>
-          <h1 className="text-xl font-semibold tracking-tight">Evals</h1>
-          <p className="mt-0.5 text-xs text-muted-foreground">
-            Conversation suites and saved evaluation results
-            {history.runs.length === 100 ? " · Latest 100 runs" : ""}
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
+    <TablePageHeader
+      title="Evals"
+      description="Conversation suites and saved evaluation results"
+      actions={
+        <>
           {selectedRuns.length === 2 && view === "runs" ? (
             <Button
               variant="outline"
@@ -586,16 +581,16 @@ export function EvalsPageClient({
             <Play />
             Run evaluations
           </Button>
-        </div>
-      </div>
-      <EvalNavigation active={view} />
+        </>
+      }
+    >
       {targets.targets.some((t) => t.error) ? (
-        <p className="pb-3 text-xs text-muted-foreground">
+        <p className="mt-3 text-xs text-muted-foreground">
           {targets.targets.filter((t) => t.error).length} application connection
           unavailable. Saved results can still be inspected.
         </p>
       ) : null}
-    </div>
+    </TablePageHeader>
   );
   const empty = (
     <div className="flex min-h-72 flex-col items-center justify-center p-8 text-center">

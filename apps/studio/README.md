@@ -337,6 +337,12 @@ Text filter suggestions use the shared shadcn Combobox, with keyboard navigation
 selection styling and free-text entry. Server suggestions retain the authorized
 scope and the existing request limits.
 
+Top-level Runs, Sessions, Interrupts, Prompts and Evals lists share
+`TablePageHeader`: title/description on the left, page actions on the right,
+followed by the standard table toolbar. Evals Runs/Suites navigation is a compact
+segmented link group after the workspace breadcrumbs, including on detail routes;
+it preserves project routing and the selected environment without a separate tab row.
+
 Row hover belongs to `DataTable`, including non-clickable rows. Every cell uses
 the same opaque row background so left/right pinned columns stay synchronized
 and cover scrolled content. Return `"danger"` from the `rowTone` callback for

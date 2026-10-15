@@ -14,6 +14,7 @@ import {
 import { useEffect, useState } from "react";
 import { z } from "zod";
 import { DataTable, DataTableProvider } from "@/components/data-table";
+import { TablePageHeader } from "@/components/data-table/table-page-header";
 import { Button } from "@/components/ui/button";
 import { FirstObservation } from "@/features/telemetry/components/first-observation";
 import { LiveRefreshButton } from "@/features/telemetry/components/live-refresh-button";
@@ -24,7 +25,6 @@ import { evalRequest } from "../api/client";
 import { useEvalSetup } from "../hooks/use-eval-setup";
 import { evalNavigationHref, evalRunHref } from "../lib/navigation";
 import type { EvalTargets } from "../schema";
-import { EvalNavigation } from "./eval-navigation";
 import { EvalRunSetup } from "./eval-run-setup";
 import { createEvaluationColumns } from "./evaluation-table-columns";
 
@@ -116,10 +116,11 @@ export function EvaluationList({
   ];
   const size = [10, 20, 50, 100].includes(query.pageSize) ? query.pageSize : 20;
   const header = (
-    <div className="space-y-3 p-4">
-      <div className="flex items-center justify-between gap-3">
-        <EvalNavigation active="runs" />
-        <div className="flex gap-2">
+    <TablePageHeader
+      title="Evals"
+      description="Conversation suites and saved evaluation results"
+      actions={
+        <>
           <LiveRefreshButton
             enabled={query.live}
             status={live.status}
@@ -129,7 +130,7 @@ export function EvaluationList({
           />
           <Button
             variant="outline"
-            size="sm"
+            size="icon-sm"
             disabled={refreshing}
             onClick={() => void refresh()}
             aria-label="Refresh evaluations"
@@ -147,9 +148,9 @@ export function EvaluationList({
             <Play className="mr-2 size-3.5" />
             Run evaluations
           </Button>
-        </div>
-      </div>
-    </div>
+        </>
+      }
+    />
   );
   if (
     !error &&

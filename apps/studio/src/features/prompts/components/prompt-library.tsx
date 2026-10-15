@@ -26,6 +26,7 @@ import {
   DataTableProvider,
 } from "@/components/data-table";
 import { columnFilter } from "@/components/data-table/filter-fields";
+import { TablePageHeader } from "@/components/data-table/table-page-header";
 import { valueColumn } from "@/components/data-table/value-column";
 import { DetailInspectorDrawer } from "@/components/detail/detail-inspector";
 import { DetailLink } from "@/components/detail/detail-link";
@@ -463,48 +464,46 @@ export function PromptLibraryView({
   );
   return (
     <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-xl border bg-background shadow-sm">
-      <header className="flex flex-wrap items-center justify-between gap-3 border-b px-5 py-4">
-        <div>
-          <h1 className="text-sm font-semibold">Prompts</h1>
-          <p className="mt-1 text-xs text-muted-foreground">
-            Version, test and ship the prompts behind your workflows.
-          </p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <Button
-            size="sm"
-            variant="outline"
-            disabled={!permissions?.edit}
-            onClick={() => setImporting(true)}
-          >
-            Import
-          </Button>
-          <DetailLink
-            href="/prompts/groups"
-            className="inline-flex h-9 items-center gap-2 rounded-md border px-3 text-xs hover:bg-muted"
-          >
-            <Users className="size-3.5" />
-            Test groups
-            <span className="text-muted-foreground">
-              {library?.groups.length ?? 0}
-            </span>
-          </DetailLink>
-          <Button
-            size="sm"
-            disabled={!permissions?.edit}
-            onClick={() => {
-              setPromptName("");
-              setKey("");
-              setContent(structuredClone(initialPrompt));
-              setError("");
-              setCreating(true);
-            }}
-          >
-            <Plus className="size-3.5" />
-            New prompt
-          </Button>
-        </div>
-      </header>
+      <TablePageHeader
+        title="Prompts"
+        description="Version, test and ship the prompts behind your workflows."
+        actions={
+          <>
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={!permissions?.edit}
+              onClick={() => setImporting(true)}
+            >
+              Import
+            </Button>
+            <DetailLink
+              href="/prompts/groups"
+              className="inline-flex h-9 items-center gap-2 rounded-md border px-3 text-xs hover:bg-muted"
+            >
+              <Users className="size-3.5" />
+              Test groups
+              <span className="text-muted-foreground">
+                {library?.groups.length ?? 0}
+              </span>
+            </DetailLink>
+            <Button
+              size="sm"
+              disabled={!permissions?.edit}
+              onClick={() => {
+                setPromptName("");
+                setKey("");
+                setContent(structuredClone(initialPrompt));
+                setError("");
+                setCreating(true);
+              }}
+            >
+              <Plus className="size-3.5" />
+              New prompt
+            </Button>
+          </>
+        }
+      />
       {(error || readError) && !categoryAction && !creating && (
         <div
           role="alert"
