@@ -6,9 +6,15 @@ import {
   type PromptLibrary,
   PromptLibrarySchema,
 } from "@kortyx/telemetry-contracts";
-import { MoreHorizontal, Play, Plus, Trash2, Users } from "lucide-react";
+import { MoreHorizontal, Play, Plus, Trash2 } from "lucide-react";
 import { parseAsString, parseAsStringLiteral } from "nuqs";
 import { useEffect, useState } from "react";
+import {
+  DataTable,
+  type DataTableColumn,
+  DataTableProvider,
+} from "@/components/data-table";
+import { columnFilter } from "@/components/data-table/filter-fields";
 import { DetailDrawer } from "@/components/detail/detail-drawer";
 import { DetailInspectorDrawer } from "@/components/detail/detail-inspector";
 import { DetailLink } from "@/components/detail/detail-link";
@@ -330,41 +336,64 @@ export function PromptGroupsView({
               </p>
             </div>
           ) : (
-            <div className="overflow-hidden rounded-lg border">
-              <div className="grid grid-cols-[minmax(0,1fr)_5rem_2.5rem] gap-3 border-b bg-muted/20 px-4 py-3 text-[11px] font-medium text-muted-foreground">
-                <span>Group</span>
-                <span>Prompts</span>
-                <span className="sr-only">Actions</span>
-              </div>
-              {library.groups.length ? (
-                library.groups.map((group) => (
-                  <div
-                    key={group.id}
-                    className="grid grid-cols-[minmax(0,1fr)_5rem_2.5rem] items-center gap-3 border-b px-4 py-3 last:border-0"
-                  >
-                    <DetailLink
-                      href={`/prompts/groups/${group.id}`}
-                      className="truncate text-xs font-medium hover:underline"
-                    >
-                      {group.name}
-                    </DetailLink>
-                    <span className="text-xs text-muted-foreground">
-                      {group.members.length}
-                    </span>
-                    {actions(group)}
-                  </div>
-                ))
-              ) : (
-                <div className="space-y-3 px-4 py-12 text-center">
-                  <Users className="mx-auto size-7 text-muted-foreground/50" />
-                  <p className="text-xs font-medium">No test groups yet</p>
-                  <p className="text-xs text-muted-foreground">
-                    Group candidate versions when a workflow uses several
-                    prompts.
+            <DataTableProvider
+              columns={
+                [
+                  {
+                    key: "name",
+                    label: "Group",
+                    defaultWidth: 300,
+                    filter: columnFilter(
+                      "name",
+                      "Group",
+                      "text",
+                      (group: PromptGroup) => group.name,
+                    ),
+                    render: (group: PromptGroup) => (
+                      <DetailLink
+                        href={`/prompts/groups/${group.id}`}
+                        className="text-xs hover:underline"
+                      >
+                        {group.name}
+                      </DetailLink>
+                    ),
+                  },
+                  {
+                    key: "prompts",
+                    label: "Prompts",
+                    defaultWidth: 120,
+                    filter: columnFilter(
+                      "prompts",
+                      "Prompts",
+                      "number",
+                      (group: PromptGroup) => group.members.length,
+                    ),
+                    render: (group: PromptGroup) => (
+                      <span className="text-xs">{group.members.length}</span>
+                    ),
+                  },
+                  {
+                    key: "actions",
+                    label: "Actions",
+                    defaultWidth: 80,
+                    filter: false,
+                    render: actions,
+                  },
+                ] satisfies DataTableColumn<PromptGroup>[]
+              }
+            >
+              <DataTable
+                tableId="prompt-groups"
+                data={library.groups}
+                getRowKey={(group) => group.id}
+                className="min-h-72"
+                emptyState={
+                  <p className="p-10 text-center text-xs text-muted-foreground">
+                    No test groups match these filters.
                   </p>
-                </div>
-              )}
-            </div>
+                }
+              />
+            </DataTableProvider>
           )}
         </div>
       </PromptWorkspace>

@@ -6,6 +6,7 @@ import {
   horizontalListSortingStrategy,
   SortableContext,
 } from "@dnd-kit/sortable";
+import type { StudioTableResource } from "@kortyx/telemetry-contracts";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { type ReactNode, useEffect, useLayoutEffect, useState } from "react";
 import {
@@ -24,8 +25,15 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
+import { DataTableFilterControls } from "./data-table-filters";
+import type { DataTableFilter } from "./types";
+import { useTableFilters } from "./use-table-filters";
 
 type DataTableProps<T, S extends string> = {
+  tableId: string;
+  filterResource?: StudioTableResource | "prompts" | "evaluations";
+  filterScope?: ReactNode;
+  onClearLegacyFilters?: () => void;
   data: T[];
   getRowKey: (item: T) => string;
   onRowClick?: (item: T, event: React.MouseEvent<HTMLTableRowElement>) => void;
@@ -49,6 +57,10 @@ type DataTableProps<T, S extends string> = {
 const CELL_BASE = "max-w-0 overflow-hidden border-b px-3 py-3.5 align-middle";
 
 export function DataTable<T, S extends string>({
+  tableId,
+  filterResource,
+  filterScope,
+  onClearLegacyFilters,
   data,
   getRowKey,
   onRowClick,
@@ -84,6 +96,25 @@ export function DataTable<T, S extends string>({
     headerScrollerRef,
   } = useDataTable<T, S>();
 
+  const fields = Object.values(columnsByKey)
+    .flatMap((column) =>
+      column.filter === false
+        ? []
+        : Array.isArray(column.filter)
+          ? column.filter
+          : [column.filter],
+    )
+    .filter(
+      (field, index, all): field is DataTableFilter<T> =>
+        Boolean(field) &&
+        all.findIndex((other) => other?.key === field?.key) === index,
+    );
+  const filtering = useTableFilters({
+    tableId,
+    fields,
+    resource: filterResource,
+  });
+  const filteredData = filterResource ? data : data.filter(filtering.matches);
   const [openColumnMenu, setOpenColumnMenu] = useState<string | null>(null);
   const [interactive, setInteractive] = useState(false);
   useEffect(() => setInteractive(true), []);
@@ -131,9 +162,24 @@ export function DataTable<T, S extends string>({
 
   const pageRows =
     pagination && !pagination.serverSide
-      ? data.slice(pagination.cursor, pagination.cursor + pagination.pageSize)
-      : data;
-  const isEmpty = data.length === 0;
+      ? filteredData.slice(
+          Math.min(
+            pagination.cursor,
+            Math.max(
+              0,
+              Math.ceil(filteredData.length / pagination.pageSize) - 1,
+            ) * pagination.pageSize,
+          ),
+          Math.min(
+            pagination.cursor,
+            Math.max(
+              0,
+              Math.ceil(filteredData.length / pagination.pageSize) - 1,
+            ) * pagination.pageSize,
+          ) + pagination.pageSize,
+        )
+      : filteredData;
+  const isEmpty = filteredData.length === 0;
 
   const colGroup = (
     <colgroup>
@@ -157,6 +203,23 @@ export function DataTable<T, S extends string>({
       )}
     >
       {header}
+      <DataTableFilterControls
+        tableId={tableId}
+        fields={fields}
+        data={data}
+        resource={filterResource}
+        state={filtering}
+        extra={filterScope}
+        onClearLegacy={onClearLegacyFilters}
+        pagination={pagination}
+        sort={sort}
+        direction={direction}
+        onSetSortDirection={
+          onSetSortDirection as
+            | ((key: string, direction: "asc" | "desc") => void)
+            | undefined
+        }
+      />
       <div className="flex min-h-0 flex-1 flex-col">
         <div
           ref={headerScrollerRef}
@@ -277,7 +340,21 @@ export function DataTable<T, S extends string>({
       </div>
       {pagination && (
         <DataTablePaginationFooter
-          pagination={pagination}
+          pagination={
+            pagination.serverSide
+              ? pagination
+              : {
+                  ...pagination,
+                  totalCount: filteredData.length,
+                  cursor: Math.min(
+                    pagination.cursor,
+                    Math.max(
+                      0,
+                      Math.ceil(filteredData.length / pagination.pageSize) - 1,
+                    ) * pagination.pageSize,
+                  ),
+                }
+          }
           onBeforeChange={() => scrollerRef.current?.scrollTo({ top: 0 })}
         />
       )}

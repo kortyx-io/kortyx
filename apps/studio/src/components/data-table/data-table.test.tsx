@@ -5,6 +5,14 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { DataTable } from "./data-table";
 import { DataTableProvider } from "./data-table-context";
 
+vi.mock("./data-table-filters", () => ({
+  DataTableFilterControls: () => null,
+}));
+
+vi.mock("./use-table-filters", () => ({
+  useTableFilters: () => ({ matches: () => true }),
+}));
+
 let root: Root;
 let container: HTMLDivElement;
 const openRow = vi.fn();
@@ -30,6 +38,7 @@ beforeEach(async () => {
         columns={[
           {
             key: "name",
+            filter: false,
             label: "Name",
             defaultWidth: 300,
             render: () => (
@@ -54,6 +63,7 @@ beforeEach(async () => {
         ]}
       >
         <DataTable
+          tableId="row-click-test"
           data={[{ id: "evaluation" }]}
           getRowKey={(row) => row.id}
           onRowClick={openRow}

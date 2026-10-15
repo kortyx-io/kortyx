@@ -34,6 +34,20 @@ function fixture(overrides: Partial<UsageOptions> = {}) {
 }
 
 describe("bounded usage collection", () => {
+  it("records the all/any preference without filter values or saved view names", () => {
+    expect(
+      sanitizeProperties({
+        action: "apply",
+        filter: "other",
+        match: "any",
+        values: ["private workflow"],
+        name: "Customer incidents",
+      }),
+    ).toEqual({ action: "apply", filter: "other", match: "any" });
+    expect(sanitizeProperties({ match: "private expression" })).toEqual({
+      match: "other",
+    });
+  });
   it("aggregates the complete outcome denominator and duration histogram, ending each scope once", async () => {
     let time = 0;
     const f = fixture({ now: () => time });

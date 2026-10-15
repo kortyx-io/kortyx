@@ -1,8 +1,10 @@
 import type { StudioEvaluationSummary } from "@kortyx/agent/evals";
 import type { DataTableColumn } from "@/components/data-table";
+import { columnFilter } from "@/components/data-table/filter-fields";
 import { Button } from "@/components/ui/button";
+import { evalDurationMs } from "@/features/evals/lib/duration";
 import { formatDateTime } from "@/lib/format";
-import { EvalCost } from "./eval-cost";
+import { EvalCost, evalFilterCost } from "./eval-cost";
 import { EvalDuration } from "./eval-duration";
 import { EvalStatus } from "./eval-status";
 export type EvaluationSort = "name" | "created" | "status";
@@ -12,6 +14,17 @@ export function createEvaluationColumns(
   return [
     {
       key: "name",
+      filter: [
+        columnFilter("name", "Evaluation run", "text", (r) => r.name),
+        columnFilter("id", "Evaluation ID", "text", (r) => r.id),
+        columnFilter(
+          "selection",
+          "Suite selection",
+          "enum",
+          (r) => r.selection,
+        ),
+        columnFilter("suiteCount", "Suites", "number", (r) => r.suiteCount),
+      ],
       label: "Evaluation run",
       sortKey: "name",
       defaultWidth: 260,
@@ -38,6 +51,7 @@ export function createEvaluationColumns(
     },
     {
       key: "status",
+      filter: columnFilter("status", "Status", "enum", (r) => r.status),
       label: "Status",
       sortKey: "status",
       defaultWidth: 125,
@@ -45,6 +59,26 @@ export function createEvaluationColumns(
     },
     {
       key: "progress",
+      filter: [
+        columnFilter(
+          "completedSuites",
+          "Completed suites",
+          "number",
+          (r) => r.completedSuites,
+        ),
+        columnFilter(
+          "completedAttempts",
+          "Graded attempts",
+          "number",
+          (r) => r.completedAttempts,
+        ),
+        columnFilter(
+          "totalAttempts",
+          "Total attempts",
+          "number",
+          (r) => r.totalAttempts,
+        ),
+      ],
       label: "Progress",
       defaultWidth: 200,
       render: (run) => (
@@ -60,6 +94,17 @@ export function createEvaluationColumns(
     },
     {
       key: "results",
+      filter: [
+        columnFilter("passed", "Passed", "number", (r) => r.counts?.passed),
+        columnFilter("failed", "Failed", "number", (r) => r.counts?.failed),
+        columnFilter("error", "Errors", "number", (r) => r.counts?.error),
+        columnFilter(
+          "cancelled",
+          "Cancelled",
+          "number",
+          (r) => r.counts?.cancelled,
+        ),
+      ],
       label: "Results",
       defaultWidth: 230,
       render: (run) => (
@@ -72,6 +117,21 @@ export function createEvaluationColumns(
     },
     {
       key: "application",
+      filter: [
+        columnFilter(
+          "applicationId",
+          "Application ID",
+          "text",
+          (r) => r.targetId,
+        ),
+        columnFilter("application", "Application", "text", (r) => r.targetName),
+        columnFilter(
+          "environment",
+          "Environment",
+          "enum",
+          (r) => r.environment,
+        ),
+      ],
       label: "Application",
       defaultWidth: 180,
       render: (run) => (
@@ -83,6 +143,10 @@ export function createEvaluationColumns(
     },
     {
       key: "trigger",
+      filter: [
+        columnFilter("trigger", "Trigger", "enum", (r) => r.metadata.source),
+        columnFilter("commit", "Commit", "text", (r) => r.metadata.commit),
+      ],
       label: "Trigger / Commit",
       defaultWidth: 170,
       render: (run) => (
@@ -98,6 +162,7 @@ export function createEvaluationColumns(
     },
     {
       key: "created",
+      filter: columnFilter("createdAt", "Created", "date", (r) => r.createdAt),
       label: "Created",
       sortKey: "created",
       defaultWidth: 180,
@@ -109,12 +174,18 @@ export function createEvaluationColumns(
     },
     {
       key: "cost",
+      filter: columnFilter("cost", "Cost", "number", (r) =>
+        evalFilterCost(r.costs),
+      ),
       label: "Cost",
       defaultWidth: 100,
       render: (run) => <EvalCost costs={run.costs} />,
     },
     {
       key: "duration",
+      filter: columnFilter("duration", "Duration (ms)", "number", (r) =>
+        evalDurationMs(r, Date.now()),
+      ),
       label: "Duration",
       defaultWidth: 100,
       render: (run) => (

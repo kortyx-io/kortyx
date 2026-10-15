@@ -11,8 +11,10 @@ import {
   type DataTableColumn,
   DataTableProvider,
 } from "@/components/data-table";
+import { columnFilter } from "@/components/data-table/filter-fields";
 import { DetailPage } from "@/components/detail/detail-page";
 import { Button } from "@/components/ui/button";
+import { evalDurationMs } from "@/features/evals/lib/duration";
 import { LiveRefreshButton } from "@/features/telemetry/components/live-refresh-button";
 import { useLiveRefresh } from "@/features/telemetry/hooks/use-live-refresh";
 import { formatDateTime } from "@/lib/format";
@@ -21,7 +23,7 @@ import { useRouter, useSearchParams } from "@/lib/scoped-navigation";
 import { evalRequest } from "../api/client";
 import { evalNavigationHref, evalRunHref } from "../lib/navigation";
 import { isActive } from "../lib/presentation";
-import { EvalCost, EvalCostBreakdown } from "./eval-cost";
+import { EvalCost, EvalCostBreakdown, evalFilterCost } from "./eval-cost";
 import { EvalDetailHeader, EvalSummaryMetric } from "./eval-detail-header";
 import { EvalDuration } from "./eval-duration";
 import { EvalStatus } from "./eval-status";
@@ -98,6 +100,10 @@ export function EvaluationDetail({
   const columns: DataTableColumn<StudioEvalRunSummary>[] = [
     {
       key: "suite",
+      filter: [
+        columnFilter("suite", "Suite", "text", (r) => r.suiteName ?? r.suiteId),
+        columnFilter("id", "Suite run ID", "text", (r) => r.id),
+      ],
       label: "Suite",
       defaultWidth: 300,
       render: (suite) => (
@@ -113,6 +119,7 @@ export function EvaluationDetail({
     },
     {
       key: "status",
+      filter: columnFilter("status", "Status", "enum", (r) => r.status),
       label: "Status",
       defaultWidth: 150,
       render: (suite) => (
@@ -128,6 +135,20 @@ export function EvaluationDetail({
     },
     {
       key: "progress",
+      filter: [
+        columnFilter(
+          "graded",
+          "Graded attempts",
+          "number",
+          (r) => r.completedAttempts,
+        ),
+        columnFilter(
+          "total",
+          "Total attempts",
+          "number",
+          (r) => r.totalAttempts,
+        ),
+      ],
       label: "Progress",
       defaultWidth: 180,
       render: (suite) => (
@@ -139,6 +160,17 @@ export function EvaluationDetail({
     },
     {
       key: "results",
+      filter: [
+        columnFilter("passed", "Passed", "number", (r) => r.counts?.passed),
+        columnFilter("failed", "Failed", "number", (r) => r.counts?.failed),
+        columnFilter("error", "Errors", "number", (r) => r.counts?.error),
+        columnFilter(
+          "cancelled",
+          "Cancelled",
+          "number",
+          (r) => r.counts?.cancelled,
+        ),
+      ],
       label: "Results",
       defaultWidth: 260,
       render: (suite) => (
@@ -156,12 +188,18 @@ export function EvaluationDetail({
     },
     {
       key: "cost",
+      filter: columnFilter("cost", "Cost", "number", (r) =>
+        evalFilterCost(r.costs),
+      ),
       label: "Cost",
       defaultWidth: 100,
       render: (suite) => <EvalCost costs={suite.costs} />,
     },
     {
       key: "duration",
+      filter: columnFilter("duration", "Duration (ms)", "number", (r) =>
+        evalDurationMs(r, Date.now()),
+      ),
       label: "Duration",
       defaultWidth: 110,
       render: (suite) => (
@@ -277,6 +315,7 @@ export function EvaluationDetail({
             <div className="min-h-0 flex-1">
               <DataTableProvider columns={columns}>
                 <DataTable
+                  tableId="evaluation-suites"
                   className="rounded-none border-0 shadow-none"
                   data={run.suites}
                   getRowKey={(suite) => suite.id}

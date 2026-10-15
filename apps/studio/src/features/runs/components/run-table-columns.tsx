@@ -17,6 +17,7 @@ import { statusMeta } from "@/features/runs/lib/constants";
 import type { Run, RunStatus, SortKey } from "@/features/runs/schema";
 import { CopyableCell } from "@/features/telemetry/components/copyable-cell";
 import { TruncatedText } from "@/features/telemetry/components/truncated-text";
+import { studioColumnFilters } from "@/features/telemetry/lib/column-filters";
 import { costDisplay } from "@/lib/cost";
 import { formatCount, formatDurationSeconds } from "@/lib/format";
 import { studioDetailHref } from "@/lib/studio-routes";
@@ -62,6 +63,7 @@ export function createRunColumns({
   return [
     {
       key: "parent",
+      filter: studioColumnFilters("runs", "parent"),
       label: "Execution",
       defaultWidth: 170,
       render: (run) =>
@@ -84,6 +86,7 @@ export function createRunColumns({
     },
     {
       key: "status",
+      filter: studioColumnFilters("runs", "status"),
       label: "Status",
       sortKey: "status",
       defaultWidth: 140,
@@ -139,6 +142,7 @@ export function createRunColumns({
     },
     {
       key: "started",
+      filter: studioColumnFilters("runs", "started"),
       label: "Started",
       sortKey: "started",
       defaultWidth: 108,
@@ -148,6 +152,7 @@ export function createRunColumns({
     },
     {
       key: "feedback",
+      filter: studioColumnFilters("runs", "feedback"),
       label: "Feedback",
       defaultWidth: 120,
       render: (run) =>
@@ -170,6 +175,7 @@ export function createRunColumns({
     },
     {
       key: "workflow",
+      filter: studioColumnFilters("runs", "workflow"),
       label: "Workflows",
       defaultWidth: 190,
       cellTitle: (run) =>
@@ -219,6 +225,7 @@ export function createRunColumns({
     },
     {
       key: "path",
+      filter: studioColumnFilters("runs", "path"),
       label: "Path",
       defaultWidth: 200,
       cellTitle: (run) => workflowPathTitle(run.path),
@@ -226,6 +233,7 @@ export function createRunColumns({
     },
     {
       key: "session",
+      filter: studioColumnFilters("runs", "session"),
       label: "Session",
       defaultWidth: 155,
       cellTitle: (run) => run.session,
@@ -239,6 +247,7 @@ export function createRunColumns({
     },
     {
       key: "model",
+      filter: studioColumnFilters("runs", "model"),
       label: "Model",
       defaultWidth: 165,
       render: (run) => (
@@ -302,6 +311,7 @@ export function createRunColumns({
     },
     {
       key: "duration",
+      filter: studioColumnFilters("runs", "duration"),
       label: "Duration",
       sortKey: "duration",
       defaultWidth: 108,
@@ -324,6 +334,7 @@ export function createRunColumns({
     },
     {
       key: "tokens",
+      filter: studioColumnFilters("runs", "tokens"),
       label: "Tokens",
       sortKey: "tokens",
       defaultWidth: 98,
@@ -336,6 +347,7 @@ export function createRunColumns({
     },
     {
       key: "cost",
+      filter: studioColumnFilters("runs", "cost"),
       label: "Cost",
       sortKey: "cost",
       defaultWidth: 100,
@@ -345,6 +357,7 @@ export function createRunColumns({
     },
     {
       key: "result",
+      filter: studioColumnFilters("runs", "result"),
       label: "Result",
       defaultWidth: 360,
       render: (run) => (

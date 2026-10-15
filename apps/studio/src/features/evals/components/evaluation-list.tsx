@@ -11,7 +11,8 @@ import {
   parseAsString,
   parseAsStringLiteral,
 } from "nuqs";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { z } from "zod";
 import { DataTable, DataTableProvider } from "@/components/data-table";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -24,22 +25,28 @@ import { evalRequest } from "../api/client";
 import { useEvalSetup } from "../hooks/use-eval-setup";
 import { evalNavigationHref, evalRunHref } from "../lib/navigation";
 import type { EvalTargets } from "../schema";
-import { EvalDropdown } from "./eval-dropdown";
 import { EvalNavigation } from "./eval-navigation";
 import { EvalRunSetup } from "./eval-run-setup";
 import { createEvaluationColumns } from "./evaluation-table-columns";
 
 export function EvaluationList({
+  initialTotalCount,
   initialTargets,
   initialHistory,
   initialError,
 }: {
+  initialTotalCount: number;
   initialTargets: EvalTargets;
   initialHistory: StudioEvaluationSummary[];
   initialError: string;
 }) {
   const [targets, setTargets] = useState(initialTargets);
   const [runs, setRuns] = useState(initialHistory);
+  const [totalCount, setTotalCount] = useState(initialTotalCount);
+  useEffect(() => {
+    setRuns(initialHistory);
+    setTotalCount(initialTotalCount);
+  }, [initialHistory, initialTotalCount]);
   const [error, setError] = useState(initialError);
   const [refreshing, setRefreshing] = useState(false);
   const [query, setQuery] = useStudioQueryStates(
@@ -57,16 +64,17 @@ export function EvaluationList({
       cursor: parseAsInteger.withDefault(0),
       pageSize: parseAsInteger.withDefault(20),
     },
-    { shallow: true },
+    { shallow: false },
   );
   const router = useRouter();
   const search = useSearchParams();
   const { open } = useEvalSetup(targets);
   const read = async () => {
-    const next = StudioEvaluationHistorySchema.parse(
-      await evalRequest("evaluations"),
-    );
+    const next = StudioEvaluationHistorySchema.extend({
+      totalCount: z.number().int().nonnegative(),
+    }).parse(await evalRequest(`evaluations/table?${search.toString()}`));
     setRuns(next.runs);
+    setTotalCount(next.totalCount);
     setError("");
   };
   const refresh = async () => {
@@ -99,26 +107,9 @@ export function EvaluationList({
         search,
       ),
     );
-  const filtered = runs
-    .filter(
-      (run) =>
-        (query.application === "all" || run.targetId === query.application) &&
-        (query.status === "all" || run.status === query.status) &&
-        `${run.name} ${run.targetName} ${run.environment} ${run.metadata.source} ${run.metadata.commit ?? ""} ${run.id}`
-          .toLowerCase()
-          .includes(query.q.toLowerCase()),
-    )
-    .sort(
-      (a, b) =>
-        (query.dir === "asc" ? 1 : -1) *
-        (query.sort === "name"
-          ? a.name.localeCompare(b.name)
-          : query.sort === "status"
-            ? a.status.localeCompare(b.status)
-            : a.createdAt.localeCompare(b.createdAt)),
-    );
+  const filtered = runs;
   const columns = createEvaluationColumns(navigate);
-  const applications = [
+  const _applications = [
     ...new Map([
       ...targets.targets.map((item) => [item.id, item.name] as const),
       ...runs.map((item) => [item.targetId, item.targetName] as const),
@@ -169,39 +160,18 @@ export function EvaluationList({
             void setQuery({ q: e.target.value, cursor: 0 });
           }}
         />
-        <EvalDropdown
-          label="Application filter"
-          value={query.application}
-          options={[
-            { value: "all", label: "All applications" },
-            ...applications.map(([value, label]) => ({ value, label })),
-          ]}
-          onChange={(application) => {
-            void setQuery({ application, cursor: 0 });
-          }}
-        />
-        <EvalDropdown
-          label="Status filter"
-          value={query.status}
-          options={[
-            { value: "all", label: "All statuses" },
-            ...[
-              "queued",
-              "running",
-              "passed",
-              "failed",
-              "error",
-              "cancelled",
-            ].map((value) => ({ value, label: value })),
-          ]}
-          onChange={(status) => {
-            void setQuery({ status, cursor: 0 });
-          }}
-        />
       </div>
     </div>
   );
-  if (!error && targets.targets.length === 0 && runs.length === 0)
+  if (
+    !error &&
+    targets.targets.length === 0 &&
+    runs.length === 0 &&
+    !query.q &&
+    query.status === "all" &&
+    query.application === "all" &&
+    !search.get("tableFilters")
+  )
     return <FirstObservation resource="evals" />;
   return (
     <div className="flex h-full min-h-0 flex-col gap-2">
@@ -219,6 +189,8 @@ export function EvaluationList({
       <div className="min-h-0 flex-1">
         <DataTableProvider columns={columns}>
           <DataTable
+            tableId="evaluations"
+            filterResource="evaluations"
             data={filtered}
             getRowKey={(run) => run.id}
             onRowClick={navigate}
@@ -249,11 +221,12 @@ export function EvaluationList({
             pagination={{
               cursor: Math.min(
                 Math.max(0, query.cursor),
-                Math.max(0, Math.ceil(filtered.length / size) - 1) * size,
+                Math.max(0, Math.ceil(totalCount / size) - 1) * size,
               ),
               pageSize: size,
               pageSizes: [10, 20, 50, 100],
-              totalCount: filtered.length,
+              totalCount,
+              serverSide: true,
               onCursorChange: (cursor) => {
                 void setQuery({ cursor });
               },

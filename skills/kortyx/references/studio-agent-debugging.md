@@ -157,3 +157,23 @@ from likely causes, and state the missing evidence or next diagnostic check.
 If a fix is requested, correlate the evidence with application source before
 changing behavior. Verification should use a real application request, not a
 synthetic workflow created just to populate Studio.
+
+## Filtering table evidence
+
+All Studio tables have Filters, Columns and Views controls. Open Filters to use
+field conditions or custom UTC time bounds. Match all combines conditions with
+AND; Match any uses OR. Search, authorized project/environment and time scope
+still restrict either mode. Multiple values in one condition use OR. Autocomplete
+suggests existing scoped values; Contains remains useful for partial workflow or
+model names. Use Has no value to find missing evidence, rather than comparing it
+with zero. Numeric cost filters use the known subtotal displayed by Studio and
+do not convert mixed currencies.
+
+Filters are URL-backed and survive refresh/history navigation. Embedded tables
+use their own `tableFilters.<tableId>` parameter. Saved Views also capture layout,
+search/scope and sort in the current browser. Older filter links remain accepted.
+Evaluation filters search full history; prompt-linked tables also include older
+linked runs and evaluations. Suggestions return at most 50 distinct matches;
+narrow the text when a value is not among them. If suggestions fail, free text
+still works. Invalid conditions must be corrected or cleared, not treated as an
+unfiltered success.

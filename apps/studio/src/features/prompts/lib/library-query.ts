@@ -11,6 +11,9 @@ export function promptLibraryQuery(
     search: value("q", ""),
     cursor: value("cursor", "0"),
     archived: value("archived", "false"),
+    ...(value("tableFilters", "")
+      ? { tableFilters: value("tableFilters", "") }
+      : {}),
     ...(categoryId ? { categoryId } : {}),
   }).toString();
 }

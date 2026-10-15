@@ -1,13 +1,6 @@
-import { Filter, RefreshCw, Search, X } from "lucide-react";
-import type { ReactNode } from "react";
-import { DataTableColumnsMenu } from "@/components/data-table";
+import { RefreshCw, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
 import { LiveRefreshButton } from "@/features/telemetry/components/live-refresh-button";
 import type { LiveRefreshStatus } from "@/features/telemetry/lib/live-refresh-controller";
 import { cn } from "@/lib/utils";
@@ -17,17 +10,12 @@ type ListToolbarProps = {
   subtitle: string;
   search: string;
   searchPlaceholder: string;
-  activeFilterCount: number;
-  filtersOpen: boolean;
   refreshing: boolean;
   live?: boolean;
   liveStatus?: LiveRefreshStatus;
   onSearchChange: (value: string) => void;
-  onToggleFilters: () => void;
   onRefresh: () => void;
-  onClearFilters: () => void;
   onToggleLive?: () => void;
-  views?: ReactNode;
 };
 
 /** Shared header treatment for the operational table routes. */
@@ -36,17 +24,12 @@ export function ListToolbar({
   subtitle,
   search,
   searchPlaceholder,
-  activeFilterCount,
-  filtersOpen,
   refreshing,
   live,
   liveStatus = live ? "connecting" : "off",
   onSearchChange,
-  onToggleFilters,
   onRefresh,
-  onClearFilters,
   onToggleLive,
-  views,
 }: ListToolbarProps) {
   return (
     <div className="z-20 shrink-0 border-b bg-background/95 px-5 pt-4 backdrop-blur supports-backdrop-filter:bg-background/75">
@@ -84,39 +67,6 @@ export function ListToolbar({
             className="h-8 pl-9"
           />
         </div>
-        {activeFilterCount > 0 && (
-          <Button variant="ghost" size="sm" onClick={onClearFilters}>
-            <X /> Clear
-          </Button>
-        )}
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              variant="outline"
-              size="icon-sm"
-              aria-label="Filters"
-              aria-expanded={filtersOpen}
-              onClick={onToggleFilters}
-              className={cn(
-                "relative",
-                (filtersOpen || activeFilterCount > 0) &&
-                  "border-foreground/30 bg-accent",
-              )}
-            >
-              <Filter />
-              {activeFilterCount > 0 && (
-                <span className="absolute -top-1.5 -right-1.5 rounded-full bg-foreground px-1.5 text-[10px] leading-4 text-background">
-                  {activeFilterCount}
-                </span>
-              )}
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent side="top" sideOffset={8}>
-            Filters
-          </TooltipContent>
-        </Tooltip>
-        <DataTableColumnsMenu />
-        {views}
       </div>
     </div>
   );

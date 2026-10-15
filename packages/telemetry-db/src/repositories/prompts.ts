@@ -29,6 +29,7 @@ import {
   telemetryEvents,
 } from "../schema";
 import { ensureProjectEnvironmentAllowed } from "./projects";
+import { promptFilterCondition } from "./prompt-table-filters";
 
 export type PromptScope = { organizationId: string; projectId: string };
 const where = (
@@ -83,6 +84,7 @@ export async function listPrompts(
   scope: PromptScope,
   options: {
     search?: string;
+    tableFilters?: string;
     categoryId?: string | null;
     offset?: number;
     limit?: number;
@@ -93,6 +95,7 @@ export async function listPrompts(
     limit = Math.min(200, Math.max(1, options.limit ?? 100));
   const criteria = and(
     where(promptAssets, scope),
+    promptFilterCondition(options.tableFilters),
     eq(promptAssets.archived, options.archived ?? false),
     options.categoryId === null
       ? sql`${promptAssets.categoryId} IS NULL`
@@ -567,8 +570,9 @@ export async function promptEvidence(
   db: TelemetryDb,
   scope: PromptScope,
   key: string,
+  options: { all?: boolean } = {},
 ) {
-  const runs = await db
+  const query = db
     .select()
     .from(evalRuns)
     .where(
@@ -578,7 +582,8 @@ export async function promptEvidence(
       ),
     )
     .orderBy(desc(evalRuns.createdAt))
-    .limit(200);
+    .$dynamic();
+  const runs = await (options.all ? query : query.limit(200));
   const assignments = await db
     .select({
       key: promptAssets.key,
@@ -1496,4 +1501,38 @@ export async function mutatePrompt(
     });
     return { id: asset.id, version: input.version, revision };
   });
+}
+
+/** Table membership is independent of the detail drawer's bounded activity feed. */
+export async function getPromptTableReferences(
+  db: TelemetryDb,
+  scope: PromptScope & { environment?: string | undefined },
+  id: string,
+  version: number,
+) {
+  const asset = await findAsset(db, scope, id);
+  if (version > asset.latestVersion) missing();
+  const [usage, evidence] = await Promise.all([
+    db
+      .selectDistinct({ runId: telemetryEvents.runId })
+      .from(telemetryEvents)
+      .where(
+        and(
+          where(telemetryEvents, scope),
+          eq(telemetryEvents.type, "generation.completed"),
+          sql`((${telemetryEvents.payload}->'prompt'->>'name'=${asset.key} and ${telemetryEvents.payload}->'prompt'->'version'=${JSON.stringify(version)}::jsonb) or jsonb_path_exists(${telemetryEvents.payload}, '$.prompt.metadata.dependencies[*] ? (@.id == $key && @.version == $version)', jsonb_build_object('key',${asset.key}::text,'version',${version}::int)))`,
+        ),
+      ),
+    promptEvidence(db, scope, asset.key, { all: true }),
+  ]);
+  const selected = evidence.filter(
+    (item) =>
+      item.version === version &&
+      (!scope.environment || item.environment === scope.environment),
+  );
+  return {
+    runIds: usage.map((item) => item.runId),
+    suiteRunIds: selected.map((item) => item.runId),
+    evidence: selected,
+  };
 }

@@ -142,12 +142,22 @@ test.describe("Eval route and drawer navigation", () => {
   });
   test("persists comparison filters and attempts in URL", async ({ page }) => {
     await page.goto(comparePath);
-    await page.getByRole("button", { name: "Improved", exact: true }).click();
-    await expect(page).toHaveURL(/change=improved/);
+    await page.getByRole("button", { name: "Filters", exact: true }).click();
+    await page.getByRole("button", { name: "Add filter", exact: true }).click();
+    await page.getByRole("combobox", { name: "Filter 1 field" }).click();
+    await page.getByRole("option", { name: "Change", exact: true }).click();
+    await page.getByLabel("Change value", { exact: true }).fill("improved");
+    await page
+      .getByRole("button", { name: "Apply filters", exact: true })
+      .click();
+    await expect
+      .poll(() =>
+        new URL(page.url()).searchParams.get("tableFilters.eval-comparison"),
+      )
+      .toContain('"improved"');
+    const filteredUrl = page.url();
     await page.reload();
-    await expect(
-      page.getByRole("button", { name: "Improved", exact: true }),
-    ).toHaveClass(/secondary/);
+    await expect(page).toHaveURL(filteredUrl);
     await page
       .getByRole("link", { name: "Ambiguous role", exact: true })
       .click();

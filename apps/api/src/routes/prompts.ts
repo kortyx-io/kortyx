@@ -6,7 +6,6 @@ import {
 } from "@kortyx/agent/evals";
 import {
   PromptContentSchema,
-  PromptError,
   PromptKeySchema,
   PromptSnapshotSchema,
   PromptVersionSchema,
@@ -23,7 +22,9 @@ import {
   applyPromptTransfer,
   exportPrompts,
   getPrompt,
+  getPromptTableReferences,
   listEvaluations,
+  listPromptFilterValues,
   listPrompts,
   listStudioRuns,
   mutatePrompt,
@@ -146,6 +147,7 @@ const list = createRoute({
   request: {
     query: z.object({
       search: z.string().max(200).optional(),
+      tableFilters: z.string().max(32768).optional(),
       categoryId: z.union([z.uuid(), z.literal("root")]).optional(),
       cursor: z
         .string()
@@ -229,6 +231,7 @@ const tables = createRoute({
           schema: z.object({
             runs: z.array(StudioRunSchema),
             evaluations: z.array(StudioEvaluationSummarySchema),
+            evidence: PromptDetailSchema.shape.evidence,
           }),
         },
       },
@@ -324,12 +327,35 @@ export function registerPromptRoutes(
     c.header("etag", `"${result.revision}"`);
     return c.json(result as unknown, 200);
   });
+  app.get("/v1/studio/prompts/filter-values", async (c) => {
+    const parsed = z
+      .object({
+        field: z.string().max(80),
+        search: z.string().max(512).default(""),
+        archived: z.enum(["true", "false"]).optional(),
+        categoryId: z.union([z.uuid(), z.literal("root")]).optional(),
+      })
+      .safeParse(c.req.query());
+    if (!parsed.success)
+      return c.json({ error: "Invalid filter values query." }, 400);
+    const values = await c.get("withTenantDatabase")((db) =>
+      listPromptFilterValues(db, {
+        ...c.get("principal"),
+        ...parsed.data,
+        archived: parsed.data.archived === "true",
+        categoryId:
+          parsed.data.categoryId === "root" ? null : parsed.data.categoryId,
+      }),
+    );
+    return c.json({ values });
+  });
   app.openapi(list, async (c) => {
     const principal = c.get("principal"),
       query = c.req.valid("query");
     const data = await c.get("withTenantDatabase")((db) =>
       listPrompts(db, principal, {
         ...(query.search ? { search: query.search } : {}),
+        ...(query.tableFilters ? { tableFilters: query.tableFilters } : {}),
         ...(query.categoryId
           ? {
               categoryId: query.categoryId === "root" ? null : query.categoryId,
@@ -371,39 +397,42 @@ export function registerPromptRoutes(
     const scope = c.get("principal");
     const version = c.req.valid("query").version;
     const data = await c.get("withTenantDatabase")(async (db) => {
-      const prompt = await getPrompt(db, scope, c.req.valid("param").id);
-      if (version > prompt.asset.latestVersion)
-        throw new PromptError(
-          "PROMPT_NOT_FOUND",
-          "Prompt version not found.",
-          404,
-        );
-      const runIds = [
-        ...new Set(
-          prompt.usage
-            .filter((item) => item.version === version)
-            .map((item) => item.runId),
-        ),
-      ];
-      const suiteRunIds = prompt.evidence
-        .filter((item) => item.version === version)
-        .map((item) => item.runId);
-      const [runs, evaluations] = await Promise.all([
-        listStudioRuns(db, {
+      const references = await getPromptTableReferences(
+        db,
+        scope,
+        c.req.valid("param").id,
+        version,
+      );
+      const allRuns = [];
+      for (let cursor = 0; ; cursor += 250) {
+        const page = await listStudioRuns(db, {
           ...scope,
-          runIds,
+          runIds: references.runIds,
           query: {
             range: "All time",
             includeChildren: "true",
-            pageSize: "100",
+            pageSize: "250",
+            cursor: String(cursor),
             ...(scope.environment ? { env: scope.environment } : {}),
           },
-        }),
-        listEvaluations(db, scope, { suiteRunIds }),
-      ]);
+        });
+        allRuns.push(...page.items);
+        if (cursor + 250 >= page.totalCount) break;
+      }
+      const allEvaluations = [];
+      for (let offset = 0; ; offset += 50) {
+        const batch = await listEvaluations(db, scope, {
+          suiteRunIds: references.suiteRunIds,
+          scan: { offset, limit: 50 },
+        });
+        if (!batch.length) break;
+        allEvaluations.push(...batch);
+      }
       return {
-        runs: runs.items,
-        evaluations: StudioEvaluationSummarySchema.array().parse(evaluations),
+        runs: allRuns,
+        evaluations:
+          StudioEvaluationSummarySchema.array().parse(allEvaluations),
+        evidence: references.evidence,
       };
     });
     return c.json(data, 200);

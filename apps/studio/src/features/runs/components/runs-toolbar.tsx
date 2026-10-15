@@ -1,22 +1,7 @@
-import { ChevronDown, Filter, RefreshCw, Search } from "lucide-react";
-import { DataTableColumnsMenu } from "@/components/data-table";
+import { RefreshCw, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
-import { RunsViewsMenu } from "@/features/runs/components/runs-views-menu";
 import type { useRunsQuery } from "@/features/runs/hooks/use-runs-query";
-import type { RunsSavedView } from "@/features/runs/lib/saved-views";
 import { LiveRefreshButton } from "@/features/telemetry/components/live-refresh-button";
 import type { LiveRefreshStatus } from "@/features/telemetry/lib/live-refresh-controller";
 import { cn } from "@/lib/utils";
@@ -26,15 +11,11 @@ type RunsToolbarProps = {
   live: boolean;
   liveStatus: LiveRefreshStatus;
   refreshing: boolean;
-  filtersOpen: boolean;
-  views: RunsSavedView[];
   onToggleLive: () => void;
-  onToggleFilters: () => void;
   onRefresh: () => void;
-  onViewsChange: (views: RunsSavedView[]) => void;
 };
 
-const feedbackLabels = {
+const _feedbackLabels = {
   "": "All feedback",
   positive: "Positive feedback",
   negative: "Negative feedback",
@@ -46,14 +27,10 @@ export function RunsToolbar({
   live,
   liveStatus,
   refreshing,
-  filtersOpen,
-  views,
   onToggleLive,
-  onToggleFilters,
   onRefresh,
-  onViewsChange,
 }: RunsToolbarProps) {
-  const { query: search, activeFilterCount, setParams } = query;
+  const { query: search, setParams } = query;
 
   return (
     <div className="z-20 shrink-0 border-b bg-background/95 px-5 pt-4 backdrop-blur supports-backdrop-filter:bg-background/75">
@@ -93,73 +70,6 @@ export function RunsToolbar({
             className="h-8 pl-9"
           />
         </div>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button
-              id="runs-feedback-filter"
-              type="button"
-              variant="outline"
-              size="sm"
-              aria-label={`User feedback: ${feedbackLabels[query.feedback]}`}
-              className="h-8 max-w-full text-xs"
-            >
-              {feedbackLabels[query.feedback]}
-              <ChevronDown aria-hidden="true" className="size-4 opacity-50" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent
-            align="start"
-            className="min-w-(--radix-dropdown-menu-trigger-width)"
-          >
-            <DropdownMenuRadioGroup
-              aria-label="User feedback"
-              value={query.feedback}
-              onValueChange={(selected) =>
-                setParams({
-                  feedback: (selected as typeof query.feedback) || null,
-                })
-              }
-            >
-              {Object.entries(feedbackLabels).map(([key, label]) => (
-                <DropdownMenuRadioItem key={key} value={key}>
-                  {label}
-                </DropdownMenuRadioItem>
-              ))}
-            </DropdownMenuRadioGroup>
-          </DropdownMenuContent>
-        </DropdownMenu>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              variant="outline"
-              size="icon-sm"
-              aria-label="Filters"
-              aria-expanded={filtersOpen}
-              onClick={onToggleFilters}
-              className={cn(
-                "relative",
-                (filtersOpen || activeFilterCount > 0) &&
-                  "border-foreground/30 bg-accent",
-              )}
-            >
-              <Filter />
-              {activeFilterCount > 0 && (
-                <span className="absolute -top-1.5 -right-1.5 rounded-full bg-foreground px-1.5 text-[10px] leading-4 text-background">
-                  {activeFilterCount}
-                </span>
-              )}
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent side="top" sideOffset={8}>
-            Filters
-          </TooltipContent>
-        </Tooltip>
-        <DataTableColumnsMenu />
-        <RunsViewsMenu
-          query={query}
-          views={views}
-          onViewsChange={onViewsChange}
-        />
       </div>
     </div>
   );

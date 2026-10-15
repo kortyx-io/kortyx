@@ -1,19 +1,17 @@
 "use client";
 import { GitCompareArrows, Square } from "lucide-react";
-import { parseAsStringLiteral } from "nuqs";
 import type { ReactNode } from "react";
 import {
   DataTable,
   type DataTableColumn,
-  DataTableColumnsMenu,
   DataTableProvider,
 } from "@/components/data-table";
+import { columnFilter } from "@/components/data-table/filter-fields";
 import { DetailLink } from "@/components/detail/detail-link";
 import { KeyValue } from "@/components/detail/detail-primitives";
 import { DetailTabs } from "@/components/detail/detail-tabs";
 import { Button } from "@/components/ui/button";
 import { formatDateTime, formatDurationMs } from "@/lib/format";
-import { useStudioQueryState } from "@/lib/nuqs";
 import {
   type CaseRow,
   caseRows,
@@ -22,7 +20,7 @@ import {
   progressCounts,
 } from "../lib/presentation";
 import type { EvalDetail } from "../schema";
-import { EvalCost, EvalCostBreakdown } from "./eval-cost";
+import { EvalCost, EvalCostBreakdown, evalFilterCost } from "./eval-cost";
 import { EvalDetailHeader, EvalSummaryMetric } from "./eval-detail-header";
 import { EvalDuration } from "./eval-duration";
 import { EvalFailure } from "./eval-failure";
@@ -53,15 +51,13 @@ export function EvalRunDetail({
   const rows = caseRows(run);
   const counts = progressCounts(rows);
   const judge = run.result?.judge ?? run.request?.judge;
-  const [filter, setFilter] = useStudioQueryState(
-    "outcome",
-    parseAsStringLiteral(["all", "failed", "error", "passed"] as const)
-      .withDefault("all")
-      .withOptions({ shallow: true }),
-  );
   const columns: DataTableColumn<CaseRow>[] = [
     {
       key: "case",
+      filter: [
+        columnFilter("case", "Conversation", "text", (r) => r.name),
+        columnFilter("caseId", "Case ID", "text", (r) => r.caseId),
+      ],
       label: "Conversation",
       defaultWidth: 320,
       render: (item) => (
@@ -82,12 +78,14 @@ export function EvalRunDetail({
     },
     {
       key: "status",
+      filter: columnFilter("status", "Outcome", "enum", (r) => r.status),
       label: "Outcome",
       defaultWidth: 130,
       render: (item) => <EvalStatus status={item.status} />,
     },
     {
       key: "attempt",
+      filter: columnFilter("attempt", "Attempt", "number", (r) => r.repetition),
       label: "Attempt",
       defaultWidth: 85,
       render: (item) => (
@@ -96,6 +94,20 @@ export function EvalRunDetail({
     },
     {
       key: "steps",
+      filter: [
+        columnFilter(
+          "steps",
+          "Completed steps",
+          "number",
+          (r) => r.steps.length,
+        ),
+        columnFilter(
+          "expectedSteps",
+          "Expected steps",
+          "number",
+          (r) => r.expectedSteps,
+        ),
+      ],
       label: "Steps",
       defaultWidth: 90,
       render: (item) => (
@@ -106,12 +118,21 @@ export function EvalRunDetail({
     },
     {
       key: "cost",
+      filter: columnFilter("cost", "Cost", "number", (r) =>
+        evalFilterCost(r.costs),
+      ),
       label: "Cost",
       defaultWidth: 110,
       render: (item) => <EvalCost costs={item.costs} />,
     },
     {
       key: "duration",
+      filter: columnFilter(
+        "duration",
+        "Duration (ms)",
+        "number",
+        (r) => r.durationMs,
+      ),
       label: "Duration",
       defaultWidth: 100,
       render: (item) => (
@@ -199,9 +220,8 @@ export function EvalRunDetail({
               content: (
                 <DataTableProvider columns={columns}>
                   <DataTable
-                    data={rows.filter(
-                      (r) => filter === "all" || r.status === filter,
-                    )}
+                    tableId="eval-cases"
+                    data={rows}
                     getRowKey={(r) => r.key}
                     onRowClick={(r) => onCaseChange(r.key)}
                     rowClassName={(r) =>
@@ -210,33 +230,6 @@ export function EvalRunDetail({
                         : undefined
                     }
                     className="rounded-none border-0 shadow-none"
-                    header={
-                      <div className="flex flex-wrap items-center justify-between gap-2 border-b px-4 py-3">
-                        <div className="flex flex-wrap gap-1">
-                          {["all", "failed", "error", "passed"].map((value) => (
-                            <Button
-                              key={value}
-                              variant={filter === value ? "secondary" : "ghost"}
-                              size="xs"
-                              onClick={() => {
-                                void setFilter(
-                                  value as
-                                    | "all"
-                                    | "failed"
-                                    | "error"
-                                    | "passed",
-                                );
-                              }}
-                            >
-                              {value === "all"
-                                ? "All attempts"
-                                : displayName(value)}
-                            </Button>
-                          ))}
-                        </div>
-                        <DataTableColumnsMenu />
-                      </div>
-                    }
                     emptyState={
                       <p className="p-12 text-center text-sm text-muted-foreground">
                         No attempts match this outcome.

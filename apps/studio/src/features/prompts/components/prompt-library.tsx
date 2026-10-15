@@ -25,6 +25,7 @@ import {
   type DataTableColumn,
   DataTableProvider,
 } from "@/components/data-table";
+import { columnFilter } from "@/components/data-table/filter-fields";
 import { DetailInspectorDrawer } from "@/components/detail/detail-inspector";
 import { DetailLink } from "@/components/detail/detail-link";
 import { usePrepareDetailNavigation } from "@/components/detail/detail-stack";
@@ -93,6 +94,7 @@ export function PromptLibraryView({
       q: parseAsString.withDefault(""),
       cursor: parseAsString.withDefault("0"),
       archived: parseAsString.withDefault("false"),
+      tableFilters: parseAsString.withDefault(""),
       collapsed: parseAsArrayOf(parseAsString).withDefault([]),
     },
     // Client-only panels must not replay an older transition after dismissal.
@@ -115,7 +117,7 @@ export function PromptLibraryView({
     [importing, setImporting] = useState(false);
   const keyError = promptKeyError(key);
   const prepareDetailNavigation = usePrepareDetailNavigation();
-  const libraryPath = `library?${promptLibraryQuery({ q: query.q, cursor: query.cursor, archived: query.archived }, categoryId)}`;
+  const libraryPath = `library?${promptLibraryQuery({ q: query.q, cursor: query.cursor, archived: query.archived, tableFilters: query.tableFilters }, categoryId)}`;
   const {
     data: library,
     error: readError,
@@ -266,6 +268,7 @@ export function PromptLibraryView({
   const columns: DataTableColumn<PromptLibrary["assets"][number]>[] = [
     {
       key: "selection",
+      filter: false,
       label: "Select",
       defaultWidth: 64,
       cellClassName: "text-center",
@@ -291,6 +294,10 @@ export function PromptLibraryView({
     },
     {
       key: "name",
+      filter: [
+        columnFilter("name", "Prompt", "text", (r) => r.name),
+        columnFilter("key", "Key", "text", (r) => r.key),
+      ],
       label: "Prompt",
       defaultWidth: 300,
       render: (asset) => (
@@ -309,6 +316,12 @@ export function PromptLibraryView({
     },
     {
       key: "category",
+      filter: [
+        columnFilter("category", "Category", "text", (r) =>
+          categoryPath(categories, r.categoryId),
+        ),
+        columnFilter("categoryId", "Category ID", "text", (r) => r.categoryId),
+      ],
       label: "Category",
       defaultWidth: 180,
       render: (asset) => (
@@ -319,6 +332,17 @@ export function PromptLibraryView({
     },
     {
       key: "live",
+      filter: [
+        columnFilter("live", "Is live", "boolean", (r) =>
+          r.assignments.some((a) => a.tag === "live"),
+        ),
+        columnFilter(
+          "liveVersion",
+          "Live version",
+          "number",
+          (r) => r.assignments.find((a) => a.tag === "live")?.version,
+        ),
+      ],
       label: "Live",
       defaultWidth: 125,
       render: (asset) => {
@@ -332,6 +356,12 @@ export function PromptLibraryView({
     },
     {
       key: "latest",
+      filter: columnFilter(
+        "latestVersion",
+        "Newest version",
+        "number",
+        (r) => r.latestVersion,
+      ),
       label: "Newest version",
       defaultWidth: 110,
       render: (asset) => (
@@ -340,6 +370,7 @@ export function PromptLibraryView({
     },
     {
       key: "updated",
+      filter: columnFilter("updatedAt", "Updated", "date", (r) => r.updatedAt),
       label: "Updated",
       defaultWidth: 160,
       render: (asset) => (
@@ -350,6 +381,7 @@ export function PromptLibraryView({
     },
     {
       key: "actions",
+      filter: false,
       label: "Actions",
       defaultWidth: 80,
       cellClassName: "text-center",
@@ -597,6 +629,21 @@ export function PromptLibraryView({
           <div className="min-h-0 flex-1 overflow-hidden">
             <DataTableProvider columns={columns}>
               <DataTable
+                tableId="prompts"
+                filterResource="prompts"
+                filterScope={
+                  <EvalDropdown
+                    label="Prompt status"
+                    value={query.archived}
+                    options={[
+                      { value: "false", label: "Active prompts" },
+                      { value: "true", label: "Archived prompts" },
+                    ]}
+                    onChange={(value) =>
+                      void setQuery({ archived: value, cursor: "0" })
+                    }
+                  />
+                }
                 className="rounded-none border-0 shadow-none"
                 data={assets}
                 getRowKey={(asset) => asset.id}
@@ -619,17 +666,6 @@ export function PromptLibraryView({
             </DataTableProvider>
           </div>
           <footer className="flex shrink-0 items-center justify-between gap-3 border-t px-4 py-3">
-            <EvalDropdown
-              label="Prompt status"
-              value={query.archived}
-              options={[
-                { value: "false", label: "Active prompts" },
-                { value: "true", label: "Archived prompts" },
-              ]}
-              onChange={(value) =>
-                void setQuery({ archived: value, cursor: "0" })
-              }
-            />
             <div className="flex items-center gap-2">
               <Button
                 size="sm"

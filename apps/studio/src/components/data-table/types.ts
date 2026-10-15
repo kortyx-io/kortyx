@@ -1,3 +1,7 @@
+import type {
+  TableFilterDefinition,
+  TableFilterValue,
+} from "@kortyx/telemetry-contracts";
 import type { CSSProperties, ReactNode } from "react";
 
 /** Minimum width (px) for every column when resizing. Content truncates below this. */
@@ -27,6 +31,8 @@ export type DataTableLayout = {
  * needs to return the cell content.
  */
 export type DataTableColumn<T, S extends string = never> = {
+  /** Data columns declare their filters; selection/action columns explicitly opt out. */
+  filter: false | DataTableFilter<T> | DataTableFilter<T>[];
   /** Stable identifier, used for layout persistence and React keys. */
   key: string;
   /** Header text (also used for aria labels and the columns menu search). */
@@ -55,4 +61,8 @@ export type DataTablePagination = {
   serverSide?: boolean;
   onCursorChange: (cursor: number) => void;
   onPageSizeChange: (pageSize: number) => void;
+};
+
+export type DataTableFilter<T> = TableFilterDefinition & {
+  read: (row: T) => TableFilterValue | readonly TableFilterValue[];
 };

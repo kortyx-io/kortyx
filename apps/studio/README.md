@@ -277,3 +277,58 @@ ghcr.io/kortyx-io/kortyx-studio:latest
 Release-please creates the immutable `studio-vX.Y.Z` Git tag before publication.
 Repository setup and release/recovery instructions are in the
 [Studio self-hosted release runbook](../../docs/design-specs/studio-oss-release.md).
+
+## Table filters and views
+
+Every Studio data table provides **Filters**, **Columns**, and **Views**, in that
+order. Search remains in the toolbar; field filters, feedback, time range,
+environment and archived-prompt controls live in the Filters drawer. Selection
+and action columns have no filter; composite data columns expose their individual
+facts (for example, workflow/version, model/provider and evaluation result counts).
+
+Choose **Match all · AND** or **Match any · OR** for the conditions. Multiple
+values within one condition match any of those values. Project, authorized
+environment, time range, category and search restrict the dataset independently
+of OR. Conditions can be repeated for more specific expressions; nested groups
+are not supported.
+
+Text supports case-insensitive Contains/Does not contain and exact matches, with
+existing-value autocomplete. Suggestions search the scoped dataset, including
+rows beyond the current page, and return up to 50 distinct values. Free text is
+still accepted when suggestions are unavailable. Numeric/date fields support
+comparisons and inclusive ranges; dates use explicit UTC timestamps. Boolean
+fields use true/false. Has a value/Has no value distinguish missing evidence from
+zero or false. Negative conditions require a recorded value. Numeric cost
+filters compare the displayed known subtotal; mixed currencies without a single
+amount are missing, rather than implicitly converted.
+
+Custom time range opens the calendar, including when no custom range has been
+applied yet. Apply range writes UTC bounds to the URL. Filter conditions also
+live in the URL (`tableFilters` for server lists, `tableFilters.<tableId>` for
+embedded tables), so refresh and Back/Forward restore them. Invalid conditions
+show a resettable error or an API validation error instead of being ignored.
+The request limits are 32 conditions, 30 values per condition, 512 characters per
+value, and 32 KiB of serialized conditions.
+
+Views save conditions, column layout, search/scope, sort and page size in this
+browser. Use Views to restore, rename or delete a view, or save the current
+configuration. Up to 30 views per table are retained; existing operational-table
+cookie views are imported. Views are not synchronized between browsers.
+
+Runs, sessions, interrupts and prompt-library filters apply before server counts
+and pagination. Evaluation summaries scan history in batches before counting and
+paginating, including evaluations older than the former 100-row window. This
+computed-summary scan grows with history size. The suite catalog resolves the
+latest run per suite across history. Prompt-linked tables load all scoped linked
+runs/evaluations, then filter and paginate locally; large histories can therefore
+increase response size. There is no silent 100/200-row filter cutoff.
+
+Filter usage records the explicit Apply action and the allowlisted `all`/`any`
+choice through the shared usage helper. It measures UI intent, not query success;
+no condition values or view names are collected. Existing usage opt-out and
+bounded delivery behavior apply.
+
+Ship the API and shared contracts/database packages before the matching Studio
+version. No database migration is required. Legacy filter URLs are accepted and
+converted when filters are applied; the existing bounded history API remains
+available for older consumers.

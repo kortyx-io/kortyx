@@ -81,6 +81,9 @@ export function evalNavigationHref(
     "pageSize",
   ])
     if (previous.has(key)) next.set(key, previous.get(key) ?? "");
+  for (const [key, value] of previous)
+    if (key === "tableFilters" || key.startsWith("tableFilters."))
+      next.set(key, value);
   for (const [key, value] of new URLSearchParams(explicit))
     next.set(key, value);
   return `${pathname}${next.size ? `?${next}` : ""}`;

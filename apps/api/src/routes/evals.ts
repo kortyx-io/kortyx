@@ -115,7 +115,11 @@ export function registerEvalRoutes(
   app.get("/v1/studio/evals/runs", async (c) =>
     c.json({
       runs: await c.get("withTenantDatabase")((db) =>
-        listEvalRuns(db, c.get("principal")),
+        listEvalRuns(
+          db,
+          c.get("principal"),
+          c.req.query("latestPerSuite") === "true",
+        ),
       ),
     }),
   );
