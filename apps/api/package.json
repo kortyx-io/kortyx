@@ -19,11 +19,11 @@
   },
   "dependencies": {
     "@hono/node-server": "^1.19.15",
-    "@hono/swagger-ui": "^0.5.2",
-    "@hono/zod-openapi": "^1.1.6",
+    "@hono/swagger-ui": "^0.6.1",
+    "@hono/zod-openapi": "^1.6.3",
     "@kortyx/telemetry-contracts": "workspace:*",
     "@kortyx/telemetry-db": "workspace:*",
-    "hono": "^4.13.12",
+    "hono": "^4.13.13",
     "zod": "catalog:",
     "@kortyx/agent": "workspace:*",
     "@kortyx/openai": "workspace:*",
@@ -34,7 +34,7 @@
   "devDependencies": {
     "@types/node": "catalog:",
     "tsup": "catalog:",
-    "tsx": "^4.21.0",
+    "tsx": "^4.23.15",
     "typescript": "catalog:",
     "vitest": "catalog:"
   }

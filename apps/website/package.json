@@ -31,18 +31,18 @@
     "clsx": "catalog:",
     "framer-motion": "^12.23.19",
     "github-slugger": "^2.0.0",
-    "jose": "^6.2.3",
+    "jose": "^6.2.12",
     "lucide-react": "catalog:",
     "minisearch": "^7.2.0",
     "next": "catalog:",
-    "radix-ui": "^1.4.3",
+    "radix-ui": "^1.8.0",
     "react": "catalog:",
     "react-dom": "catalog:",
     "react-markdown": "catalog:",
-    "react-syntax-highlighter": "^16.1.0",
+    "react-syntax-highlighter": "^16.1.2",
     "remark-gfm": "catalog:",
     "tailwind-merge": "catalog:",
-    "yaml": "2.8.3"
+    "yaml": "2.9.1"
   },
   "devDependencies": {
     "@playwright/test": "1.62.0",

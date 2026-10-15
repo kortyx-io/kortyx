@@ -50,7 +50,7 @@
   "dependencies": {
     "@kortyx/core": "workspace:*",
     "@kortyx/providers": "workspace:*",
-    "@openrouter/sdk": "1.3.17",
+    "@openrouter/sdk": "1.4.25",
     "zod": "catalog:"
   },
   "devDependencies": {
