@@ -66,30 +66,21 @@ test("combines filters, restores a saved view, and keeps search outside Match an
   const row = page.locator(`[data-row-key="${DRAWER_FIXTURE.runId}"]`);
   await expect(row).toBeVisible();
   await page.getByRole("button", { name: "Filters", exact: true }).click();
-  await page.getByRole("button", { name: "Add filter", exact: true }).click();
-  await page
-    .getByRole("combobox", { name: "Filter 1 field", exact: true })
-    .click();
-  await page.getByRole("option", { name: "Workflow", exact: true }).click();
+  await expect(
+    page.getByRole("button", { name: "Add filter", exact: true }),
+  ).toHaveCount(0);
+  await expect(
+    page.getByRole("button", { name: "Apply filters", exact: true }),
+  ).toHaveCount(0);
   await page
     .getByLabel("Workflow value", { exact: true })
     .fill("no-such-workflow");
-  await page.getByRole("button", { name: "Add filter", exact: true }).click();
   await page
-    .getByRole("combobox", { name: "Filter 2 field", exact: true })
-    .click();
-  await page.getByRole("option", { name: "Status", exact: true }).click();
-  await page.getByLabel("Status value", { exact: true }).fill("completed");
-  await page
-    .getByRole("button", { name: "Apply filters", exact: true })
-    .click();
+    .getByRole("checkbox", { name: "Status: completed", exact: true })
+    .check();
   await expect(row).toHaveCount(0);
-  await page.getByRole("button", { name: "Filters", exact: true }).click();
   await page
     .getByRole("button", { name: "Match any · OR", exact: true })
-    .click();
-  await page
-    .getByRole("button", { name: "Apply filters", exact: true })
     .click();
   await expect(row).toBeVisible();
   await expect(page.locator("[data-row-key]")).toHaveCount(1);
@@ -193,8 +184,8 @@ test("prompt-linked tables always expose controls and filter empty datasets", as
         .poll(() => new URL(page.url()).searchParams.get(`prompt${tab}Page`))
         .toBeNull();
       await expect(
-        page.getByRole("button", { name: "Add filter", exact: true }),
-      ).toBeEnabled();
+        page.getByRole("textbox", { name: "Find a filter", exact: true }),
+      ).toBeVisible();
     }
   } finally {
     await db`delete from prompt_assets where key=${key}`;
@@ -207,16 +198,46 @@ test("suggests workflows outside the search results and keeps typed values usabl
 }) => {
   await page.goto(`/runs?range=All+time&q=no-such-run`);
   await page.getByRole("button", { name: "Filters", exact: true }).click();
-  await page.getByRole("button", { name: "Add filter", exact: true }).click();
-  await page
-    .getByRole("combobox", { name: "Filter 1 field", exact: true })
-    .click();
-  await page.getByRole("option", { name: "Workflow", exact: true }).click();
   await page.getByLabel("Workflow value", { exact: true }).fill("e2e");
-  await expect(page.locator("datalist option").first()).toBeAttached();
-  await expect(page.locator("datalist option").first()).toHaveAttribute(
-    "value",
-    /e2e/,
-  );
+  await expect(
+    page.locator('[data-filter-field="workflowIds"] datalist option').first(),
+  ).toBeAttached();
+  await expect(
+    page.locator('[data-filter-field="workflowIds"] datalist option').first(),
+  ).toHaveAttribute("value", /e2e/);
   await page.screenshot({ path: "/tmp/kortyx-table-filters-final.png" });
+});
+
+test("listed ranges preserve zero, validate bounds, and clear missing-value filters", async ({
+  page,
+}) => {
+  await page.goto(`/runs?range=All+time&q=${DRAWER_FIXTURE.runId}`);
+  const row = page.locator(`[data-row-key="${DRAWER_FIXTURE.runId}"]`);
+  await expect(row).toBeVisible();
+  await page.getByRole("button", { name: "Filters", exact: true }).click();
+  await page
+    .getByRole("textbox", { name: "Find a filter", exact: true })
+    .fill("cost");
+  await page.getByLabel("Cost minimum", { exact: true }).fill("1");
+  await page.getByLabel("Cost maximum", { exact: true }).fill("0");
+  await expect(page.getByRole("alert")).toContainText(
+    "minimum must not exceed maximum",
+  );
+  await page.getByLabel("Cost minimum", { exact: true }).fill("0");
+  await expect
+    .poll(() => new URL(page.url()).searchParams.get("tableFilters"))
+    .toContain('"values":[0,0]');
+  await expect(row).toHaveCount(0);
+  await page
+    .getByRole("button", { name: "Cost filter options", exact: true })
+    .click();
+  await page
+    .getByRole("menuitem", { name: "Has no value", exact: true })
+    .click();
+  await expect(page.getByLabel("Cost minimum", { exact: true })).toHaveCount(0);
+  await page
+    .getByRole("button", { name: "Clear Cost filter", exact: true })
+    .click();
+  await expect(page.getByLabel("Cost minimum", { exact: true })).toBeVisible();
+  await expect(row).toBeVisible();
 });

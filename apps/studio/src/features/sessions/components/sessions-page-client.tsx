@@ -118,8 +118,9 @@ export default function SessionsPageClient({
           onSort={query.handleSort}
           onSetSortDirection={query.setSortDirection}
           onClearSort={query.clearSort}
-          header={
+          header={(controls) => (
             <ListToolbar
+              controls={controls}
               title="Sessions"
               subtitle="Operational inbox for every session"
               search={query.q}
@@ -131,7 +132,7 @@ export default function SessionsPageClient({
               onToggleLive={() => query.setLive(!query.live)}
               onRefresh={liveRefresh.refreshNow}
             />
-          }
+          )}
           emptyState={
             <SessionsEmptyState
               hasFilters={query.hasActiveFilters}

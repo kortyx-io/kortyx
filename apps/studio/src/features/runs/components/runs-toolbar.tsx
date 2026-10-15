@@ -1,4 +1,5 @@
 import { RefreshCw, Search } from "lucide-react";
+import type { ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import type { useRunsQuery } from "@/features/runs/hooks/use-runs-query";
@@ -7,6 +8,7 @@ import type { LiveRefreshStatus } from "@/features/telemetry/lib/live-refresh-co
 import { cn } from "@/lib/utils";
 
 type RunsToolbarProps = {
+  controls?: ReactNode;
   query: ReturnType<typeof useRunsQuery>;
   live: boolean;
   liveStatus: LiveRefreshStatus;
@@ -23,6 +25,7 @@ const _feedbackLabels = {
 };
 
 export function RunsToolbar({
+  controls,
   query,
   live,
   liveStatus,
@@ -70,6 +73,7 @@ export function RunsToolbar({
             className="h-8 pl-9"
           />
         </div>
+        {controls}
       </div>
     </div>
   );

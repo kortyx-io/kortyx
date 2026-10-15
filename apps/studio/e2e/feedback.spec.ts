@@ -38,13 +38,9 @@ test("filters feedback, opens the existing drawer, and keeps human review separa
   await page.goto(`/runs?q=${DRAWER_FIXTURE.runId}`);
   await expect(page.locator('[data-table-ready="true"]')).toBeVisible();
   await page.getByRole("button", { name: "Filters", exact: true }).click();
-  await page.getByRole("button", { name: "Add filter", exact: true }).click();
-  await page.getByRole("combobox", { name: "Filter 1 field" }).click();
-  await page.getByRole("option", { name: "Feedback", exact: true }).click();
-  await page.getByLabel("Feedback value", { exact: true }).fill("negative");
   await page
-    .getByRole("button", { name: "Apply filters", exact: true })
-    .click();
+    .getByRole("checkbox", { name: "Feedback: negative", exact: true })
+    .check();
   await expect
     .poll(() => new URL(page.url()).searchParams.get("tableFilters"))
     .toContain('"negative"');
@@ -191,7 +187,10 @@ test("feedback filtering stays inside the shared drawer on mobile", async ({
   await page
     .getByRole("button", { name: "Filters", exact: true })
     .press("Enter");
-  const drawer = page.getByRole("dialog", { name: "Filters", exact: true });
+  const drawer = page.getByRole("complementary", {
+    name: "Filters",
+    exact: true,
+  });
   await expect(drawer).toBeVisible();
   await expect
     .poll(async () => {
@@ -199,17 +198,17 @@ test("feedback filtering stays inside the shared drawer on mobile", async ({
       return bounds ? bounds.x >= 0 && bounds.x + bounds.width <= 390 : false;
     })
     .toBe(true);
-  await page.getByRole("button", { name: "Add filter", exact: true }).click();
-  await page.getByRole("combobox", { name: "Filter 1 field" }).click();
-  await page.getByRole("option", { name: "Feedback", exact: true }).click();
-  await page.getByLabel("Feedback value", { exact: true }).fill("positive");
   await page
-    .getByRole("button", { name: "Apply filters", exact: true })
-    .click();
+    .getByRole("checkbox", { name: "Feedback: positive", exact: true })
+    .check();
   await expect
     .poll(() => new URL(page.url()).searchParams.get("tableFilters"))
     .toContain('"positive"');
-  await expect(drawer).toBeHidden();
+  await expect(drawer).toBeVisible();
+  await drawer
+    .getByRole("button", { name: "Close filters", exact: true })
+    .click();
+  await expect(drawer).toHaveCount(0);
 });
 
 for (const fixture of NAVIGATION_FIXTURES.filter((item) =>

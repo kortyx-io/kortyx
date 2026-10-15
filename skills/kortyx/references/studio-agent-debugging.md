@@ -161,7 +161,10 @@ synthetic workflow created just to populate Studio.
 ## Filtering table evidence
 
 All Studio tables have Filters, Columns and Views controls. Open Filters to use
-field conditions or custom UTC time bounds. Match all combines conditions with
+the listed fields or custom UTC time bounds. Statuses use checkboxes, text has
+autocomplete, and numeric/date fields show min/max inputs. Values apply as you
+change them; text/ranges are debounced and the inline drawer stays open. Match all
+combines populated fields with
 AND; Match any uses OR. Search, authorized project/environment and time scope
 still restrict either mode. Multiple values in one condition use OR. Autocomplete
 suggests existing scoped values; Contains remains useful for partial workflow or

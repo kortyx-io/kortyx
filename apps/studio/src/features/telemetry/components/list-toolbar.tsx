@@ -1,4 +1,5 @@
 import { RefreshCw, Search } from "lucide-react";
+import type { ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { LiveRefreshButton } from "@/features/telemetry/components/live-refresh-button";
@@ -6,6 +7,7 @@ import type { LiveRefreshStatus } from "@/features/telemetry/lib/live-refresh-co
 import { cn } from "@/lib/utils";
 
 type ListToolbarProps = {
+  controls?: ReactNode;
   title: string;
   subtitle: string;
   search: string;
@@ -20,6 +22,7 @@ type ListToolbarProps = {
 
 /** Shared header treatment for the operational table routes. */
 export function ListToolbar({
+  controls,
   title,
   subtitle,
   search,
@@ -67,6 +70,7 @@ export function ListToolbar({
             className="h-8 pl-9"
           />
         </div>
+        {controls}
       </div>
     </div>
   );

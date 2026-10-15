@@ -143,13 +143,9 @@ test.describe("Eval route and drawer navigation", () => {
   test("persists comparison filters and attempts in URL", async ({ page }) => {
     await page.goto(comparePath);
     await page.getByRole("button", { name: "Filters", exact: true }).click();
-    await page.getByRole("button", { name: "Add filter", exact: true }).click();
-    await page.getByRole("combobox", { name: "Filter 1 field" }).click();
-    await page.getByRole("option", { name: "Change", exact: true }).click();
-    await page.getByLabel("Change value", { exact: true }).fill("improved");
     await page
-      .getByRole("button", { name: "Apply filters", exact: true })
-      .click();
+      .getByRole("checkbox", { name: "Change: improved", exact: true })
+      .check();
     await expect
       .poll(() =>
         new URL(page.url()).searchParams.get("tableFilters.eval-comparison"),

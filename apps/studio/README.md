@@ -286,11 +286,17 @@ environment and archived-prompt controls live in the Filters drawer. Selection
 and action columns have no filter; composite data columns expose their individual
 facts (for example, workflow/version, model/provider and evaluation result counts).
 
-Choose **Match all · AND** or **Match any · OR** for the conditions. Multiple
+The existing inline side drawer lists the available filters directly. Choose
+values without adding conditions: statuses use checkboxes, text uses autocomplete,
+and numeric/date fields show minimum/maximum inputs. Changes apply automatically
+(text and ranges wait 350 ms after typing); the drawer stays open. A filter search
+helps find less common columns. Per-field options expose negative/missing-value
+matches without adding setup to ordinary filtering.
+
+Choose **Match all · AND** or **Match any · OR** for the populated fields. Multiple
 values within one condition match any of those values. Project, authorized
 environment, time range, category and search restrict the dataset independently
-of OR. Conditions can be repeated for more specific expressions; nested groups
-are not supported.
+of OR. Nested groups are not supported.
 
 Text supports case-insensitive Contains/Does not contain and exact matches, with
 existing-value autocomplete. Suggestions search the scoped dataset, including
@@ -323,8 +329,9 @@ latest run per suite across history. Prompt-linked tables load all scoped linked
 runs/evaluations, then filter and paginate locally; large histories can therefore
 increase response size. There is no silent 100/200-row filter cutoff.
 
-Filter usage records the explicit Apply action and the allowlisted `all`/`any`
-choice through the shared usage helper. It measures UI intent, not query success;
+Filter usage records each applied field change (debounced for typed values) and
+the allowlisted `all`/`any` choice through the shared usage helper. It measures UI
+intent, not query success;
 no condition values or view names are collected. Existing usage opt-out and
 bounded delivery behavior apply.
 
