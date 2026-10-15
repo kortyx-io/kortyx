@@ -14,7 +14,6 @@ import {
   MoreHorizontal,
   PanelLeft,
   Plus,
-  Search,
   Users,
 } from "lucide-react";
 import { parseAsArrayOf, parseAsString, parseAsStringLiteral } from "nuqs";
@@ -93,6 +92,7 @@ export function PromptLibraryView({
       actionAsset: parseAsString,
       q: parseAsString.withDefault(""),
       cursor: parseAsString.withDefault("0"),
+      pageSize: parseAsString.withDefault("20"),
       archived: parseAsString.withDefault("false"),
       tableFilters: parseAsString.withDefault(""),
       collapsed: parseAsArrayOf(parseAsString).withDefault([]),
@@ -117,7 +117,7 @@ export function PromptLibraryView({
     [importing, setImporting] = useState(false);
   const keyError = promptKeyError(key);
   const prepareDetailNavigation = usePrepareDetailNavigation();
-  const libraryPath = `library?${promptLibraryQuery({ q: query.q, cursor: query.cursor, archived: query.archived, tableFilters: query.tableFilters }, categoryId)}`;
+  const libraryPath = `library?${promptLibraryQuery({ q: query.q, cursor: query.cursor, pageSize: query.pageSize, archived: query.archived, tableFilters: query.tableFilters }, categoryId)}`;
   const {
     data: library,
     error: readError,
@@ -264,6 +264,12 @@ export function PromptLibraryView({
         );
       });
   const assets = library?.assets ?? [];
+  const visibleSelectedCount = assets.filter((asset) =>
+    selected.some((item) => item.id === asset.id),
+  ).length;
+  const allVisibleSelected =
+    assets.length > 0 && visibleSelectedCount === assets.length;
+  const partiallySelected = visibleSelectedCount > 0 && !allVisibleSelected;
   const actionAsset = assets.find((asset) => asset.id === query.actionAsset);
   const columns: DataTableColumn<PromptLibrary["assets"][number]>[] = [
     {
@@ -563,73 +569,83 @@ export function PromptLibraryView({
             <div className="p-3">{categoryNavigation}</div>
           </ScrollArea>
         </aside>
-        <section className="flex min-w-0 flex-1 flex-col">
-          <div className="flex flex-wrap items-center gap-3 border-b px-4 py-3">
-            <div className="relative min-w-36 flex-1">
-              <Search className="pointer-events-none absolute top-2.5 left-3 size-3.5 text-muted-foreground" />
-              <Input
-                aria-label="Search prompts"
-                placeholder="Search prompts…"
-                className="h-9 pl-9 text-xs"
-                value={query.q}
-                onChange={(event) =>
-                  void setQuery({ q: event.target.value, cursor: "0" })
-                }
-              />
-            </div>
-            <p className="text-xs text-muted-foreground">
-              {library?.totalCount ?? 0} prompts {loading ? "· Loading…" : ""}
-            </p>
-          </div>
-          {(assets.length > 0 || selected.length > 0) && (
-            <div className="flex flex-wrap items-center gap-2 border-b px-4 py-2">
-              <label className="mr-auto flex items-center gap-2 text-xs text-muted-foreground">
-                <input
-                  type="checkbox"
-                  aria-label="Select visible prompts"
-                  disabled={assets.length === 0}
-                  checked={
-                    assets.length > 0 &&
-                    assets.every((asset) =>
-                      selected.some((item) => item.id === asset.id),
-                    )
-                  }
-                  onChange={(event) =>
-                    setSelected((current) =>
-                      event.target.checked
-                        ? [
-                            ...current,
-                            ...assets.filter(
-                              (asset) =>
-                                !current.some((item) => item.id === asset.id),
-                            ),
-                          ].slice(0, 100)
-                        : current.filter(
-                            (item) =>
-                              !assets.some((asset) => asset.id === item.id),
-                          ),
-                    )
-                  }
-                />
-                Select page
-              </label>
-              {selected.length > 0 && library && (
-                <PromptBulkActions
-                  selected={selected}
-                  library={library ?? undefined}
-                  onClear={() => setSelected([])}
-                  onDone={async () => {
-                    await refresh();
-                    setSelected([]);
-                  }}
-                />
-              )}
-            </div>
-          )}
+        <section aria-busy={loading} className="flex min-w-0 flex-1 flex-col">
           <div className="min-h-0 flex-1 overflow-hidden">
             <DataTableProvider columns={columns}>
               <DataTable
                 tableId="prompts"
+                search={{
+                  label: "Search prompts",
+                  placeholder: "Search prompts…",
+                  value: query.q,
+                  onChange: (q) => {
+                    void setQuery({ q: q || null, cursor: "0" });
+                  },
+                }}
+                toolbarStart={
+                  <>
+                    <label className="flex cursor-pointer items-center gap-2 whitespace-nowrap text-xs text-muted-foreground">
+                      <input
+                        type="checkbox"
+                        aria-label="Select visible prompts"
+                        aria-checked={
+                          partiallySelected ? "mixed" : allVisibleSelected
+                        }
+                        ref={(input) => {
+                          if (input) input.indeterminate = partiallySelected;
+                        }}
+                        disabled={assets.length === 0}
+                        checked={allVisibleSelected}
+                        onChange={(event) =>
+                          setSelected((current) =>
+                            event.target.checked
+                              ? [
+                                  ...current,
+                                  ...assets.filter(
+                                    (asset) =>
+                                      !current.some(
+                                        (item) => item.id === asset.id,
+                                      ),
+                                  ),
+                                ].slice(0, 100)
+                              : current.filter(
+                                  (item) =>
+                                    !assets.some(
+                                      (asset) => asset.id === item.id,
+                                    ),
+                                ),
+                          )
+                        }
+                      />
+                      Select all
+                    </label>
+                    {selected.length > 0 && library && (
+                      <PromptBulkActions
+                        selected={selected}
+                        library={library}
+                        onDone={async () => {
+                          await refresh();
+                          setSelected([]);
+                        }}
+                      />
+                    )}
+                  </>
+                }
+                pagination={{
+                  serverSide: true,
+                  cursor: Math.max(0, Number(query.cursor) || 0),
+                  pageSize: ["10", "20", "50", "100"].includes(query.pageSize)
+                    ? Number(query.pageSize)
+                    : 20,
+                  pageSizes: [10, 20, 50, 100],
+                  totalCount: library?.totalCount ?? 0,
+                  onCursorChange: (cursor) => {
+                    void setQuery({ cursor: String(cursor) });
+                  },
+                  onPageSizeChange: (pageSize) => {
+                    void setQuery({ pageSize: String(pageSize), cursor: "0" });
+                  },
+                }}
                 filterResource="prompts"
                 filterScope={
                   <EvalDropdown
@@ -665,32 +681,6 @@ export function PromptLibraryView({
               />
             </DataTableProvider>
           </div>
-          <footer className="flex shrink-0 items-center justify-between gap-3 border-t px-4 py-3">
-            <div className="flex items-center gap-2">
-              <Button
-                size="sm"
-                variant="outline"
-                disabled={loading || query.cursor === "0"}
-                onClick={() =>
-                  void setQuery({
-                    cursor: String(Math.max(0, Number(query.cursor) - 100)),
-                  })
-                }
-              >
-                Previous
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                disabled={loading || !library?.nextCursor}
-                onClick={() =>
-                  void setQuery({ cursor: library?.nextCursor ?? "0" })
-                }
-              >
-                Next
-              </Button>
-            </div>
-          </footer>
         </section>
       </div>
       {library && actionAsset && query.assetAction && (

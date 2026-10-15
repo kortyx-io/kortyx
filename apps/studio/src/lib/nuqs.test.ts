@@ -30,6 +30,9 @@ describe("detailNavigationHref", () => {
       bulkPromptAction: "archive",
       groupAction: "member",
       groupEditId: "group-1",
+      "tableSearch.eval-cases": "failed",
+      "tablePage.eval-cases": "20",
+      "tablePageSize.eval-cases": "10",
     });
 
     expect(detailNavigationHref("/runs/run-2", params)).toBe(

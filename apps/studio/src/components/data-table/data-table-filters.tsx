@@ -6,7 +6,14 @@ import {
   type TableFilters,
   validateTableFilters,
 } from "@kortyx/telemetry-contracts";
-import { Filter, LayoutPanelTop, Pencil, Trash2, X } from "lucide-react";
+import {
+  Filter,
+  LayoutPanelTop,
+  Pencil,
+  Search,
+  Trash2,
+  X,
+} from "lucide-react";
 import { parseAsString } from "nuqs";
 import { type ReactNode, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
@@ -31,9 +38,12 @@ import type {
   DataTableLayout,
 } from "./types";
 import type { useTableFilters } from "./use-table-filters";
+import type { useTableSearch } from "./use-table-search";
 
 export function DataTableFilterControls<T>({
   tableId,
+  searching,
+  start,
   panelContainer,
   renderPanel,
   renderControls,
@@ -49,6 +59,8 @@ export function DataTableFilterControls<T>({
   onSetSortDirection,
 }: {
   tableId: string;
+  searching: ReturnType<typeof useTableSearch>;
+  start?: ReactNode;
   panelContainer: HTMLDivElement | null;
   renderPanel?: (context: DataTableFilterPanel<T>) => ReactNode;
   renderControls?: (controls: ReactNode) => ReactNode;
@@ -58,7 +70,11 @@ export function DataTableFilterControls<T>({
   state: ReturnType<typeof useTableFilters<T>>;
   onClearLegacy?: () => void;
   extra?: React.ReactNode;
-  pagination?: { pageSize: number; onPageSizeChange: (size: number) => void };
+  pagination?: {
+    pageSize: number;
+    onPageSizeChange: (size: number) => void;
+    onCursorChange: (cursor: number) => void;
+  };
   sort?: string;
   direction?: "asc" | "desc";
   onSetSortDirection?: (key: string, dir: "asc" | "desc") => void;
@@ -69,12 +85,7 @@ export function DataTableFilterControls<T>({
   const [views, setViews] = useState<SavedTableView[]>([]);
   const layout = useDataTable();
   const search = useSearchParams();
-  const searchKey =
-    tableId === "prompt-runs"
-      ? "promptrunsSearch"
-      : tableId === "prompt-evals"
-        ? "promptevalsSearch"
-        : "q";
+  const searchKey = searching.queryKey;
   const [, setQuery] = useStudioQueryStates(
     {
       q: parseAsString,
@@ -284,11 +295,29 @@ export function DataTableFilterControls<T>({
     <div
       className={
         renderControls
-          ? "flex shrink-0 items-center gap-2"
-          : "flex shrink-0 items-center justify-end gap-2 border-b bg-background px-4 py-2"
+          ? "flex w-full min-w-0 flex-wrap items-center gap-2"
+          : "flex min-w-0 shrink-0 flex-wrap items-center gap-2 border-b bg-background px-4 py-2"
       }
       data-table-controls={tableId}
     >
+      {start && <div className="flex shrink-0 items-center gap-2">{start}</div>}
+      <div className="relative min-w-0 basis-full flex-1 sm:basis-48">
+        <Search
+          aria-hidden="true"
+          className="pointer-events-none absolute left-3 top-2 size-4 text-muted-foreground"
+        />
+        <Input
+          type="search"
+          aria-label={searching.label}
+          placeholder={searching.placeholder}
+          className="h-8 pl-9"
+          value={searching.value}
+          onChange={(event) => {
+            searching.onChange(event.target.value);
+            pagination?.onCursorChange(0);
+          }}
+        />
+      </div>
       {error && !state.open && (
         <span role="alert" className="mr-auto text-xs text-destructive">
           {error}
@@ -425,25 +454,28 @@ export function DataTableFilterControls<T>({
                       hidden: layout.hidden,
                       pinned: layout.pinned,
                     },
-                    scope: Object.fromEntries(
-                      [...search.entries()]
-                        .filter(([key]) => key !== "q" || searchKey === "q")
-                        .map(([key, value]) => [
-                          key === searchKey ? "q" : key,
-                          value,
-                        ])
-                        .filter(([key]) =>
-                          [
-                            "q",
-                            "env",
-                            "range",
-                            "startedAfter",
-                            "startedBefore",
-                            "includeChildren",
-                            "archived",
-                          ].includes(key),
-                        ),
-                    ),
+                    scope: {
+                      ...Object.fromEntries(
+                        [...search.entries()]
+                          .filter(([key]) => key !== "q" || searchKey === "q")
+                          .map(([key, value]) => [
+                            key === searchKey ? "q" : key,
+                            value,
+                          ])
+                          .filter(([key]) =>
+                            [
+                              "q",
+                              "env",
+                              "range",
+                              "startedAfter",
+                              "startedBefore",
+                              "includeChildren",
+                              "archived",
+                            ].includes(key),
+                          ),
+                      ),
+                      q: searching.value,
+                    },
                     sort,
                     direction,
                     pageSize: pagination?.pageSize,

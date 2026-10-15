@@ -1,15 +1,12 @@
-import { RefreshCw, Search } from "lucide-react";
+import { RefreshCw } from "lucide-react";
 import type { ReactNode } from "react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import type { useRunsQuery } from "@/features/runs/hooks/use-runs-query";
 import { LiveRefreshButton } from "@/features/telemetry/components/live-refresh-button";
 import type { LiveRefreshStatus } from "@/features/telemetry/lib/live-refresh-controller";
 import { cn } from "@/lib/utils";
 
 type RunsToolbarProps = {
   controls?: ReactNode;
-  query: ReturnType<typeof useRunsQuery>;
   live: boolean;
   liveStatus: LiveRefreshStatus;
   refreshing: boolean;
@@ -17,24 +14,14 @@ type RunsToolbarProps = {
   onRefresh: () => void;
 };
 
-const _feedbackLabels = {
-  "": "All feedback",
-  positive: "Positive feedback",
-  negative: "Negative feedback",
-  unrated: "Unrated",
-};
-
 export function RunsToolbar({
   controls,
-  query,
   live,
   liveStatus,
   refreshing,
   onToggleLive,
   onRefresh,
 }: RunsToolbarProps) {
-  const { query: search, setParams } = query;
-
   return (
     <div className="z-20 shrink-0 border-b bg-background/95 px-5 pt-4 backdrop-blur supports-backdrop-filter:bg-background/75">
       <div className="flex flex-wrap items-center justify-between gap-3 pb-4">
@@ -63,18 +50,7 @@ export function RunsToolbar({
         </div>
       </div>
 
-      <div className="flex flex-wrap items-center gap-2 pb-3">
-        <div className="relative min-w-0 basis-full flex-1 sm:basis-48">
-          <Search className="pointer-events-none absolute top-2 left-3 size-4 text-muted-foreground" />
-          <Input
-            value={search}
-            onChange={(event) => setParams({ q: event.target.value || null })}
-            placeholder="Search runs, sessions, workflows, errors…"
-            className="h-8 pl-9"
-          />
-        </div>
-        {controls}
-      </div>
+      <div className="flex flex-wrap items-center gap-2 pb-3">{controls}</div>
     </div>
   );
 }

@@ -10,6 +10,9 @@ export function promptLibraryQuery(
   return new URLSearchParams({
     search: value("q", ""),
     cursor: value("cursor", "0"),
+    limit: ["10", "20", "50", "100"].includes(value("pageSize", "20"))
+      ? value("pageSize", "20")
+      : "20",
     archived: value("archived", "false"),
     ...(value("tableFilters", "")
       ? { tableFilters: value("tableFilters", "") }

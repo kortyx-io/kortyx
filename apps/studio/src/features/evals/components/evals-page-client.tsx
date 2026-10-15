@@ -1,12 +1,6 @@
 "use client";
 import type { EvalSuite } from "@kortyx/agent/evals";
-import {
-  FlaskConical,
-  GitCompareArrows,
-  Play,
-  RefreshCw,
-  Search,
-} from "lucide-react";
+import { FlaskConical, GitCompareArrows, Play, RefreshCw } from "lucide-react";
 import {
   parseAsArrayOf,
   parseAsBoolean,
@@ -24,7 +18,6 @@ import { columnFilter } from "@/components/data-table/filter-fields";
 import { DetailLink } from "@/components/detail/detail-link";
 import { usePrepareDetailNavigation } from "@/components/detail/detail-stack";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { evalDurationMs } from "@/features/evals/lib/duration";
 import { LiveRefreshButton } from "@/features/telemetry/components/live-refresh-button";
 import { useListTablePreferences } from "@/features/telemetry/hooks/use-list-table-preferences";
@@ -561,22 +554,6 @@ export function EvalsPageClient({
         </div>
       </div>
       <EvalNavigation active={view} />
-      <div className="flex flex-wrap items-center gap-2 py-3">
-        <div className="relative min-w-36 flex-1">
-          <Search className="pointer-events-none absolute left-3 top-2 size-4 text-muted-foreground" />
-          <Input
-            aria-label="Search evals"
-            placeholder={
-              view === "runs"
-                ? "Search suite, application, or run ID…"
-                : "Search suites…"
-            }
-            className="h-8 pl-9"
-            value={query.q}
-            onChange={(event) => update({ q: event.target.value, cursor: 0 })}
-          />
-        </div>
-      </div>
       {targets.targets.some((t) => t.error) ? (
         <p className="pb-3 text-xs text-muted-foreground">
           {targets.targets.filter((t) => t.error).length} application connection
@@ -662,6 +639,15 @@ export function EvalsPageClient({
           >
             <DataTable
               tableId="legacy-eval-runs"
+              search={{
+                label: "Search evals",
+                placeholder:
+                  view === "runs"
+                    ? "Search suite, application, or run ID…"
+                    : "Search suites…",
+                value: query.q,
+                onChange: (q) => update({ q, cursor: 0 }),
+              }}
               data={runs}
               getRowKey={(r) => r.id}
               onRowClick={(r) => chooseRun(r.id)}
@@ -695,6 +681,12 @@ export function EvalsPageClient({
           <DataTableProvider columns={suiteColumns}>
             <DataTable
               tableId="eval-suites"
+              search={{
+                label: "Search evals",
+                placeholder: "Search suites…",
+                value: query.q,
+                onChange: (q) => update({ q, cursor: 0 }),
+              }}
               data={suites}
               getRowKey={(r) => r.id}
               onRowClick={(r) => chooseSuite(r)}

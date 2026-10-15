@@ -148,6 +148,7 @@ const list = createRoute({
     query: z.object({
       search: z.string().max(200).optional(),
       tableFilters: z.string().max(32768).optional(),
+      limit: z.coerce.number().int().min(1).max(200).optional(),
       categoryId: z.union([z.uuid(), z.literal("root")]).optional(),
       cursor: z
         .string()
@@ -354,6 +355,7 @@ export function registerPromptRoutes(
       query = c.req.valid("query");
     const data = await c.get("withTenantDatabase")((db) =>
       listPrompts(db, principal, {
+        ...(query.limit !== undefined ? { limit: query.limit } : {}),
         ...(query.search ? { search: query.search } : {}),
         ...(query.tableFilters ? { tableFilters: query.tableFilters } : {}),
         ...(query.categoryId

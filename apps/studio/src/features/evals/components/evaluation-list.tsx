@@ -15,7 +15,6 @@ import { useEffect, useState } from "react";
 import { z } from "zod";
 import { DataTable, DataTableProvider } from "@/components/data-table";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { FirstObservation } from "@/features/telemetry/components/first-observation";
 import { LiveRefreshButton } from "@/features/telemetry/components/live-refresh-button";
 import { useLiveRefresh } from "@/features/telemetry/hooks/use-live-refresh";
@@ -150,17 +149,6 @@ export function EvaluationList({
           </Button>
         </div>
       </div>
-      <div className="flex flex-wrap gap-2">
-        <Input
-          className="h-8 max-w-sm text-xs"
-          aria-label="Search evaluation runs"
-          placeholder="Search runs, commits or environments…"
-          value={query.q}
-          onChange={(e) => {
-            void setQuery({ q: e.target.value, cursor: 0 });
-          }}
-        />
-      </div>
     </div>
   );
   if (
@@ -190,6 +178,14 @@ export function EvaluationList({
         <DataTableProvider columns={columns}>
           <DataTable
             tableId="evaluations"
+            search={{
+              label: "Search evaluation runs",
+              placeholder: "Search runs, commits or environments…",
+              value: query.q,
+              onChange: (q) => {
+                void setQuery({ q: q || null, cursor: 0 });
+              },
+            }}
             filterResource="evaluations"
             data={filtered}
             getRowKey={(run) => run.id}

@@ -91,6 +91,14 @@ export default function SessionsPageClient({
       <div className="flex h-full min-h-0">
         <DataTable
           tableId="sessions"
+          search={{
+            label: "Search sessions",
+            placeholder: "Search sessions, users, workflows, errors…",
+            value: query.q,
+            onChange: (value) => {
+              void query.setParams({ q: value || null, cursor: 0 });
+            },
+          }}
           filterResource="sessions"
           onClearLegacyFilters={query.clearFilters}
           filterScope={<OperationalFilterScope query={query} />}
@@ -123,12 +131,9 @@ export default function SessionsPageClient({
               controls={controls}
               title="Sessions"
               subtitle="Operational inbox for every session"
-              search={query.q}
-              searchPlaceholder="Search sessions, users, workflows, errors…"
               refreshing={liveRefresh.refreshing}
               live={query.live}
               liveStatus={liveRefresh.status}
-              onSearchChange={(value) => query.setParams({ q: value || null })}
               onToggleLive={() => query.setLive(!query.live)}
               onRefresh={liveRefresh.refreshNow}
             />

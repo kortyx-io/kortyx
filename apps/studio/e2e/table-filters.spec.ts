@@ -24,6 +24,14 @@ for (const [path, id] of [
     const controls = page.locator(`[data-table-controls="${id}"]`);
     await expect(controls).toBeVisible();
     await expect(controls.getByRole("button")).toHaveCount(3);
+    await expect(controls.getByRole("searchbox")).toHaveCount(1);
+    await expect(page.getByRole("searchbox")).toHaveCount(1);
+    await expect(page.locator("[data-table-footer]")).toHaveCount(1);
+    await expect(
+      page
+        .locator("[data-table-footer]")
+        .getByRole("combobox", { name: "Rows per page" }),
+    ).toBeVisible();
     if (id === "runs") {
       await controls
         .getByRole("button", { name: "Filters", exact: true })
@@ -194,6 +202,14 @@ test("prompt-linked tables always expose controls and filter empty datasets", as
       const controls = page.locator(`[data-table-controls="${tableId}"]`);
       await expect(controls).toBeVisible();
       await expect(controls.getByRole("button")).toHaveCount(3);
+      await expect(controls.getByRole("searchbox")).toHaveCount(1);
+      await expect(page.getByRole("searchbox")).toHaveCount(1);
+      await expect(page.locator("[data-table-footer]")).toHaveCount(1);
+      await expect(
+        page
+          .locator("[data-table-footer]")
+          .getByRole("combobox", { name: "Rows per page" }),
+      ).toBeVisible();
       await controls
         .getByRole("button", { name: "Views", exact: true })
         .click();
@@ -202,7 +218,7 @@ test("prompt-linked tables always expose controls and filter empty datasets", as
         .fill("Linked view");
       await page.getByRole("button", { name: "Save", exact: true }).click();
       await page
-        .getByRole("textbox", { name: `Search prompt ${tab}`, exact: true })
+        .getByRole("searchbox", { name: `Search prompt ${tab}`, exact: true })
         .fill("changed-search");
       await expect
         .poll(() => new URL(page.url()).searchParams.get(`prompt${tab}Search`))
@@ -214,7 +230,7 @@ test("prompt-linked tables always expose controls and filter empty datasets", as
         .getByRole("menuitem", { name: "Linked view", exact: true })
         .click();
       await expect(
-        page.getByRole("textbox", {
+        page.getByRole("searchbox", {
           name: `Search prompt ${tab}`,
           exact: true,
         }),
@@ -252,6 +268,147 @@ test("suggests workflows outside the search results and keeps typed values usabl
     page.locator('[data-filter-field="workflowIds"] datalist option').first(),
   ).toHaveAttribute("value", /e2e/);
   await page.screenshot({ path: "/tmp/kortyx-table-filters-final.png" });
+});
+
+test("embedded table search is independent of parent search, combines with filters and persists", async ({
+  page,
+}) => {
+  await page.goto(`/evals/runs/${EVAL_FIXTURE.candidate}?q=parent-search`);
+  const controls = page.locator('[data-table-controls="eval-cases"]');
+  const search = controls.getByRole("searchbox");
+  await search.fill("human-choice");
+  await expect(page.locator("[data-row-key]")).toHaveCount(1);
+  await expect
+    .poll(() => new URL(page.url()).searchParams.get("q"))
+    .toBe("parent-search");
+  await expect
+    .poll(() => new URL(page.url()).searchParams.get("tableSearch.eval-cases"))
+    .toBe("human-choice");
+  await page.reload();
+  await expect(search).toHaveValue("human-choice");
+  await expect(page.locator("[data-row-key]")).toHaveCount(1);
+  await controls.getByRole("button", { name: "Filters", exact: true }).click();
+  await page
+    .getByLabel("Conversation value", { exact: true })
+    .fill("Ambiguous");
+  await page
+    .getByRole("button", { name: "Match any · OR", exact: true })
+    .click();
+  await expect(page.locator("[data-row-key]")).toHaveCount(0);
+  await page
+    .getByRole("button", { name: "Clear filters", exact: true })
+    .click();
+  await expect(search).toHaveValue("human-choice");
+  await expect(page.locator("[data-row-key]")).toHaveCount(1);
+  await search.fill("no matching conversation");
+  await expect(page.locator("[data-row-key]")).toHaveCount(0);
+  await expect(page.locator("[data-table-footer]")).toContainText("No results");
+  await search.fill("");
+  await expect(page.locator("[data-row-key]")).toHaveCount(8);
+  await controls.getByRole("button", { name: "Views", exact: true }).click();
+  await page
+    .getByRole("menuitem", { name: "Standard view", exact: true })
+    .click();
+  await search.fill("human-choice");
+  await controls.getByRole("button", { name: "Views", exact: true }).click();
+  await page
+    .getByRole("textbox", { name: "View name", exact: true })
+    .fill("Case search");
+  await page.getByRole("button", { name: "Save", exact: true }).click();
+  await search.fill("");
+  await controls.getByRole("button", { name: "Views", exact: true }).click();
+  await page
+    .getByRole("menuitem", { name: "Case search", exact: true })
+    .click();
+  await expect(search).toHaveValue("human-choice");
+  await expect(page.locator("[data-row-key]")).toHaveCount(1);
+});
+
+test("prompt toolbar selection has empty, mixed and checked states beside actions, with a standard paged footer", async ({
+  page,
+  request,
+}) => {
+  const prefix = "e2e-table-header/";
+  const db = postgres(process.env.DATABASE_URL!, { max: 1 });
+  try {
+    await db`delete from prompt_assets where key like ${`${prefix}%`}`;
+    for (let i = 0; i < 11; i++) {
+      const created = await request.post(
+        `${process.env.KORTYX_API_URL}/v1/studio/prompts/actions`,
+        {
+          headers: {
+            authorization: `Bearer ${process.env.KORTYX_STUDIO_API_KEY}`,
+          },
+          data: {
+            action: "create",
+            key: `${prefix}${i}`,
+            name: `Header prompt ${String(i).padStart(2, "0")}`,
+            content: {
+              format: "system-user",
+              messages: [
+                { role: "system", content: "Fixture" },
+                { role: "user", content: "Fixture" },
+              ],
+              variablesSchema: { type: "object" },
+              configSchema: { type: "object" },
+              config: {},
+              dependencies: [],
+            },
+          },
+        },
+      );
+      expect(created.ok(), await created.text()).toBe(true);
+    }
+    await page.goto(`/prompts?q=${encodeURIComponent(prefix)}&pageSize=10`);
+    const controls = page.locator('[data-table-controls="prompts"]');
+    const all = controls.getByRole("checkbox", {
+      name: "Select visible prompts",
+    });
+    const footer = page.locator("[data-table-footer]");
+    await expect(page.locator("[data-row-key]")).toHaveCount(10);
+    await expect(footer).toContainText("Showing 1–10 of 11");
+    await expect(all).not.toBeChecked();
+    await page
+      .getByRole("checkbox", { name: "Select Header prompt 00", exact: true })
+      .check();
+    await expect(all).toHaveAttribute("aria-checked", "mixed");
+    await expect(
+      controls.getByRole("button", {
+        name: "1 selected · Actions",
+        exact: true,
+      }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "Clear selection", exact: true }),
+    ).toHaveCount(0);
+    await all.click();
+    await expect(all).toBeChecked();
+    await expect(
+      controls.getByRole("button", {
+        name: "10 selected · Actions",
+        exact: true,
+      }),
+    ).toBeVisible();
+    await all.click();
+    await expect(all).not.toBeChecked();
+    await expect(
+      controls.getByRole("button", { name: /selected · Actions/ }),
+    ).toHaveCount(0);
+    await footer
+      .getByRole("button", { name: "Next page", exact: true })
+      .click();
+    await expect(page.locator("[data-row-key]")).toHaveCount(1);
+    await expect(footer).toContainText("Showing 11–11 of 11");
+    await controls.getByRole("searchbox").fill("Header prompt 00");
+    await expect(page.locator("[data-row-key]")).toHaveCount(1);
+    await expect(footer).toContainText("Showing 1–1 of 1");
+    await expect(
+      footer.getByRole("button", { name: "Previous page", exact: true }),
+    ).toBeDisabled();
+  } finally {
+    await db`delete from prompt_assets where key like ${`${prefix}%`}`;
+    await db.end();
+  }
 });
 
 test("listed ranges preserve zero, validate bounds, and clear missing-value filters", async ({

@@ -286,6 +286,22 @@ environment and archived-prompt controls live in the Filters drawer. Selection
 and action columns have no filter; composite data columns expose their individual
 facts (for example, workflow/version, model/provider and evaluation result counts).
 
+Every table renders one shared toolbar: search beside Filters, Columns and Views.
+Search stays outside Match any, so OR cannot bypass it. Server lists search before
+counting/pagination; local tables search all declared data fields, including hidden
+columns, before paging. Local detail searches use `tableSearch.<tableId>` so they
+do not replace a parent list's `q`; existing list and prompt-linked search URLs
+remain supported. Search is captured by saved views and survives refresh.
+
+The shared footer is always present: matching row count, rows per page, current
+page and Previous/Next. Local tables default to 20 rows and keep their own
+`tablePage.<tableId>` / `tablePageSize.<tableId>` URL state. Search/filter changes
+reset paging. Prompt-library pagination uses the API's bounded `limit` parameter
+(1–200; omitted callers retain the existing 100-row default); Studio offers
+10/20/50/100 and defaults to 20. Prompt selection and its batch actions live at
+the left of the toolbar; Select all shows empty, partial or checked page selection
+and toggles that page without a separate Clear selection action.
+
 The existing inline side drawer lists the available filters directly. Choose
 values without adding conditions: statuses use checkboxes, text uses autocomplete,
 and numeric/date fields show minimum/maximum inputs. Changes apply automatically
@@ -330,7 +346,7 @@ latest run per suite across history. Prompt-linked tables load all scoped linked
 runs/evaluations, then filter and paginate locally; large histories can therefore
 increase response size. There is no silent 100/200-row filter cutoff.
 
-Filter usage records each applied field change (debounced for typed values) and
+Filter usage records each applied field/search change (debounced for typed values) and
 the allowlisted `all`/`any` choice through the shared usage helper. It measures UI
 intent, not query success;
 no condition values or view names are collected. Existing usage opt-out and

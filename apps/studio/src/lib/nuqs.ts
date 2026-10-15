@@ -81,7 +81,15 @@ export function detailNavigationHref(
   const next = new URLSearchParams(searchParams.toString());
   for (const key of detailUiParamKeys) next.delete(key);
   for (const key of [...next.keys()])
-    if (key.startsWith("tableFilters.") || key.startsWith("filterPanel."))
+    if (
+      [
+        "tableFilters.",
+        "filterPanel.",
+        "tableSearch.",
+        "tablePage.",
+        "tablePageSize.",
+      ].some((prefix) => key.startsWith(prefix))
+    )
       next.delete(key);
   const [path, explicitQuery] = pathname.split("?", 2);
   for (const [key, value] of new URLSearchParams(explicitQuery))

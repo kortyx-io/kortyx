@@ -93,6 +93,14 @@ export default function InterruptsPageClient({
       <div className="flex h-full min-h-0">
         <DataTable
           tableId="interrupts"
+          search={{
+            label: "Search interrupts",
+            placeholder: "Search requests, sessions, workflows, responses…",
+            value: query.q,
+            onChange: (value) => {
+              void query.setParams({ q: value || null, cursor: 0 });
+            },
+          }}
           filterResource="interrupts"
           onClearLegacyFilters={query.clearFilters}
           filterScope={<OperationalFilterScope query={query} />}
@@ -125,12 +133,9 @@ export default function InterruptsPageClient({
               controls={controls}
               title="Interrupts"
               subtitle="Operational inbox for every human request"
-              search={query.q}
-              searchPlaceholder="Search requests, sessions, workflows, responses…"
               refreshing={liveRefresh.refreshing}
               live={query.live}
               liveStatus={liveRefresh.status}
-              onSearchChange={(value) => query.setParams({ q: value || null })}
               onToggleLive={() => query.setLive(!query.live)}
               onRefresh={liveRefresh.refreshNow}
             />

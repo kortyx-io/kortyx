@@ -160,7 +160,11 @@ synthetic workflow created just to populate Studio.
 
 ## Filtering table evidence
 
-All Studio tables have Filters, Columns and Views controls. Open Filters to use
+All Studio tables have search beside Filters, Columns and Views controls, plus the
+same row-count and pagination footer. Local table search covers declared data fields
+(including hidden columns) before pagination and uses `tableSearch.<tableId>`
+without replacing a parent list search. Search is case-insensitive, URL-backed and
+independent of Match any. Open Filters to use
 the listed fields or custom UTC time bounds. Statuses use checkboxes, text has
 autocomplete, and numeric/date fields show min/max inputs. Values apply as you
 change them; text/ranges are debounced and the inline drawer stays open. Match all

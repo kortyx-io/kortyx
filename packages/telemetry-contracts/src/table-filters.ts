@@ -138,7 +138,9 @@ export function matchesTableRule(
     return !values.some((a) => rule.values.some((b) => equal(a, b)));
   return values.some((a) => {
     const comparable =
-      typeof a === "string" && /T.*(Z|[+-]\d{2}:\d{2})$/.test(a)
+      typeof a === "string" &&
+      a.includes("T") &&
+      (a.endsWith("Z") || /[+-]\d{2}:\d{2}$/.test(a))
         ? Date.parse(a)
         : Number(a);
     const bounds = rule.values.map((b) =>

@@ -17,7 +17,6 @@ import { DataTable, DataTableProvider } from "@/components/data-table";
 import { columnFilter } from "@/components/data-table/filter-fields";
 import { usePrepareDetailNavigation } from "@/components/detail/detail-stack";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import {
   createEvaluationColumns,
   type EvaluationSort,
@@ -249,21 +248,6 @@ export function PromptTables({
           )}
         </div>
       </div>
-      <div className="flex flex-wrap items-center gap-2">
-        <Input
-          aria-label={`Search prompt ${kind}`}
-          placeholder={
-            kind === "runs"
-              ? "Search workflow, model or run ID…"
-              : "Search evaluation runs…"
-          }
-          className="h-8 min-w-36 flex-1 text-xs"
-          value={query.q}
-          onChange={(event) => {
-            void setQuery({ q: event.target.value, cursor: 0 });
-          }}
-        />
-      </div>
       {error && (
         <div role="alert" className="text-xs text-red-700 dark:text-red-400">
           {error}{" "}
@@ -415,6 +399,18 @@ export function PromptTables({
         <DataTableProvider columns={columns}>
           <DataTable
             tableId={`prompt-${kind}`}
+            search={{
+              label: `Search prompt ${kind}`,
+              placeholder:
+                kind === "runs"
+                  ? "Search workflow, model or run ID…"
+                  : "Search evaluation runs…",
+              queryKey: `prompt${kind}Search`,
+              value: query.q,
+              onChange: (q) => {
+                void setQuery({ q: q || null, cursor: 0 });
+              },
+            }}
             className="rounded-none border-0 shadow-none"
             data={runs}
             getRowKey={(run) => run.id}
@@ -445,6 +441,15 @@ export function PromptTables({
         <DataTableProvider columns={evalColumns}>
           <DataTable
             tableId={`prompt-${kind}`}
+            search={{
+              label: `Search prompt ${kind}`,
+              placeholder: "Search evaluation runs…",
+              queryKey: `prompt${kind}Search`,
+              value: query.q,
+              onChange: (q) => {
+                void setQuery({ q: q || null, cursor: 0 });
+              },
+            }}
             className="rounded-none border-0 shadow-none"
             data={evaluations}
             getRowKey={(run) => run.id}

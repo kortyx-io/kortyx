@@ -18,10 +18,12 @@ export function useTableFilters<T>({
   tableId,
   fields,
   resource,
+  cursorKey,
 }: {
   tableId: string;
   fields: DataTableFilter<T>[];
   resource?: StudioTableResource | "prompts" | "evaluations";
+  cursorKey?: string;
 }) {
   const search = useSearchParams();
   const filterKey = resource ? "tableFilters" : `tableFilters.${tableId}`;
@@ -114,6 +116,7 @@ export function useTableFilters<T>({
           : tableId === "prompt-evals"
             ? { cursor: "promptevalsPage" }
             : {}),
+        ...(cursorKey ? { cursor: cursorKey } : {}),
       },
     },
   );

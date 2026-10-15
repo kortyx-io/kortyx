@@ -12,6 +12,18 @@ vi.mock("./data-table-filters", () => ({
 vi.mock("./use-table-filters", () => ({
   useTableFilters: () => ({ matches: () => true }),
 }));
+vi.mock("./use-table-search", () => ({
+  useTableSearch: () => ({ value: "", managed: false }),
+}));
+vi.mock("./use-table-pagination", () => ({
+  useTablePagination: () => ({
+    cursor: 0,
+    pageSize: 20,
+    pageSizes: [10, 20, 50, 100],
+    onCursorChange: vi.fn(),
+    onPageSizeChange: vi.fn(),
+  }),
+}));
 
 let root: Root;
 let container: HTMLDivElement;

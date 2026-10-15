@@ -133,6 +133,14 @@ export default function RunsPageClient({
       <div className="flex h-full min-h-0">
         <DataTable
           tableId="runs"
+          search={{
+            label: "Search runs",
+            placeholder: "Search runs, sessions, workflows, errors…",
+            value: runsQuery.query,
+            onChange: (value) => {
+              void runsQuery.setParams({ q: value || null, cursor: 0 });
+            },
+          }}
           filterResource="runs"
           filterPanel={(panel) => (
             <RunsFilterPanel
@@ -159,7 +167,6 @@ export default function RunsPageClient({
           header={(controls) => (
             <RunsToolbar
               controls={controls}
-              query={runsQuery}
               live={live}
               liveStatus={liveRefresh.status}
               refreshing={liveRefresh.refreshing}

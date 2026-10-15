@@ -11,4 +11,5 @@ export {
   type DataTableColumn,
   type DataTableLayout,
   type DataTablePagination,
+  type DataTableSearch,
 } from "@/components/data-table/types";

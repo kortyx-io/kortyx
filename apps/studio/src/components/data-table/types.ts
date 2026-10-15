@@ -67,6 +67,16 @@ export type DataTableFilter<T> = TableFilterDefinition & {
   read: (row: T) => TableFilterValue | readonly TableFilterValue[];
 };
 
+/** Existing server/list queries can supply their state; every table still renders search. */
+export type DataTableSearch = {
+  label?: string;
+  placeholder?: string;
+  queryKey?: string;
+} & (
+  | { value: string; onChange: (value: string) => void }
+  | { value?: never; onChange?: never }
+);
+
 export type DataTableFilterPanel<T> = {
   error?: string;
   invalid?: boolean;

@@ -1,7 +1,6 @@
-import { RefreshCw, Search } from "lucide-react";
+import { RefreshCw } from "lucide-react";
 import type { ReactNode } from "react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { LiveRefreshButton } from "@/features/telemetry/components/live-refresh-button";
 import type { LiveRefreshStatus } from "@/features/telemetry/lib/live-refresh-controller";
 import { cn } from "@/lib/utils";
@@ -10,12 +9,9 @@ type ListToolbarProps = {
   controls?: ReactNode;
   title: string;
   subtitle: string;
-  search: string;
-  searchPlaceholder: string;
   refreshing: boolean;
   live?: boolean;
   liveStatus?: LiveRefreshStatus;
-  onSearchChange: (value: string) => void;
   onRefresh: () => void;
   onToggleLive?: () => void;
 };
@@ -25,12 +21,9 @@ export function ListToolbar({
   controls,
   title,
   subtitle,
-  search,
-  searchPlaceholder,
   refreshing,
   live,
   liveStatus = live ? "connecting" : "off",
-  onSearchChange,
   onRefresh,
   onToggleLive,
 }: ListToolbarProps) {
@@ -60,18 +53,7 @@ export function ListToolbar({
         </div>
       </div>
 
-      <div className="flex flex-wrap items-center gap-2 pb-3">
-        <div className="relative min-w-0 basis-full flex-1 sm:basis-48">
-          <Search className="pointer-events-none absolute top-2 left-3 size-4 text-muted-foreground" />
-          <Input
-            value={search}
-            onChange={(event) => onSearchChange(event.target.value)}
-            placeholder={searchPlaceholder}
-            className="h-8 pl-9"
-          />
-        </div>
-        {controls}
-      </div>
+      <div className="flex flex-wrap items-center gap-2 pb-3">{controls}</div>
     </div>
   );
 }

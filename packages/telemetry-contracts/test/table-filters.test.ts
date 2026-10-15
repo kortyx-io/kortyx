@@ -143,6 +143,16 @@ describe("table filter semantics", () => {
       ),
     ).toThrow();
   });
+  it("compares offset timestamps and rejects long non-date strings", () => {
+    const rule = {
+      field: "started",
+      operator: "gte" as const,
+      values: ["2026-10-15T12:00:00Z"],
+    };
+    expect(matchesTableRule("2026-10-15T14:00:00+02:00", rule)).toBe(true);
+    expect(matchesTableRule("T".repeat(20_000), rule)).toBe(false);
+    expect(matchesTableRule(`${"T".repeat(20_000)}Z`, rule)).toBe(false);
+  });
   it("keeps date equality distinct from literal text equality", () => {
     const filters: TableFilters = {
       match: "all",

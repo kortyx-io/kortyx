@@ -26,11 +26,21 @@ import {
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import { DataTableFilterControls } from "./data-table-filters";
-import type { DataTableFilter, DataTableFilterPanel } from "./types";
+import { matchesTableSearch } from "./table-search";
+import type {
+  DataTableFilter,
+  DataTableFilterPanel,
+  DataTableSearch,
+} from "./types";
 import { useTableFilters } from "./use-table-filters";
+import { useTablePagination } from "./use-table-pagination";
+import { useTableSearch } from "./use-table-search";
 
 type DataTableProps<T, S extends string> = {
   tableId: string;
+  search?: DataTableSearch;
+  /** Selection and its batch actions sit to the left of the shared search. */
+  toolbarStart?: ReactNode;
   filterResource?: StudioTableResource | "prompts" | "evaluations";
   filterScope?: ReactNode;
   filterPanel?: (context: DataTableFilterPanel<T>) => ReactNode;
@@ -59,6 +69,8 @@ const CELL_BASE = "max-w-0 overflow-hidden border-b px-3 py-3.5 align-middle";
 
 export function DataTable<T, S extends string>({
   tableId,
+  search,
+  toolbarStart,
   filterResource,
   filterScope,
   filterPanel,
@@ -74,7 +86,7 @@ export function DataTable<T, S extends string>({
   onClearSort,
   emptyState,
   emptyStateClassName,
-  pagination,
+  pagination: providedPagination,
   header,
   scrollRestoreKey,
   className,
@@ -115,8 +127,15 @@ export function DataTable<T, S extends string>({
     tableId,
     fields,
     resource: filterResource,
+    cursorKey: providedPagination ? undefined : `tablePage.${tableId}`,
   });
-  const filteredData = filterResource ? data : data.filter(filtering.matches);
+  const searching = useTableSearch(tableId, search, Boolean(filterResource));
+  const pagination = useTablePagination(tableId, providedPagination);
+  const filteredData = data.filter(
+    (row) =>
+      (filterResource || filtering.matches(row)) &&
+      (searching.managed || matchesTableSearch(row, fields, searching.value)),
+  );
   const [filterContainer, setFilterContainer] = useState<HTMLDivElement | null>(
     null,
   );
@@ -211,6 +230,8 @@ export function DataTable<T, S extends string>({
         {typeof header === "function" ? null : header}
         <DataTableFilterControls
           tableId={tableId}
+          searching={searching}
+          start={toolbarStart}
           panelContainer={filterContainer}
           renderPanel={filterPanel}
           renderControls={typeof header === "function" ? header : undefined}
@@ -403,7 +424,10 @@ function DataTablePaginationFooter({
   const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
 
   return (
-    <div className="flex min-h-14 shrink-0 flex-wrap items-center justify-between gap-x-4 gap-y-2 border-t bg-background px-4 py-2 text-xs text-muted-foreground">
+    <div
+      data-table-footer
+      className="flex min-h-14 shrink-0 flex-wrap items-center justify-between gap-x-4 gap-y-2 border-t bg-background px-4 py-2 text-xs text-muted-foreground"
+    >
       <span>
         {totalCount > 0
           ? `Showing ${firstVisible}–${lastVisible} of ${totalCount}`
