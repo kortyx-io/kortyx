@@ -25,12 +25,17 @@ import { DataTableColumnsMenu } from "./data-table-columns-menu";
 import { useDataTable } from "./data-table-context";
 import { DataTableFilterField } from "./data-table-filter-field";
 import { type SavedTableView, validView } from "./saved-table-views";
-import type { DataTableFilter, DataTableLayout } from "./types";
+import type {
+  DataTableFilter,
+  DataTableFilterPanel,
+  DataTableLayout,
+} from "./types";
 import type { useTableFilters } from "./use-table-filters";
 
 export function DataTableFilterControls<T>({
   tableId,
   panelContainer,
+  renderPanel,
   renderControls,
   fields,
   data,
@@ -45,6 +50,7 @@ export function DataTableFilterControls<T>({
 }: {
   tableId: string;
   panelContainer: HTMLDivElement | null;
+  renderPanel?: (context: DataTableFilterPanel<T>) => ReactNode;
   renderControls?: (controls: ReactNode) => ReactNode;
   fields: DataTableFilter<T>[];
   data: T[];
@@ -229,6 +235,51 @@ export function DataTableFilterControls<T>({
       (priority.includes(a.key) ? priority.indexOf(a.key) : 100) -
       (priority.includes(b.key) ? priority.indexOf(b.key) : 100),
   );
+  const matchControl = (
+    <div className="mb-4">
+      <p className="mb-2 text-xs font-medium text-muted-foreground">
+        Match conditions
+      </p>
+      <div className="flex gap-1 rounded-lg border p-1">
+        {(["all", "any"] as const).map((match) => (
+          <Button
+            key={match}
+            className="flex-1"
+            size="xs"
+            variant={draft.match === match ? "secondary" : "ghost"}
+            aria-pressed={draft.match === match}
+            onClick={() => change({ ...draft, match }, true)}
+          >
+            Match {match} · {match === "all" ? "AND" : "OR"}
+          </Button>
+        ))}
+      </div>
+    </div>
+  );
+  const renderField = (key: string) => {
+    const field = fields.find((field) => field.key === key);
+    return field ? (
+      <DataTableFilterField
+        key={field.key}
+        field={field}
+        rules={draft.rules.filter((rule) => rule.field === key)}
+        data={data}
+        resource={resource}
+        onChange={(rules, immediate) =>
+          change(
+            {
+              ...draft,
+              rules: [
+                ...draft.rules.filter((rule) => rule.field !== key),
+                ...rules,
+              ],
+            },
+            immediate,
+          )
+        }
+      />
+    ) : null;
+  };
   const controls = (
     <div
       className={
@@ -425,98 +476,100 @@ export function DataTableFilterControls<T>({
       {state.open &&
         panelContainer &&
         createPortal(
-          <aside
-            aria-label="Filters"
-            className="relative flex h-full min-h-0 w-72 max-w-full flex-col overflow-hidden rounded-xl border bg-background shadow-sm"
-          >
-            <div className="flex h-14 shrink-0 items-center justify-between border-b px-4">
-              <h2 className="font-semibold">Filters</h2>
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                aria-label="Close filters"
-                onClick={() => state.setOpen(false)}
-              >
-                <X />
-              </Button>
-            </div>
-            <div className="min-h-0 flex-1 overflow-y-auto p-4">
-              <div className="mb-4">
-                <p className="mb-2 text-xs font-medium text-muted-foreground">
-                  Match conditions
-                </p>
-                <div className="flex gap-1 rounded-lg border p-1">
-                  {(["all", "any"] as const).map((match) => (
-                    <Button
-                      key={match}
-                      className="flex-1"
-                      size="xs"
-                      variant={draft.match === match ? "secondary" : "ghost"}
-                      aria-pressed={draft.match === match}
-                      onClick={() => change({ ...draft, match }, true)}
-                    >
-                      Match {match} · {match === "all" ? "AND" : "OR"}
-                    </Button>
-                  ))}
-                </div>
+          renderPanel ? (
+            renderPanel({
+              error,
+              invalid: state.invalid,
+              filters: draft,
+              fields,
+              open: state.open,
+              onClose: () => state.setOpen(false),
+              onClear: () => {
+                change(EMPTY_TABLE_FILTERS, true);
+                onClearLegacy?.();
+              },
+              onChange: change,
+              renderField,
+              matchControl,
+            })
+          ) : (
+            <aside
+              aria-label="Filters"
+              className="relative flex h-full min-h-0 w-72 max-w-full flex-col overflow-hidden rounded-xl border bg-background shadow-sm"
+            >
+              <div className="flex h-14 shrink-0 items-center justify-between border-b px-4">
+                <h2 className="font-semibold">Filters</h2>
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  aria-label="Close filters"
+                  onClick={() => state.setOpen(false)}
+                >
+                  <X />
+                </Button>
               </div>
-              {extra && <div className="mb-4 border-b pb-4">{extra}</div>}
-              <Input
-                aria-label="Find a filter"
-                placeholder="Find a filter…"
-                value={fieldSearch}
-                onChange={(event) => setFieldSearch(event.target.value)}
-                className="mb-2 h-8"
-              />
-              {listedFields
-                .filter((field) =>
-                  field.label.toLowerCase().includes(fieldSearch.toLowerCase()),
-                )
-                .map((field) => (
-                  <DataTableFilterField
-                    key={field.key}
-                    field={field}
-                    rules={draft.rules.filter(
-                      (rule) => rule.field === field.key,
-                    )}
-                    data={data}
-                    resource={resource}
-                    onChange={(rules, immediate) =>
-                      change(
-                        {
-                          ...draft,
-                          rules: [
-                            ...draft.rules.filter(
-                              (rule) => rule.field !== field.key,
-                            ),
-                            ...rules,
-                          ],
-                        },
-                        immediate,
-                      )
-                    }
-                  />
-                ))}
-              {error && (
-                <p role="alert" className="mt-3 text-xs text-destructive">
-                  {error}
-                </p>
-              )}
-            </div>
-            <div className="shrink-0 border-t p-3">
-              <Button
-                variant="ghost"
-                size="sm"
-                className="w-full justify-start"
-                onClick={() => {
-                  change(EMPTY_TABLE_FILTERS, true);
-                  onClearLegacy?.();
-                }}
-              >
-                <X /> Clear filters
-              </Button>
-            </div>
-          </aside>,
+              <div className="min-h-0 flex-1 overflow-y-auto p-4">
+                {matchControl}
+                {extra && <div className="mb-4 border-b pb-4">{extra}</div>}
+                <Input
+                  aria-label="Find a filter"
+                  placeholder="Find a filter…"
+                  value={fieldSearch}
+                  onChange={(event) => setFieldSearch(event.target.value)}
+                  className="mb-2 h-8"
+                />
+                {listedFields
+                  .filter((field) =>
+                    field.label
+                      .toLowerCase()
+                      .includes(fieldSearch.toLowerCase()),
+                  )
+                  .map((field) => (
+                    <DataTableFilterField
+                      key={field.key}
+                      field={field}
+                      rules={draft.rules.filter(
+                        (rule) => rule.field === field.key,
+                      )}
+                      data={data}
+                      resource={resource}
+                      onChange={(rules, immediate) =>
+                        change(
+                          {
+                            ...draft,
+                            rules: [
+                              ...draft.rules.filter(
+                                (rule) => rule.field !== field.key,
+                              ),
+                              ...rules,
+                            ],
+                          },
+                          immediate,
+                        )
+                      }
+                    />
+                  ))}
+                {error && (
+                  <p role="alert" className="mt-3 text-xs text-destructive">
+                    {error}
+                  </p>
+                )}
+              </div>
+              <div className="shrink-0 border-t p-3">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="w-full justify-start"
+                  onClick={() => {
+                    change(EMPTY_TABLE_FILTERS, true);
+                    onClearLegacy?.();
+                  }}
+                >
+                  <X /> Clear filters
+                </Button>
+              </div>
+            </aside>
+          ),
           panelContainer,
         )}
     </>

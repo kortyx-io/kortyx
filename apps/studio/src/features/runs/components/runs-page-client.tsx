@@ -19,6 +19,7 @@ import { useLiveRefresh } from "@/features/telemetry/hooks/use-live-refresh";
 import { detailNavigationHref } from "@/lib/nuqs";
 import { useRouter, useSearchParams } from "@/lib/scoped-navigation";
 import { studioDetailHref } from "@/lib/studio-routes";
+import { RunsFilterPanel } from "./runs-filter-panel";
 
 type RunsPageClientProps = {
   runs: Run[];
@@ -133,6 +134,14 @@ export default function RunsPageClient({
         <DataTable
           tableId="runs"
           filterResource="runs"
+          filterPanel={(panel) => (
+            <RunsFilterPanel
+              query={runsQuery}
+              panel={panel}
+              open={panel.open}
+              onClose={panel.onClose}
+            />
+          )}
           onClearLegacyFilters={runsQuery.clearFilters}
           filterScope={<OperationalFilterScope query={runsQuery} />}
           className="min-w-0 flex-1"

@@ -289,8 +289,9 @@ facts (for example, workflow/version, model/provider and evaluation result count
 The existing inline side drawer lists the available filters directly. Choose
 values without adding conditions: statuses use checkboxes, text uses autocomplete,
 and numeric/date fields show minimum/maximum inputs. Changes apply automatically
-(text and ranges wait 350 ms after typing); the drawer stays open. A filter search
-helps find less common columns. Per-field options expose negative/missing-value
+(text and ranges wait 350 ms after typing); the drawer stays open. Runs retains
+its existing sections, inputs and Select all controls; the other table drawers
+also offer a filter search to find less common columns. Per-field options expose negative/missing-value
 matches without adding setup to ordinary filtering.
 
 Choose **Match all · AND** or **Match any · OR** for the populated fields. Multiple

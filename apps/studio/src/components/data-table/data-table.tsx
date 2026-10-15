@@ -26,13 +26,14 @@ import {
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import { DataTableFilterControls } from "./data-table-filters";
-import type { DataTableFilter } from "./types";
+import type { DataTableFilter, DataTableFilterPanel } from "./types";
 import { useTableFilters } from "./use-table-filters";
 
 type DataTableProps<T, S extends string> = {
   tableId: string;
   filterResource?: StudioTableResource | "prompts" | "evaluations";
   filterScope?: ReactNode;
+  filterPanel?: (context: DataTableFilterPanel<T>) => ReactNode;
   onClearLegacyFilters?: () => void;
   data: T[];
   getRowKey: (item: T) => string;
@@ -60,6 +61,7 @@ export function DataTable<T, S extends string>({
   tableId,
   filterResource,
   filterScope,
+  filterPanel,
   onClearLegacyFilters,
   data,
   getRowKey,
@@ -210,6 +212,7 @@ export function DataTable<T, S extends string>({
         <DataTableFilterControls
           tableId={tableId}
           panelContainer={filterContainer}
+          renderPanel={filterPanel}
           renderControls={typeof header === "function" ? header : undefined}
           fields={fields}
           data={data}

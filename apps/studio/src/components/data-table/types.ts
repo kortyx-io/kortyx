@@ -66,3 +66,19 @@ export type DataTablePagination = {
 export type DataTableFilter<T> = TableFilterDefinition & {
   read: (row: T) => TableFilterValue | readonly TableFilterValue[];
 };
+
+export type DataTableFilterPanel<T> = {
+  error?: string;
+  invalid?: boolean;
+  filters: import("@kortyx/telemetry-contracts").TableFilters;
+  fields: DataTableFilter<T>[];
+  open: boolean;
+  onClose: () => void;
+  onClear: () => void;
+  onChange: (
+    next: import("@kortyx/telemetry-contracts").TableFilters,
+    immediate?: boolean,
+  ) => void;
+  renderField: (key: string) => ReactNode;
+  matchControl: ReactNode;
+};

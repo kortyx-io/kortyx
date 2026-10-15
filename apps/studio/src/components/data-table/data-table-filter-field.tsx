@@ -21,9 +21,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { useSearchParams } from "@/lib/scoped-navigation";
-import { studioFetch } from "@/lib/studio-fetch";
 import type { DataTableFilter } from "./types";
+import { useFilterValues } from "./use-filter-values";
 
 const statusOptions: Record<string, string[]> = {
   runs: [
@@ -71,21 +70,6 @@ export function DataTableFilterField<T>({
   const id = useId();
   const [focused, setFocused] = useState(false);
   const [search, setSearch] = useState("");
-  const [remote, setRemote] = useState<string[]>([]);
-  const [unavailable, setUnavailable] = useState(false);
-  const params = useSearchParams();
-  const scope = new URLSearchParams(
-    [...params.entries()].filter(([key]) =>
-      [
-        "env",
-        "range",
-        "startedAfter",
-        "startedBefore",
-        "archived",
-        "categoryId",
-      ].includes(key),
-    ),
-  ).toString();
   const rule = rules[0];
   const [chosenOperator, setChosenOperator] = useState<
     TableFilterRule["operator"] | undefined
@@ -102,33 +86,12 @@ export function DataTableFilterField<T>({
   const text = String(rule?.values[0] ?? "");
   const enabled = field.kind === "enum" || focused;
   const needle = field.kind === "enum" ? search : text;
-  useEffect(() => {
-    if (!resource || !enabled || !["text", "enum"].includes(field.kind)) return;
-    const controller = new AbortController();
-    const timer = setTimeout(() => {
-      setUnavailable(false);
-      studioFetch(
-        `/api/studio/filter-values?${new URLSearchParams({ resource, field: field.key, search: needle })}&${scope}`,
-        { signal: controller.signal },
-      )
-        .then(async (response) => {
-          if (!response.ok) throw new Error();
-          const result = await response.json();
-          setRemote(
-            Array.isArray(result.values)
-              ? result.values.filter((v: unknown) => typeof v === "string")
-              : [],
-          );
-        })
-        .catch(() => {
-          if (!controller.signal.aborted) setUnavailable(true);
-        });
-    }, 180);
-    return () => {
-      clearTimeout(timer);
-      controller.abort();
-    };
-  }, [resource, enabled, field.key, field.kind, needle, scope]);
+  const { values: remote, unavailable } = useFilterValues(
+    resource,
+    field.key,
+    needle,
+    enabled && ["text", "enum"].includes(field.kind),
+  );
   const options = [
     ...new Set([
       ...(field.options ?? []),
@@ -332,6 +295,26 @@ export function DataTableFilterField<T>({
               onChange={(event) => setSearch(event.target.value)}
             />
           ) : null}
+          {options.length > 1 && options.length <= 30 && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="xs"
+              className="mb-1 ml-2"
+              onClick={() =>
+                setValues(
+                  options.every((value) => rule?.values.includes(value))
+                    ? []
+                    : options,
+                  true,
+                )
+              }
+            >
+              {options.every((value) => rule?.values.includes(value))
+                ? "Deselect all"
+                : "Select all"}
+            </Button>
+          )}
           <div
             className={
               options.length > 8 ? "max-h-48 overflow-y-auto" : undefined
