@@ -39,6 +39,7 @@ export function DataTableColumnHeader<T, S extends string>({
     pinned,
     isColumnDraggable,
     getPinnedColumnStyle,
+    getColumnCellMotion,
     startColumnResize,
     toggleColumnVisibility,
     resetColumnWidth,
@@ -51,32 +52,27 @@ export function DataTableColumnHeader<T, S extends string>({
   const canDrag = isColumnDraggable(key);
   const pin = pinned[key];
   const stickyStyle = getPinnedColumnStyle(key);
-  const {
-    attributes,
-    isDragging,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-  } = useSortable({ id: key, disabled: !canDrag });
+  const { attributes, isDragging, listeners, setNodeRef } = useSortable({
+    id: key,
+    disabled: !canDrag,
+  });
+  const motion = getColumnCellMotion(key);
   const SortIcon = direction === "asc" ? ArrowUp : ArrowDown;
 
   return (
     <th
       ref={setNodeRef}
       data-column={key}
+      data-column-dragging={isDragging || undefined}
       style={{
-        transform: transform
-          ? `translate3d(${transform.x}px, ${transform.y}px, 0)`
-          : undefined,
-        transition,
+        ...motion?.style,
         ...stickyStyle,
       }}
       className={cn(
-        "group relative px-3 py-3 after:pointer-events-none after:absolute after:top-2 after:right-0 after:bottom-2 after:w-px after:bg-border",
+        "group relative bg-muted px-3 py-3 after:pointer-events-none after:absolute after:top-2 after:right-0 after:bottom-2 after:w-px after:bg-border",
         isLast && "after:hidden",
         pin && "sticky z-40 bg-muted",
-        isDragging && "z-50",
+        isDragging && "z-50 shadow-lg",
         headerClassName,
       )}
       onContextMenu={(event) => {

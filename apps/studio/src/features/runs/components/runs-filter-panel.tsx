@@ -1,6 +1,7 @@
 "use client";
 import { X } from "lucide-react";
 import { useState } from "react";
+import { FilterAutocomplete } from "@/components/data-table/filter-autocomplete";
 import type { DataTableFilterPanel } from "@/components/data-table/types";
 import { useFilterValues } from "@/components/data-table/use-filter-values";
 import { Button } from "@/components/ui/button";
@@ -505,21 +506,16 @@ function TextFilter({
       className="mt-3 block first:mt-0 text-xs font-medium text-muted-foreground"
     >
       {label}
-      <Input
+      <FilterAutocomplete
         id={id}
-        aria-label={`${label} value`}
-        list={`${id}-values`}
+        label={label}
+        options={suggestions.values}
         onFocus={() => setFocused(true)}
         value={value}
-        onChange={(event) => onChange(event.target.value)}
+        onChange={onChange}
         placeholder={placeholder}
         className="mt-1.5"
       />
-      <datalist id={`${id}-values`}>
-        {suggestions.values.map((value) => (
-          <option key={value} value={value} />
-        ))}
-      </datalist>
       {suggestions.unavailable && (
         <span className="mt-1 block text-[11px]">
           Suggestions unavailable. You can still enter a value.

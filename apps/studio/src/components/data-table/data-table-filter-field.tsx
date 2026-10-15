@@ -21,6 +21,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { FilterAutocomplete } from "./filter-autocomplete";
 import type { DataTableFilter } from "./types";
 import { useFilterValues } from "./use-filter-values";
 
@@ -362,26 +363,19 @@ export function DataTableFilterField<T>({
         </>
       ) : (
         <>
-          <Input
+          <FilterAutocomplete
             id={id}
-            aria-label={`${field.label} value`}
+            label={field.label}
             placeholder={
               labels[operator] === "Is any of"
                 ? "Choose or enter a value…"
                 : `${labels[operator] ?? "Contains"}…`
             }
-            list={`${id}-values`}
+            options={options}
             value={text}
             onFocus={() => setFocused(true)}
-            onChange={(event) =>
-              setValues(event.target.value ? [event.target.value] : [])
-            }
+            onChange={(value) => setValues(value ? [value] : [])}
           />
-          <datalist id={`${id}-values`}>
-            {options.map((value) => (
-              <option key={value} value={value} />
-            ))}
-          </datalist>
           {rule &&
             ["is", "isNot"].includes(operator) &&
             rule.values.length > 1 && (

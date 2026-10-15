@@ -252,8 +252,8 @@ export function createRunColumns({
         />
       ),
     },
-    studioValueColumn<Run, SortKey>("runs", "userId", undefined, true),
-    studioValueColumn<Run, SortKey>("runs", "tenantId", undefined, true),
+    studioValueColumn<Run, SortKey>("runs", "userId"),
+    studioValueColumn<Run, SortKey>("runs", "tenantId"),
     {
       key: "model",
       filter: studioColumnFilters("runs", "model"),

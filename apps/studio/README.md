@@ -333,15 +333,25 @@ show a resettable error or an API validation error instead of being ignored.
 The request limits are 32 conditions, 30 values per condition, 512 characters per
 value, and 32 KiB of serialized conditions.
 
+Text filter suggestions use the shared shadcn Combobox, with keyboard navigation,
+selection styling and free-text entry. Server suggestions retain the authorized
+scope and the existing request limits.
+
 Row hover belongs to `DataTable`, including non-clickable rows. Every cell uses
 the same opaque row background so left/right pinned columns stay synchronized
 and cover scrolled content. Return `"danger"` from the `rowTone` callback for
 failure tinting rather than setting separate pinned-cell backgrounds.
 
-Secondary data columns use `defaultHidden`; they remain available in Columns,
-search and filters. Saved layouts retain known column order/visibility and append
-new columns, respecting their default visibility. Runs shows User ID and Tenant
-ID by default. Other added fields include completion/environment/pricing data,
+All columns are visible by default, and Reset layout shows every column again.
+Saved layouts retain known column order/visibility and append new visible columns.
+Scrollbars overlay the table using the shared ScrollBar UI, without reserving a
+gutter or adding header spacing. Header/body scrolling stays synchronized during
+a held column drag. Dragged
+headers and cells share their movement, remain above pinned columns, and support
+Escape to cancel. Horizontal wheel gestures over the header scroll the body as
+the shared owner, avoiding opposing scroll updates.
+
+Runs includes User ID and Tenant ID. Other added fields include completion/environment/pricing data,
 session models/providers/tags, interrupt resolution timestamps, prompt assignments,
 and evaluation judge/pass-rate/queue/case/comparison metrics. Missing evidence is
 shown as a dash. Comparison deltas use per-attempt means and require comparable

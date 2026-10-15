@@ -2,6 +2,252 @@ import { expect, type Locator, type Page, test } from "@playwright/test";
 import postgres from "postgres";
 import { DRAWER_FIXTURE } from "./support/telemetry-fixture";
 
+test("overlay scrollbars reserve no space and headers align through horizontal scrolling", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1100, height: 500 });
+  await page.goto("/runs?range=All+time&q=e2e-ktx25");
+  const row = page.locator(`[data-row-key="${DRAWER_FIXTURE.runId}"]`);
+  await expect(row).toBeVisible();
+  const viewport = page.locator(".data-table-body-scroll");
+  await expect(viewport).toHaveCSS("scrollbar-width", "none");
+  await expect
+    .poll(() => viewport.evaluate((el) => el.scrollHeight > el.clientHeight))
+    .toBe(true);
+  const vertical = viewport
+    .locator("..")
+    .locator(
+      '[data-orientation="vertical"][data-slot="scroll-area-scrollbar"]',
+    );
+  await expect(vertical).toBeVisible();
+  await expect(vertical).toHaveCSS("position", "absolute");
+  await expect
+    .poll(() =>
+      viewport.evaluate(
+        (el) => el.getBoundingClientRect().width - el.clientWidth,
+      ),
+    )
+    .toBe(0);
+  await expect
+    .poll(() =>
+      page.evaluate(() => {
+        const header = document.querySelector(".data-table-header-scroll")!;
+        const body = document.querySelector(".data-table-body-scroll")!;
+        return Math.abs(header.clientWidth - body.clientWidth);
+      }),
+    )
+    .toBeLessThan(1);
+  for (const fraction of [0, 0.5, 1, 0]) {
+    await page.locator(".data-table-body-scroll").evaluate((el, fraction) => {
+      el.scrollLeft = (el.scrollWidth - el.clientWidth) * fraction;
+    }, fraction);
+    await expect
+      .poll(() =>
+        page.evaluate(() => {
+          const header = document.querySelector(".data-table-header-scroll")!;
+          const body = document.querySelector(".data-table-body-scroll")!;
+          return Math.abs(header.scrollLeft - body.scrollLeft);
+        }),
+      )
+      .toBeLessThan(1);
+    const headers = await page.locator("thead th").all();
+    for (const header of headers) {
+      const key = await header.getAttribute("data-column");
+      const head = (await header.boundingBox())!;
+      const cell = (await row
+        .locator(`td[data-column="${key}"]`)
+        .boundingBox())!;
+      expect(Math.abs(head.x - cell.x), key!).toBeLessThan(1);
+      expect(Math.abs(head.width - cell.width), key!).toBeLessThan(1);
+    }
+  }
+});
+
+test("column drag stays aligned while scrolling the header and body, above pinned columns", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1100, height: 850 });
+  await page.goto(`/runs?range=All+time&q=${DRAWER_FIXTURE.runId}`);
+  const row = page.locator(`[data-row-key="${DRAWER_FIXTURE.runId}"]`);
+  await expect(row).toBeVisible();
+  await pin(page, "Workflows", "left");
+  await pin(page, "Result", "right");
+  await page
+    .locator(".data-table-header-scroll, .data-table-body-scroll")
+    .evaluateAll((elements) =>
+      elements.forEach((el) => {
+        el.scrollLeft = 0;
+      }),
+    );
+  const header = page.locator('th[data-column="status"]');
+  const cell = row.locator('td[data-column="status"]');
+  const box = (await header.boundingBox())!;
+  const x = box.x + 35,
+    y = box.y + box.height / 2;
+  const geometry = () =>
+    page.evaluate(() => {
+      const head = document.querySelector(".data-table-header-scroll")!;
+      const body = document.querySelector(".data-table-body-scroll")!;
+      return {
+        header: head.scrollLeft,
+        body: body.scrollLeft,
+        headerWidth: head.scrollWidth,
+        bodyWidth: body.scrollWidth,
+      };
+    });
+  const original = await geometry();
+  const order = await page
+    .locator("thead th")
+    .evaluateAll((cells) =>
+      cells.map((cell) => cell.getAttribute("data-column")),
+    );
+  await page.mouse.move(x, y);
+  await page.mouse.down();
+  try {
+    await page.mouse.move(x + 35, y, { steps: 5 });
+    await expect(header).toHaveAttribute("data-column-dragging", "true");
+    const draggedLeft = (await header.boundingBox())!.x;
+    await page.mouse.wheel(220, 0);
+    await expect
+      .poll(async () => (await geometry()).header)
+      .toBeGreaterThan(100);
+    await expect
+      .poll(async () =>
+        Math.abs((await geometry()).header - (await geometry()).body),
+      )
+      .toBeLessThan(1);
+    await expect
+      .poll(async () => Math.abs((await header.boundingBox())!.x - draggedLeft))
+      .toBeLessThan(2);
+    await expect
+      .poll(async () =>
+        Math.abs(
+          (await header.boundingBox())!.x - (await cell.boundingBox())!.x,
+        ),
+      )
+      .toBeLessThan(2);
+    expect((await geometry()).headerWidth).toBe(original.headerWidth);
+    expect((await geometry()).bodyWidth).toBe(original.bodyWidth);
+    for (const [active, pinned] of [
+      [header, page.locator('th[data-column="workflow"]')],
+      [cell, row.locator('td[data-column="workflow"]')],
+    ]) {
+      const z = await active.evaluate((el) =>
+        Number(getComputedStyle(el).zIndex),
+      );
+      expect(z).toBeGreaterThan(
+        await pinned.evaluate((el) => Number(getComputedStyle(el).zIndex)),
+      );
+    }
+    // Trackpad scrolling over the body while still holding the same header.
+    await page.locator(".data-table-body-scroll").evaluate((el) => {
+      el.scrollLeft += 120;
+    });
+    await expect.poll(async () => (await geometry()).body).toBeGreaterThan(300);
+    await expect
+      .poll(async () =>
+        Math.abs((await geometry()).header - (await geometry()).body),
+      )
+      .toBeLessThan(1);
+    await expect
+      .poll(async () => Math.abs((await header.boundingBox())!.x - draggedLeft))
+      .toBeLessThan(2);
+    await expect
+      .poll(async () =>
+        Math.abs(
+          (await header.boundingBox())!.x - (await cell.boundingBox())!.x,
+        ),
+      )
+      .toBeLessThan(2);
+    await page.keyboard.press("Escape");
+  } finally {
+    await page.mouse.up();
+  }
+  await expect
+    .poll(() =>
+      page
+        .locator("thead th")
+        .evaluateAll((cells) =>
+          cells.map((cell) => cell.getAttribute("data-column")),
+        ),
+    )
+    .toEqual(order);
+  await expect(header).toHaveCSS("transform", "none");
+  // A dragged sticky column must not receive scroll compensation twice.
+  await pin(page, "Status", "left");
+  const pinnedBox = (await header.boundingBox())!;
+  await page.mouse.move(pinnedBox.x + 35, pinnedBox.y + pinnedBox.height / 2);
+  await page.mouse.down();
+  try {
+    await page.mouse.move(
+      pinnedBox.x + 60,
+      pinnedBox.y + pinnedBox.height / 2,
+      { steps: 5 },
+    );
+    await expect(header).toHaveAttribute("data-column-dragging", "true");
+    const left = (await header.boundingBox())!.x;
+    const scrollBeforePinnedDrag = (await geometry()).header;
+    await page.mouse.wheel(120, 0);
+    await expect
+      .poll(async () => (await geometry()).header)
+      .toBeGreaterThan(scrollBeforePinnedDrag + 100);
+    await expect
+      .poll(async () => Math.abs((await header.boundingBox())!.x - left))
+      .toBeLessThan(2);
+    await expect
+      .poll(async () =>
+        Math.abs(
+          (await header.boundingBox())!.x - (await cell.boundingBox())!.x,
+        ),
+      )
+      .toBeLessThan(2);
+    await page.keyboard.press("Escape");
+  } finally {
+    await page.mouse.up();
+  }
+  const from = (await header.boundingBox())!;
+  const expectedFirst =
+    (await page.locator("thead th").first().getAttribute("data-column")) ===
+    "status"
+      ? "workflow"
+      : "status";
+  const to = (await page.locator('th[data-column="workflow"]').boundingBox())!;
+  await page.mouse.move(from.x + 35, from.y + from.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(to.x + to.width / 2, to.y + to.height / 2, {
+    steps: 10,
+  });
+  await expect(header).toHaveAttribute("data-column-dragging", "true");
+  await page.mouse.up();
+  await expect(page.locator("thead th").first()).toHaveAttribute(
+    "data-column",
+    expectedFirst,
+  );
+  await expect(row.locator("td").first()).toHaveAttribute(
+    "data-column",
+    expectedFirst,
+  );
+  await expect(header).not.toHaveAttribute("data-column-dragging", "true");
+});
+
+test("all columns start visible and Reset layout shows every column again", async ({
+  page,
+}) => {
+  await page.goto("/runs?range=All+time");
+  await expect(page.locator("thead th")).toHaveCount(18);
+  await page.getByRole("button", { name: "Columns", exact: true }).click();
+  await page
+    .getByRole("menuitemcheckbox", { name: "Environment", exact: true })
+    .click();
+  await expect(page.locator("thead th")).toHaveCount(17);
+  await page.getByRole("button", { name: "Reset layout", exact: true }).click();
+  await expect(page.locator("thead th")).toHaveCount(18);
+  await expect(
+    page.getByRole("menuitemcheckbox", { name: "Environment", exact: true }),
+  ).toBeChecked();
+  await page.screenshot({ path: "/tmp/kortyx-all-columns-reset.png" });
+});
+
 async function rowColors(row: Locator) {
   return row.locator("td").evaluateAll(async (cells) => {
     await Promise.all(

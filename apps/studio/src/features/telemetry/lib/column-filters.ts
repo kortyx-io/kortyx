@@ -190,7 +190,6 @@ export function studioValueColumn<T, S extends string = never>(
   resource: StudioTableResource,
   key: string,
   format?: (value: Exclude<TableFilterValue, null | undefined>) => string,
-  visible = false,
 ) {
   const filter = studioColumnFilters<T>(resource, key)[0];
   if (!filter) throw new Error(`Missing column filter: ${resource}.${key}`);
@@ -199,7 +198,6 @@ export function studioValueColumn<T, S extends string = never>(
     label: filter.label,
     read: filter.read,
     filter,
-    visible,
     ...(format ? { format } : {}),
   });
 }

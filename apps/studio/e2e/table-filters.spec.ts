@@ -260,14 +260,58 @@ test("suggests workflows outside the search results and keeps typed values usabl
 }) => {
   await page.goto(`/runs?range=All+time&q=no-such-run`);
   await page.getByRole("button", { name: "Filters", exact: true }).click();
-  await page.getByLabel("Workflow value", { exact: true }).fill("e2e");
+  const input = page.getByRole("combobox", {
+    name: "Workflow value",
+    exact: true,
+  });
+  await input.fill("e2e");
+  const list = page.getByRole("listbox", {
+    name: "Workflow suggestions",
+    exact: true,
+  });
+  await expect(list.getByRole("option").first()).toContainText(/e2e/);
+  const option = await list.getByRole("option").first().innerText();
+  await input.press("ArrowDown");
+  await input.press("Enter");
+  await expect(input).toHaveValue(option);
+  await expect(list).toHaveCount(0);
+  await input.fill("my-free-text-workflow");
+  await expect(input).toHaveValue("my-free-text-workflow");
+  await input.press("Escape");
+  await expect(list).toHaveCount(0);
+  await page
+    .getByRole("searchbox", { name: "Search runs", exact: true })
+    .click();
+  await expect(input).toHaveValue("my-free-text-workflow");
   await expect(
-    page.locator('[data-filter-field="workflowIds"] datalist option').first(),
-  ).toBeAttached();
-  await expect(
-    page.locator('[data-filter-field="workflowIds"] datalist option').first(),
-  ).toHaveAttribute("value", /e2e/);
+    page.getByRole("complementary", { name: "Filters", exact: true }),
+  ).toBeVisible();
   await page.screenshot({ path: "/tmp/kortyx-table-filters-final.png" });
+});
+
+test("response autocomplete uses the shared dropdown and accepts a selected value", async ({
+  page,
+}) => {
+  await page.goto("/interrupts?range=All+time");
+  await page.getByRole("button", { name: "Filters", exact: true }).click();
+  const input = page.getByRole("combobox", {
+    name: "Response value",
+    exact: true,
+  });
+  await input.click();
+  const list = page.getByRole("listbox", {
+    name: "Response suggestions",
+    exact: true,
+  });
+  const option = list.getByRole("option", { name: "approve", exact: true });
+  await expect(option).toBeVisible();
+  await page.screenshot({ path: "/tmp/kortyx-filter-autocomplete.png" });
+  await option.click();
+  await expect(input).toHaveValue("approve");
+  await expect(list).toHaveCount(0);
+  await expect(
+    page.locator(`[data-row-key="${DRAWER_FIXTURE.interruptId}"]`),
+  ).toBeVisible();
 });
 
 test("embedded table search is independent of parent search, combines with filters and persists", async ({

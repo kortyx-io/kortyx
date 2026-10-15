@@ -12,18 +12,11 @@ export function columnLayout<T, S extends string>(
     ...keys.filter((key) => !previous.includes(key)),
   ];
   const hidden = [
-    ...new Set([
-      ...(Array.isArray(saved?.hidden)
+    ...new Set(
+      Array.isArray(saved?.hidden)
         ? saved.hidden.filter((key) => keys.includes(key))
-        : []),
-      ...columns
-        .filter(
-          (column) =>
-            column.defaultHidden &&
-            (!saved?.hidden || !previous.includes(column.key)),
-        )
-        .map((column) => column.key),
-    ]),
+        : [],
+    ),
   ];
   return { order, hidden };
 }

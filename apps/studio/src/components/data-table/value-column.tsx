@@ -11,7 +11,6 @@ export function valueColumn<T, S extends string = never>({
   kind = "text",
   format,
   filter,
-  visible = false,
   width = 160,
 }: {
   key: string;
@@ -20,14 +19,12 @@ export function valueColumn<T, S extends string = never>({
   kind?: TableFilterKind;
   format?: (value: Exclude<TableFilterValue, null | undefined>) => string;
   filter?: DataTableFilter<T>;
-  visible?: boolean;
   width?: number;
 }): DataTableColumn<T, S> {
   return {
     key,
     label,
     defaultWidth: width,
-    defaultHidden: !visible,
     filter: filter ?? { key, label, kind, read },
     render: (row) => {
       const value = read(row);

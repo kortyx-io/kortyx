@@ -8,7 +8,14 @@ import {
 } from "@dnd-kit/sortable";
 import type { StudioTableResource } from "@kortyx/telemetry-contracts";
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import { type ReactNode, useEffect, useLayoutEffect, useState } from "react";
+import { ScrollArea as ScrollAreaPrimitive } from "radix-ui";
+import {
+  type ReactNode,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
 import {
   clampScrollViewport,
   syncHorizontalScroll,
@@ -17,6 +24,7 @@ import { DataTableColumnHeader } from "@/components/data-table/data-table-column
 import { useDataTable } from "@/components/data-table/data-table-context";
 import type { DataTablePagination } from "@/components/data-table/types";
 import { Button } from "@/components/ui/button";
+import { ScrollBar } from "@/components/ui/scroll-area";
 import {
   Select,
   SelectContent,
@@ -108,6 +116,7 @@ export function DataTable<T, S extends string>({
     onDragEnd,
     getColumnCellMotion,
     getPinnedColumnStyle,
+    draggedColumn,
     scrollerRef,
     headerScrollerRef,
   } = useDataTable<T, S>();
@@ -143,7 +152,32 @@ export function DataTable<T, S extends string>({
   );
   const [openColumnMenu, setOpenColumnMenu] = useState<string | null>(null);
   const [interactive, setInteractive] = useState(false);
+  const synchronizedScrollLeft = useRef(0);
   useEffect(() => setInteractive(true), []);
+  useEffect(() => {
+    const header = headerScrollerRef.current;
+    const body = scrollerRef.current;
+    if (!header || !body) return;
+    // Keep one wheel-scroll owner during a held drag. Native header scrolling
+    // can race body scroll notifications and repeatedly pull the gesture back.
+    const scrollHeader = (event: WheelEvent) => {
+      if (event.ctrlKey) return;
+      const delta = event.deltaX || (event.shiftKey ? event.deltaY : 0);
+      if (!delta) return;
+      event.preventDefault();
+      const unit =
+        event.deltaMode === 1
+          ? 16
+          : event.deltaMode === 2
+            ? body.clientWidth
+            : 1;
+      body.scrollLeft += delta * unit;
+      synchronizedScrollLeft.current = body.scrollLeft;
+      syncHorizontalScroll(body, header);
+    };
+    header.addEventListener("wheel", scrollHeader, { passive: false });
+    return () => header.removeEventListener("wheel", scrollHeader);
+  }, [headerScrollerRef, scrollerRef]);
   // biome-ignore lint/correctness/useExhaustiveDependencies: restore scroll once on mount.
   useEffect(() => {
     if (!scrollRestoreKey) return;
@@ -159,8 +193,15 @@ export function DataTable<T, S extends string>({
     clampScrollViewport(scrollerRef.current, headerScrollerRef.current);
   }, [tableWidth, scrollerRef, headerScrollerRef]);
 
-  function handleBodyScroll() {
-    syncHorizontalScroll(scrollerRef.current, headerScrollerRef.current);
+  function handleHorizontalScroll(
+    source: HTMLDivElement,
+    target: HTMLDivElement | null,
+  ) {
+    // Scroll events arrive asynchronously. Ignore the echoed event from our
+    // previous write instead of letting it undo a newer wheel/trackpad gesture.
+    if (source.scrollLeft === synchronizedScrollLeft.current) return;
+    synchronizedScrollLeft.current = source.scrollLeft;
+    syncHorizontalScroll(source, target);
   }
 
   function handleRowClick(
@@ -255,9 +296,12 @@ export function DataTable<T, S extends string>({
         <div className="flex min-h-0 flex-1 flex-col">
           <div
             ref={headerScrollerRef}
+            onScroll={(event) =>
+              handleHorizontalScroll(event.currentTarget, scrollerRef.current)
+            }
             className="data-table-header-scroll shrink-0 overflow-x-auto overflow-y-hidden"
           >
-            <div style={tableStyle}>
+            <div className="overflow-clip" style={tableStyle}>
               <DndContext
                 id="data-table-columns"
                 sensors={sensors}
@@ -304,81 +348,100 @@ export function DataTable<T, S extends string>({
               </DndContext>
             </div>
           </div>
-          <div
-            ref={scrollerRef}
-            onScroll={handleBodyScroll}
-            className="data-table-body-scroll min-h-0 flex-1 overflow-auto"
+          <ScrollAreaPrimitive.Root
+            type="auto"
+            className="relative min-h-0 flex-1 overflow-hidden"
           >
-            <div style={tableStyle}>
-              <table
-                className="table-fixed border-separate border-spacing-0 text-left text-sm"
-                style={tableStyle}
-              >
-                {colGroup}
-                <tbody>
-                  {pageRows.map((item) => (
-                    <tr
-                      key={getRowKey(item)}
-                      data-row-key={getRowKey(item)}
-                      data-row-tone={rowTone?.(item)}
-                      style={
-                        {
-                          "--table-row-base":
-                            rowTone?.(item) === "danger"
-                              ? "color-mix(in oklab, var(--destructive) 2.5%, var(--background))"
-                              : "var(--background)",
-                        } as React.CSSProperties
-                      }
-                      onClick={
-                        onRowClick
-                          ? (event) => handleRowClick(item, event)
-                          : undefined
-                      }
-                      className={cn(
-                        "group border-b [--table-row-bg:var(--table-row-base)] hover:[--table-row-bg:color-mix(in_oklab,var(--muted)_55%,var(--table-row-base))]",
-                        onRowClick && "cursor-pointer",
-                        rowClassName?.(item),
-                      )}
-                    >
-                      {visibleColumnOrder.map((column) => {
-                        const definition = columnsByKey[column];
-                        const motion = getColumnCellMotion(column);
-                        const pin = pinned[column];
-                        return (
-                          <td
-                            key={column}
-                            data-column={column}
-                            title={definition.cellTitle?.(item)}
-                            className={cn(
-                              CELL_BASE,
-                              definition.cellClassName,
-                              "transition-colors",
-                              pin && "sticky z-10",
-                              motion && !pin && "relative z-10",
-                            )}
-                            style={{
-                              backgroundColor: "var(--table-row-bg)",
-                              ...motion?.style,
-                              ...getPinnedColumnStyle(column),
-                            }}
-                          >
-                            <div className="min-w-0 overflow-hidden">
-                              {definition.render(item)}
-                            </div>
-                          </td>
-                        );
-                      })}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-            {isEmpty && (
-              <div className={cn("sticky left-0 w-full", emptyStateClassName)}>
-                {emptyState}
+            <ScrollAreaPrimitive.Viewport
+              ref={scrollerRef}
+              onScroll={(event) =>
+                handleHorizontalScroll(
+                  event.currentTarget,
+                  headerScrollerRef.current,
+                )
+              }
+              className="data-table-body-scroll size-full [&>div]:!block"
+            >
+              <div className="overflow-clip" style={tableStyle}>
+                <table
+                  className="table-fixed border-separate border-spacing-0 text-left text-sm"
+                  style={tableStyle}
+                >
+                  {colGroup}
+                  <tbody>
+                    {pageRows.map((item) => (
+                      <tr
+                        key={getRowKey(item)}
+                        data-row-key={getRowKey(item)}
+                        data-row-tone={rowTone?.(item)}
+                        style={
+                          {
+                            "--table-row-base":
+                              rowTone?.(item) === "danger"
+                                ? "color-mix(in oklab, var(--destructive) 2.5%, var(--background))"
+                                : "var(--background)",
+                          } as React.CSSProperties
+                        }
+                        onClick={
+                          onRowClick
+                            ? (event) => handleRowClick(item, event)
+                            : undefined
+                        }
+                        className={cn(
+                          "group border-b [--table-row-bg:var(--table-row-base)] hover:[--table-row-bg:color-mix(in_oklab,var(--muted)_55%,var(--table-row-base))]",
+                          onRowClick && "cursor-pointer",
+                          rowClassName?.(item),
+                        )}
+                      >
+                        {visibleColumnOrder.map((column) => {
+                          const definition = columnsByKey[column];
+                          const motion = getColumnCellMotion(column);
+                          const pin = pinned[column];
+                          return (
+                            <td
+                              key={column}
+                              data-column={column}
+                              data-column-dragging={
+                                draggedColumn === column || undefined
+                              }
+                              title={definition.cellTitle?.(item)}
+                              className={cn(
+                                CELL_BASE,
+                                definition.cellClassName,
+                                "transition-colors",
+                                pin && "sticky z-10",
+                                motion && !pin && "relative z-1",
+                                draggedColumn === column && "z-30 shadow-lg",
+                              )}
+                              style={{
+                                backgroundColor: "var(--table-row-bg)",
+                                ...motion?.style,
+                                ...getPinnedColumnStyle(column),
+                              }}
+                            >
+                              <div className="min-w-0 overflow-hidden">
+                                {definition.render(item)}
+                              </div>
+                            </td>
+                          );
+                        })}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
-            )}
-          </div>
+              {isEmpty && (
+                <div
+                  className={cn("sticky left-0 w-full", emptyStateClassName)}
+                >
+                  {emptyState}
+                </div>
+              )}
+            </ScrollAreaPrimitive.Viewport>
+            <ScrollBar className="z-40" />
+            <ScrollBar orientation="horizontal" className="z-40" />
+            <ScrollAreaPrimitive.Corner />
+          </ScrollAreaPrimitive.Root>
         </div>
         {pagination && (
           <DataTablePaginationFooter
