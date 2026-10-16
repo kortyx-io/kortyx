@@ -13,9 +13,15 @@ import { PayloadViewer } from "@/components/detail/payload-viewer";
 import Link from "@/components/scoped-link";
 import { Button } from "@/components/ui/button";
 import { formatDateTime } from "@/lib/format";
+import { ErrorDetails } from "./error-details";
 
 const correlationLabels: Record<string, string> = {
   runId: "Run",
+  evaluationId: "Evaluation",
+  suiteRunId: "Suite run",
+  caseId: "Case",
+  repetition: "Attempt",
+  phase: "Phase",
   workflowId: "Workflow",
   nodeId: "Node",
   sessionId: "Session",
@@ -111,12 +117,12 @@ export function DiagnosticDetails({
                         contain the full captured values.
                       </p>
                     </div>
-                    <PayloadViewer
-                      value={content.data}
-                      defaultClean={false}
-                      stringPreviewLength={240}
-                      className="flex min-h-0 flex-1 flex-col [&_[data-payload-content]]:min-h-0 [&_[data-payload-content]]:max-h-none [&_[data-payload-content]]:flex-1 [&_[data-responsive-surface]]:shrink-0"
-                    />
+                    <div className="min-h-0 flex-1 overflow-auto">
+                      <ErrorDetails
+                        message={manifest.summary.message}
+                        exception={content}
+                      />
+                    </div>
                   </section>
                 ) : (
                   <div className="flex h-full items-center justify-center p-6">
@@ -242,6 +248,13 @@ function DiagnosticContext({
               value={
                 key === "runId" && runHref ? (
                   <Link className="hover:underline" href={runHref}>
+                    {value}
+                  </Link>
+                ) : ["evaluationId", "suiteRunId"].includes(key) ? (
+                  <Link
+                    className="hover:underline"
+                    href={`${key === "evaluationId" ? "/evals/evaluations" : "/evals/runs"}/${encodeURIComponent(value)}?env=${encodeURIComponent(manifest.environment)}`}
+                  >
                     {value}
                   </Link>
                 ) : (

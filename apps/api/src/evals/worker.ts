@@ -89,7 +89,7 @@ export function createEvalWorker(
   studioJudge?: EvalJudge,
   options: EvalWorkerOptions = {},
 ) {
-  const store: EvalJobStore = options.store ?? {
+  const baseStore: EvalJobStore = options.store ?? {
     claim: async (owner) => {
       const runs = await claimEvalRuns(db, owner, targets);
       return runs.length ? runs : undefined;
@@ -115,6 +115,141 @@ export function createEvalWorker(
       ? async () => undefined
       : (run: EvalWorkerRun, error: unknown) =>
           recordEvalDiagnostic(db, run, error));
+  // Archive SDK-originated issues even without a telemetry exporter. References
+  // already captured by the SDK are reused, preserving occurrence identity.
+  const pendingIssues = new WeakMap<EvalIssue, Promise<void>>();
+  const attemptIssues = new Map<
+    string,
+    Map<string, Promise<string | undefined>>
+  >();
+  const archiveIssue = (
+    run: EvalWorkerRun,
+    issue: EvalIssue,
+    caseId?: string,
+    repetition?: number,
+    index = 0,
+  ) => {
+    if (issue.diagnosticId) return Promise.resolve();
+    const pending = pendingIssues.get(issue);
+    if (pending) return pending;
+    let records = attemptIssues.get(run.id);
+    if (!records) {
+      records = new Map();
+      attemptIssues.set(run.id, records);
+    }
+    const key = JSON.stringify([
+      caseId ?? run.request.attempt?.caseId,
+      repetition ?? run.request.attempt?.repetition,
+      issue.phase,
+      issue.code,
+      index,
+    ]);
+    let capture = records.get(key);
+    if (!capture) {
+      capture = options.store
+        ? reportError(
+            run,
+            issue.exception?.data ?? new Error(issue.message),
+          ).catch(() => undefined)
+        : recordEvalDiagnostic(
+            db,
+            run,
+            new Error(issue.message),
+            issue.exception,
+            {
+              phase: issue.phase,
+              ...(caseId ? { caseId } : {}),
+              ...(repetition ? { repetition: String(repetition) } : {}),
+            },
+          );
+      records.set(key, capture);
+    }
+    const task = capture.then((diagnosticId) => {
+      if (diagnosticId) issue.diagnosticId = diagnosticId;
+    });
+    pendingIssues.set(issue, task);
+    return task;
+  };
+  const claimedRuns = new Map<string, EvalWorkerRun>();
+  const store: EvalJobStore = {
+    heartbeat: (id, owner) => baseStore.heartbeat(id, owner),
+    executionGeneration: async (...args) =>
+      baseStore.executionGeneration?.(...args),
+    executionEvidence: async (...args) =>
+      baseStore.executionEvidence?.(...args),
+    claim: async (owner) => {
+      const claimed = await baseStore.claim(owner);
+      for (const run of Array.isArray(claimed)
+        ? claimed
+        : claimed
+          ? [claimed]
+          : [])
+        claimedRuns.set(run.id, run);
+      return claimed;
+    },
+    progress: async (id, owner, event) => {
+      const run = claimedRuns.get(id);
+      if (run && event.type === "case-completed")
+        for (const [index, issue] of event.result.errors.entries()) {
+          if (
+            issue.code !== "EVAL_RUN_TIMEOUT" &&
+            issue.code !== "EVAL_CANCELLED"
+          )
+            await archiveIssue(
+              run,
+              issue,
+              event.result.caseId,
+              event.result.repetition,
+              index,
+            );
+        }
+      await baseStore.progress(id, owner, event);
+    },
+    finish: async (id, owner, outcome) => {
+      const run = claimedRuns.get(id);
+      if (run) {
+        if (
+          outcome.termination &&
+          outcome.termination.code !== "EVAL_CANCELLED" &&
+          !outcome.termination.diagnosticId
+        ) {
+          const issue =
+            outcome.issue ??
+            createEvalIssue("execute", new Error(outcome.termination.message), {
+              code: outcome.termination.code,
+            });
+          await archiveIssue(run, issue);
+          if (issue.diagnosticId)
+            outcome.termination.diagnosticId = issue.diagnosticId;
+        }
+        if (
+          outcome.issue &&
+          outcome.issue.code !== "EVAL_RUN_TIMEOUT" &&
+          outcome.issue.code !== "EVAL_CANCELLED"
+        )
+          await archiveIssue(run, outcome.issue);
+        for (const [index, issue] of (outcome.result?.errors ?? []).entries())
+          await archiveIssue(run, issue, undefined, undefined, index);
+        for (const item of outcome.result?.cases ?? [])
+          for (const [index, issue] of item.errors.entries()) {
+            if (issue.code === "EVAL_RUN_TIMEOUT") {
+              if (outcome.termination?.diagnosticId)
+                issue.diagnosticId = outcome.termination.diagnosticId;
+            } else if (issue.code !== "EVAL_CANCELLED")
+              await archiveIssue(
+                run,
+                issue,
+                item.caseId,
+                item.repetition,
+                index,
+              );
+          }
+      }
+      await baseStore.finish(id, owner, outcome);
+      claimedRuns.delete(id);
+      attemptIssues.delete(id);
+    },
+  };
   const owner = randomUUID();
   const dispatcher = createEvalDispatcher(
     options.fetch ?? fetch,
@@ -544,12 +679,18 @@ export function createEvalWorker(
           : unexpected.message;
       const code = timeout
         ? "EVAL_RUN_TIMEOUT"
-        : known
-          ? error.code
-          : "EVAL_EXECUTION_UNKNOWN";
+        : userCancelled || scheduled?.isCancelled?.()
+          ? "EVAL_CANCELLED"
+          : known
+            ? error.code
+            : "EVAL_EXECUTION_UNKNOWN";
       await finish({
         issue: {
-          ...unexpected,
+          ...(timeout
+            ? createEvalIssue(phase, new Error(message, { cause: error }), {
+                code,
+              })
+            : unexpected),
           phase,
           ...(timeout
             ? { details: { timeoutMs } }
@@ -610,6 +751,10 @@ export function createEvalWorker(
                     controller.signal,
                     execute,
                     () => stopped,
+                    async (run, issue) => {
+                      await archiveIssue(run, issue);
+                      return issue.diagnosticId;
+                    },
                   );
                 } finally {
                   active.delete(controller);

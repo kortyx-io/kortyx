@@ -17,18 +17,54 @@ test("shows the evaluation timeout and incomplete work without investigation", a
 }) => {
   await seedEvalSettingsFixture();
   await page.goto(`/evals/evaluations/${EVAL_SETTINGS_FIXTURE.id}`);
-  await expect(
-    page.getByText("Evaluation timed out after 30m", { exact: true }),
-  ).toBeVisible();
-  await expect(
-    page.getByText(/63 of 107 attempts have recorded outcomes/),
-  ).toBeVisible();
-  await expect(page.getByText(/36 not started/)).toBeVisible();
-  await expect(page.getByText("Timed out", { exact: true })).toHaveCount(5);
-  await expect(
-    page.getByText("6 affected attempts", { exact: true }),
-  ).toBeVisible();
+  const timeout = page.getByRole("button", {
+    name: /Timed out after 30m · 44 unfinished attempts/,
+  });
+  const errors = page.getByRole("button", {
+    name: /OpenRouter returned HTTP 429.*6 errors/,
+  });
+  await expect(timeout).toBeVisible();
+  await expect(errors).toBeVisible();
+  const table = page.getByRole("table").first();
+  await expect(table).toBeVisible();
+  expect((await table.boundingBox())!.y).toBeLessThan(400);
   await capture(page, "evaluation-timeout");
+  await timeout.click();
+  const dialog = page.getByRole("dialog");
+  await expect(
+    dialog.getByText(/63 of 107 attempts have recorded outcomes/),
+  ).toBeVisible();
+  await expect(dialog.getByText(/36 not started/)).toBeVisible();
+  await capture(page, "timeout-error-dialog");
+  await page.keyboard.press("Escape");
+  await errors.click();
+  await expect(
+    dialog.getByRole("heading", { name: "Stack trace" }),
+  ).toBeVisible();
+  await expect(
+    dialog.getByRole("heading", { name: "Caused by" }),
+  ).toBeVisible();
+  const occurrences = dialog
+    .getByRole("navigation", { name: "Error occurrences" })
+    .getByRole("button");
+  await expect(occurrences).toHaveCount(7);
+  await occurrences.last().click();
+  await expect(
+    dialog.getByRole("link", { name: "View affected execution" }),
+  ).toBeVisible();
+  await expect(
+    dialog.getByRole("heading", { name: "Stack trace" }),
+  ).toBeVisible();
+  await capture(page, "evaluation-error-dialog");
+  await page.keyboard.press("Escape");
+  await page.setViewportSize({ width: 390, height: 844 });
+  await errors.click();
+  await expect(page.getByRole("dialog")).toBeVisible();
+  expect(
+    await page
+      .getByRole("dialog")
+      .evaluate((element) => element.scrollWidth <= element.clientWidth),
+  ).toBe(true);
 });
 test("shows original provider errors, stacks, causes and response details automatically", async ({
   page,
@@ -74,6 +110,13 @@ test("saves project defaults and submits only settings explicitly changed for a 
     await expect(
       page.getByText("Evaluation defaults saved.", { exact: true }),
     ).toBeVisible();
+    const save = await page
+      .getByRole("button", { name: "Save evaluation defaults" })
+      .boundingBox();
+    const configuration = await page
+      .getByText("Evaluation configuration", { exact: true })
+      .boundingBox();
+    expect(configuration!.y - (save!.y + save!.height)).toBeGreaterThan(40);
     await capture(page, "project-evaluation-defaults");
     await page.goto(
       `/evals/runs?launch=true&launchApplication=${EVAL_FIXTURE.targetId}`,

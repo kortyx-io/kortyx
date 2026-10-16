@@ -249,10 +249,10 @@ export default async function SettingsPage({
             availability={category.availability}
           >
             {category.id === "evaluations" ? (
-              <>
+              <div className="space-y-12">
                 <EvalDefaultsSettings />
-                {category.content}
-              </>
+                <div className="border-t pt-8">{category.content}</div>
+              </div>
             ) : (
               category.content
             )}

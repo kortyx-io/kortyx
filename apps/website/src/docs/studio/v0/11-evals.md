@@ -572,13 +572,27 @@ attempts are distinct from interrupted work and work awaiting grading. Active
 consumer cancellation/cleanup is signalled, with no claim that external side
 effects have rolled back or cleanup has finished. Errors are not behavioral fails.
 
-Original error messages appear in the evaluation summary and case error cards.
-Case cards display exception type, stack, causes and response details by default;
-existing protected diagnostic references are loaded automatically. Only credential
-fields/patterns are redacted. Capture truncation or unavailable older evidence is
-identified explicitly. No extra flag, reporter or click is required to see a
-captured error. These diagnostics stay in customer execution records and are not
-sent as maintainer usage telemetry.
+The evaluation header shows compact notices with the actual timeout or error
+reason, leaving the results table visible. Clicking a notice opens the shared
+error dialog with occurrence navigation, affected execution links, original
+messages, stacks, causes and provider response details. Run metadata and frozen
+execution settings are available under **Run details**. Case cards also show the
+original exception automatically.
+
+SDK and Studio execution, grading, cleanup and reporting errors use the same
+project-scoped diagnostic occurrence store, retention, permissions and detail
+viewer as workflow run errors. Evaluation, suite, case, attempt and phase context
+are recorded when available. Existing SDK diagnostic references are reused;
+progress and final results share a reference rather than creating a second
+occurrence. One overall timeout creates one occurrence referenced by interrupted
+suites; unstarted attempts do not create fabricated errors. Cancellation remains
+a distinct control outcome. This provides shared records for a future Errors
+section; that inbox is not introduced here.
+
+Only credential fields/patterns are redacted. Capture omissions or unavailable
+older evidence are identified explicitly. No capture flag or custom reporter is
+required. These are customer execution diagnostics, excluded from maintainer
+usage telemetry.
 
 Apply migration **0013_eval_settings** before starting the new API. Deploy the
 matching API and Studio before upgrading SDK/CLI emitters: old strict validators

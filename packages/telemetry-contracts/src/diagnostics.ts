@@ -36,6 +36,11 @@ export type DiagnosticNote = z.infer<typeof DiagnosticNoteSchema>;
 export const DiagnosticCorrelationSchema = z
   .object({
     runId: z.string().optional(),
+    evaluationId: z.string().optional(),
+    suiteRunId: z.string().optional(),
+    caseId: z.string().optional(),
+    repetition: z.string().optional(),
+    phase: z.string().optional(),
     workflowId: z.string().optional(),
     nodeId: z.string().optional(),
     sessionId: z.string().optional(),

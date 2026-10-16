@@ -1,5 +1,10 @@
+import { createHash, randomUUID } from "node:crypto";
 import { getEvalSuiteRevision } from "@kortyx/agent";
-import { captureDiagnosticContent } from "@kortyx/telemetry-contracts";
+import {
+  captureDiagnosticContent,
+  type DiagnosticContent,
+  type DiagnosticManifest,
+} from "@kortyx/telemetry-contracts";
 import postgres from "postgres";
 export const EVAL_SETTINGS_FIXTURE = {
   id: "e892eb96-12bb-4c73-b581-8813695e2d01",
@@ -16,6 +21,24 @@ export async function seedEvalSettingsFixture() {
     const [scope] =
       await sql`select organization_id,id as project_id from projects where name = 'Default Project' limit 1`;
     if (!scope) throw new Error("Bootstrap the test project first.");
+    await sql`delete from error_diagnostics where organization_id=${scope.organization_id} and project_id=${scope.project_id} and manifest->'correlation'->>'evaluationId'=${EVAL_SETTINGS_FIXTURE.id}`;
+    const timeoutDiagnosticId = await seedDiagnostic(
+      sql,
+      {
+        organizationId: scope.organization_id,
+        projectId: scope.project_id,
+        environment: "development",
+      },
+      new Error(
+        "The overall evaluation deadline was reached during grading. Completed results are preserved.",
+      ),
+      {
+        correlation: {
+          evaluationId: EVAL_SETTINGS_FIXTURE.id,
+          phase: "grading",
+        },
+      },
+    );
     await sql`delete from evaluation_runs where id=${EVAL_SETTINGS_FIXTURE.id}`;
     const settings = {
       values: {
@@ -112,6 +135,31 @@ export async function seedEvalSettingsFixture() {
           ),
         ),
       };
+      const diagnosticId = errors
+        ? await seedDiagnostic(
+            sql,
+            {
+              organizationId: scope.organization_id,
+              projectId: scope.project_id,
+              environment: "development",
+            },
+            new Error(issue.message),
+            {
+              content: issue.exception,
+              correlation: {
+                evaluationId: EVAL_SETTINGS_FIXTURE.id,
+                suiteRunId: id,
+                caseId: "case-0",
+                repetition: "1",
+                phase: "grading",
+              },
+            },
+          )
+        : undefined;
+      const recordedIssue = {
+        ...issue,
+        ...(diagnosticId ? { diagnosticId } : {}),
+      };
       const results = suite.cases.slice(0, completed).map((item, i) => {
         const status =
           i < errors ? "error" : i < errors + failed ? "failed" : "passed";
@@ -121,7 +169,7 @@ export async function seedEvalSettingsFixture() {
           sessionId: `fixture-${index}-${i}`,
           status,
           durationMs: 1200,
-          errors: status === "error" ? [issue] : [],
+          errors: status === "error" ? [recordedIssue] : [],
           steps: [
             {
               index: 0,
@@ -162,6 +210,9 @@ export async function seedEvalSettingsFixture() {
       const termination = timedOut
         ? {
             code: "EVAL_RUN_TIMEOUT",
+            ...(timeoutDiagnosticId
+              ? { diagnosticId: timeoutDiagnosticId }
+              : {}),
             message:
               "The overall evaluation deadline was reached during grading. Completed results are preserved.",
             timeoutMs: 1800000,
@@ -213,4 +264,38 @@ export async function seedEvalSettingsFixture() {
   } finally {
     await sql.end();
   }
+}
+
+async function seedDiagnostic(
+  sql: postgres.Sql,
+  scope: { organizationId: string; projectId: string; environment: string },
+  error: Error,
+  options: {
+    content?: DiagnosticContent | null;
+    correlation: DiagnosticManifest["correlation"];
+  },
+) {
+  const content = options.content ?? captureDiagnosticContent(error);
+  if (!content) throw new Error("Could not capture fixture error");
+  const bytes = JSON.stringify(content);
+  const diagnosticId = randomUUID();
+  const manifest: DiagnosticManifest = {
+    schemaVersion: 1,
+    diagnosticId,
+    occurrenceId: randomUUID(),
+    occurredAt: new Date().toISOString(),
+    environment: scope.environment,
+    service: { name: "eval-fixture" },
+    correlation: options.correlation,
+    handled: true,
+    severity: "error",
+    mechanism: "report",
+    summary: { type: "Error", message: error.message },
+    captureStatus: content.capture.status,
+    checksum: createHash("sha256").update(bytes).digest("hex"),
+    byteLength: Buffer.byteLength(bytes),
+    partCount: 1,
+  };
+  await sql`insert into error_diagnostics (organization_id,project_id,diagnostic_id,environment,manifest,content,state,expires_at) values (${scope.organizationId},${scope.projectId},${diagnosticId},${scope.environment},${sql.json(manifest as never)},${bytes},'available',now()+interval '30 days')`;
+  return diagnosticId;
 }

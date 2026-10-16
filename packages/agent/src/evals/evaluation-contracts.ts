@@ -77,6 +77,7 @@ export const StudioEvaluationSummarySchema = z.object({
         phase: z.string(),
         code: z.string(),
         message: z.string(),
+        diagnosticId: z.string().uuid().optional(),
       }),
     )
     .optional(),

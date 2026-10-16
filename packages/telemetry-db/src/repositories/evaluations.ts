@@ -141,6 +141,7 @@ export function summarizeEvaluation(
         phase: issue.phase,
         code: issue.code,
         message: issue.message,
+        ...(issue.diagnosticId ? { diagnosticId: issue.diagnosticId } : {}),
       })),
       ...(!child.issue && !child.termination && child.error
         ? [
@@ -159,6 +160,9 @@ export function summarizeEvaluation(
               phase: child.issue.phase,
               code: child.issue.code,
               message: child.issue.message,
+              ...(child.issue.diagnosticId
+                ? { diagnosticId: child.issue.diagnosticId }
+                : {}),
             },
           ]
         : []),
@@ -170,6 +174,7 @@ export function summarizeEvaluation(
           phase: issue.phase,
           code: issue.code,
           message: issue.message,
+          ...(issue.diagnosticId ? { diagnosticId: issue.diagnosticId } : {}),
         })),
       ),
     ];

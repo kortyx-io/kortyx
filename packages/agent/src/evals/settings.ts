@@ -58,6 +58,7 @@ export const EvalTerminationSchema = z
     timeoutMs: timeout.optional(),
     phase: z.string().optional(),
     cleanup: z.enum(["signalled", "unknown"]).optional(),
+    diagnosticId: z.string().uuid().optional(),
   })
   .strict();
 export type EvalTermination = z.infer<typeof EvalTerminationSchema>;

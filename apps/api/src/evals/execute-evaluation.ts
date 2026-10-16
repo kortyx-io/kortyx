@@ -26,6 +26,10 @@ export async function executeEvaluation(
   signal: AbortSignal,
   execute: AttemptExecution,
   isDetached: () => boolean = () => false,
+  reportIssue?: (
+    run: EvalWorkerRun,
+    issue: EvalIssue,
+  ) => Promise<string | undefined>,
 ) {
   const first = runs[0]!;
   const concurrency = first.request.concurrency;
@@ -72,6 +76,7 @@ export async function executeEvaluation(
       controller: new AbortController(),
     };
   });
+  let timeoutDiagnostic: Promise<string | undefined> | undefined;
   const finish = async (state: (typeof states)[number]) => {
     if (state.finished || isDetached()) return;
     state.finished = true;
@@ -94,6 +99,25 @@ export async function executeEvaluation(
         message: `Evaluation stopped with ${state.remaining} incomplete attempts. No termination reason was recorded.`,
         cleanup: "unknown",
       };
+    if (
+      state.termination &&
+      state.termination.code !== "EVAL_CANCELLED" &&
+      reportIssue
+    ) {
+      const issue =
+        state.issue ??
+        createEvalIssue("execute", new Error(state.termination.message), {
+          code: state.termination.code,
+        });
+      const capture = () =>
+        reportIssue(state.run, issue).catch(() => undefined);
+      if (state.termination.code === "EVAL_RUN_TIMEOUT")
+        timeoutDiagnostic ??= capture();
+      const diagnosticId = await (state.termination.code === "EVAL_RUN_TIMEOUT"
+        ? timeoutDiagnostic
+        : capture());
+      if (diagnosticId) state.termination.diagnosticId = diagnosticId;
+    }
     if (
       state.cancelled ||
       state.error ||
