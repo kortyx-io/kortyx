@@ -1,6 +1,8 @@
 import { createHash } from "node:crypto";
 import type { EvalIssue, EvalWireEvent } from "@kortyx/agent/evals";
+import type { UsageTelemetry } from "@kortyx/usage-telemetry";
 import { getUsageTelemetry } from "@kortyx/usage-telemetry/node";
+import packageJson from "../../package.json";
 import { readEvalErrorResponse } from "./error-response";
 import { type EvalTarget, readEvalWire } from "./targets";
 
@@ -80,7 +82,6 @@ type Admission = {
   cancelled: () => boolean;
   signal: AbortSignal;
 };
-const usage = getUsageTelemetry("eval-dispatch", "0.1.0", "oss_studio");
 
 /** Retries admission with one identity, then reattaches by cursor. Never replay a legacy stream. */
 export function createEvalDispatcher(
@@ -88,7 +89,12 @@ export function createEvalDispatcher(
   {
     maxRetries = 3,
     maxRetryWaitMs = 60_000,
-  }: { maxRetries?: number; maxRetryWaitMs?: number } = {},
+    usage,
+  }: {
+    maxRetries?: number;
+    maxRetryWaitMs?: number;
+    usage?: UsageTelemetry | false;
+  } = {},
 ) {
   if (
     !Number.isSafeInteger(maxRetries) ||
@@ -229,10 +235,19 @@ export function createEvalDispatcher(
       retryAt: new Date(Date.now() + ms).toISOString(),
       ...(response ? { httpStatus: response.status } : {}),
     });
-    usage.feature("studio.eval", {
-      action: "retry",
-      phase: status === "reconnecting" ? "network" : "admission",
-    });
+    try {
+      if (usage !== false)
+        (
+          usage ??
+          getUsageTelemetry("eval_dispatch", packageJson.version, "oss_studio")
+        ).feature("studio.eval", {
+          origin: "server",
+          action: "retry",
+          phase: status === "reconnecting" ? "network" : "admission",
+        });
+    } catch {
+      /* Optional usage collection must not stop dispatch recovery. */
+    }
     await waitForDispatch(ms, signal);
   };
   const busy = async (response: Response) => {

@@ -213,7 +213,7 @@ it("measures reducer registration and typed failures without collecting field na
         operation: "sdk.registry",
         outcome: "success",
         count: 1,
-        properties: { data_reducers: true },
+        properties: expect.objectContaining({ data_reducers: true }),
       }),
       expect.objectContaining({
         operation: "sdk.execute",
@@ -254,7 +254,7 @@ it("does not count undefined reducer entries as configured adoption", async () =
     expect.arrayContaining([
       expect.objectContaining({
         operation: "sdk.registry",
-        properties: { data_reducers: false },
+        properties: expect.objectContaining({ data_reducers: false }),
       }),
     ]),
   );
@@ -280,9 +280,48 @@ it("keeps registry resolution usable when optional reducer metadata throws", asy
       expect.objectContaining({
         operation: "sdk.registry",
         outcome: "success",
-        properties: {},
+        properties: expect.not.objectContaining({
+          data_reducers: expect.anything(),
+        }),
       }),
     ]),
   );
   expect(JSON.stringify(records)).not.toContain("private-metadata-failure");
+});
+
+it("records rejected eval settings during configuration without sending suite IDs or values", async () => {
+  const { createEvals } = await import("../src/evals/index");
+  const evals = createEvals({
+    agent: { streamChat: vi.fn() },
+    suites: [
+      {
+        id: "private-suite",
+        cases: [
+          {
+            id: "private-case",
+            steps: [{ message: "private-message", expect: { type: "answer" } }],
+          },
+        ],
+      },
+    ],
+  });
+  await expect(
+    evals.run({ suiteId: "private-suite", caseTimeoutMs: 0 }),
+  ).rejects.toBeDefined();
+  await telemetry.flush();
+  expect(records).toEqual(
+    expect.arrayContaining([
+      expect.objectContaining({
+        operation: "sdk.eval",
+        outcome: "failed",
+        properties: expect.objectContaining({
+          phase: "configuration",
+          error_code: "EVAL_SETTINGS_INVALID",
+          case_timeout_override: true,
+          measurement_kind: "invocation",
+        }),
+      }),
+    ]),
+  );
+  expect(JSON.stringify(records)).not.toContain("private-");
 });

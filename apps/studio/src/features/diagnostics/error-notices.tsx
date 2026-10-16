@@ -14,6 +14,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { useStudioQueryState } from "@/lib/nuqs";
+import { studioFeature } from "@/usage/client";
 import { ErrorDetails } from "./error-details";
 import { usePreloadDiagnostic } from "./use-diagnostic-content";
 
@@ -58,6 +59,10 @@ export function ErrorNotices({
               key={severity}
               type="button"
               onClick={(event) => {
+                studioFeature("studio.diagnostic", {
+                  action: "inspect",
+                  resource: "diagnostics",
+                });
                 trigger.current = event.currentTarget;
                 void setSelection(first.id);
               }}
@@ -186,6 +191,11 @@ export function ErrorDialogTrigger({
     <Dialog
       open={open}
       onOpenChange={(next) => {
+        if (next)
+          studioFeature("studio.diagnostic", {
+            action: "inspect",
+            resource: "diagnostics",
+          });
         void setSelection(next ? diagnosticId : null);
       }}
     >

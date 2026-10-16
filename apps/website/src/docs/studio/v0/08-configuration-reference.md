@@ -144,7 +144,7 @@ consumer endpoint registration, target-file mounts and execution behavior.
 
 ### Maintainer usage telemetry
 
-OSS Studio browser/server/API operations and CLI setup send bounded usage
+OSS Studio browser/server/API operations and CLI commands send bounded usage
 aggregates to Kortyx's EU PostHog project by default. These measure product
 adoption, outcomes and latency separately from customer execution data stored in
 your Studio database. No consumer PostHog account or personal API token is needed.
@@ -156,6 +156,7 @@ There is no autocapture, session replay or global exception collection.
 | `KORTYX_USAGE_TELEMETRY_DEBUG=1` | Prints approved aggregates locally without creating identities or sending requests |
 | `KORTYX_USAGE_TELEMETRY_POSTHOG_HOST` | Overrides the default `https://eu.i.posthog.com` ingestion host |
 | `KORTYX_USAGE_TELEMETRY_POSTHOG_KEY` | Overrides the public capture key; never use a personal API token |
+| `KORTYX_USAGE_TELEMETRY_TRAFFIC_SOURCE` | Explicit `internal`, `synthetic` or `external` label; defaults to `unknown` |
 | `KORTYX_USAGE_TELEMETRY_ENDPOINT` | Uses a compatible collector instead of direct PostHog delivery |
 
 Set controls on both API and Studio containers, and on the CLI process when
@@ -175,7 +176,16 @@ Delivery aggregates over 60-second windows, buffers at most 64 groups per client
 and sends at most 120 groups per hour per component/process. Delivery is best
 effort, with a two-second timeout and no retries; offline or terminated clients
 can lose records. See the [usage telemetry package reference](https://github.com/kortyx-io/kortyx/tree/main/packages/usage-telemetry)
-for the complete controls and scope of the first instrumentation slice.
+for the complete controls and counting boundaries.
+
+CLI invocations use their own `cli` category. Eval launch requests measure request
+acceptance; worker results measure persisted terminal attempts (or legacy suite
+runs) separately. Technical failure, quality failure, cancellation and ungraded
+results are distinct. Custom store adapters retain their own instrumentation
+unless they explicitly supply a worker usage client, avoiding duplicate emission.
+Settings/deadline overrides contribute booleans only. Diagnostic inspection and
+background content reads are separate; original errors and customer identifiers
+never enter these usage records.
 
 ### Application eval settings
 

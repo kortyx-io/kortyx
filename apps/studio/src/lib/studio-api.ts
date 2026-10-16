@@ -71,7 +71,12 @@ export const fetchJson = async <T>(
   });
   const credential = await studioAuth.getApiCredential();
   if (!apiUrl || !credential) {
-    usageScope.end("failed", { phase: "configuration" });
+    usageScope.end("failed", {
+      phase: "configuration",
+      error_code: "STUDIO_NOT_CONFIGURED",
+      error_category: "configuration",
+      retryable: false,
+    });
     return {
       data: null,
       error: {
@@ -166,7 +171,12 @@ export const fetchJson = async <T>(
         });
       return { data, error: null };
     } catch (error) {
-      usageScope.end("failed", { phase: "parse" });
+      usageScope.end("failed", {
+        phase: "parse",
+        error_code: "STUDIO_RESPONSE_INVALID",
+        error_category: "validation",
+        retryable: false,
+      });
       return {
         data: null,
         error: {
@@ -179,7 +189,7 @@ export const fetchJson = async <T>(
       };
     }
   } catch (error) {
-    usageScope.end("failed", { phase: "network" });
+    usageScope.fail(error, { phase: "network" });
     return {
       data: null,
       error: {

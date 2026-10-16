@@ -8,6 +8,7 @@ import { STUDIO_API_PROTOCOL_VERSION } from "@kortyx/telemetry-contracts";
 import type { TelemetryDb } from "@kortyx/telemetry-db";
 import type { UsageTelemetry } from "@kortyx/usage-telemetry";
 import { getUsageTelemetry } from "@kortyx/usage-telemetry/node";
+import packageJson from "../package.json";
 import type { ApiAuthAdapter, ApiDeployment } from "./auth/contracts";
 import type { ApiAuthorizationAdapter } from "./authorization/contracts";
 import type { ApiTenantDatabaseAdapter } from "./database/contracts";
@@ -106,7 +107,8 @@ export const createApiApp = (options: CreateApiAppOptions) => {
 
   app.onError(apiErrorHandler);
   const usage =
-    options.usage ?? getUsageTelemetry("api", "0.1.0", "oss_studio");
+    options.usage ??
+    getUsageTelemetry("api", packageJson.version, "oss_studio");
   app.use("/v1/*", async (c, next) => {
     const segment = c.req.path.split("/")[2];
     const operation =
