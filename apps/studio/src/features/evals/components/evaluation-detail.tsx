@@ -30,6 +30,7 @@ import { EvalCost, EvalCostBreakdown, evalFilterCost } from "./eval-cost";
 import { EvalDetailHeader, EvalSummaryMetric } from "./eval-detail-header";
 import { EvalDuration } from "./eval-duration";
 import { EvalStatus } from "./eval-status";
+import { EvalSettingsSummary, EvalTerminationBanner } from "./eval-termination";
 
 export function EvaluationDetail({
   id,
@@ -127,7 +128,7 @@ export function EvaluationDetail({
       defaultWidth: 150,
       render: (suite) => (
         <div>
-          <EvalStatus status={suite.status} />
+          <EvalStatus status={suite.status} termination={suite.termination} />
           {suite.status === "running" && suite.phase ? (
             <p className="mt-1 text-[11px] text-muted-foreground">
               {suite.phase === "grading" ? "Grading" : "Executing"}
@@ -156,8 +157,8 @@ export function EvaluationDetail({
       defaultWidth: 180,
       render: (suite) => (
         <span className="text-xs">
-          {suite.completedAttempts ?? 0}/{suite.totalAttempts ?? 0} attempts
-          graded
+          {suite.completedAttempts ?? 0}/{suite.totalAttempts ?? 0} recorded
+          outcomes
         </span>
       ),
     },
@@ -259,7 +260,10 @@ export function EvaluationDetail({
               onBack={() => navigate("/evals/runs")}
               actions={
                 <>
-                  <EvalStatus status={run.status} />
+                  <EvalStatus
+                    status={run.status}
+                    termination={run.termination}
+                  />
                   <LiveRefreshButton
                     enabled={query.live}
                     status={live.status}
@@ -282,18 +286,62 @@ export function EvaluationDetail({
                 </>
               }
             >
+              <EvalTerminationBanner
+                termination={run.termination}
+                settings={run.resolvedSettings}
+                completed={run.completedAttempts}
+                total={run.totalAttempts}
+                interruptedSuites={run.interruptedSuites}
+                pendingAttempts={run.pendingAttempts}
+              />
+              {Boolean(run.failures?.length) && (
+                <div className="mb-3 rounded-lg border border-red-500/25 bg-red-500/5 p-3">
+                  <p className="mb-2 text-sm font-semibold">Recorded errors</p>
+                  <ul className="space-y-2">
+                    {run.failures?.map((failure, index) => (
+                      <li
+                        key={`${failure.suiteRunId}:${failure.caseId}:${index}`}
+                        className="text-xs"
+                      >
+                        <Button
+                          size="inline"
+                          variant="link"
+                          onClick={() =>
+                            navigate(
+                              failure.caseId
+                                ? `/evals/cases/${failure.suiteRunId}/${encodeURIComponent(failure.caseId)}/${failure.repetition ?? 1}`
+                                : evalRunHref(failure.suiteRunId),
+                            )
+                          }
+                        >
+                          {failure.phase} · {failure.code}
+                        </Button>
+                        <p className="mt-1 whitespace-pre-wrap [overflow-wrap:anywhere]">
+                          {failure.message}
+                        </p>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
               <div className="flex flex-wrap gap-x-5 gap-y-2 rounded-md border bg-muted/20 p-3">
                 <EvalSummaryMetric
-                  label="Suites complete"
-                  value={`${run.completedSuites}/${run.suiteCount}`}
+                  label="Suites finished"
+                  value={`${run.completedSuites - (run.interruptedSuites ?? 0)}/${run.suiteCount}`}
                 />
                 <EvalSummaryMetric
-                  label="Attempts graded"
+                  label="Recorded outcomes"
                   value={`${run.completedAttempts}/${run.totalAttempts}`}
                 />
                 <EvalSummaryMetric label="Passed" value={run.counts.passed} />
                 <EvalSummaryMetric label="Failed" value={run.counts.failed} />
                 <EvalSummaryMetric label="Errors" value={run.counts.error} />
+                {Boolean(run.interruptedSuites) && (
+                  <EvalSummaryMetric
+                    label="Suites interrupted"
+                    value={run.interruptedSuites ?? 0}
+                  />
+                )}
                 <EvalSummaryMetric
                   label="Cancelled"
                   value={run.counts.cancelled}
@@ -329,6 +377,10 @@ export function EvaluationDetail({
                 </span>
               </div>
               <EvalCostBreakdown costs={run.costs} />
+              <EvalSettingsSummary
+                settings={run.resolvedSettings}
+                startedAt={run.startedAt}
+              />
             </EvalDetailHeader>
             <div className="min-h-0 flex-1">
               <DataTableProvider columns={columns}>

@@ -478,3 +478,42 @@ it("reattaches accepted jobs after graceful worker shutdown without rerunning th
     await next?.stop();
   }
 });
+
+it("records a shared evaluation timeout and preserves completed evidence", async () => {
+  const f = fixture([2, 1], 1, {
+    execute: async (context) => {
+      if (context.suiteId !== "suite-0" || context.case.id !== "case-0")
+        await new Promise<void>((resolve) =>
+          context.signal.addEventListener("abort", () => resolve(), {
+            once: true,
+          }),
+        );
+    },
+  });
+  for (const run of f.runs) run.request.runTimeoutMs = 1500;
+  f.worker.start();
+  try {
+    await f.done;
+    const outcomes = [...f.finished.values()];
+    expect(
+      outcomes.some(
+        (outcome) => outcome.termination?.code === "EVAL_RUN_TIMEOUT",
+      ),
+    ).toBe(true);
+    expect(
+      outcomes
+        .filter((outcome) => outcome.termination)
+        .every((outcome) => outcome.termination?.timeoutMs === 1500),
+    ).toBe(true);
+    const completed = [...f.progress.values()]
+      .flat()
+      .filter((event) => event.type === "case-completed");
+    expect(completed.some((event) => event.result.status === "passed")).toBe(
+      true,
+    );
+    expect(f.started.length).toBeLessThan(3);
+    expect(f.cleaned.length).toBe(f.started.length);
+  } finally {
+    await f.worker.stop();
+  }
+});

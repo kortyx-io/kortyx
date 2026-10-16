@@ -54,6 +54,11 @@ export const listEvalRuns = async (
       startedAt: evalRuns.startedAt,
       endedAt: evalRuns.endedAt,
       error: evalRuns.error,
+      termination: evalRuns.termination,
+      issue: evalRuns.issue,
+      resolvedSettings: sql<
+        import("@kortyx/agent/evals").ResolvedEvalSettings | undefined
+      >`${evalRuns.request} -> 'resolvedSettings'`,
       cancelRequestedAt: evalRuns.cancelRequestedAt,
     })
     .from(evalRuns)
@@ -70,6 +75,7 @@ export const listEvalRuns = async (
   const costs = await loadEvalCosts(db, scope, runs);
   return runs.map(({ result: _, ...run }) => ({
     ...run,
+    resolvedSettings: run.resolvedSettings ?? undefined,
     costs: costs.get(run.id)?.costs,
   }));
 };
@@ -94,7 +100,12 @@ export async function getEvalRun(db: TelemetryDb, scope: Scope, id: string) {
     .limit(5000);
   const { leaseOwner: _, leaseExpiresAt: __, ...publicRun } = run;
   const costs = await loadEvalCosts(db, scope, [{ ...publicRun, events }]);
-  return { ...publicRun, events, ...costs.get(id) };
+  return {
+    ...publicRun,
+    resolvedSettings: run.request.resolvedSettings,
+    events,
+    ...costs.get(id),
+  };
 }
 export async function requestEvalCancellation(
   db: TelemetryDb,
@@ -280,7 +291,13 @@ export async function finishEvalRun(
   db: TelemetryDb,
   id: string,
   owner: string,
-  outcome: { result?: EvalRunResult; error?: string; cancelled?: boolean },
+  outcome: {
+    result?: EvalRunResult;
+    error?: string;
+    cancelled?: boolean;
+    termination?: import("@kortyx/agent/evals").EvalTermination;
+    issue?: import("@kortyx/agent/evals").EvalIssue;
+  },
 ) {
   await db.transaction(async (tx) => {
     const [run] = await tx
@@ -291,6 +308,8 @@ export async function finishEvalRun(
           ? sql`CASE WHEN ${evalRuns.cancelRequestedAt} IS NOT NULL THEN NULL ELSE ${JSON.stringify(outcome.result)}::jsonb END`
           : null,
         error: outcome.error ?? null,
+        termination: outcome.termination ?? null,
+        issue: outcome.issue ?? null,
         endedAt: new Date(),
         updatedAt: new Date(),
         leaseExpiresAt: null,

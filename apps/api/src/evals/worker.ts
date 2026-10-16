@@ -9,6 +9,7 @@ import type {
   EvalRunResult,
   EvalSuite,
 } from "@kortyx/agent/evals";
+import { createEvalIssue } from "@kortyx/agent/evals";
 import {
   appendEvalProgress,
   type claimEvalRun,
@@ -19,11 +20,13 @@ import {
   heartbeatEvalRun,
   type TelemetryDb,
 } from "@kortyx/telemetry-db";
+import { recordEvalDiagnostic } from "./diagnostics";
 import {
   createEvalDispatcher,
   EvalDispatchError,
   evalExecutionIdentity,
 } from "./dispatch";
+import { readEvalErrorResponse } from "./error-response";
 import { type AttemptExecution, executeEvaluation } from "./execute-evaluation";
 import { gradeEvalExecution } from "./grade-execution";
 import { type EvalTarget, readEvalWire } from "./targets";
@@ -65,6 +68,10 @@ export interface EvalWorkerOptions {
   fetch?: typeof fetch;
   dispatch?: { maxRetries?: number; maxRetryWaitMs?: number };
   maxConcurrentEvaluations?: number;
+  reportError?: (
+    run: EvalWorkerRun,
+    error: unknown,
+  ) => Promise<string | undefined>;
   store?: EvalJobStore;
   resolveTarget?: (run: EvalWorkerRun, owner: string) => Promise<EvalTarget>;
   /** Trusted transport injection; never selected by request payload. */
@@ -102,6 +109,12 @@ export function createEvalWorker(
     progress: (id, owner, event) => appendEvalProgress(db, id, owner, event),
     finish: (id, owner, outcome) => finishEvalRun(db, id, owner, outcome),
   };
+  const reportError =
+    options.reportError ??
+    (options.store
+      ? async () => undefined
+      : (run: EvalWorkerRun, error: unknown) =>
+          recordEvalDiagnostic(db, run, error));
   const owner = randomUUID();
   const dispatcher = createEvalDispatcher(
     options.fetch ?? fetch,
@@ -130,7 +143,15 @@ export function createEvalWorker(
     let capturedCase: Partial<EvalCaseResult> | undefined;
     let failureMessage =
       "Eval execution disconnected or failed. Inspect the consumer before starting a new run.";
-    const deadline = setTimeout(() => controller.abort(), 30 * 60_000);
+    const timeoutMs = run.request.runTimeoutMs ?? 30 * 60_000;
+    let timedOut = false;
+    let phase: "execute" | "grading" = "execute";
+    const deadline = scheduled
+      ? undefined
+      : setTimeout(() => {
+          timedOut = true;
+          controller.abort({ code: "EVAL_RUN_TIMEOUT", timeoutMs });
+        }, timeoutMs);
     let heartbeatBusy = false;
     const timer = setInterval(() => {
       if (scheduled || heartbeatBusy) return;
@@ -176,12 +197,17 @@ export function createEvalWorker(
       ) {
         failureMessage =
           "Studio judge changed or is unavailable. Refresh and start a new run.";
-        throw new Error(failureMessage);
+        throw new EvalDispatchError("EVAL_JUDGE_UNAVAILABLE", failureMessage);
       }
       const executionSignal = scheduled
         ? AbortSignal.any([controller.signal, scheduled.signal])
         : controller.signal;
-      const body = JSON.stringify(run.request);
+      const {
+        runTimeoutMs: _timeout,
+        resolvedSettings: _settings,
+        ...consumerRequest
+      } = run.request;
+      const body = JSON.stringify(consumerRequest);
       const executionId = evalExecutionIdentity(
         run.id,
         run.request.attempt?.caseId,
@@ -256,10 +282,10 @@ export function createEvalWorker(
           .get("content-type")
           ?.startsWith("application/x-ndjson")
       ) {
-        await response.body?.cancel().catch(() => {});
+        const responseText = await readEvalErrorResponse(response);
         throw new EvalDispatchError(
           "EVAL_EXECUTOR_REJECTED",
-          `Consumer rejected evaluation execution with HTTP ${response.status}.`,
+          `Consumer rejected evaluation execution with HTTP ${response.status}.${responseText ? ` ${responseText}` : ""}`,
           response.status,
         );
       }
@@ -276,10 +302,13 @@ export function createEvalWorker(
         if (event.type === "error")
           throw new EvalDispatchError(
             event.failure?.code ?? "EVAL_CONSUMER_FAILED",
-            event.failure?.message ?? "Consumer eval runner failed.",
+            event.message ||
+              event.failure?.message ||
+              "Consumer did not provide an error message.",
             undefined,
             {
               ...(event.failure ? { failure: event.failure } : {}),
+              ...(event.exception ? { exception: event.exception } : {}),
               ...(event.diagnosticId
                 ? { diagnosticId: event.diagnosticId }
                 : {}),
@@ -463,11 +492,24 @@ export function createEvalWorker(
                 "Consumer did not defer judging to Studio.",
               );
           }
+        phase = "grading";
         result = await gradeEvalExecution(
           result,
           studioJudge,
           executionSignal,
-          (event) => store.progress(run.id, owner, event),
+          async (event) => {
+            if (event.type === "step-completed" && capturedCase) {
+              capturedCase.steps = [
+                ...(capturedCase.steps ?? []).filter(
+                  (step) => step.index !== event.step.index,
+                ),
+                event.step,
+              ].sort((a, b) => a.index - b.index);
+            }
+            if (event.type === "case-completed") capturedCase = event.result;
+            await store.progress(run.id, owner, event);
+          },
+          (error) => reportError(run, error),
         );
       } else if (counts.ungraded)
         throw new EvalDispatchError(
@@ -479,15 +521,56 @@ export function createEvalWorker(
     } catch (error) {
       if (stopped && !userCancelled) return;
       const known = error instanceof EvalDispatchError;
-      const message = known ? error.message : failureMessage;
-      const code = known ? error.code : "EVAL_EXECUTION_UNKNOWN";
+      const reason = scheduled?.signal.reason;
+      const timeout =
+        timedOut ||
+        (reason &&
+          typeof reason === "object" &&
+          reason.code === "EVAL_RUN_TIMEOUT");
+      const diagnosticId =
+        known && error.issue?.diagnosticId
+          ? error.issue.diagnosticId
+          : !timeout && !userCancelled
+            ? await reportError(run, error).catch(() => undefined)
+            : undefined;
+      const unexpected = createEvalIssue(phase, error, {
+        ...(diagnosticId ? { diagnosticId } : {}),
+        code: "EVAL_EXECUTION_UNKNOWN",
+      });
+      const message = timeout
+        ? `Evaluation timed out after ${timeoutMs / 60_000} minutes during ${phase}. Consumer cleanup was signalled.`
+        : known
+          ? error.message
+          : unexpected.message;
+      const code = timeout
+        ? "EVAL_RUN_TIMEOUT"
+        : known
+          ? error.code
+          : "EVAL_EXECUTION_UNKNOWN";
       await finish({
         issue: {
-          phase: "execute",
+          ...unexpected,
+          phase,
+          ...(timeout
+            ? { details: { timeoutMs } }
+            : known && error.status
+              ? { details: { httpStatus: error.status } }
+              : {}),
           code,
           message,
           ...(known ? error.issue : {}),
         },
+        ...(timeout
+          ? {
+              termination: {
+                code: "EVAL_RUN_TIMEOUT" as const,
+                message,
+                timeoutMs,
+                phase,
+                cleanup: "signalled" as const,
+              },
+            }
+          : {}),
         ...(capturedCase ? { capturedCase } : {}),
         cancelled: userCancelled || Boolean(scheduled?.isCancelled?.()),
         error: userCancelled

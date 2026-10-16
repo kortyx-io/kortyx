@@ -1,4 +1,5 @@
 "use client";
+import { resolveEvalSettings } from "@kortyx/agent/evals";
 import type { PromptSelection } from "@kortyx/telemetry-contracts";
 import {
   parseAsBoolean,
@@ -16,13 +17,15 @@ export const evalSetupParsers = {
   launchSuite: parseAsString.withDefault(""),
   launchScope: parseAsStringLiteral(["all", "selected"]).withDefault("all"),
   launchSuites: parseAsJson(z.array(z.string())),
-  launchConcurrency: parseAsString.withDefault("1"),
+  launchConcurrency: parseAsString,
+  launchCaseTimeout: parseAsString,
+  launchRunTimeout: parseAsString,
   launchCases: parseAsJson(z.array(z.string())),
   launchSuiteCases: parseAsJson(
     z.array(z.object({ suiteId: z.string(), caseIds: z.array(z.string()) })),
   ),
   launchExpandedSuites: parseAsJson(z.array(z.string())),
-  launchAttempts: parseAsString.withDefault("1"),
+  launchAttempts: parseAsString,
   launchPrompts: parseAsStringLiteral(["live", "single", "group"]).withDefault(
     "live",
   ),
@@ -39,8 +42,31 @@ export function useEvalSetup(targets: EvalTargets) {
     target?.manifest?.studioJudging && targets.studioJudge,
   );
   const appJudge = target?.manifest?.judge;
+  let settingsError = "";
+  let resolved: ReturnType<typeof resolveEvalSettings>;
+  try {
+    resolved = resolveEvalSettings(
+      {},
+      targets.settings?.defaults,
+      target?.manifest?.execution,
+      targets.settings?.installation,
+      targets.settings?.maxRunTimeoutMs,
+    );
+  } catch (error) {
+    settingsError =
+      error instanceof Error ? error.message : "Invalid evaluation defaults.";
+    resolved = resolveEvalSettings(
+      {},
+      {},
+      target?.manifest?.execution
+        ? { ...target.manifest.execution, limits: {} }
+        : undefined,
+    );
+  }
   const judge =
-    query.launchJudge ?? (studioAvailable ? "studio" : appJudge ? "app" : null);
+    query.launchJudge ??
+    targets.settings?.defaults.judge ??
+    (studioAvailable ? "studio" : appJudge ? "app" : null);
   const selected =
     query.launchSuites ?? (query.launchSuite ? [query.launchSuite] : []);
   const suite =
@@ -49,6 +75,8 @@ export function useEvalSetup(targets: EvalTargets) {
       : undefined;
   return {
     query,
+    resolved,
+    settingsError,
     setQuery,
     target,
     suite,
@@ -73,11 +101,13 @@ export function useEvalSetup(targets: EvalTargets) {
         launchSuite: suiteId ? (suite?.id ?? "") : "",
         launchScope: suiteId ? "selected" : "all",
         launchSuites: suiteId && suite ? [suite.id] : null,
-        launchConcurrency: "1",
+        launchConcurrency: null,
+        launchCaseTimeout: null,
+        launchRunTimeout: null,
         launchCases: null,
         launchSuiteCases: null,
         launchExpandedSuites: suiteId && suite ? [suite.id] : null,
-        launchAttempts: "1",
+        launchAttempts: null,
 
         launchJudge: null,
         launchPrompts: selection?.type ?? null,
@@ -95,6 +125,8 @@ export function useEvalSetup(targets: EvalTargets) {
         launchScope: null,
         launchSuites: null,
         launchConcurrency: null,
+        launchCaseTimeout: null,
+        launchRunTimeout: null,
         launchCases: null,
         launchSuiteCases: null,
         launchExpandedSuites: null,

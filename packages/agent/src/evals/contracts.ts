@@ -1,7 +1,13 @@
 import { isFailureDescriptor, serializeFailure } from "@kortyx/core/errors";
 import { PromptSnapshotSchema } from "@kortyx/prompts/browser";
+import { DiagnosticContentSchema } from "@kortyx/telemetry-contracts";
 import { z } from "zod";
 import { EvalEvidencePolicySchema } from "./evidence-policy";
+import {
+  EvalExecutionSettingsSchema,
+  EvalSettingsSchema,
+  ResolvedEvalSettingsSchema,
+} from "./settings";
 import type { EvalSuite } from "./types";
 
 const id = z.string().trim().min(1).max(256);
@@ -151,6 +157,14 @@ export const EvalObservationSchema = z
 const status = z.enum(["passed", "failed", "error", "cancelled", "ungraded"]);
 export const EvalIssueSchema = z
   .object({
+    exception: DiagnosticContentSchema.optional(),
+    details: z
+      .object({
+        timeoutMs: z.number().positive().optional(),
+        httpStatus: z.number().int().min(100).max(599).optional(),
+      })
+      .strict()
+      .optional(),
     failure: failureDescriptor.optional(),
     diagnosticId: z.uuid().optional(),
     phase: z.enum([
@@ -308,6 +322,7 @@ export const EvalRunResultSchema = z
   .strict();
 export const EvalManifestSchema = z
   .object({
+    execution: EvalExecutionSettingsSchema.optional(),
     schemaVersion: z.literal(1),
     studioJudging: z.literal(true).optional(),
     promptContracts: z
@@ -402,6 +417,9 @@ export const EvalRemoteRunRequestSchema = z
   .object({
     promptSnapshot: PromptSnapshotSchema.optional(),
     promptGroupName: z.string().optional(),
+    caseTimeoutMs: EvalSettingsSchema.shape.caseTimeoutMs,
+    runTimeoutMs: EvalSettingsSchema.shape.runTimeoutMs,
+    resolvedSettings: ResolvedEvalSettingsSchema.optional(),
     suiteId: id,
     suiteRevision: z.string().regex(/^[a-f0-9]{64}$/),
     grading: z.enum(["app", "studio"]).optional(),
@@ -440,7 +458,9 @@ export const StudioEvalStartRequestSchema = EvalRemoteRunRequestSchema.omit({
     ])
     .optional(),
   targetId: z.string().min(1).max(128),
-  judge: z.enum(["studio", "app"]).default("studio"),
+  judge: z.enum(["studio", "app"]).optional(),
+  repetitions: EvalSettingsSchema.shape.repetitions,
+  concurrency: EvalSettingsSchema.shape.concurrency,
 });
 export const EvalWireEventSchema = z.discriminatedUnion("type", [
   z
@@ -466,6 +486,7 @@ export const EvalWireEventSchema = z.discriminatedUnion("type", [
   z
     .object({
       type: z.literal("error"),
+      exception: DiagnosticContentSchema.optional(),
       message: z.string(),
       failure: failureDescriptor.optional(),
       diagnosticId: z.uuid().optional(),

@@ -5,6 +5,7 @@ export type EvalRuntimeExecution = { sessionId: string; runId: string };
 type Attribution = {
   attemptId: string;
   onExecution: (execution: EvalRuntimeExecution) => void;
+  onError?: (error: unknown) => void;
 };
 const attribution = new AsyncLocalStorage<Attribution | undefined>();
 export const withEvalAttribution = <T>(
@@ -17,4 +18,13 @@ export const associateEvalExecution = (
   execution: EvalRuntimeExecution,
 ): void => {
   attribution.getStore()?.onExecution(execution);
+};
+
+/** Preserve original exceptions inside the current eval, independently of exporters. */
+export const observeEvalError = (error: unknown): void => {
+  try {
+    attribution.getStore()?.onError?.(error);
+  } catch {
+    // Observation cannot replace the execution outcome.
+  }
 };

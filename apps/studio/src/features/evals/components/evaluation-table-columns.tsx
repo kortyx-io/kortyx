@@ -57,7 +57,9 @@ export function createEvaluationColumns(
       label: "Status",
       sortKey: "status",
       defaultWidth: 125,
-      render: (run) => <EvalStatus status={run.status} />,
+      render: (run) => (
+        <EvalStatus status={run.status} termination={run.termination} />
+      ),
     },
     {
       key: "progress",
@@ -86,10 +88,14 @@ export function createEvaluationColumns(
       render: (run) => (
         <div className="text-xs">
           <p>
-            {run.completedSuites}/{run.suiteCount} suites complete
+            {run.completedSuites - (run.interruptedSuites ?? 0)}/
+            {run.suiteCount} suites finished
+            {run.interruptedSuites
+              ? ` · ${run.interruptedSuites} interrupted`
+              : ""}
           </p>
           <p className="text-muted-foreground">
-            {run.completedAttempts}/{run.totalAttempts} attempts graded
+            {run.completedAttempts}/{run.totalAttempts} recorded outcomes
           </p>
         </div>
       ),

@@ -1,14 +1,21 @@
 import { PromptSnapshotSchema } from "@kortyx/prompts/browser";
 import { z } from "zod";
 import {
+  EvalIssueSchema,
   EvalJudgeIdentitySchema,
   EvalManifestSchema,
   EvalProgressSchema,
   EvalRunResultSchema,
   EvalSuiteSchema,
 } from "./contracts";
+import {
+  EvalSettingsResponseSchema,
+  EvalTerminationSchema,
+  ResolvedEvalSettingsSchema,
+} from "./settings";
 export const StudioEvalTargetsResponseSchema = z.object({
   canRun: z.boolean(),
+  settings: EvalSettingsResponseSchema.optional(),
   studioJudge: EvalJudgeIdentitySchema.nullable().optional(),
   targets: z.array(
     z.object({
@@ -64,6 +71,9 @@ export const EvalCostsSchema = z.object({
 export type EvalCosts = z.infer<typeof EvalCostsSchema>;
 export type EvalCostAmount = z.infer<typeof EvalCostAmountSchema>;
 export const StudioEvalRunSummarySchema = z.object({
+  issue: EvalIssueSchema.nullable().optional(),
+  termination: EvalTerminationSchema.nullable().optional(),
+  resolvedSettings: ResolvedEvalSettingsSchema.optional(),
   id: z.uuid(),
   evaluationId: z.uuid().nullable().optional(),
   targetId: z.string(),
@@ -112,6 +122,9 @@ export const StudioEvalDetailSchema = z.object({
         judge: EvalJudgeIdentitySchema.optional(),
         repetitions: z.number().int().positive(),
         concurrency: z.number().optional(),
+        caseTimeoutMs: z.number().optional(),
+        runTimeoutMs: z.number().optional(),
+        resolvedSettings: ResolvedEvalSettingsSchema.optional(),
         promptSnapshot: PromptSnapshotSchema.optional(),
         promptGroupName: z.string().optional(),
       })

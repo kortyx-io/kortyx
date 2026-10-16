@@ -147,3 +147,54 @@ it("automatically associates independent runtime sessions, including hooks, whil
   ).toBe(true);
   expect(getEvalAttemptId()).toBeUndefined();
 });
+
+it("retains original native workflow exceptions without enabling telemetry or supplying a reporter", async () => {
+  const workflow = defineWorkflow({
+    id: "broken-provider",
+    version: "1",
+    nodes: {
+      run: {
+        run: async () => {
+          throw Object.assign(
+            new Error("Provider request rejected", {
+              cause: new TypeError("Upstream rate limit exceeded"),
+            }),
+            {
+              responseBody: { error: "quota_exceeded", apiKey: "TEST_SECRET" },
+            },
+          );
+        },
+      },
+    },
+    edges: [
+      ["__start__", "run"],
+      ["run", "__end__"],
+    ],
+  });
+  const agent = createAgent({
+    workflows: [workflow],
+    defaultWorkflowId: workflow.id,
+    frameworkAdapter: createInMemoryFrameworkAdapter(),
+  });
+  const result = await createEvals({
+    agent,
+    suites: [
+      {
+        id: "native-failure",
+        cases: [
+          {
+            id: "one",
+            steps: [{ message: "Run", expect: { type: "answer" } }],
+          },
+        ],
+      },
+    ],
+  }).run({ suiteId: "native-failure" });
+  const issue = result.cases[0]?.errors[0];
+  expect(issue?.message).toBe("Provider request rejected");
+  const encoded = JSON.stringify(issue?.exception);
+  expect(encoded).toContain("Upstream rate limit exceeded");
+  expect(encoded).toContain("quota_exceeded");
+  expect(encoded).toContain("stack");
+  expect(encoded).not.toContain("TEST_SECRET");
+});

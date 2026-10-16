@@ -16,6 +16,7 @@ import {
   serializeFailure,
   WorkflowContractError,
 } from "@kortyx/core/errors";
+import { observeEvalError } from "@kortyx/core/eval-attribution";
 import { deepMergeWithArrayOverwrite, mergeRuntimeState } from "@kortyx/utils";
 import {
   GraphInterrupt,
@@ -522,6 +523,7 @@ export function addParallelGraphCoordinator(
         } else if (serializeFailure(error).category === "persistence")
           control ??= error;
         else {
+          observeEvalError(error);
           node.failure = serializeFailure(error);
           node.failure.context = {
             ...node.failure.context,

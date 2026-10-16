@@ -264,7 +264,7 @@ describe("consumer eval transport", () => {
     expect((await handler(request({ repetitions: 2 }))).status).toBe(400);
     expect(run).not.toHaveBeenCalled();
   });
-  it("streams progress and the final result without leaking a runner exception", async () => {
+  it("streams progress and the final result with the original runner error and redacted credentials", async () => {
     const handler = createEvalRouteHandler({
       serviceKey: key,
       evals: {
@@ -290,7 +290,7 @@ describe("consumer eval transport", () => {
       evals: {
         describe: () => manifest,
         run: async () => {
-          throw new Error("PRIVATE-TOKEN");
+          throw new Error("Runner failed. Authorization: Bearer PRIVATE-TOKEN");
         },
       },
     });
@@ -539,5 +539,8 @@ it("consumer eval transport retains declared-safe failures and exact diagnostic 
     message: "Fixture admission was rejected",
     failure: { domainCode: "EVAL_ADMISSION_REJECTED" },
   });
-  expect(wire).not.toContain("PRIVATE_BODY");
+  expect(wire).toContain("PRIVATE_BODY");
+  expect(EvalWireEventSchema.parse(JSON.parse(wire))).toHaveProperty(
+    "exception",
+  );
 });

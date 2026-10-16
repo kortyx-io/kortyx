@@ -1,4 +1,5 @@
 "use client";
+import { type EvalSettings, EvalSettingsSchema } from "@kortyx/agent/evals";
 import {
   type PromptDetail,
   PromptDetailSchema,
@@ -10,7 +11,6 @@ import { Play } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { DetailInspectorDrawer } from "@/components/detail/detail-inspector";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { promptRequest } from "@/features/prompts/api/client";
 import {
   usePathname,
@@ -22,6 +22,7 @@ import { useEvalSetup } from "../hooks/use-eval-setup";
 import { evalNavigationHref } from "../lib/navigation";
 import type { EvalTargets } from "../schema";
 import { EvalDropdown } from "./eval-dropdown";
+import { EvalSettingsFields } from "./eval-settings-fields";
 import { EvalSuiteSelection } from "./eval-suite-selection";
 
 export function EvalRunSetup({
@@ -35,6 +36,8 @@ export function EvalRunSetup({
 }) {
   const {
     query,
+    resolved,
+    settingsError,
     setQuery,
     target,
     suite,
@@ -126,8 +129,27 @@ export function EvalRunSetup({
       launchSuiteCases: partial.length ? partial : null,
     });
   };
-  const attempts = Number(query.launchAttempts);
-  const concurrency = Number(query.launchConcurrency);
+  const overrides: EvalSettings = {
+    ...(query.launchAttempts !== null
+      ? { repetitions: Number(query.launchAttempts) }
+      : {}),
+    ...(query.launchConcurrency !== null
+      ? { concurrency: Number(query.launchConcurrency) }
+      : {}),
+    ...(query.launchCaseTimeout !== null
+      ? { caseTimeoutMs: Number(query.launchCaseTimeout) }
+      : {}),
+    ...(query.launchRunTimeout !== null
+      ? { runTimeoutMs: Number(query.launchRunTimeout) }
+      : {}),
+    ...(query.launchJudge ? { judge: query.launchJudge } : {}),
+  };
+  const attempts = overrides.repetitions ?? resolved.values.repetitions;
+  const concurrency = overrides.concurrency ?? resolved.values.concurrency;
+  const limits = target?.manifest?.execution?.limits;
+  const caseTimeoutMs =
+    overrides.caseTimeoutMs ?? resolved.values.caseTimeoutMs;
+  const runTimeoutMs = overrides.runTimeoutMs ?? resolved.values.runTimeoutMs;
   const count = selected.reduce((sum, item) => sum + casesFor(item).length, 0);
   const total = count * attempts;
   const judgeAvailable =
@@ -175,6 +197,13 @@ export function EvalRunSetup({
             ),
           ))));
   const valid =
+    !settingsError &&
+    EvalSettingsSchema.safeParse(overrides).success &&
+    (limits?.concurrency === undefined || concurrency <= limits.concurrency) &&
+    (limits?.caseTimeoutMs === undefined ||
+      caseTimeoutMs <= limits.caseTimeoutMs) &&
+    (targets.settings?.maxRunTimeoutMs === undefined ||
+      runTimeoutMs <= targets.settings.maxRunTimeoutMs) &&
     promptValid &&
     selected.length > 0 &&
     Number.isInteger(attempts) &&
@@ -198,9 +227,12 @@ export function EvalRunSetup({
         suiteRevision: target.revisions[item.id],
         ...(!all ? { caseIds: casesFor(item) } : {}),
       })),
-      judge,
-      repetitions: attempts,
-      concurrency,
+      ...overrides,
+      ...(!targets.settings?.defaults.judge &&
+      judge === "app" &&
+      !studioAvailable
+        ? { judge: "app" }
+        : {}),
       metadata: { source: "manual" },
       ...(target.manifest?.promptContracts?.length
         ? {
@@ -427,12 +459,12 @@ export function EvalRunSetup({
             )}
           </div>
         ) : null}
-        {error || target?.error ? (
+        {error || settingsError || target?.error ? (
           <p
             role="alert"
             className="rounded-md border border-red-500/25 bg-red-500/5 p-3 text-xs text-red-700 dark:text-red-400"
           >
-            {error || target?.error}
+            {error || settingsError || target?.error}
           </p>
         ) : null}
         <fieldset disabled={working} className="space-y-2">
@@ -519,40 +551,52 @@ export function EvalRunSetup({
                 : "No judge is available for this application environment."}
           </p>
         </div>
-        <div className="grid grid-cols-2 gap-3">
-          <div className="space-y-2">
-            <label htmlFor="eval-repetitions" className="text-xs font-medium">
-              Attempts per conversation
-            </label>
-            <Input
-              id="eval-repetitions"
-              type="number"
-              min={1}
-              max={20}
-              value={query.launchAttempts}
+        <details className="rounded-lg border p-3" open>
+          <summary className="cursor-pointer text-sm font-medium">
+            Execution settings
+          </summary>
+          <div className="mt-4 space-y-3">
+            <EvalSettingsFields
+              resolved={resolved}
+              overrides={overrides}
               disabled={working}
-              onChange={(e) => {
-                void setQuery({ launchAttempts: e.target.value });
+              supportsCaseTimeout={Boolean(
+                target?.manifest?.execution?.overrides.includes(
+                  "caseTimeoutMs",
+                ),
+              )}
+              limits={{
+                ...limits,
+                runTimeoutMs: targets.settings?.maxRunTimeoutMs,
+              }}
+              onChange={(key, value) => {
+                const queryKey = {
+                  repetitions: "launchAttempts",
+                  concurrency: "launchConcurrency",
+                  caseTimeoutMs: "launchCaseTimeout",
+                  runTimeoutMs: "launchRunTimeout",
+                }[key as Exclude<keyof EvalSettings, "judge">];
+                void setQuery({
+                  [queryKey]: value === undefined ? null : String(value),
+                });
               }}
             />
+            <p className="text-xs text-muted-foreground">
+              Evaluation deadline: {runTimeoutMs / 60_000} minutes from
+              execution start, including grading. Queue time is excluded.
+            </p>
+            {query.launchJudge && (
+              <Button
+                size="inline"
+                variant="link"
+                disabled={working}
+                onClick={() => void setQuery({ launchJudge: null })}
+              >
+                Reset judge to default
+              </Button>
+            )}
           </div>
-          <div className="space-y-2">
-            <label htmlFor="eval-concurrency" className="text-xs font-medium">
-              Concurrent attempts across suites
-            </label>
-            <Input
-              id="eval-concurrency"
-              type="number"
-              min={1}
-              max={20}
-              value={query.launchConcurrency}
-              disabled={working}
-              onChange={(e) => {
-                void setQuery({ launchConcurrency: e.target.value });
-              }}
-            />
-          </div>
-        </div>
+        </details>
         <p className="text-xs text-muted-foreground">
           Each attempt uses an independent session. Up to 100 attempts per suite
           and 1,000 per evaluation.

@@ -147,14 +147,16 @@ it("grades every captured step and stores failed criteria with evidence without 
   expect(execution.status).toBe("ungraded");
   expect(execution.cases[0]?.steps[0]?.criteria).toEqual([]);
 });
-it("records provider failures as grading errors and preserves tool evidence without exposing the provider exception", async () => {
+it("records provider failures as grading errors and preserves tool evidence with the original exception and credential redaction", async () => {
   const execution = await capture();
   const result = await gradeEvalExecution(
     execution,
     {
       ...judge,
       grade: () => {
-        throw new Error("secret-provider-key");
+        throw new Error(
+          "Provider rejected grading. Authorization: Bearer secret-provider-key",
+        );
       },
     },
     new AbortController().signal,

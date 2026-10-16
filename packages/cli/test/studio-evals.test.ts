@@ -277,7 +277,6 @@ describe("Studio eval CLI", () => {
     });
     expect(JSON.parse(String(request.mock.calls[1]?.[1]?.body))).toEqual({
       targetId: "hiring",
-      judge: "studio",
       selection: "selected",
       suites: [
         { suiteId: "jobs", suiteRevision: revision, caseIds: ["ambiguity"] },
@@ -302,12 +301,9 @@ describe("Studio eval CLI", () => {
     await command.run(["runs", "start", "jobs", ...args]);
     expect(JSON.parse(String(request.mock.calls[1]?.[1]?.body))).toEqual({
       targetId: "hiring",
-      judge: "studio",
       selection: "selected",
       suites: [{ suiteId: "jobs", suiteRevision: revision }],
       metadata: { source: "manual" },
-      repetitions: 1,
-      concurrency: 1,
     });
     expect(JSON.parse(command.output[0] ?? "").studioUrl).toBeNull();
   });

@@ -28,6 +28,7 @@ import { EvalDuration } from "./eval-duration";
 import { EvalFailure } from "./eval-failure";
 import { EvalStatus } from "./eval-status";
 import { EvalSuiteDefinition } from "./eval-suite-definition";
+import { EvalSettingsSummary, EvalTerminationBanner } from "./eval-termination";
 
 export function EvalRunDetail({
   run,
@@ -197,7 +198,7 @@ export function EvalRunDetail({
         actions={
           <>
             {liveControl}
-            <EvalStatus status={run.status} />
+            <EvalStatus status={run.status} termination={run.termination} />
             <Button
               variant="secondary"
               size="xs"
@@ -221,6 +222,23 @@ export function EvalRunDetail({
           </>
         }
       >
+        {run.issue && (
+          <EvalFailure
+            issue={run.issue}
+            environment={run.environment}
+            scope={`${run.id}-failure`}
+          />
+        )}
+        <EvalTerminationBanner
+          termination={run.termination}
+          settings={run.resolvedSettings}
+          completed={counts.completed}
+          total={counts.total}
+        />
+        <EvalSettingsSummary
+          settings={run.resolvedSettings}
+          startedAt={run.startedAt}
+        />
         <div className="flex flex-wrap items-center gap-x-4 gap-y-1 rounded-md border bg-muted/20 px-3 py-2">
           <EvalSummaryMetric
             label="Completed"

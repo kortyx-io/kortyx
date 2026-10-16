@@ -7,13 +7,13 @@ const request = {
   suites: [{ suiteId: "smoke", suiteRevision: "a".repeat(64) }],
 };
 describe("grouped evaluation request contract", () => {
-  it("defaults a minimal launch to the explicit Studio judge and manual trigger", () => {
+  it("preserves omitted settings for server resolution and defaults the manual trigger", () => {
     expect(StudioEvaluationStartRequestSchema.parse(request)).toMatchObject({
-      judge: "studio",
-      repetitions: 1,
-      concurrency: 1,
       metadata: { source: "manual" },
     });
+    expect(
+      StudioEvaluationStartRequestSchema.parse(request),
+    ).not.toHaveProperty("concurrency");
   });
   it.each([
     [20, true],

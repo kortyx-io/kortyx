@@ -12,6 +12,7 @@ import {
 const environment = vi.hoisted(() => vi.fn());
 vi.mock("@kortyx/telemetry-db", async (original) => ({
   ...(await original<typeof import("@kortyx/telemetry-db")>()),
+  getEvalSettings: vi.fn(async () => ({})),
   ensureProjectEnvironmentAllowed: environment,
 }));
 const target: EvalTarget = {
@@ -59,7 +60,7 @@ const api = (targets: EvalTarget[] = [target]) =>
     },
   });
 
-describe("safe consumer discovery diagnostics", () => {
+describe("consumer discovery diagnostics", () => {
   it("uses request-local adapter discovery, filters foreign scope and never leaks credentials", async () => {
     const list = vi.fn(async () => [
       target,
@@ -97,11 +98,11 @@ describe("safe consumer discovery diagnostics", () => {
   });
   it.each([
     404, 401, 403, 500, 502,
-  ])("classifies HTTP %s, cancels its body and hides private response content", async (status) => {
-    const cancelled = vi.fn();
-    const response = new Response(new ReadableStream({ cancel: cancelled }), {
-      status,
-    });
+  ])("classifies HTTP %s and retains the response with credentials redacted", async (status) => {
+    const response = new Response(
+      `Endpoint rejected discovery. Authorization: Bearer ${target.serviceKey}`,
+      { status },
+    );
     const request = vi.fn<typeof fetch>(async () => response);
     vi.stubGlobal("fetch", request);
     const failure = await fetchEvalManifest(target).catch((error) => error);
@@ -115,7 +116,7 @@ describe("safe consumer discovery diagnostics", () => {
             : "endpoint_http_error",
       httpStatus: status,
     });
-    expect(cancelled).toHaveBeenCalledOnce();
+    expect(failure.message).toContain("Endpoint rejected discovery.");
     expect(request.mock.calls[0]?.[1]).toMatchObject({
       redirect: "error",
       headers: { authorization: `Bearer ${target.serviceKey}` },
@@ -151,10 +152,12 @@ describe("safe consumer discovery diagnostics", () => {
     });
     expect(cancelled).toHaveBeenCalledOnce();
   });
-  it("classifies interrupted response bodies and network/TLS/redirect failures without leaking their messages", async () => {
+  it("preserves interrupted stream and network errors with credential redaction", async () => {
     for (const request of [
       async () => {
-        throw new Error(`private URL ${target.serviceKey}`);
+        throw new Error(
+          `Connection failed. Authorization: Bearer ${target.serviceKey}`,
+        );
       },
       async () =>
         new Response(
@@ -168,7 +171,9 @@ describe("safe consumer discovery diagnostics", () => {
       vi.stubGlobal("fetch", request);
       await expect(fetchEvalManifest(target)).rejects.toMatchObject({
         diagnostic: { code: "endpoint_unreachable" },
-        message: "Consumer eval endpoint is unavailable or incompatible.",
+        message: expect.stringMatching(
+          /Connection failed|private stream failure/,
+        ),
       });
     }
   });
@@ -214,7 +219,7 @@ describe("safe consumer discovery diagnostics", () => {
         : "environment_unavailable",
     );
     expect(request).not.toHaveBeenCalled();
-    expect(JSON.stringify(result)).not.toContain("private");
+    expect(result.targets[0]?.error).toBe(error.message);
   });
   it("returns a valid authenticated manifest with no diagnostic failure", async () => {
     vi.stubGlobal("fetch", async () => Response.json(manifest));

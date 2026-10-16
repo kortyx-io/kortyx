@@ -102,6 +102,32 @@ export function caseRows(run: EvalDetail): CaseRow[] {
   return [...rows.values()].map((original) => {
     const item = { ...original, costs: run.caseCosts?.[original.key] };
     if (isActive(run.status)) return item;
+    if (run.termination?.code === "EVAL_RUN_TIMEOUT") {
+      const timeoutIssue = {
+        phase: "execute" as const,
+        code: "EVAL_RUN_TIMEOUT",
+        message: run.termination.message,
+        ...(run.termination.timeoutMs
+          ? { details: { timeoutMs: run.termination.timeoutMs } }
+          : {}),
+      };
+      if (item.status === "ungraded")
+        return { ...item, errors: [...item.errors, timeoutIssue] };
+      if (item.status === "not-run") return item;
+      if (
+        item.errors.some((issue) => issue.code === "EVAL_RUN_TIMEOUT") ||
+        ["running", "unknown", "queued", "reconnecting", "retrying"].includes(
+          item.status,
+        )
+      )
+        return {
+          ...item,
+          status: "interrupted",
+          errors: item.errors.some((issue) => issue.code === "EVAL_RUN_TIMEOUT")
+            ? item.errors
+            : [...item.errors, timeoutIssue],
+        };
+    }
     const status =
       run.status === "cancelled" ? ("cancelled" as const) : ("error" as const);
     return {

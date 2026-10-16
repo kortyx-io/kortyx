@@ -1,5 +1,10 @@
 import { randomUUID } from "node:crypto";
-import type { EvalRunResult } from "@kortyx/agent/evals";
+import {
+  createEvalIssue,
+  type EvalIssue,
+  type EvalRunResult,
+  type EvalTermination,
+} from "@kortyx/agent/evals";
 import type { EvalJobStore, EvalWorkerRun } from "./worker";
 
 type Outcome = Parameters<EvalJobStore["finish"]>[2];
@@ -24,6 +29,8 @@ export async function executeEvaluation(
 ) {
   const first = runs[0]!;
   const concurrency = first.request.concurrency;
+  const timeoutMs = first.request.runTimeoutMs ?? 30 * 60_000;
+  let timedOut = false;
   if (
     !first.evaluationId ||
     runs.some(
@@ -60,20 +67,47 @@ export async function executeEvaluation(
       cancelled: false,
       finished: false,
       error: undefined as string | undefined,
+      termination: undefined as EvalTermination | undefined,
+      issue: undefined as EvalIssue | undefined,
       controller: new AbortController(),
     };
   });
   const finish = async (state: (typeof states)[number]) => {
     if (state.finished || isDetached()) return;
     state.finished = true;
-    if (state.cancelled || state.error || state.remaining) {
+    if ((timedOut && state.remaining) || state.termination)
+      state.termination ??= {
+        code: "EVAL_RUN_TIMEOUT",
+        message: `Evaluation timed out after ${timeoutMs / 60_000} minutes. Completed results are preserved; consumer cleanup was signalled.`,
+        timeoutMs,
+        cleanup: "signalled",
+      };
+    if (state.cancelled)
+      state.termination ??= {
+        code: "EVAL_CANCELLED",
+        message:
+          "Evaluation cancelled by request. Completed results are preserved.",
+      };
+    if (state.remaining && !state.termination && !state.error)
+      state.termination = {
+        code: "EVAL_EXECUTION_UNKNOWN",
+        message: `Evaluation stopped with ${state.remaining} incomplete attempts. No termination reason was recorded.`,
+        cleanup: "unknown",
+      };
+    if (
+      state.cancelled ||
+      state.error ||
+      state.remaining ||
+      state.termination
+    ) {
       await store.finish(state.run.id, owner, {
         cancelled: state.cancelled,
+        ...(state.issue ? { issue: state.issue } : {}),
+        ...(state.termination ? { termination: state.termination } : {}),
         error:
+          state.termination?.message ??
           state.error ??
-          (state.cancelled
-            ? "Cancellation requested. Inspect consumer cleanup before starting a new run."
-            : "Evaluation execution interrupted. Inspect before starting a new run."),
+          "Evaluation stopped before all attempts completed. No termination reason was recorded.",
       });
       return;
     }
@@ -118,12 +152,23 @@ export async function executeEvaluation(
               if (!lease) {
                 state.error =
                   "Evaluation lease was lost; execution status is unknown.";
+                state.termination = {
+                  code: "EVAL_LEASE_LOST",
+                  message: state.error,
+                  cleanup: "unknown",
+                };
                 state.controller.abort("lease-lost");
               } else if (lease.cancelRequestedAt) {
                 state.cancelled = true;
               }
-            } catch {
-              state.error = "Evaluation lease could not be renewed.";
+            } catch (error) {
+              state.issue = createEvalIssue("reporting", error);
+              state.error = `Evaluation lease could not be renewed: ${state.issue.message}`;
+              state.termination = {
+                code: "EVAL_LEASE_LOST",
+                message: state.error,
+                cleanup: "unknown",
+              };
               state.controller.abort("lease-lost");
             }
           }),
@@ -144,7 +189,27 @@ export async function executeEvaluation(
   const timer = setInterval(() => {
     void heartbeat();
   }, 2000);
-  const deadline = setTimeout(() => controller.abort(), 30 * 60_000);
+  const deadline = setTimeout(
+    () => {
+      timedOut = true;
+      controller.abort({ code: "EVAL_RUN_TIMEOUT", timeoutMs });
+    },
+    Math.max(
+      1,
+      timeoutMs -
+        Math.max(
+          0,
+          startedAt.getTime() -
+            Math.min(
+              ...runs.map((run) =>
+                run.startedAt
+                  ? new Date(run.startedAt).getTime()
+                  : startedAt.getTime(),
+              ),
+            ),
+        ),
+    ),
+  );
   try {
     await heartbeat();
     // Round-robin admission prevents a large first suite from monopolizing slots.
@@ -184,6 +249,8 @@ export async function executeEvaluation(
                 ]),
                 isCancelled: () => state.cancelled,
                 finish: async (outcome) => {
+                  if (outcome.termination)
+                    state.termination = outcome.termination;
                   if (outcome.result) state.results.set(index, outcome.result);
                   else {
                     const attempt = state.attempts[index]!;
@@ -238,10 +305,15 @@ export async function executeEvaluation(
             );
             state.remaining--;
             if (!state.remaining) await finish(state);
-          } catch {
+          } catch (error) {
+            state.issue = createEvalIssue("reporting", error);
             // A reporting/storage failure is scoped to the suite whose lease owns it.
-            state.error =
-              "Evaluation executor failed. Inspect before starting a new run.";
+            state.error = state.issue.message;
+            state.termination = {
+              code: "EVAL_EXECUTOR_FAILED",
+              message: state.issue.message,
+              phase: "reporting",
+            };
             state.controller.abort("executor-failed");
           }
         }

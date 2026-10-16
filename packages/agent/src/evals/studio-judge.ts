@@ -1,3 +1,4 @@
+import { redactDiagnosticText } from "@kortyx/telemetry-contracts";
 import {
   EvalConfigurationError,
   EvalJudgeIdentitySchema,
@@ -11,9 +12,10 @@ async function readJson(
   response: Response,
   signal: AbortSignal,
 ): Promise<unknown> {
-  if (!response.ok || !response.body) {
-    await response.body?.cancel().catch(() => {});
-    throw new Error("Studio judge is unavailable or rejected the request.");
+  if (!response.body) {
+    throw new Error(
+      `Studio judge returned HTTP ${response.status} with no response body.`,
+    );
   }
   const reader = response.body.getReader();
   const abort = () => {
@@ -34,7 +36,18 @@ async function readJson(
       text += decoder.decode(part.value, { stream: true });
     }
     signal.throwIfAborted();
-    return JSON.parse(text + decoder.decode());
+    text += decoder.decode();
+    if (!response.ok)
+      throw Object.assign(
+        new Error(
+          `Studio judge returned HTTP ${response.status}: ${redactDiagnosticText(text)}`,
+        ),
+        {
+          statusCode: response.status,
+          responseBody: redactDiagnosticText(text),
+        },
+      );
+    return JSON.parse(text);
   } finally {
     signal.removeEventListener("abort", abort);
     await reader.cancel().catch(() => {});
