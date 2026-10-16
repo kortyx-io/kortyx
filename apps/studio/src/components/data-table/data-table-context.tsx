@@ -36,6 +36,7 @@ import {
   type DataTableColumn,
   type DataTableLayout,
 } from "@/components/data-table/types";
+import { studioFeature } from "@/usage/client";
 import { columnLayout } from "./column-layout";
 
 type LayoutSnapshot = Partial<DataTableLayout>;
@@ -275,6 +276,7 @@ export function DataTableProvider<T, S extends string>({
     draggedColumn !== null && Boolean(pinned[draggedColumn]);
 
   function toggleColumnVisibility(key: string) {
+    studioFeature("studio.table.layout", { layout_action: "visibility" });
     setHidden((current) => {
       if (current.includes(key)) {
         return current.filter((item) => item !== key);
@@ -285,10 +287,12 @@ export function DataTableProvider<T, S extends string>({
   }
 
   function showAllColumns() {
+    studioFeature("studio.table.layout", { layout_action: "show_all" });
     setHidden([]);
   }
 
   function resetLayout() {
+    studioFeature("studio.table.layout", { layout_action: "reset" });
     setOrder(defaultOrder);
     setWidths(defaultWidths);
     setHidden([]);
@@ -296,6 +300,7 @@ export function DataTableProvider<T, S extends string>({
   }
 
   function applyLayout(layout: Partial<DataTableLayout>) {
+    studioFeature("studio.table.layout", { layout_action: "apply" });
     setWidths({ ...defaultWidths, ...layout.widths });
     setOrder(columnLayout(columns, layout).order);
     setHidden(columnLayout(columns, layout).hidden);
@@ -303,14 +308,17 @@ export function DataTableProvider<T, S extends string>({
   }
 
   function resetColumnWidth(key: string) {
+    studioFeature("studio.table.layout", { layout_action: "reset_width" });
     setWidths((current) => ({ ...current, [key]: defaultWidths[key] }));
   }
 
   function pinColumn(key: string, side: ColumnPin) {
+    studioFeature("studio.table.layout", { layout_action: "pin" });
     setPinned((current) => ({ ...current, [key]: side }));
   }
 
   function unpinColumn(key: string) {
+    studioFeature("studio.table.layout", { layout_action: "unpin" });
     setPinned((current) => {
       const { [key]: _pin, ...remaining } = current;
       return remaining;
@@ -321,6 +329,7 @@ export function DataTableProvider<T, S extends string>({
     key: string,
     event: ReactPointerEvent<HTMLButtonElement>,
   ) {
+    studioFeature("studio.table.layout", { layout_action: "resize" });
     event.preventDefault();
     const startX = event.clientX;
     const startWidth = renderedWidths[key];
@@ -540,6 +549,7 @@ export function DataTableProvider<T, S extends string>({
     const activeColumn = event.active.id as string;
     const overColumn = event.over.id as string;
     if (pinned[activeColumn] !== pinned[overColumn]) return;
+    studioFeature("studio.table.layout", { layout_action: "reorder" });
     setOrder((current) =>
       arrayMove(
         current,

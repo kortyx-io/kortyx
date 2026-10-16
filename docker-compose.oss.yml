@@ -1,5 +1,15 @@
 name: kortyx-studio
 
+x-usage-env: &usage-env
+  KORTYX_USAGE_TELEMETRY_DISABLED: ${KORTYX_USAGE_TELEMETRY_DISABLED:-0}
+  KORTYX_USAGE_TELEMETRY_DEBUG: ${KORTYX_USAGE_TELEMETRY_DEBUG:-0}
+  KORTYX_USAGE_TELEMETRY_ENDPOINT: ${KORTYX_USAGE_TELEMETRY_ENDPOINT:-}
+  KORTYX_USAGE_TELEMETRY_POSTHOG_KEY: ${KORTYX_USAGE_TELEMETRY_POSTHOG_KEY:-}
+  KORTYX_USAGE_TELEMETRY_POSTHOG_HOST: ${KORTYX_USAGE_TELEMETRY_POSTHOG_HOST:-}
+  KORTYX_USAGE_TELEMETRY_ENVIRONMENT: ${KORTYX_USAGE_TELEMETRY_ENVIRONMENT:-production}
+  KORTYX_USAGE_TELEMETRY_TRAFFIC_SOURCE: ${KORTYX_USAGE_TELEMETRY_TRAFFIC_SOURCE:-unknown}
+  KORTYX_USAGE_TELEMETRY_ID: ${KORTYX_USAGE_TELEMETRY_ID:-}
+
 x-api-env: &api-env
   DATABASE_URL: postgres://kortyx:${POSTGRES_PASSWORD:-kortyx}@postgres:5432/${POSTGRES_DB:-kortyx}
   KORTYX_API_KEY_PEPPER: ${KORTYX_API_KEY_PEPPER:?KORTYX_API_KEY_PEPPER is required}
@@ -44,7 +54,7 @@ services:
   api:
     image: ${KORTYX_API_IMAGE:-ghcr.io/kortyx-io/kortyx-api}:${KORTYX_STUDIO_IMAGE_TAG:-latest}
     environment:
-      <<: *api-env
+      <<: [*api-env, *usage-env]
       NODE_ENV: production
       API_HOST: 0.0.0.0
       API_PORT: 6400
@@ -74,6 +84,7 @@ services:
   studio:
     image: ${KORTYX_STUDIO_IMAGE:-ghcr.io/kortyx-io/kortyx-studio}:${KORTYX_STUDIO_IMAGE_TAG:-latest}
     environment:
+      <<: *usage-env
       NODE_ENV: production
       PORT: 6300
       KORTYX_API_URL: http://api:6400

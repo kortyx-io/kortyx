@@ -4,9 +4,7 @@ import packageJson from "../package.json";
 
 export const studioUsage = {
   start: (...args: Parameters<UsageTelemetry["start"]>) =>
-    getUsageTelemetry("studio_cli", packageJson.version, "oss_studio").start(
-      ...args,
-    ),
+    getUsageTelemetry("studio_cli", packageJson.version, "cli").start(...args),
   flush: () =>
-    getUsageTelemetry("studio_cli", packageJson.version, "oss_studio").flush(),
+    getUsageTelemetry("studio_cli", packageJson.version, "cli").flush(),
 };

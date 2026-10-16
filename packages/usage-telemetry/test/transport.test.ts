@@ -95,3 +95,35 @@ it("keeps the collector replacement contract independent of PostHog", async () =
     records: [],
   });
 });
+it("forwards observed loss deltas only once with normal capture traffic", async () => {
+  const send = vi.fn<typeof fetch>(
+    async () => new Response(null, { status: 200 }),
+  );
+  const client = createUsageTelemetry({
+    context: { product: "sdk", component: "agent", version: "1.0.0" },
+    identity: () => identity,
+    maxGroups: 1,
+    transport: createPostHogTransport({
+      key: "phc_publiccapture",
+      fetch: send,
+    }),
+  });
+  try {
+    client.feature("sdk.initialize");
+    client.feature("sdk.model");
+    await client.flush();
+    client.feature("sdk.initialize");
+    await client.flush();
+    const props = send.mock.calls.map(
+      (call) => JSON.parse(String(call[1]?.body)).batch[0].properties,
+    );
+    expect(props[0]).toMatchObject({
+      usage_dropped_observations: 1,
+      usage_failed_batches: 0,
+    });
+    expect(props[1].usage_dropped_observations).toBeUndefined();
+    expect(send).toHaveBeenCalledTimes(2);
+  } finally {
+    client.dispose();
+  }
+});

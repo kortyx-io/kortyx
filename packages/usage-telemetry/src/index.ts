@@ -16,4 +16,5 @@ export {
   type UsageTelemetry,
   type UsageTransport,
 } from "./client";
+export { classifyUsageHttpStatus, type UsageFailure } from "./failure";
 export { createCollectorTransport, createPostHogTransport } from "./transport";

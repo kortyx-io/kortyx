@@ -513,3 +513,18 @@ npx kortyx studio prompts untag canvas/classify-intent development --connection 
 Read current tag revisions with `get`; use 0 only for a new tag. Saving a candidate
 does not move live. The SDK defaults to live and supports `studioPromptSource({
 ..., tag: "development" })` to request a manual tag.
+
+## Maintainer usage statistics
+
+The CLI sends bounded usage aggregates to Kortyx's EU PostHog project by default.
+`cli.command` counts command invocations using declared command/action names,
+parse/execution phase and boolean JSON/dry-run flags. Command arguments, IDs,
+paths, URLs, keys, payloads and raw error text are excluded. A nonzero exit is a
+command failure (130 is cancellation); eval quality verdicts are measured by the
+eval boundary separately. Studio setup stages remain separate from invocations.
+
+Set `KORTYX_USAGE_TELEMETRY_DISABLED=1` before running `kortyx` to opt out, or
+`KORTYX_USAGE_TELEMETRY_DEBUG=1` to inspect approved aggregates without sending.
+Completion waits at most two seconds for usage delivery and preserves command
+results/errors. See the [shared helper reference](../usage-telemetry/README.md)
+for identity, loss, cohort labels and destination controls.

@@ -34,7 +34,14 @@ it("records rejected API operations independently of health probes without custo
   expect(records[0]).toMatchObject({
     operation: "studio.read",
     outcome: "failed",
-    properties: { origin: "server", resource: "runs", http_status: "401" },
+    properties: {
+      origin: "server",
+      resource: "runs",
+      http_status: "401",
+      error_code: "HTTP_UNAUTHORIZED",
+      error_category: "request",
+      retryable: false,
+    },
     count: 1,
   });
   expect(JSON.stringify(records)).not.toContain("private-");

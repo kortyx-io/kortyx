@@ -2,7 +2,7 @@
 
 Kortyx maintainer telemetry should show which features installations actually use, which operations fail, and whether releases improve reliability and adoption. The first instrumentation should cover SDK execution, streaming, models and tools, plus Studio setup, data loading, and investigation workflows. Prompts, evals, persistence, and updates provide valuable additional boundaries.
 
-This inventory covers the public SDK, CLI, shared Studio UI, and supporting OSS API. Source references describe revision `29705509`, reviewed on 2026-10-11. This inventory distinguishes opportunities from the initial implementation. The [shared helper](../../packages/usage-telemetry/README.md) documents implemented boundaries, controls, aggregate records and the collector proposal; rows below also include follow-up work.
+This inventory covers the public SDK, CLI, shared Studio UI, and supporting OSS API. The original source references describe revision `29705509`, reviewed on 2026-10-11. This inventory distinguishes opportunities from the initial implementation. The [shared helper](../../packages/usage-telemetry/README.md) documents implemented boundaries, controls, aggregate records and the collector proposal; rows below also include follow-up work.
 
 ## Existing boundaries
 
@@ -11,7 +11,7 @@ This inventory covers the public SDK, CLI, shared Studio UI, and supporting OSS 
 - Existing failure contracts supply useful categories and codes, but also messages, context, details, causes, and arbitrary application codes. See [failure contracts](../../packages/core/src/errors.ts), line 13. They require a separate allowlisted projection before maintainer collection.
 - Studio has server reads, browser reads, same-origin proxies, automatic refreshes, and user actions. A generic fetch wrapper alone cannot distinguish adoption from background activity.
 - The public Studio shell has operator scopes and no managed user account. Other distributions contribute through edition adapters. See [the OSS shell](../../apps/studio/src/shell/server.ts), line 7, and [settings extension contracts](../../apps/studio/src/settings/contracts.ts). Shared instrumentation can support other distributions without including their product-specific events here.
-- The initial source scan found no maintainer collection. This PR introduces it through the separate usage-telemetry package.
+- The initial source scan found no maintainer collection. The first slice introduced it through the separate usage-telemetry package; the follow-up scan below records newer coverage.
 
 ## Questions and measurements
 
@@ -200,3 +200,55 @@ The helper should own schema validation, privacy projection, context, safe class
 Telemetry must never change execution results, add awaited network calls to operation latency, retain the process through timers, interfere with cancellation, or mutate replay/checkpoint state. Global uncaught-exception handlers in a library would capture unrelated host application errors; explicit Kortyx boundaries provide a more useful scope.
 
 The first slice implements identity persistence, browser opt-out bootstrap, streaming outcome ownership, a bounded error catalog and aggregate counters. Follow-up work should validate dashboards against real adoption patterns and add the remaining high-value boundaries and an organization-wide collector budget.
+
+## Follow-up scan through #354 (2026-10-16)
+
+Reviewed public revision `7dde173b` and the recent execution, eval, table and
+navigation changes. This section records implementation coverage; earlier rows
+remain an opportunity backlog, not a claim that every reserved operation emits.
+
+| Change / product question | Existing coverage | Added in the quality follow-up |
+| --- | --- | --- |
+| #354: Do eval settings/deadlines cause launch or execution failures? | `studio.settings` save/read and `studio.eval` launch/read/cancel request outcomes | Presence-only settings/case/run timeout override flags; SDK configuration rejection; approved eval codes and issue phase; persisted worker terminal outcomes |
+| #354: Are original diagnostics useful and available? | Authenticated customer diagnostic capture/storage/display, independent of maintainer usage | `studio.diagnostic` deliberate inspection plus separate background read outcomes; no exception content, messages, URLs or diagnostic IDs |
+| #353: Which table tools are used? | Shared `studio.filter` / `studio.saved_view` paths, including all/any `match` | `studio.table.layout` interaction counts for visibility, pin/unpin, reset/apply, resize initiation and valid reorder; no columns, widths, saved layout or view names |
+| #351: Is navigation reliable? | Scoped, settled navigation and live/render boundaries from #329 | Existing shared measurements gain a unit/version and runtime/cohort context; no URL values |
+| #348: Do interrupt/resume paths fail? | Separate execution/resume outcomes and customer execution evidence | Central classifier preserves suspension/cancellation/limit control outcomes; no new replay mutations or duplicated lifecycle emitter |
+| #340: Are reducers adopted and reliable? | Registry `data_reducers` presence plus `WORKFLOW_REDUCER_FAILED`; existing regression tests | Retained; registry resolutions are not workflow executions |
+| #339 / #337: Are concurrent evals failing technically or on quality? | SDK eval verdict distinguishes quality/technical/cancelled/ungraded | Safe first-issue classification and phase, worker persisted terminal facts independent of request acceptance; dispatch retry observation uses a valid component and explicit adapter ownership |
+| #338: Are provider routing requests failing? | Model/export operation outcomes; approved provider failure descriptors | HTTP status class, retryability and known nested network cause; no provider response text |
+| CLI: What do users run and where do commands fail? | Studio setup stages only | Dedicated `cli` product and `cli.command` invocation boundary for declared commands; parse versus execution, approved command/action/resource, JSON/dry-run booleans; bounded exit flush |
+| Collection: Are rates distorted by traffic or loss? | Aggregated counts, pseudonymous identity scopes and per-client caps | Explicit measurement units/version, runtime mode propagated to browser, approved operator traffic label; best-effort loss deltas on later normal deliveries |
+
+### Interpreting the new data
+
+Use `sum(count)` within one unit, operation, component, release,
+measurement version, analytics environment, runtime mode and origin/action cohort.
+For technical reliability use `success + failed` as the denominator and show
+cancellation, quality failure, ungraded, suspension and limits separately. A
+nonzero CLI exit is command failure, not proof of an SDK bug; inspect the separate
+eval verdict for quality. Stream chunks, polls and export attempts must not inflate
+logical execution counts or adoption rankings.
+
+Rank features by distinct installation/browser reach, repeat use and successful
+foreground use as well as volume. These identifiers are not accounts or customers.
+`traffic_source=unknown` does not establish customer usage. HTTP/provider/network
+classifications improve triage but do not identify the exact offending customer
+workflow or prove a Kortyx defect. Original exceptions belong only to customer
+observability.
+
+The built-in worker emits after successful result persistence. Claimed
+case/repetition runs are attempts; legacy suite jobs are executions. A custom
+store retains its existing instrumentation owner unless a usage client is
+explicitly injected, so an embedding distribution can reuse the helper without
+also emitting public worker statistics. This verifies the public adapter seam;
+it does not claim private deployment validation or existing private dashboards
+already use the new dimensions.
+
+Remaining limits: caps can drop groups unevenly, historical records lack the new
+dimensions, crashes/offline tails are unobservable, and identities cannot produce
+exact cross-process funnels. Other future opportunities include lower-level
+node/parallel/child/persistence boundaries, flag exposure, exporter queue loss,
+review workflows and deeper update phases. They are outside this follow-up's
+supported boundaries. Direct EU capture remains replaceable through the existing
+transport/collector endpoint; the collector proposal is in the helper README.

@@ -7,6 +7,12 @@ import { StudioRouteProvider } from "@/components/studio-route-provider";
 import { studioFetch } from "@/lib/studio-fetch";
 import { useDiagnosticContent } from "./use-diagnostic-content";
 
+const { end, fail, operation } = vi.hoisted(() => {
+  const end = vi.fn();
+  const fail = vi.fn();
+  return { end, fail, operation: vi.fn(() => ({ end, fail })) };
+});
+vi.mock("@/usage/client", () => ({ studioOperation: operation }));
 vi.mock("@/lib/studio-fetch", () => ({ studioFetch: vi.fn() }));
 
 it("restores visited error content synchronously without re-fetching or exposing another workspace's cache", async () => {
@@ -79,6 +85,18 @@ it("restores visited error content synchronously without re-fetching or exposing
     await complete("Other project error");
     expect(container.textContent).toBe("Other project error");
     expect(studioFetch).toHaveBeenCalledTimes(3);
+    expect(operation).toHaveBeenCalledTimes(3);
+    expect(operation).toHaveBeenCalledWith("studio.diagnostic", {
+      resource: "diagnostics",
+      origin: "background",
+      action: "view",
+    });
+    expect(end).toHaveBeenCalledTimes(3);
+    expect(fail).not.toHaveBeenCalled();
+    expect(JSON.stringify(operation.mock.calls)).not.toContain(projectA);
+    expect(JSON.stringify(operation.mock.calls)).not.toContain(
+      "original error",
+    );
   } finally {
     await act(async () => root.unmount());
     vi.unstubAllGlobals();

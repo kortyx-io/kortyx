@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { withEvalAttribution } from "@kortyx/core/eval-attribution";
-import { scale } from "@kortyx/usage-telemetry";
+import { classifyUsageError, scale } from "@kortyx/usage-telemetry";
 import { z } from "zod";
 import type { ResumeResponse } from "../execution/types";
 import type { ChatMessage } from "../types/chat-message";
@@ -247,672 +247,703 @@ export function createEvals<
       };
     },
     async run(args: EvalRunOptions): Promise<EvalRunResult> {
-      const suite = suites.find((value) => value.id === args.suiteId);
-      if (!suite)
-        throw new EvalConfigurationError(`Unknown suite: ${args.suiteId}`);
-      if (
-        args.caseIds &&
-        (!args.caseIds.length ||
-          new Set(args.caseIds).size !== args.caseIds.length ||
-          args.caseIds.some(
-            (id) => !suite.cases.some((item) => item.id === id),
-          ))
-      )
-        throw new EvalConfigurationError("Select unique existing case IDs.");
-      const repetitions = positive(
-        args.repetitions ?? defaults.repetitions,
-        "repetitions",
-      );
-      const concurrency = positive(
-        args.concurrency ?? defaults.concurrency,
-        "concurrency",
-      );
-      const caseTimeoutMs = positive(
-        args.caseTimeoutMs ?? defaults.caseTimeoutMs,
-        "caseTimeoutMs",
-      );
-      if (caseTimeoutMs > 2_147_483_647)
-        throw new EvalConfigurationError(
-          "caseTimeoutMs exceeds the supported timer range.",
-        );
-      for (const [key, value] of [
-        ["concurrency", concurrency],
-        ["caseTimeoutMs", caseTimeoutMs],
-      ] as const) {
-        const max = options.limits?.[key];
-        if (max !== undefined && value > max)
-          throw new EvalConfigurationError(
-            `${key} exceeds the application maximum of ${max}.`,
-          );
-      }
-      const selected = suite.cases.filter(
-        (item) => !args.caseIds || args.caseIds.includes(item.id),
-      );
-      if (!Number.isSafeInteger(selected.length * repetitions))
-        throw new EvalConfigurationError("Too many case repetitions.");
-      if (
-        args.attempt &&
-        (!selected.some((item) => item.id === args.attempt?.caseId) ||
-          !Number.isSafeInteger(args.attempt.repetition) ||
-          args.attempt.repetition < 1 ||
-          args.attempt.repetition > repetitions)
-      )
-        throw new EvalConfigurationError("Invalid scheduled attempt.");
-      const studioGrading = args.grading === "studio";
-      if (
-        !studioGrading &&
-        !options.judge &&
-        selected.some((item) =>
-          item.steps.some((step) => step.expect.criteria?.length),
-        )
-      )
-        throw new EvalConfigurationError(
-          "Local runs with criteria require a judge. Run from Studio or provide a code judge.",
-        );
-      const selectedJudge = studioGrading ? args.judgeIdentity : options.judge;
-      if (
-        !studioGrading &&
-        args.judgeIdentity &&
-        (!options.judge ||
-          args.judgeIdentity.id !== options.judge.id ||
-          args.judgeIdentity.version !== options.judge.version ||
-          args.judgeIdentity.location !== options.judge.location)
-      )
-        throw new EvalConfigurationError(
-          "App judge changed. Refresh before running.",
-        );
+      let usagePhase = "configuration";
       const evalUsage = usage.start("sdk.eval", {
-        scale: scale(selected.length * repetitions),
+        case_timeout_override: args.caseTimeoutMs !== undefined,
+        settings_override:
+          args.caseTimeoutMs !== undefined ||
+          args.concurrency !== undefined ||
+          args.repetitions !== undefined,
       });
-      const start = Date.now();
-      const result: EvalRunResult = {
-        id: randomUUID(),
-        suiteId: suite.id,
-        suiteRevision: getEvalSuiteRevision(suite),
-        suite: clone(suite),
-        ...(selectedJudge
-          ? {
-              judge: {
-                id: selectedJudge.id,
-                version: selectedJudge.version,
-                ...(selectedJudge.location
-                  ? { location: selectedJudge.location }
-                  : {}),
-              },
-            }
-          : {}),
-        startedAt: new Date(start).toISOString(),
-        durationMs: 0,
-        status: "passed",
-        counts: { passed: 0, failed: 0, error: 0, cancelled: 0 },
-        cases: [],
-        errors: [],
-      };
-      let reporting = true;
-      const emit = async (event: EvalProgress) => {
-        if (!args.onProgress || !reporting) return;
-        try {
-          await withEvalAttribution(undefined, () =>
-            args.onProgress?.(clone(event)),
+      try {
+        const suite = suites.find((value) => value.id === args.suiteId);
+        if (!suite)
+          throw new EvalConfigurationError(`Unknown suite: ${args.suiteId}`);
+        if (
+          args.caseIds &&
+          (!args.caseIds.length ||
+            new Set(args.caseIds).size !== args.caseIds.length ||
+            args.caseIds.some(
+              (id) => !suite.cases.some((item) => item.id === id),
+            ))
+        )
+          throw new EvalConfigurationError("Select unique existing case IDs.");
+        const repetitions = positive(
+          args.repetitions ?? defaults.repetitions,
+          "repetitions",
+        );
+        const concurrency = positive(
+          args.concurrency ?? defaults.concurrency,
+          "concurrency",
+        );
+        const caseTimeoutMs = positive(
+          args.caseTimeoutMs ?? defaults.caseTimeoutMs,
+          "caseTimeoutMs",
+        );
+        if (caseTimeoutMs > 2_147_483_647)
+          throw new EvalConfigurationError(
+            "caseTimeoutMs exceeds the supported timer range.",
           );
-        } catch (error) {
-          reporting = false;
-          result.errors.push(issueFor("reporting", error));
-        }
-      };
-      const attempt = async (
-        item: EvalCase,
-        repetition: number,
-      ): Promise<EvalCaseResult> => {
-        const started = Date.now();
-        const controller = new AbortController();
-        let timedOut = false;
-        let timer: ReturnType<typeof setTimeout>;
-        const deadline = (milliseconds: number) => {
-          clearTimeout(timer);
-          timer = setTimeout(() => {
-            timedOut = true;
-            controller.abort();
-          }, milliseconds);
-        };
-        deadline(defaults.setupTimeoutMs);
-        const signal = args.signal
-          ? AbortSignal.any([args.signal, controller.signal])
-          : controller.signal;
-        let originalExecutionError: unknown;
-        const attemptId = randomUUID();
-        const runtimeExecutions: EvalRuntimeExecution[] = [];
-        const attemptResult: EvalCaseResult = {
-          caseId: item.id,
-          repetition,
-          attemptId,
-          runtimeExecutions,
-          sessionId: `eval-${randomUUID()}`,
-          status: "passed",
-          durationMs: 0,
-          steps: [],
-          errors: [],
-          phaseDurationsMs: {},
-        };
-        let associationProgress = Promise.resolve();
-        let acceptingExecutions = true;
-        const executeAttempt = async () => {
-          let phase: EvalPhase = "params";
-          let phaseStarted = Date.now();
-          const recordPhase = () => {
-            const now = Date.now();
-            const durations = attemptResult.phaseDurationsMs!;
-            durations[phase] = (durations[phase] ?? 0) + now - phaseStarted;
-            phaseStarted = now;
-          };
-          const phaseIssue = (error: unknown, code?: string) =>
-            issueFor(
-              phase,
-              error,
-              {
-                correlation: { sessionId: attemptResult.sessionId, attemptId },
-              },
-              code,
+        for (const [key, value] of [
+          ["concurrency", concurrency],
+          ["caseTimeoutMs", caseTimeoutMs],
+        ] as const) {
+          const max = options.limits?.[key];
+          if (max !== undefined && value > max)
+            throw new EvalConfigurationError(
+              `${key} exceeds the application maximum of ${max}.`,
             );
-          let stepIndex: number | undefined;
-          const reportPhase = async (next: EvalPhase) => {
-            recordPhase();
-            phase = next;
-            if (args.includeActivity)
-              await emit({
-                type: "case-progress",
-                caseId: item.id,
-                repetition,
-                phase,
-                ...(stepIndex !== undefined ? { stepIndex } : {}),
-              });
+        }
+        const selected = suite.cases.filter(
+          (item) => !args.caseIds || args.caseIds.includes(item.id),
+        );
+        if (!Number.isSafeInteger(selected.length * repetitions))
+          throw new EvalConfigurationError("Too many case repetitions.");
+        if (
+          args.attempt &&
+          (!selected.some((item) => item.id === args.attempt?.caseId) ||
+            !Number.isSafeInteger(args.attempt.repetition) ||
+            args.attempt.repetition < 1 ||
+            args.attempt.repetition > repetitions)
+        )
+          throw new EvalConfigurationError("Invalid scheduled attempt.");
+        const studioGrading = args.grading === "studio";
+        if (
+          !studioGrading &&
+          !options.judge &&
+          selected.some((item) =>
+            item.steps.some((step) => step.expect.criteria?.length),
+          )
+        )
+          throw new EvalConfigurationError(
+            "Local runs with criteria require a judge. Run from Studio or provide a code judge.",
+          );
+        const selectedJudge = studioGrading
+          ? args.judgeIdentity
+          : options.judge;
+        if (
+          !studioGrading &&
+          args.judgeIdentity &&
+          (!options.judge ||
+            args.judgeIdentity.id !== options.judge.id ||
+            args.judgeIdentity.version !== options.judge.version ||
+            args.judgeIdentity.location !== options.judge.location)
+        )
+          throw new EvalConfigurationError(
+            "App judge changed. Refresh before running.",
+          );
+        usagePhase = "execution";
+        const start = Date.now();
+        const result: EvalRunResult = {
+          id: randomUUID(),
+          suiteId: suite.id,
+          suiteRevision: getEvalSuiteRevision(suite),
+          suite: clone(suite),
+          ...(selectedJudge
+            ? {
+                judge: {
+                  id: selectedJudge.id,
+                  version: selectedJudge.version,
+                  ...(selectedJudge.location
+                    ? { location: selectedJudge.location }
+                    : {}),
+                },
+              }
+            : {}),
+          startedAt: new Date(start).toISOString(),
+          durationMs: 0,
+          status: "passed",
+          counts: { passed: 0, failed: 0, error: 0, cancelled: 0 },
+          cases: [],
+          errors: [],
+        };
+        let reporting = true;
+        const emit = async (event: EvalProgress) => {
+          if (!args.onProgress || !reporting) return;
+          try {
+            await withEvalAttribution(undefined, () =>
+              args.onProgress?.(clone(event)),
+            );
+          } catch (error) {
+            reporting = false;
+            result.errors.push(issueFor("reporting", error));
+          }
+        };
+        const attempt = async (
+          item: EvalCase,
+          repetition: number,
+        ): Promise<EvalCaseResult> => {
+          const started = Date.now();
+          const controller = new AbortController();
+          let timedOut = false;
+          let timer: ReturnType<typeof setTimeout>;
+          const deadline = (milliseconds: number) => {
+            clearTimeout(timer);
+            timer = setTimeout(() => {
+              timedOut = true;
+              controller.abort();
+            }, milliseconds);
           };
-          let context: EvalContext<Params, Prepared> | undefined;
-          let continuation: unknown;
-          let activeStep: EvalStepResult | undefined;
-          let activeStepReported = false;
-          const history: ChatMessage[] = [];
-          const call = async (
-            readyContext: EvalContext<Params, Prepared>,
-            command: EvalCommand,
-            activeSignal: AbortSignal,
-          ): Promise<EvalExecution> => {
-            const run = (overrides?: {
-              context?: Record<string, unknown>;
-              messages?: ChatMessage[];
-            }) =>
-              executeEvalChat({
-                agent: options.agent,
-                ...(args.promptSnapshot
-                  ? { promptSnapshot: args.promptSnapshot }
-                  : {}),
-                command,
-                continuation,
-                history: clone(history),
-                sessionId: attemptResult.sessionId,
-                clientTurnId: randomUUID(),
-                signal: activeSignal,
-                ...(item.workflowId ? { workflowId: item.workflowId } : {}),
-                ...overrides,
-              });
-            const execution = options.execute
-              ? await options.execute({
-                  ...readyContext,
-                  signal: activeSignal,
+          deadline(defaults.setupTimeoutMs);
+          const signal = args.signal
+            ? AbortSignal.any([args.signal, controller.signal])
+            : controller.signal;
+          let originalExecutionError: unknown;
+          const attemptId = randomUUID();
+          const runtimeExecutions: EvalRuntimeExecution[] = [];
+          const attemptResult: EvalCaseResult = {
+            caseId: item.id,
+            repetition,
+            attemptId,
+            runtimeExecutions,
+            sessionId: `eval-${randomUUID()}`,
+            status: "passed",
+            durationMs: 0,
+            steps: [],
+            errors: [],
+            phaseDurationsMs: {},
+          };
+          let associationProgress = Promise.resolve();
+          let acceptingExecutions = true;
+          const executeAttempt = async () => {
+            let phase: EvalPhase = "params";
+            let phaseStarted = Date.now();
+            const recordPhase = () => {
+              const now = Date.now();
+              const durations = attemptResult.phaseDurationsMs!;
+              durations[phase] = (durations[phase] ?? 0) + now - phaseStarted;
+              phaseStarted = now;
+            };
+            const phaseIssue = (error: unknown, code?: string) =>
+              issueFor(
+                phase,
+                error,
+                {
+                  correlation: {
+                    sessionId: attemptResult.sessionId,
+                    attemptId,
+                  },
+                },
+                code,
+              );
+            let stepIndex: number | undefined;
+            const reportPhase = async (next: EvalPhase) => {
+              recordPhase();
+              phase = next;
+              if (args.includeActivity)
+                await emit({
+                  type: "case-progress",
+                  caseId: item.id,
+                  repetition,
+                  phase,
+                  ...(stepIndex !== undefined ? { stepIndex } : {}),
+                });
+            };
+            let context: EvalContext<Params, Prepared> | undefined;
+            let continuation: unknown;
+            let activeStep: EvalStepResult | undefined;
+            let activeStepReported = false;
+            const history: ChatMessage[] = [];
+            const call = async (
+              readyContext: EvalContext<Params, Prepared>,
+              command: EvalCommand,
+              activeSignal: AbortSignal,
+            ): Promise<EvalExecution> => {
+              const run = (overrides?: {
+                context?: Record<string, unknown>;
+                messages?: ChatMessage[];
+              }) =>
+                executeEvalChat({
+                  agent: options.agent,
+                  ...(args.promptSnapshot
+                    ? { promptSnapshot: args.promptSnapshot }
+                    : {}),
                   command,
                   continuation,
                   history: clone(history),
-                  run,
-                })
-              : await run();
-            continuation = execution.continuation;
-            const observation = EvalObservationSchema.parse(
-              execution.observation,
-            ) as EvalExecution["observation"];
-            if (
-              observation.type === "interrupt" &&
-              execution.continuation === undefined
-            )
-              throw new Error(
-                "A waiting interrupt requires a private continuation.",
-              );
-            return {
-              observation,
-              ...(continuation !== undefined ? { continuation } : {}),
-            };
-          };
-          try {
-            await emit({
-              type: "case-started",
-              attemptId,
-              caseId: item.id,
-              repetition,
-              sessionId: attemptResult.sessionId,
-            });
-            signal.throwIfAborted();
-            await reportPhase("params");
-            const params = options.paramsSchema
-              ? await options.paramsSchema.parseAsync(item.params)
-              : (item.params as Params);
-            const base = {
-              suiteId: suite.id,
-              case: item,
-              repetition,
-              sessionId: attemptResult.sessionId,
-              params,
-              signal,
-            };
-            await reportPhase("setup");
-            const prepared = options.setup
-              ? await options.setup(base)
-              : (undefined as Prepared);
-            context = { ...base, prepared };
-            signal.throwIfAborted();
-            deadline(caseTimeoutMs);
-            for (const [index, step] of item.steps.entries()) {
-              stepIndex = index;
-              activeStep = undefined;
-              activeStepReported = false;
-              signal.throwIfAborted();
-              let command: Exclude<EvalCommand, { type: "cancel" }>;
-              if (step.message !== undefined)
-                command = { type: "message", message: step.message };
-              else {
-                await reportPhase("responder");
-                // Suite ordering and the previous successful observation guarantee
-                // a waiting interrupt; call() already validates its continuation.
-                const interrupt = attemptResult.steps.at(-1)?.observation
-                  .interrupt as EvalInterrupt;
-                let response = step.resume;
-                if (handlerRef(response)) {
-                  // Handler names were validated against this private registry.
-                  const responder = responders[response.using]!;
-                  if (
-                    typeof responder !== "function" &&
-                    (responder.schemaId !== interrupt.schemaId ||
-                      (responder.schemaVersion &&
-                        responder.schemaVersion !== interrupt.schemaVersion))
-                  )
-                    throw new Error("Incompatible responder.");
-                  response = await (typeof responder === "function"
-                    ? responder
-                    : responder.respond)({
-                    ...context,
-                    interrupt: clone(interrupt),
-                    ...(response.params !== undefined
-                      ? { args: response.params }
-                      : {}),
-                  });
-                }
-                command = {
-                  type: "resume",
-                  // z.json() is inferred as optional under the package's relaxed
-                  // declaration build. Runtime validation still requires value.
-                  response: EvalResumeResponseSchema.parse(
-                    response,
-                  ) as ResumeResponse,
-                };
-              }
-              signal.throwIfAborted();
-              await reportPhase("execute");
-              originalExecutionError = undefined;
-              const { observation } = await call(context, command, signal);
-              const input =
-                command.type === "message"
-                  ? { message: command.message }
-                  : { resume: command.response };
-              const evaluated: EvalStepResult = {
-                index,
-                input,
-                expectation: clone(step.expect),
-                observation,
-                status: "passed",
-                criteria: [],
-              };
-              attemptResult.steps.push(evaluated);
-              activeStep = evaluated;
-              signal.throwIfAborted();
-              if (observation.type === "error") {
-                const issue = createEvalIssue(
-                  "execute",
-                  originalExecutionError ??
-                    observation.failure ??
-                    observation.text,
-                  {
-                    ...(observation.diagnosticId
-                      ? { diagnosticId: observation.diagnosticId }
-                      : {}),
-                  },
-                );
-                attemptResult.errors.push(issue);
-                attemptResult.status = evaluated.status = "error";
-                evaluated.reason = issue.message;
-                await emit({
-                  type: "step-completed",
-                  caseId: item.id,
-                  repetition,
-                  step: evaluated,
+                  sessionId: attemptResult.sessionId,
+                  clientTurnId: randomUUID(),
+                  signal: activeSignal,
+                  ...(item.workflowId ? { workflowId: item.workflowId } : {}),
+                  ...overrides,
                 });
-                activeStepReported = true;
-                break;
-              }
-              if (observation.type === "cancelled") {
-                evaluated.status = "cancelled";
-                attemptResult.status = "cancelled";
-                await emit({
-                  type: "step-completed",
-                  caseId: item.id,
-                  repetition,
-                  step: evaluated,
-                });
-                activeStepReported = true;
-                break;
-              }
+              const execution = options.execute
+                ? await options.execute({
+                    ...readyContext,
+                    signal: activeSignal,
+                    command,
+                    continuation,
+                    history: clone(history),
+                    run,
+                  })
+                : await run();
+              continuation = execution.continuation;
+              const observation = EvalObservationSchema.parse(
+                execution.observation,
+              ) as EvalExecution["observation"];
               if (
-                observation.type !== step.expect.type ||
-                (step.expect.schemaId &&
-                  step.expect.schemaId !== observation.interrupt?.schemaId) ||
-                (step.expect.schemaVersion &&
-                  step.expect.schemaVersion !==
-                    observation.interrupt?.schemaVersion)
-              ) {
-                evaluated.status = "failed";
-                evaluated.reason =
-                  "The observed interaction did not match the expected answer or interrupt contract.";
-              } else {
-                const outputReason = missingOutputReason(
-                  step.expect.outputs,
-                  observation,
+                observation.type === "interrupt" &&
+                execution.continuation === undefined
+              )
+                throw new Error(
+                  "A waiting interrupt requires a private continuation.",
                 );
-                if (outputReason) {
+              return {
+                observation,
+                ...(continuation !== undefined ? { continuation } : {}),
+              };
+            };
+            try {
+              await emit({
+                type: "case-started",
+                attemptId,
+                caseId: item.id,
+                repetition,
+                sessionId: attemptResult.sessionId,
+              });
+              signal.throwIfAborted();
+              await reportPhase("params");
+              const params = options.paramsSchema
+                ? await options.paramsSchema.parseAsync(item.params)
+                : (item.params as Params);
+              const base = {
+                suiteId: suite.id,
+                case: item,
+                repetition,
+                sessionId: attemptResult.sessionId,
+                params,
+                signal,
+              };
+              await reportPhase("setup");
+              const prepared = options.setup
+                ? await options.setup(base)
+                : (undefined as Prepared);
+              context = { ...base, prepared };
+              signal.throwIfAborted();
+              deadline(caseTimeoutMs);
+              for (const [index, step] of item.steps.entries()) {
+                stepIndex = index;
+                activeStep = undefined;
+                activeStepReported = false;
+                signal.throwIfAborted();
+                let command: Exclude<EvalCommand, { type: "cancel" }>;
+                if (step.message !== undefined)
+                  command = { type: "message", message: step.message };
+                else {
+                  await reportPhase("responder");
+                  // Suite ordering and the previous successful observation guarantee
+                  // a waiting interrupt; call() already validates its continuation.
+                  const interrupt = attemptResult.steps.at(-1)?.observation
+                    .interrupt as EvalInterrupt;
+                  let response = step.resume;
+                  if (handlerRef(response)) {
+                    // Handler names were validated against this private registry.
+                    const responder = responders[response.using]!;
+                    if (
+                      typeof responder !== "function" &&
+                      (responder.schemaId !== interrupt.schemaId ||
+                        (responder.schemaVersion &&
+                          responder.schemaVersion !== interrupt.schemaVersion))
+                    )
+                      throw new Error("Incompatible responder.");
+                    response = await (typeof responder === "function"
+                      ? responder
+                      : responder.respond)({
+                      ...context,
+                      interrupt: clone(interrupt),
+                      ...(response.params !== undefined
+                        ? { args: response.params }
+                        : {}),
+                    });
+                  }
+                  command = {
+                    type: "resume",
+                    // z.json() is inferred as optional under the package's relaxed
+                    // declaration build. Runtime validation still requires value.
+                    response: EvalResumeResponseSchema.parse(
+                      response,
+                    ) as ResumeResponse,
+                  };
+                }
+                signal.throwIfAborted();
+                await reportPhase("execute");
+                originalExecutionError = undefined;
+                const { observation } = await call(context, command, signal);
+                const input =
+                  command.type === "message"
+                    ? { message: command.message }
+                    : { resume: command.response };
+                const evaluated: EvalStepResult = {
+                  index,
+                  input,
+                  expectation: clone(step.expect),
+                  observation,
+                  status: "passed",
+                  criteria: [],
+                };
+                attemptResult.steps.push(evaluated);
+                activeStep = evaluated;
+                signal.throwIfAborted();
+                if (observation.type === "error") {
+                  const issue = createEvalIssue(
+                    "execute",
+                    originalExecutionError ??
+                      observation.failure ??
+                      observation.text,
+                    {
+                      ...(observation.diagnosticId
+                        ? { diagnosticId: observation.diagnosticId }
+                        : {}),
+                    },
+                  );
+                  attemptResult.errors.push(issue);
+                  attemptResult.status = evaluated.status = "error";
+                  evaluated.reason = issue.message;
+                  await emit({
+                    type: "step-completed",
+                    caseId: item.id,
+                    repetition,
+                    step: evaluated,
+                  });
+                  activeStepReported = true;
+                  break;
+                }
+                if (observation.type === "cancelled") {
+                  evaluated.status = "cancelled";
+                  attemptResult.status = "cancelled";
+                  await emit({
+                    type: "step-completed",
+                    caseId: item.id,
+                    repetition,
+                    step: evaluated,
+                  });
+                  activeStepReported = true;
+                  break;
+                }
+                if (
+                  observation.type !== step.expect.type ||
+                  (step.expect.schemaId &&
+                    step.expect.schemaId !== observation.interrupt?.schemaId) ||
+                  (step.expect.schemaVersion &&
+                    step.expect.schemaVersion !==
+                      observation.interrupt?.schemaVersion)
+                ) {
                   evaluated.status = "failed";
-                  evaluated.reason = outputReason;
+                  evaluated.reason =
+                    "The observed interaction did not match the expected answer or interrupt contract.";
                 } else {
-                  const reference = step.expect.reference;
-                  if (reference !== undefined) {
-                    await reportPhase("reference");
-                    evaluated.reference = handlerRef(reference)
-                      ? z.json().parse(
-                          await references[reference.using]?.({
-                            ...context,
-                            observation: clone(observation),
-                            ...(reference.params !== undefined
-                              ? { args: reference.params }
+                  const outputReason = missingOutputReason(
+                    step.expect.outputs,
+                    observation,
+                  );
+                  if (outputReason) {
+                    evaluated.status = "failed";
+                    evaluated.reason = outputReason;
+                  } else {
+                    const reference = step.expect.reference;
+                    if (reference !== undefined) {
+                      await reportPhase("reference");
+                      evaluated.reference = handlerRef(reference)
+                        ? z.json().parse(
+                            await references[reference.using]?.({
+                              ...context,
+                              observation: clone(observation),
+                              ...(reference.params !== undefined
+                                ? { args: reference.params }
+                                : {}),
+                            }),
+                          )
+                        : clone(reference);
+                    }
+                    await reportPhase("grading");
+                    evaluated.evidence = createEvalJudgeEvidence(
+                      observation,
+                      suite.evidence,
+                      evidenceFilters,
+                    );
+                    if (studioGrading && step.expect.criteria?.length) {
+                      evaluated.status = "ungraded";
+                      attemptResult.status = "ungraded";
+                    }
+                    for (const [criterionIndex, value] of (studioGrading
+                      ? []
+                      : (step.expect.criteria ?? [])
+                    ).entries()) {
+                      signal.throwIfAborted();
+                      const criterion =
+                        typeof value === "string"
+                          ? { id: String(criterionIndex), text: value }
+                          : value;
+                      evaluated.judgeCalls = (evaluated.judgeCalls ?? 0) + 1;
+                      const verdict = EvalVerdictSchema.parse(
+                        await withEvalAttribution(undefined, () =>
+                          options.judge!.grade({
+                            criterion,
+                            onUsage: (usage) => {
+                              if (!signal.aborted) {
+                                evaluated.judgeUsage ??= [];
+                                evaluated.judgeUsage.push(clone(usage));
+                              }
+                            },
+                            input: clone(input),
+                            ...getEvalGradeEvidence(
+                              evaluated,
+                              attemptResult.steps.slice(0, -1),
+                            ),
+                            signal,
+                            ...(evaluated.reference !== undefined
+                              ? { reference: clone(evaluated.reference) }
                               : {}),
                           }),
-                        )
-                      : clone(reference);
-                  }
-                  await reportPhase("grading");
-                  evaluated.evidence = createEvalJudgeEvidence(
-                    observation,
-                    suite.evidence,
-                    evidenceFilters,
-                  );
-                  if (studioGrading && step.expect.criteria?.length) {
-                    evaluated.status = "ungraded";
-                    attemptResult.status = "ungraded";
-                  }
-                  for (const [criterionIndex, value] of (studioGrading
-                    ? []
-                    : (step.expect.criteria ?? [])
-                  ).entries()) {
-                    signal.throwIfAborted();
-                    const criterion =
-                      typeof value === "string"
-                        ? { id: String(criterionIndex), text: value }
-                        : value;
-                    evaluated.judgeCalls = (evaluated.judgeCalls ?? 0) + 1;
-                    const verdict = EvalVerdictSchema.parse(
-                      await withEvalAttribution(undefined, () =>
-                        options.judge!.grade({
-                          criterion,
-                          onUsage: (usage) => {
-                            if (!signal.aborted) {
-                              evaluated.judgeUsage ??= [];
-                              evaluated.judgeUsage.push(clone(usage));
-                            }
-                          },
-                          input: clone(input),
-                          ...getEvalGradeEvidence(
-                            evaluated,
-                            attemptResult.steps.slice(0, -1),
-                          ),
-                          signal,
-                          ...(evaluated.reference !== undefined
-                            ? { reference: clone(evaluated.reference) }
-                            : {}),
-                        }),
-                      ),
-                    );
-                    signal.throwIfAborted();
-                    evaluated.criteria.push({ ...criterion, ...verdict });
-                    if (!verdict.passed) evaluated.status = "failed";
-                  }
-                }
-              }
-              await emit({
-                type: "step-completed",
-                caseId: item.id,
-                repetition,
-                step: evaluated,
-              });
-              activeStepReported = true;
-              if (evaluated.status === "failed") {
-                attemptResult.status = "failed";
-                break;
-              }
-              history.push(
-                {
-                  role: "user",
-                  content:
-                    command.type === "message"
-                      ? command.message
-                      : JSON.stringify(command.response),
-                },
-                { role: "assistant", content: observation.text },
-              );
-            }
-            if (
-              options.verify &&
-              attemptResult.status !== "cancelled" &&
-              attemptResult.status !== "error"
-            ) {
-              stepIndex = undefined;
-              deadline(defaults.verificationTimeoutMs);
-              await reportPhase("verification");
-              const verification = EvalVerdictSchema.parse(
-                await options.verify({
-                  ...context,
-                  result: clone(attemptResult),
-                }),
-              );
-              signal.throwIfAborted();
-              attemptResult.verification = verification;
-              if (!verification.passed) attemptResult.status = "failed";
-            }
-          } catch (error) {
-            if (signal.aborted) {
-              attemptResult.status = timedOut ? "error" : "cancelled";
-              if (timedOut)
-                attemptResult.errors.push({
-                  ...phaseIssue(error),
-                  details: {
-                    timeoutMs:
-                      phase === "params" || phase === "setup"
-                        ? defaults.setupTimeoutMs
-                        : phase === "verification"
-                          ? defaults.verificationTimeoutMs
-                          : caseTimeoutMs,
-                  },
-                  code:
-                    phase === "params" || phase === "setup"
-                      ? "EVAL_SETUP_TIMEOUT"
-                      : phase === "verification"
-                        ? "EVAL_VERIFICATION_TIMEOUT"
-                        : "EVAL_TIMEOUT",
-                  message:
-                    phase === "params" || phase === "setup"
-                      ? "Case setup exceeded its configured time limit."
-                      : phase === "verification"
-                        ? "Case verification exceeded its configured time limit."
-                        : "Case execution exceeded its configured time limit.",
-                });
-            } else {
-              attemptResult.status = "error";
-              attemptResult.errors.push(phaseIssue(error));
-            }
-            if (activeStep && !activeStepReported) {
-              activeStep.status = attemptResult.status;
-              activeStep.reason =
-                attemptResult.errors.at(-1)?.message ?? "Case was cancelled.";
-              await emit({
-                type: "step-completed",
-                caseId: item.id,
-                repetition,
-                step: activeStep,
-              });
-            }
-          } finally {
-            clearTimeout(timer);
-            if (context) {
-              await reportPhase("cleanup");
-              const cleanup = new AbortController();
-              const cleanupTimer = setTimeout(
-                () => cleanup.abort(),
-                defaults.cleanupTimeoutMs,
-              );
-              try {
-                if (continuation !== undefined) {
-                  try {
-                    const cancelled = await call(
-                      context,
-                      { type: "cancel" },
-                      cleanup.signal,
-                    );
-                    if (
-                      cancelled.observation.type === "error" ||
-                      cancelled.continuation !== undefined
-                    )
-                      attemptResult.errors.push(
-                        createEvalIssue(
-                          "cleanup",
-                          cancelled.observation.failure,
-                          {
-                            code: "EVAL_INTERRUPT_CLEANUP_FAILED",
-                            ...(cancelled.observation.diagnosticId
-                              ? {
-                                  diagnosticId:
-                                    cancelled.observation.diagnosticId,
-                                }
-                              : {}),
-                          },
                         ),
                       );
-                    cleanup.signal.throwIfAborted();
-                  } catch (error) {
-                    attemptResult.errors.push(
-                      phaseIssue(error, "EVAL_INTERRUPT_CLEANUP_FAILED"),
-                    );
+                      signal.throwIfAborted();
+                      evaluated.criteria.push({ ...criterion, ...verdict });
+                      if (!verdict.passed) evaluated.status = "failed";
+                    }
                   }
                 }
-                try {
-                  await options.teardown?.({
-                    ...context,
-                    signal: cleanup.signal,
-                    result: clone(attemptResult),
-                  });
-                  cleanup.signal.throwIfAborted();
-                } catch (error) {
-                  attemptResult.errors.push(phaseIssue(error));
-                }
-              } finally {
-                clearTimeout(cleanupTimer);
-              }
-              if (
-                attemptResult.errors.some((error) => error.phase === "cleanup")
-              )
-                attemptResult.status = "error";
-            }
-            recordPhase();
-            attemptResult.durationMs = Date.now() - started;
-          }
-          acceptingExecutions = false;
-          await associationProgress;
-          await emit({ type: "case-completed", result: attemptResult });
-          return attemptResult;
-        };
-        return withEvalAttribution(
-          {
-            attemptId,
-            onError: (error) => {
-              originalExecutionError = error;
-            },
-            onExecution: (execution) => {
-              if (
-                !acceptingExecutions ||
-                runtimeExecutions.some(
-                  (entry) =>
-                    entry.runId === execution.runId &&
-                    entry.sessionId === execution.sessionId,
-                )
-              )
-                return;
-              runtimeExecutions.push(execution);
-              associationProgress = associationProgress.then(() =>
-                emit({
-                  type: "case-runtime-associated",
+                await emit({
+                  type: "step-completed",
                   caseId: item.id,
                   repetition,
-                  attemptId,
-                  execution,
-                }),
-              );
+                  step: evaluated,
+                });
+                activeStepReported = true;
+                if (evaluated.status === "failed") {
+                  attemptResult.status = "failed";
+                  break;
+                }
+                history.push(
+                  {
+                    role: "user",
+                    content:
+                      command.type === "message"
+                        ? command.message
+                        : JSON.stringify(command.response),
+                  },
+                  { role: "assistant", content: observation.text },
+                );
+              }
+              if (
+                options.verify &&
+                attemptResult.status !== "cancelled" &&
+                attemptResult.status !== "error"
+              ) {
+                stepIndex = undefined;
+                deadline(defaults.verificationTimeoutMs);
+                await reportPhase("verification");
+                const verification = EvalVerdictSchema.parse(
+                  await options.verify({
+                    ...context,
+                    result: clone(attemptResult),
+                  }),
+                );
+                signal.throwIfAborted();
+                attemptResult.verification = verification;
+                if (!verification.passed) attemptResult.status = "failed";
+              }
+            } catch (error) {
+              if (signal.aborted) {
+                attemptResult.status = timedOut ? "error" : "cancelled";
+                if (timedOut)
+                  attemptResult.errors.push({
+                    ...phaseIssue(error),
+                    details: {
+                      timeoutMs:
+                        phase === "params" || phase === "setup"
+                          ? defaults.setupTimeoutMs
+                          : phase === "verification"
+                            ? defaults.verificationTimeoutMs
+                            : caseTimeoutMs,
+                    },
+                    code:
+                      phase === "params" || phase === "setup"
+                        ? "EVAL_SETUP_TIMEOUT"
+                        : phase === "verification"
+                          ? "EVAL_VERIFICATION_TIMEOUT"
+                          : "EVAL_TIMEOUT",
+                    message:
+                      phase === "params" || phase === "setup"
+                        ? "Case setup exceeded its configured time limit."
+                        : phase === "verification"
+                          ? "Case verification exceeded its configured time limit."
+                          : "Case execution exceeded its configured time limit.",
+                  });
+              } else {
+                attemptResult.status = "error";
+                attemptResult.errors.push(phaseIssue(error));
+              }
+              if (activeStep && !activeStepReported) {
+                activeStep.status = attemptResult.status;
+                activeStep.reason =
+                  attemptResult.errors.at(-1)?.message ?? "Case was cancelled.";
+                await emit({
+                  type: "step-completed",
+                  caseId: item.id,
+                  repetition,
+                  step: activeStep,
+                });
+              }
+            } finally {
+              clearTimeout(timer);
+              if (context) {
+                await reportPhase("cleanup");
+                const cleanup = new AbortController();
+                const cleanupTimer = setTimeout(
+                  () => cleanup.abort(),
+                  defaults.cleanupTimeoutMs,
+                );
+                try {
+                  if (continuation !== undefined) {
+                    try {
+                      const cancelled = await call(
+                        context,
+                        { type: "cancel" },
+                        cleanup.signal,
+                      );
+                      if (
+                        cancelled.observation.type === "error" ||
+                        cancelled.continuation !== undefined
+                      )
+                        attemptResult.errors.push(
+                          createEvalIssue(
+                            "cleanup",
+                            cancelled.observation.failure,
+                            {
+                              code: "EVAL_INTERRUPT_CLEANUP_FAILED",
+                              ...(cancelled.observation.diagnosticId
+                                ? {
+                                    diagnosticId:
+                                      cancelled.observation.diagnosticId,
+                                  }
+                                : {}),
+                            },
+                          ),
+                        );
+                      cleanup.signal.throwIfAborted();
+                    } catch (error) {
+                      attemptResult.errors.push(
+                        phaseIssue(error, "EVAL_INTERRUPT_CLEANUP_FAILED"),
+                      );
+                    }
+                  }
+                  try {
+                    await options.teardown?.({
+                      ...context,
+                      signal: cleanup.signal,
+                      result: clone(attemptResult),
+                    });
+                    cleanup.signal.throwIfAborted();
+                  } catch (error) {
+                    attemptResult.errors.push(phaseIssue(error));
+                  }
+                } finally {
+                  clearTimeout(cleanupTimer);
+                }
+                if (
+                  attemptResult.errors.some(
+                    (error) => error.phase === "cleanup",
+                  )
+                )
+                  attemptResult.status = "error";
+              }
+              recordPhase();
+              attemptResult.durationMs = Date.now() - started;
+            }
+            acceptingExecutions = false;
+            await associationProgress;
+            await emit({ type: "case-completed", result: attemptResult });
+            return attemptResult;
+          };
+          return withEvalAttribution(
+            {
+              attemptId,
+              onError: (error) => {
+                originalExecutionError = error;
+              },
+              onExecution: (execution) => {
+                if (
+                  !acceptingExecutions ||
+                  runtimeExecutions.some(
+                    (entry) =>
+                      entry.runId === execution.runId &&
+                      entry.sessionId === execution.sessionId,
+                  )
+                )
+                  return;
+                runtimeExecutions.push(execution);
+                associationProgress = associationProgress.then(() =>
+                  emit({
+                    type: "case-runtime-associated",
+                    caseId: item.id,
+                    repetition,
+                    attemptId,
+                    execution,
+                  }),
+                );
+              },
             },
-          },
-          executeAttempt,
+            executeAttempt,
+          );
+        };
+        const total = args.attempt ? 1 : selected.length * repetitions;
+        if (args.includeActivity)
+          await emit({
+            type: "run-started",
+            caseIds: selected.map((item) => item.id),
+            repetitions,
+            concurrency,
+          });
+        const completed = new Array<EvalCaseResult>(total);
+        let cursor = 0;
+        await Promise.all(
+          Array.from({ length: Math.min(concurrency, total) }, async () => {
+            while (cursor < total) {
+              const index = cursor++;
+              // Positive repetitions and cursor < total guarantee this index.
+              const item = args.attempt
+                ? selected.find((item) => item.id === args.attempt?.caseId)!
+                : selected[Math.floor(index / repetitions)]!;
+              completed[index] = await attempt(
+                item,
+                args.attempt?.repetition ?? (index % repetitions) + 1,
+              );
+            }
+          }),
         );
-      };
-      const total = args.attempt ? 1 : selected.length * repetitions;
-      if (args.includeActivity)
-        await emit({
-          type: "run-started",
-          caseIds: selected.map((item) => item.id),
-          repetitions,
-          concurrency,
-        });
-      const completed = new Array<EvalCaseResult>(total);
-      let cursor = 0;
-      await Promise.all(
-        Array.from({ length: Math.min(concurrency, total) }, async () => {
-          while (cursor < total) {
-            const index = cursor++;
-            // Positive repetitions and cursor < total guarantee this index.
-            const item = args.attempt
-              ? selected.find((item) => item.id === args.attempt?.caseId)!
-              : selected[Math.floor(index / repetitions)]!;
-            completed[index] = await attempt(
-              item,
-              args.attempt?.repetition ?? (index % repetitions) + 1,
-            );
-          }
-        }),
-      );
-      result.cases = completed;
-      for (const item of completed)
-        result.counts[item.status] = (result.counts[item.status] ?? 0) + 1;
-      result.status = statusFor(result.counts, result.errors);
-      result.durationMs = Date.now() - start;
-      evalUsage.end(
-        result.status === "passed"
-          ? "success"
-          : result.status === "failed"
-            ? "quality_failed"
-            : result.status === "error"
-              ? "failed"
-              : result.status,
-      );
-      return result;
+        result.cases = completed;
+        for (const item of completed)
+          result.counts[item.status] = (result.counts[item.status] ?? 0) + 1;
+        result.status = statusFor(result.counts, result.errors);
+        result.durationMs = Date.now() - start;
+        const failedIssue =
+          result.errors[0] ??
+          result.cases.find((item) => item.errors.length)?.errors[0];
+        evalUsage.end(
+          result.status === "passed"
+            ? "success"
+            : result.status === "failed"
+              ? "quality_failed"
+              : result.status === "error"
+                ? "failed"
+                : result.status,
+          {
+            scale: scale(selected.length * repetitions),
+            phase: usagePhase,
+            ...(result.status === "error"
+              ? {
+                  ...classifyUsageError(failedIssue).properties,
+                  eval_phase: failedIssue?.phase,
+                }
+              : {}),
+          },
+        );
+        return result;
+      } catch (error) {
+        evalUsage.fail(error, { phase: usagePhase });
+        throw error;
+      }
     },
   };
 }

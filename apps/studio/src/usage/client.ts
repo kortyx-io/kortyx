@@ -35,6 +35,8 @@ export function configureStudioUsage(
           version: config.version,
           environment: config.environment,
           identityScope: "browser",
+          runtimeMode: config.runtimeMode,
+          trafficSource: config.trafficSource,
         },
         catalog: config.catalog ?? publicCatalog,
         debug: () => config.debug,

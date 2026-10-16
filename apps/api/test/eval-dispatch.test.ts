@@ -1,4 +1,8 @@
 import { randomUUID } from "node:crypto";
+import {
+  createUsageTelemetry,
+  type UsageRecord,
+} from "@kortyx/usage-telemetry";
 import { describe, expect, it, vi } from "vitest";
 import {
   createEvalDispatcher,
@@ -120,6 +124,7 @@ describe("eval admission retry and reconnect", () => {
     );
     expect(JSON.stringify(state.mock.calls)).not.toContain("private");
     expect(retryUsage).toHaveBeenCalledWith("studio.eval", {
+      origin: "server",
       action: "retry",
       phase: "admission",
     });
@@ -127,7 +132,7 @@ describe("eval admission retry and reconnect", () => {
       retryUsage.mock.calls.every(
         ([operation, properties]) =>
           operation === "studio.eval" &&
-          Object.keys(properties).sort().join(",") === "action,phase",
+          Object.keys(properties).sort().join(",") === "action,origin,phase",
       ),
     ).toBe(true);
   });
@@ -402,4 +407,83 @@ it("uses the same fenced identity when recovery finds no admitted job", async ()
     "idempotency-key": id,
     "x-kortyx-eval-generation": generation,
   });
+});
+
+it.each([
+  false,
+  true,
+])("honors explicit dispatcher usage ownership (%s)", async (enabled) => {
+  const records: UsageRecord[] = [];
+  const usage = createUsageTelemetry({
+    context: {
+      product: "oss_studio",
+      component: "eval_dispatch",
+      version: "1.0.0",
+    },
+    identity: () => crypto.randomUUID(),
+    transport: async (batch) => {
+      records.push(...batch);
+    },
+  });
+  const request = vi
+    .fn<typeof fetch>()
+    .mockResolvedValueOnce(manifest())
+    .mockResolvedValueOnce(
+      new Response("private", { status: 503, headers: { "retry-after": "0" } }),
+    )
+    .mockResolvedValueOnce(new Response(terminal(), { headers }));
+  const prior = retryUsage.mock.calls.length;
+  const dispatcher = createEvalDispatcher(request, {
+    usage: enabled ? usage : false,
+  });
+  try {
+    await open(dispatcher);
+    await usage.flush();
+    expect(retryUsage.mock.calls).toHaveLength(prior);
+    expect(records).toHaveLength(enabled ? 1 : 0);
+    if (enabled)
+      expect(records[0]).toMatchObject({
+        operation: "studio.eval",
+        properties: {
+          measurement_kind: "observation",
+          origin: "server",
+          action: "retry",
+        },
+      });
+    expect(JSON.stringify(records)).not.toContain("private");
+  } finally {
+    usage.dispose();
+  }
+});
+it("continues recovery if an injected optional usage client throws", async () => {
+  const usage = createUsageTelemetry({
+    context: {
+      product: "oss_studio",
+      component: "eval_dispatch",
+      version: "1.0.0",
+    },
+    identity: () => crypto.randomUUID(),
+    transport: async () => {},
+  });
+  const request = vi
+    .fn<typeof fetch>()
+    .mockResolvedValueOnce(manifest())
+    .mockResolvedValueOnce(
+      new Response(null, { status: 503, headers: { "retry-after": "0" } }),
+    )
+    .mockResolvedValueOnce(new Response(terminal(), { headers }));
+  const dispatcher = createEvalDispatcher(request, {
+    usage: {
+      ...usage,
+      feature: () => {
+        throw new Error("optional usage failed");
+      },
+    },
+  });
+  try {
+    await expect(open(dispatcher)).resolves.toBeDefined();
+    expect(request).toHaveBeenCalledTimes(3);
+  } finally {
+    usage.dispose();
+  }
 });
