@@ -113,7 +113,7 @@ deployment adapters. A registered target and configured judge are still required
 
 ## Select and configure judging
 
-Studio-triggered runs default to **Studio judge**. A consumer `createEvalJudge`
+Studio-triggered runs use the project judge default, or **Studio judge** when unset. A consumer `createEvalJudge`
 makes **App judge** available as an explicit alternative. Configure the selected
 location; missing configuration does not fall back silently. The API pins judge
 ID/version/location and rejects stale selections. See the consumer reference
@@ -433,7 +433,7 @@ The **Run evaluations** drawer offers All suites or Selected suites. Launching
 from a suite page preselects and expands that suite. Expand any selected suite to
 choose its conversations independently. Suite checkboxes select or clear every
 conversation and show a mixed state for partial selections. Selections and
-expanded suites survive reloads and browser history. The default judge is Studio
+expanded suites survive reloads and browser history. Without a project judge default, the drawer selects Studio
 when available, otherwise App; unavailable judges remain disabled with a reason.
 Repetitions (1–20) and concurrent attempts across the evaluation (1–20) apply to the selection.
 Each suite is limited to 100 attempts; one evaluation is limited to 1,000 attempts.

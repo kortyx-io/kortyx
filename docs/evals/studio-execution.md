@@ -61,10 +61,9 @@ consumer target and a configured Studio or App judge are still required.
 
 ## Studio judge configuration
 
-Studio-triggered runs default to **Studio judge**. Configure its model and provider
+Studio-triggered runs use the project judge default, or **Studio judge** when unset. Configure its model and provider
 key on the Studio **API backend**. A code judge provided to `createEvals` makes
-**App judge** available as an explicit selection; Studio still defaults to its own
-judge. If hosted judging is not configured, the run drawer explains what is missing
+**App judge** available for run overrides and project defaults. If hosted judging is not configured, the run drawer explains what is missing
 and allows selecting an available App judge. It never silently changes selection.
 
 The app executes the complete scripted scenario and resolves interrupts. With

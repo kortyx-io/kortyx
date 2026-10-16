@@ -167,7 +167,16 @@ async function customerRows(sql: postgres.Sql, prefix: number) {
             return legacy;
           }
           if (table === "eval_runs" && prefix <= 6) {
-            const { evaluation_id: _newColumn, ...legacy } = row;
+            const {
+              evaluation_id: _newColumn,
+              issue: _issue,
+              termination: _termination,
+              ...legacy
+            } = row;
+            return legacy;
+          }
+          if (table === "projects" && prefix <= 6) {
+            const { eval_defaults: _defaults, ...legacy } = row;
             return legacy;
           }
           return row;
@@ -297,6 +306,12 @@ integration("native Drizzle migration cutover", () => {
         const before = await rows();
         await migrate(url, productionDir);
         expect(await rows()).toEqual(before);
+        expect([...(await sql`SELECT eval_defaults FROM projects`)]).toEqual([
+          { eval_defaults: {} },
+        ]);
+        expect([
+          ...(await sql`SELECT issue, termination FROM eval_runs`),
+        ]).toEqual([{ issue: null, termination: null }]);
         await migrate(url, productionDir);
         expect(await rows()).toEqual(before);
         expect(
@@ -307,7 +322,7 @@ integration("native Drizzle migration cutover", () => {
           (
             await sql`SELECT count(*)::int AS count FROM drizzle.__drizzle_migrations`
           )[0]?.count,
-        ).toBe(13);
+        ).toBe(14);
       });
     } finally {
       await rm(folder, { recursive: true, force: true });

@@ -108,10 +108,9 @@ permission path used by ordinary application requests.
 
 ## Studio judge configuration
 
-Studio-triggered runs default to **Studio judge**. Configure its model and provider
+Studio-triggered runs use the project judge default, or **Studio judge** when unset. Configure its model and provider
 key on the Studio **API backend**. A code judge provided to `createEvals` makes
-**App judge** available as an explicit selection; Studio still defaults to its own
-judge. If hosted judging is not configured, the run drawer explains what is missing
+**App judge** available for run overrides and project defaults. If hosted judging is not configured, the run drawer explains what is missing
 and allows selecting an available App judge. It never silently changes selection.
 
 The app executes the complete scripted scenario and resolves interrupts. With
@@ -390,7 +389,7 @@ The **Run evaluations** drawer offers All suites or Selected suites. Launching
 from a suite page preselects and expands that suite. Expand any selected suite to
 choose its conversations independently. Suite checkboxes select or clear every
 conversation and show a mixed state for partial selections. Selections and
-expanded suites survive reloads and browser history. The default judge is Studio
+expanded suites survive reloads and browser history. Without a project judge default, the drawer selects Studio
 when available, otherwise App; unavailable judges remain disabled with a reason.
 Repetitions (1–20) and concurrent attempts across the evaluation (1–20) apply to the selection.
 Each suite is limited to 100 attempts; one evaluation is limited to 1,000 attempts.

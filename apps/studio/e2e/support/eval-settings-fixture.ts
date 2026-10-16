@@ -86,8 +86,14 @@ export async function seedEvalSettingsFixture() {
             new Error(
               "OpenRouter returned HTTP 429: Rate limit exceeded for the evaluation model.",
               {
-                cause: new Error(
-                  "Provider concurrency quota exceeded. Retry after 20 seconds.",
+                cause: Object.assign(
+                  new Error(
+                    "Provider concurrency quota exceeded. Retry after 20 seconds.",
+                  ),
+                  {
+                    stack:
+                      "Error: Provider concurrency quota exceeded. Retry after 20 seconds.\n    at providerRequest (provider/client.ts:42:9)",
+                  },
                 ),
               },
             ),
