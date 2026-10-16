@@ -33,7 +33,8 @@ c15t 2.3 controls one optional `measurement` category. The new
 `kortyx_privacy_v2` storage key does not import an earlier necessary-only
 acknowledgment. Accept and reject are both banner actions. No vendor script or
 PostHog bundle loads before opt-in; rejection persists. Withdrawal saves the
-rejection, stops capture, clears GA cookies, and reloads to remove vendor code.
+rejection, stops capture, clears GA cookies and Cloudflare’s active beacon
+configuration, and reloads to remove vendor code and unload handlers.
 Consent preferences expire after 180 days. No consent synchronizes to another
 browser, SDK installation or Cloud account.
 

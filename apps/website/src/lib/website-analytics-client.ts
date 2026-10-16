@@ -7,6 +7,7 @@ import {
 
 type AnalyticsWindow = Window & {
   dataLayer?: unknown[];
+  __cfBeacon?: unknown;
   [key: `ga-disable-${string}`]: boolean;
 };
 
@@ -167,6 +168,9 @@ export function startWebsiteAnalytics(config: WebsiteAnalyticsConfig) {
     },
     stop() {
       active = false;
+      // Cloudflare's native unload handlers check this configuration before
+      // sending. Clear it before c15t reloads, then the reload removes handlers.
+      delete browser.__cfBeacon;
       browser[`ga-disable-${config.gaMeasurementId}`] = true;
       if (googleReady)
         gtag("consent", "update", { analytics_storage: "denied" });

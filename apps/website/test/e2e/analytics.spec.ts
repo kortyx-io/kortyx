@@ -7,6 +7,7 @@ test("analytics waits for fresh consent and stops on withdrawal", async ({
 }) => {
   const external: string[] = [];
   const posthogPayloads: string[] = [];
+  const cloudflareBeacons: string[] = [];
   // PostHog drops navigator.webdriver traffic. Exercise its real payload path
   // with a local visitor fixture; all vendor destinations remain intercepted.
   await page.addInitScript(() => {
@@ -37,12 +38,20 @@ test("analytics waits for fresh consent and stops on withdrawal", async ({
       await route.fulfill({ json: { status: 1 } });
       return;
     }
+    if (new URL(request.url()).hostname === "cloudflareinsights.com") {
+      cloudflareBeacons.push(request.url());
+      await route.fulfill({ status: 204 });
+      return;
+    }
     await route.fulfill({
       contentType: "application/javascript",
       body:
         new URL(request.url()).hostname === "www.googletagmanager.com"
           ? 'document.cookie="_ga=synthetic; Path=/; SameSite=Lax";'
-          : "",
+          : `window.__cfBeacon = { token: "fixture" };
+           addEventListener("pagehide", () => {
+             if (window.__cfBeacon) navigator.sendBeacon("https://cloudflareinsights.com/cdn-cgi/rum", "fixture");
+           });`,
     });
   });
   await page.goto("/?token=private-query#private-fragment");
@@ -130,11 +139,13 @@ test("analytics waits for fresh consent and stops on withdrawal", async ({
     .getByRole("button", { name: "Privacy settings", exact: true })
     .click();
   await dialog.getByRole("switch", { name: /Website analytics/ }).uncheck();
+  const beaconsBeforeWithdrawal = cloudflareBeacons.length;
   const reloaded = page.waitForEvent("load");
   await dialog
     .getByRole("button", { name: "Save preferences", exact: true })
     .click();
   await reloaded;
+  expect(cloudflareBeacons).toHaveLength(beaconsBeforeWithdrawal);
   await expect(page.getByRole("dialog")).toHaveCount(0);
   const count = external.length;
   await page.getByRole("link", { name: "Kortyx", exact: true }).first().click();
