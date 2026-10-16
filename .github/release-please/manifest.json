@@ -21,7 +21,7 @@
   "packages/telemetry-contracts": "0.18.0",
   "packages/telemetry": "0.17.0",
   "packages/utils": "0.3.9",
-  "apps/studio": "0.22.0",
+  "apps/studio": "0.22.1",
   "apps/website": "0.52.0",
   "examples/kortyx-nextjs-chat-api-route": "0.25.8",
   "examples/kortyx-canvas": "0.8.17",
