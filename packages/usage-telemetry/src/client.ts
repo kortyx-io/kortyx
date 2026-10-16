@@ -362,8 +362,17 @@ export function createUsageTelemetry(options: UsageOptions): UsageTelemetry {
           if (ended) return;
           ended = true;
           try {
+            // Classify before enum bucketing so uncommon statuses keep their class.
+            const status = property(extra, "http_status");
+            const http =
+              outcome === "failed" &&
+              typeof status === "string" &&
+              /^\d{3}$/.test(status)
+                ? classifyUsageHttpStatus(Number(status)).properties
+                : {};
             record("usage.operation", operation, outcome, now() - began, {
               ...initial,
+              ...http,
               ...sanitizeProperties(extra, catalog),
             });
           } catch {}

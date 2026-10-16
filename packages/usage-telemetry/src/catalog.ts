@@ -390,6 +390,7 @@ export const publicCatalog: UsageCatalog = {
       "401",
       "403",
       "404",
+      "408",
       "409",
       "413",
       "422",

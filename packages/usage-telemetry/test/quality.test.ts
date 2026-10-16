@@ -279,3 +279,25 @@ it("does not treat the generic execution serializer fallback as proof of an inte
     cause_category: "transport",
   });
 });
+
+it("keeps HTTP classes for uncommon response statuses before enum bucketing", async () => {
+  const f = fixture();
+  for (const status of ["408", "418", "527"])
+    f.client.start("studio.read").end("failed", { http_status: status });
+  await f.client.flush();
+  expect(f.records.map((r) => r.properties.error_code)).toEqual([
+    "HTTP_TIMEOUT",
+    "HTTP_INVALID_REQUEST",
+    "HTTP_SERVER_ERROR",
+  ]);
+  expect(f.records.map((r) => r.properties.http_status_class)).toEqual([
+    "4xx",
+    "4xx",
+    "5xx",
+  ]);
+  expect(f.records.map((r) => r.properties.http_status)).toEqual([
+    "408",
+    "other",
+    "other",
+  ]);
+});
