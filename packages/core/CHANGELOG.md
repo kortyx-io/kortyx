@@ -7,6 +7,13 @@
   child outputs, deterministic parallel joins and checkpoint resume. Surface
   callback exceptions as `WORKFLOW_REDUCER_FAILED` without exposing raw values.
 
+## [0.15.0](https://github.com/kortyx-io/kortyx/compare/core-v0.14.0...core-v0.15.0) (2026-10-16)
+
+
+### Features
+
+* **evals:** configurable deadlines and original error visibility ([#354](https://github.com/kortyx-io/kortyx/issues/354)) ([7dde173](https://github.com/kortyx-io/kortyx/commit/7dde173b54eb37a2d28ff28ac342a3333e5ed902))
+
 ## [0.14.0](https://github.com/kortyx-io/kortyx/compare/core-v0.13.1...core-v0.14.0) (2026-10-13)
 
 

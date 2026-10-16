@@ -1,5 +1,32 @@
 # Changelog
 
+## [0.22.0](https://github.com/kortyx-io/kortyx/compare/studio-v0.21.1...studio-v0.22.0) (2026-10-16)
+
+
+### Features
+
+* **evals:** configurable deadlines and original error visibility ([#354](https://github.com/kortyx-io/kortyx/issues/354)) ([7dde173](https://github.com/kortyx-io/kortyx/commit/7dde173b54eb37a2d28ff28ac342a3333e5ed902))
+* **studio:** standardize tables, filters and column behavior ([#353](https://github.com/kortyx-io/kortyx/issues/353)) ([c662e59](https://github.com/kortyx-io/kortyx/commit/c662e59d814a6a9f12c709595968ee7b1ece3191))
+* **telemetry:** improve failure classification and add CLI usage ([#355](https://github.com/kortyx-io/kortyx/issues/355)) ([c5fbbed](https://github.com/kortyx-io/kortyx/commit/c5fbbed3064ea7b2b3020617db7ce09d1b175db3))
+
+
+### Bug Fixes
+
+* **studio:** restore navigation progress and prevent stale URL updates ([#351](https://github.com/kortyx-io/kortyx/issues/351)) ([1a60047](https://github.com/kortyx-io/kortyx/commit/1a60047e98ec76f7add56847c207225c04a133f7))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/prompts bumped to 0.2.2
+    * @kortyx/telemetry-contracts bumped to 0.18.0
+    * @kortyx/usage-telemetry bumped to 0.4.0
+  * devDependencies
+    * @kortyx/agent bumped to 0.39.0
+    * @kortyx/telemetry bumped to 0.17.0
+    * kortyx bumped to 0.32.0
+
 ## [0.21.1](https://github.com/kortyx-io/kortyx/compare/studio-v0.21.0...studio-v0.21.1) (2026-10-14)
 
 

@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.4.0](https://github.com/kortyx-io/kortyx/compare/usage-telemetry-v0.3.0...usage-telemetry-v0.4.0) (2026-10-16)
+
+
+### Features
+
+* **studio:** standardize tables, filters and column behavior ([#353](https://github.com/kortyx-io/kortyx/issues/353)) ([c662e59](https://github.com/kortyx-io/kortyx/commit/c662e59d814a6a9f12c709595968ee7b1ece3191))
+* **telemetry:** improve failure classification and add CLI usage ([#355](https://github.com/kortyx-io/kortyx/issues/355)) ([c5fbbed](https://github.com/kortyx-io/kortyx/commit/c5fbbed3064ea7b2b3020617db7ce09d1b175db3))
+
 ## [0.3.0](https://github.com/kortyx-io/kortyx/compare/usage-telemetry-v0.2.0...usage-telemetry-v0.3.0) (2026-10-13)
 
 

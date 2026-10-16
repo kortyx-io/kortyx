@@ -8,6 +8,31 @@
   event replay, explicit cancellation and optional PostgreSQL recovery.
 
 
+## [0.39.0](https://github.com/kortyx-io/kortyx/compare/agent-v0.38.1...agent-v0.39.0) (2026-10-16)
+
+
+### Features
+
+* **evals:** configurable deadlines and original error visibility ([#354](https://github.com/kortyx-io/kortyx/issues/354)) ([7dde173](https://github.com/kortyx-io/kortyx/commit/7dde173b54eb37a2d28ff28ac342a3333e5ed902))
+* **telemetry:** improve failure classification and add CLI usage ([#355](https://github.com/kortyx-io/kortyx/issues/355)) ([c5fbbed](https://github.com/kortyx-io/kortyx/commit/c5fbbed3064ea7b2b3020617db7ce09d1b175db3))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/core bumped to 0.15.0
+    * @kortyx/providers bumped to 0.9.4
+    * @kortyx/runtime bumped to 0.25.0
+    * @kortyx/stream bumped to 0.15.6
+    * @kortyx/utils bumped to 0.3.9
+    * @kortyx/prompts bumped to 0.2.2
+    * @kortyx/usage-telemetry bumped to 0.4.0
+    * @kortyx/telemetry-contracts bumped to 0.18.0
+  * devDependencies
+    * @kortyx/hooks bumped to 0.35.0
+    * @kortyx/openai bumped to 0.5.10
+
 ## [0.38.1](https://github.com/kortyx-io/kortyx/compare/agent-v0.38.0...agent-v0.38.1) (2026-10-14)
 
 
