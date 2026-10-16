@@ -25,7 +25,7 @@ test("one navbar frame supports docs slots and client-side navigation", async ({
   await page.emulateMedia({ colorScheme: "light" });
   await page.goto("/cookies");
   await acknowledgeStorageNotice(page);
-  const header = page.locator("header");
+  const header = page.getByRole("banner");
   await expect(header).toHaveCount(1);
   const frame = header.locator(":scope > div");
   const getFrame = () =>
