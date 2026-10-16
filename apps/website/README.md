@@ -66,7 +66,13 @@ product folders and are resolved to the target product's canonical URL.
 
 See [the publication and private-Cloud integration contract](./docs/cloud-legal-contract.md) for exact URLs, release hashes, activation boundaries, immutable history and outstanding operator/legal facts. Website publication does not activate Cloud acceptance.
 
-Document text currently comes from immutable repository releases. c15t records Cloud acceptance; it is not currently serving the website's text. The contract describes migration to one shared publication service and a future authenticated editor, with c15t snapshot-bound acceptance and separately configured website/Cloud renewal flows.
+Production document text comes from the environment-specific legal publication registry. Local development without feed configuration uses immutable repository archives. Website navigation does not record Cloud acceptance.
+
+## Website analytics
+
+See [configuration, consent, provider settings and rollout](./docs/website-analytics.md).
+Optional measurement is disabled by default and waits for fresh browser consent
+and the exact approved privacy/cookies publication version.
 
 ## Checks
 

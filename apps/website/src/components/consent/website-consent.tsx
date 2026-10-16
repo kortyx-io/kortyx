@@ -8,8 +8,50 @@ import {
   useConsentManager,
 } from "@c15t/nextjs";
 import { X } from "lucide-react";
-import { type ReactNode, useEffect } from "react";
-import { websiteConsentOptions } from "@/lib/consent";
+import { usePathname } from "next/navigation";
+import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
+import {
+  websiteAnalyticsConsentOptions,
+  websiteConsentOptions,
+} from "@/lib/consent";
+import type { WebsiteAnalyticsConfig } from "@/lib/website-analytics";
+import type { startWebsiteAnalytics } from "@/lib/website-analytics-client";
+
+type AnalyticsRuntime = ReturnType<typeof startWebsiteAnalytics>;
+
+function WebsiteAnalytics({
+  config,
+  runtime,
+}: {
+  config: WebsiteAnalyticsConfig;
+  runtime: React.RefObject<AnalyticsRuntime | null>;
+}) {
+  const { has } = useConsentManager();
+  const pathname = usePathname();
+  const allowed = has("measurement");
+  const currentPath = useRef(pathname);
+  currentPath.current = pathname;
+  useEffect(() => {
+    if (!allowed) return;
+    let cancelled = false;
+    void import("@/lib/website-analytics-client")
+      .then(({ startWebsiteAnalytics }) => {
+        if (cancelled) return;
+        runtime.current = startWebsiteAnalytics(config);
+        runtime.current.page(currentPath.current);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+      runtime.current?.stop();
+      runtime.current = null;
+    };
+  }, [allowed, config, runtime]);
+  useEffect(() => {
+    runtime.current?.page(pathname);
+  }, [pathname, runtime]);
+  return null;
+}
 
 function WebsitePrivacyDialog() {
   const { activeUI, setActiveUI } = useConsentManager();
@@ -56,9 +98,34 @@ function WebsitePrivacyDialog() {
 }
 
 export function WebsiteConsent({ children }: { children: ReactNode }) {
+  const [config, setConfig] = useState<WebsiteAnalyticsConfig | null>(null);
+  const runtime = useRef<AnalyticsRuntime | null>(null);
+  useEffect(() => {
+    const controller = new AbortController();
+    void fetch("/api/website-analytics", { signal: controller.signal })
+      .then((response) => (response.ok ? response.json() : null))
+      .then((value: WebsiteAnalyticsConfig | null) => {
+        if (!controller.signal.aborted) setConfig(value);
+      })
+      .catch(() => {});
+    return () => controller.abort();
+  }, []);
+  const options = useMemo(
+    () =>
+      config
+        ? websiteAnalyticsConsentOptions(() => {
+            runtime.current?.stop();
+          })
+        : websiteConsentOptions,
+    [config],
+  );
   return (
-    <ConsentManagerProvider options={websiteConsentOptions}>
+    <ConsentManagerProvider
+      key={config ? "analytics" : "necessary"}
+      options={options}
+    >
       {children}
+      {config && <WebsiteAnalytics config={config} runtime={runtime} />}
       <ConsentBanner
         hideBranding
         trapFocus={false}
