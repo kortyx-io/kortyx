@@ -1,4 +1,5 @@
 import type { KortyxTelemetryEvent } from "@kortyx/hooks";
+import { scale } from "@kortyx/usage-telemetry";
 import { usage } from "./usage";
 
 export class TelemetryHttpError extends Error {
@@ -20,9 +21,19 @@ export const createDelivery = (args: {
   let inFlight: Promise<{ retryDelay: number | null }> | undefined;
   const sendBatch = async (events: KortyxTelemetryEvent[]): Promise<void> => {
     try {
-      await usage.measure("sdk.export", () => args.send(events), {
+      const scope = usage.start("sdk.export", {
         phase: "delivery",
+        retry_attempt: scale(retryAttempt + 1),
+        retried: retryAttempt > 0,
+        batch_size: scale(events.length),
       });
+      try {
+        await args.send(events);
+        scope.end("success", { recovered: retryAttempt > 0 });
+      } catch (error) {
+        scope.fail(error);
+        throw error;
+      }
     } catch (error) {
       const status =
         error instanceof TelemetryHttpError ? error.status : undefined;

@@ -27,6 +27,18 @@ by default, without requiring your own PostHog account or API key. This helps
 Kortyx maintainers measure feature adoption, operation outcomes and latency.
 It is independent of the customer tracing configuration described below.
 
+Failure aggregates include only allowlisted codes/categories, HTTP classes and
+known network causes; they never upload original error details. SDK eval calls
+include configuration rejection, case deadline override presence and terminal
+technical/quality outcomes. Export sends distinguish attempts and retry recovery.
+Structured text deltas are workload counts, not workflow executions.
+
+`KORTYX_USAGE_TELEMETRY_TRAFFIC_SOURCE=internal` can label deliberate maintainer
+traffic (`synthetic` and `external` are also accepted; otherwise `unknown`).
+Runtime mode and the analytics destination remain separate. Optional loss counters
+travel with later successful batches; they cannot report crashes or permanently
+offline tails.
+
 Approved records contain fixed operation names, outcomes, release versions and
 bounded dimensions such as provider family. They exclude prompts, messages,
 inputs/outputs, workflow/node/tool names, customer IDs, credentials, raw exception

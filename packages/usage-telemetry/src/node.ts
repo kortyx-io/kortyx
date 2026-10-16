@@ -4,6 +4,7 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 import {
   createUsageTelemetry,
+  type UsageContext,
   type UsageOptions,
   type UsageTelemetry,
 } from "./client";
@@ -64,6 +65,29 @@ async function installationIdentity(): Promise<InstallationIdentity> {
   return identity;
 }
 
+/** Deliberate operator labels; unknown does not mean an external customer. */
+export function runtimeUsageContext(): Required<
+  Pick<UsageContext, "runtimeMode" | "trafficSource">
+> {
+  const traffic = process.env.KORTYX_USAGE_TELEMETRY_TRAFFIC_SOURCE;
+  return {
+    runtimeMode:
+      process.env.CI && !["0", "false"].includes(process.env.CI.toLowerCase())
+        ? ("ci" as const)
+        : process.env.NODE_ENV === "production"
+          ? ("production" as const)
+          : process.env.NODE_ENV === "development"
+            ? ("development" as const)
+            : ("unknown" as const),
+    trafficSource:
+      traffic === "internal" ||
+      traffic === "synthetic" ||
+      traffic === "external"
+        ? traffic
+        : ("unknown" as const),
+  };
+}
+
 export function usageDisabled(): boolean {
   return (
     ["1", "true"].includes(process.env.KORTYX_USAGE_TELEMETRY_DISABLED ?? "") ||
@@ -95,6 +119,13 @@ export function createNodeUsageTelemetry(
   }
   return createUsageTelemetry({
     ...options,
+    context: {
+      ...options.context,
+      runtimeMode:
+        options.context.runtimeMode ?? runtimeUsageContext().runtimeMode,
+      trafficSource:
+        options.context.trafficSource ?? runtimeUsageContext().trafficSource,
+    },
     transport,
     identity: options.identity ?? installationIdentity,
     enabled: () => valid && !usageDisabled() && (options.enabled?.() ?? true),
@@ -107,6 +138,11 @@ export function createNodeUsageTelemetry(
 }
 
 const clients = new Map<string, UsageTelemetry>();
+/** Flush registered component replacements without adding another emitter. */
+export async function flushUsageTelemetry(): Promise<void> {
+  await Promise.all([...clients.values()].map((client) => client.flush()));
+}
+
 /** Override a component client in another distribution or in an embedding application. */
 export function configureUsageTelemetry(
   component: string,
@@ -132,13 +168,7 @@ export function getUsageTelemetry(
           process.env.KORTYX_USAGE_TELEMETRY_ENVIRONMENT === "staging"
             ? "staging"
             : "production",
-        runtimeMode: process.env.CI
-          ? "ci"
-          : process.env.NODE_ENV === "production"
-            ? "production"
-            : process.env.NODE_ENV === "development"
-              ? "development"
-              : "unknown",
+        ...runtimeUsageContext(),
       },
     });
     clients.set(component, client);
@@ -167,6 +197,7 @@ export function publicUsageConfiguration() {
   }
   return {
     enabled: valid && !usageDisabled(),
+    ...runtimeUsageContext(),
     debug: process.env.KORTYX_USAGE_TELEMETRY_DEBUG === "1",
     environment:
       process.env.KORTYX_USAGE_TELEMETRY_ENVIRONMENT === "staging"

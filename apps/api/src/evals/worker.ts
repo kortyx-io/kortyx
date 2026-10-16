@@ -20,6 +20,9 @@ import {
   heartbeatEvalRun,
   type TelemetryDb,
 } from "@kortyx/telemetry-db";
+import type { UsageOperation, UsageTelemetry } from "@kortyx/usage-telemetry";
+import { getUsageTelemetry } from "@kortyx/usage-telemetry/node";
+import packageJson from "../../package.json";
 import { recordEvalDiagnostic } from "./diagnostics";
 import {
   createEvalDispatcher,
@@ -30,6 +33,7 @@ import { readEvalErrorResponse } from "./error-response";
 import { type AttemptExecution, executeEvaluation } from "./execute-evaluation";
 import { gradeEvalExecution } from "./grade-execution";
 import { type EvalTarget, readEvalWire } from "./targets";
+import { evalOutcomeUsage } from "./usage";
 
 export type EvalWorkerRun = NonNullable<
   Awaited<ReturnType<typeof claimEvalRun>>
@@ -64,6 +68,8 @@ export interface EvalJobStore {
   finish(id: string, owner: string, outcome: EvalWorkerOutcome): Promise<void>;
 }
 export interface EvalWorkerOptions {
+  /** Custom stores own instrumentation unless explicitly supplied here. */
+  usage?: UsageTelemetry | false;
   /** Full HTTP transport for idempotent admission, observation and explicit cancellation. */
   fetch?: typeof fetch;
   dispatch?: { maxRetries?: number; maxRetryWaitMs?: number };
@@ -170,6 +176,18 @@ export function createEvalWorker(
     pendingIssues.set(issue, task);
     return task;
   };
+  const usage =
+    options.usage === false
+      ? undefined
+      : (options.usage ??
+        (options.store
+          ? undefined
+          : getUsageTelemetry(
+              "studio_api",
+              packageJson.version,
+              "oss_studio",
+            )));
+  const usageScopes = new Map<string, UsageOperation>();
   const claimedRuns = new Map<string, EvalWorkerRun>();
   const store: EvalJobStore = {
     heartbeat: (id, owner) => baseStore.heartbeat(id, owner),
@@ -183,8 +201,23 @@ export function createEvalWorker(
         ? claimed
         : claimed
           ? [claimed]
-          : [])
+          : []) {
         claimedRuns.set(run.id, run);
+        try {
+          if (!usageScopes.has(run.id) && usage)
+            usageScopes.set(
+              run.id,
+              usage.start("studio.eval.execution", {
+                origin: "server",
+                resource: "evals",
+                phase: "execution",
+                measurement_kind: run.request.attempt ? "attempt" : "execution",
+              }),
+            );
+        } catch {
+          /* Optional usage collection cannot change queue ownership. */
+        }
+      }
       return claimed;
     },
     progress: async (id, owner, event) => {
@@ -246,15 +279,25 @@ export function createEvalWorker(
           }
       }
       await baseStore.finish(id, owner, outcome);
+      try {
+        const scope = usageScopes.get(id);
+        if (scope) {
+          const measurement = evalOutcomeUsage(outcome);
+          scope.end(measurement.outcome, measurement.properties);
+        }
+      } catch {
+        /* Persistence already succeeded; preserve its result. */
+      }
+      usageScopes.delete(id);
       claimedRuns.delete(id);
       attemptIssues.delete(id);
     },
   };
   const owner = randomUUID();
-  const dispatcher = createEvalDispatcher(
-    options.fetch ?? fetch,
-    options.dispatch,
-  );
+  const dispatcher = createEvalDispatcher(options.fetch ?? fetch, {
+    ...options.dispatch,
+    usage: usage ?? false,
+  });
   const maxConcurrentEvaluations = options.maxConcurrentEvaluations ?? 4;
   if (
     !Number.isSafeInteger(maxConcurrentEvaluations) ||
@@ -765,7 +808,20 @@ export function createEvalWorker(
               }
             })();
             executing.add(task);
-            void task.catch(() => {}).finally(() => executing.delete(task));
+            void task
+              .catch(() => {})
+              .finally(() => {
+                executing.delete(task);
+                // Release unfinished measurements after lease/persistence failure too.
+                for (const run of Array.isArray(claimed)
+                  ? claimed
+                  : [claimed]) {
+                  if (claimedRuns.get(run.id) !== run) continue;
+                  usageScopes.delete(run.id);
+                  claimedRuns.delete(run.id);
+                  attemptIssues.delete(run.id);
+                }
+              });
           } catch {
             if (!stopped) await pause();
           }
@@ -777,6 +833,9 @@ export function createEvalWorker(
       stopped = true;
       for (const controller of active) controller.abort();
       await loop;
+      usageScopes.clear();
+      claimedRuns.clear();
+      attemptIssues.clear();
     },
   };
 }

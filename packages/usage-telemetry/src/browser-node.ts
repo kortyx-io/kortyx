@@ -11,6 +11,11 @@ export { scale } from "./catalog";
 export { createUsageTelemetry, type UsageTelemetry } from "./client";
 
 const clients = new Map<string, UsageTelemetry>();
+/** Flush registered component replacements without adding another emitter. */
+export async function flushUsageTelemetry(): Promise<void> {
+  await Promise.all([...clients.values()].map((client) => client.flush()));
+}
+
 export function createNodeUsageTelemetry(
   options: Pick<UsageOptions, "context"> &
     Partial<Omit<UsageOptions, "context">>,
@@ -47,9 +52,14 @@ export function getUsageTelemetry(
 export function usageDisabled() {
   return true;
 }
+export function runtimeUsageContext() {
+  return { runtimeMode: "unknown" as const, trafficSource: "unknown" as const };
+}
 export function publicUsageConfiguration() {
   return {
     enabled: false,
+    runtimeMode: "unknown" as const,
+    trafficSource: "unknown" as const,
     debug: false,
     environment: "production" as const,
     key: "",

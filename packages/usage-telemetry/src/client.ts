@@ -4,6 +4,12 @@ import {
   publicCatalog,
   type UsageCatalog,
 } from "./catalog";
+import {
+  classifyUsageError,
+  classifyUsageHttpStatus,
+  usageErrorProperty as property,
+} from "./failure";
+import { usageMeasurement } from "./measurement";
 
 export type UsageProperties = Readonly<Record<string, unknown>>;
 export interface UsageContext {
@@ -13,6 +19,7 @@ export interface UsageContext {
   environment?: "production" | "staging";
   identityScope?: "installation" | "browser" | "process";
   runtimeMode?: "development" | "production" | "ci" | "unknown";
+  trafficSource?: "internal" | "synthetic" | "external" | "unknown";
 }
 export interface UsageRecord {
   schema_version: 1;
@@ -31,6 +38,8 @@ export interface UsageRecord {
   count: number;
   duration_total_ms: number;
   duration_buckets: number[];
+  /** Loss since the last successfully delivered snapshot; attached once per batch. */
+  delivery_health?: { dropped_observations: number; failed_batches: number };
 }
 export type UsageTransport = (
   records: readonly UsageRecord[],
@@ -73,51 +82,7 @@ export interface UsageTelemetry {
   stats(): { pending: number; dropped: number; delivered: number };
 }
 
-/** Do not invoke arbitrary getters while classifying application errors. */
-function property(value: unknown, key: string): unknown {
-  try {
-    if (!value || typeof value !== "object") return undefined;
-    const descriptor = Object.getOwnPropertyDescriptor(value, key);
-    return descriptor && "value" in descriptor ? descriptor.value : undefined;
-  } catch {
-    return undefined;
-  }
-}
-export function classifyUsageError(
-  error: unknown,
-  catalog = publicCatalog,
-): { outcome: Outcome; properties: UsageProperties } {
-  const name = property(error, "name");
-  const code =
-    property(error, "code") ?? property(property(error, "failure"), "code");
-  if (name === "AbortError" || code === "EXECUTION_CANCELLED")
-    return { outcome: "cancelled", properties: {} };
-  if (code === "EXECUTION_LIMIT_REACHED" || name === "ExecutionLimitReached")
-    return { outcome: "limit_reached", properties: {} };
-  if (
-    name === "GraphInterrupt" ||
-    name === "NodeInterrupt" ||
-    name === "Interrupt"
-  )
-    return { outcome: "suspended", properties: {} };
-  const known = typeof code === "string" && catalog.errorCodes.includes(code);
-  const category =
-    known && code !== "EXECUTION_FAILED"
-      ? (property(error, "category") ??
-        property(property(error, "failure"), "category") ??
-        "unknown")
-      : "unknown";
-  const status =
-    property(error, "status") ?? property(property(error, "failure"), "status");
-  return {
-    outcome: "failed",
-    properties: {
-      error_code: known ? code : "other",
-      error_category: category,
-      ...(typeof status === "number" ? { http_status: String(status) } : {}),
-    },
-  };
-}
+export { classifyUsageError } from "./failure";
 
 export function sanitizeProperties(
   input: UsageProperties,
@@ -132,9 +97,11 @@ export function sanitizeProperties(
     } else if (typeof value === "string")
       safe[key] = rule.includes(value) ? value : "other";
   }
-  const code = property(input, "error_code");
-  if (typeof code === "string")
-    safe.error_code = catalog.errorCodes.includes(code) ? code : "other";
+  for (const key of ["error_code", "cause_code"]) {
+    const code = property(input, key);
+    if (typeof code === "string")
+      safe[key] = catalog.errorCodes.includes(code) ? code : "other";
+  }
   return safe;
 }
 
@@ -154,6 +121,16 @@ export function createUsageTelemetry(options: UsageOptions): UsageTelemetry {
   let disposed = false;
   let dropped = 0;
   let delivered = 0;
+  let lostObservations = 0;
+  let failedBatches = 0;
+  let reportedLoss = 0;
+  let reportedFailures = 0;
+  const lose = (count: number) => {
+    lostObservations = Math.min(
+      Number.MAX_SAFE_INTEGER,
+      lostObservations + count,
+    );
+  };
   let hour = Math.floor(now() / 3_600_000);
   let sent = 0;
   const active = () => {
@@ -192,6 +169,10 @@ export function createUsageTelemetry(options: UsageOptions): UsageTelemetry {
     pending.clear();
     if (!records.length) return;
     let attempted = records.length;
+    let attemptedObservations = records.reduce(
+      (total, record) => total + record.count,
+      0,
+    );
     flight = (async () => {
       try {
         if (options.debug?.()) {
@@ -209,7 +190,16 @@ export function createUsageTelemetry(options: UsageOptions): UsageTelemetry {
         );
         const batch = records.slice(0, allowance);
         dropped += records.length - batch.length;
+        lose(
+          records
+            .slice(allowance)
+            .reduce((total, record) => total + record.count, 0),
+        );
         attempted = batch.length;
+        attemptedObservations = batch.reduce(
+          (total, record) => total + record.count,
+          0,
+        );
         if (!batch.length || !active()) return;
         const identified = await options.identity();
         const identity =
@@ -223,13 +213,28 @@ export function createUsageTelemetry(options: UsageOptions): UsageTelemetry {
           )
         ) {
           dropped += batch.length;
+          lose(attemptedObservations);
           return;
         }
         sent += batch.length;
+        const lossSnapshot = lostObservations;
+        const failureSnapshot = failedBatches;
+        if (
+          batch[0] &&
+          (lossSnapshot > reportedLoss || failureSnapshot > reportedFailures)
+        )
+          batch[0].delivery_health = {
+            dropped_observations: lossSnapshot - reportedLoss,
+            failed_batches: failureSnapshot - reportedFailures,
+          };
         await options.transport(batch, identity);
+        reportedLoss = lossSnapshot;
+        reportedFailures = failureSnapshot;
         delivered += batch.length;
       } catch {
         dropped += attempted;
+        lose(attemptedObservations);
+        failedBatches = Math.min(Number.MAX_SAFE_INTEGER, failedBatches + 1);
       }
     })().finally(() => {
       flight = undefined;
@@ -264,12 +269,34 @@ export function createUsageTelemetry(options: UsageOptions): UsageTelemetry {
         !outcomes.includes(outcome)
       )
         return;
-      const properties = sanitizeProperties(input, catalog);
+      const failed = outcome === "failed";
+      const status = property(input, "http_status");
+      const http =
+        typeof status === "string" && /^\d{3}$/.test(status)
+          ? classifyUsageHttpStatus(Number(status)).properties
+          : {};
+      const properties = sanitizeProperties(
+        {
+          measurement_version: "2",
+          measurement_kind: usageMeasurement(event, operation, input),
+          ...(failed
+            ? {
+                error_code: "UNCLASSIFIED_FAILURE",
+                error_category: "unknown",
+                ...http,
+              }
+            : {}),
+          ...sanitizeProperties(input, catalog),
+          traffic_source: options.context.trafficSource ?? "unknown",
+        },
+        catalog,
+      );
       const key = JSON.stringify([event, operation, outcome, properties]);
       let existing = pending.get(key);
       if (!existing) {
         if (pending.size >= (options.maxGroups ?? 64)) {
           dropped++;
+          lose(1);
           return;
         }
         existing = {
@@ -281,7 +308,11 @@ export function createUsageTelemetry(options: UsageOptions): UsageTelemetry {
           component: options.context.component,
           version: options.context.version,
           analytics_environment: options.context.environment ?? "production",
-          runtime_mode: options.context.runtimeMode ?? "unknown",
+          runtime_mode: ["development", "production", "ci"].includes(
+            options.context.runtimeMode ?? "",
+          )
+            ? (options.context.runtimeMode ?? "unknown")
+            : "unknown",
           identity_scope: options.context.identityScope ?? "installation",
           operation,
           outcome,

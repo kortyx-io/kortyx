@@ -8,15 +8,33 @@ import useSWR, { preload, unstable_serialize, useSWRConfig } from "swr";
 import { useStudioRouteScope } from "@/components/studio-route-provider";
 import { studioFetch } from "@/lib/studio-fetch";
 import { studioHref } from "@/lib/studio-routing";
+import { studioOperation } from "@/usage/client";
 
 type DiagnosticKey = readonly ["diagnostics", string, string];
 async function readDiagnostic([, , url]: DiagnosticKey) {
-  const response = await studioFetch(url, { cache: "no-store" });
-  if (!response.ok)
-    throw new Error(
-      `Full error details could not be loaded (HTTP ${response.status}).`,
-    );
-  return DiagnosticContentSchema.parse(await response.json());
+  const usage = studioOperation("studio.diagnostic", {
+    resource: "diagnostics",
+    origin: "background",
+    action: "view",
+  });
+  try {
+    const response = await studioFetch(url, { cache: "no-store" });
+    if (!response.ok) {
+      usage.end("failed", {
+        phase: "http",
+        http_status: String(response.status),
+      });
+      throw new Error(
+        `Full error details could not be loaded (HTTP ${response.status}).`,
+      );
+    }
+    const content = DiagnosticContentSchema.parse(await response.json());
+    usage.end();
+    return content;
+  } catch (error) {
+    usage.fail(error);
+    throw error;
+  }
 }
 
 function diagnosticPath(diagnosticId: string, environment: string) {

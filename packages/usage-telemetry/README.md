@@ -1,6 +1,6 @@
 # Kortyx usage telemetry
 
-Maintainer usage telemetry measures adoption and reliability of the SDK and OSS Studio. It is separate from customer observability in `@kortyx/telemetry` and `@kortyx/otel`. The default destination is Kortyx's EU PostHog Production project, using its public capture key. Consumers need no personal API token.
+Maintainer usage telemetry measures adoption and reliability of the SDK, CLI and OSS Studio. It is separate from customer observability in `@kortyx/telemetry` and `@kortyx/otel`. The default destination is Kortyx's EU PostHog Production project, using its public capture key. Consumers need no personal API token.
 
 ## Controls
 
@@ -14,6 +14,7 @@ Set these in the SDK process or Studio deployment environment. CLI-generated Com
 | `KORTYX_USAGE_TELEMETRY_POSTHOG_HOST` | Overrides the ingestion host; defaults to `https://eu.i.posthog.com` |
 | `KORTYX_USAGE_TELEMETRY_ENDPOINT` | Replaces PostHog with a collector accepting `{ identity, records }` |
 | `KORTYX_USAGE_TELEMETRY_ENVIRONMENT=staging` | Labels maintainer staging; pair it with that project's capture key |
+| `KORTYX_USAGE_TELEMETRY_TRAFFIC_SOURCE` | Explicit `internal`, `synthetic` or `external` cohort; otherwise `unknown`. CI does not imply synthetic traffic |
 | `KORTYX_USAGE_TELEMETRY_ID` | Optional random UUID for deliberate identity sharing between Node processes |
 
 Tests (`NODE_ENV=test`) disable the default Node integration. Consumer `NODE_ENV` and `CI` supply a coarse runtime mode; they do not select the maintainer project. Browser bootstrap receives only public configuration from Studio's server environment, so no `NEXT_PUBLIC_` variables are needed. Debug output contains approved dimensions and aggregate counts, never application payloads.
@@ -30,7 +31,7 @@ Records aggregate matching operations, outcomes and approved dimensions over a 6
 
 Each component client buffers at most 64 distinct groups and sends at most 120 groups per hour. A group can represent many attempts through `count`. Duration buckets are noncumulative: ≤10ms, (10,100], (100,1,000], (1,000,10,000], (10,000,60,000], >60,000ms. Query `duration_total_ms / count` for means or combine bucket counts for approximate distributions. Restrict latency queries to `usage.operation`.
 
-Delivery is best effort, single-flight, with a two-second transport timeout, no retries and unreferenced Node timers. SDK operations never await analytics delivery or change results because collection fails. The short-lived Studio setup CLI flushes after recording its outcome, so it can spend up to the transport timeout delivering its final batch. Browser visibility changes request a flush. Offline, disabled, terminated or short-lived processes can lose records; call the helper's `flush()` explicitly at an application-controlled shutdown boundary when appropriate. No disk event queue or crash detection is implied. `stats()` exposes local pending/dropped/delivered group counts. Budgets are per component and process, not an organization-wide spending guarantee; PostHog's $0 billing limits remain the financial control.
+Delivery is best effort, single-flight, with a two-second transport timeout, no retries and unreferenced Node timers. SDK operations never await analytics delivery or change results because collection fails. The CLI flushes registered component clients after command parsing/execution, waiting at most two seconds even for a custom transport. Setup stages and command invocations are separate measurements. Browser visibility changes request a flush. Offline, disabled, terminated or short-lived processes can lose records; call the helper's `flush()` explicitly at an application-controlled shutdown boundary when appropriate. No disk event queue or crash detection is implied. `stats()` exposes local pending/dropped/delivered group counts. Budgets are per component and process, not an organization-wide spending guarantee; PostHog's $0 billing limits remain the financial control.
 
 ## Reusable boundaries
 
@@ -78,11 +79,92 @@ aggregation and failure-independent delivery apply unchanged.
 
 SDK boundaries include initialization, registry resolution, direct execution/resume, chat admission, terminal graph execution, response completion, model and tool execution, structured output, explicit response completion, prompt resolution, eval outcomes, MCP connection/discovery/close, checkpoint operations and observability export attempts. Early response completion and later graph failure are separate outcomes. An eval quality failure is distinct from an execution error.
 
-Studio boundaries include CLI setup, API requests/ingest, server reads and parse failures, first-use guidance and observed data, navigation, tab/trace inspection, render failures/retries, prompt actions, eval launch/read/cancel and live refresh/reconnect. Prompt and eval browser actions measure request acceptance; they do not imply background worker completion. Some preflight errors before a selected boundary remain outside this slice.
+Studio boundaries include CLI setup, API requests/ingest, server reads and parse failures, first-use guidance and observed data, navigation, tab/trace inspection, render failures/retries, prompt actions, eval launch/read/cancel and live refresh/reconnect. Prompt and eval browser actions measure request acceptance. The built-in eval worker separately measures persisted terminal results; its attempt and legacy run units are described below. SDK eval configuration rejection is included with phase `configuration`.
 
-The [opportunity inventory](../../docs/audits/sdk-studio-usage-telemetry.md) covers remaining node/parallel/child execution, prompt cache/refresh, persistence internals, exporter queue loss, deeper filters/saved views, worker completion, reviews and upgrade phases. Reserved catalog operations are not evidence that these boundaries already emit. Feature-flag evaluation and exposure are a future addition.
+The [opportunity inventory](../../docs/audits/sdk-studio-usage-telemetry.md) covers remaining node/parallel/child execution, prompt cache/refresh, persistence internals, exporter queue loss, deeper filters/saved views, deeper worker phases, reviews and upgrade phases. Reserved catalog operations are not evidence that these boundaries already emit. Feature-flag evaluation and exposure are a future addition.
 
 Use `sum(properties.count)`, rather than raw PostHog event count, to measure attempts. For a comparable component/operation cohort, failure rate is `sum(count where outcome = failed) / sum(count for completed operation outcomes)`. Decide explicitly whether cancellations, denial and suspension belong in the denominator. Compare installation reach, repeated use and failure rate by release; do not rank features solely by workload volume. PostHog funnels over aggregates give coarse observed ordering (flush windows can obscure exact ordering), not exact user-session sequences or time since npm installation.
+
+## Measurement quality (version 2)
+
+The envelope remains `schema_version: 1`; additive approved properties carry
+`measurement_version: "2"`. Historical events without it retain their old coverage.
+Compare matching measurement versions, release, component, operation, origin,
+action, analytics environment and runtime mode. Never add up all SDK operations
+as workflow executions.
+
+| Unit (`measurement_kind`) | Counting boundary |
+| --- | --- |
+| `invocation` | One CLI command parse/action outcome or SDK eval `run()` call, including rejected configuration |
+| `execution` | SDK terminal graph execution; persisted legacy worker suite run |
+| `attempt` | Each model/export send attempt; each claimed eval worker case/repetition attempt |
+| `chunk`, `output`, `update` | Structured text deltas, final output, other updates; workload volume, not feature adoption |
+| `stage` | A Studio setup phase, separate from CLI command completion |
+| `poll` | Background Studio reads, including diagnostic prefetch; not deliberate inspection |
+| `request`, `call` | Studio request or other SDK API call outcome |
+| `feature`, `observation` | Deliberate/configured use versus server/background observation |
+
+`runtime_mode` uses Node `CI` / `NODE_ENV`, independently of the destination
+project. Node factories and Studio browser bootstrap carry the same safe context.
+`traffic_source` is explicit: `unknown` is not evidence of external customer use.
+Pseudonymous installation/browser/process reach is not a count of customers.
+
+Failures always have an approved `error_code` and `error_category`. Unclassified
+explicit failures use `UNCLASSIFIED_FAILURE`; inspected unknown errors use `other`.
+The classifier reads at most eight objects, three links deep, following own data
+fields `failure`, `cause`, and `error`. Known network codes, HTTP classes, framework
+failure descriptors and optional bounded `cause_code`/`cause_category`/`retryable`
+help distinguish provider, transport, validation and configuration problems. Eval
+failures also project the first issue's approved `eval_phase`; multiple issues in
+one run are not a complete failure census.
+Messages, stacks, diagnostic IDs and exception serialization remain excluded.
+Cancellation, suspension, limits, eval quality failures and ungraded outcomes stay
+separate from technical failures. A known category is not proof of a product bug.
+
+Exporter records add bucketed `batch_size`, `retry_attempt`, `retried` and
+`recovered`. Recovery means a successful send after a retry, not a correlated
+end-to-end delivery guarantee. Recursive split sends are separate attempts.
+
+Each successful normal delivery may carry `usage_dropped_observations` and
+`usage_failed_batches` once, as deltas since the last delivered health snapshot.
+They include cardinality/budget losses and identity/transport failures; local
+`stats().dropped` still counts groups. Health never bypasses budgets, creates its
+own event, or persists on disk. Permanently offline, crashed, disabled or restarted
+processes cannot report their lost tail. These counters expose observed loss;
+they cannot reconstruct unbiased feature shares after selective group dropping.
+A failed or ambiguous delivery may have reached ingestion: these counters describe
+client-observed loss, not verified server loss.
+
+## Eval and diagnostic boundaries
+
+Eval launch/settings requests record only booleans for explicit settings and
+case/run deadline overrides. The SDK `sdk.eval` boundary reports configuration
+rejections and safe execution failure codes. Neither timeout values nor judge,
+suite, case, input, criteria or output identities are usage dimensions.
+
+The built-in worker emits `studio.eval.execution` only **after** `store.finish`
+persists a result. A claimed case/repetition uses `attempt`; a legacy suite run
+uses `execution`. Cancellation, technical failure, quality failure, ungraded and
+success are separate. Lease loss, process shutdown and a failed persistence write
+do not imply completion. Retries/reclaims may execute again; no global deduplication
+or evaluation-level completion funnel is promised.
+
+A custom `EvalJobStore` keeps instrumentation ownership by default. Embedders may
+supply `EvalWorkerOptions.usage` to opt in, or `false` to disable worker emission.
+Choose one owner: either the existing store wrapper or this injected helper.
+Use the same replacement catalog in its helper. Existing custom store adapters do
+not acquire a second public emitter when upgraded. The dispatcher also accepts
+`usage` / `false`; the worker forwards the chosen client or disables dispatch
+collection for a custom store. Retry observations use `origin=server` and are
+separate from terminal results. Standalone dispatcher defaults use component
+`eval_dispatch`, correcting the formerly invalid component spelling.
+
+Studio emits a `studio.diagnostic` feature on deliberate error-detail inspection,
+and separately records background diagnostic reads and their failures. Shared table controls emit bounded
+`studio.table.layout` interaction actions, including resize initiation, without
+column names, sizes or saved layout content. Neither
+path sends the displayed error content. Customer-authenticated diagnostic storage
+continues to serve original errors independently.
 
 ## Proposal: replace direct capture with a Kortyx collector
 

@@ -28,6 +28,7 @@ import { register as registerTsx } from "tsx/cjs/api";
 import { register as registerTsxEsm } from "tsx/esm/api";
 import ts from "typescript";
 import { ZodError } from "zod";
+import { runCliWithUsage } from "./command-usage";
 import { createConnectionsCommand } from "./connections-command";
 import { createLocalEvalsCommand } from "./evals/command";
 import { loadEvalEnvironment } from "./evals/environment";
@@ -651,7 +652,7 @@ const main = async (): Promise<void> => {
     return;
   }
   try {
-    await program.parseAsync(process.argv);
+    await runCliWithUsage(program, process.argv.slice(2));
   } catch (error) {
     if (error instanceof CommanderError && error.exitCode === 0) return;
     if (error instanceof PromptError || error instanceof ZodError) {
