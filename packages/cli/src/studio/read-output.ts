@@ -1,4 +1,7 @@
-import type { StudioDetailEvent } from "@kortyx/telemetry-contracts";
+import {
+  DiagnosticContentSchema,
+  type StudioDetailEvent,
+} from "@kortyx/telemetry-contracts";
 import { StudioReadError } from "./read-client";
 
 export type StudioEntity = "runs" | "sessions" | "interrupts";
@@ -117,6 +120,13 @@ export const sanitizeStudioData = (
     "scopes" in value &&
     "mode" in value;
   if (secretKey.test(normalized) && !keyPolicy) return "[REDACTED]";
+  // Original, schema-validated exception evidence is visible by default. Ordinary
+  // conversation content keeps its independent opt-in; credential filtering still applies.
+  if (
+    normalized === "exception" &&
+    DiagnosticContentSchema.safeParse(value).success
+  )
+    includeContent = true;
   if (!includeContent && contentKey.test(normalized))
     return "[CONTENT OMITTED: use --include-content]";
   if (typeof value === "string")

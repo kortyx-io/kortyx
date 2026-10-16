@@ -12,6 +12,7 @@ import {
   isFailureDescriptor,
   serializeFailure,
 } from "@kortyx/core/errors";
+import { observeEvalError } from "@kortyx/core/eval-attribution";
 import {
   safeStartSpan,
   safeTelemetryMetadata,
@@ -381,7 +382,9 @@ export async function orchestrateGraphStream({
   const errorChunk = (
     error: unknown,
     existingDiagnosticId?: unknown,
+    original = true,
   ): StreamChunk => {
+    if (original) observeEvalError(error);
     const failure = serializeFailure(error);
     let diagnosticId = existingDiagnosticId;
     if (!diagnosticId) {
@@ -878,6 +881,7 @@ export async function orchestrateGraphStream({
         errorChunk(
           outcomeError,
           (payload as { diagnosticId?: unknown })?.diagnosticId,
+          false,
         ),
       );
       write({ type: "done" });

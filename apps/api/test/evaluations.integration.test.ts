@@ -445,4 +445,67 @@ describe.skipIf(!url)("grouped evaluations on disposable PostgreSQL", () => {
       ),
     ).toEqual([["answer"], ["answer"]]);
   });
+  it("shares sparse project defaults, resolves run overrides and freezes queued settings", async () => {
+    const postDefaults = (defaults: unknown) =>
+      api.request("/v1/studio/evals/settings", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(defaults),
+      });
+    try {
+      expect(
+        (
+          await postDefaults({
+            repetitions: 2,
+            concurrency: 2,
+            caseTimeoutMs: 90_000,
+            runTimeoutMs: 3_600_000,
+            judge: "app",
+          })
+        ).status,
+      ).toBe(200);
+      const settings = await (
+        await api.request("/v1/studio/evals/settings")
+      ).json();
+      expect(
+        z
+          .object({ defaults: z.object({ repetitions: z.number() }) })
+          .parse(settings).defaults.repetitions,
+      ).toBe(2);
+      const input = request({
+        judge: undefined,
+        concurrency: 3,
+        idempotencyKey: `frozen-${target.id}`,
+      });
+      const response = await start(input);
+      expect(response.status).toBe(202);
+      const { id } = z.object({ id: z.uuid() }).parse(await response.json());
+      const saved = await getEvaluation(client.db, scope, id, true);
+      expect(saved.resolvedSettings?.values).toMatchObject({
+        repetitions: 2,
+        concurrency: 3,
+        caseTimeoutMs: 90_000,
+        runTimeoutMs: 3_600_000,
+        judge: "app",
+      });
+      expect(saved.resolvedSettings?.sources).toMatchObject({
+        repetitions: "studio",
+        concurrency: "run",
+        runTimeoutMs: "studio",
+      });
+      const child = saved.suites[0];
+      expect(
+        child && "request" in child ? child.request.caseTimeoutMs : undefined,
+      ).toBe(90_000);
+      expect((await postDefaults({ repetitions: 1 })).status).toBe(200);
+      expect((await start(input)).status).toBe(200);
+      expect(
+        (await getEvaluation(client.db, scope, id)).resolvedSettings?.values
+          .repetitions,
+      ).toBe(2);
+      expect((await postDefaults({ runTimeoutMs: 0 })).status).toBe(400);
+    } finally {
+      await postDefaults({});
+    }
+  });
 });

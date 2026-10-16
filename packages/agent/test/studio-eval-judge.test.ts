@@ -102,7 +102,10 @@ it.each([
       if (init?.method !== "POST") return Response.json(identity);
       if (failure === "unavailable")
         return Response.json(
-          { error: "PRIVATE_PROVIDER_ERROR" },
+          {
+            error:
+              "Provider quota exceeded. Authorization: Bearer PRIVATE_PROVIDER_KEY",
+          },
           { status: 502 },
         );
       if (failure === "changed")
@@ -125,8 +128,10 @@ it.each([
   expect(result.status).toBe("error");
   expect(result.cases[0]?.errors[0]?.phase).toBe("grading");
   expect(result.cases[0]?.steps[0]?.criteria).toEqual([]);
+  if (failure === "unavailable")
+    expect(JSON.stringify(result)).toContain("Provider quota exceeded.");
   expect(JSON.stringify(result)).not.toMatch(
-    /PRIVATE_PROVIDER_ERROR|PRIVATE_STUDIO_KEY/,
+    /PRIVATE_PROVIDER_KEY|PRIVATE_STUDIO_KEY/,
   );
 });
 
@@ -284,7 +289,11 @@ it.each([
     vi.fn(async () => response),
   );
   await expect(createStudioEvalJudge(options)).rejects.toThrow(
-    failure === "oversized" ? "too large" : "unavailable",
+    failure === "oversized"
+      ? "too large"
+      : failure === "missing"
+        ? "no response body"
+        : "locked",
   );
   if (failure === "oversized") expect(cancelled).toBe(true);
   lock?.releaseLock();

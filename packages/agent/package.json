@@ -58,7 +58,8 @@
     "@langchain/langgraph": "catalog:",
     "zod": "catalog:",
     "@kortyx/prompts": "workspace:*",
-    "@kortyx/usage-telemetry": "workspace:*"
+    "@kortyx/usage-telemetry": "workspace:*",
+    "@kortyx/telemetry-contracts": "workspace:*"
   },
   "devDependencies": {
     "@kortyx/hooks": "workspace:*",

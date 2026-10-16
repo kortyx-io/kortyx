@@ -43,6 +43,8 @@ const detailUiParamKeys = [
   "tab",
   "trace",
   "event",
+  "error",
+  "runDetails",
   "detailView",
   "call",
   "branch",

@@ -128,11 +128,14 @@ export type EvalPhase =
   | "cleanup"
   | "reporting";
 export type EvalIssue = {
+  /** Original exception, including stack, causes and response details; only credentials are redacted. */
+  exception?: import("@kortyx/telemetry-contracts").DiagnosticContent;
   phase: EvalPhase;
   code: string;
   message: string;
   failure?: SerializedFailureDescriptor;
   diagnosticId?: string;
+  details?: { timeoutMs?: number; httpStatus?: number };
 };
 export type EvalVerdict = {
   passed: boolean;
@@ -292,6 +295,8 @@ export type CreateEvalsOptions<
   judge?: EvalJudge;
   evidenceFilters?: EvalEvidenceFilters;
   defaults?: EvalDefaults;
+  /** Application-enforced ceilings for local and remote runs. */
+  limits?: { concurrency?: number; caseTimeoutMs?: number };
 };
 export type EvalProgress =
   | {
@@ -339,6 +344,7 @@ export type EvalProgress =
     }
   | { type: "case-completed"; result: EvalCaseResult };
 export type EvalRunOptions = {
+  caseTimeoutMs?: number;
   promptSnapshot?: import("@kortyx/prompts").PromptSnapshot;
   /** Studio captures execution without invoking the code judge. Local runs default to app. */
   grading?: "app" | "studio";

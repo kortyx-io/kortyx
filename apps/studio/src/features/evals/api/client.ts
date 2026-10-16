@@ -5,16 +5,25 @@ export async function evalRequest(
   body?: unknown,
   signal?: AbortSignal,
 ) {
-  const action = path.endsWith("/cancel")
-    ? "cancel"
-    : body === undefined
-      ? "view"
-      : "launch";
-  const scope = studioOperation("studio.eval", {
-    action,
-    origin: body === undefined ? "background" : "foreground",
-  });
-  if (body !== undefined) studioFeature("studio.eval", { action });
+  const action =
+    path === "settings" && body !== undefined
+      ? "save"
+      : path.endsWith("/cancel")
+        ? "cancel"
+        : body === undefined
+          ? "view"
+          : "launch";
+  const scope = studioOperation(
+    path === "settings" ? "studio.settings" : "studio.eval",
+    {
+      action,
+      origin: body === undefined ? "background" : "foreground",
+    },
+  );
+  if (body !== undefined)
+    studioFeature(path === "settings" ? "studio.settings" : "studio.eval", {
+      action,
+    });
   try {
     const response = await studioFetch(`/api/studio/evals/${path}`, {
       ...(body === undefined

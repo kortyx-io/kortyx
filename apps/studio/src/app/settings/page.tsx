@@ -24,6 +24,7 @@ import {
 import { StudioUpdates } from "@/components/studio-updates";
 import { ThemePreferenceControl } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
+import { EvalDefaultsSettings } from "@/features/evals/components/eval-defaults-settings";
 import { scopedRedirect } from "@/lib/scoped-redirect";
 import { getStudioShellContext } from "@/lib/studio-context";
 import type {
@@ -163,6 +164,7 @@ export default async function SettingsPage({
   const settings = await studioSettings.resolve(context);
   const available = [
     ...(settings.privacy !== false ? ["privacy"] : []),
+    "evaluations",
     "appearance",
     "about",
     ...(settings.categories?.map((c) => c.id) ?? []),
@@ -231,6 +233,13 @@ export default async function SettingsPage({
             {settings.sections}
           </SettingsPanel>
         )}
+        {!settings.categories?.some(
+          (category) => category.id === "evaluations",
+        ) && (
+          <SettingsPanel id="evaluations" label="Evaluations" group="Project">
+            <EvalDefaultsSettings />
+          </SettingsPanel>
+        )}
         {settings.categories?.map((category) => (
           <SettingsPanel
             key={category.id}
@@ -239,7 +248,14 @@ export default async function SettingsPage({
             group={category.group ?? "Project"}
             availability={category.availability}
           >
-            {category.content}
+            {category.id === "evaluations" ? (
+              <div className="space-y-12">
+                <EvalDefaultsSettings />
+                <div className="border-t pt-8">{category.content}</div>
+              </div>
+            ) : (
+              category.content
+            )}
           </SettingsPanel>
         ))}
         {settings.privacy !== false && (

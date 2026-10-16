@@ -559,10 +559,24 @@ test.describe("Prompt detail drawers", () => {
     await row.hover();
     const cells = row.getByRole("cell");
     await expect(cells.last()).not.toHaveCSS("position", "sticky");
-    await expect(cells.last()).toHaveCSS(
-      "background-color",
-      await cells.nth(1).evaluate((el) => getComputedStyle(el).backgroundColor),
-    );
+    // Compare settled colors together: sampling one cell during the hover
+    // transition creates a stale intermediate expected color in production.
+    await expect
+      .poll(() =>
+        row.evaluate((el) => {
+          const cells = el.querySelectorAll("td");
+          const sameColor =
+            getComputedStyle(cells[1]!).backgroundColor ===
+            getComputedStyle(cells[cells.length - 1]!).backgroundColor;
+          return {
+            sameColor,
+            animating: el
+              .getAnimations({ subtree: true })
+              .some((animation) => animation.playState === "running"),
+          };
+        }),
+      )
+      .toEqual({ sameColor: true, animating: false });
     await menu("Rename prompt");
     let dialog = page.getByRole("dialog", {
       name: "Rename prompt",

@@ -187,3 +187,19 @@ deployment. Inspect results in Studio or with `runs get`. Ensure the CI runner c
 reach the Studio API, and the Studio API can reach the deployed consumer endpoint.
 Use a key scoped to the intended project with `studio:read` and `eval:run`.
 Each invocation creates a new run; your deployment workflow owns trigger frequency.
+
+## Optional launch overrides
+
+`kortyx studio evals runs start` accepts `--case-timeout-ms` and
+`--run-timeout-ms`, independently of `--timeout` (the CLI wait budget).
+Omitted repetitions, concurrency, judge and deadline flags resolve on the server
+using project/SDK defaults. For example:
+
+```sh
+kortyx studio evals runs start --all --connection staging --target catalog \
+  --run-timeout-ms 5400000 --case-timeout-ms 180000 --wait --timeout 5500 --json
+```
+
+A wait timeout does not cancel the server evaluation. `runs get --json` includes
+structured termination, frozen effective settings and original error issues by
+default; `--include-content` additionally includes full conversations/events.

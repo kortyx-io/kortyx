@@ -111,3 +111,14 @@ observation and explicit cancellation. Use `createPostgresEvalExecutionStore` fr
 The default memory store only survives within its process. See
 [execution resilience](../../docs/evals/execution-resilience.md) for configuration,
 retention, legacy compatibility and upgrade order.
+
+### Evaluation settings and errors
+
+`createEvals` supports `defaults: { repetitions, concurrency, caseTimeoutMs }`,
+`limits: { concurrency, caseTimeoutMs }`, and per-run `caseTimeoutMs` overrides.
+Studio resolves run overrides above project defaults, SDK defaults and built-ins;
+its whole-evaluation timeout is independent of the case budget (30 minutes by
+default). Eval failures retain original messages, stacks, causes and response
+properties with credential redaction automatically. See the repository guides
+[SDK evals](../../docs/evals/sdk-runner.md) and
+[Studio settings and migration](../../docs/evals/studio-execution.md).

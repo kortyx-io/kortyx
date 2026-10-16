@@ -176,6 +176,10 @@ export const organizationInvitations = pgTable(
 export const projects = pgTable(
   "projects",
   {
+    evalDefaults: jsonb("eval_defaults")
+      .$type<import("@kortyx/agent/evals").EvalSettings>()
+      .notNull()
+      .default({}),
     id: uuid("id").primaryKey().defaultRandom(),
     organizationId: uuid("organization_id").notNull(),
     name: text("name").notNull(),
@@ -830,7 +834,11 @@ export const evaluationRuns = pgTable(
     targetName: text("target_name").notNull(),
     name: text("name").notNull(),
     request: jsonb("request")
-      .$type<import("@kortyx/agent/evals").StudioEvaluationStartRequest>()
+      .$type<
+        import("@kortyx/agent/evals").StudioEvaluationStartRequest & {
+          resolvedSettings?: import("@kortyx/agent/evals").ResolvedEvalSettings;
+        }
+      >()
       .notNull(),
     requestHash: text("request_hash").notNull(),
     idempotencyKey: text("idempotency_key"),
@@ -865,6 +873,11 @@ export const evaluationRuns = pgTable(
 export const evalRuns = pgTable(
   "eval_runs",
   {
+    issue: jsonb("issue").$type<import("@kortyx/agent/evals").EvalIssue>(),
+    termination:
+      jsonb("termination").$type<
+        import("@kortyx/agent/evals").EvalTermination
+      >(),
     evaluationId: uuid("evaluation_id"),
     id: uuid("id").primaryKey().defaultRandom(),
     organizationId: uuid("organization_id").notNull(),

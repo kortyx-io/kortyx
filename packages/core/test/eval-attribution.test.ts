@@ -27,3 +27,27 @@ it("isolates nested and concurrent attempt scopes and restores context after fai
   );
   expect(getEvalAttemptId()).toBeUndefined();
 });
+
+it("captures original eval errors in scope and isolates observer failures", async () => {
+  const { observeEvalError } = await import("../src/eval-attribution");
+  const error = new Error("original");
+  observeEvalError(error);
+  const onError = vi.fn();
+  withEvalAttribution(
+    { attemptId: "error", onExecution: vi.fn(), onError },
+    () => observeEvalError(error),
+  );
+  expect(onError).toHaveBeenCalledWith(error);
+  expect(() =>
+    withEvalAttribution(
+      {
+        attemptId: "broken",
+        onExecution: vi.fn(),
+        onError: () => {
+          throw new Error("exporter");
+        },
+      },
+      () => observeEvalError(error),
+    ),
+  ).not.toThrow();
+});

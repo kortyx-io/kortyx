@@ -585,7 +585,9 @@ describe("eval execution ownership and failure reporting", () => {
       judge: success,
       references: {
         truth: () => {
-          throw new Error("PRIVATE_TOKEN");
+          throw new Error(
+            "Fixture connection failed. Authorization: Bearer PRIVATE_TOKEN",
+          );
         },
       },
       execute: () => ({ observation }),
@@ -680,25 +682,37 @@ describe("eval execution ownership and failure reporting", () => {
     "execute",
     "grading",
     "cleanup",
-  ] as const)("reports %s errors separately without copying private exception messages", async (phase) => {
+  ] as const)("reports %s errors separately with original error messages and credential redaction", async (phase) => {
     const teardown = vi.fn(() => {
-      if (phase === "cleanup") throw new Error("PRIVATE_TOKEN");
+      if (phase === "cleanup")
+        throw new Error(
+          "Fixture connection failed. Authorization: Bearer PRIVATE_TOKEN",
+        );
     });
     const result = await createEvals({
       agent: unusedAgent,
       suites: [answerSuite],
       setup: () => {
-        if (phase === "setup") throw new Error("PRIVATE_TOKEN");
+        if (phase === "setup")
+          throw new Error(
+            "Fixture connection failed. Authorization: Bearer PRIVATE_TOKEN",
+          );
         return { token: "PRIVATE_TOKEN" };
       },
       execute: () => {
-        if (phase === "execute") throw new Error("PRIVATE_TOKEN");
+        if (phase === "execute")
+          throw new Error(
+            "Fixture connection failed. Authorization: Bearer PRIVATE_TOKEN",
+          );
         return { observation };
       },
       judge: {
         ...success,
         grade: () => {
-          if (phase === "grading") throw new Error("PRIVATE_TOKEN");
+          if (phase === "grading")
+            throw new Error(
+              "Fixture connection failed. Authorization: Bearer PRIVATE_TOKEN",
+            );
           return success.grade({} as never);
         },
       },
@@ -772,7 +786,9 @@ describe("eval execution ownership and failure reporting", () => {
       onProgress: (event) => {
         if (event.type === "step-completed") {
           event.step.status = "failed";
-          throw new Error("PRIVATE_TOKEN");
+          throw new Error(
+            "Fixture connection failed. Authorization: Bearer PRIVATE_TOKEN",
+          );
         }
       },
     });

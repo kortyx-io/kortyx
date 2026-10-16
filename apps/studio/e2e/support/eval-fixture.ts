@@ -133,7 +133,7 @@ export async function seedEvalFixture() {
           }),
         ),
       });
-      await sql`insert into eval_runs (id,organization_id,project_id,environment,target_id,target_name,suite_id,suite_revision,suite,request,status,result,requested_by,created_at,started_at,ended_at) values (${id},${scope.organization_id},${scope.project_id},${scope.environment},'e2e-ktx25-eval','E2E eval application',${suite.id},${suiteRevision},${sql.json(suite)},${sql.json({ repetitions, caseIds: cases.map((item) => item.id) })},${runStatus},${sql.json(result)},'e2e',${createdAt},${createdAt},${createdAt})`;
+      await sql`insert into eval_runs (id,organization_id,project_id,environment,target_id,target_name,suite_id,suite_revision,suite,request,status,result,requested_by,created_at,started_at,ended_at) values (${id},${scope.organization_id},${scope.project_id},${scope.environment},'e2e-ktx25-eval','E2E eval application',${suite.id},${suiteRevision},${sql.json(suite)},${sql.json({ repetitions, caseIds: cases.map((item) => item.id) })},${runStatus},${sql.json(JSON.parse(JSON.stringify(result)))},'e2e',${createdAt},${createdAt},${createdAt})`;
     }
   } finally {
     await sql.end();

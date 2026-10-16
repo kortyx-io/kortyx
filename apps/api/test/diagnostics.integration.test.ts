@@ -16,6 +16,7 @@ import {
 } from "@kortyx/telemetry-db/schema";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createApiApp } from "../src/app";
+import { recordErrorDiagnostic } from "../src/record-error-diagnostic";
 
 const databaseUrl = process.env.DATABASE_URL;
 describe.skipIf(!databaseUrl)(
@@ -129,6 +130,51 @@ describe.skipIf(!databaseUrl)(
       }));
       return { manifest, parts, content };
     };
+    it("retrieves API evaluation faults through the same scoped diagnostic endpoint as workflow errors", async () => {
+      const correlation = {
+        evaluationId: randomUUID(),
+        suiteRunId: randomUUID(),
+        caseId: "case-1",
+        repetition: "2",
+        phase: "grading",
+      };
+      const id = await recordErrorDiagnostic(
+        client.db,
+        { ...first, environment: "test" },
+        Object.assign(new Error("Provider returned HTTP 429"), {
+          responseBody: {
+            reason: "Rate limit exceeded",
+            apiKey: "private-credential",
+          },
+        }),
+        { correlation },
+      );
+      expect(id).toBeTruthy();
+      const result = DiagnosticResponseSchema.parse(
+        await (await get(id!)).json(),
+      );
+      expect(result).toMatchObject({
+        state: "available",
+        manifest: {
+          correlation,
+          severity: "error",
+          summary: { message: "Provider returned HTTP 429" },
+        },
+        content: {
+          data: {
+            message: "Provider returned HTTP 429",
+            responseBody: {
+              reason: "Rate limit exceeded",
+              apiKey: "[REDACTED]",
+            },
+          },
+        },
+      });
+      expect(result.manifest.occurrenceId).not.toBe(
+        result.manifest.diagnosticId,
+      );
+      expect((await get(id!, "other")).status).toBe(404);
+    });
     it("reconstructs reordered and duplicate parts, audits retrieval, and isolates tenant and environment", async () => {
       const { manifest, parts, content } = fixture();
       const id = manifest.diagnosticId;

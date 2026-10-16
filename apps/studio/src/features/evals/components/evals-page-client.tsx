@@ -291,7 +291,9 @@ export function EvalsPageClient({
       label: "Status",
       sortKey: "status",
       defaultWidth: 135,
-      render: (r) => <EvalStatus status={r.status} />,
+      render: (r) => (
+        <EvalStatus status={r.status} termination={r.termination} />
+      ),
     },
     {
       key: "results",
@@ -483,7 +485,10 @@ export function EvalsPageClient({
       defaultWidth: 150,
       render: (r) =>
         r.latest ? (
-          <EvalStatus status={r.latest.status} />
+          <EvalStatus
+            status={r.latest.status}
+            termination={r.latest.termination}
+          />
         ) : (
           <span className="text-xs text-muted-foreground">Never run</span>
         ),

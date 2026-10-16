@@ -26,6 +26,7 @@ export { EvalEvidencePolicySchema } from "./evidence-policy";
 export { createEvalJudge } from "./judge";
 export { getEvalSuiteRevision } from "./revision";
 export { createEvalRouteHandler, type EvalRunner } from "./route-handler";
+export * from "./settings";
 export { createStudioEvalJudge } from "./studio-judge";
 export type {
   CreateEvalsOptions,

@@ -59,6 +59,8 @@ function child(
     status,
     result: null,
     error: null,
+    issue: null,
+    termination: null,
     leaseOwner: null,
     leaseExpiresAt: null,
     startedAt: status === "queued" ? null : now,
@@ -112,6 +114,53 @@ describe("evaluation aggregation", () => {
     expect(run.status).toBe("error");
     expect(run.completedSuites).toBe(2);
     expect(run.endedAt).toBe(now.toISOString());
+  });
+  it("surfaces run-level and historical executor errors before opening an individual suite", () => {
+    const legacy = {
+      ...child("legacy", "error"),
+      error: "Consumer connection closed before the result",
+    };
+    const reporter = {
+      ...child("reporter", "error"),
+      result: {
+        id: "result",
+        suiteId: "reporter",
+        suiteRevision: "revision",
+        suite: legacy.suite,
+        startedAt: now.toISOString(),
+        durationMs: 1,
+        status: "error" as const,
+        counts: { passed: 0, failed: 0, error: 0, cancelled: 0 },
+        cases: [],
+        errors: [
+          {
+            phase: "reporting" as const,
+            code: "REPORT_FAILED",
+            message: "Progress storage is unavailable",
+          },
+        ],
+      },
+    };
+    const summary = summarizeEvaluation(
+      parent,
+      [legacy, reporter],
+      new Map(),
+      new Map(),
+    );
+    expect(summary.failures).toEqual([
+      {
+        suiteRunId: "legacy",
+        phase: "execute",
+        code: "EVAL_EXECUTION_UNKNOWN",
+        message: legacy.error,
+      },
+      {
+        suiteRunId: "reporter",
+        phase: "reporting",
+        code: "REPORT_FAILED",
+        message: "Progress storage is unavailable",
+      },
+    ]);
   });
   it("hashes equivalent JSON property order consistently while detecting changed selections", () => {
     expect(

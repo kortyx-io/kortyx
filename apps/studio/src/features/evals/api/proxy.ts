@@ -1,4 +1,5 @@
 import "server-only";
+import { redactDiagnosticText } from "@kortyx/telemetry-contracts";
 import { studioAuth } from "@studio/auth";
 
 export async function proxyEvalRequest(request: Request, parts: string[]) {
@@ -6,7 +7,7 @@ export async function proxyEvalRequest(request: Request, parts: string[]) {
   if (denial) return denial;
   const path = parts.join("/");
   if (
-    !/^(targets|evaluations(?:\/table|\/[a-f0-9-]{36}(?:\/(?:cancel|results))?)?|runs(?:\/[a-f0-9-]{36}(?:\/cancel)?)?)$/.test(
+    !/^(settings|targets|evaluations(?:\/table|\/[a-f0-9-]{36}(?:\/(?:cancel|results))?)?|runs(?:\/[a-f0-9-]{36}(?:\/cancel)?)?)$/.test(
       path,
     )
   )
@@ -70,7 +71,16 @@ export async function proxyEvalRequest(request: Request, parts: string[]) {
           : response.status === 409
             ? "Eval configuration changed. Refresh before running."
             : "Eval request failed. Check the consumer connection.";
-      return Response.json({ error: message }, { status: response.status });
+      const body = await response.json().catch(() => null);
+      return Response.json(
+        {
+          error:
+            typeof body?.error === "string"
+              ? redactDiagnosticText(body.error)
+              : message,
+        },
+        { status: response.status },
+      );
     }
     return Response.json(await response.json(), {
       status: response.status,

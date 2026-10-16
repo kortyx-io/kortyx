@@ -4,6 +4,11 @@ import {
   StudioEvalStartRequestSchema,
 } from "./contracts";
 import {
+  EvalSettingsSchema,
+  EvalTerminationSchema,
+  ResolvedEvalSettingsSchema,
+} from "./settings";
+import {
   EvalCostsSchema,
   StudioEvalDetailSchema,
   StudioEvalRunSummarySchema,
@@ -50,9 +55,8 @@ export const StudioEvaluationStartRequestSchema = z
       )
       .min(1)
       .max(100),
-    judge: z.enum(["studio", "app"]).default("studio"),
-    repetitions: z.number().int().min(1).max(20).default(1),
-    concurrency: z.number().int().min(1).max(20).default(1),
+    ...EvalSettingsSchema.shape,
+
     metadata: EvaluationMetadataSchema.default({ source: "manual" }),
     idempotencyKey: z.string().trim().min(1).max(200).optional(),
   })
@@ -61,6 +65,29 @@ export type StudioEvaluationStartRequest = z.input<
   typeof StudioEvaluationStartRequestSchema
 >;
 export const StudioEvaluationSummarySchema = z.object({
+  termination: EvalTerminationSchema.nullable().optional(),
+  resolvedSettings: ResolvedEvalSettingsSchema.optional(),
+  interruptedSuites: z.number().int().nonnegative().optional(),
+  failures: z
+    .array(
+      z.object({
+        suiteRunId: z.uuid(),
+        caseId: z.string().optional(),
+        repetition: z.number().int().positive().optional(),
+        phase: z.string(),
+        code: z.string(),
+        message: z.string(),
+        diagnosticId: z.string().uuid().optional(),
+      }),
+    )
+    .optional(),
+  pendingAttempts: z
+    .object({
+      notStarted: z.number().int().nonnegative(),
+      executing: z.number().int().nonnegative(),
+      awaitingGrading: z.number().int().nonnegative(),
+    })
+    .optional(),
   id: z.uuid(),
   name: z.string(),
   targetId: z.string(),

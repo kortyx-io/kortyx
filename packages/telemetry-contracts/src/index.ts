@@ -963,6 +963,7 @@ export type StudioCatalogsResponse = z.infer<
 >;
 export type StudioContextResponse = z.infer<typeof StudioContextResponseSchema>;
 
+export { captureDiagnosticContent } from "./diagnostic-capture";
 export * from "./prompts";
 export * from "./studio-updates";
 export * from "./table-filters";

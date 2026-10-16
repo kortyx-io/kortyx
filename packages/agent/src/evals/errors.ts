@@ -4,6 +4,10 @@ import {
   isFailureDescriptor,
   serializeFailure,
 } from "@kortyx/core/errors";
+import {
+  captureDiagnosticContent,
+  redactDiagnosticText,
+} from "@kortyx/telemetry-contracts";
 import { z } from "zod";
 import type { Agent } from "../chat/create-agent";
 import type { EvalIssue, EvalPhase } from "./types";
@@ -21,7 +25,7 @@ const messages: Record<EvalPhase, string> = {
   reporting: "Progress reporting failed.",
 };
 
-/** Public eval evidence contains bounded safe descriptors and opaque references only. */
+/** Authenticated eval evidence retains original exceptions with credential-only redaction. */
 export function createEvalIssue(
   phase: EvalPhase,
   error: unknown,
@@ -38,6 +42,14 @@ export function createEvalIssue(
     (isFailureDescriptor(error) ||
       isFailureDescriptor(errorProperty(error, "failure")));
   const failure = serializeFailure(control ? undefined : error);
+  const exception =
+    !control && error !== undefined ? captureDiagnosticContent(error) : null;
+  const rawMessage =
+    typeof error === "string" ? error : errorProperty(error, "message");
+  const originalMessage =
+    typeof rawMessage === "string"
+      ? redactDiagnosticText(rawMessage)
+      : undefined;
   let diagnosticId: unknown =
     options.diagnosticId ?? errorProperty(error, "diagnosticId");
   if (!control && !diagnosticId && options.reportError) {
@@ -47,10 +59,25 @@ export function createEvalIssue(
       // Optional observability must preserve the eval outcome.
     }
   }
+  const candidate =
+    errorProperty(error, "statusCode") ?? errorProperty(error, "status");
+  const httpStatus =
+    typeof candidate === "number" &&
+    Number.isInteger(candidate) &&
+    candidate >= 100 &&
+    candidate <= 599
+      ? candidate
+      : undefined;
   return {
+    ...(exception ? { exception } : {}),
+    ...(httpStatus ? { details: { httpStatus } } : {}),
     phase,
     code: declared ? failure.code : (options.code ?? "EVAL_HOOK_FAILED"),
-    message: declared ? failure.message : messages[phase],
+    message:
+      originalMessage ??
+      (declared
+        ? failure.message
+        : `${messages[phase]}${httpStatus ? ` HTTP ${httpStatus}.` : ""}`),
     failure,
     ...(typeof diagnosticId === "string" &&
     z.uuid().safeParse(diagnosticId).success

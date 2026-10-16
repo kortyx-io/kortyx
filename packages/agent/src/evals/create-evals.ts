@@ -175,12 +175,38 @@ export function createEvals<
       correlation,
       ...(code ? { code } : {}),
     });
+  for (const key of ["concurrency", "caseTimeoutMs"] as const) {
+    const max = options.limits?.[key];
+    if (max !== undefined && defaults[key] > positive(max, `limits.${key}`))
+      throw new EvalConfigurationError(
+        `${key} default exceeds its application limit.`,
+      );
+  }
   return {
     listSuites(): EvalSuite[] {
       return clone(suites);
     },
     describe() {
       return {
+        execution: {
+          defaults: {
+            ...(options.defaults?.repetitions !== undefined
+              ? { repetitions: options.defaults.repetitions }
+              : {}),
+            ...(options.defaults?.concurrency !== undefined
+              ? { concurrency: options.defaults.concurrency }
+              : {}),
+            ...(options.defaults?.caseTimeoutMs !== undefined
+              ? { caseTimeoutMs: options.defaults.caseTimeoutMs }
+              : {}),
+          },
+          limits: options.limits ?? {},
+          overrides: ["repetitions", "concurrency", "caseTimeoutMs"] as (
+            | "repetitions"
+            | "concurrency"
+            | "caseTimeoutMs"
+          )[],
+        },
         schemaVersion: 1 as const,
         studioJudging: true as const,
         ...(options.agent.describePromptContracts
@@ -241,6 +267,24 @@ export function createEvals<
         args.concurrency ?? defaults.concurrency,
         "concurrency",
       );
+      const caseTimeoutMs = positive(
+        args.caseTimeoutMs ?? defaults.caseTimeoutMs,
+        "caseTimeoutMs",
+      );
+      if (caseTimeoutMs > 2_147_483_647)
+        throw new EvalConfigurationError(
+          "caseTimeoutMs exceeds the supported timer range.",
+        );
+      for (const [key, value] of [
+        ["concurrency", concurrency],
+        ["caseTimeoutMs", caseTimeoutMs],
+      ] as const) {
+        const max = options.limits?.[key];
+        if (max !== undefined && value > max)
+          throw new EvalConfigurationError(
+            `${key} exceeds the application maximum of ${max}.`,
+          );
+      }
       const selected = suite.cases.filter(
         (item) => !args.caseIds || args.caseIds.includes(item.id),
       );
@@ -309,7 +353,7 @@ export function createEvals<
         if (!args.onProgress || !reporting) return;
         try {
           await withEvalAttribution(undefined, () =>
-            args.onProgress!(clone(event)),
+            args.onProgress?.(clone(event)),
           );
         } catch (error) {
           reporting = false;
@@ -335,6 +379,7 @@ export function createEvals<
         const signal = args.signal
           ? AbortSignal.any([args.signal, controller.signal])
           : controller.signal;
+        let originalExecutionError: unknown;
         const attemptId = randomUUID();
         const runtimeExecutions: EvalRuntimeExecution[] = [];
         const attemptResult: EvalCaseResult = {
@@ -463,7 +508,7 @@ export function createEvals<
               : (undefined as Prepared);
             context = { ...base, prepared };
             signal.throwIfAborted();
-            deadline(defaults.caseTimeoutMs);
+            deadline(caseTimeoutMs);
             for (const [index, step] of item.steps.entries()) {
               stepIndex = index;
               activeStep = undefined;
@@ -510,6 +555,7 @@ export function createEvals<
               }
               signal.throwIfAborted();
               await reportPhase("execute");
+              originalExecutionError = undefined;
               const { observation } = await call(context, command, signal);
               const input =
                 command.type === "message"
@@ -527,11 +573,17 @@ export function createEvals<
               activeStep = evaluated;
               signal.throwIfAborted();
               if (observation.type === "error") {
-                const issue = createEvalIssue("execute", observation.failure, {
-                  ...(observation.diagnosticId
-                    ? { diagnosticId: observation.diagnosticId }
-                    : {}),
-                });
+                const issue = createEvalIssue(
+                  "execute",
+                  originalExecutionError ??
+                    observation.failure ??
+                    observation.text,
+                  {
+                    ...(observation.diagnosticId
+                      ? { diagnosticId: observation.diagnosticId }
+                      : {}),
+                  },
+                );
                 attemptResult.errors.push(issue);
                 attemptResult.status = evaluated.status = "error";
                 evaluated.reason = issue.message;
@@ -581,7 +633,7 @@ export function createEvals<
                     await reportPhase("reference");
                     evaluated.reference = handlerRef(reference)
                       ? z.json().parse(
-                          await references[reference.using]!({
+                          await references[reference.using]?.({
                             ...context,
                             observation: clone(observation),
                             ...(reference.params !== undefined
@@ -685,6 +737,14 @@ export function createEvals<
               if (timedOut)
                 attemptResult.errors.push({
                   ...phaseIssue(error),
+                  details: {
+                    timeoutMs:
+                      phase === "params" || phase === "setup"
+                        ? defaults.setupTimeoutMs
+                        : phase === "verification"
+                          ? defaults.verificationTimeoutMs
+                          : caseTimeoutMs,
+                  },
                   code:
                     phase === "params" || phase === "setup"
                       ? "EVAL_SETUP_TIMEOUT"
@@ -785,6 +845,9 @@ export function createEvals<
         return withEvalAttribution(
           {
             attemptId,
+            onError: (error) => {
+              originalExecutionError = error;
+            },
             onExecution: (execution) => {
               if (
                 !acceptingExecutions ||

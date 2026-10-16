@@ -21,7 +21,6 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { DetailInspectorDrawer } from "@/components/detail/detail-inspector";
 import { KeyValue, StatusPill } from "@/components/detail/detail-primitives";
 import { PayloadViewer } from "@/components/detail/payload-viewer";
-import Link from "@/components/scoped-link";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { OverflowText } from "@/components/ui/overflow-tooltip";
 import {
@@ -29,6 +28,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { ErrorDialogTrigger } from "@/features/diagnostics/error-notices";
 import {
   buildTimelineScale,
   buildTraceStory,
@@ -585,13 +585,15 @@ function TraceInspector({
         {typeof (error?.diagnosticId ?? event.payload.diagnosticId) ===
           "string" && (
           <KeyValue label="Full diagnostic">
-            <Link
-              prefetch={false}
-              className="text-primary hover:underline"
-              href={`/diagnostics/${encodeURIComponent(String(error?.diagnosticId ?? event.payload.diagnosticId))}?env=${encodeURIComponent(event.environment)}`}
-            >
-              View diagnostic
-            </Link>
+            <ErrorDialogTrigger
+              diagnosticId={String(
+                error?.diagnosticId ?? event.payload.diagnosticId,
+              )}
+              environment={event.environment}
+              message={
+                typeof errorMessage === "string" ? errorMessage : undefined
+              }
+            />
           </KeyValue>
         )}
         {typeof errorType === "string" && (

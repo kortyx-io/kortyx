@@ -1,33 +1,40 @@
-# Migrating eval error handling
+# Migrating eval settings and error evidence
 
-This change extends the eval JSON contract with optional safe `failure` and
-`diagnosticId` fields, case `verification`, and `phaseDurationsMs`. Existing
-results remain readable. No SQL migration or backfill is required: eval records
-already store these JSON payloads. Previously discarded errors cannot be recovered.
+Apply SQL migration `0013_eval_settings` before starting the new Studio API. It
+adds `projects.eval_defaults`, `eval_runs.termination` and `eval_runs.issue`.
+Defaults are sparse JSON; there is no result backfill. Previously discarded
+exceptions and historical timeout reasons cannot be reconstructed.
 
-Deploy the matching API and Studio build **before** upgrading consumer SDKs and
-CLI. Older API validators may reject the new optional fields. Upgrade `kortyx`,
-`@kortyx/agent`, `@kortyx/hooks`, and `@kortyx/cli` together using the release that
-contains this change; it is not present in the previously published versions.
-Rollback the consumer first if reverting API/Studio.
+Deploy API and Studio together before upgrading `kortyx`, `@kortyx/agent`,
+`@kortyx/hooks`, `@kortyx/runtime`, `@kortyx/core`, `@kortyx/telemetry-contracts`
+and `@kortyx/cli` from the same release. Older strict validators may reject new
+optional error/settings fields. Roll back consumer emitters before API/Studio;
+the additive columns may remain. Existing SDKs still run; case-timeout overrides
+require the new advertised capability and are rejected for legacy consumers.
 
-Consumers no longer need to catch a declared-safe `DomainError` merely to retain
-its code/message in eval results. Put only public facts in declared-safe details.
-Unknown exception messages, stacks and provider responses remain private.
-Configure the agent's native telemetry with `diagnostics: { enabled: true }` and
-a writer key authorized for diagnostic ingestion. Use the same project and
-environment as the Studio reader. Eval failures then link to the existing
-protected diagnostic view, where users can inspect or download captured data.
-Credential redaction, existing capture limits, retention and incomplete-delivery
-states still apply. Application code must pass the original exception through;
-metadata discarded before capture cannot be reconstructed. OTel alone does not
-create a native diagnostic archive.
+Original exceptions are now captured inline for eval failures by default,
+including native workflow errors, hook errors and Studio grading/transport errors.
+Studio displays message, type, stack, causes and response properties without an
+opt-in flag or custom reporter. Known credential fields, headers and patterns are
+redacted; ordinary exception content is retained. The existing diagnostic
+serializer bounds capture and reports truncation. This changes authenticated eval
+evidence, not public chat's safe failure descriptors. Keep eval-reader permissions
+scoped to authorized project users.
 
-A custom agent may supply `reportError` on the agent or on `createEvals`. It must
-return the UUID of its native diagnostic synchronously, or `undefined` if no
-reference is available. A thrown exporter error does not change case results.
-Server-owned Studio judging preserves safe failures; it does not gain a private
-archive unless its execution is configured with a diagnostic reporter.
+Native diagnostic references are optional additional evidence, loaded
+automatically under existing project/environment permissions. Reporter/exporter
+failures cannot alter the original result. An old record with only a discarded
+message has no way to recover it; Studio says so. OTel alone does not supply a
+native archive. Exception payloads stay out of maintainer usage telemetry.
+
+Settings resolve per field as run → Studio project → SDK declared → built-in.
+The installation overall default remains 30 minutes; optional
+`KORTYX_EVAL_MAX_RUN_TIMEOUT_MS` is an independent ceiling. Defaults and source
+metadata are frozen at enqueue. Whole-evaluation timeout includes all suites and
+Studio grading, excluding queue time; completed evidence is preserved and
+cancellation/cleanup is signalled to active consumers. Aborts remain cooperative.
+See [Studio execution](./studio-execution.md#evaluation-settings-and-timeout-reporting)
+and [SDK defaults](./sdk-runner.md#execution-defaults-and-application-limits).
 
 Move behavioral postconditions from `teardown` into `verify`. Return
 `{ passed: false, reason, evidence }` for unmet behavior: the case becomes Failed.
@@ -48,6 +55,3 @@ Already completed business tools are not replayed during this correction; a
 provider requesting another business tool receives
 `REASON_OUTPUT_CORRECTION_TOOL_DISALLOWED`. Existing terminal-output correction
 exhaustion is now a validation failure, not a provider request failure.
-
-The future Errors list, grouping and issue management are separate work. This
-change supplies safe failure identity, phase evidence and native diagnostic links.

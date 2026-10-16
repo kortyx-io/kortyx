@@ -289,7 +289,7 @@ describe("detached consumer evaluation jobs", () => {
           references: [],
         }),
         run: async () => {
-          throw new Error("private");
+          throw new Error("Reporting failed. Authorization: Bearer private");
         },
       },
       onExecution: () => {
@@ -322,7 +322,10 @@ describe("execution owner fencing and transport faults", () => {
     });
     const heartbeat = vi.spyOn(store, "heartbeat");
     if (mode === "missing") heartbeat.mockResolvedValue(undefined);
-    if (mode === "rejected") heartbeat.mockRejectedValue(new Error("private"));
+    if (mode === "rejected")
+      heartbeat.mockRejectedValue(
+        new Error("Reporting failed. Authorization: Bearer private"),
+      );
     if (mode === "cancelled")
       heartbeat.mockImplementation(async (id, owner) => {
         await store.cancel(id);
@@ -333,7 +336,7 @@ describe("execution owner fencing and transport faults", () => {
       await new Promise<void>((resolve) =>
         signal?.addEventListener("abort", () => resolve(), { once: true }),
       );
-      throw new Error("private");
+      throw new Error("Reporting failed. Authorization: Bearer private");
     });
     const f = await fixture({
       executionStore: store,
@@ -376,7 +379,7 @@ describe("execution owner fencing and transport faults", () => {
           await new Promise<void>((resolve) =>
             signal?.addEventListener("abort", () => resolve(), { once: true }),
           );
-          throw new Error("private");
+          throw new Error("Reporting failed. Authorization: Bearer private");
         },
       },
     });
@@ -446,7 +449,9 @@ describe("execution owner fencing and transport faults", () => {
     try {
       await (await f.post()).text();
       const original = store.status.bind(store);
-      vi.spyOn(store, "status").mockRejectedValueOnce(new Error("private"));
+      vi.spyOn(store, "status").mockRejectedValueOnce(
+        new Error("Reporting failed. Authorization: Bearer private"),
+      );
       const error = await f.observe();
       expect(error.status).toBe(503);
       expect(await error.text()).not.toContain("private");
@@ -614,7 +619,10 @@ it.each([
   vi.spyOn(store, "claim")
     .mockReturnValueOnce(blocked)
     .mockImplementation(claim);
-  if (fails) vi.spyOn(store, "cancel").mockRejectedValue(new Error("private"));
+  if (fails)
+    vi.spyOn(store, "cancel").mockRejectedValue(
+      new Error("Reporting failed. Authorization: Bearer private"),
+    );
   let accepted!: () => void;
   const admission = new Promise<void>((resolve) => {
     accepted = resolve;

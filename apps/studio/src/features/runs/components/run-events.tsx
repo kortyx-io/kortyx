@@ -19,7 +19,6 @@ import { Fragment, useMemo, useState } from "react";
 import { DetailInspectorDrawer } from "@/components/detail/detail-inspector";
 import { KeyValue, StatusPill } from "@/components/detail/detail-primitives";
 import { PayloadViewer } from "@/components/detail/payload-viewer";
-import Link from "@/components/scoped-link";
 import { OverflowText } from "@/components/ui/overflow-tooltip";
 import {
   Select,
@@ -28,6 +27,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { ErrorDialogTrigger } from "@/features/diagnostics/error-notices";
 import {
   asRecord,
   asString,
@@ -319,13 +319,11 @@ function EventDrawer({
           <dl className="divide-y">
             {diagnosticId && (
               <KeyValue label="Full diagnostic">
-                <Link
-                  prefetch={false}
-                  className="text-primary hover:underline"
-                  href={`/diagnostics/${encodeURIComponent(diagnosticId)}?env=${encodeURIComponent(item.event.environment)}`}
-                >
-                  View diagnostic
-                </Link>
+                <ErrorDialogTrigger
+                  diagnosticId={diagnosticId}
+                  environment={item.event.environment}
+                  message={item.description}
+                />
               </KeyValue>
             )}
             <KeyValue label="Event type">

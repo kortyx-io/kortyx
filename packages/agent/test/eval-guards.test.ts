@@ -273,7 +273,10 @@ describe("custom execution contracts and cleanup", () => {
       execute: ({ command }) => {
         if (command.type !== "cancel")
           return { observation: interrupt, continuation: "PRIVATE" };
-        if (mode === "throws") throw new Error("PRIVATE");
+        if (mode === "throws")
+          throw new Error(
+            "Interrupt cancellation failed. Authorization: Bearer PRIVATE",
+          );
         return mode === "error"
           ? { observation: { ...answer, type: "error" } }
           : { observation: interrupt, continuation: "PRIVATE" };

@@ -167,6 +167,9 @@ importers:
       '@kortyx/agent':
         specifier: workspace:*
         version: link:../../packages/agent
+      '@kortyx/hooks':
+        specifier: workspace:*
+        version: link:../../packages/hooks
       '@kortyx/openai':
         specifier: workspace:*
         version: link:../../providers/openai
@@ -883,6 +886,9 @@ importers:
 
   packages/agent:
     dependencies:
+      '@kortyx/telemetry-contracts':
+        specifier: workspace:*
+        version: link:../telemetry-contracts
       '@kortyx/core':
         specifier: workspace:*
         version: link:../core
@@ -1372,6 +1378,9 @@ importers:
 
   packages/telemetry-contracts:
     dependencies:
+      '@kortyx/core':
+        specifier: workspace:*
+        version: link:../core
       '@kortyx/prompts':
         specifier: workspace:*
         version: link:../prompts

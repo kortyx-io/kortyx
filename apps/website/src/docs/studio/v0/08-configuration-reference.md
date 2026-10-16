@@ -275,3 +275,16 @@ The `@kortyx/aws-cdk` package implements a convenient single-task AWS mapping. U
 - official Terraform or Helm modules.
 
 Continue with [High Availability](./10-high-availability.md) for the complete multi-replica, migration, health, and release contract.
+
+## Evaluation deadlines
+
+| Variable | Studio API behavior |
+| --- | --- |
+| `KORTYX_EVAL_RUN_TIMEOUT_MS` | Installation evaluation deadline in milliseconds; default 1,800,000 (30 minutes). |
+| `KORTYX_EVAL_MAX_RUN_TIMEOUT_MS` | Optional administrator ceiling for installation, project and run deadlines; default timer ceiling 2,147,483,647 ms. |
+
+Deadlines must be positive integers and the default must fit within the ceiling.
+Compose and CLI-managed stacks forward these variables to the API. Restart after
+changing them. Project defaults live under **Settings → Evaluations**, and run
+settings appear before launch. The deadline covers all suites and grading,
+excluding queue wait; case execution has a separate SDK budget.

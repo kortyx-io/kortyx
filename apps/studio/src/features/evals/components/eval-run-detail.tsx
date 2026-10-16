@@ -13,6 +13,7 @@ import { DetailLink } from "@/components/detail/detail-link";
 import { KeyValue } from "@/components/detail/detail-primitives";
 import { DetailTabs } from "@/components/detail/detail-tabs";
 import { Button } from "@/components/ui/button";
+import { ErrorNotices } from "@/features/diagnostics/error-notices";
 import { formatDateTime, formatDurationMs } from "@/lib/format";
 import {
   type CaseRow,
@@ -28,6 +29,7 @@ import { EvalDuration } from "./eval-duration";
 import { EvalFailure } from "./eval-failure";
 import { EvalStatus } from "./eval-status";
 import { EvalSuiteDefinition } from "./eval-suite-definition";
+import { EvalSettingsSummary, evalTerminationNotice } from "./eval-termination";
 
 export function EvalRunDetail({
   run,
@@ -196,8 +198,12 @@ export function EvalRunDetail({
         onBack={onBack}
         actions={
           <>
+            <EvalSettingsSummary
+              settings={run.resolvedSettings}
+              startedAt={run.startedAt}
+            />
             {liveControl}
-            <EvalStatus status={run.status} />
+            <EvalStatus status={run.status} termination={run.termination} />
             <Button
               variant="secondary"
               size="xs"
@@ -221,7 +227,43 @@ export function EvalRunDetail({
           </>
         }
       >
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 rounded-md border bg-muted/20 px-3 py-2">
+        <ErrorNotices
+          environment={run.environment}
+          items={[
+            ...evalTerminationNotice({
+              termination: run.termination,
+              settings: run.resolvedSettings,
+              completed: counts.completed,
+              total: counts.total,
+            }),
+            ...[
+              ...(run.issue && !run.termination ? [run.issue] : []),
+              ...(run.result?.errors ?? []),
+              ...rows.flatMap((row) => row.errors),
+            ]
+              .filter((issue) => issue.code !== "EVAL_RUN_TIMEOUT")
+              .map((issue, index) => ({
+                id: issue.diagnosticId ?? `issue-${index}`,
+                severity: "error" as const,
+                code: issue.code,
+                message: issue.message,
+                diagnosticId: issue.diagnosticId,
+                exception: issue.exception,
+                context: issue.phase,
+              })),
+            ...(!run.issue && !run.termination && run.error
+              ? [
+                  {
+                    id: "legacy-error",
+                    severity: "error" as const,
+                    code: "EVAL_EXECUTION_UNKNOWN",
+                    message: run.error,
+                  },
+                ]
+              : []),
+          ]}
+        />
+        <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1">
           <EvalSummaryMetric
             label="Completed"
             value={`${counts.completed} / ${counts.total}`}
@@ -240,14 +282,7 @@ export function EvalRunDetail({
           </span>
         </div>
         <div className="empty:hidden [&:not(:empty)]:mt-2">
-          {run.error ? (
-            <p
-              role="alert"
-              className="rounded-md border border-red-500/25 bg-red-500/5 p-2 text-xs text-red-700 dark:text-red-400"
-            >
-              {run.error}
-            </p>
-          ) : run.cancelRequestedAt && isActive(run.status) ? (
+          {run.cancelRequestedAt && isActive(run.status) ? (
             <p className="text-xs text-muted-foreground">
               Cancellation requested. Waiting for the application to finish
               cleanup.

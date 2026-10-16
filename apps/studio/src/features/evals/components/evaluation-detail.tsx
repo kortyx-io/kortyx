@@ -17,6 +17,10 @@ import { columnFilter } from "@/components/data-table/filter-fields";
 import { valueColumn } from "@/components/data-table/value-column";
 import { DetailPage } from "@/components/detail/detail-page";
 import { Button } from "@/components/ui/button";
+import {
+  type ErrorNotice,
+  ErrorNotices,
+} from "@/features/diagnostics/error-notices";
 import { evalDurationMs } from "@/features/evals/lib/duration";
 import { LiveRefreshButton } from "@/features/telemetry/components/live-refresh-button";
 import { useLiveRefresh } from "@/features/telemetry/hooks/use-live-refresh";
@@ -30,6 +34,7 @@ import { EvalCost, EvalCostBreakdown, evalFilterCost } from "./eval-cost";
 import { EvalDetailHeader, EvalSummaryMetric } from "./eval-detail-header";
 import { EvalDuration } from "./eval-duration";
 import { EvalStatus } from "./eval-status";
+import { EvalSettingsSummary, evalTerminationNotice } from "./eval-termination";
 
 export function EvaluationDetail({
   id,
@@ -127,7 +132,7 @@ export function EvaluationDetail({
       defaultWidth: 150,
       render: (suite) => (
         <div>
-          <EvalStatus status={suite.status} />
+          <EvalStatus status={suite.status} termination={suite.termination} />
           {suite.status === "running" && suite.phase ? (
             <p className="mt-1 text-[11px] text-muted-foreground">
               {suite.phase === "grading" ? "Grading" : "Executing"}
@@ -156,8 +161,8 @@ export function EvaluationDetail({
       defaultWidth: 180,
       render: (suite) => (
         <span className="text-xs">
-          {suite.completedAttempts ?? 0}/{suite.totalAttempts ?? 0} attempts
-          graded
+          {suite.completedAttempts ?? 0}/{suite.totalAttempts ?? 0} recorded
+          outcomes
         </span>
       ),
     },
@@ -183,8 +188,13 @@ export function EvaluationDetail({
             : isActive(suite.status)
               ? "Awaiting results"
               : "No final summary"}
-          {suite.error ? (
-            <p className="mt-1 text-red-700 dark:text-red-400">{suite.error}</p>
+          {suite.error && !suite.termination ? (
+            <p
+              className="mt-1 truncate text-red-700 dark:text-red-400"
+              title={suite.error}
+            >
+              {suite.error}
+            </p>
           ) : null}
         </div>
       ),
@@ -259,7 +269,47 @@ export function EvaluationDetail({
               onBack={() => navigate("/evals/runs")}
               actions={
                 <>
-                  <EvalStatus status={run.status} />
+                  <EvalStatus
+                    status={run.status}
+                    termination={run.termination}
+                  />
+                  <EvalSettingsSummary
+                    settings={run.resolvedSettings}
+                    startedAt={run.startedAt}
+                  >
+                    <div className="mt-2 flex flex-wrap gap-x-5 gap-y-1 pb-2 text-xs text-muted-foreground">
+                      <span>
+                        {run.selection === "all"
+                          ? "All suites"
+                          : "Selected suites"}
+                      </span>
+                      <span>Created {formatDateTime(run.createdAt)}</span>
+                      {run.startedAt ? (
+                        <span>
+                          Duration <EvalDuration run={run} />
+                        </span>
+                      ) : null}
+                      {run.metadata.commit ? (
+                        <span className="font-mono">
+                          Commit {run.metadata.commit}
+                        </span>
+                      ) : null}
+                      {run.metadata.deploymentUrl ? (
+                        <a
+                          className="underline"
+                          href={run.metadata.deploymentUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                        >
+                          Deployment / CI job
+                        </a>
+                      ) : null}
+                      <span>
+                        Judge {run.judge?.id} · {run.judge?.version}
+                      </span>
+                    </div>
+                    <EvalCostBreakdown costs={run.costs} />
+                  </EvalSettingsSummary>
                   <LiveRefreshButton
                     enabled={query.live}
                     status={live.status}
@@ -282,53 +332,59 @@ export function EvaluationDetail({
                 </>
               }
             >
-              <div className="flex flex-wrap gap-x-5 gap-y-2 rounded-md border bg-muted/20 p-3">
+              <ErrorNotices
+                environment={run.environment}
+                items={[
+                  ...evalTerminationNotice({
+                    termination: run.termination,
+                    settings: run.resolvedSettings,
+                    completed: run.completedAttempts,
+                    total: run.totalAttempts,
+                    interruptedSuites: run.interruptedSuites,
+                    pendingAttempts: run.pendingAttempts,
+                  }),
+                  ...(run.failures ?? [])
+                    .filter((failure) => failure.code !== "EVAL_RUN_TIMEOUT")
+                    .map(
+                      (failure, index): ErrorNotice => ({
+                        id:
+                          failure.diagnosticId ??
+                          `failure-${failure.suiteRunId}-${failure.caseId ?? "suite"}-${failure.repetition ?? 1}-${index}`,
+                        severity: "error",
+                        code: failure.code,
+                        message: failure.message,
+                        diagnosticId: failure.diagnosticId,
+                        context: `${run.suites.find((suite) => suite.id === failure.suiteRunId)?.suiteName ?? "Suite"} · ${failure.phase}${failure.caseId ? ` · ${failure.caseId} · attempt ${failure.repetition ?? 1}` : ""}`,
+                        href: failure.caseId
+                          ? `/evals/cases/${failure.suiteRunId}/${encodeURIComponent(failure.caseId)}/${failure.repetition ?? 1}`
+                          : evalRunHref(failure.suiteRunId),
+                      }),
+                    ),
+                ]}
+              />
+              <div className="mt-2 flex flex-wrap gap-x-5 gap-y-1 text-xs">
                 <EvalSummaryMetric
-                  label="Suites complete"
-                  value={`${run.completedSuites}/${run.suiteCount}`}
+                  label="Suites finished"
+                  value={`${run.completedSuites - (run.interruptedSuites ?? 0)}/${run.suiteCount}`}
                 />
                 <EvalSummaryMetric
-                  label="Attempts graded"
+                  label="Recorded outcomes"
                   value={`${run.completedAttempts}/${run.totalAttempts}`}
                 />
                 <EvalSummaryMetric label="Passed" value={run.counts.passed} />
                 <EvalSummaryMetric label="Failed" value={run.counts.failed} />
                 <EvalSummaryMetric label="Errors" value={run.counts.error} />
+                {Boolean(run.interruptedSuites) && (
+                  <EvalSummaryMetric
+                    label="Suites interrupted"
+                    value={run.interruptedSuites ?? 0}
+                  />
+                )}
                 <EvalSummaryMetric
                   label="Cancelled"
                   value={run.counts.cancelled}
                 />
               </div>
-              <div className="mt-2 flex flex-wrap gap-x-5 gap-y-1 pb-2 text-xs text-muted-foreground">
-                <span>
-                  {run.selection === "all" ? "All suites" : "Selected suites"}
-                </span>
-                <span>Created {formatDateTime(run.createdAt)}</span>
-                {run.startedAt ? (
-                  <span>
-                    Duration <EvalDuration run={run} />
-                  </span>
-                ) : null}
-                {run.metadata.commit ? (
-                  <span className="font-mono">
-                    Commit {run.metadata.commit}
-                  </span>
-                ) : null}
-                {run.metadata.deploymentUrl ? (
-                  <a
-                    className="underline"
-                    href={run.metadata.deploymentUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                  >
-                    Deployment / CI job
-                  </a>
-                ) : null}
-                <span>
-                  Judge {run.judge?.id} · {run.judge?.version}
-                </span>
-              </div>
-              <EvalCostBreakdown costs={run.costs} />
             </EvalDetailHeader>
             <div className="min-h-0 flex-1">
               <DataTableProvider columns={columns}>

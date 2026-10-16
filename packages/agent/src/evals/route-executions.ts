@@ -80,6 +80,7 @@ export function createEvalExecutionTransport({
     await store.append(job.id, owner, {
       type: "error",
       message: issue.message,
+      exception: issue.exception,
       failure: issue.failure,
       ...(issue.diagnosticId ? { diagnosticId: issue.diagnosticId } : {}),
     });
@@ -126,6 +127,9 @@ export function createEvalExecutionTransport({
         suiteId: body.suiteId,
         repetitions: body.repetitions,
         concurrency: body.concurrency,
+        ...(body.caseTimeoutMs !== undefined
+          ? { caseTimeoutMs: body.caseTimeoutMs }
+          : {}),
         signal: controller.signal,
         ...(body.attempt ? { attempt: body.attempt } : {}),
         ...(body.caseIds ? { caseIds: body.caseIds } : {}),
@@ -210,10 +214,16 @@ export function createEvalExecutionTransport({
     "x-kortyx-eval-generation": await store.generation(),
   });
   const problem = (error: unknown, negotiated: boolean) => {
+    const issue = createEvalIssue("reporting", error);
     const failure = serializeFailure(error);
     const busy = failure.code === "EVAL_EXECUTOR_BUSY";
     return Response.json(
-      { error: failure.message, failure, ...(busy ? { accepted: false } : {}) },
+      {
+        error: issue.message,
+        issue,
+        failure,
+        ...(busy ? { accepted: false } : {}),
+      },
       {
         status: busy
           ? negotiated
