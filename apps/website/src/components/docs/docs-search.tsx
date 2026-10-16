@@ -6,11 +6,12 @@ import MiniSearch, { type SearchResult as MiniSearchResult } from "minisearch";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
+import { loadDocsSearchEntries } from "@/components/docs/load-docs-search";
+import { Button } from "@/components/ui/button";
 import type { DocsSearchEntry } from "@/lib/docs";
 import { cn } from "@/lib/utils/cn";
 
 type DocsSearchProps = {
-  entries: DocsSearchEntry[];
   className?: string;
 };
 
@@ -160,7 +161,9 @@ function searchDocs(searchIndex: SearchIndex, query: string): SearchResult[] {
     .filter((result): result is SearchResult => result !== null);
 }
 
-export function DocsSearch({ entries, className }: DocsSearchProps) {
+export function DocsSearch({ className }: DocsSearchProps) {
+  const [entries, setEntries] = useState<DocsSearchEntry[] | null>(null);
+  const [loadError, setLoadError] = useState(false);
   const [query, setQuery] = useState("");
   const [isOpen, setIsOpen] = useState(false);
   const deferredQuery = useDeferredValue(query);
@@ -170,14 +173,15 @@ export function DocsSearch({ entries, className }: DocsSearchProps) {
   const [searchAllProducts, setSearchAllProducts] = useState(false);
   const product = pathname?.split("/")[2];
   const versionSegment = pathname?.split("/")[3];
-  const currentEntry = entries.find((entry) => entry.product === product);
-  const selectedVersion = entries.some(
+  const currentEntry = entries?.find((entry) => entry.product === product);
+  const selectedVersion = entries?.some(
     (entry) => entry.product === product && entry.version === versionSegment,
   )
     ? versionSegment
     : null;
   const searchIndex = useMemo(
     () =>
+      entries &&
       createSearchIndex(
         entries.filter((entry) => {
           if (!searchAllProducts && currentEntry) {
@@ -193,8 +197,24 @@ export function DocsSearch({ entries, className }: DocsSearchProps) {
       ),
     [entries, product, selectedVersion, searchAllProducts, currentEntry],
   );
-  const results = searchDocs(searchIndex, deferredQuery);
+  const results = searchIndex ? searchDocs(searchIndex, deferredQuery) : [];
   const hasQuery = normalize(query).length > 0;
+
+  useEffect(() => {
+    if (!isOpen || entries || loadError) return;
+    let active = true;
+    loadDocsSearchEntries().then(
+      (loadedEntries) => {
+        if (active) setEntries(loadedEntries);
+      },
+      () => {
+        if (active) setLoadError(true);
+      },
+    );
+    return () => {
+      active = false;
+    };
+  }, [isOpen, entries, loadError]);
 
   useEffect(() => {
     setShortcutModifierLabel(getShortcutModifierLabel());
@@ -283,6 +303,7 @@ export function DocsSearch({ entries, className }: DocsSearchProps) {
             <input
               ref={inputRef}
               type="search"
+              aria-label="Search docs"
               value={query}
               placeholder="Search docs..."
               autoComplete="off"
@@ -294,7 +315,25 @@ export function DocsSearch({ entries, className }: DocsSearchProps) {
             </kbd>
           </div>
 
-          {!hasQuery ? (
+          {loadError ? (
+            <div
+              role="alert"
+              className="flex items-center justify-between gap-3 p-5 text-sm text-muted-foreground"
+            >
+              <span>Documentation search couldn’t load.</span>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setLoadError(false)}
+              >
+                Try again
+              </Button>
+            </div>
+          ) : !entries ? (
+            <output className="block p-5 text-sm text-muted-foreground">
+              Loading documentation search…
+            </output>
+          ) : !hasQuery ? (
             <div className="p-5 text-sm text-muted-foreground">
               Search titles, descriptions, keywords, and docs content.
             </div>

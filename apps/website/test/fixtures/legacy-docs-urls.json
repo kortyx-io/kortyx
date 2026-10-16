@@ -1,0 +1,348 @@
+{
+  "restored": [
+    {
+      "source": "/docs/sdk/getting-started/models",
+      "destination": "/docs/sdk/kortyx-providers/choose-a-provider"
+    },
+    {
+      "source": "/docs/03-guides/11-sse.md",
+      "destination": "/docs/sdk/guides/sse.md"
+    },
+    {
+      "source": "/docs/studio/06-deploy-server.md",
+      "destination": "/docs/studio/deploy-server.md"
+    },
+    {
+      "source": "/01-getting-started/01-installation.md",
+      "destination": "/docs/sdk/getting-started/installation.md"
+    },
+    {
+      "source": "/03-guides/03-react-node-backend.md",
+      "destination": "/docs/sdk/guides/react-node-backend.md"
+    },
+    {
+      "source": "/docs/core-concepts/nodes-Nodes",
+      "destination": "/docs/sdk/core-concepts/nodes"
+    },
+    {
+      "source": "/docs/core-concepts/04-conditional-routing.md",
+      "destination": "/docs/sdk/core-concepts/conditional-routing.md"
+    },
+    {
+      "source": "/02-core-concepts/08-runtime-context.md",
+      "destination": "/docs/sdk/core-concepts/runtime-context.md"
+    },
+    {
+      "source": "/docs/core-concepts/01-define-workflows.md",
+      "destination": "/docs/sdk/core-concepts/define-workflows.md"
+    },
+    {
+      "source": "/docs/05-reference/05-node-resolution.md",
+      "destination": "/docs/sdk/reference/node-resolution.md"
+    },
+    {
+      "source": "/docs/core-concepts/07-hooks.md",
+      "destination": "/docs/sdk/core-concepts/hooks.md"
+    },
+    {
+      "source": "/docs/05-reference/06-react-client.md",
+      "destination": "/docs/sdk/reference/react-client.md"
+    },
+    {
+      "source": "/docs/core-concepts/08-runtime-context.md",
+      "destination": "/docs/sdk/core-concepts/runtime-context.md"
+    },
+    {
+      "source": "/docs/studio/04-cli-commands.md",
+      "destination": "/docs/studio/cli-commands.md"
+    },
+    {
+      "source": "/docs/05-reference/03-stream-protocol.md",
+      "destination": "/docs/sdk/reference/stream-protocol.md"
+    },
+    {
+      "source": "/docs/01-getting-started/02-quickstart-nextjs.md",
+      "destination": "/docs/sdk/getting-started/quickstart-nextjs.md"
+    },
+    {
+      "source": "/docs/guides/01-project-structure.md",
+      "destination": "/docs/sdk/guides/project-structure.md"
+    },
+    {
+      "source": "/docs/guides/11-sse.md",
+      "destination": "/docs/sdk/guides/sse.md"
+    },
+    {
+      "source": "/docs/guides/03-react-node-backend.md",
+      "destination": "/docs/sdk/guides/react-node-backend.md"
+    },
+    {
+      "source": "/docs/production/observability-OpenTelemetry",
+      "destination": "/docs/sdk/production/observability"
+    },
+    {
+      "source": "/docs/reference/06-react-client",
+      "destination": "/docs/sdk/reference/react-client"
+    },
+    {
+      "source": "/docs/kortyx-providers/mistral-provider-Mistral",
+      "destination": "/docs/sdk/kortyx-providers/mistral-provider"
+    },
+    {
+      "source": "/docs/kortyx-providers/groq-provider-Groq",
+      "destination": "/docs/sdk/kortyx-providers/groq-provider"
+    },
+    {
+      "source": "/05-reference/01-package-overview.md",
+      "destination": "/docs/sdk/reference/package-overview.md"
+    },
+    {
+      "source": "/docs/04-production/02-framework-adapters.md",
+      "destination": "/docs/sdk/production/framework-adapters.md"
+    },
+    {
+      "source": "/docs/05-reference/04-provider-api.md",
+      "destination": "/docs/sdk/reference/provider-api.md"
+    },
+    {
+      "source": "/docs/kortyx-providers/openai-provider-OpenAI",
+      "destination": "/docs/sdk/kortyx-providers/openai-provider"
+    },
+    {
+      "source": "/docs/guides-Guides",
+      "destination": "/docs/sdk/guides"
+    },
+    {
+      "source": "/docs/02-core-concepts/07-hooks.md",
+      "destination": "/docs/sdk/core-concepts/hooks.md"
+    },
+    {
+      "source": "/02-core-concepts/06-stream-chat.md",
+      "destination": "/docs/sdk/core-concepts/stream-chat.md"
+    },
+    {
+      "source": "/docs/production/02-framework-adapters.md",
+      "destination": "/docs/sdk/production/framework-adapters.md"
+    },
+    {
+      "source": "/docs/production/01-persistence.md",
+      "destination": "/docs/sdk/production/persistence.md"
+    },
+    {
+      "source": "/docs/getting-started/02-quickstart-nextjs.md",
+      "destination": "/docs/sdk/getting-started/quickstart-nextjs.md"
+    },
+    {
+      "source": "/docs/production/04-langfuse.md",
+      "destination": "/docs/sdk/production/langfuse.md"
+    },
+    {
+      "source": "/04-production/02-framework-adapters.md",
+      "destination": "/docs/sdk/production/framework-adapters.md"
+    },
+    {
+      "source": "/03-guides/02-interrupts-and-resume.md",
+      "destination": "/docs/sdk/guides/interrupts-and-resume.md"
+    },
+    {
+      "source": "/01-getting-started/03-quickstart-nextjs-server-action.md",
+      "destination": "/docs/sdk/getting-started/quickstart-nextjs-server-action.md"
+    },
+    {
+      "source": "/03-guides/04-render-streamed-chat.md",
+      "destination": "/docs/sdk/guides/render-streamed-chat.md"
+    },
+    {
+      "source": "/docs/reference-Reference",
+      "destination": "/docs/sdk/reference"
+    },
+    {
+      "source": "/docs/core-concepts/hooks-Hooks",
+      "destination": "/docs/sdk/core-concepts/hooks"
+    },
+    {
+      "source": "/docs/kortyx-providers/01-google-generative-ai-provider.md",
+      "destination": "/docs/sdk/kortyx-providers/google-generative-ai-provider.md"
+    },
+    {
+      "source": "/docs/troubleshooting-Troubleshooting",
+      "destination": "/docs/sdk/troubleshooting"
+    },
+    {
+      "source": "/docs/core-concepts/03-nodes.md",
+      "destination": "/docs/sdk/core-concepts/nodes.md"
+    },
+    {
+      "source": "/docs/kortyx-providers/deepseek-provider-DeepSeek",
+      "destination": "/docs/sdk/kortyx-providers/deepseek-provider"
+    },
+    {
+      "source": "/docs/kortyx-providers/04-deepseek-provider.md",
+      "destination": "/docs/sdk/kortyx-providers/deepseek-provider.md"
+    },
+    {
+      "source": "/05-reference/03-stream-protocol.md",
+      "destination": "/docs/sdk/reference/stream-protocol.md"
+    },
+    {
+      "source": "/docs/studio/03-connect-project.md",
+      "destination": "/docs/studio/connect-project.md"
+    },
+    {
+      "source": "/docs/kortyx-providers/03-anthropic-provider.md",
+      "destination": "/docs/sdk/kortyx-providers/anthropic-provider.md"
+    },
+    {
+      "source": "/docs/kortyx-providers/05-groq-provider.md",
+      "destination": "/docs/sdk/kortyx-providers/groq-provider.md"
+    },
+    {
+      "source": "/docs/03-guides/04-render-streamed-chat.md",
+      "destination": "/docs/sdk/guides/render-streamed-chat.md"
+    },
+    {
+      "source": "/docs/studio/08-configuration-reference.md",
+      "destination": "/docs/studio/configuration-reference.md"
+    },
+    {
+      "source": "/docs/studio/02-run-locally.md",
+      "destination": "/docs/studio/run-locally.md"
+    },
+    {
+      "source": "/docs/studio/07-operations.md",
+      "destination": "/docs/studio/operations.md"
+    },
+    {
+      "source": "/04-production/01-persistence.md",
+      "destination": "/docs/sdk/production/persistence.md"
+    },
+    {
+      "source": "/docs/05-reference/01-package-overview.md",
+      "destination": "/docs/sdk/reference/package-overview.md"
+    },
+    {
+      "source": "/docs/kortyx-providers/02-openai-provider.md",
+      "destination": "/docs/sdk/kortyx-providers/openai-provider.md"
+    },
+    {
+      "source": "/docs/kortyx-providers/06-mistral-provider.md",
+      "destination": "/docs/sdk/kortyx-providers/mistral-provider.md"
+    },
+    {
+      "source": "/02-core-concepts/03-nodes.md",
+      "destination": "/docs/sdk/core-concepts/nodes.md"
+    },
+    {
+      "source": "/05-studio/01-overview.md",
+      "destination": "/docs/studio/overview.md"
+    },
+    {
+      "source": "/docs/production-Production",
+      "destination": "/docs/sdk/production"
+    },
+    {
+      "source": "/docs/getting-started/installation-Installation",
+      "destination": "/docs/sdk/getting-started/installation"
+    },
+    {
+      "source": "/docs/studio/05-credentials-secrets.md",
+      "destination": "/docs/studio/credentials-secrets.md"
+    },
+    {
+      "source": "/02-core-concepts/01-define-workflows.md",
+      "destination": "/docs/sdk/core-concepts/define-workflows.md"
+    },
+    {
+      "source": "/docs/production/03-observability.md",
+      "destination": "/docs/sdk/production/observability.md"
+    },
+    {
+      "source": "/docs/04-production/01-persistence.md",
+      "destination": "/docs/sdk/production/persistence.md"
+    },
+    {
+      "source": "/docs/guides/02-interrupts-and-resume.md",
+      "destination": "/docs/sdk/guides/interrupts-and-resume.md"
+    },
+    {
+      "source": "/05-reference/04-provider-api.md",
+      "destination": "/docs/sdk/reference/provider-api.md"
+    },
+    {
+      "source": "/05-reference/02-api-surface.md",
+      "destination": "/docs/sdk/reference/api-surface.md"
+    },
+    {
+      "source": "/05-studio/02-run-locally.md",
+      "destination": "/docs/studio/run-locally.md"
+    },
+    {
+      "source": "/01-getting-started/02-quickstart-nextjs.md",
+      "destination": "/docs/sdk/getting-started/quickstart-nextjs.md"
+    },
+    {
+      "source": "/docs-Docs",
+      "destination": "/docs"
+    },
+    {
+      "source": "/03-guides/01-project-structure.md",
+      "destination": "/docs/sdk/guides/project-structure.md"
+    },
+    {
+      "source": "/docs/guides/04-render-streamed-chat.md",
+      "destination": "/docs/sdk/guides/render-streamed-chat.md"
+    },
+    {
+      "source": "/04-kortyx-providers/01-google-generative-ai-provider.md",
+      "destination": "/docs/sdk/kortyx-providers/google-generative-ai-provider.md"
+    }
+  ],
+  "notDocumentation": [
+    "/research-workflow",
+    "/lib/kortyx-client",
+    "/docs/kortyx-providers/otel",
+    "/src/lib/otel",
+    "/otel",
+    "/workflows",
+    "/docs/core-concepts/src/lib/otel",
+    "/services/auth",
+    "/docs/reference/src/lib/otel",
+    "/docs/kortyx-providers/src/lib/otel",
+    "/lib/providers",
+    "/docs/reference/providers",
+    "/docs/getting-started/src/lib/otel",
+    "/docs/kortyx-providers/providers",
+    "/docs/kortyx-providers/workflows",
+    "/_next/static/media/caa3a2e1cccd8315-s.p.853070df.woff2",
+    "/docs/core-concepts/otel",
+    "/docs/otel",
+    "/providers",
+    "/docs/studio/src/lib/otel",
+    "/docs/reference/otel",
+    "/docs/getting-started/otel",
+    "/api/kortyx/chat",
+    "/api/chat-state/messages",
+    "/docs/studio/otel",
+    "/docs/production/src/lib/otel",
+    "/docs/production/otel",
+    "/docs/lib/providers",
+    "/docs/guides/workflows",
+    "/docs/studio/providers",
+    "/docs/core-concepts/providers",
+    "/docs/lib/kortyx-client",
+    "/docs/core-concepts/workflows",
+    "/docs/getting-started/workflows",
+    "/docs/lib/prompts",
+    "/api/feedback",
+    "/docs/getting-started/providers",
+    "/docs/production/workflows",
+    "/docs/production/providers",
+    "/docs/src/lib/otel",
+    "/docs/studio/workflows",
+    "/docs/reference/workflows",
+    "/docs/guides/otel",
+    "/lib/prompts",
+    "/docs/guides/providers",
+    "/_next/static/media/797e433ab948586e-s.p.dbea232f.woff2"
+  ]
+}

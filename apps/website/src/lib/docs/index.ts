@@ -413,7 +413,15 @@ export async function resolveDocsRoute(
 ): Promise<RouteResolution | null> {
   if (routeSegments.length === 0) return null;
   const store = await getDocsStore();
-  let [first, ...segments] = routeSegments;
+  // Older links used numbered Markdown file paths rather than public slugs.
+  const normalizedSegments = routeSegments.map((segment, index) =>
+    normalizeRouteSegment(
+      index === routeSegments.length - 1
+        ? segment.replace(/\.md$/, "")
+        : segment,
+    ),
+  );
+  let [first, ...segments] = normalizedSegments;
   let product = getDocsProduct(first ?? "");
   let explicitVersion = false;
   let requestedVersion: string;
@@ -431,7 +439,7 @@ export async function resolveDocsRoute(
     requestedVersion = explicitVersion
       ? (first as string)
       : product.latestVersion;
-    if (!explicitVersion) segments = routeSegments;
+    if (!explicitVersion) segments = normalizedSegments;
     if (segments[0] === "studio") {
       product = getDocsProduct("studio");
       if (!product) return null;
@@ -448,7 +456,9 @@ export async function resolveDocsRoute(
     requestedVersion,
     requestedSlug || product.overview,
   );
-  const doc = versionDocs.docsBySlug.get(docSlug);
+  const doc =
+    versionDocs.docsBySlug.get(docSlug) ??
+    versionDocs.docsByNormalizedRelativeFile.get(`${docSlug}.md`);
   const section = versionDocs.sections.find((entry) => entry.slug === docSlug);
   if (
     !doc &&

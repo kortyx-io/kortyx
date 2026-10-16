@@ -33,7 +33,7 @@ const pageDescription =
 
 export const metadata: Metadata = {
   title: {
-    absolute: "Kortyx | Write the agent logic. The runtime is already built.",
+    absolute: "Kortyx — TypeScript Framework for AI Agents",
   },
   description: pageDescription,
   keywords: [
