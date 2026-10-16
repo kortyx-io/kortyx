@@ -26,7 +26,7 @@ test("analytics waits for fresh consent and stops on withdrawal", async ({
   await page.route(/^https:\/\//, async (route) => {
     external.push(route.request().url());
     const request = route.request();
-    if (request.url().includes("eu.i.posthog.com")) {
+    if (new URL(request.url()).hostname === "eu.i.posthog.com") {
       const body = request.postDataBuffer();
       if (body)
         posthogPayloads.push(
@@ -39,9 +39,10 @@ test("analytics waits for fresh consent and stops on withdrawal", async ({
     }
     await route.fulfill({
       contentType: "application/javascript",
-      body: request.url().includes("googletagmanager.com")
-        ? 'document.cookie="_ga=synthetic; Path=/; SameSite=Lax";'
-        : "",
+      body:
+        new URL(request.url()).hostname === "www.googletagmanager.com"
+          ? 'document.cookie="_ga=synthetic; Path=/; SameSite=Lax";'
+          : "",
     });
   });
   await page.goto("/?token=private-query#private-fragment");
@@ -73,7 +74,11 @@ test("analytics waits for fresh consent and stops on withdrawal", async ({
     .getByRole("button", { name: "Save preferences", exact: true })
     .click();
   await expect
-    .poll(() => external.some((url) => url.includes("googletagmanager.com")))
+    .poll(() =>
+      external.some(
+        (url) => new URL(url).hostname === "www.googletagmanager.com",
+      ),
+    )
     .toBe(true);
   await expect.poll(() => posthogPayloads.length).toBe(1);
   expect(posthogPayloads[0]).not.toContain("private-query");
@@ -87,10 +92,16 @@ test("analytics waits for fresh consent and stops on withdrawal", async ({
   expect(event).not.toHaveProperty("$set");
   expect(event).not.toHaveProperty("$set_once");
   await expect
-    .poll(() => external.some((url) => url.includes("cloudflareinsights.com")))
+    .poll(() =>
+      external.some(
+        (url) => new URL(url).hostname === "static.cloudflareinsights.com",
+      ),
+    )
     .toBe(true);
   await expect
-    .poll(() => external.some((url) => url.includes("eu.i.posthog.com")))
+    .poll(() =>
+      external.some((url) => new URL(url).hostname === "eu.i.posthog.com"),
+    )
     .toBe(true);
   const queue = await page.evaluate(() =>
     (window as unknown as { dataLayer: ArrayLike<unknown>[] }).dataLayer.map(
