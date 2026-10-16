@@ -4,6 +4,7 @@ import type {
   EvalTermination,
   ResolvedEvalSettings,
 } from "@kortyx/agent/evals";
+import { parseAsBoolean } from "nuqs";
 import type { ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import {
@@ -15,6 +16,7 @@ import {
 } from "@/components/ui/dialog";
 import type { ErrorNotice } from "@/features/diagnostics/error-notices";
 import { formatDurationMs } from "@/lib/format";
+import { useStudioQueryState } from "@/lib/nuqs";
 import { settingSource } from "./eval-settings-fields";
 export function evalTerminationNotice({
   termination,
@@ -38,7 +40,7 @@ export function evalTerminationNotice({
   if (!termination) return [];
   return [
     {
-      id: "evaluation-termination",
+      id: termination.diagnosticId ?? "evaluation-termination",
       code: termination.code,
       severity:
         termination.code === "EVAL_RUN_TIMEOUT" ||
@@ -90,9 +92,18 @@ export function EvalSettingsSummary({
   startedAt?: string | null;
   children?: ReactNode;
 }) {
+  const [open, setOpen] = useStudioQueryState(
+    "runDetails",
+    parseAsBoolean.withDefault(false).withOptions({ shallow: true }),
+  );
   if (!settings && !children) return null;
   return (
-    <Dialog>
+    <Dialog
+      open={open}
+      onOpenChange={(next) => {
+        void setOpen(next ? true : null);
+      }}
+    >
       <DialogTrigger asChild>
         <Button variant="secondary" size="xs">
           Run details

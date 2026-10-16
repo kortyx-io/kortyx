@@ -576,8 +576,11 @@ The evaluation header shows compact notices with the actual timeout or error
 reason, leaving the results table visible. Clicking a notice opens the shared
 error dialog with occurrence navigation, affected execution links, original
 messages, stacks, causes and provider response details. Run metadata and frozen
-execution settings are available under **Run details**. Case cards also show the
-original exception automatically.
+execution settings are available under **Run details**. Selected errors (`?error=`)
+and Run details (`?runDetails=true`) use URL state, including reload and browser
+Back/Forward. Error navigation keeps the dialog size stable and reuses previously
+loaded evidence within the current workspace. Case cards also show the original
+exception automatically.
 
 SDK and Studio execution, grading, cleanup and reporting errors use the same
 project-scoped diagnostic occurrence store, retention, permissions and detail

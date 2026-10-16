@@ -2,7 +2,8 @@
 
 import type { DiagnosticContent } from "@kortyx/telemetry-contracts";
 import { AlertTriangle, CircleAlert } from "lucide-react";
-import { type ReactNode, useRef, useState } from "react";
+import { parseAsString } from "nuqs";
+import { type ReactNode, useRef } from "react";
 import Link from "@/components/scoped-link";
 import { Button } from "@/components/ui/button";
 import {
@@ -12,7 +13,9 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { useStudioQueryState } from "@/lib/nuqs";
 import { ErrorDetails } from "./error-details";
+import { usePreloadDiagnostic } from "./use-diagnostic-content";
 
 export type ErrorNotice = {
   id: string;
@@ -35,7 +38,11 @@ export function ErrorNotices({
   items: ErrorNotice[];
   environment: string;
 }) {
-  const [selection, setSelection] = useState<string | null>(null);
+  const [selection, setSelection] = useStudioQueryState(
+    "error",
+    parseAsString.withOptions({ shallow: true }),
+  );
+  const preloadDiagnostic = usePreloadDiagnostic(environment);
   const trigger = useRef<HTMLButtonElement | null>(null);
   const selected = items.find((item) => item.id === selection);
   return (
@@ -52,8 +59,10 @@ export function ErrorNotices({
               type="button"
               onClick={(event) => {
                 trigger.current = event.currentTarget;
-                setSelection(first.id);
+                void setSelection(first.id);
               }}
+              onPointerEnter={() => preloadDiagnostic(first.diagnosticId)}
+              onFocus={() => preloadDiagnostic(first.diagnosticId)}
               className={`flex w-full min-w-0 items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-xs hover:bg-muted/50 focus-visible:outline-2 focus-visible:outline-ring ${severity === "error" ? "bg-red-500/5 text-red-700 dark:text-red-400" : "bg-amber-500/5 text-amber-700 dark:text-amber-400"}`}
             >
               <Icon className="size-3.5 shrink-0" aria-hidden="true" />
@@ -73,7 +82,7 @@ export function ErrorNotices({
       <Dialog
         open={Boolean(selected)}
         onOpenChange={(open) => {
-          if (!open) setSelection(null);
+          if (!open) void setSelection(null);
         }}
       >
         <DialogContent
@@ -81,7 +90,7 @@ export function ErrorNotices({
             event.preventDefault();
             trigger.current?.focus();
           }}
-          className="flex max-h-[85dvh] max-w-4xl flex-col gap-0 overflow-hidden p-0"
+          className="flex h-[min(85dvh,52rem)] max-w-4xl flex-col gap-0 overflow-hidden p-0"
         >
           <div className="shrink-0 border-b px-5 py-4 pr-12">
             <DialogTitle className="text-sm font-semibold">
@@ -94,7 +103,7 @@ export function ErrorNotices({
             </DialogDescription>
           </div>
           {selected && (
-            <div className="flex min-h-0 flex-1 flex-col overflow-auto sm:flex-row">
+            <div className="flex min-h-0 flex-1 flex-col overflow-hidden sm:flex-row">
               {items.length > 1 && (
                 <nav
                   aria-label="Error occurrences"
@@ -108,8 +117,14 @@ export function ErrorNotices({
                           aria-current={
                             item.id === selected.id ? "true" : undefined
                           }
-                          onClick={() => setSelection(item.id)}
-                          className={`w-full rounded-md p-2 text-left text-xs hover:bg-muted ${item.id === selected.id ? "bg-muted" : ""}`}
+                          onClick={() => {
+                            void setSelection(item.id);
+                          }}
+                          onPointerEnter={() =>
+                            preloadDiagnostic(item.diagnosticId)
+                          }
+                          onFocus={() => preloadDiagnostic(item.diagnosticId)}
+                          className={`w-full rounded-md p-2 text-left text-xs hover:bg-muted/40 focus-visible:outline-2 focus-visible:outline-ring ${item.id === selected.id ? "bg-muted" : ""}`}
                         >
                           <span className="mb-1 block text-[10px] text-muted-foreground">
                             {index + 1} · {item.context ?? item.code}
@@ -123,7 +138,7 @@ export function ErrorNotices({
                   </ul>
                 </nav>
               )}
-              <div className="min-w-0 flex-1 space-y-4 overflow-auto p-5">
+              <div className="min-h-0 min-w-0 flex-1 space-y-4 overflow-auto p-5">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <p className="font-mono text-[11px] text-muted-foreground">
                     {selected.context ? `${selected.context} · ` : ""}
@@ -161,15 +176,30 @@ export function ErrorDialogTrigger({
   environment: string;
   message?: string;
 }) {
-  const [open, setOpen] = useState(false);
+  const [selection, setSelection] = useStudioQueryState(
+    "error",
+    parseAsString.withOptions({ shallow: true }),
+  );
+  const preloadDiagnostic = usePreloadDiagnostic(environment);
+  const open = selection === diagnosticId;
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog
+      open={open}
+      onOpenChange={(next) => {
+        void setSelection(next ? diagnosticId : null);
+      }}
+    >
       <DialogTrigger asChild>
-        <Button variant="link" size="inline">
+        <Button
+          variant="link"
+          size="inline"
+          onPointerEnter={() => preloadDiagnostic(diagnosticId)}
+          onFocus={() => preloadDiagnostic(diagnosticId)}
+        >
           View error details
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-h-[85dvh] max-w-3xl overflow-auto">
+      <DialogContent className="h-[min(85dvh,52rem)] max-w-3xl overflow-auto">
         <DialogTitle>Error details</DialogTitle>
         <DialogDescription className="sr-only">
           Original exception and diagnostic evidence

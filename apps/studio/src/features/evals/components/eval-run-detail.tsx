@@ -243,7 +243,7 @@ export function EvalRunDetail({
             ]
               .filter((issue) => issue.code !== "EVAL_RUN_TIMEOUT")
               .map((issue, index) => ({
-                id: `issue-${index}`,
+                id: issue.diagnosticId ?? `issue-${index}`,
                 severity: "error" as const,
                 code: issue.code,
                 message: issue.message,

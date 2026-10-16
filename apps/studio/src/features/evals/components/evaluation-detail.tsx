@@ -347,7 +347,9 @@ export function EvaluationDetail({
                     .filter((failure) => failure.code !== "EVAL_RUN_TIMEOUT")
                     .map(
                       (failure, index): ErrorNotice => ({
-                        id: `failure-${index}`,
+                        id:
+                          failure.diagnosticId ??
+                          `failure-${failure.suiteRunId}-${failure.caseId ?? "suite"}-${failure.repetition ?? 1}-${index}`,
                         severity: "error",
                         code: failure.code,
                         message: failure.message,

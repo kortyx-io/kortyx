@@ -20,6 +20,8 @@ describe("detailNavigationHref", () => {
       tab: "trace",
       trace: "event-1",
       event: "event-2",
+      error: "old-error",
+      runDetails: "true",
       detailView: "expanded",
       v: "3",
       edit: "true",

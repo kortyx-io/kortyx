@@ -35,6 +35,10 @@ test("shows the evaluation timeout and incomplete work without investigation", a
     dialog.getByText(/63 of 107 attempts have recorded outcomes/),
   ).toBeVisible();
   await expect(dialog.getByText(/36 not started/)).toBeVisible();
+  await expect
+    .poll(() => new URL(page.url()).searchParams.has("error"))
+    .toBe(true);
+  const timeoutBounds = await dialog.boundingBox();
   await capture(page, "timeout-error-dialog");
   await page.keyboard.press("Escape");
   await expect(timeout).toBeFocused();
@@ -49,15 +53,44 @@ test("shows the evaluation timeout and incomplete work without investigation", a
     .getByRole("navigation", { name: "Error occurrences" })
     .getByRole("button");
   await expect(occurrences).toHaveCount(7);
+  const firstSelection = new URL(page.url()).searchParams.get("error");
+  const firstBounds = await dialog.boundingBox();
+  expect(firstBounds?.height).toBe(timeoutBounds?.height);
   await occurrences.last().click();
+  await expect
+    .poll(() => new URL(page.url()).searchParams.get("error"))
+    .not.toBe(firstSelection);
   await expect(
     dialog.getByRole("link", { name: "View affected execution" }),
   ).toBeVisible();
   await expect(
     dialog.getByRole("heading", { name: "Stack trace" }),
   ).toBeVisible();
+  const lastSelection = new URL(page.url()).searchParams.get("error");
+  expect((await dialog.boundingBox())?.height).toBe(firstBounds?.height);
+  await page.goBack();
+  await expect(occurrences.nth(1)).toHaveAttribute("aria-current", "true");
+  await expect(
+    dialog.getByRole("heading", { name: "Stack trace" }),
+  ).toBeVisible();
+  await page.goForward();
+  await expect(occurrences.last()).toHaveAttribute("aria-current", "true");
+  await expect(
+    dialog.getByRole("heading", { name: "Stack trace" }),
+  ).toBeVisible();
+  expect((await dialog.boundingBox())?.height).toBe(firstBounds?.height);
+  await page.reload();
+  await expect(page.getByRole("dialog")).toBeVisible();
+  await expect(occurrences.last()).toHaveAttribute("aria-current", "true");
+  await expect(
+    dialog.getByRole("heading", { name: "Stack trace" }),
+  ).toBeVisible();
+  expect(new URL(page.url()).searchParams.get("error")).toBe(lastSelection);
   await capture(page, "evaluation-error-dialog");
   await page.keyboard.press("Escape");
+  await expect
+    .poll(() => new URL(page.url()).searchParams.has("error"))
+    .toBe(false);
   await page.setViewportSize({ width: 390, height: 844 });
   await errors.click();
   await expect(page.getByRole("dialog")).toBeVisible();

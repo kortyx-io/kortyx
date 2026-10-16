@@ -1,13 +1,9 @@
 "use client";
 
-import {
-  type DiagnosticContent,
-  DiagnosticContentSchema,
-} from "@kortyx/telemetry-contracts";
-import { useEffect, useState } from "react";
+import type { DiagnosticContent } from "@kortyx/telemetry-contracts";
 import { PayloadViewer } from "@/components/detail/payload-viewer";
 import Link from "@/components/scoped-link";
-import { studioFetch } from "@/lib/studio-fetch";
+import { useDiagnosticContent } from "./use-diagnostic-content";
 
 /** Shared by workflow errors, eval errors, and direct diagnostic investigation. */
 export function ErrorDetails({
@@ -21,38 +17,11 @@ export function ErrorDetails({
   diagnosticId?: string;
   environment?: string;
 }) {
-  const [recorded, setRecorded] = useState(exception);
-  const [loadError, setLoadError] = useState("");
-  const [loading, setLoading] = useState(Boolean(diagnosticId && environment));
-  useEffect(() => {
-    setRecorded(exception);
-    setLoadError("");
-    setLoading(Boolean(diagnosticId && environment));
-    if (!diagnosticId || !environment) return;
-    const controller = new AbortController();
-    void studioFetch(
-      `/api/studio/diagnostics/${encodeURIComponent(diagnosticId)}?env=${encodeURIComponent(environment)}`,
-      { signal: controller.signal, cache: "no-store" },
-    )
-      .then(async (response) => {
-        if (!response.ok)
-          throw new Error(
-            `Full error details could not be loaded (HTTP ${response.status}).`,
-          );
-        const content = DiagnosticContentSchema.parse(await response.json());
-        if (!controller.signal.aborted) {
-          setRecorded(content);
-          setLoading(false);
-        }
-      })
-      .catch((error) => {
-        if (!controller.signal.aborted) {
-          setLoadError(String(error));
-          setLoading(false);
-        }
-      });
-    return () => controller.abort();
-  }, [exception, diagnosticId, environment]);
+  const {
+    data: recorded,
+    error: loadError,
+    isLoading: loading,
+  } = useDiagnosticContent(diagnosticId, environment, exception);
   const data = recorded?.data;
   return (
     <div className="min-w-0 space-y-4">
@@ -101,7 +70,7 @@ export function ErrorDetails({
       )}
       {loadError && (
         <p role="alert" className="text-xs text-destructive">
-          {loadError}
+          {String(loadError)}
         </p>
       )}
       {diagnosticId && environment && (
