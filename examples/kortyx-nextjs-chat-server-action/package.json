@@ -48,7 +48,7 @@
     "react-markdown": "catalog:",
     "rehype-highlight": "^7.0.2",
     "remark-gfm": "catalog:",
-    "shiki": "^3.21.0",
+    "shiki": "^4.5.0",
     "tailwind-merge": "catalog:",
     "zod": "catalog:"
   },
