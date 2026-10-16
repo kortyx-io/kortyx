@@ -1,7 +1,7 @@
 ---
 id: v0-react-node-backend
 title: "React Frontend + Node Backend"
-description: "Run Kortyx on a Node backend while a separate React app consumes streamed chat responses."
+description: "Connect a separate React frontend to a Kortyx Node backend with clear server responsibilities, an HTTP route, and streamed chat transport."
 keywords: [kortyx, react, node, backend, sse, separate-apps]
 sidebar_label: "React + Node Backend"
 ---

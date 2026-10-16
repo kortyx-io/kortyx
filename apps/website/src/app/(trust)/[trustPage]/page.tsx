@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { TrustPage } from "@/components/trust/trust-page";
 import { isLegalDocumentSlug } from "@/lib/legal-documents";
 import { getPublishedLegal } from "@/lib/legal-feed";
-import { siteConfig } from "@/lib/site";
+import { createMarketingMetadata } from "@/lib/metadata";
 import {
   getTrustPage,
   isTrustPageSlug,
@@ -33,18 +33,19 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const page = title ? { ...base, label: title, title, isLegal: true } : base;
   const pathname = `/${trustPage}`;
   return {
-    title: page.label,
-    description: page.description,
-    alternates: { canonical: pathname },
+    ...createMarketingMetadata({
+      title:
+        trustPage === "about" ? "About the Kortyx Agent Framework" : page.label,
+      description: page.description,
+      pathname,
+      imagePath: "/opengraph-image",
+      imageAlt: "Kortyx, the TypeScript framework for AI agents",
+      keywords: ["Kortyx", page.label],
+    }),
     robots:
       page.isLegal && !legalPublicationReady
         ? { index: false, follow: true }
         : undefined,
-    openGraph: {
-      title: `${page.label} | Kortyx`,
-      description: page.description,
-      url: new URL(pathname, siteConfig.url).toString(),
-    },
   };
 }
 

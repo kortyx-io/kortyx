@@ -84,7 +84,7 @@ export const trustPages = {
     label: "Contact",
     eyebrow: "Contact Kortyx",
     description:
-      "Find the right channel for product questions, bug reports, and private vulnerability reports.",
+      "Find the right Kortyx contact channel for product questions, community discussions, technical support, and private vulnerability reports.",
     cards: [
       {
         label: "Product & community",

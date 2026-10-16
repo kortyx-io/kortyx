@@ -1,7 +1,7 @@
 ---
 id: v0-create-agent
 title: "createAgent"
-description: "Set up createAgent with strict workflow/runtime config and explicit provider wiring in nodes."
+description: "Configure createAgent with typed workflows, runtime settings, persistence adapters, and explicit provider wiring inside your Kortyx workflow nodes."
 keywords: [kortyx, createAgent, workflow-registry, config, runtime, strict]
 sidebar_label: "createAgent"
 ---

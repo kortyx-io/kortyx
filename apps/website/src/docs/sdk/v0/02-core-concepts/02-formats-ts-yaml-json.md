@@ -1,7 +1,7 @@
 ---
 id: v0-workflow-formats
 title: "Formats (TS, YAML, JSON)"
-description: "Author workflows in TypeScript, YAML, or JSON and understand how Kortyx loads each format."
+description: "Author Kortyx workflows in TypeScript, YAML, or JSON, compare their node and edge definitions, and understand how the runtime loads each format."
 keywords: [kortyx, typescript, yaml, json, workflow-loader]
 sidebar_label: "Formats (TS, YAML, JSON)"
 ---

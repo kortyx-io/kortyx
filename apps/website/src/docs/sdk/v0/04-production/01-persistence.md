@@ -1,7 +1,7 @@
 ---
 id: v0-runtime-persistence-boundary
 title: "Runtime Persistence"
-description: "Understand when you need Kortyx runtime persistence and when your app should use its own database."
+description: "Understand how Kortyx persists workflow checkpoints for interrupts and resume, when defaults are enough, and which data belongs in your app database."
 keywords: [kortyx, runtime-persistence, framework-adapter, resume]
 sidebar_label: "Runtime Persistence"
 ---

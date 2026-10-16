@@ -1,7 +1,7 @@
 ---
 id: v0-studio-run-locally
 title: "Run Kortyx Studio Locally"
-description: "Start Kortyx Studio with Docker, connect a Kortyx application, and inspect its first run."
+description: "Run Kortyx Studio locally with Docker, connect your application telemetry, publish its workflow catalog, and inspect your first real agent run."
 keywords: [kortyx, studio, docker, local, quickstart, telemetry]
 sidebar_label: "Run Studio Locally"
 section: "getting-started"

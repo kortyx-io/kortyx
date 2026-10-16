@@ -1,7 +1,7 @@
 ---
 id: v0-studio-prompts
 title: "Version and Test Prompts"
-description: "Manage prompt versions, test candidates with your application, and promote verified versions."
+description: "Create and review Studio prompt versions, test candidates with your application, compare eval evidence, and promote verified prompts for execution."
 keywords: [kortyx, prompts, versioning, configuration, evals, groups]
 sidebar_label: "Prompts"
 section: "guides"

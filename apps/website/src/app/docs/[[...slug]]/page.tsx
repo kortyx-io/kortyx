@@ -90,6 +90,11 @@ function getSectionDescription(
     return `Browse Kortyx documentation for ${sectionTitle}.`;
   }
 
+  while (docTitles.length > 1) {
+    const description = `Learn ${sectionTitle} in Kortyx, including ${docTitles.join(", ")}.`;
+    if (description.length <= 160) return description;
+    docTitles.pop();
+  }
   return `Learn ${sectionTitle} in Kortyx, including ${docTitles.join(", ")}.`;
 }
 
@@ -186,7 +191,7 @@ function buildDocsJsonLd(args: {
           url,
           name: args.title,
           description: args.description,
-          primaryImageOfPage: imageUrl,
+          primaryImageOfPage: { "@type": "ImageObject", url: imageUrl },
           isPartOf: { "@id": websiteId },
           about: { "@id": softwareId },
           breadcrumb: { "@id": breadcrumbId },
@@ -254,11 +259,16 @@ export async function generateMetadata({
   if (slug.length === 0) {
     return {
       title: { absolute: "Documentation | Kortyx" },
-      description: "Choose Kortyx SDK or Studio documentation.",
+      description:
+        "Explore Kortyx SDK and Studio documentation to build typed agent workflows, stream React UI state, inspect runs, and evaluate your applications.",
       alternates: { canonical: "/docs" },
       openGraph: {
         title: "Kortyx Documentation",
-        description: "Build with the SDK. Observe and evaluate with Studio.",
+        type: "website",
+        siteName: siteConfig.name,
+        locale: siteConfig.locale,
+        description:
+          "Explore Kortyx SDK and Studio documentation to build typed agent workflows, stream React UI state, inspect runs, and evaluate your applications.",
         url: absoluteUrl("/docs"),
         images: [getSocialImage("/docs")],
       },
@@ -471,7 +481,9 @@ export default async function DocsPage({
     { label: "Docs", href: "/docs" },
     {
       label: product.label,
-      href: buildDocHref(product.id, resolved.requestedVersion, []),
+      href: buildDocHref(product.id, resolved.requestedVersion, [
+        product.overview,
+      ]),
     },
     ...(currentSection
       ? [

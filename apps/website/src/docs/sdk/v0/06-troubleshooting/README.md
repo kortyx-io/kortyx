@@ -1,7 +1,7 @@
 ---
 id: v0-troubleshooting
 title: "Troubleshooting"
-description: "Diagnose common setup and runtime issues quickly with focused checks and linked fixes."
+description: "Diagnose Kortyx installation, provider, workflow, streaming, and persistence issues with focused runtime checks and links to the relevant guides."
 keywords: [kortyx, troubleshooting, debugging, errors]
 sidebar_label: "Troubleshooting"
 ---

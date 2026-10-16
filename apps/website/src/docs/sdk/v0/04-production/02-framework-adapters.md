@@ -1,7 +1,7 @@
 ---
 id: v0-runtime-framework-adapters
 title: "Runtime Persistence Adapters"
-description: "Choose and configure the backend Kortyx uses for interrupt/resume checkpoints."
+description: "Configure Kortyx checkpoint persistence with in-memory, Redis, or PostgreSQL adapters for human interrupts, workflow resume, and durable history."
 keywords: [kortyx, runtime-persistence, framework-adapter, redis, postgresql, retention, ttl]
 sidebar_label: "Runtime Adapters"
 ---
