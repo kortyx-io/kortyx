@@ -136,6 +136,22 @@ export function summarizeEvaluation(
       ).values(),
     ];
     return [
+      ...(child.result?.errors ?? []).map((issue) => ({
+        suiteRunId: child.id,
+        phase: issue.phase,
+        code: issue.code,
+        message: issue.message,
+      })),
+      ...(!child.issue && !child.termination && child.error
+        ? [
+            {
+              suiteRunId: child.id,
+              phase: "execute" as const,
+              code: "EVAL_EXECUTION_UNKNOWN",
+              message: child.error,
+            },
+          ]
+        : []),
       ...(child.issue
         ? [
             {

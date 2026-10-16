@@ -25,6 +25,9 @@ test("shows the evaluation timeout and incomplete work without investigation", a
   ).toBeVisible();
   await expect(page.getByText(/36 not started/)).toBeVisible();
   await expect(page.getByText("Timed out", { exact: true })).toHaveCount(5);
+  await expect(
+    page.getByText("6 affected attempts", { exact: true }),
+  ).toBeVisible();
   await capture(page, "evaluation-timeout");
 });
 test("shows original provider errors, stacks, causes and response details automatically", async ({

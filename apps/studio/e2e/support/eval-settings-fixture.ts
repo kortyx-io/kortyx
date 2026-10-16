@@ -92,6 +92,8 @@ export async function seedEvalSettingsFixture() {
               },
             ),
             {
+              stack:
+                "Error: OpenRouter returned HTTP 429: Rate limit exceeded for the evaluation model.\n    at gradeCriterion (evaluation/judge.ts:84:11)\n    at gradeExecution (evaluation/worker.ts:206:19)",
               status: 429,
               responseBody: {
                 error: {

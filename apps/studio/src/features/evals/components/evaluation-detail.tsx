@@ -101,6 +101,22 @@ export function EvaluationDetail({
       setCancelling(false);
     }
   };
+  const failureGroups = new Map<
+    string,
+    NonNullable<StudioEvaluationDetail["failures"]>
+  >();
+  for (const failure of run?.failures ?? []) {
+    const key = JSON.stringify([failure.phase, failure.code, failure.message]);
+    const group = failureGroups.get(key) ?? [];
+    group.push(failure);
+    failureGroups.set(key, group);
+  }
+  const failureHref = (
+    failure: NonNullable<StudioEvaluationDetail["failures"]>[number],
+  ) =>
+    failure.caseId
+      ? `/evals/cases/${failure.suiteRunId}/${encodeURIComponent(failure.caseId)}/${failure.repetition ?? 1}`
+      : evalRunHref(failure.suiteRunId);
   const columns: DataTableColumn<StudioEvalRunSummary>[] = [
     {
       key: "suite",
@@ -298,29 +314,50 @@ export function EvaluationDetail({
                 <div className="mb-3 rounded-lg border border-red-500/25 bg-red-500/5 p-3">
                   <p className="mb-2 text-sm font-semibold">Recorded errors</p>
                   <ul className="space-y-2">
-                    {run.failures?.map((failure, index) => (
-                      <li
-                        key={`${failure.suiteRunId}:${failure.caseId}:${index}`}
-                        className="text-xs"
-                      >
-                        <Button
-                          size="inline"
-                          variant="link"
-                          onClick={() =>
-                            navigate(
-                              failure.caseId
-                                ? `/evals/cases/${failure.suiteRunId}/${encodeURIComponent(failure.caseId)}/${failure.repetition ?? 1}`
-                                : evalRunHref(failure.suiteRunId),
-                            )
-                          }
-                        >
-                          {failure.phase} · {failure.code}
-                        </Button>
-                        <p className="mt-1 whitespace-pre-wrap [overflow-wrap:anywhere]">
-                          {failure.message}
-                        </p>
-                      </li>
-                    ))}
+                    {[...failureGroups.entries()].map(([key, group]) => {
+                      const failure = group[0]!;
+                      return (
+                        <li key={key} className="text-xs">
+                          <Button
+                            size="inline"
+                            variant="link"
+                            onClick={() => navigate(failureHref(failure))}
+                          >
+                            {failure.phase} · {failure.code}
+                            {group.length > 1
+                              ? ` · ${group.length} occurrences`
+                              : ""}
+                          </Button>
+                          <p className="mt-1 whitespace-pre-wrap [overflow-wrap:anywhere]">
+                            {failure.message}
+                          </p>
+                          {group.length > 1 && (
+                            <details className="mt-2">
+                              <summary className="cursor-pointer text-muted-foreground">
+                                {group.length} affected attempts
+                              </summary>
+                              <div className="mt-2 flex flex-wrap gap-3">
+                                {group.map((item, index) => (
+                                  <Button
+                                    key={`${item.suiteRunId}:${item.caseId}:${index}`}
+                                    size="inline"
+                                    variant="link"
+                                    onClick={() => navigate(failureHref(item))}
+                                  >
+                                    {run.suites.find(
+                                      (suite) => suite.id === item.suiteRunId,
+                                    )?.suiteName ?? item.suiteRunId}
+                                    {item.caseId
+                                      ? ` · ${item.caseId} · attempt ${item.repetition ?? 1}`
+                                      : ""}
+                                  </Button>
+                                ))}
+                              </div>
+                            </details>
+                          )}
+                        </li>
+                      );
+                    })}
                   </ul>
                 </div>
               )}
