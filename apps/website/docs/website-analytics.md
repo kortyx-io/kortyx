@@ -20,7 +20,7 @@ and PR previews return `null` even if accidentally given these variables.
 
 Never use a PostHog personal API key, GA administrative credential, Cloudflare API
 token or legal-service key as a browser identifier. `/api/website-analytics`
-returns only these three public IDs and sitemap paths, with `private, no-store`.
+returns only these three public IDs and known public page paths, with `private, no-store`.
 It returns `null` for missing/invalid configuration, unavailable legal service,
 unapproved notices or a different notice version. A newer notice therefore
 requires explicit operator review and an updated version pin before collection
@@ -39,7 +39,7 @@ Consent preferences expire after 180 days. No consent synchronizes to another
 browser, SDK installation or Cloud account.
 
 PostHog's `no-external` build sends only `$pageview`, once per pathname change.
-The event reconstruction allowlists sitemap paths, fixed referral-source enums,
+The event reconstruction allowlists canonical docs/trust paths, fixed referral-source enums,
 anonymous document-memory identity, event time and required SDK metadata.
 Unknown paths are dropped; query strings, fragments, arbitrary referrers and
 person-profile fields are excluded. Autocapture, page-leave, performance,

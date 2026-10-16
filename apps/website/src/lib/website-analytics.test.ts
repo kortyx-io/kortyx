@@ -79,12 +79,12 @@ describe("website analytics boundaries", () => {
   });
 });
 
-const { legal, sitemap } = vi.hoisted(() => ({
+const { legal, docs } = vi.hoisted(() => ({
   legal: vi.fn(),
-  sitemap: vi.fn(),
+  docs: vi.fn(),
 }));
 vi.mock("./legal-feed", () => ({ getPublishedLegal: legal }));
-vi.mock("@/app/sitemap", () => ({ default: sitemap }));
+vi.mock("@/lib/docs", () => ({ getDocsSearchIndex: docs }));
 
 describe("runtime analytics publication gate", () => {
   afterEach(() => {
@@ -112,12 +112,30 @@ describe("runtime analytics publication gate", () => {
     legal.mockResolvedValue({
       entry: { version: "analytics-v1", productionApproved: true },
     });
-    sitemap.mockResolvedValue([{ url: "https://kortyx.io/" }]);
+    docs.mockResolvedValue([{ href: "/docs/sdk/start#heading" }]);
     const response = await GET(request);
     expect(response.headers.get("cache-control")).toContain("no-store");
-    expect(await response.json()).toMatchObject({
-      gaMeasurementId: "G-TEST",
-      paths: ["/"],
+    const config = await response.json();
+    expect(config.gaMeasurementId).toBe("G-TEST");
+    expect(config.paths).toEqual(
+      expect.arrayContaining([
+        "/",
+        "/product",
+        "/docs",
+        "/docs/sdk",
+        "/docs/sdk/start",
+      ]),
+    );
+    expect(JSON.stringify(config)).not.toContain("#heading");
+    const proxied = new Request("http://0.0.0.0:3000/api/website-analytics", {
+      headers: { "x-forwarded-host": "kortyx.io", host: "0.0.0.0:3000" },
     });
+    expect(await (await GET(proxied)).json()).toMatchObject({
+      gaMeasurementId: "G-TEST",
+    });
+    const staging = new Request("http://0.0.0.0:3000/api/website-analytics", {
+      headers: { "x-forwarded-host": "staging.kortyx.dev" },
+    });
+    expect(await (await GET(staging)).json()).toBeNull();
   });
 });
