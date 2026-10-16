@@ -74,6 +74,23 @@ describe("product documentation routes", () => {
     ],
     ["sdk/getting-started", "/docs/sdk/getting-started", null],
     ["studio/deployment", "/docs/studio/deployment", null],
+    ["03-guides/11-sse", "/docs/sdk/guides/sse", "/docs/sdk/guides/sse"],
+    [
+      "sdk/v0/02-core-concepts/03-nodes.md",
+      "/docs/sdk/core-concepts/nodes",
+      "/docs/sdk/core-concepts/nodes",
+    ],
+    [
+      "studio/06-deploy-server",
+      "/docs/studio/deploy-server",
+      "/docs/studio/deploy-server",
+    ],
+    ["00-start-here/README.md", "/docs/sdk/start-here", "/docs/sdk/start-here"],
+    [
+      "sdk/getting-started/models",
+      "/docs/sdk/kortyx-providers/choose-a-provider",
+      "/docs/sdk/kortyx-providers/choose-a-provider",
+    ],
   ])("resolves %s", async (slug, canonicalPath, redirectTo) => {
     expect(await resolveDocsRoute(slug.split("/"))).toMatchObject({
       canonicalPath,
@@ -184,6 +201,17 @@ describe("product documentation routes", () => {
       });
       expect(await resolveDocsRoute(["v0", "migration"])).toMatchObject({
         redirectTo: "/docs/sdk/v0/migration",
+      });
+      expect(
+        await resolveDocsRoute([
+          "sdk",
+          "v0",
+          "02-core-concepts",
+          "03-nodes.md",
+        ]),
+      ).toMatchObject({
+        requestedVersion: "v0",
+        canonicalPath: "/docs/sdk/v0/core-concepts/nodes",
       });
       expect(await resolveDocsRoute(["studio", "run-locally"])).toMatchObject({
         requestedVersion: "v0",

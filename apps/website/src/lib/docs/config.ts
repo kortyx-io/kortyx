@@ -162,6 +162,27 @@ export const docsConfig: { docsRoot: string; products: DocsProduct[] } = {
           "getting-started/documentation-structure-and-dx": "getting-started",
           "getting-started/quickstart-nextjs-api-route":
             "getting-started/quickstart-nextjs",
+          "getting-started/models": "kortyx-providers/choose-a-provider",
+          // This numbered HTML URL also needs to be emitted by the static build.
+          "reference/06-react-client": "reference/react-client",
+          // Historical URLs accidentally included the link's display label.
+          "core-concepts/nodes-Nodes": "core-concepts/nodes",
+          "core-concepts/hooks-Hooks": "core-concepts/hooks",
+          "production/observability-OpenTelemetry": "production/observability",
+          "kortyx-providers/mistral-provider-Mistral":
+            "kortyx-providers/mistral-provider",
+          "kortyx-providers/groq-provider-Groq":
+            "kortyx-providers/groq-provider",
+          "kortyx-providers/openai-provider-OpenAI":
+            "kortyx-providers/openai-provider",
+          "kortyx-providers/deepseek-provider-DeepSeek":
+            "kortyx-providers/deepseek-provider",
+          "guides-Guides": "guides",
+          "reference-Reference": "reference",
+          "production-Production": "production",
+          "troubleshooting-Troubleshooting": "troubleshooting",
+          "getting-started/installation-Installation":
+            "getting-started/installation",
           "core-concepts/node-resolution": "reference/node-resolution",
           "start-here/start-here": "start-here",
           "troubleshooting/troubleshooting": "troubleshooting",
