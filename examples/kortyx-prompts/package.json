@@ -14,14 +14,14 @@
     "@hono/node-server": "^1.19.15",
     "@kortyx/openrouter": "workspace:*",
     "@kortyx/telemetry": "workspace:*",
-    "hono": "^4.13.12",
+    "hono": "^4.13.13",
     "kortyx": "workspace:*",
     "zod": "catalog:",
     "@kortyx/providers": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "catalog:",
-    "tsx": "^4.21.0",
+    "tsx": "^4.23.15",
     "typescript": "catalog:",
     "vitest": "catalog:"
   }

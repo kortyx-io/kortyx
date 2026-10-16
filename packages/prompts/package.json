@@ -29,7 +29,7 @@
     "lint": "biome check src test"
   },
   "dependencies": {
-    "ajv": "8.18.0",
+    "ajv": "8.20.0",
     "zod": "catalog:",
     "@kortyx/usage-telemetry": "workspace:*"
   },

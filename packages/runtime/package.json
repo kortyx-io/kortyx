@@ -48,7 +48,7 @@
     "@kortyx/utils": "workspace:*",
     "@langchain/core": "catalog:",
     "@langchain/langgraph": "catalog:",
-    "@langchain/langgraph-checkpoint": "^1.0.0",
+    "@langchain/langgraph-checkpoint": "^1.2.0",
     "zod": "catalog:",
     "postgres": "^3.4.7",
     "@kortyx/prompts": "workspace:*"
