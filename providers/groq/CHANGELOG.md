@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.4.10](https://github.com/kortyx-io/kortyx/compare/groq-v0.4.9...groq-v0.4.10) (2026-10-16)
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/providers bumped to 0.9.4
+    * @kortyx/core bumped to 0.15.0
+
 ## [0.4.9](https://github.com/kortyx-io/kortyx/compare/groq-v0.4.8...groq-v0.4.9) (2026-10-13)
 
 

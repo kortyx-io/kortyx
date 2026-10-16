@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.17.0](https://github.com/kortyx-io/kortyx/compare/telemetry-v0.16.1...telemetry-v0.17.0) (2026-10-16)
+
+
+### Features
+
+* **telemetry:** improve failure classification and add CLI usage ([#355](https://github.com/kortyx-io/kortyx/issues/355)) ([c5fbbed](https://github.com/kortyx-io/kortyx/commit/c5fbbed3064ea7b2b3020617db7ce09d1b175db3))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/hooks bumped to 0.35.0
+    * @kortyx/telemetry-contracts bumped to 0.18.0
+    * @kortyx/core bumped to 0.15.0
+    * @kortyx/usage-telemetry bumped to 0.4.0
+
 ## [0.16.1](https://github.com/kortyx-io/kortyx/compare/telemetry-v0.16.0...telemetry-v0.16.1) (2026-10-14)
 
 

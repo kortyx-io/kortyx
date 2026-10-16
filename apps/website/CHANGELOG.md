@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.52.0](https://github.com/kortyx-io/kortyx/compare/website-v0.51.1...website-v0.52.0) (2026-10-16)
+
+
+### Features
+
+* **evals:** configurable deadlines and original error visibility ([#354](https://github.com/kortyx-io/kortyx/issues/354)) ([7dde173](https://github.com/kortyx-io/kortyx/commit/7dde173b54eb37a2d28ff28ac342a3333e5ed902))
+* **telemetry:** improve failure classification and add CLI usage ([#355](https://github.com/kortyx-io/kortyx/issues/355)) ([c5fbbed](https://github.com/kortyx-io/kortyx/commit/c5fbbed3064ea7b2b3020617db7ce09d1b175db3))
+
+
+### Bug Fixes
+
+* **website:** resolve Ahrefs metadata and navigation findings ([#360](https://github.com/kortyx-io/kortyx/issues/360)) ([6ed06be](https://github.com/kortyx-io/kortyx/commit/6ed06beca2b957abbc616eb06f3ce0267ccfa7e5))
+* **website:** restore legacy docs URLs and improve search visibility ([#356](https://github.com/kortyx-io/kortyx/issues/356)) ([65590ca](https://github.com/kortyx-io/kortyx/commit/65590ca467a4b481370ca8c5526c130d8d70ca75))
+
 ## [0.51.1](https://github.com/kortyx-io/kortyx/compare/website-v0.51.0...website-v0.51.1) (2026-10-14)
 
 

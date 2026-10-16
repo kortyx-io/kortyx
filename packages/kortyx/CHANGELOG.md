@@ -1,5 +1,28 @@
 # Changelog
 
+## [0.32.0](https://github.com/kortyx-io/kortyx/compare/kortyx-v0.31.1...kortyx-v0.32.0) (2026-10-16)
+
+
+### Features
+
+* **evals:** configurable deadlines and original error visibility ([#354](https://github.com/kortyx-io/kortyx/issues/354)) ([7dde173](https://github.com/kortyx-io/kortyx/commit/7dde173b54eb37a2d28ff28ac342a3333e5ed902))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/agent bumped to 0.39.0
+    * @kortyx/cli bumped to 0.21.0
+    * @kortyx/core bumped to 0.15.0
+    * @kortyx/hooks bumped to 0.35.0
+    * @kortyx/mcp bumped to 0.3.2
+    * @kortyx/providers bumped to 0.9.4
+    * @kortyx/runtime bumped to 0.25.0
+    * @kortyx/stream bumped to 0.15.6
+    * @kortyx/utils bumped to 0.3.9
+    * @kortyx/prompts bumped to 0.2.2
+
 ## [0.31.1](https://github.com/kortyx-io/kortyx/compare/kortyx-v0.31.0...kortyx-v0.31.1) (2026-10-14)
 
 

@@ -14,6 +14,16 @@
   automatic retry behavior unchanged.
 
 
+## [0.2.7](https://github.com/kortyx-io/kortyx/compare/openrouter-v0.2.6...openrouter-v0.2.7) (2026-10-16)
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/core bumped to 0.15.0
+    * @kortyx/providers bumped to 0.9.4
+
 ## [0.2.6](https://github.com/kortyx-io/kortyx/compare/openrouter-v0.2.5...openrouter-v0.2.6) (2026-10-13)
 
 
