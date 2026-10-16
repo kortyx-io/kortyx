@@ -37,6 +37,7 @@ export function EvalRunSetup({
   const {
     query,
     resolved,
+    overrides,
     settingsError,
     setQuery,
     target,
@@ -128,21 +129,6 @@ export function EvalRunSetup({
       launchCases: null,
       launchSuiteCases: partial.length ? partial : null,
     });
-  };
-  const overrides: EvalSettings = {
-    ...(query.launchAttempts !== null
-      ? { repetitions: Number(query.launchAttempts) }
-      : {}),
-    ...(query.launchConcurrency !== null
-      ? { concurrency: Number(query.launchConcurrency) }
-      : {}),
-    ...(query.launchCaseTimeout !== null
-      ? { caseTimeoutMs: Number(query.launchCaseTimeout) }
-      : {}),
-    ...(query.launchRunTimeout !== null
-      ? { runTimeoutMs: Number(query.launchRunTimeout) }
-      : {}),
-    ...(query.launchJudge ? { judge: query.launchJudge } : {}),
   };
   const attempts = overrides.repetitions ?? resolved.values.repetitions;
   const concurrency = overrides.concurrency ?? resolved.values.concurrency;

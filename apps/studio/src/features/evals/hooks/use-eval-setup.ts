@@ -1,5 +1,5 @@
 "use client";
-import { resolveEvalSettings } from "@kortyx/agent/evals";
+import { type EvalSettings, resolveEvalSettings } from "@kortyx/agent/evals";
 import type { PromptSelection } from "@kortyx/telemetry-contracts";
 import {
   parseAsBoolean,
@@ -42,11 +42,37 @@ export function useEvalSetup(targets: EvalTargets) {
     target?.manifest?.studioJudging && targets.studioJudge,
   );
   const appJudge = target?.manifest?.judge;
+  const overrides: EvalSettings = {
+    ...(query.launchAttempts !== null
+      ? { repetitions: Number(query.launchAttempts) }
+      : {}),
+    ...(query.launchConcurrency !== null
+      ? { concurrency: Number(query.launchConcurrency) }
+      : {}),
+    ...(query.launchCaseTimeout !== null
+      ? { caseTimeoutMs: Number(query.launchCaseTimeout) }
+      : {}),
+    ...(query.launchRunTimeout !== null
+      ? { runTimeoutMs: Number(query.launchRunTimeout) }
+      : {}),
+    ...(query.launchJudge ? { judge: query.launchJudge } : {}),
+  };
+  // Display the full baseline, even when a default exceeds this application's
+  // ceiling. Validate the final run values so a lower override can repair it.
+  const resolved = resolveEvalSettings(
+    {},
+    targets.settings?.defaults,
+    {
+      defaults: target?.manifest?.execution?.defaults ?? {},
+      limits: {},
+      overrides: ["repetitions", "concurrency", "caseTimeoutMs"],
+    },
+    targets.settings?.installation,
+  );
   let settingsError = "";
-  let resolved: ReturnType<typeof resolveEvalSettings>;
   try {
-    resolved = resolveEvalSettings(
-      {},
+    resolveEvalSettings(
+      overrides,
       targets.settings?.defaults,
       target?.manifest?.execution,
       targets.settings?.installation,
@@ -55,13 +81,6 @@ export function useEvalSetup(targets: EvalTargets) {
   } catch (error) {
     settingsError =
       error instanceof Error ? error.message : "Invalid evaluation defaults.";
-    resolved = resolveEvalSettings(
-      {},
-      {},
-      target?.manifest?.execution
-        ? { ...target.manifest.execution, limits: {} }
-        : undefined,
-    );
   }
   const judge =
     query.launchJudge ??
@@ -76,6 +95,7 @@ export function useEvalSetup(targets: EvalTargets) {
   return {
     query,
     resolved,
+    overrides,
     settingsError,
     setQuery,
     target,

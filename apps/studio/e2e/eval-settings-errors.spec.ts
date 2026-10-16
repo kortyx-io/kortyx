@@ -110,3 +110,72 @@ test("saves project defaults and submits only settings explicitly changed for a 
     });
   }
 });
+
+test("allows a run override to satisfy an application ceiling below the project default", async ({
+  page,
+  request,
+}) => {
+  const original = await (
+    await request.get("/api/studio/evals/settings")
+  ).json();
+  const headers = {
+    origin: new URL(
+      process.env.KORTYX_E2E_STUDIO_URL ?? "http://localhost:6300",
+    ).origin,
+    "x-kortyx-eval": "1",
+  };
+  try {
+    await request.post("/api/studio/evals/settings", {
+      data: { ...original.defaults, concurrency: 2 },
+      headers,
+    });
+    await page.route("**/api/studio/evals/targets", async (route) => {
+      const response = await route.fetch();
+      const data = await response.json();
+      const target = data.targets.find(
+        (item: { id: string }) => item.id === EVAL_FIXTURE.targetId,
+      );
+      target.manifest.execution.limits = { concurrency: 1 };
+      await route.fulfill({ response, json: data });
+    });
+    await page.goto("/evals/runs");
+    await page
+      .getByRole("button", { name: "Refresh evaluations", exact: true })
+      .click();
+    await page
+      .getByRole("button", { name: "Run evaluations", exact: true })
+      .click();
+    const drawer = page.getByRole("dialog");
+    const start = drawer.getByRole("button", {
+      name: "Run evaluations",
+      exact: true,
+    });
+    await expect(
+      page.getByLabel("Concurrent attempts across suites"),
+    ).toHaveValue("2");
+    await expect(
+      page.getByText("concurrency exceeds the application maximum of 1.", {
+        exact: true,
+      }),
+    ).toBeVisible();
+    await expect(start).toBeDisabled();
+    await page.getByLabel("Concurrent attempts across suites").fill("1");
+    await expect(start).toBeEnabled();
+    let submitted: Record<string, unknown> | undefined;
+    await page.route("**/api/studio/evals/evaluations", async (route) => {
+      if (route.request().method() !== "POST") return route.continue();
+      submitted = route.request().postDataJSON();
+      await route.fulfill({
+        status: 202,
+        json: { id: EVAL_SETTINGS_FIXTURE.id },
+      });
+    });
+    await start.click();
+    await expect.poll(() => submitted?.concurrency).toBe(1);
+  } finally {
+    await request.post("/api/studio/evals/settings", {
+      data: original.defaults,
+      headers,
+    });
+  }
+});
