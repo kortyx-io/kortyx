@@ -252,6 +252,75 @@ describe("Studio eval CLI", () => {
     ]);
     expect(command.output[2]).toContain("private prompt");
   });
+  it("sends explicit timeout overrides while leaving other defaults to the server", async () => {
+    const args = await configured();
+    const request = mockFetch();
+    await cli(request).run([
+      "runs",
+      "start",
+      "jobs",
+      ...args,
+      "--run-timeout-ms",
+      "5400000",
+      "--case-timeout-ms",
+      "180000",
+      "--json",
+    ]);
+    const body = JSON.parse(String(request.mock.calls[1]?.[1]?.body));
+    expect(body).toMatchObject({
+      runTimeoutMs: 5_400_000,
+      caseTimeoutMs: 180_000,
+    });
+    for (const field of ["repetitions", "concurrency", "judge"])
+      expect(body).not.toHaveProperty(field);
+  });
+  it("shows original recorded case errors without requiring include-content", async () => {
+    const args = await configured();
+    const run = {
+      ...structuredClone(detail.run),
+      status: "error",
+      error: "Provider rejected execution with HTTP 429",
+    };
+    run.result.status = "error";
+    run.result.cases[0]!.errors = [
+      {
+        phase: "execute",
+        code: "HTTP_429",
+        message: "Provider concurrency quota exceeded",
+        exception: {
+          schemaVersion: 1,
+          data: {
+            type: "HttpError",
+            stack: "HttpError: Provider quota exceeded",
+            response: {
+              content: "quota_exceeded",
+              authorization: "Bearer SECRET_CREDENTIAL",
+            },
+          },
+          capture: { status: "complete", omissions: [], redactions: [] },
+        },
+      },
+    ] as never;
+    const command = cli(
+      vi.fn(async (url) =>
+        String(url).includes("/evaluations/")
+          ? Response.json({ error: "Legacy suite run" }, { status: 404 })
+          : Response.json({ run }),
+      ),
+    );
+    await command.run(["runs", "get", id, ...args, "--json"]);
+    const observed = JSON.parse(command.output[0] ?? "").run;
+    expect(observed.error).toBe("Provider rejected execution with HTTP 429");
+    expect(observed.caseResults[0].errors[0].message).toBe(
+      "Provider concurrency quota exceeded",
+    );
+    expect(
+      observed.caseResults[0].errors[0].exception.data.response.content,
+    ).toBe("quota_exceeded");
+    expect(command.output[0]).not.toContain("SECRET_CREDENTIAL");
+    expect(command.output[0]).not.toContain("private prompt");
+    expect(command.output[0]).not.toContain("private answer");
+  });
   it("enqueues once with discovered revision, selected cases, repetitions and URL", async () => {
     const args = await configured();
     const request = mockFetch();

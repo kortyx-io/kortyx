@@ -419,17 +419,9 @@ export function registerStudioEvalCommands(
         );
       const suites = options.all
         ? target.manifest.suites
-        : ids.map((id) => {
-            const suite = target.manifest?.suites.find(
-              (suite) => suite.id === id,
-            );
-            if (!suite)
-              throw new StudioReadError(
-                "invalid_suite",
-                "Suite is no longer available.",
-              );
-            return suite;
-          });
+        : ids.map(
+            (id) => target.manifest!.suites.find((suite) => suite.id === id)!,
+          );
       const caseIds = options.case ?? [];
       if (caseIds.length && (options.all || suites.length !== 1))
         throw new StudioReadError(
