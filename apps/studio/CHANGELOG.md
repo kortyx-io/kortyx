@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.22.1](https://github.com/kortyx-io/kortyx/compare/studio-v0.22.0...studio-v0.22.1) (2026-10-16)
+
+
+### Bug Fixes
+
+* **studio:** omit unset usage context fields for strict adapters ([#361](https://github.com/kortyx-io/kortyx/issues/361)) ([a91327c](https://github.com/kortyx-io/kortyx/commit/a91327c8a5ae58686a0ed6c39b3930855483e140))
+
 ## [0.22.0](https://github.com/kortyx-io/kortyx/compare/studio-v0.21.1...studio-v0.22.0) (2026-10-16)
 
 
