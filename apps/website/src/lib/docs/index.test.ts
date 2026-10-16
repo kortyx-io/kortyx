@@ -165,6 +165,16 @@ describe("product documentation routes", () => {
     expect(checked).toBeGreaterThan(100);
   });
 
+  it("keeps documentation search descriptions useful without clipping", async () => {
+    const pages = (await getDocsSearchIndex()).filter(
+      (entry) => !entry.href.includes("#"),
+    );
+    for (const page of pages) {
+      expect(page.description.length, page.href).toBeGreaterThanOrEqual(100);
+      expect(page.description.length, page.href).toBeLessThanOrEqual(160);
+    }
+  });
+
   it("archives a previous SDK major independently and accepts another product", async () => {
     const sdk = getDocsProduct("sdk");
     if (!sdk) throw new Error("Missing SDK");

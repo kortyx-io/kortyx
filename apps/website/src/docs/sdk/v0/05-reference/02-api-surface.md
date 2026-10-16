@@ -1,7 +1,7 @@
 ---
 id: v0-api-surface
 title: "Main API Surface (kortyx)"
-description: "Reference what the main kortyx package re-exports for application development."
+description: "Explore the main kortyx package exports for agents, workflows, hooks, providers, runtime persistence, browser clients, and stream helpers."
 keywords: [kortyx, api-surface, exports, facade, typescript]
 sidebar_label: "API Surface"
 ---

@@ -1,7 +1,7 @@
 ---
 id: v0-studio-prompt-sdk
 title: "Use Studio Prompts"
-description: "Resolve typed prompt versions, preserve chat roles, and attach execution and eval evidence."
+description: "Resolve typed Studio prompt versions in Kortyx workflows, preserve chat roles, and connect prompt usage with run traces and conversation eval evidence."
 keywords: [kortyx, usePrompt, definePrompt, prompts, studio]
 sidebar_label: "Studio Prompts"
 ---

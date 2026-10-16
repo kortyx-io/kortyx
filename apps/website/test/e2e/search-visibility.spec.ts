@@ -163,3 +163,85 @@ test("search can retry after a failed index load", async ({ page }) => {
   await expect(dialog.getByRole("alert")).toHaveCount(0);
   expect(loads).toBe(2);
 });
+
+test("audit pages expose complete social metadata and valid source/image schema shapes", async ({
+  page,
+}) => {
+  for (const path of [
+    "/",
+    "/product",
+    "/open-source",
+    "/examples",
+    "/docs",
+    "/about",
+    "/contact",
+    "/security",
+    "/docs/sdk/getting-started/quickstart-nextjs",
+    "/docs/studio/run-locally",
+    "/docs/studio/deployment",
+  ]) {
+    await page.goto(path);
+    for (const property of [
+      "og:title",
+      "og:description",
+      "og:type",
+      "og:url",
+      "og:image",
+    ]) {
+      await expect(
+        page.locator(`meta[property="${property}"]`),
+        `${path}: ${property}`,
+      ).toHaveAttribute("content", /\S/);
+    }
+    const description = await page
+      .locator('meta[name="description"]')
+      .getAttribute("content");
+    expect(description?.length, path).toBeGreaterThanOrEqual(100);
+    expect(description?.length, path).toBeLessThanOrEqual(160);
+    const graphs = await page
+      .locator('script[type="application/ld+json"]')
+      .allTextContents();
+    for (const graph of graphs) {
+      for (const node of JSON.parse(graph)["@graph"] ?? []) {
+        if (node["@type"] === "SoftwareApplication") {
+          expect(node).not.toHaveProperty("codeRepository");
+          expect(node).not.toHaveProperty("programmingLanguage");
+          expect(node.subjectOf["@id"]).toBe(
+            "https://github.com/kortyx-io/kortyx#source-code",
+          );
+        }
+        if (node["@type"] === "SoftwareSourceCode") {
+          expect(node.codeRepository).toBe(
+            "https://github.com/kortyx-io/kortyx",
+          );
+        }
+        if (node.primaryImageOfPage) {
+          expect(node.primaryImageOfPage["@type"]).toBe("ImageObject");
+          expect(new URL(node.primaryImageOfPage.url).hostname).toBe(
+            "kortyx.io",
+          );
+        }
+      }
+    }
+    if (path.startsWith("/docs/")) {
+      for (const link of await page
+        .getByRole("navigation", { name: "Breadcrumb" })
+        .getByRole("link")
+        .all()) {
+        const href = await link.getAttribute("href");
+        if (!href) throw new Error("Breadcrumb is missing its destination");
+        const target = await page.request.get(href, { maxRedirects: 0 });
+        expect(target.status(), `${path}: ${href}`).toBe(200);
+      }
+    }
+  }
+  await page.goto("/about");
+  await expect(page).toHaveTitle("About the Kortyx Agent Framework | Kortyx");
+  await page.goto("/docs/sdk/reference/package-overview");
+  await expect(
+    page.locator('main a[href="/docs/sdk/reference/react-client"]'),
+  ).not.toHaveCount(0);
+  await expect(
+    page.locator('a[href="/docs/sdk/reference/06-react-client"]'),
+  ).toHaveCount(0);
+});

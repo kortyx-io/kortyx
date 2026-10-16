@@ -1,7 +1,7 @@
 ---
 id: v0-streaming-sse
 title: "SSE for API Routes"
-description: "Stream Kortyx chunks over HTTP from your API route and consume them safely in browser clients."
+description: "Stream Kortyx workflow chunks over HTTP with toSSE, consume them in React, and render typed text, structured data, and human interrupts safely."
 keywords: [kortyx, sse, api-route, toSSE, createStreamResponse, readStream]
 sidebar_label: "SSE (API Routes)"
 ---

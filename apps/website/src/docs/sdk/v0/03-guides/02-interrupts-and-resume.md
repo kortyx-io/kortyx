@@ -1,7 +1,7 @@
 ---
 id: v0-runtime-interrupts-resume
 title: "Interrupts and Resume"
-description: "Pause node execution for user input and resume deterministically using tokens and request ids."
+description: "Pause Kortyx workflow nodes for human input, stream typed interrupt requests, and resume safely with response tokens, request IDs, and persistence."
 keywords: [kortyx, interrupt, resume, human-input, pending-requests, checkpoints]
 sidebar_label: "Interrupts and Resume"
 ---

@@ -1,7 +1,7 @@
 ---
 id: v0-migration-and-versions
 title: "Migration & Versions"
-description: "Versioning and migration guidance for evolving Kortyx apps safely across releases."
+description: "Upgrade Kortyx applications safely with versioning guidance, compatibility checks, and migration links for workflows, providers, and React clients."
 keywords: [kortyx, migration, versions, upgrade]
 sidebar_label: "Migration & Versions"
 ---

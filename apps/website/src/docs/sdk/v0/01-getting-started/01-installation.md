@@ -1,7 +1,7 @@
 ---
 id: v0-installation
 title: "Installation"
-description: "Install Kortyx, set required environment variables, and configure basic project settings."
+description: "Install the Kortyx TypeScript framework, check runtime prerequisites, and understand package dependencies before building your first agent workflow."
 keywords: [kortyx, installation, nodejs, pnpm, environment]
 sidebar_label: "Installation"
 ---

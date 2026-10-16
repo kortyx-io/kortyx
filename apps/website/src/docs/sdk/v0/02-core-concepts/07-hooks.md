@@ -1,7 +1,7 @@
 ---
 id: v0-runtime-hooks
 title: "Hooks"
-description: "Practical guide to when each hook is useful and how structured streaming works in real node logic."
+description: "Choose Kortyx hooks for model reasoning, tools, child workflows, human interrupts, runtime state, and structured data streamed to your application UI."
 keywords: [kortyx, hooks, useTool, useReason, useInterrupt, useWorkflow, createWorkflowHooks, useWorkflowState, useNodeState, useStructuredData]
 sidebar_label: "Hooks"
 ---
