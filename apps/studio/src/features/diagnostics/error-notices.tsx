@@ -2,7 +2,7 @@
 
 import type { DiagnosticContent } from "@kortyx/telemetry-contracts";
 import { AlertTriangle, CircleAlert } from "lucide-react";
-import { type ReactNode, useState } from "react";
+import { type ReactNode, useRef, useState } from "react";
 import Link from "@/components/scoped-link";
 import { Button } from "@/components/ui/button";
 import {
@@ -10,6 +10,7 @@ import {
   DialogContent,
   DialogDescription,
   DialogTitle,
+  DialogTrigger,
 } from "@/components/ui/dialog";
 import { ErrorDetails } from "./error-details";
 
@@ -35,6 +36,7 @@ export function ErrorNotices({
   environment: string;
 }) {
   const [selection, setSelection] = useState<string | null>(null);
+  const trigger = useRef<HTMLButtonElement | null>(null);
   const selected = items.find((item) => item.id === selection);
   return (
     <>
@@ -48,7 +50,10 @@ export function ErrorNotices({
             <button
               key={severity}
               type="button"
-              onClick={() => setSelection(first.id)}
+              onClick={(event) => {
+                trigger.current = event.currentTarget;
+                setSelection(first.id);
+              }}
               className={`flex w-full min-w-0 items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-xs hover:bg-muted/50 focus-visible:outline-2 focus-visible:outline-ring ${severity === "error" ? "bg-red-500/5 text-red-700 dark:text-red-400" : "bg-amber-500/5 text-amber-700 dark:text-amber-400"}`}
             >
               <Icon className="size-3.5 shrink-0" aria-hidden="true" />
@@ -71,7 +76,13 @@ export function ErrorNotices({
           if (!open) setSelection(null);
         }}
       >
-        <DialogContent className="flex max-h-[85dvh] max-w-4xl flex-col gap-0 overflow-hidden p-0">
+        <DialogContent
+          onCloseAutoFocus={(event) => {
+            event.preventDefault();
+            trigger.current?.focus();
+          }}
+          className="flex max-h-[85dvh] max-w-4xl flex-col gap-0 overflow-hidden p-0"
+        >
           <div className="shrink-0 border-b px-5 py-4 pr-12">
             <DialogTitle className="text-sm font-semibold">
               Errors and warnings
@@ -153,9 +164,11 @@ export function ErrorDialogTrigger({
   const [open, setOpen] = useState(false);
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <Button variant="link" size="inline" onClick={() => setOpen(true)}>
-        View error details
-      </Button>
+      <DialogTrigger asChild>
+        <Button variant="link" size="inline">
+          View error details
+        </Button>
+      </DialogTrigger>
       <DialogContent className="max-h-[85dvh] max-w-3xl overflow-auto">
         <DialogTitle>Error details</DialogTitle>
         <DialogDescription className="sr-only">

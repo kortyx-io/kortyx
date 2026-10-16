@@ -37,6 +37,7 @@ test("shows the evaluation timeout and incomplete work without investigation", a
   await expect(dialog.getByText(/36 not started/)).toBeVisible();
   await capture(page, "timeout-error-dialog");
   await page.keyboard.press("Escape");
+  await expect(timeout).toBeFocused();
   await errors.click();
   await expect(
     dialog.getByRole("heading", { name: "Stack trace" }),
