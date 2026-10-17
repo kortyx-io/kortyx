@@ -635,6 +635,15 @@ the serializable settings contract also supports future Studio-authored suites.
 
 ## Optional launch overrides
 
+For planned worker replacement, keep the owning worker alive to finish active
+suites, renew leases, report progress and persist results while a replacement
+accepts new jobs. Worker admission drain and HTTP connection drain are separate.
+User cancellation and the run's configured deadline still apply. The Studio API
+worker host hook distinguishes `drain()` from the existing aborting `stop()`;
+bundled API shutdown still uses `stop()` until a host integrates retirement.
+Replicas alone do not transfer an in-flight evaluation, and a lost executor must
+follow the consumer/store recovery contract rather than blindly repeating tools.
+
 `kortyx studio evals runs start` accepts `--case-timeout-ms` and
 `--run-timeout-ms`, independently of `--timeout` (the CLI wait budget).
 Omitted repetitions, concurrency, judge and deadline flags resolve on the server

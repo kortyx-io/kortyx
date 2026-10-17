@@ -278,7 +278,16 @@ export function createEvalWorker(
               );
           }
       }
-      await baseStore.finish(id, owner, outcome);
+      try {
+        await baseStore.finish(id, owner, outcome);
+      } catch (error) {
+        // Suite execution can retain a reporting error without rejecting its task.
+        // Retirement must still fail closed on an ambiguous terminal write.
+        drainFailure ??= new Error(
+          "Evaluation worker completion could not be confirmed.",
+        );
+        throw error;
+      }
       try {
         const scope = usageScopes.get(id);
         if (scope) {
@@ -306,6 +315,8 @@ export function createEvalWorker(
     throw new TypeError("maxConcurrentEvaluations must be a positive integer.");
   const executing = new Set<Promise<void>>();
   let stopped = false;
+  let draining = false;
+  let drainFailure: Error | undefined;
   let loop: Promise<void> | undefined;
   const active = new Set<AbortController>();
   const pause = () => new Promise<void>((resolve) => setTimeout(resolve, 500));
@@ -769,15 +780,16 @@ export function createEvalWorker(
   }
   return {
     start() {
-      if (!targets.length && !options.store) return;
+      if (stopped || draining || (!targets.length && !options.store)) return;
       loop ??= (async () => {
-        while (!stopped) {
+        while (!stopped && !draining) {
           try {
             if (executing.size >= maxConcurrentEvaluations) {
               await pause();
               continue;
             }
             const claimed = await store.claim(owner);
+            if (stopped) break;
             if (!claimed) {
               await pause();
               continue;
@@ -809,7 +821,12 @@ export function createEvalWorker(
             })();
             executing.add(task);
             void task
-              .catch(() => {})
+              .catch(() => {
+                // A lost terminal write must not become a successful retirement.
+                drainFailure ??= new Error(
+                  "Evaluation worker completion could not be confirmed.",
+                );
+              })
               .finally(() => {
                 executing.delete(task);
                 // Release unfinished measurements after lease/persistence failure too.
@@ -823,11 +840,25 @@ export function createEvalWorker(
                 }
               });
           } catch {
-            if (!stopped) await pause();
+            if (draining && !stopped)
+              drainFailure ??= new Error(
+                "Evaluation claim could not be confirmed during drain.",
+              );
+            if (!stopped && !draining) await pause();
           }
         }
         await Promise.allSettled(executing);
       })();
+    },
+    /** Stop admission, retaining leases, cancellation and final writes until done.
+     * A claim already in flight belongs to this worker and is also completed.
+     * There is no retirement timeout: the caller must preserve the owning process.
+     * Use stop() explicitly to abort instead. A drained worker cannot restart.
+     */
+    async drain() {
+      draining = true;
+      await loop;
+      if (drainFailure) throw drainFailure;
     },
     async stop() {
       stopped = true;

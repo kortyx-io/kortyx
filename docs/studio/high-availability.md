@@ -250,6 +250,22 @@ individual replicas never compete to replace themselves.
 
 ## What this does and does not guarantee
 
+### Evaluation workers need a separate retirement policy
+
+HTTP draining does not finish an active evaluation on another worker. The shared
+worker's host integration exposes `drain()` to stop new claims and wait for active
+groups, their lease renewals, consumer cleanup and terminal writes. A claim already
+in flight is included. A drained worker cannot restart; retirement rejects when
+completion or an in-flight claim cannot be confirmed. There is no fixed drain
+timeout: preserve the process through each run's configured deadline and cleanup.
+
+The existing `stop()` hook still explicitly aborts active work, and the bundled
+API's shutdown currently uses that hook. Adding web replicas does not change it.
+Hosts that run evaluation workers separately must integrate drain and handoff
+before claiming that planned updates preserve active suites. Keep user-requested
+cancellation active while draining. A crash still needs the execution store and
+consumer protocol's documented recovery policy; never blindly replay side effects.
+
 With the baseline above, Kortyx supports continued application service during
 one replica or task failure and during releases explicitly marked `rolling`.
 It does not by itself make PostgreSQL highly available. Use your provider's
