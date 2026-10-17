@@ -41,7 +41,7 @@ beforeEach(() => {
 });
 const render = async () => {
   const { default: Page } = await import("../app/settings/page");
-  return renderToStaticMarkup(await Page());
+  return renderToStaticMarkup(await Page({}));
 };
 it("keeps OSS settings in a flat section layout without an overall header", async () => {
   const html = await render();
