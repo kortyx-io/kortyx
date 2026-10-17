@@ -356,4 +356,48 @@ describe("evaluation worker admission drain", () => {
     await f.worker.stop();
     expect(f.store.claim).not.toHaveBeenCalled();
   });
+
+  it("does not dispatch a late claim after explicit abort escalates a drain", async () => {
+    const f = fixture();
+    const claim = deferred<EvalWorkerRun[]>();
+    vi.mocked(f.store.claim).mockImplementationOnce(() => claim.promise);
+    f.worker.start();
+    const drain = f.worker.drain();
+    const stop = f.worker.stop();
+    claim.resolve([f.run]);
+    await stop;
+    await drain;
+    expect(f.signals).toHaveLength(0);
+    expect(f.completed).toHaveLength(0);
+  });
+
+  it("retains an honest lost-lease outcome while draining", async () => {
+    const f = fixture();
+    f.cleanup.resolve();
+    f.persist.resolve();
+    f.worker.start();
+    try {
+      await vi.waitFor(() => expect(f.contexts).toHaveLength(1));
+      vi.mocked(f.store.heartbeat).mockResolvedValue(undefined);
+      const drain = f.worker.drain();
+      await vi.waitFor(() => expect(f.signals[0]?.aborted).toBe(true), {
+        timeout: 3500,
+      });
+      await drain;
+      expect(f.store.finish).toHaveBeenCalledWith(
+        f.run.id,
+        expect.any(String),
+        expect.objectContaining({
+          termination: expect.objectContaining({
+            code: "EVAL_LEASE_LOST",
+            cleanup: "unknown",
+          }),
+        }),
+      );
+      expect(f.contexts).toHaveLength(1);
+    } finally {
+      f.release();
+      await f.worker.stop();
+    }
+  });
 });
