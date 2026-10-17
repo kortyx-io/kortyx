@@ -5,6 +5,22 @@ import type {
 } from "@kortyx/telemetry-contracts";
 import ts from "typescript";
 
+export type CallDiagnostic = {
+  code: "KTX_TOPOLOGY_UNRESOLVED_TARGET" | "KTX_TOPOLOGY_UNREGISTERED_TARGET";
+  reason:
+    | "module-resolution-failed"
+    | "not-statically-resolvable"
+    | "not-in-publication-set";
+  workflowId: string;
+  nodeId: string;
+  expression: string;
+  location: { file: string; line: number; column: number };
+  targetWorkflowId?: string;
+  exemptionReason?: string;
+  resolution: { import: string; trace: string[] }[];
+  impact: string;
+};
+
 type Call = { sourceNodeId: string; targetWorkflowId: string };
 type NodeTools = {
   tools: WorkflowTool[];
@@ -20,6 +36,8 @@ export function discoverWorkflowCalls(
   calls: Map<string, Call[]>;
   tools: Map<string, Map<string, NodeTools>>;
   warnings: string[];
+  diagnostics: CallDiagnostic[];
+  discoveryGaps: string[];
 } {
   const configPath = ts.findConfigFile(dirname(entry), ts.sys.fileExists);
   const config = configPath
@@ -44,6 +62,9 @@ export function discoverWorkflowCalls(
   );
   const calls = new Map<string, Call[]>();
   const warnings = new Set<string>();
+  const diagnostics: CallDiagnostic[] = [];
+  const diagnosticKeys = new Set<string>();
+  const discoveryGaps = new Set<string>();
   const attachedTools = new Map<string, Map<string, NodeTools>>();
   const definitions = new Map<string, ts.ObjectLiteralExpression[]>();
   const local = (n: ts.Node) =>
@@ -388,6 +409,9 @@ export function discoverWorkflowCalls(
   ) {
     if (!fn.body || !local(fn) || stack.has(fn)) return;
     if (stack.size >= 32) {
+      discoveryGaps.add(
+        `${workflow}/${node}: custom-hook discovery depth exceeded.`,
+      );
       warnings.add(
         `${workflow}/${node}: custom-hook discovery depth exceeded.`,
       );
@@ -440,9 +464,98 @@ export function discoverWorkflowCalls(
             const pos = n
               .getSourceFile()
               .getLineAndCharacterOfPosition(n.getStart());
-            warnings.add(
-              `${workflow}/${node}: unresolved or unregistered child target at ${n.getSourceFile().fileName}:${pos.line + 1}; runtime observations will supply dynamic targets.`,
+            const expression = property(n.arguments[0], "workflow", bindings);
+            const resolution: CallDiagnostic["resolution"] = [];
+            const imports = new Set<string>();
+            const inspect = (part: ts.Node) => {
+              if (ts.isIdentifier(part)) {
+                const original = checker.getSymbolAtLocation(part);
+                for (const declaration of original?.declarations ?? []) {
+                  let parent: ts.Node | undefined = declaration;
+                  while (parent && !ts.isImportDeclaration(parent))
+                    parent = parent.parent;
+                  if (
+                    parent &&
+                    ts.isImportDeclaration(parent) &&
+                    ts.isStringLiteral(parent.moduleSpecifier)
+                  ) {
+                    const specifier = parent.moduleSpecifier.text;
+                    if (imports.has(specifier)) continue;
+                    imports.add(specifier);
+                    const trace: string[] = [];
+                    ts.resolveModuleName(
+                      specifier,
+                      parent.getSourceFile().fileName,
+                      { ...parsed.options, traceResolution: true },
+                      { ...ts.sys, trace: (message) => trace.push(message) },
+                      undefined,
+                      undefined,
+                      ts.getModeForUsageLocation(
+                        parent.getSourceFile(),
+                        parent.moduleSpecifier,
+                        parsed.options,
+                      ),
+                    );
+                    resolution.push({
+                      import: specifier,
+                      trace: trace.filter((line) =>
+                        /condition|exports|does not exist|was not resolved/.test(
+                          line,
+                        ),
+                      ),
+                    });
+                  }
+                }
+              }
+              ts.forEachChild(part, inspect);
+            };
+            if (expression) inspect(expression);
+            // An exemption must be directly above the call and include a reason.
+            const precedingLine =
+              n.getSourceFile().text.split(/\r?\n/)[pos.line - 1] ?? "";
+            const brokenImport = resolution.some((item) =>
+              item.trace.some((line) =>
+                /Failed to resolve under condition|was not resolved/.test(line),
+              ),
             );
+            const exemptionReason =
+              expression && !target && !brokenImport
+                ? precedingLine
+                    .match(/^\s*\/\/\s*kortyx-dynamic-call:\s*(\S.*)$/)?.[1]
+                    ?.trim()
+                : undefined;
+            const diagnostic: CallDiagnostic = {
+              code: target
+                ? "KTX_TOPOLOGY_UNREGISTERED_TARGET"
+                : "KTX_TOPOLOGY_UNRESOLVED_TARGET",
+              reason: target
+                ? "not-in-publication-set"
+                : brokenImport
+                  ? "module-resolution-failed"
+                  : "not-statically-resolvable",
+              workflowId: workflow,
+              nodeId: node,
+              expression:
+                expression?.getText() ??
+                n.arguments[0]?.getText() ??
+                "<missing workflow argument>",
+              location: {
+                file: n.getSourceFile().fileName,
+                line: pos.line + 1,
+                column: pos.character + 1,
+              },
+              ...(target ? { targetWorkflowId: target } : {}),
+              ...(exemptionReason ? { exemptionReason } : {}),
+              resolution,
+              impact:
+                "The declared child link will be absent from Studio. Observed runs may add the link later.",
+            };
+            const diagnosticKey = `${workflow}/${node}/${diagnostic.location.file}:${diagnostic.location.line}:${diagnostic.location.column}/${target ?? diagnostic.expression}`;
+            if (!diagnosticKeys.has(diagnosticKey)) {
+              diagnosticKeys.add(diagnosticKey);
+              diagnostics.push(diagnostic);
+            }
+            warnings.add(formatCallDiagnostic(diagnostic));
           }
         } else {
           const helper = functionFor(n.expression);
@@ -499,6 +612,7 @@ export function discoverWorkflowCalls(
     );
     const defs = definitions.get(id) ?? [];
     if (defs.length !== 1) {
+      discoveryGaps.add(`${id}: workflow source unavailable or ambiguous.`);
       warnings.add(
         `${id}: ${defs.length ? "ambiguous" : "unavailable"} workflow source; child-call discovery skipped.`,
       );
@@ -518,6 +632,7 @@ export function discoverWorkflowCalls(
       const fn = run && functionFor(run);
       if (fn) scanFunction(fn, bindings, id, node, new Set());
       else {
+        discoveryGaps.add(`${id}/${node}: node source unavailable.`);
         const tools = attachedTools.get(id)?.get(node);
         if (tools) {
           tools.toolDiscovery.status = "unresolved";
@@ -543,5 +658,44 @@ export function discoverWorkflowCalls(
           a.name.localeCompare(b.name) ||
           a.callingMode.localeCompare(b.callingMode),
       );
-  return { calls, tools: attachedTools, warnings: [...warnings].sort() };
+  return {
+    calls,
+    tools: attachedTools,
+    warnings: [...warnings].sort(),
+    diagnostics,
+    discoveryGaps: [...discoveryGaps],
+  };
+}
+
+export function formatCallDiagnostic(diagnostic: CallDiagnostic): string {
+  const { location } = diagnostic;
+  const reason = diagnostic.targetWorkflowId
+    ? `Workflow ID "${diagnostic.targetWorkflowId}" is not in the publication set.`
+    : `Cannot resolve the workflow ID from: ${diagnostic.expression}`;
+  return [
+    diagnostic.code,
+    `${diagnostic.workflowId} / ${diagnostic.nodeId}`,
+    `Child call: ${location.file}:${location.line}:${location.column}`,
+    reason,
+    ...(diagnostic.targetWorkflowId
+      ? []
+      : [
+          diagnostic.reason === "module-resolution-failed"
+            ? "Import resolution failed; see the export conditions and missing paths below."
+            : "Static analysis could not reduce this expression to a workflow ID.",
+        ]),
+    ...diagnostic.resolution.flatMap((item) => [
+      `Import: ${item.import}`,
+      ...item.trace.filter((line) =>
+        /condition|exports|does not exist|was not resolved/.test(line),
+      ),
+    ]),
+    ...(diagnostic.exemptionReason
+      ? [`Dynamic call exemption: ${diagnostic.exemptionReason}`]
+      : []),
+    `Impact: ${diagnostic.impact}`,
+    diagnostic.resolution.length
+      ? "Check the package's exports and files configuration and the imported value."
+      : "Check the target expression and workflow registration.",
+  ].join("\n");
 }
