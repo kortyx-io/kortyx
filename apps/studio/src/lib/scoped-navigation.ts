@@ -23,13 +23,34 @@ export function useRouter() {
   const router = useNextRouter();
   const [, waitForQueryUpdates] = useQueryStates({});
   const scope = useStudioRouteScope();
+  type NavigationOptions = Parameters<typeof router.push>[1] & {
+    signal?: AbortSignal;
+    /** Update client-owned query state without re-intercepting the same page. */
+    shallow?: boolean;
+  };
   return useMemo(() => {
     const navigate = (
       method: "push" | "replace",
       href: string,
-      options?: Parameters<typeof router.push>[1],
+      options?: NavigationOptions,
     ) => {
-      const go = () => router[method](studioHref(href, scope), options);
+      const { signal, shallow, ...nextOptions } = options ?? {};
+      const go = () => {
+        if (signal?.aborted) return;
+        const scopedHref = studioHref(href, scope);
+        const destination = new URL(scopedHref, window.location.origin);
+        if (
+          shallow &&
+          destination.origin === window.location.origin &&
+          destination.pathname === window.location.pathname
+        ) {
+          window.history[method === "push" ? "pushState" : "replaceState"](
+            null,
+            "",
+            scopedHref,
+          );
+        } else router[method](scopedHref, options ? nextOptions : undefined);
+      };
       // Nuqs updates React before its throttled history write. Let queued
       // writes settle so they cannot restore the old route after navigation.
       // An empty update waits for the shared batch without changing its keys.
@@ -37,9 +58,9 @@ export function useRouter() {
     };
     return {
       ...router,
-      push: (href: string, options?: Parameters<typeof router.push>[1]) =>
+      push: (href: string, options?: NavigationOptions) =>
         navigate("push", href, options),
-      replace: (href: string, options?: Parameters<typeof router.replace>[1]) =>
+      replace: (href: string, options?: NavigationOptions) =>
         navigate("replace", href, options),
       prefetch: (
         href: string,

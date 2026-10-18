@@ -15,7 +15,7 @@ export function StudioRouteProvider({
   // them into another project while its server/client data is still arriving.
   return (
     <RouteScope.Provider
-      key={`${scope?.organizationPublicId ?? ""}:${scope?.projectPublicId ?? ""}`}
+      key={`${scope?.sampleProject ? "sample" : "real"}:${scope?.organizationPublicId ?? ""}:${scope?.projectPublicId ?? ""}`}
       value={scope}
     >
       {children}

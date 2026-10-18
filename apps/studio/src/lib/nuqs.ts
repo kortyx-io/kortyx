@@ -49,6 +49,7 @@ const detailUiParamKeys = [
   "call",
   "branch",
   "v",
+  "compareWith",
   "edit",
   "promptAction",
   "promptActionVersion",

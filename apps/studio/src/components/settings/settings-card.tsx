@@ -16,7 +16,7 @@ export function SettingsCard({
   className?: string;
 }) {
   return (
-    <section className={cn("min-w-0", className)}>
+    <section data-settings-card="true" className={cn("min-w-0", className)}>
       <div className="mb-6 border-b pb-5">
         <div className="min-w-0">
           <h2 className="flex items-center gap-2 text-lg font-semibold">

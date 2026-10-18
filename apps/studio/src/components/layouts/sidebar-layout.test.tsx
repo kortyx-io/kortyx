@@ -6,11 +6,16 @@ vi.mock("@studio/shell", () => ({
 }));
 vi.mock("next/headers", () => ({
   cookies: async () => ({ get: () => undefined }),
+  headers: async () => new Headers(),
 }));
 vi.mock("@/lib/studio-context", () => ({
-  getStudioShellContext: async () => ({}),
+  getStudioShellContext: async () => ({
+    scope: { project: "Default Project" },
+  }),
 }));
 vi.mock("@/components/sidebar/app-sidebar", () => ({ AppSidebar: () => null }));
+
+vi.mock("server-only", () => ({}));
 
 function findBody(node: ReactNode): string | undefined {
   for (const child of Children.toArray(node)) {

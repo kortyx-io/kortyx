@@ -1,7 +1,10 @@
 import { studioAuth } from "@studio/auth";
+import { sampleRequestResponse } from "@/features/sample-project/server";
 export async function GET(request: Request) {
   const denial = await studioAuth.authorize(request);
   if (denial) return denial;
+  const sample = await sampleRequestResponse(request);
+  if (sample) return sample;
   const base = process.env.KORTYX_API_URL;
   const credential = await studioAuth.getApiCredential(request);
   if (!base || !credential)

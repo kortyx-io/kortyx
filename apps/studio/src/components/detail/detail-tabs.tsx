@@ -74,6 +74,7 @@ export function DetailTabs({
         {tabs.map((tab) => (
           <button
             key={tab.id}
+            data-detail-tab={tab.id}
             type="button"
             onClick={() => changeTab(tab.id)}
             className={cn(
@@ -99,6 +100,7 @@ export function DetailTabs({
         {renderedTabs.map((tab) => (
           <div
             key={tab.id}
+            data-detail-tab-content={tab.id}
             role="tabpanel"
             aria-hidden={tab.id !== selected?.id}
             className={cn(

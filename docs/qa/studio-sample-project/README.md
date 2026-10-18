@@ -1,0 +1,162 @@
+# Studio sample project and onboarding verification
+
+This change provides the shared immutable sample project, selector visibility,
+a learning hub, six core chapters, optional personalization, full-tour navigation,
+explicit resume, and a shared OSS connection guide. See the
+[user guide](../../studio/sample-project.md) and
+[architecture and research](../../internal/studio-onboarding-plan.md).
+
+## Acceptance and evidence
+
+- Sample data projects canonical synthetic executions through production read models.
+  Successful, failed, approved, follow-up, and baseline runs have stable identities.
+  Two runs share a session; saved eval comparison records reference real fixtures.
+  Domain schemas, failure evidence, comparison eligibility, and cross-links are tested.
+- The registry restricts navigation to known read-only sample views. Chapter/step IDs
+  and versions are checked against the bounded usage catalog. Stale or unsupported
+  progress cannot provide an arbitrary navigation destination.
+- Unit/DOM tests exercise the complete six-chapter controller flow, chapter breaks,
+  previous-chapter navigation, pause/resume, reload recovery without auto-launch,
+  skipping versus completion, missing targets, legacy migration, reset confirmation,
+  and blocked storage. Runtime target tests cover route/query commit, hidden targets,
+  settled geometry, stacked drawers, and comparisons above a drawer.
+- Sample entry uses the authenticated preference endpoint, with explicit UI text when
+  a hidden sample will be shown. Tests verify request ordering, failure and cancellation.
+  Sample mutations remain denied and reads never fall through to customer records.
+- Optional authorized edition/admin help links are bounded and validated. Existing
+  edition onboarding remains authoritative; OSS now has a setup fallback with no
+  managed account actions. Neither sample progress nor API reachability proves that
+  an SDK application is connected.
+- Browser specs remain configured, but **no E2E tests were run**. The subsequent
+  onboarding review used one local Studio dev server and one active browser tab,
+  at the user's request. Manual coverage and fixes are recorded below.
+
+## Completion assessment
+
+| Policy area | Assessment and evidence |
+| --- | --- |
+| Behavior and contracts | Implemented with typed views, stable IDs, bounded validated progress, canonical fixtures and schemas; pure state and DOM controller tests. |
+| Studio integration | Shared OSS/Cloud shell, existing domain views and projector, all core chapter destinations, read-only comparison views and contextual entry points. Local OSS browser walkthrough verified below; private Cloud deployment remains unverified. |
+| Documentation and examples | User/adapter guide, self-hosted guidance, architecture/research record, and package manifest guidance updated. |
+| Kortyx skill | Studio reference teaches optional chapters/full tour and distinguishes learning from real integration verification. |
+| Usage telemetry | Finite chapter/step/mode/version/failure facts, attempt semantics, honest skip/full completion, opt-out and content-exclusion regressions. |
+| Customer observability | Canonical synthetic events retain correlations without ingesting/exporting customer traces. SDK exporters and runtime execution are unchanged. |
+| Compatibility and extensions | Legacy quick-tour progress migrates; future history survives older readers; optional authorized help links and existing edition setup contracts remain additive. Private Cloud deployment/account-storage behavior was not verified. |
+| Security and privacy | Existing authentication and server write denial retained. No real provider calls, credentials, account memberships, or customer copies. Progress accepts finite IDs, not navigation paths; entry cancellation and unsafe help destinations are tested. |
+| Verification | Current checks and manual local browser coverage below. E2E, CI and production deployment checks remain outstanding. |
+| Release and operations | Bundled dataset version 2 preserves IDs; dependencies/build exports retained. No DB migration/backfill or server progress store. Local progress migration is bounded. No deployment or container build performed. |
+
+## Current local checks
+
+All Vitest suites were run with **one worker**, sequentially between packages.
+The local dev server was stopped before the full Studio regression suite.
+
+- `pnpm --filter kortyx-studio exec vitest run --maxWorkers=1`: **401 tests passed in 81 files**, rerun after the manual review fixes.
+- `pnpm --filter @kortyx/telemetry-contracts exec vitest run --maxWorkers=1`: **47 passed**.
+- `pnpm --filter @kortyx/telemetry-db exec vitest run --maxWorkers=1`: **179 passed, 58 DB integration tests skipped** without their DB environment.
+- `pnpm --filter @kortyx/usage-telemetry exec vitest run --maxWorkers=1`: **47 passed**.
+- Studio, telemetry-contracts, telemetry-db and usage-telemetry type checks passed.
+- telemetry-contracts, telemetry-db and usage-telemetry dependency builds passed.
+- `pnpm install --frozen-lockfile --ignore-scripts` passed. The only dependency changes
+  are the Studio telemetry-db workspace dependency and React Joyride v3 from the earlier slice.
+- Biome checks changed sources. Existing non-null assertion/index-key warnings in
+  prompt components remain; no new lint errors were introduced.
+- Relative documentation links and `git diff --check` are checked before delivery.
+
+## Manual onboarding review (2026-10-17)
+
+Environment: local OSS Studio on `127.0.0.1:6327`, development auth mode `none`,
+no configured API URL, credentials, database, or live producer. One active browser
+tab, default 1280×720 viewport plus a temporary 390×844 mobile viewport. The
+browser and dev server were closed after the review.
+
+Visited the following through the UI:
+
+- All six core chapters, including failed model evidence, two-turn session, topology,
+  approval timeline/result, prompt versions/diff, suite, case evidence, and baseline
+  comparison. The full walkthrough reached **6 completed, 0 skipped**.
+- Back within a chapter and across chapter boundaries; reload paused at an execution
+  step, a completed chapter break, and a prompt comparison; explicit Resume restored
+  each checkpoint. Browser Back/Forward left the tour paused.
+- Optional personalization, Escape exit with launcher focus restored, skipping,
+  Finish for now, restart, reset confirmation, and persisted skipped/in-progress states.
+- Hide an active sample, return to the real workspace, browser Back while hidden,
+  explicit Show sample and resume, and return to the saved optional step. Real pages
+  did not retain sample records. Opening the hub alone did not restore hidden data.
+- Mobile selector and execution spotlights, visible controls, keyboard Enter/Back,
+  real setup guidance, and explicit OSS selector entry without auto-launching a tour.
+
+Fixed findings:
+
+- The shared dialog lacked `data-slot="dialog-content"`, preventing the tour from
+  recognizing a comparison above a drawer and weakening keyboard ownership.
+- Retained full-page and intercepted drawer copies could select a background target.
+  Readiness and Joyride now resolve the same visible foreground element. Prompt
+  query-only steps use shallow history updates, avoiding duplicate comparisons.
+- Comparison autofocus/outside interactions could steal focus or dismiss the diff
+  underneath tour controls. Tour focus and interactions now keep the diff open.
+- Deferred URL writes could navigate after a tour was cancelled. Scoped navigation
+  accepts an abort signal; exiting aborts pending tour navigation. Step definitions
+  remain stable across router changes.
+- Prompt `compareWith` leaked into unrelated detail links; it is now stripped.
+  Full-tour skip buttons now announce “Skip chapter” to assistive technology.
+
+Local HTTP checks returned `200` for sample run reads and `403` for sample prompt
+and evaluation writes. The same run endpoint without sample context returned `404`
+in this unconfigured environment, rather than sample records. Existing unit
+regressions cover authorization, unknown IDs, all mutation verbs, corrupt/blocked
+storage, and bounded missing-target recovery; those failures were not injected into
+the manual browser session.
+
+The focused onboarding/dialog/navigation regression run passed **54 tests in 10
+files**, including actual comparison-dialog focus and dismissal tests. The full
+Studio regression suite and Studio type check were rerun after these fixes.
+
+Not run for the full implementation: Playwright/E2E, Next production/selected-auth build smokes, container image
+build, private Cloud deployment, and PR CI. The existing browser/CI gates remain
+configured; they were not disabled to accommodate the local testing restriction.
+
+
+## Onboarding design feedback (2026-10-18)
+
+Implemented the collected UI feedback:
+
+- One navbar **Explore** menu contains Explore Studio, Explain this page, and
+  Documentation. Page help starts its matching chapter; real/hidden sample entry
+  remains explicit. The documentation link opens `https://kortyx.io/docs`.
+- The guide library shows every core chapter and a separate optional section,
+  with icons, concise Start/Resume/Restart actions, and consistent card layout.
+  Header and footer remain fixed; the middle area scrolls. Progress, reset and
+  full-tour controls stay in the footer. Removed the expand/collapse guide switch
+  and the connection/setup promotion section.
+- Tooltips put an accessible exit × next to the title and chapter/step progress
+  below the navigation buttons and a divider. An open-base outlined arrow joins
+  the panel border. Theme tokens darken the area outside the spotlight (86% in
+  dark mode, 64% in light mode).
+- Tour and visible record narratives no longer repeatedly qualify events as
+  fictional; the project selector still identifies the data as read-only sample
+  data. Existing fixture IDs, progress versions and mutation boundaries remain.
+- During light-mode verification, the optional Appearance guide revealed an
+  oversized settings target that could place its tooltip off-screen. Settings
+  now target the content card, with cross-axis viewport shifting as a fallback.
+
+Manual checks used the already-running local Studio: Explore menu, matching page
+help, short card actions, the tooltip arrow/exit/footer, dark and light appearance,
+updated failure evidence, and the library at desktop and 390×844 mobile widths.
+Scrolling the mobile library changed only its body scroll position; measured
+header/footer positions stayed fixed. Restored the original System theme and
+browser viewport afterward. The Studio server remains running for user testing.
+
+The full Studio unit/DOM suite passed **402 tests in 81 files** with one worker.
+Studio type checking and lint passed. The sample-data dependency build passed.
+The browser specs were updated for the new menu/card selectors but **no E2E tests
+were executed**. Production builds, private Cloud browser checks and CI remain
+unrun. This feedback changes presentation and navigation entry points; SDK APIs,
+customer execution collection, persistence formats and release exports are
+unchanged. Existing bounded analytics and sample isolation checks remain in scope.
+
+The follow-up UI feedback removed the page-wide sample notice (including its
+recording date and clock explanation). The project selector retains its Sample
+project entry. This is a presentation-only change; fixed-clock filtering and
+server write denial remain unchanged. Existing browser specs now identify sample
+scope through the selector instead of the removed notice; they were not run.

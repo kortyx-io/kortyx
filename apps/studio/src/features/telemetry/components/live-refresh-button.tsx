@@ -1,3 +1,6 @@
+"use client";
+
+import { useStudioRouteScope } from "@/components/studio-route-provider";
 import { Button } from "@/components/ui/button";
 import {
   Tooltip,
@@ -25,7 +28,10 @@ export function LiveRefreshButton({
   status: LiveRefreshStatus;
   onToggle: () => void;
 }) {
-  const description = statusCopy[status];
+  const sample = useStudioRouteScope()?.sampleProject === true;
+  const description = sample
+    ? "Sample data is historical and does not receive live updates."
+    : statusCopy[status];
   return (
     <Tooltip>
       <TooltipTrigger asChild>
@@ -33,7 +39,8 @@ export function LiveRefreshButton({
           variant="ghost"
           size="sm"
           aria-label={`Live refresh: ${description}`}
-          aria-pressed={enabled}
+          aria-pressed={!sample && enabled}
+          disabled={sample}
           onClick={onToggle}
         >
           <span

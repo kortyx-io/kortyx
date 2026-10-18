@@ -114,3 +114,93 @@ it("classifies scoped navigation without retaining project or organization ident
   );
   expect(usageSurface("/projects/unrecognized-id/runs")).toBe("other");
 });
+
+it("measures sample exploration separately and strips sample content", async () => {
+  const fetch = vi.fn<typeof globalThis.fetch>(
+    async () => new Response(null, { status: 200 }),
+  );
+  vi.stubGlobal("fetch", fetch);
+  vi.stubGlobal("window", { location: { pathname: "/sample/runs" } });
+  vi.stubGlobal("localStorage", { getItem: () => null, setItem: () => {} });
+  const usage = await import("./client");
+  usage.configureStudioUsage(config);
+  usage.studioFeature("studio.eval", { action: "launch" });
+  usage.studioOperation("studio.read", { resource: "runs" }).end();
+  usage.studioFeature("studio.sample", {
+    sample_action: "view",
+    runId: "private-id",
+    content: "private-content",
+  });
+  await usage.flushStudioUsage();
+  expect(fetch).toHaveBeenCalledOnce();
+  const body = String(fetch.mock.calls[0]?.[1]?.body);
+  expect(body).toContain("studio.sample");
+  expect(body).not.toContain("studio.eval");
+  expect(body).not.toContain("studio.read");
+  expect(body).not.toContain("private-id");
+  expect(body).not.toContain("private-content");
+  usage.configureStudioUsage({ ...config, enabled: false });
+  usage.studioFeature("studio.sample", { sample_action: "select" });
+  await usage.flushStudioUsage();
+  expect(fetch).toHaveBeenCalledOnce();
+});
+
+it("allowlists tour outcomes and honors opt-out without sending tour content", async () => {
+  const fetch = vi.fn<typeof globalThis.fetch>(
+    async () => new Response(null, { status: 200 }),
+  );
+  vi.stubGlobal("fetch", fetch);
+  vi.stubGlobal("window", { location: { pathname: "/sample/runs" } });
+  vi.stubGlobal("localStorage", { getItem: () => null, setItem: () => {} });
+  const usage = await import("./client");
+  usage.configureStudioUsage(config);
+  const actions = ["tour_start", "tour_complete", "tour_skip", "tour_error"];
+  for (const sample_action of actions)
+    usage.studioFeature("studio.sample", {
+      sample_action,
+      title: "private-title",
+      error: "private-error",
+      target: "/sample/private-path",
+    });
+  await usage.flushStudioUsage();
+  const body = String(fetch.mock.calls[0]?.[1]?.body);
+  for (const action of actions) expect(body).toContain(action);
+  expect(body).not.toContain("private-");
+  usage.configureStudioUsage({ ...config, enabled: false });
+  usage.studioFeature("studio.sample", { sample_action: "tour_start" });
+  await usage.flushStudioUsage();
+  expect(fetch).toHaveBeenCalledOnce();
+});
+
+it("collects finite chapter diagnostics while excluding arbitrary step names and errors", async () => {
+  const fetch = vi.fn<typeof globalThis.fetch>(
+    async () => new Response(null, { status: 200 }),
+  );
+  vi.stubGlobal("fetch", fetch);
+  vi.stubGlobal("localStorage", { getItem: () => null, setItem: () => {} });
+  const usage = await import("./client");
+  usage.configureStudioUsage(config);
+  usage.studioFeature("studio.sample", {
+    sample_action: "tour_error",
+    tour_chapter: "prompt-versions",
+    tour_mode: "full",
+    tour_version: "1",
+    tour_step: "prompt-diff",
+    tour_failure: "target",
+    error: "private-error",
+    href: "/private-project",
+  });
+  usage.studioFeature("studio.sample", {
+    sample_action: "tour_error",
+    tour_chapter: "private-chapter",
+    tour_step: "private-step",
+    tour_failure: "private-cause",
+  });
+  await usage.flushStudioUsage();
+  const body = String(fetch.mock.calls[0]?.[1]?.body);
+  expect(body).toContain("prompt-versions");
+  expect(body).toContain("prompt-diff");
+  expect(body).toContain('"tour_failure":"target"');
+  expect(body).not.toContain("private-");
+  usage.configureStudioUsage({ ...config, enabled: false });
+});

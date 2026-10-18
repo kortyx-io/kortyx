@@ -48,7 +48,10 @@ export function RunDetail({ detail }: { detail: StudioRunDetailResponse }) {
       : undefined;
 
   return (
-    <div className="flex h-full min-h-0 min-w-0 flex-col">
+    <div
+      data-run-detail-id={run.id}
+      className="flex h-full min-h-0 min-w-0 flex-col"
+    >
       <DetailHeader
         eyebrow="Run"
         title={run.id}

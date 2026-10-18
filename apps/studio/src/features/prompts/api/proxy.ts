@@ -1,8 +1,11 @@
+import { sampleRequestResponse } from "@/features/sample-project/server";
 import "server-only";
 import { studioAuth } from "@studio/auth";
 export async function proxyPromptRequest(request: Request, parts: string[]) {
   const denial = await studioAuth.authorize(request);
   if (denial) return denial;
+  const sample = await sampleRequestResponse(request);
+  if (sample) return sample;
   const path = parts.join("/");
   if (
     !/^(library|actions|export|assets\/[a-f0-9-]{36}(\/tables)?|transfers\/plan|transfers\/[a-f0-9-]{36}\/apply)$/.test(

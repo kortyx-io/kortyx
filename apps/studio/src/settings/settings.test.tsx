@@ -89,3 +89,8 @@ it("does not fall back to local settings after an adapter authorization failure"
   resolve.mockRejectedValue(new Error("Denied"));
   await expect(render()).rejects.toThrow("Denied");
 });
+
+vi.mock("next/headers", () => ({
+  cookies: async () => ({ get: () => undefined }),
+  headers: async () => new Headers(),
+}));

@@ -1,0 +1,37 @@
+/** Stable product identities. Keep these across dataset revisions and future tours. */
+export const SAMPLE_PROJECT = {
+  id: "kortyx-sample",
+  name: "Sample project",
+  version: 2,
+  recordedAt: "2026-10-01T12:00:00.000Z",
+  referenceTime: "2026-10-01T12:10:00.000Z",
+  workflowId: "sample-support-assistant",
+  revisionId: "10000000-0000-4000-8000-000000000001",
+  runs: {
+    success: "sample-support-success",
+    failure: "sample-support-failure",
+    approval: "sample-support-approval",
+    followUp: "sample-support-follow-up",
+    baseline: "sample-support-baseline",
+  },
+  sessions: {
+    success: "sample-session-success",
+    failure: "sample-session-failure",
+    approval: "sample-session-approval",
+    followUp: "sample-session-success",
+    baseline: "sample-session-baseline",
+  },
+  interruptId: "sample-refund-approval",
+  promptId: "10000000-0000-4000-8000-000000000002",
+  evaluationId: "10000000-0000-4000-8000-000000000003",
+  evalRunId: "10000000-0000-4000-8000-000000000004",
+  baselineEvalRunId: "10000000-0000-4000-8000-000000000005",
+  caseId: "order-status",
+  targetId: "sample-support",
+  suiteId: "sample-support-quality",
+  anchors: {
+    selector: "sample-project-selector",
+    notice: "sample-project-notice",
+    visibility: "sample-project-visibility",
+  },
+} as const;

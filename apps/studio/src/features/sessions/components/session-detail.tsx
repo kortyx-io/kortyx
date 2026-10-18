@@ -42,7 +42,10 @@ export function SessionDetail({
     (a, b) => Date.parse(a.startedAt) - Date.parse(b.startedAt),
   );
   return (
-    <div className="flex h-full min-h-0 flex-col">
+    <div
+      data-session-detail-id={session.id}
+      className="flex h-full min-h-0 flex-col"
+    >
       <DetailHeader
         eyebrow="Session"
         title={session.id}

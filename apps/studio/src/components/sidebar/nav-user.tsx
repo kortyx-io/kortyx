@@ -4,6 +4,7 @@ import type { StudioShellContribution } from "@studio/shell-contracts";
 import {
   BookOpen,
   ChevronsUpDown,
+  Compass,
   ExternalLink,
   LogOut,
   Server,
@@ -11,7 +12,6 @@ import {
   UserRound,
 } from "lucide-react";
 import Link from "@/components/scoped-link";
-
 import { ThemeMenuSub } from "@/components/theme-toggle";
 import {
   DropdownMenu,
@@ -28,6 +28,7 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from "@/components/ui/sidebar";
+import { useLearning } from "@/features/onboarding/provider";
 import type {
   StudioConnectionStatus,
   StudioShellContext,
@@ -49,6 +50,7 @@ export function NavUser({
   account?: StudioShellContribution["account"];
 }) {
   const { isMobile } = useSidebar();
+  const learning = useLearning();
 
   return (
     <SidebarMenu>
@@ -123,6 +125,15 @@ export function NavUser({
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
             <DropdownMenuGroup>
+              {learning && (
+                <DropdownMenuItem
+                  disabled={learning.active}
+                  onSelect={() => requestAnimationFrame(learning.openHub)}
+                >
+                  <Compass />
+                  Help & tours
+                </DropdownMenuItem>
+              )}
               <DropdownMenuItem asChild>
                 <Link href="/settings">
                   <Settings />

@@ -122,3 +122,27 @@ on the API if needed. Prompt content and normal input/output capture remain opt-
 With tracing configured, thrown workflow/model errors automatically export bounded type/message/stack/cause diagnostics without additional call-site wiring. Studio's failed model request inspector shows provider diagnostics; a separate **Model reasoning** row shows JSON/schema processing failures after an otherwise normally completed model response. Failed provider requests do not add a duplicate reasoning-failure row. Interrupts and cancellation retain their control-flow treatment.
 
 Use `reportError(error, {severity?, metadata?, tags?})` for handled errors when execution deliberately continues. Bounded event/OTel error summaries retain type up to 256 characters, message up to 8192 and stack up to 32768. The native Studio adapter additionally captures causes, custom fields and private provider failure responses in a separate redacted artifact (up to 8 MiB by default). Both `createKortyxTelemetryAdapter` and `createOpenTelemetryTraceAdapter` optionally accept `error(error)` returning a replacement projection or `null` to suppress diagnostics before export; a throwing override does not change execution. The native adapter records failed capture if its projection throws. Tool diagnostics use the optional tool `telemetry.error` override. Client-facing `serializeFailure` and execution failure contracts remain unchanged; tracing diagnostics are for access-controlled Studio/internal logs.
+
+## Exploring Studio before connecting an application
+
+Studio's project selector includes a read-only Sample project with fictional
+execution history, prompts, and a saved evaluation. Hide or restore it under
+Settings → Sample project. Sample URLs use `/sample/` and cannot edit resources,
+launch evaluations, or resume approvals. Sample browsing requires no provider
+credentials or application connection.
+
+Sample records are not evidence of a real SDK integration. Complete the normal
+workflow catalog publication and real-request telemetry verification in this
+reference before calling an application connected.
+
+Use **Explore → Explore Studio** in the navbar or **Help & tours** in the Studio/account
+menu for independent chapters or the full walkthrough. The full tour covers
+orientation, debugging, sessions/workflows, approvals, prompt versions, and saved
+evaluation comparisons. Personalization is optional. Next/Back navigate; Skip
+chapter, Exit, and Resume let users learn at their own pace. Progress is versioned,
+validated, and browser-local; nothing starts automatically after a reload. The
+Explore menu also provides **Explain this page** and a link to the website docs.
+
+The sample includes a two-turn session and passing/failing saved eval results.
+Tour completion is not SDK ingestion evidence. The real `/onboarding` route
+provides setup guidance; verify a published workflow and a real request separately.

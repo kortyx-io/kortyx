@@ -1,3 +1,5 @@
+import { sampleResponse } from "@/features/sample-project/http";
+import { isSampleProject } from "@/features/sample-project/server";
 import "server-only";
 import {
   StudioEvaluationDetailSchema,
@@ -12,6 +14,11 @@ import {
 } from "../schema";
 
 async function read<T>(path: string, schema: z.ZodType<T>): Promise<T> {
+  if (await isSampleProject()) {
+    const response = sampleResponse(`/v1/studio/evals/${path}`);
+    if (!response.ok) throw new Error("Sample evaluation unavailable.");
+    return schema.parse(await response.json());
+  }
   const url = process.env.KORTYX_API_URL;
   const credential = await studioAuth.getApiCredential();
   if (!url || !credential) throw new Error("Studio API is not configured.");

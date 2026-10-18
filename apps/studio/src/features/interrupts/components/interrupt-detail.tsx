@@ -51,7 +51,10 @@ export function InterruptDetail({
   const timing = interruptTimingPresentation(interrupt, Date.now());
   const interactionLabel = interruptInteractionLabel(interrupt);
   return (
-    <div className="flex h-full min-h-0 flex-col">
+    <div
+      data-interrupt-detail-id={interrupt.id}
+      className="flex h-full min-h-0 flex-col"
+    >
       <DetailHeader
         eyebrow="Interrupt"
         title={interrupt.id}

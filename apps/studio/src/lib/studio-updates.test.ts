@@ -100,3 +100,5 @@ describe("Studio update controls", () => {
     });
   });
 });
+
+vi.mock("server-only", () => ({}));

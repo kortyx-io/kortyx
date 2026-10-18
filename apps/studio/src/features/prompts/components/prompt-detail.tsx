@@ -115,6 +115,7 @@ export function PromptDetailView({
         "activity",
       ]).withDefault("content"),
       v: parseAsInteger,
+      compareWith: parseAsInteger,
       edit: parseAsBoolean.withDefault(false),
       history: parseAsBoolean.withDefault(true),
       promptAction: parseAsStringLiteral([
@@ -164,13 +165,24 @@ export function PromptDetailView({
     [confirmDiscard, setConfirmDiscard] = useState(false),
     [fieldsValid, setFieldsValid] = useState(true),
     [autosave, setAutosave] = useState("Draft saved");
-  const [compare, setCompare] = useState<{
+  const [localCompare, setCompare] = useState<{
     before: Version;
     after: Version | { content: PromptContent; version: number };
     save: boolean;
     hash?: string;
     idempotencyKey?: string;
   } | null>(null);
+  const comparisonVersion = detail.versions.find(
+    (version) => version.version === query.compareWith,
+  );
+  const routeComparison =
+    !query.edit &&
+    query.tab === "content" &&
+    comparisonVersion &&
+    comparisonVersion.version !== selected.version
+      ? { before: comparisonVersion, after: selected, save: false }
+      : null;
+  const compare: typeof localCompare = localCompare ?? routeComparison;
   const panelVersion =
     detail.versions.find(
       (version) => version.version === query.promptActionVersion,
@@ -682,7 +694,10 @@ export function PromptDetailView({
       </Button>
     ) : null;
   const view = (
-    <div className="@container/prompt-surface flex h-full min-h-0 flex-col">
+    <div
+      data-prompt-detail-id={detail.asset.id}
+      className="@container/prompt-surface flex h-full min-h-0 flex-col"
+    >
       <PromptDetailHeader
         title={detail.asset.name}
         promptKey={detail.asset.key}
@@ -1135,6 +1150,11 @@ export function PromptDetailView({
               viewportClassName="overscroll-contain"
             >
               <div
+                data-prompt-content-version={
+                  !query.edit && query.tab === "content"
+                    ? selected.version
+                    : undefined
+                }
                 className={
                   query.tab === "runs" || query.tab === "evals"
                     ? "h-full"
@@ -1348,6 +1368,8 @@ export function PromptDetailView({
       </Dialog>
       {compare && (
         <PromptDiff
+          modal={!routeComparison || Boolean(localCompare)}
+          comparisonId={`${detail.asset.id}:${compare.before.version}:${compare.after.version}`}
           before={compare.before.content}
           after={compare.after.content}
           beforeLabel={`v${compare.before.version}`}
@@ -1397,7 +1419,11 @@ export function PromptDetailView({
               </>
             ) : undefined
           }
-          onClose={() => setCompare(null)}
+          onClose={() => {
+            setCompare(null);
+            if (query.compareWith !== null)
+              void setQuery({ compareWith: null });
+          }}
           onAccept={async (changeNote) => {
             setWorking(true);
             setError("");

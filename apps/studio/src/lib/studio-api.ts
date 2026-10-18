@@ -1,4 +1,6 @@
 import { studioUsage } from "@studio/usage";
+import { sampleResponse } from "@/features/sample-project/http";
+import { isSampleProject } from "@/features/sample-project/server";
 import "server-only";
 
 import {
@@ -65,6 +67,23 @@ export const fetchJson = async <T>(
   path: string,
   parse: (value: unknown) => T,
 ): Promise<StudioRepoResult<T>> => {
+  if (await isSampleProject()) {
+    const response = sampleResponse(path);
+    if (!response.ok)
+      return {
+        data: null,
+        error: {
+          type: "http",
+          status: response.status,
+          message: "Sample record unavailable.",
+        },
+      };
+    try {
+      return { data: parse(await response.json()), error: null };
+    } catch (error) {
+      return { data: null, error: parseError(error) };
+    }
+  }
   const usageScope = studioUsage.server.start("studio.read", {
     resource: path.split("/")[3]?.split("?")[0],
     origin: "server",

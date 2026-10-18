@@ -172,7 +172,11 @@ export function EvalComparison({
     }),
   ];
   return (
-    <div className="flex h-full min-h-0 flex-col">
+    <div
+      data-tour-surface="eval-comparison"
+      data-comparison-ready={baseline && !loading ? "true" : "false"}
+      className="flex h-full min-h-0 flex-col"
+    >
       <EvalDetailHeader
         title={candidate.suite.name ?? displayName(candidate.suiteId)}
         description={`Comparison · ${candidate.targetName} · ${formatDateTime(candidate.createdAt)}`}
