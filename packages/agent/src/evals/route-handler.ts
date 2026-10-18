@@ -207,5 +207,10 @@ export function createEvalRouteHandler({
       return Response.json({ error: "Request cancelled." }, { status: 409 });
     return execution.submit(request, body);
   };
-  return Object.assign(handler, { close: execution.close });
+  return Object.assign(handler, {
+    /** Stop admissions and finish accepted jobs; keep HTTP/store alive for observers. */
+    drain: execution.drain,
+    /** Explicitly abort local execution, then wait for cleanup. */
+    close: execution.close,
+  });
 }

@@ -553,12 +553,30 @@ The default `createInMemoryEvalExecutionStore()` handles one process. For replic
 pass `createPostgresEvalExecutionStore({connectionString,namespace})` as
 `executionStore`, with identical service keys, suite definitions and capacity
 settings. Configure `maxActiveRuns` (1), `maxActiveAttempts` (20) and
-`maxQueuedExecutions` (1000). Call store.setup() before traffic and handler.close()
-before store.close() on shutdown. Queued jobs recover across restart; a lost running
+`maxQueuedExecutions` (1000). Call store.setup() before traffic. For planned
+retirement call handler.drain(), keep HTTP/store available for authenticated
+observation and cancellation, then close HTTP, handler and store after observers
+finish. handler.close() remains explicit abort. Drain rejects ambiguous admission,
+claim or terminal persistence; do not treat that as successful retirement.
+Matching jobs-v1 POST retries for known IDs reattach evidence during drain;
+changed content returns 409. New IDs are refused without admission or replay.
+With a single consumer, drain Studio workers first while the consumer still
+accepts their later cases, wait for durable Studio outcomes, then drain the
+consumer. With replicas, make a compatible replacement reachable first with the
+same durable store/namespace, service key, suite revisions and capacity settings.
+Consumer drain finishes its own active jobs and a bounded queued snapshot, not
+future Studio cases or another owner's live jobs. The built-in memory/PostgreSQL
+stores implement optional queued/claimQueued capabilities; old custom stores work
+normally but drain fails until these atomic scoped capabilities are implemented.
+Upgrade agent/runtime together; jobs-v1 and legacy wire formats are unchanged.
+Queued jobs recover across restart; a lost running
 lease becomes Unknown and is never automatically replayed. Inspect side effects
 before explicit cancellation or a new run. Application nodes own external
 idempotency; no data reducers or node/workflow shape changes are required.
 Upgrade consumers before API/Studio; legacy consumers keep request-owned streams.
+Verify hook availability in the installed build: published kortyx 0.32.0 / agent
+0.39.0 / runtime 0.25.0 lack consumer drain. Use a later coordinated release that
+includes it; never silently substitute aborting close when graceful drain is absent.
 
 ## Evaluation settings and timeout reporting
 
@@ -634,6 +652,47 @@ columns and project defaults can remain. Browser case authoring is future work;
 the serializable settings contract also supports future Studio-authored suites.
 
 ## Optional launch overrides
+
+For planned worker replacement, keep the owning worker alive to finish active
+suites, renew leases, report progress and persist results while a replacement
+accepts new jobs. Worker admission drain and HTTP connection drain are separate.
+User cancellation and the run's configured deadline still apply. The Studio API
+worker host hook distinguishes `drain()` from the existing aborting `stop()`.
+Verify deployed binary capabilities first: published Studio/API 0.22.0 has neither
+SIGUSR2 preparation nor the standalone worker command. Its unhandled SIGUSR2 is
+not a claim fence (Linux PID 1 can ignore it). First upgrade needs an external
+submission fence, settled queued work and completed active evaluations before
+old processes retire. Saved Compose files do not gain grace settings from an image
+update. A fixed grace extension alone does not protect arbitrary run deadlines.
+The bundled OSS API implementation uses drain on SIGTERM; SIGINT explicitly aborts.
+Explicit stop during a pending worker drain rejects that drain. A lost claim
+acknowledgement remains a retirement failure even if later polling recovers. SIGUSR2
+prepares evaluation draining while HTTP remains available for submissions,
+progress and cancellation. Wait for the verified owner's drained confirmation
+before terminating a singleton combined API/worker. Platform force-kill deadlines
+still apply; the 25-second HTTP drain is not an evaluation timeout.
+
+For independent worker retirement, set `KORTYX_API_EVAL_WORKER_ENABLED=false`
+on web-only APIs and run `node apps/api/dist/eval-worker.js` from the API image
+with the same targets and applicable judge settings. Its private health listener
+serves `/live`, `/health` and `/ready` only; draining is alive but unready for
+new claims. Use liveness, not admission readiness, for restart decisions.
+Strict singleton replacement queues new work until the new owner starts.
+Temporary overlap requires measured capacity and compatible versions. Set
+`KORTYX_EVAL_MAX_CONCURRENT_EVALUATIONS` identically on all OSS workers (default
+four evaluation groups across the database, including draining owners). Custom
+stores must enforce their own shared cap; legacy workers and direct claim callers
+without that cap do not provide this guarantee. Consumer endpoint and provider
+limits remain independent.
+
+Queue waiting does not consume the execution deadline; a CLI wait timeout does
+not cancel or justify resubmitting a run. Cancel queued work through the API.
+The consumer's own host must remain available. Its route handler `drain()`
+finishes already accepted jobs without abort; `close()` explicitly aborts. A
+singleton consumer must remain admitting until Studio workers finish all their
+claimed suites. Drain that consumer afterwards; see the endpoint contract above.
+Replicas alone do not transfer an in-flight evaluation, and a lost executor must
+follow the consumer/store recovery contract rather than blindly repeating tools.
 
 `kortyx studio evals runs start` accepts `--case-timeout-ms` and
 `--run-timeout-ms`, independently of `--timeout` (the CLI wait budget).

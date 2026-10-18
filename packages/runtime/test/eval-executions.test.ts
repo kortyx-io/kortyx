@@ -25,6 +25,37 @@ const job = (
   ...extra,
 });
 describe("evaluation execution admission and recovery", () => {
+  it("restricts retirement to a scoped queue snapshot while retaining atomic capacity", async () => {
+    const s = createInMemoryEvalExecutionStore();
+    const capacity = {
+      ...limits,
+      maxActiveAttempts: 1,
+      maxQueuedExecutions: 10,
+    };
+    await s.submit(job("a"), capacity);
+    await s.submit(job("b", { scope: "other" }), capacity);
+    const selected = await s.queued!("scope");
+    expect(selected).toEqual(["a"]);
+    await s.submit(job("c"), capacity);
+    expect(
+      await s.claimQueued!("owner", "scope", capacity, []),
+    ).toBeUndefined();
+    expect(
+      await s.claimQueued!("owner", "other", capacity, selected),
+    ).toBeUndefined();
+    expect(
+      (await s.claimQueued!("owner", "scope", capacity, selected))?.id,
+    ).toBe("a");
+    expect(
+      await s.claimQueued!("other", "scope", capacity, ["c"]),
+    ).toBeUndefined();
+    await s.finish("a", "owner", "completed");
+    expect(
+      await s.claimQueued!("owner", "scope", capacity, selected),
+    ).toBeUndefined();
+    expect((await s.claim("new", "scope", capacity))?.id).toBe("c");
+    expect((await s.status("b"))?.state).toBe("queued");
+  });
   it("deduplicates, fences request identity and isolates returned records", async () => {
     const store = createInMemoryEvalExecutionStore();
     expect(await store.generation()).not.toBe(

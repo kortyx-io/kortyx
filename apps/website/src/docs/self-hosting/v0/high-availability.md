@@ -12,6 +12,12 @@ Kortyx Studio supports two or more API and Studio replicas behind a load balance
 
 High availability is an infrastructure property, not a replica-count switch in Studio. Your orchestrator must spread replicas across failure domains, run database work once per release, use the correct health endpoints, and honor the release's deployment strategy.
 
+Choose the worker topology separately from the number of web replicas. A simple
+installation can keep one combined API/worker and accept a maintenance pause.
+For independent web releases, use web-only APIs and a separate eval worker.
+[Deployments and Evaluation Draining](/docs/self-hosting/deployment-lifecycle) explains both
+modes, strict singleton replacement and the consumer application's boundary.
+
 > **CDK boundary:** The convenience `@kortyx/aws-cdk` construct remains a single-task deployment. For highly available AWS, implement this contract with your own ECS or EKS resources rather than placing a second copy of the construct beside the first.
 
 ## Production baseline
@@ -48,9 +54,21 @@ The API has no durable local state. PostgreSQL stores application state and dist
 
 All API health endpoints are unauthenticated. Keep them inside the deployment network or expose only the minimum path needed by the load balancer.
 
-On `SIGTERM`, the API becomes unready, stops accepting new HTTP connections, waits up to 25 seconds for requests to drain, and then closes its PostgreSQL listener and pool. Set the platform termination grace period above 25 seconds. The Studio container is healthy when its root path returns any status below `500`; `401` is expected when Basic Auth is active.
+On `SIGTERM`, the API becomes unready and stops accepting new HTTP connections.
+HTTP draining has a 25-second bound. An embedded evaluation worker drains its
+claimed work independently, retaining PostgreSQL until completion. A platform
+shutdown timer must not kill that work. Prepare evaluation draining with
+`SIGUSR2` while HTTP remains available, or use a separate worker. Follow the
+[retirement procedure](/docs/self-hosting/deployment-lifecycle#replace-a-singleton-combined-api-and-worker)
+and verify that the selected release supports these signals; older images may
+abort their workers on shutdown. The Studio container is healthy when its root
+path returns any status below `500`; `401` is expected when Basic Auth is active.
 
-Replica redundancy preserves capacity for new traffic after the load balancer withdraws a failed target. It cannot finish a request that was already executing inside a process when that process is hard-killed. Clients should retry transient network and `5xx` failures. Telemetry writes are safe to retry with the same stable event IDs because ingestion deduplicates those IDs per project.
+Replica redundancy preserves capacity for new traffic after the load balancer
+withdraws a failed target. It cannot finish a request inside a hard-killed process.
+Retry transient failures only under the operation's documented retry contract.
+Telemetry ingestion deduplicates stable event IDs per project; this does not make
+every mutating request safe to retry.
 
 ## Run database work once
 
@@ -96,6 +114,10 @@ Use the rolling path only for the upgrade path reviewed by the release. Treat a 
 ### `recreate`
 
 The release cannot promise safe version overlap. Schedule a maintenance window:
+
+First fence new claims and finish every relevant worker while an API remains
+available for progress and cancellation. Verify retirement before changing an
+incompatible schema, then continue:
 
 1. stop API ingestion and Studio replicas;
 2. back up PostgreSQL;
@@ -215,8 +237,19 @@ Protect the deployment environment so `recreate` releases require maintenance ap
 
 ## What this does and does not guarantee
 
+Worker replicas do not transfer active evaluations. Keep the same shared
+execution budget across OSS workers, include draining owners, and preserve the
+consumer endpoint's own lifetime. Sessions, old browser JS/CSS, unsaved drafts,
+SSE reconnection and migration compatibility also need independent protection;
+web replica count alone does not establish these guarantees. See
+[the deployment dependency checklist](/docs/self-hosting/deployment-lifecycle#check-other-deployment-dependencies).
+
 With the baseline above, Kortyx supports continued application service during one replica or task failure and during releases explicitly marked `rolling`. It does not by itself make PostgreSQL highly available. Use your provider's Multi-AZ, regional, backup, restore, and failover features, and test them.
 
-This contract does not claim multi-region active-active operation, unlimited horizontal scaling, or published capacity limits. Start with two replicas, measure load and database connections, then scale for your workload.
+This contract does not claim multi-region active-active operation, unlimited
+horizontal scaling, published capacity limits or a numerical uptime SLA. Measure
+HTTP availability, queue delay and deployment-caused interruptions separately.
+For redundant web capacity, start with two replicas, measure load and database
+connections, then scale for your workload.
 
 Next: [Plan backup and recovery](/docs/self-hosting/operations) or [configure evaluation workers](/docs/self-hosting/evaluation-operations).

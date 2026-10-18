@@ -152,21 +152,27 @@ async function claimRuns(
   owner: string,
   targets: readonly (Scope & { id: string })[],
   grouped: boolean,
+  options: { maxConcurrentEvaluations?: number } = {},
 ) {
+  const limit = options.maxConcurrentEvaluations;
+  if (limit !== undefined && (!Number.isSafeInteger(limit) || limit < 1))
+    throw new TypeError("maxConcurrentEvaluations must be a positive integer.");
   return db.transaction(async (tx) => {
     // Serialize the short claim transaction, including sibling selection. A
     // second worker must never take a sibling with its own concurrency budget.
     await tx.execute(
       sql`SELECT pg_advisory_xact_lock(hashtext('kortyx:eval-claim'))`,
     );
+    // Transaction-start time can precede a lock wait. Use the current database
+    // clock for expiry fences and newly granted leases after those waits.
     // A lost lease means execution status is unknown. Never replay tool calls.
     const expired = await tx.execute(
-      sql`UPDATE eval_runs SET status = 'error', ended_at = now(), updated_at = now(), error = 'Executor disconnected; execution may have continued. Run again explicitly after inspection.' WHERE status = 'running' AND lease_expires_at < now() RETURNING organization_id, project_id, evaluation_id`,
+      sql`UPDATE eval_runs SET status = 'error', ended_at = clock_timestamp(), updated_at = clock_timestamp(), error = 'Executor disconnected; execution may have continued. Run again explicitly after inspection.' WHERE status = 'running' AND lease_expires_at < clock_timestamp() RETURNING organization_id, project_id, evaluation_id`,
     );
     for (const row of expired) {
       if (typeof row.evaluation_id === "string")
         await tx.execute(
-          sql`UPDATE eval_runs SET status = 'error', ended_at = now(), updated_at = now(), error = 'Evaluation executor disconnected; inspect before running again.' WHERE evaluation_id = ${row.evaluation_id} AND status = 'queued'`,
+          sql`UPDATE eval_runs SET status = 'error', ended_at = clock_timestamp(), updated_at = clock_timestamp(), error = 'Evaluation executor disconnected; inspect before running again.' WHERE evaluation_id = ${row.evaluation_id} AND status = 'queued'`,
         );
       if (
         typeof row.organization_id === "string" &&
@@ -178,6 +184,18 @@ async function claimRuns(
           resources: ["evals"],
         });
     }
+    // A process limit alone multiplies capacity during rolling replacement.
+    // Under the same claim lock, count groups (or legacy standalone runs)
+    // across the database, including owners that are still draining.
+    if (limit !== undefined) {
+      const [active] = await tx.execute(
+        sql`SELECT count(DISTINCT coalesce('evaluation:' || evaluation_id::text, 'run:' || id::text))::integer AS count FROM eval_runs WHERE status = 'running'`,
+      );
+      const count = Number(active?.count);
+      if (!Number.isSafeInteger(count) || count < 0)
+        throw new Error("Evaluation capacity could not be confirmed.");
+      if (count >= limit) return [];
+    }
     if (!targets.length) return [];
     const permitted = sql.join(
       targets.map(
@@ -187,7 +205,7 @@ async function claimRuns(
       sql` OR `,
     );
     const claimed = await tx.execute(
-      sql`UPDATE eval_runs SET status = 'running', started_at = now(), updated_at = now(), lease_owner = ${owner}, lease_expires_at = now() + interval '30 seconds' WHERE id = (SELECT id FROM eval_runs WHERE status = 'queued' AND cancel_requested_at IS NULL AND (${permitted}) AND (evaluation_id IS NULL OR NOT EXISTS (SELECT 1 FROM eval_runs sibling WHERE sibling.evaluation_id = eval_runs.evaluation_id AND sibling.status = 'running')) ORDER BY created_at, id FOR UPDATE SKIP LOCKED LIMIT 1) RETURNING id`,
+      sql`UPDATE eval_runs SET status = 'running', started_at = clock_timestamp(), updated_at = clock_timestamp(), lease_owner = ${owner}, lease_expires_at = clock_timestamp() + interval '30 seconds' WHERE id = (SELECT id FROM eval_runs WHERE status = 'queued' AND cancel_requested_at IS NULL AND (${permitted}) AND (evaluation_id IS NULL OR NOT EXISTS (SELECT 1 FROM eval_runs sibling WHERE sibling.evaluation_id = eval_runs.evaluation_id AND sibling.status = 'running')) ORDER BY created_at, id FOR UPDATE SKIP LOCKED LIMIT 1) RETURNING id`,
     );
     const id = claimed[0]?.id;
     if (typeof id !== "string") return [];
@@ -203,10 +221,10 @@ async function claimRuns(
             .update(evalRuns)
             .set({
               status: "running",
-              startedAt: new Date(),
-              updatedAt: new Date(),
+              startedAt: sql`clock_timestamp()`,
+              updatedAt: sql`clock_timestamp()`,
               leaseOwner: owner,
-              leaseExpiresAt: new Date(Date.now() + 30_000),
+              leaseExpiresAt: sql`clock_timestamp() + interval '30 seconds'`,
             })
             .where(
               and(
@@ -230,7 +248,8 @@ export const claimEvalRuns = (
   db: TelemetryDb,
   owner: string,
   targets: readonly (Scope & { id: string })[],
-) => claimRuns(db, owner, targets, true);
+  options: { maxConcurrentEvaluations?: number } = {},
+) => claimRuns(db, owner, targets, true, options);
 /** Legacy single-suite claim, mutually exclusive with grouped workers. */
 export const claimEvalRun = async (
   db: TelemetryDb,
@@ -245,14 +264,15 @@ export async function heartbeatEvalRun(
   const [run] = await db
     .update(evalRuns)
     .set({
-      leaseExpiresAt: new Date(Date.now() + 30_000),
-      updatedAt: new Date(),
+      leaseExpiresAt: sql`clock_timestamp() + interval '30 seconds'`,
+      updatedAt: sql`clock_timestamp()`,
     })
     .where(
       and(
         eq(evalRuns.id, id),
         eq(evalRuns.leaseOwner, owner),
         eq(evalRuns.status, "running"),
+        sql`${evalRuns.leaseExpiresAt} > clock_timestamp()`,
       ),
     )
     .returning({ cancelRequestedAt: evalRuns.cancelRequestedAt });
@@ -273,6 +293,7 @@ export async function appendEvalProgress(
           eq(evalRuns.id, id),
           eq(evalRuns.leaseOwner, owner),
           eq(evalRuns.status, "running"),
+          sql`${evalRuns.leaseExpiresAt} > clock_timestamp()`,
         ),
       )
       .for("update")
@@ -310,8 +331,8 @@ export async function finishEvalRun(
         error: outcome.error ?? null,
         termination: outcome.termination ?? null,
         issue: outcome.issue ?? null,
-        endedAt: new Date(),
-        updatedAt: new Date(),
+        endedAt: sql`clock_timestamp()`,
+        updatedAt: sql`clock_timestamp()`,
         leaseExpiresAt: null,
       })
       .where(
@@ -319,10 +340,13 @@ export async function finishEvalRun(
           eq(evalRuns.id, id),
           eq(evalRuns.leaseOwner, owner),
           eq(evalRuns.status, "running"),
+          sql`${evalRuns.leaseExpiresAt} > clock_timestamp()`,
         ),
       )
       .returning();
-    if (run) await notifyStudioChange(tx, { ...run, resources: ["evals"] });
+    if (!run)
+      throw new Error("Eval completion lost its lease or was not persisted.");
+    await notifyStudioChange(tx, { ...run, resources: ["evals"] });
   });
 }
 

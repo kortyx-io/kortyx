@@ -10,6 +10,18 @@ section: "operate"
 
 This guide covers the CLI-managed local stack. For external PostgreSQL or a container platform, apply the same lifecycle principles through your infrastructure tooling and use [Deploy on a Server](/docs/self-hosting/deploy-server).
 
+## Preserve evaluations during replacement
+
+Choose a combined API/worker for simple installations with maintenance pauses,
+or separate workers for independent web releases. Follow
+[Deployments and Evaluation Draining](/docs/self-hosting/deployment-lifecycle) for signal
+semantics, singleton replacement, queued work, cancellation and failure recovery.
+
+Prepare active evaluations before planned stop, upgrade or replacement. The
+30-second Compose HTTP grace is not long-evaluation protection, and the built-in
+updater refuses configured eval targets. The consumer app's own deployment is a
+separate lifetime; keep its eval endpoint available through the suite.
+
 ## Know the durable state
 
 The default local installation lives under `~/.kortyx/studio`:
@@ -72,6 +84,10 @@ Test restoration against a non-production copy before relying on the procedure. 
 ## Upgrade
 
 Back up first, then pin the intended published release:
+
+If evals are enabled, complete [worker preparation](/docs/self-hosting/deployment-lifecycle#replace-a-singleton-combined-api-and-worker)
+before replacing processes. Follow the release's migration/overlap strategy;
+drain every relevant owner before an incompatible schema change.
 
 ```bash
 npx kortyx studio start --image-tag vX.Y.Z

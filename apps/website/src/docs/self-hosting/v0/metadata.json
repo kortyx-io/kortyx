@@ -27,7 +27,12 @@
       "label": "Operate and upgrade",
       "position": 4,
       "description": "Back up, restore, upgrade, and scale your installation.",
-      "pages": ["operations", "high-availability", "evaluation-operations"]
+      "pages": [
+        "operations",
+        "deployment-lifecycle",
+        "high-availability",
+        "evaluation-operations"
+      ]
     },
     {
       "slug": "reference",

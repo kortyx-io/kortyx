@@ -57,17 +57,22 @@ migration runners against real PostgreSQL in CI.
 All API health endpoints are unauthenticated. Keep them inside the deployment
 network or expose only the minimum path needed by the load balancer.
 
-On `SIGTERM`, the API becomes unready, stops accepting new HTTP connections,
-waits up to 25 seconds for requests to drain, and then closes its PostgreSQL
-listener and pool. Set the platform termination grace period above 25 seconds.
+On `SIGTERM`, the API becomes unready and stops accepting new HTTP connections.
+HTTP draining has a 25-second bound; evaluation draining independently waits for
+claimed work, heartbeats and result writes before closing PostgreSQL. A platform
+shutdown timer must not kill that work. For an embedded worker, prepare evaluation
+retirement with `SIGUSR2` while HTTP remains available, or run a separate worker.
+See [evaluation retirement](./evaluation-retirement.md) for singleton replacement,
+signals, shared execution limits and container grace requirements.
 The Studio container is healthy when its root path returns any status below
 `500`; `401` is expected when Basic Auth is active.
 
 Replica redundancy preserves capacity for new traffic after the load balancer
 withdraws a failed target. It cannot finish a request that was already executing
 inside a process when that process is hard-killed. Clients should retry transient
-network and `5xx` failures. Telemetry writes are safe to retry with the same
-stable event IDs because ingestion deduplicates those IDs per project.
+network and `5xx` failures only when the operation's retry contract permits it.
+Telemetry writes are safe to retry with the same stable event IDs because
+ingestion deduplicates those IDs per project. Do not blindly retry mutations.
 
 ## Run database work once
 
@@ -128,6 +133,10 @@ independently verified compatibility.
 ### `recreate`
 
 The release cannot promise safe version overlap. Schedule a maintenance window:
+
+First fence new claims and finish all relevant workers while an API remains
+available for progress and cancellation. Verify retirement before changing an
+incompatible schema, then continue:
 
 1. stop API ingestion and Studio replicas;
 2. back up PostgreSQL;
@@ -249,6 +258,47 @@ modern managed container platforms: the control plane coordinates one rollout;
 individual replicas never compete to replace themselves.
 
 ## What this does and does not guarantee
+
+### Evaluation workers need a separate retirement policy
+
+HTTP draining does not finish an active evaluation on another worker. The shared
+worker's host integration exposes `drain()` to stop new claims and wait for active
+groups, their lease renewals, consumer cleanup and terminal writes. A claim already
+in flight is included. A drained worker cannot restart; retirement rejects when
+completion or an in-flight claim cannot be confirmed. There is no fixed drain
+timeout: preserve the process through each run's configured deadline and cleanup.
+
+The existing `stop()` hook still explicitly aborts active work. The bundled API
+now uses draining on `SIGTERM`, with explicit abort on `SIGINT`. This is a host
+behavior change; legacy binaries and saved platform shutdown deadlines do not
+acquire the new behavior automatically. A strict singleton queues new work during
+replacement; temporary overlap requires capacity and the same database-wide
+execution limit on every worker. Hosts still own drain/handoff orchestration.
+Keep user-requested cancellation available through an API while draining. A crash
+still needs the execution store and consumer protocol's documented recovery policy;
+never blindly replay side effects.
+
+### Other surfaces affected by deployments
+
+| Surface | Required protection |
+| --- | --- |
+| Telemetry ingestion and user writes | Acknowledge durable commits; retain stable event IDs for ingestion retries. HTTP retirement has a separate deadline and does not make every POST retryable. |
+| Prompt serving | Applications resolving prompts depend on API availability. Keep a healthy serving API or use the consumer's documented snapshot/cache policy. |
+| Live Studio streams | SSE connections can end during retirement. Reconnect and reread durable state; notifications are invalidations, not a durable replay log. |
+| Open Studio tabs | Keep old immutable JS/CSS assets available across a compatible release and protect unsaved drafts. API replicas do not implement asset retention. |
+| Authentication | Replicas need compatible shared secrets/session storage. Cookie and login behavior depend on the chosen authentication adapter. |
+| Database and rollback | Run migrations once; preserve old readers/workers during overlap and follow the release strategy. Database availability remains separate. |
+| Consumer execution and diagnostics | Use the SDK eval handler's `drain()` for accepted eval jobs, retaining HTTP/store through result observation. A singleton consumer drains after Studio workers finish later cases. Other chat/workflow requests and telemetry/OTel flushing remain application-owned. |
+| Resources and quotas | Account for overlapping memory, database pools, draining owners, consumer capacity and provider quotas. Per-process limits can multiply unless coordinated. |
+
+These requirements describe supported deployment behavior, not a numerical SLA.
+Measure HTTP availability, submission-to-start delay and infrastructure-caused
+evaluation interruptions separately. A suite that correctly fails an assertion
+is not an availability failure. Define an internal SLO and measurement window
+before offering a customer SLA, which also defines the consequences of missing
+its objectives. Self-hosted runtime availability depends on the operator's
+infrastructure and the agreed support scope. See the
+[Google SRE definitions](https://sre.google/sre-book/service-level-objectives/).
 
 With the baseline above, Kortyx supports continued application service during
 one replica or task failure and during releases explicitly marked `rolling`.

@@ -161,7 +161,7 @@ export default async function SettingsPage({
 }: {
   params?: Promise<{ section?: string }>;
   searchParams?: Promise<{ section?: string }>;
-} = {}) {
+}) {
   const [{ section }, query] = await Promise.all([
     params ?? Promise.resolve({ section: undefined }),
     searchParams ?? Promise.resolve({ section: undefined }),

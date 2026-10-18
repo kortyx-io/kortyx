@@ -54,6 +54,14 @@ Do not start newer application images against an older schema. Database downgrad
 | `API_PORT` | No | Container port; default is `6400` |
 | `KORTYX_EVAL_TARGETS_FILE` | With file-based eval targets | API-server path to a private JSON array of application target definitions; unset by default |
 | `KORTYX_EVAL_TARGETS` | Alternative to a target file | Inline JSON array with the same target shape; defaults to `[]`; ignored when a target file path is set |
+| `KORTYX_API_EVAL_WORKER_ENABLED` | No | `true` by default; `false` keeps target discovery/submission available but disables the embedded worker on web-only APIs |
+| `KORTYX_EVAL_MAX_CONCURRENT_EVALUATIONS` | No | Positive integer, default `4`; same database-wide evaluation group budget on every OSS worker, including draining owners; custom stores own their admission rules |
+| `KORTYX_API_STOP_GRACE_PERIOD` | No | Compose HTTP teardown grace, default `30s`; not a long-evaluation retirement deadline |
+
+See [Deployments and Evaluation Draining](/docs/self-hosting/deployment-lifecycle) for the
+standalone worker command, signal semantics, matching shared limits and upgrade
+behavior. Verify these capabilities exist in the selected release before using
+them with older images.
 
 The target file takes precedence over inline JSON. An unreadable or invalid file
 fails API startup; it does not fall back to inline targets. Both forms contain

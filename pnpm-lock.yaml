@@ -195,6 +195,9 @@ importers:
         specifier: 'catalog:'
         version: 4.4.3
     devDependencies:
+      '@kortyx/runtime':
+        specifier: workspace:*
+        version: link:../../packages/runtime
       '@types/node':
         specifier: 'catalog:'
         version: 20.19.17
