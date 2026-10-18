@@ -253,7 +253,13 @@ normal existing migrations restored the seeded evaluation-detail response to 200
 The pruned website container explicitly includes the two shared registry/type
 files used by the help-link audit and the package metadata used by version labels.
 The existing production and test type checks remain enabled. Private Cloud source
-is not required by the public build.
+is not required by the public build. Browser regressions use exact field labels
+to distinguish inputs from their help buttons, find page actions through the
+semantic header, and verify the promotion explanation with its documentation
+footer through the shared interactive-help contract. Trace regressions distinguish
+operation-inspector buttons from explanatory popovers. Table-header help prefers
+the bottom edge so an explanation does not obscure the detail tabs above it;
+collision handling still keeps the card and arrow inside the viewport.
 
 Release boundary: merge this public PR only after its exact-head checks pass;
 publish website documentation before the OSS release; prepare the Cloud PR after

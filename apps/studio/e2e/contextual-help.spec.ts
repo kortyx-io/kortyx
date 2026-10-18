@@ -93,6 +93,7 @@ test("header title owns help, preserves sort, and supports hover and keyboard", 
   await trigger.hover();
   const card = page.getByRole("dialog", { name: "About Status", exact: true });
   await expect(card).toBeVisible();
+  await expect(card).toHaveAttribute("data-side", "bottom");
   await expect(card.locator('[data-slot="popover-arrow"]')).toBeVisible();
   await expectArrowAttached(card, trigger);
   expect(page.url()).toBe(before);

@@ -136,8 +136,12 @@ test("saves project defaults and submits only settings explicitly changed for a 
   };
   try {
     await page.goto("/settings/evaluations");
-    await page.getByLabel("Evaluation timeout (minutes)").fill("45");
-    await page.getByLabel("Concurrent attempts across suites").fill("2");
+    await page
+      .getByLabel("Evaluation timeout (minutes)", { exact: true })
+      .fill("45");
+    await page
+      .getByLabel("Concurrent attempts across suites", { exact: true })
+      .fill("2");
     await page
       .getByRole("button", { name: "Save evaluation defaults" })
       .click();
@@ -155,13 +159,15 @@ test("saves project defaults and submits only settings explicitly changed for a 
     await page.goto(
       `/evals/runs?launch=true&launchApplication=${EVAL_FIXTURE.targetId}`,
     );
-    await expect(page.getByLabel("Evaluation timeout (minutes)")).toHaveValue(
-      "45",
-    );
     await expect(
-      page.getByLabel("Concurrent attempts across suites"),
+      page.getByLabel("Evaluation timeout (minutes)", { exact: true }),
+    ).toHaveValue("45");
+    await expect(
+      page.getByLabel("Concurrent attempts across suites", { exact: true }),
     ).toHaveValue("2");
-    await page.getByLabel("Evaluation timeout (minutes)").fill("90");
+    await page
+      .getByLabel("Evaluation timeout (minutes)", { exact: true })
+      .fill("90");
     await capture(page, "run-setting-overrides");
     let submitted: Record<string, unknown> | undefined;
     await page.route("**/api/studio/evals/evaluations", async (route) => {
@@ -228,7 +234,7 @@ test("allows a run override to satisfy an application ceiling below the project 
       exact: true,
     });
     await expect(
-      page.getByLabel("Concurrent attempts across suites"),
+      page.getByLabel("Concurrent attempts across suites", { exact: true }),
     ).toHaveValue("2");
     await expect(
       page.getByText("concurrency exceeds the application maximum of 1.", {
@@ -236,7 +242,9 @@ test("allows a run override to satisfy an application ceiling below the project 
       }),
     ).toBeVisible();
     await expect(start).toBeDisabled();
-    await page.getByLabel("Concurrent attempts across suites").fill("1");
+    await page
+      .getByLabel("Concurrent attempts across suites", { exact: true })
+      .fill("1");
     await expect(start).toBeEnabled();
     let submitted: Record<string, unknown> | undefined;
     await page.route("**/api/studio/evals/evaluations", async (route) => {

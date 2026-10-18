@@ -124,6 +124,7 @@ export function DataTableColumnHeader<T, S extends string>({
             <InfoTooltip
               label={`About ${column.help.label}`}
               documentationUrl={column.help.documentationUrl}
+              side="bottom"
               trigger={title}
               triggerAction={sortKey ? "preserve" : "toggle"}
               disabled={isDragging}
