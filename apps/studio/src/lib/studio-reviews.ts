@@ -1,3 +1,4 @@
+import { sampleRequestResponse } from "@/features/sample-project/server";
 import "server-only";
 import {
   ClearScoreResponseSchema,
@@ -12,6 +13,8 @@ export async function studioReviewRequest(
 ): Promise<Response> {
   const denial = await studioAuth.authorize(request);
   if (denial) return denial;
+  const sample = await sampleRequestResponse(request);
+  if (sample) return sample;
   let sameOrigin = false;
   try {
     sameOrigin =
@@ -60,6 +63,15 @@ export async function studioReviewRequest(
         method: request.method,
         headers: {
           authorization: credential.authorization,
+          ...(credential.environment
+            ? { "x-kortyx-environment": credential.environment }
+            : {}),
+          ...(credential.projectId
+            ? { "x-kortyx-project-id": credential.projectId }
+            : {}),
+          ...(credential.environmentId
+            ? { "x-kortyx-environment-id": credential.environmentId }
+            : {}),
           "content-type": "application/json",
         },
         ...(body === undefined ? {} : { body }),

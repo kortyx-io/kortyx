@@ -58,7 +58,10 @@ next-env.d.ts
 *.tsbuildinfo
 **/*.tsbuildinfo
 
-# Cursor configuration with sensitive data
+# Local agent configuration with sensitive data (including legacy Cursor paths)
+.agents/general.mdc
+.agents/mcp.json
+.agents/settings.local.json
 .cursor/general.mdc
 .cursor/mcp.json
 
@@ -67,6 +70,12 @@ next-env.d.ts
 
 # LLMs
 AGENTS.md
+!/AGENTS.md
 
 # Workflow modules checked out separately from release candidates
 .github/automation/
+
+# Local prompt QA captures (reports stay tracked)
+/docs/qa/studio-prompts/**/*.png
+/docs/qa/studio-prompts/**/*.jpg
+/docs/qa/studio-prompts/**/*.jpeg

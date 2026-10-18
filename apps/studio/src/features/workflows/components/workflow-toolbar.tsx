@@ -1,6 +1,7 @@
 import type { StudioTimeRange } from "@kortyx/telemetry-contracts";
 import { PanelLeft, PanelRight, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { HelpCircle, InfoTooltip } from "@/components/ui/info-tooltip";
 import {
   Select,
   SelectContent,
@@ -17,6 +18,7 @@ import {
   TimeRangeFilter,
   type TimeRangeValue,
 } from "@/features/telemetry/components/time-range-filter";
+import { studioHelp } from "@/lib/studio-help";
 import { cn } from "@/lib/utils";
 import {
   type WorkflowMetric,
@@ -26,18 +28,18 @@ import {
 import type { WorkflowSummary } from "../schema";
 
 const modeHelp: Record<WorkflowViewMode, string> = {
-  system:
-    "Show workflow structure, node activity, and connections between workflows.",
+  system: "Show workflow steps and the connections between workflows.",
   health:
-    "Highlight nodes using the selected operational metric and its attention threshold.",
+    "Highlight steps that may need attention based on the selected metric.",
 };
 
 const metricHelp: Record<WorkflowMetric, string> = {
-  volume: "Emphasize nodes and connections with more recorded runs.",
-  error: "Emphasize nodes whose error rate is above 3%.",
-  latency: "Emphasize nodes whose p95 duration is above 2 seconds.",
+  volume: "Highlight steps and connections with more recorded runs.",
+  error: "Highlight steps where more than 3% of runs failed.",
+  latency:
+    "Highlight steps where the p95 time is above 2 seconds. This is the time that 95 out of 100 runs finished within.",
   cost: "Show recorded average cost for each node.",
-  interrupt: "Emphasize nodes whose interrupt rate is above 10%.",
+  interrupt: "Highlight steps where more than 10% of runs paused for input.",
 };
 
 type WorkflowToolbarProps = {
@@ -84,7 +86,10 @@ export function WorkflowToolbar({
   onOpenInspectorPanel,
 }: WorkflowToolbarProps) {
   return (
-    <header className="border-b bg-background px-4 pt-3">
+    <header
+      data-tour-surface="workflow-toolbar"
+      className="border-b bg-background px-4 pt-3"
+    >
       <div className="flex flex-wrap items-center justify-between gap-2 pb-3">
         <div className="flex items-center gap-2">
           <Tooltip>
@@ -118,7 +123,12 @@ export function WorkflowToolbar({
             </Tooltip>
           )}
           <div>
-            <h1 className="text-xl font-semibold tracking-tight">Workflows</h1>
+            <div className="flex items-center gap-1.5">
+              <h1 className="text-xl font-semibold tracking-tight">
+                Workflows
+              </h1>
+              <HelpCircle help={studioHelp.workflows} />
+            </div>
             <p className="text-xs text-muted-foreground">
               System topology and operational health
             </p>
@@ -157,8 +167,12 @@ export function WorkflowToolbar({
           </Select>
           <div className="flex rounded-md border p-0.5">
             {(["system", "health"] as const).map((item) => (
-              <Tooltip key={item}>
-                <TooltipTrigger asChild>
+              <InfoTooltip
+                key={item}
+                label={item === "system" ? "System Map" : "Health view"}
+                documentationUrl={studioHelp.workflows.documentationUrl}
+                triggerAction="preserve"
+                trigger={
                   <button
                     type="button"
                     aria-pressed={mode === item}
@@ -170,11 +184,10 @@ export function WorkflowToolbar({
                   >
                     {item === "system" ? "System Map" : "Health"}
                   </button>
-                </TooltipTrigger>
-                <TooltipContent className="max-w-64">
-                  {modeHelp[item]}
-                </TooltipContent>
-              </Tooltip>
+                }
+              >
+                {modeHelp[item]}
+              </InfoTooltip>
             ))}
           </div>
           <Tooltip>
@@ -228,8 +241,18 @@ export function WorkflowToolbar({
             Emphasis
           </span>
           {workflowMetrics.map((item) => (
-            <Tooltip key={item}>
-              <TooltipTrigger asChild>
+            <InfoTooltip
+              key={item}
+              label={
+                item === "error"
+                  ? "Error rate"
+                  : item === "interrupt"
+                    ? "Interrupt rate"
+                    : item
+              }
+              documentationUrl={studioHelp.workflowHealth.documentationUrl}
+              triggerAction="preserve"
+              trigger={
                 <button
                   type="button"
                   aria-pressed={metric === item}
@@ -247,11 +270,10 @@ export function WorkflowToolbar({
                       ? "Interrupt rate"
                       : item}
                 </button>
-              </TooltipTrigger>
-              <TooltipContent className="max-w-64">
-                {metricHelp[item]}
-              </TooltipContent>
-            </Tooltip>
+              }
+            >
+              {metricHelp[item]}
+            </InfoTooltip>
           ))}
         </div>
       )}

@@ -6,8 +6,9 @@ import type {
   EvalRunResult,
   EvalStepResult,
 } from "@kortyx/agent/evals";
-import { and, asc, eq, inArray, or } from "drizzle-orm";
+import { and, asc, eq, inArray, or, sql } from "drizzle-orm";
 import type { TelemetryDb } from "../client";
+import { aggregateCost, ZERO_MODEL_COST } from "../pricing/aggregate-cost";
 import {
   type CalculatedCost,
   calculateGenerationCost,
@@ -29,6 +30,8 @@ type Source = {
   events?: { event: EvalProgress }[];
 };
 type Attempt = {
+  attemptId?: string | undefined;
+  runtimeExecutions?: { sessionId: string; runId: string }[] | undefined;
   sessionId: string;
   steps: EvalStepResult[];
   finished: boolean;
@@ -36,6 +39,20 @@ type Attempt = {
 
 /** Count each generation once across turns, retries and child workflows. */
 export function sumEvalCosts(parts: EvalCostAmount[]): EvalCostAmount {
+  const summary = aggregateCost(
+    parts.map((part) => ({
+      cost: part.amount,
+      currency: part.currency,
+      pricingStatus:
+        part.status === "complete"
+          ? "priced"
+          : part.status === "partial"
+            ? "unpriced"
+            : "unknown",
+      pricingSource: null,
+      costSummary: part.costSummary,
+    })),
+  );
   const currencies = new Set(
     parts.filter((p) => p.amount !== null).map((p) => p.currency),
   );
@@ -43,6 +60,7 @@ export function sumEvalCosts(parts: EvalCostAmount[]): EvalCostAmount {
   const compatible = currencies.size <= 1;
   const complete = parts.every((p) => p.status === "complete") && compatible;
   return {
+    costSummary: summary.costSummary,
     amount:
       known && compatible
         ? parts.reduce(
@@ -74,7 +92,14 @@ function summarize(
   const compatible = currencies.size <= 1;
   const known =
     priced.length > 0 || (prices.length === 0 && missing === 0 && finished);
+  const summary = aggregateCost(
+    prices.length ? prices : known ? [ZERO_MODEL_COST] : [],
+  );
   return {
+    costSummary: {
+      ...summary.costSummary,
+      complete: finished && unpricedCalls === 0 && summary.costSummary.complete,
+    },
     amount:
       known && compatible
         ? priced.reduce((sum, p) => sum + (p.costMicros ?? 0), 0) / 1_000_000
@@ -107,7 +132,21 @@ export function calculateEvalAttemptCosts(
   ];
   const workflow = summarize(
     generations.map((e) => calculateGenerationCost(e, rates)),
-    generations.length ? 0 : 1,
+    attempt.attemptId
+      ? Math.max(
+          attempt.runtimeExecutions?.length ? 0 : 1,
+          (attempt.runtimeExecutions ?? []).filter(
+            (execution) =>
+              !generations.some(
+                (event) =>
+                  event.runId === execution.runId &&
+                  event.sessionId === execution.sessionId,
+              ),
+          ).length,
+        )
+      : generations.length
+        ? 0
+        : 1,
     attempt.finished,
   );
   const judgePrices: CalculatedCost[] = [];
@@ -150,6 +189,8 @@ function attempts(source: Source): Map<string, Attempt> {
   const put = (item: EvalCaseResult) =>
     rows.set(`${item.caseId}:${item.repetition}`, {
       sessionId: item.sessionId,
+      attemptId: item.attemptId,
+      runtimeExecutions: item.runtimeExecutions,
       steps: item.steps,
       finished: item.status !== "ungraded",
     });
@@ -157,9 +198,25 @@ function attempts(source: Source): Map<string, Attempt> {
     if (event.type === "case-started")
       rows.set(`${event.caseId}:${event.repetition}`, {
         sessionId: event.sessionId,
+        attemptId: event.attemptId,
+        runtimeExecutions: [],
         steps: [],
         finished: false,
       });
+    if (event.type === "case-runtime-associated") {
+      const item = rows.get(`${event.caseId}:${event.repetition}`);
+      if (
+        item?.attemptId === event.attemptId &&
+        !item.runtimeExecutions?.some(
+          (execution) =>
+            execution.runId === event.execution.runId &&
+            execution.sessionId === event.execution.sessionId,
+        )
+      ) {
+        item.runtimeExecutions ??= [];
+        item.runtimeExecutions.push(event.execution);
+      }
+    }
     if (event.type === "step-completed") {
       const item = rows.get(`${event.caseId}:${event.repetition}`);
       if (item) {
@@ -173,6 +230,23 @@ function attempts(source: Source): Map<string, Attempt> {
   }
   for (const item of source.result?.cases ?? []) put(item);
   return rows;
+}
+/** New SDK attempts never fall back to session-wide billing. Historical attempts
+ * retain their original session lookup. A reused session/run cannot transfer costs. */
+export function matchesEvalAttempt(
+  attempt: Attempt,
+  event: TelemetryEventRecord,
+): boolean {
+  return attempt.attemptId
+    ? event.payload.evalAttemptId === attempt.attemptId &&
+        Boolean(
+          attempt.runtimeExecutions?.some(
+            (execution) =>
+              execution.runId === event.runId &&
+              execution.sessionId === event.sessionId,
+          ),
+        )
+    : !event.payload.evalAttemptId && event.sessionId === attempt.sessionId;
 }
 /** Scope and environment are checked before matching per-attempt session identities. */
 export async function loadEvalCosts(
@@ -205,15 +279,20 @@ export async function loadEvalCosts(
     }),
   }));
   const matches = rows.flatMap(({ source, attempts }) =>
-    [...attempts.values()].map((a) => ({
-      sessionId: a.sessionId,
-      environment: source.environment,
-    })),
+    [...attempts.values()].flatMap((a) =>
+      (a.attemptId
+        ? (a.runtimeExecutions ?? [])
+        : [{ sessionId: a.sessionId }]
+      ).map((execution) => ({
+        sessionId: execution.sessionId,
+        runId: "runId" in execution ? execution.runId : undefined,
+        attemptId: a.attemptId,
+        environment: source.environment,
+      })),
+    ),
   );
   const filters = [
-    ...new Map(
-      matches.map((m) => [`${m.environment}:${m.sessionId}`, m]),
-    ).values(),
+    ...new Map(matches.map((m) => [JSON.stringify(m), m])).values(),
   ];
   const [rates, events] = await Promise.all([
     listApplicableModelRateCards(db, scope),
@@ -231,6 +310,10 @@ export async function loadEvalCosts(
                   and(
                     eq(telemetryEvents.environment, m.environment),
                     eq(telemetryEvents.sessionId, m.sessionId),
+                    m.runId ? eq(telemetryEvents.runId, m.runId) : undefined,
+                    m.attemptId
+                      ? sql`${telemetryEvents.payload}->>'evalAttemptId' = ${m.attemptId}`
+                      : undefined,
                   ),
                 ),
               ),
@@ -248,7 +331,7 @@ export async function loadEvalCosts(
             events.filter(
               (e) =>
                 e.environment === source.environment &&
-                e.sessionId === attempt.sessionId,
+                matchesEvalAttempt(attempt, e),
             ),
             rates,
           ),
@@ -267,6 +350,8 @@ export async function loadEvalCosts(
       if (["queued", "running"].includes(source.status)) {
         if (workflow.amount !== null) workflow.status = "partial";
         if (judge.amount !== null) judge.status = "partial";
+        if (workflow.costSummary) workflow.costSummary.complete = false;
+        if (judge.costSummary) judge.costSummary.complete = false;
       }
       return [
         source.id,

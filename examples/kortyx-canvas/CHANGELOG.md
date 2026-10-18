@@ -1,5 +1,185 @@
 # Changelog
 
+## [0.8.17](https://github.com/kortyx-io/kortyx/compare/example-canvas-v0.8.16...example-canvas-v0.8.17) (2026-10-16)
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/google bumped to 0.6.10
+    * @kortyx/react bumped to 0.8.6
+    * @kortyx/telemetry bumped to 0.17.0
+    * kortyx bumped to 0.32.0
+  * devDependencies
+    * @kortyx/cli bumped to 0.21.0
+
+## [0.8.16](https://github.com/kortyx-io/kortyx/compare/example-canvas-v0.8.15...example-canvas-v0.8.16) (2026-10-14)
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/telemetry bumped to 0.16.1
+    * kortyx bumped to 0.31.1
+  * devDependencies
+    * @kortyx/cli bumped to 0.20.1
+
+## [0.8.15](https://github.com/kortyx-io/kortyx/compare/example-canvas-v0.8.14...example-canvas-v0.8.15) (2026-10-13)
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/google bumped to 0.6.9
+    * @kortyx/react bumped to 0.8.5
+    * @kortyx/telemetry bumped to 0.16.0
+    * kortyx bumped to 0.31.0
+  * devDependencies
+    * @kortyx/cli bumped to 0.20.0
+
+## [0.8.14](https://github.com/kortyx-io/kortyx/compare/example-canvas-v0.8.13...example-canvas-v0.8.14) (2026-10-13)
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/telemetry bumped to 0.15.1
+    * kortyx bumped to 0.30.2
+  * devDependencies
+    * @kortyx/cli bumped to 0.19.1
+
+## [0.8.13](https://github.com/kortyx-io/kortyx/compare/example-canvas-v0.8.12...example-canvas-v0.8.13) (2026-10-11)
+
+
+### Bug Fixes
+
+* **website:** reconcile credibility branch with current main ([60199f9](https://github.com/kortyx-io/kortyx/commit/60199f992242eb7c409a95bc7a6898d31bac601d))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/google bumped to 0.6.8
+    * @kortyx/react bumped to 0.8.4
+    * @kortyx/telemetry bumped to 0.15.0
+    * kortyx bumped to 0.30.1
+  * devDependencies
+    * @kortyx/cli bumped to 0.19.0
+
+## [0.8.12](https://github.com/kortyx-io/kortyx/compare/example-canvas-v0.8.11...example-canvas-v0.8.12) (2026-10-10)
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/telemetry bumped to 0.14.0
+    * kortyx bumped to 0.30.0
+  * devDependencies
+    * @kortyx/cli bumped to 0.18.0
+
+## [0.8.11](https://github.com/kortyx-io/kortyx/compare/example-canvas-v0.8.10...example-canvas-v0.8.11) (2026-10-09)
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/google bumped to 0.6.7
+    * @kortyx/react bumped to 0.8.3
+    * @kortyx/telemetry bumped to 0.13.0
+    * kortyx bumped to 0.29.3
+  * devDependencies
+    * @kortyx/cli bumped to 0.17.0
+
+## [0.8.10](https://github.com/kortyx-io/kortyx/compare/example-canvas-v0.8.9...example-canvas-v0.8.10) (2026-10-09)
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * kortyx bumped to 0.29.2
+  * devDependencies
+    * @kortyx/cli bumped to 0.16.0
+
+## [0.8.9](https://github.com/kortyx-io/kortyx/compare/example-canvas-v0.8.8...example-canvas-v0.8.9) (2026-10-08)
+
+
+### Bug Fixes
+
+* **ui:** preserve multiline prompt formatting ([#296](https://github.com/kortyx-io/kortyx/issues/296)) ([9f4af86](https://github.com/kortyx-io/kortyx/commit/9f4af8676c10a19f5dc5661fed00d3130276284c))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/telemetry bumped to 0.12.1
+    * kortyx bumped to 0.29.1
+  * devDependencies
+    * @kortyx/cli bumped to 0.15.2
+
+## [0.8.8](https://github.com/kortyx-io/kortyx/compare/example-canvas-v0.8.7...example-canvas-v0.8.8) (2026-10-08)
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * kortyx bumped to 0.29.0
+  * devDependencies
+    * @kortyx/cli bumped to 0.15.1
+
+## [0.8.7](https://github.com/kortyx-io/kortyx/compare/example-canvas-v0.8.6...example-canvas-v0.8.7) (2026-10-08)
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/google bumped to 0.6.6
+    * @kortyx/react bumped to 0.8.2
+    * @kortyx/telemetry bumped to 0.12.0
+    * kortyx bumped to 0.28.2
+  * devDependencies
+    * @kortyx/cli bumped to 0.15.0
+
+## [0.8.6](https://github.com/kortyx-io/kortyx/compare/example-canvas-v0.8.5...example-canvas-v0.8.6) (2026-10-07)
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * kortyx bumped to 0.28.1
+  * devDependencies
+    * @kortyx/cli bumped to 0.14.0
+
+## [0.8.5](https://github.com/kortyx-io/kortyx/compare/example-canvas-v0.8.4...example-canvas-v0.8.5) (2026-10-07)
+
+
+### Bug Fixes
+
+* **security:** remediate CodeQL findings ([#273](https://github.com/kortyx-io/kortyx/issues/273)) ([55bc484](https://github.com/kortyx-io/kortyx/commit/55bc48426b72c0d370fe830f64db5bc1249bb861))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/google bumped to 0.6.5
+    * @kortyx/react bumped to 0.8.1
+    * @kortyx/telemetry bumped to 0.11.2
+    * kortyx bumped to 0.28.0
+  * devDependencies
+    * @kortyx/cli bumped to 0.13.0
+
 ## [0.8.4](https://github.com/kortyx-io/kortyx/compare/example-canvas-v0.8.3...example-canvas-v0.8.4) (2026-10-03)
 
 

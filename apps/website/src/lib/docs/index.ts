@@ -1,9 +1,10 @@
 import { readdir, readFile } from "node:fs/promises";
 import path from "node:path";
-import matter from "gray-matter";
 import { cache } from "react";
 import { extractToc } from "../utils/extract-toc";
 import { type DocsProduct, docsConfig, getDocsProduct } from "./config";
+import { parseMarkdownFrontmatter } from "./frontmatter";
+import { docsMoves } from "./migrations";
 
 export type DocFrontmatter = {
   id: string;
@@ -85,6 +86,8 @@ export type SectionMeta = {
   position: number;
   label: string;
   collapsed: boolean;
+  description?: string;
+  pages?: string[];
 };
 
 type VersionDocs = {
@@ -270,6 +273,8 @@ async function readSectionMetadata(versionDir: string): Promise<SectionMeta[]> {
         label: string;
         position: number;
         collapsed?: boolean;
+        description?: string;
+        pages?: string[];
       }>;
     };
     for (const section of metadata.sections ?? []) {
@@ -321,7 +326,7 @@ async function readVersionDocs(
     }
 
     const rawFile = await readFile(filePath, "utf8");
-    const parsed = matter(rawFile);
+    const parsed = parseMarkdownFrontmatter(rawFile);
     const frontmatter = parseFrontmatter(
       version,
       slugSegments,
@@ -413,7 +418,15 @@ export async function resolveDocsRoute(
 ): Promise<RouteResolution | null> {
   if (routeSegments.length === 0) return null;
   const store = await getDocsStore();
-  let [first, ...segments] = routeSegments;
+  // Older links used numbered Markdown file paths rather than public slugs.
+  const normalizedSegments = routeSegments.map((segment, index) =>
+    normalizeRouteSegment(
+      index === routeSegments.length - 1
+        ? segment.replace(/\.md$/, "")
+        : segment,
+    ),
+  );
+  let [first, ...segments] = normalizedSegments;
   let product = getDocsProduct(first ?? "");
   let explicitVersion = false;
   let requestedVersion: string;
@@ -431,7 +444,7 @@ export async function resolveDocsRoute(
     requestedVersion = explicitVersion
       ? (first as string)
       : product.latestVersion;
-    if (!explicitVersion) segments = routeSegments;
+    if (!explicitVersion) segments = normalizedSegments;
     if (segments[0] === "studio") {
       product = getDocsProduct("studio");
       if (!product) return null;
@@ -448,7 +461,14 @@ export async function resolveDocsRoute(
     requestedVersion,
     requestedSlug || product.overview,
   );
-  const doc = versionDocs.docsBySlug.get(docSlug);
+  const moved = docsMoves[`${product.id}/${requestedVersion}/${docSlug}`];
+  if (moved) {
+    const target = await resolveDocsRoute(moved.split("/"));
+    return target ? { ...target, redirectTo: target.canonicalPath } : null;
+  }
+  const doc =
+    versionDocs.docsBySlug.get(docSlug) ??
+    versionDocs.docsByNormalizedRelativeFile.get(`${docSlug}.md`);
   const section = versionDocs.sections.find((entry) => entry.slug === docSlug);
   if (
     !doc &&
@@ -488,6 +508,7 @@ export type SidebarSection = {
   label: string;
   href: string;
   collapsed: boolean;
+  description?: string;
   items: SidebarItem[];
 };
 
@@ -512,6 +533,22 @@ export async function getVersionSidebar(
     const docs = versionDocs.docs.filter(
       (doc) => doc.sectionSlug === section.slug,
     );
+    if (section.pages) {
+      const order = section.pages;
+      for (const slug of order) {
+        if (!docs.some((doc) => doc.slug === slug))
+          throw new Error(
+            `Unknown navigation page ${product}/${version}/${slug}`,
+          );
+      }
+      for (const doc of docs) {
+        if (!order.includes(doc.slug))
+          throw new Error(
+            `Missing navigation page ${product}/${version}/${doc.slug}`,
+          );
+      }
+      docs.sort((a, b) => order.indexOf(a.slug) - order.indexOf(b.slug));
+    }
     if (docs.length === 0) return [];
     return [
       {
@@ -523,6 +560,7 @@ export async function getVersionSidebar(
           section.slug === "__root__" ? [] : [section.slug],
         ),
         collapsed: section.collapsed,
+        description: section.description,
         items: docs.map((doc) => ({
           href: buildDocHref(product, version, doc.slugSegments),
           title: doc.frontmatter.sidebarLabel,
@@ -557,7 +595,7 @@ export function buildDocHref(
   return toDocsPath([
     productId,
     ...(version === product.latestVersion ? [] : [version]),
-    ...slugSegments,
+    ...slugSegments.filter(Boolean),
   ]);
 }
 
@@ -615,6 +653,9 @@ export async function generateDocsStaticParams(): Promise<
         ...versionDocs.docs.map((doc) => doc.slug),
         ...versionDocs.sections.map((section) => section.slug),
         ...Object.keys(product.legacyRedirects[version] ?? {}),
+        ...Object.keys(docsMoves)
+          .filter((key) => key.startsWith(`${product.id}/${version}/`))
+          .map((key) => key.slice(`${product.id}/${version}/`.length)),
       ]);
       for (const slug of slugs) {
         const segments = slug.split("/").filter(Boolean);

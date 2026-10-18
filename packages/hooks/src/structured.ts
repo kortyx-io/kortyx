@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { getHookContext } from "./context";
 import { assertStructuredPath } from "./structured-path";
 import type { UseReasonStructuredConfig, UseStructuredDataArgs } from "./types";
+import { usage } from "./usage";
 import { parseWithSchema } from "./validation";
 
 const createStructuredStreamId = (): string => {
@@ -12,7 +13,7 @@ const createStructuredStreamId = (): string => {
   }
 };
 
-export const emitStructuredData = <TData = unknown>(
+const emitStructuredDataInternal = <TData = unknown>(
   args: UseStructuredDataArgs<TData>,
 ): void => {
   const ctx = getHookContext();
@@ -101,3 +102,16 @@ export const shouldEmitStructured = (
 export const shouldStreamStructured = (
   cfg: UseReasonStructuredConfig | undefined,
 ): boolean => Boolean(cfg) && (cfg?.stream ?? true);
+
+export const emitStructuredData = <TData = unknown>(
+  args: UseStructuredDataArgs<TData>,
+): void => {
+  const scope = usage.start("sdk.structured", { format: args.kind });
+  try {
+    emitStructuredDataInternal(args);
+    scope.end();
+  } catch (error) {
+    scope.fail(error);
+    throw error;
+  }
+};

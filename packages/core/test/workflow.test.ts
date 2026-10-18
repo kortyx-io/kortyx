@@ -8,6 +8,7 @@ import {
   parseNodeContext,
   parseNodeResult,
   validateWorkflow,
+  type WorkflowDefinition,
 } from "../src";
 
 const validWorkflow = {
@@ -30,6 +31,84 @@ const validWorkflow = {
 };
 
 describe("workflow validation", () => {
+  it("preserves reducer callbacks and requires a real output contract", () => {
+    const outputSchema = z.object({ total: z.number() });
+    const total = (previous: number | undefined, next: number) =>
+      (previous ?? 0) + next;
+    expect(
+      loadWorkflow({ ...validWorkflow, outputSchema, reduce: { total } }).reduce
+        ?.total,
+    ).toBe(total);
+    expect(validateWorkflow({ ...validWorkflow, reduce: { total } }).ok).toBe(
+      false,
+    );
+    expect(
+      validateWorkflow({
+        ...validWorkflow,
+        outputSchema,
+        reduce: { total: "sum" },
+      }).ok,
+    ).toBe(false);
+    expect(
+      validateWorkflow({
+        ...validWorkflow,
+        outputSchema,
+        reduce: { total: undefined },
+      }).ok,
+    ).toBe(true);
+    const erased: WorkflowDefinition = {
+      id: "existing-definition",
+      version: "1",
+      nodes: {},
+      edges: [],
+    };
+    expect(defineWorkflow(erased).id).toBe("existing-definition");
+  });
+
+  it("infers reducer field types from outputSchema without annotations", () => {
+    const workflow = defineWorkflow({
+      id: "typed-reducers",
+      version: "1",
+      outputSchema: z.object({
+        count: z.number(),
+        text: z.string().optional(),
+      }),
+      reduce: {
+        count: (previous, next) => {
+          const a: number | undefined = previous;
+          const b: number = next;
+          // @ts-expect-error next is a number, not a string.
+          const invalid: string = next;
+          void invalid;
+          return (a ?? 0) + b;
+        },
+        text: (_previous, next) => (next === "clear" ? undefined : next),
+      },
+      nodes: {},
+      edges: [],
+    });
+    expect(workflow.reduce?.count?.(1, 2)).toBe(3);
+    expect(workflow.reduce?.text?.("old", "clear")).toBeUndefined();
+    expect(workflow.reduce?.text?.(undefined, "new")).toBe("new");
+    defineWorkflow({
+      id: "invalid-return",
+      version: "1",
+      outputSchema: z.object({ count: z.number() }),
+      nodes: {},
+      edges: [],
+      // @ts-expect-error Reducer output must match the declared field.
+      reduce: { count: () => "wrong" },
+    });
+    defineWorkflow({
+      id: "invalid-key",
+      version: "1",
+      outputSchema: z.object({ count: z.number() }),
+      nodes: {},
+      edges: [],
+      // @ts-expect-error Reducer keys must be output fields.
+      reduce: { missing: () => 1 },
+    });
+  });
   it("preserves callable workflow schemas and rejects non-schema contracts", () => {
     const inputSchema = z.object({ topic: z.string() });
     const outputSchema = z.object({ summary: z.string() });

@@ -43,6 +43,69 @@
       "when": 1700000000005,
       "tag": "0005_eval_runs",
       "breakpoints": false
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1791232608158,
+      "tag": "0006_environment_key_scopes",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1791388607631,
+      "tag": "0007_evaluation_runs",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1791451993857,
+      "tag": "0008_error_diagnostics",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1791451993858,
+      "tag": "0009_prompt_management",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1791555209210,
+      "tag": "0010_prompt_live_tags",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1791626679265,
+      "tag": "0011_prompt_scoped_policies",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1791634349131,
+      "tag": "0012_prompt_change_notes",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1792161179467,
+      "tag": "0013_eval_settings",
+      "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1792328339026,
+      "tag": "0014_studio_table_preferences",
+      "breakpoints": true
     }
   ]
 }

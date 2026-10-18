@@ -147,14 +147,16 @@ it("grades every captured step and stores failed criteria with evidence without 
   expect(execution.status).toBe("ungraded");
   expect(execution.cases[0]?.steps[0]?.criteria).toEqual([]);
 });
-it("records provider failures as grading errors and preserves tool evidence without exposing the provider exception", async () => {
+it("records provider failures as grading errors and preserves tool evidence with the original exception and credential redaction", async () => {
   const execution = await capture();
   const result = await gradeEvalExecution(
     execution,
     {
       ...judge,
       grade: () => {
-        throw new Error("secret-provider-key");
+        throw new Error(
+          "Provider rejected grading. Authorization: Bearer secret-provider-key",
+        );
       },
     },
     new AbortController().signal,
@@ -343,4 +345,113 @@ it("does not publish a late judge result after cancellation", async () => {
   await Promise.resolve();
   expect(progress).not.toHaveBeenCalled();
   expect(execution.cases[0]?.steps[0]?.criteria).toEqual([]);
+});
+
+it.each([
+  true,
+  false,
+])("replays application-selected evidence in Studio with history=%s and preserves full captures", async (history) => {
+  const output = {
+    streamId: "answer",
+    dataType: "app.answer",
+    status: "done",
+    data: { text: "Paris" },
+  };
+  const raw = {
+    type: "answer" as const,
+    text: "Paris",
+    structured: [
+      output,
+      { dataType: "app.plan", data: { text: "INTERNAL PLAN" } },
+    ],
+    events: [
+      { type: "tool-call-result", tool: "read", content: "Paris" },
+      { type: "structured-data", kind: "text-delta", delta: "STREAMING NOISE" },
+    ],
+  };
+  const execution = await createEvals({
+    agent: { streamChat: vi.fn() },
+    suites: [
+      {
+        ...suite,
+        evidence: { history, outputs: [{ dataType: "app.answer" }] },
+      },
+    ],
+    defaults: { evidence: { events: { using: "no-tools" } } },
+    evidenceFilters: { events: { "no-tools": () => false } },
+    execute: () => ({ observation: raw }),
+  }).run({ suiteId: suite.id, grading: "studio" });
+  const grade = vi.fn((input: Parameters<EvalJudge["grade"]>[0]) => {
+    expect(input.observation).toEqual({
+      ...raw,
+      structured: [output],
+      events: [],
+    });
+    expect(input.conversation).toHaveLength(
+      history &&
+        "message" in input.input &&
+        input.input.message === "Explain it"
+        ? 1
+        : 0,
+    );
+    for (const previous of input.conversation) {
+      expect(previous.observation).toEqual({
+        ...raw,
+        structured: [output],
+        events: [],
+      });
+      expect(previous).not.toHaveProperty("evidence");
+    }
+    return {
+      passed: true,
+      reason: "Matches selected output",
+      evidence: ["Paris"],
+    };
+  });
+  const original = structuredClone(execution);
+  const result = await gradeEvalExecution(
+    JSON.parse(JSON.stringify(execution)),
+    { ...judge, grade },
+    new AbortController().signal,
+    async () => {},
+  );
+  expect(grade).toHaveBeenCalledTimes(2);
+  expect(result.status).toBe("passed");
+  expect(execution).toEqual(original);
+  expect(result.cases[0]?.steps[0]?.observation).toEqual(raw);
+  expect(result.cases[0]?.steps[0]?.evidence).toEqual(
+    execution.cases[0]?.steps[0]?.evidence,
+  );
+});
+
+it("Studio grading preserves failed application postconditions after semantic criteria pass", async () => {
+  const execution = await createEvals({
+    agent: { streamChat: vi.fn() },
+    suites: [suite],
+    execute: () => ({
+      observation: { type: "answer", text: "Done", structured: [] },
+    }),
+    verify: () => ({
+      passed: false,
+      reason: "Approved save is absent",
+      evidence: ["Fixture query returned no saved record"],
+    }),
+  }).run({ suiteId: suite.id, grading: "studio" });
+  const result = await gradeEvalExecution(
+    execution,
+    {
+      ...judge,
+      grade: () => ({ passed: true, reason: "Answer matched", evidence: [] }),
+    },
+    new AbortController().signal,
+    async () => {},
+  );
+  expect(result.status).toBe("failed");
+  expect(result.cases[0]?.verification).toEqual(
+    execution.cases[0]?.verification,
+  );
+  expect(result.cases[0]?.steps.every((step) => step.status === "passed")).toBe(
+    true,
+  );
+  expect(result.cases[0]?.errors).toEqual([]);
 });

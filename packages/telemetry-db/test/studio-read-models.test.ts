@@ -988,6 +988,24 @@ it("projects active root cancellation over abort failures into run and session s
 });
 
 describe("complete cost aggregation", () => {
+  const closedRun = (
+    runId = "run-2",
+  ): [TelemetryEventRecord, TelemetryEventRecord] => [
+    event(20, {
+      eventId: `${runId}-start`,
+      runId,
+      type: "span.started",
+      spanId: `${runId}-root`,
+      payload: { name: "kortyx.run" },
+    }),
+    event(116, {
+      eventId: `${runId}-end`,
+      runId,
+      type: "span.ended",
+      spanId: `${runId}-root`,
+      payload: { name: "kortyx.run", durationMs: 96 },
+    }),
+  ];
   const generation = (
     id: string,
     model: string,
@@ -1005,6 +1023,183 @@ describe("complete cost aggregation", () => {
         ...(pricing ? { pricing } : {}),
       },
     });
+  it("preserves session cost when priced runs are mixed with a run without model calls", () => {
+    const result = createStudioReadModelsFromRecords({
+      events: [
+        generation("priced-one", "gpt-4.1-mini"),
+        ...closedRun("run-1"),
+        ...closedRun(),
+        generation("priced-two", "gpt-4.1-mini", "run-3"),
+        ...closedRun("run-3"),
+      ],
+      revisions: [],
+      rates: DEFAULT_MODEL_RATE_CARDS as ModelRateCard[],
+    });
+    expect(result.runs.find((run) => run.id === "run-2")).toMatchObject({
+      status: "completed",
+      cost: 0,
+      currency: null,
+      pricingStatus: "priced",
+      pricingSource: null,
+    });
+    expect(result.sessions[0]).toMatchObject({
+      runs: 3,
+      cost: 1.12,
+      currency: "USD",
+      pricingStatus: "priced",
+      pricingSource: "default-rate-card",
+    });
+  });
+
+  it("reports zero cost for a session containing only runs without model calls", () => {
+    const result = createStudioReadModelsFromRecords({
+      events: [...closedRun("run-1"), ...closedRun("run-2")],
+      revisions: [],
+      rates: [],
+    });
+    expect(result.sessions[0]).toMatchObject({
+      cost: 0,
+      currency: null,
+      pricingStatus: "priced",
+      pricingSource: null,
+    });
+    expect(result.workflows.workflows[0]?.metrics.averageCost).toBe(0);
+  });
+
+  it("keeps zero model cost neutral when the priced run uses a custom currency", () => {
+    const result = createStudioReadModelsFromRecords({
+      events: [
+        generation("eur", "custom", "run-1", {
+          source: "custom",
+          currency: "EUR",
+          actualCostMicros: 1000,
+        }),
+        ...closedRun("run-1"),
+        ...closedRun(),
+      ],
+      revisions: [],
+      rates: [],
+    });
+    expect(result.sessions[0]).toMatchObject({
+      cost: 0.001,
+      currency: "EUR",
+      pricingStatus: "priced",
+      pricingSource: "custom",
+    });
+  });
+
+  it.each([
+    ["missing root start", closedRun().slice(1)],
+    ["missing root end", closedRun().slice(0, 1)],
+    [
+      "mismatched root span",
+      [closedRun()[0], { ...closedRun()[1], spanId: "other-root" }],
+    ],
+    ...["span.started", "span.ended", "span.failed"].map(
+      (type) =>
+        [
+          `model ${type} without a generation`,
+          [
+            ...closedRun(),
+            event(30, {
+              eventId: "missing-generation",
+              runId: "run-2",
+              type,
+              spanId: "model-span",
+              payload: { name: "runReasonEngine" },
+            }),
+          ],
+        ] as const,
+    ),
+    [
+      "missing model usage",
+      [
+        ...closedRun(),
+        event(30, {
+          eventId: "missing-usage",
+          runId: "run-2",
+          type: "generation.completed",
+          payload: { provider: "openai", model: "gpt-4.1-mini" },
+        }),
+      ],
+    ],
+  ] as const)("does not treat %s as zero model usage", (_name, incompleteEvents) => {
+    const result = createStudioReadModelsFromRecords({
+      events: [generation("priced", "gpt-4.1-mini"), ...incompleteEvents],
+      revisions: [],
+      rates: DEFAULT_MODEL_RATE_CARDS as ModelRateCard[],
+    });
+    expect(result.runs.find((run) => run.id === "run-2")).toMatchObject({
+      cost: null,
+      pricingStatus: "unknown",
+    });
+    expect(result.sessions[0]).toMatchObject({
+      cost: null,
+      pricingStatus: "unpriced",
+      costSummary: {
+        amounts: [{ amount: 0.56, currency: "USD" }],
+        complete: false,
+      },
+    });
+  });
+
+  it("does not hide an unreported model call behind a priced generation", () => {
+    const result = createStudioReadModelsFromRecords({
+      events: [
+        generation("priced", "gpt-4.1-mini"),
+        event(30, {
+          eventId: "second-call",
+          type: "span.started",
+          spanId: "unreported-model-span",
+          payload: { name: "runReasonEngine" },
+        }),
+      ],
+      revisions: [],
+      rates: DEFAULT_MODEL_RATE_CARDS as ModelRateCard[],
+    });
+    expect(result.runs[0]).toMatchObject({
+      cost: null,
+      pricingStatus: "unpriced",
+    });
+    expect(result.sessions[0]).toMatchObject({
+      cost: null,
+      pricingStatus: "unpriced",
+      costSummary: {
+        amounts: [{ amount: 0.56, currency: "USD" }],
+        complete: false,
+      },
+    });
+  });
+
+  it("prices a model span when its generation record is present", () => {
+    const result = createStudioReadModelsFromRecords({
+      events: [
+        ...closedRun("run-1"),
+        event(30, {
+          eventId: "model-start",
+          type: "span.started",
+          spanId: "model-span",
+          payload: { name: "runReasonEngine" },
+        }),
+        event(40, {
+          eventId: "model-end",
+          type: "span.ended",
+          spanId: "model-span",
+          payload: { name: "runReasonEngine" },
+        }),
+        { ...generation("priced", "gpt-4.1-mini"), spanId: "model-span" },
+        ...closedRun(),
+      ],
+      revisions: [],
+      rates: DEFAULT_MODEL_RATE_CARDS as ModelRateCard[],
+    });
+    expect(result.sessions[0]).toMatchObject({
+      cost: 0.56,
+      currency: "USD",
+      pricingStatus: "priced",
+    });
+  });
+
   it("marks a run and session unpriced when one generation is missing prices", () => {
     const result = createStudioReadModelsFromRecords({
       events: [
@@ -1029,6 +1224,7 @@ describe("complete cost aggregation", () => {
       events: [
         generation("priced", "gpt-4.1-mini"),
         generation("missing", "unlisted", "run-2"),
+        ...closedRun("run-3"),
       ],
       revisions: [],
       rates: DEFAULT_MODEL_RATE_CARDS as ModelRateCard[],
@@ -1059,6 +1255,7 @@ describe("complete cost aggregation", () => {
       events: [
         generation("one", "gpt-4.1-mini"),
         generation("two", "gpt-4.1-mini"),
+        ...closedRun("run-1"),
       ],
       revisions: [],
       rates: DEFAULT_MODEL_RATE_CARDS as ModelRateCard[],
@@ -1067,6 +1264,25 @@ describe("complete cost aggregation", () => {
       cost: 1.12,
       currency: "USD",
       pricingStatus: "priced",
+    });
+  });
+
+  it("marks captured costs partial while a run is still active", () => {
+    const result = createStudioReadModelsFromRecords({
+      events: [generation("priced", "gpt-4.1-mini"), closedRun("run-1")[0]],
+      revisions: [],
+      rates: DEFAULT_MODEL_RATE_CARDS as ModelRateCard[],
+    });
+    expect(result.runs[0]).toMatchObject({
+      status: "running",
+      costSummary: {
+        amounts: [{ amount: 0.56, currency: "USD" }],
+        complete: false,
+      },
+    });
+    expect(result.sessions[0]?.costSummary).toEqual({
+      amounts: [{ amount: 0.56, currency: "USD" }],
+      complete: false,
     });
   });
 });

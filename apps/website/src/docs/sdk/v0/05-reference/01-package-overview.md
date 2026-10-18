@@ -1,7 +1,7 @@
 ---
 id: v0-package-overview
 title: "Package Overview"
-description: "Map each Kortyx package to its purpose and practical usage in app code."
+description: "Map Kortyx packages to their roles in your application, from agent workflows and providers to React clients, persistence, and telemetry."
 keywords: [kortyx, package-overview, agent, runtime, core]
 sidebar_label: "Package Overview"
 ---
@@ -40,5 +40,5 @@ This page maps the current OSS packages in this monorepo.
 - Providers: install provider packages per need (for example `@kortyx/google`).
 - Business persistence: own it in your app; Kortyx only provides runtime/framework persistence.
 - React apps should start with `@kortyx/react` before reaching for raw browser stream reducers.
-- See [React Client](./06-react-client) for the recommended `useChat(...)` and `useStructuredStreams()` path.
+- See [React Client](./06-react-client.md) for the recommended `useChat(...)` and `useStructuredStreams()` path.
 - Stream structured-data schema currently has a built-in `jobs` discriminated type; apps may still emit custom structured payloads.

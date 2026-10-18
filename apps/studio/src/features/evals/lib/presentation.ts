@@ -1,7 +1,15 @@
-import type { EvalCosts, EvalStepResult } from "@kortyx/agent/evals";
+import type {
+  EvalCaseResult,
+  EvalCosts,
+  EvalIssue,
+  EvalStepResult,
+} from "@kortyx/agent/evals";
 import type { EvalDetail } from "../schema";
 
 export type CaseRow = {
+  environment?: string;
+  verification?: EvalCaseResult["verification"];
+  phaseDurationsMs?: EvalCaseResult["phaseDurationsMs"];
   costs?: EvalCosts;
   key: string;
   caseId: string;
@@ -12,7 +20,9 @@ export type CaseRow = {
   durationMs?: number;
   steps: EvalStepResult[];
   expectedSteps: number;
-  errors: { phase: string; code: string; message: string }[];
+  errors: EvalIssue[];
+  retryAt?: string;
+  httpStatus?: number;
 };
 export const isActive = (status?: string) =>
   status === "queued" || status === "running";
@@ -28,6 +38,7 @@ export function caseRows(run: EvalDetail): CaseRow[] {
     request?.repetitions ??
     Math.max(1, ...(run.result?.cases.map((item) => item.repetition) ?? []));
   const row = (caseId: string, repetition: number): CaseRow => ({
+    environment: run.environment,
     key: `${caseId}:${repetition}`,
     caseId,
     name: definitions.get(caseId)?.name ?? displayName(caseId),
@@ -41,6 +52,19 @@ export function caseRows(run: EvalDetail): CaseRow[] {
     for (let attempt = 1; attempt <= attempts; attempt++)
       rows.set(`${id}:${attempt}`, row(id, attempt));
   for (const { event } of run.events) {
+    if (event.type === "case-dispatch") {
+      const item = rows.get(`${event.caseId}:${event.repetition}`);
+      if (
+        item &&
+        !["passed", "failed", "error", "cancelled"].includes(item.status)
+      ) {
+        item.status = isActive(run.status) ? event.status : "unknown";
+        if (event.retryAt) item.retryAt = event.retryAt;
+        else delete item.retryAt;
+        if (event.httpStatus) item.httpStatus = event.httpStatus;
+        else delete item.httpStatus;
+      }
+    }
     if (event.type === "case-started")
       rows.set(`${event.caseId}:${event.repetition}`, {
         ...row(event.caseId, event.repetition),
@@ -78,11 +102,49 @@ export function caseRows(run: EvalDetail): CaseRow[] {
   return [...rows.values()].map((original) => {
     const item = { ...original, costs: run.caseCosts?.[original.key] };
     if (isActive(run.status)) return item;
+    if (run.termination?.code === "EVAL_RUN_TIMEOUT") {
+      const timeoutIssue = {
+        phase: "execute" as const,
+        code: "EVAL_RUN_TIMEOUT",
+        message: run.termination.message,
+        ...(run.termination.timeoutMs
+          ? { details: { timeoutMs: run.termination.timeoutMs } }
+          : {}),
+      };
+      if (item.status === "ungraded")
+        return { ...item, errors: [...item.errors, timeoutIssue] };
+      if (item.status === "not-run") return item;
+      if (
+        item.errors.some((issue) => issue.code === "EVAL_RUN_TIMEOUT") ||
+        ["running", "unknown", "queued", "reconnecting", "retrying"].includes(
+          item.status,
+        )
+      )
+        return {
+          ...item,
+          status: "interrupted",
+          errors: item.errors.some((issue) => issue.code === "EVAL_RUN_TIMEOUT")
+            ? item.errors
+            : [...item.errors, timeoutIssue],
+        };
+    }
     const status =
       run.status === "cancelled" ? ("cancelled" as const) : ("error" as const);
     return {
       ...item,
-      status: item.status === "ungraded" ? status : item.status,
+      status: item.errors.some(
+        (issue) => issue.code === "EVAL_EXECUTION_UNKNOWN",
+      )
+        ? "unknown"
+        : ["queued", "retrying", "reconnecting", "running"].includes(
+              item.status,
+            )
+          ? run.status === "cancelled"
+            ? "cancelled"
+            : "unknown"
+          : item.status === "ungraded"
+            ? status
+            : item.status,
       steps: item.steps.map((step) =>
         step.status === "ungraded"
           ? { ...step, status, reason: "Evaluation did not complete." }
@@ -95,10 +157,18 @@ export function progressCounts(rows: CaseRow[]) {
   return {
     passed: rows.filter((r) => r.status === "passed").length,
     failed: rows.filter((r) => r.status === "failed").length,
-    error: rows.filter((r) => r.status === "error").length,
+    error: rows.filter((r) => ["error", "unknown"].includes(r.status)).length,
     cancelled: rows.filter((r) => r.status === "cancelled").length,
     completed: rows.filter(
-      (r) => !["running", "queued", "ungraded", "not-run"].includes(r.status),
+      (r) =>
+        ![
+          "running",
+          "queued",
+          "retrying",
+          "reconnecting",
+          "ungraded",
+          "not-run",
+        ].includes(r.status),
     ).length,
     total: rows.length,
   };

@@ -137,3 +137,30 @@ describe("buildStudioShellContext", () => {
     expect(text(context)).not.toContain("sensitive upstream detail");
   });
 });
+
+it.each([
+  "cloud",
+  "basic",
+  "none",
+] as const)("supplies a scoped preference cache and enables background database persistence only for authenticated %s mode", (authMode) => {
+  const tablePreferenceScope = {
+    ownerKind: authMode === "cloud" ? ("user" as const) : ("project" as const),
+    cacheKey: "a".repeat(64),
+  };
+  const context = buildStudioShellContext({
+    authMode,
+    studioVersion: "1.2.3",
+    apiUrlConfigured: true,
+    studioApiKeyConfigured: authMode !== "cloud",
+    context: {
+      data: {
+        ...connectedContext,
+        tablePreferenceScope,
+        apiKey: authMode === "cloud" ? null : connectedContext.apiKey,
+      },
+      error: null,
+    },
+  });
+  expect(context.tablePreferenceScope).toEqual(tablePreferenceScope);
+  expect(context.tablePreferencesRemote).toBe(authMode !== "none");
+});

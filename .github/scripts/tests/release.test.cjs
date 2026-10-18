@@ -1,6 +1,52 @@
 const assert = require("node:assert/strict");
+const { readFileSync } = require("node:fs");
+const { join } = require("node:path");
 const test = require("node:test");
 const updateReleasePrBranch = require("../release/update-release-pr-branch.cjs");
+
+test("release workflows retain queued releases instead of replacing them", () => {
+  for (const file of [
+    "npm-publish.yml",
+    "build-studio-images.yml",
+    "release-studio-images.yml",
+    "release-studio-recover.yml",
+    "website-promote.yml",
+  ]) {
+    const workflow = readFileSync(
+      join(__dirname, "../../workflows", file),
+      "utf8",
+    );
+    const concurrency = workflow.split("\nconcurrency:\n")[1].split("\n\n")[0];
+    assert.match(concurrency, /cancel-in-progress: false/, file);
+    assert.match(concurrency, /queue: max/, file);
+  }
+});
+
+test("merged commit CI cannot be replaced by another commit's pending checks", () => {
+  const workflow = readFileSync(
+    join(__dirname, "../../workflows/ci.yml"),
+    "utf8",
+  );
+  assert.match(
+    workflow,
+    /group: ci-\$\{\{ github.event.pull_request.number \|\| github.sha \}\}/,
+  );
+  assert.match(
+    workflow,
+    /cancel-in-progress: \$\{\{ github.event_name == 'pull_request' \}\}/,
+  );
+});
+
+test("release recovery describes old commits using the trusted workflow classifier", () => {
+  const workflow = readFileSync(
+    join(__dirname, "../../workflows/npm-publish.yml"),
+    "utf8",
+  );
+  assert.match(
+    workflow,
+    /run: node \.\/\.github\/automation\/\.github\/scripts\/release\/describe-release\.mjs/,
+  );
+});
 
 const context = {
   ref: "refs/heads/main",
@@ -46,19 +92,24 @@ test("does nothing when there is no open Release Please pull request", async () 
   assert.deepEqual(mock.requests, []);
 });
 
-test("accepts an already current Release Please pull request", async () => {
-  const error = new Error("Pull Request is not behind the base branch");
-  error.status = 422;
-  const mock = api({
-    pulls: [{ number: 252, head: { sha: "release-sha" } }],
-    requestError: error,
-  });
+for (const message of [
+  "Pull Request is not behind the base branch",
+  "There are no new commits on the base branch.",
+]) {
+  test(`accepts an already current Release Please pull request: ${message}`, async () => {
+    const error = new Error(message);
+    error.status = 422;
+    const mock = api({
+      pulls: [{ number: 252, head: { sha: "release-sha" } }],
+      requestError: error,
+    });
 
-  assert.deepEqual(await updateReleasePrBranch({ ...mock, context }), {
-    updated: false,
-    pullNumber: 252,
+    assert.deepEqual(await updateReleasePrBranch({ ...mock, context }), {
+      updated: false,
+      pullNumber: 252,
+    });
   });
-});
+}
 
 test("does not hide update failures", async () => {
   const error = new Error("Merge conflict");

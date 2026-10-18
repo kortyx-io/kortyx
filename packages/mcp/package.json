@@ -1,6 +1,6 @@
 {
   "name": "@kortyx/mcp",
-  "version": "0.2.7",
+  "version": "0.3.2",
   "private": false,
   "description": "MCP client tools for Kortyx.",
   "keywords": [
@@ -42,7 +42,8 @@
   },
   "dependencies": {
     "@kortyx/providers": "workspace:*",
-    "@modelcontextprotocol/sdk": "catalog:"
+    "@modelcontextprotocol/sdk": "catalog:",
+    "@kortyx/usage-telemetry": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "catalog:",

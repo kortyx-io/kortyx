@@ -1,7 +1,7 @@
 ---
 id: v0-nodes
 title: "Nodes"
-description: "Understand Kortyx nodes, input flow, params, state handoff, and node return values."
+description: "Learn how Kortyx workflow nodes receive messages and parameters, pass state to the next node, return results, and choose their routing conditions."
 keywords: [kortyx, nodes, node-input, node-params, node-result, workflow-state]
 sidebar_label: "Nodes"
 ---
@@ -261,6 +261,11 @@ Kortyx merges returned `data` into workflow state before the next node runs:
 - object fields are deep-merged
 - arrays are overwritten, not concatenated
 - if the previous `input` was not an object, it is preserved as `rawInput`
+
+These defaults remain unchanged, including for union-valued fields. A workflow
+can override individual top-level fields with
+[opt-in `reduce` callbacks](./01-define-workflows.md#opt-in-data-reducers) for
+replacement, accumulation or deletion; nodes keep the same return shape.
 
 After the `classifyNode` return above, the next node receives:
 

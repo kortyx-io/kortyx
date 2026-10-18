@@ -22,6 +22,7 @@ type Options = {
   studioUrl?: string;
   apiKeyEnv?: string;
   environment?: string;
+  projectId?: string;
   replace?: boolean;
 };
 export const createConnectionsCommand = (
@@ -91,6 +92,10 @@ export const createConnectionsCommand = (
         "--studio-url <url>",
         "Studio browser base URL, used to resolve pasted links.",
       )
+      .option(
+        "--project-id <id>",
+        "Cloud project ID; scoped separately from the key.",
+      )
       .option("--environment <name>", "Default environment filter for lists.")
       .option("--replace", "Explicitly replace an existing named connection."),
   ).action(
@@ -122,6 +127,7 @@ export const createConnectionsCommand = (
         apiUrl,
         readKeyEnv(options.apiKeyEnv),
         request,
+        { projectId: options.projectId, environment: options.environment },
       );
       const context = await client.get(
         "/v1/studio/context",
@@ -137,6 +143,7 @@ export const createConnectionsCommand = (
         apiUrl,
         apiKeyEnv: options.apiKeyEnv,
         project: context.project.name,
+        ...(options.projectId ? { projectId: options.projectId } : {}),
         organization: context.organization.name,
         ...(studioUrl ? { studioUrl } : {}),
         ...(options.environment ? { environment: options.environment } : {}),

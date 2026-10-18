@@ -39,7 +39,7 @@ export function EvalLiveCaseContent({
           {current.error}
         </p>
       ) : null}
-      <div className="min-h-0 flex-1">
+      <div data-tour-surface="eval-case-evidence" className="min-h-0 flex-1">
         <EvalCaseContent row={row} />
       </div>
     </div>

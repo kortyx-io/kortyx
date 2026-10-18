@@ -1,6 +1,5 @@
 "use client";
 
-import { Code2, PanelsTopLeft } from "lucide-react";
 import Link from "next/link";
 import { CheckIcon } from "@/components/icons/check-icon";
 import { ChevronsUpDownIcon } from "@/components/icons/chevrons-up-down-icon";
@@ -8,16 +7,19 @@ import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import type { DocsProduct } from "@/lib/docs/config";
 import { cn } from "@/lib/utils/cn";
+import { docsAreaIcons } from "./docs-area-icons";
 
 export type ProductTarget = {
   product: string;
   label: string;
   description: string;
-  icon: "sdk" | "studio";
+  icon: DocsProduct["icon"];
   href: string;
 };
 
@@ -29,13 +31,13 @@ export function DocsProductSelector({
   selectedProduct: string;
 }) {
   const selected = options.find((option) => option.product === selectedProduct);
-  const Icon = selected?.icon === "studio" ? PanelsTopLeft : Code2;
+  const Icon = docsAreaIcons[selected?.icon ?? "sdk"];
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button
           variant="ghost"
-          aria-label={`Select product: ${selected?.label ?? selectedProduct}`}
+          aria-label={`Choose documentation: ${selected?.label ?? selectedProduct}`}
           className="h-auto w-full cursor-pointer justify-between rounded-lg border border-border px-3 py-3"
         >
           <span className="flex items-center gap-3">
@@ -56,37 +58,39 @@ export function DocsProductSelector({
       </DropdownMenuTrigger>
       <DropdownMenuContent
         align="start"
-        className="w-(--radix-dropdown-menu-trigger-width) min-w-0 space-y-1"
+        className="w-(--radix-dropdown-menu-trigger-width) min-w-0"
       >
-        {options.map((option) => {
-          const ProductIcon = option.icon === "studio" ? PanelsTopLeft : Code2;
-          const active = option.product === selectedProduct;
-          return (
-            <DropdownMenuItem key={option.product} asChild>
-              <Link
-                href={option.href}
-                aria-current={active ? "true" : undefined}
-                className={cn(
-                  "flex cursor-pointer items-start gap-3 px-2 py-3",
-                  active && "bg-accent",
-                )}
-              >
-                <ProductIcon className="mt-0.5 size-5 shrink-0 text-primary" />
-                <span className="min-w-0 flex-1">
-                  <span className="block text-sm font-semibold">
-                    {option.label}
+        <DropdownMenuGroup>
+          {options.map((option) => {
+            const ProductIcon = docsAreaIcons[option.icon];
+            const active = option.product === selectedProduct;
+            return (
+              <DropdownMenuItem key={option.product} asChild>
+                <Link
+                  href={option.href}
+                  aria-current={active ? "true" : undefined}
+                  className={cn(
+                    "flex cursor-pointer items-start gap-3 px-2 py-3",
+                    active && "bg-accent",
+                  )}
+                >
+                  <ProductIcon className="mt-0.5 size-5 shrink-0 text-primary" />
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-sm font-semibold">
+                      {option.label}
+                    </span>
+                    <span className="mt-1 block text-xs leading-5 text-muted-foreground">
+                      {option.description}
+                    </span>
                   </span>
-                  <span className="mt-1 block text-xs leading-5 text-muted-foreground">
-                    {option.description}
-                  </span>
-                </span>
-                {active && (
-                  <CheckIcon className="mt-0.5 size-4 shrink-0 text-primary" />
-                )}
-              </Link>
-            </DropdownMenuItem>
-          );
-        })}
+                  {active && (
+                    <CheckIcon className="mt-0.5 size-4 shrink-0 text-primary" />
+                  )}
+                </Link>
+              </DropdownMenuItem>
+            );
+          })}
+        </DropdownMenuGroup>
       </DropdownMenuContent>
     </DropdownMenu>
   );

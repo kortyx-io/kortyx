@@ -11,6 +11,7 @@ import {
 import { and, desc, eq, gte, inArray, lte, type SQL, sql } from "drizzle-orm";
 import type { TelemetryDb } from "../client";
 import { TelemetryValidationError } from "../errors";
+import { aggregateCost, averageCostSummary } from "../pricing/aggregate-cost";
 import {
   studioRuns,
   type TelemetryEventRecord,
@@ -42,10 +43,14 @@ const percentile = (values: number[], fraction: number) => {
 };
 
 const metricsForRuns = (runs: StudioRun[]): StudioMetric => {
-  const currencies = unique(
-    runs
-      .map((run) => run.currency)
-      .filter((currency): currency is string => Boolean(currency)),
+  const cost = aggregateCost(
+    runs.map((run) => ({
+      cost: run.cost ?? null,
+      currency: run.currency ?? null,
+      pricingStatus: run.pricingStatus ?? "unknown",
+      pricingSource: run.pricingSource ?? null,
+      costSummary: run.costSummary,
+    })),
   );
   const durations = runs
     .map((run) => run.durationMs)
@@ -74,8 +79,9 @@ const metricsForRuns = (runs: StudioRun[]): StudioMetric => {
     p50DurationMs: percentile(durations, 0.5),
     p95DurationMs: percentile(durations, 0.95),
     averageTokens: average(tokens),
-    averageCost: currencies.length <= 1 ? average(costs) : null,
-    currency: currencies.length === 1 ? (currencies[0] ?? null) : null,
+    averageCost: cost.cost !== null ? average(costs) : null,
+    averageCostSummary: averageCostSummary(cost.costSummary, runs.length),
+    currency: cost.currency,
   };
 };
 
@@ -276,6 +282,7 @@ export const createStudioWorkflowModelsFromProjections = (input: {
 
   return {
     workflows,
+    observedCalls: observedWorkflowCalls(input.childRuns ?? []),
     transitions: Array.from(declared.values()).sort((left, right) =>
       left.id.localeCompare(right.id),
     ),
@@ -389,8 +396,12 @@ export const listStudioWorkflows = async (
     },
     now,
   });
+  return result;
+};
+
+const observedWorkflowCalls = (childRuns: StudioRun[]) => {
   const groups = new Map<string, StudioRun[]>();
-  for (const { data: run } of runRows) {
+  for (const run of childRuns) {
     if (
       !run.parentRunId ||
       !run.parentWorkflowId ||
@@ -403,35 +414,32 @@ export const listStudioWorkflows = async (
     group.push(run);
     groups.set(key, group);
   }
-  return {
-    ...result,
-    observedCalls: [...groups.entries()].map(([id, runs]) => {
-      const first = runs[0]!;
-      return {
-        id,
-        sourceWorkflowId: first.parentWorkflowId!,
-        sourceNodeId: first.callerNodeId ?? null,
-        targetWorkflowId: first.workflowId,
-        condition: "Observed call · returns to caller",
-        volume: runs.length,
-        successRate: percentage(
-          runs.filter((run) => run.status === "completed").length,
-          runs.length,
+  return [...groups.entries()].map(([id, runs]) => {
+    const first = runs[0]!;
+    return {
+      id,
+      sourceWorkflowId: first.parentWorkflowId!,
+      sourceNodeId: first.callerNodeId ?? null,
+      targetWorkflowId: first.workflowId,
+      condition: "Observed call · returns to caller",
+      volume: runs.length,
+      successRate: percentage(
+        runs.filter((run) => run.status === "completed").length,
+        runs.length,
+      ),
+      errorRate: percentage(
+        runs.filter((run) => run.status === "failed").length,
+        runs.length,
+      ),
+      medianDurationMs: percentile(
+        runs.flatMap((run) =>
+          run.durationMs === null ? [] : [run.durationMs],
         ),
-        errorRate: percentage(
-          runs.filter((run) => run.status === "failed").length,
-          runs.length,
-        ),
-        medianDurationMs: percentile(
-          runs.flatMap((run) =>
-            run.durationMs === null ? [] : [run.durationMs],
-          ),
-          0.5,
-        ),
-        runId: first.parentRunId!,
-        invocationId: first.invocationId!,
-        branchId: first.branchId!,
-      };
-    }),
-  };
+        0.5,
+      ),
+      runId: first.parentRunId!,
+      invocationId: first.invocationId!,
+      branchId: first.branchId!,
+    };
+  });
 };

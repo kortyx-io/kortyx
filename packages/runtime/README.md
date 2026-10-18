@@ -42,6 +42,21 @@ export const framework = createRedisFrameworkAdapter({
 });
 ```
 
+## Workflow data reducers
+
+Default node data merging is unchanged: objects deep-merge, arrays and scalars
+are overwritten, and omitted fields persist. A workflow can declare `reduce`
+callbacks typed from its `outputSchema` to replace, append or clear individual
+fields. Callbacks must be pure, deterministic and synchronous; returning
+`undefined` removes the field. Reducer failures use `WORKFLOW_REDUCER_FAILED` and
+existing output validation remains in place.
+
+See [workflow reducer contracts and examples](https://kortyx.io/docs/core-concepts/define-workflows#opt-in-data-reducers)
+for chat/resume behavior, parallel ordering and child workflow boundaries. No
+migration is required for workflows that do not opt in. Install the new
+core/runtime packages on all workers before deploying reducer-enabled definitions
+and bump the workflow version when changing callbacks.
+
 ## Documentation
 
 - [Documentation](https://kortyx.io/docs)
@@ -102,3 +117,32 @@ Configure the caching helper before traffic. It returns the exact storage adapte
 Run real-service integration coverage with `KORTYX_TEST_POSTGRES_URL=... KORTYX_TEST_REDIS_URL=... pnpm --filter @kortyx/runtime test:integration:postgres`. Use a disposable test database. Redis is optional for these tests.
 
 Graph checkpoints are saved asynchronously while tokens stream; cache fills do not block authoritative reads. Cache operations default to a 25 ms budget, and cache failures bypass Redis for five seconds. Required PostgreSQL reads and durable acknowledgements still add latency. After building the SDK, compare persistence overhead using an immediate mock model with `KORTYX_TEST_POSTGRES_URL=... KORTYX_TEST_REDIS_URL=... node scripts/benchmark-runtime-persistence.cjs` from the repository root. The benchmark reports generation start, first token, and execution completion at p50/p95; use disposable services and measure production network conditions separately.
+
+## Evaluation execution recovery
+
+`createEvalRouteHandler` supports queued, idempotent execution with cursor-based
+observation and explicit cancellation. Use `createPostgresEvalExecutionStore` from
+`@kortyx/runtime` (or `kortyx`) for shared capacity and recovery across replicas.
+The default memory store only survives within its process. See
+[execution resilience](../../docs/evals/execution-resilience.md) for configuration,
+retention, legacy compatibility and upgrade order.
+
+For planned retirement, `await handleEvals.drain()` stops new admissions and
+finishes accepted local/queued executions without aborting them. Keep HTTP and
+the store open for observation/cancellation; `close()` remains explicit abort.
+With one consumer, drain Studio workers first while the consumer still accepts
+later cases, then drain the consumer after Studio persists results. Overlapping
+consumers require a compatible replacement and shared durable execution storage.
+The built-in stores support this; custom `EvalExecutionStore` implementations need
+`queued` and `claimQueued` for drain. Upgrade agent and runtime together. See the
+linked guide for ordering, failure handling and resource lifetime.
+
+## Runtime checkpoint integrity
+
+Runtime-owned hook records, child snapshots, and parallel journals are complete replacements. Application node `data` retains its default deep merge and opt-in reducers. Readers accept legacy object snapshots/journals and the single-element array encoding used by older consumer patches. Unsupported or ambiguous legacy budget state fails safely instead of reusing an approval. Upgrade execution workers together before writing new suspension envelopes.
+
+Redis journals use an isolated `MULTI`/`EXEC` transaction for conditional hash writes and expiry. Lua `EVAL` permissions are not required. Grant the runtime user the hash, expiry, transaction, and existing read/write commands. Redis Cluster routing is not supported by the built-in client. Custom stores may opt into the internal atomic `writeHash` capability; their legacy write methods retain their own durability responsibilities.
+
+Redis list/prune reads and projects one record at a time. PostgreSQL projects execution payload fields in SQL using an exhaustive field registry, retaining existing summary metadata. Listing still uses memory proportional to summaries and, for Redis, the largest record; it is not a global constant-memory guarantee. Full-record get/head/fork/rollback paths remain available.
+
+The write fix does not retroactively expire untouched old Redis journal hashes. During upgrade, audit only your runtime namespace for journal keys with `PTTL = -1`: derive a live journal's remaining lifetime from its matching checkpoint, and remove only proven expired/orphaned journals. Do not delete resumable approvals indiscriminately.

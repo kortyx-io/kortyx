@@ -27,6 +27,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { ErrorDialogTrigger } from "@/features/diagnostics/error-notices";
 import {
   asRecord,
   asString,
@@ -39,6 +40,7 @@ import {
 import { matchesSearchText } from "@/features/runs/lib/search-text";
 import { formatCount, formatDateTime, formatDurationMs } from "@/lib/format";
 import { useStudioQueryStates } from "@/lib/nuqs";
+import { studioHelp } from "@/lib/studio-help";
 import { cn } from "@/lib/utils";
 
 const eventQueryParsers = {
@@ -288,6 +290,10 @@ function EventDrawer({
   modelStart: StudioDetailEvent | undefined;
   onClose: () => void;
 }) {
+  const diagnosticId = item
+    ? (asString(asRecord(item.event.payload.error).diagnosticId) ??
+      asString(item.event.payload.diagnosticId))
+    : undefined;
   return (
     <DetailInspectorDrawer
       open={Boolean(item)}
@@ -312,25 +318,34 @@ function EventDrawer({
       {item && (
         <>
           <dl className="divide-y">
+            {diagnosticId && (
+              <KeyValue label="Full diagnostic">
+                <ErrorDialogTrigger
+                  diagnosticId={diagnosticId}
+                  environment={item.event.environment}
+                  message={item.description}
+                />
+              </KeyValue>
+            )}
             <KeyValue label="Event type">
               <span className="font-mono">{item.event.type}</span>
             </KeyValue>
-            <KeyValue label="Occurred">
+            <KeyValue help={studioHelp.events} label="Occurred">
               <span className="font-mono">
                 {formatDateTime(item.event.occurredAt)}
               </span>
             </KeyValue>
-            <KeyValue label="Run offset">
+            <KeyValue help={studioHelp.events} label="Run offset">
               <span className="font-mono">
                 +{formatDurationMs(item.offsetMs)}
               </span>
             </KeyValue>
-            <KeyValue label="Received">
+            <KeyValue help={studioHelp.events} label="Received">
               <span className="font-mono">
                 {formatDateTime(item.event.receivedAt)}
               </span>
             </KeyValue>
-            <KeyValue label="Ingest delay">
+            <KeyValue help={studioHelp.events} label="Ingest delay">
               <span className="font-mono">
                 {formatDurationMs(
                   Math.max(
@@ -342,7 +357,7 @@ function EventDrawer({
               </span>
             </KeyValue>
             {item.durationMs !== null && (
-              <KeyValue label="Duration">
+              <KeyValue help={studioHelp.metrics} label="Duration">
                 <span className="font-mono">
                   {formatDurationMs(item.durationMs)}
                 </span>
@@ -362,7 +377,7 @@ function EventDrawer({
             <KeyValue label="Event ID">
               <span className="break-all font-mono">{item.event.id}</span>
             </KeyValue>
-            <KeyValue label="Trace">
+            <KeyValue help={studioHelp.trace} label="Trace">
               <span className="break-all font-mono">
                 {item.event.traceId ?? "Not captured"}
               </span>
@@ -457,7 +472,7 @@ function GenerationDetails({
         </span>
       </KeyValue>
       {tokens !== null && (
-        <KeyValue label="Tokens">
+        <KeyValue help={studioHelp.tokens} label="Tokens">
           <span className="font-mono">
             {formatCount(tokens, { compact: false })}
           </span>

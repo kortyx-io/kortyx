@@ -1,7 +1,22 @@
+import { isFailureDescriptor, serializeFailure } from "@kortyx/core/errors";
+import { PromptSnapshotSchema } from "@kortyx/prompts/browser";
+import { DiagnosticContentSchema } from "@kortyx/telemetry-contracts";
 import { z } from "zod";
+import { EvalEvidencePolicySchema } from "./evidence-policy";
+import {
+  EvalExecutionSettingsSchema,
+  EvalSettingsSchema,
+  ResolvedEvalSettingsSchema,
+} from "./settings";
 import type { EvalSuite } from "./types";
 
 const id = z.string().trim().min(1).max(256);
+const failureDescriptor = z
+  .custom<import("@kortyx/core/errors").FailureDescriptor>(isFailureDescriptor)
+  .transform(
+    (value): import("@kortyx/core/errors").SerializedFailureDescriptor =>
+      JSON.parse(JSON.stringify(serializeFailure(value))),
+  );
 const handler = z.object({ using: id, params: z.json().optional() }).strict();
 export const EvalResumeResponseSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("text"), text: z.string() }).strict(),
@@ -46,6 +61,7 @@ const expectation = z
   });
 export const EvalSuiteSchema = z
   .object({
+    evidence: EvalEvidencePolicySchema.optional(),
     id,
     name: z.string().optional(),
     cases: z
@@ -86,6 +102,22 @@ export const EvalVerdictSchema = z
   .strict();
 export const EvalObservationSchema = z
   .object({
+    failure: failureDescriptor.optional(),
+    diagnosticId: z.uuid().optional(),
+    promptUsage: z
+      .array(
+        z
+          .object({
+            id: z.string(),
+            version: z.number().int().positive(),
+            hash: z.string().regex(/^[a-f0-9]{64}$/),
+            environment: z.string(),
+            snapshotRevision: z.string(),
+            model: z.string().optional(),
+          })
+          .strict(),
+      )
+      .optional(),
     type: z.enum(["answer", "interrupt", "error", "cancelled"]),
     text: z.string(),
     structured: z.array(z.json()),
@@ -123,8 +155,18 @@ export const EvalObservationSchema = z
   });
 
 const status = z.enum(["passed", "failed", "error", "cancelled", "ungraded"]);
-const issue = z
+export const EvalIssueSchema = z
   .object({
+    exception: DiagnosticContentSchema.optional(),
+    details: z
+      .object({
+        timeoutMs: z.number().positive().optional(),
+        httpStatus: z.number().int().min(100).max(599).optional(),
+      })
+      .strict()
+      .optional(),
+    failure: failureDescriptor.optional(),
+    diagnosticId: z.uuid().optional(),
     phase: z.enum([
       "params",
       "setup",
@@ -132,6 +174,7 @@ const issue = z
       "responder",
       "reference",
       "grading",
+      "verification",
       "cleanup",
       "reporting",
     ]),
@@ -139,6 +182,7 @@ const issue = z
     message: z.string(),
   })
   .strict();
+const issue = EvalIssueSchema;
 /** Billing evidence only: no prompts, provider raw responses, or credentials. */
 export const EvalJudgeUsageSchema = z
   .object({
@@ -180,6 +224,14 @@ export const EvalJudgeUsageSchema = z
   .strict();
 export const EvalStepResultSchema = z
   .object({
+    evidence: z
+      .object({
+        version: z.literal("compact-v1"),
+        history: z.boolean(),
+        observation: EvalObservationSchema,
+      })
+      .strict()
+      .optional(),
     index: z.number().int().nonnegative(),
     input: z.union([
       z.object({ message: z.string() }).strict(),
@@ -197,10 +249,19 @@ export const EvalStepResultSchema = z
     ),
   })
   .strict();
+const runtimeExecution = z
+  .object({ sessionId: z.string().min(1), runId: z.string().min(1) })
+  .strict();
 export const EvalCaseResultSchema = z
   .object({
+    verification: EvalVerdictSchema.optional(),
+    phaseDurationsMs: z
+      .partialRecord(issue.shape.phase, z.number().finite().nonnegative())
+      .optional(),
     caseId: id,
     repetition: z.number().int().positive(),
+    attemptId: z.uuid().optional(),
+    runtimeExecutions: z.array(runtimeExecution).optional(),
     sessionId: z.string(),
     status,
     durationMs: z.number().nonnegative(),
@@ -261,8 +322,22 @@ export const EvalRunResultSchema = z
   .strict();
 export const EvalManifestSchema = z
   .object({
+    execution: EvalExecutionSettingsSchema.optional(),
     schemaVersion: z.literal(1),
     studioJudging: z.literal(true).optional(),
+    promptContracts: z
+      .array(
+        z
+          .object({
+            id: z.string(),
+            format: z.enum(["system-user", "chat"]),
+            variablesSchema: z.record(z.string(), z.unknown()),
+            configSchema: z.record(z.string(), z.unknown()),
+          })
+          .strict(),
+      )
+      .optional(),
+    attemptScheduling: z.literal(true).optional(),
     suites: z.array(EvalSuiteSchema),
     responders: z.array(
       z
@@ -279,6 +354,27 @@ export const EvalManifestSchema = z
   })
   .strict();
 export const EvalProgressSchema = z.discriminatedUnion("type", [
+  z
+    .object({
+      type: z.literal("case-dispatch"),
+      caseId: id,
+      repetition: z.number().int().positive(),
+      status: z.enum(["queued", "retrying", "reconnecting"]),
+      retryAt: z.iso.datetime().optional(),
+      httpStatus: z.number().int().min(100).max(599).optional(),
+      executionId: z.uuid().optional(),
+      generation: z.uuid().optional(),
+    })
+    .strict(),
+  z
+    .object({
+      type: z.literal("case-runtime-associated"),
+      caseId: id,
+      repetition: z.number().int().positive(),
+      attemptId: z.uuid(),
+      execution: runtimeExecution,
+    })
+    .strict(),
   z
     .object({
       type: z.literal("run-started"),
@@ -299,6 +395,7 @@ export const EvalProgressSchema = z.discriminatedUnion("type", [
   z
     .object({
       type: z.literal("case-started"),
+      attemptId: z.uuid().optional(),
       caseId: id,
       repetition: z.number().int().positive(),
       sessionId: z.string(),
@@ -318,26 +415,84 @@ export const EvalProgressSchema = z.discriminatedUnion("type", [
 ]);
 export const EvalRemoteRunRequestSchema = z
   .object({
+    promptSnapshot: PromptSnapshotSchema.optional(),
+    promptGroupName: z.string().optional(),
+    caseTimeoutMs: EvalSettingsSchema.shape.caseTimeoutMs,
+    runTimeoutMs: EvalSettingsSchema.shape.runTimeoutMs,
+    resolvedSettings: ResolvedEvalSettingsSchema.optional(),
     suiteId: id,
     suiteRevision: z.string().regex(/^[a-f0-9]{64}$/),
     grading: z.enum(["app", "studio"]).optional(),
     judge: EvalJudgeIdentitySchema.optional(),
     caseIds: z.array(id).min(1).max(100).optional(),
     repetitions: z.number().int().min(1).max(20).default(1),
-    concurrency: z.number().int().min(1).max(4).default(1),
+    concurrency: z.number().int().min(1).max(20).default(1),
+    attempt: z
+      .object({
+        caseId: id,
+        repetition: z.number().int().min(1).max(20),
+        evaluationId: z.uuid(),
+      })
+      .strict()
+      .optional(),
   })
   .strict();
 export const StudioEvalStartRequestSchema = EvalRemoteRunRequestSchema.omit({
   grading: true,
   judge: true,
+  promptSnapshot: true,
+  promptGroupName: true,
+  attempt: true,
 }).extend({
+  promptSelection: z
+    .discriminatedUnion("type", [
+      z.object({ type: z.literal("live") }).strict(),
+      z
+        .object({
+          type: z.literal("single"),
+          id: z.string(),
+          version: z.number().int().positive(),
+        })
+        .strict(),
+      z.object({ type: z.literal("group"), groupId: z.uuid() }).strict(),
+    ])
+    .optional(),
   targetId: z.string().min(1).max(128),
-  judge: z.enum(["studio", "app"]).default("studio"),
+  judge: z.enum(["studio", "app"]).optional(),
+  repetitions: EvalSettingsSchema.shape.repetitions,
+  concurrency: EvalSettingsSchema.shape.concurrency,
 });
 export const EvalWireEventSchema = z.discriminatedUnion("type", [
-  z.object({ type: z.literal("progress"), event: EvalProgressSchema }).strict(),
-  z.object({ type: z.literal("result"), result: EvalRunResultSchema }).strict(),
-  z.object({ type: z.literal("error"), message: z.string() }).strict(),
+  z
+    .object({
+      type: z.literal("execution-status"),
+      state: z.enum(["queued", "running", "completed", "cancelled", "unknown"]),
+    })
+    .strict(),
+  z
+    .object({
+      type: z.literal("progress"),
+      event: EvalProgressSchema,
+      sequence: z.number().int().positive().optional(),
+    })
+    .strict(),
+  z
+    .object({
+      type: z.literal("result"),
+      result: EvalRunResultSchema,
+      sequence: z.number().int().positive().optional(),
+    })
+    .strict(),
+  z
+    .object({
+      type: z.literal("error"),
+      exception: DiagnosticContentSchema.optional(),
+      message: z.string(),
+      failure: failureDescriptor.optional(),
+      diagnosticId: z.uuid().optional(),
+      sequence: z.number().int().positive().optional(),
+    })
+    .strict(),
 ]);
 export type EvalManifest = z.infer<typeof EvalManifestSchema>;
 export type EvalRemoteRunRequest = z.infer<typeof EvalRemoteRunRequestSchema>;

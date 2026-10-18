@@ -102,7 +102,10 @@ it.each([
       if (init?.method !== "POST") return Response.json(identity);
       if (failure === "unavailable")
         return Response.json(
-          { error: "PRIVATE_PROVIDER_ERROR" },
+          {
+            error:
+              "Provider quota exceeded. Authorization: Bearer PRIVATE_PROVIDER_KEY",
+          },
           { status: 502 },
         );
       if (failure === "changed")
@@ -125,8 +128,10 @@ it.each([
   expect(result.status).toBe("error");
   expect(result.cases[0]?.errors[0]?.phase).toBe("grading");
   expect(result.cases[0]?.steps[0]?.criteria).toEqual([]);
+  if (failure === "unavailable")
+    expect(JSON.stringify(result)).toContain("Provider quota exceeded.");
   expect(JSON.stringify(result)).not.toMatch(
-    /PRIVATE_PROVIDER_ERROR|PRIVATE_STUDIO_KEY/,
+    /PRIVATE_PROVIDER_KEY|PRIVATE_STUDIO_KEY/,
   );
 });
 
@@ -284,7 +289,11 @@ it.each([
     vi.fn(async () => response),
   );
   await expect(createStudioEvalJudge(options)).rejects.toThrow(
-    failure === "oversized" ? "too large" : "unavailable",
+    failure === "oversized"
+      ? "too large"
+      : failure === "missing"
+        ? "no response body"
+        : "locked",
   );
   if (failure === "oversized") expect(cancelled).toBe(true);
   lock?.releaseLock();
@@ -309,4 +318,41 @@ it("discards body cancellation errors while aborting a stalled judge", async () 
   await vi.waitFor(() => expect(request).toHaveBeenCalledTimes(2));
   controller.abort();
   await expect(pending).rejects.toMatchObject({ name: "AbortError" });
+});
+
+it("compacts direct HTTP judging and removes nested snapshots from previous steps", async () => {
+  const request = vi.fn(async (_url: unknown, init?: RequestInit) =>
+    Response.json(
+      init?.method === "POST" ? { judge: identity, verdict } : identity,
+    ),
+  );
+  vi.stubGlobal("fetch", request);
+  const judge = await createStudioEvalJudge(options);
+  const noisy = {
+    ...observation,
+    events: [
+      ...observation.events,
+      { type: "structured-data", kind: "text-delta", delta: "NOISE" },
+    ],
+  };
+  await judge.grade({
+    ...input(),
+    observation: noisy,
+    conversation: [
+      {
+        index: 0,
+        input: { message: "Earlier salary?" },
+        expectation: { type: "answer" },
+        observation: noisy,
+        status: "passed",
+        criteria: [],
+        evidence: { version: "compact-v1", history: true, observation: noisy },
+      },
+    ],
+  });
+  const payload = JSON.parse(String(request.mock.calls[1]?.[1]?.body));
+  expect(payload.observation).toEqual(observation);
+  expect(payload.conversation[0].observation).toEqual(observation);
+  expect(payload.conversation[0]).not.toHaveProperty("evidence");
+  expect(JSON.stringify(payload)).not.toContain("NOISE");
 });

@@ -289,3 +289,14 @@ Studio records individual durations and separate success, denial, fault and canc
 
 
 Configured Studio/OpenTelemetry tracing captures thrown workflow/model errors automatically, including bounded type, message, stack and cause details. Studio also records manual `reportError` calls as handled errors without failing the span. Prompts, outputs and raw provider responses remain excluded by default. Diagnostics are verbatim and may contain sensitive text; the optional trace adapter `error(error)` override can return `{type, message, stack?, cause?}` or `null` to replace or suppress them without changing execution. Client-facing failure contracts remain sanitized and unchanged.
+
+### Evaluation settings and errors
+
+`createEvals` supports `defaults: { repetitions, concurrency, caseTimeoutMs }`,
+`limits: { concurrency, caseTimeoutMs }`, and per-run `caseTimeoutMs` overrides.
+Studio resolves run overrides above project defaults, SDK defaults and built-ins;
+its whole-evaluation timeout is independent of the case budget (30 minutes by
+default). Eval failures retain original messages, stacks, causes and response
+properties with credential redaction automatically. See the repository guides
+[SDK evals](../../docs/evals/sdk-runner.md) and
+[Studio settings and migration](../../docs/evals/studio-execution.md).

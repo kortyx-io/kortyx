@@ -46,7 +46,11 @@ const runProjectionValues = (
   endedAt: run.endedAt ? new Date(run.endedAt) : null,
   durationMs: run.durationMs,
   tokens: run.tokens,
-  cost: run.cost,
+  cost:
+    run.cost ??
+    (run.costSummary?.amounts.length === 1
+      ? (run.costSummary.amounts[0]?.amount ?? null)
+      : null),
   environment: run.environment,
   provider: run.provider,
   model: run.model,
@@ -99,7 +103,11 @@ const sessionProjectionValues = (
   lastActivityAt: new Date(session.lastActivityAt),
   durationMs: session.durationMs,
   tokens: session.tokens,
-  cost: session.cost,
+  cost:
+    session.cost ??
+    (session.costSummary?.amounts.length === 1
+      ? (session.costSummary.amounts[0]?.amount ?? null)
+      : null),
   runCount: session.runs,
   environment: session.environment,
   userId: session.userId,
@@ -193,11 +201,38 @@ export const refreshStudioProjectionScopes = async (
     organizationId: string;
     projectId: string;
     runIds: string[];
+    environment?: string;
   },
 ): Promise<ProjectionRefreshResult> => {
   const runIds = unique(input.runIds.filter(Boolean));
   if (runIds.length === 0) {
     return { runs: 0, sessions: 0, interrupts: 0 };
+  }
+
+  // IDs are only unique inside an environment. Never combine same-named runs
+  // or sessions from development and production while building projections.
+  if (input.environment === undefined) {
+    const environments = await db
+      .selectDistinct({ name: telemetryEvents.environment })
+      .from(telemetryEvents)
+      .where(
+        and(
+          eq(telemetryEvents.organizationId, input.organizationId),
+          eq(telemetryEvents.projectId, input.projectId),
+          inArray(telemetryEvents.runId, runIds),
+        ),
+      );
+    const totals = { runs: 0, sessions: 0, interrupts: 0 };
+    for (const { name } of environments) {
+      const result = await refreshStudioProjectionScopes(db, {
+        ...input,
+        environment: name,
+      });
+      totals.runs += result.runs;
+      totals.sessions += result.sessions;
+      totals.interrupts += result.interrupts;
+    }
+    return totals;
   }
 
   const affectedRunScopes = await db
@@ -210,6 +245,7 @@ export const refreshStudioProjectionScopes = async (
       and(
         eq(telemetryEvents.organizationId, input.organizationId),
         eq(telemetryEvents.projectId, input.projectId),
+        eq(telemetryEvents.environment, input.environment),
         inArray(telemetryEvents.runId, runIds),
       ),
     );
@@ -245,6 +281,7 @@ export const refreshStudioProjectionScopes = async (
         and(
           eq(telemetryEvents.organizationId, input.organizationId),
           eq(telemetryEvents.projectId, input.projectId),
+          eq(telemetryEvents.environment, input.environment),
           scopePredicate,
         ),
       )
@@ -256,6 +293,7 @@ export const refreshStudioProjectionScopes = async (
         and(
           eq(workflowRevisions.organizationId, input.organizationId),
           eq(workflowRevisions.projectId, input.projectId),
+          eq(workflowRevisions.environment, input.environment),
         ),
       )
       .orderBy(desc(workflowRevisions.createdAt)),
@@ -323,6 +361,7 @@ export const refreshStudioProjectionScopes = async (
         target: [
           studioRuns.organizationId,
           studioRuns.projectId,
+          studioRuns.environment,
           studioRuns.runId,
         ],
         set: {
@@ -366,6 +405,7 @@ export const refreshStudioProjectionScopes = async (
         target: [
           studioSessions.organizationId,
           studioSessions.projectId,
+          studioSessions.environment,
           studioSessions.sessionId,
         ],
         set: {
@@ -411,6 +451,7 @@ export const refreshStudioProjectionScopes = async (
         target: [
           studioInterrupts.organizationId,
           studioInterrupts.projectId,
+          studioInterrupts.environment,
           studioInterrupts.interruptId,
         ],
         set: {

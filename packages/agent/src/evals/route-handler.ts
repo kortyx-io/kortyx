@@ -1,12 +1,17 @@
 import { createHash, timingSafeEqual } from "node:crypto";
+import { validatePromptValue, verifyPromptSnapshot } from "@kortyx/prompts";
+import {
+  createInMemoryEvalExecutionStore,
+  type EvalExecutionStore,
+} from "@kortyx/runtime";
 import {
   EvalConfigurationError,
   EvalRemoteRunRequestSchema,
 } from "./contracts";
 import { getEvalSuiteRevision } from "./revision";
+import { createEvalExecutionTransport } from "./route-executions";
 import type {
   EvalJudgeIdentity,
-  EvalProgress,
   EvalRunOptions,
   EvalRunResult,
   EvalSuite,
@@ -15,8 +20,17 @@ import type {
 export type EvalRunner = {
   describe: () => {
     schemaVersion: 1;
+    execution?: import("zod").infer<
+      typeof import("./settings").EvalExecutionSettingsSchema
+    >;
     suites: readonly EvalSuite[];
     studioJudging?: true;
+    promptContracts?: {
+      id: string;
+      format: "system-user" | "chat";
+      configSchema: Record<string, unknown>;
+    }[];
+    attemptScheduling?: true;
     judge?: EvalJudgeIdentity;
   };
   run: (args: EvalRunOptions) => Promise<EvalRunResult>;
@@ -28,11 +42,19 @@ export function createEvalRouteHandler({
   serviceKey,
   maxCases = 100,
   maxActiveRuns = 1,
+  maxActiveAttempts = 20,
+  maxQueuedExecutions = 1000,
+  executionStore = createInMemoryEvalExecutionStore(),
+  onExecution,
 }: {
   evals: EvalRunner;
   serviceKey: string;
   maxCases?: number;
   maxActiveRuns?: number;
+  maxActiveAttempts?: number;
+  maxQueuedExecutions?: number;
+  executionStore?: EvalExecutionStore;
+  onExecution?: (completion: Promise<void>) => void;
 }) {
   if (serviceKey.length < 32)
     throw new EvalConfigurationError(
@@ -42,15 +64,27 @@ export function createEvalRouteHandler({
     !Number.isSafeInteger(maxCases) ||
     maxCases < 1 ||
     !Number.isSafeInteger(maxActiveRuns) ||
-    maxActiveRuns < 1
+    maxActiveRuns < 1 ||
+    !Number.isSafeInteger(maxActiveAttempts) ||
+    maxActiveAttempts < 1 ||
+    !Number.isSafeInteger(maxQueuedExecutions) ||
+    maxQueuedExecutions < 1 ||
+    !Number.isSafeInteger(executionStore.heartbeatIntervalMs) ||
+    executionStore.heartbeatIntervalMs < 1
   )
     throw new EvalConfigurationError(
       "Eval endpoint limits must be positive integers.",
     );
   const digest = (value: string) => createHash("sha256").update(value).digest();
   const expected = digest(`Bearer ${serviceKey}`);
-  let active = 0;
-  return async (request: Request): Promise<Response> => {
+  const execution = createEvalExecutionTransport({
+    evals,
+    store: executionStore,
+    scope: expected.toString("hex"),
+    limits: { maxActiveRuns, maxActiveAttempts, maxQueuedExecutions },
+    ...(onExecution ? { onExecution } : {}),
+  });
+  const handler = async (request: Request): Promise<Response> => {
     if (
       !timingSafeEqual(
         expected,
@@ -61,10 +95,15 @@ export function createEvalRouteHandler({
         { error: "Unauthorized eval request." },
         { status: 401 },
       );
+    const observed = await execution.existing(request);
+    if (observed) return observed;
     const manifest = evals.describe();
     if (request.method === "GET")
       return Response.json(manifest, {
-        headers: { "cache-control": "no-store" },
+        headers: {
+          "cache-control": "no-store",
+          ...(await execution.capabilityHeaders()),
+        },
       });
     if (request.method !== "POST")
       return Response.json({ error: "Unsupported method." }, { status: 405 });
@@ -73,7 +112,7 @@ export function createEvalRouteHandler({
     let body: ReturnType<typeof EvalRemoteRunRequestSchema.parse>;
     try {
       const text = await request.text();
-      if (text.length > 16_384)
+      if (text.length > 1_048_576)
         return Response.json({ error: "Request too large." }, { status: 413 });
       body = EvalRemoteRunRequestSchema.parse(JSON.parse(text));
     } catch {
@@ -83,6 +122,28 @@ export function createEvalRouteHandler({
       );
     }
     const suite = manifest.suites.find((item) => item.id === body.suiteId);
+    if (body.promptSnapshot) {
+      try {
+        const snapshot = await verifyPromptSnapshot(body.promptSnapshot);
+        if (snapshot.source !== "eval" || !manifest.promptContracts?.length)
+          throw new Error("Unsupported prompt evaluation.");
+        for (const contract of manifest.promptContracts) {
+          const version = snapshot.versions[contract.id];
+          if (!version || version.content.format !== contract.format)
+            throw new Error("Prompt contract mismatch.");
+          validatePromptValue(
+            contract.configSchema,
+            version.content.config,
+            "Application configuration",
+          );
+        }
+      } catch {
+        return Response.json(
+          { error: "Prompt snapshot does not match the application contract." },
+          { status: 409 },
+        );
+      }
+    }
     if (
       !suite ||
       body.caseIds?.some((id) => !suite.cases.some((item) => item.id === id)) ||
@@ -122,60 +183,34 @@ export function createEvalRouteHandler({
         { error: "App judge changed. Refresh before running." },
         { status: 409 },
       );
-    if (active >= maxActiveRuns)
+    if (
+      body.attempt &&
+      (!manifest.attemptScheduling ||
+        !suite.cases.some((item) => item.id === body.attempt?.caseId) ||
+        (body.caseIds && !body.caseIds.includes(body.attempt.caseId)) ||
+        body.attempt.repetition > body.repetitions)
+    )
       return Response.json(
-        { error: "Eval executor is busy." },
-        { status: 429 },
+        { error: "Unsupported or invalid scheduled attempt." },
+        { status: 409 },
       );
+    for (const key of ["concurrency", "caseTimeoutMs"] as const) {
+      const maximum = manifest.execution?.limits[key];
+      const value = body[key] ?? manifest.execution?.defaults[key];
+      if (maximum !== undefined && value !== undefined && value > maximum)
+        return Response.json(
+          { error: `${key} exceeds the application maximum of ${maximum}.` },
+          { status: 400 },
+        );
+    }
     if (request.signal.aborted)
       return Response.json({ error: "Request cancelled." }, { status: 409 });
-    active++;
-    const controller = new AbortController();
-    const requestSignal = request.signal;
-    const abortRequest = () => controller.abort();
-    requestSignal.addEventListener("abort", abortRequest, { once: true });
-    const signal = controller.signal;
-    const encoder = new TextEncoder();
-    const stream = new ReadableStream<Uint8Array>({
-      start(output) {
-        const send = (event: unknown) => {
-          if (!signal.aborted)
-            output.enqueue(encoder.encode(`${JSON.stringify(event)}\n`));
-        };
-        void evals
-          .run({
-            suiteId: body.suiteId,
-            ...(body.grading ? { grading: body.grading } : {}),
-            ...(body.judge ? { judgeIdentity: body.judge } : {}),
-            repetitions: body.repetitions,
-            concurrency: body.concurrency,
-            signal,
-            ...(body.caseIds ? { caseIds: body.caseIds } : {}),
-            onProgress: (event: EvalProgress) =>
-              send({ type: "progress", event }),
-          })
-          .then(
-            (result) => send({ type: "result", result }),
-            () => send({ type: "error", message: "Eval runner failed." }),
-          )
-          .finally(() => {
-            requestSignal.removeEventListener("abort", abortRequest);
-            active--;
-            if (!controller.signal.aborted) output.close();
-          });
-      },
-      cancel() {
-        // Retain the Request: Node weakly follows its internal abort controller.
-        request.signal.removeEventListener("abort", abortRequest);
-        controller.abort();
-      },
-    });
-    return new Response(stream, {
-      headers: {
-        "content-type": "application/x-ndjson",
-        "cache-control": "no-store",
-        "x-accel-buffering": "no",
-      },
-    });
+    return execution.submit(request, body);
   };
+  return Object.assign(handler, {
+    /** Stop admissions and finish accepted jobs; keep HTTP/store alive for observers. */
+    drain: execution.drain,
+    /** Explicitly abort local execution, then wait for cleanup. */
+    close: execution.close,
+  });
 }

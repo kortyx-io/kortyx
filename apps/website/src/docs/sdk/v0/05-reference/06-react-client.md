@@ -1,7 +1,7 @@
 ---
 id: v0-react-client
 title: "React Client (@kortyx/react)"
-description: "Reference the React client helpers for streamed chat, structured streams, transport, and storage."
+description: "Reference @kortyx/react helpers for streamed chat, structured UI state, transport, storage, runtime controls, and human interrupt responses."
 keywords:
   [kortyx, react, useChat, useStructuredStreams, createRouteChatTransport]
 sidebar_label: "React Client"

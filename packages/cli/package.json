@@ -1,6 +1,6 @@
 {
   "name": "@kortyx/cli",
-  "version": "0.12.0",
+  "version": "0.21.0",
   "private": false,
   "description": "CLI tooling for Kortyx.",
   "keywords": [
@@ -45,12 +45,15 @@
   "dependencies": {
     "@kortyx/agent": "workspace:*",
     "@kortyx/core": "workspace:*",
+    "@kortyx/prompts": "workspace:*",
     "@kortyx/telemetry-contracts": "workspace:*",
     "commander": "^14.0.3",
+    "diff": "^9.0.0",
     "execa": "^9.6.1",
     "tsx": "^4.21.0",
+    "typescript": "catalog:",
     "zod": "catalog:",
-    "typescript": "catalog:"
+    "@kortyx/usage-telemetry": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "catalog:",

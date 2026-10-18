@@ -117,12 +117,14 @@ export function DocsSidebarContent(props: DocsSidebarProps) {
         options={productTargets}
         selectedProduct={selectedProduct}
       />
-      <div className="mt-3">
-        <DocsVersionSelector
-          options={versionTargets}
-          selectedVersion={selectedVersion}
-        />
-      </div>
+      {versionTargets.length > 0 ? (
+        <div className="mt-3">
+          <DocsVersionSelector
+            options={versionTargets}
+            selectedVersion={selectedVersion}
+          />
+        </div>
+      ) : null}
 
       <nav
         ref={navRef}

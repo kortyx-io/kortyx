@@ -38,6 +38,7 @@ export function EvalSuiteDetail({
   );
   return (
     <div
+      data-eval-suite-id={suite.id}
       className={cn(
         "flex h-full min-h-0 flex-col transition-[padding] duration-300 motion-reduce:transition-none",
         detail.supportsSplitInspector &&
@@ -65,7 +66,10 @@ export function EvalSuiteDetail({
           actions={runAction}
         />
       )}
-      <div className="min-h-0 flex-1 space-y-5 overflow-auto p-5">
+      <div
+        data-tour-surface="suite-definition"
+        className="min-h-0 flex-1 space-y-5 overflow-auto p-5"
+      >
         <EvalSuiteDefinition suite={suite} scope="suite-definition" />
       </div>
     </div>

@@ -14,6 +14,10 @@
     "./schema": {
       "types": "./dist/schema.d.ts",
       "default": "./dist/schema.js"
+    },
+    "./sample-project": {
+      "types": "./dist/sample-project/index.d.ts",
+      "default": "./dist/sample-project/index.js"
     }
   },
   "files": [
@@ -30,11 +34,12 @@
     "db:bootstrap": "tsx src/scripts/bootstrap-local.ts",
     "db:backfill-studio": "tsx src/scripts/backfill-studio-projections.ts",
     "db:seed-rates": "tsx src/scripts/seed-model-rates.ts",
+    "db:prune-diagnostics": "tsx src/scripts/prune-diagnostics.ts",
     "db:studio": "drizzle-kit studio",
     "dev": "tsc --watch",
     "lint": "biome check src test drizzle.config.ts",
     "test": "vitest run && pnpm -s type-check",
-    "test:integration": "vitest run test/studio-projections.integration.test.ts test/model-rate-cards.integration.test.ts",
+    "test:integration": "vitest run test/studio-projections.integration.test.ts test/model-rate-cards.integration.test.ts test/table-preferences.integration.test.ts",
     "test:integration:ha": "vitest run test/migrate.integration.test.ts",
     "type-check": "tsc --noEmit -p tsconfig.test.json"
   },
@@ -42,7 +47,8 @@
     "@kortyx/telemetry-contracts": "workspace:*",
     "drizzle-orm": "^0.45.1",
     "postgres": "^3.4.7",
-    "@kortyx/agent": "workspace:*"
+    "@kortyx/agent": "workspace:*",
+    "@kortyx/prompts": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "catalog:",

@@ -30,6 +30,7 @@ const phaseNames: Record<EvalPhase, string> = {
   responder: "Resolving human input",
   reference: "Loading reference",
   grading: "Checking expectations",
+  verification: "Verifying postconditions",
   cleanup: "Cleaning up",
   reporting: "Reporting results",
 };
@@ -175,6 +176,8 @@ export function createEvalTerminalReporter(
       }
     },
     progress(event: EvalProgress) {
+      // Billing associations do not change terminal attempt progress.
+      if (event.type === "case-runtime-associated") return;
       if (event.type === "run-started") {
         total = event.caseIds.length * event.repetitions;
         line(
@@ -184,6 +187,10 @@ export function createEvalTerminalReporter(
           ),
         );
         line();
+      } else if (event.type === "case-dispatch") {
+        line(
+          `  → ${text(names.get(event.caseId) ?? event.caseId)} [${text(event.caseId)}] #${event.repetition} ${event.status.toUpperCase()}`,
+        );
       } else if (event.type === "case-started") {
         active.set(key(event.caseId, event.repetition), {
           caseId: event.caseId,
@@ -265,11 +272,20 @@ export function createEvalTerminalReporter(
         }
         for (const issue of item.errors)
           line(
-            `    ${text(item.caseId)} · ${issue.phase} [${issue.code}] ${text(issue.message)}`,
+            `    ${text(item.caseId)} · ${issue.phase} [${text(issue.failure?.domainCode ?? issue.code)}] ${text(issue.message)}${issue.diagnosticId ? ` · diagnostic ${issue.diagnosticId}` : ""}`,
           );
+        if (item.verification && !item.verification.passed) {
+          line(
+            `    ${text(item.caseId)} · verification: ${text(item.verification.reason)}`,
+          );
+          for (const evidence of item.verification.evidence)
+            line(paint(90, `      Evidence: ${text(evidence)}`));
+        }
       }
       for (const issue of result.errors)
-        line(`    ${issue.phase} [${issue.code}] ${text(issue.message)}`);
+        line(
+          `    ${issue.phase} [${text(issue.failure?.domainCode ?? issue.code)}] ${text(issue.message)}${issue.diagnosticId ? ` · diagnostic ${issue.diagnosticId}` : ""}`,
+        );
       const successful = result.status === "passed";
       const code = successful
         ? 32

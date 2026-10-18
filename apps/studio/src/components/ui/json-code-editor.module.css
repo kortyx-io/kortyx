@@ -1,0 +1,19 @@
+.root {
+  --json-key: #075985;
+  --json-string: #166534;
+  --json-number: #92400e;
+  --json-literal: #7e22ce;
+  --json-selection: #dbeafe;
+
+  min-width: 0;
+  min-height: 8rem;
+  overflow: hidden;
+}
+
+:global(.dark) .root {
+  --json-key: #7dd3fc;
+  --json-string: #86efac;
+  --json-number: #fcd34d;
+  --json-literal: #d8b4fe;
+  --json-selection: #1e3a5f;
+}

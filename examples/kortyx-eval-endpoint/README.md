@@ -54,3 +54,8 @@ they do not create a Studio eval record. `EVAL_SERVICE_KEY` is required only for
 the HTTP server, not direct local execution. For another application copy the
 small agent/evals/app/server files, installing `kortyx`, `@kortyx/openrouter`,
 `hono`, `@hono/node-server`, and `tsx` at compatible published versions.
+
+The endpoint forwards GET, POST and DELETE for execution observation and explicit
+cancellation. Its default store is in memory; for multiple replicas, configure a
+shared PostgreSQL execution store and a long-running consumer host as described in
+[execution resilience](../../docs/evals/execution-resilience.md).

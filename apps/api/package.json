@@ -15,21 +15,26 @@
     "test": "node --test scripts/profile.test.mjs && vitest run && pnpm -s type-check",
     "test:security-adapter": "node ../../test/api/security-build.mjs",
     "test:integration:ha": "vitest run test/ha.integration.test.ts",
+    "test:integration:retirement": "node scripts/prove-retirement.mjs",
     "type-check": "node scripts/run.mjs type-check"
   },
   "dependencies": {
     "@hono/node-server": "^1.19.15",
     "@hono/swagger-ui": "^0.5.2",
     "@hono/zod-openapi": "^1.1.6",
+    "@kortyx/agent": "workspace:*",
+    "@kortyx/hooks": "workspace:*",
+    "@kortyx/openai": "workspace:*",
+    "@kortyx/openrouter": "workspace:*",
+    "@kortyx/prompts": "workspace:*",
     "@kortyx/telemetry-contracts": "workspace:*",
     "@kortyx/telemetry-db": "workspace:*",
+    "@kortyx/usage-telemetry": "workspace:*",
     "hono": "^4.13.12",
-    "zod": "catalog:",
-    "@kortyx/agent": "workspace:*",
-    "@kortyx/openai": "workspace:*",
-    "@kortyx/openrouter": "workspace:*"
+    "zod": "catalog:"
   },
   "devDependencies": {
+    "@kortyx/runtime": "workspace:*",
     "@types/node": "catalog:",
     "tsup": "catalog:",
     "tsx": "^4.21.0",

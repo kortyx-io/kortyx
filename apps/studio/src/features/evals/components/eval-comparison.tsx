@@ -1,13 +1,10 @@
 "use client";
+
 import { Info } from "lucide-react";
-import { useRouter, useSearchParams } from "next/navigation";
 import { parseAsBoolean, parseAsString } from "nuqs";
-import {
-  DataTable,
-  type DataTableColumn,
-  DataTableColumnsMenu,
-  DataTableProvider,
-} from "@/components/data-table";
+import { DataTable, type DataTableColumn } from "@/components/data-table";
+import { columnFilter } from "@/components/data-table/filter-fields";
+import { valueColumn } from "@/components/data-table/value-column";
 import { DetailLink } from "@/components/detail/detail-link";
 import { usePrepareDetailNavigation } from "@/components/detail/detail-stack";
 import { Button } from "@/components/ui/button";
@@ -18,6 +15,9 @@ import {
 } from "@/components/ui/popover";
 import { formatDateTime } from "@/lib/format";
 import { detailNavigationHref, useStudioQueryStates } from "@/lib/nuqs";
+import { useRouter, useSearchParams } from "@/lib/scoped-navigation";
+import { studioHelp, withStudioColumnHelp } from "@/lib/studio-help";
+import { comparisonMetric } from "../lib/comparison-metrics";
 import { evalComparisonCaseHref } from "../lib/navigation";
 import {
   type ComparisonRow,
@@ -59,10 +59,6 @@ export function EvalComparison({
     },
     { shallow: true },
   );
-  const filter = query.change;
-  const setFilter = (value: string) => {
-    void setQuery({ change: value });
-  };
   const rows = baseline ? compareRuns(baseline, candidate) : [];
   const caseHref = (id: string) =>
     evalComparisonCaseHref(candidate.id, id, baselineId ?? "");
@@ -72,15 +68,14 @@ export function EvalComparison({
   const columns: DataTableColumn<ComparisonRow>[] = [
     {
       key: "case",
+      filter: [
+        columnFilter("case", "Conversation", "text", (r) => r.name),
+        columnFilter("caseId", "Case ID", "text", (r) => r.id),
+      ],
       label: "Conversation",
       defaultWidth: 320,
       render: (r) => (
-        <Button
-          variant="ghost"
-          size="xs"
-          className="max-w-full px-0 hover:bg-transparent"
-          asChild
-        >
+        <Button variant="link" size="inline" className="max-w-full" asChild>
           <DetailLink href={caseHref(r.id)}>
             <span className="truncate">{r.name}</span>
           </DetailLink>
@@ -89,6 +84,18 @@ export function EvalComparison({
     },
     {
       key: "baseline",
+      filter: [
+        columnFilter("baseline", "Baseline pass rate (%)", "number", (r) =>
+          r.baseline.length
+            ? (r.baseline.filter((a) => a.status === "passed").length /
+                r.baseline.length) *
+              100
+            : undefined,
+        ),
+        columnFilter("baselineOutcome", "Baseline outcome", "enum", (r) =>
+          r.baseline.map((a) => a.status),
+        ),
+      ],
       label: "Baseline",
       defaultWidth: 130,
       render: (r) => (
@@ -97,6 +104,18 @@ export function EvalComparison({
     },
     {
       key: "candidate",
+      filter: [
+        columnFilter("candidate", "Candidate pass rate (%)", "number", (r) =>
+          r.candidate.length
+            ? (r.candidate.filter((a) => a.status === "passed").length /
+                r.candidate.length) *
+              100
+            : undefined,
+        ),
+        columnFilter("candidateOutcome", "Candidate outcome", "enum", (r) =>
+          r.candidate.map((a) => a.status),
+        ),
+      ],
       label: "Candidate",
       defaultWidth: 130,
       render: (r) => (
@@ -105,6 +124,7 @@ export function EvalComparison({
     },
     {
       key: "change",
+      filter: columnFilter("change", "Change", "enum", (r) => r.change),
       label: "Change",
       defaultWidth: 170,
       render: (r) => (
@@ -116,9 +136,48 @@ export function EvalComparison({
         </span>
       ),
     },
+
+    valueColumn<ComparisonRow>({
+      key: "passRateDelta",
+      label: "Pass-rate change (pp)",
+      kind: "number",
+      read: (r) => comparisonMetric(r, "passRate"),
+      format: (v) => `${Number(v) >= 0 ? "+" : ""}${Number(v).toFixed(1)} pp`,
+    }),
+    valueColumn<ComparisonRow>({
+      key: "durationDelta",
+      label: "Mean duration change (ms)",
+      kind: "number",
+      read: (r) => comparisonMetric(r, "duration"),
+      format: (v) => `${Number(v) >= 0 ? "+" : ""}${Number(v).toFixed(0)} ms`,
+      width: 190,
+    }),
+    valueColumn<ComparisonRow>({
+      key: "costDelta",
+      label: "Mean cost change",
+      kind: "number",
+      read: (r) => comparisonMetric(r, "cost"),
+      format: (v) => `${Number(v) >= 0 ? "+" : ""}${Number(v).toFixed(6)}`,
+    }),
+    valueColumn<ComparisonRow>({
+      key: "baselineAttempts",
+      label: "Baseline attempts",
+      kind: "number",
+      read: (r) => r.baseline.length,
+    }),
+    valueColumn<ComparisonRow>({
+      key: "candidateAttempts",
+      label: "Candidate attempts",
+      kind: "number",
+      read: (r) => r.candidate.length,
+    }),
   ];
   return (
-    <div className="flex h-full min-h-0 flex-col">
+    <div
+      data-tour-surface="eval-comparison"
+      data-comparison-ready={baseline && !loading ? "true" : "false"}
+      className="flex h-full min-h-0 flex-col"
+    >
       <EvalDetailHeader
         title={candidate.suite.name ?? displayName(candidate.suiteId)}
         description={`Comparison · ${candidate.targetName} · ${formatDateTime(candidate.createdAt)}`}
@@ -184,7 +243,7 @@ export function EvalComparison({
                   variant="ghost"
                   size="icon-xs"
                   aria-label="Comparison context"
-                  title="Exploratory comparison: identities, data snapshots and prompt versions were not recorded."
+                  title="Exploratory comparison: review recorded context before attributing score changes."
                 >
                   <Info />
                 </Button>
@@ -195,9 +254,9 @@ export function EvalComparison({
               >
                 <h3 className="font-semibold">Exploratory comparison</h3>
                 <p className="text-muted-foreground">
-                  Actor identities, data snapshots and prompt versions were not
-                  recorded. Changes reflect recorded pass rates and cannot be
-                  attributed to a prompt change.
+                  Changes reflect recorded pass rates and do not establish that
+                  a prompt change caused the difference. Review each run's
+                  available prompt versions, actor context, and reference facts.
                 </p>
                 <p className="text-muted-foreground">
                   Cases with different inputs, reference facts, definitions or
@@ -230,52 +289,27 @@ export function EvalComparison({
         </output>
       ) : (
         <div className="min-h-0 flex-1">
-          <DataTableProvider columns={columns}>
-            <DataTable
-              className="rounded-none border-0 shadow-none"
-              data={rows.filter((r) => filter === "all" || r.change === filter)}
-              getRowKey={(r) => r.id}
-              onRowClick={(r) => {
-                const href = detailNavigationHref(caseHref(r.id), search);
-                prepareNavigation?.(href);
-                router.push(href, { scroll: false });
-              }}
-              header={
-                <div className="flex min-w-0 items-center justify-between gap-2 border-b px-4 py-2">
-                  <div className="flex min-w-0 gap-1 overflow-x-auto">
-                    {[
-                      "all",
-                      "regressed",
-                      "improved",
-                      "changed",
-                      "incomplete",
-                    ].map((value) => (
-                      <Button
-                        key={value}
-                        variant={filter === value ? "secondary" : "ghost"}
-                        size="xs"
-                        onClick={() => setFilter(value)}
-                      >
-                        {value === "all"
-                          ? "All cases"
-                          : value === "changed"
-                            ? "Context changed"
-                            : displayName(value)}
-                      </Button>
-                    ))}
-                  </div>
-                  <DataTableColumnsMenu />
-                </div>
-              }
-              emptyState={
-                <p className="p-12 text-center text-sm text-muted-foreground">
-                  {baseline
-                    ? "No cases match this filter."
-                    : "Choose a baseline to compare saved results."}
-                </p>
-              }
-            />
-          </DataTableProvider>
+          <DataTable
+            help={{ filters: studioHelp.filters, views: studioHelp.views }}
+            compatibility={{ aliases: { change: "change" } }}
+            columns={withStudioColumnHelp(columns, "evals")}
+            tableId="eval-comparison"
+            className="rounded-none border-0 shadow-none"
+            data={rows}
+            getRowKey={(r) => r.id}
+            onRowClick={(r) => {
+              const href = detailNavigationHref(caseHref(r.id), search);
+              prepareNavigation?.(href);
+              router.push(href, { scroll: false });
+            }}
+            emptyState={
+              <p className="p-12 text-center text-sm text-muted-foreground">
+                {baseline
+                  ? "No cases match this filter."
+                  : "Choose a baseline to compare saved results."}
+              </p>
+            }
+          />
         </div>
       )}
     </div>

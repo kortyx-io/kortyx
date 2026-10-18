@@ -1,6 +1,6 @@
 ---
 name: kortyx
-description: Use when building, reviewing, documenting, testing, or architecting apps with Kortyx. Covers providers, useReason/useTool tools, model-driven interrupts, supervisor and specialist composition, child workflows, execution limits, typed failures, runtime persistence, server-owned chat transcripts, conversation evals, Studio execution and debugging, React chat hydration, and streamed UI behavior.
+description: Use when building, reviewing, documenting, testing, or architecting apps with Kortyx. Covers providers, useReason/useTool tools, model-driven interrupts, supervisor and specialist composition, child workflows, execution limits, typed failures, runtime persistence, server-owned chat transcripts, conversation evals, versioned Studio prompts and migration, Studio execution and debugging, React chat hydration, and streamed UI behavior.
 ---
 
 # Kortyx
@@ -38,16 +38,18 @@ Architecture:
 - `references/workflow-execution.md`: typed `agent.execute` / `agent.resume`, separate HTTP entry points, outcomes, cancellation signals, shared execution limits/Continue, durable human approval, and conversational regression testing.
 
 - `references/architecture-folder-structure.md`: default layouts and responsibility boundaries.
-- `references/architecture-workflows-and-nodes.md`: defining workflows, nodes, return shapes, routing, and agent wiring.
+- `references/architecture-workflows-and-nodes.md`: defining workflows, nodes, return shapes, opt-in data reducers, routing, and agent wiring.
 - `references/architecture-supervisor-specialists.md`: coordinator-per-turn routing, returning specialist workflows, one reason/tool loop per specialist, prompt boundaries, and conversational output.
 - `references/architecture-nextjs.md`: Next.js API route vs Server Action guidance.
 - `references/architecture-react-node.md`: separate React frontend plus Node backend.
 - `references/architecture-runtime-persistence.md`: memory, Redis, PostgreSQL, PostgreSQL-plus-Redis, and app DB boundaries.
 - `references/session-checkpoints-rollback-fork.md`: adding checkpoint, rollback, fork, regenerate, undo, and structured-data cleanup features to apps built with Kortyx.
-- `references/observability-otel.md`: backend-neutral server-side OpenTelemetry tracing, prompt metadata, tags, and trace ids on the React client.
+- `references/observability-otel.md`: backend-neutral server-side OpenTelemetry tracing, prompt metadata, tags, trace ids on the React client, and separate maintainer usage telemetry controls.
 - `references/observability-langfuse.md`: app-owned Langfuse export, Kortyx attribute mapping, Next.js flush lifecycle, optional prompt linking, and client feedback scores.
 
 Studio:
+
+- `references/studio-prompts.md`: typed prompt references, role-preserving serving, saved configuration, candidate/group eval launches, provenance, promotion policy, and cross-deployment CLI migration.
 
 - `references/studio-local-development.md`: starting Studio locally, connecting server-side SDK telemetry, publishing a workflow catalog, and verifying the first real run.
 - `references/studio-agent-debugging.md`: analyzing Studio run/session/interrupt URLs through the read-only CLI, connection selection, branch-aware evidence, and capture limitations.
@@ -61,6 +63,7 @@ Evals:
   `createEvals` around an existing agent, reusing application authentication,
   scripted interrupt responses, emitted tool evidence, local judges, and mounting
   the consumer endpoint. Read this before implementing an eval integration.
+- [references/eval-criteria-and-evidence.md](references/eval-criteria-and-evidence.md): writing independent judge criteria, describing frontend-visible versus internal fields, and configuring compact evidence, history, output selection, and custom filters. Read when authoring or tuning judging.
 - `references/studio-evals-and-ci.md`: registering consumer targets, enabling
   execution scopes, configuring Studio/OpenRouter judges, environment variables,
   Docker networking, saved results/comparisons, CLI commands, and post-deployment
@@ -102,6 +105,7 @@ React client:
 - Treat OpenTelemetry as the Kortyx observability contract. Keep backend exporters such as Langfuse app-owned.
 - For observability, publish declared topology with `kortyx topology push`, and verify run telemetry with a real application request instead of a synthetic workflow. Evals additionally let Studio initiate an application-owned suite; the consumer still executes the workflows and authorization logic.
 - Reuse an existing `createAgent` instance with `createEvals`; keep suites as plain data and credentials in app-owned `setup`/`execute`. Enable `toolExecution.emit: true` when criteria depend on tool results. Studio selects its own judge by default; an app judge is an explicit alternative, with no silent fallback.
+- Eval criteria must identify assessed fields and application presentation rules; execution evidence does not prove frontend visibility. Repeat necessary context in each criterion because they are graded separately. See `references/eval-criteria-and-evidence.md`.
 - Keep Studio API keys and all `KORTYX_TELEMETRY_*` configuration server-side.
 - Write user-facing answers, interrupt questions, and safe error messages in the
   user's language unless they request another language. Preserve code, schema

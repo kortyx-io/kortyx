@@ -4,7 +4,11 @@ import type {
   EvalRunResult,
   EvalVerdict,
 } from "@kortyx/agent/evals";
-import { EvalVerdictSchema } from "@kortyx/agent/evals";
+import {
+  createEvalIssue,
+  EvalVerdictSchema,
+  getEvalGradeEvidence,
+} from "@kortyx/agent/evals";
 
 // Custom judges receive the abort signal, but the worker also stops waiting if
 // their implementation ignores it. Late completion is consumed and discarded.
@@ -44,6 +48,7 @@ export async function gradeEvalExecution(
   judge: EvalJudge,
   signal: AbortSignal,
   onProgress: (event: EvalProgress) => Promise<void>,
+  reportError?: (error: unknown) => Promise<string | undefined>,
 ): Promise<EvalRunResult> {
   const started = Date.now();
   const result = structuredClone(execution);
@@ -53,8 +58,9 @@ export async function gradeEvalExecution(
     for (const step of item.steps) {
       if (step.status !== "ungraded") continue;
       signal.throwIfAborted();
+      const gradingTimeout = AbortSignal.timeout(60_000);
       try {
-        const deadline = AbortSignal.any([signal, AbortSignal.timeout(60_000)]);
+        const deadline = AbortSignal.any([signal, gradingTimeout]);
         for (const [index, value] of (
           step.expectation.criteria ?? []
         ).entries()) {
@@ -76,8 +82,8 @@ export async function gradeEvalExecution(
                     }
                   },
                   input: structuredClone(step.input),
-                  observation: structuredClone(step.observation),
-                  conversation: structuredClone(
+                  ...getEvalGradeEvidence(
+                    step,
                     item.steps.filter((prior) => prior.index < step.index),
                   ),
                   ...(step.reference !== undefined
@@ -94,15 +100,21 @@ export async function gradeEvalExecution(
         step.status = step.criteria.some((criterion) => !criterion.passed)
           ? "failed"
           : "passed";
-      } catch {
+      } catch (error) {
         signal.throwIfAborted();
         step.status = "error";
-        step.reason = "Studio grading failed or returned an invalid verdict.";
-        item.errors.push({
-          phase: "grading",
+        const diagnosticId = await reportError?.(error).catch(() => undefined);
+        const issue = createEvalIssue("grading", error, {
           code: "EVAL_GRADING_FAILED",
-          message: step.reason,
+          ...(diagnosticId ? { diagnosticId } : {}),
         });
+        if (gradingTimeout.aborted) {
+          issue.code = "EVAL_GRADING_TIMEOUT";
+          issue.message = "Studio grading exceeded its 60-second time limit.";
+          issue.details = { timeoutMs: 60_000 };
+        }
+        step.reason = issue.message;
+        item.errors.push(issue);
       }
       await onProgress({
         type: "step-completed",

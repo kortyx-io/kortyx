@@ -246,9 +246,7 @@ export function createRedisCheckpointSaver(
       }
 
       const outer = writesKey(threadId, checkpointNs ?? "", checkpointId);
-      await store.expire(outer, ttlMs);
-
-      await Promise.all(
+      const entries = await Promise.all(
         writes.map(async ([channel, value], idx) => {
           const [, vBytes] = await serde.dumpsTyped(value as any);
           const mappedIdx = WRITES_IDX_MAP[channel] ?? idx;
@@ -259,13 +257,24 @@ export function createRedisCheckpointSaver(
             value: b64FromBytes(vBytes),
           };
           const serialized = JSON.stringify(payload);
-          if (mappedIdx >= 0) {
-            await store.hsetnx(outer, innerKeyStr, serialized);
-          } else {
-            await store.hset(outer, innerKeyStr, serialized);
-          }
+          return {
+            field: innerKeyStr,
+            value: serialized,
+            overwrite: mappedIdx < 0,
+          };
         }),
       );
+      if (store.writeHash) await store.writeHash(outer, entries, ttlMs);
+      else {
+        // Legacy custom stores own their atomicity. At least expire after
+        // creation; the native Redis store always uses an atomic transaction.
+        for (const entry of entries) {
+          if (entry.overwrite)
+            await store.hset(outer, entry.field, entry.value);
+          else await store.hsetnx(outer, entry.field, entry.value);
+        }
+        await store.expire(outer, ttlMs);
+      }
     },
 
     async deleteThread(threadId: string): Promise<void> {

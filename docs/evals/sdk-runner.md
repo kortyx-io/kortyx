@@ -65,7 +65,7 @@ the data deliberately available to the test actor.
 
 ## Required structured outputs
 
-Declare visible output contracts on the step that must produce them:
+Declare required completed output contracts on the step that must produce them:
 
 ```ts
 const suite = defineSuite({
@@ -137,9 +137,9 @@ const result = await useReason({
 The runner captures the existing public stream directly. Each step records ordered
 `observation.events`: tool names, call IDs, arguments, results and errors, alongside
 text, structured output, interrupt requests and workflow transitions. Adjacent
-text deltas from the same source are joined. The judge receives the current
-observation and all previous steps, including tool results retrieved before an
-interrupt. This works from the SDK, Studio and CLI without querying Studio telemetry.
+text deltas from the same source are joined in the saved observation. The judge
+receives compact, selected evidence from the current step and, by default, earlier
+steps in the same case, including tool results retrieved before an interrupt. This works from the SDK, Studio and CLI without querying Studio telemetry.
 
 A criterion can say: “Answers for each requested product with the price and currency
 returned by its successful tool call; explicitly states when price data is
@@ -158,6 +158,26 @@ executor must populate `observation.events` itself when it wants execution evide
 Only emit tool arguments and results suitable for the judge and stored eval records;
 they may contain application data, and arbitrary tool payloads are not automatically
 redacted.
+
+## Judge criteria and evidence selection
+
+Write criteria that identify the output type and fields to evaluate, what the app
+renders as messages/prose/cards, and what remains progress-only or internal.
+The stream cannot establish frontend visibility. Each criterion is graded
+separately, so include necessary presentation rules in each one. Use reference
+facts or retained successful tool results for grounding, and UI tests for actual
+rendering.
+
+Judges always receive compact evidence. Set `createEvals.defaults.evidence` and
+field-by-field `suite.evidence` overrides: `history` is boolean; `events` accepts
+`false`, typed event names, or a named predicate; `outputs` accepts `false`, output
+selectors, or a named predicate. `history: false` excludes earlier case steps from
+the judge only. `{ history: false, events: false, outputs: false }` selects final
+text without prior observations; input, references, and interrupt details remain.
+Full captures remain in Studio, and deterministic contract checks are unaffected.
+
+See the [judge-writing example and complete evidence configuration](../../apps/website/src/docs/sdk/v0/03-guides/10-conversation-evals.md#write-criteria-for-the-evidence-your-app-produces)
+for presentation contracts, defaults, overrides, and custom filters.
 
 ## Choose where judging runs
 
@@ -202,8 +222,7 @@ run. A case is not counted as passed while awaiting evaluation. Semantic grading
 happens after execution, so a semantic failure does not stop subsequent scripted
 steps in this mode. **App judge** retains per-step grading and stop-on-failure.
 
-Studio's run drawer offers both available locations. The CLI defaults to Studio
-judging; pass `--judge app` to select the code judge. A missing judge or incompatible
+Studio's run drawer offers both available locations. The CLI resolves the project judge default (Studio when unset); pass `--judge app` to select the code judge. A missing judge or incompatible
 consumer SDK prevents starting that selection; there is no automatic fallback.
 The Studio backend pins the selected judge's ID and version when enqueuing. A
 changed judge causes an error before execution. Saved results include the identity
@@ -410,10 +429,47 @@ remain distinct. A case stops after its first failed step or error. This is not
 a complete reproducibility record of model versions, prompts, app code, and
 external data; retain those deployment details in your app's run record.
 
-Raw exception messages are excluded from public results because they can
-contain credentials. Log detailed failures privately in your app's hooks or
-existing runtime diagnostics. Progress events are snapshots; listener failures
-mark the run as a reporting error without skipping case cleanup.
+Eval issues preserve the original message, exception type, stack, causes and
+provider/HTTP response properties in `errors[].exception` by default. Known
+credential fields, authorization headers and credential patterns are redacted;
+ordinary error content is retained. Capture size/depth limits are explicit in
+`exception.capture`. No diagnostic flag or custom reporter is required for this
+evidence. `errors[].failure` remains the separate public failure descriptor.
+
+An existing native diagnostic reference is loaded automatically by Studio under
+its project permissions. Optional `agent.reportError` or `createEvals({ reportError })`
+can also archive evidence; exporter failure never changes the eval outcome.
+Previously discarded content cannot be reconstructed. Progress listener failures
+remain reporting errors and do not skip cleanup.
+
+Use `verify({ prepared, result, signal, ...context })` for application
+postconditions, after the conversation and before teardown:
+
+```ts
+verify: async ({ prepared, signal }) => {
+  const saved = await readApprovedSave(prepared.fixtureId, signal);
+  return {
+    passed: Boolean(saved),
+    reason: saved ? "Approved save exists" : "Required approved save is absent",
+    evidence: [],
+  };
+},
+```
+
+`readApprovedSave` is an application helper. Returning `passed: false` makes the
+case **Failed**, even when conversation checks passed. Throwing or returning an
+invalid verdict makes it **Error**. Move behavioral assertions out of teardown;
+teardown remains resource reset, and a reset failure remains **Error**. A failed
+verification is stored separately from cleanup errors.
+
+`caseTimeoutMs` (default 60,000) starts after successful setup and bounds the
+conversation, responders, reference reads and grading. `setupTimeoutMs` and
+`verificationTimeoutMs` each default to the configured `caseTimeoutMs` and can be
+overridden independently. `cleanupTimeoutMs` defaults to 10,000. Queue time does
+not consume these budgets. `durationMs` includes all phases;
+`phaseDurationsMs` records elapsed setup, execute, responder, reference, grading,
+verification and cleanup time when each phase runs. These are wall-clock phases,
+not provider-only latency.
 
 ## Lifecycle limits in this slice
 
@@ -426,7 +482,7 @@ mark the run as a reporting error without skipping case cleanup.
 - Early `completeResponse`/background continuation requires a custom executor.
   The default runner awaits attached execution completion and rejects a
   response stream that does not expose a completed workflow or human pause.
-- Case and cleanup deadlines use cooperative abort signals. Arbitrary app
+- Setup, execution, verification and cleanup deadlines use cooperative abort signals. Arbitrary app
   callbacks must honor their signals; the runner cannot forcibly terminate
   JavaScript. It waits for work to settle before teardown to avoid racing
   cleanup against an execution that is still using its fixtures.
@@ -453,3 +509,37 @@ The terminal reporter uses these events to show real progress while model calls
 are still running. The CLI enables activity events automatically. Default SDK
 and HTTP transport progress retains the existing case/step event sequence, so
 older Studio servers remain compatible with an updated application SDK.
+
+For shared consumer capacity, bounded retries, detached executions and replica recovery, see [execution resilience](execution-resilience.md).
+
+## Execution defaults and application limits
+
+```ts
+const evals = createEvals({
+  agent,
+  suites: [suite],
+  defaults: { repetitions: 2, concurrency: 2, caseTimeoutMs: 120_000 },
+  limits: { concurrency: 4, caseTimeoutMs: 300_000 },
+});
+// Direct SDK execution uses explicit run values, then configured SDK defaults.
+await evals.run({ suiteId: suite.id, caseTimeoutMs: 180_000 });
+```
+
+Studio resolves each field as: per-run override → Studio project default →
+explicit SDK default → SDK built-in default. Omitted values remain omitted until
+resolution. The manifest's `execution` advertises declared defaults, limits and
+supported overrides. Application limits are ceilings, independent of precedence;
+an excessive value is rejected before setup, never silently clamped.
+
+SDK built-ins are one repetition, concurrency one and a 60-second case timeout.
+Repetitions and concurrency support 1–20; millisecond deadlines support positive
+integers up to 2,147,483,647. Setup, verification and cleanup budgets remain
+application-owned (`defaults.setupTimeoutMs`, `verificationTimeoutMs`,
+`cleanupTimeoutMs`). Changing the per-run case deadline does not change these
+independently resolved lifecycle budgets.
+
+The whole-evaluation deadline belongs to Studio scheduling, independently of the
+SDK case budget. Studio defaults to 30 minutes across all selected suites,
+including execution and Studio grading, starting when execution begins. Queue
+waiting is excluded. Direct `evals.run` has no Studio scheduler deadline; callers
+can pass `signal`. Aborts remain cooperative and cannot forcibly terminate work.

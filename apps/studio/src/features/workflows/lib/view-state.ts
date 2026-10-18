@@ -21,8 +21,6 @@ export type WorkflowHealthFilter = (typeof workflowHealthFilters)[number];
 export type WorkflowViewMode = (typeof workflowViewModes)[number];
 export type WorkflowMetric = (typeof workflowMetrics)[number];
 
-export const DEFAULT_WORKFLOW_ID = "general-chat";
-
 export type WorkflowSelection =
   | { type: "workflow"; id: string }
   | { type: "node"; workflowId: string; id: string }

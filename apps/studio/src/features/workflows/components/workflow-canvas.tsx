@@ -1,5 +1,7 @@
 "use client";
 
+import { CostValue } from "@/components/cost-value";
+import { averageCostDisplayValue } from "@/lib/cost";
 import { studioDetailHref } from "@/lib/studio-routes";
 
 import "@xyflow/react/dist/style.css";
@@ -57,7 +59,7 @@ import type {
   WorkflowSummary,
   WorkflowSystem,
 } from "@/features/workflows/schema";
-import { formatCount, formatCurrency, formatDurationMs } from "@/lib/format";
+import { formatCount, formatDurationMs } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { CONNECTION_STYLE } from "../lib/connection-style";
 import {
@@ -434,11 +436,10 @@ function CanvasControl({
     <Tooltip>
       <TooltipTrigger asChild>
         <Button
-          variant="outline"
+          variant="secondary"
           size="icon-sm"
           aria-label={label}
           onClick={onClick}
-          className="bg-background"
         >
           {children}
         </Button>
@@ -489,7 +490,10 @@ function WorkflowGroup({ data }: NodeProps<Node<GroupData>>) {
         <span>
           cost{" "}
           <b className="ml-1 font-mono font-medium text-foreground">
-            {formatCurrency(workflow.metrics.averageCost)}
+            <CostValue
+              value={averageCostDisplayValue(workflow.metrics)}
+              average
+            />
           </b>
         </span>
         <span>
@@ -597,15 +601,26 @@ function InternalNode({ data }: NodeProps<Node<InternalData>>) {
         <span>{formatDurationMs(node.metrics.p50DurationMs)}</span>
         {mode === "health" ? (
           <span>
-            {metric === "error"
-              ? `${formatRate(node.metrics.errorRate)} err`
-              : metric === "cost"
-                ? formatCurrency(node.metrics.averageCost)
-                : `${formatCount(node.metrics.runCount)} runs`}
+            {metric === "error" ? (
+              `${formatRate(node.metrics.errorRate)} err`
+            ) : metric === "cost" ? (
+              <CostValue
+                value={averageCostDisplayValue(node.metrics)}
+                average
+              />
+            ) : (
+              `${formatCount(node.metrics.runCount)} runs`
+            )}
           </span>
         ) : (
-          node.metrics.averageCost !== undefined && (
-            <span>{formatCurrency(node.metrics.averageCost)}</span>
+          (node.metrics.averageCost !== undefined ||
+            node.metrics.averageCostSummary !== undefined) && (
+            <span>
+              <CostValue
+                value={averageCostDisplayValue(node.metrics)}
+                average
+              />
+            </span>
           )
         )}
       </div>

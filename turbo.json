@@ -75,5 +75,6 @@
     "start": {
       "dependsOn": ["build"]
     }
-  }
+  },
+  "globalEnv": ["KORTYX_USAGE_TELEMETRY_*"]
 }

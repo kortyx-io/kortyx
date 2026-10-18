@@ -10,10 +10,12 @@ permissions:
   security-events: write
 
 concurrency:
-  group: ci-${{ github.event.pull_request.number || github.ref }}
+  # PR updates supersede old checks; every merged SHA keeps its release gate.
+  group: ci-${{ github.event.pull_request.number || github.sha }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 env:
+  KORTYX_USAGE_TELEMETRY_DISABLED: "1"
   DATABASE_URL: postgres://kortyx:kortyx@localhost:6543/kortyx
   API_HOST: 127.0.0.1
   API_PORT: 6400
@@ -51,7 +53,9 @@ jobs:
           TURBO_SCM_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
         run: |
           pnpm turbo ls --affected --output=json > "$RUNNER_TEMP/affected.json"
-          if jq -e '.packages.items | map(.name) | any(. == "kortyx-studio" or . == "@kortyx/api" or . == "@kortyx/telemetry-db" or . == "@kortyx/telemetry-contracts")' "$RUNNER_TEMP/affected.json" >/dev/null; then
+          git diff --name-only "$TURBO_SCM_BASE" "$TURBO_SCM_HEAD" > "$RUNNER_TEMP/ci-changed-paths.txt"
+          if grep -Eq '^\.github/(workflows/ci\.yml$|actions/(setup/node|validation/studio-e2e)/)' "$RUNNER_TEMP/ci-changed-paths.txt" ||
+             jq -e '.packages.items | map(.name) | any(. == "kortyx-studio" or . == "@kortyx/api" or . == "@kortyx/telemetry-db" or . == "@kortyx/telemetry-contracts")' "$RUNNER_TEMP/affected.json" >/dev/null; then
             echo "studio=true" >> "$GITHUB_OUTPUT"
           else
             echo "studio=false" >> "$GITHUB_OUTPUT"
@@ -226,7 +230,7 @@ jobs:
               label: "production drawer stack",
               suite: production,
               shard: "",
-              spec: detail-drawer-stack.spec.ts,
+              spec: '(detail-drawer-stack|prompt-drawers)\.spec\.ts',
             }
           - {
               label: "production eval navigation",
@@ -235,6 +239,13 @@ jobs:
               spec: 'eval-(navigation|structured-outputs|live-costs)\.spec\.ts',
             }
     runs-on: ubuntu-latest
+    # Keep aligned with the locked @playwright/test version; the action verifies it.
+    container:
+      image: mcr.microsoft.com/playwright:v1.62.0-noble@sha256:baed2032d533817f3dbe6425de795788430ba345e819a1201337009ba17c9d07
+      options: --ipc=host
+    env:
+      DATABASE_URL: postgres://kortyx:kortyx@postgres:5432/kortyx
+      PLAYWRIGHT_IMAGE_VERSION: "1.62.0"
     timeout-minutes: 20
     services:
       postgres:
@@ -277,15 +288,17 @@ jobs:
       - name: Setup Node and pnpm
         uses: ./.github/automation/.github/actions/setup/node
       - name: Download blob reports
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
         with:
           pattern: studio-playwright-blob-*
-          path: all-blob-reports
-          merge-multiple: true
+          path: downloaded-blob-reports
+          merge-multiple: false
+      - name: Select latest report per shard without filename collisions
+        run: node ./.github/automation/.github/scripts/ci/prepare-blob-reports.cjs downloaded-blob-reports all-blob-reports
       - name: Merge reports
         run: pnpm --filter kortyx-studio exec playwright merge-reports --reporter=html,github ../../all-blob-reports
       - name: Upload merged report
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: studio-playwright-report-${{ github.run_attempt }}
           path: apps/studio/playwright-report

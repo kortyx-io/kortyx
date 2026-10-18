@@ -65,10 +65,28 @@ export const WorkflowDefinitionSchema = z
     outputSchema: z
       .custom<z.ZodType<Record<string, unknown>>>((v) => v instanceof z.ZodType)
       .optional(),
+    reduce: z
+      .record(
+        z.string(),
+        z
+          .custom<(previous: any, next: any) => any>(
+            (value) => typeof value === "function",
+          )
+          .optional(),
+      )
+      .optional(),
     nodes: z.record(z.string(), WorkflowNodeDefSchema),
     edges: z.array(WorkflowEdgeSchema),
     metadata: z.record(z.string(), z.unknown()).optional(),
   })
-  .strict();
+  .strict()
+  .superRefine((workflow, context) => {
+    if (workflow.reduce && !workflow.outputSchema)
+      context.addIssue({
+        code: "custom",
+        path: ["reduce"],
+        message: "Workflow reducers require outputSchema.",
+      });
+  });
 
 export type WorkflowConfig = z.infer<typeof WorkflowDefinitionSchema>;

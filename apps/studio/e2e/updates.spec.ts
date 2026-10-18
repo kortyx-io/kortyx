@@ -59,7 +59,7 @@ test("checks a release, saves a schedule, and reports a failed update", async ({
     }
     await route.fulfill({ json: status });
   });
-  await page.goto("/settings");
+  await page.goto("/settings/about");
   const updates = page.locator("#updates");
   await expect(
     updates.getByRole("heading", { name: "Updates", exact: true }),
@@ -120,7 +120,7 @@ test("keeps an in-progress update visible while Studio restarts", async ({
       },
     }),
   );
-  await page.goto("/settings");
+  await page.goto("/settings/about");
   await expect(
     page.getByText("Update in progress", { exact: true }),
   ).toBeVisible();

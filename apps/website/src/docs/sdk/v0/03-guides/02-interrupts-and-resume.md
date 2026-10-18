@@ -1,7 +1,7 @@
 ---
 id: v0-runtime-interrupts-resume
 title: "Interrupts and Resume"
-description: "Pause node execution for user input and resume deterministically using tokens and request ids."
+description: "Pause Kortyx workflow nodes for human input, stream typed interrupt requests, and resume safely with response tokens, request IDs, and persistence."
 keywords: [kortyx, interrupt, resume, human-input, pending-requests, checkpoints]
 sidebar_label: "Interrupts and Resume"
 ---
@@ -310,3 +310,7 @@ See [Runtime Persistence Adapters](../04-production/02-framework-adapters.md).
 ## Complete a response before execution finishes
 
 See [Background Continuation](./08-background-continuation.md) for `completeResponse()`, independent execution lifetime, and discovering human requests through `agent.listInterrupts()` without Studio. A `done` chunk ends client delivery; it does not prove successful execution.
+
+## Invalid model-authored requests
+
+If a named interrupt tool's request arguments fail its schema, `useReason` returns bounded `isError` feedback to the model. It can correct its arguments within `toolExecution.maxSteps` and the shared model allowance. An invalid attempt does not emit an interrupt or consume `interrupts.maxRequests`. `mode: "required"` still requires valid human input before finishing. Invalid human responses remain validation failures; correction feedback never grants approval to execute a tool.

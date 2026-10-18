@@ -14,7 +14,7 @@ import {
   isExecutionLimitReached,
   throwIfExecutionAborted,
 } from "@kortyx/core";
-import { KortyxError } from "@kortyx/core/errors";
+import { KortyxError, WorkflowContractError } from "@kortyx/core/errors";
 import type { KortyxTelemetryConfig, ReasonTraceAdapter } from "@kortyx/hooks";
 import { runWithHookContext } from "@kortyx/hooks";
 import {
@@ -22,7 +22,7 @@ import {
   withSafeTraceSpan,
 } from "@kortyx/hooks/internal";
 import type { GetProviderFn } from "@kortyx/providers";
-import { deepMergeWithArrayOverwrite } from "@kortyx/utils";
+import { deepMergeWithArrayOverwrite, mergeRuntimeState } from "@kortyx/utils";
 import {
   Annotation,
   interrupt,
@@ -31,8 +31,13 @@ import {
 } from "@langchain/langgraph";
 import type { BaseCheckpointSaver } from "@langchain/langgraph-checkpoint";
 import { getCheckpointer } from "../checkpointer";
+import {
+  acknowledgeResumeDelivery,
+  type ResumeDelivery,
+} from "../framework/graph-snapshot";
 import { resolveNodeHandler } from "../node-loader";
 import { createWorkflowCallService } from "./call-workflow";
+import { copyReducedFields, mergeWorkflowData } from "./data";
 import {
   addParallelGraphCoordinator,
   hasParallelEdges,
@@ -48,6 +53,8 @@ interface CompiledGraphBase {
 }
 
 export type ExecutionControl = {
+  /** Internal: Response delivery belongs to the current invocation, not configuration. */
+  resumeDelivery?: ResumeDelivery | undefined;
   completeResponse?:
     | ((
         options: import("@kortyx/hooks").CompleteResponseOptions,
@@ -75,6 +82,7 @@ interface HookPatchError {
 }
 
 export interface ExecutionRuntimeConfig {
+  prompts?: import("@kortyx/prompts").PromptExecution | undefined;
   executionRunId?: string | undefined;
   executionBranchId?: string | undefined;
   prepareChildTelemetry?:
@@ -100,6 +108,8 @@ export async function createExecutionGraph(
   config: ExecutionRuntimeConfig,
   execution: ExecutionControl = {},
 ) {
+  if (workflow.reduce && !workflow.outputSchema)
+    throw new WorkflowContractError("Workflow reducers require outputSchema.");
   const StateAnnotation = Annotation.Root({
     currentWorkflow: Annotation<string>,
     input: Annotation<unknown>,
@@ -108,13 +118,16 @@ export async function createExecutionGraph(
     lastCondition: Annotation<string>,
     lastIntent: Annotation<string>,
     runtime: Annotation<Record<string, unknown>>({
-      reducer: (l, r) => deepMergeWithArrayOverwrite(l ?? {}, r ?? {}),
+      reducer: (l, r) => mergeRuntimeState(l ?? {}, r ?? {}),
       default: () => ({}),
     }),
     config: Annotation<unknown>,
     transitionTo: Annotation<string | null>,
     data: Annotation<Record<string, unknown>>({
-      reducer: (l, r) => deepMergeWithArrayOverwrite(l ?? {}, r ?? {}),
+      // Reducer-enabled nodes emit complete snapshots, including removed fields.
+      // Loading a checkpoint/snapshot must never invoke application reducers.
+      reducer: (l, r) =>
+        workflow.reduce ? r : deepMergeWithArrayOverwrite(l ?? {}, r ?? {}),
       default: () => ({}),
     }),
     conversationHistory: Annotation<
@@ -224,6 +237,7 @@ export async function createExecutionGraph(
         });
       let suspension: unknown;
       let deniedAdmission: unknown;
+      let interruptPosition = 0;
       const hookNodeContext = {
         completeResponse: runtimeConfig.workflowCallDepth
           ? undefined
@@ -277,11 +291,25 @@ export async function createExecutionGraph(
         graph: { name: workflowName, node: nodeId },
         config: nodeConfig,
         emit: emitRuntimeEvent,
+        replayInterrupt: (request: InterruptInput): void => {
+          throwIfExecutionAborted(execution.abortSignal);
+          // Both LangGraph and the parallel coordinator consume responses by
+          // position. Durable hooks skip completed work, but must still advance
+          // those response slots before asking their next question.
+          if (awaitInput) awaitInput(request);
+          else interrupt(request);
+          acknowledgeResumeDelivery(
+            execution.resumeDelivery,
+            nodeId,
+            interruptPosition++,
+          );
+        },
         awaitInterrupt: (
           interruptConfig: InterruptInput,
         ): InterruptResumeValue => {
           throwIfExecutionAborted(execution.abortSignal);
           if (execution.budget) assertExecutionBudget(execution.budget);
+          const position = interruptPosition++;
           const { kind, question } = interruptConfig;
           const isCustom = kind === "custom";
           const isMulti =
@@ -333,8 +361,17 @@ export async function createExecutionGraph(
                   ...sharedInterruptFields,
                 };
           let resumed: unknown;
+          payload.meta = {
+            ...payload.meta,
+            __kortyxInterruptOccurrence: { nodeId, position },
+          };
           try {
             resumed = awaitInput ? awaitInput(payload) : interrupt(payload);
+            acknowledgeResumeDelivery(
+              execution.resumeDelivery,
+              nodeId,
+              position,
+            );
           } catch (error) {
             suspension = error;
             if (!awaitInput)
@@ -395,7 +432,7 @@ export async function createExecutionGraph(
             retryHookRuntime && typeof retryHookRuntime === "object"
               ? ({
                   ...state,
-                  runtime: deepMergeWithArrayOverwrite(
+                  runtime: mergeRuntimeState(
                     (state.runtime ?? {}) as Record<string, unknown>,
                     retryHookRuntime,
                   ),
@@ -403,7 +440,7 @@ export async function createExecutionGraph(
               : state;
           const activeTrace = traceAdapter();
           const hookContext = {
-            node: hookNodeContext,
+            node: { ...hookNodeContext, prompts: config.prompts },
             state: attemptState,
             reasonTrace: activeTrace,
           };
@@ -485,11 +522,11 @@ export async function createExecutionGraph(
             // Preserve hook runtime state even when execution pauses via interrupt.
             // Without this merge, checkpointed hook state (e.g. useReason drafts)
             // can be lost before resume.
-            state.runtime = deepMergeWithArrayOverwrite(
+            state.runtime = mergeRuntimeState(
               (state.runtime ?? {}) as Record<string, unknown>,
               patch,
             );
-            retryHookRuntime = deepMergeWithArrayOverwrite(
+            retryHookRuntime = mergeRuntimeState(
               (retryHookRuntime ?? {}) as Record<string, unknown>,
               patch,
             );
@@ -515,7 +552,7 @@ export async function createExecutionGraph(
       if (hookRuntimeUpdates) {
         res.infra = {
           ...(res.infra ?? {}),
-          runtime: deepMergeWithArrayOverwrite(
+          runtime: mergeRuntimeState(
             ((res.infra?.runtime ?? {}) as Record<string, unknown>) || {},
             hookRuntimeUpdates,
           ),
@@ -561,17 +598,21 @@ export async function createExecutionGraph(
       if (res.data && typeof res.data === "object") {
         // Treat node `data` as the flowing payload between nodes.
         // Accumulate by merging into the previous input (if any).
-        updates.input = deepMergeWithArrayOverwrite(
-          toRecordInput(state.input),
-          res.data as Record<string, unknown>,
-        );
-        updates.data = deepMergeWithArrayOverwrite(
+        const data = mergeWorkflowData(
           (state.data ?? {}) as Record<string, unknown>,
           res.data as Record<string, unknown>,
+          workflow,
+        );
+        updates.data = data;
+        updates.input = copyReducedFields(
+          deepMergeWithArrayOverwrite(toRecordInput(state.input), res.data),
+          data,
+          res.data,
+          workflow,
         );
       }
       if (res.infra?.runtime && typeof res.infra.runtime === "object") {
-        updates.runtime = deepMergeWithArrayOverwrite(
+        updates.runtime = mergeRuntimeState(
           (state.runtime ?? {}) as Record<string, unknown>,
           res.infra.runtime as Record<string, unknown>,
         );

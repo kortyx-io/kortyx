@@ -112,9 +112,33 @@ const detail = {
     },
   },
 };
+const evaluationSummary = {
+  id,
+  name: "All suites",
+  targetId: target.id,
+  targetName: target.name,
+  environment: "staging",
+  selection: "all",
+  metadata: { source: "manual" },
+  status: "passed",
+  createdAt: date,
+  startedAt: date,
+  endedAt: date,
+  cancelRequestedAt: null,
+  suiteCount: 1,
+  completedSuites: 1,
+  totalAttempts: 1,
+  completedAttempts: 1,
+  counts: summary.counts,
+};
+const evaluationResults = {
+  run: { ...evaluationSummary, suites: [detail.run] },
+};
 const homes: string[] = [];
 afterEach(async () => {
   vi.unstubAllEnvs();
+  process.exitCode = undefined;
+  vi.useRealTimers();
   await Promise.all(
     homes.splice(0).map((home) => rm(home, { recursive: true, force: true })),
   );
@@ -149,6 +173,16 @@ async function configured(
 const mockFetch = (targets: unknown[] = [target], canRun = true) =>
   vi.fn<typeof fetch>().mockImplementation(async (url, init) => {
     const path = new URL(String(url)).pathname;
+    if (path.includes("/evaluations/") && !path.endsWith("/cancel"))
+      return new Response(
+        JSON.stringify(
+          path.endsWith("/results")
+            ? evaluationResults
+            : { run: { ...evaluationSummary, suites: [summary] } },
+        ),
+      );
+    if (path.endsWith("/evaluations") && init?.method !== "POST")
+      return new Response(JSON.stringify({ runs: [evaluationSummary] }));
     const body = path.endsWith("/targets")
       ? { canRun, targets }
       : path.endsWith("/cancel")
@@ -218,6 +252,75 @@ describe("Studio eval CLI", () => {
     ]);
     expect(command.output[2]).toContain("private prompt");
   });
+  it("sends explicit timeout overrides while leaving other defaults to the server", async () => {
+    const args = await configured();
+    const request = mockFetch();
+    await cli(request).run([
+      "runs",
+      "start",
+      "jobs",
+      ...args,
+      "--run-timeout-ms",
+      "5400000",
+      "--case-timeout-ms",
+      "180000",
+      "--json",
+    ]);
+    const body = JSON.parse(String(request.mock.calls[1]?.[1]?.body));
+    expect(body).toMatchObject({
+      runTimeoutMs: 5_400_000,
+      caseTimeoutMs: 180_000,
+    });
+    for (const field of ["repetitions", "concurrency", "judge"])
+      expect(body).not.toHaveProperty(field);
+  });
+  it("shows original recorded case errors without requiring include-content", async () => {
+    const args = await configured();
+    const run = {
+      ...structuredClone(detail.run),
+      status: "error",
+      error: "Provider rejected execution with HTTP 429",
+    };
+    run.result.status = "error";
+    run.result.cases[0]!.errors = [
+      {
+        phase: "execute",
+        code: "HTTP_429",
+        message: "Provider concurrency quota exceeded",
+        exception: {
+          schemaVersion: 1,
+          data: {
+            type: "HttpError",
+            stack: "HttpError: Provider quota exceeded",
+            response: {
+              content: "quota_exceeded",
+              authorization: "Bearer SECRET_CREDENTIAL",
+            },
+          },
+          capture: { status: "complete", omissions: [], redactions: [] },
+        },
+      },
+    ] as never;
+    const command = cli(
+      vi.fn(async (url) =>
+        String(url).includes("/evaluations/")
+          ? Response.json({ error: "Legacy suite run" }, { status: 404 })
+          : Response.json({ run }),
+      ),
+    );
+    await command.run(["runs", "get", id, ...args, "--json"]);
+    const observed = JSON.parse(command.output[0] ?? "").run;
+    expect(observed.error).toBe("Provider rejected execution with HTTP 429");
+    expect(observed.caseResults[0].errors[0].message).toBe(
+      "Provider concurrency quota exceeded",
+    );
+    expect(
+      observed.caseResults[0].errors[0].exception.data.response.content,
+    ).toBe("quota_exceeded");
+    expect(command.output[0]).not.toContain("SECRET_CREDENTIAL");
+    expect(command.output[0]).not.toContain("private prompt");
+    expect(command.output[0]).not.toContain("private answer");
+  });
   it("enqueues once with discovered revision, selected cases, repetitions and URL", async () => {
     const args = await configured();
     const request = mockFetch();
@@ -232,7 +335,7 @@ describe("Studio eval CLI", () => {
       "--repetitions",
       "3",
       "--concurrency",
-      "2",
+      "20",
       "--json",
     ]);
     expect(request).toHaveBeenCalledTimes(2);
@@ -243,19 +346,20 @@ describe("Studio eval CLI", () => {
     });
     expect(JSON.parse(String(request.mock.calls[1]?.[1]?.body))).toEqual({
       targetId: "hiring",
-      judge: "studio",
-      suiteId: "jobs",
-      suiteRevision: revision,
-      caseIds: ["ambiguity"],
+      selection: "selected",
+      suites: [
+        { suiteId: "jobs", suiteRevision: revision, caseIds: ["ambiguity"] },
+      ],
+      metadata: { source: "manual" },
       repetitions: 3,
-      concurrency: 2,
+      concurrency: 20,
     });
     expect(JSON.parse(command.output[0] ?? "")).toEqual({
       schemaVersion: 1,
       connection: "staging",
       id,
       status: "queued",
-      studioUrl: `https://studio.example.test/evals/runs/${id}`,
+      studioUrl: `https://studio.example.test/evals/evaluations/${id}`,
     });
     expect(command.output[0]).not.toContain(key);
   });
@@ -266,11 +370,9 @@ describe("Studio eval CLI", () => {
     await command.run(["runs", "start", "jobs", ...args]);
     expect(JSON.parse(String(request.mock.calls[1]?.[1]?.body))).toEqual({
       targetId: "hiring",
-      judge: "studio",
-      suiteId: "jobs",
-      suiteRevision: revision,
-      repetitions: 1,
-      concurrency: 1,
+      selection: "selected",
+      suites: [{ suiteId: "jobs", suiteRevision: revision }],
+      metadata: { source: "manual" },
     });
     expect(JSON.parse(command.output[0] ?? "").studioUrl).toBeNull();
   });
@@ -300,7 +402,7 @@ describe("Studio eval CLI", () => {
     const command = cli(mockFetch([target, { ...target, id: "other" }]));
     await expect(
       command.run(["runs", "start", "jobs", ...args]),
-    ).rejects.toThrow("multiple targets");
+    ).rejects.toThrow("Select one available application");
     await command.run([
       "runs",
       "start",
@@ -313,7 +415,7 @@ describe("Studio eval CLI", () => {
     ]);
     await expect(
       command.run(["runs", "start", "missing", ...args]),
-    ).rejects.toThrow("unavailable");
+    ).rejects.toThrow("available");
   });
   it("refuses read-only execution before a POST", async () => {
     const args = await configured();
@@ -366,7 +468,21 @@ describe("Studio eval CLI", () => {
         "--repetitions",
         "20",
       ]),
-    ).rejects.toThrow("100 total");
+    ).rejects.toThrow("100 attempts per suite");
+    for (const value of ["0", "21", "1.5", "no"]) {
+      const request = mockFetch();
+      await expect(
+        cli(request).run([
+          "runs",
+          "start",
+          "jobs",
+          ...args,
+          "--concurrency",
+          value,
+        ]),
+      ).rejects.toThrow("Expected an integer between 1 and 20");
+      expect(request).not.toHaveBeenCalled();
+    }
     for (const value of ["0", "21", "1.5", "no"])
       await expect(
         cli(mockFetch()).run([
@@ -384,7 +500,8 @@ describe("Studio eval CLI", () => {
     const command = cli(mockFetch());
     await command.run(["runs", "get", id, ...args, "--json"]);
     expect(
-      JSON.parse(command.output[0] ?? "").run.caseResults[0].steps[0].criteria,
+      JSON.parse(command.output[0] ?? "").run.suites[0].caseResults[0].steps[0]
+        .criteria,
     ).toEqual([{ id: "description", passed: true }]);
     expect(command.output[0]).not.toContain("private");
     await command.run([
@@ -403,11 +520,19 @@ describe("Studio eval CLI", () => {
       async (url) =>
         new Response(
           JSON.stringify(
-            String(url).endsWith("/runs")
+            String(url).endsWith("/evaluations")
               ? {
-                  runs: [summary, { ...summary, environment: "development" }],
+                  runs: [
+                    evaluationSummary,
+                    { ...evaluationSummary, environment: "development" },
+                  ],
                 }
-              : { run: { ...detail.run, result: null } },
+              : {
+                  run: {
+                    ...evaluationSummary,
+                    suites: [{ ...detail.run, result: null }],
+                  },
+                },
           ),
         ),
     );
@@ -425,7 +550,9 @@ describe("Studio eval CLI", () => {
       "development",
     );
     await command.run(["runs", "get", id, ...args]);
-    expect(JSON.parse(command.output[2] ?? "").run.caseResults).toBeUndefined();
+    expect(
+      JSON.parse(command.output[2] ?? "").run.suites[0].caseResults,
+    ).toBeUndefined();
   });
   it("can read unfiltered history without an environment default", async () => {
     const args = await configured(null);
@@ -439,7 +566,7 @@ describe("Studio eval CLI", () => {
     const command = cli(request);
     await command.run(["runs", "cancel", id, ...args, "--json"]);
     expect(String(request.mock.calls[0]?.[0])).toBe(
-      `https://api.example.test/v1/studio/evals/runs/${id}/cancel`,
+      `https://api.example.test/v1/studio/evals/evaluations/${id}/cancel`,
     );
     expect(JSON.parse(command.output[0] ?? "")).toMatchObject({ id, ok: true });
     await expect(
@@ -451,6 +578,161 @@ describe("Studio eval CLI", () => {
       ]),
     ).rejects.toThrow("does not match");
     expect(request).toHaveBeenCalledTimes(1);
+  });
+  it("runs all suites with deployment metadata and returns detailed results on demand", async () => {
+    const args = await configured();
+    const request = mockFetch();
+    const command = cli(request);
+    await command.run([
+      "runs",
+      "start",
+      "--all",
+      "--target",
+      "hiring",
+      "--source",
+      "deployment",
+      "--commit",
+      "abc123",
+      "--deployment-url",
+      "https://ci.example/jobs/1",
+      "--idempotency-key",
+      "deploy-1",
+      ...args,
+      "--json",
+    ]);
+    expect(JSON.parse(String(request.mock.calls[1]?.[1]?.body))).toMatchObject({
+      selection: "all",
+      suites: [{ suiteId: "jobs", suiteRevision: revision }],
+      metadata: {
+        source: "deployment",
+        commit: "abc123",
+        deploymentUrl: "https://ci.example/jobs/1",
+      },
+      idempotencyKey: "deploy-1",
+    });
+    await command.run([
+      "runs",
+      "get",
+      `https://studio.example.test/evals/evaluations/${id}`,
+      ...args,
+      "--include-content",
+      "--json",
+    ]);
+    expect(command.output[1]).toContain("private answer");
+    expect(command.output[1]).not.toContain(key);
+  });
+  it("pins repeated suite selections and waits for final verdicts after launch", async () => {
+    const args = await configured();
+    const extra = { ...suite, id: "safety" };
+    const request = mockFetch([
+      {
+        ...target,
+        manifest: { ...target.manifest, suites: [suite, extra] },
+        revisions: { jobs: revision, safety: revision },
+      },
+    ]);
+    const command = cli(request);
+    await command.run([
+      "runs",
+      "start",
+      "--suite",
+      "jobs",
+      "--suite",
+      "safety",
+      "--wait",
+      ...args,
+      "--json",
+    ]);
+    expect(JSON.parse(String(request.mock.calls[1]?.[1]?.body))).toMatchObject({
+      selection: "selected",
+      suites: [
+        { suiteId: "jobs", suiteRevision: revision },
+        { suiteId: "safety", suiteRevision: revision },
+      ],
+    });
+    expect(process.exitCode).toBe(0);
+    expect(JSON.parse(command.output[0] ?? "").run.status).toBe("passed");
+    expect(command.output[0]).not.toContain("private answer");
+    await expect(
+      cli(request).run([
+        "runs",
+        "start",
+        "--suite",
+        "jobs",
+        "--suite",
+        "safety",
+        "--case",
+        "ambiguity",
+        ...args,
+      ]),
+    ).rejects.toThrow("exactly one selected suite");
+  });
+  it.each([
+    ["passed", 0],
+    ["failed", 1],
+    ["error", 2],
+    ["cancelled", 130],
+  ] as const)("wait returns %s with exit code %s", async (status, code) => {
+    const args = await configured();
+    const request = vi.fn<typeof fetch>(
+      async (url) =>
+        new Response(
+          JSON.stringify({
+            run: {
+              ...evaluationSummary,
+              status,
+              suites: String(url).endsWith("/results")
+                ? [detail.run]
+                : [summary],
+            },
+          }),
+        ),
+    );
+    const command = cli(request);
+    await command.run(["runs", "wait", id, ...args, "--json"]);
+    expect(process.exitCode).toBe(code);
+    expect(JSON.parse(command.output[0] ?? "").run.status).toBe(status);
+    expect(command.output[0]).not.toContain("private");
+  });
+  it("does not cancel when waiting times out and allows a later read", async () => {
+    const args = await configured();
+    const request = vi.fn<typeof fetch>(
+      async () =>
+        new Response(
+          JSON.stringify({
+            run: { ...evaluationSummary, status: "running", suites: [summary] },
+          }),
+        ),
+    );
+    const command = cli(request);
+    const pending = command.run([
+      "runs",
+      "wait",
+      id,
+      ...args,
+      "--timeout",
+      "1",
+    ]);
+    const rejection = expect(pending).rejects.toThrow("still running");
+    await rejection;
+    expect(process.exitCode).toBe(2);
+    expect(request.mock.calls.every(([, init]) => init?.method === "GET")).toBe(
+      true,
+    );
+  });
+  it("reads old suite-run links when the parent is absent", async () => {
+    const args = await configured();
+    const request = vi.fn<typeof fetch>(async (url) =>
+      String(url).includes("/evaluations/")
+        ? new Response("missing", { status: 404 })
+        : new Response(JSON.stringify(detail)),
+    );
+    const command = cli(request);
+    await command.run(["runs", "get", id, ...args, "--json"]);
+    expect(
+      JSON.parse(command.output[0] ?? "").run.caseResults[0].steps[0]
+        .criteria[0].passed,
+    ).toBe(true);
   });
   it("never retries a start rejected by a changed suite", async () => {
     const args = await configured();
@@ -466,6 +748,76 @@ describe("Studio eval CLI", () => {
       cli(request).run(["runs", "start", "jobs", ...args]),
     ).rejects.toThrow("HTTP 409");
     expect(request).toHaveBeenCalledTimes(2);
+  });
+  it("covers invalid command selections and propagates grouped endpoint failures", async () => {
+    const args = await configured();
+    await expect(
+      cli(mockFetch([target, { ...target, id: "other" }])).run([
+        "suites",
+        "get",
+        "jobs",
+        ...args,
+      ]),
+    ).rejects.toThrow("multiple targets");
+    await expect(
+      cli(mockFetch()).run(["runs", "start", ...args]),
+    ).rejects.toThrow("Choose --all or unique suite IDs");
+    await expect(
+      cli(mockFetch()).run([
+        "runs",
+        "start",
+        "jobs",
+        "--source",
+        "unknown",
+        ...args,
+      ]),
+    ).rejects.toThrow("manual, deployment, schedule or ci");
+
+    const startFailure = mockFetch()
+      .mockImplementationOnce(
+        async () =>
+          new Response(JSON.stringify({ canRun: true, targets: [target] })),
+      )
+      .mockImplementationOnce(
+        async () => new Response(JSON.stringify({ id }), { status: 202 }),
+      )
+      .mockImplementationOnce(
+        async () => new Response("unavailable", { status: 503 }),
+      );
+    await expect(
+      cli(startFailure).run(["runs", "start", "jobs", "--wait", ...args]),
+    ).rejects.toThrow("HTTP 503");
+    expect(process.exitCode).toBe(2);
+
+    const readFailure = vi.fn<typeof fetch>(
+      async () => new Response("unavailable", { status: 503 }),
+    );
+    await expect(
+      cli(readFailure).run(["runs", "get", id, ...args]),
+    ).rejects.toThrow("HTTP 503");
+  });
+  it("falls back to legacy cancellation only when the grouped run is absent", async () => {
+    const args = await configured();
+    const request = vi.fn<typeof fetch>(async (url) =>
+      String(url).includes("/evaluations/")
+        ? new Response("missing", { status: 404 })
+        : new Response(JSON.stringify({ ok: true })),
+    );
+    const command = cli(request);
+    await command.run(["runs", "cancel", id, ...args, "--json"]);
+    expect(request).toHaveBeenCalledTimes(2);
+    expect(String(request.mock.calls[1]?.[0])).toContain(
+      `/v1/studio/evals/runs/${id}/cancel`,
+    );
+    expect(JSON.parse(command.output[0] ?? "")).toMatchObject({ id, ok: true });
+
+    const failure = vi.fn<typeof fetch>(
+      async () => new Response("unavailable", { status: 503 }),
+    );
+    await expect(
+      cli(failure).run(["runs", "cancel", id, ...args]),
+    ).rejects.toThrow("HTTP 503");
+    expect(failure).toHaveBeenCalledTimes(1);
   });
 });
 describe("eval endpoint validation", () => {
@@ -500,5 +852,32 @@ describe("eval endpoint validation", () => {
     expect(() => client.run("../runs")).toThrow("UUID");
     expect(() => client.cancel("../runs")).toThrow("UUID");
     expect(request).not.toHaveBeenCalled();
+  });
+  it("validates grouped IDs and exercises the legacy client endpoints", async () => {
+    const request = mockFetch();
+    const client = new StudioEvalClient(
+      "https://api.example.test",
+      key,
+      request,
+    );
+    expect(() =>
+      client.startEvaluation({
+        targetId: "hiring",
+        selection: "selected",
+        suites: [],
+      }),
+    ).toThrow("Invalid evaluation selection");
+    expect(() => client.evaluation("../evaluations")).toThrow(
+      "evaluation UUID",
+    );
+    await expect(client.runs()).resolves.toMatchObject({ runs: [summary] });
+    await expect(
+      client.start({
+        targetId: "hiring",
+        suiteId: "jobs",
+        suiteRevision: revision,
+      }),
+    ).resolves.toEqual({ id });
+    await expect(client.cancel(id)).resolves.toEqual({ ok: true });
   });
 });

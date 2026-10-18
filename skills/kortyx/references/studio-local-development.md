@@ -84,6 +84,17 @@ For fork/rollback testing, compare `(runId, branchId, invocationId)`, not invoca
 
 ## Troubleshooting Order
 
+OSS Studio also collects maintainer usage aggregates by default, independently of
+customer traces. To opt out, set `KORTYX_USAGE_TELEMETRY_DISABLED=1` (or `true`) on
+the CLI process and both API/Studio services. CLI-generated Compose forwards this
+control; restart containers after changing their environment. Studio's server
+passes public configuration to the browser, so no `NEXT_PUBLIC_` variable is
+needed. `KORTYX_USAGE_TELEMETRY_DEBUG=1` previews approved aggregates locally
+without requests or identity creation. See
+[observability-otel.md](observability-otel.md#placement) for the data boundary and
+destination controls; do not confuse the public PostHog capture key with secret
+Studio read/write credentials.
+
 1. Run `npx kortyx studio status`.
 2. Run `npx kortyx studio logs --no-follow`.
 3. Reprint credentials and compare the API URL/key with the server process.
@@ -98,6 +109,62 @@ printed telemetry key as a secret.
 
 ### Error diagnostics
 
+The native `createKortyxTelemetryAdapter` captures complete credential-redacted
+error diagnostics by default. OSS bootstrap grants the Studio key diagnostic,
+review, prompt and eval permissions without feature environment switches. Upgrade
+API/Studio and migrate first, then rerun bootstrap with stored keys and pepper
+before upgrading the SDK. Set `diagnostics: { enabled: false }` on the native
+adapter to disable complete capture and uploads while keeping bounded error
+events. Retention defaults to 30 days and the project budget to 256 MiB; override
+`KORTYX_DIAGNOSTIC_RETENTION_DAYS` / `KORTYX_DIAGNOSTIC_PROJECT_BYTES` explicitly
+on the API if needed. Prompt content and normal input/output capture remain opt-in.
+
 With tracing configured, thrown workflow/model errors automatically export bounded type/message/stack/cause diagnostics without additional call-site wiring. Studio's failed model request inspector shows provider diagnostics; a separate **Model reasoning** row shows JSON/schema processing failures after an otherwise normally completed model response. Failed provider requests do not add a duplicate reasoning-failure row. Interrupts and cancellation retain their control-flow treatment.
 
-Use `reportError(error, {severity?, metadata?, tags?})` for handled errors when execution deliberately continues. Error diagnostics are exported verbatim (type up to 256 characters, message up to 8192 and stack up to 32768). Prompts, outputs and raw provider responses remain controlled by explicit content capture. Both `createKortyxTelemetryAdapter` and `createOpenTelemetryTraceAdapter` optionally accept `error(error)` returning `{type, message, stack?, cause?}` or `null` to replace or suppress diagnostics before export; a throwing override suppresses them without changing execution. Tool diagnostics use the optional tool `telemetry.error` override. Client-facing `serializeFailure` and execution failure contracts remain unchanged; tracing diagnostics are for access-controlled Studio/internal logs.
+Use `reportError(error, {severity?, metadata?, tags?})` for handled errors when execution deliberately continues. Bounded event/OTel error summaries retain type up to 256 characters, message up to 8192 and stack up to 32768. The native Studio adapter additionally captures causes, custom fields and private provider failure responses in a separate redacted artifact (up to 8 MiB by default). Both `createKortyxTelemetryAdapter` and `createOpenTelemetryTraceAdapter` optionally accept `error(error)` returning a replacement projection or `null` to suppress diagnostics before export; a throwing override does not change execution. The native adapter records failed capture if its projection throws. Tool diagnostics use the optional tool `telemetry.error` override. Client-facing `serializeFailure` and execution failure contracts remain unchanged; tracing diagnostics are for access-controlled Studio/internal logs.
+
+## Exploring Studio before connecting an application
+
+Customer instructions: `https://kortyx.io/docs/studio/sample-project` covers
+sample selection, read-only boundaries, tours, current-page help and visibility.
+
+Studio's project selector includes a read-only Sample project with fictional
+execution history, prompts, and a saved evaluation. Hide or restore it under
+Settings → Sample project. Sample URLs use `/sample/` and cannot edit resources,
+launch evaluations, or resume approvals. Sample browsing requires no provider
+credentials or application connection.
+
+Sample records are not evidence of a real SDK integration. Complete the normal
+workflow catalog publication and real-request telemetry verification in this
+reference before calling an application connected.
+
+Use **Explore → Explore Studio** in the navbar or **Help & tours** in the Studio/account
+menu for independent chapters or the full walkthrough. The full tour covers
+orientation, debugging, sessions/workflows, approvals, prompt versions, and saved
+evaluation comparisons. Optional guides cover full error diagnostics, evaluations
+still grading, and personalization. These do not extend the six-chapter full tour. Next/Back navigate; Skip
+chapter, Exit, and Resume let users learn at their own pace. Progress is versioned,
+validated, and browser-local; nothing starts automatically after a reload. The
+Explore menu also provides **Explain this page** and a link to the website docs.
+Page help explains the current real or sample view in place, preserving the record,
+tab, filters, and project. Detail help focuses on the selected evidence rather than
+repeating generic tab controls. It is separate from sample chapter progress and remains
+available in empty or unavailable views. With no visible records, opening a sample
+example requires an explicit choice; showing a hidden sample is disclosed first.
+An example's page-help completion is not verification of a real integration.
+
+The sample includes a two-turn session and passing/failing saved eval results.
+Tour completion is not SDK ingestion evidence. The real `/onboarding` route
+provides setup guidance; verify a published workflow and a real request separately.
+
+## Cloud and shared Studio guidance
+
+For managed Cloud, follow `https://kortyx.io/docs/cloud/get-started`; obtain the project-scoped SDK write key and telemetry endpoint from the selected workspace's Settings. Do not apply local Docker or operator read-key instructions to Cloud. The telemetry adapter and content-capture controls remain application-server owned in both editions.
+
+Runs, sessions, metrics, workflows, prompts, and evaluation inspection use shared Studio guides at `https://kortyx.io/docs/studio/v0/overview`. Cloud browser sessions, application execution sessions, application tenant IDs, and Studio projects are separate concepts. Configure Cloud evaluation endpoints/provider connections in Settings; self-hosted operators configure their API server. Studio help circles link to relevant versioned documentation.
+
+
+Cloud account profile, email verification, passwords, passkeys, connected sign-in methods, and browser-session management are covered at `https://kortyx.io/docs/cloud/account`. Keep this personal account guidance separate from application identities and project API keys. Explain unfamiliar terms in plain language before linking to the guide.
+
+
+Documentation entry points: SDK `/docs/sdk`, shared Studio `/docs/studio`, Cloud `/docs/cloud`, self-hosting `/docs/self-hosting`, and shared CLI `/docs/cli` on `https://kortyx.io`. Use `/docs/cli/topology` for Cloud/self-hosted workflow publication and `/docs/cli/connections` for supported API access. Cloud CLI login is not implemented; Cloud ingestion keys cannot authenticate Studio read, prompt-management, or connected evaluation commands. Older Studio documentation URLs and their moved headings remain supported.

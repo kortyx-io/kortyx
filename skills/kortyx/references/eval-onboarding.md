@@ -63,7 +63,7 @@ Deployment configuration has separate owners:
 | Any app-specific eval enable flag | Consumer deployment | Enable route registration if the application gates it; no universal Kortyx flag exists |
 | Workflow models/tools | Consumer | Preserve normal application configuration |
 | `KORTYX_EVAL_TARGETS_FILE` and its read-only file mount | Studio API | Register exact endpoint URL, existing org/project IDs and allowed environment; restart API |
-| `KORTYX_STUDIO_ENABLE_EVALS=1` | Existing bootstrap job | Grant execution scope with the stored Studio key and pepper |
+| Default OSS feature permissions | Existing bootstrap job | Rerun on upgrade with stored keys and pepper; execution scope is granted without feature switches |
 | `KORTYX_STUDIO_API_KEY` | Studio server proxy | Existing project key needs `studio:read` and `eval:run` |
 | `KORTYX_EVAL_JUDGE_MODEL` / `KORTYX_EVAL_JUDGE_API_KEY` | Studio API | Configure when selecting Studio judge; restart API |
 | Judge base URL / API mode | Studio API | OpenRouter: `https://openrouter.ai/api/v1`, `chat-completions` |

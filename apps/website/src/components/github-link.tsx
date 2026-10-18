@@ -7,7 +7,7 @@ export function GithubLink({ className }: { className?: string }) {
       <a
         href="https://github.com/kortyx-io/kortyx"
         target="_blank"
-        rel="noreferrer"
+        rel="noopener noreferrer"
       >
         <span className="sr-only">Open Kortyx on GitHub</span>
         <svg

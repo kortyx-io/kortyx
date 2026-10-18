@@ -10,9 +10,10 @@ import {
   displayName,
 } from "../lib/presentation";
 import type { EvalDetail } from "../schema";
-import { EvalConversationStep } from "./eval-case-inspector";
+import { EvalConversationStep, EvalVerification } from "./eval-case-inspector";
 import { EvalCostBreakdown } from "./eval-cost";
 import { EvalDropdown } from "./eval-dropdown";
+import { EvalFailure } from "./eval-failure";
 import { EvalStatus } from "./eval-status";
 
 function Attempts({
@@ -50,22 +51,24 @@ function Attempts({
         />
       </div>
       <EvalCostBreakdown costs={row.costs} />
+      <EvalVerification verification={row.verification} />
       <div className="min-w-0">
         {row.steps.map((step) => (
           <EvalConversationStep
             key={step.index}
             step={step}
             scope={`${side}-${row.key}`}
+            environment={row.environment}
           />
         ))}
       </div>
       {row.errors.map((error, index) => (
-        <p
+        <EvalFailure
           key={`${index}:${error.code}`}
-          className="break-words text-xs text-red-700 dark:text-red-400"
-        >
-          {error.phase}: {error.message}
-        </p>
+          issue={error}
+          environment={row.environment}
+          scope={`${side}-${row.key}-issue-${index}`}
+        />
       ))}
     </div>
   );
@@ -81,7 +84,10 @@ export function EvalComparisonCaseContent({
   candidate: EvalDetail;
 }) {
   const side = (kind: "baseline" | "candidate") => (
-    <section className="min-w-0 space-y-4 py-6 first:pt-0 last:pb-0 @3xl:py-0 @3xl:px-5 @3xl:first:pl-0 @3xl:last:pr-0">
+    <section
+      data-eval-side={kind}
+      className="min-w-0 space-y-4 py-6 first:pt-0 last:pb-0 @3xl:py-0 @3xl:px-5 @3xl:first:pl-0 @3xl:last:pr-0"
+    >
       <div className="space-y-1">
         <h3 className="text-base font-semibold">
           {kind === "baseline" ? "Baseline" : "Candidate"}
@@ -101,7 +107,10 @@ export function EvalComparisonCaseContent({
   );
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <div className="shrink-0 space-y-2 border-b px-4 py-3">
+      <div
+        data-page-help="header"
+        className="shrink-0 space-y-2 border-b px-4 py-3"
+      >
         <p
           className="break-all font-mono text-xs text-muted-foreground"
           translate="no"
@@ -129,6 +138,7 @@ export function EvalComparisonCaseContent({
       </div>
       <div className="min-h-0 flex-1">
         <DetailTabs
+          family="eval-case-comparison"
           queryKey="comparisonTab"
           tabs={[
             {

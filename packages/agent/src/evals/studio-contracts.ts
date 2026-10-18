@@ -1,13 +1,21 @@
+import { PromptSnapshotSchema } from "@kortyx/prompts/browser";
 import { z } from "zod";
 import {
+  EvalIssueSchema,
   EvalJudgeIdentitySchema,
   EvalManifestSchema,
   EvalProgressSchema,
   EvalRunResultSchema,
   EvalSuiteSchema,
 } from "./contracts";
+import {
+  EvalSettingsResponseSchema,
+  EvalTerminationSchema,
+  ResolvedEvalSettingsSchema,
+} from "./settings";
 export const StudioEvalTargetsResponseSchema = z.object({
   canRun: z.boolean(),
+  settings: EvalSettingsResponseSchema.optional(),
   studioJudge: EvalJudgeIdentitySchema.nullable().optional(),
   targets: z.array(
     z.object({
@@ -37,6 +45,17 @@ export const StudioEvalTargetsResponseSchema = z.object({
   ),
 });
 export const EvalCostAmountSchema = z.object({
+  costSummary: z
+    .object({
+      amounts: z.array(
+        z.object({
+          amount: z.number().finite().nonnegative(),
+          currency: z.string().nullable(),
+        }),
+      ),
+      complete: z.boolean(),
+    })
+    .optional(),
   amount: z.number().finite().nonnegative().nullable(),
   currency: z.string().nullable(),
   status: z.enum(["complete", "partial", "unavailable"]),
@@ -52,7 +71,11 @@ export const EvalCostsSchema = z.object({
 export type EvalCosts = z.infer<typeof EvalCostsSchema>;
 export type EvalCostAmount = z.infer<typeof EvalCostAmountSchema>;
 export const StudioEvalRunSummarySchema = z.object({
+  issue: EvalIssueSchema.nullable().optional(),
+  termination: EvalTerminationSchema.nullable().optional(),
+  resolvedSettings: ResolvedEvalSettingsSchema.optional(),
   id: z.uuid(),
+  evaluationId: z.uuid().nullable().optional(),
   targetId: z.string(),
   targetName: z.string(),
   environment: z.string(),
@@ -82,6 +105,9 @@ export const StudioEvalRunSummarySchema = z.object({
     .nullable()
     .optional(),
   suiteName: z.string().nullable().optional(),
+  totalAttempts: z.number().int().nonnegative().optional(),
+  completedAttempts: z.number().int().nonnegative().optional(),
+  phase: z.string().optional(),
 });
 export const StudioEvalHistorySchema = z.object({
   runs: z.array(StudioEvalRunSummarySchema),
@@ -96,6 +122,11 @@ export const StudioEvalDetailSchema = z.object({
         judge: EvalJudgeIdentitySchema.optional(),
         repetitions: z.number().int().positive(),
         concurrency: z.number().optional(),
+        caseTimeoutMs: z.number().optional(),
+        runTimeoutMs: z.number().optional(),
+        resolvedSettings: ResolvedEvalSettingsSchema.optional(),
+        promptSnapshot: PromptSnapshotSchema.optional(),
+        promptGroupName: z.string().optional(),
       })
       .optional(),
     suite: EvalSuiteSchema,

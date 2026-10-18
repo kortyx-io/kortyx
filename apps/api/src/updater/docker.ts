@@ -46,6 +46,44 @@ export const composeArgs = (home: string, args: string[]) => [
   ...args,
 ];
 
+// Inspect immutable runtime configuration, not a momentary idle-job count.
+// A configured file always blocks: its contents can change after startup.
+export const EVALUATION_UPDATE_GUARD = `
+try {
+  const targets = JSON.parse(process.env.KORTYX_EVAL_TARGETS || '[]');
+  if ((process.env.KORTYX_API_DEPLOYMENT || 'self-hosted') !== 'self-hosted' ||
+      process.env.KORTYX_EVAL_TARGETS_FILE || !Array.isArray(targets) || targets.length)
+    process.exitCode = 1;
+  else process.stdout.write('safe-no-evals');
+} catch { process.exitCode = 1; }
+`;
+
+export async function assertUpdaterWithoutEvals(
+  home: string,
+  run: Docker,
+): Promise<void> {
+  let verified = false;
+  try {
+    verified =
+      (await run(
+        composeArgs(home, [
+          "exec",
+          "-T",
+          "api",
+          "node",
+          "-e",
+          EVALUATION_UPDATE_GUARD,
+        ]),
+      )) === "safe-no-evals";
+  } catch {
+    /* No destructive action is permitted without a verified boundary. */
+  }
+  if (!verified)
+    throw new Error(
+      "Built-in updates require an installation without configured evaluation targets. Keep services running and use controlled evaluation draining and maintenance before updating.",
+    );
+}
+
 export async function runningVersion(
   home: string,
   run: Docker = docker,

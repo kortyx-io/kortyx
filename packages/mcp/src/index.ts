@@ -4,6 +4,7 @@ import { SSEClientTransport } from "@modelcontextprotocol/sdk/client/sse.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import type { Transport } from "@modelcontextprotocol/sdk/shared/transport.js";
+import { usage } from "./usage";
 
 export type McpHttpTransportConfig = {
   type: "http";
@@ -129,13 +130,15 @@ export const createMCPClient = async (
     version: args.version ?? "0.1.0",
   });
   const transport = createTransport(args.transport);
-  await client.connect(transport);
+  await usage.measure("sdk.mcp.connect", () => client.connect(transport), {
+    transport: isTransport(args.transport) ? "custom" : args.transport.type,
+  });
 
   let closed = false;
   const close = async (): Promise<void> => {
     if (closed) return;
     closed = true;
-    await client.close();
+    await usage.measure("sdk.mcp.close", () => client.close());
   };
 
   return {
@@ -147,7 +150,9 @@ export const createMCPClient = async (
       }
 
       const include = new Set(toolArgs.include ?? []);
-      const listed = await client.listTools();
+      const listed = await usage.measure("sdk.mcp.discover", () =>
+        client.listTools(),
+      );
       const closeAfterUse = toolArgs.closeAfterUse ?? true;
 
       return listed.tools

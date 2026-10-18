@@ -4,12 +4,14 @@ import { useSortable } from "@dnd-kit/sortable";
 import { ArrowDown, ArrowUp, ArrowUpDown, MoreHorizontal } from "lucide-react";
 import { useDataTable } from "@/components/data-table/data-table-context";
 import type { DataTableColumn } from "@/components/data-table/types";
+import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { cn } from "@/lib/utils";
 
 type DataTableColumnHeaderProps<T, S extends string> = {
@@ -39,6 +41,7 @@ export function DataTableColumnHeader<T, S extends string>({
     pinned,
     isColumnDraggable,
     getPinnedColumnStyle,
+    getColumnCellMotion,
     startColumnResize,
     toggleColumnVisibility,
     resetColumnWidth,
@@ -51,32 +54,55 @@ export function DataTableColumnHeader<T, S extends string>({
   const canDrag = isColumnDraggable(key);
   const pin = pinned[key];
   const stickyStyle = getPinnedColumnStyle(key);
-  const {
-    attributes,
-    isDragging,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-  } = useSortable({ id: key, disabled: !canDrag });
+  const { attributes, isDragging, listeners, setNodeRef } = useSortable({
+    id: key,
+    disabled: !canDrag,
+  });
+  const motion = getColumnCellMotion(key);
   const SortIcon = direction === "asc" ? ArrowUp : ArrowDown;
+  const title = (
+    <button
+      type="button"
+      onClick={() => {
+        if (sortKey) onSort?.(sortKey);
+      }}
+      onKeyDown={(event) => {
+        // The surrounding drag handle has its own keyboard activation.
+        if (event.key === "Enter" || event.key === " ") event.stopPropagation();
+      }}
+      className="flex w-full min-w-0 items-center hover:text-foreground"
+    >
+      <span className="min-w-0 truncate">{label}</span>
+      {sortKey &&
+        (active === sortKey ? (
+          <SortIcon className="size-3 shrink-0" />
+        ) : (
+          <ArrowUpDown className="size-3 shrink-0 text-muted-foreground/60" />
+        ))}
+    </button>
+  );
 
   return (
     <th
       ref={setNodeRef}
       data-column={key}
+      aria-sort={
+        sortKey && active === sortKey
+          ? direction === "asc"
+            ? "ascending"
+            : "descending"
+          : undefined
+      }
+      data-column-dragging={isDragging || undefined}
       style={{
-        transform: transform
-          ? `translate3d(${transform.x}px, ${transform.y}px, 0)`
-          : undefined,
-        transition,
+        ...motion?.style,
         ...stickyStyle,
       }}
       className={cn(
-        "group relative px-3 py-3 after:pointer-events-none after:absolute after:top-2 after:right-0 after:bottom-2 after:w-px after:bg-border",
+        "group relative bg-muted px-3 py-3 after:pointer-events-none after:absolute after:top-2 after:right-0 after:bottom-2 after:w-px after:bg-border",
         isLast && "after:hidden",
         pin && "sticky z-40 bg-muted",
-        isDragging && "z-50",
+        isDragging && "z-50 shadow-lg",
         headerClassName,
       )}
       onContextMenu={(event) => {
@@ -85,47 +111,50 @@ export function DataTableColumnHeader<T, S extends string>({
         onMenuOpenChange(true);
       }}
     >
-      <div
-        {...(canDrag ? attributes : {})}
-        {...(canDrag ? listeners : {})}
-        className={cn(
-          "min-w-0 overflow-hidden",
-          canDrag && "cursor-grab touch-none active:cursor-grabbing",
-        )}
-        title={canDrag ? `Drag ${label} column to reorder` : undefined}
-      >
-        {sortKey ? (
-          <button
-            type="button"
-            onClick={() => onSort?.(sortKey)}
-            className="flex w-full min-w-0 items-center hover:text-foreground"
-          >
-            <span className="min-w-0 truncate">{label}</span>
-            {active === sortKey ? (
-              <SortIcon className="size-3 shrink-0" />
-            ) : (
-              <ArrowUpDown className="size-3 shrink-0 text-muted-foreground/60" />
-            )}
-          </button>
-        ) : (
-          <span className="block truncate">{label}</span>
-        )}
+      <div className="flex min-w-0 items-center gap-1 pr-4">
+        <div
+          {...(canDrag ? attributes : {})}
+          {...(canDrag ? listeners : {})}
+          className={cn(
+            "min-w-0 overflow-hidden",
+            canDrag && "cursor-grab touch-none active:cursor-grabbing",
+          )}
+        >
+          {column.help ? (
+            <InfoTooltip
+              label={`About ${column.help.label}`}
+              documentationUrl={column.help.documentationUrl}
+              side="bottom"
+              trigger={title}
+              triggerAction={sortKey ? "preserve" : "toggle"}
+              disabled={isDragging}
+            >
+              {column.help.description}
+            </InfoTooltip>
+          ) : sortKey ? (
+            title
+          ) : (
+            <span className="block truncate">{label}</span>
+          )}
+        </div>
       </div>
       <DropdownMenu open={menuOpen} onOpenChange={onMenuOpenChange}>
         <DropdownMenuTrigger asChild>
-          <button
+          <Button
+            variant="secondary"
+            size="icon-xs"
             type="button"
             aria-label={`${label} column menu`}
             className={cn(
-              "absolute top-1/2 right-1 z-20 -translate-y-1/2 rounded p-0.5",
-              "pointer-events-none bg-muted/90 opacity-0 shadow-sm backdrop-blur-sm",
-              "hover:bg-accent group-hover:pointer-events-auto group-hover:opacity-100",
+              "absolute top-1/2 right-1 z-20 -translate-y-1/2",
+              "pointer-events-none opacity-0",
+              "group-hover:pointer-events-auto group-hover:opacity-100",
               "focus:pointer-events-auto focus:opacity-100",
               menuOpen && "pointer-events-auto opacity-100",
             )}
           >
-            <MoreHorizontal className="size-3.5" />
-          </button>
+            <MoreHorizontal />
+          </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent
           align="end"

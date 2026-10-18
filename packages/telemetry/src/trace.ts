@@ -1,5 +1,6 @@
 import { AsyncLocalStorage } from "node:async_hooks";
 import { isSuspensionControlFlowError } from "@kortyx/core/errors";
+import { getEvalAttemptId } from "@kortyx/core/eval-attribution";
 import type {
   KortyxTelemetryConfig,
   KortyxTelemetryEvent,
@@ -43,6 +44,7 @@ export const createTraceAdapter = (args: {
   const createSpan = (
     startArgs: ReasonTraceSpanStartArgs,
   ): { span: ReasonTraceSpan; active?: ActiveSpan | undefined } => {
+    const evalAttemptId = getEvalAttemptId();
     const parent = activeSpans.getStore();
     const span: SpanContext = {
       traceId: parent?.traceId ?? args.createId(),
@@ -96,7 +98,7 @@ export const createTraceAdapter = (args: {
         ...currentAttributes,
         ...(endArgs?.attributes ?? {}),
       };
-      const telemetry = endArgs?.telemetry ?? startArgs.telemetry;
+      const telemetry = { ...startArgs.telemetry, ...endArgs?.telemetry };
       const durationMs = Date.now() - startedAt;
       if (isTool) {
         const payload = ToolObservationSchema.parse(endAttributes);
@@ -166,6 +168,19 @@ export const createTraceAdapter = (args: {
           span,
           ...(parent ? { parentSpanId: parent.spanId } : {}),
           payload: {
+            ...args.eventMapper.telemetryPayload(telemetry),
+            captured:
+              args.eventMapper.shouldCapture(
+                startArgs.telemetry?.captureContent ?? args.captureContent,
+                "input",
+              ) ||
+              args.eventMapper.shouldCapture(
+                endArgs?.telemetry?.captureContent ??
+                  startArgs.telemetry?.captureContent ??
+                  args.captureContent,
+                "output",
+              ),
+            ...(evalAttemptId ? { evalAttemptId } : {}),
             outcome: failed ? "failed" : "completed",
             provider:
               args.eventMapper.stringValue(attributes.providerId) ?? "unknown",
@@ -287,6 +302,12 @@ export const createTraceAdapter = (args: {
           return;
         }
         failed = true;
+        const errorPayload = args.eventMapper.asErrorPayload(error, {
+          correlation: { ...correlation, ...span },
+          handled: false,
+          severity: "error",
+          mechanism: "span",
+        });
         if (correlation) {
           args.enqueue(
             args.eventMapper.createEvent({
@@ -296,7 +317,7 @@ export const createTraceAdapter = (args: {
               ...(parent ? { parentSpanId: parent.spanId } : {}),
               payload: {
                 name: startArgs.name,
-                error: args.eventMapper.asErrorPayload(error),
+                error: errorPayload,
                 handled: false,
                 severity: "error",
                 durationMs: Date.now() - startedAt,
@@ -345,7 +366,23 @@ export const createTraceAdapter = (args: {
     reportError: (error, options = {}) => {
       try {
         const active = activeSpans.getStore();
-        if (!active) return;
+        const payload = args.eventMapper.asErrorPayload(error, {
+          correlation: {
+            ...active?.correlation,
+            ...(active
+              ? { traceId: active.traceId, spanId: active.spanId }
+              : {}),
+            ...options.correlation,
+          },
+          handled: true,
+          severity: options.severity === "warning" ? "warning" : "error",
+          mechanism: options.mechanism ?? "report",
+          project: options.error,
+        });
+        if (!active)
+          return typeof payload.diagnosticId === "string"
+            ? payload.diagnosticId
+            : undefined;
         args.enqueue(
           args.eventMapper.createEvent({
             type: "error.reported",
@@ -354,7 +391,7 @@ export const createTraceAdapter = (args: {
             payload: {
               handled: true,
               severity: options.severity === "warning" ? "warning" : "error",
-              error: args.eventMapper.asErrorPayload(error),
+              error: payload,
             },
             context: args.eventMapper.spanContext(
               {
@@ -365,8 +402,12 @@ export const createTraceAdapter = (args: {
             ),
           }),
         );
+        return typeof payload.diagnosticId === "string"
+          ? payload.diagnosticId
+          : undefined;
       } catch {
         // Error reporting is an observer and cannot change execution.
+        return undefined;
       }
     },
   };

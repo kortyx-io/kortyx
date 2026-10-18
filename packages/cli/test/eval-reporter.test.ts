@@ -224,3 +224,77 @@ it("uses a cancelled suite verdict and yellow cancellation counts instead of a s
   expect(strip(h.output())).toContain("2 cancelled");
   expect(strip(h.output())).not.toContain("SUITE PASSED");
 });
+
+it.each([
+  true,
+  false,
+])("keeps an attempt running when billing sessions are associated (color: %s)", (color) => {
+  const h = harness(color);
+  h.reporter.progress(runStart);
+  h.reporter.progress(start("products"));
+  const before = h.output();
+  h.reporter.progress({
+    type: "case-runtime-associated",
+    caseId: "products",
+    repetition: 1,
+    attemptId: "attempt",
+    execution: { sessionId: "fresh-session", runId: "runtime-run" },
+  });
+  expect(h.output()).toBe(before);
+  if (color) {
+    h.reporter.resume();
+    expect(strip(h.output())).toContain("1 running · 3 queued");
+    expect(strip(h.output())).toContain("0/4 · 0%");
+  }
+  h.reporter.close();
+});
+
+it("prints postcondition evidence and declared-safe failures with native diagnostic references", async () => {
+  const { DomainError } = await import("@kortyx/core/errors");
+  const id = "cc7d61ba-aeda-4f93-9002-ef86919f4e8a";
+  const h = harness(false);
+  const result = await createEvals({
+    agent: { streamChat: vi.fn(), reportError: () => id },
+    suites: [suite],
+    execute: ({ case: item }) => {
+      if (item.id === "products")
+        throw new DomainError("REVIEW_CARD_COUNT", "Expected one pending card");
+      return {
+        observation: { type: "answer", text: "Complete", structured: [] },
+      };
+    },
+    verify: () => ({
+      passed: false,
+      reason: "Approved save is absent",
+      evidence: ["Zero approved saves"],
+    }),
+  }).run({ suiteId: suite.id });
+  h.reporter.finish(result);
+  expect(h.output()).toContain("[REVIEW_CARD_COUNT] Expected one pending card");
+  expect(h.output()).toContain(`diagnostic ${id}`);
+  expect(h.output()).toContain("verification: Approved save is absent");
+  expect(h.output()).toContain("Evidence: Zero approved saves");
+  h.reporter.close();
+});
+
+it.each([
+  true,
+  false,
+])("renders dispatch states without treating them as completed attempts (color=%s)", (color) => {
+  const h = harness(color);
+  h.reporter.progress(runStart);
+  h.reporter.progress(start("products"));
+  for (const status of ["queued", "retrying", "reconnecting"] as const) {
+    h.reporter.progress({
+      type: "case-dispatch",
+      caseId: "products",
+      repetition: 1,
+      status,
+    });
+    expect(strip(h.output())).toContain(
+      `Show products [products] #1 ${status.toUpperCase()}`,
+    );
+  }
+  if (color) expect(strip(h.output())).toContain("0/4 · 0%");
+  h.reporter.close();
+});

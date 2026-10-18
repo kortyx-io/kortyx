@@ -1,9 +1,11 @@
+import type { SerializedFailureDescriptor } from "@kortyx/core/errors";
 import type { ProviderModelRef } from "@kortyx/providers";
 import type { z } from "zod";
 import type { Agent } from "../chat/create-agent";
 import type { ResumeResponse } from "../execution/types";
 import type { ChatMessage } from "../types/chat-message";
 import type { EvalJudgeUsageSchema } from "./contracts";
+import type { EVAL_EVIDENCE_EVENT_TYPES } from "./evidence-policy";
 
 export type EvalJson =
   | null
@@ -38,10 +40,41 @@ export type EvalCase<Params = EvalJson> = {
   workflowId?: string;
   steps: readonly EvalStep[];
 };
+/** Serializable selection; custom predicates are registered on createEvals. */
+export type EvalEvidencePolicy = {
+  history?: boolean;
+  events?: false | readonly EvalEvidenceEventType[] | EvalHandlerRef;
+  outputs?: false | readonly EvalOutputSelector[] | EvalHandlerRef;
+};
+export type EvalEvidenceEventType = (typeof EVAL_EVIDENCE_EVENT_TYPES)[number];
+/** Sanitized public event. structured-data events have kind=final. */
+export type EvalEvidenceEvent = {
+  readonly type: EvalEvidenceEventType;
+  readonly [key: string]: EvalJson;
+};
+/** Match every supplied field; dataType or schemaId is required at runtime. */
+export type EvalOutputSelector = {
+  readonly dataType?: string;
+  readonly schemaId?: string;
+  readonly schemaVersion?: string;
+};
+export type EvalEvidenceFilters = {
+  events?: Record<
+    string,
+    (event: EvalEvidenceEvent, params?: EvalJson) => boolean
+  >;
+  outputs?: Record<string, (output: EvalJson, params?: EvalJson) => boolean>;
+};
+export type EvalJudgeEvidence = {
+  version: "compact-v1";
+  history: boolean;
+  observation: EvalObservation;
+};
 export type EvalSuite<Params = EvalJson> = {
   id: string;
   name?: string;
   cases: readonly EvalCase<Params>[];
+  evidence?: EvalEvidencePolicy;
 };
 export type EvalInterrupt = {
   requestId: string;
@@ -54,6 +87,10 @@ export type EvalInterrupt = {
 };
 /** Public output and emitted execution evidence; private runtime state is excluded. */
 export type EvalObservation = {
+  /** Safe terminal failure; raw exception evidence belongs in the private diagnostic. */
+  failure?: SerializedFailureDescriptor;
+  diagnosticId?: string;
+  promptUsage?: import("@kortyx/prompts").PromptUsageReceipt[];
   type: "answer" | "interrupt" | "error" | "cancelled";
   text: string;
   structured: readonly EvalJson[];
@@ -87,9 +124,19 @@ export type EvalPhase =
   | "responder"
   | "reference"
   | "grading"
+  | "verification"
   | "cleanup"
   | "reporting";
-export type EvalIssue = { phase: EvalPhase; code: string; message: string };
+export type EvalIssue = {
+  /** Original exception, including stack, causes and response details; only credentials are redacted. */
+  exception?: import("@kortyx/telemetry-contracts").DiagnosticContent;
+  phase: EvalPhase;
+  code: string;
+  message: string;
+  failure?: SerializedFailureDescriptor;
+  diagnosticId?: string;
+  details?: { timeoutMs?: number; httpStatus?: number };
+};
 export type EvalVerdict = {
   passed: boolean;
   reason: string;
@@ -98,6 +145,8 @@ export type EvalVerdict = {
 export type EvalCriterionResult = EvalVerdict & { id: string; text: string };
 export type EvalJudgeUsage = z.infer<typeof EvalJudgeUsageSchema>;
 export type EvalStepResult = {
+  /** Exact compact observation selected by the app; full observation remains unchanged. */
+  evidence?: EvalJudgeEvidence;
   judgeCalls?: number;
   judgeUsage?: EvalJudgeUsage[];
   index: number;
@@ -109,7 +158,13 @@ export type EvalStepResult = {
   reason?: string;
   criteria: EvalCriterionResult[];
 };
+export type EvalRuntimeExecution = { sessionId: string; runId: string };
 export type EvalCaseResult = {
+  verification?: EvalVerdict;
+  phaseDurationsMs?: Partial<Record<EvalPhase, number>>;
+  /** SDK-owned identity and execution associations for automatic cost attribution. */
+  attemptId?: string;
+  runtimeExecutions?: EvalRuntimeExecution[];
   caseId: string;
   repetition: number;
   sessionId: string;
@@ -190,16 +245,22 @@ export type EvalResponder<Params, Prepared> =
       ) => ResumeResponse | Promise<ResumeResponse>;
     };
 export type EvalDefaults = {
+  evidence?: EvalEvidencePolicy;
   repetitions?: number;
   concurrency?: number;
   caseTimeoutMs?: number;
+  /** Params/setup admission allowance, independent of the execution deadline. */
+  setupTimeoutMs?: number;
+  verificationTimeoutMs?: number;
   cleanupTimeoutMs?: number;
 };
 export type CreateEvalsOptions<
   Params = EvalJson | undefined,
   Prepared = undefined,
 > = {
-  agent: Pick<Agent, "streamChat">;
+  agent: Pick<Agent, "streamChat" | "describePromptContracts" | "reportError">;
+  /** Optional reporter for custom agents; defaults to the real agent's telemetry. */
+  reportError?: Agent["reportError"];
   suites: readonly EvalSuite[];
   paramsSchema?: z.ZodType<Params>;
   setup?: (input: EvalSetupContext<Params>) => Prepared | Promise<Prepared>;
@@ -217,6 +278,10 @@ export type CreateEvalsOptions<
   teardown?: (
     input: EvalContext<Params, NoInfer<Prepared>> & { result: EvalCaseResult },
   ) => void | Promise<void>;
+  /** Assert postconditions before teardown. False is Failed; thrown infrastructure faults are Error. */
+  verify?: (
+    input: EvalContext<Params, NoInfer<Prepared>> & { result: EvalCaseResult },
+  ) => EvalVerdict | Promise<EvalVerdict>;
   responders?: Record<string, EvalResponder<Params, NoInfer<Prepared>>>;
   references?: Record<
     string,
@@ -228,9 +293,22 @@ export type CreateEvalsOptions<
     ) => EvalJson | Promise<EvalJson>
   >;
   judge?: EvalJudge;
+  evidenceFilters?: EvalEvidenceFilters;
   defaults?: EvalDefaults;
+  /** Application-enforced ceilings for local and remote runs. */
+  limits?: { concurrency?: number; caseTimeoutMs?: number };
 };
 export type EvalProgress =
+  | {
+      type: "case-dispatch";
+      caseId: string;
+      repetition: number;
+      status: "queued" | "retrying" | "reconnecting";
+      retryAt?: string;
+      httpStatus?: number;
+      executionId?: string;
+      generation?: string;
+    }
   | {
       type: "run-started";
       caseIds: string[];
@@ -245,7 +323,15 @@ export type EvalProgress =
       stepIndex?: number;
     }
   | {
+      type: "case-runtime-associated";
+      caseId: string;
+      repetition: number;
+      attemptId: string;
+      execution: EvalRuntimeExecution;
+    }
+  | {
       type: "case-started";
+      attemptId?: string;
       caseId: string;
       repetition: number;
       sessionId: string;
@@ -258,11 +344,15 @@ export type EvalProgress =
     }
   | { type: "case-completed"; result: EvalCaseResult };
 export type EvalRunOptions = {
+  caseTimeoutMs?: number;
+  promptSnapshot?: import("@kortyx/prompts").PromptSnapshot;
   /** Studio captures execution without invoking the code judge. Local runs default to app. */
   grading?: "app" | "studio";
   /** Selected identity pinned by the Studio server when enqueuing a run. */
   judgeIdentity?: EvalJudgeIdentity;
   suiteId: string;
+  /** Execute one scheduled attempt, preserving its original repetition identity. */
+  attempt?: { caseId: string; repetition: number };
   caseIds?: readonly string[];
   repetitions?: number;
   concurrency?: number;

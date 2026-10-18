@@ -1,5 +1,85 @@
 # Changelog
 
+## [0.18.0](https://github.com/kortyx-io/kortyx/compare/telemetry-contracts-v0.17.2...telemetry-contracts-v0.18.0) (2026-10-16)
+
+
+### Features
+
+* **evals:** configurable deadlines and original error visibility ([#354](https://github.com/kortyx-io/kortyx/issues/354)) ([7dde173](https://github.com/kortyx-io/kortyx/commit/7dde173b54eb37a2d28ff28ac342a3333e5ed902))
+* **studio:** standardize tables, filters and column behavior ([#353](https://github.com/kortyx-io/kortyx/issues/353)) ([c662e59](https://github.com/kortyx-io/kortyx/commit/c662e59d814a6a9f12c709595968ee7b1ece3191))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/prompts bumped to 0.2.2
+    * @kortyx/core bumped to 0.15.0
+
+## [0.17.2](https://github.com/kortyx-io/kortyx/compare/telemetry-contracts-v0.17.1...telemetry-contracts-v0.17.2) (2026-10-13)
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/prompts bumped to 0.2.1
+
+## [0.17.1](https://github.com/kortyx-io/kortyx/compare/telemetry-contracts-v0.17.0...telemetry-contracts-v0.17.1) (2026-10-13)
+
+
+### Bug Fixes
+
+* **studio:** show available model cost subtotals everywhere ([#335](https://github.com/kortyx-io/kortyx/issues/335)) ([d19cf5d](https://github.com/kortyx-io/kortyx/commit/d19cf5d7716a7649c738373ba2cea1ef64d532e0))
+
+## [0.17.0](https://github.com/kortyx-io/kortyx/compare/telemetry-contracts-v0.16.0...telemetry-contracts-v0.17.0) (2026-10-11)
+
+
+### Features
+
+* add shared SDK and Studio usage telemetry ([#313](https://github.com/kortyx-io/kortyx/issues/313)) ([7d5f0c0](https://github.com/kortyx-io/kortyx/commit/7d5f0c005bd7721dc6a529554e75c14573d76a0f))
+
+
+### Bug Fixes
+
+* **website:** reconcile credibility branch with current main ([60199f9](https://github.com/kortyx-io/kortyx/commit/60199f992242eb7c409a95bc7a6898d31bac601d))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/prompts bumped to 0.2.0
+
+## [0.16.0](https://github.com/kortyx-io/kortyx/compare/telemetry-contracts-v0.15.0...telemetry-contracts-v0.16.0) (2026-10-10)
+
+
+### Features
+
+* version, evaluate, serve and migrate Studio prompts ([#288](https://github.com/kortyx-io/kortyx/issues/288)) ([0802f8b](https://github.com/kortyx-io/kortyx/commit/0802f8b91c4a541d176dd8a75c659063e2c28c8c))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/prompts bumped to 0.1.0
+
+## [0.15.0](https://github.com/kortyx-io/kortyx/compare/telemetry-contracts-v0.14.0...telemetry-contracts-v0.15.0) (2026-10-08)
+
+
+### Features
+
+* **telemetry:** preserve complete private error diagnostics ([#290](https://github.com/kortyx-io/kortyx/issues/290)) ([e1c5a88](https://github.com/kortyx-io/kortyx/commit/e1c5a88c494016fd84a1af40579412fcfde31271))
+
+## [0.14.0](https://github.com/kortyx-io/kortyx/compare/telemetry-contracts-v0.13.0...telemetry-contracts-v0.14.0) (2026-10-07)
+
+
+### Features
+
+* **api:** add typed security and tenant database extensions ([#260](https://github.com/kortyx-io/kortyx/issues/260)) ([47e4928](https://github.com/kortyx-io/kortyx/commit/47e49286f12e4470b3a327e609a65c99678b359f))
+* **studio:** unify extensible workspace shell and scoped settings ([#280](https://github.com/kortyx-io/kortyx/issues/280)) ([cf51257](https://github.com/kortyx-io/kortyx/commit/cf5125765317f67aa27e1dd2f8130315e9632390))
+
 ## [0.13.0](https://github.com/kortyx-io/kortyx/compare/telemetry-contracts-v0.12.0...telemetry-contracts-v0.13.0) (2026-10-03)
 
 

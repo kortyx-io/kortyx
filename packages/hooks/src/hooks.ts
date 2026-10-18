@@ -1,4 +1,5 @@
 import type { InterruptInput, InterruptResult } from "@kortyx/core";
+import type { CompiledPrompt } from "@kortyx/prompts";
 import { getHookContext } from "./context";
 import { awaitInterruptInternal } from "./interrupt";
 import { defineInterruptContract } from "./interrupt-contract";
@@ -119,7 +120,17 @@ export function useReason<
   TEmit extends OutputContractMap = OutputContractMap,
   TReturn extends OutputContractMap = OutputContractMap,
 >(
-  args: UseReasonArgs<TOutput, TRequest, TResponse, TContracts, TEmit, TReturn>,
+  args:
+    | UseReasonArgs<TOutput, TRequest, TResponse, TContracts, TEmit, TReturn>
+    | (Omit<
+        UseReasonArgs<TOutput, TRequest, TResponse, TContracts, TEmit, TReturn>,
+        "input" | "system" | "messages"
+      > & {
+        prompt: CompiledPrompt;
+        input?: never;
+        system?: never;
+        messages?: never;
+      }),
 ): Promise<UseReasonResult<TOutput, TResponse, TContracts, TEmit, TReturn>> {
   return useReasonInternal(args);
 }

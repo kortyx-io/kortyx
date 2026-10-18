@@ -2,6 +2,9 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { proxyEvalRequest } from "./proxy";
 
 vi.mock("server-only", () => ({}));
+vi.mock("next/headers", () => ({
+  cookies: async () => ({ get: () => undefined }),
+}));
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -43,19 +46,25 @@ it("requires Studio browser authentication when basic auth is enabled", async ()
   expect((await proxyEvalRequest(request(), ["runs"])).status).toBe(401);
   expect(fetch).not.toHaveBeenCalled();
 });
-it("keeps server credentials in the forwarded request and does not return API error bodies", async () => {
-  const fetch = vi
-    .fn()
-    .mockResolvedValue(
-      Response.json({ error: "PRIVATE CONSUMER TOKEN" }, { status: 409 }),
-    );
+it("keeps server credentials in the forwarded request and preserves the actual API error and redacts credentials", async () => {
+  const fetch = vi.fn().mockResolvedValue(
+    Response.json(
+      {
+        error:
+          "Suite revision changed. Authorization: Bearer private-consumer-token",
+      },
+      { status: 409 },
+    ),
+  );
   vi.stubGlobal("fetch", fetch);
   const response = await proxyEvalRequest(request(), ["runs"]);
   expect(fetch.mock.calls[0]?.[0]).toBe("http://api:6400/v1/studio/evals/runs");
   expect(fetch.mock.calls[0]?.[1]?.headers.authorization).toBe(
     "Bearer private-studio-key",
   );
-  expect(await response.text()).not.toContain("PRIVATE CONSUMER TOKEN");
+  const body = await response.json();
+  expect(body.error).toContain("Suite revision changed.");
+  expect(body.error).not.toContain("private-consumer-token");
   expect(response.status).toBe(409);
 });
 it("allows only the fixed eval paths", async () => {
@@ -63,4 +72,30 @@ it("allows only the fixed eval paths", async () => {
   vi.stubGlobal("fetch", fetch);
   expect((await proxyEvalRequest(request(), ["..", "admin"])).status).toBe(404);
   expect(fetch).not.toHaveBeenCalled();
+});
+
+it("forwards grouped run launch, results and cancellation through the same authenticated proxy", async () => {
+  const fetch = vi
+    .fn()
+    .mockImplementation(async () => Response.json({ ok: true }));
+  vi.stubGlobal("fetch", fetch);
+  const id = "11111111-1111-4111-8111-111111111111";
+  for (const parts of [
+    ["evaluations"],
+    ["evaluations", id, "cancel"],
+    ["evaluations", id, "results"],
+  ]) {
+    const req =
+      parts.at(-1) === "results"
+        ? new Request("http://localhost:7340/api/studio/evals/evaluations")
+        : request();
+    expect((await proxyEvalRequest(req, parts)).status).toBe(200);
+    expect(fetch.mock.calls.at(-1)?.[0]).toBe(
+      `http://api:6400/v1/studio/evals/${parts.join("/")}`,
+    );
+  }
+  expect(
+    (await proxyEvalRequest(request("https://other.example"), ["evaluations"]))
+      .status,
+  ).toBe(403);
 });

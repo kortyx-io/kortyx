@@ -162,6 +162,12 @@ export const telemetryAttributes = (
     if (prompt.type) attributes["gen_ai.prompt.type"] = prompt.type;
     if (prompt.type) attributes["kortyx.prompt.type"] = prompt.type;
     if (prompt.source) attributes["kortyx.prompt.source"] = prompt.source;
+    if (prompt.metadata && typeof prompt.metadata === "object") {
+      const metadata = prompt.metadata as Record<string, unknown>;
+      for (const key of ["hash", "environment", "snapshotRevision"])
+        if (typeof metadata[key] === "string")
+          attributes[`kortyx.prompt.${key}`] = metadata[key];
+    }
     try {
       Object.assign(attributes, options.mapPromptMetadata?.(prompt) ?? {});
     } catch {}

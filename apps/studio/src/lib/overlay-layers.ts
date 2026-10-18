@@ -17,6 +17,7 @@ export const OVERLAY_LAYERS = {
   dropdown: 1_000,
   popover: 1_000,
   tooltip: 1_100,
+  tour: 1_200,
 } as const;
 
 export function detailDrawerZIndex(index: number) {

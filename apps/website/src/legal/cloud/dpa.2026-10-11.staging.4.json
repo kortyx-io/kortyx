@@ -1,0 +1,37 @@
+{
+  "slug": "dpa",
+  "version": "2026-10-11.staging.4",
+  "effectiveDate": "2026-10-11T00:00:00.000Z",
+  "draft": true,
+  "title": "Data Processing Agreement",
+  "sections": [
+    {
+      "title": "Draft status and scope",
+      "text": "This is a review draft for Kortyx Cloud, not an executed or production-approved data-processing agreement. Operator: Kortyx S.L. (name supplied; registration not verified). Do not submit real customer personal data until the parties, instructions, processing schedule and contractual terms are finalized. This draft does not govern independently operated OSS SDK or self-hosted Studio deployments."
+    },
+    {
+      "title": "Parties, roles and processing schedule",
+      "text": "For approved customer application personal data, the customer’s controller/processor role and Kortyx’s processor/subprocessor role must be specified in the signed agreement. Subject matter, duration, nature and purposes, categories of data subjects and personal data, and the customer’s documented instructions must be completed for the actual service. Account administration for Kortyx’s own purposes is addressed separately in the Cloud Privacy Notice."
+    },
+    {
+      "title": "Instructions and confidentiality",
+      "text": "The final agreement must bind processing to documented lawful instructions, including transfers, and address personnel confidentiality, authorized access, and requests that exceed or conflict with those instructions. No completed instruction schedule is established by viewing this page."
+    },
+    {
+      "title": "Security and assistance",
+      "text": "The final agreement must specify technical and organizational measures supported by operational evidence and assistance with data-subject rights, security incidents, breach obligations and impact assessments. Measures, responsibilities, notification procedures and timings remain to be agreed. This draft does not claim certifications or unverified security commitments."
+    },
+    {
+      "title": "Subprocessors and international transfers",
+      "text": "The final agreement must establish authorization for subprocessors, a verified schedule, notice of changes and an objection process, and applicable flow-down obligations. Locations and any required international-transfer mechanisms and assessments must be verified. The draft schedule is at https://kortyx.io/cloud/subprocessors. Customer-selected providers must be classified by their actual role."
+    },
+    {
+      "title": "Return, deletion, information and audits",
+      "text": "The final agreement must specify return/deletion on termination, legally required retention, backup handling, information demonstrating compliance, and audit/inspection rights with practical procedures. Data retention, deletion verification and assistance commitments must match the approved service and evidence."
+    },
+    {
+      "title": "Completion and execution",
+      "text": "Business/contact address, applicable registration/tax details, a private legal/privacy channel, processing and security annexes, retention schedule, transfer safeguards and legal review remain outstanding. Terms acceptance alone does not execute this DPA. Publication and execution of a final DPA require a separate authorized process."
+    }
+  ]
+}

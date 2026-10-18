@@ -1,7 +1,7 @@
 ---
 id: v0-stream-chat
 title: "streamChat"
-description: "Use agent.streamChat for flexible route handling, then return SSE or buffered JSON."
+description: "Use agent.streamChat to execute Kortyx workflows with request context, resume support, streamed SSE responses, or buffered JSON from your API route."
 keywords: [kortyx, streamChat, sse, workflow-selection, resume]
 sidebar_label: "streamChat"
 ---

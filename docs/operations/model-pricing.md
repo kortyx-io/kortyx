@@ -20,6 +20,16 @@ Default rates cover global, standard, public text inference. Explicit alternativ
 
 Pricing precedence is provider/custom actual cost, supplied line items, complete supplied unit prices, then an applicable project/default card. Every positive usage item must have a matching unit price, including its label; missing prices make the generation unpriced. Runs/sessions with any missing generation costs, or mixed currencies, have null totals and an `unpriced` status instead of presenting a partial total as complete. Generation details retain available costs.
 
+Studio displays every available subtotal rather than replacing it with Unknown. Incomplete costs appear as `$X+`; the hover/focus explanation states that some usage, pricing, telemetry, or execution is missing and the actual amount may be higher. With no priced evidence, `$0.00+` is an empty known subtotal, not a claim that the run was free. Confirmed zero usage shows `$0.00` without `+`. This applies to run/session lists and details, session run cards, workflow/node costs, and eval costs. Workflow/node averages divide known costs by all runs in the selection and retain the incomplete marker. Different currencies are displayed separately without conversion.
+
+The additive `costSummary` field preserves known amounts by currency and a completeness flag for runs and sessions; metrics use `averageCostSummary`. The legacy `cost`/`averageCost` fields remain null for incomplete or mixed-currency totals so older consumers cannot mistake a subtotal for a full total. Deploy the API and updated Studio together to see subtotals. Older stored projection rows remain readable; backfill them to recover their subtotals from immutable events.
+
+Run/session cost sorting and filters use the known subtotal when it has one currency. Multiple currencies remain incomparable; no exchange rate is invented. Eval costs also carry an optional `costSummary` so separate currency subtotals survive grouping cases and judge/workflow charges.
+
+A run with matching root start and terminal span records and no model activity contributes zero model cost. Its cost is `0`, its pricing status is `priced`, and its currency and pricing source are null because no pricing was needed. These zeros preserve the currency and pricing source of other priced runs in the session. A session containing only these runs also has zero model cost. Missing root lifecycle records, model spans without generation records, and generations without usage or pricing remain unknown or unpriced; an empty generation list by itself is insufficient evidence of zero usage.
+
+After deploying an aggregation fix, rebuild affected projects with the scoped `pnpm db:backfill-studio` command below so existing materialized run, session, and workflow totals reflect the new behavior. New ingestion refreshes affected sessions automatically. No schema migration or SDK upgrade is required for this correction.
+
 ## Update workflow
 
 1. Verify public model availability, aliases/snapshots, prices, caching, context thresholds, and billing modifiers against official provider documentation. Update the relevant `providers/<provider>/src/models.ts` list. Removed suggestions do not block explicit string IDs.

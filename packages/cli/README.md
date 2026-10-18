@@ -324,7 +324,8 @@ Interactive terminals show an animated suite progress bar, one live row per acti
 attempt, elapsed time, and the actual setup, workflow, interrupt-response, judging
 and cleanup phases. Every completed step and case gets its own result, followed
 by a colored suite verdict and counts. Long calls keep animating; concurrent
-attempts remain distinct. The bar measures completed attempts, not estimated model
+attempts remain distinct. Dispatch updates show Queued, Retrying and Reconnecting
+without counting them as completed attempts. The bar measures completed attempts, not estimated model
 completion. Application logs/warnings are preserved above the live display.
 Piped output is plain text with per-case start and step results; `--no-color` or
 `NO_COLOR` disables color/live progress. Explicit `--color` forces the interactive
@@ -354,7 +355,7 @@ Eval commands reuse project connections and the Studio API. Discovery and reads
 need `studio:read`; start/cancel also require `eval:run`. The application's eval
 service key remains on the API server. Starting discovers the current revision,
 enqueues once and returns the run ID immediately, without waiting for a grade.
-Use `--case` repeatedly, `--repetitions` (1–20), `--concurrency` (1–4), and
+Use `--case` repeatedly, `--repetitions` (1–20), `--concurrency` (1–20), and
 `--environment` to select execution; total attempts are capped at 100.
 
 Default detail exposes statuses, counts and criterion verdicts. Full definitions,
@@ -480,3 +481,69 @@ authenticate a test actor. Failures include actionable remedies. Use `--judge ap
 for a code judge or `--json` for a versioned report; failures exit 1. A successful
 check still needs a representative run to verify tool/provider access and saved
 results. See the [first eval guide](https://kortyx.io/docs/studio/first-eval).
+
+## Manage and migrate prompts
+
+Studio prompts preserve system/user or ordered chat messages, typed template
+inputs, and saved configuration. Read a version to a file, edit it, validate it,
+and save a new immutable version with an explicit reviewed hash:
+
+```bash
+npx kortyx studio prompts get canvas/classify-intent --connection staging --file prompt.json
+npx kortyx studio prompts validate prompt.json --json
+npx kortyx studio prompts update canvas/classify-intent --connection staging \
+  --file prompt.json --base-version 1 --expected-hash <validated-hash> \
+  --note "Clarify intent labels"
+npx kortyx studio prompts test canvas/classify-intent --connection staging \
+  --version 2 --target my-app --suite intent-regression
+```
+
+Use `list` and `versions` with `--cursor` to continue through large libraries.
+`diff`, `promote`, `rollback`, `tag`, `untag`, `archive`, `restore`, and `action` support reviewed
+prompt lifecycle changes. Run `kortyx studio prompts --help` for all commands.
+
+Migration works between independent OSS deployments and cloud project
+connections. Each named connection uses its own API-key environment variable.
+The default copy operation only produces a reviewable plan:
+
+```bash
+npx kortyx studio prompts copy canvas/classify-intent \
+  --from staging --to production --plan-file transfer-plan.json
+npx kortyx studio prompts apply transfer-plan.json --connection production
+```
+
+Apply verifies every resulting immutable hash by reading it back from the
+destination. Reapplying the same plan is safe. Conflicts require explicit
+`--append` or `--rename old/key=new/key`; changed destination heads require a
+new plan. Migration preserves exact dependencies and source provenance, and
+leaves live and optional tags unchanged. Evaluate and promote in the destination
+before serving migrated content. Credentials, traces, reviews, and evaluation
+results are never included in bundles.
+
+Promotion and rollback update the reserved `live` tag. Optional tags are manual
+version aliases, independent of promotion and deployment environments:
+
+```bash
+npx kortyx studio prompts promote canvas/classify-intent --connection staging --version 2 --expected-revision 0
+npx kortyx studio prompts tag canvas/classify-intent development --connection staging --version 3 --expected-revision 0
+npx kortyx studio prompts untag canvas/classify-intent development --connection staging --expected-revision 1
+```
+
+Read current tag revisions with `get`; use 0 only for a new tag. Saving a candidate
+does not move live. The SDK defaults to live and supports `studioPromptSource({
+..., tag: "development" })` to request a manual tag.
+
+## Maintainer usage statistics
+
+The CLI sends bounded usage aggregates to Kortyx's EU PostHog project by default.
+`cli.command` counts command invocations using declared command/action names,
+parse/execution phase and boolean JSON/dry-run flags. Command arguments, IDs,
+paths, URLs, keys, payloads and raw error text are excluded. A nonzero exit is a
+command failure (130 is cancellation); eval quality verdicts are measured by the
+eval boundary separately. Studio setup stages remain separate from invocations.
+
+Set `KORTYX_USAGE_TELEMETRY_DISABLED=1` before running `kortyx` to opt out, or
+`KORTYX_USAGE_TELEMETRY_DEBUG=1` to inspect approved aggregates without sending.
+Completion waits at most two seconds for usage delivery and preserves command
+results/errors. See the [shared helper reference](../usage-telemetry/README.md)
+for identity, loss, cohort labels and destination controls.

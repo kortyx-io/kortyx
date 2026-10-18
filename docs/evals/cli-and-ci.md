@@ -132,7 +132,7 @@ flags with `--connection` or `KORTYX_CONNECTION`.
 The connection environment filters discovery and history by default. Override it
 with `--environment`. If a suite exists on multiple targets, select `--target`.
 Repeat `--case` for multiple cases; omit it to run every case. The limits are
-20 repetitions, concurrency 4, and 100 total attempts per queued run.
+20 repetitions, concurrency 20, and 100 total attempts per queued run.
 
 Start discovers the current suite revision and enqueues one request. It returns
 immediately with `schemaVersion: 1`, `id`, `status: "queued"`, and `studioUrl`
@@ -187,3 +187,19 @@ deployment. Inspect results in Studio or with `runs get`. Ensure the CI runner c
 reach the Studio API, and the Studio API can reach the deployed consumer endpoint.
 Use a key scoped to the intended project with `studio:read` and `eval:run`.
 Each invocation creates a new run; your deployment workflow owns trigger frequency.
+
+## Optional launch overrides
+
+`kortyx studio evals runs start` accepts `--case-timeout-ms` and
+`--run-timeout-ms`, independently of `--timeout` (the CLI wait budget).
+Omitted repetitions, concurrency, judge and deadline flags resolve on the server
+using project/SDK defaults. For example:
+
+```sh
+kortyx studio evals runs start --all --connection staging --target catalog \
+  --run-timeout-ms 5400000 --case-timeout-ms 180000 --wait --timeout 5500 --json
+```
+
+A wait timeout does not cancel the server evaluation. `runs get --json` includes
+structured termination, frozen effective settings and original error issues by
+default; `--include-content` additionally includes full conversations/events.

@@ -1,5 +1,62 @@
 # Changelog
 
+## [0.3.9](https://github.com/kortyx-io/kortyx/compare/utils-v0.3.8...utils-v0.3.9) (2026-10-16)
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/core bumped to 0.15.0
+
+## [0.3.8](https://github.com/kortyx-io/kortyx/compare/utils-v0.3.7...utils-v0.3.8) (2026-10-14)
+
+
+### Bug Fixes
+
+* **runtime:** preserve interrupt state across pauses and resume ([#348](https://github.com/kortyx-io/kortyx/issues/348)) ([03b49f2](https://github.com/kortyx-io/kortyx/commit/03b49f2b8b6b44a2852d16fd4fe1b3e199316072))
+
+## [0.3.7](https://github.com/kortyx-io/kortyx/compare/utils-v0.3.6...utils-v0.3.7) (2026-10-13)
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/core bumped to 0.14.0
+
+## [0.3.6](https://github.com/kortyx-io/kortyx/compare/utils-v0.3.5...utils-v0.3.6) (2026-10-11)
+
+
+### Bug Fixes
+
+* **website:** reconcile credibility branch with current main ([60199f9](https://github.com/kortyx-io/kortyx/commit/60199f992242eb7c409a95bc7a6898d31bac601d))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/core bumped to 0.13.1
+
+## [0.3.5](https://github.com/kortyx-io/kortyx/compare/utils-v0.3.4...utils-v0.3.5) (2026-10-09)
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/core bumped to 0.13.0
+
+## [0.3.4](https://github.com/kortyx-io/kortyx/compare/utils-v0.3.3...utils-v0.3.4) (2026-10-08)
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/core bumped to 0.12.0
+
 ## [0.3.3](https://github.com/kortyx-io/kortyx/compare/utils-v0.3.2...utils-v0.3.3) (2026-09-22)
 
 

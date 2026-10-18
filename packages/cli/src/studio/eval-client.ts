@@ -3,6 +3,11 @@ import {
   StudioEvalHistorySchema,
   StudioEvalStartRequestSchema,
   StudioEvalTargetsResponseSchema,
+  StudioEvaluationDetailSchema,
+  StudioEvaluationHistorySchema,
+  StudioEvaluationResultsSchema,
+  type StudioEvaluationStartRequest,
+  StudioEvaluationStartRequestSchema,
 } from "@kortyx/agent/evals";
 import { z } from "zod";
 import { StudioApiTransport, StudioReadError } from "./read-client";
@@ -20,7 +25,9 @@ export const parseEvalRunTarget = (input: string) => {
     } catch {
       throw new StudioReadError("invalid_target", "Invalid eval run URL.");
     }
-    const match = locator.pathname.match(/\/evals\/runs\/([^/]+)\/?$/);
+    const match = locator.pathname.match(
+      /\/evals\/(?:runs|evaluations)\/([^/]+)\/?$/,
+    );
     if (
       !match ||
       !["http:", "https:"].includes(locator.protocol) ||
@@ -43,6 +50,59 @@ export const parseEvalRunTarget = (input: string) => {
 
 /** Only suite discovery, saved eval reads, enqueue and cooperative cancellation. */
 export class StudioEvalClient extends StudioApiTransport {
+  evaluations() {
+    return this.requestJson(
+      "GET",
+      "/v1/studio/evals/evaluations",
+      StudioEvaluationHistorySchema,
+    );
+  }
+  evaluation(id: string) {
+    this.validateId(id);
+    return this.requestJson(
+      "GET",
+      `/v1/studio/evals/evaluations/${id}`,
+      StudioEvaluationDetailSchema,
+    );
+  }
+  evaluationResults(id: string) {
+    this.validateId(id);
+    return this.requestJson(
+      "GET",
+      `/v1/studio/evals/evaluations/${id}/results`,
+      StudioEvaluationResultsSchema,
+    );
+  }
+  startEvaluation(input: StudioEvaluationStartRequest) {
+    const parsed = StudioEvaluationStartRequestSchema.safeParse(input);
+    if (!parsed.success)
+      throw new StudioReadError(
+        "invalid_eval_request",
+        "Invalid evaluation selection or execution limits.",
+      );
+    return this.requestJson(
+      "POST",
+      "/v1/studio/evals/evaluations",
+      z.object({ id: z.uuid() }),
+      {},
+      parsed.data,
+    );
+  }
+  cancelEvaluation(id: string) {
+    this.validateId(id);
+    return this.requestJson(
+      "POST",
+      `/v1/studio/evals/evaluations/${id}/cancel`,
+      z.object({ ok: z.literal(true) }),
+    );
+  }
+  private validateId(id: string) {
+    if (!z.uuid().safeParse(id).success)
+      throw new StudioReadError(
+        "invalid_target",
+        "Expected an evaluation UUID.",
+      );
+  }
   targets() {
     return this.requestJson(
       "GET",

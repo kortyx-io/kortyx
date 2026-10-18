@@ -1,6 +1,6 @@
 {
   "name": "kortyx",
-  "version": "0.27.0",
+  "version": "0.32.0",
   "private": false,
   "description": "TypeScript framework for production AI agents with explicit workflows, provider-agnostic models, streaming, interrupts, and runtime persistence.",
   "keywords": [
@@ -63,7 +63,8 @@
     "@kortyx/providers": "workspace:*",
     "@kortyx/runtime": "workspace:*",
     "@kortyx/stream": "workspace:*",
-    "@kortyx/utils": "workspace:*"
+    "@kortyx/utils": "workspace:*",
+    "@kortyx/prompts": "workspace:*"
   },
   "devDependencies": {
     "turbo": "catalog:",

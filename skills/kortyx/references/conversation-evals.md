@@ -74,7 +74,7 @@ when the scenario's available data deliberately contains it.
 
 ## Required structured outputs
 
-Declare visible output contracts on the step that must produce them:
+Declare required completed output contracts on the step that must produce them:
 
 ```ts
 const suite = defineSuite({
@@ -213,11 +213,13 @@ const result = await useReason({
 ```
 
 Tool emission defaults to off; the eval runner cannot enable it for the app.
-The judge receives the criterion, current input/observation, optional reference
-and previous completed steps. `observation.events` records ordered public stream
-evidence: emitted tool names/arguments/results/errors, text, structured output,
-interrupts and workflow transitions. Earlier tool evidence remains available
-after resume. Enable emission wherever a criterion needs retrieved facts.
+The saved `observation.events` records ordered public stream evidence, including
+emitted tool names/arguments/results/errors, text, structured output, interrupts
+and workflow transitions. The judge receives the criterion, current input and
+compact selected observation, optional reference, and (by default) earlier case
+steps. Streaming noise and routine transitions are removed from judge input.
+Earlier tool evidence remains available after resume when history is enabled.
+Enable emission wherever a criterion needs retrieved facts.
 
 Use criteria that say what must be grounded in successful tool results and what
 to do when evidence is missing. Tool results establish what the workflow received,
@@ -374,3 +376,109 @@ and restricted account through the real app before treating it as a useful
 behavioral suite. Inspect saved observations and judge identity, not just the
 overall green status. Account/data isolation and external side effects remain
 application responsibilities.
+
+## Judge criteria and evidence selection
+
+Read [eval-criteria-and-evidence.md](eval-criteria-and-evidence.md) for complete
+examples of application presentation rules, independent criteria, text-only
+judging, suite/default overrides, and named predicates. Judges receive compact
+execution evidence, not a rendering of the frontend. Describe which fields the
+app displays as messages or prose and which stay internal in every relevant
+criterion. Configure selection with `defaults.evidence` and `suite.evidence`;
+full observations remain in Studio.
+
+## Failure diagnostics and postconditions
+
+Use `verify({ prepared, result, signal })` after the conversation and before
+teardown for application postconditions. Return
+`{ passed: false, reason: "Required save is absent", evidence: [] }` for unmet
+behavior (Failed); throw for infrastructure faults (Error). Keep reset in teardown;
+its errors remain Error. Verification does not overwrite earlier failed steps.
+
+Eval issues preserve the original message, exception type, stack, causes and
+provider/HTTP response properties in `errors[].exception` by default. Known
+credential fields, authorization headers and credential patterns are redacted;
+ordinary error content is retained. Capture size/depth limits are explicit in
+`exception.capture`. No diagnostic flag or custom reporter is required for this
+evidence. `errors[].failure` remains the separate public failure descriptor.
+
+An existing native diagnostic reference is loaded automatically by Studio under
+its project permissions. Optional `agent.reportError` or `createEvals({ reportError })`
+can also archive evidence; exporter failure never changes the eval outcome.
+Previously discarded content cannot be reconstructed. Progress listener failures
+remain reporting errors and do not skip cleanup.
+
+Setup and verification default to the configured case budget; cleanup defaults to
+10 seconds. Verification and teardown remain separate. Upgrade API/Studio before
+SDK/CLI for additive error fields; apply migration `0013_eval_settings` for
+project defaults and structured termination. Old discarded content is unavailable.
+
+## Concurrent execution recovery
+
+New Studio negotiates `jobs-v1` with `createEvalRouteHandler`, scheduling each
+case/repetition independently. Busy 429/503 admission uses bounded Retry-After
+retries; accepted jobs reconnect by event cursor without rerunning the case.
+Forward GET, POST and DELETE, including query strings and negotiation headers.
+Keep long-running execution alive independently of the observer connection.
+Explicit cancellation is cooperative and capacity remains occupied through cleanup.
+
+The default `createInMemoryEvalExecutionStore()` handles one process. For replicas,
+pass `createPostgresEvalExecutionStore({connectionString,namespace})` as
+`executionStore`, with identical service keys, suite definitions and capacity
+settings. Configure `maxActiveRuns` (1), `maxActiveAttempts` (20) and
+`maxQueuedExecutions` (1000). Call store.setup() before traffic. For planned
+retirement call handler.drain(), keep HTTP/store available for authenticated
+observation and cancellation, then close HTTP, handler and store after observers
+finish. handler.close() remains explicit abort. Drain rejects ambiguous admission,
+claim or terminal persistence; do not treat that as successful retirement.
+Matching jobs-v1 POST retries for known IDs reattach evidence during drain;
+changed content returns 409. New IDs are refused without admission or replay.
+With a single consumer, drain Studio workers first while the consumer still
+accepts their later cases, wait for durable Studio outcomes, then drain the
+consumer. With replicas, make a compatible replacement reachable first with the
+same durable store/namespace, service key, suite revisions and capacity settings.
+Consumer drain finishes its own active jobs and a bounded queued snapshot, not
+future Studio cases or another owner's live jobs. The built-in memory/PostgreSQL
+stores implement optional queued/claimQueued capabilities; old custom stores work
+normally but drain fails until these atomic scoped capabilities are implemented.
+Upgrade agent/runtime together; jobs-v1 and legacy wire formats are unchanged.
+Queued jobs recover across restart; a lost running
+lease becomes Unknown and is never automatically replayed. Inspect side effects
+before explicit cancellation or a new run. Application nodes own external
+idempotency; no data reducers or node/workflow shape changes are required.
+Upgrade consumers before API/Studio; legacy consumers keep request-owned streams.
+Verify hook availability in the installed build: published kortyx 0.32.0 / agent
+0.39.0 / runtime 0.25.0 lack consumer drain. Use a later coordinated release that
+includes it; never silently substitute aborting close when graceful drain is absent.
+
+## Execution defaults and application limits
+
+```ts
+const evals = createEvals({
+  agent,
+  suites: [suite],
+  defaults: { repetitions: 2, concurrency: 2, caseTimeoutMs: 120_000 },
+  limits: { concurrency: 4, caseTimeoutMs: 300_000 },
+});
+// Direct SDK execution uses explicit run values, then configured SDK defaults.
+await evals.run({ suiteId: suite.id, caseTimeoutMs: 180_000 });
+```
+
+Studio resolves each field as: per-run override → Studio project default →
+explicit SDK default → SDK built-in default. Omitted values remain omitted until
+resolution. The manifest's `execution` advertises declared defaults, limits and
+supported overrides. Application limits are ceilings, independent of precedence;
+an excessive value is rejected before setup, never silently clamped.
+
+SDK built-ins are one repetition, concurrency one and a 60-second case timeout.
+Repetitions and concurrency support 1–20; millisecond deadlines support positive
+integers up to 2,147,483,647. Setup, verification and cleanup budgets remain
+application-owned (`defaults.setupTimeoutMs`, `verificationTimeoutMs`,
+`cleanupTimeoutMs`). Changing the per-run case deadline does not change these
+independently resolved lifecycle budgets.
+
+The whole-evaluation deadline belongs to Studio scheduling, independently of the
+SDK case budget. Studio defaults to 30 minutes across all selected suites,
+including execution and Studio grading, starting when execution begins. Queue
+waiting is excluded. Direct `evals.run` has no Studio scheduler deadline; callers
+can pass `signal`. Aborts remain cooperative and cannot forcibly terminate work.

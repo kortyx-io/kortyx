@@ -36,6 +36,13 @@ export default async function InterruptsPage({
     );
   }
 
+  if (
+    !interruptsResult.data.totalCount &&
+    isFirstUseQuery(query) &&
+    (await hasNoObservations("interrupts", query.env))
+  )
+    return <FirstObservation resource="interrupts" />;
+
   return (
     <InterruptsPageClient
       interrupts={interruptsResult.data.items}
@@ -45,3 +52,9 @@ export default async function InterruptsPage({
     />
   );
 }
+
+import { FirstObservation } from "@/features/telemetry/components/first-observation";
+import {
+  hasNoObservations,
+  isFirstUseQuery,
+} from "@/features/telemetry/first-use";

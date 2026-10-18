@@ -1,5 +1,6 @@
 import { PanelLeftClose, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
@@ -8,6 +9,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { formatCount } from "@/lib/format";
+import { studioHelp } from "@/lib/studio-help";
 import { cn } from "@/lib/utils";
 import type { WorkflowHealth, WorkflowSystem } from "../schema";
 import {
@@ -98,8 +100,16 @@ export function WorkflowCatalog({
               "idle",
             ] as const
           ).map((item) => (
-            <Tooltip key={item}>
-              <TooltipTrigger asChild>
+            <InfoTooltip
+              key={item}
+              label={
+                item === "all"
+                  ? "All workflow health states"
+                  : `${item} workflows`
+              }
+              documentationUrl={studioHelp.workflowHealth.documentationUrl}
+              triggerAction="preserve"
+              trigger={
                 <button
                   type="button"
                   aria-pressed={health === item}
@@ -113,11 +123,10 @@ export function WorkflowCatalog({
                 >
                   {item}
                 </button>
-              </TooltipTrigger>
-              <TooltipContent className="max-w-64">
-                {healthFilterHelp[item]}
-              </TooltipContent>
-            </Tooltip>
+              }
+            >
+              {healthFilterHelp[item]}
+            </InfoTooltip>
           ))}
         </div>
       </div>
@@ -132,68 +141,73 @@ export function WorkflowCatalog({
                 (edge) => edge.sourceWorkflowId === workflow.id,
               ).length;
               return (
-                <button
-                  type="button"
-                  key={workflow.id}
-                  aria-pressed={selectedWorkflowId === workflow.id}
-                  title={workflow.name}
-                  onClick={() => onSelectWorkflow(workflow.id)}
-                  className={cn(
-                    "w-full border-b px-3 py-3 text-left transition-colors hover:bg-accent/60",
-                    selectedWorkflowId === workflow.id && "bg-accent",
-                  )}
-                >
-                  <div className="flex items-center gap-2">
-                    <WorkflowHealthIndicator
-                      health={workflow.health}
-                      focusable={false}
-                    />
-                    <span className="sr-only">
-                      {workflowHealthLabel(workflow.health)}.
-                    </span>
-                    <span className="min-w-0 flex-1 truncate font-mono text-xs font-medium">
-                      {workflow.name}
-                    </span>
-                    <span className="text-[10px] text-muted-foreground">
-                      {workflow.activeVersion}
-                    </span>
-                  </div>
-                  <p className="mt-1 truncate pl-3.5 text-[11px] text-muted-foreground">
-                    {workflow.description}
-                  </p>
-                  <div className="mt-2 flex items-center justify-between pl-3.5 text-[10px] tabular-nums text-muted-foreground">
-                    <span>
-                      {formatCount(workflow.metrics.runCount)} runs ·{" "}
-                      {
-                        new Set(
-                          workflow.nodes.flatMap((node) =>
-                            (node.tools ?? []).map((tool) => tool.name),
-                          ),
-                        ).size
-                      }{" "}
-                      tools
-                    </span>
-                    <span
-                      title={`${inbound} incoming, ${outbound} outgoing connections`}
-                    >
-                      ←{inbound} · {outbound}→
-                    </span>
-                    <span>{workflow.lastActivityAt}</span>
-                  </div>
-                </button>
+                <div key={workflow.id} className="relative">
+                  <WorkflowHealthIndicator
+                    health={workflow.health}
+                    className="absolute top-4 left-3"
+                  />
+                  <button
+                    type="button"
+                    data-guide-focus="workflow-catalog-entry"
+                    aria-pressed={selectedWorkflowId === workflow.id}
+                    title={workflow.name}
+                    onClick={() => onSelectWorkflow(workflow.id)}
+                    className={cn(
+                      "w-full border-b px-3 py-3 text-left transition-colors hover:bg-accent/60",
+                      selectedWorkflowId === workflow.id && "bg-accent",
+                    )}
+                  >
+                    <div className="flex items-center gap-2">
+                      <span aria-hidden="true" className="size-2 shrink-0" />
+                      <span className="sr-only">
+                        {workflowHealthLabel(workflow.health)}.
+                      </span>
+                      <span className="min-w-0 flex-1 truncate font-mono text-xs font-medium">
+                        {workflow.name}
+                      </span>
+                      <span className="text-[10px] text-muted-foreground">
+                        {workflow.activeVersion}
+                      </span>
+                    </div>
+                    <p className="mt-1 truncate pl-3.5 text-[11px] text-muted-foreground">
+                      {workflow.description}
+                    </p>
+                    <div className="mt-2 flex items-center justify-between pl-3.5 text-[10px] tabular-nums text-muted-foreground">
+                      <span>
+                        {formatCount(workflow.metrics.runCount)} runs ·{" "}
+                        {
+                          new Set(
+                            workflow.nodes.flatMap((node) =>
+                              (node.tools ?? []).map((tool) => tool.name),
+                            ),
+                          ).size
+                        }{" "}
+                        tools
+                      </span>
+                      <span
+                        title={`${inbound} incoming, ${outbound} outgoing connections`}
+                      >
+                        ←{inbound} · {outbound}→
+                      </span>
+                      <span>{workflow.lastActivityAt}</span>
+                    </div>
+                  </button>
+                </div>
               );
             })}
           </div>
         ) : (
           <div className="p-4 text-center text-xs text-muted-foreground">
             No workflows match these filters.
-            <button
+            <Button
               type="button"
-              className="ml-1 text-primary hover:underline"
+              variant="link"
+              size="inline"
+              className="ml-1"
               onClick={onClear}
             >
               Clear
-            </button>
+            </Button>
           </div>
         )}
       </ScrollArea>

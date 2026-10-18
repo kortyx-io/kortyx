@@ -69,6 +69,20 @@ export const requireApiAction = async (
   }
 };
 
+/** Payload labels cannot override a credential's verified environment binding. */
+export function requirePrincipalEnvironment(
+  principal: ApiPrincipal,
+  environments: readonly string[],
+) {
+  if (
+    principal.environment &&
+    environments.some((environment) => environment !== principal.environment)
+  )
+    throw new TelemetryForbiddenError(
+      "API key does not permit this environment.",
+    );
+}
+
 export const apiSecurity =
   (options: {
     authentication: ApiAuthAdapter;
@@ -88,6 +102,15 @@ export const apiSecurity =
       );
     }
     c.set("principal", principal);
+    const requestedEnvironment = c.req.query("env");
+    if (
+      principal.environment &&
+      requestedEnvironment &&
+      requestedEnvironment !== principal.environment
+    )
+      throw new TelemetryForbiddenError(
+        "Selected environment does not match the authorized scope.",
+      );
     c.set("authorization", options.authorization);
     await requireApiAction(c, options.action);
     c.set("withTenantDatabase", (work) =>
@@ -102,6 +125,8 @@ export const apiSecurity =
         identityId(fresh) !== identityId(principal) ||
         fresh.organizationId !== principal.organizationId ||
         fresh.projectId !== principal.projectId ||
+        fresh.environmentId !== principal.environmentId ||
+        fresh.environment !== principal.environment ||
         (await options.authorization.allows(fresh, options.action)) !== true
       ) {
         throw new TelemetryForbiddenError(

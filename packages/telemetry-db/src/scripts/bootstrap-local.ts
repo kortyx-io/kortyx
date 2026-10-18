@@ -54,7 +54,7 @@ const main = async (): Promise<void> => {
       organizationId: project.organizationId,
       projectId: project.projectId,
       name: "Local SDK telemetry key",
-      scopes: ["telemetry:write"],
+      scopes: ["telemetry:write", "prompt:serve"],
     });
     const studioKey = await ensureApiKey(client, {
       apiKey: studioApiKey,
@@ -63,10 +63,12 @@ const main = async (): Promise<void> => {
       name: "Local Studio key",
       scopes: [
         "studio:read",
-        ...(process.env.KORTYX_STUDIO_ENABLE_REVIEWS === "1"
-          ? ["studio:write"]
-          : []),
-        ...(process.env.KORTYX_STUDIO_ENABLE_EVALS === "1" ? ["eval:run"] : []),
+        "studio:write",
+        "prompt:promote",
+        "prompt:review",
+        "prompt:settings",
+        "diagnostics:read",
+        "eval:run",
       ],
     });
 

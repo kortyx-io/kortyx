@@ -7,8 +7,16 @@ x-api-env: &api-env
 x-bootstrap-keys: &bootstrap-keys
   KORTYX_TELEMETRY_API_KEY: \${KORTYX_TELEMETRY_API_KEY}
   KORTYX_STUDIO_API_KEY: \${KORTYX_STUDIO_API_KEY}
-  KORTYX_STUDIO_ENABLE_EVALS: \${KORTYX_STUDIO_ENABLE_EVALS:-0}
-  KORTYX_STUDIO_ENABLE_REVIEWS: \${KORTYX_STUDIO_ENABLE_REVIEWS:-0}
+
+x-usage-env: &usage-env
+  KORTYX_USAGE_TELEMETRY_DISABLED: \${KORTYX_USAGE_TELEMETRY_DISABLED:-0}
+  KORTYX_USAGE_TELEMETRY_DEBUG: \${KORTYX_USAGE_TELEMETRY_DEBUG:-0}
+  KORTYX_USAGE_TELEMETRY_ENDPOINT: \${KORTYX_USAGE_TELEMETRY_ENDPOINT:-}
+  KORTYX_USAGE_TELEMETRY_POSTHOG_KEY: \${KORTYX_USAGE_TELEMETRY_POSTHOG_KEY:-}
+  KORTYX_USAGE_TELEMETRY_POSTHOG_HOST: \${KORTYX_USAGE_TELEMETRY_POSTHOG_HOST:-}
+  KORTYX_USAGE_TELEMETRY_ENVIRONMENT: \${KORTYX_USAGE_TELEMETRY_ENVIRONMENT:-production}
+  KORTYX_USAGE_TELEMETRY_TRAFFIC_SOURCE: \${KORTYX_USAGE_TELEMETRY_TRAFFIC_SOURCE:-unknown}
+  KORTYX_USAGE_TELEMETRY_ID: \${KORTYX_USAGE_TELEMETRY_ID:-}
 
 services:
   postgres:
@@ -28,6 +36,7 @@ services:
   db-init:
     image: \${KORTYX_API_IMAGE_REF:-\${KORTYX_API_IMAGE:-ghcr.io/kortyx-io/kortyx-api}:\${KORTYX_STUDIO_IMAGE_TAG:-latest}}
     pull_policy: \${KORTYX_STUDIO_PULL_POLICY:-always}
+    user: "1000:1000"
     environment:
       <<: [*api-env, *bootstrap-keys]
     command: >
@@ -41,11 +50,16 @@ services:
   api:
     image: \${KORTYX_API_IMAGE_REF:-\${KORTYX_API_IMAGE:-ghcr.io/kortyx-io/kortyx-api}:\${KORTYX_STUDIO_IMAGE_TAG:-latest}}
     pull_policy: \${KORTYX_STUDIO_PULL_POLICY:-always}
+    user: "1000:1000"
     environment:
-      <<: *api-env
+      <<: [*api-env, *usage-env]
       NODE_ENV: production
       API_HOST: 0.0.0.0
       API_PORT: 6400
+      KORTYX_API_EVAL_WORKER_ENABLED: \${KORTYX_API_EVAL_WORKER_ENABLED:-true}
+      KORTYX_EVAL_MAX_CONCURRENT_EVALUATIONS: \${KORTYX_EVAL_MAX_CONCURRENT_EVALUATIONS:-4}
+      KORTYX_EVAL_RUN_TIMEOUT_MS: \${KORTYX_EVAL_RUN_TIMEOUT_MS:-1800000}
+      KORTYX_EVAL_MAX_RUN_TIMEOUT_MS: \${KORTYX_EVAL_MAX_RUN_TIMEOUT_MS:-2147483647}
       KORTYX_EVAL_JUDGE_MODEL: \${KORTYX_EVAL_JUDGE_MODEL:-}
       KORTYX_EVAL_JUDGE_API_KEY: \${KORTYX_EVAL_JUDGE_API_KEY:-}
       KORTYX_EVAL_JUDGE_API: \${KORTYX_EVAL_JUDGE_API:-responses}
@@ -53,6 +67,7 @@ services:
       KORTYX_EVAL_JUDGE_ID: \${KORTYX_EVAL_JUDGE_ID:-}
       KORTYX_EVAL_JUDGE_VERSION: \${KORTYX_EVAL_JUDGE_VERSION:-}
       KORTYX_STUDIO_RELEASE: \${KORTYX_STUDIO_IMAGE_TAG:-latest}
+    stop_grace_period: \${KORTYX_API_STOP_GRACE_PERIOD:-30s}
     ports:
       - "127.0.0.1:\${API_PORT:-6400}:6400"
     depends_on:
@@ -72,6 +87,7 @@ services:
     image: \${KORTYX_STUDIO_IMAGE_REF:-\${KORTYX_STUDIO_IMAGE:-ghcr.io/kortyx-io/kortyx-studio}:\${KORTYX_STUDIO_IMAGE_TAG:-latest}}
     pull_policy: \${KORTYX_STUDIO_PULL_POLICY:-always}
     environment:
+      <<: *usage-env
       NODE_ENV: production
       PORT: 6300
       KORTYX_API_URL: http://api:6400
@@ -103,6 +119,8 @@ services:
     # The updater alone needs root for the host Docker socket and ownership-safe
     # writes to the bind-mounted Studio state directory.
     user: "0:0"
+    environment:
+      <<: *usage-env
     command: ["node", "apps/api/dist/updater.js", "serve", "\${KORTYX_STUDIO_STATE_DIR}"]
     volumes:
       - type: bind

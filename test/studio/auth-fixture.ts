@@ -2,7 +2,7 @@ import "server-only";
 import type { StudioAuthAdapter } from "@studio/auth-contracts";
 
 /** Test only: these headers are NOT a usable authentication mechanism. */
-export const studioAuth = {
+export const studioAuth: StudioAuthAdapter = {
   async authorize(request) {
     const actor = request.headers.get("x-studio-auth-fixture");
     return new URL(request.url).pathname.startsWith("/auth/") ||
@@ -21,4 +21,4 @@ export const studioAuth = {
   async handleAuthRequest(_request: Request) {
     return Response.json({ adapter: "compiled-auth-fixture" });
   },
-} satisfies StudioAuthAdapter;
+};

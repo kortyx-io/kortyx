@@ -2,6 +2,11 @@ import { randomUUID } from "node:crypto";
 import { setImmediate as nextTurn } from "node:timers/promises";
 import { setFlagsFromString } from "node:v8";
 import { runInNewContext } from "node:vm";
+import {
+  type PromptContent,
+  type PromptSnapshot,
+  promptHash,
+} from "@kortyx/prompts";
 import { describe, expect, it, vi } from "vitest";
 import {
   createEvalRouteHandler,
@@ -47,6 +52,103 @@ const request = (body = {}, authorization = `Bearer ${key}`) =>
     }),
   });
 describe("consumer eval transport", () => {
+  it("validates every pinned prompt against the app contract before starting an eval", async () => {
+    const content: PromptContent = {
+      format: "system-user",
+      messages: [
+        { role: "system", content: "Classify" },
+        { role: "user", content: "{{message}}" },
+      ],
+      variablesSchema: { type: "object" },
+      configSchema: { type: "object" },
+      config: { modelName: "fast" },
+      dependencies: [],
+    };
+    const snapshot: PromptSnapshot = {
+      schemaVersion: 1,
+      environment: "production",
+      revision: "candidate",
+      source: "eval",
+      resolvedAt: new Date().toISOString(),
+      versions: {
+        classify: {
+          id: "classify",
+          version: 1,
+          hash: await promptHash(content),
+          content,
+        },
+      },
+    };
+    const contract = {
+      id: "classify",
+      format: "system-user" as const,
+      variablesSchema: { type: "object" },
+      configSchema: {
+        type: "object",
+        properties: { modelName: { const: "fast" } },
+        required: ["modelName"],
+      },
+    };
+    const run = vi.fn(async () => result());
+    const handler = createEvalRouteHandler({
+      evals: {
+        describe: () => ({ ...manifest, promptContracts: [contract] }),
+        run,
+      },
+      serviceKey: key,
+    });
+    const wrongConfig = { ...content, config: { modelName: "unregistered" } };
+    const wrongFormat = { ...content, format: "chat" as const };
+    const changed = async (candidate: PromptContent) => ({
+      ...snapshot,
+      versions: {
+        classify: {
+          id: "classify",
+          version: 1,
+          hash: await promptHash(candidate),
+          content: candidate,
+        },
+      },
+    });
+    for (const invalid of [
+      { ...snapshot, source: "local" },
+      { ...snapshot, versions: {} },
+      await changed(wrongConfig),
+      await changed(wrongFormat),
+      {
+        ...snapshot,
+        versions: {
+          classify: { ...snapshot.versions.classify, hash: "a".repeat(64) },
+        },
+      },
+    ])
+      expect((await handler(request({ promptSnapshot: invalid }))).status).toBe(
+        409,
+      );
+    for (const unsupported of [
+      manifest,
+      { ...manifest, promptContracts: [] },
+    ]) {
+      const unsupportedHandler = createEvalRouteHandler({
+        evals: { describe: () => unsupported, run },
+        serviceKey: key,
+      });
+      expect(
+        (await unsupportedHandler(request({ promptSnapshot: snapshot })))
+          .status,
+      ).toBe(409);
+    }
+    expect(run).not.toHaveBeenCalled();
+    const response = await handler(request({ promptSnapshot: snapshot }));
+    expect(response.status).toBe(200);
+    expect(JSON.parse(await response.text())).toMatchObject({
+      type: "result",
+      result: { status: "passed" },
+    });
+    expect(run).toHaveBeenCalledWith(
+      expect.objectContaining({ promptSnapshot: snapshot }),
+    );
+  });
   it("validates transport configuration and rejects malformed requests before execution", async () => {
     const run = vi.fn();
     const evals = { describe: () => manifest, run };
@@ -114,7 +216,7 @@ describe("consumer eval transport", () => {
               authorization: `Bearer ${key}`,
               "content-type": "application/json",
             },
-            body: " ".repeat(16385),
+            body: " ".repeat(1_048_577),
           }),
         )
       ).status,
@@ -162,7 +264,7 @@ describe("consumer eval transport", () => {
     expect((await handler(request({ repetitions: 2 }))).status).toBe(400);
     expect(run).not.toHaveBeenCalled();
   });
-  it("streams progress and the final result without leaking a runner exception", async () => {
+  it("streams progress and the final result with the original runner error and redacted credentials", async () => {
     const handler = createEvalRouteHandler({
       serviceKey: key,
       evals: {
@@ -188,12 +290,29 @@ describe("consumer eval transport", () => {
       evals: {
         describe: () => manifest,
         run: async () => {
-          throw new Error("PRIVATE-TOKEN");
+          throw new Error("Runner failed. Authorization: Bearer PRIVATE-TOKEN");
         },
       },
     });
     expect(await (await failed(request())).text()).not.toContain(
       "PRIVATE-TOKEN",
+    );
+  });
+  it("accepts up to 20 concurrent attempts and rejects invalid concurrency before execution", async () => {
+    const run = vi.fn(async () => result());
+    const handler = createEvalRouteHandler({
+      serviceKey: key,
+      evals: { describe: () => manifest, run },
+    });
+    for (const concurrency of [0, 21, 1.5]) {
+      expect((await handler(request({ concurrency }))).status).toBe(400);
+    }
+    expect(run).not.toHaveBeenCalled();
+    const response = await handler(request({ concurrency: 20 }));
+    expect(response.status).toBe(200);
+    await response.text();
+    expect(run).toHaveBeenCalledWith(
+      expect.objectContaining({ concurrency: 20 }),
     );
   });
   it("enforces active-run limits and signals cleanup when the stream reader disconnects", async () => {
@@ -285,4 +404,143 @@ it("retains the incoming Request abort controller through garbage collection whi
   } finally {
     await response.body!.cancel();
   }
+});
+
+it("admits bounded scheduled attempts from the same evaluation without admitting unrelated runs", async () => {
+  let release!: () => void;
+  const gate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  const run = vi.fn(async () => {
+    await gate;
+    return result();
+  });
+  const handler = createEvalRouteHandler({
+    serviceKey: key,
+    evals: { describe: () => ({ ...manifest, attemptScheduling: true }), run },
+  });
+  const evaluationId = randomUUID();
+  const body = {
+    concurrency: 2,
+    attempt: { evaluationId, caseId: "one", repetition: 1 },
+  };
+  const first = await handler(request(body));
+  const second = await handler(request(body));
+  try {
+    expect(first.status).toBe(200);
+    expect(second.status).toBe(200);
+    expect((await handler(request(body))).status).toBe(429);
+    expect((await handler(request({ ...body, concurrency: 3 }))).status).toBe(
+      429,
+    );
+    expect((await handler(request())).status).toBe(429);
+    expect(run).toHaveBeenCalledTimes(2);
+  } finally {
+    release();
+    await Promise.all([first.text(), second.text()]);
+  }
+  expect((await handler(request())).status).toBe(200);
+});
+
+it("rejects unsupported or invalid scheduled attempts before running", async () => {
+  const run = vi.fn();
+  for (const attemptScheduling of [undefined, true] as const) {
+    const handler = createEvalRouteHandler({
+      serviceKey: key,
+      evals: {
+        describe: () => ({
+          ...manifest,
+          ...(attemptScheduling ? { attemptScheduling } : {}),
+        }),
+        run,
+      },
+    });
+    expect(
+      (
+        await handler(
+          request({
+            caseIds: [],
+            attempt: {
+              evaluationId: randomUUID(),
+              caseId: "one",
+              repetition: 1,
+            },
+          }),
+        )
+      ).status,
+    ).toBe(400);
+    for (const attempt of [
+      { evaluationId: randomUUID(), caseId: "missing", repetition: 1 },
+      { evaluationId: randomUUID(), caseId: "one", repetition: 2 },
+      ...(!attemptScheduling
+        ? [{ evaluationId: randomUUID(), caseId: "one", repetition: 1 }]
+        : []),
+    ])
+      expect((await handler(request({ attempt }))).status).toBe(409);
+  }
+  expect(run).not.toHaveBeenCalled();
+});
+
+it("rejects scheduled attempts excluded by the selected cases", async () => {
+  const expanded = {
+    ...suite,
+    cases: [...suite.cases, { ...suite.cases[0]!, id: "two" }],
+  };
+  const run = vi.fn(async () => result());
+  const handler = createEvalRouteHandler({
+    serviceKey: key,
+    evals: {
+      describe: () => ({
+        ...manifest,
+        suites: [expanded],
+        attemptScheduling: true,
+      }),
+      run,
+    },
+  });
+  for (const caseIds of [["one"], ["one", "two"]]) {
+    const response = await handler(
+      request({
+        suiteRevision: getEvalSuiteRevision(expanded),
+        caseIds,
+        attempt: { evaluationId: randomUUID(), caseId: "two", repetition: 1 },
+      }),
+    );
+    if (caseIds.length === 1) expect(response.status).toBe(409);
+    else await response.body?.cancel();
+  }
+});
+
+it("consumer eval transport retains declared-safe failures and exact diagnostic references", async () => {
+  const { DomainError } = await import("@kortyx/core/errors");
+  const { EvalWireEventSchema } = await import("../src/evals/contracts");
+  const diagnosticId = randomUUID();
+  const error = Object.assign(
+    new DomainError(
+      "EVAL_ADMISSION_REJECTED",
+      "Fixture admission was rejected",
+    ),
+    { diagnosticId, responseBody: "PRIVATE_BODY" },
+  );
+  const handler = createEvalRouteHandler({
+    serviceKey: key,
+    evals: {
+      describe: () => manifest,
+      run: async () => {
+        throw error;
+      },
+    },
+  });
+  const response = await handler(request());
+  const wire = (await response.text()).trim();
+  expect(EvalWireEventSchema.parse(JSON.parse(wire))).toMatchObject({
+    type: "error",
+    diagnosticId,
+    message: "Fixture admission was rejected",
+    failure: { domainCode: "EVAL_ADMISSION_REJECTED" },
+  });
+  expect(wire).toContain("PRIVATE_BODY");
+  expect(EvalWireEventSchema.parse(JSON.parse(wire))).toHaveProperty(
+    "exception",
+  );
 });

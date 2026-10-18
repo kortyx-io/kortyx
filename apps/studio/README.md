@@ -159,18 +159,18 @@ endpoint with `{ runId, actorId }` clears that actor's vote. Runs must already b
 ingested; a 404 can mean telemetry is still flushing. See the API's OpenAPI docs.
 
 Reviews require a server-only Studio key with **both** `studio:read` and
-`studio:write`. Existing read-only keys remain read-only. To opt the repository's
-local development key into reviews, bootstrap explicitly:
+`studio:write`. OSS bootstrap grants both scopes by default. Existing
+installations should rerun bootstrap with their stored keys:
 
 ```bash
-KORTYX_STUDIO_ENABLE_REVIEWS=1 pnpm db:bootstrap
+pnpm db:bootstrap
 ```
 
-Omitting the opt-in on a later bootstrap restores the key to read-only. For a
-remote deployment, set `KORTYX_STUDIO_ENABLE_REVIEWS=1` in the database bootstrap
-job's environment (or provision a key with both scopes). Keep the opt-in across
-later bootstraps; the Compose stacks forward it to the database job. No migration
-grants new key permissions.
+For a remote deployment, rerun its normal database bootstrap job with the same
+keys and pepper. Bootstrap also grants prompt, diagnostic and eval permissions;
+no OSS feature environment switches are required. Custom read-only keys still
+remain read-only unless explicitly reconfigured. Migrations alone do not grant
+key permissions.
 Review POST/DELETE requests go through Studio's authenticated same-origin
 bridge, never directly from the browser with the API key. The API derives
 review identity from its authenticated Studio key. Shared installations share
@@ -277,3 +277,194 @@ ghcr.io/kortyx-io/kortyx-studio:latest
 Release-please creates the immutable `studio-vX.Y.Z` Git tag before publication.
 Repository setup and release/recovery instructions are in the
 [Studio self-hosted release runbook](../../docs/design-specs/studio-oss-release.md).
+
+## Table filters and views
+
+`DataTable` is the single entry point; callers do not wrap it in a provider or
+wire individual search/sort/pagination/layout callbacks:
+
+```tsx
+<DataTable
+  tableId="example-items"
+  columns={columns}
+  data={items}
+  getRowKey={(item) => item.id}
+  onRowClick={openItem}
+/>
+```
+
+Declare each column's `filter` (`key`, `label`, `kind`, `read`, optional `options`,
+`optionLabels`, `unit`, `group` and `order`), or explicitly use `filter: false` for
+actions/selection. Composite columns can declare several filters. Table-level
+`filters` add fields without a displayed column. `sortKey` enables sorting;
+`sortValue` overrides the default raw reader when needed. Keep feature formatting,
+row actions and API fetching in the feature.
+
+Local tables automatically search, filter, sort and page the supplied dataset.
+For API-backed tables, pass `query={{ mode: "remote", defaults: { sort: "started" } }}`
+and `totalCount`; the feature's server read interprets the shared URL query and
+returns the requested page. `query.keys` preserves existing/nested URL bindings,
+and `query.pageSizes` declares endpoint limits (operational lists retain 250 rows;
+other tables default to 10/20/50/100). Use stable table IDs to keep preferences
+isolated. No special-case table IDs belong in the shared components.
+
+`scopeFilters` describes independent request controls (`text`, `enum`, `boolean`,
+or `timeRange` with explicit bound keys); their rendering, reset and saved-view
+behavior are shared too. `filterResource` enables authorized API suggestions for
+supported resources. `compatibility` supplies legacy URL readers/aliases, and
+`legacyViews` supplies one-time migration data. These adapters live in features;
+the table does not know their cookie names or business rules. An `emptyState`
+render function receives `hasFilters` and `clearFilters` to reset search, conditions and scope
+through the same shared state owner.
+
+
+Every Studio data table provides **Filters**, **Columns**, and **Views**, in that
+order. Search remains in the toolbar; field filters, feedback, time range,
+environment and archived-prompt controls live in the Filters drawer. Selection
+and action columns have no filter; composite data columns expose their individual
+facts (for example, workflow/version, model/provider and evaluation result counts).
+
+Every table renders one shared toolbar: search beside Filters, Columns and Views.
+Search stays outside Match any, so OR cannot bypass it. Server lists search before
+counting/pagination; local tables search all declared data fields, including hidden
+columns, before paging. Local detail searches use `tableSearch.<tableId>` so they
+do not replace a parent list's `q`; existing list and prompt-linked search URLs
+remain supported. Search is captured by saved views and survives refresh.
+
+The shared footer is always present: matching row count, rows per page, current
+page and Previous/Next. Local tables default to 20 rows and keep their own
+`tablePage.<tableId>` / `tablePageSize.<tableId>` URL state. Search/filter changes
+reset paging. Prompt-library pagination uses the API's bounded `limit` parameter
+(1–200; omitted callers retain the existing 100-row default); Studio offers
+10/20/50/100 and defaults to 20. Prompt selection and its batch actions live at
+the left of the toolbar; Select all shows empty, partial or checked page selection
+and toggles that page without a separate Clear selection action.
+
+Every table uses the same inline filter drawer, generated from its field definitions.
+Choose values without adding conditions: enums use checkboxes, text uses autocomplete,
+and numeric/date fields show minimum/maximum inputs. Changes apply automatically
+(text and ranges wait 350 ms after typing); the drawer stays open. Every drawer
+provides filter search, optional definition-owned groups, and Select all for enums.
+Per-field options expose negative/missing-value matches. Clear filters resets field
+conditions and configured scope fields while preserving search; Standard view also
+resets search, sorting, page size and column layout.
+
+Choose **Match all · AND** or **Match any · OR** for the populated fields. Multiple
+values within one condition match any of those values. Project, authorized
+environment, time range, category and search restrict the dataset independently
+of OR. Nested groups are not supported.
+
+Text supports case-insensitive Contains/Does not contain and exact matches, with
+existing-value autocomplete. Suggestions search the scoped dataset, including
+rows beyond the current page, and return up to 50 distinct values. Free text is
+still accepted when suggestions are unavailable. Numeric/date fields support
+comparisons and inclusive ranges; dates use explicit UTC timestamps. Boolean
+fields use true/false. Has a value/Has no value distinguish missing evidence from
+zero or false. Negative conditions require a recorded value. Numeric cost
+filters compare the displayed known subtotal; mixed currencies without a single
+amount are missing, rather than implicitly converted.
+
+Custom time range opens the calendar, including when no custom range has been
+applied yet. Apply range writes UTC bounds to the URL. Filter conditions also
+live in the URL (`tableFilters` for server lists, `tableFilters.<tableId>` for
+embedded tables), so refresh and Back/Forward restore them. Invalid conditions
+show a resettable error or an API validation error instead of being ignored.
+The request limits are 32 conditions, 30 values per condition, 512 characters per
+value, and 32 KiB of serialized conditions.
+
+Text filter suggestions use the shared shadcn Combobox, with keyboard navigation,
+selection styling and free-text entry. Server suggestions retain the authorized
+scope and the existing request limits.
+
+Top-level Runs, Sessions, Interrupts, Prompts and Evals lists share
+`TablePageHeader`: title/description on the left, page actions on the right,
+followed by the standard table toolbar. Evals Runs/Suites navigation is a compact
+segmented link group after the workspace breadcrumbs, including on detail routes;
+it preserves project routing and the selected environment without a separate tab row.
+Prompts retains its centered compact Categories side rail and category drawer,
+with the full category tree beside the table on wide screens. Test groups use a flat, edge-to-edge table
+with a compact drawer header and the shared list header in expanded and direct routes.
+The drawer header contains the page action beside its expand/close controls.
+
+Row hover belongs to `DataTable`, including non-clickable rows. Every cell uses
+the same opaque row background so left/right pinned columns stay synchronized
+and cover scrolled content. Return `"danger"` from the `rowTone` callback for
+failure tinting rather than setting separate pinned-cell backgrounds.
+
+All columns are visible by default, and Reset layout shows every column again.
+Saved layouts retain known column order/visibility and append new visible columns. The Columns chooser uses the same effective
+order as the headers, with hidden columns retained at their configured positions.
+Both headers and chooser rows support dragging; the chooser also has keyboard
+sorting and one-step move buttons. Pinning groups columns left/center/right.
+Dropping into a different group adopts its pin state, including when the dragged
+column is the sole pin. Layout, sort and page-size preferences persist through the
+shared database/cache provider. The scoped browser cache hydrates after server
+rendering and refreshes from PostgreSQL in the background without blocking the
+page. Self-hosted preferences belong to the project; cloud preferences belong to
+the authenticated user within a project. Unauthenticated development mode remains
+browser-local. Saved views capture search, filters, configured scope, sort, page
+size and unstretched column widths. Existing URL aliases remain supported.
+See [Table preferences and saved views](../../docs/studio/table-preferences.md)
+for ownership, conflict recovery, cache behavior, rollout and migration contracts.
+Scrollbars overlay the table using the shared ScrollBar UI, without reserving a
+gutter or adding header spacing. Header/body scrolling stays synchronized during
+a held column drag. Dragged
+headers and cells share their movement, remain above pinned columns, and support
+Escape to cancel. Horizontal wheel gestures over the header scroll the body as
+the shared owner, avoiding opposing scroll updates.
+
+Runs includes User ID and Tenant ID. Other added fields include completion/environment/pricing data,
+session models/providers/tags, interrupt resolution timestamps, prompt assignments,
+and evaluation judge/pass-rate/queue/case/comparison metrics. Missing evidence is
+shown as a dash. Comparison deltas use per-attempt means and require comparable
+evidence; cost deltas also require complete costs in one shared currency.
+
+Use Views to restore, rename or delete a view, or save the current configuration.
+Up to 30 views per owner/project/table are retained. Database-backed preferences
+are available across browsers; unsaved changes stay in the originating browser
+until acknowledged. Existing unscoped browser views are not imported.
+
+Runs, sessions, interrupts and prompt-library filters apply before server counts
+and pagination. Evaluation summaries scan history in batches before counting and
+paginating, including evaluations older than the former 100-row window. This
+computed-summary scan grows with history size. The suite catalog resolves the
+latest run per suite across history. Prompt-linked tables load all scoped linked
+runs/evaluations, then filter and paginate locally; large histories can therefore
+increase response size. There is no silent 100/200-row filter cutoff.
+
+Filter usage records each applied field/search change (debounced for typed values) and
+the allowlisted `all`/`any` choice through the shared usage helper. It measures UI
+intent, not query success;
+no condition values or view names are collected. Existing usage opt-out and
+bounded delivery behavior apply.
+
+Ship the API and shared contracts/database packages before the matching Studio
+version. No database migration is required. Legacy filter URLs are accepted and
+converted when filters are applied; the existing bounded history API remains
+available for older consumers.
+
+### Shared action buttons
+
+All Studio actions use the shared `Button` variants. `primary` is the filled
+main action (New prompt, Save, Run evaluations); `secondary` is the outlined
+supporting action (Import, Test groups, Cancel, Refresh); `ghost` is for
+low-emphasis and icon actions; `destructive` is for destructive confirmation.
+Inline text actions use the shared `link`/`inline` treatment. Navigation links,
+menu options and data-row/disclosure controls keep their control semantics.
+
+Page, drawer and table actions use `sm` (32px), forms default to 36px, compact
+actions use `xs` (24px), and large actions use `lg` (40px). Icon equivalents
+have the same heights. Action links use `Button asChild` so they retain normal
+link navigation and the same size/style as button actions. Icon sizing and
+pressed/disabled/focus states come from the primitive. Compound input buttons
+also delegate to it; feature code supplies layout, not custom button styling.
+The legacy shadcn `default`/`outline` aliases remain supported as
+`primary`/`secondary` for existing consumers.
+
+## Contextual help
+
+Table header titles own their help tooltip; existing symbols own their explanations. Neither needs an extra question mark. Other compact page, drawer, metric and setting headers use help circles, aligned to the right in metric cards. All help cards use the same arrow and separate documentation footer. `OverlayArrow` supplies shared geometry for interactive help and compact tooltips; Radix handles side rotation and collision positioning. Its overlapping fill removes the border seam, and the panel drop shadow follows the complete shape. `HelpDefinition` requires a label, short description and a topic-specific documentation URL. Shared Studio topics live in `src/lib/studio-help.ts`; edition contributions pass their own relevant topic through the existing typed UI props.
+
+`InfoTooltip` uses the existing non-modal Popover so the separate documentation footer can receive keyboard focus. Providing `documentationUrl` adds that footer; `trigger` supports existing symbols and numeric controls such as cost values. Set `triggerAction="preserve"` when the trigger already sorts or selects a view: its original action and pointer gestures still run, while hover/focus opens help and Tab reaches the footer. Pass `disabled` during active drags so help cannot intercept drag cancellation. `HelpCircle` consumes a complete definition. `DocumentationLink` is for roomy setup/empty/error states. Keep essential instructions visible and never nest help inside another button or input label.
+
+Verify hover-to-card movement, keyboard access to the footer, Escape/outside dismissal, narrow-screen placement and surrounding drawer behavior. Every destination must resolve to a page/anchor in the supported docs line. See [the audit](../../docs/audits/studio-contextual-help.md) and [completion policy](../../docs/internal/definition-of-done.md).

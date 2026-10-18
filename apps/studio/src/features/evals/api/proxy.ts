@@ -1,11 +1,19 @@
+import { sampleRequestResponse } from "@/features/sample-project/server";
 import "server-only";
+import { redactDiagnosticText } from "@kortyx/telemetry-contracts";
 import { studioAuth } from "@studio/auth";
 
 export async function proxyEvalRequest(request: Request, parts: string[]) {
   const denial = await studioAuth.authorize(request);
   if (denial) return denial;
+  const sample = await sampleRequestResponse(request);
+  if (sample) return sample;
   const path = parts.join("/");
-  if (!/^(targets|runs(?:\/[a-f0-9-]{36}(?:\/cancel)?)?)$/.test(path))
+  if (
+    !/^(settings|targets|evaluations(?:\/table|\/[a-f0-9-]{36}(?:\/(?:cancel|results))?)?|runs(?:\/[a-f0-9-]{36}(?:\/cancel)?)?)$/.test(
+      path,
+    )
+  )
     return Response.json({ error: "Unknown eval route." }, { status: 404 });
   const write = request.method === "POST";
   if (write) {
@@ -37,11 +45,20 @@ export async function proxyEvalRequest(request: Request, parts: string[]) {
     return Response.json({ error: "Request too large." }, { status: 413 });
   try {
     const response = await fetch(
-      `${url.replace(/\/$/, "")}/v1/studio/evals/${path}`,
+      `${url.replace(/\/$/, "")}/v1/studio/evals/${path}${new URL(request.url).search}`,
       {
         method: request.method,
         headers: {
           authorization: credential.authorization,
+          ...(credential.environment
+            ? { "x-kortyx-environment": credential.environment }
+            : {}),
+          ...(credential.projectId
+            ? { "x-kortyx-project-id": credential.projectId }
+            : {}),
+          ...(credential.environmentId
+            ? { "x-kortyx-environment-id": credential.environmentId }
+            : {}),
           "content-type": "application/json",
         },
         ...(body ? { body } : {}),
@@ -57,7 +74,16 @@ export async function proxyEvalRequest(request: Request, parts: string[]) {
           : response.status === 409
             ? "Eval configuration changed. Refresh before running."
             : "Eval request failed. Check the consumer connection.";
-      return Response.json({ error: message }, { status: response.status });
+      const body = await response.json().catch(() => null);
+      return Response.json(
+        {
+          error:
+            typeof body?.error === "string"
+              ? redactDiagnosticText(body.error)
+              : message,
+        },
+        { status: response.status },
+      );
     }
     return Response.json(await response.json(), {
       status: response.status,

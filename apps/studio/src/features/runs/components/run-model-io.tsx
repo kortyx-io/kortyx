@@ -2,7 +2,9 @@
 
 import type { StudioDetailEvent } from "@kortyx/telemetry-contracts";
 import { useMemo, useState } from "react";
+import { DetailLink } from "@/components/detail/detail-link";
 import { PayloadViewer } from "@/components/detail/payload-viewer";
+import { HelpCircle } from "@/components/ui/info-tooltip";
 import {
   Select,
   SelectContent,
@@ -18,6 +20,7 @@ import {
 } from "@/features/runs/lib/run-model-io";
 import { matchesSearchText } from "@/features/runs/lib/search-text";
 import { formatDateTime } from "@/lib/format";
+import { studioHelp } from "@/lib/studio-help";
 import { cn } from "@/lib/utils";
 
 const formatLabels = {
@@ -60,7 +63,10 @@ export function RunModelIO({ events }: { events: StudioDetailEvent[] }) {
     <div className="@container min-w-0">
       <div className="border-b bg-muted/10 p-3">
         <div className="mb-2 flex items-baseline justify-between gap-2">
-          <h3 className="text-sm font-semibold">Model inputs and outputs</h3>
+          <div className="flex items-center gap-1">
+            <h3 className="text-sm font-semibold">Model inputs and outputs</h3>
+            <HelpCircle help={studioHelp.payloads} />
+          </div>
           <span className="shrink-0 font-mono text-xs text-muted-foreground">
             {visibleOperations.length === operations.length
               ? operations.length
@@ -216,6 +222,20 @@ function ModelOperationCard({
         )}
       </summary>
       <div className="border-t px-3 py-2 text-xs text-muted-foreground">
+        {first?.prompt && (
+          <p className="mb-2">
+            <DetailLink
+              className="font-mono text-primary hover:underline"
+              href={`/prompts/by-key/${first.prompt.key.split("/").map(encodeURIComponent).join("/")}?v=${first.prompt.version}`}
+            >
+              {first.prompt.key} · v{first.prompt.version}
+            </DetailLink>
+            <span className="ml-2">{first.prompt.environment}</span>
+            <span className="ml-2 font-mono" title={first.prompt.hash}>
+              {first.prompt.hash.slice(0, 10)}
+            </span>
+          </p>
+        )}
         {first?.provider} · {first && formatDateTime(first.occurredAt)} ·{" "}
         {operation.workflowId}
         {operation.attempts.length > 1 && (
@@ -228,6 +248,26 @@ function ModelOperationCard({
           </p>
         )}
       </div>
+      {last?.status === "failed" && (
+        <section
+          data-guide-focus="model-failure"
+          className="space-y-1 border-t p-3 text-xs"
+        >
+          <h4 className="font-semibold text-red-700 dark:text-red-400">
+            Model request failed
+          </h4>
+          <p>
+            {last.inputCaptured
+              ? "Request input was captured."
+              : "Request input was not captured."}
+          </p>
+          <p>
+            {last.outputCaptured
+              ? "Response content was captured."
+              : "No response content was captured."}
+          </p>
+        </section>
+      )}
       <div className="space-y-3 border-t p-3">
         {entries.map((entry) =>
           entry.kind === "payload" ? (

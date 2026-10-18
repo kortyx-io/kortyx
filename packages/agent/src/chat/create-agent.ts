@@ -27,6 +27,7 @@ import {
 } from "@kortyx/runtime";
 import type { StreamChunk } from "@kortyx/stream";
 import { z } from "zod";
+import { promptEvaluationContext } from "../evals/prompt-context";
 import { executeWorkflow, resumeWorkflow } from "../execution/execute";
 import type {
   ExecutableWorkflow,
@@ -41,6 +42,7 @@ import { emitTelemetryEvent } from "../telemetry/events";
 import { projectWorkflowTopology } from "../telemetry/topology";
 import { restoreWorkflowCallBranch } from "../telemetry/workflow-call-branch";
 import type { ChatMessage } from "../types/chat-message";
+import { usage } from "../usage";
 import { streamChat as runStreamChat } from "./process-chat";
 
 export interface AgentProcessOptions {
@@ -68,6 +70,7 @@ export interface AgentProjectTopologyOptions {
 }
 
 export interface CreateAgentArgs {
+  prompts?: import("@kortyx/prompts").PromptManager | undefined;
   limits?: ExecutionLimits | undefined;
   getProvider?: GetProviderFn | undefined;
   workflows?: WorkflowDefinition[];
@@ -79,6 +82,16 @@ export interface CreateAgentArgs {
 }
 
 export interface Agent extends ReturnType<typeof createInterruptDiscovery> {
+  /** Report private exception evidence through the configured native telemetry adapter. */
+  reportError?: NonNullable<
+    NonNullable<ExecutionRuntimeConfig["telemetry"]>["trace"]
+  >["reportError"];
+  describePromptContracts?: () => {
+    id: string;
+    format: "system-user" | "chat";
+    variablesSchema: Record<string, unknown>;
+    configSchema: Record<string, unknown>;
+  }[];
   execute<W extends ExecutableWorkflow>(
     args: ExecuteOptions<W>,
   ): Promise<ExecutionResult<z.output<W["outputSchema"]>>>;
@@ -155,6 +168,7 @@ const createAgentArgsBaseSchema = z
     defaultWorkflowId: z.string().optional(),
     frameworkAdapter: z.unknown().optional(),
     telemetry: z.unknown().optional(),
+    prompts: z.unknown().optional(),
   })
   .strict();
 
@@ -258,7 +272,7 @@ const clearPendingGraphWrites = async (
   ]);
 };
 
-export function createAgent(args: CreateAgentArgs): Agent {
+function createAgentInternal(args: CreateAgentArgs): Agent {
   const parsedArgs = parseCreateAgentArgs(args);
 
   const {
@@ -270,6 +284,7 @@ export function createAgent(args: CreateAgentArgs): Agent {
     defaultWorkflowId,
     frameworkAdapter,
     telemetry,
+    prompts,
   } = parsedArgs;
 
   const resolvedDefaultWorkflowId = defaultWorkflowId;
@@ -299,8 +314,31 @@ export function createAgent(args: CreateAgentArgs): Agent {
       fallbackId: resolvedDefaultWorkflowId ?? "general-chat",
     });
   })();
+  const registryUsage = usage.start("sdk.registry");
   const registeredWorkflowsPromise = registryPromise.then((registry) =>
     registry?.list?.(),
+  );
+  void registeredWorkflowsPromise.then(
+    (registered) => {
+      try {
+        registryUsage.end(
+          "success",
+          registered
+            ? {
+                data_reducers: registered.some((workflow) =>
+                  Object.values(workflow.reduce ?? {}).some(
+                    (callback) => typeof callback === "function",
+                  ),
+                ),
+              }
+            : {},
+        );
+      } catch {
+        // Optional configuration measurement must not disrupt registry resolution.
+        registryUsage.end();
+      }
+    },
+    (error) => registryUsage.fail(error),
   );
 
   const projectTopology = async (
@@ -319,11 +357,14 @@ export function createAgent(args: CreateAgentArgs): Agent {
     );
   };
 
-  const streamChat = async (
+  const streamChatInternal = async (
     messages: ChatMessage[],
     options?: AgentProcessOptions,
   ): Promise<AsyncIterable<StreamChunk>> => {
     const parsedOptions = parseAgentProcessOptions(options);
+    const promptEvaluation = promptEvaluationContext.getStore();
+    if (promptEvaluation && !prompts)
+      throw new Error("This application has no prompt manager configured.");
 
     const registry = await registryPromise;
     if (!registry) {
@@ -372,15 +413,44 @@ export function createAgent(args: CreateAgentArgs): Agent {
           : {}),
         ...(runtimeOptions?.context ? { context: runtimeOptions.context } : {}),
         ...(telemetry ? { telemetry } : {}),
+        ...(prompts
+          ? {
+              prompts: prompts.start({
+                ...(runtimeOptions?.abortSignal
+                  ? { signal: runtimeOptions.abortSignal }
+                  : {}),
+                ...(promptEvaluation
+                  ? {
+                      snapshot: promptEvaluation.snapshot,
+                      onUsage: promptEvaluation.onUsage,
+                    }
+                  : {}),
+              }),
+            }
+          : {}),
       }),
     });
   };
 
+  const streamChat: Agent["streamChat"] = (messages, options) =>
+    usage.measure(
+      "sdk.chat.admission",
+      () => streamChatInternal(messages, options),
+      {
+        phase: "admission",
+        continue_on_disconnect: options?.continueOnDisconnect === true,
+      },
+    );
+
   const listCheckpoints = (sessionId: string) =>
-    resolvedFrameworkAdapter.sessionCheckpoints.list(sessionId);
+    usage.measure("sdk.checkpoint.list", () =>
+      resolvedFrameworkAdapter.sessionCheckpoints.list(sessionId),
+    );
 
   const getCheckpoint = (id: CheckpointId) =>
-    resolvedFrameworkAdapter.sessionCheckpoints.get(id);
+    usage.measure("sdk.checkpoint.read", () =>
+      resolvedFrameworkAdapter.sessionCheckpoints.get(id),
+    );
 
   const rollbackTo = async (
     id: CheckpointId,
@@ -511,25 +581,93 @@ export function createAgent(args: CreateAgentArgs): Agent {
       frameworkAdapter: resolvedFrameworkAdapter,
       getProvider: resolvedGetProvider,
       telemetry,
+      prompts,
       knownWorkflowIds: (await registeredWorkflowsPromise)?.map(
         (workflow) => workflow.id,
       ),
     };
   };
-  const execute = (async (options: Parameters<typeof executeWorkflow>[1]) =>
-    executeWorkflow(await services(), options)) as Agent["execute"];
-  const resume = (async (options: Parameters<typeof resumeWorkflow>[1]) =>
-    resumeWorkflow(await services(), options)) as Agent["resume"];
+  const observe = async (
+    operation: "sdk.execute" | "sdk.resume",
+    run: () => Promise<ExecutionResult>,
+  ) => {
+    const scope = usage.start(operation);
+    try {
+      const result = await run();
+      if (result.status === "failed") scope.fail(result.error);
+      else
+        scope.end(
+          result.status === "completed"
+            ? "success"
+            : result.status === "suspended" && result.reason === "limit_reached"
+              ? "limit_reached"
+              : result.status,
+        );
+      return result;
+    } catch (error) {
+      scope.fail(error, { phase: "admission" });
+      throw error;
+    }
+  };
+  const execute = ((options: Parameters<typeof executeWorkflow>[1]) =>
+    observe("sdk.execute", async () =>
+      executeWorkflow(await services(), options),
+    )) as Agent["execute"];
+  const resume = ((options: Parameters<typeof resumeWorkflow>[1]) =>
+    observe("sdk.resume", async () =>
+      resumeWorkflow(await services(), options),
+    )) as Agent["resume"];
 
   return {
     ...createInterruptDiscovery(resolvedFrameworkAdapter.pendingRequests),
+    reportError: (error, options) => {
+      try {
+        return telemetry?.trace?.reportError?.(error, options);
+      } catch {
+        // Diagnostic exporter failures never change application behavior.
+      }
+    },
     execute,
     resume,
     projectTopology,
     streamChat,
+    describePromptContracts: () =>
+      (prompts?.definitions ?? []).map((ref) => ({
+        id: ref.id,
+        format: ref.format,
+        variablesSchema: z.toJSONSchema(ref.variables, { io: "input" }),
+        configSchema: z.toJSONSchema(ref.config, { io: "input" }),
+      })),
     listCheckpoints,
     getCheckpoint,
-    rollbackTo,
-    fork,
+    rollbackTo: (id) =>
+      usage.measure("sdk.checkpoint.rollback", () => rollbackTo(id)),
+    fork: (id, options) =>
+      usage.measure("sdk.checkpoint.fork", () => fork(id, options)),
   };
+}
+
+export function createAgent(args: CreateAgentArgs): Agent {
+  const scope = usage.start("sdk.initialize");
+  try {
+    const agent = createAgentInternal(args);
+    try {
+      scope.end("success", {
+        source: args.workflowRegistry
+          ? "custom"
+          : args.workflows
+            ? "memory"
+            : "file",
+        storage: args.frameworkAdapter?.kind ?? "custom",
+        prompts: Boolean(args.prompts),
+        observability: Boolean(args.telemetry),
+      });
+    } catch {
+      scope.end();
+    }
+    return agent;
+  } catch (error) {
+    scope.fail(error, { phase: "configuration" });
+    throw error;
+  }
 }

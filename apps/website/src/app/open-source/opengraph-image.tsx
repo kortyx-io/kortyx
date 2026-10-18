@@ -10,6 +10,6 @@ export default function Image() {
     eyebrow: "Open source",
     title: "Run the framework on your infrastructure.",
     description:
-      "Apache-2.0 runtime and React packages, optional self-hosted Studio, and no required cloud execution path.",
+      "Apache-2.0 runtime and React packages with optional self-hosted Studio, running on your infrastructure.",
   });
 }

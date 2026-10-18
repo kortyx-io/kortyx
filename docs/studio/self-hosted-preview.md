@@ -204,3 +204,12 @@ it as a hosted service.
 
 Report security issues through [SECURITY.md](../../SECURITY.md), not a public
 issue.
+
+## Explore sample data
+
+Use the navbar project selector to open the read-only [Sample project](./sample-project.md). You can hide or restore it in Settings → Sample project.
+
+Use **Explore Studio** in the navbar or **Help & tours** in the Studio menu for
+optional task chapters, the full walkthrough, and resume. **Set up your project**
+opens the shared connection guide in OSS. Sample progress never marks your SDK
+integration connected. See the [sample and learning guide](sample-project.md).

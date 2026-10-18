@@ -3,7 +3,13 @@ import { defineConfig } from "vitest/config";
 
 // Unit tests exercise OSS defaults; selected profiles have a real build/dev smoke test.
 export default defineConfig({
-  test: { include: ["test/**/*.test.ts"] },
+  test: {
+    include: ["test/**/*.test.ts"],
+    // Use the same native CJS PromptError class as telemetry-db, as Node does in production.
+    server: {
+      deps: { external: [/@kortyx\/prompts/, /packages\/prompts\/dist\//] },
+    },
+  },
   resolve: {
     alias: {
       "@api/auth": fileURLToPath(

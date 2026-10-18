@@ -1,5 +1,172 @@
 # Changelog
 
+## Unreleased
+
+- Replace complete runtime-owned hook records and parallel journals without changing application data deep merge or reducers.
+- Seal budget suspension state with explicit response delivery; retain unconsumed answers and prevent old commands overwriting progress on Continue. Read compatible legacy snapshots and reject ambiguous old budget commands.
+- Write Redis journals and expiry atomically without requiring Lua; project Redis and PostgreSQL history before retaining execution payloads.
+
+- Add bounded, idempotent queued eval execution with shared consumer capacity,
+  event replay, explicit cancellation and optional PostgreSQL recovery.
+
+- Add opt-in, output-schema-typed workflow `reduce` callbacks. Preserve default
+  deep merge; support replacement, accumulation and deletion across nodes, chat,
+  child outputs, deterministic parallel joins and checkpoint resume. Surface
+  callback exceptions as `WORKFLOW_REDUCER_FAILED` without exposing raw values.
+
+## [0.25.0](https://github.com/kortyx-io/kortyx/compare/runtime-v0.24.1...runtime-v0.25.0) (2026-10-16)
+
+
+### Features
+
+* **evals:** configurable deadlines and original error visibility ([#354](https://github.com/kortyx-io/kortyx/issues/354)) ([7dde173](https://github.com/kortyx-io/kortyx/commit/7dde173b54eb37a2d28ff28ac342a3333e5ed902))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/stream bumped to 0.15.6
+    * @kortyx/core bumped to 0.15.0
+    * @kortyx/hooks bumped to 0.35.0
+    * @kortyx/providers bumped to 0.9.4
+    * @kortyx/utils bumped to 0.3.9
+    * @kortyx/prompts bumped to 0.2.2
+
+## [0.24.1](https://github.com/kortyx-io/kortyx/compare/runtime-v0.24.0...runtime-v0.24.1) (2026-10-14)
+
+
+### Bug Fixes
+
+* **runtime:** preserve interrupt state across pauses and resume ([#348](https://github.com/kortyx-io/kortyx/issues/348)) ([03b49f2](https://github.com/kortyx-io/kortyx/commit/03b49f2b8b6b44a2852d16fd4fe1b3e199316072))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/hooks bumped to 0.34.3
+    * @kortyx/utils bumped to 0.3.8
+
+## [0.24.0](https://github.com/kortyx-io/kortyx/compare/runtime-v0.23.2...runtime-v0.24.0) (2026-10-13)
+
+
+### ⚠ BREAKING CHANGES
+
+* **runtime:** Consumer eval routes cap active attempts at 20 by default. Set maxActiveAttempts before upgrading consumers with higher concurrency. Upgrade API and Studio together for the new case-dispatch progress events.
+* **agent:** Consumer eval routes cap active attempts at 20 by default. Set maxActiveAttempts before upgrading consumers with higher concurrency. Upgrade API and Studio together for the new case-dispatch progress events.
+
+### Features
+
+* **agent:** make concurrent eval execution resilient ([#339](https://github.com/kortyx-io/kortyx/issues/339)) ([84d0e4f](https://github.com/kortyx-io/kortyx/commit/84d0e4fe3d35e5cf80713f7550ef2b1d83e5a2ec))
+* **runtime:** add opt-in workflow data reducers ([#340](https://github.com/kortyx-io/kortyx/issues/340)) ([8be2c81](https://github.com/kortyx-io/kortyx/commit/8be2c81f74c5c51ab98443144f3491d4e8d54a88))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/stream bumped to 0.15.5
+    * @kortyx/core bumped to 0.14.0
+    * @kortyx/hooks bumped to 0.34.2
+    * @kortyx/providers bumped to 0.9.3
+    * @kortyx/utils bumped to 0.3.7
+    * @kortyx/prompts bumped to 0.2.1
+
+## [0.23.2](https://github.com/kortyx-io/kortyx/compare/runtime-v0.23.1...runtime-v0.23.2) (2026-10-13)
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/hooks bumped to 0.34.1
+
+## [0.23.1](https://github.com/kortyx-io/kortyx/compare/runtime-v0.23.0...runtime-v0.23.1) (2026-10-11)
+
+
+### Bug Fixes
+
+* **website:** reconcile credibility branch with current main ([60199f9](https://github.com/kortyx-io/kortyx/commit/60199f992242eb7c409a95bc7a6898d31bac601d))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/stream bumped to 0.15.4
+    * @kortyx/core bumped to 0.13.1
+    * @kortyx/hooks bumped to 0.34.0
+    * @kortyx/providers bumped to 0.9.2
+    * @kortyx/utils bumped to 0.3.6
+    * @kortyx/prompts bumped to 0.2.0
+
+## [0.23.0](https://github.com/kortyx-io/kortyx/compare/runtime-v0.22.1...runtime-v0.23.0) (2026-10-10)
+
+
+### Features
+
+* version, evaluate, serve and migrate Studio prompts ([#288](https://github.com/kortyx-io/kortyx/issues/288)) ([0802f8b](https://github.com/kortyx-io/kortyx/commit/0802f8b91c4a541d176dd8a75c659063e2c28c8c))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/hooks bumped to 0.33.0
+    * @kortyx/prompts bumped to 0.1.0
+
+## [0.22.1](https://github.com/kortyx-io/kortyx/compare/runtime-v0.22.0...runtime-v0.22.1) (2026-10-09)
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/stream bumped to 0.15.3
+    * @kortyx/core bumped to 0.13.0
+    * @kortyx/hooks bumped to 0.32.1
+    * @kortyx/providers bumped to 0.9.1
+    * @kortyx/utils bumped to 0.3.5
+
+## [0.22.0](https://github.com/kortyx-io/kortyx/compare/runtime-v0.21.7...runtime-v0.22.0) (2026-10-08)
+
+
+### Features
+
+* **hooks:** support mixed tools outputs and interrupts ([#297](https://github.com/kortyx-io/kortyx/issues/297)) ([0aa4aa6](https://github.com/kortyx-io/kortyx/commit/0aa4aa6b08cd2ef44f603b8dbe8e35b30c54cbdc))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/hooks bumped to 0.32.0
+
+## [0.21.7](https://github.com/kortyx-io/kortyx/compare/runtime-v0.21.6...runtime-v0.21.7) (2026-10-08)
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/stream bumped to 0.15.2
+    * @kortyx/core bumped to 0.12.0
+    * @kortyx/hooks bumped to 0.31.0
+    * @kortyx/providers bumped to 0.9.0
+    * @kortyx/utils bumped to 0.3.4
+
+## [0.21.6](https://github.com/kortyx-io/kortyx/compare/runtime-v0.21.5...runtime-v0.21.6) (2026-10-07)
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/stream bumped to 0.15.1
+    * @kortyx/hooks bumped to 0.30.2
+    * @kortyx/providers bumped to 0.8.4
+
 ## [0.21.5](https://github.com/kortyx-io/kortyx/compare/runtime-v0.21.4...runtime-v0.21.5) (2026-10-03)
 
 

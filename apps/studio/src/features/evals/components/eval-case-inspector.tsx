@@ -1,11 +1,12 @@
 "use client";
-import type { EvalStepResult } from "@kortyx/agent/evals";
+import { createEvalIssue, type EvalStepResult } from "@kortyx/agent/evals";
 import { ArrowUpRight, MessageSquare, Reply } from "lucide-react";
 import { DetailLink } from "@/components/detail/detail-link";
 import { Button } from "@/components/ui/button";
 import type { CaseRow } from "../lib/presentation";
 import { EvalCostBreakdown } from "./eval-cost";
 import { EvalDisclosure } from "./eval-disclosure";
+import { EvalFailure } from "./eval-failure";
 import { EvalOutputRequirements } from "./eval-output-requirements";
 import { EvalPayloadViewer } from "./eval-payload-viewer";
 import { EvalStatus } from "./eval-status";
@@ -45,13 +46,14 @@ function StepEvaluation({
       </p>
       <EvalOutputRequirements outputs={step.expectation.outputs} />
       {step.reason ? (
-        <p className="break-words text-xs text-red-700 dark:text-red-400">
+        <p className="whitespace-pre-wrap break-words [overflow-wrap:anywhere] text-xs text-red-700 dark:text-red-400">
           {step.reason}
         </p>
       ) : null}
       {step.criteria.map((criterion, index) => (
         <div
           key={criterion.id}
+          data-guide-focus="eval-criterion"
           className="min-w-0 space-y-3 border-t border-foreground/10 pt-3"
         >
           <div className="flex flex-wrap items-center justify-between gap-2">
@@ -60,14 +62,14 @@ function StepEvaluation({
             </p>
             <EvalStatus status={criterion.passed ? "passed" : "failed"} />
           </div>
-          <p className="break-words text-sm leading-relaxed text-foreground/80">
+          <p className="whitespace-pre-wrap break-words [overflow-wrap:anywhere] text-sm leading-relaxed text-foreground/80">
             {criterion.text}
           </p>
           <div className="space-y-1.5">
             <p className="text-xs font-medium text-muted-foreground">
               Assessment
             </p>
-            <p className="break-words text-sm leading-relaxed">
+            <p className="whitespace-pre-wrap break-words [overflow-wrap:anywhere] text-sm leading-relaxed">
               {criterion.reason}
             </p>
           </div>
@@ -79,7 +81,7 @@ function StepEvaluation({
               {criterion.evidence.map((text, index) => (
                 <blockquote
                   key={`${index}:${text}`}
-                  className="mt-2 break-words border-l pl-3 text-xs leading-relaxed text-muted-foreground"
+                  className="mt-2 whitespace-pre-wrap break-words [overflow-wrap:anywhere] border-l pl-3 text-xs leading-relaxed text-muted-foreground"
                 >
                   {text}
                 </blockquote>
@@ -89,7 +91,7 @@ function StepEvaluation({
         </div>
       ))}
       {step.observation.runId ? (
-        <Button variant="outline" size="xs" asChild>
+        <Button variant="secondary" size="xs" asChild>
           <DetailLink
             href={`/runs/${encodeURIComponent(step.observation.runId)}`}
           >
@@ -101,13 +103,71 @@ function StepEvaluation({
     </section>
   );
 }
-function StepDebug({ step, scope }: { step: EvalStepResult; scope: string }) {
+function StepDebug({
+  step,
+  scope,
+  environment,
+}: {
+  step: EvalStepResult;
+  scope: string;
+  environment?: string;
+}) {
   const interrupt = step.observation.interrupt;
   return (
-    <section className="min-w-0 space-y-4 border-t border-foreground/15 pt-5 first:border-t-0 first:pt-0">
+    <section
+      data-guide-focus="eval-conversation"
+      className="min-w-0 space-y-4 border-t border-foreground/15 pt-5 first:border-t-0 first:pt-0"
+    >
       <p className="text-xs font-medium text-muted-foreground">
         Step {step.index + 1} conversation
       </p>
+      {step.observation.failure || step.observation.diagnosticId ? (
+        <EvalFailure
+          issue={{
+            code: step.observation.failure?.code ?? "EXECUTION_FAILED",
+            message:
+              step.observation.failure?.message ??
+              step.reason ??
+              "Agent execution failed.",
+            ...(step.observation.failure
+              ? { failure: step.observation.failure }
+              : {}),
+            ...(step.observation.diagnosticId
+              ? { diagnosticId: step.observation.diagnosticId }
+              : {}),
+          }}
+          environment={environment}
+          scope={`${scope}-execution-error`}
+        />
+      ) : null}
+      {step.observation.events?.map((event, index) => {
+        if (
+          !event ||
+          typeof event !== "object" ||
+          Array.isArray(event) ||
+          !("type" in event) ||
+          event.type !== "tool-call-error"
+        )
+          return null;
+        const issue = createEvalIssue(
+          "execute",
+          "failure" in event ? event.failure : undefined,
+          {
+            ...("diagnosticId" in event &&
+            typeof event.diagnosticId === "string"
+              ? { diagnosticId: event.diagnosticId }
+              : {}),
+          },
+        );
+        return (
+          <EvalFailure
+            key={index}
+            issue={issue}
+            environment={environment}
+            scope={`${scope}-tool-error-${index}`}
+          />
+        );
+      })}
       <div className="rounded-lg border bg-muted/20 p-3">
         <p className="mb-2 flex items-center gap-2 text-xs font-medium text-muted-foreground">
           {"message" in step.input ? (
@@ -123,7 +183,7 @@ function StepDebug({ step, scope }: { step: EvalStepResult; scope: string }) {
           )}
         </p>
         {"message" in step.input ? (
-          <p className="whitespace-pre-wrap break-words text-sm">
+          <p className="whitespace-pre-wrap break-words [overflow-wrap:anywhere] text-sm">
             {step.input.message}
           </p>
         ) : (
@@ -146,7 +206,7 @@ function StepDebug({ step, scope }: { step: EvalStepResult; scope: string }) {
         ) : null}
         {interrupt ? (
           <>
-            <p className="break-words text-sm font-medium">
+            <p className="whitespace-pre-wrap break-words [overflow-wrap:anywhere] text-sm font-medium">
               {interrupt.question ?? "Structured input requested"}
             </p>
             <p className="break-words font-mono text-[11px] text-muted-foreground">
@@ -159,9 +219,11 @@ function StepDebug({ step, scope }: { step: EvalStepResult; scope: string }) {
                     key={option.id}
                     className="rounded-md border bg-muted/10 px-3 py-2"
                   >
-                    <p className="break-words text-sm">{option.label}</p>
+                    <p className="whitespace-pre-wrap break-words [overflow-wrap:anywhere] text-sm">
+                      {option.label}
+                    </p>
                     {option.description ? (
-                      <p className="break-words text-xs text-muted-foreground">
+                      <p className="whitespace-pre-wrap break-words [overflow-wrap:anywhere] text-xs text-muted-foreground">
                         {option.description}
                       </p>
                     ) : null}
@@ -210,19 +272,46 @@ function StepDebug({ step, scope }: { step: EvalStepResult; scope: string }) {
 export function EvalConversationStep({
   step,
   scope,
+  environment,
 }: {
   step: EvalStepResult;
   scope: string;
+  environment?: string;
 }) {
   const key = `${scope}-${step.index}`;
   return (
     <div className="min-w-0 space-y-4 border-t border-foreground/15 py-5 first:border-t-0 first:pt-0 last:pb-0">
       <StepEvaluation step={step} scope={key} />
       <EvalDisclosure scope={`${key}-debug`} label="Conversation and debugging">
-        <StepDebug step={step} scope={key} />
+        <StepDebug step={step} scope={key} environment={environment} />
       </EvalDisclosure>
     </div>
   );
+}
+export function EvalVerification({
+  verification,
+}: {
+  verification?: CaseRow["verification"];
+}) {
+  return verification ? (
+    <section className="space-y-2 rounded-lg border p-3">
+      <div className="flex items-center justify-between gap-2">
+        <h4 className="text-xs font-semibold">Postcondition verification</h4>
+        <EvalStatus status={verification.passed ? "passed" : "failed"} />
+      </div>
+      <p className="text-xs leading-5 [overflow-wrap:anywhere]">
+        {verification.reason}
+      </p>
+      {verification.evidence.map((text, index) => (
+        <blockquote
+          key={`${index}:${text}`}
+          className="border-l pl-3 text-xs text-muted-foreground [overflow-wrap:anywhere]"
+        >
+          {text}
+        </blockquote>
+      ))}
+    </section>
+  ) : null;
 }
 export function EvalCaseContent({ row }: { row: CaseRow }) {
   return (
@@ -240,6 +329,19 @@ export function EvalCaseContent({ row }: { row: CaseRow }) {
         <EvalStatus status={row.status} />
       </div>
       <EvalCostBreakdown costs={row.costs} />
+      {row.phaseDurationsMs ? (
+        <dl className="flex flex-wrap gap-x-5 gap-y-2 rounded-lg border bg-muted/10 p-3">
+          {Object.entries(row.phaseDurationsMs).map(([phase, milliseconds]) => (
+            <div key={phase}>
+              <dt className="text-[10px] capitalize text-muted-foreground">
+                {phase}
+              </dt>
+              <dd className="mt-0.5 font-mono text-xs">{milliseconds} ms</dd>
+            </div>
+          ))}
+        </dl>
+      ) : null}
+      <EvalVerification verification={row.verification} />
       {row.steps.map((step) => (
         <StepEvaluation
           key={step.index}
@@ -248,13 +350,12 @@ export function EvalCaseContent({ row }: { row: CaseRow }) {
         />
       ))}
       {row.errors.map((issue, index) => (
-        <p
-          role="alert"
+        <EvalFailure
           key={`${index}:${issue.code}`}
-          className="break-words rounded-md border border-red-500/25 bg-red-500/5 p-3 text-xs text-red-700 dark:text-red-400"
-        >
-          {issue.phase}: {issue.message}
-        </p>
+          issue={issue}
+          environment={row.environment}
+          scope={`${row.key}-issue-${index}`}
+        />
       ))}
       {row.steps.length ? (
         <EvalDisclosure
@@ -266,16 +367,23 @@ export function EvalCaseContent({ row }: { row: CaseRow }) {
               key={step.index}
               step={step}
               scope={`${row.key}-${step.index}`}
+              environment={row.environment}
             />
           ))}
         </EvalDisclosure>
       ) : (
         <p className="p-6 text-center text-sm text-muted-foreground">
-          {row.status === "queued"
-            ? "This attempt has not started."
-            : row.status === "running"
-              ? "Waiting for the first recorded step."
-              : "No conversation steps were recorded."}
+          {row.status === "retrying"
+            ? `${row.httpStatus === 429 || row.httpStatus === 503 ? "Consumer busy." : "Consumer connection interrupted."} Retrying${row.retryAt ? ` at ${new Date(row.retryAt).toISOString().slice(11, 19)} UTC` : " shortly"}.`
+            : row.status === "reconnecting"
+              ? "Reconnecting to the accepted execution. Captured evidence is retained."
+              : row.status === "unknown"
+                ? "Execution status is unknown. Inspect the consumer before running this attempt again."
+                : row.status === "queued"
+                  ? "This attempt has not started."
+                  : row.status === "running"
+                    ? "Waiting for the first recorded step."
+                    : "No conversation steps were recorded."}
         </p>
       )}
     </div>
