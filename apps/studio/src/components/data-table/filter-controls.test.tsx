@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import type { TableFilters } from "@kortyx/telemetry-contracts";
 import { NuqsTestingAdapter } from "nuqs/adapters/testing";
 import { act, type ReactNode } from "react";
 import { createRoot } from "react-dom/client";
@@ -58,6 +59,7 @@ const apply = vi.fn(),
   sort = vi.fn(),
   pageSize = vi.fn();
 let root: ReturnType<typeof createRoot>, container: HTMLDivElement;
+let currentFilters: TableFilters;
 function Controls() {
   const scope = useTableScope(
     [{ kind: "boolean", key: "includeArchived", label: "Include archived" }],
@@ -76,7 +78,7 @@ function Controls() {
       fields={fields}
       data={[{ score: 1 }]}
       state={{
-        filters: { match: "all", rules: [] },
+        filters: currentFilters,
         invalid: false,
         filterKey: "tableFilters.definitions",
         open: true,
@@ -110,6 +112,7 @@ beforeEach(() => {
       disconnect() {}
     },
   );
+  currentFilters = { match: "all", rules: [] };
   localStorage.clear();
   vi.clearAllMocks();
   container = document.createElement("div");
@@ -119,6 +122,7 @@ beforeEach(() => {
 afterEach(async () => {
   await act(() => root.unmount());
   container.remove();
+  vi.useRealTimers();
   vi.unstubAllGlobals();
 });
 async function render() {
@@ -187,4 +191,57 @@ it("restores search, sorting and page size from the shared saved-view contract",
     match: "any",
     rules: [{ field: "score", operator: "gte", values: [0] }],
   });
+});
+
+async function fillBound(name: string, value: string) {
+  const input = container.querySelector<HTMLInputElement>(
+    `[aria-label="${name}"]`,
+  );
+  if (!input) throw new Error(`Missing ${name}`);
+  await act(() => {
+    Object.getOwnPropertyDescriptor(
+      HTMLInputElement.prototype,
+      "value",
+    )?.set?.call(input, value);
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+  });
+}
+it("keeps newer invalid bounds when an older URL write returns, then applies a zero range", async () => {
+  vi.useFakeTimers();
+  await render();
+  await fillBound("Confidence minimum", "1");
+  await act(() => vi.advanceTimersByTime(350));
+  expect(apply).toHaveBeenLastCalledWith({
+    match: "all",
+    rules: [{ field: "score", operator: "gte", values: [1] }],
+  });
+  await fillBound("Confidence maximum", "0");
+  expect(container.querySelector('[role="alert"]')?.textContent).toContain(
+    "minimum must not exceed maximum",
+  );
+  currentFilters = apply.mock.lastCall?.[0];
+  await render(); // Acknowledge the earlier minimum after the invalid edit.
+  expect(
+    container.querySelector<HTMLInputElement>(
+      '[aria-label="Confidence maximum"]',
+    )?.value,
+  ).toBe("0");
+  await fillBound("Confidence minimum", "0");
+  await act(() => vi.advanceTimersByTime(350));
+  expect(apply).toHaveBeenLastCalledWith({
+    match: "all",
+    rules: [{ field: "score", operator: "between", values: [0, 0] }],
+  });
+  currentFilters = { match: "all", rules: [] };
+  await render(); // External reset/navigation remains authoritative.
+  expect(
+    container.querySelector<HTMLInputElement>(
+      '[aria-label="Confidence minimum"]',
+    )?.value,
+  ).toBe("");
+  expect(
+    container.querySelector<HTMLInputElement>(
+      '[aria-label="Confidence maximum"]',
+    )?.value,
+  ).toBe("");
 });

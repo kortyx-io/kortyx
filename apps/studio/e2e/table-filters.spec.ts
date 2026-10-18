@@ -281,7 +281,11 @@ test("suggests workflows outside the search results and keeps typed values usabl
     name: "Workflow suggestions",
     exact: true,
   });
-  await expect(list.getByRole("option").first()).toContainText(/e2e/);
+  // The typed value appears immediately; wait for the remote fixture suggestion
+  // before reading the option that keyboard selection will use.
+  await expect(
+    list.getByRole("option", { name: DRAWER_FIXTURE.workflowId, exact: true }),
+  ).toBeVisible();
   const option = await list.getByRole("option").first().innerText();
   await input.press("ArrowDown");
   await input.press("Enter");

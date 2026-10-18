@@ -186,3 +186,8 @@ it("auth handlers delegate GET and POST with their original request", async () =
     logout,
   ]);
 });
+
+vi.mock("next/headers", () => ({
+  cookies: async () => ({ get: () => undefined }),
+  headers: async () => new Headers(),
+}));

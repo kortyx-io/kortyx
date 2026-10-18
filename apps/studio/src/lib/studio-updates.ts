@@ -1,4 +1,5 @@
 import { StudioUpdateStatusSchema } from "@kortyx/telemetry-contracts";
+import { sampleRequestResponse } from "@/features/sample-project/server";
 import { constantTimeEqual } from "./constant-time-equal";
 import { getStudioAuthConfig } from "./studio-auth";
 
@@ -22,6 +23,8 @@ export async function studioUpdateRequest(request: Request): Promise<Response> {
       },
       { status: 401 },
     );
+  const sample = await sampleRequestResponse(request);
+  if (sample) return sample;
   const url = process.env.KORTYX_STUDIO_UPDATER_URL;
   const token = process.env.KORTYX_STUDIO_UPDATE_TOKEN;
   if (!url || !token)

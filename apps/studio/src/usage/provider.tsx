@@ -1,6 +1,8 @@
 "use client";
+
 import { usePathname } from "next/navigation";
 import { useEffect, useRef } from "react";
+import { isSamplePath } from "@/features/sample-project/routing";
 import {
   configureStudioUsage,
   flushStudioUsage,
@@ -29,6 +31,10 @@ export function UsageProvider({
   useEffect(() => {
     if (previous.current === pathname) return;
     previous.current = pathname;
+    if (isSamplePath(pathname)) {
+      studioFeature("studio.sample", { sample_action: "view" });
+      return;
+    }
     studioFeature("studio.navigation", {
       resource: usageSurface(pathname),
       action: "view",

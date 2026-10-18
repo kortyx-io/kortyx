@@ -75,6 +75,8 @@ export function DataTableFilterControls<T>({
 }) {
   const { filters } = state;
   const [draft, setDraft] = useState(filters);
+  const currentDraft = useRef(filters);
+  const submitted = useRef(new Set<string>());
   const [error, setError] = useState("");
   const [views, setViews] = useState<SavedTableView[]>([]);
   const layout = useDataTable();
@@ -128,8 +130,16 @@ export function DataTableFilterControls<T>({
   const [fieldSearch, setFieldSearch] = useState("");
   const serialized = JSON.stringify(filters);
   useEffect(() => {
+    // A server acknowledgement may arrive after the user edits another bound.
+    // Do not replace newer (possibly invalid) input with that older own write.
+    const ownWrite = submitted.current.delete(serialized);
+    if (ownWrite && JSON.stringify(currentDraft.current) !== serialized) return;
+    submitted.current.clear();
     if (pending.current) clearTimeout(pending.current);
-    setDraft(JSON.parse(serialized));
+    const next: TableFilters = JSON.parse(serialized);
+    currentDraft.current = next;
+    setDraft(next);
+    setError("");
   }, [serialized]);
   useEffect(
     () => () => {
@@ -137,7 +147,17 @@ export function DataTableFilterControls<T>({
     },
     [],
   );
+  const apply = (next: TableFilters) => {
+    submitted.current.add(JSON.stringify(next));
+    // Keep acknowledgements bounded even if an interrupted route never returns.
+    if (submitted.current.size > 10) {
+      const oldest = submitted.current.values().next().value;
+      if (oldest) submitted.current.delete(oldest);
+    }
+    state.apply(next);
+  };
   const change = (next: TableFilters, immediate = false) => {
+    currentDraft.current = next;
     setDraft(next);
     if (pending.current) clearTimeout(pending.current);
     try {
@@ -147,8 +167,8 @@ export function DataTableFilterControls<T>({
       setError(error instanceof Error ? error.message : "Check filter values.");
       return;
     }
-    if (immediate) state.apply(next);
-    else pending.current = setTimeout(() => state.apply(next), 350);
+    if (immediate) apply(next);
+    else pending.current = setTimeout(() => apply(next), 350);
   };
   const groups = Object.entries(
     Object.groupBy(

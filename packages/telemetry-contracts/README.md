@@ -19,3 +19,15 @@ prompt assignments and evaluation judge metadata. `tablePassRate` returns a
 percentage of recorded passed/failed/error cases (unrun cases are excluded), or
 no value when none finished. `tableQueueMs` returns elapsed queue milliseconds
 only when a valid start timestamp is recorded.
+
+### Studio sample identities
+
+`SAMPLE_PROJECT` exports the versioned sample project's stable record IDs,
+recording/reference timestamps, and future guided-tour anchors. Sample records
+are fictional and read-only; these identifiers are not authentication scopes.
+Dataset content is maintained by Studio and the internal telemetry DB package.
+
+The sample manifest also includes stable IDs for the two-turn session and the
+saved evaluation baseline. Dataset version changes preserve existing identities;
+Studio chapters resolve supported views from those IDs rather than persisting
+arbitrary resource paths.

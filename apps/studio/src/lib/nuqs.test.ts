@@ -24,6 +24,7 @@ describe("detailNavigationHref", () => {
       runDetails: "true",
       detailView: "expanded",
       v: "3",
+      compareWith: "1",
       edit: "true",
       promptAction: "rename",
       promptActionVersion: "2",

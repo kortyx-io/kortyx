@@ -205,7 +205,11 @@ export function PromptFields({
   return (
     <div className="space-y-6">
       {value.messages.map((message, index) => (
-        <div key={`${index}:${message.role}`} className="space-y-2">
+        <div
+          key={`${index}:${message.role}`}
+          data-guide-focus={index === 0 ? "prompt-message" : undefined}
+          className="space-y-2"
+        >
           <div className="flex items-center justify-between gap-2">
             <label
               htmlFor={`${id}-message-${index}`}

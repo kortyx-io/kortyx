@@ -14,6 +14,7 @@ export const studioShell: StudioShellAdapter = {
       name: row.context.project.name,
     }));
     return {
+      projectName: scope.selected.context.project.name,
       ...(projects.length > 1
         ? {
             projectSwitcher: createElement(OperatorScopeSwitcher, {

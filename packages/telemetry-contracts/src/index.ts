@@ -2,6 +2,7 @@ import { z } from "zod";
 import { FeedbackSummarySchema, StudioScoreSchema } from "./scores";
 
 export * from "./diagnostics";
+export { SAMPLE_PROJECT } from "./sample-project";
 export * from "./scores";
 
 /** Studio read API compatibility changes only when the wire protocol breaks. */

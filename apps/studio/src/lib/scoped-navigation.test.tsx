@@ -40,6 +40,7 @@ beforeEach(async () => {
 });
 afterEach(async () => {
   await act(() => root.unmount());
+  window.history.replaceState(null, "", "/");
   vi.unstubAllGlobals();
 });
 
@@ -71,6 +72,61 @@ it("still navigates when a queued URL write fails", async () => {
   expect(router.push).toHaveBeenCalledExactlyOnceWith(
     "/projects/prj_example/evals/runs",
     undefined,
+  );
+});
+
+it.each([
+  "push",
+  "replace",
+] as const)("%s does not resume a cancelled tour navigation after a pending URL write", async (method) => {
+  let release = () => {};
+  waitForQueryUpdates.mockReturnValue(
+    new Promise<void>((resolve) => {
+      release = resolve;
+    }),
+  );
+  const controller = new AbortController();
+  navigation[method]("/runs/sample-support-success", {
+    scroll: false,
+    signal: controller.signal,
+  });
+  controller.abort();
+  release();
+  await act(async () => {});
+  expect(router[method]).not.toHaveBeenCalled();
+});
+
+it("forwards Next options without the cancellation signal", async () => {
+  waitForQueryUpdates.mockResolvedValue(undefined);
+  navigation.replace("/runs", {
+    scroll: false,
+    signal: new AbortController().signal,
+  });
+  await act(async () => {});
+  expect(router.replace).toHaveBeenCalledExactlyOnceWith(
+    "/projects/prj_example/runs",
+    { scroll: false },
+  );
+});
+
+it("updates client-owned queries without creating an intercepted copy of the page", async () => {
+  window.history.replaceState(
+    null,
+    "",
+    "/projects/prj_example/prompts/example?v=1",
+  );
+  waitForQueryUpdates.mockResolvedValue(undefined);
+  navigation.replace("/prompts/example?v=2&compareWith=1", { shallow: true });
+  await act(async () => {});
+  expect(window.location.pathname + window.location.search).toBe(
+    "/projects/prj_example/prompts/example?v=2&compareWith=1",
+  );
+  expect(router.replace).not.toHaveBeenCalled();
+  navigation.replace("/runs", { shallow: true, scroll: false });
+  await act(async () => {});
+  expect(router.replace).toHaveBeenCalledExactlyOnceWith(
+    "/projects/prj_example/runs",
+    { scroll: false },
   );
 });
 

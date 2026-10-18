@@ -1,7 +1,9 @@
 "use client";
 
+import { SAMPLE_PROJECT } from "@kortyx/telemetry-contracts";
 import { useEffect, useState } from "react";
 import { DataTable } from "@/components/data-table";
+import { useStudioRouteScope } from "@/components/studio-route-provider";
 import { effectiveInterruptStatus } from "@/features/interrupts/lib/interrupt-presentation";
 import { createRunColumns } from "@/features/runs/components/run-table-columns";
 import { RunsEmptyState } from "@/features/runs/components/runs-empty-state";
@@ -37,7 +39,11 @@ export default function RunsPageClient({
   const searchParams = useSearchParams();
 
   const runsQuery = useRunsQuery(initialRuns, preferences);
-  const [now, setNow] = useState(initialNow);
+  const [wallClock, setNow] = useState(initialNow);
+  const sampleProject = useStudioRouteScope()?.sampleProject === true;
+  const now = sampleProject
+    ? Date.parse(SAMPLE_PROJECT.referenceTime)
+    : wallClock;
   const { live } = runsQuery;
   const liveRefresh = useLiveRefresh({ enabled: live, resource: "runs" });
   const hasActiveRuns = runsQuery.filteredRuns.some((run) => {
@@ -59,10 +65,10 @@ export default function RunsPageClient({
   });
 
   useEffect(() => {
-    if (!live && !hasActiveRuns) return;
+    if (sampleProject || (!live && !hasActiveRuns)) return;
     const timer = window.setInterval(() => setNow(Date.now()), 1_000);
     return () => window.clearInterval(timer);
-  }, [live, hasActiveRuns]);
+  }, [live, hasActiveRuns, sampleProject]);
 
   function copy(text: string) {
     navigator.clipboard.writeText(text).catch(() => undefined);

@@ -178,7 +178,10 @@ export function PromptTables({
     </div>
   );
   const empty = (
-    <div className="flex min-h-64 h-full flex-col items-center justify-center p-6 text-center">
+    <div
+      data-guide-empty={!loading && !error ? "true" : undefined}
+      className="flex min-h-64 h-full flex-col items-center justify-center p-6 text-center"
+    >
       <h3 className="text-sm font-medium">
         {loading
           ? "Loading…"

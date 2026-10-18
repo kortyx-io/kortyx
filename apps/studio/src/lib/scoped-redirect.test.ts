@@ -37,3 +37,8 @@ it("does not fall back to unscoped routing on failed authorization", async () =>
   await expect(scopedRedirect("/evals/runs")).rejects.toThrow("Denied");
   expect(redirect).not.toHaveBeenCalled();
 });
+
+vi.mock("next/headers", () => ({
+  cookies: async () => ({ get: () => undefined }),
+  headers: async () => new Headers(),
+}));

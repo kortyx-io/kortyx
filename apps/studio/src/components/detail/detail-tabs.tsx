@@ -4,6 +4,7 @@ import { parseAsString } from "nuqs";
 import { type ReactNode, useEffect, useRef, useState } from "react";
 import { useDetailDrawer } from "@/components/detail/detail-drawer";
 import { DETAIL_MOTION_DURATION_MS } from "@/components/detail/detail-motion";
+import type { DetailTabFamily, DetailTabId } from "@/lib/detail-tab-contract";
 import { useStudioQueryState } from "@/lib/nuqs";
 import { cn } from "@/lib/utils";
 import { studioFeature, usageSurface } from "@/usage/client";
@@ -14,11 +15,14 @@ export type DetailTab = {
   content: ReactNode;
 };
 
-export function DetailTabs({
+export function DetailTabs<F extends DetailTabFamily | undefined = undefined>({
   tabs,
   queryKey = "tab",
 }: {
-  tabs: DetailTab[];
+  family?: F;
+  tabs: (Omit<DetailTab, "id"> & {
+    id: NoInfer<F extends DetailTabFamily ? DetailTabId<F> : string>;
+  })[];
   queryKey?: string;
 }) {
   const pathname = usePathname();
@@ -70,10 +74,14 @@ export function DetailTabs({
 
   return (
     <div className="@container flex h-full min-h-0 flex-col">
-      <div className="data-table-header-scroll z-10 flex shrink-0 gap-1 overflow-x-auto border-b bg-background px-3 @lg:px-6">
+      <div
+        data-page-help="tabs"
+        className="data-table-header-scroll z-10 flex shrink-0 gap-1 overflow-x-auto border-b bg-background px-3 @lg:px-6"
+      >
         {tabs.map((tab) => (
           <button
             key={tab.id}
+            data-detail-tab={tab.id}
             type="button"
             onClick={() => changeTab(tab.id)}
             className={cn(
@@ -99,6 +107,7 @@ export function DetailTabs({
         {renderedTabs.map((tab) => (
           <div
             key={tab.id}
+            data-detail-tab-content={tab.id}
             role="tabpanel"
             aria-hidden={tab.id !== selected?.id}
             className={cn(

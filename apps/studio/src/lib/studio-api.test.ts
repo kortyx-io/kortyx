@@ -3,6 +3,7 @@ import { afterEach, expect, it, vi } from "vitest";
 vi.mock("server-only", () => ({}));
 vi.mock("next/headers", () => ({
   cookies: async () => ({ get: () => undefined }),
+  headers: async () => new Headers(),
 }));
 afterEach(() => {
   vi.unstubAllEnvs();

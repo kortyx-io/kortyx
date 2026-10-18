@@ -172,7 +172,11 @@ export function EvalComparison({
     }),
   ];
   return (
-    <div className="flex h-full min-h-0 flex-col">
+    <div
+      data-tour-surface="eval-comparison"
+      data-comparison-ready={baseline && !loading ? "true" : "false"}
+      className="flex h-full min-h-0 flex-col"
+    >
       <EvalDetailHeader
         title={candidate.suite.name ?? displayName(candidate.suiteId)}
         description={`Comparison · ${candidate.targetName} · ${formatDateTime(candidate.createdAt)}`}
@@ -238,7 +242,7 @@ export function EvalComparison({
                   variant="ghost"
                   size="icon-xs"
                   aria-label="Comparison context"
-                  title="Exploratory comparison: identities, data snapshots and prompt versions were not recorded."
+                  title="Exploratory comparison: review recorded context before attributing score changes."
                 >
                   <Info />
                 </Button>
@@ -249,9 +253,9 @@ export function EvalComparison({
               >
                 <h3 className="font-semibold">Exploratory comparison</h3>
                 <p className="text-muted-foreground">
-                  Actor identities, data snapshots and prompt versions were not
-                  recorded. Changes reflect recorded pass rates and cannot be
-                  attributed to a prompt change.
+                  Changes reflect recorded pass rates and do not establish that
+                  a prompt change caused the difference. Review each run's
+                  available prompt versions, actor context, and reference facts.
                 </p>
                 <p className="text-muted-foreground">
                   Cases with different inputs, reference facts, definitions or

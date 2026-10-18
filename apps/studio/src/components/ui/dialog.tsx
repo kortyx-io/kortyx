@@ -30,6 +30,7 @@ export function DialogContent({
         style={{ zIndex: OVERLAY_LAYERS.modalBackdrop }}
       />
       <Primitive.Content
+        data-slot="dialog-content"
         {...props}
         className={cn(
           "fixed top-1/2 left-1/2 grid w-[calc(100%_-_2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 gap-4 rounded-xl border bg-background p-6 shadow-xl",

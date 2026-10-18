@@ -16,6 +16,7 @@ checks as passing. Scale the evidence to the change. -->
 | --- | --- | --- |
 | Behavior and contracts | Pending | |
 | Studio integration | Pending | |
+| Guided tours and page help | Pending | Assess affected pages/controls and new surfaces introduced by rebases; update and complete related guides with visual verification, or explain why not applicable. |
 | Documentation and examples | Pending | |
 | Kortyx skill | Pending | |
 | Usage telemetry | Pending | |

@@ -18,7 +18,7 @@ Follow applicable instructions in more specific AGENTS.md files as well.
 
 - Identify affected product surfaces and acceptance criteria before editing.
   Assess all policy areas; implement only the applicable work.
-- Include relevant Studio integration, documentation/examples, Kortyx skill
+- Include relevant Studio integration, guided tours/page help, documentation/examples, Kortyx skill
   references, usage telemetry, customer observability, compatibility/extension
   contracts, security/privacy, verification, and release/operations in the scope.
 - Keep maintainer usage telemetry separate from customer execution observability.
@@ -35,6 +35,8 @@ Follow applicable instructions in more specific AGENTS.md files as well.
   applicable with a reason, or Deferred with a linked issue, owner, limitation,
   and safe release boundary. Deferred work needs reviewer acceptance before
   merge; the policy defines which requirements cannot be deferred.
+- After rebasing, assess new Studio surfaces and complete affected page help and
+  guided tours under the Definition of Done; include the evidence in the PR checklist.
 - Before requesting review, reconcile the assessment with the final diff and
   report remaining gaps. Do not claim verification or private adapter coverage
   that was not performed.

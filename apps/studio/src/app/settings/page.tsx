@@ -25,6 +25,11 @@ import { StudioUpdates } from "@/components/studio-updates";
 import { ThemePreferenceControl } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
 import { EvalDefaultsSettings } from "@/features/evals/components/eval-defaults-settings";
+import {
+  isSampleProject,
+  readSampleProjectPreference,
+} from "@/features/sample-project/server";
+import { SampleProjectVisibility } from "@/features/sample-project/visibility-control";
 import { scopedRedirect } from "@/lib/scoped-redirect";
 import { getStudioShellContext } from "@/lib/studio-context";
 import type {
@@ -160,12 +165,53 @@ export default async function SettingsPage({
   ]);
   if (!section && query.section && /^[a-z-]+$/.test(query.section))
     await scopedRedirect(`/settings/${query.section}`);
+  const [sample, samplePreference] = await Promise.all([
+    isSampleProject(),
+    readSampleProjectPreference(),
+  ]);
+  if (sample)
+    return (
+      <div
+        className="h-full overflow-hidden rounded-xl border bg-background"
+        data-settings-ready="true"
+      >
+        <SettingsNavigation>
+          <SettingsPanel
+            id="sample-project"
+            label="Sample project"
+            group="Personal"
+          >
+            <SettingsCard
+              icon={Database}
+              title="Sample project"
+              description="Explore Studio using shared, read-only sample data."
+            >
+              <SampleProjectVisibility
+                visible={samplePreference.visible}
+                available={samplePreference.available}
+                active
+              />
+            </SettingsCard>
+          </SettingsPanel>
+          <SettingsPanel id="appearance" label="Appearance" group="Personal">
+            <SettingsCard
+              icon={Palette}
+              title="Appearance"
+              description="Choose how Studio looks."
+            >
+              <ThemePreferenceControl />
+            </SettingsCard>
+          </SettingsPanel>
+        </SettingsNavigation>
+      </div>
+    );
   const context = await getStudioShellContext();
   const settings = await studioSettings.resolve(context);
   const available = [
     ...(settings.privacy !== false ? ["privacy"] : []),
     "evaluations",
     "appearance",
+    "sample-project",
     "about",
     ...(settings.categories?.map((c) => c.id) ?? []),
     ...(settings.scope !== null ? ["general"] : []),
@@ -181,6 +227,23 @@ export default async function SettingsPage({
       data-settings-ready="true"
     >
       <SettingsNavigation>
+        <SettingsPanel
+          id="sample-project"
+          label="Sample project"
+          group="Personal"
+        >
+          <SettingsCard
+            icon={Database}
+            title="Sample project"
+            description="Explore Studio using shared, read-only sample data."
+          >
+            <SampleProjectVisibility
+              visible={samplePreference.visible}
+              available={samplePreference.available}
+              active={false}
+            />
+          </SettingsCard>
+        </SettingsPanel>
         {settings.scope !== null && (
           <SettingsPanel id="general" label="General">
             {settings.scope === undefined ? (

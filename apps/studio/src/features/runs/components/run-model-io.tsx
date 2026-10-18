@@ -243,6 +243,26 @@ function ModelOperationCard({
           </p>
         )}
       </div>
+      {last?.status === "failed" && (
+        <section
+          data-guide-focus="model-failure"
+          className="space-y-1 border-t p-3 text-xs"
+        >
+          <h4 className="font-semibold text-red-700 dark:text-red-400">
+            Model request failed
+          </h4>
+          <p>
+            {last.inputCaptured
+              ? "Request input was captured."
+              : "Request input was not captured."}
+          </p>
+          <p>
+            {last.outputCaptured
+              ? "Response content was captured."
+              : "No response content was captured."}
+          </p>
+        </section>
+      )}
       <div className="space-y-3 border-t p-3">
         {entries.map((entry) =>
           entry.kind === "payload" ? (

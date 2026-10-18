@@ -282,6 +282,7 @@ export const createStudioWorkflowModelsFromProjections = (input: {
 
   return {
     workflows,
+    observedCalls: observedWorkflowCalls(input.childRuns ?? []),
     transitions: Array.from(declared.values()).sort((left, right) =>
       left.id.localeCompare(right.id),
     ),
@@ -395,8 +396,12 @@ export const listStudioWorkflows = async (
     },
     now,
   });
+  return result;
+};
+
+const observedWorkflowCalls = (childRuns: StudioRun[]) => {
   const groups = new Map<string, StudioRun[]>();
-  for (const { data: run } of runRows) {
+  for (const run of childRuns) {
     if (
       !run.parentRunId ||
       !run.parentWorkflowId ||
@@ -409,35 +414,32 @@ export const listStudioWorkflows = async (
     group.push(run);
     groups.set(key, group);
   }
-  return {
-    ...result,
-    observedCalls: [...groups.entries()].map(([id, runs]) => {
-      const first = runs[0]!;
-      return {
-        id,
-        sourceWorkflowId: first.parentWorkflowId!,
-        sourceNodeId: first.callerNodeId ?? null,
-        targetWorkflowId: first.workflowId,
-        condition: "Observed call · returns to caller",
-        volume: runs.length,
-        successRate: percentage(
-          runs.filter((run) => run.status === "completed").length,
-          runs.length,
+  return [...groups.entries()].map(([id, runs]) => {
+    const first = runs[0]!;
+    return {
+      id,
+      sourceWorkflowId: first.parentWorkflowId!,
+      sourceNodeId: first.callerNodeId ?? null,
+      targetWorkflowId: first.workflowId,
+      condition: "Observed call · returns to caller",
+      volume: runs.length,
+      successRate: percentage(
+        runs.filter((run) => run.status === "completed").length,
+        runs.length,
+      ),
+      errorRate: percentage(
+        runs.filter((run) => run.status === "failed").length,
+        runs.length,
+      ),
+      medianDurationMs: percentile(
+        runs.flatMap((run) =>
+          run.durationMs === null ? [] : [run.durationMs],
         ),
-        errorRate: percentage(
-          runs.filter((run) => run.status === "failed").length,
-          runs.length,
-        ),
-        medianDurationMs: percentile(
-          runs.flatMap((run) =>
-            run.durationMs === null ? [] : [run.durationMs],
-          ),
-          0.5,
-        ),
-        runId: first.parentRunId!,
-        invocationId: first.invocationId!,
-        branchId: first.branchId!,
-      };
-    }),
-  };
+        0.5,
+      ),
+      runId: first.parentRunId!,
+      invocationId: first.invocationId!,
+      branchId: first.branchId!,
+    };
+  });
 };

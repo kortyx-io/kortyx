@@ -1,3 +1,4 @@
+import { sampleRequestResponse } from "@/features/sample-project/server";
 import "server-only";
 import { redactDiagnosticText } from "@kortyx/telemetry-contracts";
 import { studioAuth } from "@studio/auth";
@@ -5,6 +6,8 @@ import { studioAuth } from "@studio/auth";
 export async function proxyEvalRequest(request: Request, parts: string[]) {
   const denial = await studioAuth.authorize(request);
   if (denial) return denial;
+  const sample = await sampleRequestResponse(request);
+  if (sample) return sample;
   const path = parts.join("/");
   if (
     !/^(settings|targets|evaluations(?:\/table|\/[a-f0-9-]{36}(?:\/(?:cancel|results))?)?|runs(?:\/[a-f0-9-]{36}(?:\/cancel)?)?)$/.test(

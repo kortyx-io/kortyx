@@ -46,9 +46,17 @@ export function RunDetail({ detail }: { detail: StudioRunDetailResponse }) {
               event.type === "span.failed" && !isControlFlowInterrupt(event),
           )
       : undefined;
+  const error = failure?.payload.error;
+  const diagnosticId =
+    error && typeof error === "object" && "diagnosticId" in error
+      ? error.diagnosticId
+      : failure?.payload.diagnosticId;
 
   return (
-    <div className="flex h-full min-h-0 min-w-0 flex-col">
+    <div
+      data-run-detail-id={run.id}
+      className="flex h-full min-h-0 min-w-0 flex-col"
+    >
       <DetailHeader
         eyebrow="Run"
         title={run.id}
@@ -115,6 +123,14 @@ export function RunDetail({ detail }: { detail: StudioRunDetailResponse }) {
                 <span className="font-medium">Latest error: </span>
                 {errorText(failure.payload)}
               </p>
+              {typeof diagnosticId === "string" && (
+                <DetailLink
+                  className="mt-1 inline-block font-medium underline"
+                  href={`/diagnostics/${encodeURIComponent(diagnosticId)}?env=${encodeURIComponent(run.environment)}`}
+                >
+                  Open error diagnostic
+                </DetailLink>
+              )}
             </div>
           ) : run.status === "interrupted" ? (
             <div className="rounded-md border border-amber-500/25 bg-amber-500/5 px-3 py-2 text-xs text-amber-700 dark:text-amber-400">
@@ -142,11 +158,12 @@ export function RunDetail({ detail }: { detail: StudioRunDetailResponse }) {
       />
       <div className="min-h-0 flex-1">
         <DetailTabs
+          family="run"
           tabs={[
             ...(events.some((event) => event.type.startsWith("workflow.call."))
               ? [
                   {
-                    id: "calls",
+                    id: "calls" as const,
                     label: "Execution",
                     content: <WorkflowCalls detail={detail} />,
                   },

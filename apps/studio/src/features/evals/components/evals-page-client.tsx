@@ -26,6 +26,7 @@ import { formatDateTime, formatDurationMs } from "@/lib/format";
 import { useStudioQueryStates } from "@/lib/nuqs";
 import { useRouter, useSearchParams } from "@/lib/scoped-navigation";
 import { evalRequest } from "../api/client";
+import { useEvalReferenceTime } from "../hooks/use-eval-reference-time";
 import { useEvalSetup } from "../hooks/use-eval-setup";
 import {
   evalCompareHref,
@@ -88,6 +89,7 @@ export function EvalsPageClient({
   initialError?: string;
   preferences?: Partial<ListTablePreferences<Sort, unknown>>;
 }) {
+  const referenceTime = useEvalReferenceTime();
   const [query, setQuery] = useStudioQueryStates(
     {
       ...parsers,
@@ -330,7 +332,7 @@ export function EvalsPageClient({
     {
       key: "duration",
       filter: columnFilter("duration", "Duration (ms)", "number", (r) =>
-        evalDurationMs(r, Date.now()),
+        evalDurationMs(r, referenceTime ?? Date.now()),
       ),
       label: "Duration",
       defaultWidth: 100,
@@ -477,7 +479,9 @@ export function EvalsPageClient({
       label: "Latest duration (ms)",
       kind: "number",
       read: (r) =>
-        r.latest ? evalDurationMs(r.latest, Date.now()) : undefined,
+        r.latest
+          ? evalDurationMs(r.latest, referenceTime ?? Date.now())
+          : undefined,
       format: (v) => formatDurationMs(Number(v)),
     }),
     {

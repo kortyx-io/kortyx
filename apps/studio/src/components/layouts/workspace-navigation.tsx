@@ -30,6 +30,7 @@ const settingsLabels: Record<string, string> = {
   project: "General",
   account: "Account",
   appearance: "Appearance",
+  "sample-project": "Sample project",
   about: "About",
   members: "Members",
   projects: "Projects",

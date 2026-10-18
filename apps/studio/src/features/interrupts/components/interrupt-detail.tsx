@@ -1,7 +1,10 @@
+"use client";
+
 import type {
   StudioInterruptDetailResponse,
   StudioInterruptStatus,
 } from "@kortyx/telemetry-contracts";
+import { SAMPLE_PROJECT } from "@kortyx/telemetry-contracts";
 import { CheckCircle2, CircleAlert, CirclePause, Clock3 } from "lucide-react";
 import { DetailLink } from "@/components/detail/detail-link";
 import {
@@ -12,6 +15,7 @@ import {
 } from "@/components/detail/detail-primitives";
 import { DetailTabs } from "@/components/detail/detail-tabs";
 import { PayloadViewer } from "@/components/detail/payload-viewer";
+import { useStudioRouteScope } from "@/components/studio-route-provider";
 import {
   interruptInteractionLabel,
   interruptStatusLabel,
@@ -27,6 +31,7 @@ export function InterruptDetail({
   detail: StudioInterruptDetailResponse;
 }) {
   const { interrupt } = detail;
+  const sampleProject = useStudioRouteScope()?.sampleProject === true;
   const created = detail.events.find(
     (event) => event.type === "interrupt.created",
   );
@@ -48,10 +53,16 @@ export function InterruptDetail({
     typeof leaf.nodeId === "string"
       ? leaf.nodeId
       : null;
-  const timing = interruptTimingPresentation(interrupt, Date.now());
+  const timing = interruptTimingPresentation(
+    interrupt,
+    sampleProject ? Date.parse(SAMPLE_PROJECT.referenceTime) : Date.now(),
+  );
   const interactionLabel = interruptInteractionLabel(interrupt);
   return (
-    <div className="flex h-full min-h-0 flex-col">
+    <div
+      data-interrupt-detail-id={interrupt.id}
+      className="flex h-full min-h-0 flex-col"
+    >
       <DetailHeader
         eyebrow="Interrupt"
         title={interrupt.id}
@@ -129,6 +140,7 @@ export function InterruptDetail({
       />
       <div className="min-h-0 flex-1">
         <DetailTabs
+          family="interrupt"
           queryKey="interruptTab"
           tabs={[
             {
@@ -202,7 +214,7 @@ function Decision({ detail }: { detail: StudioInterruptDetailResponse }) {
               </div>
             )}
           </div>
-          <div className="mt-6">
+          <div data-guide-focus="interrupt-response" className="mt-6">
             <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
               Response
             </p>
@@ -395,7 +407,11 @@ function InterruptTimeline({
                 ? Clock3
                 : CircleAlert;
         return (
-          <div key={event.id} className="relative flex gap-4 pb-6 last:pb-0">
+          <div
+            key={event.id}
+            data-interrupt-event={event.type}
+            className="relative flex gap-4 pb-6 last:pb-0"
+          >
             {index < detail.events.length - 1 && (
               <span className="absolute left-[15px] top-8 h-[calc(100%-1rem)] border-l" />
             )}

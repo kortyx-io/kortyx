@@ -20,7 +20,10 @@ export function EvalDetailHeader({
   children?: ReactNode;
 }) {
   return (
-    <header className="@container shrink-0 border-b px-4 py-3">
+    <header
+      data-tour-surface="eval-summary"
+      className="@container shrink-0 border-b px-4 py-3"
+    >
       <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-2">
         <Button
           variant="ghost"

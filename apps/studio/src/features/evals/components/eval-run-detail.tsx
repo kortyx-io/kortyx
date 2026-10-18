@@ -186,7 +186,7 @@ export function EvalRunDetail({
     }),
   ];
   return (
-    <div className="flex h-full min-h-0 flex-col">
+    <div data-eval-run-id={run.id} className="flex h-full min-h-0 flex-col">
       <EvalDetailHeader
         title={run.suite.name ?? displayName(run.suiteId)}
         description={`${run.targetName} · ${run.environment} · ${formatDateTime(run.createdAt)}`}
@@ -288,6 +288,7 @@ export function EvalRunDetail({
       </EvalDetailHeader>
       <div className="min-h-0 flex-1">
         <DetailTabs
+          family="eval-run"
           queryKey="evalTab"
           tabs={[
             {

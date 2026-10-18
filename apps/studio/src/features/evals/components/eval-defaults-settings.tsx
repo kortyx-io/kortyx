@@ -81,7 +81,11 @@ export function EvalDefaultsSettings() {
       className="xl:col-span-2"
     >
       {error && (
-        <p role="alert" className="mb-3 text-sm text-red-700 dark:text-red-400">
+        <p
+          role="alert"
+          data-page-help-state="error"
+          className="mb-3 text-sm text-red-700 dark:text-red-400"
+        >
           {error}
         </p>
       )}

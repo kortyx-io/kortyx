@@ -84,7 +84,10 @@ export function WorkflowToolbar({
   onOpenInspectorPanel,
 }: WorkflowToolbarProps) {
   return (
-    <header className="border-b bg-background px-4 pt-3">
+    <header
+      data-tour-surface="workflow-toolbar"
+      className="border-b bg-background px-4 pt-3"
+    >
       <div className="flex flex-wrap items-center justify-between gap-2 pb-3">
         <div className="flex items-center gap-2">
           <Tooltip>
