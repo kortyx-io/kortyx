@@ -9,10 +9,14 @@ section: "operate"
 # Deploy without abandoning evaluations
 
 This guide is for operators replacing a self-hosted Studio installation or its
-application evaluation endpoint. A deployment has two independent lifetimes: HTTP requests and evaluation
-work. A web request can finish in seconds while an evaluation continues through
+application evaluation endpoint. A deployment has two independent lifetimes:
+HTTP requests and evaluation work. A web request can finish in seconds while an evaluation continues through
 many cases, tool calls, grading and cleanup. Replacing the web application must
 account for both.
+
+Verify this procedure against a real project and application endpoint. The
+read-only sample project contains fixed examples, including running evaluations;
+those examples do not own worker leases or demonstrate a completed drain.
 
 Use this guide with a release that includes the standalone worker and retirement
 signals below. Older images do not acquire these capabilities from configuration
@@ -22,13 +26,14 @@ alone. Check the selected release's notes and deployment strategy before upgradi
 
 | Setup | Appropriate use | What happens during replacement |
 | --- | --- | --- |
-| One API with an embedded eval worker | Local development or a small installation that accepts maintenance | Finish claimed evaluations while the API stays available, then replace the process. New evaluations wait; HTTP has a restart gap. |
-| Web-only APIs with a separate eval worker | Long evaluations or independent web releases | Replace web processes independently. Drain and replace the worker using a separate operation. |
-| Multiple web replicas with temporary worker overlap | Compatible rolling releases with measured spare capacity | Verify replacements before retiring old owners. Draining owners still count against the shared execution budget. |
+| Combined API/worker | Maintenance is acceptable | Drain, restart, resume queue |
+| Separate web and worker | Independent web releases | Retire the worker separately |
+| Temporary worker overlap | Compatible rolling releases | Verify replacement, drain owner |
 
 A configured replica count of one may describe normal capacity, or a strict limit
 of one process at any moment. The latter prevents overlapping worker generations:
 queued work must wait until the old owner exits and its replacement starts.
+During overlap, draining owners still count against the shared execution budget.
 Neither configuration creates a second server or database failover automatically.
 
 ## Upgrade from older releases

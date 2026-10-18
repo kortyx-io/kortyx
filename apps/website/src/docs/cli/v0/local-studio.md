@@ -27,6 +27,22 @@ Local state is stored in `~/.kortyx/studio` by default. Supply the same `--home`
 
 > **Good to know:** Start is idempotent. Running it again is the normal way to bring back a stopped installation or apply a changed image tag or port configuration.
 
+## Preserve active evaluations
+
+The table's data-preservation column describes stored data. It does not promise
+that an in-flight evaluation survives `stop`, `restart`, a changed image, credential
+rotation, or `reset`. If evaluations are configured, [prepare worker retirement](/docs/self-hosting/deployment-lifecycle)
+while the consumer still accepts later cases, and wait for durable Studio results
+before replacing Studio services. If the consumer application is also being
+replaced, drain it after Studio saves those results.
+
+These CLI commands do not coordinate worker and consumer retirement. The built-in
+updater refuses configured evaluation targets; keep automatic updates paused and
+use controlled maintenance. A fixed Compose stop timeout can force-kill long
+work. Direct stop/reset remains operator teardown, and older images lack the new
+drain hooks. [Check the first-upgrade procedure](/docs/self-hosting/deployment-lifecycle#upgrade-from-older-releases)
+before using the new signals.
+
 ## Start options
 
 Choose different host ports:

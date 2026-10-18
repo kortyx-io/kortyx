@@ -343,8 +343,9 @@ final-head CI requirement. Resolve Pending rows in the PR before merge.
 | Area | Status | Evidence or explanation |
 | --- | --- | --- |
 | Behavior and contracts | Complete | Signal semantics, singleton/overlap, SQL ownership, updater refusal, consumer drain races and failure outcomes verified locally. |
-| Studio integration | Pending | Real authenticated submission/read/cancel, persisted outcomes and live invalidations pass locally. Two page-entry prop fixes preserve Next.js compatibility without changing presentation; the settings rendering test passes. Final public Studio browser/build checks remain pending; no new local OSS browser walkthrough is claimed. |
-| Documentation and examples | Complete | Retirement/resilience guides, agent/runtime READMEs, website SDK/Studio docs, three Compose templates and env example updated; link/config checks pass. |
+| Studio integration | Pending | Real authenticated submission/read/cancel, persisted outcomes and live invalidations pass locally. Two page-entry prop fixes preserve Next.js compatibility; settings/sample/onboarding tests and three sample browser cases pass after rebase. Final-head public Studio browser/build checks remain pending; this is not a new real-connected-project browser walkthrough. |
+| Guided tours and page help | Complete | Rebase assessment below covers new sample routes, settings and help. Three local browser tests pass, including all six full-tour chapters and narrow sample navigation. Lifecycle hooks add no Studio control or tour step; immutable samples remain separate from real worker evidence. |
+| Documentation, examples, and contextual help | Complete | Retirement/resilience guides, agent/runtime READMEs, website SDK/Studio docs, three Compose templates and env example updated; link/config checks pass. |
 | Kortyx skill | Complete | Distributed conversation/Studio eval references cover both lifecycles, required adapter capabilities, ordering and compatibility; reference checks pass. |
 | Usage telemetry | Complete | Reuses existing evaluation terminal accounting and opt-out; no new maintainer operation or customer content added. Existing usage regressions pass in API tests. Process state logs are separate operational diagnostics. |
 | Customer observability | Complete | Existing persisted progress/result/cancellation and uncertain failure semantics retained. Bounded worker health state and generic retirement failure diagnostics; no new customer trace schema or OTel changes. |
@@ -411,3 +412,71 @@ An internal reliability target must distinguish correct evaluation assertion
 failures from infrastructure interruptions, and define queue-delay measurement
 separately from availability. No customer commitment or uptime percentage was
 created by this change.
+
+
+## Integration after the documentation/onboarding rebase
+
+Rebased onto public `main` at `aa4a6242` (contextual help and documentation areas),
+including `25da0b9c` (sample project and guided onboarding). Conflicts were limited
+to documentation. The API, worker, consumer SDK, runtime store and eval SQL source
+are byte-identical to the previously reviewed PR implementation; the new shared
+sample-project exports and dependency graph were rebuilt before integration tests.
+
+### New surface assessment
+
+- Move the operator guide to Self-hosting at
+  `/docs/self-hosting/deployment-lifecycle`, under **Operate and upgrade**. Keep
+  main's separate Studio/Cloud/Self-hosting/CLI navigation, task-oriented page
+  names, canonical links and migration redirects. The two removed legacy Studio
+  pages stay removed; their retirement additions now live in the Self-hosting
+  overview and evaluation operations guide.
+- The newly separated CLI local-lifecycle guide describes stored-data preservation.
+  Add the distinction between durable data and active work for start/restart/stop,
+  image changes, credential rotation and reset; point to the controlled retirement
+  procedure. Direct CLI teardown does not become an orchestrator. Configuration
+  guidance now says removing a target is not a retirement fence.
+- The sample project builds cloned, deterministic read models in memory and serves
+  them through the authenticated read-only routing boundary. Its running examples
+  do not enqueue Studio jobs, hold worker leases or exercise consumer executions.
+  No additional drain loop is needed. The operator guide explicitly requires a
+  real project/endpoint to verify retirement, rather than sample progress.
+- Settings now resolves sample visibility and page help; the existing route-prop
+  compatibility correction retains those branches. Sample writes, real-record
+  access and API credential access remain guarded by the inherited boundary tests.
+- Inspect the new evaluation/settings page help, contextual metric/header help,
+  sample chapters and navigation/resume contracts. They teach existing recorded
+  outcomes, timing and configuration. This PR adds no interactive retirement
+  control, status enum or guided task. Keep lesson IDs and the immutable sample
+  boundary unchanged; no new deployment chapter is necessary. Existing full-tour
+  browser completion and help-link/heading checks pass below. Cloud-only UI and
+  deployment control remain outside this public verification.
+
+### Fresh local checks on the combined tree
+
+Node 22.14.0; local Docker/PG 17 only; no paid models or private CI:
+
+- Frozen pnpm install passes; only the existing API runtime dev-dependency is added
+  to main's lockfile. API and Studio dependency builds: **18 tasks pass**.
+- Docs route/structure/contextual-help audit: **90 passed**, including canonical
+  area navigation, all authored links and heading fragments, former Studio URL
+  migrations, unique metadata, and TypeScript/JavaScript example pairing. A stale
+  SDK link to the former Studio lifecycle path was found and corrected.
+- Settings, sample-project boundaries, onboarding/help and guide-contract unit
+  checks: **90 passed in 13 files**. Studio type check passes.
+- Real process retirement proof: **16 passed**, plus **5 PostgreSQL drain/lease
+  regressions**. The proof's disposable database is removed afterward. This is
+  narrower than the earlier full 77-case integration run, not a fresh claim of it.
+- Sample browser checks: **3 passed**. Sample API rejects mutations
+  and real-record access; narrow navigation stays in sample scope; the full tour
+  completes all six chapters and opens the optional library. The default sample
+  test port was already occupied; a distinct local port was used without touching
+  that existing server.
+- Website production build passes. A local Chromium check verifies the new guide's
+  Self-hosting navigation, canonical URL, keyboard documentation link, raw Markdown
+  response, 390px layout, and absence of browser errors. Desktop/mobile screenshots
+  were inspected locally. Existing privacy-notice UI is outside this change.
+
+Final-head public CI and the broader real-connected Studio browser/build gates
+remain pending after this rebase. The earlier exact-release/container receipts
+are retained as earlier evidence, not represented as rebuilt/reissued artifacts.
+No production configuration or private adapter/controller was changed or run.

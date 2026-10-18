@@ -831,7 +831,7 @@ durable store, namespace, service key, suites and limits. Consumer drain does no
 cover future Studio submissions or transfer another owner's active execution.
 Memory stores cannot be shared between processes. Upgrade agent/runtime together;
 custom stores require scoped `queued` and atomic `claimQueued` capabilities for
-this hook. See [Deployment Lifecycle](/docs/studio/deployment-lifecycle) for the
+this hook. See [retire evaluation workers](/docs/self-hosting/deployment-lifecycle) for the
 full ordering and hosting requirements.
 
 Lost running leases are never replayed automatically; queued jobs can recover.

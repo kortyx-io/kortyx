@@ -6,30 +6,21 @@
       "label": "Get started",
       "position": 1,
       "description": "Choose a deployment path and inspect a first run locally.",
-      "pages": [
-        "",
-        "run-locally"
-      ]
+      "pages": ["", "run-locally"]
     },
     {
       "slug": "deploy",
       "label": "Deploy Studio",
       "position": 2,
       "description": "Set up a team installation and its optional evaluation services.",
-      "pages": [
-        "deploy-server",
-        "deploy-aws-cdk",
-        "configure-evaluations"
-      ]
+      "pages": ["deploy-server", "deploy-aws-cdk", "configure-evaluations"]
     },
     {
       "slug": "security",
       "label": "Credentials and access",
       "position": 3,
       "description": "Keep browser, ingestion, and read credentials in their intended services.",
-      "pages": [
-        "credentials-secrets"
-      ]
+      "pages": ["credentials-secrets"]
     },
     {
       "slug": "operate",
@@ -48,9 +39,7 @@
       "label": "Configuration reference",
       "position": 5,
       "description": "Look up variables, defaults, owning services, and restart requirements.",
-      "pages": [
-        "configuration-reference"
-      ]
+      "pages": ["configuration-reference"]
     }
   ]
 }

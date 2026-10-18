@@ -10,6 +10,8 @@ section: "deploy"
 
 This configuration belongs to the self-hosted API service. In managed Cloud, use [evaluation connections](/docs/cloud/evaluations) instead. First expose your application's authenticated endpoint using [the first-evaluation tutorial](/docs/studio/first-eval).
 
+For planned deployments, choose a worker topology and [retire evaluation workers](/docs/self-hosting/deployment-lifecycle) before replacing services. Removing a target or seeing an empty queue does not confirm that active evaluations have finished.
+
 ## Register applications on the Studio API server
 
 Set `KORTYX_EVAL_TARGETS_FILE` to a secret-manager supplied JSON file:
