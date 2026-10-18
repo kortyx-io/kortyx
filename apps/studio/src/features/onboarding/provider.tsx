@@ -39,6 +39,7 @@ import {
   readProgress,
   reviewChapter,
   startChapter,
+  type TourEntryAction,
   writeProgress,
 } from "./progress";
 import {
@@ -295,10 +296,7 @@ export function LearningProvider({
       }
     }
   }
-  async function transfer(
-    action: "chapter" | "full" | "resume",
-    chapter: ChapterId,
-  ) {
+  async function transfer(action: TourEntryAction, chapter: ChapterId) {
     const ticket = ++loadTicket.current;
     const controller = new AbortController();
     transferAbort.current = controller;
@@ -340,7 +338,11 @@ export function LearningProvider({
     resumeChapter = false,
   ) {
     if (pageHelpOpen) return;
-    if (!sample) return transfer(mode === "full" ? "full" : "chapter", id);
+    if (!sample)
+      return transfer(
+        mode === "full" ? "full" : resumeChapter ? "resume-chapter" : "chapter",
+        id,
+      );
     const saved = current.current.chapters[id];
     let next = startChapter(current.current, id, mode);
     if (
@@ -444,7 +446,15 @@ export function LearningProvider({
         else if (intent.action === "full") {
           track("tour_full_start");
           void start(CHAPTERS[0].id, "full");
-        } else if (intent.action === "chapter") void start(intent.chapter);
+        } else if (
+          intent.action === "chapter" ||
+          intent.action === "resume-chapter"
+        )
+          void start(
+            intent.chapter,
+            "chapter",
+            intent.action === "resume-chapter",
+          );
         else void openHub();
       }
     }

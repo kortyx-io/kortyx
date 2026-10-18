@@ -90,6 +90,8 @@ by a divider.
 Reloads never reopen an overlay automatically: use **Resume tour** to return to
 the last displayed step or chapter break. Completing a skipped queue reports both
 completed and skipped counts; it does not mark skipped chapters completed.
+On a chapter card, **Resume** returns to that chapter's saved step, including
+when you open it from a real project. **Restart** begins the chapter at step 1.
 
 You can restart any chapter, replay the full tour, or reset all progress after an
 explicit confirmation. Tour history is separate from sample visibility. Chapter

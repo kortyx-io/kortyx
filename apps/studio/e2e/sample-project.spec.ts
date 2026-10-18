@@ -1,6 +1,45 @@
 import { SAMPLE_PROJECT as sample } from "@kortyx/telemetry-contracts";
 import { expect, test } from "@playwright/test";
 
+for (const action of ["Resume", "Restart"] as const) {
+  test(`${action} a saved chapter from a real project retains its entry intent`, async ({
+    page,
+  }) => {
+    test.setTimeout(60_000);
+    await page.goto("/sample/runs");
+    await page.getByRole("button", { name: "Explore", exact: true }).click();
+    await page
+      .getByRole("menuitem", { name: "Explore Studio", exact: true })
+      .click();
+    await page
+      .getByRole("button", { name: "Start Quick orientation", exact: true })
+      .click();
+    const tooltip = page.getByRole("alertdialog");
+    await expect(tooltip).toHaveAccessibleName("Explore a sample project");
+    await tooltip.getByRole("button", { name: "Next", exact: true }).click();
+    await expect(tooltip).toHaveAccessibleName("Find an execution");
+    await tooltip
+      .getByRole("button", { name: "Exit tour", exact: true })
+      .click();
+    await page.goto("/runs");
+    await expect(tooltip).toHaveCount(0);
+    await page.getByRole("button", { name: "Explore", exact: true }).click();
+    await page
+      .getByRole("menuitem", { name: "Explore Studio", exact: true })
+      .click();
+    await page
+      .getByRole("button", { name: `${action} Quick orientation`, exact: true })
+      .click();
+    await expect(tooltip).toHaveAccessibleName(
+      action === "Resume" ? "Find an execution" : "Explore a sample project",
+    );
+    await expect(tooltip).toContainText(
+      `Quick orientation · Step ${action === "Resume" ? 2 : 1} of 3`,
+    );
+    await expect(page).toHaveURL(/\/sample\/runs(?:\?|$)/);
+  });
+}
+
 for (const width of [1280, 390]) {
   test(`failed-run guide completes through the selected Trace inspector at ${width}px`, async ({
     page,

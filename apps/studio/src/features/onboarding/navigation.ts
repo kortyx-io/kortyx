@@ -1,4 +1,5 @@
 import type { PageGuideId } from "./page-help-registry";
+import type { TourEntryAction } from "./progress";
 import type { ChapterId } from "./registry";
 
 /** Entry uses the authenticated preference endpoint; callers explicitly explain showing a hidden sample. */
@@ -10,7 +11,7 @@ export async function prepareSampleTour(
     returnTo,
     signal,
   }: {
-    action: "chapter" | "full" | "resume";
+    action: TourEntryAction;
     chapter: ChapterId;
     visible: boolean;
     returnTo: string;
@@ -21,7 +22,7 @@ export async function prepareSampleTour(
   await enterSample({ visible, returnTo, signal }, request);
   const query = new URLSearchParams({
     learn: action,
-    ...(action === "chapter" ? { chapter } : {}),
+    ...(action === "chapter" || action === "resume-chapter" ? { chapter } : {}),
   });
   return { href: `/sample/runs?${query}`, shown: !visible };
 }
