@@ -4637,8 +4637,8 @@
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
-        "studio_table_preferences_organization_id_project_id_projects_organization_id_id_fk": {
-          "name": "studio_table_preferences_organization_id_project_id_projects_organization_id_id_fk",
+        "studio_table_preferences_project_tenant_fk": {
+          "name": "studio_table_preferences_project_tenant_fk",
           "tableFrom": "studio_table_preferences",
           "tableTo": "projects",
           "columnsFrom": ["organization_id", "project_id"],

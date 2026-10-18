@@ -21,7 +21,7 @@ CREATE TABLE "studio_table_views" (
 );
 --> statement-breakpoint
 ALTER TABLE "studio_table_preferences" ADD CONSTRAINT "studio_table_preferences_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "studio_table_preferences" ADD CONSTRAINT "studio_table_preferences_organization_id_project_id_projects_organization_id_id_fk" FOREIGN KEY ("organization_id","project_id") REFERENCES "public"."projects"("organization_id","id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "studio_table_preferences" ADD CONSTRAINT "studio_table_preferences_project_tenant_fk" FOREIGN KEY ("organization_id","project_id") REFERENCES "public"."projects"("organization_id","id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "studio_table_views" ADD CONSTRAINT "studio_table_views_preference_id_studio_table_preferences_id_fk" FOREIGN KEY ("preference_id") REFERENCES "public"."studio_table_preferences"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 CREATE UNIQUE INDEX "studio_table_preferences_user_unique" ON "studio_table_preferences" USING btree ("organization_id","project_id","user_id","table_id") WHERE "studio_table_preferences"."owner_kind" = 'user';--> statement-breakpoint
 CREATE UNIQUE INDEX "studio_table_preferences_project_unique" ON "studio_table_preferences" USING btree ("organization_id","project_id","table_id") WHERE "studio_table_preferences"."owner_kind" = 'project';--> statement-breakpoint

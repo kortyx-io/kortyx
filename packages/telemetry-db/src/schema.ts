@@ -1412,6 +1412,7 @@ export const studioTablePreferences = pgTable(
   },
   (t) => [
     foreignKey({
+      name: "studio_table_preferences_project_tenant_fk",
       columns: [t.organizationId, t.projectId],
       foreignColumns: [projects.organizationId, projects.id],
     }).onDelete("cascade"),
