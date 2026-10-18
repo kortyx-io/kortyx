@@ -213,3 +213,16 @@ it("explains the actual selected tab and missing prompt evidence without reading
   );
   expect(empty.steps.at(-1)?.content).toContain("no recorded entries");
 });
+
+it("explains preference ownership, recovery and isolated sample choices", () => {
+  const html =
+    '<header data-page-help="header"></header><div data-table-controls="runs"></div>';
+  const real = plan("/runs", html).steps.find((step) => step.id === "controls");
+  expect(real?.content).toContain("Cloud views belong to you in this project");
+  expect(real?.content).toContain("retry or reload");
+  const sample = plan("/sample/runs", html).steps.find(
+    (step) => step.id === "controls",
+  );
+  expect(sample?.content).toContain("stay in this browser, separately");
+  expect(sample?.content).not.toContain("Cloud views");
+});

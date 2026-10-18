@@ -1,5 +1,6 @@
 import { StudioTableIdSchema } from "@kortyx/telemetry-contracts";
 import { studioAuth } from "@studio/auth";
+import { sampleRequestResponse } from "@/features/sample-project/server";
 import { resolveStudioAuthMode } from "@/lib/studio-auth";
 export const runtime = "nodejs";
 async function proxy(
@@ -8,6 +9,8 @@ async function proxy(
 ) {
   const denial = await studioAuth.authorize(request);
   if (denial) return denial;
+  const sample = await sampleRequestResponse(request);
+  if (sample) return sample;
   if (resolveStudioAuthMode() === "none")
     return Response.json(
       { error: "Database preferences require authenticated Studio access." },

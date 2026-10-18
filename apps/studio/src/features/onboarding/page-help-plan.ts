@@ -1,3 +1,4 @@
+import { isSamplePath } from "@/features/sample-project/routing";
 import {
   DETAIL_TAB_IDS,
   type DetailTabFamily,
@@ -140,7 +141,10 @@ export function createPageHelpPlan(url: URL): PageHelpPlan {
           : "Narrow the view",
         guide.kind === "workflows"
           ? "Choose the time range, version, map, or health view to focus your investigation. Refresh loads the latest available metrics. This guide leaves those choices unchanged."
-          : "Search narrows the list. Filters opens scope and field conditions; Match all/any combines them. Numeric and date fields accept minimum and maximum bounds. Columns controls order, visibility, and pins. Views saves filters, search, sorting, and layout. An empty filtered list does not mean the project has no data.",
+          : "Search narrows the list. Filters opens scope and field conditions; Match all/any combines them. Numeric and date fields accept minimum and maximum bounds. Columns controls order, visibility, and pins. Views saves filters, search, sorting, and layout. An empty filtered list does not mean the project has no data. " +
+              (isSamplePath(url.pathname)
+                ? "Sample table choices stay in this browser, separately from real projects."
+                : "Authenticated projects refresh saved preferences in the background. Cloud views belong to you in this project; self-hosted views are shared by the project. If Preferences not saved appears, open Views to retry or reload the saved preferences."),
         find("[data-table-controls]", '[data-tour-surface="workflow-toolbar"]'),
       );
     if (guide.kind === "list")

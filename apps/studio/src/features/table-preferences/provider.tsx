@@ -9,10 +9,13 @@ import { createTablePreferenceEntry } from "./cache";
 export function TablePreferencesProvider({
   scope,
   remote,
+  localCacheNamespace,
   children,
 }: {
   scope?: StudioTablePreferenceScope | null;
   remote: boolean;
+  /** Separate browser-only space, such as the read-only sample project. */
+  localCacheNamespace?: string;
   children: ReactNode;
 }) {
   const cacheKey = scope?.cacheKey;
@@ -27,7 +30,7 @@ export function TablePreferencesProvider({
         if (!entry) {
           entry = createTablePreferenceEntry(
             {
-              cacheKey: cacheKey ?? "0".repeat(64),
+              cacheKey: cacheKey ?? localCacheNamespace ?? "0".repeat(64),
               ownerKind: ownerKind ?? "project",
             },
             tableId,
@@ -38,7 +41,7 @@ export function TablePreferencesProvider({
         return entry;
       },
     };
-  }, [cacheKey, ownerKind, remote]);
+  }, [cacheKey, ownerKind, remote, localCacheNamespace]);
   useEffect(() => {
     clearTimeout(store.disposal);
     const refresh = () => {

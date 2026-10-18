@@ -1,7 +1,11 @@
 import { studioAuth } from "@studio/auth";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
+import { sampleRequestResponse } from "@/features/sample-project/server";
 import { GET, POST } from "./route";
 
+vi.mock("@/features/sample-project/server", () => ({
+  sampleRequestResponse: vi.fn(async () => null),
+}));
 vi.mock("@studio/auth", () => ({
   studioAuth: {
     authorize: vi.fn(async () => null),
@@ -92,5 +96,25 @@ it("requires authorization and bounds request bodies", async () => {
     },
   );
   expect((await POST(request, params)).status).toBe(413);
+  expect(fetch).not.toHaveBeenCalled();
+});
+
+it("keeps sample reads and writes away from real project credentials", async () => {
+  for (const handler of [GET, POST]) {
+    vi.mocked(sampleRequestResponse).mockResolvedValueOnce(
+      new Response("sample", { status: 403 }),
+    );
+    expect(
+      (
+        await handler(
+          new Request(
+            "http://studio.test/api/studio/table-preferences/prompts",
+          ),
+          params,
+        )
+      ).status,
+    ).toBe(403);
+  }
+  expect(studioAuth.getApiCredential).not.toHaveBeenCalled();
   expect(fetch).not.toHaveBeenCalled();
 });

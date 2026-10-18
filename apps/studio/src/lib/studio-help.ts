@@ -66,7 +66,7 @@ export const studioHelp = {
   ),
   views: help(
     "Table views",
-    "Save a table layout and filters to use again. Saved views stay in this browser and do not change the recorded data.",
+    "Save filters and layout for later. Cloud views belong to you in this project; self-hosted views are shared by the project. A browser cache loads first, then authenticated projects sync in the background. Sample and development choices stay in this browser.",
     "exploring-data#table-views",
   ),
   metrics: help(

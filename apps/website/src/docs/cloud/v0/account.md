@@ -36,8 +36,12 @@ Your app controls content capture, which is off by default. See [capture configu
 
 > **Good to know:** Your analytics choice and application payload capture have separate controls. Check [content capture settings](/docs/studio/connect-project#choose-what-content-studio-may-store) when investigating missing text in a [recorded run](/docs/studio/runs#captured-content).
 
+## Personal table preferences
+
+Use **Views** on a Studio table to save an investigation. Saved views and layouts belong to your account within the selected project and are available when you sign in from another browser. They do not change another member's preferences. A local cache loads first and refreshes in the background; [table views](/docs/studio/exploring-data#table-views) explains saving, limits, and recovery when a save fails.
+
 ## Account deletion
 
-Account deletion permanently removes your login and profile and ends all browser sessions. Shared organization data is not deleted. If you are an organization's last owner, transfer ownership or delete that organization first. Read the confirmation and follow any sign-in requirement before continuing.
+Account deletion permanently removes your login and profile and ends all browser sessions. Your personal table preferences are removed with your account. Shared organization data is not deleted. If you are an organization's last owner, transfer ownership or delete that organization first. Read the confirmation and follow any sign-in requirement before continuing.
 
 Next: [Manage sign-in methods and browser sessions](/docs/cloud/sign-in), [organizations and projects](/docs/cloud/workspaces), or [workspace recovery](/docs/cloud/recovery).

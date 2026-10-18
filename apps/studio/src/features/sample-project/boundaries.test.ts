@@ -31,6 +31,10 @@ vi.mock("next/headers", () => ({
   headers: async () => new Headers(),
 }));
 
+import {
+  GET as getTablePreferences,
+  POST as saveTablePreferences,
+} from "@/app/api/studio/table-preferences/[tableId]/route";
 import { studioReviewRequest } from "@/lib/studio-reviews";
 import { STUDIO_REQUEST_PATH } from "@/lib/studio-routing";
 import { proxy } from "../../proxy";
@@ -244,4 +248,21 @@ it("keeps real projects available when the optional preference store fails", asy
     visible: false,
     available: false,
   });
+});
+
+it("isolates sample table preference endpoints from the real project", async () => {
+  for (const [method, handler, expected] of [
+    ["GET", getTablePreferences, 404],
+    ["POST", saveTablePreferences, 403],
+  ] as const) {
+    const response = await handler(
+      request("/api/studio/table-preferences/runs", {
+        method,
+        headers: { [STUDIO_REQUEST_PATH]: "/sample/runs" },
+      }),
+      { params: Promise.resolve({ tableId: "runs" }) },
+    );
+    expect(response.status).toBe(expected);
+  }
+  expect(state.credential).not.toHaveBeenCalled();
 });

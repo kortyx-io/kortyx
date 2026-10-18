@@ -79,6 +79,10 @@ Register a new stable table ID there when adding a table. The Studio same-origin
 proxy validates authentication, mutation origin, custom request header and body
 size, and forwards only server-owned API credentials and project scope.
 
+Sample-project table choices use a separate browser-only cache and never read or
+write real project preferences. Current-page help explains ownership and recovery;
+existing sample chapter identities and recorded evidence remain unchanged.
+
 ## Deployment and future cloud migration
 
 Apply migration `0014_studio_table_preferences` and deploy the API before Studio.

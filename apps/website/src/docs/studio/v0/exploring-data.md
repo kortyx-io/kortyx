@@ -1,7 +1,7 @@
 ---
 id: v0-studio-exploring-data
 title: "Search, filters, and saved views"
-description: "Find records with search and filters, save table layouts in your browser, and understand when Studio live updates pause or reconnect."
+description: "Find records with search and filters, save table layouts and named views, and understand when Studio live updates pause or reconnect."
 keywords: [kortyx, studio, guides]
 sidebar_label: "Search, filters, and saved views"
 section: "reference"
@@ -24,7 +24,11 @@ Filter state is represented in the URL where supported, so sharing a URL can pre
 
 Drag a header to reorder columns; drag its resize handle to change width. Use the column menu to pin, hide, reset a width, or restore the layout. Hover or focus the header title for its explanation; use the sorting control to change order.
 
-> **Good to know:** Saved views stay in this browser. To share an investigation, use its [run](/docs/studio/runs) or [session](/docs/studio/sessions) URL; recipients still need project access. A help card has its own target, separate from drag, sort, and column-menu controls.
+Use **Views** to save filters, search, sorting, page size, and layout. Cloud views belong to your signed-in user within the selected project. Self-hosted Studio shares one profile per project; saving it requires project write access. Layout and default sort/page size save automatically; current search and filters save only in a named view.
+
+The browser cache loads immediately, then authenticated Studio refreshes it from the database in the background. Page loading does not wait for saved preferences. If **Preferences not saved** appears, use **Retry** after a request failure, **Save my changes** to apply your edits over the latest saved preferences, or **Reload preferences** to discard pending edits. Other users' changes are never silently overwritten. Sample-project and unauthenticated development choices stay in a separate browser cache; if project identity is unavailable, choices remain in the current tab.
+
+Existing browser-only views are not uploaded. Up to 30 named views can be saved per table. To share an investigation, use its [run](/docs/studio/runs) or [session](/docs/studio/sessions) URL; recipients still need project access. A help card has its own target, separate from drag, sort, and column-menu controls.
 
 ## Live updates
 
