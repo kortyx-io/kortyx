@@ -16,6 +16,7 @@ import {
   createPostgresEvalExecutionStore,
   type EvalExecutionStore,
 } from "@kortyx/runtime";
+import { StudioTablePreferenceResponseSchema } from "@kortyx/telemetry-contracts";
 import {
   appendEvalProgress,
   claimEvalRuns,
@@ -426,6 +427,27 @@ describe.skipIf(!url)(
           })
         ).status,
       ).toBe(200);
+      // New preference writes remain usable while only evaluation claims retire.
+      const preferencesPath = "/v1/studio/table-preferences/evaluations";
+      const preferences = StudioTablePreferenceResponseSchema.parse(
+        await (await apiRequest(old.base, preferencesPath)).json(),
+      );
+      if (!preferences.scope)
+        throw new Error("Missing project preference scope");
+      const query = { sort: "startedAt", dir: "desc", pageSize: 25 };
+      const saved = await apiRequest(old.base, preferencesPath, {
+        scopeKey: preferences.scope.cacheKey,
+        expectedRevision: preferences.preferences.revision,
+        operation: { kind: "defaults", patch: { query } },
+      });
+      expect(saved.status).toBe(200);
+      const persisted = StudioTablePreferenceResponseSchema.parse(
+        await (await apiRequest(old.base, preferencesPath)).json(),
+      );
+      expect(persisted.preferences.revision).toBe(
+        preferences.preferences.revision + 1,
+      );
+      expect(persisted.preferences.defaults.query).toEqual(query);
       const eventId = randomUUID();
       const events = {
         events: [

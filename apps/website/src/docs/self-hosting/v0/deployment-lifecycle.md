@@ -238,6 +238,7 @@ evaluation. Partial results are not evidence of a completed successful suite.
 | Prompt serving | A reachable API for applications resolving prompts, or their documented snapshot/cache policy. |
 | Telemetry and writes | Durable acknowledgements; stable event IDs for ingestion retries. Retry other mutations only under their documented idempotency contract. |
 | Live Studio updates | Reconnect SSE and reread persisted state. Notifications are invalidations, not a durable event replay log. |
+| Table preferences and views | Confirm the database save; browser-cached changes remain pending. Resolve conflicts through [table views](/docs/studio/exploring-data#table-views). |
 | Sessions and open tabs | Compatible shared secrets/session storage, retained old JS/CSS and a refresh boundary that protects unsaved drafts. Replicas alone do not implement these. |
 | Database and resources | Migration ownership, rollback compatibility, private connectivity and capacity for overlapping pools/processes. |
 

@@ -82,8 +82,10 @@ new settings merely by replacing the image. Inspect the effective stop timeout.
 The first upgrade from 0.22.0 needs a verified submission fence, settled queued
 work and completed active evaluations before old processes are retired. Do not
 send the new preparation signal to legacy images or overlap their workers under
-the assumption that they enforce the new shared budget. No telemetry migrations
-or eval wire schema changes occur between the tagged baseline and this patch.
+the assumption that they enforce the new shared budget. The original container
+proof introduced no telemetry migration or eval wire schema change. The later
+table-preferences rebase inherits migration 0014 from main; apply the selected
+release's full migration and overlap contract, not the earlier proof's schema boundary.
 
 Reproduce locally, with Docker Desktop/local Unix socket only:
 
@@ -480,3 +482,41 @@ Final-head public CI and the broader real-connected Studio browser/build gates
 remain pending after this rebase. The earlier exact-release/container receipts
 are retained as earlier evidence, not represented as rebuilt/reissued artifacts.
 No production configuration or private adapter/controller was changed or run.
+
+
+## Integration after the table-preferences rebase
+
+Rebased again onto public `main` at `9b842956` (#367), with no conflicts.
+The inherited changes add scoped table preferences, browser caches, authenticated
+preference routes and migration `0014_studio_table_preferences.sql`. They do not
+change evaluation claims, leases, consumer execution or retirement state. The
+release must apply the full migration set before starting the updated API/Studio;
+the earlier container proof is not evidence for this newly inherited migration.
+
+The deployment dependency checklist now distinguishes database-confirmed saved
+views from pending browser changes and links to the new conflict/recovery guide.
+Existing page help, read-only sample boundaries and cache scope rules are retained.
+No additional retirement UI or guided chapter is introduced.
+
+A real-process regression now reads, writes and rereads project table preferences
+while SIGUSR2 has stopped new evaluation claims. It checks an acknowledged revision
+increment and durable query settings while the active evaluation remains owned.
+This verifies that the new authenticated route and migration work during worker
+preparation; pending browser state is never described as a durable save.
+
+Fresh local results on Node 22.14.0:
+
+- API/Studio dependency build: **18 successful tasks**.
+- API: **3 profile checks + 172 tests passed**, **52 optional/platform tests
+  skipped**, type check passed.
+- Studio preference/cache/proxy, sample boundary, page-help and settings checks:
+  **41 passed in 6 files**.
+- Real retirement proof before the additional preference assertion: **16 process
+  cases + 5 PostgreSQL cases passed** against the newly migrated disposable DB.
+- Final preference-during-retirement regression: **1 passed**, **15 skipped by
+  name filter**, plus **5 PostgreSQL cases passed**; API type check passes.
+- Final docs route/structure/contextual-help audit: **90 passed**.
+
+The preceding PR head had a fully successful public CI run. Those results do not
+satisfy CI for this rebased head: final public CI remains required before merge.
+No private workflow or production action was manually triggered by this rebase.
