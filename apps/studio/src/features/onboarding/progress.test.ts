@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   chapterStatus,
   checkpoint,
+  contextChapter,
   emptyProgress,
   entryIntent,
   finishChapter,
@@ -224,4 +225,37 @@ it("queues new or previously unvisited core chapters before calling a resumed fu
   const progress = startChapter(emptyProgress(), "evaluation-results", "full");
   const finished = finishChapter(progress, "completed");
   expect(nextChapter(finished).resume?.chapter).toBe("sample-execution");
+});
+
+it("resumes optional deep dives without resetting core completion or adding them to the full queue", () => {
+  let progress = emptyProgress();
+  for (const id of FULL_TOUR)
+    progress = finishChapter(
+      startChapter(progress, id, "chapter"),
+      "completed",
+    );
+  const optional = checkpoint(
+    startChapter(progress, "error-diagnostics", "chapter"),
+    "diagnostic-capture",
+  );
+  const restored = normalizeProgress(JSON.parse(JSON.stringify(optional)));
+  expect(restored.resume).toMatchObject({
+    chapter: "error-diagnostics",
+    step: "diagnostic-capture",
+    mode: "chapter",
+  });
+  expect(
+    FULL_TOUR.every((id) => chapterStatus(restored, id) === "Completed"),
+  ).toBe(true);
+  expect(nextChapter(finishChapter(restored, "completed")).resume).toBeNull();
+});
+
+it("recommends deeper guides only on their matching evidence pages", () => {
+  expect(contextChapter("/diagnostics/captured-error")).toBe(
+    "error-diagnostics",
+  );
+  expect(
+    contextChapter("/evals/runs/10000000-0000-4000-8000-000000000032"),
+  ).toBe("evaluation-progress");
+  expect(contextChapter("/evals/runs/customer-run")).toBe("evaluation-results");
 });

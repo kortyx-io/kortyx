@@ -95,32 +95,24 @@ export function createPageHelpPlan(url: URL): PageHelpPlan {
       find("[data-page-help-state] p"),
     );
   } else {
-    add(
-      "controls",
-      guide.kind === "workflows"
-        ? "Choose the view and period"
-        : "Narrow the view",
-      guide.kind === "workflows"
-        ? "Choose the time range, version, map, or health view to focus your investigation. Refresh loads the latest available metrics. This guide leaves those choices unchanged."
-        : "Search and filters narrow the records shown here. Columns changes the visible fields; Views saves a useful table layout and filter selection. An empty filtered list does not mean the project has no data.",
-      find("[data-table-controls]", '[data-tour-surface="workflow-toolbar"]'),
-    );
-    add(
-      "records",
-      "Inspect a record",
-      guide.content,
-      find("[data-row-key] > td:first-child"),
-    );
-    add(
-      "tabs",
-      "Choose the evidence",
-      "These tabs separate the record's evidence and configuration. This explanation stays in your selected tab. After the guide, switch tabs to explore another view of the same record.",
-      find(
-        '[data-page-help="tabs"]',
-        "[data-prompt-tabs-row]",
-        '[aria-label="Prompt detail tabs"]',
-      ),
-    );
+    if (guide.kind === "list" || guide.kind === "workflows")
+      add(
+        "controls",
+        guide.kind === "workflows"
+          ? "Choose the view and period"
+          : "Narrow the view",
+        guide.kind === "workflows"
+          ? "Choose the time range, version, map, or health view to focus your investigation. Refresh loads the latest available metrics. This guide leaves those choices unchanged."
+          : "Search and filters narrow the records shown here. Columns changes the visible fields; Views saves a useful table layout and filter selection. An empty filtered list does not mean the project has no data.",
+        find("[data-table-controls]", '[data-tour-surface="workflow-toolbar"]'),
+      );
+    if (guide.kind === "list")
+      add(
+        "records",
+        "Inspect a record",
+        guide.content,
+        find("[data-row-key] > td:first-child"),
+      );
     const content = find(
       '[data-detail-tab-content][aria-hidden="false"]',
       '[data-tour-surface="eval-case-evidence"]',
@@ -128,6 +120,7 @@ export function createPageHelpPlan(url: URL): PageHelpPlan {
       "[data-prompt-content-version]",
       '[data-page-help="prompt-content"]',
       '[data-page-help="diagnostic-content"]',
+      ...(guide.kind === "detail" ? ["[data-row-key] > td:first-child"] : []),
     );
     const tab =
       content?.dataset.detailTabContent ?? url.searchParams.get("tab") ?? "";

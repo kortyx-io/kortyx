@@ -1,3 +1,4 @@
+import { SAMPLE_PROJECT as sample } from "@kortyx/telemetry-contracts";
 import { z } from "zod";
 import {
   CHAPTERS,
@@ -251,11 +252,18 @@ export function entryIntent(
     : null;
 }
 export function contextChapter(path: string): ChapterId | null {
+  if (path.startsWith("/diagnostics")) return "error-diagnostics";
   if (path.startsWith("/runs")) return "debug-execution";
   if (path.startsWith("/sessions") || path.startsWith("/workflows"))
     return "conversation";
   if (path.startsWith("/interrupts")) return "approvals";
   if (path.startsWith("/prompts")) return "prompt-versions";
+  if (
+    path.startsWith(`/evals/evaluations/${sample.evaluationIds.candidate}`) ||
+    path.startsWith(`/evals/runs/${sample.candidateEvalRunId}`) ||
+    path.startsWith(`/evals/cases/${sample.candidateEvalRunId}/`)
+  )
+    return "evaluation-progress";
   if (path.startsWith("/evals")) return "evaluation-results";
   if (path.startsWith("/settings")) return "personalize";
   return null;

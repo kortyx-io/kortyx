@@ -324,3 +324,42 @@ leave saved walkthrough progress intact.
   reference were updated. Existing private-edition integration/release checks
   remain pending; no local E2E, production/auth/container build, deployment, or
   private Cloud verification was performed.
+
+
+## Usefulness and focused coverage review — October 18, 2026
+
+Research/decisions: [usefulness assessment](../../internal/studio-onboarding-usefulness-review.md).
+Kept six core chapters / 21 steps; added two optional three-step guides for full
+diagnostic captures and evaluations still grading. New chapters use manifest IDs,
+finite lesson views, and bounded analytics. Existing core completion is preserved.
+Current detail-page explanations now skip generic tab and nested-table lessons.
+Page-help visibility planning runs after commit instead of during render.
+
+Verification for this change:
+
+- `pnpm --filter @kortyx/telemetry-contracts build` and
+  `pnpm --filter @kortyx/usage-telemetry build`: passed.
+- `pnpm exec vitest run src/features/onboarding src/features/sample-project/sample-project.test.ts src/usage/client.test.ts --maxWorkers=1`
+  from `apps/studio`: **82 passed / 11 files**. Includes actual pending grading and
+  diagnostic evidence, unchanged queue length, optional checkpoint preservation,
+  privacy/opt-out, and selected-view help.
+- `pnpm type-check` and `pnpm lint` from `apps/studio`: passed; lint retains
+  142 pre-existing warnings and one informational diagnostic.
+- `pnpm exec vitest run --maxWorkers=1` from `packages/usage-telemetry`:
+  **47 passed / 6 files**.
+- `git diff --check`: passed. Documentation relative links checked.
+- Manual CUA browser at `http://127.0.0.1:6327`: all three diagnostic steps, all
+  three grading-progress steps, Back across case/suite navigation, Done,
+  diagnostic exit/reload/explicit resume at step two, and no auto-reopening.
+  Existing full-tour total stayed **6 of 6** after optional completion.
+- Current case page help: two steps, retained the candidate suite/case/attempt URL
+  and explained pending grading. Parent evaluation help retained its related-suite
+  evidence in two steps without generic controls. Desktop and 390 × 844 mobile library cards,
+  independent relevance/completion badges, body scrolling, and fixed header/footer
+  visually checked. Browser error log empty. Saved review screenshot at
+  `/tmp/kortyx-optional-guides.png` (local artifact, not a repository fixture).
+
+No local E2E tests ran, per the user's memory constraint. This pass did not rerun
+the whole Studio unit suite or production/selected-auth/container builds. Hosted
+CI and private Cloud validation remain pending before merge. Research findings
+are not a real-user study or evidence of improved activation/comprehension.

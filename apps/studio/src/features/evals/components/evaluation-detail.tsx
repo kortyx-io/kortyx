@@ -240,7 +240,7 @@ export function EvaluationDetail({
       title="Evaluation run"
       description="Suite progress and evaluation results"
     >
-      <div className="flex h-full min-h-0 flex-col">
+      <div data-evaluation-id={id} className="flex h-full min-h-0 flex-col">
         {error ? (
           <p
             role="alert"

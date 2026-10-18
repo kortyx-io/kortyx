@@ -17,6 +17,10 @@ export type LessonView =
   | { surface: "interrupt"; tab: "decision" | "timeline" }
   | { surface: "prompt"; version: 1 | 2; compareWith?: 1 | 2 }
   | { surface: "suite" | "evaluation" | "eval-case" | "eval-comparison" }
+  | { surface: "diagnostic"; tab: "exception" | "capture" | "context" }
+  | {
+      surface: "evaluation-progress" | "grading-progress" | "pending-eval-case";
+    }
   | { surface: "settings"; section: "appearance" | "sample-project" };
 
 export interface LessonStep {
@@ -258,6 +262,74 @@ export const CHAPTERS = [
     ],
   },
   {
+    id: "error-diagnostics",
+    version: 1,
+    title: "Investigate an error diagnostic",
+    duration: "About 1 minute",
+    fullTour: false,
+    description:
+      "Trace an exception to its cause and check capture completeness.",
+    outcome:
+      "You can distinguish an execution failure from incomplete diagnostic delivery and locate its execution context.",
+    steps: [
+      {
+        id: "diagnostic-exception",
+        view: { surface: "diagnostic", tab: "exception" },
+        title: "Follow the cause",
+        content:
+          "This execution reached its tool-call limit. The exception connects ExecutionLimitReached to ToolBudgetExceeded. Inspect causes and captured fields to distinguish the underlying limit from the outer failure.",
+      },
+      {
+        id: "diagnostic-capture",
+        view: { surface: "diagnostic", tab: "capture" },
+        title: "Check the evidence is complete",
+        content:
+          "Available describes delivery; complete describes capture. Check received parts, omissions, and credential redactions before interpreting missing evidence. Neither status means the execution succeeded.",
+      },
+      {
+        id: "diagnostic-context",
+        view: { surface: "diagnostic", tab: "context" },
+        title: "Connect the error to its execution",
+        content:
+          "Run, workflow, and trace identifiers tie this diagnostic to the operation that failed. View run returns to its execution evidence. After the guide, follow that link to inspect the events around the limit.",
+      },
+    ],
+  },
+  {
+    id: "evaluation-progress",
+    version: 1,
+    title: "Understand an evaluation in progress",
+    duration: "About 1 minute",
+    fullTour: false,
+    description:
+      "Tell finished execution from pending grading and a final verdict.",
+    outcome:
+      "You can identify an ungraded case without treating a pending result as a pass or failure.",
+    steps: [
+      {
+        id: "evaluation-progress-summary",
+        view: { surface: "evaluation-progress" },
+        title: "Separate progress from outcome",
+        content:
+          "One suite has finished and another is still grading. Five of six case attempts have outcomes. These are partial counts; a running evaluation has no final verdict. This sample preserves that moment rather than running a background job.",
+      },
+      {
+        id: "evaluation-grading",
+        view: { surface: "grading-progress" },
+        title: "Find the case still grading",
+        content:
+          "Two conversations have passed; Locate a delivery note is still grading. Completed execution and completed grading are separate milestones. Its missing verdict does not count as a failed or passing case.",
+      },
+      {
+        id: "evaluation-pending-evidence",
+        view: { surface: "pending-eval-case" },
+        title: "Inspect what is known so far",
+        content:
+          "The recorded conversation is available, but the grading verdict and reasons are not yet available. Inspect the execution evidence while leaving the outcome undecided. After the guide, compare this with a completed case.",
+      },
+    ],
+  },
+  {
     id: "personalize",
     version: 1,
     title: "Personalize Studio",
@@ -367,6 +439,26 @@ export function resolveView(view: LessonView): {
         href: `/evals/runs/${sample.evalRunId}/compare?baseline=${sample.baselineEvalRunId}`,
         target:
           '[data-tour-surface="eval-comparison"][data-comparison-ready="true"] [data-tour-surface="eval-summary"]',
+      };
+    case "diagnostic":
+      return {
+        href: `/diagnostics/${sample.diagnosticIds.budgetLimit}?env=sample&tab=${view.tab}`,
+        target: `[data-diagnostic-id="${sample.diagnosticIds.budgetLimit}"] [data-detail-tab-content="${view.tab}"]`,
+      };
+    case "evaluation-progress":
+      return {
+        href: `/evals/evaluations/${sample.evaluationIds.candidate}`,
+        target: `[data-evaluation-id="${sample.evaluationIds.candidate}"] [data-tour-surface="eval-summary"]`,
+      };
+    case "grading-progress":
+      return {
+        href: `/evals/runs/${sample.candidateEvalRunId}`,
+        target: `[data-eval-run-id="${sample.candidateEvalRunId}"] [data-detail-tab-content="cases"]`,
+      };
+    case "pending-eval-case":
+      return {
+        href: `/evals/cases/${sample.candidateEvalRunId}/${sample.gradingCaseId}/1`,
+        target: '[data-tour-surface="eval-case-evidence"]',
       };
     case "settings":
       return {

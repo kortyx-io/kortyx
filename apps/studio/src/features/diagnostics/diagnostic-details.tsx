@@ -58,6 +58,7 @@ export function DiagnosticDetails({
   return (
     <div
       data-page-help="diagnostic"
+      data-diagnostic-id={manifest.diagnosticId}
       className="@container flex h-full min-h-0 min-w-0 flex-col"
     >
       <DetailHeader

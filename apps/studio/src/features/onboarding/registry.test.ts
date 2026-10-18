@@ -6,11 +6,12 @@ import { expect, it, vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
 
-import { compareRuns } from "@/features/evals/lib/presentation";
+import { StudioEvalDetailSchema } from "@kortyx/agent/evals";
+import { caseRows, compareRuns } from "@/features/evals/lib/presentation";
 import { buildModelExchanges } from "@/features/runs/lib/run-model-io";
 import { readSampleDataset } from "@/features/sample-project/data";
 import { sampleResponse } from "@/features/sample-project/http";
-import { CHAPTERS, resolveView } from "./registry";
+import { CHAPTERS, FULL_TOUR, resolveView } from "./registry";
 
 it("keeps identities unique and destinations restricted to supported sample reads", async () => {
   expect(new Set(CHAPTERS.map((chapter) => chapter.id)).size).toBe(
@@ -23,7 +24,7 @@ it("keeps identities unique and destinations restricted to supported sample read
     for (const step of chapter.steps) {
       const { href, target } = resolveView(step.view);
       expect(href).toMatch(
-        /^\/(runs|sessions|workflows|interrupts|prompts|evals|settings)(\/|$|\?)/,
+        /^\/(runs|sessions|workflows|interrupts|prompts|evals|settings|diagnostics)(\/|$|\?)/,
       );
       expect(target).not.toContain("nth-child");
       expect(step.content.length).toBeLessThan(400);
@@ -47,6 +48,16 @@ it("keeps identities unique and destinations restricted to supported sample read
           break;
         case "eval-comparison":
           api = `evals/runs/${sample.baselineEvalRunId}`;
+          break;
+        case "diagnostic":
+          api = `diagnostics/${sample.diagnosticIds.budgetLimit}?env=sample`;
+          break;
+        case "evaluation-progress":
+          api = `evals/evaluations/${sample.evaluationIds.candidate}`;
+          break;
+        case "grading-progress":
+        case "pending-eval-case":
+          api = `evals/runs/${sample.candidateEvalRunId}`;
           break;
         case "workflows":
           api = "workflows";
@@ -129,4 +140,38 @@ it("registers every chapter, version and step in the bounded usage catalog", asy
     for (const step of chapter.steps)
       expect(publicCatalog.properties.tour_step).toContain(step.id);
   }
+});
+
+it("adds deep dives without extending the full walkthrough or relying on invented outcomes", async () => {
+  expect(FULL_TOUR).toHaveLength(6);
+  expect(
+    CHAPTERS.filter((chapter) => chapter.fullTour).reduce(
+      (total, chapter) => total + chapter.steps.length,
+      0,
+    ),
+  ).toBe(21);
+  expect(FULL_TOUR).not.toContain("error-diagnostics");
+  expect(FULL_TOUR).not.toContain("evaluation-progress");
+  const parent = await sampleResponse(
+    `/v1/studio/evals/evaluations/${sample.evaluationIds.candidate}`,
+  ).json();
+  expect(parent.run.status).toBe("running");
+  expect(parent.run.completedAttempts).toBe(5);
+  const detail = await sampleResponse(
+    `/v1/studio/evals/runs/${sample.candidateEvalRunId}`,
+  ).json();
+  expect(detail.run.phase).toBe("grading");
+  expect(detail.run.result).toBeNull();
+  const pending = caseRows(StudioEvalDetailSchema.parse(detail).run).find(
+    (entry) => entry.caseId === sample.gradingCaseId,
+  );
+  expect(pending?.status).toBe("running");
+  expect(pending?.steps).toHaveLength(2);
+  for (const step of pending?.steps ?? []) expect(step.criteria).toEqual([]);
+  const diagnostic = await sampleResponse(
+    `/v1/studio/diagnostics/${sample.diagnosticIds.budgetLimit}?env=sample`,
+  ).json();
+  expect(diagnostic.state).toBe("available");
+  expect(diagnostic.content.capture.status).toBe("complete");
+  expect(JSON.stringify(diagnostic.content)).toContain("ToolBudgetExceeded");
 });

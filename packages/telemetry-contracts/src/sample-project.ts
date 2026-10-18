@@ -46,6 +46,7 @@ export const SAMPLE_PROJECT = {
   evalRunId: "10000000-0000-4000-8000-000000000004",
   baselineEvalRunId: "10000000-0000-4000-8000-000000000005",
   caseId: "order-status",
+  gradingCaseId: "delivery-note",
   targetId: "sample-support",
   suiteId: "sample-support-quality",
   anchors: {

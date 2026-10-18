@@ -8,10 +8,12 @@ import {
   Compass,
   FileText,
   FlaskConical,
+  ListChecks,
   type LucideIcon,
   MessagesSquare,
   Palette,
   RotateCcw,
+  ScanSearch,
   ShieldCheck,
 } from "lucide-react";
 import { useState } from "react";
@@ -86,6 +88,8 @@ const chapterIcons = {
   "prompt-versions": FileText,
   "evaluation-results": FlaskConical,
   personalize: Palette,
+  "error-diagnostics": ScanSearch,
+  "evaluation-progress": ListChecks,
 } satisfies Record<ChapterId, LucideIcon>;
 
 export function LearningHub(props: HubProps) {
@@ -127,16 +131,23 @@ export function LearningHub(props: HubProps) {
             >
               <Icon className="size-4" />
             </span>
-            {status !== "Not started" ? (
-              <Badge variant="secondary">
-                {status === "Completed" && (
-                  <Check aria-hidden="true" className="size-3" />
+            <div className="flex flex-wrap justify-end gap-1.5">
+              {relevant === chapter.id && (
+                <Badge variant="outline">Related to this page</Badge>
+              )}
+              {chapter.id === "sample-execution" &&
+                status === "Not started" && (
+                  <Badge variant="outline">Start here</Badge>
                 )}
-                {status}
-              </Badge>
-            ) : relevant === chapter.id ? (
-              <Badge variant="outline">This page</Badge>
-            ) : null}
+              {status !== "Not started" ? (
+                <Badge variant="secondary">
+                  {status === "Completed" && (
+                    <Check aria-hidden="true" className="size-3" />
+                  )}
+                  {status}
+                </Badge>
+              ) : null}
+            </div>
           </div>
           <CardTitle>
             <h3>{chapter.title}</h3>
@@ -195,7 +206,8 @@ export function LearningHub(props: HubProps) {
             Explore Studio
           </DialogTitle>
           <DialogDescription>
-            Get to know Studio, one task at a time.
+            Choose a task to explore, or explain your current page from the
+            Explore menu.
           </DialogDescription>
         </header>
         <Separator />
@@ -298,8 +310,8 @@ export function LearningHub(props: HubProps) {
                   </span>
                 </div>
                 <p className="text-sm text-muted-foreground">
-                  Start with a task, or take the full tour. You can pause and
-                  pick up where you left off.
+                  New to Studio? Start with Quick orientation. Each chapter also
+                  works on its own; the full tour is optional.
                 </p>
                 <div className="grid gap-3 sm:grid-cols-2">
                   {CHAPTERS.filter((chapter) => chapter.fullTour).map(
@@ -317,6 +329,10 @@ export function LearningHub(props: HubProps) {
                 >
                   Optional guides
                 </h2>
+                <p className="text-sm text-muted-foreground">
+                  Go deeper when you need these tasks. These guides are outside
+                  the full tour.
+                </p>
                 <div className="grid gap-3 sm:grid-cols-2">
                   {CHAPTERS.filter((chapter) => !chapter.fullTour).map(
                     chapterCard,

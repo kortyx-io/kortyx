@@ -138,12 +138,14 @@ reference before calling an application connected.
 Use **Explore → Explore Studio** in the navbar or **Help & tours** in the Studio/account
 menu for independent chapters or the full walkthrough. The full tour covers
 orientation, debugging, sessions/workflows, approvals, prompt versions, and saved
-evaluation comparisons. Personalization is optional. Next/Back navigate; Skip
+evaluation comparisons. Optional guides cover full error diagnostics, evaluations
+still grading, and personalization. These do not extend the six-chapter full tour. Next/Back navigate; Skip
 chapter, Exit, and Resume let users learn at their own pace. Progress is versioned,
 validated, and browser-local; nothing starts automatically after a reload. The
 Explore menu also provides **Explain this page** and a link to the website docs.
 Page help explains the current real or sample view in place, preserving the record,
-tab, filters, and project. It is separate from sample chapter progress and remains
+tab, filters, and project. Detail help focuses on the selected evidence rather than
+repeating generic tab controls. It is separate from sample chapter progress and remains
 available in empty or unavailable views. With no visible records, opening a sample
 example requires an explicit choice; showing a hidden sample is disclosed first.
 An example's page-help completion is not verification of a real integration.

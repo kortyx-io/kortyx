@@ -85,7 +85,7 @@ const suites = {
         ],
       },
       {
-        id: "delivery-note",
+        id: sample.gradingCaseId,
         name: "Locate a delivery note",
         workflowId: sample.workflowId,
         steps: [

@@ -25,6 +25,11 @@ Node delivery lazily stores a random installation UUID in `~/.config/kortyx/usag
 
 The shared catalog allows fixed operation names, outcome enums, Kortyx release versions, provider families, storage/transport kinds, coarse HTTP status, known error codes and booleans. Arbitrary property keys are dropped; unrecognized enum values and error codes become `other`. The error projection reads only own data properties and does not invoke application getters.
 
+Sample chapters use the bounded `studio.sample` chapter/step catalog, including
+optional `error-diagnostics` and `evaluation-progress`. Optional starts/completions
+have their own chapter denominator and do not increase the six-chapter full-tour
+denominator. Completion is a displayed-guide outcome, not proof of learning.
+
 Studio page explanations use `studio.help` with finite `help_page`, `help_step`,
 `help_context` (real/sample), and `help_action` values. Starts count explanation
 attempts; step events count displayed steps, including Back. Completion, skip,

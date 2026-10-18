@@ -68,9 +68,16 @@ export function trackPageHelp(
 
 /** This flow never navigates or writes. Only the confirmed example action can transfer. */
 export function PageHelp(props: PageHelpProps) {
-  const [plan] = useState(() =>
-    createPageHelpPlan(new URL(window.location.href)),
-  );
+  const [plan, setPlan] = useState<PageHelpPlan | null>(null);
+  useEffect(() => {
+    // Read visible DOM/layout after commit, never during React rendering.
+    setPlan(createPageHelpPlan(new URL(window.location.href)));
+  }, []);
+  return plan ? <PageHelpFlow {...props} plan={plan} /> : null;
+}
+
+function PageHelpFlow(props: PageHelpProps & { plan: PageHelpPlan }) {
+  const { plan } = props;
   const [choice, setChoice] = useState(
     plan.empty && props.available && !props.sample,
   );

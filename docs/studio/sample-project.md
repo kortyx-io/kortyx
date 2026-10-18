@@ -34,8 +34,18 @@ full tour** for the six core chapters:
 5. Inspect prompt versions: version 1 → version 2 → their read-only diff.
 6. Read evaluation results: suite → saved result → case evidence → baseline comparison.
 
-The library shows all six chapters and a separate **Optional guides** section for
-**Personalize Studio** (appearance and sample visibility). The header and footer
+Quick orientation is marked **Start here** for new visitors. Related guides retain
+their page badge even after completion. The six core chapters remain unchanged;
+**Optional guides** adds:
+
+- **Investigate an error diagnostic**: exception causes → capture integrity → execution context.
+- **Understand an evaluation in progress**: partial evaluation totals → suite still grading → ungraded case evidence.
+- **Personalize Studio**: appearance → sample visibility.
+
+The two deeper guides each have three steps and never join the full-tour queue.
+The grading example is a fixed snapshot, with no background job or invented verdict.
+Adding these chapters preserves existing core completion and explicit resume.
+ The header and footer
 stay fixed while the guide cards scroll. Cards offer **Start**, **Resume**, or
 **Restart**; progress and full-tour actions stay in the footer.
 
@@ -55,7 +65,9 @@ page and its explanation; they do not start a multi-page chapter.
 
 Page help restarts from the Explore menu and does not change saved walkthrough
 progress. Next, Back, Skip, ×, and Escape work within the current explanation.
-Browser navigation closes it. Missing or hidden controls are omitted; a changed
+Browser navigation closes it. Detail-page help goes straight from the overview to
+the selected evidence, omitting generic tab and nested-table instructions. List-page
+help retains search/filter guidance and how to inspect a record. Missing or hidden controls are omitted; a changed
 target offers recovery instead of opening another record. Unknown edition pages
 retain a general workspace explanation; private edition-specific walkthroughs
 still require the edition's own integration.

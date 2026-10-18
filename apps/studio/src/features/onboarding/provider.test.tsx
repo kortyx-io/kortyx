@@ -134,11 +134,17 @@ it("offers every guide in a scrollable library with fixed actions without launch
   );
   expect(document.body.textContent).toContain("Inspect prompt versions");
   expect(document.body.textContent).toContain("Personalize Studio");
+  expect(document.body.textContent).toContain(
+    "Investigate an error diagnostic",
+  );
+  expect(document.body.textContent).toContain(
+    "Understand an evaluation in progress",
+  );
   expect(document.body.textContent).not.toContain("More to explore");
   expect(document.body.textContent).not.toContain("Ready for your own data?");
   const scroll = document.querySelector("[data-learning-scroll]");
   const footer = document.querySelector("[data-learning-footer]");
-  expect(scroll?.querySelectorAll("[data-learning-chapter]")).toHaveLength(7);
+  expect(scroll?.querySelectorAll("[data-learning-chapter]")).toHaveLength(9);
   expect(footer?.contains(button("Take the full tour"))).toBe(true);
   expect(scroll?.contains(footer)).toBe(false);
   expect(scroll?.contains(document.querySelector('[role="heading"][id]'))).toBe(

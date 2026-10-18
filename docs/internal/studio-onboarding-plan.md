@@ -1,7 +1,7 @@
 # Studio onboarding architecture
 
 Implemented in the shared Studio shell: an opt-in learning hub, six-chapter full
-tour, independent chapter launchers, optional personalization, explicit resume,
+tour, independent chapter launchers, optional diagnostic, grading-progress and personalization guides, explicit resume,
 and browser-local progress. Research was checked October 17, 2026. Manual local
 browser checks covered the full flow and subsequent UI feedback. E2E tests were
 intentionally not run at the user's request; see
@@ -63,6 +63,8 @@ supply URLs, CSS selectors, mutations, or arbitrary customer records.
 | Understand approvals | Request/response → lifecycle timeline → related run | Resolved recorded approval with no working resume capability. |
 | Inspect prompt versions | Version 1 → version 2 → diff | Two immutable hashed prompt versions; `v` and `compareWith` open a read-only comparison. URL comparisons are nonmodal so the tour can retain keyboard ownership. |
 | Read evaluation results | Suite → saved result → criteria → comparison | Passing candidate and failing baseline use the same suite revision and judge identity. Their session/run links resolve to actual synthetic executions. |
+| Investigate an error diagnostic (optional) | Exception → capture integrity → context | Budget-limit cause chain, complete delivery/capture, stable diagnostic ID and run correlation. |
+| Understand an evaluation in progress (optional) | Partial evaluation → grading suite → ungraded case | Five of six attempts have outcomes; pending case has execution evidence but no verdict or reasons. |
 | Personalize (optional) | Appearance → sample visibility | Safe inspection of existing settings, with no automatic preference change. |
 
 Execution fixtures remain in `telemetry-db/src/sample-project`, use narrow payload
@@ -194,3 +196,13 @@ Browser/E2E specs are maintained for CI but were not executed for this change.
 
 These sources support a design direction. They do not establish that tours will
 improve Kortyx activation. Validate the proposal with new Studio users.
+
+
+## Usefulness review (October 18, 2026)
+
+See [the research and coverage assessment](studio-onboarding-usefulness-review.md).
+Keep the six-chapter, 21-step full tour opt-in. Two three-step deep dives cover
+new diagnostic and in-progress evaluation evidence without enlarging the queue.
+Current-page explanations omit generic tab instructions and nested table tutorials;
+list help retains actionable controls. Completion telemetry measures guide usage,
+not comprehension or activation.

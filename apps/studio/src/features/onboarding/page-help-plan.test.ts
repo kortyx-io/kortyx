@@ -26,11 +26,7 @@ it("explains a real execution's current tab without navigating or reading its co
   expect(result.id).toBe("run");
   expect(result.empty).toBe(false);
   expect(result.url).toBe(`https://studio.example${path}`);
-  expect(result.steps.map((step) => step.id)).toEqual([
-    "overview",
-    "tabs",
-    "content",
-  ]);
+  expect(result.steps.map((step) => step.id)).toEqual(["overview", "content"]);
   expect(result.steps.at(-1)?.content).toContain(
     "Events is the ordered telemetry record",
   );
@@ -64,11 +60,7 @@ it("plans an entering drawer and leaves settling to the runtime instead of repor
     new URL("https://studio.example/sample/runs/current?tab=trace"),
   );
   expect(result.empty).toBe(false);
-  expect(result.steps.map((step) => step.id)).toEqual([
-    "overview",
-    "tabs",
-    "content",
-  ]);
+  expect(result.steps.map((step) => step.id)).toEqual(["overview", "content"]);
 });
 it("explains the selected prompt activity tab rather than its content editor", () => {
   const result = plan(
@@ -147,4 +139,23 @@ it("covers every primary Studio route and retains help for extension pages", () 
     expect(guide.overview.length).toBeLessThan(400);
     expect(guide.content.length).toBeLessThan(400);
   }
+});
+
+it("gets to selected evidence without teaching generic table or tab controls again", () => {
+  const result = plan(
+    "/sample/sessions/current?sessionTab=runs",
+    `<div data-session-detail-id="current"><div data-responsive-surface="detail-header"></div><div data-page-help="tabs"></div><div data-detail-tab-content="runs" aria-hidden="false"><div data-table-controls="runs"></div><table><tr data-row-key="private"><td>Private</td></tr></table></div></div>`,
+  );
+  expect(result.steps.map((step) => step.id)).toEqual(["overview", "content"]);
+  expect(result.steps[1]?.target.dataset.detailTabContent).toBe("runs");
+});
+
+it("retains domain help for related records on detail pages without tab panels", () => {
+  const result = plan(
+    "/sample/evals/evaluations/current",
+    `<header data-tour-surface="eval-summary"></header><div data-table-controls="evaluation-suites"></div><table><tr data-row-key="private-suite"><td>Private suite</td></tr></table>`,
+  );
+  expect(result.steps.map((step) => step.id)).toEqual(["overview", "content"]);
+  expect(result.steps[1]?.content).toContain("Open a suite");
+  expect(result.steps[1]?.target.tagName).toBe("TD");
 });
