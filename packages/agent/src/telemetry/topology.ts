@@ -217,7 +217,10 @@ export const projectWorkflowTopology = (args: {
     workflowId: args.workflow.id,
     nodes: nodes.map((node) => ({ id: node.id, ...node._execution })),
     edges,
-    transitions,
+    // Handoffs inferred from function source are catalog enrichment. Bundlers
+    // can hide their targets without changing the executable graph. Keep the
+    // legacy empty list so graphs without inferred handoffs retain their hash.
+    transitions: [],
   });
   const topologyHash = createHash("sha256")
     .update(JSON.stringify(hashInput))

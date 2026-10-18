@@ -99,6 +99,12 @@ For remote deployments, also verify network reachability from the application se
 
 When your request appears in **Runs**, continue with [Explore your first run](/docs/studio/first-run).
 
+After upgrading the SDK and CLI, rebuild your application and republish its source
+catalog. Source-discovered links should remain visible after a request executes
+the production bundle, including links that request did not exercise. The topology
+identity correction can create one new revision for workflows with inferred
+handoffs; historical runs remain readable and no database migration is needed.
+
 > **Good to know:** Seeing a run without its prompt text is a successful connection. [Run inspection](/docs/studio/runs#captured-content) shows structural activity even when content is excluded; [troubleshooting](/docs/studio/troubleshooting#inputs-or-outputs-are-missing) explains missing payloads.
 
 ## Choose what content Studio may store
