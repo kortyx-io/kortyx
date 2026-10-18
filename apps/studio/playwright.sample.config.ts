@@ -20,7 +20,6 @@ export default defineConfig({
     reuseExistingServer: false,
     env: {
       KORTYX_STUDIO_AUTH_MODE: "none",
-      KORTYX_USAGE_TELEMETRY_DISABLED: "1",
       KORTYX_API_URL: "",
       KORTYX_STUDIO_API_KEY: "",
       KORTYX_STUDIO_PROJECT_KEYS: "[]",

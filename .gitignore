@@ -79,6 +79,3 @@ AGENTS.md
 /docs/qa/studio-prompts/**/*.png
 /docs/qa/studio-prompts/**/*.jpg
 /docs/qa/studio-prompts/**/*.jpeg
-
-# Generated Studio presentation captures
-apps/studio/demo-screens/
