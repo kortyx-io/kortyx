@@ -8,6 +8,30 @@
   event replay, explicit cancellation and optional PostgreSQL recovery.
 
 
+## [0.40.0](https://github.com/kortyx-io/kortyx/compare/agent-v0.39.0...agent-v0.40.0) (2026-10-18)
+
+
+### Features
+
+* **studio:** drain evaluation workers and consumer endpoints safely ([#365](https://github.com/kortyx-io/kortyx/issues/365)) ([0bcd853](https://github.com/kortyx-io/kortyx/commit/0bcd85310f5ccf59772b2fa9ed4dd28d03394546))
+
+
+### Bug Fixes
+
+* retain workflow catalogs and text interrupt questions ([#369](https://github.com/kortyx-io/kortyx/issues/369)) ([7608f65](https://github.com/kortyx-io/kortyx/commit/7608f6503167ed94feda30a1f63db50f475557d6))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/runtime bumped to 0.26.0
+    * @kortyx/prompts bumped to 0.2.3
+    * @kortyx/usage-telemetry bumped to 0.5.0
+    * @kortyx/telemetry-contracts bumped to 0.19.0
+  * devDependencies
+    * @kortyx/hooks bumped to 0.35.1
+
 ## [0.39.0](https://github.com/kortyx-io/kortyx/compare/agent-v0.38.1...agent-v0.39.0) (2026-10-16)
 
 

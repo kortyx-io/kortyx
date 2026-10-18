@@ -1,5 +1,39 @@
 # Changelog
 
+## [0.23.0](https://github.com/kortyx-io/kortyx/compare/studio-v0.22.0...studio-v0.23.0) (2026-10-18)
+
+
+### Features
+
+* **cli:** validate topology and update compatible dependencies ([6c16ef3](https://github.com/kortyx-io/kortyx/commit/6c16ef3d1c9e8329d31f1a28e87aa26ae6dbe651))
+* **studio:** add contextual help and organize product documentation ([#366](https://github.com/kortyx-io/kortyx/issues/366)) ([aa4a624](https://github.com/kortyx-io/kortyx/commit/aa4a6242f6294e0f96968a8021440cdc55467121))
+* **studio:** add sample project and guided onboarding ([#363](https://github.com/kortyx-io/kortyx/issues/363)) ([25da0b9](https://github.com/kortyx-io/kortyx/commit/25da0b9c92072446a7503b23ba4f157aebec8185))
+* **studio:** drain evaluation workers and consumer endpoints safely ([#365](https://github.com/kortyx-io/kortyx/issues/365)) ([0bcd853](https://github.com/kortyx-io/kortyx/commit/0bcd85310f5ccf59772b2fa9ed4dd28d03394546))
+* **studio:** persist table preferences with scoped browser caches ([#367](https://github.com/kortyx-io/kortyx/issues/367)) ([9b84295](https://github.com/kortyx-io/kortyx/commit/9b8429563d0a065939381de5afe1c62e762157d0))
+
+
+### Bug Fixes
+
+* **studio:** omit unset usage context fields for strict adapters ([#361](https://github.com/kortyx-io/kortyx/issues/361)) ([a91327c](https://github.com/kortyx-io/kortyx/commit/a91327c8a5ae58686a0ed6c39b3930855483e140))
+
+
+### Reverts
+
+* **studio:** remove unneeded presentation capture ([#368](https://github.com/kortyx-io/kortyx/issues/368)) ([b25645a](https://github.com/kortyx-io/kortyx/commit/b25645a77263e2647bfe12edd01504faad20df01))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/prompts bumped to 0.2.3
+    * @kortyx/telemetry-contracts bumped to 0.19.0
+    * @kortyx/usage-telemetry bumped to 0.5.0
+  * devDependencies
+    * @kortyx/agent bumped to 0.40.0
+    * @kortyx/telemetry bumped to 0.17.1
+    * kortyx bumped to 0.32.1
+
 ## [0.22.0](https://github.com/kortyx-io/kortyx/compare/studio-v0.21.1...studio-v0.22.0) (2026-10-16)
 
 

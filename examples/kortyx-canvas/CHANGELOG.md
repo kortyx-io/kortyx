@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.9.0](https://github.com/kortyx-io/kortyx/compare/example-canvas-v0.8.17...example-canvas-v0.9.0) (2026-10-18)
+
+
+### Features
+
+* **cli:** validate topology and update compatible dependencies ([6c16ef3](https://github.com/kortyx-io/kortyx/commit/6c16ef3d1c9e8329d31f1a28e87aa26ae6dbe651))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/telemetry bumped to 0.17.1
+    * kortyx bumped to 0.32.1
+  * devDependencies
+    * @kortyx/cli bumped to 0.22.0
+
 ## [0.8.17](https://github.com/kortyx-io/kortyx/compare/example-canvas-v0.8.16...example-canvas-v0.8.17) (2026-10-16)
 
 

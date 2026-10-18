@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.19.0](https://github.com/kortyx-io/kortyx/compare/telemetry-contracts-v0.18.0...telemetry-contracts-v0.19.0) (2026-10-18)
+
+
+### Features
+
+* **studio:** add sample project and guided onboarding ([#363](https://github.com/kortyx-io/kortyx/issues/363)) ([25da0b9](https://github.com/kortyx-io/kortyx/commit/25da0b9c92072446a7503b23ba4f157aebec8185))
+* **studio:** persist table preferences with scoped browser caches ([#367](https://github.com/kortyx-io/kortyx/issues/367)) ([9b84295](https://github.com/kortyx-io/kortyx/commit/9b8429563d0a065939381de5afe1c62e762157d0))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/prompts bumped to 0.2.3
+
 ## [0.18.0](https://github.com/kortyx-io/kortyx/compare/telemetry-contracts-v0.17.2...telemetry-contracts-v0.18.0) (2026-10-16)
 
 

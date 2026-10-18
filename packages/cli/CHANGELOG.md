@@ -5,6 +5,24 @@
 - Render queued, retrying and reconnecting eval dispatch updates without treating
   them as terminal case results.
 
+## [0.22.0](https://github.com/kortyx-io/kortyx/compare/cli-v0.21.0...cli-v0.22.0) (2026-10-18)
+
+
+### Features
+
+* **cli:** validate topology and update compatible dependencies ([6c16ef3](https://github.com/kortyx-io/kortyx/commit/6c16ef3d1c9e8329d31f1a28e87aa26ae6dbe651))
+* **studio:** drain evaluation workers and consumer endpoints safely ([#365](https://github.com/kortyx-io/kortyx/issues/365)) ([0bcd853](https://github.com/kortyx-io/kortyx/commit/0bcd85310f5ccf59772b2fa9ed4dd28d03394546))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/agent bumped to 0.40.0
+    * @kortyx/prompts bumped to 0.2.3
+    * @kortyx/telemetry-contracts bumped to 0.19.0
+    * @kortyx/usage-telemetry bumped to 0.5.0
+
 ## [0.21.0](https://github.com/kortyx-io/kortyx/compare/cli-v0.20.1...cli-v0.21.0) (2026-10-16)
 
 

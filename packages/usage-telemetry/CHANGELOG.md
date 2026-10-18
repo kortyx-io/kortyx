@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.5.0](https://github.com/kortyx-io/kortyx/compare/usage-telemetry-v0.4.0...usage-telemetry-v0.5.0) (2026-10-18)
+
+
+### Features
+
+* **cli:** validate topology and update compatible dependencies ([6c16ef3](https://github.com/kortyx-io/kortyx/commit/6c16ef3d1c9e8329d31f1a28e87aa26ae6dbe651))
+* **studio:** add contextual help and organize product documentation ([#366](https://github.com/kortyx-io/kortyx/issues/366)) ([aa4a624](https://github.com/kortyx-io/kortyx/commit/aa4a6242f6294e0f96968a8021440cdc55467121))
+* **studio:** add sample project and guided onboarding ([#363](https://github.com/kortyx-io/kortyx/issues/363)) ([25da0b9](https://github.com/kortyx-io/kortyx/commit/25da0b9c92072446a7503b23ba4f157aebec8185))
+
 ## [0.4.0](https://github.com/kortyx-io/kortyx/compare/usage-telemetry-v0.3.0...usage-telemetry-v0.4.0) (2026-10-16)
 
 

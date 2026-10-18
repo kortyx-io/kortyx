@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.53.0](https://github.com/kortyx-io/kortyx/compare/website-v0.52.0...website-v0.53.0) (2026-10-18)
+
+
+### Features
+
+* **cli:** validate topology and update compatible dependencies ([6c16ef3](https://github.com/kortyx-io/kortyx/commit/6c16ef3d1c9e8329d31f1a28e87aa26ae6dbe651))
+* **studio:** add contextual help and organize product documentation ([#366](https://github.com/kortyx-io/kortyx/issues/366)) ([aa4a624](https://github.com/kortyx-io/kortyx/commit/aa4a6242f6294e0f96968a8021440cdc55467121))
+* **studio:** drain evaluation workers and consumer endpoints safely ([#365](https://github.com/kortyx-io/kortyx/issues/365)) ([0bcd853](https://github.com/kortyx-io/kortyx/commit/0bcd85310f5ccf59772b2fa9ed4dd28d03394546))
+* **studio:** persist table preferences with scoped browser caches ([#367](https://github.com/kortyx-io/kortyx/issues/367)) ([9b84295](https://github.com/kortyx-io/kortyx/commit/9b8429563d0a065939381de5afe1c62e762157d0))
+
+
+### Bug Fixes
+
+* retain workflow catalogs and text interrupt questions ([#369](https://github.com/kortyx-io/kortyx/issues/369)) ([7608f65](https://github.com/kortyx-io/kortyx/commit/7608f6503167ed94feda30a1f63db50f475557d6))
+
 ## [0.52.0](https://github.com/kortyx-io/kortyx/compare/website-v0.51.1...website-v0.52.0) (2026-10-16)
 
 
