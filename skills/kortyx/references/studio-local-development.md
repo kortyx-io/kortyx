@@ -125,6 +125,9 @@ Use `reportError(error, {severity?, metadata?, tags?})` for handled errors when 
 
 ## Exploring Studio before connecting an application
 
+Customer instructions: `https://kortyx.io/docs/studio/sample-project` covers
+sample selection, read-only boundaries, tours, current-page help and visibility.
+
 Studio's project selector includes a read-only Sample project with fictional
 execution history, prompts, and a saved evaluation. Hide or restore it under
 Settings → Sample project. Sample URLs use `/sample/` and cannot edit resources,

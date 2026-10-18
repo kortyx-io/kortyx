@@ -13,6 +13,10 @@ and choose **Sample project**, then inspect its fictional runs, conversations,
 interrupts, prompt versions, and saved evaluations. No application or model-provider
 credentials are needed to browse the sample.
 
+These controls require a Studio build that includes the sample project and tours.
+Cloud workspaces show them after the corresponding Cloud update. If they are not
+available yet, follow [the application connection guide](/docs/studio/connect-project).
+
 ## Read-only sample data
 
 The sample has its own `/sample/` URLs. It shows completed examples you can inspect;

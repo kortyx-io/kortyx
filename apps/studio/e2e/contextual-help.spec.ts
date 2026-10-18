@@ -4,6 +4,34 @@ import { expect, test } from "@playwright/test";
 import { DRAWER_FIXTURE } from "./support/telemetry-fixture";
 
 const screenshots = process.env.KORTYX_HELP_SCREENSHOTS;
+
+test("centralized column controls explain layout without dismissing their panel", async ({
+  page,
+}) => {
+  await page.goto("/runs?range=All+time&live=false");
+  await page.getByRole("button", { name: "Columns", exact: true }).click();
+  const columns = page.getByRole("dialog", {
+    name: "Visible columns",
+    exact: true,
+  });
+  const trigger = columns.getByRole("button", {
+    name: "About Table views",
+    exact: true,
+  });
+  await trigger.hover();
+  const help = page.getByRole("dialog", {
+    name: "About Table views",
+    exact: true,
+  });
+  await expect(help).toBeVisible();
+  await expect(
+    help.getByRole("link", { name: /Read documentation/ }),
+  ).toHaveAttribute("href", /\/studio\/v0\/exploring-data#table-views$/);
+  await page.keyboard.press("Escape");
+  await expect(help).toBeHidden();
+  await expect(columns).toBeVisible();
+});
+
 async function expectArrowAttached(
   card: import("@playwright/test").Locator,
   trigger: import("@playwright/test").Locator,
@@ -99,6 +127,10 @@ test("header title owns help, preserves sort, and supports hover and keyboard", 
 
   const website = process.env.KORTYX_HELP_WEBSITE_URL;
   if (website) {
+    // Header state updates before the centralized table query flushes its URL.
+    await expect
+      .poll(() => new URL(page.url()).searchParams.get("dir") ?? "desc")
+      .toBe("desc");
     const sortedUrl = page.url();
     await page.context().route("https://kortyx.io/docs/**", (route) =>
       route.fulfill({

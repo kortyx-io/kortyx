@@ -151,6 +151,7 @@ describe("product documentation routes", () => {
     ]);
     expect(studio[0]?.items.map((item) => item.slug)).toEqual([
       "overview",
+      "sample-project",
       "connect-project",
       "first-run",
       "concepts",

@@ -16,7 +16,7 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { ArrowDown, ArrowUp, Columns3, GripVertical, Pin } from "lucide-react";
-import { useId, useState } from "react";
+import { useId, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { HelpCircle, type HelpDefinition } from "@/components/ui/info-tooltip";
 import { Input } from "@/components/ui/input";
@@ -46,6 +46,7 @@ export function DataTableColumnsMenu({
     resetLayout,
   } = useDataTable();
   const [search, setSearch] = useState("");
+  const searchRef = useRef<HTMLInputElement>(null);
   const titleId = useId();
   const dndId = useId();
   const sensors = useSensors(
@@ -80,6 +81,10 @@ export function DataTableColumnsMenu({
         align="end"
         className="w-72 p-2"
         aria-labelledby={titleId}
+        onOpenAutoFocus={(event) => {
+          event.preventDefault();
+          searchRef.current?.focus();
+        }}
       >
         <div className="flex items-center justify-between gap-2 px-2 py-2">
           <h2 id={titleId} className="text-sm font-medium">
@@ -88,6 +93,7 @@ export function DataTableColumnsMenu({
           {help && <HelpCircle help={help} />}
         </div>
         <Input
+          ref={searchRef}
           aria-label="Find a column"
           placeholder={placeholder}
           value={search}

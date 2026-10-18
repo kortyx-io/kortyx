@@ -270,12 +270,11 @@ review previews remain healthy (OSS 6311, Cloud 6313). No CI was triggered.
 
 ## Latest Cloud and plain-language audit — 2026-10-18
 
-This follow-up supersedes the original Cloud baseline. The local Cloud preview now
-uses fetched Cloud `main` at `2d590b99` (October 17), rather than the October 13
-checkout. The shared public Studio baseline matches this public checkout, so all
-help changes apply without replacing the latest Cloud account implementation.
-The original dirty Cloud checkout remains preserved. The current combined working
-checkout is `../cloud-help-latest`, branch `codex/studio-contextual-help-latest`.
+This follow-up supersedes the original Cloud baseline. The local Cloud preview
+was updated to the then-current Cloud implementation while preserving the shared
+help changes and current account behavior. Detailed Cloud checkout and integration
+evidence remains in the private audit; this public report describes customer
+guidance and shared Studio behavior.
 
 The audience is a first-time Studio user. All 58 central topic descriptions now
 use everyday words, define unfamiliar concepts, and explain what a value or action
