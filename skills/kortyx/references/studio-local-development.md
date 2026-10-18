@@ -52,6 +52,13 @@ catalog publication alone do not enable eval execution.
 6. Restart the app, send a real request that runs the agent, and inspect Studio.
    Confirm the catalog in **Workflows** and the execution in **Runs**.
 
+After upgrading SDK and CLI versions, rebuild the application and republish its
+source catalog. Verify declared links remain visible after executing the production
+bundle, including unexercised targets. Topology identity excludes inferred handoffs
+because bundling can hide their source targets. This correction can create one
+new revision for previously inferred handoffs; historical run references remain
+readable without a database migration.
+
 ## Kortyx Repository Flow
 
 From the repository root:

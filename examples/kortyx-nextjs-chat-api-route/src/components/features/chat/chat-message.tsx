@@ -481,9 +481,13 @@ function HumanInputBox({
 }) {
   const [selected, setSelected] = useState<string[]>([]);
 
-  // For text interrupts, don't render anything - user types response normally
+  // Keep the question visible; the regular composer submits the text answer.
   if (piece.kind === "text") {
-    return null;
+    return (
+      <p className="my-3 whitespace-pre-wrap break-words [overflow-wrap:anywhere]">
+        {piece.question}
+      </p>
+    );
   }
 
   // Named interrupt contracts keep their application payload in `request`.

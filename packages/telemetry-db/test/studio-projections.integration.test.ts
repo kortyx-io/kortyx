@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { projectWorkflowTopology } from "@kortyx/agent";
 import type {
   EnsureWorkflowTopologyRequest,
   KortyxTelemetryEvent,
@@ -129,19 +130,32 @@ integration("Studio SQL projections", () => {
   let projectB: string;
 
   it("publishes source calls without runs, preserves them on runtime ensure, and replaces them on republish", async () => {
-    const request: EnsureWorkflowTopologyRequest = {
-      schemaVersion: 1,
+    const options = {
       environment: "test",
       service: { name: "catalog-test" },
+    };
+    const request = projectWorkflowTopology({
+      ...options,
       workflow: {
         id: "catalog-parent",
-        declaredVersion: "1",
-        topologyHash: "f".repeat(64),
-        nodes: [{ id: "chat" }],
+        version: "1",
+        nodes: { chat: { run: () => ({ transitionTo: "handoff" }) } },
         edges: [],
-        transitions: [{ sourceNodeId: "chat", targetWorkflowId: "handoff" }],
       },
-    };
+    });
+    const bundled = projectWorkflowTopology({
+      ...options,
+      workflow: {
+        id: "catalog-parent",
+        version: "1",
+        nodes: {
+          chat: { run: new Function("return () => ({ transitionTo: a.b })")() },
+        },
+        edges: [],
+      },
+    });
+    expect(bundled.workflow.transitions).toBeUndefined();
+    expect(bundled.workflow.topologyHash).toBe(request.workflow.topologyHash);
     const ensure = (value: EnsureWorkflowTopologyRequest) =>
       ensureWorkflowRevision(client.db, {
         organizationId: organizationA,
@@ -158,7 +172,8 @@ integration("Studio SQL projections", () => {
     };
     const published = await ensure(withCalls);
     expect(published.workflowRevisionId).toBe(initial.workflowRevisionId);
-    await ensure(request);
+    const runtime = await ensure(bundled);
+    expect(runtime.workflowRevisionId).toBe(published.workflowRevisionId);
     const read = () =>
       listStudioWorkflows(client.db, {
         organizationId: organizationA,

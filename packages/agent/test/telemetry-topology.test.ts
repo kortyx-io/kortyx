@@ -206,6 +206,39 @@ describe("projectWorkflowTopology", () => {
     ]);
   });
 
+  it("keeps source and bundled catalog identities equal when handoff inference differs", () => {
+    const project = (source: string) =>
+      projectWorkflowTopology({
+        workflow: {
+          id: "general-chat",
+          version: "1",
+          nodes: {
+            route: {
+              run: new Function(`return ${source}`)(),
+              params: { temperature: 0.3 },
+            },
+          },
+          edges: [
+            ["__start__", "route"],
+            ["route", "__end__"],
+          ],
+        },
+        environment: "test",
+        service: { name: "app" },
+        knownWorkflowIds: ["general-chat", "canvas-save"],
+      });
+    const source = project(
+      '() => ({ transitionTo: WORKFLOW_IDS["canvasSave"] })',
+    );
+    const bundled = project("() => ({ transitionTo: a.b })");
+
+    expect(source.workflow.transitions).toEqual([
+      { sourceNodeId: "route", targetWorkflowId: "canvas-save" },
+    ]);
+    expect(bundled.workflow.transitions).toBeUndefined();
+    expect(bundled.workflow.topologyHash).toBe(source.workflow.topologyHash);
+  });
+
   it("ignores blank, ambiguous, unknown, and self-referencing transitions", () => {
     const routeNode = new Function(`
       return function routeNode() {

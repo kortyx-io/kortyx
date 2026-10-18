@@ -18,6 +18,9 @@ Set `GOOGLE_API_KEY` or `GEMINI_API_KEY` in the environment before starting the 
 
 ## Test interrupt resume across server restart (Redis)
 
+Text interrupt questions appear in the conversation. Submit the answer through
+the regular message composer; choice interrupts show their own option buttons.
+
 This example can run with **Redis-backed framework persistence** so interrupts can be resumed after restarting the server.
 
 1. Start Redis (Docker):

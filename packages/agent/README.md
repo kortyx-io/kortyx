@@ -9,6 +9,13 @@ Agent creation, chat route handlers, HTTP helpers, and stream orchestration for 
 
 Most application code should import these APIs from `kortyx`. Use `@kortyx/agent` directly when you are building framework adapters or want the lower-level agent package without the full facade.
 
+Topology identity excludes handoffs inferred from JavaScript function source, so
+source publication and bundled execution share a revision even when bundling hides
+a target. Inferred handoffs and source-discovered child links remain catalog
+metadata. After upgrading the SDK and CLI, rebuild the application and republish
+its source catalog. Previously inferred handoffs can receive a new topology hash
+once; historical revisions and run references remain readable without migration.
+
 ## Install
 
 ```bash

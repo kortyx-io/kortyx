@@ -41,6 +41,9 @@ pnpm --filter @kortyx/example-nextjs-chat-api-route dev
 
 ## Test sequential interrupts across resume
 
+Text interrupt questions appear in the conversation. Submit the answer through
+the regular message composer; choice interrupts show their own option buttons.
+
 Use workflow override `interrupt-sequential-demo` to verify the multi-interrupt resume path.
 
 1. Start the app.
