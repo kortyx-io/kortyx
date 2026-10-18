@@ -477,3 +477,8 @@ test isolation issue: cold drawer compilation consumed 13 seconds of a 30-second
 multi-page journey, and its retry inherited the saved review. Reset the fixture's
 human review before each attempt (preserving the read-only key path) and give that
 single save/edit/reload journey 60 seconds. All assertions remain in place.
+
+That review job passed on the following head. A separate autocomplete assertion
+read the typed fallback before remote suggestions arrived, then selected the
+newly loaded first option. Wait for the seeded remote suggestion before recording
+the expected keyboard selection. This retains remote-lookup and free-text checks.
