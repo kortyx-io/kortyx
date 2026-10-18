@@ -4,6 +4,8 @@ import { expect, test } from "@playwright/test";
 test("select, explore, hide and restore the immutable sample project", async ({
   page,
 }) => {
+  // This cross-feature journey includes several first-use Next dev routes.
+  test.setTimeout(60_000);
   await page.goto("/runs");
   await page.getByRole("button", { name: "Project", exact: true }).click();
   await page.getByRole("button", { name: "Sample project Read-only" }).click();

@@ -482,3 +482,11 @@ That review job passed on the following head. A separate autocomplete assertion
 read the typed fallback before remote suggestions arrived, then selected the
 newly loaded first option. Wait for the seeded remote suggestion before recording
 the expected keyboard selection. This retains remote-lookup and free-text checks.
+
+The completed run also exposed five-second cold nested-route/tour assertions and
+a column chooser test dropping before keyboard drag geometry committed. Match
+tour title waits to the runtime's existing 16-second navigation budget; give the
+two affected multi-route journeys 60 seconds and their cold detail assertions
+15 seconds. Wait for pointer-drop transforms, active keyboard drag, and the
+announced destination before dropping. Manual local keyboard reorder moved Status
+above Execution successfully; no product drag behavior or runtime timeout changed.

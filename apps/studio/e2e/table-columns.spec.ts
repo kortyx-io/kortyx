@@ -453,13 +453,29 @@ test("a sole pinned header can drag into the unpinned group, and the chooser sup
     "data-column-option",
     firstKey!,
   );
+  // DOM order changes before the pointer-drop transform finishes animating.
+  await expect(chooser.locator("[data-column-option]").nth(1)).toHaveCSS(
+    "transform",
+    "none",
+  );
   const handle = chooser
     .locator("[data-column-option]")
     .nth(1)
     .getByRole("button", { name: /^Drag / });
+  const targetKey = await chooser
+    .locator("[data-column-option]")
+    .first()
+    .getAttribute("data-column-option");
   await handle.focus();
   await page.keyboard.press("Space");
+  await expect(handle).toHaveAttribute("aria-pressed", "true");
   await page.keyboard.press("ArrowUp");
+  // Keyboard movement commits asynchronously; dropping immediately can cancel it.
+  await expect(
+    page.getByRole("status").filter({
+      hasText: `was moved over droppable area ${targetKey}.`,
+    }),
+  ).toBeVisible();
   await page.keyboard.press("Space");
   await expect(chooser.locator("[data-column-option]").first()).toHaveAttribute(
     "data-column-option",

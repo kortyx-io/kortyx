@@ -2103,6 +2103,8 @@ test.describe("Prompt detail drawers", () => {
     page,
     request,
   }) => {
+    // Multiple first-use Next dev routes compile during this nested journey.
+    test.setTimeout(60_000);
     const sql = postgres(
       process.env.DATABASE_URL ??
         "postgres://kortyx:kortyx@127.0.0.1:6543/kortyx",
@@ -2153,7 +2155,9 @@ test.describe("Prompt detail drawers", () => {
       const runDrawer = page.locator(
         `[data-detail-drawer="/runs/${DRAWER_FIXTURE.runId}"]`,
       );
-      await expect(runDrawer).toHaveAttribute("data-state", "open");
+      await expect(runDrawer).toHaveAttribute("data-state", "open", {
+        timeout: 15_000,
+      });
       await expect(
         runDrawer.getByRole("button", { name: "Overview", exact: true }),
       ).toBeVisible();
@@ -2181,6 +2185,7 @@ test.describe("Prompt detail drawers", () => {
         .click();
       await expect(page).toHaveURL(
         new RegExp(`/evals/runs/${EVAL_FIXTURE.candidate}`),
+        { timeout: 15_000 },
       );
     } finally {
       await sql`delete from telemetry_events where id=${duplicateId}`;

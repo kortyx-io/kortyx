@@ -5,6 +5,10 @@ import { expect, type Page, test } from "@playwright/test";
 const hub = (page: Page) =>
   page.getByRole("dialog", { name: "Explore Studio", exact: true });
 const tooltip = (page: Page) => page.getByRole("alertdialog");
+async function expectStep(page: Page, title: string) {
+  // Match the runtime navigation budget, including cold Next dev compilation.
+  await expect(tooltip(page)).toHaveAccessibleName(title, { timeout: 16_000 });
+}
 async function openHub(page: Page) {
   await page.getByRole("button", { name: "Explore", exact: true }).click();
   await page
@@ -26,25 +30,25 @@ test("optional chapter navigates forward, back, finishes and restarts", async ({
   await page.goto("/sample/runs?status=failed");
   await expect(tooltip(page)).toHaveCount(0);
   await quickTour(page);
-  await expect(tooltip(page)).toHaveAccessibleName("Explore a sample project");
+  await expectStep(page, "Explore a sample project");
   await expect(
     tooltip(page).getByRole("button", { name: "Back", exact: true }),
   ).toBeDisabled();
   await tooltip(page)
     .getByRole("button", { name: "Next", exact: true })
     .click();
-  await expect(tooltip(page)).toHaveAccessibleName("Find an execution");
+  await expectStep(page, "Find an execution");
   await tooltip(page)
     .getByRole("button", { name: "Next", exact: true })
     .click();
-  await expect(tooltip(page)).toHaveAccessibleName("Understand the execution");
+  await expectStep(page, "Understand the execution");
   await expect(page).toHaveURL(
     new RegExp(`/sample/runs/${SAMPLE_PROJECT.runs.success}$`),
   );
   await tooltip(page)
     .getByRole("button", { name: "Back", exact: true })
     .click();
-  await expect(tooltip(page)).toHaveAccessibleName("Find an execution");
+  await expectStep(page, "Find an execution");
   await tooltip(page)
     .getByRole("button", { name: "Next", exact: true })
     .click();
@@ -55,7 +59,7 @@ test("optional chapter navigates forward, back, finishes and restarts", async ({
   await hub(page)
     .getByRole("button", { name: "Restart chapter", exact: true })
     .click();
-  await expect(tooltip(page)).toHaveAccessibleName("Explore a sample project");
+  await expectStep(page, "Explore a sample project");
   await tooltip(page)
     .getByRole("button", { name: "Skip", exact: true })
     .click();
@@ -80,7 +84,7 @@ test("full tour completes all six chapters and shows the optional library", asyn
     ["Start with the expectation", 4],
   ] as const;
   for (const [index, [title, count]] of chapters.entries()) {
-    await expect(tooltip(page)).toHaveAccessibleName(title);
+    await expectStep(page, title);
     await expect(tooltip(page)).toContainText(`Chapter ${index + 1} of 6`);
     for (let step = 1; step < count; step++)
       await tooltip(page)
@@ -110,14 +114,14 @@ test("reload pauses the full tour at the last checkpoint", async ({ page }) => {
   await tooltip(page)
     .getByRole("button", { name: "Next", exact: true })
     .click();
-  await expect(tooltip(page)).toHaveAccessibleName("Find an execution");
+  await expectStep(page, "Find an execution");
   await page.reload();
   await expect(tooltip(page)).toHaveCount(0);
   await openHub(page);
   await hub(page)
     .getByRole("button", { name: "Resume tour", exact: true })
     .click();
-  await expect(tooltip(page)).toHaveAccessibleName("Find an execution");
+  await expectStep(page, "Find an execution");
   await tooltip(page)
     .getByRole("button", { name: "Skip chapter", exact: true })
     .click();
@@ -136,7 +140,7 @@ test("mobile focus and settled spotlight survive exit and restart", async ({
   await tooltip(page)
     .getByRole("button", { name: "Next", exact: true })
     .click();
-  await expect(tooltip(page)).toHaveAccessibleName("Understand the execution");
+  await expectStep(page, "Understand the execution");
   const cutout = page.locator(".react-joyride__overlay path").nth(1);
   await expect
     .poll(() =>
@@ -164,7 +168,7 @@ test("mobile focus and settled spotlight survive exit and restart", async ({
   await hub(page)
     .getByRole("button", { name: "Resume tour", exact: true })
     .click();
-  await expect(tooltip(page)).toHaveAccessibleName("Understand the execution");
+  await expectStep(page, "Understand the execution");
 });
 
 test("blocked storage and missing targets remain recoverable", async ({
@@ -201,5 +205,5 @@ test("blocked storage and missing targets remain recoverable", async ({
   await hub(page)
     .getByRole("button", { name: "Resume tour", exact: true })
     .click();
-  await expect(tooltip(page)).toHaveAccessibleName("Explore a sample project");
+  await expectStep(page, "Explore a sample project");
 });
