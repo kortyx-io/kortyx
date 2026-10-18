@@ -239,15 +239,17 @@ export function chapterStatus(progress: LearningProgress, id: ChapterId) {
           : "In progress";
 }
 /** Entry intents contain finite IDs only, never user-supplied destinations. */
+export type TourEntryAction = "full" | "resume" | "chapter" | "resume-chapter";
 export function entryIntent(
   search: string,
-): { action: "full" | "resume" | "chapter"; chapter: ChapterId } | null {
+): { action: TourEntryAction; chapter: ChapterId } | null {
   const params = new URLSearchParams(search);
   const action = params.get("learn");
   const id = params.get("chapter");
   if (action === "full" || action === "resume")
     return { action, chapter: CHAPTERS[0].id };
-  return action === "chapter" && isChapterId(id)
+  return (action === "chapter" || action === "resume-chapter") &&
+    isChapterId(id)
     ? { action, chapter: id }
     : null;
 }

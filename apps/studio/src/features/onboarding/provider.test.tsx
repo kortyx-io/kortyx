@@ -53,6 +53,7 @@ vi.mock("./page-help", () => ({
   ),
 }));
 
+import * as navigation from "./navigation";
 import {
   checkpoint,
   emptyProgress,
@@ -131,6 +132,61 @@ async function click(text: string) {
   });
 }
 const active = () => document.querySelector("[data-active-chapter]");
+
+it.each([
+  ["Resume", "resume-chapter", "failure-trace"],
+  ["Restart", "chapter", "find-failed-run"],
+] as const)("%s from a real page preserves the chosen chapter intent across sample entry", async (action, intent, expectedStep) => {
+  const trace = checkpoint(
+    startChapter(emptyProgress(), "debug-execution", "chapter"),
+    "failure-trace",
+  );
+  // Another chapter is the global resume point: the card owns its checkpoint.
+  const saved = startChapter(trace, "approvals", "chapter");
+  localStorage.setItem(PROGRESS_KEY, JSON.stringify(saved));
+  const prepare = navigation.prepareSampleTour;
+  let destination = "";
+  const transfer = vi
+    .spyOn(navigation, "prepareSampleTour")
+    .mockImplementation(async (input) => {
+      const result = await prepare(input, async () => new Response("{}"));
+      destination = result.href;
+      // Intercept only the native navigation boundary, retaining serialization.
+      throw new Error("Navigation intercepted by test");
+    });
+  await render(false);
+  await click("Explore Studio");
+  const card = document.querySelector(
+    '[data-learning-chapter="debug-execution"]',
+  );
+  const control = card?.querySelector<HTMLButtonElement>(
+    `[aria-label="${action} Debug a failed run"]`,
+  );
+  expect(control).not.toBeNull();
+  await act(async () => {
+    control?.click();
+    await vi.dynamicImportSettled();
+  });
+  expect(destination).toBe(
+    `/sample/runs?learn=${intent}&chapter=debug-execution`,
+  );
+  expect(JSON.parse(localStorage.getItem(PROGRESS_KEY) ?? "{}")).toEqual(saved);
+  transfer.mockRestore();
+  await act(async () => root.unmount());
+  root = createRoot(container);
+  const originalUrl = window.location.href;
+  try {
+    window.history.replaceState({}, "", destination);
+    await render();
+    await act(async () => vi.dynamicImportSettled());
+    expect(active()?.getAttribute("data-active-chapter")).toBe(
+      "debug-execution",
+    );
+    expect(active()?.textContent).toBe(expectedStep);
+  } finally {
+    window.history.replaceState({}, "", originalUrl);
+  }
+});
 
 it("offers every guide in a scrollable library with fixed actions without launching a tour", async () => {
   await render();
