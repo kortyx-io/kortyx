@@ -44,16 +44,16 @@ explicit resume, and a shared OSS connection guide. See the
 | Compatibility and extensions | Legacy quick-tour progress migrates; future history survives older readers; optional authorized help links and existing edition setup contracts remain additive. Private Cloud deployment/account-storage behavior was not verified. |
 | Security and privacy | Existing authentication and server write denial retained. No real provider calls, credentials, account memberships, or customer copies. Progress accepts finite IDs, not navigation paths; entry cancellation and unsafe help destinations are tested. |
 | Verification | Current checks and manual local browser coverage below. E2E, CI and production deployment checks remain outstanding. |
-| Release and operations | Bundled dataset version 3 preserves IDs; dependencies/build exports retained. No DB migration/backfill or server progress store. Local progress migration is bounded. No deployment or container build performed. |
+| Release and operations | Bundled dataset version 5 preserves IDs; dependencies/build exports retained. No DB migration/backfill or server progress store. Local progress migration is bounded. No deployment or container build performed. |
 
 ## Current local checks
 
 All Vitest suites were run with **one worker**, sequentially between packages.
 The local dev server was stopped before the full Studio regression suite.
 
-- `pnpm --filter kortyx-studio exec vitest run --maxWorkers=1`: **406 tests passed in 81 files**, rerun after the manual review fixes.
+- `pnpm --filter kortyx-studio exec vitest run --maxWorkers=1`: **415 tests passed in 83 files**, including the diagnostic fixtures and latest active-grading example.
 - `pnpm --filter @kortyx/telemetry-contracts exec vitest run --maxWorkers=1`: **47 passed**.
-- `pnpm --filter @kortyx/telemetry-db exec vitest run --maxWorkers=1`: **181 passed, 58 DB integration tests skipped** without their DB environment.
+- `pnpm --filter @kortyx/telemetry-db exec vitest run --maxWorkers=1`: **182 passed, 58 DB integration tests skipped** without their DB environment.
 - `pnpm --filter @kortyx/usage-telemetry exec vitest run --maxWorkers=1`: **47 passed**.
 - Studio, telemetry-contracts, telemetry-db and usage-telemetry type checks passed.
 - telemetry-contracts, telemetry-db and usage-telemetry dependency builds passed.
@@ -243,3 +243,33 @@ grading without future verdicts or live jobs.
   auth builds, container builds, deployment, private Cloud, and final-head CI were
   not verified here. No new SDK API, analytics event, persisted status, or migration
   was introduced; existing release boundaries remain unchanged.
+
+## Dataset v5 error diagnostic coverage
+
+Seven complete synthetic captures now populate the existing Error Diagnostic
+page: five failed executions, one handled carrier error followed by a successful
+retry, and one baseline evaluation with incomplete execution evidence. Propagated
+span, tool, and child-call errors share the originating diagnostic. Quality-only
+failures retain grading evidence without invented runtime exceptions.
+
+- Captures include authored stack frames, nested cause stacks, codes, and runtime
+  correlation. Applicable cases include timeout/model fields, carrier responses
+  and validation issues, retry recovery, and consumed execution limits.
+- Schema and cross-reference tests verify available content, correct hashes and
+  byte counts, complete parts, redaction notes, every failed run's diagnostic,
+  recovered-error handling, and evaluation/suite/case/runtime relationships.
+- Server reads return the diagnostic envelope; browser reads and downloads return
+  captured JSON content. Tests cover both API forms, invalid/unknown IDs, required
+  environment scope, wrong-environment denial, authentication, hidden samples,
+  write denial, and absence of real project credential or network access.
+- Local browser checks covered failed run → Error Diagnostic, visible stack and
+  cause, Capture details, successful JSON download, evaluation error dialog →
+  diagnostic, and correlated evaluation/suite/runtime links. Browser warning and
+  error logs were empty. Studio ran without an API, database, or credentials.
+- Final combined branch: Studio **415 passed in 83 files**; telemetry-db **182
+  passed, 58 DB integration skips**; telemetry-contracts **47 passed**. One worker
+  per suite, with Studio stopped for the full regression run. Studio and DB type
+  checks, changed-source lint, contract/DB builds, and diff checks passed.
+- The v4 tour and active-grading changes are preserved. No local Playwright E2E,
+  production/auth build, container/deployment, or private Cloud check was run for
+  this follow-up. Final-head hosted CI remains a separate release requirement.

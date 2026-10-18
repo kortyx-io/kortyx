@@ -11,8 +11,10 @@ import {
 import { DetailTabs } from "@/components/detail/detail-tabs";
 import { PayloadViewer } from "@/components/detail/payload-viewer";
 import Link from "@/components/scoped-link";
+import { useStudioRouteScope } from "@/components/studio-route-provider";
 import { Button } from "@/components/ui/button";
 import { formatDateTime } from "@/lib/format";
+import { studioHref } from "@/lib/studio-routing";
 import { ErrorDetails } from "./error-details";
 
 const correlationLabels: Record<string, string> = {
@@ -42,6 +44,7 @@ export function DiagnosticDetails({
   diagnostic: DiagnosticResponse;
 }) {
   const { manifest, content, state } = diagnostic;
+  const scope = useStudioRouteScope();
   const downloadable = state === "available" && content !== null;
   const captureStatus = content?.capture.status ?? manifest.captureStatus;
   const redactions = content?.capture.redactions ?? [];
@@ -70,7 +73,14 @@ export function DiagnosticDetails({
             {downloadable && (
               <Button variant="secondary" size="xs" asChild>
                 <a
-                  href={`/api/studio/diagnostics/${manifest.diagnosticId}?${query}`}
+                  href={
+                    scope?.sampleProject
+                      ? studioHref(
+                          `/api/studio/diagnostics/${manifest.diagnosticId}?${query}`,
+                          scope,
+                        )
+                      : `/api/studio/diagnostics/${manifest.diagnosticId}?${query}`
+                  }
                   download
                 >
                   <Download />

@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import {
+  type DiagnosticResponse,
   EnsureWorkflowTopologyRequestSchema,
   type KortyxTelemetryEvent,
   SAMPLE_PROJECT as sample,
@@ -7,6 +8,7 @@ import {
   ToolObservationSchema,
 } from "@kortyx/telemetry-contracts";
 import type { TelemetryEventRecord, WorkflowRevision } from "../schema";
+import { attachSampleExecutionDiagnostics } from "./diagnostics";
 import { SAMPLE_SUPPORT_CONVERSATIONS, type SampleTurn } from "./scenarios";
 
 const date = (offset: number) =>
@@ -915,6 +917,7 @@ function scenario(
 export function createSampleExecutionRecords(): {
   events: TelemetryEventRecord[];
   revisions: WorkflowRevision[];
+  diagnostics: DiagnosticResponse[];
 } {
   let index = 0;
   const canonical = SAMPLE_SUPPORT_CONVERSATIONS.flatMap((session) =>
@@ -924,7 +927,7 @@ export function createSampleExecutionRecords(): {
     new Set(canonical.map((event) => event.eventId)).size !== canonical.length
   )
     throw new Error("Duplicate sample event identity.");
-  return {
+  const records = {
     events: canonical.map(
       (event, eventIndex): TelemetryEventRecord => ({
         ...scope,
@@ -972,6 +975,13 @@ export function createSampleExecutionRecords(): {
       })),
       createdAt: date(-1_600_000),
     })),
+  };
+  return {
+    ...records,
+    diagnostics: attachSampleExecutionDiagnostics(
+      records.events,
+      records.revisions,
+    ),
   };
 }
 

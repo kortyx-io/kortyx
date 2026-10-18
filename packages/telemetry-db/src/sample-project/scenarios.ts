@@ -171,7 +171,7 @@ export const SAMPLE_SUPPORT_CONVERSATIONS: SampleConversation[] = [
     caseId: "missing-order",
     verdict: "error",
     reason:
-      "The connection closed without a terminal event; the retry then timed out.",
+      "The connection closed before a terminal event; the evaluation could not grade this attempt.",
     turns: [
       turn(
         "sample-incomplete-lookup",

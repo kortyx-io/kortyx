@@ -1,6 +1,7 @@
 import { createSampleProjectReadModels } from "@kortyx/telemetry-db/sample-project";
 import "server-only";
 import {
+  DiagnosticResponseSchema,
   EVALUATION_TABLE_FILTER_FIELDS,
   matchesTableFilters,
   PROMPT_TABLE_FILTER_FIELDS,
@@ -17,6 +18,7 @@ import {
   validateTableFilters,
 } from "@kortyx/telemetry-contracts";
 import { readSampleDataset } from "./data";
+import { samplePath } from "./routing";
 
 type Row = Record<string, unknown>;
 function field(row: Row, key: string): TableFilterValue | TableFilterValue[] {
@@ -172,6 +174,16 @@ export function sampleResponse(path: string, method = "GET"): Response {
         }),
       );
     if (resource === "catalogs") return json(data.catalogs);
+    if (resource === "diagnostics" && parts.length === 2) {
+      if (!id || !/^[a-f0-9-]{36}$/i.test(id) || !params.get("env"))
+        return json({ error: "invalid_diagnostic" }, 400);
+      const diagnostic = data.diagnostics.find(
+        (item) =>
+          item.manifest.diagnosticId === id &&
+          item.manifest.environment === params.get("env"),
+      );
+      if (diagnostic) return json(diagnostic);
+    }
     if (resource === "runs") {
       if (!id) {
         const rows =
@@ -389,10 +401,23 @@ export function sampleResponse(path: string, method = "GET"): Response {
   );
 }
 
-export function sampleBrowserResponse(request: Request) {
+export async function sampleBrowserResponse(request: Request) {
   const url = new URL(request.url);
-  const path = url.pathname
+  const path = samplePath(url.pathname)
     .replace(/^\/api\/studio/, "/v1/studio")
     .replace(/\/prompts\/library$/, "/prompts");
-  return sampleResponse(`${path}${url.search}`, request.method);
+  const response = sampleResponse(`${path}${url.search}`, request.method);
+  if (path.startsWith("/v1/studio/diagnostics/") && response.ok) {
+    const diagnostic = DiagnosticResponseSchema.parse(await response.json());
+    return new Response(JSON.stringify(diagnostic.content), {
+      headers: {
+        "content-type": "application/json",
+        "content-disposition": `attachment; filename="diagnostic-${diagnostic.manifest.diagnosticId}.json"`,
+        "cache-control": "private, no-store",
+        "x-content-type-options": "nosniff",
+        "x-kortyx-sample-version": String(sample.version),
+      },
+    });
+  }
+  return response;
 }

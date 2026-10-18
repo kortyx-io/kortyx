@@ -4,6 +4,8 @@ import {
   StudioEvaluationDetailSchema,
 } from "@kortyx/agent/evals";
 import {
+  DiagnosticContentSchema,
+  DiagnosticResponseSchema,
   PromptDetailSchema,
   PromptLibrarySchema,
   StudioContextResponseSchema,
@@ -22,9 +24,86 @@ import { caseRows, progressCounts } from "@/features/evals/lib/presentation";
 vi.mock("server-only", () => ({}));
 
 import { readSampleDataset } from "./data";
-import { sampleResponse } from "./http";
+import { sampleBrowserResponse, sampleResponse } from "./http";
 
 afterEach(() => vi.unstubAllGlobals());
+it("serves full diagnostics and downloadable content without reaching an upstream", async () => {
+  const data = readSampleDataset();
+  expect(data.diagnostics).toHaveLength(7);
+  const network = vi.fn(() => {
+    throw new Error("Unexpected upstream access");
+  });
+  vi.stubGlobal("fetch", network);
+  for (const diagnostic of data.diagnostics) {
+    const path = `diagnostics/${diagnostic.manifest.diagnosticId}?env=sample`;
+    const envelope = await sampleResponse(`/v1/studio/${path}`).json();
+    expect(DiagnosticResponseSchema.parse(envelope)).toEqual(diagnostic);
+    for (const prefix of ["/api/studio/", "/sample/api/studio/"]) {
+      const response = await sampleBrowserResponse(
+        new Request(`https://studio.test${prefix}${path}`),
+      );
+      expect(response.status).toBe(200);
+      expect(response.headers.get("content-disposition")).toContain(
+        diagnostic.manifest.diagnosticId,
+      );
+      expect(response.headers.get("cache-control")).toBe("private, no-store");
+      expect(DiagnosticContentSchema.parse(await response.json())).toEqual(
+        diagnostic.content,
+      );
+    }
+    expect(
+      sampleResponse(
+        `/v1/studio/${path.replace("env=sample", "env=production")}`,
+      ).status,
+    ).toBe(404);
+    expect(sampleResponse(`/v1/studio/${path.split("?")[0]}`).status).toBe(400);
+    expect(sampleResponse(`/v1/studio/${path}`, "DELETE").status).toBe(403);
+  }
+  const missing =
+    "/v1/studio/diagnostics/30000000-0000-4000-8000-000000000000?env=sample";
+  expect(sampleResponse(missing).status).toBe(404);
+  expect(
+    sampleResponse("/v1/studio/diagnostics/invalid?env=sample").status,
+  ).toBe(400);
+  expect(network).not.toHaveBeenCalled();
+});
+it("links evaluation execution errors to their full diagnostic and keeps quality verdicts separate", () => {
+  const data = readSampleDataset();
+  let executionErrors = 0;
+  for (const { run } of data.evals.runs) {
+    for (const entry of run.result?.cases ?? []) {
+      if (entry.status !== "error") {
+        expect(entry.errors).toEqual([]);
+        continue;
+      }
+      for (const issue of entry.errors) {
+        executionErrors++;
+        const diagnostic = data.diagnostics.find(
+          (item) => item.manifest.diagnosticId === issue.diagnosticId,
+        );
+        expect(diagnostic?.manifest.correlation).toMatchObject({
+          evaluationId: run.evaluationId,
+          suiteRunId: run.id,
+          caseId: entry.caseId,
+          phase: issue.phase,
+        });
+        expect(
+          entry.steps.some(
+            (step) => step.observation.diagnosticId === issue.diagnosticId,
+          ),
+        ).toBe(true);
+        const runtime = data.runs.find(
+          (item) => item.id === diagnostic?.manifest.correlation.runId,
+        );
+        expect(runtime?.status).toBe("incomplete");
+        expect(diagnostic?.content?.data.stack).toContain(
+          "evals/read-attempt.ts",
+        );
+      }
+    }
+  }
+  expect(executionErrors).toBe(1);
+});
 it("projects 50 root runs, 20 sessions, both specialists, and every run status", () => {
   const data = readSampleDataset();
   expect(data.runs).toHaveLength(50);

@@ -16,6 +16,8 @@ import { createStudioReadModelsFromRecords } from "../repositories/studio-read-m
 import { createStudioWorkflowModelsFromProjections } from "../repositories/studio-workflows";
 import { createSampleExecutionRecords } from "./executions";
 
+export { createSampleDiagnostic, sampleDiagnosticId } from "./diagnostics";
+
 export { SAMPLE_SUPPORT_CONVERSATIONS } from "./scenarios";
 
 /** The same cost reducer used by saved evaluations, over authored sample events. */
@@ -86,6 +88,11 @@ export function createSampleProjectReadModels(
     now: new Date(SAMPLE_PROJECT.referenceTime),
   });
   return {
+    diagnostics: records.diagnostics.filter(
+      (diagnostic) =>
+        !options.runIds ||
+        options.runIds.includes(diagnostic.manifest.correlation.runId ?? ""),
+    ),
     runs: StudioRunSchema.array().parse(models.runs),
     childRuns: StudioRunSchema.array().parse(models.childRuns),
     sessions: StudioSessionSchema.array().parse(models.sessions),

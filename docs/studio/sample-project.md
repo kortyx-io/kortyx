@@ -2,8 +2,8 @@
 
 Studio includes a shared, read-only **Sample project** in its project selector.
 It contains fictional support executions: a successful order lookup, a model
-failure, a resolved refund approval, a follow-up turn in the same session, two
-prompt versions, and recorded passing and failing evaluation results. No provider
+failure, a resolved refund approval, a follow-up turn in the same session, three
+prompt revisions, and recorded passing and failing evaluation results. No provider
 keys, application endpoint, database seed job, or per-user data copy is needed to explore it.
 
 Choose **Sample project** from the navbar. Relative time ranges use the fixed sample reference clock,
@@ -119,7 +119,7 @@ public adapter verification.
 
 ## Sample conversations and evaluation history
 
-Dataset version 4 includes **50 root runs across
+Dataset version 5 includes **50 root runs across
 20 sessions**. One coordinator calls two returning specialists: order research and
 resolution review. The child-execution toggle exposes 55 correlated specialist
 calls in addition to the 50 root runs.
@@ -152,6 +152,24 @@ amount. These are authored outcomes, not measurements of a deployed agent.
 The coordinator and each specialist have three concise prompt revisions, with
 computed content hashes and matching evaluation snapshots. The existing tour
 identities remain stable, including the improved order-status comparison.
+
+### Error diagnostics
+
+All five failed runs link to complete Error Diagnostic records. Six runtime
+captures include those failures and a handled carrier error that recovered on a
+bounded retry. A seventh capture explains the baseline evaluation's incomplete
+execution evidence, with links to its evaluation, suite run, case, and runtime run.
+Ordinary failed quality criteria retain their grading reasons rather than an
+invented execution exception.
+
+Each capture contains authored stack frames and a nested cause with its own
+stack, error codes, and execution context. Applicable captures add model timeout
+metadata, carrier response bodies and schema issues, retry recovery, or exhausted
+execution-limit details. Capture details show complete delivery, byte counts,
+and credential redaction notes; manifest checksums match the captured content.
+The JSON download contains the same
+captured data and stays in the authenticated, read-only sample namespace. These
+stacks, responses, and paths are fictional; no original exception was copied.
 
 ### Privacy of the sample
 

@@ -23,7 +23,11 @@ export async function proxy(request: NextRequest): Promise<Response> {
     sampleRoute ||
     (sampleIntent && !/^\/(api|auth)\//.test(request.nextUrl.pathname));
   const browserSample =
-    request.nextUrl.pathname.startsWith("/api/studio/") && sampleIntent;
+    (request.nextUrl.pathname.startsWith("/api/studio/") && sampleIntent) ||
+    (sampleRoute &&
+      /^\/api\/studio\/diagnostics\/[^/]+$/.test(
+        samplePath(request.nextUrl.pathname),
+      ));
   const preference =
     sample || browserSample ? await readSampleProjectPreference() : undefined;
   if (preference && !preference.available)

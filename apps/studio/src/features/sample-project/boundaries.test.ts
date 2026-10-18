@@ -36,6 +36,7 @@ import { STUDIO_REQUEST_PATH } from "@/lib/studio-routing";
 import { proxy } from "../../proxy";
 import { proxyEvalRequest } from "../evals/api/proxy";
 import { proxyPromptRequest } from "../prompts/api/proxy";
+import { readSampleDataset } from "./data";
 import { samplePreferenceRequest } from "./preferences";
 import {
   SAMPLE_REQUEST_HEADER,
@@ -65,6 +66,9 @@ it("keeps authentication authoritative for sample pages, APIs and preferences", 
   state.authorize.mockResolvedValue(new Response("Denied", { status: 401 }));
   for (const req of [
     request("/sample/runs"),
+    request(
+      "/sample/api/studio/diagnostics/30000000-0000-4000-8000-000000000000?env=sample",
+    ),
     request("/api/studio/evals/runs", {
       headers: { [STUDIO_REQUEST_PATH]: "/sample/runs" },
     }),
@@ -77,6 +81,24 @@ it("keeps authentication authoritative for sample pages, APIs and preferences", 
       )
     ).status,
   ).toBe(401);
+  expect(state.credential).not.toHaveBeenCalled();
+});
+it("serves explicitly scoped diagnostic downloads through authentication and visibility without project credentials", async () => {
+  const diagnostic = readSampleDataset().diagnostics[0];
+  if (!diagnostic) throw new Error("Missing sample diagnostic.");
+  const path = `/sample/api/studio/diagnostics/${diagnostic.manifest.diagnosticId}?env=sample`;
+  const response = await proxy(request(path));
+  expect(response.status).toBe(200);
+  expect(await response.json()).toEqual(diagnostic.content);
+  expect(response.headers.get("content-disposition")).toContain(
+    diagnostic.manifest.diagnosticId,
+  );
+  expect((await proxy(request(path, { method: "POST" }))).status).toBe(403);
+  expect(
+    (await proxy(request(path.replace("env=sample", "env=production")))).status,
+  ).toBe(404);
+  state.values.set(SAMPLE_VISIBILITY_COOKIE, "false");
+  expect((await proxy(request(path))).status).toBe(404);
   expect(state.credential).not.toHaveBeenCalled();
 });
 it("preserves sample context across the second proxy pass and strips a bare forged marker", async () => {

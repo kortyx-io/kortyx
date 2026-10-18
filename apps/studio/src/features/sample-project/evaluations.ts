@@ -13,9 +13,11 @@ import {
 } from "@kortyx/agent/evals";
 import { SAMPLE_PROJECT as sample } from "@kortyx/telemetry-contracts";
 import {
+  createSampleDiagnostic,
   createSampleEvaluationCostReader,
   type createSampleProjectReadModels,
   SAMPLE_SUPPORT_CONVERSATIONS,
+  sampleDiagnosticId,
   sumSampleEvaluationCosts,
 } from "@kortyx/telemetry-db/sample-project";
 import type { createSamplePrompts } from "./prompts";
@@ -318,6 +320,13 @@ function caseResult(
       : undefined;
     observed = EvalObservationSchema.parse({
       ...observed,
+      ...(conversation.verdict === "error"
+        ? {
+            diagnosticId: sampleDiagnosticId(
+              `eval:${conversation.snapshot}:${suite.id}:${definition.id}`,
+            ),
+          }
+        : {}),
       events: events
         .filter(
           (event) =>
@@ -405,6 +414,9 @@ function caseResult(
               phase: "execute",
               code: "EVAL_EXECUTION_UNKNOWN",
               message: conversation.reason,
+              diagnosticId: sampleDiagnosticId(
+                `eval:${conversation.snapshot}:${suite.id}:${definition.id}`,
+              ),
             },
           ]
         : [],
@@ -726,6 +738,50 @@ export function createSampleEvaluations(
       },
     ],
   });
+  const diagnostics = runs.flatMap(({ run }) =>
+    (run.result?.cases ?? []).flatMap((entry) =>
+      entry.errors.map((issue) => {
+        const phase = required(
+          phases.find(
+            (phase) => sample.evaluationIds[phase] === run.evaluationId,
+          ),
+        );
+        const runtime = entry.runtimeExecutions?.[0];
+        const execution = models.runs.find(
+          (item) => item.id === runtime?.runId,
+        );
+        const diagnostic = createSampleDiagnostic({
+          key: `eval:${phase}:${run.suiteId}:${entry.caseId}`,
+          type: "EvaluationEvidenceIncomplete",
+          message: issue.message,
+          occurredAt: run.endedAt ?? sample.referenceTime,
+          deploymentRef: `sample-prompts-${phases.indexOf(phase) + 1}`,
+          mechanism: "report",
+          correlation: {
+            evaluationId: run.evaluationId ?? sample.evaluationIds.baseline,
+            suiteRunId: run.id,
+            caseId: entry.caseId,
+            repetition: String(entry.repetition),
+            phase: issue.phase,
+            ...(runtime
+              ? { runId: runtime.runId, sessionId: runtime.sessionId }
+              : {}),
+            ...(execution
+              ? { workflowId: execution.workflowId, nodeId: "answer" }
+              : {}),
+          },
+          details: {
+            code: issue.code,
+            outcome:
+              "Unknown execution evidence; this is not a failed quality criterion.",
+          },
+        });
+        if (diagnostic.manifest.diagnosticId !== issue.diagnosticId)
+          throw new Error("Mismatched sample evaluation diagnostic identity.");
+        return diagnostic;
+      }),
+    ),
+  );
   return {
     detail: required(runs.find((item) => item.run.id === sample.evalRunId)),
     baseline: required(
@@ -735,6 +791,7 @@ export function createSampleEvaluations(
     runs,
     evaluations,
     targets,
+    diagnostics,
   };
 }
 

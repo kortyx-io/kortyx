@@ -8,10 +8,12 @@ let dataset: ReturnType<typeof build> | undefined;
 function build() {
   const models = createSampleProjectReadModels();
   const prompts = createSamplePrompts();
+  const evals = createSampleEvaluations(models, prompts);
   return {
     ...models,
     prompts,
-    evals: createSampleEvaluations(models, prompts),
+    evals,
+    diagnostics: [...models.diagnostics, ...evals.diagnostics],
   };
 }
 export function readSampleDataset() {

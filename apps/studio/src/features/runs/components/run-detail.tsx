@@ -46,6 +46,11 @@ export function RunDetail({ detail }: { detail: StudioRunDetailResponse }) {
               event.type === "span.failed" && !isControlFlowInterrupt(event),
           )
       : undefined;
+  const error = failure?.payload.error;
+  const diagnosticId =
+    error && typeof error === "object" && "diagnosticId" in error
+      ? error.diagnosticId
+      : failure?.payload.diagnosticId;
 
   return (
     <div
@@ -118,6 +123,14 @@ export function RunDetail({ detail }: { detail: StudioRunDetailResponse }) {
                 <span className="font-medium">Latest error: </span>
                 {errorText(failure.payload)}
               </p>
+              {typeof diagnosticId === "string" && (
+                <DetailLink
+                  className="mt-1 inline-block font-medium underline"
+                  href={`/diagnostics/${encodeURIComponent(diagnosticId)}?env=${encodeURIComponent(run.environment)}`}
+                >
+                  Open error diagnostic
+                </DetailLink>
+              )}
             </div>
           ) : run.status === "interrupted" ? (
             <div className="rounded-md border border-amber-500/25 bg-amber-500/5 px-3 py-2 text-xs text-amber-700 dark:text-amber-400">
