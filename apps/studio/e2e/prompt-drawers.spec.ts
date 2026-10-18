@@ -263,7 +263,10 @@ test.describe("Prompt detail drawers", () => {
     try {
       await page.goto("/prompts");
       await page.getByRole("link", { name: "Root", exact: true }).click();
-      await expect(page).toHaveURL(/\/prompts\/categories\/root$/);
+      // Allow the first Next dev route compilation on the CI runner.
+      await expect(page).toHaveURL(/\/prompts\/categories\/root$/, {
+        timeout: 15_000,
+      });
       await page
         .getByRole("button", { name: "New prompt", exact: true })
         .click();
@@ -293,7 +296,7 @@ test.describe("Prompt detail drawers", () => {
         .getByRole("button", { name: "Accept & save version", exact: true })
         .click();
       const detail = page.getByRole("dialog", { name, exact: true });
-      await expect(detail).toBeVisible();
+      await expect(detail).toBeVisible({ timeout: 15_000 });
       await expect(
         detail.getByLabel("System Message", { exact: true }),
       ).toContainText("Synthetic navigation regression.");

@@ -441,3 +441,33 @@ builds, final-head CI, and private Cloud integration remain pending before merge
 Prompt-group detail has no sample fixture; generic extension pages and private
 Cloud settings were not visually verified. Coverage is representative mobile in
 dark mode, not every viewport/theme combination or a user-comprehension study.
+
+## Rebase coverage — October 18, 2026
+
+Rechecked `origin/main` at `2d2dda75`: the branch was already up to date.
+The 53-file table-state change in #364 introduces no routes or detail tabs, but
+changes shared Filters, Columns, and Views controls on Runs, Sessions,
+Interrupts, Prompts/Test groups, evaluation lists, and nested evaluation tables.
+The preceding full visual review includes this base change. Updated current-page
+list help to explain Match all/any, numeric/date bounds, column order/visibility/
+pins, and the saved search/sort/layout contract. Existing task chapters and stable
+IDs remain sufficient; no extra mandatory steps were added.
+
+Hosted CI exposed an older filter URL acknowledgement overwriting newer invalid
+range input. Retain newer drafts while acknowledging earlier own writes; external
+navigation/reset remains authoritative. A focused DOM regression covers the
+invalid range, delayed acknowledgement, corrected `[0, 0]` range, and reset.
+Manual local Studio verification confirmed the validation message, both zero
+bounds and the `between` URL, filter clearing, and the updated current-page guide.
+The error log was empty. Local proof captures are
+`/tmp/kortyx-rebase-zero-range.png` and `/tmp/kortyx-rebase-page-help.png`.
+
+The PR template now explicitly requires assessing and completing related guided
+tours/page help, including new surfaces inherited after rebase. The Definition of
+Done owns the detailed requirement; contributor and agent instructions point to it.
+
+Verification: **454 Studio unit/DOM tests passed in 89 files**. Hosted failure
+reports also identified stale tour wording/accessibility selectors and cold Next
+development-route assertions reaching their five-second deadline during compile.
+Updated those assertions without removing coverage or disabling gates. No local
+E2E tests ran; final-head hosted CI is recorded in the PR before merge.

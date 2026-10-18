@@ -29,7 +29,7 @@ test("select, explore, hide and restore the immutable sample project", async ({
   await expect(page).toHaveURL(/\/sample\/runs$/);
   await page.goto(`/sample/runs/${sample.runs.failure}`);
   await expect(
-    page.getByText(/fictional model request timed out/).first(),
+    page.getByText(/model request timed out/i).first(),
   ).toBeVisible();
   await page.goto(`/sample/sessions/${sample.sessions.success}`);
   await expect(

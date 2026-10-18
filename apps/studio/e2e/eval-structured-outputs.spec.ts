@@ -13,9 +13,10 @@ test("native workflow outputs are checked, persisted and inspectable through sui
     .click();
   const suitePath = `/evals/suites/${EVAL_FIXTURE.targetId}/${OUTPUT_SUITE.id}`;
   const suite = page.locator(`[data-detail-drawer="${suitePath}"]`);
+  // Allow the first Next dev route compilation on the CI runner.
   await expect(
     suite.getByRole("heading", { name: "Conversation plan" }),
-  ).toBeVisible();
+  ).toBeVisible({ timeout: 15_000 });
   const requirements = suite.getByRole("region", {
     name: "Required structured outputs",
   });
@@ -34,8 +35,9 @@ test("native workflow outputs are checked, persisted and inspectable through sui
   await launch
     .getByRole("button", { name: "Run evaluations", exact: true })
     .click();
-  await expect(page).toHaveURL((url) =>
-    /^\/evals\/evaluations\/[0-9a-f-]+$/.test(url.pathname),
+  await expect(page).toHaveURL(
+    (url) => /^\/evals\/evaluations\/[0-9a-f-]+$/.test(url.pathname),
+    { timeout: 15_000 },
   );
   await page
     .getByRole("button", { name: OUTPUT_SUITE.name!, exact: true })

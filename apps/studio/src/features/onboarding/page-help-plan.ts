@@ -140,7 +140,7 @@ export function createPageHelpPlan(url: URL): PageHelpPlan {
           : "Narrow the view",
         guide.kind === "workflows"
           ? "Choose the time range, version, map, or health view to focus your investigation. Refresh loads the latest available metrics. This guide leaves those choices unchanged."
-          : "Search and filters narrow the records shown here. Columns changes the visible fields; Views saves a useful table layout and filter selection. An empty filtered list does not mean the project has no data.",
+          : "Search narrows the list. Filters opens scope and field conditions; Match all/any combines them. Numeric and date fields accept minimum and maximum bounds. Columns controls order, visibility, and pins. Views saves filters, search, sorting, and layout. An empty filtered list does not mean the project has no data.",
         find("[data-table-controls]", '[data-tour-surface="workflow-toolbar"]'),
       );
     if (guide.kind === "list")

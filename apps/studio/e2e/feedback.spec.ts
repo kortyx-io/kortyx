@@ -57,7 +57,8 @@ test("filters feedback, opens the existing drawer, and keeps human review separa
     })
     .click();
   const drawer = page.locator(`[data-detail-drawer="${runPath}"]`);
-  await expect(drawer).toBeVisible();
+  // Allow the first Next dev route compilation on the CI runner.
+  await expect(drawer).toBeVisible({ timeout: 15_000 });
   await expect(
     drawer.getByRole("heading", { name: "User feedback" }),
   ).toBeVisible();

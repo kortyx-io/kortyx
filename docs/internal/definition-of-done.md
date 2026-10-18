@@ -63,6 +63,27 @@ only repeat the implementation.
 Evidence: applicable integration tests and browser verification against a
 representative fixture or real execution, including a failure case.
 
+### 2a. Guided tours and page help
+
+- For affected Studio pages, features, or shared controls, assess current-page
+  help and related sample-project chapters alongside the product change. Update
+  or complete their copy, targets, sample evidence, and navigation when behavior
+  changes; retain stable lesson IDs and read-only sample boundaries.
+- After rebasing, inspect newly introduced routes, tabs, controls, and data states
+  for additional guidance needs. Reconcile coverage against the final combined
+  diff, including shared UI changes inherited from the base branch.
+- Complete the affected guided journeys and verify that each step explains
+  readable, visible evidence. Include relevant navigation/resume, empty/error,
+  and responsive states. Record manual/browser evidence and skipped checks;
+  adding a chapter for every change is not required.
+- Mark Not applicable with a concrete reason when guidance is unaffected. New
+  guidance should address a user task without making optional tours longer by
+  default. Unfinished guidance required for the advertised journey is not Complete.
+
+Evidence: updated guidance/fixtures/anchors where applicable, a route/control
+coverage assessment after rebase, and completed related walkthroughs with visual
+verification. Record this assessment explicitly in the PR checklist.
+
 ### 3. Documentation and examples
 
 - Update affected package READMEs, website documentation, runnable examples,

@@ -75,7 +75,7 @@ test("full tour completes all six chapters and shows the optional library", asyn
     ["Explore a sample project", 3],
     ["Narrow the investigation", 4],
     ["A session spans several turns", 4],
-    ["Read the requested decision", 3],
+    ["Read the recorded decision", 3],
     ["Read a saved version", 3],
     ["Start with the expectation", 4],
   ] as const;
@@ -194,7 +194,7 @@ test("blocked storage and missing targets remain recoverable", async ({
   );
   await expect(page.locator("#react-joyride-portal")).toHaveCount(0);
   await page
-    .getByRole("button", { name: "Project", exact: true })
+    .locator('[aria-label="Project"]')
     .evaluate((element) =>
       element.setAttribute("data-tour-id", "sample-project-selector"),
     );
