@@ -6,7 +6,9 @@ export type DocsProduct = {
   id: string;
   label: string;
   description: string;
-  icon: "sdk" | "studio";
+  icon: "sdk" | "studio" | "cloud" | "server" | "cli";
+  versioning?: "release" | "service";
+  entryLabel?: string;
   versions: string[];
   latestVersion: string;
   overview: string;
@@ -99,6 +101,8 @@ export const getLatestDocsVersionDisplay = cache(
   async (productId = "sdk"): Promise<DocsVersionDisplay> => {
     const product = getDocsProduct(productId);
     if (!product) throw new Error(`Unknown docs product: ${productId}`);
+    if (product.versioning === "service")
+      return { label: "Current service", subtitle: product.label };
     const version = getNewestStableVersion(
       readProductPackageVersion(product),
       await readLatestProductNpmVersion(product),
@@ -116,6 +120,7 @@ export const docsConfig: { docsRoot: string; products: DocsProduct[] } = {
   products: [
     {
       id: "sdk",
+      entryLabel: "Build an application",
       label: "Kortyx SDK",
       description:
         "Build typed agent workflows with providers, streaming, and runtime persistence.",
@@ -192,14 +197,54 @@ export const docsConfig: { docsRoot: string; products: DocsProduct[] } = {
     },
     {
       id: "studio",
+      entryLabel: "Use Studio",
       label: "Kortyx Studio",
       description:
-        "Observe runs, evaluate workflows, and operate your self-hosted Studio.",
+        "Inspect executions, manage prompts, and evaluate workflows in Cloud or self-hosted Studio.",
       icon: "studio",
       versions: ["v0"],
       latestVersion: "v0",
       overview: "overview",
       packageJsonPath: "apps/studio/package.json",
+      legacyRedirects: { v0: { deployment: "self-hosted" } },
+    },
+    {
+      id: "cloud",
+      label: "Kortyx Cloud",
+      entryLabel: "Get started with Cloud",
+      description:
+        "Connect your application to managed Studio and manage your projects, credentials, and account.",
+      icon: "cloud",
+      versioning: "service",
+      versions: ["v0"],
+      latestVersion: "v0",
+      overview: "",
+      legacyRedirects: {},
+    },
+    {
+      id: "self-hosting",
+      label: "Self-hosting",
+      entryLabel: "Host Studio yourself",
+      description:
+        "Run Studio locally or deploy it for your team. Secure, back up, and upgrade your installation.",
+      icon: "server",
+      versions: ["v0"],
+      latestVersion: "v0",
+      overview: "",
+      packageJsonPath: "apps/studio/package.json",
+      legacyRedirects: {},
+    },
+    {
+      id: "cli",
+      label: "Kortyx CLI",
+      entryLabel: "Work from the terminal",
+      description:
+        "Publish workflow maps, inspect runs, manage prompts, and run evaluations with the shared CLI.",
+      icon: "cli",
+      versions: ["v0"],
+      latestVersion: "v0",
+      overview: "",
+      packageJsonPath: "packages/cli/package.json",
       legacyRedirects: {},
     },
   ],

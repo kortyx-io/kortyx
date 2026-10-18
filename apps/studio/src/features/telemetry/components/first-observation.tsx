@@ -4,6 +4,8 @@ import { Check, Copy, RadioTower } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import Link from "@/components/scoped-link";
 import { Button } from "@/components/ui/button";
+import { DocumentationLink } from "@/components/ui/documentation-link";
+import { studioHelp } from "@/lib/studio-help";
 import { studioFeature } from "@/usage/client";
 
 export type ObservationResource =
@@ -45,7 +47,9 @@ const guidance: Record<
 
 export function FirstObservation({
   resource,
+  documentationUrl = studioHelp.connect.documentationUrl,
 }: {
+  documentationUrl?: string;
   resource: ObservationResource;
 }) {
   const observed = useRef(false);
@@ -57,7 +61,7 @@ export function FirstObservation({
   const [copied, setCopied] = useState(false);
   const [copyError, setCopyError] = useState(false);
   const item = guidance[resource];
-  const prompt = `Add Kortyx ${resource === "evals" ? "conversation evaluations" : "observability"} to this application using the existing Kortyx SDK and the current official documentation at https://kortyx.io/docs. ${item.instruction} Read API credentials from the server environment; never embed secrets in browser code or prompts. Preserve default payload privacy. Verify the integration by running a minimal example and checking ${resource} in Studio.`;
+  const prompt = `Add Kortyx ${resource === "evals" ? "conversation evaluations" : "observability"} to this application using the existing Kortyx SDK and the current official documentation at ${documentationUrl}. ${item.instruction} Read API credentials from the server environment; never embed secrets in browser code or prompts. Preserve default payload privacy. Verify the integration by running a minimal example and checking ${resource} in Studio.`;
   return (
     <div
       data-page-help-state="empty"
@@ -131,14 +135,13 @@ export function FirstObservation({
                 </p>
               )}
             </div>
-            <a
-              href="https://kortyx.io/docs"
-              target="_blank"
-              rel="noreferrer"
-              className="text-sm underline underline-offset-4"
-            >
-              Or follow the documentation manually
-            </a>
+            <DocumentationLink
+              href={
+                resource === "evals"
+                  ? studioHelp.evals.documentationUrl
+                  : documentationUrl
+              }
+            />
           </li>
           <li className="space-y-3">
             <h2 className="font-medium">3. Run your application</h2>

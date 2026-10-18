@@ -3,6 +3,7 @@ import Link from "@/components/scoped-link";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import type { StudioShellContext } from "@/lib/studio-context-model";
+import { studioHelp } from "@/lib/studio-help";
 
 /** Installation setup is real context, separate from sample-learning progress. */
 export function StudioSetupGuide({ context }: { context: StudioShellContext }) {
@@ -53,7 +54,11 @@ export function StudioSetupGuide({ context }: { context: StudioShellContext }) {
       </ol>
       <div className="flex flex-wrap gap-2">
         <Button asChild>
-          <a href="https://kortyx.io/docs" target="_blank" rel="noreferrer">
+          <a
+            href={studioHelp.connect.documentationUrl}
+            target="_blank"
+            rel="noreferrer"
+          >
             <BookOpen data-icon="inline-start" />
             Integration documentation
           </a>

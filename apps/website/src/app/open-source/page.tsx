@@ -306,7 +306,7 @@ export default function OpenSourcePage() {
             </div>
           </a>
           <Link
-            href="/docs/studio/run-locally"
+            href="/docs/self-hosting/run-locally"
             className="group flex min-h-72 flex-col justify-between rounded-[28px] bg-[#111426] p-8 text-white transition-transform hover:-translate-y-1 sm:p-10"
           >
             <Server className="size-7 text-[#a89cff]" />

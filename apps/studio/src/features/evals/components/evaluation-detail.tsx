@@ -23,6 +23,7 @@ import { useLiveRefresh } from "@/features/telemetry/hooks/use-live-refresh";
 import { formatDateTime, formatDurationMs } from "@/lib/format";
 import { useStudioQueryStates } from "@/lib/nuqs";
 import { useRouter, useSearchParams } from "@/lib/scoped-navigation";
+import { studioHelp, withStudioColumnHelp } from "@/lib/studio-help";
 import { evalRequest } from "../api/client";
 import { useEvalReferenceTime } from "../hooks/use-eval-reference-time";
 import { evalNavigationHref, evalRunHref } from "../lib/navigation";
@@ -386,7 +387,8 @@ export function EvaluationDetail({
             </EvalDetailHeader>
             <div className="min-h-0 flex-1">
               <DataTable
-                columns={columns}
+                help={{ filters: studioHelp.filters, views: studioHelp.views }}
+                columns={withStudioColumnHelp(columns, "evals")}
                 tableId="evaluation-suites"
                 className="rounded-none border-0 shadow-none"
                 data={run.suites}

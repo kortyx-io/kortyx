@@ -1,11 +1,8 @@
 "use client";
 
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
+import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { type CostDisplayValue, costDisplay } from "@/lib/cost";
+import { studioHelp } from "@/lib/studio-help";
 
 export function CostValue({
   value,
@@ -16,11 +13,13 @@ export function CostValue({
 }) {
   const display = costDisplay(value);
   const note = average
-    ? `${display.note} Known costs divided by all runs in this selection, including runs with incomplete cost data.`
+    ? `${display.note} The average uses known costs divided by every run shown, including runs with missing costs.`
     : display.note;
   return (
-    <Tooltip>
-      <TooltipTrigger asChild>
+    <InfoTooltip
+      label={average ? "Average model cost" : "Model cost"}
+      documentationUrl={studioHelp.cost.documentationUrl}
+      trigger={
         <button
           type="button"
           className="pointer-events-auto cursor-help"
@@ -30,8 +29,9 @@ export function CostValue({
         >
           {display.label}
         </button>
-      </TooltipTrigger>
-      <TooltipContent className="max-w-xs">{note}</TooltipContent>
-    </Tooltip>
+      }
+    >
+      {note}
+    </InfoTooltip>
   );
 }

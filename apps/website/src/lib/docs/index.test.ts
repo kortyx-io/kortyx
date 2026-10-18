@@ -27,10 +27,13 @@ let fixtureRoot: string;
 // request cache so the exhaustive route audit does not reread all files per link.
 const requestCache = vi.hoisted(() => new Map<() => unknown, unknown>());
 vi.mock("react", () => ({
-  cache: (fn: () => unknown) => () => {
-    if (!requestCache.has(fn)) requestCache.set(fn, fn());
-    return requestCache.get(fn);
-  },
+  cache:
+    (fn: (...args: unknown[]) => unknown) =>
+    (...args: unknown[]) => {
+      if (args.length) return fn(...args);
+      if (!requestCache.has(fn)) requestCache.set(fn, fn());
+      return requestCache.get(fn);
+    },
 }));
 
 beforeEach(() => requestCache.clear());
@@ -56,16 +59,20 @@ describe("product documentation routes", () => {
     ["sdk/v0/migration", "/docs/sdk/migration", "/docs/sdk/migration"],
     ["sdk", "/docs/sdk/start-here", "/docs/sdk/start-here"],
     ["studio", "/docs/studio/overview", "/docs/studio/overview"],
-    ["studio/run-locally", "/docs/studio/run-locally", null],
+    [
+      "studio/run-locally",
+      "/docs/self-hosting/run-locally",
+      "/docs/self-hosting/run-locally",
+    ],
     [
       "v0/studio/run-locally",
-      "/docs/studio/run-locally",
-      "/docs/studio/run-locally",
+      "/docs/self-hosting/run-locally",
+      "/docs/self-hosting/run-locally",
     ],
     [
       "studio/v0/run-locally",
-      "/docs/studio/run-locally",
-      "/docs/studio/run-locally",
+      "/docs/self-hosting/run-locally",
+      "/docs/self-hosting/run-locally",
     ],
     [
       "runtime/hooks",
@@ -73,7 +80,7 @@ describe("product documentation routes", () => {
       "/docs/sdk/core-concepts/hooks",
     ],
     ["sdk/getting-started", "/docs/sdk/getting-started", null],
-    ["studio/deployment", "/docs/studio/deployment", null],
+    ["studio/deployment", "/docs/self-hosting", "/docs/self-hosting"],
     ["03-guides/11-sse", "/docs/sdk/guides/sse", "/docs/sdk/guides/sse"],
     [
       "sdk/v0/02-core-concepts/03-nodes.md",
@@ -82,8 +89,8 @@ describe("product documentation routes", () => {
     ],
     [
       "studio/06-deploy-server",
-      "/docs/studio/deploy-server",
-      "/docs/studio/deploy-server",
+      "/docs/self-hosting/deploy-server",
+      "/docs/self-hosting/deploy-server",
     ],
     ["00-start-here/README.md", "/docs/sdk/start-here", "/docs/sdk/start-here"],
     [
@@ -99,7 +106,13 @@ describe("product documentation routes", () => {
   });
 
   it("leaves the landing route to its page and rejects missing products, versions, and pages", async () => {
-    for (const slug of ["", "cloud", "sdk/v99/migration", "studio/missing"]) {
+    for (const slug of [
+      "",
+      "unknown-area",
+      "sdk/v99/migration",
+      "studio/missing",
+      "cloud/v99/account",
+    ]) {
       expect(await resolveDocsRoute(slug ? slug.split("/") : [])).toBeNull();
     }
   });
@@ -113,25 +126,40 @@ describe("product documentation routes", () => {
     }
   });
 
-  it("keeps product sidebars separate and groups flat Studio URLs", async () => {
-    const sdk = await getVersionSidebar("sdk", "v0");
+  it("keeps area navigation separate and orders Studio around reader tasks", async () => {
+    for (const area of docsConfig.products) {
+      const sidebar = await getVersionSidebar(area.id, area.latestVersion);
+      expect(sidebar.length).toBeGreaterThan(0);
+      expect(
+        sidebar
+          .flatMap((section) => section.items)
+          .every(
+            (item) =>
+              item.href === `/docs/${area.id}` ||
+              item.href.startsWith(`/docs/${area.id}/`),
+          ),
+      ).toBe(true);
+    }
     const studio = await getVersionSidebar("studio", "v0");
-    expect(
-      sdk
-        .flatMap((section) => section.items)
-        .every((item) => item.href.startsWith("/docs/sdk/")),
-    ).toBe(true);
     expect(studio.map((section) => section.label)).toEqual([
-      "Getting Started",
-      "Guides",
-      "Deployment",
-      "Operations",
-      "Reference",
+      "Get started",
+      "Inspect and debug",
+      "Understand performance",
+      "Manage prompts",
+      "Evaluate changes",
+      "Reference and troubleshooting",
     ]);
-    expect(studio.flatMap((section) => section.items)).toHaveLength(14);
+    expect(studio[0]?.items.map((item) => item.slug)).toEqual([
+      "overview",
+      "connect-project",
+      "first-run",
+      "concepts",
+    ]);
     expect(
-      studio.find((section) => section.slug === "deployment")?.items,
-    ).toHaveLength(4);
+      studio
+        .flatMap((section) => section.items)
+        .some((item) => /cloud-|run-locally|cli-commands/.test(item.slug)),
+    ).toBe(false);
   });
 
   it("resolves all authored Markdown links after moving the content, including cross-product links", async () => {
@@ -225,7 +253,7 @@ describe("product documentation routes", () => {
       });
       expect(await resolveDocsRoute(["studio", "run-locally"])).toMatchObject({
         requestedVersion: "v0",
-        canonicalPath: "/docs/studio/run-locally",
+        canonicalPath: "/docs/self-hosting/run-locally",
       });
       expect(await resolveDocsRoute(["ui"])).toMatchObject({
         canonicalPath: "/docs/ui",
@@ -246,7 +274,7 @@ describe("product documentation routes", () => {
           ?.isLatest,
       ).toBe(false);
       expect(
-        entries.find((entry) => entry.href === "/docs/studio/run-locally")
+        entries.find((entry) => entry.href === "/docs/self-hosting/run-locally")
           ?.isLatest,
       ).toBe(true);
     } finally {

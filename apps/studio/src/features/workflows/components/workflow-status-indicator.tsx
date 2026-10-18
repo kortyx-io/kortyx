@@ -1,9 +1,6 @@
 import { Pause, RotateCcw } from "lucide-react";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
+import { InfoTooltip } from "@/components/ui/info-tooltip";
+import { studioHelp } from "@/lib/studio-help";
 import { cn } from "@/lib/utils";
 import type { WorkflowHealth, WorkflowNode } from "../schema";
 
@@ -46,7 +43,7 @@ const nodeStates = {
   healthy: {
     label: "Healthy node",
     description:
-      "No failure, pause-at-this-node, or retry signal was recorded for runs containing this node in the selected period.",
+      "No failure, pause at this step, or retry was recorded for matching runs.",
     className: "bg-emerald-500",
   },
   warning: {
@@ -57,19 +54,19 @@ const nodeStates = {
   failed: {
     label: "Failed node",
     description:
-      "At least one run containing this node failed in the selected period.",
+      "At least one run that reached this step failed. Open the run to find where the error happened.",
     className: "bg-red-500",
   },
   interrupted: {
     label: "Interrupted node",
     description:
-      "At least one run paused for input at this node in the selected period.",
+      "At least one run paused for input at this node in the selected time range.",
     className: "bg-blue-500",
   },
   retried: {
     label: "Retried node",
     description:
-      "At least one run containing this node included a retry in the selected period. The orange dot, border, and circular arrow all indicate this state.",
+      "At least one run that reached this step tried again. The orange dot and circular arrow mark this state.",
     className: "bg-amber-500",
   },
 } satisfies Record<
@@ -89,11 +86,9 @@ export function workflowHealthLabel(health: WorkflowHealth) {
 
 export function WorkflowHealthIndicator({
   health,
-  focusable = true,
   className,
 }: {
   health: WorkflowHealth;
-  focusable?: boolean;
   className?: string;
 }) {
   const status = workflowHealth[health];
@@ -101,8 +96,8 @@ export function WorkflowHealthIndicator({
     <StatusTooltip
       label={status.label}
       description={status.description}
-      focusable={focusable}
       className={className}
+      documentationUrl={studioHelp.workflowHealth.documentationUrl}
     >
       <span
         aria-hidden="true"
@@ -119,7 +114,11 @@ export function NodeStatusIndicator({
 }) {
   const status = state ? nodeStates[state] : noNodeState;
   return (
-    <StatusTooltip label={status.label} description={status.description}>
+    <StatusTooltip
+      label={status.label}
+      description={status.description}
+      documentationUrl={studioHelp.workflowNodes.documentationUrl}
+    >
       <span
         aria-hidden="true"
         className={cn("size-1.5 shrink-0 rounded-full", status.className)}
@@ -137,46 +136,35 @@ export function NodeStatusIndicator({
 function StatusTooltip({
   label,
   description,
-  focusable = true,
+  documentationUrl,
   className,
   children,
 }: {
   label: string;
   description: string;
-  focusable?: boolean;
+  documentationUrl: string;
   className?: string;
   children: React.ReactNode;
 }) {
   return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        {focusable ? (
-          <button
-            type="button"
-            aria-label={`${label}. ${description}`}
-            className={cn(
-              "-m-1 inline-flex shrink-0 items-center gap-1 rounded-sm border-0 bg-transparent p-1 outline-none focus-visible:ring-2 focus-visible:ring-ring/50",
-              className,
-            )}
-          >
-            {children}
-          </button>
-        ) : (
-          <span
-            aria-hidden="true"
-            className={cn(
-              "-m-1 inline-flex shrink-0 items-center gap-1 rounded-sm p-1",
-              className,
-            )}
-          >
-            {children}
-          </span>
-        )}
-      </TooltipTrigger>
-      <TooltipContent className="max-w-72" side="bottom" sideOffset={6}>
-        <p className="font-medium">{label}</p>
-        <p className="mt-0.5 text-muted-foreground">{description}</p>
-      </TooltipContent>
-    </Tooltip>
+    <InfoTooltip
+      label={label}
+      documentationUrl={documentationUrl}
+      side="bottom"
+      trigger={
+        <button
+          type="button"
+          aria-label={`${label}. ${description}`}
+          className={cn(
+            "-m-1 inline-flex shrink-0 items-center gap-1 rounded-sm border-0 bg-transparent p-1 outline-none focus-visible:ring-2 focus-visible:ring-ring/50 pointer-coarse:min-h-11 pointer-coarse:min-w-11 pointer-coarse:justify-center",
+            className,
+          )}
+        >
+          {children}
+        </button>
+      }
+    >
+      {description}
+    </InfoTooltip>
   );
 }

@@ -42,6 +42,7 @@ import {
 } from "@/features/runs/lib/run-trace-story";
 import { formatDateTime, formatDurationMs } from "@/lib/format";
 import { useStudioQueryStates } from "@/lib/nuqs";
+import { studioHelp } from "@/lib/studio-help";
 import { cn } from "@/lib/utils";
 import { studioFeature } from "@/usage/client";
 
@@ -160,12 +161,13 @@ export function RunTrace({
                       · waits compressed
                     </span>
                     <InfoTooltip
+                      documentationUrl={studioHelp.metrics.documentationUrl}
                       label="Explain compressed waits"
                       className="normal-case tracking-normal"
                     >
-                      Quiet periods longer than five seconds are shortened only
-                      on the visual axis. Their real wall-clock duration remains
-                      visible in the story and inspector.
+                      Gaps longer than five seconds are drawn shorter so the
+                      trace is easier to read. The displayed times still show
+                      the full wait.
                     </InfoTooltip>
                   </>
                 )}
@@ -203,12 +205,14 @@ export function RunTrace({
                     <span className="size-1.5 rounded-full bg-muted-foreground/55" />
                     unclassified
                   </span>
-                  <InfoTooltip label="Explain model timing colors">
-                    TTFT is time before the first observed text chunk. Output
-                    stream is the first-to-last observed chunk window.
-                    Finalization is the remaining provider completion time.
-                    Unclassified means the call was non-streaming or predates
-                    timing capture.
+                  <InfoTooltip
+                    documentationUrl={studioHelp.metrics.documentationUrl}
+                    label="Explain model timing colors"
+                  >
+                    TTFT is the wait before the first text. Output stream is the
+                    time spent receiving text; finalization is the time until
+                    the request finishes. Unclassified means Studio cannot split
+                    this call into those parts.
                   </InfoTooltip>
                 </span>
               )}

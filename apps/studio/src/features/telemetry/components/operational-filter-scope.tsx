@@ -1,7 +1,9 @@
 "use client";
 import type { StudioTimeRange } from "@kortyx/telemetry-contracts";
 import { useId } from "react";
+import { HelpCircle } from "@/components/ui/info-tooltip";
 import { Input } from "@/components/ui/input";
+import { studioHelp } from "@/lib/studio-help";
 import { TimeRangeFilter } from "./time-range-filter";
 export function OperationalFilterScope({
   query,
@@ -56,18 +58,21 @@ export function OperationalFilterScope({
         />
       </label>
       {query.includeChildren !== undefined && (
-        <label className="flex items-center gap-2 text-sm">
-          <input
-            type="checkbox"
-            checked={query.includeChildren}
-            onChange={() =>
-              query.setParams({
-                includeChildren: !query.includeChildren || null,
-              })
-            }
-          />
-          Include child workflows
-        </label>
+        <div className="flex items-center gap-1">
+          <label className="flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              checked={query.includeChildren}
+              onChange={() =>
+                query.setParams({
+                  includeChildren: !query.includeChildren || null,
+                })
+              }
+            />
+            Include child workflows
+          </label>
+          <HelpCircle help={studioHelp.children} />
+        </div>
       )}
     </div>
   );

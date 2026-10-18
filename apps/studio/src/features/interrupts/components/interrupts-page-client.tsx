@@ -21,6 +21,7 @@ import {
 import type { ListTablePreferences } from "@/features/telemetry/lib/table-preferences";
 import { detailNavigationHref } from "@/lib/nuqs";
 import { useRouter, useSearchParams } from "@/lib/scoped-navigation";
+import { studioHelp } from "@/lib/studio-help";
 import { studioDetailHref } from "@/lib/studio-routes";
 
 export default function InterruptsPageClient({
@@ -81,6 +82,7 @@ export default function InterruptsPageClient({
   return (
     <div className="flex h-full min-h-0">
       <DataTable
+        help={{ filters: studioHelp.filters, views: studioHelp.views }}
         query={{
           mode: "remote",
           pageSizes: [10, 20, 50, 100, 250],

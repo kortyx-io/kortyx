@@ -6,6 +6,7 @@ import { valueColumn } from "@/components/data-table/value-column";
 import { Button } from "@/components/ui/button";
 import { evalDurationMs } from "@/features/evals/lib/duration";
 import { formatDateTime, formatDurationMs } from "@/lib/format";
+import { withStudioColumnHelp } from "@/lib/studio-help";
 import { EvalCost, evalFilterCost } from "./eval-cost";
 import { EvalDuration } from "./eval-duration";
 import { EvalStatus } from "./eval-status";
@@ -14,7 +15,7 @@ export function createEvaluationColumns(
   onOpen: (run: StudioEvaluationSummary) => void,
   referenceTime?: number,
 ): DataTableColumn<StudioEvaluationSummary, EvaluationSort>[] {
-  return [
+  const columns: DataTableColumn<StudioEvaluationSummary, EvaluationSort>[] = [
     {
       key: "name",
       filter: [
@@ -239,4 +240,5 @@ export function createEvaluationColumns(
       format: (v) => formatDurationMs(Number(v)),
     }),
   ];
+  return withStudioColumnHelp(columns, "evals");
 }

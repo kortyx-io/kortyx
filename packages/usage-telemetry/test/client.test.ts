@@ -34,6 +34,42 @@ function fixture(overrides: Partial<UsageOptions> = {}) {
 }
 
 describe("bounded usage collection", () => {
+  it("measures help adoption without collecting destinations, labels, or customer content", async () => {
+    const f = fixture({
+      context: {
+        product: "oss_studio",
+        component: "studio_ui",
+        version: "1.0.0",
+      },
+    });
+    f.client.feature("studio.help", {
+      help_action: "open",
+      help_placement: "card",
+      url: "https://private.example/run/customer-id",
+      label: "Customer secret",
+    });
+    f.client.feature("studio.help", {
+      help_action: "documentation",
+      help_placement: "card",
+    });
+    await f.client.flush();
+    expect(f.records).toHaveLength(2);
+    expect(f.records.map((record) => record.properties)).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          help_action: "open",
+          help_placement: "card",
+        }),
+        expect.objectContaining({
+          help_action: "documentation",
+          help_placement: "card",
+        }),
+      ]),
+    );
+    expect(JSON.stringify(f.records)).not.toMatch(
+      /private\.example|customer-id|Customer secret/,
+    );
+  });
   it("records the all/any preference without filter values or saved view names", () => {
     expect(
       sanitizeProperties({

@@ -46,6 +46,7 @@ export const operations = [
   "studio.eval.execution",
   "studio.diagnostic",
   "studio.table.layout",
+  "studio.help",
   "cli.topology",
   "cli.eval",
 ] as const;
@@ -82,6 +83,8 @@ export const publicCatalog: UsageCatalog = {
   operations,
   properties: {
     help_action: [
+      "open",
+      "documentation",
       "start",
       "step",
       "complete",
@@ -190,6 +193,7 @@ export const publicCatalog: UsageCatalog = {
     tour_failure: ["load", "target", "entry"],
     tour_mode: ["chapter", "full"],
     tour_version: ["1"],
+    help_placement: ["card", "button"],
     measurement_version: ["2"],
     measurement_kind: [
       "invocation",

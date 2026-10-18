@@ -1,0 +1,341 @@
+[
+  {
+    "source": "/docs/studio/overview",
+    "destination": "/docs/studio/overview",
+    "anchors": [
+      "use-studio",
+      "what-the-system-contains",
+      "choose-your-path",
+      "use-managed-cloud",
+      "develop-on-your-machine",
+      "deploy-for-a-team",
+      "what-studio-captures",
+      "child-workflow-visibility",
+      "evaluate-workflow-behavior"
+    ]
+  },
+  {
+    "source": "/docs/studio/run-locally",
+    "destination": "/docs/self-hosting/run-locally",
+    "anchors": [
+      "before-you-start",
+      "1-start-studio",
+      "2-connect-your-application",
+      "3-publish-the-workflow-catalog",
+      "4-see-your-first-real-run",
+      "if-the-run-does-not-appear",
+      "next-steps"
+    ]
+  },
+  {
+    "source": "/docs/studio/connect-project",
+    "destination": "/docs/studio/connect-project",
+    "anchors": [
+      "install-the-adapter",
+      "configure-the-server-environment",
+      "attach-telemetry-to-the-agent",
+      "collect-response-feedback",
+      "publish-the-declared-workflow-catalog",
+      "choose-what-content-studio-may-store",
+      "interrupt-behavior-in-studio",
+      "verify-the-connection"
+    ]
+  },
+  {
+    "source": "/docs/studio/cli-commands",
+    "destination": "/docs/cli/reference",
+    "anchors": [
+      "everyday-commands",
+      "start-options",
+      "print-or-rotate-local-credentials",
+      "generate-credentials-for-remote-deployment",
+      "publish-a-workflow-catalog",
+      "reset-local-data",
+      "read-only-run-and-session-debugging",
+      "connect-local-staging-or-another-project",
+      "local-cli-versus-remote-operation",
+      "eval-suites-and-post-deployment-ci",
+      "diagnose-deployment-wiring",
+      "run-locally-without-studio",
+      "discover-and-run",
+      "inspect-and-cancel",
+      "optional-post-deployment-github-actions-step"
+    ]
+  },
+  {
+    "source": "/docs/studio/credentials-secrets",
+    "destination": "/docs/self-hosting/credentials-secrets",
+    "anchors": [
+      "credential-roles",
+      "local-credentials",
+      "generate-credentials-for-a-deployment",
+      "remote-key-rotation",
+      "backup-and-incident-response"
+    ]
+  },
+  {
+    "source": "/docs/studio/deploy-server",
+    "destination": "/docs/self-hosting/deploy-server",
+    "anchors": [
+      "prerequisites",
+      "1-prepare-the-deployment",
+      "2-start-the-services",
+      "3-verify-health",
+      "4-put-access-controls-in-front",
+      "5-connect-sdk-producers",
+      "upgrade",
+      "translate-the-contract-to-a-cloud-platform"
+    ]
+  },
+  {
+    "source": "/docs/studio/operations",
+    "destination": "/docs/self-hosting/operations",
+    "anchors": [
+      "know-the-durable-state",
+      "back-up-a-local-installation",
+      "restore",
+      "upgrade",
+      "reset-local-data",
+      "security-checklist",
+      "troubleshoot-in-order",
+      "eval-discovery-execution-and-judging",
+      "after-credential-rotation",
+      "interrupt-looks-pending-after-its-deadline"
+    ]
+  },
+  {
+    "source": "/docs/studio/configuration-reference",
+    "destination": "/docs/self-hosting/configuration-reference",
+    "anchors": [
+      "components",
+      "startup-and-upgrade-order",
+      "telemetry-api-and-database-job-variables",
+      "optional-studio-judge-variables",
+      "database-bootstrap-variables",
+      "studio-variables",
+      "consumer-application-and-cli-configuration",
+      "maintainer-usage-telemetry",
+      "application-eval-settings",
+      "applying-eval-configuration-changes",
+      "health-and-shutdown",
+      "platform-mapping",
+      "supported-boundary",
+      "supported-now",
+      "not-yet-claimed",
+      "evaluation-deadlines"
+    ]
+  },
+  {
+    "source": "/docs/studio/deploy-aws-cdk",
+    "destination": "/docs/self-hosting/deploy-aws-cdk",
+    "anchors": [
+      "choose-a-deployment-path",
+      "architecture",
+      "before-you-start",
+      "1-create-a-cdk-application",
+      "2-add-kortyx-studio",
+      "3-review-the-defaults",
+      "availability-what-one-application-task-means",
+      "4-bootstrap-inspect-and-deploy",
+      "5-retrieve-the-initial-credentials",
+      "6-connect-and-verify",
+      "publish-topology-from-the-application-release",
+      "upgrade-with-cdk"
+    ]
+  },
+  {
+    "source": "/docs/studio/high-availability",
+    "destination": "/docs/self-hosting/high-availability",
+    "anchors": [
+      "production-baseline",
+      "health-and-termination-contract",
+      "run-database-work-once",
+      "choose-the-deployment-path-from-the-release",
+      "rolling",
+      "recreate",
+      "platform-mapping",
+      "automate-release-discovery-with-github-actions",
+      "what-this-does-and-does-not-guarantee"
+    ]
+  },
+  {
+    "source": "/docs/studio/evals",
+    "destination": "/docs/studio/evals",
+    "anchors": [
+      "register-applications-on-the-studio-api-server",
+      "where-application-metadata-comes-from",
+      "credentials-have-separate-jobs",
+      "studio-judge-configuration",
+      "judge-criteria-and-evidence",
+      "eval-run-costs",
+      "persistence-and-execution-lifecycle",
+      "use-the-interface",
+      "container-configuration",
+      "required-structured-responses",
+      "grouped-evaluation-runs",
+      "deployment-and-scheduled-ci-examples",
+      "failure-evidence",
+      "concurrent-execution-recovery",
+      "evaluation-settings-and-timeout-reporting",
+      "read-results-and-compare",
+      "timing-and-cost"
+    ]
+  },
+  {
+    "source": "/docs/studio/first-eval",
+    "destination": "/docs/studio/first-eval",
+    "anchors": [
+      "1-define-one-case",
+      "2-create-the-eval-instance-beside-your-agent",
+      "3-mount-and-deploy-the-application-endpoint",
+      "4-register-the-application-on-studio",
+      "5-configure-one-judge",
+      "configuration-belongs-to-different-services",
+      "6-diagnose-setup-before-executing",
+      "7-run-and-verify-the-actual-workflow"
+    ]
+  },
+  {
+    "source": "/docs/studio/prompts",
+    "destination": "/docs/studio/prompts",
+    "anchors": [
+      "include-another-prompt",
+      "review-and-save",
+      "version-reviews",
+      "categories-and-test-groups",
+      "evidence-and-promotion",
+      "connect-an-application",
+      "bulk-management-and-import",
+      "promotion-policies"
+    ]
+  },
+  {
+    "source": "/docs/studio/prompt-migration",
+    "destination": "/docs/cli/prompts",
+    "anchors": [
+      "plan-apply-verify",
+      "editing-inclusions-with-the-cli",
+      "manage-release-tags-from-the-cli"
+    ]
+  },
+  {
+    "source": "/docs/studio/runs",
+    "destination": "/docs/studio/runs",
+    "anchors": [
+      "find-a-run",
+      "status-and-completion",
+      "child-workflows",
+      "trace-and-events",
+      "captured-content",
+      "feedback"
+    ]
+  },
+  {
+    "source": "/docs/studio/sessions",
+    "destination": "/docs/studio/sessions",
+    "anchors": [
+      "read-a-session",
+      "application-identity",
+      "checkpoints-and-branches",
+      "missing-sessions"
+    ]
+  },
+  {
+    "source": "/docs/studio/interrupts",
+    "destination": "/docs/studio/interrupts",
+    "anchors": [
+      "read-the-lifecycle",
+      "inspect-the-request-and-response",
+      "understand-timing",
+      "recover-in-your-application"
+    ]
+  },
+  {
+    "source": "/docs/studio/workflows",
+    "destination": "/docs/studio/workflows",
+    "anchors": [
+      "declared-and-observed-connections",
+      "inspect-a-selection",
+      "metrics-and-scope",
+      "workflow-health",
+      "node-states"
+    ]
+  },
+  {
+    "source": "/docs/studio/metrics",
+    "destination": "/docs/studio/metrics",
+    "anchors": [
+      "execution-timing",
+      "model-timing",
+      "tokens",
+      "cost-and-pricing",
+      "tool-outcomes"
+    ]
+  },
+  {
+    "source": "/docs/studio/exploring-data",
+    "destination": "/docs/studio/exploring-data",
+    "anchors": [
+      "search-and-filters",
+      "table-views",
+      "live-updates",
+      "contextual-help"
+    ]
+  },
+  {
+    "source": "/docs/studio/cloud-get-started",
+    "destination": "/docs/cloud/get-started",
+    "anchors": [
+      "complete-setup",
+      "connect-the-server",
+      "verify-the-first-result",
+      "continue"
+    ]
+  },
+  {
+    "source": "/docs/studio/cloud-workspaces",
+    "destination": "/docs/cloud/workspaces",
+    "anchors": [
+      "select-or-create-a-workspace",
+      "environments",
+      "feature-availability",
+      "deletion-and-recovery"
+    ]
+  },
+  {
+    "source": "/docs/studio/cloud-api-keys",
+    "destination": "/docs/cloud/api-keys",
+    "anchors": [
+      "create-and-save-a-key",
+      "replace-or-revoke-a-key",
+      "keep-credentials-separate"
+    ]
+  },
+  {
+    "source": "/docs/studio/cloud-account",
+    "destination": "/docs/cloud/account",
+    "anchors": [
+      "change-your-name",
+      "change-your-email-address",
+      "manage-sign-in-methods",
+      "password",
+      "passkeys",
+      "disconnect-a-sign-in-method",
+      "confirm-your-identity",
+      "browser-sessions",
+      "privacy-choices",
+      "deleted-workspaces",
+      "account-deletion"
+    ]
+  },
+  {
+    "source": "/docs/studio/cloud-evaluations",
+    "destination": "/docs/cloud/evaluations",
+    "anchors": [
+      "application-endpoints",
+      "provider-credentials",
+      "verify-execution-and-grading",
+      "self-hosted-configuration"
+    ]
+  }
+]

@@ -1,11 +1,13 @@
 import { FlaskConical, KeyRound } from "lucide-react";
 import { SettingsCard } from "@/components/settings/settings-card";
+import { studioHelp } from "@/lib/studio-help";
 
 export function OperatorKeySettings() {
   return (
     <SettingsCard
       icon={KeyRound}
       title="API keys"
+      help={studioHelp.operatorKeys}
       description="This installation’s credentials are managed by its operator, not by a hosted account service."
     >
       <p className="text-sm leading-6 text-muted-foreground">
@@ -28,6 +30,7 @@ export function OperatorEvaluationSettings() {
     <SettingsCard
       icon={FlaskConical}
       title="Evaluation configuration"
+      help={studioHelp.operatorEvals}
       description="Application endpoints and judge credentials are server-owned configuration."
     >
       <h3 className="text-sm font-medium">Application endpoints</h3>
@@ -46,7 +49,7 @@ export function OperatorEvaluationSettings() {
         provider credentials in public environment variables.
       </p>
       <a
-        href="https://kortyx.io/docs"
+        href={studioHelp.operatorEvals.documentationUrl}
         className="mt-4 inline-block text-sm underline"
         target="_blank"
         rel="noreferrer"

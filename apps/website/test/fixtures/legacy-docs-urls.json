@@ -10,7 +10,7 @@
     },
     {
       "source": "/docs/studio/06-deploy-server.md",
-      "destination": "/docs/studio/deploy-server.md"
+      "destination": "/docs/self-hosting/deploy-server.md"
     },
     {
       "source": "/01-getting-started/01-installation.md",
@@ -54,7 +54,7 @@
     },
     {
       "source": "/docs/studio/04-cli-commands.md",
-      "destination": "/docs/studio/cli-commands.md"
+      "destination": "/docs/cli/reference.md"
     },
     {
       "source": "/docs/05-reference/03-stream-protocol.md",
@@ -202,15 +202,15 @@
     },
     {
       "source": "/docs/studio/08-configuration-reference.md",
-      "destination": "/docs/studio/configuration-reference.md"
+      "destination": "/docs/self-hosting/configuration-reference.md"
     },
     {
       "source": "/docs/studio/02-run-locally.md",
-      "destination": "/docs/studio/run-locally.md"
+      "destination": "/docs/self-hosting/run-locally.md"
     },
     {
       "source": "/docs/studio/07-operations.md",
-      "destination": "/docs/studio/operations.md"
+      "destination": "/docs/self-hosting/operations.md"
     },
     {
       "source": "/04-production/01-persistence.md",
@@ -246,7 +246,7 @@
     },
     {
       "source": "/docs/studio/05-credentials-secrets.md",
-      "destination": "/docs/studio/credentials-secrets.md"
+      "destination": "/docs/self-hosting/credentials-secrets.md"
     },
     {
       "source": "/02-core-concepts/01-define-workflows.md",
@@ -274,7 +274,7 @@
     },
     {
       "source": "/05-studio/02-run-locally.md",
-      "destination": "/docs/studio/run-locally.md"
+      "destination": "/docs/self-hosting/run-locally.md"
     },
     {
       "source": "/01-getting-started/02-quickstart-nextjs.md",
@@ -338,7 +338,6 @@
     "/docs/production/workflows",
     "/docs/production/providers",
     "/docs/src/lib/otel",
-    "/docs/studio/workflows",
     "/docs/reference/workflows",
     "/docs/guides/otel",
     "/lib/prompts",

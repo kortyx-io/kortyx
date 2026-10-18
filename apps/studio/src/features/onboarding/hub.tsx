@@ -34,8 +34,10 @@ import {
   DialogDescription,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { HelpCircle } from "@/components/ui/info-tooltip";
 import { Separator } from "@/components/ui/separator";
 import { usePathname } from "@/lib/scoped-navigation";
+import { studioHelp } from "@/lib/studio-help";
 import type { StudioLearningGuide } from "@/lib/studio-learning-guides";
 import {
   chapterStatus,
@@ -202,9 +204,12 @@ export function LearningHub(props: HubProps) {
         onCloseAutoFocus={(event) => event.preventDefault()}
       >
         <header className="flex shrink-0 flex-col gap-1.5 px-6 py-5 pr-12">
-          <DialogTitle className="text-lg font-semibold">
-            Explore Studio
-          </DialogTitle>
+          <div className="flex items-center justify-between gap-2">
+            <DialogTitle className="text-lg font-semibold">
+              Explore Studio
+            </DialogTitle>
+            <HelpCircle help={studioHelp.learning} />
+          </div>
           <DialogDescription>
             Choose a task to explore, or explain your current page from the
             Explore menu.

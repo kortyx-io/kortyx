@@ -4,12 +4,14 @@ import { Check, ChevronDown, FlaskConical } from "lucide-react";
 import { type ReactNode, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { HelpCircle } from "@/components/ui/info-tooltip";
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { Separator } from "@/components/ui/separator";
+import { studioHelp } from "@/lib/studio-help";
 import { studioFeature } from "@/usage/client";
 
 export function SampleProjectSelector({
@@ -80,6 +82,12 @@ export function SampleProjectSelector({
           </div>
         )}
         <Separator />
+        <div className="flex items-center justify-between gap-2">
+          <p className="text-xs font-medium text-muted-foreground">
+            Sample project
+          </p>
+          <HelpCircle help={studioHelp.sampleProject} />
+        </div>
         <Button
           variant="ghost"
           className="justify-start"

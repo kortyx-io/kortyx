@@ -458,3 +458,11 @@ pressed/disabled/focus states come from the primitive. Compound input buttons
 also delegate to it; feature code supplies layout, not custom button styling.
 The legacy shadcn `default`/`outline` aliases remain supported as
 `primary`/`secondary` for existing consumers.
+
+## Contextual help
+
+Table header titles own their help tooltip; existing symbols own their explanations. Neither needs an extra question mark. Other compact page, drawer, metric and setting headers use help circles, aligned to the right in metric cards. All help cards use the same arrow and separate documentation footer. `OverlayArrow` supplies shared geometry for interactive help and compact tooltips; Radix handles side rotation and collision positioning. Its overlapping fill removes the border seam, and the panel drop shadow follows the complete shape. `HelpDefinition` requires a label, short description and a topic-specific documentation URL. Shared Studio topics live in `src/lib/studio-help.ts`; edition contributions pass their own relevant topic through the existing typed UI props.
+
+`InfoTooltip` uses the existing non-modal Popover so the separate documentation footer can receive keyboard focus. Providing `documentationUrl` adds that footer; `trigger` supports existing symbols and numeric controls such as cost values. Set `triggerAction="preserve"` when the trigger already sorts or selects a view: its original action and pointer gestures still run, while hover/focus opens help and Tab reaches the footer. Pass `disabled` during active drags so help cannot intercept drag cancellation. `HelpCircle` consumes a complete definition. `DocumentationLink` is for roomy setup/empty/error states. Keep essential instructions visible and never nest help inside another button or input label.
+
+Verify hover-to-card movement, keyboard access to the footer, Escape/outside dismissal, narrow-screen placement and surrounding drawer behavior. Every destination must resolve to a page/anchor in the supported docs line. See [the audit](../../docs/audits/studio-contextual-help.md) and [completion policy](../../docs/internal/definition-of-done.md).

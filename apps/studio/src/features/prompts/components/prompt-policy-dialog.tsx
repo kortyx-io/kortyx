@@ -7,8 +7,10 @@ import {
 } from "@kortyx/telemetry-contracts";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { HelpCircle } from "@/components/ui/info-tooltip";
 import { Input } from "@/components/ui/input";
 import { evalRequest } from "@/features/evals/api/client";
+import { studioHelp } from "@/lib/studio-help";
 import { promptRequest } from "../api/client";
 import { PromptActionSurface } from "./prompt-action-surface";
 
@@ -151,6 +153,10 @@ export function PromptPolicyDialog({
             </p>
           )}
           <fieldset disabled={working} className="space-y-4">
+            <div className="flex items-center gap-1 text-xs font-medium">
+              Promotion requirements
+              <HelpCircle help={studioHelp.promotion} />
+            </div>
             <p className="text-xs text-muted-foreground">
               Applies to all versions of {asset.name}. Other prompts keep their
               own policies.

@@ -1,4 +1,5 @@
 "use client";
+
 import type { PromptContent } from "@kortyx/prompts/browser";
 import {
   canonicalPromptJson,
@@ -10,8 +11,10 @@ import type { PromptDetail, PromptLibrary } from "@kortyx/telemetry-contracts";
 import { Plus, Trash2 } from "lucide-react";
 import { useEffect, useId, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { HelpCircle } from "@/components/ui/info-tooltip";
 import { JsonCodeEditor } from "@/components/ui/json-code-editor";
 import { EvalDropdown } from "@/features/evals/components/eval-dropdown";
+import { studioHelp } from "@/lib/studio-help";
 import { PromptEditor } from "./prompt-editor";
 
 export const editorClass =
@@ -61,9 +64,19 @@ export function JsonField({
   };
   return (
     <div className="space-y-2">
-      <p id={`${id}-label`} className="text-xs font-medium">
-        {label}
-      </p>
+      <div className="flex items-center gap-1">
+        <p id={`${id}-label`} className="text-xs font-medium">
+          {label}
+        </p>
+        <HelpCircle
+          help={{
+            ...studioHelp.promptConfiguration,
+            label,
+            description:
+              description ?? studioHelp.promptConfiguration.description,
+          }}
+        />
+      </div>
       {description && (
         <p id={`${id}-description`} className="text-xs text-muted-foreground">
           {description}
@@ -332,7 +345,7 @@ export function PromptFields({
         key="configuration"
         label="Configuration"
         onValidityChange={(valid) => validity("config", valid)}
-        description="Saved values returned to your application as prompt.config. They are never inserted into messages."
+        description="Extra settings your app receives as prompt.config. These values are not added to the messages sent to the AI model."
         value={value.config}
         disabled={disabled}
         onChange={(config) =>
@@ -347,7 +360,7 @@ export function PromptFields({
           <JsonField
             label="Template input schema"
             onValidityChange={(valid) => validity("variablesSchema", valid)}
-            description="Declare values supplied by code for placeholders such as {{message}}."
+            description="Describe the values your app must provide for placeholders such as {{message}}."
             value={value.variablesSchema}
             disabled={disabled}
             onChange={(variablesSchema) =>
@@ -361,7 +374,7 @@ export function PromptFields({
           <JsonField
             label="Configuration schema"
             onValidityChange={(valid) => validity("configSchema", valid)}
-            description="Validate saved configuration, including supported model aliases."
+            description="Rules that check whether the saved settings are valid, including which model names are allowed."
             value={value.configSchema}
             disabled={disabled}
             onChange={(configSchema) =>

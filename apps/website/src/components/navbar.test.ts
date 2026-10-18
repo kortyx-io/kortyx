@@ -75,7 +75,7 @@ describe("shared Navbar", () => {
 
   it.each([
     ["/docs", "page"],
-    ["/docs/studio/run-locally", "true"],
+    ["/docs/self-hosting/run-locally", "true"],
     ["/docs/sdk/v0/getting-started/installation", "true"],
   ])("marks Docs active on %s", (pathname, current) => {
     route.pathname = pathname;

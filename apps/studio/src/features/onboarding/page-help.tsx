@@ -30,7 +30,7 @@ import {
   type PageHelpPlan,
   type PageHelpStepId,
 } from "./page-help-plan";
-import type { PageGuideId } from "./page-help-registry";
+import { PAGE_DOCUMENTATION, type PageGuideId } from "./page-help-registry";
 import { prepareLessonTarget } from "./targets";
 import {
   GUIDE_FLOATING_OPTIONS,
@@ -181,12 +181,18 @@ function PageHelpFlow(props: PageHelpProps & { plan: PageHelpPlan }) {
 
 const PageTooltipContext = createContext<{
   label: string;
+  documentationUrl: string;
   onExit(): void;
 } | null>(null);
 function PageTooltip(props: TooltipRenderProps) {
   const context = useContext(PageTooltipContext);
   return context ? (
-    <GuideTooltip {...props} label={context.label} onExit={context.onExit} />
+    <GuideTooltip
+      {...props}
+      label={context.label}
+      onExit={context.onExit}
+      documentationUrl={context.documentationUrl}
+    />
   ) : null;
 }
 
@@ -309,7 +315,13 @@ function PageHelpRuntime({
     };
   }, [plan.id, sample]);
   return (
-    <PageTooltipContext.Provider value={{ label: plan.title, onExit: exit }}>
+    <PageTooltipContext.Provider
+      value={{
+        label: plan.title,
+        onExit: exit,
+        documentationUrl: PAGE_DOCUMENTATION[plan.id].documentationUrl,
+      }}
+    >
       {Tour}
     </PageTooltipContext.Provider>
   );

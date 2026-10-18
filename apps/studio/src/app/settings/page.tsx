@@ -36,6 +36,7 @@ import type {
   StudioConnectionStatus,
   StudioShellContext,
 } from "@/lib/studio-context-model";
+import { studioHelp } from "@/lib/studio-help";
 import { cn } from "@/lib/utils";
 
 const connectionStyle: Record<
@@ -69,6 +70,7 @@ function ScopeCard({ context }: { context: StudioShellContext }) {
     <SettingsCard
       icon={Database}
       title="Local scope"
+      help={studioHelp.configuration}
       description="This preview observes one project scope authenticated by Studio’s server-only read key."
     >
       <dl>
@@ -86,6 +88,7 @@ function ConnectionCard({ context }: { context: StudioShellContext }) {
     <SettingsCard
       icon={RadioTower}
       title="Connection"
+      help={studioHelp.connect}
       description="Current API reachability and the safe parts of this read-key context."
     >
       <div
@@ -184,6 +187,7 @@ export default async function SettingsPage({
             <SettingsCard
               icon={Database}
               title="Sample project"
+              help={studioHelp.sampleProject}
               description="Explore Studio using shared, read-only sample data."
             >
               <SampleProjectVisibility
@@ -235,6 +239,7 @@ export default async function SettingsPage({
           <SettingsCard
             icon={Database}
             title="Sample project"
+            help={studioHelp.sampleProject}
             description="Explore Studio using shared, read-only sample data."
           >
             <SampleProjectVisibility
@@ -268,6 +273,7 @@ export default async function SettingsPage({
               <SettingsCard
                 icon={ShieldCheck}
                 title="Access"
+                help={studioHelp.operatorKeys}
                 description="Human access to this Studio instance is separate from its telemetry API key."
               >
                 <dl>
@@ -330,6 +336,7 @@ export default async function SettingsPage({
             <SettingsCard
               icon={KeyRound}
               title="Telemetry & privacy"
+              help={studioHelp.privacy}
               description="Payload capture is decided by the producing Kortyx SDK, not enabled from Studio."
             >
               <div className="space-y-3 text-sm leading-6">

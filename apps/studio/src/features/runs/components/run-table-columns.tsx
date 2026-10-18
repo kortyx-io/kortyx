@@ -2,11 +2,7 @@ import { CirclePause, Clock3 } from "lucide-react";
 import { CostValue } from "@/components/cost-value";
 import type { DataTableColumn } from "@/components/data-table";
 import { DetailLink } from "@/components/detail/detail-link";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
+import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { FeedbackBadge } from "@/features/feedback/components/feedback-badge";
 import { effectiveInterruptStatus } from "@/features/interrupts/lib/interrupt-presentation";
 import {
@@ -27,6 +23,7 @@ import {
   formatDateTime,
   formatDurationSeconds,
 } from "@/lib/format";
+import { studioHelp, withStudioColumnHelp } from "@/lib/studio-help";
 import { studioDetailHref } from "@/lib/studio-routes";
 import { cn } from "@/lib/utils";
 
@@ -67,7 +64,7 @@ export function createRunColumns({
   workflowFilter = "",
   versionFilter = "",
 }: CreateRunColumnsOptions): DataTableColumn<Run, SortKey>[] {
-  return [
+  const columns: DataTableColumn<Run, SortKey>[] = [
     {
       key: "parent",
       filter: studioColumnFilters("runs", "parent"),
@@ -261,8 +258,14 @@ export function createRunColumns({
       defaultWidth: 165,
       render: (run) => (
         <div className="flex min-w-0 items-center gap-1.5 overflow-hidden text-xs">
-          <Tooltip>
-            <TooltipTrigger asChild>
+          <InfoTooltip
+            label={
+              run.provider === "unknown"
+                ? "Provider not captured"
+                : `${run.provider} provider`
+            }
+            documentationUrl={studioHelp.tokens.documentationUrl}
+            trigger={
               <button
                 type="button"
                 onClick={(event) => event.stopPropagation()}
@@ -290,17 +293,18 @@ export function createRunColumns({
                       ? "G"
                       : "?"}
               </button>
-            </TooltipTrigger>
-            <TooltipContent>
-              {run.provider === "unknown"
-                ? "Provider not captured"
-                : `${run.provider} provider`}
-            </TooltipContent>
-          </Tooltip>
+            }
+          >
+            {run.provider === "unknown"
+              ? "Your app did not report which AI service handled this call. The request may still have run."
+              : `Your app used ${run.provider} for AI model requests. Open the run to see the calls and their usage.`}
+          </InfoTooltip>
           <span className="min-w-0 truncate">{run.model}</span>
           {run.models && (
-            <Tooltip>
-              <TooltipTrigger asChild>
+            <InfoTooltip
+              label={`${run.models} additional models`}
+              documentationUrl={studioHelp.metrics.documentationUrl}
+              trigger={
                 <button
                   type="button"
                   onClick={(event) => event.stopPropagation()}
@@ -309,11 +313,11 @@ export function createRunColumns({
                 >
                   +{run.models}
                 </button>
-              </TooltipTrigger>
-              <TooltipContent>
-                {run.models} additional models used in this run
-              </TooltipContent>
-            </Tooltip>
+              }
+            >
+              {run.models} additional models used in this run. Open the run to
+              inspect each captured model call.
+            </InfoTooltip>
           )}
         </div>
       ),
@@ -395,4 +399,5 @@ export function createRunColumns({
     ),
     studioValueColumn<Run, SortKey>("runs", "pricingStatus"),
   ];
+  return withStudioColumnHelp(columns, "runs");
 }

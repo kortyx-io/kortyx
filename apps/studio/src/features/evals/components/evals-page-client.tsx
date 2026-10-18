@@ -25,6 +25,7 @@ import type { ListTablePreferences } from "@/features/telemetry/lib/table-prefer
 import { formatDateTime, formatDurationMs } from "@/lib/format";
 import { useStudioQueryStates } from "@/lib/nuqs";
 import { useRouter, useSearchParams } from "@/lib/scoped-navigation";
+import { studioHelp, withStudioColumnHelp } from "@/lib/studio-help";
 import { evalRequest } from "../api/client";
 import { useEvalReferenceTime } from "../hooks/use-eval-reference-time";
 import { useEvalSetup } from "../hooks/use-eval-setup";
@@ -507,6 +508,7 @@ export function EvalsPageClient({
   ];
   const header = (
     <TablePageHeader
+      help={studioHelp.evals}
       title="Evals"
       description="Conversation suites and saved evaluation results"
       actions={
@@ -610,6 +612,7 @@ export function EvalsPageClient({
       <div className="min-h-0 flex-1">
         {view === "runs" ? (
           <DataTable
+            help={{ filters: studioHelp.filters, views: studioHelp.views }}
             query={{
               keys: {
                 q: "q",
@@ -632,7 +635,7 @@ export function EvalsPageClient({
               },
               ignoreValues: ["all", "All environments"],
             }}
-            columns={runColumns}
+            columns={withStudioColumnHelp(runColumns, "evals")}
             initialLayout={preferences?.layout}
             tableId="legacy-eval-runs"
             search={{
@@ -655,6 +658,7 @@ export function EvalsPageClient({
           />
         ) : (
           <DataTable
+            help={{ filters: studioHelp.filters, views: studioHelp.views }}
             query={{
               keys: {
                 q: "q",
@@ -677,7 +681,7 @@ export function EvalsPageClient({
               },
               ignoreValues: ["all", "All environments"],
             }}
-            columns={suiteColumns}
+            columns={withStudioColumnHelp(suiteColumns, "evals")}
             tableId="eval-suites"
             search={{
               label: "Search evals",

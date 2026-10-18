@@ -19,6 +19,7 @@ import {
 } from "@/features/telemetry/lib/table-configuration";
 import { detailNavigationHref } from "@/lib/nuqs";
 import { useRouter, useSearchParams } from "@/lib/scoped-navigation";
+import { studioHelp } from "@/lib/studio-help";
 import { studioDetailHref } from "@/lib/studio-routes";
 
 type RunsPageClientProps = {
@@ -107,6 +108,7 @@ export default function RunsPageClient({
   return (
     <div className="flex h-full min-h-0">
       <DataTable
+        help={{ filters: studioHelp.filters, views: studioHelp.views }}
         query={{
           mode: "remote",
           pageSizes: [10, 20, 50, 100, 250],

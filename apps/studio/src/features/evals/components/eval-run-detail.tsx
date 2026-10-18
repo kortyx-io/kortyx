@@ -11,6 +11,7 @@ import { DetailTabs } from "@/components/detail/detail-tabs";
 import { Button } from "@/components/ui/button";
 import { ErrorNotices } from "@/features/diagnostics/error-notices";
 import { formatDateTime, formatDurationMs } from "@/lib/format";
+import { studioHelp, withStudioColumnHelp } from "@/lib/studio-help";
 import {
   type CaseRow,
   caseRows,
@@ -296,8 +297,12 @@ export function EvalRunDetail({
               label: "Case results",
               content: (
                 <DataTable
+                  help={{
+                    filters: studioHelp.filters,
+                    views: studioHelp.views,
+                  }}
                   compatibility={{ aliases: { outcome: "status" } }}
-                  columns={columns}
+                  columns={withStudioColumnHelp(columns, "evals")}
                   tableId="eval-cases"
                   data={rows}
                   getRowKey={(r) => r.key}

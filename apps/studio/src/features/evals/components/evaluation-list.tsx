@@ -1,4 +1,5 @@
 "use client";
+
 import {
   StudioEvalTargetsResponseSchema,
   StudioEvaluationHistorySchema,
@@ -21,6 +22,7 @@ import { LiveRefreshButton } from "@/features/telemetry/components/live-refresh-
 import { useLiveRefresh } from "@/features/telemetry/hooks/use-live-refresh";
 import { useStudioQueryStates } from "@/lib/nuqs";
 import { useRouter, useSearchParams } from "@/lib/scoped-navigation";
+import { studioHelp } from "@/lib/studio-help";
 import { evalRequest } from "../api/client";
 import { useEvalReferenceTime } from "../hooks/use-eval-reference-time";
 import { useEvalSetup } from "../hooks/use-eval-setup";
@@ -112,6 +114,7 @@ export function EvaluationList({
   const columns = createEvaluationColumns(navigate, referenceTime);
   const header = (
     <TablePageHeader
+      help={studioHelp.evals}
       title="Evals"
       description="Conversation suites and saved evaluation results"
       actions={
@@ -172,6 +175,7 @@ export function EvaluationList({
       ) : null}
       <div className="min-h-0 flex-1">
         <DataTable
+          help={{ filters: studioHelp.filters, views: studioHelp.views }}
           query={{
             mode: "remote",
             defaults: { sort: "created" },

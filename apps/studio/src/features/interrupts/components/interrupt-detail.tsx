@@ -23,6 +23,7 @@ import {
   interruptTypeLabel,
 } from "@/features/interrupts/lib/interrupt-presentation";
 import { formatCount, formatDateTime } from "@/lib/format";
+import { studioHelp } from "@/lib/studio-help";
 import { studioDetailHref } from "@/lib/studio-routes";
 
 export function InterruptDetail({
@@ -64,6 +65,7 @@ export function InterruptDetail({
       className="flex h-full min-h-0 flex-col"
     >
       <DetailHeader
+        help={studioHelp.interrupts}
         eyebrow="Interrupt"
         title={interrupt.id}
         status={
@@ -267,10 +269,10 @@ function Decision({ detail }: { detail: StudioInterruptDetailResponse }) {
                 ? `${interrupt.schemaId}${interrupt.schemaVersion ? ` v${interrupt.schemaVersion}` : ""}`
                 : "Not declared"}
             </KeyValue>
-            <KeyValue label="User">
+            <KeyValue help={studioHelp.identity} label="User">
               {interrupt.userId ?? "Not captured"}
             </KeyValue>
-            <KeyValue label="Tenant">
+            <KeyValue help={studioHelp.identity} label="Tenant">
               {interrupt.tenantId ?? "Not captured"}
             </KeyValue>
             <KeyValue label="Expires">
@@ -286,7 +288,7 @@ function Decision({ detail }: { detail: StudioInterruptDetailResponse }) {
             <KeyValue label="Resolver">
               {interrupt.resolvedBy ?? "Not captured"}
             </KeyValue>
-            <KeyValue label="Resume outcome">
+            <KeyValue help={studioHelp.interrupts} label="Resume outcome">
               {interrupt.resumeOutcome ?? "Not attempted"}
             </KeyValue>
           </dl>

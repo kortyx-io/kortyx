@@ -7,7 +7,9 @@ import type {
   TooltipRenderProps,
 } from "react-joyride";
 import { Button } from "@/components/ui/button";
+import { DocumentationLink } from "@/components/ui/documentation-link";
 import { Separator } from "@/components/ui/separator";
+import { studioHelp } from "@/lib/studio-help";
 
 /** Leave the base open and overlap the panel border by one pixel. */
 export function LearningArrow({ base, placement, size }: ArrowRenderProps) {
@@ -55,12 +57,14 @@ export function GuideTooltip({
   isLastStep,
   label,
   footer,
+  documentationUrl = studioHelp.learning.documentationUrl,
   onExit,
   onPrevious,
   skipLabel = "Skip",
 }: TooltipRenderProps & {
   label: string;
   footer?: ReactNode;
+  documentationUrl?: string;
   onExit(): void;
   onPrevious?: () => void;
   skipLabel?: string;
@@ -118,6 +122,9 @@ export function GuideTooltip({
         </span>
         {footer}
       </footer>
+      <div className="border-t p-2">
+        <DocumentationLink href={documentationUrl} variant="footer" />
+      </div>
     </div>
   );
 }

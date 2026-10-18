@@ -170,7 +170,7 @@ export function DocsSearch({ className }: DocsSearchProps) {
   const pathname = usePathname();
   const inputRef = useRef<HTMLInputElement | null>(null);
   const [shortcutModifierLabel, setShortcutModifierLabel] = useState("Ctrl");
-  const [searchAllProducts, setSearchAllProducts] = useState(false);
+  const [searchAllProducts, setSearchAllProducts] = useState(true);
   const product = pathname?.split("/")[2];
   const versionSegment = pathname?.split("/")[3];
   const currentEntry = entries?.find((entry) => entry.product === product);
@@ -224,7 +224,7 @@ export function DocsSearch({ className }: DocsSearchProps) {
     if (!pathname) return;
     setIsOpen(false);
     setQuery("");
-    setSearchAllProducts(false);
+    setSearchAllProducts(true);
   }, [pathname]);
 
   useEffect(() => {
@@ -284,7 +284,7 @@ export function DocsSearch({ className }: DocsSearchProps) {
             <div className="flex items-center justify-between gap-3 border-b border-border px-4 py-2 text-xs text-muted-foreground">
               <span>
                 {searchAllProducts
-                  ? "All products · Latest"
+                  ? "All documentation"
                   : `${currentEntry.productLabel} · ${selectedVersion ?? "Latest"}`}
               </span>
               <button
@@ -293,8 +293,8 @@ export function DocsSearch({ className }: DocsSearchProps) {
                 onClick={() => setSearchAllProducts((previous) => !previous)}
               >
                 {searchAllProducts
-                  ? "Search this product"
-                  : "Search all products"}
+                  ? "Search this area"
+                  : "Search all documentation"}
               </button>
             </div>
           )}
@@ -350,8 +350,8 @@ export function DocsSearch({ className }: DocsSearchProps) {
                     className="block rounded-xl px-3 py-3 outline-none transition-colors hover:bg-accent focus:bg-accent"
                     onClick={() => setIsOpen(false)}
                   >
-                    <div className="flex items-center gap-2">
-                      <span className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="min-w-0 basis-full truncate text-sm font-medium text-foreground sm:flex-1 sm:basis-auto">
                         {highlightMatches(result.title, query)}
                       </span>
                       <span className="shrink-0 text-xs text-muted-foreground">
@@ -359,7 +359,7 @@ export function DocsSearch({ className }: DocsSearchProps) {
                         {!result.isLatest ? ` · ${result.version}` : ""}
                       </span>
                       {result.section && (
-                        <span className="shrink-0 rounded-full bg-secondary px-2 py-0.5 text-xs font-medium text-secondary-foreground">
+                        <span className="max-w-full truncate rounded-full bg-secondary px-2 py-0.5 text-xs font-medium text-secondary-foreground">
                           {result.section}
                         </span>
                       )}

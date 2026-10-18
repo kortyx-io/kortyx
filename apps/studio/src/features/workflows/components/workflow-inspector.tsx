@@ -1,7 +1,8 @@
-import { ArrowLeft, CircleHelp, X } from "lucide-react";
+import { ArrowLeft, X } from "lucide-react";
 import { CostValue } from "@/components/cost-value";
 import Link from "@/components/scoped-link";
 import { Button } from "@/components/ui/button";
+import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Tooltip,
@@ -10,6 +11,7 @@ import {
 } from "@/components/ui/tooltip";
 import { averageCostDisplayValue } from "@/lib/cost";
 import { formatCount, formatDurationMs } from "@/lib/format";
+import { studioHelp } from "@/lib/studio-help";
 import { formatRate } from "../lib/format";
 import type { WorkflowSelection } from "../lib/view-state";
 import type { WorkflowSystem } from "../schema";
@@ -22,21 +24,22 @@ import { WorkflowTools } from "./workflow-tools";
 const metricDescriptions: Record<string, string> = {
   Source: "The workflow and node where this connection starts.",
   Target: "The workflow this connection enters.",
-  Condition: "The routing condition recorded for this connection.",
+  Condition: "The rule your app uses to choose this path.",
   "Observed calls": "Child-workflow calls recorded in the selected period.",
   Handoffs: "Workflow handoffs recorded in the selected period.",
   "Child success": "Share of child-workflow calls that completed successfully.",
   "Success after handoff":
     "Share of runs that completed successfully after this handoff.",
-  "Median call duration": "Median time spent in the child workflow (p50).",
-  "Median transition": "Median time measured for this transition (p50).",
+  "Median call duration":
+    "Half of these child-workflow calls finished in this time or less.",
+  "Median transition": "Half of these transitions took this time or less.",
   Provider:
-    "The provider and model used by this node. Internal means no external model provider was recorded.",
+    "The AI service and model used by this step. Internal means no outside AI service was recorded.",
   Runs: "Runs in the selected time range, environment, and version filters.",
   "Success / error":
     "Share of runs that completed successfully versus the share that failed.",
   "p50 / p95":
-    "Median duration versus the duration that 95% of runs finished within.",
+    "p50: half the runs finished in this time or less. p95: 95 out of 100 finished in this time or less.",
   "Retries / interrupts":
     "Number of runs that included a retry versus the share that paused for input.",
   "Cost / run": "Average recorded model cost per run.",
@@ -44,7 +47,7 @@ const metricDescriptions: Record<string, string> = {
   "Completion / error":
     "Share of runs that completed versus the share that failed.",
   "Tokens / run": "Average recorded model tokens per run.",
-  "Interrupt rate": "Share of runs that paused for human or external input.",
+  "Interrupt rate": "The percentage of runs that paused to wait for input.",
 };
 
 const runsHref = (params: Record<string, string | null | undefined>) => {
@@ -390,21 +393,12 @@ function MetricList({ items }: { items: [string, React.ReactNode][] }) {
             <dt className="flex min-w-0 items-center gap-1 text-muted-foreground">
               <span>{label}</span>
               {description ? (
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon-xs"
-                      aria-label={`Explain ${label}`}
-                    >
-                      <CircleHelp />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent className="max-w-72">
-                    {description}
-                  </TooltipContent>
-                </Tooltip>
+                <InfoTooltip
+                  label={`Explain ${label}`}
+                  documentationUrl={studioHelp.workflows.documentationUrl}
+                >
+                  {description}
+                </InfoTooltip>
               ) : null}
             </dt>
             <dd

@@ -186,3 +186,15 @@ continues to serve original errors independently.
 Keep direct EU capture for this slice. A later collector can accept the existing versioned record envelope, validate the catalog again, cap body/group/count sizes, rate-limit installations and total daily ingestion, deduplicate `event_id`, strip network metadata, and route approved releases to the intended PostHog project. Keep retention and operational logs bounded and avoid logging request bodies. Forward asynchronously with its own retry/deduplication policy.
 
 This moves abuse controls and global budgets to an owned boundary: a public PostHog capture key can be copied and spoofed, so client caps alone cannot protect ingestion or establish authenticity. Replace the transport or set `KORTYX_USAGE_TELEMETRY_ENDPOINT`; product instrumentation does not change. Endpoint deployment, global limits and project routing belong to that follow-up. Existing released SDK versions continue direct capture until upgraded, so migration must account for them.
+
+### Studio contextual help
+
+`studio.help` counts feature interactions using `help_action: open | documentation`
+and `help_placement: card | button`. Count closed-to-open card transitions once;
+count documentation navigation intent separately. Compare summed card-footer
+navigation counts with summed card-open counts to assess help use. Standalone
+button clicks are a separate population, and these aggregates do not establish
+unique users, successful page loads, or completed reading. Existing opt-out,
+budgets, aggregation and best-effort delivery apply. No help labels, descriptions,
+URLs, customer identifiers or execution content are collected. This measures
+maintainer product usage separately from customer execution observability.

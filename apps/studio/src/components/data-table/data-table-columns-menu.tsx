@@ -18,6 +18,7 @@ import {
 import { ArrowDown, ArrowUp, Columns3, GripVertical, Pin } from "lucide-react";
 import { useId, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { HelpCircle, type HelpDefinition } from "@/components/ui/info-tooltip";
 import { Input } from "@/components/ui/input";
 import {
   Popover,
@@ -29,9 +30,11 @@ import { useDataTable } from "./data-table-context";
 
 export function DataTableColumnsMenu({
   label = "Columns",
+  help,
   placeholder = "Find a column…",
 }: {
   label?: string;
+  help?: HelpDefinition;
   placeholder?: string;
 }) {
   const {
@@ -78,9 +81,12 @@ export function DataTableColumnsMenu({
         className="w-72 p-2"
         aria-labelledby={titleId}
       >
-        <h2 id={titleId} className="px-2 py-2 text-sm font-medium">
-          Visible columns
-        </h2>
+        <div className="flex items-center justify-between gap-2 px-2 py-2">
+          <h2 id={titleId} className="text-sm font-medium">
+            Visible columns
+          </h2>
+          {help && <HelpCircle help={help} />}
+        </div>
         <Input
           aria-label="Find a column"
           placeholder={placeholder}

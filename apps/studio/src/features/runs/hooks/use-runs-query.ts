@@ -129,12 +129,13 @@ export function useRunsQuery(initialRuns: Run[], defaults?: RunsQueryDefaults) {
     () => ({
       ...baseSearchParams,
       pageSize: parseAsInteger.withDefault(defaults?.pageSize ?? PAGE_SIZE),
-      sort: parseAsStringLiteral(sortKeys).withDefault(
-        defaults?.sort ?? "started",
-      ),
-      dir: parseAsStringLiteral(["asc", "desc"] as const).withDefault(
-        defaults?.dir ?? "desc",
-      ),
+      // Keep explicit sorting stable while browser preferences become new defaults.
+      sort: parseAsStringLiteral(sortKeys)
+        .withDefault(defaults?.sort ?? "started")
+        .withOptions({ clearOnDefault: false }),
+      dir: parseAsStringLiteral(["asc", "desc"] as const)
+        .withDefault(defaults?.dir ?? "desc")
+        .withOptions({ clearOnDefault: false }),
     }),
     [defaults?.dir, defaults?.pageSize, defaults?.sort],
   );

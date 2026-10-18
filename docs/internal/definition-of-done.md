@@ -92,6 +92,18 @@ verification. Record this assessment explicitly in the PR checklist.
   environments. Keep names and imports consistent with published exports.
 - Remove or correct obsolete instructions. State the supported scope of a
   partial feature so documentation does not promise future behavior.
+- Audit contextual help for affected Studio surfaces in OSS and Cloud: table
+  headers, metrics, statuses, filters, drawers, forms, settings, and empty/error
+  states, including existing symbol explanations. When understanding requires
+  explanation, include concise guidance, an arrow pointing to the trigger, and a
+  separate documentation footer; default to adding help when uncertain. Table
+  header titles and explained symbols own their help without extra question marks.
+  Other compact surfaces use help circles; align metric-card help to the right.
+  Use a documentation button only where there is enough space.
+  Keep essential prerequisites and recovery instructions visible. Verify hover,
+  keyboard, touch, and drawer interactions and link directly to an existing,
+  relevant page/anchor for the edition and supported version. Shared behavior
+  uses shared docs; differing setup/administration uses edition-specific docs.
 
 Evidence: links to affected guidance and applicable example/build verification.
 

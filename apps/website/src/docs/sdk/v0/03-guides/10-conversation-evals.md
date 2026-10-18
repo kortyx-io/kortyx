@@ -7,7 +7,7 @@ sidebar_label: "Conversation Evals"
 ---
 # Conversation evals in the consumer application
 
-New to eval setup? Follow [Run Your First Workflow Eval](../../../studio/v0/12-first-eval.md)
+New to eval setup? Follow [Run Your First Workflow Eval](/docs/studio/v0/first-eval)
 for a complete application-to-Studio recipe and deployment checks.
 
 `createEvals` runs scripted conversations against an existing `createAgent`
@@ -17,7 +17,7 @@ It executes real workflows, tools, and application logic.
 
 The SDK exposes serializable suites, a manifest, progress events, and results.
 Mount `createEvalRouteHandler` in the consumer app to let Studio execute suites
-and persist their observations and grades. See [Studio execution](../../../studio/v0/11-evals.md)
+and persist their observations and grades. See [Studio execution](/docs/studio/v0/evals)
 for the endpoint, database migration, and local Docker configuration.
 
 ## What an eval tests
@@ -502,7 +502,7 @@ and failed criteria with reasons/evidence. `--json` emits full SDK results for
 automation. All passes exit `0`, failures/errors exit `1`, cancellation exits `130`.
 Your existing setup, executor, responders, cleanup and code judge are reused.
 No Studio model or execution credentials are needed. See
-[CLI commands](../../../studio/v0/04-cli-commands.md) for filters, environment loading and
+[CLI commands](/docs/cli/v0/reference) for filters, environment loading and
 report options.
 
 When **Studio judge** is selected, the SDK bypasses the code judge, executes the
@@ -736,7 +736,7 @@ not provider-only latency.
 `evals.listSuites()` returns editable copies. `evals.describe()` returns schema
 version 1, suites, named handlers, optional parameter JSON Schema, and judge
 identity. Neither invokes setup. `createEvalRouteHandler` exposes this manifest
-and runs to the Studio control plane. See [Studio execution](../../../studio/v0/11-evals.md)
+and runs to the Studio control plane. See [Studio execution](/docs/studio/v0/evals)
 for authenticated transport, persistent runs, and local Docker setup. Saved-run comparisons are available in Studio. Prompt version pinning remains subsequent work.
 
 ## Optional typed case parameters

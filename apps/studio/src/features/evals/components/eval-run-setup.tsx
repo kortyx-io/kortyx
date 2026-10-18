@@ -1,4 +1,5 @@
 "use client";
+
 import { type EvalSettings, EvalSettingsSchema } from "@kortyx/agent/evals";
 import {
   type PromptDetail,
@@ -11,12 +12,14 @@ import { Play } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { DetailInspectorDrawer } from "@/components/detail/detail-inspector";
 import { Button } from "@/components/ui/button";
+import { HelpCircle } from "@/components/ui/info-tooltip";
 import { promptRequest } from "@/features/prompts/api/client";
 import {
   usePathname,
   useRouter,
   useSearchParams,
 } from "@/lib/scoped-navigation";
+import { studioHelp } from "@/lib/studio-help";
 import { evalRequest } from "../api/client";
 import { useEvalSetup } from "../hooks/use-eval-setup";
 import { evalNavigationHref } from "../lib/navigation";
@@ -273,7 +276,10 @@ export function EvalRunSetup({
     >
       <div className="min-h-0 flex-1 space-y-5 overflow-auto overscroll-contain p-5 [scrollbar-width:thin]">
         <div className="space-y-2">
-          <p className="text-xs font-medium">Application · Environment</p>
+          <div className="flex items-center gap-1">
+            <p className="text-xs font-medium">Application · Environment</p>
+            <HelpCircle help={studioHelp.evals} />
+          </div>
           <EvalDropdown
             label="Application"
             value={target?.id ?? ""}
@@ -304,7 +310,10 @@ export function EvalRunSetup({
         {target?.manifest?.promptContracts?.length ? (
           <div className="space-y-3 rounded-lg border p-3">
             <div className="space-y-1">
-              <p className="text-xs font-medium">Prompt versions</p>
+              <div className="flex items-center gap-1">
+                <p className="text-xs font-medium">Prompt versions</p>
+                <HelpCircle help={studioHelp.prompts} />
+              </div>
               <p className="text-[11px] text-muted-foreground">
                 Freeze live prompt versions for {target.name}, with optional
                 candidate overrides.
@@ -498,7 +507,10 @@ export function EvalRunSetup({
           )}
         </fieldset>
         <div className="space-y-2">
-          <p className="text-xs font-medium">Judge</p>
+          <div className="flex items-center gap-1">
+            <p className="text-xs font-medium">Judge</p>
+            <HelpCircle help={studioHelp.evalJudge} />
+          </div>
           <EvalDropdown
             label="Judge"
             value={judge ?? ""}

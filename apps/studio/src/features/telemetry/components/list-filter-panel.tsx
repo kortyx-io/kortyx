@@ -1,8 +1,10 @@
 import { Check, X } from "lucide-react";
 import type { ReactNode } from "react";
 import { Button } from "@/components/ui/button";
+import { HelpCircle } from "@/components/ui/info-tooltip";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { studioHelp } from "@/lib/studio-help";
 import { cn } from "@/lib/utils";
 
 type ListFilterPanelProps = {
@@ -34,6 +36,7 @@ export function ListFilterPanel({
       <div className="flex h-14 shrink-0 items-center justify-between border-b px-4">
         <div className="flex items-center gap-2">
           <h2 className="font-semibold">Filters</h2>
+          <HelpCircle help={studioHelp.filters} />
           {activeFilterCount > 0 && (
             <span className="rounded-full bg-foreground px-1.5 text-[10px] leading-4 text-background">
               {activeFilterCount}

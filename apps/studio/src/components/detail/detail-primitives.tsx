@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { HelpCircle, type HelpDefinition } from "@/components/ui/info-tooltip";
 import { OverflowText } from "@/components/ui/overflow-tooltip";
 import { cn } from "@/lib/utils";
 
@@ -9,6 +10,7 @@ export function DetailHeader({
   description,
   metrics,
   alert,
+  help,
 }: {
   eyebrow: string;
   title: string;
@@ -16,6 +18,7 @@ export function DetailHeader({
   description: ReactNode;
   metrics?: ReactNode;
   alert?: ReactNode;
+  help?: HelpDefinition;
 }) {
   return (
     <div className="@container shrink-0 border-b">
@@ -24,9 +27,12 @@ export function DetailHeader({
         className="min-w-0 px-4 py-3 @lg:px-6 @lg:py-4"
       >
         <div className="flex min-w-0 items-center justify-between gap-2">
-          <p className="text-[10px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
-            {eyebrow}
-          </p>
+          <div className="flex items-center gap-1">
+            <p className="text-[10px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
+              {eyebrow}
+            </p>
+            {help && <HelpCircle help={help} />}
+          </div>
           {status}
         </div>
         <div className="mt-1 flex min-w-0 items-center gap-2">
@@ -56,16 +62,21 @@ export function Metric({
   label,
   value,
   title,
+  help,
 }: {
   label: string;
   value: ReactNode;
   title?: string;
+  help?: HelpDefinition;
 }) {
   return (
     <div className="min-w-20 shrink-0 border-r px-3 py-1.5 last:border-r-0 @2xl:min-w-24">
-      <p className="text-[9px] uppercase tracking-wide text-muted-foreground">
-        {label}
-      </p>
+      <div className="flex items-center gap-1">
+        <p className="text-[9px] uppercase tracking-wide text-muted-foreground">
+          {label}
+        </p>
+        {help && <HelpCircle help={help} className="ml-auto shrink-0" />}
+      </div>
       <div
         className="min-w-0 truncate font-mono text-[11px] font-medium"
         title={title}
@@ -104,13 +115,18 @@ export function StatusPill({
 export function KeyValue({
   label,
   children,
+  help,
 }: {
   label: string;
   children: ReactNode;
+  help?: HelpDefinition;
 }) {
   return (
     <div className="grid min-w-0 gap-1 py-2 @xl:grid-cols-[minmax(90px,140px)_minmax(0,1fr)] @xl:gap-4">
-      <dt className="text-xs text-muted-foreground">{label}</dt>
+      <dt className="flex items-center gap-1 text-xs text-muted-foreground">
+        {label}
+        {help && <HelpCircle help={help} />}
+      </dt>
       <dd className="min-w-0 break-words text-xs">{children}</dd>
     </div>
   );

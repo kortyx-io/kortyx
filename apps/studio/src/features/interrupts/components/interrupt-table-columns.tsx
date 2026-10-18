@@ -34,6 +34,7 @@ import {
   formatDurationSeconds,
   formatRelativeTime,
 } from "@/lib/format";
+import { withStudioColumnHelp } from "@/lib/studio-help";
 import { studioDetailHref } from "@/lib/studio-routes";
 import { cn } from "@/lib/utils";
 
@@ -69,7 +70,7 @@ export function createInterruptColumns({
   now: number;
   onCopy: (value: string) => void;
 }): DataTableColumn<Interrupt, InterruptSortKey>[] {
-  return [
+  const columns: DataTableColumn<Interrupt, InterruptSortKey>[] = [
     {
       key: "status",
       filter: studioColumnFilters("interrupts", "status"),
@@ -303,4 +304,5 @@ export function createInterruptColumns({
       studioValueColumn<Interrupt, InterruptSortKey>("interrupts", key),
     ),
   ];
+  return withStudioColumnHelp(columns, "interrupts");
 }

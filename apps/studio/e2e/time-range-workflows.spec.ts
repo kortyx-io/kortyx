@@ -171,14 +171,16 @@ test.describe("Studio time ranges and workflow cohorts", () => {
       name: /^Interrupted node\./,
     });
     await nodeState.focus();
-    await expect(page.getByRole("tooltip")).toContainText("Interrupted node");
-    await expect(page.getByRole("tooltip")).toContainText(
-      "paused for input at this node",
-    );
+    const stateHelp = page.getByRole("dialog", {
+      name: "Interrupted node",
+      exact: true,
+    });
+    await expect(stateHelp).toBeVisible();
+    await expect(stateHelp).toContainText("paused for input at this node");
 
     await inspector.getByRole("button", { name: "Explain p50 / p95" }).focus();
     await expect(
-      page.getByRole("tooltip", { name: /Median duration/ }),
+      page.getByRole("dialog", { name: "Explain p50 / p95", exact: true }),
     ).toBeVisible();
   });
 
