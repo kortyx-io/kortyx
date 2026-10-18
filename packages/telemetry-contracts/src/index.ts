@@ -1,6 +1,9 @@
 import { z } from "zod";
 import { FeedbackSummarySchema, StudioScoreSchema } from "./scores";
+import { StudioTablePreferenceScopeSchema } from "./table-preferences";
 
+export * from "./diagnostics";
+export { SAMPLE_PROJECT } from "./sample-project";
 export * from "./scores";
 
 /** Studio read API compatibility changes only when the wire protocol breaks. */
@@ -36,6 +39,8 @@ export const TELEMETRY_EVENT_TYPES = [
   "tool.waiting",
   "tool.suspended",
   "response.completed",
+  "output.emitted",
+  "output.invalidated",
   "interrupt.created",
   "interrupt.resolved",
   "interrupt.expired",
@@ -546,6 +551,7 @@ export const StudioPricingStatusSchema = z.enum([
 export const StudioPricingSourceSchema =
   TelemetryPricingSourceSchema.nullable();
 export const StudioChangeResourceSchema = z.enum([
+  "evals",
   "workflows",
   "runs",
   "sessions",
@@ -558,9 +564,26 @@ export const StudioChangeSchema = z
     emittedAt: z.string().datetime({ offset: true }),
     organizationId: z.string().min(1),
     projectId: z.string().min(1),
+    environment: z.string().min(1).optional(),
     resources: z.array(StudioChangeResourceSchema).min(1),
   })
   .strict();
+/** Known subtotals stay separate by currency; completeness never implies conversion. */
+export const StudioCostSummarySchema = z
+  .object({
+    amounts: z.array(
+      z
+        .object({
+          amount: z.number().nonnegative(),
+          currency: z.string().nullable(),
+        })
+        .strip(),
+    ),
+    complete: z.boolean(),
+  })
+  .strip();
+export type StudioCostSummary = z.infer<typeof StudioCostSummarySchema>;
+
 export const StudioMetricSchema = z
   .object({
     runCount: z.number().int().nonnegative(),
@@ -572,6 +595,7 @@ export const StudioMetricSchema = z
     p95DurationMs: z.number().nonnegative().nullable(),
     averageTokens: z.number().nonnegative().nullable(),
     averageCost: z.number().nonnegative().nullable(),
+    averageCostSummary: StudioCostSummarySchema.optional(),
     currency: z.string().nullable(),
   })
   .strip();
@@ -610,6 +634,7 @@ export const StudioRunSchema = z
     durationMs: z.number().nonnegative().nullable(),
     tokens: z.number().int().nonnegative().nullable(),
     cost: z.number().nonnegative().nullable(),
+    costSummary: StudioCostSummarySchema.optional(),
     pricingStatus: StudioPricingStatusSchema,
     pricingSource: StudioPricingSourceSchema,
     currency: z.string().nullable(),
@@ -649,6 +674,7 @@ export const StudioSessionSchema = z
     durationMs: z.number().nonnegative().nullable(),
     tokens: z.number().int().nonnegative().nullable(),
     cost: z.number().nonnegative().nullable(),
+    costSummary: StudioCostSummarySchema.optional(),
     pricingStatus: StudioPricingStatusSchema,
     pricingSource: StudioPricingSourceSchema,
     currency: z.string().nullable(),
@@ -858,6 +884,8 @@ export const StudioCatalogsResponseSchema = z
   .strip();
 export const StudioContextResponseSchema = z
   .object({
+    tablePreferenceScope:
+      StudioTablePreferenceScopeSchema.nullable().optional(),
     organization: z
       .object({
         name: z.string().min(1),
@@ -874,7 +902,8 @@ export const StudioContextResponseSchema = z
         mode: z.enum(["test", "live"]),
         scopes: z.array(z.string()),
       })
-      .strip(),
+      .strip()
+      .nullable(),
     api: z
       .object({
         status: z.literal("ok"),
@@ -938,7 +967,11 @@ export type StudioCatalogsResponse = z.infer<
 >;
 export type StudioContextResponse = z.infer<typeof StudioContextResponseSchema>;
 
+export { captureDiagnosticContent } from "./diagnostic-capture";
+export * from "./prompts";
 export * from "./studio-updates";
+export * from "./table-filters";
+export * from "./table-preferences";
 export {
   projectWorkflowCalls,
   type StudioWorkflowCall,

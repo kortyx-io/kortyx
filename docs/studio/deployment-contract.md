@@ -61,6 +61,16 @@ restore the matching backup when rolling back across an incompatible schema.
 | `KORTYX_API_KEY_PEPPER` | Yes in production | Independent high-entropy HMAC key used to verify API-key secrets |
 | `API_HOST` | No | Listen address; container default is `0.0.0.0` |
 | `API_PORT` | No | Container port; default `6400` |
+| `KORTYX_API_EVAL_WORKER_ENABLED` | No | `true` by default; set `false` for web-only APIs with separately hosted workers |
+| `KORTYX_EVAL_MAX_CONCURRENT_EVALUATIONS` | No | Positive integer, default `4`; same database-wide group limit on every OSS worker |
+
+Worker retirement has an independent lifetime from HTTP shutdown. See
+[evaluation retirement](./evaluation-retirement.md) before enabling evals in a
+deployment that automatically replaces containers. The supplied Compose templates
+use `KORTYX_API_STOP_GRACE_PERIOD` (default `30s`) for HTTP teardown; this is not
+long-evaluation protection. Prepare draining before teardown or verify an adequate
+platform lifetime. A separate worker uses the API image command
+`node apps/api/dist/eval-worker.js` and does not require API-key credentials.
 
 ### Database bootstrap job only
 

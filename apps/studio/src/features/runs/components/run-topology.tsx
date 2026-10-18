@@ -18,16 +18,13 @@ import {
 } from "@xyflow/react";
 import { Workflow } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
+import { InfoTooltip } from "@/components/ui/info-tooltip";
 import {
   buildRunTopology,
   type RunTopologyWorkflow,
 } from "@/features/runs/lib/run-topology";
 import { formatDurationMs } from "@/lib/format";
+import { studioHelp } from "@/lib/studio-help";
 import { cn } from "@/lib/utils";
 
 const WIDTH = 294;
@@ -190,10 +187,11 @@ function WorkflowCard({
             <div
               key={node.id}
               className="relative flex min-w-0 items-center gap-2 rounded-md px-2 py-2 text-xs hover:bg-muted/40"
-              title={`${node.id} · ${node.status}${node.attempts > 1 ? ` · ${node.attempts} attempts` : ""}`}
             >
-              <Tooltip>
-                <TooltipTrigger asChild>
+              <InfoTooltip
+                label={`${node.status} node`}
+                documentationUrl={studioHelp.workflowNodes.documentationUrl}
+                trigger={
                   <button
                     type="button"
                     aria-label={`${node.id}: ${node.status}`}
@@ -213,9 +211,15 @@ function WorkflowCard({
                       )}
                     />
                   </button>
-                </TooltipTrigger>
-                <TooltipContent>{node.status} node</TooltipContent>
-              </Tooltip>
+                }
+              >
+                This node is {node.status} in this run.{" "}
+                {node.attempts > 1
+                  ? `${node.attempts} attempts were recorded. `
+                  : ""}
+                Inspect the trace for the sequence of execution, pauses, and
+                retries.
+              </InfoTooltip>
               <span className="min-w-0 flex-1 truncate font-mono">
                 {node.id}
               </span>

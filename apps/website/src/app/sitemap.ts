@@ -2,6 +2,11 @@ import type { MetadataRoute } from "next";
 import { generateDocsStaticParams, resolveDocsRoute } from "@/lib/docs";
 import { getDocLastUpdatedMeta } from "@/lib/docs/last-updated";
 import { siteConfig } from "@/lib/site";
+import {
+  getTrustPage,
+  legalPublicationReady,
+  trustPageSlugs,
+} from "@/lib/trust";
 
 type SitemapEntry = MetadataRoute.Sitemap[number];
 
@@ -35,7 +40,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     priority: 1,
   });
 
-  for (const pathname of ["/product", "/examples", "/open-source"]) {
+  for (const pathname of ["/product", "/examples", "/open-source", "/docs"]) {
     entries.set(pathname, {
       url: toAbsoluteUrl(pathname),
       changeFrequency: "weekly",
@@ -44,6 +49,16 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   }
 
   const docsParams = await generateDocsStaticParams();
+
+  for (const slug of trustPageSlugs) {
+    // Draft notices are deliberately noindex and excluded until reviewed.
+    if (getTrustPage(slug).isLegal && !legalPublicationReady) continue;
+    entries.set(`/${slug}`, {
+      url: toAbsoluteUrl(`/${slug}`),
+      changeFrequency: "monthly",
+      priority: 0.5,
+    });
+  }
 
   await Promise.all(
     docsParams.map(async ({ slug }) => {
@@ -61,19 +76,19 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
           ? toValidDate(
               (
                 await getDocLastUpdatedMeta(
-                  `${resolved.doc.version}/${resolved.doc.relativeFile}`,
+                  `${resolved.doc.product}/${resolved.doc.version}/${resolved.doc.relativeFile}`,
                 )
               ).updatedAt,
             )
           : getLatestDate(
               await Promise.all(
                 resolved.versionDocs.docs
-                  .filter((doc) => doc.slugSegments[0] === resolved.sectionSlug)
+                  .filter((doc) => doc.sectionSlug === resolved.sectionSlug)
                   .map(async (doc) =>
                     toValidDate(
                       (
                         await getDocLastUpdatedMeta(
-                          `${doc.version}/${doc.relativeFile}`,
+                          `${doc.product}/${doc.version}/${doc.relativeFile}`,
                         )
                       ).updatedAt,
                     ),

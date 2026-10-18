@@ -1,25 +1,27 @@
 import type { Metadata } from "next";
 import { notFound, permanentRedirect } from "next/navigation";
+import { DocsAnchorRedirects } from "@/components/docs/docs-anchor-redirects";
 import { DocsArticleNavigation } from "@/components/docs/docs-article-navigation";
 import { DocsBreadcrumbs } from "@/components/docs/docs-breadcrumbs";
 import { DocsMarkdownContent } from "@/components/docs/docs-markdown-content";
 import { DocsMobileSidebar } from "@/components/docs/docs-mobile-sidebar";
 import { DocsPageActions } from "@/components/docs/docs-page-actions";
+import { DocsProductIndex } from "@/components/docs/docs-product-index";
 import { DocsRightRail } from "@/components/docs/docs-right-rail";
 import { DocsSectionGrid } from "@/components/docs/docs-section-grid";
 import { DocsSidebar } from "@/components/docs/docs-sidebar";
+import { DocsTrustFooter } from "@/components/docs/docs-trust-footer";
 import {
   buildDocHref,
   type DocRecord,
   generateDocsStaticParams,
   getDocByVersionAndSlug,
-  getDocsVersions,
-  getLatestDocsVersion,
   getVersionSidebar,
   resolveDocsRoute,
 } from "@/lib/docs";
-import { getLatestDocsVersionDisplay } from "@/lib/docs/config";
+import { docsConfig, getLatestDocsVersionDisplay } from "@/lib/docs/config";
 import { getDocLastUpdatedMeta } from "@/lib/docs/last-updated";
+import { docsAnchorMoves } from "@/lib/docs/migrations";
 import { siteConfig } from "@/lib/site";
 import { extractToc } from "@/lib/utils/extract-toc";
 
@@ -74,7 +76,7 @@ function toIsoDate(value: string | null): string | undefined {
 }
 
 function getSectionDocs(docs: DocRecord[], sectionSlug: string): DocRecord[] {
-  return docs.filter((entry) => entry.slugSegments[0] === sectionSlug);
+  return docs.filter((entry) => entry.sectionSlug === sectionSlug);
 }
 
 function getSectionDescription(
@@ -90,6 +92,11 @@ function getSectionDescription(
     return `Browse Kortyx documentation for ${sectionTitle}.`;
   }
 
+  while (docTitles.length > 1) {
+    const description = `Learn ${sectionTitle} in Kortyx, including ${docTitles.join(", ")}.`;
+    if (description.length <= 160) return description;
+    docTitles.pop();
+  }
   return `Learn ${sectionTitle} in Kortyx, including ${docTitles.join(", ")}.`;
 }
 
@@ -186,7 +193,7 @@ function buildDocsJsonLd(args: {
           url,
           name: args.title,
           description: args.description,
-          primaryImageOfPage: imageUrl,
+          primaryImageOfPage: { "@type": "ImageObject", url: imageUrl },
           isPartOf: { "@id": websiteId },
           about: { "@id": softwareId },
           breadcrumb: { "@id": breadcrumbId },
@@ -251,6 +258,37 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const routeParams = await params;
   const slug = routeParams.slug ?? [];
+  if (slug.length === 0) {
+    return {
+      title: { absolute: "Documentation | Kortyx" },
+      description:
+        "Build agents with the SDK, inspect runs in Studio, manage Cloud, host your own installation, and work from the terminal with the Kortyx CLI.",
+      alternates: { canonical: "/docs" },
+      keywords: [
+        ...docsMetadataKeywords,
+        "Kortyx Cloud",
+        "self-hosting",
+        "Kortyx CLI",
+      ],
+      twitter: {
+        card: "summary_large_image",
+        title: "Kortyx Documentation",
+        description:
+          "Build agents with the SDK, inspect runs in Studio, manage Cloud, host your own installation, and work from the terminal with the Kortyx CLI.",
+        images: [getSocialImage("/docs").url],
+      },
+      openGraph: {
+        title: "Kortyx Documentation",
+        type: "website",
+        siteName: siteConfig.name,
+        locale: siteConfig.locale,
+        description:
+          "Build agents with the SDK, inspect runs in Studio, manage Cloud, host your own installation, and work from the terminal with the Kortyx CLI.",
+        url: absoluteUrl("/docs"),
+        images: [getSocialImage("/docs")],
+      },
+    };
+  }
   const resolved = await resolveDocsRoute(slug);
 
   if (!resolved) {
@@ -269,8 +307,9 @@ export async function generateMetadata({
       resolved.versionDocs.docs,
       resolved.sectionSlug,
     );
-    const sectionDescription = getSectionDescription(sectionTitle, sectionDocs);
-    const title = `${sectionTitle} | Kortyx Docs`;
+    const sectionDescription =
+      section?.description ?? getSectionDescription(sectionTitle, sectionDocs);
+    const title = `${sectionTitle} | ${resolved.product.label} Docs`;
     const url = absoluteUrl(resolved.canonicalPath);
     const socialImage = getSocialImage(resolved.canonicalPath);
     const keywords = uniqueStrings([
@@ -324,15 +363,15 @@ export async function generateMetadata({
     };
   }
 
-  const title = `${resolved.doc.frontmatter.title} | Kortyx Docs`;
+  const title = `${resolved.doc.frontmatter.title} | ${resolved.product.label} Docs`;
   const url = absoluteUrl(resolved.canonicalPath);
   const socialImage = getSocialImage(resolved.canonicalPath);
   const sectionTitle =
     resolved.versionDocs.sections.find(
-      (entry) => entry.slug === resolved.doc.slugSegments[0],
+      (entry) => entry.slug === resolved.doc.sectionSlug,
     )?.label ?? "Kortyx Docs";
   const lastUpdatedMeta = await getDocLastUpdatedMeta(
-    `${resolved.doc.version}/${resolved.doc.relativeFile}`,
+    `${resolved.doc.product}/${resolved.doc.version}/${resolved.doc.relativeFile}`,
   );
   const modifiedTime = toIsoDate(lastUpdatedMeta.updatedAt);
   const keywords = uniqueStrings([
@@ -398,19 +437,60 @@ export default async function DocsPage({
 }) {
   const routeParams = await params;
   const slug = routeParams.slug ?? [];
+  if (slug.length === 0) {
+    const indexSchema = buildDocsJsonLd({
+      breadcrumbs: [{ label: "Docs", href: "/docs" }],
+      canonicalPath: "/docs",
+      title: "Kortyx documentation",
+      description:
+        "Build agents, inspect runs, manage Cloud, host Studio, and use the CLI.",
+      sectionTitle: null,
+      keywords: docsMetadataKeywords,
+      doc: null,
+      sectionItems: docsConfig.products.map((area) => ({
+        href: buildDocHref(area.id, area.latestVersion, [area.overview]),
+        title: area.label,
+        description: area.description,
+      })),
+      modifiedTime: undefined,
+      editOnGithubHref: null,
+      imagePath: "/opengraph-image",
+    });
+    return (
+      <>
+        <script
+          type="application/ld+json"
+          // biome-ignore lint/security/noDangerouslySetInnerHtml: Static JSON-LD escapes HTML delimiters.
+          dangerouslySetInnerHTML={{ __html: stringifyJsonLd(indexSchema) }}
+        />
+        <DocsProductIndex />
+      </>
+    );
+  }
   const resolved = await resolveDocsRoute(slug);
 
   if (!resolved) notFound();
   if (resolved.redirectTo) permanentRedirect(resolved.redirectTo);
 
-  const versions = await getDocsVersions();
-  const latestVersion = await getLatestDocsVersion();
-  const latestVersionDisplay = await getLatestDocsVersionDisplay();
-  const sidebar = await getVersionSidebar(resolved.requestedVersion);
+  const { product } = resolved;
+  const versions = product.versioning === "service" ? [] : product.versions;
+  const latestVersion = product.latestVersion;
+  const latestVersionDisplay = await getLatestDocsVersionDisplay(product.id);
+  const productTargets = docsConfig.products.map((entry) => ({
+    product: entry.id,
+    label: entry.label,
+    description: entry.description,
+    icon: entry.icon,
+    href: buildDocHref(entry.id, entry.latestVersion, [entry.overview]),
+  }));
+  const sidebar = await getVersionSidebar(
+    product.id,
+    resolved.requestedVersion,
+  );
   const isDocRoute = resolved.routeKind === "doc";
   const currentDoc = resolved.routeKind === "doc" ? resolved.doc : null;
   const currentSectionSlug = isDocRoute
-    ? (currentDoc?.slugSegments[0] ?? null)
+    ? (currentDoc?.sectionSlug ?? null)
     : resolved.sectionSlug;
   const currentSection = currentSectionSlug
     ? sidebar.find((section) => section.slug === currentSectionSlug)
@@ -431,16 +511,28 @@ export default async function DocsPage({
 
   const currentDocHref =
     isDocRoute && currentDoc
-      ? buildDocHref(resolved.requestedVersion, currentDoc.slugSegments)
+      ? buildDocHref(
+          product.id,
+          resolved.requestedVersion,
+          currentDoc.slugSegments,
+        )
       : null;
   const markdownHref = isDocRoute ? `${resolved.canonicalPath}.md` : null;
+  const isAreaOverview = currentDoc?.slug === product.overview;
   const hasDistinctDocBreadcrumb =
+    !isAreaOverview &&
     Boolean(isDocRoute && currentDoc && currentDocHref) &&
     currentDocHref !== currentSection?.href;
 
   const breadcrumbs = [
-    { label: "Docs", href: buildDocHref(resolved.requestedVersion, []) },
-    ...(currentSection
+    { label: "Docs", href: "/docs" },
+    {
+      label: product.label,
+      href: buildDocHref(product.id, resolved.requestedVersion, [
+        product.overview,
+      ]),
+    },
+    ...(currentSection && !isAreaOverview
       ? [
           {
             label: currentSection.label,
@@ -463,7 +555,7 @@ export default async function DocsPage({
     "https://github.com/kortyx-io/kortyx/blob/main";
   const docsSourcePath =
     isDocRoute && currentDoc
-      ? `apps/website/src/docs/${currentDoc.version}/${currentDoc.relativeFile}`
+      ? `apps/website/src/docs/${currentDoc.product}/${currentDoc.version}/${currentDoc.relativeFile}`
       : null;
   const editOnGithubHref =
     docsEditBaseUrl && docsSourcePath
@@ -473,13 +565,15 @@ export default async function DocsPage({
   const versionTargets = await Promise.all(
     versions.map(async (version) => {
       if (!isDocRoute || !currentDoc || !currentSectionSlug) {
-        const versionSidebar = await getVersionSidebar(version);
+        const versionSidebar = await getVersionSidebar(product.id, version);
         const sameSection = versionSidebar.find(
           (section) => section.slug === currentSectionSlug,
         );
         return {
           version,
-          href: sameSection ? sameSection.href : buildDocHref(version, []),
+          href: sameSection
+            ? sameSection.href
+            : buildDocHref(product.id, version, []),
           isLatest: version === latestVersion,
           label:
             version === latestVersion
@@ -490,12 +584,16 @@ export default async function DocsPage({
         };
       }
 
-      const sameDoc = await getDocByVersionAndSlug(version, currentDoc.slug);
+      const sameDoc = await getDocByVersionAndSlug(
+        product.id,
+        version,
+        currentDoc.slug,
+      );
       return {
         version,
         href: sameDoc
-          ? buildDocHref(version, currentDoc.slugSegments)
-          : buildDocHref(version, []),
+          ? buildDocHref(product.id, version, currentDoc.slugSegments)
+          : buildDocHref(product.id, version, []),
         isLatest: version === latestVersion,
         label:
           version === latestVersion
@@ -511,13 +609,13 @@ export default async function DocsPage({
   const lastUpdatedMeta =
     isDocRoute && currentDoc
       ? await getDocLastUpdatedMeta(
-          `${currentDoc.version}/${currentDoc.relativeFile}`,
+          `${currentDoc.product}/${currentDoc.version}/${currentDoc.relativeFile}`,
         )
       : null;
   const pageTitle =
     isDocRoute && currentDoc
-      ? `${currentDoc.frontmatter.title} | Kortyx Docs`
-      : `${currentSection?.label ?? "Section"} | Kortyx Docs`;
+      ? `${currentDoc.frontmatter.title} | ${product.label} Docs`
+      : `${currentSection?.label ?? "Section"} | ${product.label} Docs`;
   const sectionDocs =
     !isDocRoute && currentSectionSlug
       ? getSectionDocs(resolved.versionDocs.docs, currentSectionSlug)
@@ -525,7 +623,8 @@ export default async function DocsPage({
   const pageDescription =
     isDocRoute && currentDoc
       ? currentDoc.frontmatter.description
-      : getSectionDescription(currentSection?.label ?? "Section", sectionDocs);
+      : (currentSection?.description ??
+        getSectionDescription(currentSection?.label ?? "Section", sectionDocs));
   const sectionTitle = currentSection?.label ?? null;
   const pageKeywords = uniqueStrings([
     ...docsMetadataKeywords,
@@ -570,9 +669,11 @@ export default async function DocsPage({
           currentDocSlug={currentDoc?.slug ?? null}
           versionTargets={versionTargets}
           selectedVersion={resolved.requestedVersion}
+          selectedProduct={product.id}
+          productTargets={productTargets}
         />
 
-        <main className="min-w-0 py-8">
+        <main id="main-content" tabIndex={-1} className="min-w-0 py-8">
           <div className="mb-8 flex max-w-3xl flex-wrap items-center justify-between gap-3 border-b border-border pb-4">
             <div className="flex items-center gap-3">
               <DocsMobileSidebar
@@ -581,6 +682,8 @@ export default async function DocsPage({
                 currentDocSlug={currentDoc?.slug ?? null}
                 versionTargets={versionTargets}
                 selectedVersion={resolved.requestedVersion}
+                selectedProduct={product.id}
+                productTargets={productTargets}
               />
               <DocsBreadcrumbs items={breadcrumbs} />
             </div>
@@ -595,6 +698,11 @@ export default async function DocsPage({
           {isDocRoute && currentDoc ? (
             <>
               <article className="max-w-3xl space-y-5 pb-20">
+                {docsAnchorMoves[resolved.canonicalPath] ? (
+                  <DocsAnchorRedirects
+                    redirects={docsAnchorMoves[resolved.canonicalPath] ?? {}}
+                  />
+                ) : null}
                 <DocsMarkdownContent
                   content={currentDoc.content}
                   version={resolved.requestedVersion}
@@ -613,6 +721,7 @@ export default async function DocsPage({
           ) : (
             <DocsSectionGrid
               title={currentSection?.label ?? "Section"}
+              description={currentSection?.description}
               items={sectionItems}
             />
           )}
@@ -626,6 +735,7 @@ export default async function DocsPage({
           />
         ) : null}
       </div>
+      <DocsTrustFooter />
     </div>
   );
 }

@@ -1,5 +1,177 @@
 # Changelog
 
+## [0.17.0](https://github.com/kortyx-io/kortyx/compare/telemetry-v0.16.1...telemetry-v0.17.0) (2026-10-16)
+
+
+### Features
+
+* **telemetry:** improve failure classification and add CLI usage ([#355](https://github.com/kortyx-io/kortyx/issues/355)) ([c5fbbed](https://github.com/kortyx-io/kortyx/commit/c5fbbed3064ea7b2b3020617db7ce09d1b175db3))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/hooks bumped to 0.35.0
+    * @kortyx/telemetry-contracts bumped to 0.18.0
+    * @kortyx/core bumped to 0.15.0
+    * @kortyx/usage-telemetry bumped to 0.4.0
+
+## [0.16.1](https://github.com/kortyx-io/kortyx/compare/telemetry-v0.16.0...telemetry-v0.16.1) (2026-10-14)
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/hooks bumped to 0.34.3
+
+## [0.16.0](https://github.com/kortyx-io/kortyx/compare/telemetry-v0.15.1...telemetry-v0.16.0) (2026-10-13)
+
+
+### Features
+
+* **studio:** enable OSS capabilities by default ([#336](https://github.com/kortyx-io/kortyx/issues/336)) ([7e55ba5](https://github.com/kortyx-io/kortyx/commit/7e55ba55c5a5a488b4284ae79b57b23ca6b6b494))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/hooks bumped to 0.34.2
+    * @kortyx/telemetry-contracts bumped to 0.17.2
+    * @kortyx/core bumped to 0.14.0
+    * @kortyx/usage-telemetry bumped to 0.3.0
+
+## [0.15.1](https://github.com/kortyx-io/kortyx/compare/telemetry-v0.15.0...telemetry-v0.15.1) (2026-10-13)
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/hooks bumped to 0.34.1
+    * @kortyx/telemetry-contracts bumped to 0.17.1
+
+## [0.15.0](https://github.com/kortyx-io/kortyx/compare/telemetry-v0.14.0...telemetry-v0.15.0) (2026-10-11)
+
+
+### Features
+
+* add shared SDK and Studio usage telemetry ([#313](https://github.com/kortyx-io/kortyx/issues/313)) ([7d5f0c0](https://github.com/kortyx-io/kortyx/commit/7d5f0c005bd7721dc6a529554e75c14573d76a0f))
+
+
+### Bug Fixes
+
+* **website:** reconcile credibility branch with current main ([60199f9](https://github.com/kortyx-io/kortyx/commit/60199f992242eb7c409a95bc7a6898d31bac601d))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/hooks bumped to 0.34.0
+    * @kortyx/telemetry-contracts bumped to 0.17.0
+    * @kortyx/core bumped to 0.13.1
+    * @kortyx/usage-telemetry bumped to 0.2.0
+
+## [0.14.0](https://github.com/kortyx-io/kortyx/compare/telemetry-v0.13.0...telemetry-v0.14.0) (2026-10-10)
+
+
+### Features
+
+* version, evaluate, serve and migrate Studio prompts ([#288](https://github.com/kortyx-io/kortyx/issues/288)) ([0802f8b](https://github.com/kortyx-io/kortyx/commit/0802f8b91c4a541d176dd8a75c659063e2c28c8c))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/hooks bumped to 0.33.0
+    * @kortyx/telemetry-contracts bumped to 0.16.0
+
+## [0.13.0](https://github.com/kortyx-io/kortyx/compare/telemetry-v0.12.1...telemetry-v0.13.0) (2026-10-09)
+
+
+### Features
+
+* **evals:** share concurrency and attribute multi-session costs ([#304](https://github.com/kortyx-io/kortyx/issues/304)) ([dd5e242](https://github.com/kortyx-io/kortyx/commit/dd5e242ae08affbb015201bb57c4714709756cf2))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/hooks bumped to 0.32.1
+    * @kortyx/core bumped to 0.13.0
+
+## [0.12.1](https://github.com/kortyx-io/kortyx/compare/telemetry-v0.12.0...telemetry-v0.12.1) (2026-10-08)
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/hooks bumped to 0.32.0
+
+## [0.12.0](https://github.com/kortyx-io/kortyx/compare/telemetry-v0.11.2...telemetry-v0.12.0) (2026-10-08)
+
+
+### Features
+
+* **telemetry:** preserve complete private error diagnostics ([#290](https://github.com/kortyx-io/kortyx/issues/290)) ([e1c5a88](https://github.com/kortyx-io/kortyx/commit/e1c5a88c494016fd84a1af40579412fcfde31271))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/hooks bumped to 0.31.0
+    * @kortyx/telemetry-contracts bumped to 0.15.0
+    * @kortyx/core bumped to 0.12.0
+
+## [0.11.2](https://github.com/kortyx-io/kortyx/compare/telemetry-v0.11.1...telemetry-v0.11.2) (2026-10-07)
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/hooks bumped to 0.30.2
+    * @kortyx/telemetry-contracts bumped to 0.14.0
+
+## [0.11.1](https://github.com/kortyx-io/kortyx/compare/telemetry-v0.11.0...telemetry-v0.11.1) (2026-10-03)
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/hooks bumped to 0.30.1
+    * @kortyx/telemetry-contracts bumped to 0.13.0
+
+## [0.11.0](https://github.com/kortyx-io/kortyx/compare/telemetry-v0.10.1...telemetry-v0.11.0) (2026-09-30)
+
+
+### Features
+
+* **hooks:** add realtime model-selected output contracts ([#249](https://github.com/kortyx-io/kortyx/issues/249)) ([ac52b47](https://github.com/kortyx-io/kortyx/commit/ac52b47151b64ce5be6ce6c7fd42d34a0fa8a76d))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/hooks bumped to 0.30.0
+    * @kortyx/telemetry-contracts bumped to 0.12.0
+
+## [0.10.1](https://github.com/kortyx-io/kortyx/compare/telemetry-v0.10.0...telemetry-v0.10.1) (2026-09-29)
+
+
+### Bug Fixes
+
+* **telemetry:** price OpenRouter BYOK upstream usage ([#247](https://github.com/kortyx-io/kortyx/issues/247)) ([27e7f25](https://github.com/kortyx-io/kortyx/commit/27e7f25cb7a5d7e69859adbcdef6bb65d1107ef8))
+
 ## [0.10.0](https://github.com/kortyx-io/kortyx/compare/telemetry-v0.9.0...telemetry-v0.10.0) (2026-09-25)
 
 

@@ -1,6 +1,6 @@
 {
   "name": "@kortyx/stream",
-  "version": "0.14.0",
+  "version": "0.15.6",
   "private": false,
   "description": "Streaming primitives for Kortyx.",
   "keywords": [
@@ -50,7 +50,6 @@
     "@kortyx/core": "workspace:*"
   },
   "devDependencies": {
-    "concurrently": "^9.2.0",
     "turbo": "catalog:",
     "typescript": "catalog:",
     "tsup": "catalog:",

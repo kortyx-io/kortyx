@@ -43,23 +43,50 @@ const VIEW_MODES: Array<{
   { id: "text", label: "Text", icon: AlignLeft },
 ];
 
+export type PayloadPresentation = {
+  mode: ViewMode;
+  clean: boolean;
+  wrap: boolean;
+};
 export function PayloadViewer({
   value,
   defaultMode = "pretty",
   defaultClean = true,
   expandAll = false,
   className,
+  presentation,
+  onPresentationChange,
+  stringPreviewLength,
 }: {
+  presentation?: PayloadPresentation;
+  onPresentationChange?: (patch: Partial<PayloadPresentation>) => void;
   value: unknown;
   defaultMode?: ViewMode;
   defaultClean?: boolean;
   expandAll?: boolean;
+  /** Bound strings in Pretty only; JSON, other representations, and copy stay complete. */
+  stringPreviewLength?: number;
   className?: string;
 }) {
-  const [mode, setMode] = useState<ViewMode>(defaultMode);
-  const [clean, setClean] = useState(defaultClean);
-  const [wrap, setWrap] = useState(true);
+  const [localMode, setMode] = useState<ViewMode>(defaultMode);
+  const [localClean, setClean] = useState(defaultClean);
+  const [localWrap, setWrap] = useState(true);
   const [copyStatus, setCopyStatus] = useState<CopyStatus>("idle");
+  const { mode, clean, wrap } = presentation ?? {
+    mode: localMode,
+    clean: localClean,
+    wrap: localWrap,
+  };
+  const changeMode = (mode: ViewMode) =>
+    onPresentationChange ? onPresentationChange({ mode }) : setMode(mode);
+  const changeClean = () =>
+    onPresentationChange
+      ? onPresentationChange({ clean: !clean })
+      : setClean((current) => !current);
+  const changeWrap = () =>
+    onPresentationChange
+      ? onPresentationChange({ wrap: !wrap })
+      : setWrap((current) => !current);
   const activeMode =
     VIEW_MODES.find((item) => item.id === mode) ?? VIEW_MODES[0];
   const ActiveModeIcon = activeMode.icon;
@@ -67,7 +94,7 @@ export function PayloadViewer({
   const cleaned = useMemo(() => cleanPayload(parsedValue), [parsedValue]);
   const displayedValue = clean ? cleaned.value : parsedValue;
   const expandLevel = useMemo(
-    () => (expandAll ? inspectorDepth(displayedValue) : 1),
+    () => (expandAll ? inspectorDepth(displayedValue) : 3),
     [displayedValue, expandAll],
   );
   const serialized = useMemo(
@@ -122,14 +149,14 @@ export function PayloadViewer({
           <DropdownMenuTrigger asChild>
             <Button
               type="button"
-              variant="ghost"
+              variant="secondary"
               size="xs"
               aria-label={`Payload representation: ${activeMode.label}`}
-              className="min-w-24 max-w-full justify-start bg-background text-foreground shadow-xs hover:bg-background"
+              className="min-w-24 max-w-full justify-start"
             >
               <ActiveModeIcon />
               {activeMode.label}
-              <ChevronDown className="ml-auto text-muted-foreground" />
+              <ChevronDown className="text-muted-foreground" />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="start" className="min-w-40">
@@ -139,7 +166,7 @@ export function PayloadViewer({
             <DropdownMenuRadioGroup
               value={mode}
               onValueChange={(value) => {
-                if (isViewMode(value)) setMode(value);
+                if (isViewMode(value)) changeMode(value);
               }}
             >
               {VIEW_MODES.map((item) => {
@@ -165,8 +192,7 @@ export function PayloadViewer({
             }
             aria-pressed={clean}
             title={clean ? "Show raw payload" : "Hide empty payload values"}
-            onClick={() => setClean((current) => !current)}
-            className={cn(clean && "bg-background shadow-xs")}
+            onClick={changeClean}
           >
             <Sparkles />
             {clean ? "Clean" : "Raw"}
@@ -183,8 +209,7 @@ export function PayloadViewer({
             aria-label={wrap ? "Disable text wrapping" : "Enable text wrapping"}
             aria-pressed={wrap}
             title={wrap ? "Disable text wrapping" : "Enable text wrapping"}
-            onClick={() => setWrap((current) => !current)}
-            className={cn(wrap && "bg-background shadow-xs")}
+            onClick={changeWrap}
           >
             <TextWrap />
           </Button>
@@ -230,7 +255,7 @@ export function PayloadViewer({
         {mode === "pretty" && (
           <div
             className={cn(
-              "min-w-max p-3 [&_*]:max-w-full",
+              "min-w-max whitespace-pre p-3 [&_*]:max-w-full",
               wrap &&
                 "min-w-0 whitespace-pre-wrap break-words [overflow-wrap:anywhere]",
               displayedValue !== null &&
@@ -265,7 +290,13 @@ export function PayloadViewer({
                 ) : (
                   <ObjectLabel
                     name={name}
-                    data={data}
+                    data={
+                      stringPreviewLength !== undefined &&
+                      typeof data === "string" &&
+                      data.length > stringPreviewLength
+                        ? `${data.slice(0, stringPreviewLength)}… (${data.length.toLocaleString("en-US")} characters; view JSON for the full value)`
+                        : data
+                    }
                     isNonenumerable={isNonenumerable}
                   />
                 )
@@ -287,7 +318,8 @@ export function PayloadViewer({
           <div
             className={cn(
               "min-w-max p-4",
-              wrap && "min-w-0 [overflow-wrap:anywhere]",
+              wrap &&
+                "min-w-0 [overflow-wrap:anywhere] [&_pre]:whitespace-pre-wrap",
             )}
           >
             <ReactMarkdown
@@ -500,13 +532,16 @@ const markdownComponents: Components = {
     <h3 className="mt-3 mb-1.5 text-sm font-semibold" {...props} />
   ),
   p: ({ node: _node, ...props }) => (
-    <p className="my-2 text-xs leading-6" {...props} />
+    <p className="my-2 whitespace-pre-wrap text-xs leading-6" {...props} />
   ),
   ul: ({ node: _node, ...props }) => (
     <ul className="my-2 list-disc space-y-1 pl-5 text-xs" {...props} />
   ),
   ol: ({ node: _node, ...props }) => (
     <ol className="my-2 list-decimal space-y-1 pl-5 text-xs" {...props} />
+  ),
+  li: ({ node: _node, ...props }) => (
+    <li className="whitespace-pre-wrap" {...props} />
   ),
   blockquote: ({ node: _node, ...props }) => (
     <blockquote

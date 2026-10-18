@@ -10,6 +10,45 @@ import {
 const START = "2026-07-21T00:00:00.000Z";
 
 describe("buildEventStory", () => {
+  it("labels output contracts as outputs rather than executed tools", () => {
+    const event = detailEvent("card", "output.emitted", 250, {
+      contract: "accountCard",
+      kind: "emit",
+      schemaId: "acme.account-card",
+      schemaVersion: "1",
+    });
+    expect(buildEventStory([event], START)[0]).toMatchObject({
+      category: "output",
+      title: "Emitted accountCard",
+    });
+    expect(buildTraceStory([event])).toEqual([
+      expect.objectContaining({
+        kind: "event",
+        label: "Emitted accountCard",
+      }),
+    ]);
+  });
+
+  it("shows discarded provisional contract output separately from tool failures", () => {
+    const event = detailEvent("draft", "output.invalidated", 300, {
+      contract: "accountCard",
+      kind: "emit",
+      schemaId: "acme.account-card",
+      streamId: "draft-1",
+    });
+    expect(buildEventStory([event], START)[0]).toMatchObject({
+      category: "output",
+      title: "Invalidated accountCard",
+    });
+    expect(buildTraceStory([event])).toEqual([
+      expect.objectContaining({
+        kind: "event",
+        label: "Invalidated accountCard",
+        description: "Provisional output discarded · acme.account-card",
+      }),
+    ]);
+  });
+
   it("orders lifecycle facts at the same timestamp and assigns execution phases", () => {
     const events = [
       detailEvent("resume", "span.started", 2_000, {

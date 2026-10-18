@@ -128,6 +128,29 @@ describe("Studio CLI arguments", () => {
 });
 
 describe("Studio CLI lifecycle", () => {
+  it("preserves judge credentials in private state and passes them only to the API container", async () => {
+    const home = await createHome();
+    await initialize(home);
+    const environment = await readStudioEnvironment(home);
+    await writeStudioEnvironment(home, {
+      ...environment,
+      KORTYX_EVAL_JUDGE_MODEL: "test-model",
+      KORTYX_EVAL_JUDGE_API_KEY: "private-test-provider-key",
+    });
+    const runtime = createRuntime();
+    await runStudioCommand(["start", "--home", home], runtime);
+    const saved = await readStudioEnvironment(home);
+    expect(saved.KORTYX_EVAL_JUDGE_API_KEY).toBe("private-test-provider-key");
+    expect((await stat(join(home, ".env"))).mode & 0o777).toBe(0o600);
+    const compose = await readFile(join(home, "compose.yml"), "utf8");
+    expect(compose.split("  api:")[1]?.split("  studio:")[0]).toContain(
+      "KORTYX_EVAL_JUDGE_API_KEY:",
+    );
+    expect(compose.split("  studio:")[1]).not.toContain(
+      "KORTYX_EVAL_JUDGE_API_KEY:",
+    );
+    expect(runtime.logs.join("\n")).not.toContain("private-test-provider-key");
+  });
   it("includes a private updater only when the published image supports it", async () => {
     const home = await createHome();
     await runStudioCommand(
@@ -137,6 +160,7 @@ describe("Studio CLI lifecycle", () => {
     const compose = await readFile(join(home, "compose.yml"), "utf8");
     expect(compose).toContain("  updater:");
     expect(compose).toContain("/var/run/docker.sock:/var/run/docker.sock");
+    expect(compose.split("  updater:")[1]).toContain('user: "0:0"');
     expect(compose.split("  updater:")[1]).not.toContain("ports:");
     const env = await readStudioEnvironment(home);
     expect(env.KORTYX_STUDIO_STATE_DIR).toBe(home);
@@ -216,6 +240,17 @@ describe("Studio CLI lifecycle", () => {
     );
     const composeVariable = "$";
     expect(compose).toContain("ghcr.io/kortyx-io/kortyx-api");
+    // This stable deployment command also works in old API images. New images
+    // route it through optional legacy preparation before native Drizzle.
+    expect(compose).toContain("@kortyx/telemetry-db db:migrate &&");
+    expect(compose).not.toContain("db:migrate-native");
+    expect(compose).toContain("condition: service_completed_successfully");
+    expect(compose.split("  db-init:")[1]?.split("  api:")[0]).toContain(
+      'user: "1000:1000"',
+    );
+    expect(compose.split("  api:")[1]?.split("  studio:")[0]).toContain(
+      'user: "1000:1000"',
+    );
     expect(compose).toContain("http://localhost:6400/ready");
     expect(compose).toContain(
       `"127.0.0.1:${composeVariable}{API_PORT:-6400}:6400"`,

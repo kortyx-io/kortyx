@@ -34,6 +34,7 @@ export type {
 export { ChatLifecycleHookError } from "./chat/lifecycle";
 export type { StreamChatArgs } from "./chat/process-chat";
 export { streamChat } from "./chat/process-chat";
+export * from "./evals/index";
 export type {
   ExecutableWorkflow,
   ExecuteOptions,

@@ -1,0 +1,58 @@
+{
+  "label": "v0",
+  "sections": [
+    {
+      "slug": "get-started",
+      "label": "Get started",
+      "position": 1,
+      "description": "Connect an application and learn to read its first recorded run.",
+      "pages": [
+        "overview",
+        "sample-project",
+        "connect-project",
+        "first-run",
+        "concepts"
+      ]
+    },
+    {
+      "slug": "debugging",
+      "label": "Inspect and debug",
+      "position": 2,
+      "description": "Follow execution steps, conversations, pauses, and workflow paths.",
+      "pages": ["runs", "trace", "sessions", "interrupts", "workflows"]
+    },
+    {
+      "slug": "performance",
+      "label": "Understand performance",
+      "position": 3,
+      "description": "Find where time and model costs go, and inspect user feedback.",
+      "pages": ["slow-runs", "costs", "feedback"]
+    },
+    {
+      "slug": "prompt-management",
+      "label": "Manage prompts",
+      "position": 4,
+      "description": "Create, test, review, and publish prompt versions.",
+      "pages": ["create-prompt", "publish-prompt", "prompts"]
+    },
+    {
+      "slug": "evaluations",
+      "label": "Evaluate changes",
+      "position": 5,
+      "description": "Run example conversations and compare their execution and answer quality.",
+      "pages": ["evals", "first-eval", "judging", "evaluation-results"]
+    },
+    {
+      "slug": "reference",
+      "label": "Reference and troubleshooting",
+      "position": 6,
+      "description": "Look up exact meanings or investigate missing and incomplete evidence.",
+      "pages": [
+        "metrics",
+        "evaluation-reference",
+        "exploring-data",
+        "troubleshooting"
+      ]
+    }
+  ]
+}

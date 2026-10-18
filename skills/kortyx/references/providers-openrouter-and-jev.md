@@ -8,7 +8,7 @@ Claude/OpenAI/Gemini model through OpenRouter, or uses TypeSafe Jev.
 - For ordinary chat models, use `openrouter(modelId)` exactly like other Kortyx
   provider selectors and pass the ref to `useReason(...)`.
 - For TypeSafe Jev, still use `openrouter(modelId)` with `useReason(...)`, but
-  define the native questions with `jevOutputSchema(...)`.
+  define the native questions with `jevOutputSchema(...)`. This currently uses the deprecated `outputSchema` path because Jev cannot call output-contract tools; keep it until a non-tool replacement ships.
 - Do not invent or call an `openrouter.decide(...)` API. It is not part of the
   public provider contract.
 - Do not treat OpenRouter access as proof that every routed model supports every
@@ -62,6 +62,28 @@ keeps OpenRouter from choosing a route that does not accept required request
 parameters. Do not maintain a second package-level capability registry; use
 OpenRouter validation/metadata and test the exact production route.
 
+This requirement applies to every supplied parameter, including sampling controls.
+Parameter-routing refusals use `PROVIDER_PARAMETER_UNSUPPORTED` with requested
+names, `requireParameters`, its source (`automatic`, `explicit`, `default`, or
+`unknown` when request context is unavailable), and separate tool/output versus
+other parameter lists. These are diagnostics, not proof of which parameter failed
+or which ones the application may omit.
+
+Keep the default. For a deliberate override, configure
+`providerOptions.openrouter.provider.requireParameters: false`; unsupported
+parameters, including tools/schema controls, may then be ignored. Kortyx does not
+remove controls or retry modified requests. If a preset alias is used, the list
+only covers parameters sent by Kortyx and may omit server-side preset settings;
+no preset/model names are added to the public error.
+
+Do not mask SDK errors. The live exception keeps the original provider message
+and SDK error as its `cause` for developer debugging. Safe public failure
+messages add actionable context without exposing prompts, values or account
+routing data. Structured parameter-filter metadata takes precedence over a narrow
+message fallback, and numeric/string 404 statuses are supported. SDK parsing
+failures without enough evidence to identify a parameter refusal use
+`PROVIDER_INVALID_RESPONSE`, preserving the original SDK cause and partial usage.
+
 Prefer normalized `text`, `output`, `usage`, `finishReason`, `warnings`, and
 `providerMetadata`. OpenRouter-reported cost is retained in
 `providerMetadata.cost` and emitted as provider-reported USD pricing for
@@ -69,8 +91,7 @@ Studio. Use `raw` only for provider-specific diagnostics.
 
 ## TypeSafe Jev
 
-Jev is a System One decision model, not a text generator. Keep the normal
-`useReason(...)` invocation shape and use the helper as `outputSchema`:
+Jev is a System One decision model, not a text generator. Its native decision path cannot call tools, so the new model-selected output contracts do not apply. Keep the normal `useReason(...)` invocation shape and use the helper as `outputSchema` during the deprecation window:
 
 ```ts
 import { jevOutputSchema, openrouter } from "@kortyx/openrouter";

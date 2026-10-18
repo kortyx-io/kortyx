@@ -1,12 +1,13 @@
-import type {
-  AuthenticatedTelemetryProject,
-  TelemetryDb,
-} from "@kortyx/telemetry-db";
+import type { ApiPrincipal } from "./auth/contracts";
+import type { ApiAuthorizationAdapter } from "./authorization/contracts";
+import type { ApiTenantDatabase } from "./database/contracts";
 
 export type ApiEnv = {
   Variables: {
-    auth: AuthenticatedTelemetryProject;
-    db: TelemetryDb;
+    principal: ApiPrincipal;
+    authorization: ApiAuthorizationAdapter;
+    withTenantDatabase: ApiTenantDatabase;
+    revalidateStreamAccess: () => Promise<void>;
     requestId: string;
   };
 };

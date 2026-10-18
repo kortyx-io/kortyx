@@ -1,0 +1,29 @@
+{
+  "slug": "subprocessors",
+  "version": "2026-10-11.5",
+  "effectiveDate": "2026-10-11T00:00:00.000Z",
+  "draft": true,
+  "title": "Cloud Subprocessors",
+  "sections": [
+    {
+      "title": "Service provider schedule",
+      "text": "Kortyx S.L. uses service providers to support Kortyx Cloud. Verified provider legal entities, processing locations and contractual safeguards have not yet been published in a completed schedule. This does not mean Cloud has no subprocessors. Use only synthetic or non-sensitive test data until the required provider disclosures and agreements are complete."
+    },
+    {
+      "title": "Provider information",
+      "text": "Before approved personal-data processing, the schedule must identify each provider’s verified legal entity, role and service, processing scope and data categories, relevant processing locations, and applicable transfer mechanism. Hosting, delivery, communications and other services must be reviewed against the actual Cloud deployment. Their final contracts and safeguards require operator confirmation."
+    },
+    {
+      "title": "Customer-selected services",
+      "text": "Evaluation endpoints, application services and model providers selected by a customer depend on that customer’s configuration. They are not automatically Kortyx-appointed subprocessors. The parties must determine their roles, instructions and transfer arrangements for the intended processing. Self-hosted SDK/Studio operators maintain their own provider arrangements."
+    },
+    {
+      "title": "Changes and authorization",
+      "text": "The finalized DPA must define subprocessor authorization, change notifications and objections before an approved schedule is used. No invented notice period or objection deadline is established by this document. A change to the published schedule requires a new version; previous published versions remain available at their permanent URLs."
+    },
+    {
+      "title": "Related documents",
+      "text": "The Cloud DPA at https://kortyx.io/cloud/dpa and Cloud Privacy Notice at https://kortyx.io/cloud/privacy describe the outstanding agreement and disclosure requirements. A verified private legal/privacy contact is still required; do not send confidential requests through public GitHub channels."
+    }
+  ]
+}

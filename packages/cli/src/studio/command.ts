@@ -4,6 +4,7 @@ import {
   InvalidArgumentError,
   Option,
 } from "commander";
+import { registerStudioEvalCommands } from "./eval-command";
 import {
   printGeneratedDeploymentCredentials,
   printStudioConnection,
@@ -16,6 +17,7 @@ import {
   startStudio,
   stopStudio,
 } from "./local-stack";
+import { registerStudioPromptCommands } from "./prompt-command";
 import { registerStudioReadCommands } from "./read-command";
 import { defaultStudioRuntime } from "./runtime";
 import { defaultStudioHome, requireStudioConfig } from "./state";
@@ -198,7 +200,21 @@ export const createStudioCommand = (
     await resetStudio(home, confirm, runtime);
   });
 
-  registerStudioReadCommands(studio, (message) => runtime.log(message));
+  registerStudioReadCommands(
+    studio,
+    (message) => runtime.log(message),
+    runtime.request,
+  );
+  registerStudioEvalCommands(
+    studio,
+    (message) => runtime.log(message),
+    runtime.request,
+  );
+  registerStudioPromptCommands(
+    studio,
+    (message) => runtime.log(message),
+    runtime.request,
+  );
   return studio;
 };
 

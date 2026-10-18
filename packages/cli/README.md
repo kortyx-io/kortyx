@@ -248,6 +248,125 @@ profile referencing that project's read key—even if the deployment URL is the
 same. Account login and remote project/key administration are not implemented.
 VPN/private-network requirements remain in effect.
 
+## Eval suites and CI
+
+## Run locally without Studio
+
+Export the existing `createEvals` instance as `evals` (or the default export) from
+an application module such as `src/evals/index.ts`. Use a dedicated eval module
+that initializes the agent and suites without starting your HTTP server.
+TypeScript and JavaScript entries use the CLI's existing module loader and nearest
+`tsconfig.json` path aliases. The loader stays active for lazy workflow imports
+until execution finishes. Keep initialization synchronous; do asynchronous
+identity setup inside `createEvals.setup`.
+
+Add a script to your application's `package.json`:
+
+```json
+{
+  "scripts": {
+    "eval": "kortyx evals run --entry ./src/evals/index.ts"
+  }
+}
+```
+
+```sh
+pnpm eval
+pnpm eval --suite product-ambiguity --case choose-blue --repetitions 3
+pnpm exec kortyx evals list --entry ./src/evals/index.ts
+pnpm eval --suite product-ambiguity --concurrency 2 --json > eval-results.json
+```
+
+The command calls the exported instance's `run()` directly. Your existing setup,
+permission binding, custom executor, interrupt responders, cleanup and code judge
+all run in the application process. No Studio, consumer HTTP endpoint, target
+configuration or Studio key is required. Semantic criteria require a code judge;
+interaction and structured-output checks alone require no judge. Workflow models,
+tools and authentication still need their usual application configuration.
+
+The CLI loads `.env` then overlays `.env.local` before importing the entry.
+In a monorepo it loads defaults from the Git or pnpm workspace root down to the
+app directory, with nearer files taking precedence. Existing shell variables
+always win.
+To select other files, repeat `--env`; later files override earlier ones:
+
+```sh
+pnpm eval --env /private/development.env --env /private/eval.env
+```
+
+For a one-line package script without repeated flags, remember paths in a
+**gitignored** `.env.evals.json` in the app or workspace root:
+
+```json
+{
+  "envFiles": ["/private/development.env", "/private/eval.env"]
+}
+```
+
+Keep the profile and referenced files owner-only (`chmod 600`). Relative paths
+in the profile resolve from its directory. The nearest profile replaces default
+env loading; discovery stops at a Git or pnpm workspace boundary. Explicit
+`--env` flags replace both the profile and defaults, and resolve from the
+invocation directory. Missing configured files fail before loading the app;
+credentials are never printed. The CLI handles loading directly, so no launcher
+script or shell exports are required. Package scripts in monorepos can forward
+with `pnpm --filter my-agent eval`.
+
+Model credentials remain application-owned, for example `OPENROUTER_API_KEY`
+for an OpenRouter app judge. Studio's judge settings are not used by this command.
+
+Omitting `--suite` runs all configured suites in definition order. `--case` accepts
+space-separated case IDs and requires `--suite`. `--repetitions` and `--concurrency`
+override the SDK's run settings; omitted flags preserve them. `--export NAME`
+selects another named instance instead of `evals`/default.
+
+Interactive terminals show an animated suite progress bar, one live row per active
+attempt, elapsed time, and the actual setup, workflow, interrupt-response, judging
+and cleanup phases. Every completed step and case gets its own result, followed
+by a colored suite verdict and counts. Long calls keep animating; concurrent
+attempts remain distinct. Dispatch updates show Queued, Retrying and Reconnecting
+without counting them as completed attempts. The bar measures completed attempts, not estimated model
+completion. Application logs/warnings are preserved above the live display.
+Piped output is plain text with per-case start and step results; `--no-color` or
+`NO_COLOR` disables color/live progress. Explicit `--color` forces the interactive
+report, including when `NO_COLOR` is set. `--json` always disables the terminal UI.
+`--json` replaces the report with one JSON object containing `schemaVersion: 1`, `status`, aggregated
+`counts`, and full SDK `runs` (including observations). Keep application logs off
+stdout when consuming JSON. Configuration/import failures use stderr.
+
+Exit status is `0` when all selected suites pass, `1` for failed/errored runs or
+configuration errors, and `130` for cancellation. Ctrl+C forwards an abort signal,
+allows SDK cleanup and stops later suites. Cancellation remains cooperative: app
+code must honor its signal. Results are returned in the terminal/JSON; this local
+command does not save eval records to Studio. Agent telemetry, if configured by
+the application, continues to follow its existing settings.
+
+
+```bash
+kortyx studio evals suites list --connection staging --json
+kortyx studio evals suites get product-ambiguity --target catalog --connection staging --include-content --json
+kortyx studio evals runs start product-ambiguity --target catalog --connection staging --json
+kortyx studio evals runs list --connection staging --json
+kortyx studio evals runs get <eval-run-uuid-or-studio-url> --connection staging --json
+kortyx studio evals runs cancel <eval-run-uuid-or-studio-url> --connection staging --json
+```
+
+Eval commands reuse project connections and the Studio API. Discovery and reads
+need `studio:read`; start/cancel also require `eval:run`. The application's eval
+service key remains on the API server. Starting discovers the current revision,
+enqueues once and returns the run ID immediately, without waiting for a grade.
+Use `--case` repeatedly, `--repetitions` (1–20), `--concurrency` (1–20), and
+`--environment` to select execution; total attempts are capped at 100.
+
+Default detail exposes statuses, counts and criterion verdicts. Full definitions,
+observations and reasons require `--include-content`; credentials remain redacted.
+History is the latest 100 project records. Cancellation is cooperative. The CLI
+does not retry a POST automatically or treat an accepted request as a passing eval.
+
+See [CLI and post-deployment CI](https://github.com/kortyx-io/kortyx/blob/main/docs/evals/cli-and-ci.md)
+for a `continue-on-error` CI step that enqueues a suite after deployment and
+returns immediately, plus target configuration, permissions and output contracts.
+
 ## Push workflow topology to Studio
 
 Kortyx Studio should receive workflow topology as a build/deploy artifact, not only as best-effort runtime telemetry. Use `topology push` in local dev, release CI, or deployment pipelines:
@@ -329,3 +448,83 @@ Studio draws discovered call/return links before traffic exists. The **Observed 
 `kortyx topology push` discovers shared tool definitions attached via `useTool({tool, input})` and `useReason({tools})` through local imports, custom hooks, and statically bound factories. Discovery does not execute nodes, tool factories or MCP discovery. The configured entry is still imported to obtain the workflow registry.
 
 Published node capabilities contain names, descriptions, calling mode, safe input-field summaries and discovery freshness. Dynamic attachments produce an unresolved warning rather than an empty-tools claim. Studio merges real observed tools and shows execution outcomes/durations separately from cached reuse. `--dry-run --json` exposes the discovered attachments and status without publishing.
+
+## Diagnose eval setup
+
+```sh
+kortyx studio evals doctor --connection staging --target catalog --suite catalog-smoke
+```
+
+Checks Studio access, execution permission, target/environment, authenticated
+consumer manifest/suites and advertised judge compatibility. Discovery GET only;
+no workflows, model calls or saved runs are started. Consumer GET wrappers may
+authenticate a test actor. Failures include actionable remedies. Use `--judge app`
+for a code judge or `--json` for a versioned report; failures exit 1. A successful
+check still needs a representative run to verify tool/provider access and saved
+results. See the [first eval guide](https://kortyx.io/docs/studio/first-eval).
+
+## Manage and migrate prompts
+
+Studio prompts preserve system/user or ordered chat messages, typed template
+inputs, and saved configuration. Read a version to a file, edit it, validate it,
+and save a new immutable version with an explicit reviewed hash:
+
+```bash
+npx kortyx studio prompts get canvas/classify-intent --connection staging --file prompt.json
+npx kortyx studio prompts validate prompt.json --json
+npx kortyx studio prompts update canvas/classify-intent --connection staging \
+  --file prompt.json --base-version 1 --expected-hash <validated-hash> \
+  --note "Clarify intent labels"
+npx kortyx studio prompts test canvas/classify-intent --connection staging \
+  --version 2 --target my-app --suite intent-regression
+```
+
+Use `list` and `versions` with `--cursor` to continue through large libraries.
+`diff`, `promote`, `rollback`, `tag`, `untag`, `archive`, `restore`, and `action` support reviewed
+prompt lifecycle changes. Run `kortyx studio prompts --help` for all commands.
+
+Migration works between independent OSS deployments and cloud project
+connections. Each named connection uses its own API-key environment variable.
+The default copy operation only produces a reviewable plan:
+
+```bash
+npx kortyx studio prompts copy canvas/classify-intent \
+  --from staging --to production --plan-file transfer-plan.json
+npx kortyx studio prompts apply transfer-plan.json --connection production
+```
+
+Apply verifies every resulting immutable hash by reading it back from the
+destination. Reapplying the same plan is safe. Conflicts require explicit
+`--append` or `--rename old/key=new/key`; changed destination heads require a
+new plan. Migration preserves exact dependencies and source provenance, and
+leaves live and optional tags unchanged. Evaluate and promote in the destination
+before serving migrated content. Credentials, traces, reviews, and evaluation
+results are never included in bundles.
+
+Promotion and rollback update the reserved `live` tag. Optional tags are manual
+version aliases, independent of promotion and deployment environments:
+
+```bash
+npx kortyx studio prompts promote canvas/classify-intent --connection staging --version 2 --expected-revision 0
+npx kortyx studio prompts tag canvas/classify-intent development --connection staging --version 3 --expected-revision 0
+npx kortyx studio prompts untag canvas/classify-intent development --connection staging --expected-revision 1
+```
+
+Read current tag revisions with `get`; use 0 only for a new tag. Saving a candidate
+does not move live. The SDK defaults to live and supports `studioPromptSource({
+..., tag: "development" })` to request a manual tag.
+
+## Maintainer usage statistics
+
+The CLI sends bounded usage aggregates to Kortyx's EU PostHog project by default.
+`cli.command` counts command invocations using declared command/action names,
+parse/execution phase and boolean JSON/dry-run flags. Command arguments, IDs,
+paths, URLs, keys, payloads and raw error text are excluded. A nonzero exit is a
+command failure (130 is cancellation); eval quality verdicts are measured by the
+eval boundary separately. Studio setup stages remain separate from invocations.
+
+Set `KORTYX_USAGE_TELEMETRY_DISABLED=1` before running `kortyx` to opt out, or
+`KORTYX_USAGE_TELEMETRY_DEBUG=1` to inspect approved aggregates without sending.
+Completion waits at most two seconds for usage delivery and preserves command
+results/errors. See the [shared helper reference](../usage-telemetry/README.md)
+for identity, loss, cohort labels and destination controls.

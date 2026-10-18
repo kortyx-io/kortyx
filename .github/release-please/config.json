@@ -102,7 +102,9 @@
     },
     "apps/studio": {
       "package-name": "kortyx-studio",
-      "component": "studio"
+      "component": "studio",
+      "draft": true,
+      "force-tag-creation": true
     },
     "apps/website": {
       "package-name": "kortyx-website",
@@ -119,6 +121,16 @@
     "examples/kortyx-nextjs-chat-server-action": {
       "package-name": "@kortyx/example-nextjs-chat-server-action",
       "component": "example-nextjs-chat-server-action"
+    },
+    "packages/prompts": {
+      "package-name": "@kortyx/prompts",
+      "component": "prompts",
+      "initial-version": "0.1.0"
+    },
+    "packages/usage-telemetry": {
+      "package-name": "@kortyx/usage-telemetry",
+      "component": "usage-telemetry",
+      "initial-version": "0.1.0"
     }
   }
 }

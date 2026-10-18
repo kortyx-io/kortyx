@@ -1,0 +1,997 @@
+[
+  {
+    "id": "kortyx.website.privacy",
+    "type": "privacy_policy",
+    "version": "2026-10-04.2-draft",
+    "pathname": "/privacy",
+    "status": "draft",
+    "effectiveDate": null,
+    "updatedAt": "2026-10-04",
+    "hash": "fb20710185753a2eb3ca89a914dfd3228f0d2ca3256f91b0570fd6f9f2db9245",
+    "content": {
+      "title": "Privacy, explained for this website.",
+      "description": "A draft notice covering this website’s browser preferences, technical delivery, external links, and privacy rights.",
+      "sections": [
+        {
+          "id": "scope",
+          "title": "Scope & controller",
+          "paragraphs": [
+            "This draft covers kortyx.io and its documentation. Cloud data processing and self-hosted deployments have their own service-specific scope.",
+            "Kortyx is the product brand. The current controller’s identity, contact address, and private contact email must be confirmed before this becomes a published privacy notice."
+          ],
+          "links": [
+            {
+              "label": "Operator information",
+              "href": "/legal#operator"
+            }
+          ]
+        },
+        {
+          "id": "data",
+          "title": "What the website processes",
+          "paragraphs": [
+            "Delivering a page involves your IP address and request metadata, such as browser information, requested URLs, and request times. Our hosting and delivery arrangements, any associated logging, and their retention periods must be confirmed in the final notice.",
+            "Browser storage is limited to your selected theme and c15t privacy-preference state. The cookies page lists each storage mechanism, its purpose, and its duration.",
+            "Where you choose to contact the project through GitHub, GitHub processes the information under its own privacy notice. Use redacted examples and sample data in public issues and discussions, and keep personal or confidential information private."
+          ],
+          "links": [
+            {
+              "label": "Storage inventory & controls",
+              "href": "/cookies"
+            }
+          ]
+        },
+        {
+          "id": "purposes",
+          "title": "Purposes, providers & retention",
+          "paragraphs": [
+            "The website uses browser preferences to remember choices you make. Technical request data is necessary to deliver and protect the website. The final notice must specify the applicable legal bases, named service providers, retention periods, and any international-transfer safeguards for the actual deployment.",
+            "Website preferences are stored locally in your browser. Future Cloud terms acceptance will use a separate authenticated flow with version-specific records and retention disclosures."
+          ]
+        },
+        {
+          "id": "rights",
+          "title": "Your privacy rights",
+          "paragraphs": [
+            "Depending on applicable law and the processing involved, you may have rights to access, correct or delete personal data, restrict or object to processing, and receive portable data. Where processing relies on consent, you can withdraw it at any time; processing carried out lawfully before withdrawal retains its lawful status.",
+            "You may also complain to the competent data-protection authority. Privacy requests belong in a verified private contact channel. Confirm that route as part of this notice’s publication review."
+          ],
+          "links": [
+            {
+              "label": "Contact information",
+              "href": "/contact#private-contact"
+            },
+            {
+              "label": "Spanish data-protection authority",
+              "href": "https://www.aepd.es/en"
+            }
+          ]
+        },
+        {
+          "id": "updates",
+          "title": "Changes to this notice",
+          "paragraphs": [
+            "The page carries a revision date. Changes to data practices require an updated notice and storage inventory. Introducing optional services also requires the applicable user choices and tested consent controls before those services load."
+          ]
+        }
+      ],
+      "operator": {
+        "brand": "Kortyx",
+        "operatorName": null,
+        "contactAddress": null,
+        "contactEmail": null,
+        "registrationNumber": null,
+        "taxNumber": null
+      },
+      "storageInventory": null
+    },
+    "acceptanceRequired": false
+  },
+  {
+    "id": "kortyx.website.terms",
+    "type": "terms_and_conditions",
+    "version": "2026-10-04.2-draft",
+    "pathname": "/terms",
+    "status": "draft",
+    "effectiveDate": null,
+    "updatedAt": "2026-10-04",
+    "hash": "38e0df26d6945eda5c7c63fae62c83cc8d1f605b35ace5573e343c945d578a0b",
+    "content": {
+      "title": "Clear terms. Clear product boundaries.",
+      "description": "Draft terms for this informational website. Software licenses and future Cloud service agreements are separate.",
+      "sections": [
+        {
+          "id": "scope",
+          "title": "Website scope",
+          "paragraphs": [
+            "These draft terms concern access to product information and documentation on kortyx.io. Cloud subscriptions, support commitments, and data-processing arrangements will be governed by separate service agreements.",
+            "The current website operator must be identified and these terms reviewed before publication."
+          ],
+          "links": [
+            {
+              "label": "Legal information",
+              "href": "/legal"
+            }
+          ]
+        },
+        {
+          "id": "software",
+          "title": "Software & intellectual property",
+          "paragraphs": [
+            "Software is governed by the license accompanying the relevant package or repository component. The framework is Apache-2.0 licensed; Studio uses the Elastic License 2.0. Review the applicable license before use or redistribution.",
+            "Use of the Kortyx name, branding, and website content requires permission from the relevant rights holder. Permissions provided by a software license remain subject to that license."
+          ],
+          "links": [
+            {
+              "label": "Open-source licensing",
+              "href": "/open-source"
+            }
+          ]
+        },
+        {
+          "id": "conduct",
+          "title": "Use the website responsibly",
+          "paragraphs": [
+            "Use the website lawfully, respect its availability and security, and access only resources you are authorized to use. Report suspected vulnerabilities privately through the documented reporting channel.",
+            "Examples and documentation are development guidance. Evaluate security, accuracy, and suitability for your own application; preview features may change."
+          ],
+          "links": [
+            {
+              "label": "Security reporting",
+              "href": "/security#reporting"
+            }
+          ]
+        },
+        {
+          "id": "availability",
+          "title": "Availability & external services",
+          "paragraphs": [
+            "Website content and product descriptions may change. Development and preview labels describe the current stage of a feature; release details accompany its availability.",
+            "External services, including GitHub and model providers, operate under their own terms. Kortyx Cloud agreements will identify the services within their scope.",
+            "Your mandatory legal rights remain fully applicable. Applicable-law and liability provisions require review against the confirmed operator and intended audience before publication."
+          ]
+        },
+        {
+          "id": "cloud-terms",
+          "title": "Future Cloud terms & updates",
+          "paragraphs": [
+            "Cloud service terms will be published separately before the hosted service opens. Account-level acceptance will identify the exact version accepted, the authenticated accepting user, and the acceptance time.",
+            "Website privacy settings manage browser preferences. Cloud service-term acceptance will take place in its own authenticated account flow."
+          ]
+        }
+      ],
+      "operator": {
+        "brand": "Kortyx",
+        "operatorName": null,
+        "contactAddress": null,
+        "contactEmail": null,
+        "registrationNumber": null,
+        "taxNumber": null
+      },
+      "storageInventory": null
+    },
+    "acceptanceRequired": false
+  },
+  {
+    "id": "kortyx.website.legal",
+    "type": "legal_notice",
+    "version": "2026-10-04.2-draft",
+    "pathname": "/legal",
+    "status": "draft",
+    "effectiveDate": null,
+    "updatedAt": "2026-10-04",
+    "hash": "05a84551aba3755168a33718d3a5256edb43f2685b4891ac60d5d1f7a78654c6",
+    "content": {
+      "title": "Who is behind the website.",
+      "description": "Kortyx is the product brand. Current operator details require confirmation before publication.",
+      "sections": [
+        {
+          "id": "operator",
+          "title": "Operator information",
+          "paragraphs": [
+            "Publish this legal notice with the verified identity of the current website operator, business contact address, and private contact email. Include applicable registration and tax details once verified."
+          ]
+        },
+        {
+          "id": "documents",
+          "title": "Website documents",
+          "paragraphs": [
+            "The privacy notice explains website data practices; the cookies page inventories browser storage; website terms concern the informational site. Cloud service terms and a Cloud data-processing agreement will be separate launch documents."
+          ],
+          "links": [
+            {
+              "label": "Privacy notice",
+              "href": "/privacy"
+            },
+            {
+              "label": "Website terms",
+              "href": "/terms"
+            },
+            {
+              "label": "Cookies & storage",
+              "href": "/cookies"
+            }
+          ]
+        },
+        {
+          "id": "licenses",
+          "title": "Software licenses & third-party services",
+          "paragraphs": [
+            "The framework uses Apache-2.0; Studio uses the Elastic License 2.0. c15t’s Next.js consent package uses Apache-2.0. The applicable source and package license files remain authoritative.",
+            "Names of third-party services and technologies belong to their respective owners. Each service’s own documentation describes its products, agreements, and relationships."
+          ],
+          "links": [
+            {
+              "label": "Repository license overview",
+              "href": "https://github.com/kortyx-io/kortyx/blob/main/LICENSES.md"
+            },
+            {
+              "label": "Contact routes",
+              "href": "/contact"
+            }
+          ]
+        }
+      ],
+      "operator": {
+        "brand": "Kortyx",
+        "operatorName": null,
+        "contactAddress": null,
+        "contactEmail": null,
+        "registrationNumber": null,
+        "taxNumber": null
+      },
+      "storageInventory": null
+    },
+    "acceptanceRequired": false
+  },
+  {
+    "id": "kortyx.website.cookies",
+    "type": "cookie_policy",
+    "version": "2026-10-04.2-draft",
+    "pathname": "/cookies",
+    "status": "draft",
+    "effectiveDate": null,
+    "updatedAt": "2026-10-04",
+    "hash": "97fdb10fb1854a505b743b6f54137f6e52a7bdd03a5d144964248a6b7042a51b",
+    "content": {
+      "title": "Your browser. Your preferences.",
+      "description": "This draft inventory explains the necessary browser-local storage used for privacy preferences and your selected theme.",
+      "sections": [
+        {
+          "id": "current-use",
+          "title": "What is used today",
+          "paragraphs": [
+            "Theme storage remembers the display preference you choose. c15t stores your choices, a browser-local preference identifier, and a timestamp in a cookie and local storage on your device. This preference state remains local to your browser.",
+            "A first-visit banner explains this necessary storage. Choosing Got it acknowledges the notice and remembers your browser preferences. Cloud terms acceptance uses a separate account flow. Privacy settings remain available from the footer, including on documentation pages."
+          ]
+        },
+        {
+          "id": "controls",
+          "title": "Change or clear your preferences",
+          "paragraphs": [
+            "Open Privacy settings to review the storage categories currently configured. This website uses only necessary browser storage for the preferences described here.",
+            "You can delete cookies and site storage through your browser settings. Clearing local storage also resets the selected theme. Your browser’s storage settings control whether these preferences can persist."
+          ]
+        },
+        {
+          "id": "external-services",
+          "title": "External links are separate",
+          "paragraphs": [
+            "Following a link to GitHub, a model provider, or another external site brings you under that site’s own storage and privacy practices. Review that provider’s notice when visiting its website."
+          ]
+        },
+        {
+          "id": "future-changes",
+          "title": "Before adding optional services",
+          "paragraphs": [
+            "Any future optional analytics, advertising, or embedded service must have a documented purpose and provider, an appropriate consent or opt-out flow, and tested enforcement before it loads. The inventory and privacy notice must be updated at the same time.",
+            "Website privacy preferences remain separate from Cloud account terms acceptance and any future server-side acceptance history."
+          ],
+          "links": [
+            {
+              "label": "Website privacy notice",
+              "href": "/privacy"
+            }
+          ]
+        }
+      ],
+      "operator": {
+        "brand": "Kortyx",
+        "operatorName": null,
+        "contactAddress": null,
+        "contactEmail": null,
+        "registrationNumber": null,
+        "taxNumber": null
+      },
+      "storageInventory": [
+        {
+          "key": "theme",
+          "mechanism": "Local storage",
+          "purpose": "Remember the display theme you select.",
+          "duration": "Until cleared in your browser."
+        },
+        {
+          "key": "kortyx_privacy",
+          "mechanism": "Cookie & local storage",
+          "purpose": "Remember privacy choices with a browser-local preference identifier and timestamp.",
+          "duration": "180 days for preference validity; local storage remains until cleared."
+        }
+      ]
+    },
+    "acceptanceRequired": false
+  },
+  {
+    "id": "kortyx.website.privacy",
+    "type": "privacy_policy",
+    "version": "2026-10-11.3-draft",
+    "pathname": "/privacy",
+    "status": "draft",
+    "effectiveDate": null,
+    "updatedAt": "2026-10-11",
+    "hash": "5496279a8ad238ac731865e5ce8ce06224ddfbfac83bb1e6a3c2ec7fa7dbf136",
+    "content": {
+      "title": "Privacy, explained for this website.",
+      "description": "A draft notice covering this website’s browser preferences, technical delivery, external links, and privacy rights.",
+      "sections": [
+        {
+          "id": "scope",
+          "title": "Scope & controller",
+          "paragraphs": [
+            "This draft covers kortyx.io and its documentation. Cloud data processing and self-hosted deployments have their own service-specific scope.",
+            "Kortyx is the product brand. The operator name supplied is Kortyx S.L.; registration is not verified. Contact address and private contact email must be confirmed before this becomes a published privacy notice."
+          ],
+          "links": [
+            {
+              "label": "Operator information",
+              "href": "/legal#operator"
+            }
+          ]
+        },
+        {
+          "id": "data",
+          "title": "What the website processes",
+          "paragraphs": [
+            "Delivering a page involves your IP address and request metadata, such as browser information, requested URLs, and request times. Our hosting and delivery arrangements, any associated logging, and their retention periods must be confirmed in the final notice.",
+            "Browser storage is limited to your selected theme and c15t privacy-preference state. The cookies page lists each storage mechanism, its purpose, and its duration.",
+            "Where you choose to contact the project through GitHub, GitHub processes the information under its own privacy notice. Use redacted examples and sample data in public issues and discussions, and keep personal or confidential information private."
+          ],
+          "links": [
+            {
+              "label": "Storage inventory & controls",
+              "href": "/cookies"
+            }
+          ]
+        },
+        {
+          "id": "purposes",
+          "title": "Purposes, providers & retention",
+          "paragraphs": [
+            "The website uses browser preferences to remember choices you make. Technical request data is necessary to deliver and protect the website. The final notice must specify the applicable legal bases, named service providers, retention periods, and any international-transfer safeguards for the actual deployment.",
+            "Website preferences are stored locally in your browser. Future Cloud terms acceptance will use a separate authenticated flow with version-specific records and retention disclosures."
+          ]
+        },
+        {
+          "id": "rights",
+          "title": "Your privacy rights",
+          "paragraphs": [
+            "Depending on applicable law and the processing involved, you may have rights to access, correct or delete personal data, restrict or object to processing, and receive portable data. Where processing relies on consent, you can withdraw it at any time; processing carried out lawfully before withdrawal retains its lawful status.",
+            "You may also complain to the competent data-protection authority. Privacy requests belong in a verified private contact channel. Confirm that route as part of this notice’s publication review."
+          ],
+          "links": [
+            {
+              "label": "Contact information",
+              "href": "/contact#private-contact"
+            },
+            {
+              "label": "Spanish data-protection authority",
+              "href": "https://www.aepd.es/en"
+            }
+          ]
+        },
+        {
+          "id": "updates",
+          "title": "Changes to this notice",
+          "paragraphs": [
+            "The page carries a revision date. Changes to data practices require an updated notice and storage inventory. Introducing optional services also requires the applicable user choices and tested consent controls before those services load."
+          ]
+        }
+      ],
+      "operator": {
+        "brand": "Kortyx",
+        "operatorName": "Kortyx S.L.",
+        "contactAddress": null,
+        "contactEmail": null,
+        "registrationNumber": null,
+        "taxNumber": null
+      },
+      "storageInventory": null
+    },
+    "acceptanceRequired": false
+  },
+  {
+    "id": "kortyx.website.terms",
+    "type": "terms_and_conditions",
+    "version": "2026-10-11.3-draft",
+    "pathname": "/terms",
+    "status": "draft",
+    "effectiveDate": null,
+    "updatedAt": "2026-10-11",
+    "hash": "092fbb780293180571d5501b236b765f82f703f17832f2203ce235cc167d5377",
+    "content": {
+      "title": "Clear terms. Clear product boundaries.",
+      "description": "Draft terms for this informational website. Software licenses and future Cloud service agreements are separate.",
+      "sections": [
+        {
+          "id": "scope",
+          "title": "Website scope",
+          "paragraphs": [
+            "These draft terms concern access to product information and documentation on kortyx.io. Cloud subscriptions, support commitments, and data-processing arrangements will be governed by separate service agreements.",
+            "The current website operator must be identified and these terms reviewed before publication."
+          ],
+          "links": [
+            {
+              "label": "Legal information",
+              "href": "/legal"
+            }
+          ]
+        },
+        {
+          "id": "software",
+          "title": "Software & intellectual property",
+          "paragraphs": [
+            "Software is governed by the license accompanying the relevant package or repository component. The framework is Apache-2.0 licensed; Studio uses the Elastic License 2.0. Review the applicable license before use or redistribution.",
+            "Use of the Kortyx name, branding, and website content requires permission from the relevant rights holder. Permissions provided by a software license remain subject to that license."
+          ],
+          "links": [
+            {
+              "label": "Open-source licensing",
+              "href": "/open-source"
+            }
+          ]
+        },
+        {
+          "id": "conduct",
+          "title": "Use the website responsibly",
+          "paragraphs": [
+            "Use the website lawfully, respect its availability and security, and access only resources you are authorized to use. Report suspected vulnerabilities privately through the documented reporting channel.",
+            "Examples and documentation are development guidance. Evaluate security, accuracy, and suitability for your own application; preview features may change."
+          ],
+          "links": [
+            {
+              "label": "Security reporting",
+              "href": "/security#reporting"
+            }
+          ]
+        },
+        {
+          "id": "availability",
+          "title": "Availability & external services",
+          "paragraphs": [
+            "Website content and product descriptions may change. Development and preview labels describe the current stage of a feature; release details accompany its availability.",
+            "External services, including GitHub and model providers, operate under their own terms. Kortyx Cloud agreements will identify the services within their scope.",
+            "Your mandatory legal rights remain fully applicable. Applicable-law and liability provisions require review against the confirmed operator and intended audience before publication."
+          ]
+        },
+        {
+          "id": "cloud-terms",
+          "title": "Cloud terms & updates",
+          "paragraphs": [
+            "Cloud service terms are available as versioned staging drafts at kortyx.io/cloud/terms; production publication requires operator and legal review. Account-level acceptance will identify the exact version accepted, the authenticated accepting user, and the acceptance time.",
+            "Website privacy settings manage browser preferences. Cloud service-term acceptance will take place in its own authenticated account flow."
+          ]
+        }
+      ],
+      "operator": {
+        "brand": "Kortyx",
+        "operatorName": "Kortyx S.L.",
+        "contactAddress": null,
+        "contactEmail": null,
+        "registrationNumber": null,
+        "taxNumber": null
+      },
+      "storageInventory": null
+    },
+    "acceptanceRequired": false
+  },
+  {
+    "id": "kortyx.website.legal",
+    "type": "legal_notice",
+    "version": "2026-10-11.3-draft",
+    "pathname": "/legal",
+    "status": "draft",
+    "effectiveDate": null,
+    "updatedAt": "2026-10-11",
+    "hash": "808ef7fd5bec5495b690c2e11d6b876d731b3bf1ce64a5d50700ed2ec2278df7",
+    "content": {
+      "title": "Who is behind the website.",
+      "description": "Kortyx is the product brand. Current operator details require confirmation before publication.",
+      "sections": [
+        {
+          "id": "operator",
+          "title": "Operator information",
+          "paragraphs": [
+            "Publish this legal notice with the verified identity of the current website operator, business contact address, and private contact email. Include applicable registration and tax details once verified."
+          ]
+        },
+        {
+          "id": "documents",
+          "title": "Website documents",
+          "paragraphs": [
+            "The privacy notice explains website data practices; the cookies page inventories browser storage; website terms concern the informational site. Cloud service terms, privacy, DPA and subprocessors are available as versioned staging drafts, awaiting production legal review."
+          ],
+          "links": [
+            {
+              "label": "Privacy notice",
+              "href": "/privacy"
+            },
+            {
+              "label": "Website terms",
+              "href": "/terms"
+            },
+            {
+              "label": "Cloud Terms",
+              "href": "/cloud/terms"
+            },
+            {
+              "label": "Cloud Privacy",
+              "href": "/cloud/privacy"
+            },
+            {
+              "label": "Cloud DPA",
+              "href": "/cloud/dpa"
+            },
+            {
+              "label": "Subprocessors",
+              "href": "/cloud/subprocessors"
+            },
+            {
+              "label": "Cookies & storage",
+              "href": "/cookies"
+            }
+          ]
+        },
+        {
+          "id": "licenses",
+          "title": "Software licenses & third-party services",
+          "paragraphs": [
+            "The framework uses Apache-2.0; Studio uses the Elastic License 2.0. c15t’s Next.js consent package uses Apache-2.0. The applicable source and package license files remain authoritative.",
+            "Names of third-party services and technologies belong to their respective owners. Each service’s own documentation describes its products, agreements, and relationships."
+          ],
+          "links": [
+            {
+              "label": "Repository license overview",
+              "href": "https://github.com/kortyx-io/kortyx/blob/main/LICENSES.md"
+            },
+            {
+              "label": "Contact routes",
+              "href": "/contact"
+            }
+          ]
+        }
+      ],
+      "operator": {
+        "brand": "Kortyx",
+        "operatorName": "Kortyx S.L.",
+        "contactAddress": null,
+        "contactEmail": null,
+        "registrationNumber": null,
+        "taxNumber": null
+      },
+      "storageInventory": null
+    },
+    "acceptanceRequired": false
+  },
+  {
+    "id": "kortyx.website.cookies",
+    "type": "cookie_policy",
+    "version": "2026-10-11.3-draft",
+    "pathname": "/cookies",
+    "status": "draft",
+    "effectiveDate": null,
+    "updatedAt": "2026-10-11",
+    "hash": "d0b7e677acc8276f7dc60b6c7f11877b8488c2673598e89ee0fcdfcb7c849cc4",
+    "content": {
+      "title": "Your browser. Your preferences.",
+      "description": "This draft inventory explains the necessary browser-local storage used for privacy preferences and your selected theme.",
+      "sections": [
+        {
+          "id": "current-use",
+          "title": "What is used today",
+          "paragraphs": [
+            "Theme storage remembers the display preference you choose. c15t stores your choices, a browser-local preference identifier, and a timestamp in a cookie and local storage on your device. This preference state remains local to your browser.",
+            "A first-visit banner explains this necessary storage. Choosing Got it acknowledges the notice and remembers your browser preferences. Cloud terms acceptance uses a separate account flow. Privacy settings remain available from the footer, including on documentation pages."
+          ]
+        },
+        {
+          "id": "controls",
+          "title": "Change or clear your preferences",
+          "paragraphs": [
+            "Open Privacy settings to review the storage categories currently configured. This website uses only necessary browser storage for the preferences described here.",
+            "You can delete cookies and site storage through your browser settings. Clearing local storage also resets the selected theme. Your browser’s storage settings control whether these preferences can persist."
+          ]
+        },
+        {
+          "id": "external-services",
+          "title": "External links are separate",
+          "paragraphs": [
+            "Following a link to GitHub, a model provider, or another external site brings you under that site’s own storage and privacy practices. Review that provider’s notice when visiting its website."
+          ]
+        },
+        {
+          "id": "future-changes",
+          "title": "Before adding optional services",
+          "paragraphs": [
+            "Any future optional analytics, advertising, or embedded service must have a documented purpose and provider, an appropriate consent or opt-out flow, and tested enforcement before it loads. The inventory and privacy notice must be updated at the same time.",
+            "Website privacy preferences remain separate from Cloud account terms acceptance and any future server-side acceptance history."
+          ],
+          "links": [
+            {
+              "label": "Website privacy notice",
+              "href": "/privacy"
+            }
+          ]
+        }
+      ],
+      "operator": {
+        "brand": "Kortyx",
+        "operatorName": "Kortyx S.L.",
+        "contactAddress": null,
+        "contactEmail": null,
+        "registrationNumber": null,
+        "taxNumber": null
+      },
+      "storageInventory": [
+        {
+          "key": "theme",
+          "mechanism": "Local storage",
+          "purpose": "Remember the display theme you select.",
+          "duration": "Until cleared in your browser."
+        },
+        {
+          "key": "kortyx_privacy",
+          "mechanism": "Cookie & local storage",
+          "purpose": "Remember privacy choices with a browser-local preference identifier and timestamp.",
+          "duration": "180 days for preference validity; local storage remains until cleared."
+        }
+      ]
+    },
+    "acceptanceRequired": false
+  },
+  {
+    "id": "kortyx.website.privacy",
+    "type": "privacy_policy",
+    "version": "2026-10-11.4",
+    "pathname": "/privacy",
+    "status": "draft",
+    "effectiveDate": null,
+    "updatedAt": "2026-10-11",
+    "hash": "3ac02312d81598dcebba33185fa74a48d10ee63cc8baba733002a1c15f7274b2",
+    "content": {
+      "title": "Website Privacy Notice",
+      "description": "How this website handles browser preferences, technical request data, and your privacy rights.",
+      "sections": [
+        {
+          "id": "scope",
+          "title": "Scope & controller",
+          "paragraphs": [
+            "This notice covers kortyx.io and its documentation. Cloud data processing and self-hosted deployments have their own service-specific scope.",
+            "Kortyx S.L. is the website operator. A business contact address and private privacy-request channel have not yet been published. Available operator information is listed in the legal notice."
+          ],
+          "links": [
+            {
+              "label": "Operator information",
+              "href": "/legal#operator"
+            }
+          ]
+        },
+        {
+          "id": "data",
+          "title": "What the website processes",
+          "paragraphs": [
+            "Delivering a page involves your IP address and request metadata, such as browser information, requested URLs, and request times. Our hosting and delivery arrangements, any associated logging, and their retention periods must be confirmed in the final notice.",
+            "Browser storage is limited to your selected theme and c15t privacy-preference state. The cookies page lists each storage mechanism, its purpose, and its duration.",
+            "Where you choose to contact the project through GitHub, GitHub processes the information under its own privacy notice. Use redacted examples and sample data in public issues and discussions, and keep personal or confidential information private."
+          ],
+          "links": [
+            {
+              "label": "Storage inventory & controls",
+              "href": "/cookies"
+            }
+          ]
+        },
+        {
+          "id": "purposes",
+          "title": "Purposes, providers & retention",
+          "paragraphs": [
+            "The website uses browser preferences to remember choices you make. Technical request data is necessary to deliver and protect the website. The final notice must specify the applicable legal bases, named service providers, retention periods, and any international-transfer safeguards for the actual deployment.",
+            "Website preferences are stored locally in your browser. Future Cloud terms acceptance will use a separate authenticated flow with version-specific records and retention disclosures."
+          ]
+        },
+        {
+          "id": "rights",
+          "title": "Your privacy rights",
+          "paragraphs": [
+            "Depending on applicable law and the processing involved, you may have rights to access, correct or delete personal data, restrict or object to processing, and receive portable data. Where processing relies on consent, you can withdraw it at any time; processing carried out lawfully before withdrawal retains its lawful status.",
+            "You may also complain to the competent data-protection authority. A private privacy-request channel has not yet been published. Do not post personal or confidential information in public issues or discussions."
+          ],
+          "links": [
+            {
+              "label": "Contact information",
+              "href": "/contact#private-contact"
+            },
+            {
+              "label": "Spanish data-protection authority",
+              "href": "https://www.aepd.es/en"
+            }
+          ]
+        },
+        {
+          "id": "updates",
+          "title": "Changes to this notice",
+          "paragraphs": [
+            "The page carries a revision date. Changes to data practices require an updated notice and storage inventory. Introducing optional services also requires the applicable user choices and tested consent controls before those services load."
+          ]
+        }
+      ],
+      "operator": {
+        "brand": "Kortyx",
+        "operatorName": "Kortyx S.L.",
+        "contactAddress": null,
+        "contactEmail": null,
+        "registrationNumber": null,
+        "taxNumber": null
+      },
+      "storageInventory": null
+    },
+    "acceptanceRequired": false
+  },
+  {
+    "id": "kortyx.website.terms",
+    "type": "terms_and_conditions",
+    "version": "2026-10-11.4",
+    "pathname": "/terms",
+    "status": "draft",
+    "effectiveDate": null,
+    "updatedAt": "2026-10-11",
+    "hash": "c18023dc51adabc630906b7adb65e5930730bb80d730f2ea7a5f334ceb2b3980",
+    "content": {
+      "title": "Website Terms of Use",
+      "description": "Terms for using the Kortyx website and documentation. Software licenses and Cloud service agreements are separate.",
+      "sections": [
+        {
+          "id": "scope",
+          "title": "Website scope",
+          "paragraphs": [
+            "These Terms concern access to product information and documentation on kortyx.io, operated by Kortyx S.L. Cloud subscriptions, support commitments, and data-processing arrangements are governed by separate service agreements.",
+            "Operator information and available contact routes are listed in the legal notice and contact page."
+          ],
+          "links": [
+            {
+              "label": "Legal information",
+              "href": "/legal"
+            }
+          ]
+        },
+        {
+          "id": "software",
+          "title": "Software & intellectual property",
+          "paragraphs": [
+            "Software is governed by the license accompanying the relevant package or repository component. The framework is Apache-2.0 licensed; Studio uses the Elastic License 2.0. Review the applicable license before use or redistribution.",
+            "Use of the Kortyx name, branding, and website content requires permission from the relevant rights holder. Permissions provided by a software license remain subject to that license."
+          ],
+          "links": [
+            {
+              "label": "Open-source licensing",
+              "href": "/open-source"
+            }
+          ]
+        },
+        {
+          "id": "conduct",
+          "title": "Use the website responsibly",
+          "paragraphs": [
+            "Use the website lawfully, respect its availability and security, and access only resources you are authorized to use. Report suspected vulnerabilities privately through the documented reporting channel.",
+            "Examples and documentation are development guidance. Evaluate security, accuracy, and suitability for your own application; preview features may change."
+          ],
+          "links": [
+            {
+              "label": "Security reporting",
+              "href": "/security#reporting"
+            }
+          ]
+        },
+        {
+          "id": "availability",
+          "title": "Availability & external services",
+          "paragraphs": [
+            "Website content and product descriptions may change. Development and preview labels describe the current stage of a feature; release details accompany its availability.",
+            "External services, including GitHub and model providers, operate under their own terms. Kortyx Cloud agreements will identify the services within their scope.",
+            "Your mandatory legal rights remain fully applicable. Applicable-law and liability provisions require review against the confirmed operator and intended audience before publication."
+          ]
+        },
+        {
+          "id": "cloud-terms",
+          "title": "Cloud terms & updates",
+          "paragraphs": [
+            "Cloud service terms are available at kortyx.io/cloud/terms. Account-level acceptance identifies the exact version accepted, the authenticated accepting user, and the acceptance time. Publishing a version on the website does not activate an acceptance requirement in Cloud.",
+            "Website privacy settings manage browser preferences. Cloud service-term acceptance will take place in its own authenticated account flow."
+          ]
+        }
+      ],
+      "operator": {
+        "brand": "Kortyx",
+        "operatorName": "Kortyx S.L.",
+        "contactAddress": null,
+        "contactEmail": null,
+        "registrationNumber": null,
+        "taxNumber": null
+      },
+      "storageInventory": null
+    },
+    "acceptanceRequired": false
+  },
+  {
+    "id": "kortyx.website.legal",
+    "type": "legal_notice",
+    "version": "2026-10-11.4",
+    "pathname": "/legal",
+    "status": "draft",
+    "effectiveDate": null,
+    "updatedAt": "2026-10-11",
+    "hash": "b06a849acc6e61c24ae91dd31fbbe6dcce5fd1091302b3ecc9420740d13c8835",
+    "content": {
+      "title": "Legal Notice",
+      "description": "Operator information, legal documents, and software licensing for Kortyx.",
+      "sections": [
+        {
+          "id": "operator",
+          "title": "Operator information",
+          "paragraphs": [
+            "The website is operated by Kortyx S.L. A business contact address, private contact email, and registration and tax identifiers have not yet been published. Available contact routes are listed on the contact page."
+          ]
+        },
+        {
+          "id": "documents",
+          "title": "Website documents",
+          "paragraphs": [
+            "The privacy notice explains website data practices; the cookies page inventories browser storage; website terms concern the informational site. Cloud service terms, privacy, DPA and subprocessors cover the hosted service separately. Each legal document has a permanent version link and a preserved publication history."
+          ],
+          "links": [
+            {
+              "label": "Privacy notice",
+              "href": "/privacy"
+            },
+            {
+              "label": "Website terms",
+              "href": "/terms"
+            },
+            {
+              "label": "Cloud Terms",
+              "href": "/cloud/terms"
+            },
+            {
+              "label": "Cloud Privacy",
+              "href": "/cloud/privacy"
+            },
+            {
+              "label": "Cloud DPA",
+              "href": "/cloud/dpa"
+            },
+            {
+              "label": "Subprocessors",
+              "href": "/cloud/subprocessors"
+            },
+            {
+              "label": "Cookies & storage",
+              "href": "/cookies"
+            }
+          ]
+        },
+        {
+          "id": "licenses",
+          "title": "Software licenses & third-party services",
+          "paragraphs": [
+            "The framework uses Apache-2.0; Studio uses the Elastic License 2.0. c15t’s Next.js consent package uses Apache-2.0. The applicable source and package license files remain authoritative.",
+            "Names of third-party services and technologies belong to their respective owners. Each service’s own documentation describes its products, agreements, and relationships."
+          ],
+          "links": [
+            {
+              "label": "Repository license overview",
+              "href": "https://github.com/kortyx-io/kortyx/blob/main/LICENSES.md"
+            },
+            {
+              "label": "Contact routes",
+              "href": "/contact"
+            }
+          ]
+        }
+      ],
+      "operator": {
+        "brand": "Kortyx",
+        "operatorName": "Kortyx S.L.",
+        "contactAddress": null,
+        "contactEmail": null,
+        "registrationNumber": null,
+        "taxNumber": null
+      },
+      "storageInventory": null
+    },
+    "acceptanceRequired": false
+  },
+  {
+    "id": "kortyx.website.cookies",
+    "type": "cookie_policy",
+    "version": "2026-10-11.4",
+    "pathname": "/cookies",
+    "status": "draft",
+    "effectiveDate": null,
+    "updatedAt": "2026-10-11",
+    "hash": "1a33ca71416eaefe053509acf3fefda839bdecec0754db55c42a6c22520a7f87",
+    "content": {
+      "title": "Cookie & Browser Storage Policy",
+      "description": "The browser storage used to remember your privacy preferences and selected theme, and how to manage it.",
+      "sections": [
+        {
+          "id": "current-use",
+          "title": "What is used today",
+          "paragraphs": [
+            "Theme storage remembers the display preference you choose. c15t stores your choices, a browser-local preference identifier, and a timestamp in a cookie and local storage on your device. This preference state remains local to your browser.",
+            "A first-visit banner explains this necessary storage. Choosing Got it acknowledges the notice and remembers your browser preferences. Cloud terms acceptance uses a separate account flow. Privacy settings remain available from the footer, including on documentation pages."
+          ]
+        },
+        {
+          "id": "controls",
+          "title": "Change or clear your preferences",
+          "paragraphs": [
+            "Open Privacy settings to review the storage categories currently configured. This website uses only necessary browser storage for the preferences described here.",
+            "You can delete cookies and site storage through your browser settings. Clearing local storage also resets the selected theme. Your browser’s storage settings control whether these preferences can persist."
+          ]
+        },
+        {
+          "id": "external-services",
+          "title": "External links are separate",
+          "paragraphs": [
+            "Following a link to GitHub, a model provider, or another external site brings you under that site’s own storage and privacy practices. Review that provider’s notice when visiting its website."
+          ]
+        },
+        {
+          "id": "future-changes",
+          "title": "Before adding optional services",
+          "paragraphs": [
+            "Any future optional analytics, advertising, or embedded service must have a documented purpose and provider, an appropriate consent or opt-out flow, and tested enforcement before it loads. The inventory and privacy notice must be updated at the same time.",
+            "Website privacy preferences remain separate from Cloud account terms acceptance and any future server-side acceptance history."
+          ],
+          "links": [
+            {
+              "label": "Website privacy notice",
+              "href": "/privacy"
+            }
+          ]
+        }
+      ],
+      "operator": {
+        "brand": "Kortyx",
+        "operatorName": "Kortyx S.L.",
+        "contactAddress": null,
+        "contactEmail": null,
+        "registrationNumber": null,
+        "taxNumber": null
+      },
+      "storageInventory": [
+        {
+          "key": "theme",
+          "mechanism": "Local storage",
+          "purpose": "Remember the display theme you select.",
+          "duration": "Until cleared in your browser."
+        },
+        {
+          "key": "kortyx_privacy",
+          "mechanism": "Cookie & local storage",
+          "purpose": "Remember privacy choices with a browser-local preference identifier and timestamp.",
+          "duration": "180 days for preference validity; local storage remains until cleared."
+        }
+      ]
+    },
+    "acceptanceRequired": false
+  }
+]

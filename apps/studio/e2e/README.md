@@ -30,6 +30,14 @@ Never replace the fixture with hard-coded local database rows. Going through
 ingestion keeps Studio projections, API contracts, and detail routes in the
 test boundary.
 
+`prompt-drawers.spec.ts` creates a category, two immutable prompt versions and
+one test group through the authenticated prompts API. Independent composition
+fixtures exercise exact version selection, Latest, and SDK serving. It cleans up
+only its reserved `e2e-prompt-drawers/*` assets and `E2E prompt drawers` category /
+`E2E prompt drawer group` selection. Local bootstrap grants the prompt permissions
+needed for these fixture mutations by default. Rerun bootstrap with the existing
+keys if an older installation lacks those permissions.
+
 ## Stable assertions
 
 - `data-row-key` identifies a shared table row without depending on column
@@ -80,6 +88,8 @@ response after Presence has already removed the closing surface.
 - a list row opens a full route or skips its entry motion;
 - the first Session → Run navigation replaces the stack with a standalone
   route after loading (production link prefetching);
+- Escape in the commit that changes the top drawer is lost before passive
+  keyboard effects install, or is handled by the departing drawer;
 - Browser Back removes a drawer before its exit state is observable;
 - the backdrop disappears between layers or closes more than one layer;
 - the backdrop sits above ancestor drawers and blocks their visible slivers;
@@ -106,6 +116,15 @@ response after Presence has already removed the closing surface.
 If a failure reveals a new regression class, add the scenario here and to the
 relevant hardening ticket before changing the implementation.
 
+Prompt regressions additionally cover container-sized history menus, full-width
+editors inside narrow drawers, a flat library table, action inspector
+Back/Forward, repeated dismissal, reserved inspector space, category list
+restoration, Groups → Group → Prompt ancestors and Escape/typeahead isolation
+for menus and version comparison dialogs. Native TipTap regressions cover blue
+template inputs, exact-version and Latest inclusions, save-review persistence,
+conflicting child versions, picker Escape isolation, and expansion through the
+actual Studio SDK source. Composition fixtures remain independent for CI shards.
+
 ## Development and production checks
 
 Run the full development suite with `pnpm test:studio:e2e`. CI also runs
@@ -118,3 +137,36 @@ locally with:
 KORTYX_E2E_PRODUCTION=1 pnpm --filter kortyx-studio exec dotenv -e ../../.env -- \
   playwright test internal-linking.spec.ts detail-drawer-stack.spec.ts
 ```
+
+## Eval execution and navigation regressions
+
+`support/eval-plan.ts` defines fixed conversational cases including a two-step
+human choice, mixed repeated attempts, and colon, slash, percent and Unicode IDs.
+`support/eval-fixture.ts` stores historical results under the reserved target
+`e2e-ktx25-eval`; teardown removes this target's historical and newly launched
+runs only. Historical rows model saved verdicts, not model correctness.
+
+`support/eval-consumer.ts` is a loopback-only consumer with a synthetic service
+key. Suite discovery and launches cross the real SDK HTTP handler, authenticated
+Studio proxy, API worker and database. Its deterministic executor and judge keep
+browser tests independent of provider availability; real model and account
+permissions require separate application smoke tests.
+
+The eval tests must catch:
+
+- suite drawers losing their filtered list, expanded bounds or URL state;
+- launch setup losing selected judging mode or launching unselected cases;
+- nested workflow dismissal closing both the workflow and eval case;
+- Back/Forward resurrecting a closed ancestor or allowing a stale exit to win;
+- changing a baseline reusing the previous baseline's case evidence;
+- repeated attempt selection showing the wrong verdict after reload;
+- opaque suite/case identifiers being decoded twice or split as query syntax;
+- full-page tabs opening intercepting drawers on query-only navigation;
+- modified workflow clicks navigating the original tab;
+- dropdown Escape propagating to the surrounding comparison drawer;
+- narrow viewports overflowing or obscuring multi-step definitions.
+
+CI runs `eval-navigation.spec.ts` in development shards and as a dedicated
+production partition. The eval database integration preflight additionally
+checks persisted judge selection, stale suite rejection and running-consumer
+cancellation against a fresh disposable database.

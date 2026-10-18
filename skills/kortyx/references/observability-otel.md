@@ -4,6 +4,23 @@ Use this reference when adding or reviewing Kortyx tracing in an app.
 
 ## Placement
 
+The Node SDK's default-on maintainer usage aggregates are independent of customer
+tracing. They use Kortyx's EU PostHog project and public capture key, so consumers
+need no personal API token. Set `KORTYX_USAGE_TELEMETRY_DISABLED=1` (or `true`)
+before app startup to disable collection, identity creation and delivery.
+`KORTYX_USAGE_TELEMETRY_DEBUG=1` prints approved aggregates locally without sending
+requests or creating identities. Node tests default off; browser-only SDK imports
+do not collect automatically. CI alone does not disable the Node integration.
+
+Usage records exclude customer content, arbitrary resource names, customer IDs,
+credentials and raw error messages/stacks. They carry a pseudonymous random
+installation UUID; do not describe them as legally anonymous. Delivery is bounded
+and best effort, so missing usage records do not prove an operation never ran.
+Destination overrides are `KORTYX_USAGE_TELEMETRY_POSTHOG_HOST`,
+`KORTYX_USAGE_TELEMETRY_POSTHOG_KEY` (public capture key only), and
+`KORTYX_USAGE_TELEMETRY_ENDPOINT` for a compatible collector. These controls do not
+disable Studio traces or OpenTelemetry exports.
+
 - Configure the OpenTelemetry SDK/exporter in server bootstrap code before `createAgent(...)`.
 - Keep tracing server-side. React clients should pass identifiers such as `sessionId`; provider calls and token usage are emitted by server runtime code.
 - Use `@kortyx/otel` for the adapter and keep exporter/backend setup app-owned.
@@ -141,3 +158,19 @@ For typed failure propagation and safe recovery policy, see [Error handling](err
 With tracing configured, thrown workflow/model errors automatically export bounded type/message/stack/cause diagnostics without additional call-site wiring. Studio's failed model request inspector shows provider diagnostics; a separate **Model reasoning** row shows JSON/schema processing failures after an otherwise normally completed model response. Failed provider requests do not add a duplicate reasoning-failure row. Interrupts and cancellation retain their control-flow treatment.
 
 Use `reportError(error, {severity?, metadata?, tags?})` when a catch deliberately continues; OpenTelemetry records the exception plus a `kortyx.error.reported` event without setting the active span to error. Error diagnostics are exported verbatim (type up to 256 characters, message up to 8192 and stack up to 32768). Prompts, outputs and raw provider responses remain controlled by explicit content capture. Both `createKortyxTelemetryAdapter` and `createOpenTelemetryTraceAdapter` optionally accept `error(error)` returning `{type, message, stack?, cause?}` or `null` to replace or suppress diagnostics before export; a throwing override suppresses them without changing execution. Tool diagnostics use the optional tool `telemetry.error` override. Client-facing `serializeFailure` and execution failure contracts remain unchanged; tracing diagnostics are for access-controlled Studio/internal logs.
+
+### Interpreting maintainer usage aggregates
+
+Use `sum(count)` within the same measurement version, operation, component and
+unit. Model/export attempts, structured deltas, API request acceptance, eval
+invocations and persisted worker outcomes have different denominators. HTTP and
+known error/cause codes are allowlisted; original diagnostic errors remain in
+customer observability. CLI invocations use the `cli` product. Explicit
+`KORTYX_USAGE_TELEMETRY_TRAFFIC_SOURCE` labels internal/synthetic/external traffic;
+`unknown` does not mean customer usage. Loss counters on later successful batches
+cannot account for crashes or a permanently offline tail.
+
+Embedders reuse the shared helper/catalog and component registry. A custom eval
+store retains usage ownership unless `EvalWorkerOptions.usage` is supplied;
+choose the wrapper or worker helper as the single emitter. Keep edition catalogs
+outside the public product contract and preserve the opt-out in replacements.

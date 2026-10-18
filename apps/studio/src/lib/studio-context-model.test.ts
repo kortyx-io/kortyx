@@ -16,6 +16,21 @@ const connectedContext: StudioContextResponse = {
 const text = (value: StudioShellContext): string => JSON.stringify(value);
 
 describe("buildStudioShellContext", () => {
+  it("accepts human-authenticated context without inventing API-key metadata", () => {
+    const context = buildStudioShellContext({
+      authMode: "cloud",
+      studioVersion: "1.2.3",
+      apiUrlConfigured: true,
+      studioApiKeyConfigured: false,
+      context: { data: { ...connectedContext, apiKey: null }, error: null },
+    });
+    expect(context.connection).toMatchObject({
+      status: "connected",
+      keyMode: null,
+      scopes: [],
+    });
+    expect(context.identity.access).toBe("Managed authentication");
+  });
   it("presents authenticated project context without key identifiers or secrets", () => {
     const context = buildStudioShellContext({
       authMode: "basic",
@@ -121,4 +136,31 @@ describe("buildStudioShellContext", () => {
     expect(context.connection.label).toBe(expectedLabel);
     expect(text(context)).not.toContain("sensitive upstream detail");
   });
+});
+
+it.each([
+  "cloud",
+  "basic",
+  "none",
+] as const)("supplies a scoped preference cache and enables background database persistence only for authenticated %s mode", (authMode) => {
+  const tablePreferenceScope = {
+    ownerKind: authMode === "cloud" ? ("user" as const) : ("project" as const),
+    cacheKey: "a".repeat(64),
+  };
+  const context = buildStudioShellContext({
+    authMode,
+    studioVersion: "1.2.3",
+    apiUrlConfigured: true,
+    studioApiKeyConfigured: authMode !== "cloud",
+    context: {
+      data: {
+        ...connectedContext,
+        tablePreferenceScope,
+        apiKey: authMode === "cloud" ? null : connectedContext.apiKey,
+      },
+      error: null,
+    },
+  });
+  expect(context.tablePreferenceScope).toEqual(tablePreferenceScope);
+  expect(context.tablePreferencesRemote).toBe(authMode !== "none");
 });

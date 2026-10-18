@@ -188,6 +188,7 @@ GOOGLE_API_KEY=your_key_here pnpm dev
 | Area | Exports |
 | --- | --- |
 | Agent | `createAgent`, `createChatRouteHandler`, `streamChatFromRoute` |
+| Evals | `createEvals`, `defineSuite`, `createEvalJudge`, `createStudioEvalJudge`, `EvalSuiteSchema`, `parseEvalSuite` |
 | Workflows | `defineWorkflow`, `loadWorkflow`, `validateWorkflow` |
 | Hooks | `useReason`, `useInterrupt`, `useStructuredData`, `useNodeState`, `useWorkflowState`, `useRuntimeContext` |
 | Runtime | workflow registries, node registry, in-memory/Redis framework adapters |
@@ -209,6 +210,7 @@ Install only the provider integrations your app needs.
 
 ## Documentation
 
+- [Conversation evals: SDK runner](https://github.com/kortyx-io/kortyx/blob/main/docs/evals/sdk-runner.md)
 - [Monorepo](https://github.com/kortyx-io/kortyx)
 - [Documentation](https://kortyx.io/docs)
 - [Package overview](https://kortyx.io/docs/reference/package-overview)
@@ -275,7 +277,7 @@ Apache-2.0. See [LICENSE](https://github.com/kortyx-io/kortyx/blob/main/LICENSE)
 
 ## Error handling
 
-Use `serializeFailure` for safe structured diagnostics and `DomainError` for explicitly approved domain details that must survive child checkpoint restore. Cancellation, execution limits and human interrupts remain control flow. Applications own retry and schema correction policy. See the [error handling guide](../../apps/website/src/docs/v0/03-guides/08-error-handling.md).
+Use `serializeFailure` for safe structured diagnostics and `DomainError` for explicitly approved domain details that must survive child checkpoint restore. Cancellation, execution limits and human interrupts remain control flow. Applications own retry and schema correction policy. See the [error handling guide](../../apps/website/src/docs/sdk/v0/03-guides/08-error-handling.md).
 
 Throw ordinary `Error` instances when a workflow cannot continue; configured tracing records them automatically before the run fails. Use `reportError(error, {severity?, metadata?, tags?})` only for handled errors when application code deliberately continues with a fallback. Reporting is best-effort observation and never changes workflow control flow.
 
@@ -287,3 +289,14 @@ Studio records individual durations and separate success, denial, fault and canc
 
 
 Configured Studio/OpenTelemetry tracing captures thrown workflow/model errors automatically, including bounded type, message, stack and cause details. Studio also records manual `reportError` calls as handled errors without failing the span. Prompts, outputs and raw provider responses remain excluded by default. Diagnostics are verbatim and may contain sensitive text; the optional trace adapter `error(error)` override can return `{type, message, stack?, cause?}` or `null` to replace or suppress them without changing execution. Client-facing failure contracts remain sanitized and unchanged.
+
+### Evaluation settings and errors
+
+`createEvals` supports `defaults: { repetitions, concurrency, caseTimeoutMs }`,
+`limits: { concurrency, caseTimeoutMs }`, and per-run `caseTimeoutMs` overrides.
+Studio resolves run overrides above project defaults, SDK defaults and built-ins;
+its whole-evaluation timeout is independent of the case budget (30 minutes by
+default). Eval failures retain original messages, stacks, causes and response
+properties with credential redaction automatically. See the repository guides
+[SDK evals](../../docs/evals/sdk-runner.md) and
+[Studio settings and migration](../../docs/evals/studio-execution.md).

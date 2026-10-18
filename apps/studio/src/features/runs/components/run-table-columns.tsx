@@ -1,11 +1,8 @@
 import { CirclePause, Clock3 } from "lucide-react";
+import { CostValue } from "@/components/cost-value";
 import type { DataTableColumn } from "@/components/data-table";
 import { DetailLink } from "@/components/detail/detail-link";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
+import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { FeedbackBadge } from "@/features/feedback/components/feedback-badge";
 import { effectiveInterruptStatus } from "@/features/interrupts/lib/interrupt-presentation";
 import {
@@ -17,10 +14,16 @@ import type { Run, RunStatus, SortKey } from "@/features/runs/schema";
 import { CopyableCell } from "@/features/telemetry/components/copyable-cell";
 import { TruncatedText } from "@/features/telemetry/components/truncated-text";
 import {
+  studioColumnFilters,
+  studioValueColumn,
+} from "@/features/telemetry/lib/column-filters";
+import { costDisplay } from "@/lib/cost";
+import {
   formatCount,
-  formatCurrency,
+  formatDateTime,
   formatDurationSeconds,
 } from "@/lib/format";
+import { studioHelp, withStudioColumnHelp } from "@/lib/studio-help";
 import { studioDetailHref } from "@/lib/studio-routes";
 import { cn } from "@/lib/utils";
 
@@ -61,9 +64,10 @@ export function createRunColumns({
   workflowFilter = "",
   versionFilter = "",
 }: CreateRunColumnsOptions): DataTableColumn<Run, SortKey>[] {
-  return [
+  const columns: DataTableColumn<Run, SortKey>[] = [
     {
       key: "parent",
+      filter: studioColumnFilters("runs", "parent"),
       label: "Execution",
       defaultWidth: 170,
       render: (run) =>
@@ -86,6 +90,7 @@ export function createRunColumns({
     },
     {
       key: "status",
+      filter: studioColumnFilters("runs", "status"),
       label: "Status",
       sortKey: "status",
       defaultWidth: 140,
@@ -141,6 +146,7 @@ export function createRunColumns({
     },
     {
       key: "started",
+      filter: studioColumnFilters("runs", "started"),
       label: "Started",
       sortKey: "started",
       defaultWidth: 108,
@@ -150,6 +156,7 @@ export function createRunColumns({
     },
     {
       key: "feedback",
+      filter: studioColumnFilters("runs", "feedback"),
       label: "Feedback",
       defaultWidth: 120,
       render: (run) =>
@@ -172,6 +179,7 @@ export function createRunColumns({
     },
     {
       key: "workflow",
+      filter: studioColumnFilters("runs", "workflow"),
       label: "Workflows",
       defaultWidth: 190,
       cellTitle: (run) =>
@@ -221,6 +229,7 @@ export function createRunColumns({
     },
     {
       key: "path",
+      filter: studioColumnFilters("runs", "path"),
       label: "Path",
       defaultWidth: 200,
       cellTitle: (run) => workflowPathTitle(run.path),
@@ -228,6 +237,7 @@ export function createRunColumns({
     },
     {
       key: "session",
+      filter: studioColumnFilters("runs", "session"),
       label: "Session",
       defaultWidth: 155,
       cellTitle: (run) => run.session,
@@ -239,14 +249,23 @@ export function createRunColumns({
         />
       ),
     },
+    studioValueColumn<Run, SortKey>("runs", "userId"),
+    studioValueColumn<Run, SortKey>("runs", "tenantId"),
     {
       key: "model",
+      filter: studioColumnFilters("runs", "model"),
       label: "Model",
       defaultWidth: 165,
       render: (run) => (
         <div className="flex min-w-0 items-center gap-1.5 overflow-hidden text-xs">
-          <Tooltip>
-            <TooltipTrigger asChild>
+          <InfoTooltip
+            label={
+              run.provider === "unknown"
+                ? "Provider not captured"
+                : `${run.provider} provider`
+            }
+            documentationUrl={studioHelp.tokens.documentationUrl}
+            trigger={
               <button
                 type="button"
                 onClick={(event) => event.stopPropagation()}
@@ -274,17 +293,18 @@ export function createRunColumns({
                       ? "G"
                       : "?"}
               </button>
-            </TooltipTrigger>
-            <TooltipContent>
-              {run.provider === "unknown"
-                ? "Provider not captured"
-                : `${run.provider} provider`}
-            </TooltipContent>
-          </Tooltip>
+            }
+          >
+            {run.provider === "unknown"
+              ? "Your app did not report which AI service handled this call. The request may still have run."
+              : `Your app used ${run.provider} for AI model requests. Open the run to see the calls and their usage.`}
+          </InfoTooltip>
           <span className="min-w-0 truncate">{run.model}</span>
           {run.models && (
-            <Tooltip>
-              <TooltipTrigger asChild>
+            <InfoTooltip
+              label={`${run.models} additional models`}
+              documentationUrl={studioHelp.metrics.documentationUrl}
+              trigger={
                 <button
                   type="button"
                   onClick={(event) => event.stopPropagation()}
@@ -293,17 +313,18 @@ export function createRunColumns({
                 >
                   +{run.models}
                 </button>
-              </TooltipTrigger>
-              <TooltipContent>
-                {run.models} additional models used in this run
-              </TooltipContent>
-            </Tooltip>
+              }
+            >
+              {run.models} additional models used in this run. Open the run to
+              inspect each captured model call.
+            </InfoTooltip>
           )}
         </div>
       ),
     },
     {
       key: "duration",
+      filter: studioColumnFilters("runs", "duration"),
       label: "Duration",
       sortKey: "duration",
       defaultWidth: 108,
@@ -326,29 +347,30 @@ export function createRunColumns({
     },
     {
       key: "tokens",
+      filter: studioColumnFilters("runs", "tokens"),
       label: "Tokens",
       sortKey: "tokens",
       defaultWidth: 98,
       cellClassName: "font-mono text-xs tabular-nums",
       cellTitle: (run) =>
-        run.tokens
-          ? `Total ${formatCount(run.tokens, { compact: false })} · Input ${formatCount(Math.round(run.tokens * 0.48), { compact: false })} · Output ${formatCount(Math.round(run.tokens * 0.36), { compact: false })} · Reasoning ${formatCount(Math.round(run.tokens * 0.11), { compact: false })} · Cache read ${formatCount(Math.round(run.tokens * 0.05), { compact: false })}`
+        run.tokens !== undefined
+          ? `Total ${formatCount(run.tokens, { compact: false })}`
           : undefined,
       render: (run) => <TruncatedText>{formatCount(run.tokens)}</TruncatedText>,
     },
     {
       key: "cost",
+      filter: studioColumnFilters("runs", "cost"),
       label: "Cost",
       sortKey: "cost",
       defaultWidth: 100,
       cellClassName: "font-mono text-xs tabular-nums",
-      cellTitle: (run) => formatCurrency(run.cost),
-      render: (run) => (
-        <TruncatedText>{formatCurrency(run.cost)}</TruncatedText>
-      ),
+      cellTitle: (run) => costDisplay(run).note,
+      render: (run) => <CostValue value={run} />,
     },
     {
       key: "result",
+      filter: studioColumnFilters("runs", "result"),
       label: "Result",
       defaultWidth: 360,
       render: (run) => (
@@ -370,5 +392,12 @@ export function createRunColumns({
         </>
       ),
     },
+    studioValueColumn<Run, SortKey>("runs", "environment"),
+    studioValueColumn<Run, SortKey>("runs", "id"),
+    studioValueColumn<Run, SortKey>("runs", "endedAt", (v) =>
+      formatDateTime(String(v)),
+    ),
+    studioValueColumn<Run, SortKey>("runs", "pricingStatus"),
   ];
+  return withStudioColumnHelp(columns, "runs");
 }

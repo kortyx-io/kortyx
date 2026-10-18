@@ -9,6 +9,7 @@ export {
   TelemetryDbError,
   TelemetryForbiddenError,
   TelemetryNotFoundError,
+  TelemetryValidationError,
 } from "./errors";
 export { DEFAULT_MODEL_RATE_CARDS } from "./pricing/default-rates";
 export type {
@@ -25,6 +26,39 @@ export {
   upsertTelemetryApiKey,
 } from "./repositories/api-keys";
 export {
+  beginErrorDiagnostic,
+  completeErrorDiagnostic,
+  expireErrorDiagnostics,
+  getErrorDiagnostic,
+  putErrorDiagnosticPart,
+} from "./repositories/error-diagnostics";
+export {
+  getEvalSettings,
+  saveEvalSettings,
+} from "./repositories/eval-settings";
+export {
+  appendEvalProgress,
+  claimEvalRun,
+  claimEvalRuns,
+  enqueueEvalRun,
+  finishEvalRun,
+  getEvalAttemptEvidence,
+  getEvalExecutionGeneration,
+  getEvalRun,
+  heartbeatEvalRun,
+  listEvalRuns,
+  requestEvalCancellation,
+} from "./repositories/evals";
+export { listEvaluationTable } from "./repositories/evaluation-table";
+export {
+  cancelEvaluation,
+  enqueueEvaluation,
+  evaluationRequestHash,
+  findIdempotentEvaluation,
+  getEvaluation,
+  listEvaluations,
+} from "./repositories/evaluations";
+export {
   listApplicableModelRateCards,
   seedDefaultModelRateCards,
 } from "./repositories/model-rate-cards";
@@ -34,6 +68,21 @@ export {
   ensureProjectEnvironmentAllowed,
   getStudioProjectContext,
 } from "./repositories/projects";
+export { listPromptFilterValues } from "./repositories/prompt-table-filters";
+export {
+  applyPromptTransfer,
+  exportPrompts,
+  planPromptTransfer,
+} from "./repositories/prompt-transfer";
+export {
+  getPrompt,
+  getPromptTableReferences,
+  listPrompts,
+  mutatePrompt,
+  type PromptScope,
+  promptEvidence,
+  resolvePrompts,
+} from "./repositories/prompts";
 export {
   clearRunScore,
   listRunScores,
@@ -69,6 +118,8 @@ export {
   createStudioWorkflowModelsFromProjections,
   listStudioWorkflows,
 } from "./repositories/studio-workflows";
+export { listStudioFilterValues } from "./repositories/table-filters";
+export * from "./repositories/table-preferences";
 export type { IngestTelemetryEventsResult } from "./repositories/telemetry-events";
 export { ingestTelemetryEvents } from "./repositories/telemetry-events";
 export type { EnsureWorkflowRevisionResult } from "./repositories/workflow-revisions";
@@ -77,3 +128,4 @@ export {
   findWorkflowRevisionByTopology,
   findWorkflowRevisionForProject,
 } from "./repositories/workflow-revisions";
+export { withProjectTelemetryScope } from "./scope-policy";

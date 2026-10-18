@@ -24,6 +24,7 @@ npm install @kortyx/hooks
 - `useReason(...)` for model calls, optional schema-constrained interrupt flow, and structured output.
 - `useInterrupt(...)` for explicit human-in-the-loop pauses.
 - `useStructuredData(...)` for UI-friendly structured stream events.
+- `defineOutputContract(...)` for reusable model-selected and application-authored structured values.
 - `useRuntimeContext(...)` for request context made available to node execution.
 - `useNodeState(...)` / `useWorkflowState(...)` for stateful node logic.
 
@@ -34,9 +35,46 @@ tool loop, so tools can run before and after a pause. Use `mode: "optional"`
 when the model may finish without asking, and `maxRequests` to bound sequential
 human turns.
 
+Malformed model-authored requests return an `isError` tool result so the model can correct its arguments. They consume the existing model/loop allowance, but do not issue a human request or consume `maxRequests`. Required mode still requires a valid request. Human response validation and approval denial remain strict.
+
 The singular `useReason({ interrupt })` option and `result.interruptResponse`
 are deprecated and will be removed in the next major release. Migrate to
 `interrupts.contracts` and `result.interruptHistory`.
+
+Pass output contracts through `useReason({ outputs: { emit, return } })` to let
+the model emit values between text segments or choose a typed terminal result.
+Contracts with `stream.fields` start a separate streamed JSON pass and publish
+partial `set`, `append`, or `text-delta` updates before the validated `final`
+value. `useStructuredData({ contract, data })` uses the same stream contract for
+application-authored values. The older `outputSchema` and `structured` options
+and `result.output` remain available during migration, but are deprecated and
+scheduled for removal in the next major release. TypeSafe Jev's provider-native
+decision schema is a temporary exception until a non-tool replacement ships.
+
+## Mixed tools, outputs, and interrupts
+
+A model turn may request multiple domain tools, `emit` outputs, and interrupt
+contracts together. They run in the requested order, so an emitted card can
+appear before a question about it. Each interrupt pauses the remaining calls;
+resume reuses completed tool results, emissions, and human responses. Tool
+approval still applies, and `interrupts.maxRequests` and `outputs.maxEmissions`
+still bound their respective calls.
+
+A terminal `return` runs after every other call in that turn, regardless of its
+position. When an output follows domain or interrupt results from the same turn,
+Kortyx generates its value in a separate schema-constrained model pass using
+those results, rather than publishing the original draft. Streamed contracts use
+their normal streamed generation pass; other contracts use a buffered pass.
+These passes, including failed attempts, consume `toolExecution.maxSteps` across
+resume. Budget exhaustion throws a `ProviderRequestError` with code
+`REASON_OUTPUT_BUDGET_EXHAUSTED` and guidance to increase `maxSteps`.
+
+There is one terminal `result.returned` value. If the model requests multiple
+returns, each receives an error result asking the model to select one. Other
+calls proceed normally, and completed calls are not replayed for correction.
+Correction consumes the remaining `maxSteps`; exhaustion throws a typed
+`REASON_OUTPUT_CONTRACT_CORRECTION_EXHAUSTED` failure. Multiple `emit` outputs
+are supported without this restriction.
 
 ## Runtime Resume Behavior
 
@@ -101,3 +139,9 @@ Await groups sequentially within one node; children may contain nested groups.
 Native `Promise.all` calls and parallel graph edges remain unsupported.
 
 See [the execution and replay contract](../../docs/design-specs/child-workflows.md).
+
+When a required `outputs.return` is missing, `useReason` raises the typed
+`REASON_TERMINAL_OUTPUT_MISSING` validation error. Optional
+`toolExecution: { maxSteps: 4, missingReturnCorrections: 1 }` allows an output-only
+correction within the existing step budget, without replaying business tools.
+The correction budget defaults to zero.

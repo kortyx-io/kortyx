@@ -7,12 +7,15 @@ on:
 
 permissions:
   contents: read
+  security-events: write
 
 concurrency:
-  group: ci-${{ github.event.pull_request.number || github.ref }}
+  # PR updates supersede old checks; every merged SHA keeps its release gate.
+  group: ci-${{ github.event.pull_request.number || github.sha }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 env:
+  KORTYX_USAGE_TELEMETRY_DISABLED: "1"
   DATABASE_URL: postgres://kortyx:kortyx@localhost:6543/kortyx
   API_HOST: 127.0.0.1
   API_PORT: 6400
@@ -30,12 +33,12 @@ jobs:
     outputs:
       studio: ${{ steps.affected.outputs.studio }}
     steps:
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           fetch-depth: 0
           filter: blob:none
       - name: Checkout workflow modules
-        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           ref: ${{ github.workflow_sha }}
           path: .github/automation
@@ -50,7 +53,9 @@ jobs:
           TURBO_SCM_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
         run: |
           pnpm turbo ls --affected --output=json > "$RUNNER_TEMP/affected.json"
-          if jq -e '.packages.items | map(.name) | any(. == "kortyx-studio" or . == "@kortyx/api" or . == "@kortyx/telemetry-db" or . == "@kortyx/telemetry-contracts")' "$RUNNER_TEMP/affected.json" >/dev/null; then
+          git diff --name-only "$TURBO_SCM_BASE" "$TURBO_SCM_HEAD" > "$RUNNER_TEMP/ci-changed-paths.txt"
+          if grep -Eq '^\.github/(workflows/ci\.yml$|actions/(setup/node|validation/studio-e2e)/)' "$RUNNER_TEMP/ci-changed-paths.txt" ||
+             jq -e '.packages.items | map(.name) | any(. == "kortyx-studio" or . == "@kortyx/api" or . == "@kortyx/telemetry-db" or . == "@kortyx/telemetry-contracts")' "$RUNNER_TEMP/affected.json" >/dev/null; then
             echo "studio=true" >> "$GITHUB_OUTPUT"
           else
             echo "studio=false" >> "$GITHUB_OUTPUT"
@@ -61,19 +66,19 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        suite: [coverage, integration, build-typecheck, static]
+        suite: [coverage, integration, build-typecheck, static, security]
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 25
     env:
       TURBO_SCM_BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
       TURBO_SCM_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
     steps:
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           fetch-depth: 0
           filter: blob:none
       - name: Checkout workflow modules
-        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           ref: ${{ github.workflow_sha }}
           path: .github/automation
@@ -84,16 +89,75 @@ jobs:
         with:
           suite: ${{ matrix.suite }}
 
+  container_security:
+    name: Container security (${{ matrix.image }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - image: api
+            dockerfile: apps/api/Dockerfile
+          - image: studio
+            dockerfile: apps/studio/Dockerfile
+          - image: website
+            dockerfile: apps/website/Dockerfile
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - name: Build scan target
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          file: ${{ matrix.dockerfile }}
+          load: true
+          push: false
+          # Scan a fresh complete image: downstream stage caches can otherwise
+          # restore an old OS package inventory even after rerunning base updates.
+          pull: true
+          no-cache: true
+          tags: kortyx-${{ matrix.image }}:security-scan
+      - name: Scan image
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          scan-type: image
+          image-ref: kortyx-${{ matrix.image }}:security-scan
+          vuln-type: os,library
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          # Node packages are gated by pnpm audit. Exclude package-manager and
+          # application trees here so this job owns base-image and native-tool
+          # findings without reporting the same dependency twice.
+          skip-dirs: /app/node_modules,/root/.cache/node/corepack,/usr/local/lib/node_modules/npm
+          exit-code: 1
+          hide-progress: true
+
+  container_security_gate:
+    name: Container security
+    needs: container_security
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require every image scan
+        env:
+          RESULT: ${{ needs.container_security.result }}
+        run: test "$RESULT" = success
+
   validate_repository:
     name: Validate repository
-    needs: repository_suite
+    needs: [repository_suite, container_security_gate]
     if: always()
     runs-on: ubuntu-latest
     steps:
       - name: Require every repository suite
         env:
-          RESULT: ${{ needs.repository_suite.result }}
-        run: test "$RESULT" = success
+          REPOSITORY_RESULT: ${{ needs.repository_suite.result }}
+          CONTAINER_RESULT: ${{ needs.container_security_gate.result }}
+        run: |
+          test "$REPOSITORY_RESULT" = success
+          test "$CONTAINER_RESULT" = success
 
   typecheck_lint:
     needs: validate_repository
@@ -121,9 +185,9 @@ jobs:
         ports: ["6543:5432"]
         options: --health-cmd "pg_isready -U kortyx -d kortyx" --health-interval 2s --health-timeout 5s --health-retries 30
     steps:
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       - name: Checkout workflow modules
-        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           ref: ${{ github.workflow_sha }}
           path: .github/automation
@@ -166,9 +230,22 @@ jobs:
               label: "production drawer stack",
               suite: production,
               shard: "",
-              spec: detail-drawer-stack.spec.ts,
+              spec: '(detail-drawer-stack|prompt-drawers)\.spec\.ts',
+            }
+          - {
+              label: "production eval navigation",
+              suite: production,
+              shard: "",
+              spec: 'eval-(navigation|structured-outputs|live-costs)\.spec\.ts',
             }
     runs-on: ubuntu-latest
+    # Keep aligned with the locked @playwright/test version; the action verifies it.
+    container:
+      image: mcr.microsoft.com/playwright:v1.62.0-noble@sha256:baed2032d533817f3dbe6425de795788430ba345e819a1201337009ba17c9d07
+      options: --ipc=host
+    env:
+      DATABASE_URL: postgres://kortyx:kortyx@postgres:5432/kortyx
+      PLAYWRIGHT_IMAGE_VERSION: "1.62.0"
     timeout-minutes: 20
     services:
       postgres:
@@ -180,9 +257,9 @@ jobs:
         ports: ["6543:5432"]
         options: --health-cmd "pg_isready -U kortyx -d kortyx" --health-interval 2s --health-timeout 5s --health-retries 30
     steps:
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       - name: Checkout workflow modules
-        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           ref: ${{ github.workflow_sha }}
           path: .github/automation
@@ -200,9 +277,9 @@ jobs:
     if: needs.changes.outputs.studio == 'true' && !cancelled()
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       - name: Checkout workflow modules
-        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           ref: ${{ github.workflow_sha }}
           path: .github/automation
@@ -214,8 +291,10 @@ jobs:
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
         with:
           pattern: studio-playwright-blob-*
-          path: all-blob-reports
-          merge-multiple: true
+          path: downloaded-blob-reports
+          merge-multiple: false
+      - name: Select latest report per shard without filename collisions
+        run: node ./.github/automation/.github/scripts/ci/prepare-blob-reports.cjs downloaded-blob-reports all-blob-reports
       - name: Merge reports
         run: pnpm --filter kortyx-studio exec playwright merge-reports --reporter=html,github ../../all-blob-reports
       - name: Upload merged report

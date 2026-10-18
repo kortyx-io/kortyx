@@ -1,13 +1,17 @@
-import { ArrowLeft, CircleHelp, X } from "lucide-react";
-import Link from "next/link";
+import { ArrowLeft, X } from "lucide-react";
+import { CostValue } from "@/components/cost-value";
+import Link from "@/components/scoped-link";
 import { Button } from "@/components/ui/button";
+import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { formatCount, formatCurrency, formatDurationMs } from "@/lib/format";
+import { averageCostDisplayValue } from "@/lib/cost";
+import { formatCount, formatDurationMs } from "@/lib/format";
+import { studioHelp } from "@/lib/studio-help";
 import { formatRate } from "../lib/format";
 import type { WorkflowSelection } from "../lib/view-state";
 import type { WorkflowSystem } from "../schema";
@@ -20,21 +24,22 @@ import { WorkflowTools } from "./workflow-tools";
 const metricDescriptions: Record<string, string> = {
   Source: "The workflow and node where this connection starts.",
   Target: "The workflow this connection enters.",
-  Condition: "The routing condition recorded for this connection.",
+  Condition: "The rule your app uses to choose this path.",
   "Observed calls": "Child-workflow calls recorded in the selected period.",
   Handoffs: "Workflow handoffs recorded in the selected period.",
   "Child success": "Share of child-workflow calls that completed successfully.",
   "Success after handoff":
     "Share of runs that completed successfully after this handoff.",
-  "Median call duration": "Median time spent in the child workflow (p50).",
-  "Median transition": "Median time measured for this transition (p50).",
+  "Median call duration":
+    "Half of these child-workflow calls finished in this time or less.",
+  "Median transition": "Half of these transitions took this time or less.",
   Provider:
-    "The provider and model used by this node. Internal means no external model provider was recorded.",
+    "The AI service and model used by this step. Internal means no outside AI service was recorded.",
   Runs: "Runs in the selected time range, environment, and version filters.",
   "Success / error":
     "Share of runs that completed successfully versus the share that failed.",
   "p50 / p95":
-    "Median duration versus the duration that 95% of runs finished within.",
+    "p50: half the runs finished in this time or less. p95: 95 out of 100 finished in this time or less.",
   "Retries / interrupts":
     "Number of runs that included a retry versus the share that paused for input.",
   "Cost / run": "Average recorded model cost per run.",
@@ -42,7 +47,7 @@ const metricDescriptions: Record<string, string> = {
   "Completion / error":
     "Share of runs that completed versus the share that failed.",
   "Tokens / run": "Average recorded model tokens per run.",
-  "Interrupt rate": "Share of runs that paused for human or external input.",
+  "Interrupt rate": "The percentage of runs that paused to wait for input.",
 };
 
 const runsHref = (params: Record<string, string | null | undefined>) => {
@@ -275,7 +280,11 @@ export function WorkflowInspector({
                     ],
                     [
                       "Cost / run",
-                      formatCurrency(selectedNode.metrics.averageCost),
+                      <CostValue
+                        key="node-cost"
+                        value={averageCostDisplayValue(selectedNode.metrics)}
+                        average
+                      />,
                     ],
                   ]}
                 />
@@ -301,7 +310,13 @@ export function WorkflowInspector({
                       ],
                       [
                         "Cost / run",
-                        formatCurrency(selectedWorkflow.metrics.averageCost),
+                        <CostValue
+                          key="workflow-cost"
+                          value={averageCostDisplayValue(
+                            selectedWorkflow.metrics,
+                          )}
+                          average
+                        />,
                       ],
                       [
                         "Interrupt rate",
@@ -365,7 +380,7 @@ export function WorkflowInspector({
   );
 }
 
-function MetricList({ items }: { items: [string, string][] }) {
+function MetricList({ items }: { items: [string, React.ReactNode][] }) {
   return (
     <dl className="divide-y rounded-md border text-xs">
       {items.map(([label, value]) => {
@@ -378,24 +393,16 @@ function MetricList({ items }: { items: [string, string][] }) {
             <dt className="flex min-w-0 items-center gap-1 text-muted-foreground">
               <span>{label}</span>
               {description ? (
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <button
-                      type="button"
-                      aria-label={`Explain ${label}`}
-                      className="shrink-0 rounded-sm outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50"
-                    >
-                      <CircleHelp className="size-3" />
-                    </button>
-                  </TooltipTrigger>
-                  <TooltipContent className="max-w-72">
-                    {description}
-                  </TooltipContent>
-                </Tooltip>
+                <InfoTooltip
+                  label={`Explain ${label}`}
+                  documentationUrl={studioHelp.workflows.documentationUrl}
+                >
+                  {description}
+                </InfoTooltip>
               ) : null}
             </dt>
             <dd
-              title={value}
+              title={typeof value === "string" ? value : undefined}
               className="min-w-0 break-words text-right font-mono tabular-nums"
             >
               {value}

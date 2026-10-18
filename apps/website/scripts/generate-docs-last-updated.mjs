@@ -108,7 +108,15 @@ if (!canReadGitHistory()) {
 const docs = {};
 for (const filePath of walkMarkdownFiles(docsRoot)) {
   const relativePath = toPosixPath(path.relative(docsRoot, filePath));
-  const updatedAt = readLastUpdatedFromGit(filePath);
+  // Keep history visible while the product split is still an uncommitted move.
+  const legacyRelativePath = relativePath.startsWith("sdk/")
+    ? relativePath.slice("sdk/".length)
+    : relativePath.startsWith("studio/")
+      ? relativePath.replace(/^studio\/([^/]+)\//, "$1/05-studio/")
+      : relativePath;
+  const updatedAt =
+    readLastUpdatedFromGit(filePath) ??
+    readLastUpdatedFromGit(path.join(docsRoot, legacyRelativePath));
   if (!updatedAt) continue;
   docs[relativePath] = updatedAt;
 }

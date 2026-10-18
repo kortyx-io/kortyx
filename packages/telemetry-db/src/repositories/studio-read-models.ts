@@ -2,6 +2,7 @@ import {
   projectWorkflowCalls,
   resolveStudioInterruptStatus,
   type StudioCatalogsResponse,
+  type StudioCostSummary,
   type StudioDetailEvent,
   type StudioInterrupt,
   type StudioInterruptInteractionMode,
@@ -26,6 +27,14 @@ import {
 } from "@kortyx/telemetry-contracts";
 import { and, desc, eq, isNull, or, type SQL, sql } from "drizzle-orm";
 import type { TelemetryDb } from "../client";
+import {
+  type AggregatedCost,
+  aggregateCost,
+  averageCostSummary,
+  type Cost,
+  UNKNOWN_COST,
+  ZERO_MODEL_COST,
+} from "../pricing/aggregate-cost";
 import { calculateGenerationCost } from "../pricing/calculate-cost";
 import {
   type ModelRateCard,
@@ -62,6 +71,7 @@ type RunAggregate = {
   models: string[];
   tokens: number | null;
   cost: number | null;
+  costSummary: StudioCostSummary;
   currency: string | null;
   pricingStatus: StudioPricingStatus;
   pricingSource: StudioPricingSource;
@@ -352,78 +362,66 @@ const transitionKeyFromEvent = (
   });
 };
 
-const aggregateCost = (
-  costs: Array<{
-    cost: number | null;
-    currency: string | null;
-    pricingStatus: StudioPricingStatus;
-    pricingSource: StudioPricingSource;
-  }>,
-): {
-  cost: number | null;
-  currency: string | null;
-  pricingStatus: StudioPricingStatus;
-  pricingSource: StudioPricingSource;
-} => {
-  const priced = costs.filter(
-    (cost) => cost.pricingStatus === "priced" && cost.cost !== null,
+const aggregateRunCost = (
+  events: TelemetryEventRecord[],
+  rateCards: ModelRateCard[],
+): AggregatedCost => {
+  const generations = events.filter(
+    (event) => event.type === "generation.completed",
   );
-  if (
-    costs.some(
-      (cost) =>
-        cost.pricingStatus !== "priced" ||
-        cost.cost === null ||
-        cost.currency === null,
-    ) &&
-    priced.length > 0
-  ) {
-    return {
-      cost: null,
-      currency: null,
-      pricingStatus: "unpriced",
-      pricingSource: null,
-    };
-  }
-  if (priced.length > 0) {
-    const currencies = unique(
-      priced
-        .map((cost) => cost.currency)
-        .filter((value): value is string => Boolean(value)),
+  const modelSpans = events.filter(
+    (event) =>
+      event.type.startsWith("span.") && spanName(event) === "runReasonEngine",
+  );
+  if (generations.length === 0) {
+    const starts = events.filter(
+      (event) => isRunSpan(event) && event.type === "span.started",
     );
-    const sources = unique(
-      priced
-        .map((cost) => cost.pricingSource)
-        .filter((value): value is NonNullable<StudioPricingSource> =>
-          Boolean(value),
+    const terminals = events.filter(
+      (event) =>
+        isRunSpan(event) &&
+        (event.type === "span.ended" ||
+          (event.type === "span.failed" && !isSuspensionFailure(event))),
+    );
+    const hasClosedRun =
+      starts.length > 0 &&
+      terminals.length > 0 &&
+      starts.every((start) =>
+        terminals.some(
+          (terminal) =>
+            eventSpanId(start) !== null &&
+            eventSpanId(start) === eventSpanId(terminal) &&
+            terminal.occurredAt >= start.occurredAt,
         ),
-    );
-    return {
-      cost:
-        currencies.length === 1
-          ? priced.reduce((sum, item) => sum + (item.cost ?? 0), 0)
-          : null,
-      currency: currencies.length === 1 ? (currencies[0] ?? null) : null,
-      pricingStatus: currencies.length === 1 ? "priced" : "unpriced",
-      pricingSource:
-        currencies.length === 1 && sources.length === 1
-          ? (sources[0] ?? null)
-          : null,
-    };
+      ) &&
+      terminals.every((terminal) =>
+        starts.some(
+          (start) =>
+            eventSpanId(start) === eventSpanId(terminal) &&
+            start.occurredAt <= terminal.occurredAt,
+        ),
+      );
+    // Absence of generation facts alone does not confirm absence of usage.
+    const hasModelActivity =
+      modelSpans.length > 0 ||
+      events.some((event) => spanName(event) === "useReason");
+    return hasClosedRun && !hasModelActivity ? ZERO_MODEL_COST : UNKNOWN_COST;
   }
-  if (costs.some((cost) => cost.pricingStatus === "unpriced")) {
-    return {
-      cost: null,
-      currency: null,
-      pricingStatus: "unpriced",
-      pricingSource: null,
-    };
+
+  const costs: Cost[] = generations.map((event) =>
+    calculateGenerationCost(event, rateCards),
+  );
+  const generationSpanIds = new Set(generations.map(eventSpanId));
+  if (
+    modelSpans.some(
+      (event) =>
+        eventSpanId(event) === null ||
+        !generationSpanIds.has(eventSpanId(event)),
+    )
+  ) {
+    costs.push(UNKNOWN_COST);
   }
-  return {
-    cost: null,
-    currency: null,
-    pricingStatus: "unknown",
-    pricingSource: null,
-  };
+  return aggregateCost(costs);
 };
 
 const aggregateRunGroups = (
@@ -541,11 +539,14 @@ const aggregateRunGroups = (
           .map(modelFrom)
           .filter((value): value is string => Boolean(value)),
       );
-      const cost = aggregateCost(
-        generationEvents.map((event) =>
-          calculateGenerationCost(event, rateCards),
-        ),
-      );
+      const recordedCost = aggregateRunCost(ordered, rateCards);
+      const cost = {
+        ...recordedCost,
+        costSummary: {
+          ...recordedCost.costSummary,
+          complete: recordedCost.costSummary.complete && status !== "running",
+        },
+      };
       const path = unique(
         ordered
           .filter((event) => !event.payload.invocationId)
@@ -581,6 +582,7 @@ const aggregateRunGroups = (
         models,
         tokens: tokens > 0 ? tokens : null,
         cost: cost.cost,
+        costSummary: cost.costSummary,
         currency: cost.currency,
         pricingStatus: cost.pricingStatus,
         pricingSource: cost.pricingSource,
@@ -715,6 +717,7 @@ const runToStudioRun = (
     durationMs: run.durationMs,
     tokens: run.tokens,
     cost: run.cost,
+    costSummary: run.costSummary,
     pricingStatus: run.pricingStatus,
     pricingSource: run.pricingSource,
     currency: run.currency,
@@ -801,6 +804,7 @@ const aggregateSessions = (
         durationMs: duration > 0 ? duration : null,
         tokens: tokens > 0 ? tokens : null,
         cost: cost.cost,
+        costSummary: cost.costSummary,
         pricingStatus: cost.pricingStatus,
         pricingSource: cost.pricingSource,
         currency: cost.currency,
@@ -1030,7 +1034,8 @@ const metricsForRuns = (runs: RunAggregate[]): StudioMetric => {
     p50DurationMs: percentile(durations, 0.5),
     p95DurationMs: percentile(durations, 0.95),
     averageTokens: average(tokenValues),
-    averageCost: cost.currency ? average(costValues) : null,
+    averageCost: cost.cost !== null ? average(costValues) : null,
+    averageCostSummary: averageCostSummary(cost.costSummary, runs.length),
     currency: cost.currency,
   };
 };
@@ -1373,6 +1378,7 @@ export const getStudioReadModels = async (
   input: {
     organizationId: string;
     projectId: string;
+    environment?: string | undefined;
     limit?: number | undefined;
   },
 ): Promise<StudioReadModels> => {
@@ -1385,6 +1391,9 @@ export const getStudioReadModels = async (
         and(
           eq(telemetryEvents.organizationId, input.organizationId),
           eq(telemetryEvents.projectId, input.projectId),
+          input.environment
+            ? eq(telemetryEvents.environment, input.environment)
+            : undefined,
         ),
       )
       .orderBy(desc(telemetryEvents.occurredAt))
@@ -1396,6 +1405,9 @@ export const getStudioReadModels = async (
         and(
           eq(workflowRevisions.organizationId, input.organizationId),
           eq(workflowRevisions.projectId, input.projectId),
+          input.environment
+            ? eq(workflowRevisions.environment, input.environment)
+            : undefined,
         ),
       )
       .orderBy(desc(workflowRevisions.createdAt)),
@@ -1425,7 +1437,11 @@ export const getStudioReadModels = async (
 
 const loadScopedStudioModels = async (
   db: TelemetryDb,
-  input: { organizationId: string; projectId: string },
+  input: {
+    organizationId: string;
+    projectId: string;
+    environment?: string | undefined;
+  },
   eventPredicate: SQL,
 ): Promise<StudioReadModels> => {
   const [events, revisions, rates] = await Promise.all([
@@ -1437,6 +1453,9 @@ const loadScopedStudioModels = async (
           eq(telemetryEvents.organizationId, input.organizationId),
           eq(telemetryEvents.projectId, input.projectId),
           eventPredicate,
+          input.environment
+            ? eq(telemetryEvents.environment, input.environment)
+            : undefined,
         ),
       )
       .orderBy(telemetryEvents.occurredAt),
@@ -1447,6 +1466,9 @@ const loadScopedStudioModels = async (
         and(
           eq(workflowRevisions.organizationId, input.organizationId),
           eq(workflowRevisions.projectId, input.projectId),
+          input.environment
+            ? eq(workflowRevisions.environment, input.environment)
+            : undefined,
         ),
       )
       .orderBy(desc(workflowRevisions.createdAt)),
@@ -1471,7 +1493,12 @@ const loadScopedStudioModels = async (
 
 export const getStudioRunReadModel = async (
   db: TelemetryDb,
-  input: { organizationId: string; projectId: string; runId: string },
+  input: {
+    organizationId: string;
+    projectId: string;
+    runId: string;
+    environment?: string | undefined;
+  },
 ): Promise<StudioReadModels> => {
   const runScope = await db
     .select({ sessionId: telemetryEvents.sessionId })
@@ -1481,6 +1508,9 @@ export const getStudioRunReadModel = async (
         eq(telemetryEvents.organizationId, input.organizationId),
         eq(telemetryEvents.projectId, input.projectId),
         eq(telemetryEvents.runId, input.runId),
+        input.environment
+          ? eq(telemetryEvents.environment, input.environment)
+          : undefined,
       ),
     )
     .limit(1);
@@ -1496,7 +1526,12 @@ export const getStudioRunReadModel = async (
 
 export const getStudioSessionReadModel = (
   db: TelemetryDb,
-  input: { organizationId: string; projectId: string; sessionId: string },
+  input: {
+    organizationId: string;
+    projectId: string;
+    sessionId: string;
+    environment?: string | undefined;
+  },
 ) =>
   loadScopedStudioModels(
     db,
@@ -1506,7 +1541,12 @@ export const getStudioSessionReadModel = (
 
 export const getStudioInterruptReadModel = async (
   db: TelemetryDb,
-  input: { organizationId: string; projectId: string; interruptId: string },
+  input: {
+    organizationId: string;
+    projectId: string;
+    interruptId: string;
+    environment?: string | undefined;
+  },
 ): Promise<StudioReadModels> => {
   const interruptRows = await db
     .select({ runId: telemetryEvents.runId })
@@ -1516,6 +1556,9 @@ export const getStudioInterruptReadModel = async (
         eq(telemetryEvents.organizationId, input.organizationId),
         eq(telemetryEvents.projectId, input.projectId),
         sql`${telemetryEvents.payload} ->> 'interruptId' = ${input.interruptId}`,
+        input.environment
+          ? eq(telemetryEvents.environment, input.environment)
+          : undefined,
       ),
     )
     .limit(1);

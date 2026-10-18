@@ -4,8 +4,9 @@ Structured streaming is a second channel beside assistant text.
 
 ## Choose The Producer
 
-- Use `useReason({ structured })` when the model owns the object.
-- Use `useStructuredData(...)` when deterministic node logic owns the updates.
+- Use `defineOutputContract(...)` with `useReason({ outputs })` when the model chooses the object.
+- Use `useStructuredData({ contract, ... })` when deterministic node logic owns the updates.
+- `useReason({ outputSchema, structured })` is a deprecated compatibility path, removed in the next major.
 
 ## Chunk Model
 
@@ -13,6 +14,7 @@ Structured streaming is a second channel beside assistant text.
 - `structured-data` chunks render object/UI state.
 - `streamId` identifies one logical structured stream.
 - `kind` tells the client reducer how to apply the update.
+- `structured-data-invalidated` removes a provisional stream if generation or final validation fails; rollback invalidations additionally identify the checkpoint.
 
 ## `useStructuredData(...)`
 
@@ -97,42 +99,48 @@ Use incremental field modes for literal structured paths:
 - `append`: append completed array items.
 - `final`: complete validated object.
 
-For `useStructuredData(...)`, `path` can target structured reducer paths. For `useReason({ structured.fields })`, fields can also be literal nested paths such as `draft.body`, `intro.question_text`, or `assessment_points.0.criteria_label`, plus single-segment `*` patterns such as `assessment_points.*.criteria_label`.
+For `useStructuredData(...)`, `path` can target structured reducer paths. Contract `stream.fields` can use literal nested paths such as `draft.body`, `intro.question_text`, or `assessment_points.0.criteria_label`, plus single-segment `*` patterns such as `assessment_points.*.criteria_label`.
 
-`useReason({ outputSchema, structured.fields })` already streams configured fields as `structured-data` chunks. With `outputSchema` or `interrupt`, Kortyx suppresses raw assistant `text-delta` chunks because those deltas would be partial JSON, not user-facing prose.
+An output contract with `stream.fields` emits configured fields as realtime `structured-data` chunks. The dedicated JSON pass suppresses raw assistant `text-delta` chunks because those would be partial JSON, not user-facing prose. The model may stream normal text before and after an emitted contract when the provider supports tool streaming.
 
-Do not ask for raw `text-delta` streaming just to get structured output for known fields. Use `structured.fields` instead:
-
-```ts
-structured: {
-  dataType: "guide.draft",
-  fields: {
-    "intro.question_text": "text-delta",
-    "draft.subject": "set",
-    "draft.bullets": "append",
-  },
-}
-```
-
-Use `*` for model-generated object keys:
+Do not ask for raw `text-delta` streaming just to get structured output for known fields. Declare `stream.fields` on the contract instead:
 
 ```ts
-structured: {
-  fields: {
-    "assessment_points.*.criteria_label": "set",
+import { defineOutputContract, useReason } from "kortyx";
+import { z } from "zod";
+
+const DraftSchema = z.object({
+  intro: z.object({ question_text: z.string() }),
+  draft: z.object({ subject: z.string(), bullets: z.array(z.string()) }),
+});
+const draft = defineOutputContract({
+  description: "Show the growing draft.",
+  schemaId: "guide.draft",
+  schemaVersion: "1",
+  schema: DraftSchema,
+  stream: {
+    fields: {
+      "intro.question_text": "text-delta",
+      "draft.subject": "set",
+      "draft.bullets": "append",
+    },
   },
-}
+});
+
+await useReason({ model, input, outputs: { emit: { draft } } });
 ```
+
+For model-generated object keys, a contract can declare `stream: { fields: { "assessment_points.*.criteria_label": "set" } }`.
 
 Wildcard matches emit concrete paths such as `assessment_points.commercial_resilience.criteria_label`. `*` matches exactly one object key or array index segment; recursive `**` patterns are not supported.
 
 ## Choosing Between APIs
 
-- Model owns object generation: `useReason({ outputSchema, structured })`.
-- Node/app logic owns updates: `useStructuredData(...)`.
-- Need literal nested reducer paths: `useReason({ structured.fields })` or `useStructuredData(...)`.
-- Need wildcard/dynamic-key streaming: use single-segment `*` patterns in `useReason({ structured.fields })`; prefer array schemas for long ordered lists.
-- Need final validated model object only: `useReason({ outputSchema, structured: { dataType } })`.
+- Model chooses object generation: `useReason({ outputs: { emit, return } })` with output contracts.
+- Node/app logic owns updates: `useStructuredData({ contract, ... })`.
+- Need literal nested reducer paths: contract `stream.fields` or `useStructuredData(...)`.
+- Need wildcard/dynamic-key streaming: use single-segment `*` patterns in contract `stream.fields`; prefer array schemas for long ordered lists.
+- Need only a final validated model object: define a non-streamed `outputs.return` contract.
 - Need a model to edit only part of an existing object: ask the model for a patch object, validate it, merge it with the existing object in node code, then emit targeted `useStructuredData(...)` updates for the changed paths.
 
 ## Client Expectation

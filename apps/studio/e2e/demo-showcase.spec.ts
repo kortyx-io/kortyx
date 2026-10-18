@@ -1,81 +1,90 @@
 import path from "node:path";
-import { expect, test } from "@playwright/test";
-import {
-  cleanupDemoShowcase,
-  DEMO,
-  seedDemoShowcase,
-} from "./support/demo-showcase-fixture";
+import { SAMPLE_PROJECT as sample } from "@kortyx/telemetry-contracts";
+import { expect, type Locator, test } from "@playwright/test";
 
 const output =
   process.env.KORTYX_DEMO_SCREENSHOT_DIR ?? path.resolve("demo-screens");
 
-test("capture presentation-ready Studio screens", async ({ page, request }) => {
-  await cleanupDemoShowcase();
-  await seedDemoShowcase(request);
-  const capture = async (
-    name: string,
-    url: string,
-    ready?: () => Promise<void>,
-  ) => {
+test("capture presentation-ready Studio sample screens", async ({ page }) => {
+  const capture = async (name: string, url: string, ready: Locator) => {
     await page.goto(url);
+    await expect(ready).toBeVisible();
+    const table = page.locator("[data-table-ready]").first();
+    if (await table.count()) {
+      await expect(table).toHaveAttribute("data-table-ready", "true");
+    }
+    const workflowMap = page.locator("[data-workflows-ready]");
+    if (await workflowMap.count()) {
+      await expect(workflowMap).toHaveAttribute("data-workflows-ready", "true");
+      await expect(page.locator(".react-flow__node").first()).toBeVisible();
+    }
     await expect(page.locator("body")).not.toContainText(
       "Internal Server Error",
     );
-    if (ready) await ready();
     await page.screenshot({
       path: path.join(output, `${name}.png`),
+      animations: "disabled",
+      caret: "initial",
       fullPage: false,
     });
   };
+  const text = (value: string) =>
+    page.getByText(value, { exact: true }).first();
+  const panel = (tab: string) =>
+    page.locator(`[data-detail-tab-content="${tab}"]`);
+  const run = `/sample/runs/${sample.runs.success}`;
+  const session = `/sample/sessions/${sample.sessions.success}`;
 
-  await capture(
-    "01-runs-overview",
-    "/runs?env=production&range=7+days",
-    async () => {
-      await expect(
-        page.locator(`[data-row-key="${DEMO.runId}"]`),
-      ).toBeVisible();
-    },
-  );
-  await capture("02-run-overview", `/runs/${DEMO.runId}?tab=overview`);
-  await capture("03-run-execution", `/runs/${DEMO.runId}?tab=calls`);
-  await capture("04-run-trace", `/runs/${DEMO.runId}?tab=trace`);
-  await capture("05-run-topology", `/runs/${DEMO.runId}?tab=topology`);
-  await capture("06-run-model-io", `/runs/${DEMO.runId}?tab=model-io`);
-  await capture("07-run-summary", `/runs/${DEMO.runId}?tab=summary`);
-  await capture("08-run-events", `/runs/${DEMO.runId}?tab=events`);
+  await capture("01-runs-overview", "/sample/runs", text(sample.runs.failure));
+  for (const [name, tab] of [
+    ["02-run-overview", "overview"],
+    ["03-run-execution", "calls"],
+    ["04-run-trace", "trace"],
+    ["05-run-topology", "topology"],
+    ["06-run-model-io", "model-io"],
+    ["07-run-summary", "summary"],
+    ["08-run-events", "events"],
+  ]) {
+    await capture(name, `${run}?tab=${tab}`, panel(tab));
+  }
   await capture(
     "09-sessions-overview",
-    "/sessions?env=production&range=7+days",
-    async () => {
-      await expect(
-        page.locator(`[data-row-key="${DEMO.sessionId}"]`),
-      ).toBeVisible();
-    },
+    "/sample/sessions",
+    text(sample.sessions.success),
   );
+  for (const [name, tab] of [
+    ["10-session-activity", "activity"],
+    ["11-session-runs", "runs"],
+    ["12-session-state", "state"],
+    ["13-session-metadata", "metadata"],
+  ]) {
+    await capture(name, `${session}?sessionTab=${tab}`, panel(tab));
+  }
+  await capture("14-workflows", "/sample/workflows", text(sample.workflowId));
   await capture(
-    "10-session-activity",
-    `/sessions/${DEMO.sessionId}?sessionTab=activity`,
+    "15-interrupts",
+    "/sample/interrupts",
+    page.locator(`[data-row-key="${sample.interruptId}"]`),
   );
-  await capture(
-    "11-session-runs",
-    `/sessions/${DEMO.sessionId}?sessionTab=runs`,
-  );
-  await capture(
-    "12-session-state",
-    `/sessions/${DEMO.sessionId}?sessionTab=state`,
-  );
-  await capture(
-    "13-session-metadata",
-    `/sessions/${DEMO.sessionId}?sessionTab=metadata`,
-  );
-  await capture(
-    "14-workflows",
-    `/workflows?env=production&range=7+days&workflow=${DEMO.workflowId}`,
-  );
-  await capture("15-interrupts", "/interrupts?env=production&range=7+days");
   await capture(
     "16-interrupt-detail",
-    `/interrupts/${DEMO.interruptId}?interruptTab=payload`,
+    `/sample/interrupts/${sample.interruptId}?interruptTab=payload`,
+    panel("payload"),
+  );
+  await capture(
+    "17-failed-run",
+    `/sample/runs/${sample.runs.failure}?tab=trace`,
+    page.getByText(/model request timed out/i).first(),
+  );
+  await capture("18-prompts", "/sample/prompts", text("Support assistant"));
+  await capture(
+    "19-prompt-detail",
+    `/sample/prompts/${sample.promptId}`,
+    text("Support assistant"),
+  );
+  await capture(
+    "20-evaluations",
+    "/sample/evals/runs",
+    text("Support quality — recorded sample"),
   );
 });

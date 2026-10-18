@@ -1,6 +1,5 @@
 "use client";
 
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   createContext,
   type ReactNode,
@@ -30,13 +29,32 @@ import {
 import { useSidebar } from "@/components/ui/sidebar";
 import { detailNavigationHref } from "@/lib/nuqs";
 import { detailDrawerZIndex } from "@/lib/overlay-layers";
+import {
+  usePathname,
+  useRouter,
+  useSearchParams,
+} from "@/lib/scoped-navigation";
+import { studioPathname } from "@/lib/studio-routing";
 import { cn } from "@/lib/utils";
 
 export type { DetailLayerRegistration } from "@/components/detail/detail-stack-state";
 
 const DETAIL_HISTORY_KEY = "__kortyxDetailStack";
 
-const DETAIL_BASE_PATHS = ["/sessions", "/runs", "/interrupts"] as const;
+const DETAIL_BASE_PATHS = [
+  "/sessions",
+  "/runs",
+  "/interrupts",
+  "/evals/cases",
+  "/evals/suites",
+  "/prompts",
+] as const;
+
+function detailBasePathsFor(pathname: string): readonly string[] {
+  return /^\/prompts\/categories\/[^/]+$/.test(pathname)
+    ? [...DETAIL_BASE_PATHS, pathname]
+    : DETAIL_BASE_PATHS;
+}
 
 type DetailStackContextValue = {
   beginClose: (id: string) => void;
@@ -65,13 +83,15 @@ export function DetailStackProvider({ children }: { children: ReactNode }) {
   const historyTraversalRef = useRef<(() => boolean) | null>(null);
   const nestedCloseHandlersRef = useRef(new Map<string, () => void>());
   const timersRef = useRef(new Map<string, number>());
+  const pendingCloseRef = useRef<string | null>(null);
 
   const saveCurrentStack = useCallback(() => {
     if (historyTraversalRef.current) return;
-    const path = window.location.pathname;
+    const browserPath = window.location.pathname;
+    const path = studioPathname(browserPath);
     const target = layers.find((layer) => layer.matchPath === path);
     if (target?.closing) return;
-    const isList = DETAIL_BASE_PATHS.some((base) => base === path);
+    const isList = detailBasePathsFor(path).includes(path);
     if (!target && !isList && layers.length > 0) return;
     // Metadata-only writes bypass Next/Nuqs wrappers, which can reset a
     // queued query selection even when the URL has not changed.
@@ -80,7 +100,9 @@ export function DetailStackProvider({ children }: { children: ReactNode }) {
       {
         ...window.history.state,
         [DETAIL_HISTORY_KEY]: {
-          pathname: path,
+          // Keep the scope in persisted history; another project's identical
+          // detail path must never restore this snapshot.
+          pathname: browserPath,
           layers: isList
             ? []
             : layers
@@ -95,7 +117,7 @@ export function DetailStackProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     // Do not overwrite a restored entry before Next commits its route tree.
     if (
-      pathname === window.location.pathname &&
+      pathname === studioPathname(window.location.pathname) &&
       searchParams.toString() ===
         new URLSearchParams(window.location.search).toString()
     )
@@ -110,6 +132,7 @@ export function DetailStackProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const cancelPendingNavigation = useCallback(() => {
+    pendingCloseRef.current = null;
     for (const key of timersRef.current.keys()) {
       if (key.startsWith("navigate")) clearTimer(key);
     }
@@ -202,11 +225,19 @@ export function DetailStackProvider({ children }: { children: ReactNode }) {
     (id: string) => {
       const target = layers.find((layer) => layer.id === id);
       if (!target) return;
+      // A retained surface can become topmost before Next commits its route.
+      // Closing against the old pathname would finish traversal immediately,
+      // then let the pending navigation open the supposedly dismissed drawer.
+      if (pathname !== target.matchPath) {
+        pendingCloseRef.current = id;
+        return;
+      }
+      pendingCloseRef.current = null;
       saveCurrentStack();
       beginClose(id);
       scheduleNavigation(`navigate:${id}`, () => {
         navigateBackUntil(
-          () => window.location.pathname !== target.matchPath,
+          () => studioPathname(window.location.pathname) !== target.matchPath,
           detailNavigationHref(target.dismissPath, searchParams),
         );
       });
@@ -215,14 +246,27 @@ export function DetailStackProvider({ children }: { children: ReactNode }) {
       beginClose,
       layers,
       navigateBackUntil,
+      pathname,
       saveCurrentStack,
       scheduleNavigation,
       searchParams,
     ],
   );
 
+  useEffect(() => {
+    const id = pendingCloseRef.current;
+    if (
+      id &&
+      layers.some((layer) => layer.id === id && layer.matchPath === pathname)
+    ) {
+      pendingCloseRef.current = null;
+      closeTop(id);
+    }
+  }, [closeTop, layers, pathname]);
+
   const closeAbove = useCallback(
     (id: string) => {
+      pendingCloseRef.current = null;
       const index = layers.findIndex((layer) => layer.id === id);
       if (index < 0 || index === layers.length - 1) return;
       const target = layers[index];
@@ -235,7 +279,7 @@ export function DetailStackProvider({ children }: { children: ReactNode }) {
           href = `${href}${separator}detailView=expanded`;
         }
         navigateBackUntil(
-          () => window.location.pathname === target.matchPath,
+          () => studioPathname(window.location.pathname) === target.matchPath,
           href,
         );
       });
@@ -250,6 +294,7 @@ export function DetailStackProvider({ children }: { children: ReactNode }) {
   );
 
   const closeAll = useCallback(() => {
+    pendingCloseRef.current = null;
     const bottom = layers[0];
     if (!bottom) return;
     saveCurrentStack();
@@ -257,7 +302,7 @@ export function DetailStackProvider({ children }: { children: ReactNode }) {
     scheduleNavigation("navigate:all", () => {
       const detailPaths = new Set(layers.map((layer) => layer.matchPath));
       navigateBackUntil(
-        () => !detailPaths.has(window.location.pathname),
+        () => !detailPaths.has(studioPathname(window.location.pathname)),
         detailNavigationHref(bottom.dismissPath, searchParams),
       );
     });
@@ -273,7 +318,7 @@ export function DetailStackProvider({ children }: { children: ReactNode }) {
     (href: string) => {
       cancelPendingNavigation();
       saveCurrentStack();
-      const pathname = href.split("?", 1)[0] ?? href;
+      const pathname = studioPathname(href.split("?", 1)[0] ?? href);
       // Exiting layers remain mounted for their animation. Revisiting one is
       // a new child navigation, not a jump to a retained ancestor.
       if (
@@ -285,7 +330,11 @@ export function DetailStackProvider({ children }: { children: ReactNode }) {
       // the requested query and browser Back/Forward entries stay intact.
       historyTargetPathRef.current = pathname;
       setLayers((current) =>
-        syncDetailLayersToHistoryPath(current, pathname, DETAIL_BASE_PATHS),
+        syncDetailLayersToHistoryPath(
+          current,
+          pathname,
+          detailBasePathsFor(pathname),
+        ),
       );
     },
     [cancelPendingNavigation, layers, saveCurrentStack],
@@ -311,7 +360,8 @@ export function DetailStackProvider({ children }: { children: ReactNode }) {
       if (reachedTraversalTarget && !reachedTraversalTarget()) return;
       if (!reachedTraversalTarget) cancelPendingNavigation();
       historyTraversalRef.current = null;
-      historyTargetPathRef.current = window.location.pathname;
+      const path = studioPathname(window.location.pathname);
+      historyTargetPathRef.current = path;
       const snapshot = readDetailHistorySnapshot(
         window.history.state?.[DETAIL_HISTORY_KEY],
         window.location.pathname,
@@ -324,8 +374,8 @@ export function DetailStackProvider({ children }: { children: ReactNode }) {
           ? restoreDetailLayersFromHistory(current, snapshot.layers)
           : syncDetailLayersToHistoryPath(
               current,
-              window.location.pathname,
-              DETAIL_BASE_PATHS,
+              path,
+              detailBasePathsFor(path),
             ),
       );
     };
@@ -376,6 +426,8 @@ export function DetailStackProvider({ children }: { children: ReactNode }) {
         type="button"
         data-detail-backdrop
         aria-label="Close detail"
+        aria-hidden={!backdropVisible}
+        disabled={!backdropVisible}
         tabIndex={-1}
         onClick={() => {
           if (backdropLayer?.splitOpen) {
@@ -422,7 +474,7 @@ export function useDetailStackSlotState(dismissPath: string, pathname: string) {
           stack.layers,
           dismissPath,
           pathname,
-          DETAIL_BASE_PATHS,
+          detailBasePathsFor(pathname),
         )
       : null,
     registered: layer !== undefined,

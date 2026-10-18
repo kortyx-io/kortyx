@@ -1,7 +1,10 @@
+"use client";
+
 import type {
   StudioInterruptDetailResponse,
   StudioInterruptStatus,
 } from "@kortyx/telemetry-contracts";
+import { SAMPLE_PROJECT } from "@kortyx/telemetry-contracts";
 import { CheckCircle2, CircleAlert, CirclePause, Clock3 } from "lucide-react";
 import { DetailLink } from "@/components/detail/detail-link";
 import {
@@ -12,6 +15,7 @@ import {
 } from "@/components/detail/detail-primitives";
 import { DetailTabs } from "@/components/detail/detail-tabs";
 import { PayloadViewer } from "@/components/detail/payload-viewer";
+import { useStudioRouteScope } from "@/components/studio-route-provider";
 import {
   interruptInteractionLabel,
   interruptStatusLabel,
@@ -19,6 +23,7 @@ import {
   interruptTypeLabel,
 } from "@/features/interrupts/lib/interrupt-presentation";
 import { formatCount, formatDateTime } from "@/lib/format";
+import { studioHelp } from "@/lib/studio-help";
 import { studioDetailHref } from "@/lib/studio-routes";
 
 export function InterruptDetail({
@@ -27,6 +32,7 @@ export function InterruptDetail({
   detail: StudioInterruptDetailResponse;
 }) {
   const { interrupt } = detail;
+  const sampleProject = useStudioRouteScope()?.sampleProject === true;
   const created = detail.events.find(
     (event) => event.type === "interrupt.created",
   );
@@ -48,11 +54,18 @@ export function InterruptDetail({
     typeof leaf.nodeId === "string"
       ? leaf.nodeId
       : null;
-  const timing = interruptTimingPresentation(interrupt, Date.now());
+  const timing = interruptTimingPresentation(
+    interrupt,
+    sampleProject ? Date.parse(SAMPLE_PROJECT.referenceTime) : Date.now(),
+  );
   const interactionLabel = interruptInteractionLabel(interrupt);
   return (
-    <div className="flex h-full min-h-0 flex-col">
+    <div
+      data-interrupt-detail-id={interrupt.id}
+      className="flex h-full min-h-0 flex-col"
+    >
       <DetailHeader
+        help={studioHelp.interrupts}
         eyebrow="Interrupt"
         title={interrupt.id}
         status={
@@ -129,6 +142,7 @@ export function InterruptDetail({
       />
       <div className="min-h-0 flex-1">
         <DetailTabs
+          family="interrupt"
           queryKey="interruptTab"
           tabs={[
             {
@@ -167,7 +181,7 @@ function Decision({ detail }: { detail: StudioInterruptDetailResponse }) {
             {interrupt.contract ? "Contract request" : "Decision requested"}
           </p>
           <div className="mt-3 rounded-lg border bg-muted/15 p-5">
-            <p className="text-base font-medium leading-relaxed">
+            <p className="whitespace-pre-wrap break-words [overflow-wrap:anywhere] text-base font-medium leading-relaxed">
               {interrupt.question ?? "Request content was not captured"}
             </p>
             <div className="mt-4 flex flex-wrap gap-2">
@@ -202,7 +216,7 @@ function Decision({ detail }: { detail: StudioInterruptDetailResponse }) {
               </div>
             )}
           </div>
-          <div className="mt-6">
+          <div data-guide-focus="interrupt-response" className="mt-6">
             <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
               Response
             </p>
@@ -218,7 +232,7 @@ function Decision({ detail }: { detail: StudioInterruptDetailResponse }) {
                   {interrupt.responseValue !== null ? (
                     <PayloadViewer value={interrupt.responseValue} />
                   ) : (
-                    <p className="text-sm">
+                    <p className="whitespace-pre-wrap break-words [overflow-wrap:anywhere] text-sm">
                       {interrupt.response ?? "An empty response was submitted"}
                     </p>
                   )}
@@ -255,10 +269,10 @@ function Decision({ detail }: { detail: StudioInterruptDetailResponse }) {
                 ? `${interrupt.schemaId}${interrupt.schemaVersion ? ` v${interrupt.schemaVersion}` : ""}`
                 : "Not declared"}
             </KeyValue>
-            <KeyValue label="User">
+            <KeyValue help={studioHelp.identity} label="User">
               {interrupt.userId ?? "Not captured"}
             </KeyValue>
-            <KeyValue label="Tenant">
+            <KeyValue help={studioHelp.identity} label="Tenant">
               {interrupt.tenantId ?? "Not captured"}
             </KeyValue>
             <KeyValue label="Expires">
@@ -274,7 +288,7 @@ function Decision({ detail }: { detail: StudioInterruptDetailResponse }) {
             <KeyValue label="Resolver">
               {interrupt.resolvedBy ?? "Not captured"}
             </KeyValue>
-            <KeyValue label="Resume outcome">
+            <KeyValue help={studioHelp.interrupts} label="Resume outcome">
               {interrupt.resumeOutcome ?? "Not attempted"}
             </KeyValue>
           </dl>
@@ -344,7 +358,7 @@ function InterruptRequestDetails({
           className="min-w-0 rounded-md border bg-background/60 px-3 py-2"
         >
           <div className="flex min-w-0 items-baseline justify-between gap-3">
-            <span className="min-w-0 break-words text-sm font-medium">
+            <span className="min-w-0 whitespace-pre-wrap break-words [overflow-wrap:anywhere] text-sm font-medium">
               {option.label}
             </span>
             <code className="max-w-[45%] truncate text-[10px] text-muted-foreground">
@@ -352,7 +366,7 @@ function InterruptRequestDetails({
             </code>
           </div>
           {option.description && (
-            <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+            <p className="mt-1 whitespace-pre-wrap break-words [overflow-wrap:anywhere] text-xs leading-relaxed text-muted-foreground">
               {option.description}
             </p>
           )}
@@ -395,7 +409,11 @@ function InterruptTimeline({
                 ? Clock3
                 : CircleAlert;
         return (
-          <div key={event.id} className="relative flex gap-4 pb-6 last:pb-0">
+          <div
+            key={event.id}
+            data-interrupt-event={event.type}
+            className="relative flex gap-4 pb-6 last:pb-0"
+          >
             {index < detail.events.length - 1 && (
               <span className="absolute left-[15px] top-8 h-[calc(100%-1rem)] border-l" />
             )}

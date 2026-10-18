@@ -1,0 +1,17 @@
+{
+  "slug": "dpa",
+  "version": "2026-10-08.staging.2",
+  "effectiveDate": "2026-10-08T00:00:00.000Z",
+  "draft": true,
+  "title": "Data Processing Agreement",
+  "sections": [
+    {
+      "title": "Not yet executed",
+      "text": "This staging draft is not an executed data-processing agreement. Do not submit real customer personal data until the operator identity and the processor terms are finalized and approved."
+    },
+    {
+      "title": "Required production agreement",
+      "text": "The final DPA must identify controller/processor roles, subject matter, duration, nature and purpose of processing, data types and data subjects; documented instructions and confidentiality; technical/organizational measures; approved subprocessors and change notices; transfer mechanisms; assistance with rights, security incidents and impact assessments; return/deletion and backup handling; and information/audit rights. Security, retention and notification commitments must match operational evidence, not invented promises."
+    }
+  ]
+}

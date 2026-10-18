@@ -11,6 +11,7 @@ import { getHookContext } from "./context";
 import { errorDiagnostics } from "./error-diagnostics";
 import { withSafeTraceSpan } from "./safe-tracing";
 import type { ReasonTraceAdapter } from "./tracing";
+import { usage } from "./usage";
 import { emitWorkflowCall } from "./workflow-telemetry";
 
 type ToolScope = {
@@ -124,10 +125,42 @@ function captureToolError(
       typeof error.content === "string"
         ? { name: "ToolError", message: error.content }
         : error;
+    let projected = false;
+    let projection: import("./tracing").KortyxErrorDetails | null | undefined;
+    let projectionFailure: unknown;
+    let projectionFailed = false;
+    const project = policy?.error
+      ? (original: unknown) => {
+          if (!projected) {
+            projected = true;
+            try {
+              projection = policy.error?.(original);
+            } catch (error) {
+              projectionFailure = error;
+              projectionFailed = true;
+            }
+          }
+          if (projectionFailed) throw projectionFailure;
+          return projection ?? null;
+        }
+      : undefined;
     Object.assign(
       observation,
-      errorDiagnostics(policy?.error ? error : reported, policy?.error),
+      errorDiagnostics(policy?.error ? error : reported, project),
     );
+    const diagnosticId = getHookContext().reasonTrace?.reportError?.(
+      policy?.error ? error : reported,
+      {
+        mechanism: "tool",
+        ...(project ? { error: project } : {}),
+        correlation: {
+          toolCallId: observation.toolCallId,
+          attemptId: observation.attemptId,
+        },
+      },
+    );
+    if (typeof diagnosticId === "string")
+      observation.diagnosticId = diagnosticId;
   } catch {
     // An application's projection or an exception getter cannot change execution.
   }
@@ -261,6 +294,11 @@ export async function executeObservedTool(args: {
   }
   ctx.node.consumeExecution?.("maxToolCalls");
   observation.executed = true;
+  const operationUsage = usage.start("sdk.tool", {
+    calling_mode: args.callingMode,
+    source: args.tool.source === "mcp" ? "mcp" : "native",
+    executed: true,
+  });
   const started = performance.now();
   return withSafeTraceSpan(
     toolTrace(observation),
@@ -311,9 +349,15 @@ export async function executeObservedTool(args: {
                 scope.telemetry ?? args.tool.telemetry,
               );
           }
+          if (observation.outcome === "fault") operationUsage.fail(error);
           throw error;
         } finally {
           observation.durationMs = Math.max(0, performance.now() - started);
+          operationUsage.end(
+            observation.outcome === "fault"
+              ? "failed"
+              : (observation.outcome ?? "suspended"),
+          );
           span.end?.({
             attributes: {
               ...observation,

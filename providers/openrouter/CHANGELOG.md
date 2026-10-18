@@ -1,5 +1,88 @@
 # @kortyx/openrouter
 
+## Unreleased
+
+### Bug Fixes
+
+- Report confirmed parameter-routing 404s as `PROVIDER_PARAMETER_UNSUPPORTED`,
+  including requested parameter names, tool/output versus other controls and
+  the automatic/explicit/default source of `requireParameters`. Explain the
+  existing explicit override and preset visibility limits. Preserve original
+  developer-facing messages and private SDK causes; recognize numeric/string
+  codes and structured routing evidence. Surface malformed SDK responses as
+  `PROVIDER_INVALID_RESPONSE` with partial usage. Keep request defaults and
+  automatic retry behavior unchanged.
+
+
+## [0.2.7](https://github.com/kortyx-io/kortyx/compare/openrouter-v0.2.6...openrouter-v0.2.7) (2026-10-16)
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/core bumped to 0.15.0
+    * @kortyx/providers bumped to 0.9.4
+
+## [0.2.6](https://github.com/kortyx-io/kortyx/compare/openrouter-v0.2.5...openrouter-v0.2.6) (2026-10-13)
+
+
+### Bug Fixes
+
+* **openrouter:** explain parameter routing failures ([#338](https://github.com/kortyx-io/kortyx/issues/338)) ([193a287](https://github.com/kortyx-io/kortyx/commit/193a28794b6f05626a2d69148fa8592fcd5956e9))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/core bumped to 0.14.0
+    * @kortyx/providers bumped to 0.9.3
+
+## [0.2.5](https://github.com/kortyx-io/kortyx/compare/openrouter-v0.2.4...openrouter-v0.2.5) (2026-10-11)
+
+
+### Bug Fixes
+
+* **website:** reconcile credibility branch with current main ([60199f9](https://github.com/kortyx-io/kortyx/commit/60199f992242eb7c409a95bc7a6898d31bac601d))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/core bumped to 0.13.1
+    * @kortyx/providers bumped to 0.9.2
+
+## [0.2.4](https://github.com/kortyx-io/kortyx/compare/openrouter-v0.2.3...openrouter-v0.2.4) (2026-10-09)
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/core bumped to 0.13.0
+    * @kortyx/providers bumped to 0.9.1
+
+## [0.2.3](https://github.com/kortyx-io/kortyx/compare/openrouter-v0.2.2...openrouter-v0.2.3) (2026-10-08)
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/core bumped to 0.12.0
+    * @kortyx/providers bumped to 0.9.0
+
+## [0.2.2](https://github.com/kortyx-io/kortyx/compare/openrouter-v0.2.1...openrouter-v0.2.2) (2026-10-07)
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/providers bumped to 0.8.4
+
 ## [0.2.1](https://github.com/kortyx-io/kortyx/compare/openrouter-v0.2.0...openrouter-v0.2.1) (2026-09-24)
 
 

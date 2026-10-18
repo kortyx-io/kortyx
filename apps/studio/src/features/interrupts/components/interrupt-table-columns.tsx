@@ -25,7 +25,16 @@ import {
 } from "@/features/telemetry/components/compact-status";
 import { CopyableCell } from "@/features/telemetry/components/copyable-cell";
 import { TruncatedText } from "@/features/telemetry/components/truncated-text";
-import { formatDateTime, formatRelativeTime } from "@/lib/format";
+import {
+  studioColumnFilters,
+  studioValueColumn,
+} from "@/features/telemetry/lib/column-filters";
+import {
+  formatDateTime,
+  formatDurationSeconds,
+  formatRelativeTime,
+} from "@/lib/format";
+import { withStudioColumnHelp } from "@/lib/studio-help";
 import { studioDetailHref } from "@/lib/studio-routes";
 import { cn } from "@/lib/utils";
 
@@ -61,9 +70,10 @@ export function createInterruptColumns({
   now: number;
   onCopy: (value: string) => void;
 }): DataTableColumn<Interrupt, InterruptSortKey>[] {
-  return [
+  const columns: DataTableColumn<Interrupt, InterruptSortKey>[] = [
     {
       key: "status",
+      filter: studioColumnFilters("interrupts", "status"),
       label: "Status",
       sortKey: "status",
       defaultWidth: 130,
@@ -82,6 +92,7 @@ export function createInterruptColumns({
     },
     {
       key: "created",
+      filter: studioColumnFilters("interrupts", "created"),
       label: "Created",
       sortKey: "created",
       defaultWidth: 104,
@@ -95,6 +106,7 @@ export function createInterruptColumns({
     },
     {
       key: "age",
+      filter: studioColumnFilters("interrupts", "age"),
       label: "Waiting / Outcome",
       sortKey: "age",
       defaultWidth: 215,
@@ -116,6 +128,7 @@ export function createInterruptColumns({
     },
     {
       key: "request",
+      filter: studioColumnFilters("interrupts", "request"),
       label: "Request",
       defaultWidth: 280,
       render: (interrupt) => {
@@ -159,6 +172,7 @@ export function createInterruptColumns({
     },
     {
       key: "workflow",
+      filter: studioColumnFilters("interrupts", "workflow"),
       label: "Workflow / Node",
       defaultWidth: 170,
       render: (interrupt) => (
@@ -170,6 +184,7 @@ export function createInterruptColumns({
     },
     {
       key: "session",
+      filter: studioColumnFilters("interrupts", "session"),
       label: "Session",
       defaultWidth: 150,
       cellTitle: (interrupt) => interrupt.session,
@@ -183,6 +198,7 @@ export function createInterruptColumns({
     },
     {
       key: "identity",
+      filter: studioColumnFilters("interrupts", "identity"),
       label: "User / Tenant",
       defaultWidth: 150,
       render: (interrupt) => (
@@ -196,6 +212,7 @@ export function createInterruptColumns({
     },
     {
       key: "response",
+      filter: studioColumnFilters("interrupts", "response"),
       label: "Response",
       defaultWidth: 210,
       render: (interrupt) => {
@@ -229,6 +246,7 @@ export function createInterruptColumns({
     },
     {
       key: "outcome",
+      filter: studioColumnFilters("interrupts", "outcome"),
       label: "Resume outcome",
       defaultWidth: 190,
       render: (interrupt) => (
@@ -253,6 +271,7 @@ export function createInterruptColumns({
     },
     {
       key: "run",
+      filter: studioColumnFilters("interrupts", "run"),
       label: "Run",
       defaultWidth: 145,
       render: (interrupt) => (
@@ -265,5 +284,25 @@ export function createInterruptColumns({
         </DetailLink>
       ),
     },
+    studioValueColumn<Interrupt, InterruptSortKey>(
+      "interrupts",
+      "expiresAt",
+      (v) => formatDateTime(String(v)),
+    ),
+    studioValueColumn<Interrupt, InterruptSortKey>(
+      "interrupts",
+      "resolvedAt",
+      (v) => formatDateTime(String(v)),
+    ),
+    studioValueColumn<Interrupt, InterruptSortKey>("interrupts", "resolvedBy"),
+    studioValueColumn<Interrupt, InterruptSortKey>(
+      "interrupts",
+      "resolutionMs",
+      (v) => formatDurationSeconds(Number(v) / 1000),
+    ),
+    ...["environment", "userId", "tenantId"].map((key) =>
+      studioValueColumn<Interrupt, InterruptSortKey>("interrupts", key),
+    ),
   ];
+  return withStudioColumnHelp(columns, "interrupts");
 }

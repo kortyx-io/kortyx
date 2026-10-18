@@ -23,6 +23,7 @@ import type {
   ReasonTraceAdapter,
   ReasonTraceSpan,
 } from "./tracing";
+import { usage } from "./usage";
 
 function assertModelFinish(result: {
   finishReason?: KortyxFinishReason | undefined;
@@ -129,7 +130,7 @@ export const resolveProviderOptions = (
   return providerOptions;
 };
 
-export async function runReasonEngine(
+async function runReasonEngineInternal(
   args: RunReasonEngineArgs,
 ): Promise<RunReasonEngineResult> {
   let stream = args.stream ?? args.model.options?.streaming ?? true;
@@ -165,6 +166,11 @@ export async function runReasonEngine(
   });
 
   if (tools?.length && !model.supportsToolStreaming) stream = false;
+  usage.feature("sdk.model", {
+    streaming: stream,
+    tools: Boolean(tools?.length),
+    provider: args.model.provider.id,
+  });
 
   const messages: KortyxPromptMessage[] =
     args.messages !== undefined
@@ -443,4 +449,18 @@ export async function runReasonEngine(
     failTrace(traceSpan, failure);
     throw failure;
   }
+}
+
+export function runReasonEngine(
+  args: RunReasonEngineArgs,
+): Promise<RunReasonEngineResult> {
+  return usage.measure("sdk.model", () => runReasonEngineInternal(args), {
+    provider: args.model.provider.id,
+    requested_streaming: args.stream ?? args.model.options?.streaming ?? true,
+    tools: Boolean((args.tools ?? args.model.options?.tools)?.length),
+    format:
+      args.responseFormat?.type ??
+      args.model.options?.responseFormat?.type ??
+      "text",
+  });
 }

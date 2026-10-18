@@ -1,4 +1,5 @@
-import Link from "next/link";
+import Link from "@/components/scoped-link";
+import { Button } from "@/components/ui/button";
 import { formatDurationMs } from "@/lib/format";
 import type { WorkflowSelection } from "../lib/view-state";
 import type { WorkflowSystem } from "../schema";
@@ -96,11 +97,14 @@ export function WorkflowTools({
             </summary>
             <div className="mt-2 space-y-2 text-[11px]">
               {tool.description && (
-                <p className="text-muted-foreground">{tool.description}</p>
+                <p className="whitespace-pre-wrap break-words [overflow-wrap:anywhere] text-muted-foreground">
+                  {tool.description}
+                </p>
               )}
-              <button
+              <Button
                 type="button"
-                className="text-primary hover:underline"
+                variant="link"
+                size="inline"
                 onClick={() =>
                   onSelect({
                     type: "node",
@@ -110,7 +114,7 @@ export function WorkflowTools({
                 }
               >
                 Node: {node.id}
-              </button>
+              </Button>
               {tool.inputFields?.length ? (
                 <ul>
                   {tool.inputFields.map((field) => (

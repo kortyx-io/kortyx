@@ -1,7 +1,7 @@
 import { defineConfig } from "tsup";
 
 export default defineConfig({
-  entry: ["src/index.ts", "src/errors.ts"],
+  entry: ["src/index.ts", "src/errors.ts", "src/eval-attribution.ts"],
   format: ["cjs"],
   dts: true,
   tsconfig: "tsconfig.build.json",

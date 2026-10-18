@@ -33,6 +33,7 @@ import {
 } from "./types";
 
 export interface ExecutionServices {
+  prompts?: import("@kortyx/prompts").PromptManager | undefined;
   limits?: ExecutionLimits | undefined;
   registry: WorkflowRegistry;
   frameworkAdapter: FrameworkAdapter;
@@ -147,6 +148,7 @@ function runtimeConfig(
 ): ExecutionRuntimeConfig {
   return {
     session: { id: sessionId },
+    ...(services.prompts ? { prompts: services.prompts.start() } : {}),
     ...(context ? { context } : {}),
     getProvider: services.getProvider,
     checkpointer: services.frameworkAdapter.checkpointer,

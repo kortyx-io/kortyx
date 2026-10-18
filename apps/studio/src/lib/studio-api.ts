@@ -1,6 +1,10 @@
+import { studioUsage } from "@studio/usage";
+import { sampleResponse } from "@/features/sample-project/http";
+import { isSampleProject } from "@/features/sample-project/server";
 import "server-only";
 
 import {
+  DiagnosticResponseSchema,
   STUDIO_API_PROTOCOL_VERSION,
   StudioCatalogsResponseSchema,
   StudioContextResponseSchema,
@@ -13,17 +17,17 @@ import {
   StudioSessionsResponseSchema,
   StudioWorkflowsResponseSchema,
 } from "@kortyx/telemetry-contracts";
+import { studioAuth } from "@studio/auth";
 import { type Interrupt, InterruptSchema } from "@/features/interrupts/schema";
+import { mapStudioRun } from "@/features/runs/lib/map-studio-run";
 import { type Run, RunSchema } from "@/features/runs/schema";
 import { type Session, SessionSchema } from "@/features/sessions/schema";
 import {
   type WorkflowSystem,
   WorkflowSystemSchema,
 } from "@/features/workflows/schema";
-import { formatRelativeTime } from "@/lib/format";
 
 const apiUrl = process.env.KORTYX_API_URL;
-const apiKey = process.env.KORTYX_STUDIO_API_KEY;
 
 export type StudioApiError = {
   code?: string | undefined;
@@ -59,16 +63,45 @@ const withQuery = (
   return search ? `${path}?${search}` : path;
 };
 
-const fetchJson = async <T>(
+export const fetchJson = async <T>(
   path: string,
   parse: (value: unknown) => T,
 ): Promise<StudioRepoResult<T>> => {
-  if (!apiUrl || !apiKey) {
+  if (await isSampleProject()) {
+    const response = sampleResponse(path);
+    if (!response.ok)
+      return {
+        data: null,
+        error: {
+          type: "http",
+          status: response.status,
+          message: "Sample record unavailable.",
+        },
+      };
+    try {
+      return { data: parse(await response.json()), error: null };
+    } catch (error) {
+      return { data: null, error: parseError(error) };
+    }
+  }
+  const usageScope = studioUsage.server.start("studio.read", {
+    resource: path.split("/")[3]?.split("?")[0],
+    origin: "server",
+  });
+  const credential = await studioAuth.getApiCredential();
+  if (!apiUrl || !credential) {
+    usageScope.end("failed", {
+      phase: "configuration",
+      error_code: "STUDIO_NOT_CONFIGURED",
+      error_category: "configuration",
+      retryable: false,
+    });
     return {
       data: null,
       error: {
         type: "not_configured",
-        message: "KORTYX_API_URL and KORTYX_STUDIO_API_KEY are required.",
+        message:
+          "KORTYX_API_URL and authenticated Studio API credentials are required.",
       },
     };
   }
@@ -76,7 +109,16 @@ const fetchJson = async <T>(
   try {
     const response = await fetch(endpoint(path), {
       headers: {
-        authorization: `Bearer ${apiKey}`,
+        authorization: credential.authorization,
+        ...(credential.environment
+          ? { "x-kortyx-environment": credential.environment }
+          : {}),
+        ...(credential.projectId
+          ? { "x-kortyx-project-id": credential.projectId }
+          : {}),
+        ...(credential.environmentId
+          ? { "x-kortyx-environment-id": credential.environmentId }
+          : {}),
         accept: "application/json",
         "x-kortyx-studio-api-version": STUDIO_API_PROTOCOL_VERSION,
       },
@@ -84,6 +126,10 @@ const fetchJson = async <T>(
     });
 
     if (!response.ok) {
+      usageScope.end("failed", {
+        phase: "http",
+        http_status: String(response.status),
+      });
       let code: string | undefined;
       let requestId: string | undefined;
       let message = `Kortyx Studio API request failed: ${response.status}`;
@@ -115,8 +161,41 @@ const fetchJson = async <T>(
     }
 
     try {
-      return { data: parse(await response.json()), error: null };
+      const data = parse(await response.json());
+      usageScope.end();
+      // This is a successful data read, independent of customer run outcomes.
+      const resource = path.split("/")[3]?.split("?")[0];
+      try {
+        const totalCount =
+          data && Object.getOwnPropertyDescriptor(data, "totalCount")?.value;
+        const workflows =
+          data && Object.getOwnPropertyDescriptor(data, "workflows")?.value;
+        if (
+          (typeof totalCount === "number" && totalCount > 0) ||
+          (Array.isArray(workflows) && workflows.length > 0)
+        ) {
+          studioUsage.server.feature("studio.connection", {
+            resource,
+            action: "observed",
+            origin: "server",
+          });
+        }
+      } catch {
+        /* An optional observation fact cannot change a read result. */
+      }
+      if (path === "/v1/studio/context")
+        studioUsage.server.feature("studio.connection", {
+          action: "view",
+          origin: "server",
+        });
+      return { data, error: null };
     } catch (error) {
+      usageScope.end("failed", {
+        phase: "parse",
+        error_code: "STUDIO_RESPONSE_INVALID",
+        error_category: "validation",
+        retryable: false,
+      });
       return {
         data: null,
         error: {
@@ -129,6 +208,7 @@ const fetchJson = async <T>(
       };
     }
   } catch (error) {
+    usageScope.fail(error, { phase: "network" });
     return {
       data: null,
       error: {
@@ -176,53 +256,7 @@ export const getStudioRuns = async (
   try {
     return {
       data: {
-        items: RunSchema.array().parse(
-          response.data.runs.map((run) => ({
-            id: run.id,
-            feedback: run.feedback,
-            parentRunId: run.parentRunId,
-            parentWorkflowId: run.parentWorkflowId,
-            invocationId: run.invocationId,
-            branchId: run.branchId,
-            callId: run.callId,
-            status: run.status,
-            started: formatRelativeTime(run.startedAt),
-            startedAt: run.startedAt,
-            workflow: run.workflowId,
-            workflowIds: run.workflowIds,
-            workflowRefs: run.workflowRefs.map((ref) => ({
-              workflowId: ref.workflowId,
-              workflowRevisionId: optional(ref.workflowRevisionId),
-              declaredVersion: optional(ref.declaredVersion),
-            })),
-            version: displayVersion(run.declaredVersion),
-            transitionIds: run.transitionIds,
-            path: run.path.length ? run.path : [run.workflowId],
-            session: displayText(run.sessionId),
-            model: displayText(run.model, "unknown"),
-            ...(run.models.length > 1 ? { models: run.models.length - 1 } : {}),
-            duration: durationSeconds(run.durationMs) ?? 0,
-            ...(run.tokens !== null ? { tokens: run.tokens } : {}),
-            ...(run.cost !== null ? { cost: run.cost } : {}),
-            result: displayText(run.result, run.pricingStatus),
-            provider: displayText(run.provider, "unknown"),
-            environment: run.environment,
-            user: displayText(run.userId),
-            tenant: displayText(run.tenantId),
-            hasTool: run.hasTool,
-            ...(run.hasRetry ? { hasRetry: true } : {}),
-            ...(run.interruptNodeId
-              ? { interruptNode: run.interruptNodeId }
-              : {}),
-            ...(run.interruptId ? { interruptId: run.interruptId } : {}),
-            ...(run.interruptStatus
-              ? { interruptStatus: run.interruptStatus }
-              : {}),
-            ...(run.interruptExpiresAt
-              ? { interruptExpiresAt: run.interruptExpiresAt }
-              : {}),
-          })),
-        ),
+        items: RunSchema.array().parse(response.data.runs.map(mapStudioRun)),
         totalCount: response.data.totalCount,
       },
       error: null,
@@ -273,6 +307,7 @@ export const getStudioSessions = async (
             workflowIds: session.workflowIds,
             workflowCount: session.workflowCount,
             version: displayVersion(session.activeVersion),
+            activeVersion: session.activeVersion,
             user: optional(session.userId),
             tenant: optional(session.tenantId),
             runs: session.runs,
@@ -284,6 +319,9 @@ export const getStudioSessions = async (
             duration: durationSeconds(session.durationMs),
             tokens: optional(session.tokens),
             cost: optional(session.cost),
+            costSummary: session.costSummary,
+            currency: session.currency,
+            pricingStatus: session.pricingStatus,
             latestResult: displayText(
               session.latestResult,
               session.pricingStatus,
@@ -396,6 +434,8 @@ export const getStudioWorkflows = async (
             p95DurationMs: optional(workflow.metrics.p95DurationMs),
             averageTokens: optional(workflow.metrics.averageTokens),
             averageCost: optional(workflow.metrics.averageCost),
+            averageCostSummary: workflow.metrics.averageCostSummary,
+            currency: workflow.metrics.currency,
           },
           nodes: workflow.nodes.map((node) => ({
             id: node.id,
@@ -416,6 +456,8 @@ export const getStudioWorkflows = async (
               p95DurationMs: optional(node.metrics.p95DurationMs),
               averageTokens: optional(node.metrics.averageTokens),
               averageCost: optional(node.metrics.averageCost),
+              averageCostSummary: node.metrics.averageCostSummary,
+              currency: node.metrics.currency,
             },
           })),
           internalEdges: workflow.internalEdges.map((edge) => ({
@@ -456,4 +498,15 @@ export const getStudioWorkflows = async (
 export const getStudioCatalogs = async () =>
   fetchJson("/v1/studio/catalogs", (value) =>
     StudioCatalogsResponseSchema.parse(value),
+  );
+
+export const getStudioDiagnostic = (
+  diagnosticId: string,
+  environment: string,
+) =>
+  fetchJson(
+    withQuery(`/v1/studio/diagnostics/${encodeURIComponent(diagnosticId)}`, {
+      env: environment,
+    }),
+    (value) => DiagnosticResponseSchema.parse(value),
   );

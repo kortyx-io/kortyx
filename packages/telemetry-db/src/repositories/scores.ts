@@ -145,6 +145,7 @@ export const upsertRunScore = async (
         target: [
           telemetryScores.organizationId,
           telemetryScores.projectId,
+          telemetryScores.environment,
           telemetryScores.runId,
           telemetryScores.source,
           telemetryScores.actorId,

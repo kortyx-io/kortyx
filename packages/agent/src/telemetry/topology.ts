@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import type { WorkflowDefinition } from "@kortyx/core";
+import { associateEvalExecution } from "@kortyx/core/eval-attribution";
 import type {
   EnsureWorkflowTopologyRequest,
   KortyxTelemetryConfig,
@@ -253,6 +254,8 @@ export const prepareWorkflowTelemetry = (args: {
   sessionId?: string | undefined;
   knownWorkflowIds?: readonly string[] | undefined;
 }): Record<string, unknown> => {
+  if (args.sessionId)
+    associateEvalExecution({ sessionId: args.sessionId, runId: args.runId });
   const telemetry = isRecord(args.config.telemetry)
     ? (args.config.telemetry as KortyxTelemetryConfig)
     : undefined;

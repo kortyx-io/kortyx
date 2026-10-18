@@ -3,7 +3,11 @@
 FROM node:22-bookworm-slim AS base
 ENV PNPM_HOME="/pnpm"
 ENV PATH="$PNPM_HOME:$PATH"
-RUN corepack enable && corepack prepare pnpm@10.0.0 --activate
+RUN apt-get update \
+  && apt-get upgrade -y \
+  && rm -rf /var/lib/apt/lists/* \
+  && corepack enable \
+  && corepack prepare pnpm@10.24.0 --activate
 
 FROM base AS pruner
 WORKDIR /repo
@@ -24,8 +28,11 @@ COPY --from=pruner /repo/out/pnpm-lock.yaml ./pnpm-lock.yaml
 RUN --mount=type=cache,id=pnpm-studio,target=/pnpm/store pnpm config set store-dir /pnpm/store && pnpm install --frozen-lockfile
 COPY --from=pruner /repo/out/full/ ./
 COPY --from=pruner /repo/tsconfig.base.json /repo/tsconfig.lib.json ./
-RUN pnpm --filter @kortyx/telemetry-contracts build \
-  && pnpm --filter kortyx-studio build
+RUN pnpm exec turbo run build --filter=kortyx-studio^... \
+  && pnpm --filter kortyx-studio build \
+  && mkdir -p apps/studio/.next/cache/images \
+  && chown -R node:node apps/studio/.next/cache
 
 EXPOSE 6300
+USER node
 CMD ["pnpm", "--filter", "kortyx-studio", "start"]

@@ -23,7 +23,7 @@ import Link from "next/link";
 import { AgentRuntimeDemo } from "@/components/marketing/agent-runtime-demo";
 import { FlowLine } from "@/components/marketing/flow-line";
 import { MarketingCta } from "@/components/marketing/marketing-cta";
-import { MarketingFooter } from "@/components/marketing/marketing-footer";
+import { MarketingShell } from "@/components/marketing/marketing-shell";
 import { Reveal, Stagger, StaggerItem } from "@/components/marketing/reveal";
 import { siteConfig } from "@/lib/site";
 import { cn } from "@/lib/utils/cn";
@@ -33,7 +33,7 @@ const pageDescription =
 
 export const metadata: Metadata = {
   title: {
-    absolute: "Kortyx | Write the agent logic. The runtime is already built.",
+    absolute: "Kortyx — TypeScript Framework for AI Agents",
   },
   description: pageDescription,
   keywords: [
@@ -203,7 +203,7 @@ const faqs = [
   {
     question: "Do I need Kortyx Studio or Cloud?",
     answer:
-      "No. The framework works without either. Self-hosted Studio is an optional preview for inspecting runs and sessions. Managed Cloud is in development.",
+      "The framework runs directly in your application. Self-hosted Studio is an optional preview for inspecting runs and sessions. Managed Cloud is in development.",
   },
   {
     question: "Can I add Kortyx to an existing Next.js or Node application?",
@@ -242,16 +242,23 @@ function ProductJsonLd() {
         inLanguage: "en",
       },
       {
+        "@type": "SoftwareSourceCode",
+        "@id": `${siteConfig.repositoryUrl}#source-code`,
+        name: `${siteConfig.name} source code`,
+        codeRepository: siteConfig.repositoryUrl,
+        programmingLanguage: "TypeScript",
+        publisher: { "@id": `${siteConfig.url}/#organization` },
+      },
+      {
         "@type": "SoftwareApplication",
         "@id": `${siteConfig.url}/#software`,
         name: siteConfig.name,
         applicationCategory: "DeveloperApplication",
         operatingSystem: "Cross-platform",
-        programmingLanguage: "TypeScript",
         description: pageDescription,
         url: siteConfig.url,
         downloadUrl: "https://www.npmjs.com/package/kortyx",
-        codeRepository: siteConfig.repositoryUrl,
+        subjectOf: { "@id": `${siteConfig.repositoryUrl}#source-code` },
         license: "https://www.apache.org/licenses/LICENSE-2.0",
         isAccessibleForFree: true,
         publisher: { "@id": `${siteConfig.url}/#organization` },
@@ -283,7 +290,7 @@ function ProductJsonLd() {
 
 export default function Home() {
   return (
-    <main className="marketing-page min-h-screen overflow-hidden bg-[#08080c] text-white">
+    <MarketingShell className="marketing-page min-h-screen overflow-hidden bg-[#08080c] text-white">
       <ProductJsonLd />
       <section className="marketing-grid relative isolate border-b border-white/8">
         <div className="marketing-orb marketing-orb-one" />
@@ -311,7 +318,7 @@ export default function Home() {
 
               <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row xl:justify-start">
                 <Link
-                  href="/docs/getting-started/quickstart-nextjs"
+                  href="/docs/sdk/getting-started/quickstart-nextjs"
                   className="group inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-white px-5 text-sm font-semibold text-[#09090d] shadow-[0_10px_40px_rgba(0,0,0,0.28)] transition-transform hover:-translate-y-0.5"
                 >
                   Build your first workflow
@@ -320,7 +327,7 @@ export default function Home() {
                 <a
                   href="https://github.com/kortyx-io/kortyx"
                   target="_blank"
-                  rel="noreferrer"
+                  rel="noopener noreferrer"
                   className="inline-flex h-12 items-center justify-center gap-2 rounded-xl border border-white/12 bg-white/[0.035] px-5 text-sm font-medium text-white/75 transition-colors hover:border-white/22 hover:bg-white/[0.065] hover:text-white"
                 >
                   <Github className="size-4" />
@@ -589,7 +596,7 @@ export default function Home() {
               </h2>
             </div>
             <Link
-              href="/docs/start-here"
+              href="/docs/sdk/start-here"
               className="group inline-flex min-h-9 shrink-0 items-center gap-2 text-sm font-medium text-white/52 hover:text-white"
             >
               Read the framework docs
@@ -640,7 +647,7 @@ export default function Home() {
               structured data, interrupts, and errors.
             </p>
             <Link
-              href="/docs/getting-started/quickstart-nextjs"
+              href="/docs/sdk/getting-started/quickstart-nextjs"
               className="group mt-8 inline-flex min-h-9 items-center gap-2 text-sm font-medium text-white/72 hover:text-white"
             >
               Follow the Next.js quickstart
@@ -691,15 +698,15 @@ export default function Home() {
                 Your agent runs in your application.
               </h2>
               <p className="mt-6 text-base leading-7 text-white/42">
-                The framework does not require Studio or a managed control
-                plane. Add visibility when you want it, and keep the execution
-                path under your control.
+                Run the framework directly in your application. Add Studio for
+                visibility when you want it, and keep the execution path under
+                your control.
               </p>
               <div className="mt-8 space-y-3">
                 {[
                   "Provider credentials stay server-side",
                   "Prompt, input, and output telemetry is off by default",
-                  "OpenTelemetry works without Kortyx Studio",
+                  "OpenTelemetry exports to your chosen backend",
                 ].map((item) => (
                   <div
                     key={item}
@@ -812,7 +819,6 @@ export default function Home() {
       </section>
 
       <MarketingCta />
-      <MarketingFooter />
-    </main>
+    </MarketingShell>
   );
 }

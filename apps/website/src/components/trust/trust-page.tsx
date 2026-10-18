@@ -1,0 +1,453 @@
+import { ArrowUpRight, Check, CircleDashed } from "lucide-react";
+import Link from "next/link";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+import { PrivacySettings } from "@/components/consent/privacy-settings";
+import { MarketingShell } from "@/components/marketing/marketing-shell";
+import {
+  DocumentContents,
+  LegalDocumentFooter,
+  LegalDocumentHeader,
+} from "@/components/trust/legal-document-layout";
+import {
+  type CloudLegalDocument,
+  cloudLegalSlugs,
+  getCloudLegalDocuments,
+  hashCloudLegalDocument,
+} from "@/lib/cloud-legal";
+import {
+  browserStorageInventory,
+  getLegalDocumentRelease,
+  getWebsiteLegalReleases,
+  isLegalDocumentSlug,
+} from "@/lib/legal-documents";
+import type { WebsiteRelease } from "@/lib/legal-feed";
+import { externalLinkProps } from "@/lib/links";
+import { siteConfig } from "@/lib/site";
+import {
+  cloudAvailability,
+  getTrustPage,
+  providerIdentity,
+  type TrustPageSlug,
+  trustContentUpdated,
+  trustPageSlugs,
+  trustPages,
+} from "@/lib/trust";
+
+const linkClass =
+  "inline-flex min-h-11 items-center gap-2 text-sm font-medium text-[#d3cbff] underline decoration-[#a89cff]/40 underline-offset-4 hover:text-white focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#a89cff]";
+
+function OperatorDetails({
+  operator = providerIdentity,
+}: {
+  operator?: {
+    brand: string;
+    operatorName: string | null;
+    contactAddress: string | null;
+    contactEmail: string | null;
+    registrationNumber: string | null;
+    taxNumber: string | null;
+  };
+}) {
+  const details = [
+    ["Product brand", operator.brand],
+    ["Current operator", operator.operatorName],
+    ["Business contact address", operator.contactAddress],
+    ["Private contact email", operator.contactEmail],
+    ["Registration number", operator.registrationNumber],
+    ["Tax number", operator.taxNumber],
+  ].filter(([, value]) => Boolean(value));
+
+  return (
+    <dl className="mt-6 divide-y divide-white/12 rounded-xl border border-white/15 px-5">
+      {details.map(([label, value]) => (
+        <div key={label} className="grid gap-2 py-4 sm:grid-cols-[12rem_1fr]">
+          <dt className="text-sm text-[#b8b5c9]">{label}</dt>
+          <dd className="text-sm font-medium text-white">{value}</dd>
+        </div>
+      ))}
+    </dl>
+  );
+}
+
+function StorageInventory({
+  inventory = browserStorageInventory,
+}: {
+  inventory?: readonly {
+    key: string;
+    mechanism: string;
+    purpose: string;
+    duration: string;
+  }[];
+}) {
+  return (
+    <div className="mt-6 overflow-x-auto rounded-xl border border-white/15">
+      <table className="w-full min-w-[35rem] text-left text-sm">
+        <caption className="sr-only">
+          Current website browser storage inventory
+        </caption>
+        <thead className="bg-white/5 text-white">
+          <tr>
+            {["Storage", "Purpose", "Duration"].map((label) => (
+              <th key={label} scope="col" className="px-5 py-4 font-medium">
+                {label}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-white/12 text-[#c9c6d6]">
+          {inventory.map((item) => (
+            <tr key={item.key}>
+              <th scope="row" className="px-5 py-4 font-normal">
+                <code>{item.key}</code>
+                <br />
+                {item.mechanism}
+              </th>
+              <td className="px-5 py-4">{item.purpose}</td>
+              <td className="px-5 py-4">{item.duration}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function DocumentText({ text }: { text: string }) {
+  return (
+    <>
+      {text.split(/(https:\/\/[^\s;]+[^\s;.,)])/g).map((part, index) =>
+        part.startsWith("https://") ? (
+          <a
+            key={`${index}-${part}`}
+            href={
+              part.startsWith(`${siteConfig.url}/`)
+                ? part.slice(siteConfig.url.length)
+                : part
+            }
+            {...externalLinkProps(part)}
+            className="text-[#d3cbff] underline underline-offset-4 break-words"
+          >
+            {part}
+          </a>
+        ) : (
+          part
+        ),
+      )}
+    </>
+  );
+}
+
+export function TrustPage({
+  slug,
+  cloudDocument,
+  websiteVersion,
+  websiteRelease,
+  documentProduct = "cloud",
+  contentFormat = "plain-text-v1",
+  publicationHistory,
+}: {
+  slug: TrustPageSlug;
+  cloudDocument?: CloudLegalDocument;
+  websiteVersion?: string;
+  websiteRelease?: WebsiteRelease;
+  documentProduct?: "cloud" | "website";
+  contentFormat?: "plain-text-v1" | "markdown-v1" | "website-content-v1";
+  publicationHistory?: { version: string; date: string; url: string }[];
+}) {
+  const basePage = cloudDocument
+    ? {
+        title: cloudDocument.title,
+        label: cloudDocument.title,
+        eyebrow: `${documentProduct === "cloud" ? "Kortyx Cloud" : "Kortyx website"} · Legal documents`,
+        description:
+          documentProduct === "website"
+            ? "Legal information for the Kortyx website."
+            : ({
+                terms: "The terms that govern your use of hosted Kortyx Cloud.",
+                privacy:
+                  "How Kortyx Cloud handles account information and application data.",
+                dpa: "The framework for processing customer personal data in Kortyx Cloud.",
+                subprocessors:
+                  "Information about service providers supporting Kortyx Cloud.",
+              }[cloudDocument.slug] ??
+              "Legal information for hosted Kortyx Cloud."),
+        isLegal: true,
+        cards: undefined,
+        sections: cloudDocument.sections.map((section, index) => ({
+          id: `section-${index + 1}`,
+          title: section.title,
+          paragraphs: [section.text],
+          links: undefined,
+        })),
+      }
+    : getTrustPage(slug);
+  const release =
+    websiteRelease ??
+    (!cloudDocument && isLegalDocumentSlug(slug)
+      ? getLegalDocumentRelease(slug, websiteVersion)
+      : null);
+  const page = release ? { ...basePage, ...release.content } : basePage;
+  const legalScope =
+    cloudDocument && documentProduct === "cloud"
+      ? "Kortyx Cloud"
+      : "Kortyx website";
+  const updatedAt =
+    cloudDocument?.effectiveDate ?? release?.updatedAt ?? trustContentUpdated;
+
+  const publication = cloudDocument
+    ? {
+        version: cloudDocument.version,
+        currentUrl: `${documentProduct === "cloud" ? "/cloud" : ""}/${cloudDocument.slug}`,
+        versionUrl: `${documentProduct === "cloud" ? "/cloud" : ""}/${cloudDocument.slug}/${cloudDocument.version}`,
+        contentUrl: `/legal/${documentProduct}/${cloudDocument.slug}/${cloudDocument.version}.json`,
+        hash: hashCloudLegalDocument(cloudDocument),
+        history:
+          publicationHistory ??
+          getCloudLegalDocuments()
+            .filter((doc) => doc.slug === cloudDocument.slug)
+            .map((doc) => ({
+              version: doc.version,
+              url: `/cloud/${doc.slug}/${doc.version}`,
+              date: doc.effectiveDate,
+            }))
+            .reverse(),
+      }
+    : release
+      ? {
+          version: release.version,
+          currentUrl: `/${slug}`,
+          versionUrl: `/${slug}/${release.version}`,
+          contentUrl: `/legal/website/${slug}/${release.version}.json`,
+          hash: release.hash,
+          history:
+            publicationHistory ??
+            getWebsiteLegalReleases()
+              .filter((item) => item.id === release.id)
+              .map((item) => ({
+                version: item.version,
+                url: `/${slug}/${item.version}`,
+                date: item.updatedAt,
+              }))
+              .reverse(),
+        }
+      : null;
+
+  return (
+    <MarketingShell className="marketing-page min-h-screen bg-[#08080c] text-white">
+      {page.isLegal ? (
+        <LegalDocumentHeader
+          title={page.title}
+          description={page.description}
+          scope={legalScope}
+          updatedAt={updatedAt}
+        />
+      ) : (
+        <section className="border-b border-white/12 bg-[radial-gradient(ellipse_at_80%_0%,rgba(143,128,255,0.14),transparent_65%)]">
+          <div className="marketing-container py-16 sm:py-24">
+            <p className="font-mono text-xs tracking-[0.14em] text-[#c9c1ff] uppercase">
+              {page.eyebrow}
+            </p>
+            <h1 className="mt-6 max-w-4xl text-4xl leading-[1.12] font-semibold tracking-[-0.04em] sm:text-6xl">
+              {page.title}
+            </h1>
+            <p className="mt-6 max-w-3xl text-lg leading-8 text-[#c9c6d6]">
+              {page.description}
+            </p>
+            <div className="mt-8 flex flex-wrap items-center gap-x-6 gap-y-3 text-xs text-[#b8b5c9]">
+              <span className="inline-flex items-center gap-2">
+                <Check className="size-4 text-[#78e0bd]" aria-hidden="true" />
+                Framework available
+              </span>
+              <span className="inline-flex items-center gap-2">
+                <CircleDashed
+                  className="size-4 text-[#c9c1ff]"
+                  aria-hidden="true"
+                />
+                Cloud · {cloudAvailability.toLowerCase()}
+              </span>
+            </div>
+          </div>
+        </section>
+      )}
+
+      <div className="marketing-container grid gap-12 py-12 lg:grid-cols-[13rem_minmax(0,1fr)] lg:gap-16 lg:py-16">
+        <aside>
+          <div className="lg:sticky lg:top-32 lg:max-h-[calc(100dvh-9rem)] lg:overflow-y-auto lg:overscroll-contain">
+            <nav
+              aria-label="Company and trust"
+              className="grid grid-cols-2 gap-1 sm:grid-cols-3 lg:grid-cols-1"
+            >
+              {trustPageSlugs.map((item) => (
+                <Link
+                  key={item}
+                  href={`/${item}`}
+                  aria-current={
+                    (!cloudDocument || documentProduct === "website") &&
+                    slug === item
+                      ? "page"
+                      : undefined
+                  }
+                  className={`inline-flex min-h-11 items-center rounded-lg px-3 text-sm focus-visible:outline-2 focus-visible:outline-[#a89cff] ${(!cloudDocument || documentProduct === "website") && slug === item ? "bg-[#a89cff]/12 text-[#ded8ff]" : "text-[#b8b5c9] hover:bg-white/5 hover:text-white"}`}
+                >
+                  {trustPages[item].label}
+                </Link>
+              ))}
+            </nav>
+            <nav
+              aria-label="Cloud legal documents"
+              className="mt-6 grid grid-cols-2 gap-1 lg:grid-cols-1"
+            >
+              {cloudLegalSlugs.map((item) => (
+                <Link
+                  key={item}
+                  href={`/cloud/${item}`}
+                  aria-current={
+                    documentProduct === "cloud" && cloudDocument?.slug === item
+                      ? "page"
+                      : undefined
+                  }
+                  className={`inline-flex min-h-11 items-center rounded-lg px-3 text-sm focus-visible:outline-2 focus-visible:outline-[#a89cff] ${documentProduct === "cloud" && cloudDocument?.slug === item ? "bg-[#a89cff]/12 text-[#ded8ff]" : "text-[#b8b5c9] hover:bg-white/5 hover:text-white"}`}
+                >
+                  {
+                    {
+                      terms: "Cloud Terms",
+                      privacy: "Cloud Privacy",
+                      dpa: "Cloud DPA",
+                      subprocessors: "Subprocessors",
+                    }[item]
+                  }
+                </Link>
+              ))}
+            </nav>
+          </div>
+        </aside>
+
+        <article className="min-w-0 max-w-4xl">
+          {page.cards ? (
+            <div className="mb-12 grid gap-4 sm:grid-cols-2">
+              {page.cards.map((card) => (
+                <Link
+                  key={card.title}
+                  href={card.href}
+                  {...externalLinkProps(card.href)}
+                  className="group rounded-2xl border border-white/15 bg-white/3 p-6 hover:border-[#a89cff]/50 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#a89cff]"
+                >
+                  <p className="font-mono text-[11px] tracking-wider text-[#c9c1ff] uppercase">
+                    {card.label}
+                  </p>
+                  <h2 className="mt-4 text-xl leading-7 font-medium">
+                    {card.title}
+                  </h2>
+                  <p className="mt-3 text-sm leading-6 text-[#c9c6d6]">
+                    {card.description}
+                  </p>
+                  <ArrowUpRight
+                    className="mt-5 size-5 text-[#c9c1ff]"
+                    aria-hidden="true"
+                  />
+                </Link>
+              ))}
+            </div>
+          ) : null}
+
+          <DocumentContents sections={page.sections} />
+
+          <div className="space-y-12">
+            {page.sections.map((section) => (
+              <section
+                key={section.id}
+                id={section.id}
+                className="scroll-mt-32"
+              >
+                <h2 className="text-2xl leading-8 font-semibold tracking-tight">
+                  {section.title}
+                </h2>
+                <div className="mt-5 space-y-4 text-base leading-8 text-[#c9c6d6]">
+                  {section.paragraphs.map((paragraph) =>
+                    contentFormat === "markdown-v1" ? (
+                      <div
+                        key={paragraph}
+                        data-legal-text
+                        className="space-y-4 [&_h3]:text-xl [&_h3]:font-semibold [&_h4]:font-semibold [&_ul]:list-disc [&_ul]:pl-6 [&_ol]:list-decimal [&_ol]:pl-6 [&_li]:my-2 [&_a]:text-[#d2caff] [&_a]:underline [&_blockquote]:border-l-2 [&_blockquote]:border-white/20 [&_blockquote]:pl-4 [&_pre]:overflow-x-auto [&_pre]:rounded-lg [&_pre]:bg-white/5 [&_pre]:p-4 [&_table]:block [&_table]:overflow-x-auto [&_td]:border [&_td]:border-white/15 [&_td]:p-2 [&_th]:border [&_th]:border-white/15 [&_th]:p-2"
+                      >
+                        <ReactMarkdown
+                          remarkPlugins={[remarkGfm]}
+                          skipHtml
+                          disallowedElements={["img"]}
+                          components={{
+                            a: ({ href, children }) => (
+                              <a href={href} {...externalLinkProps(href ?? "")}>
+                                {children}
+                              </a>
+                            ),
+                          }}
+                        >
+                          {paragraph}
+                        </ReactMarkdown>
+                      </div>
+                    ) : (
+                      <p
+                        key={paragraph}
+                        data-legal-text={
+                          cloudDocument || release ? true : undefined
+                        }
+                      >
+                        {cloudDocument ? (
+                          <DocumentText text={paragraph} />
+                        ) : (
+                          paragraph
+                        )}
+                      </p>
+                    ),
+                  )}
+                </div>
+                {slug === "legal" && section.id === "operator" ? (
+                  <OperatorDetails operator={release?.content.operator} />
+                ) : null}
+                {slug === "cookies" && section.id === "current-use" ? (
+                  <StorageInventory
+                    inventory={
+                      release?.content.storageInventory ??
+                      browserStorageInventory
+                    }
+                  />
+                ) : null}
+                {slug === "cookies" && section.id === "controls" ? (
+                  <PrivacySettings className={`${linkClass} mt-4`} />
+                ) : null}
+                {section.links ? (
+                  <div className="mt-4 flex flex-wrap gap-x-6 gap-y-2">
+                    {section.links.map((link) => (
+                      <Link
+                        key={link.href}
+                        href={link.href}
+                        {...externalLinkProps(link.href)}
+                        className={linkClass}
+                      >
+                        {link.label}
+                        <ArrowUpRight className="size-3.5" aria-hidden="true" />
+                      </Link>
+                    ))}
+                  </div>
+                ) : null}
+              </section>
+            ))}
+          </div>
+          {publication ? (
+            <LegalDocumentFooter
+              scope={legalScope}
+              updatedAt={updatedAt}
+              {...publication}
+            />
+          ) : (
+            <p className="mt-12 border-t border-white/12 pt-6 text-xs text-[#b8b5c9]">
+              Last updated:{" "}
+              <time dateTime={trustContentUpdated}>{trustContentUpdated}</time>
+            </p>
+          )}
+        </article>
+      </div>
+    </MarketingShell>
+  );
+}

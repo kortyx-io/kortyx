@@ -28,6 +28,14 @@ describe("chat title helpers", () => {
     );
   });
 
+  it("strips long markdown wrappers without backtracking", () => {
+    expect(
+      stripChatTitlePresentationNoise(
+        `${"*".repeat(100_000)}Support Triage${"_".repeat(100_000)}`,
+      ),
+    ).toBe("Support Triage");
+  });
+
   it("strips display noise without truncating existing titles", () => {
     expect(
       stripChatTitlePresentationNoise(

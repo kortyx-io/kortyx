@@ -1,5 +1,6 @@
 import type { InterruptInput, InterruptResult } from "@kortyx/core";
 import { combineAbortSignals, throwIfExecutionAborted } from "@kortyx/core";
+import type { CompiledPrompt } from "@kortyx/prompts";
 import type {
   KortyxFinishReason,
   KortyxProviderMetadata,
@@ -13,11 +14,16 @@ import {
 } from "../context";
 import { awaitInterruptInternal } from "../interrupt";
 import { normalizeReasonInterrupts } from "../interrupt-contract";
+import {
+  normalizeReasonOutputs,
+  warnLegacyReasonOutput,
+} from "../output-contract";
 import { withSafeTraceSpan } from "../safe-tracing";
 import { shouldStreamStructured } from "../structured";
 import { closeOwnedTools, replayToolObservations } from "../tool";
 import type {
   InterruptContractMap,
+  OutputContractMap,
   SchemaLike,
   UseReasonArgs,
   UseReasonResult,
@@ -37,6 +43,7 @@ import {
   parseInterruptFirstPassResult,
   parseReasonOutputWithSchema,
 } from "./parsing";
+import { normalizePromptReasonArgs } from "./prompt";
 import {
   defaultContinuationInput,
   defaultInterruptFirstPassInput,
@@ -104,6 +111,7 @@ const assertReasoningThoughtsCompatibility = <
     Boolean(args.interrupt) ||
     Boolean(args.interrupts) ||
     Boolean(args.structured) ||
+    Boolean(args.outputs) ||
     resolveEffectiveResponseFormatType(args) === "json";
 
   if (!usesStructuredOutput) return;
@@ -118,10 +126,21 @@ async function runReason<
   TRequest extends InterruptInput = InterruptInput,
   TResponse = InterruptResult,
   TContracts extends InterruptContractMap = InterruptContractMap,
+  TEmit extends OutputContractMap = OutputContractMap,
+  TReturn extends OutputContractMap = OutputContractMap,
 >(
-  args: UseReasonArgs<TOutput, TRequest, TResponse, TContracts>,
-): Promise<UseReasonResult<TOutput, TResponse, TContracts>> {
+  args: UseReasonArgs<TOutput, TRequest, TResponse, TContracts, TEmit, TReturn>,
+): Promise<UseReasonResult<TOutput, TResponse, TContracts, TEmit, TReturn>> {
   assertReasoningThoughtsCompatibility(args);
+  normalizeReasonOutputs(
+    args.outputs,
+    Boolean(args.outputSchema || args.structured),
+  );
+  if (args.outputSchema || args.structured) warnLegacyReasonOutput();
+  if (args.outputs && resolveEffectiveResponseFormatType(args) === "json")
+    throw new Error(
+      "useReason output contracts use tool calls and cannot be combined with JSON responseFormat.",
+    );
   const interruptConfig = normalizeReasonInterrupts({
     interrupt: args.interrupt,
     interrupts: args.interrupts,
@@ -171,6 +190,8 @@ async function runReason<
   const existingCompleted = readReasonCompletedCheckpoint(checkpointValue);
 
   if (existingCompleted) {
+    for (const request of existingCompleted.resolvedInterrupts ?? [])
+      ctx.node.replayInterrupt?.(request);
     await replayToolObservations(
       existingCompleted.result.steps?.flatMap(
         (step) => step.toolObservations ?? [],
@@ -179,7 +200,9 @@ async function runReason<
     return existingCompleted.result as unknown as UseReasonResult<
       TOutput,
       TResponse,
-      TContracts
+      TContracts,
+      TEmit,
+      TReturn
     >;
   }
 
@@ -228,7 +251,10 @@ async function runReason<
       // no-tools form keeps its checkpoint reader so in-flight legacy runs can
       // resume during the deprecation window; legacy + tools is normalized to
       // the new control-tool runtime.
-      if ((args.tools?.length || args.interrupts) && !existingCheckpoint) {
+      if (
+        (args.tools?.length || args.interrupts || args.outputs) &&
+        !existingCheckpoint
+      ) {
         return runReasonToolLoop({
           useReasonArgs: args,
           allowValidatedToolOutput,
@@ -567,9 +593,19 @@ export async function useReason<
   TRequest extends InterruptInput = InterruptInput,
   TResponse = InterruptResult,
   TContracts extends InterruptContractMap = InterruptContractMap,
+  TEmit extends OutputContractMap = OutputContractMap,
+  TReturn extends OutputContractMap = OutputContractMap,
 >(
-  args: UseReasonArgs<TOutput, TRequest, TResponse, TContracts>,
-): Promise<UseReasonResult<TOutput, TResponse, TContracts>> {
+  request:
+    | UseReasonArgs<TOutput, TRequest, TResponse, TContracts, TEmit, TReturn>
+    | (Omit<
+        UseReasonArgs<TOutput, TRequest, TResponse, TContracts, TEmit, TReturn>,
+        "input" | "system" | "messages"
+      > & { prompt: CompiledPrompt; input?: never; system?: never }),
+): Promise<UseReasonResult<TOutput, TResponse, TContracts, TEmit, TReturn>> {
+  const args = normalizePromptReasonArgs(
+    request as UseReasonArgs | import("./prompt").UseReasonPromptArgs,
+  ) as UseReasonArgs<TOutput, TRequest, TResponse, TContracts, TEmit, TReturn>;
   try {
     return await runReason(args);
   } finally {

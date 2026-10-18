@@ -1,5 +1,88 @@
 # @kortyx/react
 
+## [0.8.6](https://github.com/kortyx-io/kortyx/compare/react-v0.8.5...react-v0.8.6) (2026-10-16)
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/stream bumped to 0.15.6
+    * @kortyx/core bumped to 0.15.0
+
+## [0.8.5](https://github.com/kortyx-io/kortyx/compare/react-v0.8.4...react-v0.8.5) (2026-10-13)
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/stream bumped to 0.15.5
+    * @kortyx/core bumped to 0.14.0
+
+## [0.8.4](https://github.com/kortyx-io/kortyx/compare/react-v0.8.3...react-v0.8.4) (2026-10-11)
+
+
+### Bug Fixes
+
+* **website:** reconcile credibility branch with current main ([60199f9](https://github.com/kortyx-io/kortyx/commit/60199f992242eb7c409a95bc7a6898d31bac601d))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/stream bumped to 0.15.4
+    * @kortyx/core bumped to 0.13.1
+
+## [0.8.3](https://github.com/kortyx-io/kortyx/compare/react-v0.8.2...react-v0.8.3) (2026-10-09)
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/stream bumped to 0.15.3
+    * @kortyx/core bumped to 0.13.0
+
+## [0.8.2](https://github.com/kortyx-io/kortyx/compare/react-v0.8.1...react-v0.8.2) (2026-10-08)
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/stream bumped to 0.15.2
+    * @kortyx/core bumped to 0.12.0
+
+## [0.8.1](https://github.com/kortyx-io/kortyx/compare/react-v0.8.0...react-v0.8.1) (2026-10-07)
+
+
+### Bug Fixes
+
+* **security:** remediate CodeQL findings ([#273](https://github.com/kortyx-io/kortyx/issues/273)) ([55bc484](https://github.com/kortyx-io/kortyx/commit/55bc48426b72c0d370fe830f64db5bc1249bb861))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/stream bumped to 0.15.1
+
+## [0.8.0](https://github.com/kortyx-io/kortyx/compare/react-v0.7.0...react-v0.8.0) (2026-09-30)
+
+
+### Features
+
+* **hooks:** add realtime model-selected output contracts ([#249](https://github.com/kortyx-io/kortyx/issues/249)) ([ac52b47](https://github.com/kortyx-io/kortyx/commit/ac52b47151b64ce5be6ce6c7fd42d34a0fa8a76d))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/stream bumped to 0.15.0
+
 ## [0.7.0](https://github.com/kortyx-io/kortyx/compare/react-v0.6.2...react-v0.7.0) (2026-09-23)
 
 

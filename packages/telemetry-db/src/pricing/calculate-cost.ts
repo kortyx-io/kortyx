@@ -8,6 +8,11 @@ import {
 } from "@kortyx/telemetry-contracts";
 import type { ModelRateCard, TelemetryEventRecord } from "../schema";
 
+type GenerationCostEvent = Pick<
+  TelemetryEventRecord,
+  "type" | "occurredAt" | "payload"
+>;
+
 export type CalculatedCost = {
   costMicros: number | null;
   cost: number | null;
@@ -168,19 +173,37 @@ const costFromUnitPrices = (
   return total;
 };
 
-const openRouterReportedCost = (event: TelemetryEventRecord): number | null => {
+const openRouterReportedCost = (event: GenerationCostEvent): number | null => {
   if (event.payload.provider !== "openrouter") return null;
   const metadata = isRecord(event.payload.providerMetadata)
     ? event.payload.providerMetadata
     : {};
   const usage = isRecord(event.payload.usage) ? event.payload.usage : {};
   const raw = isRecord(usage.raw) ? usage.raw : {};
-  const cost = asNumber(metadata.cost) ?? asNumber(raw.cost);
+  const isByok = metadata.isByok === true || raw.isByok === true;
+  const metadataCostDetails = isRecord(metadata.costDetails)
+    ? metadata.costDetails
+    : {};
+  const rawCostDetails = isRecord(raw.costDetails) ? raw.costDetails : {};
+  const cost = isByok
+    ? (asNumber(metadataCostDetails.upstreamInferenceCost) ??
+      asNumber(rawCostDetails.upstreamInferenceCost))
+    : (asNumber(metadata.cost) ?? asNumber(raw.cost));
   return cost !== null && cost >= 0 ? cost : null;
 };
 
+const openRouterIsByok = (event: GenerationCostEvent): boolean => {
+  if (event.payload.provider !== "openrouter") return false;
+  const metadata = isRecord(event.payload.providerMetadata)
+    ? event.payload.providerMetadata
+    : {};
+  const usage = isRecord(event.payload.usage) ? event.payload.usage : {};
+  const raw = isRecord(usage.raw) ? usage.raw : {};
+  return metadata.isByok === true || raw.isByok === true;
+};
+
 const findRateCard = (
-  event: TelemetryEventRecord,
+  event: GenerationCostEvent,
   rateCards: ModelRateCard[],
 ): ModelRateCard | undefined => {
   const provider = asString(event.payload.provider);
@@ -277,7 +300,7 @@ const findRateCard = (
 };
 
 export const calculateGenerationCost = (
-  event: TelemetryEventRecord,
+  event: GenerationCostEvent,
   rateCards: ModelRateCard[],
 ): CalculatedCost => {
   if (event.type !== "generation.completed") return EMPTY_UNKNOWN;
@@ -286,6 +309,23 @@ export const calculateGenerationCost = (
     event.payload.pricing,
   );
   const hint = hintResult.success ? hintResult.data : undefined;
+
+  // Older telemetry treated OpenRouter's zero BYOK charge as the model cost.
+  // Reprice those events from the upstream inference cost when projecting.
+  if (
+    openRouterIsByok(event) &&
+    hint?.source === "provider" &&
+    hint.actualCostMicros === 0
+  ) {
+    const upstreamCost = openRouterReportedCost(event);
+    return upstreamCost === null
+      ? EMPTY_UNPRICED
+      : toCost({
+          costMicros: Math.round(upstreamCost * 1_000_000),
+          currency: "USD",
+          pricingSource: "provider",
+        });
+  }
 
   if (hint?.actualCostMicros !== undefined) {
     return toCost({

@@ -1,0 +1,215 @@
+---
+id: v0-stream-chat
+title: "streamChat"
+description: "Use agent.streamChat to execute Kortyx workflows with request context, resume support, streamed SSE responses, or buffered JSON from your API route."
+keywords: [kortyx, streamChat, sse, workflow-selection, resume]
+sidebar_label: "streamChat"
+---
+# streamChat
+
+`streamChat` is the chat method on the `createAgent(...)` result.
+
+## Recommended usage
+
+```ts
+import { createAgent } from "kortyx";
+
+const agent = createAgent({
+  workflowsDir: "src/workflows",
+});
+
+const stream = await agent.streamChat(messages, {
+  // optional
+  sessionId,
+  workflowId,
+});
+```
+```js
+import { createAgent } from "kortyx";
+
+const agent = createAgent({
+  workflowsDir: "src/workflows",
+});
+
+const stream = await agent.streamChat(messages, {
+  // optional
+  sessionId,
+  workflowId,
+});
+```
+
+## Recommended React client path
+
+If your server route returns SSE, the default React client path is now `@kortyx/react`.
+
+```ts
+import { createRouteChatTransport, useChat } from "@kortyx/react";
+
+export function ChatPage() {
+  const chat = useChat({
+    transport: createRouteChatTransport({
+      endpoint: "/api/chat",
+    }),
+  });
+
+  return <ChatWindow chat={chat} />;
+}
+```
+```js
+import { createRouteChatTransport, useChat } from "@kortyx/react";
+
+export function ChatPage() {
+  const chat = useChat({
+    transport: createRouteChatTransport({
+      endpoint: "/api/chat",
+    }),
+  });
+
+  return <ChatWindow chat={chat} />;
+}
+```
+
+Use `useChat()` when you want:
+
+- finalized `messages`
+- live `streamContentPieces`
+- interrupt resume handling
+- default browser storage
+
+> **Good to know:** `useChat()` is the recommended client abstraction for React apps. Drop down to `useStructuredStreams()` or `applyStructuredChunk(...)` only when you need custom stream wiring.
+
+## Custom route mode (`stream` flag)
+
+```ts
+import {
+  collectBufferedStream,
+  collectStream,
+  parseChatRequestBody,
+  toSSE,
+} from "kortyx";
+
+export async function POST(request: Request): Promise<Response> {
+  const body = parseChatRequestBody(await request.json());
+
+  const stream = await agent.streamChat(body.messages, {
+    // optional
+    sessionId: body.sessionId,
+    workflowId: body.workflowId,
+    context: body.context,
+  });
+
+  if (body.stream === false) {
+    // Convenience shape: { chunks, text, structured }
+    const buffered = await collectBufferedStream(stream);
+    return Response.json(buffered);
+  }
+
+  return toSSE(stream);
+}
+```
+```js
+import {
+  collectBufferedStream,
+  collectStream,
+  parseChatRequestBody,
+  toSSE,
+} from "kortyx";
+
+export async function POST(request) {
+  const body = parseChatRequestBody(await request.json());
+
+  const stream = await agent.streamChat(body.messages, {
+    // optional
+    sessionId: body.sessionId,
+    workflowId: body.workflowId,
+    context: body.context,
+  });
+
+  if (body.stream === false) {
+    // Convenience shape: { chunks, text, structured }
+    const buffered = await collectBufferedStream(stream);
+    return Response.json(buffered);
+  }
+
+  return toSSE(stream);
+}
+```
+
+When `stream` is `false`, buffered JSON includes:
+- `chunks`: full raw chunk list
+- `text`: merged assistant text (`text-delta` first, `message` fallback)
+- `structured`: collected `structured-data` chunks
+
+## Buffered helpers (choose one)
+
+```ts
+import { collectBufferedStream, collectStream } from "kortyx";
+
+const stream = await agent.streamChat(messages, { sessionId, workflowId });
+
+// Option A: raw chunks only
+const chunks = await collectStream(stream);
+return Response.json({ chunks });
+```
+```js
+import { collectBufferedStream, collectStream } from "kortyx";
+
+const stream = await agent.streamChat(messages, { sessionId, workflowId });
+
+// Option A: raw chunks only
+const chunks = await collectStream(stream);
+return Response.json({ chunks });
+```
+
+```ts
+import { collectBufferedStream, collectStream } from "kortyx";
+
+const stream = await agent.streamChat(messages, { sessionId, workflowId });
+
+// Option B: convenience buffered result
+const buffered = await collectBufferedStream(stream);
+return Response.json(buffered); // { chunks, text, structured }
+```
+```js
+import { collectBufferedStream, collectStream } from "kortyx";
+
+const stream = await agent.streamChat(messages, { sessionId, workflowId });
+
+// Option B: convenience buffered result
+const buffered = await collectBufferedStream(stream);
+return Response.json(buffered); // { chunks, text, structured }
+```
+
+> **Good to know:** `collectBufferedStream(...)` is built on top of `collectStream(...)`, so you still get the full raw chunk list in `buffered.chunks`.
+
+## Parameters
+
+- `messages`: full chat history for the current turn (required).
+- `options.sessionId`: optional conversation id for analytics/tracing correlation.
+- `options.workflowId`: force this request to start in a specific workflow.
+- `options.context`: request metadata available to nodes through `useRuntimeContext(...)`.
+
+## Returns
+
+`agent.streamChat(...)`: `Promise<AsyncIterable<StreamChunk>>`
+
+## What happens under the hood
+
+1. resolves runtime config and session context
+2. chooses the workflow (including request-level workflow override)
+3. builds initial state from input + prior messages
+4. resumes interrupted flows when resume metadata is present
+5. runs the workflow graph and streams chunks as SSE
+6. returns an async stream of `StreamChunk` events
+
+## Workflow override per request
+
+When not resuming, `options.workflowId` can override entry workflow for this request.
+
+## Request context
+
+Use `options.context` for request metadata that node code needs, such as selected thread id, locale, or server-approved auth context. See [Runtime Context](./08-runtime-context.md) for the full client-to-node flow and security boundary.
+
+## Resume behavior
+
+If the last message contains resume metadata, `agent.streamChat(...)` resumes the interrupted flow automatically.

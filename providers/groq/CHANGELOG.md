@@ -1,5 +1,74 @@
 # Changelog
 
+## [0.4.10](https://github.com/kortyx-io/kortyx/compare/groq-v0.4.9...groq-v0.4.10) (2026-10-16)
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/providers bumped to 0.9.4
+    * @kortyx/core bumped to 0.15.0
+
+## [0.4.9](https://github.com/kortyx-io/kortyx/compare/groq-v0.4.8...groq-v0.4.9) (2026-10-13)
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/providers bumped to 0.9.3
+    * @kortyx/core bumped to 0.14.0
+
+## [0.4.8](https://github.com/kortyx-io/kortyx/compare/groq-v0.4.7...groq-v0.4.8) (2026-10-11)
+
+
+### Bug Fixes
+
+* **website:** reconcile credibility branch with current main ([60199f9](https://github.com/kortyx-io/kortyx/commit/60199f992242eb7c409a95bc7a6898d31bac601d))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/providers bumped to 0.9.2
+    * @kortyx/core bumped to 0.13.1
+
+## [0.4.7](https://github.com/kortyx-io/kortyx/compare/groq-v0.4.6...groq-v0.4.7) (2026-10-09)
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/providers bumped to 0.9.1
+    * @kortyx/core bumped to 0.13.0
+
+## [0.4.6](https://github.com/kortyx-io/kortyx/compare/groq-v0.4.5...groq-v0.4.6) (2026-10-08)
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/providers bumped to 0.9.0
+    * @kortyx/core bumped to 0.12.0
+
+## [0.4.5](https://github.com/kortyx-io/kortyx/compare/groq-v0.4.4...groq-v0.4.5) (2026-10-07)
+
+
+### Bug Fixes
+
+* **security:** remediate CodeQL findings ([#273](https://github.com/kortyx-io/kortyx/issues/273)) ([55bc484](https://github.com/kortyx-io/kortyx/commit/55bc48426b72c0d370fe830f64db5bc1249bb861))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/providers bumped to 0.8.4
+
 ## [0.4.4](https://github.com/kortyx-io/kortyx/compare/groq-v0.4.3...groq-v0.4.4) (2026-09-22)
 
 

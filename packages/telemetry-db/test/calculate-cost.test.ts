@@ -54,6 +54,75 @@ describe("calculateGenerationCost", () => {
     });
   });
 
+  it("reprices existing OpenRouter BYOK events from upstream inference cost", () => {
+    const result = calculateGenerationCost(
+      baseEvent({
+        provider: "openrouter",
+        model: "openai/gpt-5.4",
+        usage: { input: 4564, output: 1951, total: 6515 },
+        pricing: {
+          source: "provider",
+          currency: "USD",
+          actualCostMicros: 0,
+        },
+        providerMetadata: {
+          cost: 0,
+          isByok: true,
+          costDetails: { upstreamInferenceCost: 0.036643 },
+        },
+      }),
+      [],
+    );
+
+    expect(result).toMatchObject({
+      costMicros: 36_643,
+      cost: 0.036643,
+      pricingStatus: "priced",
+      pricingSource: "provider",
+    });
+  });
+
+  it("does not label a zero BYOK charge as priced without upstream cost", () => {
+    const result = calculateGenerationCost(
+      baseEvent({
+        provider: "openrouter",
+        usage: { input: 10, output: 5 },
+        pricing: {
+          source: "provider",
+          currency: "USD",
+          actualCostMicros: 0,
+        },
+        providerMetadata: { cost: 0, isByok: true },
+      }),
+      [],
+    );
+
+    expect(result).toMatchObject({ cost: null, pricingStatus: "unpriced" });
+  });
+
+  it("reads upstream cost from raw usage in OpenRouter BYOK events without a pricing hint", () => {
+    const result = calculateGenerationCost(
+      baseEvent({
+        provider: "openrouter",
+        usage: {
+          input: 10,
+          output: 5,
+          raw: {
+            cost: 0,
+            isByok: true,
+            costDetails: { upstreamInferenceCost: 0.00020354 },
+          },
+        },
+      }),
+      [],
+    );
+
+    expect(result).toMatchObject({
+      costMicros: 204,
+      pricingStatus: "priced",
+    });
+  });
+
   it("uses custom SDK unit prices for non-token usage", () => {
     const result = calculateGenerationCost(
       baseEvent({

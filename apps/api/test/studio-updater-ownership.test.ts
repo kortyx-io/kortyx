@@ -11,6 +11,7 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, it } from "vitest";
+import { EVALUATION_UPDATE_GUARD } from "../src/updater/docker";
 import { applyUpdate } from "../src/updater/engine";
 import { initializeStorage, operation, saveJson } from "../src/updater/storage";
 
@@ -54,6 +55,7 @@ it.skipIf(!rootLinux)(
       });
       let installed = false;
       await applyUpdate(home, id, async (args, output) => {
+        if (args.includes(EVALUATION_UPDATE_GUARD)) return "safe-no-evals";
         if (output) await writeFile(output, "verified test archive");
         if (args.includes("up") && args.includes("--wait-timeout"))
           installed = true;

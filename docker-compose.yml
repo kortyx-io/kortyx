@@ -7,7 +7,6 @@ x-api-env: &api-env
 x-oss-keys: &oss-keys
   KORTYX_TELEMETRY_API_KEY: ${KORTYX_TELEMETRY_API_KEY:-ktyx_test_localtelemetry_oss-demo-telemetry-secret-change-me}
   KORTYX_STUDIO_API_KEY: ${KORTYX_STUDIO_API_KEY:-ktyx_test_localstudio_oss-demo-studio-secret-change-me}
-  KORTYX_STUDIO_ENABLE_REVIEWS: ${KORTYX_STUDIO_ENABLE_REVIEWS:-0}
 
 services:
   postgres:
@@ -51,6 +50,9 @@ services:
       NODE_ENV: production
       API_HOST: 0.0.0.0
       API_PORT: 6400
+      KORTYX_API_EVAL_WORKER_ENABLED: ${KORTYX_API_EVAL_WORKER_ENABLED:-true}
+      KORTYX_EVAL_MAX_CONCURRENT_EVALUATIONS: ${KORTYX_EVAL_MAX_CONCURRENT_EVALUATIONS:-4}
+    stop_grace_period: ${KORTYX_API_STOP_GRACE_PERIOD:-30s}
     ports:
       - "127.0.0.1:${API_PORT:-6400}:6400"
     depends_on:

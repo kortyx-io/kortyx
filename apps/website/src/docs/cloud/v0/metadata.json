@@ -1,0 +1,40 @@
+{
+  "label": "Current",
+  "sections": [
+    {
+      "slug": "get-started",
+      "label": "Get started",
+      "position": 1,
+      "description": "Create a Cloud project and send your first real application request.",
+      "pages": ["", "get-started"]
+    },
+    {
+      "slug": "workspaces",
+      "label": "Organizations and projects",
+      "position": 2,
+      "description": "Choose the workspace for your data and understand deletion and recovery.",
+      "pages": ["workspaces", "recovery"]
+    },
+    {
+      "slug": "connections",
+      "label": "Connect applications",
+      "position": 3,
+      "description": "Manage telemetry keys, evaluation endpoints, and Studio provider connections.",
+      "pages": ["api-keys", "evaluations"]
+    },
+    {
+      "slug": "account-security",
+      "label": "Account and sign-in",
+      "position": 4,
+      "description": "Update your profile, verify email changes, and manage signed-in browsers.",
+      "pages": ["account", "sign-in"]
+    },
+    {
+      "slug": "help",
+      "label": "Troubleshooting",
+      "position": 5,
+      "description": "Resolve setup, credential, delivery, and account problems.",
+      "pages": ["troubleshooting"]
+    }
+  ]
+}

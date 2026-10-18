@@ -32,14 +32,16 @@ on:
 concurrency:
   group: ${{ github.event_name == 'workflow_dispatch' && inputs.operation == 'canary' && format('npm-canary-pr-{0}', inputs.pr_number) || 'release-orchestrator' }}
   cancel-in-progress: false
+  queue: max
 
 permissions:
+  actions: read
   contents: read
 
 jobs:
   prepare:
     name: Select tested release
-    if: (github.event_name == 'workflow_dispatch' && inputs.operation == 'stable') || (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success')
+    if: (github.event_name == 'workflow_dispatch' && inputs.operation == 'stable') || github.event_name == 'workflow_run'
     runs-on: ubuntu-latest
     outputs:
       commit: ${{ steps.release.outputs.commit }}
@@ -49,19 +51,57 @@ jobs:
       website_version: ${{ steps.release.outputs.website_version }}
     steps:
       - name: Checkout tested commit
-        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           fetch-depth: 0
           ref: ${{ inputs.release_commit || github.event.workflow_run.head_sha || github.event.repository.default_branch }}
+      - name: Checkout trusted workflow modules
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.workflow_sha }}
+          path: .github/automation
+          sparse-checkout: .github
+          persist-credentials: false
       - name: Describe release commit
         id: release
         env:
           RELEASE_COMMIT: ${{ inputs.release_commit || github.event.workflow_run.head_sha || github.sha }}
-        run: node .github/scripts/release/describe-release.mjs
+        run: node ./.github/automation/.github/scripts/release/describe-release.mjs
+      - name: Require successful CI for the selected commit
+        if: steps.release.outputs.release == 'true' || github.event_name == 'workflow_dispatch'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: bash ./.github/automation/.github/scripts/release/require-ci.sh
+
+  publication_preflight:
+    name: Verify Studio publication access before releasing packages
+    needs: prepare
+    if: needs.prepare.outputs.release == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    environment: studio-production-auto
+    steps:
+      - name: Checkout trusted workflow modules
+        if: contains(fromJSON(needs.prepare.outputs.paths), 'apps/studio')
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.workflow_sha }}
+          path: .github/automation
+          sparse-checkout: .github
+          persist-credentials: false
+      - name: Verify R2 publication access
+        if: contains(fromJSON(needs.prepare.outputs.paths), 'apps/studio')
+        uses: ./.github/automation/.github/actions/release/studio-update
+        with:
+          operation: prepare
+          account-id: ${{ vars.STUDIO_UPDATES_R2_ACCOUNT_ID }}
+          bucket: ${{ vars.STUDIO_UPDATES_R2_BUCKET }}
+          access-key-id: ${{ secrets.STUDIO_UPDATES_R2_ACCESS_KEY_ID }}
+          secret-access-key: ${{ secrets.STUDIO_UPDATES_R2_SECRET_ACCESS_KEY }}
 
   tags:
     name: Create GitHub releases and tags
-    needs: prepare
+    needs: [prepare, publication_preflight]
     if: needs.prepare.outputs.release == 'true'
     runs-on: ubuntu-latest
     permissions:
@@ -69,12 +109,12 @@ jobs:
       pull-requests: read
     steps:
       - name: Checkout release commit
-        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           fetch-depth: 0
           ref: ${{ needs.prepare.outputs.commit }}
       - name: Checkout workflow modules
-        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           ref: ${{ github.workflow_sha }}
           path: .github/automation
@@ -92,19 +132,19 @@ jobs:
     needs: [prepare, tags]
     if: needs.prepare.outputs.release == 'true'
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 45
     environment: NPM Package Publishing
     permissions:
       contents: read
       id-token: write
     steps:
       - name: Checkout release commit
-        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           fetch-depth: 0
           ref: ${{ needs.prepare.outputs.commit }}
       - name: Checkout workflow modules
-        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           ref: ${{ github.workflow_sha }}
           path: .github/automation
@@ -116,26 +156,43 @@ jobs:
           registry-url: https://registry.npmjs.org
       - name: Build release package graph
         env:
-          TURBO_SCM_BASE: ${{ needs.prepare.outputs.commit }}^1
-          TURBO_SCM_HEAD: ${{ needs.prepare.outputs.commit }}
-        run: pnpm turbo run build --affected
+          RELEASE_COMMIT: ${{ needs.prepare.outputs.commit }}
+        run: node ./.github/automation/.github/actions/release/npm-publish/publish.mjs --build-only
       - name: Publish packages and wait for npm
         uses: ./.github/automation/.github/actions/release/npm-publish
         with:
           commit: ${{ needs.prepare.outputs.commit }}
 
-  studio:
-    name: Release Studio
-    needs: [prepare, publish]
+  studio_images:
+    name: Build Studio images
+    needs: [prepare, tags]
     if: contains(fromJSON(needs.prepare.outputs.paths), 'apps/studio')
-    uses: ./.github/workflows/release-studio-images.yml
+    uses: ./.github/workflows/build-studio-images.yml
     permissions:
       contents: read
       packages: write
       id-token: write
       attestations: write
     with:
+      commit: ${{ needs.prepare.outputs.commit }}
+      version: ${{ needs.prepare.outputs.studio_version }}
+    secrets: inherit
+
+  studio:
+    name: Release Studio
+    needs: [prepare, publish, studio_images]
+    if: contains(fromJSON(needs.prepare.outputs.paths), 'apps/studio')
+    uses: ./.github/workflows/release-studio-images.yml
+    permissions:
+      actions: read
+      contents: write
+      packages: write
+      id-token: write
+      attestations: write
+    with:
       release_tag: studio-v${{ needs.prepare.outputs.studio_version }}
+      api_digest: ${{ needs.studio_images.outputs.api_digest }}
+      studio_digest: ${{ needs.studio_images.outputs.studio_digest }}
       deployment_strategy: recreate
     secrets: inherit
 
@@ -171,7 +228,7 @@ jobs:
     steps:
       - name: Validate pull request selection
         id: pr
-        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3
         with:
           script: |-
             const raw = `${{ inputs.pr_number }}`.trim();
@@ -216,12 +273,12 @@ jobs:
       website: ${{ steps.canary.outputs.website }}
     steps:
       - name: Checkout selected PR commit
-        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           fetch-depth: 0
           ref: ${{ needs.canary-resolve.outputs.head_sha }}
       - name: Checkout trusted workflow modules
-        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           ref: ${{ github.workflow_sha }}
           path: .github/automation
@@ -254,7 +311,7 @@ jobs:
     needs: [canary-resolve, canary-build]
     if: inputs.dry_run == false && needs.canary-build.outputs.has_packages == 'true'
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 45
     environment: NPM Package Publishing
     permissions:
       contents: read
@@ -265,7 +322,7 @@ jobs:
       packages: ${{ steps.publish.outputs.packages }}
     steps:
       - name: Checkout trusted workflow modules
-        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           ref: ${{ github.workflow_sha }}
           sparse-checkout: |
@@ -291,7 +348,7 @@ jobs:
           head-sha: ${{ needs.canary-resolve.outputs.head_sha }}
           pr-number: ${{ needs.canary-resolve.outputs.number }}
       - name: Add installation commands to the pull request
-        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3
         env:
           CANARY_PACKAGES: ${{ steps.publish.outputs.packages }}
           CANARY_TAG: ${{ steps.publish.outputs.tag }}

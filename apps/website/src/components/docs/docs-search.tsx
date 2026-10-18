@@ -6,11 +6,12 @@ import MiniSearch, { type SearchResult as MiniSearchResult } from "minisearch";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
+import { loadDocsSearchEntries } from "@/components/docs/load-docs-search";
+import { Button } from "@/components/ui/button";
 import type { DocsSearchEntry } from "@/lib/docs";
 import { cn } from "@/lib/utils/cn";
 
 type DocsSearchProps = {
-  entries: DocsSearchEntry[];
   className?: string;
 };
 
@@ -135,6 +136,9 @@ function toSearchResult(
   if (!document) return null;
 
   return {
+    product: document.product,
+    productLabel: document.productLabel,
+    isLatest: document.isLatest,
     href: document.href,
     title: document.title,
     description: document.description,
@@ -157,16 +161,60 @@ function searchDocs(searchIndex: SearchIndex, query: string): SearchResult[] {
     .filter((result): result is SearchResult => result !== null);
 }
 
-export function DocsSearch({ entries, className }: DocsSearchProps) {
+export function DocsSearch({ className }: DocsSearchProps) {
+  const [entries, setEntries] = useState<DocsSearchEntry[] | null>(null);
+  const [loadError, setLoadError] = useState(false);
   const [query, setQuery] = useState("");
   const [isOpen, setIsOpen] = useState(false);
   const deferredQuery = useDeferredValue(query);
   const pathname = usePathname();
   const inputRef = useRef<HTMLInputElement | null>(null);
   const [shortcutModifierLabel, setShortcutModifierLabel] = useState("Ctrl");
-  const searchIndex = useMemo(() => createSearchIndex(entries), [entries]);
-  const results = searchDocs(searchIndex, deferredQuery);
+  const [searchAllProducts, setSearchAllProducts] = useState(true);
+  const product = pathname?.split("/")[2];
+  const versionSegment = pathname?.split("/")[3];
+  const currentEntry = entries?.find((entry) => entry.product === product);
+  const selectedVersion = entries?.some(
+    (entry) => entry.product === product && entry.version === versionSegment,
+  )
+    ? versionSegment
+    : null;
+  const searchIndex = useMemo(
+    () =>
+      entries &&
+      createSearchIndex(
+        entries.filter((entry) => {
+          if (!searchAllProducts && currentEntry) {
+            return (
+              entry.product === product &&
+              (selectedVersion
+                ? entry.version === selectedVersion
+                : entry.isLatest)
+            );
+          }
+          return entry.isLatest;
+        }),
+      ),
+    [entries, product, selectedVersion, searchAllProducts, currentEntry],
+  );
+  const results = searchIndex ? searchDocs(searchIndex, deferredQuery) : [];
   const hasQuery = normalize(query).length > 0;
+
+  useEffect(() => {
+    if (!isOpen || entries || loadError) return;
+    let active = true;
+    loadDocsSearchEntries().then(
+      (loadedEntries) => {
+        if (active) setEntries(loadedEntries);
+      },
+      () => {
+        if (active) setLoadError(true);
+      },
+    );
+    return () => {
+      active = false;
+    };
+  }, [isOpen, entries, loadError]);
 
   useEffect(() => {
     setShortcutModifierLabel(getShortcutModifierLabel());
@@ -176,6 +224,7 @@ export function DocsSearch({ entries, className }: DocsSearchProps) {
     if (!pathname) return;
     setIsOpen(false);
     setQuery("");
+    setSearchAllProducts(true);
   }, [pathname]);
 
   useEffect(() => {
@@ -201,13 +250,16 @@ export function DocsSearch({ entries, className }: DocsSearchProps) {
       <Dialog.Trigger asChild>
         <button
           type="button"
+          aria-label="Search documentation"
           className={cn(
             "flex h-9 w-full items-center gap-3 rounded-lg border border-border bg-background pl-3 pr-1 text-left text-sm text-muted-foreground transition-[border-color,box-shadow,color] hover:border-ring/60 hover:text-foreground focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/20 focus-visible:outline-none",
             className,
           )}
         >
           <SearchIcon className="size-4 shrink-0" />
-          <span className="min-w-0 flex-1 truncate">Search...</span>
+          <span className="hidden min-w-0 flex-1 truncate sm:block">
+            Search...
+          </span>
           <kbd className="hidden items-center gap-1 rounded border border-border bg-muted px-1.5 py-0.5 font-mono text-xs text-muted-foreground md:flex">
             <span
               className={cn(
@@ -228,11 +280,30 @@ export function DocsSearch({ entries, className }: DocsSearchProps) {
           <Dialog.Description className="sr-only">
             Search through Kortyx documentation pages.
           </Dialog.Description>
+          {currentEntry && (
+            <div className="flex items-center justify-between gap-3 border-b border-border px-4 py-2 text-xs text-muted-foreground">
+              <span>
+                {searchAllProducts
+                  ? "All documentation"
+                  : `${currentEntry.productLabel} · ${selectedVersion ?? "Latest"}`}
+              </span>
+              <button
+                type="button"
+                className="rounded px-2 py-1 text-primary hover:bg-accent"
+                onClick={() => setSearchAllProducts((previous) => !previous)}
+              >
+                {searchAllProducts
+                  ? "Search this area"
+                  : "Search all documentation"}
+              </button>
+            </div>
+          )}
           <div className="flex items-center gap-3 border-b border-border px-4">
             <SearchIcon className="size-5 shrink-0 text-muted-foreground" />
             <input
               ref={inputRef}
               type="search"
+              aria-label="Search docs"
               value={query}
               placeholder="Search docs..."
               autoComplete="off"
@@ -244,7 +315,25 @@ export function DocsSearch({ entries, className }: DocsSearchProps) {
             </kbd>
           </div>
 
-          {!hasQuery ? (
+          {loadError ? (
+            <div
+              role="alert"
+              className="flex items-center justify-between gap-3 p-5 text-sm text-muted-foreground"
+            >
+              <span>Documentation search couldn’t load.</span>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setLoadError(false)}
+              >
+                Try again
+              </Button>
+            </div>
+          ) : !entries ? (
+            <output className="block p-5 text-sm text-muted-foreground">
+              Loading documentation search…
+            </output>
+          ) : !hasQuery ? (
             <div className="p-5 text-sm text-muted-foreground">
               Search titles, descriptions, keywords, and docs content.
             </div>
@@ -261,12 +350,16 @@ export function DocsSearch({ entries, className }: DocsSearchProps) {
                     className="block rounded-xl px-3 py-3 outline-none transition-colors hover:bg-accent focus:bg-accent"
                     onClick={() => setIsOpen(false)}
                   >
-                    <div className="flex items-center gap-2">
-                      <span className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="min-w-0 basis-full truncate text-sm font-medium text-foreground sm:flex-1 sm:basis-auto">
                         {highlightMatches(result.title, query)}
                       </span>
+                      <span className="shrink-0 text-xs text-muted-foreground">
+                        {result.productLabel}
+                        {!result.isLatest ? ` · ${result.version}` : ""}
+                      </span>
                       {result.section && (
-                        <span className="shrink-0 rounded-full bg-secondary px-2 py-0.5 text-xs font-medium text-secondary-foreground">
+                        <span className="max-w-full truncate rounded-full bg-secondary px-2 py-0.5 text-xs font-medium text-secondary-foreground">
                           {result.section}
                         </span>
                       )}

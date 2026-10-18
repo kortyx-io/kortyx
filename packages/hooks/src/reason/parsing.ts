@@ -70,7 +70,7 @@ const createInvalidStructuredOutputError = (
 ): Error =>
   new ValidationError(
     "INVALID_MODEL_JSON",
-    `${label} did not produce valid structured output. The model returned text instead of the expected JSON payload. Check outputSchema and provider structured-output settings.`,
+    `${label} did not produce valid structured output. The model returned text instead of the expected JSON payload. Check the output contract or outputSchema and provider structured-output settings.`,
     cause,
   );
 

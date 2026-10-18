@@ -2,10 +2,18 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { cache } from "react";
 
-export type DocsConfig = {
+export type DocsProduct = {
+  id: string;
+  label: string;
+  description: string;
+  icon: "sdk" | "studio" | "cloud" | "server" | "cli";
+  versioning?: "release" | "service";
+  entryLabel?: string;
   versions: string[];
   latestVersion: string;
-  docsRoot: string;
+  overview: string;
+  packageJsonPath?: string;
+  npmPackage?: string;
   legacyRedirects: Record<string, Record<string, string>>;
 };
 
@@ -14,15 +22,14 @@ export type DocsVersionDisplay = {
   subtitle: string;
 };
 
-const readKortyxPackageVersion = (): string | null => {
+const readProductPackageVersion = (product: DocsProduct): string | null => {
+  if (!product.packageJsonPath) return null;
   try {
     const packageJsonPath = path.join(
       process.cwd(),
       "..",
       "..",
-      "packages",
-      "kortyx",
-      "package.json",
+      product.packageJsonPath,
     );
     const packageJson = JSON.parse(readFileSync(packageJsonPath, "utf8")) as {
       version?: unknown;
@@ -37,12 +44,18 @@ const readKortyxPackageVersion = (): string | null => {
   }
 };
 
-const readLatestKortyxNpmVersion = async (): Promise<string | null> => {
+const readLatestProductNpmVersion = async (
+  product: DocsProduct,
+): Promise<string | null> => {
+  if (!product.npmPackage) return null;
   try {
-    const response = await fetch("https://registry.npmjs.org/kortyx/latest", {
-      headers: { accept: "application/json" },
-      next: { revalidate: 3600 },
-    });
+    const response = await fetch(
+      `https://registry.npmjs.org/${encodeURIComponent(product.npmPackage)}/latest`,
+      {
+        headers: { accept: "application/json" },
+        next: { revalidate: 3600 },
+      },
+    );
     if (!response.ok) return null;
 
     const payload = (await response.json()) as { version?: unknown };
@@ -85,70 +98,169 @@ const getNewestStableVersion = (
 };
 
 export const getLatestDocsVersionDisplay = cache(
-  async (): Promise<DocsVersionDisplay> => {
+  async (productId = "sdk"): Promise<DocsVersionDisplay> => {
+    const product = getDocsProduct(productId);
+    if (!product) throw new Error(`Unknown docs product: ${productId}`);
+    if (product.versioning === "service")
+      return { label: "Current service", subtitle: product.label };
     const version = getNewestStableVersion(
-      readKortyxPackageVersion(),
-      await readLatestKortyxNpmVersion(),
+      readProductPackageVersion(product),
+      await readLatestProductNpmVersion(product),
     );
 
     return {
       label: "Latest version",
-      subtitle: version ? `v${version}` : docsConfig.latestVersion,
+      subtitle: version ? `v${version}` : product.latestVersion,
     };
   },
 );
 
-export const docsConfig: DocsConfig = {
-  // Keep this list explicit so version ordering/cutovers are intentional.
-  versions: ["v0"],
-  latestVersion: "v0",
+export const docsConfig: { docsRoot: string; products: DocsProduct[] } = {
   docsRoot: path.join(process.cwd(), "src", "docs"),
-  // Map old slug -> new slug (without /docs prefix and without version segment).
-  legacyRedirects: {
-    v0: {
-      workflows: "core-concepts",
-      runtime: "guides",
-      agent: "core-concepts",
-      providers: "guides",
-      memory: "production/persistence",
-      streaming: "guides",
-      packages: "reference",
-      "workflows/define-workflows": "core-concepts/define-workflows",
-      "workflows/formats-ts-yaml-json": "core-concepts/formats-ts-yaml-json",
-      "workflows/node-resolution": "reference/node-resolution",
-      "workflows/conditional-routing": "core-concepts/conditional-routing",
-      "runtime/hooks": "core-concepts/hooks",
-      "runtime/interrupts-and-resume": "guides/interrupts-and-resume",
-      "runtime/persistence": "production/persistence",
-      "runtime/framework-adapters": "production/framework-adapters",
-      "agent/create-agent": "core-concepts/create-agent",
-      "agent/process-chat": "core-concepts/stream-chat",
-      "guides/process-chat": "core-concepts/stream-chat",
-      "guides/stream-chat": "core-concepts/stream-chat",
-      "agent/stream-protocol": "reference/stream-protocol",
-      "providers/setup-google-provider":
-        "kortyx-providers/google-generative-ai-provider",
-      "guides/setup-google-provider":
-        "kortyx-providers/google-generative-ai-provider",
-      "providers/provider-api": "reference/provider-api",
-      "memory/adapters": "production/persistence",
-      "guides/memory-adapters": "production/persistence",
-      "streaming/sse": "guides/sse",
-      "packages/package-overview": "reference/package-overview",
-      "packages/api-surface": "reference/api-surface",
-      "getting-started/documentation-structure-and-dx": "getting-started",
-      "getting-started/quickstart-nextjs-api-route":
-        "getting-started/quickstart-nextjs",
-      "core-concepts/node-resolution": "reference/node-resolution",
-      "start-here/start-here": "start-here",
-      "troubleshooting/troubleshooting": "troubleshooting",
-      "migration/migration-and-versions": "migration",
+  products: [
+    {
+      id: "sdk",
+      entryLabel: "Build an application",
+      label: "Kortyx SDK",
+      description:
+        "Build typed agent workflows with providers, streaming, and runtime persistence.",
+      icon: "sdk",
+      versions: ["v0"],
+      latestVersion: "v0",
+      overview: "start-here",
+      packageJsonPath: "packages/kortyx/package.json",
+      npmPackage: "kortyx",
+      // Map old slug -> new slug (without /docs prefix and without version segment).
+      legacyRedirects: {
+        v0: {
+          workflows: "core-concepts",
+          runtime: "guides",
+          agent: "core-concepts",
+          providers: "guides",
+          memory: "production/persistence",
+          streaming: "guides",
+          packages: "reference",
+          "workflows/define-workflows": "core-concepts/define-workflows",
+          "workflows/formats-ts-yaml-json":
+            "core-concepts/formats-ts-yaml-json",
+          "workflows/node-resolution": "reference/node-resolution",
+          "workflows/conditional-routing": "core-concepts/conditional-routing",
+          "runtime/hooks": "core-concepts/hooks",
+          "runtime/interrupts-and-resume": "guides/interrupts-and-resume",
+          "runtime/persistence": "production/persistence",
+          "runtime/framework-adapters": "production/framework-adapters",
+          "agent/create-agent": "core-concepts/create-agent",
+          "agent/process-chat": "core-concepts/stream-chat",
+          "guides/process-chat": "core-concepts/stream-chat",
+          "guides/stream-chat": "core-concepts/stream-chat",
+          "agent/stream-protocol": "reference/stream-protocol",
+          "providers/setup-google-provider":
+            "kortyx-providers/google-generative-ai-provider",
+          "guides/setup-google-provider":
+            "kortyx-providers/google-generative-ai-provider",
+          "providers/provider-api": "reference/provider-api",
+          "memory/adapters": "production/persistence",
+          "guides/memory-adapters": "production/persistence",
+          "streaming/sse": "guides/sse",
+          "packages/package-overview": "reference/package-overview",
+          "packages/api-surface": "reference/api-surface",
+          "getting-started/documentation-structure-and-dx": "getting-started",
+          "getting-started/quickstart-nextjs-api-route":
+            "getting-started/quickstart-nextjs",
+          "getting-started/models": "kortyx-providers/choose-a-provider",
+          // This numbered HTML URL also needs to be emitted by the static build.
+          "reference/06-react-client": "reference/react-client",
+          // Historical URLs accidentally included the link's display label.
+          "core-concepts/nodes-Nodes": "core-concepts/nodes",
+          "core-concepts/hooks-Hooks": "core-concepts/hooks",
+          "production/observability-OpenTelemetry": "production/observability",
+          "kortyx-providers/mistral-provider-Mistral":
+            "kortyx-providers/mistral-provider",
+          "kortyx-providers/groq-provider-Groq":
+            "kortyx-providers/groq-provider",
+          "kortyx-providers/openai-provider-OpenAI":
+            "kortyx-providers/openai-provider",
+          "kortyx-providers/deepseek-provider-DeepSeek":
+            "kortyx-providers/deepseek-provider",
+          "guides-Guides": "guides",
+          "reference-Reference": "reference",
+          "production-Production": "production",
+          "troubleshooting-Troubleshooting": "troubleshooting",
+          "getting-started/installation-Installation":
+            "getting-started/installation",
+          "core-concepts/node-resolution": "reference/node-resolution",
+          "start-here/start-here": "start-here",
+          "troubleshooting/troubleshooting": "troubleshooting",
+          "migration/migration-and-versions": "migration",
+        },
+      },
     },
-  },
+    {
+      id: "studio",
+      entryLabel: "Use Studio",
+      label: "Kortyx Studio",
+      description:
+        "Inspect executions, manage prompts, and evaluate workflows in Cloud or self-hosted Studio.",
+      icon: "studio",
+      versions: ["v0"],
+      latestVersion: "v0",
+      overview: "overview",
+      packageJsonPath: "apps/studio/package.json",
+      legacyRedirects: { v0: { deployment: "self-hosted" } },
+    },
+    {
+      id: "cloud",
+      label: "Kortyx Cloud",
+      entryLabel: "Get started with Cloud",
+      description:
+        "Connect your application to managed Studio and manage your projects, credentials, and account.",
+      icon: "cloud",
+      versioning: "service",
+      versions: ["v0"],
+      latestVersion: "v0",
+      overview: "",
+      legacyRedirects: {},
+    },
+    {
+      id: "self-hosting",
+      label: "Self-hosting",
+      entryLabel: "Host Studio yourself",
+      description:
+        "Run Studio locally or deploy it for your team. Secure, back up, and upgrade your installation.",
+      icon: "server",
+      versions: ["v0"],
+      latestVersion: "v0",
+      overview: "",
+      packageJsonPath: "apps/studio/package.json",
+      legacyRedirects: {},
+    },
+    {
+      id: "cli",
+      label: "Kortyx CLI",
+      entryLabel: "Work from the terminal",
+      description:
+        "Publish workflow maps, inspect runs, manage prompts, and run evaluations with the shared CLI.",
+      icon: "cli",
+      versions: ["v0"],
+      latestVersion: "v0",
+      overview: "",
+      packageJsonPath: "packages/cli/package.json",
+      legacyRedirects: {},
+    },
+  ],
 };
 
-if (!docsConfig.versions.includes(docsConfig.latestVersion)) {
-  throw new Error(
-    `Invalid docs config: latestVersion "${docsConfig.latestVersion}" is not in versions.`,
-  );
+export function getDocsProduct(id: string): DocsProduct | undefined {
+  return docsConfig.products.find((product) => product.id === id);
+}
+
+const productIds = new Set<string>();
+for (const product of docsConfig.products) {
+  if (
+    productIds.has(product.id) ||
+    !product.versions.includes(product.latestVersion)
+  ) {
+    throw new Error(`Invalid docs product config: ${product.id}`);
+  }
+  productIds.add(product.id);
 }

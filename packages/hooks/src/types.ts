@@ -49,6 +49,35 @@ export type InterruptContractMap = Record<
   InterruptContract<unknown, unknown>
 >;
 
+export type OutputContract<TData = unknown> = {
+  description: string;
+  schema: SchemaLike<TData>;
+  schemaId: string;
+  schemaVersion: string;
+  /** Paths the model may update before emitting the validated final value. */
+  stream?: { fields: UseReasonStructuredFields } | undefined;
+};
+
+export type OutputContractMap = Record<string, OutputContract<unknown>>;
+
+export type UseReasonOutputsConfig<
+  TEmit extends OutputContractMap = OutputContractMap,
+  TReturn extends OutputContractMap = OutputContractMap,
+> = {
+  emit?: TEmit | undefined;
+  return?: TReturn | undefined;
+  maxEmissions?: number | undefined;
+};
+
+export type OutputContractEntry<TContracts extends OutputContractMap> = {
+  [TName in Extract<
+    keyof TContracts,
+    string
+  >]: TContracts[TName] extends OutputContract<infer TData>
+    ? { contract: TName; data: TData }
+    : never;
+}[Extract<keyof TContracts, string>];
+
 export type UseReasonInterruptsConfig<
   TContracts extends InterruptContractMap = InterruptContractMap,
 > = {
@@ -92,6 +121,28 @@ type UseStructuredDataBaseArgs = {
   id?: string | undefined;
   streamId?: string | undefined;
 };
+
+export type UseContractStructuredDataArgs<TData> = {
+  contract: OutputContract<TData>;
+  id?: string | undefined;
+} & (
+  | { kind?: "final" | undefined; data: TData; streamId?: string | undefined }
+  | {
+      kind: "set";
+      path: string;
+      value: unknown;
+      valueSchema?: SchemaLike<unknown> | undefined;
+      streamId: string;
+    }
+  | {
+      kind: "append";
+      path: string;
+      items: unknown[];
+      itemSchema?: SchemaLike<unknown> | undefined;
+      streamId: string;
+    }
+  | { kind: "text-delta"; path: string; delta: string; streamId: string }
+);
 
 export type UseStructuredDataFinalArgs<TData = unknown> =
   UseStructuredDataBaseArgs & {
@@ -166,6 +217,9 @@ export type UseReasonInterruptConfig<
 };
 
 export type UseReasonToolExecution = {
+  /** Extra model corrections for a missing terminal return; defaults to zero and shares maxSteps. Completed calls are not replayed. */
+  missingReturnCorrections?: number | undefined;
+  /** Model-pass budget, including output generation and correction across resume. */
   maxSteps?: number | undefined;
   approval?: boolean | Record<string, boolean> | undefined;
   emit?: boolean | Record<string, boolean> | undefined;
@@ -176,8 +230,11 @@ export type UseReasonArgs<
   TRequest extends InterruptInput = InterruptInput,
   TResponse = InterruptResult,
   TContracts extends InterruptContractMap = InterruptContractMap,
+  TEmit extends OutputContractMap = OutputContractMap,
+  TReturn extends OutputContractMap = OutputContractMap,
 > = {
   model: ProviderModelRef;
+  messages?: import("@kortyx/providers").KortyxPromptMessage[] | undefined;
   input: string;
   system?: string | undefined;
   temperature?: number | undefined;
@@ -191,8 +248,11 @@ export type UseReasonArgs<
   stream?: boolean | undefined;
   id?: string | undefined;
   telemetry?: KortyxTraceMetadata | undefined;
+  /** @deprecated Removed in the next major. Use `outputs.return` with `defineOutputContract`. */
   outputSchema?: SchemaLike<TOutput> | undefined;
+  /** @deprecated Removed in the next major. Use output contracts for model-selected structured emissions. */
   structured?: UseReasonStructuredConfig | undefined;
+  outputs?: UseReasonOutputsConfig<TEmit, TReturn> | undefined;
   /** @deprecated Use `interrupts`. Removed in the next major release. */
   interrupt?: UseReasonInterruptConfig<TRequest, TResponse> | undefined;
   interrupts?: UseReasonInterruptsConfig<TContracts> | undefined;
@@ -201,6 +261,7 @@ export type UseReasonArgs<
 };
 
 export type UseReasonStep = {
+  kind?: "output" | undefined;
   toolObservations?: import("@kortyx/providers").ToolObservation[];
   stepIndex: number;
   text: string;
@@ -216,6 +277,8 @@ export type UseReasonResult<
   TOutput = unknown,
   TResponse = InterruptResult,
   TContracts extends InterruptContractMap = InterruptContractMap,
+  TEmit extends OutputContractMap = OutputContractMap,
+  TReturn extends OutputContractMap = OutputContractMap,
 > = {
   id?: string;
   opId: string;
@@ -225,7 +288,10 @@ export type UseReasonResult<
   finishReason?: KortyxFinishReason;
   providerMetadata?: KortyxProviderMetadata;
   warnings?: KortyxWarning[];
+  /** @deprecated Removed in the next major. Use `returned` from an output contract. */
   output?: TOutput;
+  emissions?: OutputContractEntry<TEmit>[];
+  returned?: OutputContractEntry<TReturn>;
   /** @deprecated Use `interruptHistory`. Removed in the next major release. */
   interruptResponse?: TResponse;
   interruptHistory?: InterruptHistoryEntry<TContracts>[];

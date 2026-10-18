@@ -4,6 +4,7 @@ import {
   TelemetryEventBatchSchema,
 } from "@kortyx/telemetry-contracts";
 import { ingestTelemetryEvents } from "@kortyx/telemetry-db";
+import { requirePrincipalEnvironment } from "../../middleware/security";
 import type { ApiEnv } from "../../types";
 
 const ErrorResponseSchema = z.object({
@@ -64,23 +65,35 @@ export const registerTelemetryEventRoutes = (
 ): void => {
   app.openapi(eventsRoute, async (c) => {
     const body = c.req.valid("json");
-    const auth = c.get("auth");
-    const response = await ingestTelemetryEvents(c.get("db"), {
-      organizationId: auth.organizationId,
-      projectId: auth.projectId,
-      events: body.events,
-    });
+    const auth = c.get("principal");
+    requirePrincipalEnvironment(
+      auth,
+      body.events.map((event) => event.environment),
+    );
+    const response = await c.get("withTenantDatabase")((db) =>
+      ingestTelemetryEvents(db, {
+        organizationId: auth.organizationId,
+        projectId: auth.projectId,
+        events: body.events,
+      }),
+    );
 
     return c.json(response, 200);
   });
   app.openapi(eventsBatchRoute, async (c) => {
     const body = c.req.valid("json");
-    const auth = c.get("auth");
-    const response = await ingestTelemetryEvents(c.get("db"), {
-      organizationId: auth.organizationId,
-      projectId: auth.projectId,
-      events: body.events,
-    });
+    const auth = c.get("principal");
+    requirePrincipalEnvironment(
+      auth,
+      body.events.map((event) => event.environment),
+    );
+    const response = await c.get("withTenantDatabase")((db) =>
+      ingestTelemetryEvents(db, {
+        organizationId: auth.organizationId,
+        projectId: auth.projectId,
+        events: body.events,
+      }),
+    );
 
     return c.json(response, 200);
   });

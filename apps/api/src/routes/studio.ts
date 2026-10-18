@@ -21,14 +21,18 @@ import {
   getStudioRunReadModel,
   getStudioSessionReadModel,
   listRunScores,
+  listStudioFilterValues,
   listStudioInterrupts,
   listStudioRuns,
   listStudioSessions,
   listStudioWorkflows,
+  TelemetryValidationError,
   withRunFeedback,
 } from "@kortyx/telemetry-db";
+import type { ApiDeployment } from "../auth/contracts";
+import { canApiAction, principalActorId } from "../middleware/security";
+import { tablePreferenceScope } from "../preferences/owner";
 import type { ApiEnv } from "../types";
-import { studioReviewActorId } from "./scores";
 import {
   compatibleStudioEvents,
   compatibleStudioInterrupt,
@@ -43,11 +47,11 @@ const ErrorResponseSchema = z.object({
 
 const securedResponses = {
   401: {
-    description: "Missing or invalid API key.",
+    description: "Missing or invalid Studio credentials.",
     content: { "application/json": { schema: ErrorResponseSchema } },
   },
   403: {
-    description: "API key lacks Studio read permission.",
+    description: "Caller lacks Studio read permission or project access.",
     content: { "application/json": { schema: ErrorResponseSchema } },
   },
 };
@@ -70,6 +74,7 @@ const invalidQueryResponse = {
 };
 
 const listQuerySchema = z.object({
+  tableFilters: z.string().max(32768).optional(),
   feedback: z.enum(FEEDBACK_FILTERS).optional(),
   includeChildren: z.string().optional(),
   q: z.string().optional(),
@@ -121,7 +126,7 @@ const runsRoute = createRoute({
   method: "get",
   path: "/v1/studio/runs",
   request: { query: listQuerySchema },
-  security: [{ TelemetryApiKey: [] }],
+  security: [{ TelemetryApiKey: [] }, { StudioAccessToken: [] }],
   responses: {
     200: {
       description: "Projected Studio run rows.",
@@ -136,7 +141,7 @@ const runDetailRoute = createRoute({
   method: "get",
   path: "/v1/studio/runs/{runId}",
   request: { params: detailParams("runId") },
-  security: [{ TelemetryApiKey: [] }],
+  security: [{ TelemetryApiKey: [] }, { StudioAccessToken: [] }],
   responses: {
     200: {
       description: "Projected Studio run detail and ordered telemetry events.",
@@ -153,7 +158,7 @@ const sessionsRoute = createRoute({
   method: "get",
   path: "/v1/studio/sessions",
   request: { query: listQuerySchema },
-  security: [{ TelemetryApiKey: [] }],
+  security: [{ TelemetryApiKey: [] }, { StudioAccessToken: [] }],
   responses: {
     200: {
       description: "Projected Studio session rows.",
@@ -170,7 +175,7 @@ const sessionDetailRoute = createRoute({
   method: "get",
   path: "/v1/studio/sessions/{sessionId}",
   request: { params: detailParams("sessionId") },
-  security: [{ TelemetryApiKey: [] }],
+  security: [{ TelemetryApiKey: [] }, { StudioAccessToken: [] }],
   responses: {
     200: {
       description:
@@ -188,7 +193,7 @@ const interruptsRoute = createRoute({
   method: "get",
   path: "/v1/studio/interrupts",
   request: { query: listQuerySchema },
-  security: [{ TelemetryApiKey: [] }],
+  security: [{ TelemetryApiKey: [] }, { StudioAccessToken: [] }],
   responses: {
     200: {
       description: "Projected Studio interrupt rows.",
@@ -205,7 +210,7 @@ const interruptDetailRoute = createRoute({
   method: "get",
   path: "/v1/studio/interrupts/{interruptId}",
   request: { params: detailParams("interruptId") },
-  security: [{ TelemetryApiKey: [] }],
+  security: [{ TelemetryApiKey: [] }, { StudioAccessToken: [] }],
   responses: {
     200: {
       description:
@@ -231,7 +236,7 @@ const workflowsRoute = createRoute({
       version: z.string().optional(),
     }),
   },
-  security: [{ TelemetryApiKey: [] }],
+  security: [{ TelemetryApiKey: [] }, { StudioAccessToken: [] }],
   responses: {
     200: {
       description: "Projected Studio workflow topology and metrics.",
@@ -247,7 +252,7 @@ const workflowsRoute = createRoute({
 const catalogsRoute = createRoute({
   method: "get",
   path: "/v1/studio/catalogs",
-  security: [{ TelemetryApiKey: [] }],
+  security: [{ TelemetryApiKey: [] }, { StudioAccessToken: [] }],
   responses: {
     200: {
       description: "Studio filter catalogs.",
@@ -262,7 +267,7 @@ const catalogsRoute = createRoute({
 const contextRoute = createRoute({
   method: "get",
   path: "/v1/studio/context",
-  security: [{ TelemetryApiKey: [] }],
+  security: [{ TelemetryApiKey: [] }, { StudioAccessToken: [] }],
   responses: {
     200: {
       description:
@@ -275,22 +280,31 @@ const contextRoute = createRoute({
   },
 });
 
-export const registerStudioRoutes = (app: OpenAPIHono<ApiEnv>): void => {
+export const registerStudioRoutes = (
+  app: OpenAPIHono<ApiEnv>,
+  deployment: ApiDeployment = "self-hosted",
+): void => {
   app.openapi(contextRoute, async (c) => {
-    const auth = c.get("auth");
-    const context = await getStudioProjectContext(c.get("db"), {
-      organizationId: auth.organizationId,
-      projectId: auth.projectId,
-    });
+    const auth = c.get("principal");
+    const context = await c.get("withTenantDatabase")((db) =>
+      getStudioProjectContext(db, {
+        organizationId: auth.organizationId,
+        projectId: auth.projectId,
+      }),
+    );
     return c.json(
       {
+        tablePreferenceScope: tablePreferenceScope(auth, deployment),
         organization: { name: context.organizationName },
         project: { name: context.projectName },
         environments: context.environments,
-        apiKey: {
-          mode: auth.mode,
-          scopes: auth.scopes,
-        },
+        apiKey:
+          auth.kind === "api-key"
+            ? {
+                mode: auth.mode,
+                scopes: [...auth.scopes],
+              }
+            : null,
         api: {
           status: "ok" as const,
           service: "kortyx-api" as const,
@@ -301,8 +315,12 @@ export const registerStudioRoutes = (app: OpenAPIHono<ApiEnv>): void => {
     );
   });
   app.openapi(runsRoute, async (c) => {
-    const auth = c.get("auth");
-    const query = c.req.valid("query");
+    const auth = c.get("principal");
+    const validatedQuery = c.req.valid("query");
+    const query = {
+      ...validatedQuery,
+      ...(auth.environment ? { env: auth.environment } : {}),
+    };
     const timeRange = resolveStudioTimeRange(query);
     if ("error" in timeRange) {
       return c.json(
@@ -310,24 +328,26 @@ export const registerStudioRoutes = (app: OpenAPIHono<ApiEnv>): void => {
         400,
       );
     }
-    const page = await listStudioRuns(c.get("db"), {
-      organizationId: auth.organizationId,
-      projectId: auth.projectId,
-      query,
-    });
+    const page = await c.get("withTenantDatabase")((db) =>
+      listStudioRuns(db, {
+        ...auth,
+        query,
+      }),
+    );
     return c.json({ runs: page.items, totalCount: page.totalCount }, 200);
   });
   app.openapi(runDetailRoute, async (c) => {
-    const auth = c.get("auth");
+    const auth = c.get("principal");
     const { runId } = c.req.valid("param");
     if (!runId) {
       return c.json({ error: "not_found", message: "Run not found." }, 404);
     }
-    const models = await getStudioRunReadModel(c.get("db"), {
-      organizationId: auth.organizationId,
-      projectId: auth.projectId,
-      runId,
-    });
+    const models = await c.get("withTenantDatabase")((db) =>
+      getStudioRunReadModel(db, {
+        ...auth,
+        runId,
+      }),
+    );
     const run = models.runs.find((item) => item.id === runId);
     if (!run) {
       return c.json({ error: "not_found", message: "Run not found." }, 404);
@@ -339,11 +359,12 @@ export const registerStudioRoutes = (app: OpenAPIHono<ApiEnv>): void => {
       models.detailEvents.filter((event) => event.runId === runId),
       current,
     );
-    const scores = await listRunScores(c.get("db"), {
-      organizationId: auth.organizationId,
-      projectId: auth.projectId,
-      runIds: [runId],
-    });
+    const scores = await c.get("withTenantDatabase")((db) =>
+      listRunScores(db, {
+        ...auth,
+        runIds: [runId],
+      }),
+    );
     const updatedAt =
       [
         events.at(-1)?.receivedAt ?? run.startedAt,
@@ -355,8 +376,8 @@ export const registerStudioRoutes = (app: OpenAPIHono<ApiEnv>): void => {
       {
         run: { ...run, feedback: summarizeUserFeedback(scores) },
         scores,
-        canReview: auth.scopes.includes("studio:write"),
-        reviewActorId: studioReviewActorId(auth.keyId),
+        canReview: await canApiAction(c, "studio:write"),
+        reviewActorId: principalActorId(auth),
         events,
         session:
           models.sessions.find((item) => item.id === run.sessionId) ?? null,
@@ -369,8 +390,12 @@ export const registerStudioRoutes = (app: OpenAPIHono<ApiEnv>): void => {
     );
   });
   app.openapi(sessionsRoute, async (c) => {
-    const auth = c.get("auth");
-    const query = c.req.valid("query");
+    const auth = c.get("principal");
+    const validatedQuery = c.req.valid("query");
+    const query = {
+      ...validatedQuery,
+      ...(auth.environment ? { env: auth.environment } : {}),
+    };
     const timeRange = resolveStudioTimeRange(query);
     if ("error" in timeRange) {
       return c.json(
@@ -378,24 +403,26 @@ export const registerStudioRoutes = (app: OpenAPIHono<ApiEnv>): void => {
         400,
       );
     }
-    const page = await listStudioSessions(c.get("db"), {
-      organizationId: auth.organizationId,
-      projectId: auth.projectId,
-      query,
-    });
+    const page = await c.get("withTenantDatabase")((db) =>
+      listStudioSessions(db, {
+        ...auth,
+        query,
+      }),
+    );
     return c.json({ sessions: page.items, totalCount: page.totalCount }, 200);
   });
   app.openapi(sessionDetailRoute, async (c) => {
-    const auth = c.get("auth");
+    const auth = c.get("principal");
     const { sessionId } = c.req.valid("param");
     if (!sessionId) {
       return c.json({ error: "not_found", message: "Session not found." }, 404);
     }
-    const models = await getStudioSessionReadModel(c.get("db"), {
-      organizationId: auth.organizationId,
-      projectId: auth.projectId,
-      sessionId,
-    });
+    const models = await c.get("withTenantDatabase")((db) =>
+      getStudioSessionReadModel(db, {
+        ...auth,
+        sessionId,
+      }),
+    );
     const session = models.sessions.find((item) => item.id === sessionId);
     if (!session) {
       return c.json({ error: "not_found", message: "Session not found." }, 404);
@@ -410,10 +437,12 @@ export const registerStudioRoutes = (app: OpenAPIHono<ApiEnv>): void => {
     return c.json(
       {
         session,
-        runs: await withRunFeedback(
-          c.get("db"),
-          { organizationId: auth.organizationId, projectId: auth.projectId },
-          models.runs.filter((item) => item.sessionId === sessionId),
+        runs: await c.get("withTenantDatabase")((db) =>
+          withRunFeedback(
+            db,
+            { organizationId: auth.organizationId, projectId: auth.projectId },
+            models.runs.filter((item) => item.sessionId === sessionId),
+          ),
         ),
         events,
         interrupts: models.interrupts
@@ -425,8 +454,12 @@ export const registerStudioRoutes = (app: OpenAPIHono<ApiEnv>): void => {
     );
   });
   app.openapi(interruptsRoute, async (c) => {
-    const auth = c.get("auth");
-    const query = c.req.valid("query");
+    const auth = c.get("principal");
+    const validatedQuery = c.req.valid("query");
+    const query = {
+      ...validatedQuery,
+      ...(auth.environment ? { env: auth.environment } : {}),
+    };
     const timeRange = resolveStudioTimeRange(query);
     if ("error" in timeRange) {
       return c.json(
@@ -434,11 +467,12 @@ export const registerStudioRoutes = (app: OpenAPIHono<ApiEnv>): void => {
         400,
       );
     }
-    const page = await listStudioInterrupts(c.get("db"), {
-      organizationId: auth.organizationId,
-      projectId: auth.projectId,
-      query,
-    });
+    const page = await c.get("withTenantDatabase")((db) =>
+      listStudioInterrupts(db, {
+        ...auth,
+        query,
+      }),
+    );
     const current = currentStudioReadContract(
       c.req.header("x-kortyx-studio-api-version"),
     );
@@ -453,7 +487,7 @@ export const registerStudioRoutes = (app: OpenAPIHono<ApiEnv>): void => {
     );
   });
   app.openapi(interruptDetailRoute, async (c) => {
-    const auth = c.get("auth");
+    const auth = c.get("principal");
     const { interruptId } = c.req.valid("param");
     if (!interruptId) {
       return c.json(
@@ -461,11 +495,12 @@ export const registerStudioRoutes = (app: OpenAPIHono<ApiEnv>): void => {
         404,
       );
     }
-    const models = await getStudioInterruptReadModel(c.get("db"), {
-      organizationId: auth.organizationId,
-      projectId: auth.projectId,
-      interruptId,
-    });
+    const models = await c.get("withTenantDatabase")((db) =>
+      getStudioInterruptReadModel(db, {
+        ...auth,
+        interruptId,
+      }),
+    );
     const interrupt = models.interrupts.find((item) => item.id === interruptId);
     if (!interrupt) {
       return c.json(
@@ -497,8 +532,12 @@ export const registerStudioRoutes = (app: OpenAPIHono<ApiEnv>): void => {
     );
   });
   app.openapi(workflowsRoute, async (c) => {
-    const auth = c.get("auth");
-    const query = c.req.valid("query");
+    const auth = c.get("principal");
+    const validatedQuery = c.req.valid("query");
+    const query = {
+      ...validatedQuery,
+      ...(auth.environment ? { env: auth.environment } : {}),
+    };
     const timeRange = resolveStudioTimeRange(query);
     if ("error" in timeRange) {
       return c.json(
@@ -507,29 +546,67 @@ export const registerStudioRoutes = (app: OpenAPIHono<ApiEnv>): void => {
       );
     }
     try {
-      const workflows = await listStudioWorkflows(c.get("db"), {
-        organizationId: auth.organizationId,
-        projectId: auth.projectId,
-        query,
-      });
+      const workflows = await c.get("withTenantDatabase")((db) =>
+        listStudioWorkflows(db, {
+          organizationId: auth.organizationId,
+          projectId: auth.projectId,
+          query,
+        }),
+      );
       return c.json(workflows, 200);
     } catch (error) {
+      // Adapter/database failures must retain their status and never expose SQL details.
+      if (!(error instanceof TelemetryValidationError)) throw error;
       return c.json(
         {
           error: "invalid_workflow_filter",
-          message:
-            error instanceof Error ? error.message : "Invalid workflow filter.",
+          message: error.message,
         },
         400,
       );
     }
   });
+  app.get("/v1/studio/filter-values", async (c) => {
+    const parsed = z
+      .object({
+        resource: z.enum(["runs", "sessions", "interrupts"]),
+        field: z.string().max(80),
+        search: z.string().max(512).default(""),
+        env: z.string().optional(),
+        range: z.string().optional(),
+        startedAfter: z.string().optional(),
+        startedBefore: z.string().optional(),
+      })
+      .safeParse(c.req.query());
+    if (!parsed.success)
+      return c.json({ error: "Invalid filter values query." }, 400);
+    const query = parsed.data;
+    const time = resolveStudioTimeRange(query);
+    if (!time.ok) return c.json({ error: time.error }, 400);
+    const auth = c.get("principal");
+    const values = await c.get("withTenantDatabase")((db) =>
+      listStudioFilterValues(db, {
+        organizationId: auth.organizationId,
+        projectId: auth.projectId,
+        resource: query.resource,
+        field: query.field,
+        search: query.search,
+        environment: auth.environment ?? query.env,
+        after: time.value.startedAfter,
+        before: time.value.startedBefore,
+      }),
+    );
+    return c.json({ values });
+  });
+
   app.openapi(catalogsRoute, async (c) => {
-    const auth = c.get("auth");
-    const models = await getStudioReadModels(c.get("db"), {
-      organizationId: auth.organizationId,
-      projectId: auth.projectId,
-    });
+    const auth = c.get("principal");
+    const models = await c.get("withTenantDatabase")((db) =>
+      getStudioReadModels(db, {
+        organizationId: auth.organizationId,
+        projectId: auth.projectId,
+      }),
+    );
     return c.json(models.catalogs, 200);
   });
 };

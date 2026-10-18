@@ -453,18 +453,25 @@ function appendNarrativeEvents(
     if (
       event.type === "session.forked" ||
       event.type === "session.rolled_back" ||
+      event.type === "output.emitted" ||
+      event.type === "output.invalidated" ||
       event.type === "run.cancelled" ||
       event.type === "run.limit_reached"
     ) {
       items.push({
         id: event.id,
-        label: friendlyEventLabel(event.type),
+        label:
+          event.type === "output.emitted" || event.type === "output.invalidated"
+            ? `${event.type === "output.invalidated" ? "Invalidated" : event.payload.kind === "return" ? "Returned" : "Emitted"} ${String(event.payload.contract ?? "structured output")}`
+            : friendlyEventLabel(event.type),
         description:
-          event.type === "run.limit_reached"
-            ? `${event.payload.limit}: ${event.payload.consumed}/${event.payload.maximum}`
-            : event.nodeId
-              ? `At ${event.nodeId}`
-              : "Run lifecycle event",
+          event.type === "output.emitted" || event.type === "output.invalidated"
+            ? `${event.type === "output.invalidated" ? "Provisional output discarded" : event.payload.kind === "return" ? "Terminal output" : "Intermediate output"} · ${String(event.payload.schemaId ?? "unknown schema")}`
+            : event.type === "run.limit_reached"
+              ? `${event.payload.limit}: ${event.payload.consumed}/${event.payload.maximum}`
+              : event.nodeId
+                ? `At ${event.nodeId}`
+                : "Run lifecycle event",
         kind: "event",
         status:
           event.type === "run.cancelled"
@@ -762,6 +769,8 @@ export function isPointEvent(item: TraceItem) {
 
 function friendlyEventLabel(type: StudioDetailEvent["type"]) {
   const labels: Partial<Record<StudioDetailEvent["type"], string>> = {
+    "output.emitted": "Structured output emitted",
+    "output.invalidated": "Structured output invalidated",
     "interrupt.created": "Interrupt requested",
     "interrupt.resolved": "Interrupt resolved",
     "interrupt.expired": "Interrupt expired",

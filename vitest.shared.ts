@@ -13,6 +13,18 @@ export function defineKortyxVitestConfig(config: UserConfig = {}) {
     defineConfig({
       resolve: {
         alias: {
+          "@kortyx/usage-telemetry/node": resolve(
+            __dirname,
+            "packages/usage-telemetry/src/node.ts",
+          ),
+          "@kortyx/usage-telemetry": resolve(
+            __dirname,
+            "packages/usage-telemetry/src/index.ts",
+          ),
+          "@kortyx/core/eval-attribution": resolve(
+            __dirname,
+            "packages/core/src/eval-attribution.ts",
+          ),
           "@kortyx/core/errors": resolve(
             __dirname,
             "packages/core/src/errors.ts",

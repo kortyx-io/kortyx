@@ -1,5 +1,6 @@
-import { createHash, timingSafeEqual } from "node:crypto";
 import { StudioUpdateStatusSchema } from "@kortyx/telemetry-contracts";
+import { sampleRequestResponse } from "@/features/sample-project/server";
+import { constantTimeEqual } from "./constant-time-equal";
 import { getStudioAuthConfig } from "./studio-auth";
 
 function authenticated(request: Request): boolean {
@@ -7,10 +8,9 @@ function authenticated(request: Request): boolean {
   if (config.mode !== "basic" || !config.username || !config.password)
     return false;
   const expected = `Basic ${Buffer.from(`${config.username}:${config.password}`).toString("base64")}`;
-  const hash = (value: string) => createHash("sha256").update(value).digest();
-  return timingSafeEqual(
-    hash(request.headers.get("authorization") ?? ""),
-    hash(expected),
+  return constantTimeEqual(
+    request.headers.get("authorization") ?? "",
+    expected,
   );
 }
 
@@ -23,6 +23,8 @@ export async function studioUpdateRequest(request: Request): Promise<Response> {
       },
       { status: 401 },
     );
+  const sample = await sampleRequestResponse(request);
+  if (sample) return sample;
   const url = process.env.KORTYX_STUDIO_UPDATER_URL;
   const token = process.env.KORTYX_STUDIO_UPDATE_TOKEN;
   if (!url || !token)

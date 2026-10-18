@@ -1,5 +1,13 @@
 .git
 .github
+.agents
+.cursor
+.claude
+.codex
+.gemini
+.opencode
+.windsurf
+.devin
 .husky
 .turbo
 .vscode

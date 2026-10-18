@@ -54,17 +54,22 @@ const main = async (): Promise<void> => {
       organizationId: project.organizationId,
       projectId: project.projectId,
       name: "Local SDK telemetry key",
-      scopes: ["telemetry:write"],
+      scopes: ["telemetry:write", "prompt:serve"],
     });
     const studioKey = await ensureApiKey(client, {
       apiKey: studioApiKey,
       organizationId: project.organizationId,
       projectId: project.projectId,
       name: "Local Studio key",
-      scopes:
-        process.env.KORTYX_STUDIO_ENABLE_REVIEWS === "1"
-          ? ["studio:read", "studio:write"]
-          : ["studio:read"],
+      scopes: [
+        "studio:read",
+        "studio:write",
+        "prompt:promote",
+        "prompt:review",
+        "prompt:settings",
+        "diagnostics:read",
+        "eval:run",
+      ],
     });
 
     console.log("Kortyx telemetry local project bootstrapped.");

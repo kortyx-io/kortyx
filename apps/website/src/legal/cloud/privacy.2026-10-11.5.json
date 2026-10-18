@@ -1,0 +1,41 @@
+{
+  "slug": "privacy",
+  "version": "2026-10-11.5",
+  "effectiveDate": "2026-10-11T00:00:00.000Z",
+  "draft": true,
+  "title": "Cloud Privacy Notice",
+  "sections": [
+    {
+      "title": "Scope and operator",
+      "text": "This notice covers hosted Kortyx Cloud, operated by Kortyx S.L. Use synthetic or non-sensitive test data only while Cloud remains in beta. Website browser preferences are described separately at https://kortyx.io/privacy and https://kortyx.io/cookies. Independently operated SDK applications and self-hosted Studio deployments follow their operators’ data practices. Operator information and available contact routes are at https://kortyx.io/legal and https://kortyx.io/contact. A private privacy-request channel has not yet been published."
+    },
+    {
+      "title": "Data and purposes",
+      "text": "Cloud processes account identity and authentication information, sessions, organization and project metadata, access credentials, and application telemetry and evaluation configuration/results that you submit. Telemetry can include prompts, outputs and traces. Minimize what you send and do not submit credentials or personal or confidential customer data during this beta. Account/service operation and security are distinct from optional product research and marketing."
+    },
+    {
+      "title": "Legal bases and separate choices",
+      "text": "The proposed bases for account/service functions are performance of the requested service agreement, legitimate interests in proportionate security and abuse prevention, and legal obligations where applicable. Operator review must confirm these bases and any necessary balancing assessment. Customer application personal data requires an approved processor agreement and documented instructions. Terms acceptance records a contractual decision; it is not marketing consent, website cookie consent, or blanket consent to processing."
+    },
+    {
+      "title": "Optional onboarding answers",
+      "text": "You may choose to provide your professional role, team size, intended use and how you found Kortyx. These self-reported answers are associated with your account for setup personalization and understanding product use. Every question may be skipped without preventing product access. Answers do not change access permissions or subscribe you to marketing email. Their final purposes, legal bases and retention need review. Publicity permission is addressed in the applicable Terms, separately from optional answers and marketing consent."
+    },
+    {
+      "title": "Recipients and transfers",
+      "text": "Cloud uses service providers to deliver the requested service. The public subprocessor schedule at https://kortyx.io/cloud/subprocessors has not yet been completed with verified legal entities, processing scope, locations and transfer safeguards. Customer-selected evaluation endpoints and model integrations have their own data practices. No EU-only processing promise or certification is made by this document."
+    },
+    {
+      "title": "Retention and deletion",
+      "text": "Retention periods for account data, telemetry, security records, acceptance evidence and backups have not yet been confirmed and published. Cloud account/workspace controls and the applicable Terms describe workspace deletion and recovery. Acceptance evidence remains separate from workspace deletion to preserve the version accepted; its lawful retention period requires review. Do not infer immediate deletion from every backup copy or a finalized retention schedule."
+    },
+    {
+      "title": "Rights and requests",
+      "text": "Depending on applicable law you may have rights of access, correction, erasure, restriction, portability and objection, and to complain to the competent supervisory authority. Where processing relies on consent, withdrawal does not invalidate earlier lawful processing. A private privacy-request channel has not yet been published. Do not post personal data in public GitHub discussions or issues. Operator information and contact status are available at https://kortyx.io/legal and https://kortyx.io/contact#private-contact."
+    },
+    {
+      "title": "Revisions",
+      "text": "Each release has a permanent version URL and content hash. The convenient current URL may point to a later release. Viewing a notice never records acceptance. Material changes to purposes, recipients or retention require a new reviewed release and any independently required user choices."
+    }
+  ]
+}

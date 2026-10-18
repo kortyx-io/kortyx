@@ -1,5 +1,133 @@
 # Changelog
 
+## [0.9.5](https://github.com/kortyx-io/kortyx/compare/otel-v0.9.4...otel-v0.9.5) (2026-10-16)
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/hooks bumped to 0.35.0
+    * @kortyx/core bumped to 0.15.0
+
+## [0.9.4](https://github.com/kortyx-io/kortyx/compare/otel-v0.9.3...otel-v0.9.4) (2026-10-14)
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/hooks bumped to 0.34.3
+
+## [0.9.3](https://github.com/kortyx-io/kortyx/compare/otel-v0.9.2...otel-v0.9.3) (2026-10-13)
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/hooks bumped to 0.34.2
+    * @kortyx/core bumped to 0.14.0
+
+## [0.9.2](https://github.com/kortyx-io/kortyx/compare/otel-v0.9.1...otel-v0.9.2) (2026-10-13)
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/hooks bumped to 0.34.1
+
+## [0.9.1](https://github.com/kortyx-io/kortyx/compare/otel-v0.9.0...otel-v0.9.1) (2026-10-11)
+
+
+### Bug Fixes
+
+* **website:** reconcile credibility branch with current main ([60199f9](https://github.com/kortyx-io/kortyx/commit/60199f992242eb7c409a95bc7a6898d31bac601d))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/hooks bumped to 0.34.0
+    * @kortyx/core bumped to 0.13.1
+
+## [0.9.0](https://github.com/kortyx-io/kortyx/compare/otel-v0.8.2...otel-v0.9.0) (2026-10-10)
+
+
+### Features
+
+* version, evaluate, serve and migrate Studio prompts ([#288](https://github.com/kortyx-io/kortyx/issues/288)) ([0802f8b](https://github.com/kortyx-io/kortyx/commit/0802f8b91c4a541d176dd8a75c659063e2c28c8c))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/hooks bumped to 0.33.0
+
+## [0.8.2](https://github.com/kortyx-io/kortyx/compare/otel-v0.8.1...otel-v0.8.2) (2026-10-09)
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/hooks bumped to 0.32.1
+    * @kortyx/core bumped to 0.13.0
+
+## [0.8.1](https://github.com/kortyx-io/kortyx/compare/otel-v0.8.0...otel-v0.8.1) (2026-10-08)
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/hooks bumped to 0.32.0
+
+## [0.8.0](https://github.com/kortyx-io/kortyx/compare/otel-v0.7.6...otel-v0.8.0) (2026-10-08)
+
+
+### Features
+
+* **telemetry:** preserve complete private error diagnostics ([#290](https://github.com/kortyx-io/kortyx/issues/290)) ([e1c5a88](https://github.com/kortyx-io/kortyx/commit/e1c5a88c494016fd84a1af40579412fcfde31271))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/hooks bumped to 0.31.0
+    * @kortyx/core bumped to 0.12.0
+
+## [0.7.6](https://github.com/kortyx-io/kortyx/compare/otel-v0.7.5...otel-v0.7.6) (2026-10-07)
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/hooks bumped to 0.30.2
+
+## [0.7.5](https://github.com/kortyx-io/kortyx/compare/otel-v0.7.4...otel-v0.7.5) (2026-10-03)
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/hooks bumped to 0.30.1
+
+## [0.7.4](https://github.com/kortyx-io/kortyx/compare/otel-v0.7.3...otel-v0.7.4) (2026-09-30)
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/hooks bumped to 0.30.0
+
 ## [0.7.3](https://github.com/kortyx-io/kortyx/compare/otel-v0.7.2...otel-v0.7.3) (2026-09-22)
 
 

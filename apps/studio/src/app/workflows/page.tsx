@@ -29,5 +29,17 @@ export default async function WorkflowsPage({
     );
   }
 
+  if (
+    !workflowsResult.data.workflows.length &&
+    isFirstUseQuery(params) &&
+    (await hasNoObservations("workflows", params.env))
+  )
+    return <FirstObservation resource="workflows" />;
   return <WorkflowsPageClient system={workflowsResult.data} />;
 }
+
+import { FirstObservation } from "@/features/telemetry/components/first-observation";
+import {
+  hasNoObservations,
+  isFirstUseQuery,
+} from "@/features/telemetry/first-use";

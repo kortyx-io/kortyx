@@ -3,6 +3,39 @@ import { configDefaults, defineConfig } from "vitest/config";
 export default defineConfig({
   resolve: {
     alias: {
+      "@studio/usage": new URL("./src/usage/server.ts", import.meta.url)
+        .pathname,
+      "@studio/usage-contracts": new URL(
+        "./src/usage/contracts.ts",
+        import.meta.url,
+      ).pathname,
+      "@kortyx/usage-telemetry/node": new URL(
+        "../../packages/usage-telemetry/src/node.ts",
+        import.meta.url,
+      ).pathname,
+      "@kortyx/usage-telemetry": new URL(
+        "../../packages/usage-telemetry/src/index.ts",
+        import.meta.url,
+      ).pathname,
+      "@studio/shell": new URL("./src/shell/server.ts", import.meta.url)
+        .pathname,
+      "@studio/shell-contracts": new URL(
+        "./src/shell/contracts.ts",
+        import.meta.url,
+      ).pathname,
+      "@studio/styles": new URL("./src/app/globals.css", import.meta.url)
+        .pathname,
+      "@studio/settings": new URL("./src/settings/server.ts", import.meta.url)
+        .pathname,
+      "@studio/settings-contracts": new URL(
+        "./src/settings/contracts.ts",
+        import.meta.url,
+      ).pathname,
+      "@studio/auth": new URL("./src/auth/server.ts", import.meta.url).pathname,
+      "@studio/auth-contracts": new URL(
+        "./src/auth/contracts.ts",
+        import.meta.url,
+      ).pathname,
       "@": new URL("./src", import.meta.url).pathname,
     },
   },

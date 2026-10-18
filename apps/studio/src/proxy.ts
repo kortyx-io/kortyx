@@ -1,101 +1,82 @@
+import { studioAuth } from "@studio/auth";
 import { type NextRequest, NextResponse } from "next/server";
-import { getStudioAuthConfig } from "@/lib/studio-auth";
+import {
+  isSamplePath,
+  SAMPLE_REQUEST_HEADER,
+  SAMPLE_RETURN_COOKIE,
+  safeSampleReturn,
+  samplePath,
+} from "@/features/sample-project/routing";
+import { readSampleProjectPreference } from "@/features/sample-project/server";
+import { STUDIO_REQUEST_PATH } from "@/lib/studio-routing";
 
-const BASIC_REALM = "Kortyx Studio";
-
-const unauthorized = () =>
-  new NextResponse("Authentication required.", {
-    status: 401,
-    headers: {
-      "WWW-Authenticate": `Basic realm="${BASIC_REALM}", charset="UTF-8"`,
-    },
-  });
-
-const unavailable = (message: string) =>
-  new NextResponse(message, {
-    status: 500,
-  });
-
-const constantTimeEqual = (left: string, right: string): boolean => {
-  const maxLength = Math.max(left.length, right.length);
-  let diff = left.length ^ right.length;
-
-  for (let index = 0; index < maxLength; index += 1) {
-    diff |= (left.charCodeAt(index) || 0) ^ (right.charCodeAt(index) || 0);
-  }
-
-  return diff === 0;
-};
-
-const parseBasicAuthorization = (
-  authorization: string | null,
-): { username: string; password: string } | undefined => {
-  if (!authorization?.startsWith("Basic ")) return undefined;
-
-  try {
-    const decoded = atob(authorization.slice("Basic ".length));
-    const separator = decoded.indexOf(":");
-    if (separator < 0) return undefined;
-
-    return {
-      username: decoded.slice(0, separator),
-      password: decoded.slice(separator + 1),
-    };
-  } catch {
-    return undefined;
-  }
-};
-
-const isAuthorized = (
-  authorization: string | null,
-  expectedUsername: string,
-  expectedPassword: string,
-): boolean => {
-  const credentials = parseBasicAuthorization(authorization);
-  if (!credentials) return false;
-
-  return (
-    constantTimeEqual(credentials.username, expectedUsername) &&
-    constantTimeEqual(credentials.password, expectedPassword)
+export async function proxy(request: NextRequest): Promise<Response> {
+  const denial = await studioAuth.authorize(request);
+  if (denial) return denial;
+  const sampleRoute = isSamplePath(request.nextUrl.pathname);
+  const sampleIntent = isSamplePath(
+    request.headers.get(STUDIO_REQUEST_PATH) ?? "",
   );
-};
-
-export function proxy(request: NextRequest) {
-  const config = getStudioAuthConfig();
-
-  if (config.mode === "none") {
-    return NextResponse.next();
-  }
-
-  if (config.mode === "cloud") {
-    return unavailable(
-      "Cloud Studio auth mode is not available in this build.",
+  // A same-server rewrite may pass through proxy again. Its explicit sample
+  // intent still selects only immutable data, never a real project credential.
+  const sample =
+    sampleRoute ||
+    (sampleIntent && !/^\/(api|auth)\//.test(request.nextUrl.pathname));
+  const browserSample =
+    (request.nextUrl.pathname.startsWith("/api/studio/") && sampleIntent) ||
+    (sampleRoute &&
+      /^\/api\/studio\/diagnostics\/[^/]+$/.test(
+        samplePath(request.nextUrl.pathname),
+      ));
+  const preference =
+    sample || browserSample ? await readSampleProjectPreference() : undefined;
+  if (preference && !preference.available)
+    return Response.json(
+      { error: "Sample project preferences are unavailable." },
+      { status: 503 },
     );
+  if (preference && !preference.visible) {
+    return browserSample
+      ? Response.json({ error: "Sample project is hidden." }, { status: 404 })
+      : NextResponse.redirect(
+          new URL(
+            safeSampleReturn(request.cookies.get(SAMPLE_RETURN_COOKIE)?.value),
+            request.url,
+          ),
+        );
   }
-
-  if (config.mode === "invalid") {
-    return unavailable(
-      `Invalid KORTYX_STUDIO_AUTH_MODE '${config.value}'. Expected one of: none, basic, cloud.`,
+  if (browserSample) {
+    const { sampleBrowserResponse } = await import(
+      "@/features/sample-project/http"
     );
+    return sampleBrowserResponse(request);
   }
-
-  if (!config.username || !config.password) {
-    return unavailable(
-      "Kortyx Studio Basic Auth is enabled, but username/password env vars are missing.",
-    );
-  }
-
-  if (
-    !isAuthorized(
-      request.headers.get("authorization"),
-      config.username,
-      config.password,
+  const forwarded = new Headers(request.headers);
+  forwarded.delete(SAMPLE_REQUEST_HEADER);
+  if (sample) {
+    const path = samplePath(request.nextUrl.pathname);
+    if (
+      !/^\/(runs|sessions|workflows|interrupts|evals|prompts|settings|diagnostics)(\/|$)/.test(
+        path,
+      )
     )
-  ) {
-    return unauthorized();
+      return new Response("Not found", { status: 404 });
+    if (request.method !== "GET" && request.method !== "HEAD")
+      return Response.json(
+        { error: "Sample project is read-only." },
+        { status: 403 },
+      );
+    forwarded.set(SAMPLE_REQUEST_HEADER, "1");
+    const destination = request.nextUrl.clone();
+    destination.pathname = path;
+    if (!sampleRoute)
+      return NextResponse.next({ request: { headers: forwarded } });
+    forwarded.set(STUDIO_REQUEST_PATH, request.nextUrl.pathname);
+    return NextResponse.rewrite(destination, {
+      request: { headers: forwarded },
+    });
   }
-
-  return NextResponse.next();
+  return NextResponse.next({ request: { headers: forwarded } });
 }
 
 export const config = {

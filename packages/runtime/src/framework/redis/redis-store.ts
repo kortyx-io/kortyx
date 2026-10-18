@@ -19,6 +19,11 @@ export type RedisFrameworkStore = {
   del: (key: string) => Promise<void>;
   hset: (key: string, field: string, value: string) => Promise<void>;
   hsetnx: (key: string, field: string, value: string) => Promise<number>;
+  writeHash?: (
+    key: string,
+    writes: Array<{ field: string; value: string; overwrite: boolean }>,
+    ttlMs: number,
+  ) => Promise<void>;
   hgetall: (key: string) => Promise<Record<string, string>>;
   expire: (key: string, ttlMs: number) => Promise<void>;
   scanKeys: (prefix: string) => Promise<string[]>;
@@ -107,6 +112,33 @@ export function createRedisFrameworkStore(
         throw new PersistenceError(`Redis HSETNX error: ${r.message}`);
       }
       return typeof r === "number" ? r : 0;
+    },
+
+    async writeHash(key, writes, ttlMs) {
+      const duration = Math.max(1, ttlMs);
+      if (!Number.isSafeInteger(duration))
+        throw new PersistenceError(
+          "Redis checkpoint TTL must be a finite integer.",
+        );
+      if (!rawClient.transaction)
+        throw new PersistenceError(
+          "Redis client requires transaction support for checkpoint writes.",
+        );
+      try {
+        await rawClient.transaction([
+          ...writes.map(({ field, value, overwrite }): [string, string[]] => [
+            overwrite ? "HSET" : "HSETNX",
+            [k(key), field, value],
+          ]),
+          ["PEXPIRE", [k(key), String(duration)]],
+        ]);
+      } catch (cause) {
+        if (cause instanceof PersistenceError) throw cause;
+        throw new PersistenceError(
+          "Redis checkpoint transaction failed.",
+          cause,
+        );
+      }
     },
 
     async hgetall(key: string): Promise<Record<string, string>> {

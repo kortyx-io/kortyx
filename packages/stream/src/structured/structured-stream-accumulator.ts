@@ -42,6 +42,10 @@ export function createStructuredStreamAccumulator<TData = unknown>(
   return {
     apply,
     applyStreamChunk: (chunk) => {
+      if (chunk.type === "structured-data-invalidated") {
+        states.delete(chunk.streamId);
+        return undefined;
+      }
       if (!isStructuredDataChunk(chunk)) return undefined;
       return apply(chunk);
     },

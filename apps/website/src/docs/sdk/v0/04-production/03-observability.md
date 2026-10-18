@@ -1,0 +1,534 @@
+---
+id: v0-observability-opentelemetry
+title: "OpenTelemetry"
+description: "Trace Kortyx sessions, workflow nodes, model calls, token usage, and prompt metadata with OpenTelemetry."
+keywords: [kortyx, opentelemetry, observability, tracing, tokens, gen-ai]
+sidebar_label: "OpenTelemetry"
+---
+# OpenTelemetry
+
+Kortyx can emit server-side OpenTelemetry spans for chat runs, workflow nodes, `useReason(...)`, and provider calls.
+
+Use this when you want to inspect:
+
+- which session and user triggered a run
+- which workflow and node handled the request
+- which provider/model was called
+- token usage and finish reasons
+- prompt identity and version metadata
+- interrupts, retries, and failures
+
+Kortyx does not configure your collector or tracing backend. Your app owns the OpenTelemetry SDK/exporter setup.
+
+## Maintainer usage telemetry
+
+The Node SDK also sends bounded usage aggregates to Kortyx's EU PostHog project
+by default, without requiring your own PostHog account or API key. This helps
+Kortyx maintainers measure feature adoption, operation outcomes and latency.
+It is independent of the customer tracing configuration described below.
+
+Failure aggregates include only allowlisted codes/categories, HTTP classes and
+known network causes; they never upload original error details. SDK eval calls
+include configuration rejection, case deadline override presence and terminal
+technical/quality outcomes. Export sends distinguish attempts and retry recovery.
+Structured text deltas are workload counts, not workflow executions.
+
+`KORTYX_USAGE_TELEMETRY_TRAFFIC_SOURCE=internal` can label deliberate maintainer
+traffic (`synthetic` and `external` are also accepted; otherwise `unknown`).
+Runtime mode and the analytics destination remain separate. Optional loss counters
+travel with later successful batches; they cannot report crashes or permanently
+offline tails.
+
+Approved records contain fixed operation names, outcomes, release versions and
+bounded dimensions such as provider family. They exclude prompts, messages,
+inputs/outputs, workflow/node/tool names, customer IDs, credentials, raw exception
+messages and stacks. A random installation UUID is stored at
+`~/.config/kortyx/usage-id`, with a process-only fallback when storage is
+unavailable. This identifier is pseudonymous; network infrastructure still sees
+the request's source IP.
+
+Disable collection and delivery before starting your application:
+
+```bash
+KORTYX_USAGE_TELEMETRY_DISABLED=1 pnpm start
+```
+
+`true` also disables collection. `KORTYX_USAGE_TELEMETRY_DEBUG=1` prints approved
+aggregates locally without sending requests or creating an installation identity.
+The default Node integration is disabled under `NODE_ENV=test`; browser-only SDK
+imports do not collect automatically. Other runtime modes, including CI, do not
+implicitly opt out.
+
+Delivery aggregates over 60-second windows, buffers at most 64 groups per
+component and sends at most 120 groups per hour per component/process. Delivery
+is best effort with a two-second timeout and no retries. Short-lived or terminated
+processes can lose records; analytics failure preserves SDK results.
+
+Maintainers can change the destination using
+`KORTYX_USAGE_TELEMETRY_POSTHOG_HOST`, `KORTYX_USAGE_TELEMETRY_POSTHOG_KEY` (a public
+capture key), or `KORTYX_USAGE_TELEMETRY_ENDPOINT` for a compatible collector.
+See the [usage telemetry package reference](https://github.com/kortyx-io/kortyx/tree/main/packages/usage-telemetry)
+for the complete controls, approved catalog and delivery contract.
+
+## Install
+
+```bash tabs="otel-install" tab="pnpm"
+pnpm add @kortyx/otel @opentelemetry/api @opentelemetry/sdk-node @opentelemetry/exporter-trace-otlp-http
+```
+```bash tabs="otel-install" tab="npm"
+npm install @kortyx/otel @opentelemetry/api @opentelemetry/sdk-node @opentelemetry/exporter-trace-otlp-http
+```
+```bash tabs="otel-install" tab="yarn"
+yarn add @kortyx/otel @opentelemetry/api @opentelemetry/sdk-node @opentelemetry/exporter-trace-otlp-http
+```
+```bash tabs="otel-install" tab="bun"
+bun add @kortyx/otel @opentelemetry/api @opentelemetry/sdk-node @opentelemetry/exporter-trace-otlp-http
+```
+
+## Configure OpenTelemetry on the server
+
+Initialize OpenTelemetry before creating the agent.
+
+```ts tabs="otel-bootstrap" tab="TypeScript"
+// src/lib/otel.ts
+import { OTLPTraceExporter } from "@opentelemetry/exporter-trace-otlp-http";
+import { NodeSDK } from "@opentelemetry/sdk-node";
+
+export const otelSdk = new NodeSDK({
+  traceExporter: new OTLPTraceExporter({
+    url: process.env.OTEL_EXPORTER_OTLP_TRACES_ENDPOINT,
+  }),
+});
+
+otelSdk.start();
+```
+```js tabs="otel-bootstrap" tab="JavaScript"
+// src/lib/otel.js
+import { OTLPTraceExporter } from "@opentelemetry/exporter-trace-otlp-http";
+import { NodeSDK } from "@opentelemetry/sdk-node";
+
+export const otelSdk = new NodeSDK({
+  traceExporter: new OTLPTraceExporter({
+    url: process.env.OTEL_EXPORTER_OTLP_TRACES_ENDPOINT,
+  }),
+});
+
+otelSdk.start();
+```
+
+> **Good to know:** Keep OpenTelemetry setup in server bootstrap code. React clients should pass stable identifiers such as `sessionId`, while provider calls and token usage stay on the server. If your tracing endpoint requires headers, set `OTEL_EXPORTER_OTLP_TRACES_HEADERS` in the environment instead of adding header parsing to the example.
+
+## Wire Kortyx tracing
+
+Pass the OpenTelemetry adapter when creating the agent.
+
+```ts tabs="otel-agent" tab="TypeScript"
+// src/lib/kortyx-agent.ts
+import "./otel";
+import { createOpenTelemetryTraceAdapter } from "@kortyx/otel";
+import { createAgent } from "kortyx";
+import { getProvider } from "./providers";
+import { workflows } from "./workflows";
+
+export const agent = createAgent({
+  workflows,
+  getProvider,
+  telemetry: {
+    trace: createOpenTelemetryTraceAdapter({
+      captureContent: false,
+    }),
+  },
+});
+```
+```js tabs="otel-agent" tab="JavaScript"
+// src/lib/kortyx-agent.js
+import "./otel";
+import { createOpenTelemetryTraceAdapter } from "@kortyx/otel";
+import { createAgent } from "kortyx";
+import { getProvider } from "./providers";
+import { workflows } from "./workflows";
+
+export const agent = createAgent({
+  workflows,
+  getProvider,
+  telemetry: {
+    trace: createOpenTelemetryTraceAdapter({
+      captureContent: false,
+    }),
+  },
+});
+```
+
+See [Capture inputs and outputs](#capture-inputs-and-outputs) before enabling raw prompt or completion capture.
+
+Call the agent normally and pass request context from trusted server code.
+
+```ts tabs="otel-request" tab="TypeScript"
+const stream = await agent.streamChat(messages, {
+  sessionId: threadId,
+  context: {
+    userId: user.id,
+    tenantId: tenant.id,
+  },
+});
+```
+```js tabs="otel-request" tab="JavaScript"
+const stream = await agent.streamChat(messages, {
+  sessionId: threadId,
+  context: {
+    userId: user.id,
+    tenantId: tenant.id,
+  },
+});
+```
+
+The trace contains a run span, node spans, `useReason` spans, and generation spans. Generation spans include standard `gen_ai.*` attributes for provider/model metadata and token usage. MCP tool loops add `useReason.tool-step.*` and `useReason.tool-call.*` events plus `kortyx.tool.*` count attributes on the `useReason` span.
+
+## Pass identity from React
+
+React clients can pass request context through the route transport. For authenticated apps, treat frontend context as request hints and set the trusted `userId` and `tenantId` on the server from your auth/session layer.
+
+```tsx tabs="otel-react-identity-client" tab="TypeScript"
+"use client";
+
+import { createRouteChatTransport, useChat } from "@kortyx/react";
+
+export function Chat({ accountId }: { accountId: string }) {
+  const chat = useChat({
+    transport: createRouteChatTransport({ endpoint: "/api/chat" }),
+    context: {
+      accountId,
+    },
+  });
+
+  return (
+    <button onClick={() => chat.send("Summarize this account")}>Send</button>
+  );
+}
+```
+```jsx tabs="otel-react-identity-client" tab="JavaScript"
+"use client";
+
+import { createRouteChatTransport, useChat } from "@kortyx/react";
+
+export function Chat({ accountId }) {
+  const chat = useChat({
+    transport: createRouteChatTransport({ endpoint: "/api/chat" }),
+    context: {
+      accountId,
+    },
+  });
+
+  return (
+    <button onClick={() => chat.send("Summarize this account")}>Send</button>
+  );
+}
+```
+
+On the route, parse the chat body, read the authenticated user, and forward the merged context to the agent.
+
+```ts tabs="otel-react-identity-route" tab="TypeScript"
+// app/api/chat/route.ts
+import { parseChatRequestBody } from "@kortyx/agent";
+import { toSSE } from "@kortyx/stream";
+import { agent } from "@/lib/kortyx-agent";
+import { getSession } from "@/lib/session";
+
+export async function POST(request: Request) {
+  const body = parseChatRequestBody(await request.json());
+  const session = await getSession(request);
+
+  if (!session) {
+    return new Response("Unauthorized", { status: 401 });
+  }
+
+  const stream = await agent.streamChat(body.messages, {
+    sessionId: body.sessionId,
+    workflowId: body.workflowId,
+    context: {
+      ...body.context,
+      userId: session.user.id,
+      tenantId: session.tenant.id,
+    },
+  });
+
+  return toSSE(stream);
+}
+```
+```js tabs="otel-react-identity-route" tab="JavaScript"
+// app/api/chat/route.js
+import { parseChatRequestBody } from "@kortyx/agent";
+import { toSSE } from "@kortyx/stream";
+import { agent } from "@/lib/kortyx-agent";
+import { getSession } from "@/lib/session";
+
+export async function POST(request) {
+  const body = parseChatRequestBody(await request.json());
+  const session = await getSession(request);
+
+  if (!session) {
+    return new Response("Unauthorized", { status: 401 });
+  }
+
+  const stream = await agent.streamChat(body.messages, {
+    sessionId: body.sessionId,
+    workflowId: body.workflowId,
+    context: {
+      ...body.context,
+      userId: session.user.id,
+      tenantId: session.tenant.id,
+    },
+  });
+
+  return toSSE(stream);
+}
+```
+
+The `accountId` from the React client is sent in `body.context`, merged into the server context, and recorded as `kortyx.trace.metadata.accountId`. The resulting spans also include `session.id`, `gen_ai.conversation.id`, `user.id`, and `kortyx.tenant.id` when those values are present.
+
+If you want `accountId` as a first-class attribute in your tracing backend, map it in the adapter:
+
+```ts tabs="otel-react-identity-map" tab="TypeScript"
+createOpenTelemetryTraceAdapter({
+  mapAttributes: ({ attributes }) => ({
+    ...(attributes["kortyx.trace.metadata.accountId"]
+      ? { "app.account.id": attributes["kortyx.trace.metadata.accountId"] }
+      : {}),
+  }),
+});
+```
+```js tabs="otel-react-identity-map" tab="JavaScript"
+createOpenTelemetryTraceAdapter({
+  mapAttributes: ({ attributes }) => ({
+    ...(attributes["kortyx.trace.metadata.accountId"]
+      ? { "app.account.id": attributes["kortyx.trace.metadata.accountId"] }
+      : {}),
+  }),
+});
+```
+
+> **Good to know:** If your app only has an anonymous browser identifier, pass it as app context such as `anonymousId` and map it explicitly in `createOpenTelemetryTraceAdapter({ mapAttributes })`. Use `userId` for authenticated server-derived identities.
+
+## Attach prompt metadata
+
+If your node loads prompts from an external prompt store, pass prompt identity through `useReason({ telemetry })`.
+
+```ts tabs="otel-prompt" tab="TypeScript"
+import { useReason } from "kortyx";
+import { google } from "../lib/providers";
+import { promptStore } from "../lib/prompts";
+
+export async function chatNode() {
+  const prompt = await promptStore.get("assessment-chat");
+  const input = prompt.compile({ question: "Summarize this candidate" });
+
+  const result = await useReason({
+    id: "assessment-chat",
+    model: google("gemini-2.5-flash"),
+    input,
+    telemetry: {
+      operation: "assessmentChat",
+      prompt: {
+        name: prompt.name,
+        version: prompt.version,
+        type: prompt.type,
+        metadata: prompt.toJSON(),
+      },
+      tags: [`prompt:${prompt.name}:${prompt.version}`],
+    },
+  });
+
+  return { ui: { message: result.text } };
+}
+```
+```js tabs="otel-prompt" tab="JavaScript"
+import { useReason } from "kortyx";
+import { google } from "../lib/providers";
+import { promptStore } from "../lib/prompts";
+
+export async function chatNode() {
+  const prompt = await promptStore.get("assessment-chat");
+  const input = prompt.compile({ question: "Summarize this candidate" });
+
+  const result = await useReason({
+    id: "assessment-chat",
+    model: google("gemini-2.5-flash"),
+    input,
+    telemetry: {
+      operation: "assessmentChat",
+      prompt: {
+        name: prompt.name,
+        version: prompt.version,
+        type: prompt.type,
+        metadata: prompt.toJSON(),
+      },
+      tags: [`prompt:${prompt.name}:${prompt.version}`],
+    },
+  });
+
+  return { ui: { message: result.text } };
+}
+```
+
+Kortyx records generic prompt attributes such as `gen_ai.prompt.name`, `gen_ai.prompt.version`, and `kortyx.prompt.*`.
+
+## Customize span attributes
+
+Use mapper hooks when your OpenTelemetry pipeline expects additional attributes.
+
+```ts tabs="otel-mapper" tab="TypeScript"
+const trace = createOpenTelemetryTraceAdapter({
+  mapPromptMetadata: (prompt) => ({
+    "app.prompt.metadata": prompt.metadata,
+  }),
+  mapAttributes: ({ attributes }) => ({
+    ...(attributes["kortyx.trace.metadata.tenantId"]
+      ? { "app.tenant.id": attributes["kortyx.trace.metadata.tenantId"] }
+      : {}),
+  }),
+});
+```
+```js tabs="otel-mapper" tab="JavaScript"
+const trace = createOpenTelemetryTraceAdapter({
+  mapPromptMetadata: (prompt) => ({
+    "app.prompt.metadata": prompt.metadata,
+  }),
+  mapAttributes: ({ attributes }) => ({
+    ...(attributes["kortyx.trace.metadata.tenantId"]
+      ? { "app.tenant.id": attributes["kortyx.trace.metadata.tenantId"] }
+      : {}),
+  }),
+});
+```
+
+> **Good to know:** Prompt text alone is not enough to link a generation to a managed prompt. Pass prompt name, version, type, and any prompt-store metadata in `telemetry.prompt`.
+
+## Capture inputs and outputs
+
+Raw prompts and model outputs can contain sensitive data. Kortyx leaves content capture off by default.
+
+Enable it only when your app has an approved retention and redaction policy.
+
+```ts tabs="otel-content" tab="TypeScript"
+createOpenTelemetryTraceAdapter({
+  captureContent: {
+    input: true,
+    output: true,
+  },
+});
+```
+```js tabs="otel-content" tab="JavaScript"
+createOpenTelemetryTraceAdapter({
+  captureContent: {
+    input: true,
+    output: true,
+  },
+});
+```
+
+## Attach tags to traces
+
+Pass `tags` in `telemetry` to label runs with searchable strings. They are emitted as the OpenTelemetry attribute `kortyx.trace.tags` on the relevant span and most backends expose them as filter facets.
+
+App-wide tags applied to every `kortyx.run` span:
+
+```ts tabs="otel-tags-agent" tab="TypeScript"
+createAgent({
+  workflows,
+  getProvider,
+  telemetry: {
+    trace: createOpenTelemetryTraceAdapter({ captureContent: false }),
+    tags: ["env:production", "service:assistant"],
+  },
+});
+```
+```js tabs="otel-tags-agent" tab="JavaScript"
+createAgent({
+  workflows,
+  getProvider,
+  telemetry: {
+    trace: createOpenTelemetryTraceAdapter({ captureContent: false }),
+    tags: ["env:production", "service:assistant"],
+  },
+});
+```
+
+Per-call tags applied to the matching `useReason` span:
+
+```ts tabs="otel-tags-call" tab="TypeScript"
+await useReason({
+  id: "classify-intent",
+  model,
+  input,
+  telemetry: {
+    tags: ["intent-classifier", `prompt:${prompt.name}:${prompt.version}`],
+  },
+});
+```
+```js tabs="otel-tags-call" tab="JavaScript"
+await useReason({
+  id: "classify-intent",
+  model,
+  input,
+  telemetry: {
+    tags: ["intent-classifier", `prompt:${prompt.name}:${prompt.version}`],
+  },
+});
+```
+
+If your tracing backend expects a different attribute name (for example, Langfuse looks for `langfuse.trace.tags`), translate `kortyx.trace.tags` in `mapAttributes`. See [Export To Langfuse](./04-langfuse.md#map-tags) for the exact wiring.
+
+## Read trace ids from the client
+
+When `@kortyx/otel` is wired on the agent, the orchestrator emits a `trace` stream chunk as soon as the `kortyx.run` span opens:
+
+```ts
+{ type: "trace", traceId: "…", spanId: "…", runId: "…", rootSpanName: "kortyx.run" }
+```
+
+`@kortyx/react` reads it off the wire and stamps every assistant `ChatMsg` produced during that turn with `traceId`, `spanId`, and `runId`. You do not need to capture response headers or open your own wrapper spans. The values are first-class fields on the message.
+
+```tsx tabs="otel-react-trace" tab="TypeScript"
+"use client";
+
+import type { ChatMsg } from "@kortyx/react";
+
+export function Thumbs({ msg }: { msg: ChatMsg }) {
+  if (!msg.traceId) return null;
+  return (
+    <a
+      href={`https://your-trace-ui/trace/${msg.traceId}`}
+      target="_blank"
+      rel="noreferrer"
+    >
+      View trace
+    </a>
+  );
+}
+```
+```jsx tabs="otel-react-trace" tab="JavaScript"
+"use client";
+
+export function Thumbs({ msg }) {
+  if (!msg.traceId) return null;
+  return (
+    <a
+      href={`https://your-trace-ui/trace/${msg.traceId}`}
+      target="_blank"
+      rel="noreferrer"
+    >
+      View trace
+    </a>
+  );
+}
+```
+
+The trace fields are `undefined` until a `trace` chunk arrives, which happens when an OTel trace adapter is configured on the agent. Without `@kortyx/otel` (or another adapter that supports `getActiveContext`) wired into `createAgent({ telemetry: { trace } })`, no `trace` chunk is emitted and `msg.traceId` stays `undefined`.
+
+Restored-from-storage messages keep their trace ids because `createBrowserChatStorage` serializes them with the rest of the `ChatMsg`.
+
+## What to read next
+
+- Read [Export To Langfuse](./04-langfuse.md) to use Langfuse as your tracing backend with the right attribute names.
+- Read [Runtime Context](../02-core-concepts/08-runtime-context.md) to pass request metadata into nodes.
+- Read [Runtime Persistence](./01-persistence.md) if your traced flows use interrupts and resume.

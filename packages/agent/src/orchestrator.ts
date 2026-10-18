@@ -12,6 +12,7 @@ import {
   isFailureDescriptor,
   serializeFailure,
 } from "@kortyx/core/errors";
+import { observeEvalError } from "@kortyx/core/eval-attribution";
 import {
   safeStartSpan,
   safeTelemetryMetadata,
@@ -31,6 +32,7 @@ import {
   type StreamChunk,
 } from "@kortyx/stream";
 import { Command } from "@langchain/langgraph";
+import { z } from "zod";
 import type {
   ChatResponseFinalized,
   ChatResponseStatus,
@@ -46,6 +48,7 @@ import {
   shouldCaptureTelemetryContent,
 } from "./telemetry/events";
 import { prepareWorkflowTelemetry } from "./telemetry/topology";
+import { usage } from "./usage";
 
 export type SelectWorkflowFn = (
   workflowId: string,
@@ -60,6 +63,7 @@ export interface CompiledGraphLike {
   execution?: {
     abortSignal?: AbortSignal | undefined;
     budget?: ExecutionBudget | undefined;
+    resumeDelivery?: import("@kortyx/runtime").ResumeDelivery | undefined;
     completeResponse?:
       | ((
           options: import("@kortyx/hooks").CompleteResponseOptions,
@@ -125,6 +129,9 @@ type TraceSpanLike = {
 };
 
 type TraceAdapterLike = {
+  reportError?: NonNullable<
+    import("@kortyx/hooks").ReasonTraceAdapter["reportError"]
+  >;
   startSpan?: (args: {
     name: string;
     attributes?: Record<string, unknown>;
@@ -201,6 +208,13 @@ export async function orchestrateGraphStream({
   frameworkAdapter,
   executionLeaseRelease,
 }: OrchestrateArgs): Promise<NodeJS.ReadableStream> {
+  let usageLimitReached = false;
+  const executionUsage = usage.start("sdk.execution", {
+    continue_on_disconnect: continueOnDisconnect,
+  });
+  const responseUsage = emitOutput
+    ? usage.start("sdk.response", { phase: "delivery" })
+    : { end() {}, fail(_error: unknown) {} };
   const out = new PassThrough({ objectMode: true });
   const visibleMessage =
     emitOutput &&
@@ -220,6 +234,13 @@ export async function orchestrateGraphStream({
     )
       return;
     responseFinalized = true;
+    responseUsage.end(
+      status === "completed"
+        ? "success"
+        : status === "interrupted"
+          ? "suspended"
+          : status,
+    );
     try {
       await onResponseFinalized({
         sessionId,
@@ -238,6 +259,20 @@ export async function orchestrateGraphStream({
     if (isRecord(chunk) && chunk.type === "done" && isGraphState(chunk.data)) {
       const { __kortyxParallelGraph: _journal, ...runtime } = chunk.data
         .runtime as Record<string, unknown>;
+      if (
+        isRecord(runtime.__kortyx) &&
+        isRecord(runtime.__kortyx.workflowState)
+      ) {
+        runtime.__kortyx = {
+          ...runtime.__kortyx,
+          workflowState: Object.fromEntries(
+            Object.entries(runtime.__kortyx.workflowState).filter(
+              ([key]) =>
+                key !== "__promptSnapshot" && !key.startsWith("__promptPin:"),
+            ),
+          ),
+        };
+      }
       chunk = { ...chunk, data: { ...chunk.data, runtime } };
     }
     if (emitOutput && !response.closed) {
@@ -264,6 +299,7 @@ export async function orchestrateGraphStream({
       ? AbortSignal.any([executionSignal, leaseAbort.signal])
       : leaseAbort.signal,
     onClosed: () => {
+      responseUsage.end();
       out.write({ type: "done" });
       out.end();
     },
@@ -343,6 +379,33 @@ export async function orchestrateGraphStream({
       : {},
   );
   const telemetryConfig = isRecord(config.telemetry) ? config.telemetry : {};
+  const errorChunk = (
+    error: unknown,
+    existingDiagnosticId?: unknown,
+    original = true,
+  ): StreamChunk => {
+    if (original) observeEvalError(error);
+    const failure = serializeFailure(error);
+    let diagnosticId = existingDiagnosticId;
+    if (!diagnosticId) {
+      try {
+        diagnosticId = traceAdapter?.reportError?.(error, {
+          correlation: { runId, ...(sessionId ? { sessionId } : {}) },
+        });
+      } catch {
+        // Private diagnostic delivery cannot replace a workflow failure.
+      }
+    }
+    return {
+      type: "error",
+      message: failure.message,
+      failure,
+      ...(typeof diagnosticId === "string" &&
+      z.uuid().safeParse(diagnosticId).success
+        ? { diagnosticId }
+        : {}),
+    };
+  };
   const emitResumeFailure = (resumeError: unknown) => {
     const interruptId =
       typeof config.telemetryInterruptId === "string"
@@ -814,11 +877,13 @@ export async function orchestrateGraphStream({
       outcomeError = isFailureDescriptor(supplied)
         ? errorFromFailure(supplied)
         : new Error(msg);
-      write({
-        type: "error",
-        message: serializeFailure(outcomeError).message,
-        failure: serializeFailure(outcomeError),
-      });
+      write(
+        errorChunk(
+          outcomeError,
+          (payload as { diagnosticId?: unknown })?.diagnosticId,
+          false,
+        ),
+      );
       write({ type: "done" });
       finished = true;
       out.end();
@@ -1064,6 +1129,13 @@ export async function orchestrateGraphStream({
           : {}),
         ...(kind === "final" ? { data: payloadObj.data } : {}),
       });
+      return;
+    }
+    if (event === "structured_data_invalidated") {
+      const streamId = (payload as { streamId?: unknown })?.streamId;
+      if (typeof streamId !== "string" || !streamId) return;
+      structuredStreamIds.delete(streamId);
+      write({ type: "structured-data-invalidated", streamId });
       return;
     }
     // legacy 'human_required' removed — dynamic interrupts are used instead
@@ -1384,11 +1456,7 @@ export async function orchestrateGraphStream({
           runTraceSpan.addEvent?.("kortyx.transition.error", {
             transitionTo,
           });
-          write({
-            type: "error",
-            message: serializeFailure(err).message,
-            failure: serializeFailure(err),
-          });
+          write(errorChunk(err));
           write({ type: "done" });
           out.end();
           return;
@@ -1725,10 +1793,19 @@ export async function orchestrateGraphStream({
         return;
       }
       if (isExecutionLimitReached(err)) {
+        usageLimitReached = true;
         try {
           const snapshot =
             frameworkAdapter &&
-            (await captureGraphSnapshot(frameworkAdapter.checkpointer, runId));
+            (await captureGraphSnapshot(
+              frameworkAdapter.checkpointer,
+              runId,
+              undefined,
+              {
+                runtimePatch,
+                response: currentGraph.execution?.resumeDelivery,
+              },
+            ));
           throwIfExecutionAborted(abortSignal);
           if (!snapshot)
             throw new Error(
@@ -1850,11 +1927,7 @@ export async function orchestrateGraphStream({
       fallbackRunSpan?.fail?.(err);
       emitResumeFailure(err);
       console.error("[error:orchestrateGraphStream]", serializeFailure(err));
-      write({
-        type: "error",
-        message: serializeFailure(err).message,
-        failure: serializeFailure(err),
-      });
+      write(errorChunk(err));
       write({ type: "done" });
       finished = true;
       out.end();
@@ -1875,6 +1948,22 @@ export async function orchestrateGraphStream({
             ? "interrupted"
             : "completed",
       );
+      if (outcomeError) executionUsage.fail(outcomeError);
+      else
+        executionUsage.end(
+          usageLimitReached
+            ? "limit_reached"
+            : pendingRecordToken || outcomeState.awaitingHumanInput
+              ? "suspended"
+              : "success",
+        );
+      if (outcomeError) responseUsage.fail(outcomeError);
+      else
+        responseUsage.end(
+          pendingRecordToken || outcomeState.awaitingHumanInput
+            ? "suspended"
+            : "success",
+        );
       onOutcome?.({
         state: outcomeState,
         pending: pendingRecordToken

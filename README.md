@@ -19,6 +19,7 @@ Use `kortyx` as the main package. It re-exports the public server/runtime APIs f
 - **Streaming-first UX:** emit text, message, lifecycle, interrupt, and structured-data chunks over SSE.
 - **Framework adapters:** run in Next.js API routes, server actions, custom HTTP handlers, or lower-level runtimes.
 - **Operational visibility:** send structural telemetry to the self-hosted Kortyx Studio preview for runs, sessions, workflows, interrupts, timing, token usage, and cost review.
+- **Conversation evals:** run serializable scenarios against your agent, resume expected human interrupts, and grade visible outcomes with a separate model. See the [SDK eval runner](./docs/evals/sdk-runner.md).
 
 ## Install
 
@@ -342,3 +343,7 @@ Kortyx uses a mixed licensing model:
 
 See [LICENSES.md](./LICENSES.md) for the repository-wide boundaries and the
 applicable license texts.
+
+## Maintainer usage telemetry
+
+The SDK and OSS Studio send bounded feature usage and operation outcomes to Kortyx's EU PostHog project by default. No prompts, inputs/outputs, customer IDs, names, URLs, raw errors or credentials are included. Set `KORTYX_USAGE_TELEMETRY_DISABLED=1` to disable collection or `KORTYX_USAGE_TELEMETRY_DEBUG=1` to inspect approved records locally without sending them. This is separate from customer observability. See [usage telemetry controls, identity and collection scope](./packages/usage-telemetry/README.md).

@@ -8,7 +8,7 @@ A `useReason(...)` call has three layers:
 
 - request: model, prompt, generation options, and provider options
 - runtime behavior: streaming, emitted chunks, checkpoints, interrupts
-- result: final text, parsed output, metadata, warnings, tool history, and typed interrupt history
+- result: final text, validated contract emissions/return, metadata, warnings, tool history, and typed interrupt history
 
 Keep provider credentials and model construction on the server. Call `useReason(...)` only from Kortyx node execution, not from React/client code.
 
@@ -63,6 +63,7 @@ export const chatNode = async ({ input }: { input: unknown }) => {
 - `toolExecution`: shared model tool-loop controls such as `maxSteps`, `approval`,
   and `emit`.
 - `interrupts`: one or more named, typed model-driven human-input contracts.
+- `outputs`: named `emit` contracts for intermediate values and `return` contracts for a terminal value.
 
 Use `stream: true` and `emit: true` for live UI output. Use `emit: false` for internal reasoning that should not render directly.
 
@@ -87,7 +88,9 @@ const result = await useReason({ model, input });
 result.id; // stable id when provided
 result.opId; // runtime operation id
 result.text; // final assistant text
-result.output; // parsed object when outputSchema succeeds
+result.emissions; // ordered, validated intermediate contract values
+result.returned; // selected, validated terminal contract value
+result.output; // deprecated legacy outputSchema result
 result.raw; // provider-native payload for debugging
 result.usage; // normalized token usage when available
 result.finishReason; // normalized stop reason
@@ -99,7 +102,7 @@ result.toolResults; // normalized tool results returned to the model
 result.steps; // per-model-pass text, tool calls, and tool results
 ```
 
-Always code a sensible fallback when `result.output` may be absent.
+When `outputs.return` is configured, a successful call contains exactly one selected `result.returned` contract.
 
 ## `useTool(...)` Or `useReason({ tools })`
 
@@ -216,40 +219,80 @@ return {
 };
 ```
 
-## Structured Output
+## Model-Selected Output Contracts
 
-Use `outputSchema` when downstream code depends on fields. Prompt the model to return JSON only when needed by the provider/model.
+Use reusable contracts when the model should publish intermediate structured values or choose one of several typed terminal outcomes.
 
 ```ts
+import { defineOutputContract } from "kortyx";
 import { z } from "zod";
 
-const PlanSchema = z.object({
-  summary: z.string().min(1),
-  nextSteps: z.array(z.string().min(1)),
+const card = defineOutputContract({
+  description: "Show proposed launch steps.",
+  schemaId: "launch.card",
+  schemaVersion: "1",
+  schema: z.object({ title: z.string(), steps: z.array(z.string()) }),
+  stream: { fields: { title: "text-delta", steps: "append" } },
+});
+const completed = defineOutputContract({
+  description: "Return the completed launch plan.",
+  schemaId: "launch.plan",
+  schemaVersion: "1",
+  schema: z.object({ summary: z.string() }),
+});
+const rejected = defineOutputContract({
+  description: "Return why the plan cannot be completed.",
+  schemaId: "launch.rejected",
+  schemaVersion: "1",
+  schema: z.object({ reason: z.string() }),
 });
 
-type Plan = z.infer<typeof PlanSchema>;
-
-const result = await useReason<Plan>({
+const result = await useReason({
   id: "make-plan",
   model,
-  system: "Return JSON only.",
   input: "Create a short launch plan.",
-  outputSchema: PlanSchema,
-  responseFormat: { type: "json" },
+  outputs: { emit: { card }, return: { completed, rejected } },
+  toolExecution: { maxSteps: 6 },
 });
 
-const plan = result.output ?? {
-  summary: result.text,
-  nextSteps: [],
-};
+result.emissions; // repeated cards, in order
+result.returned; // discriminated completed/rejected result
 ```
 
-Use `outputSchema` for validation; do not parse model text manually unless there is no schema path available.
+The model selects a control tool. For a streamed contract, Kortyx makes a separate streamed JSON pass: partial fields reach the client before the pass completes, the final object is validated, then an `emit` contract returns control to the model for more text or tools. The extra pass counts toward usage and `toolExecution.maxSteps`. Live surrounding text requires provider tool-streaming support. Failed streamed output invalidates its provisional field chunks.
 
-## Structured Streaming
+### Mixing calls in one model turn
 
-Use `structured` when the client should receive object updates, not only final text.
+Multiple domain tools, emitted output contracts, and interrupt contracts may
+share a turn. Kortyx processes them in the requested order, pausing at each
+interrupt and reusing completed calls on resume. A terminal return runs last,
+even when it appears first in the provider response. This lets the model show
+cards before asking for a choice while ensuring the final answer waits for all
+outstanding tools and human responses.
+
+An output after domain or interrupt results in the same turn is generated from
+those results in a separate schema-constrained pass. Streamed outputs use their
+normal streamed pass; non-streamed drafts are regenerated in a buffered pass.
+Each generation attempt consumes `toolExecution.maxSteps`, including failed
+attempts across checkpoint resume. `REASON_OUTPUT_BUDGET_EXHAUSTED` is a typed
+`ProviderRequestError` with guidance to increase that budget. Approval,
+`interrupts.maxRequests`, and `outputs.maxEmissions` continue to apply.
+
+Multiple emissions are allowed, but `result.returned` remains one terminal
+value. Conflicting return calls receive error results asking the model to select
+one, within the remaining `maxSteps`. Completed tools, interrupts, and emissions
+are preserved. Exhaustion yields the typed
+`REASON_OUTPUT_CONTRACT_CORRECTION_EXHAUSTED` failure.
+
+Tool arguments and interrupt requests in a turn were authored together. If a
+later tool's arguments or a later question depend on a result that is not yet
+known, let the model request that call in a subsequent turn.
+
+## Deprecated Single-JSON Output And Structured Streaming
+
+`useReason({ outputSchema, structured })` and `result.output` remain available for existing calls, including partial fields, but are deprecated and scheduled for removal in the next major. Migrate tool-capable chat models to output contracts. Provider-native decision models such as TypeSafe Jev need a non-tool replacement before removal.
+
+Legacy example:
 
 ```ts
 const DraftSchema = z.object({
@@ -337,7 +380,7 @@ const result = await useReason({
   model,
   system: "Create a useful plan. Ask only when a material detail is missing.",
   input: "Create an account migration plan.",
-  outputSchema: PlanSchema,
+  outputs: { return: { completed, rejected } },
   tools: [lookupAccount],
   interrupts: {
     mode: "optional",
@@ -375,7 +418,7 @@ Interrupt/resume can replay node code. Give the reason call a stable `id`, and k
 
 - Put stable behavior in `system`.
 - Put task-specific user/request content in `input`.
-- Make structured-output prompts explicit: "Return JSON only" and describe the desired fields.
+- Give each output contract a clear description; reserve "Return JSON only" prompting for the deprecated single-JSON path.
 - Put capability-selection guidance in short tool descriptions; keep authorization,
   input validation, and business invariants in tool code.
 - Ask for natural user-facing prose. Do not expose workflow ids, tool names,
@@ -402,7 +445,22 @@ If the UI is not streaming, check both provider streaming (`stream`) and Kortyx 
 - Omitting `id` when a node has multiple reason calls or interrupt/resume behavior.
 - Returning `ui.message` with the same text that `useReason({ emit: true })` already streamed.
 - Trusting client-sent context for authorization.
-- Hand-parsing JSON that should be validated by `outputSchema`.
+- Hand-parsing JSON that should be validated by an output contract.
 - Using structured streaming for deterministic UI updates that belong in `useStructuredData(...)`.
 
 For typed failure propagation and safe recovery policy, see [Error handling](error-handling.md).
+
+### Missing terminal return
+
+A required `outputs.return` that is absent produces the typed validation failure
+`REASON_TERMINAL_OUTPUT_MISSING`. To allow one corrective model turn:
+
+```ts
+toolExecution: { maxSteps: 4, missingReturnCorrections: 1 }
+```
+
+The default correction budget is zero. It shares the existing maxSteps ceiling
+and persists across checkpoint resume. Only output tools are offered during that
+correction; completed business tools are not replayed. A provider requesting a
+business tool during correction produces `REASON_OUTPUT_CORRECTION_TOOL_DISALLOWED`.
+Exhausted terminal-output corrections are validation errors, not provider faults.

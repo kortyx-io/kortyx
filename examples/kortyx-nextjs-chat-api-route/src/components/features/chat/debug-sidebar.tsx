@@ -25,20 +25,24 @@ function HighlightedJSON({ data }: { data: StreamChunk }) {
   }, [data]);
 
   useEffect(() => {
+    let cancelled = false;
+    setHighlightedCode("");
     const highlightCode = async () => {
       try {
         const html = await codeToHtml(JSON.stringify(cleanData, null, 2), {
           lang: "json",
           theme: "one-dark-pro",
         });
-        setHighlightedCode(html);
+        if (!cancelled) setHighlightedCode(html);
       } catch (error) {
         console.error("Failed to highlight code:", error);
-        setHighlightedCode(`<pre>${JSON.stringify(cleanData, null, 2)}</pre>`);
       }
     };
 
     highlightCode();
+    return () => {
+      cancelled = true;
+    };
   }, [cleanData]);
 
   if (!highlightedCode) {

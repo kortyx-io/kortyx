@@ -16,6 +16,10 @@ inputs:
   tags:
     description: Destination tags
     required: true
+  outputs:
+    description: Optional BuildKit exporters (used for native platform digests)
+    required: false
+    default: ""
   cache-scope:
     description: GitHub Actions cache scope
     required: true
@@ -41,6 +45,7 @@ runs:
         push: true
         platforms: ${{ inputs.platforms }}
         tags: ${{ inputs.tags }}
+        outputs: ${{ inputs.outputs }}
         cache-from: type=gha,scope=${{ inputs.cache-scope }}
         cache-to: type=gha,mode=max,scope=${{ inputs.cache-scope }}
     - name: Attest published image

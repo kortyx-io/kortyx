@@ -1,11 +1,14 @@
 "use client";
-
+import { usePathname } from "next/navigation";
 import { parseAsString } from "nuqs";
 import { type ReactNode, useEffect, useRef, useState } from "react";
 import { useDetailDrawer } from "@/components/detail/detail-drawer";
 import { DETAIL_MOTION_DURATION_MS } from "@/components/detail/detail-motion";
+import { HelpCircle, type HelpDefinition } from "@/components/ui/info-tooltip";
+import type { DetailTabFamily, DetailTabId } from "@/lib/detail-tab-contract";
 import { useStudioQueryState } from "@/lib/nuqs";
 import { cn } from "@/lib/utils";
+import { studioFeature, usageSurface } from "@/usage/client";
 
 export type DetailTab = {
   id: string;
@@ -13,13 +16,19 @@ export type DetailTab = {
   content: ReactNode;
 };
 
-export function DetailTabs({
+export function DetailTabs<F extends DetailTabFamily | undefined = undefined>({
   tabs,
   queryKey = "tab",
+  helpByTab,
 }: {
-  tabs: DetailTab[];
+  family?: F;
+  tabs: (Omit<DetailTab, "id"> & {
+    id: NoInfer<F extends DetailTabFamily ? DetailTabId<F> : string>;
+  })[];
   queryKey?: string;
+  helpByTab?: Record<string, HelpDefinition>;
 }) {
+  const pathname = usePathname();
   const initialTab = tabs[0]?.id ?? "";
   const [requestedTab, setRequestedTab] = useStudioQueryState(
     queryKey,
@@ -41,6 +50,11 @@ export function DetailTabs({
 
   const changeTab = (nextId: string) => {
     if (nextId === selected?.id) return;
+    studioFeature("studio.inspect", {
+      surface: usageSurface(pathname),
+      tab: nextId,
+      action: "select",
+    });
     if (detailDrawer.nestedOpen) {
       setLeavingTabId(selected?.id ?? null);
       if (releaseTimerRef.current !== null) {
@@ -63,10 +77,14 @@ export function DetailTabs({
 
   return (
     <div className="@container flex h-full min-h-0 flex-col">
-      <div className="z-10 flex shrink-0 gap-1 overflow-x-auto border-b bg-background px-3 @lg:px-6">
+      <div
+        data-page-help="tabs"
+        className="data-table-header-scroll z-10 flex shrink-0 gap-1 overflow-x-auto border-b bg-background px-3 @lg:px-6"
+      >
         {tabs.map((tab) => (
           <button
             key={tab.id}
+            data-detail-tab={tab.id}
             type="button"
             onClick={() => changeTab(tab.id)}
             className={cn(
@@ -79,6 +97,11 @@ export function DetailTabs({
             {tab.label}
           </button>
         ))}
+        {selected && helpByTab?.[selected.id] && (
+          <div className="flex shrink-0 items-center">
+            <HelpCircle help={helpByTab[selected.id]} />
+          </div>
+        )}
       </div>
       <div
         className={cn(
@@ -92,10 +115,11 @@ export function DetailTabs({
         {renderedTabs.map((tab) => (
           <div
             key={tab.id}
+            data-detail-tab-content={tab.id}
             role="tabpanel"
             aria-hidden={tab.id !== selected?.id}
             className={cn(
-              "h-full min-h-0 overflow-auto",
+              "data-table-body-scroll h-full min-h-0 overflow-auto",
               tab.id !== selected?.id && "hidden",
             )}
           >

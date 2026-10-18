@@ -1,32 +1,69 @@
+import { createApiAuth } from "@api/auth";
+import { createApiAuthorization } from "@api/authorization";
+import { createApiTenantDatabase } from "@api/tenant-database";
 import { swaggerUI } from "@hono/swagger-ui";
 import { OpenAPIHono } from "@hono/zod-openapi";
+import type { EvalJudge } from "@kortyx/agent";
 import { STUDIO_API_PROTOCOL_VERSION } from "@kortyx/telemetry-contracts";
 import type { TelemetryDb } from "@kortyx/telemetry-db";
+import type { UsageTelemetry } from "@kortyx/usage-telemetry";
+import { getUsageTelemetry } from "@kortyx/usage-telemetry/node";
+import packageJson from "../package.json";
+import type { ApiAuthAdapter, ApiDeployment } from "./auth/contracts";
+import type { ApiAuthorizationAdapter } from "./authorization/contracts";
+import type { ApiTenantDatabaseAdapter } from "./database/contracts";
 import { apiErrorHandler } from "./errors";
-import { apiKeyAuth } from "./middleware/api-key-auth";
+import type { EvalTargetAdapter } from "./evals/contracts";
+import type { EvalTarget } from "./evals/targets";
+import { apiSecurity } from "./middleware/security";
 import {
   createNoopStudioChangeBus,
   type StudioChangeBus,
 } from "./realtime/studio-change-bus";
+import { registerDiagnosticRoutes } from "./routes/diagnostics";
+import { registerEvalJudgeRoutes } from "./routes/eval-judge";
+import { registerEvalRoutes } from "./routes/evals";
 import { registerHealthRoutes } from "./routes/health";
+import { registerPromptRoutes } from "./routes/prompts";
 import {
   registerStudioReviewRoutes,
   registerUserFeedbackRoutes,
 } from "./routes/scores";
 import { registerStudioRoutes } from "./routes/studio";
 import { registerStudioChangeRoutes } from "./routes/studio-changes";
+import { registerTablePreferenceRoutes } from "./routes/table-preferences";
 import { registerTelemetryEventRoutes } from "./routes/telemetry/events";
 import { registerWorkflowRevisionRoutes } from "./routes/telemetry/workflow-revisions";
 import type { ApiEnv } from "./types";
 
 export type CreateApiAppOptions = {
   db: TelemetryDb;
+  usage?: UsageTelemetry;
+  evalTargets?: readonly EvalTarget[];
+  evalTargetAdapter?: EvalTargetAdapter;
+  evalJudge?: EvalJudge;
   apiKeyPepper: string;
   studioChangeBus?: StudioChangeBus;
   readiness?: () => Promise<void>;
+  deployment?: ApiDeployment;
+  authentication?: ApiAuthAdapter;
+  authorization?: ApiAuthorizationAdapter;
+  tenantDatabase?: ApiTenantDatabaseAdapter;
 };
 
 export const createApiApp = (options: CreateApiAppOptions) => {
+  const adapterOptions = {
+    db: options.db,
+    apiKeyPepper: options.apiKeyPepper,
+    deployment: options.deployment ?? ("self-hosted" as const),
+  };
+  const security = {
+    authentication: options.authentication ?? createApiAuth(adapterOptions),
+    authorization:
+      options.authorization ?? createApiAuthorization(adapterOptions),
+    tenantDatabase:
+      options.tenantDatabase ?? createApiTenantDatabase(adapterOptions),
+  };
   const app = new OpenAPIHono<ApiEnv>({
     defaultHook: (result, c) => {
       if (result.success) return;
@@ -47,11 +84,19 @@ export const createApiApp = (options: CreateApiAppOptions) => {
     scheme: "bearer",
     bearerFormat: "ktyx_test_<keyId>_<secret>",
   });
+  app.openAPIRegistry.registerComponent(
+    "securitySchemes",
+    "StudioAccessToken",
+    {
+      type: "http",
+      scheme: "bearer",
+      bearerFormat: "access token",
+    },
+  );
 
   app.use("*", async (c, next) => {
     const requestId = c.req.header("x-request-id") ?? crypto.randomUUID();
     c.set("requestId", requestId);
-    c.set("db", options.db);
     c.header("x-request-id", requestId);
     c.header("x-kortyx-studio-api-version", STUDIO_API_PROTOCOL_VERSION);
     c.header(
@@ -62,14 +107,40 @@ export const createApiApp = (options: CreateApiAppOptions) => {
   });
 
   app.onError(apiErrorHandler);
+  const usage =
+    options.usage ??
+    getUsageTelemetry("api", packageJson.version, "oss_studio");
+  app.use("/v1/*", async (c, next) => {
+    const segment = c.req.path.split("/")[2];
+    const operation =
+      segment === "telemetry"
+        ? "studio.ingest"
+        : segment === "prompts"
+          ? "studio.prompt"
+          : "studio.read";
+    const scope = usage.start(operation, {
+      origin: "server",
+      resource: c.req.path.split("/")[3],
+    });
+    try {
+      await next();
+      scope.end(c.res.status >= 400 ? "failed" : "success", {
+        http_status: c.res.status >= 400 ? String(c.res.status) : undefined,
+      });
+    } catch (error) {
+      scope.fail(error);
+      throw error;
+    }
+  });
 
   registerHealthRoutes(app, options.readiness ?? (() => Promise.resolve()));
 
   app.use(
     "/v1/telemetry/*",
-    apiKeyAuth({
-      pepper: options.apiKeyPepper,
-      requiredScope: "telemetry:write",
+    apiSecurity({
+      ...security,
+      surface: "telemetry",
+      action: "telemetry:write",
     }),
   );
   registerWorkflowRevisionRoutes(app);
@@ -78,12 +149,31 @@ export const createApiApp = (options: CreateApiAppOptions) => {
 
   app.use(
     "/v1/studio/*",
-    apiKeyAuth({
-      pepper: options.apiKeyPepper,
-      requiredScope: "studio:read",
+    apiSecurity({
+      ...security,
+      surface: "studio",
+      action: "studio:read",
     }),
   );
-  registerStudioRoutes(app);
+  registerStudioRoutes(app, adapterOptions.deployment);
+  registerTablePreferenceRoutes(app, adapterOptions.deployment);
+  app.use(
+    "/v1/prompts/*",
+    apiSecurity({ ...security, surface: "telemetry", action: "prompt:serve" }),
+  );
+  registerPromptRoutes(
+    app,
+    options.evalTargets ?? [],
+    options.evalTargetAdapter,
+  );
+  registerDiagnosticRoutes(app);
+  registerEvalRoutes(
+    app,
+    options.evalTargets ?? [],
+    options.evalJudge,
+    options.evalTargetAdapter,
+  );
+  registerEvalJudgeRoutes(app, options.evalJudge);
   registerStudioReviewRoutes(app);
   registerStudioChangeRoutes(
     app,

@@ -52,7 +52,10 @@ class HelperTests(unittest.TestCase):
         self.fake("curl", '''import json, os, sys
 args = sys.argv[1:]
 with open(os.environ["TEST_LOG"], "a") as f: f.write(json.dumps(args) + "\\n")
-if "DELETE" in args: print(os.environ.get("DELETE_STATUS", "200"))
+if "DELETE" in args:
+    count = len(open(os.environ["TEST_LOG"]).readlines())
+    statuses = os.environ.get("DELETE_STATUS", "200").split(",")
+    print(statuses[min(count - 1, len(statuses) - 1)])
 elif "POST" in args: print('{"deployments":[{"deployment_uuid":"deploy-1"}]}')
 else: print(json.dumps({"status": os.environ.get("DEPLOY_STATUS", "finished")}))
 ''')
@@ -98,6 +101,22 @@ else: print(json.dumps({"status": os.environ.get("DEPLOY_STATUS", "finished")}))
     def test_cleanup_rejects_other_http_statuses(self):
         self.assertNotEqual(self.coolify(OPERATION="remove-preview", PR_NUMBER="42",
                                        DELETE_STATUS="500").returncode, 0)
+        self.assertEqual(len(self.calls()), 5)
+
+    def test_cleanup_recovers_transient_outage(self):
+        result = self.coolify(OPERATION="remove-preview", PR_NUMBER="42", DELETE_STATUS="500,503,200")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(len(self.calls()), 3)
+
+    def test_cleanup_does_not_retry_permission_denial(self):
+        result = self.coolify(OPERATION="remove-preview", PR_NUMBER="42", DELETE_STATUS="403")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(len(self.calls()), 1)
+
+    def test_cleanup_rejects_invalid_pr_number_before_request(self):
+        result = self.coolify(OPERATION="remove-preview", PR_NUMBER="../42")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(self.calls(), [])
 
     def test_missing_configuration_fails_before_request(self):
         result = self.coolify(COOLIFY_TOKEN="")
@@ -137,7 +156,7 @@ if "inspect" in args:
         self.assertNotEqual(result.returncode, 0)
         self.assertFalse(any("create" in call for call in self.calls()))
 
-    def npm_fixture(self, subject="chore: release main", managed=True, changed=True):
+    def npm_fixture(self, subject="chore: release main", managed=True, changed=True, merge_subject=None):
         for directory in ["packages/a", "packages/b", "providers", ".github/release-please"]:
             (self.root / directory).mkdir(parents=True, exist_ok=True)
         config = {"packages": {"packages/a": {"package-name": "@test/a"}}
@@ -156,10 +175,15 @@ if "inspect" in args:
         git("config", "user.name", "Test")
         git("add", ".")
         git("commit", "-qm", "Initial packages")
+        initial = git("rev-parse", "HEAD")
         if changed:
             package("a", "1.1.0")
         git("add", ".")
         git("commit", "--allow-empty", "-qm", subject)
+        if merge_subject:
+            release_head = git("rev-parse", "HEAD")
+            git("checkout", "--detach", initial)
+            git("merge", "--no-ff", "-m", merge_subject, release_head)
         self.env["RELEASE_COMMIT"] = git("rev-parse", "HEAD")
         test = self
         class RegistryHandler(BaseHTTPRequestHandler):
@@ -196,9 +220,9 @@ if "inspect" in args:
 with open(os.environ["TEST_LOG"], "a") as f: f.write(json.dumps({"args":sys.argv[1:],"cwd":os.getcwd()}) + "\\n")
 ''')
 
-    def run_npm(self, **env):
+    def run_npm(self, *args, **env):
         self.registry_exists = env.pop("NPM_EXISTS", "0") == "1"
-        return subprocess.run(["node", str(NPM)], cwd=self.root, env={**self.env, **env},
+        return subprocess.run(["node", str(NPM), *args], cwd=self.root, env={**self.env, **env},
                               text=True, capture_output=True)
 
     def test_npm_verifier_retries_stale_registry_metadata(self):
@@ -234,6 +258,52 @@ with open(os.environ["TEST_LOG"], "a") as f: f.write(json.dumps({"args":sys.argv
                           "args": ["publish", "--provenance", "--access", "public", "--tag", "latest", "--no-git-checks"]}])
         self.assertEqual(self.github_output.read_text(),
                          'packages=[{"name":"@test/a","version":"1.1.0"}]\n')
+
+    def test_npm_build_uses_publication_selection_without_registry_or_publish(self):
+        self.npm_fixture()
+        result = self.run_npm("--build-only")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(self.calls(), [{"cwd": str(self.root),
+                         "args": ["exec", "turbo", "run", "build", "--filter=@test/a..."]}])
+        self.assertEqual(self.registry_reads, 0)
+
+    def test_release_please_merge_is_selected_by_description_and_publisher(self):
+        self.npm_fixture(merge_subject="Merge pull request #309 from kortyx-io/release-please--branches--main")
+        result = subprocess.run(["node", str(GITHUB / "scripts/release/describe-release.mjs")],
+                                cwd=self.root, env=self.env, text=True, capture_output=True)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(json.loads(result.stdout)["release"], "true")
+        self.assertEqual(json.loads(result.stdout)["paths"], '["packages/a"]')
+        result = self.run_npm("--build-only")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(self.calls()[0]["args"], ["exec", "turbo", "run", "build", "--filter=@test/a..."])
+
+    def test_feature_merge_is_not_a_release_even_with_a_release_titled_parent(self):
+        self.npm_fixture(merge_subject="Merge pull request #309 from kortyx-io/codex/feature")
+        self.assertEqual(self.run_npm("--build-only").returncode, 0)
+        self.assertEqual(self.calls(), [])
+
+    def test_release_branch_merge_requires_a_release_titled_parent(self):
+        self.npm_fixture(subject="fix: change a package", merge_subject="Merge pull request #309 from kortyx-io/release-please--branches--main")
+        self.assertEqual(self.run_npm("--build-only").returncode, 0)
+        self.assertEqual(self.calls(), [])
+
+    def test_merge_shaped_title_on_single_parent_does_not_authorize_release(self):
+        self.npm_fixture(subject="Merge pull request #309 from kortyx-io/release-please--branches--main")
+        self.assertEqual(self.run_npm("--build-only").returncode, 0)
+        self.assertEqual(self.calls(), [])
+
+    def test_npm_build_does_not_build_everything_for_empty_release(self):
+        self.npm_fixture(changed=False)
+        result = self.run_npm("--build-only")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(self.calls(), [])
+
+    def test_npm_build_refuses_unmanaged_packages(self):
+        self.npm_fixture(managed=False)
+        result = self.run_npm("--build-only")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(self.calls(), [])
 
     def test_npm_skips_versions_already_published(self):
         self.npm_fixture()

@@ -1,6 +1,6 @@
 ---
 name: kortyx
-description: Use when building, reviewing, documenting, testing, or architecting apps with Kortyx. Covers providers, useReason/useTool tools, model-driven interrupts, supervisor and specialist composition, child workflows, execution limits, typed failures, runtime persistence, server-owned chat transcripts, Studio debugging, React chat hydration, and streamed UI behavior.
+description: Use when building, reviewing, documenting, testing, or architecting apps with Kortyx. Covers providers, useReason/useTool tools, model-driven interrupts, supervisor and specialist composition, child workflows, execution limits, typed failures, runtime persistence, server-owned chat transcripts, conversation evals, versioned Studio prompts and migration, Studio execution and debugging, React chat hydration, and streamed UI behavior.
 ---
 
 # Kortyx
@@ -38,19 +38,37 @@ Architecture:
 - `references/workflow-execution.md`: typed `agent.execute` / `agent.resume`, separate HTTP entry points, outcomes, cancellation signals, shared execution limits/Continue, durable human approval, and conversational regression testing.
 
 - `references/architecture-folder-structure.md`: default layouts and responsibility boundaries.
-- `references/architecture-workflows-and-nodes.md`: defining workflows, nodes, return shapes, routing, and agent wiring.
+- `references/architecture-workflows-and-nodes.md`: defining workflows, nodes, return shapes, opt-in data reducers, routing, and agent wiring.
 - `references/architecture-supervisor-specialists.md`: coordinator-per-turn routing, returning specialist workflows, one reason/tool loop per specialist, prompt boundaries, and conversational output.
 - `references/architecture-nextjs.md`: Next.js API route vs Server Action guidance.
 - `references/architecture-react-node.md`: separate React frontend plus Node backend.
 - `references/architecture-runtime-persistence.md`: memory, Redis, PostgreSQL, PostgreSQL-plus-Redis, and app DB boundaries.
 - `references/session-checkpoints-rollback-fork.md`: adding checkpoint, rollback, fork, regenerate, undo, and structured-data cleanup features to apps built with Kortyx.
-- `references/observability-otel.md`: backend-neutral server-side OpenTelemetry tracing, prompt metadata, tags, and trace ids on the React client.
+- `references/observability-otel.md`: backend-neutral server-side OpenTelemetry tracing, prompt metadata, tags, trace ids on the React client, and separate maintainer usage telemetry controls.
 - `references/observability-langfuse.md`: app-owned Langfuse export, Kortyx attribute mapping, Next.js flush lifecycle, optional prompt linking, and client feedback scores.
 
 Studio:
 
+- `references/studio-prompts.md`: typed prompt references, role-preserving serving, saved configuration, candidate/group eval launches, provenance, promotion policy, and cross-deployment CLI migration.
+
 - `references/studio-local-development.md`: starting Studio locally, connecting server-side SDK telemetry, publishing a workflow catalog, and verifying the first real run.
 - `references/studio-agent-debugging.md`: analyzing Studio run/session/interrupt URLs through the read-only CLI, connection selection, branch-aware evidence, and capture limitations.
+
+Evals:
+
+- `references/eval-onboarding.md`: the complete first-integration/deployment path,
+  configuration ownership, doctor diagnostics and evidence required before calling
+  setup complete. Read this first for a new eval integration or deployment.
+- `references/conversation-evals.md`: authoring `defineSuite` cases, initializing
+  `createEvals` around an existing agent, reusing application authentication,
+  scripted interrupt responses, emitted tool evidence, local judges, and mounting
+  the consumer endpoint. Read this before implementing an eval integration.
+- [references/eval-criteria-and-evidence.md](references/eval-criteria-and-evidence.md): writing independent judge criteria, describing frontend-visible versus internal fields, and configuring compact evidence, history, output selection, and custom filters. Read when authoring or tuning judging.
+- `references/studio-evals-and-ci.md`: registering consumer targets, enabling
+  execution scopes, configuring Studio/OpenRouter judges, environment variables,
+  Docker networking, saved results/comparisons, CLI commands, and post-deployment
+  CI, plus local `kortyx evals run` and terminal/JSON reporting without Studio.
+  Read this when wiring or operating eval execution.
 
 Hooks:
 
@@ -59,7 +77,7 @@ Hooks:
 - `references/hooks-child-workflows.md`: typed child calls, `parallel` groups, approval timing, output contracts, interrupt/replay safety, fork/rollback, and migration from handoffs.
 - `references/hooks-use-reason.md`: model calls, provider imports/options, local and MCP-derived tools, plural model-driven interrupts, schema output, and text streaming.
 - `references/hooks-interrupts-and-state.md`: human-in-the-loop flows, resume, replay, and persistence implications.
-- `references/hooks-structured-streaming.md`: choosing `useReason({ structured })` vs `useStructuredData(...)`.
+- `references/hooks-structured-streaming.md`: choosing model-selected output contracts vs application-authored `useStructuredData(...)`.
 - `references/hooks-runtime-context.md`: passing request context safely from route/client to nodes.
 
 React client:
@@ -85,13 +103,16 @@ React client:
 - Choose runtime persistence explicitly: memory for local/single-process use, Redis for shared TTL-oriented runtime state, PostgreSQL for authoritative durable history, or PostgreSQL plus Redis for durable storage with a payload cache. This storage is separate from the app database.
 - Keep OpenTelemetry tracing server-side and use generic Kortyx telemetry metadata.
 - Treat OpenTelemetry as the Kortyx observability contract. Keep backend exporters such as Langfuse app-owned.
-- Treat Studio as an observer: publish declared topology with `kortyx topology push`, and verify run telemetry with a real application request instead of a synthetic workflow.
+- For observability, publish declared topology with `kortyx topology push`, and verify run telemetry with a real application request instead of a synthetic workflow. Evals additionally let Studio initiate an application-owned suite; the consumer still executes the workflows and authorization logic.
+- Reuse an existing `createAgent` instance with `createEvals`; keep suites as plain data and credentials in app-owned `setup`/`execute`. Enable `toolExecution.emit: true` when criteria depend on tool results. Studio selects its own judge by default; an app judge is an explicit alternative, with no silent fallback.
+- Eval criteria must identify assessed fields and application presentation rules; execution evidence does not prove frontend visibility. Repeat necessary context in each criterion because they are graded separately. See `references/eval-criteria-and-evidence.md`.
 - Keep Studio API keys and all `KORTYX_TELEMETRY_*` configuration server-side.
 - Write user-facing answers, interrupt questions, and safe error messages in the
   user's language unless they request another language. Preserve code, schema
   fields, identifiers, and quoted source text rather than translating them
   implicitly.
-- `useReason({ outputSchema, structured.fields })` already streams known structured fields as `structured-data` chunks; do not confuse those with raw model JSON `text-delta` chunks.
+- Define model-selected values with `defineOutputContract(...)` and `useReason({ outputs })`. Contract `stream.fields` produces realtime `structured-data` partials; keep raw model JSON out of user-facing text.
+- `useReason({ outputSchema, structured })` and `result.output` are deprecated for removal in the next major. Use them only while migrating an existing caller or with a provider-native output model that cannot call tools, such as TypeSafe Jev; see the provider-specific reference.
 - `useReason({ tools })` accepts `KortyxExecutableTool[]`: directly imported local tools, request-bound tools, and MCP-derived tools from `createMCPClient(...).tools()`. `useReason` closes owned request-scoped resources by default.
 - Tools and model-driven human input share the same durable `useReason` loop. Define one or more contracts with `defineInterruptContract`, pass them under `interrupts.contracts`, choose `mode`, bound human turns with `maxRequests`, and read `result.interruptHistory`.
 - The singular `useReason({ interrupt })` option and `result.interruptResponse` are deprecated and removed in the next major; do not use them in new code.
@@ -118,3 +139,12 @@ React client:
   trusted server/observability paths.
 - Sensitive auth context is derived on the server.
 - Studio integrations, when requested, publish the real workflow catalog and verify a real run separately.
+- Eval integrations exercise the app's real permission path, expected interrupts and tool evidence; verify the selected judge and saved results. Keep deterministic runtime contracts in SDK integration tests and semantic behavior in eval criteria. A healthy Studio deployment or queued run is insufficient: confirm consumer discovery and a completed representative run through the actual application path.
+
+For required structured responses, use `expect.outputs: [{ schemaId, schemaVersion? }]`.
+Every listed contract must be complete in the current step. An omitted version accepts
+any version. Use criteria for payload meaning; do not treat partial, invalidated or
+previous-turn outputs as success. See `references/conversation-evals.md` for the
+SDK, Studio and custom executor shape.
+
+Eval run history and case drawers use scoped SSE updates. Costs separate workflow telemetry and judge usage, show partial/unknown values honestly, and reuse Studio model pricing. See `references/studio-evals-and-ci.md` for billing boundaries and live-mode behavior.

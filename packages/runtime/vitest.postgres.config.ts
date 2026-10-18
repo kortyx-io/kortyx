@@ -2,7 +2,11 @@ import { defineConfig } from "vitest/config";
 
 export default defineConfig({
   test: {
-    include: ["test/postgres.integration.ts"],
+    include: [
+      "test/postgres.integration.ts",
+      "test/checkpoint-retention.integration.ts",
+      "test/eval-executions.postgres.integration.ts",
+    ],
     testTimeout: 15_000,
     coverage: {
       provider: "v8",

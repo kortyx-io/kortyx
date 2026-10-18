@@ -159,9 +159,9 @@ for presenting the request and sending the resume response.
   never sent as telemetry.
 
 For implementation details, read
-[Interrupts and Resume](../../apps/website/src/docs/v0/03-guides/02-interrupts-and-resume.md)
+[Interrupts and Resume](../../apps/website/src/docs/sdk/v0/03-guides/02-interrupts-and-resume.md)
 and
-[Runtime Persistence Adapters](../../apps/website/src/docs/v0/04-production/02-framework-adapters.md).
+[Runtime Persistence Adapters](../../apps/website/src/docs/sdk/v0/04-production/02-framework-adapters.md).
 Use Redis in production when paused runs must survive application restarts or
 multiple instances.
 
@@ -204,3 +204,12 @@ it as a hosted service.
 
 Report security issues through [SECURITY.md](../../SECURITY.md), not a public
 issue.
+
+## Explore sample data
+
+Use the navbar project selector to open the read-only [Sample project](./sample-project.md). You can hide or restore it in Settings → Sample project.
+
+Use **Explore Studio** in the navbar or **Help & tours** in the Studio menu for
+optional task chapters, the full walkthrough, and resume. **Set up your project**
+opens the shared connection guide in OSS. Sample progress never marks your SDK
+integration connected. See the [sample and learning guide](sample-project.md).

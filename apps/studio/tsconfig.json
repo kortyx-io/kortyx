@@ -19,7 +19,16 @@
       }
     ],
     "paths": {
-      "@/*": ["./src/*"]
+      "@studio/styles": ["./src/app/globals.css"],
+      "@/*": ["./src/*"],
+      "@studio/auth": ["./src/auth/server.ts"],
+      "@studio/auth-contracts": ["./src/auth/contracts.ts"],
+      "@studio/settings": ["./src/settings/server.ts"],
+      "@studio/settings-contracts": ["./src/settings/contracts.ts"],
+      "@studio/shell": ["./src/shell/server.ts"],
+      "@studio/shell-contracts": ["./src/shell/contracts.ts"],
+      "@studio/usage": ["./src/usage/server.ts"],
+      "@studio/usage-contracts": ["./src/usage/contracts.ts"]
     }
   },
   "include": [

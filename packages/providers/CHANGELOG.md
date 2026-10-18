@@ -1,5 +1,67 @@
 # Changelog
 
+## [0.9.4](https://github.com/kortyx-io/kortyx/compare/providers-v0.9.3...providers-v0.9.4) (2026-10-16)
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/core bumped to 0.15.0
+
+## [0.9.3](https://github.com/kortyx-io/kortyx/compare/providers-v0.9.2...providers-v0.9.3) (2026-10-13)
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/core bumped to 0.14.0
+
+## [0.9.2](https://github.com/kortyx-io/kortyx/compare/providers-v0.9.1...providers-v0.9.2) (2026-10-11)
+
+
+### Bug Fixes
+
+* **website:** reconcile credibility branch with current main ([60199f9](https://github.com/kortyx-io/kortyx/commit/60199f992242eb7c409a95bc7a6898d31bac601d))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/core bumped to 0.13.1
+
+## [0.9.1](https://github.com/kortyx-io/kortyx/compare/providers-v0.9.0...providers-v0.9.1) (2026-10-09)
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/core bumped to 0.13.0
+
+## [0.9.0](https://github.com/kortyx-io/kortyx/compare/providers-v0.8.4...providers-v0.9.0) (2026-10-08)
+
+
+### Features
+
+* **telemetry:** preserve complete private error diagnostics ([#290](https://github.com/kortyx-io/kortyx/issues/290)) ([e1c5a88](https://github.com/kortyx-io/kortyx/commit/e1c5a88c494016fd84a1af40579412fcfde31271))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/core bumped to 0.12.0
+
+## [0.8.4](https://github.com/kortyx-io/kortyx/compare/providers-v0.8.3...providers-v0.8.4) (2026-10-07)
+
+
+### Bug Fixes
+
+* **security:** remediate CodeQL findings ([#273](https://github.com/kortyx-io/kortyx/issues/273)) ([55bc484](https://github.com/kortyx-io/kortyx/commit/55bc48426b72c0d370fe830f64db5bc1249bb861))
+
 ## [0.8.3](https://github.com/kortyx-io/kortyx/compare/providers-v0.8.2...providers-v0.8.3) (2026-09-22)
 
 

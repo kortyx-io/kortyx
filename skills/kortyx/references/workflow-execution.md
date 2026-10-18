@@ -66,6 +66,7 @@ Verify the same workflow through chat and execute, both directions of chat/direc
 - Continue uses `agent.resume({workflow, resume, response: {type: "select", ids: ["continue"]}})`. It restores the saved graph checkpoint with a fresh allowance at the saved server ceilings. Optional server `resume.limits` changes that next allowance; there is no automatic ceiling increase. Ordinary human resumes retain spent allowance and ignore limit overrides. Chat options select new-run policy; limit continuations restore the saved policy.
 - Use existing checkpoint/replay semantics. Do not add tool/model micro-checkpoints or claim exactly-once execution. Completed nodes and saved child results are reused, while the active node/tool loop can repeat side effects and consume the fresh allowance. If that node exceeds a whole allowance it can pause again; choose appropriate server caps. Retain existing token usage across continuation.
 - Forks copy checkpoint state and spend independently; rollback restores its checkpoint's accounting state. No cross-run budget ledger is required. Signals remain transient; counters are serializable.
+- Continue preserves completed tools and any accepted answer that has not yet reached its addressed interrupt, including a pause before node admission. It cannot supply that answer to a later question. Use the public resume handle; do not alter engine pending writes. Upgrade all workers together. Ambiguous legacy budget checkpoints require restarting the paused operation rather than guessing an answer.
 - Verify all four limits, model/tool failures, retries and handoff loops, nested human answers before and after a limit, duplicate Continue, independent forks with memory and the chosen production adapter, persistence failure and cancellation while saving a pause. Test `/limits` in the API-route example and inspect a real paused/resumed run in Studio.
 
 ## Conversational Regression Testing
@@ -73,6 +74,13 @@ Verify the same workflow through chat and execute, both directions of chat/direc
 Test observable conversation behavior in addition to graph/unit correctness. Use
 deterministic provider/tool fixtures for CI and a small live-model evaluation set
 for prompt/model changes.
+
+For the built-in suite runner, read [conversation evals](conversation-evals.md).
+It wraps the existing agent with `createEvals`, records public execution evidence,
+and supports scripted sequential interrupts. Its default executor consumes
+`agent.streamChat`; adapt a typed execution API with app-owned `execute` when
+needed. Keep replay, persistence, duplicate resume and execution-limit contracts
+in deterministic integration tests rather than relying on an LLM judge.
 
 Cover at least:
 

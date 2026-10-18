@@ -1,3 +1,4 @@
+import { studioFeature, studioOperation } from "@/usage/client";
 export type LiveRefreshStatus =
   | "off"
   | "connecting"
@@ -23,7 +24,8 @@ type LiveEventSource = {
 type Timer = ReturnType<typeof setTimeout>;
 
 export type LiveRefreshControllerOptions = {
-  resource: "runs" | "sessions" | "interrupts";
+  resource: "runs" | "sessions" | "interrupts" | "evals";
+  relatedResources?: readonly ("runs" | "sessions" | "interrupts" | "evals")[];
   refresh: () => Promise<void>;
   onSnapshot: (snapshot: LiveRefreshSnapshot) => void;
   createEventSource?: (url: string) => LiveEventSource;
@@ -101,11 +103,19 @@ export const createLiveRefreshController = (
       refreshTrailingForced ||= force;
       return;
     }
+    const refreshUsage = studioOperation("studio.live", {
+      resource: options.resource,
+      action: force ? "manual_refresh" : "refresh",
+      origin: force ? "foreground" : "background",
+    });
     refreshActive = true;
     publish({ refreshing: true });
     void options
       .refresh()
-      .catch(() => undefined)
+      .then(
+        () => refreshUsage.end(),
+        (error) => refreshUsage.fail(error),
+      )
       .finally(() => {
         refreshActive = false;
         publish({ refreshing: false });
@@ -132,28 +142,39 @@ export const createLiveRefreshController = (
     }, delay);
   };
 
-  const connect = (refreshOnOpen = false) => {
+  const connect = () => {
     if (!enabled || !available || disposed || source) return;
     publish({ status: openedOnce ? "reconnecting" : "connecting" });
     const nextSource = createEventSource(
-      `/api/studio/changes?resources=${options.resource}`,
+      `/api/studio/changes?resources=${[options.resource, ...(options.relatedResources ?? [])].join(",")}`,
     );
     source = nextSource;
     nextSource.onopen = () => {
       if (source !== nextSource) return;
+      studioFeature("studio.live", {
+        resource: options.resource,
+        status: "live",
+        origin: "background",
+      });
       clearScheduledWork();
       publish({ status: "live" });
-      if (refreshOnOpen) requestRefresh();
+      // Reconcile the gap between the initial read and opening the subscription.
+      requestRefresh();
       openedOnce = true;
     };
     nextSource.onerror = () => {
       if (source !== nextSource) return;
+      studioFeature("studio.live", {
+        resource: options.resource,
+        status: "reconnecting",
+        origin: "background",
+      });
       closeSource();
       publish({ status: "reconnecting" });
       scheduleFallback();
       reconnectTimer = setTimer(() => {
         reconnectTimer = undefined;
-        connect(true);
+        connect();
       }, reconnectDelayMs);
     };
     nextSource.addEventListener("change", () => requestRefresh());

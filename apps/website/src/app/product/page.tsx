@@ -13,8 +13,8 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { FlowLine } from "@/components/marketing/flow-line";
 import { MarketingCta } from "@/components/marketing/marketing-cta";
-import { MarketingFooter } from "@/components/marketing/marketing-footer";
 import { MarketingPageJsonLd } from "@/components/marketing/marketing-page-json-ld";
+import { MarketingShell } from "@/components/marketing/marketing-shell";
 import { Reveal, Stagger, StaggerItem } from "@/components/marketing/reveal";
 import { createMarketingMetadata } from "@/lib/metadata";
 
@@ -114,7 +114,7 @@ function ProductCode() {
 
 export default function ProductPage() {
   return (
-    <main className="marketing-page min-h-screen overflow-hidden bg-[#f4f3f8] text-[#111426]">
+    <MarketingShell className="marketing-page min-h-screen overflow-hidden bg-[#f4f3f8] text-[#111426]">
       <MarketingPageJsonLd
         name={pageTitle}
         description={pageDescription}
@@ -132,12 +132,12 @@ export default function ProductPage() {
             </h1>
             <p className="marketing-lede mt-7 text-white/56">
               Stream typed output, pause for human input, resume from a
-              checkpoint, and keep session history without writing a second
-              state model for React.
+              checkpoint, and keep session history with a shared state model for
+              your server and React.
             </p>
             <div className="mt-9 flex flex-col gap-3 sm:flex-row">
               <Link
-                href="/docs/getting-started/quickstart-nextjs"
+                href="/docs/sdk/getting-started/quickstart-nextjs"
                 className="group inline-flex h-12 items-center justify-center gap-2 rounded-full bg-white px-6 text-sm font-semibold text-[#08080c]"
               >
                 Build the quickstart
@@ -307,7 +307,6 @@ export default function ProductPage() {
       </section>
 
       <MarketingCta />
-      <MarketingFooter />
-    </main>
+    </MarketingShell>
   );
 }

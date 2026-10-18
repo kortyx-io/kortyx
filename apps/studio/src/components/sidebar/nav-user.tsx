@@ -1,14 +1,17 @@
 "use client";
 
+import type { StudioShellContribution } from "@studio/shell-contracts";
 import {
   BookOpen,
   ChevronsUpDown,
+  Compass,
   ExternalLink,
+  LogOut,
   Server,
   Settings,
+  UserRound,
 } from "lucide-react";
-import Link from "next/link";
-
+import Link from "@/components/scoped-link";
 import { ThemeMenuSub } from "@/components/theme-toggle";
 import {
   DropdownMenu,
@@ -25,6 +28,7 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from "@/components/ui/sidebar";
+import { useLearning } from "@/features/onboarding/provider";
 import type {
   StudioConnectionStatus,
   StudioShellContext,
@@ -40,10 +44,13 @@ const statusClass: Record<StudioConnectionStatus, string> = {
 
 export function NavUser({
   studioContext,
+  account,
 }: {
   studioContext: StudioShellContext;
+  account?: StudioShellContribution["account"];
 }) {
   const { isMobile } = useSidebar();
+  const learning = useLearning();
 
   return (
     <SidebarMenu>
@@ -52,25 +59,41 @@ export function NavUser({
           <DropdownMenuTrigger asChild>
             <SidebarMenuButton
               size="lg"
-              aria-label={`Open Studio menu. ${studioContext.connection.label}.`}
+              aria-label={
+                account
+                  ? `Open account menu for ${account.name}`
+                  : "Open Studio menu"
+              }
               className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
             >
               <div className="relative flex size-8 shrink-0 items-center justify-center rounded-lg bg-sidebar-accent">
-                <Server className="size-4" aria-hidden="true" />
-                <span
-                  className={cn(
-                    "absolute right-0.5 bottom-0.5 size-2.5 rounded-full border-2 border-sidebar",
-                    statusClass[studioContext.connection.status],
-                  )}
-                  aria-hidden="true"
-                />
+                {account ? (
+                  <UserRound className="size-4" aria-hidden="true" />
+                ) : (
+                  <Server className="size-4" aria-hidden="true" />
+                )}
+                {!account && (
+                  <span
+                    className={cn(
+                      "absolute right-0.5 bottom-0.5 size-2.5 rounded-full border-2 border-sidebar",
+                      statusClass[studioContext.connection.status],
+                    )}
+                    aria-hidden="true"
+                  />
+                )}
               </div>
               <div className="grid flex-1 text-left text-sm leading-tight">
-                <span className="truncate font-medium">
-                  {studioContext.identity.name}
+                <span
+                  className="truncate font-medium"
+                  title={account?.name ?? "Studio installation"}
+                >
+                  {account?.name ?? "Studio installation"}
                 </span>
-                <span className="truncate text-xs text-muted-foreground">
-                  {studioContext.connection.label}
+                <span
+                  className="truncate text-xs text-muted-foreground"
+                  title={account?.email ?? studioContext.identity.access}
+                >
+                  {account?.email ?? studioContext.identity.access}
                 </span>
               </div>
               <ChevronsUpDown className="ml-auto size-4" />
@@ -86,29 +109,31 @@ export function NavUser({
               <div className="grid gap-1 px-2 py-2 text-left text-sm">
                 <div className="flex items-center gap-2">
                   <span
-                    className={cn(
-                      "size-2 rounded-full",
-                      statusClass[studioContext.connection.status],
-                    )}
-                    aria-hidden="true"
-                  />
-                  <span className="font-medium">
-                    {studioContext.connection.label}
+                    className="truncate font-medium"
+                    title={account?.name ?? "Studio installation"}
+                  >
+                    {account?.name ?? "Studio installation"}
                   </span>
                 </div>
                 <span
                   className="truncate text-xs text-muted-foreground"
-                  title={`${studioContext.identity.name} / ${studioContext.scope.project}`}
+                  title={account?.email ?? studioContext.identity.access}
                 >
-                  {studioContext.identity.name} / {studioContext.scope.project}
-                </span>
-                <span className="truncate text-xs text-muted-foreground">
-                  {studioContext.identity.access}
+                  {account?.email ?? studioContext.identity.access}
                 </span>
               </div>
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
             <DropdownMenuGroup>
+              {learning && (
+                <DropdownMenuItem
+                  disabled={learning.active}
+                  onSelect={() => requestAnimationFrame(learning.openHub)}
+                >
+                  <Compass />
+                  Help & tours
+                </DropdownMenuItem>
+              )}
               <DropdownMenuItem asChild>
                 <Link href="/settings">
                   <Settings />
@@ -132,6 +157,20 @@ export function NavUser({
               <ThemeMenuSub />
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
+            {account && (
+              <>
+                <form action="/auth/logout" method="post">
+                  <input type="hidden" name="csrf" value={account.logoutCsrf} />
+                  <DropdownMenuItem asChild>
+                    <button type="submit" className="w-full">
+                      <LogOut />
+                      Sign out
+                    </button>
+                  </DropdownMenuItem>
+                </form>
+                <DropdownMenuSeparator />
+              </>
+            )}
             <DropdownMenuLabel className="flex items-center justify-between px-2 py-1.5 text-xs font-normal text-muted-foreground">
               <span>Studio</span>
               <span className="font-mono">

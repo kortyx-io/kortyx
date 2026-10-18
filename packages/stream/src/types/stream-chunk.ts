@@ -21,7 +21,7 @@ export const StreamChunkSchema = z.union([
   z.object({
     type: z.literal("structured-data-invalidated"),
     streamId: z.string(),
-    checkpointId: z.string(),
+    checkpointId: z.string().optional(),
   }),
   z.object({
     type: z.literal("trace"),
@@ -90,6 +90,7 @@ export const StreamChunkSchema = z.union([
   }),
   z.object({
     type: z.literal("tool-call-error"),
+    diagnosticId: z.uuid().optional(),
     failure: z
       .custom<FailureDescriptor>(isFailureDescriptor)
       .transform(serializeFailure)
@@ -182,6 +183,7 @@ export const StreamChunkSchema = z.union([
   z.object({ type: z.literal("done"), data: z.any().optional() }),
   z.object({
     type: z.literal("error"),
+    diagnosticId: z.uuid().optional(),
     message: z.string(),
     failure: z
       .custom<FailureDescriptor>(isFailureDescriptor)

@@ -7,7 +7,9 @@ if (packages.length === 0) {
   process.exit(0);
 }
 
-const deadline = Date.now() + 10 * 60 * 1000;
+// npm scans accepted uploads before making them installable. Its documented
+// processing window can exceed 15 minutes; keep polling without republishing.
+const deadline = Date.now() + 30 * 60 * 1000;
 let delay = 2_000;
 const pending = new Map(packages.map((pkg) => [pkg.name, pkg.version]));
 
@@ -38,10 +40,10 @@ while (pending.size > 0 && Date.now() < deadline) {
 
 if (pending.size > 0) {
   throw new Error(
-    `npm registry did not expose the expected versions and ${distTag} tags: ${[
+    `npm registry did not expose the expected versions and ${distTag} tags within 30 minutes: ${[
       ...pending,
     ]
       .map(([name, version]) => `${name}@${version}`)
-      .join(", ")}`,
+      .join(", ")}. Check npm processing status before retrying publication.`,
   );
 }

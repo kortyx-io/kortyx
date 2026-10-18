@@ -1,13 +1,22 @@
+import type { ApiDeployment } from "./auth/contracts";
+
 export type ApiConfig = {
   host: string;
   port: number;
   databaseUrl: string;
   apiKeyPepper: string;
   nodeEnv: string;
+  deployment: ApiDeployment;
+  evalWorkerEnabled: boolean;
+  evalMaxConcurrentEvaluations: number;
 };
 
 export const loadApiConfig = (): ApiConfig => {
   const nodeEnv = process.env.NODE_ENV ?? "development";
+  const deployment = process.env.KORTYX_API_DEPLOYMENT ?? "self-hosted";
+  if (deployment !== "self-hosted" && deployment !== "cloud") {
+    throw new Error("KORTYX_API_DEPLOYMENT must be self-hosted or cloud.");
+  }
   const databaseUrl = process.env.DATABASE_URL;
   if (!databaseUrl) throw new Error("DATABASE_URL is required.");
 
@@ -24,5 +33,27 @@ export const loadApiConfig = (): ApiConfig => {
     databaseUrl,
     apiKeyPepper,
     nodeEnv,
+    deployment,
+    ...loadEvalWorkerConfig(),
+  };
+};
+
+export const loadEvalWorkerConfig = () => {
+  const workerEnabled = process.env.KORTYX_API_EVAL_WORKER_ENABLED ?? "true";
+  if (workerEnabled !== "true" && workerEnabled !== "false")
+    throw new Error("KORTYX_API_EVAL_WORKER_ENABLED must be true or false.");
+  const workerConcurrency =
+    process.env.KORTYX_EVAL_MAX_CONCURRENT_EVALUATIONS ?? "4";
+  if (
+    !/^[1-9]\d*$/.test(workerConcurrency) ||
+    !Number.isSafeInteger(Number(workerConcurrency))
+  )
+    throw new Error(
+      "KORTYX_EVAL_MAX_CONCURRENT_EVALUATIONS must be a positive integer.",
+    );
+
+  return {
+    evalWorkerEnabled: workerEnabled === "true",
+    evalMaxConcurrentEvaluations: Number(workerConcurrency),
   };
 };

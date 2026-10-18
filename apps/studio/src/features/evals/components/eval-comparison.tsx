@@ -1,0 +1,317 @@
+"use client";
+
+import { Info } from "lucide-react";
+import { parseAsBoolean, parseAsString } from "nuqs";
+import { DataTable, type DataTableColumn } from "@/components/data-table";
+import { columnFilter } from "@/components/data-table/filter-fields";
+import { valueColumn } from "@/components/data-table/value-column";
+import { DetailLink } from "@/components/detail/detail-link";
+import { usePrepareDetailNavigation } from "@/components/detail/detail-stack";
+import { Button } from "@/components/ui/button";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { formatDateTime } from "@/lib/format";
+import { detailNavigationHref, useStudioQueryStates } from "@/lib/nuqs";
+import { useRouter, useSearchParams } from "@/lib/scoped-navigation";
+import { studioHelp, withStudioColumnHelp } from "@/lib/studio-help";
+import { comparisonMetric } from "../lib/comparison-metrics";
+import { evalComparisonCaseHref } from "../lib/navigation";
+import {
+  type ComparisonRow,
+  compareRuns,
+  displayName,
+  passLabel,
+} from "../lib/presentation";
+import type { EvalDetail, EvalHistory } from "../schema";
+import { EvalDetailHeader, EvalSummaryMetric } from "./eval-detail-header";
+import { EvalDropdown } from "./eval-dropdown";
+import { EvalStatus } from "./eval-status";
+
+export function EvalComparison({
+  candidate,
+  baseline,
+  history,
+  baselineId,
+  onBaselineChange,
+  onBack,
+  loading,
+  error,
+}: {
+  candidate: EvalDetail;
+  baseline: EvalDetail | null;
+  history: EvalHistory;
+  baselineId: string | null;
+  onBaselineChange: (id: string) => void;
+  onBack: () => void;
+  loading: boolean;
+  error: string | null;
+}) {
+  const router = useRouter();
+  const search = useSearchParams();
+  const prepareNavigation = usePrepareDetailNavigation();
+  const [query, setQuery] = useStudioQueryStates(
+    {
+      change: parseAsString.withDefault("all"),
+      "expand.comparison-context": parseAsBoolean.withDefault(false),
+    },
+    { shallow: true },
+  );
+  const rows = baseline ? compareRuns(baseline, candidate) : [];
+  const caseHref = (id: string) =>
+    evalComparisonCaseHref(candidate.id, id, baselineId ?? "");
+  const choices = history.runs.filter(
+    (r) => r.id !== candidate.id && !["queued", "running"].includes(r.status),
+  );
+  const columns: DataTableColumn<ComparisonRow>[] = [
+    {
+      key: "case",
+      filter: [
+        columnFilter("case", "Conversation", "text", (r) => r.name),
+        columnFilter("caseId", "Case ID", "text", (r) => r.id),
+      ],
+      label: "Conversation",
+      defaultWidth: 320,
+      render: (r) => (
+        <Button variant="link" size="inline" className="max-w-full" asChild>
+          <DetailLink href={caseHref(r.id)}>
+            <span className="truncate">{r.name}</span>
+          </DetailLink>
+        </Button>
+      ),
+    },
+    {
+      key: "baseline",
+      filter: [
+        columnFilter("baseline", "Baseline pass rate (%)", "number", (r) =>
+          r.baseline.length
+            ? (r.baseline.filter((a) => a.status === "passed").length /
+                r.baseline.length) *
+              100
+            : undefined,
+        ),
+        columnFilter("baselineOutcome", "Baseline outcome", "enum", (r) =>
+          r.baseline.map((a) => a.status),
+        ),
+      ],
+      label: "Baseline",
+      defaultWidth: 130,
+      render: (r) => (
+        <span className="font-mono text-xs">{passLabel(r.baseline)}</span>
+      ),
+    },
+    {
+      key: "candidate",
+      filter: [
+        columnFilter("candidate", "Candidate pass rate (%)", "number", (r) =>
+          r.candidate.length
+            ? (r.candidate.filter((a) => a.status === "passed").length /
+                r.candidate.length) *
+              100
+            : undefined,
+        ),
+        columnFilter("candidateOutcome", "Candidate outcome", "enum", (r) =>
+          r.candidate.map((a) => a.status),
+        ),
+      ],
+      label: "Candidate",
+      defaultWidth: 130,
+      render: (r) => (
+        <span className="font-mono text-xs">{passLabel(r.candidate)}</span>
+      ),
+    },
+    {
+      key: "change",
+      filter: columnFilter("change", "Change", "enum", (r) => r.change),
+      label: "Change",
+      defaultWidth: 170,
+      render: (r) => (
+        <span
+          title={r.reason}
+          className={`text-xs ${r.change === "improved" ? "text-emerald-700 dark:text-emerald-400" : r.change === "regressed" ? "text-red-700 dark:text-red-400" : "text-muted-foreground"}`}
+        >
+          {r.change === "changed" ? "Context changed" : displayName(r.change)}
+        </span>
+      ),
+    },
+
+    valueColumn<ComparisonRow>({
+      key: "passRateDelta",
+      label: "Pass-rate change (pp)",
+      kind: "number",
+      read: (r) => comparisonMetric(r, "passRate"),
+      format: (v) => `${Number(v) >= 0 ? "+" : ""}${Number(v).toFixed(1)} pp`,
+    }),
+    valueColumn<ComparisonRow>({
+      key: "durationDelta",
+      label: "Mean duration change (ms)",
+      kind: "number",
+      read: (r) => comparisonMetric(r, "duration"),
+      format: (v) => `${Number(v) >= 0 ? "+" : ""}${Number(v).toFixed(0)} ms`,
+      width: 190,
+    }),
+    valueColumn<ComparisonRow>({
+      key: "costDelta",
+      label: "Mean cost change",
+      kind: "number",
+      read: (r) => comparisonMetric(r, "cost"),
+      format: (v) => `${Number(v) >= 0 ? "+" : ""}${Number(v).toFixed(6)}`,
+    }),
+    valueColumn<ComparisonRow>({
+      key: "baselineAttempts",
+      label: "Baseline attempts",
+      kind: "number",
+      read: (r) => r.baseline.length,
+    }),
+    valueColumn<ComparisonRow>({
+      key: "candidateAttempts",
+      label: "Candidate attempts",
+      kind: "number",
+      read: (r) => r.candidate.length,
+    }),
+  ];
+  return (
+    <div
+      data-tour-surface="eval-comparison"
+      data-comparison-ready={baseline && !loading ? "true" : "false"}
+      className="flex h-full min-h-0 flex-col"
+    >
+      <EvalDetailHeader
+        title={candidate.suite.name ?? displayName(candidate.suiteId)}
+        description={`Comparison · ${candidate.targetName} · ${formatDateTime(candidate.createdAt)}`}
+        backLabel="Candidate run"
+        onBack={onBack}
+        actions={<EvalStatus status={candidate.status} />}
+      >
+        <div className="flex min-w-0 flex-wrap items-center gap-x-4 gap-y-2 rounded-md border bg-muted/20 px-3 py-2">
+          <div className="flex max-w-full shrink-0 flex-wrap items-center gap-x-3 gap-y-1">
+            {baseline ? (
+              <>
+                <EvalSummaryMetric
+                  label="Improved"
+                  value={rows.filter((r) => r.change === "improved").length}
+                />
+                <EvalSummaryMetric
+                  label="Regressed"
+                  value={rows.filter((r) => r.change === "regressed").length}
+                />
+                <EvalSummaryMetric
+                  label="Unchanged"
+                  value={rows.filter((r) => r.change === "unchanged").length}
+                />
+                <EvalSummaryMetric
+                  label="Not comparable"
+                  value={
+                    rows.filter((r) =>
+                      ["changed", "incomplete"].includes(r.change),
+                    ).length
+                  }
+                />
+              </>
+            ) : (
+              <span className="text-xs text-muted-foreground">
+                Choose a baseline
+              </span>
+            )}
+          </div>
+          <div className="flex min-w-0 flex-1 basis-56 items-center justify-end gap-2">
+            <EvalDropdown
+              label="Baseline"
+              value={baselineId ?? ""}
+              className="h-7 min-w-0 w-full max-w-64 shrink"
+              triggerLabel={
+                baseline
+                  ? `Baseline · ${formatDateTime(baseline.createdAt)} · ${baseline.status}`
+                  : "Choose baseline"
+              }
+              options={choices.map((run) => ({
+                value: run.id,
+                label: `${run.suiteName ?? displayName(run.suiteId)} · ${formatDateTime(run.createdAt)} · ${run.status}`,
+              }))}
+              onChange={onBaselineChange}
+            />
+            <Popover
+              open={query["expand.comparison-context"]}
+              onOpenChange={(open) => {
+                void setQuery({ "expand.comparison-context": open });
+              }}
+            >
+              <PopoverTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon-xs"
+                  aria-label="Comparison context"
+                  title="Exploratory comparison: review recorded context before attributing score changes."
+                >
+                  <Info />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent
+                align="end"
+                className="w-80 max-w-[calc(100vw-2rem)] space-y-2 text-xs leading-relaxed"
+              >
+                <h3 className="font-semibold">Exploratory comparison</h3>
+                <p className="text-muted-foreground">
+                  Changes reflect recorded pass rates and do not establish that
+                  a prompt change caused the difference. Review each run's
+                  available prompt versions, actor context, and reference facts.
+                </p>
+                <p className="text-muted-foreground">
+                  Cases with different inputs, reference facts, definitions or
+                  graders show no score delta.
+                </p>
+                {baseline ? (
+                  <p className="break-words text-muted-foreground">
+                    Suite revisions: {baseline.suiteRevision.slice(0, 12)} →{" "}
+                    {candidate.suiteRevision.slice(0, 12)}. Graders:{" "}
+                    {baseline.result?.judge?.version ?? "Not recorded"} →{" "}
+                    {candidate.result?.judge?.version ?? "Not recorded"}.
+                  </p>
+                ) : null}
+              </PopoverContent>
+            </Popover>
+          </div>
+        </div>
+      </EvalDetailHeader>
+      {error ? (
+        <p
+          role="alert"
+          className="px-4 py-3 text-xs text-red-700 dark:text-red-400"
+        >
+          {error}
+        </p>
+      ) : null}
+      {loading ? (
+        <output className="p-12 text-center text-sm text-muted-foreground">
+          Loading baseline…
+        </output>
+      ) : (
+        <div className="min-h-0 flex-1">
+          <DataTable
+            help={{ filters: studioHelp.filters, views: studioHelp.views }}
+            compatibility={{ aliases: { change: "change" } }}
+            columns={withStudioColumnHelp(columns, "evals")}
+            tableId="eval-comparison"
+            className="rounded-none border-0 shadow-none"
+            data={rows}
+            getRowKey={(r) => r.id}
+            onRowClick={(r) => {
+              const href = detailNavigationHref(caseHref(r.id), search);
+              prepareNavigation?.(href);
+              router.push(href, { scroll: false });
+            }}
+            emptyState={
+              <p className="p-12 text-center text-sm text-muted-foreground">
+                {baseline
+                  ? "No cases match this filter."
+                  : "Choose a baseline to compare saved results."}
+              </p>
+            }
+          />
+        </div>
+      )}
+    </div>
+  );
+}

@@ -1,5 +1,170 @@
 # Changelog
 
+## [0.14.27](https://github.com/kortyx-io/kortyx/compare/example-nextjs-chat-server-action-v0.14.26...example-nextjs-chat-server-action-v0.14.27) (2026-10-16)
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/google bumped to 0.6.10
+    * @kortyx/react bumped to 0.8.6
+    * kortyx bumped to 0.32.0
+
+## [0.14.26](https://github.com/kortyx-io/kortyx/compare/example-nextjs-chat-server-action-v0.14.25...example-nextjs-chat-server-action-v0.14.26) (2026-10-14)
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * kortyx bumped to 0.31.1
+
+## [0.14.25](https://github.com/kortyx-io/kortyx/compare/example-nextjs-chat-server-action-v0.14.24...example-nextjs-chat-server-action-v0.14.25) (2026-10-13)
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/google bumped to 0.6.9
+    * @kortyx/react bumped to 0.8.5
+    * kortyx bumped to 0.31.0
+
+## [0.14.24](https://github.com/kortyx-io/kortyx/compare/example-nextjs-chat-server-action-v0.14.23...example-nextjs-chat-server-action-v0.14.24) (2026-10-13)
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * kortyx bumped to 0.30.2
+
+## [0.14.23](https://github.com/kortyx-io/kortyx/compare/example-nextjs-chat-server-action-v0.14.22...example-nextjs-chat-server-action-v0.14.23) (2026-10-11)
+
+
+### Bug Fixes
+
+* **website:** reconcile credibility branch with current main ([60199f9](https://github.com/kortyx-io/kortyx/commit/60199f992242eb7c409a95bc7a6898d31bac601d))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/google bumped to 0.6.8
+    * @kortyx/react bumped to 0.8.4
+    * kortyx bumped to 0.30.1
+
+## [0.14.22](https://github.com/kortyx-io/kortyx/compare/example-nextjs-chat-server-action-v0.14.21...example-nextjs-chat-server-action-v0.14.22) (2026-10-10)
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * kortyx bumped to 0.30.0
+
+## [0.14.21](https://github.com/kortyx-io/kortyx/compare/example-nextjs-chat-server-action-v0.14.20...example-nextjs-chat-server-action-v0.14.21) (2026-10-09)
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/google bumped to 0.6.7
+    * @kortyx/react bumped to 0.8.3
+    * kortyx bumped to 0.29.3
+
+## [0.14.20](https://github.com/kortyx-io/kortyx/compare/example-nextjs-chat-server-action-v0.14.19...example-nextjs-chat-server-action-v0.14.20) (2026-10-09)
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * kortyx bumped to 0.29.2
+
+## [0.14.19](https://github.com/kortyx-io/kortyx/compare/example-nextjs-chat-server-action-v0.14.18...example-nextjs-chat-server-action-v0.14.19) (2026-10-08)
+
+
+### Bug Fixes
+
+* **ui:** preserve multiline prompt formatting ([#296](https://github.com/kortyx-io/kortyx/issues/296)) ([9f4af86](https://github.com/kortyx-io/kortyx/commit/9f4af8676c10a19f5dc5661fed00d3130276284c))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * kortyx bumped to 0.29.1
+
+## [0.14.18](https://github.com/kortyx-io/kortyx/compare/example-nextjs-chat-server-action-v0.14.17...example-nextjs-chat-server-action-v0.14.18) (2026-10-08)
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * kortyx bumped to 0.29.0
+
+## [0.14.17](https://github.com/kortyx-io/kortyx/compare/example-nextjs-chat-server-action-v0.14.16...example-nextjs-chat-server-action-v0.14.17) (2026-10-08)
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/google bumped to 0.6.6
+    * @kortyx/react bumped to 0.8.2
+    * kortyx bumped to 0.28.2
+
+## [0.14.16](https://github.com/kortyx-io/kortyx/compare/example-nextjs-chat-server-action-v0.14.15...example-nextjs-chat-server-action-v0.14.16) (2026-10-07)
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * kortyx bumped to 0.28.1
+
+## [0.14.15](https://github.com/kortyx-io/kortyx/compare/example-nextjs-chat-server-action-v0.14.14...example-nextjs-chat-server-action-v0.14.15) (2026-10-07)
+
+
+### Bug Fixes
+
+* **deps:** remediate dependency security alerts ([#271](https://github.com/kortyx-io/kortyx/issues/271)) ([0d87ae8](https://github.com/kortyx-io/kortyx/commit/0d87ae8a4dfd54b616d4ebbf222f3bf3f37cc26c))
+* **deps:** remove obsolete vulnerable toolchains ([#272](https://github.com/kortyx-io/kortyx/issues/272)) ([af3a67f](https://github.com/kortyx-io/kortyx/commit/af3a67f98af4d493e9b6c60c06b25f9d7d1a46a6))
+* **security:** remediate CodeQL findings ([#273](https://github.com/kortyx-io/kortyx/issues/273)) ([55bc484](https://github.com/kortyx-io/kortyx/commit/55bc48426b72c0d370fe830f64db5bc1249bb861))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/google bumped to 0.6.5
+    * @kortyx/react bumped to 0.8.1
+    * kortyx bumped to 0.28.0
+
+## [0.14.14](https://github.com/kortyx-io/kortyx/compare/example-nextjs-chat-server-action-v0.14.13...example-nextjs-chat-server-action-v0.14.14) (2026-10-03)
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * kortyx bumped to 0.27.0
+
+## [0.14.13](https://github.com/kortyx-io/kortyx/compare/example-nextjs-chat-server-action-v0.14.12...example-nextjs-chat-server-action-v0.14.13) (2026-09-30)
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/react bumped to 0.8.0
+    * kortyx bumped to 0.26.0
+
 ## [0.14.12](https://github.com/kortyx-io/kortyx/compare/example-nextjs-chat-server-action-v0.14.11...example-nextjs-chat-server-action-v0.14.12) (2026-09-23)
 
 

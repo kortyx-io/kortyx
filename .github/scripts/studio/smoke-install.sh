@@ -40,8 +40,15 @@ cli="$clean_dir/node_modules/.bin/kortyx"
 "$cli" --help
 
 test "$(docker run --rm "$api_ref" node -p 'process.arch')" = "$EXPECTED_NODE_ARCH"
-docker run --rm --network none "$api_ref" \
-  pnpm --filter @kortyx/api exec vitest run test/studio-updater-ownership.test.ts
+test "$(docker run --rm "$api_ref" node -p 'process.getuid()')" = 1000
+docker run --rm --network none --user 0:0 --entrypoint pnpm "$api_ref" \
+  --filter @kortyx/api exec vitest run test/studio-updater-ownership.test.ts
+# Generate through the independently installed SDK and validate inside the API image.
+node "$(dirname "$0")/generate-eval-manifest.mjs" "$clean_dir" "$clean_dir/consumer-manifest.json"
+docker run --rm --network none --user 0:0 --entrypoint pnpm \
+  --mount "type=bind,src=$clean_dir/consumer-manifest.json,dst=/tmp/consumer-manifest.json,readonly" \
+  --mount "type=bind,src=$(realpath "$(dirname "$0")/validate-eval-manifest.mjs"),dst=/tmp/validate-eval-manifest.mjs,readonly" \
+  "$api_ref" --filter @kortyx/api exec tsx /tmp/validate-eval-manifest.mjs
 test "$(docker run --rm "$studio_ref" node -p 'process.arch')" = "$EXPECTED_NODE_ARCH"
 test "$(docker run --rm "$studio_ref" node -p 'require("/app/apps/studio/package.json").version')" = "$VERSION"
 
@@ -149,3 +156,6 @@ KORTYX_SMOKE_ID="${ARCH_ID}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}" \
 KORTYX_SMOKE_API_PORT=26400 \
 KORTYX_SMOKE_STUDIO_PORT=26300 \
   ./scripts/smoke-studio-external-postgres.sh
+
+# Reuse this release's existing AMD64/ARM64 jobs; no additional runner suite.
+STUDIO_SMOKE_CLI="$cli" bash "$(dirname "$0")/smoke-upgrade.sh"

@@ -471,7 +471,13 @@ describe("createStructuredStreamAccumulator", () => {
     expect(accumulator.entries()).toHaveLength(1);
     expect(accumulator.values()).toHaveLength(1);
     expect(accumulator.toRecord().profile?.status).toBe("done");
-    expect(accumulator.delete("profile")).toBe(true);
+    expect(
+      accumulator.applyStreamChunk({
+        type: "structured-data-invalidated",
+        streamId: "profile",
+      }),
+    ).toBeUndefined();
+    expect(accumulator.has("profile")).toBe(false);
     accumulator.clear();
     expect(accumulator.size()).toBe(0);
   });

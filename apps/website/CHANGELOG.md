@@ -1,5 +1,142 @@
 # Changelog
 
+## [0.52.0](https://github.com/kortyx-io/kortyx/compare/website-v0.51.1...website-v0.52.0) (2026-10-16)
+
+
+### Features
+
+* **evals:** configurable deadlines and original error visibility ([#354](https://github.com/kortyx-io/kortyx/issues/354)) ([7dde173](https://github.com/kortyx-io/kortyx/commit/7dde173b54eb37a2d28ff28ac342a3333e5ed902))
+* **telemetry:** improve failure classification and add CLI usage ([#355](https://github.com/kortyx-io/kortyx/issues/355)) ([c5fbbed](https://github.com/kortyx-io/kortyx/commit/c5fbbed3064ea7b2b3020617db7ce09d1b175db3))
+
+
+### Bug Fixes
+
+* **website:** resolve Ahrefs metadata and navigation findings ([#360](https://github.com/kortyx-io/kortyx/issues/360)) ([6ed06be](https://github.com/kortyx-io/kortyx/commit/6ed06beca2b957abbc616eb06f3ce0267ccfa7e5))
+* **website:** restore legacy docs URLs and improve search visibility ([#356](https://github.com/kortyx-io/kortyx/issues/356)) ([65590ca](https://github.com/kortyx-io/kortyx/commit/65590ca467a4b481370ca8c5526c130d8d70ca75))
+
+## [0.51.1](https://github.com/kortyx-io/kortyx/compare/website-v0.51.0...website-v0.51.1) (2026-10-14)
+
+
+### Bug Fixes
+
+* **runtime:** preserve interrupt state across pauses and resume ([#348](https://github.com/kortyx-io/kortyx/issues/348)) ([03b49f2](https://github.com/kortyx-io/kortyx/commit/03b49f2b8b6b44a2852d16fd4fe1b3e199316072))
+
+## [0.51.0](https://github.com/kortyx-io/kortyx/compare/website-v0.50.1...website-v0.51.0) (2026-10-13)
+
+
+### ⚠ BREAKING CHANGES
+
+* **runtime:** Consumer eval routes cap active attempts at 20 by default. Set maxActiveAttempts before upgrading consumers with higher concurrency. Upgrade API and Studio together for the new case-dispatch progress events.
+* **agent:** Consumer eval routes cap active attempts at 20 by default. Set maxActiveAttempts before upgrading consumers with higher concurrency. Upgrade API and Studio together for the new case-dispatch progress events.
+
+### Features
+
+* **agent:** make concurrent eval execution resilient ([#339](https://github.com/kortyx-io/kortyx/issues/339)) ([84d0e4f](https://github.com/kortyx-io/kortyx/commit/84d0e4fe3d35e5cf80713f7550ef2b1d83e5a2ec))
+* **runtime:** add opt-in workflow data reducers ([#340](https://github.com/kortyx-io/kortyx/issues/340)) ([8be2c81](https://github.com/kortyx-io/kortyx/commit/8be2c81f74c5c51ab98443144f3491d4e8d54a88))
+* **studio:** enable OSS capabilities by default ([#336](https://github.com/kortyx-io/kortyx/issues/336)) ([7e55ba5](https://github.com/kortyx-io/kortyx/commit/7e55ba55c5a5a488b4284ae79b57b23ca6b6b494))
+
+
+### Bug Fixes
+
+* **evals:** preserve diagnostics and separate postcondition failures ([#337](https://github.com/kortyx-io/kortyx/issues/337)) ([d4fce4e](https://github.com/kortyx-io/kortyx/commit/d4fce4e670971d3b755835fc681c8125f67a9c70))
+* **openrouter:** explain parameter routing failures ([#338](https://github.com/kortyx-io/kortyx/issues/338)) ([193a287](https://github.com/kortyx-io/kortyx/commit/193a28794b6f05626a2d69148fa8592fcd5956e9))
+
+## [0.50.1](https://github.com/kortyx-io/kortyx/compare/website-v0.50.0...website-v0.50.1) (2026-10-13)
+
+
+### Bug Fixes
+
+* **website:** remove hardcoded legal review status ([#333](https://github.com/kortyx-io/kortyx/issues/333)) ([f8f2794](https://github.com/kortyx-io/kortyx/commit/f8f2794fc51a4528c0ec0ce87b6cb695f07f4f91))
+
+## [0.50.0](https://github.com/kortyx-io/kortyx/compare/website-v0.49.0...website-v0.50.0) (2026-10-11)
+
+
+### Features
+
+* add shared SDK and Studio usage telemetry ([#313](https://github.com/kortyx-io/kortyx/issues/313)) ([7d5f0c0](https://github.com/kortyx-io/kortyx/commit/7d5f0c005bd7721dc6a529554e75c14573d76a0f))
+* **website:** add versioned Cloud legal documents ([dba9a1f](https://github.com/kortyx-io/kortyx/commit/dba9a1f3dbd251efa6d95928e2afe63e713c0c4d))
+* **website:** establish credibility and consent foundation ([9b20074](https://github.com/kortyx-io/kortyx/commit/9b20074a1fdb7cdb5d28b91452bd8d42ca2bafcf))
+* **website:** read immutable legal releases from environment feeds ([1054800](https://github.com/kortyx-io/kortyx/commit/105480066b5826627df6227e01fbe6432f942e1a))
+
+
+### Bug Fixes
+
+* **website:** keep trust menus together while scrolling ([8c19061](https://github.com/kortyx-io/kortyx/commit/8c19061f07c37944db398f096bf4ea130a854981))
+* **website:** order mixed legacy legal revisions consistently ([aee8520](https://github.com/kortyx-io/kortyx/commit/aee8520c70601a57b8daae27f60c8a0e2fb7c1ad))
+* **website:** reconcile credibility branch with current main ([60199f9](https://github.com/kortyx-io/kortyx/commit/60199f992242eb7c409a95bc7a6898d31bac601d))
+* **website:** share full-width footer across docs pages ([fed5162](https://github.com/kortyx-io/kortyx/commit/fed51626cabd7375540ab67c64175337a195d7dd))
+* **website:** standardize legal document presentation ([07c3d71](https://github.com/kortyx-io/kortyx/commit/07c3d7107f333c56729a7498044c71a1475c3f9d))
+
+## [0.49.0](https://github.com/kortyx-io/kortyx/compare/website-v0.48.0...website-v0.49.0) (2026-10-10)
+
+
+### Features
+
+* version, evaluate, serve and migrate Studio prompts ([#288](https://github.com/kortyx-io/kortyx/issues/288)) ([0802f8b](https://github.com/kortyx-io/kortyx/commit/0802f8b91c4a541d176dd8a75c659063e2c28c8c))
+
+## [0.48.0](https://github.com/kortyx-io/kortyx/compare/website-v0.47.0...website-v0.48.0) (2026-10-09)
+
+
+### Features
+
+* **evals:** share concurrency and attribute multi-session costs ([#304](https://github.com/kortyx-io/kortyx/issues/304)) ([dd5e242](https://github.com/kortyx-io/kortyx/commit/dd5e242ae08affbb015201bb57c4714709756cf2))
+
+## [0.47.0](https://github.com/kortyx-io/kortyx/compare/website-v0.46.0...website-v0.47.0) (2026-10-09)
+
+
+### Features
+
+* **evals:** raise concurrency limit to 20 ([#300](https://github.com/kortyx-io/kortyx/issues/300)) ([0ed3151](https://github.com/kortyx-io/kortyx/commit/0ed3151e2984551d84113091594a0b8f9267289a))
+
+## [0.46.0](https://github.com/kortyx-io/kortyx/compare/website-v0.45.0...website-v0.46.0) (2026-10-08)
+
+
+### Features
+
+* **hooks:** support mixed tools outputs and interrupts ([#297](https://github.com/kortyx-io/kortyx/issues/297)) ([0aa4aa6](https://github.com/kortyx-io/kortyx/commit/0aa4aa6b08cd2ef44f603b8dbe8e35b30c54cbdc))
+
+## [0.45.0](https://github.com/kortyx-io/kortyx/compare/website-v0.44.0...website-v0.45.0) (2026-10-08)
+
+
+### Features
+
+* **evals:** compact judge evidence and add suite selection ([#293](https://github.com/kortyx-io/kortyx/issues/293)) ([9754f7c](https://github.com/kortyx-io/kortyx/commit/9754f7cacc61b5945a254ccaa66e17b1b5c8d13f))
+
+## [0.44.0](https://github.com/kortyx-io/kortyx/compare/website-v0.43.0...website-v0.44.0) (2026-10-07)
+
+
+### Features
+
+* **evals:** group suite runs and expose CLI results ([#284](https://github.com/kortyx-io/kortyx/issues/284)) ([146fd71](https://github.com/kortyx-io/kortyx/commit/146fd71a88587e5591dd0511a4c0cb57969f9d07))
+
+## [0.43.0](https://github.com/kortyx-io/kortyx/compare/website-v0.42.0...website-v0.43.0) (2026-10-07)
+
+
+### Features
+
+* **evals:** diagnose setup and guide first workflow runs ([#275](https://github.com/kortyx-io/kortyx/issues/275)) ([01dbf80](https://github.com/kortyx-io/kortyx/commit/01dbf803e65eec03187de9eaa316e4294f4f8dc5))
+* **studio:** unify extensible workspace shell and scoped settings ([#280](https://github.com/kortyx-io/kortyx/issues/280)) ([cf51257](https://github.com/kortyx-io/kortyx/commit/cf5125765317f67aa27e1dd2f8130315e9632390))
+* **website:** separate SDK and Studio documentation ([#262](https://github.com/kortyx-io/kortyx/issues/262)) ([7518ddc](https://github.com/kortyx-io/kortyx/commit/7518ddc0494503ed4fb393b20dc7b37240a27fcc))
+
+
+### Bug Fixes
+
+* **security:** remediate production dependency risks ([#267](https://github.com/kortyx-io/kortyx/issues/267)) ([319daa1](https://github.com/kortyx-io/kortyx/commit/319daa1716a8684c332842bc6b6e9bb9474219e7))
+
+## [0.42.0](https://github.com/kortyx-io/kortyx/compare/website-v0.41.0...website-v0.42.0) (2026-10-03)
+
+
+### Features
+
+* **evals:** run conversation suites from Studio and CLI ([#251](https://github.com/kortyx-io/kortyx/issues/251)) ([e653c91](https://github.com/kortyx-io/kortyx/commit/e653c9188d2fad4da0c75e79d090a8dedb639b92))
+
+## [0.41.0](https://github.com/kortyx-io/kortyx/compare/website-v0.40.0...website-v0.41.0) (2026-09-30)
+
+
+### Features
+
+* **hooks:** add realtime model-selected output contracts ([#249](https://github.com/kortyx-io/kortyx/issues/249)) ([ac52b47](https://github.com/kortyx-io/kortyx/commit/ac52b47151b64ce5be6ce6c7fd42d34a0fa8a76d))
+
 ## [0.40.0](https://github.com/kortyx-io/kortyx/compare/website-v0.39.0...website-v0.40.0) (2026-09-23)
 
 

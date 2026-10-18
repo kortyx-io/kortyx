@@ -6,7 +6,12 @@ import {
   StudioReleaseSchema,
 } from "@kortyx/telemetry-contracts";
 import type { Docker } from "./docker";
-import { composeArgs, docker, runningVersion } from "./docker";
+import {
+  assertUpdaterWithoutEvals,
+  composeArgs,
+  docker,
+  runningVersion,
+} from "./docker";
 import {
   atomicWrite,
   environment,
@@ -64,6 +69,7 @@ export async function applyUpdate(
     const actual = await runningVersion(home, run);
     if (!newerStudioVersion(release.version, actual))
       throw new Error("Only newer Studio releases can be installed.");
+    await assertUpdaterWithoutEvals(home, run);
     await progress(
       "pulling",
       `Downloading Studio and API v${release.version}.`,

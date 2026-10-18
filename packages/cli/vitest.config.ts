@@ -4,7 +4,12 @@ export default defineKortyxVitestConfig({
   test: {
     environment: "node",
     coverage: {
-      include: ["src/studio/**/*.ts", "src/connections*.ts"],
+      include: [
+        "src/studio/**/*.ts",
+        "src/connections*.ts",
+        "src/command-usage.ts",
+        "src/evals/**/*.ts",
+      ],
       thresholds: {
         statements: 95,
         branches: 95,

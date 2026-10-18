@@ -26,6 +26,7 @@ import {
 } from "recharts";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { formatDurationMs } from "@/lib/format";
+import { studioHelp } from "@/lib/studio-help";
 
 export function RunOverview({ detail }: { detail: StudioRunDetailResponse }) {
   const events = detail.events;
@@ -99,7 +100,7 @@ export function RunOverview({ detail }: { detail: StudioRunDetailResponse }) {
               ? "Continued after human input"
               : "No interrupted resumes"
           }
-          explanation="A resumption continues the same logical run from a saved interrupt checkpoint. It is not a retry or a second run."
+          explanation="The run continued after someone answered a request for input. It picks up from where it paused and keeps the same run ID."
         />
         <SignalCard
           icon={Bot}
@@ -112,14 +113,14 @@ export function RunOverview({ detail }: { detail: StudioRunDetailResponse }) {
                 ? "Model identity not captured"
                 : `${knownModels} model${knownModels === 1 ? "" : "s"}`
           }
-          explanation="Provider requests captured inside this run. Calls may be streaming or non-streaming depending on how the SDK invoked the model."
+          explanation="How many AI model requests were recorded in this run. One run can ask a model more than once."
         />
         <SignalCard
           icon={Wrench}
           label="Tool executions"
           value={toolExecutions}
           detail={`${toolDenials} denied · ${toolFaults} faults · ${toolCancellations} cancelled · ${toolReplays} replays`}
-          explanation="Actual tool attempts are counted separately from cached reuse. Business denials and handled faults do not imply workflow failure."
+          explanation="How many times a tool was started. Reusing an earlier result does not count as a new attempt; a denied or handled tool error does not always fail the whole run."
         />
         <SignalCard
           icon={Timer}
@@ -132,7 +133,7 @@ export function RunOverview({ detail }: { detail: StudioRunDetailResponse }) {
                 ? "Not applicable · non-streaming calls"
                 : `Not captured for ${streamingCalls} streaming call${streamingCalls === 1 ? "" : "s"}`
           }
-          explanation="Time to first token (TTFT) runs from the provider request until the first observed text chunk. It applies only to streaming calls with text output; non-streaming calls return a completed response instead."
+          explanation="Time to first token (TTFT) is the wait until the model starts sending text. This shows the middle value across measured streaming calls; calls without a measurement are left out."
         />
         <SignalCard
           icon={CirclePause}
@@ -141,14 +142,14 @@ export function RunOverview({ detail }: { detail: StudioRunDetailResponse }) {
           detail={
             interrupts ? "Human wait affected wall time" : "No human wait"
           }
-          explanation="A human-input interrupt pauses graph execution. Its wait contributes to wall time but is shown separately from active execution time."
+          explanation="How many times the run paused to ask a person for input. Waiting for their answer adds to the total time, but is shown separately from time spent working."
         />
         <SignalCard
           icon={Clock3}
           label="Largest quiet period"
           value={formatDurationMs(largestGap)}
           detail="No telemetry events emitted"
-          explanation="The longest interval between adjacent telemetry events. It can contain a provider request, tool work, human wait, or genuinely unobserved time, so the trace provides the stronger attribution."
+          explanation="The longest gap between two recorded events. Work may still have been happening during that gap; check the trace before treating it as idle time."
         />
       </div>
 
@@ -156,14 +157,14 @@ export function RunOverview({ detail }: { detail: StudioRunDetailResponse }) {
         <ChartCard
           title="Activity over wall time"
           description="Event density reveals execution bursts and waiting gaps."
-          help="Each bar counts telemetry events in a wall-clock bucket. Empty space means no events were emitted; it does not automatically mean the process was idle."
+          help="Each bar shows how many events were recorded during that period. An empty period means no events were sent, even if the app was still working."
         >
           <ActivityChart events={events} />
         </ChartCard>
         <ChartCard
           title="Slowest completed spans"
           description="Duration reported by completed span events."
-          help="These are completed operation durations. Nested spans overlap, so their values should not be added together to estimate total run time."
+          help="The steps that took the longest to finish. Some steps contain other steps, so adding their times can count the same time twice."
         >
           <LatencyBars events={events} />
         </ChartCard>
@@ -172,7 +173,7 @@ export function RunOverview({ detail }: { detail: StudioRunDetailResponse }) {
       <ChartCard
         title="Model latency by call"
         description="Separates time before the first observed token, the first-to-last output chunk window, and response finalization. Older calls remain unclassified instead of being estimated."
-        help="TTFT includes provider queueing, setup, and model work before the first observed text chunk. Output stream is the observed first-to-last chunk window, not pure model compute. Finalization is the time from the last chunk until completion."
+        help="TTFT is the wait before the first text appears. Output stream is the time spent receiving text; finalization is the time after the last text until the request finishes."
       >
         <ModelLatencyBars events={events} />
       </ChartCard>
@@ -180,7 +181,7 @@ export function RunOverview({ detail }: { detail: StudioRunDetailResponse }) {
       <ChartCard
         title="Token usage by model call"
         description="Input, output, and reasoning tokens for each captured model call."
-        help="Token counts are reported by the model provider. Availability and category definitions can vary by provider and model."
+        help="Tokens count the input and output handled by the AI model. The model provider reports these numbers; some providers do not report every category."
       >
         <TokenBars events={events} />
       </ChartCard>
@@ -206,7 +207,13 @@ function SignalCard({
       <div className="flex items-center gap-2 text-xs text-muted-foreground">
         <Icon aria-hidden="true" className="size-3.5" />
         <span>{label}</span>
-        <InfoTooltip label={`Explain ${label}`}>{explanation}</InfoTooltip>
+        <InfoTooltip
+          className="ml-auto shrink-0"
+          documentationUrl={studioHelp.metrics.documentationUrl}
+          label={`Explain ${label}`}
+        >
+          {explanation}
+        </InfoTooltip>
       </div>
       <p className="mt-2 font-mono text-lg font-semibold tabular-nums">
         {value}
@@ -231,7 +238,13 @@ function ChartCard({
     <section className="min-w-0 rounded-lg border bg-background p-4">
       <div className="flex items-center gap-1.5">
         <h3 className="text-xs font-semibold">{title}</h3>
-        <InfoTooltip label={`Explain ${title}`}>{help}</InfoTooltip>
+        <InfoTooltip
+          className="ml-auto shrink-0"
+          documentationUrl={studioHelp.metrics.documentationUrl}
+          label={`Explain ${title}`}
+        >
+          {help}
+        </InfoTooltip>
       </div>
       <p className="mt-0.5 text-[10px] text-muted-foreground">{description}</p>
       <div className="mt-4">{children}</div>

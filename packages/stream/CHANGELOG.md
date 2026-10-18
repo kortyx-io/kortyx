@@ -1,5 +1,74 @@
 # @chatbot-core/types
 
+## [0.15.6](https://github.com/kortyx-io/kortyx/compare/stream-v0.15.5...stream-v0.15.6) (2026-10-16)
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/core bumped to 0.15.0
+
+## [0.15.5](https://github.com/kortyx-io/kortyx/compare/stream-v0.15.4...stream-v0.15.5) (2026-10-13)
+
+
+### Bug Fixes
+
+* **evals:** preserve diagnostics and separate postcondition failures ([#337](https://github.com/kortyx-io/kortyx/issues/337)) ([d4fce4e](https://github.com/kortyx-io/kortyx/commit/d4fce4e670971d3b755835fc681c8125f67a9c70))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/core bumped to 0.14.0
+
+## [0.15.4](https://github.com/kortyx-io/kortyx/compare/stream-v0.15.3...stream-v0.15.4) (2026-10-11)
+
+
+### Bug Fixes
+
+* **website:** reconcile credibility branch with current main ([60199f9](https://github.com/kortyx-io/kortyx/commit/60199f992242eb7c409a95bc7a6898d31bac601d))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/core bumped to 0.13.1
+
+## [0.15.3](https://github.com/kortyx-io/kortyx/compare/stream-v0.15.2...stream-v0.15.3) (2026-10-09)
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/core bumped to 0.13.0
+
+## [0.15.2](https://github.com/kortyx-io/kortyx/compare/stream-v0.15.1...stream-v0.15.2) (2026-10-08)
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/core bumped to 0.12.0
+
+## [0.15.1](https://github.com/kortyx-io/kortyx/compare/stream-v0.15.0...stream-v0.15.1) (2026-10-07)
+
+
+### Bug Fixes
+
+* **deps:** remediate dependency security alerts ([#271](https://github.com/kortyx-io/kortyx/issues/271)) ([0d87ae8](https://github.com/kortyx-io/kortyx/commit/0d87ae8a4dfd54b616d4ebbf222f3bf3f37cc26c))
+
+## [0.15.0](https://github.com/kortyx-io/kortyx/compare/stream-v0.14.0...stream-v0.15.0) (2026-09-30)
+
+
+### Features
+
+* **hooks:** add realtime model-selected output contracts ([#249](https://github.com/kortyx-io/kortyx/issues/249)) ([ac52b47](https://github.com/kortyx-io/kortyx/commit/ac52b47151b64ce5be6ce6c7fd42d34a0fa8a76d))
+
 ## [0.14.0](https://github.com/kortyx-io/kortyx/compare/stream-v0.13.2...stream-v0.14.0) (2026-09-23)
 
 

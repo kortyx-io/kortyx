@@ -1,4 +1,7 @@
+import { DocumentationLink } from "@/components/ui/documentation-link";
 import type { StudioApiError } from "@/lib/studio-api";
+import { resolveStudioAuthMode } from "@/lib/studio-auth";
+import { studioHelp } from "@/lib/studio-help";
 
 type StudioDataErrorProps = {
   title: string;
@@ -6,8 +9,10 @@ type StudioDataErrorProps = {
 };
 
 export function StudioDataError({ title, error }: StudioDataErrorProps) {
-  const detail =
-    error.type === "not_configured"
+  const cloud = resolveStudioAuthMode() === "cloud";
+  const detail = cloud
+    ? "Check your sign-in, selected organization/project, and permissions. Complete any pending workspace setup; sign in again if your session expired."
+    : error.type === "not_configured"
       ? "Configure KORTYX_API_URL and KORTYX_STUDIO_API_KEY, then restart Studio."
       : error.status === 403
         ? "The Studio service key is valid but is missing the Studio read scope for this project."
@@ -18,7 +23,10 @@ export function StudioDataError({ title, error }: StudioDataErrorProps) {
             : error.type;
 
   return (
-    <div className="flex h-full items-center justify-center rounded-xl border bg-background p-6">
+    <div
+      data-page-help-state="error"
+      className="flex h-full items-center justify-center rounded-xl border bg-background p-6"
+    >
       <div className="max-w-md text-center">
         <h1 className="text-base font-semibold">{title}</h1>
         <p className="mt-2 text-sm text-muted-foreground">{error.message}</p>
@@ -27,6 +35,15 @@ export function StudioDataError({ title, error }: StudioDataErrorProps) {
           <p className="mt-1 text-xs">Request: {error.requestId}</p>
         )}
         <p className="mt-3 font-mono text-xs text-muted-foreground">{detail}</p>
+        <div className="mt-4">
+          <DocumentationLink
+            href={
+              cloud
+                ? studioHelp.cloudStart.documentationUrl
+                : studioHelp.configuration.documentationUrl
+            }
+          />
+        </div>
       </div>
     </div>
   );

@@ -11,7 +11,7 @@
         "!.next/dev/**",
         "out/**"
       ],
-      "env": []
+      "env": ["KORTYX_STUDIO_TSCONFIG", "KORTYX_API_TSCONFIG"]
     },
     "dev": {
       "cache": false,
@@ -21,6 +21,9 @@
       "env": [
         "WEBSITE_PORT",
         "STUDIO_PORT",
+        "KORTYX_STUDIO_TSCONFIG",
+        "KORTYX_API_TSCONFIG",
+        "KORTYX_API_DEPLOYMENT",
         "API_PORT",
         "DATABASE_URL",
         "KORTYX_API_KEY_PEPPER",
@@ -38,7 +41,15 @@
         "KORTYX_NEXTJS_CHAT_PORT",
         "KORTYX_CANVAS_PORT",
         "NEXT_PUBLIC_KORTYX_API_URL",
-        "GOOGLE_API_KEY"
+        "GOOGLE_API_KEY",
+        "KORTYX_EVAL_TARGETS_FILE",
+        "KORTYX_EVAL_TARGETS",
+        "KORTYX_EVAL_JUDGE_MODEL",
+        "KORTYX_EVAL_JUDGE_API_KEY",
+        "KORTYX_EVAL_JUDGE_BASE_URL",
+        "KORTYX_EVAL_JUDGE_API",
+        "KORTYX_EVAL_JUDGE_ID",
+        "KORTYX_EVAL_JUDGE_VERSION"
       ]
     },
     "lint": {
@@ -46,6 +57,7 @@
     },
     "type-check": {
       "dependsOn": ["^build", "^type-check"],
+      "env": ["KORTYX_STUDIO_TSCONFIG", "KORTYX_API_TSCONFIG"],
       "outputs": []
     },
     "test": {
@@ -63,5 +75,6 @@
     "start": {
       "dependsOn": ["build"]
     }
-  }
+  },
+  "globalEnv": ["KORTYX_USAGE_TELEMETRY_*"]
 }

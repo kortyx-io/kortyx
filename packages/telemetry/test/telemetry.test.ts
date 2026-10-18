@@ -34,6 +34,99 @@ const event = (eventId: string) => ({
 });
 
 describe("createKortyxTelemetryAdapter", () => {
+  it("records output contracts separately from tools and gates their values by capture policy", async () => {
+    for (const captureContent of [false, true]) {
+      const requests: EventBatch[] = [];
+      const adapter = createKortyxTelemetryAdapter({
+        endpoint: "https://telemetry.example",
+        apiKey: "ktyx_test_key_secret",
+        environment: "test",
+        service: { name: "telemetry-test" },
+        captureContent,
+        flushIntervalMs: 60_000,
+        fetch: async (_url, init) => {
+          requests.push({ body: JSON.parse(String(init?.body)) });
+          return new Response("{}", { status: 200 });
+        },
+      });
+      await adapter.trace?.withSpan?.(
+        {
+          name: "useReason",
+          attributes: {
+            runId: "run_1",
+            workflowId: "workflow",
+            nodeId: "answer",
+          },
+        },
+        async (span) => {
+          span.addEvent?.("useReason.output.emitted", {
+            contract: "accountCard",
+            kind: "emit",
+            schemaId: "acme.account-card",
+            schemaVersion: "1",
+            data: { secret: "private-value" },
+          });
+          span.addEvent?.("useReason.output.invalidated", {
+            contract: "accountCard",
+            kind: "emit",
+            schemaId: "acme.account-card",
+            schemaVersion: "1",
+            streamId: "draft-1",
+          });
+        },
+      );
+      await adapter.trace?.withSpan?.(
+        {
+          name: "runReasonEngine",
+          attributes: {
+            runId: "run_1",
+            workflowId: "workflow",
+            nodeId: "answer",
+          },
+          telemetry: {
+            prompt: { name: "classify", version: 1 },
+            input: "private prompt input",
+          },
+        },
+        async (span) => {
+          span.end?.({ telemetry: { output: "private prompt output" } });
+        },
+      );
+      await adapter.flush();
+      const events = requests.flatMap(({ body }) => body.events);
+      expect(
+        events.find((event) => event.type === "generation.completed")?.payload,
+      ).toMatchObject({
+        prompt: { name: "classify", version: 1 },
+        captured: captureContent,
+      });
+      expect(JSON.stringify(events).includes("private prompt input")).toBe(
+        captureContent,
+      );
+      const output = events.find((event) => event.type === "output.emitted");
+      expect(output?.payload).toMatchObject({
+        contract: "accountCard",
+        kind: "emit",
+        schemaId: "acme.account-card",
+      });
+      expect(output?.payload.data).toEqual(
+        captureContent ? { secret: "private-value" } : undefined,
+      );
+      expect(events.some((event) => event.type.startsWith("tool."))).toBe(
+        false,
+      );
+      expect(events).toContainEqual(
+        expect.objectContaining({
+          type: "output.invalidated",
+          payload: expect.objectContaining({
+            contract: "accountCard",
+            streamId: "draft-1",
+          }),
+        }),
+      );
+    }
+  });
+
   it("registers topology once and batches correlated span, generation, and tool facts", async () => {
     const requests: Array<{ url: string; body: unknown }> = [];
     const adapter = createKortyxTelemetryAdapter({
@@ -96,7 +189,9 @@ describe("createKortyxTelemetryAdapter", () => {
               usage: { input: 1, output: 2, total: 3 },
               providerMetadata: {
                 providerId: "openrouter",
-                cost: 0.001234,
+                cost: 0,
+                isByok: true,
+                costDetails: { upstreamInferenceCost: 0.001234 },
               },
             });
           },
@@ -511,7 +606,7 @@ it.each([
         }
       : {}),
     fetch: async (_url, init) => {
-      sent.push(...JSON.parse(String(init?.body)).events);
+      sent.push(...(JSON.parse(String(init?.body)).events ?? []));
       return new Response(JSON.stringify({ accepted: true }), { status: 200 });
     },
   });
@@ -551,7 +646,9 @@ it.each([
         ? "Provider connection refused"
         : mode === "replace"
           ? "Provider unavailable"
-          : "An unexpected error occurred.",
+          : mode === "throws"
+            ? "Diagnostic capture failed."
+            : "An unexpected error occurred.",
   });
   if (mode === undefined) {
     expect(failed?.payload.error).toMatchObject({
@@ -573,7 +670,7 @@ it("reports a handled error on the active span without failing it", async () => 
     service: { name: "test" },
     flushIntervalMs: 60_000,
     fetch: async (_url, init) => {
-      sent.push(...JSON.parse(String(init?.body)).events);
+      sent.push(...(JSON.parse(String(init?.body)).events ?? []));
       return new Response(JSON.stringify({ accepted: true }), { status: 200 });
     },
   });
@@ -639,7 +736,7 @@ it("ends expected suspension spans without emitting failures", async () => {
     service: { name: "test" },
     flushIntervalMs: 60_000,
     fetch: async (_url, init) => {
-      sent.push(...JSON.parse(String(init?.body)).events);
+      sent.push(...(JSON.parse(String(init?.body)).events ?? []));
       return new Response(JSON.stringify({ accepted: true }), { status: 200 });
     },
   });
@@ -676,7 +773,7 @@ it("exports failed-generation usage counts without raw usage or provider metadat
     service: { name: "test" },
     flushIntervalMs: 60000,
     fetch: async (_url, init) => {
-      sent.push(...JSON.parse(String(init?.body)).events);
+      sent.push(...(JSON.parse(String(init?.body)).events ?? []));
       return new Response(JSON.stringify({ accepted: true }), { status: 200 });
     },
   });

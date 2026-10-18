@@ -1,0 +1,53 @@
+{
+  "slug": "terms",
+  "version": "2026-10-11.staging.4",
+  "effectiveDate": "2026-10-11T00:00:00.000Z",
+  "draft": true,
+  "title": "Cloud Terms",
+  "sections": [
+    {
+      "title": "Draft staging agreement",
+      "text": "This is a staging-test draft, not a final production agreement. The proposed service operator is Kortyx S.L. (operator name supplied; registration not verified). Contact address and private legal/privacy email are pending confirmation. Do not rely on this draft for processing real customer or sensitive data."
+    },
+    {
+      "title": "Service and eligibility",
+      "text": "Kortyx Cloud provides hosted observation and evaluation tools for developer applications. This staging beta is for authorized adult testers using synthetic or non-sensitive test data. You must have authority to act for an organization you create. The open-source SDK and self-hosted Studio remain governed by their own licenses, not this hosted-service draft."
+    },
+    {
+      "title": "Accounts and organizations",
+      "text": "Keep your account and application credentials secure. Organization owners control projects and API keys. Projects are separate data and credential scopes; access depends on current organization membership. Team features marked Soon are not available and no billing is enabled in this staging beta. Do not share sign-in credentials or submit another person's identity."
+    },
+    {
+      "title": "Your application data",
+      "text": "You retain your rights in application data. You authorize processing needed to provide the requested service, protect it, and operate backups. Minimize telemetry: prompts, outputs, traces and evaluation results may contain personal or confidential information. Do not upload credentials, special-category personal data, regulated production data or information you lack authority to process. A finalized data-processing agreement is required before approved customer personal-data processing."
+    },
+    {
+      "title": "Evaluations and third parties",
+      "text": "Cloud evaluations call the HTTPS application endpoint you register, using the dedicated credential you provide. Your application supplies its own judge and model integrations. External model providers and endpoints have their own terms, costs and data practices. Cancellation is best effort: it cannot undo completed external calls or tool effects. Evaluation errors may be uncertain; do not assume exactly-once execution."
+    },
+    {
+      "title": "Acceptable use",
+      "text": "Do not attack the service, bypass authorization or quotas, probe another customer's data, send malware, or use the service unlawfully. Report suspected security issues privately through https://github.com/kortyx-io/kortyx/security/advisories/new. Use redacted examples in public issues. We may restrict access to protect security, address abuse, or comply with applicable obligations."
+    },
+    {
+      "title": "Beta availability and changes",
+      "text": "The staging beta can change, become unavailable, or be reset. It has no uptime or support SLA and is not suitable for critical production workloads. Keep your own source data and backups. No paid subscription or payment obligation is created here. Future paid plans require separately disclosed pricing and terms. Mandatory legal rights remain unaffected; final liability and governing-law provisions require review before production publication."
+    },
+    {
+      "title": "Deletion and recovery",
+      "text": "Archiving a project or organization immediately blocks ordinary access and revokes its API keys. The implemented recovery window is 30 days; restored workspaces require new keys. After that window workspace data is permanently purged. Account deletion requires recent sign-in and last-owner safety checks. Backup copies follow their separate backup lifecycle. Legal acceptance evidence is retained separately rather than automatically erased with a workspace; its final retention schedule remains a publication blocker."
+    },
+    {
+      "title": "Updates and acceptance",
+      "text": "Each newly published Terms release requires a new explicit acceptance before Cloud product access resumes. Draft editing does not change an active release. Earlier acceptance evidence remains linked to its exact version and content hash. If you do not accept an update, you can sign out or access personal account/session and deletion controls without accepting. Privacy notices explain processing and are not blanket consent to all processing."
+    },
+    {
+      "title": "Staging release 2 clarification",
+      "text": "The staging onboarding flow creates an organization only after explicit user submission. Registration alone never creates an organization or counts as acceptance. This clarification is a new staging-test Terms release and exercises fresh acceptance."
+    },
+    {
+      "title": "Customer publicity",
+      "text": "If you enter this agreement on behalf of an organization and have authority to license its marks, that organization grants Kortyx a non-exclusive, revocable permission, during its use of Cloud, to identify it by its name and logo in the customer or user list on the Kortyx website. Kortyx will follow supplied brand guidelines and will not imply endorsement. A personal signup or company email address alone does not establish authority or a company customer relationship. Revoking this permission does not affect service access. Upon notice of revocation, Kortyx will stop new use and remove existing website listings within 10 business days. Publicity correspondence may be sent through https://github.com/kortyx-io/kortyx/discussions; include only the public organization name and listing URL, and keep personal or confidential data out of this public channel. Testimonials, case studies, quotes and other promotional uses require separate written approval. This clause is not consent to marketing email."
+    }
+  ]
+}

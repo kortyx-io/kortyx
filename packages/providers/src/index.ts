@@ -50,3 +50,4 @@ export type {
   ToolOutcomes,
   ToolTelemetry,
 } from "./types";
+export { trimTrailingSlashes } from "./url";

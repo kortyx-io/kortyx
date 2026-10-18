@@ -1,23 +1,29 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState, useTransition } from "react";
+import { useStudioRouteScope } from "@/components/studio-route-provider";
 import {
   createLiveRefreshController,
   type LiveRefreshSnapshot,
 } from "@/features/telemetry/lib/live-refresh-controller";
+import { useRouter } from "@/lib/scoped-navigation";
 
 export const useLiveRefresh = ({
   enabled,
   resource,
+  relatedResources,
+  refresh: refreshData,
 }: {
   enabled: boolean;
-  resource: "runs" | "sessions" | "interrupts";
+  resource: "runs" | "sessions" | "interrupts" | "evals";
+  relatedResources?: readonly ("runs" | "sessions" | "interrupts" | "evals")[];
+  refresh?: () => Promise<void>;
 }) => {
   const router = useRouter();
+  const sample = useStudioRouteScope()?.sampleProject === true;
   const [transitioning, startTransition] = useTransition();
   const [snapshot, setSnapshot] = useState<LiveRefreshSnapshot>({
-    status: enabled ? "connecting" : "off",
+    status: enabled && !sample ? "connecting" : "off",
     refreshing: false,
   });
   const transitionResolveRef = useRef<(() => void) | undefined>(undefined);
@@ -53,7 +59,8 @@ export const useLiveRefresh = ({
   }, [transitioning]);
 
   const refreshRef = useRef(refresh);
-  refreshRef.current = refresh;
+  refreshRef.current = refreshData ?? refresh;
+  const relatedKey = relatedResources?.join(",") ?? "";
   const controllerRef = useRef<
     ReturnType<typeof createLiveRefreshController> | undefined
   >(undefined);
@@ -61,6 +68,9 @@ export const useLiveRefresh = ({
   useEffect(() => {
     const controller = createLiveRefreshController({
       resource,
+      relatedResources: relatedKey
+        ? (relatedKey.split(",") as NonNullable<typeof relatedResources>)
+        : [],
       refresh: () => refreshRef.current(),
       onSnapshot: setSnapshot,
     });
@@ -82,11 +92,11 @@ export const useLiveRefresh = ({
       controller.dispose();
       controllerRef.current = undefined;
     };
-  }, [resource]);
+  }, [resource, relatedKey]);
 
   useEffect(() => {
-    controllerRef.current?.setEnabled(enabled);
-  }, [enabled]);
+    controllerRef.current?.setEnabled(enabled && !sample);
+  }, [enabled, sample]);
 
   return {
     status: snapshot.status,

@@ -1,0 +1,545 @@
+# Conversation evals in the consumer application
+
+`createEvals` runs scripted conversations against an existing `createAgent`
+instance. A case sends messages, assesses the visible answer or interrupt,
+resumes expected interrupts, and grades each criterion using a separate judge.
+It executes real workflows, tools, and application logic.
+
+The SDK exposes serializable suites, a manifest, progress events, and results.
+Mount `createEvalRouteHandler` in the consumer app to let Studio execute suites
+and persist their observations and grades. See [Studio execution](./studio-execution.md)
+for the endpoint, database migration, and local Docker configuration.
+
+## Smallest configuration
+
+```ts
+import { createEvals, createEvalJudge, defineSuite } from "kortyx";
+import { agent } from "./agent";
+import { judgeModel } from "./models"; // The app's configured ProviderModelRef.
+
+const suite = defineSuite({
+  id: "product-information",
+  cases: [{
+    id: "all-three-prices",
+    steps: [
+      { message: "List the three products in my catalog", expect: { type: "answer" } },
+      {
+        message: "Give me the prices for all three of those products",
+        expect: {
+          type: "answer",
+          criteria: [
+            "Gives all three prices and currencies accurately from successful tool results, attributed to the requested products; fails if the required product data is missing.",
+            "Does not ask the user to choose just one product.",
+          ],
+        },
+      },
+    ],
+  }],
+});
+
+const evals = createEvals({
+  agent,
+  suites: [suite],
+  judge: createEvalJudge({ model: judgeModel }),
+});
+
+const result = await evals.run({
+  suiteId: "product-information",
+  repetitions: 3,
+  concurrency: 1,
+  onProgress: async (event) => {
+    // Save or stream this public event in your application.
+    console.log(event);
+  },
+});
+console.log(result.status, result.counts);
+```
+
+This example grades answers against the workflow's emitted tool results, so it
+needs no separate reference loader. Enable tool emission as shown below. Stable
+fixtures make behavior changes meaningful; changing live data can change the
+expected answer. An unexpected picker fails before calling the judge. Every
+configured criterion must pass. Without criteria, only the interaction type, optional interrupt schema and
+any required structured outputs are checked. Optional reference facts must agree with
+the data deliberately available to the test actor.
+
+## Required structured outputs
+
+Declare required completed output contracts on the step that must produce them:
+
+```ts
+const suite = defineSuite({
+  id: "catalog-output",
+  cases: [{
+    id: "list-and-summary",
+    steps: [{
+      message: "Show the blue backpacks with prices and a short summary",
+      expect: {
+        type: "answer",
+        outputs: [
+          { schemaId: "app.product-list" },
+          { schemaId: "app.product-summary", schemaVersion: "1" },
+        ],
+        criteria: ["Prices match successful tool results for the requested products."],
+      },
+    }],
+  }],
+});
+```
+
+Every listed contract must have a completed visible output in that step.
+`schemaVersion` is optional: omitting it accepts any version; setting it requires
+an exact match. Multiple outputs can appear in one assistant response. Extra
+outputs are allowed, and this array does not assert their count or order.
+The registered workflow's output contract validates the payload; eval criteria
+judge its meaning and faithfulness to emitted tool results.
+
+The runner checks the current finalized `observation.structured` envelopes before
+calling either an app or Studio judge. Partial outputs, invalidated outputs,
+outputs from earlier steps, tool results and IDs embedded inside a payload do not
+satisfy a requirement. A missing contract fails the case with the missing ID and
+version in the reason, skips semantic judging for that step and stops subsequent
+steps. Cleanup still runs. Output-only expectations need no LLM judge in local
+SDK runs; Studio runs still use its explicit judge selection flow.
+
+Requirements appear in Studio's conversation plan and case evaluation, and are
+saved with the run's suite snapshot. The same JSON shape works for a suite
+authored in Studio, SDK execution and CLI-triggered runs.
+
+`outputs` can also accompany an interrupt expectation when the workflow must
+show data before requesting a response. The top-level `schemaId` and
+`schemaVersion` on an interrupt expectation describe its single pending request;
+`outputs` describes completed visible outputs. Use another step to resume it.
+The default executor supports sequential interrupts, not simultaneous pending
+requests.
+
+A custom executor must put the current step's finalized public envelopes in
+`observation.structured`, for example
+`{ schemaId: "app.product-list", schemaVersion: "2", status: "done", data: { products: [] } }`.
+Return partials with `status: "streaming"`, and remove invalidated entries.
+Do not copy earlier turns or tool results into this array. The native executor
+performs this accumulation automatically from `agent.streamChat`.
+
+## Execution evidence from existing tool outputs
+
+For evals that check tool activity or ground answers in retrieved data, enable
+`toolExecution.emit: true` on every relevant workflow `useReason` call:
+
+```ts
+const result = await useReason({
+  model,
+  input,
+  tools,
+  toolExecution: { emit: true },
+});
+```
+
+The runner captures the existing public stream directly. Each step records ordered
+`observation.events`: tool names, call IDs, arguments, results and errors, alongside
+text, structured output, interrupt requests and workflow transitions. Adjacent
+text deltas from the same source are joined in the saved observation. The judge
+receives compact, selected evidence from the current step and, by default, earlier
+steps in the same case, including tool results retrieved before an interrupt. This works from the SDK, Studio and CLI without querying Studio telemetry.
+
+A criterion can say: “Answers for each requested product with the price and currency
+returned by its successful tool call; explicitly states when price data is
+missing.” No separate reference loader is needed for this check. The judge checks
+faithfulness to the data the workflow actually received and can explain which
+call or step caused a failure. It accepts any valid execution path that satisfies
+the criterion. It cannot establish whether the external service itself is correct;
+use fixed reference facts when you also need to check against an independent
+expected result.
+
+Tool emission defaults to off. Evals of answers or interrupts can still run without
+tool evidence, but criteria that require retrieved facts need emitted results or
+references. The eval runner cannot switch emission on for application workflows.
+Silent calls and private runtime state are outside the captured boundary. A custom
+executor must populate `observation.events` itself when it wants execution evidence.
+Only emit tool arguments and results suitable for the judge and stored eval records;
+they may contain application data, and arbitrary tool payloads are not automatically
+redacted.
+
+## Judge criteria and evidence selection
+
+Write criteria that identify the output type and fields to evaluate, what the app
+renders as messages/prose/cards, and what remains progress-only or internal.
+The stream cannot establish frontend visibility. Each criterion is graded
+separately, so include necessary presentation rules in each one. Use reference
+facts or retained successful tool results for grounding, and UI tests for actual
+rendering.
+
+Judges always receive compact evidence. Set `createEvals.defaults.evidence` and
+field-by-field `suite.evidence` overrides: `history` is boolean; `events` accepts
+`false`, typed event names, or a named predicate; `outputs` accepts `false`, output
+selectors, or a named predicate. `history: false` excludes earlier case steps from
+the judge only. `{ history: false, events: false, outputs: false }` selects final
+text without prior observations; input, references, and interrupt details remain.
+Full captures remain in Studio, and deterministic contract checks are unaffected.
+
+See the [judge-writing example and complete evidence configuration](../../apps/website/src/docs/sdk/v0/03-guides/10-conversation-evals.md#write-criteria-for-the-evidence-your-app-produces)
+for presentation contracts, defaults, overrides, and custom filters.
+
+## Choose where judging runs
+
+Workflow execution stays in the consumer application. Studio selects the judge
+for each run, defaulting to **Studio judge**, even when the app provides a code
+judge. The app needs no Studio model key or grading connection.
+
+For Studio execution, no code judge is required:
+
+```ts
+import { createEvals } from "kortyx";
+
+const evals = createEvals({ agent, suites: [suite], execute });
+```
+
+Provide a judge to enable direct local SDK runs and Studio's **App judge** option:
+
+```ts
+import { createEvals, createEvalJudge } from "kortyx";
+
+const evals = createEvals({
+  agent,
+  suites: [suite],
+  execute,
+  judge: createEvalJudge({ model: judgeModel }),
+});
+
+// Uses the code judge. Studio is not required.
+const result = await evals.run({ suiteId: suite.id });
+```
+
+A direct local run with semantic criteria and no code judge fails before setup or
+execution. Construction and suite discovery still work without a judge. Runs
+with no semantic criteria can execute locally using only interaction checks.
+
+When **Studio judge** is selected, the SDK bypasses the code judge, executes the
+scripted conversation, resolves declared interrupts and runs cleanup. Interaction
+mismatches and execution errors still stop the case. Successfully executed steps
+with semantic criteria have `status: "ungraded"` and no criterion verdicts. Studio
+then grades the captured evidence, records reasons and verdicts, and finishes the
+run. A case is not counted as passed while awaiting evaluation. Semantic grading
+happens after execution, so a semantic failure does not stop subsequent scripted
+steps in this mode. **App judge** retains per-step grading and stop-on-failure.
+
+Studio's run drawer offers both available locations. The CLI resolves the project judge default (Studio when unset); pass `--judge app` to select the code judge. A missing judge or incompatible
+consumer SDK prevents starting that selection; there is no automatic fallback.
+The Studio backend pins the selected judge's ID and version when enqueuing. A
+changed judge causes an error before execution. Saved results include the identity
+and judging location for comparison.
+
+Only captured public evidence is graded: criterion, input, observation, resolved
+reference when configured, and previous steps. Auth tokens and private runtime
+continuations stay in the app. Emitted tool payloads must be suitable for the
+judge and stored records. See the Studio execution guide for backend model
+configuration. Editing evaluator definitions in the browser and regrading saved
+runs are outside this release.
+
+For advanced direct SDK use, `createStudioEvalJudge({ url, apiKey, environment })`
+is also available as an explicit code judge. It calls the Studio API and requires
+a project key with `studio:read` and `eval:run`; this is not needed for ordinary
+Studio-triggered runs.
+
+## Type-safe suite definitions
+
+`defineSuite` supplies the suite structure, so you do not need a separate
+`EvalSuite` annotation. Use `defineSuite<TParams>` to check case parameters while
+authoring. Keep the Zod schema in `createEvals` for runtime validation.
+
+```ts
+import { createEvals, defineSuite } from "kortyx";
+import { z } from "zod";
+
+const paramsSchema = z.object({
+  productIds: z.array(z.string()).min(1).max(3),
+}).strict();
+
+type ProductParams = z.input<typeof paramsSchema>;
+
+export const authorizedProductsSuite = defineSuite<ProductParams>({
+  id: "authorized-products",
+  cases: [{
+    id: "product-description",
+    params: { productIds: ["blue-backpack"] },
+    steps: [{
+      message: "Describe the blue Travel Backpack",
+      expect: { type: "answer" },
+    }],
+  }],
+});
+
+const evals = createEvals({
+  agent,
+  paramsSchema,
+  suites: [authorizedProductsSuite],
+  setup: async ({ params }) => {
+    // params.productIds is string[] here and in the suite definition above.
+    return loadProductReferences(params.productIds);
+  },
+});
+```
+
+Missing required parameters, misspelled fields, and incompatible values such as
+`productIds: [123]` are TypeScript errors. Constraints such as minimum array length
+are checked at runtime. Derive `TParams` using `z.input<typeof paramsSchema>`
+so defaults and transforms are applied once by the runner before `setup` receives
+the schema's output type. The suite remains plain data. You can also use
+`satisfies EvalSuite<ProductParams>` without the helper. Without a type argument,
+`defineSuite` checks the standard suite structure.
+
+## App-owned permissions, fixtures, and human responses
+
+Suites are JSON data. Callback code stays registered in the consumer app.
+`paramsSchema` validates a case's public `params` before setup. `setup` returns
+private `prepared` state; its type flows into execute, responders, references,
+and teardown without explicit generic arguments.
+
+```ts
+import { z } from "zod";
+import { createEvals, createEvalJudge, defineSuite } from "kortyx";
+
+const paramsSchema = z.object({
+  actor: z.enum(["catalog-reader"]),
+  fixture: z.enum(["two-backpack-colors"]),
+}).strict();
+
+const suite = defineSuite<z.input<typeof paramsSchema>>({
+  id: "product-ambiguity",
+  cases: [{
+    id: "choose-blue",
+    params: { actor: "catalog-reader", fixture: "two-backpack-colors" },
+    steps: [
+      {
+        message: "Tell me about the Travel Backpack",
+        expect: {
+          type: "interrupt",
+          schemaId: "app.product-picker",
+          schemaVersion: "1",
+          reference: { using: "availableProducts" },
+          criteria: ["Offers the blue and black backpacks as distinct choices."],
+        },
+      },
+      {
+        resume: { using: "chooseBlue" },
+        expect: {
+          type: "answer",
+          reference: { using: "selectedProduct" },
+          criteria: ["Describes the selected blue backpack accurately."],
+        },
+      },
+    ],
+  }],
+});
+
+const evals = createEvals({
+  agent,
+  suites: [suite],
+  judge: createEvalJudge({ model: judgeModel }),
+  paramsSchema,
+  setup: async ({ params, sessionId, signal }) => {
+    // These helpers belong to your application: identity-provider login,
+    // fixture isolation, and the actor's actual permissions.
+    const accessToken = await obtainTestUserToken(params.actor, signal);
+    const fixture = await prepareProductFixture(params.fixture, sessionId, signal);
+    return { accessToken, fixture };
+  },
+  execute: async ({ prepared, run }) => {
+    // Reuse the context shape your normal app execution already consumes.
+    // This example assumes its tools read context.requestHeaders.
+    return run({
+      context: {
+        requestHeaders: { authorization: `Bearer ${prepared.accessToken}` },
+      },
+    });
+  },
+  responders: {
+    chooseBlue: {
+      schemaId: "app.product-picker",
+      schemaVersion: "1",
+      respond: ({ prepared }) => ({
+        type: "value",
+        value: { type: "select", productId: prepared.fixture.blue.id },
+      }),
+    },
+  },
+  references: {
+    availableProducts: ({ prepared }) => prepared.fixture.products,
+    selectedProduct: ({ prepared }) => prepared.fixture.blue,
+  },
+  teardown: async ({ prepared, signal }) => {
+    await removeProductFixture(prepared.fixture, signal);
+  },
+});
+```
+
+An identity-provider token alone does not configure permissions inside Kortyx.
+The app must pass it through its existing authorization path. With no `execute`, the runner
+calls `agent.streamChat` directly without injecting setup state or headers.
+`run({ context })` consumes that same native stream; it adds the current command
+and handles native resume metadata. It does not call an HTTP endpoint.
+
+For an app-owned HTTP or typed execution API, replace `execute` with an adapter
+that handles `command` (`message`, `resume`, or `cancel`), `history`, `sessionId`,
+`signal`, and its private `continuation`. Return
+`{ observation, continuation? }`. An interrupt observation needs a continuation
+so the next command can resume or cancel it. Consume execution to completion or
+the intended human pause before returning. HTTP response parsing, API auth,
+and mapping app-owned UI actions remain the adapter's responsibility.
+
+Native resume responses use `{ type: "text", text }`,
+`{ type: "select", ids }`, `{ type: "value", value }`, or `{ type: "cancel" }`.
+The `value` envelope contains the custom contract's actual response. Returning
+the wrong contract value fails during native resume validation. A named
+responder with a schema descriptor is checked before it consumes the request.
+Named responders and references can also receive JSON arguments through
+`{ using: "handlerName", params: { ... } }`.
+
+`teardown` releases app resources; it need not sign out. It runs after successful
+setup, including after failed expectations, cancellation, and errors. Setup
+must clean up partially created resources if it throws before returning.
+
+## Observable boundary and results
+
+The default executor assesses finalized visible text, streamed execution events,
+structured data, and one pending interrupt per step. Structured entries retain their public
+stream envelope, including `dataType`, `data`, and status. The executor excludes
+`done.data`, transition payloads and arbitrary interrupt transport metadata. Raw workflow state,
+silent tools, private setup state, and resume tokens are not copied into eval
+results or judge input. Run/checkpoint IDs connect observations to diagnostics
+when the agent supplies them. Custom executor observations are validated.
+
+References are independent facts from fixtures or application reads. An inline
+JSON reference works too. Objects containing only `using` and optional `params`
+are reserved for named reference handlers. The runner snapshots the resolved
+reference alongside each observation. Do not put secrets in case params,
+messages, emitted tool arguments/results, reference facts, custom observations, or responder values: these
+fields are intentionally visible and serializable.
+
+`createEvalJudge` invokes the separately configured provider model once per
+criterion, requests a structured JSON verdict, and validates it. A verdict has
+`passed`, `reason`, and `evidence`. A malformed, refused, or truncated verdict is
+an error, not a failed behavior score. The model's judgments still need human
+calibration against representative passes and failures. You can supply an
+`EvalJudge` with your own `grade` implementation instead.
+
+Each run records the suite snapshot and revision hash, judge ID/version, unique
+session IDs per repetition, observations, references, criterion verdicts,
+counts, timing, and errors by phase. `passed`, `failed`, `error`, and `cancelled`
+remain distinct. A case stops after its first failed step or error. This is not
+a complete reproducibility record of model versions, prompts, app code, and
+external data; retain those deployment details in your app's run record.
+
+Eval issues preserve the original message, exception type, stack, causes and
+provider/HTTP response properties in `errors[].exception` by default. Known
+credential fields, authorization headers and credential patterns are redacted;
+ordinary error content is retained. Capture size/depth limits are explicit in
+`exception.capture`. No diagnostic flag or custom reporter is required for this
+evidence. `errors[].failure` remains the separate public failure descriptor.
+
+An existing native diagnostic reference is loaded automatically by Studio under
+its project permissions. Optional `agent.reportError` or `createEvals({ reportError })`
+can also archive evidence; exporter failure never changes the eval outcome.
+Previously discarded content cannot be reconstructed. Progress listener failures
+remain reporting errors and do not skip cleanup.
+
+Use `verify({ prepared, result, signal, ...context })` for application
+postconditions, after the conversation and before teardown:
+
+```ts
+verify: async ({ prepared, signal }) => {
+  const saved = await readApprovedSave(prepared.fixtureId, signal);
+  return {
+    passed: Boolean(saved),
+    reason: saved ? "Approved save exists" : "Required approved save is absent",
+    evidence: [],
+  };
+},
+```
+
+`readApprovedSave` is an application helper. Returning `passed: false` makes the
+case **Failed**, even when conversation checks passed. Throwing or returning an
+invalid verdict makes it **Error**. Move behavioral assertions out of teardown;
+teardown remains resource reset, and a reset failure remains **Error**. A failed
+verification is stored separately from cleanup errors.
+
+`caseTimeoutMs` (default 60,000) starts after successful setup and bounds the
+conversation, responders, reference reads and grading. `setupTimeoutMs` and
+`verificationTimeoutMs` each default to the configured `caseTimeoutMs` and can be
+overridden independently. `cleanupTimeoutMs` defaults to 10,000. Queue time does
+not consume these budgets. `durationMs` includes all phases;
+`phaseDurationsMs` records elapsed setup, execute, responder, reference, grading,
+verification and cleanup time when each phase runs. These are wall-clock phases,
+not provider-only latency.
+
+## Lifecycle limits in this slice
+
+- Sequential interrupts, including child workflows and custom contracts, use
+  native resume execution. Remaining observed interrupts are cancelled during
+  cleanup, including when the case intentionally ends on an interrupt.
+- Simultaneous pending interrupts are reported as an execution error by the
+  default executor, which attempts to cancel every observed request. Provide a
+  custom executor for a domain-specific parallel interaction protocol.
+- Early `completeResponse`/background continuation requires a custom executor.
+  The default runner awaits attached execution completion and rejects a
+  response stream that does not expose a completed workflow or human pause.
+- Setup, execution, verification and cleanup deadlines use cooperative abort signals. Arbitrary app
+  callbacks must honor their signals; the runner cannot forcibly terminate
+  JavaScript. It waits for work to settle before teardown to avoid racing
+  cleanup against an execution that is still using its fixtures.
+- Sessions are isolated, but databases and external side effects are only as
+  isolated as the app's setup/teardown. Native cancellation does not delete
+  persisted session records. Internal effects need explicit app checks; SDK
+  deterministic behavior belongs in normal integration tests.
+
+`evals.listSuites()` returns editable copies. `evals.describe()` returns schema
+version 1, suites, named handlers, optional parameter JSON Schema, and judge
+identity. Neither invokes setup. `createEvalRouteHandler` exposes this manifest
+and runs to the Studio control plane. See [Studio execution](./studio-execution.md)
+for authenticated transport, persistent runs, and local Docker setup. Saved-run comparisons are available in Studio. Prompt version pinning remains subsequent work.
+
+### Live progress events
+
+With `includeActivity: true`, `onProgress` receives `run-started` with the
+selected case IDs and actual
+repetitions/concurrency, then `case-started`, `case-progress`, `step-completed`
+and `case-completed`. Phase updates carry the case ID, repetition, phase and
+optional zero-based step index. They contain no prepared identity or credentials.
+Consumers should switch on the event type; phase updates are activity, not verdicts.
+The terminal reporter uses these events to show real progress while model calls
+are still running. The CLI enables activity events automatically. Default SDK
+and HTTP transport progress retains the existing case/step event sequence, so
+older Studio servers remain compatible with an updated application SDK.
+
+For shared consumer capacity, bounded retries, detached executions and replica recovery, see [execution resilience](execution-resilience.md).
+
+## Execution defaults and application limits
+
+```ts
+const evals = createEvals({
+  agent,
+  suites: [suite],
+  defaults: { repetitions: 2, concurrency: 2, caseTimeoutMs: 120_000 },
+  limits: { concurrency: 4, caseTimeoutMs: 300_000 },
+});
+// Direct SDK execution uses explicit run values, then configured SDK defaults.
+await evals.run({ suiteId: suite.id, caseTimeoutMs: 180_000 });
+```
+
+Studio resolves each field as: per-run override → Studio project default →
+explicit SDK default → SDK built-in default. Omitted values remain omitted until
+resolution. The manifest's `execution` advertises declared defaults, limits and
+supported overrides. Application limits are ceilings, independent of precedence;
+an excessive value is rejected before setup, never silently clamped.
+
+SDK built-ins are one repetition, concurrency one and a 60-second case timeout.
+Repetitions and concurrency support 1–20; millisecond deadlines support positive
+integers up to 2,147,483,647. Setup, verification and cleanup budgets remain
+application-owned (`defaults.setupTimeoutMs`, `verificationTimeoutMs`,
+`cleanupTimeoutMs`). Changing the per-run case deadline does not change these
+independently resolved lifecycle budgets.
+
+The whole-evaluation deadline belongs to Studio scheduling, independently of the
+SDK case budget. Studio defaults to 30 minutes across all selected suites,
+including execution and Studio grading, starting when execution begins. Queue
+waiting is excluded. Direct `evals.run` has no Studio scheduler deadline; callers
+can pass `signal`. Aborts remain cooperative and cannot forcibly terminate work.
