@@ -11,6 +11,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { cn } from "@/lib/utils";
 
 type DataTableColumnHeaderProps<T, S extends string> = {
@@ -59,11 +60,39 @@ export function DataTableColumnHeader<T, S extends string>({
   });
   const motion = getColumnCellMotion(key);
   const SortIcon = direction === "asc" ? ArrowUp : ArrowDown;
+  const title = (
+    <button
+      type="button"
+      onClick={() => {
+        if (sortKey) onSort?.(sortKey);
+      }}
+      onKeyDown={(event) => {
+        // The surrounding drag handle has its own keyboard activation.
+        if (event.key === "Enter" || event.key === " ") event.stopPropagation();
+      }}
+      className="flex w-full min-w-0 items-center hover:text-foreground"
+    >
+      <span className="min-w-0 truncate">{label}</span>
+      {sortKey &&
+        (active === sortKey ? (
+          <SortIcon className="size-3 shrink-0" />
+        ) : (
+          <ArrowUpDown className="size-3 shrink-0 text-muted-foreground/60" />
+        ))}
+    </button>
+  );
 
   return (
     <th
       ref={setNodeRef}
       data-column={key}
+      aria-sort={
+        sortKey && active === sortKey
+          ? direction === "asc"
+            ? "ascending"
+            : "descending"
+          : undefined
+      }
       data-column-dragging={isDragging || undefined}
       style={{
         ...motion?.style,
@@ -82,31 +111,32 @@ export function DataTableColumnHeader<T, S extends string>({
         onMenuOpenChange(true);
       }}
     >
-      <div
-        {...(canDrag ? attributes : {})}
-        {...(canDrag ? listeners : {})}
-        className={cn(
-          "min-w-0 overflow-hidden",
-          canDrag && "cursor-grab touch-none active:cursor-grabbing",
-        )}
-        title={canDrag ? `Drag ${label} column to reorder` : undefined}
-      >
-        {sortKey ? (
-          <button
-            type="button"
-            onClick={() => onSort?.(sortKey)}
-            className="flex w-full min-w-0 items-center hover:text-foreground"
-          >
-            <span className="min-w-0 truncate">{label}</span>
-            {active === sortKey ? (
-              <SortIcon className="size-3 shrink-0" />
-            ) : (
-              <ArrowUpDown className="size-3 shrink-0 text-muted-foreground/60" />
-            )}
-          </button>
-        ) : (
-          <span className="block truncate">{label}</span>
-        )}
+      <div className="flex min-w-0 items-center gap-1 pr-4">
+        <div
+          {...(canDrag ? attributes : {})}
+          {...(canDrag ? listeners : {})}
+          className={cn(
+            "min-w-0 overflow-hidden",
+            canDrag && "cursor-grab touch-none active:cursor-grabbing",
+          )}
+        >
+          {column.help ? (
+            <InfoTooltip
+              label={`About ${column.help.label}`}
+              documentationUrl={column.help.documentationUrl}
+              side="bottom"
+              trigger={title}
+              triggerAction={sortKey ? "preserve" : "toggle"}
+              disabled={isDragging}
+            >
+              {column.help.description}
+            </InfoTooltip>
+          ) : sortKey ? (
+            title
+          ) : (
+            <span className="block truncate">{label}</span>
+          )}
+        </div>
       </div>
       <DropdownMenu open={menuOpen} onOpenChange={onMenuOpenChange}>
         <DropdownMenuTrigger asChild>

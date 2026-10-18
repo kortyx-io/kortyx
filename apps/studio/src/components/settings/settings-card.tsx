@@ -1,5 +1,6 @@
 import type { LucideIcon } from "lucide-react";
 import type { ReactNode } from "react";
+import { HelpCircle, type HelpDefinition } from "@/components/ui/info-tooltip";
 import { cn } from "@/lib/utils";
 
 export function SettingsCard({
@@ -8,21 +9,29 @@ export function SettingsCard({
   description,
   children,
   className,
+  help,
 }: {
   icon: LucideIcon;
   title: string;
   description: string;
   children: ReactNode;
   className?: string;
+  help?: HelpDefinition;
 }) {
   return (
     <section data-settings-card="true" className={cn("min-w-0", className)}>
       <div className="mb-6 border-b pb-5">
         <div className="min-w-0">
-          <h2 className="flex items-center gap-2 text-lg font-semibold">
-            <Icon className="size-4 text-muted-foreground" aria-hidden="true" />
-            {title}
-          </h2>
+          <div className="flex items-center gap-1.5">
+            <h2 className="flex items-center gap-2 text-lg font-semibold">
+              <Icon
+                className="size-4 text-muted-foreground"
+                aria-hidden="true"
+              />
+              {title}
+            </h2>
+            {help && <HelpCircle help={help} />}
+          </div>
           <p className="mt-0.5 text-sm leading-5 text-muted-foreground">
             {description}
           </p>

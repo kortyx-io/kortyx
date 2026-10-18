@@ -16,7 +16,7 @@ import {
   ScanSearch,
   ShieldCheck,
 } from "lucide-react";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -34,8 +34,10 @@ import {
   DialogDescription,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { HelpCircle } from "@/components/ui/info-tooltip";
 import { Separator } from "@/components/ui/separator";
 import { usePathname } from "@/lib/scoped-navigation";
+import { studioHelp } from "@/lib/studio-help";
 import type { StudioLearningGuide } from "@/lib/studio-learning-guides";
 import {
   chapterStatus,
@@ -93,6 +95,7 @@ const chapterIcons = {
 } satisfies Record<ChapterId, LucideIcon>;
 
 export function LearningHub(props: HubProps) {
+  const contentRef = useRef<HTMLDivElement>(null);
   const { progress, sample, loading, visible, available, stage, summary } =
     props;
   const [resetting, setResetting] = useState(false);
@@ -198,13 +201,23 @@ export function LearningHub(props: HubProps) {
       }}
     >
       <DialogContent
+        ref={contentRef}
         className="flex max-h-[min(90dvh,52rem)] max-w-3xl flex-col gap-0 overflow-hidden p-0"
+        onOpenAutoFocus={(event) => {
+          event.preventDefault();
+          contentRef.current
+            ?.querySelector<HTMLButtonElement>("[data-learning-scroll] button")
+            ?.focus();
+        }}
         onCloseAutoFocus={(event) => event.preventDefault()}
       >
         <header className="flex shrink-0 flex-col gap-1.5 px-6 py-5 pr-12">
-          <DialogTitle className="text-lg font-semibold">
-            Explore Studio
-          </DialogTitle>
+          <div className="flex items-center justify-between gap-2">
+            <DialogTitle className="text-lg font-semibold">
+              Explore Studio
+            </DialogTitle>
+            <HelpCircle help={studioHelp.learning} />
+          </div>
           <DialogDescription>
             Choose a task to explore, or explain your current page from the
             Explore menu.

@@ -103,12 +103,13 @@ export function useInterruptsQuery(
       error: parseAsBoolean.withDefault(false),
       cursor: parseAsInteger.withDefault(0),
       pageSize: parseAsInteger.withDefault(defaults?.pageSize ?? PAGE_SIZE),
-      sort: parseAsStringLiteral(sortKeys).withDefault(
-        defaults?.sort ?? "priority",
-      ),
-      dir: parseAsStringLiteral(["asc", "desc"] as const).withDefault(
-        defaults?.dir ?? "asc",
-      ),
+      // Keep explicit sorting stable while browser preferences become new defaults.
+      sort: parseAsStringLiteral(sortKeys)
+        .withDefault(defaults?.sort ?? "priority")
+        .withOptions({ clearOnDefault: false }),
+      dir: parseAsStringLiteral(["asc", "desc"] as const)
+        .withDefault(defaults?.dir ?? "asc")
+        .withOptions({ clearOnDefault: false }),
       live: parseAsBoolean.withDefault(false),
       filterPanel: filterPanelParser,
     }),

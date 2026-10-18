@@ -1,6 +1,6 @@
 import { SAMPLE_PROJECT as sample } from "@kortyx/telemetry-contracts";
-
 import type { DetailTabCopy } from "@/lib/detail-tab-contract";
+import { studioHelp } from "@/lib/studio-help";
 
 type PageKind =
   | "list"
@@ -361,3 +361,30 @@ export const DETAIL_TAB_HELP = {
       "Context correlates the diagnostic with its run, session, workflow, and trace when recorded. Follow those links to inspect execution order and the surrounding evidence.",
   },
 } satisfies DetailTabCopy;
+
+/** Documentation follows the feature being explained, independently of tour progress. */
+export const PAGE_DOCUMENTATION = {
+  runs: studioHelp.runs,
+  run: studioHelp.runs,
+  sessions: studioHelp.sessions,
+  session: studioHelp.sessions,
+  workflows: studioHelp.workflows,
+  interrupts: studioHelp.interrupts,
+  interrupt: studioHelp.interrupts,
+  prompts: studioHelp.prompts,
+  prompt: studioHelp.prompts,
+  "prompt-groups": studioHelp.prompts,
+  "prompt-group": studioHelp.prompts,
+  evals: studioHelp.evals,
+  "eval-suites": studioHelp.evals,
+  "eval-suite": studioHelp.evals,
+  evaluation: studioHelp.evalResults,
+  "eval-run": studioHelp.evalResults,
+  "eval-case": studioHelp.evalResults,
+  "eval-comparison": studioHelp.evalResults,
+  "eval-case-comparison": studioHelp.evalResults,
+  diagnostic: studioHelp.trace,
+  settings: studioHelp.configuration,
+  onboarding: studioHelp.connect,
+  other: studioHelp.learning,
+} satisfies Record<PageGuideId, { documentationUrl: string }>;

@@ -1,4 +1,6 @@
 import type { NextConfig } from "next";
+import { getDocsProduct } from "./src/lib/docs/config";
+import { docsMoves } from "./src/lib/docs/migrations";
 
 // Known pre-/docs Markdown URLs from Search Console. Keep these exact so
 // source imports, sample API paths, and unknown files still return 404.
@@ -52,7 +54,7 @@ const legacyRootDocs: [string, string][] = [
   ],
   ["/05-reference/04-provider-api.md", "/docs/sdk/reference/provider-api.md"],
   ["/05-reference/02-api-surface.md", "/docs/sdk/reference/api-surface.md"],
-  ["/05-studio/02-run-locally.md", "/docs/studio/run-locally.md"],
+  ["/05-studio/02-run-locally.md", "/docs/self-hosting/run-locally.md"],
   [
     "/01-getting-started/02-quickstart-nextjs.md",
     "/docs/sdk/getting-started/quickstart-nextjs.md",
@@ -72,6 +74,29 @@ const nextConfig: NextConfig = {
   output: "standalone",
   async redirects() {
     return [
+      ...Object.entries(docsMoves).flatMap(([source, target]) => {
+        const [area, version, ...slug] = source.split("/");
+        const [targetArea, targetVersion, ...targetSlug] = target.split("/");
+        const destination = [
+          "/docs",
+          targetArea,
+          ...(getDocsProduct(targetArea ?? "")?.latestVersion === targetVersion
+            ? []
+            : [targetVersion]),
+          ...targetSlug,
+        ].join("/");
+        return [
+          `/docs/${area}/${slug.join("/")}`,
+          `/docs/${area}/${version}/${slug.join("/")}`,
+          `/docs/${version}/${area}/${slug.join("/")}`,
+        ].flatMap((path) =>
+          ["", ".md"].map((extension) => ({
+            source: `${path}${extension}`,
+            destination: `${destination}${extension}`,
+            permanent: true,
+          })),
+        );
+      }),
       ...legacyRootDocs.map(([source, destination]) => ({
         source,
         destination,

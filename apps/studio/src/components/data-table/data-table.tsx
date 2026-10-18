@@ -30,6 +30,7 @@ import {
 } from "@/components/data-table/data-table-context";
 import type { DataTablePagination } from "@/components/data-table/types";
 import { Button } from "@/components/ui/button";
+import type { HelpDefinition } from "@/components/ui/info-tooltip";
 import { ScrollBar } from "@/components/ui/scroll-area";
 import {
   Select,
@@ -67,6 +68,7 @@ export type DataTableProps<T, S extends string = string> = {
   totalCount?: number;
   filters?: DataTableFilter<T>[];
   scopeFilters?: readonly DataTableScopeFilter[];
+  help?: { filters: HelpDefinition; views: HelpDefinition };
   compatibility?: TableFilterCompatibility;
   legacyViews?: () => SavedTableView[];
   search?: Pick<DataTableSearch, "label" | "placeholder">;
@@ -119,6 +121,7 @@ function DataTableContent<T, S extends string>({
   totalCount = 0,
   filters: extraFilters = [],
   scopeFilters = [],
+  help,
   compatibility,
   legacyViews,
   data,
@@ -336,6 +339,7 @@ function DataTableContent<T, S extends string>({
       >
         {header}
         <DataTableFilterControls
+          help={help}
           tableId={tableId}
           searching={searching}
           start={toolbarStart}

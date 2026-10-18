@@ -170,7 +170,7 @@ export const trustPages = {
         links: [
           {
             label: "Self-hosted Studio setup",
-            href: "/docs/studio/run-locally",
+            href: "/docs/self-hosting/run-locally",
           },
           { label: "Licensing & open source", href: "/open-source" },
         ],

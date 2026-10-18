@@ -33,6 +33,7 @@ import {
   formatDurationSeconds,
   formatRelativeTime,
 } from "@/lib/format";
+import { withStudioColumnHelp } from "@/lib/studio-help";
 import { cn } from "@/lib/utils";
 
 const statusMeta: Record<SessionStatus, CompactStatusMeta> = {
@@ -79,7 +80,7 @@ export function createSessionColumns({
   now: number;
   onCopy: (value: string) => void;
 }): DataTableColumn<Session, SessionSortKey>[] {
-  return [
+  const columns: DataTableColumn<Session, SessionSortKey>[] = [
     {
       key: "status",
       filter: studioColumnFilters("sessions", "status"),
@@ -278,4 +279,5 @@ export function createSessionColumns({
       "tenantId",
     ].map((key) => studioValueColumn<Session, SessionSortKey>("sessions", key)),
   ];
+  return withStudioColumnHelp(columns, "sessions");
 }

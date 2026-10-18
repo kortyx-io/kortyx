@@ -2,20 +2,17 @@
 
 import { useStudioRouteScope } from "@/components/studio-route-provider";
 import { Button } from "@/components/ui/button";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
+import { InfoTooltip } from "@/components/ui/info-tooltip";
 import type { LiveRefreshStatus } from "@/features/telemetry/lib/live-refresh-controller";
+import { studioHelp } from "@/lib/studio-help";
 import { cn } from "@/lib/utils";
 
 const statusCopy: Record<LiveRefreshStatus, string> = {
   off: "Live updates are off.",
-  connecting: "Connecting to the live update stream…",
-  live: "Connected. This view refreshes when matching telemetry changes.",
+  connecting: "Connecting so new activity can appear here…",
+  live: "Connected. New matching activity appears here automatically.",
   reconnecting:
-    "Connection interrupted. Reconnecting with periodic refresh as a fallback.",
+    "The connection dropped. Studio will keep checking for updates while it reconnects.",
   paused: "Live updates are paused while this tab is hidden or offline.",
 };
 
@@ -33,8 +30,12 @@ export function LiveRefreshButton({
     ? "Sample data is historical and does not receive live updates."
     : statusCopy[status];
   return (
-    <Tooltip>
-      <TooltipTrigger asChild>
+    <InfoTooltip
+      label="Live updates"
+      documentationUrl={studioHelp.live.documentationUrl}
+      side="bottom"
+      triggerAction="preserve"
+      trigger={
         <Button
           variant="ghost"
           size="sm"
@@ -55,10 +56,9 @@ export function LiveRefreshButton({
           />
           Live
         </Button>
-      </TooltipTrigger>
-      <TooltipContent side="bottom" sideOffset={8}>
-        {description}
-      </TooltipContent>
-    </Tooltip>
+      }
+    >
+      {description}
+    </InfoTooltip>
   );
 }

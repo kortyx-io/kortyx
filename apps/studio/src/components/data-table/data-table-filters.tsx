@@ -22,6 +22,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { HelpCircle, type HelpDefinition } from "@/components/ui/info-tooltip";
 import { Input } from "@/components/ui/input";
 import { studioFeature } from "@/usage/client";
 import { DataTableColumnsMenu } from "./data-table-columns-menu";
@@ -35,6 +36,7 @@ import type { useTableScope } from "./use-table-scope";
 import type { useTableSearch } from "./use-table-search";
 
 export function DataTableFilterControls<T>({
+  help,
   tableId,
   searching,
   start,
@@ -52,6 +54,7 @@ export function DataTableFilterControls<T>({
   direction,
   onSetSortDirection,
 }: {
+  help?: { filters: HelpDefinition; views: HelpDefinition };
   tableId: string;
   searching: ReturnType<typeof useTableSearch>;
   start?: ReactNode;
@@ -255,7 +258,7 @@ export function DataTableFilterControls<T>({
           </span>
         )}
       </Button>
-      <DataTableColumnsMenu />
+      <DataTableColumnsMenu help={help?.views} />
       <DropdownMenu open={viewsOpen} onOpenChange={setViewsOpen}>
         <DropdownMenuTrigger asChild>
           <Button aria-label="Views" variant="secondary" size="icon-sm">
@@ -263,6 +266,12 @@ export function DataTableFilterControls<T>({
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-64 p-2">
+          {help && (
+            <div className="flex items-center justify-between px-2 py-1 text-xs">
+              Table views
+              <HelpCircle help={help.views} />
+            </div>
+          )}
           <DropdownMenuItem
             onSelect={() => {
               cancelPending();
@@ -431,7 +440,10 @@ export function DataTableFilterControls<T>({
             className="relative flex h-full min-h-0 w-72 max-w-full flex-col overflow-hidden rounded-xl border bg-background shadow-sm"
           >
             <div className="flex h-14 shrink-0 items-center justify-between border-b px-4">
-              <h2 className="font-semibold">Filters</h2>
+              <div className="flex items-center gap-1">
+                <h2 className="font-semibold">Filters</h2>
+                {help && <HelpCircle help={help.filters} />}
+              </div>
               <Button
                 variant="ghost"
                 size="icon-sm"

@@ -9,17 +9,21 @@ type SectionItem = {
 
 type DocsSectionGridProps = {
   title: string;
+  description?: string;
   items: SectionItem[];
 };
 
 export function DocsSectionGrid(props: DocsSectionGridProps) {
-  const { title, items } = props;
+  const { title, description, items } = props;
 
   return (
     <section className="max-w-5xl pb-20">
       <h1 className="text-4xl font-bold tracking-tight text-foreground">
         {title}
       </h1>
+      {description ? (
+        <p className="mt-4 max-w-2xl text-muted-foreground">{description}</p>
+      ) : null}
       <div className="mt-8 grid grid-cols-1 gap-6 md:grid-cols-2">
         {items.map((item) => (
           <Link key={item.href} href={item.href}>

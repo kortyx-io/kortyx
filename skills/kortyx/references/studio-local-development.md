@@ -125,6 +125,9 @@ Use `reportError(error, {severity?, metadata?, tags?})` for handled errors when 
 
 ## Exploring Studio before connecting an application
 
+Customer instructions: `https://kortyx.io/docs/studio/sample-project` covers
+sample selection, read-only boundaries, tours, current-page help and visibility.
+
 Studio's project selector includes a read-only Sample project with fictional
 execution history, prompts, and a saved evaluation. Hide or restore it under
 Settings → Sample project. Sample URLs use `/sample/` and cannot edit resources,
@@ -153,3 +156,15 @@ An example's page-help completion is not verification of a real integration.
 The sample includes a two-turn session and passing/failing saved eval results.
 Tour completion is not SDK ingestion evidence. The real `/onboarding` route
 provides setup guidance; verify a published workflow and a real request separately.
+
+## Cloud and shared Studio guidance
+
+For managed Cloud, follow `https://kortyx.io/docs/cloud/get-started`; obtain the project-scoped SDK write key and telemetry endpoint from the selected workspace's Settings. Do not apply local Docker or operator read-key instructions to Cloud. The telemetry adapter and content-capture controls remain application-server owned in both editions.
+
+Runs, sessions, metrics, workflows, prompts, and evaluation inspection use shared Studio guides at `https://kortyx.io/docs/studio/v0/overview`. Cloud browser sessions, application execution sessions, application tenant IDs, and Studio projects are separate concepts. Configure Cloud evaluation endpoints/provider connections in Settings; self-hosted operators configure their API server. Studio help circles link to relevant versioned documentation.
+
+
+Cloud account profile, email verification, passwords, passkeys, connected sign-in methods, and browser-session management are covered at `https://kortyx.io/docs/cloud/account`. Keep this personal account guidance separate from application identities and project API keys. Explain unfamiliar terms in plain language before linking to the guide.
+
+
+Documentation entry points: SDK `/docs/sdk`, shared Studio `/docs/studio`, Cloud `/docs/cloud`, self-hosting `/docs/self-hosting`, and shared CLI `/docs/cli` on `https://kortyx.io`. Use `/docs/cli/topology` for Cloud/self-hosted workflow publication and `/docs/cli/connections` for supported API access. Cloud CLI login is not implemented; Cloud ingestion keys cannot authenticate Studio read, prompt-management, or connected evaluation commands. Older Studio documentation URLs and their moved headings remain supported.

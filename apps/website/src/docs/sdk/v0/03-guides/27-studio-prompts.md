@@ -107,8 +107,8 @@ generation events; message capture follows its existing capture settings.
 
 The runnable [`examples/kortyx-prompts`](https://github.com/kortyx-io/kortyx/tree/main/examples/kortyx-prompts)
 includes the complete server, model registry, telemetry, and authenticated eval
-endpoint. See [Version and test prompts](../../../studio/v0/13-prompts.md) and
-[CLI migration](../../../studio/v0/14-prompt-migration.md).
+endpoint. See [Version and test prompts](/docs/studio/v0/prompts) and
+[CLI migration](/docs/cli/v0/prompts).
 
 ## Included prompts
 

@@ -46,6 +46,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { EvalDropdown } from "@/features/evals/components/eval-dropdown";
 import { useStudioQueryStates } from "@/lib/nuqs";
 import { useRouter } from "@/lib/scoped-navigation";
+import { studioHelp, withStudioColumnHelp } from "@/lib/studio-help";
 import { promptRequest } from "../api/client";
 import {
   usePromptLibrary,
@@ -460,6 +461,7 @@ export function PromptLibraryView({
   return (
     <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-xl border bg-background shadow-sm">
       <TablePageHeader
+        help={studioHelp.prompts}
         title="Prompts"
         description="Version, test and ship the prompts behind your workflows."
         actions={
@@ -587,6 +589,7 @@ export function PromptLibraryView({
         <section aria-busy={loading} className="flex min-w-0 flex-1 flex-col">
           <div className="min-h-0 flex-1 overflow-hidden">
             <DataTable
+              help={{ filters: studioHelp.filters, views: studioHelp.views }}
               query={{ mode: "remote" }}
               totalCount={library?.totalCount ?? 0}
               scopeFilters={[
@@ -601,7 +604,7 @@ export function PromptLibraryView({
                   ],
                 },
               ]}
-              columns={columns}
+              columns={withStudioColumnHelp(columns, "prompts")}
               tableId="prompts"
               search={{
                 label: "Search prompts",

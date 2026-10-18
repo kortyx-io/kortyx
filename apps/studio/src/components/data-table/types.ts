@@ -3,6 +3,7 @@ import type {
   TableFilterValue,
 } from "@kortyx/telemetry-contracts";
 import type { CSSProperties, ReactNode } from "react";
+import type { HelpDefinition } from "@/components/ui/info-tooltip";
 
 /** Minimum width (px) for every column when resizing. Content truncates below this. */
 export const DATA_TABLE_MIN_COLUMN_WIDTH = 48;
@@ -37,6 +38,8 @@ export type DataTableColumn<T, S extends string = never> = {
   key: string;
   /** Header text (also used for aria labels and the columns menu search). */
   label: string;
+  /** Contextual explanation, separate from sorting and drag controls. */
+  help?: HelpDefinition;
   /** Set to make the column sortable; used as the URL/API sorting identifier. */
   sortKey?: S;
   /** Optional raw sort value; defaults to the column’s first filter reader. */

@@ -415,7 +415,9 @@ test.describe("Eval drawer hardening", () => {
       .getByRole("button", { name: "Configuration", exact: true })
       .click();
     await expect(
-      page.getByText("fixture-judge · 1", { exact: true }),
+      page
+        .getByRole("tabpanel")
+        .getByText("fixture-judge · 1", { exact: true }),
     ).toBeVisible();
     // nuqs updates the visible tab before its batched URL write completes.
     // Reload only after the state being tested is actually in the URL.
@@ -424,7 +426,9 @@ test.describe("Eval drawer hardening", () => {
     );
     await page.reload();
     await expect(
-      page.getByText("fixture-judge · 1", { exact: true }),
+      page
+        .getByRole("tabpanel")
+        .getByText("fixture-judge · 1", { exact: true }),
     ).toBeVisible();
   });
 

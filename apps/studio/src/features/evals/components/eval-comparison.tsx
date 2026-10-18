@@ -16,6 +16,7 @@ import {
 import { formatDateTime } from "@/lib/format";
 import { detailNavigationHref, useStudioQueryStates } from "@/lib/nuqs";
 import { useRouter, useSearchParams } from "@/lib/scoped-navigation";
+import { studioHelp, withStudioColumnHelp } from "@/lib/studio-help";
 import { comparisonMetric } from "../lib/comparison-metrics";
 import { evalComparisonCaseHref } from "../lib/navigation";
 import {
@@ -289,8 +290,9 @@ export function EvalComparison({
       ) : (
         <div className="min-h-0 flex-1">
           <DataTable
+            help={{ filters: studioHelp.filters, views: studioHelp.views }}
             compatibility={{ aliases: { change: "change" } }}
-            columns={columns}
+            columns={withStudioColumnHelp(columns, "evals")}
             tableId="eval-comparison"
             className="rounded-none border-0 shadow-none"
             data={rows}

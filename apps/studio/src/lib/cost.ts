@@ -33,8 +33,8 @@ export function costDisplay(value: CostDisplayValue) {
   const note = summary.complete
     ? "Recorded model cost."
     : summary.amounts.length
-      ? "Known model cost subtotal. Some usage, pricing, telemetry, or execution is incomplete; the actual cost may be higher."
-      : "No priced model cost is recorded yet. $0.00+ is the known subtotal; the actual cost is unknown.";
+      ? "Only model calls with known prices are included; the actual cost may be higher."
+      : "No model call has a known price yet. $0.00+ does not mean free; the actual cost is unknown.";
   return {
     label,
     note: `${note}${amounts.length > 1 ? " Currencies are shown separately without conversion." : ""}`,

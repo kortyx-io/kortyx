@@ -51,10 +51,13 @@ it("shows only the numeric subtotal and exposes the caveat on keyboard focus", a
   expect(button.textContent).toBe("$0.56+");
   await act(() => button.focus());
   await vi.waitFor(() =>
-    expect(document.querySelector('[role="tooltip"]')?.textContent).toContain(
+    expect(document.querySelector('[role="dialog"]')?.textContent).toContain(
       "actual cost may be higher",
     ),
   );
+  expect(
+    document.querySelector('[role="dialog"] a')?.getAttribute("href"),
+  ).toMatch(/metrics#cost-and-pricing$/);
   await act(() => button.click());
   expect(rowClick).not.toHaveBeenCalled();
 });
@@ -72,7 +75,7 @@ it("explains an empty subtotal without claiming free execution", async () => {
   expect(button.textContent).toBe("$0.00+");
   await act(() => button.focus());
   await vi.waitFor(() =>
-    expect(document.querySelector('[role="tooltip"]')?.textContent).toContain(
+    expect(document.querySelector('[role="dialog"]')?.textContent).toContain(
       "actual cost is unknown",
     ),
   );

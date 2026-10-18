@@ -4,6 +4,7 @@ import type { StudioDetailEvent } from "@kortyx/telemetry-contracts";
 import { useMemo, useState } from "react";
 import { DetailLink } from "@/components/detail/detail-link";
 import { PayloadViewer } from "@/components/detail/payload-viewer";
+import { HelpCircle } from "@/components/ui/info-tooltip";
 import {
   Select,
   SelectContent,
@@ -19,6 +20,7 @@ import {
 } from "@/features/runs/lib/run-model-io";
 import { matchesSearchText } from "@/features/runs/lib/search-text";
 import { formatDateTime } from "@/lib/format";
+import { studioHelp } from "@/lib/studio-help";
 import { cn } from "@/lib/utils";
 
 const formatLabels = {
@@ -61,7 +63,10 @@ export function RunModelIO({ events }: { events: StudioDetailEvent[] }) {
     <div className="@container min-w-0">
       <div className="border-b bg-muted/10 p-3">
         <div className="mb-2 flex items-baseline justify-between gap-2">
-          <h3 className="text-sm font-semibold">Model inputs and outputs</h3>
+          <div className="flex items-center gap-1">
+            <h3 className="text-sm font-semibold">Model inputs and outputs</h3>
+            <HelpCircle help={studioHelp.payloads} />
+          </div>
           <span className="shrink-0 font-mono text-xs text-muted-foreground">
             {visibleOperations.length === operations.length
               ? operations.length

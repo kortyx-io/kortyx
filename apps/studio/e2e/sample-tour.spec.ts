@@ -8,6 +8,12 @@ const tooltip = (page: Page) => page.getByRole("alertdialog");
 async function expectStep(page: Page, title: string) {
   // Match the runtime navigation budget, including cold Next dev compilation.
   await expect(tooltip(page)).toHaveAccessibleName(title, { timeout: 16_000 });
+  await expect(
+    tooltip(page).getByRole("link", { name: /Read documentation/ }),
+  ).toHaveAttribute(
+    "href",
+    "https://kortyx.io/docs/studio/v0/sample-project#guided-tours-and-page-help",
+  );
 }
 async function openHub(page: Page) {
   await page.getByRole("button", { name: "Explore", exact: true }).click();

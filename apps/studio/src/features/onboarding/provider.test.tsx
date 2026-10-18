@@ -64,6 +64,14 @@ import { LearningControls, LearningProvider } from "./provider";
 let root: Root;
 let container: HTMLDivElement;
 beforeEach(() => {
+  vi.stubGlobal(
+    "ResizeObserver",
+    class {
+      observe() {}
+      unobserve() {}
+      disconnect() {}
+    },
+  );
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
   localStorage.clear();
   container = document.createElement("div");

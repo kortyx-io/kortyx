@@ -37,6 +37,7 @@ import type { EvalTargets } from "@/features/evals/schema";
 import { formatDateTime } from "@/lib/format";
 import { useStudioQueryStates } from "@/lib/nuqs";
 import { useRouter } from "@/lib/scoped-navigation";
+import { studioHelp, withStudioColumnHelp } from "@/lib/studio-help";
 import { promptRequest } from "../api/client";
 import {
   usePromptLibrary,
@@ -339,7 +340,8 @@ export function PromptGroupsView({
             </div>
           ) : (
             <DataTable
-              columns={
+              help={{ filters: studioHelp.filters, views: studioHelp.views }}
+              columns={withStudioColumnHelp(
                 [
                   {
                     key: "name",
@@ -405,8 +407,9 @@ export function PromptGroupsView({
                     filter: false,
                     render: actions,
                   },
-                ] satisfies DataTableColumn<PromptGroup>[]
-              }
+                ] satisfies DataTableColumn<PromptGroup>[],
+                "prompts",
+              )}
               tableId="prompt-groups"
               search={{
                 label: "Search test groups",
@@ -694,6 +697,7 @@ function PromptGroupHeader({
   }
   return (
     <TablePageHeader
+      help={studioHelp.prompts}
       title={title}
       description={description}
       actions={children}

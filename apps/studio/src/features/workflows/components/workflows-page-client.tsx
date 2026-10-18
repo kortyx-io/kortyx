@@ -1,16 +1,11 @@
 "use client";
 
-import { CircleHelp } from "lucide-react";
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
-import { Button } from "@/components/ui/button";
+import { HelpCircle } from "@/components/ui/info-tooltip";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useRouter } from "@/lib/scoped-navigation";
+import { studioHelp } from "@/lib/studio-help";
 import { cn } from "@/lib/utils";
 import { useWorkflowQuery } from "../hooks/use-workflow-query";
 import { CONNECTION_STYLE } from "../lib/connection-style";
@@ -242,22 +237,7 @@ export default function WorkflowsPageClient({
               />
               Observed calls
             </label>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon-xs"
-                  aria-label="Explain observed calls"
-                >
-                  <CircleHelp />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent className="max-w-72">
-                Show real child-workflow calls recorded during runs on top of
-                the connections published from source.
-              </TooltipContent>
-            </Tooltip>
+            <HelpCircle help={studioHelp.observedCalls} />
             <span className="rounded bg-violet-500/10 px-1.5 text-violet-600">
               {system.observedCalls?.length ?? 0}
             </span>

@@ -100,16 +100,20 @@ test.describe("Studio detail drawer stack", () => {
         await run.getByRole("button", { name: "Trace", exact: true }).click();
         await page
           .getByRole("tabpanel")
-          .locator('button[aria-haspopup="dialog"]')
+          .locator(
+            'button[aria-haspopup="dialog"]:not([data-slot="popover-trigger"])',
+          )
           .nth(1)
           .click();
       }
 
       const rows = page
         .getByRole("tabpanel")
-        .locator('button[aria-haspopup="dialog"]');
+        .locator(
+          'button[aria-haspopup="dialog"]:not([data-slot="popover-trigger"])',
+        );
       const selectedRow = page.locator(
-        'button[aria-haspopup="dialog"][aria-expanded="true"]',
+        'button[aria-haspopup="dialog"]:not([data-slot="popover-trigger"])[aria-expanded="true"]',
       );
       const selectedName = await selectedRow.getAttribute("aria-label");
       expect(selectedName).not.toBeNull();
@@ -186,7 +190,9 @@ test.describe("Studio detail drawer stack", () => {
         .click();
       await run
         .getByRole("tabpanel")
-        .locator('button[aria-haspopup="dialog"]')
+        .locator(
+          'button[aria-haspopup="dialog"]:not([data-slot="popover-trigger"])',
+        )
         .first()
         .click();
       await expect(inspector(page)).toHaveAttribute("data-state", "open");
@@ -207,7 +213,9 @@ test.describe("Studio detail drawer stack", () => {
       await expect(inspector(page)).toHaveAttribute("data-state", "open");
       await expect(inspector(page)).toBeInViewport();
       await expect(
-        run.locator('button[aria-haspopup="dialog"][aria-expanded="true"]'),
+        run.locator(
+          'button[aria-haspopup="dialog"]:not([data-slot="popover-trigger"])[aria-expanded="true"]',
+        ),
       ).toHaveCount(1);
       await waitForSurfaceMotion(inspector(page));
       await page.keyboard.press("Escape");
@@ -566,7 +574,9 @@ async function openTraceInspector(page: Page) {
   await run.getByRole("button", { name: "Trace", exact: true }).click();
   const traceRow = run
     .getByRole("tabpanel")
-    .locator('button[aria-haspopup="dialog"]')
+    .locator(
+      'button[aria-haspopup="dialog"]:not([data-slot="popover-trigger"])',
+    )
     .first();
   await expect(traceRow).toBeVisible();
   await traceRow.click();

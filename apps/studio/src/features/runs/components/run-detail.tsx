@@ -23,6 +23,7 @@ import {
   RunTrace,
 } from "@/features/runs/components/run-trace";
 import { formatCount, formatDateTime, formatDurationMs } from "@/lib/format";
+import { studioHelp } from "@/lib/studio-help";
 import { studioDetailHref } from "@/lib/studio-routes";
 import { WorkflowCalls } from "./workflow-calls";
 
@@ -58,6 +59,7 @@ export function RunDetail({ detail }: { detail: StudioRunDetailResponse }) {
       className="flex h-full min-h-0 min-w-0 flex-col"
     >
       <DetailHeader
+        help={studioHelp.runs}
         eyebrow="Run"
         title={run.id}
         status={
@@ -85,12 +87,14 @@ export function RunDetail({ detail }: { detail: StudioRunDetailResponse }) {
           <>
             {responseCompleted && (
               <Metric
+                help={studioHelp.status}
                 label="Response"
                 value="Completed"
                 title={`Client response completed at ${formatDateTime(responseCompleted.occurredAt)}. Execution has its own status.`}
               />
             )}
             <Metric
+              help={studioHelp.metrics}
               label="Duration"
               value={formatDurationMs(run.durationMs, { fallback: "Active" })}
               title={formatDurationMs(run.durationMs, {
@@ -99,6 +103,7 @@ export function RunDetail({ detail }: { detail: StudioRunDetailResponse }) {
               })}
             />
             <Metric
+              help={studioHelp.tokens}
               label="Tokens"
               value={formatCount(run.tokens, { fallback: "Not captured" })}
               title={formatCount(run.tokens, {
@@ -106,7 +111,11 @@ export function RunDetail({ detail }: { detail: StudioRunDetailResponse }) {
                 fallback: "Not captured",
               })}
             />
-            <Metric label="Cost" value={<CostValue value={run} />} />
+            <Metric
+              help={studioHelp.cost}
+              label="Cost"
+              value={<CostValue value={run} />}
+            />
             <Metric
               label="Events"
               value={formatCount(events.length, { compact: false })}
@@ -158,6 +167,16 @@ export function RunDetail({ detail }: { detail: StudioRunDetailResponse }) {
       />
       <div className="min-h-0 flex-1">
         <DetailTabs
+          helpByTab={{
+            overview: studioHelp.metrics,
+            calls: studioHelp.children,
+            topology: studioHelp.workflowNodes,
+            summary: studioHelp.metrics,
+            trace: studioHelp.trace,
+            events: studioHelp.events,
+            "model-io": studioHelp.payloads,
+            feedback: studioHelp.feedback,
+          }}
           family="run"
           tabs={[
             ...(events.some((event) => event.type.startsWith("workflow.call."))
@@ -237,21 +256,27 @@ function RunSummary({ detail }: { detail: StudioRunDetailResponse }) {
                 {run.endedAt ? formatDateTime(run.endedAt) : "Still active"}
               </span>
             </KeyValue>
-            <KeyValue label="Path">
+            <KeyValue help={studioHelp.workflows} label="Path">
               {run.path.length ? run.path.join(" → ") : "Not captured"}
             </KeyValue>
-            <KeyValue label="Result">{run.result ?? "Not captured"}</KeyValue>
+            <KeyValue help={studioHelp.payloads} label="Result">
+              {run.result ?? "Not captured"}
+            </KeyValue>
           </dl>
         </section>
         <section className="min-w-0">
           <h3 className="text-sm font-semibold">Context</h3>
           <dl className="mt-3 divide-y">
-            <KeyValue label="User">{run.userId ?? "Not captured"}</KeyValue>
-            <KeyValue label="Tenant">{run.tenantId ?? "Not captured"}</KeyValue>
+            <KeyValue help={studioHelp.identity} label="User">
+              {run.userId ?? "Not captured"}
+            </KeyValue>
+            <KeyValue help={studioHelp.identity} label="Tenant">
+              {run.tenantId ?? "Not captured"}
+            </KeyValue>
             <KeyValue label="Provider / model">
               {run.provider ?? "Unknown"} / {run.models.join(", ") || "Unknown"}
             </KeyValue>
-            <KeyValue label="Pricing">
+            <KeyValue help={studioHelp.cost} label="Pricing">
               {run.pricingStatus}
               {run.pricingSource ? ` · ${run.pricingSource}` : ""}
             </KeyValue>

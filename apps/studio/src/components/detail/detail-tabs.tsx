@@ -4,6 +4,7 @@ import { parseAsString } from "nuqs";
 import { type ReactNode, useEffect, useRef, useState } from "react";
 import { useDetailDrawer } from "@/components/detail/detail-drawer";
 import { DETAIL_MOTION_DURATION_MS } from "@/components/detail/detail-motion";
+import { HelpCircle, type HelpDefinition } from "@/components/ui/info-tooltip";
 import type { DetailTabFamily, DetailTabId } from "@/lib/detail-tab-contract";
 import { useStudioQueryState } from "@/lib/nuqs";
 import { cn } from "@/lib/utils";
@@ -18,12 +19,14 @@ export type DetailTab = {
 export function DetailTabs<F extends DetailTabFamily | undefined = undefined>({
   tabs,
   queryKey = "tab",
+  helpByTab,
 }: {
   family?: F;
   tabs: (Omit<DetailTab, "id"> & {
     id: NoInfer<F extends DetailTabFamily ? DetailTabId<F> : string>;
   })[];
   queryKey?: string;
+  helpByTab?: Record<string, HelpDefinition>;
 }) {
   const pathname = usePathname();
   const initialTab = tabs[0]?.id ?? "";
@@ -94,6 +97,11 @@ export function DetailTabs<F extends DetailTabFamily | undefined = undefined>({
             {tab.label}
           </button>
         ))}
+        {selected && helpByTab?.[selected.id] && (
+          <div className="flex shrink-0 items-center">
+            <HelpCircle help={helpByTab[selected.id]} />
+          </div>
+        )}
       </div>
       <div
         className={cn(

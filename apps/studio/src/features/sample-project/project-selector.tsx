@@ -1,15 +1,17 @@
 "use client";
 import { SAMPLE_PROJECT } from "@kortyx/telemetry-contracts";
 import { Check, ChevronDown, FlaskConical } from "lucide-react";
-import { type ReactNode, useState } from "react";
+import { type ReactNode, useRef, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { HelpCircle } from "@/components/ui/info-tooltip";
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { Separator } from "@/components/ui/separator";
+import { studioHelp } from "@/lib/studio-help";
 import { studioFeature } from "@/usage/client";
 
 export function SampleProjectSelector({
@@ -27,6 +29,7 @@ export function SampleProjectSelector({
 }) {
   const [error, setError] = useState("");
   const [pending, setPending] = useState(false);
+  const projectRef = useRef<HTMLAnchorElement>(null);
   if (!visible && !active) return realSwitcher;
   async function selectSample() {
     setPending(true);
@@ -59,12 +62,19 @@ export function SampleProjectSelector({
           <ChevronDown data-icon="inline-end" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent align="start" className="flex w-72 flex-col gap-2">
+      <PopoverContent
+        align="start"
+        className="flex w-72 flex-col gap-2"
+        onOpenAutoFocus={(event) => {
+          event.preventDefault();
+          projectRef.current?.focus();
+        }}
+      >
         <p className="text-xs font-medium text-muted-foreground">
           Your project
         </p>
         <Button variant="ghost" className="justify-start" asChild>
-          <a href={returnTo}>
+          <a ref={projectRef} href={returnTo}>
             {!active && <Check data-icon="inline-start" />}
             <span className="truncate">
               {returnTo === "/onboarding" ? "Get started" : projectName}
@@ -80,6 +90,12 @@ export function SampleProjectSelector({
           </div>
         )}
         <Separator />
+        <div className="flex items-center justify-between gap-2">
+          <p className="text-xs font-medium text-muted-foreground">
+            Sample project
+          </p>
+          <HelpCircle help={studioHelp.sampleProject} />
+        </div>
         <Button
           variant="ghost"
           className="justify-start"

@@ -121,11 +121,11 @@ test("search loads on opening, preserves the query while loading, and reuses the
   await expect(dialog).not.toContainText("No docs found");
   releaseLoad();
   await expect(dialog.getByRole("link").first()).toBeVisible();
-  await expect(dialog).toContainText("Kortyx Studio · Latest");
+  await expect(dialog).toContainText("All documentation");
   await expect(
-    dialog.locator('a[href^="/docs/studio/run-locally"]'),
+    dialog.locator('a[href^="/docs/self-hosting/run-locally"]'),
   ).not.toHaveCount(0);
-  await expect(dialog.locator('a[href^="/docs/sdk/"]')).toHaveCount(0);
+  await expect(dialog).toContainText("Self-hosting");
   await page.keyboard.press("Escape");
   await expect(dialog).not.toBeVisible();
   await page.keyboard.press("Control+k");
@@ -133,7 +133,7 @@ test("search loads on opening, preserves the query while loading, and reuses the
   await expect(dialog.getByRole("link").first()).toBeVisible();
   expect(loads).toBe(1);
   await dialog.getByRole("link").first().click();
-  await expect(page).toHaveURL(/\/docs\/studio\/run-locally/);
+  await expect(page).toHaveURL(/\/docs\/self-hosting\/run-locally/);
   await trigger.click();
   await expect(dialog).toBeVisible();
   await input.fill("server");
@@ -177,7 +177,7 @@ test("audit pages expose complete social metadata and valid source/image schema 
     "/contact",
     "/security",
     "/docs/sdk/getting-started/quickstart-nextjs",
-    "/docs/studio/run-locally",
+    "/docs/self-hosting/run-locally",
     "/docs/studio/deployment",
   ]) {
     await page.goto(path);

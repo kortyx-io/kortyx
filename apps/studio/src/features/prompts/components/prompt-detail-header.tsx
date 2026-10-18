@@ -10,6 +10,8 @@ import {
 } from "react";
 import { useDetailDrawer } from "@/components/detail/detail-drawer";
 import { Button } from "@/components/ui/button";
+import { HelpCircle } from "@/components/ui/info-tooltip";
+import { studioHelp } from "@/lib/studio-help";
 import { PromptLiveBadge } from "./prompt-badges";
 
 const OverflowContext = createContext(true);
@@ -96,6 +98,7 @@ export function PromptDetailHeader({
             )}
           </div>
         </div>
+        <HelpCircle help={studioHelp.prompts} />
         {children}
         {navigation?.isTop && !navigation.expanded && (
           <Button

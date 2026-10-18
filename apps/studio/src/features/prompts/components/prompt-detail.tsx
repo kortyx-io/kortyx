@@ -6,14 +6,7 @@ import {
   type PromptLibrary,
   type PromptMutation,
 } from "@kortyx/telemetry-contracts";
-import {
-  ChevronDown,
-  CircleHelp,
-  MoreHorizontal,
-  Play,
-  Plus,
-  Save,
-} from "lucide-react";
+import { ChevronDown, MoreHorizontal, Play, Plus, Save } from "lucide-react";
 import { parseAsBoolean, parseAsInteger, parseAsStringLiteral } from "nuqs";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { DetailDrawer } from "@/components/detail/detail-drawer";
@@ -39,6 +32,7 @@ import {
   DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { HelpCircle } from "@/components/ui/info-tooltip";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
@@ -53,6 +47,7 @@ import type { EvalTargets } from "@/features/evals/schema";
 import { DETAIL_TAB_IDS } from "@/lib/detail-tab-contract";
 import { useStudioQueryStates } from "@/lib/nuqs";
 import { useRouter } from "@/lib/scoped-navigation";
+import { studioHelp } from "@/lib/studio-help";
 import { promptRequest } from "../api/client";
 import {
   usePromptDetail,
@@ -1693,27 +1688,7 @@ export function PromptDetailView({
                   <div className="space-y-2 rounded-lg border bg-muted/20 p-3 text-xs">
                     <div className="flex items-center justify-between gap-2">
                       <p className="font-medium">Promotion readiness</p>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon-xs"
-                            aria-label="About promotion readiness"
-                            className="cursor-help"
-                          >
-                            <CircleHelp />
-                          </Button>
-                        </TooltipTrigger>
-                        <TooltipContent
-                          className="max-w-72 text-wrap text-left"
-                          side="top"
-                        >
-                          These requirements come from this prompt’s promotion
-                          settings. Review the promotion settings to see which
-                          checks are required before making a version live.
-                        </TooltipContent>
-                      </Tooltip>
+                      <HelpCircle help={studioHelp.promotion} />
                     </div>
                     <p>
                       {!destinationPolicy?.requireTest && !missingSuites.length

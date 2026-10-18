@@ -1125,10 +1125,9 @@ test.describe("Prompt detail drawers", () => {
   }) => {
     await page.goto("/prompts");
     await expect(page.locator('[data-table-ready="true"]')).toBeVisible();
-    const header = page
-      .getByRole("heading", { name: "Prompts", exact: true })
-      .locator("..")
-      .locator("..");
+    const header = page.locator("header").filter({
+      has: page.getByRole("heading", { name: "Prompts", exact: true }),
+    });
     const importAction = header.getByRole("button", {
       name: "Import",
       exact: true,
@@ -1370,13 +1369,21 @@ test.describe("Prompt detail drawers", () => {
       name: "Promotion settings",
       exact: true,
     });
-    const help = promotion.getByLabel("About promotion readiness", {
+    const help = promotion.getByRole("button", {
+      name: "About Promotion readiness",
       exact: true,
     });
     await help.hover();
-    await expect(page.getByRole("tooltip")).toContainText(
-      "These requirements come from this prompt’s promotion settings.",
+    const explanation = page.getByRole("dialog", {
+      name: "About Promotion readiness",
+      exact: true,
+    });
+    await expect(explanation).toContainText(
+      "The checks a prompt version must pass before it can go live.",
     );
+    await expect(
+      explanation.getByRole("link", { name: "Read documentation" }),
+    ).toHaveAttribute("href", /prompts#promotion-policies$/);
     await help.click();
     await expect(promotion).toBeVisible();
     await expect(policyModal(page)).toHaveCount(0);

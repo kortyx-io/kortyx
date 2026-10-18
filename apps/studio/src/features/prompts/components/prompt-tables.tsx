@@ -23,6 +23,7 @@ import { mapStudioRun } from "@/features/runs/lib/map-studio-run";
 import type { Run } from "@/features/runs/schema";
 import { detailNavigationHref, useStudioQueryStates } from "@/lib/nuqs";
 import { useRouter, useSearchParams } from "@/lib/scoped-navigation";
+import { studioHelp, withStudioColumnHelp } from "@/lib/studio-help";
 import { studioDetailHref } from "@/lib/studio-routes";
 import { promptRequest } from "../api/client";
 
@@ -315,6 +316,7 @@ export function PromptTables({
     <div data-prompt-table={kind} className="h-full min-h-0 min-w-0">
       {kind === "runs" ? (
         <DataTable
+          help={{ filters: studioHelp.filters, views: studioHelp.views }}
           query={{
             defaults: { sort: "started" },
             keys: {
@@ -355,6 +357,7 @@ export function PromptTables({
         />
       ) : (
         <DataTable
+          help={{ filters: studioHelp.filters, views: studioHelp.views }}
           query={{
             defaults: { sort: "created" },
             keys: {
@@ -363,7 +366,7 @@ export function PromptTables({
             },
           }}
           compatibility={{ aliases: { [`prompt${kind}Status`]: "status" } }}
-          columns={evalColumns}
+          columns={withStudioColumnHelp(evalColumns, "evals")}
           tableId={`prompt-${kind}`}
           search={{
             label: `Search prompt ${kind}`,
