@@ -90,9 +90,12 @@ drop them as part of a rollback.
 Cloud integrations must return verified human principals and apply their tenant
 transaction/RLS policies to both tables. The views policy must check ownership
 through the parent row. Existing auth and tenant-database extension contracts are
-unchanged. Shared tests exercise the human-principal and transaction contracts;
-private cloud adapter/RLS deployment is a separate integration check, not claimed
-by the self-hosted manual verification.
+unchanged. The shared feature implements personal cloud ownership, API persistence, and
+owner/project cache isolation. PostgreSQL-backed cloud-mode API tests cover two
+users across projects/organizations, persisted named views, scope mismatch, and
+revision conflicts. Studio tests verify that cloud scope enables background
+persistence. These test the shared feature through the existing adapter contracts;
+they do not claim verification of a private deployment’s RLS policies.
 
 `StudioTableConfigurationSchema` is a versioned portable payload containing only
 configuration and stable view IDs. It excludes database ownership and revision.
